@@ -35,3 +35,17 @@ extension GridLayout {
         GridLayout(cells: cells.filter { $0.id != id })
     }
 }
+
+extension GridLayout {
+    /// (rows, columns) for `n` cells: square-ish, biased wider (columns ≥ rows).
+    /// rows = floor(sqrt(n)) (min 1); columns = ceil(n / rows). Zero for n ≤ 0.
+    static func dimensions(forCount n: Int) -> (rows: Int, columns: Int) {
+        guard n > 0 else { return (0, 0) }
+        let rows = max(1, Int(Double(n).squareRoot().rounded(.down)))
+        let columns = Int((Double(n) / Double(rows)).rounded(.up))
+        return (rows, columns)
+    }
+
+    /// (rows, columns) for the current cell count.
+    var dimensions: (rows: Int, columns: Int) { Self.dimensions(forCount: count) }
+}

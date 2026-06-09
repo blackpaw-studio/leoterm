@@ -39,4 +39,28 @@ struct GridLayoutTests {
         #expect(layout.contains(id: keep.id))
         #expect(!layout.contains(id: drop.id))
     }
+
+    @Test(arguments: [
+        (0, 0, 0), (1, 1, 1), (2, 1, 2), (3, 1, 3), (4, 2, 2),
+        (5, 2, 3), (6, 2, 3), (7, 2, 4), (8, 2, 4), (9, 3, 3), (10, 3, 4),
+    ])
+    func dimensionsMatchPackingTable(n: Int, rows: Int, columns: Int) {
+        let dims = GridLayout<MockCell>.dimensions(forCount: n)
+        #expect(dims.rows == rows)
+        #expect(dims.columns == columns)
+    }
+
+    @Test func dimensionsAreNeverTallerThanWide() {
+        for n in 1...50 {
+            let d = GridLayout<MockCell>.dimensions(forCount: n)
+            #expect(d.columns >= d.rows)
+            #expect(d.rows * d.columns >= n)
+        }
+    }
+
+    @Test func instanceDimensionsTrackCellCount() {
+        let layout = GridLayout(cells: (0..<6).map { _ in MockCell() })
+        let d = layout.dimensions
+        #expect(d.rows == 2 && d.columns == 3)
+    }
 }
