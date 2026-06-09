@@ -16,3 +16,22 @@ struct GridLayout<ViewType: Identifiable> {
         self.cells = cells
     }
 }
+
+extension GridLayout {
+    var count: Int { cells.count }
+    var isEmpty: Bool { cells.isEmpty }
+
+    func contains(id: ViewType.ID) -> Bool {
+        cells.contains { $0.id == id }
+    }
+
+    /// Returns a new layout with `cell` appended at the end (display order).
+    func appending(_ cell: ViewType) -> Self {
+        GridLayout(cells: cells + [cell])
+    }
+
+    /// Returns a new layout with the cell matching `id` removed (if present).
+    func removing(id: ViewType.ID) -> Self {
+        GridLayout(cells: cells.filter { $0.id != id })
+    }
+}
