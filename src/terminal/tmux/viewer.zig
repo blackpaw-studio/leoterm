@@ -242,6 +242,8 @@ pub const Viewer = struct {
         /// Literal key bytes from the host surface to forward to the active pane.
         /// Bytes are sent literally; callers pass raw keystroke bytes (a literal '\n' would split the send-keys command).
         keys: []const u8,
+        /// The host surface was resized; cols/rows are the new grid size to push to tmux.
+        resize: struct { cols: usize, rows: usize },
     };
 
     pub const Window = struct {
@@ -321,6 +323,7 @@ pub const Viewer = struct {
         return switch (input) {
             .tmux => self.nextTmux(input.tmux),
             .keys => |bytes| self.nextKeys(bytes),
+            .resize => |sz| self.nextResize(sz.cols, sz.rows),
         };
     }
 
@@ -342,6 +345,22 @@ pub const Viewer = struct {
             arena_alloc,
             "send-keys -t %{d} -l -- {s}\n",
             .{ pane_id, bytes },
+        ) catch return &.{};
+        const actions = arena_alloc.alloc(Action, 1) catch return &.{};
+        actions[0] = .{ .command = cmd };
+        return actions;
+    }
+
+    fn nextResize(self: *Viewer, cols: usize, rows: usize) []const Action {
+        if (self.windows.items.len == 0) return &.{};
+        var arena = self.action_arena.promote(self.alloc);
+        defer self.action_arena = arena.state;
+        _ = arena.reset(.free_all);
+        const arena_alloc = arena.allocator();
+        const cmd = std.fmt.allocPrint(
+            arena_alloc,
+            "refresh-client -C {d}x{d}\n",
+            .{ cols, rows },
         ) catch return &.{};
         const actions = arena_alloc.alloc(Action, 1) catch return &.{};
         actions[0] = .{ .command = cmd };
@@ -2416,5 +2435,30 @@ test "tmux keys input with no active pane emits nothing" {
     var viewer: Viewer = try .init(alloc);
     defer viewer.deinit();
     const actions = viewer.next(.{ .keys = "x" });
+    try testing.expectEqual(@as(usize, 0), actions.len);
+}
+
+test "tmux resize input emits refresh-client size command" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+    try viewer.setupSinglePane();
+
+    const actions = viewer.next(.{ .resize = .{ .cols = 120, .rows = 40 } });
+    var found: ?[]const u8 = null;
+    for (actions) |a| switch (a) {
+        .command => |c| found = c,
+        else => {},
+    };
+    const cmd = found orelse return error.NoCommand;
+    try testing.expect(std.mem.startsWith(u8, cmd, "refresh-client -C 120x40"));
+    try testing.expect(cmd[cmd.len - 1] == '\n');
+}
+
+test "tmux resize input with no window emits nothing" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+    const actions = viewer.next(.{ .resize = .{ .cols = 80, .rows = 24 } });
     try testing.expectEqual(@as(usize, 0), actions.len);
 }
