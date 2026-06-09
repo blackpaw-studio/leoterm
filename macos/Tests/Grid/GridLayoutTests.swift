@@ -111,4 +111,51 @@ struct GridLayoutTests {
         let frames = GridLayout(cells: cells).frames(in: CGSize(width: 200, height: 200))
         #expect(frames.map { $0.cell.id } == cells.map { $0.id })
     }
+
+    @Test func emphasizingNilMatchesPlainFrames() {
+        let cells = (0..<5).map { _ in MockCell() }
+        let layout = GridLayout(cells: cells)
+        let size = CGSize(width: 300, height: 200)
+        let plain = layout.frames(in: size, gap: 4).map { $0.frame }
+        let none = layout.frames(in: size, gap: 4, emphasizing: nil, factor: 1.6).map { $0.frame }
+        #expect(plain == none)
+    }
+
+    @Test func factorOneIgnoresEmphasis() {
+        let cells = (0..<4).map { _ in MockCell() }
+        let layout = GridLayout(cells: cells)
+        let size = CGSize(width: 200, height: 200)
+        let plain = layout.frames(in: size).map { $0.frame }
+        let emphasized = layout.frames(in: size, emphasizing: cells[0].id, factor: 1).map { $0.frame }
+        #expect(plain == emphasized)
+    }
+
+    @Test func unknownEmphasisIdMatchesPlain() {
+        let cells = (0..<4).map { _ in MockCell() }
+        let layout = GridLayout(cells: cells)
+        let size = CGSize(width: 200, height: 200)
+        let plain = layout.frames(in: size).map { $0.frame }
+        let bogus = layout.frames(in: size, emphasizing: UUID(), factor: 1.6).map { $0.frame }
+        #expect(plain == bogus)
+    }
+
+    @Test func emphasizedCellIsLargerThanItsNeighbors() {
+        let cells = (0..<4).map { _ in MockCell() }
+        let f = GridLayout(cells: cells)
+            .frames(in: CGSize(width: 200, height: 200), emphasizing: cells[0].id, factor: 1.6)
+            .map { $0.frame }
+        #expect(f[0].width > f[1].width)
+        #expect(f[0].height > f[2].height)
+    }
+
+    @Test func emphasisPreservesTotalExtent() {
+        let cells = (0..<4).map { _ in MockCell() }
+        let size = CGSize(width: 200, height: 200)
+        let f = GridLayout(cells: cells).frames(in: size, emphasizing: cells[0].id, factor: 1.6)
+            .map { $0.frame }
+        let row0Width = f[0].width + f[1].width
+        let col0Height = f[0].height + f[2].height
+        #expect(abs(row0Width - size.width) < 0.001)
+        #expect(abs(col0Height - size.height) < 0.001)
+    }
 }

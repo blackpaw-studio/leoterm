@@ -53,18 +53,33 @@ extension GridLayout {
 import CoreGraphics
 
 extension GridLayout {
-    /// The frame for each cell within `size`, separated by `gap`, in display order.
-    ///
-    /// Cells fill row-major. Rows split the height equally. Within a row, cells
-    /// split that row's width equally; the last (possibly partial) row stretches
-    /// its cells across the full width. Origin is top-left (y grows downward).
-    /// Returns an empty array for an empty layout or a non-positive `size`.
+    /// Equal auto-packed layout (no emphasis). See `frames(in:gap:emphasizing:factor:)`.
     func frames(in size: CGSize, gap: CGFloat = 0) -> [(cell: ViewType, frame: CGRect)] {
+        frames(in: size, gap: gap, emphasizing: nil, factor: 1)
+    }
+
+    /// Frames with one cell emphasized (grown). The emphasized cell's row gets
+    /// extra height and its in-row column gets extra width (weight `factor`),
+    /// everything else shrinking to fit — total extent preserved (elastic
+    /// reflow, no overflow). `emphasizing: nil` / unknown id / `factor <= 1`
+    /// yields the plain equal layout. Origin top-left.
+    func frames(
+        in size: CGSize,
+        gap: CGFloat = 0,
+        emphasizing emphasizedID: ViewType.ID?,
+        factor: CGFloat
+    ) -> [(cell: ViewType, frame: CGRect)] {
         let n = cells.count
         guard n > 0, size.width > 0, size.height > 0 else { return [] }
-
         let (rows, columns) = Self.dimensions(forCount: n)
-        let rowHeight = (size.height - gap * CGFloat(rows - 1)) / CGFloat(rows)
+
+        let emphasizedIndex = emphasizedID.flatMap { id in cells.firstIndex { $0.id == id } }
+        let emphasizedRow = emphasizedIndex.map { $0 / columns }
+        let g = max(1, factor)
+
+        let rowWeights = (0..<rows).map { r in (r == emphasizedRow) ? g : 1 }
+        let rowHeights = Self.distribute(total: size.height, gap: gap, weights: rowWeights)
+        let rowOffsets = Self.offsets(of: rowHeights, gap: gap)
 
         var result: [(cell: ViewType, frame: CGRect)] = []
         result.reserveCapacity(n)
@@ -73,13 +88,36 @@ extension GridLayout {
             let col = index % columns
             let isLastRow = row == rows - 1
             let cellsInRow = isLastRow ? (n - row * columns) : columns
-            let colWidth = (size.width - gap * CGFloat(cellsInRow - 1)) / CGFloat(cellsInRow)
-            let frame = CGRect(
-                x: CGFloat(col) * (colWidth + gap),
-                y: CGFloat(row) * (rowHeight + gap),
-                width: colWidth,
-                height: rowHeight)
-            result.append((cells[index], frame))
+            let emphasizedCol = (row == emphasizedRow) ? emphasizedIndex.map { $0 % columns } : nil
+            let colWeights = (0..<cellsInRow).map { c in (c == emphasizedCol) ? g : 1 }
+            let colWidths = Self.distribute(total: size.width, gap: gap, weights: colWeights)
+            let colOffsets = Self.offsets(of: colWidths, gap: gap)
+            result.append((cells[index], CGRect(
+                x: colOffsets[col],
+                y: rowOffsets[row],
+                width: colWidths[col],
+                height: rowHeights[row])))
+        }
+        return result
+    }
+
+    /// Distribute `total` (minus inter-cell `gap`s) across `weights` proportionally.
+    private static func distribute(total: CGFloat, gap: CGFloat, weights: [CGFloat]) -> [CGFloat] {
+        let count = weights.count
+        guard count > 0 else { return [] }
+        let available = total - gap * CGFloat(count - 1)
+        let sum = weights.reduce(0, +)
+        guard sum > 0 else { return Array(repeating: 0, count: count) }
+        return weights.map { available * ($0 / sum) }
+    }
+
+    /// Cumulative top-left offsets for consecutive `sizes` separated by `gap`.
+    private static func offsets(of sizes: [CGFloat], gap: CGFloat) -> [CGFloat] {
+        var result: [CGFloat] = []
+        var accumulated: CGFloat = 0
+        for size in sizes {
+            result.append(accumulated)
+            accumulated += size + gap
         }
         return result
     }
