@@ -7,6 +7,7 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const Terminal = @import("../Terminal.zig");
 const Viewer = @import("viewer.zig").Viewer;
+const testing = std.testing;
 
 /// Copy the active pane's active screen from `viewer` into `dst`.
 ///
@@ -17,6 +18,10 @@ const Viewer = @import("viewer.zig").Viewer;
 /// (including scrollback) of the pane's active screen, and `dst.cols`/`dst.rows`
 /// are reconciled to the pane's geometry so the renderer draws the cells with
 /// matching dimensions.
+///
+/// NOTE(perf): This performs a full heap clone of the source screen on every
+/// call. Callers on the hot %output path should consider rate-limiting or
+/// dirty-flagging to avoid per-chunk allocation churn.
 pub fn mirrorActivePane(alloc: Allocator, viewer: *Viewer, dst: *Terminal) !bool {
     const src_term = viewer.activePaneTerminal() orelse return false;
     const src_screen = src_term.screens.active;
@@ -44,7 +49,6 @@ pub fn mirrorActivePane(alloc: Allocator, viewer: *Viewer, dst: *Terminal) !bool
 }
 
 test "tmux mirrorActivePane copies pane content into destination terminal" {
-    const testing = std.testing;
     const alloc = testing.allocator;
 
     var viewer: Viewer = try .init(alloc);
@@ -80,7 +84,6 @@ test "tmux mirrorActivePane copies pane content into destination terminal" {
 }
 
 test "tmux mirrorActivePane returns false when no pane exists" {
-    const testing = std.testing;
     const alloc = testing.allocator;
 
     var viewer: Viewer = try .init(alloc);
