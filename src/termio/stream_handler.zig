@@ -438,10 +438,21 @@ pub const StreamHandler = struct {
                     log.info("tmux viewer action={f}", .{action});
                     switch (action) {
                         .exit => {
-                            // We ignore this because we will fully exit when
-                            // our DCS connection ends. We may want to handle
-                            // this in the future to notify our GUI we're
-                            // disconnected though.
+                            // Control-mode session ended for this viewer; clear
+                            // the host terminal so a detached/exited agent cell
+                            // shows empty rather than a frozen pane. The DCS
+                            // connection teardown (which frees self.tmux_viewer)
+                            // is handled separately above on the .exit DCS arm.
+                            //
+                            // The renderer state mutex is already held by
+                            // Termio.processOutput across the entire stream
+                            // parse, so we must NOT lock it again here (the
+                            // mutex is not recursive).
+                            self.terminal.fullReset();
+                            self.terminal.flags.dirty.clear = true;
+                            self.queueRender() catch |err| {
+                                log.warn("failed to wake renderer after tmux exit err={}", .{err});
+                            };
                         },
 
                         .command => |command| {
@@ -454,7 +465,30 @@ pub const StreamHandler = struct {
                         },
 
                         .windows => {
-                            // TODO
+                            // Mirror the active pane's screen into the surface
+                            // terminal, then mark dirty and wake the renderer
+                            // to redraw.
+                            //
+                            // The renderer state mutex is already held by
+                            // Termio.processOutput across the entire stream
+                            // parse, so we must NOT lock it again here (the
+                            // mutex is not recursive). mirrorActivePane's
+                            // doc-comment requires the caller to hold the lock,
+                            // which is satisfied transitively here.
+                            const mirrored = terminal.tmux.mirror.mirrorActivePane(
+                                self.alloc,
+                                viewer,
+                                self.terminal,
+                            ) catch |err| blk: {
+                                log.warn("tmux mirror failed: {}", .{err});
+                                break :blk false;
+                            };
+                            if (mirrored) {
+                                self.terminal.flags.dirty.clear = true;
+                                self.queueRender() catch |err| {
+                                    log.warn("failed to wake renderer after tmux mirror err={}", .{err});
+                                };
+                            }
                         },
                     }
                 }
