@@ -239,6 +239,8 @@ pub const Viewer = struct {
     pub const Input = union(enum) {
         /// Data from tmux was received that needs to be processed.
         tmux: control.Notification,
+        /// Literal key bytes from the host surface to forward to the active pane.
+        keys: []const u8,
     };
 
     pub const Window = struct {
@@ -317,7 +319,31 @@ pub const Viewer = struct {
         // state to gracefully handle it.
         return switch (input) {
             .tmux => self.nextTmux(input.tmux),
+            .keys => |bytes| self.nextKeys(bytes),
         };
+    }
+
+    fn nextKeys(self: *Viewer, bytes: []const u8) []const Action {
+        // Find the active pane id via the same mechanism as activePaneTerminal.
+        if (self.windows.items.len == 0) return &.{};
+        const window = self.windows.items[0];
+        const pane_id = firstPaneId(window.layout) orelse return &.{};
+
+        // Reset the action arena (same pattern as nextStartupSession) so
+        // prior allocations are freed and the arena is ready for this call.
+        var arena = self.action_arena.promote(self.alloc);
+        defer self.action_arena = arena.state;
+        _ = arena.reset(.free_all);
+        const arena_alloc = arena.allocator();
+
+        const cmd = std.fmt.allocPrint(
+            arena_alloc,
+            "send-keys -t %{d} -l -- {s}\n",
+            .{ pane_id, bytes },
+        ) catch return &.{};
+        const actions = arena_alloc.alloc(Action, 1) catch return &.{};
+        actions[0] = .{ .command = cmd };
+        return actions;
     }
 
     fn nextTmux(
@@ -2363,4 +2389,30 @@ test "tmux activePaneTerminal returns the single pane's terminal" {
     );
     defer alloc.free(str);
     try testing.expect(std.mem.indexOf(u8, str, "Hello, world!") != null);
+}
+
+test "tmux keys input emits send-keys command for active pane" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+    try viewer.setupSinglePane(); // active pane id 0 exists
+
+    const actions = viewer.next(.{ .keys = "ls\r" });
+    var found: ?[]const u8 = null;
+    for (actions) |a| switch (a) {
+        .command => |c| found = c,
+        else => {},
+    };
+    const cmd = found orelse return error.NoCommand;
+    try testing.expect(std.mem.startsWith(u8, cmd, "send-keys -t %0 -l -- "));
+    try testing.expect(std.mem.indexOf(u8, cmd, "ls\r") != null);
+    try testing.expect(cmd[cmd.len - 1] == '\n');
+}
+
+test "tmux keys input with no active pane emits nothing" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+    const actions = viewer.next(.{ .keys = "x" });
+    try testing.expectEqual(@as(usize, 0), actions.len);
 }
