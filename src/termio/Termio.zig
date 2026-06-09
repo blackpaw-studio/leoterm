@@ -417,6 +417,15 @@ pub inline fn queueWrite(
     try self.backend.queueWrite(self.alloc, td, data, linefeed);
 }
 
+/// Forward user keystroke bytes to the active tmux control-mode viewer.
+/// MUST be called on the termio/IO (mailbox-drain) thread so viewer.next()
+/// is never concurrent with the output parse path.
+pub fn tmuxKeys(self: *Termio, data: []const u8) !void {
+    if (comptime StreamHandler.tmux_enabled) {
+        _ = try self.terminal_stream.handler.tmuxViewerInput(.{ .keys = data });
+    }
+}
+
 /// Update the configuration.
 pub fn changeConfig(self: *Termio, td: *ThreadData, config: *DerivedConfig) !void {
     // The remainder of this function is modifying terminal state or

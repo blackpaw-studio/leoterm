@@ -351,6 +351,10 @@ fn drainMailbox(
                     self.flags.linefeed_mode,
                 );
             },
+            .tmux_keys => |v| {
+                defer v.alloc.free(v.data);
+                try io.tmuxKeys(v.data);
+            },
         }
     }
 
