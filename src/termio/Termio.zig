@@ -495,6 +495,18 @@ pub fn resize(
         if (self.terminal.modes.get(.in_band_size_reports)) {
             try self.sizeReportLocked(td, .mode_2048);
         }
+
+        // In tmux control mode, tell tmux the control client's new pane size
+        // so it resizes the pane and re-syncs layout via %layout-change. This
+        // only ADDS the tmux push; the local-terminal resize above is unchanged.
+        if (comptime StreamHandler.tmux_enabled) {
+            _ = self.terminal_stream.handler.tmuxViewerInput(.{
+                .resize = .{
+                    .cols = @intCast(grid_size.columns),
+                    .rows = @intCast(grid_size.rows),
+                },
+            }) catch |err| log.warn("failed to push tmux resize err={}", .{err});
+        }
     }
 
     // Mail the renderer so that it can update the GPU and re-render

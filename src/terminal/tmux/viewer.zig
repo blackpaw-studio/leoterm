@@ -211,6 +211,10 @@ pub const Viewer = struct {
         /// never reuses window IDs within a server process lifetime.
         windows: []const Window,
 
+        /// The active pane's content changed; the caller should re-render
+        /// (re-mirror) the active pane. Carries no payload.
+        redraw,
+
         pub fn format(self: Action, writer: *std.Io.Writer) !void {
             const T = Action;
             const info = @typeInfo(T).@"union";
@@ -239,6 +243,11 @@ pub const Viewer = struct {
     pub const Input = union(enum) {
         /// Data from tmux was received that needs to be processed.
         tmux: control.Notification,
+        /// Literal key bytes from the host surface to forward to the active pane.
+        /// Bytes are sent literally; callers pass raw keystroke bytes (a literal '\n' would split the send-keys command).
+        keys: []const u8,
+        /// The host surface was resized; cols/rows are the new grid size to push to tmux.
+        resize: struct { cols: usize, rows: usize },
     };
 
     pub const Window = struct {
@@ -317,7 +326,49 @@ pub const Viewer = struct {
         // state to gracefully handle it.
         return switch (input) {
             .tmux => self.nextTmux(input.tmux),
+            .keys => |bytes| self.nextKeys(bytes),
+            .resize => |sz| self.nextResize(sz.cols, sz.rows),
         };
+    }
+
+    fn nextKeys(self: *Viewer, bytes: []const u8) []const Action {
+        // Find the active pane id via the same mechanism as activePaneTerminal.
+        if (self.windows.items.len == 0) return &.{};
+        const window = self.windows.items[0];
+        const pane_id = firstPaneId(window.layout) orelse return &.{};
+
+        // Reset the action arena (same pattern as nextStartupSession) so
+        // prior allocations are freed and the arena is ready for this call.
+        var arena = self.action_arena.promote(self.alloc);
+        defer self.action_arena = arena.state;
+        _ = arena.reset(.free_all);
+        const arena_alloc = arena.allocator();
+
+        // -l: send bytes literally (no key-name expansion); --: guard bytes starting with '-'
+        const cmd = std.fmt.allocPrint(
+            arena_alloc,
+            "send-keys -t %{d} -l -- {s}\n",
+            .{ pane_id, bytes },
+        ) catch return &.{};
+        const actions = arena_alloc.alloc(Action, 1) catch return &.{};
+        actions[0] = .{ .command = cmd };
+        return actions;
+    }
+
+    fn nextResize(self: *Viewer, cols: usize, rows: usize) []const Action {
+        if (self.windows.items.len == 0) return &.{};
+        var arena = self.action_arena.promote(self.alloc);
+        defer self.action_arena = arena.state;
+        _ = arena.reset(.free_all);
+        const arena_alloc = arena.allocator();
+        const cmd = std.fmt.allocPrint(
+            arena_alloc,
+            "refresh-client -C {d}x{d}\n",
+            .{ cols, rows },
+        ) catch return &.{};
+        const actions = arena_alloc.alloc(Action, 1) catch return &.{};
+        actions[0] = .{ .command = cmd };
+        return actions;
     }
 
     fn nextTmux(
@@ -459,10 +510,22 @@ pub const Viewer = struct {
                 command_consumed = true;
             },
 
-            .output => |out| self.receivedOutput(
+            .output => |out| if (self.receivedOutput(
                 out.pane_id,
                 out.data,
-            ) catch |err| {
+            )) |changed| {
+                // The pane's content changed; signal the caller to
+                // re-mirror the active pane so the cell reflects the
+                // new output. Uses the same arena-backed actions list
+                // and append pattern as the `.windows` action.
+                if (changed) {
+                    var arena = self.action_arena.promote(self.alloc);
+                    defer self.action_arena = arena.state;
+                    actions.append(arena.allocator(), .redraw) catch {
+                        log.warn("failed to queue redraw action for pane output", .{});
+                    };
+                }
+            } else |err| {
                 log.warn(
                     "failed to process output for pane id={}: {}",
                     .{ out.pane_id, err },
@@ -796,7 +859,16 @@ pub const Viewer = struct {
         switch (command) {
             .user => {},
 
-            .pane_state => try self.receivedPaneState(content),
+            .pane_state => {
+                try self.receivedPaneState(content);
+
+                // pane_state is the final capture command for a pane, so by
+                // now the captured content is fully in and the active screen
+                // has been restored to the pane's real mode. Signal a redraw
+                // so the first frame is mirrored from real content rather
+                // than the empty pane the initial `.windows` action saw.
+                try actions.append(arena_alloc, .redraw);
+            },
 
             .list_windows => try self.receivedListWindows(
                 arena_alloc,
@@ -810,11 +882,17 @@ pub const Viewer = struct {
                 content,
             ),
 
-            .pane_visible => |cap| try self.receivedPaneVisible(
-                cap.screen_key,
-                cap.id,
-                content,
-            ),
+            .pane_visible => |cap| {
+                try self.receivedPaneVisible(
+                    cap.screen_key,
+                    cap.id,
+                    content,
+                );
+
+                // The pane now has visible content captured; signal a redraw
+                // so the cell re-mirrors with real content.
+                try actions.append(arena_alloc, .redraw);
+            },
 
             .tmux_version => try self.receivedTmuxVersion(content),
         }
@@ -1029,6 +1107,15 @@ pub const Viewer = struct {
                     t.tabstops.set(col_cell);
                 }
             }
+
+            // Restore the pane terminal's active screen to its real mode.
+            // The capture-pane replay (pane_history/pane_visible) ends on the
+            // alternate screen because each handler calls switchScreen, so
+            // without this the active screen would be the empty alternate and
+            // mirrorActivePane would clone an empty screen. Subsequent
+            // %output applies to whatever screen the app's own alt-screen
+            // toggles select, keeping this correct over time.
+            _ = try t.switchScreen(screen_key);
         }
     }
 
@@ -1097,14 +1184,17 @@ pub const Viewer = struct {
         stream.nextSlice(content);
     }
 
+    /// Apply live %output bytes to the pane terminal's active screen.
+    /// Returns true if the bytes were applied to a tracked pane (the caller
+    /// should re-mirror), false if the pane is untracked (nothing changed).
     fn receivedOutput(
         self: *Viewer,
         id: usize,
         data: []const u8,
-    ) !void {
+    ) !bool {
         const entry = self.panes.getEntry(id) orelse {
             log.info("received output for untracked pane id={}", .{id});
-            return;
+            return false;
         };
         const pane: *Pane = entry.value_ptr;
         const t: *Terminal = &pane.terminal;
@@ -1112,6 +1202,7 @@ pub const Viewer = struct {
         var stream = t.vtStream();
         defer stream.deinit();
         stream.nextSlice(data);
+        return true;
     }
 
     fn initLayout(
@@ -1215,6 +1306,74 @@ pub const Viewer = struct {
     fn defunct(self: *Viewer) []const Action {
         self.state = .defunct;
         return self.singleAction(.exit);
+    }
+
+    /// Returns the Terminal of the active pane of the active window, or null
+    /// if no pane is available yet. For the common single-window/single-pane
+    /// case this is the only pane. For multi-pane windows this returns the
+    /// first pane found in layout order (active-pane tracking is a future
+    /// enhancement).
+    pub fn activePaneTerminal(self: *Viewer) ?*Terminal {
+        if (self.windows.items.len == 0) return null;
+        const window = self.windows.items[0];
+        const pane_id = firstPaneId(window.layout) orelse return null;
+        const entry = self.panes.getEntry(pane_id) orelse return null;
+        return &entry.value_ptr.terminal;
+    }
+
+    /// Depth-first walk of a layout tree returning the first pane leaf's id.
+    fn firstPaneId(node: Layout) ?usize {
+        return switch (node.content) {
+            .pane => |id| id,
+            .horizontal => |children| for (children) |child| {
+                if (firstPaneId(child)) |id| return id;
+            } else null,
+            .vertical => |children| for (children) |child| {
+                if (firstPaneId(child)) |id| return id;
+            } else null,
+        };
+    }
+
+    /// Test helper: drive the viewer from a fresh init through startup,
+    /// list-windows, and a single pane populated with "Hello, world!".
+    /// Leaves the viewer in command_queue state with one window, one pane
+    /// (id 0) whose history screen contains "Hello, world!".
+    ///
+    /// Layout used: single 80x24 pane (id 0) in session $0 window @0.
+    pub fn setupSinglePane(self: *Viewer) !void {
+        try testViewer(self, &.{
+            // startup_block → startup_session
+            .{ .input = .{ .tmux = .{ .block_end = "" } } },
+            // session_changed → queues tmux_version (display-message)
+            .{
+                .input = .{ .tmux = .{ .session_changed = .{
+                    .id = 0,
+                    .name = "main",
+                } } },
+            },
+            // version response "3.5a" → queues list-windows
+            .{ .input = .{ .tmux = .{ .block_end = "3.5a" } } },
+            // list-windows response: single pane layout → queues 4 capture-panes + pane_state
+            .{
+                .input = .{ .tmux = .{
+                    .block_end = "$0 @0 80 24 b25d,80x24,0,0,0",
+                } },
+            },
+            // pane_history primary with "Hello, world!" content
+            .{ .input = .{ .tmux = .{ .block_end = "Hello, world!" } } },
+            // pane_visible primary (empty)
+            .{ .input = .{ .tmux = .{ .block_end = "" } } },
+            // pane_history alternate (empty)
+            .{ .input = .{ .tmux = .{ .block_end = "" } } },
+            // pane_visible alternate (empty)
+            .{ .input = .{ .tmux = .{ .block_end = "" } } },
+            // pane_state for pane 0: cursor (0,0), alternate_on=0 (field 8).
+            // A real (non-empty) line is required so receivedPaneState runs
+            // the active-screen restore (back to primary) for the pane.
+            .{ .input = .{ .tmux = .{
+                .block_end = "%0;0;0;1;;;;0;4294967295;4294967295;0;1;0;0;0;0;0;0;0;0;0;;;0;23;8,16,24,32,40,48,56,64,72",
+            } } },
+        });
     }
 };
 
@@ -1758,7 +1917,9 @@ test "initial flow" {
             .input = .{ .tmux = .{ .output = .{ .pane_id = 0, .data = "new output" } } },
             .check = (struct {
                 fn check(v: *Viewer, actions: []const Viewer.Action) anyerror!void {
-                    try testing.expectEqual(0, actions.len);
+                    // Live %output to a tracked pane emits exactly one redraw.
+                    try testing.expectEqual(1, actions.len);
+                    try testing.expect(actions[0] == .redraw);
                     const pane: *Viewer.Pane = v.panes.getEntry(0).?.value_ptr;
                     const screen: *Screen = pane.terminal.screens.active;
                     const str = try screen.dumpStringAlloc(
@@ -2280,4 +2441,108 @@ test "two pane flow with pane state" {
             .contains_tags = &.{.exit},
         },
     });
+}
+
+test "tmux activePaneTerminal returns the single pane's terminal" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+    try viewer.setupSinglePane();
+
+    const t = viewer.activePaneTerminal() orelse return error.NoActivePane;
+    // After capture, receivedPaneState restores the active screen to the
+    // pane's real mode (primary, since alternate_on=false), where the
+    // "Hello, world!" history content lives. No manual switch needed.
+    const str = try t.screens.active.dumpStringAlloc(
+        alloc,
+        .{ .screen = .{} },
+    );
+    defer alloc.free(str);
+    try testing.expect(std.mem.indexOf(u8, str, "Hello, world!") != null);
+}
+
+test "tmux output emits redraw action" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+    try viewer.setupSinglePane();
+
+    const actions = viewer.next(.{ .tmux = .{ .output = .{
+        .pane_id = 0,
+        .data = "X",
+    } } });
+
+    var found_redraw = false;
+    for (actions) |a| switch (a) {
+        .redraw => found_redraw = true,
+        else => {},
+    };
+    try testing.expect(found_redraw);
+}
+
+test "tmux pane active screen restored after capture" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+    // setupSinglePane's pane_state has alternate_on=false, so the restore
+    // path in receivedPaneState should leave the active screen on primary.
+    try viewer.setupSinglePane();
+
+    // WITHOUT manually switching screens, the active screen must be primary
+    // (where the "Hello, world!" history content lives).
+    const t = viewer.activePaneTerminal() orelse return error.NoActivePane;
+    const str = try t.screens.active.dumpStringAlloc(alloc, .{ .screen = .{} });
+    defer alloc.free(str);
+    try testing.expect(std.mem.indexOf(u8, str, "Hello, world!") != null);
+}
+
+test "tmux keys input emits send-keys command for active pane" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+    try viewer.setupSinglePane(); // active pane id 0 exists
+
+    const actions = viewer.next(.{ .keys = "ls\r" });
+    var found: ?[]const u8 = null;
+    for (actions) |a| switch (a) {
+        .command => |c| found = c,
+        else => {},
+    };
+    const cmd = found orelse return error.NoCommand;
+    try testing.expect(std.mem.startsWith(u8, cmd, "send-keys -t %0 -l -- "));
+    try testing.expect(std.mem.indexOf(u8, cmd, "ls\r") != null);
+    try testing.expect(cmd[cmd.len - 1] == '\n');
+}
+
+test "tmux keys input with no active pane emits nothing" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+    const actions = viewer.next(.{ .keys = "x" });
+    try testing.expectEqual(@as(usize, 0), actions.len);
+}
+
+test "tmux resize input emits refresh-client size command" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+    try viewer.setupSinglePane();
+
+    const actions = viewer.next(.{ .resize = .{ .cols = 120, .rows = 40 } });
+    var found: ?[]const u8 = null;
+    for (actions) |a| switch (a) {
+        .command => |c| found = c,
+        else => {},
+    };
+    const cmd = found orelse return error.NoCommand;
+    try testing.expect(std.mem.startsWith(u8, cmd, "refresh-client -C 120x40"));
+    try testing.expect(cmd[cmd.len - 1] == '\n');
+}
+
+test "tmux resize input with no window emits nothing" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+    const actions = viewer.next(.{ .resize = .{ .cols = 80, .rows = 24 } });
+    try testing.expectEqual(@as(usize, 0), actions.len);
 }

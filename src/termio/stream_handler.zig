@@ -383,6 +383,62 @@ pub const StreamHandler = struct {
         try self.dcsCommand(&cmd);
     }
 
+    /// Feed an input to the active tmux control-mode viewer and send any
+    /// resulting commands to tmux. Returns true if a viewer is active and
+    /// consumed the input. MUST be called on the termio/IO thread (same thread
+    /// as the output parse path) so viewer.next() is never called concurrently.
+    pub fn tmuxViewerInput(
+        self: *StreamHandler,
+        input: terminal.tmux.Viewer.Input,
+    ) !bool {
+        if (comptime !tmux_enabled) return false;
+        const viewer = self.tmux_viewer orelse return false;
+        for (viewer.next(input)) |action| {
+            log.info("tmux viewer input action={f}", .{action});
+            switch (action) {
+                .command => |command| try self.sendTmuxCommand(command),
+                .exit, .windows, .redraw => {},
+            }
+        }
+        return true;
+    }
+
+    /// Send a tmux control-mode command (already newline-terminated) to tmux.
+    fn sendTmuxCommand(self: *StreamHandler, command: []const u8) !void {
+        assert(command.len > 0);
+        assert(command[command.len - 1] == '\n');
+        self.messageWriter(try termio.Message.writeReq(self.alloc, command));
+    }
+
+    /// Mirror the active tmux pane's screen into the surface terminal, then
+    /// mark dirty and wake the renderer to redraw. Shared by the `.windows`
+    /// and `.redraw` viewer actions.
+    ///
+    /// The renderer state mutex is already held by Termio.processOutput
+    /// across the entire stream parse, so we must NOT lock it again here (the
+    /// mutex is not recursive). mirrorActivePane's doc-comment requires the
+    /// caller to hold the lock, which is satisfied transitively here.
+    fn renderTmuxPane(
+        self: *StreamHandler,
+        viewer: *terminal.tmux.Viewer,
+    ) void {
+        if (comptime !tmux_enabled) return;
+        const mirrored = terminal.tmux.mirror.mirrorActivePane(
+            self.alloc,
+            viewer,
+            self.terminal,
+        ) catch |err| blk: {
+            log.warn("tmux mirror failed err={}", .{err});
+            break :blk false;
+        };
+        if (mirrored) {
+            self.terminal.flags.dirty.clear = true;
+            self.queueRender() catch |err| {
+                log.warn("failed to wake renderer after tmux mirror err={}", .{err});
+            };
+        }
+    }
+
     fn dcsCommand(self: *StreamHandler, cmd: *terminal.dcs.Command) !void {
         // log.warn("DCS command: {}", .{cmd});
         switch (cmd.*) {
@@ -438,24 +494,32 @@ pub const StreamHandler = struct {
                     log.info("tmux viewer action={f}", .{action});
                     switch (action) {
                         .exit => {
-                            // We ignore this because we will fully exit when
-                            // our DCS connection ends. We may want to handle
-                            // this in the future to notify our GUI we're
-                            // disconnected though.
+                            // Control-mode session ended for this viewer; clear
+                            // the host terminal so a detached/exited agent cell
+                            // shows empty rather than a frozen pane. The DCS
+                            // connection teardown (which frees self.tmux_viewer)
+                            // is handled separately above on the .exit DCS arm.
+                            //
+                            // The renderer state mutex is already held by
+                            // Termio.processOutput across the entire stream
+                            // parse, so we must NOT lock it again here (the
+                            // mutex is not recursive).
+                            // Use the bare Terminal.fullReset; the StreamHandler wrapper also
+                            // writes to the pty (color-scheme report) and posts apprt mailbox
+                            // messages, which are inappropriate as the control-mode session is ending.
+                            self.terminal.fullReset();
+                            self.terminal.flags.dirty.clear = true;
+                            self.queueRender() catch |err| {
+                                log.warn("failed to wake renderer after tmux exit err={}", .{err});
+                            };
                         },
 
-                        .command => |command| {
-                            assert(command.len > 0);
-                            assert(command[command.len - 1] == '\n');
-                            self.messageWriter(try termio.Message.writeReq(
-                                self.alloc,
-                                command,
-                            ));
-                        },
+                        .command => |command| try self.sendTmuxCommand(command),
 
-                        .windows => {
-                            // TODO
-                        },
+                        // Both `.windows` (layout/window changes) and `.redraw`
+                        // (pane content changed via capture or live %output)
+                        // re-mirror the active pane into the surface terminal.
+                        .windows, .redraw => self.renderTmuxPane(viewer),
                     }
                 }
             },

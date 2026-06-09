@@ -837,3 +837,53 @@ test "tmux client-session-changed" {
     try testing.expectEqual(2, n.client_session_changed.session_id);
     try testing.expectEqualStrings("mysession", n.client_session_changed.name);
 }
+
+test "tmux real -CC transcript fixture" {
+    const testing = std.testing;
+    const alloc = testing.allocator;
+
+    // Embed the real captured tmux -CC session fixture.
+    // The file is DCS-wrapped: \x1bP1000p<inner bytes>\x1b\
+    // The DCS envelope is stripped by src/terminal/dcs.zig before bytes reach
+    // this parser, so we feed only the inner bytes here.
+    const raw = @embedFile("testdata/leo-agent-attach-CC.bin");
+
+    const open = std.mem.indexOf(u8, raw, "1000p") orelse
+        return error.NoDcsOpen;
+    const inner_start = open + "1000p".len;
+    const st = std.mem.indexOfPos(u8, raw, inner_start, "\x1b\\") orelse raw.len;
+    const inner = raw[inner_start..st];
+
+    var c: Parser = .{ .buffer = .init(alloc) };
+    defer c.deinit();
+
+    var saw_session_changed = false;
+    var saw_output_pane25 = false;
+
+    for (inner) |byte| {
+        const notif = try c.put(byte) orelse continue;
+        switch (notif) {
+            .session_changed => |sc| {
+                if (sc.id == 25 and std.mem.indexOf(u8, sc.name, "leo-leoterm") != null) { // $25 is the session ID in the captured fixture
+                    saw_session_changed = true;
+                }
+            },
+            .output => |out| {
+                if (out.pane_id == 25) saw_output_pane25 = true;
+            },
+            else => {},
+        }
+    }
+
+    // Parser must not have broken on real input.
+    try testing.expect(c.state != .broken);
+    // Must have seen session-changed for session $25 named "leo-leoterm".
+    try testing.expect(saw_session_changed);
+    // Must have seen at least one output notification for pane %25.
+    try testing.expect(saw_output_pane25);
+    // Note: %exit is not a recognised notification in this parser (it falls
+    // through to the unknown-command path and returns null).  The real exit
+    // signal in the protocol is a non-'%' byte at idle state.  The fixture
+    // ends with "%exit\r\n" followed by the DCS ST which we have already
+    // stripped, so no .exit Notification is emitted — this is expected.
+}
