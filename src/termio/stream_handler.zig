@@ -448,6 +448,9 @@ pub const StreamHandler = struct {
                             // Termio.processOutput across the entire stream
                             // parse, so we must NOT lock it again here (the
                             // mutex is not recursive).
+                            // Use the bare Terminal.fullReset; the StreamHandler wrapper also
+                            // writes to the pty (color-scheme report) and posts apprt mailbox
+                            // messages, which are inappropriate as the control-mode session is ending.
                             self.terminal.fullReset();
                             self.terminal.flags.dirty.clear = true;
                             self.queueRender() catch |err| {
@@ -480,7 +483,7 @@ pub const StreamHandler = struct {
                                 viewer,
                                 self.terminal,
                             ) catch |err| blk: {
-                                log.warn("tmux mirror failed: {}", .{err});
+                                log.warn("tmux mirror failed err={}", .{err});
                                 break :blk false;
                             };
                             if (mirrored) {
