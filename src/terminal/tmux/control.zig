@@ -838,7 +838,7 @@ test "tmux client-session-changed" {
     try testing.expectEqualStrings("mysession", n.client_session_changed.name);
 }
 
-test "parses real leo agent -CC transcript" {
+test "tmux real -CC transcript fixture" {
     const testing = std.testing;
     const alloc = testing.allocator;
 
@@ -864,7 +864,7 @@ test "parses real leo agent -CC transcript" {
         const notif = try c.put(byte) orelse continue;
         switch (notif) {
             .session_changed => |sc| {
-                if (sc.id == 25 and std.mem.indexOf(u8, sc.name, "leo-leoterm") != null) {
+                if (sc.id == 25 and std.mem.indexOf(u8, sc.name, "leo-leoterm") != null) { // $25 is the session ID in the captured fixture
                     saw_session_changed = true;
                 }
             },
