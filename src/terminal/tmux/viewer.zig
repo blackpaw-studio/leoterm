@@ -240,6 +240,7 @@ pub const Viewer = struct {
         /// Data from tmux was received that needs to be processed.
         tmux: control.Notification,
         /// Literal key bytes from the host surface to forward to the active pane.
+        /// Bytes are sent literally; callers pass raw keystroke bytes (a literal '\n' would split the send-keys command).
         keys: []const u8,
     };
 
@@ -336,6 +337,7 @@ pub const Viewer = struct {
         _ = arena.reset(.free_all);
         const arena_alloc = arena.allocator();
 
+        // -l: send bytes literally (no key-name expansion); --: guard bytes starting with '-'
         const cmd = std.fmt.allocPrint(
             arena_alloc,
             "send-keys -t %{d} -l -- {s}\n",
