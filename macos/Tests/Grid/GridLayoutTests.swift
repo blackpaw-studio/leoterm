@@ -63,4 +63,52 @@ struct GridLayoutTests {
         let d = layout.dimensions
         #expect(d.rows == 2 && d.columns == 3)
     }
+
+    @Test func framesEmptyOrZeroSizeReturnsNothing() {
+        #expect(GridLayout<MockCell>().frames(in: CGSize(width: 100, height: 100)).isEmpty)
+        let one = GridLayout(cells: [MockCell()])
+        #expect(one.frames(in: .zero).isEmpty)
+    }
+
+    @Test func framesSingleCellFillsBounds() {
+        let cell = MockCell()
+        let frames = GridLayout(cells: [cell]).frames(in: CGSize(width: 800, height: 600))
+        #expect(frames.count == 1)
+        #expect(frames[0].frame == CGRect(x: 0, y: 0, width: 800, height: 600))
+    }
+
+    @Test func framesThreeCellsAreOneRowOfEqualThirds() {
+        let cells = (0..<3).map { _ in MockCell() }
+        let frames = GridLayout(cells: cells).frames(in: CGSize(width: 300, height: 100))
+        #expect(frames.count == 3)
+        #expect(frames.map { $0.frame } == [
+            CGRect(x: 0,   y: 0, width: 100, height: 100),
+            CGRect(x: 100, y: 0, width: 100, height: 100),
+            CGRect(x: 200, y: 0, width: 100, height: 100),
+        ])
+    }
+
+    @Test func framesLastPartialRowStretchesAcrossFullWidth() {
+        let cells = (0..<5).map { _ in MockCell() }
+        let frames = GridLayout(cells: cells)
+            .frames(in: CGSize(width: 300, height: 200)).map { $0.frame }
+        #expect(frames[0] == CGRect(x: 0,   y: 0,   width: 100, height: 100))
+        #expect(frames[2] == CGRect(x: 200, y: 0,   width: 100, height: 100))
+        #expect(frames[3] == CGRect(x: 0,   y: 100, width: 150, height: 100))
+        #expect(frames[4] == CGRect(x: 150, y: 100, width: 150, height: 100))
+    }
+
+    @Test func framesApplyGapBetweenCells() {
+        let cells = (0..<2).map { _ in MockCell() }
+        let frames = GridLayout(cells: cells)
+            .frames(in: CGSize(width: 210, height: 100), gap: 10).map { $0.frame }
+        #expect(frames[0] == CGRect(x: 0,   y: 0, width: 100, height: 100))
+        #expect(frames[1] == CGRect(x: 110, y: 0, width: 100, height: 100))
+    }
+
+    @Test func framesPreserveCellIdentityAndOrder() {
+        let cells = (0..<4).map { _ in MockCell() }
+        let frames = GridLayout(cells: cells).frames(in: CGSize(width: 200, height: 200))
+        #expect(frames.map { $0.cell.id } == cells.map { $0.id })
+    }
 }

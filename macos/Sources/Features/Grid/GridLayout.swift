@@ -49,3 +49,38 @@ extension GridLayout {
     /// (rows, columns) for the current cell count.
     var dimensions: (rows: Int, columns: Int) { Self.dimensions(forCount: count) }
 }
+
+import CoreGraphics
+
+extension GridLayout {
+    /// The frame for each cell within `size`, separated by `gap`, in display order.
+    ///
+    /// Cells fill row-major. Rows split the height equally. Within a row, cells
+    /// split that row's width equally; the last (possibly partial) row stretches
+    /// its cells across the full width. Origin is top-left (y grows downward).
+    /// Returns an empty array for an empty layout or a non-positive `size`.
+    func frames(in size: CGSize, gap: CGFloat = 0) -> [(cell: ViewType, frame: CGRect)] {
+        let n = cells.count
+        guard n > 0, size.width > 0, size.height > 0 else { return [] }
+
+        let (rows, columns) = Self.dimensions(forCount: n)
+        let rowHeight = (size.height - gap * CGFloat(rows - 1)) / CGFloat(rows)
+
+        var result: [(cell: ViewType, frame: CGRect)] = []
+        result.reserveCapacity(n)
+        for index in 0..<n {
+            let row = index / columns
+            let col = index % columns
+            let isLastRow = row == rows - 1
+            let cellsInRow = isLastRow ? (n - row * columns) : columns
+            let colWidth = (size.width - gap * CGFloat(cellsInRow - 1)) / CGFloat(cellsInRow)
+            let frame = CGRect(
+                x: CGFloat(col) * (colWidth + gap),
+                y: CGFloat(row) * (rowHeight + gap),
+                width: colWidth,
+                height: rowHeight)
+            result.append((cells[index], frame))
+        }
+        return result
+    }
+}
