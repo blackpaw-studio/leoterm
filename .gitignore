@@ -1,4 +1,6 @@
 .superpowers/
+/build/
+**/DerivedData/
 *~
 .*.swp
 .swp
