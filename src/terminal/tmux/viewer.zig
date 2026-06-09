@@ -1216,6 +1216,70 @@ pub const Viewer = struct {
         self.state = .defunct;
         return self.singleAction(.exit);
     }
+
+    /// Returns the Terminal of the active pane of the active window, or null
+    /// if no pane is available yet. For the common single-window/single-pane
+    /// case this is the only pane. For multi-pane windows this returns the
+    /// first pane found in layout order (active-pane tracking is a future
+    /// enhancement).
+    pub fn activePaneTerminal(self: *Viewer) ?*Terminal {
+        if (self.windows.items.len == 0) return null;
+        const window = self.windows.items[0];
+        const pane_id = firstPaneId(window.layout) orelse return null;
+        const entry = self.panes.getEntry(pane_id) orelse return null;
+        return &entry.value_ptr.terminal;
+    }
+
+    /// Depth-first walk of a layout tree returning the first pane leaf's id.
+    fn firstPaneId(node: Layout) ?usize {
+        return switch (node.content) {
+            .pane => |id| id,
+            .horizontal => |children| for (children) |child| {
+                if (firstPaneId(child)) |id| return id;
+            } else null,
+            .vertical => |children| for (children) |child| {
+                if (firstPaneId(child)) |id| return id;
+            } else null,
+        };
+    }
+
+    /// Test helper: drive the viewer from a fresh init through startup,
+    /// list-windows, and a single pane populated with "Hello, world!".
+    /// Leaves the viewer in command_queue state with one window, one pane
+    /// (id 0) whose history screen contains "Hello, world!".
+    ///
+    /// Layout used: single 80x24 pane (id 0) in session $0 window @0.
+    pub fn setupSinglePane(self: *Viewer) !void {
+        try testViewer(self, &.{
+            // startup_block → startup_session
+            .{ .input = .{ .tmux = .{ .block_end = "" } } },
+            // session_changed → queues tmux_version (display-message)
+            .{
+                .input = .{ .tmux = .{ .session_changed = .{
+                    .id = 0,
+                    .name = "main",
+                } } },
+            },
+            // version response "3.5a" → queues list-windows
+            .{ .input = .{ .tmux = .{ .block_end = "3.5a" } } },
+            // list-windows response: single pane layout → queues 4 capture-panes + pane_state
+            .{
+                .input = .{ .tmux = .{
+                    .block_end = "$0 @0 80 24 b25d,80x24,0,0,0",
+                } },
+            },
+            // pane_history primary with "Hello, world!" content
+            .{ .input = .{ .tmux = .{ .block_end = "Hello, world!" } } },
+            // pane_visible primary (empty)
+            .{ .input = .{ .tmux = .{ .block_end = "" } } },
+            // pane_history alternate (empty)
+            .{ .input = .{ .tmux = .{ .block_end = "" } } },
+            // pane_visible alternate (empty)
+            .{ .input = .{ .tmux = .{ .block_end = "" } } },
+            // pane_state (empty → defaults)
+            .{ .input = .{ .tmux = .{ .block_end = "" } } },
+        });
+    }
 };
 
 const State = enum {
@@ -2280,4 +2344,23 @@ test "two pane flow with pane state" {
             .contains_tags = &.{.exit},
         },
     });
+}
+
+test "tmux activePaneTerminal returns the single pane's terminal" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+    try viewer.setupSinglePane();
+
+    const t = viewer.activePaneTerminal() orelse return error.NoActivePane;
+    // The primary screen holds the history content written by pane_history.
+    // After pane_history/pane_visible cycle for alternate, active ends on
+    // alternate, so we explicitly request the primary screen for history content.
+    const primary = t.screens.get(.primary) orelse return error.NoPrimaryScreen;
+    const str = try primary.dumpStringAlloc(
+        alloc,
+        .{ .screen = .{} },
+    );
+    defer alloc.free(str);
+    try testing.expect(std.mem.indexOf(u8, str, "Hello, world!") != null);
 }
