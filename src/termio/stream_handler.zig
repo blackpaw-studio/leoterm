@@ -394,19 +394,20 @@ pub const StreamHandler = struct {
         if (comptime !tmux_enabled) return false;
         const viewer = self.tmux_viewer orelse return false;
         for (viewer.next(input)) |action| {
+            log.info("tmux viewer input action={f}", .{action});
             switch (action) {
-                .command => |command| {
-                    assert(command.len > 0);
-                    assert(command[command.len - 1] == '\n');
-                    self.messageWriter(try termio.Message.writeReq(
-                        self.alloc,
-                        command,
-                    ));
-                },
+                .command => |command| try self.sendTmuxCommand(command),
                 .exit, .windows => {},
             }
         }
         return true;
+    }
+
+    /// Send a tmux control-mode command (already newline-terminated) to tmux.
+    fn sendTmuxCommand(self: *StreamHandler, command: []const u8) !void {
+        assert(command.len > 0);
+        assert(command[command.len - 1] == '\n');
+        self.messageWriter(try termio.Message.writeReq(self.alloc, command));
     }
 
     fn dcsCommand(self: *StreamHandler, cmd: *terminal.dcs.Command) !void {
@@ -484,14 +485,7 @@ pub const StreamHandler = struct {
                             };
                         },
 
-                        .command => |command| {
-                            assert(command.len > 0);
-                            assert(command[command.len - 1] == '\n');
-                            self.messageWriter(try termio.Message.writeReq(
-                                self.alloc,
-                                command,
-                            ));
-                        },
+                        .command => |command| try self.sendTmuxCommand(command),
 
                         .windows => {
                             // Mirror the active pane's screen into the surface
