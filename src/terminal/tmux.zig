@@ -7,6 +7,7 @@ pub const ControlParser = control.Parser;
 pub const ControlNotification = control.Notification;
 pub const Layout = layout.Layout;
 pub const Viewer = @import("tmux/viewer.zig").Viewer;
+pub const mirror = @import("tmux/mirror.zig");
 
 test {
     @import("std").testing.refAllDecls(@This());
