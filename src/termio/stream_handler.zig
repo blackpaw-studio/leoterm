@@ -397,7 +397,7 @@ pub const StreamHandler = struct {
             log.info("tmux viewer input action={f}", .{action});
             switch (action) {
                 .command => |command| try self.sendTmuxCommand(command),
-                .exit, .windows => {},
+                .exit, .windows, .redraw => {},
             }
         }
         return true;
@@ -408,6 +408,35 @@ pub const StreamHandler = struct {
         assert(command.len > 0);
         assert(command[command.len - 1] == '\n');
         self.messageWriter(try termio.Message.writeReq(self.alloc, command));
+    }
+
+    /// Mirror the active tmux pane's screen into the surface terminal, then
+    /// mark dirty and wake the renderer to redraw. Shared by the `.windows`
+    /// and `.redraw` viewer actions.
+    ///
+    /// The renderer state mutex is already held by Termio.processOutput
+    /// across the entire stream parse, so we must NOT lock it again here (the
+    /// mutex is not recursive). mirrorActivePane's doc-comment requires the
+    /// caller to hold the lock, which is satisfied transitively here.
+    fn renderTmuxPane(
+        self: *StreamHandler,
+        viewer: *terminal.tmux.Viewer,
+    ) void {
+        if (comptime !tmux_enabled) return;
+        const mirrored = terminal.tmux.mirror.mirrorActivePane(
+            self.alloc,
+            viewer,
+            self.terminal,
+        ) catch |err| blk: {
+            log.warn("tmux mirror failed err={}", .{err});
+            break :blk false;
+        };
+        if (mirrored) {
+            self.terminal.flags.dirty.clear = true;
+            self.queueRender() catch |err| {
+                log.warn("failed to wake renderer after tmux mirror err={}", .{err});
+            };
+        }
     }
 
     fn dcsCommand(self: *StreamHandler, cmd: *terminal.dcs.Command) !void {
@@ -487,32 +516,10 @@ pub const StreamHandler = struct {
 
                         .command => |command| try self.sendTmuxCommand(command),
 
-                        .windows => {
-                            // Mirror the active pane's screen into the surface
-                            // terminal, then mark dirty and wake the renderer
-                            // to redraw.
-                            //
-                            // The renderer state mutex is already held by
-                            // Termio.processOutput across the entire stream
-                            // parse, so we must NOT lock it again here (the
-                            // mutex is not recursive). mirrorActivePane's
-                            // doc-comment requires the caller to hold the lock,
-                            // which is satisfied transitively here.
-                            const mirrored = terminal.tmux.mirror.mirrorActivePane(
-                                self.alloc,
-                                viewer,
-                                self.terminal,
-                            ) catch |err| blk: {
-                                log.warn("tmux mirror failed err={}", .{err});
-                                break :blk false;
-                            };
-                            if (mirrored) {
-                                self.terminal.flags.dirty.clear = true;
-                                self.queueRender() catch |err| {
-                                    log.warn("failed to wake renderer after tmux mirror err={}", .{err});
-                                };
-                            }
-                        },
+                        // Both `.windows` (layout/window changes) and `.redraw`
+                        // (pane content changed via capture or live %output)
+                        // re-mirror the active pane into the surface terminal.
+                        .windows, .redraw => self.renderTmuxPane(viewer),
                     }
                 }
             },

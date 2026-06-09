@@ -55,12 +55,10 @@ test "tmux mirrorActivePane copies pane content into destination terminal" {
     defer viewer.deinit();
     try viewer.setupSinglePane();
 
-    // The fixture leaves the pane's active screen on the empty alternate
-    // (an artifact of the capture-pane replay order); switch the pane to the
-    // primary screen where "Hello, world!" lives so we mirror real content.
-    // In a live agent, %output keeps `active` pointing at the live screen.
+    // receivedPaneState restores the pane's active screen to its real mode
+    // (primary, where "Hello, world!" lives) after the capture-pane replay,
+    // so mirrorActivePane clones real content with no manual switch needed.
     const pane = viewer.activePaneTerminal().?;
-    pane.screens.switchTo(.primary);
 
     var dst: Terminal = try .init(alloc, .{ .cols = 80, .rows = 24 });
     defer dst.deinit(alloc);

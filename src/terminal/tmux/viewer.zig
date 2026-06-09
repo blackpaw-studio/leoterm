@@ -211,6 +211,10 @@ pub const Viewer = struct {
         /// never reuses window IDs within a server process lifetime.
         windows: []const Window,
 
+        /// The active pane's content changed; the caller should re-render
+        /// (re-mirror) the active pane. Carries no payload.
+        redraw,
+
         pub fn format(self: Action, writer: *std.Io.Writer) !void {
             const T = Action;
             const info = @typeInfo(T).@"union";
@@ -506,10 +510,22 @@ pub const Viewer = struct {
                 command_consumed = true;
             },
 
-            .output => |out| self.receivedOutput(
+            .output => |out| if (self.receivedOutput(
                 out.pane_id,
                 out.data,
-            ) catch |err| {
+            )) |changed| {
+                // The pane's content changed; signal the caller to
+                // re-mirror the active pane so the cell reflects the
+                // new output. Uses the same arena-backed actions list
+                // and append pattern as the `.windows` action.
+                if (changed) {
+                    var arena = self.action_arena.promote(self.alloc);
+                    defer self.action_arena = arena.state;
+                    actions.append(arena.allocator(), .redraw) catch {
+                        log.warn("failed to queue redraw action for pane output", .{});
+                    };
+                }
+            } else |err| {
                 log.warn(
                     "failed to process output for pane id={}: {}",
                     .{ out.pane_id, err },
@@ -843,7 +859,16 @@ pub const Viewer = struct {
         switch (command) {
             .user => {},
 
-            .pane_state => try self.receivedPaneState(content),
+            .pane_state => {
+                try self.receivedPaneState(content);
+
+                // pane_state is the final capture command for a pane, so by
+                // now the captured content is fully in and the active screen
+                // has been restored to the pane's real mode. Signal a redraw
+                // so the first frame is mirrored from real content rather
+                // than the empty pane the initial `.windows` action saw.
+                try actions.append(arena_alloc, .redraw);
+            },
 
             .list_windows => try self.receivedListWindows(
                 arena_alloc,
@@ -857,11 +882,17 @@ pub const Viewer = struct {
                 content,
             ),
 
-            .pane_visible => |cap| try self.receivedPaneVisible(
-                cap.screen_key,
-                cap.id,
-                content,
-            ),
+            .pane_visible => |cap| {
+                try self.receivedPaneVisible(
+                    cap.screen_key,
+                    cap.id,
+                    content,
+                );
+
+                // The pane now has visible content captured; signal a redraw
+                // so the cell re-mirrors with real content.
+                try actions.append(arena_alloc, .redraw);
+            },
 
             .tmux_version => try self.receivedTmuxVersion(content),
         }
@@ -1076,6 +1107,15 @@ pub const Viewer = struct {
                     t.tabstops.set(col_cell);
                 }
             }
+
+            // Restore the pane terminal's active screen to its real mode.
+            // The capture-pane replay (pane_history/pane_visible) ends on the
+            // alternate screen because each handler calls switchScreen, so
+            // without this the active screen would be the empty alternate and
+            // mirrorActivePane would clone an empty screen. Subsequent
+            // %output applies to whatever screen the app's own alt-screen
+            // toggles select, keeping this correct over time.
+            _ = try t.switchScreen(screen_key);
         }
     }
 
@@ -1144,14 +1184,17 @@ pub const Viewer = struct {
         stream.nextSlice(content);
     }
 
+    /// Apply live %output bytes to the pane terminal's active screen.
+    /// Returns true if the bytes were applied to a tracked pane (the caller
+    /// should re-mirror), false if the pane is untracked (nothing changed).
     fn receivedOutput(
         self: *Viewer,
         id: usize,
         data: []const u8,
-    ) !void {
+    ) !bool {
         const entry = self.panes.getEntry(id) orelse {
             log.info("received output for untracked pane id={}", .{id});
-            return;
+            return false;
         };
         const pane: *Pane = entry.value_ptr;
         const t: *Terminal = &pane.terminal;
@@ -1159,6 +1202,7 @@ pub const Viewer = struct {
         var stream = t.vtStream();
         defer stream.deinit();
         stream.nextSlice(data);
+        return true;
     }
 
     fn initLayout(
@@ -1323,8 +1367,12 @@ pub const Viewer = struct {
             .{ .input = .{ .tmux = .{ .block_end = "" } } },
             // pane_visible alternate (empty)
             .{ .input = .{ .tmux = .{ .block_end = "" } } },
-            // pane_state (empty → defaults)
-            .{ .input = .{ .tmux = .{ .block_end = "" } } },
+            // pane_state for pane 0: cursor (0,0), alternate_on=0 (field 8).
+            // A real (non-empty) line is required so receivedPaneState runs
+            // the active-screen restore (back to primary) for the pane.
+            .{ .input = .{ .tmux = .{
+                .block_end = "%0;0;0;1;;;;0;4294967295;4294967295;0;1;0;0;0;0;0;0;0;0;0;;;0;23;8,16,24,32,40,48,56,64,72",
+            } } },
         });
     }
 };
@@ -1869,7 +1917,9 @@ test "initial flow" {
             .input = .{ .tmux = .{ .output = .{ .pane_id = 0, .data = "new output" } } },
             .check = (struct {
                 fn check(v: *Viewer, actions: []const Viewer.Action) anyerror!void {
-                    try testing.expectEqual(0, actions.len);
+                    // Live %output to a tracked pane emits exactly one redraw.
+                    try testing.expectEqual(1, actions.len);
+                    try testing.expect(actions[0] == .redraw);
                     const pane: *Viewer.Pane = v.panes.getEntry(0).?.value_ptr;
                     const screen: *Screen = pane.terminal.screens.active;
                     const str = try screen.dumpStringAlloc(
@@ -2400,14 +2450,48 @@ test "tmux activePaneTerminal returns the single pane's terminal" {
     try viewer.setupSinglePane();
 
     const t = viewer.activePaneTerminal() orelse return error.NoActivePane;
-    // The primary screen holds the history content written by pane_history.
-    // After pane_history/pane_visible cycle for alternate, active ends on
-    // alternate, so we explicitly request the primary screen for history content.
-    const primary = t.screens.get(.primary) orelse return error.NoPrimaryScreen;
-    const str = try primary.dumpStringAlloc(
+    // After capture, receivedPaneState restores the active screen to the
+    // pane's real mode (primary, since alternate_on=false), where the
+    // "Hello, world!" history content lives. No manual switch needed.
+    const str = try t.screens.active.dumpStringAlloc(
         alloc,
         .{ .screen = .{} },
     );
+    defer alloc.free(str);
+    try testing.expect(std.mem.indexOf(u8, str, "Hello, world!") != null);
+}
+
+test "tmux output emits redraw action" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+    try viewer.setupSinglePane();
+
+    const actions = viewer.next(.{ .tmux = .{ .output = .{
+        .pane_id = 0,
+        .data = "X",
+    } } });
+
+    var found_redraw = false;
+    for (actions) |a| switch (a) {
+        .redraw => found_redraw = true,
+        else => {},
+    };
+    try testing.expect(found_redraw);
+}
+
+test "tmux pane active screen restored after capture" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+    // setupSinglePane's pane_state has alternate_on=false, so the restore
+    // path in receivedPaneState should leave the active screen on primary.
+    try viewer.setupSinglePane();
+
+    // WITHOUT manually switching screens, the active screen must be primary
+    // (where the "Hello, world!" history content lives).
+    const t = viewer.activePaneTerminal() orelse return error.NoActivePane;
+    const str = try t.screens.active.dumpStringAlloc(alloc, .{ .screen = .{} });
     defer alloc.free(str);
     try testing.expect(std.mem.indexOf(u8, str, "Hello, world!") != null);
 }
