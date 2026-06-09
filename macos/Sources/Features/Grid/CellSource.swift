@@ -1,5 +1,3 @@
-import Foundation
-
 /// The byte source that backs a grid cell's terminal surface.
 ///
 /// - `pty`: a plain terminal cell running the user's `$SHELL` (Ghostty's
@@ -14,6 +12,8 @@ import Foundation
 enum CellSource: Equatable {
     case pty
     case agent(name: String)
+
+    private static let agentAttachCommand = "leo agent attach --cc"
 
     /// True for cells backed by a Leo agent (carries agent status semantics).
     var isAgent: Bool {
@@ -30,7 +30,7 @@ enum CellSource: Equatable {
         case .pty:
             config.command = nil // inherit $SHELL from global config
         case .agent(let name):
-            config.command = "leo agent attach --cc \(name)"
+            config.command = "\(Self.agentAttachCommand) \(name)"
         }
         return config
     }
