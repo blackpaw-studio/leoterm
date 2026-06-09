@@ -79,7 +79,7 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                         DebugBuildWarningView()
                     }
 
-                    TerminalSplitTreeView(
+                    TerminalGridView(
                         tree: viewModel.surfaceTree,
                         action: { delegate?.performSplitAction($0) })
                         .environmentObject(ghostty)
