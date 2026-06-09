@@ -18,6 +18,8 @@ struct TerminalGridView: View {
 
     /// The cell currently under the pointer, if any.
     @State private var hoveredID: Ghostty.SurfaceView.ID?
+    /// Row heights pinned by the user via drag, keyed by any cell ID in that row.
+    @State private var pinnedRowHeights: [Ghostty.SurfaceView.ID: CGFloat] = [:]
     /// The focused surface (emphasis target when nothing is hovered).
     @FocusedValue(\.ghosttySurfaceView) private var focusedSurface
 
@@ -41,12 +43,14 @@ struct TerminalGridView: View {
         let emphasized = hoveredID ?? focusedSurface?.id
         return GeometryReader { geo in
             let placed = GridLayout(cells: surfaces)
-                .frames(in: geo.size, gap: gap, emphasizing: emphasized, factor: growthFactor)
+                .frames(in: geo.size, gap: gap, pinnedRowHeights: pinnedRowHeights,
+                        emphasizing: emphasized, factor: growthFactor)
                 .map { PlacedCell(id: $0.cell.id, surface: $0.cell, frame: $0.frame) }
             ZStack(alignment: .topLeading) {
                 ForEach(placed) { item in
                     Ghostty.InspectableSurface(surfaceView: item.surface, isSplit: isSplit)
                         .frame(width: item.frame.width, height: item.frame.height)
+                        .overlay(alignment: .bottom) { pinHandle(for: item) }
                         .position(x: item.frame.midX, y: item.frame.midY)
                         .onTapGesture { Ghostty.moveFocus(to: item.surface) }
                         .onHover { hovering in
@@ -60,6 +64,27 @@ struct TerminalGridView: View {
             }
             .animation(.spring(response: 0.28, dampingFraction: 0.86), value: hoveredID)
             .animation(.spring(response: 0.28, dampingFraction: 0.86), value: focusedSurface?.id)
+            .animation(.spring(response: 0.28, dampingFraction: 0.86), value: pinnedRowHeights)
         }
+    }
+
+    /// A thin grab strip along a cell's bottom edge: drag to pin the row height,
+    /// double-click to unpin.
+    private func pinHandle(for item: PlacedCell) -> some View {
+        Rectangle()
+            .fill(Color.secondary.opacity(pinnedRowHeights[item.id] != nil ? 0.5 : 0.001))
+            .frame(height: 6)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 2)
+                    .onChanged { value in
+                        let newHeight = max(40, item.frame.height + value.translation.height)
+                        pinnedRowHeights[item.id] = newHeight
+                    }
+            )
+            .onTapGesture(count: 2) { pinnedRowHeights[item.id] = nil }
+            .help(pinnedRowHeights[item.id] != nil
+                  ? "Pinned row — drag to resize, double-click to unpin"
+                  : "Drag to pin this row's height")
     }
 }
