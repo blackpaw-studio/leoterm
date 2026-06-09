@@ -158,4 +158,34 @@ struct GridLayoutTests {
         #expect(abs(row0Width - size.width) < 0.001)
         #expect(abs(col0Height - size.height) < 0.001)
     }
+
+    @Test func emptyPinsMatchesEmphasisFrames() {
+        let cells = (0..<4).map { _ in MockCell() }
+        let layout = GridLayout(cells: cells)
+        let size = CGSize(width: 200, height: 200)
+        let a = layout.frames(in: size, emphasizing: cells[0].id, factor: 1.6).map { $0.frame }
+        let b = layout.frames(in: size, gap: 0, pinnedRowHeights: [:],
+                              emphasizing: cells[0].id, factor: 1.6).map { $0.frame }
+        #expect(a == b)
+    }
+
+    @Test func pinnedRowGetsItsExactHeight() {
+        let cells = (0..<4).map { _ in MockCell() }
+        let f = GridLayout(cells: cells).frames(
+            in: CGSize(width: 200, height: 200), gap: 0,
+            pinnedRowHeights: [cells[0].id: 60], emphasizing: nil, factor: 1).map { $0.frame }
+        #expect(abs(f[0].height - 60) < 0.001)
+        #expect(abs(f[1].height - 60) < 0.001)
+        #expect(abs(f[2].height - 140) < 0.001)
+        #expect(abs(f[3].height - 140) < 0.001)
+    }
+
+    @Test func pinnedRowHeightSurvivesAcrossMultipleUnpinnedRows() {
+        let cells = (0..<6).map { _ in MockCell() }
+        let f = GridLayout(cells: cells).frames(
+            in: CGSize(width: 300, height: 200), gap: 0,
+            pinnedRowHeights: [cells[1].id: 50], emphasizing: nil, factor: 1).map { $0.frame }
+        #expect(abs(f[0].height - 50) < 0.001)
+        #expect(abs(f[3].height - 150) < 0.001)
+    }
 }

@@ -69,6 +69,20 @@ extension GridLayout {
         emphasizing emphasizedID: ViewType.ID?,
         factor: CGFloat
     ) -> [(cell: ViewType, frame: CGRect)] {
+        frames(in: size, gap: gap, pinnedRowHeights: [:], emphasizing: emphasizedID, factor: factor)
+    }
+
+    /// Frames with optional per-row pinning. A row containing a cell present in
+    /// `pinnedRowHeights` is fixed to that height (max if several); remaining
+    /// height is shared by unpinned rows (emphasized unpinned row weight `factor`).
+    /// Empty pins → identical to the emphasis-only layout.
+    func frames(
+        in size: CGSize,
+        gap: CGFloat = 0,
+        pinnedRowHeights: [ViewType.ID: CGFloat],
+        emphasizing emphasizedID: ViewType.ID?,
+        factor: CGFloat
+    ) -> [(cell: ViewType, frame: CGRect)] {
         let n = cells.count
         guard n > 0, size.width > 0, size.height > 0 else { return [] }
         let (rows, columns) = Self.dimensions(forCount: n)
@@ -77,8 +91,18 @@ extension GridLayout {
         let emphasizedRow = emphasizedIndex.map { $0 / columns }
         let g = max(1, factor)
 
-        let rowWeights = (0..<rows).map { r in (r == emphasizedRow) ? g : 1 }
-        let rowHeights = Self.distribute(total: size.height, gap: gap, weights: rowWeights)
+        var pinnedHeightForRow = [Int: CGFloat]()
+        for (index, cell) in cells.enumerated() {
+            if let h = pinnedRowHeights[cell.id] {
+                let row = index / columns
+                pinnedHeightForRow[row] = max(pinnedHeightForRow[row] ?? 0, h)
+            }
+        }
+
+        let rowHeights = Self.distributeWithFixed(
+            total: size.height, gap: gap, count: rows,
+            fixed: pinnedHeightForRow,
+            flexWeight: { r in (r == emphasizedRow && pinnedHeightForRow[r] == nil) ? g : 1 })
         let rowOffsets = Self.offsets(of: rowHeights, gap: gap)
 
         var result: [(cell: ViewType, frame: CGRect)] = []
@@ -99,6 +123,26 @@ extension GridLayout {
                 height: rowHeights[row])))
         }
         return result
+    }
+
+    /// Distribute `total` across `count` slots: slots in `fixed` take their fixed
+    /// size; the rest share the remainder (minus gaps) by `flexWeight`. Remainder
+    /// clamped at 0.
+    private static func distributeWithFixed(
+        total: CGFloat, gap: CGFloat, count: Int,
+        fixed: [Int: CGFloat], flexWeight: (Int) -> CGFloat
+    ) -> [CGFloat] {
+        guard count > 0 else { return [] }
+        let gaps = gap * CGFloat(count - 1)
+        let fixedTotal = fixed.values.reduce(0, +)
+        let remaining = max(0, total - gaps - fixedTotal)
+        let flexIndices = (0..<count).filter { fixed[$0] == nil }
+        let weightSum = flexIndices.reduce(0) { $0 + flexWeight($1) }
+        return (0..<count).map { i in
+            if let value = fixed[i] { return value }
+            guard weightSum > 0 else { return 0 }
+            return remaining * (flexWeight(i) / weightSum)
+        }
     }
 
     /// Distribute `total` (minus inter-cell `gap`s) across `weights` proportionally.
