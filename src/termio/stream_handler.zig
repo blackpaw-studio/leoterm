@@ -383,6 +383,32 @@ pub const StreamHandler = struct {
         try self.dcsCommand(&cmd);
     }
 
+    /// Feed an input to the active tmux control-mode viewer and send any
+    /// resulting commands to tmux. Returns true if a viewer is active and
+    /// consumed the input. MUST be called on the termio/IO thread (same thread
+    /// as the output parse path) so viewer.next() is never called concurrently.
+    pub fn tmuxViewerInput(
+        self: *StreamHandler,
+        input: terminal.tmux.Viewer.Input,
+    ) !bool {
+        if (comptime !tmux_enabled) return false;
+        const viewer = self.tmux_viewer orelse return false;
+        for (viewer.next(input)) |action| {
+            switch (action) {
+                .command => |command| {
+                    assert(command.len > 0);
+                    assert(command[command.len - 1] == '\n');
+                    self.messageWriter(try termio.Message.writeReq(
+                        self.alloc,
+                        command,
+                    ));
+                },
+                .exit, .windows => {},
+            }
+        }
+        return true;
+    }
+
     fn dcsCommand(self: *StreamHandler, cmd: *terminal.dcs.Command) !void {
         // log.warn("DCS command: {}", .{cmd});
         switch (cmd.*) {
