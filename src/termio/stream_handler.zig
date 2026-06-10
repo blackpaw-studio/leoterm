@@ -365,6 +365,15 @@ pub const StreamHandler = struct {
         }
     }
 
+    /// True while a tmux control-mode viewer is active. The Stream uses this
+    /// to consume the control-mode DCS body verbatim until ST instead of
+    /// parsing it as a normal DCS (whose C1/CAN/SUB bytes would abort the
+    /// passthrough and destroy the viewer mid-stream).
+    pub fn tmuxControlActive(self: *const StreamHandler) bool {
+        if (comptime !tmux_enabled) return false;
+        return self.tmux_viewer != null;
+    }
+
     pub inline fn dcsHook(self: *StreamHandler, dcs: terminal.DCS) !void {
         var cmd = self.dcs.hook(self.alloc, dcs) orelse return;
         defer cmd.deinit();

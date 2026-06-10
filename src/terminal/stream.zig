@@ -570,10 +570,40 @@ pub fn Stream(comptime H: type) type {
             var offset: usize = 0;
             while (self.parser.state != .ground) {
                 if (offset >= input.len) return input.len;
-                self.nextNonUtf8(input[offset]);
+                const c = input[offset];
+
+                // tmux control mode is NOT a real DCS: it abuses the DCS
+                // wrapper for a raw line-protocol whose %output payloads carry
+                // raw UTF-8 glyph bytes. Those include C1 bytes (0x80-0x9F),
+                // CAN, and SUB which the VT parser treats as DCS-terminating.
+                // While a tmux control-mode viewer is active we must consume
+                // the body VERBATIM until the real 7-bit ST (ESC \), feeding
+                // each byte straight to the dcs-put path instead of letting the
+                // parser abort the passthrough. ESC (0x1B) still falls through
+                // to the parser so the ESC \ terminator emits dcs_unhook and
+                // tears down control mode cleanly. Generic DCS (no viewer) is
+                // unaffected because tmuxControlActive() is false.
+                if (c != 0x1b and
+                    self.parser.state == .dcs_passthrough and
+                    self.tmuxControlActive())
+                {
+                    self.handler.vt(.dcs_put, c);
+                    offset += 1;
+                    continue;
+                }
+
+                self.nextNonUtf8(c);
                 offset += 1;
             }
             return offset;
+        }
+
+        /// True while a tmux control-mode viewer is active on the handler, in
+        /// which case the DCS body must be consumed verbatim (see
+        /// consumeUntilGround). Other handlers that don't expose this method
+        /// always report false so they compile and behave normally.
+        inline fn tmuxControlActive(self: *Self) bool {
+            return @hasDecl(T, "tmuxControlActive") and self.handler.tmuxControlActive();
         }
 
         /// Like nextSlice but takes one byte and is necessarily a scalar
@@ -583,6 +613,17 @@ pub fn Stream(comptime H: type) type {
             // The scalar path can be responsible for decoding UTF-8.
             if (self.parser.state == .ground) {
                 self.nextUtf8(c);
+                return;
+            }
+
+            // tmux control-mode body: consume raw bytes verbatim until ST so
+            // C1/CAN/SUB don't abort the DCS passthrough. See
+            // consumeUntilGround for the full rationale.
+            if (c != 0x1b and
+                self.parser.state == .dcs_passthrough and
+                self.tmuxControlActive())
+            {
+                self.handler.vt(.dcs_put, c);
                 return;
             }
 
@@ -3446,4 +3487,168 @@ test "stream: tab clear with overflowing param" {
     // This is the exact input from the fuzz crash (minus the mode byte):
     // CSI with a huge numeric param that saturates to 65535, followed by 'g'.
     s.nextSlice("\x1b[388888888888888888888888888888888888g\x1b[0m");
+}
+
+const dcspkg = @import("dcs.zig");
+const tmuxpkg = @import("tmux.zig");
+
+/// A test handler that mirrors StreamHandler's tmux control-mode routing:
+/// dcsHook/dcsPut/dcsUnhook feed a real dcs.Handler whose tmux notifications
+/// drive a real tmux.Viewer, and tmuxControlActive() reports whether a viewer
+/// is alive. Any byte that leaks to .print is captured so a test can detect
+/// protocol bytes (%begin/%output/%end) escaping into ground-state output.
+const TmuxTestHandler = struct {
+    alloc: Allocator,
+    dcs: dcspkg.Handler = .{},
+    viewer: ?*tmuxpkg.Viewer = null,
+    print_buf: std.ArrayListUnmanaged(u8) = .{},
+
+    pub fn deinit(self: *TmuxTestHandler) void {
+        self.dcs.deinit();
+        if (self.viewer) |v| {
+            v.deinit();
+            self.alloc.destroy(v);
+            self.viewer = null;
+        }
+        self.print_buf.deinit(self.alloc);
+    }
+
+    pub fn tmuxControlActive(self: *const TmuxTestHandler) bool {
+        return self.viewer != null;
+    }
+
+    pub fn vt(
+        self: *TmuxTestHandler,
+        comptime action: Action.Tag,
+        value: Action.Value(action),
+    ) void {
+        self.vtFallible(action, value) catch |err| {
+            std.debug.panic("tmux test handler error: {}", .{err});
+        };
+    }
+
+    fn vtFallible(
+        self: *TmuxTestHandler,
+        comptime action: Action.Tag,
+        value: Action.Value(action),
+    ) !void {
+        switch (action) {
+            .print => {
+                // Capture as UTF-8 so a test can assert protocol bytes did not
+                // leak into ground-state output.
+                var buf: [4]u8 = undefined;
+                const n = try std.unicode.utf8Encode(@intCast(value.cp), &buf);
+                try self.print_buf.appendSlice(self.alloc, buf[0..n]);
+            },
+            .dcs_hook => {
+                var cmd = self.dcs.hook(self.alloc, value) orelse return;
+                defer cmd.deinit();
+                try self.dcsCommand(&cmd);
+            },
+            .dcs_put => {
+                var cmd = self.dcs.put(value) orelse return;
+                defer cmd.deinit();
+                try self.dcsCommand(&cmd);
+            },
+            .dcs_unhook => {
+                var cmd = self.dcs.unhook() orelse return;
+                defer cmd.deinit();
+                try self.dcsCommand(&cmd);
+            },
+            else => {},
+        }
+    }
+
+    fn dcsCommand(self: *TmuxTestHandler, cmd: *dcspkg.Command) !void {
+        switch (cmd.*) {
+            .tmux => |notification| {
+                switch (notification) {
+                    .enter => {
+                        const v = try self.alloc.create(tmuxpkg.Viewer);
+                        v.* = try .init(self.alloc);
+                        self.viewer = v;
+                    },
+                    .exit => {
+                        if (self.viewer) |v| {
+                            v.deinit();
+                            self.alloc.destroy(v);
+                            self.viewer = null;
+                        }
+                    },
+                    else => {
+                        const v = self.viewer orelse return;
+                        // Drain actions; we don't need to act on them for the
+                        // test, just exercise the parse path.
+                        _ = v.next(.{ .tmux = notification });
+                    },
+                }
+            },
+            else => {},
+        }
+    }
+};
+
+test "stream: tmux control-mode body consumed verbatim, not leaked as print" {
+    if (comptime !build_options.tmux_control_mode) return error.SkipZigTest;
+
+    const alloc = testing.allocator;
+    var s: Stream(TmuxTestHandler) = .init(.{ .alloc = alloc });
+    defer s.deinit();
+
+    const raw = @embedFile("tmux/testdata/leo-agent-attach-CC.bin");
+    s.nextSlice(raw);
+
+    // The viewer must have been torn down cleanly by the final ESC \ (ST).
+    try testing.expect(s.handler.viewer == null);
+
+    // No control-mode protocol should have leaked into ground-state output.
+    const printed = s.handler.print_buf.items;
+    try testing.expect(std.mem.indexOf(u8, printed, "%begin") == null);
+    try testing.expect(std.mem.indexOf(u8, printed, "%output") == null);
+    try testing.expect(std.mem.indexOf(u8, printed, "%end") == null);
+    try testing.expect(std.mem.indexOf(u8, printed, "%exit") == null);
+}
+
+test "stream: tmux control-mode survives 0x9C continuation byte" {
+    if (comptime !build_options.tmux_control_mode) return error.SkipZigTest;
+
+    const alloc = testing.allocator;
+    var s: Stream(TmuxTestHandler) = .init(.{ .alloc = alloc });
+    defer s.deinit();
+
+    // ESC P 1000 p enters control mode; a %output line carries the raw UTF-8
+    // bytes for the spinner glyph '✻' (0xE2 0x9C 0xBB). The middle byte 0x9C
+    // is an 8-bit ST that, without the fix, would abort the DCS passthrough
+    // and destroy the viewer. ESC \ terminates.
+    s.nextSlice("\x1bP1000p");
+    // While inside the control-mode body the viewer must be active.
+    try testing.expect(s.handler.viewer != null);
+
+    s.nextSlice("%output %0 \xe2\x9c\xbb\r\n");
+    // The 0x9C byte must NOT have torn down the viewer.
+    try testing.expect(s.handler.viewer != null);
+
+    s.nextSlice("%end 1 1 1\r\n\x1b\\");
+
+    // After ST the viewer is cleanly gone and no protocol leaked.
+    try testing.expect(s.handler.viewer == null);
+    const printed = s.handler.print_buf.items;
+    try testing.expect(std.mem.indexOf(u8, printed, "%end") == null);
+    try testing.expect(std.mem.indexOf(u8, printed, "%output") == null);
+}
+
+test "stream: generic DCS unaffected (no tmux viewer, C1 still terminates)" {
+    if (comptime !build_options.tmux_control_mode) return error.SkipZigTest;
+
+    const alloc = testing.allocator;
+    var s: Stream(TmuxTestHandler) = .init(.{ .alloc = alloc });
+    defer s.deinit();
+
+    // A non-tmux DCS (XTGETTCAP request). No viewer is created, so
+    // tmuxControlActive() is false and the fast path must NOT engage. Feed a
+    // bare 8-bit ST (0x9C) which should terminate the DCS as normal and return
+    // the parser to the ground state without any tmux involvement.
+    s.nextSlice("\x1bP+q544e\x9c");
+    try testing.expect(s.handler.viewer == null);
+    try testing.expectEqual(@as(@import("Parser.zig").State, .ground), s.parser.state);
 }
