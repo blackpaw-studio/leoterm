@@ -33,4 +33,28 @@ struct LeoHTTPTests {
         let raw = Data("not http".utf8)
         #expect(throws: LeoError.self) { _ = try LeoHTTPResponse.parse(raw) }
     }
+
+    // MARK: - Chunked transfer-encoding
+
+    @Test func parsesSingleChunkBody() throws {
+        // {"ok":true} = 11 bytes -> hex "b"
+        let payload = "{\"ok\":true}"
+        let raw = Data("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\nb\r\n\(payload)\r\n0\r\n\r\n".utf8)
+        let resp = try LeoHTTPResponse.parse(raw)
+        #expect(String(data: resp.body, encoding: .utf8) == payload)
+    }
+
+    @Test func parsesMultiChunkBody() throws {
+        // "ab" (2 bytes) + "cde" (3 bytes) -> reassembles to "abcde"
+        let raw = Data("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n2\r\nab\r\n3\r\ncde\r\n0\r\n\r\n".utf8)
+        let resp = try LeoHTTPResponse.parse(raw)
+        #expect(String(data: resp.body, encoding: .utf8) == "abcde")
+    }
+
+    @Test func parsesTerminatingZeroChunk() throws {
+        // A bare terminating chunk with no data chunks produces an empty body.
+        let raw = Data("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n".utf8)
+        let resp = try LeoHTTPResponse.parse(raw)
+        #expect(resp.body.isEmpty)
+    }
 }

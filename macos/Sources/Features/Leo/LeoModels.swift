@@ -62,4 +62,10 @@ struct LeoEnvelope<T: Decodable>: Decodable {
         guard let data else { throw LeoError.decode(detail: "missing data field") }
         return data
     }
+
+    /// Assert the daemon reported success; ignore `data`. For void endpoints
+    /// (stop/prune) that may legitimately omit `data`.
+    func expectOK() throws(LeoError) {
+        guard ok else { throw LeoError.daemon(message: error ?? "unknown daemon error") }
+    }
 }

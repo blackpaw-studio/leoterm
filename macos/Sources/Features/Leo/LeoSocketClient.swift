@@ -36,12 +36,12 @@ struct LeoSocketClient: LeoDaemon {
 
     func stop(name: String) async throws(LeoError) {
         let body = try await request(.init(method: "POST", path: "/agents/\(escape(name))/stop"))
-        _ = try LeoEnvelope<EmptyData>.decode(body).value()
+        try LeoEnvelope<EmptyData>.decode(body).expectOK()
     }
 
     func prune(name: String) async throws(LeoError) {
         let body = try await request(.init(method: "POST", path: "/agents/\(escape(name))/prune"))
-        _ = try LeoEnvelope<EmptyData>.decode(body).value()
+        try LeoEnvelope<EmptyData>.decode(body).expectOK()
     }
 
     func listTemplates() async throws(LeoError) -> [Template] {
@@ -93,6 +93,15 @@ struct LeoSocketClient: LeoDaemon {
         guard fd >= 0 else { throw LeoError.daemonUnreachable }
         defer { close(fd) }
 
+        // FIX 1: Prevent SIGPIPE when writing to a peer-closed socket.
+        var noSigPipe: Int32 = 1
+        setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &noSigPipe, socklen_t(MemoryLayout<Int32>.size))
+
+        // FIX 2: 5-second send/receive timeout so a hung daemon can't block forever.
+        var tv = timeval(tv_sec: 5, tv_usec: 0)
+        setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
+        setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
+
         // Build sockaddr_un from the path.
         var addr = sockaddr_un()
         addr.sun_family = sa_family_t(AF_UNIX)
@@ -111,11 +120,15 @@ struct LeoSocketClient: LeoDaemon {
         }
         guard connectResult == 0 else { throw LeoError.daemonUnreachable }
 
-        // Write the full request.
-        let sent = wire.withUnsafeBytes { buf in
-            Darwin.send(fd, buf.baseAddress!, buf.count, 0)
+        // FIX 3: Full write loop — keep sending until all bytes are flushed.
+        var totalSent = 0
+        while totalSent < wire.count {
+            let sent = wire.withUnsafeBytes { buf in
+                Darwin.send(fd, buf.baseAddress!.advanced(by: totalSent), wire.count - totalSent, 0)
+            }
+            if sent <= 0 { throw LeoError.daemonUnreachable }
+            totalSent += sent
         }
-        guard sent == wire.count else { throw LeoError.daemonUnreachable }
 
         // Shutdown write half so the server sees EOF and closes after responding.
         Darwin.shutdown(fd, SHUT_WR)
