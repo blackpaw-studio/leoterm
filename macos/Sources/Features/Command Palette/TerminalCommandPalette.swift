@@ -64,7 +64,7 @@ struct TerminalCommandPaletteView: View {
         // Sort the rest. We replace ":" with a character that sorts before space
         // so that "Foo:" sorts before "Foo Bar:". Use sortKey as a tie-breaker
         // for stable ordering when titles are equal.
-        options.append(contentsOf: (jumpOptions + terminalOptions).sorted { a, b in
+        options.append(contentsOf: (jumpOptions + terminalOptions + leoOptions).sorted { a, b in
             let aNormalized = a.title.replacingOccurrences(of: ":", with: "\t")
             let bNormalized = b.title.replacingOccurrences(of: ":", with: "\t")
             let comparison = aNormalized.localizedCaseInsensitiveCompare(bNormalized)
@@ -132,6 +132,31 @@ struct TerminalCommandPaletteView: View {
                     onAction(c.action)
                 }
             }
+    }
+
+    /// Leo integration commands (Phase 4): sidebar + agent/terminal cell actions.
+    private var leoOptions: [CommandOption] {
+        let controller = surfaceView.window?.windowController as? BaseTerminalController
+        return [
+            CommandOption(
+                title: "Leo: Toggle Sidebar",
+                description: "Show or hide the Leo agent sidebar"
+            ) {
+                (NSApp.delegate as? AppDelegate)?.leoSidebar.toggle()
+            },
+            CommandOption(
+                title: "Leo: New Agent\u{2026}",
+                description: "Spawn a new Leo agent onto this board"
+            ) {
+                controller?.presentSpawnSheet()
+            },
+            CommandOption(
+                title: "Leo: New Terminal Cell",
+                description: "Add a plain terminal cell to this board"
+            ) {
+                controller?.addCell(source: .pty)
+            },
+        ]
     }
 
     /// Commands for jumping to other terminal surfaces.
