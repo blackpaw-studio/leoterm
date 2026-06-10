@@ -11,6 +11,13 @@ struct TerminalGridView: View {
     let tree: SplitTree<Ghostty.SurfaceView>
     let action: (TerminalSplitOperation) -> Void
 
+    /// Dead-agent placeholders to render alongside live surfaces (empty for normal grids).
+    var deadCells: [DeadCell] = []
+    /// Respawn a dead cell's agent.
+    var onRespawnDead: (DeadCell) -> Void = { _ in }
+    /// Remove a dead cell from the board.
+    var onRemoveDead: (DeadCell) -> Void = { _ in }
+
     /// Gap between cells, in points. Made configurable in Phase 2e.
     private let gap: CGFloat = 4
     /// How much an emphasized cell grows relative to its neighbors.
@@ -24,8 +31,8 @@ struct TerminalGridView: View {
     @FocusedValue(\.ghosttySurfaceView) private var focusedSurface
 
     private struct PlacedCell: Identifiable {
-        let id: Ghostty.SurfaceView.ID
-        let surface: Ghostty.SurfaceView
+        let id: UUID
+        let item: GridCellItem
         let frame: CGRect
     }
 
@@ -38,25 +45,24 @@ struct TerminalGridView: View {
     }
 
     private var grid: some View {
-        let surfaces = Array(tree)
-        let isSplit = surfaces.count > 1
+        let items = Array(tree).map(GridCellItem.surface) + deadCells.map(GridCellItem.dead)
+        let isSplit = items.count > 1
         let emphasized = hoveredID ?? focusedSurface?.id
         return GeometryReader { geo in
-            let placed = GridLayout(cells: surfaces)
+            let placed = GridLayout(cells: items)
                 .frames(in: geo.size, gap: gap, pinnedRowHeights: pinnedRowHeights,
                         emphasizing: emphasized, factor: growthFactor)
-                .map { PlacedCell(id: $0.cell.id, surface: $0.cell, frame: $0.frame) }
+                .map { PlacedCell(id: $0.cell.id, item: $0.cell, frame: $0.frame) }
             ZStack(alignment: .topLeading) {
-                ForEach(placed) { item in
-                    Ghostty.InspectableSurface(surfaceView: item.surface, isSplit: isSplit)
-                        .frame(width: item.frame.width, height: item.frame.height)
-                        .overlay(alignment: .bottom) { pinHandle(for: item) }
-                        .position(x: item.frame.midX, y: item.frame.midY)
-                        .onTapGesture { Ghostty.moveFocus(to: item.surface) }
+                ForEach(placed) { placedCell in
+                    cellView(for: placedCell, isSplit: isSplit)
+                        .frame(width: placedCell.frame.width, height: placedCell.frame.height)
+                        .overlay(alignment: .bottom) { pinHandle(for: placedCell) }
+                        .position(x: placedCell.frame.midX, y: placedCell.frame.midY)
                         .onHover { hovering in
                             if hovering {
-                                hoveredID = item.id
-                            } else if hoveredID == item.id {
+                                hoveredID = placedCell.id
+                            } else if hoveredID == placedCell.id {
                                 hoveredID = nil
                             }
                         }
@@ -65,6 +71,21 @@ struct TerminalGridView: View {
             .animation(.spring(response: 0.28, dampingFraction: 0.86), value: hoveredID)
             .animation(.spring(response: 0.28, dampingFraction: 0.86), value: focusedSurface?.id)
             .animation(.spring(response: 0.28, dampingFraction: 0.86), value: pinnedRowHeights)
+        }
+    }
+
+    /// Renders a placed cell: a live terminal surface (focusable) or a dead placeholder.
+    @ViewBuilder
+    private func cellView(for placed: PlacedCell, isSplit: Bool) -> some View {
+        switch placed.item {
+        case .surface(let surface):
+            Ghostty.InspectableSurface(surfaceView: surface, isSplit: isSplit)
+                .onTapGesture { Ghostty.moveFocus(to: surface) }
+        case .dead(let dead):
+            DeadCellView(
+                snapshot: dead.snapshot,
+                onRespawn: { onRespawnDead(dead) },
+                onRemove: { onRemoveDead(dead) })
         }
     }
 
