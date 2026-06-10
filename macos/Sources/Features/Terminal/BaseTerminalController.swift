@@ -231,6 +231,9 @@ class BaseTerminalController: NSWindowController,
 
     // MARK: Methods
 
+    /// Maps surface IDs to their Leo cell source (agent vs plain shell).
+    var cellRegistry = CellRegistry()
+
     /// Create a new split.
     @discardableResult
     func newSplit(
@@ -267,6 +270,26 @@ class BaseTerminalController: NSWindowController,
             undoAction: "New Split")
 
         return newView
+    }
+
+    /// Add a new cell backed by the given Leo source. Inserts relative to the
+    /// focused surface (or the tree's first leaf). The grid auto-packs, so the
+    /// split direction is cosmetic.
+    @discardableResult
+    func addCell(source: CellSource) -> Ghostty.SurfaceView? {
+        guard let anchor = focusedSurface ?? Array(surfaceTree).first else { return nil }
+        guard let view = newSplit(at: anchor, direction: .right,
+                                  baseConfig: source.surfaceConfiguration) else { return nil }
+        cellRegistry.record(id: view.id, source: source)
+        return view
+    }
+
+    /// Close (detach) a cell: forget its source and remove its leaf. For an agent
+    /// cell this kills the attach-client process, but the agent's tmux session
+    /// keeps running in the daemon (lifecycle model A). No confirmation prompt.
+    func closeCell(_ view: Ghostty.SurfaceView) {
+        cellRegistry.forget(id: view.id)
+        closeSurface(view, withConfirmation: false)
     }
 
     /// Move focus to a surface view.
