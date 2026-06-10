@@ -32,6 +32,12 @@ protocol TerminalViewDelegate: AnyObject {
 
     /// Leo: present the spawn-agent sheet.
     func leoPresentSpawnSheet()
+
+    /// Leo: respawn the agent behind a dead cell.
+    func leoRespawnDeadCell(_ dead: DeadCell)
+
+    /// Leo: remove a dead cell from the board.
+    func leoRemoveDeadCell(_ dead: DeadCell)
 }
 
 /// The view model is a required implementation for TerminalView callers. This contains
@@ -47,6 +53,9 @@ protocol TerminalViewModel: ObservableObject {
 
     /// The update overlay should be visible.
     var updateOverlayIsVisible: Bool { get }
+
+    /// Leo dead-cell placeholders to render in the grid.
+    var leoDeadCells: [DeadCell] { get }
 }
 
 /// The main terminal view. This terminal view supports splits.
@@ -103,7 +112,10 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
 
                         TerminalGridView(
                             tree: viewModel.surfaceTree,
-                            action: { delegate?.performSplitAction($0) })
+                            action: { delegate?.performSplitAction($0) },
+                            deadCells: viewModel.leoDeadCells,
+                            onRespawnDead: { dead in self.delegate?.leoRespawnDeadCell(dead) },
+                            onRemoveDead: { dead in self.delegate?.leoRemoveDeadCell(dead) })
                             .environmentObject(ghostty)
                             .ghosttyLastFocusedSurface(lastFocusedSurface)
                             .focused($focused)

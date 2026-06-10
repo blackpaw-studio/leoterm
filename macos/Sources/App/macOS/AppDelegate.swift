@@ -101,6 +101,16 @@ class AppDelegate: NSObject,
     /// Shared Leo daemon store + sidebar model, one per app.
     @MainActor lazy var leoSidebar = LeoSidebarModel(store: LeoAgentStore())
 
+    /// Whether the saved Leo board has been restored yet this launch.
+    private var didRestoreLeoBoard = false
+
+    /// Restore the saved Leo board into the given controller once per launch.
+    func restoreLeoBoardIfNeeded(into controller: BaseTerminalController) {
+        guard !didRestoreLeoBoard else { return }
+        didRestoreLeoBoard = true
+        controller.restoreLeoBoard()
+    }
+
     /// The global undo manager for app-level state such as window restoration.
     lazy var undoManager = ExpiringUndoManager()
 

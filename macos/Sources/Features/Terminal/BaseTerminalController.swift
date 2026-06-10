@@ -45,6 +45,9 @@ class BaseTerminalController: NSWindowController,
         didSet { surfaceTreeDidChange(from: oldValue, to: surfaceTree) }
     }
 
+    /// Dead-agent placeholders restored from a saved board (agents now gone).
+    @Published var leoDeadCells: [DeadCell] = []
+
     /// This can be set to show/hide the command palette.
     @Published var commandPaletteIsShowing: Bool = false
 
@@ -234,6 +237,56 @@ class BaseTerminalController: NSWindowController,
     /// Maps surface IDs to their Leo cell source (agent vs plain shell).
     var cellRegistry = CellRegistry()
 
+    /// Persists the current board to disk.
+    private let leoBoardStore = BoardStore()
+
+    /// Pending debounced board-save work item.
+    private var leoBoardSaveItem: DispatchWorkItem?
+
+    /// Snapshot the current cells (live agent/pty cells + dead placeholders) and
+    /// persist after a short debounce. Called on every board mutation.
+    func scheduleLeoBoardSave() {
+        leoBoardSaveItem?.cancel()
+        let item = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            var planned: [BoardSession.PlannedCell] = Array(self.surfaceTree).map { surface in
+                let source = self.cellRegistry.source(for: surface.id)
+                let snap: AgentSnapshot? = {
+                    if case .agent(let n) = source { return AgentSnapshot(name: n, repo: "") }
+                    return nil
+                }()
+                return .init(source: source, snapshot: snap, isDead: false)
+            }
+            planned += self.leoDeadCells.map {
+                .init(source: .agent(name: $0.snapshot.name), snapshot: $0.snapshot, isDead: true)
+            }
+            try? self.leoBoardStore.save([BoardSession.snapshot(name: "default", from: planned)])
+        }
+        leoBoardSaveItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: item)
+    }
+
+    /// Load the saved "default" board, reconcile against the live daemon, and
+    /// materialize cells: live agents/pty become real cells, gone agents become
+    /// dead placeholders. Safe to call explicitly (e.g. from a palette command).
+    func restoreLeoBoard() {
+        guard let boards = try? leoBoardStore.load(), let board = boards.first else { return }
+        guard let store = (NSApp.delegate as? AppDelegate)?.leoSidebar.store else { return }
+        Task { @MainActor in
+            await store.refresh()
+            let plan = BoardSession.restorePlan(board: board, liveAgents: store.agents)
+            var newDead: [DeadCell] = []
+            for cell in plan {
+                if cell.isDead, let snap = cell.snapshot {
+                    newDead.append(DeadCell(id: UUID(), snapshot: snap))
+                } else {
+                    self.addCell(source: cell.source)
+                }
+            }
+            self.leoDeadCells = newDead
+        }
+    }
+
     /// Create a new split.
     @discardableResult
     func newSplit(
@@ -281,6 +334,7 @@ class BaseTerminalController: NSWindowController,
         guard let view = newSplit(at: anchor, direction: .right,
                                   baseConfig: source.surfaceConfiguration) else { return nil }
         cellRegistry.record(id: view.id, source: source)
+        scheduleLeoBoardSave()
         return view
     }
 
@@ -290,6 +344,7 @@ class BaseTerminalController: NSWindowController,
     func closeCell(_ view: Ghostty.SurfaceView) {
         cellRegistry.forget(id: view.id)
         closeSurface(view, withConfirmation: false)
+        scheduleLeoBoardSave()
     }
 
     /// Move focus to a surface view.
@@ -881,6 +936,18 @@ class BaseTerminalController: NSWindowController,
         presentSpawnSheet()
     }
 
+    func leoRespawnDeadCell(_ dead: DeadCell) {
+        // Remove the placeholder and open the spawn sheet (user picks template+repo).
+        leoDeadCells.removeAll { $0.id == dead.id }
+        scheduleLeoBoardSave()
+        presentSpawnSheet()
+    }
+
+    func leoRemoveDeadCell(_ dead: DeadCell) {
+        leoDeadCells.removeAll { $0.id == dead.id }
+        scheduleLeoBoardSave()
+    }
+
     func focusedSurfaceDidChange(to: Ghostty.SurfaceView?) {
         let lastFocusedSurface = focusedSurface
         focusedSurface = to
@@ -1224,6 +1291,9 @@ class BaseTerminalController: NSWindowController,
 
     override func windowDidLoad() {
         super.windowDidLoad()
+
+        // Leo: restore the saved board into the first terminal window this launch.
+        (NSApp.delegate as? AppDelegate)?.restoreLeoBoardIfNeeded(into: self)
 
         // Setup our undo manager.
 

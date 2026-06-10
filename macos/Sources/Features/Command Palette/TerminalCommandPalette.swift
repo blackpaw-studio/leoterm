@@ -156,6 +156,12 @@ struct TerminalCommandPaletteView: View {
             ) {
                 controller?.addCell(source: .pty)
             },
+            CommandOption(
+                title: "Leo: Restore Saved Board",
+                description: "Reload the saved board (attach live agents, show stopped ones)"
+            ) {
+                controller?.restoreLeoBoard()
+            },
         ]
     }
 
