@@ -871,6 +871,7 @@ fn queueIo(
             .write_small,
             .write_stable,
             .write_alloc,
+            .tmux_keys,
             => return,
 
             else => {},
