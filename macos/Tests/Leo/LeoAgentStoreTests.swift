@@ -5,7 +5,6 @@ import Foundation
 @MainActor
 struct LeoAgentStoreTests {
     @Test func refreshPopulatesAgentsAndMarksOnline() async throws {
-        guard #available(macOS 14.0, *) else { return }
         let daemon = MockLeoDaemon(agents: [
             Agent(name: "a", template: "coding", repo: "x/a", workspace: "/w", status: .running, startedAt: "t", env: [:])
         ])
@@ -16,7 +15,6 @@ struct LeoAgentStoreTests {
     }
 
     @Test func refreshFailureMarksOffline() async throws {
-        guard #available(macOS 14.0, *) else { return }
         let daemon = MockLeoDaemon()
         await daemon.setNextError(.daemonUnreachable)
         let store = LeoAgentStore(daemon: daemon)
@@ -26,7 +24,6 @@ struct LeoAgentStoreTests {
     }
 
     @Test func stopRefreshesAndReflectsNewStatus() async throws {
-        guard #available(macOS 14.0, *) else { return }
         let daemon = MockLeoDaemon(agents: [
             Agent(name: "a", template: "coding", repo: "x/a", workspace: "/w", status: .running, startedAt: "t", env: [:])
         ])

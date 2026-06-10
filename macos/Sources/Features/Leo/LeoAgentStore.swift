@@ -1,20 +1,18 @@
 import Foundation
-import Observation
+import Combine
 import os
 
 /// Observable view-model over the Leo daemon. The sidebar binds to it.
 /// Polling is driven externally (a later task starts/stops a timer based on
 /// sidebar visibility); this type exposes `refresh()` plus the lifecycle actions.
-@available(macOS 14.0, *)
 @MainActor
-@Observable
-final class LeoAgentStore {
+final class LeoAgentStore: ObservableObject {
     enum Connection: Equatable { case unknown, online, offline }
 
-    private(set) var agents: [Agent] = []
-    private(set) var templates: [Template] = []
-    private(set) var connection: Connection = .unknown
-    private(set) var lastError: String?
+    @Published private(set) var agents: [Agent] = []
+    @Published private(set) var templates: [Template] = []
+    @Published private(set) var connection: Connection = .unknown
+    @Published private(set) var lastError: String?
 
     private let daemon: any LeoDaemon
     private static let logger = Logger(subsystem: "com.mitchellh.ghostty", category: "leo-store")
@@ -31,7 +29,7 @@ final class LeoAgentStore {
             agents = fetched
             connection = .online
             lastError = nil
-        } catch {
+        } catch let error {
             connection = .offline
             lastError = error.errorDescription
             Self.logger.warning("agent refresh failed: \(error.errorDescription ?? "?", privacy: .public)")
@@ -50,7 +48,7 @@ final class LeoAgentStore {
             let agent = try await daemon.spawn(request)
             await refresh()
             return agent
-        } catch {
+        } catch let error {
             lastError = error.errorDescription
             return nil
         }
@@ -58,20 +56,12 @@ final class LeoAgentStore {
 
     /// Stop an agent then refresh.
     func stop(name: String) async {
-        do {
-            try await daemon.stop(name: name)
-        } catch {
-            lastError = error.errorDescription
-        }
+        do { try await daemon.stop(name: name) } catch let error { lastError = error.errorDescription }
         await refresh()
     }
 
     func prune(name: String) async {
-        do {
-            try await daemon.prune(name: name)
-        } catch {
-            lastError = error.errorDescription
-        }
+        do { try await daemon.prune(name: name) } catch let error { lastError = error.errorDescription }
         await refresh()
     }
 
