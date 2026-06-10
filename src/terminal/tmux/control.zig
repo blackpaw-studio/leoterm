@@ -183,6 +183,34 @@ pub const Parser = struct {
         return terminator;
     }
 
+    /// Decode tmux's `\ooo` octal escapes in `data` in place, returning the
+    /// (possibly shorter) decoded slice. A backslash not followed by exactly
+    /// 3 octal digits is passed through literally (defensive; tmux always emits
+    /// 3). Decoded length is always <= the source length, so in-place decoding
+    /// never overruns the write cursor.
+    fn unescapeOutput(data: []u8) []u8 {
+        var w: usize = 0;
+        var r: usize = 0;
+        while (r < data.len) : (w += 1) {
+            if (data[r] == '\\' and r + 3 < data.len and
+                isOctal(data[r + 1]) and isOctal(data[r + 2]) and isOctal(data[r + 3]))
+            {
+                data[w] = (@as(u8, data[r + 1] - '0') << 6) |
+                    (@as(u8, data[r + 2] - '0') << 3) |
+                    (data[r + 3] - '0');
+                r += 4;
+            } else {
+                data[w] = data[r];
+                r += 1;
+            }
+        }
+        return data[0..w];
+    }
+
+    fn isOctal(b: u8) bool {
+        return b >= '0' and b <= '7';
+    }
+
     fn parseNotification(self: *Parser) ParseError!?Notification {
         assert(self.state == .notification);
 
@@ -236,9 +264,15 @@ pub const Parser = struct {
                 line[@intCast(starts[1])..@intCast(ends[1])],
                 10,
             ) catch unreachable;
-            const data = line[@intCast(starts[2])..@intCast(ends[2])];
+            // tmux escapes %output data as `\ooo` (backslash + exactly 3 octal
+            // digits) for every non-printable byte. Decode in place: `line` is a
+            // mutable slice into our own buffer (Allocating.written() -> []u8),
+            // and the returned slice is consumed by the caller before the next
+            // put() reuses the buffer, so this is safe. Decoded length <= source.
+            const raw = line[@intCast(starts[2])..@intCast(ends[2])];
+            const data = unescapeOutput(raw);
 
-            // Important: do not clear buffer here since name points to it
+            // Important: do not clear buffer here since data points to it
             self.state = .idle;
             return .{ .output = .{ .pane_id = id, .data = data } };
         } else if (std.mem.eql(u8, cmd, "%session-changed")) cmd: {
@@ -519,7 +553,7 @@ pub const Notification = union(enum) {
     /// Raw output from a pane.
     output: struct {
         pane_id: usize,
-        data: []const u8, // unescaped
+        data: []const u8, // unescaped (octal `\ooo` escapes decoded)
     },
 
     /// The client is now attached to the session with ID session-id, which is
@@ -724,6 +758,40 @@ test "tmux output" {
     try testing.expectEqualStrings("foo bar baz", n.output.data);
 }
 
+test "tmux output decodes octal escapes" {
+    const testing = std.testing;
+    const alloc = testing.allocator;
+    var c: Parser = .{ .buffer = .init(alloc) };
+    defer c.deinit();
+    // \033[1mhi\033[0m  -> ESC [ 1 m h i ESC [ 0 m
+    const line = "%output %0 \\033[1mhi\\033[0m";
+    for (line) |byte| try testing.expect(try c.put(byte) == null);
+    const n = (try c.put('\n')).?;
+    try testing.expect(n == .output);
+    try testing.expectEqual(0, n.output.pane_id);
+    try testing.expectEqualStrings("\x1b[1mhi\x1b[0m", n.output.data);
+}
+
+test "tmux output passes through printable data unchanged" {
+    const testing = std.testing;
+    const alloc = testing.allocator;
+    var c: Parser = .{ .buffer = .init(alloc) };
+    defer c.deinit();
+    for ("%output %42 foo bar baz") |byte| try testing.expect(try c.put(byte) == null);
+    const n = (try c.put('\n')).?;
+    try testing.expectEqualStrings("foo bar baz", n.output.data);
+}
+
+test "tmux output decodes a literal backslash (134) and trailing data" {
+    const testing = std.testing;
+    const alloc = testing.allocator;
+    var c: Parser = .{ .buffer = .init(alloc) };
+    defer c.deinit();
+    for ("%output %1 a\\134b") |byte| try testing.expect(try c.put(byte) == null);
+    const n = (try c.put('\n')).?;
+    try testing.expectEqualStrings("a\\b", n.output.data); // \134 -> backslash byte
+}
+
 test "tmux session-changed" {
     const testing = std.testing;
     const alloc = testing.allocator;
@@ -886,4 +954,40 @@ test "tmux real -CC transcript fixture" {
     // signal in the protocol is a non-'%' byte at idle state.  The fixture
     // ends with "%exit\r\n" followed by the DCS ST which we have already
     // stripped, so no .exit Notification is emitted — this is expected.
+}
+
+test "tmux real -CC fixture %output octal decodes to real ESC bytes" {
+    const testing = std.testing;
+    const alloc = testing.allocator;
+
+    // Same DCS-stripping as the fixture test above.
+    const raw = @embedFile("testdata/leo-agent-attach-CC.bin");
+    const open = std.mem.indexOf(u8, raw, "1000p") orelse
+        return error.NoDcsOpen;
+    const inner_start = open + "1000p".len;
+    const st = std.mem.indexOfPos(u8, raw, inner_start, "\x1b\\") orelse raw.len;
+    const inner = raw[inner_start..st];
+
+    var c: Parser = .{ .buffer = .init(alloc) };
+    defer c.deinit();
+
+    var saw_decoded_esc = false;
+    for (inner) |byte| {
+        const notif = try c.put(byte) orelse continue;
+        switch (notif) {
+            .output => |out| {
+                // The fixture contains octal-escaped output (e.g. \033, \017).
+                // After decoding, the data must NOT contain the literal 4-char
+                // escape "\033", and at least one output must carry a real ESC
+                // (0x1b) byte — proving the decode fired on real captured data.
+                try testing.expect(std.mem.indexOf(u8, out.data, "\\033") == null);
+                if (std.mem.indexOfScalar(u8, out.data, 0x1b) != null) {
+                    saw_decoded_esc = true;
+                }
+            },
+            else => {},
+        }
+    }
+
+    try testing.expect(saw_decoded_esc);
 }
