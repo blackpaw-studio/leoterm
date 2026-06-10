@@ -176,6 +176,11 @@ search: ?Search = null,
 /// Used to rate limit BEL handling.
 last_bell_time: ?std.time.Instant = null,
 
+/// True while a tmux control-mode viewer backs this surface's IO. When set,
+/// keystrokes are forwarded to tmux (send-keys) instead of the local pty.
+/// Set/cleared by the .tmux_control_mode apprt message (termio -> surface).
+tmux_control_mode: bool = false,
+
 /// The effect of an input event. This can be used by callers to take
 /// the appropriate action after an input event. For example, key
 /// input can be forwarded to the OS for further processing if it
@@ -1164,6 +1169,8 @@ pub fn handleMessage(self: *Surface, msg: Message) !void {
                 .{ .selected = v },
             );
         },
+
+        .tmux_control_mode => |active| self.tmux_control_mode = active,
     }
 }
 

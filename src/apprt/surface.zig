@@ -108,6 +108,10 @@ pub const Message = union(enum) {
     /// Selected search index change
     search_selected: ?usize,
 
+    /// A tmux control-mode viewer became active (true) or exited (false) for
+    /// this surface. Lets the UI-thread key handler route keystrokes to tmux.
+    tmux_control_mode: bool,
+
     pub const ReportTitleStyle = enum {
         csi_21_t,
 
