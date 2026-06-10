@@ -12,9 +12,21 @@
 
 ## Conventions for every task
 
-- **Build (full app):** `nu macos/build.nu` (add `--configuration Debug`). Toolchain pins in memory `leo-build-toolchain` (Xcode 26.3, NOT 26.5).
-- **Test (full unit suite, skips UI tests):** `nu macos/build.nu --action test`
-- **Test (targeted, faster):** `xcodebuild test -project macos/Ghostty.xcodeproj -scheme Ghostty -only-testing:GhosttyTests/<SuiteName>` in a clean env (prefix with `env -i HOME=$HOME PATH=/usr/bin:/bin:/usr/sbin:/sbin` like build.nu does, to dodge Nix interference).
+- **Toolchain:** Xcode 26.5 is the *selected* system Xcode, but the pinned toolchain is **26.3** (memory `leo-build-toolchain`). Do NOT `xcode-select -s` (needs sudo, changes the global default). Instead set `DEVELOPER_DIR` per-command. The Xcode scheme links the prebuilt `GhosttyKit.xcframework` and has **no `zig build` phase**, so `xcodebuild test` does not hit the 26.5/Zig-linker issue — but we pin 26.3 anyway for consistency.
+- **Canonical targeted test command (VERIFIED working — use this in every task):**
+  ```bash
+  cd /Users/evan/.leo/agents/leoterm && \
+  env -i HOME="$HOME" PATH=/usr/bin:/bin:/usr/sbin:/sbin \
+    DEVELOPER_DIR=/Applications/Xcode-26.3.0.app/Contents/Developer \
+    xcodebuild test \
+    -project macos/Ghostty.xcodeproj -scheme Ghostty \
+    -only-testing:GhosttyTests/<SuiteName> \
+    -packageAuthorizationProvider netrc \
+    -destination 'platform=macOS' \
+    SYMROOT="$PWD/macos/build"
+  ```
+  (`-packageAuthorizationProvider netrc` avoids a Sparkle SPM Keychain hang in headless sessions. Drop `-only-testing:` to run the whole `GhosttyTests` target.)
+- **Build the app** (for UI/integration tasks that need a full build, no test): same env prefix + `DEVELOPER_DIR`, with `nu macos/build.nu` OR `xcodebuild build -project ... -scheme Ghostty -destination 'platform=macOS' SYMROOT=...`. The `nu macos/build.nu` wrapper uses `env -i` and will NOT forward `DEVELOPER_DIR`; prefer the explicit `xcodebuild` form above so 26.3 is used.
 - **New source files** go under `macos/Sources/Features/Leo/`. **New tests** under `macos/Tests/Leo/`. The Xcode project uses **file-system-synchronized root groups** (`Sources` and `Tests` are `PBXFileSystemSynchronizedRootGroup`), so files created under those directories are **auto-included** in the `Ghostty` and `GhosttyTests` targets respectively — **no `project.pbxproj` editing and no Xcode GUI needed**. (Confirmed: Phase 2's `GridLayoutTests.swift` has zero explicit pbxproj entries.) Ignore any step below that says to add files to a target or `git add` `project.pbxproj` — those are obsolete; just create the file in the right directory.
 - **Format before commit:** `swiftlint lint --strict --fix` on changed files.
 - GUI feel and live-daemon behavior are verified by Evan on Dionysus (the agent session cannot see the GUI — memory `gui-verification-constraint`). Build + unit tests are the agent's gate; manual E2E is the human's.
