@@ -243,19 +243,25 @@ class BaseTerminalController: NSWindowController,
     /// Pending debounced board-save work item.
     private var leoBoardSaveItem: DispatchWorkItem?
 
-    /// Snapshot the current cells (live agent/pty cells + dead placeholders) and
+    /// Suppresses board saves while a restore is in flight (each `addCell`
+    /// triggers a debounced save; we want exactly one save at the end).
+    private var isRestoringLeoBoard = false
+
+    /// Snapshot the current cells (live agent cells + dead placeholders) and
     /// persist after a short debounce. Called on every board mutation.
     func scheduleLeoBoardSave() {
+        guard !isRestoringLeoBoard else { return }
         leoBoardSaveItem?.cancel()
         let item = DispatchWorkItem { [weak self] in
             guard let self else { return }
-            var planned: [BoardSession.PlannedCell] = Array(self.surfaceTree).map { surface in
-                let source = self.cellRegistry.source(for: surface.id)
-                let snap: AgentSnapshot? = {
-                    if case .agent(let n) = source { return AgentSnapshot(name: n, repo: "") }
-                    return nil
-                }()
-                return .init(source: source, snapshot: snap, isDead: false)
+            let liveRepos = (NSApp.delegate as? AppDelegate)?.leoSidebar.store.agents
+                .reduce(into: [String: String]()) { $0[$1.name] = $1.repo } ?? [:]
+            // Persist only agent cells; the auto-created .pty shell must NOT be saved.
+            var planned: [BoardSession.PlannedCell] = Array(self.surfaceTree).compactMap { surface in
+                guard case .agent(let name) = self.cellRegistry.source(for: surface.id) else { return nil }
+                return .init(source: .agent(name: name),
+                             snapshot: AgentSnapshot(name: name, repo: liveRepos[name] ?? ""),
+                             isDead: false)
             }
             planned += self.leoDeadCells.map {
                 .init(source: .agent(name: $0.snapshot.name), snapshot: $0.snapshot, isDead: true)
@@ -267,23 +273,33 @@ class BaseTerminalController: NSWindowController,
     }
 
     /// Load the saved "default" board, reconcile against the live daemon, and
-    /// materialize cells: live agents/pty become real cells, gone agents become
-    /// dead placeholders. Safe to call explicitly (e.g. from a palette command).
+    /// materialize cells: live agents become real cells, gone agents become
+    /// dead placeholders. Idempotent and safe to call explicitly (e.g. from a
+    /// palette command) — agents already on the board are skipped.
     func restoreLeoBoard() {
         guard let boards = try? leoBoardStore.load(), let board = boards.first else { return }
         guard let store = (NSApp.delegate as? AppDelegate)?.leoSidebar.store else { return }
         Task { @MainActor in
+            self.isRestoringLeoBoard = true
             await store.refresh()
             let plan = BoardSession.restorePlan(board: board, liveAgents: store.agents)
+            let onBoard = Set(self.cellRegistry.agentNames)
             var newDead: [DeadCell] = []
             for cell in plan {
                 if cell.isDead, let snap = cell.snapshot {
-                    newDead.append(DeadCell(id: UUID(), snapshot: snap))
+                    // Avoid duplicate dead placeholders for the same agent.
+                    if !newDead.contains(where: { $0.snapshot.name == snap.name }) {
+                        newDead.append(DeadCell(id: UUID(), snapshot: snap))
+                    }
+                } else if case .agent(let name) = cell.source, onBoard.contains(name) {
+                    continue // already on the board — don't duplicate
                 } else {
                     self.addCell(source: cell.source)
                 }
             }
             self.leoDeadCells = newDead
+            self.isRestoringLeoBoard = false
+            self.scheduleLeoBoardSave()
         }
     }
 
