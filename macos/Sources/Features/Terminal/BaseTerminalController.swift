@@ -853,9 +853,32 @@ class BaseTerminalController: NSWindowController,
         addCell(source: .pty)
     }
 
+    /// Present the spawn-agent sheet. On spawn, lands the new agent as a cell.
+    func presentSpawnSheet() {
+        guard let store = (NSApp.delegate as? AppDelegate)?.leoSidebar.store,
+              let container = window?.contentViewController else { return }
+        var hosting: NSHostingController<SpawnAgentSheet>?
+        let view = SpawnAgentSheet(
+            store: store,
+            onSpawn: { [weak self, weak container] request in
+                if let hosting, let container { container.dismiss(hosting) }
+                Task {
+                    if let agent = await store.spawn(request) {
+                        self?.addCell(source: .agent(name: agent.name))
+                    }
+                }
+            },
+            onCancel: { [weak container] in
+                if let hosting, let container { container.dismiss(hosting) }
+            })
+        let controller = NSHostingController(rootView: view)
+        hosting = controller
+        container.presentAsSheet(controller)
+    }
+
     /// Present the spawn-agent sheet. Implemented in Task 12; stubbed for now.
     func leoPresentSpawnSheet() {
-        // TODO(Task 12): present SpawnAgentSheet.
+        presentSpawnSheet()
     }
 
     func focusedSurfaceDidChange(to: Ghostty.SurfaceView?) {
