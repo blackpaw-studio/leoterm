@@ -457,6 +457,7 @@ pub const StreamHandler = struct {
                         viewer.* = try .init(self.alloc);
                         errdefer viewer.deinit();
                         self.tmux_viewer = viewer;
+                        self.surfaceMessageWriter(.{ .tmux_control_mode = true });
                         break :tmux;
                     },
 
@@ -467,6 +468,7 @@ pub const StreamHandler = struct {
                             self.alloc.destroy(viewer);
                             self.tmux_viewer = null;
                         }
+                        self.surfaceMessageWriter(.{ .tmux_control_mode = false });
 
                         // And always break since we assert below
                         // that we're not handling an exit command.
