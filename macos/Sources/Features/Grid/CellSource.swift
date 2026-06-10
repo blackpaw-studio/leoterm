@@ -7,13 +7,22 @@
 ///   control-mode protocol it emits is consumed by the terminal core's
 ///   tmux `Viewer`, not displayed verbatim.
 ///
+///   The command is prefixed with `env -u TMUX -u TMUX_PANE` because the
+///   control-mode client (tmux / `leo agent attach --cc`) refuses to start
+///   when `$TMUX` is set — tmux's session-nesting guard. Without this, when
+///   Leo is launched from inside a tmux session the inherited `$TMUX` makes
+///   the surface command error out and exit immediately (closing the cell).
+///   Clearing it lets the client attach cleanly.
+///
 /// Both cases resolve to a `Ghostty.SurfaceConfiguration`, so the renderer
 /// and input stack stay agnostic to what backs a cell.
 enum CellSource: Equatable {
     case pty
     case agent(name: String)
 
-    private static let agentAttachCommand = "leo agent attach --cc"
+    /// Clears the inherited tmux env (so the nesting guard doesn't fire), then
+    /// runs the control-mode attach. Trailing space: the agent name follows.
+    private static let agentAttachCommand = "/usr/bin/env -u TMUX -u TMUX_PANE leo agent attach --cc"
 
     /// True for cells backed by a Leo agent (carries agent status semantics).
     var isAgent: Bool {

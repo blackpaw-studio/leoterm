@@ -82,6 +82,11 @@ pub const Message = union(enum) {
     /// Write where the data is allocated and must be freed.
     write_alloc: WriteReq.Alloc,
 
+    /// User keystroke bytes to forward to an active tmux control-mode viewer.
+    /// Distinct from write_* so the drain routes these to the viewer (send-keys)
+    /// without intercepting the viewer's own control writes.
+    tmux_keys: WriteReq.Alloc,
+
     /// Return a write request for the given data. This will use
     /// write_small if it fits or write_alloc otherwise. This should NOT
     /// be used for stable pointers which can be manually set to write_stable.
@@ -91,6 +96,15 @@ pub const Message = union(enum) {
             .small => |v| Message{ .write_small = v },
             .alloc => |v| Message{ .write_alloc = v },
         };
+    }
+
+    /// Build an owned `tmux_keys` message that copies the given keystroke
+    /// bytes into an allocator-owned buffer. The drain frees this buffer
+    /// after forwarding it to the tmux viewer.
+    pub fn tmuxKeys(alloc: Allocator, data: []const u8) !Message {
+        const buf = try alloc.dupe(u8, data);
+        errdefer alloc.free(buf);
+        return .{ .tmux_keys = .{ .alloc = alloc, .data = buf } };
     }
 
     /// The types of size reports that we support.
@@ -105,4 +119,17 @@ test {
     // Ensure we don't grow our IO message size without explicitly wanting to.
     const testing = std.testing;
     try testing.expectEqual(@as(usize, 40), @sizeOf(Message));
+}
+
+test "Message.tmuxKeys owns and copies the input bytes" {
+    const testing = std.testing;
+    const alloc = testing.allocator;
+
+    const input = "hello tmux";
+    const msg = try Message.tmuxKeys(alloc, input);
+    defer msg.tmux_keys.alloc.free(msg.tmux_keys.data);
+
+    try testing.expectEqualSlices(u8, input, msg.tmux_keys.data);
+    // The buffer must be a fresh copy, not an alias of the input slice.
+    try testing.expect(msg.tmux_keys.data.ptr != input.ptr);
 }

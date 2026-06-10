@@ -176,6 +176,11 @@ search: ?Search = null,
 /// Used to rate limit BEL handling.
 last_bell_time: ?std.time.Instant = null,
 
+/// True while a tmux control-mode viewer backs this surface's IO. When set,
+/// keystrokes are forwarded to tmux (send-keys) instead of the local pty.
+/// Set/cleared by the .tmux_control_mode apprt message (termio -> surface).
+tmux_control_mode: bool = false,
+
 /// The effect of an input event. This can be used by callers to take
 /// the appropriate action after an input event. For example, key
 /// input can be forwarded to the OS for further processing if it
@@ -863,11 +868,14 @@ fn queueIo(
     // In readonly mode, we don't allow any writes through to the pty.
     if (self.readonly) {
         switch (msg) {
-            .write_small,
-            .write_stable,
-            .write_alloc,
-            => return,
-
+            // These own no heap; safe to drop.
+            .write_small, .write_stable => return,
+            // These own an allocated buffer that the IO thread would normally
+            // free; since we're dropping the message here, free it ourselves.
+            .write_alloc, .tmux_keys => |v| {
+                v.alloc.free(v.data);
+                return;
+            },
             else => {},
         }
     }
@@ -1164,6 +1172,8 @@ pub fn handleMessage(self: *Surface, msg: Message) !void {
                 .{ .selected = v },
             );
         },
+
+        .tmux_control_mode => |active| self.tmux_control_mode = active,
     }
 }
 
@@ -2807,11 +2817,27 @@ pub fn keyCallback(
         }
 
         errdefer write_req.deinit();
-        self.queueIo(switch (write_req) {
-            .small => |v| .{ .write_small = v },
-            .stable => |v| .{ .write_stable = v },
-            .alloc => |v| .{ .write_alloc = v },
-        }, .unlocked);
+        if (self.tmux_control_mode) {
+            // A tmux control-mode viewer backs this surface: its stdin
+            // expects tmux commands, not raw keys. Hand the encoded bytes to
+            // termio as tmux_keys; the termio thread converts them to
+            // `send-keys` for the active pane. This keeps viewer.next() on the
+            // termio thread (never the UI thread). Ownership: transfer the
+            // .alloc buffer directly (zero-copy, the drain frees it exactly as
+            // the write_alloc arm would); copy small/stable into an owned buf.
+            const msg: termio.Message = switch (write_req) {
+                .alloc => |v| .{ .tmux_keys = v },
+                .small => |v| try .tmuxKeys(self.alloc, v.data[0..v.len]),
+                .stable => |v| try .tmuxKeys(self.alloc, v),
+            };
+            self.queueIo(msg, .unlocked);
+        } else {
+            self.queueIo(switch (write_req) {
+                .small => |v| .{ .write_small = v },
+                .stable => |v| .{ .write_stable = v },
+                .alloc => |v| .{ .write_alloc = v },
+            }, .unlocked);
+        }
     } else {
         // No valid request means that we didn't encode anything.
         return .ignored;
