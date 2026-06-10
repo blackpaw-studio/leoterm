@@ -15,7 +15,7 @@
 - **Build (full app):** `nu macos/build.nu` (add `--configuration Debug`). Toolchain pins in memory `leo-build-toolchain` (Xcode 26.3, NOT 26.5).
 - **Test (full unit suite, skips UI tests):** `nu macos/build.nu --action test`
 - **Test (targeted, faster):** `xcodebuild test -project macos/Ghostty.xcodeproj -scheme Ghostty -only-testing:GhosttyTests/<SuiteName>` in a clean env (prefix with `env -i HOME=$HOME PATH=/usr/bin:/bin:/usr/sbin:/sbin` like build.nu does, to dodge Nix interference).
-- **New source files** go under `macos/Sources/Features/Leo/`. **New tests** under `macos/Tests/Leo/`. Both must be added to the Xcode project (`GhosttyKit`/`Ghostty` app target and `GhosttyTests` target respectively) — see Task 0.
+- **New source files** go under `macos/Sources/Features/Leo/`. **New tests** under `macos/Tests/Leo/`. The Xcode project uses **file-system-synchronized root groups** (`Sources` and `Tests` are `PBXFileSystemSynchronizedRootGroup`), so files created under those directories are **auto-included** in the `Ghostty` and `GhosttyTests` targets respectively — **no `project.pbxproj` editing and no Xcode GUI needed**. (Confirmed: Phase 2's `GridLayoutTests.swift` has zero explicit pbxproj entries.) Ignore any step below that says to add files to a target or `git add` `project.pbxproj` — those are obsolete; just create the file in the right directory.
 - **Format before commit:** `swiftlint lint --strict --fix` on changed files.
 - GUI feel and live-daemon behavior are verified by Evan on Dionysus (the agent session cannot see the GUI — memory `gui-verification-constraint`). Build + unit tests are the agent's gate; manual E2E is the human's.
 
