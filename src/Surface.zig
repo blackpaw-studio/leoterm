@@ -868,12 +868,14 @@ fn queueIo(
     // In readonly mode, we don't allow any writes through to the pty.
     if (self.readonly) {
         switch (msg) {
-            .write_small,
-            .write_stable,
-            .write_alloc,
-            .tmux_keys,
-            => return,
-
+            // These own no heap; safe to drop.
+            .write_small, .write_stable => return,
+            // These own an allocated buffer that the IO thread would normally
+            // free; since we're dropping the message here, free it ourselves.
+            .write_alloc, .tmux_keys => |v| {
+                v.alloc.free(v.data);
+                return;
+            },
             else => {},
         }
     }
