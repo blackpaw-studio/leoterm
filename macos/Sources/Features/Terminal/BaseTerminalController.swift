@@ -841,6 +841,23 @@ class BaseTerminalController: NSWindowController,
 
     // MARK: TerminalViewDelegate
 
+    func leoOnBoardAgentNames() -> Set<String> {
+        Set(cellRegistry.agentNames)
+    }
+
+    func leoAddAgentCell(named name: String) {
+        addCell(source: .agent(name: name))
+    }
+
+    func leoAddTerminalCell() {
+        addCell(source: .pty)
+    }
+
+    /// Present the spawn-agent sheet. Implemented in Task 12; stubbed for now.
+    func leoPresentSpawnSheet() {
+        // TODO(Task 12): present SpawnAgentSheet.
+    }
+
     func focusedSurfaceDidChange(to: Ghostty.SurfaceView?) {
         let lastFocusedSurface = focusedSurface
         focusedSurface = to
