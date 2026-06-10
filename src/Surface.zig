@@ -2814,11 +2814,27 @@ pub fn keyCallback(
         }
 
         errdefer write_req.deinit();
-        self.queueIo(switch (write_req) {
-            .small => |v| .{ .write_small = v },
-            .stable => |v| .{ .write_stable = v },
-            .alloc => |v| .{ .write_alloc = v },
-        }, .unlocked);
+        if (self.tmux_control_mode) {
+            // A tmux control-mode viewer backs this surface: its stdin
+            // expects tmux commands, not raw keys. Hand the encoded bytes to
+            // termio as tmux_keys; the termio thread converts them to
+            // `send-keys` for the active pane. This keeps viewer.next() on the
+            // termio thread (never the UI thread). Ownership: transfer the
+            // .alloc buffer directly (zero-copy, the drain frees it exactly as
+            // the write_alloc arm would); copy small/stable into an owned buf.
+            const msg: termio.Message = switch (write_req) {
+                .alloc => |v| .{ .tmux_keys = v },
+                .small => |v| try .tmuxKeys(self.alloc, v.data[0..v.len]),
+                .stable => |v| try .tmuxKeys(self.alloc, v),
+            };
+            self.queueIo(msg, .unlocked);
+        } else {
+            self.queueIo(switch (write_req) {
+                .small => |v| .{ .write_small = v },
+                .stable => |v| .{ .write_stable = v },
+                .alloc => |v| .{ .write_alloc = v },
+            }, .unlocked);
+        }
     } else {
         // No valid request means that we didn't encode anything.
         return .ignored;
