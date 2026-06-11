@@ -351,7 +351,7 @@ class AppDelegate: NSObject,
         }
 
         // Install the Leo sidebar toggle into the menu bar at runtime.
-        installLeoMenuItem()
+        installLeoMenuItems()
     }
 
     func applicationDidHide(_ notification: Notification) {
@@ -1395,24 +1395,34 @@ extension AppDelegate {
 
     // MARK: - Leo
 
-    /// Inserts a "Toggle Leo Sidebar" item into the View menu at runtime, since
-    /// the main menu is defined in a xib we don't edit here.
-    private func installLeoMenuItem() {
-        let item = NSMenuItem(
+    /// Inserts Leo commands into the View menu at runtime, since the main menu is
+    /// defined in a xib we don't edit here.
+    private func installLeoMenuItems() {
+        // New cell routes through the responder chain (nil target) to the key
+        // window's `BaseTerminalController.leoNewTerminalCell(_:)`.
+        let newCell = NSMenuItem(
+            title: "New Terminal Cell",
+            action: #selector(BaseTerminalController.leoNewTerminalCell(_:)),
+            keyEquivalent: "n")
+        newCell.keyEquivalentModifierMask = [.command, .shift]
+
+        let toggleSidebar = NSMenuItem(
             title: "Toggle Leo Sidebar",
             action: #selector(toggleLeoSidebar(_:)),
             keyEquivalent: "l")
-        item.keyEquivalentModifierMask = [.command, .shift]
-        item.target = self
+        toggleSidebar.keyEquivalentModifierMask = [.command, .shift]
+        toggleSidebar.target = self
+
+        let items = [newCell, toggleSidebar]
         // Prefer the View menu; fall back to appending a top-level Leo menu.
         if let viewMenu = NSApp.mainMenu?.items.first(where: { $0.title == "View" })?.submenu {
             viewMenu.addItem(.separator())
-            viewMenu.addItem(item)
+            items.forEach { viewMenu.addItem($0) }
         } else if let mainMenu = NSApp.mainMenu {
             let leoMenu = NSMenu(title: "Leo")
             let leoTop = NSMenuItem(title: "Leo", action: nil, keyEquivalent: "")
             leoTop.submenu = leoMenu
-            leoMenu.addItem(item)
+            items.forEach { leoMenu.addItem($0) }
             mainMenu.addItem(leoTop)
         }
     }

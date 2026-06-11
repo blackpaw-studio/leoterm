@@ -939,6 +939,13 @@ class BaseTerminalController: NSWindowController,
         addCell(source: .pty)
     }
 
+    /// Menu/responder-chain entry point for "New Terminal Cell". Routed from the
+    /// runtime-installed Leo menu item (see `AppDelegate.installLeoMenuItems`) to
+    /// whichever terminal window is key.
+    @IBAction func leoNewTerminalCell(_ sender: Any?) {
+        leoAddTerminalCell()
+    }
+
     /// Present the spawn-agent sheet. On spawn, lands the new agent as a cell.
     func presentSpawnSheet() {
         guard let store = (NSApp.delegate as? AppDelegate)?.leoSidebar.store,
@@ -1025,14 +1032,25 @@ class BaseTerminalController: NSWindowController,
     private func applyTitleToWindow() {
         guard let window else { return }
 
+        let base: String
         if let titleOverride {
-            window.title = computeTitle(
+            base = computeTitle(
                 title: titleOverride,
                 bell: focusedSurface?.bell ?? false)
-            return
+        } else {
+            base = lastComputedTitle
         }
+        window.title = appendingNeedsYouSuffix(to: base)
+    }
 
-        window.title = lastComputedTitle
+    /// Appends a "· N needs you" suffix when one or more agent cells in this
+    /// window are waiting on the user. Computed at apply-time (not baked into
+    /// `lastComputedTitle`) so it stays correct when a *non-focused* cell rings —
+    /// `setupNeedsYouCountPublisher` re-applies the title on every count change.
+    private func appendingNeedsYouSuffix(to base: String) -> String {
+        let waiting = needsYouCount
+        guard waiting > 0 else { return base }
+        return "\(base) · \(waiting) needs you"
     }
 
     func pwdDidChange(to: URL?) {
@@ -1747,6 +1765,9 @@ extension BaseTerminalController {
         .removeDuplicates()
         .sink { [weak self] _ in
             guard let self else { return }
+            // Refresh this window's title suffix on every count change (incl.
+            // non-focused cells, which the focused-surface title pipeline misses).
+            self.applyTitleToWindow()
             NotificationCenter.default.post(
                 name: .leoNeedsYouCountDidChangeNotification,
                 object: self
