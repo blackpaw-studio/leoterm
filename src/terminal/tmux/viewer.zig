@@ -215,6 +215,11 @@ pub const Viewer = struct {
         /// (re-mirror) the active pane. Carries no payload.
         redraw,
 
+        /// The active pane (or any tracked pane) emitted a terminal bell
+        /// (0x07 in its %output). The caller should surface this as user
+        /// attention ("needs you"). Carries no payload.
+        bell,
+
         pub fn format(self: Action, writer: *std.Io.Writer) !void {
             const T = Action;
             const info = @typeInfo(T).@"union";
@@ -524,6 +529,11 @@ pub const Viewer = struct {
                     actions.append(arena.allocator(), .redraw) catch {
                         log.warn("failed to queue redraw action for pane output", .{});
                     };
+                    if (outputHasBell(out.data)) {
+                        actions.append(arena.allocator(), .bell) catch {
+                            log.warn("failed to queue bell action for pane output", .{});
+                        };
+                    }
                 }
             } else |err| {
                 log.warn(
@@ -1182,6 +1192,15 @@ pub const Viewer = struct {
         var stream = t.vtStream();
         defer stream.deinit();
         stream.nextSlice(content);
+    }
+
+    /// True if the decoded %output data contains a terminal BEL (0x07).
+    /// tmux has no %bell control-mode notification, so a bell is detected as a
+    /// raw byte in the pane output stream. This is a heuristic: a 0x07 embedded
+    /// in an OSC/DCS payload would also match, which is acceptable for a
+    /// best-effort "needs you" signal.
+    fn outputHasBell(data: []const u8) bool {
+        return std.mem.indexOfScalar(u8, data, 0x07) != null;
     }
 
     /// Apply live %output bytes to the pane terminal's active screen.
@@ -2545,4 +2564,11 @@ test "tmux resize input with no window emits nothing" {
     defer viewer.deinit();
     const actions = viewer.next(.{ .resize = .{ .cols = 80, .rows = 24 } });
     try testing.expectEqual(@as(usize, 0), actions.len);
+}
+
+test "outputHasBell detects a BEL byte" {
+    try std.testing.expect(Viewer.outputHasBell(&[_]u8{ 'h', 'i', 0x07 }));
+    try std.testing.expect(Viewer.outputHasBell(&[_]u8{0x07}));
+    try std.testing.expect(!Viewer.outputHasBell("hello world"));
+    try std.testing.expect(!Viewer.outputHasBell(""));
 }

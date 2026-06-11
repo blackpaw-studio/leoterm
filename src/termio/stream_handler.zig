@@ -531,6 +531,13 @@ pub const StreamHandler = struct {
                         // (pane content changed via capture or live %output)
                         // re-mirror the active pane into the surface terminal.
                         .windows, .redraw => self.renderTmuxPane(viewer),
+
+                        // A tracked pane rang the bell; route it through the
+                        // existing surface bell path (self.bell()) so
+                        // SurfaceView.bell lights up (and auto-clears on
+                        // focus/keydown) for the agent cell — the macOS
+                        // "needs you" signal.
+                        .bell => self.bell(),
                     }
                 }
             },
