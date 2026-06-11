@@ -45,6 +45,9 @@ class BaseTerminalController: NSWindowController,
         didSet { surfaceTreeDidChange(from: oldValue, to: surfaceTree) }
     }
 
+    /// Dead-agent placeholders restored from a saved board (agents now gone).
+    @Published var leoDeadCells: [DeadCell] = []
+
     /// This can be set to show/hide the command palette.
     @Published var commandPaletteIsShowing: Bool = false
 
@@ -231,6 +234,75 @@ class BaseTerminalController: NSWindowController,
 
     // MARK: Methods
 
+    /// Maps surface IDs to their Leo cell source (agent vs plain shell).
+    var cellRegistry = CellRegistry()
+
+    /// Persists the current board to disk.
+    private let leoBoardStore = BoardStore()
+
+    /// Pending debounced board-save work item.
+    private var leoBoardSaveItem: DispatchWorkItem?
+
+    /// Suppresses board saves while a restore is in flight (each `addCell`
+    /// triggers a debounced save; we want exactly one save at the end).
+    private var isRestoringLeoBoard = false
+
+    /// Snapshot the current cells (live agent cells + dead placeholders) and
+    /// persist after a short debounce. Called on every board mutation.
+    func scheduleLeoBoardSave() {
+        guard !isRestoringLeoBoard else { return }
+        leoBoardSaveItem?.cancel()
+        let item = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            let liveRepos = (NSApp.delegate as? AppDelegate)?.leoSidebar.store.agents
+                .reduce(into: [String: String]()) { $0[$1.name] = $1.repo } ?? [:]
+            // Persist only agent cells; the auto-created .pty shell must NOT be saved.
+            var planned: [BoardSession.PlannedCell] = Array(self.surfaceTree).compactMap { surface in
+                guard case .agent(let name) = self.cellRegistry.source(for: surface.id) else { return nil }
+                return .init(source: .agent(name: name),
+                             snapshot: AgentSnapshot(name: name, repo: liveRepos[name] ?? ""),
+                             isDead: false)
+            }
+            planned += self.leoDeadCells.map {
+                .init(source: .agent(name: $0.snapshot.name), snapshot: $0.snapshot, isDead: true)
+            }
+            try? self.leoBoardStore.save([BoardSession.snapshot(name: "default", from: planned)])
+        }
+        leoBoardSaveItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: item)
+    }
+
+    /// Load the saved "default" board, reconcile against the live daemon, and
+    /// materialize cells: live agents become real cells, gone agents become
+    /// dead placeholders. Idempotent and safe to call explicitly (e.g. from a
+    /// palette command) — agents already on the board are skipped.
+    func restoreLeoBoard() {
+        guard let boards = try? leoBoardStore.load(), let board = boards.first else { return }
+        guard let store = (NSApp.delegate as? AppDelegate)?.leoSidebar.store else { return }
+        Task { @MainActor in
+            self.isRestoringLeoBoard = true
+            await store.refresh()
+            let plan = BoardSession.restorePlan(board: board, liveAgents: store.agents)
+            let onBoard = Set(self.cellRegistry.agentNames)
+            var newDead: [DeadCell] = []
+            for cell in plan {
+                if cell.isDead, let snap = cell.snapshot {
+                    // Avoid duplicate dead placeholders for the same agent.
+                    if !newDead.contains(where: { $0.snapshot.name == snap.name }) {
+                        newDead.append(DeadCell(id: UUID(), snapshot: snap))
+                    }
+                } else if case .agent(let name) = cell.source, onBoard.contains(name) {
+                    continue // already on the board — don't duplicate
+                } else {
+                    self.addCell(source: cell.source)
+                }
+            }
+            self.leoDeadCells = newDead
+            self.isRestoringLeoBoard = false
+            self.scheduleLeoBoardSave()
+        }
+    }
+
     /// Create a new split.
     @discardableResult
     func newSplit(
@@ -267,6 +339,28 @@ class BaseTerminalController: NSWindowController,
             undoAction: "New Split")
 
         return newView
+    }
+
+    /// Add a new cell backed by the given Leo source. Inserts relative to the
+    /// focused surface (or the tree's first leaf). The grid auto-packs, so the
+    /// split direction is cosmetic.
+    @discardableResult
+    func addCell(source: CellSource) -> Ghostty.SurfaceView? {
+        guard let anchor = focusedSurface ?? Array(surfaceTree).first else { return nil }
+        guard let view = newSplit(at: anchor, direction: .right,
+                                  baseConfig: source.surfaceConfiguration) else { return nil }
+        cellRegistry.record(id: view.id, source: source)
+        scheduleLeoBoardSave()
+        return view
+    }
+
+    /// Close (detach) a cell: forget its source and remove its leaf. For an agent
+    /// cell this kills the attach-client process, but the agent's tmux session
+    /// keeps running in the daemon (lifecycle model A). No confirmation prompt.
+    func closeCell(_ view: Ghostty.SurfaceView) {
+        cellRegistry.forget(id: view.id)
+        closeSurface(view, withConfirmation: false)
+        scheduleLeoBoardSave()
     }
 
     /// Move focus to a surface view.
@@ -818,6 +912,58 @@ class BaseTerminalController: NSWindowController,
 
     // MARK: TerminalViewDelegate
 
+    func leoOnBoardAgentNames() -> Set<String> {
+        Set(cellRegistry.agentNames)
+    }
+
+    func leoAddAgentCell(named name: String) {
+        addCell(source: .agent(name: name))
+    }
+
+    func leoAddTerminalCell() {
+        addCell(source: .pty)
+    }
+
+    /// Present the spawn-agent sheet. On spawn, lands the new agent as a cell.
+    func presentSpawnSheet() {
+        guard let store = (NSApp.delegate as? AppDelegate)?.leoSidebar.store,
+              let container = window?.contentViewController else { return }
+        var hosting: NSHostingController<SpawnAgentSheet>?
+        let view = SpawnAgentSheet(
+            store: store,
+            onSpawn: { [weak self, weak container] request in
+                if let hosting, let container { container.dismiss(hosting) }
+                Task {
+                    if let agent = await store.spawn(request) {
+                        self?.addCell(source: .agent(name: agent.name))
+                    }
+                }
+            },
+            onCancel: { [weak container] in
+                if let hosting, let container { container.dismiss(hosting) }
+            })
+        let controller = NSHostingController(rootView: view)
+        hosting = controller
+        container.presentAsSheet(controller)
+    }
+
+    /// Present the spawn-agent sheet. Implemented in Task 12; stubbed for now.
+    func leoPresentSpawnSheet() {
+        presentSpawnSheet()
+    }
+
+    func leoRespawnDeadCell(_ dead: DeadCell) {
+        // Remove the placeholder and open the spawn sheet (user picks template+repo).
+        leoDeadCells.removeAll { $0.id == dead.id }
+        scheduleLeoBoardSave()
+        presentSpawnSheet()
+    }
+
+    func leoRemoveDeadCell(_ dead: DeadCell) {
+        leoDeadCells.removeAll { $0.id == dead.id }
+        scheduleLeoBoardSave()
+    }
+
     func focusedSurfaceDidChange(to: Ghostty.SurfaceView?) {
         let lastFocusedSurface = focusedSurface
         focusedSurface = to
@@ -1161,6 +1307,9 @@ class BaseTerminalController: NSWindowController,
 
     override func windowDidLoad() {
         super.windowDidLoad()
+
+        // Leo: restore the saved board into the first terminal window this launch.
+        (NSApp.delegate as? AppDelegate)?.restoreLeoBoardIfNeeded(into: self)
 
         // Setup our undo manager.
 

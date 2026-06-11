@@ -98,6 +98,19 @@ class AppDelegate: NSObject,
     /// The ghostty global state. Only one per process.
     let ghostty: Ghostty.App
 
+    /// Shared Leo daemon store + sidebar model, one per app.
+    @MainActor lazy var leoSidebar = LeoSidebarModel(store: LeoAgentStore())
+
+    /// Whether the saved Leo board has been restored yet this launch.
+    private var didRestoreLeoBoard = false
+
+    /// Restore the saved Leo board into the given controller once per launch.
+    func restoreLeoBoardIfNeeded(into controller: BaseTerminalController) {
+        guard !didRestoreLeoBoard else { return }
+        didRestoreLeoBoard = true
+        controller.restoreLeoBoard()
+    }
+
     /// The global undo manager for app-level state such as window restoration.
     lazy var undoManager = ExpiringUndoManager()
 
@@ -331,6 +344,9 @@ class AppDelegate: NSObject,
                 NSApp.arrangeInFront(nil)
             }
         }
+
+        // Install the Leo sidebar toggle into the menu bar at runtime.
+        installLeoMenuItem()
     }
 
     func applicationDidHide(_ notification: Notification) {
@@ -925,6 +941,10 @@ class AppDelegate: NSObject,
 
     // MARK: - IB Actions
 
+    @IBAction func toggleLeoSidebar(_ sender: Any?) {
+        leoSidebar.toggle()
+    }
+
     @IBAction func openConfig(_ sender: Any?) {
         ghostty.openConfig()
     }
@@ -1361,6 +1381,30 @@ extension AppDelegate {
                 }
             }
             await NSApp.reply(toApplicationShouldTerminate: true)
+        }
+    }
+
+    // MARK: - Leo
+
+    /// Inserts a "Toggle Leo Sidebar" item into the View menu at runtime, since
+    /// the main menu is defined in a xib we don't edit here.
+    private func installLeoMenuItem() {
+        let item = NSMenuItem(
+            title: "Toggle Leo Sidebar",
+            action: #selector(toggleLeoSidebar(_:)),
+            keyEquivalent: "l")
+        item.keyEquivalentModifierMask = [.command, .shift]
+        item.target = self
+        // Prefer the View menu; fall back to appending a top-level Leo menu.
+        if let viewMenu = NSApp.mainMenu?.items.first(where: { $0.title == "View" })?.submenu {
+            viewMenu.addItem(.separator())
+            viewMenu.addItem(item)
+        } else if let mainMenu = NSApp.mainMenu {
+            let leoMenu = NSMenu(title: "Leo")
+            let leoTop = NSMenuItem(title: "Leo", action: nil, keyEquivalent: "")
+            leoTop.submenu = leoMenu
+            leoMenu.addItem(item)
+            mainMenu.addItem(leoTop)
         }
     }
 }

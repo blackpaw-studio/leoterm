@@ -20,6 +20,24 @@ protocol TerminalViewDelegate: AnyObject {
 
     /// A split tree operation
     func performSplitAction(_ action: TerminalSplitOperation)
+
+    /// Leo: agent names currently backing a cell on this board.
+    func leoOnBoardAgentNames() -> Set<String>
+
+    /// Leo: add a cell attached to the named agent.
+    func leoAddAgentCell(named name: String)
+
+    /// Leo: add a plain terminal (PTY) cell.
+    func leoAddTerminalCell()
+
+    /// Leo: present the spawn-agent sheet.
+    func leoPresentSpawnSheet()
+
+    /// Leo: respawn the agent behind a dead cell.
+    func leoRespawnDeadCell(_ dead: DeadCell)
+
+    /// Leo: remove a dead cell from the board.
+    func leoRemoveDeadCell(_ dead: DeadCell)
 }
 
 /// The view model is a required implementation for TerminalView callers. This contains
@@ -35,6 +53,9 @@ protocol TerminalViewModel: ObservableObject {
 
     /// The update overlay should be visible.
     var updateOverlayIsVisible: Bool { get }
+
+    /// Leo dead-cell placeholders to render in the grid.
+    var leoDeadCells: [DeadCell] { get }
 }
 
 /// The main terminal view. This terminal view supports splits.
@@ -46,6 +67,11 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
 
     // An optional delegate to receive information about terminal changes.
     weak var delegate: (any TerminalViewDelegate)?
+
+    // The explicit `= nil` default lets the quick-terminal call site omit this
+    // argument (struct memberwise init requires it otherwise).
+    // swiftlint:disable:next implicit_optional_initialization
+    var leoSidebar: LeoSidebarModel? = nil
 
     /// The most recently focused surface, equal to `focusedSurface` when it is non-nil.
     @State private var lastFocusedSurface: Weak<Ghostty.SurfaceView>?
@@ -79,30 +105,39 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                         DebugBuildWarningView()
                     }
 
-                    TerminalGridView(
-                        tree: viewModel.surfaceTree,
-                        action: { delegate?.performSplitAction($0) })
-                        .environmentObject(ghostty)
-                        .ghosttyLastFocusedSurface(lastFocusedSurface)
-                        .focused($focused)
-                        .onAppear { self.focused = true }
-                        .onChange(of: focusedSurface) { newValue in
-                            // We want to keep track of our last focused surface so even if
-                            // we lose focus we keep this set to the last non-nil value.
-                            if newValue != nil {
-                                lastFocusedSurface = .init(newValue)
-                                self.delegate?.focusedSurfaceDidChange(to: newValue)
+                    HStack(spacing: 0) {
+                        if let leoSidebar {
+                            LeoSidebarContainer(model: leoSidebar, delegate: delegate)
+                        }
+
+                        TerminalGridView(
+                            tree: viewModel.surfaceTree,
+                            action: { delegate?.performSplitAction($0) },
+                            deadCells: viewModel.leoDeadCells,
+                            onRespawnDead: { dead in self.delegate?.leoRespawnDeadCell(dead) },
+                            onRemoveDead: { dead in self.delegate?.leoRemoveDeadCell(dead) })
+                            .environmentObject(ghostty)
+                            .ghosttyLastFocusedSurface(lastFocusedSurface)
+                            .focused($focused)
+                            .onAppear { self.focused = true }
+                            .onChange(of: focusedSurface) { newValue in
+                                // We want to keep track of our last focused surface so even if
+                                // we lose focus we keep this set to the last non-nil value.
+                                if newValue != nil {
+                                    lastFocusedSurface = .init(newValue)
+                                    self.delegate?.focusedSurfaceDidChange(to: newValue)
+                                }
                             }
-                        }
-                        .onChange(of: pwdURL) { newValue in
-                            self.delegate?.pwdDidChange(to: newValue)
-                        }
-                        .onChange(of: cellSize) { newValue in
-                            guard let size = newValue else { return }
-                            self.delegate?.cellSizeDidChange(to: size)
-                        }
-                        .frame(idealWidth: lastFocusedSurface?.value?.initialSize?.width,
-                               idealHeight: lastFocusedSurface?.value?.initialSize?.height)
+                            .onChange(of: pwdURL) { newValue in
+                                self.delegate?.pwdDidChange(to: newValue)
+                            }
+                            .onChange(of: cellSize) { newValue in
+                                guard let size = newValue else { return }
+                                self.delegate?.cellSizeDidChange(to: size)
+                            }
+                            .frame(idealWidth: lastFocusedSurface?.value?.initialSize?.width,
+                                   idealHeight: lastFocusedSurface?.value?.initialSize?.height)
+                    }
                 }
                 // Ignore safe area to extend up in to the titlebar region if we have the "hidden" titlebar style
                 .ignoresSafeArea(.container, edges: ghostty.config.macosTitlebarStyle == .hidden ? .top : [])

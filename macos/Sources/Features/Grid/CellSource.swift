@@ -16,7 +16,7 @@
 ///
 /// Both cases resolve to a `Ghostty.SurfaceConfiguration`, so the renderer
 /// and input stack stay agnostic to what backs a cell.
-enum CellSource: Equatable {
+enum CellSource: Equatable, Codable {
     case pty
     case agent(name: String)
 
@@ -42,5 +42,29 @@ enum CellSource: Equatable {
             config.command = "\(Self.agentAttachCommand) \(name)"
         }
         return config
+    }
+}
+
+extension CellSource {
+    private enum CodingKeys: String, CodingKey { case kind, name }
+    private enum Kind: String, Codable { case pty, agent }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .pty:
+            try c.encode(Kind.pty, forKey: .kind)
+        case .agent(let name):
+            try c.encode(Kind.agent, forKey: .kind)
+            try c.encode(name, forKey: .name)
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        switch try c.decode(Kind.self, forKey: .kind) {
+        case .pty: self = .pty
+        case .agent: self = .agent(name: try c.decode(String.self, forKey: .name))
+        }
     }
 }
