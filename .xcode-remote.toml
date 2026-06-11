@@ -1,0 +1,4 @@
+[project]
+scheme   = "Ghostty"
+platform = "macos"
+path     = "macos"          # Ghostty.xcodeproj lives in macos/, not repo root
