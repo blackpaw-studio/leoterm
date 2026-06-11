@@ -273,6 +273,11 @@ class AppDelegate: NSObject,
         )
         NotificationCenter.default.addObserver(
             self,
+            selector: #selector(leoNeedsYouCountDidChange(_:)),
+            name: .leoNeedsYouCountDidChangeNotification,
+            object: nil)
+        NotificationCenter.default.addObserver(
+            self,
             selector: #selector(ghosttyNewWindow(_:)),
             name: Ghostty.Notification.ghosttyNewWindow,
             object: nil)
@@ -675,6 +680,11 @@ class AppDelegate: NSObject,
         syncDockBadge()
     }
 
+    @objc private func leoNeedsYouCountDidChange(_ notification: Notification) {
+        guard notification.object is BaseTerminalController else { return }
+        syncDockBadge()
+    }
+
     private func requestBadgeAuthorizationAndSet(_ center: UNUserNotificationCenter) {
         center.requestAuthorization(options: [.badge]) { granted, error in
             if let error = error {
@@ -744,11 +754,10 @@ class AppDelegate: NSObject,
     }
 
     private func setDockBadge() {
-        let bellCount = NSApp.windows
+        let needsYou = NSApp.windows
             .compactMap { $0.windowController as? BaseTerminalController }
-            .reduce(0) { $0 + ($1.bell ? 1 : 0) }
-        let wantsBadge = ghostty.config.bellFeatures.contains(.attention) && bellCount > 0
-        let label = wantsBadge ? (bellCount > 99 ? "99+" : String(bellCount)) : nil
+            .reduce(0) { $0 + $1.needsYouCount }
+        let label = needsYou > 0 ? (needsYou > 99 ? "99+" : String(needsYou)) : nil
         NSApp.dockTile.badgeLabel = label
         NSApp.dockTile.display()
     }

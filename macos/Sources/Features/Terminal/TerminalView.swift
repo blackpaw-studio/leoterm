@@ -38,6 +38,9 @@ protocol TerminalViewDelegate: AnyObject {
 
     /// Leo: remove a dead cell from the board.
     func leoRemoveDeadCell(_ dead: DeadCell)
+
+    /// The cell source (pty vs agent) for a surface, from the cell registry.
+    func leoCellSource(for surfaceID: UUID) -> CellSource
 }
 
 /// The view model is a required implementation for TerminalView callers. This contains
@@ -115,7 +118,14 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                             action: { delegate?.performSplitAction($0) },
                             deadCells: viewModel.leoDeadCells,
                             onRespawnDead: { dead in self.delegate?.leoRespawnDeadCell(dead) },
-                            onRemoveDead: { dead in self.delegate?.leoRemoveDeadCell(dead) })
+                            onRemoveDead: { dead in self.delegate?.leoRemoveDeadCell(dead) },
+                            statusInputs: { id in
+                                let source = self.delegate?.leoCellSource(for: id) ?? .pty
+                                guard case .agent(let name) = source else { return .none }
+                                let lifecycle = self.leoSidebar?.store.agents
+                                    .first(where: { $0.name == name })?.status
+                                return CellStatusInputs(isAgent: true, lifecycle: lifecycle)
+                            })
                             .environmentObject(ghostty)
                             .ghosttyLastFocusedSurface(lastFocusedSurface)
                             .focused($focused)

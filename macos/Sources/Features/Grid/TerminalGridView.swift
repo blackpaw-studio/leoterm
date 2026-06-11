@@ -17,6 +17,9 @@ struct TerminalGridView: View {
     var onRespawnDead: (DeadCell) -> Void = { _ in }
     /// Remove a dead cell from the board.
     var onRemoveDead: (DeadCell) -> Void = { _ in }
+    /// Resolves the non-bell status inputs for a surface (agent identity +
+    /// lifecycle). Default is a non-agent so plain grids show no agent status.
+    var statusInputs: (Ghostty.SurfaceView.ID) -> CellStatusInputs = { _ in .none }
 
     /// Gap between cells, in points. Made configurable in Phase 2e.
     private let gap: CGFloat = 4
@@ -81,6 +84,7 @@ struct TerminalGridView: View {
         case .surface(let surface):
             Ghostty.InspectableSurface(surfaceView: surface, isSplit: isSplit)
                 .onTapGesture { Ghostty.moveFocus(to: surface) }
+                .overlay { CellStatusBadge(surface: surface, inputs: statusInputs(surface.id)) }
         case .dead(let dead):
             DeadCellView(
                 snapshot: dead.snapshot,
