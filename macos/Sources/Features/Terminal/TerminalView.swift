@@ -125,7 +125,10 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                                 let lifecycle = self.leoSidebar?.store.agents
                                     .first(where: { $0.name == name })?.status
                                 return CellStatusInputs(isAgent: true, lifecycle: lifecycle)
-                            })
+                            },
+                            gap: ghostty.config.gridCellGap,
+                            growthFactor: ghostty.config.gridHoverGrowFactor,
+                            hoverGrow: ghostty.config.gridHoverGrow)
                             .environmentObject(ghostty)
                             .ghosttyLastFocusedSurface(lastFocusedSurface)
                             .focused($focused)

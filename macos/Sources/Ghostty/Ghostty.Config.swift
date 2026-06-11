@@ -507,6 +507,35 @@ extension Ghostty {
             return BackgroundBlur(fromCValue: v)
         }
 
+        // MARK: Leo Grid
+
+        /// Gap, in points, between cells in the auto-arranging terminal grid.
+        var gridCellGap: CGFloat {
+            guard let config = self.config else { return 4 }
+            var v: Double = 4
+            let key = "grid-cell-gap"
+            _ = ghostty_config_get(config, &v, key, UInt(key.lengthOfBytes(using: .utf8)))
+            return CGFloat(v)
+        }
+
+        /// Whether hovering a grid cell grows it (and squishes neighbors).
+        var gridHoverGrow: Bool {
+            guard let config = self.config else { return true }
+            var v = true
+            let key = "grid-hover-grow"
+            _ = ghostty_config_get(config, &v, key, UInt(key.lengthOfBytes(using: .utf8)))
+            return v
+        }
+
+        /// How much an emphasized grid cell grows relative to its neighbors.
+        var gridHoverGrowFactor: CGFloat {
+            guard let config = self.config else { return 1.6 }
+            var v: Double = 1.6
+            let key = "grid-hover-grow-factor"
+            _ = ghostty_config_get(config, &v, key, UInt(key.lengthOfBytes(using: .utf8)))
+            return CGFloat(v)
+        }
+
         var unfocusedSplitOpacity: Double {
             guard let config = self.config else { return 1 }
             var opacity: Double = 0.85

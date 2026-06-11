@@ -1086,6 +1086,21 @@ palette: Palette = .{},
 /// Available since: 1.1.0
 @"split-divider-color": ?Color = null,
 
+/// Leo: the gap, in points, rendered between cells in the auto-arranging
+/// terminal grid. A larger value spaces cells further apart. Negative values
+/// are clamped to 0.
+@"grid-cell-gap": f64 = 4,
+
+/// Leo: whether hovering or focusing a grid cell grows it (and squishes its
+/// neighbors). Set to `false` to turn off the elastic reflow entirely — the
+/// grid then stays evenly packed with no emphasis.
+@"grid-hover-grow": bool = true,
+
+/// Leo: how much an emphasized (hovered or focused) grid cell grows relative
+/// to its neighbors when `grid-hover-grow` is enabled. A value of 1 disables
+/// growth; values below 1 are clamped to 1.
+@"grid-hover-grow-factor": f64 = 1.6,
+
 /// Control when Ghostty preserves a zoomed split. Under normal circumstances,
 /// any operation that changes focus or layout of the split tree in a window
 /// will unzoom any zoomed split. This configuration allows you to control
@@ -4675,6 +4690,10 @@ pub fn finalize(self: *Config) !void {
 
     // Clamp our split opacity
     self.@"unfocused-split-opacity" = @min(1.0, @max(0.15, self.@"unfocused-split-opacity"));
+
+    // Leo: a hover-grow factor below 1 would shrink the emphasized cell.
+    self.@"grid-hover-grow-factor" = @max(1.0, self.@"grid-hover-grow-factor");
+    self.@"grid-cell-gap" = @max(0.0, self.@"grid-cell-gap");
 
     // Clamp our contrast
     self.@"minimum-contrast" = @min(21, @max(1, self.@"minimum-contrast"));

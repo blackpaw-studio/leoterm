@@ -21,10 +21,14 @@ struct TerminalGridView: View {
     /// lifecycle). Default is a non-agent so plain grids show no agent status.
     var statusInputs: (Ghostty.SurfaceView.ID) -> CellStatusInputs = { _ in .none }
 
-    /// Gap between cells, in points. Made configurable in Phase 2e.
-    private let gap: CGFloat = 4
-    /// How much an emphasized cell grows relative to its neighbors.
-    private let growthFactor: CGFloat = 1.6
+    /// Gap between cells, in points (config key `grid-cell-gap`).
+    var gap: CGFloat = 4
+    /// How much an emphasized cell grows relative to its neighbors
+    /// (config key `grid-hover-grow-factor`).
+    var growthFactor: CGFloat = 1.6
+    /// Whether hovering/focusing a cell grows it (config key `grid-hover-grow`).
+    /// When false the grid stays packed with no emphasis.
+    var hoverGrow: Bool = true
 
     /// The cell currently under the pointer, if any.
     @State private var hoveredID: Ghostty.SurfaceView.ID?
@@ -50,7 +54,7 @@ struct TerminalGridView: View {
     private var grid: some View {
         let items = Array(tree).map(GridCellItem.surface) + deadCells.map(GridCellItem.dead)
         let isSplit = items.count > 1
-        let emphasized = hoveredID ?? focusedSurface?.id
+        let emphasized = hoverGrow ? (hoveredID ?? focusedSurface?.id) : nil
         return GeometryReader { geo in
             let placed = GridLayout(cells: items)
                 .frames(in: geo.size, gap: gap, pinnedRowHeights: pinnedRowHeights,
