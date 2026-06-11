@@ -406,7 +406,10 @@ pub const StreamHandler = struct {
             log.info("tmux viewer input action={f}", .{action});
             switch (action) {
                 .command => |command| try self.sendTmuxCommand(command),
-                .exit, .windows, .redraw => {},
+                // A bell can only arise from the %output parse path (handled in
+                // dcsCommand), never from a keys/paste/resize input — but the
+                // exhaustive switch must still account for it.
+                .exit, .windows, .redraw, .bell => {},
             }
         }
         return true;
