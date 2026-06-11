@@ -546,7 +546,8 @@ Use the `xcode-remote` skill (config already at `.xcode-remote.toml`, `path = "m
 - [ ] Spawn/attach an agent cell; confirm a **grey idle dot** appears in its corner.
 - [ ] Trigger a bell in the agent (e.g. an agent that finishes and rings, or `printf '\a'` in the agent's shell): the cell shows an **amber pulsing dot + glowing border**, the **window title** gains a "· N needs you" suffix, and the **Dock badge** shows the count.
 - [ ] Focus/click or type into the cell: needs-you **clears** (dot returns to grey, badge/ title decrement).
-- [ ] With multiple agents, ring two: the **Dock badge reads 2**; clear one → reads 1.
+- [ ] With multiple agents, ring two: the **Dock badge reads 2**; clear one → reads 1. (The multi-ring count path is handled by a dedicated count publisher — Task 5b below.)
+- [ ] **Close a window while an agent in it is ringing** → the Dock badge decrements correctly (no stale count). Analysis says the deferred `syncDockBadge` recount runs after the window leaves `NSApp.windows`, so this should be clean — but confirm.
 - [ ] A **plain pty cell** that receives a bell does **not** show needs-you (stays idle) and is **not** counted in the badge.
 - [ ] Stop an agent: its cell becomes a `DeadCellView` placeholder (Phase 4 behavior unchanged) — no red live-cell dot needed.
 
@@ -571,3 +572,21 @@ If BEL coverage feels insufficient (agents that don't ring), that's the trigger 
 **Type consistency:** `CellStatus` (cases `working`/`idle`/`needsYou`/`error`; props `color`/`isPulsing`/`hasGlow`) and `deriveCellStatus(isAgent:hasBell:lifecycle:)` are defined in Task 2 and used identically in Tasks 3–4. `AgentStatus` (`.running`/`.stopped`) is the existing Phase 4 enum (`LeoModels.swift`). The Zig `.bell` action is produced in viewer.zig (Task 1 Steps 5–6) and consumed in stream_handler.zig (Task 1 Step 7) — both in the same task to keep the exhaustive switch valid. `.ring_bell` is the existing `apprt/surface.zig` message.
 
 **Build-order safety:** Task 1 keeps Zig compiling at each commit (predicate first; enum variant + producer + consumer together). Swift tasks each end with a green build/test + lint + commit.
+
+---
+
+## Implementation Notes (post-execution, deviations from the plan as written)
+
+Executed via subagent-driven development (implementer + spec + code-quality review per task). Branch `phase5-status-layer`, 6 commits, full `GhosttyTests` suite green, SwiftLint clean. Deviations and additions discovered during review:
+
+1. **Tests use Swift Testing, not XCTest.** The plan specified `XCTestCase`/`XCTAssert`, but 8 of 9 existing Leo test files use `import Testing` (`@Test`/`#expect`). `CellStatusTests` was written in Swift Testing to match. (Future plans: default to Swift Testing.)
+2. **`CellStatus` got `Sendable`** (matches sibling status enum `AgentStatus`); added `ptyCellIgnoresLifecycle` + `hasGlow` test cases.
+3. **`CellStatusOverlay` pulse-stop fix.** The plan's `pulse = false` was wrapped in `withAnimation(.default) { … }` so SwiftUI actually cancels the `repeatForever` animation on `needsYou → idle` (bare assignment leaves a ghost glow). `cornerRadius` named `borderCornerRadius`.
+4. **Grid wiring uses a `statusInputs` closure + `CellStatusBadge`.** Rather than threading the registry/store into the dumb `TerminalGridView`, a `statusInputs: (SurfaceView.ID) -> CellStatusInputs` closure is injected (mirrors `onRespawnDead`/`onRemoveDead`); `CellStatusBadge` `@ObservedObject`s the surface so the dot updates live on bell flip. A `leoCellSource(for:)` delegate accessor was added to `TerminalViewDelegate` / `BaseTerminalController`.
+5. **Window-title suffix DEFERRED.** Task 5 was trimmed to badge-only. The title pipeline only recomputes on the *focused* surface's bell, so a window-wide "N needs you" suffix would go stale when a non-focused cell rings — a misleading title is worse than none. Deferred to a follow-on with a proper title-recompute hook.
+6. **Task 5b added — dedicated needs-you count publisher.** The existing `setupBellNotificationPublisher` collapses the window bell to a `Bool` with `removeDuplicates`, so a 2nd agent ringing while a 1st rings wouldn't refresh the badge. Added `setupNeedsYouCountPublisher` (fires on every agent bell flip, `removeDuplicates` on the `Int` count) → `leoNeedsYouCountDidChangeNotification` → badge resync. This makes the multi-agent count correct (Leo's core scenario).
+
+### Known v1 limitations / follow-ups (track for Phase 5b)
+- **Lifecycle dot staleness when the sidebar is hidden.** `LeoAgentStore` polling only runs while the sidebar is visible (`LeoSidebarModel.start/stopPolling`). With the sidebar closed, an agent that stops won't reconcile to a dead cell and its dot stays grey until polling resumes. Fix: always-on (or status-driven) polling.
+- **`.error` red live-cell dot is effectively dormant in v1.** `statusInputs`/`TerminalView.body` aren't reactive to `store.agents`, and stopped agents become `DeadCellView` via Phase-4 reconciliation, so the live `.error` path rarely renders (brief idle-before-dead window). Acceptable per the v1 deferral; revisit if a live error state is wanted.
+- **Window-title suffix** (item 5 above).
