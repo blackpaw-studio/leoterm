@@ -251,6 +251,11 @@ pub const Viewer = struct {
         /// Literal key bytes from the host surface to forward to the active pane.
         /// Bytes are sent literally; callers pass raw keystroke bytes (a literal '\n' would split the send-keys command).
         keys: []const u8,
+        /// Clipboard paste bytes (already bracketed-paste encoded by the host
+        /// surface) to forward to the active pane. Sent hex-encoded via
+        /// `send-keys -H` so embedded newlines/binary don't split the
+        /// line-based control-mode command (which `keys`/`-l` cannot handle).
+        paste: []const u8,
         /// The host surface was resized; cols/rows are the new grid size to push to tmux.
         resize: struct { cols: usize, rows: usize },
     };
@@ -332,6 +337,7 @@ pub const Viewer = struct {
         return switch (input) {
             .tmux => self.nextTmux(input.tmux),
             .keys => |bytes| self.nextKeys(bytes),
+            .paste => |bytes| self.nextPaste(bytes),
             .resize => |sz| self.nextResize(sz.cols, sz.rows),
         };
     }
@@ -355,6 +361,45 @@ pub const Viewer = struct {
             "send-keys -t %{d} -l -- {s}\n",
             .{ pane_id, bytes },
         ) catch return &.{};
+        const actions = arena_alloc.alloc(Action, 1) catch return &.{};
+        actions[0] = .{ .command = cmd };
+        return actions;
+    }
+
+    fn nextPaste(self: *Viewer, bytes: []const u8) []const Action {
+        if (bytes.len == 0) return &.{};
+        if (self.windows.items.len == 0) return &.{};
+        const window = self.windows.items[0];
+        const pane_id = firstPaneId(window.layout) orelse return &.{};
+
+        var arena = self.action_arena.promote(self.alloc);
+        defer self.action_arena = arena.state;
+        _ = arena.reset(.free_all);
+        const arena_alloc = arena.allocator();
+
+        // Hex-encode the payload for `send-keys -H`. Each byte becomes a
+        // space-separated two-digit hex token, so embedded newlines/binary
+        // can't split the line-based control-mode command (the reason `-l`
+        // is unusable for paste). The bytes already carry any bracketed-paste
+        // framing applied by the host surface.
+        const prefix = std.fmt.allocPrint(
+            arena_alloc,
+            "send-keys -t %{d} -H",
+            .{pane_id},
+        ) catch return &.{};
+        // prefix + " XX" per byte + trailing newline.
+        const cmd = arena_alloc.alloc(u8, prefix.len + bytes.len * 3 + 1) catch return &.{};
+        @memcpy(cmd[0..prefix.len], prefix);
+        const hex = "0123456789abcdef";
+        var i: usize = prefix.len;
+        for (bytes) |b| {
+            cmd[i] = ' ';
+            cmd[i + 1] = hex[b >> 4];
+            cmd[i + 2] = hex[b & 0x0f];
+            i += 3;
+        }
+        cmd[i] = '\n';
+
         const actions = arena_alloc.alloc(Action, 1) catch return &.{};
         actions[0] = .{ .command = cmd };
         return actions;
@@ -2531,6 +2576,33 @@ test "tmux keys input emits send-keys command for active pane" {
     try testing.expect(std.mem.startsWith(u8, cmd, "send-keys -t %0 -l -- "));
     try testing.expect(std.mem.indexOf(u8, cmd, "ls\r") != null);
     try testing.expect(cmd[cmd.len - 1] == '\n');
+}
+
+test "tmux paste input emits hex send-keys command for active pane" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+    try viewer.setupSinglePane(); // active pane id 0 exists
+
+    const actions = viewer.next(.{ .paste = "hi\n" });
+    var found: ?[]const u8 = null;
+    for (actions) |a| switch (a) {
+        .command => |c| found = c,
+        else => {},
+    };
+    const cmd = found orelse return error.NoCommand;
+    try testing.expect(std.mem.startsWith(u8, cmd, "send-keys -t %0 -H "));
+    // 'h'=0x68 'i'=0x69 '\n'=0x0a — newline survives as hex, not a split.
+    try testing.expect(std.mem.indexOf(u8, cmd, "68 69 0a") != null);
+    try testing.expect(cmd[cmd.len - 1] == '\n');
+}
+
+test "tmux paste input with no active pane emits nothing" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+    const actions = viewer.next(.{ .paste = "x" });
+    try testing.expectEqual(@as(usize, 0), actions.len);
 }
 
 test "tmux keys input with no active pane emits nothing" {

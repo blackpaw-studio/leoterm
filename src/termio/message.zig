@@ -87,6 +87,11 @@ pub const Message = union(enum) {
     /// without intercepting the viewer's own control writes.
     tmux_keys: WriteReq.Alloc,
 
+    /// Clipboard paste bytes to forward to an active tmux control-mode viewer.
+    /// Distinct from tmux_keys so the drain routes these to the hex `send-keys
+    /// -H` path (which tolerates embedded newlines/binary).
+    tmux_paste: WriteReq.Alloc,
+
     /// Return a write request for the given data. This will use
     /// write_small if it fits or write_alloc otherwise. This should NOT
     /// be used for stable pointers which can be manually set to write_stable.
@@ -105,6 +110,15 @@ pub const Message = union(enum) {
         const buf = try alloc.dupe(u8, data);
         errdefer alloc.free(buf);
         return .{ .tmux_keys = .{ .alloc = alloc, .data = buf } };
+    }
+
+    /// Build an owned `tmux_paste` message that copies the given paste bytes
+    /// into an allocator-owned buffer. The drain frees this buffer after
+    /// forwarding it to the tmux viewer.
+    pub fn tmuxPaste(alloc: Allocator, data: []const u8) !Message {
+        const buf = try alloc.dupe(u8, data);
+        errdefer alloc.free(buf);
+        return .{ .tmux_paste = .{ .alloc = alloc, .data = buf } };
     }
 
     /// The types of size reports that we support.

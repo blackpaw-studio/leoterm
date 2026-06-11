@@ -355,6 +355,10 @@ fn drainMailbox(
                 defer v.alloc.free(v.data);
                 try io.tmuxKeys(v.data);
             },
+            .tmux_paste => |v| {
+                defer v.alloc.free(v.data);
+                try io.tmuxPaste(v.data);
+            },
         }
     }
 

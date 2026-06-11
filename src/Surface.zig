@@ -5939,10 +5939,22 @@ fn completeClipboardPaste(
     };
 
     for (vecs) |vec| if (vec.len > 0) {
-        self.queueIo(try termio.Message.writeReq(
-            self.alloc,
-            vec,
-        ), .unlocked);
+        if (self.tmux_control_mode) {
+            // This surface is a tmux control-mode client; writing the paste to
+            // its own pty would feed the control stream, not the agent pane.
+            // Route the (already bracketed-encoded) bytes to the viewer, which
+            // forwards them to the active pane via `send-keys -H`. Same
+            // rationale as tmux_keys for keystrokes.
+            self.queueIo(try termio.Message.tmuxPaste(
+                self.alloc,
+                vec,
+            ), .unlocked);
+        } else {
+            self.queueIo(try termio.Message.writeReq(
+                self.alloc,
+                vec,
+            ), .unlocked);
+        }
     };
 }
 
