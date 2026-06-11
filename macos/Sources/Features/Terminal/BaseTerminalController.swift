@@ -92,6 +92,9 @@ class BaseTerminalController: NSWindowController,
     /// Cancellable for aggregating bell state across all surfaces in this controller.
     private var bellStateCancellable: AnyCancellable?
 
+    /// Cancellable for publishing per-window needs-you count changes to the Dock badge.
+    private var needsYouCountCancellable: AnyCancellable?
+
     /// An override title for the tab/window set by the user via prompt_tab_title.
     /// When set, this takes precedence over the computed title from the terminal.
     var titleOverride: String? {
@@ -146,6 +149,7 @@ class BaseTerminalController: NSWindowController,
 
         // Setup our bell state for the window
         setupBellNotificationPublisher()
+        setupNeedsYouCountPublisher()
 
         // Setup our notifications for behaviors
         let center = NotificationCenter.default
@@ -1727,6 +1731,29 @@ extension BaseTerminalController {
             }
     }
 
+    /// Publishes a per-window notification whenever this window's "needs you"
+    /// agent-cell count changes. Unlike the aggregate bell publisher (which
+    /// collapses to a Bool and dedups), this fires on every change to the
+    /// count — so a second agent ringing while a first is still ringing still
+    /// refreshes the Dock badge. `receive(on:)` precedes the `needsYouCount`
+    /// read because that property reads main-actor surface `bell` state.
+    private func setupNeedsYouCountPublisher() {
+        needsYouCountCancellable = surfaceValuesPublisher(
+            valueKeyPath: \.bell,
+            publisherKeyPath: \.$bell
+        )
+        .receive(on: DispatchQueue.main)
+        .map { [weak self] _ in self?.needsYouCount ?? 0 }
+        .removeDuplicates()
+        .sink { [weak self] _ in
+            guard let self else { return }
+            NotificationCenter.default.post(
+                name: .leoNeedsYouCountDidChangeNotification,
+                object: self
+            )
+        }
+    }
+
     /// Creates a publisher for values on all surfaces in this controller's tree.
     ///
     /// The publisher emits a dictionary of surface IDs to values whenever the tree changes
@@ -1758,4 +1785,7 @@ extension Notification.Name {
     /// Terminal window aggregate bell state changed.
     static let terminalWindowBellDidChangeNotification = Notification.Name("com.mitchellh.ghostty.terminalWindowBellDidChange")
     static let terminalWindowHasBellKey = terminalWindowBellDidChangeNotification.rawValue + ".hasBell"
+
+    /// Leo: per-window needs-you count changed (fires on every count change, not just 0↔1).
+    static let leoNeedsYouCountDidChangeNotification = Notification.Name("com.mitchellh.ghostty.leoNeedsYouCountDidChange")
 }

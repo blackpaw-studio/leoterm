@@ -273,6 +273,11 @@ class AppDelegate: NSObject,
         )
         NotificationCenter.default.addObserver(
             self,
+            selector: #selector(leoNeedsYouCountDidChange(_:)),
+            name: .leoNeedsYouCountDidChangeNotification,
+            object: nil)
+        NotificationCenter.default.addObserver(
+            self,
             selector: #selector(ghosttyNewWindow(_:)),
             name: Ghostty.Notification.ghosttyNewWindow,
             object: nil)
@@ -671,6 +676,11 @@ class AppDelegate: NSObject,
     }
 
     @objc private func terminalWindowHasBell(_ notification: Notification) {
+        guard notification.object is BaseTerminalController else { return }
+        syncDockBadge()
+    }
+
+    @objc private func leoNeedsYouCountDidChange(_ notification: Notification) {
         guard notification.object is BaseTerminalController else { return }
         syncDockBadge()
     }
