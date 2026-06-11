@@ -50,3 +50,32 @@ struct CellStatusOverlay: View {
         }
     }
 }
+
+/// The non-bell inputs needed to derive a cell's status, resolved by the
+/// parent from the cell registry + agent roster. The live bell flag is read
+/// reactively inside `CellStatusBadge`.
+struct CellStatusInputs {
+    let isAgent: Bool
+    let lifecycle: AgentStatus?
+
+    static let none = CellStatusInputs(isAgent: false, lifecycle: nil)
+}
+
+/// Observes a surface's `bell` flag and renders the status overlay. The
+/// `@ObservedObject` on `surface` is what makes the dot/border update live
+/// when a bell rings or clears (on focus/keydown). Lifecycle changes
+/// re-render the grid via dead-cell reconciliation, so they need no observer.
+struct CellStatusBadge: View {
+    @ObservedObject var surface: Ghostty.SurfaceView
+    let inputs: CellStatusInputs
+
+    var body: some View {
+        CellStatusOverlay(
+            status: deriveCellStatus(
+                isAgent: inputs.isAgent,
+                hasBell: surface.bell,
+                lifecycle: inputs.lifecycle
+            )
+        )
+    }
+}

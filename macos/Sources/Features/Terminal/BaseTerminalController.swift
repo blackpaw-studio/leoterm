@@ -952,6 +952,10 @@ class BaseTerminalController: NSWindowController,
         presentSpawnSheet()
     }
 
+    func leoCellSource(for surfaceID: UUID) -> CellSource {
+        cellRegistry.source(for: surfaceID)
+    }
+
     func leoRespawnDeadCell(_ dead: DeadCell) {
         // Remove the placeholder and open the spawn sheet (user picks template+repo).
         leoDeadCells.removeAll { $0.id == dead.id }
