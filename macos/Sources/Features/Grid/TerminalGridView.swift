@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Renders the window's terminal surfaces as an auto-arranging grid — Leo's
-/// replacement for the binary `TerminalSplitTreeView`.
+/// replacement for the binary split-tree view.
 ///
 /// Phase 2c: dynamic auto-packing + click-to-focus + zoom + **hover-grow**
 /// (Mode A elastic reflow). Hovering a cell grows it (neighbors squish); when
@@ -90,6 +90,9 @@ struct TerminalGridView: View {
                 snapshot: dead.snapshot,
                 onRespawn: { onRespawnDead(dead) },
                 onRemove: { onRemoveDead(dead) })
+                // A stopped agent is an error state in the status language — a
+                // small red dot keeps dead cells consistent with live-cell status.
+                .overlay { CellStatusOverlay(status: .error) }
         }
     }
 
