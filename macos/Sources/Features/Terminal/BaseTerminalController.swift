@@ -237,6 +237,17 @@ class BaseTerminalController: NSWindowController,
     /// Maps surface IDs to their Leo cell source (agent vs plain shell).
     var cellRegistry = CellRegistry()
 
+    /// Number of agent cells in this window currently signaling "needs you"
+    /// (an agent-source surface whose bell is ringing). Plain pty cells are
+    /// excluded — they have no needs-you status (spec §5.3). Read on the main
+    /// actor (surface `bell` is main-actor state).
+    var needsYouCount: Int {
+        Array(surfaceTree).reduce(0) { count, surface in
+            guard case .agent = cellRegistry.source(for: surface.id) else { return count }
+            return count + (surface.bell ? 1 : 0)
+        }
+    }
+
     /// Persists the current board to disk.
     private let leoBoardStore = BoardStore()
 
