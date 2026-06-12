@@ -30,6 +30,10 @@ final class LeoHostRegistry {
     private let forwardManagerFactory: ForwardManagerFactory
     private let storeFactory: StoreFactory
     private var connections: [String: Connection] = [:]
+    /// In-flight acquisitions, keyed by host. Created synchronously before the
+    /// first `await` so concurrent callers for the same NEW host coalesce onto
+    /// one forward+store instead of racing to create two.
+    private var inFlight: [String: Task<LeoAgentStore, any Error>] = [:]
     private static let logger = Logger(subsystem: "com.mitchellh.ghostty", category: "leo-host-registry")
 
     init(
@@ -44,27 +48,75 @@ final class LeoHostRegistry {
     }
 
     /// Acquire the store for `host`, incrementing its reference count. Reuses a
-    /// cached connection (no second forward) when one already exists.
+    /// cached connection (no second forward) when one already exists, and
+    /// coalesces concurrent acquisitions of the same NEW host onto a single
+    /// in-flight forward+store so `N` concurrent callers yield `refCount == N`.
     func store(for host: String) async throws(LeoError) -> LeoAgentStore {
+        // Fast path: a fully-established connection already exists.
         if var existing = connections[host] {
             existing.refCount += 1
             connections[host] = existing
             return existing.store
         }
 
-        if host == LeoHost.localhostName {
-            let store = storeFactory(nil, nil)
-            connections[host] = Connection(store: store, forward: nil, refCount: 1)
-            return store
+        // Coalesce: reuse an in-flight acquisition if one is already running,
+        // otherwise start one synchronously (before any `await`) so a racing
+        // caller observes it.
+        let task = inFlight[host] ?? makeAcquireTask(for: host)
+
+        do {
+            // Awaiting the shared task installs the `Connection` (refCount 0)
+            // exactly once; every caller then claims one hold below.
+            _ = try await task.value
+        } catch let error as LeoError {
+            throw error
+        } catch {
+            throw LeoError.daemonUnreachable
         }
 
-        // Remote: stand up the forward, then build a store over the forwarded
-        // socket. Propagate failures without leaving a dangling cached entry.
+        guard var connection = connections[host] else {
+            // The task removed `inFlight` on failure but left no connection;
+            // surface a generic transport error rather than crash.
+            throw LeoError.daemonUnreachable
+        }
+        connection.refCount += 1
+        connections[host] = connection
+        return connection.store
+    }
+
+    /// Build and register an in-flight acquisition `Task` for `host`. The task
+    /// stands up the forward (remote) or builds the store directly (localhost),
+    /// installs a `Connection` with `refCount == 0`, and clears its `inFlight`
+    /// slot. Callers claim their hold after awaiting it. On failure it removes
+    /// the `inFlight` entry so no dangling state remains.
+    private func makeAcquireTask(for host: String) -> Task<LeoAgentStore, any Error> {
+        let task = Task<LeoAgentStore, any Error> { @MainActor in
+            do {
+                let connection = try await self.buildConnection(for: host)
+                self.connections[host] = connection
+                self.inFlight[host] = nil
+                return connection.store
+            } catch {
+                self.inFlight[host] = nil
+                throw error
+            }
+        }
+        inFlight[host] = task
+        return task
+    }
+
+    /// Build a fresh `Connection` (refCount 0) for `host`. Localhost gets a
+    /// default-socket store with no forward; a remote stands up the forward and
+    /// builds a store over the forwarded socket.
+    private func buildConnection(for host: String) async throws -> Connection {
+        if host == LeoHost.localhostName {
+            let store = storeFactory(nil, nil)
+            return Connection(store: store, forward: nil, refCount: 0)
+        }
         let forward = forwardManagerFactory(host)
         let socketPath = try await forward.start()
         let store = storeFactory(socketPath, host)
-        connections[host] = Connection(store: store, forward: forward, refCount: 1)
-        return store
+        return Connection(store: store, forward: forward, refCount: 0)
     }
 
     /// Release one hold on `host`. At refcount zero the cached connection is

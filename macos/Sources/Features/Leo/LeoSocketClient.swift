@@ -167,22 +167,6 @@ struct LeoSocketClient: LeoDaemon {
     /// Run the `leo` CLI and return stdout. Used only for templates.
     /// `args` are host-routed via `cliArgs` before launch.
     private func runCLI(_ args: [String]) throws(LeoError) -> Data {
-        let proc = Process()
-        proc.executableURL = URL(fileURLWithPath: leoExecutable)
-        proc.arguments = Self.cliArgs(host: host, args)
-        let stdout = Pipe()
-        proc.standardOutput = stdout
-        proc.standardError = Pipe()
-        do {
-            try proc.run()
-        } catch {
-            throw LeoError.daemonUnreachable
-        }
-        let data = stdout.fileHandleForReading.readDataToEndOfFile()
-        proc.waitUntilExit()
-        guard proc.terminationStatus == 0 else {
-            throw LeoError.daemon(message: "leo \(args.joined(separator: " ")) exited \(proc.terminationStatus)")
-        }
-        return data
+        try LeoProcessRunner.run(executable: leoExecutable, args: Self.cliArgs(host: host, args))
     }
 }

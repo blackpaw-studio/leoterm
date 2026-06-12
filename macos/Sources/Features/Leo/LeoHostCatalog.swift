@@ -15,7 +15,24 @@ struct LeoHostCatalog: Sendable {
 
     init(leoExecutable: String = NSString(string: "~/.local/bin/leo").expandingTildeInPath) {
         self.runner = { args throws(LeoError) in
-            try LeoHostCatalog.runCLI(executable: leoExecutable, args: args)
+            // Run the blocking `Process` off the cooperative thread pool, mirroring
+            // `LeoSocketClient.request(_:)`'s continuation + background-queue hop.
+            let result: Result<Data, LeoError> = await withCheckedContinuation { continuation in
+                DispatchQueue.global(qos: .userInitiated).async {
+                    do {
+                        let data = try LeoProcessRunner.run(executable: leoExecutable, args: args)
+                        continuation.resume(returning: .success(data))
+                    } catch let e as LeoError {
+                        continuation.resume(returning: .failure(e))
+                    } catch {
+                        continuation.resume(returning: .failure(LeoError.daemonUnreachable))
+                    }
+                }
+            }
+            switch result {
+            case .success(let data): return data
+            case .failure(let e): throw e
+            }
         }
     }
 
@@ -32,27 +49,5 @@ struct LeoHostCatalog: Sendable {
         } catch {
             throw LeoError.decode(detail: "host list: \(error)")
         }
-    }
-
-    /// Production runner: run the `leo` CLI and return stdout. Mirrors
-    /// `LeoSocketClient.runCLI`'s `Process` conventions.
-    private static func runCLI(executable: String, args: [String]) throws(LeoError) -> Data {
-        let proc = Process()
-        proc.executableURL = URL(fileURLWithPath: executable)
-        proc.arguments = args
-        let stdout = Pipe()
-        proc.standardOutput = stdout
-        proc.standardError = Pipe()
-        do {
-            try proc.run()
-        } catch {
-            throw LeoError.daemonUnreachable
-        }
-        let data = stdout.fileHandleForReading.readDataToEndOfFile()
-        proc.waitUntilExit()
-        guard proc.terminationStatus == 0 else {
-            throw LeoError.daemon(message: "leo \(args.joined(separator: " ")) exited \(proc.terminationStatus)")
-        }
-        return data
     }
 }
