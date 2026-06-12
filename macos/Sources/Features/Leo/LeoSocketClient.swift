@@ -8,12 +8,25 @@ import os
 struct LeoSocketClient: LeoDaemon {
     let socketPath: String
     let leoExecutable: String
+    /// The leo host these CLI fallbacks target. `nil`/`localhost` runs the CLI
+    /// locally; a remote name adds `--host <name>` so the CLI SSH-dispatches.
+    /// Socket calls always use `socketPath` (the local or forwarded socket).
+    let host: String?
     private static let logger = Logger(subsystem: "com.mitchellh.ghostty", category: "leo-daemon")
 
     init(socketPath: String = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath,
+         host: String? = nil,
          leoExecutable: String = NSString(string: "~/.local/bin/leo").expandingTildeInPath) {
         self.socketPath = socketPath
+        self.host = host
         self.leoExecutable = leoExecutable
+    }
+
+    /// Prepend `--host <name>` to a CLI argument list for a remote host.
+    /// A `nil` or `localhost` host runs the CLI locally, unchanged.
+    static func cliArgs(host: String?, _ args: [String]) -> [String] {
+        guard let host, host != LeoHost.localhostName else { return args }
+        return ["--host", host] + args
     }
 
     // MARK: LeoDaemon
@@ -152,10 +165,11 @@ struct LeoSocketClient: LeoDaemon {
     }
 
     /// Run the `leo` CLI and return stdout. Used only for templates.
+    /// `args` are host-routed via `cliArgs` before launch.
     private func runCLI(_ args: [String]) throws(LeoError) -> Data {
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: leoExecutable)
-        proc.arguments = args
+        proc.arguments = Self.cliArgs(host: host, args)
         let stdout = Pipe()
         proc.standardOutput = stdout
         proc.standardError = Pipe()

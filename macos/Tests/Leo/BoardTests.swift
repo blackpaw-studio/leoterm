@@ -28,4 +28,26 @@ struct BoardTests {
         let live = [Agent(name: "a", template: "coding", repo: "x/a", workspace: "/w", status: .stopped, startedAt: "t", env: [:])]
         #expect(board.reconciled(against: live).cells[0].liveness == .dead)
     }
+
+    @Test func boardDefaultsToLocalhostHost() {
+        let board = Board(name: "w", cells: [])
+        #expect(board.host == "localhost")
+    }
+
+    @Test func boardDecodesMissingHostAsLocalhost() throws {
+        // Legacy persisted board JSON predates the host field.
+        let json = Data("""
+        {"id":"\(UUID().uuidString)","name":"legacy","cells":[]}
+        """.utf8)
+        let board = try JSONDecoder().decode(Board.self, from: json)
+        #expect(board.host == "localhost")
+    }
+
+    @Test func boardRoundTripsCustomHost() throws {
+        let board = Board(name: "remote", host: "dionysus", cells: [agentCell("a")])
+        let data = try JSONEncoder().encode(board)
+        let decoded = try JSONDecoder().decode(Board.self, from: data)
+        #expect(decoded == board)
+        #expect(decoded.host == "dionysus")
+    }
 }

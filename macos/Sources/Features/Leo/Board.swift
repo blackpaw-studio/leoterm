@@ -46,12 +46,28 @@ struct BoardCell: Codable, Equatable, Identifiable, Sendable {
 struct Board: Codable, Equatable, Identifiable, Sendable {
     let id: UUID
     var name: String
+    /// The leo host this board's agents live on. `localhost` (the default)
+    /// targets the local daemon; a remote name routes through an SSH forward.
+    var host: String
     var cells: [BoardCell]
 
-    init(id: UUID = UUID(), name: String, cells: [BoardCell]) {
+    init(id: UUID = UUID(), name: String, host: String = LeoHost.localhostName, cells: [BoardCell]) {
         self.id = id
         self.name = name
+        self.host = host
         self.cells = cells
+    }
+
+    enum CodingKeys: String, CodingKey { case id, name, host, cells }
+
+    // Custom decode so boards persisted before the `host` field default to
+    // localhost instead of failing to decode.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        host = try c.decodeIfPresent(String.self, forKey: .host) ?? LeoHost.localhostName
+        cells = try c.decode([BoardCell].self, forKey: .cells)
     }
 
     /// Recompute each cell's liveness against the live daemon roster: an agent
@@ -69,6 +85,6 @@ struct Board: Codable, Equatable, Identifiable, Sendable {
             }
             return c
         }
-        return Board(id: id, name: name, cells: newCells)
+        return Board(id: id, name: name, host: host, cells: newCells)
     }
 }
