@@ -12,7 +12,11 @@ struct LeoSidebarContainer: View {
                 store: model.store,
                 onBoard: Set(delegate?.leoOnBoardAgentNames() ?? []),
                 onAttach: { [weak delegate] agent in delegate?.leoAddAgentCell(named: agent.name) },
-                onStop: { [weak model] agent in Task { await model?.store.stop(name: agent.name) } },
+                onStop: { [weak model] agent in
+                    // Read the model's current store at call time so the action
+                    // targets whichever host the sidebar is now following.
+                    Task { await model?.store.stop(name: agent.name) }
+                },
                 onNewAgent: { [weak delegate] in delegate?.leoPresentSpawnSheet() },
                 onNewTerminal: { [weak delegate] in delegate?.leoAddTerminalCell() })
             Divider()
@@ -48,7 +52,9 @@ struct LeoSidebarView: View {
             footer
         }
         .frame(width: 240)
-        .task { await store.refresh() }
+        // Re-run when the store instance changes (sidebar retargeted to a new
+        // host) so the new host's roster refreshes immediately.
+        .task(id: ObjectIdentifier(store)) { await store.refresh() }
     }
 
     private var header: some View {

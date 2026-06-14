@@ -98,8 +98,13 @@ class AppDelegate: NSObject,
     /// The ghostty global state. Only one per process.
     let ghostty: Ghostty.App
 
-    /// Shared Leo daemon store + sidebar model, one per app.
-    @MainActor lazy var leoSidebar = LeoSidebarModel(store: LeoAgentStore())
+    /// Shared, app-owned registry mapping leo host names to reference-counted
+    /// connections. The single sidebar retargets through this as boards change.
+    @MainActor private let leoHostRegistry = LeoHostRegistry()
+
+    /// Shared Leo sidebar model, one per app. Retargets to the active board's
+    /// host via the shared registry.
+    @MainActor lazy var leoSidebar = LeoSidebarModel(registry: leoHostRegistry)
 
     /// Whether the saved Leo board has been restored yet this launch.
     private var didRestoreLeoBoard = false

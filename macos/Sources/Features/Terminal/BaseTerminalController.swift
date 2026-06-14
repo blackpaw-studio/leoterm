@@ -262,6 +262,11 @@ class BaseTerminalController: NSWindowController,
     /// triggers a debounced save; we want exactly one save at the end).
     private var isRestoringLeoBoard = false
 
+    /// The leo host this controller's board targets. The shared sidebar retargets
+    /// to this host when this window becomes key, so the sidebar follows the
+    /// active tab/window. Defaults to localhost.
+    private var leoActiveHost: String = LeoHost.localhostName
+
     /// Snapshot the current cells (live agent cells + dead placeholders) and
     /// persist after a short debounce. Called on every board mutation.
     func scheduleLeoBoardSave() {
@@ -293,8 +298,15 @@ class BaseTerminalController: NSWindowController,
     /// palette command) — agents already on the board are skipped.
     func restoreLeoBoard() {
         guard let boards = try? leoBoardStore.load(), let board = boards.first else { return }
-        guard let store = (NSApp.delegate as? AppDelegate)?.leoSidebar.store else { return }
+        guard let sidebar = (NSApp.delegate as? AppDelegate)?.leoSidebar else { return }
+
+        // Follow this board's host: retarget the sidebar and remember the host so
+        // this window becoming key re-targets to it.
+        self.leoActiveHost = board.host
+
         Task { @MainActor in
+            await sidebar.setActiveHost(board.host)
+            let store = sidebar.store
             self.isRestoringLeoBoard = true
             await store.refresh()
             let plan = BoardSession.restorePlan(board: board, liveAgents: store.agents)
@@ -1458,6 +1470,12 @@ class BaseTerminalController: NSWindowController,
         // Sync on the next runloop so split focus has settled first.
         DispatchQueue.main.async {
             self.syncFocusToSurfaceTree()
+        }
+
+        // Follow the active tab/window: retarget the shared sidebar to this
+        // controller's board host. A no-op when already on that host.
+        if let appDelegate = NSApp.delegate as? AppDelegate {
+            Task { await appDelegate.leoSidebar.setActiveHost(self.leoActiveHost) }
         }
     }
 
