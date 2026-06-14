@@ -66,10 +66,13 @@ struct LeoSidebarModelTests {
         let model = LeoSidebarModel(registry: registry)
 
         await model.setActiveHost("dionysus")
+        let firstStore = model.store
         await model.setActiveHost("dionysus")
 
         #expect(capture.calls.count == 1)
         #expect(model.activeHost == "dionysus")
+        // Re-selecting the same host must not swap the store instance.
+        #expect(model.store === firstStore)
     }
 
     @Test func switchingBetweenRemoteHostsReleasesTheFirst() async throws {
