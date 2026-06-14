@@ -88,10 +88,11 @@ struct LeoSidebarView: View {
         Menu {
             ForEach(hosts) { host in
                 Button { onSelectHost(host.name) } label: {
-                    if let ssh = host.ssh {
-                        Text("\(host.name) — \(ssh)")
+                    let title = host.ssh.map { "\(host.name) — \($0)" } ?? host.name
+                    if host.name == activeHost {
+                        Label(title, systemImage: "checkmark")
                     } else {
-                        Text(host.name)
+                        Text(title)
                     }
                 }
             }
