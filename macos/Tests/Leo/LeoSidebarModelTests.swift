@@ -120,6 +120,77 @@ struct LeoSidebarModelTests {
         #expect(model.store === placeholder)
         #expect(model.activationError != nil)
     }
+
+    /// Regression: two overlapping retargets where the FIRST-started host ("slow")
+    /// resolves its forward LATER than the second ("fast"). The slow acquire is
+    /// still suspended in `start()` when the fast acquire completes and becomes
+    /// active. The slow acquire must NOT clobber the fast active host; instead it
+    /// must release the hold it just acquired so the refcount doesn't leak. Final
+    /// state: active host is "fast", the fast store is showing, the slow host's
+    /// hold was released exactly once, and the fast hold is still alive (acquired
+    /// exactly once, never released).
+    @Test func overlappingRetargetsKeepLaterWinnerAndReleaseStaleAcquire() async throws {
+        let capture = ModelStoreCapture()
+        let terminations = ForwardTerminationCounter()
+        // Two gates enforce a deterministic interleaving:
+        //  - `slowStarted` fires once the "slow" forward begins, so we only launch
+        //    the "fast" retarget after "slow" has registered generation N.
+        //  - `fastResolved` fires once the "fast" forward yields its socket, so the
+        //    "slow" acquire stays suspended until "fast" has won and become active.
+        let slowStarted = SignalGate()
+        let fastResolved = SignalGate()
+        let registry = LeoHostRegistry(
+            forwardManagerFactory: { host in
+                let isSlow = host == "slow"
+                return LeoForwardManager(host: host, launcher: FakeForwardLauncher { _ in
+                    FakeForwardHandle(
+                        lines: AsyncStream { cont in
+                            Task {
+                                if isSlow {
+                                    await slowStarted.signal()
+                                    // Resolve only AFTER "fast" has fully completed,
+                                    // so this acquire resumes behind a newer retarget.
+                                    await fastResolved.wait()
+                                    cont.yield(#"{"socket":"/tmp/slow.sock","host":"slow","pid":1}"#)
+                                } else {
+                                    cont.yield(#"{"socket":"/tmp/fast.sock","host":"fast","pid":1}"#)
+                                }
+                            }
+                        },
+                        onTerminate: { Task { await terminations.add(host) } })
+                })
+            },
+            storeFactory: { socketPath, host in
+                let store = LeoAgentStore(daemon: MockLeoDaemon())
+                capture.record(socketPath: socketPath, host: host, store: store)
+                return store
+            })
+        let model = LeoSidebarModel(registry: registry)
+
+        // Call 1 (slow) registers generation N and suspends in `start()`.
+        let slow = Task { await model.setActiveHost("slow") }
+        await slowStarted.wait()
+
+        // Call 2 (fast) registers generation N+1 and runs to completion, becoming
+        // the active host while "slow" is still suspended.
+        _ = await model.setActiveHost("fast")
+        #expect(model.activeHost == "fast")
+
+        // Release "slow" from its wait; it resumes as a stale winner.
+        await fastResolved.signal()
+        _ = await slow.value
+
+        // The later winner stands: sidebar still shows "fast", unclobbered.
+        #expect(model.activeHost == "fast")
+        #expect(model.store === capture.calls.last(where: { $0.host == "fast" })?.store)
+        #expect(model.activationError == nil)
+
+        // The stale "slow" acquire released the hold it grabbed — exactly once.
+        try await pollUntilModel { await terminations.count("slow") == 1 }
+        #expect(await terminations.count("slow") == 1)
+        // The fast hold stays alive — acquired once, never released.
+        #expect(await terminations.count("fast") == 0)
+    }
 }
 
 // MARK: - Test doubles
@@ -151,17 +222,31 @@ private actor ForwardTerminatedFlag {
     func contains(_ host: String) -> Bool { hosts.contains(host) }
 }
 
-private struct FakeForwardHandle: ForwardHandle {
-    let lines: AsyncStream<String>
-    let onTerminate: @Sendable () -> Void
-    init(lines: AsyncStream<String>, onTerminate: @escaping @Sendable () -> Void = {}) {
-        self.lines = lines
-        self.onTerminate = onTerminate
-    }
-    func terminate() { onTerminate() }
+/// Counts forward terminations per host so tests can assert a host's hold was
+/// released exactly once (no double-release).
+private actor ForwardTerminationCounter {
+    private(set) var counts: [String: Int] = [:]
+    func add(_ host: String) { counts[host, default: 0] += 1 }
+    func count(_ host: String) -> Int { counts[host] ?? 0 }
 }
 
-private struct FakeForwardLauncher: ForwardLauncher {
-    let make: @Sendable ([String]) async -> ForwardHandle
-    func launch(args: [String]) async -> ForwardHandle { await make(args) }
+/// A one-shot async gate. `wait()` suspends until `signal()` is called; once
+/// signaled it never blocks again. Lets a test impose a deterministic ordering
+/// on otherwise-concurrent acquires.
+private actor SignalGate {
+    private var isSignaled = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func signal() {
+        guard !isSignaled else { return }
+        isSignaled = true
+        let pending = waiters
+        waiters.removeAll()
+        for waiter in pending { waiter.resume() }
+    }
+
+    func wait() async {
+        if isSignaled { return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
 }

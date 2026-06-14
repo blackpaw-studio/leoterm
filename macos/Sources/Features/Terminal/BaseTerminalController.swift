@@ -305,8 +305,10 @@ class BaseTerminalController: NSWindowController,
         self.leoActiveHost = board.host
 
         Task { @MainActor in
-            await sidebar.setActiveHost(board.host)
-            let store = sidebar.store
+            // Reconcile against the store for THIS board's host. Re-reading
+            // `sidebar.store` would be unsafe: a concurrent retarget could have
+            // moved the sidebar to another host between the await and the read.
+            guard let store = await sidebar.setActiveHost(board.host) else { return }
             self.isRestoringLeoBoard = true
             await store.refresh()
             let plan = BoardSession.restorePlan(board: board, liveAgents: store.agents)

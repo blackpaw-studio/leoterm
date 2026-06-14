@@ -5,9 +5,9 @@ import Foundation
 @MainActor
 struct LeoHostRegistryTests {
     /// A launcher that yields one canned socket line, mirroring LeoForwardTests.
-    nonisolated private static func socketLauncher(_ socketPath: String) -> FakeLauncher {
-        FakeLauncher { _ in
-            FakeHandle(lines: AsyncStream { cont in
+    nonisolated private static func socketLauncher(_ socketPath: String) -> FakeForwardLauncher {
+        FakeForwardLauncher { _ in
+            FakeForwardHandle(lines: AsyncStream { cont in
                 cont.yield(#"{"socket":"\#(socketPath)","host":"h","pid":1}"#)
                 // stream left open: the forward process stays alive
             })
@@ -89,8 +89,8 @@ struct LeoHostRegistryTests {
                 // The registry invokes the factory synchronously on the MainActor,
                 // so counting here is deterministic (no Task hop to race with).
                 MainActor.assumeIsolated { factoryCalls.increment() }
-                return LeoForwardManager(host: host, launcher: FakeLauncher { _ in
-                    FakeHandle(
+                return LeoForwardManager(host: host, launcher: FakeForwardLauncher { _ in
+                    FakeForwardHandle(
                         lines: AsyncStream { cont in
                             Task {
                                 await Task.yield()
@@ -133,8 +133,8 @@ struct LeoHostRegistryTests {
         let terminated = ForwardFlag()
         let registry = LeoHostRegistry(
             forwardManagerFactory: { host in
-                LeoForwardManager(host: host, launcher: FakeLauncher { _ in
-                    FakeHandle(
+                LeoForwardManager(host: host, launcher: FakeForwardLauncher { _ in
+                    FakeForwardHandle(
                         lines: AsyncStream { cont in
                             cont.yield(#"{"socket":"/tmp/dionysus.sock","host":"dionysus","pid":1}"#)
                         },
@@ -203,19 +203,4 @@ private actor ForwardFlag {
 private final class CountBox {
     private(set) var value = 0
     func increment() { value += 1 }
-}
-
-private struct FakeHandle: ForwardHandle {
-    let lines: AsyncStream<String>
-    let onTerminate: @Sendable () -> Void
-    init(lines: AsyncStream<String>, onTerminate: @escaping @Sendable () -> Void = {}) {
-        self.lines = lines
-        self.onTerminate = onTerminate
-    }
-    func terminate() { onTerminate() }
-}
-
-private struct FakeLauncher: ForwardLauncher {
-    let make: @Sendable ([String]) async -> ForwardHandle
-    func launch(args: [String]) async -> ForwardHandle { await make(args) }
 }
