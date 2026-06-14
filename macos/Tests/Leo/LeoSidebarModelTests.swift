@@ -106,6 +106,45 @@ struct LeoSidebarModelTests {
         #expect(await terminated.contains("helios") == false)
     }
 
+    @Test func refreshHostsPopulatesFromCatalog() async throws {
+        let json = Data("""
+        [{"name":"localhost","default":false,"local":true},
+         {"name":"dionysus","ssh":"leo@10.0.2.10","default":true,"local":false}]
+        """.utf8)
+        let capture = ModelStoreCapture()
+        let registry = makeRegistry(capture: capture, launcher: { Self.socketLauncher("/tmp/x.sock") })
+        let model = LeoSidebarModel(
+            registry: registry,
+            catalog: LeoHostCatalog(runner: { _ in json }))
+
+        await model.refreshHosts()
+
+        #expect(model.hosts.count == 2)
+        #expect(model.hosts.map(\.name) == ["localhost", "dionysus"])
+        #expect(model.hosts[1].isRemote == true)
+    }
+
+    @Test func refreshHostsFallsBackToLocalhostWhenCatalogFails() async throws {
+        let capture = ModelStoreCapture()
+        let registry = makeRegistry(capture: capture, launcher: { Self.socketLauncher("/tmp/x.sock") })
+        let model = LeoSidebarModel(
+            registry: registry,
+            catalog: LeoHostCatalog(runner: { _ throws(LeoError) in throw LeoError.daemonUnreachable }))
+
+        await model.refreshHosts()
+
+        // Old leo binary lacks `host list`: the sidebar must keep a localhost entry.
+        #expect(model.hosts.contains(where: { $0.name == LeoHost.localhostName }))
+    }
+
+    @Test func hostsStartWithLocalhostEntry() async throws {
+        let capture = ModelStoreCapture()
+        let registry = makeRegistry(capture: capture, launcher: { Self.socketLauncher("/tmp/x.sock") })
+        let model = LeoSidebarModel(registry: registry)
+
+        #expect(model.hosts.map(\.name) == [LeoHost.localhostName])
+    }
+
     @Test func failingAcquireLeavesStoreUnchangedAndSetsActivationError() async throws {
         let capture = ModelStoreCapture()
         let registry = makeRegistry(

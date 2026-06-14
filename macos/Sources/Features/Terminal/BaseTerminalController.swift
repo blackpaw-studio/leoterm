@@ -286,7 +286,9 @@ class BaseTerminalController: NSWindowController,
             planned += self.leoDeadCells.map {
                 .init(source: .agent(name: $0.snapshot.name), snapshot: $0.snapshot, isDead: true)
             }
-            try? self.leoBoardStore.save([BoardSession.snapshot(name: "default", from: planned)])
+            try? self.leoBoardStore.save([
+                BoardSession.snapshot(name: "default", host: self.leoActiveHost, from: planned)
+            ])
         }
         leoBoardSaveItem = item
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: item)
@@ -951,6 +953,18 @@ class BaseTerminalController: NSWindowController,
 
     func leoAddTerminalCell() {
         addCell(source: .pty)
+    }
+
+    /// Bind this board to `host`: remember it, persist it (the snapshot now threads
+    /// the host through), and retarget the shared sidebar to the host's store.
+    /// Existing cells are not re-hosted; new/restored cells pick up the new host.
+    func leoSelectHost(_ host: String) {
+        guard host != leoActiveHost else { return }
+        leoActiveHost = host
+        scheduleLeoBoardSave()
+        Task { @MainActor in
+            await (NSApp.delegate as? AppDelegate)?.leoSidebar.setActiveHost(host)
+        }
     }
 
     /// Menu/responder-chain entry point for "New Terminal Cell". Routed from the

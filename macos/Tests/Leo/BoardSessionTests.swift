@@ -20,7 +20,12 @@ struct BoardSessionTests {
             BoardSession.PlannedCell(source: .agent(name: "a"), snapshot: .init(name: "a", repo: "x/a"), isDead: false),
             BoardSession.PlannedCell(source: .pty, snapshot: nil, isDead: false)
         ]
-        let board = BoardSession.snapshot(name: "w", from: plan)
+        let board = BoardSession.snapshot(name: "w", host: LeoHost.localhostName, from: plan)
         #expect(board.cells.map(\.source) == [.agent(name: "a"), .pty])
+    }
+
+    @Test func snapshotPersistsHost() {
+        let board = BoardSession.snapshot(name: "w", host: "dionysus", from: [])
+        #expect(board.host == "dionysus")
     }
 }

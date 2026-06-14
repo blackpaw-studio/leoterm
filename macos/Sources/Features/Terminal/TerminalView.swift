@@ -30,6 +30,9 @@ protocol TerminalViewDelegate: AnyObject {
     /// Leo: add a plain terminal (PTY) cell.
     func leoAddTerminalCell()
 
+    /// Leo: bind this board to `host`, persist it, and retarget the sidebar.
+    func leoSelectHost(_ host: String)
+
     /// Leo: present the spawn-agent sheet.
     func leoPresentSpawnSheet()
 

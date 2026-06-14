@@ -20,9 +20,16 @@ final class LeoSidebarModel: ObservableObject {
     @Published private(set) var activationError: String?
 
     /// The host the sidebar is currently showing. Defaults to localhost.
-    private(set) var activeHost: String = LeoHost.localhostName
+    @Published private(set) var activeHost: String = LeoHost.localhostName
+
+    /// The hosts available to pick from. Always contains a localhost entry so the
+    /// picker works even when `leo host list` is unavailable (old binary).
+    @Published private(set) var hosts: [LeoHost] = [
+        LeoHost(name: LeoHost.localhostName, ssh: nil, isDefault: false, isLocal: true)
+    ]
 
     private let registry: LeoHostRegistry
+    private let catalog: LeoHostCatalog
     /// The host currently held via the registry, or `nil` for the initial
     /// localhost placeholder (which was NOT registry-acquired and must not be
     /// released).
@@ -34,9 +41,31 @@ final class LeoSidebarModel: ObservableObject {
     private var pollTask: Task<Void, Never>?
     private static let logger = Logger(subsystem: "com.mitchellh.ghostty", category: "leo-sidebar")
 
-    init(registry: LeoHostRegistry, store: LeoAgentStore? = nil) {
+    /// The synthesized localhost entry that is always present, even when
+    /// `leo host list` can't be reached (e.g. an old leo binary).
+    private static let localhostEntry = LeoHost(
+        name: LeoHost.localhostName, ssh: nil, isDefault: false, isLocal: true)
+
+    init(registry: LeoHostRegistry, catalog: LeoHostCatalog = LeoHostCatalog(), store: LeoAgentStore? = nil) {
         self.registry = registry
+        self.catalog = catalog
         self.store = store ?? LeoAgentStore()
+    }
+
+    /// Refresh the available host list via `leo host list --json`. On any failure
+    /// (notably an old leo binary that lacks `host list`) the existing list is
+    /// kept and we ensure a localhost entry remains, so the picker never breaks.
+    func refreshHosts() async {
+        do {
+            let fetched = try await catalog.listHosts()
+            hosts = fetched.contains(where: { $0.isLocal }) ? fetched : [Self.localhostEntry] + fetched
+        } catch {
+            Self.logger.warning(
+                "host list unavailable, keeping localhost-only: \(error.errorDescription ?? "?", privacy: .public)")
+            if !hosts.contains(where: { $0.name == LeoHost.localhostName }) {
+                hosts = [Self.localhostEntry]
+            }
+        }
     }
 
     func toggle() { setVisible(!isVisible) }
