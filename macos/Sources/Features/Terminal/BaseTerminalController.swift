@@ -377,7 +377,7 @@ class BaseTerminalController: NSWindowController,
     func addCell(source: CellSource) -> Ghostty.SurfaceView? {
         guard let anchor = focusedSurface ?? Array(surfaceTree).first else { return nil }
         guard let view = newSplit(at: anchor, direction: .right,
-                                  baseConfig: source.surfaceConfiguration) else { return nil }
+                                  baseConfig: source.surfaceConfiguration(host: leoActiveHost)) else { return nil }
         cellRegistry.record(id: view.id, source: source)
         scheduleLeoBoardSave()
         return view

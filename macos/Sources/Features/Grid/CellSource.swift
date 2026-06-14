@@ -20,9 +20,9 @@ enum CellSource: Equatable, Codable {
     case pty
     case agent(name: String)
 
-    /// Clears the inherited tmux env (so the nesting guard doesn't fire), then
-    /// runs the control-mode attach. Trailing space: the agent name follows.
-    private static let agentAttachCommand = "/usr/bin/env -u TMUX -u TMUX_PANE leo agent attach --cc"
+    /// The env prefix that clears tmux nesting guards before running the
+    /// control-mode attach client.
+    private static let envPrefix = "/usr/bin/env -u TMUX -u TMUX_PANE"
 
     /// True for cells backed by a Leo agent (carries agent status semantics).
     var isAgent: Bool {
@@ -32,14 +32,28 @@ enum CellSource: Equatable, Codable {
         }
     }
 
-    /// The per-surface configuration that launches this source.
-    var surfaceConfiguration: Ghostty.SurfaceConfiguration {
+    /// Returns the `leo [--host <host>] agent attach --cc` segment for the
+    /// given host. Localhost omits `--host` to stay byte-identical to the
+    /// pre-remote-host command.
+    private static func leoAttachSegment(host: String, agent name: String) -> String {
+        if host == LeoHost.localhostName {
+            return "leo agent attach --cc \(name)"
+        } else {
+            return "leo --host \(host) agent attach --cc \(name)"
+        }
+    }
+
+    /// Returns the per-surface configuration that launches this source.
+    ///
+    /// - Parameter host: The board host name. Defaults to `LeoHost.localhostName`
+    ///   so callers without board context get the same local behaviour as today.
+    func surfaceConfiguration(host: String = LeoHost.localhostName) -> Ghostty.SurfaceConfiguration {
         var config = Ghostty.SurfaceConfiguration()
         switch self {
         case .pty:
             config.command = nil // inherit $SHELL from global config
         case .agent(let name):
-            config.command = "\(Self.agentAttachCommand) \(name)"
+            config.command = "\(Self.envPrefix) \(Self.leoAttachSegment(host: host, agent: name))"
         }
         return config
     }
