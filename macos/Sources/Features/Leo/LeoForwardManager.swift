@@ -34,6 +34,11 @@ actor LeoForwardManager {
     }
 
     static func forwardArgs(host: String) -> [String] { ["host", "forward", host, "--json"] }
+    /// Args for an explicit `leo host forward <name> --stop`. Reserved as a
+    /// graceful-teardown fallback: `stop()` currently SIGTERMs the foreground
+    /// forward process instead (leo's documented "kill to tear down" model).
+    /// Switch `stop()` to invoke this if live testing shows SIGTERM leaves a
+    /// stale ControlMaster or socket behind.
     static func stopArgs(host: String) -> [String] { ["host", "forward", host, "--stop"] }
 
     let host: String
@@ -58,8 +63,11 @@ actor LeoForwardManager {
         throw LeoError.daemonUnreachable
     }
 
-    /// Tear down the forward process (and, via the CLI's own cleanup, the
-    /// ControlMaster + local socket).
+    /// Tear down the forward by SIGTERM-ing the `leo host forward` process.
+    /// leo's process is expected to clean up its own ControlMaster + local
+    /// socket on exit ("kill to tear down"); that self-cleanup is the one
+    /// teardown behavior that still needs live verification against a real
+    /// host (see `stopArgs` for the explicit `--stop` fallback).
     func stop() {
         handle?.terminate()
         handle = nil
