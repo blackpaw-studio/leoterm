@@ -1,3 +1,5 @@
+import Foundation
+
 /// The byte source that backs a grid cell's terminal surface.
 ///
 /// - `pty`: a plain terminal cell running the user's `$SHELL` (Ghostty's
@@ -24,6 +26,12 @@ enum CellSource: Equatable, Codable {
     /// control-mode attach client.
     private static let envPrefix = "/usr/bin/env -u TMUX -u TMUX_PANE"
 
+    /// Absolute path to the `leo` CLI. The attach command MUST use the absolute
+    /// path, not bare `leo`: a GUI app's environment does not include
+    /// `~/.local/bin` on `$PATH`, so `/usr/bin/env … leo …` would fail with
+    /// `env: leo: No such file or directory`. Matches `LeoSocketClient`'s default.
+    private static let leoExecutable = NSString(string: "~/.local/bin/leo").expandingTildeInPath
+
     /// True for cells backed by a Leo agent (carries agent status semantics).
     var isAgent: Bool {
         switch self {
@@ -37,9 +45,9 @@ enum CellSource: Equatable, Codable {
     /// pre-remote-host command.
     private static func leoAttachSegment(host: String, agent name: String) -> String {
         if host == LeoHost.localhostName {
-            return "leo agent attach --cc \(name)"
+            return "\(leoExecutable) agent attach --cc \(name)"
         } else {
-            return "leo --host \(host) agent attach --cc \(name)"
+            return "\(leoExecutable) --host \(host) agent attach --cc \(name)"
         }
     }
 

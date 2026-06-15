@@ -26,7 +26,10 @@ final class LeoAgentStore: ObservableObject {
     func refresh() async {
         do {
             let fetched = try await daemon.listAgents()
-            agents = fetched
+            // Sort by name so the sidebar order is stable across polls — the
+            // daemon returns the roster in an unstable (map-iteration) order,
+            // which otherwise makes the list visibly reshuffle every refresh.
+            agents = fetched.sorted { $0.name < $1.name }
             connection = .online
             lastError = nil
         } catch let error {
