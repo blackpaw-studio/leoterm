@@ -48,6 +48,10 @@ class BaseTerminalController: NSWindowController,
     /// Dead-agent placeholders restored from a saved board (agents now gone).
     @Published var leoDeadCells: [DeadCell] = []
 
+    /// Row-height pins persisted from the last session, keyed by row index.
+    /// Published so the SwiftUI grid view receives updates when the board is restored.
+    @Published var leoPinnedRowHeights: [Int: CGFloat] = [:]
+
     /// This can be set to show/hide the command palette.
     @Published var commandPaletteIsShowing: Bool = false
 
@@ -274,20 +278,29 @@ class BaseTerminalController: NSWindowController,
         leoBoardSaveItem?.cancel()
         let item = DispatchWorkItem { [weak self] in
             guard let self else { return }
-            let liveRepos = (NSApp.delegate as? AppDelegate)?.leoSidebar.store.agents
-                .reduce(into: [String: String]()) { $0[$1.name] = $1.repo } ?? [:]
+            // Build per-agent info lookup from the live daemon roster.
+            var liveInfo: [String: (repo: String, template: String)] = [:]
+            for agent in (NSApp.delegate as? AppDelegate)?.leoSidebar.store.agents ?? [] {
+                liveInfo[agent.name] = (repo: agent.repo, template: agent.template)
+            }
             // Persist only agent cells; the auto-created .pty shell must NOT be saved.
             var planned: [BoardSession.PlannedCell] = Array(self.surfaceTree).compactMap { surface in
                 guard case .agent(let name) = self.cellRegistry.source(for: surface.id) else { return nil }
-                return .init(source: .agent(name: name),
-                             snapshot: AgentSnapshot(name: name, repo: liveRepos[name] ?? ""),
-                             isDead: false)
+                let info = liveInfo[name]
+                return .init(
+                    source: .agent(name: name),
+                    snapshot: AgentSnapshot(name: name, repo: info?.repo ?? "", template: info?.template),
+                    isDead: false)
             }
             planned += self.leoDeadCells.map {
                 .init(source: .agent(name: $0.snapshot.name), snapshot: $0.snapshot, isDead: true)
             }
             try? self.leoBoardStore.save([
-                BoardSession.snapshot(name: "default", host: self.leoActiveHost, from: planned)
+                BoardSession.snapshot(
+                    name: "default",
+                    host: self.leoActiveHost,
+                    from: planned,
+                    pinnedRowHeights: self.leoPinnedRowHeights)
             ])
         }
         leoBoardSaveItem = item
@@ -329,6 +342,9 @@ class BaseTerminalController: NSWindowController,
                 }
             }
             self.leoDeadCells = newDead
+            // Restore persisted row-height pins. The grid view observes this
+            // published property and converts row indices → cell UUIDs on change.
+            self.leoPinnedRowHeights = board.pinnedRowHeights ?? [:]
             self.isRestoringLeoBoard = false
             self.scheduleLeoBoardSave()
         }
@@ -975,12 +991,15 @@ class BaseTerminalController: NSWindowController,
     }
 
     /// Present the spawn-agent sheet. On spawn, lands the new agent as a cell.
-    func presentSpawnSheet() {
+    /// Pass a `prefill` snapshot to open the sheet with the dead cell's last
+    /// known template and repo already filled in.
+    func presentSpawnSheet(prefill: AgentSnapshot? = nil) {
         guard let store = (NSApp.delegate as? AppDelegate)?.leoSidebar.store,
               let container = window?.contentViewController else { return }
         var hosting: NSHostingController<SpawnAgentSheet>?
         let view = SpawnAgentSheet(
             store: store,
+            prefill: prefill,
             onSpawn: { [weak self, weak container] request in
                 if let hosting, let container { container.dismiss(hosting) }
                 Task {
@@ -1007,14 +1026,21 @@ class BaseTerminalController: NSWindowController,
     }
 
     func leoRespawnDeadCell(_ dead: DeadCell) {
-        // Remove the placeholder and open the spawn sheet (user picks template+repo).
+        // Remove the placeholder and open the spawn sheet prefilled with the
+        // dead cell's last known agent snapshot so the user doesn't have to
+        // re-enter template and repo.
         leoDeadCells.removeAll { $0.id == dead.id }
         scheduleLeoBoardSave()
-        presentSpawnSheet()
+        presentSpawnSheet(prefill: dead.snapshot)
     }
 
     func leoRemoveDeadCell(_ dead: DeadCell) {
         leoDeadCells.removeAll { $0.id == dead.id }
+        scheduleLeoBoardSave()
+    }
+
+    func leoPinnedRowHeightsDidChange(_ heights: [Int: CGFloat]) {
+        leoPinnedRowHeights = heights
         scheduleLeoBoardSave()
     }
 

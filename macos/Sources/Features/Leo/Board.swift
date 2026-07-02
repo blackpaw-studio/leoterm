@@ -5,6 +5,20 @@ import Foundation
 struct AgentSnapshot: Codable, Equatable, Sendable {
     let name: String
     let repo: String
+    /// The template used to spawn this agent. Optional so legacy JSON without
+    /// this field decodes cleanly.
+    let template: String?
+    /// The branch the agent was spawned against, when known. The daemon's agent
+    /// list does not expose branch, so this is only non-nil when the user
+    /// explicitly specified one at spawn time and we managed to capture it.
+    let branch: String?
+
+    init(name: String, repo: String, template: String? = nil, branch: String? = nil) {
+        self.name = name
+        self.repo = repo
+        self.template = template
+        self.branch = branch
+    }
 }
 
 /// Whether a board cell is currently backed by a live source.
@@ -50,24 +64,37 @@ struct Board: Codable, Equatable, Identifiable, Sendable {
     /// targets the local daemon; a remote name routes through an SSH forward.
     var host: String
     var cells: [BoardCell]
+    /// Row-height pins set by the user via the drag handle, keyed by row index
+    /// (0-based). Persisted so the layout is restored on next launch. Pins are
+    /// index-based, so they may not survive cell-count changes — this is
+    /// documented and accepted.
+    var pinnedRowHeights: [Int: CGFloat]?
 
-    init(id: UUID = UUID(), name: String, host: String = LeoHost.localhostName, cells: [BoardCell]) {
+    init(
+        id: UUID = UUID(),
+        name: String,
+        host: String = LeoHost.localhostName,
+        cells: [BoardCell],
+        pinnedRowHeights: [Int: CGFloat]? = nil
+    ) {
         self.id = id
         self.name = name
         self.host = host
         self.cells = cells
+        self.pinnedRowHeights = pinnedRowHeights
     }
 
-    enum CodingKeys: String, CodingKey { case id, name, host, cells }
+    enum CodingKeys: String, CodingKey { case id, name, host, cells, pinnedRowHeights }
 
-    // Custom decode so boards persisted before the `host` field default to
-    // localhost instead of failing to decode.
+    // Custom decode so boards persisted before `host` or `pinnedRowHeights`
+    // default to safe values instead of failing to decode.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(UUID.self, forKey: .id)
         name = try c.decode(String.self, forKey: .name)
         host = try c.decodeIfPresent(String.self, forKey: .host) ?? LeoHost.localhostName
         cells = try c.decode([BoardCell].self, forKey: .cells)
+        pinnedRowHeights = try c.decodeIfPresent([Int: CGFloat].self, forKey: .pinnedRowHeights)
     }
 
     /// Recompute each cell's liveness against the live daemon roster: an agent
@@ -85,6 +112,6 @@ struct Board: Codable, Equatable, Identifiable, Sendable {
             }
             return c
         }
-        return Board(id: id, name: name, host: host, cells: newCells)
+        return Board(id: id, name: name, host: host, cells: newCells, pinnedRowHeights: pinnedRowHeights)
     }
 }

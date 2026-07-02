@@ -44,6 +44,9 @@ protocol TerminalViewDelegate: AnyObject {
 
     /// The cell source (pty vs agent) for a surface, from the cell registry.
     func leoCellSource(for surfaceID: UUID) -> CellSource
+
+    /// Leo: persist updated row-height pins (called whenever the grid's pin state changes).
+    func leoPinnedRowHeightsDidChange(_ heights: [Int: CGFloat])
 }
 
 /// The view model is a required implementation for TerminalView callers. This contains
@@ -62,6 +65,9 @@ protocol TerminalViewModel: ObservableObject {
 
     /// Leo dead-cell placeholders to render in the grid.
     var leoDeadCells: [DeadCell] { get }
+
+    /// Pinned row heights, keyed by row index, to pass into the grid view on restore.
+    var leoPinnedRowHeights: [Int: CGFloat] { get }
 }
 
 /// The main terminal view. This terminal view supports splits.
@@ -129,6 +135,10 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                                     .first(where: { $0.name == name })?.status
                                 return CellStatusInputs(isAgent: true, lifecycle: lifecycle)
                             },
+                            onAddAgent: { self.delegate?.leoPresentSpawnSheet() },
+                            onAddTerminal: { self.delegate?.leoAddTerminalCell() },
+                            initialPinnedRowsByIndex: viewModel.leoPinnedRowHeights,
+                            onPinsChanged: { self.delegate?.leoPinnedRowHeightsDidChange($0) },
                             gap: ghostty.config.gridCellGap,
                             growthFactor: ghostty.config.gridHoverGrowFactor,
                             hoverGrow: ghostty.config.gridHoverGrow)

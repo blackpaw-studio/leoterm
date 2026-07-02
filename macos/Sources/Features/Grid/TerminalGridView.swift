@@ -21,6 +21,19 @@ struct TerminalGridView: View {
     /// lifecycle). Default is a non-agent so plain grids show no agent status.
     var statusInputs: (Ghostty.SurfaceView.ID) -> CellStatusInputs = { _ in .none }
 
+    /// Called when the empty-state "New Agent" button is tapped.
+    var onAddAgent: (() -> Void)?
+    /// Called when the empty-state "New Terminal" button is tapped.
+    var onAddTerminal: (() -> Void)?
+
+    /// Row-height pins loaded from the persisted board (row index → height).
+    /// Applied once on first render and on subsequent external changes (e.g.
+    /// board reload). Pins that survive a cell-count change are best-effort.
+    var initialPinnedRowsByIndex: [Int: CGFloat] = [:]
+    /// Called whenever the user changes pin state; receives the current row-indexed
+    /// pins so the caller can persist them.
+    var onPinsChanged: ([Int: CGFloat]) -> Void = { _ in }
+
     /// Gap between cells, in points (config key `grid-cell-gap`).
     var gap: CGFloat = 4
     /// How much an emphasized cell grows relative to its neighbors
@@ -43,42 +56,93 @@ struct TerminalGridView: View {
         let frame: CGRect
     }
 
+    /// All renderable items: live surfaces followed by dead placeholders.
+    private var allItems: [GridCellItem] {
+        Array(tree).map(GridCellItem.surface) + deadCells.map(GridCellItem.dead)
+    }
+
     var body: some View {
-        if let zoomed = tree.zoomed, case .leaf(let surface) = zoomed {
-            Ghostty.InspectableSurface(surfaceView: surface, isSplit: false)
-        } else {
-            grid
+        Group {
+            if let zoomed = tree.zoomed, case .leaf(let surface) = zoomed {
+                Ghostty.InspectableSurface(surfaceView: surface, isSplit: false)
+            } else {
+                grid
+            }
+        }
+        // Restore pinned row heights from an external source (e.g. board reload).
+        // Guard prevents a feedback loop: if the current row-indexed pins already
+        // match the incoming value, skip the update so we don't rewrite the
+        // UUID-keyed state unnecessarily.
+        .onChange(of: initialPinnedRowsByIndex) { newValue in
+            let current = uuidToRowIndexed(pinnedRowHeights)
+            if current != newValue {
+                pinnedRowHeights = rowIndexedToUUID(newValue)
+            }
+        }
+        // Report pin changes to the caller for persistence. This fires for both
+        // user-initiated drags and the initial restore assignment above; the
+        // caller's debounce absorbs the extra event from restore.
+        .onChange(of: pinnedRowHeights) { newPins in
+            onPinsChanged(uuidToRowIndexed(newPins))
         }
     }
 
+    @ViewBuilder
     private var grid: some View {
-        let items = Array(tree).map(GridCellItem.surface) + deadCells.map(GridCellItem.dead)
-        let isSplit = items.count > 1
-        let emphasized = hoverGrow ? (hoveredID ?? focusedSurface?.id) : nil
-        return GeometryReader { geo in
-            let placed = GridLayout(cells: items)
-                .frames(in: geo.size, gap: gap, pinnedRowHeights: pinnedRowHeights,
-                        emphasizing: emphasized, factor: growthFactor)
-                .map { PlacedCell(id: $0.cell.id, item: $0.cell, frame: $0.frame) }
-            ZStack(alignment: .topLeading) {
-                ForEach(placed) { placedCell in
-                    cellView(for: placedCell, isSplit: isSplit)
-                        .frame(width: placedCell.frame.width, height: placedCell.frame.height)
-                        .overlay(alignment: .bottom) { pinHandle(for: placedCell) }
-                        .position(x: placedCell.frame.midX, y: placedCell.frame.midY)
-                        .onHover { hovering in
-                            if hovering {
-                                hoveredID = placedCell.id
-                            } else if hoveredID == placedCell.id {
-                                hoveredID = nil
+        let items = allItems
+        if items.isEmpty {
+            emptyBoardView
+        } else {
+            let isSplit = items.count > 1
+            let emphasized = hoverGrow ? (hoveredID ?? focusedSurface?.id) : nil
+            GeometryReader { geo in
+                let placed = GridLayout(cells: items)
+                    .frames(in: geo.size, gap: gap, pinnedRowHeights: pinnedRowHeights,
+                            emphasizing: emphasized, factor: growthFactor)
+                    .map { PlacedCell(id: $0.cell.id, item: $0.cell, frame: $0.frame) }
+                ZStack(alignment: .topLeading) {
+                    ForEach(placed) { placedCell in
+                        cellView(for: placedCell, isSplit: isSplit)
+                            .frame(width: placedCell.frame.width, height: placedCell.frame.height)
+                            .overlay(alignment: .bottom) { pinHandle(for: placedCell) }
+                            .position(x: placedCell.frame.midX, y: placedCell.frame.midY)
+                            .onHover { hovering in
+                                if hovering {
+                                    hoveredID = placedCell.id
+                                } else if hoveredID == placedCell.id {
+                                    hoveredID = nil
+                                }
                             }
-                        }
+                    }
                 }
+                .animation(.spring(response: 0.28, dampingFraction: 0.86), value: hoveredID)
+                .animation(.spring(response: 0.28, dampingFraction: 0.86), value: focusedSurface?.id)
+                .animation(.spring(response: 0.28, dampingFraction: 0.86), value: pinnedRowHeights)
             }
-            .animation(.spring(response: 0.28, dampingFraction: 0.86), value: hoveredID)
-            .animation(.spring(response: 0.28, dampingFraction: 0.86), value: focusedSurface?.id)
-            .animation(.spring(response: 0.28, dampingFraction: 0.86), value: pinnedRowHeights)
         }
+    }
+
+    /// Empty-board placeholder shown when the board has no cells at all.
+    private var emptyBoardView: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "square.grid.2x2")
+                .font(.system(size: 24, weight: .regular))
+                .foregroundStyle(.secondary)
+            Text("No cells on this board")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                Button("New Agent") { onAddAgent?() }
+                    .buttonStyle(.bordered)
+                    .disabled(onAddAgent == nil)
+                Button("New Terminal") { onAddTerminal?() }
+                    .buttonStyle(.bordered)
+                    .disabled(onAddTerminal == nil)
+            }
+            .controlSize(.small)
+            .padding(.top, 2)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     /// Renders a placed cell: a live terminal surface (focusable) or a dead placeholder.
@@ -118,5 +182,39 @@ struct TerminalGridView: View {
             .help(pinnedRowHeights[item.id] != nil
                   ? "Pinned row — drag to resize, double-click to unpin"
                   : "Drag to pin this row's height")
+    }
+
+    // MARK: - Pin conversion helpers
+
+    /// Convert UUID-keyed (view-internal) pins to row-indexed (persisted) form.
+    private func uuidToRowIndexed(_ pins: [UUID: CGFloat]) -> [Int: CGFloat] {
+        let items = allItems
+        let (_, columns) = GridLayout<GridCellItem>.dimensions(forCount: items.count)
+        var result: [Int: CGFloat] = [:]
+        for (index, item) in items.enumerated() {
+            if let height = pins[item.id] {
+                let row = columns > 0 ? index / columns : 0
+                result[row] = max(result[row] ?? 0, height)
+            }
+        }
+        return result
+    }
+
+    /// Convert row-indexed (persisted) pins to UUID-keyed (view-internal) form.
+    /// Uses the first cell in each row as the representative key — the grid
+    /// renders identically regardless of which cell in the row carries the pin.
+    private func rowIndexedToUUID(_ pins: [Int: CGFloat]) -> [UUID: CGFloat] {
+        let items = allItems
+        let (_, columns) = GridLayout<GridCellItem>.dimensions(forCount: items.count)
+        var seenRows = Set<Int>()
+        var result: [UUID: CGFloat] = [:]
+        for (index, item) in items.enumerated() {
+            let row = columns > 0 ? index / columns : 0
+            if let height = pins[row], !seenRows.contains(row) {
+                seenRows.insert(row)
+                result[item.id] = height
+            }
+        }
+        return result
     }
 }

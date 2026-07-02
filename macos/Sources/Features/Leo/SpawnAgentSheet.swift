@@ -8,9 +8,28 @@ struct SpawnAgentSheet: View {
     let onSpawn: (AgentSpawnRequest) -> Void
     let onCancel: () -> Void
 
-    @State private var template: String = ""
-    @State private var repo: String = ""
-    @State private var branch: String = ""
+    @State private var template: String
+    @State private var repo: String
+    @State private var branch: String
+
+    /// When non-nil, the sheet opens prefilled with a dead cell's last known
+    /// values so the user can respawn without re-entering everything.
+    private let prefill: AgentSnapshot?
+
+    init(
+        store: LeoAgentStore,
+        prefill: AgentSnapshot? = nil,
+        onSpawn: @escaping (AgentSpawnRequest) -> Void,
+        onCancel: @escaping () -> Void
+    ) {
+        _store = ObservedObject(wrappedValue: store)
+        self.prefill = prefill
+        self.onSpawn = onSpawn
+        self.onCancel = onCancel
+        _template = State(initialValue: prefill?.template ?? "")
+        _repo = State(initialValue: prefill?.repo ?? "")
+        _branch = State(initialValue: prefill?.branch ?? "")
+    }
 
     /// Inline validation hint — nil when inputs are valid.
     private var validationHint: String? {
@@ -57,7 +76,14 @@ struct SpawnAgentSheet: View {
         .frame(width: 360)
         .task {
             await store.refreshTemplates()
-            if template.isEmpty { template = store.templates.first?.name ?? "" }
+            if template.isEmpty {
+                // No prefill: default to the first available template.
+                template = store.templates.first?.name ?? ""
+            } else if !store.templates.contains(where: { $0.name == template }) {
+                // Prefill template no longer exists: fall back to default but
+                // keep any repo that was prefilled.
+                template = store.templates.first?.name ?? ""
+            }
         }
     }
 }

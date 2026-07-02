@@ -50,4 +50,54 @@ struct BoardTests {
         #expect(decoded == board)
         #expect(decoded.host == "dionysus")
     }
+
+    // MARK: - pinnedRowHeights Codable tests
+
+    @Test func boardRoundTripsPinnedRowHeights() throws {
+        let pins: [Int: CGFloat] = [0: 120.0, 2: 200.0]
+        let board = Board(name: "pinned", cells: [agentCell("a")], pinnedRowHeights: pins)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(board)
+        let decoded = try JSONDecoder().decode(Board.self, from: data)
+        #expect(decoded == board)
+        #expect(decoded.pinnedRowHeights == pins)
+    }
+
+    @Test func boardRoundTripsNoPinnedRowHeights() throws {
+        let board = Board(name: "unpinned", cells: [agentCell("b")])
+        let data = try JSONEncoder().encode(board)
+        let decoded = try JSONDecoder().decode(Board.self, from: data)
+        #expect(decoded == board)
+        #expect(decoded.pinnedRowHeights == nil)
+    }
+
+    @Test func boardDecodesLegacyJSONWithoutPinnedRowHeights() throws {
+        // Legacy boards.json produced before the pinnedRowHeights field was added
+        // must decode cleanly with nil pins.
+        let json = Data("""
+        {"cells":[],"host":"localhost","id":"\(UUID().uuidString)","name":"legacy"}
+        """.utf8)
+        let board = try JSONDecoder().decode(Board.self, from: json)
+        #expect(board.pinnedRowHeights == nil)
+    }
+
+    @Test func agentSnapshotRoundTripsTemplateAndBranch() throws {
+        let snap = AgentSnapshot(name: "a", repo: "x/a", template: "coding", branch: "main")
+        let data = try JSONEncoder().encode(snap)
+        let decoded = try JSONDecoder().decode(AgentSnapshot.self, from: data)
+        #expect(decoded == snap)
+        #expect(decoded.template == "coding")
+        #expect(decoded.branch == "main")
+    }
+
+    @Test func agentSnapshotDecodesLegacyWithoutTemplateOrBranch() throws {
+        // Legacy snapshots without template/branch must decode cleanly.
+        let json = Data(#"{"name":"a","repo":"x/a"}"#.utf8)
+        let snap = try JSONDecoder().decode(AgentSnapshot.self, from: json)
+        #expect(snap.name == "a")
+        #expect(snap.repo == "x/a")
+        #expect(snap.template == nil)
+        #expect(snap.branch == nil)
+    }
 }

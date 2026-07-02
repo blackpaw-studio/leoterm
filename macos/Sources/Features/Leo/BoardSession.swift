@@ -25,9 +25,17 @@ enum BoardSession {
 
     /// Build a persistable board from the current planned/live cells, binding it
     /// to `host` so the board reattaches to the same leo host on restore.
-    static func snapshot(name: String, host: String, from cells: [PlannedCell]) -> Board {
-        Board(name: name, host: host, cells: cells.map {
-            BoardCell(source: $0.source, lastKnownAgent: $0.snapshot)
-        })
+    static func snapshot(
+        name: String,
+        host: String,
+        from cells: [PlannedCell],
+        pinnedRowHeights: [Int: CGFloat] = [:]
+    ) -> Board {
+        Board(
+            name: name,
+            host: host,
+            cells: cells.map { BoardCell(source: $0.source, lastKnownAgent: $0.snapshot) },
+            pinnedRowHeights: pinnedRowHeights.isEmpty ? nil : pinnedRowHeights
+        )
     }
 }
