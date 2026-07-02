@@ -38,6 +38,10 @@ final class LeoSidebarModel: ObservableObject {
     /// `await` and re-checked after so a slow acquire that resumes behind a newer
     /// retarget can detect it lost the race and back out cleanly.
     private var hostGeneration: UInt64 = 0
+    /// The host that was most recently attempted but failed to acquire. Stored so
+    /// `retryActivation()` can re-attempt the exact same target without the caller
+    /// needing to remember it.
+    private var lastFailedRetargetHost: String?
     private var pollTask: Task<Void, Never>?
     private static let logger = Logger(subsystem: "com.mitchellh.ghostty", category: "leo-sidebar")
 
@@ -107,6 +111,7 @@ final class LeoSidebarModel: ObservableObject {
             activeHost = host
             store = newStore
             activationError = nil
+            lastFailedRetargetHost = nil
             if isVisible { startPolling() }
             return newStore
         } catch {
@@ -118,8 +123,23 @@ final class LeoSidebarModel: ObservableObject {
             Self.logger.warning(
                 "failed to activate host \(host, privacy: .public): \(error.errorDescription ?? "?", privacy: .public)")
             activationError = error.errorDescription
+            lastFailedRetargetHost = host
             return nil
         }
+    }
+
+    /// Re-attempt the last failed host retarget. No-op if no retarget has failed.
+    func retryActivation() async {
+        guard let host = lastFailedRetargetHost else { return }
+        await setActiveHost(host)
+    }
+
+    /// Dismiss the current error banner — clears both the retarget error and any
+    /// store-level daemon error without triggering a new refresh.
+    func dismissError() {
+        activationError = nil
+        lastFailedRetargetHost = nil
+        store.clearLastError()
     }
 
     /// Release any registry-held host. Call before the model is discarded.

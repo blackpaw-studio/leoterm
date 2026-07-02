@@ -39,4 +39,23 @@ struct CellStatusTests {
         #expect(!CellStatus.idle.isPulsing)
         #expect(!CellStatus.idle.hasGlow)
     }
+
+    // MARK: - isVisible
+
+    @Test func idleIsNotVisible() {
+        // Idle uses absence as the visual signal — no dot rendered.
+        #expect(!CellStatus.idle.isVisible)
+    }
+
+    @Test func needsYouIsVisible() {
+        #expect(CellStatus.needsYou.isVisible)
+    }
+
+    @Test func errorIsVisible() {
+        #expect(CellStatus.error.isVisible)
+    }
+
+    @Test func workingIsVisible() {
+        #expect(CellStatus.working.isVisible)
+    }
 }

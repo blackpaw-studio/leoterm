@@ -11,6 +11,7 @@ struct LeoSidebarContainer: View {
             LeoSidebarView(
                 store: model.store,
                 activeHost: model.activeHost,
+                activationError: model.activationError,
                 hosts: model.hosts,
                 onBoard: Set(delegate?.leoOnBoardAgentNames() ?? []),
                 onAttach: { [weak delegate] agent in delegate?.leoAddAgentCell(named: agent.name) },
@@ -21,7 +22,9 @@ struct LeoSidebarContainer: View {
                 },
                 onNewAgent: { [weak delegate] in delegate?.leoPresentSpawnSheet() },
                 onNewTerminal: { [weak delegate] in delegate?.leoAddTerminalCell() },
-                onSelectHost: { [weak delegate] host in delegate?.leoSelectHost(host) })
+                onSelectHost: { [weak delegate] host in delegate?.leoSelectHost(host) },
+                onRetry: { [weak model] in Task { await model?.retryActivation() } },
+                onDismissError: { [weak model] in model?.dismissError() })
                 // Load the host list when the sidebar appears; degrades to the
                 // localhost-only list if `leo host list` is unavailable.
                 .task { await model.refreshHosts() }
@@ -35,6 +38,8 @@ struct LeoSidebarContainer: View {
 struct LeoSidebarView: View {
     @ObservedObject var store: LeoAgentStore
     let activeHost: String
+    /// Non-nil when the last host retarget failed; surfaced in the error banner.
+    let activationError: String?
     let hosts: [LeoHost]
     let onBoard: Set<String>
     let onAttach: (Agent) -> Void
@@ -42,10 +47,26 @@ struct LeoSidebarView: View {
     let onNewAgent: () -> Void
     let onNewTerminal: () -> Void
     let onSelectHost: (String) -> Void
+    let onRetry: () -> Void
+    let onDismissError: () -> Void
+
+    /// Set to the agent the user wants to stop; triggers the confirmation dialog.
+    @State private var agentToStop: Agent?
+
+    /// The error to display — retarget error takes priority, else store error.
+    private var displayError: String? { activationError ?? store.lastError }
+    private var isRetargetError: Bool { activationError != nil }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
+            if let error = displayError {
+                LeoErrorBanner(
+                    message: error,
+                    canRetry: isRetargetError,
+                    onRetry: onRetry,
+                    onDismiss: onDismissError)
+            }
             Divider()
             List {
                 Section("Agents") {
@@ -64,6 +85,22 @@ struct LeoSidebarView: View {
         // Re-run when the store instance changes (sidebar retargeted to a new
         // host) so the new host's roster refreshes immediately.
         .task(id: ObjectIdentifier(store)) { await store.refresh() }
+        .confirmationDialog(
+            "Stop agent \"\(agentToStop?.name ?? "")\"?",
+            isPresented: Binding(
+                get: { agentToStop != nil },
+                set: { if !$0 { agentToStop = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Stop", role: .destructive) {
+                if let agent = agentToStop { onStop(agent) }
+                agentToStop = nil
+            }
+            Button("Cancel", role: .cancel) { agentToStop = nil }
+        } message: {
+            Text("The agent's session will end.")
+        }
     }
 
     private var header: some View {
@@ -71,9 +108,7 @@ struct LeoSidebarView: View {
             HStack {
                 Text("Leo").font(.headline)
                 Spacer()
-                Circle()
-                    .fill(store.connection == .online ? Color.green : Color.secondary)
-                    .frame(width: 8, height: 8)
+                daemonStatusIndicator
                 Button { Task { await store.refresh() } } label: { Image(systemName: "arrow.clockwise") }
                     .buttonStyle(.borderless)
             }
@@ -82,19 +117,27 @@ struct LeoSidebarView: View {
         .padding(8)
     }
 
+    /// Online: green filled circle. Offline: wifi.slash icon in orange.
+    @ViewBuilder
+    private var daemonStatusIndicator: some View {
+        if store.connection == .online {
+            Circle()
+                .fill(Color.green)
+                .frame(width: 8, height: 8)
+        } else {
+            Image(systemName: "wifi.slash")
+                .foregroundStyle(.orange)
+                .font(.caption2)
+                .help("Leo daemon offline")
+        }
+    }
+
     /// Lets the user retarget this board to a different leo host. Always offers
-    /// `localhost`; remote hosts show their SSH target as secondary detail.
+    /// `localhost`; remote hosts expose their SSH target as a tooltip.
     private var hostPicker: some View {
         Menu {
             ForEach(hosts) { host in
-                Button { onSelectHost(host.name) } label: {
-                    let title = host.ssh.map { "\(host.name) — \($0)" } ?? host.name
-                    if host.name == activeHost {
-                        Label(title, systemImage: "checkmark")
-                    } else {
-                        Text(title)
-                    }
-                }
+                hostMenuButton(host: host)
             }
         } label: {
             HStack(spacing: 4) {
@@ -104,6 +147,23 @@ struct LeoSidebarView: View {
             .font(.caption)
         }
         .menuStyle(.borderlessButton)
+    }
+
+    @ViewBuilder
+    private func hostMenuButton(host: LeoHost) -> some View {
+        let isActive = host.name == activeHost
+        let button = Button { onSelectHost(host.name) } label: {
+            if isActive {
+                Label(host.name, systemImage: "checkmark")
+            } else {
+                Text(host.name)
+            }
+        }
+        if let ssh = host.ssh {
+            button.help(ssh)
+        } else {
+            button
+        }
     }
 
     private func agentRow(_ agent: Agent) -> some View {
@@ -125,7 +185,7 @@ struct LeoSidebarView: View {
         .contextMenu {
             Button("Attach to board") { onAttach(agent) }
             if agent.status == .running {
-                Button("Stop agent", role: .destructive) { onStop(agent) }
+                Button("Stop agent", role: .destructive) { agentToStop = agent }
             }
         }
     }
@@ -137,5 +197,46 @@ struct LeoSidebarView: View {
         }
         .buttonStyle(.bordered)
         .padding(8)
+    }
+}
+
+/// Compact error banner shown directly below the sidebar header when a daemon
+/// or retarget error is present. Hidden by the parent when there is no error.
+struct LeoErrorBanner: View {
+    let message: String
+    let canRetry: Bool
+    let onRetry: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+                .font(.caption2)
+                .padding(.top, 1)
+            Text(message)
+                .font(.caption2)
+                .lineLimit(3)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 4) {
+                if canRetry {
+                    Button("Retry", action: onRetry)
+                        .font(.caption2)
+                        .buttonStyle(.borderless)
+                }
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark")
+                        .font(.caption2)
+                }
+                .buttonStyle(.borderless)
+            }
+        }
+        .padding(8)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.red.opacity(0.08))
+        )
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
     }
 }

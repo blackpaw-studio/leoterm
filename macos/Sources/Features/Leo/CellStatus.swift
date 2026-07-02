@@ -28,6 +28,15 @@ enum CellStatus: Equatable, Sendable {
 
     /// Whether this status warrants a glowing cell border.
     var hasGlow: Bool { self == .needsYou }
+
+    /// Whether the dot indicator should be rendered. Idle uses absence as its
+    /// visual signal — no dot means "nothing happening".
+    var isVisible: Bool {
+        switch self {
+        case .idle: return false
+        case .working, .needsYou, .error: return true
+        }
+    }
 }
 
 /// Pure derivation of a cell's status from its signals. Priority:

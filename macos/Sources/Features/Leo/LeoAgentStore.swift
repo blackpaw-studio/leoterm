@@ -68,6 +68,10 @@ final class LeoAgentStore: ObservableObject {
         await refresh()
     }
 
+    /// Clears a previously recorded error — used when the user dismisses the
+    /// error banner without triggering a new refresh.
+    func clearLastError() { lastError = nil }
+
     /// True if a running agent with this name exists in the current roster.
     func isRunning(_ name: String) -> Bool {
         agents.contains { $0.name == name && $0.status == .running }

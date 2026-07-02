@@ -24,13 +24,15 @@ struct CellStatusOverlay: View {
                     .allowsHitTesting(false)
             }
 
-            // Corner status dot.
-            Circle()
-                .fill(status.color)
-                .frame(width: dotSize, height: dotSize)
-                .opacity(status.isPulsing ? (pulse ? 1.0 : 0.4) : 0.9)
-                .padding(dotInset)
-                .allowsHitTesting(false)
+            // Corner status dot — absent for idle (absence signals "nothing happening").
+            if status.isVisible {
+                Circle()
+                    .fill(status.color)
+                    .frame(width: dotSize, height: dotSize)
+                    .opacity(status.isPulsing ? (pulse ? 1.0 : 0.4) : 0.9)
+                    .padding(dotInset)
+                    .allowsHitTesting(false)
+            }
         }
         .onAppear { startPulseIfNeeded() }
         .onChange(of: status) { _ in startPulseIfNeeded() }

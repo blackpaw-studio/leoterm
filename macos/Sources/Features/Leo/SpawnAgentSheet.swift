@@ -12,6 +12,15 @@ struct SpawnAgentSheet: View {
     @State private var repo: String = ""
     @State private var branch: String = ""
 
+    /// Inline validation hint — nil when inputs are valid.
+    private var validationHint: String? {
+        SpawnValidation.validate(template: template, repo: repo, branch: branch)
+    }
+
+    private var canSpawn: Bool {
+        !template.isEmpty && !repo.isEmpty && validationHint == nil
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("New Agent").font(.headline)
@@ -19,7 +28,16 @@ struct SpawnAgentSheet: View {
                 ForEach(store.templates) { t in Text(t.name).tag(t.name) }
             }
             TextField("Repo (owner/name or workspace name)", text: $repo)
-            TextField("Branch (optional, requires owner/repo)", text: $branch)
+            VStack(alignment: .leading, spacing: 4) {
+                TextField("Branch (optional, requires owner/repo)", text: $branch)
+                // Show branch validation hint as secondary caption — not red error
+                // style (reserved for server errors below).
+                if !branch.isEmpty, let hint = validationHint {
+                    Text(hint)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
             if let err = store.lastError {
                 Text(err).font(.caption).foregroundStyle(.red)
             }
@@ -32,7 +50,7 @@ struct SpawnAgentSheet: View {
                         branch: branch.isEmpty ? nil : branch, base: nil))
                 }
                 .keyboardShortcut(.defaultAction)
-                .disabled(template.isEmpty || repo.isEmpty)
+                .disabled(!canSpawn)
             }
         }
         .padding(20)
