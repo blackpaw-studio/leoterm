@@ -73,6 +73,15 @@ pub const StreamHandler = struct {
     /// The tmux control mode viewer state.
     tmux_viewer: if (tmux_enabled) ?*terminal.tmux.Viewer else void = if (tmux_enabled) null else {},
 
+    /// Coalesces tmux pane redraws within a single `processOutput` batch. Each
+    /// `%output`/`.redraw` would otherwise clone the whole pane screen and wake
+    /// the renderer; on attach (scrollback replay) or a busy agent that is
+    /// hundreds of full-screen clones back-to-back under the held renderer
+    /// mutex, locking the UI. Instead we set this flag and mirror once per
+    /// batch via `flushTmuxRender`. The renderer can't draw until the batch
+    /// releases the mutex anyway, so only the final mirror is ever observable.
+    tmux_render_pending: if (tmux_enabled) bool else void = if (tmux_enabled) false else {},
+
     /// This is set to true when a message was written to the termio
     /// mailbox. This can be used by callers to determine if they need
     /// to wake up the termio thread.
@@ -451,6 +460,20 @@ pub const StreamHandler = struct {
         }
     }
 
+    /// Perform the single coalesced tmux pane mirror for a `processOutput`
+    /// batch, if any `.redraw`/`.windows` action requested one. Called once
+    /// after the whole PTY chunk is parsed (see `Termio.processOutputLocked`),
+    /// so a burst of `%output` lines yields one mirror+render instead of one
+    /// per line. No-op when tmux is disabled, nothing is pending, or the
+    /// viewer is gone. The renderer-state mutex must be held by the caller.
+    pub fn flushTmuxRender(self: *StreamHandler) void {
+        if (comptime !tmux_enabled) return;
+        if (!self.tmux_render_pending) return;
+        self.tmux_render_pending = false;
+        const viewer = self.tmux_viewer orelse return;
+        self.renderTmuxPane(viewer);
+    }
+
     fn dcsCommand(self: *StreamHandler, cmd: *terminal.dcs.Command) !void {
         // log.warn("DCS command: {}", .{cmd});
         switch (cmd.*) {
@@ -469,6 +492,7 @@ pub const StreamHandler = struct {
                         viewer.* = try .init(self.alloc);
                         errdefer viewer.deinit();
                         self.tmux_viewer = viewer;
+                        self.tmux_render_pending = false;
                         self.surfaceMessageWriter(.{ .tmux_control_mode = true });
                         break :tmux;
                     },
@@ -523,6 +547,11 @@ pub const StreamHandler = struct {
                             // messages, which are inappropriate as the control-mode session is ending.
                             self.terminal.fullReset();
                             self.terminal.flags.dirty.clear = true;
+                            // The session ended and we just reset + queued a
+                            // render; drop any coalesced pane redraw so the
+                            // end-of-batch flush doesn't resurrect stale content
+                            // over the cleared screen.
+                            self.tmux_render_pending = false;
                             self.queueRender() catch |err| {
                                 log.warn("failed to wake renderer after tmux exit err={}", .{err});
                             };
@@ -532,8 +561,11 @@ pub const StreamHandler = struct {
 
                         // Both `.windows` (layout/window changes) and `.redraw`
                         // (pane content changed via capture or live %output)
-                        // re-mirror the active pane into the surface terminal.
-                        .windows, .redraw => self.renderTmuxPane(viewer),
+                        // re-mirror the active pane. Coalesced: we only mark a
+                        // redraw pending and do a single mirror at the end of
+                        // the batch (see `flushTmuxRender`) — mirroring per
+                        // line locks the UI on attach/high-output bursts.
+                        .windows, .redraw => self.tmux_render_pending = true,
 
                         // A tracked pane rang the bell; route it through the
                         // existing surface bell path (self.bell()) so

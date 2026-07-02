@@ -722,6 +722,12 @@ fn processOutputLocked(self: *Termio, buf: []const u8) void {
         self.terminal_stream.nextSlice(buf);
     }
 
+    // Flush any coalesced tmux control-mode pane redraw: the parse above may
+    // have applied many %output lines (scrollback replay on attach, or a busy
+    // agent), each of which only marked a redraw pending. Mirror the final
+    // pane state once here instead of cloning per line, which locked the UI.
+    self.terminal_stream.handler.flushTmuxRender();
+
     // If our stream handling caused messages to be sent to the mailbox
     // thread, then we need to wake it up so that it processes them.
     if (self.terminal_stream.handler.termio_messaged) {
