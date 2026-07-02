@@ -16,7 +16,7 @@ struct LeoSocketClient: LeoDaemon {
 
     init(socketPath: String = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath,
          host: String? = nil,
-         leoExecutable: String = NSString(string: "~/.local/bin/leo").expandingTildeInPath) {
+         leoExecutable: String = LeoCLI.executablePath) {
         self.socketPath = socketPath
         self.host = host
         self.leoExecutable = leoExecutable

@@ -26,12 +26,6 @@ enum CellSource: Equatable, Codable {
     /// control-mode attach client.
     private static let envPrefix = "/usr/bin/env -u TMUX -u TMUX_PANE"
 
-    /// Absolute path to the `leo` CLI. The attach command MUST use the absolute
-    /// path, not bare `leo`: a GUI app's environment does not include
-    /// `~/.local/bin` on `$PATH`, so `/usr/bin/env … leo …` would fail with
-    /// `env: leo: No such file or directory`. Matches `LeoSocketClient`'s default.
-    private static let leoExecutable = NSString(string: "~/.local/bin/leo").expandingTildeInPath
-
     /// True for cells backed by a Leo agent (carries agent status semantics).
     var isAgent: Bool {
         switch self {
@@ -42,13 +36,12 @@ enum CellSource: Equatable, Codable {
 
     /// Returns the `leo [--host <host>] agent attach --cc` segment for the
     /// given host. Localhost omits `--host` to stay byte-identical to the
-    /// pre-remote-host command.
+    /// pre-remote-host command. The executable path is single-quoted so a
+    /// home directory containing spaces does not word-split when the command
+    /// is interpreted by `/bin/sh -c`.
     private static func leoAttachSegment(host: String, agent name: String) -> String {
-        if host == LeoHost.localhostName {
-            return "\(leoExecutable) agent attach --cc \(name)"
-        } else {
-            return "\(leoExecutable) --host \(host) agent attach --cc \(name)"
-        }
+        let hostSegment = host == LeoHost.localhostName ? "" : " --host \(host)"
+        return "'\(LeoCLI.executablePath)'\(hostSegment) agent attach --cc \(name)"
     }
 
     /// Returns the per-surface configuration that launches this source.

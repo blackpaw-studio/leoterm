@@ -5,7 +5,23 @@ import Testing
 struct CellSourceTests {
     /// Absolute path to `leo` the command must use (a GUI app's PATH lacks
     /// ~/.local/bin, so bare `leo` fails with "env: leo: No such file").
+    /// Kept as an independent literal — assertions must not derive truth
+    /// from the production constant they are validating.
     private let leo = NSString(string: "~/.local/bin/leo").expandingTildeInPath
+
+    // MARK: - Helpers
+
+    /// Builds the full expected surface command from first-principle test
+    /// literals. The leo path is single-quoted so spaces in the home
+    /// directory do not word-split when `/bin/sh -c` interprets the string.
+    private func expectedCommand(name: String, host: String? = nil) -> String {
+        let env = "/usr/bin/env -u TMUX -u TMUX_PANE"
+        let leoQuoted = "'\(leo)'"
+        let hostSegment = (host == nil || host == "localhost") ? "" : " --host \(host!)"
+        return "\(env) \(leoQuoted)\(hostSegment) agent attach --cc \(name)"
+    }
+
+    // MARK: - Tests
 
     @Test func ptySourceLeavesCommandNilToInheritShell() {
         let config = CellSource.pty.surfaceConfiguration()
@@ -14,20 +30,20 @@ struct CellSourceTests {
 
     @Test func agentSourceRunsLeoControlModeAttach() {
         let config = CellSource.agent(name: "leoterm").surfaceConfiguration()
-        #expect(config.command == "/usr/bin/env -u TMUX -u TMUX_PANE \(leo) agent attach --cc leoterm")
+        #expect(config.command == expectedCommand(name: "leoterm"))
     }
 
     @Test func agentCommandUsesAbsoluteLeoPathNotBareLeo() {
         // Regression: bare `leo` fails under a GUI app's minimal PATH.
         let command = CellSource.agent(name: "x").surfaceConfiguration().command
-        #expect(command?.contains(" \(leo) ") == true)
+        #expect(command?.contains("'\(leo)'") == true)
         #expect(command?.contains(" env -u TMUX -u TMUX_PANE leo agent") == false)
     }
 
     @Test func agentSourcePreservesExactAgentName() {
         let name = "leo-coding-blackpaw-studio-beacon"
         let config = CellSource.agent(name: name).surfaceConfiguration()
-        #expect(config.command == "/usr/bin/env -u TMUX -u TMUX_PANE \(leo) agent attach --cc \(name)")
+        #expect(config.command == expectedCommand(name: name))
     }
 
     /// The control-mode client (`tmux -CC` / `leo agent attach --cc`) refuses
@@ -39,7 +55,7 @@ struct CellSourceTests {
         let command = CellSource.agent(name: "x").surfaceConfiguration().command
         #expect(command?.contains("-u TMUX") == true)
         #expect(command?.contains("-u TMUX_PANE") == true)
-        #expect(command?.hasSuffix("leo agent attach --cc x") == true)
+        #expect(command?.hasSuffix("'\(leo)' agent attach --cc x") == true)
     }
 
     @Test func isAgentDistinguishesCellKinds() {
@@ -52,13 +68,13 @@ struct CellSourceTests {
     @Test func agentLocalhostExplicitMatchesDefault() {
         let explicit = CellSource.agent(name: "alpha").surfaceConfiguration(host: "localhost").command
         let defaulted = CellSource.agent(name: "alpha").surfaceConfiguration().command
-        #expect(explicit == "/usr/bin/env -u TMUX -u TMUX_PANE \(leo) agent attach --cc alpha")
+        #expect(explicit == expectedCommand(name: "alpha"))
         #expect(explicit == defaulted)
     }
 
     @Test func agentRemoteHostInsertsHostFlag() {
         let command = CellSource.agent(name: "alpha").surfaceConfiguration(host: "dionysus").command
-        #expect(command == "/usr/bin/env -u TMUX -u TMUX_PANE \(leo) --host dionysus agent attach --cc alpha")
+        #expect(command == expectedCommand(name: "alpha", host: "dionysus"))
     }
 
     @Test func ptyRemoteHostLeavesCommandNil() {

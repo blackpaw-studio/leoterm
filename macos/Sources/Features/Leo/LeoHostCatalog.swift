@@ -13,7 +13,7 @@ struct LeoHostCatalog: Sendable {
 
     private let runner: Runner
 
-    init(leoExecutable: String = NSString(string: "~/.local/bin/leo").expandingTildeInPath) {
+    init(leoExecutable: String = LeoCLI.executablePath) {
         self.runner = { args throws(LeoError) in
             // Run the blocking `Process` off the cooperative thread pool, mirroring
             // `LeoSocketClient.request(_:)`'s continuation + background-queue hop.

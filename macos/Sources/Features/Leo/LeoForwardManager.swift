@@ -81,7 +81,7 @@ actor LeoForwardManager {
 struct ProcessForwardLauncher: ForwardLauncher {
     let leoExecutable: String
 
-    init(leoExecutable: String = NSString(string: "~/.local/bin/leo").expandingTildeInPath) {
+    init(leoExecutable: String = LeoCLI.executablePath) {
         self.leoExecutable = leoExecutable
     }
 
