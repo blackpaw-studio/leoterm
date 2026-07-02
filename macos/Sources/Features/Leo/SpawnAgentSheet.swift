@@ -12,10 +12,6 @@ struct SpawnAgentSheet: View {
     @State private var repo: String
     @State private var branch: String
 
-    /// When non-nil, the sheet opens prefilled with a dead cell's last known
-    /// values so the user can respawn without re-entering everything.
-    private let prefill: AgentSnapshot?
-
     init(
         store: LeoAgentStore,
         prefill: AgentSnapshot? = nil,
@@ -23,7 +19,6 @@ struct SpawnAgentSheet: View {
         onCancel: @escaping () -> Void
     ) {
         _store = ObservedObject(wrappedValue: store)
-        self.prefill = prefill
         self.onSpawn = onSpawn
         self.onCancel = onCancel
         _template = State(initialValue: prefill?.template ?? "")
@@ -36,8 +31,16 @@ struct SpawnAgentSheet: View {
         SpawnValidation.validate(template: template, repo: repo, branch: branch)
     }
 
+    /// Hint shown only under the branch field — restricted to branch-specific
+    /// problems. Shown only when both fields are non-empty and repo is not in
+    /// owner/name form (the condition that makes a branch invalid).
+    private var branchValidationHint: String? {
+        guard !branch.isEmpty, !repo.isEmpty, !SpawnValidation.isGitHubRepo(repo) else { return nil }
+        return SpawnValidation.validate(template: template, repo: repo, branch: branch)
+    }
+
     private var canSpawn: Bool {
-        !template.isEmpty && !repo.isEmpty && validationHint == nil
+        !template.isEmpty && validationHint == nil
     }
 
     var body: some View {
@@ -49,9 +52,11 @@ struct SpawnAgentSheet: View {
             TextField("Repo (owner/name or workspace name)", text: $repo)
             VStack(alignment: .leading, spacing: 4) {
                 TextField("Branch (optional, requires owner/repo)", text: $branch)
-                // Show branch validation hint as secondary caption — not red error
-                // style (reserved for server errors below).
-                if !branch.isEmpty, let hint = validationHint {
+                // Show branch-specific hint as secondary caption — not red error
+                // style (reserved for server errors below). The repo-required
+                // message is intentionally excluded here; it belongs to the repo
+                // field, not the branch field.
+                if let hint = branchValidationHint {
                     Text(hint)
                         .font(.caption)
                         .foregroundStyle(.secondary)

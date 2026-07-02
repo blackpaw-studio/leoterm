@@ -17,8 +17,8 @@ struct CellSourceTests {
     private func expectedCommand(name: String, host: String? = nil) -> String {
         let env = "/usr/bin/env -u TMUX -u TMUX_PANE"
         let leoQuoted = "'\(leo)'"
-        let hostSegment = (host == nil || host == "localhost") ? "" : " --host \(host!)"
-        return "\(env) \(leoQuoted)\(hostSegment) agent attach --cc \(name)"
+        let hostSegment = (host == nil || host == "localhost") ? "" : " --host '\(host!)'"
+        return "\(env) \(leoQuoted)\(hostSegment) agent attach --cc '\(name)'"
     }
 
     // MARK: - Tests
@@ -55,7 +55,7 @@ struct CellSourceTests {
         let command = CellSource.agent(name: "x").surfaceConfiguration().command
         #expect(command?.contains("-u TMUX") == true)
         #expect(command?.contains("-u TMUX_PANE") == true)
-        #expect(command?.hasSuffix("'\(leo)' agent attach --cc x") == true)
+        #expect(command?.hasSuffix("'\(leo)' agent attach --cc 'x'") == true)
     }
 
     @Test func isAgentDistinguishesCellKinds() {

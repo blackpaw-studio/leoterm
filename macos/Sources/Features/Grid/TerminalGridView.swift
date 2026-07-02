@@ -73,6 +73,17 @@ struct TerminalGridView: View {
         // Guard prevents a feedback loop: if the current row-indexed pins already
         // match the incoming value, skip the update so we don't rewrite the
         // UUID-keyed state unnecessarily.
+        //
+        // onAppear handles the initial render case (pins silently fail to restore
+        // if the view is created after the board already loaded); onChange handles
+        // subsequent external changes. Together they replicate `onChange(initial:)`
+        // behaviour while staying compatible with the macOS 13 deployment target.
+        .onAppear {
+            let current = uuidToRowIndexed(pinnedRowHeights)
+            if current != initialPinnedRowsByIndex {
+                pinnedRowHeights = rowIndexedToUUID(initialPinnedRowsByIndex)
+            }
+        }
         .onChange(of: initialPinnedRowsByIndex) { newValue in
             let current = uuidToRowIndexed(pinnedRowHeights)
             if current != newValue {

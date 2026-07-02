@@ -40,8 +40,8 @@ enum CellSource: Equatable, Codable {
     /// home directory containing spaces does not word-split when the command
     /// is interpreted by `/bin/sh -c`.
     private static func leoAttachSegment(host: String, agent name: String) -> String {
-        let hostSegment = host == LeoHost.localhostName ? "" : " --host \(host)"
-        return "'\(LeoCLI.executablePath)'\(hostSegment) agent attach --cc \(name)"
+        let hostSegment = host == LeoHost.localhostName ? "" : " --host '\(host)'"
+        return "'\(LeoCLI.executablePath)'\(hostSegment) agent attach --cc '\(name)'"
     }
 
     /// Returns the per-surface configuration that launches this source.
