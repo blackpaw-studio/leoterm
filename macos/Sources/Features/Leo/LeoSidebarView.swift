@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Wraps the sidebar so it observes the shared model and shows/hides itself.
@@ -71,8 +72,7 @@ struct LeoSidebarView: View {
             List {
                 Section("Agents") {
                     if store.agents.isEmpty {
-                        Text(store.connection == .offline ? "Daemon offline" : "No agents")
-                            .foregroundStyle(.secondary).font(.caption)
+                        emptyAgentsState
                     }
                     ForEach(store.agents) { agent in agentRow(agent) }
                 }
@@ -109,26 +109,36 @@ struct LeoSidebarView: View {
                 Text("Leo").font(.headline)
                 Spacer()
                 daemonStatusIndicator
-                Button { Task { await store.refresh() } } label: { Image(systemName: "arrow.clockwise") }
-                    .buttonStyle(.borderless)
+                Button { Task { await store.refresh() } } label: {
+                    if store.isRefreshing {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                }
+                .buttonStyle(.borderless)
+                .disabled(store.isRefreshing)
             }
             hostPicker
         }
         .padding(8)
     }
 
-    /// Online: green filled circle. Offline: wifi.slash icon in orange.
+    /// Online: filled circle in the running color. Offline: wifi.slash icon
+    /// in the needs-you color.
     @ViewBuilder
     private var daemonStatusIndicator: some View {
         if store.connection == .online {
             Circle()
-                .fill(Color.green)
+                .fill(LeoPalette.running)
                 .frame(width: 8, height: 8)
+                .accessibilityLabel("Daemon online")
         } else {
             Image(systemName: "wifi.slash")
-                .foregroundStyle(.orange)
+                .foregroundStyle(LeoPalette.needsYou)
                 .font(.caption2)
                 .help("Leo daemon offline")
+                .accessibilityLabel("Daemon offline")
         }
     }
 
@@ -166,27 +176,83 @@ struct LeoSidebarView: View {
         }
     }
 
+    /// Empty state shown in place of the agent list. Offline gets a hint on
+    /// how to start the daemon plus a retry button; online-but-empty points
+    /// at the New Agent button in the footer.
+    private var emptyAgentsState: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if store.connection == .offline {
+                Text("Daemon offline").foregroundStyle(.secondary).font(.caption)
+                Text("Start it with `leo service start`").foregroundStyle(.secondary).font(.caption2)
+                Button("Retry") { Task { await store.refresh() } }
+                    .font(.caption2)
+                    .buttonStyle(.borderless)
+            } else {
+                Text("No agents").foregroundStyle(.secondary).font(.caption)
+                Text("Use New Agent below to spawn one").foregroundStyle(.secondary).font(.caption2)
+            }
+        }
+    }
+
+    /// Status dot color for an agent's lifecycle.
+    private func statusColor(for status: AgentStatus) -> Color {
+        switch status {
+        case .running: return LeoPalette.running
+        case .starting: return LeoPalette.starting
+        case .stopped: return LeoPalette.offline
+        }
+    }
+
+    private func statusAccessibilityLabel(for status: AgentStatus) -> String {
+        switch status {
+        case .running: return "Running"
+        case .starting: return "Starting"
+        case .stopped: return "Stopped"
+        }
+    }
+
+    @State private var hoveredAgentName: String?
+
+    @ViewBuilder
     private func agentRow(_ agent: Agent) -> some View {
-        HStack(spacing: 6) {
+        let isOnBoard = onBoard.contains(agent.name)
+        let row = HStack(spacing: 6) {
             Circle()
-                .fill(agent.status == .running ? Color.green : Color.secondary)
+                .fill(statusColor(for: agent.status))
                 .frame(width: 7, height: 7)
+                .accessibilityLabel(statusAccessibilityLabel(for: agent.status))
             VStack(alignment: .leading, spacing: 1) {
                 Text(agent.name).font(.callout).lineLimit(1)
                 Text(agent.repo).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer()
-            if onBoard.contains(agent.name) {
+            if isOnBoard {
                 Image(systemName: "checkmark").font(.caption2).foregroundStyle(.secondary)
             }
         }
+        .padding(.vertical, 2)
+        .padding(.horizontal, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isOnBoard ? LeoPalette.rowSelected : (hoveredAgentName == agent.name ? LeoPalette.rowHover : Color.clear))
+        )
         .contentShape(Rectangle())
+        .onHover { hovering in hoveredAgentName = hovering ? agent.name : nil }
         .onTapGesture { onAttach(agent) }
         .contextMenu {
-            Button("Attach to board") { onAttach(agent) }
+            Button(isOnBoard ? "Focus" : "Attach to board") { onAttach(agent) }
             if agent.status == .running {
-                Button("Stop agent", role: .destructive) { agentToStop = agent }
+                Button("Stop…", role: .destructive) { agentToStop = agent }
             }
+            Button("Copy name") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(agent.name, forType: .string)
+            }
+        }
+        if isOnBoard {
+            row.help("On this board — click to focus")
+        } else {
+            row
         }
     }
 
@@ -234,7 +300,7 @@ struct LeoErrorBanner: View {
         .padding(8)
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .fill(Color.red.opacity(0.08))
+                .fill(LeoPalette.errorBanner)
         )
         .padding(.horizontal, 8)
         .padding(.vertical, 4)

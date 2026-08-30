@@ -78,4 +78,25 @@ struct SpawnValidationTests {
     @Test func repoWithTrailingSlashIsNotGitHub() {
         #expect(!SpawnValidation.isGitHubRepo("owner/"))
     }
+
+    // MARK: - disabledReason
+
+    @Test func disabledReasonIsNilWhenTemplateAndRepoAreValid() {
+        #expect(SpawnValidation.disabledReason(template: "basic", repo: "myworkspace", branch: "") == nil)
+    }
+
+    @Test func disabledReasonExplainsMissingTemplate() {
+        let reason = SpawnValidation.disabledReason(template: "", repo: "myworkspace", branch: "")
+        #expect(reason == "Choose a template.")
+    }
+
+    @Test func disabledReasonPrefersValidationHintOverMissingTemplate() {
+        let reason = SpawnValidation.disabledReason(template: "", repo: "", branch: "")
+        #expect(reason == "Repository is required.")
+    }
+
+    @Test func disabledReasonSurfacesBranchValidationHint() {
+        let reason = SpawnValidation.disabledReason(template: "basic", repo: "myworkspace", branch: "feat/x")
+        #expect(reason == "A branch requires a GitHub repo in owner/name form")
+    }
 }

@@ -18,6 +18,16 @@ enum SpawnValidation {
         return nil
     }
 
+    /// Human-readable reason the Spawn button is disabled, or `nil` when
+    /// spawning may proceed. Checks the field-level `validate` hint first
+    /// (repo/branch problems), then falls back to the missing-template case,
+    /// which `validate` does not cover.
+    static func disabledReason(template: String, repo: String, branch: String) -> String? {
+        if let hint = validate(template: template, repo: repo, branch: branch) { return hint }
+        if template.isEmpty { return "Choose a template." }
+        return nil
+    }
+
     /// Returns true when `repo` matches the `owner/name` pattern expected by the
     /// leo CLI for branch-scoped spawns: exactly one slash, no whitespace, and
     /// non-empty owner and name segments.

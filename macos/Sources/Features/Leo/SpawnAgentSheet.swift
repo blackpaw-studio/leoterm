@@ -43,11 +43,21 @@ struct SpawnAgentSheet: View {
         !template.isEmpty && validationHint == nil
     }
 
+    /// Reason the Spawn button is disabled, surfaced as a tooltip. `nil` when
+    /// spawning is allowed.
+    private var spawnDisabledReason: String? {
+        SpawnValidation.disabledReason(template: template, repo: repo, branch: branch)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("New Agent").font(.headline)
-            Picker("Template", selection: $template) {
-                ForEach(store.templates) { t in Text(t.name).tag(t.name) }
+            if store.templates.isEmpty {
+                Text("No templates found").foregroundStyle(.secondary).font(.callout)
+            } else {
+                Picker("Template", selection: $template) {
+                    ForEach(store.templates) { t in Text(t.name).tag(t.name) }
+                }
             }
             TextField("Repo (owner/name or workspace name)", text: $repo)
             VStack(alignment: .leading, spacing: 4) {
@@ -75,6 +85,7 @@ struct SpawnAgentSheet: View {
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(!canSpawn)
+                .help(spawnDisabledReason ?? "")
             }
         }
         .padding(20)
