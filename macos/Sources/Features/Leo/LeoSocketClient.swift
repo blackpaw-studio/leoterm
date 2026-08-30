@@ -64,7 +64,7 @@ struct LeoSocketClient: LeoDaemon {
     }
 
     func listTemplates() async throws(LeoError) -> [Template] {
-        let out = try runCLI(["template", "list", "--json"])
+        let out = try await runCLI(["template", "list", "--json"])
         do {
             return try JSONDecoder().decode([Template].self, from: out)
         } catch {
@@ -188,7 +188,10 @@ struct LeoSocketClient: LeoDaemon {
 
     /// Run the `leo` CLI and return stdout. Used only for templates.
     /// `args` are host-routed via `cliArgs` before launch.
-    private func runCLI(_ args: [String]) throws(LeoError) -> Data {
-        try LeoProcessRunner.run(executable: leoExecutable, args: Self.cliArgs(host: host, args))
+    /// Blocking `Process` work goes through the shared async wrapper so it
+    /// never parks a cooperative thread (a remote CLI call can take seconds).
+    private func runCLI(_ args: [String]) async throws(LeoError) -> Data {
+        try await LeoProcessRunner.runAsync(
+            executable: leoExecutable, args: Self.cliArgs(host: host, args))
     }
 }

@@ -42,7 +42,21 @@ final class LeoSidebarModel: ObservableObject {
     /// `retryActivation()` can re-attempt the exact same target without the caller
     /// needing to remember it.
     private var lastFailedRetargetHost: String?
+    /// A host whose forward died and that we should re-acquire on the next
+    /// poll tick. Cleared once any activation succeeds.
+    private var staleHost: String?
+    /// Number of `activate` calls currently suspended in `registry.store`. The
+    /// poll loop must not start a healing retarget while a user-driven one is
+    /// in flight, or it would supersede the user's choice.
+    private var activationsInFlight = 0
+    /// True while `pollTick` is running, so an activation triggered from inside
+    /// the tick doesn't restart the very loop it is running on.
+    private var isInPollTick = false
     private var pollTask: Task<Void, Never>?
+    /// How often the roster is polled while the sidebar is visible. Injectable
+    /// so tests can drive the poll loop without real-time waits.
+    private let pollInterval: Duration
+    static let defaultPollInterval: Duration = .seconds(3)
     private static let logger = Logger(subsystem: "com.mitchellh.ghostty", category: "leo-sidebar")
 
     /// The synthesized localhost entry that is always present, even when
@@ -50,10 +64,16 @@ final class LeoSidebarModel: ObservableObject {
     private static let localhostEntry = LeoHost(
         name: LeoHost.localhostName, ssh: nil, isDefault: false, isLocal: true)
 
-    init(registry: LeoHostRegistry, catalog: LeoHostCatalog = LeoHostCatalog(), store: LeoAgentStore? = nil) {
+    init(
+        registry: LeoHostRegistry,
+        catalog: LeoHostCatalog = LeoHostCatalog(),
+        store: LeoAgentStore? = nil,
+        pollInterval: Duration = LeoSidebarModel.defaultPollInterval
+    ) {
         self.registry = registry
         self.catalog = catalog
         self.store = store ?? LeoAgentStore()
+        self.pollInterval = pollInterval
     }
 
     /// Refresh the available host list via `leo host list --json`. On any failure
@@ -92,12 +112,28 @@ final class LeoSidebarModel: ObservableObject {
     /// which may have moved on.
     @discardableResult
     func setActiveHost(_ host: String) async -> LeoAgentStore? {
-        guard host != activeHost else { return store }
-        // Capture a generation token before suspending. The post-`await` body runs
-        // synchronously on the MainActor, so re-checking the token there reliably
-        // detects whether a newer retarget interleaved while we were suspended.
+        // Bump on EVERY entry, including the same-host no-op: an A -> B -> A
+        // sequence must invalidate B's in-flight acquire, otherwise B lands last
+        // and the sidebar ends up on the host the user just navigated away from.
         hostGeneration &+= 1
         let generation = hostGeneration
+        guard host != activeHost else { return store }
+        return await activate(host, generation: generation)
+    }
+
+    /// Re-acquire `host` even when it is already the active host. Used to
+    /// rebuild a connection whose forward died underneath us.
+    @discardableResult
+    private func reactivate(_ host: String) async -> LeoAgentStore? {
+        hostGeneration &+= 1
+        return await activate(host, generation: hostGeneration)
+    }
+
+    /// Acquire `host` from the registry and adopt it as active, unless a newer
+    /// retarget (a higher `hostGeneration`) superseded this one mid-acquire.
+    private func activate(_ host: String, generation: UInt64) async -> LeoAgentStore? {
+        activationsInFlight += 1
+        defer { activationsInFlight -= 1 }
         do {
             let newStore = try await registry.store(for: host)
             // A newer retarget won the race: release the hold we just acquired so
@@ -112,26 +148,37 @@ final class LeoSidebarModel: ObservableObject {
             store = newStore
             activationError = nil
             lastFailedRetargetHost = nil
-            if isVisible { startPolling() }
+            staleHost = nil
+            // Restarting the poll loop from inside a poll tick would double the
+            // refresh for that tick; the running loop already picks up the new
+            // store on its next iteration.
+            if isVisible, !isInPollTick { startPolling() }
             return newStore
+        } catch is CancellationError {
+            // Our own task was cancelled (teardown, a superseding retarget):
+            // no hold was claimed and there is nothing to report.
+            return nil
         } catch {
             // A newer retarget superseded this failed attempt: don't surface its
             // error over the newer one's state.
             guard generation == hostGeneration else { return nil }
-            // `registry.store(for:)` throws `LeoError`; the registry already
-            // cleaned up the failed acquire, so release nothing here.
+            // The registry already cleaned up the failed acquire, so release
+            // nothing here.
+            let message = (error as? LeoError)?.errorDescription ?? error.localizedDescription
             Self.logger.warning(
-                "failed to activate host \(host, privacy: .public): \(error.errorDescription ?? "?", privacy: .public)")
-            activationError = error.errorDescription
+                "failed to activate host \(host, privacy: .public): \(message, privacy: .public)")
+            activationError = message
             lastFailedRetargetHost = host
             return nil
         }
     }
 
     /// Re-attempt the last failed host retarget. No-op if no retarget has failed.
+    /// Uses the forced path so a retry works even when the failed host is
+    /// already the nominally-active one (e.g. its forward died).
     func retryActivation() async {
         guard let host = lastFailedRetargetHost else { return }
-        await setActiveHost(host)
+        await reactivate(host)
     }
 
     /// Dismiss the current error banner — clears both the retarget error and any
@@ -143,33 +190,63 @@ final class LeoSidebarModel: ObservableObject {
     }
 
     /// Release any registry-held host. Call before the model is discarded.
+    /// Idempotent: a second call releases nothing.
     func teardown() {
         stopPolling()
-        if let acquiredHost {
-            registry.release(acquiredHost)
-            self.acquiredHost = nil
-        }
+        staleHost = nil
+        // Invalidate any activation still in flight: it will see a newer
+        // generation, release the hold it acquired, and touch nothing else.
+        hostGeneration &+= 1
+        guard let acquiredHost else { return }
+        registry.release(acquiredHost)
+        self.acquiredHost = nil
     }
 
     deinit {
         // `Task.cancel()` is safe to call from any isolation, including `deinit`.
+        // Nothing else happens here: `deinit` is nonisolated and can run off the
+        // main actor, so touching the MainActor-isolated registry (even via
+        // `assumeIsolated`) would trap. Owners must call `teardown()`.
         pollTask?.cancel()
-        // `release` is MainActor-isolated and sync. A `@MainActor` class is torn
-        // down on the main actor, so assuming isolation here is safe and lets the
-        // model clean up its forward even if `teardown()` was never called.
-        guard let acquiredHost else { return }
-        MainActor.assumeIsolated { registry.release(acquiredHost) }
     }
 
     private func startPolling() {
         pollTask?.cancel()
-        let target = store
-        pollTask = Task {
+        pollTask = Task { [weak self] in
             while !Task.isCancelled {
-                await target.refresh()
-                try? await Task.sleep(for: .seconds(3))
+                guard let self else { return }
+                await self.pollTick()
+                try? await Task.sleep(for: self.pollInterval)
             }
         }
+    }
+
+    /// One poll iteration: first heal a host whose forward died (the registry
+    /// drops the connection, so `hasConnection` goes false), then refresh the
+    /// roster from whichever store is active afterwards.
+    private func pollTick() async {
+        isInPollTick = true
+        defer { isInPollTick = false }
+        if let acquiredHost, !registry.hasConnection(acquiredHost) {
+            staleHost = acquiredHost
+            // Still release: the registry keeps an orphan slot for the holds
+            // outstanding against the dead connection, and leaving ours
+            // unclaimed would make a later legitimate release get absorbed by
+            // that slot instead of tearing the replacement down.
+            registry.release(acquiredHost)
+            self.acquiredHost = nil
+        }
+        // Only heal the host we are actually showing, and never while a
+        // user-driven retarget is in flight — healing bumps `hostGeneration`
+        // and would otherwise supersede the user's choice.
+        if let staleHost {
+            if staleHost != activeHost {
+                self.staleHost = nil
+            } else if activationsInFlight == 0 {
+                await reactivate(staleHost)
+            }
+        }
+        await store.refresh()
     }
 
     private func stopPolling() {

@@ -49,3 +49,50 @@ private actor ArgRecorder {
     private(set) var args: [String] = []
     func record(_ args: [String]) { self.args = args }
 }
+
+/// `LeoProcessRunner` is the blocking `Process` shim behind `LeoHostCatalog`
+/// and the `LeoSocketClient` CLI fallback, so it lives with the catalog tests.
+struct LeoProcessRunnerTests {
+    private static let shell = "/bin/sh"
+
+    @Test func returnsStdoutForASuccessfulRun() async throws {
+        let data = try await LeoProcessRunner.runAsync(executable: Self.shell, args: ["-c", "printf hello"])
+        #expect(String(bytes: data, encoding: .utf8) == "hello")
+    }
+
+    /// Regression: an undrained stderr pipe fills its 64KB buffer and blocks the
+    /// child forever (real `leo` calls tunnel through ssh, which is chatty).
+    @Test func doesNotDeadlockOnLargeStderrOutput() async throws {
+        let script = "yes 'ssh warning line' | head -c 400000 >&2; printf done"
+        let data = try await LeoProcessRunner.runAsync(executable: Self.shell, args: ["-c", script], timeout: 20)
+        #expect(String(bytes: data, encoding: .utf8) == "done")
+    }
+
+    /// A wedged child (an ssh prompt, a dead host) must be terminated rather
+    /// than hanging the caller.
+    @Test func terminatesAndThrowsOnTimeout() async throws {
+        await #expect(throws: LeoError.self) {
+            _ = try await LeoProcessRunner.runAsync(
+                executable: Self.shell, args: ["-c", "sleep 30"], timeout: 0.3)
+        }
+    }
+
+    @Test func nonZeroExitIncludesStderrTail() async throws {
+        await #expect(throws: LeoError.self) {
+            _ = try await LeoProcessRunner.runAsync(
+                executable: Self.shell, args: ["-c", "echo boom >&2; exit 3"])
+        }
+        do {
+            _ = try await LeoProcessRunner.runAsync(executable: Self.shell, args: ["-c", "echo boom >&2; exit 3"])
+        } catch {
+            #expect(error.errorDescription?.contains("boom") == true)
+            #expect(error.errorDescription?.contains("exited 3") == true)
+        }
+    }
+
+    @Test func throwsWhenExecutableIsMissing() async throws {
+        await #expect(throws: LeoError.daemonUnreachable) {
+            _ = try await LeoProcessRunner.runAsync(executable: "/nonexistent/leo", args: ["host", "list"])
+        }
+    }
+}

@@ -230,6 +230,207 @@ struct LeoSidebarModelTests {
         // The fast hold stays alive — acquired once, never released.
         #expect(await terminations.count("fast") == 0)
     }
+
+    /// Regression: A -> B -> A. Re-selecting the host we are already on is a
+    /// no-op for the store, but it MUST still invalidate B's in-flight acquire,
+    /// otherwise B lands last and the sidebar ends up on the host the user just
+    /// navigated away from.
+    @Test func reselectingCurrentHostInvalidatesAnInFlightRetarget() async throws {
+        let capture = ModelStoreCapture()
+        let terminations = ForwardTerminationCounter()
+        let betaStarted = SignalGate()
+        let betaGate = SignalGate()
+        let registry = LeoHostRegistry(
+            forwardManagerFactory: { host in
+                let isBeta = host == "beta"
+                return LeoForwardManager(host: host, launcher: FakeForwardLauncher { _ in
+                    FakeForwardHandle(
+                        lines: AsyncStream { cont in
+                            Task {
+                                if isBeta {
+                                    await betaStarted.signal()
+                                    await betaGate.wait()
+                                }
+                                cont.yield(#"{"socket":"/tmp/\#(host).sock","host":"\#(host)","pid":1}"#)
+                            }
+                        },
+                        onTerminate: { Task { await terminations.add(host) } })
+                })
+            },
+            storeFactory: { socketPath, host in
+                let store = LeoAgentStore(daemon: MockLeoDaemon())
+                capture.record(socketPath: socketPath, host: host, store: store)
+                return store
+            })
+        let model = LeoSidebarModel(registry: registry)
+
+        await model.setActiveHost("alpha")
+        let alphaStore = model.store
+
+        // B starts and suspends; re-selecting A while B is in flight must win.
+        let beta = Task { await model.setActiveHost("beta") }
+        await betaStarted.wait()
+        await model.setActiveHost("alpha")
+        await betaGate.signal()
+        _ = await beta.value
+
+        #expect(model.activeHost == "alpha")
+        #expect(model.store === alphaStore)
+        // The superseded B acquire released its hold, tearing its forward down.
+        try await pollUntilModel { await terminations.count("beta") == 1 }
+        #expect(await terminations.count("alpha") == 0)
+    }
+
+    /// When the active host's forward dies, the registry drops the connection;
+    /// the next poll tick must re-acquire instead of leaving the sidebar
+    /// permanently offline.
+    @Test func pollTickReacquiresAfterTheForwardDies() async throws {
+        let capture = ModelStoreCapture()
+        let streams = ForwardStreamBroker()
+        let registry = LeoHostRegistry(
+            forwardManagerFactory: { host in
+                LeoForwardManager(host: host, launcher: FakeForwardLauncher { _ in
+                    await streams.makeHandle(
+                        socketLine: #"{"socket":"/tmp/\#(host).sock","host":"\#(host)","pid":1}"#)
+                })
+            },
+            storeFactory: { socketPath, host in
+                let store = LeoAgentStore(daemon: MockLeoDaemon())
+                capture.record(socketPath: socketPath, host: host, store: store)
+                return store
+            })
+        let model = LeoSidebarModel(registry: registry, pollInterval: .milliseconds(5))
+        defer { model.teardown() }
+
+        await model.setActiveHost("dionysus")
+        model.setVisible(true)
+        #expect(capture.calls.count == 1)
+
+        await streams.finishAll() // ssh dropped underneath us
+
+        // The poll loop notices the dropped connection and rebuilds it.
+        try await pollUntilModel { capture.calls.count == 2 }
+        #expect(model.activeHost == "dionysus")
+        #expect(model.store === capture.calls.last?.store)
+        #expect(registry.hasConnection("dionysus") == true)
+    }
+
+    /// A poll-tick heal must not supersede a user retarget that is still in
+    /// flight: the user's choice wins and the dead host is simply forgotten.
+    @Test func pollHealDoesNotSupersedeAnInFlightUserRetarget() async throws {
+        let capture = ModelStoreCapture()
+        let streams = ForwardStreamBroker()
+        let alphaDaemon = MockLeoDaemon()
+        let betaStarted = SignalGate()
+        let betaGate = SignalGate()
+        let registry = LeoHostRegistry(
+            forwardManagerFactory: { host in
+                let isBeta = host == "beta"
+                return LeoForwardManager(host: host, launcher: FakeForwardLauncher { _ in
+                    if isBeta {
+                        await betaStarted.signal()
+                        await betaGate.wait()
+                    }
+                    return await streams.makeHandle(
+                        socketLine: #"{"socket":"/tmp/\#(host).sock","host":"\#(host)","pid":1}"#)
+                })
+            },
+            storeFactory: { socketPath, host in
+                let store = LeoAgentStore(daemon: host == "alpha" ? alphaDaemon : MockLeoDaemon())
+                capture.record(socketPath: socketPath, host: host, store: store)
+                return store
+            })
+        let model = LeoSidebarModel(registry: registry, pollInterval: .milliseconds(5))
+        defer { model.teardown() }
+
+        await model.setActiveHost("alpha")
+        model.setVisible(true)
+
+        // The user retargets to beta; while that is suspended, alpha's forward
+        // dies and the poll loop sees a dropped connection.
+        let beta = Task { await model.setActiveHost("beta") }
+        await betaStarted.wait()
+        let ticksBeforeDeath = await alphaDaemon.listCallCount
+        await streams.finishAll()
+        // Let the poll loop run several ticks with the connection dropped.
+        try await pollUntilModel { await alphaDaemon.listCallCount >= ticksBeforeDeath + 2 }
+        await betaGate.signal()
+        _ = await beta.value
+
+        #expect(model.activeHost == "beta")
+        #expect(model.store === capture.calls.last(where: { $0.host == "beta" })?.store)
+        // Alpha was never re-acquired behind the user's back.
+        #expect(capture.calls.filter { $0.host == "alpha" }.count == 1)
+    }
+
+    /// `teardown()` must invalidate an activation still in flight, so the hold
+    /// it eventually acquires is released instead of leaking a live forward.
+    @Test func teardownInvalidatesAnInFlightActivation() async throws {
+        let capture = ModelStoreCapture()
+        let terminations = ForwardTerminationCounter()
+        let started = SignalGate()
+        let gate = SignalGate()
+        let registry = LeoHostRegistry(
+            forwardManagerFactory: { host in
+                LeoForwardManager(host: host, launcher: FakeForwardLauncher { _ in
+                    FakeForwardHandle(
+                        lines: AsyncStream { cont in
+                            Task {
+                                await started.signal()
+                                await gate.wait()
+                                cont.yield(#"{"socket":"/tmp/\#(host).sock","host":"\#(host)","pid":1}"#)
+                            }
+                        },
+                        onTerminate: { Task { await terminations.add(host) } })
+                })
+            },
+            storeFactory: { socketPath, host in
+                let store = LeoAgentStore(daemon: MockLeoDaemon())
+                capture.record(socketPath: socketPath, host: host, store: store)
+                return store
+            })
+        let model = LeoSidebarModel(registry: registry)
+
+        let activation = Task { await model.setActiveHost("dionysus") }
+        await started.wait()
+        model.teardown()
+        await gate.signal()
+        _ = await activation.value
+
+        #expect(model.activeHost == LeoHost.localhostName)
+        try await pollUntilModel { await terminations.count("dionysus") == 1 }
+    }
+
+    /// Regression: healing a dead forward must consume the registry's orphan
+    /// slot, otherwise `teardown()`'s release is absorbed by it and the healed
+    /// connection's forward is leaked.
+    @Test func healingADeadForwardLeavesNothingBehindOnTeardown() async throws {
+        let capture = ModelStoreCapture()
+        let streams = ForwardStreamBroker()
+        let registry = LeoHostRegistry(
+            forwardManagerFactory: { host in
+                LeoForwardManager(host: host, launcher: FakeForwardLauncher { _ in
+                    await streams.makeHandle(
+                        socketLine: #"{"socket":"/tmp/\#(host).sock","host":"\#(host)","pid":1}"#)
+                })
+            },
+            storeFactory: { socketPath, host in
+                let store = LeoAgentStore(daemon: MockLeoDaemon())
+                capture.record(socketPath: socketPath, host: host, store: store)
+                return store
+            })
+        let model = LeoSidebarModel(registry: registry, pollInterval: .milliseconds(5))
+
+        await model.setActiveHost("dionysus")
+        model.setVisible(true)
+        await streams.finishAll() // the forward dies
+
+        try await pollUntilModel { capture.calls.count == 2 } // healed
+        #expect(registry.hasConnection("dionysus") == true)
+
+        model.teardown()
+        #expect(registry.hasConnection("dionysus") == false)
+    }
 }
 
 // MARK: - Test doubles

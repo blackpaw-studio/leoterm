@@ -161,6 +161,124 @@ struct LeoHostRegistryTests {
         try await pollUntil { await terminated.wasSet }
         #expect(await terminated.wasSet == true)
     }
+
+    // MARK: - Cancellation, deferred release and forward death
+
+    /// Build a registry whose forward only yields its socket after `gate`
+    /// fires, so the test controls exactly when the acquisition lands.
+    private func makeGatedRegistry(
+        gate: ForwardSignalGate,
+        launched: ForwardSignalGate,
+        terminated: HostRecorder
+    ) -> LeoHostRegistry {
+        LeoHostRegistry(
+            forwardManagerFactory: { host in
+                LeoForwardManager(host: host, launcher: FakeForwardLauncher { _ in
+                    FakeForwardHandle(
+                        lines: AsyncStream { cont in
+                            Task {
+                                await launched.signal()
+                                await gate.wait()
+                                cont.yield(#"{"socket":"/tmp/\#(host).sock","host":"\#(host)","pid":1}"#)
+                            }
+                        },
+                        onTerminate: { Task { await terminated.add(host) } })
+                })
+            },
+            storeFactory: { _, _ in LeoAgentStore(daemon: MockLeoDaemon()) })
+    }
+
+    /// The sole acquirer being cancelled mid-acquire must not leave a live
+    /// forward behind with a refCount-0 connection nobody will ever release.
+    @Test func cancelledAcquirerTearsDownTheConnectionItNeverClaimed() async throws {
+        let gate = ForwardSignalGate()
+        let launched = ForwardSignalGate()
+        let terminated = HostRecorder()
+        let registry = makeGatedRegistry(gate: gate, launched: launched, terminated: terminated)
+
+        let acquire = Task { @MainActor in try? await registry.store(for: "dionysus") }
+        await launched.wait()
+        acquire.cancel()
+        await gate.signal()
+        _ = await acquire.value
+
+        try await pollUntil { await terminated.count("dionysus") == 1 }
+        #expect(registry.hasConnection("dionysus") == false)
+    }
+
+    /// A release that arrives while the acquisition is still in flight must not
+    /// be lost: it applies once the connection lands, tearing it down.
+    @Test func releaseDuringInFlightAcquireAppliesWhenItLands() async throws {
+        let gate = ForwardSignalGate()
+        let launched = ForwardSignalGate()
+        let terminated = HostRecorder()
+        let registry = makeGatedRegistry(gate: gate, launched: launched, terminated: terminated)
+
+        async let acquired = registry.store(for: "dionysus")
+        await launched.wait()
+        registry.release("dionysus") // the holder went away mid-acquire
+        await gate.signal()
+        _ = try await acquired
+
+        try await pollUntil { await terminated.count("dionysus") == 1 }
+        #expect(registry.hasConnection("dionysus") == false)
+    }
+
+    /// A forward that dies on its own invalidates the cached connection so the
+    /// next acquire rebuilds it instead of serving a dead socket path.
+    @Test func forwardDeathInvalidatesCachedConnection() async throws {
+        let (lines, continuation) = AsyncStream<String>.makeStream()
+        let storeCalls = CountBox()
+        let registry = LeoHostRegistry(
+            forwardManagerFactory: { host in
+                LeoForwardManager(host: host, launcher: FakeForwardLauncher { _ in
+                    FakeForwardHandle(lines: lines)
+                })
+            },
+            storeFactory: { _, _ in
+                MainActor.assumeIsolated { storeCalls.increment() }
+                return LeoAgentStore(daemon: MockLeoDaemon())
+            })
+
+        continuation.yield(#"{"socket":"/tmp/dionysus.sock","host":"dionysus","pid":1}"#)
+        _ = try await registry.store(for: "dionysus")
+        #expect(registry.hasConnection("dionysus") == true)
+
+        continuation.finish() // ssh dropped
+
+        try await pollUntil { registry.hasConnection("dionysus") == false }
+        #expect(storeCalls.value == 1)
+    }
+
+    /// Regression: after a forward dies, the stale holder's late `release` must
+    /// be absorbed rather than decrementing the replacement connection (which
+    /// would tear down a forward somebody else is using).
+    @Test func staleReleaseAfterInvalidationDoesNotTouchTheReplacement() async throws {
+        let streams = ForwardStreamBroker()
+        let registry = LeoHostRegistry(
+            forwardManagerFactory: { host in
+                LeoForwardManager(host: host, launcher: FakeForwardLauncher { _ in
+                    await streams.makeHandle(
+                        socketLine: #"{"socket":"/tmp/\#(host).sock","host":"\#(host)","pid":1}"#)
+                })
+            },
+            storeFactory: { _, _ in LeoAgentStore(daemon: MockLeoDaemon()) })
+
+        let first = try await registry.store(for: "dionysus")
+        await streams.finishAll() // the forward dies under the holder
+        try await pollUntil { registry.hasConnection("dionysus") == false }
+
+        let second = try await registry.store(for: "dionysus")
+        #expect(first !== second)
+
+        // The stale holder finally lets go: the replacement must survive.
+        registry.release("dionysus")
+        #expect(registry.hasConnection("dionysus") == true)
+
+        // The live holder's release still tears the replacement down.
+        registry.release("dionysus")
+        #expect(registry.hasConnection("dionysus") == false)
+    }
 }
 
 // MARK: - Test doubles

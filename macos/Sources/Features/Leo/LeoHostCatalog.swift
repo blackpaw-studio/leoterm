@@ -15,24 +15,9 @@ struct LeoHostCatalog: Sendable {
 
     init(leoExecutable: String = LeoCLI.executablePath) {
         self.runner = { args throws(LeoError) in
-            // Run the blocking `Process` off the cooperative thread pool, mirroring
-            // `LeoSocketClient.request(_:)`'s continuation + background-queue hop.
-            let result: Result<Data, LeoError> = await withCheckedContinuation { continuation in
-                DispatchQueue.global(qos: .userInitiated).async {
-                    do {
-                        let data = try LeoProcessRunner.run(executable: leoExecutable, args: args)
-                        continuation.resume(returning: .success(data))
-                    } catch let e as LeoError {
-                        continuation.resume(returning: .failure(e))
-                    } catch {
-                        continuation.resume(returning: .failure(LeoError.daemonUnreachable))
-                    }
-                }
-            }
-            switch result {
-            case .success(let data): return data
-            case .failure(let e): throw e
-            }
+            // `LeoProcessRunner.run` blocks; `runAsync` hops it off the
+            // cooperative thread pool (shared with `LeoSocketClient`).
+            try await LeoProcessRunner.runAsync(executable: leoExecutable, args: args)
         }
     }
 
