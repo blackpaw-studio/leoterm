@@ -72,13 +72,18 @@ struct CellStatusInputs {
     /// Agent display name, for the identity capsule. `nil` for `.pty` cells
     /// or callers that haven't wired name resolution through yet.
     let name: String?
+    /// Live activity signal (working/idle/unknown), resolved by the caller
+    /// from `LeoActivityStore`. `.unknown` for `.pty` cells, remote-host
+    /// boards, or agents the daemon hasn't reported yet.
+    let activity: AgentActivity
 
-    /// `name` defaults to `nil` so existing call sites (e.g. `TerminalView`)
+    /// `name`/`activity` default so existing call sites (e.g. `TerminalView`)
     /// that only pass `isAgent`/`lifecycle` keep compiling unchanged.
-    init(isAgent: Bool, lifecycle: AgentStatus?, name: String? = nil) {
+    init(isAgent: Bool, lifecycle: AgentStatus?, name: String? = nil, activity: AgentActivity = .unknown) {
         self.isAgent = isAgent
         self.lifecycle = lifecycle
         self.name = name
+        self.activity = activity
     }
 
     static let none = CellStatusInputs(isAgent: false, lifecycle: nil)

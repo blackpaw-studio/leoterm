@@ -1084,7 +1084,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         // Initialize our content view to the SwiftUI root
         let container = TerminalViewContainer {
             TerminalView(ghostty: ghostty, viewModel: self, delegate: self,
-                         leoSidebar: (NSApp.delegate as? AppDelegate)?.leoSidebar)
+                         leoSidebar: (NSApp.delegate as? AppDelegate)?.leoSidebar,
+                         leoActivityStore: (NSApp.delegate as? AppDelegate)?.leoActivityStore)
         }
 
         // Set the initial content size on the container so that

@@ -30,6 +30,41 @@ struct CellStatusTests {
         #expect(deriveCellStatus(isAgent: false, hasBell: false, lifecycle: .stopped) == .idle)
     }
 
+    // MARK: - activity
+
+    @Test func agentWorkingActivityIsWorking() {
+        #expect(deriveCellStatus(isAgent: true, hasBell: false, lifecycle: .running, activity: .working) == .working)
+    }
+
+    @Test func agentIdleActivityIsIdle() {
+        #expect(deriveCellStatus(isAgent: true, hasBell: false, lifecycle: .running, activity: .idle) == .idle)
+    }
+
+    @Test func agentUnknownActivityIsIdle() {
+        #expect(deriveCellStatus(isAgent: true, hasBell: false, lifecycle: .running, activity: .unknown) == .idle)
+    }
+
+    @Test func bellOutranksWorkingActivity() {
+        // needsYou (bell) takes priority over a live working signal.
+        #expect(deriveCellStatus(isAgent: true, hasBell: true, lifecycle: .running, activity: .working) == .needsYou)
+    }
+
+    @Test func stoppedLifecycleOutranksWorkingActivity() {
+        #expect(deriveCellStatus(isAgent: true, hasBell: false, lifecycle: .stopped, activity: .working) == .error)
+    }
+
+    @Test func ptyCellIgnoresWorkingActivity() {
+        // Plain terminal cells never derive `.working` even if a stray
+        // activity value is passed in.
+        #expect(deriveCellStatus(isAgent: false, hasBell: false, lifecycle: nil, activity: .working) == .idle)
+    }
+
+    @Test func defaultActivityParameterIsUnknown() {
+        // Existing call sites that omit `activity:` keep compiling and behave
+        // as before (idle, absent a working signal).
+        #expect(deriveCellStatus(isAgent: true, hasBell: false, lifecycle: .running) == .idle)
+    }
+
     @Test func needsYouPulsesAndGlows() {
         #expect(CellStatus.needsYou.isPulsing)
         #expect(CellStatus.needsYou.hasGlow)

@@ -62,18 +62,23 @@ enum CellStatus: Equatable, Sendable {
 }
 
 /// Pure derivation of a cell's status from its signals. Priority:
-/// error (lifecycle stopped) > needsYou (bell, agents only) > idle.
-/// `working` is deferred in v1 and never produced here.
+/// error (lifecycle stopped) > needsYou (bell, agents only) >
+/// working (live activity signal, agents only) > idle.
 /// - Parameters:
 ///   - isAgent: true for `.agent` cells; false for plain `.pty` cells.
 ///   - hasBell: the backing surface's current bell flag.
 ///   - lifecycle: the daemon-reported lifecycle, or nil for pty cells.
+///   - activity: the live per-agent activity signal (from `LeoActivityStore`),
+///     `.unknown` for pty cells, remote-host boards, or agents the daemon
+///     hasn't reported yet.
 func deriveCellStatus(
     isAgent: Bool,
     hasBell: Bool,
-    lifecycle: AgentStatus?
+    lifecycle: AgentStatus?,
+    activity: AgentActivity = .unknown
 ) -> CellStatus {
     if isAgent, lifecycle == .stopped { return .error }
     if isAgent, hasBell { return .needsYou }
+    if isAgent, activity == .working { return .working }
     return .idle
 }

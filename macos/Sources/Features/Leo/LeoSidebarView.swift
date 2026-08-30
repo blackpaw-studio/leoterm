@@ -5,12 +5,17 @@ import SwiftUI
 /// Rendered inside TerminalView's HStack; absent in windows with no model.
 struct LeoSidebarContainer: View {
     @ObservedObject var model: LeoSidebarModel
+    /// Localhost-only live activity observer — already resolved by the caller
+    /// to the config-less (`.unknown`-only) fallback when this board's host
+    /// isn't localhost.
+    @ObservedObject var activityStore: LeoActivityStore
     weak var delegate: (any TerminalViewDelegate)?
 
     var body: some View {
         if model.isVisible {
             LeoSidebarView(
                 store: model.store,
+                activityStore: activityStore,
                 activeHost: model.activeHost,
                 activationError: model.activationError,
                 hosts: model.hosts,
@@ -38,6 +43,9 @@ struct LeoSidebarContainer: View {
 /// so the view stays decoupled from the controller/AppKit layer.
 struct LeoSidebarView: View {
     @ObservedObject var store: LeoAgentStore
+    /// Localhost-only live activity observer, used to distinguish a
+    /// `.running` agent's working/idle state in the roster.
+    @ObservedObject var activityStore: LeoActivityStore
     let activeHost: String
     /// Non-nil when the last host retarget failed; surfaced in the error banner.
     let activationError: String?
@@ -211,16 +219,47 @@ struct LeoSidebarView: View {
         }
     }
 
+    /// The live activity word for a `.running` agent's dot: "Working" when
+    /// the daemon reports `.working`, "Idle" for `.idle`/`.unknown` (a
+    /// remote-host board or a daemon that hasn't reported yet reads the
+    /// same as genuinely idle here).
+    private func activityWord(for agent: Agent) -> String {
+        activityStore.activity(for: agent.name) == .working ? "Working" : "Idle"
+    }
+
     @State private var hoveredAgentName: String?
+
+    /// A `.running` agent's dot is filled when working, or a 1.5pt ring in
+    /// the same color when idle/unknown — `.starting`/`.stopped` keep the
+    /// plain filled dot, since activity only applies to a running agent.
+    @ViewBuilder
+    private func statusDot(for agent: Agent) -> some View {
+        let color = statusColor(for: agent.status)
+        if agent.status == .running {
+            let word = activityWord(for: agent)
+            Group {
+                if word == "Working" {
+                    Circle().fill(color)
+                } else {
+                    Circle().stroke(color, lineWidth: 1.5)
+                }
+            }
+            .frame(width: 7, height: 7)
+            .help(word)
+            .accessibilityLabel("\(statusAccessibilityLabel(for: agent.status)), \(word)")
+        } else {
+            Circle()
+                .fill(color)
+                .frame(width: 7, height: 7)
+                .accessibilityLabel(statusAccessibilityLabel(for: agent.status))
+        }
+    }
 
     @ViewBuilder
     private func agentRow(_ agent: Agent) -> some View {
         let isOnBoard = onBoard.contains(agent.name)
         let row = HStack(spacing: 6) {
-            Circle()
-                .fill(statusColor(for: agent.status))
-                .frame(width: 7, height: 7)
-                .accessibilityLabel(statusAccessibilityLabel(for: agent.status))
+            statusDot(for: agent)
             VStack(alignment: .leading, spacing: 1) {
                 Text(agent.name).font(.callout).lineLimit(1)
                 Text(agent.repo).font(.caption2).foregroundStyle(.secondary).lineLimit(1)

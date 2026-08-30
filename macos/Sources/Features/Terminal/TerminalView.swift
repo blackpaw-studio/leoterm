@@ -2,6 +2,14 @@ import SwiftUI
 import GhosttyKit
 import os
 
+/// A config-less store that never connects and always reports `.unknown` —
+/// the fallback `TerminalView` uses whenever a window has no
+/// `leoActivityStore` (e.g. the quick terminal) or the active board's host
+/// isn't localhost. A free constant rather than a static member of
+/// `TerminalView` because static stored properties aren't supported in
+/// generic types.
+@MainActor private let terminalViewFallbackActivityStore = LeoActivityStore(config: nil)
+
 /// This delegate is notified of actions and property changes regarding the terminal view. This
 /// delegate is optional and can be used by a TerminalView caller to react to changes such as
 /// titles being set, cell sizes being changed, etc.
@@ -85,6 +93,22 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
     // swiftlint:disable:next implicit_optional_initialization
     var leoSidebar: LeoSidebarModel? = nil
 
+    // Shared, app-owned observer of per-agent activity (working/idle/unknown).
+    // `nil` for callers that haven't wired Leo activity through yet (e.g. the
+    // quick terminal) — the grid falls back to its own config-less default.
+    // swiftlint:disable:next implicit_optional_initialization
+    var leoActivityStore: LeoActivityStore? = nil
+
+    /// The activity store to feed the grid: the real store, unless the active
+    /// board's host isn't localhost (the activity endpoint is localhost-only;
+    /// see `LeoActivityStore`'s doc comment), in which case the fallback
+    /// (always `.unknown`) store is used instead.
+    private var leoBoardActivityStore: LeoActivityStore {
+        let isLocalHost = (leoSidebar?.activeHost ?? LeoHost.localhostName) == LeoHost.localhostName
+        guard isLocalHost, let leoActivityStore else { return terminalViewFallbackActivityStore }
+        return leoActivityStore
+    }
+
     /// The most recently focused surface, equal to `focusedSurface` when it is non-nil.
     @State private var lastFocusedSurface: Weak<Ghostty.SurfaceView>?
 
@@ -119,7 +143,8 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
 
                     HStack(spacing: 0) {
                         if let leoSidebar {
-                            LeoSidebarContainer(model: leoSidebar, delegate: delegate)
+                            LeoSidebarContainer(
+                                model: leoSidebar, activityStore: leoBoardActivityStore, delegate: delegate)
                         }
 
                         TerminalGridView(
@@ -133,8 +158,17 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                                 guard case .agent(let name) = source else { return .none }
                                 let lifecycle = self.leoSidebar?.store.agents
                                     .first(where: { $0.name == name })?.status
-                                return CellStatusInputs(isAgent: true, lifecycle: lifecycle)
+                                return CellStatusInputs(
+                                    isAgent: true, lifecycle: lifecycle, name: name,
+                                    activity: self.leoBoardActivityStore.activity(for: name))
                             },
+                            // Activity is localhost-only: a board on a remote `leoActiveHost`
+                            // (tracked here via the sidebar, which always retargets to follow
+                            // the active board's host) gets the config-less fallback store,
+                            // which never connects and always reports `.unknown` — so
+                            // `AgentCellOverlay` stays reactive without ever showing a stale
+                            // localhost signal on a remote board.
+                            activityStore: leoBoardActivityStore,
                             onAddAgent: { self.delegate?.leoPresentSpawnSheet() },
                             onAddTerminal: { self.delegate?.leoAddTerminalCell() },
                             initialPinnedRowsByIndex: viewModel.leoPinnedRowHeights,

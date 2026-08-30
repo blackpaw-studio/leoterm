@@ -106,6 +106,14 @@ class AppDelegate: NSObject,
     /// host via the shared registry.
     @MainActor lazy var leoSidebar = LeoSidebarModel(registry: leoHostRegistry)
 
+    /// Shared, app-owned observer of per-agent activity (working/idle/unknown),
+    /// one per app. Resolved from `~/.leo/leo.yaml` + the API token file at
+    /// their real default locations; `nil` config (daemon's web API disabled,
+    /// or no token) makes the store a permanent no-op that always reports
+    /// `.unknown`. Localhost-only: see `LeoActivityStore`'s doc comment —
+    /// windows/boards on a remote host never get a live signal from this.
+    @MainActor lazy var leoActivityStore = LeoActivityStore(config: LeoObserveConfigLoader.load())
+
     /// The single controller allowed to persist the board — the board lease.
     /// Weak so a closed window doesn't keep its controller alive; the owner
     /// also releases the lease explicitly as its window tears down.
@@ -392,6 +400,11 @@ class AppDelegate: NSObject,
 
         // Install the Leo sidebar toggle into the menu bar at runtime.
         installLeoMenuItems()
+
+        // Leo: start observing per-agent activity (working/idle) now that the
+        // sidebar model exists. A no-op if the daemon's web API is
+        // unavailable (see `leoActivityStore`'s doc comment).
+        leoActivityStore.start()
     }
 
     func applicationDidHide(_ notification: Notification) {
@@ -481,6 +494,10 @@ class AppDelegate: NSObject,
         // Leo: tear the sidebar down so `leo host forward` and its ssh master
         // don't outlive the app as orphans.
         leoSidebar.teardown()
+
+        // Leo: stop the activity stream so its network task doesn't outlive
+        // the app.
+        leoActivityStore.stop()
     }
 
     /// This is called when the application is already open and someone double-clicks the icon

@@ -20,6 +20,13 @@ struct TerminalGridView: View {
     /// Resolves the non-bell status inputs for a surface (agent identity +
     /// lifecycle). Default is a non-agent so plain grids show no agent status.
     var statusInputs: (Ghostty.SurfaceView.ID) -> CellStatusInputs = { _ in .none }
+    /// Shared live-activity observer, threaded into `AgentCellOverlay` so the
+    /// working/idle dot reacts to daemon updates without a full grid
+    /// re-render. Defaults to a config-less (always `.unknown`) instance so
+    /// previews and other callers that don't wire Leo activity still compile
+    /// and render correctly.
+    var activityStore: LeoActivityStore = TerminalGridView.defaultActivityStore
+    private static let defaultActivityStore = LeoActivityStore(config: nil)
 
     /// Called when the empty-state "New Agent" button is tapped.
     var onAddAgent: (() -> Void)?
@@ -197,6 +204,7 @@ struct TerminalGridView: View {
                 .overlay {
                     AgentCellOverlay(
                         surface: surface, inputs: statusInputs(surface.id),
+                        activityStore: activityStore,
                         isFocused: isFocused, isHovered: hoveredID == placed.id)
                 }
         case .dead(let dead):
@@ -285,11 +293,16 @@ struct TerminalGridView: View {
 private struct AgentCellOverlay: View {
     @ObservedObject var surface: Ghostty.SurfaceView
     let inputs: CellStatusInputs
+    /// Observed (not just read) so a daemon-driven activity change re-renders
+    /// this overlay on its own — no full grid re-render needed.
+    @ObservedObject var activityStore: LeoActivityStore
     let isFocused: Bool
     let isHovered: Bool
 
     var body: some View {
-        let status = deriveCellStatus(isAgent: inputs.isAgent, hasBell: surface.bell, lifecycle: inputs.lifecycle)
+        let activity = inputs.name.map { activityStore.activity(for: $0) } ?? .unknown
+        let status = deriveCellStatus(
+            isAgent: inputs.isAgent, hasBell: surface.bell, lifecycle: inputs.lifecycle, activity: activity)
         ZStack(alignment: .topTrailing) {
             CellStatusOverlay(status: status)
             if inputs.isAgent, let name = inputs.name {
