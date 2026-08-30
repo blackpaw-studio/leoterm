@@ -106,14 +106,49 @@ class AppDelegate: NSObject,
     /// host via the shared registry.
     @MainActor lazy var leoSidebar = LeoSidebarModel(registry: leoHostRegistry)
 
-    /// Whether the saved Leo board has been restored yet this launch.
-    private var didRestoreLeoBoard = false
+    /// The single controller allowed to persist the board — the board lease.
+    /// Weak so a closed window doesn't keep its controller alive; the owner
+    /// also releases the lease explicitly as its window tears down.
+    private weak var leoBoardOwner: BaseTerminalController?
 
-    /// Restore the saved Leo board into the given controller once per launch.
+    /// Give the board lease to `controller` when it is vacant, restoring the
+    /// saved board into it. Called by every terminal window as it loads, so the
+    /// first window this launch takes the board — and so does the next window
+    /// created after the previous owner closed.
     func restoreLeoBoardIfNeeded(into controller: BaseTerminalController) {
-        guard !didRestoreLeoBoard else { return }
-        didRestoreLeoBoard = true
-        controller.restoreLeoBoard()
+        guard leoBoardOwner == nil else { return }
+        claimLeoBoardLease(for: controller)
+    }
+
+    /// Move the board lease to `controller` and restore into it. The single
+    /// ownership entry point: any caller that wants a controller to own and
+    /// restore the board (the command palette, a retry after a failed restore)
+    /// goes through here so two windows can never both be armed writers.
+    func claimLeoBoardLease(for controller: BaseTerminalController) {
+        if let current = leoBoardOwner, current !== controller {
+            current.relinquishLeoBoardPersistence()
+        }
+        leoBoardOwner = controller
+        controller.restoreLeoBoard(claimingLeaseFrom: self)
+    }
+
+    /// The owning controller is going away. Hand the lease to another live
+    /// terminal window if there is one — restoring into it is idempotent
+    /// (agents already on that board are skipped) — otherwise leave the lease
+    /// vacant for the next window that opens.
+    func leoBoardOwnerDidRelinquish(_ controller: BaseTerminalController) {
+        guard leoBoardOwner === controller else { return }
+        leoBoardOwner = nil
+        // Defer: during "Close All Windows" the other windows are mid-teardown
+        // and still in `TerminalController.all`. Handing the board to a doomed
+        // window would spawn tmux attach work that dies immediately.
+        DispatchQueue.main.async { [weak self, weak controller] in
+            guard let self, self.leoBoardOwner == nil else { return }
+            guard let next = TerminalController.all.first(where: {
+                $0 !== controller && $0.window?.isVisible == true
+            }) else { return }
+            self.claimLeoBoardLease(for: next)
+        }
     }
 
     /// The global undo manager for app-level state such as window restoration.
@@ -438,6 +473,14 @@ class AppDelegate: NSObject,
         // so remove them all now. In the future we may want to be
         // more selective and only remove surface-targeted notifications.
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+
+        // Leo: board saves are debounced, so a mutation in the last moments of
+        // the session would be lost. Flush synchronously before we go away.
+        leoBoardOwner?.flushLeoBoardSave()
+
+        // Leo: tear the sidebar down so `leo host forward` and its ssh master
+        // don't outlive the app as orphans.
+        leoSidebar.teardown()
     }
 
     /// This is called when the application is already open and someone double-clicks the icon
@@ -1411,6 +1454,14 @@ extension AppDelegate {
             keyEquivalent: "n")
         newCell.keyEquivalentModifierMask = [.command, .shift]
 
+        // New agent opens the spawn sheet on the key window. Cmd-N is Ghostty's
+        // new-window binding, so this uses Cmd-Shift-A.
+        let newAgent = NSMenuItem(
+            title: "New Agent…",
+            action: #selector(BaseTerminalController.leoNewAgent(_:)),
+            keyEquivalent: "a")
+        newAgent.keyEquivalentModifierMask = [.command, .shift]
+
         let toggleSidebar = NSMenuItem(
             title: "Toggle Leo Sidebar",
             action: #selector(toggleLeoSidebar(_:)),
@@ -1418,7 +1469,7 @@ extension AppDelegate {
         toggleSidebar.keyEquivalentModifierMask = [.command, .shift]
         toggleSidebar.target = self
 
-        let items = [newCell, toggleSidebar]
+        let items = [newAgent, newCell, toggleSidebar]
         // Prefer the View menu; fall back to appending a top-level Leo menu.
         if let viewMenu = NSApp.mainMenu?.items.first(where: { $0.title == "View" })?.submenu {
             viewMenu.addItem(.separator())

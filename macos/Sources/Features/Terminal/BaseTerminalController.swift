@@ -262,90 +262,190 @@ class BaseTerminalController: NSWindowController,
     /// Pending debounced board-save work item.
     private var leoBoardSaveItem: DispatchWorkItem?
 
-    /// Suppresses board saves while a restore is in flight (each `addCell`
-    /// triggers a debounced save; we want exactly one save at the end).
-    private var isRestoringLeoBoard = false
+    /// How long board mutations are coalesced before writing to disk.
+    private static let leoBoardSaveDebounce: TimeInterval = 0.5
+
+    /// Whether this controller may write the shared board file. Board
+    /// persistence is single-owner (see `BoardPersistenceState`): only the
+    /// controller the app restored into ever saves, and only once its restore
+    /// has actually completed. Every other window stays `.idle` so a second
+    /// window can never clobber the first window's board.
+    private var leoPersistence: BoardPersistenceState = .idle
+
+    /// The last snapshot persisted for each agent, keyed by name. Used as a
+    /// fallback when the live roster can't describe an agent (daemon offline,
+    /// sidebar retargeted), so repo/template respawn data is not destroyed.
+    private var leoPersistedSnapshots: [String: AgentSnapshot] = [:]
+
+    /// Do not retry a failed board restore more often than this. Retries are
+    /// driven by window-key changes, which can fire in bursts.
+    private static let leoRestoreRetryInterval: TimeInterval = 5
+
+    /// When the last failed restore attempt was made, for throttling retries.
+    private var leoLastRestoreAttempt: Date?
 
     /// The leo host this controller's board targets. The shared sidebar retargets
     /// to this host when this window becomes key, so the sidebar follows the
     /// active tab/window. Defaults to localhost.
     private var leoActiveHost: String = LeoHost.localhostName
 
+    /// IDs of the surfaces currently in this window's tree, i.e. the cells
+    /// actually on the board right now.
+    private var leoLiveSurfaceIDs: Set<UUID> {
+        Set(Array(surfaceTree).map(\.id))
+    }
+
     /// Snapshot the current cells (live agent cells + dead placeholders) and
     /// persist after a short debounce. Called on every board mutation.
     func scheduleLeoBoardSave() {
-        guard !isRestoringLeoBoard else { return }
+        guard leoPersistence.canSave else { return }
         leoBoardSaveItem?.cancel()
-        let item = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            // Build per-agent info lookup from the live daemon roster.
-            var liveInfo: [String: (repo: String, template: String)] = [:]
-            for agent in (NSApp.delegate as? AppDelegate)?.leoSidebar.store.agents ?? [] {
-                liveInfo[agent.name] = (repo: agent.repo, template: agent.template)
-            }
-            // Persist only agent cells; the auto-created .pty shell must NOT be saved.
-            var planned: [BoardSession.PlannedCell] = Array(self.surfaceTree).compactMap { surface in
-                guard case .agent(let name) = self.cellRegistry.source(for: surface.id) else { return nil }
-                let info = liveInfo[name]
-                return .init(
-                    source: .agent(name: name),
-                    snapshot: AgentSnapshot(name: name, repo: info?.repo ?? "", template: info?.template),
-                    isDead: false)
-            }
-            planned += self.leoDeadCells.map {
-                .init(source: .agent(name: $0.snapshot.name), snapshot: $0.snapshot, isDead: true)
-            }
-            try? self.leoBoardStore.save([
-                BoardSession.snapshot(
-                    name: "default",
-                    host: self.leoActiveHost,
-                    from: planned,
-                    pinnedRowHeights: self.leoPinnedRowHeights)
-            ])
-        }
+        let item = DispatchWorkItem { [weak self] in self?.saveLeoBoardNow() }
         leoBoardSaveItem = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: item)
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.leoBoardSaveDebounce, execute: item)
+    }
+
+    /// Write any pending board save immediately. Called on app termination so a
+    /// debounced save in flight is not lost when the process goes away.
+    func flushLeoBoardSave() {
+        guard let pending = leoBoardSaveItem else { return }
+        pending.cancel()
+        leoBoardSaveItem = nil
+        saveLeoBoardNow()
+    }
+
+    /// Release the board lease as this window tears down.
+    ///
+    /// Closing a window empties its surface tree, which looks exactly like the
+    /// user removing every cell. Flush whatever was pending from *before*
+    /// teardown, then stop persisting so the empty tree is never written.
+    func relinquishLeoBoardPersistence() {
+        guard leoPersistence != .idle else { return }
+        flushLeoBoardSave()
+        leoBoardSaveItem?.cancel()
+        leoBoardSaveItem = nil
+        leoPersistence.relinquish()
+        (NSApp.delegate as? AppDelegate)?.leoBoardOwnerDidRelinquish(self)
+    }
+
+    private func saveLeoBoardNow() {
+        guard leoPersistence.canSave else { return }
+        leoBoardSaveItem = nil
+        let board = currentLeoBoard()
+        // Remember what we wrote so the next save can fall back to it when the
+        // live roster is unavailable.
+        leoPersistedSnapshots = board.cells.reduce(into: [:]) { acc, cell in
+            if let snapshot = cell.lastKnownAgent { acc[snapshot.name] = snapshot }
+        }
+        do {
+            try leoBoardStore.save([board])
+        } catch {
+            Ghostty.logger.warning("failed to save leo board: \(error, privacy: .public)")
+        }
+    }
+
+    /// Build the board to persist from the current cells. Only agent cells are
+    /// saved; the auto-created `.pty` shell must NOT be.
+    private func currentLeoBoard() -> Board {
+        let liveInfo = leoLiveAgentInfo()
+        var planned: [BoardSession.PlannedCell] = Array(surfaceTree).compactMap { surface in
+            guard case .agent(let name) = cellRegistry.source(for: surface.id) else { return nil }
+            return .init(
+                source: .agent(name: name),
+                snapshot: BoardSession.snapshot(
+                    forAgent: name,
+                    live: liveInfo[name],
+                    previous: leoPersistedSnapshots[name]),
+                isDead: false)
+        }
+        planned += leoDeadCells.map {
+            .init(source: .agent(name: $0.snapshot.name), snapshot: $0.snapshot, isDead: true)
+        }
+        return BoardSession.snapshot(
+            name: "default",
+            host: leoActiveHost,
+            from: planned,
+            pinnedRowHeights: leoPinnedRowHeights)
+    }
+
+    /// What the live daemon roster currently knows about each agent.
+    private func leoLiveAgentInfo() -> [String: BoardSession.LiveAgentInfo] {
+        let agents = (NSApp.delegate as? AppDelegate)?.leoSidebar.store.agents ?? []
+        return agents.reduce(into: [:]) { acc, agent in
+            acc[agent.name] = .init(repo: agent.repo, template: agent.template)
+        }
     }
 
     /// Load the saved "default" board, reconcile against the live daemon, and
     /// materialize cells: live agents become real cells, gone agents become
     /// dead placeholders. Idempotent and safe to call explicitly (e.g. from a
     /// palette command) — agents already on the board are skipped.
-    func restoreLeoBoard() {
-        guard let boards = try? leoBoardStore.load(), let board = boards.first else { return }
-        guard let sidebar = (NSApp.delegate as? AppDelegate)?.leoSidebar else { return }
+    ///
+    /// This controller becomes the board's persistence owner, but only arms
+    /// saving once the restore succeeds: a restore that fails (host forward
+    /// down, retarget superseded) must never let an empty board overwrite the
+    /// persisted one.
+    /// Only `AppDelegate` may call this: it hands out the board lease and is
+    /// the single place that decides which controller owns persistence. Call
+    /// `AppDelegate.claimLeoBoardLease(for:)` from anywhere else.
+    func restoreLeoBoard(claimingLeaseFrom _: AppDelegate) {
+        leoPersistence.takeOwnership()
+        // Throttle retries of a failed restore; window-key changes can burst.
+        if leoPersistence.needsRestoreRetry,
+           let last = leoLastRestoreAttempt,
+           Date().timeIntervalSince(last) < Self.leoRestoreRetryInterval {
+            return
+        }
+        leoLastRestoreAttempt = Date()
+        guard let board = leoBoardStore.loadOrQuarantine().first else {
+            // Nothing persisted to lose: save from the first mutation on.
+            leoPersistence.armForFreshBoard()
+            return
+        }
+        guard let sidebar = (NSApp.delegate as? AppDelegate)?.leoSidebar else {
+            Ghostty.logger.warning("leo board restore skipped: no sidebar; board saves disabled")
+            return
+        }
 
         // Follow this board's host: retarget the sidebar and remember the host so
         // this window becoming key re-targets to it.
-        self.leoActiveHost = board.host
+        leoActiveHost = board.host
+        leoPersistedSnapshots = board.cells.reduce(into: [:]) { acc, cell in
+            if let snapshot = cell.lastKnownAgent { acc[snapshot.name] = snapshot }
+        }
+        leoPersistence.beginRestore()
 
         Task { @MainActor in
             // Reconcile against the store for THIS board's host. Re-reading
             // `sidebar.store` would be unsafe: a concurrent retarget could have
             // moved the sidebar to another host between the await and the read.
-            guard let store = await sidebar.setActiveHost(board.host) else { return }
-            self.isRestoringLeoBoard = true
+            guard let store = await sidebar.setActiveHost(board.host) else {
+                // The host is unreachable or the retarget was superseded. Stay
+                // disarmed so we cannot overwrite the board we failed to load;
+                // `windowDidBecomeKey` retries once the host may have recovered.
+                Ghostty.logger.warning(
+                    "leo board restore failed for host \(board.host, privacy: .public); saves disabled until retry")
+                self.leoPersistence.finishRestore(succeeded: false)
+                return
+            }
             await store.refresh()
-            let plan = BoardSession.restorePlan(board: board, liveAgents: store.agents)
-            let onBoard = Set(self.cellRegistry.agentNames)
+            let actions = BoardSession.restoreActions(
+                board: board,
+                liveAgents: store.agents,
+                alreadyOnBoard: Set(self.cellRegistry.agentNames(in: self.leoLiveSurfaceIDs)))
             var newDead: [DeadCell] = []
-            for cell in plan {
-                if cell.isDead, let snap = cell.snapshot {
-                    // Avoid duplicate dead placeholders for the same agent.
-                    if !newDead.contains(where: { $0.snapshot.name == snap.name }) {
-                        newDead.append(DeadCell(id: UUID(), snapshot: snap))
-                    }
-                } else if case .agent(let name) = cell.source, onBoard.contains(name) {
-                    continue // already on the board — don't duplicate
-                } else {
-                    self.addCell(source: cell.source)
+            for action in actions {
+                switch action {
+                case .dead(let snapshot): newDead.append(DeadCell(id: UUID(), snapshot: snapshot))
+                case .live(let source): self.addCell(source: source)
+                case .skip: continue
                 }
             }
             self.leoDeadCells = newDead
             // Restore persisted row-height pins. The grid view observes this
             // published property and converts row indices → cell UUIDs on change.
             self.leoPinnedRowHeights = board.pinnedRowHeights ?? [:]
-            self.isRestoringLeoBoard = false
+            self.leoPersistence.finishRestore(succeeded: true)
             self.scheduleLeoBoardSave()
         }
     }
@@ -393,21 +493,58 @@ class BaseTerminalController: NSWindowController,
     /// split direction is cosmetic.
     @discardableResult
     func addCell(source: CellSource) -> Ghostty.SurfaceView? {
-        guard let anchor = focusedSurface ?? Array(surfaceTree).first else { return nil }
-        guard let view = newSplit(at: anchor, direction: .right,
-                                  baseConfig: source.surfaceConfiguration(host: leoActiveHost)) else { return nil }
+        // Attaching an agent that already has a cell focuses it rather than
+        // creating a duplicate (the sidebar's attach action is not idempotent).
+        if let existing = existingCell(for: source) {
+            focusSurface(existing)
+            return existing
+        }
+        guard let view = makeCellSurface(
+            baseConfig: source.surfaceConfiguration(host: leoActiveHost)) else { return nil }
         cellRegistry.record(id: view.id, source: source)
         scheduleLeoBoardSave()
         return view
     }
 
-    /// Close (detach) a cell: forget its source and remove its leaf. For an agent
-    /// cell this kills the attach-client process, but the agent's tmux session
-    /// keeps running in the daemon (lifecycle model A). No confirmation prompt.
+    /// The surface already backing `source`, if any. Only agent cells are
+    /// deduplicated; plain terminals are freely repeatable.
+    private func existingCell(for source: CellSource) -> Ghostty.SurfaceView? {
+        guard case .agent(let name) = source,
+              let id = cellRegistry.id(forAgent: name, in: leoLiveSurfaceIDs) else { return nil }
+        return Array(surfaceTree).first { $0.id == id }
+    }
+
+    /// Create the surface for a new cell: a split off the current anchor, or a
+    /// fresh root when the board is empty. Without the empty-tree case the
+    /// empty-board "New Agent"/"New Terminal" buttons would do nothing.
+    private func makeCellSurface(
+        baseConfig config: Ghostty.SurfaceConfiguration
+    ) -> Ghostty.SurfaceView? {
+        if let anchor = focusedSurface ?? Array(surfaceTree).first {
+            return newSplit(at: anchor, direction: .right, baseConfig: config)
+        }
+        guard let ghostty_app = ghostty.app else {
+            Ghostty.logger.warning("cannot create cell: ghostty app not loaded")
+            return nil
+        }
+        // Root replacement rather than a split: there is nothing to split off.
+        // Undoing "New Cell" therefore restores the empty board (it does not
+        // close the tab), which mirrors what the user did.
+        let view = Ghostty.SurfaceView(ghostty_app, baseConfig: config)
+        replaceSurfaceTree(.init(view: view), moveFocusTo: view, undoAction: "New Cell")
+        return view
+    }
+
+    /// Close (detach) a cell by removing its leaf. For an agent cell this kills
+    /// the attach-client process, but the agent's tmux session keeps running in
+    /// the daemon (lifecycle model A). No confirmation prompt.
+    ///
+    /// The registry entry is intentionally kept: board membership is derived
+    /// from the live surface tree (`agentNames(in:)`), and keeping the mapping
+    /// means an undo that restores the surface restores its agent identity too.
+    /// Persisting and republishing happens in `surfaceTreeDidChange`.
     func closeCell(_ view: Ghostty.SurfaceView) {
-        cellRegistry.forget(id: view.id)
         closeSurface(view, withConfirmation: false)
-        scheduleLeoBoardSave()
     }
 
     /// Move focus to a surface view.
@@ -434,6 +571,28 @@ class BaseTerminalController: NSWindowController,
             focusedSurface = nil
         }
         syncSurfaceTreeOcclusionState()
+        leoBoardMembershipDidChange(from: from, to: to)
+    }
+
+    /// Persist and republish when the set of agent cells changes. Cells leave
+    /// the board through several paths (⌘W, the close button, the agent's
+    /// process exiting, undo), all of which land here — `closeCell` is only one
+    /// of them, so this is the single place that can keep the board and the
+    /// sidebar's "on board" marks honest.
+    private func leoBoardMembershipDidChange(
+        from: SplitTree<Ghostty.SurfaceView>,
+        to: SplitTree<Ghostty.SurfaceView>
+    ) {
+        // Invariant: window teardown must not reach a save. `windowWillClose`
+        // (and the tab-group teardown in TerminalController) relinquishes the
+        // lease first, so the tree emptying here is a no-op for persistence.
+        let before = Set(cellRegistry.agentNames(in: Set(Array(from).map(\.id))))
+        let after = Set(cellRegistry.agentNames(in: Set(Array(to).map(\.id))))
+        guard before != after else { return }
+        scheduleLeoBoardSave()
+        // The sidebar reads on-board names back through the view delegate, so
+        // nudge its model to re-render rather than duplicating the state.
+        (NSApp.delegate as? AppDelegate)?.leoSidebar.objectWillChange.send()
     }
 
     /// Update all surfaces with the focus state. This ensures that libghostty has an accurate view about
@@ -558,8 +717,11 @@ class BaseTerminalController: NSWindowController,
         // This node must be part of our tree
         guard surfaceTree.contains(node) else { return }
 
-        // If the child process is not alive, then we exit immediately
-        guard withConfirmation else {
+        // If the child process is not alive, then we exit immediately.
+        //
+        // Leo: closing an agent cell only detaches its attach client — the agent
+        // keeps running in the daemon — so there is nothing to confirm either.
+        guard withConfirmation, !cellRegistry.containsOnlyAgents(Array(node).map(\.id)) else {
             removeSurfaceNode(node)
             return
         }
@@ -960,7 +1122,7 @@ class BaseTerminalController: NSWindowController,
     // MARK: TerminalViewDelegate
 
     func leoOnBoardAgentNames() -> Set<String> {
-        Set(cellRegistry.agentNames)
+        Set(cellRegistry.agentNames(in: leoLiveSurfaceIDs))
     }
 
     func leoAddAgentCell(named name: String) {
@@ -996,24 +1158,36 @@ class BaseTerminalController: NSWindowController,
     func presentSpawnSheet(prefill: AgentSnapshot? = nil) {
         guard let store = (NSApp.delegate as? AppDelegate)?.leoSidebar.store,
               let container = window?.contentViewController else { return }
-        var hosting: NSHostingController<SpawnAgentSheet>?
+        // The hosting controller owns the sheet view, which owns these closures,
+        // so capturing it strongly would leak one controller per presentation.
+        let hosting = Weak<NSHostingController<SpawnAgentSheet>>()
+        let dismiss = { [weak container] in
+            guard let container, let presented = hosting.value else { return }
+            container.dismiss(presented)
+        }
         let view = SpawnAgentSheet(
             store: store,
             prefill: prefill,
-            onSpawn: { [weak self, weak container] request in
-                if let hosting, let container { container.dismiss(hosting) }
-                Task {
-                    if let agent = await store.spawn(request) {
-                        self?.addCell(source: .agent(name: agent.name))
-                    }
+            onSpawn: { [weak self] request in
+                // Keep the sheet up until the spawn resolves: it renders
+                // `store.lastError`, so a failure stays visible to the user
+                // instead of disappearing along with the sheet.
+                Task { @MainActor in
+                    guard let agent = await store.spawn(request) else { return }
+                    dismiss()
+                    self?.addCell(source: .agent(name: agent.name))
                 }
             },
-            onCancel: { [weak container] in
-                if let hosting, let container { container.dismiss(hosting) }
-            })
+            onCancel: dismiss)
         let controller = NSHostingController(rootView: view)
-        hosting = controller
+        hosting.value = controller
         container.presentAsSheet(controller)
+    }
+
+    /// Menu/responder-chain entry point for "New Agent…", installed at runtime
+    /// by `AppDelegate.installLeoMenuItems` and routed to the key window.
+    @IBAction func leoNewAgent(_ sender: Any?) {
+        leoPresentSpawnSheet()
     }
 
     /// Present the spawn-agent sheet. Implemented in Task 12; stubbed for now.
@@ -1440,6 +1614,15 @@ class BaseTerminalController: NSWindowController,
 
     // MARK: NSWindowDelegate
 
+    /// Surfaces whose close would actually destroy work. Leo agent cells are
+    /// excluded: closing one detaches from an agent that keeps running in the
+    /// daemon, so the "the process will be killed" warning would be wrong.
+    var leoSurfacesNeedingCloseConfirmation: [Ghostty.SurfaceView] {
+        Array(surfaceTree).filter {
+            $0.needsConfirmQuit && !cellRegistry.source(for: $0.id).isAgent
+        }
+    }
+
     /// Check whether window should be closed without showing an alert
     func windowCanBeClosedWithoutConfirmation() -> Bool {
         // We must have a window. Is it even possible not to?
@@ -1452,7 +1635,7 @@ class BaseTerminalController: NSWindowController,
         guard alert == nil else { return false }
 
         // If our surfaces don't require confirmation, close.
-        if !surfaceTree.contains(where: { $0.needsConfirmQuit }) { return true }
+        if leoSurfacesNeedingCloseConfirmation.isEmpty { return true }
 
         return false
     }
@@ -1476,6 +1659,10 @@ class BaseTerminalController: NSWindowController,
     }
 
     func windowWillClose(_ notification: Notification) {
+        // Leo: stop persisting before AppKit tears the surface tree down, and
+        // hand the board lease to another window if there is one.
+        relinquishLeoBoardPersistence()
+
         guard let window else { return }
 
         // Emit a final bell-state transition so any observers can clear state
@@ -1517,6 +1704,9 @@ class BaseTerminalController: NSWindowController,
         // Follow the active tab/window: retarget the shared sidebar to this
         // controller's board host. A no-op when already on that host.
         if let appDelegate = NSApp.delegate as? AppDelegate {
+            // A restore that failed left this window disarmed. Retry (throttled):
+            // the host's forward may have come back since.
+            if leoPersistence.needsRestoreRetry { appDelegate.claimLeoBoardLease(for: self) }
             Task { await appDelegate.leoSidebar.setActiveHost(self.leoActiveHost) }
         }
     }

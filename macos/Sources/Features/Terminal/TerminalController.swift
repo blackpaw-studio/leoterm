@@ -819,6 +819,9 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
                 // process them on later ticks so we can't just disable undo registration.
                 if let controller = window.windowController as? TerminalController {
                     controller.cancelPendingInitialPresentation()
+                    // Leo: release the board lease BEFORE emptying the tree, or
+                    // the emptied board would be persisted over the real one.
+                    controller.relinquishLeoBoardPersistence()
                     controller.surfaceTree = .init()
                 }
 
@@ -944,9 +947,10 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         // The window we use for confirmations. Try to find the first window that
         // needs quit confirmation. This lets us attach the confirmation to something
         // that is running.
+        // Leo: agent cells detach rather than die, so they never need a prompt.
         guard let confirmWindow = all
-            .first(where: { $0.surfaceTree.contains(where: { $0.needsConfirmQuit }) })?
-            .surfaceTree.first(where: { $0.needsConfirmQuit })?
+            .first(where: { !$0.leoSurfacesNeedingCloseConfirmation.isEmpty })?
+            .leoSurfacesNeedingCloseConfirmation.first?
             .window
         else {
             closeAllWindowsImmediately()
@@ -1282,7 +1286,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
             return
         }
 
-        guard surfaceTree.contains(where: { $0.needsConfirmQuit }) else {
+        guard !leoSurfacesNeedingCloseConfirmation.isEmpty else {
             closeTabImmediately()
             return
         }
@@ -1312,8 +1316,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
                 return false
             }
 
-            // Check if any surfaces require confirmation
-            return controller.surfaceTree.contains(where: { $0.needsConfirmQuit })
+            // Check if any surfaces require confirmation (agent cells don't)
+            return !controller.leoSurfacesNeedingCloseConfirmation.isEmpty
         }) else {
             self.closeOtherTabsImmediately()
             return
@@ -1340,7 +1344,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
                 return false
             }
 
-            return controller.surfaceTree.contains(where: { $0.needsConfirmQuit })
+            return !controller.leoSurfacesNeedingCloseConfirmation.isEmpty
         }
 
         if !needsConfirm {
@@ -1370,7 +1374,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         let windows: [NSWindow] = window.tabGroup?.windows ?? [window]
         guard let confirmController = windows
             .compactMap({ $0.windowController as? TerminalController })
-            .first(where: { $0.surfaceTree.contains(where: { $0.needsConfirmQuit }) })
+            .first(where: { !$0.leoSurfacesNeedingCloseConfirmation.isEmpty })
         else {
             closeWindowImmediately()
             return

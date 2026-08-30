@@ -160,7 +160,11 @@ struct TerminalCommandPaletteView: View {
                 title: "Leo: Restore Saved Board",
                 description: "Reload the saved board (attach live agents, show stopped ones)"
             ) {
-                controller?.restoreLeoBoard()
+                // Through the app-level lease so this window becomes the one
+                // and only board writer.
+                if let controller, let appDelegate = NSApp.delegate as? AppDelegate {
+                    appDelegate.claimLeoBoardLease(for: controller)
+                }
             },
         ]
     }

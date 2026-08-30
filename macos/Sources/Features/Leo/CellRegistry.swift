@@ -12,7 +12,29 @@ struct CellRegistry {
     mutating func forget(id: UUID) { sources.removeValue(forKey: id) }
 
     /// Names of agents currently backing a cell.
+    ///
+    /// Entries are kept even after a surface is removed so an undo that restores
+    /// the surface keeps its agent identity. Callers that care about what is
+    /// actually on the board should use `agentNames(in:)`.
     var agentNames: [String] {
         sources.values.compactMap { if case .agent(let n) = $0 { return n } else { return nil } }
+    }
+
+    /// Names of agents backing one of `liveIDs` — i.e. actually on the board.
+    func agentNames(in liveIDs: Set<UUID>) -> [String] {
+        liveIDs.compactMap {
+            if case .agent(let n) = source(for: $0) { return n } else { return nil }
+        }
+    }
+
+    /// The live surface currently backing `agent`, if any.
+    func id(forAgent agent: String, in liveIDs: Set<UUID>) -> UUID? {
+        liveIDs.first { source(for: $0) == .agent(name: agent) }
+    }
+
+    /// True when `ids` is non-empty and every one of them is an agent cell.
+    /// Agent cells detach rather than kill on close, so they skip confirmation.
+    func containsOnlyAgents(_ ids: [UUID]) -> Bool {
+        !ids.isEmpty && ids.allSatisfy { source(for: $0).isAgent }
     }
 }
