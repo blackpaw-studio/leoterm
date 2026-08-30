@@ -30,6 +30,9 @@ struct DeadCellView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .underPageBackgroundColor))
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.25)))
+        // No border here — `TerminalGridView` applies one consistent
+        // clip+stroke (`LeoPalette.cellCornerRadius`/`.cellStroke`) as an
+        // overlay across every cell (live or dead) so the chrome matches
+        // regardless of what's inside.
     }
 }

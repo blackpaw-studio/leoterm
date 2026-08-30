@@ -1,5 +1,12 @@
 import Foundation
 
+/// Floor kept for flex (unpinned) row/column slots when there is room to
+/// spare it — keeps a lone flex slot from being squeezed toward zero by
+/// aggressive pinning, without being a hard guarantee when space genuinely
+/// runs out. File-scope because static stored properties aren't supported in
+/// extensions of a generic type.
+private let gridLayoutMinFlexExtent: CGFloat = 24
+
 /// An immutable model of an auto-arranging grid of cells.
 ///
 /// Phase 2a models **dynamic** cells only: cells are auto-packed into a
@@ -76,12 +83,16 @@ extension GridLayout {
     /// `pinnedRowHeights` is fixed to that height (max if several); remaining
     /// height is shared by unpinned rows (emphasized unpinned row weight `factor`).
     /// Empty pins → identical to the emphasis-only layout.
+    ///
+    /// - Parameter minimumPinnedRowHeight: floor a pinned row is never scaled
+    ///   below, even under flex-minimum pressure (see `distributeWithFixed`).
     func frames(
         in size: CGSize,
         gap: CGFloat = 0,
         pinnedRowHeights: [ViewType.ID: CGFloat],
         emphasizing emphasizedID: ViewType.ID?,
-        factor: CGFloat
+        factor: CGFloat,
+        minimumPinnedRowHeight: CGFloat = 0
     ) -> [(cell: ViewType, frame: CGRect)] {
         let n = cells.count
         guard n > 0, size.width > 0, size.height > 0 else { return [] }
@@ -101,7 +112,7 @@ extension GridLayout {
 
         let rowHeights = Self.distributeWithFixed(
             total: size.height, gap: gap, count: rows,
-            fixed: pinnedHeightForRow,
+            fixed: pinnedHeightForRow, minimumFixed: minimumPinnedRowHeight,
             flexWeight: { r in (r == emphasizedRow && pinnedHeightForRow[r] == nil) ? g : 1 })
         let rowOffsets = Self.offsets(of: rowHeights, gap: gap)
 
@@ -126,20 +137,44 @@ extension GridLayout {
     }
 
     /// Distribute `total` across `count` slots: slots in `fixed` take their fixed
-    /// size; the rest share the remainder (minus gaps) by `flexWeight`. Remainder
-    /// clamped at 0.
+    /// size; the rest share the remainder (minus gaps) by `flexWeight`.
+    ///
+    /// If the fixed slots alone (plus gaps) would exceed `total`, every fixed
+    /// slot is scaled down proportionally so the sum fits exactly — pinned
+    /// rows/columns never overflow the container. Short of outright overflow,
+    /// fixed slots are still shrunk just enough to leave flex slots at least
+    /// `gridLayoutMinFlexExtent` in aggregate, but never below `minimumFixed`
+    /// each — a fixed slot's own floor always wins over the flex minimum.
+    /// Flex slots may drop below their minimum (even to 0) when honoring both
+    /// floors isn't possible; if `minimumFixed` itself doesn't fit, every
+    /// fixed slot scales down proportionally as a last resort so the total
+    /// still never overflows `total`.
     private static func distributeWithFixed(
         total: CGFloat, gap: CGFloat, count: Int,
-        fixed: [Int: CGFloat], flexWeight: (Int) -> CGFloat
+        fixed: [Int: CGFloat], minimumFixed: CGFloat = 0, flexWeight: (Int) -> CGFloat
     ) -> [CGFloat] {
         guard count > 0 else { return [] }
         let gaps = gap * CGFloat(count - 1)
+        let available = max(0, total - gaps)
         let fixedTotal = fixed.values.reduce(0, +)
-        let remaining = max(0, total - gaps - fixedTotal)
         let flexIndices = (0..<count).filter { fixed[$0] == nil }
+        let requiredFlexMinimum = flexIndices.isEmpty ? 0 : CGFloat(flexIndices.count) * gridLayoutMinFlexExtent
+        let requiredFixedFloor = CGFloat(fixed.count) * minimumFixed
+
+        // Budget the fixed slots may consume: leave room for the flex minimum
+        // when possible, but never below each fixed slot's own floor, and
+        // never more than `available` (last-resort clamp when even the fixed
+        // floor doesn't fit).
+        let idealBudget = max(0, min(fixedTotal, available - requiredFlexMinimum))
+        let flooredBudget = max(idealBudget, requiredFixedFloor)
+        let fixedBudget = min(flooredBudget, available)
+        let scale = fixedTotal > 0 ? fixedBudget / fixedTotal : 1
+
+        let scaledFixedTotal = min(fixedTotal * scale, available)
+        let remaining = max(0, available - scaledFixedTotal)
         let weightSum = flexIndices.reduce(0) { $0 + flexWeight($1) }
         return (0..<count).map { i in
-            if let value = fixed[i] { return value }
+            if let value = fixed[i] { return max(minimumFixed, value * scale) }
             guard weightSum > 0 else { return 0 }
             return remaining * (flexWeight(i) / weightSum)
         }

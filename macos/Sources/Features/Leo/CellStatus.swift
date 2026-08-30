@@ -16,10 +16,10 @@ enum CellStatus: Equatable, Sendable {
     /// Dot color for this status.
     var color: Color {
         switch self {
-        case .working: return .green
-        case .idle: return .secondary
-        case .needsYou: return .orange
-        case .error: return .red
+        case .working: return LeoPalette.working
+        case .idle: return LeoPalette.idle
+        case .needsYou: return LeoPalette.needsYou
+        case .error: return LeoPalette.error
         }
     }
 
@@ -35,6 +35,28 @@ enum CellStatus: Equatable, Sendable {
         switch self {
         case .idle: return false
         case .working, .needsYou, .error: return true
+        }
+    }
+
+    /// Short status word suitable for appending to a cell's identity label
+    /// (e.g. "needs you", "stopped"). `nil` for statuses not worth calling
+    /// out inline (idle/working are the unremarkable default).
+    var statusWord: String? {
+        switch self {
+        case .working, .idle: return nil
+        case .needsYou: return "needs you"
+        case .error: return "stopped"
+        }
+    }
+
+    /// Human-readable description for VoiceOver, read alongside the cell it
+    /// annotates.
+    var accessibilityDescription: String {
+        switch self {
+        case .working: return "Working"
+        case .idle: return "Idle"
+        case .needsYou: return "Needs your attention"
+        case .error: return "Stopped with error"
         }
     }
 }

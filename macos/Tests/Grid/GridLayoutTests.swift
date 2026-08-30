@@ -188,4 +188,55 @@ struct GridLayoutTests {
         #expect(abs(f[0].height - 50) < 0.001)
         #expect(abs(f[3].height - 150) < 0.001)
     }
+
+    /// Regression: when every row is pinned and the pinned total exceeds the
+    /// container, pinned heights must scale down proportionally to fit —
+    /// never overflow the container, never assign a flex row negative space.
+    @Test func pinnedRowsThatOverflowContainerScaleDownProportionally() {
+        let cells = (0..<4).map { _ in MockCell() }
+        let f = GridLayout(cells: cells).frames(
+            in: CGSize(width: 100, height: 100), gap: 0,
+            pinnedRowHeights: [cells[0].id: 80, cells[2].id: 80],
+            emphasizing: nil, factor: 1).map { $0.frame }
+        // Both pinned rows scale by 100/160 = 0.625 → 50pt each, summing to
+        // exactly the 100pt container instead of overflowing to 160pt.
+        #expect(abs(f[0].height - 50) < 0.001)
+        #expect(abs(f[2].height - 50) < 0.001)
+        #expect(abs((f[0].height + f[2].height) - 100) < 0.001)
+    }
+
+    /// Regression: pinned rows must yield room for a flex row's minimum
+    /// height when the container has room to give it, rather than squeezing
+    /// the flex row toward zero.
+    @Test func pinnedRowsShrinkToGuaranteeFlexMinimumWhenRoomExists() {
+        let cells = (0..<9).map { _ in MockCell() }
+        let f = GridLayout(cells: cells).frames(
+            in: CGSize(width: 300, height: 300), gap: 0,
+            pinnedRowHeights: [cells[0].id: 140, cells[3].id: 140],
+            emphasizing: nil, factor: 1).map { $0.frame }
+        // Unscaled, the two pinned rows (280pt) would leave only 20pt for the
+        // flex row — below the minimum. They shrink slightly so the flex row
+        // reaches its minimum instead.
+        #expect(f[6].height >= 24 - 0.001)
+        #expect(f[0].height < 140)
+        #expect(f[3].height < 140)
+        #expect(abs((f[0].height + f[3].height + f[6].height) - 300) < 0.001)
+    }
+
+    /// Regression: a pinned row must never scale below its own drag-enforced
+    /// minimum, even when reserving room for the flex-row minimum would
+    /// otherwise push it there. The flex rows may drop below their own
+    /// minimum instead — there's truly no room to satisfy both.
+    @Test func pinnedRowNeverDropsBelowMinimumEvenUnderFlexPressure() {
+        let cells = (0..<9).map { _ in MockCell() }
+        let f = GridLayout(cells: cells).frames(
+            in: CGSize(width: 300, height: 60), gap: 0,
+            pinnedRowHeights: [cells[0].id: 100],
+            emphasizing: nil, factor: 1,
+            minimumPinnedRowHeight: 40).map { $0.frame }
+        #expect(abs(f[0].height - 40) < 0.001)
+        #expect(f[3].height < 24)
+        #expect(f[6].height < 24)
+        #expect(abs((f[0].height + f[3].height + f[6].height) - 60) < 0.001)
+    }
 }

@@ -58,4 +58,31 @@ struct CellStatusTests {
     @Test func workingIsVisible() {
         #expect(CellStatus.working.isVisible)
     }
+
+    // MARK: - accessibilityDescription
+
+    @Test(arguments: [
+        (CellStatus.working, "Working"),
+        (CellStatus.idle, "Idle"),
+        (CellStatus.needsYou, "Needs your attention"),
+        (CellStatus.error, "Stopped with error"),
+    ])
+    func accessibilityDescriptionMatchesStatus(status: CellStatus, expected: String) {
+        #expect(status.accessibilityDescription == expected)
+    }
+
+    // MARK: - statusWord
+
+    @Test func needsYouStatusWordIsNeedsYou() {
+        #expect(CellStatus.needsYou.statusWord == "needs you")
+    }
+
+    @Test func errorStatusWordIsStopped() {
+        #expect(CellStatus.error.statusWord == "stopped")
+    }
+
+    @Test func idleAndWorkingHaveNoStatusWord() {
+        #expect(CellStatus.idle.statusWord == nil)
+        #expect(CellStatus.working.statusWord == nil)
+    }
 }
