@@ -181,7 +181,6 @@
 				Features/Splits/SplitTree.swift,
 				Features/Splits/SplitView.Divider.swift,
 				Features/Splits/SplitView.swift,
-				Features/Splits/TerminalSplitTreeView.swift,
 				Features/Terminal/BaseTerminalController.swift,
 				Features/Terminal/ErrorView.swift,
 				Features/Terminal/TerminalController.swift,
