@@ -33,7 +33,8 @@ struct LeoSocketClient: LeoDaemon {
 
     func listAgents() async throws(LeoError) -> [Agent] {
         let body = try await request(.init(method: "GET", path: "/agents/list"))
-        return try LeoEnvelope<[Agent]>.decode(body).value()
+        // Per-record tolerant: one malformed agent shouldn't take down the roster.
+        return try Agent.decodeRoster(from: body)
     }
 
     func spawn(_ req: AgentSpawnRequest) async throws(LeoError) -> Agent {
@@ -48,12 +49,17 @@ struct LeoSocketClient: LeoDaemon {
     }
 
     func stop(name: String) async throws(LeoError) {
-        let body = try await request(.init(method: "POST", path: "/agents/\(escape(name))/stop"))
+        let segment = try Self.pathSegment(for: name)
+        let body = try await request(.init(method: "POST", path: "/agents/\(segment)/stop"))
         try LeoEnvelope<EmptyData>.decode(body).expectOK()
     }
 
+    /// Delete an agent. leo v0.19 replaced `POST /agents/<name>/prune` with
+    /// `DELETE /agents/{name}`; the method name is kept (rather than renamed
+    /// to `delete`) so `LeoAgentStore`'s public API is unaffected.
     func prune(name: String) async throws(LeoError) {
-        let body = try await request(.init(method: "POST", path: "/agents/\(escape(name))/prune"))
+        let segment = try Self.pathSegment(for: name)
+        let body = try await request(.init(method: "DELETE", path: "/agents/\(segment)"))
         try LeoEnvelope<EmptyData>.decode(body).expectOK()
     }
 
@@ -71,8 +77,24 @@ struct LeoSocketClient: LeoDaemon {
     /// `{}` placeholder for endpoints whose `data` we ignore.
     private struct EmptyData: Decodable {}
 
-    private func escape(_ s: String) -> String {
-        s.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? s
+    /// Characters allowed unescaped in a path segment. Deliberately excludes
+    /// `/` (unlike `.urlPathAllowed`, which does not escape it) so a name
+    /// containing a path separator can never smuggle extra path components
+    /// into the request (e.g. `a/../b/stop`).
+    private static let pathSafeCharacters = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~"))
+    private static let validAgentNameCharacters = CharacterSet(
+        charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"
+    )
+
+    /// Validate an agent name against `^[A-Za-z0-9._-]+$` and percent-encode
+    /// it for use as a single URL path segment. Rejects empty names and any
+    /// name containing `/` or other characters that could alter the request
+    /// path before a request is ever built.
+    static func pathSegment(for name: String) throws(LeoError) -> String {
+        guard !name.isEmpty, name.unicodeScalars.allSatisfy({ validAgentNameCharacters.contains($0) }) else {
+            throw LeoError.invalidAgentName(name)
+        }
+        return name.addingPercentEncoding(withAllowedCharacters: pathSafeCharacters) ?? name
     }
 
     /// Send one request over a fresh POSIX unix-domain socket connection and
@@ -158,8 +180,8 @@ struct LeoSocketClient: LeoDaemon {
 
         let resp = try LeoHTTPResponse.parse(received)
         guard (200..<300).contains(resp.status) else {
-            let msg = (try? LeoEnvelope<EmptyData>.decode(resp.body))?.error ?? "HTTP \(resp.status)"
-            throw LeoError.daemon(message: msg)
+            let envelope = try? LeoEnvelope<EmptyData>.decode(resp.body)
+            throw LeoError.daemon(message: envelope?.error ?? "HTTP \(resp.status)", code: envelope?.code)
         }
         return resp.body
     }

@@ -13,6 +13,7 @@ final class LeoAgentStore: ObservableObject {
     @Published private(set) var templates: [Template] = []
     @Published private(set) var connection: Connection = .unknown
     @Published private(set) var lastError: String?
+    @Published private(set) var isRefreshing = false
 
     private let daemon: any LeoDaemon
     private static let logger = Logger(subsystem: "com.mitchellh.ghostty", category: "leo-store")
@@ -24,6 +25,8 @@ final class LeoAgentStore: ObservableObject {
     /// Re-fetch the agent roster. Never throws — failures flip `connection` to
     /// `.offline` so the UI degrades cleanly instead of erroring.
     func refresh() async {
+        isRefreshing = true
+        defer { isRefreshing = false }
         do {
             let fetched = try await daemon.listAgents()
             // Sort by name so the sidebar order is stable across polls — the
@@ -39,9 +42,16 @@ final class LeoAgentStore: ObservableObject {
         }
     }
 
-    /// Fetch templates for the spawn sheet (best-effort).
+    /// Fetch templates for the spawn sheet. Failures (e.g. a missing `leo`
+    /// binary) are recorded in `lastError` rather than swallowed, so they're
+    /// visible in the sidebar instead of silently leaving `templates` stale.
     func refreshTemplates() async {
-        if let fetched = try? await daemon.listTemplates() { templates = fetched }
+        do {
+            templates = try await daemon.listTemplates()
+        } catch let error {
+            lastError = error.errorDescription
+            Self.logger.warning("template refresh failed: \(error.errorDescription ?? "?", privacy: .public)")
+        }
     }
 
     /// Spawn an agent then refresh. Returns the new agent on success.
@@ -57,15 +67,25 @@ final class LeoAgentStore: ObservableObject {
         }
     }
 
-    /// Stop an agent then refresh.
+    /// Stop an agent then refresh. A stop failure survives the follow-up
+    /// refresh — `refresh()` only clears `lastError` on its own success, but
+    /// the action's error is re-applied afterward so a daemon error (e.g.
+    /// `agent_still_running`) still reaches the UI even though `refresh()`
+    /// itself succeeds.
     func stop(name: String) async {
-        do { try await daemon.stop(name: name) } catch let error { lastError = error.errorDescription }
+        var actionError: String?
+        do { try await daemon.stop(name: name) } catch let error { actionError = error.errorDescription }
         await refresh()
+        if let actionError { lastError = actionError }
     }
 
+    /// Delete (prune) an agent then refresh. See `stop` — the action's error,
+    /// if any, is preserved across the follow-up refresh.
     func prune(name: String) async {
-        do { try await daemon.prune(name: name) } catch let error { lastError = error.errorDescription }
+        var actionError: String?
+        do { try await daemon.prune(name: name) } catch let error { actionError = error.errorDescription }
         await refresh()
+        if let actionError { lastError = actionError }
     }
 
     /// Clears a previously recorded error — used when the user dismisses the
