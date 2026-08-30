@@ -193,7 +193,7 @@ pub const Parser = struct {
         var r: usize = 0;
         while (r < data.len) : (w += 1) {
             if (data[r] == '\\' and r + 3 < data.len and
-                isOctal(data[r + 1]) and isOctal(data[r + 2]) and isOctal(data[r + 3]))
+                isOctalLead(data[r + 1]) and isOctal(data[r + 2]) and isOctal(data[r + 3]))
             {
                 data[w] = (@as(u8, data[r + 1] - '0') << 6) |
                     (@as(u8, data[r + 2] - '0') << 3) |
@@ -209,6 +209,13 @@ pub const Parser = struct {
 
     fn isOctal(b: u8) bool {
         return b >= '0' and b <= '7';
+    }
+
+    /// The first digit of a `\ooo` escape must be 0-3: anything higher does
+    /// not fit in a byte (`\400` == 256). tmux never emits those, and without
+    /// this guard the `digit << 6` below overflows u8 and panics.
+    fn isOctalLead(b: u8) bool {
+        return b >= '0' and b <= '3';
     }
 
     fn parseNotification(self: *Parser) ParseError!?Notification {
@@ -306,6 +313,44 @@ pub const Parser = struct {
             // Important: do not clear buffer here since name points to it
             self.state = .idle;
             return .{ .session_changed = .{ .id = id, .name = name } };
+        } else if (std.mem.eql(u8, cmd, "%session-window-changed")) cmd: {
+            var re = oni.Regex.init(
+                "^%session-window-changed \\$([0-9]+) @([0-9]+)$",
+                .{ .capture_group = true },
+                oni.Encoding.utf8,
+                oni.Syntax.default,
+                null,
+            ) catch |err| {
+                log.warn("regex init failed error={}", .{err});
+                return error.RegexError;
+            };
+            defer re.deinit();
+
+            var region = re.search(line, .{}) catch |err| {
+                log.warn("failed to match notification cmd={s} line=\"{s}\" err={}", .{ cmd, line, err });
+                break :cmd;
+            };
+            defer region.deinit();
+            const starts = region.starts();
+            const ends = region.ends();
+
+            const session_id = std.fmt.parseInt(
+                usize,
+                line[@intCast(starts[1])..@intCast(ends[1])],
+                10,
+            ) catch unreachable;
+            const window_id = std.fmt.parseInt(
+                usize,
+                line[@intCast(starts[2])..@intCast(ends[2])],
+                10,
+            ) catch unreachable;
+
+            self.buffer.clearRetainingCapacity();
+            self.state = .idle;
+            return .{ .session_window_changed = .{
+                .session_id = session_id,
+                .window_id = window_id,
+            } };
         } else if (std.mem.eql(u8, cmd, "%sessions-changed")) cmd: {
             if (!std.mem.eql(u8, line, "%sessions-changed")) {
                 log.warn("failed to match notification cmd={s} line=\"{s}\"", .{ cmd, line });
@@ -563,6 +608,13 @@ pub const Notification = union(enum) {
         name: []const u8,
     },
 
+    /// The active window in the session with ID session-id changed to the
+    /// window with ID window-id.
+    session_window_changed: struct {
+        session_id: usize,
+        window_id: usize,
+    },
+
     /// A session was created or destroyed.
     sessions_changed,
 
@@ -790,6 +842,40 @@ test "tmux output decodes a literal backslash (134) and trailing data" {
     for ("%output %1 a\\134b") |byte| try testing.expect(try c.put(byte) == null);
     const n = (try c.put('\n')).?;
     try testing.expectEqualStrings("a\\b", n.output.data); // \134 -> backslash byte
+}
+
+test "tmux output leaves out-of-range octal escapes literal" {
+    const testing = std.testing;
+    const alloc = testing.allocator;
+    var c: Parser = .{ .buffer = .init(alloc) };
+    defer c.deinit();
+    // \7xx cannot be a byte escape (\400 == 256 is the first overflow), so
+    // it must pass through literally rather than overflow the decode math.
+    for ("%output %1 a\\777b") |byte| try testing.expect(try c.put(byte) == null);
+    const n = (try c.put('\n')).?;
+    try testing.expectEqualStrings("a\\777b", n.output.data);
+}
+
+test "tmux output decodes the highest valid octal escape" {
+    const testing = std.testing;
+    const alloc = testing.allocator;
+    var c: Parser = .{ .buffer = .init(alloc) };
+    defer c.deinit();
+    for ("%output %1 \\377") |byte| try testing.expect(try c.put(byte) == null);
+    const n = (try c.put('\n')).?;
+    try testing.expectEqualStrings("\xff", n.output.data);
+}
+
+test "tmux session-window-changed" {
+    const testing = std.testing;
+    const alloc = testing.allocator;
+    var c: Parser = .{ .buffer = .init(alloc) };
+    defer c.deinit();
+    for ("%session-window-changed $3 @7") |byte| try testing.expect(try c.put(byte) == null);
+    const n = (try c.put('\n')).?;
+    try testing.expect(n == .session_window_changed);
+    try testing.expectEqual(3, n.session_window_changed.session_id);
+    try testing.expectEqual(7, n.session_window_changed.window_id);
 }
 
 test "tmux session-changed" {

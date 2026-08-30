@@ -84,6 +84,19 @@ pub const PageListSearch = struct {
         self.list.untrackPin(self.pin);
     }
 
+    /// Deinit without touching the PageList.
+    ///
+    /// Use this when the pin pool our pin lives in was destroyed, which can
+    /// happen without `self.list` itself changing: `ScreenSet.replace` (the
+    /// tmux pane mirror) deinits a screen in place and moves a new one into
+    /// the same storage. `deinit` would then hand a freed pin address to the
+    /// NEW pool's free list, which can later hand that address out as a live
+    /// pin. The pin was already freed with its pool, so we only release the
+    /// memory we own.
+    pub fn deinitOrphaned(self: *PageListSearch) void {
+        self.window.deinit();
+    }
+
     /// Return the next match in the loaded page nodes. If this returns
     /// null then the PageList search needs to be fed the next node(s).
     /// Call, `feed` to do this.
@@ -438,4 +451,36 @@ test "feed with pruned page" {
 
     // Feed should still do nothing
     try testing.expect(!try search.feed());
+}
+
+test "deinitOrphaned does not touch the PageList" {
+    const alloc = testing.allocator;
+    var t: Terminal = try .init(alloc, .{ .cols = 10, .rows = 10 });
+    defer t.deinit(alloc);
+
+    var s = t.vtStream();
+    defer s.deinit();
+    s.nextSlice("Fizz\r\nBuzz");
+
+    const list = &t.screens.active.pages;
+    const before = list.countTrackedPins();
+
+    var search: PageListSearch = try .init(
+        alloc,
+        "Fizz",
+        list,
+        list.pages.last.?,
+    );
+    try testing.expectEqual(before + 1, list.countTrackedPins());
+
+    // The orphaned path is for a pin whose pool is already gone; it must
+    // leave the (possibly freshly reinitialized) list completely alone,
+    // where `deinit` would untrack and destroy the pin.
+    const pin = search.pin;
+    search.deinitOrphaned();
+    try testing.expectEqual(before + 1, list.countTrackedPins());
+
+    // Still ours to clean up, which proves nothing was released early.
+    list.untrackPin(pin);
+    try testing.expectEqual(before, list.countTrackedPins());
 }

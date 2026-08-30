@@ -99,6 +99,25 @@ pub fn remove(
     }
 }
 
+/// Replace the contents of an already-initialized screen with `screen`,
+/// taking ownership of it.
+///
+/// The prior screen is deinitialized in place and `screen` is moved into the
+/// same heap slot, so the `*Screen` pointer identity (and therefore this
+/// set's `active`/`all` invariants) is preserved.
+///
+/// Deinitializing the prior screen destroys its pin pool, which invalidates
+/// every tracked pin into it (selection gestures, search results, C API grid
+/// refs, ...). The generation for `key` is therefore bumped so external
+/// handles guarding on `generation()` detect the swap instead of writing
+/// into freed memory.
+pub fn replace(self: *ScreenSet, key: Key, screen: Screen) void {
+    const ptr = self.all.get(key).?;
+    ptr.deinit();
+    ptr.* = screen;
+    self.generations.put(key, self.generation(key) +% 1);
+}
+
 /// Switch the active screen to the given key. Requires that the
 /// screen is initialized.
 pub fn switchTo(self: *ScreenSet, key: Key) void {
@@ -147,4 +166,25 @@ test "ScreenSet generations" {
     _ = try set.getInit(alloc, .alternate, .default);
     try testing.expectEqual(alternate_generation +% 1, set.generation(.alternate));
     try testing.expectEqual(@as(usize, 0), set.generation(.primary));
+}
+
+test "ScreenSet replace bumps generation and keeps pointer identity" {
+    const alloc = testing.allocator;
+    var set: ScreenSet = try .init(alloc, .default);
+    defer set.deinit(alloc);
+
+    const before_ptr = set.active;
+    const before_gen = set.generation(.primary);
+
+    const replacement: Screen = try .init(alloc, .default);
+    set.replace(.primary, replacement);
+
+    // Same heap slot, new contents, new generation. Stale pin holders keyed
+    // on the generation must observe the change.
+    try testing.expectEqual(before_ptr, set.active);
+    try testing.expectEqual(before_ptr, set.get(.primary).?);
+    try testing.expectEqual(before_gen +% 1, set.generation(.primary));
+
+    // Other keys are untouched.
+    try testing.expectEqual(@as(usize, 0), set.generation(.alternate));
 }

@@ -448,6 +448,10 @@ pub const StreamHandler = struct {
             self.alloc,
             viewer,
             self.terminal,
+            .{
+                .width = self.size.cell.width,
+                .height = self.size.cell.height,
+            },
         ) catch |err| blk: {
             log.warn("tmux mirror failed err={}", .{err});
             break :blk false;
@@ -474,6 +478,54 @@ pub const StreamHandler = struct {
         self.renderTmuxPane(viewer);
     }
 
+    /// Return the host terminal to a sane, un-mirrored state.
+    ///
+    /// Every path that stops mirroring a tmux pane must call this. The mirror
+    /// overwrites the host terminal wholesale: the active screen contents,
+    /// the grid and pixel geometry, the cursor-visible mode, and the
+    /// alt-screen key and mode bits all come from the pane. Left as-is after
+    /// teardown the surface would keep showing a frozen pane, possibly stuck
+    /// on the alternate screen with a hidden cursor.
+    ///
+    /// `fullReset` clears the content and the modes but deliberately
+    /// preserves the geometry, so the geometry restore has to follow it.
+    ///
+    /// The renderer state mutex must be held by the caller.
+    fn resetAfterTmuxMirror(self: *StreamHandler) void {
+        if (comptime !tmux_enabled) return;
+
+        // The bare Terminal.fullReset: the StreamHandler wrapper also writes
+        // to the pty (color-scheme report) and posts apprt mailbox messages,
+        // which are inappropriate as the control-mode session is ending.
+        self.terminal.fullReset();
+        self.restoreSurfaceGeometry();
+    }
+
+    /// Restore the host terminal to the surface's own grid geometry.
+    ///
+    /// The tmux mirror rewrites `terminal.cols`/`rows`/`width_px`/`height_px`
+    /// to the mirrored pane's size. Anything that ends the mirrored session
+    /// has to put that back: `Terminal.fullReset` preserves the geometry, so
+    /// otherwise the terminal stays at the pane's dimensions while the
+    /// surface (and `Surface.posToViewport`) uses the real grid.
+    ///
+    /// The renderer state mutex must be held by the caller (it is, across the
+    /// whole stream parse in Termio.processOutput).
+    fn restoreSurfaceGeometry(self: *StreamHandler) void {
+        if (comptime !tmux_enabled) return;
+        const grid_size = self.size.grid();
+        self.terminal.resize(
+            self.alloc,
+            grid_size.columns,
+            grid_size.rows,
+        ) catch |err| {
+            log.err("error restoring terminal size after tmux err={}", .{err});
+            return;
+        };
+        self.terminal.width_px = grid_size.columns * self.size.cell.width;
+        self.terminal.height_px = grid_size.rows * self.size.cell.height;
+    }
+
     fn dcsCommand(self: *StreamHandler, cmd: *terminal.dcs.Command) !void {
         // log.warn("DCS command: {}", .{cmd});
         switch (cmd.*) {
@@ -485,8 +537,22 @@ pub const StreamHandler = struct {
 
                 switch (tmux) {
                     .enter => {
+                        // A re-enter without an intervening exit shouldn't
+                        // happen, but the pty is untrusted input: a nested or
+                        // duplicated DCS 1000p must not abort the process.
+                        // Tear the stale viewer down and start over.
+                        if (self.tmux_viewer) |old| {
+                            log.warn(
+                                "tmux control mode re-entered with an active viewer, replacing it",
+                                .{},
+                            );
+                            old.deinit();
+                            self.alloc.destroy(old);
+                            self.tmux_viewer = null;
+                            self.resetAfterTmuxMirror();
+                        }
+
                         // Setup our viewer state
-                        assert(self.tmux_viewer == null);
                         const viewer = try self.alloc.create(terminal.tmux.Viewer);
                         errdefer self.alloc.destroy(viewer);
                         viewer.* = try .init(self.alloc);
@@ -503,6 +569,7 @@ pub const StreamHandler = struct {
                             viewer.deinit();
                             self.alloc.destroy(viewer);
                             self.tmux_viewer = null;
+                            self.resetAfterTmuxMirror();
                         }
                         self.surfaceMessageWriter(.{ .tmux_control_mode = false });
 
@@ -542,10 +609,7 @@ pub const StreamHandler = struct {
                             // Termio.processOutput across the entire stream
                             // parse, so we must NOT lock it again here (the
                             // mutex is not recursive).
-                            // Use the bare Terminal.fullReset; the StreamHandler wrapper also
-                            // writes to the pty (color-scheme report) and posts apprt mailbox
-                            // messages, which are inappropriate as the control-mode session is ending.
-                            self.terminal.fullReset();
+                            self.resetAfterTmuxMirror();
                             self.terminal.flags.dirty.clear = true;
                             // The session ended and we just reset + queued a
                             // render; drop any coalesced pane redraw so the

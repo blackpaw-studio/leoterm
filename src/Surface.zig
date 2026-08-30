@@ -872,7 +872,7 @@ fn queueIo(
             .write_small, .write_stable => return,
             // These own an allocated buffer that the IO thread would normally
             // free; since we're dropping the message here, free it ourselves.
-            .write_alloc, .tmux_keys => |v| {
+            .write_alloc, .tmux_keys, .tmux_paste => |v| {
                 v.alloc.free(v.data);
                 return;
             },

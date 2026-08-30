@@ -41,6 +41,19 @@ pub const ScreenSearch = struct {
     /// The screen being searched.
     screen: *Screen,
 
+    /// The `ScreenSet` generation of `screen` when this search was created.
+    ///
+    /// The screen pointer alone can't detect a replaced screen:
+    /// `ScreenSet.replace` (used by the tmux pane mirror) deinits the screen
+    /// in place and keeps the pointer, which destroys the pin pool that all
+    /// of our tracked highlights live in. Owners must compare this against
+    /// the live generation and, when it differs, drop the search with
+    /// `deinitOrphaned` rather than `deinit`.
+    ///
+    /// Defaults to 0 for callers (tests, single-screen use) that don't track
+    /// generations; the owner is responsible for setting it.
+    screen_generation: usize = 0,
+
     /// The active area search state
     active: ActiveSearch,
 
@@ -75,8 +88,11 @@ pub const ScreenSearch = struct {
         /// Tracked highlight so we can detect movement.
         highlight: TrackedHighlight,
 
-        pub fn deinit(self: *SelectedMatch, screen: *Screen) void {
-            self.highlight.deinit(screen);
+        /// A null screen means the pin pool was already destroyed, so the
+        /// tracked pins must not be untracked (see
+        /// `ScreenSearch.deinitOrphaned`).
+        pub fn deinit(self: *SelectedMatch, screen: ?*Screen) void {
+            if (screen) |s| self.highlight.deinit(s);
         }
     };
 
@@ -91,9 +107,17 @@ pub const ScreenSearch = struct {
         /// to determine if we need to search more history.
         start_pin: *Pin,
 
-        pub fn deinit(self: *HistorySearch, screen: *Screen) void {
+        /// A null screen means the pin pool was already destroyed, so no pin
+        /// may be untracked (see `ScreenSearch.deinitOrphaned`). That applies
+        /// to the searcher's own pin too, hence `deinitOrphaned` on it.
+        pub fn deinit(self: *HistorySearch, screen: ?*Screen) void {
+            const s = screen orelse {
+                self.searcher.deinitOrphaned();
+                return;
+            };
+
             self.searcher.deinit();
-            screen.pages.untrackPin(self.start_pin);
+            s.pages.untrackPin(self.start_pin);
         }
     };
 
@@ -157,10 +181,26 @@ pub const ScreenSearch = struct {
     }
 
     pub fn deinit(self: *ScreenSearch) void {
+        self.deinitInner(self.screen);
+    }
+
+    /// Deinit a search whose screen storage was destroyed or wholesale
+    /// replaced (a `screen_generation` mismatch, or the key disappearing from
+    /// the `ScreenSet` entirely).
+    ///
+    /// Identical to `deinit` except tracked pins are NOT untracked: the pool
+    /// they lived in is gone. Untracking them would either touch freed memory
+    /// or hand a foreign pointer to a fresh pool's free list. The pins were
+    /// already freed along with the pool.
+    pub fn deinitOrphaned(self: *ScreenSearch) void {
+        self.deinitInner(null);
+    }
+
+    fn deinitInner(self: *ScreenSearch, screen: ?*Screen) void {
         const alloc = self.allocator();
         self.active.deinit();
-        if (self.history) |*h| h.deinit(self.screen);
-        if (self.selected) |*m| m.deinit(self.screen);
+        if (self.history) |*h| h.deinit(screen);
+        if (self.selected) |*m| m.deinit(screen);
         for (self.active_results.items) |*hl| hl.deinit(alloc);
         self.active_results.deinit(alloc);
         for (self.history_results.items) |*hl| hl.deinit(alloc);
@@ -268,11 +308,15 @@ pub const ScreenSearch = struct {
             self.screen.pages.cols != self.cols)
         {
             // Reinit
-            const new: ScreenSearch = try .init(
+            var new: ScreenSearch = try .init(
                 self.allocator(),
                 self.screen,
                 self.needle(),
             );
+
+            // The screen storage itself didn't change, only its dimensions,
+            // so the generation this search is bound to carries over.
+            new.screen_generation = self.screen_generation;
 
             // Deinit/reinit
             self.deinit();

@@ -21,6 +21,8 @@ const MessageData = @import("../../datastruct/main.zig").MessageData;
 const point = @import("../point.zig");
 const FlattenedHighlight = @import("../highlight.zig").Flattened;
 const UntrackedHighlight = @import("../highlight.zig").Untracked;
+const Pin = @import("../PageList.zig").Pin;
+const Screen = @import("../Screen.zig");
 const ScreenSet = @import("../ScreenSet.zig");
 const Selection = @import("../Selection.zig");
 const Terminal = @import("../Terminal.zig");
@@ -121,7 +123,8 @@ pub fn deinit(self: *Thread) void {
     // Nothing can possibly access the mailbox anymore, destroy it.
     self.mailbox.destroy(self.alloc);
 
-    if (self.search) |*s| s.deinit();
+    // Unlocked: the caller has already joined the thread (pre-existing).
+    if (self.search) |*s| s.deinit(self.opts.terminal);
 }
 
 /// The main entrypoint for the thread.
@@ -308,7 +311,7 @@ fn changeNeedle(self: *Thread, needle: []const u8) !void {
         // If our search is unchanged, do nothing.
         if (std.ascii.eqlIgnoreCase(s.viewport.needle(), needle)) return;
 
-        s.deinit();
+        s.deinit(self.opts.terminal);
         self.search = null;
 
         // When the search changes then we need to emit that it stopped.
@@ -543,10 +546,22 @@ const Search = struct {
         };
     }
 
-    pub fn deinit(self: *Search) void {
+    /// The caller must hold the terminal mutex: this untracks pins in the
+    /// terminal's screens.
+    pub fn deinit(self: *Search, t: *const Terminal) void {
         self.viewport.deinit();
         var it = self.screens.iterator();
-        while (it.next()) |entry| entry.value.deinit();
+        while (it.next()) |entry| {
+            // A screen whose storage was replaced or removed since we bound
+            // to it (the tmux pane mirror does this in place, preserving the
+            // pointer) took our tracked pins down with it. Closing the find
+            // bar in that window must not untrack them.
+            const stale = t.screens.generation(entry.key) !=
+                entry.value.screen_generation or
+                t.screens.get(entry.key) != entry.value.screen;
+
+            if (stale) entry.value.deinitOrphaned() else entry.value.deinit();
+        }
     }
 
     /// Returns true if all searches on all screens are complete.
@@ -635,11 +650,23 @@ const Search = struct {
 
                     // If the screen pointer changed, remove it, the screen
                     // was totally reinitialized.
-                    break :remove actual != entry.value.screen;
+                    if (actual != entry.value.screen) break :remove true;
+
+                    // The pointer can be preserved while the screen contents
+                    // are replaced wholesale: `ScreenSet.replace` (the tmux
+                    // pane mirror) deinits in place and moves a new screen
+                    // into the same slot. That destroys the pin pool our
+                    // tracked highlights live in, so the generation is the
+                    // only signal that our pins are stale.
+                    break :remove t.screens.generation(entry.key) !=
+                        entry.value.screen_generation;
                 };
 
                 if (remove) {
-                    entry.value.deinit();
+                    // The screen storage this search's pins belong to is
+                    // gone in every removal case here, so we must not try to
+                    // untrack them.
+                    entry.value.deinitOrphaned();
                     _ = self.screens.remove(entry.key);
                 }
             }
@@ -649,7 +676,7 @@ const Search = struct {
             var it = t.screens.all.iterator();
             while (it.next()) |entry| {
                 if (self.screens.contains(entry.key)) continue;
-                self.screens.put(entry.key, ScreenSearch.init(
+                var screen_search = ScreenSearch.init(
                     alloc,
                     entry.value.*,
                     self.viewport.needle(),
@@ -664,7 +691,12 @@ const Search = struct {
                         );
                         continue;
                     },
-                });
+                };
+
+                // Bind the search to the screen's current generation so a
+                // later in-place replacement is detected above.
+                screen_search.screen_generation = t.screens.generation(entry.key);
+                self.screens.put(entry.key, screen_search);
             }
         }
 
@@ -901,5 +933,92 @@ test {
             .x = 11,
             .y = 0,
         } }, t.screens.active.pages.pointFromPin(.screen, sel.end).?);
+    }
+}
+
+test "Search.feed drops a searcher whose screen was replaced in place" {
+    const alloc = testing.allocator;
+    var t: Terminal = try .init(alloc, .{ .cols = 20, .rows = 2 });
+    defer t.deinit(alloc);
+
+    var stream = t.vtStream();
+    defer stream.deinit();
+    stream.nextSlice("Hello, world");
+
+    var search: Search = try .init(alloc, "world");
+    defer search.deinit(&t);
+
+    // First reconciliation creates a searcher bound to the primary screen's
+    // current generation, with tracked pins in that screen's pin pool.
+    search.feed(alloc, &t);
+    try testing.expect(search.screens.contains(.primary));
+    try testing.expectEqual(
+        t.screens.generation(.primary),
+        search.screens.getPtr(.primary).?.screen_generation,
+    );
+    const before = search.screens.getPtr(.primary).?.screen;
+
+    // Replace the screen in place: the pointer is preserved but the pin pool
+    // is destroyed. Only the generation reveals that our pins are dangling.
+    const replacement: Screen = try .init(alloc, .{ .cols = 20, .rows = 2 });
+    t.screens.replace(.primary, replacement);
+    try testing.expectEqual(before, t.screens.active);
+
+    // The stale searcher must be dropped (without untracking its pins into
+    // the new pool) and a fresh one created for the new generation.
+    search.feed(alloc, &t);
+    try testing.expect(search.screens.contains(.primary));
+    try testing.expectEqual(
+        t.screens.generation(.primary),
+        search.screens.getPtr(.primary).?.screen_generation,
+    );
+}
+
+test "Search.deinit orphans searchers whose screen was replaced" {
+    const alloc = testing.allocator;
+    var t: Terminal = try .init(alloc, .{ .cols = 20, .rows = 2 });
+    defer t.deinit(alloc);
+
+    var stream = t.vtStream();
+    defer stream.deinit();
+    // Enough content to push rows into history so the screen search has a
+    // history searcher (and therefore a tracked pin) to clean up.
+    for (0..50) |_| stream.nextSlice("Hello, world\r\n");
+
+    var search: Search = try .init(alloc, "world");
+    search.feed(alloc, &t);
+    try testing.expect(search.screens.contains(.primary));
+
+    try testing.expect(search.screens.getPtr(.primary).?.history != null);
+
+    // Every pin address that dies with the old screen's pool.
+    const stale_pins = try alloc.dupe(
+        *Pin,
+        t.screens.active.pages.tracked_pins.keys(),
+    );
+    defer alloc.free(stale_pins);
+    // Viewport pin plus the search's own tracked pins.
+    try testing.expect(stale_pins.len > 1);
+
+    // Replace the screen in place: pointer preserved, pin pool destroyed.
+    const replacement: Screen = try .init(alloc, .{ .cols = 20, .rows = 2 });
+    t.screens.replace(.primary, replacement);
+
+    // Closing the find bar now (before any reconciling feed) must not
+    // untrack our dead pins into the fresh pool: `untrackPin` would push
+    // those freed addresses onto the new pool's free list, which then hands
+    // one back as a live pin on the next `trackPin`.
+    const before = t.screens.active.pages.tracked_pins.count();
+    search.deinit(&t);
+    try testing.expectEqual(before, t.screens.active.pages.tracked_pins.count());
+
+    // None of the dead addresses may have been handed to the new pool. Note
+    // that `PageList.untrackPin` no-ops for a pin it doesn't know, which
+    // masks most of this in-process; the hazards it does not mask are its
+    // `p != viewport_pin` assert and an address collision with a live pin
+    // (two fresh pools allocate at very similar addresses).
+    const pages = &t.screens.active.pages;
+    for (pages.tracked_pins.keys()) |live| {
+        for (stale_pins) |stale| try testing.expect(live != stale);
     }
 }

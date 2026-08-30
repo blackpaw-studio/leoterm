@@ -181,6 +181,26 @@ pub const Viewer = struct {
     /// The panes in the current session, mapped by pane ID.
     panes: PanesMap,
 
+    /// The ID of the session's active window, as last reported by
+    /// `%session-window-changed`. Null until tmux tells us (or if the window
+    /// is no longer tracked), in which case we fall back to the first window.
+    active_window_id: ?usize,
+
+    /// Host input (keystrokes, pastes) that arrived before we had a pane to
+    /// route it to. Flushed once list-windows gives us one, so typing into a
+    /// still-starting agent cell isn't silently swallowed.
+    pending_input: std.ArrayList(u8),
+
+    /// The most recent host grid size that arrived before we had a command
+    /// queue to account for its reply block. Flushed when we enter the
+    /// command queue. Only the newest size matters.
+    pending_resize: ?GridSize,
+
+    /// The active pane of each window, as last reported by
+    /// `%window-pane-changed`, keyed by window ID. Windows missing from this
+    /// map fall back to the first pane in layout order.
+    active_pane_ids: ActivePaneMap,
+
     /// The arena used for the prior action allocated state. This contains
     /// the contents for the actions as well as the actions slice itself.
     action_arena: ArenaAllocator.State,
@@ -192,6 +212,8 @@ pub const Viewer = struct {
 
     pub const CommandQueue = CircBuf(Command, undefined);
     pub const PanesMap = std.AutoArrayHashMapUnmanaged(usize, Pane);
+    pub const ActivePaneMap = std.AutoHashMapUnmanaged(usize, usize);
+    pub const GridSize = struct { cols: usize, rows: usize };
 
     pub const Action = union(enum) {
         /// Tmux has closed the control mode connection, we should end
@@ -248,13 +270,16 @@ pub const Viewer = struct {
     pub const Input = union(enum) {
         /// Data from tmux was received that needs to be processed.
         tmux: control.Notification,
-        /// Literal key bytes from the host surface to forward to the active pane.
-        /// Bytes are sent literally; callers pass raw keystroke bytes (a literal '\n' would split the send-keys command).
+        /// Literal key bytes from the host surface to forward to the active
+        /// pane. Callers pass raw keystroke bytes; any byte value is safe.
         keys: []const u8,
         /// Clipboard paste bytes (already bracketed-paste encoded by the host
-        /// surface) to forward to the active pane. Sent hex-encoded via
-        /// `send-keys -H` so embedded newlines/binary don't split the
-        /// line-based control-mode command (which `keys`/`-l` cannot handle).
+        /// surface) to forward to the active pane.
+        ///
+        /// Handled identically to `keys`: both are hex-encoded via
+        /// `send-keys -H` so embedded newlines and binary can't split the
+        /// line-based control-mode command, and both are chunked so no single
+        /// command line is unbounded.
         paste: []const u8,
         /// The host surface was resized; cols/rows are the new grid size to push to tmux.
         resize: struct { cols: usize, rows: usize },
@@ -275,8 +300,114 @@ pub const Viewer = struct {
     pub const Pane = struct {
         terminal: Terminal,
 
+        /// Bell detection state for this pane's `%output` stream. Kept
+        /// per-pane and across chunks because tmux may split an escape
+        /// sequence at any byte boundary.
+        bell: BellScanner = .{},
+
         pub fn deinit(self: *Pane, alloc: Allocator) void {
             self.terminal.deinit(alloc);
+        }
+    };
+
+    /// A minimal escape-sequence scanner whose only job is to tell a real
+    /// terminal bell (a bare 0x07) apart from the BEL that *terminates* a
+    /// string sequence (OSC/DCS/APC/PM/SOS).
+    ///
+    /// tmux has no `%bell` control-mode notification, so a bell has to be
+    /// detected as a raw byte in the pane output stream. Naively matching any
+    /// 0x07 is wrong: shells emit `ESC ] 0 ; <title> BEL` on every prompt, so
+    /// the "needs you" indicator would fire on every command.
+    ///
+    /// This deliberately does not implement the full VT state machine. It only
+    /// tracks whether we are inside a string sequence, which is the sole case
+    /// where a 0x07 is not a bell.
+    pub const BellScanner = struct {
+        state: ScanState = .ground,
+
+        /// Bytes consumed so far in the current string payload, used to
+        /// bound how long a malformed sequence can suppress bells.
+        string_len: usize = 0,
+
+        /// The longest string payload we will believe in. Generous, because
+        /// OSC 52 clipboard payloads are genuinely large; past this we assume
+        /// the introducer was spurious (or its terminator was lost) and
+        /// resume treating BEL as a bell, rather than going deaf for the rest
+        /// of the session. A C0 control aborts the payload long before this
+        /// in practice.
+        pub const STRING_MAX_BYTES = 1024 * 1024;
+
+        const ScanState = enum {
+            /// Not inside any sequence: 0x07 is a bell.
+            ground,
+            /// Saw ESC in ground.
+            escape,
+            /// Inside a string sequence payload: 0x07 is a terminator.
+            string,
+            /// Saw ESC inside a string sequence (possible `ESC \` ST).
+            string_escape,
+        };
+
+        /// Feed a chunk of decoded pane output, advancing the state. Returns
+        /// true if the chunk contained at least one real bell.
+        pub fn scan(self: *BellScanner, data: []const u8) bool {
+            var bell = false;
+            for (data) |b| switch (self.state) {
+                .ground => switch (b) {
+                    0x07 => bell = true,
+                    0x1b => self.state = .escape,
+                    else => {},
+                },
+
+                .escape => switch (b) {
+                    // The sequence introducers whose payload runs until a
+                    // string terminator: OSC, DCS, APC, PM, SOS.
+                    ']', 'P', '_', '^', 'X' => {
+                        self.state = .string;
+                        self.string_len = 0;
+                    },
+                    // A repeated ESC just restarts the escape.
+                    0x1b => {},
+                    // Anything else (CSI, charset selection, a bare ESC
+                    // dispatch, ...) can't contain a string payload.
+                    else => self.state = .ground,
+                },
+
+                .string => switch (b) {
+                    // BEL terminates the string; it is not a bell.
+                    0x07 => self.state = .ground,
+                    0x1b => self.state = .string_escape,
+
+                    // xterm aborts a string sequence on a C0 control, other
+                    // than the whitespace ones that can legitimately appear
+                    // in a payload (tab, newline, carriage return).
+                    0x00...0x06,
+                    0x08,
+                    0x0b,
+                    0x0c,
+                    0x0e...0x1a,
+                    0x1c...0x1f,
+                    => self.state = .ground,
+
+                    else => {
+                        // Bound how long a malformed or misparsed introducer
+                        // can keep swallowing bells.
+                        self.string_len += 1;
+                        if (self.string_len > STRING_MAX_BYTES) {
+                            self.state = .ground;
+                        }
+                    },
+                },
+
+                .string_escape => switch (b) {
+                    // ESC \ is the 7-bit string terminator (ST).
+                    '\\' => self.state = .ground,
+                    0x1b => {},
+                    // A stray ESC inside the payload; stay in the string.
+                    else => self.state = .string,
+                },
+            };
+            return bell;
         }
     };
 
@@ -300,6 +431,10 @@ pub const Viewer = struct {
             .command_queue = command_queue,
             .windows = .empty,
             .panes = .empty,
+            .pending_input = .empty,
+            .pending_resize = null,
+            .active_window_id = null,
+            .active_pane_ids = .empty,
             .action_arena = .{},
             .action_single = undefined,
         };
@@ -320,6 +455,8 @@ pub const Viewer = struct {
             while (it.next()) |kv| kv.value_ptr.deinit(self.alloc);
             self.panes.deinit(self.alloc);
         }
+        self.pending_input.deinit(self.alloc);
+        self.active_pane_ids.deinit(self.alloc);
         if (self.tmux_version.len > 0) {
             self.alloc.free(self.tmux_version);
         }
@@ -336,89 +473,276 @@ pub const Viewer = struct {
         // state to gracefully handle it.
         return switch (input) {
             .tmux => self.nextTmux(input.tmux),
-            .keys => |bytes| self.nextKeys(bytes),
-            .paste => |bytes| self.nextPaste(bytes),
+            // Keys and paste are both "deliver these literal bytes to the
+            // active pane"; the host surface has already done any encoding
+            // (including bracketed-paste framing).
+            .keys, .paste => |bytes| self.nextSendKeys(bytes),
             .resize => |sz| self.nextResize(sz.cols, sz.rows),
         };
     }
 
-    fn nextKeys(self: *Viewer, bytes: []const u8) []const Action {
-        // Find the active pane id via the same mechanism as activePaneTerminal.
-        if (self.windows.items.len == 0) return &.{};
-        const window = self.windows.items[0];
-        const pane_id = firstPaneId(window.layout) orelse return &.{};
+    /// The maximum number of payload bytes encoded into a single
+    /// `send-keys -H` command. Control mode is a line protocol and tmux reads
+    /// each command line into a bounded buffer, so a large paste sent as one
+    /// line risks being truncated; we split it across several commands
+    /// instead. Each payload byte costs 3 characters (" XX") on the wire.
+    const SEND_KEYS_CHUNK_BYTES = 2 * 1024;
+
+    /// The most host input we will hold while waiting for a routable pane.
+    /// Bounded so a session that never starts can't grow this without limit;
+    /// input past the cap is dropped with a log.
+    const PENDING_INPUT_MAX_BYTES = 64 * 1024;
+
+    /// Forward literal bytes from the host surface to the active pane.
+    fn nextSendKeys(self: *Viewer, bytes: []const u8) []const Action {
+        if (bytes.len == 0) return &.{};
+        if (self.state == .defunct) return &.{};
+
+        // Only the command queue state can account for a command's reply
+        // block, and a pane to target only exists once list-windows lands.
+        // Until both hold, hold onto the bytes instead of dropping them.
+        const pane_id = pane: {
+            if (self.state == .command_queue) {
+                if (self.activePaneId()) |id| break :pane id;
+            }
+
+            self.stashPendingInput(bytes);
+            return &.{};
+        };
 
         // Reset the action arena (same pattern as nextStartupSession) so
         // prior allocations are freed and the arena is ready for this call.
         var arena = self.action_arena.promote(self.alloc);
         defer self.action_arena = arena.state;
         _ = arena.reset(.free_all);
-        const arena_alloc = arena.allocator();
 
-        // -l: send bytes literally (no key-name expansion); --: guard bytes starting with '-'
-        const cmd = std.fmt.allocPrint(
-            arena_alloc,
-            "send-keys -t %{d} -l -- {s}\n",
-            .{ pane_id, bytes },
-        ) catch return &.{};
-        const actions = arena_alloc.alloc(Action, 1) catch return &.{};
-        actions[0] = .{ .command = cmd };
-        return actions;
+        const commands = sendKeysCommands(
+            arena.allocator(),
+            pane_id,
+            bytes,
+        ) catch {
+            log.warn("failed to build send-keys command for pane id={}", .{pane_id});
+            return &.{};
+        };
+
+        return self.queueHostCommands(commands, self.command_queue.empty());
     }
 
-    fn nextPaste(self: *Viewer, bytes: []const u8) []const Action {
-        if (bytes.len == 0) return &.{};
-        if (self.windows.items.len == 0) return &.{};
-        const window = self.windows.items[0];
-        const pane_id = firstPaneId(window.layout) orelse return &.{};
+    /// Hold host input until there is a pane to route it to.
+    fn stashPendingInput(self: *Viewer, bytes: []const u8) void {
+        const room = PENDING_INPUT_MAX_BYTES -| self.pending_input.items.len;
+        const take = @min(room, bytes.len);
+        if (take < bytes.len) log.warn(
+            "pending host input buffer full, dropping {d} bytes",
+            .{bytes.len - take},
+        );
+        if (take == 0) return;
 
-        var arena = self.action_arena.promote(self.alloc);
-        defer self.action_arena = arena.state;
-        _ = arena.reset(.free_all);
-        const arena_alloc = arena.allocator();
+        self.pending_input.appendSlice(
+            self.alloc,
+            bytes[0..take],
+        ) catch log.warn(
+            "failed to buffer host input, dropping {d} bytes",
+            .{take},
+        );
+    }
 
-        // Hex-encode the payload for `send-keys -H`. Each byte becomes a
-        // space-separated two-digit hex token, so embedded newlines/binary
-        // can't split the line-based control-mode command (the reason `-l`
-        // is unusable for paste). The bytes already carry any bracketed-paste
-        // framing applied by the host surface.
-        const prefix = std.fmt.allocPrint(
-            arena_alloc,
+    /// Deliver any host input that arrived before we had a pane.
+    ///
+    /// Called from inside `nextCommand`'s block handling, so it never writes:
+    /// the emitter at the end of `nextCommand` sends the queue head once the
+    /// in-flight block is accounted for, whether or not `syncLayouts` queued
+    /// anything of its own.
+    fn flushPendingInput(self: *Viewer) void {
+        if (self.pending_input.items.len == 0) return;
+        const pane_id = self.activePaneId() orelse return;
+
+        // A scratch arena: the action arena belongs to the caller that is
+        // accumulating actions right now, and queueHostCommands copies
+        // everything it keeps.
+        var arena: ArenaAllocator = .init(self.alloc);
+        defer arena.deinit();
+
+        defer self.pending_input.clearRetainingCapacity();
+        const commands = sendKeysCommands(
+            arena.allocator(),
+            pane_id,
+            self.pending_input.items,
+        ) catch {
+            log.warn("failed to build send-keys for pending input, dropping it", .{});
+            return;
+        };
+
+        _ = self.queueHostCommands(commands, false);
+    }
+
+    /// Queue host-originated commands (keystrokes, pastes, resizes) and
+    /// return the actions to write right now.
+    ///
+    /// These must not be written out-of-band. tmux answers every command with
+    /// a `%begin`/`%end` block, and `receivedCommandOutput` attributes the
+    /// next block to `command_queue.first()`. An unqueued write therefore
+    /// makes tmux's reply to *our* command consume the queue entry of a
+    /// command that is still in flight: a resize during startup would eat the
+    /// `list-windows` entry, and refresh-client's empty reply would be parsed
+    /// as the window list, leaving zero windows and a blank mirror.
+    ///
+    /// So each command is appended as a `.user` entry, which is a no-op when
+    /// its block completes and frees itself. It is written now only if it
+    /// landed at the head of a previously-empty queue; otherwise the emitter
+    /// at the end of `nextCommand` sends it once the in-flight block
+    /// finishes, preserving order.
+    ///
+    /// `commands` are borrowed (arena-backed); owned copies are made.
+    /// `send_now` must be false unless the caller is the one that will write
+    /// the returned action; pass `command_queue.empty()` from the input
+    /// paths, and false from anywhere inside `nextCommand`'s block handling,
+    /// where the emitter at the end of that function owns the write.
+    fn queueHostCommands(
+        self: *Viewer,
+        commands: []const []const u8,
+        send_now: bool,
+    ) []const Action {
+        assert(self.state == .command_queue);
+        assert(commands.len > 0);
+
+        // A non-empty queue already has its head in flight (see the
+        // `command_queue` state docs), so we must not write anything now.
+        assert(!send_now or self.command_queue.empty());
+
+        // Copy every command and reserve the queue space up front so a
+        // failure part-way leaves the queue exactly as it was. Delivering a
+        // truncated prefix is worse than delivering nothing: half a paste
+        // lands in the shell, and a partial key sequence can be harmful.
+        var owned: std.ArrayList([]const u8) = .empty;
+        defer owned.deinit(self.alloc);
+        const reserved = reserved: {
+            owned.ensureTotalCapacityPrecise(
+                self.alloc,
+                commands.len,
+            ) catch break :reserved false;
+            for (commands) |cmd| {
+                const copy = self.alloc.dupe(u8, cmd) catch break :reserved false;
+                owned.appendAssumeCapacity(copy);
+            }
+            self.command_queue.ensureUnusedCapacity(
+                self.alloc,
+                commands.len,
+            ) catch break :reserved false;
+            break :reserved true;
+        };
+
+        if (!reserved) {
+            log.warn(
+                "failed to queue {d} tmux command(s), dropping them",
+                .{commands.len},
+            );
+            for (owned.items) |cmd| self.alloc.free(cmd);
+            return &.{};
+        }
+
+        // No failures past this point.
+        for (owned.items) |cmd| {
+            self.command_queue.appendAssumeCapacity(.{ .user = cmd });
+        }
+
+        if (!send_now) return &.{};
+        const first = self.command_queue.first() orelse return &.{};
+        return self.singleAction(.{ .command = first.user });
+    }
+
+    /// Build the `send-keys` commands that deliver `bytes` to `pane_id`.
+    ///
+    /// The payload is always hex-encoded via `-H` rather than sent literally
+    /// with `-l`: control mode is line-based, so a 0x0A or 0x0D anywhere in
+    /// the payload would terminate the command early and inject the remainder
+    /// as a new tmux command. That is not just a paste concern — Ctrl+J
+    /// encodes to 0x0A and Ctrl+M to 0x0D.
+    ///
+    /// The payload is chunked so no single command line is unbounded.
+    fn sendKeysCommands(
+        arena_alloc: Allocator,
+        pane_id: usize,
+        bytes: []const u8,
+    ) Allocator.Error![]const []const u8 {
+        assert(bytes.len > 0);
+        const chunks = std.math.divCeil(
+            usize,
+            bytes.len,
+            SEND_KEYS_CHUNK_BYTES,
+        ) catch unreachable;
+
+        const commands = try arena_alloc.alloc([]const u8, chunks);
+        for (commands, 0..) |*command, i| {
+            const start = i * SEND_KEYS_CHUNK_BYTES;
+            const end = @min(start + SEND_KEYS_CHUNK_BYTES, bytes.len);
+            command.* = try sendKeysCommand(
+                arena_alloc,
+                pane_id,
+                bytes[start..end],
+            );
+        }
+
+        return commands;
+    }
+
+    /// A single newline-terminated `send-keys -H` command for one chunk.
+    fn sendKeysCommand(
+        arena_alloc: Allocator,
+        pane_id: usize,
+        chunk: []const u8,
+    ) Allocator.Error![]const u8 {
+        var builder: std.Io.Writer.Allocating = .init(arena_alloc);
+        // The only failure mode of an Allocating writer is allocation.
+        builder.writer.print(
             "send-keys -t %{d} -H",
             .{pane_id},
-        ) catch return &.{};
-        // prefix + " XX" per byte + trailing newline.
-        const cmd = arena_alloc.alloc(u8, prefix.len + bytes.len * 3 + 1) catch return &.{};
-        @memcpy(cmd[0..prefix.len], prefix);
-        const hex = "0123456789abcdef";
-        var i: usize = prefix.len;
-        for (bytes) |b| {
-            cmd[i] = ' ';
-            cmd[i + 1] = hex[b >> 4];
-            cmd[i + 2] = hex[b & 0x0f];
-            i += 3;
-        }
-        cmd[i] = '\n';
-
-        const actions = arena_alloc.alloc(Action, 1) catch return &.{};
-        actions[0] = .{ .command = cmd };
-        return actions;
+        ) catch return error.OutOfMemory;
+        for (chunk) |b| builder.writer.print(
+            " {x:0>2}",
+            .{b},
+        ) catch return error.OutOfMemory;
+        builder.writer.writeByte('\n') catch return error.OutOfMemory;
+        return builder.writer.buffered();
     }
 
+    /// Push the host grid size to tmux.
+    ///
+    /// The size is never dropped just because no window is known yet: the
+    /// very first resize arrives during startup, and dropping it left tmux
+    /// sizing the session to the default 80x24 until the user happened to
+    /// resize again. Before the command queue exists there is nowhere to
+    /// account for the reply block, so we stash the size and
+    /// `enterCommandQueue` flushes it.
     fn nextResize(self: *Viewer, cols: usize, rows: usize) []const Action {
-        if (self.windows.items.len == 0) return &.{};
+        if (self.state == .defunct) return &.{};
+
+        if (self.state != .command_queue) {
+            self.pending_resize = .{ .cols = cols, .rows = rows };
+            return &.{};
+        }
+
         var arena = self.action_arena.promote(self.alloc);
         defer self.action_arena = arena.state;
         _ = arena.reset(.free_all);
-        const arena_alloc = arena.allocator();
-        const cmd = std.fmt.allocPrint(
-            arena_alloc,
+
+        const cmd = resizeCommand(arena.allocator(), .{
+            .cols = cols,
+            .rows = rows,
+        }) catch return &.{};
+        return self.queueHostCommands(&.{cmd}, self.command_queue.empty());
+    }
+
+    /// The tmux command that sets this control-mode client's size.
+    fn resizeCommand(
+        alloc: Allocator,
+        sz: GridSize,
+    ) Allocator.Error![]const u8 {
+        return std.fmt.allocPrint(
+            alloc,
             "refresh-client -C {d}x{d}\n",
-            .{ cols, rows },
-        ) catch return &.{};
-        const actions = arena_alloc.alloc(Action, 1) catch return &.{};
-        actions[0] = .{ .command = cmd };
-        return actions;
+            .{ sz.cols, sz.rows },
+        );
     }
 
     fn nextTmux(
@@ -563,18 +887,16 @@ pub const Viewer = struct {
             .output => |out| if (self.receivedOutput(
                 out.pane_id,
                 out.data,
-            )) |changed| {
+            )) |result| {
                 // The pane's content changed; signal the caller to
                 // re-mirror the active pane so the cell reflects the
                 // new output. Uses the same arena-backed actions list
                 // and append pattern as the `.windows` action.
-                if (changed) {
-                    var arena = self.action_arena.promote(self.alloc);
-                    defer self.action_arena = arena.state;
-                    actions.append(arena.allocator(), .redraw) catch {
-                        log.warn("failed to queue redraw action for pane output", .{});
-                    };
-                    if (outputHasBell(out.data)) {
+                if (result.changed) {
+                    self.appendRedraw(&actions);
+                    if (result.bell) {
+                        var arena = self.action_arena.promote(self.alloc);
+                        defer self.action_arena = arena.state;
                         actions.append(arena.allocator(), .bell) catch {
                             log.warn("failed to queue bell action for pane output", .{});
                         };
@@ -623,9 +945,34 @@ pub const Viewer = struct {
                 return self.defunct();
             },
 
-            // The active pane changed. We don't care about this because
-            // we handle our own focus.
-            .window_pane_changed => {},
+            // The active pane of a window changed. Track it so input and
+            // mirroring follow tmux's focus, and redraw in case it was the
+            // window we're currently showing.
+            .window_pane_changed => |info| {
+                self.active_pane_ids.put(
+                    self.alloc,
+                    info.window_id,
+                    info.pane_id,
+                ) catch {
+                    log.warn(
+                        "failed to track active pane window={} pane={}",
+                        .{ info.window_id, info.pane_id },
+                    );
+                };
+
+                // Only the window we're actually showing changes what the
+                // mirror renders; a background window's pane switch doesn't.
+                if (self.activeWindow()) |window| {
+                    if (window.id == info.window_id) self.appendRedraw(&actions);
+                }
+            },
+
+            // The session's active window changed. Only our own session
+            // matters; other clients' sessions are none of our business.
+            .session_window_changed => |info| if (info.session_id == self.session_id) {
+                self.active_window_id = info.window_id;
+                self.appendRedraw(&actions);
+            },
 
             // We ignore this one. It means a session was created or
             // destroyed. If it was our own session we will get an exit
@@ -814,6 +1161,37 @@ pub const Viewer = struct {
             for (self.windows.items) |*window| window.deinit(self.alloc);
             self.windows.clearRetainingCapacity();
             self.windows.appendSliceAssumeCapacity(windows);
+        }
+
+        // Drop active-pane tracking for windows that no longer exist so the
+        // map can't grow without bound over a long session. Purely hygiene:
+        // `activePaneId` already validates entries, and we're past the point
+        // where we can fail, so an allocation failure just skips the prune.
+        prune: {
+            var stale: std.ArrayList(usize) = .empty;
+            defer stale.deinit(self.alloc);
+
+            var it = self.active_pane_ids.iterator();
+            while (it.next()) |entry| {
+                const window_id = entry.key_ptr.*;
+                const known = for (self.windows.items) |window| {
+                    if (window.id == window_id) break true;
+                } else false;
+                if (!known) stale.append(self.alloc, window_id) catch break :prune;
+            }
+
+            for (stale.items) |window_id| {
+                _ = self.active_pane_ids.remove(window_id);
+            }
+        }
+
+        // Likewise for an active window that was closed; activeWindow falls
+        // back to the first window until tmux tells us the new one.
+        if (self.active_window_id) |id| {
+            const known = for (self.windows.items) |window| {
+                if (window.id == id) break true;
+            } else false;
+            if (!known) self.active_window_id = null;
         }
 
         // Replace our panes
@@ -1032,6 +1410,10 @@ pub const Viewer = struct {
 
         // Sync up our layouts. This will populate unknown panes, prune, etc.
         try self.syncLayouts(windows.items);
+
+        // We finally have a pane to target, so deliver anything the host
+        // typed or pasted while the session was still starting up.
+        self.flushPendingInput();
     }
 
     fn receivedPaneState(
@@ -1239,34 +1621,37 @@ pub const Viewer = struct {
         stream.nextSlice(content);
     }
 
-    /// True if the decoded %output data contains a terminal BEL (0x07).
-    /// tmux has no %bell control-mode notification, so a bell is detected as a
-    /// raw byte in the pane output stream. This is a heuristic: a 0x07 embedded
-    /// in an OSC/DCS payload would also match, which is acceptable for a
-    /// best-effort "needs you" signal.
-    fn outputHasBell(data: []const u8) bool {
-        return std.mem.indexOfScalar(u8, data, 0x07) != null;
-    }
+    /// The result of applying a chunk of `%output` to a pane.
+    const OutputResult = struct {
+        /// The bytes were applied to a tracked pane, so its content changed
+        /// and the caller should re-mirror.
+        changed: bool = false,
+
+        /// The chunk contained at least one real terminal bell.
+        bell: bool = false,
+    };
 
     /// Apply live %output bytes to the pane terminal's active screen.
-    /// Returns true if the bytes were applied to a tracked pane (the caller
-    /// should re-mirror), false if the pane is untracked (nothing changed).
     fn receivedOutput(
         self: *Viewer,
         id: usize,
         data: []const u8,
-    ) !bool {
+    ) !OutputResult {
         const entry = self.panes.getEntry(id) orelse {
             log.info("received output for untracked pane id={}", .{id});
-            return false;
+            return .{};
         };
         const pane: *Pane = entry.value_ptr;
         const t: *Terminal = &pane.terminal;
 
+        // Scan for bells before feeding the stream; the scanner keeps its
+        // state on the pane so sequences split across chunks still parse.
+        const bell = pane.bell.scan(data);
+
         var stream = t.vtStream();
         defer stream.deinit();
         stream.nextSlice(data);
-        return true;
+        return .{ .changed = true, .bell = bell };
     }
 
     fn initLayout(
@@ -1336,6 +1721,16 @@ pub const Viewer = struct {
         try self.command_queue.ensureUnusedCapacity(self.alloc, commands.len);
         for (commands) |cmd| self.command_queue.appendAssumeCapacity(cmd);
 
+        // A host resize arrived before we had a queue to account for its
+        // reply block. Send it behind the startup commands now that we do.
+        if (self.pending_resize) |sz| {
+            const cmd = try resizeCommand(self.alloc, sz);
+            errdefer self.alloc.free(cmd);
+            try self.command_queue.ensureUnusedCapacity(self.alloc, 1);
+            self.command_queue.appendAssumeCapacity(.{ .user = cmd });
+            self.pending_resize = null;
+        }
+
         // Move into the command queue state
         self.state = .command_queue;
 
@@ -1359,6 +1754,17 @@ pub const Viewer = struct {
         }
     }
 
+    /// Append a `.redraw` action using the action arena, logging and
+    /// dropping it if the arena can't grow. A dropped redraw only costs a
+    /// stale frame until the next output, so it is never fatal.
+    fn appendRedraw(self: *Viewer, actions: *std.ArrayList(Action)) void {
+        var arena = self.action_arena.promote(self.alloc);
+        defer self.action_arena = arena.state;
+        actions.append(arena.allocator(), .redraw) catch {
+            log.warn("failed to queue redraw action", .{});
+        };
+    }
+
     /// Helper to return a single action. The input action may use the arena
     /// for allocated memory; this will not touch the arena.
     fn singleAction(self: *Viewer, action: Action) []const Action {
@@ -1372,17 +1778,58 @@ pub const Viewer = struct {
         return self.singleAction(.exit);
     }
 
-    /// Returns the Terminal of the active pane of the active window, or null
-    /// if no pane is available yet. For the common single-window/single-pane
-    /// case this is the only pane. For multi-pane windows this returns the
-    /// first pane found in layout order (active-pane tracking is a future
-    /// enhancement).
+    /// Returns the Terminal of the active pane, or null if no pane is
+    /// available yet.
     pub fn activePaneTerminal(self: *Viewer) ?*Terminal {
-        if (self.windows.items.len == 0) return null;
-        const window = self.windows.items[0];
-        const pane_id = firstPaneId(window.layout) orelse return null;
+        const pane_id = self.activePaneId() orelse return null;
         const entry = self.panes.getEntry(pane_id) orelse return null;
         return &entry.value_ptr.terminal;
+    }
+
+    /// The ID of the pane that host input is routed to and that the mirror
+    /// renders: the active pane of the active window.
+    ///
+    /// tmux reports the active window via `%session-window-changed` and a
+    /// window's active pane via `%window-pane-changed`. Either may not have
+    /// arrived yet, or may name something we no longer track, so both degrade
+    /// to "the first one in order" — which is exact for the common
+    /// single-window/single-pane case.
+    ///
+    /// This is the single source of truth for "which pane"; every caller
+    /// (input, paste, mirroring) must go through it or they will disagree
+    /// after a window or pane switch.
+    pub fn activePaneId(self: *const Viewer) ?usize {
+        const window = self.activeWindow() orelse return null;
+        if (self.active_pane_ids.get(window.id)) |id| {
+            // The reported pane must still exist in this window's layout;
+            // a layout change can retire it before we hear about a new one.
+            if (self.panes.contains(id) and
+                layoutHasPane(window.layout, id)) return id;
+        }
+
+        return firstPaneId(window.layout);
+    }
+
+    /// The active window, falling back to the first window we know about.
+    fn activeWindow(self: *const Viewer) ?*const Window {
+        if (self.windows.items.len == 0) return null;
+        if (self.active_window_id) |id| {
+            for (self.windows.items) |*window| {
+                if (window.id == id) return window;
+            }
+        }
+
+        return &self.windows.items[0];
+    }
+
+    /// Depth-first search for whether a layout tree contains a pane id.
+    fn layoutHasPane(node: Layout, id: usize) bool {
+        return switch (node.content) {
+            .pane => |pane_id| pane_id == id,
+            .horizontal, .vertical => |children| for (children) |child| {
+                if (layoutHasPane(child, id)) break true;
+            } else false,
+        };
     }
 
     /// Depth-first walk of a layout tree returning the first pane leaf's id.
@@ -1396,6 +1843,22 @@ pub const Viewer = struct {
                 if (firstPaneId(child)) |id| return id;
             } else null,
         };
+    }
+
+    /// Test helper: the `.user` (host-originated) commands currently sitting
+    /// in the command queue, in order. Caller owns the returned slice.
+    fn testUserCommands(
+        self: *Viewer,
+        alloc: Allocator,
+    ) Allocator.Error![][]const u8 {
+        var list: std.ArrayList([]const u8) = .empty;
+        errdefer list.deinit(alloc);
+        var it = self.command_queue.iterator(.forward);
+        while (it.next()) |cmd| switch (cmd.*) {
+            .user => |v| try list.append(alloc, v),
+            else => {},
+        };
+        return list.toOwnedSlice(alloc);
     }
 
     /// Test helper: drive the viewer from a fresh init through startup,
@@ -2573,9 +3036,29 @@ test "tmux keys input emits send-keys command for active pane" {
         else => {},
     };
     const cmd = found orelse return error.NoCommand;
-    try testing.expect(std.mem.startsWith(u8, cmd, "send-keys -t %0 -l -- "));
-    try testing.expect(std.mem.indexOf(u8, cmd, "ls\r") != null);
+    try testing.expect(std.mem.startsWith(u8, cmd, "send-keys -t %0 -H "));
+    // 'l'=0x6c 's'=0x73 '\r'=0x0d
+    try testing.expect(std.mem.indexOf(u8, cmd, "6c 73 0d") != null);
     try testing.expect(cmd[cmd.len - 1] == '\n');
+}
+
+test "tmux keys input hex-encodes newline-bearing keys" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+    try viewer.setupSinglePane();
+
+    // Ctrl+J is a literal 0x0A. Sent with `send-keys -l` it would terminate
+    // the control-mode command line and inject "x" as a new tmux command.
+    const actions = viewer.next(.{ .keys = "\nx" });
+    try testing.expectEqual(@as(usize, 1), actions.len);
+    const cmd = actions[0].command;
+    try testing.expectEqualStrings("send-keys -t %0 -H 0a 78\n", cmd);
+    // Exactly one newline: the command terminator.
+    try testing.expectEqual(
+        @as(usize, 1),
+        std.mem.count(u8, cmd, "\n"),
+    );
 }
 
 test "tmux paste input emits hex send-keys command for active pane" {
@@ -2630,17 +3113,542 @@ test "tmux resize input emits refresh-client size command" {
     try testing.expect(cmd[cmd.len - 1] == '\n');
 }
 
-test "tmux resize input with no window emits nothing" {
+test "tmux resize during startup is stashed and flushed onto the queue" {
     const alloc = testing.allocator;
     var viewer: Viewer = try .init(alloc);
     defer viewer.deinit();
-    const actions = viewer.next(.{ .resize = .{ .cols = 80, .rows = 24 } });
-    try testing.expectEqual(@as(usize, 0), actions.len);
+
+    // Before the command queue exists there is nowhere to account for the
+    // reply block, so the size is stashed rather than written out-of-band
+    // (which would desync the queue) and rather than dropped (which left
+    // tmux stuck at its default 80x24).
+    try testing.expectEqual(@as(usize, 0), viewer.next(.{ .resize = .{
+        .cols = 100,
+        .rows = 30,
+    } }).len);
+    try testing.expectEqual(@as(usize, 0), viewer.next(.{ .resize = .{
+        .cols = 120,
+        .rows = 40,
+    } }).len);
+    // Only the newest size matters.
+    try testing.expectEqual(@as(usize, 120), viewer.pending_resize.?.cols);
+
+    // Entering the command queue flushes it behind the startup commands.
+    _ = viewer.next(.{ .tmux = .{ .block_end = "" } });
+    _ = viewer.next(.{ .tmux = .{ .session_changed = .{
+        .id = 0,
+        .name = "main",
+    } } });
+    try testing.expect(viewer.pending_resize == null);
+
+    const queued = try viewer.testUserCommands(alloc);
+    defer alloc.free(queued);
+    try testing.expectEqual(@as(usize, 1), queued.len);
+    try testing.expectEqualStrings("refresh-client -C 120x40\n", queued[0]);
 }
 
-test "outputHasBell detects a BEL byte" {
-    try std.testing.expect(Viewer.outputHasBell(&[_]u8{ 'h', 'i', 0x07 }));
-    try std.testing.expect(Viewer.outputHasBell(&[_]u8{0x07}));
-    try std.testing.expect(!Viewer.outputHasBell("hello world"));
-    try std.testing.expect(!Viewer.outputHasBell(""));
+test "tmux resize during startup does not steal the list-windows reply" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+
+    _ = viewer.next(.{ .tmux = .{ .block_end = "" } });
+    _ = viewer.next(.{ .tmux = .{ .session_changed = .{
+        .id = 0,
+        .name = "main",
+    } } });
+
+    // A resize lands while [tmux_version, list_windows] are queued. Written
+    // out-of-band, refresh-client's empty reply would be consumed as the
+    // list-windows output and we would end up with zero windows.
+    _ = viewer.next(.{ .resize = .{ .cols = 120, .rows = 40 } });
+
+    _ = viewer.next(.{ .tmux = .{ .block_end = "3.5a" } });
+    _ = viewer.next(.{ .tmux = .{
+        .block_end = "$0 @0 80 24 b25d,80x24,0,0,0",
+    } });
+
+    // The window list parsed correctly.
+    try testing.expectEqual(@as(usize, 1), viewer.windows.items.len);
+    try testing.expectEqual(@as(?usize, 0), viewer.activePaneId());
+
+    // And the resize is still queued to go out.
+    const queued = try viewer.testUserCommands(alloc);
+    defer alloc.free(queued);
+    try testing.expectEqual(@as(usize, 1), queued.len);
+    try testing.expectEqualStrings("refresh-client -C 120x40\n", queued[0]);
+}
+
+test "tmux resize on an idle queue is written immediately" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+    try viewer.setupSinglePane();
+    try testing.expect(viewer.command_queue.empty());
+
+    const actions = viewer.next(.{ .resize = .{ .cols = 120, .rows = 40 } });
+    try testing.expectEqual(@as(usize, 1), actions.len);
+    try testing.expectEqualStrings(
+        "refresh-client -C 120x40\n",
+        actions[0].command,
+    );
+}
+
+test "tmux keys sent while a command is in flight go out afterwards" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+
+    _ = viewer.next(.{ .tmux = .{ .block_end = "" } });
+    _ = viewer.next(.{ .tmux = .{ .session_changed = .{
+        .id = 0,
+        .name = "main",
+    } } });
+    _ = viewer.next(.{ .tmux = .{ .block_end = "3.5a" } });
+    _ = viewer.next(.{ .tmux = .{
+        .block_end = "$0 @0 80 24 b25d,80x24,0,0,0",
+    } });
+
+    // capture-pane commands are in flight; typing must not write now.
+    try testing.expect(!viewer.command_queue.empty());
+    try testing.expectEqual(@as(usize, 0), viewer.next(.{ .keys = "x" }).len);
+    {
+        const queued = try viewer.testUserCommands(alloc);
+        defer alloc.free(queued);
+        try testing.expectEqual(@as(usize, 1), queued.len);
+        try testing.expectEqualStrings("send-keys -t %0 -H 78\n", queued[0]);
+    }
+
+    // Drain the four capture-panes and the pane_state. The keystroke is last
+    // in the queue, so it is emitted once pane_state's block completes and
+    // its own reply block is then consumed by the `.user` entry.
+    for (0..4) |_| _ = viewer.next(.{ .tmux = .{ .block_end = "" } });
+    const actions = viewer.next(.{ .tmux = .{
+        .block_end = "%0;0;0;1;;;;0;4294967295;4294967295;0;1;0;0;0;0;0;0;0;0;0;;;0;23;8,16,24,32,40,48,56,64,72",
+    } });
+    var found: ?[]const u8 = null;
+    for (actions) |a| switch (a) {
+        .command => |c| found = c,
+        else => {},
+    };
+    try testing.expectEqualStrings("send-keys -t %0 -H 78\n", found orelse return error.NoCommand);
+
+    // Its reply block is absorbed by the `.user` entry, leaving an empty,
+    // in-sync queue.
+    _ = viewer.next(.{ .tmux = .{ .block_end = "" } });
+    try testing.expect(viewer.command_queue.empty());
+}
+
+test "tmux paste chunks large payloads into bounded commands" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+    try viewer.setupSinglePane();
+
+    // 3 chunks worth: one unbounded send-keys line risks truncation in tmux.
+    const payload = try alloc.alloc(u8, Viewer.SEND_KEYS_CHUNK_BYTES * 2 + 1);
+    defer alloc.free(payload);
+    @memset(payload, 'a');
+
+    // The queue is idle, so the first chunk goes out now and the rest wait
+    // their turn behind it.
+    const actions = viewer.next(.{ .paste = payload });
+    try testing.expectEqual(@as(usize, 1), actions.len);
+
+    const queued = try viewer.testUserCommands(alloc);
+    defer alloc.free(queued);
+    try testing.expectEqual(@as(usize, 3), queued.len);
+    try testing.expectEqualStrings(queued[0], actions[0].command);
+
+    var encoded: usize = 0;
+    for (queued) |cmd| {
+        try testing.expect(std.mem.startsWith(u8, cmd, "send-keys -t %0 -H "));
+        try testing.expect(cmd[cmd.len - 1] == '\n');
+        encoded += std.mem.count(u8, cmd, " 61");
+    }
+
+    // Every source byte is delivered exactly once, in order.
+    try testing.expectEqual(payload.len, encoded);
+    try testing.expectEqual(@as(usize, 1), std.mem.count(u8, queued[2], " 61"));
+}
+
+test "tmux input follows the active window and pane" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+    try viewer.setupSinglePane();
+
+    // Baseline: the only window/pane.
+    try testing.expectEqual(@as(?usize, 0), viewer.activePaneId());
+
+    // tmux reports a different active pane in our window.
+    _ = viewer.next(.{ .tmux = .{ .window_pane_changed = .{
+        .window_id = 0,
+        .pane_id = 99,
+    } } });
+    // Pane 99 isn't in this window's layout, so we stay on the real pane
+    // rather than routing input into nowhere.
+    try testing.expectEqual(@as(?usize, 0), viewer.activePaneId());
+
+    // An unknown active window also falls back to the first window.
+    _ = viewer.next(.{ .tmux = .{ .session_window_changed = .{
+        .session_id = 0,
+        .window_id = 1234,
+    } } });
+    try testing.expectEqual(@as(?usize, 0), viewer.activePaneId());
+}
+
+test "tmux BellScanner bare BEL is a bell" {
+    var s: Viewer.BellScanner = .{};
+    try testing.expect(s.scan("hello\x07world"));
+}
+
+test "tmux BellScanner OSC terminator is not a bell" {
+    // The shell prompt sequence: every command emits one of these.
+    var s: Viewer.BellScanner = .{};
+    try testing.expect(!s.scan("\x1b]0;user@host: ~\x07$ "));
+}
+
+test "tmux BellScanner OSC split across chunks is not a bell" {
+    var s: Viewer.BellScanner = .{};
+    try testing.expect(!s.scan("\x1b]0;user@host"));
+    // The BEL arrives in a later chunk; the scanner must still know it is
+    // inside the OSC payload.
+    try testing.expect(!s.scan(": ~\x07$ "));
+}
+
+test "tmux BellScanner BEL after the OSC ends is a bell" {
+    var s: Viewer.BellScanner = .{};
+    try testing.expect(!s.scan("\x1b]0;title\x07"));
+    try testing.expect(s.scan("\x07"));
+}
+
+test "tmux BellScanner ST-terminated string then BEL is a bell" {
+    var s: Viewer.BellScanner = .{};
+    try testing.expect(!s.scan("\x1b]8;;https://example.com\x1b\\"));
+    try testing.expect(s.scan("link\x07"));
+}
+
+test "tmux BellScanner other string sequences swallow BEL" {
+    inline for (.{ "P", "_", "^", "X" }) |intro| {
+        var s: Viewer.BellScanner = .{};
+        try testing.expect(!s.scan("\x1b" ++ intro ++ "payload\x07"));
+        try testing.expect(s.scan("\x07"));
+    }
+}
+
+test "tmux BellScanner CSI does not start a string" {
+    var s: Viewer.BellScanner = .{};
+    try testing.expect(s.scan("\x1b[1;31mred\x07"));
+}
+
+test "tmux output with OSC title emits no bell action" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+    try viewer.setupSinglePane();
+
+    const actions = viewer.next(.{ .tmux = .{ .output = .{
+        .pane_id = 0,
+        .data = "\x1b]0;zsh\x07$ ",
+    } } });
+    for (actions) |a| try testing.expect(a != .bell);
+}
+
+test "tmux output with a real bell emits a bell action" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+    try viewer.setupSinglePane();
+
+    const actions = viewer.next(.{ .tmux = .{ .output = .{
+        .pane_id = 0,
+        .data = "done\x07",
+    } } });
+    var found = false;
+    for (actions) |a| if (a == .bell) {
+        found = true;
+    };
+    try testing.expect(found);
+}
+
+test "tmux bell state persists across output chunks" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+    try viewer.setupSinglePane();
+
+    // tmux may split an OSC anywhere; the BEL terminator arriving in a later
+    // %output must still not be treated as a bell.
+    for (viewer.next(.{ .tmux = .{ .output = .{
+        .pane_id = 0,
+        .data = "\x1b]0;my-title",
+    } } })) |a| try testing.expect(a != .bell);
+    for (viewer.next(.{ .tmux = .{ .output = .{
+        .pane_id = 0,
+        .data = "-continued\x07",
+    } } })) |a| try testing.expect(a != .bell);
+}
+
+test "tmux input follows a window switch" {
+    var viewer: Viewer = try .init(testing.allocator);
+    defer viewer.deinit();
+
+    try testViewer(&viewer, &.{
+        .{ .input = .{ .tmux = .{ .block_end = "" } } },
+        .{ .input = .{ .tmux = .{ .session_changed = .{
+            .id = 0,
+            .name = "main",
+        } } } },
+        .{ .input = .{ .tmux = .{ .block_end = "3.5a" } } },
+        // Two windows, one pane each.
+        .{ .input = .{ .tmux = .{
+            .block_end =
+            \\$0 @0 80 24 b25d,80x24,0,0,0
+            \\$0 @1 80 24 b25e,80x24,0,0,1
+            ,
+        } } },
+    });
+
+    try testing.expectEqual(@as(usize, 2), viewer.windows.items.len);
+
+    // Before tmux tells us otherwise, the first window's first pane.
+    try testing.expectEqual(@as(?usize, 0), viewer.activePaneId());
+
+    // tmux switches the session's active window; input must follow.
+    _ = viewer.next(.{ .tmux = .{ .session_window_changed = .{
+        .session_id = 0,
+        .window_id = 1,
+    } } });
+    try testing.expectEqual(@as(?usize, 1), viewer.activePaneId());
+
+    // capture-panes are still in flight, so the keystroke is queued behind
+    // them rather than written out-of-band.
+    _ = viewer.next(.{ .keys = "x" });
+    {
+        const queued = try viewer.testUserCommands(testing.allocator);
+        defer testing.allocator.free(queued);
+        try testing.expectEqual(@as(usize, 1), queued.len);
+        try testing.expectEqualStrings("send-keys -t %1 -H 78\n", queued[0]);
+    }
+
+    // Another session's window switch is not ours to follow.
+    _ = viewer.next(.{ .tmux = .{ .session_window_changed = .{
+        .session_id = 7,
+        .window_id = 0,
+    } } });
+    try testing.expectEqual(@as(?usize, 1), viewer.activePaneId());
+}
+
+test "tmux input follows a pane switch within a window" {
+    var viewer: Viewer = try .init(testing.allocator);
+    defer viewer.deinit();
+
+    try testViewer(&viewer, &.{
+        .{ .input = .{ .tmux = .{ .block_end = "" } } },
+        .{ .input = .{ .tmux = .{ .session_changed = .{
+            .id = 0,
+            .name = "main",
+        } } } },
+        .{ .input = .{ .tmux = .{ .block_end = "3.5a" } } },
+        // One window split into panes 0 and 1.
+        .{ .input = .{ .tmux = .{
+            .block_end = "$0 @0 83 44 027b,83x44,0,0[83x20,0,0,0,83x23,0,21,1]",
+        } } },
+    });
+
+    try testing.expectEqual(@as(?usize, 0), viewer.activePaneId());
+
+    _ = viewer.next(.{ .tmux = .{ .window_pane_changed = .{
+        .window_id = 0,
+        .pane_id = 1,
+    } } });
+    try testing.expectEqual(@as(?usize, 1), viewer.activePaneId());
+
+    _ = viewer.next(.{ .paste = "y" });
+    const queued = try viewer.testUserCommands(testing.allocator);
+    defer testing.allocator.free(queued);
+    try testing.expectEqual(@as(usize, 1), queued.len);
+    try testing.expectEqualStrings("send-keys -t %1 -H 79\n", queued[0]);
+}
+
+test "tmux BellScanner recovers from an unterminated string sequence" {
+    var s: Viewer.BellScanner = .{};
+
+    // A stray OSC introducer with no terminator must not deafen us forever.
+    try testing.expect(!s.scan("\x1b]0;"));
+
+    // Fed in chunks, as tmux would: the cap is on the payload, not a chunk.
+    const chunk = "x" ** 4096;
+    for (0..Viewer.BellScanner.STRING_MAX_BYTES / chunk.len + 1) |_| {
+        try testing.expect(!s.scan(chunk));
+    }
+
+    // Past the cap we're back to treating BEL as a real bell.
+    try testing.expect(s.scan("\x07"));
+}
+
+test "tmux BellScanner a C0 control aborts a string sequence" {
+    var s: Viewer.BellScanner = .{};
+
+    // xterm aborts a string on a C0 control other than tab/newline/CR.
+    try testing.expect(!s.scan("\x1b]0;title\x18"));
+    try testing.expect(s.scan("\x07"));
+
+    // ...but whitespace is legal inside a payload.
+    var t: Viewer.BellScanner = .{};
+    try testing.expect(!t.scan("\x1b]0;a\tb\r\nc\x07"));
+}
+
+test "tmux background window pane switch does not redraw" {
+    var viewer: Viewer = try .init(testing.allocator);
+    defer viewer.deinit();
+
+    try testViewer(&viewer, &.{
+        .{ .input = .{ .tmux = .{ .block_end = "" } } },
+        .{ .input = .{ .tmux = .{ .session_changed = .{
+            .id = 0,
+            .name = "main",
+        } } } },
+        .{ .input = .{ .tmux = .{ .block_end = "3.5a" } } },
+        .{ .input = .{ .tmux = .{
+            .block_end =
+            \\$0 @0 80 24 b25d,80x24,0,0,0
+            \\$0 @1 80 24 b25e,80x24,0,0,1
+            ,
+        } } },
+    });
+
+    // Window @1 is not the one we're showing, so its pane switch changes
+    // nothing on screen.
+    for (viewer.next(.{ .tmux = .{ .window_pane_changed = .{
+        .window_id = 1,
+        .pane_id = 1,
+    } } })) |a| try testing.expect(a != .redraw);
+
+    // The window we are showing does.
+    var found = false;
+    for (viewer.next(.{ .tmux = .{ .window_pane_changed = .{
+        .window_id = 0,
+        .pane_id = 0,
+    } } })) |a| {
+        if (a == .redraw) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "tmux active pane tracking is pruned when a window closes" {
+    var viewer: Viewer = try .init(testing.allocator);
+    defer viewer.deinit();
+
+    try testViewer(&viewer, &.{
+        .{ .input = .{ .tmux = .{ .block_end = "" } } },
+        .{ .input = .{ .tmux = .{ .session_changed = .{
+            .id = 0,
+            .name = "main",
+        } } } },
+        .{ .input = .{ .tmux = .{ .block_end = "3.5a" } } },
+        .{ .input = .{ .tmux = .{
+            .block_end =
+            \\$0 @0 80 24 b25d,80x24,0,0,0
+            \\$0 @1 80 24 b25e,80x24,0,0,1
+            ,
+        } } },
+    });
+
+    _ = viewer.next(.{ .tmux = .{ .window_pane_changed = .{
+        .window_id = 1,
+        .pane_id = 1,
+    } } });
+    _ = viewer.next(.{ .tmux = .{ .session_window_changed = .{
+        .session_id = 0,
+        .window_id = 1,
+    } } });
+    try testing.expectEqual(@as(u32, 1), viewer.active_pane_ids.count());
+    try testing.expectEqual(@as(?usize, 1), viewer.active_window_id);
+
+    // Drain the capture-pane/pane_state commands queued for both panes so
+    // the next block_end is unambiguously the list-windows reply.
+    while (!viewer.command_queue.empty()) {
+        _ = viewer.next(.{ .tmux = .{ .block_end = "" } });
+    }
+
+    // Window @1 closes: a window change re-lists, and only @0 comes back.
+    _ = viewer.next(.{ .tmux = .{ .window_add = .{ .id = 2 } } });
+    _ = viewer.next(.{ .tmux = .{
+        .block_end = "$0 @0 80 24 b25d,80x24,0,0,0",
+    } });
+
+    try testing.expectEqual(@as(usize, 1), viewer.windows.items.len);
+    try testing.expectEqual(@as(u32, 0), viewer.active_pane_ids.count());
+    try testing.expectEqual(@as(?usize, null), viewer.active_window_id);
+    try testing.expectEqual(@as(?usize, 0), viewer.activePaneId());
+}
+
+test "tmux paste before startup completes is delivered once a pane exists" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+
+    // Typed/pasted into an agent cell that is still attaching: there is no
+    // pane to target yet, so it must be held rather than dropped.
+    try testing.expectEqual(@as(usize, 0), viewer.next(.{ .paste = "hi" }).len);
+    try testing.expectEqual(@as(usize, 0), viewer.next(.{ .keys = "!" }).len);
+    try testing.expectEqualStrings("hi!", viewer.pending_input.items);
+
+    _ = viewer.next(.{ .tmux = .{ .block_end = "" } });
+    _ = viewer.next(.{ .tmux = .{ .session_changed = .{
+        .id = 0,
+        .name = "main",
+    } } });
+    _ = viewer.next(.{ .tmux = .{ .block_end = "3.5a" } });
+    _ = viewer.next(.{ .tmux = .{
+        .block_end = "$0 @0 80 24 b25d,80x24,0,0,0",
+    } });
+
+    // Queued behind the capture-pane commands, in one send-keys, in order.
+    try testing.expectEqual(@as(usize, 0), viewer.pending_input.items.len);
+    const queued = try viewer.testUserCommands(alloc);
+    defer alloc.free(queued);
+    try testing.expectEqual(@as(usize, 1), queued.len);
+    // 'h'=68 'i'=69 '!'=21
+    try testing.expectEqualStrings("send-keys -t %0 -H 68 69 21\n", queued[0]);
+}
+
+test "tmux pending host input is bounded" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+
+    const chunk = try alloc.alloc(u8, Viewer.PENDING_INPUT_MAX_BYTES);
+    defer alloc.free(chunk);
+    @memset(chunk, 'a');
+
+    _ = viewer.next(.{ .paste = chunk });
+    try testing.expectEqual(
+        @as(usize, Viewer.PENDING_INPUT_MAX_BYTES),
+        viewer.pending_input.items.len,
+    );
+
+    // A session that never starts must not grow this without limit.
+    _ = viewer.next(.{ .paste = chunk });
+    try testing.expectEqual(
+        @as(usize, Viewer.PENDING_INPUT_MAX_BYTES),
+        viewer.pending_input.items.len,
+    );
+}
+
+test "tmux defunct viewer buffers nothing" {
+    const alloc = testing.allocator;
+    var viewer: Viewer = try .init(alloc);
+    defer viewer.deinit();
+    _ = viewer.next(.{ .tmux = .exit });
+
+    try testing.expectEqual(@as(usize, 0), viewer.next(.{ .keys = "x" }).len);
+    try testing.expectEqual(@as(usize, 0), viewer.next(.{ .resize = .{
+        .cols = 80,
+        .rows = 24,
+    } }).len);
+    try testing.expectEqual(@as(usize, 0), viewer.pending_input.items.len);
+    try testing.expect(viewer.pending_resize == null);
 }
