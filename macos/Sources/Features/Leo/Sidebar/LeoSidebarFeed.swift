@@ -41,10 +41,8 @@ actor LeoSidebarFeed {
     var selectedHostAvailable = true
     var pollingRequested = false
     var hostStateSink: (@MainActor @Sendable (LeoHostRow) -> Void)?
-    /// Identifies the currently-owning refresh. Bumped every time a refresh
-    /// starts so a stale refresh's completion (racing a cancellation that
-    /// lost, e.g. after a host switch) can recognize it no longer owns the
-    /// in-flight bookkeeping and must not touch it.
+    /// Bumped each time a refresh starts; lets a stale refresh whose
+    /// cancellation lost a race recognize it no longer owns bookkeeping.
     private var currentRefreshToken = 0
 
     init(daemon: any LeoDaemonClient, activity: LeoSidebarActivitySource, sleep: @escaping @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) }, sink: @escaping Sink) {
@@ -161,12 +159,8 @@ actor LeoSidebarFeed {
 
     private func performRefresh(host: LeoHostID, token: Int) async {
         var wasCancelled = false
-        defer {
-            // A stale refresh (its cancellation lost a race against a real
-            // result) must not clear bookkeeping that a newer refresh, already
-            // started for a different host/token, now owns.
-            if !wasCancelled, token == currentRefreshToken { finishRefresh() }
-        }
+        // A stale refresh must not clear bookkeeping a newer one now owns.
+        defer { if !wasCancelled, token == currentRefreshToken { finishRefresh() } }
         let generation = snapshot.generation
         let fetchState = needsState
         needsState = false
@@ -282,11 +276,8 @@ actor LeoSidebarFeed {
         for output in outputs {
             switch output {
             case .refreshNow:
-                // A single chokepoint for every refresh trigger (poll, manual
-                // refresh, retry, and structural SSE events alike): none of
-                // them may start a request against a host that's currently
-                // unavailable, and none of them may overwrite a published
-                // .failed state for it.
+                // Single chokepoint for every refresh trigger (poll, manual
+                // refresh, retry, SSE): none may run against an unavailable host.
                 guard running, selectedHostAvailable else { continue }
                 startRefresh()
             case .scheduleTick(let interval):
