@@ -51,6 +51,11 @@ struct LeoSidebarChromeTests {
         #expect(availability.delete == (!pending && (status == .stopped || status == .running)))
     }
 
+    @Test func runningAgentDeleteErrorOffersStopFirst() {
+        #expect(LeoDeleteActionState.canStopFirst(errorCode: "agent_still_running"))
+        #expect(!LeoDeleteActionState.canStopFirst(errorCode: "other"))
+    }
+
     @Test func shellQuoteHandlesHostileInputs() throws {
         #expect(try leoShellQuote("") == "''")
         #expect(try leoShellQuote("plain value") == "'plain value'")

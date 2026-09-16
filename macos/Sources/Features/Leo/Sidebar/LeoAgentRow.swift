@@ -52,6 +52,12 @@ struct LeoRowActionAvailability {
     }
 }
 
+enum LeoDeleteActionState {
+    static func canStopFirst(errorCode: String?) -> Bool {
+        errorCode == "agent_still_running"
+    }
+}
+
 struct LeoAgentRowView: View {
     let row: LeoAgentRow
     let isSelected: Bool
@@ -218,7 +224,7 @@ struct LeoAgentRowView: View {
                 if let branch = deletePlan.branch { Text("Branch: \(branch)") }
                 if deletePlan.branch != nil { Toggle("Also delete branch", isOn: $deleteBranch) }
             }
-            if let error, errorCode == "agent_still_running" {
+            if let error, LeoDeleteActionState.canStopFirst(errorCode: errorCode) {
                 Text(error).foregroundStyle(.red)
                 Button("Stop first") { actions.stop(row) }
             } else if let error { Text(error).foregroundStyle(.red) }
