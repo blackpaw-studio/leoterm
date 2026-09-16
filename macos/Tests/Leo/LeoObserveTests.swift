@@ -11,6 +11,18 @@ struct LeoObserveTests {
         #expect(event == .agentActivity(seq: 1, at: nil, agent: "a", activity: .idle, currentAction: nil))
     }
 
+    @Test func streamReportsLifecycleAndReconnectsAfterFailure() async throws {
+        let transport = LifecycleTransport()
+        guard let url = URL(string: "http://127.0.0.1:8370") else { throw LeoDaemonError.transport("Invalid test URL") }
+        let client = LeoActivityClient(config: LeoObserveConfig(baseURL: url, token: "token"), transport: transport, initialBackoff: 1, maximumBackoff: 1, sleep: { _ in await transport.recordSleep() })
+        var iterator = (await client.events()).makeAsyncIterator()
+        let connected = await iterator.next()
+        #expect(await iterator.next() == .hello(seq: 1, at: nil, version: nil, serverTime: nil))
+        let disconnected = await iterator.next()
+        #expect([connected, disconnected] == [.connected, .disconnected(reason: "stream failed")])
+        #expect(await transport.waitForReconnect())
+    }
+
     @Test func parsesSSETranscript() throws {
         var parser = LeoSSEParser()
         let data = try fixture("events.sse")
@@ -43,6 +55,7 @@ struct LeoObserveTests {
         let client = LeoActivityClient(config: config, transport: transport, initialBackoff: 1_000_000_000, maximumBackoff: 1_000_000_000)
         let stream = await client.events()
         var iterator = stream.makeAsyncIterator()
+        #expect(await iterator.next() == .connected)
         #expect(await iterator.next() == .hello(seq: 1, at: nil, version: nil, serverTime: nil))
         #expect(await iterator.next() == .agentActivity(seq: 2, at: nil, agent: "a", activity: .working, currentAction: nil))
         #expect(await iterator.next() == .gap(expected: 3, received: 5))
@@ -117,6 +130,39 @@ private struct SmallFrameTransport: LeoActivityTransport {
         AsyncThrowingStream { continuation in
             continuation.yield(Data("event: agent_activity\ndata: {\"seq\":1,\"agent\":\"a\",\"activity\":\"idle\"}\n\n".utf8))
         }
+    }
+}
+
+private final class LifecycleTransport: LeoActivityTransport, @unchecked Sendable {
+    private let lock = NSLock()
+    private var connections = 0
+
+    var connectionCount: Int { lock.lock(); defer { lock.unlock() }; return connections }
+
+    func fetch(_ request: URLRequest) async throws -> (Data, Int) { (Data(), 200) }
+
+    func stream(_ request: URLRequest) -> AsyncThrowingStream<Data, Error> {
+        lock.lock()
+        connections += 1
+        let current = connections
+        lock.unlock()
+        if current == 1 {
+            return AsyncThrowingStream { continuation in
+                continuation.yield(Data("event: hello\ndata: {\"seq\":1}\n\n".utf8))
+                continuation.finish(throwing: LeoDaemonError.transport("stream failed"))
+            }
+        }
+        return AsyncThrowingStream { _ in }
+    }
+
+    func recordSleep() {}
+
+    func waitForReconnect() async -> Bool {
+        for _ in 0 ..< 50 {
+            if connectionCount >= 2 { return true }
+            try? await Task.sleep(nanoseconds: 1_000_000)
+        }
+        return false
     }
 }
 

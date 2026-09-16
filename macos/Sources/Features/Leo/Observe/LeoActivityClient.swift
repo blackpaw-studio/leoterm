@@ -22,6 +22,8 @@ struct LeoObservedAgent: Codable, Equatable, Sendable {
 }
 
 enum LeoObserveEvent: Equatable, Sendable {
+    case connected
+    case disconnected(reason: String)
     case hello(seq: Int, at: String?, version: String?, serverTime: String?)
     case agentSpawned(seq: Int, at: String?, agent: LeoAgent)
     case agentStateChanged(seq: Int, at: String?, agent: String, status: LeoAgentStatus?, restarts: Int?, wakeOnMessage: Bool?)
@@ -79,12 +81,14 @@ actor LeoActivityClient {
     private let transport: any LeoActivityTransport
     private let initialBackoff: UInt64
     private let maximumBackoff: UInt64
+    private let sleeper: @Sendable (UInt64) async throws -> Void
 
-    init(config: LeoObserveConfig, transport: any LeoActivityTransport = LeoURLSessionActivityTransport(), initialBackoff: UInt64 = 1_000_000_000, maximumBackoff: UInt64 = 30_000_000_000) {
+    init(config: LeoObserveConfig, transport: any LeoActivityTransport = LeoURLSessionActivityTransport(), initialBackoff: UInt64 = 1_000_000_000, maximumBackoff: UInt64 = 30_000_000_000, sleep: @escaping @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) }) {
         self.config = config
         self.transport = transport
         self.initialBackoff = initialBackoff
         self.maximumBackoff = maximumBackoff
+        sleeper = sleep
     }
 
     func fetchState() async throws -> [LeoObservedAgent] {
@@ -106,6 +110,7 @@ actor LeoActivityClient {
         var lastSequence: Int?
         while !Task.isCancelled {
             var parser = LeoSSEParser()
+            var disconnectionReason = "EOF"
             do {
                 for try await bytes in transport.stream(request("/api/v1/events", accept: "text/event-stream")) {
                     for raw in parser.feed(bytes) {
@@ -118,14 +123,20 @@ actor LeoActivityClient {
                             }
                         }
                         lastSequence = sequence
-                        if case .hello = event { backoff = initialBackoff }
+                        if case .hello = event {
+                            backoff = initialBackoff
+                            continuation.yield(.connected)
+                        }
                         continuation.yield(event)
                     }
                 }
             } catch is CancellationError { break
-            } catch { }
+            } catch {
+                disconnectionReason = Self.reason(for: error)
+            }
             guard !Task.isCancelled else { break }
-            try? await Task.sleep(nanoseconds: backoff)
+            continuation.yield(.disconnected(reason: disconnectionReason))
+            try? await sleeper(backoff)
             backoff = min(backoff * 2, maximumBackoff)
         }
         continuation.finish()
@@ -165,6 +176,12 @@ actor LeoActivityClient {
         default: return nil
         }
     }
+
+    private static func reason(for error: Error) -> String {
+        guard let error = error as? LeoDaemonError else { return String(describing: error) }
+        if case .transport(let reason) = error { return reason }
+        return String(describing: error)
+    }
 }
 
 private extension LeoObserveEvent {
@@ -173,7 +190,7 @@ private extension LeoObserveEvent {
         case .hello(let seq, _, _, _), .agentSpawned(let seq, _, _),
              .agentStateChanged(let seq, _, _, _, _, _), .agentActivity(let seq, _, _, _, _),
              .agentStopped(let seq, _, _, _): return seq
-        case .gap, .snapshot: return -1
+        case .connected, .disconnected, .gap, .snapshot: return -1
         }
     }
 }
