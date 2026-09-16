@@ -84,15 +84,17 @@ struct LeoUnixSocketTransportTests {
 
     @Test func streamIdleTimeoutUsesInjectedClock() async throws {
         let clock = SocketTestClock()
+        let phase = PhaseCounter()
+        let release = DispatchSemaphore(value: 0)
         let server = try UnixSocketTestServer { client in
             _ = Darwin.recv(client, nil, 0, 0)
             let headers = Data("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\r\n".utf8)
             _ = headers.withUnsafeBytes { Darwin.send(client, $0.baseAddress, headers.count, 0) }
-            Thread.sleep(forTimeInterval: 5)
+            _ = release.wait(timeout: .now() + 8)
         }
-        defer { #expect(server.waitForHandler(timeout: 8)) }
-        let task = Task { await streamError(transport: LeoUnixSocketTransport(now: clock.now), server: server) }
-        await awaitCondition(timeout: 5) { clock.readCount >= 2 }
+        defer { release.signal(); #expect(server.waitForHandler()) }
+        let task = Task { await streamError(transport: LeoUnixSocketTransport(now: clock.now, onIdlePhase: phase.increment), server: server) }
+        await awaitCondition(timeout: 5) { phase.count >= 2 }
 
         clock.advance(seconds: 60)
 
@@ -101,8 +103,10 @@ struct LeoUnixSocketTransportTests {
 
     @Test func pingResetsStreamIdleTimeout() async throws {
         let clock = SocketTestClock()
+        let phase = PhaseCounter()
         let sendPing = DispatchSemaphore(value: 0)
         let pingSent = DispatchSemaphore(value: 0)
+        let release = DispatchSemaphore(value: 0)
         let server = try UnixSocketTestServer { client in
             _ = Darwin.recv(client, nil, 0, 0)
             let headers = Data("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\r\n".utf8)
@@ -111,18 +115,23 @@ struct LeoUnixSocketTransportTests {
             let ping = Data(": ping\n\n".utf8)
             _ = ping.withUnsafeBytes { Darwin.send(client, $0.baseAddress, ping.count, 0) }
             pingSent.signal()
-            Thread.sleep(forTimeInterval: 5)
+            _ = release.wait(timeout: .now() + 8)
         }
-        defer { #expect(server.waitForHandler(timeout: 8)) }
+        defer { release.signal(); #expect(server.waitForHandler()) }
         let completion = SocketCompletion()
         let task = Task {
-            await completion.finish(streamError(transport: LeoUnixSocketTransport(now: clock.now), server: server))
+            await completion.finish(streamError(transport: LeoUnixSocketTransport(now: clock.now, onIdlePhase: phase.increment), server: server))
         }
-        await awaitCondition(timeout: 5) { clock.readCount >= 2 }
+        // Phase 1: the deadline computed before headers arrive. Phase 2: the
+        // deadline recomputed once headers are consumed, now waiting on the
+        // ping -- this is the state we need before advancing the clock.
+        await awaitCondition(timeout: 5) { phase.count >= 2 }
         clock.advance(seconds: 59)
         sendPing.signal()
         #expect(pingSent.wait(timeout: .now() + 5) == .success)
-        await awaitCondition(timeout: 5) { clock.readCount >= 3 }
+        // Phase 3: the deadline reset that happened because the ping was
+        // consumed -- i.e. "ping consumed" is exactly this phase transition.
+        await awaitCondition(timeout: 5) { phase.count >= 3 }
         clock.advance(seconds: 59)
         for _ in 0..<20 { await Task.yield() }
         #expect(await completion.finished == false)
@@ -157,6 +166,17 @@ struct LeoUnixSocketTransportTests {
             return nil
         }
     }
+}
+
+/// Counts idle-deadline recomputations reported by `LeoUnixSocketTransport`'s
+/// `onIdlePhase` hook -- exactly one per received chunk, unlike the injected
+/// clock's `now()` call count, which is also incremented by `wait`'s internal
+/// poll-timeout retries and so races ahead unpredictably while blocked.
+private final class PhaseCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+    var count: Int { lock.withLock { value } }
+    var increment: @Sendable () -> Void { { [self] in lock.withLock { value += 1 } } }
 }
 
 private final class SocketTestClock: @unchecked Sendable {

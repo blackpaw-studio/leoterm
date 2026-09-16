@@ -3,9 +3,19 @@ import Foundation
 
 struct LeoUnixSocketTransport: LeoDaemonTransport {
     private let now: @Sendable () -> UInt64
+    /// Test-only hook invoked exactly once per idle-deadline recomputation
+    /// (i.e. once per received chunk, including keep-alive pings), decoupled
+    /// from the polling retries inside `wait(...)`. Lets tests synchronize on
+    /// "a chunk was consumed and the deadline was reset" precisely, instead
+    /// of racing against the injected clock's `now()` call count -- `wait`
+    /// itself calls `now()` on every poll-timeout retry, so raw read counts
+    /// are not a reliable per-chunk signal.
+    private let onIdlePhase: @Sendable () -> Void
 
-    init(now: @escaping @Sendable () -> UInt64 = { DispatchTime.now().uptimeNanoseconds }) {
+    init(now: @escaping @Sendable () -> UInt64 = { DispatchTime.now().uptimeNanoseconds },
+         onIdlePhase: @escaping @Sendable () -> Void = {}) {
         self.now = now
+        self.onIdlePhase = onIdlePhase
     }
 
     func stream(path: String, socketPath: String, idleTimeout: TimeInterval = 60) -> AsyncThrowingStream<Data, Error> {
@@ -15,7 +25,7 @@ struct LeoUnixSocketTransport: LeoDaemonTransport {
                 do {
                     let request = LeoHTTPRequest(method: "GET", path: path).serialized()
                     try Self.streamBlocking(request, socketPath: socketPath, idleTimeout: idleTimeout,
-                                            descriptor: descriptor, now: now) {
+                                            descriptor: descriptor, now: now, onIdlePhase: onIdlePhase) {
                         continuation.yield($0)
                     }
                     continuation.finish()
@@ -92,6 +102,7 @@ struct LeoUnixSocketTransport: LeoDaemonTransport {
 
     private static func streamBlocking(_ wire: Data, socketPath: String, idleTimeout: TimeInterval,
                                        descriptor: LeoSocketDescriptor, now: @Sendable () -> UInt64,
+                                       onIdlePhase: @Sendable () -> Void = {},
                                        yield: (Data) -> Void) throws {
         let socketDescriptor = socket(AF_UNIX, SOCK_STREAM, 0)
         guard socketDescriptor >= 0 else { throw socketError() }
@@ -124,6 +135,7 @@ struct LeoUnixSocketTransport: LeoDaemonTransport {
         while true {
             let instant = now()
             let deadline = instant + UInt64(idleTimeout * 1_000_000_000)
+            onIdlePhase()
             try wait(socketDescriptor, events: Int16(POLLIN), deadline: deadline, descriptor: descriptor, now: now,
                      initialInstant: instant)
             let count = Darwin.recv(socketDescriptor, &buffer, buffer.count, 0)
