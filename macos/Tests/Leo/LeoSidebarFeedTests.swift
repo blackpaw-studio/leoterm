@@ -27,10 +27,12 @@ struct LeoSidebarFeedTests {
         let feed = makeFeed(daemon: daemon, recorder: recorder)
 
         await feed.start(); await feed.setPolling(true)
-        try await eventually { await recorder.last?.connectivity == .connected }
+        _ = await recorder.snapshot { $0.connectivity == .connected }
         await feed.refresh()
-        try await eventually { if case .failed(let message) = await recorder.last?.connectivity { return message.contains("unavailable") }; return false }
-        let snapshot = await recorder.last
+        let snapshot = await recorder.snapshot {
+            if case let .failed(message) = $0.connectivity { return message.contains("unavailable") }
+            return false
+        }
         #expect(snapshot?.rows.map(\.name) == ["alpha"])
         await feed.stop()
     }
@@ -193,8 +195,17 @@ struct LeoSidebarFeedTests {
 
 private actor SnapshotRecorder {
     private(set) var values: [LeoSidebarSnapshot] = []
+    private var waiters: [(predicate: @Sendable (LeoSidebarSnapshot) -> Bool, continuation: CheckedContinuation<LeoSidebarSnapshot, Never>)] = []
     var last: LeoSidebarSnapshot? { values.last }
-    func append(_ snapshot: LeoSidebarSnapshot) { values.append(snapshot) }
+    func append(_ snapshot: LeoSidebarSnapshot) {
+        values.append(snapshot)
+        let matching = waiters.enumerated().filter { $0.element.predicate(snapshot) }.map(\.offset)
+        for index in matching.reversed() { waiters.remove(at: index).continuation.resume(returning: snapshot) }
+    }
+    func snapshot(where predicate: @escaping @Sendable (LeoSidebarSnapshot) -> Bool) async -> LeoSidebarSnapshot {
+        if let snapshot = values.last(where: predicate) { return snapshot }
+        return await withCheckedContinuation { waiters.append((predicate, $0)) }
+    }
 }
 
 private actor FakeActivitySource {
