@@ -1,0 +1,47 @@
+[
+  {
+    "name": "assistant",
+    "model": "fable",
+    "agent": "rocket",
+    "workspace": "/Users/evan/.leo/workspace"
+  },
+  {
+    "name": "claude",
+    "model": "fable"
+  },
+  {
+    "name": "codex",
+    "model": "gpt-6-astra"
+  },
+  {
+    "name": "codex-explorer",
+    "model": "gpt-5.6-luna"
+  },
+  {
+    "name": "codex-implementer",
+    "model": "gpt-5.6-terra"
+  },
+  {
+    "name": "codex-planner",
+    "model": "gpt-6-astra"
+  },
+  {
+    "name": "codex-reviewer",
+    "model": "gpt-5.6-terra"
+  },
+  {
+    "name": "fable",
+    "model": "fable"
+  },
+  {
+    "name": "incident"
+  },
+  {
+    "name": "local",
+    "model": "lmstudio/qwen/qwen3.6-35b-a3b"
+  },
+  {
+    "name": "sandboxed",
+    "model": "openai/gpt-5.6-sol"
+  }
+]
