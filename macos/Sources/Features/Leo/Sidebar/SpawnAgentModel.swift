@@ -9,6 +9,7 @@ import Foundation
     @Published var prompt = ""
     @Published private(set) var templates: [LeoTemplate] = []
     @Published private(set) var error: String?
+    @Published private(set) var isSpawning = false
     private let cli: LeoCLI
 
     init(cli: LeoCLI) { self.cli = cli }
@@ -27,4 +28,18 @@ import Foundation
     }
 
     func setError(_ value: String) { error = value }
+
+    func spawn(_ request: LeoSpawnRequest, actions: LeoAgentActions,
+               attach: @escaping (LeoAgentRow, AttachDisposition) -> Void,
+               dismiss: @escaping () -> Void) {
+        guard !isSpawning else { return }
+        isSpawning = true
+        actions.spawn(request, attach: attach, dismiss: {
+            self.isSpawning = false
+            dismiss()
+        }, failure: { error in
+            self.isSpawning = false
+            self.setError(error)
+        })
+    }
 }

@@ -51,6 +51,38 @@ import Testing
         #expect(attached?.name == "alpha")
     }
 
+    @Test func spawnModelIgnoresReentrantSubmits() async {
+        let daemon = ActionDaemon(suspendSpawn: true)
+        let sidebar = LeoSidebarModel()
+        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: sidebar, refresh: {})
+        let model = SpawnAgentModel(cli: testCLI())
+        let request = LeoSpawnRequest(template: "default", repo: "", name: nil, branch: nil, prompt: nil)
+
+        model.spawn(request, actions: actions, attach: { _, _ in }, dismiss: {})
+        model.spawn(request, actions: actions, attach: { _, _ in }, dismiss: {})
+
+        await awaitCondition { await daemon.calls == ["spawn"] }
+        #expect(model.isSpawning)
+        await daemon.resumeSpawn()
+        await awaitCondition { await MainActor.run { !model.isSpawning } }
+    }
+
+    @Test func successfulSpawnInvokesSidebarAttachRequest() async {
+        let daemon = ActionDaemon()
+        let sidebar = LeoSidebarModel()
+        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: sidebar, refresh: {})
+        let model = SpawnAgentModel(cli: testCLI())
+        var attached: LeoAgentRow?
+        sidebar.attachRequested = { row, _, _ in attached = row }
+
+        model.spawn(.init(template: "default", repo: "", name: nil, branch: nil, prompt: nil), actions: actions, attach: { row, disposition in
+            sidebar.attachRequested(row, LeoWindowID(), disposition)
+        }, dismiss: {})
+
+        await awaitCondition { await MainActor.run { attached != nil } }
+        #expect(attached?.name == "alpha")
+    }
+
     @Test func duplicatePendingActionIsIgnored() async {
         let daemon = ActionDaemon(suspendStart: true)
         let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: LeoSidebarModel(), refresh: {})
@@ -92,11 +124,22 @@ private actor ActionDaemon: LeoDaemonClient {
     private(set) var calls: [String] = []
     private let error: LeoDaemonError?
     private let suspendStart: Bool
+    private let suspendSpawn: Bool
     private var startWaiter: CheckedContinuation<Void, Never>?
+    private var spawnWaiter: CheckedContinuation<Void, Never>?
 
-    init(error: LeoDaemonError? = nil, suspendStart: Bool = false) { self.error = error; self.suspendStart = suspendStart }
+    init(error: LeoDaemonError? = nil, suspendStart: Bool = false, suspendSpawn: Bool = false) {
+        self.error = error
+        self.suspendStart = suspendStart
+        self.suspendSpawn = suspendSpawn
+    }
     func listAgents() async throws -> [LeoAgent] { [] }
-    func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent { try fail(); return agent }
+    func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent {
+        calls.append("spawn")
+        if suspendSpawn { await withCheckedContinuation { spawnWaiter = $0 } }
+        try fail()
+        return agent
+    }
     func start(_ name: String) async throws { calls.append("start:\(name)"); if suspendStart { await withCheckedContinuation { startWaiter = $0 } }; try fail() }
     func stop(_ name: String, wakeOnMessage: Bool?) async throws { calls.append("stop:\(name)"); try fail() }
     func restart(_ name: String) async throws -> LeoAgent { calls.append("restart:\(name)"); try fail(); return agent }
@@ -107,6 +150,7 @@ private actor ActionDaemon: LeoDaemonClient {
     func deletePlan(_ name: String) async throws -> LeoDeletePlan { calls.append("plan:\(name)"); try fail(); return LeoDeletePlan(name: name, hasWorktree: true, branch: "branch", worktreePath: "/work") }
     func logs(_ name: String, lines: Int?) async throws -> String { "" }
     func resumeStart() { startWaiter?.resume(); startWaiter = nil }
+    func resumeSpawn() { spawnWaiter?.resume(); spawnWaiter = nil }
     private func fail() throws { if let error { throw error } }
     private var agent: LeoAgent { LeoAgent(name: "alpha", template: "default", repo: nil, workspace: nil, branch: nil, canonicalPath: nil, status: .running, startedAt: nil, restarts: nil, stoppedReason: nil, wakeOnMessage: nil) }
 }
