@@ -1,6 +1,6 @@
 # Leo: agent-first tabs, splits, and windows
 
-Status: draft for approval · 2026-09-16 · follows the v2 agent-manager spec (M7 done).
+Status: approved (Evan, 2026-09-16) · 2026-09-16 · follows the v2 agent-manager spec (M7 done).
 
 ## Goal
 
@@ -23,7 +23,7 @@ in Ghostty's existing Quick Terminal, used as a drawer.
 ## Behaviour
 
 Palette rows, in order:
-1. Agents on the currently selected host (name, status dot, repo/branch),
+1. Agents on the currently selected host (name, status dot, repo),
    sorted like the sidebar. Filter is case-insensitive substring on name and
    repo.
 2. `New agent…` → Spawn Agent sheet.
@@ -43,8 +43,10 @@ Dispositions: `tab`, `split(direction)`, `window`, `placeholder`.
 Host state: while the host is `connecting`, the list is disabled with a
 "Connecting to <host>…" row; when `failed`, the palette shows the failure
 message, hint, and a Retry button (existing `LeoHostSelection.retry`).
-Attach failures (missing leo binary, ssh error) surface inline in the palette;
-nothing is created.
+Pre-creation failures (missing leo binary, host not connected, command could
+not be built) surface inline in the palette and nothing is created. Once the
+surface exists, remote ssh/auth failures show in that terminal, exactly as
+sidebar attach does today; no preflight is added.
 
 Placeholder: an empty `SplitTree` (the Quick Terminal already supports this)
 with a SwiftUI view: "Pick an agent · ⌘T", a button that reopens the palette,
