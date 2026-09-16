@@ -282,7 +282,12 @@ actor LeoSidebarFeed {
         for output in outputs {
             switch output {
             case .refreshNow:
-                guard running else { continue }
+                // A single chokepoint for every refresh trigger (poll, manual
+                // refresh, retry, and structural SSE events alike): none of
+                // them may start a request against a host that's currently
+                // unavailable, and none of them may overwrite a published
+                // .failed state for it.
+                guard running, selectedHostAvailable else { continue }
                 startRefresh()
             case .scheduleTick(let interval):
                 pollTask?.cancel()
