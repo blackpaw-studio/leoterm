@@ -30,14 +30,14 @@ struct SpawnAgentSheet: View {
         }
         .padding().frame(width: 440)
         .task { await model.loadTemplates() }
-        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Spawn") { spawn() }.disabled(model.validationError != nil) } }
+        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Spawn") { spawn() }.disabled(model.validationError != nil || model.isSpawning) } }
     }
     private func choose() {
         if let path = chooseDirectory() { model.repo = path }
     }
     private func spawn() {
         let request = LeoSpawnRequest(template: model.template, repo: model.repo, name: model.name.isEmpty ? nil : model.name, branch: model.branch.isEmpty ? nil : model.branch, prompt: model.prompt.isEmpty ? nil : model.prompt)
-        actions.spawn(request, attach: attach, dismiss: { dismiss() }, failure: model.setError)
+        model.spawn(request, actions: actions, attach: attach, dismiss: { dismiss() })
     }
 
     private static func openPanel() -> String? {

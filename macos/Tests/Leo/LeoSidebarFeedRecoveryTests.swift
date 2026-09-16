@@ -4,6 +4,18 @@ import Testing
 @testable import Ghostty
 
 struct LeoSidebarFeedRecoveryTests {
+    @Test @MainActor func runtimeDoesNotRetainSidebarModelThroughAttachHandler() {
+        let daemon = RecoveryDaemon(agents: [])
+        let activity = LeoActivityClient(config: .init(baseURL: URL(string: "http://127.0.0.1")!, token: "test"))
+        weak var model: LeoSidebarModel?
+        var runtime: LeoRuntime? = LeoRuntime(daemon: daemon, cli: LeoCLI(), activity: activity)
+        model = runtime?.model
+
+        runtime = nil
+
+        #expect(model == nil)
+    }
+
     @Test func stateFailureDoesNotFailAgentList() async throws {
         let daemon = RecoveryDaemon(agents: [agent("alpha")])
         let recorder = RecoverySnapshotRecorder()

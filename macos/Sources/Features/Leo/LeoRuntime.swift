@@ -71,8 +71,8 @@ import Foundation
             guard let controller = NSApp.keyWindow?.windowController as? TerminalController else { return }
             self?.startDaemon(in: controller)
         }
-        model.attachRequested = { [weak attachCoordinator] row, origin, disposition in
-            model.selection = row.id
+        model.attachRequested = { [weak attachCoordinator, weak model] row, origin, disposition in
+            model?.selection = row.id
             Task { await attachCoordinator?.attach(identity: row.identity, from: origin, disposition: disposition) }
         }
     }
@@ -101,9 +101,12 @@ import Foundation
     private func startDaemon(in controller: TerminalController) {
         do {
             let command = try LeoCommandLauncher.startDaemonCommand(executablePath: resolveExecutablePath())
-            LeoCommandLauncher.openTab(in: controller, command: command)
+            guard LeoCommandLauncher.openTab(in: controller, command: command) else {
+                model.setPanelError("Unable to open a terminal tab")
+                return
+            }
         } catch {
-            NSSound.beep()
+            model.setPanelError(error.localizedDescription)
         }
     }
 }

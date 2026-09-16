@@ -58,6 +58,16 @@ enum LeoDeleteActionState {
     }
 }
 
+struct LeoDeleteSheetActionAvailability {
+    let delete: Bool
+    let stopFirst: Bool
+
+    init(row: LeoRowActionAvailability, errorCode: String?) {
+        delete = row.delete
+        stopFirst = row.stop && LeoDeleteActionState.canStopFirst(errorCode: errorCode)
+    }
+}
+
 struct LeoAgentRowView: View {
     let row: LeoAgentRow
     let isSelected: Bool
@@ -76,6 +86,10 @@ struct LeoAgentRowView: View {
 
     private var availability: LeoRowActionAvailability {
         LeoRowActionAvailability(status: row.status, isPending: actions.pendingActions.contains(row.id))
+    }
+
+    private var deleteSheetAvailability: LeoDeleteSheetActionAvailability {
+        LeoDeleteSheetActionAvailability(row: availability, errorCode: errorCode)
     }
 
     var body: some View {
@@ -196,7 +210,10 @@ struct LeoAgentRowView: View {
                 throw LeoDaemonError.transport("Leo runtime unavailable")
             }
             let command = try LeoLogsCommand.build(executablePath: runtime.resolveExecutablePath(), agentName: row.name)
-            LeoCommandLauncher.openTab(in: controller, command: command)
+            guard LeoCommandLauncher.openTab(in: controller, command: command) else {
+                actions.setRowError("Unable to open a terminal tab", for: row)
+                return
+            }
         } catch {
             actions.setRowError(error.localizedDescription, for: row)
         }
@@ -226,12 +243,12 @@ struct LeoAgentRowView: View {
             }
             if let error, LeoDeleteActionState.canStopFirst(errorCode: errorCode) {
                 Text(error).foregroundStyle(.red)
-                Button("Stop first") { actions.stop(row) }
+                Button("Stop first") { actions.stop(row) }.disabled(!deleteSheetAvailability.stopFirst)
             } else if let error { Text(error).foregroundStyle(.red) }
             Toggle("Force", isOn: $forceDelete)
             HStack { Spacer(); Button("Cancel") { showingDelete = false }; Button("Delete", role: .destructive) {
                 actions.delete(row, force: forceDelete, deleteBranch: deleteBranch) { showingDelete = false }
-            } }
+            }.disabled(!deleteSheetAvailability.delete) }
         }.padding().frame(width: 420)
     }
 
