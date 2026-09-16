@@ -288,7 +288,7 @@ actor LeoSidebarFeed {
     }
 
     private static func row(_ agent: LeoAgent) -> LeoAgentRow {
-        LeoAgentRow(host: .local, name: agent.name, template: agent.template, status: agent.status ?? .unknown("missing"), activity: .unknown, actionDetail: nil)
+        LeoAgentRow(host: .local, name: agent.name, template: agent.template, status: agent.status ?? .unknown("missing"), activity: .unknown, actionDetail: nil, workspace: agent.workspace, repo: agent.repo)
     }
 
     private static func activities(_ agents: [LeoObservedAgent]) -> [String: LeoSidebarActivity] {

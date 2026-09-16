@@ -32,7 +32,7 @@ struct LeoSidebarSplit<Terminal: View>: View {
                 available: geometry.size.width
             )
             HStack(spacing: 0) {
-                LeoSidebarView(model: model)
+                LeoSidebarView(model: model, windowID: session.id)
                     .frame(width: session.isSidebarVisible ? width : 0)
                     .clipped()
                     .opacity(session.isSidebarVisible ? 1 : 0)
