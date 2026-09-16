@@ -341,6 +341,12 @@
                                     <action selector="toggleLeoSidebar:" target="-1" id="Leo-Sidebar-Action"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="New Agent" keyEquivalent="A" id="Leo-New-Agent">
+                                <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
+                                <connections>
+                                    <action selector="newLeoAgent:" target="-1" id="Leo-New-Agent-Action"/>
+                                </connections>
+                            </menuItem>
                             <menuItem isSeparatorItem="YES" id="Leo-Sidebar-Separator"/>
                             <menuItem title="Command Palette" id="et6-de-Mh7">
                                 <modifierMask key="keyEquivalentModifierMask"/>

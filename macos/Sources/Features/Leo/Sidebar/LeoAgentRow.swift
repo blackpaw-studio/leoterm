@@ -32,8 +32,9 @@ enum LeoAttachActivation {
 struct LeoAgentRowView: View {
     let row: LeoAgentRow
     let isSelected: Bool
-    let error: String?
     let attach: (LeoAgentRow, AttachDisposition) -> Void
+    @ObservedObject var actions: LeoAgentActions
+    let error: String?
 
     var body: some View {
         HStack(spacing: 8) {
@@ -46,6 +47,7 @@ struct LeoAgentRowView: View {
                 .accessibilityLabel("Attach to \(row.name)")
         }
         .contentShape(Rectangle())
+        .contextMenu { menu }
     }
 
     private var rowDetails: some View {
@@ -64,6 +66,7 @@ struct LeoAgentRowView: View {
             if let error, !error.isEmpty {
                 Text(error).font(.caption).foregroundStyle(.red).lineLimit(2)
             }
+            if actions.pendingActions.contains(row.id) { ProgressView().controlSize(.small) }
         }
     }
 
@@ -107,5 +110,19 @@ struct LeoAgentRowView: View {
 
     private func activate(source: LeoAttachActivation.Source) {
         LeoAttachActivation.activate(source: source, row: row, attach: attach)
+    }
+
+    @ViewBuilder private var menu: some View {
+        Button("Attach") { activate(source: .button) }
+        if row.status == .running { Button("Stop") { actions.stop(row) } } else { Button("Start") { actions.start(row) } }
+        Button("Restart") { actions.restart(row) }
+        Button("View Logs") { viewLogs() }
+    }
+
+    private func viewLogs() {
+        guard let controller = NSApp.keyWindow?.windowController as? TerminalController,
+              let path = try? (NSApp.delegate as? AppDelegate)?.leoRuntime.resolveExecutablePath(),
+              let command = try? "\(leoShellQuote(path)) agent logs -f \(leoShellQuote(row.name))" else { return }
+        LeoCommandLauncher.openTab(in: controller, command: command)
     }
 }

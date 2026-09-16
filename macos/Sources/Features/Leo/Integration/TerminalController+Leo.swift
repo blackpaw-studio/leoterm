@@ -23,9 +23,17 @@ extension TerminalController {
         }
     }
 
+    @IBAction func newLeoAgent(_ sender: Any?) {
+        guard leoSession != nil, let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime else { return }
+        let sheet = NSHostingController(rootView: SpawnAgentSheet(model: runtime.model, actions: runtime.actions))
+        presentAsSheet(sheet)
+    }
+
     func validateLeoSidebarMenuItem(_ item: NSMenuItem) -> Bool {
         guard let leoSession else { item.state = .off; return false }
         item.state = LeoSidebarMenuState.state(isSidebarVisible: leoSession.isSidebarVisible)
         return true
     }
+
+    func validateNewLeoAgentMenuItem(_ item: NSMenuItem) -> Bool { leoSession != nil }
 }

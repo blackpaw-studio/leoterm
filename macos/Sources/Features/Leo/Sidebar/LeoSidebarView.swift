@@ -4,9 +4,12 @@ import SwiftUI
 struct LeoSidebarView: View {
     @ObservedObject var model: LeoSidebarModel
     let windowID: LeoWindowID
+    @ObservedObject var actions: LeoAgentActions
+    @State private var showingSpawn = false
 
     var body: some View {
         VStack(spacing: 10) {
+            HStack { Text("Agents").font(.headline); Spacer(); Button("New Agent") { showingSpawn = true } }
             Picker("Host", selection: .constant(LeoHostID.local)) {
                 Text(LeoHostID.local.displayName).tag(LeoHostID.local)
             }
@@ -41,9 +44,9 @@ struct LeoSidebarView: View {
                 stateView { Text("No matches") }
             } else {
                 List(model.visibleRows, selection: $model.selection) { row in
-                    LeoAgentRowView(row: row, isSelected: model.selection == row.id, error: model.rowErrors[row.id]) { row, disposition in
+                    LeoAgentRowView(row: row, isSelected: model.selection == row.id, attach: { row, disposition in
                         model.attachRequested(row, windowID, disposition)
-                    }
+                    }, actions: actions, error: model.rowErrors[row.id])
                         .tag(row.id)
                 }
                 .listStyle(.sidebar)
@@ -56,6 +59,7 @@ struct LeoSidebarView: View {
                 }
             }
         }
+        .sheet(isPresented: $showingSpawn) { SpawnAgentSheet(model: model, actions: actions) }
     }
 
     private func stateView<Content: View>(@ViewBuilder content: () -> Content) -> some View {
