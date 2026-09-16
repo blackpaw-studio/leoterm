@@ -6,7 +6,8 @@ enum LeoAPIFlavor: Equatable, Sendable {
 
     static func select(version: String) -> Self {
         let normalized = version.hasPrefix("v") ? String(version.dropFirst()) : version
-        let components = normalized.split(separator: ".", omittingEmptySubsequences: false)
+        let core = normalized.split(whereSeparator: { $0 == "-" || $0 == "+" }).first ?? ""
+        let components = core.split(separator: ".", omittingEmptySubsequences: false)
         guard components.count >= 2,
               let major = Int(components[0]),
               let minor = Int(components[1]),

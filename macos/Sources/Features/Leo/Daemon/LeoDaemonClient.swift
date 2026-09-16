@@ -17,6 +17,17 @@ protocol LeoDaemonClient: Sendable {
     func disconnectHost(_ name: String) async throws -> LeoHostRow
     func templates(host: LeoHostID) async throws -> [LeoTemplate]
     func version() async throws -> String
+    func listAgents(host: LeoHostID) async throws -> [LeoAgent]
+    func spawn(_ request: LeoSpawnRequest, host: LeoHostID) async throws -> LeoAgent
+    func start(_ name: String, host: LeoHostID) async throws
+    func stop(_ name: String, host: LeoHostID, wakeOnMessage: Bool?) async throws
+    func restart(_ name: String, host: LeoHostID) async throws -> LeoAgent
+    func reset(_ name: String, host: LeoHostID) async throws
+    func setTemplate(_ name: String, host: LeoHostID, template: String) async throws
+    func rename(_ name: String, host: LeoHostID, newName: String) async throws -> LeoAgent
+    func delete(_ name: String, host: LeoHostID, force: Bool?, deleteBranch: Bool?) async throws
+    func deletePlan(_ name: String, host: LeoHostID) async throws -> LeoDeletePlan
+    func logs(_ name: String, host: LeoHostID, lines: Int?) async throws -> String
 }
 
 extension LeoDaemonClient {
@@ -26,17 +37,20 @@ extension LeoDaemonClient {
     func templates(host _: LeoHostID) async throws -> [LeoTemplate] { throw LeoDaemonError.transport("Daemon templates are unavailable") }
     func version() async throws -> String { throw LeoDaemonError.transport("Daemon version is unavailable") }
 
-    func listAgents(host _: LeoHostID) async throws -> [LeoAgent] { try await listAgents() }
-    func spawn(_ request: LeoSpawnRequest, host _: LeoHostID) async throws -> LeoAgent { try await spawn(request) }
-    func start(_ name: String, host _: LeoHostID) async throws { try await start(name) }
-    func stop(_ name: String, host _: LeoHostID, wakeOnMessage: Bool?) async throws { try await stop(name, wakeOnMessage: wakeOnMessage) }
-    func restart(_ name: String, host _: LeoHostID) async throws -> LeoAgent { try await restart(name) }
-    func reset(_ name: String, host _: LeoHostID) async throws { try await reset(name) }
-    func setTemplate(_ name: String, host _: LeoHostID, template: String) async throws { try await setTemplate(name, template: template) }
-    func rename(_ name: String, host _: LeoHostID, newName: String) async throws -> LeoAgent { try await rename(name, newName: newName) }
-    func delete(_ name: String, host _: LeoHostID, force: Bool?, deleteBranch: Bool?) async throws { try await delete(name, force: force, deleteBranch: deleteBranch) }
-    func deletePlan(_ name: String, host _: LeoHostID) async throws -> LeoDeletePlan { try await deletePlan(name) }
-    func logs(_ name: String, host _: LeoHostID, lines: Int?) async throws -> String { try await logs(name, lines: lines) }
+    private func requireLocal(_ host: LeoHostID) throws {
+        guard host == .local else { throw LeoDaemonError.hostUnavailable("Remote hosts are unavailable in legacy mode") }
+    }
+    func listAgents(host: LeoHostID) async throws -> [LeoAgent] { try requireLocal(host); return try await listAgents() }
+    func spawn(_ request: LeoSpawnRequest, host: LeoHostID) async throws -> LeoAgent { try requireLocal(host); return try await spawn(request) }
+    func start(_ name: String, host: LeoHostID) async throws { try requireLocal(host); try await start(name) }
+    func stop(_ name: String, host: LeoHostID, wakeOnMessage: Bool?) async throws { try requireLocal(host); try await stop(name, wakeOnMessage: wakeOnMessage) }
+    func restart(_ name: String, host: LeoHostID) async throws -> LeoAgent { try requireLocal(host); return try await restart(name) }
+    func reset(_ name: String, host: LeoHostID) async throws { try requireLocal(host); try await reset(name) }
+    func setTemplate(_ name: String, host: LeoHostID, template: String) async throws { try requireLocal(host); try await setTemplate(name, template: template) }
+    func rename(_ name: String, host: LeoHostID, newName: String) async throws -> LeoAgent { try requireLocal(host); return try await rename(name, newName: newName) }
+    func delete(_ name: String, host: LeoHostID, force: Bool?, deleteBranch: Bool?) async throws { try requireLocal(host); try await delete(name, force: force, deleteBranch: deleteBranch) }
+    func deletePlan(_ name: String, host: LeoHostID) async throws -> LeoDeletePlan { try requireLocal(host); return try await deletePlan(name) }
+    func logs(_ name: String, host: LeoHostID, lines: Int?) async throws -> String { try requireLocal(host); return try await logs(name, lines: lines) }
 }
 
 protocol LeoDaemonTransport: Sendable {
@@ -95,8 +109,7 @@ struct LeoSocketDaemonClient: LeoDaemonClient {
     func templates(host: LeoHostID) async throws -> [LeoTemplate] { try await value("GET", try hostPrefix(host) + "/templates") }
     func version() async throws -> String {
         struct Version: Decodable, Sendable { let version: String }
-        let response = try await transport.send(.init(method: "GET", path: "/version"), socketPath: socketPath, timeout: defaultTimeout)
-        return try JSONDecoder().decode(Version.self, from: response.body).version
+        return try await value("GET", "/version", as: Version.self).version
     }
 
     func listAgents(host: LeoHostID) async throws -> [LeoAgent] { try await value("GET", try hostPrefix(host) + "/agents/list") }

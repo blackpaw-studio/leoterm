@@ -216,14 +216,29 @@ private extension LeoObserveEvent {
     }
 }
 
+protocol LeoHubActivityTransport: LeoDaemonTransport {
+    func stream(path: String, socketPath: String, idleTimeout: TimeInterval) -> AsyncThrowingStream<Data, Error>
+}
+
+extension LeoUnixSocketTransport: LeoHubActivityTransport {}
+
 actor LeoHubActivityClient {
     private let socketPath: String
-    private let transport: LeoUnixSocketTransport
+    private let transport: any LeoHubActivityTransport
+    private let initialBackoff: UInt64
+    private let maximumBackoff: UInt64
+    private let sleeper: @Sendable (UInt64) async throws -> Void
 
     init(socketPath: String = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath,
-         transport: LeoUnixSocketTransport = .init()) {
+         transport: any LeoHubActivityTransport = LeoUnixSocketTransport(),
+         initialBackoff: UInt64 = 1_000_000_000,
+         maximumBackoff: UInt64 = 30_000_000_000,
+         sleep: @escaping @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) }) {
         self.socketPath = socketPath
         self.transport = transport
+        self.initialBackoff = initialBackoff
+        self.maximumBackoff = maximumBackoff
+        sleeper = sleep
     }
 
     func fetchState() async throws -> [LeoObservedAgent] {
@@ -237,26 +252,41 @@ actor LeoHubActivityClient {
 
     func events() -> AsyncStream<LeoObserveEvent> {
         AsyncStream { continuation in
-            let task = Task {
-                var parser = LeoSSEParser()
-                do {
-                    for try await bytes in transport.stream(path: "/events", socketPath: socketPath) {
-                        for raw in parser.feed(bytes) {
-                            if let event = Self.decode(raw) { continuation.yield(event) }
-                        }
-                    }
-                    guard !Task.isCancelled else { continuation.finish(); return }
-                    continuation.yield(.disconnected(reason: "EOF"))
-                } catch is CancellationError {
-                    continuation.finish()
-                    return
-                } catch {
-                    continuation.yield(.disconnected(reason: error.localizedDescription))
-                }
-                continuation.finish()
-            }
+            let task = Task { await self.run(continuation) }
             continuation.onTermination = { _ in task.cancel() }
         }
+    }
+
+    private func run(_ continuation: AsyncStream<LeoObserveEvent>.Continuation) async {
+        var backoff = initialBackoff
+        var lastSequence: Int?
+        while !Task.isCancelled {
+            var parser = LeoSSEParser()
+            var reason = "EOF"
+            do {
+                for try await bytes in transport.stream(path: "/events", socketPath: socketPath, idleTimeout: 60) {
+                    for raw in parser.feed(bytes) {
+                        guard let event = Self.decode(raw) else { continue }
+                        let sequence = event.sequence
+                        if sequence >= 0, let lastSequence, sequence > lastSequence + 1 {
+                            continuation.yield(.gap(expected: lastSequence + 1, received: sequence))
+                            if let agents = try? await fetchState() { continuation.yield(.snapshot(agents)) }
+                        }
+                        if sequence >= 0 { lastSequence = sequence }
+                        if case .hello = event { backoff = initialBackoff }
+                        continuation.yield(event)
+                    }
+                }
+            } catch is CancellationError { break
+            } catch {
+                reason = error.localizedDescription
+            }
+            guard !Task.isCancelled else { break }
+            continuation.yield(.disconnected(reason: reason))
+            do { try await sleeper(backoff) } catch { break }
+            backoff = min(backoff * 2, maximumBackoff)
+        }
+        continuation.finish()
     }
 
     private static func decode(_ raw: LeoSSEEvent) -> LeoObserveEvent? {

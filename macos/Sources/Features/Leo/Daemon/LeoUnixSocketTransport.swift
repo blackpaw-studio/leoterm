@@ -2,13 +2,20 @@ import Darwin
 import Foundation
 
 struct LeoUnixSocketTransport: LeoDaemonTransport {
+    private let now: @Sendable () -> UInt64
+
+    init(now: @escaping @Sendable () -> UInt64 = { DispatchTime.now().uptimeNanoseconds }) {
+        self.now = now
+    }
+
     func stream(path: String, socketPath: String, idleTimeout: TimeInterval = 60) -> AsyncThrowingStream<Data, Error> {
         AsyncThrowingStream { continuation in
             let descriptor = LeoSocketDescriptor()
             let task = Task.detached(priority: .userInitiated) {
                 do {
                     let request = LeoHTTPRequest(method: "GET", path: path).serialized()
-                    try Self.streamBlocking(request, socketPath: socketPath, idleTimeout: idleTimeout, descriptor: descriptor) {
+                    try Self.streamBlocking(request, socketPath: socketPath, idleTimeout: idleTimeout,
+                                            descriptor: descriptor, now: now) {
                         continuation.yield($0)
                     }
                     continuation.finish()
@@ -84,7 +91,8 @@ struct LeoUnixSocketTransport: LeoDaemonTransport {
     }
 
     private static func streamBlocking(_ wire: Data, socketPath: String, idleTimeout: TimeInterval,
-                                       descriptor: LeoSocketDescriptor, yield: (Data) -> Void) throws {
+                                       descriptor: LeoSocketDescriptor, now: @Sendable () -> UInt64,
+                                       yield: (Data) -> Void) throws {
         let socketDescriptor = socket(AF_UNIX, SOCK_STREAM, 0)
         guard socketDescriptor >= 0 else { throw socketError() }
         descriptor.set(socketDescriptor)
@@ -114,8 +122,10 @@ struct LeoUnixSocketTransport: LeoDaemonTransport {
         var chunked = false
         var buffer = [UInt8](repeating: 0, count: 16 * 1024)
         while true {
-            let deadline = DispatchTime.now().uptimeNanoseconds + UInt64(idleTimeout * 1_000_000_000)
-            try wait(socketDescriptor, events: Int16(POLLIN), deadline: deadline, descriptor: descriptor)
+            let instant = now()
+            let deadline = instant + UInt64(idleTimeout * 1_000_000_000)
+            try wait(socketDescriptor, events: Int16(POLLIN), deadline: deadline, descriptor: descriptor, now: now,
+                     initialInstant: instant)
             let count = Darwin.recv(socketDescriptor, &buffer, buffer.count, 0)
             if count == 0 { return }
             guard count > 0 else { if errno == EINTR { continue }; throw socketError() }
@@ -133,7 +143,10 @@ struct LeoUnixSocketTransport: LeoDaemonTransport {
                 headersRead = true
             }
             if chunked {
-                while let chunk = try nextChunk(from: &pending) { if !chunk.isEmpty { yield(chunk) } }
+                while let chunk = try nextChunk(from: &pending) {
+                    if !chunk.data.isEmpty { yield(chunk.data) }
+                    if chunk.terminal { return }
+                }
             } else if !pending.isEmpty {
                 yield(pending)
                 pending.removeAll(keepingCapacity: true)
@@ -141,7 +154,7 @@ struct LeoUnixSocketTransport: LeoDaemonTransport {
         }
     }
 
-    private static func nextChunk(from data: inout Data) throws -> Data? {
+    private static func nextChunk(from data: inout Data) throws -> (data: Data, terminal: Bool)? {
         let crlf = Data("\r\n".utf8)
         guard let lineEnd = data.range(of: crlf) else { return nil }
         guard let line = String(data: data[..<lineEnd.lowerBound], encoding: .utf8),
@@ -149,18 +162,28 @@ struct LeoUnixSocketTransport: LeoDaemonTransport {
         let start = lineEnd.upperBound
         guard let end = data.index(start, offsetBy: size, limitedBy: data.endIndex),
               data.distance(from: end, to: data.endIndex) >= 2 else { return nil }
-        if size == 0 { data.removeAll(); return Data() }
+        if size == 0 { data.removeAll(); return (Data(), true) }
         let result = Data(data[start..<end])
         data.removeSubrange(..<data.index(end, offsetBy: 2))
-        return result
+        return (result, false)
     }
 
-    private static func wait(_ socketDescriptor: Int32, events: Int16, deadline: UInt64, descriptor: LeoSocketDescriptor) throws {
+    private static func wait(_ socketDescriptor: Int32, events: Int16, deadline: UInt64,
+                             descriptor: LeoSocketDescriptor,
+                             now: @Sendable () -> UInt64 = { DispatchTime.now().uptimeNanoseconds },
+                             initialInstant: UInt64? = nil) throws {
+        var pendingInitialInstant = initialInstant
         while true {
             guard !descriptor.isCancelled else { throw CancellationError() }
-            let now = DispatchTime.now().uptimeNanoseconds
-            guard now < deadline else { throw LeoDaemonError.timeout }
-            let milliseconds = min(50, Int32((deadline - now + 999_999) / 1_000_000))
+            let instant: UInt64
+            if let reused = pendingInitialInstant {
+                instant = reused
+                pendingInitialInstant = nil
+            } else {
+                instant = now()
+            }
+            guard instant < deadline else { throw LeoDaemonError.timeout }
+            let milliseconds = min(50, Int32((deadline - instant + 999_999) / 1_000_000))
             var pollDescriptor = pollfd(fd: socketDescriptor, events: events, revents: 0)
             let result = Darwin.poll(&pollDescriptor, 1, milliseconds)
             guard !descriptor.isCancelled else { throw CancellationError() }

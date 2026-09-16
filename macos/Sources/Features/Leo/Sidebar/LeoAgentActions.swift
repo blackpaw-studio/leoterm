@@ -10,7 +10,7 @@ import Foundation
     private let refresh: () -> Void
     var cliForSpawn: LeoCLI { cli }
     private let clock: @Sendable () -> Date
-    private var cachedTemplates: (value: [LeoTemplate], fetchedAt: Date)?
+    private var cachedTemplates: [LeoHostID: (value: [LeoTemplate], fetchedAt: Date)] = [:]
 
     init(daemon: any LeoDaemonClient, cli: LeoCLI, model: LeoSidebarModel,
          hostSelection: LeoHostSelection? = nil,
@@ -39,13 +39,14 @@ import Foundation
         }
     }
     func templates() async throws -> [LeoTemplate] {
-        if let cachedTemplates, clock().timeIntervalSince(cachedTemplates.fetchedAt) < 60 {
-            return cachedTemplates.value
+        let host = hostSelection.selected
+        if let cached = cachedTemplates[host], clock().timeIntervalSince(cached.fetchedAt) < 60 {
+            return cached.value
         }
         let value = hostSelection.flavor == .hub
-            ? try await daemon.templates(host: hostSelection.selected)
+            ? try await daemon.templates(host: host)
             : try await cli.templateList()
-        cachedTemplates = (value, clock())
+        cachedTemplates[host] = (value, clock())
         return value
     }
     func spawn(_ request: LeoSpawnRequest, attach: @escaping (LeoAgentRow, AttachDisposition) -> Void,

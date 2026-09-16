@@ -24,21 +24,23 @@ actor LeoSidebarFeed {
     private let activitySource: LeoSidebarActivitySource
     private let sink: Sink
     private let sleeper: @Sendable (UInt64) async throws -> Void
-    private var snapshot = LeoSidebarSnapshot(rows: [], connectivity: .loading, generation: 0)
-    private var activityByName: [String: LeoSidebarActivity] = [:]
+    var snapshot = LeoSidebarSnapshot(rows: [], connectivity: .loading, generation: 0)
+    var activityByName: [String: LeoSidebarActivity] = [:]
     private var bufferedActivity: [LeoObserveEvent] = []
     private var eventTask: Task<Void, Never>?
-    private var refreshTask: Task<Void, Never>?
-    private var activityTask: Task<Void, Never>?
+    var refreshTask: Task<Void, Never>?
+    var activityTask: Task<Void, Never>?
     private var emissionTask: Task<Void, Never>?
-    private var pollTask: Task<Void, Never>?
-    private var scheduler = LeoPollScheduler()
+    var pollTask: Task<Void, Never>?
+    var scheduler = LeoPollScheduler()
     private var running = false
-    private var needsState = true
+    var needsState = true
     private var recovering = false
     private var awaitingHello = false
-    private var selectedHost: LeoHostID = .local
-    private var selectedHostAvailable = true
+    var selectedHost: LeoHostID = .local
+    var selectedHostAvailable = true
+    var pollingRequested = false
+    var hostStateSink: (@MainActor @Sendable (LeoHostRow) -> Void)?
 
     init(daemon: any LeoDaemonClient, activity: LeoSidebarActivitySource, sleep: @escaping @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) }, sink: @escaping Sink) {
         self.daemon = daemon
@@ -80,18 +82,6 @@ actor LeoSidebarFeed {
         process(scheduler.reduce(.refreshRequested))
     }
 
-    func select(_ host: LeoHostID) {
-        guard host != selectedHost else { return }
-        selectedHost = host
-        selectedHostAvailable = true
-        snapshot = .init(rows: [], connectivity: .loading, generation: snapshot.generation + 1)
-        activityByName = [:]
-        needsState = true
-        refreshTask?.cancel()
-        emit()
-        refresh()
-    }
-
     func tick() {
         guard running, selectedHostAvailable else { return }
         process(scheduler.reduce(.tick))
@@ -99,6 +89,7 @@ actor LeoSidebarFeed {
 
     func setPolling(_ pollable: Bool) {
         guard running else { return }
+        pollingRequested = pollable
         process(scheduler.reduce(.sidebarVisibleCountChanged(pollable ? 1 : 0)))
     }
 
@@ -109,19 +100,7 @@ actor LeoSidebarFeed {
             guard host == selectedHost else { return }
             receive(nested)
         case .hostStateChanged(let row):
-            guard row.hostID == selectedHost else { return }
-            switch row.state {
-            case .connected, .local:
-                selectedHostAvailable = true
-                refresh()
-            case .disconnected, .error:
-                selectedHostAvailable = false
-                pollTask?.cancel()
-                snapshot = .init(rows: snapshot.rows, connectivity: .failed(message: row.error ?? "Host unavailable"), generation: snapshot.generation)
-                emit()
-            case .connecting, .unknown:
-                break
-            }
+            handleHostStateChanged(row)
         case .connected:
             guard !recovering else { return }
             awaitingHello = true
@@ -166,13 +145,14 @@ actor LeoSidebarFeed {
 
     private func startRefresh() {
         _ = scheduler.reduce(.refreshStarted)
+        let host = selectedHost
         refreshTask = Task { [weak self] in
             guard let self else { return }
-            await self.performRefresh()
+            await self.performRefresh(host: host)
         }
     }
 
-    private func performRefresh() async {
+    private func performRefresh(host: LeoHostID) async {
         var wasCancelled = false
         defer {
             if !wasCancelled { finishRefresh() }
@@ -181,8 +161,7 @@ actor LeoSidebarFeed {
         let fetchState = needsState
         needsState = false
         do {
-            let host = selectedHost
-            let rows = try await fetchList().map { Self.row($0, host: host) }
+            let rows = try await fetchList(host: host).map { Self.row($0, host: host) }
             guard running, generation == snapshot.generation else { return }
             snapshot = LeoSidebarReducers.applyListResult(snapshot, result: LeoSidebarReducers.mergeActivity(rows, activityByName: activityByName), generation: generation)
             recovering = false
@@ -190,7 +169,7 @@ actor LeoSidebarFeed {
             bufferedActivity = []
             buffered.forEach(applyActivity)
             emit()
-            if fetchState { fetchActivityState(generation: generation) }
+            if fetchState { fetchActivityState(generation: generation, host: host) }
         } catch is CancellationError {
             wasCancelled = true
         } catch {
@@ -200,13 +179,13 @@ actor LeoSidebarFeed {
         }
     }
 
-    private func fetchActivityState(generation: Int) {
+    private func fetchActivityState(generation: Int, host: LeoHostID) {
         activityTask?.cancel()
         activityTask = Task { [weak self, activitySource] in
             do {
                 let state = try await Self.fetchState(from: activitySource)
                 guard let self else { return }
-                await self.applyActivityState(state, generation: generation)
+                await self.applyActivityState(state, generation: generation, host: host)
             } catch is CancellationError {
                 return
             } catch {
@@ -215,7 +194,7 @@ actor LeoSidebarFeed {
         }
     }
 
-    private func fetchList() async throws -> [LeoAgent] {
+    private func fetchList(host: LeoHostID) async throws -> [LeoAgent] {
         let daemon = daemon
         let sleeper = sleeper
         let race = LeoListFetchRace()
@@ -224,7 +203,7 @@ actor LeoSidebarFeed {
                 race.install(continuation)
                 let listTask = Task {
                     do {
-                        race.finish(.success(try await daemon.listAgents(host: self.selectedHost)), winner: .list)
+                        race.finish(.success(try await daemon.listAgents(host: host)), winner: .list)
                     } catch {
                         race.finish(.failure(error), winner: .list)
                     }
@@ -245,9 +224,9 @@ actor LeoSidebarFeed {
         return try result.get()
     }
 
-    private func applyActivityState(_ state: [LeoObservedAgent], generation: Int) {
-        guard running, generation == snapshot.generation else { return }
-        activityByName = Self.activities(state)
+    private func applyActivityState(_ state: [LeoObservedAgent], generation: Int, host: LeoHostID) {
+        guard running, generation == snapshot.generation, host == selectedHost else { return }
+        activityByName = Self.activities(state, host: host)
         snapshot = LeoSidebarSnapshot(rows: LeoSidebarReducers.mergeActivity(snapshot.rows, activityByName: activityByName), connectivity: snapshot.connectivity, generation: generation)
         emit()
     }
@@ -279,7 +258,7 @@ actor LeoSidebarFeed {
         emit()
     }
 
-    private func emit() {
+    func emit() {
         let value = snapshot
         let previous = emissionTask
         emissionTask = Task { [weak self, sink] in
@@ -289,7 +268,7 @@ actor LeoSidebarFeed {
         }
     }
 
-    private func process(_ outputs: [LeoPollScheduler.Output]) {
+    func process(_ outputs: [LeoPollScheduler.Output]) {
         for output in outputs {
             switch output {
             case .refreshNow:
@@ -323,8 +302,14 @@ actor LeoSidebarFeed {
         LeoAgentRow(host: host, name: agent.name, template: agent.template, status: agent.status ?? .unknown("missing"), activity: .unknown, actionDetail: nil, workspace: agent.workspace, repo: agent.repo)
     }
 
-    private static func activities(_ agents: [LeoObservedAgent]) -> [String: LeoSidebarActivity] {
-        Dictionary(uniqueKeysWithValues: agents.map { ($0.name, LeoSidebarActivity(activity: activity($0.activity), detail: $0.currentAction?.detail)) })
+    private static func activities(_ agents: [LeoObservedAgent], host: LeoHostID) -> [String: LeoSidebarActivity] {
+        let expected = host == .local ? "localhost" : host.displayName
+        let filtered = agents.filter { agent in
+            agent.host == expected || (host == .local && agent.host == nil)
+        }
+        return Dictionary(filtered.map {
+            ($0.name, LeoSidebarActivity(activity: activity($0.activity), detail: $0.currentAction?.detail))
+        }, uniquingKeysWith: { _, latest in latest })
     }
 
     private static func activity(_ activity: LeoActivity?) -> LeoAgentRow.Activity {

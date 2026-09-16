@@ -35,7 +35,11 @@ import Foundation
         guard flavor == .hub else { hosts = [Self.localhost]; select(.local); return }
         do {
             hosts = try await daemon.hosts()
-            if !hosts.contains(where: { $0.hostID == selected }) { select(.local) }
+            if hosts.contains(where: { $0.hostID == selected }) {
+                installTarget(selected)
+            } else {
+                select(.local)
+            }
         } catch {
             hosts = [Self.localhost]
         }
@@ -56,7 +60,21 @@ import Foundation
     }
 
     func receive(_ row: LeoHostRow) {
-        if let index = hosts.firstIndex(where: { $0.name == row.name }) { hosts[index] = row } else { hosts.append(row) }
+        if let index = hosts.firstIndex(where: { $0.name == row.name }) {
+            let existing = hosts[index]
+            hosts[index] = LeoHostRow(
+                name: row.name,
+                local: row.local || existing.local,
+                isDefault: row.isDefault || existing.isDefault,
+                ssh: row.ssh ?? existing.ssh,
+                state: row.state,
+                error: row.error,
+                code: row.code,
+                connectedAt: row.connectedAt ?? existing.connectedAt
+            )
+        } else {
+            hosts.append(row)
+        }
     }
 
     private static let localhost = LeoHostRow(name: "localhost", local: true, state: .local)

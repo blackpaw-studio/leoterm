@@ -78,6 +78,9 @@ import Foundation
         actions = LeoAgentActions(daemon: daemon, cli: cli, model: model, hostSelection: hostSelection) { [weak feed] in
             Task { await feed?.refresh() }
         }
+        Task { [feed, weak hostSelection] in
+            await feed.observeHostStates { [weak hostSelection] row in hostSelection?.receive(row) }
+        }
         model.retryRequested = { [feed, hostSelection] in
             hostSelection.retry()
             Task { await feed.refresh() }
