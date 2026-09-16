@@ -1,0 +1,120 @@
+import Foundation
+import Testing
+
+@testable import Ghostty
+
+@MainActor struct LeoAgentPaletteModelTests {
+    private func row(_ name: String, host: LeoHostID = .local, status: LeoAgentStatus = .running, repo: String? = nil) -> LeoAgentRow {
+        LeoAgentRow(host: host, name: name, template: nil, status: status, activity: .idle, actionDetail: nil, repo: repo)
+    }
+
+    private func snapshot(_ rows: [LeoAgentRow]) -> LeoSidebarSnapshot {
+        LeoSidebarSnapshot(rows: rows, connectivity: .connected, generation: 0)
+    }
+
+    @Test func agentsAreRankedLikeSidebarWithNewAgentAndPlainShellLast() {
+        let model = LeoAgentPaletteModel()
+        model.update(
+            snapshot: snapshot([row("zed", status: .stopped), row("alpha", status: .running)]),
+            selectedHost: .local,
+            hostState: .connected(socketPath: "/tmp/leo.sock")
+        )
+
+        #expect(model.rows == [.agent(row("alpha", status: .running)), .agent(row("zed", status: .stopped)), .newAgent, .plainShell])
+    }
+
+    @Test func filterMatchesNameOrRepoCaseInsensitive() {
+        let model = LeoAgentPaletteModel()
+        model.update(
+            snapshot: snapshot([row("worker", repo: "leoterm"), row("other", repo: "ghostty")]),
+            selectedHost: .local,
+            hostState: .connected(socketPath: "/tmp/leo.sock")
+        )
+
+        model.filterText = "LEO"
+        #expect(model.rows == [.agent(row("worker", repo: "leoterm")), .newAgent, .plainShell])
+
+        model.filterText = "WORK"
+        #expect(model.rows == [.agent(row("worker", repo: "leoterm")), .newAgent, .plainShell])
+
+        model.filterText = "nomatch"
+        #expect(model.rows == [.newAgent, .plainShell])
+    }
+
+    @Test func hostIsolationOnlyShowsSelectedHostAgents() {
+        let model = LeoAgentPaletteModel()
+        model.update(
+            snapshot: snapshot([row("here", host: .local), row("there", host: .remote("work"))]),
+            selectedHost: .local,
+            hostState: .connected(socketPath: "/tmp/leo.sock")
+        )
+
+        #expect(model.rows == [.agent(row("here", host: .local)), .newAgent, .plainShell])
+    }
+
+    @Test func selectionIsPreservedAcrossRefreshByStableIdentity() {
+        let model = LeoAgentPaletteModel()
+        model.update(snapshot: snapshot([row("alpha"), row("beta")]), selectedHost: .local, hostState: .connected(socketPath: "/tmp/leo.sock"))
+        model.moveSelection(by: 1)
+        #expect(model.confirm() == .agent(row("beta").identity))
+
+        model.update(snapshot: snapshot([row("alpha"), row("beta"), row("gamma")]), selectedHost: .local, hostState: .connected(socketPath: "/tmp/leo.sock"))
+        #expect(model.confirm() == .agent(row("beta").identity))
+    }
+
+    @Test func selectionClampsWhenSelectedAgentIsRemoved() {
+        let model = LeoAgentPaletteModel()
+        model.update(snapshot: snapshot([row("alpha"), row("beta")]), selectedHost: .local, hostState: .connected(socketPath: "/tmp/leo.sock"))
+        model.moveSelection(by: 1)
+        #expect(model.confirm() == .agent(row("beta").identity))
+
+        model.update(snapshot: snapshot([row("alpha")]), selectedHost: .local, hostState: .connected(socketPath: "/tmp/leo.sock"))
+        #expect(model.confirm() == .newAgent)
+    }
+
+    @Test func connectingReplacesAgentRowsWithStatusAndDisablesNewAgent() {
+        let model = LeoAgentPaletteModel()
+        model.update(snapshot: snapshot([row("alpha")]), selectedHost: .remote("work"), hostState: .connecting)
+
+        #expect(model.rows == [.status(text: "Connecting to work…", hint: nil, canRetry: false), .newAgent, .plainShell])
+        model.moveSelection(by: 1)
+        #expect(model.confirm() == nil)
+        model.moveSelection(by: 1)
+        #expect(model.confirm() == .plainShell)
+    }
+
+    @Test func failedShowsMessageHintAndAllowsRetryButNotNewAgent() {
+        var retried = false
+        let model = LeoAgentPaletteModel(retry: { retried = true })
+        model.update(
+            snapshot: snapshot([row("alpha")]),
+            selectedHost: .remote("work"),
+            hostState: .failed(message: "Connection refused", hint: "Check the host is reachable")
+        )
+
+        #expect(model.rows == [.status(text: "Connection refused", hint: "Check the host is reachable", canRetry: true), .newAgent, .plainShell])
+        #expect(model.confirm() == nil)
+        model.moveSelection(by: 1)
+        #expect(model.confirm() == nil)
+
+        model.retryConnection()
+        #expect(retried)
+    }
+
+    @Test func cancelAlwaysReturnsCancelChoiceRegardlessOfSelection() {
+        let model = LeoAgentPaletteModel()
+        model.update(snapshot: snapshot([row("alpha")]), selectedHost: .local, hostState: .connected(socketPath: "/tmp/leo.sock"))
+        #expect(model.cancel() == .cancel)
+    }
+
+    @Test func moveSelectionClampsAtBounds() {
+        let model = LeoAgentPaletteModel()
+        model.update(snapshot: snapshot([row("alpha")]), selectedHost: .local, hostState: .connected(socketPath: "/tmp/leo.sock"))
+        model.moveSelection(by: -5)
+        #expect(model.confirm() == .agent(row("alpha").identity))
+        model.moveSelection(by: 5)
+        #expect(model.confirm() == .plainShell)
+        model.moveSelection(by: 5)
+        #expect(model.confirm() == .plainShell)
+    }
+}

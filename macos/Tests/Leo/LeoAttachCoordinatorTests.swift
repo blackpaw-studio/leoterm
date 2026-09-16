@@ -144,6 +144,117 @@ import Testing
         #expect(host.tabCalls.isEmpty)
     }
 
+    @Test func splitAlwaysOpensEvenWithLiveTab() async {
+        let host = FakeAttachTabHost()
+        let coordinator = makeCoordinator(host: host)
+        let source = UUID()
+        let tabRequest = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let splitRequest = LeoSurfaceRequest(origin: origin, disposition: .split(.right), splitSourceSurface: source)
+
+        _ = await coordinator.attach(identity: identity, request: tabRequest)
+        _ = await coordinator.attach(identity: identity, request: splitRequest)
+        _ = await coordinator.attach(identity: identity, request: splitRequest)
+
+        #expect(host.tabCalls.count == 1)
+        #expect(host.splitCalls.count == 2)
+        #expect(host.splitCalls.allSatisfy { $0.3 == source && $0.4 == .right })
+    }
+
+    @Test func splitWithoutSourceSurfaceReportsAndOpensNothing() async {
+        let host = FakeAttachTabHost()
+        var errors: [LeoAttachError] = []
+        let coordinator = makeCoordinator(host: host) { errors.append($0) }
+        let request = LeoSurfaceRequest(origin: origin, disposition: .split(.left))
+
+        let result = await coordinator.attach(identity: identity, request: request)
+
+        #expect(host.splitCalls.isEmpty)
+        #expect(errors.count == 1)
+        if case .failure = result {} else { Issue.record("expected failure") }
+    }
+
+    @Test func placeholderFillsExactlyOncePerRequest() async {
+        let host = FakeAttachTabHost()
+        let coordinator = makeCoordinator(host: host)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .placeholder)
+
+        let result = await coordinator.attach(identity: identity, request: request)
+
+        #expect(host.placeholderCalls.count == 1)
+        if case .success = result {} else { Issue.record("expected success") }
+    }
+
+    @Test func windowRequestAlwaysOpensViaSurfaceRequestAPI() async {
+        let host = FakeAttachTabHost()
+        let coordinator = makeCoordinator(host: host)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .window)
+
+        _ = await coordinator.attach(identity: identity, request: request)
+        _ = await coordinator.attach(identity: identity, request: request)
+
+        #expect(host.windowCalls.count == 2)
+    }
+
+    @Test func tabRequestReusesLiveHandle() async {
+        let host = FakeAttachTabHost()
+        let coordinator = makeCoordinator(host: host)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+
+        let first = await coordinator.attach(identity: identity, request: request)
+        let second = await coordinator.attach(identity: identity, request: request)
+
+        #expect(host.tabCalls.count == 1)
+        #expect(host.focused.count == 1)
+        if case .success(let a) = first, case .success(let b) = second { #expect(a == b) } else { Issue.record("expected success") }
+    }
+
+    @Test func openPlainShellUsesRequestDispositionWithNoIdentityBookkeeping() async {
+        let host = FakeAttachTabHost()
+        let coordinator = makeCoordinator(host: host)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+
+        let result = await coordinator.openPlainShell(request: request)
+
+        #expect(host.tabCalls.count == 1)
+        #expect(host.tabCalls.first?.0 == "")
+        if case .success = result {} else { Issue.record("expected success") }
+        // A second plain shell for the same origin/tab disposition must not
+        // reuse -- plain shells carry no identity to key reuse on.
+        _ = await coordinator.openPlainShell(request: request)
+        #expect(host.tabCalls.count == 2)
+    }
+
+    @Test func openPlainShellFailureReportsWithSentinelIdentity() async {
+        let host = FakeAttachTabHost()
+        host.openError = FakeError.failed
+        var errors: [LeoAttachError] = []
+        let coordinator = makeCoordinator(host: host) { errors.append($0) }
+        let request = LeoSurfaceRequest(origin: origin, disposition: .window)
+
+        let result = await coordinator.openPlainShell(request: request)
+
+        #expect(errors.count == 1)
+        if case .failure = result {} else { Issue.record("expected failure") }
+    }
+
+    @Test func plainShellProcessExitedThenClosedLeavesNoState() async {
+        let host = FakeAttachTabHost()
+        let coordinator = makeCoordinator(host: host)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+
+        let result = await coordinator.openPlainShell(request: request)
+        guard case .success(let handle) = result else {
+            Issue.record("expected success")
+            return
+        }
+
+        await host.emitAndWait(.processExited(handle))
+        await host.emitAndWait(.closed(handle))
+
+        #expect(coordinator.reusableHandleCount == 0)
+        #expect(coordinator.inactiveHandleCount == 0)
+    }
+
     private func makeCoordinator(
         host: FakeAttachTabHost,
         report: @escaping (LeoAttachError) -> Void = { _ in },
@@ -165,6 +276,8 @@ import Testing
     var openError: Error?
     var tabCalls: [(String, String?, LeoWindowID)] = []
     var windowCalls: [(String, String?)] = []
+    var splitCalls: [(String, String?, LeoWindowID, UUID, LeoSplitDirection)] = []
+    var placeholderCalls: [(String, String?, LeoWindowID)] = []
     var focused: [AttachmentHandle] = []
     var titles: [(AttachmentHandle, String?)] = []
     var handles: [AttachmentHandle] = []
@@ -184,6 +297,22 @@ import Testing
 
     func openWindow(command: String, workingDirectory: String?) throws -> AttachmentHandle {
         windowCalls.append((command, workingDirectory))
+        return try opened()
+    }
+
+    func openSplit(
+        command: String,
+        workingDirectory: String?,
+        origin: LeoWindowID,
+        sourceSurface: UUID,
+        direction: LeoSplitDirection
+    ) throws -> AttachmentHandle {
+        splitCalls.append((command, workingDirectory, origin, sourceSurface, direction))
+        return try opened()
+    }
+
+    func fillPlaceholder(command: String, workingDirectory: String?, origin: LeoWindowID) throws -> AttachmentHandle {
+        placeholderCalls.append((command, workingDirectory, origin))
         return try opened()
     }
 

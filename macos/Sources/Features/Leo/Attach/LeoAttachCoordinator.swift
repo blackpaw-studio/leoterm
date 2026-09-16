@@ -18,6 +18,16 @@ struct LeoAttachError: Error, Equatable, Sendable {
     }
 }
 
+private enum LeoAttachCoordinatorError: Error, LocalizedError {
+    case missingSplitSource
+
+    var errorDescription: String? {
+        switch self {
+        case .missingSplitSource: "A split request must name the surface it splits from"
+        }
+    }
+}
+
 @MainActor final class LeoAttachCoordinator {
     private let host: any AttachTabHost
     private let executable: () throws -> String
@@ -61,41 +71,104 @@ struct LeoAttachError: Error, Equatable, Sendable {
         identityByHandle.keys.filter { !inactive.contains($0) }.count
     }
 
+    /// Exposed for tests: the number of handles marked inactive (process
+    /// exited) but not yet removed (closed). A handle with no identity
+    /// (e.g. a plain shell) must never appear here -- see `receive(_:)`.
+    var inactiveHandleCount: Int { inactive.count }
+
+    /// Legacy entry point for existing attach callers (sidebar row click,
+    /// CLI-driven attach). Maps onto the `LeoSurfaceRequest`-based API below;
+    /// `.reuseOrTab` becomes `.tab` (reuse-eligible), `.newWindow` becomes
+    /// `.window` (always creates).
     func attach(identity: LeoAgentIdentity, from origin: LeoWindowID, disposition: AttachDisposition) async {
-        guard !attachInProgress.contains(identity) else { return }
+        let mapped: LeoSurfaceDisposition = disposition == .reuseOrTab ? .tab : .window
+        _ = await attach(identity: identity, request: LeoSurfaceRequest(origin: origin, disposition: mapped))
+    }
+
+    /// Core attach implementation. Only `.tab` reuses a live handle for
+    /// `identity` -- `.split`, `.window`, and `.placeholder` always create a
+    /// new destination (tmux allows multiple attached clients).
+    func attach(identity: LeoAgentIdentity, request: LeoSurfaceRequest) async -> Result<AttachmentHandle, LeoAttachError> {
+        guard !attachInProgress.contains(identity) else {
+            return .failure(.init(identity: identity, kind: .openFailed("Attach already in progress")))
+        }
         attachInProgress.insert(identity)
         defer { attachInProgress.remove(identity) }
 
         discardDeadHandles(for: identity)
-        if disposition == .reuseOrTab,
+        if request.disposition == .tab,
            let handle = handlesByIdentity[identity]?.last(where: { !inactive.contains($0) }) {
             host.focus(handle)
             moveToMostRecent(handle, identity: identity)
-            return
+            return .success(handle)
+        }
+
+        let command: String
+        do {
+            command = identity.host == .local
+                ? try LeoAttachCommand.build(executable: try executable(), identity: identity)
+                : try remoteCommandBuilder(identity)
+        } catch LeoAttachCommandError.invalidAgentName {
+            let attachError = LeoAttachError(identity: identity, kind: .invalidName)
+            report(attachError)
+            return .failure(attachError)
+        } catch {
+            let attachError = LeoAttachError(identity: identity, kind: .executable(error.localizedDescription))
+            report(attachError)
+            return .failure(attachError)
         }
 
         do {
-            let command: String
-            do {
-                command = identity.host == .local
-                    ? try LeoAttachCommand.build(executable: try executable(), identity: identity)
-                    : try remoteCommandBuilder(identity)
-            } catch LeoAttachCommandError.invalidAgentName {
-                report(.init(identity: identity, kind: .invalidName))
-                return
-            } catch {
-                report(.init(identity: identity, kind: .executable(error.localizedDescription)))
-                return
-            }
             let workingDirectory = LeoAttachCommand.workingDirectory(identity: identity)
-            let handle = try disposition == .newWindow
-                ? host.openWindow(command: command, workingDirectory: workingDirectory)
-                : host.openTab(command: command, workingDirectory: workingDirectory, from: origin)
+            let handle = try createHandle(command: command, workingDirectory: workingDirectory, request: request)
             handlesByIdentity[identity, default: []].append(handle)
             identityByHandle[handle] = identity
             host.setTitleSeed(handle, title: "\(identity.name) · \(identity.host.displayName)")
+            return .success(handle)
         } catch {
-            report(.init(identity: identity, kind: .openFailed(error.localizedDescription)))
+            let attachError = LeoAttachError(identity: identity, kind: .openFailed(error.localizedDescription))
+            report(attachError)
+            return .failure(attachError)
+        }
+    }
+
+    /// `request`'s disposition with the default (no attach command) surface
+    /// configuration -- the picker's "Plain shell" row. No identity, so no
+    /// reuse and no attach bookkeeping; always creates.
+    func openPlainShell(request: LeoSurfaceRequest) async -> Result<AttachmentHandle, LeoAttachError> {
+        do {
+            let handle = try createHandle(command: "", workingDirectory: nil, request: request)
+            return .success(handle)
+        } catch {
+            let attachError = LeoAttachError(identity: Self.plainShellIdentity, kind: .openFailed(error.localizedDescription))
+            report(attachError)
+            return .failure(attachError)
+        }
+    }
+
+    /// Sentinel identity attached to plain-shell errors. Plain shells carry
+    /// no agent identity; only `message`/`kind` are meaningful to callers.
+    private static let plainShellIdentity = LeoAgentIdentity(host: .local, name: "")
+
+    private func createHandle(command: String, workingDirectory: String?, request: LeoSurfaceRequest) throws -> AttachmentHandle {
+        switch request.disposition {
+        case .tab:
+            return try host.openTab(command: command, workingDirectory: workingDirectory, from: request.origin)
+        case .split(let direction):
+            guard let sourceSurface = request.splitSourceSurface else {
+                throw LeoAttachCoordinatorError.missingSplitSource
+            }
+            return try host.openSplit(
+                command: command,
+                workingDirectory: workingDirectory,
+                origin: request.origin,
+                sourceSurface: sourceSurface,
+                direction: direction
+            )
+        case .window:
+            return try host.openWindow(command: command, workingDirectory: workingDirectory)
+        case .placeholder:
+            return try host.fillPlaceholder(command: command, workingDirectory: workingDirectory, origin: request.origin)
         }
     }
 
@@ -103,7 +176,13 @@ struct LeoAttachError: Error, Equatable, Sendable {
         defer { lifecycleEventHandled(event) }
         switch event {
         case .closed(let handle): remove(handle)
-        case .processExited(let handle): inactive.insert(handle)
+        case .processExited(let handle):
+            // Untracked handles (e.g. a plain shell, which has no identity
+            // to key attach bookkeeping on) never enter `inactive` -- there
+            // is nothing for `.closed` to clean up afterwards, since
+            // `remove(_:)` is itself a no-op for handles with no identity.
+            guard identityByHandle[handle] != nil else { return }
+            inactive.insert(handle)
         case .titleChanged(let handle, let title):
             guard !title.isEmpty, identityByHandle[handle] != nil else { return }
             host.setTitleSeed(handle, title: nil)

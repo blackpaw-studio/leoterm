@@ -30,6 +30,24 @@ import GhosttyKit
         return try register(TerminalController.newWindow(ghostty, withBaseConfig: configuration(command: command, workingDirectory: workingDirectory)))
     }
 
+    // MARK: Leo — Task 2 replaces
+    func openSplit(
+        command: String,
+        workingDirectory: String?,
+        origin: LeoWindowID,
+        sourceSurface: UUID,
+        direction: LeoSplitDirection
+    ) throws -> AttachmentHandle {
+        assertionFailure("GhosttyAttachTabHost.openSplit is not yet implemented (Leo Task 2)")
+        throw GhosttyAttachTabHostError.notImplemented
+    }
+
+    // MARK: Leo — Task 2 replaces
+    func fillPlaceholder(command: String, workingDirectory: String?, origin: LeoWindowID) throws -> AttachmentHandle {
+        assertionFailure("GhosttyAttachTabHost.fillPlaceholder is not yet implemented (Leo Task 2)")
+        throw GhosttyAttachTabHostError.notImplemented
+    }
+
     func focus(_ handle: AttachmentHandle) {
         guard let attachment = attachments[handle], let controller = attachment.controller, let surface = attachment.surface,
               controller.surfaceTree.contains(surface), let window = controller.window else { return }
@@ -110,7 +128,7 @@ import GhosttyKit
 }
 
 private enum GhosttyAttachTabHostError: Error, LocalizedError {
-    case originWindowClosed, cannotOpenTab, noTerminalWindow, surfaceUnavailable
+    case originWindowClosed, cannotOpenTab, noTerminalWindow, surfaceUnavailable, notImplemented
 
     var errorDescription: String? {
         switch self {
@@ -118,6 +136,7 @@ private enum GhosttyAttachTabHostError: Error, LocalizedError {
         case .cannotOpenTab: "Ghostty could not open a new tab"
         case .noTerminalWindow: "No terminal window is available"
         case .surfaceUnavailable: "The new terminal surface is unavailable"
+        case .notImplemented: "Not yet implemented"
         }
     }
 }
