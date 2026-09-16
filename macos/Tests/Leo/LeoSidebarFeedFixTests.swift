@@ -102,11 +102,7 @@ struct LeoSidebarFeedFixTests {
     }
 
     private func wait(_ condition: @escaping @Sendable () async -> Bool) async throws {
-        for _ in 0..<200 {
-            if await condition() { return }
-            await Task.yield()
-        }
-        Issue.record("Condition was not satisfied")
+        await awaitCondition(condition)
     }
 }
 
@@ -125,7 +121,10 @@ private actor FeedFixDaemon: LeoDaemonClient {
             Task { await self.cancelPending() }
         }
     }
-    func resolveNext(_ result: [LeoAgent]) { waiters.removeFirst().resume(returning: .success(result)) }
+    func resolveNext(_ result: [LeoAgent]) {
+        guard !waiters.isEmpty else { return }
+        waiters.removeFirst().resume(returning: .success(result))
+    }
     private func cancelPending() {
         let pending = waiters
         waiters = []

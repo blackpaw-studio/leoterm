@@ -19,9 +19,10 @@ struct LeoSidebarFeedRecoveryTests {
         await feed.start()
         await feed.setPolling(true)
 
-        let snapshot = await recorder.snapshot { $0.rows.map(\.name) == ["alpha"] }
-        #expect(snapshot.connectivity == .connected)
-        #expect(snapshot.rows.first?.activity == .unknown)
+        await awaitCondition { await recorder.last?.rows.map(\.name) == ["alpha"] }
+        let snapshot = await recorder.last
+        #expect(snapshot?.connectivity == .connected)
+        #expect(snapshot?.rows.first?.activity == .unknown)
         await feed.stop()
     }
 
@@ -41,11 +42,11 @@ struct LeoSidebarFeedRecoveryTests {
         await feed.start()
         await feed.setPolling(true)
 
-        try await eventually { await recorder.last?.rows.map(\.name) == ["alpha"] }
+        await awaitCondition { await suspendedState.isSuspended }
+        await awaitCondition { await recorder.last?.rows.map(\.name) == ["alpha"] }
         #expect(await recorder.last?.connectivity == .connected)
-        try await eventually { await suspendedState.started }
         await feed.stop()
-        try await eventually { await suspendedState.wasCancelled }
+        await awaitCondition { await suspendedState.wasCancelled }
     }
 
     @Test @MainActor func startingAfterRegisteringVisibleSessionRefreshesImmediately() async throws {
@@ -68,11 +69,7 @@ struct LeoSidebarFeedRecoveryTests {
     }
 
     private func eventually(_ condition: @escaping @Sendable () async -> Bool) async throws {
-        for _ in 0..<40 {
-            if await condition() { return }
-            await Task.yield()
-        }
-        Issue.record("Condition was not satisfied")
+        await awaitCondition(condition)
     }
 }
 
@@ -99,29 +96,20 @@ private actor RecoveryDaemon: LeoDaemonClient {
 
 private actor RecoverySnapshotRecorder {
     private(set) var values: [LeoSidebarSnapshot] = []
-    private var waiters: [(predicate: @Sendable (LeoSidebarSnapshot) -> Bool, continuation: CheckedContinuation<LeoSidebarSnapshot, Never>)] = []
     var last: LeoSidebarSnapshot? { values.last }
-    func append(_ snapshot: LeoSidebarSnapshot) {
-        values.append(snapshot)
-        let matching = waiters.enumerated().filter { $0.element.predicate(snapshot) }.map(\.offset)
-        for index in matching.reversed() { waiters.remove(at: index).continuation.resume(returning: snapshot) }
-    }
-    func snapshot(where predicate: @escaping @Sendable (LeoSidebarSnapshot) -> Bool) async -> LeoSidebarSnapshot {
-        if let snapshot = values.last(where: predicate) { return snapshot }
-        return await withCheckedContinuation { waiters.append((predicate, $0)) }
-    }
+    func append(_ snapshot: LeoSidebarSnapshot) { values.append(snapshot) }
 }
 
 private actor SuspendedStateFetch {
     private var continuation: CheckedContinuation<Void, Error>?
-    private(set) var started = false
+    private(set) var isSuspended = false
     private(set) var wasCancelled = false
 
     func fetch() async throws {
-        started = true
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 self.continuation = continuation
+                isSuspended = true
             }
         } onCancel: {
             Task { await self.cancel() }
