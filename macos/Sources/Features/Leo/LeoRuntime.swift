@@ -30,8 +30,8 @@ import Foundation
             events: {
                 AsyncStream { continuation in
                     let task = Task {
-                        if await LeoSocketDaemonClient.detectFlavor(socketPath: socketPath) == .hub {
-                            let client = LeoHubActivityClient(socketPath: socketPath)
+                        if await LeoSocketDaemonClient.detectFlavor(socketPath: socketPath) == .socketEvents {
+                            let client = LeoSocketActivityClient(socketPath: socketPath)
                             for await event in await client.events() { continuation.yield(event) }
                             continuation.finish()
                             return
@@ -49,8 +49,8 @@ import Foundation
                 }
             },
             fetchState: {
-                if await LeoSocketDaemonClient.detectFlavor(socketPath: socketPath) == .hub {
-                    return try await LeoHubActivityClient(socketPath: socketPath).fetchState()
+                if await LeoSocketDaemonClient.detectFlavor(socketPath: socketPath) == .socketEvents {
+                    return try await LeoSocketActivityClient(socketPath: socketPath).fetchState()
                 }
                 let config = await Task.detached { LeoObserveConfigLoader.load() }.value
                 guard let config else { return [] }

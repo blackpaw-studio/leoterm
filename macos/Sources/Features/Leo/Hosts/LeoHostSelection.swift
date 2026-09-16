@@ -1,6 +1,13 @@
 import Combine
 import Foundation
 
+/// TEMPORARY (sub-round 1 of the app-owned-tunnel rewrite, see
+/// `docs/superpowers/specs/2026-09-15-leo-v2-agent-manager.md` §3.2): the
+/// daemon-owned `/hosts` hub API is gone, and app-owned SSH tunnels
+/// (`LeoTunnel`/`LeoHostStore`/`LeoSSHCommand`) aren't wired in here yet --
+/// that lands in sub-round 2. Until then, selecting or retrying any remote
+/// host synchronously marks it `.error` with no daemon or network call of
+/// any kind.
 @MainActor final class LeoHostSelection: ObservableObject {
     @Published private(set) var hosts: [LeoHostRow] = [LeoHostRow(name: "localhost", local: true, state: .local)]
     @Published private(set) var selected: LeoHostID
@@ -10,17 +17,6 @@ import Foundation
     private let defaults: UserDefaults
     private let hostStateTarget: (LeoHostRow) -> Void
     private let installTarget: (LeoHostID) -> Void
-
-    /// One in-flight connect `Task` per host name, keyed by name. A retry (or
-    /// select) for a host that's already connecting is coalesced into the
-    /// existing task instead of issuing a second `connectHost` call.
-    private var connectTasks: [String: Task<Void, Never>] = [:]
-    /// Bumped whenever a host's row is updated from any source (a connect
-    /// attempt applying its own result, or an externally-received update
-    /// such as an SSE `host_state_changed`). A connect task only applies its
-    /// outcome if the generation it captured when it started is still
-    /// current, so a slow/stale attempt can never clobber a newer update.
-    private var connectGenerations: [String: Int] = [:]
 
     init(daemon: any LeoDaemonClient, defaults: UserDefaults,
          hostStateTarget: @escaping (LeoHostRow) -> Void = { _ in },
@@ -46,93 +42,37 @@ import Foundation
 
     func start(flavor: LeoAPIFlavor) async {
         self.flavor = flavor
-        guard flavor == .hub else { hosts = [Self.localhost]; select(.local); return }
-        do {
-            hosts = try await daemon.hosts()
-            if hosts.contains(where: { $0.hostID == selected }) {
-                installTarget(selected)
-            } else {
-                select(.local)
-            }
-        } catch {
-            hosts = [Self.localhost]
-        }
+        hosts = [Self.localhost]
+        select(.local)
     }
 
     func select(_ host: LeoHostID) {
         selected = host
         defaults.set(host.displayName, forKey: "leo.selectedHost")
         installTarget(host)
-        guard case .remote(let name) = host,
-              let row = hosts.first(where: { $0.hostID == host }), row.state == .disconnected else { return }
-        connect(name)
+        guard case .remote(let name) = host else { return }
+        markUnavailable(name)
     }
 
     func retry() {
         guard case .remote(let name) = selected else { return }
-        connect(name)
+        markUnavailable(name)
     }
 
-    /// Starts (or coalesces into) the single in-flight connect attempt for
-    /// `name`. A retry/select fired while one is already running does not
-    /// issue a second `connectHost` call -- it's a no-op here, and the
-    /// already-running task's outcome applies to everyone waiting on it.
-    private func connect(_ name: String) {
-        guard connectTasks[name] == nil else { return }
-        let generation = connectGenerations[name, default: 0]
-        connectTasks[name] = Task { [weak self] in
-            await self?.attemptConnect(name, generation: generation)
-        }
-    }
-
-    /// Connects a remote host and applies the outcome immediately, instead of
-    /// discarding it: a successful row is merged in (Retry no longer depends
-    /// on an SSE host_state_changed event to reflect it), and a thrown error
-    /// marks the row as errored with the daemon's message/code so Retry can
-    /// surface it right away. The outcome is only applied -- and the feed
-    /// only notified -- if `generation` is still current for this host: if a
-    /// newer update (another connect, or an externally received row) arrived
-    /// while this one was in flight, this stale result is dropped instead of
-    /// clobbering it.
-    private func attemptConnect(_ name: String, generation: Int) async {
-        defer { connectTasks[name] = nil }
-        do {
-            let row = try await daemon.connectHost(name)
-            guard connectGenerations[name, default: 0] == generation else { return }
-            receive(row)
-            hostStateTarget(row)
-        } catch {
-            guard connectGenerations[name, default: 0] == generation else { return }
-            guard let index = hosts.firstIndex(where: { $0.name == name }) else { return }
-            let existing = hosts[index]
-            let errorRow = LeoHostRow(
-                name: existing.name,
-                local: existing.local,
-                isDefault: existing.isDefault,
-                ssh: existing.ssh,
-                state: .error,
-                error: Self.message(error),
-                code: Self.code(error),
-                connectedAt: existing.connectedAt
-            )
-            connectGenerations[name, default: 0] += 1
-            hosts[index] = errorRow
-            hostStateTarget(errorRow)
-        }
-    }
-
-    private static func message(_ error: Error) -> String {
-        if case let LeoDaemonError.daemon(_, message, _) = error { return message }
-        return error.localizedDescription
-    }
-
-    private static func code(_ error: Error) -> String? {
-        if case let LeoDaemonError.daemon(code, _, _) = error { return code }
-        return nil
+    private func markUnavailable(_ name: String) {
+        let existing = hosts.first { $0.name == name }
+        let errorRow = LeoHostRow(
+            name: name,
+            ssh: existing?.ssh,
+            state: .error,
+            error: "Remote hosts are not connected yet",
+            code: nil
+        )
+        receive(errorRow)
+        hostStateTarget(errorRow)
     }
 
     func receive(_ row: LeoHostRow) {
-        connectGenerations[row.name, default: 0] += 1
         if let index = hosts.firstIndex(where: { $0.name == row.name }) {
             let existing = hosts[index]
             hosts[index] = LeoHostRow(

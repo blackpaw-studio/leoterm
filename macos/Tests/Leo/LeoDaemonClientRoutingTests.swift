@@ -3,70 +3,86 @@ import Testing
 
 @testable import Ghostty
 
-/// Covers the flavor-aware routing bug: host-scoped daemon calls must route
-/// differently depending on whether the daemon is a legacy (0.27) or hub
-/// (0.29+) daemon, and `LeoRuntime` must actually pass the detected flavor
-/// into the concrete client it hands to the rest of the app.
+/// `LeoSocketDaemonClient` is bound to a single socket path and every route
+/// is unprefixed -- there is no more `/hosts/{n}/...` multiplexing. A
+/// host-scoped call for anything other than `.local` has nothing to route to
+/// (that's app-owned SSH tunnels' job, landing in a later sub-round) and
+/// throws `hostUnavailable` without making a request.
 struct LeoDaemonClientRoutingTests {
-    @Test func legacyLocalHostUsesUnprefixedRoute() async throws {
+    @Test func localHostUsesUnprefixedRoutes() async throws {
         let transport = RoutingRecordingTransport()
         let client = LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport, flavor: .legacy)
         _ = try await client.listAgents(host: .local)
         #expect(await transport.requests.map(\.path) == ["/agents/list"])
     }
 
-    @Test func legacyRemoteHostThrowsHubRequiredWithoutARequest() async throws {
+    @Test func remoteHostThrowsHostUnavailableWithoutARequest() async throws {
         let transport = RoutingRecordingTransport()
-        let client = LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport, flavor: .legacy)
-        await #expect(throws: LeoDaemonError.hubRequired("leo 0.29+ required for remote hosts")) {
+        let client = LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport, flavor: .socketEvents)
+        await #expect(throws: LeoDaemonError.hostUnavailable("Remote hosts are unavailable")) {
             _ = try await client.listAgents(host: .remote("work"))
         }
         #expect(await transport.requests.isEmpty)
     }
 
-    @Test func hubLocalHostUsesPrefixedRoute() async throws {
+    @Test func templatesUsesUnprefixedLocalRoute() async throws {
         let transport = RoutingRecordingTransport()
-        let client = LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport, flavor: .hub)
-        _ = try await client.listAgents(host: .local)
-        #expect(await transport.requests.map(\.path) == ["/hosts/localhost/agents/list"])
+        let client = LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport, flavor: .socketEvents)
+        _ = try await client.templates()
+        #expect(await transport.requests.map(\.path) == ["/templates"])
     }
 
-    @Test func hubRemoteHostUsesPrefixedRoute() async throws {
-        let transport = RoutingRecordingTransport()
-        let client = LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport, flavor: .hub)
-        _ = try await client.listAgents(host: .remote("x"))
-        #expect(await transport.requests.map(\.path) == ["/hosts/x/agents/list"])
+    @Test func versionUsesUnprefixedRoute() async throws {
+        let transport = RoutingRecordingTransport(body: Data(#"{"ok":true,"data":{"version":"0.29.0"}}"#.utf8))
+        let client = LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport, flavor: .socketEvents)
+        let version = try await client.version()
+        #expect(version == "0.29.0")
+        #expect(await transport.requests.map(\.path) == ["/version"])
+    }
+
+    @Test func detectFlavorRequiresOkAndAParseableVersion() async throws {
+        let socketEvents = HealthTransport(body: Data(#"{"ok":true,"data":{"version":"0.29.0"}}"#.utf8))
+        #expect(await LeoSocketDaemonClient.detectFlavor(socketPath: "/tmp/leo.sock", transport: socketEvents) == .socketEvents)
+
+        let notOK = HealthTransport(body: Data(#"{"ok":false,"data":{"version":"0.29.0"}}"#.utf8))
+        #expect(await LeoSocketDaemonClient.detectFlavor(socketPath: "/tmp/leo.sock", transport: notOK) == .legacy)
+
+        let bareOK = HealthTransport(body: Data(#"{"ok":true}"#.utf8))
+        #expect(await LeoSocketDaemonClient.detectFlavor(socketPath: "/tmp/leo.sock", transport: bareOK) == .legacy)
+
+        let unreachable = FailingTransport()
+        #expect(await LeoSocketDaemonClient.detectFlavor(socketPath: "/tmp/leo.sock", transport: unreachable) == .legacy)
     }
 
     @Test func makeClientConfiguresConstantFlavor() async throws {
         let transport = RoutingRecordingTransport()
-        let client = LeoRuntime.makeClient(socketPath: "/tmp/leo.sock", transport: transport, flavor: .hub)
-        _ = try await client.listAgents(host: .local)
-        #expect(await transport.requests.map(\.path) == ["/hosts/localhost/agents/list"])
-    }
-
-    @Test func makeClientHonorsADynamicFlavorProvider() async throws {
-        let transport = RoutingRecordingTransport()
-        let state = LeoAPIFlavorState()
-        let client = LeoRuntime.makeClient(socketPath: "/tmp/leo.sock", transport: transport, flavorProvider: { await state.current })
-
-        // Before detection resolves, the provider still reports the safe default.
+        let client = LeoRuntime.makeClient(socketPath: "/tmp/leo.sock", transport: transport, flavor: .socketEvents)
         _ = try await client.listAgents(host: .local)
         #expect(await transport.requests.map(\.path) == ["/agents/list"])
-
-        // Once the runtime records a detected hub flavor, the same client instance
-        // routes hub-style without needing to be reconstructed.
-        await state.update(.hub)
-        _ = try await client.listAgents(host: .local)
-        #expect(await transport.requests.map(\.path) == ["/agents/list", "/hosts/localhost/agents/list"])
     }
 }
 
 private actor RoutingRecordingTransport: LeoDaemonTransport {
     private(set) var requests: [LeoHTTPRequest] = []
+    private let body: Data
+
+    init(body: Data = Data(#"{"ok":true,"data":[]}"#.utf8)) { self.body = body }
 
     func send(_ request: LeoHTTPRequest, socketPath _: String, timeout _: TimeInterval) async throws -> LeoHTTPResponse {
         requests.append(request)
-        return LeoHTTPResponse(status: 200, body: Data(#"{"ok":true,"data":[]}"#.utf8))
+        return LeoHTTPResponse(status: 200, body: body)
+    }
+}
+
+private struct HealthTransport: LeoDaemonTransport {
+    let body: Data
+    func send(_: LeoHTTPRequest, socketPath _: String, timeout _: TimeInterval) async throws -> LeoHTTPResponse {
+        LeoHTTPResponse(status: 200, body: body)
+    }
+}
+
+private struct FailingTransport: LeoDaemonTransport {
+    func send(_: LeoHTTPRequest, socketPath _: String, timeout _: TimeInterval) async throws -> LeoHTTPResponse {
+        throw LeoDaemonError.transport("unreachable")
     }
 }

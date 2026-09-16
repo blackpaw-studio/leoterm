@@ -43,7 +43,7 @@ import Foundation
         if let cached = cachedTemplates[host], clock().timeIntervalSince(cached.fetchedAt) < 60 {
             return cached.value
         }
-        let value = hostSelection.flavor == .hub
+        let value = hostSelection.flavor == .socketEvents
             ? try await daemon.templates(host: host)
             : try await cli.templateList()
         cachedTemplates[host] = (value, clock())

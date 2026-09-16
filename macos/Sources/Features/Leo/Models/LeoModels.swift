@@ -61,20 +61,6 @@ struct LeoTemplate: Codable, Equatable, Identifiable, Sendable {
     var id: String { name }
 }
 
-struct LeoHost: Codable, Equatable, Identifiable, Sendable {
-    let name: String
-    let ssh: String?
-    let isDefault: Bool?
-    let local: Bool?
-
-    var id: String { name }
-
-    enum CodingKeys: String, CodingKey {
-        case name, ssh, local
-        case isDefault = "default"
-    }
-}
-
 enum LeoHostState: Codable, Equatable, Sendable {
     case local, connecting, connected, disconnected, error
     case unknown(String)
@@ -201,7 +187,6 @@ enum LeoDaemonError: Error, Equatable, Sendable {
     case socketMissing(path: String)
     case hostUnavailable(String)
     case hostUnknown(String)
-    case hubRequired(String)
 }
 
 struct LeoSpawnRequest: Codable, Equatable, Sendable {

@@ -12,9 +12,7 @@ protocol LeoDaemonClient: Sendable {
     func delete(_ name: String, force: Bool?, deleteBranch: Bool?) async throws
     func deletePlan(_ name: String) async throws -> LeoDeletePlan
     func logs(_ name: String, lines: Int?) async throws -> String
-    func hosts() async throws -> [LeoHostRow]
-    func connectHost(_ name: String) async throws -> LeoHostRow
-    func disconnectHost(_ name: String) async throws -> LeoHostRow
+    func templates() async throws -> [LeoTemplate]
     func templates(host: LeoHostID) async throws -> [LeoTemplate]
     func version() async throws -> String
     func listAgents(host: LeoHostID) async throws -> [LeoAgent]
@@ -30,15 +28,21 @@ protocol LeoDaemonClient: Sendable {
     func logs(_ name: String, host: LeoHostID, lines: Int?) async throws -> String
 }
 
+/// Default host-scoped implementations: every daemon socket now represents
+/// exactly one host (no more `/hosts/{n}/...` multiplexing), so any call
+/// scoped to a non-local host simply has nothing to route to yet -- app-owned
+/// SSH tunnels (see `LeoHostSelection`) are what will eventually give a
+/// remote host its own socket path and its own `LeoDaemonClient` instance.
 extension LeoDaemonClient {
-    func hosts() async throws -> [LeoHostRow] { throw LeoDaemonError.transport("Remote hosts are unavailable") }
-    func connectHost(_: String) async throws -> LeoHostRow { throw LeoDaemonError.transport("Remote hosts are unavailable") }
-    func disconnectHost(_: String) async throws -> LeoHostRow { throw LeoDaemonError.transport("Remote hosts are unavailable") }
-    func templates(host _: LeoHostID) async throws -> [LeoTemplate] { throw LeoDaemonError.transport("Daemon templates are unavailable") }
+    func templates() async throws -> [LeoTemplate] { throw LeoDaemonError.transport("Daemon templates are unavailable") }
+    func templates(host: LeoHostID) async throws -> [LeoTemplate] {
+        try requireLocal(host)
+        return try await templates()
+    }
     func version() async throws -> String { throw LeoDaemonError.transport("Daemon version is unavailable") }
 
     private func requireLocal(_ host: LeoHostID) throws {
-        guard host == .local else { throw LeoDaemonError.hostUnavailable("Remote hosts are unavailable in legacy mode") }
+        guard host == .local else { throw LeoDaemonError.hostUnavailable("Remote hosts are unavailable") }
     }
     func listAgents(host: LeoHostID) async throws -> [LeoAgent] { try requireLocal(host); return try await listAgents() }
     func spawn(_ request: LeoSpawnRequest, host: LeoHostID) async throws -> LeoAgent { try requireLocal(host); return try await spawn(request) }
@@ -57,6 +61,9 @@ protocol LeoDaemonTransport: Sendable {
     func send(_ request: LeoHTTPRequest, socketPath: String, timeout: TimeInterval) async throws -> LeoHTTPResponse
 }
 
+/// Bound to a single unix socket -- every route is unprefixed. Remote hosts
+/// get their own socket path (an app-owned SSH tunnel) and their own
+/// `LeoSocketDaemonClient` instance rather than a `/hosts/{n}/...` prefix.
 struct LeoSocketDaemonClient: LeoDaemonClient {
     let socketPath: String
     let defaultTimeout: TimeInterval
@@ -79,98 +86,55 @@ struct LeoSocketDaemonClient: LeoDaemonClient {
         self.flavorProvider = flavorProvider
     }
 
-    /// The flavor to route with for this call. Prefers a dynamic `flavorProvider`
-    /// (used when the flavor is detected asynchronously after construction) and
-    /// falls back to the constant `flavor` supplied at init.
-    private func currentFlavor() async -> LeoAPIFlavor {
-        if let flavorProvider { return await flavorProvider() }
-        return flavor
-    }
-
     func listAgents() async throws -> [LeoAgent] { try await value("GET", "/agents/list") }
     func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent { try await value("POST", "/agents/spawn", body: try JSONEncoder().encode(request), timeout: mutationTimeout) }
-    func start(_ name: String) async throws { try await okay("POST", try await route(name, "start")) }
+    func start(_ name: String) async throws { try await okay("POST", try route(name, "start")) }
     func stop(_ name: String, wakeOnMessage: Bool? = nil) async throws {
         let body = try wakeOnMessage.map { try JSONEncoder().encode(["wake_on_message": $0]) }
-        try await okay("POST", try await route(name, "stop"), body: body)
+        try await okay("POST", try route(name, "stop"), body: body)
     }
-    func restart(_ name: String) async throws -> LeoAgent { try await value("POST", try await route(name, "restart")) }
-    func reset(_ name: String) async throws { try await okay("POST", try await route(name, "reset")) }
+    func restart(_ name: String) async throws -> LeoAgent { try await value("POST", try route(name, "restart")) }
+    func reset(_ name: String) async throws { try await okay("POST", try route(name, "reset")) }
     func setTemplate(_ name: String, template: String) async throws {
         let query = try URLQueryItem(name: "template", value: template).percentEncodedValue()
-        try await okay("POST", try await route(name, "set-template") + "?template=" + query)
+        try await okay("POST", try route(name, "set-template") + "?template=" + query)
     }
-    func rename(_ name: String, newName: String) async throws -> LeoAgent { try await value("POST", try await route(name, "rename"), body: try JSONEncoder().encode(["new_name": newName])) }
+    func rename(_ name: String, newName: String) async throws -> LeoAgent { try await value("POST", try route(name, "rename"), body: try JSONEncoder().encode(["new_name": newName])) }
     func delete(_ name: String, force: Bool? = nil, deleteBranch: Bool? = nil) async throws {
         var values: [String: Bool] = [:]
         if let force { values["force"] = force }
         if let deleteBranch { values["delete_branch"] = deleteBranch }
-        try await okay("DELETE", try await route(name), body: values.isEmpty ? nil : try JSONEncoder().encode(values), timeout: mutationTimeout)
+        try await okay("DELETE", try route(name), body: values.isEmpty ? nil : try JSONEncoder().encode(values), timeout: mutationTimeout)
     }
-    func deletePlan(_ name: String) async throws -> LeoDeletePlan { try await value("GET", try await route(name, "delete-plan")) }
+    func deletePlan(_ name: String) async throws -> LeoDeletePlan { try await value("GET", try route(name, "delete-plan")) }
     func logs(_ name: String, lines: Int? = nil) async throws -> String {
         let suffix = lines.map { "?lines=\($0)" } ?? ""
         struct Logs: Decodable, Sendable { let output: String }
-        return try await value("GET", try await route(name, "logs") + suffix, as: Logs.self).output
+        return try await value("GET", try route(name, "logs") + suffix, as: Logs.self).output
     }
 
-    func hosts() async throws -> [LeoHostRow] { try await value("GET", "/hosts") }
-    func connectHost(_ name: String) async throws -> LeoHostRow { try await value("POST", "/hosts/\(try Self.pathSegment(name))/connect") }
-    func disconnectHost(_ name: String) async throws -> LeoHostRow { try await value("POST", "/hosts/\(try Self.pathSegment(name))/disconnect") }
-    func templates(host: LeoHostID) async throws -> [LeoTemplate] { try await value("GET", try await routedPath("/templates", host: host)) }
+    func templates() async throws -> [LeoTemplate] { try await value("GET", "/templates") }
     func version() async throws -> String {
         struct Version: Decodable, Sendable { let version: String }
         return try await value("GET", "/version", as: Version.self).version
     }
 
-    func listAgents(host: LeoHostID) async throws -> [LeoAgent] { try await value("GET", try await routedPath("/agents/list", host: host)) }
-    func spawn(_ request: LeoSpawnRequest, host: LeoHostID) async throws -> LeoAgent { try await value("POST", try await routedPath("/agents/spawn", host: host), body: try JSONEncoder().encode(request), timeout: mutationTimeout) }
-    func start(_ name: String, host: LeoHostID) async throws { try await okay("POST", try await route(name, "start", host: host)) }
-    func stop(_ name: String, host: LeoHostID, wakeOnMessage: Bool?) async throws { try await okay("POST", try await route(name, "stop", host: host), body: try wakeOnMessage.map { try JSONEncoder().encode(["wake_on_message": $0]) }) }
-    func restart(_ name: String, host: LeoHostID) async throws -> LeoAgent { try await value("POST", try await route(name, "restart", host: host)) }
-    func reset(_ name: String, host: LeoHostID) async throws { try await okay("POST", try await route(name, "reset", host: host)) }
-    func setTemplate(_ name: String, host: LeoHostID, template: String) async throws { try await okay("POST", try await route(name, "set-template", host: host) + "?template=" + URLQueryItem(name: "template", value: template).percentEncodedValue()) }
-    func rename(_ name: String, host: LeoHostID, newName: String) async throws -> LeoAgent { try await value("POST", try await route(name, "rename", host: host), body: try JSONEncoder().encode(["new_name": newName])) }
-    func delete(_ name: String, host: LeoHostID, force: Bool?, deleteBranch: Bool?) async throws { var values: [String: Bool] = [:]; if let force { values["force"] = force }; if let deleteBranch { values["delete_branch"] = deleteBranch }; try await okay("DELETE", try await route(name, host: host), body: values.isEmpty ? nil : try JSONEncoder().encode(values), timeout: mutationTimeout) }
-    func deletePlan(_ name: String, host: LeoHostID) async throws -> LeoDeletePlan { try await value("GET", try await route(name, "delete-plan", host: host)) }
-    func logs(_ name: String, host: LeoHostID, lines: Int?) async throws -> String { struct Logs: Decodable, Sendable { let output: String }; return try await value("GET", try await route(name, "logs", host: host) + (lines.map { "?lines=\($0)" } ?? ""), as: Logs.self).output }
-
+    /// Detects the flavor of the daemon on `socketPath` from `GET /health`.
+    /// Validates both the HTTP status (`send` already throws on a non-2xx/
+    /// unparseable response) and the envelope's `ok` flag -- a `{ok:false}`
+    /// (or a response that fails to parse) is always treated as `.legacy`.
     static func detectFlavor(socketPath: String = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath,
                              transport: any LeoDaemonTransport = LeoUnixSocketTransport()) async -> LeoAPIFlavor {
-        struct Health: Decodable { struct Data: Decodable { let version: String }; let data: Data }
+        struct Health: Decodable { let ok: Bool; struct Data: Decodable { let version: String }; let data: Data? }
         guard let response = try? await transport.send(.init(method: "GET", path: "/health"), socketPath: socketPath, timeout: 5),
-              let health = try? JSONDecoder().decode(Health.self, from: response.body) else { return .legacy }
-        return .select(version: health.data.version)
+              let health = try? JSONDecoder().decode(Health.self, from: response.body),
+              health.ok, let data = health.data else { return .legacy }
+        return .select(version: data.version)
     }
 
-    private func route(_ name: String, _ action: String? = nil, host: LeoHostID? = nil) async throws -> String {
+    private func route(_ name: String, _ action: String? = nil) throws -> String {
         let segment = try Self.pathSegment(name)
-        let suffix = "/agents/\(segment)" + (action.map { "/\($0)" } ?? "")
-        guard let host else { return suffix }
-        return try await routedPath(suffix, host: host)
-    }
-
-    /// Routes a host-scoped path per the daemon's API flavor. Legacy daemons only
-    /// understand unprefixed paths for the local host and have no remote-host
-    /// concept at all; hub daemons prefix every host, including localhost.
-    private func routedPath(_ suffix: String, host: LeoHostID) async throws -> String {
-        switch await currentFlavor() {
-        case .legacy:
-            guard host == .local else {
-                throw LeoDaemonError.hubRequired("leo 0.29+ required for remote hosts")
-            }
-            return suffix
-        case .hub:
-            return try hostPrefix(host) + suffix
-        }
-    }
-
-    private func hostPrefix(_ host: LeoHostID) throws -> String {
-        let name = switch host {
-        case .local: "localhost"
-        case .remote(let name): name
-        }
-        return "/hosts/\(try Self.pathSegment(name))"
+        return "/agents/\(segment)" + (action.map { "/\($0)" } ?? "")
     }
 
     static func pathSegment(_ name: String) throws -> String {

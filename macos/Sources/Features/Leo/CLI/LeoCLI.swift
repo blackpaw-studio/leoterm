@@ -52,10 +52,6 @@ struct LeoCLI: Sendable {
         try decode(try await run(["template", "list", "--json"]), as: [LeoTemplate].self)
     }
 
-    func hostList() async throws -> [LeoHost] {
-        try decode(try await run(["host", "list", "--json"]), as: [LeoHost].self)
-    }
-
     private func run(_ arguments: [String]) async throws -> Data {
         let result = try await runner.run(executable: try resolveExecutable(), arguments: arguments, timeout: 30)
         guard result.status == 0 else {
