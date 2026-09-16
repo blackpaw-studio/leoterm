@@ -29,6 +29,29 @@ enum LeoAttachActivation {
     }
 }
 
+struct LeoRowActionAvailability {
+    let start: Bool
+    let stop: Bool
+    let restart: Bool
+    let setTemplate: Bool
+    let rename: Bool
+    let delete: Bool
+    let attach: Bool
+    let logs: Bool
+
+    init(status: LeoAgentStatus, isPending: Bool) {
+        let editable = !isPending && (status == .stopped || status == .running)
+        start = !isPending && status == .stopped
+        stop = !isPending && status == .running
+        restart = !isPending && status == .running
+        setTemplate = editable
+        rename = editable
+        delete = editable
+        attach = !isPending
+        logs = !isPending
+    }
+}
+
 struct LeoAgentRowView: View {
     let row: LeoAgentRow
     let isSelected: Bool
@@ -43,6 +66,11 @@ struct LeoAgentRowView: View {
     @State private var showingDelete = false
     @State private var forceDelete = false
     @State private var deleteBranch = false
+    @State private var templateLoadError: String?
+
+    private var availability: LeoRowActionAvailability {
+        LeoRowActionAvailability(status: row.status, isPending: actions.pendingActions.contains(row.id))
+    }
 
     var body: some View {
         HStack(spacing: 8) {
@@ -52,6 +80,7 @@ struct LeoAgentRowView: View {
                 .onTapGesture(count: 2) { activate(source: .rowDoubleClick) }
             Button("Attach") { activate(source: .button) }
                 .buttonStyle(.borderless)
+                .disabled(!availability.attach)
                 .accessibilityLabel("Attach to \(row.name)")
         }
         .contentShape(Rectangle())
@@ -123,11 +152,15 @@ struct LeoAgentRowView: View {
     }
 
     @ViewBuilder private var menu: some View {
-        Button("Attach") { activate(source: .button) }
-        if row.status == .running { Button("Stop") { actions.stop(row) } } else { Button("Start") { actions.start(row) } }
-        Button("Restart") { actions.restart(row) }
+        Button("Attach") { activate(source: .button) }.disabled(!availability.attach)
+        Button("Start") { actions.start(row) }.disabled(!availability.start)
+        Button("Stop") { actions.stop(row) }.disabled(!availability.stop)
+        Button("Restart") { actions.restart(row) }.disabled(!availability.restart)
         Menu("Set Template") {
-            ForEach(templates) { template in
+            if let templateLoadError {
+                Text("Templates unavailable: \(templateLoadError)")
+            } else {
+                ForEach(templates) { template in
                 Button { actions.setTemplate(row, template: template.name) } label: {
                     HStack {
                         Text(template.name)
@@ -135,19 +168,32 @@ struct LeoAgentRowView: View {
                     }
                 }
             }
+            }
         }
-        .task { templates = (try? await actions.templates()) ?? [] }
-        Button("Rename…") { renameValue = row.name; showingRename = true }
-        Button("View Logs") { viewLogs() }
+        .disabled(!availability.setTemplate)
+        .task {
+            do { templates = try await actions.templates() } catch { templateLoadError = error.localizedDescription }
+        }
+        Button("Rename…") { renameValue = row.name; showingRename = true }.disabled(!availability.rename)
+        Button("View Logs") { viewLogs() }.disabled(!availability.logs)
         Divider()
-        Button("Delete…", role: .destructive) { requestDeletePlan() }
+        Button("Delete…", role: .destructive) { requestDeletePlan() }.disabled(!availability.delete)
     }
 
     private func viewLogs() {
-        guard let controller = NSApp.keyWindow?.windowController as? TerminalController,
-              let path = try? (NSApp.delegate as? AppDelegate)?.leoRuntime.resolveExecutablePath(),
-              let command = try? "\(leoShellQuote(path)) agent logs -f \(leoShellQuote(row.name))" else { return }
-        LeoCommandLauncher.openTab(in: controller, command: command)
+        guard let controller = NSApp.keyWindow?.windowController as? TerminalController else {
+            actions.setRowError("No terminal window available", for: row)
+            return
+        }
+        do {
+            guard let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime else {
+                throw LeoDaemonError.transport("Leo runtime unavailable")
+            }
+            let command = try LeoLogsCommand.build(executablePath: runtime.resolveExecutablePath(), agentName: row.name)
+            LeoCommandLauncher.openTab(in: controller, command: command)
+        } catch {
+            actions.setRowError(error.localizedDescription, for: row)
+        }
     }
 
     private var renameSheet: some View {

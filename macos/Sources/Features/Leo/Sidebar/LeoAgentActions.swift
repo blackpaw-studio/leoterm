@@ -57,6 +57,10 @@ import Foundation
         }
     }
 
+    func setRowError(_ message: String, for row: LeoAgentRow) {
+        model.setRowError(message, for: row.id)
+    }
+
     private func run(_ row: LeoAgentRow, refreshOnSuccess: Bool = true, success: @escaping () -> Void = {},
                      operation: @escaping @MainActor () async throws -> Void) {
         guard pendingActions.insert(row.id).inserted else { return }

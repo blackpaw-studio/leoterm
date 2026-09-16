@@ -26,6 +26,31 @@ struct LeoSidebarChromeTests {
         #expect(LeoSidebarMenuState.state(isSidebarVisible: false) == .off)
     }
 
+    @Test func newAgentMenuRequiresLeoSession() {
+        #expect(LeoSidebarMenuState.canCreateAgent(hasLeoSession: true))
+        #expect(!LeoSidebarMenuState.canCreateAgent(hasLeoSession: false))
+    }
+
+    @Test func logsCommandQuotesExecutableAndAgentName() throws {
+        #expect(try LeoLogsCommand.build(executablePath: "/leo", agentName: "-n") == "'/leo' agent logs -f -- '-n'")
+        #expect(try LeoLogsCommand.build(executablePath: "/leo's", agentName: "a'b") == "'/leo'\\''s' agent logs -f -- 'a'\\''b'")
+    }
+
+    @Test(arguments: [
+        (LeoAgentStatus.stopped, false, true, false, false),
+        (LeoAgentStatus.running, false, false, true, true),
+        (LeoAgentStatus.starting, false, false, false, false),
+        (LeoAgentStatus.running, true, false, false, false)
+    ]) func rowActionAvailability(status: LeoAgentStatus, pending: Bool, start: Bool, stop: Bool, restart: Bool) {
+        let availability = LeoRowActionAvailability(status: status, isPending: pending)
+        #expect(availability.start == start)
+        #expect(availability.stop == stop)
+        #expect(availability.restart == restart)
+        #expect(availability.setTemplate == (!pending && (status == .stopped || status == .running)))
+        #expect(availability.rename == (!pending && (status == .stopped || status == .running)))
+        #expect(availability.delete == (!pending && (status == .stopped || status == .running)))
+    }
+
     @Test func shellQuoteHandlesHostileInputs() throws {
         #expect(try leoShellQuote("") == "''")
         #expect(try leoShellQuote("plain value") == "'plain value'")
