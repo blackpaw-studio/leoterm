@@ -44,6 +44,13 @@ struct LeoObserveTests {
         #expect(config?.enabled == false)
     }
 
+    @Test func parsesYAMLBooleanEnabledValues() {
+        #expect(LeoObserveConfigLoader.parseWeb("web:\n  enabled: no")?.enabled == false)
+        #expect(LeoObserveConfigLoader.parseWeb("web:\n  enabled: False")?.enabled == false)
+        #expect(LeoObserveConfigLoader.parseWeb("web:\n  enabled: on")?.enabled == true)
+        #expect(LeoObserveConfigLoader.parseWeb("web:\n  enabled: garbage")?.enabled == false)
+    }
+
     @Test func ipv6BindUsesBracketedURL() throws {
         let url = try #require(LeoObserveConfigLoader.baseURL(bind: "::1", port: 8370))
         #expect(url.absoluteString == "http://[::1]:8370")

@@ -31,7 +31,7 @@ enum LeoObserveConfigLoader {
             let key = fields[0]
             let value = fields[1].trimmingCharacters(in: .whitespaces).split(separator: "#")[0].trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
             switch key {
-            case "enabled": enabled = value != "false"
+            case "enabled": enabled = enabledValue(value)
             case "port": port = Int(value) ?? 8370
             case "bind": bind = value
             default: break
@@ -46,5 +46,12 @@ enum LeoObserveConfigLoader {
         components.host = bind.contains(":") ? "[\(bind)]" : bind
         components.port = port
         return components.url
+    }
+
+    private static func enabledValue(_ value: String) -> Bool {
+        switch value {
+        case "true", "True", "TRUE", "yes", "Yes", "on", "On": true
+        default: false
+        }
     }
 }
