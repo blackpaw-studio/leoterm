@@ -56,7 +56,7 @@ import Foundation
             },
             report: { [weak model] error in
                 let id = LeoAgentRow.ID(host: error.identity.host, name: error.identity.name)
-                model?.setRowError(id, message: error.message)
+                model?.setRowError(error.message, for: id)
             }
         )
         feed = LeoSidebarFeed(daemon: daemon, activity: activitySource) { [weak model] snapshot in

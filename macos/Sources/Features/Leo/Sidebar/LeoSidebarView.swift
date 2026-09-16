@@ -25,7 +25,11 @@ struct LeoSidebarView: View {
         .padding(.horizontal, 10)
         .padding(.bottom, 10)
         .background(.bar)
-        .sheet(isPresented: $showingSpawn) { SpawnAgentSheet(model: model, actions: actions) }
+        .sheet(isPresented: $showingSpawn) {
+            SpawnAgentSheet(model: model, actions: actions) { row, disposition in
+                model.attachRequested(row, windowID, disposition)
+            }
+        }
     }
 
     @ViewBuilder private var content: some View {

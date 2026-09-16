@@ -15,7 +15,7 @@ enum SpawnValidation {
     }
     static func spawn(template: String?, repo: String, name: String?, pathExists: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }) -> String? {
         guard let template, !template.isEmpty else { return "Template is required" }
-        guard !repo.isEmpty, pathExists(repo) else { return "Choose an existing repository" }
+        guard repo.isEmpty || pathExists(repo) else { return "Choose an existing repository" }
         return name.flatMap { Self.name($0) }
     }
 }

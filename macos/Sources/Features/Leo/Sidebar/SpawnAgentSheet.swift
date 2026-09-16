@@ -4,14 +4,15 @@ import SwiftUI
 struct SpawnAgentSheet: View {
     @ObservedObject var sidebar: LeoSidebarModel
     @ObservedObject var actions: LeoAgentActions
+    private let attach: (LeoAgentRow, AttachDisposition) -> Void
     @StateObject private var model: SpawnAgentModel
     @Environment(\.dismiss) private var dismiss
 
     private let chooseDirectory: () -> String?
 
-    init(model: LeoSidebarModel, actions: LeoAgentActions,
+    init(model: LeoSidebarModel, actions: LeoAgentActions, attach: @escaping (LeoAgentRow, AttachDisposition) -> Void,
          chooseDirectory: @escaping () -> String? = SpawnAgentSheet.openPanel) {
-        sidebar = model; self.actions = actions
+        sidebar = model; self.actions = actions; self.attach = attach
         _model = StateObject(wrappedValue: SpawnAgentModel(cli: actions.cliForSpawn))
         self.chooseDirectory = chooseDirectory
     }
@@ -36,7 +37,7 @@ struct SpawnAgentSheet: View {
     }
     private func spawn() {
         let request = LeoSpawnRequest(template: model.template, repo: model.repo, name: model.name.isEmpty ? nil : model.name, branch: model.branch.isEmpty ? nil : model.branch, prompt: model.prompt.isEmpty ? nil : model.prompt)
-        actions.spawn(request, attach: sidebar.attachRequested, dismiss: { dismiss() }, failure: model.setError)
+        actions.spawn(request, attach: attach, dismiss: { dismiss() }, failure: model.setError)
     }
 
     private static func openPanel() -> String? {

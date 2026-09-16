@@ -20,7 +20,10 @@ import Foundation
         }
     }
     var validationError: String? {
-        SpawnValidation.spawn(template: template, repo: repo, name: name.isEmpty ? nil : name)
+        if !template.isEmpty, !templates.contains(where: { $0.name == template }) {
+            return "Choose an available template"
+        }
+        return SpawnValidation.spawn(template: template, repo: repo, name: name.isEmpty ? nil : name)
     }
 
     func setError(_ value: String) { error = value }
