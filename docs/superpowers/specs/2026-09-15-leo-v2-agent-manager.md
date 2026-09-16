@@ -44,11 +44,15 @@ Unix socket `~/.leo/state/leo.sock`, HTTP/1.1, no auth. Routes used: `GET /agent
 
 Activity (`working|idle|unknown`, `current_action`) comes from the observability SSE endpoint (`web.bind:port`, bearer `~/.leo/state/api.token`). Activity is an overlay: if the endpoint is unreachable the list still works with status only, and rows show no activity dot.
 
-### 3.2 Hosts
-- Picker lists `localhost` plus `leo host list --json`. Selection is app-wide (one host at a time), persisted in `UserDefaults`.
-- Selecting a remote host starts `leo host forward <name> --json`, reads the `{socket,host,pid}` first line, and points the socket client at it. Switching hosts or quitting sends SIGTERM to the forward. A forward that exits unexpectedly marks the host offline in the picker with a Retry action.
-- Attach on a remote host runs `leo --host <name> agent attach <agent>`. SSH prompts (host key, passphrase) appear in that terminal, never behind a spinner.
-- Remote activity uses the host's observability URL only if leo.yaml provides one for that host; otherwise status only.
+### 3.2 Hosts (revised 2026-09-16: daemon-owned connections)
+
+Remote hosts are Evan's main use case and must need zero manual setup. The GUI therefore never manages SSH processes or sockets. The **local leo daemon is the hub**: it owns one connection per configured host (reusing the `leo host forward` internals), reconnects with backoff, and proxies management, templates, and activity for every host through the single local socket `~/.leo/state/leo.sock`. Requested from the Leo agent on 2026-09-16; contract to be pinned when it ships:
+- `GET /hosts` → `[{name, local, default, state: local|connecting|connected|disconnected|error, error?}]`; `POST /hosts/{name}/connect|disconnect` (idempotent). Connect failures are fast and typed (`ssh_auth_required`, `ssh_host_key_unknown`) with a stderr tail; the GUI then tells the user to run `ssh <host>` once in a terminal tab.
+- Proxied routes `/hosts/{name}/agents/...` and `/hosts/{name}/templates`, identical semantics to the local routes; connection problems are `503 host_unavailable`. `/hosts/localhost/...` works so the GUI has one code path.
+- `GET /events` (SSE) and `GET /state` on the unix socket, every event/agent tagged with `host`, plus `host_state_changed` events. No TCP observability, no bearer token, no per-host observability URL.
+- Attach is unchanged: a terminal tab running `env -u TMUX -u TMUX_PANE '<leo>' agent attach --host '<name>' -- '<agent>'`; SSH prompts stay visible in the tab.
+
+GUI consequences: the host picker lists `GET /hosts` with connection state and a Retry (= `connect`) action; selecting a host only changes the path prefix and the feed generation. No forward manager, no socket repointing, no process lifecycle in the app. The old branch `feat/m6-hosts` (GUI-managed forwards) is abandoned except for salvageable picker UI.
 
 ### 3.3 Attach
 - Action: double-click a row, Return on a selected row, or the row's Attach button. Opens a **new tab in the current window** with the surface command set to the attach argv (structured arguments, no shell string). ⌥-attach opens a new window instead.
