@@ -6,6 +6,7 @@ struct LeoPollScheduler {
         case windowOcclusionChanged(Bool)
         case appHiddenChanged(Bool)
         case sseEvent(LeoObserveEvent)
+        case refreshRequested
         case tick
         case refreshStarted
         case refreshFinished
@@ -38,6 +39,8 @@ struct LeoPollScheduler {
         case .tick:
             guard canPoll else { return [] }
             return requestRefresh() + [.scheduleTick(after: 2)]
+        case .refreshRequested:
+            return requestRefresh()
         case .sseEvent(let event):
             guard event.requiresRefresh else { return [] }
             return requestRefresh()

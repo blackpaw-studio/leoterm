@@ -30,8 +30,6 @@ actor LeoSidebarFeed {
     private var pollTask: Task<Void, Never>?
     private var scheduler = LeoPollScheduler()
     private var running = false
-    private var refreshing = false
-    private var refreshPending = false
     private var needsState = true
     private var recovering = false
 
@@ -63,11 +61,11 @@ actor LeoSidebarFeed {
         refreshTask = nil
         activityTask = nil
         pollTask = nil
-        refreshing = false
-        refreshPending = false
     }
 
-    func refresh() { requestRefresh(recovering: false) }
+    func refresh() { process(scheduler.reduce(.refreshRequested)) }
+
+    func tick() { process(scheduler.reduce(.tick)) }
 
     func setPolling(_ pollable: Bool) {
         guard running else { return }
@@ -78,9 +76,10 @@ actor LeoSidebarFeed {
         guard running else { return }
         switch event {
         case .connected, .hello, .gap, .snapshot:
-            requestRefresh(recovering: true)
+            prepareRecovery()
+            process(scheduler.reduce(.sseEvent(event)))
         case .agentSpawned, .agentStateChanged, .agentStopped:
-            requestRefresh(recovering: false)
+            process(scheduler.reduce(.sseEvent(event)))
         case .agentActivity:
             if recovering { bufferedActivity.append(event) } else { applyActivity(event) }
         case .disconnected:
@@ -97,16 +96,14 @@ actor LeoSidebarFeed {
         }
     }
 
-    private func requestRefresh(recovering shouldRecover: Bool) {
-        guard running else { return }
-        if shouldRecover {
-            snapshot = LeoSidebarSnapshot(rows: snapshot.rows, connectivity: snapshot.connectivity, generation: snapshot.generation + 1)
-            activityByName = [:]
-            recovering = true
-            needsState = true
-        }
-        guard !refreshing else { refreshPending = true; return }
-        refreshing = true
+    private func prepareRecovery() {
+        snapshot = LeoSidebarSnapshot(rows: snapshot.rows, connectivity: snapshot.connectivity, generation: snapshot.generation + 1)
+        activityByName = [:]
+        recovering = true
+        needsState = true
+    }
+
+    private func startRefresh() {
         _ = scheduler.reduce(.refreshStarted)
         refreshTask = Task { await self.performRefresh() }
     }
@@ -168,13 +165,8 @@ actor LeoSidebarFeed {
     }
 
     private func finishRefresh() {
-        refreshing = false
         refreshTask = nil
         process(scheduler.reduce(.refreshFinished))
-        if refreshPending {
-            refreshPending = false
-            requestRefresh(recovering: false)
-        }
     }
 
     private func applyActivity(_ event: LeoObserveEvent) {
@@ -194,7 +186,7 @@ actor LeoSidebarFeed {
         for output in outputs {
             switch output {
             case .refreshNow:
-                requestRefresh(recovering: false)
+                startRefresh()
             case .scheduleTick(let interval):
                 pollTask?.cancel()
                 pollTask = Task {

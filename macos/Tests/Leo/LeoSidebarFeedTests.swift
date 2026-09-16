@@ -157,6 +157,23 @@ struct LeoSidebarFeedTests {
         #expect(snapshots.isEmpty)
     }
 
+    @Test func tickAndRefreshDuringInflightRequestScheduleOneFollowUp() async throws {
+        let daemon = FakeDaemonClient()
+        let recorder = SnapshotRecorder()
+        let feed = makeFeed(daemon: daemon, recorder: recorder)
+
+        await feed.start(); await feed.setPolling(true)
+        try await eventually { await daemon.listCallCount == 1 }
+        await feed.tick()
+        await feed.refresh()
+        await daemon.resolveNext(.success([agent("alpha")]))
+        try await eventually { await daemon.listCallCount == 2 }
+        await daemon.resolveNext(.success([agent("bravo")]))
+        try await Task.sleep(nanoseconds: 20_000_000)
+        #expect(await daemon.listCallCount == 2)
+        await feed.stop()
+    }
+
     private func makeFeed(daemon: FakeDaemonClient, activity: FakeActivitySource = .init(), recorder: SnapshotRecorder) -> LeoSidebarFeed {
         LeoSidebarFeed(daemon: daemon, activity: .init(events: { await activity.events() }, fetchState: { await activity.fetchState() })) { snapshot in
             Task { await recorder.append(snapshot) }
