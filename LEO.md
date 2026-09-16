@@ -27,3 +27,17 @@ DEVELOPER_DIR=/Applications/Xcode-26.3.0.app/Contents/Developer \
   -derivedDataPath build/DD CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
   ENABLE_HARDENED_RUNTIME=NO
 ```
+
+## Running the Swift tests
+
+From `macos/`, run the prebuilt unit-test target against the pinned Mac
+destination:
+
+```bash
+DEVELOPER_DIR=/Applications/Xcode-26.3.0.app/Contents/Developer \
+  /opt/homebrew/bin/timeout 600 xcodebuild test-without-building \
+  -project Ghostty.xcodeproj -scheme Ghostty \
+  -destination 'platform=macOS,arch=arm64,id=00006040-001A10663400801C' \
+  -derivedDataPath build/DD -skipUnavailableActions \
+  -parallel-testing-enabled NO -only-testing:GhosttyTests
+```
