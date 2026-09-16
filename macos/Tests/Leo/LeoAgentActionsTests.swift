@@ -109,6 +109,21 @@ import Testing
         #expect(box.value?.branch == "branch")
     }
 
+    @Test func templateCacheIsScopedToSelectedHost() async throws {
+        let daemon = ActionDaemon()
+        let selection = LeoHostSelection(daemon: daemon, defaults: UserDefaults(suiteName: UUID().uuidString) ?? .standard) { _ in }
+        await selection.start(flavor: .hub)
+        let actions = LeoAgentActions(
+            daemon: daemon, cli: testCLI(), model: LeoSidebarModel(),
+            hostSelection: selection, refresh: {}
+        )
+
+        #expect(try await actions.templates().map(\.name) == ["localhost-template"])
+        selection.select(.remote("work"))
+        #expect(try await actions.templates().map(\.name) == ["work-template"])
+        #expect(await daemon.templateHosts == [.local, .remote("work")])
+    }
+
     private func testRow() -> LeoAgentRow {
         LeoAgentRow(host: .local, name: "alpha", template: "default", status: .running, activity: .unknown, actionDetail: nil)
     }
@@ -127,6 +142,7 @@ private actor ActionDaemon: LeoDaemonClient {
     private let suspendSpawn: Bool
     private var startWaiter: CheckedContinuation<Void, Never>?
     private var spawnWaiter: CheckedContinuation<Void, Never>?
+    private(set) var templateHosts: [LeoHostID] = []
 
     init(error: LeoDaemonError? = nil, suspendStart: Bool = false, suspendSpawn: Bool = false) {
         self.error = error
@@ -149,6 +165,13 @@ private actor ActionDaemon: LeoDaemonClient {
     func delete(_ name: String, force: Bool?, deleteBranch: Bool?) async throws { calls.append("delete:\(name):\(force ?? false):\(deleteBranch ?? false)"); try fail() }
     func deletePlan(_ name: String) async throws -> LeoDeletePlan { calls.append("plan:\(name)"); try fail(); return LeoDeletePlan(name: name, hasWorktree: true, branch: "branch", worktreePath: "/work") }
     func logs(_ name: String, lines: Int?) async throws -> String { "" }
+    func hosts() -> [LeoHostRow] {
+        [.init(name: "localhost", local: true, state: .local), .init(name: "work", state: .connected)]
+    }
+    func templates(host: LeoHostID) -> [LeoTemplate] {
+        templateHosts.append(host)
+        return [.init(name: "\(host.displayName)-template", model: nil, agent: nil, workspace: nil)]
+    }
     func resumeStart() { startWaiter?.resume(); startWaiter = nil }
     func resumeSpawn() { spawnWaiter?.resume(); spawnWaiter = nil }
     private func fail() throws { if let error { throw error } }

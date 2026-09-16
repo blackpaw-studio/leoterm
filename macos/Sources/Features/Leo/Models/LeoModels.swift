@@ -75,6 +75,67 @@ struct LeoHost: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
+enum LeoHostState: Codable, Equatable, Sendable {
+    case local, connecting, connected, disconnected, error
+    case unknown(String)
+
+    init(from decoder: Decoder) throws {
+        switch try decoder.singleValueContainer().decode(String.self) {
+        case "local": self = .local
+        case "connecting": self = .connecting
+        case "connected": self = .connected
+        case "disconnected": self = .disconnected
+        case "error": self = .error
+        case let value: self = .unknown(value)
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        let value = switch self {
+        case .local: "local"
+        case .connecting: "connecting"
+        case .connected: "connected"
+        case .disconnected: "disconnected"
+        case .error: "error"
+        case .unknown(let value): value
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(value)
+    }
+}
+
+struct LeoHostRow: Codable, Equatable, Identifiable, Sendable {
+    let name: String
+    let local: Bool
+    let isDefault: Bool
+    let ssh: String?
+    let state: LeoHostState
+    let error: String?
+    let code: String?
+    let connectedAt: String?
+
+    var id: String { name }
+    var hostID: LeoHostID { local || name == "localhost" ? .local : .remote(name) }
+
+    enum CodingKeys: String, CodingKey {
+        case name, local, ssh, state, error, code
+        case isDefault = "default"
+        case connectedAt = "connected_at"
+    }
+
+    init(name: String, local: Bool = false, isDefault: Bool = false, ssh: String? = nil,
+         state: LeoHostState, error: String? = nil, code: String? = nil, connectedAt: String? = nil) {
+        self.name = name
+        self.local = local
+        self.isDefault = isDefault
+        self.ssh = ssh
+        self.state = state
+        self.error = error
+        self.code = code
+        self.connectedAt = connectedAt
+    }
+}
+
 struct LeoForwardInfo: Codable, Equatable, Sendable {
     let socket: String
     let host: String
@@ -138,6 +199,9 @@ enum LeoDaemonError: Error, Equatable, Sendable {
     case timeout
     case decoding(String)
     case socketMissing(path: String)
+    case hostUnavailable(String)
+    case hostUnknown(String)
+    case hubRequired(String)
 }
 
 struct LeoSpawnRequest: Codable, Equatable, Sendable {

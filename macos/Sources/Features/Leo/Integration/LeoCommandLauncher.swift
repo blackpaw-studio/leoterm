@@ -5,6 +5,10 @@ enum LeoCommandLauncher {
         try "\(leoShellQuote(executablePath)) service start"
     }
 
+    static func sshHintCommand(target: String) throws -> String {
+        try "ssh \(leoShellQuote(target))"
+    }
+
     static func configuration(command: String) -> Ghostty.SurfaceConfiguration {
         var configuration = Ghostty.SurfaceConfiguration()
         configuration.command = command

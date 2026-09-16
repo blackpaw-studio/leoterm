@@ -10,6 +10,7 @@ struct LeoPollScheduler {
         case tick
         case refreshStarted
         case refreshFinished
+        case refreshCancelled
     }
 
     enum Output: Equatable, Sendable { case refreshNow, scheduleTick(after: TimeInterval), pause, resume }
@@ -40,6 +41,10 @@ struct LeoPollScheduler {
         case .windowOcclusionChanged(let value): occluded = value
         case .appHiddenChanged(let value): appHidden = value
         case .refreshStarted: refreshInFlight = true; return []
+        case .refreshCancelled:
+            refreshInFlight = false
+            refreshPending = false
+            return []
         case .refreshFinished:
             refreshInFlight = false
             guard refreshPending else { return [] }
@@ -71,7 +76,8 @@ private extension LeoObserveEvent {
     var requiresRefresh: Bool {
         switch self {
         case .agentSpawned, .agentStateChanged, .agentStopped, .connected, .gap, .snapshot, .hello: true
-        case .agentActivity, .disconnected: false
+        case .hosted(_, let event): event.requiresRefresh
+        case .agentActivity, .disconnected, .hostStateChanged: false
         }
     }
 }

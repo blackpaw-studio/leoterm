@@ -11,6 +11,7 @@ import Foundation
     var attachRequested: (LeoAgentRow, LeoWindowID, AttachDisposition) -> Void = { _, _, _ in }
     var startDaemonRequested: () -> Void = {}
     var retryRequested: () -> Void = {}
+    var sshRequested: (String) -> Void = { _ in }
 
     init(snapshot: LeoSidebarSnapshot = .init(rows: [], connectivity: .loading, generation: 0)) { self.snapshot = snapshot }
 
