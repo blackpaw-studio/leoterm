@@ -137,6 +137,38 @@ import Testing
         #expect(calls.first?.arguments == expectedArguments)
     }
 
+    /// Actions capture `daemon` and the selection's `generationToken`
+    /// synchronously at invocation, not at execution: a request already in
+    /// flight against host A's socket must never be silently redirected to
+    /// B's, and its completion (refresh) must be dropped once the selection
+    /// has moved on.
+    @Test func actionCapturesDaemonAtInvocationAndDropsStaleCompletionAfterASelectionChange() async throws {
+        let daemonA = GatedActionDaemon()
+        let suiteDefaults = UserDefaults(suiteName: UUID().uuidString) ?? .standard
+        let selection = LeoHostSelection(store: LeoHostStore(defaults: suiteDefaults), defaults: suiteDefaults)
+        await selection.start(flavor: .socketEvents)
+        var refreshes = 0
+        let actions = LeoAgentActions(daemon: daemonA, cli: testCLI(), model: LeoSidebarModel(), hostSelection: selection, refresh: { refreshes += 1 })
+        let row = testRow()
+
+        actions.stop(row)
+        await awaitCondition { await daemonA.stopCallCount == 1 }
+
+        // The selection moves on (to an unconfigured remote host, which
+        // fails synchronously but still bumps the generation) WHILE the
+        // stop request against A is still in flight. `updateDaemon` is not
+        // called here on purpose: the point is that `run()` already
+        // captured `daemonA` before this happened, so the in-flight request
+        // stays bound to it regardless.
+        selection.select(.remote("unconfigured"))
+
+        await daemonA.release()
+        for _ in 0..<50 { await Task.yield() }
+
+        #expect(await daemonA.stopCallCount == 1, "the captured daemon must be the one that actually received the request")
+        #expect(refreshes == 0, "a stale completion after the selection moved on must not trigger a refresh")
+    }
+
     private func testRow() -> LeoAgentRow {
         LeoAgentRow(host: .local, name: "alpha", template: "default", status: .running, activity: .unknown, actionDetail: nil)
     }
@@ -181,6 +213,29 @@ private actor ActionDaemon: LeoDaemonClient {
     func resumeSpawn() { spawnWaiter?.resume(); spawnWaiter = nil }
     private func fail() throws { if let error { throw error } }
     private var agent: LeoAgent { LeoAgent(name: "alpha", template: "default", repo: nil, workspace: nil, branch: nil, canonicalPath: nil, status: .running, startedAt: nil, restarts: nil, stoppedReason: nil, wakeOnMessage: nil) }
+}
+
+private actor GatedActionDaemon: LeoDaemonClient {
+    private(set) var stopCallCount = 0
+    private var waiter: CheckedContinuation<Void, Never>?
+
+    func stop(_ name: String, wakeOnMessage: Bool?) async throws {
+        stopCallCount += 1
+        await withCheckedContinuation { waiter = $0 }
+    }
+
+    func release() { waiter?.resume(); waiter = nil }
+
+    func listAgents() async throws -> [LeoAgent] { [] }
+    func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent { fatalError() }
+    func start(_ name: String) async throws { fatalError() }
+    func restart(_ name: String) async throws -> LeoAgent { fatalError() }
+    func reset(_ name: String) async throws { fatalError() }
+    func setTemplate(_ name: String, template: String) async throws { fatalError() }
+    func rename(_ name: String, newName: String) async throws -> LeoAgent { fatalError() }
+    func delete(_ name: String, force: Bool?, deleteBranch: Bool?) async throws { fatalError() }
+    func deletePlan(_ name: String) async throws -> LeoDeletePlan { fatalError() }
+    func logs(_ name: String, lines: Int?) async throws -> String { fatalError() }
 }
 
 private actor TemplateSSHRunner: LeoProcessRunning {

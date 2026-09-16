@@ -305,9 +305,9 @@ actor LeoSidebarFeed {
                 startRefresh()
             case .scheduleTick(let interval):
                 pollTask?.cancel()
-                pollTask = Task { [weak self] in
+                pollTask = Task { [weak self, sleeper] in
                     do {
-                        try await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
+                        try await sleeper(UInt64(interval * 1_000_000_000))
                     } catch is CancellationError {
                         return
                     } catch {

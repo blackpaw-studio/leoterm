@@ -38,6 +38,16 @@ extension LeoSidebarFeed {
         switch phase {
         case .connecting:
             selectedHostAvailable = false
+            // Pause the scheduler explicitly (not just guard on
+            // `selectedHostAvailable` in `tick()`/`refresh()`): a poll tick
+            // that lands while connecting would otherwise return without
+            // rescheduling `pollTask`, permanently killing periodic polling
+            // even after a later `.connected` -- since nothing would ever
+            // call `.scheduleTick` again. `.connected` below explicitly
+            // resumes (and reschedules) via the same `sidebarVisibleCountChanged`
+            // transition.
+            process(scheduler.reduce(.sidebarVisibleCountChanged(0)))
+            pollTask?.cancel()
             if isNewConnection { emit() }
         case .connected(let daemon, let activitySource):
             self.daemon = daemon

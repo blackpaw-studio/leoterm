@@ -7,6 +7,7 @@ struct LeoSidebarView: View {
     @ObservedObject var actions: LeoAgentActions
     @ObservedObject private var hostSelection: LeoHostSelection
     @State private var showingSpawn = false
+    @State private var hostsSheetModel: LeoHostsSheetModel?
 
     init(model: LeoSidebarModel, windowID: LeoWindowID, actions: LeoAgentActions) {
         self.model = model
@@ -31,6 +32,8 @@ struct LeoSidebarView: View {
                     Divider()
                     Button("Retry") { hostSelection.retry() }
                 }
+                Divider()
+                Button("Manage Hosts…") { hostsSheetModel = hostSelection.makeHostsSheetModel() }
             } label: {
                 Text(hostSelection.selected.displayName)
             }
@@ -52,6 +55,9 @@ struct LeoSidebarView: View {
             SpawnAgentSheet(model: model, actions: actions) { row, disposition in
                 model.attachRequested(row, windowID, disposition)
             }
+        }
+        .sheet(item: $hostsSheetModel) { sheetModel in
+            LeoHostsSheet(model: sheetModel) { hostsSheetModel = nil }
         }
     }
 

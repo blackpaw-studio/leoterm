@@ -47,6 +47,83 @@ import Testing
 
         #expect(runtime.hostSelection.state == stateAfterShutdown, "select() after shutdown() must be a no-op")
     }
+
+    /// `applyConnected`'s flavor-detection `await` is the one place a stale
+    /// async build could install over a newer state. Gates that SECOND
+    /// `/health` call (the tunnel's own readiness probe is call #1, which
+    /// always succeeds immediately) so the test can force the exact
+    /// interleaving: the tunnel connects, THEN dies (publishing `.failed`
+    /// for the SAME generation) WHILE flavor detection is still parked, and
+    /// only then is the gate released.
+    @Test func failureDuringGatedFlavorDetectionStaysFailedAndIsNeverOverwritten() async throws {
+        let pidFile = LeoHostSelectionTestSupport.tempFile()
+        LeoTunnelTestSupport.setEnvironment("FAKE_SSH_PID_FILE", pidFile)
+        defer { LeoTunnelTestSupport.setEnvironment("FAKE_SSH_PID_FILE", nil) }
+
+        let configuration = LeoHostConfiguration(name: "work", sshTarget: "evan@work", remoteSocketPath: "/remote/leo.sock")
+        let defaults = UserDefaults(suiteName: "LeoRuntimeConnectionTests.\(UUID().uuidString)") ?? .standard
+        if let data = try? JSONEncoder().encode([configuration]) { defaults.set(data, forKey: LeoHostStore.key) }
+        let transport = SequenceGatedHealthTransport()
+        let daemon = RuntimeTestDaemon()
+        let activitySource = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
+        let runtime = LeoRuntime(
+            daemon: daemon, cli: LeoCLI(), activitySource: activitySource, defaults: defaults,
+            hostConnectionTransport: transport,
+            hostSelectionSSHExecutable: LeoTunnelTestSupport.fixtureURL()
+        )
+
+        await runtime.hostSelection.start(flavor: .socketEvents)
+        runtime.hostSelection.select(.remote("work"))
+        let pid = try await LeoHostSelectionTestSupport.awaitPID(pidFile)
+        await awaitCondition(message: "flavor detection never reached the gate") { await transport.callCount >= 2 }
+
+        _ = Darwin.kill(pid, SIGKILL)
+        await awaitCondition(message: "never reached .failed after the tunnel died") {
+            let state = await runtime.hostSelection.state
+            if case .failed = state { return true }
+            return false
+        }
+
+        await transport.open()
+        for _ in 0..<50 { await Task.yield() }
+
+        guard case .failed = runtime.hostSelection.state else {
+            Issue.record("expected .failed to persist, got \(runtime.hostSelection.state)")
+            return
+        }
+        if case .failed = runtime.model.snapshot.connectivity {
+        } else {
+            Issue.record("stale flavor-detection result overwrote the feed's failed connectivity: \(runtime.model.snapshot.connectivity)")
+        }
+
+        runtime.shutdown()
+    }
+}
+
+/// Answers the FIRST `/health` call (the tunnel's own readiness probe)
+/// immediately; every call after that (flavor detection) parks until
+/// `open()` is called.
+private actor SequenceGatedHealthTransport: LeoDaemonTransport {
+    private(set) var callCount = 0
+    private var isOpen = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func send(_: LeoHTTPRequest, socketPath _: String, timeout _: TimeInterval) async throws -> LeoHTTPResponse {
+        callCount += 1
+        if callCount == 1 {
+            return LeoHTTPResponse(status: 200, body: Data(#"{"ok":true}"#.utf8))
+        }
+        if !isOpen {
+            await withCheckedContinuation { waiters.append($0) }
+        }
+        return LeoHTTPResponse(status: 200, body: Data(#"{"ok":true,"data":{"version":"0.29.0"}}"#.utf8))
+    }
+
+    func open() {
+        isOpen = true
+        waiters.forEach { $0.resume() }
+        waiters = []
+    }
 }
 
 private actor RuntimeTestDaemon: LeoDaemonClient {

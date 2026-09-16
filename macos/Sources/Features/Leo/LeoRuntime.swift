@@ -13,11 +13,15 @@ import Foundation
     private let orphanStore: LeoTunnelOrphanStore
     private let localDaemon: any LeoDaemonClient
     private let localActivitySource: LeoSidebarActivitySource
-    /// The highest `generation` any connection-state update has carried so
-    /// far. `applyConnected`'s per-connection resource building (flavor
-    /// detection, socket clients) is async; this guards against a stale
-    /// build finishing after a newer selection has already superseded it.
-    private var latestKnownGeneration = 0
+    private let hostConnectionTransport: any LeoDaemonTransport
+    /// Bumped on EVERY `connectionTarget` transition (connecting/connected/
+    /// failed) AND on `shutdown()` -- never just when `generation` changes.
+    /// `LeoHostSelection.generation` alone is not enough to guard
+    /// `applyConnected`'s async resource build: a `.failed` published for
+    /// the SAME generation as a `.connecting` that's still mid-flavor-
+    /// detection would otherwise leave the stale `.connected` build free to
+    /// install over it once its `await` finally resolves.
+    private var connectionSequence = 0
 
     /// Pure composition helper: builds a socket daemon client bound to one
     /// socket path. Kept free of runtime/async state so it can be constructed
@@ -40,11 +44,17 @@ import Foundation
         self.init(daemon: daemon, cli: cli, activitySource: LeoSidebarActivitySource(client: activity), defaults: defaults)
     }
 
-    init(daemon: any LeoDaemonClient, cli: LeoCLI, activitySource: LeoSidebarActivitySource, defaults: UserDefaults = .standard) {
+    init(
+        daemon: any LeoDaemonClient, cli: LeoCLI, activitySource: LeoSidebarActivitySource, defaults: UserDefaults = .standard,
+        hostConnectionTransport: any LeoDaemonTransport = LeoUnixSocketTransport(),
+        hostSelectionRunner: any LeoProcessRunning = LeoProcessRunner(),
+        hostSelectionSSHExecutable: URL = URL(fileURLWithPath: "/usr/bin/ssh")
+    ) {
         self.cli = cli
         self.defaults = defaults
         localDaemon = daemon
         localActivitySource = activitySource
+        self.hostConnectionTransport = hostConnectionTransport
         let orphanStore = LeoTunnelOrphanStore(defaults: defaults)
         self.orphanStore = orphanStore
         let model = LeoSidebarModel()
@@ -56,6 +66,9 @@ import Foundation
         let hostSelection = LeoHostSelection(
             store: LeoHostStore(defaults: defaults),
             defaults: defaults,
+            runner: hostSelectionRunner,
+            sshExecutable: hostSelectionSSHExecutable,
+            transport: hostConnectionTransport,
             orphanStore: orphanStore,
             connectionTarget: { host, generation, state in
                 weakSelf?.applyConnection(host: host, generation: generation, state: state)
@@ -131,6 +144,7 @@ import Foundation
         }
     }
     func shutdown() {
+        connectionSequence += 1
         hostSelection.shutdown()
         Task { await feed.stop() }
     }
@@ -153,14 +167,15 @@ import Foundation
     /// `.connected` needs to build the per-connection daemon/activity
     /// resources first (see `applyConnected`).
     private func applyConnection(host: LeoHostID, generation: Int, state: LeoHostConnectionState) {
-        latestKnownGeneration = max(latestKnownGeneration, generation)
+        connectionSequence += 1
+        let mySequence = connectionSequence
         switch state {
         case .connecting:
             Task { [weak feed] in await feed?.updateConnection(host: host, generation: generation, phase: .connecting) }
         case .failed(let message, _):
             Task { [weak feed] in await feed?.updateConnection(host: host, generation: generation, phase: .failed(message: message)) }
         case .connected(let socketPath):
-            Task { [weak self] in await self?.applyConnected(host: host, generation: generation, socketPath: socketPath) }
+            Task { [weak self] in await self?.applyConnected(host: host, generation: generation, socketPath: socketPath, sequence: mySequence) }
         }
     }
 
@@ -168,10 +183,12 @@ import Foundation
     /// -- reusing the precomputed local ones for `.local`, or a fresh
     /// per-socket client (with its own flavor detection) for a remote host
     /// -- and only then wires them into the feed and agent actions. Guarded
-    /// against `latestKnownGeneration`: if a newer selection has already
-    /// superseded this one by the time flavor detection (the only await in
-    /// this path) completes, the stale result is discarded.
-    private func applyConnected(host: LeoHostID, generation: Int, socketPath: String) async {
+    /// against `connectionSequence`, captured as `sequence` BEFORE the only
+    /// `await` in this path (flavor detection): if ANY newer transition
+    /// (connecting, connected, or failed -- not just a generation change)
+    /// has since been observed, this stale result is discarded rather than
+    /// installed over whatever's current now.
+    private func applyConnected(host: LeoHostID, generation: Int, socketPath: String, sequence: Int) async {
         let daemon: any LeoDaemonClient
         let activitySource: LeoSidebarActivitySource
         if host == .local {
@@ -179,7 +196,7 @@ import Foundation
             activitySource = localActivitySource
         } else {
             daemon = LeoSocketDaemonClient(socketPath: socketPath)
-            let remoteFlavor = await LeoSocketDaemonClient.detectFlavor(socketPath: socketPath)
+            let remoteFlavor = await LeoSocketDaemonClient.detectFlavor(socketPath: socketPath, transport: hostConnectionTransport)
             activitySource = remoteFlavor == .socketEvents
                 ? LeoSidebarActivitySource(
                     events: { await LeoSocketActivityClient(socketPath: socketPath).events() },
@@ -187,7 +204,7 @@ import Foundation
                   )
                 : LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
         }
-        guard generation == latestKnownGeneration else { return }
+        guard sequence == connectionSequence else { return }
         actions.updateDaemon(daemon)
         await feed.updateConnection(host: host, generation: generation, phase: .connected(daemon: daemon, activitySource: activitySource))
     }

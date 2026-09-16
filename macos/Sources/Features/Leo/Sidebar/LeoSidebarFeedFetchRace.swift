@@ -9,8 +9,20 @@ final class LeoListFetchRace: @unchecked Sendable {
     private var deadlineTask: Task<Void, Never>?
     private var finished = false
 
+    /// If `cancel()`/`finish()` already ran (e.g. the surrounding Task was
+    /// cancelled before `withCheckedContinuation`'s body even got to install
+    /// its continuation), `finished` is already `true` and nothing else will
+    /// ever resume this continuation -- resume it immediately with
+    /// cancellation instead of leaking it (and hanging the caller) forever.
     func install(_ continuation: CheckedContinuation<Result<[LeoAgent], Error>, Never>) {
-        lock.withLock { self.continuation = continuation }
+        let alreadyFinished = lock.withLock { () -> Bool in
+            guard !finished else { return true }
+            self.continuation = continuation
+            return false
+        }
+        if alreadyFinished {
+            continuation.resume(returning: .failure(CancellationError()))
+        }
     }
 
     func install(listTask: Task<Void, Never>, deadlineTask: Task<Void, Never>) {

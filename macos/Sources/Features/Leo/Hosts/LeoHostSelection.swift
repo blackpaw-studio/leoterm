@@ -85,11 +85,46 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
 
     var legacyTooltip: String? { flavor == .legacy ? "leo 0.29+ required for remote hosts" : nil }
 
+    /// Monotonic token bumped by every `select()`/`retry()`/`shutdown()`.
+    /// Callers that capture a value, do async work, then want to know "did
+    /// the selection move on while I was working" (e.g. `LeoAgentActions`
+    /// dropping a stale completion) compare against this.
+    var generationToken: Int { generation }
+
     /// The configuration backing the currently selected remote host, if any
     /// -- used by the UI for e.g. the "Open SSH" hint action.
     var selectedConfiguration: LeoHostConfiguration? {
         guard case .remote(let name) = selected else { return nil }
         return hosts.first { $0.name == name }
+    }
+
+    /// Reloads `hosts` from disk after the Hosts editor sheet saves. If the
+    /// currently selected remote host was removed, falls back to localhost;
+    /// if its configuration changed (any field), re-selects it (tearing
+    /// down and reconnecting with the new settings); if unchanged, this is
+    /// a no-op beyond refreshing `hosts` (so newly added/removed hosts still
+    /// show up in the picker immediately).
+    func reloadHostsAfterEdit() {
+        guard case .remote(let name) = selected else {
+            hosts = store.load()
+            return
+        }
+        let previous = hosts.first { $0.name == name }
+        hosts = store.load()
+        guard let updated = hosts.first(where: { $0.name == name }) else {
+            select(.local)
+            return
+        }
+        if let previous, previous != updated {
+            select(.remote(name))
+        }
+    }
+
+    /// Builds a fresh `LeoHostsSheetModel` for the Hosts editor sheet, wired
+    /// to reload this selection's hosts (and, if needed, re-select) once
+    /// the sheet saves.
+    func makeHostsSheetModel() -> LeoHostsSheetModel {
+        LeoHostsSheetModel(store: store) { [weak self] in self?.reloadHostsAfterEdit() }
     }
 
     func start(flavor: LeoAPIFlavor) async {
@@ -140,17 +175,23 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
     func shutdown() {
         generation += 1
         isShutDown = true
-        if let record = currentOrphanRecord {
-            orphanStore.clear(matching: record)
-            currentOrphanRecord = nil
-        }
         let barrier = beginTeardown()
         let semaphore = DispatchSemaphore(value: 0)
         Task.detached {
             await barrier.value
             semaphore.signal()
         }
-        _ = semaphore.wait(timeout: .now() + 3)
+        let result = semaphore.wait(timeout: .now() + 3)
+        // Only clear the orphan record once the tunnel's exit is CONFIRMED
+        // (the barrier resolved within the bound): on a timeout the process
+        // may still be alive, and clearing the record now would make the
+        // NEXT launch's `reapAtLaunch` blind to it. `tunnel.onExit` (fired
+        // whenever the process actually does exit, however late) clears it
+        // independently either way.
+        if result == .success, let record = currentOrphanRecord {
+            orphanStore.clear(matching: record)
+            currentOrphanRecord = nil
+        }
     }
 
     /// Chains a new teardown onto whatever teardown is already in flight

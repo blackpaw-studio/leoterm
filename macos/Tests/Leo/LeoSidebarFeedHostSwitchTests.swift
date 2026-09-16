@@ -148,10 +148,78 @@ struct LeoSidebarFeedHostSwitchTests {
         await feed.stop()
     }
 
+    /// A poll tick landing while `.connecting` used to return (via the
+    /// `selectedHostAvailable` guard in `tick()`) WITHOUT rescheduling
+    /// `pollTask` -- so once reconnected, periodic polling stayed dead
+    /// forever even with unchanged visibility. Verifies the scheduler is
+    /// explicitly paused on `.connecting` and explicitly resumed
+    /// (rescheduling the next tick) on `.connected`.
+    @Test func pollingResumesAfterConnectingRatherThanStayingDeadForever() async throws {
+        let clock = LeoGatedSleepClock()
+        let daemon = LeoStaticListDaemon(agents: [Self.agent("a")])
+        let recorder = LeoSnapshotRecorder()
+        let feed = LeoSidebarFeed(
+            daemon: daemon, activity: Self.emptyActivity, sleep: { try await clock.sleep($0) },
+            sink: { snapshot in Task { await recorder.append(snapshot) } }
+        )
+
+        await feed.start()
+        await feed.setInitialPolling(true)
+        await feed.updateConnection(host: .remote("work"), generation: 1, phase: .connecting)
+        await feed.updateConnection(host: .remote("work"), generation: 1, phase: .connected(daemon: daemon, activitySource: Self.emptyActivity))
+
+        await awaitCondition(message: "initial refresh never happened") { await daemon.callCount >= 1 }
+        await awaitCondition(message: "poll tick was never scheduled") { await clock.waiterCount >= 1 }
+
+        await clock.advance()
+        await awaitCondition(message: "first rescheduled tick never refreshed") { await daemon.callCount >= 2 }
+        await awaitCondition(message: "poll tick was never rescheduled after firing") { await clock.waiterCount >= 1 }
+
+        await clock.advance()
+        await awaitCondition(message: "second rescheduled tick never refreshed") { await daemon.callCount >= 3 }
+
+        await feed.stop()
+    }
+
     private static let emptyActivity = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
 
     private static func agent(_ name: String) -> LeoAgent {
         .init(name: name, template: "default", repo: nil, workspace: nil, branch: nil, canonicalPath: nil, status: .running, startedAt: nil, restarts: nil, stoppedReason: nil, wakeOnMessage: nil)
+    }
+}
+
+/// A controllable stand-in for `LeoSidebarFeed`'s injectable `sleep`, used
+/// here to gate the poll scheduler's `.scheduleTick` waits so a test can
+/// deterministically fire exactly one "tick" at a time.
+private actor LeoGatedSleepClock {
+    private var waiters: [UUID: CheckedContinuation<Void, Error>] = [:]
+    var waiterCount: Int { waiters.count }
+
+    /// `fetchList()`'s own 5s deadline race ALSO uses the feed's injected
+    /// `sleeper` -- so this must be cancellation-aware (removing its
+    /// continuation the instant that deadline task is cancelled, e.g.
+    /// because the list call itself already won the race) or a cancelled
+    /// deadline task's parked continuation would leak forever, silently
+    /// inflating `waiterCount` with stale entries `advance()` could
+    /// mistakenly resume instead of the real scheduled tick.
+    func sleep(_ nanoseconds: UInt64) async throws {
+        let id = UUID()
+        try await withTaskCancellationHandler(
+            operation: {
+                try await withCheckedThrowingContinuation { waiters[id] = $0 }
+            },
+            onCancel: { Task { await self.cancelWaiter(id) } }
+        )
+    }
+
+    private func cancelWaiter(_ id: UUID) {
+        waiters.removeValue(forKey: id)?.resume(throwing: CancellationError())
+    }
+
+    func advance() {
+        guard let (id, continuation) = waiters.first else { return }
+        waiters.removeValue(forKey: id)
+        continuation.resume()
     }
 }
 

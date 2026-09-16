@@ -41,18 +41,17 @@ import Foundation
         self.daemon = daemon
     }
 
-    func start(_ row: LeoAgentRow) { run(row) { try await self.daemon.start(row.name) } }
-    func stop(_ row: LeoAgentRow) { run(row) { try await self.daemon.stop(row.name, wakeOnMessage: nil) } }
-    func restart(_ row: LeoAgentRow) { run(row) { _ = try await self.daemon.restart(row.name) } }
-    func setTemplate(_ row: LeoAgentRow, template: String) { run(row) { try await self.daemon.setTemplate(row.name, template: template) } }
-    func rename(_ row: LeoAgentRow, newName: String) { run(row) { _ = try await self.daemon.rename(row.name, newName: newName) } }
+    func start(_ row: LeoAgentRow) { run(row) { daemon in try await daemon.start(row.name) } }
+    func stop(_ row: LeoAgentRow) { run(row) { daemon in try await daemon.stop(row.name, wakeOnMessage: nil) } }
+    func restart(_ row: LeoAgentRow) { run(row) { daemon in _ = try await daemon.restart(row.name) } }
+    func setTemplate(_ row: LeoAgentRow, template: String) { run(row) { daemon in try await daemon.setTemplate(row.name, template: template) } }
+    func rename(_ row: LeoAgentRow, newName: String) { run(row) { daemon in _ = try await daemon.rename(row.name, newName: newName) } }
     func delete(_ row: LeoAgentRow, force: Bool, deleteBranch: Bool, success: @escaping () -> Void = {}) {
-        run(row, success: success) { try await self.daemon.delete(row.name, force: force, deleteBranch: deleteBranch) }
+        run(row, success: success) { daemon in try await daemon.delete(row.name, force: force, deleteBranch: deleteBranch) }
     }
     func deletePlan(_ row: LeoAgentRow, receive: @escaping (LeoDeletePlan) -> Void) {
-        run(row, refreshOnSuccess: false) { [weak self] in
-            guard let self else { return }
-            let plan = try await self.daemon.deletePlan(row.name)
+        run(row, refreshOnSuccess: false) { daemon in
+            let plan = try await daemon.deletePlan(row.name)
             receive(plan)
         }
     }
@@ -95,11 +94,14 @@ import Foundation
 
     func spawn(_ request: LeoSpawnRequest, attach: @escaping (LeoAgentRow, AttachDisposition) -> Void,
                dismiss: @escaping () -> Void, failure: @escaping (String) -> Void) {
+        let capturedDaemon = daemon
+        let host = hostSelection.selected
+        let capturedGeneration = hostSelection.generationToken
         Task { [weak self] in
             guard let self else { return }
             do {
-                let host = hostSelection.selected
-                let agent = try await daemon.spawn(request)
+                let agent = try await capturedDaemon.spawn(request)
+                guard self.hostSelection.generationToken == capturedGeneration else { return }
                 dismiss(); refresh()
                 attach(LeoAgentRow(host: host, name: agent.name, template: agent.template, status: agent.status ?? .unknown("unknown"), activity: .unknown, actionDetail: nil), .reuseOrTab)
             } catch {
@@ -112,17 +114,28 @@ import Foundation
         model.setRowError(message, for: row.id)
     }
 
+    /// Captures `daemon` and the selection's `generationToken` synchronously
+    /// at invocation time (not when the operation actually runs), and runs
+    /// `operation` against that captured daemon -- so a mid-flight host
+    /// switch can never redirect an already-issued request to the NEW
+    /// connection's socket. If the selection has moved on by the time the
+    /// operation completes, its UI side effects (refresh, row-error) are
+    /// dropped rather than applied to whatever's now selected.
     private func run(_ row: LeoAgentRow, refreshOnSuccess: Bool = true, success: @escaping () -> Void = {},
-                     operation: @escaping @MainActor () async throws -> Void) {
+                     operation: @escaping @MainActor (any LeoDaemonClient) async throws -> Void) {
         guard pendingActions.insert(row.id).inserted else { return }
+        let capturedDaemon = daemon
+        let capturedGeneration = hostSelection.generationToken
         Task { [weak self] in
             guard let self else { return }
             defer { self.pendingActions.remove(row.id) }
             do {
-                try await operation()
+                try await operation(capturedDaemon)
+                guard self.hostSelection.generationToken == capturedGeneration else { return }
                 if refreshOnSuccess { self.refresh() }
                 success()
             } catch {
+                guard self.hostSelection.generationToken == capturedGeneration else { return }
                 self.model.setRowError(Self.message(error), code: Self.code(error), for: row.id)
             }
         }
