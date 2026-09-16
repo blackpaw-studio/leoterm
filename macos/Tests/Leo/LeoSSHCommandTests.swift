@@ -1,0 +1,154 @@
+import Testing
+
+@testable import Ghostty
+
+struct LeoSSHCommandTests {
+    @Test func buildsExactTunnelArguments() throws {
+        let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "evan@build.example:2222", identityFile: "/keys/build"))
+        #expect(try command.tunnelArguments(localSocketPath: "/tmp/build.sock", remoteSocketPath: "/home/evan/.leo/state/leo.sock") == [
+            "-n", "-N", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes", "-o", "ExitOnForwardFailure=yes",
+            "-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=3", "-o", "ControlMaster=no", "-o", "ControlPath=none",
+            "-o", "StreamLocalBindUnlink=yes", "-i", "/keys/build", "-p", "2222", "-L",
+            "/tmp/build.sock:/home/evan/.leo/state/leo.sock", "evan@build.example"
+        ])
+    }
+
+    @Test func omitsIdentityAndPortWhenAbsent() throws {
+        let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "build.example"))
+        #expect(try command.execArguments(remoteCommand: ["printf", "%s", "hello"]) == [
+            "-o", "BatchMode=yes", "build.example", "'printf' '%s' 'hello'"
+        ])
+    }
+
+    @Test func shellAttachQuotesHostileValuesAtBothShellLayersAndKeepsAgentDelimiter() throws {
+        let command = LeoSSHCommand(configuration: .init(
+            name: "Build",
+            sshTarget: "evan@build.example:2200",
+            identityFile: "/keys/it' s",
+            remoteLeoPath: "/opt/leo $(bad)"
+        ))
+        #expect(try command.remoteAttachCommand(agent: "-it's $(bad)") == "'/opt/leo $(bad)' agent attach -- '-it'\\''s $(bad)'")
+        #expect(try command.attachShellCommand(agent: "-it's $(bad)") == #"env -u TMUX -u TMUX_PANE ssh -t -i '/keys/it'\'' s' -p '2200' 'evan@build.example' ''\''/opt/leo $(bad)'\'' agent attach -- '\''-it'\''\'\'''\''s $(bad)'\'''"#)
+    }
+
+    @Test func tildeLeoPathIsExpandedOnlyByTheRemoteShell() throws {
+        let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "build", remoteLeoPath: "~/.local/bin/leo"))
+        #expect(try command.remoteAttachCommand(agent: "name") == "~/'.local/bin/leo' agent attach -- 'name'")
+        #expect(try command.attachShellCommand(agent: "name") == #"env -u TMUX -u TMUX_PANE ssh -t 'build' '~/'\''.local/bin/leo'\'' agent attach -- '\''name'\'''"#)
+    }
+
+    @Test func attachQuotesBackticksAtBothShellLayers() throws {
+        let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "build"))
+        #expect(try command.remoteAttachCommand(agent: "a`id`b") == "~/'.local/bin/leo' agent attach -- 'a`id`b'")
+        #expect(try command.attachShellCommand(agent: "a`id`b") == #"env -u TMUX -u TMUX_PANE ssh -t 'build' '~/'\''.local/bin/leo'\'' agent attach -- '\''a`id`b'\'''"#)
+    }
+
+    @Test func attachQuotesSemicolonsNewlinesAndSubstitutionsAtBothShellLayers() throws {
+        let semicolon = ";"
+        let command = LeoSSHCommand(configuration: .init(
+            name: "Build",
+            sshTarget: "build",
+            remoteLeoPath: "/opt/leo" + semicolon + "\n$(bad)"
+        ))
+        let agent = "agent" + semicolon + "\n$(bad)"
+        let remote = "'/opt/leo" + semicolon + "\n$(bad)' agent attach -- '" + agent + "'"
+        let local = "env -u TMUX -u TMUX_PANE ssh -t 'build' ''\\''/opt/leo" + semicolon + "\n$(bad)'\\'' agent attach -- '\\''" + agent + "'\\'''"
+        #expect(try command.remoteAttachCommand(agent: agent) == remote)
+        #expect(try command.attachShellCommand(agent: agent) == local)
+    }
+
+    @Test func logsShellCommandHasNoEnvPrefixLikeTheLocalLogsCommand() throws {
+        let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "build", remoteLeoPath: "~/.local/bin/leo"))
+        #expect(try command.remoteLogsCommand(agent: "name") == "~/'.local/bin/leo' agent logs -f -- 'name'")
+        #expect(try command.logsShellCommand(agent: "name") == #"ssh -t 'build' '~/'\''.local/bin/leo'\'' agent logs -f -- '\''name'\'''"#)
+    }
+
+    @Test func logsShellCommandIncludesIdentityAndPort() throws {
+        let command = LeoSSHCommand(configuration: .init(
+            name: "Build", sshTarget: "evan@build.example:2200", identityFile: "/keys/build", remoteLeoPath: "/opt/leo"
+        ))
+        #expect(try command.remoteLogsCommand(agent: "agent") == "'/opt/leo' agent logs -f -- 'agent'")
+        #expect(try command.logsShellCommand(agent: "agent") == #"ssh -t -i '/keys/build' -p '2200' 'evan@build.example' ''\''/opt/leo'\'' agent logs -f -- '\''agent'\'''"#)
+    }
+
+    @Test func attachRejectsNulInRemotePathOrAgent() {
+        let pathWithNul = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "build", remoteLeoPath: "/opt/leo\0"))
+        let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "build"))
+        #expect(throws: LeoShellQuoteError.nulByte) {
+            try pathWithNul.attachShellCommand(agent: "agent")
+        }
+        #expect(throws: LeoShellQuoteError.nulByte) {
+            try command.attachShellCommand(agent: "agent\0")
+        }
+    }
+
+    @Test func execQuotesRemotePathsWithShellMetacharacters() throws {
+        let command = LeoSSHCommand(configuration: .init(
+            name: "Build",
+            sshTarget: "build",
+            remoteLeoPath: "~/bin/it's $(not shell)"
+        ))
+        #expect(try command.execArguments(remoteCommand: [
+            "~/bin/it's $(not shell)", "template", "list", "--json"
+        ]) == [
+            "-o", "BatchMode=yes", "build",
+            "~/'bin/it'\\''s $(not shell)' 'template' 'list' '--json'"
+        ])
+    }
+
+    @Test func homeCommandAndSocketResolution() throws {
+        let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "evan@build"))
+        #expect(try command.remoteHomeCommand() == ["-o", "BatchMode=yes", "evan@build", "printf %s \"$HOME\""])
+        #expect(try command.resolvedRemoteSocketPath(home: "/Users/evan") == "/Users/evan/.leo/state/leo.sock")
+        let absolute = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "build", remoteSocketPath: "/var/run/leo.sock"))
+        #expect(try absolute.resolvedRemoteSocketPath(home: "/Users/evan") == "/var/run/leo.sock")
+    }
+
+    @Test(arguments: [
+        ("/tmp/local:socket", "/remote/socket"),
+        ("/tmp/local.socket", "/remote:socket")
+    ])
+    func rejectsColonInSocketPaths(_ local: String, _ remote: String) {
+        let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "build"))
+        #expect(throws: LeoSSHCommandError.invalidSocketPath) {
+            try command.tunnelArguments(localSocketPath: local, remoteSocketPath: remote)
+        }
+    }
+
+    @Test func rejectsLocalSocketPathsOverOneHundredUTF8Bytes() {
+        let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "build"))
+        #expect(throws: LeoSSHCommandError.invalidSocketPath) {
+            try command.tunnelArguments(
+                localSocketPath: "/tmp/" + String(repeating: "a", count: 96),
+                remoteSocketPath: "/remote/socket"
+            )
+        }
+    }
+
+    @Test func buildersRejectInvalidConfigurations() {
+        let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "@-V"))
+        let expected = LeoSSHCommandError.invalidConfiguration([.unsafeSSHTarget])
+        #expect(throws: expected) { try command.tunnelArguments(localSocketPath: "/tmp/socket", remoteSocketPath: "/remote/socket") }
+        #expect(throws: expected) { try command.execArguments(remoteCommand: ["printf"]) }
+        #expect(throws: expected) { try command.attachShellCommand(agent: "agent") }
+        #expect(throws: expected) { try command.logsShellCommand(agent: "agent") }
+        #expect(throws: expected) { try command.remoteHomeCommand() }
+        #expect(throws: expected) { try command.resolvedRemoteSocketPath(home: "/Users/evan") }
+    }
+
+    @Test(arguments: ["", "relative/socket"])
+    func requiresAnAbsoluteResolvedRemoteSocketPath(_ remotePath: String) {
+        let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "build", remoteSocketPath: remotePath))
+        #expect(throws: LeoSSHCommandError.invalidSocketPath) {
+            try command.resolvedRemoteSocketPath(home: "/Users/evan")
+        }
+    }
+
+    @Test func expandsTildeSocketPathAndRejectsRelativeHome() throws {
+        let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "build", remoteSocketPath: "~/relative/socket"))
+        #expect(try command.resolvedRemoteSocketPath(home: "/Users/evan") == "/Users/evan/relative/socket")
+        #expect(throws: LeoSSHCommandError.invalidSocketPath) {
+            try command.resolvedRemoteSocketPath(home: "relative")
+        }
+    }
+}

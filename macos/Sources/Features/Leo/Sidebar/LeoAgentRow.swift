@@ -209,7 +209,15 @@ struct LeoAgentRowView: View {
             guard let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime else {
                 throw LeoDaemonError.transport("Leo runtime unavailable")
             }
-            let command = try LeoLogsCommand.build(executablePath: runtime.resolveExecutablePath(), agentName: row.name)
+            let command: String
+            if case .remote(let name) = row.host {
+                guard let configuration = runtime.hostSelection.hosts.first(where: { $0.name == name }) else {
+                    throw LeoDaemonError.hostUnavailable("Remote host \(name) is not configured")
+                }
+                command = try LeoSSHCommand(configuration: configuration).logsShellCommand(agent: row.name)
+            } else {
+                command = try LeoLogsCommand.build(executablePath: runtime.resolveExecutablePath(), agentName: row.name)
+            }
             guard LeoCommandLauncher.openTab(in: controller, command: command) else {
                 actions.setRowError("Unable to open a terminal tab", for: row)
                 return

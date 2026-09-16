@@ -3,243 +3,171 @@ import Testing
 
 @testable import Ghostty
 
+/// `LeoHostSelection` owns exactly one app-owned SSH tunnel for the
+/// currently selected remote host. Uses the real `fake_ssh.py` fixture
+/// (invoked directly via its shebang, so the exact argv `LeoSSHCommand`
+/// builds is what actually runs). Generation-race/teardown-ordering tests
+/// live in `LeoHostSelectionRaceTests`.
+@Suite(.serialized)
 @MainActor struct LeoHostSelectionTests {
-    @Test func disconnectedSelectionConnectsOnceWhileConnectedSelectionDoesNot() async throws {
-        let daemon = SelectionDaemon(hosts: [
-            .init(name: "localhost", local: true, state: .local),
-            .init(name: "sleeping", ssh: "evan@sleeping", state: .disconnected),
-            .init(name: "awake", ssh: "evan@awake", state: .connected)
-        ])
-        let selection = LeoHostSelection(daemon: daemon, defaults: defaults()) { _ in }
-        await selection.start(flavor: .hub)
-        selection.select(.remote("sleeping"))
-        await awaitCondition { await daemon.connects == ["sleeping"] }
-        selection.select(.remote("awake"))
-        #expect(await daemon.connects == ["sleeping"])
-    }
-
-    @Test func retryConnectsSelectedHostAndSSHErrorProvidesQuotedTarget() async throws {
-        let daemon = SelectionDaemon(hosts: [
-            .init(name: "localhost", local: true, state: .local),
-            .init(name: "work", ssh: "evan@host name", state: .error,
-                  error: "Permission denied", code: "ssh_auth_required")
-        ])
-        let selection = LeoHostSelection(daemon: daemon, defaults: defaults()) { _ in }
-        await selection.start(flavor: .hub)
-        selection.select(.remote("work"))
-        #expect(selection.sshHint == "Run `ssh evan@host name` once in a terminal")
-        #expect(try LeoCommandLauncher.sshHintCommand(target: selection.selectedRow?.ssh ?? "") == "ssh 'evan@host name'")
-        selection.retry()
-        await awaitCondition { await daemon.connects == ["work"] }
-    }
-
-    @Test func legacyModeShowsOnlyLocalhostAndUpgradeHint() async {
-        let daemon = SelectionDaemon(hosts: [.init(name: "work", state: .connected)])
-        let selection = LeoHostSelection(daemon: daemon, defaults: defaults()) { _ in }
+    @Test func selectingLocalhostIsImmediatelyConnected() async {
+        let selection = LeoHostSelectionTestSupport.makeSelection()
         await selection.start(flavor: .legacy)
-        #expect(selection.hosts.map(\.name) == ["localhost"])
-        #expect(selection.legacyTooltip == "leo 0.29+ required for remote hosts")
-        #expect(await daemon.hostCallCount == 0)
+        #expect(selection.selected == .local)
+        #expect(selection.state == .connected(socketPath: LeoHostSelectionTestSupport.localSocketPath))
     }
 
-    @Test func persistedRemoteSelectionInstallsAfterHostsLoad() async {
-        let values = defaults()
-        values.set("work", forKey: "leo.selectedHost")
-        var installed: [LeoHostID] = []
-        let selection = LeoHostSelection(
-            daemon: SelectionDaemon(hosts: [.init(name: "work", ssh: "evan@work", state: .connected)]),
-            defaults: values,
-            installTarget: { installed.append($0) }
+    /// Root cause of the smoke-test failure: `${TMPDIR}` on macOS (the
+    /// per-process confined `/var/folders/<random>/T/`) is long enough that
+    /// `<TMPDIR>leoterm/<name>-<uuid>.sock` regularly exceeds the ~100-byte
+    /// AF_UNIX path limit `LeoSSHCommand.tunnelArguments` enforces -- a
+    /// realistic host name (e.g. "loopback", unlike the 4-character names
+    /// used elsewhere in this suite that happened to stay just under the
+    /// limit) reliably pushes it over, so `connect()` throws
+    /// `invalidSocketPath` before ever launching ssh. The local socket base
+    /// directory must be short and stable (`/tmp`, not `$TMPDIR`).
+    @Test func selectingARealisticallyNamedHostStaysUnderTheSocketPathLimitAndConnects() async throws {
+        let configuration = LeoHostConfiguration(name: "loopback", sshTarget: "evan@work", remoteSocketPath: "/remote/leo.sock")
+        let selection = LeoHostSelectionTestSupport.makeSelection(hosts: [configuration], transport: LeoAlwaysHealthyTransport())
+        await selection.start(flavor: .socketEvents)
+
+        selection.select(.remote("loopback"))
+        let expectedPath = LeoHostSelectionTestSupport.expectedLocalSocketPath(configuration)
+        #expect(expectedPath.utf8.count <= 100, "the local socket path itself must stay within the AF_UNIX limit")
+        await LeoHostSelectionTestSupport.awaitConnected(selection, expectedPath)
+
+        selection.shutdown()
+    }
+
+    /// The local tunnel socket grants full control of the remote leo
+    /// daemon to any local process that can connect to it -- the base
+    /// directory it lives in must not be readable/writable by other local
+    /// users. A fresh directory is created owner-only (`0700`).
+    @Test func selectingARemoteHostCreatesTheSocketDirectoryWithOwnerOnlyPermissions() async throws {
+        let directory = LeoHostSelectionTestSupport.makeIsolatedSocketDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        #expect(!FileManager.default.fileExists(atPath: directory.path))
+
+        let configuration = LeoHostConfiguration(name: "loopback", sshTarget: "evan@work", remoteSocketPath: "/remote/leo.sock")
+        let selection = LeoHostSelectionTestSupport.makeSelection(
+            hosts: [configuration], transport: LeoAlwaysHealthyTransport(), localSocketDirectory: directory
         )
+        await selection.start(flavor: .socketEvents)
 
-        await selection.start(flavor: .hub)
+        selection.select(.remote("loopback"))
+        let expectedPath = LeoHostSelectionTestSupport.expectedLocalSocketPath(configuration, in: directory)
+        #expect(expectedPath == directory.appendingPathComponent(configuration.localSocketFileName).path)
+        await LeoHostSelectionTestSupport.awaitConnected(selection, expectedPath)
 
-        #expect(installed == [.remote("work")])
+        let attributes = try FileManager.default.attributesOfItem(atPath: directory.path)
+        #expect((attributes[.posixPermissions] as? NSNumber)?.intValue == 0o700)
+
+        selection.shutdown()
     }
 
-    @Test func hostStateUpdatesPreserveConfigurationMetadata() async throws {
-        let selection = LeoHostSelection(daemon: SelectionDaemon(hosts: [
-            .init(name: "work", isDefault: true, ssh: "evan@work", state: .connected)
-        ]), defaults: defaults()) { _ in }
-        await selection.start(flavor: .hub)
+    /// If the directory already exists with looser permissions (e.g. an
+    /// upgrade from a version of the app that used a different mode, or
+    /// tampering by another local user before this user's session created
+    /// it), it's tightened rather than trusted as-is.
+    @Test func selectingARemoteHostTightensAnExistingLooselyPermissionedSocketDirectory() async throws {
+        let directory = LeoHostSelectionTestSupport.makeIsolatedSocketDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(
+            at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o755]
+        )
+        let before = try FileManager.default.attributesOfItem(atPath: directory.path)
+        #expect((before[.posixPermissions] as? NSNumber)?.intValue == 0o755)
 
-        selection.receive(.init(name: "work", state: .error, error: "denied", code: "ssh_auth_required"))
+        let configuration = LeoHostConfiguration(name: "loopback", sshTarget: "evan@work", remoteSocketPath: "/remote/leo.sock")
+        let selection = LeoHostSelectionTestSupport.makeSelection(
+            hosts: [configuration], transport: LeoAlwaysHealthyTransport(), localSocketDirectory: directory
+        )
+        await selection.start(flavor: .socketEvents)
 
-        let row = try #require(selection.hosts.first { $0.name == "work" })
-        #expect(row.ssh == "evan@work")
-        #expect(row.isDefault)
-        #expect(row.state == .error)
+        selection.select(.remote("loopback"))
+        let expectedPath = LeoHostSelectionTestSupport.expectedLocalSocketPath(configuration, in: directory)
+        await LeoHostSelectionTestSupport.awaitConnected(selection, expectedPath)
+
+        let after = try FileManager.default.attributesOfItem(atPath: directory.path)
+        #expect((after[.posixPermissions] as? NSNumber)?.intValue == 0o700)
+
+        selection.shutdown()
     }
 
-    @Test func retrySuccessMergesTheReturnedRowWithoutWaitingForSSE() async throws {
-        let daemon = SelectionDaemon(hosts: [
-            .init(name: "localhost", local: true, state: .local),
-            .init(name: "work", ssh: "evan@work", state: .error, error: "Permission denied", code: "ssh_auth_required")
-        ])
-        let selection = LeoHostSelection(daemon: daemon, defaults: defaults()) { _ in }
-        await selection.start(flavor: .hub)
+    @Test func selectingAConfiguredRemoteHostConnectsWithExpectedSocketPathAndArgv() async throws {
+        let argvFile = LeoHostSelectionTestSupport.tempFile()
+        LeoTunnelTestSupport.setEnvironment("FAKE_SSH_ARGV_FILE", argvFile)
+        defer { LeoTunnelTestSupport.setEnvironment("FAKE_SSH_ARGV_FILE", nil) }
+
+        let configuration = LeoHostConfiguration(name: "work", sshTarget: "evan@work", remoteSocketPath: "/remote/leo.sock")
+        let selection = LeoHostSelectionTestSupport.makeSelection(hosts: [configuration], transport: LeoAlwaysHealthyTransport())
+        await selection.start(flavor: .socketEvents)
+
         selection.select(.remote("work"))
+        let expectedLocalPath = LeoHostSelectionTestSupport.expectedLocalSocketPath(configuration)
+        await LeoHostSelectionTestSupport.awaitConnected(selection, expectedLocalPath)
 
-        await daemon.setConnectResult(.success(.init(name: "work", ssh: "evan@work", state: .connected, connectedAt: "now")))
-        selection.retry()
+        let expectedArguments = try LeoSSHCommand(configuration: configuration).tunnelArguments(
+            localSocketPath: expectedLocalPath, remoteSocketPath: "/remote/leo.sock"
+        )
+        await awaitCondition { FileManager.default.fileExists(atPath: argvFile) }
+        let actualArgv = try String(contentsOfFile: argvFile, encoding: .utf8).components(separatedBy: "\n")
+        #expect(actualArgv == expectedArguments)
 
-        await awaitCondition(message: "Retry's successful result was never merged into hosts") {
-            await selection.hosts.first { $0.name == "work" }?.state == .connected
+        selection.shutdown()
+    }
+
+    @Test func tildeRemoteSocketPathIsResolvedThroughTheHomeCommand() async throws {
+        let configuration = LeoHostConfiguration(name: "work", sshTarget: "evan@work", remoteSocketPath: "~/leo.sock")
+        let runner = LeoFakeHomeRunner(stdout: "/home/evan")
+        let selection = LeoHostSelectionTestSupport.makeSelection(hosts: [configuration], transport: LeoAlwaysHealthyTransport(), runner: runner)
+        await selection.start(flavor: .socketEvents)
+
+        selection.select(.remote("work"))
+        let expectedLocalPath = LeoHostSelectionTestSupport.expectedLocalSocketPath(configuration)
+        await LeoHostSelectionTestSupport.awaitConnected(selection, expectedLocalPath)
+
+        let calls = await runner.calls
+        #expect(calls.count == 1)
+        #expect(calls.first?.arguments == (try LeoSSHCommand(configuration: configuration).remoteHomeCommand()))
+
+        selection.shutdown()
+    }
+
+    @Test func exitedSSHPublishesFailedWithStderrTailAndHostKeyHint() async {
+        LeoTunnelTestSupport.setEnvironment("FAKE_SSH_EXIT_IMMEDIATELY", "1")
+        LeoTunnelTestSupport.setEnvironment("FAKE_SSH_STDERR_MESSAGE", "Host key verification failed for work.\n")
+        defer {
+            LeoTunnelTestSupport.setEnvironment("FAKE_SSH_EXIT_IMMEDIATELY", nil)
+            LeoTunnelTestSupport.setEnvironment("FAKE_SSH_STDERR_MESSAGE", nil)
         }
-        #expect(selection.hosts.first { $0.name == "work" }?.connectedAt == "now")
-        #expect(await daemon.connects == ["work"])
+        let configuration = LeoHostConfiguration(name: "work", sshTarget: "evan@work", remoteSocketPath: "/remote/leo.sock")
+        let selection = LeoHostSelectionTestSupport.makeSelection(hosts: [configuration])
+        await selection.start(flavor: .socketEvents)
+
+        selection.select(.remote("work"))
+        await LeoHostSelectionTestSupport.awaitFailed(selection)
+
+        guard case .failed(let message, let hint) = selection.state else { Issue.record("expected .failed"); return }
+        #expect(message == "Host key verification failed for work.\n")
+        #expect(hint == "Run `ssh evan@work` once in a terminal to accept the host key")
     }
 
-    @Test func retryFailureMarksTheRowAsErroredWithMessageAndCode() async throws {
-        let daemon = SelectionDaemon(hosts: [
-            .init(name: "localhost", local: true, state: .local),
-            .init(name: "work", ssh: "evan@work", state: .error, error: "stale", code: "stale_code")
-        ])
-        let selection = LeoHostSelection(daemon: daemon, defaults: defaults()) { _ in }
-        await selection.start(flavor: .hub)
-        selection.select(.remote("work"))
-
-        await daemon.setConnectResult(.failure(LeoDaemonError.daemon(code: "ssh_auth_required", message: "Permission denied", matches: [])))
-        selection.retry()
-
-        await awaitCondition(message: "Retry's failure was never reflected in hosts") {
-            await selection.hosts.first { $0.name == "work" }?.error == "Permission denied"
+    @Test func exitedSSHPublishesFailedWithPermissionDeniedHint() async {
+        LeoTunnelTestSupport.setEnvironment("FAKE_SSH_EXIT_IMMEDIATELY", "1")
+        LeoTunnelTestSupport.setEnvironment("FAKE_SSH_STDERR_MESSAGE", "Permission denied (publickey).\n")
+        defer {
+            LeoTunnelTestSupport.setEnvironment("FAKE_SSH_EXIT_IMMEDIATELY", nil)
+            LeoTunnelTestSupport.setEnvironment("FAKE_SSH_STDERR_MESSAGE", nil)
         }
-        let row = try #require(selection.hosts.first { $0.name == "work" })
-        #expect(row.state == .error)
-        #expect(row.code == "ssh_auth_required")
-        #expect(row.ssh == "evan@work", "Retry's failure must preserve existing configuration metadata")
-    }
+        let configuration = LeoHostConfiguration(name: "work", sshTarget: "evan@work", remoteSocketPath: "/remote/leo.sock")
+        let selection = LeoHostSelectionTestSupport.makeSelection(hosts: [configuration])
+        await selection.start(flavor: .socketEvents)
 
-    @Test func concurrentRetriesForTheSameHostCoalesceIntoOneConnectHostCall() async throws {
-        let daemon = HangingConnectDaemon(hosts: [
-            .init(name: "localhost", local: true, state: .local),
-            .init(name: "work", ssh: "evan@work", state: .error, error: "stale", code: "stale_code")
-        ])
-        let selection = LeoHostSelection(daemon: daemon, defaults: defaults()) { _ in }
-        await selection.start(flavor: .hub)
         selection.select(.remote("work"))
-        selection.retry()
+        await LeoHostSelectionTestSupport.awaitFailed(selection)
 
-        await awaitCondition(message: "First connect was never requested") { await daemon.connectCallCount == 1 }
-
-        // A second retry while the first is still in flight must not issue a
-        // second `connectHost` call -- it coalesces into the running one.
-        selection.retry()
-        selection.retry()
-        for _ in 0..<25 { await Task.yield() }
-        #expect(await daemon.connectCallCount == 1, "A retry issued while one was already in flight started a redundant connectHost call")
-
-        await daemon.resolve(index: 0, .success(.init(name: "work", ssh: "evan@work", state: .connected, connectedAt: "now")))
-        await awaitCondition(message: "The in-flight connect never resolved") {
-            await selection.hosts.first { $0.name == "work" }?.state == .connected
-        }
-        #expect(await daemon.connectCallCount == 1)
+        guard case .failed(_, let hint) = selection.state else { Issue.record("expected .failed"); return }
+        #expect(hint == "ssh needs a key or agent in BatchMode; try `ssh evan@work` in a terminal")
     }
-
-    @Test func staleConnectFailureAfterANewerExternallyReceivedStateIsIgnored() async throws {
-        let daemon = HangingConnectDaemon(hosts: [
-            .init(name: "localhost", local: true, state: .local),
-            .init(name: "work", ssh: "evan@work", state: .error, error: "stale", code: "stale_code")
-        ])
-        var received: [LeoHostRow] = []
-        let selection = LeoHostSelection(daemon: daemon, defaults: defaults(), hostStateTarget: { received.append($0) }, installTarget: { _ in })
-        await selection.start(flavor: .hub)
-        selection.select(.remote("work"))
-        selection.retry()
-
-        await awaitCondition(message: "The connect attempt was never started") { await daemon.connectCallCount == 1 }
-
-        // A newer update -- e.g. an SSE host_state_changed telling us another
-        // client already connected this host -- arrives while the retry is
-        // still in flight.
-        selection.receive(.init(name: "work", ssh: "evan@work", state: .connected, connectedAt: "external"))
-        #expect(selection.hosts.first { $0.name == "work" }?.state == .connected)
-
-        // The stale, now-superseded connect attempt fails after the newer
-        // state was already installed. Its failure must be dropped, not
-        // clobber the newer `.connected` row.
-        await daemon.resolve(index: 0, .failure(LeoDaemonError.daemon(code: "stale_code", message: "stale failure", matches: [])))
-        for _ in 0..<25 { await Task.yield() }
-
-        #expect(selection.hosts.first { $0.name == "work" }?.state == .connected, "A stale connect failure overwrote a newer externally-received state")
-        #expect(received.allSatisfy { $0.state != .error }, "The stale failure was forwarded to the feed target")
-
-        // The in-flight bookkeeping must still have cleared so a future
-        // retry can start a fresh connect.
-        selection.retry()
-        await awaitCondition(message: "A retry after the stale completion never started a new connect") { await daemon.connectCallCount == 2 }
-    }
-
-    private func defaults() -> UserDefaults {
-        let suite = "LeoHostSelectionTests.\(UUID().uuidString)"
-        return UserDefaults(suiteName: suite) ?? .standard
-    }
-}
-
-private actor SelectionDaemon: LeoDaemonClient {
-    let rows: [LeoHostRow]
-    private(set) var connects: [String] = []
-    private(set) var hostCallCount = 0
-    private var connectResult: Result<LeoHostRow, Error>?
-
-    init(hosts: [LeoHostRow]) { rows = hosts }
-    func hosts() -> [LeoHostRow] { hostCallCount += 1; return rows }
-    func setConnectResult(_ result: Result<LeoHostRow, Error>) { connectResult = result }
-    func connectHost(_ name: String) throws -> LeoHostRow {
-        connects.append(name)
-        if let connectResult { return try connectResult.get() }
-        return rows.first { $0.name == name } ?? .init(name: name, state: .connecting)
-    }
-    func listAgents() throws -> [LeoAgent] { [] }
-    func spawn(_: LeoSpawnRequest) throws -> LeoAgent { throw LeoDaemonError.transport("unused") }
-    func start(_: String) {}
-    func stop(_: String, wakeOnMessage _: Bool?) {}
-    func restart(_: String) throws -> LeoAgent { throw LeoDaemonError.transport("unused") }
-    func reset(_: String) {}
-    func setTemplate(_: String, template _: String) {}
-    func rename(_: String, newName _: String) throws -> LeoAgent { throw LeoDaemonError.transport("unused") }
-    func delete(_: String, force _: Bool?, deleteBranch _: Bool?) {}
-    func deletePlan(_: String) throws -> LeoDeletePlan { throw LeoDaemonError.transport("unused") }
-    func logs(_: String, lines _: Int?) -> String { "" }
-}
-
-/// A daemon fake whose `connectHost(_:)` calls are individually resolvable
-/// and don't complete until explicitly told to, so a test can force the
-/// exact "a retry arrives while one is already in flight" and "a stale
-/// completion arrives after a newer update" interleavings that
-/// `LeoHostSelection`'s coalescing/staleness guard must handle.
-private actor HangingConnectDaemon: LeoDaemonClient {
-    let rows: [LeoHostRow]
-    private(set) var connectCallCount = 0
-    private var waiters: [(id: Int, continuation: CheckedContinuation<Result<LeoHostRow, Error>, Never>)] = []
-    private var nextID = 0
-
-    init(hosts: [LeoHostRow]) { rows = hosts }
-    func hosts() -> [LeoHostRow] { rows }
-
-    func connectHost(_ name: String) async throws -> LeoHostRow {
-        connectCallCount += 1
-        let id = nextID
-        nextID += 1
-        return try await withCheckedContinuation { waiters.append((id, $0)) }.get()
-    }
-
-    /// Resolves the Nth call to `connectHost(_:)` (0-indexed by call order).
-    func resolve(index: Int, _ result: Result<LeoHostRow, Error>) {
-        guard let position = waiters.firstIndex(where: { $0.id == index }) else { return }
-        waiters.remove(at: position).continuation.resume(returning: result)
-    }
-
-    func listAgents() throws -> [LeoAgent] { [] }
-    func spawn(_: LeoSpawnRequest) throws -> LeoAgent { throw LeoDaemonError.transport("unused") }
-    func start(_: String) {}
-    func stop(_: String, wakeOnMessage _: Bool?) {}
-    func restart(_: String) throws -> LeoAgent { throw LeoDaemonError.transport("unused") }
-    func reset(_: String) {}
-    func setTemplate(_: String, template _: String) {}
-    func rename(_: String, newName _: String) throws -> LeoAgent { throw LeoDaemonError.transport("unused") }
-    func delete(_: String, force _: Bool?, deleteBranch _: Bool?) {}
-    func deletePlan(_: String) throws -> LeoDeletePlan { throw LeoDaemonError.transport("unused") }
-    func logs(_: String, lines _: Int?) -> String { "" }
 }

@@ -10,11 +10,9 @@ struct LeoModelsTests {
         #expect(!(try envelope.value()).isEmpty)
     }
 
-    @Test func decodesTemplateAndHostFixtures() throws {
+    @Test func decodesTemplateFixture() throws {
         let templates = try JSONDecoder().decode([LeoTemplate].self, from: fixture("template_list.json"))
-        let hosts = try JSONDecoder().decode([LeoHost].self, from: fixture("host_list.json"))
         #expect(!templates.isEmpty)
-        #expect(hosts.contains(where: { $0.name == "localhost" }))
     }
 
     @Test func toleratesUnknownAndMissingFields() throws {

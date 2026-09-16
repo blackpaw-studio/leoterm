@@ -35,4 +35,22 @@ struct LeoProcessRunnerTests {
             Issue.record("Expected timeout, got \(error)")
         }
     }
+
+    /// A process that ignores SIGTERM must still complete, bounded, via the
+    /// SIGKILL escalation 1s after the original deadline.
+    @Test func timeoutEscalatesToSIGKILLWhenTheProcessIgnoresSIGTERM() async {
+        let start = ContinuousClock.now
+        do {
+            _ = try await LeoProcessRunner().run(
+                executable: "/bin/sh", arguments: ["-c", "trap '' TERM; sleep 5"], timeout: 0.2
+            )
+            Issue.record("Expected process to time out")
+        } catch let error as LeoDaemonError {
+            #expect(error == .timeout)
+            // 0.2s original timeout + up to 1s SIGKILL grace + up to 1s force-complete drain.
+            #expect(start.duration(to: .now) < .seconds(3))
+        } catch {
+            Issue.record("Expected timeout, got \(error)")
+        }
+    }
 }

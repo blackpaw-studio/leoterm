@@ -21,6 +21,10 @@ struct LeoAttachError: Error, Equatable, Sendable {
 @MainActor final class LeoAttachCoordinator {
     private let host: any AttachTabHost
     private let executable: () throws -> String
+    /// Builds the shell command for a *remote* identity (an app-owned SSH
+    /// attach via `LeoSSHCommand.attachShellCommand`). Local identities
+    /// always go through `LeoAttachCommand.build(executable:identity:)`.
+    private let remoteCommandBuilder: (LeoAgentIdentity) throws -> String
     private let report: (LeoAttachError) -> Void
     private let lifecycleEventHandled: (AttachLifecycleEvent) -> Void
     private var handlesByIdentity: [LeoAgentIdentity: [AttachmentHandle]] = [:]
@@ -32,11 +36,15 @@ struct LeoAttachError: Error, Equatable, Sendable {
     init(
         host: any AttachTabHost,
         executable: @escaping () throws -> String,
+        remoteCommandBuilder: @escaping (LeoAgentIdentity) throws -> String = { _ in
+            throw LeoDaemonError.hostUnavailable("Remote attach is not configured")
+        },
         report: @escaping (LeoAttachError) -> Void,
         lifecycleEventHandled: @escaping (AttachLifecycleEvent) -> Void = { _ in }
     ) {
         self.host = host
         self.executable = executable
+        self.remoteCommandBuilder = remoteCommandBuilder
         self.report = report
         self.lifecycleEventHandled = lifecycleEventHandled
         lifecycleTask = Task { [weak self, events = host.lifecycleEvents] in
@@ -69,7 +77,9 @@ struct LeoAttachError: Error, Equatable, Sendable {
         do {
             let command: String
             do {
-                command = try LeoAttachCommand.build(executable: try executable(), identity: identity)
+                command = identity.host == .local
+                    ? try LeoAttachCommand.build(executable: try executable(), identity: identity)
+                    : try remoteCommandBuilder(identity)
             } catch LeoAttachCommandError.invalidAgentName {
                 report(.init(identity: identity, kind: .invalidName))
                 return

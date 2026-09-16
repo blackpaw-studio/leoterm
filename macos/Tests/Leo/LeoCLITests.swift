@@ -4,12 +4,11 @@ import Testing
 @testable import Ghostty
 
 struct LeoCLITests {
-    @Test func usesArgvForTemplateAndHostLists() async throws {
+    @Test func usesArgvForTemplateList() async throws {
         let runner = CLIFakeRunner()
         let cli = LeoCLI(executableOverride: "/usr/bin/leo", runner: runner, isExecutable: { $0 == "/usr/bin/leo" })
         _ = try await cli.templateList()
-        _ = try await cli.hostList()
-        #expect(await runner.arguments == [["template", "list", "--json"], ["host", "list", "--json"]])
+        #expect(await runner.arguments == [["template", "list", "--json"]])
     }
 
     @Test func resolvesExecutableFromInjectedLocations() throws {
@@ -54,7 +53,6 @@ private actor CLIFakeRunner: LeoProcessRunning {
     var arguments: [[String]] = []
     func run(executable _: String, arguments: [String], timeout _: TimeInterval) async throws -> LeoProcessResult {
         self.arguments.append(arguments)
-        let output = arguments.first == "template" ? #"[{"name":"swift"}]"# : #"[{"name":"localhost","local":true}]"#
-        return LeoProcessResult(stdout: Data(output.utf8), stderr: Data(), status: 0)
+        return LeoProcessResult(stdout: Data(#"[{"name":"swift"}]"#.utf8), stderr: Data(), status: 0)
     }
 }

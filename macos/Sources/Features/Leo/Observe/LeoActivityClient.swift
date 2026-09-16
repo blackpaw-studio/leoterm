@@ -42,8 +42,6 @@ enum LeoObserveEvent: Equatable, Sendable {
     case agentStopped(seq: Int, at: String?, agent: String, wakeOnMessage: Bool?)
     case gap(expected: Int, received: Int)
     case snapshot([LeoObservedAgent])
-    case hostStateChanged(LeoHostRow)
-    indirect case hosted(host: LeoHostID, event: LeoObserveEvent)
 }
 
 protocol LeoActivityTransport: Sendable {
@@ -169,7 +167,7 @@ actor LeoActivityClient {
         return request
     }
 
-    fileprivate static func decode(_ raw: LeoSSEEvent) -> LeoObserveEvent? {
+    static func decode(_ raw: LeoSSEEvent) -> LeoObserveEvent? {
         guard let name = raw.name, let data = raw.data.data(using: .utf8) else { return nil }
         let decoder = JSONDecoder()
         switch name {
@@ -204,104 +202,13 @@ actor LeoActivityClient {
     }
 }
 
-private extension LeoObserveEvent {
+extension LeoObserveEvent {
     var sequence: Int {
         switch self {
         case .hello(let seq, _, _, _), .agentSpawned(let seq, _, _),
              .agentStateChanged(let seq, _, _, _, _, _), .agentActivity(let seq, _, _, _, _),
              .agentStopped(let seq, _, _, _): return seq
-        case .hosted(_, let event): return event.sequence
-        case .connected, .disconnected, .gap, .snapshot, .hostStateChanged: return -1
+        case .connected, .disconnected, .gap, .snapshot: return -1
         }
-    }
-}
-
-protocol LeoHubActivityTransport: LeoDaemonTransport {
-    func stream(path: String, socketPath: String, idleTimeout: TimeInterval) -> AsyncThrowingStream<Data, Error>
-}
-
-extension LeoUnixSocketTransport: LeoHubActivityTransport {}
-
-actor LeoHubActivityClient {
-    private let socketPath: String
-    private let transport: any LeoHubActivityTransport
-    private let initialBackoff: UInt64
-    private let maximumBackoff: UInt64
-    private let sleeper: @Sendable (UInt64) async throws -> Void
-
-    init(socketPath: String = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath,
-         transport: any LeoHubActivityTransport = LeoUnixSocketTransport(),
-         initialBackoff: UInt64 = 1_000_000_000,
-         maximumBackoff: UInt64 = 30_000_000_000,
-         sleep: @escaping @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) }) {
-        self.socketPath = socketPath
-        self.transport = transport
-        self.initialBackoff = initialBackoff
-        self.maximumBackoff = maximumBackoff
-        sleeper = sleep
-    }
-
-    func fetchState() async throws -> [LeoObservedAgent] {
-        struct State: Decodable { let agents: [LeoObservedAgent] }
-        let response = try await transport.send(.init(method: "GET", path: "/state"), socketPath: socketPath, timeout: 5)
-        if let state = try? JSONDecoder().decode(State.self, from: response.body) {
-            return state.agents
-        }
-        return try LeoDaemonEnvelope<State>.decode(response.body).value().agents
-    }
-
-    func events() -> AsyncStream<LeoObserveEvent> {
-        AsyncStream { continuation in
-            let task = Task { await self.run(continuation) }
-            continuation.onTermination = { _ in task.cancel() }
-        }
-    }
-
-    private func run(_ continuation: AsyncStream<LeoObserveEvent>.Continuation) async {
-        var backoff = initialBackoff
-        var lastSequence: Int?
-        while !Task.isCancelled {
-            var parser = LeoSSEParser()
-            var reason = "EOF"
-            do {
-                for try await bytes in transport.stream(path: "/events", socketPath: socketPath, idleTimeout: 60) {
-                    for raw in parser.feed(bytes) {
-                        guard let event = Self.decode(raw) else { continue }
-                        let sequence = event.sequence
-                        if sequence >= 0, let lastSequence, sequence > lastSequence + 1 {
-                            continuation.yield(.gap(expected: lastSequence + 1, received: sequence))
-                            if let agents = try? await fetchState() { continuation.yield(.snapshot(agents)) }
-                        }
-                        if sequence >= 0 { lastSequence = sequence }
-                        if case .hello = event { backoff = initialBackoff }
-                        continuation.yield(event)
-                    }
-                }
-            } catch is CancellationError { break
-            } catch {
-                reason = error.localizedDescription
-            }
-            guard !Task.isCancelled else { break }
-            continuation.yield(.disconnected(reason: reason))
-            do { try await sleeper(backoff) } catch { break }
-            backoff = min(backoff * 2, maximumBackoff)
-        }
-        continuation.finish()
-    }
-
-    private static func decode(_ raw: LeoSSEEvent) -> LeoObserveEvent? {
-        guard let name = raw.name, let data = raw.data.data(using: .utf8) else { return nil }
-        if name == "host_state_changed" {
-            struct Payload: Decodable { let host: String; let state: LeoHostState; let error: String?; let code: String? }
-            guard let payload = try? JSONDecoder().decode(Payload.self, from: data) else { return nil }
-            return .hostStateChanged(.init(name: payload.host, local: payload.host == "localhost",
-                                           state: payload.state, error: payload.error, code: payload.code))
-        }
-        guard let event = LeoActivityClient.decode(raw) else { return nil }
-        if case .hello = event { return event }
-        struct Host: Decodable { let host: String }
-        guard let payload = try? JSONDecoder().decode(Host.self, from: data) else { return event }
-        let host: LeoHostID = payload.host == "localhost" ? .local : .remote(payload.host)
-        return .hosted(host: host, event: event)
     }
 }
