@@ -44,7 +44,11 @@ final class FakeHubDaemon: @unchecked Sendable {
     private let listener: FakeHubListener
     private let storage = FakeHubStorage()
 
-    init(script: FakeHubScript = .init(), onConnectionClosed: (@Sendable (Int32) -> Void)? = nil) throws {
+    init(
+        script: FakeHubScript = .init(), onConnectionClosed: (@Sendable (Int32) -> Void)? = nil,
+        onConnectionAcceptedBeforeRegistration: (@Sendable () -> Void)? = nil,
+        onConnectionRegisteredBeforeHandlerStart: (@Sendable () -> Void)? = nil
+    ) throws {
         controller = FakeHubController(events: script.events)
         let socketPath = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("leo-hub-\(UUID().uuidString).sock").path
         let descriptor = socket(AF_UNIX, SOCK_STREAM, 0)
@@ -61,7 +65,10 @@ final class FakeHubDaemon: @unchecked Sendable {
         guard withUnsafePointer(to: &address, { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(descriptor, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) } }) == 0,
               listen(descriptor, 16) == 0 else { throw Self.error() }
         path = socketPath
-        listener = FakeHubListener(path: socketPath, descriptor: descriptor, onClose: onConnectionClosed)
+        listener = FakeHubListener(
+            path: socketPath, descriptor: descriptor, onClose: onConnectionClosed,
+            onAcceptedBeforeRegistration: onConnectionAcceptedBeforeRegistration,
+            onRegisteredBeforeHandlerStart: onConnectionRegisteredBeforeHandlerStart)
 
         // Each connection handler bundles only the immutable/independent
         // state it needs (script, controller, storage) instead of capturing
@@ -239,16 +246,36 @@ private final class FakeHubListener: @unchecked Sendable {
     let path: String
     private let descriptor: Int32
     private let onClose: (@Sendable (Int32) -> Void)?
+    /// Test-only hook invoked immediately after `accept(2)` hands back a
+    /// connected client descriptor, before this listener does anything else
+    /// with it -- i.e. while the connection is accepted but not yet
+    /// registered. Lets a test hold a connection in exactly that window so
+    /// it can race `shutdown()` against registration deterministically. Not
+    /// used in production; defaults to a no-op.
+    private let onAcceptedBeforeRegistration: (@Sendable () -> Void)?
+    /// Test-only hook invoked immediately after a connection is registered
+    /// and counted in `handlerGroup` -- atomically, under the same lock --
+    /// but before its handler is actually started. Lets a test confirm that
+    /// once registration succeeds, `shutdown()` is already guaranteed to
+    /// wait for this connection, even if its handler hasn't run yet. Not
+    /// used in production; defaults to a no-op.
+    private let onRegisteredBeforeHandlerStart: (@Sendable () -> Void)?
     private let lock = NSLock()
     private let handlerGroup = DispatchGroup()
     private var connections: Set<Int32> = []
     private var accepted = 0
     private var shutDown = false
 
-    init(path: String, descriptor: Int32, onClose: (@Sendable (Int32) -> Void)? = nil) {
+    init(
+        path: String, descriptor: Int32, onClose: (@Sendable (Int32) -> Void)? = nil,
+        onAcceptedBeforeRegistration: (@Sendable () -> Void)? = nil,
+        onRegisteredBeforeHandlerStart: (@Sendable () -> Void)? = nil
+    ) {
         self.path = path
         self.descriptor = descriptor
         self.onClose = onClose
+        self.onAcceptedBeforeRegistration = onAcceptedBeforeRegistration
+        self.onRegisteredBeforeHandlerStart = onRegisteredBeforeHandlerStart
     }
 
     /// Accepts connections until the listener is shut down, invoking
@@ -258,10 +285,23 @@ private final class FakeHubListener: @unchecked Sendable {
         while true {
             let client = accept(descriptor, nil, nil)
             guard client >= 0 else { return }
+            onAcceptedBeforeRegistration?()
+            // Registration and entering the handler-completion group happen
+            // atomically under the same lock as the `shutDown` check. If
+            // they were two separate steps (as they used to be), a
+            // concurrent `shutdown()` could register this connection into
+            // `connectionsToSignal` while the group is still empty, call
+            // `wait()`, see zero outstanding handlers, and return -- and
+            // only afterward would this connection's handler actually start,
+            // running after `shutdown()` had already returned. Doing both
+            // under one lock closes that window: either this connection is
+            // fully counted before `shutdown()` can observe an empty group,
+            // or `shutDown` is already true and registration is refused.
             let registered = lock.withLock { () -> Bool in
                 guard !shutDown else { return false }
                 connections.insert(client)
                 accepted += 1
+                handlerGroup.enter()
                 return true
             }
             guard registered else {
@@ -269,7 +309,7 @@ private final class FakeHubListener: @unchecked Sendable {
                 _ = Darwin.close(client)
                 continue
             }
-            handlerGroup.enter()
+            onRegisteredBeforeHandlerStart?()
             onAccept(client)
         }
     }
