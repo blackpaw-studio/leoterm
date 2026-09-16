@@ -46,6 +46,7 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
     private let orphanStore: LeoTunnelOrphanStore
     private let fileManager: FileManager
     private let localSocketPath: String
+    private let localSocketDirectory: URL
     /// Fired synchronously for every state transition, tagged with the
     /// `(host, generation)` it belongs to -- `LeoRuntime` uses this to know
     /// exactly when a *switch* happened (a new `(host, generation)` pair)
@@ -67,6 +68,8 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
         orphanStore: LeoTunnelOrphanStore? = nil,
         fileManager: FileManager = .default,
         localSocketPath: String = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath,
+        localSocketDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".leo/state/leoterm", isDirectory: true),
         connectionTarget: @escaping (LeoHostID, Int, LeoHostConnectionState) -> Void = { _, _, _ in }
     ) {
         self.store = store
@@ -77,6 +80,7 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
         self.orphanStore = orphanStore ?? LeoTunnelOrphanStore(defaults: defaults)
         self.fileManager = fileManager
         self.localSocketPath = localSocketPath
+        self.localSocketDirectory = localSocketDirectory
         self.connectionTarget = connectionTarget
         if let value = defaults.string(forKey: "leo.selectedHost"), value != "localhost" {
             selected = .remote(value)
@@ -326,17 +330,38 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
         return resolved
     }
 
-    /// `/tmp` (not `FileManager.default.temporaryDirectory`, i.e. `$TMPDIR`):
-    /// macOS's per-process confined `$TMPDIR` (`/var/folders/<random>/T/`)
-    /// is ~49 bytes on its own, and `<TMPDIR>leoterm/<name>-<uuid>.sock`
-    /// regularly exceeds the ~100-byte AF_UNIX path limit
-    /// `LeoSSHCommand.tunnelArguments` enforces for any host name longer
-    /// than a few characters. `/tmp` is a stable, short (5-byte) path on
-    /// macOS (a symlink to `/private/tmp`), leaving ample room.
+    /// `~/.leo/state/leoterm/` (not `/tmp`): the local tunnel socket grants
+    /// full control of the remote leo daemon to whoever can connect to it,
+    /// so it must not sit in a world-writable directory where any local
+    /// user could plant a listener or otherwise interfere. leo itself keeps
+    /// its own socket under `~/.leo/state`. The directory is created (or
+    /// tightened, if it already exists with looser permissions) to mode
+    /// `0700` -- owner-only -- before every connect attempt.
     private func prepareLocalSocketPath(configuration: LeoHostConfiguration) throws -> String {
-        let directory = URL(fileURLWithPath: "/tmp/leoterm", isDirectory: true)
-        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
-        return directory.appendingPathComponent(configuration.localSocketFileName).path
+        try ensureSocketDirectoryIsPrivate()
+        return localSocketDirectory.appendingPathComponent(configuration.localSocketFileName).path
+    }
+
+    /// Owner-only (`0700`) mode: created that way if the directory is new,
+    /// tightened if it already exists with looser permissions (e.g. left
+    /// over from a version of this app that used a different mode, or
+    /// tampered with by another local user before this user's session
+    /// created it).
+    private func ensureSocketDirectoryIsPrivate() throws {
+        let path = localSocketDirectory.path
+        let privateMode = 0o700
+        guard fileManager.fileExists(atPath: path) else {
+            try fileManager.createDirectory(
+                at: localSocketDirectory,
+                withIntermediateDirectories: true,
+                attributes: [.posixPermissions: privateMode]
+            )
+            return
+        }
+        let attributes = try fileManager.attributesOfItem(atPath: path)
+        let currentMode = (attributes[.posixPermissions] as? NSNumber)?.intValue
+        guard currentMode != privateMode else { return }
+        try fileManager.setAttributes([.posixPermissions: privateMode], ofItemAtPath: path)
     }
 
     private func makeHealthProbe() -> @Sendable (String) async throws -> Bool {

@@ -7,12 +7,28 @@ import Testing
 enum LeoHostSelectionTestSupport {
     static let localSocketPath = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath
 
+    /// Tests never touch the real `~/.leo/state/leoterm` -- that's
+    /// production data. They share this directory instead, injected
+    /// through `LeoHostSelection`'s `localSocketDirectory` parameter;
+    /// sharing it across tests is safe because `ensureSocketDirectoryIsPrivate`
+    /// is idempotent, and tests that care about the directory's own
+    /// permissions (as opposed to just the socket path) use their own
+    /// private directory instead. `/tmp` (not `FileManager.default
+    /// .temporaryDirectory`, i.e. `$TMPDIR`) deliberately: macOS's
+    /// per-process confined `$TMPDIR` (`/var/folders/<random>/T/`) is long
+    /// enough on its own that `<TMPDIR>/leoterm-tests-hosts/<name>-<hex>.sock`
+    /// regularly exceeds the ~100-byte AF_UNIX path limit
+    /// `LeoSSHCommand.tunnelArguments` enforces -- the same overflow that
+    /// motivates this whole fix for the production directory.
+    static let localSocketDirectory = URL(fileURLWithPath: "/tmp/leoterm-tests-hosts", isDirectory: true)
+
     @MainActor static func makeSelection(
         hosts: [LeoHostConfiguration] = [],
         transport: any LeoDaemonTransport = LeoAlwaysHealthyTransport(),
         runner: any LeoProcessRunning = LeoProcessRunner(),
         defaults: UserDefaults? = nil,
-        orphanStore: LeoTunnelOrphanStore? = nil
+        orphanStore: LeoTunnelOrphanStore? = nil,
+        localSocketDirectory: URL = localSocketDirectory
     ) -> LeoHostSelection {
         let defaults = defaults ?? (UserDefaults(suiteName: "LeoHostSelectionTests.\(UUID().uuidString)") ?? .standard)
         if let data = try? JSONEncoder().encode(hosts) { defaults.set(data, forKey: LeoHostStore.key) }
@@ -23,14 +39,23 @@ enum LeoHostSelectionTestSupport {
             sshExecutable: LeoTunnelTestSupport.fixtureURL(),
             transport: transport,
             orphanStore: orphanStore,
-            localSocketPath: localSocketPath
+            localSocketPath: localSocketPath,
+            localSocketDirectory: localSocketDirectory
         )
     }
 
-    static func expectedLocalSocketPath(_ configuration: LeoHostConfiguration) -> String {
-        URL(fileURLWithPath: "/tmp/leoterm", isDirectory: true)
-            .appendingPathComponent(configuration.localSocketFileName)
-            .path
+    static func expectedLocalSocketPath(_ configuration: LeoHostConfiguration, in directory: URL = localSocketDirectory) -> String {
+        directory.appendingPathComponent(configuration.localSocketFileName).path
+    }
+
+    /// A directory unique to one test, for tests that assert on the
+    /// directory's own permissions (as opposed to just the socket path) --
+    /// never pre-created, so the caller controls its starting state. Lives
+    /// under `/tmp` (not `$TMPDIR`) and uses only the first 8 hex
+    /// characters of the UUID, for the same AF_UNIX-path-length reason as
+    /// `localSocketDirectory` above.
+    static func makeIsolatedSocketDirectory() -> URL {
+        URL(fileURLWithPath: "/tmp/leoterm-tests-\(UUID().uuidString.prefix(8))", isDirectory: true)
     }
 
     static func tempFile() -> String {

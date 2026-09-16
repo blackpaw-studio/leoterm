@@ -39,6 +39,11 @@ struct LeoHostConfiguration: Codable, Hashable, Sendable, Identifiable {
     var host: String { parsedTarget.host }
     var port: Int? { parsedTarget.port }
 
+    /// `<slug ≤24>-<first 12 hex of the uuid>.sock` -- kept short
+    /// deliberately: the local tunnel socket path (base directory + this
+    /// file name) must stay under the ~100-byte AF_UNIX path limit even for
+    /// realistic host names. 12 hex digits (48 bits) of a UUIDv4 is still
+    /// collision-proof for any realistic hosts list.
     var localSocketFileName: String {
         let slug = String(name.lowercased().unicodeScalars.map { scalar in
             switch scalar.value {
@@ -49,7 +54,7 @@ struct LeoHostConfiguration: Codable, Hashable, Sendable, Identifiable {
             }
         })
         let prefix = slug.isEmpty ? "_" : String(slug.prefix(24))
-        let suffix = id.uuidString.replacingOccurrences(of: "-", with: "").lowercased()
+        let suffix = id.uuidString.replacingOccurrences(of: "-", with: "").lowercased().prefix(12)
         return "\(prefix)-\(suffix).sock"
     }
 

@@ -39,6 +39,61 @@ import Testing
         selection.shutdown()
     }
 
+    /// The local tunnel socket grants full control of the remote leo
+    /// daemon to any local process that can connect to it -- the base
+    /// directory it lives in must not be readable/writable by other local
+    /// users. A fresh directory is created owner-only (`0700`).
+    @Test func selectingARemoteHostCreatesTheSocketDirectoryWithOwnerOnlyPermissions() async throws {
+        let directory = LeoHostSelectionTestSupport.makeIsolatedSocketDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        #expect(!FileManager.default.fileExists(atPath: directory.path))
+
+        let configuration = LeoHostConfiguration(name: "loopback", sshTarget: "evan@work", remoteSocketPath: "/remote/leo.sock")
+        let selection = LeoHostSelectionTestSupport.makeSelection(
+            hosts: [configuration], transport: LeoAlwaysHealthyTransport(), localSocketDirectory: directory
+        )
+        await selection.start(flavor: .socketEvents)
+
+        selection.select(.remote("loopback"))
+        let expectedPath = LeoHostSelectionTestSupport.expectedLocalSocketPath(configuration, in: directory)
+        #expect(expectedPath == directory.appendingPathComponent(configuration.localSocketFileName).path)
+        await LeoHostSelectionTestSupport.awaitConnected(selection, expectedPath)
+
+        let attributes = try FileManager.default.attributesOfItem(atPath: directory.path)
+        #expect((attributes[.posixPermissions] as? NSNumber)?.intValue == 0o700)
+
+        selection.shutdown()
+    }
+
+    /// If the directory already exists with looser permissions (e.g. an
+    /// upgrade from a version of the app that used a different mode, or
+    /// tampering by another local user before this user's session created
+    /// it), it's tightened rather than trusted as-is.
+    @Test func selectingARemoteHostTightensAnExistingLooselyPermissionedSocketDirectory() async throws {
+        let directory = LeoHostSelectionTestSupport.makeIsolatedSocketDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(
+            at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o755]
+        )
+        let before = try FileManager.default.attributesOfItem(atPath: directory.path)
+        #expect((before[.posixPermissions] as? NSNumber)?.intValue == 0o755)
+
+        let configuration = LeoHostConfiguration(name: "loopback", sshTarget: "evan@work", remoteSocketPath: "/remote/leo.sock")
+        let selection = LeoHostSelectionTestSupport.makeSelection(
+            hosts: [configuration], transport: LeoAlwaysHealthyTransport(), localSocketDirectory: directory
+        )
+        await selection.start(flavor: .socketEvents)
+
+        selection.select(.remote("loopback"))
+        let expectedPath = LeoHostSelectionTestSupport.expectedLocalSocketPath(configuration, in: directory)
+        await LeoHostSelectionTestSupport.awaitConnected(selection, expectedPath)
+
+        let after = try FileManager.default.attributesOfItem(atPath: directory.path)
+        #expect((after[.posixPermissions] as? NSNumber)?.intValue == 0o700)
+
+        selection.shutdown()
+    }
+
     @Test func selectingAConfiguredRemoteHostConnectsWithExpectedSocketPathAndArgv() async throws {
         let argvFile = LeoHostSelectionTestSupport.tempFile()
         LeoTunnelTestSupport.setEnvironment("FAKE_SSH_ARGV_FILE", argvFile)
