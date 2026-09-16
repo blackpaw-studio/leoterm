@@ -5,7 +5,7 @@ import Testing
 
 struct LeoSidebarFeedFixTests {
     @Test func helloAfterConnectedCoalescesRecoveryRefresh() async throws {
-        let daemon = FeedFixDaemon(results: [[agent("alpha")], [agent("bravo")]])
+        let daemon = FeedFixDaemon(results: [[agent("alpha")], [agent("bravo")], [agent("charlie")]])
         let activity = FeedFixActivity()
         let recorder = FeedFixRecorder()
         let feed = makeFeed(daemon: daemon, activity: activity, recorder: recorder)
@@ -93,6 +93,30 @@ struct LeoSidebarFeedFixTests {
         feed = nil
         #expect(reference == nil)
         #expect(reference == nil)
+    }
+
+    @Test func selectedHostErrorPausesPollingUntilConnected() async throws {
+        let daemon = FeedFixDaemon(results: [[agent("alpha")], [agent("bravo")]])
+        let recorder = FeedFixRecorder()
+        let feed = makeFeed(daemon: daemon, activity: FeedFixActivity(), recorder: recorder)
+        let host = LeoHostID.remote("work")
+        await feed.start()
+        await feed.select(host)
+        await feed.setPolling(true)
+        try await wait { await recorder.last?.connectivity == .connected }
+        await feed.receive(.hostStateChanged(.init(name: "work", ssh: "evan@work", state: .error,
+                                                   error: "Permission denied (publickey)", code: "ssh_auth_required")))
+        try await wait {
+            if case .failed(let message) = await recorder.last?.connectivity { return message.contains("Permission denied") }
+            return false
+        }
+        let pausedCalls = await daemon.listCallCount
+        await feed.tick()
+        await feed.tick()
+        #expect(await daemon.listCallCount == pausedCalls)
+        await feed.receive(.hostStateChanged(.init(name: "work", state: .connected)))
+        try await wait { await daemon.listCallCount == pausedCalls + 1 }
+        await feed.stop()
     }
 
     private func makeFeed(daemon: some LeoDaemonClient, activity: FeedFixActivity, recorder: FeedFixRecorder, sleep: (@Sendable (UInt64) async throws -> Void)? = nil) -> LeoSidebarFeed {

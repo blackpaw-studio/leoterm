@@ -1,6 +1,8 @@
 import Darwin
 import Foundation
 
+@testable import Ghostty
+
 struct FakeHubRequest: Equatable, Sendable {
     let method: String
     let path: String
@@ -8,18 +10,22 @@ struct FakeHubRequest: Equatable, Sendable {
 }
 
 struct FakeHubScript: Sendable {
-    var version = "0.29.0"
+    var version: String? = "0.29.0"
+    var legacyHealth = false
+    var healthStatus = 200
     var hosts: [LeoHostRow] = [.init(name: "localhost", local: true, state: .local)]
     var agents: [String: [LeoAgent]] = [:]
     var templates: [String: [LeoTemplate]] = [:]
     var state: Data?
     var events: [String] = []
     var unavailableHosts: Set<String> = []
+    var unknownHosts: Set<String> = []
 }
 
 actor FakeHubController {
     private var events: [String]
     private var closeEvents = false
+    private var eventConnectionClosed = false
 
     init(events: [String] = []) { self.events = events }
     func inject(event: String) { events.append(event) }
@@ -27,6 +33,8 @@ actor FakeHubController {
     func close() { closeEvents = true }
     func takeEvents() -> [String] { defer { events.removeAll() }; return events }
     func shouldClose() -> Bool { closeEvents }
+    func markEventConnectionClosed() { eventConnectionClosed = true }
+    func didObserveEventConnectionClose() -> Bool { eventConnectionClosed }
 }
 
 /// Scriptable HTTP-over-unix-socket hub used by client and SSE tests.
@@ -47,7 +55,7 @@ final class FakeHubDaemon: @unchecked Sendable {
         var address = sockaddr_un()
         address.sun_family = sa_family_t(AF_UNIX)
         let capacity = MemoryLayout.size(ofValue: address.sun_path) - 1
-        path.withCString { source in
+        _ = path.withCString { source in
             withUnsafeMutablePointer(to: &address.sun_path) { target in
                 strncpy(UnsafeMutableRawPointer(target).assumingMemoryBound(to: CChar.self), source, capacity)
             }
@@ -79,13 +87,31 @@ final class FakeHubDaemon: @unchecked Sendable {
     }
 
     private func events(_ client: Int32) async {
+        defer { Task { await controller.markEventConnectionClosed() } }
         Self.send(client, Data("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\r\n".utf8))
-        Self.send(client, Data("event: hello\ndata: {\"seq\":1,\"version\":\"\(script.version)\"}\n\n".utf8))
+        let version = script.version.map { "\"\($0)\"" } ?? "null"
+        Self.send(client, Data("event: hello\ndata: {\"seq\":1,\"version\":\(version)}\n\n".utf8))
         for host in script.hosts {
-            Self.send(client, Data("event: host_state_changed\ndata: {\"host\":\"\(host.name)\",\"state\":\"\(host.state.rawValue)\"}\n\n".utf8))
+            let state = switch host.state {
+            case .local: "local"
+            case .connecting: "connecting"
+            case .connected: "connected"
+            case .disconnected: "disconnected"
+            case .error: "error"
+            case .unknown(let value): value
+            }
+            var fields = ["\"host\":\"\(host.name)\"", "\"state\":\"\(state)\""]
+            if let error = host.error { fields.append("\"error\":\"\(error)\"") }
+            if let code = host.code { fields.append("\"code\":\"\(code)\"") }
+            let row = "{" + fields.joined(separator: ",") + "}"
+            Self.send(client, Data("event: host_state_changed\ndata: \(row)\n\n".utf8))
         }
         while !Task.isCancelled {
-            for event in await controller.takeEvents() { Self.send(client, Data(event.utf8)) }
+            var byte: UInt8 = 0
+            if Darwin.recv(client, &byte, 1, MSG_PEEK | MSG_DONTWAIT) == 0 { return }
+            for event in await controller.takeEvents() {
+                guard Self.send(client, Data(event.utf8)) else { return }
+            }
             if await controller.shouldClose() { return }
             try? await Task.sleep(nanoseconds: 1_000_000)
         }
@@ -95,20 +121,24 @@ final class FakeHubDaemon: @unchecked Sendable {
         let path = request.path
         let payload: Data
         if path == "/health" {
-            payload = json("{\"ok\":true,\"version\":\"\(script.version)\"}")
+            if script.healthStatus != 200 { return http(script.healthStatus, json("{\"ok\":false,\"error\":\"failed\"}")) }
+            if script.legacyHealth { payload = json("{\"ok\":true}")
+            } else if let version = script.version { payload = json("{\"ok\":true,\"data\":{\"version\":\"\(version)\"}}")
+            } else { payload = json("{\"ok\":true,\"data\":{}}") }
         } else if path == "/hosts" {
             payload = envelope(script.hosts)
         } else if path == "/state" {
-            payload = script.state ?? json("{\"agents\":[]}")
+            payload = script.state ?? json("{\"ok\":true,\"data\":{\"agents\":[]}}")
         } else if path.hasSuffix("/agents/list") {
-            payload = envelope(script.agents[host(from: path)] ?? [])
+            payload = envelope(script.agents[host(from: path)] ?? [LeoAgent]())
         } else if path.hasSuffix("/templates") {
-            payload = envelope(script.templates[host(from: path)] ?? [])
+            payload = envelope(script.templates[host(from: path)] ?? [LeoTemplate]())
         } else if path.hasSuffix("/connect") || path.hasSuffix("/disconnect") {
-            payload = envelope(script.hosts.first { $0.name == host(from: path) } ?? script.hosts[0])
+            payload = envelope(script.hosts.first { $0.name == host(from: path) } ?? .init(name: host(from: path), state: .disconnected))
         } else {
             payload = json("{\"ok\":true}")
         }
+        if script.unknownHosts.contains(host(from: path)) { return http(404, json("{\"ok\":false,\"code\":\"host_unknown\",\"error\":\"unknown host\"}")) }
         if script.unavailableHosts.contains(host(from: path)) { return http(503, json("{\"ok\":false,\"code\":\"host_unavailable\",\"error\":\"offline\"}")) }
         return http(200, payload)
     }
@@ -140,7 +170,15 @@ final class FakeHubDaemon: @unchecked Sendable {
         return .init(method: String(pieces[0]), path: String(pieces[1]), body: Data(data[headerEnd.upperBound...]))
     }
 
-    private static func send(_ client: Int32, _ data: Data) { _ = data.withUnsafeBytes { Darwin.send(client, $0.baseAddress, $0.count, 0) } }
+    @discardableResult private static func send(_ client: Int32, _ data: Data) -> Bool {
+        var offset = 0
+        while offset < data.count {
+            let count = data.withUnsafeBytes { Darwin.send(client, $0.baseAddress?.advanced(by: offset), data.count - offset, 0) }
+            guard count > 0 else { return false }
+            offset += count
+        }
+        return true
+    }
     private static func error() -> NSError { NSError(domain: NSPOSIXErrorDomain, code: Int(errno)) }
 }
 

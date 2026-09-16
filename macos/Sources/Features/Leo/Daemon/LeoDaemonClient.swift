@@ -113,10 +113,10 @@ struct LeoSocketDaemonClient: LeoDaemonClient {
 
     static func detectFlavor(socketPath: String = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath,
                              transport: any LeoDaemonTransport = LeoUnixSocketTransport()) async -> LeoAPIFlavor {
-        struct Health: Decodable { let version: String }
+        struct Health: Decodable { struct Data: Decodable { let version: String }; let data: Data }
         guard let response = try? await transport.send(.init(method: "GET", path: "/health"), socketPath: socketPath, timeout: 5),
               let health = try? JSONDecoder().decode(Health.self, from: response.body) else { return .legacy }
-        return .select(version: health.version)
+        return .select(version: health.data.version)
     }
 
     private func route(_ name: String, _ action: String? = nil, host: LeoHostID? = nil) throws -> String {
@@ -155,6 +155,7 @@ struct LeoSocketDaemonClient: LeoDaemonClient {
 
     private static func map(_ error: LeoDaemonError) -> LeoDaemonError {
         if case .daemon(let code, let message, _) = error, code == "host_unavailable" { return .hostUnavailable(message) }
+        if case .daemon(let code, let message, _) = error, code == "host_unknown" { return .hostUnknown(message) }
         return error
     }
 }

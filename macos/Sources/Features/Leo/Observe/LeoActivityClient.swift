@@ -245,6 +245,8 @@ actor LeoHubActivityClient {
                             if let event = Self.decode(raw) { continuation.yield(event) }
                         }
                     }
+                    guard !Task.isCancelled else { continuation.finish(); return }
+                    continuation.yield(.disconnected(reason: "EOF"))
                 } catch is CancellationError {
                     continuation.finish()
                     return

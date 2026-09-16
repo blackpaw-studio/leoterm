@@ -38,6 +38,7 @@ actor LeoSidebarFeed {
     private var recovering = false
     private var awaitingHello = false
     private var selectedHost: LeoHostID = .local
+    private var selectedHostAvailable = true
 
     init(daemon: any LeoDaemonClient, activity: LeoSidebarActivitySource, sleep: @escaping @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) }, sink: @escaping Sink) {
         self.daemon = daemon
@@ -75,13 +76,14 @@ actor LeoSidebarFeed {
     }
 
     func refresh() {
-        guard running else { return }
+        guard running, selectedHostAvailable else { return }
         process(scheduler.reduce(.refreshRequested))
     }
 
     func select(_ host: LeoHostID) {
         guard host != selectedHost else { return }
         selectedHost = host
+        selectedHostAvailable = true
         snapshot = .init(rows: [], connectivity: .loading, generation: snapshot.generation + 1)
         activityByName = [:]
         needsState = true
@@ -91,7 +93,7 @@ actor LeoSidebarFeed {
     }
 
     func tick() {
-        guard running else { return }
+        guard running, selectedHostAvailable else { return }
         process(scheduler.reduce(.tick))
     }
 
@@ -110,8 +112,10 @@ actor LeoSidebarFeed {
             guard row.hostID == selectedHost else { return }
             switch row.state {
             case .connected, .local:
+                selectedHostAvailable = true
                 refresh()
             case .disconnected, .error:
+                selectedHostAvailable = false
                 pollTask?.cancel()
                 snapshot = .init(rows: snapshot.rows, connectivity: .failed(message: row.error ?? "Host unavailable"), generation: snapshot.generation)
                 emit()

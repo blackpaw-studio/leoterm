@@ -200,6 +200,7 @@ enum LeoDaemonError: Error, Equatable, Sendable {
     case decoding(String)
     case socketMissing(path: String)
     case hostUnavailable(String)
+    case hostUnknown(String)
 }
 
 struct LeoSpawnRequest: Codable, Equatable, Sendable {
