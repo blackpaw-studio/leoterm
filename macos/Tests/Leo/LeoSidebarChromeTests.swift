@@ -56,6 +56,20 @@ struct LeoSidebarChromeTests {
         #expect(!LeoDeleteActionState.canStopFirst(errorCode: "other"))
     }
 
+    @Test func deleteSheetActionsFollowRowAvailability() {
+        let active = LeoDeleteSheetActionAvailability(
+            row: .init(status: .running, isPending: false), errorCode: "agent_still_running"
+        )
+        let pending = LeoDeleteSheetActionAvailability(
+            row: .init(status: .running, isPending: true), errorCode: "agent_still_running"
+        )
+
+        #expect(active.delete)
+        #expect(active.stopFirst)
+        #expect(!pending.delete)
+        #expect(!pending.stopFirst)
+    }
+
     @Test func shellQuoteHandlesHostileInputs() throws {
         #expect(try leoShellQuote("") == "''")
         #expect(try leoShellQuote("plain value") == "'plain value'")
@@ -72,6 +86,10 @@ struct LeoSidebarChromeTests {
         #expect(command == "'/tmp/leo'\\''s bin' service start")
         #expect(configuration.command == command)
         #expect(configuration.environmentVariables.isEmpty)
+    }
+
+    @Test func commandLauncherReportsFailedTabLaunch() {
+        #expect(!LeoCommandLauncher.didOpenTab { nil })
     }
 
     @Test @MainActor func sessionOcclusionReducerTracksWindowState() {

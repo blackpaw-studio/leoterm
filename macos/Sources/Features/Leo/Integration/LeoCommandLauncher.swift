@@ -11,11 +11,17 @@ enum LeoCommandLauncher {
         return configuration
     }
 
-    @MainActor static func openTab(in controller: TerminalController, command: String) {
-        _ = TerminalController.newTab(
+    static func didOpenTab(_ launch: () -> TerminalController?) -> Bool {
+        launch() != nil
+    }
+
+    @MainActor static func openTab(in controller: TerminalController, command: String) -> Bool {
+        didOpenTab {
+            TerminalController.newTab(
             controller.ghostty,
             from: controller.window,
             withBaseConfig: configuration(command: command)
-        )
+            )
+        }
     }
 }
