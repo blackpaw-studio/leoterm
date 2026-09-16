@@ -31,7 +31,7 @@ enum LeoSidebarReducers {
 
     static func applyListResult(_ snapshot: LeoSidebarSnapshot, result: [LeoAgentRow], generation: Int) -> LeoSidebarSnapshot {
         guard generation == snapshot.generation else { return snapshot }
-        return LeoSidebarSnapshot(rows: result, connectivity: .connected, generation: generation)
+        return LeoSidebarSnapshot(rows: result, connectivity: .connected, generation: generation, listRefreshSucceeded: true)
     }
 
     private static func rank(of row: LeoAgentRow) -> Int {

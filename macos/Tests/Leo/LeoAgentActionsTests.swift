@@ -25,7 +25,7 @@ import Testing
         #expect(refreshes == 6)
     }
 
-    @Test func failureSetsRowErrorWithoutRefresh() async {
+    @Test func rowErrorsPersistUntilSuccessfulListRefresh() async {
         let daemon = ActionDaemon(error: .daemon(code: "bad", message: "nope", matches: []))
         let model = LeoSidebarModel()
         var refreshes = 0
@@ -34,8 +34,21 @@ import Testing
         actions.restart(row)
         await awaitCondition { await MainActor.run { model.rowErrors[row.id] == "nope" } }
         #expect(refreshes == 0)
-        model.receive(LeoSidebarSnapshot(rows: [row], connectivity: .connected, generation: 1))
+        model.receive(LeoSidebarSnapshot(rows: [row], connectivity: .connected, generation: 1, listRefreshSucceeded: false))
+        #expect(model.rowErrors[row.id] == "nope")
+        model.receive(LeoSidebarSnapshot(rows: [row], connectivity: .failed(message: "offline"), generation: 2))
+        #expect(model.rowErrors[row.id] == "nope")
+        model.receive(LeoSidebarSnapshot(rows: [row], connectivity: .connected, generation: 3, listRefreshSucceeded: true))
         #expect(model.rowErrors.isEmpty)
+    }
+
+    @Test func spawnAttachesNewRow() async {
+        let daemon = ActionDaemon()
+        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: LeoSidebarModel(), refresh: {})
+        var attached: LeoAgentRow?
+        actions.spawn(.init(template: "default", repo: "", name: nil, branch: nil, prompt: nil), attach: { row, _ in attached = row }, dismiss: {}, failure: { _ in })
+        await awaitCondition { await MainActor.run { attached != nil } }
+        #expect(attached?.name == "alpha")
     }
 
     @Test func duplicatePendingActionIsIgnored() async {

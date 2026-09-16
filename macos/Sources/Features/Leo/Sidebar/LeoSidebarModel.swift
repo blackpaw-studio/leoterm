@@ -18,8 +18,10 @@ import Foundation
     func receive(_ value: LeoSidebarSnapshot) {
         guard value.generation >= snapshot.generation else { return }
         snapshot = value
-        rowErrors = [:]
-        rowErrorCodes = [:]
+        if value.listRefreshSucceeded {
+            rowErrors = [:]
+            rowErrorCodes = [:]
+        }
         guard let selection, !value.rows.contains(where: { $0.id == selection }) else { return }
         self.selection = nil
     }
@@ -28,5 +30,9 @@ import Foundation
     func setRowError(_ message: String, code: String? = nil, for id: LeoAgentRow.ID) {
         rowErrors[id] = message
         rowErrorCodes[id] = code
+    }
+
+    func setRowError(_ id: LeoAgentRow.ID, message: String) {
+        setRowError(message, for: id)
     }
 }
