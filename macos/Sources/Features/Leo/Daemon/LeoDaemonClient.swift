@@ -63,66 +63,77 @@ struct LeoSocketDaemonClient: LeoDaemonClient {
     let mutationTimeout: TimeInterval
     private let transport: any LeoDaemonTransport
     let flavor: LeoAPIFlavor
+    private let flavorProvider: (@Sendable () async -> LeoAPIFlavor)?
 
     init(socketPath: String = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath,
          defaultTimeout: TimeInterval = 5,
          mutationTimeout: TimeInterval = 30,
          transport: any LeoDaemonTransport = LeoUnixSocketTransport(),
-         flavor: LeoAPIFlavor = .legacy) {
+         flavor: LeoAPIFlavor = .legacy,
+         flavorProvider: (@Sendable () async -> LeoAPIFlavor)? = nil) {
         self.socketPath = socketPath
         self.defaultTimeout = defaultTimeout
         self.mutationTimeout = mutationTimeout
         self.transport = transport
         self.flavor = flavor
+        self.flavorProvider = flavorProvider
+    }
+
+    /// The flavor to route with for this call. Prefers a dynamic `flavorProvider`
+    /// (used when the flavor is detected asynchronously after construction) and
+    /// falls back to the constant `flavor` supplied at init.
+    private func currentFlavor() async -> LeoAPIFlavor {
+        if let flavorProvider { return await flavorProvider() }
+        return flavor
     }
 
     func listAgents() async throws -> [LeoAgent] { try await value("GET", "/agents/list") }
     func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent { try await value("POST", "/agents/spawn", body: try JSONEncoder().encode(request), timeout: mutationTimeout) }
-    func start(_ name: String) async throws { try await okay("POST", try route(name, "start")) }
+    func start(_ name: String) async throws { try await okay("POST", try await route(name, "start")) }
     func stop(_ name: String, wakeOnMessage: Bool? = nil) async throws {
         let body = try wakeOnMessage.map { try JSONEncoder().encode(["wake_on_message": $0]) }
-        try await okay("POST", try route(name, "stop"), body: body)
+        try await okay("POST", try await route(name, "stop"), body: body)
     }
-    func restart(_ name: String) async throws -> LeoAgent { try await value("POST", try route(name, "restart")) }
-    func reset(_ name: String) async throws { try await okay("POST", try route(name, "reset")) }
+    func restart(_ name: String) async throws -> LeoAgent { try await value("POST", try await route(name, "restart")) }
+    func reset(_ name: String) async throws { try await okay("POST", try await route(name, "reset")) }
     func setTemplate(_ name: String, template: String) async throws {
         let query = try URLQueryItem(name: "template", value: template).percentEncodedValue()
-        try await okay("POST", try route(name, "set-template") + "?template=" + query)
+        try await okay("POST", try await route(name, "set-template") + "?template=" + query)
     }
-    func rename(_ name: String, newName: String) async throws -> LeoAgent { try await value("POST", try route(name, "rename"), body: try JSONEncoder().encode(["new_name": newName])) }
+    func rename(_ name: String, newName: String) async throws -> LeoAgent { try await value("POST", try await route(name, "rename"), body: try JSONEncoder().encode(["new_name": newName])) }
     func delete(_ name: String, force: Bool? = nil, deleteBranch: Bool? = nil) async throws {
         var values: [String: Bool] = [:]
         if let force { values["force"] = force }
         if let deleteBranch { values["delete_branch"] = deleteBranch }
-        try await okay("DELETE", try route(name), body: values.isEmpty ? nil : try JSONEncoder().encode(values), timeout: mutationTimeout)
+        try await okay("DELETE", try await route(name), body: values.isEmpty ? nil : try JSONEncoder().encode(values), timeout: mutationTimeout)
     }
-    func deletePlan(_ name: String) async throws -> LeoDeletePlan { try await value("GET", try route(name, "delete-plan")) }
+    func deletePlan(_ name: String) async throws -> LeoDeletePlan { try await value("GET", try await route(name, "delete-plan")) }
     func logs(_ name: String, lines: Int? = nil) async throws -> String {
         let suffix = lines.map { "?lines=\($0)" } ?? ""
         struct Logs: Decodable, Sendable { let output: String }
-        return try await value("GET", try route(name, "logs") + suffix, as: Logs.self).output
+        return try await value("GET", try await route(name, "logs") + suffix, as: Logs.self).output
     }
 
     func hosts() async throws -> [LeoHostRow] { try await value("GET", "/hosts") }
     func connectHost(_ name: String) async throws -> LeoHostRow { try await value("POST", "/hosts/\(try Self.pathSegment(name))/connect") }
     func disconnectHost(_ name: String) async throws -> LeoHostRow { try await value("POST", "/hosts/\(try Self.pathSegment(name))/disconnect") }
-    func templates(host: LeoHostID) async throws -> [LeoTemplate] { try await value("GET", try hostPrefix(host) + "/templates") }
+    func templates(host: LeoHostID) async throws -> [LeoTemplate] { try await value("GET", try await routedPath("/templates", host: host)) }
     func version() async throws -> String {
         struct Version: Decodable, Sendable { let version: String }
         return try await value("GET", "/version", as: Version.self).version
     }
 
-    func listAgents(host: LeoHostID) async throws -> [LeoAgent] { try await value("GET", try hostPrefix(host) + "/agents/list") }
-    func spawn(_ request: LeoSpawnRequest, host: LeoHostID) async throws -> LeoAgent { try await value("POST", try hostPrefix(host) + "/agents/spawn", body: try JSONEncoder().encode(request), timeout: mutationTimeout) }
-    func start(_ name: String, host: LeoHostID) async throws { try await okay("POST", try route(name, "start", host: host)) }
-    func stop(_ name: String, host: LeoHostID, wakeOnMessage: Bool?) async throws { try await okay("POST", try route(name, "stop", host: host), body: try wakeOnMessage.map { try JSONEncoder().encode(["wake_on_message": $0]) }) }
-    func restart(_ name: String, host: LeoHostID) async throws -> LeoAgent { try await value("POST", try route(name, "restart", host: host)) }
-    func reset(_ name: String, host: LeoHostID) async throws { try await okay("POST", try route(name, "reset", host: host)) }
-    func setTemplate(_ name: String, host: LeoHostID, template: String) async throws { try await okay("POST", try route(name, "set-template", host: host) + "?template=" + URLQueryItem(name: "template", value: template).percentEncodedValue()) }
-    func rename(_ name: String, host: LeoHostID, newName: String) async throws -> LeoAgent { try await value("POST", try route(name, "rename", host: host), body: try JSONEncoder().encode(["new_name": newName])) }
-    func delete(_ name: String, host: LeoHostID, force: Bool?, deleteBranch: Bool?) async throws { var values: [String: Bool] = [:]; if let force { values["force"] = force }; if let deleteBranch { values["delete_branch"] = deleteBranch }; try await okay("DELETE", try route(name, host: host), body: values.isEmpty ? nil : try JSONEncoder().encode(values), timeout: mutationTimeout) }
-    func deletePlan(_ name: String, host: LeoHostID) async throws -> LeoDeletePlan { try await value("GET", try route(name, "delete-plan", host: host)) }
-    func logs(_ name: String, host: LeoHostID, lines: Int?) async throws -> String { struct Logs: Decodable, Sendable { let output: String }; return try await value("GET", try route(name, "logs", host: host) + (lines.map { "?lines=\($0)" } ?? ""), as: Logs.self).output }
+    func listAgents(host: LeoHostID) async throws -> [LeoAgent] { try await value("GET", try await routedPath("/agents/list", host: host)) }
+    func spawn(_ request: LeoSpawnRequest, host: LeoHostID) async throws -> LeoAgent { try await value("POST", try await routedPath("/agents/spawn", host: host), body: try JSONEncoder().encode(request), timeout: mutationTimeout) }
+    func start(_ name: String, host: LeoHostID) async throws { try await okay("POST", try await route(name, "start", host: host)) }
+    func stop(_ name: String, host: LeoHostID, wakeOnMessage: Bool?) async throws { try await okay("POST", try await route(name, "stop", host: host), body: try wakeOnMessage.map { try JSONEncoder().encode(["wake_on_message": $0]) }) }
+    func restart(_ name: String, host: LeoHostID) async throws -> LeoAgent { try await value("POST", try await route(name, "restart", host: host)) }
+    func reset(_ name: String, host: LeoHostID) async throws { try await okay("POST", try await route(name, "reset", host: host)) }
+    func setTemplate(_ name: String, host: LeoHostID, template: String) async throws { try await okay("POST", try await route(name, "set-template", host: host) + "?template=" + URLQueryItem(name: "template", value: template).percentEncodedValue()) }
+    func rename(_ name: String, host: LeoHostID, newName: String) async throws -> LeoAgent { try await value("POST", try await route(name, "rename", host: host), body: try JSONEncoder().encode(["new_name": newName])) }
+    func delete(_ name: String, host: LeoHostID, force: Bool?, deleteBranch: Bool?) async throws { var values: [String: Bool] = [:]; if let force { values["force"] = force }; if let deleteBranch { values["delete_branch"] = deleteBranch }; try await okay("DELETE", try await route(name, host: host), body: values.isEmpty ? nil : try JSONEncoder().encode(values), timeout: mutationTimeout) }
+    func deletePlan(_ name: String, host: LeoHostID) async throws -> LeoDeletePlan { try await value("GET", try await route(name, "delete-plan", host: host)) }
+    func logs(_ name: String, host: LeoHostID, lines: Int?) async throws -> String { struct Logs: Decodable, Sendable { let output: String }; return try await value("GET", try await route(name, "logs", host: host) + (lines.map { "?lines=\($0)" } ?? ""), as: Logs.self).output }
 
     static func detectFlavor(socketPath: String = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath,
                              transport: any LeoDaemonTransport = LeoUnixSocketTransport()) async -> LeoAPIFlavor {
@@ -132,10 +143,26 @@ struct LeoSocketDaemonClient: LeoDaemonClient {
         return .select(version: health.data.version)
     }
 
-    private func route(_ name: String, _ action: String? = nil, host: LeoHostID? = nil) throws -> String {
+    private func route(_ name: String, _ action: String? = nil, host: LeoHostID? = nil) async throws -> String {
         let segment = try Self.pathSegment(name)
-        let prefix = try host.map(hostPrefix) ?? ""
-        return prefix + "/agents/\(segment)" + (action.map { "/\($0)" } ?? "")
+        let suffix = "/agents/\(segment)" + (action.map { "/\($0)" } ?? "")
+        guard let host else { return suffix }
+        return try await routedPath(suffix, host: host)
+    }
+
+    /// Routes a host-scoped path per the daemon's API flavor. Legacy daemons only
+    /// understand unprefixed paths for the local host and have no remote-host
+    /// concept at all; hub daemons prefix every host, including localhost.
+    private func routedPath(_ suffix: String, host: LeoHostID) async throws -> String {
+        switch await currentFlavor() {
+        case .legacy:
+            guard host == .local else {
+                throw LeoDaemonError.hubRequired("leo 0.29+ required for remote hosts")
+            }
+            return suffix
+        case .hub:
+            return try hostPrefix(host) + suffix
+        }
     }
 
     private func hostPrefix(_ host: LeoHostID) throws -> String {

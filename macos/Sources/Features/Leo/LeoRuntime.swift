@@ -9,9 +9,23 @@ import Foundation
     private let cli: LeoCLI
     private let defaults: UserDefaults
     private let attachCoordinator: LeoAttachCoordinator
+    private let flavorState: LeoAPIFlavorState
+
+    /// Pure composition helper: builds a socket daemon client configured for a
+    /// known flavor (or a dynamic provider). Kept free of runtime/async state so
+    /// it can be constructed and tested without spinning up detection.
+    nonisolated static func makeClient(
+        socketPath: String = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath,
+        transport: any LeoDaemonTransport = LeoUnixSocketTransport(),
+        flavor: LeoAPIFlavor = .legacy,
+        flavorProvider: (@Sendable () async -> LeoAPIFlavor)? = nil
+    ) -> LeoSocketDaemonClient {
+        LeoSocketDaemonClient(socketPath: socketPath, transport: transport, flavor: flavor, flavorProvider: flavorProvider)
+    }
 
     convenience init(defaults: UserDefaults = .ghostty) {
         let socketPath = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath
+        let flavorState = LeoAPIFlavorState()
         let activity = LeoSidebarActivitySource(
             events: {
                 AsyncStream { continuation in
@@ -43,16 +57,22 @@ import Foundation
                 return try await LeoActivityClient(config: config).fetchState()
             }
         )
-        self.init(daemon: LeoSocketDaemonClient(socketPath: socketPath), cli: LeoCLI(), activitySource: activity, defaults: defaults)
+        let daemon = LeoRuntime.makeClient(socketPath: socketPath, flavorProvider: { [flavorState] in await flavorState.current })
+        self.init(daemon: daemon, cli: LeoCLI(), activitySource: activity, defaults: defaults, flavorState: flavorState)
     }
 
     convenience init(daemon: any LeoDaemonClient, cli: LeoCLI, activity: LeoActivityClient, defaults: UserDefaults = .standard) {
         self.init(daemon: daemon, cli: cli, activitySource: LeoSidebarActivitySource(client: activity), defaults: defaults)
     }
 
-    init(daemon: any LeoDaemonClient, cli: LeoCLI, activitySource: LeoSidebarActivitySource, defaults: UserDefaults = .standard) {
+    convenience init(daemon: any LeoDaemonClient, cli: LeoCLI, activitySource: LeoSidebarActivitySource, defaults: UserDefaults = .standard) {
+        self.init(daemon: daemon, cli: cli, activitySource: activitySource, defaults: defaults, flavorState: LeoAPIFlavorState())
+    }
+
+    init(daemon: any LeoDaemonClient, cli: LeoCLI, activitySource: LeoSidebarActivitySource, defaults: UserDefaults = .standard, flavorState: LeoAPIFlavorState) {
         self.cli = cli
         self.defaults = defaults
+        self.flavorState = flavorState
         let model = LeoSidebarModel()
         let registry = LeoWindowSessionRegistry()
         self.model = model
@@ -109,6 +129,7 @@ import Foundation
         let pollable = registry.hasPollableSidebar
         Task {
             let flavor = await LeoSocketDaemonClient.detectFlavor()
+            await flavorState.update(flavor)
             await actions.hostSelection.start(flavor: flavor)
             await feed.start()
             await feed.setPolling(pollable)
