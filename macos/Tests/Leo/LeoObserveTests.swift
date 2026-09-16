@@ -40,7 +40,7 @@ private struct EventTransport: LeoActivityTransport {
     func fetch(_ request: URLRequest) async throws -> (Data, Int) { (Data(), 200) }
     func stream(_ request: URLRequest) -> AsyncThrowingStream<Data, Error> {
         AsyncThrowingStream { continuation in
-            continuation.yield(Data("event: hello\\ndata: {\\\"seq\\\":1}\\n\\nevent: agent_activity\\ndata: {\\\"seq\\\":3,\\\"agent\\\":\\\"a\\\",\\\"activity\\\":\\\"working\\\"}\\n\\n".utf8))
+            continuation.yield(Data("event: hello\ndata: {\"seq\":1}\n\nevent: agent_activity\ndata: {\"seq\":3,\"agent\":\"a\",\"activity\":\"working\"}\n\n".utf8))
             continuation.finish()
         }
     }
