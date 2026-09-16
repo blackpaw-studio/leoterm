@@ -71,8 +71,8 @@ import Foundation
             guard let controller = NSApp.keyWindow?.windowController as? TerminalController else { return }
             self?.startDaemon(in: controller)
         }
-        model.attachRequested = { [weak attachCoordinator] row, origin, disposition in
-            model.selection = row.id
+        model.attachRequested = { [weak attachCoordinator, weak model] row, origin, disposition in
+            model?.selection = row.id
             Task { await attachCoordinator?.attach(identity: row.identity, from: origin, disposition: disposition) }
         }
     }
