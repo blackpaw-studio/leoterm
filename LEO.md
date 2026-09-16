@@ -41,3 +41,25 @@ DEVELOPER_DIR=/Applications/Xcode-26.3.0.app/Contents/Developer \
   -derivedDataPath build/DD -skipUnavailableActions \
   -parallel-testing-enabled NO -only-testing:GhosttyTests
 ```
+
+### Running tests when the Mac is locked
+
+When Xcode reports the Mac is passcode protected, run the built test bundle
+directly from `macos/` instead:
+
+```bash
+D=/Applications/Xcode-26.3.0.app/Contents/Developer
+APP=$PWD/build/DD/Build/Products/Debug/Ghostty.app
+/opt/homebrew/bin/timeout 300 env DEVELOPER_DIR=$D \
+  DYLD_FRAMEWORK_PATH="$D/Platforms/MacOSX.platform/Developer/Library/Frameworks:$D/Library/Frameworks" \
+  DYLD_LIBRARY_PATH="$D/Platforms/MacOSX.platform/Developer/usr/lib" \
+  DYLD_INSERT_LIBRARIES="$D/Platforms/MacOSX.platform/Developer/usr/lib/libXCTestBundleInject.dylib" \
+  XCInjectBundleInto="$APP/Contents/MacOS/ghostty" \
+  "$APP/Contents/MacOS/ghostty" -XCTest All \
+  "$APP/Contents/PlugIns/GhosttyTests.xctest" > /tmp/leo-tests.log 2>&1
+```
+
+This runner always makes `ConfigTests/errorsEmptyForValidConfig` fail because
+its `-XCTest` arguments are interpreted as app CLI configuration; ignore that
+one known artifact. An exit code of 124 means a test hung. Compare `◇ … started`
+lines with passed or failed lines in `/tmp/leo-tests.log` to identify it.
