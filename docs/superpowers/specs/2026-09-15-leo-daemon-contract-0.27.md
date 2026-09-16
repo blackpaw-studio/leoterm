@@ -60,3 +60,13 @@ Fields: `name` (required); `template?`, `repo?`, `workspace?`, `branch?`, `canon
 - `LeoActivityClient.swift`: decode exact event payloads (`agent` is a string in state/activity/stopped, an object in `agent_spawned`).
 - `LeoObserveConfig.swift`: missing `web:`/`enabled` ⇒ disabled.
 - `LeoHost.swift`/`LeoCLI.swift`: honour configured `leo_path`/`tmux_path`; don't hardcode `~/.local/bin/leo`.
+
+## Proposed for leo v0.29.0 — daemon-owned hosts (agreed with the leo agent 2026-09-16, pending Evan's approval of leo's spec)
+
+Unix socket, existing envelope, no auth. All hosts must run ≥ v0.29.0 to emit events; older remotes proxy agent routes but produce no activity (host `/state` falls back to polling `/agents/list`).
+- `GET /hosts` → `[{name, local, default, ssh?, state: local|connecting|connected|disconnected|error, error?, code?, connected_at?}]`; `localhost` always present with `state:"local"`.
+- `POST /hosts/{name}/connect` (idempotent; returns the row; starts the forward), `POST /hosts/{name}/disconnect`. Daemon ssh uses `BatchMode=yes`; failure codes: `ssh_auth_required`, `ssh_host_key_unknown`, `ssh_unreachable`, `ssh_failed`, each with the stderr tail in `error`. Lazy connect on first proxied call; `client.hosts.<name>.autoconnect: true` connects at daemon start. Reconnect backoff 1–30 s.
+- Proxy, unchanged semantics + status passthrough: `/hosts/{name}/agents/list`, `/hosts/{name}/agents/spawn`, `/hosts/{name}/agents/{agent}/{start|stop|restart|reset|set-template|rename|logs|session|attach-spec|delete-plan}`, `DELETE /hosts/{name}/agents/{agent}`, `GET /hosts/{name}/templates` (and new local `GET /templates`). `/hosts/localhost/...` routes in-process. Connection problems → `503 {code:"host_unavailable", error}`.
+- `GET /events` (SSE): `hello` first; same event names/payloads as `/api/v1/events` with `host` added to every payload; plus `host_state_changed {host, state, error?, code?}`; `: ping` every 20 s. `GET /state`: same agents shape as `/api/v1/state.data.agents` with `host` per row, merged across localhost and every connected host.
+- `GET /health` → `{ok:true, version}`; `GET /version` → `{version}`.
+- CLI: `leo host forward` retired (no shim); `leo host list|connect|disconnect` talk to the daemon. `leo agent attach --host <name> -- <agent>` reuses the hub's ControlPath (no re-auth). `--` confirmed honoured on `agent attach` and `agent logs`.
