@@ -334,6 +334,14 @@
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="L3L-I8-sqk"/>
+                            <!-- MARK: Leo -->
+                            <menuItem title="Toggle Agents Sidebar" keyEquivalent="L" id="Leo-Sidebar-Toggle">
+                                <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
+                                <connections>
+                                    <action selector="toggleLeoSidebar:" target="-1" id="Leo-Sidebar-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="Leo-Sidebar-Separator"/>
                             <menuItem title="Command Palette" id="et6-de-Mh7">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
