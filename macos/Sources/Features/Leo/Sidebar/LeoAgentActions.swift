@@ -47,13 +47,13 @@ import Foundation
     func setTemplate(_ row: LeoAgentRow, template: String) { run(row) { daemon in try await daemon.setTemplate(row.name, template: template) } }
     func rename(_ row: LeoAgentRow, newName: String) { run(row) { daemon in _ = try await daemon.rename(row.name, newName: newName) } }
     func delete(_ row: LeoAgentRow, force: Bool, deleteBranch: Bool, success: @escaping () -> Void = {}) {
-        run(row, success: success) { daemon in try await daemon.delete(row.name, force: force, deleteBranch: deleteBranch) }
+        run(
+            row, onSuccess: { (_: Void) in success() },
+            operation: { daemon in try await daemon.delete(row.name, force: force, deleteBranch: deleteBranch) }
+        )
     }
     func deletePlan(_ row: LeoAgentRow, receive: @escaping (LeoDeletePlan) -> Void) {
-        run(row, refreshOnSuccess: false) { daemon in
-            let plan = try await daemon.deletePlan(row.name)
-            receive(plan)
-        }
+        run(row, refreshOnSuccess: false, onSuccess: receive) { daemon in try await daemon.deletePlan(row.name) }
     }
 
     /// Local templates come from the CLI (unchanged); a remote host's
@@ -105,6 +105,7 @@ import Foundation
                 dismiss(); refresh()
                 attach(LeoAgentRow(host: host, name: agent.name, template: agent.template, status: agent.status ?? .unknown("unknown"), activity: .unknown, actionDetail: nil), .reuseOrTab)
             } catch {
+                guard self.hostSelection.generationToken == capturedGeneration else { return }
                 failure(Self.message(error))
             }
         }
@@ -118,11 +119,14 @@ import Foundation
     /// at invocation time (not when the operation actually runs), and runs
     /// `operation` against that captured daemon -- so a mid-flight host
     /// switch can never redirect an already-issued request to the NEW
-    /// connection's socket. If the selection has moved on by the time the
-    /// operation completes, its UI side effects (refresh, row-error) are
-    /// dropped rather than applied to whatever's now selected.
-    private func run(_ row: LeoAgentRow, refreshOnSuccess: Bool = true, success: @escaping () -> Void = {},
-                     operation: @escaping @MainActor (any LeoDaemonClient) async throws -> Void) {
+    /// connection's socket. `operation`'s return value is ONLY handed to
+    /// `onSuccess` (and `refresh()` only called) after re-checking the
+    /// token: every UI callback -- refresh, row-error, and whatever
+    /// `onSuccess` does (attach, delete-plan display, etc.) -- is gated,
+    /// never invoked from inside `operation` itself where a stale
+    /// completion could still reach it.
+    private func run<T>(_ row: LeoAgentRow, refreshOnSuccess: Bool = true, onSuccess: @escaping (T) -> Void = { (_: T) in },
+                        operation: @escaping @MainActor (any LeoDaemonClient) async throws -> T) {
         guard pendingActions.insert(row.id).inserted else { return }
         let capturedDaemon = daemon
         let capturedGeneration = hostSelection.generationToken
@@ -130,10 +134,10 @@ import Foundation
             guard let self else { return }
             defer { self.pendingActions.remove(row.id) }
             do {
-                try await operation(capturedDaemon)
+                let value = try await operation(capturedDaemon)
                 guard self.hostSelection.generationToken == capturedGeneration else { return }
                 if refreshOnSuccess { self.refresh() }
-                success()
+                onSuccess(value)
             } catch {
                 guard self.hostSelection.generationToken == capturedGeneration else { return }
                 self.model.setRowError(Self.message(error), code: Self.code(error), for: row.id)

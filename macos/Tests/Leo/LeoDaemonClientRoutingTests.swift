@@ -4,7 +4,7 @@ import Testing
 @testable import Ghostty
 
 /// `LeoSocketDaemonClient` is bound to a single socket path and every route
-/// is unprefixed -- there is no more `/hosts/{n}/...` multiplexing. A
+/// is unprefixed -- there is no more per-host prefixed routing. A
 /// host-scoped call for anything other than `.local` has nothing to route to
 /// (that's app-owned SSH tunnels' job) and throws `hostUnavailable` without
 /// making a request.

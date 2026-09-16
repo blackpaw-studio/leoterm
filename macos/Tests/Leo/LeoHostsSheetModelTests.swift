@@ -16,6 +16,37 @@ import Testing
         #expect(store.load().map(\.name) == ["work"], "editing the draft must not touch the store before save()")
     }
 
+    /// Two Hosts editor windows can each independently open a draft from
+    /// the same store. If window A saves first (e.g. removing a host),
+    /// window B's later `save()` -- built from a now-stale snapshot -- must
+    /// refuse instead of silently overwriting A's change (which could
+    /// resurrect a host A just removed).
+    @Test func savingFromAStaleDraftAfterAnotherWindowAlreadySavedIsRefused() {
+        let defaults = defaults()
+        let store = LeoHostStore(defaults: defaults)
+        try? store.save([.init(name: "work", sshTarget: "evan@work"), .init(name: "zeta", sshTarget: "evan@zeta")])
+
+        let windowA = LeoHostsSheetModel(store: store)
+        let windowB = LeoHostsSheetModel(store: store)
+
+        // Window A removes "zeta" and saves first.
+        windowA.selectedID = windowA.hosts.first { $0.name == "zeta" }?.id
+        windowA.removeSelected()
+        #expect(windowA.save())
+        #expect(store.load().map(\.name) == ["work"])
+
+        // Window B, unaware of A's save, edits "work" and tries to save its
+        // OWN (now-stale) draft.
+        windowB.selectedID = windowB.hosts.first { $0.name == "work" }?.id
+        windowB.updateSelected { .init(id: $0.id, name: "work", sshTarget: "evan@work-renamed") }
+        let saved = windowB.save()
+
+        #expect(!saved)
+        #expect(windowB.saveError == "Hosts changed in another window; reopen to edit")
+        #expect(store.load().map(\.name) == ["work"], "the refused save must not touch the store, and must not resurrect zeta")
+        #expect(store.load().first?.sshTarget == "evan@work", "the refused save must not apply window B's edit either")
+    }
+
     @Test func cancelDiscardsTheDraft() {
         let defaults = defaults()
         let store = LeoHostStore(defaults: defaults)

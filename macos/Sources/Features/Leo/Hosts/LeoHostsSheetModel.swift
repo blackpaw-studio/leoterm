@@ -12,6 +12,13 @@ import Foundation
 
     private let store: LeoHostStore
     private let onSaved: () -> Void
+    /// The store's contents at the moment this model opened. Two Hosts
+    /// editor windows can independently open drafts from the same store;
+    /// without this, the later `save()` would blindly overwrite whatever
+    /// the earlier window already saved (silently resurrecting a host the
+    /// earlier window removed, or discarding its edits). `save()` refuses
+    /// instead of writing if the store no longer matches this snapshot.
+    private let openedSnapshot: [LeoHostConfiguration]
 
     init(store: LeoHostStore, onSaved: @escaping () -> Void = {}) {
         self.store = store
@@ -19,6 +26,7 @@ import Foundation
         let loaded = store.load()
         hosts = loaded
         selectedID = loaded.first?.id
+        openedSnapshot = loaded
     }
 
     var selectedIndex: Int? {
@@ -72,8 +80,12 @@ import Foundation
     /// store the single source of truth for what's actually persistable.
     @discardableResult
     func save() -> Bool {
+        guard store.load() == openedSnapshot else {
+            saveError = "Hosts changed in another window; reopen to edit"
+            return false
+        }
         do {
-            try store.save(hosts)
+            try store.save(hosts.map(Self.normalizingEmptyPathsToDefaults))
             hosts = store.load()
             selectedID = selectedID.flatMap { id in hosts.first { $0.id == id }?.id } ?? hosts.first?.id
             saveError = nil
@@ -83,6 +95,21 @@ import Foundation
             saveError = Self.message(for: error)
             return false
         }
+    }
+
+    /// Clearing the remote leo/socket path fields must not instantly snap
+    /// back to the placeholder default while the user is still typing --
+    /// the draft keeps whatever (possibly empty) text they typed, and only
+    /// `save()` normalizes an empty value to the default.
+    private static func normalizingEmptyPathsToDefaults(_ host: LeoHostConfiguration) -> LeoHostConfiguration {
+        LeoHostConfiguration(
+            id: host.id,
+            name: host.name,
+            sshTarget: host.sshTarget,
+            identityFile: host.identityFile,
+            remoteLeoPath: host.remoteLeoPath.isEmpty ? "~/.local/bin/leo" : host.remoteLeoPath,
+            remoteSocketPath: host.remoteSocketPath.isEmpty ? "~/.leo/state/leo.sock" : host.remoteSocketPath
+        )
     }
 
     private func isDuplicateName(_ name: String) -> Bool {

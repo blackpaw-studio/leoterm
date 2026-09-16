@@ -17,6 +17,28 @@ import Testing
         #expect(selection.state == .connected(socketPath: LeoHostSelectionTestSupport.localSocketPath))
     }
 
+    /// Root cause of the smoke-test failure: `${TMPDIR}` on macOS (the
+    /// per-process confined `/var/folders/<random>/T/`) is long enough that
+    /// `<TMPDIR>leoterm/<name>-<uuid>.sock` regularly exceeds the ~100-byte
+    /// AF_UNIX path limit `LeoSSHCommand.tunnelArguments` enforces -- a
+    /// realistic host name (e.g. "loopback", unlike the 4-character names
+    /// used elsewhere in this suite that happened to stay just under the
+    /// limit) reliably pushes it over, so `connect()` throws
+    /// `invalidSocketPath` before ever launching ssh. The local socket base
+    /// directory must be short and stable (`/tmp`, not `$TMPDIR`).
+    @Test func selectingARealisticallyNamedHostStaysUnderTheSocketPathLimitAndConnects() async throws {
+        let configuration = LeoHostConfiguration(name: "loopback", sshTarget: "evan@work", remoteSocketPath: "/remote/leo.sock")
+        let selection = LeoHostSelectionTestSupport.makeSelection(hosts: [configuration], transport: LeoAlwaysHealthyTransport())
+        await selection.start(flavor: .socketEvents)
+
+        selection.select(.remote("loopback"))
+        let expectedPath = LeoHostSelectionTestSupport.expectedLocalSocketPath(configuration)
+        #expect(expectedPath.utf8.count <= 100, "the local socket path itself must stay within the AF_UNIX limit")
+        await LeoHostSelectionTestSupport.awaitConnected(selection, expectedPath)
+
+        selection.shutdown()
+    }
+
     @Test func selectingAConfiguredRemoteHostConnectsWithExpectedSocketPathAndArgv() async throws {
         let argvFile = LeoHostSelectionTestSupport.tempFile()
         LeoTunnelTestSupport.setEnvironment("FAKE_SSH_ARGV_FILE", argvFile)

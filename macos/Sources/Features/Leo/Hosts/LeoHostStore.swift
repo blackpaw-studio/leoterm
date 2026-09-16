@@ -1,4 +1,7 @@
 import Foundation
+import OSLog
+
+private let leoHostStoreLogger = Logger(subsystem: "com.mitchellh.ghostty", category: "leo")
 
 enum LeoHostStoreError: Error, Equatable, Sendable {
     case invalidConfiguration(String, [LeoHostValidationError])
@@ -25,8 +28,12 @@ struct LeoHostStore {
     }
 
     func load() -> [LeoHostConfiguration] {
-        guard let data = defaults.data(forKey: Self.key),
-              let hosts = try? JSONDecoder().decode([LeoHostConfiguration].self, from: data) else {
+        guard let data = defaults.data(forKey: Self.key) else {
+            leoHostStoreLogger.log("load: no data for key=\(Self.key, privacy: .public)")
+            return []
+        }
+        guard let hosts = try? JSONDecoder().decode([LeoHostConfiguration].self, from: data) else {
+            leoHostStoreLogger.error("load: failed to decode \(data.count) bytes for key=\(Self.key, privacy: .public)")
             return []
         }
         let partitioned = hosts.reduce(into: (valid: [LeoHostConfiguration](), invalid: [LeoHostStoreProblem]())) { result, host in
@@ -38,6 +45,9 @@ struct LeoHostStore {
             }
         }
         if !partitioned.invalid.isEmpty {
+            for problem in partitioned.invalid {
+                leoHostStoreLogger.error("load: dropped invalid host name=\(problem.host.name, privacy: .public) errors=\(String(describing: problem.errors), privacy: .public)")
+            }
             onInvalid(partitioned.invalid)
         }
         return partitioned.valid.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }

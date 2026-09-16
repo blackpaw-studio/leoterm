@@ -1,7 +1,10 @@
 import AppKit
 import Foundation
+import OSLog
 
 @MainActor final class LeoRuntime {
+    private static let logger = Logger(subsystem: "com.mitchellh.ghostty", category: "leo")
+
     let model: LeoSidebarModel
     let registry: LeoWindowSessionRegistry
     let actions: LeoAgentActions
@@ -129,6 +132,7 @@ import Foundation
     }
 
     func start() {
+        Self.logger.log("start() called")
         let pollable = registry.hasPollableSidebar
         let orphanStore = orphanStore
         Task {
@@ -138,9 +142,11 @@ import Foundation
                 orphanStore.reapAtLaunch(inspector: leoTunnelRealInspector, signaller: leoTunnelRealSignaller)
             }.value
             let flavor = await LeoSocketDaemonClient.detectFlavor()
+            Self.logger.log("detected flavor=\(String(describing: flavor), privacy: .public) connectionSequence=\(self.connectionSequence)")
             await feed.start()
             await feed.setInitialPolling(pollable)
             await hostSelection.start(flavor: flavor)
+            Self.logger.log("hostSelection.start(flavor:) returned")
         }
     }
     func shutdown() {

@@ -29,7 +29,7 @@ protocol LeoDaemonClient: Sendable {
 }
 
 /// Default host-scoped implementations: every daemon socket now represents
-/// exactly one host (no more `/hosts/{n}/...` multiplexing), so any call
+/// exactly one host (no more per-host prefixed routes), so any call
 /// scoped to a non-local host simply has nothing to route to yet -- app-owned
 /// SSH tunnels (see `LeoHostSelection`) are what will eventually give a
 /// remote host its own socket path and its own `LeoDaemonClient` instance.
@@ -63,7 +63,7 @@ protocol LeoDaemonTransport: Sendable {
 
 /// Bound to a single unix socket -- every route is unprefixed. Remote hosts
 /// get their own socket path (an app-owned SSH tunnel) and their own
-/// `LeoSocketDaemonClient` instance rather than a `/hosts/{n}/...` prefix.
+/// `LeoSocketDaemonClient` instance rather than a per-host prefixed route.
 struct LeoSocketDaemonClient: LeoDaemonClient {
     let socketPath: String
     let defaultTimeout: TimeInterval

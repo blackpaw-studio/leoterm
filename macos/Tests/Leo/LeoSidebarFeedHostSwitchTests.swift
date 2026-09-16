@@ -165,18 +165,34 @@ struct LeoSidebarFeedHostSwitchTests {
 
         await feed.start()
         await feed.setInitialPolling(true)
-        await feed.updateConnection(host: .remote("work"), generation: 1, phase: .connecting)
         await feed.updateConnection(host: .remote("work"), generation: 1, phase: .connected(daemon: daemon, activitySource: Self.emptyActivity))
 
+        // Establish that polling is genuinely active BEFORE the reconnect:
+        // the initial refresh happened, a tick was scheduled, and advancing
+        // the clock actually fires it.
         await awaitCondition(message: "initial refresh never happened") { await daemon.callCount >= 1 }
         await awaitCondition(message: "poll tick was never scheduled") { await clock.waiterCount >= 1 }
+        await clock.advance()
+        await awaitCondition(message: "the established tick never refreshed") { await daemon.callCount >= 2 }
+        await awaitCondition(message: "poll tick was never rescheduled") { await clock.waiterCount >= 1 }
+
+        // The tunnel drops and LeoHostSelection retries: a NEW generation
+        // goes through `.connecting` (pausing the scheduler) before
+        // `.connected` again -- exactly the transition that used to leave
+        // polling permanently dead.
+        let callsBeforeReconnect = await daemon.callCount
+        await feed.updateConnection(host: .remote("work"), generation: 2, phase: .connecting)
+        await feed.updateConnection(host: .remote("work"), generation: 2, phase: .connected(daemon: daemon, activitySource: Self.emptyActivity))
+
+        await awaitCondition(message: "the reconnect's own refresh never happened") { await daemon.callCount > callsBeforeReconnect }
+        await awaitCondition(message: "poll tick was never rescheduled after reconnecting") { await clock.waiterCount >= 1 }
 
         await clock.advance()
-        await awaitCondition(message: "first rescheduled tick never refreshed") { await daemon.callCount >= 2 }
-        await awaitCondition(message: "poll tick was never rescheduled after firing") { await clock.waiterCount >= 1 }
+        await awaitCondition(message: "first post-reconnect tick never refreshed") { await daemon.callCount > callsBeforeReconnect + 1 }
+        await awaitCondition(message: "poll tick was never rescheduled again") { await clock.waiterCount >= 1 }
 
         await clock.advance()
-        await awaitCondition(message: "second rescheduled tick never refreshed") { await daemon.callCount >= 3 }
+        await awaitCondition(message: "second post-reconnect tick never refreshed") { await daemon.callCount > callsBeforeReconnect + 2 }
 
         await feed.stop()
     }

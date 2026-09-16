@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import OSLog
 
 /// The connection state of the currently *selected* host. Localhost is
 /// always `.connected` to the local daemon socket; a remote host's state
@@ -30,6 +31,8 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
 /// the first A's teardown (kicked off by the A->B transition) is still
 /// running -- two live children at once.
 @MainActor final class LeoHostSelection: ObservableObject {
+    private static let logger = Logger(subsystem: "com.mitchellh.ghostty", category: "leo")
+
     @Published private(set) var hosts: [LeoHostConfiguration] = []
     @Published private(set) var selected: LeoHostID
     @Published private(set) var state: LeoHostConnectionState
@@ -138,6 +141,7 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
     /// any tunnel the previous selection was using is torn down (serialized
     /// through `retiring`, off the main actor). Never blocks the caller.
     func select(_ host: LeoHostID) {
+        Self.logger.log("select host=\(host.displayName, privacy: .public) isShutDown=\(self.isShutDown) knownHosts=\(self.hosts.map(\.name), privacy: .public)")
         guard !isShutDown else { return }
         selected = host
         defaults.set(host.displayName, forKey: "leo.selectedHost")
@@ -279,6 +283,7 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
             }
             publish(.connected(socketPath: localPath), host: .remote(configuration.name), generation: myGeneration)
         } catch {
+            Self.logger.error("connect failed host=\(configuration.name, privacy: .public) error=\(String(describing: error), privacy: .public)")
             if let launchedTunnel, currentTunnel === launchedTunnel { currentTunnel = nil }
             guard generation == myGeneration, !isShutDown else { return }
             let (message, hint) = Self.describe(error, configuration: configuration)
@@ -299,6 +304,7 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
 
     private func publish(_ newState: LeoHostConnectionState, host: LeoHostID, generation: Int) {
         state = newState
+        Self.logger.log("publish host=\(host.displayName, privacy: .public) generation=\(generation) state=\(String(describing: newState), privacy: .public)")
         connectionTarget(host, generation, newState)
     }
 
@@ -308,16 +314,27 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
             return try command.resolvedRemoteSocketPath(home: "")
         }
         let arguments = try command.remoteHomeCommand()
+        Self.logger.log("resolveRemoteSocketPath: running \(self.sshExecutable.path, privacy: .public) \(arguments.joined(separator: " "), privacy: .public)")
         let result = try await runner.run(executable: sshExecutable.path, arguments: arguments, timeout: 15)
+        Self.logger.log("resolveRemoteSocketPath: status=\(result.status) stdout=\(String(data: result.stdout, encoding: .utf8) ?? "<non-utf8 \(result.stdout.count) bytes>", privacy: .public) stderr=\(String(data: result.stderr, encoding: .utf8) ?? "<non-utf8>", privacy: .public)")
         guard result.status == 0 else {
             throw LeoHostSelectionError.homeResolutionFailed(String(data: result.stderr, encoding: .utf8) ?? "")
         }
         let home = String(data: result.stdout, encoding: .utf8) ?? ""
-        return try command.resolvedRemoteSocketPath(home: home)
+        let resolved = try command.resolvedRemoteSocketPath(home: home)
+        Self.logger.log("resolveRemoteSocketPath: home=\(home, privacy: .public) resolved=\(resolved, privacy: .public)")
+        return resolved
     }
 
+    /// `/tmp` (not `FileManager.default.temporaryDirectory`, i.e. `$TMPDIR`):
+    /// macOS's per-process confined `$TMPDIR` (`/var/folders/<random>/T/`)
+    /// is ~49 bytes on its own, and `<TMPDIR>leoterm/<name>-<uuid>.sock`
+    /// regularly exceeds the ~100-byte AF_UNIX path limit
+    /// `LeoSSHCommand.tunnelArguments` enforces for any host name longer
+    /// than a few characters. `/tmp` is a stable, short (5-byte) path on
+    /// macOS (a symlink to `/private/tmp`), leaving ample room.
     private func prepareLocalSocketPath(configuration: LeoHostConfiguration) throws -> String {
-        let directory = fileManager.temporaryDirectory.appendingPathComponent("leoterm", isDirectory: true)
+        let directory = URL(fileURLWithPath: "/tmp/leoterm", isDirectory: true)
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory.appendingPathComponent(configuration.localSocketFileName).path
     }

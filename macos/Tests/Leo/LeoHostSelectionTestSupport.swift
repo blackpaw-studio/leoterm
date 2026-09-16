@@ -28,8 +28,7 @@ enum LeoHostSelectionTestSupport {
     }
 
     static func expectedLocalSocketPath(_ configuration: LeoHostConfiguration) -> String {
-        FileManager.default.temporaryDirectory
-            .appendingPathComponent("leoterm", isDirectory: true)
+        URL(fileURLWithPath: "/tmp/leoterm", isDirectory: true)
             .appendingPathComponent(configuration.localSocketFileName)
             .path
     }

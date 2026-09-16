@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import OSLog
 
 /// The outcome of an `LeoTunnel`'s underlying process exiting.
 struct LeoTunnelExit: Equatable, Sendable {
@@ -18,6 +19,8 @@ enum LeoTunnelError: Error, Equatable, Sendable {
 /// health probe, and reports process exit exactly once. Callers (e.g. host
 /// selection) are responsible for retry/backoff policy.
 final class LeoTunnel: @unchecked Sendable {
+    private static let logger = Logger(subsystem: "com.mitchellh.ghostty", category: "leo")
+
     private let executable: URL
     private let arguments: [String]
     private let localSocketPath: String
@@ -157,6 +160,7 @@ final class LeoTunnel: @unchecked Sendable {
             try process.run()
         } catch {
             lock.unlock()
+            Self.logger.error("launch failed executable=\(self.executable.path, privacy: .public) argv=\(self.arguments.joined(separator: " "), privacy: .public) error=\(error.localizedDescription, privacy: .public)")
             throw LeoTunnelError.launchFailed(error.localizedDescription)
         }
         launched = true
@@ -167,6 +171,8 @@ final class LeoTunnel: @unchecked Sendable {
         let terminateNow = terminationRequested
         let launchCallback = onLaunchCallback
         lock.unlock()
+
+        Self.logger.log("launched pid=\(launchedPID) executable=\(self.executable.path, privacy: .public) argv=\(self.arguments.joined(separator: " "), privacy: .public)")
 
         if let launchCallback, let launchedStartTime {
             launchCallback(launchedPID, launchedStartTime)
@@ -314,6 +320,10 @@ final class LeoTunnel: @unchecked Sendable {
             guard !exitDelivered, let status = exitStatusValue, stderrDrainedFlag else { return nil }
             exitDelivered = true
             return (LeoTunnelExit(status: status, stderrTail: Self.decodedTail(stderrBuffer)), onExitCallback)
+        }
+        if let (exit, _) = ready {
+            let tailPreview = String(exit.stderrTail.prefix(200))
+            Self.logger.log("exited status=\(exit.status) stderrTailPreview=\(tailPreview, privacy: .public)")
         }
         guard let (exit, callback) = ready, let callback else { return }
         exitQueue.async { callback(exit) }

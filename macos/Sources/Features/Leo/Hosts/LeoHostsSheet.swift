@@ -111,8 +111,8 @@ private struct LeoHostFormView: View {
                         name: keyPath == \.name ? newValue : existing.name,
                         sshTarget: keyPath == \.sshTarget ? newValue : existing.sshTarget,
                         identityFile: keyPath == \.identityFile ? newValue : existing.identityFile,
-                        remoteLeoPath: keyPath == \.remoteLeoPath ? (newValue.isEmpty ? "~/.local/bin/leo" : newValue) : existing.remoteLeoPath,
-                        remoteSocketPath: keyPath == \.remoteSocketPath ? (newValue.isEmpty ? "~/.leo/state/leo.sock" : newValue) : existing.remoteSocketPath
+                        remoteLeoPath: keyPath == \.remoteLeoPath ? newValue : existing.remoteLeoPath,
+                        remoteSocketPath: keyPath == \.remoteSocketPath ? newValue : existing.remoteSocketPath
                     )
                 }
             }
@@ -143,7 +143,22 @@ private struct LeoHostFormView: View {
         panel.canChooseFiles = true
         panel.allowsMultipleSelection = false
         panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".ssh")
-        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        // Window-modal (`beginSheetModal`), not app-modal (`runModal`): a
+        // sheet-on-a-sheet should only block the Hosts editor window, not
+        // the whole app.
+        guard let window = NSApp.keyWindow else {
+            guard panel.runModal() == .OK, let url = panel.url else { return }
+            applyIdentityFile(url)
+            return
+        }
+        panel.beginSheetModal(for: window) { response in
+            guard response == .OK, let url = panel.url else { return }
+            applyIdentityFile(url)
+        }
+    }
+
+    private func applyIdentityFile(_ url: URL) {
         model.updateSelected { existing in
             LeoHostConfiguration(
                 id: existing.id, name: existing.name, sshTarget: existing.sshTarget,
