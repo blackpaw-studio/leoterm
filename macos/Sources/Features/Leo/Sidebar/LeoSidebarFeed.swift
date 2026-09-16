@@ -26,6 +26,7 @@ actor LeoSidebarFeed {
     private var bufferedActivity: [LeoObserveEvent] = []
     private var eventTask: Task<Void, Never>?
     private var refreshTask: Task<Void, Never>?
+    private var activityTask: Task<Void, Never>?
     private var pollTask: Task<Void, Never>?
     private var scheduler = LeoPollScheduler()
     private var running = false
@@ -56,9 +57,11 @@ actor LeoSidebarFeed {
         running = false
         eventTask?.cancel()
         refreshTask?.cancel()
+        activityTask?.cancel()
         pollTask?.cancel()
         eventTask = nil
         refreshTask = nil
+        activityTask = nil
         pollTask = nil
         refreshing = false
         refreshPending = false
@@ -114,22 +117,53 @@ actor LeoSidebarFeed {
         let fetchState = needsState
         needsState = false
         do {
-            async let agents = daemon.listAgents()
-            async let observed = fetchState ? activitySource.fetchState() : []
-            let rows = try await agents.map(Self.row)
-            let state = try await observed
+            let rows = try await daemon.listAgents().map(Self.row)
             guard running, generation == snapshot.generation else { return }
-            if fetchState { activityByName = Self.activities(state) }
             snapshot = LeoSidebarReducers.applyListResult(snapshot, result: LeoSidebarReducers.mergeActivity(rows, activityByName: activityByName), generation: generation)
             recovering = false
             let buffered = bufferedActivity
             bufferedActivity = []
             buffered.forEach(applyActivity)
             emit()
+            if fetchState { fetchActivityState(generation: generation) }
         } catch {
             guard running, generation == snapshot.generation else { return }
             snapshot = LeoSidebarSnapshot(rows: snapshot.rows, connectivity: .failed(message: String(describing: error)), generation: generation)
             emit()
+        }
+    }
+
+    private func fetchActivityState(generation: Int) {
+        activityTask?.cancel()
+        activityTask = Task { [activitySource] in
+            do {
+                let state = try await Self.fetchState(from: activitySource)
+                await self.applyActivityState(state, generation: generation)
+            } catch is CancellationError {
+                return
+            } catch {
+                return
+            }
+        }
+    }
+
+    private func applyActivityState(_ state: [LeoObservedAgent], generation: Int) {
+        guard running, generation == snapshot.generation else { return }
+        activityByName = Self.activities(state)
+        snapshot = LeoSidebarSnapshot(rows: LeoSidebarReducers.mergeActivity(snapshot.rows, activityByName: activityByName), connectivity: snapshot.connectivity, generation: generation)
+        emit()
+    }
+
+    private static func fetchState(from source: LeoSidebarActivitySource) async throws -> [LeoObservedAgent] {
+        try await withThrowingTaskGroup(of: [LeoObservedAgent].self) { group in
+            group.addTask { try await source.fetchState() }
+            group.addTask {
+                try await Task.sleep(nanoseconds: 5_000_000_000)
+                throw LeoSidebarFeedError.activityStateTimedOut
+            }
+            defer { group.cancelAll() }
+            guard let state = try await group.next() else { return [] }
+            return state
         }
     }
 
@@ -193,3 +227,5 @@ actor LeoSidebarFeed {
         }
     }
 }
+
+private enum LeoSidebarFeedError: Error { case activityStateTimedOut }
