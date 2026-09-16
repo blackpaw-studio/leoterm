@@ -5,6 +5,8 @@ enum LeoSidebarMenuState {
     static func state(isSidebarVisible: Bool) -> NSControl.StateValue {
         isSidebarVisible ? .on : .off
     }
+
+    static func canCreateAgent(hasLeoSession: Bool) -> Bool { hasLeoSession }
 }
 
 extension TerminalController {
@@ -26,7 +28,10 @@ extension TerminalController {
 
     @IBAction func newLeoAgent(_ sender: Any?) {
         guard leoSession != nil, let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime else { return }
-        let sheet = NSHostingController(rootView: SpawnAgentSheet(model: runtime.model, actions: runtime.actions))
+        let sheet = NSHostingController(rootView: SpawnAgentSheet(model: runtime.model, actions: runtime.actions) { row, disposition in
+            guard let id = self.leoSession?.id else { return }
+            runtime.model.attachRequested(row, id, disposition)
+        })
         window?.contentViewController?.presentAsSheet(sheet)
     }
 
@@ -36,5 +41,7 @@ extension TerminalController {
         return true
     }
 
-    func validateNewLeoAgentMenuItem(_ item: NSMenuItem) -> Bool { leoSession != nil }
+    func validateNewLeoAgentMenuItem(_ item: NSMenuItem) -> Bool {
+        LeoSidebarMenuState.canCreateAgent(hasLeoSession: leoSession != nil)
+    }
 }

@@ -1723,6 +1723,9 @@ extension TerminalController {
         case #selector(toggleLeoSidebar(_:)):
             return validateLeoSidebarMenuItem(item)
 
+        case #selector(newLeoAgent(_:)):
+            return validateNewLeoAgentMenuItem(item)
+
         case #selector(closeTabsOnTheRight):
             guard let window, let tabGroup = window.tabGroup else { return false }
             guard let currentIndex = tabGroup.windows.firstIndex(of: window) else { return false }
