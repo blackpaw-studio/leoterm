@@ -15,7 +15,7 @@ struct LeoCLITests {
     @Test func resolvesExecutableFromInjectedLocations() throws {
         let executable = Set(["/expanded/override", "/expanded/.local/bin/leo", "/bin/leo"])
         let resolve = { (override: String?, candidates: [String], path: String) throws -> String in
-            _ = try LeoCLI.resolveExecutable(
+            try LeoCLI.resolveExecutable(
                 executableOverride: override,
                 candidatePaths: candidates,
                 path: path,
@@ -31,7 +31,7 @@ struct LeoCLITests {
 
     @Test func reportsEveryTriedExecutablePath() {
         do {
-            try LeoCLI.resolveExecutable(
+            _ = try LeoCLI.resolveExecutable(
                 candidatePaths: ["~/.local/bin/leo"],
                 path: "/one:/two",
                 expandTilde: { $0.replacingOccurrences(of: "~", with: "/home/test") },

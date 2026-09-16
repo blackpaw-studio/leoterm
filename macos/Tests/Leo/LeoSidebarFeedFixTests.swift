@@ -24,7 +24,11 @@ struct LeoSidebarFeedFixTests {
             let fetches = await activity.fetchCount
             return calls == 2 && fetches == 2
         }
-        try await wait { await daemon.listCallCount == 2 && await activity.fetchCount == 2 }
+        try await wait {
+            let calls = await daemon.listCallCount
+            let fetches = await activity.fetchCount
+            return calls == 2 && fetches == 2
+        }
         #expect(await daemon.listCallCount == 2)
         #expect(await activity.fetchCount == 2)
         await feed.stop()
@@ -41,7 +45,11 @@ struct LeoSidebarFeedFixTests {
         await feed.refresh()
         await feed.stop()
         await daemon.resolveNext([agent("late")])
-        try await wait { await daemon.listCallCount == 1 && await recorder.values.isEmpty }
+        try await wait {
+            let calls = await daemon.listCallCount
+            let values = await recorder.values
+            return calls == 1 && values.isEmpty
+        }
         #expect(await daemon.listCallCount == 1)
         #expect(await recorder.values.isEmpty)
     }
@@ -79,7 +87,7 @@ struct LeoSidebarFeedFixTests {
         await feed?.start()
         await feed?.stop()
         feed = nil
-        try await wait { reference == nil }
+        #expect(reference == nil)
         #expect(reference == nil)
     }
 
