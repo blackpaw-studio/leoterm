@@ -29,6 +29,7 @@ struct LeoSidebarFeedTests {
         await feed.start(); await feed.setPolling(true)
         _ = await recorder.snapshot { $0.connectivity == .connected }
         await feed.refresh()
+        try await eventually { await daemon.listCallCount == 2 }
         let snapshot = await recorder.snapshot {
             if case let .failed(message) = $0.connectivity { return message.contains("unavailable") }
             return false
