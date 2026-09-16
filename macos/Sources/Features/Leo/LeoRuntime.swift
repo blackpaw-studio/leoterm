@@ -92,9 +92,17 @@ import Foundation
         feed = LeoSidebarFeed(daemon: daemon, activity: activitySource) { [weak model] snapshot in
             model?.receive(snapshot)
         }
-        let hostSelection = LeoHostSelection(daemon: daemon, defaults: defaults) { [weak feed] host in
-            Task { await feed?.select(host) }
-        }
+        let hostSelection = LeoHostSelection(
+            daemon: daemon,
+            defaults: defaults,
+            // A successful (or failed) retry/connect applies to the feed
+            // immediately -- restoring availability and refreshing, or
+            // marking it failed -- instead of only updating the host picker
+            // and waiting on an SSE host_state_changed event that a legacy
+            // daemon (or a dropped SSE connection) may never deliver.
+            hostStateTarget: { [weak feed] row in Task { await feed?.handleHostStateChanged(row) } },
+            installTarget: { [weak feed] host in Task { await feed?.select(host) } }
+        )
         actions = LeoAgentActions(daemon: daemon, cli: cli, model: model, hostSelection: hostSelection) { [weak feed] in
             Task { await feed?.refresh() }
         }
