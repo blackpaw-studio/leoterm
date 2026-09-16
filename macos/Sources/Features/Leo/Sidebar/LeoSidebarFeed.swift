@@ -81,7 +81,16 @@ actor LeoSidebarFeed {
         case .agentActivity:
             if recovering { bufferedActivity.append(event) } else { applyActivity(event) }
         case .disconnected:
-            break
+            activityByName = [:]
+            bufferedActivity = []
+            snapshot = LeoSidebarSnapshot(
+                rows: snapshot.rows.map {
+                    LeoAgentRow(host: $0.host, name: $0.name, template: $0.template, status: $0.status, activity: .unknown, actionDetail: nil)
+                },
+                connectivity: snapshot.connectivity,
+                generation: snapshot.generation
+            )
+            emit()
         }
     }
 
@@ -100,6 +109,7 @@ actor LeoSidebarFeed {
     }
 
     private func performRefresh() async {
+        defer { finishRefresh() }
         let generation = snapshot.generation
         let fetchState = needsState
         needsState = false
@@ -121,6 +131,9 @@ actor LeoSidebarFeed {
             snapshot = LeoSidebarSnapshot(rows: snapshot.rows, connectivity: .failed(message: String(describing: error)), generation: generation)
             emit()
         }
+    }
+
+    private func finishRefresh() {
         refreshing = false
         refreshTask = nil
         process(scheduler.reduce(.refreshFinished))
