@@ -285,6 +285,12 @@ private final class FakeHubListener: @unchecked Sendable {
         while true {
             let client = accept(descriptor, nil, nil)
             guard client >= 0 else { return }
+            // Suppress SIGPIPE for this connection: `shutdown()` racing a
+            // handler's in-flight `send()` can otherwise deliver SIGPIPE and
+            // kill the whole test host. `send()` still fails with EPIPE in
+            // that case, which handlers already treat as "peer closed".
+            var noSigPipe: Int32 = 1
+            _ = setsockopt(client, SOL_SOCKET, SO_NOSIGPIPE, &noSigPipe, socklen_t(MemoryLayout<Int32>.size))
             onAcceptedBeforeRegistration?()
             // Registration and entering the handler-completion group happen
             // atomically under the same lock as the `shutDown` check. If
