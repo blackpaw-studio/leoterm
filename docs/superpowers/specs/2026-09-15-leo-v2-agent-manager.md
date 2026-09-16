@@ -101,3 +101,21 @@ Each hook is one small, commented block so upstream merges stay mechanical.
 
 ## 8. Open questions
 None blocking. Field shapes for 0.27 are resolved during milestone 2.
+
+## 9. Implementation decisions (added 2026-09-15 after the upstream survey)
+
+Facts that constrain §3.3–3.7, verified in upstream source:
+- `Ghostty.SurfaceConfiguration.command` is a **shell string**; `embedded.zig` sets `.shell` and forces `wait-after-command = true`. There is no argv path and no per-surface env removal. Therefore the attach command is `env -u TMUX -u TMUX_PANE '<leo>' agent attach '<name>'` with strict single-quote escaping (`'` → `'\''`, NUL rejected). After detach the tab shows Ghostty's normal exit banner; the attachment handle is marked inactive and the next Attach opens a fresh tab.
+- Adding a Ghostty config key needs Zig, so Leo settings (`leo.executablePath`, sidebar visibility/width) live in `UserDefaults.ghostty`.
+- No per-host observability URL exists in leo.yaml; remote hosts get status only.
+
+Object graph:
+- `AppDelegate` owns one `LeoRuntime` (daemon client, CLI, activity client, `@MainActor LeoSidebarModel`, attach coordinator, window-session registry). No singletons; dependencies injected.
+- Each regular `TerminalController` gets a `LeoWindowSession` (visibility, preferred width, search, selection), passed into `TerminalView` as an optional init parameter. Quick terminal gets none and never shows a sidebar.
+- One poll scheduler: immediate refresh, then every 2 s while any visible, non-occluded window has its sidebar open; SSE spawn/stop/state events trigger a coalesced refresh; activity events update the overlay only. On `hello`, reconnect, or seq gap: clear activity, refetch list + state. Results are tagged with a host generation and stale ones dropped.
+- Attach coordinator keeps `identity → ordered set<AttachmentHandle>` (surface id + weak controller). Normal attach focuses the most recent live handle or opens a tab; ⌥ always opens a new window. Handles are dropped by reconciling `surfaceTree` and `NSWindow.willCloseNotification`, not on `ghosttyCloseSurface` (close may still be cancelled). Production seam `AttachTabHost` (`openTab`, `openWindow`, `focus`, `isOpen`, lifecycle events) adapts `TerminalController.newTab`/`newWindow`; tests use a fake.
+- Title: `titleOverride` is seeded with `agent · host`; once the surface publishes a later non-empty title, the seed is cleared so the shell's title wins.
+
+Upstream hook budget (≤ 4 files): `AppDelegate.swift` (own runtime, shutdown), `TerminalController.swift` (create session, pass to view, initial content width), `TerminalView.swift` (optional session, wrap content in `LeoSidebarSplit`), `MainMenu.xib` (Toggle Agents Sidebar ⌘⇧L; New Agent ⌘⇧A lands with milestone 5). Responder actions live in a new `TerminalController+Leo.swift` extension.
+
+Sidebar split is a custom SwiftUI horizontal split with a draggable divider (width 260 pt default, clamped 200–420 pt), not `HSplitView` or `NSSplitViewController`, so `TerminalViewContainer` and the titlebar styles stay untouched. Sidebar width is added only to the initial window size; sidebar geometry never resizes the window.
