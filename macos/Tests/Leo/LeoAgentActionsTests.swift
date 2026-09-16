@@ -109,20 +109,32 @@ import Testing
         #expect(box.value?.branch == "branch")
     }
 
+    /// Local templates come from the CLI; a remote host's templates come
+    /// from a one-off `ssh ... leo template list --json` exec, scoped to
+    /// its own cache entry.
     @Test func templateCacheIsScopedToSelectedHost() async throws {
         let daemon = ActionDaemon()
         let suiteDefaults = UserDefaults(suiteName: UUID().uuidString) ?? .standard
+        let workConfiguration = LeoHostConfiguration(name: "work", sshTarget: "evan@work")
+        if let data = try? JSONEncoder().encode([workConfiguration]) { suiteDefaults.set(data, forKey: LeoHostStore.key) }
         let selection = LeoHostSelection(store: LeoHostStore(defaults: suiteDefaults), defaults: suiteDefaults)
         await selection.start(flavor: .socketEvents)
+        let runner = TemplateSSHRunner()
         let actions = LeoAgentActions(
-            daemon: daemon, cli: testCLI(), model: LeoSidebarModel(),
-            hostSelection: selection, refresh: {}
+            daemon: daemon, cli: testCLI(templates: ["local-template"]), model: LeoSidebarModel(),
+            hostSelection: selection, processRunner: runner, refresh: {}
         )
 
-        #expect(try await actions.templates().map(\.name) == ["localhost-template"])
+        #expect(try await actions.templates().map(\.name) == ["local-template"])
         selection.select(.remote("work"))
         #expect(try await actions.templates().map(\.name) == ["work-template"])
-        #expect(await daemon.templateHosts == [.local, .remote("work")])
+
+        let calls = await runner.calls
+        #expect(calls.count == 1)
+        let expectedArguments = try LeoSSHCommand(configuration: workConfiguration).execArguments(
+            remoteCommand: [workConfiguration.remoteLeoPath, "template", "list", "--json"]
+        )
+        #expect(calls.first?.arguments == expectedArguments)
     }
 
     private func testRow() -> LeoAgentRow {
@@ -143,7 +155,6 @@ private actor ActionDaemon: LeoDaemonClient {
     private let suspendSpawn: Bool
     private var startWaiter: CheckedContinuation<Void, Never>?
     private var spawnWaiter: CheckedContinuation<Void, Never>?
-    private(set) var templateHosts: [LeoHostID] = []
 
     init(error: LeoDaemonError? = nil, suspendStart: Bool = false, suspendSpawn: Bool = false) {
         self.error = error
@@ -166,17 +177,18 @@ private actor ActionDaemon: LeoDaemonClient {
     func delete(_ name: String, force: Bool?, deleteBranch: Bool?) async throws { calls.append("delete:\(name):\(force ?? false):\(deleteBranch ?? false)"); try fail() }
     func deletePlan(_ name: String) async throws -> LeoDeletePlan { calls.append("plan:\(name)"); try fail(); return LeoDeletePlan(name: name, hasWorktree: true, branch: "branch", worktreePath: "/work") }
     func logs(_ name: String, lines: Int?) async throws -> String { "" }
-    func hosts() -> [LeoHostRow] {
-        [.init(name: "localhost", local: true, state: .local), .init(name: "work", state: .connected)]
-    }
-    func templates(host: LeoHostID) -> [LeoTemplate] {
-        templateHosts.append(host)
-        return [.init(name: "\(host.displayName)-template", model: nil, agent: nil, workspace: nil)]
-    }
     func resumeStart() { startWaiter?.resume(); startWaiter = nil }
     func resumeSpawn() { spawnWaiter?.resume(); spawnWaiter = nil }
     private func fail() throws { if let error { throw error } }
     private var agent: LeoAgent { LeoAgent(name: "alpha", template: "default", repo: nil, workspace: nil, branch: nil, canonicalPath: nil, status: .running, startedAt: nil, restarts: nil, stoppedReason: nil, wakeOnMessage: nil) }
+}
+
+private actor TemplateSSHRunner: LeoProcessRunning {
+    private(set) var calls: [(executable: String, arguments: [String])] = []
+    func run(executable: String, arguments: [String], timeout _: TimeInterval) async throws -> LeoProcessResult {
+        calls.append((executable, arguments))
+        return LeoProcessResult(stdout: Data(#"[{"name":"work-template"}]"#.utf8), stderr: Data(), status: 0)
+    }
 }
 
 private struct ActionRunner: LeoProcessRunning {

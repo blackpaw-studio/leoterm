@@ -95,86 +95,10 @@ struct LeoSidebarFeedFixTests {
         #expect(reference == nil)
     }
 
-    @Test func selectedHostErrorPausesPollingUntilConnected() async throws {
-        let daemon = FeedFixDaemon(results: [[agent("alpha")], [agent("bravo")]])
-        let recorder = FeedFixRecorder()
-        let feed = makeFeed(daemon: daemon, activity: FeedFixActivity(), recorder: recorder)
-        let host = LeoHostID.remote("work")
-        await feed.start()
-        await feed.select(host)
-        await feed.setPolling(true)
-        try await wait { await recorder.last?.connectivity == .connected }
-        await feed.receive(.hostStateChanged(.init(name: "work", ssh: "evan@work", state: .error,
-                                                   error: "Permission denied (publickey)", code: "ssh_auth_required")))
-        try await wait {
-            if case .failed(let message) = await recorder.last?.connectivity { return message.contains("Permission denied") }
-            return false
-        }
-        let pausedCalls = await daemon.listCallCount
-        await feed.tick()
-        await feed.tick()
-        #expect(await daemon.listCallCount == pausedCalls)
-        await feed.receive(.hostStateChanged(.init(name: "work", state: .connected)))
-        try await wait { await daemon.listCallCount == pausedCalls + 1 }
-        await feed.stop()
-    }
-
-    @Test func stateWithDuplicateAgentNamesOnlyAppliesSelectedHostActivity() async throws {
-        let daemon = FeedFixDaemon(results: [[agent("shared")]])
-        let activity = FeedFixActivity()
-        await activity.setState([
-            observed("shared", host: "localhost", activity: .idle),
-            observed("shared", host: "work", activity: .working)
-        ])
-        let recorder = FeedFixRecorder()
-        let feed = makeFeed(daemon: daemon, activity: activity, recorder: recorder)
-
-        await feed.start()
-        await feed.select(.remote("work"))
-        await feed.setPolling(true)
-
-        try await wait { await recorder.last?.rows.first?.activity == .working }
-        #expect(await recorder.last?.rows.map(\.activity) == [.working])
-        await feed.stop()
-    }
-
-    @Test func switchingHostDuringDelayedListRequestsNewHostAndDropsOldResult() async throws {
-        let daemon = HostAwareFeedFixDaemon()
-        let recorder = FeedFixRecorder()
-        let feed = makeFeed(daemon: daemon, activity: FeedFixActivity(), recorder: recorder)
-
-        await feed.start()
-        await feed.setPolling(true)
-        try await wait { await daemon.hosts == [.local] }
-        await feed.select(.remote("work"))
-        try await wait { await daemon.hosts == [.local, .remote("work")] }
-        await daemon.resolve(host: .local, agents: [agent("stale")])
-        await daemon.resolve(host: .remote("work"), agents: [agent("fresh")])
-
-        try await wait { await recorder.last?.rows.map(\.name) == ["fresh"] }
-        #expect(!(await recorder.values).contains { $0.rows.map(\.name) == ["stale"] })
-        await feed.stop()
-    }
-
-    @Test func lateListSuccessAfterHostFailureDoesNotOverwriteFailedState() async throws {
-        let daemon = HostAwareFeedFixDaemon()
-        let recorder = FeedFixRecorder()
-        let feed = makeFeed(daemon: daemon, activity: FeedFixActivity(), recorder: recorder)
-
-        await feed.start()
-        await feed.select(.remote("work"))
-        await feed.setPolling(true)
-        try await wait { await daemon.hosts == [.remote("work")] }
-        await feed.receive(.hostStateChanged(.init(name: "work", state: .error, error: "offline")))
-        await daemon.resolve(host: .remote("work"), agents: [agent("late")])
-
-        try await wait {
-            if case .failed("offline") = await recorder.last?.connectivity { return true }
-            return false
-        }
-        #expect(await recorder.last?.rows.isEmpty == true)
-        await feed.stop()
-    }
+    // Host-switching, host-failure-greying, and per-connection routing
+    // coverage lives in LeoSidebarFeedHostSwitchTests, which exercises the
+    // real `updateConnection(host:generation:phase:)` API those scenarios
+    // now go through.
 
     private func makeFeed(daemon: some LeoDaemonClient, activity: FeedFixActivity, recorder: FeedFixRecorder, sleep: (@Sendable (UInt64) async throws -> Void)? = nil) -> LeoSidebarFeed {
         let source = LeoSidebarActivitySource(events: { await activity.events() }, fetchState: { await activity.fetchState() })
@@ -187,10 +111,6 @@ struct LeoSidebarFeedFixTests {
 
     private func agent(_ name: String) -> LeoAgent {
         .init(name: name, template: "default", repo: nil, workspace: nil, branch: nil, canonicalPath: nil, status: .running, startedAt: nil, restarts: nil, stoppedReason: nil, wakeOnMessage: nil)
-    }
-
-    private func observed(_ name: String, host: String, activity: LeoActivity) -> LeoObservedAgent {
-        .init(name: name, host: host, status: .running, activity: activity, currentAction: nil, lastActivityAt: nil)
     }
 
     private func wait(_ condition: @escaping @Sendable () async -> Bool) async throws {
@@ -271,28 +191,6 @@ private actor FeedFixActivity {
     func fetchState() -> [LeoObservedAgent] { fetchCount += 1; return state }
     func setState(_ state: [LeoObservedAgent]) { self.state = state }
     func send(_ event: LeoObserveEvent) { continuation.yield(event) }
-}
-
-private actor HostAwareFeedFixDaemon: LeoDaemonClient {
-    private var waiters: [LeoHostID: CheckedContinuation<[LeoAgent], Never>] = [:]
-    private(set) var hosts: [LeoHostID] = []
-
-    func listAgents() async throws -> [LeoAgent] { fatalError() }
-    func listAgents(host: LeoHostID) async throws -> [LeoAgent] {
-        hosts.append(host)
-        return await withCheckedContinuation { waiters[host] = $0 }
-    }
-    func resolve(host: LeoHostID, agents: [LeoAgent]) { waiters.removeValue(forKey: host)?.resume(returning: agents) }
-    func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent { fatalError() }
-    func start(_ name: String) async throws { fatalError() }
-    func stop(_ name: String, wakeOnMessage: Bool?) async throws { fatalError() }
-    func restart(_ name: String) async throws -> LeoAgent { fatalError() }
-    func reset(_ name: String) async throws { fatalError() }
-    func setTemplate(_ name: String, template: String) async throws { fatalError() }
-    func rename(_ name: String, newName: String) async throws -> LeoAgent { fatalError() }
-    func delete(_ name: String, force: Bool?, deleteBranch: Bool?) async throws { fatalError() }
-    func deletePlan(_ name: String) async throws -> LeoDeletePlan { fatalError() }
-    func logs(_ name: String, lines: Int?) async throws -> String { fatalError() }
 }
 
 private actor FeedFixRecorder {

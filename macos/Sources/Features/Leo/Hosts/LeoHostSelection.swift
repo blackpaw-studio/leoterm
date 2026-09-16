@@ -20,6 +20,15 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
 /// newer selection can never clobber it and never leaves more than one live
 /// child process running. No timers, no auto-reconnect, no backoff -- a dead
 /// tunnel publishes `.failed` and stays there until the user retries.
+///
+/// Every teardown is serialized through a single chained barrier
+/// (`retiring`): `select()`/`retry()`/`shutdown()` each chain their own
+/// teardown onto whatever teardown is already in flight, and a connect
+/// attempt always awaits that SAME barrier before ever constructing a new
+/// tunnel. Without this, clearing `currentTunnel` synchronously at the top of
+/// `select()` would let a rapid A->B->A sequence launch the second A while
+/// the first A's teardown (kicked off by the A->B transition) is still
+/// running -- two live children at once.
 @MainActor final class LeoHostSelection: ObservableObject {
     @Published private(set) var hosts: [LeoHostConfiguration] = []
     @Published private(set) var selected: LeoHostID
@@ -34,10 +43,17 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
     private let orphanStore: LeoTunnelOrphanStore
     private let fileManager: FileManager
     private let localSocketPath: String
-    private let installTarget: (LeoHostID) -> Void
+    /// Fired synchronously for every state transition, tagged with the
+    /// `(host, generation)` it belongs to -- `LeoRuntime` uses this to know
+    /// exactly when a *switch* happened (a new `(host, generation)` pair)
+    /// versus a phase update for the connection already in flight.
+    private let connectionTarget: (LeoHostID, Int, LeoHostConnectionState) -> Void
 
     private var generation = 0
     private var currentTunnel: LeoTunnel?
+    private var currentOrphanRecord: LeoTunnelOrphanRecord?
+    private var retiring: Task<Void, Never>?
+    private var isShutDown = false
 
     init(
         store: LeoHostStore,
@@ -48,7 +64,7 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
         orphanStore: LeoTunnelOrphanStore? = nil,
         fileManager: FileManager = .default,
         localSocketPath: String = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath,
-        installTarget: @escaping (LeoHostID) -> Void = { _ in }
+        connectionTarget: @escaping (LeoHostID, Int, LeoHostConnectionState) -> Void = { _, _, _ in }
     ) {
         self.store = store
         self.defaults = defaults
@@ -58,7 +74,7 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
         self.orphanStore = orphanStore ?? LeoTunnelOrphanStore(defaults: defaults)
         self.fileManager = fileManager
         self.localSocketPath = localSocketPath
-        self.installTarget = installTarget
+        self.connectionTarget = connectionTarget
         if let value = defaults.string(forKey: "leo.selectedHost"), value != "localhost" {
             selected = .remote(value)
         } else {
@@ -84,55 +100,79 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
 
     /// Selects `host`. Localhost is published as `.connected` immediately.
     /// A remote host starts a fresh app-owned SSH tunnel connect attempt;
-    /// any tunnel the previous selection was using is torn down off the main
-    /// actor. Never blocks the caller.
+    /// any tunnel the previous selection was using is torn down (serialized
+    /// through `retiring`, off the main actor). Never blocks the caller.
     func select(_ host: LeoHostID) {
+        guard !isShutDown else { return }
         selected = host
         defaults.set(host.displayName, forKey: "leo.selectedHost")
-        installTarget(host)
 
         generation += 1
         let myGeneration = generation
-        let previousTunnel = currentTunnel
-        currentTunnel = nil
+        let barrier = beginTeardown()
 
         guard case .remote(let name) = host else {
-            state = .connected(socketPath: localSocketPath)
-            Task { [weak self] in await self?.teardown(previousTunnel) }
+            publish(.connected(socketPath: localSocketPath), host: host, generation: myGeneration)
             return
         }
 
-        state = .connecting
+        publish(.connecting, host: host, generation: myGeneration)
         guard let configuration = hosts.first(where: { $0.name == name }) else {
-            state = .failed(message: "Unknown host \(name)", hint: nil)
-            Task { [weak self] in await self?.teardown(previousTunnel) }
+            publish(.failed(message: "Unknown host \(name)", hint: nil), host: host, generation: myGeneration)
             return
         }
 
         Task { [weak self] in
-            await self?.connect(configuration: configuration, generation: myGeneration, previousTunnel: previousTunnel)
+            await self?.connect(configuration: configuration, generation: myGeneration, barrier: barrier)
         }
     }
 
     /// Re-runs `select(selected)` -- there is no separate coalescing path;
-    /// a retry is just a fresh, generation-guarded connect attempt.
+    /// a retry is just a fresh, generation-guarded connect attempt that
+    /// replaces whatever is currently in flight.
     func retry() { select(selected) }
 
-    /// Synchronously tears down the current tunnel. Called from the
-    /// AppDelegate quit hook, which must not return until the child is gone.
+    /// Synchronously (bounded) tears down the current tunnel. Called from
+    /// the AppDelegate quit hook, which must not return until the child is
+    /// confirmed gone. Bumps `generation` and sets `isShutDown` first so no
+    /// pending connect (or a home-resolution SSH round trip already in
+    /// flight) can launch a new tunnel after this returns.
     func shutdown() {
-        currentTunnel?.terminateAndWait()
+        generation += 1
+        isShutDown = true
+        if let record = currentOrphanRecord {
+            orphanStore.clear(matching: record)
+            currentOrphanRecord = nil
+        }
+        let barrier = beginTeardown()
+        let semaphore = DispatchSemaphore(value: 0)
+        Task.detached {
+            await barrier.value
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + 3)
+    }
+
+    /// Chains a new teardown onto whatever teardown is already in flight
+    /// and returns it as the new barrier. Captures (and clears)
+    /// `currentTunnel` itself so every caller -- `select()` and
+    /// `shutdown()` alike -- goes through the exact same serialization.
+    @discardableResult
+    private func beginTeardown() -> Task<Void, Never> {
+        let previousTunnel = currentTunnel
         currentTunnel = nil
+        let awaited = retiring
+        let barrier = Task.detached {
+            await awaited?.value
+            previousTunnel?.terminateAndWait()
+        }
+        retiring = barrier
+        return barrier
     }
 
-    private func teardown(_ tunnel: LeoTunnel?) async {
-        guard let tunnel else { return }
-        await Task.detached { tunnel.terminateAndWait() }.value
-    }
-
-    private func connect(configuration: LeoHostConfiguration, generation myGeneration: Int, previousTunnel: LeoTunnel?) async {
-        await teardown(previousTunnel)
-        guard generation == myGeneration else { return }
+    private func connect(configuration: LeoHostConfiguration, generation myGeneration: Int, barrier: Task<Void, Never>) async {
+        await barrier.value
+        guard generation == myGeneration, !isShutDown else { return }
 
         var launchedTunnel: LeoTunnel?
         do {
@@ -142,14 +182,11 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
                 localSocketPath: localPath, remoteSocketPath: remoteSocketPath
             )
 
-            // A newer select()/retry() -- itself synchronous up to this
-            // point -- may have bumped `generation` while the async work
-            // above was in flight. Check again before ever constructing (let
-            // alone starting) a tunnel: `currentTunnel` must only ever be
-            // assigned by the single generation that's still current, or two
-            // tunnels could end up live at once with `currentTunnel`
-            // referencing only one of them.
-            guard generation == myGeneration else { return }
+            // A newer select()/retry()/shutdown() -- itself synchronous up to
+            // this point -- may have raced ahead while the async work above
+            // was in flight. Check again before ever constructing (let alone
+            // starting) a tunnel.
+            guard generation == myGeneration, !isShutDown else { return }
 
             let tunnel = LeoTunnel(
                 executable: sshExecutable,
@@ -160,42 +197,68 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
             launchedTunnel = tunnel
             let orphanBox = LeoTunnelOrphanBox()
             let orphanStore = orphanStore
-            tunnel.onExit = { [weak self] exit in
+            // Recorded as soon as the process launches -- before any
+            // (possibly long or gated) readiness probing -- so a crash
+            // during probing still leaves an accurate reap record.
+            tunnel.onLaunch = { [weak self] pid, startTime in
+                let record = LeoTunnelOrphanRecord(pid: pid, startTime: startTime, socketPath: localPath)
+                orphanBox.value = record
+                orphanStore.record(record)
+                Task { @MainActor in self?.currentOrphanRecord = record }
+            }
+            // `[weak tunnel]`: this closure is stored ON `tunnel.onExit`
+            // itself: a strong capture of `tunnel` here would be a
+            // self-referential retain cycle that keeps the tunnel (and its
+            // `Process`) alive forever. If `tunnel` has already deallocated
+            // by the time this fires, nothing else still references it
+            // (i.e. it was already superseded), so there is nothing to do.
+            tunnel.onExit = { [weak self, weak tunnel] exit in
                 if let record = orphanBox.value { orphanStore.clear(matching: record) }
-                Task { @MainActor in self?.handleExit(exit, generation: myGeneration, tunnel: tunnel, configuration: configuration) }
+                Task { @MainActor in
+                    guard let tunnel else { return }
+                    self?.handleExit(exit, generation: myGeneration, tunnel: tunnel, configuration: configuration)
+                }
             }
             currentTunnel = tunnel
 
             try await tunnel.start()
 
-            if let pid = tunnel.pid, let startTime = tunnel.processStartTime {
-                let record = LeoTunnelOrphanRecord(pid: pid, startTime: startTime, socketPath: localPath)
-                orphanBox.value = record
-                orphanStore.record(record)
-            }
-
-            guard generation == myGeneration else {
+            // A newer selection may have superseded this tunnel while
+            // `start()` was resolving, or `onExit` may already have fired
+            // and published `.failed` in the narrow window between
+            // readiness succeeding and this line running -- never let a
+            // stale/dead tunnel overwrite that with `.connected`.
+            guard generation == myGeneration, !isShutDown, currentTunnel === tunnel, !tunnel.hasExited else {
+                if let record = orphanBox.value {
+                    orphanStore.clear(matching: record)
+                    if currentOrphanRecord?.pid == record.pid { currentOrphanRecord = nil }
+                }
                 await Task.detached { tunnel.terminateAndWait() }.value
                 return
             }
-            state = .connected(socketPath: localPath)
+            publish(.connected(socketPath: localPath), host: .remote(configuration.name), generation: myGeneration)
         } catch {
             if let launchedTunnel, currentTunnel === launchedTunnel { currentTunnel = nil }
-            guard generation == myGeneration else { return }
+            guard generation == myGeneration, !isShutDown else { return }
             let (message, hint) = Self.describe(error, configuration: configuration)
-            state = .failed(message: message, hint: hint)
+            publish(.failed(message: message, hint: hint), host: .remote(configuration.name), generation: myGeneration)
         }
     }
 
     /// Fires off-main from `LeoTunnel`; hops to main and only publishes if
     /// this is still the current generation AND the exiting tunnel is still
-    /// the one currently tracked (a newer `select` may already own a
-    /// different tunnel by the time this arrives).
+    /// the one currently tracked.
     private func handleExit(_ exit: LeoTunnelExit, generation myGeneration: Int, tunnel: LeoTunnel, configuration: LeoHostConfiguration) {
+        if let record = currentOrphanRecord, record.pid == tunnel.pid { currentOrphanRecord = nil }
         guard generation == myGeneration, currentTunnel === tunnel else { return }
         currentTunnel = nil
         let message = exit.stderrTail.isEmpty ? "ssh exited (\(exit.status))" : exit.stderrTail
-        state = .failed(message: message, hint: Self.hint(forStderr: exit.stderrTail, target: configuration.sshTarget))
+        publish(.failed(message: message, hint: Self.hint(forStderr: exit.stderrTail, target: configuration.sshTarget)), host: .remote(configuration.name), generation: myGeneration)
+    }
+
+    private func publish(_ newState: LeoHostConnectionState, host: LeoHostID, generation: Int) {
+        state = newState
+        connectionTarget(host, generation, newState)
     }
 
     private func resolveRemoteSocketPath(configuration: LeoHostConfiguration) async throws -> String {

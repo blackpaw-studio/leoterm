@@ -16,31 +16,42 @@ struct LeoSidebarActivitySource: Sendable {
     }
 }
 
+/// Reads agent activity/list data for exactly one connection at a time --
+/// `daemon`/`activitySource` are swapped via `updateConnection(host:generation:phase:)`
+/// (see `LeoSidebarFeedTarget.swift`) whenever `LeoHostSelection` reports a
+/// new `(host, generation)`. Every async chokepoint (refresh, activity-state
+/// fetch, SSE consumption) is guarded by `snapshot.generation` and/or
+/// `connectionGeneration` so a stale emission from a superseded connection
+/// can never reach a newer one.
 actor LeoSidebarFeed {
     typealias Sink = @MainActor @Sendable (LeoSidebarSnapshot) -> Void
     private static let logger = Logger(subsystem: "com.mitchellh.ghostty", category: "LeoSidebarFeed")
 
-    private let daemon: any LeoDaemonClient
-    private let activitySource: LeoSidebarActivitySource
+    var daemon: any LeoDaemonClient
+    var activitySource: LeoSidebarActivitySource
     private let sink: Sink
     private let sleeper: @Sendable (UInt64) async throws -> Void
     var snapshot = LeoSidebarSnapshot(rows: [], connectivity: .loading, generation: 0)
     var activityByName: [String: LeoSidebarActivity] = [:]
-    private var bufferedActivity: [LeoObserveEvent] = []
-    private var eventTask: Task<Void, Never>?
+    var bufferedActivity: [LeoObserveEvent] = []
+    var eventTask: Task<Void, Never>?
     var refreshTask: Task<Void, Never>?
     var activityTask: Task<Void, Never>?
     private var emissionTask: Task<Void, Never>?
     var pollTask: Task<Void, Never>?
     var scheduler = LeoPollScheduler()
-    private var running = false
+    var running = false
     var needsState = true
-    private var recovering = false
-    private var awaitingHello = false
+    var recovering = false
+    var awaitingHello = false
     var selectedHost: LeoHostID = .local
+    /// The `(host, generation)` this feed is currently wired to -- identifies
+    /// a *connection*, distinct from `selectedHost` alone, so a retry of the
+    /// same host (a new generation) is still recognized as a switch.
+    var connectionHost: LeoHostID = .local
+    var connectionGeneration = 0
     var selectedHostAvailable = true
     var pollingRequested = false
-    var hostStateSink: (@MainActor @Sendable (LeoHostRow) -> Void)?
     /// Bumped each time a refresh starts; lets a stale refresh whose
     /// cancellation lost a race recognize it no longer owns bookkeeping.
     private var currentRefreshToken = 0
@@ -55,14 +66,7 @@ actor LeoSidebarFeed {
     func start() {
         guard !running else { return }
         running = true
-        eventTask = Task { [weak self, activitySource] in
-            let events = await activitySource.events()
-            for await event in events {
-                guard !Task.isCancelled else { return }
-                guard let self else { return }
-                await self.receive(event)
-            }
-        }
+        startEventTask()
     }
 
     func stop() {
@@ -78,6 +82,19 @@ actor LeoSidebarFeed {
         emissionTask = nil
         pollTask = nil
         scheduler.reset()
+    }
+
+    func startEventTask() {
+        eventTask?.cancel()
+        guard running else { return }
+        eventTask = Task { [weak self, activitySource] in
+            let events = await activitySource.events()
+            for await event in events {
+                guard !Task.isCancelled else { return }
+                guard let self else { return }
+                await self.receive(event)
+            }
+        }
     }
 
     func refresh() {
@@ -96,14 +113,20 @@ actor LeoSidebarFeed {
         process(scheduler.reduce(.sidebarVisibleCountChanged(pollable ? 1 : 0)))
     }
 
+    /// Sets the initial polling-requested flag without triggering a
+    /// scheduler transition -- used exactly once at startup, before the
+    /// first connection has been established, so the connection's own
+    /// `.connected` phase (see `updateConnection`) owns the single "start
+    /// polling" transition instead of racing it. Later visibility changes
+    /// go through `setPolling(_:)`, which does trigger the transition.
+    func setInitialPolling(_ pollable: Bool) {
+        guard running else { return }
+        pollingRequested = pollable
+    }
+
     func receive(_ event: LeoObserveEvent) {
         guard running else { return }
         switch event {
-        case .hosted(let host, let nested):
-            guard host == selectedHost else { return }
-            receive(nested)
-        case .hostStateChanged(let row):
-            handleHostStateChanged(row)
         case .connected:
             guard !recovering else { return }
             awaitingHello = true
@@ -146,26 +169,26 @@ actor LeoSidebarFeed {
         needsState = true
     }
 
-    private func startRefresh() {
+    func startRefresh() {
         _ = scheduler.reduce(.refreshStarted)
+        let generation = snapshot.generation
         let host = selectedHost
         currentRefreshToken += 1
         let token = currentRefreshToken
         refreshTask = Task { [weak self] in
             guard let self else { return }
-            await self.performRefresh(host: host, token: token)
+            await self.performRefresh(host: host, generation: generation, token: token)
         }
     }
 
-    private func performRefresh(host: LeoHostID, token: Int) async {
+    private func performRefresh(host: LeoHostID, generation: Int, token: Int) async {
         var wasCancelled = false
         // A stale refresh must not clear bookkeeping a newer one now owns.
         defer { if !wasCancelled, token == currentRefreshToken { finishRefresh() } }
-        let generation = snapshot.generation
         let fetchState = needsState
         needsState = false
         do {
-            let rows = try await fetchList(host: host).map { Self.row($0, host: host) }
+            let rows = try await fetchList().map { Self.row($0, host: host) }
             guard running, generation == snapshot.generation, token == currentRefreshToken else { return }
             snapshot = LeoSidebarReducers.applyListResult(snapshot, result: LeoSidebarReducers.mergeActivity(rows, activityByName: activityByName), generation: generation)
             recovering = false
@@ -173,7 +196,7 @@ actor LeoSidebarFeed {
             bufferedActivity = []
             buffered.forEach(applyActivity)
             emit()
-            if fetchState { fetchActivityState(generation: generation, host: host) }
+            if fetchState { fetchActivityState(generation: generation) }
         } catch is CancellationError {
             wasCancelled = true
         } catch {
@@ -183,13 +206,13 @@ actor LeoSidebarFeed {
         }
     }
 
-    private func fetchActivityState(generation: Int, host: LeoHostID) {
+    private func fetchActivityState(generation: Int) {
         activityTask?.cancel()
         activityTask = Task { [weak self, activitySource] in
             do {
                 let state = try await Self.fetchState(from: activitySource)
                 guard let self else { return }
-                await self.applyActivityState(state, generation: generation, host: host)
+                await self.applyActivityState(state, generation: generation)
             } catch is CancellationError {
                 return
             } catch {
@@ -198,7 +221,7 @@ actor LeoSidebarFeed {
         }
     }
 
-    private func fetchList(host: LeoHostID) async throws -> [LeoAgent] {
+    private func fetchList() async throws -> [LeoAgent] {
         let daemon = daemon
         let sleeper = sleeper
         let race = LeoListFetchRace()
@@ -207,7 +230,7 @@ actor LeoSidebarFeed {
                 race.install(continuation)
                 let listTask = Task {
                     do {
-                        race.finish(.success(try await daemon.listAgents(host: host)), winner: .list)
+                        race.finish(.success(try await daemon.listAgents()), winner: .list)
                     } catch {
                         race.finish(.failure(error), winner: .list)
                     }
@@ -228,9 +251,9 @@ actor LeoSidebarFeed {
         return try result.get()
     }
 
-    private func applyActivityState(_ state: [LeoObservedAgent], generation: Int, host: LeoHostID) {
-        guard running, generation == snapshot.generation, host == selectedHost else { return }
-        activityByName = Self.activities(state, host: host)
+    private func applyActivityState(_ state: [LeoObservedAgent], generation: Int) {
+        guard running, generation == snapshot.generation else { return }
+        activityByName = Self.activities(state)
         snapshot = LeoSidebarSnapshot(rows: LeoSidebarReducers.mergeActivity(snapshot.rows, activityByName: activityByName), connectivity: snapshot.connectivity, generation: generation)
         emit()
     }
@@ -308,12 +331,10 @@ actor LeoSidebarFeed {
         LeoAgentRow(host: host, name: agent.name, template: agent.template, status: agent.status ?? .unknown("missing"), activity: .unknown, actionDetail: nil, workspace: agent.workspace, repo: agent.repo)
     }
 
-    private static func activities(_ agents: [LeoObservedAgent], host: LeoHostID) -> [String: LeoSidebarActivity] {
-        let expected = host == .local ? "localhost" : host.displayName
-        let filtered = agents.filter { agent in
-            agent.host == expected || (host == .local && agent.host == nil)
-        }
-        return Dictionary(filtered.map {
+    /// No host filtering: `activitySource` is already scoped to exactly one
+    /// connection (see `LeoSidebarFeedTarget.updateConnection`).
+    private static func activities(_ agents: [LeoObservedAgent]) -> [String: LeoSidebarActivity] {
+        Dictionary(agents.map {
             ($0.name, LeoSidebarActivity(activity: activity($0.activity), detail: $0.currentAction?.detail))
         }, uniquingKeysWith: { _, latest in latest })
     }
@@ -327,67 +348,3 @@ actor LeoSidebarFeed {
     }
 }
 
-private final class LeoListFetchRace: @unchecked Sendable {
-    enum Winner { case list, deadline }
-
-    private let lock = NSLock()
-    private var continuation: CheckedContinuation<Result<[LeoAgent], Error>, Never>?
-    private var listTask: Task<Void, Never>?
-    private var deadlineTask: Task<Void, Never>?
-    private var finished = false
-
-    func install(_ continuation: CheckedContinuation<Result<[LeoAgent], Error>, Never>) {
-        lock.withLock { self.continuation = continuation }
-    }
-
-    func install(listTask: Task<Void, Never>, deadlineTask: Task<Void, Never>) {
-        let shouldCancel = lock.withLock { () -> Bool in
-            self.listTask = listTask
-            self.deadlineTask = deadlineTask
-            return finished
-        }
-        if shouldCancel {
-            listTask.cancel()
-            deadlineTask.cancel()
-        }
-    }
-
-    func finish(_ result: Result<[LeoAgent], Error>, winner: Winner) {
-        let resolution = lock.withLock { () -> (CheckedContinuation<Result<[LeoAgent], Error>, Never>, Task<Void, Never>?)? in
-            guard !finished, let continuation else { return nil }
-            finished = true
-            self.continuation = nil
-            let loser = switch winner {
-            case .list: deadlineTask
-            case .deadline: listTask
-            }
-            return (continuation, loser)
-        }
-        resolution?.0.resume(returning: result)
-        resolution?.1?.cancel()
-    }
-
-    func cancel() {
-        let resolution = lock.withLock { () -> (CheckedContinuation<Result<[LeoAgent], Error>, Never>?, Task<Void, Never>?, Task<Void, Never>?) in
-            guard !finished else { return (nil, nil, nil) }
-            finished = true
-            let continuation = continuation
-            self.continuation = nil
-            return (continuation, listTask, deadlineTask)
-        }
-        resolution.0?.resume(returning: .failure(CancellationError()))
-        resolution.1?.cancel()
-        resolution.2?.cancel()
-    }
-}
-
-private enum LeoSidebarFeedError: Error, LocalizedError {
-    case activityStateTimedOut
-    case listTimedOut
-
-    var errorDescription: String? {
-        switch self {
-        case .activityStateTimedOut, .listTimedOut: "timed out"
-        }
-    }
-}

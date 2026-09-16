@@ -36,9 +36,12 @@ struct LeoSSHCommand: Sendable {
         return arguments
     }
 
+    /// `env -u TMUX -u TMUX_PANE` prefix matches the local attach command
+    /// (`LeoAttachCommand.build`): the new tab must not inherit the
+    /// surrounding tmux session's `TMUX`/`TMUX_PANE`.
     func attachShellCommand(agent: String) throws -> String {
         try validateConfiguration()
-        var parts = ["ssh", "-t"]
+        var parts = ["env", "-u", "TMUX", "-u", "TMUX_PANE", "ssh", "-t"]
         if let identityFile = configuration.identityFile {
             parts += ["-i", try leoShellQuote(identityFile)]
         }
@@ -52,6 +55,27 @@ struct LeoSSHCommand: Sendable {
     func remoteAttachCommand(agent: String) throws -> String {
         try validateConfiguration()
         return "\(try remoteLeoCommand()) agent attach -- \(try leoShellQuote(agent))"
+    }
+
+    /// No `env -u TMUX ...` prefix, matching the local logs command
+    /// (`LeoLogsCommand.build`) -- logs is a one-shot stream, not a tmux
+    /// attach, so there's nothing to unset.
+    func logsShellCommand(agent: String) throws -> String {
+        try validateConfiguration()
+        var parts = ["ssh", "-t"]
+        if let identityFile = configuration.identityFile {
+            parts += ["-i", try leoShellQuote(identityFile)]
+        }
+        if let port = configuration.port {
+            parts += ["-p", try leoShellQuote(String(port))]
+        }
+        parts += [try leoShellQuote(target), try leoShellQuote(remoteLogsCommand(agent: agent))]
+        return parts.joined(separator: " ")
+    }
+
+    func remoteLogsCommand(agent: String) throws -> String {
+        try validateConfiguration()
+        return "\(try remoteLeoCommand()) agent logs -f -- \(try leoShellQuote(agent))"
     }
 
     func remoteHomeCommand() throws -> [String] {

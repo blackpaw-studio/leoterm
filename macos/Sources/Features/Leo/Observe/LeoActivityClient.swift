@@ -42,8 +42,6 @@ enum LeoObserveEvent: Equatable, Sendable {
     case agentStopped(seq: Int, at: String?, agent: String, wakeOnMessage: Bool?)
     case gap(expected: Int, received: Int)
     case snapshot([LeoObservedAgent])
-    case hostStateChanged(LeoHostRow)
-    indirect case hosted(host: LeoHostID, event: LeoObserveEvent)
 }
 
 protocol LeoActivityTransport: Sendable {
@@ -210,8 +208,7 @@ extension LeoObserveEvent {
         case .hello(let seq, _, _, _), .agentSpawned(let seq, _, _),
              .agentStateChanged(let seq, _, _, _, _, _), .agentActivity(let seq, _, _, _, _),
              .agentStopped(let seq, _, _, _): return seq
-        case .hosted(_, let event): return event.sequence
-        case .connected, .disconnected, .gap, .snapshot, .hostStateChanged: return -1
+        case .connected, .disconnected, .gap, .snapshot: return -1
         }
     }
 }

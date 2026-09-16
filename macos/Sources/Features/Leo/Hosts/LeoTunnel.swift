@@ -63,6 +63,17 @@ final class LeoTunnel: @unchecked Sendable {
         set { lock.withLock { onExitCallback = newValue } }
     }
 
+    private var onLaunchCallback: (@Sendable (_ pid: Int32, _ startTime: TimeInterval) -> Void)?
+
+    /// Fires exactly once, synchronously right after the process has
+    /// launched (before any readiness probing begins) -- so a caller that
+    /// wants to record an orphan-reap record can do so before a long or
+    /// gated health probe, not after it. Set this before calling `start()`.
+    var onLaunch: (@Sendable (_ pid: Int32, _ startTime: TimeInterval) -> Void)? {
+        get { lock.withLock { onLaunchCallback } }
+        set { lock.withLock { onLaunchCallback = newValue } }
+    }
+
     var pid: Int32? { lock.withLock { pidValue } }
     var processStartTime: TimeInterval? { lock.withLock { startTimeValue } }
     /// True as soon as the process has exited, independent of whether stderr has
@@ -151,9 +162,15 @@ final class LeoTunnel: @unchecked Sendable {
         launched = true
         let launchedPID = process.processIdentifier
         pidValue = launchedPID
-        startTimeValue = Self.startTime(of: launchedPID)
+        let launchedStartTime = Self.startTime(of: launchedPID)
+        startTimeValue = launchedStartTime
         let terminateNow = terminationRequested
+        let launchCallback = onLaunchCallback
         lock.unlock()
+
+        if let launchCallback, let launchedStartTime {
+            launchCallback(launchedPID, launchedStartTime)
+        }
 
         if terminateNow {
             terminateAndWait()

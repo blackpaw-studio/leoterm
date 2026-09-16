@@ -113,10 +113,48 @@ import Testing
         #expect(model.rowErrors[.init(host: second.host, name: second.name)] == nil)
     }
 
-    private func makeCoordinator(host: FakeAttachTabHost, report: @escaping (LeoAttachError) -> Void = { _ in }) -> LeoAttachCoordinator {
+    @Test func remoteIdentityUsesTheRemoteCommandBuilderNotTheLocalExecutable() async throws {
+        let host = FakeAttachTabHost()
+        let remoteIdentity = LeoAgentIdentity(host: .remote("work"), name: "worker")
+        var builtFor: LeoAgentIdentity?
+        let coordinator = makeCoordinator(host: host, remoteCommandBuilder: { identity in
+            builtFor = identity
+            return "env -u TMUX -u TMUX_PANE ssh -t 'work' 'leo agent attach -- worker'"
+        })
+
+        await coordinator.attach(identity: remoteIdentity, from: origin, disposition: .reuseOrTab)
+
+        #expect(builtFor == remoteIdentity)
+        #expect(host.tabCalls.first?.0 == "env -u TMUX -u TMUX_PANE ssh -t 'work' 'leo agent attach -- worker'")
+    }
+
+    @Test func remoteCommandBuilderFailureReportsExecutableError() async {
+        let host = FakeAttachTabHost()
+        let remoteIdentity = LeoAgentIdentity(host: .remote("work"), name: "worker")
+        var reported: LeoAttachError?
+        let coordinator = makeCoordinator(
+            host: host,
+            report: { reported = $0 },
+            remoteCommandBuilder: { _ in throw LeoDaemonError.hostUnavailable("Remote host work is not configured") }
+        )
+
+        await coordinator.attach(identity: remoteIdentity, from: origin, disposition: .reuseOrTab)
+
+        #expect(reported?.identity == remoteIdentity)
+        #expect(host.tabCalls.isEmpty)
+    }
+
+    private func makeCoordinator(
+        host: FakeAttachTabHost,
+        report: @escaping (LeoAttachError) -> Void = { _ in },
+        remoteCommandBuilder: @escaping (LeoAgentIdentity) throws -> String = { _ in
+            throw LeoDaemonError.hostUnavailable("Remote attach is not configured")
+        }
+    ) -> LeoAttachCoordinator {
         LeoAttachCoordinator(
             host: host,
             executable: { "/leo" },
+            remoteCommandBuilder: remoteCommandBuilder,
             report: report,
             lifecycleEventHandled: { host.acknowledge($0) }
         )

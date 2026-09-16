@@ -28,19 +28,19 @@ struct LeoSSHCommandTests {
             remoteLeoPath: "/opt/leo $(bad)"
         ))
         #expect(try command.remoteAttachCommand(agent: "-it's $(bad)") == "'/opt/leo $(bad)' agent attach -- '-it'\\''s $(bad)'")
-        #expect(try command.attachShellCommand(agent: "-it's $(bad)") == #"ssh -t -i '/keys/it'\'' s' -p '2200' 'evan@build.example' ''\''/opt/leo $(bad)'\'' agent attach -- '\''-it'\''\'\'''\''s $(bad)'\'''"#)
+        #expect(try command.attachShellCommand(agent: "-it's $(bad)") == #"env -u TMUX -u TMUX_PANE ssh -t -i '/keys/it'\'' s' -p '2200' 'evan@build.example' ''\''/opt/leo $(bad)'\'' agent attach -- '\''-it'\''\'\'''\''s $(bad)'\'''"#)
     }
 
     @Test func tildeLeoPathIsExpandedOnlyByTheRemoteShell() throws {
         let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "build", remoteLeoPath: "~/.local/bin/leo"))
         #expect(try command.remoteAttachCommand(agent: "name") == "~/'.local/bin/leo' agent attach -- 'name'")
-        #expect(try command.attachShellCommand(agent: "name") == #"ssh -t 'build' '~/'\''.local/bin/leo'\'' agent attach -- '\''name'\'''"#)
+        #expect(try command.attachShellCommand(agent: "name") == #"env -u TMUX -u TMUX_PANE ssh -t 'build' '~/'\''.local/bin/leo'\'' agent attach -- '\''name'\'''"#)
     }
 
     @Test func attachQuotesBackticksAtBothShellLayers() throws {
         let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "build"))
         #expect(try command.remoteAttachCommand(agent: "a`id`b") == "~/'.local/bin/leo' agent attach -- 'a`id`b'")
-        #expect(try command.attachShellCommand(agent: "a`id`b") == #"ssh -t 'build' '~/'\''.local/bin/leo'\'' agent attach -- '\''a`id`b'\'''"#)
+        #expect(try command.attachShellCommand(agent: "a`id`b") == #"env -u TMUX -u TMUX_PANE ssh -t 'build' '~/'\''.local/bin/leo'\'' agent attach -- '\''a`id`b'\'''"#)
     }
 
     @Test func attachQuotesSemicolonsNewlinesAndSubstitutionsAtBothShellLayers() throws {
@@ -52,9 +52,23 @@ struct LeoSSHCommandTests {
         ))
         let agent = "agent" + semicolon + "\n$(bad)"
         let remote = "'/opt/leo" + semicolon + "\n$(bad)' agent attach -- '" + agent + "'"
-        let local = "ssh -t 'build' ''\\''/opt/leo" + semicolon + "\n$(bad)'\\'' agent attach -- '\\''" + agent + "'\\'''"
+        let local = "env -u TMUX -u TMUX_PANE ssh -t 'build' ''\\''/opt/leo" + semicolon + "\n$(bad)'\\'' agent attach -- '\\''" + agent + "'\\'''"
         #expect(try command.remoteAttachCommand(agent: agent) == remote)
         #expect(try command.attachShellCommand(agent: agent) == local)
+    }
+
+    @Test func logsShellCommandHasNoEnvPrefixLikeTheLocalLogsCommand() throws {
+        let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "build", remoteLeoPath: "~/.local/bin/leo"))
+        #expect(try command.remoteLogsCommand(agent: "name") == "~/'.local/bin/leo' agent logs -f -- 'name'")
+        #expect(try command.logsShellCommand(agent: "name") == #"ssh -t 'build' '~/'\''.local/bin/leo'\'' agent logs -f -- '\''name'\'''"#)
+    }
+
+    @Test func logsShellCommandIncludesIdentityAndPort() throws {
+        let command = LeoSSHCommand(configuration: .init(
+            name: "Build", sshTarget: "evan@build.example:2200", identityFile: "/keys/build", remoteLeoPath: "/opt/leo"
+        ))
+        #expect(try command.remoteLogsCommand(agent: "agent") == "'/opt/leo' agent logs -f -- 'agent'")
+        #expect(try command.logsShellCommand(agent: "agent") == #"ssh -t -i '/keys/build' -p '2200' 'evan@build.example' ''\''/opt/leo'\'' agent logs -f -- '\''agent'\'''"#)
     }
 
     @Test func attachRejectsNulInRemotePathOrAgent() {
@@ -117,6 +131,7 @@ struct LeoSSHCommandTests {
         #expect(throws: expected) { try command.tunnelArguments(localSocketPath: "/tmp/socket", remoteSocketPath: "/remote/socket") }
         #expect(throws: expected) { try command.execArguments(remoteCommand: ["printf"]) }
         #expect(throws: expected) { try command.attachShellCommand(agent: "agent") }
+        #expect(throws: expected) { try command.logsShellCommand(agent: "agent") }
         #expect(throws: expected) { try command.remoteHomeCommand() }
         #expect(throws: expected) { try command.resolvedRemoteSocketPath(home: "/Users/evan") }
     }
