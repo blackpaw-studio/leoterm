@@ -28,6 +28,7 @@ enum LeoObserveEvent: Equatable, Sendable {
     case agentActivity(seq: Int, at: String?, agent: String, activity: LeoActivity?, currentAction: LeoCurrentAction?)
     case agentStopped(seq: Int, at: String?, agent: String, wakeOnMessage: Bool?)
     case gap(expected: Int, received: Int)
+    case snapshot([LeoObservedAgent])
 }
 
 protocol LeoActivityTransport: Sendable {
@@ -103,6 +104,9 @@ actor LeoActivityClient {
                         let sequence = event.sequence
                         if let lastSequence, sequence > lastSequence + 1 {
                             continuation.yield(.gap(expected: lastSequence + 1, received: sequence))
+                            if let agents = try? await fetchState() {
+                                continuation.yield(.snapshot(agents))
+                            }
                         }
                         lastSequence = sequence
                         if case .hello = event { backoff = initialBackoff }
@@ -160,7 +164,7 @@ private extension LeoObserveEvent {
         case .hello(let seq, _, _, _), .agentSpawned(let seq, _, _),
              .agentStateChanged(let seq, _, _, _, _, _), .agentActivity(let seq, _, _, _, _),
              .agentStopped(let seq, _, _, _): return seq
-        case .gap: return -1
+        case .gap, .snapshot: return -1
         }
     }
 }

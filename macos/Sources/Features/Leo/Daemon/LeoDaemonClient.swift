@@ -38,7 +38,7 @@ struct LeoSocketDaemonClient: LeoDaemonClient {
     func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent { try await value("POST", "/agents/spawn", body: try JSONEncoder().encode(request), timeout: mutationTimeout) }
     func start(_ name: String) async throws { try await okay("POST", try route(name, "start")) }
     func stop(_ name: String, wakeOnMessage: Bool? = nil) async throws {
-        let body = wakeOnMessage.map { try? JSONEncoder().encode(["wake_on_message": $0]) } ?? nil
+        let body = try wakeOnMessage.map { try JSONEncoder().encode(["wake_on_message": $0]) }
         try await okay("POST", try route(name, "stop"), body: body)
     }
     func restart(_ name: String) async throws -> LeoAgent { try await value("POST", try route(name, "restart")) }

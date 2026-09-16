@@ -14,14 +14,14 @@ enum LeoObserveConfigLoader {
               let web = parseWeb(yaml), web.enabled,
               let token = try? String(contentsOfFile: tokenPath, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
               !token.isEmpty,
-              let url = URL(string: "http://\(web.bind):\(web.port)") else { return nil }
+              let url = baseURL(bind: web.bind, port: web.port) else { return nil }
         return LeoObserveConfig(baseURL: url, token: token)
     }
 
     static func parseWeb(_ yaml: String) -> (enabled: Bool, port: Int, bind: String)? {
         let lines = yaml.components(separatedBy: .newlines)
         guard let start = lines.firstIndex(where: { $0 == "web:" }) else { return nil }
-        var enabled = true
+        var enabled = false
         var port = 8370
         var bind = "127.0.0.1"
         for line in lines[(start + 1)...] {
@@ -38,5 +38,13 @@ enum LeoObserveConfigLoader {
             }
         }
         return (enabled, port, bind)
+    }
+
+    static func baseURL(bind: String, port: Int) -> URL? {
+        var components = URLComponents()
+        components.scheme = "http"
+        components.host = bind.contains(":") ? "[\(bind)]" : bind
+        components.port = port
+        return components.url
     }
 }

@@ -41,8 +41,20 @@ struct LeoHTTPResponse: Equatable, Sendable {
             throw LeoDaemonError.decoding("Invalid HTTP status line")
         }
         let rawBody = Data(data[range.upperBound...])
-        if headers.lowercased().contains("transfer-encoding: chunked") {
+        let fields = Dictionary(uniqueKeysWithValues: headers
+            .components(separatedBy: "\r\n")
+            .dropFirst()
+            .compactMap { line -> (String, String)? in
+                let parts = line.split(separator: ":", maxSplits: 1)
+                guard parts.count == 2 else { return nil }
+                return (parts[0].lowercased(), parts[1].trimmingCharacters(in: .whitespaces))
+            })
+        if fields["transfer-encoding"]?.lowercased() == "chunked" {
             return Self(status: status, body: try decodeChunked(rawBody))
+        }
+        if let contentLength = fields["content-length"],
+           let expected = Int(contentLength), rawBody.count < expected {
+            throw LeoDaemonError.decoding("Truncated HTTP body")
         }
         return Self(status: status, body: rawBody)
     }

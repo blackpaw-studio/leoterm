@@ -22,6 +22,23 @@ struct LeoSocketDaemonClientTests {
         #expect(requests.map(\.method) == ["GET", "POST", "POST", "POST", "POST", "POST", "POST", "POST", "DELETE", "GET", "GET"])
         #expect(requests.map(\.path) == ["/agents/list", "/agents/spawn", "/agents/a%2Fb/start", "/agents/a/stop", "/agents/a/restart", "/agents/a/reset", "/agents/a/set-template?template=two%20words", "/agents/a/rename", "/agents/a", "/agents/a/delete-plan", "/agents/a/logs?lines=10"])
     }
+
+    @Test func responseParserHandlesHTTPFraming() throws {
+        let contentLength = try LeoHTTPResponse.parse(Data("HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\ntest".utf8))
+        #expect(contentLength.body == Data("test".utf8))
+        let chunked = try LeoHTTPResponse.parse(Data("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n4\r\ntest\r\n0\r\n\r\n".utf8))
+        #expect(chunked.body == Data("test".utf8))
+        #expect(throws: LeoDaemonError.decoding("Truncated HTTP body")) {
+            try LeoHTTPResponse.parse(Data("HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nte".utf8))
+        }
+    }
+
+    @Test func daemonErrorsPreserveCodeAndMatches() throws {
+        let envelope = try LeoDaemonEnvelope<LeoAgent>.decode(Data(#"{"ok":false,"error":"ambiguous","code":"ambiguous","matches":["one","two"]}"#.utf8))
+        #expect(throws: LeoDaemonError.daemon(code: "ambiguous", message: "ambiguous", matches: ["one", "two"])) {
+            try envelope.value()
+        }
+    }
 }
 
 private actor RecordingTransport: LeoDaemonTransport {
