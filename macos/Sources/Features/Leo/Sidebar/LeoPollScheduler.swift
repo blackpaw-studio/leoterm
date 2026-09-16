@@ -71,7 +71,8 @@ private extension LeoObserveEvent {
     var requiresRefresh: Bool {
         switch self {
         case .agentSpawned, .agentStateChanged, .agentStopped, .connected, .gap, .snapshot, .hello: true
-        case .agentActivity, .disconnected: false
+        case .hosted(_, let event): event.requiresRefresh
+        case .agentActivity, .disconnected, .hostStateChanged: false
         }
     }
 }

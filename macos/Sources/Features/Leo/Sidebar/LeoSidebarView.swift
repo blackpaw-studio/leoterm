@@ -5,16 +5,33 @@ struct LeoSidebarView: View {
     @ObservedObject var model: LeoSidebarModel
     let windowID: LeoWindowID
     @ObservedObject var actions: LeoAgentActions
+    @ObservedObject private var hostSelection: LeoHostSelection
     @State private var showingSpawn = false
+
+    init(model: LeoSidebarModel, windowID: LeoWindowID, actions: LeoAgentActions) {
+        self.model = model
+        self.windowID = windowID
+        self.actions = actions
+        _hostSelection = ObservedObject(wrappedValue: actions.hostSelection)
+    }
 
     var body: some View {
         VStack(spacing: 10) {
             HStack { Text("Agents").font(.headline); Spacer(); Button("New Agent") { showingSpawn = true } }
-            Picker("Host", selection: .constant(LeoHostID.local)) {
-                Text(LeoHostID.local.displayName).tag(LeoHostID.local)
+            Menu {
+                ForEach(hostSelection.hosts) { host in
+                    Button { hostSelection.select(host.hostID) } label: {
+                        Text("\(host.hostID == hostSelection.selected ? "✓ " : "")\(glyph(host.state)) \(host.name)")
+                    }
+                }
+                if let row = hostSelection.selectedRow, row.state == .error || row.state == .disconnected {
+                    Divider()
+                    Button("Retry") { hostSelection.retry() }
+                }
+            } label: {
+                Text(hostSelection.selected.displayName)
             }
-            .disabled(true)
-            .labelsHidden()
+            .help(hostSelection.legacyTooltip ?? "Select host")
             .accessibilityLabel("Host")
 
             TextField("Search agents", text: $model.query)
@@ -44,6 +61,10 @@ struct LeoSidebarView: View {
         case .failed(let message):
             stateView {
                 Text(message).multilineTextAlignment(.center).textSelection(.enabled)
+                if let hint = hostSelection.sshHint, let ssh = hostSelection.selectedRow?.ssh {
+                    Text(hint).font(.caption).multilineTextAlignment(.center)
+                    Button("Open SSH") { model.sshRequested(ssh) }
+                }
                 Button("Retry") { model.retry() }
                 Button("Start daemon") { model.startDaemonRequested() }
             }
@@ -85,6 +106,14 @@ struct LeoSidebarView: View {
               let row = model.visibleRows.first(where: { $0.id == selection }) else { return }
         LeoAttachActivation.activate(source: .keyboard, row: row) { row, disposition in
             model.attachRequested(row, windowID, disposition)
+        }
+    }
+
+    private func glyph(_ state: LeoHostState) -> String {
+        switch state {
+        case .local, .connected: "●"
+        case .connecting: "◌"
+        case .disconnected, .error, .unknown: "⚠"
         }
     }
 }

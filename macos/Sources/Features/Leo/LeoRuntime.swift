@@ -11,10 +11,17 @@ import Foundation
     private let attachCoordinator: LeoAttachCoordinator
 
     convenience init(defaults: UserDefaults = .ghostty) {
+        let socketPath = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath
         let activity = LeoSidebarActivitySource(
             events: {
                 AsyncStream { continuation in
                     let task = Task {
+                        if await LeoSocketDaemonClient.detectFlavor(socketPath: socketPath) == .hub {
+                            let client = LeoHubActivityClient(socketPath: socketPath)
+                            for await event in await client.events() { continuation.yield(event) }
+                            continuation.finish()
+                            return
+                        }
                         let config = await Task.detached { LeoObserveConfigLoader.load() }.value
                         guard let config else { continuation.finish(); return }
                         let client = LeoActivityClient(config: config)
@@ -28,12 +35,15 @@ import Foundation
                 }
             },
             fetchState: {
+                if await LeoSocketDaemonClient.detectFlavor(socketPath: socketPath) == .hub {
+                    return try await LeoHubActivityClient(socketPath: socketPath).fetchState()
+                }
                 let config = await Task.detached { LeoObserveConfigLoader.load() }.value
                 guard let config else { return [] }
                 return try await LeoActivityClient(config: config).fetchState()
             }
         )
-        self.init(daemon: LeoSocketDaemonClient(), cli: LeoCLI(), activitySource: activity, defaults: defaults)
+        self.init(daemon: LeoSocketDaemonClient(socketPath: socketPath), cli: LeoCLI(), activitySource: activity, defaults: defaults)
     }
 
     convenience init(daemon: any LeoDaemonClient, cli: LeoCLI, activity: LeoActivityClient, defaults: UserDefaults = .standard) {
@@ -62,14 +72,29 @@ import Foundation
         feed = LeoSidebarFeed(daemon: daemon, activity: activitySource) { [weak model] snapshot in
             model?.receive(snapshot)
         }
-        actions = LeoAgentActions(daemon: daemon, cli: cli, model: model) { [weak feed] in
+        let hostSelection = LeoHostSelection(daemon: daemon, defaults: defaults) { [weak feed] host in
+            Task { await feed?.select(host) }
+        }
+        actions = LeoAgentActions(daemon: daemon, cli: cli, model: model, hostSelection: hostSelection) { [weak feed] in
             Task { await feed?.refresh() }
         }
-        model.retryRequested = { [feed] in Task { await feed.refresh() } }
+        model.retryRequested = { [feed, hostSelection] in
+            hostSelection.retry()
+            Task { await feed.refresh() }
+        }
         registry.pollabilityChanged = { [feed] pollable in Task { await feed.setPolling(pollable) } }
         model.startDaemonRequested = { [weak self] in
             guard let controller = NSApp.keyWindow?.windowController as? TerminalController else { return }
             self?.startDaemon(in: controller)
+        }
+        model.sshRequested = { [weak self] target in
+            guard let self, let controller = NSApp.keyWindow?.windowController as? TerminalController else { return }
+            do {
+                guard LeoCommandLauncher.openTab(in: controller, command: try LeoCommandLauncher.sshHintCommand(target: target)) else {
+                    self.model.setPanelError("Unable to open a terminal tab")
+                    return
+                }
+            } catch { self.model.setPanelError(error.localizedDescription) }
         }
         model.attachRequested = { [weak attachCoordinator, weak model] row, origin, disposition in
             model?.selection = row.id
@@ -80,6 +105,8 @@ import Foundation
     func start() {
         let pollable = registry.hasPollableSidebar
         Task {
+            let flavor = await LeoSocketDaemonClient.detectFlavor()
+            await actions.hostSelection.start(flavor: flavor)
             await feed.start()
             await feed.setPolling(pollable)
         }

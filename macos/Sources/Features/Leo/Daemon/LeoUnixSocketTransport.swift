@@ -2,6 +2,24 @@ import Darwin
 import Foundation
 
 struct LeoUnixSocketTransport: LeoDaemonTransport {
+    func stream(path: String, socketPath: String, idleTimeout: TimeInterval = 60) -> AsyncThrowingStream<Data, Error> {
+        AsyncThrowingStream { continuation in
+            let descriptor = LeoSocketDescriptor()
+            let task = Task.detached(priority: .userInitiated) {
+                do {
+                    let request = LeoHTTPRequest(method: "GET", path: path).serialized()
+                    try Self.streamBlocking(request, socketPath: socketPath, idleTimeout: idleTimeout, descriptor: descriptor) {
+                        continuation.yield($0)
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: descriptor.isCancelled ? CancellationError() : error)
+                }
+            }
+            continuation.onTermination = { _ in descriptor.cancel(); task.cancel() }
+        }
+    }
+
     func send(_ request: LeoHTTPRequest, socketPath: String, timeout: TimeInterval) async throws -> LeoHTTPResponse {
         guard FileManager.default.fileExists(atPath: socketPath) else { throw LeoDaemonError.socketMissing(path: socketPath) }
         let descriptor = LeoSocketDescriptor()
@@ -63,6 +81,78 @@ struct LeoUnixSocketTransport: LeoDaemonTransport {
             guard errno == EAGAIN || errno == EWOULDBLOCK else { throw socketError() }
         }
         do { return try LeoHTTPResponse.parse(data) } catch { throw LeoDaemonError.transport("Incomplete or invalid HTTP response") }
+    }
+
+    private static func streamBlocking(_ wire: Data, socketPath: String, idleTimeout: TimeInterval,
+                                       descriptor: LeoSocketDescriptor, yield: (Data) -> Void) throws {
+        let socketDescriptor = socket(AF_UNIX, SOCK_STREAM, 0)
+        guard socketDescriptor >= 0 else { throw socketError() }
+        descriptor.set(socketDescriptor)
+        defer { descriptor.close() }
+        var noSigPipe: Int32 = 1
+        _ = setsockopt(socketDescriptor, SOL_SOCKET, SO_NOSIGPIPE, &noSigPipe, socklen_t(MemoryLayout<Int32>.size))
+        var address = sockaddr_un()
+        address.sun_family = sa_family_t(AF_UNIX)
+        let limit = MemoryLayout.size(ofValue: address.sun_path) - 1
+        guard socketPath.utf8.count <= limit else { throw LeoDaemonError.transport("Socket path is too long") }
+        _ = socketPath.withCString { source in
+            withUnsafeMutablePointer(to: &address.sun_path) { destination in
+                strncpy(UnsafeMutableRawPointer(destination).assumingMemoryBound(to: CChar.self), source, limit)
+            }
+        }
+        let connected = withUnsafePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                Darwin.connect(socketDescriptor, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+            }
+        }
+        guard connected == 0 else { throw socketError() }
+        try wire.withUnsafeBytes { bytes in
+            guard Darwin.send(socketDescriptor, bytes.baseAddress, bytes.count, 0) == bytes.count else { throw socketError() }
+        }
+        var pending = Data()
+        var headersRead = false
+        var chunked = false
+        var buffer = [UInt8](repeating: 0, count: 16 * 1024)
+        while true {
+            let deadline = DispatchTime.now().uptimeNanoseconds + UInt64(idleTimeout * 1_000_000_000)
+            try wait(socketDescriptor, events: Int16(POLLIN), deadline: deadline, descriptor: descriptor)
+            let count = Darwin.recv(socketDescriptor, &buffer, buffer.count, 0)
+            if count == 0 { return }
+            guard count > 0 else { if errno == EINTR { continue }; throw socketError() }
+            pending.append(contentsOf: buffer.prefix(Int(count)))
+            if !headersRead {
+                guard let separator = pending.range(of: Data("\r\n\r\n".utf8)) else { continue }
+                guard let headers = String(bytes: pending[..<separator.lowerBound], encoding: .utf8)?.lowercased() else {
+                    throw LeoDaemonError.decoding("HTTP headers are not UTF-8")
+                }
+                guard headers.hasPrefix("http/1.1 2") || headers.hasPrefix("http/1.0 2") else {
+                    throw LeoDaemonError.transport("Events endpoint returned a non-success status")
+                }
+                chunked = headers.contains("transfer-encoding: chunked")
+                pending.removeSubrange(..<separator.upperBound)
+                headersRead = true
+            }
+            if chunked {
+                while let chunk = try nextChunk(from: &pending) { if !chunk.isEmpty { yield(chunk) } }
+            } else if !pending.isEmpty {
+                yield(pending)
+                pending.removeAll(keepingCapacity: true)
+            }
+        }
+    }
+
+    private static func nextChunk(from data: inout Data) throws -> Data? {
+        let crlf = Data("\r\n".utf8)
+        guard let lineEnd = data.range(of: crlf) else { return nil }
+        guard let line = String(data: data[..<lineEnd.lowerBound], encoding: .utf8),
+              let size = Int(line.split(separator: ";")[0], radix: 16) else { throw LeoDaemonError.decoding("Invalid chunk size") }
+        let start = lineEnd.upperBound
+        guard let end = data.index(start, offsetBy: size, limitedBy: data.endIndex),
+              data.distance(from: end, to: data.endIndex) >= 2 else { return nil }
+        if size == 0 { data.removeAll(); return Data() }
+        let result = Data(data[start..<end])
+        data.removeSubrange(..<data.index(end, offsetBy: 2))
+        return result
     }
 
     private static func wait(_ socketDescriptor: Int32, events: Int16, deadline: UInt64, descriptor: LeoSocketDescriptor) throws {

@@ -9,13 +9,24 @@ struct LeoCurrentAction: Codable, Equatable, Sendable {
 
 struct LeoObservedAgent: Codable, Equatable, Sendable {
     let name: String
+    let host: String?
     let status: LeoAgentStatus?
     let activity: LeoActivity?
     let currentAction: LeoCurrentAction?
     let lastActivityAt: String?
 
+    init(name: String, host: String? = nil, status: LeoAgentStatus?, activity: LeoActivity?,
+         currentAction: LeoCurrentAction?, lastActivityAt: String?) {
+        self.name = name
+        self.host = host
+        self.status = status
+        self.activity = activity
+        self.currentAction = currentAction
+        self.lastActivityAt = lastActivityAt
+    }
+
     enum CodingKeys: String, CodingKey {
-        case name, status, activity
+        case name, host, status, activity
         case currentAction = "current_action"
         case lastActivityAt = "last_activity_at"
     }
@@ -31,6 +42,8 @@ enum LeoObserveEvent: Equatable, Sendable {
     case agentStopped(seq: Int, at: String?, agent: String, wakeOnMessage: Bool?)
     case gap(expected: Int, received: Int)
     case snapshot([LeoObservedAgent])
+    case hostStateChanged(LeoHostRow)
+    indirect case hosted(host: LeoHostID, event: LeoObserveEvent)
 }
 
 protocol LeoActivityTransport: Sendable {
@@ -156,7 +169,7 @@ actor LeoActivityClient {
         return request
     }
 
-    private static func decode(_ raw: LeoSSEEvent) -> LeoObserveEvent? {
+    fileprivate static func decode(_ raw: LeoSSEEvent) -> LeoObserveEvent? {
         guard let name = raw.name, let data = raw.data.data(using: .utf8) else { return nil }
         let decoder = JSONDecoder()
         switch name {
@@ -197,7 +210,63 @@ private extension LeoObserveEvent {
         case .hello(let seq, _, _, _), .agentSpawned(let seq, _, _),
              .agentStateChanged(let seq, _, _, _, _, _), .agentActivity(let seq, _, _, _, _),
              .agentStopped(let seq, _, _, _): return seq
-        case .connected, .disconnected, .gap, .snapshot: return -1
+        case .hosted(_, let event): return event.sequence
+        case .connected, .disconnected, .gap, .snapshot, .hostStateChanged: return -1
         }
+    }
+}
+
+actor LeoHubActivityClient {
+    private let socketPath: String
+    private let transport: LeoUnixSocketTransport
+
+    init(socketPath: String = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath,
+         transport: LeoUnixSocketTransport = .init()) {
+        self.socketPath = socketPath
+        self.transport = transport
+    }
+
+    func fetchState() async throws -> [LeoObservedAgent] {
+        struct State: Decodable { let agents: [LeoObservedAgent] }
+        let response = try await transport.send(.init(method: "GET", path: "/state"), socketPath: socketPath, timeout: 5)
+        return try JSONDecoder().decode(State.self, from: response.body).agents
+    }
+
+    func events() -> AsyncStream<LeoObserveEvent> {
+        AsyncStream { continuation in
+            let task = Task {
+                var parser = LeoSSEParser()
+                do {
+                    for try await bytes in transport.stream(path: "/events", socketPath: socketPath) {
+                        for raw in parser.feed(bytes) {
+                            if let event = Self.decode(raw) { continuation.yield(event) }
+                        }
+                    }
+                } catch is CancellationError {
+                    continuation.finish()
+                    return
+                } catch {
+                    continuation.yield(.disconnected(reason: error.localizedDescription))
+                }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    private static func decode(_ raw: LeoSSEEvent) -> LeoObserveEvent? {
+        guard let name = raw.name, let data = raw.data.data(using: .utf8) else { return nil }
+        if name == "host_state_changed" {
+            struct Payload: Decodable { let host: String; let state: LeoHostState; let error: String?; let code: String? }
+            guard let payload = try? JSONDecoder().decode(Payload.self, from: data) else { return nil }
+            return .hostStateChanged(.init(name: payload.host, local: payload.host == "localhost",
+                                           state: payload.state, error: payload.error, code: payload.code))
+        }
+        guard let event = LeoActivityClient.decode(raw) else { return nil }
+        if case .hello = event { return event }
+        struct Host: Decodable { let host: String }
+        guard let payload = try? JSONDecoder().decode(Host.self, from: data) else { return event }
+        let host: LeoHostID = payload.host == "localhost" ? .local : .remote(payload.host)
+        return .hosted(host: host, event: event)
     }
 }
