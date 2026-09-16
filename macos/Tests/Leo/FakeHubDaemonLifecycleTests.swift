@@ -22,6 +22,17 @@ struct FakeHubDaemonLifecycleTests {
         let client = try Self.connect(to: path)
         defer { Darwin.close(client) }
 
+        // Synchronize on the listener having actually accepted and
+        // registered this connection before dropping the daemon reference.
+        // `connect()` returning only means the kernel queued the connection;
+        // the background accept loop may not have picked it up yet. Racing
+        // that with `daemon = nil` below would make the EOF assertion
+        // flaky -- the daemon could deinit and shut the listener down before
+        // the connection was ever registered as one it owns.
+        await awaitCondition(timeout: 5, message: "Listener never accepted the test client") {
+            (daemon?.acceptedConnectionCount() ?? 0) >= 1
+        }
+
         // Drop the only external strong reference without calling shutdown()
         // explicitly. If the accept loop still retains the daemon for its
         // lifetime, this will never deinit.
