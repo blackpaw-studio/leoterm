@@ -71,7 +71,7 @@ struct LeoSidebarFeedRecoveryTests {
     private func eventually(_ condition: @escaping @Sendable () async -> Bool) async throws {
         for _ in 0..<40 {
             if await condition() { return }
-            try await Task.sleep(nanoseconds: 5_000_000)
+            await Task.yield()
         }
         Issue.record("Condition was not satisfied")
     }

@@ -131,13 +131,13 @@ struct LeoSidebarFeedTests {
         let feed = makeFeed(daemon: daemon, recorder: recorder)
 
         await feed.start()
-        try await Task.sleep(nanoseconds: 20_000_000)
+        for _ in 0..<4 { await Task.yield() }
         var calls = await daemon.listCallCount
         #expect(calls == 0)
         await feed.setPolling(true)
         try await eventually { await daemon.listCallCount == 1 }
         await feed.setPolling(false)
-        try await Task.sleep(nanoseconds: 20_000_000)
+        for _ in 0..<4 { await Task.yield() }
         calls = await daemon.listCallCount
         #expect(calls == 1)
         await feed.stop()
@@ -152,7 +152,7 @@ struct LeoSidebarFeedTests {
         try await eventually { await daemon.listCallCount == 1 }
         await feed.stop()
         await daemon.resolveNext(.success([agent("late")]))
-        try await Task.sleep(nanoseconds: 20_000_000)
+        for _ in 0..<4 { await Task.yield() }
         let snapshots = await recorder.values
         #expect(snapshots.isEmpty)
     }
@@ -169,7 +169,7 @@ struct LeoSidebarFeedTests {
         await daemon.resolveNext(.success([agent("alpha")]))
         try await eventually { await daemon.listCallCount == 2 }
         await daemon.resolveNext(.success([agent("bravo")]))
-        try await Task.sleep(nanoseconds: 20_000_000)
+        for _ in 0..<4 { await Task.yield() }
         #expect(await daemon.listCallCount == 2)
         await feed.stop()
     }
@@ -187,7 +187,7 @@ struct LeoSidebarFeedTests {
     private func eventually(_ condition: @escaping @Sendable () async -> Bool) async throws {
         for _ in 0..<40 {
             if await condition() { return }
-            try await Task.sleep(nanoseconds: 5_000_000)
+            await Task.yield()
         }
         Issue.record("Condition was not satisfied")
     }

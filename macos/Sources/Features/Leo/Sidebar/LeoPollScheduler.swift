@@ -24,6 +24,15 @@ struct LeoPollScheduler {
 
     init(now: @escaping @Sendable () -> Date = Date.init) { self.now = now }
 
+    mutating func reset() {
+        visibleCount = 0
+        occluded = false
+        appHidden = false
+        refreshInFlight = false
+        refreshPending = false
+        polling = false
+    }
+
     mutating func reduce(_ input: Input) -> [Output] {
         _ = now()
         switch input {

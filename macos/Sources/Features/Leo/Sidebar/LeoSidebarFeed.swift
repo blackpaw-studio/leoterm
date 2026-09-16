@@ -23,6 +23,7 @@ actor LeoSidebarFeed {
     private let daemon: any LeoDaemonClient
     private let activitySource: LeoSidebarActivitySource
     private let sink: Sink
+    private let sleeper: @Sendable (UInt64) async throws -> Void
     private var snapshot = LeoSidebarSnapshot(rows: [], connectivity: .loading, generation: 0)
     private var activityByName: [String: LeoSidebarActivity] = [:]
     private var bufferedActivity: [LeoObserveEvent] = []
@@ -35,20 +36,23 @@ actor LeoSidebarFeed {
     private var running = false
     private var needsState = true
     private var recovering = false
+    private var awaitingHello = false
 
-    init(daemon: any LeoDaemonClient, activity: LeoSidebarActivitySource, sink: @escaping Sink) {
+    init(daemon: any LeoDaemonClient, activity: LeoSidebarActivitySource, sleep: @escaping @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) }, sink: @escaping Sink) {
         self.daemon = daemon
         activitySource = activity
+        sleeper = sleep
         self.sink = sink
     }
 
     func start() {
         guard !running else { return }
         running = true
-        eventTask = Task { [activitySource] in
+        eventTask = Task { [weak self, activitySource] in
             let events = await activitySource.events()
             for await event in events {
                 guard !Task.isCancelled else { return }
+                guard let self else { return }
                 await self.receive(event)
             }
         }
@@ -59,16 +63,25 @@ actor LeoSidebarFeed {
         eventTask?.cancel()
         refreshTask?.cancel()
         activityTask?.cancel()
+        emissionTask?.cancel()
         pollTask?.cancel()
         eventTask = nil
         refreshTask = nil
         activityTask = nil
+        emissionTask = nil
         pollTask = nil
+        scheduler.reset()
     }
 
-    func refresh() { process(scheduler.reduce(.refreshRequested)) }
+    func refresh() {
+        guard running else { return }
+        process(scheduler.reduce(.refreshRequested))
+    }
 
-    func tick() { process(scheduler.reduce(.tick)) }
+    func tick() {
+        guard running else { return }
+        process(scheduler.reduce(.tick))
+    }
 
     func setPolling(_ pollable: Bool) {
         guard running else { return }
@@ -78,7 +91,21 @@ actor LeoSidebarFeed {
     func receive(_ event: LeoObserveEvent) {
         guard running else { return }
         switch event {
-        case .connected, .hello, .gap, .snapshot:
+        case .connected:
+            guard !recovering else { return }
+            awaitingHello = true
+            prepareRecovery()
+            process(scheduler.reduce(.sseEvent(event)))
+        case .hello:
+            if awaitingHello {
+                awaitingHello = false
+                return
+            }
+            guard !recovering else { return }
+            prepareRecovery()
+            process(scheduler.reduce(.sseEvent(event)))
+        case .gap, .snapshot:
+            guard !recovering else { return }
             prepareRecovery()
             process(scheduler.reduce(.sseEvent(event)))
         case .agentSpawned, .agentStateChanged, .agentStopped:
@@ -108,7 +135,10 @@ actor LeoSidebarFeed {
 
     private func startRefresh() {
         _ = scheduler.reduce(.refreshStarted)
-        refreshTask = Task { await self.performRefresh() }
+        refreshTask = Task { [weak self] in
+            guard let self else { return }
+            await self.performRefresh()
+        }
     }
 
     private func performRefresh() async {
@@ -117,7 +147,7 @@ actor LeoSidebarFeed {
         let fetchState = needsState
         needsState = false
         do {
-            let rows = try await daemon.listAgents().map(Self.row)
+            let rows = try await fetchList().map(Self.row)
             guard running, generation == snapshot.generation else { return }
             snapshot = LeoSidebarReducers.applyListResult(snapshot, result: LeoSidebarReducers.mergeActivity(rows, activityByName: activityByName), generation: generation)
             recovering = false
@@ -128,22 +158,38 @@ actor LeoSidebarFeed {
             if fetchState { fetchActivityState(generation: generation) }
         } catch {
             guard running, generation == snapshot.generation else { return }
-            snapshot = LeoSidebarSnapshot(rows: snapshot.rows, connectivity: .failed(message: String(describing: error)), generation: generation)
+            snapshot = LeoSidebarSnapshot(rows: snapshot.rows, connectivity: .failed(message: error.localizedDescription), generation: generation)
             emit()
         }
     }
 
     private func fetchActivityState(generation: Int) {
         activityTask?.cancel()
-        activityTask = Task { [activitySource] in
+        activityTask = Task { [weak self, activitySource] in
             do {
                 let state = try await Self.fetchState(from: activitySource)
+                guard let self else { return }
                 await self.applyActivityState(state, generation: generation)
             } catch is CancellationError {
                 return
             } catch {
                 return
             }
+        }
+    }
+
+    private func fetchList() async throws -> [LeoAgent] {
+        let daemon = daemon
+        let sleeper = sleeper
+        return try await withThrowingTaskGroup(of: [LeoAgent].self) { group in
+            group.addTask { try await daemon.listAgents() }
+            group.addTask {
+                try await sleeper(5_000_000_000)
+                throw LeoSidebarFeedError.listTimedOut
+            }
+            defer { group.cancelAll() }
+            guard let result = try await group.next() else { return [] }
+            return result
         }
     }
 
@@ -169,6 +215,7 @@ actor LeoSidebarFeed {
 
     private func finishRefresh() {
         refreshTask = nil
+        guard running else { return }
         process(scheduler.reduce(.refreshFinished))
     }
 
@@ -183,8 +230,9 @@ actor LeoSidebarFeed {
     private func emit() {
         let value = snapshot
         let previous = emissionTask
-        emissionTask = Task { [sink] in
+        emissionTask = Task { [weak self, sink] in
             await previous?.value
+            guard !Task.isCancelled, self != nil else { return }
             await sink(value)
         }
     }
@@ -193,10 +241,11 @@ actor LeoSidebarFeed {
         for output in outputs {
             switch output {
             case .refreshNow:
+                guard running else { continue }
                 startRefresh()
             case .scheduleTick(let interval):
                 pollTask?.cancel()
-                pollTask = Task {
+                pollTask = Task { [weak self] in
                     do {
                         try await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
                     } catch is CancellationError {
@@ -206,7 +255,8 @@ actor LeoSidebarFeed {
                         return
                     }
                     guard !Task.isCancelled else { return }
-                    await self.process(self.scheduler.reduce(.tick))
+                    guard let self else { return }
+                    await self.tick()
                 }
             case .pause:
                 pollTask?.cancel()
@@ -234,4 +284,13 @@ actor LeoSidebarFeed {
     }
 }
 
-private enum LeoSidebarFeedError: Error { case activityStateTimedOut }
+private enum LeoSidebarFeedError: Error, LocalizedError {
+    case activityStateTimedOut
+    case listTimedOut
+
+    var errorDescription: String? {
+        switch self {
+        case .activityStateTimedOut, .listTimedOut: "timed out"
+        }
+    }
+}
