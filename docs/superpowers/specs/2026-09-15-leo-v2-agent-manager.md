@@ -32,11 +32,11 @@ Everything the v1 fork built to *render* agents (auto-grid, tmux control-mode re
 ```
 Ghostty macOS app (upstream, unmodified except hooks)
  └─ LeoSidebar (SwiftUI, per window, collapsible)
-     ├─ LeoHostPicker      ── leo host list --json / leo host forward --json
+     ├─ LeoHostPicker      ── in-app hosts (UserDefaults) + LeoTunnel (ssh -N -L unix socket)
      ├─ LeoAgentList       ── GET /agents/list (poll) + SSE activity overlay
      ├─ LeoAgentActions    ── POST start/stop/restart/set-template/rename, DELETE
      ├─ SpawnAgentSheet    ── POST /agents/spawn; templates from leo template list --json
-     └─ AttachCoordinator  ── opens/focuses a tab running `leo [--host h] agent attach <name>`
+     └─ AttachCoordinator  ── opens/focuses a tab running `leo agent attach` (local) or `ssh -t <target> <leo> agent attach` (remote)
 ```
 
 ### 3.1 Daemon contract (leo 0.27.0)
@@ -44,20 +44,33 @@ Unix socket `~/.leo/state/leo.sock`, HTTP/1.1, no auth. Routes used: `GET /agent
 
 Activity (`working|idle|unknown`, `current_action`) comes from the observability SSE endpoint (`web.bind:port`, bearer `~/.leo/state/api.token`). Activity is an overlay: if the endpoint is unreachable the list still works with status only, and rows show no activity dot.
 
-### 3.2 Hosts (revised 2026-09-16: daemon-owned connections)
+### 3.2 Hosts (revised 2026-09-16 13:50: app-owned SSH tunnels)
 
-Remote hosts are Evan's main use case and must need zero manual setup. The GUI therefore never manages SSH processes or sockets. The **local leo daemon is the hub**: it owns one connection per configured host (reusing the `leo host forward` internals), reconnects with backoff, and proxies management, templates, and activity for every host through the single local socket `~/.leo/state/leo.sock`. Requested from the Leo agent on 2026-09-16; contract to be pinned when it ships:
-- `GET /hosts` → `[{name, local, default, state: local|connecting|connected|disconnected|error, error?}]`; `POST /hosts/{name}/connect|disconnect` (idempotent). Connect failures are fast and typed (`ssh_auth_required`, `ssh_host_key_unknown`) with a stderr tail; the GUI then tells the user to run `ssh <host>` once in a terminal tab.
-- Proxied routes `/hosts/{name}/agents/...` and `/hosts/{name}/templates`, identical semantics to the local routes; connection problems are `503 host_unavailable`. `/hosts/localhost/...` works so the GUI has one code path.
-- `GET /events` (SSE) and `GET /state` on the unix socket, every event/agent tagged with `host`, plus `host_state_changed` events. No TCP observability, no bearer token, no per-host observability URL.
-- Attach is unchanged: a terminal tab running `env -u TMUX -u TMUX_PANE '<leo>' agent attach --host '<name>' -- '<agent>'`; SSH prompts stay visible in the tab.
+Decision (Evan, 2026-09-16 13:49, superseding the daemon-hub revision of the same morning): **the app owns one SSH tunnel to the selected remote host.** No local leo daemon is required to use remote hosts, and leo needs no hub. The reference pattern is openclaw's `RemotePortTunnel.swift` (~180 lines of launch + readiness logic); the abandoned `feat/m6-hosts` branch is *not* the reference — it failed five reviews on readiness protocols, coalesced switches, and retry timers, all of which are out of scope here.
 
-GUI consequences: the host picker lists `GET /hosts` with connection state and a Retry (= `connect`) action; selecting a host only changes the path prefix and the feed generation. No forward manager, no socket repointing, no process lifecycle in the app. The old branch `feat/m6-hosts` (GUI-managed forwards) is abandoned except for salvageable picker UI.
+Hosts:
+- Configured in-app, stored as JSON in UserDefaults (`leo.hosts`), no secrets. Fields: `name` (unique, picker label), `sshTarget` (`user@host[:port]`), `identityFile?`, `remoteLeoPath` (default `~/.local/bin/leo`), `remoteSocketPath` (default `~/.leo/state/leo.sock`). Edited in a Hosts sheet opened from the host picker ("Manage Hosts…"): table + add/remove + form, validation on save (non-empty name/target, unique name). `localhost` is implicit and needs no entry.
+- `leo host list --json` / leo.yaml `client.hosts` are no longer read.
+
+Tunnel (`LeoTunnel`, a dumb process wrapper, no state machine of its own):
+- `/usr/bin/ssh -n -N -o BatchMode=yes -o StrictHostKeyChecking=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -o ControlMaster=no -o ControlPath=none -o StreamLocalBindUnlink=yes [-i identity] [-p port] -L <localSocket>:<remoteSocketPath> <target>`. Local socket lives under the app's Application Support dir: `hosts/<name>.sock`; any stale file is removed before launch. Only stderr is captured, capped at 4 KB.
+- Readiness: probe `GET /health` on the local socket every 100 ms for up to 6 s. Early exit → error with the stderr tail; timeout → "tunnel did not become ready". No stderr parsing, no fixed delay.
+- Failure surfaced verbatim plus one hint per class: host-key unknown → "run `ssh <target>` once in a terminal to accept the host key"; auth → "BatchMode needs a key or agent; try `ssh <target>` in a terminal".
+- Orphans: pid + process start time + socket path are recorded in UserDefaults while the tunnel runs; at app launch any recorded pid whose start time still matches is sent SIGTERM, then SIGKILL after 1 s, and the record is cleared. App quit terminates the tunnel and waits for exit.
+
+Selection (`LeoHostSelection`, `@MainActor`, generation-guarded):
+- States per selected host: `connecting`, `connected(socket)`, `failed(message)`. Localhost is always `connected(~/.leo/state/leo.sock)`.
+- Selecting a host: bump generation, terminate the previous tunnel (wait for exit), start the new one, await readiness, publish `connected` unless the generation moved on. Only one tunnel exists at any time.
+- Tunnel exit after readiness → `failed` with the stderr tail and a Retry button. **No auto-reconnect, no backoff, no timers.** Retry = select the host again.
+- The sidebar feed targets `(host, generation, socketPath)`; a `failed` host shows the last rows greyed with the panel-level error.
+
+Remote CLI calls (templates only): `ssh [-i identity] [-p port] -o BatchMode=yes <target> <remoteLeoPath> template list --json`. Until leo ≥0.29 ships `GET /templates` on the socket, this is the only per-host ssh exec. Activity: leo ≥0.29 serves `GET /events` / `GET /state` on the unix socket (no token), which the tunnel carries for free; on older remotes there is no activity overlay (status only).
 
 ### 3.3 Attach
 - Action: double-click a row, Return on a selected row, or the row's Attach button. Opens a **new tab in the current window** with the surface command set to the attach argv (structured arguments, no shell string). ⌥-attach opens a new window instead.
 - Identity: `(host, agentName)`. The coordinator keeps a map from identity to surface; attaching an already-open identity focuses that tab. Closing the tab removes the mapping and detaches the tmux client only. **Closing never stops or deletes an agent.**
 - Environment for the attach process: inherited app env with `TMUX` and `TMUX_PANE` removed; `leo` resolved to an absolute path (`~/.local/bin/leo`, overridable via Ghostty config key `leo-path`).
+- Remote attach (2026-09-16): the tab runs `ssh -t [-i identity] [-p port] '<target>' '<remoteLeoPath>' agent attach -- '<agent>'` directly; no local `leo --host`, no ControlPath sharing with the tunnel. Host-key and auth prompts stay visible in the tab.
 - Tab title: `agent · host` set via the surface's title; the attached shell's own title changes are allowed to override it.
 
 ### 3.4 Agent list rows
@@ -87,7 +100,7 @@ Each hook is one small, commented block so upstream merges stay mechanical.
 ## 5. Error handling
 - Every daemon call has a 5 s timeout except spawn (30 s) and delete (30 s).
 - A failed action leaves the row unchanged and shows the error under the row until the next successful refresh.
-- Forward process failures include the process's stderr tail in the host-offline message.
+- Tunnel failures include the ssh stderr tail (≤4 KB) in the host-level message, plus the host-key / auth hint.
 - Missing `leo` binary: panel-level error with the resolved path tried.
 
 ## 6. Testing
