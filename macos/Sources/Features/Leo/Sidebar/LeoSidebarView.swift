@@ -3,6 +3,7 @@ import SwiftUI
 
 struct LeoSidebarView: View {
     @ObservedObject var model: LeoSidebarModel
+    let windowID: LeoWindowID
 
     var body: some View {
         VStack(spacing: 10) {
@@ -40,7 +41,9 @@ struct LeoSidebarView: View {
                 stateView { Text("No matches") }
             } else {
                 List(model.visibleRows, selection: $model.selection) { row in
-                    LeoAgentRowView(row: row, isSelected: model.selection == row.id, attach: model.attachRequested)
+                    LeoAgentRowView(row: row, isSelected: model.selection == row.id, error: model.rowErrors[row.id]) { row, disposition in
+                        model.attachRequested(row, windowID, disposition)
+                    }
                         .tag(row.id)
                 }
                 .listStyle(.sidebar)
@@ -67,6 +70,8 @@ struct LeoSidebarView: View {
     private func attachSelected() {
         guard let selection = model.selection,
               let row = model.visibleRows.first(where: { $0.id == selection }) else { return }
-        LeoAttachActivation.activate(source: .keyboard, row: row, attach: model.attachRequested)
+        LeoAttachActivation.activate(source: .keyboard, row: row) { row, disposition in
+            model.attachRequested(row, windowID, disposition)
+        }
     }
 }

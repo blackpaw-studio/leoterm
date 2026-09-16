@@ -7,6 +7,7 @@ import Foundation
     private let feed: LeoSidebarFeed
     private let cli: LeoCLI
     private let defaults: UserDefaults
+    private let attachCoordinator: LeoAttachCoordinator
 
     convenience init(defaults: UserDefaults = .ghostty) {
         let activity = LeoSidebarActivitySource(
@@ -41,8 +42,22 @@ import Foundation
     init(daemon: any LeoDaemonClient, cli: LeoCLI, activitySource: LeoSidebarActivitySource, defaults: UserDefaults = .standard) {
         self.cli = cli
         self.defaults = defaults
-        model = LeoSidebarModel()
-        registry = LeoWindowSessionRegistry()
+        let model = LeoSidebarModel()
+        let registry = LeoWindowSessionRegistry()
+        self.model = model
+        self.registry = registry
+        let host = GhosttyAttachTabHost(registry: registry)
+        attachCoordinator = LeoAttachCoordinator(
+            host: host,
+            executable: {
+                let override = defaults.string(forKey: "leo.executablePath")
+                return try LeoCLI(executableOverride: override, runner: cli.runner).resolveExecutable()
+            },
+            report: { [weak model] error in
+                guard let id = model?.selection else { return }
+                model?.reportAttachError(error, for: id)
+            }
+        )
         feed = LeoSidebarFeed(daemon: daemon, activity: activitySource) { [weak model] snapshot in
             model?.receive(snapshot)
         }
@@ -51,6 +66,10 @@ import Foundation
         model.startDaemonRequested = { [weak self] in
             guard let controller = NSApp.keyWindow?.windowController as? TerminalController else { return }
             self?.startDaemon(in: controller)
+        }
+        model.attachRequested = { [weak attachCoordinator] row, origin, disposition in
+            model.selection = row.id
+            Task { await attachCoordinator?.attach(identity: row.identity, from: origin, disposition: disposition) }
         }
     }
 
@@ -63,7 +82,7 @@ import Foundation
     }
     func shutdown() { Task { await feed.stop() } }
     func makeWindowSession(for controller: TerminalController) -> LeoWindowSession {
-        registry.makeSession(window: controller.window, defaults: defaults)
+        registry.makeSession(window: controller.window, controller: controller, defaults: defaults)
     }
 
     func makeWindowSession() -> LeoWindowSession {

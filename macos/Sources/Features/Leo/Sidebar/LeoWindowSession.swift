@@ -22,6 +22,7 @@ struct LeoWindowVisibilityState: Equatable {
 }
 
 @MainActor final class LeoWindowSession: ObservableObject {
+    let id: LeoWindowID
     @Published var isSidebarVisible: Bool { didSet { changed() } }
     @Published private(set) var preferredWidth: CGFloat
     @Published var windowIsOccluded = false { didSet { changed() } }
@@ -34,7 +35,8 @@ struct LeoWindowVisibilityState: Equatable {
     private var observers: [NSObjectProtocol] = []
     private var visibility = LeoWindowVisibilityState()
 
-    init(window: NSWindow? = nil, defaults: UserDefaults = .standard, onPollabilityChanged: @escaping () -> Void = {}) {
+    init(id: LeoWindowID = LeoWindowID(), window: NSWindow? = nil, defaults: UserDefaults = .standard, onPollabilityChanged: @escaping () -> Void = {}) {
+        self.id = id
         self.defaults = defaults
         self.onPollabilityChanged = onPollabilityChanged
         self.window = window
@@ -86,13 +88,17 @@ struct LeoWindowVisibilityState: Equatable {
 }
 
 @MainActor final class LeoWindowSessionRegistry {
-    private final class Entry { weak var session: LeoWindowSession?; init(_ session: LeoWindowSession) { self.session = session } }
-    private var entries: [ObjectIdentifier: Entry] = [:]
+    private final class Entry {
+        weak var session: LeoWindowSession?
+        weak var controller: TerminalController?
+        init(_ session: LeoWindowSession, controller: TerminalController?) { self.session = session; self.controller = controller }
+    }
+    private var entries: [LeoWindowID: Entry] = [:]
     var pollabilityChanged: (Bool) -> Void = { _ in }
 
-    func makeSession(window: NSWindow? = nil, defaults: UserDefaults = .standard) -> LeoWindowSession {
+    func makeSession(window: NSWindow? = nil, controller: TerminalController? = nil, defaults: UserDefaults = .standard) -> LeoWindowSession {
         let session = LeoWindowSession(window: window, defaults: defaults) { [weak self] in self?.report() }
-        entries[ObjectIdentifier(session)] = Entry(session)
+        entries[session.id] = Entry(session, controller: controller)
         report()
         return session
     }
@@ -100,6 +106,8 @@ struct LeoWindowVisibilityState: Equatable {
     var hasPollableSidebar: Bool {
         entries.values.contains { $0.session?.isPollable == true }
     }
+
+    func controller(for id: LeoWindowID) -> TerminalController? { entries[id]?.controller }
 
     private func report() {
         entries = entries.filter { $0.value.session != nil }

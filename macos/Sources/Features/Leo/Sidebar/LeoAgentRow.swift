@@ -32,6 +32,7 @@ enum LeoAttachActivation {
 struct LeoAgentRowView: View {
     let row: LeoAgentRow
     let isSelected: Bool
+    let error: String?
     let attach: (LeoAgentRow, AttachDisposition) -> Void
 
     var body: some View {
@@ -59,6 +60,9 @@ struct LeoAgentRowView: View {
             }
             if let detail = row.actionDetail, !detail.isEmpty {
                 Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            }
+            if let error, !error.isEmpty {
+                Text(error).font(.caption).foregroundStyle(.red).lineLimit(2)
             }
         }
     }
