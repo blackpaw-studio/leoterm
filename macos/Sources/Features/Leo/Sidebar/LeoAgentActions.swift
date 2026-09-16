@@ -25,7 +25,9 @@ import Foundation
     func restart(_ row: LeoAgentRow) { run(row) { _ = try await self.daemon.restart(row.name) } }
     func setTemplate(_ row: LeoAgentRow, template: String) { run(row) { try await self.daemon.setTemplate(row.name, template: template) } }
     func rename(_ row: LeoAgentRow, newName: String) { run(row) { _ = try await self.daemon.rename(row.name, newName: newName) } }
-    func delete(_ row: LeoAgentRow, force: Bool, deleteBranch: Bool) { run(row) { try await self.daemon.delete(row.name, force: force, deleteBranch: deleteBranch) } }
+    func delete(_ row: LeoAgentRow, force: Bool, deleteBranch: Bool, success: @escaping () -> Void = {}) {
+        run(row, success: success) { try await self.daemon.delete(row.name, force: force, deleteBranch: deleteBranch) }
+    }
     func deletePlan(_ row: LeoAgentRow, receive: @escaping (LeoDeletePlan) -> Void) {
         run(row, refreshOnSuccess: false) { [weak self] in
             guard let self else { return }
@@ -55,7 +57,8 @@ import Foundation
         }
     }
 
-    private func run(_ row: LeoAgentRow, refreshOnSuccess: Bool = true, operation: @escaping @MainActor () async throws -> Void) {
+    private func run(_ row: LeoAgentRow, refreshOnSuccess: Bool = true, success: @escaping () -> Void = {},
+                     operation: @escaping @MainActor () async throws -> Void) {
         guard pendingActions.insert(row.id).inserted else { return }
         Task { [weak self] in
             guard let self else { return }
@@ -63,6 +66,7 @@ import Foundation
             do {
                 try await operation()
                 if refreshOnSuccess { self.refresh() }
+                success()
             } catch {
                 self.model.setRowError(Self.message(error), code: Self.code(error), for: row.id)
             }

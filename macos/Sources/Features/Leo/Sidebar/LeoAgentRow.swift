@@ -178,8 +178,7 @@ struct LeoAgentRowView: View {
             } else if let error { Text(error).foregroundStyle(.red) }
             Toggle("Force", isOn: $forceDelete)
             HStack { Spacer(); Button("Cancel") { showingDelete = false }; Button("Delete", role: .destructive) {
-                actions.delete(row, force: forceDelete, deleteBranch: deleteBranch)
-                showingDelete = false
+                actions.delete(row, force: forceDelete, deleteBranch: deleteBranch) { showingDelete = false }
             } }
         }.padding().frame(width: 420)
     }
