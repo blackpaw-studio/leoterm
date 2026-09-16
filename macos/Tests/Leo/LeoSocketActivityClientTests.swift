@@ -7,16 +7,38 @@ import Testing
 /// `: ping` keep-alives) and `/state` from a single daemon socket -- no host
 /// tagging, since a socket now always addresses exactly one host.
 struct LeoSocketActivityClientTests {
-    @Test func stateAcceptsBareAndEnvelopedResponses() async throws {
-        let bare = StaticTransport(stateBody: Data(#"{"agents":[{"name":"bare"}]}"#.utf8))
-        #expect(try await LeoSocketActivityClient(transport: bare).fetchState().map(\.name) == ["bare"])
-
-        let enveloped = StaticTransport(stateBody: Data(#"{"ok":true,"data":{"agents":[{"name":"wrapped"}]}}"#.utf8))
-        #expect(try await LeoSocketActivityClient(transport: enveloped).fetchState().map(\.name) == ["wrapped"])
+    @Test func stateReturnsAgentsFromEnvelopedResponse() async throws {
+        let transport = RecordingTransport(stateBody: Data(#"{"ok":true,"data":{"agents":[{"name":"wrapped"}]}}"#.utf8))
+        #expect(try await LeoSocketActivityClient(transport: transport).fetchState().map(\.name) == ["wrapped"])
+        #expect(transport.paths == ["/state"])
     }
 
-    @Test func streamDecodesHelloAndAgentEventsAndIgnoresPingComments() async throws {
-        let transport = SingleShotTransport(frames: """
+    @Test func stateRejectsABareUnenvelopedResponse() async throws {
+        let transport = RecordingTransport(stateBody: Data(#"{"agents":[{"name":"bare"}]}"#.utf8))
+        await #expect(throws: (any Error).self) {
+            _ = try await LeoSocketActivityClient(transport: transport).fetchState()
+        }
+    }
+
+    @Test func stateThrowsOnNon2xxStatusInsteadOfDecoding() async throws {
+        let transport = RecordingTransport(
+            stateBody: Data(#"{"ok":true,"data":{"agents":[{"name":"should-not-appear"}]}}"#.utf8),
+            stateStatus: 500
+        )
+        await #expect(throws: LeoDaemonError.transport("State endpoint returned HTTP 500")) {
+            _ = try await LeoSocketActivityClient(transport: transport).fetchState()
+        }
+    }
+
+    @Test func stateThrowsDaemonErrorFromAnOkFalseEnvelope() async throws {
+        let transport = RecordingTransport(stateBody: Data(#"{"ok":false,"error":"offline","code":"host_unavailable"}"#.utf8))
+        await #expect(throws: LeoDaemonError.daemon(code: "host_unavailable", message: "offline", matches: [])) {
+            _ = try await LeoSocketActivityClient(transport: transport).fetchState()
+        }
+    }
+
+    @Test func streamDecodesHelloAndAgentEventsAndIgnoresPingCommentsOnTheUnprefixedPath() async throws {
+        let transport = RecordingTransport(frames: """
         : ping
 
         event: hello
@@ -34,6 +56,8 @@ struct LeoSocketActivityClientTests {
         let events = await collector.events
         #expect(events.first == .hello(seq: 1, at: nil, version: "0.29.0", serverTime: nil))
         #expect(events.contains { if case .agentSpawned(_, _, let agent) = $0 { agent.name == "alpha" } else { false } })
+        #expect(transport.streamRequests.map(\.path) == ["/events"])
+        #expect(transport.streamRequests.map(\.idleTimeout) == [60])
     }
 
     @Test func sequenceGapFetchesStateSnapshot() async throws {
@@ -68,13 +92,13 @@ struct LeoSocketActivityClientTests {
         task.cancel()
     }
 
-    @Test func cancellingStreamStopsWithoutHanging() async throws {
-        let transport = ReconnectingTransport()
+    @Test func cancellingStreamClosesTheUnderlyingTransportStream() async throws {
+        let transport = RecordingTransport(frames: "")
         let stream = await LeoSocketActivityClient(transport: transport).events()
         let task = Task { for await _ in stream {} }
-        await awaitCondition { transport.streamCount >= 1 }
+        await awaitCondition { transport.streamRequests.count >= 1 }
         task.cancel()
-        for _ in 0..<25 { await Task.yield() }
+        await awaitCondition(message: "transport never observed stream cancellation") { transport.cancellations >= 1 }
     }
 }
 
@@ -84,24 +108,39 @@ private actor EventCollector {
     func append(_ event: LeoObserveEvent) { events.append(event) }
 }
 
-private struct StaticTransport: LeoSocketActivityTransport {
-    let stateBody: Data
-    func send(_: LeoHTTPRequest, socketPath _: String, timeout _: TimeInterval) async throws -> LeoHTTPResponse {
-        .init(status: 200, body: stateBody)
-    }
-    func stream(path _: String, socketPath _: String, idleTimeout _: TimeInterval) -> AsyncThrowingStream<Data, Error> {
-        AsyncThrowingStream { $0.finish() }
-    }
-}
+/// Records every `/state` fetch and `/events` stream request (path,
+/// idle timeout) and whether the stream was cancelled by its consumer --
+/// catches accidental misroutes or leaked streams.
+private final class RecordingTransport: LeoSocketActivityTransport, @unchecked Sendable {
+    private let lock = NSLock()
+    private var sentPaths: [String] = []
+    private var streams: [(path: String, idleTimeout: TimeInterval)] = []
+    private var cancelledCount = 0
+    private let stateBody: Data
+    private let stateStatus: Int
+    private let frames: String
 
-private struct SingleShotTransport: LeoSocketActivityTransport {
-    let frames: String
-    func send(_: LeoHTTPRequest, socketPath _: String, timeout _: TimeInterval) async throws -> LeoHTTPResponse {
-        .init(status: 200, body: Data(#"{"agents":[]}"#.utf8))
+    init(stateBody: Data = Data(#"{"ok":true,"data":{"agents":[]}}"#.utf8), stateStatus: Int = 200, frames: String = "") {
+        self.stateBody = stateBody
+        self.stateStatus = stateStatus
+        self.frames = frames
     }
-    func stream(path _: String, socketPath _: String, idleTimeout _: TimeInterval) -> AsyncThrowingStream<Data, Error> {
-        AsyncThrowingStream { continuation in
-            continuation.yield(Data(frames.utf8))
+
+    var paths: [String] { lock.withLock { sentPaths } }
+    var streamRequests: [(path: String, idleTimeout: TimeInterval)] { lock.withLock { streams } }
+    var cancellations: Int { lock.withLock { cancelledCount } }
+
+    func send(_ request: LeoHTTPRequest, socketPath _: String, timeout _: TimeInterval) async throws -> LeoHTTPResponse {
+        lock.withLock { sentPaths.append(request.path) }
+        return .init(status: stateStatus, body: stateBody)
+    }
+
+    func stream(path: String, socketPath _: String, idleTimeout: TimeInterval) -> AsyncThrowingStream<Data, Error> {
+        lock.withLock { streams.append((path, idleTimeout)) }
+        let frames = frames
+        return AsyncThrowingStream { continuation in
+            if !frames.isEmpty { continuation.yield(Data(frames.utf8)) }
+            continuation.onTermination = { [weak self] _ in self?.lock.withLock { self?.cancelledCount += 1 } }
         }
     }
 }
@@ -124,7 +163,7 @@ private final class ReconnectingTransport: LeoSocketActivityTransport, @unchecke
     var streamCount: Int { lock.withLock { count } }
 
     func send(_: LeoHTTPRequest, socketPath _: String, timeout _: TimeInterval) async throws -> LeoHTTPResponse {
-        .init(status: 200, body: Data(#"{"agents":[]}"#.utf8))
+        .init(status: 200, body: Data(#"{"ok":true,"data":{"agents":[]}}"#.utf8))
     }
 
     func stream(path _: String, socketPath _: String, idleTimeout _: TimeInterval) -> AsyncThrowingStream<Data, Error> {
@@ -142,7 +181,7 @@ private final class GapTransport: LeoSocketActivityTransport, @unchecked Sendabl
 
     func send(_ request: LeoHTTPRequest, socketPath _: String, timeout _: TimeInterval) async throws -> LeoHTTPResponse {
         lock.withLock { fetchCount += 1 }
-        return .init(status: 200, body: Data(#"{"agents":[{"name":"recovered"}]}"#.utf8))
+        return .init(status: 200, body: Data(#"{"ok":true,"data":{"agents":[{"name":"recovered"}]}}"#.utf8))
     }
 
     func stream(path _: String, socketPath _: String, idleTimeout _: TimeInterval) -> AsyncThrowingStream<Data, Error> {

@@ -9,23 +9,20 @@ import Foundation
     private let cli: LeoCLI
     private let defaults: UserDefaults
     private let attachCoordinator: LeoAttachCoordinator
-    private let flavorState: LeoAPIFlavorState
+    private let orphanStore: LeoTunnelOrphanStore
 
-    /// Pure composition helper: builds a socket daemon client configured for a
-    /// known flavor (or a dynamic provider). Kept free of runtime/async state so
-    /// it can be constructed and tested without spinning up detection.
+    /// Pure composition helper: builds a socket daemon client bound to one
+    /// socket path. Kept free of runtime/async state so it can be constructed
+    /// and tested without spinning up detection.
     nonisolated static func makeClient(
         socketPath: String = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath,
-        transport: any LeoDaemonTransport = LeoUnixSocketTransport(),
-        flavor: LeoAPIFlavor = .legacy,
-        flavorProvider: (@Sendable () async -> LeoAPIFlavor)? = nil
+        transport: any LeoDaemonTransport = LeoUnixSocketTransport()
     ) -> LeoSocketDaemonClient {
-        LeoSocketDaemonClient(socketPath: socketPath, transport: transport, flavor: flavor, flavorProvider: flavorProvider)
+        LeoSocketDaemonClient(socketPath: socketPath, transport: transport)
     }
 
     convenience init(defaults: UserDefaults = .ghostty) {
         let socketPath = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath
-        let flavorState = LeoAPIFlavorState()
         let activity = LeoSidebarActivitySource(
             events: {
                 AsyncStream { continuation in
@@ -57,22 +54,19 @@ import Foundation
                 return try await LeoActivityClient(config: config).fetchState()
             }
         )
-        let daemon = LeoRuntime.makeClient(socketPath: socketPath, flavorProvider: { [flavorState] in await flavorState.current })
-        self.init(daemon: daemon, cli: LeoCLI(), activitySource: activity, defaults: defaults, flavorState: flavorState)
+        let daemon = LeoRuntime.makeClient(socketPath: socketPath)
+        self.init(daemon: daemon, cli: LeoCLI(), activitySource: activity, defaults: defaults)
     }
 
     convenience init(daemon: any LeoDaemonClient, cli: LeoCLI, activity: LeoActivityClient, defaults: UserDefaults = .standard) {
         self.init(daemon: daemon, cli: cli, activitySource: LeoSidebarActivitySource(client: activity), defaults: defaults)
     }
 
-    convenience init(daemon: any LeoDaemonClient, cli: LeoCLI, activitySource: LeoSidebarActivitySource, defaults: UserDefaults = .standard) {
-        self.init(daemon: daemon, cli: cli, activitySource: activitySource, defaults: defaults, flavorState: LeoAPIFlavorState())
-    }
-
-    init(daemon: any LeoDaemonClient, cli: LeoCLI, activitySource: LeoSidebarActivitySource, defaults: UserDefaults = .standard, flavorState: LeoAPIFlavorState) {
+    init(daemon: any LeoDaemonClient, cli: LeoCLI, activitySource: LeoSidebarActivitySource, defaults: UserDefaults = .standard) {
         self.cli = cli
         self.defaults = defaults
-        self.flavorState = flavorState
+        let orphanStore = LeoTunnelOrphanStore(defaults: defaults)
+        self.orphanStore = orphanStore
         let model = LeoSidebarModel()
         let registry = LeoWindowSessionRegistry()
         self.model = model
@@ -93,21 +87,13 @@ import Foundation
             model?.receive(snapshot)
         }
         let hostSelection = LeoHostSelection(
-            daemon: daemon,
+            store: LeoHostStore(defaults: defaults),
             defaults: defaults,
-            // A successful (or failed) retry/connect applies to the feed
-            // immediately -- restoring availability and refreshing, or
-            // marking it failed -- instead of only updating the host picker
-            // and waiting on an SSE host_state_changed event that a legacy
-            // daemon (or a dropped SSE connection) may never deliver.
-            hostStateTarget: { [weak feed] row in Task { await feed?.handleHostStateChanged(row) } },
+            orphanStore: orphanStore,
             installTarget: { [weak feed] host in Task { await feed?.select(host) } }
         )
         actions = LeoAgentActions(daemon: daemon, cli: cli, model: model, hostSelection: hostSelection) { [weak feed] in
             Task { await feed?.refresh() }
-        }
-        Task { [feed, weak hostSelection] in
-            await feed.observeHostStates { [weak hostSelection] row in hostSelection?.receive(row) }
         }
         model.retryRequested = { [feed, hostSelection] in
             hostSelection.retry()
@@ -135,15 +121,23 @@ import Foundation
 
     func start() {
         let pollable = registry.hasPollableSidebar
+        let orphanStore = orphanStore
         Task {
+            // Must run before any tunnel this launch might start, so a
+            // leftover record always describes a process untouched this run.
+            await Task.detached {
+                orphanStore.reapAtLaunch(inspector: leoTunnelRealInspector, signaller: leoTunnelRealSignaller)
+            }.value
             let flavor = await LeoSocketDaemonClient.detectFlavor()
-            await flavorState.update(flavor)
             await actions.hostSelection.start(flavor: flavor)
             await feed.start()
             await feed.setPolling(pollable)
         }
     }
-    func shutdown() { Task { await feed.stop() } }
+    func shutdown() {
+        actions.hostSelection.shutdown()
+        Task { await feed.stop() }
+    }
     func makeWindowSession(for controller: TerminalController) -> LeoWindowSession {
         registry.makeSession(window: controller.window, controller: controller, defaults: defaults)
     }

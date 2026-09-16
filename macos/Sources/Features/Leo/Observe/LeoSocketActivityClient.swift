@@ -35,10 +35,10 @@ actor LeoSocketActivityClient {
     }
 
     func fetchState() async throws -> [LeoObservedAgent] {
-        struct State: Decodable { let agents: [LeoObservedAgent] }
+        struct State: Decodable, Sendable { let agents: [LeoObservedAgent] }
         let response = try await transport.send(.init(method: "GET", path: "/state"), socketPath: socketPath, timeout: 5)
-        if let state = try? JSONDecoder().decode(State.self, from: response.body) {
-            return state.agents
+        guard (200..<300).contains(response.status) else {
+            throw LeoDaemonError.transport("State endpoint returned HTTP \(response.status)")
         }
         return try LeoDaemonEnvelope<State>.decode(response.body).value().agents
     }

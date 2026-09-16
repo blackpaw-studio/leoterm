@@ -18,7 +18,7 @@ import Foundation
         self.daemon = daemon
         self.cli = cli
         self.model = model
-        self.hostSelection = hostSelection ?? LeoHostSelection(daemon: daemon, defaults: .standard) { _ in }
+        self.hostSelection = hostSelection ?? LeoHostSelection(store: LeoHostStore(defaults: .standard), defaults: .standard)
         self.refresh = refresh
         self.clock = clock
     }

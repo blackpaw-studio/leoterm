@@ -111,7 +111,8 @@ import Testing
 
     @Test func templateCacheIsScopedToSelectedHost() async throws {
         let daemon = ActionDaemon()
-        let selection = LeoHostSelection(daemon: daemon, defaults: UserDefaults(suiteName: UUID().uuidString) ?? .standard) { _ in }
+        let suiteDefaults = UserDefaults(suiteName: UUID().uuidString) ?? .standard
+        let selection = LeoHostSelection(store: LeoHostStore(defaults: suiteDefaults), defaults: suiteDefaults)
         await selection.start(flavor: .socketEvents)
         let actions = LeoAgentActions(
             daemon: daemon, cli: testCLI(), model: LeoSidebarModel(),

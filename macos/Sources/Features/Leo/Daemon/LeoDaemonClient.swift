@@ -69,21 +69,15 @@ struct LeoSocketDaemonClient: LeoDaemonClient {
     let defaultTimeout: TimeInterval
     let mutationTimeout: TimeInterval
     private let transport: any LeoDaemonTransport
-    let flavor: LeoAPIFlavor
-    private let flavorProvider: (@Sendable () async -> LeoAPIFlavor)?
 
     init(socketPath: String = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath,
          defaultTimeout: TimeInterval = 5,
          mutationTimeout: TimeInterval = 30,
-         transport: any LeoDaemonTransport = LeoUnixSocketTransport(),
-         flavor: LeoAPIFlavor = .legacy,
-         flavorProvider: (@Sendable () async -> LeoAPIFlavor)? = nil) {
+         transport: any LeoDaemonTransport = LeoUnixSocketTransport()) {
         self.socketPath = socketPath
         self.defaultTimeout = defaultTimeout
         self.mutationTimeout = mutationTimeout
         self.transport = transport
-        self.flavor = flavor
-        self.flavorProvider = flavorProvider
     }
 
     func listAgents() async throws -> [LeoAgent] { try await value("GET", "/agents/list") }
@@ -127,6 +121,7 @@ struct LeoSocketDaemonClient: LeoDaemonClient {
                              transport: any LeoDaemonTransport = LeoUnixSocketTransport()) async -> LeoAPIFlavor {
         struct Health: Decodable { let ok: Bool; struct Data: Decodable { let version: String }; let data: Data? }
         guard let response = try? await transport.send(.init(method: "GET", path: "/health"), socketPath: socketPath, timeout: 5),
+              (200..<300).contains(response.status),
               let health = try? JSONDecoder().decode(Health.self, from: response.body),
               health.ok, let data = health.data else { return .legacy }
         return .select(version: data.version)

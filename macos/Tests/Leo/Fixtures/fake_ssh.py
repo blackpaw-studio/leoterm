@@ -42,9 +42,20 @@ def main():
     if os.environ.get("FAKE_SSH_IGNORE_TERM"):
         signal.signal(signal.SIGTERM, lambda _signal, _frame: None)
 
+    argv_file = os.environ.get("FAKE_SSH_ARGV_FILE")
+    if argv_file:
+        with open(argv_file, "w") as handle:
+            handle.write("\n".join(sys.argv[1:]))
+
+    pid_file = os.environ.get("FAKE_SSH_PID_FILE")
+    if pid_file:
+        with open(pid_file, "w") as handle:
+            handle.write(str(os.getpid()))
+
     immediate = os.environ.get("FAKE_SSH_EXIT_IMMEDIATELY")
     if immediate is not None:
-        sys.stderr.write("auth failed\n")
+        message = os.environ.get("FAKE_SSH_STDERR_MESSAGE", "auth failed\n")
+        sys.stderr.write(message)
         sys.stderr.flush()
         return int(immediate)
 

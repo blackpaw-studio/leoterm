@@ -90,3 +90,20 @@ func leoTunnelRealSleep(_ duration: Duration) {
         + Double(duration.components.attoseconds) / 1_000_000_000_000_000_000
     Thread.sleep(forTimeInterval: seconds)
 }
+
+/// Real `reapAtLaunch` inspector: the process start time for `pid`, or `nil`
+/// if it isn't running. Matches `LeoTunnel`'s own `startTime(of:)` so a
+/// recorded orphan's start time can be compared against the live process --
+/// a mismatch means the pid was recycled by an unrelated process.
+func leoTunnelRealInspector(_ pid: Int32) -> TimeInterval? {
+    var info = proc_bsdinfo()
+    let size = Int32(MemoryLayout<proc_bsdinfo>.size)
+    let bytes = proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size)
+    guard bytes == size else { return nil }
+    return TimeInterval(info.pbi_start_tvsec) + TimeInterval(info.pbi_start_tvusec) / 1_000_000
+}
+
+/// Real `reapAtLaunch` signaller: sends `signal` to `pid`.
+func leoTunnelRealSignaller(_ pid: Int32, _ signal: Int32) {
+    _ = Darwin.kill(pid, signal)
+}

@@ -21,10 +21,3 @@ enum LeoAPIFlavor: Equatable, Sendable {
         return major > 0 || minor >= 29 ? .socketEvents : .legacy
     }
 }
-
-/// Holds the flavor detected for the running daemon so an already-constructed
-/// `LeoSocketDaemonClient` can be configured with it once detection completes.
-actor LeoAPIFlavorState {
-    private(set) var current: LeoAPIFlavor = .legacy
-    func update(_ flavor: LeoAPIFlavor) { current = flavor }
-}

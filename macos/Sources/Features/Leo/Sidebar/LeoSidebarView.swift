@@ -19,12 +19,15 @@ struct LeoSidebarView: View {
         VStack(spacing: 10) {
             HStack { Text("Agents").font(.headline); Spacer(); Button("New Agent") { showingSpawn = true } }
             Menu {
+                Button { hostSelection.select(.local) } label: {
+                    Text("\(hostSelection.selected == .local ? "✓ " : "")● localhost")
+                }
                 ForEach(hostSelection.hosts) { host in
-                    Button { hostSelection.select(host.hostID) } label: {
-                        Text("\(host.hostID == hostSelection.selected ? "✓ " : "")\(glyph(host.state)) \(host.name)")
+                    Button { hostSelection.select(.remote(host.name)) } label: {
+                        Text("\(hostSelection.selected == .remote(host.name) ? "✓ " : "")\(glyph(for: host.name)) \(host.name)")
                     }
                 }
-                if let row = hostSelection.selectedRow, row.state == .error || row.state == .disconnected {
+                if case .failed = hostSelection.state {
                     Divider()
                     Button("Retry") { hostSelection.retry() }
                 }
@@ -61,7 +64,7 @@ struct LeoSidebarView: View {
         case .failed(let message):
             stateView {
                 Text(message).multilineTextAlignment(.center).textSelection(.enabled)
-                if let hint = hostSelection.sshHint, let ssh = hostSelection.selectedRow?.ssh {
+                if case .failed(_, let hint) = hostSelection.state, let hint, let ssh = hostSelection.selectedConfiguration?.sshTarget {
                     Text(hint).font(.caption).multilineTextAlignment(.center)
                     Button("Open SSH") { model.sshRequested(ssh) }
                 }
@@ -109,11 +112,15 @@ struct LeoSidebarView: View {
         }
     }
 
-    private func glyph(_ state: LeoHostState) -> String {
-        switch state {
-        case .local, .connected: "●"
-        case .connecting: "◌"
-        case .disconnected, .error, .unknown: "⚠"
+    /// Only the currently *selected* remote host has a live connection
+    /// state to show (see `LeoHostSelection`); other configured hosts show a
+    /// neutral glyph until they're selected.
+    private func glyph(for hostName: String) -> String {
+        guard hostSelection.selected == .remote(hostName) else { return "○" }
+        switch hostSelection.state {
+        case .connected: return "●"
+        case .connecting: return "◌"
+        case .failed: return "⚠"
         }
     }
 }
