@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 struct LeoSidebarActivitySource: Sendable {
     let events: @Sendable () async -> AsyncStream<LeoObserveEvent>
@@ -17,6 +18,7 @@ struct LeoSidebarActivitySource: Sendable {
 
 actor LeoSidebarFeed {
     typealias Sink = @MainActor @Sendable (LeoSidebarSnapshot) -> Void
+    private static let logger = Logger(subsystem: "com.mitchellh.ghostty", category: "LeoSidebarFeed")
 
     private let daemon: any LeoDaemonClient
     private let activitySource: LeoSidebarActivitySource
@@ -195,7 +197,14 @@ actor LeoSidebarFeed {
             case .scheduleTick(let interval):
                 pollTask?.cancel()
                 pollTask = Task {
-                    try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
+                    do {
+                        try await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
+                    } catch is CancellationError {
+                        return
+                    } catch {
+                        Self.logger.error("Leo sidebar polling sleep failed: \(String(describing: error), privacy: .public)")
+                        return
+                    }
                     guard !Task.isCancelled else { return }
                     await self.process(self.scheduler.reduce(.tick))
                 }
