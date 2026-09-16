@@ -36,7 +36,7 @@ struct LeoSidebarSnapshot: Equatable, Sendable {
     let generation: Int
 }
 
-enum AttachDisposition: Sendable { case tab, newWindow }
+enum AttachDisposition: Sendable { case reuseOrTab, newWindow }
 
 struct LeoSidebarActivity: Equatable, Sendable {
     let activity: LeoAgentRow.Activity

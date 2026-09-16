@@ -10,7 +10,13 @@ struct LeoCLI: Sendable {
     }
 
     func resolveExecutable() throws -> String {
-        if let executableOverride { return executableOverride }
+        if let executableOverride {
+            let expanded = NSString(string: executableOverride).expandingTildeInPath
+            guard FileManager.default.isExecutableFile(atPath: expanded) else {
+                throw LeoDaemonError.transport("leo executable is not executable: \(expanded)")
+            }
+            return expanded
+        }
         let local = NSString(string: "~/.local/bin/leo").expandingTildeInPath
         if FileManager.default.isExecutableFile(atPath: local) { return local }
         let path = ProcessInfo.processInfo.environment["PATH"]?.split(separator: ":") ?? []

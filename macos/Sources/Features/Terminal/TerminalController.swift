@@ -6,6 +6,9 @@ import GhosttyKit
 
 /// A classic, tabbed terminal experience.
 class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Controller {
+    // MARK: Leo
+    private(set) var leoSession: LeoWindowSession?
+
     override var windowNibName: NSNib.Name? {
         let defaultValue = "Terminal"
 
@@ -1108,15 +1111,26 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         }
 
         // Initialize our content view to the SwiftUI root
+        // MARK: Leo
+        let leoSession = (NSApp.delegate as? AppDelegate)?.leoRuntime.makeWindowSession(for: self)
+        self.leoSession = leoSession
         let container = TerminalViewContainer {
-            TerminalView(ghostty: ghostty, viewModel: self, delegate: self)
+            TerminalView(ghostty: ghostty, viewModel: self, delegate: self, leoSession: leoSession)
         }
 
         // Set the initial content size on the container so that
         // intrinsicContentSize returns the correct value immediately,
         // without waiting for @FocusedValue to propagate through the
         // SwiftUI focus chain.
-        container.initialContentSize = focusedSurface?.initialSize
+        // MARK: Leo
+        if let size = focusedSurface?.initialSize, leoSession?.isSidebarVisible == true {
+            container.initialContentSize = NSSize(
+                width: size.width + (leoSession?.displayedWidth ?? 0) + LeoSidebarSplitMetrics.dividerWidth,
+                height: size.height
+            )
+        } else {
+            container.initialContentSize = focusedSurface?.initialSize
+        }
 
         window.contentView = container
 
@@ -1705,6 +1719,10 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 extension TerminalController {
     override func validateMenuItem(_ item: NSMenuItem) -> Bool {
         switch item.action {
+        // MARK: Leo
+        case #selector(toggleLeoSidebar(_:)):
+            return validateLeoSidebarMenuItem(item)
+
         case #selector(closeTabsOnTheRight):
             guard let window, let tabGroup = window.tabGroup else { return false }
             guard let currentIndex = tabGroup.windows.firstIndex(of: window) else { return false }
