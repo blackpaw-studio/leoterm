@@ -1,0 +1,86 @@
+import AppKit
+import Foundation
+
+@MainActor final class LeoRuntime {
+    let model: LeoSidebarModel
+    let registry: LeoWindowSessionRegistry
+    private let feed: LeoSidebarFeed
+    private let cli: LeoCLI
+    private let defaults: UserDefaults
+
+    convenience init(defaults: UserDefaults = .ghostty) {
+        let activity = LeoSidebarActivitySource(
+            events: {
+                AsyncStream { continuation in
+                    let task = Task {
+                        let config = await Task.detached { LeoObserveConfigLoader.load() }.value
+                        guard let config else { continuation.finish(); return }
+                        let client = LeoActivityClient(config: config)
+                        for await event in await client.events() {
+                            guard !Task.isCancelled else { break }
+                            continuation.yield(event)
+                        }
+                        continuation.finish()
+                    }
+                    continuation.onTermination = { _ in task.cancel() }
+                }
+            },
+            fetchState: {
+                let config = await Task.detached { LeoObserveConfigLoader.load() }.value
+                guard let config else { return [] }
+                return try await LeoActivityClient(config: config).fetchState()
+            }
+        )
+        self.init(daemon: LeoSocketDaemonClient(), cli: LeoCLI(), activitySource: activity, defaults: defaults)
+    }
+
+    convenience init(daemon: any LeoDaemonClient, cli: LeoCLI, activity: LeoActivityClient, defaults: UserDefaults = .standard) {
+        self.init(daemon: daemon, cli: cli, activitySource: LeoSidebarActivitySource(client: activity), defaults: defaults)
+    }
+
+    init(daemon: any LeoDaemonClient, cli: LeoCLI, activitySource: LeoSidebarActivitySource, defaults: UserDefaults = .standard) {
+        self.cli = cli
+        self.defaults = defaults
+        model = LeoSidebarModel()
+        registry = LeoWindowSessionRegistry()
+        feed = LeoSidebarFeed(daemon: daemon, activity: activitySource) { [weak model] snapshot in
+            model?.receive(snapshot)
+        }
+        model.retryRequested = { [feed] in Task { await feed.refresh() } }
+        registry.pollabilityChanged = { [feed] pollable in Task { await feed.setPolling(pollable) } }
+        model.startDaemonRequested = { [weak self] in
+            guard let controller = NSApp.keyWindow?.windowController as? TerminalController else { return }
+            self?.startDaemon(in: controller)
+        }
+    }
+
+    func start() {
+        let pollable = registry.hasPollableSidebar
+        Task {
+            await feed.start()
+            await feed.setPolling(pollable)
+        }
+    }
+    func shutdown() { Task { await feed.stop() } }
+    func makeWindowSession(for controller: TerminalController) -> LeoWindowSession {
+        registry.makeSession(window: controller.window, defaults: defaults)
+    }
+
+    func makeWindowSession() -> LeoWindowSession {
+        registry.makeSession(defaults: defaults)
+    }
+
+    func resolveExecutablePath() throws -> String {
+        let override = defaults.string(forKey: "leo.executablePath")
+        return try LeoCLI(executableOverride: override, runner: cli.runner).resolveExecutable()
+    }
+
+    private func startDaemon(in controller: TerminalController) {
+        do {
+            let command = try LeoCommandLauncher.startDaemonCommand(executablePath: resolveExecutablePath())
+            LeoCommandLauncher.openTab(in: controller, command: command)
+        } catch {
+            NSSound.beep()
+        }
+    }
+}

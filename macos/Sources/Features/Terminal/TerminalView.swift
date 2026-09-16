@@ -47,6 +47,21 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
     // An optional delegate to receive information about terminal changes.
     weak var delegate: (any TerminalViewDelegate)?
 
+    // MARK: Leo
+    let leoSession: LeoWindowSession?
+
+    init(
+        ghostty: Ghostty.App,
+        viewModel: ViewModel,
+        delegate: (any TerminalViewDelegate)?,
+        leoSession: LeoWindowSession? = nil
+    ) {
+        self.ghostty = ghostty
+        self.viewModel = viewModel
+        self.delegate = delegate
+        self.leoSession = leoSession
+    }
+
     /// The most recently focused surface, equal to `focusedSurface` when it is non-nil.
     @State private var lastFocusedSurface: Weak<Ghostty.SurfaceView>?
 
@@ -72,7 +87,36 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
             ErrorView()
         case .ready:
             ZStack {
-                VStack(spacing: 0) {
+                // MARK: Leo
+                if let leoSession, let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime {
+                    LeoSidebarSplit(session: leoSession, model: runtime.model) {
+                        terminalContent
+                    }
+                } else {
+                    terminalContent
+                }
+
+                if let surfaceView = lastFocusedSurface?.value {
+                    TerminalCommandPaletteView(
+                        surfaceView: surfaceView,
+                        isPresented: $viewModel.commandPaletteIsShowing,
+                        ghosttyConfig: ghostty.config,
+                        updateViewModel: (NSApp.delegate as? AppDelegate)?.updateViewModel) { action in
+                        self.delegate?.performAction(action, on: surfaceView)
+                    }
+                }
+
+                // Show update information above all else.
+                if viewModel.updateOverlayIsVisible {
+                    UpdateOverlay()
+                }
+            }
+            .frame(maxWidth: .greatestFiniteMagnitude, maxHeight: .greatestFiniteMagnitude)
+        }
+    }
+
+    private var terminalContent: some View {
+        VStack(spacing: 0) {
                     // If we're running in debug mode we show a warning so that users
                     // know that performance will be degraded.
                     if Ghostty.info.mode == GHOSTTY_BUILD_MODE_DEBUG || Ghostty.info.mode == GHOSTTY_BUILD_MODE_RELEASE_SAFE {
@@ -103,27 +147,9 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                         }
                         .frame(idealWidth: lastFocusedSurface?.value?.initialSize?.width,
                                idealHeight: lastFocusedSurface?.value?.initialSize?.height)
-                }
-                // Ignore safe area to extend up in to the titlebar region if we have the "hidden" titlebar style
-                .ignoresSafeArea(.container, edges: ghostty.config.macosTitlebarStyle == .hidden ? .top : [])
-
-                if let surfaceView = lastFocusedSurface?.value {
-                    TerminalCommandPaletteView(
-                        surfaceView: surfaceView,
-                        isPresented: $viewModel.commandPaletteIsShowing,
-                        ghosttyConfig: ghostty.config,
-                        updateViewModel: (NSApp.delegate as? AppDelegate)?.updateViewModel) { action in
-                        self.delegate?.performAction(action, on: surfaceView)
-                    }
-                }
-
-                // Show update information above all else.
-                if viewModel.updateOverlayIsVisible {
-                    UpdateOverlay()
-                }
-            }
-            .frame(maxWidth: .greatestFiniteMagnitude, maxHeight: .greatestFiniteMagnitude)
         }
+        // Ignore safe area to extend up in to the titlebar region if we have the "hidden" titlebar style
+        .ignoresSafeArea(.container, edges: ghostty.config.macosTitlebarStyle == .hidden ? .top : [])
     }
 }
 

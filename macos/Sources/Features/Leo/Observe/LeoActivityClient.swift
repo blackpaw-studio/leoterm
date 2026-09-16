@@ -136,7 +136,14 @@ actor LeoActivityClient {
             }
             guard !Task.isCancelled else { break }
             continuation.yield(.disconnected(reason: disconnectionReason))
-            try? await sleeper(backoff)
+            do {
+                try await sleeper(backoff)
+            } catch is CancellationError {
+                return
+            } catch {
+                continuation.yield(.disconnected(reason: Self.reason(for: error)))
+                return
+            }
             backoff = min(backoff * 2, maximumBackoff)
         }
         continuation.finish()
