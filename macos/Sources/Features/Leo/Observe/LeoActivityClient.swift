@@ -229,7 +229,10 @@ actor LeoHubActivityClient {
     func fetchState() async throws -> [LeoObservedAgent] {
         struct State: Decodable { let agents: [LeoObservedAgent] }
         let response = try await transport.send(.init(method: "GET", path: "/state"), socketPath: socketPath, timeout: 5)
-        return try JSONDecoder().decode(State.self, from: response.body).agents
+        if let state = try? JSONDecoder().decode(State.self, from: response.body) {
+            return state.agents
+        }
+        return try LeoDaemonEnvelope<State>.decode(response.body).value().agents
     }
 
     func events() -> AsyncStream<LeoObserveEvent> {
