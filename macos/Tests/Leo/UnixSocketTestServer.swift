@@ -6,6 +6,7 @@ final class UnixSocketTestServer: @unchecked Sendable {
     private let descriptor: Int32
     private let accepted = DispatchSemaphore(value: 0)
     private let closed = DispatchSemaphore(value: 0)
+    private let handlerGroup = DispatchGroup()
 
     init(handler: @escaping @Sendable (Int32) -> Void) throws {
         path = URL(fileURLWithPath: NSTemporaryDirectory())
@@ -28,7 +29,9 @@ final class UnixSocketTestServer: @unchecked Sendable {
             }
         }
         guard bound == 0, listen(descriptor, 1) == 0 else { throw UnixSocketTestServer.error() }
+        handlerGroup.enter()
         DispatchQueue.global().async { [self] in
+            defer { handlerGroup.leave() }
             let client = accept(descriptor, nil, nil)
             guard client >= 0 else { return }
             accepted.signal()
@@ -45,6 +48,7 @@ final class UnixSocketTestServer: @unchecked Sendable {
 
     func waitForConnection() -> Bool { accepted.wait(timeout: .now() + 1) == .success }
     func waitForClose() -> Bool { closed.wait(timeout: .now() + 1) == .success }
+    func waitForHandler() -> Bool { handlerGroup.wait(timeout: .now() + 1) == .success }
 
     private static func error() -> NSError {
         NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
