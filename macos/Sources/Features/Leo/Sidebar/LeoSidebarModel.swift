@@ -24,4 +24,5 @@ import Foundation
 
     func retry() { retryRequested() }
     func reportAttachError(_ error: LeoAttachError, for id: LeoAgentRow.ID) { rowErrors[id] = error.message }
+    func setRowError(_ id: LeoAgentRow.ID, message: String) { rowErrors[id] = message }
 }

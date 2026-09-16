@@ -27,10 +27,11 @@ enum LeoAttachCommand {
             throw LeoAttachCommandError.invalidAgentName
         }
         var parts = ["env", "-u", "TMUX", "-u", "TMUX_PANE", try leoShellQuote(executable)]
+        parts += ["agent", "attach"]
         if case .remote(let host) = identity.host {
             parts += ["--host", try leoShellQuote(host)]
         }
-        parts += ["agent", "attach", try leoShellQuote(identity.name)]
+        parts += ["--", try leoShellQuote(identity.name)]
         return parts.joined(separator: " ")
     }
 

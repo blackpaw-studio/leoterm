@@ -54,8 +54,8 @@ import Foundation
                 return try LeoCLI(executableOverride: override, runner: cli.runner).resolveExecutable()
             },
             report: { [weak model] error in
-                guard let id = model?.selection else { return }
-                model?.reportAttachError(error, for: id)
+                let id = LeoAgentRow.ID(host: error.identity.host, name: error.identity.name)
+                model?.setRowError(id, message: error.message)
             }
         )
         feed = LeoSidebarFeed(daemon: daemon, activity: activitySource) { [weak model] snapshot in

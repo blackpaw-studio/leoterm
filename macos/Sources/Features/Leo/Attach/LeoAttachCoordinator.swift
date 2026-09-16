@@ -1,12 +1,17 @@
 import Foundation
 
-enum LeoAttachError: Error, Equatable, Sendable {
-    case executable(String)
-    case invalidName
-    case openFailed(String)
+struct LeoAttachError: Error, Equatable, Sendable {
+    enum Kind: Equatable, Sendable {
+        case executable(String)
+        case invalidName
+        case openFailed(String)
+    }
+
+    let identity: LeoAgentIdentity
+    let kind: Kind
 
     var message: String {
-        switch self {
+        switch kind {
         case .executable(let message), .openFailed(let message): message
         case .invalidName: "Agent names cannot contain NUL or newline characters"
         }
@@ -17,16 +22,23 @@ enum LeoAttachError: Error, Equatable, Sendable {
     private let host: any AttachTabHost
     private let executable: () throws -> String
     private let report: (LeoAttachError) -> Void
+    private let lifecycleEventHandled: (AttachLifecycleEvent) -> Void
     private var handlesByIdentity: [LeoAgentIdentity: [AttachmentHandle]] = [:]
     private var identityByHandle: [AttachmentHandle: LeoAgentIdentity] = [:]
     private var inactive: Set<AttachmentHandle> = []
     private var attachInProgress: Set<LeoAgentIdentity> = []
     private var lifecycleTask: Task<Void, Never>?
 
-    init(host: any AttachTabHost, executable: @escaping () throws -> String, report: @escaping (LeoAttachError) -> Void) {
+    init(
+        host: any AttachTabHost,
+        executable: @escaping () throws -> String,
+        report: @escaping (LeoAttachError) -> Void,
+        lifecycleEventHandled: @escaping (AttachLifecycleEvent) -> Void = { _ in }
+    ) {
         self.host = host
         self.executable = executable
         self.report = report
+        self.lifecycleEventHandled = lifecycleEventHandled
         lifecycleTask = Task { [weak self, events = host.lifecycleEvents] in
             for await event in events {
                 guard !Task.isCancelled else { return }
@@ -59,10 +71,10 @@ enum LeoAttachError: Error, Equatable, Sendable {
             do {
                 command = try LeoAttachCommand.build(executable: try executable(), identity: identity)
             } catch LeoAttachCommandError.invalidAgentName {
-                report(.invalidName)
+                report(.init(identity: identity, kind: .invalidName))
                 return
             } catch {
-                report(.executable(error.localizedDescription))
+                report(.init(identity: identity, kind: .executable(error.localizedDescription)))
                 return
             }
             let workingDirectory = LeoAttachCommand.workingDirectory(identity: identity)
@@ -73,11 +85,12 @@ enum LeoAttachError: Error, Equatable, Sendable {
             identityByHandle[handle] = identity
             host.setTitleSeed(handle, title: "\(identity.name) · \(identity.host.displayName)")
         } catch {
-            report(.openFailed(error.localizedDescription))
+            report(.init(identity: identity, kind: .openFailed(error.localizedDescription)))
         }
     }
 
     private func receive(_ event: AttachLifecycleEvent) {
+        defer { lifecycleEventHandled(event) }
         switch event {
         case .closed(let handle): remove(handle)
         case .processExited(let handle): inactive.insert(handle)
