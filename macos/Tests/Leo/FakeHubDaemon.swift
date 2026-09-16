@@ -65,15 +65,35 @@ final class FakeHubDaemon: @unchecked Sendable {
         DispatchQueue.global().async { [weak self] in self?.acceptLoop() }
     }
 
-    deinit { _ = Darwin.close(descriptor); unlink(path) }
+    deinit { shutdown() }
     func requests() -> [FakeHubRequest] { storage.lock.withLock { storage.requests } }
+    func shutdown() {
+        let connections = storage.lock.withLock { () -> [Int32]? in
+            guard !storage.shutDown else { return nil }
+            storage.shutDown = true
+            let values = Array(storage.connections)
+            storage.connections.removeAll()
+            return values
+        }
+        guard let connections else { return }
+        _ = Darwin.shutdown(descriptor, SHUT_RDWR)
+        _ = Darwin.close(descriptor)
+        connections.forEach { _ = Darwin.shutdown($0, SHUT_RDWR); _ = Darwin.close($0) }
+        unlink(path)
+    }
 
     private func acceptLoop() {
         while true {
             let client = accept(descriptor, nil, nil)
             guard client >= 0 else { return }
+            storage.lock.withLock { storage.connections.insert(client) }
             Task.detached { [weak self] in
-                defer { _ = Darwin.close(client) }
+                defer {
+                    let shouldClose = self?.storage.lock.withLock {
+                        self?.storage.connections.remove(client) != nil
+                    } ?? false
+                    if shouldClose { _ = Darwin.close(client) }
+                }
                 await self?.handle(client)
             }
         }
@@ -182,4 +202,9 @@ final class FakeHubDaemon: @unchecked Sendable {
     private static func error() -> NSError { NSError(domain: NSPOSIXErrorDomain, code: Int(errno)) }
 }
 
-private final class FakeHubStorage: @unchecked Sendable { let lock = NSLock(); var requests: [FakeHubRequest] = [] }
+private final class FakeHubStorage: @unchecked Sendable {
+    let lock = NSLock()
+    var requests: [FakeHubRequest] = []
+    var connections: Set<Int32> = []
+    var shutDown = false
+}

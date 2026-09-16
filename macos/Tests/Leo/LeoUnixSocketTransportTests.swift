@@ -64,6 +64,74 @@ struct LeoUnixSocketTransportTests {
         #expect(server.waitForHandler())
     }
 
+    @Test func terminalChunkFinishesWithoutWaitingForSocketClose() async throws {
+        let release = DispatchSemaphore(value: 0)
+        let server = try UnixSocketTestServer { client in
+            _ = Darwin.recv(client, nil, 0, 0)
+            let response = Data("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n0\r\n\r\n".utf8)
+            _ = response.withUnsafeBytes { Darwin.send(client, $0.baseAddress, response.count, 0) }
+            _ = release.wait(timeout: .now() + 2)
+        }
+        defer { release.signal(); #expect(server.waitForHandler()) }
+        var values: [Data] = []
+
+        for try await value in LeoUnixSocketTransport().stream(path: "/events", socketPath: server.path) {
+            values.append(value)
+        }
+
+        #expect(values == [Data("hello".utf8)])
+    }
+
+    @Test func streamIdleTimeoutUsesInjectedClock() async throws {
+        let clock = SocketTestClock()
+        let server = try UnixSocketTestServer { client in
+            _ = Darwin.recv(client, nil, 0, 0)
+            let headers = Data("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\r\n".utf8)
+            _ = headers.withUnsafeBytes { Darwin.send(client, $0.baseAddress, headers.count, 0) }
+            Thread.sleep(forTimeInterval: 5)
+        }
+        defer { #expect(server.waitForHandler(timeout: 8)) }
+        let task = Task { await streamError(transport: LeoUnixSocketTransport(now: clock.now), server: server) }
+        await awaitCondition(timeout: 5) { clock.readCount >= 2 }
+
+        clock.advance(seconds: 60)
+
+        #expect(await task.value == .timeout)
+    }
+
+    @Test func pingResetsStreamIdleTimeout() async throws {
+        let clock = SocketTestClock()
+        let sendPing = DispatchSemaphore(value: 0)
+        let pingSent = DispatchSemaphore(value: 0)
+        let server = try UnixSocketTestServer { client in
+            _ = Darwin.recv(client, nil, 0, 0)
+            let headers = Data("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\r\n".utf8)
+            _ = headers.withUnsafeBytes { Darwin.send(client, $0.baseAddress, headers.count, 0) }
+            _ = sendPing.wait(timeout: .now() + 5)
+            let ping = Data(": ping\n\n".utf8)
+            _ = ping.withUnsafeBytes { Darwin.send(client, $0.baseAddress, ping.count, 0) }
+            pingSent.signal()
+            Thread.sleep(forTimeInterval: 5)
+        }
+        defer { #expect(server.waitForHandler(timeout: 8)) }
+        let completion = SocketCompletion()
+        let task = Task {
+            await completion.finish(streamError(transport: LeoUnixSocketTransport(now: clock.now), server: server))
+        }
+        await awaitCondition(timeout: 5) { clock.readCount >= 2 }
+        clock.advance(seconds: 59)
+        sendPing.signal()
+        #expect(pingSent.wait(timeout: .now() + 5) == .success)
+        await awaitCondition(timeout: 5) { clock.readCount >= 3 }
+        clock.advance(seconds: 59)
+        for _ in 0..<20 { await Task.yield() }
+        #expect(await completion.finished == false)
+        clock.advance(seconds: 2)
+        await awaitCondition(timeout: 5) { await completion.finished }
+        #expect(await completion.value == .timeout)
+        task.cancel()
+    }
+
     private let request = LeoHTTPRequest(method: "GET", path: "/agents/list", body: nil)
 
     private func result(from server: UnixSocketTestServer, timeout: TimeInterval) async -> LeoDaemonError? {
@@ -78,4 +146,30 @@ struct LeoUnixSocketTransportTests {
             return nil
         }
     }
+
+    private func streamError(transport: LeoUnixSocketTransport, server: UnixSocketTestServer) async -> LeoDaemonError? {
+        do {
+            for try await _ in transport.stream(path: "/events", socketPath: server.path) {}
+            return nil
+        } catch let error as LeoDaemonError {
+            return error
+        } catch {
+            return nil
+        }
+    }
+}
+
+private final class SocketTestClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var instant: UInt64 = 0
+    private var reads = 0
+    var readCount: Int { lock.withLock { reads } }
+    var now: @Sendable () -> UInt64 { { [self] in lock.withLock { reads += 1; return instant } } }
+    func advance(seconds: UInt64) { lock.withLock { instant += seconds * 1_000_000_000 } }
+}
+
+private actor SocketCompletion {
+    private(set) var value: LeoDaemonError?
+    private(set) var finished = false
+    func finish(_ value: LeoDaemonError?) { self.value = value; finished = true }
 }

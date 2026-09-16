@@ -42,6 +42,35 @@ import Testing
         #expect(await daemon.hostCallCount == 0)
     }
 
+    @Test func persistedRemoteSelectionInstallsAfterHostsLoad() async {
+        let values = defaults()
+        values.set("work", forKey: "leo.selectedHost")
+        var installed: [LeoHostID] = []
+        let selection = LeoHostSelection(
+            daemon: SelectionDaemon(hosts: [.init(name: "work", ssh: "evan@work", state: .connected)]),
+            defaults: values,
+            installTarget: { installed.append($0) }
+        )
+
+        await selection.start(flavor: .hub)
+
+        #expect(installed == [.remote("work")])
+    }
+
+    @Test func hostStateUpdatesPreserveConfigurationMetadata() async throws {
+        let selection = LeoHostSelection(daemon: SelectionDaemon(hosts: [
+            .init(name: "work", isDefault: true, ssh: "evan@work", state: .connected)
+        ]), defaults: defaults()) { _ in }
+        await selection.start(flavor: .hub)
+
+        selection.receive(.init(name: "work", state: .error, error: "denied", code: "ssh_auth_required"))
+
+        let row = try #require(selection.hosts.first { $0.name == "work" })
+        #expect(row.ssh == "evan@work")
+        #expect(row.isDefault)
+        #expect(row.state == .error)
+    }
+
     private func defaults() -> UserDefaults {
         let suite = "LeoHostSelectionTests.\(UUID().uuidString)"
         return UserDefaults(suiteName: suite) ?? .standard

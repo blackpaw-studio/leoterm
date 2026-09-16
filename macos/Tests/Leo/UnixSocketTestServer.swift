@@ -48,7 +48,7 @@ final class UnixSocketTestServer: @unchecked Sendable {
 
     func waitForConnection() -> Bool { accepted.wait(timeout: .now() + 1) == .success }
     func waitForClose() -> Bool { closed.wait(timeout: .now() + 1) == .success }
-    func waitForHandler() -> Bool { handlerGroup.wait(timeout: .now() + 1) == .success }
+    func waitForHandler(timeout: TimeInterval = 1) -> Bool { handlerGroup.wait(timeout: .now() + timeout) == .success }
 
     private static func error() -> NSError {
         NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
