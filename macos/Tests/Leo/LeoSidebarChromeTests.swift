@@ -6,6 +6,26 @@ import Testing
 @testable import Ghostty
 
 struct LeoSidebarChromeTests {
+    @Test func attachActivationMapsOptionModifierAndInvokesSinkOnce() {
+        #expect(LeoAttachActivation.disposition(for: [.option]) == .newWindow)
+        #expect(LeoAttachActivation.disposition(for: [.command, .shift]) == .reuseOrTab)
+
+        let row = LeoAgentRow(host: .local, name: "agent", template: nil, status: .running, activity: .unknown, actionDetail: nil)
+        var calls: [(LeoAgentRow, AttachDisposition)] = []
+        LeoAttachActivation.activate(row: row, modifierFlags: [.option]) { row, disposition in
+            calls.append((row, disposition))
+        }
+
+        #expect(calls.count == 1)
+        #expect(calls.first?.0 == row)
+        #expect(calls.first?.1 == .newWindow)
+    }
+
+    @Test func sidebarMenuStateReflectsVisibility() {
+        #expect(LeoSidebarMenuState.state(isSidebarVisible: true) == .on)
+        #expect(LeoSidebarMenuState.state(isSidebarVisible: false) == .off)
+    }
+
     @Test func shellQuoteHandlesHostileInputs() throws {
         #expect(try leoShellQuote("") == "''")
         #expect(try leoShellQuote("plain value") == "'plain value'")
@@ -41,5 +61,15 @@ struct LeoSidebarChromeTests {
         #expect(LeoSidebarSplitMetrics.width(preferred: 500, available: 1_000) == 420)
         #expect(LeoSidebarSplitMetrics.width(preferred: 300, available: 250) == 214)
         #expect(LeoSidebarSplitMetrics.width(preferred: 300, available: 230) == 200)
+    }
+
+    @Test @MainActor func splitDisplayedWidthDoesNotMutatePreference() {
+        let defaults = UserDefaults(suiteName: "LeoSidebarSplitTests")!
+        defaults.removePersistentDomain(forName: "LeoSidebarSplitTests")
+        let session = LeoWindowSession(defaults: defaults)
+        session.setPreferredWidth(500)
+
+        #expect(LeoSidebarSplitMetrics.width(preferred: session.preferredWidth, available: 250) == 214)
+        #expect(session.preferredWidth == 500)
     }
 }
