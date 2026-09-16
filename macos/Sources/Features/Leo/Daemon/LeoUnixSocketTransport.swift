@@ -12,7 +12,7 @@ struct LeoUnixSocketTransport: LeoDaemonTransport {
                     try Self.sendBlocking(request.serialized(), socketPath: socketPath, timeout: timeout, descriptor: descriptor)
                 }.value
             } catch {
-                if descriptor.cancelled { throw CancellationError() }
+                if descriptor.isCancelled { throw CancellationError() }
                 throw error
             }
         }, onCancel: { descriptor.cancel() })
@@ -66,16 +66,25 @@ struct LeoUnixSocketTransport: LeoDaemonTransport {
     }
 
     private static func wait(_ socketDescriptor: Int32, events: Int16, deadline: UInt64, descriptor: LeoSocketDescriptor) throws {
-        guard !descriptor.cancelled else { throw CancellationError() }
-        let now = DispatchTime.now().uptimeNanoseconds
-        guard now < deadline else { throw LeoDaemonError.timeout }
-        let milliseconds = min(Int32.max, Int32((deadline - now + 999_999) / 1_000_000))
-        var pollDescriptor = pollfd(fd: socketDescriptor, events: events, revents: 0)
-        let result = Darwin.poll(&pollDescriptor, 1, milliseconds)
-        guard !descriptor.cancelled else { throw CancellationError() }
-        if result == 0 { throw LeoDaemonError.timeout }
-        if result < 0 { if errno == EINTR { return try wait(socketDescriptor, events: events, deadline: deadline, descriptor: descriptor) }; throw socketError() }
-        if pollDescriptor.revents & Int16(POLLERR | POLLHUP | POLLNVAL) != 0 { if pollDescriptor.revents & Int16(POLLHUP) != 0, events == Int16(POLLIN) { return }; throw socketError() }
+        while true {
+            guard !descriptor.isCancelled else { throw CancellationError() }
+            let now = DispatchTime.now().uptimeNanoseconds
+            guard now < deadline else { throw LeoDaemonError.timeout }
+            let milliseconds = min(50, Int32((deadline - now + 999_999) / 1_000_000))
+            var pollDescriptor = pollfd(fd: socketDescriptor, events: events, revents: 0)
+            let result = Darwin.poll(&pollDescriptor, 1, milliseconds)
+            guard !descriptor.isCancelled else { throw CancellationError() }
+            if result == 0 { continue }
+            if result < 0 {
+                if errno == EINTR { continue }
+                throw socketError()
+            }
+            if pollDescriptor.revents & Int16(POLLERR | POLLHUP | POLLNVAL) != 0 {
+                if pollDescriptor.revents & Int16(POLLHUP) != 0, events == Int16(POLLIN) { return }
+                throw socketError()
+            }
+            return
+        }
     }
 
     private static func socketError() -> LeoDaemonError {
@@ -87,7 +96,8 @@ struct LeoUnixSocketTransport: LeoDaemonTransport {
 private final class LeoSocketDescriptor: @unchecked Sendable {
     private let lock = NSLock()
     private var value: Int32 = -1
-    private(set) var cancelled = false
+    private var cancelled = false
+    var isCancelled: Bool { lock.lock(); defer { lock.unlock() }; return cancelled }
     func set(_ descriptor: Int32) { lock.lock(); defer { lock.unlock() }; if cancelled { _ = Darwin.close(descriptor); return }; value = descriptor }
     func cancel() { lock.lock(); cancelled = true; let descriptor = value; value = -1; lock.unlock(); if descriptor >= 0 { _ = Darwin.close(descriptor) } }
     func close() { lock.lock(); let descriptor = value; value = -1; lock.unlock(); if descriptor >= 0 { _ = Darwin.close(descriptor) } }
