@@ -56,7 +56,7 @@ struct LeoSidebarFeedFixTests {
 
     @Test func listTimeoutRetainsRowsAndSubsequentTickRefreshes() async throws {
         let clock = FeedFixClock()
-        let daemon = FeedFixDaemon(results: [[agent("alpha")]])
+        let daemon = NonCooperativeFeedFixDaemon(results: [[agent("alpha")]])
         let recorder = FeedFixRecorder()
         let feed = makeFeed(daemon: daemon, activity: FeedFixActivity(), recorder: recorder, sleep: { try await clock.sleep($0) })
 
@@ -77,6 +77,10 @@ struct LeoSidebarFeedFixTests {
         #expect(await recorder.last?.rows.map(\.name) == ["alpha"])
         await feed.tick()
         try await wait { await daemon.listCallCount == 3 }
+        await daemon.resolvePending(at: 0, with: [agent("stale")])
+        await daemon.resolvePending(at: 0, with: [agent("bravo")])
+        try await wait { await recorder.last?.rows.map(\.name) == ["bravo"] }
+        #expect(!(await recorder.values).contains { $0.rows.map(\.name) == ["stale"] })
         await feed.stop()
     }
 
@@ -91,7 +95,7 @@ struct LeoSidebarFeedFixTests {
         #expect(reference == nil)
     }
 
-    private func makeFeed(daemon: FeedFixDaemon, activity: FeedFixActivity, recorder: FeedFixRecorder, sleep: @escaping @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) }) -> LeoSidebarFeed {
+    private func makeFeed(daemon: some LeoDaemonClient, activity: FeedFixActivity, recorder: FeedFixRecorder, sleep: @escaping @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) }) -> LeoSidebarFeed {
         LeoSidebarFeed(daemon: daemon, activity: .init(events: { await activity.events() }, fetchState: { await activity.fetchState() }), sleep: sleep) { snapshot in
             Task { await recorder.append(snapshot) }
         }
@@ -104,6 +108,32 @@ struct LeoSidebarFeedFixTests {
     private func wait(_ condition: @escaping @Sendable () async -> Bool) async throws {
         await awaitCondition(condition)
     }
+}
+
+private actor NonCooperativeFeedFixDaemon: LeoDaemonClient {
+    private var results: [[LeoAgent]]
+    private var waiters: [CheckedContinuation<[LeoAgent], Never>] = []
+    private(set) var listCallCount = 0
+
+    init(results: [[LeoAgent]] = []) { self.results = results }
+    func listAgents() async throws -> [LeoAgent] {
+        listCallCount += 1
+        if !results.isEmpty { return results.removeFirst() }
+        return await withCheckedContinuation { waiters.append($0) }
+    }
+    func resolvePending(at index: Int, with agents: [LeoAgent]) {
+        waiters.remove(at: index).resume(returning: agents)
+    }
+    func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent { fatalError() }
+    func start(_ name: String) async throws { fatalError() }
+    func stop(_ name: String, wakeOnMessage: Bool?) async throws { fatalError() }
+    func restart(_ name: String) async throws -> LeoAgent { fatalError() }
+    func reset(_ name: String) async throws { fatalError() }
+    func setTemplate(_ name: String, template: String) async throws { fatalError() }
+    func rename(_ name: String, newName: String) async throws -> LeoAgent { fatalError() }
+    func delete(_ name: String, force: Bool?, deleteBranch: Bool?) async throws { fatalError() }
+    func deletePlan(_ name: String) async throws -> LeoDeletePlan { fatalError() }
+    func logs(_ name: String, lines: Int?) async throws -> String { fatalError() }
 }
 
 private actor FeedFixDaemon: LeoDaemonClient {

@@ -142,7 +142,10 @@ actor LeoSidebarFeed {
     }
 
     private func performRefresh() async {
-        defer { finishRefresh() }
+        var wasCancelled = false
+        defer {
+            if !wasCancelled { finishRefresh() }
+        }
         let generation = snapshot.generation
         let fetchState = needsState
         needsState = false
@@ -156,6 +159,8 @@ actor LeoSidebarFeed {
             buffered.forEach(applyActivity)
             emit()
             if fetchState { fetchActivityState(generation: generation) }
+        } catch is CancellationError {
+            wasCancelled = true
         } catch {
             guard running, generation == snapshot.generation else { return }
             snapshot = LeoSidebarSnapshot(rows: snapshot.rows, connectivity: .failed(message: error.localizedDescription), generation: generation)
@@ -181,16 +186,31 @@ actor LeoSidebarFeed {
     private func fetchList() async throws -> [LeoAgent] {
         let daemon = daemon
         let sleeper = sleeper
-        return try await withThrowingTaskGroup(of: [LeoAgent].self) { group in
-            group.addTask { try await daemon.listAgents() }
-            group.addTask {
-                try await sleeper(5_000_000_000)
-                throw LeoSidebarFeedError.listTimedOut
+        let race = LeoListFetchRace()
+        let result = await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                race.install(continuation)
+                let listTask = Task {
+                    do {
+                        race.finish(.success(try await daemon.listAgents()), winner: .list)
+                    } catch {
+                        race.finish(.failure(error), winner: .list)
+                    }
+                }
+                let deadlineTask = Task {
+                    do {
+                        try await sleeper(5_000_000_000)
+                        race.finish(.failure(LeoSidebarFeedError.listTimedOut), winner: .deadline)
+                    } catch {
+                        race.finish(.failure(error), winner: .deadline)
+                    }
+                }
+                race.install(listTask: listTask, deadlineTask: deadlineTask)
             }
-            defer { group.cancelAll() }
-            guard let result = try await group.next() else { return [] }
-            return result
+        } onCancel: {
+            race.cancel()
         }
+        return try result.get()
     }
 
     private func applyActivityState(_ state: [LeoObservedAgent], generation: Int) {
@@ -281,6 +301,60 @@ actor LeoSidebarFeed {
         case .idle: .idle
         case .unknown, nil: .unknown
         }
+    }
+}
+
+private final class LeoListFetchRace: @unchecked Sendable {
+    enum Winner { case list, deadline }
+
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Result<[LeoAgent], Error>, Never>?
+    private var listTask: Task<Void, Never>?
+    private var deadlineTask: Task<Void, Never>?
+    private var finished = false
+
+    func install(_ continuation: CheckedContinuation<Result<[LeoAgent], Error>, Never>) {
+        lock.withLock { self.continuation = continuation }
+    }
+
+    func install(listTask: Task<Void, Never>, deadlineTask: Task<Void, Never>) {
+        let shouldCancel = lock.withLock { () -> Bool in
+            self.listTask = listTask
+            self.deadlineTask = deadlineTask
+            return finished
+        }
+        if shouldCancel {
+            listTask.cancel()
+            deadlineTask.cancel()
+        }
+    }
+
+    func finish(_ result: Result<[LeoAgent], Error>, winner: Winner) {
+        let resolution = lock.withLock { () -> (CheckedContinuation<Result<[LeoAgent], Error>, Never>, Task<Void, Never>?)? in
+            guard !finished, let continuation else { return nil }
+            finished = true
+            self.continuation = nil
+            let loser = switch winner {
+            case .list: deadlineTask
+            case .deadline: listTask
+            }
+            return (continuation, loser)
+        }
+        resolution?.0.resume(returning: result)
+        resolution?.1?.cancel()
+    }
+
+    func cancel() {
+        let resolution = lock.withLock { () -> (CheckedContinuation<Result<[LeoAgent], Error>, Never>?, Task<Void, Never>?, Task<Void, Never>?) in
+            guard !finished else { return (nil, nil, nil) }
+            finished = true
+            let continuation = continuation
+            self.continuation = nil
+            return (continuation, listTask, deadlineTask)
+        }
+        resolution.0?.resume(returning: .failure(CancellationError()))
+        resolution.1?.cancel()
+        resolution.2?.cancel()
     }
 }
 
