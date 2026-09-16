@@ -20,7 +20,7 @@ struct LeoObserveTests {
         #expect(await iterator.next() == .hello(seq: 1, at: nil, version: nil, serverTime: nil))
         let disconnected = await iterator.next()
         #expect([connected, disconnected] == [.connected, .disconnected(reason: "stream failed")])
-        #expect(await transport.waitForReconnect())
+        await transport.waitForReconnect()
     }
 
     @Test func parsesSSETranscript() throws {
@@ -79,19 +79,14 @@ struct LeoObserveTests {
     }
 
     private func nextWithinFiftyMilliseconds(from stream: AsyncStream<LeoObserveEvent>) async throws -> LeoObserveEvent? {
-        try await withThrowingTaskGroup(of: LeoObserveEvent?.self) { group in
-            group.addTask {
-                var iterator = stream.makeAsyncIterator()
-                return try await iterator.next()
-            }
-            group.addTask {
-                try await Task.sleep(nanoseconds: 50_000_000)
-                throw LeoDaemonError.timeout
-            }
-            guard let value = try await group.next() else { return nil }
-            group.cancelAll()
-            return value
+        let result = NextEvent()
+        let task = Task {
+            var iterator = stream.makeAsyncIterator()
+            await result.set(await iterator.next())
         }
+        defer { task.cancel() }
+        await awaitCondition(timeout: 0.05, message: "Event was not delivered") { await result.isSet }
+        return await result.value
     }
 }
 
@@ -164,13 +159,16 @@ private final class LifecycleTransport: LeoActivityTransport, @unchecked Sendabl
 
     func recordSleep() {}
 
-    func waitForReconnect() async -> Bool {
-        for _ in 0 ..< 50 {
-            if connectionCount >= 2 { return true }
-            try? await Task.sleep(nanoseconds: 1_000_000)
-        }
-        return false
+    func waitForReconnect() async {
+        await awaitCondition(message: "Stream did not reconnect") { self.connectionCount >= 2 }
     }
+}
+
+private actor NextEvent {
+    private var storedValue: LeoObserveEvent??
+    var isSet: Bool { storedValue != nil }
+    var value: LeoObserveEvent? { storedValue ?? nil }
+    func set(_ value: LeoObserveEvent?) { storedValue = value }
 }
 
 private actor EventCounter {

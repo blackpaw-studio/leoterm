@@ -95,10 +95,13 @@ struct LeoSidebarFeedFixTests {
         #expect(reference == nil)
     }
 
-    private func makeFeed(daemon: some LeoDaemonClient, activity: FeedFixActivity, recorder: FeedFixRecorder, sleep: @escaping @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) }) -> LeoSidebarFeed {
-        LeoSidebarFeed(daemon: daemon, activity: .init(events: { await activity.events() }, fetchState: { await activity.fetchState() }), sleep: sleep) { snapshot in
-            Task { await recorder.append(snapshot) }
+    private func makeFeed(daemon: some LeoDaemonClient, activity: FeedFixActivity, recorder: FeedFixRecorder, sleep: (@Sendable (UInt64) async throws -> Void)? = nil) -> LeoSidebarFeed {
+        let source = LeoSidebarActivitySource(events: { await activity.events() }, fetchState: { await activity.fetchState() })
+        let sink: LeoSidebarFeed.Sink = { snapshot in Task { await recorder.append(snapshot) } }
+        if let sleep {
+            return LeoSidebarFeed(daemon: daemon, activity: source, sleep: sleep, sink: sink)
         }
+        return LeoSidebarFeed(daemon: daemon, activity: source, sink: sink)
     }
 
     private func agent(_ name: String) -> LeoAgent {
