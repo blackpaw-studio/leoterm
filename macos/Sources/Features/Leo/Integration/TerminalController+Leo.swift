@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 enum LeoSidebarMenuState {
     static func state(isSidebarVisible: Bool) -> NSControl.StateValue {
@@ -26,7 +27,7 @@ extension TerminalController {
     @IBAction func newLeoAgent(_ sender: Any?) {
         guard leoSession != nil, let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime else { return }
         let sheet = NSHostingController(rootView: SpawnAgentSheet(model: runtime.model, actions: runtime.actions))
-        presentAsSheet(sheet)
+        window?.contentViewController?.presentAsSheet(sheet)
     }
 
     func validateLeoSidebarMenuItem(_ item: NSMenuItem) -> Bool {

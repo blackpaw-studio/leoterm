@@ -25,6 +25,7 @@ struct LeoSidebarView: View {
         .padding(.horizontal, 10)
         .padding(.bottom, 10)
         .background(.bar)
+        .sheet(isPresented: $showingSpawn) { SpawnAgentSheet(model: model, actions: actions) }
     }
 
     @ViewBuilder private var content: some View {
@@ -46,7 +47,7 @@ struct LeoSidebarView: View {
                 List(model.visibleRows, selection: $model.selection) { row in
                     LeoAgentRowView(row: row, isSelected: model.selection == row.id, attach: { row, disposition in
                         model.attachRequested(row, windowID, disposition)
-                    }, actions: actions, error: model.rowErrors[row.id])
+                    }, actions: actions, error: model.rowErrors[row.id], errorCode: model.rowErrorCodes[row.id])
                         .tag(row.id)
                 }
                 .listStyle(.sidebar)
@@ -59,7 +60,6 @@ struct LeoSidebarView: View {
                 }
             }
         }
-        .sheet(isPresented: $showingSpawn) { SpawnAgentSheet(model: model, actions: actions) }
     }
 
     private func stateView<Content: View>(@ViewBuilder content: () -> Content) -> some View {

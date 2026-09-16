@@ -7,11 +7,17 @@ import Foundation
     private let cli: LeoCLI
     private let model: LeoSidebarModel
     private let refresh: () -> Void
-    var deletePlanSink: (LeoDeletePlan) -> Void = { _ in }
     var cliForSpawn: LeoCLI { cli }
+    private let clock: @Sendable () -> Date
+    private var cachedTemplates: (value: [LeoTemplate], fetchedAt: Date)?
 
-    init(daemon: any LeoDaemonClient, cli: LeoCLI, model: LeoSidebarModel, refresh: @escaping () -> Void) {
-        self.daemon = daemon; self.cli = cli; self.model = model; self.refresh = refresh
+    init(daemon: any LeoDaemonClient, cli: LeoCLI, model: LeoSidebarModel,
+         refresh: @escaping () -> Void, clock: @escaping @Sendable () -> Date = { Date() }) {
+        self.daemon = daemon
+        self.cli = cli
+        self.model = model
+        self.refresh = refresh
+        self.clock = clock
     }
 
     func start(_ row: LeoAgentRow) { run(row) { try await self.daemon.start(row.name) } }
@@ -20,15 +26,23 @@ import Foundation
     func setTemplate(_ row: LeoAgentRow, template: String) { run(row) { try await self.daemon.setTemplate(row.name, template: template) } }
     func rename(_ row: LeoAgentRow, newName: String) { run(row) { _ = try await self.daemon.rename(row.name, newName: newName) } }
     func delete(_ row: LeoAgentRow, force: Bool, deleteBranch: Bool) { run(row) { try await self.daemon.delete(row.name, force: force, deleteBranch: deleteBranch) } }
-    func deletePlan(_ row: LeoAgentRow) {
+    func deletePlan(_ row: LeoAgentRow, receive: @escaping (LeoDeletePlan) -> Void) {
         run(row, refreshOnSuccess: false) { [weak self] in
             guard let self else { return }
             let plan = try await self.daemon.deletePlan(row.name)
-            self.deletePlanSink(plan)
+            receive(plan)
         }
     }
-    func viewLogs(_ row: LeoAgentRow) { run(row) { _ = try await self.daemon.logs(row.name, lines: nil) } }
-    func spawn(_ request: LeoSpawnRequest, attach: @escaping (LeoAgentRow, AttachDisposition) -> Void, dismiss: @escaping () -> Void) {
+    func templates() async throws -> [LeoTemplate] {
+        if let cachedTemplates, clock().timeIntervalSince(cachedTemplates.fetchedAt) < 60 {
+            return cachedTemplates.value
+        }
+        let value = try await cli.templateList()
+        cachedTemplates = (value, clock())
+        return value
+    }
+    func spawn(_ request: LeoSpawnRequest, attach: @escaping (LeoAgentRow, AttachDisposition) -> Void,
+               dismiss: @escaping () -> Void, failure: @escaping (String) -> Void) {
         Task { [weak self] in
             guard let self else { return }
             do {
@@ -36,7 +50,7 @@ import Foundation
                 dismiss(); refresh()
                 attach(LeoAgentRow(host: .local, name: agent.name, template: agent.template, status: agent.status ?? .unknown("unknown"), activity: .unknown, actionDetail: nil), .reuseOrTab)
             } catch {
-                model.setRowError(Self.message(error), for: "spawn")
+                failure(Self.message(error))
             }
         }
     }
@@ -50,7 +64,7 @@ import Foundation
                 try await operation()
                 if refreshOnSuccess { self.refresh() }
             } catch {
-                self.model.setRowError(Self.message(error), for: row.id)
+                self.model.setRowError(Self.message(error), code: Self.code(error), for: row.id)
             }
         }
     }
@@ -58,5 +72,10 @@ import Foundation
     private static func message(_ error: Error) -> String {
         if case let LeoDaemonError.daemon(_, message, _) = error { return message }
         return error.localizedDescription
+    }
+
+    private static func code(_ error: Error) -> String? {
+        if case let LeoDaemonError.daemon(code, _, _) = error { return code }
+        return nil
     }
 }

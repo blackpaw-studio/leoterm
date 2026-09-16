@@ -6,6 +6,7 @@ import Foundation
     @Published var query = ""
     @Published var selection: LeoAgentRow.ID?
     @Published private(set) var rowErrors: [LeoAgentRow.ID: String] = [:]
+    @Published private(set) var rowErrorCodes: [LeoAgentRow.ID: String] = [:]
     var attachRequested: (LeoAgentRow, LeoWindowID, AttachDisposition) -> Void = { _, _, _ in }
     var startDaemonRequested: () -> Void = {}
     var retryRequested: () -> Void = {}
@@ -17,12 +18,15 @@ import Foundation
     func receive(_ value: LeoSidebarSnapshot) {
         guard value.generation >= snapshot.generation else { return }
         snapshot = value
-        if value.connectivity == .connected { rowErrors = [:] }
+        rowErrors = [:]
+        rowErrorCodes = [:]
         guard let selection, !value.rows.contains(where: { $0.id == selection }) else { return }
         self.selection = nil
     }
 
     func retry() { retryRequested() }
-    func reportAttachError(_ error: LeoAttachError, for id: LeoAgentRow.ID) { rowErrors[id] = error.message }
-    func setRowError(_ id: LeoAgentRow.ID, message: String) { rowErrors[id] = message }
+    func setRowError(_ message: String, code: String? = nil, for id: LeoAgentRow.ID) {
+        rowErrors[id] = message
+        rowErrorCodes[id] = code
+    }
 }

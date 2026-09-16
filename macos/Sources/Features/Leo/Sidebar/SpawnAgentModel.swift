@@ -15,10 +15,13 @@ import Foundation
     func loadTemplates() async {
         do {
             templates = try await cli.templateList()
-            if template.isEmpty { template = templates.first?.name ?? "" }
         } catch {
             self.error = error.localizedDescription
         }
     }
-    var validationError: String? { SpawnValidation.spawn(template: template, repo: repo, name: name.isEmpty ? nil : name) }
+    var validationError: String? {
+        SpawnValidation.spawn(template: template, repo: repo, name: name.isEmpty ? nil : name)
+    }
+
+    func setError(_ value: String) { error = value }
 }

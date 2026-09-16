@@ -35,6 +35,14 @@ struct LeoAgentRowView: View {
     let attach: (LeoAgentRow, AttachDisposition) -> Void
     @ObservedObject var actions: LeoAgentActions
     let error: String?
+    let errorCode: String?
+    @State private var templates: [LeoTemplate] = []
+    @State private var renameValue = ""
+    @State private var deletePlan: LeoDeletePlan?
+    @State private var showingRename = false
+    @State private var showingDelete = false
+    @State private var forceDelete = false
+    @State private var deleteBranch = false
 
     var body: some View {
         HStack(spacing: 8) {
@@ -48,6 +56,8 @@ struct LeoAgentRowView: View {
         }
         .contentShape(Rectangle())
         .contextMenu { menu }
+        .sheet(isPresented: $showingRename) { renameSheet }
+        .sheet(isPresented: $showingDelete) { deleteSheet }
     }
 
     private var rowDetails: some View {
@@ -116,7 +126,21 @@ struct LeoAgentRowView: View {
         Button("Attach") { activate(source: .button) }
         if row.status == .running { Button("Stop") { actions.stop(row) } } else { Button("Start") { actions.start(row) } }
         Button("Restart") { actions.restart(row) }
+        Menu("Set Template") {
+            ForEach(templates) { template in
+                Button { actions.setTemplate(row, template: template.name) } label: {
+                    HStack {
+                        Text(template.name)
+                        if template.name == row.template { Image(systemName: "checkmark") }
+                    }
+                }
+            }
+        }
+        .task { templates = (try? await actions.templates()) ?? [] }
+        Button("Rename…") { renameValue = row.name; showingRename = true }
         Button("View Logs") { viewLogs() }
+        Divider()
+        Button("Delete…", role: .destructive) { requestDeletePlan() }
     }
 
     private func viewLogs() {
@@ -124,5 +148,48 @@ struct LeoAgentRowView: View {
               let path = try? (NSApp.delegate as? AppDelegate)?.leoRuntime.resolveExecutablePath(),
               let command = try? "\(leoShellQuote(path)) agent logs -f \(leoShellQuote(row.name))" else { return }
         LeoCommandLauncher.openTab(in: controller, command: command)
+    }
+
+    private var renameSheet: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Rename \(row.name)").font(.headline)
+            TextField("Name", text: $renameValue)
+            if let validation = SpawnValidation.rename(renameValue, current: row.name) {
+                Text(validation).foregroundStyle(.red)
+            }
+            HStack { Spacer(); Button("Cancel") { showingRename = false }; Button("Rename") {
+                actions.rename(row, newName: renameValue)
+                showingRename = false
+            }.disabled(SpawnValidation.rename(renameValue, current: row.name) != nil) }
+        }.padding().frame(width: 360)
+    }
+
+    @ViewBuilder private var deleteSheet: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Delete \(row.name)?").font(.headline)
+            if let deletePlan {
+                if let path = deletePlan.worktreePath { Text("Worktree: \(path)") }
+                if let branch = deletePlan.branch { Text("Branch: \(branch)") }
+                if deletePlan.branch != nil { Toggle("Also delete branch", isOn: $deleteBranch) }
+            }
+            if let error, errorCode == "agent_still_running" {
+                Text(error).foregroundStyle(.red)
+                Button("Stop first") { actions.stop(row) }
+            } else if let error { Text(error).foregroundStyle(.red) }
+            Toggle("Force", isOn: $forceDelete)
+            HStack { Spacer(); Button("Cancel") { showingDelete = false }; Button("Delete", role: .destructive) {
+                actions.delete(row, force: forceDelete, deleteBranch: deleteBranch)
+                showingDelete = false
+            } }
+        }.padding().frame(width: 420)
+    }
+
+    private func requestDeletePlan() {
+        actions.deletePlan(row) { plan in
+            deletePlan = plan
+            deleteBranch = false
+            forceDelete = false
+            showingDelete = true
+        }
     }
 }
