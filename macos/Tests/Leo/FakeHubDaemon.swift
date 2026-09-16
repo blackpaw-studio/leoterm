@@ -41,63 +41,58 @@ actor FakeHubController {
 final class FakeHubDaemon: @unchecked Sendable {
     let path: String
     let controller: FakeHubController
-    private let descriptor: Int32
     private let script: FakeHubScript
+    private let listener: FakeHubListener
     private let storage = FakeHubStorage()
 
     init(script: FakeHubScript = .init()) throws {
         self.script = script
         controller = FakeHubController(events: script.events)
-        path = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("leo-hub-\(UUID().uuidString).sock").path
-        descriptor = socket(AF_UNIX, SOCK_STREAM, 0)
+        let socketPath = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("leo-hub-\(UUID().uuidString).sock").path
+        let descriptor = socket(AF_UNIX, SOCK_STREAM, 0)
         guard descriptor >= 0 else { throw Self.error() }
-        unlink(path)
+        unlink(socketPath)
         var address = sockaddr_un()
         address.sun_family = sa_family_t(AF_UNIX)
         let capacity = MemoryLayout.size(ofValue: address.sun_path) - 1
-        _ = path.withCString { source in
+        _ = socketPath.withCString { source in
             withUnsafeMutablePointer(to: &address.sun_path) { target in
                 strncpy(UnsafeMutableRawPointer(target).assumingMemoryBound(to: CChar.self), source, capacity)
             }
         }
         guard withUnsafePointer(to: &address, { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(descriptor, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) } }) == 0,
               listen(descriptor, 16) == 0 else { throw Self.error() }
-        DispatchQueue.global().async { [weak self] in self?.acceptLoop() }
-    }
+        path = socketPath
+        listener = FakeHubListener(path: socketPath, descriptor: descriptor)
 
-    deinit { shutdown() }
-    func requests() -> [FakeHubRequest] { storage.lock.withLock { storage.requests } }
-    func shutdown() {
-        let connections = storage.lock.withLock { () -> [Int32]? in
-            guard !storage.shutDown else { return nil }
-            storage.shutDown = true
-            let values = Array(storage.connections)
-            storage.connections.removeAll()
-            return values
-        }
-        guard let connections else { return }
-        _ = Darwin.shutdown(descriptor, SHUT_RDWR)
-        _ = Darwin.close(descriptor)
-        connections.forEach { _ = Darwin.shutdown($0, SHUT_RDWR); _ = Darwin.close($0) }
-        unlink(path)
-    }
-
-    private func acceptLoop() {
-        while true {
-            let client = accept(descriptor, nil, nil)
-            guard client >= 0 else { return }
-            storage.lock.withLock { storage.connections.insert(client) }
-            Task.detached { [weak self] in
-                defer {
-                    let shouldClose = self?.storage.lock.withLock {
-                        self?.storage.connections.remove(client) != nil
-                    } ?? false
-                    if shouldClose { _ = Darwin.close(client) }
+        // The accept loop only ever captures `listener` (which owns nothing
+        // but socket state) strongly. `self` is captured weakly and only
+        // inside the short per-connection callback, never across the
+        // lifetime of the blocking `accept()` loop -- so this daemon can
+        // deinit (and, via `deinit`, shut the listener down) even while the
+        // loop is still blocked waiting for a connection.
+        let listener = listener
+        DispatchQueue.global().async { [weak self] in
+            listener.run { client in
+                guard let self else {
+                    listener.closed(client)
+                    _ = Darwin.close(client)
+                    return
                 }
-                await self?.handle(client)
+                Task.detached {
+                    defer {
+                        listener.closed(client)
+                        _ = Darwin.close(client)
+                    }
+                    await self.handle(client)
+                }
             }
         }
     }
+
+    deinit { listener.shutdown() }
+    func requests() -> [FakeHubRequest] { storage.lock.withLock { storage.requests } }
+    func shutdown() { listener.shutdown() }
 
     private func handle(_ client: Int32) async {
         guard let request = Self.readRequest(client) else { return }
@@ -205,6 +200,66 @@ final class FakeHubDaemon: @unchecked Sendable {
 private final class FakeHubStorage: @unchecked Sendable {
     let lock = NSLock()
     var requests: [FakeHubRequest] = []
-    var connections: Set<Int32> = []
-    var shutDown = false
+}
+
+/// Owns the listening socket and the set of accepted connection descriptors,
+/// independent of `FakeHubDaemon`'s lifetime. Registration of a newly
+/// accepted connection and `shutdown()`'s closing of every tracked
+/// connection share the same lock, so a connection accepted concurrently
+/// with `shutdown()` is either registered (and then closed by `shutdown()`)
+/// or refused outright -- it can never be left untracked and leaked.
+private final class FakeHubListener: @unchecked Sendable {
+    let path: String
+    private let descriptor: Int32
+    private let lock = NSLock()
+    private var connections: Set<Int32> = []
+    private var shutDown = false
+
+    init(path: String, descriptor: Int32) {
+        self.path = path
+        self.descriptor = descriptor
+    }
+
+    /// Accepts connections until the listener is shut down, invoking
+    /// `onAccept` for each one that is successfully registered. Does not
+    /// capture or retain anything beyond this listener's own state.
+    func run(onAccept: (Int32) -> Void) {
+        while true {
+            let client = accept(descriptor, nil, nil)
+            guard client >= 0 else { return }
+            let registered = lock.withLock { () -> Bool in
+                guard !shutDown else { return false }
+                connections.insert(client)
+                return true
+            }
+            guard registered else {
+                _ = Darwin.shutdown(client, SHUT_RDWR)
+                _ = Darwin.close(client)
+                continue
+            }
+            onAccept(client)
+        }
+    }
+
+    func closed(_ client: Int32) {
+        lock.withLock { _ = connections.remove(client) }
+    }
+
+    func shutdown() {
+        let connectionsToClose = lock.withLock { () -> [Int32]? in
+            guard !shutDown else { return nil }
+            shutDown = true
+            let values = Array(connections)
+            connections.removeAll()
+            return values
+        }
+        guard let connectionsToClose else { return }
+        _ = Darwin.shutdown(descriptor, SHUT_RDWR)
+        _ = Darwin.close(descriptor)
+        connectionsToClose.forEach {
+            _ = Darwin.shutdown($0, SHUT_RDWR)
+            _ = Darwin.close($0)
+        }
+        unlink(path)
+    }
 }
