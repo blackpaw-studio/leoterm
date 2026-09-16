@@ -41,6 +41,11 @@ actor LeoSidebarFeed {
     var selectedHostAvailable = true
     var pollingRequested = false
     var hostStateSink: (@MainActor @Sendable (LeoHostRow) -> Void)?
+    /// Identifies the currently-owning refresh. Bumped every time a refresh
+    /// starts so a stale refresh's completion (racing a cancellation that
+    /// lost, e.g. after a host switch) can recognize it no longer owns the
+    /// in-flight bookkeeping and must not touch it.
+    private var currentRefreshToken = 0
 
     init(daemon: any LeoDaemonClient, activity: LeoSidebarActivitySource, sleep: @escaping @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) }, sink: @escaping Sink) {
         self.daemon = daemon
@@ -146,23 +151,28 @@ actor LeoSidebarFeed {
     private func startRefresh() {
         _ = scheduler.reduce(.refreshStarted)
         let host = selectedHost
+        currentRefreshToken += 1
+        let token = currentRefreshToken
         refreshTask = Task { [weak self] in
             guard let self else { return }
-            await self.performRefresh(host: host)
+            await self.performRefresh(host: host, token: token)
         }
     }
 
-    private func performRefresh(host: LeoHostID) async {
+    private func performRefresh(host: LeoHostID, token: Int) async {
         var wasCancelled = false
         defer {
-            if !wasCancelled { finishRefresh() }
+            // A stale refresh (its cancellation lost a race against a real
+            // result) must not clear bookkeeping that a newer refresh, already
+            // started for a different host/token, now owns.
+            if !wasCancelled, token == currentRefreshToken { finishRefresh() }
         }
         let generation = snapshot.generation
         let fetchState = needsState
         needsState = false
         do {
             let rows = try await fetchList(host: host).map { Self.row($0, host: host) }
-            guard running, generation == snapshot.generation else { return }
+            guard running, generation == snapshot.generation, token == currentRefreshToken else { return }
             snapshot = LeoSidebarReducers.applyListResult(snapshot, result: LeoSidebarReducers.mergeActivity(rows, activityByName: activityByName), generation: generation)
             recovering = false
             let buffered = bufferedActivity
@@ -173,7 +183,7 @@ actor LeoSidebarFeed {
         } catch is CancellationError {
             wasCancelled = true
         } catch {
-            guard running, generation == snapshot.generation else { return }
+            guard running, generation == snapshot.generation, token == currentRefreshToken else { return }
             snapshot = LeoSidebarSnapshot(rows: snapshot.rows, connectivity: .failed(message: error.localizedDescription), generation: generation)
             emit()
         }
