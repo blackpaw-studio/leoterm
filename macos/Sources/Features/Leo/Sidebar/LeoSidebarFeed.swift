@@ -27,6 +27,7 @@ actor LeoSidebarFeed {
     private var eventTask: Task<Void, Never>?
     private var refreshTask: Task<Void, Never>?
     private var activityTask: Task<Void, Never>?
+    private var emissionTask: Task<Void, Never>?
     private var pollTask: Task<Void, Never>?
     private var scheduler = LeoPollScheduler()
     private var running = false
@@ -179,7 +180,11 @@ actor LeoSidebarFeed {
 
     private func emit() {
         let value = snapshot
-        Task { @MainActor [sink] in sink(value) }
+        let previous = emissionTask
+        emissionTask = Task { [sink] in
+            await previous?.value
+            await sink(value)
+        }
     }
 
     private func process(_ outputs: [LeoPollScheduler.Output]) {

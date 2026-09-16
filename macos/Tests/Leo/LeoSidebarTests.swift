@@ -35,6 +35,18 @@ struct LeoSidebarTests {
         #expect(model.visibleRows == [first])
     }
 
+    @Test @MainActor func modelRejectsOutOfOrderSnapshots() {
+        let model = LeoSidebarModel()
+        let newer = row("newer")
+        let older = row("older")
+
+        model.receive(.init(rows: [newer], connectivity: .connected, generation: 2))
+        model.receive(.init(rows: [older], connectivity: .connected, generation: 1))
+
+        #expect(model.snapshot.generation == 2)
+        #expect(model.snapshot.rows == [newer])
+    }
+
     @Test @MainActor func windowSessionReadsWritesAndClampsDefaults() {
         let defaults = UserDefaults(suiteName: "LeoSidebarTests")!
         defaults.removePersistentDomain(forName: "LeoSidebarTests")

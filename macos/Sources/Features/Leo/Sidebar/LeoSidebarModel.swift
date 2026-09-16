@@ -14,6 +14,7 @@ import Foundation
     var visibleRows: [LeoAgentRow] { LeoSidebarReducers.filter(LeoSidebarReducers.rank(snapshot.rows), query: query) }
 
     func receive(_ value: LeoSidebarSnapshot) {
+        guard value.generation >= snapshot.generation else { return }
         snapshot = value
         guard let selection, !value.rows.contains(where: { $0.id == selection }) else { return }
         self.selection = nil
