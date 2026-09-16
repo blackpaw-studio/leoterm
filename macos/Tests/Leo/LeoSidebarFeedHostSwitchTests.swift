@@ -14,11 +14,14 @@ import Testing
 /// scheduler believe nothing was in flight and permit a spurious duplicate
 /// refresh.
 ///
-/// The exact interleaving is a genuine concurrency race (which underlying
-/// call "wins"), so this exercises it many times: after the fix, the
-/// invariant (no spurious duplicate refresh, and the newer host's result is
-/// what's ultimately installed) must hold on every trial regardless of how
-/// the race resolves.
+/// A's completion is deliberately gated on a continuation that isn't
+/// released until *after* the switch to B has already installed (rather than
+/// letting `async let` race the two arbitrarily): that's the one
+/// interleaving that specifically exercises the stale-cleanup bug. Alpha
+/// legitimately being the currently-selected host's own result before any
+/// switch happens is fine and not what this test polices -- only a
+/// publication of A's data *after* B has taken over would mean stale
+/// cleanup clobbered the newer host's ownership.
 struct LeoSidebarFeedHostSwitchTests {
     @Test func lateRefreshFromPriorHostNeverClobbersNewHostOwnership() async throws {
         for _ in 0..<25 {
@@ -42,11 +45,14 @@ struct LeoSidebarFeedHostSwitchTests {
         // Refresh A starts against the local host and hangs (unresolved).
         await awaitCondition(message: "First refresh (A) was not requested") { await daemon.listCallCount == 1 }
 
-        // Race A's completion against the host switch that cancels it and
-        // starts refresh B. Whichever wins, the outcome must be safe.
-        async let resolveA: Void = daemon.resolve(index: 0, .success([agent("alpha")]))
-        async let selectHost: Void = feed.select(.remote("work"))
-        _ = await (resolveA, selectHost)
+        // Switch hosts first -- this synchronously cancels A and starts
+        // refresh B -- and only then release A's stale result. That forces
+        // the exact interleaving the invariant must survive: a prior host's
+        // completion arriving strictly after the newer host has already
+        // taken ownership.
+        let switchIndex = await recorder.values.count
+        await feed.select(.remote("work"))
+        await daemon.resolve(index: 0, .success([agent("alpha")]))
 
         await awaitCondition(message: "Second refresh (B) was not requested") { await daemon.listCallCount >= 2 }
         for _ in 0..<50 { await Task.yield() }
@@ -70,7 +76,10 @@ struct LeoSidebarFeedHostSwitchTests {
         await awaitCondition(message: "The newer host's result was not installed") {
             await recorder.last?.rows.map(\.name) == ["bravo"]
         }
-        #expect(await recorder.values.allSatisfy { $0.rows.map(\.name) != ["alpha"] }, "Stale host A data leaked into a published snapshot")
+        #expect(
+            await recorder.values[switchIndex...].allSatisfy { $0.rows.map(\.name) != ["alpha"] },
+            "Stale host A data leaked into a published snapshot after the switch to host B"
+        )
 
         await feed.stop()
     }
