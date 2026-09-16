@@ -1,6 +1,34 @@
 import AppKit
 import SwiftUI
 
+enum LeoAttachActivation {
+    enum Source {
+        case button
+        case rowDoubleClick
+        case keyboard
+    }
+
+    static func disposition(for modifierFlags: NSEvent.ModifierFlags) -> AttachDisposition {
+        modifierFlags.contains(.option) ? .newWindow : .reuseOrTab
+    }
+
+    static func activate(
+        source _: Source,
+        row: LeoAgentRow,
+        attach: (LeoAgentRow, AttachDisposition) -> Void
+    ) {
+        activate(row: row, modifierFlags: NSEvent.modifierFlags, attach: attach)
+    }
+
+    static func activate(
+        row: LeoAgentRow,
+        modifierFlags: NSEvent.ModifierFlags,
+        attach: (LeoAgentRow, AttachDisposition) -> Void
+    ) {
+        attach(row, disposition(for: modifierFlags))
+    }
+}
+
 struct LeoAgentRowView: View {
     let row: LeoAgentRow
     let isSelected: Bool
@@ -9,25 +37,30 @@ struct LeoAgentRowView: View {
     var body: some View {
         HStack(spacing: 8) {
             activityDot
-            VStack(alignment: .leading, spacing: 3) {
-                HStack {
-                    Text(row.name).fontWeight(.medium).lineLimit(1)
-                    Spacer(minLength: 4)
-                    statusBadge
-                }
-                if let template = row.template, !template.isEmpty {
-                    Text(template).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                }
-                if let detail = row.actionDetail, !detail.isEmpty {
-                    Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                }
-            }
-            Button("Attach") { requestAttach() }
+            rowDetails
+                .contentShape(Rectangle())
+                .onTapGesture(count: 2) { activate(source: .rowDoubleClick) }
+            Button("Attach") { activate(source: .button) }
                 .buttonStyle(.borderless)
                 .accessibilityLabel("Attach to \(row.name)")
         }
         .contentShape(Rectangle())
-        .onTapGesture(count: 2) { requestAttach() }
+    }
+
+    private var rowDetails: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack {
+                Text(row.name).fontWeight(.medium).lineLimit(1)
+                Spacer(minLength: 4)
+                statusBadge
+            }
+            if let template = row.template, !template.isEmpty {
+                Text(template).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            }
+            if let detail = row.actionDetail, !detail.isEmpty {
+                Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            }
+        }
     }
 
     @ViewBuilder private var activityDot: some View {
@@ -68,8 +101,7 @@ struct LeoAgentRowView: View {
         }
     }
 
-    private func requestAttach() {
-        let disposition: AttachDisposition = NSEvent.modifierFlags.contains(.option) ? .newWindow : .reuseOrTab
-        attach(row, disposition)
+    private func activate(source: LeoAttachActivation.Source) {
+        LeoAttachActivation.activate(source: source, row: row, attach: attach)
     }
 }

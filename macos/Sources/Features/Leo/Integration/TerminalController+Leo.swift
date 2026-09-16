@@ -1,5 +1,11 @@
 import AppKit
 
+enum LeoSidebarMenuState {
+    static func state(isSidebarVisible: Bool) -> NSControl.StateValue {
+        isSidebarVisible ? .on : .off
+    }
+}
+
 extension TerminalController {
     @IBAction func toggleLeoSidebar(_ sender: Any?) {
         guard let leoSession else { return }
@@ -19,7 +25,7 @@ extension TerminalController {
 
     func validateLeoSidebarMenuItem(_ item: NSMenuItem) -> Bool {
         guard let leoSession else { item.state = .off; return false }
-        item.state = leoSession.isSidebarVisible ? .on : .off
+        item.state = LeoSidebarMenuState.state(isSidebarVisible: leoSession.isSidebarVisible)
         return true
     }
 }

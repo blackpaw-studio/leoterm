@@ -67,7 +67,6 @@ struct LeoSidebarView: View {
     private func attachSelected() {
         guard let selection = model.selection,
               let row = model.visibleRows.first(where: { $0.id == selection }) else { return }
-        let disposition: AttachDisposition = NSEvent.modifierFlags.contains(.option) ? .newWindow : .reuseOrTab
-        model.attachRequested(row, disposition)
+        LeoAttachActivation.activate(source: .keyboard, row: row, attach: model.attachRequested)
     }
 }
