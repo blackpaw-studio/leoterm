@@ -7,6 +7,7 @@ import Foundation
     @Published var selection: LeoAgentRow.ID?
     @Published private(set) var rowErrors: [LeoAgentRow.ID: String] = [:]
     @Published private(set) var rowErrorCodes: [LeoAgentRow.ID: String] = [:]
+    @Published private(set) var panelError: String?
     var attachRequested: (LeoAgentRow, LeoWindowID, AttachDisposition) -> Void = { _, _, _ in }
     var startDaemonRequested: () -> Void = {}
     var retryRequested: () -> Void = {}
@@ -35,4 +36,6 @@ import Foundation
     func setRowError(_ id: LeoAgentRow.ID, message: String) {
         setRowError(message, for: id)
     }
+
+    func setPanelError(_ message: String) { panelError = message }
 }

@@ -21,6 +21,9 @@ struct LeoSidebarView: View {
                 .textFieldStyle(.roundedBorder)
 
             content
+            if let panelError {
+                Text(panelError).font(.caption).foregroundStyle(.red)
+            }
         }
         .padding(.horizontal, 10)
         .padding(.bottom, 10)
@@ -31,6 +34,8 @@ struct LeoSidebarView: View {
             }
         }
     }
+
+    private var panelError: String? { model.panelError }
 
     @ViewBuilder private var content: some View {
         switch model.snapshot.connectivity {

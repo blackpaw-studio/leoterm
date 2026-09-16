@@ -20,9 +20,12 @@ extension TerminalController {
             let path = try (NSApp.delegate as? AppDelegate)?.leoRuntime.resolveExecutablePath()
             guard let path else { return }
             let command = try LeoCommandLauncher.startDaemonCommand(executablePath: path)
-            LeoCommandLauncher.openTab(in: self, command: command)
+            guard LeoCommandLauncher.openTab(in: self, command: command) else {
+                (NSApp.delegate as? AppDelegate)?.leoRuntime.model.setPanelError("Unable to open a terminal tab")
+                return
+            }
         } catch {
-            NSSound.beep()
+            (NSApp.delegate as? AppDelegate)?.leoRuntime.model.setPanelError(error.localizedDescription)
         }
     }
 
