@@ -33,7 +33,7 @@ struct LeoSidebarFeedTests {
             if case let .failed(message) = $0.connectivity { return message.contains("unavailable") }
             return false
         }
-        #expect(snapshot?.rows.map(\.name) == ["alpha"])
+        #expect(snapshot.rows.map(\.name) == ["alpha"])
         await feed.stop()
     }
 
