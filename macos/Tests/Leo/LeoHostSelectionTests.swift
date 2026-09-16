@@ -71,6 +71,46 @@ import Testing
         #expect(row.state == .error)
     }
 
+    @Test func retrySuccessMergesTheReturnedRowWithoutWaitingForSSE() async throws {
+        let daemon = SelectionDaemon(hosts: [
+            .init(name: "localhost", local: true, state: .local),
+            .init(name: "work", ssh: "evan@work", state: .error, error: "Permission denied", code: "ssh_auth_required")
+        ])
+        let selection = LeoHostSelection(daemon: daemon, defaults: defaults()) { _ in }
+        await selection.start(flavor: .hub)
+        selection.select(.remote("work"))
+
+        await daemon.setConnectResult(.success(.init(name: "work", ssh: "evan@work", state: .connected, connectedAt: "now")))
+        selection.retry()
+
+        await awaitCondition(message: "Retry's successful result was never merged into hosts") {
+            await selection.hosts.first { $0.name == "work" }?.state == .connected
+        }
+        #expect(selection.hosts.first { $0.name == "work" }?.connectedAt == "now")
+        #expect(await daemon.connects == ["work"])
+    }
+
+    @Test func retryFailureMarksTheRowAsErroredWithMessageAndCode() async throws {
+        let daemon = SelectionDaemon(hosts: [
+            .init(name: "localhost", local: true, state: .local),
+            .init(name: "work", ssh: "evan@work", state: .error, error: "stale", code: "stale_code")
+        ])
+        let selection = LeoHostSelection(daemon: daemon, defaults: defaults()) { _ in }
+        await selection.start(flavor: .hub)
+        selection.select(.remote("work"))
+
+        await daemon.setConnectResult(.failure(LeoDaemonError.daemon(code: "ssh_auth_required", message: "Permission denied", matches: [])))
+        selection.retry()
+
+        await awaitCondition(message: "Retry's failure was never reflected in hosts") {
+            await selection.hosts.first { $0.name == "work" }?.error == "Permission denied"
+        }
+        let row = try #require(selection.hosts.first { $0.name == "work" })
+        #expect(row.state == .error)
+        #expect(row.code == "ssh_auth_required")
+        #expect(row.ssh == "evan@work", "Retry's failure must preserve existing configuration metadata")
+    }
+
     private func defaults() -> UserDefaults {
         let suite = "LeoHostSelectionTests.\(UUID().uuidString)"
         return UserDefaults(suiteName: suite) ?? .standard
@@ -81,11 +121,14 @@ private actor SelectionDaemon: LeoDaemonClient {
     let rows: [LeoHostRow]
     private(set) var connects: [String] = []
     private(set) var hostCallCount = 0
+    private var connectResult: Result<LeoHostRow, Error>?
 
     init(hosts: [LeoHostRow]) { rows = hosts }
     func hosts() -> [LeoHostRow] { hostCallCount += 1; return rows }
-    func connectHost(_ name: String) -> LeoHostRow {
+    func setConnectResult(_ result: Result<LeoHostRow, Error>) { connectResult = result }
+    func connectHost(_ name: String) throws -> LeoHostRow {
         connects.append(name)
+        if let connectResult { return try connectResult.get() }
         return rows.first { $0.name == name } ?? .init(name: name, state: .connecting)
     }
     func listAgents() throws -> [LeoAgent] { [] }

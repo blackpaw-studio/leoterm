@@ -51,12 +51,47 @@ import Foundation
         installTarget(host)
         guard case .remote(let name) = host,
               let row = hosts.first(where: { $0.hostID == host }), row.state == .disconnected else { return }
-        Task { _ = try? await daemon.connectHost(name) }
+        Task { await attemptConnect(name) }
     }
 
     func retry() {
         guard case .remote(let name) = selected else { return }
-        Task { _ = try? await daemon.connectHost(name) }
+        Task { await attemptConnect(name) }
+    }
+
+    /// Connects a remote host and applies the outcome immediately, instead of
+    /// discarding it: a successful row is merged in (Retry no longer depends
+    /// on an SSE host_state_changed event to reflect it), and a thrown error
+    /// marks the row as errored with the daemon's message/code so Retry can
+    /// surface it right away.
+    private func attemptConnect(_ name: String) async {
+        do {
+            let row = try await daemon.connectHost(name)
+            receive(row)
+        } catch {
+            guard let index = hosts.firstIndex(where: { $0.name == name }) else { return }
+            let existing = hosts[index]
+            hosts[index] = LeoHostRow(
+                name: existing.name,
+                local: existing.local,
+                isDefault: existing.isDefault,
+                ssh: existing.ssh,
+                state: .error,
+                error: Self.message(error),
+                code: Self.code(error),
+                connectedAt: existing.connectedAt
+            )
+        }
+    }
+
+    private static func message(_ error: Error) -> String {
+        if case let LeoDaemonError.daemon(_, message, _) = error { return message }
+        return error.localizedDescription
+    }
+
+    private static func code(_ error: Error) -> String? {
+        if case let LeoDaemonError.daemon(code, _, _) = error { return code }
+        return nil
     }
 
     func receive(_ row: LeoHostRow) {
