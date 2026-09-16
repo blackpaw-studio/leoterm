@@ -131,13 +131,11 @@ struct LeoSidebarFeedTests {
         let feed = makeFeed(daemon: daemon, recorder: recorder)
 
         await feed.start()
-        for _ in 0..<4 { await Task.yield() }
         var calls = await daemon.listCallCount
         #expect(calls == 0)
         await feed.setPolling(true)
         try await eventually { await daemon.listCallCount == 1 }
         await feed.setPolling(false)
-        for _ in 0..<4 { await Task.yield() }
         calls = await daemon.listCallCount
         #expect(calls == 1)
         await feed.stop()
@@ -152,7 +150,7 @@ struct LeoSidebarFeedTests {
         try await eventually { await daemon.listCallCount == 1 }
         await feed.stop()
         await daemon.resolveNext(.success([agent("late")]))
-        for _ in 0..<4 { await Task.yield() }
+        try await eventually { await daemon.listCallCount == 1 }
         let snapshots = await recorder.values
         #expect(snapshots.isEmpty)
     }
@@ -169,7 +167,7 @@ struct LeoSidebarFeedTests {
         await daemon.resolveNext(.success([agent("alpha")]))
         try await eventually { await daemon.listCallCount == 2 }
         await daemon.resolveNext(.success([agent("bravo")]))
-        for _ in 0..<4 { await Task.yield() }
+        try await eventually { await daemon.listCallCount == 2 }
         #expect(await daemon.listCallCount == 2)
         await feed.stop()
     }
