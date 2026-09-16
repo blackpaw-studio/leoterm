@@ -19,10 +19,9 @@ struct LeoSidebarFeedRecoveryTests {
         await feed.start()
         await feed.setPolling(true)
 
-        try await eventually { await recorder.last?.rows.map(\.name) == ["alpha"] }
-        let snapshot = await recorder.last
-        #expect(snapshot?.connectivity == .connected)
-        #expect(snapshot?.rows.first?.activity == .unknown)
+        let snapshot = await recorder.snapshot { $0.rows.map(\.name) == ["alpha"] }
+        #expect(snapshot.connectivity == .connected)
+        #expect(snapshot.rows.first?.activity == .unknown)
         await feed.stop()
     }
 
@@ -100,8 +99,17 @@ private actor RecoveryDaemon: LeoDaemonClient {
 
 private actor RecoverySnapshotRecorder {
     private(set) var values: [LeoSidebarSnapshot] = []
+    private var waiters: [(predicate: @Sendable (LeoSidebarSnapshot) -> Bool, continuation: CheckedContinuation<LeoSidebarSnapshot, Never>)] = []
     var last: LeoSidebarSnapshot? { values.last }
-    func append(_ snapshot: LeoSidebarSnapshot) { values.append(snapshot) }
+    func append(_ snapshot: LeoSidebarSnapshot) {
+        values.append(snapshot)
+        let matching = waiters.enumerated().filter { $0.element.predicate(snapshot) }.map(\.offset)
+        for index in matching.reversed() { waiters.remove(at: index).continuation.resume(returning: snapshot) }
+    }
+    func snapshot(where predicate: @escaping @Sendable (LeoSidebarSnapshot) -> Bool) async -> LeoSidebarSnapshot {
+        if let snapshot = values.last(where: predicate) { return snapshot }
+        return await withCheckedContinuation { waiters.append((predicate, $0)) }
+    }
 }
 
 private actor SuspendedStateFetch {

@@ -3,22 +3,37 @@ import Foundation
 struct LeoCLI: Sendable {
     let executableOverride: String?
     let runner: any LeoProcessRunning
+    let candidatePaths: [String]
+    let path: String?
+    let expandTilde: @Sendable (String) -> String
+    let isExecutable: @Sendable (String) -> Bool
 
-    init(executableOverride: String? = nil, runner: any LeoProcessRunning = LeoProcessRunner()) {
+    init(
+        executableOverride: String? = nil,
+        runner: any LeoProcessRunning = LeoProcessRunner(),
+        candidatePaths: [String] = ["~/.local/bin/leo"],
+        path: String? = ProcessInfo.processInfo.environment["PATH"],
+        expandTilde: @escaping @Sendable (String) -> String = { NSString(string: $0).expandingTildeInPath },
+        isExecutable: @escaping @Sendable (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) }
+    ) {
         self.executableOverride = executableOverride
         self.runner = runner
+        self.candidatePaths = candidatePaths
+        self.path = path
+        self.expandTilde = expandTilde
+        self.isExecutable = isExecutable
     }
 
     func resolveExecutable() throws -> String {
-        try Self.resolveExecutable(executableOverride: executableOverride)
+        try Self.resolveExecutable(executableOverride: executableOverride, candidatePaths: candidatePaths, path: path, expandTilde: expandTilde, isExecutable: isExecutable)
     }
 
     static func resolveExecutable(
         executableOverride: String? = nil,
         candidatePaths: [String] = ["~/.local/bin/leo"],
         path: String? = ProcessInfo.processInfo.environment["PATH"],
-        expandTilde: (String) -> String = { NSString(string: $0).expandingTildeInPath },
-        isExecutable: (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) }
+        expandTilde: @Sendable (String) -> String = { NSString(string: $0).expandingTildeInPath },
+        isExecutable: @Sendable (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) }
     ) throws -> String {
         if let executableOverride {
             let expanded = expandTilde(executableOverride)

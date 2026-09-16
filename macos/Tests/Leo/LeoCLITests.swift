@@ -6,7 +6,7 @@ import Testing
 struct LeoCLITests {
     @Test func usesArgvForTemplateAndHostLists() async throws {
         let runner = CLIFakeRunner()
-        let cli = LeoCLI(executableOverride: "/usr/bin/leo", runner: runner)
+        let cli = LeoCLI(executableOverride: "/usr/bin/leo", runner: runner, isExecutable: { $0 == "/usr/bin/leo" })
         _ = try await cli.templateList()
         _ = try await cli.hostList()
         #expect(await runner.arguments == [["template", "list", "--json"], ["host", "list", "--json"]])
