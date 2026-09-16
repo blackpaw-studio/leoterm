@@ -54,6 +54,14 @@ struct LeoSidebarSnapshot: Equatable, Sendable {
     let rows: [LeoAgentRow]
     let connectivity: LeoConnectivity
     let generation: Int
+    let listRefreshSucceeded: Bool
+
+    init(rows: [LeoAgentRow], connectivity: LeoConnectivity, generation: Int, listRefreshSucceeded: Bool = false) {
+        self.rows = rows
+        self.connectivity = connectivity
+        self.generation = generation
+        self.listRefreshSucceeded = listRefreshSucceeded
+    }
 }
 
 enum AttachDisposition: Sendable { case reuseOrTab, newWindow }

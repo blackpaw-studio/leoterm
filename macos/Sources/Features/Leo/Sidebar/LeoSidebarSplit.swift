@@ -15,13 +15,15 @@ enum LeoSidebarSplitMetrics {
 struct LeoSidebarSplit<Terminal: View>: View {
     @ObservedObject var session: LeoWindowSession
     @ObservedObject var model: LeoSidebarModel
+    @ObservedObject var actions: LeoAgentActions
     private let terminal: Terminal
 
     @State private var dragOrigin: CGFloat?
 
-    init(session: LeoWindowSession, model: LeoSidebarModel, @ViewBuilder terminal: () -> Terminal) {
+    init(session: LeoWindowSession, model: LeoSidebarModel, actions: LeoAgentActions, @ViewBuilder terminal: () -> Terminal) {
         self.session = session
         self.model = model
+        self.actions = actions
         self.terminal = terminal()
     }
 
@@ -32,7 +34,7 @@ struct LeoSidebarSplit<Terminal: View>: View {
                 available: geometry.size.width
             )
             HStack(spacing: 0) {
-                LeoSidebarView(model: model, windowID: session.id)
+                LeoSidebarView(model: model, windowID: session.id, actions: actions)
                     .frame(width: session.isSidebarVisible ? width : 0)
                     .clipped()
                     .opacity(session.isSidebarVisible ? 1 : 0)

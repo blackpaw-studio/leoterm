@@ -89,7 +89,7 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
             ZStack {
                 // MARK: Leo
                 if let leoSession, let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime {
-                    LeoSidebarSplit(session: leoSession, model: runtime.model) {
+                    LeoSidebarSplit(session: leoSession, model: runtime.model, actions: runtime.actions) {
                         terminalContent
                     }
                 } else {

@@ -4,6 +4,7 @@ import Foundation
 @MainActor final class LeoRuntime {
     let model: LeoSidebarModel
     let registry: LeoWindowSessionRegistry
+    let actions: LeoAgentActions
     private let feed: LeoSidebarFeed
     private let cli: LeoCLI
     private let defaults: UserDefaults
@@ -55,11 +56,14 @@ import Foundation
             },
             report: { [weak model] error in
                 let id = LeoAgentRow.ID(host: error.identity.host, name: error.identity.name)
-                model?.setRowError(id, message: error.message)
+                model?.setRowError(error.message, for: id)
             }
         )
         feed = LeoSidebarFeed(daemon: daemon, activity: activitySource) { [weak model] snapshot in
             model?.receive(snapshot)
+        }
+        actions = LeoAgentActions(daemon: daemon, cli: cli, model: model) { [weak feed] in
+            Task { await feed?.refresh() }
         }
         model.retryRequested = { [feed] in Task { await feed.refresh() } }
         registry.pollabilityChanged = { [feed] pollable in Task { await feed.setPolling(pollable) } }
