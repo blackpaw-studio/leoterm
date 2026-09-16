@@ -6,17 +6,23 @@ import Testing
 struct LeoAttachCommandTests {
     @Test func buildsLocalCommand() throws {
         let command = try LeoAttachCommand.build(executable: "/opt/leo", identity: .init(host: .local, name: "worker"))
-        #expect(command == "env -u TMUX -u TMUX_PANE '/opt/leo' agent attach 'worker'")
+        #expect(command == "env -u TMUX -u TMUX_PANE '/opt/leo' agent attach -- 'worker'")
     }
 
     @Test func quotesHostileName() throws {
         let identity = LeoAgentIdentity(host: .local, name: "it's $(bad) agent")
-        #expect(try LeoAttachCommand.build(executable: "/leo path", identity: identity) == "env -u TMUX -u TMUX_PANE '/leo path' agent attach 'it'\\''s $(bad) agent'")
+        #expect(try LeoAttachCommand.build(executable: "/leo path", identity: identity) == "env -u TMUX -u TMUX_PANE '/leo path' agent attach -- 'it'\\''s $(bad) agent'")
     }
 
     @Test func includesRemoteHost() throws {
         let identity = LeoAgentIdentity(host: .remote("build host"), name: "worker")
-        #expect(try LeoAttachCommand.build(executable: "/leo", identity: identity) == "env -u TMUX -u TMUX_PANE '/leo' --host 'build host' agent attach 'worker'")
+        #expect(try LeoAttachCommand.build(executable: "/leo", identity: identity) == "env -u TMUX -u TMUX_PANE '/leo' agent attach --host 'build host' -- 'worker'")
+    }
+
+    @Test(arguments: ["--help", "-x", "--cc"])
+    func namesStartingWithFlagsFollowDelimiter(_ name: String) throws {
+        let command = try LeoAttachCommand.build(executable: "/leo", identity: .init(host: .local, name: name))
+        #expect(command == "env -u TMUX -u TMUX_PANE '/leo' agent attach -- '\(name)'")
     }
 
     @Test(arguments: ["bad\0name", "bad\nname", "bad\rname"])
