@@ -37,8 +37,14 @@ protocol LeoActivityTransport: Sendable {
 }
 
 struct LeoURLSessionActivityTransport: LeoActivityTransport {
+    private let session: URLSession
+
+    init(session: URLSession = .shared) {
+        self.session = session
+    }
+
     func fetch(_ request: URLRequest) async throws -> (Data, Int) {
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
     }
 
@@ -46,7 +52,7 @@ struct LeoURLSessionActivityTransport: LeoActivityTransport {
         AsyncThrowingStream { continuation in
             let task = Task {
                 do {
-                    let (bytes, response) = try await URLSession.shared.bytes(for: request)
+                    let (bytes, response) = try await session.bytes(for: request)
                     guard let response = response as? HTTPURLResponse, (200..<300).contains(response.statusCode) else {
                         continuation.finish(throwing: LeoDaemonError.transport("Observability endpoint returned a non-success status"))
                         return
@@ -54,7 +60,10 @@ struct LeoURLSessionActivityTransport: LeoActivityTransport {
                     var data = Data()
                     for try await byte in bytes {
                         data.append(byte)
-                        if data.count >= 512 { continuation.yield(data); data = Data() }
+                        if data.suffix(2).elementsEqual([10, 10]) {
+                            continuation.yield(data)
+                            data = Data()
+                        }
                     }
                     if !data.isEmpty { continuation.yield(data) }
                     continuation.finish()

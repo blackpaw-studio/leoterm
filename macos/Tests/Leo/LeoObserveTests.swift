@@ -4,6 +4,13 @@ import Testing
 @testable import Ghostty
 
 struct LeoObserveTests {
+    @Test func activityClientDeliversSmallCompleteFrameImmediately() async throws {
+        guard let url = URL(string: "http://127.0.0.1:8370") else { throw LeoDaemonError.transport("Invalid test URL") }
+        let client = LeoActivityClient(config: LeoObserveConfig(baseURL: url, token: "token"), transport: SmallFrameTransport())
+        let event = try await nextWithinFiftyMilliseconds(from: await client.events())
+        #expect(event == .agentActivity(seq: 1, at: nil, agent: "a", activity: .idle, currentAction: nil))
+    }
+
     @Test func parsesSSETranscript() throws {
         var parser = LeoSSEParser()
         let data = try fixture("events.sse")
@@ -50,6 +57,22 @@ struct LeoObserveTests {
     private func fixture(_ name: String) throws -> Data {
         try Data(contentsOf: URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/\(name)"))
     }
+
+    private func nextWithinFiftyMilliseconds(from stream: AsyncStream<LeoObserveEvent>) async throws -> LeoObserveEvent? {
+        try await withThrowingTaskGroup(of: LeoObserveEvent?.self) { group in
+            group.addTask {
+                var iterator = stream.makeAsyncIterator()
+                return try await iterator.next()
+            }
+            group.addTask {
+                try await Task.sleep(nanoseconds: 50_000_000)
+                throw LeoDaemonError.timeout
+            }
+            guard let value = try await group.next() else { return nil }
+            group.cancelAll()
+            return value
+        }
+    }
 }
 
 private struct EventTransport: LeoActivityTransport {
@@ -83,6 +106,16 @@ private struct EventTransport: LeoActivityTransport {
 
             """ + "\n").utf8))
             continuation.finish()
+        }
+    }
+}
+
+private struct SmallFrameTransport: LeoActivityTransport {
+    func fetch(_ request: URLRequest) async throws -> (Data, Int) { (Data(), 200) }
+
+    func stream(_ request: URLRequest) -> AsyncThrowingStream<Data, Error> {
+        AsyncThrowingStream { continuation in
+            continuation.yield(Data("event: agent_activity\ndata: {\"seq\":1,\"agent\":\"a\",\"activity\":\"idle\"}\n\n".utf8))
         }
     }
 }
