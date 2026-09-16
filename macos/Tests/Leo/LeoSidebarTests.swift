@@ -7,7 +7,7 @@ struct LeoSidebarTests {
     @Test func reducersRankFilterMergeAndRejectStaleResults() {
         let stopped = row("z", status: .stopped)
         let working = row("b", status: .running, activity: .working)
-        let running = row("a", status: .running)
+        let running = row("a", template: "swift", status: .running)
         let starting = row("c", status: .starting)
         #expect(LeoSidebarReducers.rank([stopped, running, starting, working]).map(\.name) == ["b", "a", "c", "z"])
         #expect(LeoSidebarReducers.filter([running], query: "swift") == [running])
@@ -20,7 +20,7 @@ struct LeoSidebarTests {
         var scheduler = LeoPollScheduler(now: { Date(timeIntervalSince1970: 0) })
         #expect(scheduler.reduce(.sidebarVisibleCountChanged(1)) == [.resume, .refreshNow, .scheduleTick(after: 2)])
         #expect(scheduler.reduce(.refreshStarted).isEmpty)
-        #expect(scheduler.reduce(.tick) == [])
+        #expect(scheduler.reduce(.tick) == [.scheduleTick(after: 2)])
         #expect(scheduler.reduce(.refreshFinished) == [.refreshNow])
         #expect(scheduler.reduce(.windowOcclusionChanged(true)) == [.pause])
     }

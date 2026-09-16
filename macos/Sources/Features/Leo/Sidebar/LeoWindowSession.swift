@@ -15,7 +15,7 @@ import Foundation
         self.defaults = defaults
         self.onPollabilityChanged = onPollabilityChanged
         isSidebarVisible = defaults.object(forKey: "leo.sidebarVisible") as? Bool ?? true
-        preferredWidth = defaults.object(forKey: "leo.sidebarWidth") as? CGFloat ?? 260
+        preferredWidth = (defaults.object(forKey: "leo.sidebarWidth") as? NSNumber).map { CGFloat($0.doubleValue) } ?? 260
     }
 
     var isPollable: Bool { isSidebarVisible && !windowIsOccluded && !windowIsMiniaturized }
