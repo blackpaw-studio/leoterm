@@ -19,7 +19,13 @@ import Foundation
         registry.pollabilityChanged = { [feed] pollable in Task { await feed.setPolling(pollable) } }
     }
 
-    func start() { Task { await feed.start() } }
+    func start() {
+        let pollable = registry.hasPollableSidebar
+        Task {
+            await feed.start()
+            await feed.setPolling(pollable)
+        }
+    }
     func shutdown() { Task { await feed.stop() } }
     func makeWindowSession() -> LeoWindowSession { registry.makeSession(defaults: defaults) }
 }

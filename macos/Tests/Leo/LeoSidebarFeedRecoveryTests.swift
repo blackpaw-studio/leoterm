@@ -49,6 +49,21 @@ struct LeoSidebarFeedRecoveryTests {
         try await eventually { await suspendedState.wasCancelled }
     }
 
+    @Test @MainActor func startingAfterRegisteringVisibleSessionRefreshesImmediately() async throws {
+        let daemon = RecoveryDaemon(agents: [agent("alpha")])
+        let defaults = UserDefaults(suiteName: "LeoSidebarFeedRecoveryTests")!
+        defaults.removePersistentDomain(forName: "LeoSidebarFeedRecoveryTests")
+        let activity = LeoActivityClient(config: .init(baseURL: URL(string: "http://127.0.0.1")!, token: "test"))
+        let runtime = LeoRuntime(daemon: daemon, cli: LeoCLI(), activity: activity, defaults: defaults)
+        let session = runtime.makeWindowSession()
+
+        runtime.start()
+
+        try await eventually { await daemon.listCallCount == 1 }
+        #expect(session.isPollable)
+        runtime.shutdown()
+    }
+
     private func agent(_ name: String) -> LeoAgent {
         .init(name: name, template: "default", repo: nil, workspace: nil, branch: nil, canonicalPath: nil, status: .running, startedAt: nil, restarts: nil, stoppedReason: nil, wakeOnMessage: nil)
     }
@@ -66,10 +81,11 @@ private enum RecoveryError: Error { case unavailable }
 
 private actor RecoveryDaemon: LeoDaemonClient {
     let agents: [LeoAgent]
+    private(set) var listCallCount = 0
 
     init(agents: [LeoAgent]) { self.agents = agents }
 
-    func listAgents() async throws -> [LeoAgent] { agents }
+    func listAgents() async throws -> [LeoAgent] { listCallCount += 1; return agents }
     func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent { fatalError() }
     func start(_ name: String) async throws { fatalError() }
     func stop(_ name: String, wakeOnMessage: Bool?) async throws { fatalError() }
