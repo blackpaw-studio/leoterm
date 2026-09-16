@@ -123,7 +123,13 @@ final class FakeHubDaemon: @unchecked Sendable {
         }
         while !Task.isCancelled {
             var byte: UInt8 = 0
-            if Darwin.recv(client, &byte, 1, MSG_PEEK | MSG_DONTWAIT) == 0 { return }
+            let peek = Darwin.recv(client, &byte, 1, MSG_PEEK | MSG_DONTWAIT)
+            // A graceful close reads 0. An abrupt close (e.g. the peer had
+            // unread bytes buffered when it closed) surfaces as an error
+            // other than "nothing available right now" -- treat that as
+            // closed too, instead of looping on it forever.
+            if peek == 0 { return }
+            if peek < 0, errno != EAGAIN, errno != EWOULDBLOCK { return }
             for event in await controller.takeEvents() {
                 guard Self.send(client, Data(event.utf8)) else { return }
             }
