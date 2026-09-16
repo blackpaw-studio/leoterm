@@ -8,12 +8,26 @@ import Foundation
 
     private let daemon: any LeoDaemonClient
     private let defaults: UserDefaults
+    private let hostStateTarget: (LeoHostRow) -> Void
     private let installTarget: (LeoHostID) -> Void
 
+    /// One in-flight connect `Task` per host name, keyed by name. A retry (or
+    /// select) for a host that's already connecting is coalesced into the
+    /// existing task instead of issuing a second `connectHost` call.
+    private var connectTasks: [String: Task<Void, Never>] = [:]
+    /// Bumped whenever a host's row is updated from any source (a connect
+    /// attempt applying its own result, or an externally-received update
+    /// such as an SSE `host_state_changed`). A connect task only applies its
+    /// outcome if the generation it captured when it started is still
+    /// current, so a slow/stale attempt can never clobber a newer update.
+    private var connectGenerations: [String: Int] = [:]
+
     init(daemon: any LeoDaemonClient, defaults: UserDefaults,
+         hostStateTarget: @escaping (LeoHostRow) -> Void = { _ in },
          installTarget: @escaping (LeoHostID) -> Void) {
         self.daemon = daemon
         self.defaults = defaults
+        self.hostStateTarget = hostStateTarget
         self.installTarget = installTarget
         if let value = defaults.string(forKey: "leo.selectedHost"), value != "localhost" {
             selected = .remote(value)
@@ -51,27 +65,47 @@ import Foundation
         installTarget(host)
         guard case .remote(let name) = host,
               let row = hosts.first(where: { $0.hostID == host }), row.state == .disconnected else { return }
-        Task { await attemptConnect(name) }
+        connect(name)
     }
 
     func retry() {
         guard case .remote(let name) = selected else { return }
-        Task { await attemptConnect(name) }
+        connect(name)
+    }
+
+    /// Starts (or coalesces into) the single in-flight connect attempt for
+    /// `name`. A retry/select fired while one is already running does not
+    /// issue a second `connectHost` call -- it's a no-op here, and the
+    /// already-running task's outcome applies to everyone waiting on it.
+    private func connect(_ name: String) {
+        guard connectTasks[name] == nil else { return }
+        let generation = connectGenerations[name, default: 0]
+        connectTasks[name] = Task { [weak self] in
+            await self?.attemptConnect(name, generation: generation)
+        }
     }
 
     /// Connects a remote host and applies the outcome immediately, instead of
     /// discarding it: a successful row is merged in (Retry no longer depends
     /// on an SSE host_state_changed event to reflect it), and a thrown error
     /// marks the row as errored with the daemon's message/code so Retry can
-    /// surface it right away.
-    private func attemptConnect(_ name: String) async {
+    /// surface it right away. The outcome is only applied -- and the feed
+    /// only notified -- if `generation` is still current for this host: if a
+    /// newer update (another connect, or an externally received row) arrived
+    /// while this one was in flight, this stale result is dropped instead of
+    /// clobbering it.
+    private func attemptConnect(_ name: String, generation: Int) async {
+        defer { connectTasks[name] = nil }
         do {
             let row = try await daemon.connectHost(name)
+            guard connectGenerations[name, default: 0] == generation else { return }
             receive(row)
+            hostStateTarget(row)
         } catch {
+            guard connectGenerations[name, default: 0] == generation else { return }
             guard let index = hosts.firstIndex(where: { $0.name == name }) else { return }
             let existing = hosts[index]
-            hosts[index] = LeoHostRow(
+            let errorRow = LeoHostRow(
                 name: existing.name,
                 local: existing.local,
                 isDefault: existing.isDefault,
@@ -81,6 +115,9 @@ import Foundation
                 code: Self.code(error),
                 connectedAt: existing.connectedAt
             )
+            connectGenerations[name, default: 0] += 1
+            hosts[index] = errorRow
+            hostStateTarget(errorRow)
         }
     }
 
@@ -95,6 +132,7 @@ import Foundation
     }
 
     func receive(_ row: LeoHostRow) {
+        connectGenerations[row.name, default: 0] += 1
         if let index = hosts.firstIndex(where: { $0.name == row.name }) {
             let existing = hosts[index]
             hosts[index] = LeoHostRow(
