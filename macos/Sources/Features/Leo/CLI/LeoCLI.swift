@@ -10,18 +10,27 @@ struct LeoCLI: Sendable {
     }
 
     func resolveExecutable() throws -> String {
+        try Self.resolveExecutable(executableOverride: executableOverride)
+    }
+
+    static func resolveExecutable(
+        executableOverride: String? = nil,
+        candidatePaths: [String] = ["~/.local/bin/leo"],
+        path: String? = ProcessInfo.processInfo.environment["PATH"],
+        expandTilde: (String) -> String = { NSString(string: $0).expandingTildeInPath },
+        isExecutable: (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) }
+    ) throws -> String {
         if let executableOverride {
-            let expanded = NSString(string: executableOverride).expandingTildeInPath
-            guard FileManager.default.isExecutableFile(atPath: expanded) else {
+            let expanded = expandTilde(executableOverride)
+            guard isExecutable(expanded) else {
                 throw LeoDaemonError.transport("leo executable is not executable: \(expanded)")
             }
             return expanded
         }
-        let local = NSString(string: "~/.local/bin/leo").expandingTildeInPath
-        if FileManager.default.isExecutableFile(atPath: local) { return local }
-        let path = ProcessInfo.processInfo.environment["PATH"]?.split(separator: ":") ?? []
-        if let executable = path.map({ "\($0)/leo" }).first(where: FileManager.default.isExecutableFile(atPath:)) { return executable }
-        throw LeoDaemonError.transport("leo executable not found")
+
+        let candidates = candidatePaths.map(expandTilde) + (path?.split(separator: ":").map { "\($0)/leo" } ?? [])
+        if let executable = candidates.first(where: isExecutable) { return executable }
+        throw LeoDaemonError.transport("leo executable not found; tried: \(candidates.joined(separator: ", "))")
     }
 
     func templateList() async throws -> [LeoTemplate] {
