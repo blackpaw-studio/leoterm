@@ -25,6 +25,18 @@ struct LeoSidebarTests {
         #expect(scheduler.reduce(.windowOcclusionChanged(true)) == [.pause])
     }
 
+    @Test func schedulerBoundsFollowUpRefreshAfterManyTicks() {
+        var scheduler = LeoPollScheduler(now: { Date(timeIntervalSince1970: 0) })
+        _ = scheduler.reduce(.sidebarVisibleCountChanged(1))
+        _ = scheduler.reduce(.refreshStarted)
+
+        for _ in 0..<10 {
+            #expect(scheduler.reduce(.tick) == [.scheduleTick(after: 2)])
+        }
+
+        #expect(scheduler.reduce(.refreshFinished) == [.refreshNow])
+    }
+
     @Test @MainActor func modelPreservesSelectionAndFilters() {
         let first = row("a", template: "swift")
         let model = LeoSidebarModel(snapshot: .init(rows: [first], connectivity: .connected, generation: 0))
