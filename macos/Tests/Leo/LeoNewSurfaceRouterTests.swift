@@ -233,6 +233,74 @@ import Testing
         await router.choose(.agent(identity), for: request)
         #expect(spy.attachCalls.count == 2)
     }
+
+    /// Review finding: a `.placeholder` request's `isRequestValid` flips to
+    /// `false` the instant its tree stops being empty -- i.e. exactly when
+    /// the fill *succeeds*. Retiring must not re-check validity after the
+    /// fact, or a successful placeholder fill would never retire and a
+    /// stale re-`choose` on it would wrongly re-attach.
+    @Test func successRetiresEvenWhenNoLongerValidAfterward() async {
+        let spy = RouterSpy()
+        var checks = 0
+        spy.isRequestValid = { _ in
+            checks += 1
+            return checks == 1
+        }
+        let router = spy.makeRouter()
+        let request = LeoSurfaceRequest(origin: origin, disposition: .placeholder)
+        router.begin(request)
+
+        await router.choose(.agent(identity), for: request)
+        #expect(spy.attachCalls.count == 1)
+
+        // If retirement were gated on validity, the request would still be
+        // "active" here and this would attach again.
+        await router.choose(.agent(identity), for: request)
+        #expect(spy.attachCalls.count == 1)
+    }
+
+    /// Review finding: two same-origin gestures issued back-to-back, before
+    /// either's chosen work has actually run, must both create a
+    /// destination -- `begin(_:)` superseding the first request must not
+    /// retroactively cancel a choice already committed via
+    /// `chooseDetached`.
+    @Test func chooseDetachedSurvivesASubsequentBeginForTheSameOrigin() async {
+        let spy = RouterSpy()
+        let router = spy.makeRouter()
+        let first = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let second = LeoSurfaceRequest(origin: origin, disposition: .tab)
+
+        router.begin(first)
+        #expect(router.chooseDetached(.plainShell, for: first))
+        router.begin(second)
+        #expect(router.chooseDetached(.plainShell, for: second))
+
+        for _ in 0..<200 where spy.openPlainShellCalls.count < 2 {
+            try? await Task.sleep(nanoseconds: 5_000_000)
+        }
+        #expect(spy.openPlainShellCalls == [first, second])
+    }
+
+    @Test func onRequestEndedFiresOnCancelSuccessAndUncommittedSupersede() async {
+        let spy = RouterSpy()
+        var ended: [LeoSurfaceRequest] = []
+        spy.onRequestEnded = { ended.append($0) }
+        let router = spy.makeRouter()
+
+        let cancelled = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        router.begin(cancelled)
+        await router.choose(.cancel, for: cancelled)
+
+        let succeeded = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        router.begin(succeeded)
+        await router.choose(.agent(identity), for: succeeded)
+
+        let displaced = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        router.begin(displaced)
+        router.invalidate(origin: origin)
+
+        #expect(ended == [cancelled, succeeded, displaced])
+    }
 }
 
 @MainActor private final class RouterSpy {
@@ -248,6 +316,7 @@ import Testing
     var invalidateOriginBeforeSpawnResolves = false
     var supersedeOriginBeforeSpawnResolves = false
     var attachGate: ChooseGate?
+    var onRequestEnded: (LeoSurfaceRequest) -> Void = { _ in }
 
     private weak var router: LeoNewSurfaceRouter?
 
@@ -273,7 +342,8 @@ import Testing
                 completion(self?.spawnResult)
             },
             isRequestValid: { [weak self] request in self?.isRequestValid(request) ?? true },
-            onFailure: { [weak self] request, error in self?.onFailureCalls.append((request, error)) }
+            onFailure: { [weak self] request, error in self?.onFailureCalls.append((request, error)) },
+            onRequestEnded: { [weak self] request in self?.onRequestEnded(request) }
         )
         self.router = router
         return router

@@ -153,7 +153,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     private func createHandle(command: String, workingDirectory: String?, request: LeoSurfaceRequest) throws -> AttachmentHandle {
         switch request.disposition {
         case .tab:
-            return try host.openTab(command: command, workingDirectory: workingDirectory, from: request.origin)
+            return try host.openTab(command: command, workingDirectory: workingDirectory, from: request.origin, requestID: request.id)
         case .split(let direction):
             guard let sourceSurface = request.splitSourceSurface else {
                 throw LeoAttachCoordinatorError.missingSplitSource
@@ -163,12 +163,13 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
                 workingDirectory: workingDirectory,
                 origin: request.origin,
                 sourceSurface: sourceSurface,
-                direction: direction
+                direction: direction,
+                requestID: request.id
             )
         case .window:
-            return try host.openWindow(command: command, workingDirectory: workingDirectory)
+            return try host.openWindow(command: command, workingDirectory: workingDirectory, requestID: request.id)
         case .placeholder:
-            return try host.fillPlaceholder(command: command, workingDirectory: workingDirectory, origin: request.origin)
+            return try host.fillPlaceholder(command: command, workingDirectory: workingDirectory, origin: request.origin, requestID: request.id)
         }
     }
 

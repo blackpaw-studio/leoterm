@@ -110,6 +110,32 @@ class AppDelegate: NSObject,
     // MARK: Leo
     let leoRuntime: LeoRuntime
 
+    /// Creates an empty placeholder window (via the Leo-owned factory, which
+    /// mirrors the upstream `newWindow(_:withBaseConfig:withParent:)`'s
+    /// fullscreen/opacity/cascade handling for an empty tree -- see its
+    /// doc) and routes a `.placeholder` request to the agent picker for it.
+    /// Shared by every "no existing window to attach a tab/split into"
+    /// path: `new_window`, launch, reopen, and the fallback new-window menu
+    /// item. `baseConfig` is the inherited `SurfaceConfiguration` (if any)
+    /// from whatever triggered this -- see `LeoRuntime.routeNewSurface`.
+    @MainActor private func leoRouteNewWindow(baseConfig: Ghostty.SurfaceConfiguration? = nil) {
+        let controller = TerminalController.leoNewPlaceholderWindow(ghostty)
+        guard let leoSession = controller.leoSession else { return }
+        leoRuntime.routeNewSurface(.placeholder, origin: leoSession.id, inheritedConfig: baseConfig)
+    }
+
+    /// Routes a `.tab` request for `window` if it's a Leo-managed terminal
+    /// window, falling back to `leoRouteNewWindow()` (placeholder) if not --
+    /// e.g. the fallback new-tab menu item with no existing window.
+    @MainActor private func leoRouteNewTab(from window: NSWindow?, baseConfig: Ghostty.SurfaceConfiguration? = nil) {
+        guard let window, let controller = window.windowController as? TerminalController,
+              let leoSession = controller.leoSession else {
+            leoRouteNewWindow(baseConfig: baseConfig)
+            return
+        }
+        leoRuntime.routeNewSurface(.tab, origin: leoSession.id, inheritedConfig: baseConfig)
+    }
+
     /// The global undo manager for app-level state such as window restoration.
     lazy var undoManager = ExpiringUndoManager()
 
@@ -383,7 +409,8 @@ class AppDelegate: NSObject,
             //   - if we're restoring from persisted state
             if TerminalController.all.isEmpty && derivedConfig.initialWindow {
                 undoManager.disableUndoRegistration()
-                _ = TerminalController.newWindow(ghostty)
+                // MARK: Leo
+                leoRouteNewWindow()
                 undoManager.enableUndoRegistration()
             }
         }
@@ -456,7 +483,8 @@ class AppDelegate: NSObject,
         guard applicationHasBecomeActive else { return true }
 
         // No visible windows, open a new one.
-        _ = TerminalController.newWindow(ghostty)
+        // MARK: Leo
+        leoRouteNewWindow()
         return false
     }
 
@@ -743,13 +771,13 @@ class AppDelegate: NSObject,
         }
     }
 
-    @objc private func ghosttyNewWindow(_ notification: Notification) {
+    @MainActor @objc private func ghosttyNewWindow(_ notification: Notification) {
+        // MARK: Leo
         let configAny = notification.userInfo?[Ghostty.Notification.NewSurfaceConfigKey]
-        let config = configAny as? Ghostty.SurfaceConfiguration
-        _ = TerminalController.newWindow(ghostty, withBaseConfig: config)
+        leoRouteNewWindow(baseConfig: configAny as? Ghostty.SurfaceConfiguration)
     }
 
-    @objc private func ghosttyNewTab(_ notification: Notification) {
+    @MainActor @objc private func ghosttyNewTab(_ notification: Notification) {
         guard let surfaceView = notification.object as? Ghostty.SurfaceView else { return }
         guard let window = surfaceView.window else { return }
 
@@ -757,10 +785,9 @@ class AppDelegate: NSObject,
         // a regular terminal controller.
         guard window.windowController is TerminalController else { return }
 
+        // MARK: Leo
         let configAny = notification.userInfo?[Ghostty.Notification.NewSurfaceConfigKey]
-        let config = configAny as? Ghostty.SurfaceConfiguration
-
-        _ = TerminalController.newTab(ghostty, from: window, withBaseConfig: config)
+        leoRouteNewTab(from: window, baseConfig: configAny as? Ghostty.SurfaceConfiguration)
     }
 
     private func setDockBadge() {
@@ -975,14 +1002,13 @@ class AppDelegate: NSObject,
     }
 
     @IBAction func newWindow(_ sender: Any?) {
-        _ = TerminalController.newWindow(ghostty)
+        // MARK: Leo
+        leoRouteNewWindow()
     }
 
     @IBAction func newTab(_ sender: Any?) {
-        _ = TerminalController.newTab(
-            ghostty,
-            from: TerminalController.preferredParent?.window
-        )
+        // MARK: Leo
+        leoRouteNewTab(from: TerminalController.preferredParent?.window)
     }
 
     @IBAction func closeAllWindows(_ sender: Any?) {

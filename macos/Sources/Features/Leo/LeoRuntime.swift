@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import GhosttyKit
 import OSLog
 
 @MainActor final class LeoRuntime {
@@ -13,6 +14,9 @@ import OSLog
     private let cli: LeoCLI
     private let defaults: UserDefaults
     private let attachCoordinator: LeoAttachCoordinator
+    let newSurfaceRouter: LeoNewSurfaceRouter
+    private let picker: LeoPickerPresenting
+    private let requestConfigStore: LeoRequestConfigStore
     private let orphanStore: LeoTunnelOrphanStore
     private let localDaemon: any LeoDaemonClient
     private let localActivitySource: LeoSidebarActivitySource
@@ -64,7 +68,9 @@ import OSLog
         let registry = LeoWindowSessionRegistry()
         self.model = model
         self.registry = registry
-        let host = GhosttyAttachTabHost(registry: registry)
+        let requestConfigStore = LeoRequestConfigStore()
+        self.requestConfigStore = requestConfigStore
+        let host = GhosttyAttachTabHost(registry: registry, requestConfigStore: requestConfigStore)
         weak var weakSelf: LeoRuntime?
         let hostSelection = LeoHostSelection(
             store: LeoHostStore(defaults: defaults),
@@ -96,6 +102,45 @@ import OSLog
                 model?.setRowError(error.message, for: id)
             }
         )
+        let router = LeoNewSurfaceRouter(
+            attach: { [weak attachCoordinator] identity, request in
+                guard let attachCoordinator else {
+                    return .failure(.init(identity: identity, kind: .openFailed("Leo runtime is unavailable")))
+                }
+                return await attachCoordinator.attach(identity: identity, request: request).map { _ in () }
+            },
+            openPlainShell: { [weak attachCoordinator] request in
+                guard let attachCoordinator else {
+                    return .failure(.init(
+                        identity: LeoAgentIdentity(host: .local, name: ""),
+                        kind: .openFailed("Leo runtime is unavailable")
+                    ))
+                }
+                return await attachCoordinator.openPlainShell(request: request).map { _ in () }
+            },
+            presentSpawn: { _, complete in
+                // Task 2 has no palette UI yet (see `LeoPassthroughPicker`),
+                // so `.newAgent` is never chosen -- this is only reachable
+                // once Task 3 wires a real presenter.
+                complete(nil)
+            },
+            isRequestValid: { [weak registry] request in
+                guard let controller = registry?.controller(for: request.origin) else { return false }
+                if case .placeholder = request.disposition { return controller.surfaceTree.isEmpty }
+                return true
+            },
+            onFailure: { [weak model] _, error in model?.setPanelError(error.message) },
+            onRequestEnded: { [weak requestConfigStore] request in requestConfigStore?.drop(for: request.id) }
+        )
+        self.newSurfaceRouter = router
+        self.picker = LeoPassthroughPicker(router: router)
+        // A window's requests must not outlive its session: once the
+        // session unregisters (window closed), any request still pending
+        // for it can never be validly resolved (no controller to attach
+        // into). `report()` fires this the next time the registry
+        // reconciles its weak entries.
+        registry.onUnregistered = { [weak router] windowID in router?.invalidate(origin: windowID) }
+
         feed = LeoSidebarFeed(daemon: daemon, activity: activitySource) { [weak model] snapshot in
             model?.receive(snapshot)
         }
@@ -155,11 +200,40 @@ import OSLog
         Task { await feed.stop() }
     }
     func makeWindowSession(for controller: TerminalController) -> LeoWindowSession {
-        registry.makeSession(window: controller.window, controller: controller, defaults: defaults)
+        let session = registry.makeSession(window: controller.window, controller: controller, defaults: defaults)
+        // Captures `sessionID` (a value), not `session` itself -- `session`
+        // owns this closure, so capturing `session` here would be a
+        // reference cycle (session -> closure -> session) that keeps the
+        // window session, and everything it holds, alive forever.
+        let sessionID = session.id
+        session.openPicker = { [weak self] in self?.routeNewSurface(.placeholder, origin: sessionID) }
+        return session
     }
 
     func makeWindowSession() -> LeoWindowSession {
         registry.makeSession(defaults: defaults)
+    }
+
+    /// Begins a new-surface gesture (Cmd+T, Cmd+D, Cmd+N, launch, or the
+    /// placeholder's "pick an agent" button) for `origin` and immediately
+    /// hands it to the picker. `sourceSurface` is required for `.split` and
+    /// ignored otherwise (see `LeoSurfaceRequest`). `inheritedConfig` is the
+    /// `Ghostty.SurfaceConfiguration` the triggering gesture carried (e.g.
+    /// the focused surface's working directory) -- stashed in
+    /// `requestConfigStore` keyed by the request's id, since
+    /// `LeoSurfaceRequest` itself stays a pure value type with no AppKit
+    /// dependency. `GhosttyAttachTabHost` consumes it when it actually
+    /// creates the destination surface.
+    func routeNewSurface(
+        _ disposition: LeoSurfaceDisposition,
+        origin: LeoWindowID,
+        sourceSurface: UUID? = nil,
+        inheritedConfig: Ghostty.SurfaceConfiguration? = nil
+    ) {
+        let request = LeoSurfaceRequest(origin: origin, disposition: disposition, splitSourceSurface: sourceSurface)
+        requestConfigStore.set(inheritedConfig, for: request.id)
+        newSurfaceRouter.begin(request)
+        picker.present(request: request)
     }
 
     func resolveExecutablePath() throws -> String {

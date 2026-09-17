@@ -96,6 +96,17 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                     terminalContent
                 }
 
+                // MARK: Leo
+                if let leoSession, viewModel.surfaceTree.isEmpty {
+                    LeoPlaceholderView(
+                        openPicker: { leoSession.openPicker() },
+                        toggleDrawer: {
+                            guard let appDelegate = NSApp.delegate as? AppDelegate else { return }
+                            appDelegate.toggleQuickTerminal(appDelegate)
+                        }
+                    )
+                }
+
                 if let surfaceView = lastFocusedSurface?.value {
                     TerminalCommandPaletteView(
                         surfaceView: surfaceView,

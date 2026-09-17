@@ -9,6 +9,139 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     // MARK: Leo
     private(set) var leoSession: LeoWindowSession?
 
+    /// Intercepts the `new_split` core action: if this window has a Leo
+    /// session and a non-empty tree, the split is routed to the agent
+    /// picker instead of being created directly (`leoCreateSplit` below is
+    /// the committed path the picker uses once a choice is made). An empty
+    /// tree can't be split from (there's no `oldView`), so that case is
+    /// treated as a `.placeholder` request instead.
+    override func newSplit(
+        at oldView: Ghostty.SurfaceView,
+        direction: SplitTree<Ghostty.SurfaceView>.NewDirection,
+        baseConfig config: Ghostty.SurfaceConfiguration? = nil
+    ) -> Ghostty.SurfaceView? {
+        guard let leoSession, let leoRuntime = (NSApp.delegate as? AppDelegate)?.leoRuntime else {
+            return super.newSplit(at: oldView, direction: direction, baseConfig: config)
+        }
+        guard !surfaceTree.isEmpty else {
+            leoRuntime.routeNewSurface(.placeholder, origin: leoSession.id, inheritedConfig: config)
+            return nil
+        }
+        leoRuntime.routeNewSurface(
+            .split(leoSplitDirection(for: direction)),
+            origin: leoSession.id,
+            sourceSurface: oldView.id,
+            inheritedConfig: config
+        )
+        return nil
+    }
+
+    /// The committed split-creation path: bypasses the picker interception
+    /// above. Called only by `GhosttyAttachTabHost.openSplit` once the
+    /// picker has resolved a `.split` request.
+    func leoCreateSplit(
+        at oldView: Ghostty.SurfaceView,
+        direction: SplitTree<Ghostty.SurfaceView>.NewDirection,
+        baseConfig config: Ghostty.SurfaceConfiguration?
+    ) -> Ghostty.SurfaceView? {
+        super.newSplit(at: oldView, direction: direction, baseConfig: config)
+    }
+
+    /// Creates an empty-tree "placeholder" window: mirrors
+    /// `newWindow(_:withBaseConfig:withParent:)` above (fullscreen and
+    /// background-opacity inheritance, cascade, activation) but with an
+    /// empty surface tree, and registers only a minimal "close if still
+    /// empty" undo (`leoRegisterCloseOnUndoIfEmpty` below) instead of that
+    /// factory's `baseConfig`-recreating redo, which makes no sense for a
+    /// window with no surface -- `leoRegisterFilledPlaceholderUndo` (below)
+    /// replaces it once the placeholder actually has content.
+    static func leoNewPlaceholderWindow(_ ghostty: Ghostty.App, withParent explicitParent: NSWindow? = nil) -> TerminalController {
+        let c = TerminalController.init(ghostty, withSurfaceTree: .init())
+
+        let parent: NSWindow? = explicitParent ?? preferredParent?.window
+        if let parentController = parent?.windowController as? TerminalController {
+            c.isBackgroundOpaque = parentController.isBackgroundOpaque
+        }
+
+        if let parent, parent.styleMask.contains(.fullScreen) {
+            c.toggleFullscreen(mode: .native)
+        } else if let fullscreenMode = ghostty.config.windowFullscreen {
+            switch fullscreenMode {
+            case .native:
+                c.toggleFullscreen(mode: .native)
+            case .nonNative, .nonNativeVisibleMenu, .nonNativePaddedNotch:
+                DispatchQueue.main.async {
+                    c.toggleFullscreen(mode: fullscreenMode)
+                }
+            }
+        }
+
+        c.scheduleInitialPresentation {
+            c.showWindowSafely(self)
+            if let window = c.window, !window.styleMask.contains(.fullScreen) {
+                let hasFixedPos = c.derivedConfig.windowPositionX != nil && c.derivedConfig.windowPositionY != nil
+                DispatchQueue.main.async {
+                    applyCascade(to: window, hasFixedPos: hasFixedPos)
+                }
+            }
+            NSApp.activate(ignoringOtherApps: true)
+        }
+
+        c.leoRegisterCloseOnUndoIfEmpty()
+        return c
+    }
+
+    /// Registers a minimal undo action for a just-created empty placeholder
+    /// window: undo just closes it, guarded to no-op if it was since
+    /// filled (in which case `leoRegisterFilledPlaceholderUndo` has already
+    /// replaced this registration). No redo -- recreating an empty window
+    /// on redo isn't useful.
+    private func leoRegisterCloseOnUndoIfEmpty() {
+        guard let undoManager else { return }
+        undoManager.setActionName("New Window")
+        undoManager.registerUndo(withTarget: self, expiresAfter: undoExpiration) { target in
+            guard target.surfaceTree.isEmpty else { return }
+            undoManager.disableUndoRegistration { target.closeWindow(nil) }
+        }
+    }
+
+    /// Called by `GhosttyAttachTabHost.fillPlaceholder` once a placeholder
+    /// window's empty tree has been replaced with a real surface. Replaces
+    /// whatever undo action is currently registered (the "close if still
+    /// empty" one above) with a normal "New Window" undo/redo pair for the
+    /// filled tree, mirroring `newWindow(_:tree:...)`'s own undo setup --
+    /// so a filled placeholder undoes/redoes exactly like a normal window
+    /// from here on, and redo can never reopen it empty.
+    func leoRegisterFilledPlaceholderUndo() {
+        guard let undoManager else { return }
+        let tree = surfaceTree
+        let ghostty = self.ghostty
+        undoManager.setActionName("New Window")
+        undoManager.registerUndo(withTarget: self, expiresAfter: undoExpiration) { target in
+            undoManager.disableUndoRegistration { target.closeWindow(nil) }
+            undoManager.registerUndo(withTarget: ghostty, expiresAfter: target.undoExpiration) { ghostty in
+                _ = TerminalController.newWindow(ghostty, tree: tree)
+            }
+        }
+    }
+
+    /// Re-runs the initial-size logic from `windowDidLoad` (the
+    /// `container.initialContentSize` / `defaultSize.apply(to:)` block)
+    /// for a window that was created empty (a Leo placeholder) and has
+    /// just been filled with a real surface -- `windowDidLoad` already ran
+    /// once with no surface, so `defaultSize` (which depends on
+    /// `focusedSurface`) was nil then and nothing was sized.
+    func leoApplyInitialSize() {
+        guard let window, let defaultSize else { return }
+        defaultSize.apply(to: window)
+        if case .contentIntrinsicSize = defaultSize {
+            if let screen = window.screen ?? NSScreen.main {
+                let frame = adjustForWindowPosition(frame: window.frame, on: screen)
+                window.setFrameOrigin(frame.origin)
+            }
+        }
+    }
+
     override var windowNibName: NSNib.Name? {
         let defaultValue = "Terminal"
 
@@ -1213,6 +1346,11 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 
     // Shows the "+" button in the tab bar, responds to that click.
     override func newWindowForTab(_ sender: Any?) {
+        // MARK: Leo
+        if let leoSession, surfaceTree.isEmpty {
+            (NSApp.delegate as? AppDelegate)?.leoRuntime.routeNewSurface(.placeholder, origin: leoSession.id)
+            return
+        }
         // Trigger the ghostty core event logic for a new tab.
         guard let surface = self.focusedSurface?.surface else { return }
         ghostty.newTab(surface: surface)
@@ -1321,11 +1459,21 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     // MARK: First Responder
 
     @IBAction func newWindow(_ sender: Any?) {
+        // MARK: Leo
+        if let leoSession, surfaceTree.isEmpty {
+            (NSApp.delegate as? AppDelegate)?.leoRuntime.routeNewSurface(.placeholder, origin: leoSession.id)
+            return
+        }
         guard let surface = focusedSurface?.surface else { return }
         ghostty.newWindow(surface: surface)
     }
 
     @IBAction func newTab(_ sender: Any?) {
+        // MARK: Leo
+        if let leoSession, surfaceTree.isEmpty {
+            (NSApp.delegate as? AppDelegate)?.leoRuntime.routeNewSurface(.placeholder, origin: leoSession.id)
+            return
+        }
         guard let surface = focusedSurface?.surface else { return }
         ghostty.newTab(surface: surface)
     }

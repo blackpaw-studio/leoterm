@@ -10,6 +10,11 @@ import Foundation
     private let presentSpawn: (LeoSurfaceRequest, @escaping (LeoAgentIdentity?) -> Void) -> Void
     private let isRequestValid: (LeoSurfaceRequest) -> Bool
     private let onFailure: (LeoSurfaceRequest, LeoAttachError) -> Void
+    /// Called whenever a request stops being tracked -- retired (cancel /
+    /// success) or displaced (superseded / invalidated) -- so callers that
+    /// key side state off a request's id (e.g. `LeoRequestConfigStore`)
+    /// have exactly one place to clean it up.
+    private let onRequestEnded: (LeoSurfaceRequest) -> Void
 
     /// One active request per origin window -- a new `begin(_:)` for the
     /// same origin silently supersedes whatever request was pending there.
@@ -20,6 +25,9 @@ import Foundation
     private var activeRequestByOrigin: [LeoWindowID: LeoSurfaceRequest] = [:]
     /// Guards against a duplicate `choose(_:for:)` call for the same
     /// request racing the one already in flight (e.g. a double Return).
+    /// Also the "has this request already been committed to a choice"
+    /// marker: once inserted here, a later `begin(_:)` for the same origin
+    /// no longer affects this request's in-flight work (see `commit(_:)`).
     private var inFlightRequestIDs: Set<UUID> = []
     /// The still-unresumed spawn-sheet completion for a request awaiting
     /// `presentSpawn`, keyed by request id. Consumed (removed) by whichever
@@ -33,18 +41,23 @@ import Foundation
         openPlainShell: @escaping (LeoSurfaceRequest) async -> Result<Void, LeoAttachError>,
         presentSpawn: @escaping (LeoSurfaceRequest, @escaping (LeoAgentIdentity?) -> Void) -> Void,
         isRequestValid: @escaping (LeoSurfaceRequest) -> Bool = { _ in true },
-        onFailure: @escaping (LeoSurfaceRequest, LeoAttachError) -> Void = { _, _ in }
+        onFailure: @escaping (LeoSurfaceRequest, LeoAttachError) -> Void = { _, _ in },
+        onRequestEnded: @escaping (LeoSurfaceRequest) -> Void = { _ in }
     ) {
         self.attach = attach
         self.openPlainShell = openPlainShell
         self.presentSpawn = presentSpawn
         self.isRequestValid = isRequestValid
         self.onFailure = onFailure
+        self.onRequestEnded = onRequestEnded
     }
 
     /// Registers `request` as the active gesture for its origin window,
     /// superseding (and resuming, with `nil`, any pending spawn for)
-    /// whatever request was previously active there.
+    /// whatever request was previously active there. A request already
+    /// committed to a choice (see `commit(_:)`) is unaffected -- its
+    /// in-flight work runs to completion regardless of what `begin(_:)` is
+    /// called afterwards for the same origin.
     func begin(_ request: LeoSurfaceRequest) {
         supersede(origin: request.origin)
         activeRequestByOrigin[request.origin] = request
@@ -59,22 +72,63 @@ import Foundation
     }
 
     func choose(_ choice: LeoPickerChoice, for request: LeoSurfaceRequest) async {
-        guard isActive(request), isRequestValid(request) else { return }
-        guard inFlightRequestIDs.insert(request.id).inserted else { return }
-        defer { inFlightRequestIDs.remove(request.id) }
+        guard commit(request) else { return }
+        defer { release(request) }
+        await perform(choice, for: request)
+    }
 
+    /// Synchronous variant of `choose(_:for:)`: commits to `choice` for
+    /// `request` immediately (before this call returns) if it's still
+    /// active and valid, then performs the actual work in a detached
+    /// `Task`. Returns `true` if the request was committed.
+    ///
+    /// Exists because a caller that fires-and-forgets `choose` via its own
+    /// `Task { await router.choose(...) }` (e.g. `LeoPassthroughPicker`)
+    /// leaves a gap between that `Task` being *scheduled* and actually
+    /// *running* -- a second `begin(_:)` for the same origin in that gap
+    /// would supersede the first request before its choice was ever
+    /// committed, silently dropping it. Calling `chooseDetached` instead
+    /// commits synchronously, so supersession can only ever displace a
+    /// request nothing has been decided for yet.
+    @discardableResult
+    func chooseDetached(_ choice: LeoPickerChoice, for request: LeoSurfaceRequest) -> Bool {
+        guard commit(request) else { return false }
+        Task { [weak self] in
+            await self?.perform(choice, for: request)
+            self?.release(request)
+        }
+        return true
+    }
+
+    /// Validity and in-flight checks happen here, once, before any work
+    /// begins -- not re-checked afterwards (see `settle(_:request:)`),
+    /// since re-validating post-hoc (e.g. a `.placeholder` request is no
+    /// longer "valid" the instant its tree stops being empty, which is the
+    /// desired *outcome* of filling it) would wrongly treat success as if
+    /// the request had been displaced.
+    private func commit(_ request: LeoSurfaceRequest) -> Bool {
+        guard isActive(request), isRequestValid(request) else { return false }
+        return inFlightRequestIDs.insert(request.id).inserted
+    }
+
+    private func release(_ request: LeoSurfaceRequest) {
+        inFlightRequestIDs.remove(request.id)
+    }
+
+    private func perform(_ choice: LeoPickerChoice, for request: LeoSurfaceRequest) async {
         switch choice {
         case .cancel:
             retireIfActive(request)
         case .agent(let identity):
-            await performAttach(identity: identity, request: request)
+            let result = await attach(identity, request)
+            settle(result, request: request)
         case .plainShell:
             let result = await openPlainShell(request)
-            handle(result, request: request)
+            settle(result, request: request)
         case .newAgent:
-            let identity = await requestSpawnedIdentity(for: request)
-            guard let identity, isActive(request), isRequestValid(request) else { return }
-            await performAttach(identity: identity, request: request)
+            guard let identity = await requestSpawnedIdentity(for: request) else { return }
+            let result = await attach(identity, request)
+            settle(result, request: request)
         }
     }
 
@@ -90,13 +144,11 @@ import Foundation
         }
     }
 
-    private func performAttach(identity: LeoAgentIdentity, request: LeoSurfaceRequest) async {
-        let result = await attach(identity, request)
-        handle(result, request: request)
-    }
-
-    private func handle(_ result: Result<Void, LeoAttachError>, request: LeoSurfaceRequest) {
-        guard isActive(request), isRequestValid(request) else { return }
+    /// Settles the outcome of a committed request's work: retires
+    /// unconditionally on success (see `commit(_:)`'s doc for why this
+    /// must not re-check `isRequestValid`), or reports failure and leaves
+    /// the request active so the palette can retry it.
+    private func settle(_ result: Result<Void, LeoAttachError>, request: LeoSurfaceRequest) {
         switch result {
         case .success:
             retireIfActive(request)
@@ -112,14 +164,24 @@ import Foundation
     private func retireIfActive(_ request: LeoSurfaceRequest) {
         guard activeRequestByOrigin[request.origin] == request else { return }
         activeRequestByOrigin.removeValue(forKey: request.origin)
+        onRequestEnded(request)
     }
 
     /// Removes the active request for `origin` (if any) and resumes its
-    /// pending spawn completion, if one is still outstanding, with `nil`.
+    /// pending spawn completion (if one is still outstanding) with `nil`.
+    /// Only reports the request as ended if it was never committed to a
+    /// choice (`commit(_:)`) -- a request already in flight (e.g. awaiting
+    /// `attach`) keeps running after being displaced here (see
+    /// `chooseDetached`'s doc), so ending it now would be premature: its
+    /// own `retireIfActive` call once `perform` settles is what actually
+    /// reports it (on success; a failure leaves it retryable and its
+    /// config-store entry intact).
     private func supersede(origin: LeoWindowID) {
         guard let previous = activeRequestByOrigin.removeValue(forKey: origin) else { return }
         if let resume = pendingSpawnResumes.removeValue(forKey: previous.id) {
             resume(nil)
         }
+        guard !inFlightRequestIDs.contains(previous.id) else { return }
+        onRequestEnded(previous)
     }
 }

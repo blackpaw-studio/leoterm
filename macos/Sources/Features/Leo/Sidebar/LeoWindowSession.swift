@@ -28,6 +28,10 @@ struct LeoWindowVisibilityState: Equatable {
     @Published var windowIsOccluded = false { didSet { changed() } }
     @Published var windowIsMiniaturized = false { didSet { changed() } }
     var displayedWidth: CGFloat { min(max(preferredWidth, 200), 420) }
+    /// Opens the agent picker for this window's placeholder. Wired by
+    /// `LeoRuntime.makeWindowSession(for:)`; a no-op until then (e.g. in
+    /// tests that construct a session directly).
+    var openPicker: () -> Void = {}
 
     private let defaults: UserDefaults
     private let onPollabilityChanged: () -> Void
@@ -95,6 +99,12 @@ struct LeoWindowVisibilityState: Equatable {
     }
     private var entries: [LeoWindowID: Entry] = [:]
     var pollabilityChanged: (Bool) -> Void = { _ in }
+    /// Fired for a window id the next time `report()` runs (a session
+    /// change, or a new `makeSession` call) after that id's session has
+    /// deallocated. Not proactive -- there is no deinit hook on
+    /// `LeoWindowSession` -- but it's reconciled on the same cadence as
+    /// `hasPollableSidebar` already is.
+    var onUnregistered: (LeoWindowID) -> Void = { _ in }
 
     func makeSession(window: NSWindow? = nil, controller: TerminalController? = nil, defaults: UserDefaults = .standard) -> LeoWindowSession {
         let session = LeoWindowSession(window: window, defaults: defaults) { [weak self] in self?.report() }
@@ -110,7 +120,9 @@ struct LeoWindowVisibilityState: Equatable {
     func controller(for id: LeoWindowID) -> TerminalController? { entries[id]?.controller }
 
     private func report() {
+        let before = entries.keys
         entries = entries.filter { $0.value.session != nil }
+        for id in before where entries[id] == nil { onUnregistered(id) }
         pollabilityChanged(hasPollableSidebar)
     }
 }

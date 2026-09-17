@@ -274,10 +274,10 @@ import Testing
 
 @MainActor private final class FakeAttachTabHost: AttachTabHost {
     var openError: Error?
-    var tabCalls: [(String, String?, LeoWindowID)] = []
-    var windowCalls: [(String, String?)] = []
-    var splitCalls: [(String, String?, LeoWindowID, UUID, LeoSplitDirection)] = []
-    var placeholderCalls: [(String, String?, LeoWindowID)] = []
+    var tabCalls: [(String, String?, LeoWindowID, UUID)] = []
+    var windowCalls: [(String, String?, UUID)] = []
+    var splitCalls: [(String, String?, LeoWindowID, UUID, LeoSplitDirection, UUID)] = []
+    var placeholderCalls: [(String, String?, LeoWindowID, UUID)] = []
     var focused: [AttachmentHandle] = []
     var titles: [(AttachmentHandle, String?)] = []
     var handles: [AttachmentHandle] = []
@@ -290,13 +290,13 @@ import Testing
         (lifecycleEvents, continuation) = AsyncStream.makeStream()
     }
 
-    func openTab(command: String, workingDirectory: String?, from origin: LeoWindowID) throws -> AttachmentHandle {
-        tabCalls.append((command, workingDirectory, origin))
+    func openTab(command: String, workingDirectory: String?, from origin: LeoWindowID, requestID: UUID) throws -> AttachmentHandle {
+        tabCalls.append((command, workingDirectory, origin, requestID))
         return try opened()
     }
 
-    func openWindow(command: String, workingDirectory: String?) throws -> AttachmentHandle {
-        windowCalls.append((command, workingDirectory))
+    func openWindow(command: String, workingDirectory: String?, requestID: UUID) throws -> AttachmentHandle {
+        windowCalls.append((command, workingDirectory, requestID))
         return try opened()
     }
 
@@ -305,14 +305,15 @@ import Testing
         workingDirectory: String?,
         origin: LeoWindowID,
         sourceSurface: UUID,
-        direction: LeoSplitDirection
+        direction: LeoSplitDirection,
+        requestID: UUID
     ) throws -> AttachmentHandle {
-        splitCalls.append((command, workingDirectory, origin, sourceSurface, direction))
+        splitCalls.append((command, workingDirectory, origin, sourceSurface, direction, requestID))
         return try opened()
     }
 
-    func fillPlaceholder(command: String, workingDirectory: String?, origin: LeoWindowID) throws -> AttachmentHandle {
-        placeholderCalls.append((command, workingDirectory, origin))
+    func fillPlaceholder(command: String, workingDirectory: String?, origin: LeoWindowID, requestID: UUID) throws -> AttachmentHandle {
+        placeholderCalls.append((command, workingDirectory, origin, requestID))
         return try opened()
     }
 
