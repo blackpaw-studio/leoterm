@@ -23,6 +23,13 @@ import Foundation
     @Published var filterText: String = "" {
         didSet { recompute() }
     }
+    /// Inline message from a failed attach/spawn, shown as a footer in the
+    /// palette so the user can try another row without the panel closing.
+    /// Cleared explicitly by the presenter (`clearFailure()`) whenever a new
+    /// gesture or a fresh attempt begins -- never by `update(...)` itself,
+    /// since live snapshot refreshes (agents starting/stopping) must not
+    /// silently dismiss a still-relevant error.
+    @Published private(set) var attachError: String?
 
     private let retry: () -> Void
     private var snapshot: LeoSidebarSnapshot?
@@ -51,6 +58,22 @@ import Foundation
         let next = min(max(current + delta, 0), rows.count - 1)
         selectedIndex = next
         selectedRowIdentity = identity(for: rows[next])
+    }
+
+    /// Selects `index` directly (a mouse click on a row), clamping bookkeeping
+    /// the same way `moveSelection` does. A no-op for an out-of-range index.
+    func select(_ index: Int) {
+        guard rows.indices.contains(index) else { return }
+        selectedIndex = index
+        selectedRowIdentity = identity(for: rows[index])
+    }
+
+    func reportFailure(_ message: String) {
+        attachError = message
+    }
+
+    func clearFailure() {
+        attachError = nil
     }
 
     func confirm() -> LeoPickerChoice? {

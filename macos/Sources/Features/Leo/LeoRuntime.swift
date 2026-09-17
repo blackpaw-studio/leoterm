@@ -15,7 +15,7 @@ import OSLog
     private let defaults: UserDefaults
     private let attachCoordinator: LeoAttachCoordinator
     let newSurfaceRouter: LeoNewSurfaceRouter
-    private let picker: LeoPickerPresenting
+    private let picker: LeoWindowPickerRouter
     private let requestConfigStore: LeoRequestConfigStore
     private let orphanStore: LeoTunnelOrphanStore
     private let localDaemon: any LeoDaemonClient
@@ -102,6 +102,7 @@ import OSLog
                 model?.setRowError(error.message, for: id)
             }
         )
+        let pickerRouter = LeoWindowPickerRouter()
         let router = LeoNewSurfaceRouter(
             attach: { [weak attachCoordinator] identity, request in
                 guard let attachCoordinator else {
@@ -118,28 +119,43 @@ import OSLog
                 }
                 return await attachCoordinator.openPlainShell(request: request).map { _ in () }
             },
-            presentSpawn: { _, complete in
-                // Task 2 has no palette UI yet (see `LeoPassthroughPicker`),
-                // so `.newAgent` is never chosen -- this is only reachable
-                // once Task 3 wires a real presenter.
-                complete(nil)
+            presentSpawn: { [weak pickerRouter] request, complete in
+                guard let pickerRouter else {
+                    complete(nil)
+                    return
+                }
+                pickerRouter.presentSpawn(for: request, completion: complete)
             },
             isRequestValid: { [weak registry] request in
                 guard let controller = registry?.controller(for: request.origin) else { return false }
                 if case .placeholder = request.disposition { return controller.surfaceTree.isEmpty }
                 return true
             },
-            onFailure: { [weak model] _, error in model?.setPanelError(error.message) },
-            onRequestEnded: { [weak requestConfigStore] request in requestConfigStore?.drop(for: request.id) }
+            onFailure: { [weak model, weak pickerRouter] request, error in
+                model?.setPanelError(error.message)
+                pickerRouter?.reportFailure(error, for: request)
+            },
+            onRequestEnded: { [weak requestConfigStore, weak pickerRouter] request in
+                requestConfigStore?.drop(for: request.id)
+                pickerRouter?.requestEnded(request)
+            }
         )
         self.newSurfaceRouter = router
-        self.picker = LeoPassthroughPicker(router: router)
+        self.picker = pickerRouter
         // A window's requests must not outlive its session: once the
         // session unregisters (window closed), any request still pending
         // for it can never be validly resolved (no controller to attach
-        // into). `report()` fires this the next time the registry
-        // reconciles its weak entries.
-        registry.onUnregistered = { [weak router] windowID in router?.invalidate(origin: windowID) }
+        // into). This is the fallback path -- `report()` only runs the next
+        // time *some* session's state changes or a new one is made, which
+        // may be a while (or never, for a single-window quit). The prompt
+        // path is `LeoWindowSession.onWindowWillClose`, wired in
+        // `makeWindowSession(for:)` to call this same teardown immediately.
+        // Both call `router.invalidate`/`pickerRouter.unregister`, which are
+        // idempotent, so running it twice for the same window is harmless.
+        registry.onUnregistered = { [weak router, weak pickerRouter] windowID in
+            router?.invalidate(origin: windowID)
+            pickerRouter?.unregister(origin: windowID)
+        }
 
         feed = LeoSidebarFeed(daemon: daemon, activity: activitySource) { [weak model] snapshot in
             model?.receive(snapshot)
@@ -206,12 +222,38 @@ import OSLog
         // reference cycle (session -> closure -> session) that keeps the
         // window session, and everything it holds, alive forever.
         let sessionID = session.id
-        session.openPicker = { [weak self] in self?.routeNewSurface(.placeholder, origin: sessionID) }
+        session.openPicker = { [weak self, weak controller] in
+            guard let self else { return }
+            let disposition: LeoSurfaceDisposition = (controller?.surfaceTree.isEmpty ?? true) ? .placeholder : .tab
+            self.routeNewSurface(disposition, origin: sessionID)
+        }
+        session.onWindowWillClose = { [weak self] in self?.teardownWindow(sessionID) }
+        if let window = controller.window {
+            let presentation = LeoPickerPresentation(
+                window: window,
+                router: newSurfaceRouter,
+                sidebar: model,
+                hostSelection: hostSelection,
+                actions: actions
+            )
+            picker.register(presentation, for: sessionID)
+        }
         return session
     }
 
     func makeWindowSession() -> LeoWindowSession {
         registry.makeSession(defaults: defaults)
+    }
+
+    /// Tears down everything scoped to `windowID`: any pending new-surface
+    /// request and that window's palette presentation (panel, model,
+    /// subscriptions). Idempotent -- safe to call from both
+    /// `LeoWindowSession.onWindowWillClose` (prompt path) and
+    /// `registry.onUnregistered` (fallback reconciliation), which may both
+    /// fire for the same window.
+    private func teardownWindow(_ windowID: LeoWindowID) {
+        newSurfaceRouter.invalidate(origin: windowID)
+        picker.unregister(origin: windowID)
     }
 
     /// Begins a new-surface gesture (Cmd+T, Cmd+D, Cmd+N, launch, or the
@@ -231,6 +273,7 @@ import OSLog
         inheritedConfig: Ghostty.SurfaceConfiguration? = nil
     ) {
         let request = LeoSurfaceRequest(origin: origin, disposition: disposition, splitSourceSurface: sourceSurface)
+        Self.logger.log("routeNewSurface disposition=\(String(describing: disposition), privacy: .public) origin=\(origin.rawValue.uuidString, privacy: .public)")
         requestConfigStore.set(inheritedConfig, for: request.id)
         newSurfaceRouter.begin(request)
         picker.present(request: request)

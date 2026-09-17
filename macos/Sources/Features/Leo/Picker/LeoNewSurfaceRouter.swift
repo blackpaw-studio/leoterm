@@ -1,10 +1,13 @@
 import Foundation
+import OSLog
 
 /// Resolves a picker choice for one in-flight `LeoSurfaceRequest` into a
 /// coordinator call, the plain-shell path, or the Spawn Agent sheet followed
 /// by attach. Pure routing -- no AppKit, no direct `LeoAttachCoordinator`
 /// dependency (injected as closures so it is independently testable).
 @MainActor final class LeoNewSurfaceRouter {
+    private static let logger = Logger(subsystem: "com.mitchellh.ghostty", category: "leo")
+
     private let attach: (LeoAgentIdentity, LeoSurfaceRequest) async -> Result<Void, LeoAttachError>
     private let openPlainShell: (LeoSurfaceRequest) async -> Result<Void, LeoAttachError>
     private let presentSpawn: (LeoSurfaceRequest, @escaping (LeoAgentIdentity?) -> Void) -> Void
@@ -83,9 +86,9 @@ import Foundation
     /// `Task`. Returns `true` if the request was committed.
     ///
     /// Exists because a caller that fires-and-forgets `choose` via its own
-    /// `Task { await router.choose(...) }` (e.g. `LeoPassthroughPicker`)
-    /// leaves a gap between that `Task` being *scheduled* and actually
-    /// *running* -- a second `begin(_:)` for the same origin in that gap
+    /// `Task { await router.choose(...) }` leaves a gap between that `Task`
+    /// being *scheduled* and actually *running* -- a second `begin(_:)` for
+    /// the same origin in that gap
     /// would supersede the first request before its choice was ever
     /// committed, silently dropping it. Calling `chooseDetached` instead
     /// commits synchronously, so supersession can only ever displace a
@@ -118,6 +121,7 @@ import Foundation
     private func perform(_ choice: LeoPickerChoice, for request: LeoSurfaceRequest) async {
         switch choice {
         case .cancel:
+            Self.logger.log("requestOutcome id=\(request.id.uuidString, privacy: .public) outcome=cancel")
             retireIfActive(request)
         case .agent(let identity):
             let result = await attach(identity, request)
@@ -151,8 +155,10 @@ import Foundation
     private func settle(_ result: Result<Void, LeoAttachError>, request: LeoSurfaceRequest) {
         switch result {
         case .success:
+            Self.logger.log("requestOutcome id=\(request.id.uuidString, privacy: .public) outcome=success")
             retireIfActive(request)
         case .failure(let error):
+            Self.logger.log("requestOutcome id=\(request.id.uuidString, privacy: .public) outcome=failure message=\(error.message, privacy: .public)")
             onFailure(request, error)
         }
     }
@@ -182,6 +188,7 @@ import Foundation
             resume(nil)
         }
         guard !inFlightRequestIDs.contains(previous.id) else { return }
+        Self.logger.log("requestOutcome id=\(previous.id.uuidString, privacy: .public) outcome=superseded")
         onRequestEnded(previous)
     }
 }

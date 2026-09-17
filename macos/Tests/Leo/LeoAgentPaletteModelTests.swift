@@ -107,6 +107,16 @@ import Testing
         #expect(model.cancel() == .cancel)
     }
 
+    /// Selection defaults to the status row (index 0) while connecting --
+    /// that row is never confirmable, so Return (`confirm()`) must do
+    /// nothing rather than resolving to some other row.
+    @Test func confirmWithNoConfirmableRowDoesNothing() {
+        let model = LeoAgentPaletteModel()
+        model.update(snapshot: snapshot([]), selectedHost: .remote("work"), hostState: .connecting)
+
+        #expect(model.confirm() == nil)
+    }
+
     @Test func moveSelectionClampsAtBounds() {
         let model = LeoAgentPaletteModel()
         model.update(snapshot: snapshot([row("alpha")]), selectedHost: .local, hostState: .connected(socketPath: "/tmp/leo.sock"))

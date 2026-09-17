@@ -1,8 +1,11 @@
 import AppKit
 import Combine
 import GhosttyKit
+import OSLog
 
 @MainActor final class GhosttyAttachTabHost: AttachTabHost {
+    private static let logger = Logger(subsystem: "com.mitchellh.ghostty", category: "leo")
+
     let lifecycleEvents: AsyncStream<AttachLifecycleEvent>
     private let continuation: AsyncStream<AttachLifecycleEvent>.Continuation
     private let registry: LeoWindowSessionRegistry
@@ -49,16 +52,24 @@ import GhosttyKit
         direction: LeoSplitDirection,
         requestID: UUID
     ) throws -> AttachmentHandle {
-        guard let controller = registry.controller(for: origin) else { throw GhosttyAttachTabHostError.originWindowClosed }
-        guard let sourceView = controller.surfaceTree.first(where: { $0.id == sourceSurface }) else {
-            throw GhosttyAttachTabHostError.splitSourceUnavailable
+        Self.logger.log("openSplit requestID=\(requestID.uuidString, privacy: .public) origin=\(origin.rawValue.uuidString, privacy: .public)")
+        do {
+            guard let controller = registry.controller(for: origin) else { throw GhosttyAttachTabHostError.originWindowClosed }
+            guard let sourceView = controller.surfaceTree.first(where: { $0.id == sourceSurface }) else {
+                throw GhosttyAttachTabHostError.splitSourceUnavailable
+            }
+            guard let newView = controller.leoCreateSplit(
+                at: sourceView,
+                direction: leoSplitTreeDirection(for: direction),
+                baseConfig: configuration(command: command, workingDirectory: workingDirectory, requestID: requestID)
+            ) else { throw GhosttyAttachTabHostError.cannotOpenSplit }
+            let handle = try register(controller, surface: newView)
+            Self.logger.log("openSplit requestID=\(requestID.uuidString, privacy: .public) result=success")
+            return handle
+        } catch {
+            Self.logger.log("openSplit requestID=\(requestID.uuidString, privacy: .public) result=failure error=\(String(describing: error), privacy: .public)")
+            throw error
         }
-        guard let newView = controller.leoCreateSplit(
-            at: sourceView,
-            direction: leoSplitTreeDirection(for: direction),
-            baseConfig: configuration(command: command, workingDirectory: workingDirectory, requestID: requestID)
-        ) else { throw GhosttyAttachTabHostError.cannotOpenSplit }
-        return try register(controller, surface: newView)
     }
 
     /// Replaces the origin window's empty surface tree with a freshly
@@ -66,33 +77,41 @@ import GhosttyKit
     /// there is nothing to "fill" otherwise, and this must never clobber a
     /// live split.
     func fillPlaceholder(command: String, workingDirectory: String?, origin: LeoWindowID, requestID: UUID) throws -> AttachmentHandle {
-        guard let controller = registry.controller(for: origin) else { throw GhosttyAttachTabHostError.originWindowClosed }
-        guard controller.surfaceTree.isEmpty else { throw GhosttyAttachTabHostError.placeholderNotEmpty }
-        guard let ghosttyApp = controller.ghostty.app else { throw GhosttyAttachTabHostError.noTerminalWindow }
+        Self.logger.log("fillPlaceholder requestID=\(requestID.uuidString, privacy: .public) origin=\(origin.rawValue.uuidString, privacy: .public)")
+        do {
+            guard let controller = registry.controller(for: origin) else { throw GhosttyAttachTabHostError.originWindowClosed }
+            guard controller.surfaceTree.isEmpty else { throw GhosttyAttachTabHostError.placeholderNotEmpty }
+            guard let ghosttyApp = controller.ghostty.app else { throw GhosttyAttachTabHostError.noTerminalWindow }
 
-        let newView = Ghostty.SurfaceView(
-            ghosttyApp,
-            baseConfig: configuration(command: command, workingDirectory: workingDirectory, requestID: requestID)
-        )
-        guard newView.surface != nil else { throw GhosttyAttachTabHostError.surfaceUnavailable }
+            let newView = Ghostty.SurfaceView(
+                ghosttyApp,
+                baseConfig: configuration(command: command, workingDirectory: workingDirectory, requestID: requestID)
+            )
+            guard newView.surface != nil else { throw GhosttyAttachTabHostError.surfaceUnavailable }
 
-        // Assigned directly (not via `replaceSurfaceTree`, which always
-        // registers an undo action -- even with a nil `undoAction` -- and
-        // would let "undo" reopen a placeholder that was never a real
-        // close). The `didSet` observer this triggers is the normal
-        // non-init path, so `surfaceTreeDidChange`'s empty-tree-closes-
-        // window guard doesn't fire here (this transition is empty -> non-empty).
-        controller.surfaceTree = SplitTree(view: newView)
-        controller.focusedSurface = newView
-        controller.focusSurface(newView)
-        // `windowDidLoad` ran once already, with no surface, so its
-        // default-size logic (which depends on `focusedSurface`) was a
-        // no-op -- and the placeholder-creation undo (a plain "close if
-        // still empty") no longer applies now that there's real content.
-        controller.leoApplyInitialSize()
-        controller.leoRegisterFilledPlaceholderUndo()
+            // Assigned directly (not via `replaceSurfaceTree`, which always
+            // registers an undo action -- even with a nil `undoAction` -- and
+            // would let "undo" reopen a placeholder that was never a real
+            // close). The `didSet` observer this triggers is the normal
+            // non-init path, so `surfaceTreeDidChange`'s empty-tree-closes-
+            // window guard doesn't fire here (this transition is empty -> non-empty).
+            controller.surfaceTree = SplitTree(view: newView)
+            controller.focusedSurface = newView
+            controller.focusSurface(newView)
+            // `windowDidLoad` ran once already, with no surface, so its
+            // default-size logic (which depends on `focusedSurface`) was a
+            // no-op -- and the placeholder-creation undo (a plain "close if
+            // still empty") no longer applies now that there's real content.
+            controller.leoApplyInitialSize()
+            controller.leoRegisterFilledPlaceholderUndo()
 
-        return try register(controller, surface: newView)
+            let handle = try register(controller, surface: newView)
+            Self.logger.log("fillPlaceholder requestID=\(requestID.uuidString, privacy: .public) result=success")
+            return handle
+        } catch {
+            Self.logger.log("fillPlaceholder requestID=\(requestID.uuidString, privacy: .public) result=failure error=\(String(describing: error), privacy: .public)")
+            throw error
+        }
     }
 
     func focus(_ handle: AttachmentHandle) {

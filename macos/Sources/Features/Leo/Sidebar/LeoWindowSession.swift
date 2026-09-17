@@ -32,6 +32,12 @@ struct LeoWindowVisibilityState: Equatable {
     /// `LeoRuntime.makeWindowSession(for:)`; a no-op until then (e.g. in
     /// tests that construct a session directly).
     var openPicker: () -> Void = {}
+    /// Fired once, synchronously, from `NSWindow.willCloseNotification` --
+    /// lets `LeoRuntime` tear down this window's router state and palette
+    /// presentation immediately instead of waiting for the registry's next
+    /// opportunistic reconciliation (`report()`, only triggered by some
+    /// *other* session's state change or a new `makeSession` call).
+    var onWindowWillClose: () -> Void = {}
 
     private let defaults: UserDefaults
     private let onPollabilityChanged: () -> Void
@@ -75,6 +81,9 @@ struct LeoWindowVisibilityState: Equatable {
             },
             center.addObserver(forName: NSWindow.didMiniaturizeNotification, object: window, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.apply(.miniaturized) }
+            },
+            center.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.onWindowWillClose() }
             },
             center.addObserver(forName: NSWindow.didDeminiaturizeNotification, object: window, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.apply(.deminiaturized) }
