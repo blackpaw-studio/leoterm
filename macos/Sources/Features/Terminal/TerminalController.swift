@@ -8,6 +8,14 @@ import GhosttyKit
 class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Controller {
     // MARK: Leo
     private(set) var leoSession: LeoWindowSession?
+    /// True from `leoNewPlaceholderWindow` until `GhosttyAttachTabHost.
+    /// fillPlaceholder` successfully replaces the empty tree, or forever for
+    /// a placeholder the user never fills. Distinguishes "this window was
+    /// deliberately created empty and is showing `LeoPlaceholderView`" from
+    /// "this window's last surface just closed" for `surfaceTreeDidChange`'s
+    /// empty-tree-closes-window guard below -- only the former should skip
+    /// the close; the latter must close exactly like upstream always has.
+    private(set) var leoIsUnfilledPlaceholder = false
 
     /// Intercepts the `new_split` core action: if this window has a Leo
     /// session and a non-empty tree, the split is routed to the agent
@@ -56,7 +64,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     /// window with no surface -- `leoRegisterFilledPlaceholderUndo` (below)
     /// replaces it once the placeholder actually has content.
     static func leoNewPlaceholderWindow(_ ghostty: Ghostty.App, withParent explicitParent: NSWindow? = nil) -> TerminalController {
-        let c = TerminalController.init(ghostty, withSurfaceTree: .init())
+        let c = TerminalController.init(ghostty, withSurfaceTree: .init(), leoIsPlaceholder: true)
 
         let parent: NSWindow? = explicitParent ?? preferredParent?.window
         if let parentController = parent?.windowController as? TerminalController {
@@ -113,6 +121,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     /// so a filled placeholder undoes/redoes exactly like a normal window
     /// from here on, and redo can never reopen it empty.
     func leoRegisterFilledPlaceholderUndo() {
+        leoIsUnfilledPlaceholder = false
         guard let undoManager else { return }
         let tree = surfaceTree
         let ghostty = self.ghostty
@@ -200,7 +209,9 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     init(_ ghostty: Ghostty.App,
          withBaseConfig base: Ghostty.SurfaceConfiguration? = nil,
          withSurfaceTree tree: SplitTree<Ghostty.SurfaceView>? = nil,
-         parent: NSWindow? = nil
+         parent: NSWindow? = nil,
+         // MARK: Leo
+         leoIsPlaceholder: Bool = false
     ) {
         // The window we manage is not restorable if we've specified a command
         // to execute. We do this because the restored window is meaningless at the
@@ -211,6 +222,16 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 
         // Setup our initial derived config based on the current app config
         self.derivedConfig = DerivedConfig(ghostty.config)
+
+        // MARK: Leo
+        // Must be set before `super.init(...)` below: that call's `self.
+        // surfaceTree = tree` assignment synchronously fires `didSet` ->
+        // `surfaceTreeDidChange`, which is what this flag guards against
+        // auto-closing a deliberately-empty placeholder window. Setting it
+        // any later (e.g. on the object `leoNewPlaceholderWindow` returns)
+        // would be too late -- that very first `surfaceTreeDidChange` call
+        // already happened by then.
+        self.leoIsUnfilledPlaceholder = leoIsPlaceholder
 
         super.init(ghostty, baseConfig: base, surfaceTree: tree)
 
@@ -317,7 +338,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         }
 
         // If our surface tree is now nil then we close our window.
-        if to.isEmpty {
+        // MARK: Leo -- see `LeoPlaceholderCloseDecision`'s doc.
+        if LeoPlaceholderCloseDecision.shouldCloseOnEmptyTree(isEmpty: to.isEmpty, isUnfilledPlaceholder: leoIsUnfilledPlaceholder) {
             self.window?.close()
         }
     }

@@ -301,10 +301,19 @@ import SwiftUI
 /// unregisters. Implements `LeoPickerPresenting` itself so `LeoRuntime` can
 /// hand it straight to `routeNewSurface`.
 @MainActor final class LeoWindowPickerRouter: LeoPickerPresenting {
+    private static let logger = Logger(subsystem: "com.mitchellh.ghostty", category: "leo")
+
     private var presentations: [LeoWindowID: LeoPickerPresentation] = [:]
+
+    /// Fired (in addition to the `error` log) whenever `present(request:)`
+    /// finds no registered presentation for the request's origin -- tests
+    /// observe this directly rather than capturing unified-logging output.
+    /// Production leaves this as the default no-op.
+    var onMissingPresentation: (LeoSurfaceRequest) -> Void = { _ in }
 
     func register(_ presentation: LeoPickerPresentation, for origin: LeoWindowID) {
         presentations[origin] = presentation
+        Self.logger.log("LeoWindowPickerRouter.register origin=\(origin.rawValue.uuidString, privacy: .public)")
     }
 
     func unregister(origin: LeoWindowID) {
@@ -312,7 +321,14 @@ import SwiftUI
     }
 
     func present(request: LeoSurfaceRequest) {
-        presentations[request.origin]?.present(request: request)
+        guard let presentation = presentations[request.origin] else {
+            Self.logger.error(
+                "LeoWindowPickerRouter.present: no presentation registered for origin=\(request.origin.rawValue.uuidString, privacy: .public) requestID=\(request.id.uuidString, privacy: .public) knownOrigins=\(self.presentations.keys.map(\.rawValue.uuidString), privacy: .public)"
+            )
+            onMissingPresentation(request)
+            return
+        }
+        presentation.present(request: request)
     }
 
     func presentSpawn(for request: LeoSurfaceRequest, completion: @escaping (LeoAgentIdentity?) -> Void) {
