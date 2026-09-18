@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import GhosttyKit
 import os
 
@@ -49,6 +50,21 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
 
     // MARK: Leo
     let leoSession: LeoWindowSession?
+
+    /// Mirrors `leoSession.placeholderSurfaceIDs`. `leoSession` is a plain
+    /// `let` (an optional cannot be `@ObservedObject`), so this view is not
+    /// subscribed to it: rebirthing a placeholder changed the session without
+    /// invalidating `body`, and the overlay only appeared once something else
+    /// -- a window resize -- forced a re-evaluation. Mirroring the published
+    /// set into view state gives SwiftUI the dependency it needs.
+    @State private var leoPlaceholderSurfaceIDs: Set<UUID> = []
+
+    /// Publisher for the above; `Empty` keeps the `onReceive` well-typed when
+    /// there is no Leo session (a non-Leo window).
+    private var leoPlaceholderSurfaceIDsPublisher: AnyPublisher<Set<UUID>, Never> {
+        leoSession?.$placeholderSurfaceIDs.eraseToAnyPublisher()
+            ?? Empty(completeImmediately: false).eraseToAnyPublisher()
+    }
 
     init(
         ghostty: Ghostty.App,
@@ -123,6 +139,7 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                 }
             }
             .frame(maxWidth: .greatestFiniteMagnitude, maxHeight: .greatestFiniteMagnitude)
+            .onReceive(leoPlaceholderSurfaceIDsPublisher) { leoPlaceholderSurfaceIDs = $0 }
         }
     }
 
@@ -149,7 +166,7 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                         tree: viewModel.surfaceTree,
                         action: { delegate?.performSplitAction($0) },
                         leafOverlay: { surface in
-                            guard let leoSession, leoSession.placeholderSurfaceIDs.contains(surface.id) else { return nil }
+                            guard let leoSession, leoPlaceholderSurfaceIDs.contains(surface.id) else { return nil }
                             return AnyView(LeoPlaceholderView(
                                 openPicker: { leoSession.openPicker(surfaceID: surface.id) },
                                 toggleDrawer: {
