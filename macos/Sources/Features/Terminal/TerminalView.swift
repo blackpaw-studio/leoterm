@@ -99,7 +99,7 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                 // MARK: Leo
                 if let leoSession, viewModel.surfaceTree.isEmpty {
                     LeoPlaceholderView(
-                        openPicker: { leoSession.openPicker() },
+                        openPicker: { leoSession.openPicker(surfaceID: nil) },
                         toggleDrawer: {
                             guard let appDelegate = NSApp.delegate as? AppDelegate else { return }
                             appDelegate.toggleQuickTerminal(appDelegate)
@@ -136,7 +136,16 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
 
                     TerminalSplitTreeView(
                         tree: viewModel.surfaceTree,
-                        action: { delegate?.performSplitAction($0) })
+                        action: { delegate?.performSplitAction($0) },
+                        leafOverlay: { surface in
+                            guard let leoSession, leoSession.placeholderSurfaceIDs.contains(surface.id) else { return nil }
+                            return AnyView(LeoPlaceholderView(
+                                openPicker: { leoSession.openPicker(surfaceID: surface.id) },
+                                toggleDrawer: {
+                                    guard let appDelegate = NSApp.delegate as? AppDelegate else { return }
+                                    appDelegate.toggleQuickTerminal(appDelegate)
+                                }))
+                        })
                         .environmentObject(ghostty)
                         .ghosttyLastFocusedSurface(lastFocusedSurface)
                         .focused($focused)

@@ -23,7 +23,7 @@ import Testing
         do {
             let session = registry.makeSession(defaults: makeDefaults())
             let sessionID = session.id
-            session.openPicker = { _ = sessionID }
+            session.openPicker = { _ in _ = sessionID }
             weakSession = session
             #expect(weakSession != nil)
         }

@@ -15,6 +15,12 @@ struct LeoPlaceholderCloseDecisionTests {
         #expect(!LeoPlaceholderCloseDecision.shouldCloseOnEmptyTree(isEmpty: true, isUnfilledPlaceholder: true))
     }
 
+    /// A reborn leaf (an agent surface that exited in a split or alongside
+    /// other tabs) is overlaid with the placeholder view in place -- the
+    /// split tree itself is never emptied, so `isEmpty` is `false` here
+    /// regardless of `isUnfilledPlaceholder` (which only ever describes the
+    /// *whole-window* empty-tree placeholder, not a per-leaf rebirth). The
+    /// window-close guard must never fire for this case.
     @Test func nonEmptyTreeNeverClosesRegardlessOfTheFlag() {
         #expect(!LeoPlaceholderCloseDecision.shouldCloseOnEmptyTree(isEmpty: false, isUnfilledPlaceholder: false))
         #expect(!LeoPlaceholderCloseDecision.shouldCloseOnEmptyTree(isEmpty: false, isUnfilledPlaceholder: true))

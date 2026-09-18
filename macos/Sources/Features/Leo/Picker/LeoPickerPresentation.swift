@@ -135,6 +135,12 @@ import SwiftUI
     /// the same origin just needs to refocus and pick up the new request --
     /// not tear down and rebuild the panel.
     func present(request: LeoSurfaceRequest) {
+        // There is one visible palette per window. A new leaf target replaces
+        // an uncommitted visible gesture, but never cancels work already
+        // committed for the old target.
+        if let previous = activeRequest, previous.routingTarget != request.routingTarget, !isAttachInProgress {
+            router.chooseDetached(.cancel, for: previous)
+        }
         activeRequest = request
         isAttachInProgress = false
         paletteModel.clearFailure()

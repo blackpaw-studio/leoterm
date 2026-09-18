@@ -168,8 +168,8 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             )
         case .window:
             return try host.openWindow(command: command, workingDirectory: workingDirectory, requestID: request.id)
-        case .placeholder:
-            return try host.fillPlaceholder(command: command, workingDirectory: workingDirectory, origin: request.origin, requestID: request.id)
+        case .placeholder(let surfaceID):
+            return try host.fillPlaceholder(command: command, workingDirectory: workingDirectory, origin: request.origin, surfaceID: surfaceID, requestID: request.id)
         }
     }
 
@@ -184,6 +184,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             // `remove(_:)` is itself a no-op for handles with no identity.
             guard identityByHandle[handle] != nil else { return }
             inactive.insert(handle)
+            host.rebirthPlaceholder(for: handle)
         case .titleChanged(let handle, let title):
             guard !title.isEmpty, identityByHandle[handle] != nil else { return }
             host.setTitleSeed(handle, title: nil)

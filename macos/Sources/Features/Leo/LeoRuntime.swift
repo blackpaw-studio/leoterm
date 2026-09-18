@@ -128,7 +128,13 @@ import OSLog
             },
             isRequestValid: { [weak registry] request in
                 guard let controller = registry?.controller(for: request.origin) else { return false }
-                if case .placeholder = request.disposition { return controller.surfaceTree.isEmpty }
+                if case .placeholder(let surfaceID) = request.disposition {
+                    return if let surfaceID {
+                        controller.leoSession?.placeholderSurfaceIDs.contains(surfaceID) == true
+                    } else {
+                        controller.surfaceTree.isEmpty
+                    }
+                }
                 return true
             },
             onFailure: { [weak model, weak pickerRouter] request, error in
@@ -222,10 +228,9 @@ import OSLog
         // reference cycle (session -> closure -> session) that keeps the
         // window session, and everything it holds, alive forever.
         let sessionID = session.id
-        session.openPicker = { [weak self, weak controller] in
+        session.openPicker = { [weak self] surfaceID in
             guard let self else { return }
-            let disposition: LeoSurfaceDisposition = (controller?.surfaceTree.isEmpty ?? true) ? .placeholder : .tab
-            self.routeNewSurface(disposition, origin: sessionID)
+            self.openPicker(windowID: sessionID, surfaceID: surfaceID)
         }
         session.onWindowWillClose = { [weak self] in self?.teardownWindow(sessionID) }
         if let window = controller.window {
@@ -278,6 +283,10 @@ import OSLog
         requestConfigStore.set(inheritedConfig, for: request.id)
         newSurfaceRouter.begin(request)
         picker.present(request: request)
+    }
+
+    func openPicker(windowID: LeoWindowID, surfaceID: UUID?) {
+        routeNewSurface(.placeholder(surfaceID: surfaceID), origin: windowID)
     }
 
     func resolveExecutablePath() throws -> String {

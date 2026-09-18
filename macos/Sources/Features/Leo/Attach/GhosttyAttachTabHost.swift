@@ -76,11 +76,11 @@ import OSLog
     /// created attach surface. Refuses (throws) if the tree is not empty --
     /// there is nothing to "fill" otherwise, and this must never clobber a
     /// live split.
-    func fillPlaceholder(command: String, workingDirectory: String?, origin: LeoWindowID, requestID: UUID) throws -> AttachmentHandle {
+    func fillPlaceholder(command: String, workingDirectory: String?, origin: LeoWindowID, surfaceID: UUID?, requestID: UUID) throws -> AttachmentHandle {
         Self.logger.log("fillPlaceholder requestID=\(requestID.uuidString, privacy: .public) origin=\(origin.rawValue.uuidString, privacy: .public)")
         do {
             guard let controller = registry.controller(for: origin) else { throw GhosttyAttachTabHostError.originWindowClosed }
-            guard controller.surfaceTree.isEmpty else { throw GhosttyAttachTabHostError.placeholderNotEmpty }
+            if surfaceID == nil { guard controller.surfaceTree.isEmpty else { throw GhosttyAttachTabHostError.placeholderNotEmpty } }
             guard let ghosttyApp = controller.ghostty.app else { throw GhosttyAttachTabHostError.noTerminalWindow }
 
             let newView = Ghostty.SurfaceView(
@@ -89,6 +89,37 @@ import OSLog
             )
             guard newView.surface != nil else { throw GhosttyAttachTabHostError.surfaceUnavailable }
 
+            if let surfaceID {
+                guard let oldView = controller.surfaceTree.first(where: { $0.id == surfaceID }),
+                      let oldNode = controller.surfaceTree.root?.node(view: oldView) else {
+                    throw GhosttyAttachTabHostError.placeholderUnavailable
+                }
+                let newTree = try controller.surfaceTree.replacing(node: oldNode, with: .leaf(view: newView))
+                // Assigned directly (not via `replaceSurfaceTree`, which always
+                // registers an undo action -- even with a nil `undoAction` --
+                // and would let "undo" restore the old tree, resurrecting the
+                // dead `oldView` (the surface that just exited) into a live
+                // split). Focus is moved the same way `replaceSurfaceTree`
+                // does it for its `newView` argument.
+                controller.surfaceTree = newTree
+                controller.focusedSurface = newView
+                DispatchQueue.main.async {
+                    Ghostty.moveFocus(to: newView, from: oldView)
+                }
+                controller.leoSession?.fillPlaceholder(surfaceID: surfaceID)
+                // Routed through `close(_:)` -- not a direct
+                // `attachments.removeValue(forKey:)` -- so the coordinator's
+                // `.closed` handling (identityByHandle/handlesByIdentity/
+                // inactive cleanup) actually runs for the replaced handle.
+                // Safe regardless of ordering relative to the new handle:
+                // `close(_:)` only touches `attachments`/the lifecycle
+                // continuation, and `previousHandles` is keyed by
+                // `oldView.id` (`surfaceID`), never the new handle's key
+                // (`newView.id`), so there is no risk of it clobbering the
+                // surface just installed above.
+                let previousHandles = attachments.keys.filter { $0.surfaceID == surfaceID }
+                previousHandles.forEach { close($0) }
+            } else {
             // Assigned directly (not via `replaceSurfaceTree`, which always
             // registers an undo action -- even with a nil `undoAction` -- and
             // would let "undo" reopen a placeholder that was never a real
@@ -104,6 +135,7 @@ import OSLog
             // still empty") no longer applies now that there's real content.
             controller.leoApplyInitialSize()
             controller.leoRegisterFilledPlaceholderUndo()
+            }
 
             let handle = try register(controller, surface: newView)
             Self.logger.log("fillPlaceholder requestID=\(requestID.uuidString, privacy: .public) result=success")
@@ -120,6 +152,13 @@ import OSLog
         window.tabGroup?.selectedWindow = window
         if window.isMiniaturized { window.deminiaturize(nil) }
         window.makeKeyAndOrderFront(nil)
+        Ghostty.moveFocus(to: surface)
+    }
+
+    func rebirthPlaceholder(for handle: AttachmentHandle) {
+        guard let attachment = attachments[handle], let controller = attachment.controller,
+              let surface = attachment.surface, controller.surfaceTree.contains(surface) else { return }
+        controller.leoSession?.rebirthPlaceholder(surfaceID: handle.surfaceID)
         Ghostty.moveFocus(to: surface)
     }
 
@@ -210,7 +249,7 @@ import OSLog
 
 private enum GhosttyAttachTabHostError: Error, LocalizedError {
     case originWindowClosed, cannotOpenTab, noTerminalWindow, surfaceUnavailable
-    case splitSourceUnavailable, cannotOpenSplit, placeholderNotEmpty
+    case splitSourceUnavailable, cannotOpenSplit, placeholderNotEmpty, placeholderUnavailable
 
     var errorDescription: String? {
         switch self {
@@ -221,6 +260,7 @@ private enum GhosttyAttachTabHostError: Error, LocalizedError {
         case .splitSourceUnavailable: "The surface to split from is no longer available"
         case .cannotOpenSplit: "Ghostty could not open a new split"
         case .placeholderNotEmpty: "The window is not an empty placeholder"
+        case .placeholderUnavailable: "The placeholder surface is unavailable"
         }
     }
 }

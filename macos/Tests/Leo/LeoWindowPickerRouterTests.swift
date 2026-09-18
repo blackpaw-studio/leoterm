@@ -63,11 +63,57 @@ import Testing
         #expect(panel.presentCallCount == 1)
         #expect(missed.isEmpty)
     }
+
+    /// A leaf-targeted placeholder request (`surfaceID` non-nil) is keyed
+    /// the same as any other request -- by `origin` -- for dispatch
+    /// purposes. `LeoWindowPickerRouter` forwards it unchanged through
+    /// `present`, `presentSpawn`, `reportFailure`, and `requestEnded` to the
+    /// one presentation registered for that window; the target only matters
+    /// to `LeoPickerPresentation` (see `LeoPickerPresentationTests`), not to
+    /// this dispatch layer.
+    @Test func routesTargetedPlaceholderRequestToItsWindowPresentation() {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: false
+        )
+        let sidebar = LeoSidebarModel()
+        let suite = "LeoWindowPickerRouterTests.\(UUID().uuidString)"
+        let hostDefaults = UserDefaults(suiteName: suite)!
+        let hostSelection = LeoHostSelection(store: LeoHostStore(defaults: hostDefaults), defaults: hostDefaults)
+        let actions = LeoAgentActions(daemon: StubDaemonClient(), cli: LeoCLI(), model: sidebar, hostSelection: hostSelection, refresh: {})
+        let router = LeoNewSurfaceRouter(
+            attach: { _, _ in .success(()) },
+            openPlainShell: { _ in .success(()) },
+            presentSpawn: { _, complete in complete(nil) }
+        )
+        let panel = FakePalettePanel()
+        let presentation = LeoPickerPresentation(
+            window: window, router: router, sidebar: sidebar, hostSelection: hostSelection,
+            actions: actions, panel: panel, spawnSheet: FakeSpawnSheet()
+        )
+        let pickerRouter = LeoWindowPickerRouter()
+        var missed: [LeoSurfaceRequest] = []
+        pickerRouter.onMissingPresentation = { missed.append($0) }
+        pickerRouter.register(presentation, for: origin)
+
+        let surfaceID = UUID()
+        let request = LeoSurfaceRequest(origin: origin, disposition: .placeholder(surfaceID: surfaceID))
+        router.begin(request)
+        pickerRouter.present(request: request)
+
+        #expect(panel.presentCallCount == 1)
+        #expect(missed.isEmpty)
+
+        pickerRouter.reportFailure(.init(identity: LeoAgentIdentity(host: .local, name: "a"), kind: .openFailed("boom")), for: request)
+        #expect(panel.lastModel?.attachError == "boom")
+
+        pickerRouter.requestEnded(request)
+    }
 }
 
 @MainActor private final class FakePalettePanel: LeoAgentPalettePanelControlling {
     private(set) var isPresented = false
     private(set) var presentCallCount = 0
+    private(set) var lastModel: LeoAgentPaletteModel?
 
     func present(
         parent: NSWindow, model: LeoAgentPaletteModel, onCommit: @escaping (LeoPickerChoice) -> Void,
@@ -75,6 +121,7 @@ import Testing
     ) {
         presentCallCount += 1
         isPresented = true
+        lastModel = model
     }
 
     func focusSearchField() {}

@@ -255,6 +255,45 @@ import Testing
         #expect(coordinator.inactiveHandleCount == 0)
     }
 
+    @Test func agentProcessExitReplacesOnlyThatAgentSurface() async {
+        let host = FakeAttachTabHost()
+        let coordinator = makeCoordinator(host: host)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        guard case .success(let handle) = await coordinator.attach(identity: identity, request: request) else {
+            Issue.record("expected success")
+            return
+        }
+
+        await host.emitAndWait(.processExited(handle))
+
+        #expect(host.reborn == [handle])
+        #expect(coordinator.inactiveHandleCount == 1)
+    }
+
+    @Test func plainShellExitDoesNotRebirth() async {
+        let host = FakeAttachTabHost()
+        let coordinator = makeCoordinator(host: host)
+        guard case .success(let handle) = await coordinator.openPlainShell(request: .init(origin: origin, disposition: .tab)) else {
+            Issue.record("expected success")
+            return
+        }
+
+        await host.emitAndWait(.processExited(handle))
+
+        #expect(host.reborn.isEmpty)
+    }
+
+    @Test func placeholderChoiceReplacesTargetSurface() async {
+        let host = FakeAttachTabHost()
+        let coordinator = makeCoordinator(host: host)
+        let surfaceID = UUID()
+        let request = LeoSurfaceRequest(origin: origin, disposition: .placeholder(surfaceID: surfaceID))
+
+        _ = await coordinator.attach(identity: identity, request: request)
+
+        #expect(host.placeholderSurfaceIDs == [surfaceID])
+    }
+
     private func makeCoordinator(
         host: FakeAttachTabHost,
         report: @escaping (LeoAttachError) -> Void = { _ in },
@@ -278,6 +317,7 @@ import Testing
     var windowCalls: [(String, String?, UUID)] = []
     var splitCalls: [(String, String?, LeoWindowID, UUID, LeoSplitDirection, UUID)] = []
     var placeholderCalls: [(String, String?, LeoWindowID, UUID)] = []
+    var placeholderSurfaceIDs: [UUID?] = []
     var focused: [AttachmentHandle] = []
     var titles: [(AttachmentHandle, String?)] = []
     var handles: [AttachmentHandle] = []
@@ -312,10 +352,14 @@ import Testing
         return try opened()
     }
 
-    func fillPlaceholder(command: String, workingDirectory: String?, origin: LeoWindowID, requestID: UUID) throws -> AttachmentHandle {
+    func fillPlaceholder(command: String, workingDirectory: String?, origin: LeoWindowID, surfaceID: UUID?, requestID: UUID) throws -> AttachmentHandle {
         placeholderCalls.append((command, workingDirectory, origin, requestID))
+        placeholderSurfaceIDs.append(surfaceID)
         return try opened()
     }
+
+    var reborn: [AttachmentHandle] = []
+    func rebirthPlaceholder(for handle: AttachmentHandle) { reborn.append(handle) }
 
     func focus(_ handle: AttachmentHandle) { focused.append(handle) }
     func isOpen(_ handle: AttachmentHandle) -> Bool { openHandles.contains(handle) }

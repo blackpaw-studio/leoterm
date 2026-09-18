@@ -36,7 +36,8 @@ enum AttachLifecycleEvent: Equatable, Sendable {
     ) throws -> AttachmentHandle
     /// Replaces the origin window's empty placeholder surface tree with the
     /// attach surface. Always creates -- there is nothing to reuse.
-    func fillPlaceholder(command: String, workingDirectory: String?, origin: LeoWindowID, requestID: UUID) throws -> AttachmentHandle
+    func fillPlaceholder(command: String, workingDirectory: String?, origin: LeoWindowID, surfaceID: UUID?, requestID: UUID) throws -> AttachmentHandle
+    func rebirthPlaceholder(for handle: AttachmentHandle)
     func focus(_ handle: AttachmentHandle)
     func isOpen(_ handle: AttachmentHandle) -> Bool
     func setTitleSeed(_ handle: AttachmentHandle, title: String?)

@@ -19,13 +19,13 @@ import OSLog
     /// have exactly one place to clean it up.
     private let onRequestEnded: (LeoSurfaceRequest) -> Void
 
-    /// One active request per origin window -- a new `begin(_:)` for the
+    /// One active request per destination target -- a new `begin(_:)` for the
     /// same origin silently supersedes whatever request was pending there.
     /// A request is retired (removed here) on any terminal, non-retryable
     /// outcome: `.cancel`, or a successful attach/plain-shell/spawn-attach.
     /// It stays active only after a *failed* attach, so the palette can
     /// retry the same request.
-    private var activeRequestByOrigin: [LeoWindowID: LeoSurfaceRequest] = [:]
+    private var activeRequestByTarget: [LeoSurfaceRequestTarget: LeoSurfaceRequest] = [:]
     /// Guards against a duplicate `choose(_:for:)` call for the same
     /// request racing the one already in flight (e.g. a double Return).
     /// Also the "has this request already been committed to a choice"
@@ -62,8 +62,8 @@ import OSLog
     /// in-flight work runs to completion regardless of what `begin(_:)` is
     /// called afterwards for the same origin.
     func begin(_ request: LeoSurfaceRequest) {
-        supersede(origin: request.origin)
-        activeRequestByOrigin[request.origin] = request
+        supersede(target: request.routingTarget)
+        activeRequestByTarget[request.routingTarget] = request
     }
 
     /// Drops the active request for `origin`, if any (e.g. Esc / window
@@ -71,7 +71,7 @@ import OSLog
     /// `nil` so a `choose` suspended on the spawn sheet returns instead of
     /// hanging forever.
     func invalidate(origin: LeoWindowID) {
-        supersede(origin: origin)
+        for target in activeRequestByTarget.keys.filter({ $0.windowID == origin }) { supersede(target: target) }
     }
 
     func choose(_ choice: LeoPickerChoice, for request: LeoSurfaceRequest) async {
@@ -164,12 +164,12 @@ import OSLog
     }
 
     private func isActive(_ request: LeoSurfaceRequest) -> Bool {
-        activeRequestByOrigin[request.origin] == request
+        activeRequestByTarget[request.routingTarget] == request
     }
 
     private func retireIfActive(_ request: LeoSurfaceRequest) {
-        guard activeRequestByOrigin[request.origin] == request else { return }
-        activeRequestByOrigin.removeValue(forKey: request.origin)
+        guard activeRequestByTarget[request.routingTarget] == request else { return }
+        activeRequestByTarget.removeValue(forKey: request.routingTarget)
         onRequestEnded(request)
     }
 
@@ -182,8 +182,8 @@ import OSLog
     /// own `retireIfActive` call once `perform` settles is what actually
     /// reports it (on success; a failure leaves it retryable and its
     /// config-store entry intact).
-    private func supersede(origin: LeoWindowID) {
-        guard let previous = activeRequestByOrigin.removeValue(forKey: origin) else { return }
+    private func supersede(target: LeoSurfaceRequestTarget) {
+        guard let previous = activeRequestByTarget.removeValue(forKey: target) else { return }
         if let resume = pendingSpawnResumes.removeValue(forKey: previous.id) {
             resume(nil)
         }

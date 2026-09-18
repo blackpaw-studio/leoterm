@@ -239,6 +239,60 @@ import Testing
         #expect(env.routerSpy.cancelledRequests.contains(second))
     }
 
+    /// One palette is shown per window. Presenting a request for a
+    /// different leaf target than the one currently visible must retire the
+    /// prior request -- but only if it was never actually committed to
+    /// (`.agent`/`.plainShell` chosen, attach in flight). A request already
+    /// committed keeps running against its original target even though a
+    /// different leaf's placeholder is now asking for the palette.
+    @Test func switchingPlaceholderTargetsCancelsOnlyVisibleUncommittedRequest() async {
+        let env = makeEnvironment()
+        let firstSurface = UUID()
+        let secondSurface = UUID()
+        let first = LeoSurfaceRequest(origin: origin, disposition: .placeholder(surfaceID: firstSurface))
+        env.router.begin(first)
+        env.presentation.present(request: first)
+
+        let second = LeoSurfaceRequest(origin: origin, disposition: .placeholder(surfaceID: secondSurface))
+        env.router.begin(second)
+        env.presentation.present(request: second)
+
+        await waitFor { env.routerSpy.cancelledRequests.contains(first) }
+        #expect(env.routerSpy.cancelledRequests.contains(first))
+        #expect(!env.routerSpy.cancelledRequests.contains(second))
+
+        // A third target arrives, but this time the second request has
+        // already been committed (an attach in flight) -- switching must
+        // leave it alone.
+        env.routerSpy.attachGate = ChooseGate()
+        env.panel.onCommit?(.agent(identity))
+        await env.routerSpy.attachGate!.waitUntilEntered()
+
+        let third = LeoSurfaceRequest(origin: origin, disposition: .placeholder(surfaceID: UUID()))
+        env.router.begin(third)
+        env.presentation.present(request: third)
+
+        #expect(!env.routerSpy.cancelledRequests.contains(second), "a committed request must not be cancelled by a newer target")
+        await env.routerSpy.attachGate!.releaseAll()
+    }
+
+    /// Choosing an agent for a leaf-targeted placeholder must attach against
+    /// that leaf's original surface, not the window's whole-tree placeholder
+    /// -- the request's `routingTarget` (and thus its `disposition`) is
+    /// passed through to the router unchanged.
+    @Test func placeholderSelectionUsesOriginalSurfaceTarget() async {
+        let env = makeEnvironment()
+        let surfaceID = UUID()
+        let request = LeoSurfaceRequest(origin: origin, disposition: .placeholder(surfaceID: surfaceID))
+        env.router.begin(request)
+        env.presentation.present(request: request)
+
+        env.panel.onCommit?(.agent(identity))
+        await waitFor { env.routerSpy.attachCalls.count == 1 }
+
+        #expect(env.routerSpy.attachCalls.first?.1.routingTarget == LeoSurfaceRequestTarget(windowID: origin, surfaceID: surfaceID))
+    }
+
     @Test func failureKeepsRequestActiveAndShowsMessage() {
         let env = makeEnvironment()
         let request = LeoSurfaceRequest(origin: origin, disposition: .tab)

@@ -63,6 +63,20 @@ import Testing
         #expect(spy.attachCalls.count == 1)
     }
 
+    @Test func placeholderRequestsForDifferentSurfaceIDsDoNotSupersede() async {
+        let spy = RouterSpy()
+        let router = spy.makeRouter()
+        let first = LeoSurfaceRequest(origin: origin, disposition: .placeholder(surfaceID: UUID()))
+        let second = LeoSurfaceRequest(origin: origin, disposition: .placeholder(surfaceID: UUID()))
+        router.begin(first)
+        router.begin(second)
+
+        await router.choose(.agent(identity), for: first)
+        await router.choose(.agent(identity), for: second)
+
+        #expect(spy.attachCalls.count == 2)
+    }
+
     @Test func newAgentPresentsSpawnThenAttachesReturnedIdentity() async {
         let spy = RouterSpy()
         let spawned = LeoAgentIdentity(host: .local, name: "spawned")

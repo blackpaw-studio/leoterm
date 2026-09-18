@@ -36,7 +36,8 @@ struct LeoWindowVisibilityState: Equatable {
     /// Opens the agent picker for this window's placeholder. Wired by
     /// `LeoRuntime.makeWindowSession(for:)`; a no-op until then (e.g. in
     /// tests that construct a session directly).
-    var openPicker: () -> Void = {}
+    var openPicker: (UUID?) -> Void = { _ in }
+    @Published private(set) var placeholderSurfaceIDs: Set<UUID> = []
     /// Fired once, synchronously, from `NSWindow.willCloseNotification` --
     /// lets `LeoRuntime` tear down this window's router state and palette
     /// presentation immediately instead of waiting for the registry's next
@@ -78,10 +79,15 @@ struct LeoWindowVisibilityState: Equatable {
         isPickerPresented = presented
     }
 
+    func rebirthPlaceholder(surfaceID: UUID) { placeholderSurfaceIDs.insert(surfaceID) }
+    func fillPlaceholder(surfaceID: UUID) { placeholderSurfaceIDs.remove(surfaceID) }
+
     func setPreferredWidth(_ width: CGFloat) {
         preferredWidth = width
         defaults.set(Double(width), forKey: "leo.sidebarWidth")
     }
+
+    func openPicker(surfaceID: UUID?) { openPicker(surfaceID) }
 
     private func observeWindow() {
         guard let window else { return }
