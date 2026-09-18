@@ -88,23 +88,23 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
         case .ready:
             ZStack {
                 // MARK: Leo
+                // The placeholder is nested inside the sidebar split's terminal
+                // column rather than layered over the whole window: as a ZStack
+                // sibling it spanned the full width and its blurred background
+                // covered the sidebar, so toggling the sidebar on the start
+                // screen slid it out behind the placeholder.
                 if let leoSession, let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime {
                     LeoSidebarSplit(session: leoSession, model: runtime.model, actions: runtime.actions) {
-                        terminalContent
+                        ZStack {
+                            terminalContent
+
+                            if viewModel.surfaceTree.isEmpty {
+                                leoPlaceholder(session: leoSession)
+                            }
+                        }
                     }
                 } else {
                     terminalContent
-                }
-
-                // MARK: Leo
-                if let leoSession, viewModel.surfaceTree.isEmpty {
-                    LeoPlaceholderView(
-                        openPicker: { leoSession.openPicker(surfaceID: nil) },
-                        toggleDrawer: {
-                            guard let appDelegate = NSApp.delegate as? AppDelegate else { return }
-                            appDelegate.toggleQuickTerminal(appDelegate)
-                        }
-                    )
                 }
 
                 if let surfaceView = lastFocusedSurface?.value {
@@ -124,6 +124,17 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
             }
             .frame(maxWidth: .greatestFiniteMagnitude, maxHeight: .greatestFiniteMagnitude)
         }
+    }
+
+    /// The Leo start screen, shown in place of an empty terminal column.
+    private func leoPlaceholder(session: LeoWindowSession) -> some View {
+        LeoPlaceholderView(
+            openPicker: { session.openPicker(surfaceID: nil) },
+            toggleDrawer: {
+                guard let appDelegate = NSApp.delegate as? AppDelegate else { return }
+                appDelegate.toggleQuickTerminal(appDelegate)
+            }
+        )
     }
 
     private var terminalContent: some View {
