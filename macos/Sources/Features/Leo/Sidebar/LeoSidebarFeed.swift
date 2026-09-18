@@ -25,7 +25,7 @@ struct LeoSidebarActivitySource: Sendable {
 /// can never reach a newer one.
 actor LeoSidebarFeed {
     typealias Sink = @MainActor @Sendable (LeoSidebarSnapshot) -> Void
-    private static let logger = Logger(subsystem: "com.mitchellh.ghostty", category: "LeoSidebarFeed")
+    private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "LeoSidebarFeed")
 
     var daemon: any LeoDaemonClient
     var activitySource: LeoSidebarActivitySource

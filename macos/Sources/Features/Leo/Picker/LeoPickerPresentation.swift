@@ -80,7 +80,7 @@ import SwiftUI
 /// by `LeoRuntime.makeWindowSession(for:)` and torn down when the window
 /// closes.
 @MainActor final class LeoPickerPresentation {
-    private static let logger = Logger(subsystem: "com.mitchellh.ghostty", category: "leo")
+    private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
 
     private weak var window: NSWindow?
     private let router: LeoNewSurfaceRouter
@@ -322,7 +322,7 @@ import SwiftUI
 /// unregisters. Implements `LeoPickerPresenting` itself so `LeoRuntime` can
 /// hand it straight to `routeNewSurface`.
 @MainActor final class LeoWindowPickerRouter: LeoPickerPresenting {
-    private static let logger = Logger(subsystem: "com.mitchellh.ghostty", category: "leo")
+    private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
 
     private var presentations: [LeoWindowID: LeoPickerPresentation] = [:]
 

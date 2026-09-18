@@ -31,7 +31,7 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
 /// the first A's teardown (kicked off by the A->B transition) is still
 /// running -- two live children at once.
 @MainActor final class LeoHostSelection: ObservableObject {
-    private static let logger = Logger(subsystem: "com.mitchellh.ghostty", category: "leo")
+    private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
 
     @Published private(set) var hosts: [LeoHostConfiguration] = []
     @Published private(set) var selected: LeoHostID

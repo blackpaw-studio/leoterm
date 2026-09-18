@@ -49,13 +49,13 @@ directly from `macos/` instead:
 
 ```bash
 D=/Applications/Xcode-26.3.0.app/Contents/Developer
-APP=$PWD/build/DD/Build/Products/Debug/Ghostty.app
+APP=$PWD/build/DD/Build/Products/Debug/Leo.app
 /opt/homebrew/bin/timeout 300 env DEVELOPER_DIR=$D \
   DYLD_FRAMEWORK_PATH="$D/Platforms/MacOSX.platform/Developer/Library/Frameworks:$D/Library/Frameworks" \
   DYLD_LIBRARY_PATH="$D/Platforms/MacOSX.platform/Developer/usr/lib" \
   DYLD_INSERT_LIBRARIES="$D/Platforms/MacOSX.platform/Developer/usr/lib/libXCTestBundleInject.dylib" \
-  XCInjectBundleInto="$APP/Contents/MacOS/ghostty" \
-  "$APP/Contents/MacOS/ghostty" -XCTest All \
+  XCInjectBundleInto="$APP/Contents/MacOS/Leo" \
+  "$APP/Contents/MacOS/Leo" -XCTest All \
   "$APP/Contents/PlugIns/GhosttyTests.xctest" > /tmp/leo-tests.log 2>&1
 ```
 

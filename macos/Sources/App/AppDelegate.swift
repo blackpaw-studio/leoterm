@@ -121,7 +121,7 @@ class AppDelegate: NSObject,
     @MainActor private func leoRouteNewWindow(baseConfig: Ghostty.SurfaceConfiguration? = nil) {
         let controller = TerminalController.leoNewPlaceholderWindow(ghostty)
         guard let leoSession = controller.leoSession else { return }
-        Logger(subsystem: "com.mitchellh.ghostty", category: "leo").log("leoRouteNewWindow origin=\(leoSession.id.rawValue.uuidString, privacy: .public)")
+        Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo").log("leoRouteNewWindow origin=\(leoSession.id.rawValue.uuidString, privacy: .public)")
         leoRuntime.routeNewSurface(.placeholder, origin: leoSession.id, inheritedConfig: baseConfig)
     }
 

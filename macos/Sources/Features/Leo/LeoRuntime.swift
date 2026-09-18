@@ -4,7 +4,7 @@ import GhosttyKit
 import OSLog
 
 @MainActor final class LeoRuntime {
-    private static let logger = Logger(subsystem: "com.mitchellh.ghostty", category: "leo")
+    private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
 
     let model: LeoSidebarModel
     let registry: LeoWindowSessionRegistry

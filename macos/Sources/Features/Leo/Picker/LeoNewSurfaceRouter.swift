@@ -6,7 +6,7 @@ import OSLog
 /// by attach. Pure routing -- no AppKit, no direct `LeoAttachCoordinator`
 /// dependency (injected as closures so it is independently testable).
 @MainActor final class LeoNewSurfaceRouter {
-    private static let logger = Logger(subsystem: "com.mitchellh.ghostty", category: "leo")
+    private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
 
     private let attach: (LeoAgentIdentity, LeoSurfaceRequest) async -> Result<Void, LeoAttachError>
     private let openPlainShell: (LeoSurfaceRequest) async -> Result<Void, LeoAttachError>

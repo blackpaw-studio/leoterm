@@ -19,7 +19,7 @@ enum LeoTunnelError: Error, Equatable, Sendable {
 /// health probe, and reports process exit exactly once. Callers (e.g. host
 /// selection) are responsible for retry/backoff policy.
 final class LeoTunnel: @unchecked Sendable {
-    private static let logger = Logger(subsystem: "com.mitchellh.ghostty", category: "leo")
+    private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
 
     private let executable: URL
     private let arguments: [String]

@@ -1,7 +1,7 @@
 import Foundation
 import OSLog
 
-private let leoHostStoreLogger = Logger(subsystem: "com.mitchellh.ghostty", category: "leo")
+private let leoHostStoreLogger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
 
 enum LeoHostStoreError: Error, Equatable, Sendable {
     case invalidConfiguration(String, [LeoHostValidationError])

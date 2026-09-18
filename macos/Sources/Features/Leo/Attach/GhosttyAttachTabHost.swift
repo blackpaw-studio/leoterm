@@ -4,7 +4,7 @@ import GhosttyKit
 import OSLog
 
 @MainActor final class GhosttyAttachTabHost: AttachTabHost {
-    private static let logger = Logger(subsystem: "com.mitchellh.ghostty", category: "leo")
+    private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
 
     let lifecycleEvents: AsyncStream<AttachLifecycleEvent>
     private let continuation: AsyncStream<AttachLifecycleEvent>.Continuation
