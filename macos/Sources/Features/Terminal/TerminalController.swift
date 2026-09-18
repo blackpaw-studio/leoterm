@@ -140,14 +140,60 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     /// just been filled with a real surface -- `windowDidLoad` already ran
     /// once with no surface, so `defaultSize` (which depends on
     /// `focusedSurface`) was nil then and nothing was sized.
-    func leoApplyInitialSize() {
+    ///
+    /// `.contentIntrinsicSize` reads `window.contentView?.intrinsicContentSize`,
+    /// but the SwiftUI `TerminalView` hasn't re-rendered with the new
+    /// `SurfaceView` yet when `GhosttyAttachTabHost.fillPlaceholder` calls
+    /// this (that happens on a later runloop turn) -- reading it
+    /// synchronously here would collapse the window to the empty
+    /// placeholder's near-zero intrinsic size. `attempt` defers the read
+    /// via `DispatchQueue.main.async` until `LeoInitialSizeDecision`
+    /// considers the intrinsic size plausible, retrying up to
+    /// `LeoInitialSizeDecision.maxAttempts` times before giving up and
+    /// leaving the window at its current (never-shrunk) size.
+    ///
+    /// `frameAtSchedule` is the window's frame at the moment the current
+    /// attempt was scheduled -- `nil` only on the initial synchronous call.
+    /// Each retry re-checks `LeoInitialSizeDecision.shouldContinue` against
+    /// it, so a user resize/move or a window close between attempts
+    /// abandons the whole sequence instead of clobbering whatever the user
+    /// (or something else) did in the meantime.
+    func leoApplyInitialSize(attempt: Int = 0, frameAtSchedule: NSRect? = nil) {
         guard let window, let defaultSize else { return }
-        defaultSize.apply(to: window)
-        if case .contentIntrinsicSize = defaultSize {
-            if let screen = window.screen ?? NSScreen.main {
-                let frame = adjustForWindowPosition(frame: window.frame, on: screen)
-                window.setFrameOrigin(frame.origin)
+
+        if let frameAtSchedule {
+            let shouldContinue = LeoInitialSizeDecision.shouldContinue(
+                attempt: attempt,
+                frameAtSchedule: frameAtSchedule,
+                currentFrame: window.frame,
+                isVisible: window.isVisible
+            )
+            guard shouldContinue else { return }
+        }
+
+        // `.frame` (maximize) doesn't depend on content-view layout, so it
+        // applies immediately exactly as `windowDidLoad` does.
+        guard case .contentIntrinsicSize = defaultSize else {
+            defaultSize.apply(to: window)
+            return
+        }
+
+        window.contentView?.layoutSubtreeIfNeeded()
+        let intrinsic = window.contentView?.intrinsicContentSize ?? .zero
+        let cellSize = focusedSurface?.cellSize ?? .zero
+
+        guard LeoInitialSizeDecision.shouldApply(intrinsic: intrinsic, cellSize: cellSize) else {
+            let scheduledFrame = window.frame
+            DispatchQueue.main.async { [weak self] in
+                self?.leoApplyInitialSize(attempt: attempt + 1, frameAtSchedule: scheduledFrame)
             }
+            return
+        }
+
+        defaultSize.apply(to: window)
+        if let screen = window.screen ?? NSScreen.main {
+            let frame = adjustForWindowPosition(frame: window.frame, on: screen)
+            window.setFrameOrigin(frame.origin)
         }
     }
 
