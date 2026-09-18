@@ -39,6 +39,12 @@ import Testing
 
         model.filterText = "nomatch"
         #expect(model.rows == [.newAgent, .plainShell])
+
+        // Clearing the filter must land selection back on row 0 (the first
+        // agent, ranked alphabetically -- "other" before "worker"), not
+        // wherever the last filtered list happened to leave it.
+        model.filterText = ""
+        #expect(model.confirm() == .agent(row("other", repo: "ghostty").identity))
     }
 
     @Test func hostIsolationOnlyShowsSelectedHostAgents() {
@@ -115,6 +121,22 @@ import Testing
         model.update(snapshot: snapshot([]), selectedHost: .remote("work"), hostState: .connecting)
 
         #expect(model.confirm() == nil)
+    }
+
+    /// With a large agent list, setting `filterText` to a needle that
+    /// matches exactly one agent (not the first alphabetically) must select
+    /// that agent -- not fall back to the preserved "New agent…" selection,
+    /// which only applies to unchanged-filter snapshot refreshes.
+    @Test func filterTextChangeSelectsFirstMatchingAgentEvenWithManyRows() {
+        let model = LeoAgentPaletteModel()
+        let rows = (0..<100).map { row("agent-\($0)") } + [row("leoterm-worker")]
+        model.update(snapshot: snapshot(rows), selectedHost: .local, hostState: .connected(socketPath: "/tmp/leo.sock"))
+
+        // Default selection sits on the first row (an "agent-*" row).
+        #expect(model.confirm() == .agent(row("agent-0").identity))
+
+        model.filterText = "leoterm"
+        #expect(model.confirm() == .agent(row("leoterm-worker").identity))
     }
 
     @Test func moveSelectionClampsAtBounds() {

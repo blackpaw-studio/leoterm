@@ -21,7 +21,7 @@ import Foundation
     @Published private(set) var rows: [Row] = []
     @Published private(set) var selectedIndex: Int?
     @Published var filterText: String = "" {
-        didSet { recompute() }
+        didSet { recompute(preserveSelection: false) }
     }
     /// Inline message from a failed attach/spawn, shown as a footer in the
     /// palette so the user can try another row without the panel closing.
@@ -99,9 +99,14 @@ import Foundation
         retry()
     }
 
-    private func recompute() {
-        let previous = selectedRowIdentity
+    private func recompute(preserveSelection: Bool = true) {
+        let previous = preserveSelection ? selectedRowIdentity : nil
         rows = buildRows()
+        // A filter-text change always resets to the top of the new list
+        // (the first matching agent, or "New agent…" when nothing
+        // matches) rather than clamping against the previous index, which
+        // could land on an unrelated row once the list shrinks.
+        if !preserveSelection { selectedIndex = nil }
         restoreSelection(previous)
     }
 

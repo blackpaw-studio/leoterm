@@ -38,6 +38,14 @@ import Testing
         let panel: FakePalettePanel
         let sheet: FakeSpawnSheet
         let presentation: LeoPickerPresentation
+        let pickerPresentedEvents: PickerPresentedRecorder
+    }
+
+    /// Records every `setPickerPresented(_:)` call `LeoPickerPresentation`
+    /// makes, standing in for `LeoWindowSession.setPickerPresented(_:)`.
+    @MainActor final class PickerPresentedRecorder {
+        private(set) var events: [Bool] = []
+        func record(_ presented: Bool) { events.append(presented) }
     }
 
     /// Wires the router's `presentSpawn`/`onFailure`/`onRequestEnded`
@@ -55,14 +63,17 @@ import Testing
         let router = spy.makeRouter(pickerRouter: pickerRouter)
         let panel = FakePalettePanel()
         let sheet = FakeSpawnSheet()
+        let pickerPresentedEvents = PickerPresentedRecorder()
         let presentation = LeoPickerPresentation(
             window: window, router: router, sidebar: sidebar, hostSelection: hostSelection,
-            actions: actions, panel: panel, spawnSheet: sheet
+            actions: actions, panel: panel, spawnSheet: sheet,
+            setPickerPresented: { [pickerPresentedEvents] presented in pickerPresentedEvents.record(presented) }
         )
         pickerRouter.register(presentation, for: origin)
         return Environment(
             window: window, router: router, routerSpy: spy, pickerRouter: pickerRouter, sidebar: sidebar,
-            hostSelection: hostSelection, panel: panel, sheet: sheet, presentation: presentation
+            hostSelection: hostSelection, panel: panel, sheet: sheet, presentation: presentation,
+            pickerPresentedEvents: pickerPresentedEvents
         )
     }
 
@@ -100,6 +111,24 @@ import Testing
         await waitFor { env.routerSpy.cancelledRequests.contains(request) }
 
         #expect(env.panel.dismissCallCount == 1)
+    }
+
+    /// Presenting the palette must mark the window pollable even with a
+    /// hidden sidebar (`LeoWindowSession.isPollable`), and cancelling must
+    /// release that -- otherwise a window with the sidebar hidden shows a
+    /// stale/empty agent list the moment the palette opens.
+    @Test func presentingAndCancellingTogglePickerPresentedForPolling() async {
+        let env = makeEnvironment()
+        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        env.router.begin(request)
+        env.presentation.present(request: request)
+
+        #expect(env.pickerPresentedEvents.events == [true])
+
+        env.panel.onCommit?(.cancel)
+        await waitFor { env.routerSpy.cancelledRequests.contains(request) }
+
+        #expect(env.pickerPresentedEvents.events == [true, false])
     }
 
     @Test func resignKeyCancelsWhenNoHandoffOrAttachInProgress() async {

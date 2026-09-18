@@ -59,6 +59,34 @@ struct LeoSidebarTests {
         #expect(model.snapshot.rows == [newer])
     }
 
+    @Test @MainActor func windowSessionDefaultsToHiddenSidebarOnFreshInstall() {
+        let suiteName = "LeoSidebarTests.fresh.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let session = LeoWindowSession(defaults: defaults)
+        #expect(!session.isSidebarVisible)
+    }
+
+    /// A hidden sidebar (the default) must not make the window unpollable
+    /// while the agent palette is open -- otherwise the palette shows a
+    /// stale/empty agent list. `setPickerPresented(_:)` is the only other
+    /// input to `isPollable` besides `isSidebarVisible`.
+    @Test @MainActor func windowSessionIsPollableWhilePickerPresentedEvenWithSidebarHidden() {
+        let suiteName = "LeoSidebarTests.pickerPresented.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let session = LeoWindowSession(defaults: defaults)
+
+        #expect(!session.isSidebarVisible)
+        #expect(!session.isPollable)
+
+        session.setPickerPresented(true)
+        #expect(session.isPollable)
+
+        session.setPickerPresented(false)
+        #expect(!session.isPollable)
+    }
+
     @Test @MainActor func windowSessionReadsWritesAndClampsDefaults() {
         let defaults = UserDefaults(suiteName: "LeoSidebarTests")!
         defaults.removePersistentDomain(forName: "LeoSidebarTests")

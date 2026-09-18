@@ -68,10 +68,42 @@ struct LeoSidebarFeedRecoveryTests {
         let activity = LeoActivityClient(config: .init(baseURL: URL(string: "http://127.0.0.1")!, token: "test"))
         let runtime = LeoRuntime(daemon: daemon, cli: LeoCLI(), activity: activity, defaults: defaults)
         let session = runtime.makeWindowSession()
+        // The sidebar is hidden by default on a fresh install -- this test
+        // is specifically about *visible*-sidebar pollability, so state
+        // that precondition explicitly rather than relying on the default.
+        session.setSidebarVisible(true)
 
         runtime.start()
 
         try await eventually { await daemon.listCallCount == 1 }
+        #expect(session.isPollable)
+        runtime.shutdown()
+    }
+
+    /// A window with its sidebar hidden (the default) must still refresh
+    /// the agent list the moment its palette is presented -- otherwise the
+    /// palette shows whatever stale/empty snapshot happened to exist before
+    /// the user opened it. Mirrors
+    /// `startingAfterRegisteringVisibleSessionRefreshesImmediately`, but
+    /// drives pollability through `setPickerPresented(_:)` instead of
+    /// sidebar visibility.
+    @Test @MainActor func presentingPickerWithHiddenSidebarRefreshesImmediately() async throws {
+        let daemon = RecoveryDaemon(agents: [agent("alpha")])
+        let suiteName = "LeoSidebarFeedRecoveryTests.picker.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let activity = LeoActivityClient(config: .init(baseURL: URL(string: "http://127.0.0.1")!, token: "test"))
+        let runtime = LeoRuntime(daemon: daemon, cli: LeoCLI(), activity: activity, defaults: defaults)
+        let session = runtime.makeWindowSession()
+
+        runtime.start()
+        try await eventually { await daemon.listCallCount == 1 }
+        #expect(!session.isSidebarVisible)
+        #expect(!session.isPollable)
+
+        session.setPickerPresented(true)
+
+        try await eventually { await daemon.listCallCount == 2 }
         #expect(session.isPollable)
         runtime.shutdown()
     }

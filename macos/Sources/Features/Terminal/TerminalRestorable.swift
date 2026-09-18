@@ -122,6 +122,20 @@ class TerminalWindowRestoration: NSObject, NSWindowRestoration {
         state: NSCoder,
         completionHandler: @escaping (NSWindow?, Error?) -> Void
     ) {
+        // MARK: Leo
+        // Every TerminalController in this fork is Leo-managed and opts out
+        // of AppKit state restoration in `windowDidLoad` (isRestorable =
+        // false), so no *new* saved state is ever written -- but a saved
+        // state from before this upgrade can still be on disk, and AppKit
+        // calls this restoration entry point before `windowDidLoad` ever
+        // runs. Completing with no window here (instead of recreating a
+        // plain-shell TerminalController via the pre-Leo logic below) sends
+        // launch back through Leo's normal placeholder + agent palette path
+        // in AppDelegate. The compiler flags the rest of this method as
+        // unreachable as a result -- expected, left in place for reference.
+        completionHandler(nil, nil)
+        return
+
         // Verify the identifier is what we expect
         guard identifier == .init(String(describing: Self.self)) else {
             completionHandler(nil, TerminalRestoreError.identifierUnknown)

@@ -90,6 +90,11 @@ import SwiftUI
     private let panel: LeoAgentPalettePanelControlling
     private let spawnSheet: LeoSpawnSheetPresenting
     private let paletteModel: LeoAgentPaletteModel
+    /// Tells this window's `LeoWindowSession` whether the palette is on
+    /// screen -- a hidden sidebar alone would otherwise leave the window
+    /// unpollable while the user is actively choosing an agent, showing a
+    /// stale/empty list. See `LeoWindowSession.isPollable`.
+    private let setPickerPresented: (Bool) -> Void
 
     private var activeRequest: LeoSurfaceRequest?
     /// True while the spawn sheet is up (palette hidden for it) -- guards
@@ -109,7 +114,8 @@ import SwiftUI
         hostSelection: LeoHostSelection,
         actions: LeoAgentActions,
         panel: LeoAgentPalettePanelControlling? = nil,
-        spawnSheet: LeoSpawnSheetPresenting? = nil
+        spawnSheet: LeoSpawnSheetPresenting? = nil,
+        setPickerPresented: @escaping (Bool) -> Void = { _ in }
     ) {
         self.window = window
         self.router = router
@@ -118,6 +124,7 @@ import SwiftUI
         self.actions = actions
         self.panel = panel ?? LeoAgentPalettePanel()
         self.spawnSheet = spawnSheet ?? LeoSpawnAgentSheetPresenter()
+        self.setPickerPresented = setPickerPresented
         paletteModel = LeoAgentPaletteModel(retry: { [weak hostSelection] in hostSelection?.retry() })
         observeLiveState()
     }
@@ -149,6 +156,7 @@ import SwiftUI
     /// Requires `window` to already be non-nil; callers check that.
     private func showPanel() {
         guard let window else { return }
+        setPickerPresented(true)
         panel.present(
             parent: window,
             model: paletteModel,
@@ -156,6 +164,13 @@ import SwiftUI
             onRetry: { [weak self] in self?.hostSelection.retry() },
             onResignKey: { [weak self] in self?.handleResignKey() }
         )
+    }
+
+    /// Wraps `panel.dismiss()` everywhere it's called so the picker-presented
+    /// flag always tracks the panel's actual on-screen state.
+    private func dismissPanel() {
+        panel.dismiss()
+        setPickerPresented(false)
     }
 
     /// Invoked by `LeoRuntime`'s per-window dispatch once the router commits
@@ -167,7 +182,7 @@ import SwiftUI
             return
         }
         isSpawnHandoffInProgress = true
-        panel.dismiss()
+        dismissPanel()
         spawnSheet.present(on: window, sidebar: sidebar, actions: actions) { [weak self] identity in
             guard let self else {
                 completion(identity)
@@ -240,13 +255,13 @@ import SwiftUI
         pendingDismissToken = token
         DispatchQueue.main.async { [weak self] in
             guard let self, self.pendingDismissToken == token, self.activeRequest == nil else { return }
-            self.panel.dismiss()
+            self.dismissPanel()
         }
     }
 
     /// The parent window closed -- tear everything down unconditionally.
     func invalidate() {
-        panel.dismiss()
+        dismissPanel()
         activeRequest = nil
         isSpawnHandoffInProgress = false
         isAttachInProgress = false
@@ -256,7 +271,7 @@ import SwiftUI
         guard let request = activeRequest else { return }
         switch choice {
         case .cancel:
-            panel.dismiss()
+            dismissPanel()
             activeRequest = nil
             router.chooseDetached(.cancel, for: request)
         case .newAgent:
@@ -269,7 +284,7 @@ import SwiftUI
 
     private func handleResignKey() {
         guard !isSpawnHandoffInProgress, !isAttachInProgress, let request = activeRequest else { return }
-        panel.dismiss()
+        dismissPanel()
         activeRequest = nil
         router.chooseDetached(.cancel, for: request)
     }

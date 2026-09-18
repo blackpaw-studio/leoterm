@@ -234,7 +234,8 @@ import OSLog
                 router: newSurfaceRouter,
                 sidebar: model,
                 hostSelection: hostSelection,
-                actions: actions
+                actions: actions,
+                setPickerPresented: { [weak session] presented in session?.setPickerPresented(presented) }
             )
             picker.register(presentation, for: sessionID)
         }

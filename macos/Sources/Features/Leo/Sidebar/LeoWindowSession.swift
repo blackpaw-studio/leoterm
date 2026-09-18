@@ -24,6 +24,11 @@ struct LeoWindowVisibilityState: Equatable {
 @MainActor final class LeoWindowSession: ObservableObject {
     let id: LeoWindowID
     @Published var isSidebarVisible: Bool { didSet { changed() } }
+    /// True while this window's agent palette is on screen. The sidebar can
+    /// be hidden (the default) and still need live agent data for the
+    /// palette, so pollability considers both -- see `isPollable`. Set by
+    /// `LeoPickerPresentation` via `setPickerPresented(_:)`.
+    @Published private(set) var isPickerPresented = false { didSet { changed() } }
     @Published private(set) var preferredWidth: CGFloat
     @Published var windowIsOccluded = false { didSet { changed() } }
     @Published var windowIsMiniaturized = false { didSet { changed() } }
@@ -50,18 +55,27 @@ struct LeoWindowVisibilityState: Equatable {
         self.defaults = defaults
         self.onPollabilityChanged = onPollabilityChanged
         self.window = window
-        isSidebarVisible = defaults.object(forKey: "leo.sidebarVisible") as? Bool ?? true
+        // Fresh installs start with the sidebar hidden -- a persisted user
+        // choice (the key is present, either true or false) always wins.
+        isSidebarVisible = defaults.object(forKey: "leo.sidebarVisible") as? Bool ?? false
         preferredWidth = (defaults.object(forKey: "leo.sidebarWidth") as? NSNumber).map { CGFloat($0.doubleValue) } ?? 260
         observeWindow()
     }
 
     deinit { observers.forEach(NotificationCenter.default.removeObserver) }
 
-    var isPollable: Bool { isSidebarVisible && !windowIsOccluded && !windowIsMiniaturized }
+    var isPollable: Bool { (isSidebarVisible || isPickerPresented) && !windowIsOccluded && !windowIsMiniaturized }
 
     func setSidebarVisible(_ visible: Bool) {
         isSidebarVisible = visible
         defaults.set(visible, forKey: "leo.sidebarVisible")
+    }
+
+    /// Called by `LeoPickerPresentation` when its panel is shown/dismissed.
+    /// Not persisted -- unlike sidebar visibility, this reflects transient
+    /// palette-open state, not a user preference.
+    func setPickerPresented(_ presented: Bool) {
+        isPickerPresented = presented
     }
 
     func setPreferredWidth(_ width: CGFloat) {

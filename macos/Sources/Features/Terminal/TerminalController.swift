@@ -1267,6 +1267,14 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 
         // Initialize our content view to the SwiftUI root
         // MARK: Leo
+        // Leo owns window placement on launch (cold start always shows the
+        // placeholder + agent palette, never a restored plain-shell
+        // window), so every Leo-managed terminal window opts out of
+        // AppKit/macOS state restoration regardless of the upstream
+        // `restorable` flag or `window-save-state` config. Must run after
+        // the upstream restoration setup above, which unconditionally sets
+        // `window.isRestorable`.
+        window.isRestorable = false
         let leoSession = (NSApp.delegate as? AppDelegate)?.leoRuntime.makeWindowSession(for: self)
         self.leoSession = leoSession
         let container = TerminalViewContainer {
