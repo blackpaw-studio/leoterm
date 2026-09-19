@@ -1,6 +1,58 @@
 import AppKit
 import SwiftUI
 
+/// A named group of rows for the sidebar's `List`, keyed by status. Rows
+/// arrive pre-ranked (`LeoSidebarReducers.rank`), so grouping by first
+/// occurrence preserves that order without a second sort -- and a status
+/// with no rows (e.g. filtered out by a search query) never produces an
+/// empty section header.
+struct LeoSidebarSection: Identifiable, Equatable {
+    let id: String
+    let title: String
+    let rows: [LeoAgentRow]
+}
+
+enum LeoSidebarSectioning {
+    static func sections(for rows: [LeoAgentRow]) -> [LeoSidebarSection] {
+        var order: [String] = []
+        var rowsByKey: [String: [LeoAgentRow]] = [:]
+        for row in rows {
+            let key = sectionKey(for: row.status)
+            if rowsByKey[key] == nil {
+                order.append(key)
+                rowsByKey[key] = []
+            }
+            rowsByKey[key]?.append(row)
+        }
+        return order.map { key in
+            LeoSidebarSection(id: key, title: title(for: key), rows: rowsByKey[key] ?? [])
+        }
+    }
+
+    private static func sectionKey(for status: LeoAgentStatus) -> String {
+        switch status {
+        case .running: "running"
+        case .starting: "starting"
+        case .stopped: "stopped"
+        case .unknown(let raw): "unknown:\(raw)"
+        }
+    }
+
+    private static func title(for key: String) -> String {
+        switch key {
+        case "running": return "Running"
+        case "starting": return "Starting"
+        case "stopped": return "Stopped"
+        default:
+            guard key.hasPrefix("unknown:") else { return key.capitalized }
+            let raw = String(key.dropFirst("unknown:".count))
+            // A daemon that reports an empty status would otherwise render a
+            // blank section header with rows under it.
+            return raw.isEmpty ? "Unknown" : raw.capitalized
+        }
+    }
+}
+
 struct LeoSidebarView: View {
     @ObservedObject var model: LeoSidebarModel
     let windowID: LeoWindowID
@@ -18,7 +70,18 @@ struct LeoSidebarView: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            HStack { Text("Agents").font(.headline); Spacer(); Button("New Agent…") { showingSpawn = true } }
+            HStack {
+                Text("Agents").font(.headline)
+                Spacer()
+                Button {
+                    showingSpawn = true
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .buttonStyle(.borderless)
+                .help("New Agent…")
+                .accessibilityLabel("New Agent…")
+            }
             Menu {
                 hostMenuItem(name: "localhost", isSelected: hostSelection.selected == .local) {
                     hostSelection.select(.local)
@@ -35,8 +98,12 @@ struct LeoSidebarView: View {
                 Divider()
                 Button("Manage Hosts…") { hostsSheetModel = hostSelection.makeHostsSheetModel() }
             } label: {
-                Text(hostSelection.selected.displayName)
+                HStack {
+                    Text(hostSelection.selected.displayName)
+                    Spacer(minLength: 0)
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .help(hostSelection.legacyTooltip ?? "Select host")
             .accessibilityLabel("Host")
 
@@ -89,11 +156,17 @@ struct LeoSidebarView: View {
             } else if model.visibleRows.isEmpty {
                 stateView { Text("No matches") }
             } else {
-                List(model.visibleRows, selection: $model.selection) { row in
-                    LeoAgentRowView(row: row, isSelected: model.selection == row.id, attach: { row, disposition in
-                        model.attachRequested(row, windowID, disposition)
-                    }, actions: actions, error: model.rowErrors[row.id], errorCode: model.rowErrorCodes[row.id])
-                        .tag(row.id)
+                List(selection: $model.selection) {
+                    ForEach(LeoSidebarSectioning.sections(for: model.visibleRows)) { section in
+                        Section(header: Text(section.title)) {
+                            ForEach(section.rows) { row in
+                                LeoAgentRowView(row: row, isSelected: model.selection == row.id, attach: { row, disposition in
+                                    model.attachRequested(row, windowID, disposition)
+                                }, actions: actions, error: model.rowErrors[row.id], errorCode: model.rowErrorCodes[row.id])
+                                    .tag(row.id)
+                            }
+                        }
+                    }
                 }
                 .listStyle(.sidebar)
                 .overlay(alignment: .bottomTrailing) {

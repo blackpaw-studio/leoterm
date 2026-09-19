@@ -5,13 +5,11 @@ enum LeoSidebarSplitMetrics {
     static let minimumWidth: CGFloat = 200
     static let maximumWidth: CGFloat = 420
     static let minimumTerminalWidth: CGFloat = 30
-    static let dividerWidth: CGFloat = 6
+    /// Width of the split view's divider, used by `TerminalController` when
+    /// sizing a window that shows the sidebar. `NSSplitView.dividerStyle` is
+    /// `.thin`, which the HIG defines as 1 pt.
+    static let dividerWidth: CGFloat = 1
     private static let widthChangeTolerance: CGFloat = 0.5
-
-    static func width(preferred: CGFloat, available: CGFloat) -> CGFloat {
-        let upperBound = max(minimumWidth, min(maximumWidth, available - minimumTerminalWidth - dividerWidth))
-        return min(max(preferred, minimumWidth), upperBound)
-    }
 
     /// Whether a sidebar width reported back by the split view should be
     /// written to `session.preferredWidth`.
@@ -62,14 +60,18 @@ struct LeoSidebarSplit<Terminal: View>: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            LeoSplitViewRepresentable(
-                isSidebarVisible: session.isSidebarVisible,
-                sidebarWidth: LeoSidebarSplitMetrics.width(preferred: session.preferredWidth, available: geometry.size.width),
-                onDividerWidthChange: { session.setPreferredWidth($0) },
-                sidebar: LeoSidebarView(model: model, windowID: session.id, actions: actions),
-                detail: terminal
-            )
-        }
+        // No `GeometryReader`: the split view owns the sidebar's width while
+        // the app is running (clamped by the split view items'
+        // `minimumThickness`/`maximumThickness`), so nothing here needs the
+        // available width. A `GeometryReader` would force this body to
+        // re-evaluate on every layout pass, which is what previously
+        // re-entered `setPosition` mid-drag and fought the user.
+        LeoSplitViewRepresentable(
+            isSidebarVisible: session.isSidebarVisible,
+            preferredWidth: session.preferredWidth,
+            onDividerWidthChange: { session.setPreferredWidth($0) },
+            sidebar: LeoSidebarView(model: model, windowID: session.id, actions: actions),
+            detail: terminal
+        )
     }
 }

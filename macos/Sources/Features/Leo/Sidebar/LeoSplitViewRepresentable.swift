@@ -15,7 +15,14 @@ import SwiftUI
 /// assistive technology) actually moves the divider.
 struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerRepresentable {
     var isSidebarVisible: Bool
-    var sidebarWidth: CGFloat
+    /// The width to apply when the split view is created, and again when the
+    /// sidebar transitions from hidden to shown. NOT reapplied on every
+    /// SwiftUI body evaluation -- once the sidebar is visible, the live
+    /// `NSSplitView` owns its own width and a user drag is the only thing
+    /// that should move it. Re-consulting this on every update (as a
+    /// `GeometryReader`-derived value previously did) is what caused the
+    /// divider to snap back to a stale value mid-drag.
+    var preferredWidth: CGFloat
     var onDividerWidthChange: (CGFloat) -> Void
     let sidebar: Sidebar
     let detail: Detail
@@ -45,15 +52,13 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
         controller.addSplitViewItem(detailItem)
         controller.splitView.dividerStyle = .thin
         controller.sidebarItem = sidebarItem
-        controller.lastPersistedWidth = sidebarWidth
+        controller.lastKnownVisible = isSidebarVisible
         controller.onDividerWidthChange = onDividerWidthChange
 
         context.coordinator.sidebarHosting = sidebarHosting
         context.coordinator.detailHosting = detailHosting
 
-        controller.isApplyingProgrammaticWidth = true
-        controller.splitView.setPosition(sidebarWidth, ofDividerAt: 0)
-        controller.isApplyingProgrammaticWidth = false
+        controller.applyProgrammaticWidth(preferredWidth)
 
         return controller
     }
@@ -65,31 +70,38 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
 
         guard let sidebarItem = controller.sidebarItem else { return }
 
-        if sidebarItem.isCollapsed == isSidebarVisible {
-            // `isCollapsed` flips immediately while the pane's frame animates
-            // over several frames. Every intermediate `splitViewDidResizeSubviews`
-            // would otherwise look like a genuine user drag and persist a
-            // mid-animation width, corrupting the stored preference. Suppress
-            // persistence until the animation finishes.
-            controller.isApplyingProgrammaticWidth = true
-            NSAnimationContext.runAnimationGroup { _ in
-                sidebarItem.animator().isCollapsed = !isSidebarVisible
-            } completionHandler: {
-                controller.isApplyingProgrammaticWidth = false
+        // Only reconcile the visible/collapsed state here -- an already
+        // visible sidebar's width is left entirely alone (see
+        // `preferredWidth` doc comment above). `lastKnownVisible` is how we
+        // tell "the sidebar just went from hidden to shown, apply the stored
+        // width" apart from "the sidebar is already shown and the user is
+        // dragging it, leave it alone".
+        let isShowing = isSidebarVisible && !controller.lastKnownVisible
+        controller.lastKnownVisible = isSidebarVisible
+
+        guard sidebarItem.isCollapsed == isSidebarVisible else { return }
+
+        // `isCollapsed` flips immediately while the pane's frame animates
+        // over several frames. Every intermediate `splitViewDidResizeSubviews`
+        // would otherwise look like a genuine user drag and persist a
+        // mid-animation width, corrupting the stored preference. Suppress
+        // persistence until the animation finishes.
+        controller.isApplyingProgrammaticWidth = true
+        let widthToApplyOnShow = preferredWidth
+        NSAnimationContext.runAnimationGroup { _ in
+            sidebarItem.animator().isCollapsed = !isSidebarVisible
+        } completionHandler: {
+            if isShowing {
+                // Restore the stored width now that the pane is back in the
+                // view tree; `applyProgrammaticWidth` takes over clearing
+                // `isApplyingProgrammaticWidth` for us.
+                controller.applyProgrammaticWidth(widthToApplyOnShow)
+            } else {
+                DispatchQueue.main.async {
+                    controller.isApplyingProgrammaticWidth = false
+                }
             }
         }
-
-        guard isSidebarVisible else { return }
-
-        let currentWidth = sidebarItem.viewController.view.frame.width
-        guard LeoSidebarSplitMetrics.shouldPersist(newWidth: sidebarWidth, lastPersistedWidth: currentWidth, isCollapsed: false) else {
-            return
-        }
-
-        controller.isApplyingProgrammaticWidth = true
-        controller.splitView.setPosition(sidebarWidth, ofDividerAt: 0)
-        controller.lastPersistedWidth = sidebarWidth
-        controller.isApplyingProgrammaticWidth = false
     }
 
     /// Holds the `NSHostingController`s so their `rootView` can be updated
@@ -119,6 +131,32 @@ final class LeoSplitViewController: NSSplitViewController {
     var onDividerWidthChange: ((CGFloat) -> Void)?
     var isApplyingProgrammaticWidth = false
     var lastPersistedWidth: CGFloat = 0
+    /// Tracks the sidebar's visibility as of the last `updateNSViewController`
+    /// call, so a hidden-to-shown transition (which should restore the
+    /// stored width) can be told apart from "already shown, leave the width
+    /// the user is dragging alone".
+    var lastKnownVisible = false
+
+    /// Applies a width we chose ourselves -- at controller creation, or when
+    /// the sidebar transitions from hidden to shown -- as opposed to one the
+    /// user just dragged to. `isApplyingProgrammaticWidth` suppresses
+    /// `splitViewDidResizeSubviews` from re-persisting this as if it were
+    /// user intent.
+    ///
+    /// The flag is cleared on the next main-queue turn rather than
+    /// synchronously after `setPosition`: the resulting
+    /// `splitViewDidResizeSubviews` notification arrives on a later layout
+    /// pass, not within this call, so clearing it immediately would leave
+    /// the guard covering nothing and let this programmatic move get
+    /// persisted as if the user had dragged there.
+    func applyProgrammaticWidth(_ width: CGFloat) {
+        isApplyingProgrammaticWidth = true
+        splitView.setPosition(width, ofDividerAt: 0)
+        lastPersistedWidth = width
+        DispatchQueue.main.async { [weak self] in
+            self?.isApplyingProgrammaticWidth = false
+        }
+    }
 
     /// Persists the sidebar's current width whenever the split view reports
     /// a resize, as long as the sidebar isn't collapsed and the width

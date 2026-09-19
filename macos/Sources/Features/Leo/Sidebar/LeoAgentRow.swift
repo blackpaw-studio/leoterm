@@ -79,6 +79,7 @@ struct LeoAgentRowView: View {
     @State private var showingRename = false
     @State private var showingDelete = false
     @State private var templateLoadError: String?
+    @State private var isHovered = false
 
     private var availability: LeoRowActionAvailability {
         LeoRowActionAvailability(status: row.status, isPending: actions.pendingActions.contains(row.id))
@@ -90,12 +91,9 @@ struct LeoAgentRowView: View {
             rowDetails
                 .contentShape(Rectangle())
                 .onTapGesture(count: 2) { activate(source: .rowDoubleClick) }
-            Button("Attach") { activate(source: .button) }
-                .buttonStyle(.borderless)
-                .disabled(!availability.attach)
-                .accessibilityLabel("Attach to \(row.name)")
         }
         .contentShape(Rectangle())
+        .onHover { isHovered = $0 }
         .contextMenu { menu }
         .sheet(isPresented: $showingRename) { LeoRenameAgentSheet(row: row, actions: actions) }
         .sheet(isPresented: $showingDelete) {
@@ -103,12 +101,44 @@ struct LeoAgentRowView: View {
         }
     }
 
+    private var attachAffordance: some View {
+        // Hover-revealed and borderless, the Mac convention for a per-row
+        // secondary action (Mail and Finder do this). Attaching stays
+        // reachable without hover via double-click, Return, the context
+        // menu, and the Agents menu, so nothing depends on hover alone.
+        //
+        // The fill deliberately matches the status badge rather than using a
+        // material: materials belong to the chrome layer, and a control
+        // inside a list row is content sitting on the sidebar's own material.
+        Button("Attach") { activate(source: .button) }
+            .buttonStyle(.borderless)
+            .controlSize(.small)
+            .disabled(!availability.attach)
+            .accessibilityLabel("Attach to \(row.name)")
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Color.secondary.opacity(0.18), in: Capsule())
+    }
+
     private var rowDetails: some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack {
-                Text(row.name).fontWeight(.medium).lineLimit(1)
+                Text(row.name)
+                    .fontWeight(.medium)
+                    .lineLimit(1)
+                    .accessibilityLabel("\(row.name), \(LeoStatusPresentation.agentStatus(row.status).accessibilityLabel)")
                 Spacer(minLength: 4)
                 statusBadge
+            }
+            // Overlaid on the name line specifically, not the whole row:
+            // rows vary in height (template, action detail, error, progress),
+            // and an overlay on the row would float the control vertically
+            // centered over that block instead of beside the name. As an
+            // overlay it never reflows the name when it appears.
+            .overlay(alignment: .trailing) {
+                if isHovered {
+                    attachAffordance
+                }
             }
             if let template = row.template, !template.isEmpty {
                 Text(template).font(.caption).foregroundStyle(.secondary).lineLimit(1)
@@ -131,21 +161,31 @@ struct LeoAgentRowView: View {
                 .resizable()
                 .frame(width: 7, height: 7)
                 .foregroundStyle(presentation.color)
-                .accessibilityLabel(presentation.accessibilityLabel)
+                .accessibilityHidden(true)
         case .unknown:
             // No activity data yet; not an error, so no glyph is shown.
             Color.clear.frame(width: 7, height: 7).accessibilityHidden(true)
         }
     }
 
-    private var statusBadge: some View {
-        let presentation = LeoStatusPresentation.agentStatus(row.status)
-        return Text(statusText)
-            .font(.caption2)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 2)
-            .background(presentation.color.opacity(0.18), in: Capsule())
-            .foregroundStyle(presentation.color)
+    @ViewBuilder private var statusBadge: some View {
+        // A running agent is the expected state (already conveyed by the
+        // activity dot), so the badge only surfaces exceptions: stopped,
+        // starting, failed, unknown. That both reduces list noise and frees
+        // width for the name. VoiceOver still gets the status on every row
+        // via the accessibility label on the name text above.
+        if row.status != .running {
+            let presentation = LeoStatusPresentation.agentStatus(row.status)
+            Text(statusText)
+                .font(.caption2)
+                .lineLimit(1)
+                .fixedSize()
+                .layoutPriority(1)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 2)
+                .background(presentation.color.opacity(0.18), in: Capsule())
+                .foregroundStyle(presentation.color)
+        }
     }
 
     private var statusText: String {

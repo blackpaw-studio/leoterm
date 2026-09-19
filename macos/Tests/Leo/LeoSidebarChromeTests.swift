@@ -104,20 +104,14 @@ struct LeoSidebarChromeTests {
         #expect(!state.isMiniaturized)
     }
 
-    @Test func splitWidthClampsToPreferenceAndAvailableSpace() {
-        #expect(LeoSidebarSplitMetrics.width(preferred: 100, available: 1_000) == 200)
-        #expect(LeoSidebarSplitMetrics.width(preferred: 500, available: 1_000) == 420)
-        #expect(LeoSidebarSplitMetrics.width(preferred: 300, available: 250) == 214)
-        #expect(LeoSidebarSplitMetrics.width(preferred: 300, available: 230) == 200)
-    }
-
-    @Test @MainActor func splitDisplayedWidthDoesNotMutatePreference() {
+    @Test @MainActor func splitPreferenceRoundTripsThroughTheSession() {
+        // The split view clamps to the items' min/max thickness, so the
+        // session stores exactly what the user dragged to.
         let defaults = UserDefaults(suiteName: "LeoSidebarSplitTests")!
         defaults.removePersistentDomain(forName: "LeoSidebarSplitTests")
         let session = LeoWindowSession(defaults: defaults)
         session.setPreferredWidth(500)
 
-        #expect(LeoSidebarSplitMetrics.width(preferred: session.preferredWidth, available: 250) == 214)
         #expect(session.preferredWidth == 500)
     }
 
