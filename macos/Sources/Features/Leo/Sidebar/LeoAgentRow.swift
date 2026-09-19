@@ -76,20 +76,12 @@ struct LeoAgentRowView: View {
     let error: String?
     let errorCode: String?
     @State private var templates: [LeoTemplate] = []
-    @State private var renameValue = ""
-    @State private var deletePlan: LeoDeletePlan?
     @State private var showingRename = false
     @State private var showingDelete = false
-    @State private var forceDelete = false
-    @State private var deleteBranch = false
     @State private var templateLoadError: String?
 
     private var availability: LeoRowActionAvailability {
         LeoRowActionAvailability(status: row.status, isPending: actions.pendingActions.contains(row.id))
-    }
-
-    private var deleteSheetAvailability: LeoDeleteSheetActionAvailability {
-        LeoDeleteSheetActionAvailability(row: availability, errorCode: errorCode)
     }
 
     var body: some View {
@@ -105,8 +97,10 @@ struct LeoAgentRowView: View {
         }
         .contentShape(Rectangle())
         .contextMenu { menu }
-        .sheet(isPresented: $showingRename) { renameSheet }
-        .sheet(isPresented: $showingDelete) { deleteSheet }
+        .sheet(isPresented: $showingRename) { LeoRenameAgentSheet(row: row, actions: actions) }
+        .sheet(isPresented: $showingDelete) {
+            LeoDeleteAgentSheet(row: row, actions: actions, error: error, errorCode: errorCode)
+        }
     }
 
     private var rowDetails: some View {
@@ -123,7 +117,7 @@ struct LeoAgentRowView: View {
                 Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
             if let error, !error.isEmpty {
-                Text(error).font(.caption).foregroundStyle(.red).lineLimit(2)
+                Text(error).font(.caption).foregroundStyle(Color(nsColor: .systemRed)).lineLimit(2)
             }
             if actions.pendingActions.contains(row.id) { ProgressView().controlSize(.small) }
         }
@@ -131,22 +125,27 @@ struct LeoAgentRowView: View {
 
     @ViewBuilder private var activityDot: some View {
         switch row.activity {
-        case .working:
-            Circle().fill(.green).frame(width: 7, height: 7).accessibilityLabel("Working")
-        case .idle:
-            Circle().fill(.gray).frame(width: 7, height: 7).accessibilityLabel("Idle")
+        case .working, .idle:
+            let presentation = LeoStatusPresentation.activity(row.activity)
+            Image(systemName: presentation.symbolName)
+                .resizable()
+                .frame(width: 7, height: 7)
+                .foregroundStyle(presentation.color)
+                .accessibilityLabel(presentation.accessibilityLabel)
         case .unknown:
+            // No activity data yet; not an error, so no glyph is shown.
             Color.clear.frame(width: 7, height: 7).accessibilityHidden(true)
         }
     }
 
     private var statusBadge: some View {
-        Text(statusText)
+        let presentation = LeoStatusPresentation.agentStatus(row.status)
+        return Text(statusText)
             .font(.caption2)
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
-            .background(statusColor.opacity(0.18), in: Capsule())
-            .foregroundStyle(statusColor)
+            .background(presentation.color.opacity(0.18), in: Capsule())
+            .foregroundStyle(presentation.color)
     }
 
     private var statusText: String {
@@ -155,15 +154,6 @@ struct LeoAgentRowView: View {
         case .starting: "starting"
         case .stopped: "stopped"
         case .unknown: "unknown"
-        }
-    }
-
-    private var statusColor: Color {
-        switch row.status {
-        case .running: .green
-        case .starting: .orange
-        case .stopped: .secondary
-        case .unknown: .secondary
         }
     }
 
@@ -194,10 +184,10 @@ struct LeoAgentRowView: View {
         .task {
             do { templates = try await actions.templates() } catch { templateLoadError = error.localizedDescription }
         }
-        Button("Rename…") { renameValue = row.name; showingRename = true }.disabled(!availability.rename)
+        Button("Rename…") { showingRename = true }.disabled(!availability.rename)
         Button("View Logs") { viewLogs() }.disabled(!availability.logs)
         Divider()
-        Button("Delete…", role: .destructive) { requestDeletePlan() }.disabled(!availability.delete)
+        Button("Delete…", role: .destructive) { showingDelete = true }.disabled(!availability.delete)
     }
 
     private func viewLogs() {
@@ -227,45 +217,4 @@ struct LeoAgentRowView: View {
         }
     }
 
-    private var renameSheet: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Rename \(row.name)").font(.headline)
-            TextField("Name", text: $renameValue)
-            if let validation = SpawnValidation.rename(renameValue, current: row.name) {
-                Text(validation).foregroundStyle(.red)
-            }
-            HStack { Spacer(); Button("Cancel") { showingRename = false }; Button("Rename") {
-                actions.rename(row, newName: renameValue)
-                showingRename = false
-            }.disabled(SpawnValidation.rename(renameValue, current: row.name) != nil) }
-        }.padding().frame(width: 360)
-    }
-
-    @ViewBuilder private var deleteSheet: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Delete \(row.name)?").font(.headline)
-            if let deletePlan {
-                if let path = deletePlan.worktreePath { Text("Worktree: \(path)") }
-                if let branch = deletePlan.branch { Text("Branch: \(branch)") }
-                if deletePlan.branch != nil { Toggle("Also delete branch", isOn: $deleteBranch) }
-            }
-            if let error, LeoDeleteActionState.canStopFirst(errorCode: errorCode) {
-                Text(error).foregroundStyle(.red)
-                Button("Stop first") { actions.stop(row) }.disabled(!deleteSheetAvailability.stopFirst)
-            } else if let error { Text(error).foregroundStyle(.red) }
-            Toggle("Force", isOn: $forceDelete)
-            HStack { Spacer(); Button("Cancel") { showingDelete = false }; Button("Delete", role: .destructive) {
-                actions.delete(row, force: forceDelete, deleteBranch: deleteBranch) { showingDelete = false }
-            }.disabled(!deleteSheetAvailability.delete) }
-        }.padding().frame(width: 420)
-    }
-
-    private func requestDeletePlan() {
-        actions.deletePlan(row) { plan in
-            deletePlan = plan
-            deleteBranch = false
-            forceDelete = false
-            showingDelete = true
-        }
-    }
 }

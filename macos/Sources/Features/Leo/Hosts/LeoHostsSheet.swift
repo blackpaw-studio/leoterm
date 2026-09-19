@@ -81,13 +81,15 @@ private struct LeoHostFormView: View {
         Form {
             Section {
                 TextField("Name", text: binding(\.name, host.name))
-                TextField("SSH target (user@host[:port])", text: binding(\.sshTarget, host.sshTarget))
-                HStack {
-                    TextField("Identity file (optional)", text: binding(\.identityFile, host.identityFile ?? ""))
-                    Button("Choose…") { chooseIdentityFile() }
+                TextField("SSH Target", text: binding(\.sshTarget, host.sshTarget), prompt: Text("user@host[:port]"))
+                LabeledContent("Identity File") {
+                    HStack {
+                        TextField("", text: binding(\.identityFile, host.identityFile ?? ""), prompt: Text("optional"))
+                        Button("Choose…") { chooseIdentityFile() }
+                    }
                 }
-                TextField("Remote leo path", text: binding(\.remoteLeoPath, host.remoteLeoPath), prompt: Text("~/.local/bin/leo"))
-                TextField("Remote socket path", text: binding(\.remoteSocketPath, host.remoteSocketPath), prompt: Text("~/.leo/state/leo.sock"))
+                TextField("Remote Leo Path", text: binding(\.remoteLeoPath, host.remoteLeoPath), prompt: Text("~/.local/bin/leo"))
+                TextField("Remote Socket Path", text: binding(\.remoteSocketPath, host.remoteSocketPath), prompt: Text("~/.leo/state/leo.sock"))
                     .help("The daemon's unix socket on the remote host. A leading \"~/\" is expanded on the remote to its own $HOME; anything else must already be an absolute remote path.")
             }
             if !model.errors(for: host).isEmpty {

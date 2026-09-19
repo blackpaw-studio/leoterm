@@ -13,17 +13,17 @@ struct LeoPlaceholderView: View {
                 .font(.system(size: 40, weight: .light))
                 .foregroundStyle(.secondary)
             VStack(spacing: 4) {
-                Text("Pick an agent")
+                Text("No Agent Attached")
                     .font(.title3.weight(.semibold))
-                Text("⌘T opens the picker · terminal drawer via the menu")
+                Text("Attach to an agent or open a plain shell.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
             HStack(spacing: 12) {
-                Button("Pick an Agent…", action: openPicker)
-                    .keyboardShortcut("t", modifiers: .command)
+                Button("Choose Agent…", action: openPicker)
                     .buttonStyle(.borderedProminent)
-                Button("Toggle Terminal Drawer", action: toggleDrawer)
+                    .help("⌘T")
+                Button("Show Terminal Drawer", action: toggleDrawer)
                     .buttonStyle(.bordered)
             }
         }

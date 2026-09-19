@@ -59,6 +59,27 @@ import Testing
         #expect(store.load().map(\.name) == ["work"])
     }
 
+    /// HIG requires that a silent, irreversible destructive action never
+    /// happen without confirmation. `removeSelected()` only removes from
+    /// the draft array; the removed host is never written back to the
+    /// store until `save()`. Cancelling (never calling `save()`) is
+    /// therefore already a full undo of the removal -- this is what makes
+    /// the missing confirmation dialog acceptable.
+    @Test func removingAHostAndCancellingLeavesTheHostInTheStore() {
+        let defaults = defaults()
+        let store = LeoHostStore(defaults: defaults)
+        try? store.save([.init(name: "work", sshTarget: "evan@work"), .init(name: "zeta", sshTarget: "evan@zeta")])
+        let model = LeoHostsSheetModel(store: store)
+
+        model.selectedID = model.hosts.first { $0.name == "zeta" }?.id
+        model.removeSelected()
+
+        #expect(model.hosts.map(\.name) == ["work"], "removal is reflected in the draft immediately")
+        #expect(store.load().map(\.name) == ["work", "zeta"], "but the store is untouched until save()")
+        // Cancel = discard the model without calling save().
+        #expect(store.load().map(\.name) == ["work", "zeta"], "cancelling after removal must leave the store unchanged")
+    }
+
     @Test func saveWritesThroughTheStoreAndReloadsSorted() {
         let defaults = defaults()
         let store = LeoHostStore(defaults: defaults)

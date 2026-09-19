@@ -18,14 +18,14 @@ struct LeoSidebarView: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            HStack { Text("Agents").font(.headline); Spacer(); Button("New Agent") { showingSpawn = true } }
+            HStack { Text("Agents").font(.headline); Spacer(); Button("New Agent…") { showingSpawn = true } }
             Menu {
-                Button { hostSelection.select(.local) } label: {
-                    Text("\(hostSelection.selected == .local ? "✓ " : "")● localhost")
+                hostMenuItem(name: "localhost", isSelected: hostSelection.selected == .local) {
+                    hostSelection.select(.local)
                 }
                 ForEach(hostSelection.hosts) { host in
-                    Button { hostSelection.select(.remote(host.name)) } label: {
-                        Text("\(hostSelection.selected == .remote(host.name) ? "✓ " : "")\(glyph(for: host.name)) \(host.name)")
+                    hostMenuItem(name: host.name, isSelected: hostSelection.selected == .remote(host.name)) {
+                        hostSelection.select(.remote(host.name))
                     }
                 }
                 if case .failed = hostSelection.state {
@@ -45,12 +45,11 @@ struct LeoSidebarView: View {
 
             content
             if let panelError {
-                Text(panelError).font(.caption).foregroundStyle(.red)
+                Text(panelError).font(.caption).foregroundStyle(Color(nsColor: .systemRed))
             }
         }
         .padding(.horizontal, 10)
         .padding(.bottom, 10)
-        .background(.bar)
         .sheet(isPresented: $showingSpawn) {
             SpawnAgentSheet(model: model, actions: actions) { row, disposition in
                 model.attachRequested(row, windowID, disposition)
@@ -79,7 +78,14 @@ struct LeoSidebarView: View {
             }
         case .connected:
             if model.snapshot.rows.isEmpty {
-                stateView { Text("No agents") }
+                stateView {
+                    Text("No Agents").font(.headline)
+                    Text("Spawn an agent to start working with it from this window.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                    Button("New Agent…") { showingSpawn = true }
+                }
             } else if model.visibleRows.isEmpty {
                 stateView { Text("No matches") }
             } else {
@@ -118,15 +124,27 @@ struct LeoSidebarView: View {
         }
     }
 
-    /// Only the currently *selected* remote host has a live connection
-    /// state to show (see `LeoHostSelection`); other configured hosts show a
+    /// A single host entry in the host picker menu. Selection is conveyed by
+    /// the menu's own checkmark (via `Toggle`, which macOS renders as a
+    /// checked menu item), and connection state by an SF Symbol + semantic
+    /// color from `LeoStatusPresentation` -- never by a typed character.
+    ///
+    /// Only the currently *selected* remote host has a live connection state
+    /// to show (see `LeoHostSelection`); other configured hosts show a
     /// neutral glyph until they're selected.
-    private func glyph(for hostName: String) -> String {
-        guard hostSelection.selected == .remote(hostName) else { return "○" }
-        switch hostSelection.state {
-        case .connected: return "●"
-        case .connecting: return "◌"
-        case .failed: return "⚠"
+    private func hostMenuItem(name: String, isSelected: Bool, select: @escaping () -> Void) -> some View {
+        let presentation = LeoStatusPresentation.hostConnection(
+            isSelected: isSelected,
+            state: isSelected ? hostSelection.state : nil
+        )
+        return Toggle(isOn: Binding(get: { isSelected }, set: { _ in select() })) {
+            Label {
+                Text(name)
+            } icon: {
+                Image(systemName: presentation.symbolName)
+                    .foregroundStyle(presentation.color)
+            }
         }
+        .accessibilityLabel("\(name), \(presentation.accessibilityLabel)")
     }
 }

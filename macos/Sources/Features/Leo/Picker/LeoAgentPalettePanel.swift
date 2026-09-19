@@ -17,17 +17,29 @@ import SwiftUI
     func dismiss()
 }
 
+/// Pure sizing formula for `LeoAgentPalettePanel`, pulled out of the
+/// `NSPanel` subclass so it is unit-testable without a live window server.
+/// Row/header metrics match Mac list conventions (Spotlight, Xcode's Open
+/// Quickly) rather than the 44 pt iOS touch target.
+enum LeoAgentPalettePanelLayout {
+    static let width: CGFloat = 640
+    static let minHeight: CGFloat = 140
+    static let maxHeight: CGFloat = 420
+    static let rowHeight: CGFloat = 32
+    static let headerHeight: CGFloat = 52
+
+    static func panelHeight(rowCount: Int) -> CGFloat {
+        min(max(headerHeight + CGFloat(rowCount) * rowHeight, minHeight), maxHeight)
+    }
+}
+
 /// The real floating palette: a borderless, key-taking `NSPanel` attached as
 /// a child window of the terminal window it was invoked from, sized and
 /// positioned like a Spotlight bar. Owns no picker logic itself -- it only
 /// hosts `LeoAgentPaletteView` and forwards commit/resign-key events to
 /// whoever called `present(...)`.
 @MainActor final class LeoAgentPalettePanel: NSPanel, LeoAgentPalettePanelControlling {
-    private static let width: CGFloat = 640
-    private static let minHeight: CGFloat = 140
-    private static let maxHeight: CGFloat = 420
-    private static let rowHeight: CGFloat = 44
-    private static let headerHeight: CGFloat = 72
+    private typealias Layout = LeoAgentPalettePanelLayout
 
     private weak var attachedParent: NSWindow?
     private var onResignKeyHandler: (() -> Void)?
@@ -41,7 +53,7 @@ import SwiftUI
 
     convenience init() {
         self.init(
-            contentRect: NSRect(x: 0, y: 0, width: LeoAgentPalettePanel.width, height: LeoAgentPalettePanel.minHeight),
+            contentRect: NSRect(x: 0, y: 0, width: Layout.width, height: Layout.minHeight),
             styleMask: [.borderless, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -134,13 +146,13 @@ import SwiftUI
     private func positionOverParent(_ parent: NSWindow) {
         let parentFrame = parent.frame
         let height = frame.height
-        let x = parentFrame.midX - Self.width / 2
+        let x = parentFrame.midX - Layout.width / 2
         let y = parentFrame.maxY - parentFrame.height / 3 - height
-        setFrame(NSRect(x: x, y: y, width: Self.width, height: height), display: true)
+        setFrame(NSRect(x: x, y: y, width: Layout.width, height: height), display: true)
     }
 
     private func layoutHeight(rowCount: Int) {
-        let height = min(max(Self.headerHeight + CGFloat(rowCount) * Self.rowHeight, Self.minHeight), Self.maxHeight)
-        setContentSize(NSSize(width: Self.width, height: height))
+        let height = Layout.panelHeight(rowCount: rowCount)
+        setContentSize(NSSize(width: Layout.width, height: height))
     }
 }

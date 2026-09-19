@@ -22,7 +22,9 @@ struct SpawnAgentSheet: View {
                 Text("Choose a template").tag("")
                 ForEach(model.templates) { Text($0.name).tag($0.name) }
             }
-            HStack { TextField("Repository", text: $model.repo); Button("Choose…") { choose() } }
+            LabeledContent("Repository") {
+                HStack { TextField("", text: $model.repo); Button("Choose…") { choose() } }
+            }
             TextField("Name", text: $model.name)
             TextField("Branch", text: $model.branch)
             TextEditor(text: $model.prompt).frame(minHeight: 80)
@@ -30,7 +32,10 @@ struct SpawnAgentSheet: View {
         }
         .padding().frame(width: 440)
         .task { await model.loadTemplates() }
-        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Spawn") { spawn() }.disabled(model.validationError != nil || model.isSpawning) } }
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+            ToolbarItem(placement: .confirmationAction) { Button("Create") { spawn() }.disabled(model.validationError != nil || model.isSpawning) }
+        }
     }
     private func choose() {
         if let path = chooseDirectory() { model.repo = path }

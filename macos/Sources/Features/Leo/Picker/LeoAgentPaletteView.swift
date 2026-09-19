@@ -90,7 +90,10 @@ private struct LeoAgentPaletteRowView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(isSelected ? Color.accentColor.opacity(0.18) : .clear, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .background(
+            isSelected ? Color(nsColor: .selectedContentBackgroundColor) : .clear,
+            in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+        )
     }
 
     @ViewBuilder private var content: some View {
@@ -129,12 +132,16 @@ private struct LeoAgentPaletteRowView: View {
 
     @ViewBuilder private func activityDot(_ agentRow: LeoAgentRow) -> some View {
         switch agentRow.activity {
-        case .working:
-            Circle().fill(.green).frame(width: 7, height: 7).accessibilityLabel("Working")
-        case .idle:
-            Circle().fill(.gray).frame(width: 7, height: 7).accessibilityLabel("Idle")
         case .unknown:
+            // No activity data yet -- not an error, so show nothing.
             Color.clear.frame(width: 7, height: 7).accessibilityHidden(true)
+        default:
+            let presentation = LeoStatusPresentation.activity(agentRow.activity)
+            Image(systemName: presentation.symbolName)
+                .font(.system(size: 7, weight: .bold))
+                .foregroundStyle(presentation.color)
+                .frame(width: 7, height: 7)
+                .accessibilityLabel(presentation.accessibilityLabel)
         }
     }
 
