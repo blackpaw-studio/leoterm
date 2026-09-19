@@ -334,20 +334,6 @@
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="L3L-I8-sqk"/>
-                            <!-- MARK: Leo -->
-                            <menuItem title="Toggle Agents Sidebar" keyEquivalent="L" id="Leo-Sidebar-Toggle">
-                                <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
-                                <connections>
-                                    <action selector="toggleLeoSidebar:" target="-1" id="Leo-Sidebar-Action"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="New Agent" keyEquivalent="A" id="Leo-New-Agent">
-                                <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
-                                <connections>
-                                    <action selector="newLeoAgent:" target="-1" id="Leo-New-Agent-Action"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem isSeparatorItem="YES" id="Leo-Sidebar-Separator"/>
                             <menuItem title="Command Palette" id="et6-de-Mh7">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
@@ -384,6 +370,86 @@
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="toggleTerminalInspector:" target="-1" id="87m-3R-fQl"/>
+                                </connections>
+                            </menuItem>
+                        </items>
+                    </menu>
+                </menuItem>
+                <!-- MARK: Leo -->
+                <menuItem title="Agents" id="Leo-Agents-MenuItem">
+                    <modifierMask key="keyEquivalentModifierMask"/>
+                    <menu key="submenu" title="Agents" id="Leo-Agents-Menu">
+                        <items>
+                            <menuItem title="Attach" keyEquivalent="a" id="Leo-Agents-Attach">
+                                <modifierMask key="keyEquivalentModifierMask" control="YES" command="YES"/>
+                                <connections>
+                                    <action selector="attachSelectedLeoAgent:" target="-1" id="Leo-Agents-Attach-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="New Agent…" keyEquivalent="A" id="Leo-New-Agent">
+                                <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
+                                <connections>
+                                    <action selector="newLeoAgent:" target="-1" id="Leo-New-Agent-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="Leo-Agents-Separator-1"/>
+                            <menuItem title="Start" id="Leo-Agents-Start">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="startSelectedLeoAgent:" target="-1" id="Leo-Agents-Start-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Stop" id="Leo-Agents-Stop">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="stopSelectedLeoAgent:" target="-1" id="Leo-Agents-Stop-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Restart" id="Leo-Agents-Restart">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="restartSelectedLeoAgent:" target="-1" id="Leo-Agents-Restart-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="Leo-Agents-Separator-2"/>
+                            <menuItem title="Rename…" id="Leo-Agents-Rename">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="renameSelectedLeoAgent:" target="-1" id="Leo-Agents-Rename-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Set Template" identifier="leo.agents.setTemplate" id="Leo-Agents-SetTemplate">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <menu key="submenu" title="Set Template" id="Leo-Agents-SetTemplate-Menu">
+                                    <items>
+                                        <menuItem title="No Agent Selected" enabled="NO" id="Leo-Agents-SetTemplate-Placeholder"/>
+                                    </items>
+                                </menu>
+                            </menuItem>
+                            <menuItem title="View Logs" id="Leo-Agents-ViewLogs">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="viewLogsForSelectedLeoAgent:" target="-1" id="Leo-Agents-ViewLogs-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="Leo-Agents-Separator-3"/>
+                            <menuItem title="Delete" id="Leo-Agents-Delete">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="deleteSelectedLeoAgent:" target="-1" id="Leo-Agents-Delete-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="Leo-Agents-Separator-4"/>
+                            <menuItem title="Manage Hosts…" id="Leo-Agents-ManageHosts">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="manageLeoHosts:" target="-1" id="Leo-Agents-ManageHosts-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Show Agents Sidebar" keyEquivalent="L" id="Leo-Sidebar-Toggle">
+                                <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
+                                <connections>
+                                    <action selector="toggleLeoSidebar:" target="-1" id="Leo-Sidebar-Action"/>
                                 </connections>
                             </menuItem>
                         </items>

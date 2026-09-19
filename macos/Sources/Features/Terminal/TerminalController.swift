@@ -1950,6 +1950,30 @@ extension TerminalController {
         case #selector(newLeoAgent(_:)):
             return validateNewLeoAgentMenuItem(item)
 
+        case #selector(attachSelectedLeoAgent(_:)):
+            return validateLeoAttachMenuItem(item)
+
+        case #selector(startSelectedLeoAgent(_:)):
+            return validateLeoStartMenuItem(item)
+
+        case #selector(stopSelectedLeoAgent(_:)):
+            return validateLeoStopMenuItem(item)
+
+        case #selector(restartSelectedLeoAgent(_:)):
+            return validateLeoRestartMenuItem(item)
+
+        case #selector(renameSelectedLeoAgent(_:)):
+            return validateLeoRenameMenuItem(item)
+
+        case #selector(viewLogsForSelectedLeoAgent(_:)):
+            return validateLeoViewLogsMenuItem(item)
+
+        case #selector(deleteSelectedLeoAgent(_:)):
+            return validateLeoDeleteMenuItem(item)
+
+        case #selector(manageLeoHosts(_:)):
+            return validateLeoManageHostsMenuItem(item)
+
         case #selector(closeTabsOnTheRight):
             guard let window, let tabGroup = window.tabGroup else { return false }
             guard let currentIndex = tabGroup.windows.firstIndex(of: window) else { return false }

@@ -1,15 +1,33 @@
 import AppKit
 import SwiftUI
 
-enum LeoSidebarMenuState {
-    static func state(isSidebarVisible: Bool) -> NSControl.StateValue {
-        isSidebarVisible ? .on : .off
+extension TerminalController {
+    /// The Leo runtime singleton, when the app delegate has one installed.
+    var leoRuntime: LeoRuntime? { (NSApp.delegate as? AppDelegate)?.leoRuntime }
+
+    /// The sidebar row currently selected in this window's Leo runtime, if
+    /// any. Menu commands that act "on the current sidebar selection" read
+    /// this rather than duplicating `LeoSidebarModel`'s selection storage.
+    var selectedLeoRow: LeoAgentRow? {
+        guard let runtime = leoRuntime, let id = runtime.model.selection else { return nil }
+        return runtime.model.snapshot.rows.first { $0.id == id }
     }
 
-    static func canCreateAgent(hasLeoSession: Bool) -> Bool { hasLeoSession }
-}
+    /// Availability of the agent-scoped commands (Start, Stop, Rename, ...)
+    /// for the current window/selection, reusing `LeoRowActionAvailability`
+    /// -- the same status-gating logic the sidebar's row context menu uses
+    /// -- so the menu bar and the context menu never disagree.
+    var selectedLeoAgentContext: LeoMenuCommands.AgentContext {
+        let row = selectedLeoRow
+        let availability = row.map { row in
+            LeoRowActionAvailability(
+                status: row.status,
+                isPending: leoRuntime?.actions.pendingActions.contains(row.id) ?? false
+            )
+        }
+        return LeoMenuCommands.AgentContext(hasLeoSession: leoSession != nil, availability: availability)
+    }
 
-extension TerminalController {
     @IBAction func toggleLeoSidebar(_ sender: Any?) {
         guard let leoSession else { return }
         leoSession.setSidebarVisible(!leoSession.isSidebarVisible)
@@ -39,12 +57,15 @@ extension TerminalController {
     }
 
     func validateLeoSidebarMenuItem(_ item: NSMenuItem) -> Bool {
-        guard let leoSession else { item.state = .off; return false }
-        item.state = LeoSidebarMenuState.state(isSidebarVisible: leoSession.isSidebarVisible)
-        return true
+        let hasLeoSession = leoSession != nil
+        item.title = LeoMenuCommands.sidebarToggleTitle(
+            hasLeoSession: hasLeoSession,
+            isSidebarVisible: leoSession?.isSidebarVisible ?? false
+        )
+        return LeoMenuCommands.canToggleSidebar(hasLeoSession: hasLeoSession)
     }
 
     func validateNewLeoAgentMenuItem(_ item: NSMenuItem) -> Bool {
-        LeoSidebarMenuState.canCreateAgent(hasLeoSession: leoSession != nil)
+        LeoMenuCommands.canCreateAgent(hasLeoSession: leoSession != nil)
     }
 }

@@ -21,14 +21,14 @@ struct LeoSidebarChromeTests {
         #expect(calls.first?.1 == .newWindow)
     }
 
-    @Test func sidebarMenuStateReflectsVisibility() {
-        #expect(LeoSidebarMenuState.state(isSidebarVisible: true) == .on)
-        #expect(LeoSidebarMenuState.state(isSidebarVisible: false) == .off)
+    @Test func sidebarMenuTitleReflectsVisibility() {
+        #expect(LeoMenuCommands.sidebarToggleTitle(hasLeoSession: true, isSidebarVisible: true) == "Hide Agents Sidebar")
+        #expect(LeoMenuCommands.sidebarToggleTitle(hasLeoSession: true, isSidebarVisible: false) == "Show Agents Sidebar")
     }
 
     @Test func newAgentMenuRequiresLeoSession() {
-        #expect(LeoSidebarMenuState.canCreateAgent(hasLeoSession: true))
-        #expect(!LeoSidebarMenuState.canCreateAgent(hasLeoSession: false))
+        #expect(LeoMenuCommands.canCreateAgent(hasLeoSession: true))
+        #expect(!LeoMenuCommands.canCreateAgent(hasLeoSession: false))
     }
 
     @Test func logsCommandQuotesExecutableAndAgentName() throws {
@@ -119,5 +119,11 @@ struct LeoSidebarChromeTests {
 
         #expect(LeoSidebarSplitMetrics.width(preferred: session.preferredWidth, available: 250) == 214)
         #expect(session.preferredWidth == 500)
+    }
+
+    @Test func splitPersistsOnlyOnRealWidthChangesWhileVisible() {
+        #expect(LeoSidebarSplitMetrics.shouldPersist(newWidth: 260, lastPersistedWidth: 240, isCollapsed: false))
+        #expect(!LeoSidebarSplitMetrics.shouldPersist(newWidth: 240.2, lastPersistedWidth: 240, isCollapsed: false))
+        #expect(!LeoSidebarSplitMetrics.shouldPersist(newWidth: 300, lastPersistedWidth: 240, isCollapsed: true))
     }
 }
