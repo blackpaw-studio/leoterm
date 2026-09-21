@@ -18,11 +18,54 @@ struct LeoSidebarTests {
 
     @Test func schedulerPausesAndCoalesces() {
         var scheduler = LeoPollScheduler(now: { Date(timeIntervalSince1970: 0) })
-        #expect(scheduler.reduce(.sidebarVisibleCountChanged(1)) == [.resume, .refreshNow, .scheduleTick(after: 2)])
+        #expect(scheduler.reduce(.sidebarVisibleCountChanged(1)) == [.resume, .refreshNow, .scheduleTick(after: 30)])
         #expect(scheduler.reduce(.refreshStarted).isEmpty)
-        #expect(scheduler.reduce(.tick) == [.scheduleTick(after: 2)])
+        #expect(scheduler.reduce(.tick) == [.scheduleTick(after: 30)])
         #expect(scheduler.reduce(.refreshFinished) == [.refreshNow])
         #expect(scheduler.reduce(.windowOcclusionChanged(true)) == [.pause])
+    }
+
+    @Test func schedulerDoesNotPollWhileSSEIsConnected() {
+        var scheduler = LeoPollScheduler()
+        _ = scheduler.reduce(.sidebarVisibleCountChanged(1))
+
+        #expect(scheduler.reduce(.sseEvent(.connected)) == [.pause, .refreshNow])
+        #expect(scheduler.reduce(.tick).isEmpty)
+    }
+
+    @Test func schedulerPollsEveryThirtySecondsWhileSSEIsDisconnected() {
+        var scheduler = LeoPollScheduler()
+
+        #expect(scheduler.reduce(.sidebarVisibleCountChanged(1)) == [.resume, .refreshNow, .scheduleTick(after: 30)])
+        #expect(scheduler.reduce(.tick) == [.refreshNow, .scheduleTick(after: 30)])
+    }
+
+    @Test func schedulerRefreshesForSSEStateEventsAfterCoalescingDelay() {
+        var scheduler = LeoPollScheduler()
+        _ = scheduler.reduce(.sidebarVisibleCountChanged(1))
+        _ = scheduler.reduce(.sseEvent(.connected))
+
+        #expect(scheduler.reduce(.sseEvent(.agentStopped(seq: 1, at: nil, agent: "a", wakeOnMessage: nil))) == [.scheduleSSERefresh(after: 0.1)])
+        #expect(scheduler.reduce(.sseRefreshDue) == [.refreshNow])
+    }
+
+    @Test func schedulerCoalescesSSEStateEventsWithinOneHundredMilliseconds() {
+        var scheduler = LeoPollScheduler()
+        _ = scheduler.reduce(.sidebarVisibleCountChanged(1))
+        _ = scheduler.reduce(.sseEvent(.connected))
+
+        #expect(scheduler.reduce(.sseEvent(.agentSpawned(seq: 1, at: nil, agent: .init(name: "a", template: nil, repo: nil, workspace: nil, branch: nil, canonicalPath: nil, status: nil, startedAt: nil, restarts: nil, stoppedReason: nil, wakeOnMessage: nil)))) == [.scheduleSSERefresh(after: 0.1)])
+        #expect(scheduler.reduce(.sseEvent(.agentStateChanged(seq: 2, at: nil, agent: "a", status: .running, restarts: nil, wakeOnMessage: nil))).isEmpty)
+        #expect(scheduler.reduce(.sseRefreshDue) == [.refreshNow])
+    }
+
+    @Test func schedulerRefreshesImmediatelyWhenSSEReconnects() {
+        var scheduler = LeoPollScheduler()
+        _ = scheduler.reduce(.sidebarVisibleCountChanged(1))
+        _ = scheduler.reduce(.sseEvent(.connected))
+        _ = scheduler.reduce(.sseEvent(.disconnected(reason: "EOF")))
+
+        #expect(scheduler.reduce(.sseEvent(.connected)) == [.pause, .refreshNow])
     }
 
     @Test func schedulerBoundsFollowUpRefreshAfterManyTicks() {
@@ -31,7 +74,7 @@ struct LeoSidebarTests {
         _ = scheduler.reduce(.refreshStarted)
 
         for _ in 0..<10 {
-            #expect(scheduler.reduce(.tick) == [.scheduleTick(after: 2)])
+            #expect(scheduler.reduce(.tick) == [.scheduleTick(after: 30)])
         }
 
         #expect(scheduler.reduce(.refreshFinished) == [.refreshNow])

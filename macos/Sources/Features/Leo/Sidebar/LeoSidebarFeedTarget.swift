@@ -26,7 +26,15 @@ extension LeoSidebarFeed {
             eventTask?.cancel()
             refreshTask?.cancel()
             activityTask?.cancel()
+            sseRefreshTask?.cancel()
+            sseRefreshTask = nil
             _ = scheduler.reduce(.refreshCancelled)
+            // The old connection's SSE-connectivity state is meaningless for
+            // the new one -- without this, a switch away from a connected
+            // SSE stream would leave `shouldPoll` stuck `false` until the
+            // new connection's own SSE reported in, killing the 30s fallback
+            // poll in the meantime (see LeoSidebarFeedHostSwitchTests).
+            scheduler.resetConnectionTracking()
             activityByName = [:]
             bufferedActivity = []
             needsState = true

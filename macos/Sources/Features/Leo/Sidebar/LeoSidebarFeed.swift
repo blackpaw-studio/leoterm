@@ -39,6 +39,7 @@ actor LeoSidebarFeed {
     var activityTask: Task<Void, Never>?
     private var emissionTask: Task<Void, Never>?
     var pollTask: Task<Void, Never>?
+    var sseRefreshTask: Task<Void, Never>?
     var scheduler = LeoPollScheduler()
     var running = false
     var needsState = true
@@ -76,11 +77,13 @@ actor LeoSidebarFeed {
         activityTask?.cancel()
         emissionTask?.cancel()
         pollTask?.cancel()
+        sseRefreshTask?.cancel()
         eventTask = nil
         refreshTask = nil
         activityTask = nil
         emissionTask = nil
         pollTask = nil
+        sseRefreshTask = nil
         scheduler.reset()
     }
 
@@ -107,6 +110,11 @@ actor LeoSidebarFeed {
         process(scheduler.reduce(.tick))
     }
 
+    private func sseRefreshDue() {
+        guard running, selectedHostAvailable else { return }
+        process(scheduler.reduce(.sseRefreshDue))
+    }
+
     func setPolling(_ pollable: Bool) {
         guard running else { return }
         pollingRequested = pollable
@@ -131,6 +139,10 @@ actor LeoSidebarFeed {
             guard !recovering else { return }
             awaitingHello = true
             prepareRecovery()
+            // A pending coalesced-refresh sleep from just before the
+            // reconnect must not fire a spurious refresh ~100ms later.
+            sseRefreshTask?.cancel()
+            sseRefreshTask = nil
             process(scheduler.reduce(.sseEvent(event)))
         case .hello:
             if awaitingHello {
@@ -149,6 +161,10 @@ actor LeoSidebarFeed {
         case .agentActivity:
             if recovering { bufferedActivity.append(event) } else { applyActivity(event) }
         case .disconnected:
+            // A pending coalesced-refresh sleep is now moot -- the stream
+            // that scheduled it is gone.
+            sseRefreshTask?.cancel()
+            sseRefreshTask = nil
             activityByName = [:]
             bufferedActivity = []
             snapshot = LeoSidebarSnapshot(
@@ -158,6 +174,10 @@ actor LeoSidebarFeed {
                 connectivity: snapshot.connectivity,
                 generation: snapshot.generation
             )
+            // Tells the scheduler SSE is down so it falls back to periodic
+            // polling instead of staying paused forever (this was missing:
+            // `.disconnected` never reached the scheduler before).
+            process(scheduler.reduce(.sseEvent(event)))
             emit()
         }
     }
@@ -317,6 +337,21 @@ actor LeoSidebarFeed {
                     guard !Task.isCancelled else { return }
                     guard let self else { return }
                     await self.tick()
+                }
+            case .scheduleSSERefresh(let interval):
+                sseRefreshTask?.cancel()
+                sseRefreshTask = Task { [weak self, sleeper] in
+                    do {
+                        try await sleeper(UInt64(interval * 1_000_000_000))
+                    } catch is CancellationError {
+                        return
+                    } catch {
+                        Self.logger.error("Leo sidebar SSE-coalescing sleep failed: \(String(describing: error), privacy: .public)")
+                        return
+                    }
+                    guard !Task.isCancelled else { return }
+                    guard let self else { return }
+                    await self.sseRefreshDue()
                 }
             case .pause:
                 pollTask?.cancel()

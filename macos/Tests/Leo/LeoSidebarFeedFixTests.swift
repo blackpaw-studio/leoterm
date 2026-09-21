@@ -84,6 +84,38 @@ struct LeoSidebarFeedFixTests {
         await feed.stop()
     }
 
+    /// Actor-level coverage of `sseRefreshTask`'s lifecycle, exercised
+    /// directly through `process(_:)` (bypassing the scheduler's own
+    /// coalescing guard) so the task-management behavior is isolated from
+    /// `LeoPollScheduler`'s state machine, which is covered separately in
+    /// `LeoSidebarTests`.
+    @Test func sseRefreshTaskReplacesAPendingPredecessorAndIsCancelledOnStop() async throws {
+        let clock = FeedFixClock()
+        let daemon = FeedFixDaemon(results: [[agent("alpha")]])
+        let recorder = FeedFixRecorder()
+        let feed = makeFeed(daemon: daemon, activity: FeedFixActivity(), recorder: recorder, sleep: { try await clock.sleep($0) })
+
+        await feed.start()
+
+        // Re-entry: scheduling a second coalesced-refresh sleep while the
+        // first is still pending must cancel the first rather than stacking
+        // both (which would otherwise fire two refreshes for one coalescing
+        // window).
+        await feed.process([.scheduleSSERefresh(after: 0.1)])
+        try await wait { await clock.sleepCount == 1 }
+        await feed.process([.scheduleSSERefresh(after: 0.1)])
+        try await wait { await clock.sleepCount == 1 }
+        #expect(await clock.sleepCount == 1)
+
+        // stop() must cancel the still-pending sleep: advancing it
+        // afterward must never produce a refresh or emission.
+        await feed.stop()
+        await clock.advanceAll()
+        for _ in 0..<20 { await Task.yield() }
+        #expect(await daemon.listCallCount == 0)
+        #expect(await recorder.values.isEmpty)
+    }
+
     @Test func stopReleasesFeedWhenEventsNeverFinish() async throws {
         let activity = FeedFixActivity()
         var feed: LeoSidebarFeed? = makeFeed(daemon: FeedFixDaemon(), activity: activity, recorder: FeedFixRecorder())
