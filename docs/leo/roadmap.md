@@ -39,11 +39,19 @@ picker logged `outcome=cancel` 0.4 s after present when launched headless via
 
 - [x] **Coalesce activity events** (merged) (~100 ms) before rebuilding rows; skip
   emission when the snapshot is unchanged (`LeoSidebarFeed`).
-- [ ] **Non-blocking socket I/O.** Replace blocking poll/recv slices in
+- [x] **Non-blocking socket I/O.** Merged. Replace blocking poll/recv slices in
   `LeoUnixSocketTransport` with NWConnection (unix endpoint) or DispatchIO.
 - [ ] **Cold start.** Measure launch with the sidebar visible; if the first
   fetch blocks first paint, render the cached last snapshot and refresh in
   place.
+
+## Test infra
+
+- [ ] **Order-dependent flake.** `LeoHostSelectionReloadTests.editingAnUnrelatedHostDoesNotReselect`
+  fails intermittently in the full serial run (`Int32(text → "")`, a pid
+  file read race in `LeoHostSelectionTestSupport`), passes 6/6 in isolation.
+  Parallel runs flake more widely across tunnel/host-selection suites.
+  Run the suite with `-parallel-testing-enabled NO` until fixed.
 
 ## Decided against (do not propose)
 
