@@ -25,7 +25,7 @@ struct LeoSidebarActivitySource: Sendable {
 /// can never reach a newer one.
 actor LeoSidebarFeed {
     typealias Sink = @MainActor @Sendable (LeoSidebarSnapshot) -> Void
-    private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "LeoSidebarFeed")
+    static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "LeoSidebarFeed")
 
     var daemon: any LeoDaemonClient
     var activitySource: LeoSidebarActivitySource
@@ -47,10 +47,19 @@ actor LeoSidebarFeed {
     /// satisfied by the very next refresh to start, whatever else also
     /// triggered it.
     private var manualRefreshPending = false
-    private let sleeper: @Sendable (UInt64) async throws -> Void
+    let sleeper: @Sendable (UInt64) async throws -> Void
     var snapshot = LeoSidebarSnapshot(rows: [], connectivity: .loading, generation: 0)
     var activityByName: [String: LeoSidebarActivity] = [:]
     var bufferedActivity: [LeoObserveEvent] = []
+    /// Coalesces `agentActivity` SSE events so a chatty agent applies at
+    /// most one merge + emission per `activityCoalesceInterval`, instead of
+    /// one per event -- see `LeoActivityCoalescer`.
+    var activityCoalescer = LeoActivityCoalescer()
+    var activityCoalesceTask: Task<Void, Never>?
+    /// Coalescing window for bursts of `agentActivity` events -- mirrors
+    /// `LeoPollScheduler.sseCoalesceInterval`'s pattern of a named constant
+    /// plus the injected `sleeper`.
+    static let activityCoalesceInterval: TimeInterval = 0.1
     var eventTask: Task<Void, Never>?
     var refreshTask: Task<Void, Never>?
     var activityTask: Task<Void, Never>?
@@ -101,12 +110,15 @@ actor LeoSidebarFeed {
         emissionTask?.cancel()
         pollTask?.cancel()
         sseRefreshTask?.cancel()
+        activityCoalesceTask?.cancel()
         eventTask = nil
         refreshTask = nil
         activityTask = nil
         emissionTask = nil
         pollTask = nil
         sseRefreshTask = nil
+        activityCoalesceTask = nil
+        activityCoalescer = LeoActivityCoalescer()
         scheduler.reset()
     }
 
@@ -158,6 +170,12 @@ actor LeoSidebarFeed {
 
     func receive(_ event: LeoObserveEvent) {
         guard running else { return }
+        // Every non-activity event either emits directly (`.disconnected`)
+        // or triggers a refresh that will (lifecycle/recovery events, via
+        // `performRefresh`/`applyActivityState`) -- flush whatever's
+        // buffered first so that emission reflects the latest activity
+        // instead of a still-pending coalescing window.
+        if case .agentActivity = event {} else { drainCoalescedActivity() }
         switch event {
         case .connected:
             guard !recovering else { return }
@@ -183,7 +201,11 @@ actor LeoSidebarFeed {
         case .agentSpawned, .agentStateChanged, .agentStopped:
             process(scheduler.reduce(.sseEvent(event)))
         case .agentActivity:
-            if recovering { bufferedActivity.append(event) } else { applyActivity(event) }
+            if recovering {
+                bufferedActivity.append(event)
+            } else if activityCoalescer.add(event) {
+                scheduleActivityFlush()
+            }
         case .disconnected:
             // A pending coalesced-refresh sleep is now moot -- the stream
             // that scheduled it is gone.
@@ -238,9 +260,14 @@ actor LeoSidebarFeed {
             guard running, generation == snapshot.generation, token == currentRefreshToken else { return }
             snapshot = LeoSidebarReducers.applyListResult(snapshot, result: LeoSidebarReducers.mergeActivity(rows, activityByName: activityByName), generation: generation)
             recovering = false
+            drainCoalescedActivity()
             let buffered = bufferedActivity
             bufferedActivity = []
-            buffered.forEach(applyActivity)
+            mergeIntoActivityByName(buffered)
+            // Still the same successful list refresh as `applyListResult`
+            // above -- merging in buffered/coalesced activity must not
+            // reset `listRefreshSucceeded` back to its `false` default.
+            snapshot = snapshot.replacingRows(LeoSidebarReducers.mergeActivity(snapshot.rows, activityByName: activityByName), listRefreshSucceeded: true)
             emit()
             if isManual { await onManualRefresh() }
             if fetchState { fetchActivityState(generation: generation) }
@@ -253,83 +280,10 @@ actor LeoSidebarFeed {
         }
     }
 
-    private func fetchActivityState(generation: Int) {
-        activityTask?.cancel()
-        activityTask = Task { [weak self, activitySource] in
-            do {
-                let state = try await Self.fetchState(from: activitySource)
-                guard let self else { return }
-                await self.applyActivityState(state, generation: generation)
-            } catch is CancellationError {
-                return
-            } catch {
-                return
-            }
-        }
-    }
-
-    private func fetchList() async throws -> [LeoAgent] {
-        let daemon = daemon
-        let sleeper = sleeper
-        let race = LeoListFetchRace()
-        let result = await withTaskCancellationHandler {
-            await withCheckedContinuation { continuation in
-                race.install(continuation)
-                let listTask = Task {
-                    do {
-                        race.finish(.success(try await daemon.listAgents()), winner: .list)
-                    } catch {
-                        race.finish(.failure(error), winner: .list)
-                    }
-                }
-                let deadlineTask = Task {
-                    do {
-                        try await sleeper(5_000_000_000)
-                        race.finish(.failure(LeoSidebarFeedError.listTimedOut), winner: .deadline)
-                    } catch {
-                        race.finish(.failure(error), winner: .deadline)
-                    }
-                }
-                race.install(listTask: listTask, deadlineTask: deadlineTask)
-            }
-        } onCancel: {
-            race.cancel()
-        }
-        return try result.get()
-    }
-
-    private func applyActivityState(_ state: [LeoObservedAgent], generation: Int) {
-        guard running, generation == snapshot.generation else { return }
-        activityByName = Self.activities(state)
-        snapshot = LeoSidebarSnapshot(rows: LeoSidebarReducers.mergeActivity(snapshot.rows, activityByName: activityByName), connectivity: snapshot.connectivity, generation: generation)
-        emit()
-    }
-
-    private static func fetchState(from source: LeoSidebarActivitySource) async throws -> [LeoObservedAgent] {
-        try await withThrowingTaskGroup(of: [LeoObservedAgent].self) { group in
-            group.addTask { try await source.fetchState() }
-            group.addTask {
-                try await Task.sleep(nanoseconds: 5_000_000_000)
-                throw LeoSidebarFeedError.activityStateTimedOut
-            }
-            defer { group.cancelAll() }
-            guard let state = try await group.next() else { return [] }
-            return state
-        }
-    }
-
     private func finishRefresh() {
         refreshTask = nil
         guard running else { return }
         process(scheduler.reduce(.refreshFinished))
-    }
-
-    private func applyActivity(_ event: LeoObserveEvent) {
-        guard case let .agentActivity(_, _, name, activity, currentAction) = event else { return }
-        let overlay = LeoSidebarActivity(activity: Self.activity(activity), detail: currentAction?.detail)
-        activityByName[name] = overlay
-        snapshot = LeoSidebarSnapshot(rows: LeoSidebarReducers.mergeActivity(snapshot.rows, activityByName: activityByName), connectivity: snapshot.connectivity, generation: snapshot.generation)
-        emit()
     }
 
     func emit() {
@@ -391,22 +345,6 @@ actor LeoSidebarFeed {
 
     private static func row(_ agent: LeoAgent, host: LeoHostID) -> LeoAgentRow {
         LeoAgentRow(host: host, name: agent.name, template: agent.template, status: agent.status ?? .unknown("missing"), activity: .unknown, actionDetail: nil, workspace: agent.workspace, repo: agent.repo)
-    }
-
-    /// No host filtering: `activitySource` is already scoped to exactly one
-    /// connection (see `LeoSidebarFeedTarget.updateConnection`).
-    private static func activities(_ agents: [LeoObservedAgent]) -> [String: LeoSidebarActivity] {
-        Dictionary(agents.map {
-            ($0.name, LeoSidebarActivity(activity: activity($0.activity), detail: $0.currentAction?.detail))
-        }, uniquingKeysWith: { _, latest in latest })
-    }
-
-    private static func activity(_ activity: LeoActivity?) -> LeoAgentRow.Activity {
-        switch activity {
-        case .working: .working
-        case .idle: .idle
-        case .unknown, nil: .unknown
-        }
     }
 }
 

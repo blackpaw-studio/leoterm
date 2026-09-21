@@ -28,6 +28,9 @@ extension LeoSidebarFeed {
             activityTask?.cancel()
             sseRefreshTask?.cancel()
             sseRefreshTask = nil
+            activityCoalesceTask?.cancel()
+            activityCoalesceTask = nil
+            activityCoalescer = LeoActivityCoalescer()
             _ = scheduler.reduce(.refreshCancelled)
             // The old connection's SSE-connectivity state is meaningless for
             // the new one -- without this, a switch away from a connected

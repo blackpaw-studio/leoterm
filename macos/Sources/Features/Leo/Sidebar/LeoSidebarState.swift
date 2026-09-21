@@ -62,6 +62,18 @@ struct LeoSidebarSnapshot: Equatable, Sendable {
         self.generation = generation
         self.listRefreshSucceeded = listRefreshSucceeded
     }
+
+    /// Returns a copy with `rows` replaced and `connectivity`/`generation`
+    /// carried over from `self` explicitly. `listRefreshSucceeded` has no
+    /// default here on purpose -- every reconstruction site (list refresh,
+    /// activity overlay, activity-state fetch) has a different right answer
+    /// for it, and `LeoSidebarSnapshot`'s own memberwise `init` silently
+    /// defaulting it to `false` is exactly what caused a list refresh's
+    /// `true` to be lost by a later same-refresh reconstruction. Forcing
+    /// callers to state it keeps that from recurring.
+    func replacingRows(_ rows: [LeoAgentRow], listRefreshSucceeded: Bool) -> LeoSidebarSnapshot {
+        LeoSidebarSnapshot(rows: rows, connectivity: connectivity, generation: generation, listRefreshSucceeded: listRefreshSucceeded)
+    }
 }
 
 enum AttachDisposition: Sendable { case reuseOrTab, newWindow }
