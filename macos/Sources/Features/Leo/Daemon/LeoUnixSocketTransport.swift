@@ -1,147 +1,119 @@
-import Darwin
 import Foundation
 
 struct LeoUnixSocketTransport: LeoDaemonTransport {
-    private let now: @Sendable () -> UInt64
+    private let clock: any LeoDaemonClock
     /// Test-only hook invoked exactly once per idle-deadline recomputation
     /// (i.e. once per received chunk, including keep-alive pings), decoupled
-    /// from the polling retries inside `wait(...)`. Lets tests synchronize on
-    /// "a chunk was consumed and the deadline was reset" precisely, instead
-    /// of racing against the injected clock's `now()` call count -- `wait`
-    /// itself calls `now()` on every poll-timeout retry, so raw read counts
-    /// are not a reliable per-chunk signal.
+    /// from the watchdog's own sleeper task. Lets tests synchronize on "a
+    /// chunk was consumed and the deadline was reset" precisely, instead of
+    /// racing against the injected clock's `now()` call count.
     private let onIdlePhase: @Sendable () -> Void
 
-    init(now: @escaping @Sendable () -> UInt64 = { DispatchTime.now().uptimeNanoseconds },
-         onIdlePhase: @escaping @Sendable () -> Void = {}) {
-        self.now = now
+    init(clock: any LeoDaemonClock = LeoRealClock(), onIdlePhase: @escaping @Sendable () -> Void = {}) {
+        self.clock = clock
         self.onIdlePhase = onIdlePhase
     }
 
     func stream(path: String, socketPath: String, idleTimeout: TimeInterval = 60) -> AsyncThrowingStream<Data, Error> {
         AsyncThrowingStream { continuation in
-            let descriptor = LeoSocketDescriptor()
-            let task = Task.detached(priority: .userInitiated) {
+            guard FileManager.default.fileExists(atPath: socketPath) else {
+                continuation.finish(throwing: LeoDaemonError.socketMissing(path: socketPath))
+                return
+            }
+            let bridge: LeoNWConnectionBridge
+            do {
+                bridge = try LeoNWConnectionBridge(socketPath: socketPath)
+            } catch {
+                continuation.finish(throwing: error)
+                return
+            }
+            let request = LeoHTTPRequest(method: "GET", path: path).serialized()
+            let task = Task.detached(priority: .userInitiated) { [clock, onIdlePhase] in
                 do {
-                    let request = LeoHTTPRequest(method: "GET", path: path).serialized()
-                    try Self.streamBlocking(request, socketPath: socketPath, idleTimeout: idleTimeout,
-                                            descriptor: descriptor, now: now, onIdlePhase: onIdlePhase) {
+                    try await Self.runStream(bridge, wire: request, idleTimeout: idleTimeout, clock: clock, onIdlePhase: onIdlePhase) {
                         continuation.yield($0)
                     }
                     continuation.finish()
                 } catch {
-                    continuation.finish(throwing: descriptor.isCancelled ? CancellationError() : error)
+                    continuation.finish(throwing: error)
                 }
             }
-            continuation.onTermination = { _ in descriptor.cancel(); task.cancel() }
+            continuation.onTermination = { _ in bridge.cancel(reason: .task); task.cancel() }
         }
     }
 
     func send(_ request: LeoHTTPRequest, socketPath: String, timeout: TimeInterval) async throws -> LeoHTTPResponse {
         guard FileManager.default.fileExists(atPath: socketPath) else { throw LeoDaemonError.socketMissing(path: socketPath) }
-        let descriptor = LeoSocketDescriptor()
+        let bridge = try LeoNWConnectionBridge(socketPath: socketPath)
         return try await withTaskCancellationHandler(operation: {
-            do {
-                try Task.checkCancellation()
-                return try await Task.detached(priority: .userInitiated) {
-                    try Self.sendBlocking(request.serialized(), socketPath: socketPath, timeout: timeout, descriptor: descriptor)
-                }.value
-            } catch {
-                if descriptor.isCancelled { throw CancellationError() }
-                throw error
-            }
-        }, onCancel: { descriptor.cancel() })
+            try Task.checkCancellation()
+            return try await Self.runRequest(bridge, wire: request.serialized(), timeout: timeout)
+        }, onCancel: { bridge.cancel(reason: .task) })
     }
 
-    private static func sendBlocking(_ wire: Data, socketPath: String, timeout: TimeInterval, descriptor: LeoSocketDescriptor) throws -> LeoHTTPResponse {
-        let socketDescriptor = socket(AF_UNIX, SOCK_STREAM, 0)
-        guard socketDescriptor >= 0 else { throw socketError() }
-        descriptor.set(socketDescriptor)
-        defer { descriptor.close() }
-        var noSigPipe: Int32 = 1
-        _ = setsockopt(socketDescriptor, SOL_SOCKET, SO_NOSIGPIPE, &noSigPipe, socklen_t(MemoryLayout<Int32>.size))
-        let flags = fcntl(socketDescriptor, F_GETFL)
-        guard flags >= 0, fcntl(socketDescriptor, F_SETFL, flags | O_NONBLOCK) == 0 else { throw socketError() }
-        let deadline = DispatchTime.now().uptimeNanoseconds + UInt64(timeout * 1_000_000_000)
-        var address = sockaddr_un()
-        address.sun_family = sa_family_t(AF_UNIX)
-        let limit = MemoryLayout.size(ofValue: address.sun_path) - 1
-        guard socketPath.utf8.count <= limit else { throw LeoDaemonError.transport("Socket path is too long") }
-        _ = socketPath.withCString { source in
-            withUnsafeMutablePointer(to: &address.sun_path) { destination in
-                strncpy(UnsafeMutableRawPointer(destination).assumingMemoryBound(to: CChar.self), source, limit)
+    private static func runRequest(_ bridge: LeoNWConnectionBridge, wire: Data, timeout: TimeInterval) async throws -> LeoHTTPResponse {
+        try await withThrowingTaskGroup(of: LeoHTTPResponse.self) { group in
+            group.addTask {
+                defer { bridge.cancel(reason: .task) }
+                try await bridge.connect()
+                try await bridge.send(wire)
+                var data = Data()
+                while let chunk = try await bridge.receiveChunk(maxLength: 64 * 1024) {
+                    data.append(chunk)
+                }
+                do {
+                    return try LeoHTTPResponse.parse(data)
+                } catch {
+                    // A truncated read can be a genuine malformed response,
+                    // or it can be this same request's watchdog cancelling
+                    // the connection mid-read (a race between "receive
+                    // completed as a clean EOF just before cancel" and "the
+                    // watchdog task throws .timeout") -- prefer the
+                    // recorded cancel reason so a timeout surfaces as
+                    // `.timeout`/`CancellationError`, not a misleading
+                    // parse error.
+                    if let reason = bridge.recordedCancelReason() {
+                        throw reason == .task ? CancellationError() : LeoDaemonError.timeout
+                    }
+                    throw LeoDaemonError.transport("Incomplete or invalid HTTP response")
+                }
             }
+            group.addTask {
+                try await Task.sleep(nanoseconds: UInt64(max(timeout, 0) * 1_000_000_000))
+                bridge.cancel(reason: .timeout)
+                throw LeoDaemonError.timeout
+            }
+            defer { group.cancelAll() }
+            guard let result = try await group.next() else { throw LeoDaemonError.transport("Request produced no result") }
+            return result
         }
-        let connected = withUnsafePointer(to: &address) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.connect(socketDescriptor, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) } }
-        if connected != 0 {
-            guard errno == EINPROGRESS else { throw socketError() }
-            try wait(socketDescriptor, events: Int16(POLLOUT), deadline: deadline, descriptor: descriptor)
-            var error: Int32 = 0
-            var length = socklen_t(MemoryLayout<Int32>.size)
-            guard getsockopt(socketDescriptor, SOL_SOCKET, SO_ERROR, &error, &length) == 0, error == 0 else { if error != 0 { errno = error }; throw socketError() }
-        }
-        var offset = 0
-        while offset < wire.count {
-            try wait(socketDescriptor, events: Int16(POLLOUT), deadline: deadline, descriptor: descriptor)
-            let sent = wire.withUnsafeBytes { Darwin.send(socketDescriptor, $0.baseAddress?.advanced(by: offset), wire.count - offset, 0) }
-            if sent > 0 { offset += sent; continue }
-            guard sent < 0, errno == EAGAIN || errno == EWOULDBLOCK else { throw socketError() }
-        }
-        _ = Darwin.shutdown(socketDescriptor, SHUT_WR)
-        var data = Data()
-        var buffer = [UInt8](repeating: 0, count: 64 * 1024)
-        while true {
-            try wait(socketDescriptor, events: Int16(POLLIN), deadline: deadline, descriptor: descriptor)
-            let count = Darwin.recv(socketDescriptor, &buffer, buffer.count, 0)
-            if count == 0 { break }
-            if count > 0 { data.append(contentsOf: buffer.prefix(Int(count))); continue }
-            guard errno == EAGAIN || errno == EWOULDBLOCK else { throw socketError() }
-        }
-        do { return try LeoHTTPResponse.parse(data) } catch { throw LeoDaemonError.transport("Incomplete or invalid HTTP response") }
     }
 
-    private static func streamBlocking(_ wire: Data, socketPath: String, idleTimeout: TimeInterval,
-                                       descriptor: LeoSocketDescriptor, now: @Sendable () -> UInt64,
-                                       onIdlePhase: @Sendable () -> Void = {},
-                                       yield: (Data) -> Void) throws {
-        let socketDescriptor = socket(AF_UNIX, SOCK_STREAM, 0)
-        guard socketDescriptor >= 0 else { throw socketError() }
-        descriptor.set(socketDescriptor)
-        defer { descriptor.close() }
-        var noSigPipe: Int32 = 1
-        _ = setsockopt(socketDescriptor, SOL_SOCKET, SO_NOSIGPIPE, &noSigPipe, socklen_t(MemoryLayout<Int32>.size))
-        var address = sockaddr_un()
-        address.sun_family = sa_family_t(AF_UNIX)
-        let limit = MemoryLayout.size(ofValue: address.sun_path) - 1
-        guard socketPath.utf8.count <= limit else { throw LeoDaemonError.transport("Socket path is too long") }
-        _ = socketPath.withCString { source in
-            withUnsafeMutablePointer(to: &address.sun_path) { destination in
-                strncpy(UnsafeMutableRawPointer(destination).assumingMemoryBound(to: CChar.self), source, limit)
-            }
-        }
-        let connected = withUnsafePointer(to: &address) {
-            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                Darwin.connect(socketDescriptor, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
-            }
-        }
-        guard connected == 0 else { throw socketError() }
-        try wire.withUnsafeBytes { bytes in
-            guard Darwin.send(socketDescriptor, bytes.baseAddress, bytes.count, 0) == bytes.count else { throw socketError() }
-        }
+    private static func runStream(_ bridge: LeoNWConnectionBridge, wire: Data, idleTimeout: TimeInterval,
+                                  clock: any LeoDaemonClock, onIdlePhase: @escaping @Sendable () -> Void,
+                                  yield: (Data) -> Void) async throws {
+        defer { bridge.cancel(reason: .task) }
+        try await bridge.connect()
+        // Never half-close: Go's net/http starts a background read on a
+        // bodyless GET's request body even though there isn't one, and a
+        // FIN here reads as EOF on that body, which cancels the request
+        // context and ends the /events SSE handler immediately. The
+        // `Connection: close` header already tells the server to close
+        // once done; read-to-EOF (below) picks that up without an explicit
+        // FIN, which also sidesteps a FIN sent through an SSH `-L` tunnel
+        // propagating and truncating a different request multiplexed over
+        // the same tunnel.
+        try await bridge.send(wire, isFinal: false)
+        let watchdog = LeoIdleWatchdog(bridge: bridge, clock: clock)
+        defer { watchdog.stop() }
         var pending = Data()
         var headersRead = false
         var chunked = false
-        var buffer = [UInt8](repeating: 0, count: 16 * 1024)
         while true {
-            let instant = now()
-            let deadline = instant + UInt64(idleTimeout * 1_000_000_000)
             onIdlePhase()
-            try wait(socketDescriptor, events: Int16(POLLIN), deadline: deadline, descriptor: descriptor, now: now,
-                     initialInstant: instant)
-            let count = Darwin.recv(socketDescriptor, &buffer, buffer.count, 0)
-            if count == 0 { return }
-            guard count > 0 else { if errno == EINTR { continue }; throw socketError() }
-            pending.append(contentsOf: buffer.prefix(Int(count)))
+            watchdog.reset(idleTimeout: idleTimeout)
+            guard let chunk = try await bridge.receiveChunk(maxLength: 16 * 1024) else { return }
+            pending.append(chunk)
             if !headersRead {
                 guard let separator = pending.range(of: Data("\r\n\r\n".utf8)) else { continue }
                 guard let headers = String(bytes: pending[..<separator.lowerBound], encoding: .utf8)?.lowercased() else {
@@ -179,51 +151,71 @@ struct LeoUnixSocketTransport: LeoDaemonTransport {
         data.removeSubrange(..<data.index(end, offsetBy: 2))
         return (result, false)
     }
-
-    private static func wait(_ socketDescriptor: Int32, events: Int16, deadline: UInt64,
-                             descriptor: LeoSocketDescriptor,
-                             now: @Sendable () -> UInt64 = { DispatchTime.now().uptimeNanoseconds },
-                             initialInstant: UInt64? = nil) throws {
-        var pendingInitialInstant = initialInstant
-        while true {
-            guard !descriptor.isCancelled else { throw CancellationError() }
-            let instant: UInt64
-            if let reused = pendingInitialInstant {
-                instant = reused
-                pendingInitialInstant = nil
-            } else {
-                instant = now()
-            }
-            guard instant < deadline else { throw LeoDaemonError.timeout }
-            let milliseconds = min(50, Int32((deadline - instant + 999_999) / 1_000_000))
-            var pollDescriptor = pollfd(fd: socketDescriptor, events: events, revents: 0)
-            let result = Darwin.poll(&pollDescriptor, 1, milliseconds)
-            guard !descriptor.isCancelled else { throw CancellationError() }
-            if result == 0 { continue }
-            if result < 0 {
-                if errno == EINTR { continue }
-                throw socketError()
-            }
-            if pollDescriptor.revents & Int16(POLLERR | POLLHUP | POLLNVAL) != 0 {
-                if pollDescriptor.revents & Int16(POLLHUP) != 0, events == Int16(POLLIN) { return }
-                throw socketError()
-            }
-            return
-        }
-    }
-
-    private static func socketError() -> LeoDaemonError {
-        if errno == EAGAIN || errno == EWOULDBLOCK { return .timeout }
-        return .transport(String(cString: strerror(errno)))
-    }
 }
 
-private final class LeoSocketDescriptor: @unchecked Sendable {
+/// Watchdog for `stream()`'s idle timeout: one sleeper `Task` per idle
+/// window rather than a polling loop -- `reset()` cancels any still-running
+/// sleeper (a no-op re-arm since `LeoDaemonClock.sleep(until:)` is
+/// cancellable) and starts a fresh one for the new deadline, so there are
+/// zero wakeups while data is flowing and exactly one outstanding sleep at
+/// idle. A monotonic `generation`, bumped under `lock` by every `reset()`/
+/// `stop()`, additionally guards the narrow window where a sleeper has
+/// already returned from `clock.sleep` (so `Task.cancel()` can no longer
+/// stop it) and is about to call `bridge.cancel(.timeout)` just as a chunk
+/// arrives and re-arms the deadline -- without the generation check that
+/// sleeper would fire a spurious timeout on a connection that's still
+/// actively receiving data.
+private final class LeoIdleWatchdog: @unchecked Sendable {
+    private let bridge: LeoNWConnectionBridge
+    private let clock: any LeoDaemonClock
     private let lock = NSLock()
-    private var value: Int32 = -1
-    private var cancelled = false
-    var isCancelled: Bool { lock.lock(); defer { lock.unlock() }; return cancelled }
-    func set(_ descriptor: Int32) { lock.lock(); defer { lock.unlock() }; if cancelled { _ = Darwin.close(descriptor); return }; value = descriptor }
-    func cancel() { lock.lock(); cancelled = true; let descriptor = value; value = -1; lock.unlock(); if descriptor >= 0 { _ = Darwin.close(descriptor) } }
-    func close() { lock.lock(); let descriptor = value; value = -1; lock.unlock(); if descriptor >= 0 { _ = Darwin.close(descriptor) } }
+    private var generation = 0
+    private var sleeperTask: Task<Void, Never>?
+
+    init(bridge: LeoNWConnectionBridge, clock: any LeoDaemonClock) {
+        self.bridge = bridge
+        self.clock = clock
+    }
+
+    func reset(idleTimeout: TimeInterval) {
+        let deadline = clock.now() &+ UInt64(max(idleTimeout, 0) * 1_000_000_000)
+        lock.lock()
+        generation += 1
+        let myGeneration = generation
+        let previous = sleeperTask
+        let task = Task.detached { [bridge, clock, weak self] in
+            do {
+                try await clock.sleep(until: deadline)
+            } catch {
+                return
+            }
+            self?.cancelBridgeIfCurrent(myGeneration)
+        }
+        sleeperTask = task
+        lock.unlock()
+        previous?.cancel()
+    }
+
+    /// Checks the generation and cancels the bridge under the same lock
+    /// acquisition (rather than check-then-unlock-then-cancel), closing the
+    /// window where a `reset()` lands between the two and this sleeper
+    /// fires a spurious timeout anyway. Safe to call `bridge.cancel` while
+    /// holding `lock`: it only touches the bridge's own (different) lock,
+    /// and NWConnection's state handler never calls back into the
+    /// watchdog, so there's no cycle.
+    private func cancelBridgeIfCurrent(_ generation: Int) {
+        lock.lock()
+        defer { lock.unlock() }
+        guard self.generation == generation else { return }
+        bridge.cancel(reason: .timeout)
+    }
+
+    func stop() {
+        lock.lock()
+        generation += 1
+        let task = sleeperTask
+        sleeperTask = nil
+        lock.unlock()
+        task?.cancel()
+    }
 }
