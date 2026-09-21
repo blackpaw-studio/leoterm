@@ -77,6 +77,26 @@ struct LeoSidebarFeedTests {
         await feed.stop()
     }
 
+    /// Regression test: `LeoSidebarModel.receive` only clears `rowErrors`/
+    /// `rowErrorCodes` when the emitted snapshot's `listRefreshSucceeded` is
+    /// `true`. A successful list refresh must emit one such snapshot -- a
+    /// second reconstruction within the same refresh (e.g. to merge in
+    /// buffered activity) must not silently reset it to the `false` default
+    /// before that emission goes out. (A later, separate activity-state
+    /// fetch legitimately emits again with it `false` -- that's not what
+    /// this asserts.)
+    @Test func successfulRefreshEmitsListRefreshSucceeded() async throws {
+        let daemon = FakeDaemonClient(results: [.success([agent("alpha")])])
+        let recorder = SnapshotRecorder()
+        let feed = makeFeed(daemon: daemon, recorder: recorder)
+
+        await feed.start(); await feed.setPolling(true)
+        try await eventually { await recorder.last?.connectivity == .connected }
+
+        #expect(await recorder.values.contains { $0.listRefreshSucceeded })
+        await feed.stop()
+    }
+
     @Test func gapRecoversStateAndReplaysBufferedActivity() async throws {
         let daemon = FakeDaemonClient(results: [.success([agent("alpha")])])
         let activity = FakeActivitySource()
