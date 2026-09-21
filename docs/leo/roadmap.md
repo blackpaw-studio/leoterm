@@ -37,7 +37,7 @@ picker logged `outcome=cancel` 0.4 s after present when launched headless via
 
 ## Tier 3 — performance
 
-- [ ] **Coalesce activity events** (~100 ms) before rebuilding rows; skip
+- [x] **Coalesce activity events** (merged) (~100 ms) before rebuilding rows; skip
   emission when the snapshot is unchanged (`LeoSidebarFeed`).
 - [ ] **Non-blocking socket I/O.** Replace blocking poll/recv slices in
   `LeoUnixSocketTransport` with NWConnection (unix endpoint) or DispatchIO.
