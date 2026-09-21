@@ -31,6 +31,12 @@ struct LeoModelsTests {
         }
     }
 
+    @Test func transportErrorLocalizedDescriptionIncludesTheUnderlyingMessage() {
+        let error = LeoDaemonError.transport("x")
+        #expect(error.localizedDescription.contains("x"))
+        #expect((error as NSError).localizedDescription.contains("x"))
+    }
+
     private func fixture(_ name: String) throws -> Data {
         let url = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

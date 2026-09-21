@@ -32,6 +32,12 @@ final class LeoNWConnectionBridge: @unchecked Sendable {
     /// between "decided to start" and "actually called start()" for a
     /// concurrent `cancel(reason:)` to fall into.
     private var started = false
+    /// Set once a `receive` completion has reported `isComplete == true` --
+    /// whether or not it arrived together with trailing content. NWConnection
+    /// only ever delivers one such final read; `receiveChunk` consults this
+    /// before issuing another `connection.receive` to avoid the transport
+    /// error a second one can produce (see `receiveChunk`'s doc comment).
+    private var finalReadDelivered = false
 
     init(socketPath: String) throws {
         let address = sockaddr_un()
@@ -86,13 +92,35 @@ final class LeoNWConnectionBridge: @unchecked Sendable {
     }
 
     /// Reads the next chunk of the response. Returns `nil` on a clean EOF.
-    func receiveChunk(maxLength: Int) async throws -> Data? {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data?, Error>) in
-            receiveLoop(maxLength: maxLength, emptyStreak: 0, continuation: continuation)
+    /// `onFinalReadObserved`, invoked synchronously right before resuming
+    /// a completion that reported `isComplete == true` (whether or not it
+    /// arrived together with content), is a test-only seam (see
+    /// `connect(beforeStart:)` above for the same pattern) for
+    /// deterministically racing a second `receiveChunk` call against the
+    /// exact instant NWConnection considers its one and only final read
+    /// delivered, rather than relying on timing luck.
+    func receiveChunk(maxLength: Int, onFinalReadObserved: (@Sendable () -> Void)? = nil) async throws -> Data? {
+        // NWConnection delivers exactly one final read: once that's been
+        // observed (whether or not it arrived with trailing content --
+        // see the two `recordFinalReadDelivered()` call sites below), any
+        // further call must not issue another `connection.receive` --
+        // NWConnection can reject a second one with a real transport
+        // error (observed as `.transport("Socket is not connected")`)
+        // instead of the clean repeat-EOF a caller unaware of the
+        // coalesced FIN would expect from calling `receiveChunk` again.
+        if recordedFinalReadDelivered() {
+            if let reason = recordedCancelReason() { throw Self.error(for: reason) }
+            return nil
+        }
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data?, Error>) in
+            receiveLoop(maxLength: maxLength, emptyStreak: 0, onFinalReadObserved: onFinalReadObserved, continuation: continuation)
         }
     }
 
-    private func receiveLoop(maxLength: Int, emptyStreak: Int, continuation: CheckedContinuation<Data?, Error>) {
+    private func receiveLoop(
+        maxLength: Int, emptyStreak: Int, onFinalReadObserved: (@Sendable () -> Void)?,
+        continuation: CheckedContinuation<Data?, Error>
+    ) {
         connection.receive(minimumIncompleteLength: 1, maximumLength: maxLength) { [weak self] content, _, isComplete, error in
             guard let self else { continuation.resume(returning: nil); return }
             if let error {
@@ -100,10 +128,16 @@ final class LeoNWConnectionBridge: @unchecked Sendable {
                 return
             }
             if let content, !content.isEmpty {
+                if isComplete {
+                    self.recordFinalReadDelivered()
+                    onFinalReadObserved?()
+                }
                 continuation.resume(returning: content)
                 return
             }
             if isComplete {
+                self.recordFinalReadDelivered()
+                onFinalReadObserved?()
                 // A deliberate `cancel(reason:)` (timeout/task) often
                 // surfaces here as a clean isComplete-with-no-error
                 // completion rather than an NWError -- classify it the same
@@ -133,7 +167,7 @@ final class LeoNWConnectionBridge: @unchecked Sendable {
                 continuation.resume(throwing: LeoDaemonError.transport("Too many empty reads from connection"))
                 return
             }
-            self.receiveLoop(maxLength: maxLength, emptyStreak: nextStreak, continuation: continuation)
+            self.receiveLoop(maxLength: maxLength, emptyStreak: nextStreak, onFinalReadObserved: onFinalReadObserved, continuation: continuation)
         }
     }
 
@@ -150,6 +184,16 @@ final class LeoNWConnectionBridge: @unchecked Sendable {
     func recordedCancelReason() -> CancelReason? {
         lock.lock(); defer { lock.unlock() }
         return cancelReason
+    }
+
+    private func recordFinalReadDelivered() {
+        lock.lock(); defer { lock.unlock() }
+        finalReadDelivered = true
+    }
+
+    private func recordedFinalReadDelivered() -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        return finalReadDelivered
     }
 
     private func handle(state: NWConnection.State) {

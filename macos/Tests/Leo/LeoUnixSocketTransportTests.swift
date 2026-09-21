@@ -298,6 +298,193 @@ struct LeoUnixSocketTransportTests {
         #expect(try await task.value == eventCount)
     }
 
+    @Test func requestSucceedsWhenFinalChunkCoalescesWithConnectionClose() async throws {
+        // Regression test: when the server writes the last body bytes and
+        // closes the socket immediately (no delay), NWConnection can
+        // deliver that final chunk's content together with isComplete ==
+        // true in the same receive completion. The bridge must remember
+        // that as EOF instead of letting the caller's next receiveChunk
+        // issue another `connection.receive`, which NWConnection rejects
+        // once the final read has already been delivered. Sweeping the
+        // body size lands the final chunk at every phase relative to
+        // NWConnection's internal read granularity (observed to coalesce
+        // on roughly half of the 100 sweep points locally), since whether
+        // the last chunk coalesces with the FIN depends on exactly where
+        // the last byte falls.
+        let iterationCount = 100
+        // Generated per-connection from the index rather than precomputed
+        // into a `[Data]` up front, which would retain ~100 x 512 KB (~56
+        // MB) for the whole test. `% iterationCount` guards against a
+        // stray extra accepted connection (e.g. a leftover retry) indexing
+        // past what the test loop expects and crashing the process instead
+        // of just failing an assertion.
+        func body(forIndex index: Int) -> Data {
+            Data(repeating: 0x41, count: 512 * 1024 + (index % iterationCount) * 997)
+        }
+        let counter = IterationCounter()
+        let server = try ConcurrentUnixSocketServer { client in
+            var buffer = [UInt8](repeating: 0, count: 4096)
+            _ = Darwin.recv(client, &buffer, buffer.count, 0)
+            let body = body(forIndex: counter.next())
+            var responseHeader = Data("HTTP/1.1 200 OK\r\nContent-Length: \(body.count)\r\n\r\n".utf8)
+            responseHeader.append(body)
+            let sent = responseHeader.withUnsafeBytes { Darwin.send(client, $0.baseAddress, responseHeader.count, 0) }
+            if sent != responseHeader.count {
+                Issue.record("short write: sent \(sent) of \(responseHeader.count) bytes")
+            }
+            _ = Darwin.shutdown(client, SHUT_WR)
+        }
+        defer { server.stop() }
+
+        for iteration in 0..<iterationCount {
+            let response = try await LeoUnixSocketTransport().send(request, socketPath: server.path, timeout: 5)
+            #expect(response.status == 200, "iteration \(iteration)")
+            #expect(response.body == body(forIndex: iteration), "iteration \(iteration)")
+        }
+    }
+
+    @Test func secondReceiveChunkAtTheFinalReadInstantReturnsNilInsteadOfErroring() async throws {
+        // Proves the fix's actual contract: a `receiveChunk` call that
+        // lands at the exact instant NWConnection delivers its one and
+        // only final read -- whether that's the caller's own next
+        // sequential call, or (as forced here) a second, independent
+        // caller racing it -- must see a clean `nil`, not touch
+        // `connection.receive` again, and never surface an error.
+        //
+        // Plain sequential timing couldn't be made to fail this way
+        // locally (the sweep test above coalesces content+isComplete on
+        // roughly half of 100 trials, and an unpatched bridge's own next
+        // sequential `receiveChunk` call still never errored on any of
+        // them), so this uses the `onFinalReadObserved` seam to fire a
+        // second, racing `receiveChunk` call from a thread already blocked
+        // on a semaphore, woken synchronously from inside the exact
+        // receive completion that observed `isComplete == true`. That seam
+        // fires *after* the fix's `recordFinalReadDelivered()`, so
+        // post-fix the racer always takes the "final read already
+        // observed" short-circuit -- that IS the behavior under test, not
+        // an artifact of the harness. Pre-fix (no such flag exists yet),
+        // that same racing call instead reaches a real second
+        // `connection.receive`, which reliably reproduced a real `NWError`
+        // (`.transport("Socket is not connected")`, matching the
+        // production report's intermittent "already delivered final read"
+        // / "No message available on STREAM") or, in some runs, a silent
+        // hang (the racer's `connection.receive` completion never firing
+        // at all) -- which is why this polls with a bound (`awaitCondition`
+        // below) instead of awaiting the racer directly.
+        var mutableResponse = Data("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n".utf8)
+        mutableResponse.append(Data("hi".utf8))
+        let response = mutableResponse
+        for iteration in 0..<30 {
+            let server = try UnixSocketTestServer { client in
+                var buffer = [UInt8](repeating: 0, count: 4096)
+                _ = Darwin.recv(client, &buffer, buffer.count, 0)
+                _ = response.withUnsafeBytes { Darwin.send(client, $0.baseAddress, response.count, 0) }
+                _ = Darwin.shutdown(client, SHUT_WR)
+            }
+            let bridge = try LeoNWConnectionBridge(socketPath: server.path)
+            try await bridge.connect()
+            try await bridge.send(LeoHTTPRequest(method: "GET", path: "/x").serialized())
+
+            let semaphore = DispatchSemaphore(value: 0)
+            let box = ResultBox()
+            // Block on the semaphore from a plain GCD global-queue thread,
+            // not a `Task.detached` body: the latter runs on Swift
+            // concurrency's small cooperative thread pool, and 30
+            // iterations' worth of blocked racer tasks can starve that
+            // pool outright, hanging every *other* concurrency task in the
+            // process (including the bridge's own continuations) rather
+            // than exercising the bridge at all.
+            let racerQueue = DispatchQueue.global()
+            racerQueue.async {
+                semaphore.wait()
+                Task { box.set(await Self.receiveResult(bridge)) }
+            }
+
+            // Drain chunks until the completion that reports isComplete --
+            // the tiny 2-byte body can arrive as either one read with
+            // trailing content or, if it isn't coalesced with the FIN this
+            // time, a content read followed by a separate content-less
+            // final read; either way `onFinalReadObserved` fires exactly
+            // once, at whichever read is the final one, which is the
+            // instant that matters for this race.
+            var first: Result<Data?, Error> = .success(nil)
+            let observedFinal = FlagBox()
+            // If the drain loop below breaks out on a `.failure` before the
+            // seam ever fires, nothing would otherwise signal the
+            // semaphore, and the racer's GCD-global-queue thread would
+            // block on `semaphore.wait()` forever (one leaked, permanently
+            // blocked thread per such iteration).
+            defer { if !observedFinal.get() { semaphore.signal() } }
+            while !observedFinal.get() {
+                first = await Self.receiveResult(bridge, onFinalReadObserved: {
+                    observedFinal.set()
+                    semaphore.signal()
+                })
+                if case .failure = first { break }
+            }
+            // Poll with a bound rather than `await racer.value` directly:
+            // an unpatched bridge can leave the racer's extra
+            // `connection.receive` completion handler uncalled forever
+            // (a silent hang, not just an error), and this test must fail
+            // loudly instead of stalling the whole suite when that
+            // regresses.
+            await awaitCondition(timeout: 3, message: "iteration \(iteration): the racing receiveChunk() never completed") {
+                box.get() != nil
+            }
+            if case .failure(let error) = first {
+                Issue.record("iteration \(iteration): the primary receiveChunk must not error, got \(error)")
+            }
+            switch box.get() {
+            case .success(let chunk):
+                #expect(chunk == nil, "iteration \(iteration): the racing receiveChunk must see a clean EOF, not touch the connection for more content")
+            case .failure(let error):
+                Issue.record("iteration \(iteration): the racing receiveChunk must not error, got \(error)")
+            case nil:
+                break // already recorded by awaitCondition above
+            }
+
+            bridge.cancel(reason: .task)
+            _ = server.waitForHandler()
+        }
+    }
+
+    private static func receiveResult(
+        _ bridge: LeoNWConnectionBridge, onFinalReadObserved: (@Sendable () -> Void)? = nil
+    ) async -> Result<Data?, Error> {
+        do {
+            return .success(try await bridge.receiveChunk(maxLength: 64 * 1024, onFinalReadObserved: onFinalReadObserved))
+        } catch {
+            return .failure(error)
+        }
+    }
+
+    @Test func streamEndsCleanlyWhenServerClosesRightAfterFinalEvent() async throws {
+        // Same coalesced-FIN hazard as above, but for the SSE stream path:
+        // a clean close right after the last event must end the stream
+        // without throwing.
+        let eventCount = 5
+        var mutablePayload = Data("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\r\n".utf8)
+        for index in 0..<eventCount {
+            mutablePayload.append(Data(": ping \(index)\n\n".utf8))
+        }
+        let payload = mutablePayload
+        let server = try ConcurrentUnixSocketServer { client in
+            var buffer = [UInt8](repeating: 0, count: 4096)
+            _ = Darwin.recv(client, &buffer, buffer.count, 0)
+            _ = payload.withUnsafeBytes { Darwin.send(client, $0.baseAddress, payload.count, 0) }
+            _ = Darwin.shutdown(client, SHUT_WR)
+        }
+        defer { server.stop() }
+
+        var values: [Data] = []
+        for try await value in LeoUnixSocketTransport().stream(path: "/events", socketPath: server.path) {
+            values.append(value)
+        }
+
+        let combined = values.reduce(into: Data()) { $0.append($1) }
+        #expect(countOccurrences(of: Data(": ping".utf8), in: combined) == eventCount)
+    }
+
     @Test func connectionRefusedMapsToTransportError() async throws {
         let path = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("leo-test-\(UUID().uuidString).sock").path
@@ -379,6 +566,36 @@ private final class PhaseCounter: @unchecked Sendable {
     private var value = 0
     var count: Int { lock.withLock { value } }
     var increment: @Sendable () -> Void { { [self] in lock.withLock { value += 1 } } }
+}
+
+/// Lock-guarded slot for handing a `Result` back from a detached `Task` to
+/// the awaiting test body.
+private final class ResultBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: Result<Data?, Error>?
+    func set(_ result: Result<Data?, Error>) { lock.withLock { value = result } }
+    func get() -> Result<Data?, Error>? { lock.withLock { value } }
+}
+
+private final class FlagBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = false
+    func set() { lock.withLock { value = true } }
+    func get() -> Bool { lock.withLock { value } }
+}
+
+/// Hands out sequential indices to the `ConcurrentUnixSocketServer`
+/// handler, one per accepted connection, so each of a test's sequential
+/// requests gets a distinct precomputed response body.
+private final class IterationCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+    func next() -> Int {
+        lock.lock(); defer { lock.unlock() }
+        let current = value
+        value += 1
+        return current
+    }
 }
 
 /// Fake `LeoDaemonClock`: `advance(seconds:)` moves the logical clock
