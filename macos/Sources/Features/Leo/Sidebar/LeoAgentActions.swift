@@ -14,24 +14,37 @@ import Foundation
     private let model: LeoSidebarModel
     private let refresh: () -> Void
     var cliForSpawn: LeoCLI { cli }
-    private let clock: @Sendable () -> Date
     private let processRunner: any LeoProcessRunning
     private let sshExecutable: String
-    private var cachedTemplates: [LeoHostID: (value: [LeoTemplate], fetchedAt: Date)] = [:]
+    /// One cache instance for whichever host is currently selected --
+    /// rows and the Agents-menu submenu both read through `templates()`
+    /// below, never fetching on their own. Templates are host
+    /// *configuration*, not agent state, so this is deliberately NOT
+    /// invalidated by every (now SSE-driven, frequent) sidebar list
+    /// refresh -- only by: the selected host changing (detected
+    /// synchronously at the top of `templates()`, below -- a Combine
+    /// subscription would invalidate asynchronously and could lose a race
+    /// against a `templates()` call issued right after `select()`
+    /// returns), a user-initiated sidebar refresh (`invalidateTemplateCache`,
+    /// called by `LeoRuntime` off the feed's `onManualRefresh` hook), and
+    /// `LeoTemplateCache.templateCacheTTL` as a backstop.
+    private let templateCache = LeoTemplateCache()
+    private var lastKnownTemplateHost: LeoHostID
 
     init(daemon: any LeoDaemonClient, cli: LeoCLI, model: LeoSidebarModel,
          hostSelection: LeoHostSelection? = nil,
          processRunner: any LeoProcessRunning = LeoProcessRunner(),
          sshExecutable: String = "/usr/bin/ssh",
-         refresh: @escaping () -> Void, clock: @escaping @Sendable () -> Date = { Date() }) {
+         refresh: @escaping () -> Void) {
         self.daemon = daemon
         self.cli = cli
         self.model = model
-        self.hostSelection = hostSelection ?? LeoHostSelection(store: LeoHostStore(defaults: .standard), defaults: .standard)
+        let resolvedHostSelection = hostSelection ?? LeoHostSelection(store: LeoHostStore(defaults: .standard), defaults: .standard)
+        self.hostSelection = resolvedHostSelection
         self.processRunner = processRunner
         self.sshExecutable = sshExecutable
         self.refresh = refresh
-        self.clock = clock
+        lastKnownTemplateHost = resolvedHostSelection.selected
     }
 
     /// Called by `LeoRuntime` whenever the selected connection's daemon
@@ -39,6 +52,15 @@ import Foundation
     /// localhost).
     func updateDaemon(_ daemon: any LeoDaemonClient) {
         self.daemon = daemon
+    }
+
+    /// Called by `LeoRuntime` when the user explicitly asks the sidebar to
+    /// refresh (never for SSE-triggered or periodic-poll refreshes), so a
+    /// template renamed/added/removed on the daemon side is reflected on
+    /// demand without every row or the Agents menu fetching for themselves.
+    func invalidateTemplateCache() {
+        let templateCache = templateCache
+        Task { await templateCache.invalidate() }
     }
 
     func start(_ row: LeoAgentRow) { run(row) { daemon in try await daemon.start(row.name) } }
@@ -62,22 +84,24 @@ import Foundation
     /// path itself works.
     func templates() async throws -> [LeoTemplate] {
         let host = hostSelection.selected
-        if let cached = cachedTemplates[host], clock().timeIntervalSince(cached.fetchedAt) < 60 {
-            return cached.value
+        if host != lastKnownTemplateHost {
+            lastKnownTemplateHost = host
+            await templateCache.invalidate()
         }
-        let value: [LeoTemplate]
-        if host == .local {
-            value = try await cli.templateList()
-        } else if let configuration = hostSelection.selectedConfiguration {
-            value = try await fetchRemoteTemplates(configuration: configuration)
-        } else {
-            throw LeoDaemonError.hostUnavailable("Remote host is not configured")
+        return try await templateCache.refreshIfStale { [cli, processRunner, sshExecutable, host, configuration = hostSelection.selectedConfiguration] in
+            if host == .local {
+                return try await cli.templateList()
+            } else if let configuration {
+                return try await Self.fetchRemoteTemplates(configuration: configuration, processRunner: processRunner, sshExecutable: sshExecutable)
+            } else {
+                throw LeoDaemonError.hostUnavailable("Remote host is not configured")
+            }
         }
-        cachedTemplates[host] = (value, clock())
-        return value
     }
 
-    private func fetchRemoteTemplates(configuration: LeoHostConfiguration) async throws -> [LeoTemplate] {
+    private static func fetchRemoteTemplates(
+        configuration: LeoHostConfiguration, processRunner: any LeoProcessRunning, sshExecutable: String
+    ) async throws -> [LeoTemplate] {
         let arguments = try LeoSSHCommand(configuration: configuration).execArguments(
             remoteCommand: [configuration.remoteLeoPath, "template", "list", "--json"]
         )

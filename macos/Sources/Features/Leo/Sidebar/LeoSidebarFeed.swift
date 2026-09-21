@@ -30,6 +30,23 @@ actor LeoSidebarFeed {
     var daemon: any LeoDaemonClient
     var activitySource: LeoSidebarActivitySource
     private let sink: Sink
+    /// Fired only when a refresh that satisfies a `refresh()` (manual,
+    /// `.refreshRequested`) call -- never a `.tick` (periodic poll) or
+    /// `.sseEvent` (SSE-triggered) one -- successfully applies a fresh
+    /// agent-list result. `LeoRuntime` uses this to invalidate the
+    /// template cache: templates are host configuration, not agent state,
+    /// so they must not be refetched on every (now SSE-driven, frequent)
+    /// list refresh, only when the user explicitly asks the sidebar to
+    /// refresh.
+    private let onManualRefresh: @MainActor @Sendable () -> Void
+    /// True while a still-pending refresh cycle needs to satisfy at least
+    /// one `refresh()` call -- consumed (and reset) by `startRefresh()`
+    /// when that cycle actually begins. Coalesced the same way the
+    /// scheduler itself coalesces overlapping refresh requests: a manual
+    /// request that arrives while a refresh is already in flight is
+    /// satisfied by the very next refresh to start, whatever else also
+    /// triggered it.
+    private var manualRefreshPending = false
     private let sleeper: @Sendable (UInt64) async throws -> Void
     var snapshot = LeoSidebarSnapshot(rows: [], connectivity: .loading, generation: 0)
     var activityByName: [String: LeoSidebarActivity] = [:]
@@ -57,10 +74,16 @@ actor LeoSidebarFeed {
     /// cancellation lost a race recognize it no longer owns bookkeeping.
     private var currentRefreshToken = 0
 
-    init(daemon: any LeoDaemonClient, activity: LeoSidebarActivitySource, sleep: @escaping @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) }, sink: @escaping Sink) {
+    init(
+        daemon: any LeoDaemonClient, activity: LeoSidebarActivitySource,
+        sleep: @escaping @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) },
+        onManualRefresh: @escaping @MainActor @Sendable () -> Void = {},
+        sink: @escaping Sink
+    ) {
         self.daemon = daemon
         activitySource = activity
         sleeper = sleep
+        self.onManualRefresh = onManualRefresh
         self.sink = sink
     }
 
@@ -102,6 +125,7 @@ actor LeoSidebarFeed {
 
     func refresh() {
         guard running, selectedHostAvailable else { return }
+        manualRefreshPending = true
         process(scheduler.reduce(.refreshRequested))
     }
 
@@ -195,13 +219,15 @@ actor LeoSidebarFeed {
         let host = selectedHost
         currentRefreshToken += 1
         let token = currentRefreshToken
+        let isManual = manualRefreshPending
+        manualRefreshPending = false
         refreshTask = Task { [weak self] in
             guard let self else { return }
-            await self.performRefresh(host: host, generation: generation, token: token)
+            await self.performRefresh(host: host, generation: generation, token: token, isManual: isManual)
         }
     }
 
-    private func performRefresh(host: LeoHostID, generation: Int, token: Int) async {
+    private func performRefresh(host: LeoHostID, generation: Int, token: Int, isManual: Bool) async {
         var wasCancelled = false
         // A stale refresh must not clear bookkeeping a newer one now owns.
         defer { if !wasCancelled, token == currentRefreshToken { finishRefresh() } }
@@ -216,6 +242,7 @@ actor LeoSidebarFeed {
             bufferedActivity = []
             buffered.forEach(applyActivity)
             emit()
+            if isManual { await onManualRefresh() }
             if fetchState { fetchActivityState(generation: generation) }
         } catch is CancellationError {
             wasCancelled = true

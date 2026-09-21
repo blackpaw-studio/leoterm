@@ -96,11 +96,8 @@ import Testing
         let daemon = ActionDaemon()
         let cli = testCLI(templates: ["one"])
         let model = LeoSidebarModel()
-        let clock = ActionClock()
-        let actions = LeoAgentActions(daemon: daemon, cli: cli, model: model, refresh: {}, clock: { clock.now })
+        let actions = LeoAgentActions(daemon: daemon, cli: cli, model: model, refresh: {})
         #expect(try await actions.templates().map(\.name) == ["one"])
-        #expect(try await actions.templates().map(\.name) == ["one"])
-        clock.now = clock.now.addingTimeInterval(61)
         #expect(try await actions.templates().map(\.name) == ["one"])
         let row = testRow()
         let box = PlanBox()
@@ -135,6 +132,40 @@ import Testing
             remoteCommand: [workConfiguration.remoteLeoPath, "template", "list", "--json"]
         )
         #expect(calls.first?.arguments == expectedArguments)
+    }
+
+    /// A `templates()` call for host A that's still mid-fetch when the
+    /// selection moves to host B must never leave B's cache entry
+    /// contaminated with A's (now-stale) result once A's fetch finally
+    /// completes.
+    @Test func hostSwitchDuringInFlightTemplatesFetchNeverLeaksTheOldHostsTemplates() async throws {
+        let daemon = ActionDaemon()
+        let suiteDefaults = UserDefaults(suiteName: UUID().uuidString) ?? .standard
+        let workConfiguration = LeoHostConfiguration(name: "work", sshTarget: "evan@work")
+        if let data = try? JSONEncoder().encode([workConfiguration]) { suiteDefaults.set(data, forKey: LeoHostStore.key) }
+        let selection = LeoHostSelection(store: LeoHostStore(defaults: suiteDefaults), defaults: suiteDefaults)
+        await selection.start(flavor: .socketEvents)
+        let gatedRunner = GatedTemplateRunner()
+        let cli = LeoCLI(executableOverride: "/leo", runner: gatedRunner, isExecutable: { _ in true })
+        let remoteRunner = TemplateSSHRunner()
+        let actions = LeoAgentActions(
+            daemon: daemon, cli: cli, model: LeoSidebarModel(),
+            hostSelection: selection, processRunner: remoteRunner, refresh: {}
+        )
+
+        async let localTemplates = actions.templates()
+        await gatedRunner.waitForCalls(1)
+
+        selection.select(.remote("work"))
+        #expect(try await actions.templates().map(\.name) == ["work-template"])
+
+        await gatedRunner.resume()
+        #expect(try await localTemplates.map(\.name) == ["local-template"])
+
+        // A's delayed completion must not have overwritten B's cache entry.
+        #expect(try await actions.templates().map(\.name) == ["work-template"])
+        let remoteCalls = await remoteRunner.calls
+        #expect(remoteCalls.count == 1, "the second read of the still-selected remote host must be served from cache")
     }
 
     /// Actions capture `daemon` and the selection's `generationToken`
@@ -246,15 +277,36 @@ private actor TemplateSSHRunner: LeoProcessRunning {
     }
 }
 
+/// A `LeoProcessRunning` for the local CLI's template fetch that suspends
+/// until `resume()` is called, so a test can hold a `templates()` fetch
+/// in flight while switching hosts out from under it.
+private actor GatedTemplateRunner: LeoProcessRunning {
+    private(set) var callCount = 0
+    private var suspended = true
+    private var continuations: [CheckedContinuation<Void, Never>] = []
+
+    func run(executable _: String, arguments _: [String], timeout _: TimeInterval) async throws -> LeoProcessResult {
+        callCount += 1
+        if suspended { await withCheckedContinuation { continuations.append($0) } }
+        return LeoProcessResult(stdout: Data(#"[{"name":"local-template"}]"#.utf8), stderr: Data(), status: 0)
+    }
+
+    func waitForCalls(_ expected: Int) async {
+        while callCount < expected { await Task.yield() }
+    }
+
+    func resume() {
+        suspended = false
+        continuations.forEach { $0.resume() }
+        continuations = []
+    }
+}
+
 private struct ActionRunner: LeoProcessRunning {
     let data: Data
     func run(executable: String, arguments: [String], timeout: TimeInterval) async throws -> LeoProcessResult {
         LeoProcessResult(stdout: data, stderr: Data(), status: 0)
     }
-}
-
-private final class ActionClock: @unchecked Sendable {
-    var now = Date(timeIntervalSinceReferenceDate: 0)
 }
 
 @MainActor private final class PlanBox {

@@ -59,6 +59,13 @@ struct LeoTemplate: Codable, Equatable, Identifiable, Sendable {
     let agent: String?
     let workspace: String?
     var id: String { name }
+
+    init(name: String, model: String? = nil, agent: String? = nil, workspace: String? = nil) {
+        self.name = name
+        self.model = model
+        self.agent = agent
+        self.workspace = workspace
+    }
 }
 
 struct LeoForwardInfo: Codable, Equatable, Sendable {

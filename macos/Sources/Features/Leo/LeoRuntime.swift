@@ -163,12 +163,26 @@ import OSLog
             pickerRouter?.unregister(origin: windowID)
         }
 
-        feed = LeoSidebarFeed(daemon: daemon, activity: activitySource) { [weak model] snapshot in
-            model?.receive(snapshot)
-        }
+        // `actions` doesn't exist yet at the point `feed` is constructed
+        // (its `refresh` closure below needs `feed`), so `feed`'s
+        // manual-refresh callback is wired through this box instead of
+        // capturing `actions` directly -- filled in immediately after
+        // `actions` is created.
+        // Captured strongly by `feed`'s closure below (kept alive exactly as
+        // long as `feed` is), while the box itself only holds `actions`
+        // weakly -- so this cannot create a `feed` <-> `actions` retain
+        // cycle even though `actions`' own `refresh` closure also captures
+        // `feed` (weakly, see below).
+        let actionsBox = LeoAgentActionsBox()
+        feed = LeoSidebarFeed(
+            daemon: daemon, activity: activitySource,
+            onManualRefresh: { [actionsBox] in actionsBox.actions?.invalidateTemplateCache() },
+            sink: { [weak model] snapshot in model?.receive(snapshot) }
+        )
         actions = LeoAgentActions(daemon: daemon, cli: cli, model: model, hostSelection: hostSelection) { [weak feed] in
             Task { await feed?.refresh() }
         }
+        actionsBox.actions = actions
         model.retryRequested = { [hostSelection] in hostSelection.retry() }
         registry.pollabilityChanged = { [feed] pollable in Task { await feed.setPolling(pollable) } }
         model.startDaemonRequested = { [weak self] in
@@ -387,4 +401,13 @@ import OSLog
             }
         )
     }
+}
+
+/// Breaks the `feed` <-> `actions` construction cycle in `LeoRuntime.init`:
+/// `feed`'s list-refresh callback needs to reach `actions`, but `actions`
+/// isn't constructed until after `feed` (its own `refresh` closure needs
+/// `feed`). Held weakly by the callback and filled in once, immediately
+/// after `actions` exists.
+@MainActor private final class LeoAgentActionsBox: @unchecked Sendable {
+    weak var actions: LeoAgentActions?
 }
