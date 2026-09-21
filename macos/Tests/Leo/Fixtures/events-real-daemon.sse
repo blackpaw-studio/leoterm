@@ -1,0 +1,16 @@
+event: hello
+data: {"seq":1438,"at":"2026-09-21T11:39:55.043926-04:00","version":1,"server_time":"2026-09-21T11:39:55.043926-04:00"}
+
+event: agent_state_changed
+data: {"seq":1439,"at":"2026-09-21T11:39:57.078521-04:00","agent":"brand","status":"stopped","restarts":0,"wake_on_message":false}
+
+event: agent_stopped
+data: {"seq":1440,"at":"2026-09-21T11:39:57.092264-04:00","agent":"brand","wake_on_message":false}
+
+event: agent_spawned
+data: {"seq":1441,"at":"2026-09-21T11:39:57.096266-04:00","agent":{"name":"brand","template":"claude","repo":"brand","workspace":"/Users/evan/.leo/agents/brand","model":"fable","status":"starting","activity":"","restarts":0,"wake_on_message":false,"started_at":"2026-09-21T11:39:57.093178-04:00","current_action":null}}
+
+event: agent_activity
+data: {"seq":1443,"at":"2026-09-21T11:39:57.836637-04:00","agent":"brand","activity":"working","current_action":{"kind":"pane","detail":"195 +morning (8-9am) recording wo"}}
+
+: ping

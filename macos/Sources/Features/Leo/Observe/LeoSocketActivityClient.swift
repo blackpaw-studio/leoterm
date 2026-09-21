@@ -1,4 +1,7 @@
 import Foundation
+import OSLog
+
+private let leoSocketActivityLogger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
 
 /// Streaming transport for a `.socketEvents`-flavor daemon (leo >= 0.29):
 /// `GET /events` (unix-socket SSE) and `GET /state`, both unprefixed since a
@@ -56,6 +59,7 @@ actor LeoSocketActivityClient {
         while !Task.isCancelled {
             var parser = LeoSSEParser()
             var reason = "EOF"
+            leoSocketActivityLogger.log("socketActivity: connecting socketPath=\(self.socketPath, privacy: .public)")
             do {
                 for try await bytes in transport.stream(path: "/events", socketPath: socketPath, idleTimeout: 60) {
                     for raw in parser.feed(bytes) {
@@ -66,7 +70,10 @@ actor LeoSocketActivityClient {
                             if let agents = try? await fetchState() { continuation.yield(.snapshot(agents)) }
                         }
                         if sequence >= 0 { lastSequence = sequence }
-                        if case .hello = event { backoff = initialBackoff }
+                        if case .hello(let seq, let at, let version, let serverTime) = event {
+                            backoff = initialBackoff
+                            leoSocketActivityLogger.log("socketActivity: hello seq=\(seq) version=\(version ?? "nil", privacy: .public) serverTime=\(serverTime ?? "nil", privacy: .public) at=\(at ?? "nil", privacy: .public)")
+                        }
                         continuation.yield(event)
                     }
                 }
@@ -75,7 +82,9 @@ actor LeoSocketActivityClient {
                 reason = Self.reason(for: error)
             }
             guard !Task.isCancelled else { break }
+            leoSocketActivityLogger.log("socketActivity: disconnected reason=\(reason, privacy: .public)")
             continuation.yield(.disconnected(reason: reason))
+            leoSocketActivityLogger.log("socketActivity: reconnecting backoffNanoseconds=\(backoff)")
             do { try await sleeper(backoff) } catch { return }
             backoff = min(backoff * 2, maximumBackoff)
         }

@@ -178,6 +178,7 @@ actor LeoSidebarFeed {
         if case .agentActivity = event {} else { drainCoalescedActivity() }
         switch event {
         case .connected:
+            Self.logger.log("receive: .connected")
             guard !recovering else { return }
             awaitingHello = true
             prepareRecovery()
@@ -186,7 +187,8 @@ actor LeoSidebarFeed {
             sseRefreshTask?.cancel()
             sseRefreshTask = nil
             process(scheduler.reduce(.sseEvent(event)))
-        case .hello:
+        case .hello(let seq, _, let version, _):
+            Self.logger.log("receive: .hello seq=\(seq) version=\(version ?? "nil", privacy: .public) awaitingHello=\(self.awaitingHello)")
             if awaitingHello {
                 awaitingHello = false
                 return
@@ -206,7 +208,8 @@ actor LeoSidebarFeed {
             } else if activityCoalescer.add(event) {
                 scheduleActivityFlush()
             }
-        case .disconnected:
+        case .disconnected(let reason):
+            Self.logger.log("receive: .disconnected reason=\(reason, privacy: .public)")
             // A pending coalesced-refresh sleep is now moot -- the stream
             // that scheduled it is gone.
             sseRefreshTask?.cancel()

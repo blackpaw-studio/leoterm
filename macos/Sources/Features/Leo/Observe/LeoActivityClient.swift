@@ -1,4 +1,7 @@
 import Foundation
+import OSLog
+
+private let leoActivityClientLogger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
 
 enum LeoActivity: String, Codable, Equatable, Sendable { case working, idle, unknown }
 
@@ -29,6 +32,26 @@ struct LeoObservedAgent: Codable, Equatable, Sendable {
         case name, host, status, activity
         case currentAction = "current_action"
         case lastActivityAt = "last_activity_at"
+    }
+}
+
+/// The daemon's `hello.version` has shipped as both a JSON string
+/// (`"0.29.0"`) and a JSON number (`1`, leo >= 0.30) across daemon versions;
+/// decode either shape instead of failing the whole `hello` payload (and
+/// silently dropping it, since callers use `try?`) on a type mismatch.
+struct LeoLenientVersion: Decodable, Equatable, Sendable {
+    let stringValue: String
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let string = try? container.decode(String.self) {
+            stringValue = string
+        } else if let int = try? container.decode(Int.self) {
+            stringValue = String(int)
+        } else {
+            let double = try container.decode(Double.self)
+            stringValue = String(double)
+        }
     }
 }
 
@@ -122,6 +145,7 @@ actor LeoActivityClient {
         while !Task.isCancelled {
             var parser = LeoSSEParser()
             var disconnectionReason = "EOF"
+            leoActivityClientLogger.log("activityClient: connecting baseURL=\(self.config.baseURL.absoluteString, privacy: .public)")
             do {
                 for try await bytes in transport.stream(request("/api/v1/events", accept: "text/event-stream")) {
                     for raw in parser.feed(bytes) {
@@ -134,8 +158,9 @@ actor LeoActivityClient {
                             }
                         }
                         lastSequence = sequence
-                        if case .hello = event {
+                        if case .hello(let seq, let at, let version, let serverTime) = event {
                             backoff = initialBackoff
+                            leoActivityClientLogger.log("activityClient: hello seq=\(seq) version=\(version ?? "nil", privacy: .public) serverTime=\(serverTime ?? "nil", privacy: .public) at=\(at ?? "nil", privacy: .public)")
                             continuation.yield(.connected)
                         }
                         continuation.yield(event)
@@ -146,7 +171,9 @@ actor LeoActivityClient {
                 disconnectionReason = Self.reason(for: error)
             }
             guard !Task.isCancelled else { break }
+            leoActivityClientLogger.log("activityClient: disconnected reason=\(disconnectionReason, privacy: .public)")
             continuation.yield(.disconnected(reason: disconnectionReason))
+            leoActivityClientLogger.log("activityClient: reconnecting backoffNanoseconds=\(backoff)")
             do {
                 try await sleeper(backoff)
             } catch is CancellationError {
@@ -172,9 +199,9 @@ actor LeoActivityClient {
         let decoder = JSONDecoder()
         switch name {
         case "hello":
-            struct Payload: Decodable { let seq: Int; let at: String?; let version: String?; let serverTime: String?; enum CodingKeys: String, CodingKey { case seq, at, version; case serverTime = "server_time" } }
+            struct Payload: Decodable { let seq: Int; let at: String?; let version: LeoLenientVersion?; let serverTime: String?; enum CodingKeys: String, CodingKey { case seq, at, version; case serverTime = "server_time" } }
             guard let p = try? decoder.decode(Payload.self, from: data) else { return nil }
-            return .hello(seq: p.seq, at: p.at, version: p.version, serverTime: p.serverTime)
+            return .hello(seq: p.seq, at: p.at, version: p.version?.stringValue, serverTime: p.serverTime)
         case "agent_spawned":
             struct Payload: Decodable { let seq: Int; let at: String?; let agent: LeoAgent }
             guard let p = try? decoder.decode(Payload.self, from: data) else { return nil }

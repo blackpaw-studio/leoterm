@@ -60,6 +60,41 @@ struct LeoSocketActivityClientTests {
         #expect(transport.streamRequests.map(\.idleTimeout) == [60])
     }
 
+    /// Ground truth captured directly from a running leo 0.30.1 daemon
+    /// (`curl --unix-socket ~/.leo/state/leo.sock http://leo/events`), trimmed
+    /// to one sample per event kind. The real daemon sends `hello.version`
+    /// as a JSON *number* (`1`), not the hand-written string fixture above
+    /// (`"0.29.0"`) -- that mismatch let a decode bug ship: `LeoActivityClient
+    /// .decode`'s `Payload.version: String?` threw on the numeric value and
+    /// `try?` silently swallowed it, dropping every hello event in
+    /// production while the (wrong) test fixture kept passing.
+    @Test func decodesEveryEventKindFromARealDaemonCapture() throws {
+        var parser = LeoSSEParser()
+        let events = parser.feed(try fixture("events-real-daemon.sse"))
+            .compactMap { LeoActivityClient.decode($0) }
+
+        guard case .hello(let seq, _, let version, let serverTime) = events.first else {
+            Issue.record("expected hello first, got \(events.first as Any)")
+            return
+        }
+        #expect(seq == 1438)
+        #expect(version == "1")
+        #expect(serverTime == "2026-09-21T11:39:55.043926-04:00")
+
+        #expect(events.contains {
+            if case .agentStateChanged(_, _, let agent, let status, _, _) = $0 { agent == "brand" && status == .stopped } else { false }
+        })
+        #expect(events.contains {
+            if case .agentStopped(_, _, let agent, _) = $0 { agent == "brand" } else { false }
+        })
+        #expect(events.contains {
+            if case .agentSpawned(_, _, let agent) = $0 { agent.name == "brand" } else { false }
+        })
+        #expect(events.contains {
+            if case .agentActivity(_, _, let agent, let activity, _) = $0 { agent == "brand" && activity == .working } else { false }
+        })
+    }
+
     @Test func sequenceGapFetchesStateSnapshot() async throws {
         let transport = GapTransport()
         let collector = EventCollector()
@@ -99,6 +134,10 @@ struct LeoSocketActivityClientTests {
         await awaitCondition { transport.streamRequests.count >= 1 }
         task.cancel()
         await awaitCondition(message: "transport never observed stream cancellation") { transport.cancellations >= 1 }
+    }
+
+    private func fixture(_ name: String) throws -> Data {
+        try Data(contentsOf: URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/\(name)"))
     }
 }
 
