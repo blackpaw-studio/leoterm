@@ -15,7 +15,7 @@ picker logged `outcome=cancel` 0.4 s after present when launched headless via
 - [~] **Template fetch cache.** One templates request per host per refresh,
   invalidated on refresh, instead of one per row context menu and one per
   Agents-menu update (`LeoAgentRow`, `LeoAgentMenuActions`).
-- [ ] **Attention model.** Derive working / needs-input / finished from the
+- [?] **Attention model.** Spec: docs/superpowers/specs/2026-09-21-leo-attention-model.md. Derive working / needs-input / finished from the
   SSE activity stream. Row badge, Dock badge, macOS notification when a
   non-focused agent goes idle, "jump to next agent needing attention"
   shortcut. Spec required before build.
