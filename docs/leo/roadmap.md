@@ -12,7 +12,7 @@ picker logged `outcome=cancel` 0.4 s after present when launched headless via
 - [x] **Push-driven list, poll as fallback.** Merged `d74bb7f2d`. Refresh `/agents/list` on SSE
   state events; poll only while SSE is disconnected (~30 s). Today the list
   polls every 2 s even with SSE live (`LeoPollScheduler`).
-- [~] **Template fetch cache.** One templates request per host per refresh,
+- [x] **Template fetch cache.** Merged. One templates request per host per refresh,
   invalidated on refresh, instead of one per row context menu and one per
   Agents-menu update (`LeoAgentRow`, `LeoAgentMenuActions`).
 - [?] **Attention model.** Spec: docs/superpowers/specs/2026-09-21-leo-attention-model.md. Derive working / needs-input / finished from the
