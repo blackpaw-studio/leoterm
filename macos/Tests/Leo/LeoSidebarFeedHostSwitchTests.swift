@@ -197,6 +197,68 @@ struct LeoSidebarFeedHostSwitchTests {
         await feed.stop()
     }
 
+    /// A connection switch used to leave the scheduler's SSE-connectivity
+    /// tracking (`sseConnected`/`pendingSSERefresh`) stuck at whatever the
+    /// superseded connection last reported, and never cancelled its pending
+    /// coalesced-refresh task. If the old connection's SSE was connected when
+    /// the switch happened, the new connection's `sidebarVisibleCountChanged`
+    /// computed `shouldPoll == false` from that stale state, so the 30s
+    /// fallback poll never started for it -- it stayed dead until the new
+    /// connection's own SSE happened to report `.connected`/`.disconnected`.
+    @Test func switchingConnectionsCancelsAPendingCoalescedSSERefreshAndStartsFallbackPollingForTheNewConnection() async throws {
+        let clock = LeoGatedSleepClock()
+        let daemonA = LeoStaticListDaemon(agents: [Self.agent("a")])
+        let daemonB = LeoStaticListDaemon(agents: [Self.agent("b")])
+        let activityA = LeoEventActivitySource()
+        let recorder = LeoSnapshotRecorder()
+        // The constructor is wired to an inert placeholder, not `activityA`
+        // -- `AsyncStream` has no fan-out, so registering the same live
+        // stream with two consumers (the constructor's initial `eventTask`
+        // AND the one `updateConnection` starts below) would race them for
+        // events. Only `updateConnection`'s `.connected` phase below ever
+        // wires `activityA` in, matching how a real connection is
+        // established (see `pollingResumesAfterConnectingRatherThanStayingDeadForever`).
+        let feed = LeoSidebarFeed(
+            daemon: daemonA,
+            activity: Self.emptyActivity,
+            sleep: { try await clock.sleep($0) },
+            sink: { snapshot in Task { await recorder.append(snapshot) } }
+        )
+
+        await feed.start()
+        await feed.setInitialPolling(true)
+        await feed.updateConnection(
+            host: .local, generation: 1,
+            phase: .connected(daemon: daemonA, activitySource: .init(events: { await activityA.events() }, fetchState: { await activityA.fetchState() }))
+        )
+        await awaitCondition(message: "initial refresh for A never happened") { await daemonA.callCount >= 1 }
+
+        // SSE actually connects for A: the fallback poll pauses in favor of
+        // push-driven refreshes.
+        await activityA.send(.connected)
+        await awaitCondition(message: "the SSE-connect refresh for A never happened") { await daemonA.callCount >= 2 }
+
+        // A structural event arrives and schedules a coalesced refresh that
+        // has NOT fired yet when the connection switches away from A.
+        await activityA.send(.agentStopped(seq: 1, at: nil, agent: "a", wakeOnMessage: nil))
+        await awaitCondition(message: "the coalesced SSE refresh was never scheduled") { await clock.waiterCount >= 1 }
+
+        await feed.updateConnection(host: .remote("work"), generation: 2, phase: .connected(daemon: daemonB, activitySource: Self.emptyActivity))
+        await awaitCondition(message: "the new connection never refreshed") { await daemonB.callCount >= 1 }
+
+        // B's own SSE hasn't connected yet -- the scheduler must keep
+        // re-polling it on the 30s fallback cadence rather than sitting dead
+        // because of A's now-irrelevant, stale SSE-connected state.
+        let callsAfterSwitch = await daemonB.callCount
+        for _ in 0..<3 {
+            await awaitCondition(message: "fallback poll tick was never (re)scheduled for the new connection") { await clock.waiterCount >= 1 }
+            await clock.advance()
+        }
+        await awaitCondition(message: "fallback polling never kept refreshing the new connection") { await daemonB.callCount > callsAfterSwitch }
+
+        await feed.stop()
+    }
+
     private static let emptyActivity = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
 
     private static func agent(_ name: String) -> LeoAgent {
@@ -237,6 +299,19 @@ private actor LeoGatedSleepClock {
         waiters.removeValue(forKey: id)
         continuation.resume()
     }
+}
+
+/// An activity source whose SSE events are sent on demand, so a test can
+/// deliver a specific event (e.g. a structural change that schedules a
+/// coalesced refresh) at a precise moment relative to a connection switch.
+private actor LeoEventActivitySource {
+    private let stream: AsyncStream<LeoObserveEvent>
+    private let continuation: AsyncStream<LeoObserveEvent>.Continuation
+
+    init() { (stream, continuation) = AsyncStream.makeStream() }
+    func events() -> AsyncStream<LeoObserveEvent> { stream }
+    func fetchState() -> [LeoObservedAgent] { [] }
+    func send(_ event: LeoObserveEvent) { continuation.yield(event) }
 }
 
 private actor LeoSnapshotRecorder {
