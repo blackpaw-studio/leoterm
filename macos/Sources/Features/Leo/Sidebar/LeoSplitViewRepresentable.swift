@@ -13,6 +13,10 @@ import SwiftUI
 /// resizes the lower-priority pane first, so the terminal absorbs window
 /// resizes and the sidebar's reported width only changes when the user (or
 /// assistive technology) actually moves the divider.
+///
+/// Both priorities live in `NSSplitView`'s low band (see
+/// `LeoSidebarSplitMetrics`). Only their *order* matters for who absorbs a
+/// window resize, and raising them out of that band freezes the pane.
 struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerRepresentable {
     var isSidebarVisible: Bool
     /// The width to apply when the split view is created, and again when the
@@ -32,35 +36,17 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
     }
 
     func makeNSViewController(context: Context) -> LeoSplitViewController {
-        let controller = LeoSplitViewController()
+        let components = LeoSplitViewControllerFactory.make(
+            isSidebarVisible: isSidebarVisible,
+            preferredWidth: preferredWidth,
+            onDividerWidthChange: onDividerWidthChange,
+            sidebar: AnyView(sidebar),
+            detail: AnyView(detail))
 
-        let sidebarHosting = NSHostingController(rootView: AnyView(sidebar))
-        sidebarHosting.view.setAccessibilityLabel("Agents sidebar")
-        let sidebarItem = NSSplitViewItem(sidebarWithViewController: sidebarHosting)
-        sidebarItem.canCollapse = true
-        sidebarItem.holdingPriority = NSLayoutConstraint.Priority.defaultHigh
-        sidebarItem.minimumThickness = LeoSidebarSplitMetrics.minimumWidth
-        sidebarItem.maximumThickness = LeoSidebarSplitMetrics.maximumWidth
-        sidebarItem.isCollapsed = !isSidebarVisible
+        context.coordinator.sidebarHosting = components.sidebarHosting
+        context.coordinator.detailHosting = components.detailHosting
 
-        let detailHosting = NSHostingController(rootView: AnyView(detail))
-        let detailItem = NSSplitViewItem(viewController: detailHosting)
-        detailItem.holdingPriority = NSLayoutConstraint.Priority.defaultLow
-        detailItem.minimumThickness = LeoSidebarSplitMetrics.minimumTerminalWidth
-
-        controller.addSplitViewItem(sidebarItem)
-        controller.addSplitViewItem(detailItem)
-        controller.splitView.dividerStyle = .thin
-        controller.sidebarItem = sidebarItem
-        controller.lastKnownVisible = isSidebarVisible
-        controller.onDividerWidthChange = onDividerWidthChange
-
-        context.coordinator.sidebarHosting = sidebarHosting
-        context.coordinator.detailHosting = detailHosting
-
-        controller.applyProgrammaticWidth(preferredWidth)
-
-        return controller
+        return components.controller
     }
 
     func updateNSViewController(_ controller: LeoSplitViewController, context: Context) {
@@ -113,6 +99,43 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
     }
 }
 
+@MainActor
+enum LeoSplitViewControllerFactory {
+    static func make(
+        isSidebarVisible: Bool,
+        preferredWidth: CGFloat,
+        onDividerWidthChange: @escaping (CGFloat) -> Void,
+        sidebar: AnyView,
+        detail: AnyView
+    ) -> (controller: LeoSplitViewController, sidebarHosting: NSHostingController<AnyView>, detailHosting: NSHostingController<AnyView>) {
+        let controller = LeoSplitViewController()
+
+        let sidebarHosting = NSHostingController(rootView: sidebar)
+        sidebarHosting.view.setAccessibilityLabel("Agents sidebar")
+        let sidebarItem = NSSplitViewItem(sidebarWithViewController: sidebarHosting)
+        sidebarItem.canCollapse = true
+        sidebarItem.holdingPriority = LeoSidebarSplitMetrics.sidebarHoldingPriority
+        sidebarItem.minimumThickness = LeoSidebarSplitMetrics.minimumWidth
+        sidebarItem.maximumThickness = LeoSidebarSplitMetrics.maximumWidth
+        sidebarItem.isCollapsed = !isSidebarVisible
+
+        let detailHosting = NSHostingController(rootView: detail)
+        let detailItem = NSSplitViewItem(viewController: detailHosting)
+        detailItem.holdingPriority = LeoSidebarSplitMetrics.detailHoldingPriority
+        detailItem.minimumThickness = LeoSidebarSplitMetrics.minimumTerminalWidth
+
+        controller.addSplitViewItem(sidebarItem)
+        controller.addSplitViewItem(detailItem)
+        controller.splitView.dividerStyle = .thin
+        controller.sidebarItem = sidebarItem
+        controller.lastKnownVisible = isSidebarVisible
+        controller.onDividerWidthChange = onDividerWidthChange
+        controller.applyProgrammaticWidth(preferredWidth)
+
+        return (controller, sidebarHosting, detailHosting)
+    }
+}
+
 /// `NSSplitViewController` subclass that persists the sidebar's width
 /// whenever the split view genuinely resizes it, via the inherited
 /// `NSSplitViewDelegate` conformance rather than a separate notification
@@ -136,6 +159,9 @@ final class LeoSplitViewController: NSSplitViewController {
     /// stored width) can be told apart from "already shown, leave the width
     /// the user is dragging alone".
     var lastKnownVisible = false
+    /// A width requested before the split view could honour it, applied once
+    /// the view reaches a window and lays out. See `applyProgrammaticWidth`.
+    private var pendingWidth: CGFloat?
 
     /// Applies a width we chose ourselves -- at controller creation, or when
     /// the sidebar transitions from hidden to shown -- as opposed to one the
@@ -150,9 +176,44 @@ final class LeoSplitViewController: NSSplitViewController {
     /// the guard covering nothing and let this programmatic move get
     /// persisted as if the user had dragged there.
     func applyProgrammaticWidth(_ width: CGFloat) {
+        guard isReadyToPositionDivider else {
+            // The split view has no width of its own yet -- it isn't in a
+            // window, or hasn't laid out -- and `setPosition` against a
+            // zero-width split view is silently dropped. That is what used to
+            // make the sidebar open at `minimumWidth` no matter which width
+            // had been stored. Hold the width and apply it from
+            // `viewDidLayout`, and deliberately do NOT touch
+            // `lastPersistedWidth`: recording a width that was never applied
+            // would let the next resize notification overwrite the stored
+            // preference with the minimum.
+            pendingWidth = width
+            clearProgrammaticWidthFlagSoon()
+            return
+        }
+
         isApplyingProgrammaticWidth = true
         splitView.setPosition(width, ofDividerAt: 0)
         lastPersistedWidth = width
+        clearProgrammaticWidthFlagSoon()
+    }
+
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        guard let width = pendingWidth, isReadyToPositionDivider else { return }
+        pendingWidth = nil
+        applyProgrammaticWidth(width)
+    }
+
+    /// Whether `setPosition(_:ofDividerAt:)` can actually take effect.
+    private var isReadyToPositionDivider: Bool {
+        view.window != nil && splitView.bounds.width > 0
+    }
+
+    /// Clears the guard on the next main-queue turn rather than synchronously:
+    /// the resulting `splitViewDidResizeSubviews` notification arrives on a
+    /// later layout pass, so clearing it immediately would leave the guard
+    /// covering nothing.
+    private func clearProgrammaticWidthFlagSoon() {
         DispatchQueue.main.async { [weak self] in
             self?.isApplyingProgrammaticWidth = false
         }

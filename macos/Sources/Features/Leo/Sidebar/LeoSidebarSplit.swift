@@ -11,6 +11,25 @@ enum LeoSidebarSplitMetrics {
     static let dividerWidth: CGFloat = 1
     private static let widthChangeTolerance: CGFloat = 0.5
 
+    /// Holding priorities for the two panes.
+    ///
+    /// `NSSplitView` resizes the pane with the *lower* holding priority
+    /// first, so the sidebar outranking the terminal is what makes the
+    /// terminal absorb window resizes while the sidebar keeps its width.
+    ///
+    /// Their order decides which pane absorbs a window resize, but only
+    /// within `NSSplitView`'s low holding-priority band (`NSSplitViewItem`
+    /// itself defaults to 260 for a sidebar item and 250 for a plain one).
+    /// The absolute values matter too: the band is what keeps the divider
+    /// draggable at all.
+    /// Raising the sidebar's to `.defaultHigh` (750) -- which is what this
+    /// used to do -- silently freezes the pane at `minimumWidth`: the split
+    /// view stops updating its `NSSplitView.PreferredSize.0` constraint, so
+    /// the divider renders its resize cursor but cannot be dragged, and
+    /// `setPosition(_:ofDividerAt:)` becomes a no-op.
+    static let sidebarHoldingPriority = NSLayoutConstraint.Priority(260)
+    static let detailHoldingPriority = NSLayoutConstraint.Priority(250)
+
     /// Whether a sidebar width reported back by the split view should be
     /// written to `session.preferredWidth`.
     ///
