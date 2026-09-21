@@ -93,7 +93,7 @@ struct LeoUnixSocketTransportTests {
             _ = release.wait(timeout: .now() + 8)
         }
         defer { release.signal(); #expect(server.waitForHandler()) }
-        let task = Task { await streamError(transport: LeoUnixSocketTransport(now: clock.now, onIdlePhase: phase.increment), server: server) }
+        let task = Task { await streamError(transport: LeoUnixSocketTransport(clock: clock, onIdlePhase: phase.increment), server: server) }
         await awaitCondition(timeout: 5) { phase.count >= 2 }
 
         clock.advance(seconds: 60)
@@ -120,7 +120,7 @@ struct LeoUnixSocketTransportTests {
         defer { release.signal(); #expect(server.waitForHandler()) }
         let completion = SocketCompletion()
         let task = Task {
-            await completion.finish(streamError(transport: LeoUnixSocketTransport(now: clock.now, onIdlePhase: phase.increment), server: server))
+            await completion.finish(streamError(transport: LeoUnixSocketTransport(clock: clock, onIdlePhase: phase.increment), server: server))
         }
         // Phase 1: the deadline computed before headers arrive. Phase 2: the
         // deadline recomputed once headers are consumed, now waiting on the
@@ -141,6 +141,197 @@ struct LeoUnixSocketTransportTests {
         task.cancel()
     }
 
+    @Test func concurrentRequestsAllSucceed() async throws {
+        let server = try ConcurrentUnixSocketServer { client in
+            // `recv(_, nil, 0, 0)` (used elsewhere in this file) returns
+            // immediately regardless of readability, so it can't be used
+            // here to wait for the request to actually arrive before
+            // responding -- under concurrency that races the response
+            // against the client's send and can close the socket first.
+            var buffer = [UInt8](repeating: 0, count: 256)
+            _ = Darwin.recv(client, &buffer, buffer.count, 0)
+            let response = Data("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK".utf8)
+            _ = response.withUnsafeBytes { Darwin.send(client, $0.baseAddress, response.count, 0) }
+        }
+        defer { server.stop() }
+
+        let results = try await withThrowingTaskGroup(of: LeoHTTPResponse.self) { group in
+            for _ in 0..<20 {
+                group.addTask {
+                    try await LeoUnixSocketTransport().send(self.request, socketPath: server.path, timeout: 5)
+                }
+            }
+            var collected: [LeoHTTPResponse] = []
+            for try await response in group { collected.append(response) }
+            return collected
+        }
+
+        #expect(results.count == 20)
+        #expect(results.allSatisfy { $0.status == 200 && $0.body == Data("OK".utf8) })
+    }
+
+    @Test func streamCancellationClosesPromptly() async throws {
+        let started = DispatchSemaphore(value: 0)
+        let peerObservedClose = DispatchSemaphore(value: 0)
+        let release = DispatchSemaphore(value: 0)
+        let server = try UnixSocketTestServer { client in
+            var noSigPipe: Int32 = 1
+            _ = setsockopt(client, SOL_SOCKET, SO_NOSIGPIPE, &noSigPipe, socklen_t(MemoryLayout<Int32>.size))
+            _ = Darwin.recv(client, nil, 0, 0)
+            let headers = Data("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\r\n".utf8)
+            _ = headers.withUnsafeBytes { Darwin.send(client, $0.baseAddress, headers.count, 0) }
+            started.signal()
+            var byte: UInt8 = 65
+            while Darwin.send(client, &byte, 1, 0) > 0 {
+                Thread.sleep(forTimeInterval: 0.05)
+            }
+            peerObservedClose.signal()
+            _ = release.wait(timeout: .now() + 2)
+        }
+        defer { release.signal(); #expect(server.waitForHandler()) }
+
+        let task = Task<Void, Never> {
+            do {
+                for try await _ in LeoUnixSocketTransport().stream(path: "/events", socketPath: server.path) {}
+            } catch {}
+        }
+        #expect(started.wait(timeout: .now() + 1) == .success)
+        try await Task.sleep(nanoseconds: 100_000_000)
+        let start = ContinuousClock.now
+        task.cancel()
+        _ = await task.value
+        #expect(start.duration(to: .now) < .milliseconds(200))
+        #expect(peerObservedClose.wait(timeout: .now() + 1) == .success)
+    }
+
+    @Test func streamCancelBeforeConnectCompletesPromptly() async throws {
+        // Regression test for a cancel racing the very start of connect():
+        // `NWConnection.cancel()` on a connection that hasn't `start()`ed
+        // never delivers `.cancelled`, and `start()` after that is a
+        // no-op -- so the old code hung `connect()` forever. `beforeStart`
+        // is a test-only seam that lets this cancel deterministically land
+        // before `connect()` commits to calling `connection.start()`,
+        // instead of relying on winning a scheduling race.
+        let release = DispatchSemaphore(value: 0)
+        // A cancelled connect() means the client never gets far enough to
+        // actually connect(), so unlike the other tests here the server's
+        // handler may never run at all -- only release it, don't require
+        // it to have been reached.
+        let server = try UnixSocketTestServer { _ in _ = release.wait(timeout: .now() + 2) }
+        defer { release.signal() }
+
+        let bridge = try LeoNWConnectionBridge(socketPath: server.path)
+        let completion = CompletionFlag()
+        let start = ContinuousClock.now
+        let task = Task<Void, Never> {
+            do {
+                try await bridge.connect(beforeStart: { bridge.cancel(reason: .task) })
+            } catch {}
+            await completion.markDone()
+        }
+
+        // `Task<Void, Never>.value` is not cancellation-aware and a plain
+        // `await` on it inside a `withTaskGroup` would block that group's
+        // implicit teardown-await forever if `connect()` really hung, which
+        // would hide the regression this test exists to catch. Polling a
+        // completion flag with `awaitCondition`'s bounded, non-blocking
+        // wait avoids that: on a hang this records an Issue and returns,
+        // orphaning `task` rather than joining it.
+        await awaitCondition(timeout: 0.2, message: "connect() did not return after a cancel raced its start") {
+            await completion.isDone
+        }
+        if await completion.isDone {
+            #expect(start.duration(to: .now) < .milliseconds(200))
+        } else {
+            task.cancel()
+        }
+    }
+
+    private actor CompletionFlag {
+        private(set) var isDone = false
+        func markDone() { isDone = true }
+    }
+
+    @Test func streamDoesNotHalfCloseSoServerKeepsSendingEvents() async throws {
+        // Regression test: the client must never send a FIN after its
+        // request. Go's net/http starts a background read of a bodyless
+        // GET's (nonexistent) request body; a FIN there reads as EOF,
+        // which cancels the request context and ends the daemon's /events
+        // SSE handler immediately. This fake server plays the same role:
+        // after every send it peeks (non-blocking) for a zero-length read
+        // -- a client FIN -- and bails out early if it sees one, exactly
+        // as the real handler would.
+        let release = DispatchSemaphore(value: 0)
+        let eventCount = 3
+        let server = try UnixSocketTestServer { client in
+            var noSigPipe: Int32 = 1
+            _ = setsockopt(client, SOL_SOCKET, SO_NOSIGPIPE, &noSigPipe, socklen_t(MemoryLayout<Int32>.size))
+            var buffer = [UInt8](repeating: 0, count: 256)
+            _ = Darwin.recv(client, &buffer, buffer.count, 0)
+            let headers = Data("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\r\n".utf8)
+            _ = headers.withUnsafeBytes { Darwin.send(client, $0.baseAddress, headers.count, 0) }
+            for _ in 0..<eventCount {
+                var probe: UInt8 = 0
+                guard Darwin.recv(client, &probe, 1, Int32(MSG_DONTWAIT | MSG_PEEK)) != 0 else { return }
+                let event = Data(": ping\n\n".utf8)
+                _ = event.withUnsafeBytes { Darwin.send(client, $0.baseAddress, event.count, 0) }
+                Thread.sleep(forTimeInterval: 0.02)
+            }
+            _ = release.wait(timeout: .now() + 2)
+        }
+        defer { release.signal(); #expect(server.waitForHandler()) }
+
+        let task = Task<Int, Error> {
+            var buffer = Data()
+            let marker = Data(": ping".utf8)
+            for try await chunk in LeoUnixSocketTransport().stream(path: "/events", socketPath: server.path) {
+                // Count occurrences in the accumulated buffer, not
+                // yielded chunks: three 20ms-apart pings can coalesce into
+                // fewer (or more finely split) `Data` values than events
+                // sent, depending on how NWConnection batches reads.
+                buffer.append(chunk)
+                if countOccurrences(of: marker, in: buffer) >= eventCount { break }
+            }
+            return countOccurrences(of: marker, in: buffer)
+        }
+
+        #expect(try await task.value == eventCount)
+    }
+
+    @Test func connectionRefusedMapsToTransportError() async throws {
+        let path = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("leo-test-\(UUID().uuidString).sock").path
+        let descriptor = socket(AF_UNIX, SOCK_STREAM, 0)
+        #expect(descriptor >= 0)
+        var address = sockaddr_un()
+        address.sun_family = sa_family_t(AF_UNIX)
+        let limit = MemoryLayout.size(ofValue: address.sun_path) - 1
+        _ = path.withCString { source in
+            withUnsafeMutablePointer(to: &address.sun_path) { destination in
+                strncpy(UnsafeMutableRawPointer(destination).assumingMemoryBound(to: CChar.self), source, limit)
+            }
+        }
+        let bound = withUnsafePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                bind(descriptor, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+            }
+        }
+        #expect(bound == 0)
+        #expect(listen(descriptor, 1) == 0)
+        Darwin.close(descriptor) // Leaves a stale socket file with no listener -> ECONNREFUSED.
+        defer { unlink(path) }
+
+        do {
+            _ = try await LeoUnixSocketTransport().send(request, socketPath: path, timeout: 2)
+            Issue.record("expected connection refused")
+        } catch let error as LeoDaemonError {
+            guard case .transport = error else {
+                Issue.record("expected .transport, got \(error)")
+                return
+            }
+        }
+    }
+
     private let request = LeoHTTPRequest(method: "GET", path: "/agents/list", body: nil)
 
     private func result(from server: UnixSocketTestServer, timeout: TimeInterval) async -> LeoDaemonError? {
@@ -154,6 +345,17 @@ struct LeoUnixSocketTransportTests {
         } catch {
             return nil
         }
+    }
+
+    private func countOccurrences(of needle: Data, in haystack: Data) -> Int {
+        guard !needle.isEmpty else { return 0 }
+        var count = 0
+        var searchRange = haystack.startIndex..<haystack.endIndex
+        while let found = haystack.range(of: needle, in: searchRange) {
+            count += 1
+            searchRange = found.upperBound..<haystack.endIndex
+        }
+        return count
     }
 
     private func streamError(transport: LeoUnixSocketTransport, server: UnixSocketTestServer) async -> LeoDaemonError? {
@@ -179,13 +381,57 @@ private final class PhaseCounter: @unchecked Sendable {
     var increment: @Sendable () -> Void { { [self] in lock.withLock { value += 1 } } }
 }
 
-private final class SocketTestClock: @unchecked Sendable {
+/// Fake `LeoDaemonClock`: `advance(seconds:)` moves the logical clock
+/// forward synchronously (no real sleeping) and immediately wakes any
+/// `sleep(until:)` waiter whose deadline that advance has now passed.
+private final class SocketTestClock: LeoDaemonClock, @unchecked Sendable {
     private let lock = NSLock()
     private var instant: UInt64 = 0
-    private var reads = 0
-    var readCount: Int { lock.withLock { reads } }
-    var now: @Sendable () -> UInt64 { { [self] in lock.withLock { reads += 1; return instant } } }
-    func advance(seconds: UInt64) { lock.withLock { instant += seconds * 1_000_000_000 } }
+    private var waiters: [UUID: (deadline: UInt64, continuation: CheckedContinuation<Void, Error>)] = [:]
+
+    func now() -> UInt64 { lock.withLock { instant } }
+
+    func sleep(until deadline: UInt64) async throws {
+        let id = UUID()
+        try await withTaskCancellationHandler(operation: {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                lock.lock()
+                if instant >= deadline {
+                    lock.unlock()
+                    continuation.resume()
+                    return
+                }
+                // `onCancel` fires as soon as the task is (already)
+                // cancelled, which can be before this continuation body
+                // even runs -- if so, `cancelWaiter` finds nothing to
+                // remove and the continuation would otherwise leak
+                // forever once registered below.
+                guard !Task.isCancelled else {
+                    lock.unlock()
+                    continuation.resume(throwing: CancellationError())
+                    return
+                }
+                waiters[id] = (deadline, continuation)
+                lock.unlock()
+            }
+        }, onCancel: { [weak self] in self?.cancelWaiter(id) })
+    }
+
+    func advance(seconds: UInt64) {
+        lock.lock()
+        instant += seconds * 1_000_000_000
+        let ready = waiters.filter { instant >= $0.value.deadline }
+        for id in ready.keys { waiters.removeValue(forKey: id) }
+        lock.unlock()
+        for (_, waiter) in ready { waiter.continuation.resume() }
+    }
+
+    private func cancelWaiter(_ id: UUID) {
+        lock.lock()
+        let waiter = waiters.removeValue(forKey: id)
+        lock.unlock()
+        waiter?.continuation.resume(throwing: CancellationError())
+    }
 }
 
 private actor SocketCompletion {
