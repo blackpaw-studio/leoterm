@@ -135,6 +135,20 @@ enum LeoDaemonError: Error, Equatable, Sendable {
     case hostUnknown(String)
 }
 
+extension LeoDaemonError: LocalizedError {
+    var errorDescription: String? {
+        switch self {
+        case .daemon(_, let message, _): return message
+        case .transport(let message): return "Connection to the Leo daemon failed: \(message)"
+        case .timeout: return "The Leo daemon did not respond in time"
+        case .decoding(let message): return "Could not understand the Leo daemon's response: \(message)"
+        case .socketMissing(let path): return "The Leo daemon socket is missing at \(path)"
+        case .hostUnavailable(let message): return "The remote host is unavailable: \(message)"
+        case .hostUnknown(let message): return "The remote host is unknown: \(message)"
+        }
+    }
+}
+
 struct LeoSpawnRequest: Codable, Equatable, Sendable {
     let template: String?
     let fromAgent: String?
