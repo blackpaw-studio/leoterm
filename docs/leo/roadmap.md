@@ -9,7 +9,7 @@ picker logged `outcome=cancel` 0.4 s after present when launched headless via
 
 ## Tier 1 — highest leverage
 
-- [~] **Push-driven list, poll as fallback.** Refresh `/agents/list` on SSE
+- [x] **Push-driven list, poll as fallback.** Merged `d74bb7f2d`. Refresh `/agents/list` on SSE
   state events; poll only while SSE is disconnected (~30 s). Today the list
   polls every 2 s even with SSE live (`LeoPollScheduler`).
 - [~] **Template fetch cache.** One templates request per host per refresh,
