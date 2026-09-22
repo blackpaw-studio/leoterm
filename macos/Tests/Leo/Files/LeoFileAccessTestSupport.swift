@@ -7,6 +7,10 @@ import Testing
 /// takes one of these as its argument, so each behaviour is asserted
 /// identically for local and remote.
 enum LeoFileBackendKind: String, CaseIterable, CustomTestStringConvertible, Sendable {
+    static var allCases: [LeoFileBackendKind] {
+        [.local, .sftp, .sftpSmallChunks, .sftpWithoutPosixRename] + (LeoSSHEndToEnd.isEnabled ? [.sshEndToEnd] : [])
+    }
+
     case local
     /// macOS's own `/usr/libexec/sftp-server` over pipes -- no ssh, no sshd.
     case sftp
@@ -15,6 +19,9 @@ enum LeoFileBackendKind: String, CaseIterable, CustomTestStringConvertible, Send
     case sftpSmallChunks
     /// Ignores `posix-rename@openssh.com`, exercising REMOVE + RENAME.
     case sftpWithoutPosixRename
+    /// Real `ssh` to `LEO_SSH_E2E_HOST`, over the suite's ControlMaster
+    /// (`LeoSSHEndToEnd`). Only listed when that variable is set.
+    case sshEndToEnd
 
     var testDescription: String { rawValue }
 
@@ -26,6 +33,11 @@ enum LeoFileBackendKind: String, CaseIterable, CustomTestStringConvertible, Send
             LeoFileAccessor.sftp(launcher: LeoSFTPTestServer.launcher(), options: .init(chunkSize: 1000, maxRequestsInFlight: 3))
         case .sftpWithoutPosixRename:
             LeoFileAccessor.sftp(launcher: LeoSFTPTestServer.launcher(), options: .init(usesPosixRename: false))
+        case .sshEndToEnd:
+            // Reached only through `withLeoFileSandbox`, which uses the
+            // suite's master instead; a launcher that can't start keeps any
+            // other caller failing loudly.
+            LeoFileAccessor.sftp(launcher: LeoSFTPProcessLauncher(executable: URL(fileURLWithPath: "/nonexistent/ssh"), arguments: []))
         }
     }
 }
@@ -69,8 +81,8 @@ final class LeoCountingSFTPLauncher: LeoSFTPLaunching, @unchecked Sendable {
 struct LeoFileSandbox {
     let root: String
 
-    init() throws {
-        let base = FileManager.default.temporaryDirectory.appendingPathComponent("leo-files-\(UUID().uuidString.prefix(8))")
+    init(in parent: URL = FileManager.default.temporaryDirectory) throws {
+        let base = parent.appendingPathComponent("leo-files-\(UUID().uuidString.prefix(8))")
         try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
         root = base.path
     }
@@ -132,13 +144,26 @@ struct LeoFileSandbox {
 }
 
 /// Runs `body` against a fresh sandbox and a fresh accessor of `kind`,
-/// always cleaning both up.
+/// always cleaning both up. `.sshEndToEnd` sandboxes live in the suite
+/// master's remote temp directory.
 func withLeoFileSandbox(
     _ kind: LeoFileBackendKind,
     _ body: (LeoFileSandbox, any LeoFileAccess) async throws -> Void
 ) async throws {
-    let sandbox = try LeoFileSandbox()
-    let access = kind.makeAccess()
+    guard kind == .sshEndToEnd else {
+        return try await withLeoFileSandbox(try LeoFileSandbox(), kind.makeAccess(), body)
+    }
+    let connection = try #require(LeoSSHEndToEnd.current, "the suite needs LeoSSHEndToEnd.trait")
+    try await connection.withSession {
+        try await withLeoFileSandbox(try LeoFileSandbox(in: URL(fileURLWithPath: connection.remoteDirectory)), try connection.makeAccess(), body)
+    }
+}
+
+private func withLeoFileSandbox(
+    _ sandbox: LeoFileSandbox,
+    _ access: any LeoFileAccess,
+    _ body: (LeoFileSandbox, any LeoFileAccess) async throws -> Void
+) async throws {
     defer { sandbox.cleanUp() }
     do {
         try await body(sandbox, access)

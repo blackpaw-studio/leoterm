@@ -7,6 +7,7 @@ import Testing
 /// reading and error mapping. Every test runs once per backend
 /// (`LeoFileBackendKind`), so local and remote are held to the same bar.
 /// Writes live in `LeoFileAccessWriteContractTests`.
+@Suite(LeoSSHEndToEnd.trait)
 struct LeoFileAccessContractTests {
     @Test(arguments: LeoFileBackendKind.allCases)
     func listsEntriesSortedByNameWithKindSizeAndTime(_ kind: LeoFileBackendKind) async throws {
