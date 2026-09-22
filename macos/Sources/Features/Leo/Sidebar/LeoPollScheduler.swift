@@ -6,7 +6,8 @@ import Foundation
 /// disconnected or reconnecting, this falls back to periodic polling at
 /// `disconnectedPollInterval`, plus an immediate refresh the moment SSE
 /// reconnects. The same poll also runs while an attention baseline is
-/// pending, even with SSE connected.
+/// pending with SSE connected -- even with the sidebar hidden, when
+/// notifications matter most.
 struct LeoPollScheduler {
     enum Input: Sendable {
         case sidebarVisibleCountChanged(Int)
@@ -120,9 +121,13 @@ struct LeoPollScheduler {
     private var visible: Bool { visibleCount > 0 && !occluded && !appHidden }
 
     /// True when the periodic-poll fallback should be active: visible, and
-    /// SSE isn't already delivering live updates -- or a baseline is still
-    /// pending, so a failed or stale fetch gets retried by the ordinary poll.
-    private var shouldPoll: Bool { visible && (!sseConnected || baselinePending) }
+    /// SSE isn't already delivering live updates -- or SSE is connected with
+    /// a baseline still pending (visible or not), so a failed or stale fetch
+    /// gets retried by the ordinary poll and notifications resume. A hidden
+    /// sidebar never polls a disconnected daemon.
+    private var shouldPoll: Bool {
+        visible ? !sseConnected || baselinePending : sseConnected && baselinePending
+    }
 
     private mutating func handle(_ event: LeoObserveEvent) -> [Output] {
         switch event {
