@@ -141,8 +141,12 @@ struct LeoAgentRowView: View {
                     attachAffordance
                 }
             }
-            if let template = row.template, !template.isEmpty {
-                Text(template).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            if let subtitle = presentation.subtitle {
+                // VoiceOver already hears the state on the name's label, so
+                // the subtitle reads only the template, as it did before.
+                subtitleText(subtitle).font(.caption).lineLimit(1)
+                    .accessibilityLabel(subtitle.template ?? "")
+                    .accessibilityHidden(subtitle.template == nil)
             }
             if let detail = row.actionDetail, !detail.isEmpty {
                 Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1)
@@ -169,27 +173,38 @@ struct LeoAgentRowView: View {
         }
     }
 
-    /// Static (no animation) attention badge; the symbol's shape carries the
-    /// state for color-blind users and is hidden from VoiceOver, which reads
-    /// the state from the name's label instead. On a selected row it drops
-    /// to the primary color so it keeps contrast against the selection.
+    private var presentation: LeoAgentRowPresentation {
+        LeoAgentRowPresentation(row: row, isSelected: isSelected)
+    }
+
+    /// "claude · Needs Input": the template in secondary, the attention
+    /// state word in its state color. One concatenated `Text` so the line
+    /// truncates as a whole.
+    private func subtitleText(_ subtitle: LeoAgentRowPresentation.Subtitle) -> Text {
+        let template = subtitle.template.map { Text($0).foregroundColor(.secondary) }
+        let state = subtitle.state.map { Text($0.label).foregroundColor($0.tint) }
+        let separator = template != nil && state != nil
+            ? Text(LeoAgentRowPresentation.Subtitle.separator).foregroundColor(.secondary)
+            : nil
+        return [template, separator, state].compactMap { $0 }.reduce(Text(""), +)
+    }
+
+    /// Static (no animation), fixed-width, icon-only attention badge so it
+    /// never takes width from the name; the state word is on the subtitle
+    /// line. The symbol's shape carries the state for color-blind users and
+    /// is hidden from VoiceOver, which reads the state from the name's label.
     @ViewBuilder private var attentionBadge: some View {
-        if let attention = row.attention {
-            let presentation = LeoStatusPresentation.attention(attention)
-            let tint = isSelected ? Color.primary : presentation.color
-            HStack(spacing: 3) {
-                Image(systemName: presentation.symbolName).accessibilityHidden(true)
-                Text(presentation.accessibilityLabel)
-            }
-            .font(.caption)
-            .lineLimit(1)
-            .fixedSize()
-            .layoutPriority(1)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 2)
-            .background(tint.opacity(0.15), in: Capsule())
-            .foregroundStyle(tint)
-            .accessibilityHidden(true)
+        if let badge = presentation.badge {
+            Image(systemName: badge.symbolName)
+                .font(.caption)
+                .frame(width: 14, height: 14)
+                .padding(.horizontal, 3)
+                .padding(.vertical, 1)
+                .background(badge.tint.opacity(0.15), in: Capsule())
+                .foregroundStyle(badge.tint)
+                .fixedSize()
+                .layoutPriority(1)
+                .accessibilityHidden(true)
         }
     }
 

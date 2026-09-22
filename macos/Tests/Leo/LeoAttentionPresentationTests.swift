@@ -35,6 +35,32 @@ struct LeoAttentionPresentationTests {
         #expect(LeoStatusPresentation.rowAccessibilityLabel(row("alpha")) == "alpha, Running")
     }
 
+    // MARK: Row layout
+
+    @Test func attentionRowShowsAnIconOnlyBadgeAndTheStateInTheSubtitle() {
+        let presentation = LeoAgentRowPresentation(row: row("alpha", template: "claude", attention: .needsInput), isSelected: false)
+        let orange = Color(nsColor: .systemOrange)
+        #expect(presentation.badge == .init(symbolName: "questionmark.circle", tint: orange))
+        #expect(presentation.subtitle?.text == "claude · Needs Input")
+        #expect(presentation.subtitle?.state == .init(label: "Needs Input", tint: orange))
+    }
+
+    @Test func selectedAttentionRowUsesThePrimaryColor() {
+        let presentation = LeoAgentRowPresentation(row: row("alpha", template: "claude", attention: .errored), isSelected: true)
+        #expect(presentation.badge == .init(symbolName: "exclamationmark.triangle", tint: .primary))
+        #expect(presentation.subtitle?.state == .init(label: "Errored", tint: .primary))
+    }
+
+    @Test func subtitleOmitsWhateverIsMissing() {
+        let noTemplate = LeoAgentRowPresentation(row: row("alpha", template: "", attention: .finished), isSelected: false)
+        #expect(noTemplate.subtitle?.text == "Finished")
+        let noAttention = LeoAgentRowPresentation(row: row("alpha", template: "claude"), isSelected: false)
+        #expect(noAttention.badge == nil)
+        #expect(noAttention.subtitle?.text == "claude")
+        #expect(noAttention.subtitle?.state == nil)
+        #expect(LeoAgentRowPresentation(row: row("alpha"), isSelected: false).subtitle == nil)
+    }
+
     // MARK: Jump to Next Needing Attention
 
     @Test func jumpStartsAfterTheFocusedAgentAndSkipsIt() {
@@ -108,7 +134,7 @@ struct LeoAttentionPresentationTests {
 
     private func id(_ name: String) -> LeoAgentRow.ID { .init(host: Self.host, name: name) }
     private func ids(_ names: String...) -> [LeoAgentRow.ID] { names.map(id) }
-    private func row(_ name: String, attention: LeoAttentionBadge? = nil) -> LeoAgentRow {
-        LeoAgentRow(host: Self.host, name: name, template: nil, status: .running, activity: .idle, actionDetail: nil, attention: attention)
+    private func row(_ name: String, template: String? = nil, attention: LeoAttentionBadge? = nil) -> LeoAgentRow {
+        LeoAgentRow(host: Self.host, name: name, template: template, status: .running, activity: .idle, actionDetail: nil, attention: attention)
     }
 }
