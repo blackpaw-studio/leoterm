@@ -25,6 +25,14 @@ protocol LeoFileAccess: Sendable {
     /// through a symlink replaces the link's target, not the link. With a
     /// non-nil `expected`, fails with `.conflict` unless the file still has
     /// exactly that version. Returns the stat of the written file.
+    ///
+    /// Because the file is replaced rather than rewritten in place, the
+    /// saved file is a new inode: saving needs write permission on the
+    /// containing directory (a writable file in a read-only directory fails
+    /// with `.permissionDenied`), and only the permission bits carry over --
+    /// the original's owner and group (it is now owned by whoever saved it),
+    /// ACLs, extended attributes and hard links (other links keep the old
+    /// contents) are lost.
     @discardableResult
     func write(_ data: Data, to path: String, expecting expected: LeoFileVersion?) async throws -> LeoFileStat
 
