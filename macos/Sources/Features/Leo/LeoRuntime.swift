@@ -10,6 +10,8 @@ import OSLog
     let registry: LeoWindowSessionRegistry
     let actions: LeoAgentActions
     let hostSelection: LeoHostSelection
+    /// Agents ▸ Agent Notifications… policy for background transitions.
+    let attentionNotifications: LeoAttentionController
     let feed: LeoSidebarFeed
     private let cli: LeoCLI
     private let defaults: UserDefaults
@@ -55,7 +57,8 @@ import OSLog
         daemon: any LeoDaemonClient, cli: LeoCLI, activitySource: LeoSidebarActivitySource, defaults: UserDefaults = .standard,
         hostConnectionTransport: any LeoDaemonTransport = LeoUnixSocketTransport(),
         hostSelectionRunner: any LeoProcessRunning = LeoProcessRunner(),
-        hostSelectionSSHExecutable: URL = URL(fileURLWithPath: "/usr/bin/ssh")
+        hostSelectionSSHExecutable: URL = URL(fileURLWithPath: "/usr/bin/ssh"),
+        notificationCenter: any LeoNotificationPosting = LeoUserNotificationCenter()
     ) {
         self.cli = cli
         self.defaults = defaults
@@ -68,6 +71,9 @@ import OSLog
         let registry = LeoWindowSessionRegistry()
         self.model = model
         self.registry = registry
+        attentionNotifications = LeoAttentionController(
+            center: notificationCenter, defaults: defaults, showDeniedInstructions: LeoRuntime.presentNotificationsDeniedInstructions
+        )
         let requestConfigStore = LeoRequestConfigStore()
         self.requestConfigStore = requestConfigStore
         let host = GhosttyAttachTabHost(registry: registry, requestConfigStore: requestConfigStore)
@@ -178,6 +184,7 @@ import OSLog
         feed = LeoSidebarFeed(
             daemon: daemon, activity: activitySource,
             onManualRefresh: { [actionsBox] in actionsBox.actions?.invalidateTemplateCache() },
+            onAttentionTransitions: { transitions in weakSelf?.attentionTransitionsCommitted(transitions) },
             sink: { [weak model] snapshot in model?.receive(snapshot) }
         )
         actions = LeoAgentActions(daemon: daemon, cli: cli, model: model, hostSelection: hostSelection) { [weak feed] in

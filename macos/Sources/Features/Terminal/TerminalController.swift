@@ -1977,6 +1977,9 @@ extension TerminalController {
         case #selector(jumpToNextLeoAgentNeedingAttention(_:)):
             return validateLeoJumpToAttentionMenuItem(item)
 
+        case #selector(showLeoAgentNotificationSettings(_:)):
+            return validateLeoManageHostsMenuItem(item)
+
         case #selector(closeTabsOnTheRight):
             guard let window, let tabGroup = window.tabGroup else { return false }
             guard let currentIndex = tabGroup.windows.firstIndex(of: window) else { return false }

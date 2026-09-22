@@ -961,7 +961,12 @@ class AppDelegate: NSObject,
         didReceive: UNNotificationResponse,
         withCompletionHandler: () -> Void
     ) {
-        ghostty.handleUserNotification(response: didReceive)
+        // MARK: Leo
+        let userInfo = didReceive.notification.request.content.userInfo
+        let isLeoAttention = didReceive.actionIdentifier == UNNotificationDefaultActionIdentifier
+            ? MainActor.assumeIsolated { leoRuntime.openAttentionNotification(userInfo: userInfo) }
+            : LeoAttentionNotification.agent(fromUserInfo: userInfo) != nil
+        if !isLeoAttention { ghostty.handleUserNotification(response: didReceive) }
         withCompletionHandler()
     }
 
@@ -970,7 +975,10 @@ class AppDelegate: NSObject,
         willPresent: UNNotification,
         withCompletionHandler: (UNNotificationPresentationOptions) -> Void
     ) {
-        let shouldPresent = ghostty.shouldPresentNotification(notification: willPresent)
+        // MARK: Leo -- attention notifications are only posted for agents
+        // that aren't focused, so they always present.
+        let isLeoAttention = LeoAttentionNotification.agent(fromUserInfo: willPresent.request.content.userInfo) != nil
+        let shouldPresent = isLeoAttention || ghostty.shouldPresentNotification(notification: willPresent)
         let options: UNNotificationPresentationOptions = shouldPresent ? [.banner, .sound] : []
         withCompletionHandler(options)
     }

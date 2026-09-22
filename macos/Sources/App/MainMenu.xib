@@ -452,6 +452,12 @@
                                     <action selector="manageLeoHosts:" target="-1" id="Leo-Agents-ManageHosts-Action"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Agent Notifications…" id="Leo-Agents-Notifications">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="showLeoAgentNotificationSettings:" target="-1" id="Leo-Agents-Notifications-Action"/>
+                                </connections>
+                            </menuItem>
                             <menuItem title="Show Agents Sidebar" keyEquivalent="L" id="Leo-Sidebar-Toggle">
                                 <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
                                 <connections>

@@ -79,6 +79,10 @@ extension TerminalController {
         runtime.jumpToNextNeedingAttention(from: leoSession)
     }
 
+    @IBAction func showLeoAgentNotificationSettings(_ sender: Any?) {
+        leoRuntime?.presentAttentionNotificationSettings(for: window)
+    }
+
     func validateLeoJumpToAttentionMenuItem(_ item: NSMenuItem) -> Bool {
         LeoMenuCommands.canJumpToNextNeedingAttention(
             hasLeoSession: leoSession != nil,

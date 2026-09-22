@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 /// Attention-model hooks on the runtime: focus identity into the feed's
@@ -38,5 +39,65 @@ extension LeoRuntime {
                 self.model.selection = row.id
             }
         }
+    }
+}
+
+// MARK: Notifications
+
+extension LeoRuntime {
+    func attentionTransitionsCommitted(_ transitions: [LeoAttentionTransition]) {
+        Task { [attentionNotifications] in await attentionNotifications.handle(transitions) }
+    }
+
+    /// Handles a click on one of our notifications (attach or focus the
+    /// agent). Returns `false` for notifications that aren't Leo's.
+    func openAttentionNotification(userInfo: [AnyHashable: Any]) -> Bool {
+        guard let id = LeoAttentionNotification.agent(fromUserInfo: userInfo) else { return false }
+        let identity = model.snapshot.rows.first { $0.id == id }?.identity ?? LeoAgentIdentity(host: id.host, name: id.name)
+        let origin = (NSApp.keyWindow?.windowController as? TerminalController)?.leoSession?.id
+            ?? TerminalController.preferredParent?.leoSession?.id
+        let request = LeoSurfaceRequest(origin: origin ?? LeoWindowID(), disposition: origin == nil ? .window : .tab)
+        NSApp.activate(ignoringOtherApps: true)
+        Task { [weak self] in
+            guard let self else { return }
+            if case .success = await self.attachCoordinator.attach(identity: identity, request: request) {
+                self.model.selection = id
+            }
+        }
+        return true
+    }
+
+    /// Agents ▸ Agent Notifications…: a sheet to turn notifications on
+    /// (requesting permission only then) or off.
+    func presentAttentionNotificationSettings(for window: NSWindow?) {
+        let alert = NSAlert()
+        let isEnabled = attentionNotifications.isEnabled
+        alert.messageText = isEnabled ? "Agent Notifications Are On" : "Turn On Agent Notifications?"
+        alert.informativeText = "Leo notifies you when an agent you aren't looking at needs your input or finishes. "
+            + "Notifications follow your Focus settings."
+        alert.addButton(withTitle: isEnabled ? "Turn Off" : "Turn On")
+        alert.addButton(withTitle: "Cancel")
+        let apply: (NSApplication.ModalResponse) -> Void = { [attentionNotifications] response in
+            guard response == .alertFirstButtonReturn else { return }
+            if isEnabled {
+                attentionNotifications.disable()
+            } else {
+                Task { await attentionNotifications.enable() }
+            }
+        }
+        if let window {
+            alert.beginSheetModal(for: window, completionHandler: apply)
+        } else {
+            apply(alert.runModal())
+        }
+    }
+
+    static func presentNotificationsDeniedInstructions() {
+        let alert = NSAlert()
+        alert.messageText = "Notifications Are Off for Leo"
+        alert.informativeText = "To get agent notifications, allow notifications for Leo in "
+            + "System Settings > Notifications, then choose Agents > Agent Notifications… again."
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 }
