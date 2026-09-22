@@ -43,6 +43,9 @@ osascript -e 'tell application id "studio.blackpaw.leo.macos.debug" to quit'   #
   - Use only `autopilot-scratch` (create it with `leo`, delete it after).
   - Tunnel sockets under `~/.leo/state/leoterm/` are shared too.
 - For attention/state UI, prefer fixture-driven tests over live daemon state.
+- DEBUG attention fixture: `open -n --env LEO_ATTENTION_FIXTURE=<json file> Leo.app`. The file maps agent name → `{"state","revision"}`.
+  - **Never trigger Jump (⌃⌥⌘J) or click rows while the fixture names real agents.** Jump attaches a tmux client to that agent and resizes its window (happened 2026-09-22 with `brand`). For Jump/click flows, name only `autopilot-scratch` in the fixture.
+  - Quitting via AppleScript can hang on a confirm dialog while a tab is attached. Detach with `tmux -L leo detach-client -t <tty>`, then `kill` the debug pid.
 
 ## Drive key flows (Peekaboo bridge; ALWAYS pass --app)
 ```
