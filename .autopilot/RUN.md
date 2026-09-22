@@ -1,6 +1,6 @@
 Status: running
 Item: B-016
-Base: d3ab17f2b65de8c12a42bb34274de18cc3ea97da
+Base: f2ed8537acb7b23f8c33935f78fe8c96e82c8385
 Wip: none
 
 ## Progress
@@ -8,3 +8,4 @@ Wip: none
 - B-015: built c5c24c336 8dfe3aa7c 91fd60791 (854 tests). Logic-only, no visual change → not visually verified. review.concurrency 1 HIGH/2 MED/2 LOW; LOW (e)-test-only dismissed; rest sent back (attempt 1) to d-01d37c8188e4 (first implementer window died).
 - B-015: attempt-1 fix 4fea50a28 (862 tests). Re-review agreed HIGH unreachable (tests pin it); new MED (over-broad drop in recovery) + LOW (tombstone trim hits live resets) sent back (attempt 2) to d-3567d9ba6461; LOW retain-over-keeps dismissed (self-heals next list).
 - B-015 done: c5c24c336 8dfe3aa7c 91fd60791 4fea50a28 a4411496e (866 tests, only the known failure). 3rd review MED (pre-existing recreate edge) + 2 LOW → B-018, blocked on the leo instance-id contract (D-027). Not visually verified (logic only).
+- B-018 done: f2ed8537a (858 tests). Review clean; 3 LOW dismissed (D-028). Not visually verified (logic only).

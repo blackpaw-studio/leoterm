@@ -220,3 +220,11 @@ Why: the gap is a missing daemon fact, not app logic; the skill caps fix attempt
 Alternatives: a fourth heuristic patch
 Commit: (none; backlog and message only)
 Veto: [ ]
+
+## D-028 · 2026-09-22 · Dedupe attention on (boot, name, revision) per leo's contract
+Context: B-018; leo's spec says a revision is monotonic per agent name per boot, including across delete, recreate and rename
+Chose: removed incarnations, tombstones and droppedFloors. A per-name revision floor and Dock acknowledgement survive the loss of display state and clear on boot change or host switch. Signals buffered during recovery commit silently, as the app spec says. Dismissed review LOWs: a daemon that sends attention without a boot_id (the contract requires one; legacy daemons send no attention); a stale baseline outside recovery below the floor (barely reachable); a spawn mark lost on boot change (same as before, and the new boot's baseline repopulates it)
+Why: principle 2 (no duplicate or lost notifications); relying on the daemon's fact beats guessing
+Alternatives: keep patching the heuristic; ask for an instance_id (leo declined as unnecessary)
+Commit: f2ed8537a
+Veto: [ ]

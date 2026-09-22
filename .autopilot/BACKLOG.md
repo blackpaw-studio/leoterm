@@ -25,9 +25,10 @@ Source: B-006 reviews + visual check
 Accept: (a) fix the doc comment in `LeoHostConfiguration.swift:67-71` to say the hash covers the app's argv inputs, not ssh_config aliases; (b) home dirs longer than ~33 chars exceed the control-path budget and lose file access; consider a shorter token or a private short dir; (c) remote errors are vaguer than local ("Failure"); map SFTP status codes more finely where possible.
 Source: B-003 reviews
 
-## B-018 · Drop the recreate heuristic: dedupe on (boot, name, revision)   [ready]
+## B-018 · Drop the recreate heuristic: dedupe on (boot, name, revision)   [done]
 Accept: leo confirmed (2026-09-22, spec addition) that a revision is monotonic per agent NAME per boot, including across delete and recreate; revisions only go backwards when boot_id changes. So remove the backwards-revision heuristic from `LeoAttentionReducer` (incarnation bumps on retain/recovery, tombstones and their 64-cap, `droppedFloors`) and key notification dedupe on (bootID, name, revision). A revision ≤ the last seen for that name in the same boot is a duplicate; a recreated agent simply continues at higher revisions. Keep: list-driven deletion of display state, reset on boot change or host switch, and everything from B-015's (b), (d), (e), (f). Rewrite or delete the heuristic's tests; add fixture tests for the three gaps from B-015's third review (a recreated agent's first signal buffered during recovery notifies; an agent re-added by a baseline at the same revision keeps its Dock acknowledgement; a first seen revision equal to the old floor is a duplicate by contract).
 Source: B-015 third review + leo reply (D-027)
+Done: f2ed8537a (858 tests; 12 heuristic tests removed, 4 contract tests added; 126 fewer lines). Review clean; 3 LOWs dismissed (D-028). Logic only, so not visually verified.
 
 ## B-002 · Request daemon `attention` field from the leo agent   [done]
 Accept: send the leo agent the exact contract from the spec's "Leo-daemon
