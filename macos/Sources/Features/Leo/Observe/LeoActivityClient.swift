@@ -83,7 +83,7 @@ struct LeoLenientVersion: Decodable, Equatable, Sendable {
 enum LeoObserveEvent: Equatable, Sendable {
     case connected
     case disconnected(reason: String)
-    case hello(seq: Int, at: String?, version: String?, serverTime: String?)
+    case hello(seq: Int, at: String?, version: String?, serverTime: String?, bootID: String? = nil)
     case agentSpawned(seq: Int, at: String?, agent: LeoAgent, attention: LeoAttentionSignal? = nil)
     case agentStateChanged(seq: Int, at: String?, agent: String, status: LeoAgentStatus?, restarts: Int?, wakeOnMessage: Bool?)
     case agentActivity(
@@ -186,7 +186,7 @@ actor LeoActivityClient {
                             }
                         }
                         lastSequence = sequence
-                        if case .hello(let seq, let at, let version, let serverTime) = event {
+                        if case .hello(let seq, let at, let version, let serverTime, _) = event {
                             backoff = initialBackoff
                             leoActivityClientLogger.log("activityClient: hello seq=\(seq) version=\(version ?? "nil", privacy: .public) serverTime=\(serverTime ?? "nil", privacy: .public) at=\(at ?? "nil", privacy: .public)")
                             continuation.yield(.connected)
@@ -227,9 +227,9 @@ actor LeoActivityClient {
         let decoder = JSONDecoder()
         switch name {
         case "hello":
-            struct Payload: Decodable { let seq: Int; let at: String?; let version: LeoLenientVersion?; let serverTime: String?; enum CodingKeys: String, CodingKey { case seq, at, version; case serverTime = "server_time" } }
+            struct Payload: Decodable { let seq: Int; let at: String?; let version: LeoLenientVersion?; let serverTime: String?; let bootID: LeoLenientVersion?; enum CodingKeys: String, CodingKey { case seq, at, version; case serverTime = "server_time"; case bootID = "boot_id" } }
             guard let p = try? decoder.decode(Payload.self, from: data) else { return nil }
-            return .hello(seq: p.seq, at: p.at, version: p.version?.stringValue, serverTime: p.serverTime)
+            return .hello(seq: p.seq, at: p.at, version: p.version?.stringValue, serverTime: p.serverTime, bootID: p.bootID?.stringValue)
         case "agent_spawned":
             struct Nested: Decodable { let attention: LeoLenientAttention? }
             struct Payload: Decodable { let seq: Int; let at: String?; let agent: LeoAgent; let attention: LeoLenientAttention?; let nested: Nested
@@ -271,7 +271,7 @@ actor LeoActivityClient {
 extension LeoObserveEvent {
     var sequence: Int {
         switch self {
-        case .hello(let seq, _, _, _), .agentSpawned(let seq, _, _, _),
+        case .hello(let seq, _, _, _, _), .agentSpawned(let seq, _, _, _),
              .agentStateChanged(let seq, _, _, _, _, _), .agentActivity(let seq, _, _, _, _, _),
              .agentStopped(let seq, _, _, _): return seq
         case .connected, .disconnected, .gap, .snapshot: return -1

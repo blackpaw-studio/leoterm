@@ -73,12 +73,118 @@ struct LeoAttentionReducerTests {
         #expect(reducer.state(of: "alpha") == .working)
     }
 
-    @Test func identicalSignalAfterCommitEmitsNothing() {
-        var reducer = live(["alpha": signal(.finished, 4)])
-        reducer.receive(agent: "alpha", signal: signal(.finished, 5), now: 0)
+    @Test func repeatedWorkingAtANewerRevisionEmitsNothing() {
+        var reducer = live(["alpha": signal(.working, 4)])
+        reducer.receive(agent: "alpha", signal: signal(.working, 5), now: 0)
 
         #expect(reducer.nextDeadline == nil)
         #expect(reducer.tick(now: 1).isEmpty)
+    }
+
+    // MARK: Same-state repeats at a newer revision (daemon spec: a new event)
+
+    @Test func repeatedAttentionStateAtANewerRevisionIsANewEvent() {
+        var reducer = live(["alpha": signal(.finished, 4)])
+        reducer.receive(agent: "alpha", signal: signal(.finished, 5), now: 0)
+
+        #expect(reducer.nextDeadline == 0.3)
+        #expect(reducer.tick(now: 0.3) == [.init(id: Self.alpha, from: .finished, to: .finished, revision: 5, shouldNotify: true)])
+    }
+
+    @Test func repeatReArmsAnAcknowledgedDockContribution() {
+        var reducer = live(["alpha": signal(.needsInput, 1)])
+        reducer.focus(Self.alpha)
+        reducer.focus(nil)
+        #expect(reducer.dockCount(among: ["alpha"]) == 0)
+
+        reducer.receive(agent: "alpha", signal: signal(.needsInput, 2), now: 0)
+        _ = reducer.tick(now: 0.3)
+
+        #expect(reducer.dockCount(among: ["alpha"]) == 1)
+    }
+
+    @Test func repeatWhileFocusedIsSuppressedAndStaysAcknowledged() {
+        var reducer = live(["alpha": signal(.finished, 1)])
+        reducer.focus(Self.alpha)
+        reducer.receive(agent: "alpha", signal: signal(.finished, 2), now: 0)
+
+        #expect(reducer.tick(now: 0.3).map(\.shouldNotify) == [false])
+        #expect(reducer.dockCount(among: ["alpha"]) == 0)
+    }
+
+    @Test func repeatDuringAPendingRepeatDoesNotDelayCommit() {
+        var reducer = live(["alpha": signal(.finished, 1)])
+        reducer.receive(agent: "alpha", signal: signal(.finished, 2), now: 0)
+        reducer.receive(agent: "alpha", signal: signal(.finished, 3), now: 0.2)
+
+        #expect(reducer.nextDeadline == 0.3)
+        #expect(reducer.tick(now: 0.3).map(\.revision) == [3])
+    }
+
+    @Test func quickTurnThroughWorkingBackToFinishedIsANewEvent() {
+        var reducer = live(["alpha": signal(.finished, 5)])
+        reducer.focus(Self.alpha)
+        reducer.focus(nil)
+        reducer.receive(agent: "alpha", signal: signal(.working, 6), now: 0)
+        reducer.receive(agent: "alpha", signal: signal(.finished, 7), now: 0.1)
+
+        #expect(reducer.tick(now: 0.4) == [.init(id: Self.alpha, from: .finished, to: .finished, revision: 7, shouldNotify: true)])
+        #expect(reducer.dockCount(among: ["alpha"]) == 1)
+    }
+
+    @Test func baselineAtANewerRevisionReArmsSilently() {
+        var reducer = live(["alpha": signal(.finished, 1)])
+        reducer.focus(Self.alpha)
+        reducer.focus(nil)
+        reducer.beginRecovery()
+        reducer.applyBaseline(["alpha": signal(.finished, 2)])
+
+        #expect(reducer.dockCount(among: ["alpha"]) == 1)
+        #expect(reducer.tick(now: 10).isEmpty)
+    }
+
+    // MARK: Daemon restarts (hello boot_id)
+
+    @Test func firstBootIDAndTheSameBootIDAreNotRestarts() {
+        var reducer = live(["alpha": signal(.finished, 3)])
+        reducer.focus(Self.alpha)
+        reducer.focus(nil)
+
+        let first = reducer.observeBoot("b1")
+        let same = reducer.observeBoot("b1")
+        let absent = reducer.observeBoot(nil)
+        #expect(!first && !same && !absent)
+        reducer.beginRecovery()
+        reducer.applyBaseline(["alpha": signal(.finished, 3)])
+
+        #expect(reducer.dockCount(among: ["alpha"]) == 0, "normal reconnect keeps the acknowledgement")
+    }
+
+    @Test func changedBootIDDiscardsRevisionsAndAcknowledgements() {
+        var reducer = live(["alpha": signal(.finished, 3)])
+        _ = reducer.observeBoot("b1")
+        reducer.focus(Self.alpha)
+        reducer.focus(nil)
+        reducer.receive(agent: "beta", signal: signal(.working, 9), now: 0)
+
+        let restarted = reducer.observeBoot("b2")
+        #expect(restarted)
+        #expect(reducer.nextDeadline == nil)
+        #expect(reducer.state(of: "alpha") == nil)
+        reducer.receive(agent: "beta", signal: signal(.finished, 1), now: 0)
+        reducer.applyBaseline(["alpha": signal(.finished, 3)])
+
+        #expect(reducer.dockCount(among: ["alpha", "beta"]) == 2, "same revision in a new lifetime is not the acknowledged event")
+        #expect(reducer.tick(now: 10).isEmpty, "restart baselines are silent")
+    }
+
+    @Test func hostSwitchForgetsTheBootID() {
+        var reducer = live()
+        _ = reducer.observeBoot("b1")
+        reducer.switchHost(.local)
+        let restarted = reducer.observeBoot("b2")
+
+        #expect(!restarted)
     }
 
     @Test func transitionsReportThePreviouslyCommittedState() {

@@ -70,7 +70,7 @@ actor LeoSocketActivityClient {
                             if let agents = try? await fetchState() { continuation.yield(.snapshot(agents)) }
                         }
                         if sequence >= 0 { lastSequence = sequence }
-                        if case .hello(let seq, let at, let version, let serverTime) = event {
+                        if case .hello(let seq, let at, let version, let serverTime, _) = event {
                             backoff = initialBackoff
                             leoSocketActivityLogger.log("socketActivity: hello seq=\(seq) version=\(version ?? "nil", privacy: .public) serverTime=\(serverTime ?? "nil", privacy: .public) at=\(at ?? "nil", privacy: .public)")
                         }

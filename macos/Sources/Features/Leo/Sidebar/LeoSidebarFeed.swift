@@ -200,7 +200,7 @@ actor LeoSidebarFeed {
             sseRefreshTask?.cancel()
             sseRefreshTask = nil
             process(scheduler.reduce(.sseEvent(event)))
-        case .hello(let seq, _, let version, _):
+        case .hello(let seq, _, let version, _, _):
             Self.logger.log("receive: .hello seq=\(seq) version=\(version ?? "nil", privacy: .public) awaitingHello=\(self.awaitingHello)")
             if awaitingHello {
                 awaitingHello = false

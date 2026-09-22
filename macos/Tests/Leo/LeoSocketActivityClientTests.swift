@@ -73,7 +73,7 @@ struct LeoSocketActivityClientTests {
         let events = parser.feed(try fixture("events-real-daemon.sse"))
             .compactMap { LeoActivityClient.decode($0) }
 
-        guard case .hello(let seq, _, let version, let serverTime) = events.first else {
+        guard case .hello(let seq, _, let version, let serverTime, _) = events.first else {
             Issue.record("expected hello first, got \(events.first as Any)")
             return
         }

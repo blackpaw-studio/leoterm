@@ -76,6 +76,29 @@ struct LeoSidebarFeedAttentionTests {
         await harness.stop()
     }
 
+    @Test func changedHelloBootIDReBaselinesWithoutKeepingAcknowledgements() async throws {
+        let harness = AttentionHarness(agents: ["alpha"], state: [observed("alpha", attention: .init(state: .finished, revision: 1))])
+        await harness.start()
+        await harness.waitFor { $0.attentionCount == 1 }
+        await harness.feed.setFocusedAgent(.init(host: .local, name: "alpha"))
+        await harness.feed.setFocusedAgent(nil)
+        await harness.waitFor { $0.attentionCount == 0 }
+        let fetchesBefore = await harness.activity.fetchCount
+
+        await harness.activity.send(.hello(seq: 1, at: nil, version: nil, serverTime: nil, bootID: "b1"))
+        await harness.pumpAsync { _ in await harness.activity.fetchCount > fetchesBefore }
+        await harness.activity.send(.hello(seq: 1, at: nil, version: nil, serverTime: nil, bootID: "b1"))
+        let fetchesAfterSameBoot = await harness.activity.fetchCount
+        await harness.pumpAsync { _ in await harness.activity.fetchCount > fetchesAfterSameBoot }
+        #expect(await harness.recorder.last?.attentionCount == 0, "same boot_id is a normal reconnect")
+
+        await harness.activity.send(.hello(seq: 1, at: nil, version: nil, serverTime: nil, bootID: "b2"))
+
+        await harness.pump { $0.attentionCount == 1 }
+        #expect(await harness.transitions.values.isEmpty, "restart baselines never notify")
+        await harness.stop()
+    }
+
     @Test func hostSwitchClearsBadgesAndCount() async throws {
         let harness = AttentionHarness(agents: ["alpha"], state: [observed("alpha", attention: .init(state: .errored, revision: 1))])
         await harness.start()
@@ -135,9 +158,13 @@ private struct AttentionHarness {
 
     /// Fires pending sleeps until `condition` holds (see the coalescing tests).
     func pump(_ condition: @escaping @Sendable (LeoSidebarSnapshot) -> Bool) async {
+        await pumpAsync { snapshot in condition(snapshot) }
+    }
+
+    func pumpAsync(_ condition: @escaping @Sendable (LeoSidebarSnapshot) async -> Bool) async {
         let deadline = Date().addingTimeInterval(2)
         repeat {
-            if await recorder.last.map(condition) ?? false { return }
+            if let last = await recorder.last, await condition(last) { return }
             await clock.advanceAll()
             try? await Task.sleep(nanoseconds: 5_000_000)
         } while Date() < deadline
@@ -154,7 +181,11 @@ private actor AttentionActivity {
         (stream, continuation) = AsyncStream.makeStream()
     }
     func events() -> AsyncStream<LeoObserveEvent> { stream }
-    func fetchState() -> [LeoObservedAgent] { state }
+    private(set) var fetchCount = 0
+    func fetchState() -> [LeoObservedAgent] {
+        fetchCount += 1
+        return state
+    }
     func send(_ event: LeoObserveEvent) { continuation.yield(event) }
 }
 

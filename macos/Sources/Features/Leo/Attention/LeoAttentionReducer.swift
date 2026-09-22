@@ -10,6 +10,8 @@ import Foundation
 /// Rules (see docs/superpowers/specs/2026-09-21-leo-attention-model.md):
 /// - A live signal commits only after `stabilityInterval` without a
 ///   different candidate; a same-state repeat does not extend the window.
+/// - A newer-revision repeat of needs_input/finished/errored is a new event.
+/// - A changed `hello.boot_id` (daemon restart) discards stored revisions.
 /// - Signals at or below an agent's last-seen revision are ignored.
 /// - Baselines (and events buffered while recovering) commit silently.
 /// - Disconnect marks everything stale until the next baseline.
@@ -42,6 +44,8 @@ struct LeoAttentionReducer: Equatable, Sendable {
     private var isRecovering = true
     /// The focused agent's name, only when it belongs to `host`.
     private var focusedAgent: String?
+    /// The last `hello.boot_id` seen for `host`.
+    private var bootID: String?
 
     /// The earliest moment a pending candidate can commit, if any.
     var nextDeadline: TimeInterval? { entries.values.compactMap(\.deadline).min() }
@@ -53,6 +57,21 @@ struct LeoAttentionReducer: Equatable, Sendable {
     mutating func switchHost(_ host: LeoHostID) {
         self = LeoAttentionReducer()
         self.host = host
+    }
+
+    /// Records the daemon's `hello.boot_id`. A different id than the last
+    /// one seen for this host means the daemon restarted and revisions
+    /// started over: every stored revision, acknowledgement and buffered
+    /// signal is discarded and the reducer waits for a silent baseline.
+    /// Returns whether that happened. An absent id changes nothing.
+    mutating func observeBoot(_ bootID: String?) -> Bool {
+        guard let bootID else { return false }
+        defer { self.bootID = bootID }
+        guard let previous = self.bootID, previous != bootID else { return false }
+        entries = [:]
+        buffered = [:]
+        isRecovering = true
+        return true
     }
 
     /// hello/reconnect/sequence gap: cancel candidates and buffer live
@@ -111,10 +130,15 @@ struct LeoAttentionReducer: Equatable, Sendable {
         guard signal.revision > entry.lastSeenRevision else { return }
         entry.lastSeenRevision = signal.revision
         if entry.candidate?.signal.state == signal.state {
+            // Same-state repeat: newest revision, original window.
             entry.candidate?.signal = signal
-        } else if entry.committed?.state == signal.state {
+        } else if entry.committed?.state == signal.state, !signal.state.needsAttention {
+            // Flicker back to a committed working/unknown state.
             entry.candidate = nil
         } else {
+            // Includes a newer-revision repeat of a committed attention
+            // state: a new turn, so it commits (re-arming the Dock count
+            // and possibly notifying) like any other transition.
             entry.candidate = Candidate(signal: signal, since: now)
         }
         entries[agent] = entry

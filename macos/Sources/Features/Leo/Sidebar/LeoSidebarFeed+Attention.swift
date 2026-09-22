@@ -12,10 +12,23 @@ extension LeoSidebarFeed {
         case .agentSpawned(_, _, let agent, let signal):
             attention.resetAgent(agent.name)
             if let signal { attention.receive(agent: agent.name, signal: signal, now: now()) }
+        case .hello(_, _, _, _, let bootID):
+            guard attention.observeBoot(bootID) else { return }
+            daemonRestarted(event)
         default:
             return
         }
         scheduleAttentionTick()
+    }
+
+    /// A restart discards revisions, so a baseline from the new daemon is
+    /// required even when a recovery is already in flight (its state fetch
+    /// may predate the restart); `receive`'s normal hello path covers the
+    /// case where none is.
+    private func daemonRestarted(_ hello: LeoObserveEvent) {
+        needsState = true
+        guard recovering else { return }
+        process(scheduler.reduce(.sseEvent(hello)))
     }
 
     func applyAttentionBaseline(_ state: [LeoObservedAgent]) {

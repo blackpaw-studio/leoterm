@@ -20,6 +20,15 @@ struct LeoAttentionDecodingTests {
         ))
     }
 
+    @Test func helloCarriesBootIDWhenPresent() throws {
+        #expect(try decodedEvents()[0] == .hello(
+            seq: 1, at: "2026-09-22T16:00:00-04:00", version: "1", serverTime: "2026-09-22T16:00:00-04:00", bootID: "boot-a"
+        ))
+        var parser = LeoSSEParser()
+        let legacy = parser.feed(Data("event: hello\ndata: {\"seq\":4}\n\n".utf8)).compactMap(LeoActivityClient.decode)
+        #expect(legacy == [.hello(seq: 4, at: nil, version: nil, serverTime: nil)])
+    }
+
     @Test func activityEventWithoutAttentionIsLegacy() throws {
         #expect(try decodedEvents()[3] == .agentActivity(
             seq: 4, at: "2026-09-22T16:00:03-04:00", agent: "legacy", activity: .working, currentAction: nil
