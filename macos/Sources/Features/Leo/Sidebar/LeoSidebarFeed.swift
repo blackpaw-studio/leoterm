@@ -67,6 +67,12 @@ actor LeoSidebarFeed {
     var pollTask: Task<Void, Never>?
     var sseRefreshTask: Task<Void, Never>?
     var scheduler = LeoPollScheduler()
+    /// Semantic attention for the selected host -- see `LeoSidebarFeed+Attention.swift`.
+    var attention = LeoAttentionReducer()
+    var attentionTask: Task<Void, Never>?
+    /// Monotonic seconds; only the attention reducer's stability window reads it.
+    let now: @Sendable () -> TimeInterval
+    let onAttentionTransitions: @MainActor @Sendable ([LeoAttentionTransition]) -> Void
     var running = false
     var needsState = true
     var recovering = false
@@ -86,12 +92,16 @@ actor LeoSidebarFeed {
     init(
         daemon: any LeoDaemonClient, activity: LeoSidebarActivitySource,
         sleep: @escaping @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) },
+        now: @escaping @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
         onManualRefresh: @escaping @MainActor @Sendable () -> Void = {},
+        onAttentionTransitions: @escaping @MainActor @Sendable ([LeoAttentionTransition]) -> Void = { _ in },
         sink: @escaping Sink
     ) {
         self.daemon = daemon
         activitySource = activity
         sleeper = sleep
+        self.now = now
+        self.onAttentionTransitions = onAttentionTransitions
         self.onManualRefresh = onManualRefresh
         self.sink = sink
     }
@@ -111,6 +121,8 @@ actor LeoSidebarFeed {
         pollTask?.cancel()
         sseRefreshTask?.cancel()
         activityCoalesceTask?.cancel()
+        attentionTask?.cancel()
+        attentionTask = nil
         eventTask = nil
         refreshTask = nil
         activityTask = nil
@@ -176,6 +188,7 @@ actor LeoSidebarFeed {
         // buffered first so that emission reflects the latest activity
         // instead of a still-pending coalescing window.
         if case .agentActivity = event {} else { drainCoalescedActivity() }
+        receiveAttention(event)
         switch event {
         case .connected:
             Self.logger.log("receive: .connected")
@@ -216,6 +229,8 @@ actor LeoSidebarFeed {
             sseRefreshTask = nil
             activityByName = [:]
             bufferedActivity = []
+            attention.disconnect()
+            scheduleAttentionTick()
             snapshot = LeoSidebarSnapshot(
                 rows: snapshot.rows.map {
                     LeoAgentRow(host: $0.host, name: $0.name, template: $0.template, status: $0.status, activity: .unknown, actionDetail: nil)
@@ -236,6 +251,8 @@ actor LeoSidebarFeed {
         activityByName = [:]
         recovering = true
         needsState = true
+        attention.beginRecovery()
+        scheduleAttentionTick()
     }
 
     func startRefresh() {
@@ -262,6 +279,7 @@ actor LeoSidebarFeed {
             let rows = try await fetchList().map { Self.row($0, host: host) }
             guard running, generation == snapshot.generation, token == currentRefreshToken else { return }
             snapshot = LeoSidebarReducers.applyListResult(snapshot, result: LeoSidebarReducers.mergeActivity(rows, activityByName: activityByName), generation: generation)
+            retainAttention(for: rows)
             recovering = false
             drainCoalescedActivity()
             let buffered = bufferedActivity
@@ -290,7 +308,7 @@ actor LeoSidebarFeed {
     }
 
     func emit() {
-        let value = snapshot
+        let value = snapshot.overlayingAttention(attention)
         let previous = emissionTask
         emissionTask = Task { [weak self, sink] in
             await previous?.value

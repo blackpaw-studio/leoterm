@@ -40,6 +40,9 @@ extension LeoSidebarFeed {
             scheduler.resetConnectionTracking()
             activityByName = [:]
             bufferedActivity = []
+            attentionTask?.cancel()
+            attentionTask = nil
+            attention.switchHost(host)
             needsState = true
             recovering = false
             awaitingHello = false

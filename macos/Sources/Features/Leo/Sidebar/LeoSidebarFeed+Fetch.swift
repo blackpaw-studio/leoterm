@@ -55,6 +55,7 @@ extension LeoSidebarFeed {
         // started; anything coalesced since then is newer, so it's merged
         // in on top rather than lost.
         activityByName = Self.activities(state)
+        applyAttentionBaseline(state)
         drainCoalescedActivity()
         // Not a list refresh -- `LeoSidebarModel.receive` only clears row
         // errors when `listRefreshSucceeded` is true, and an activity-state
