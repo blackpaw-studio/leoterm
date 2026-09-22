@@ -48,6 +48,12 @@ enum LeoHostSelectionTestSupport {
         directory.appendingPathComponent(configuration.localSocketFileName).path
     }
 
+    /// Where the tunnel's ControlMaster socket lives -- and therefore the
+    /// ControlPath every SFTP session must multiplex over.
+    static func expectedControlPath(_ configuration: LeoHostConfiguration, in directory: URL = localSocketDirectory) -> String {
+        directory.appendingPathComponent(configuration.controlSocketFileName).path
+    }
+
     /// A directory unique to one test, for tests that assert on the
     /// directory's own permissions (as opposed to just the socket path) --
     /// never pre-created, so the caller controls its starting state. Lives

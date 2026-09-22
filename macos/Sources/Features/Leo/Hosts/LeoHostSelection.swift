@@ -41,7 +41,7 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
     private let store: LeoHostStore
     private let defaults: UserDefaults
     private let runner: any LeoProcessRunning
-    private let sshExecutable: URL
+    let sshExecutable: URL
     private let transport: any LeoDaemonTransport
     private let orphanStore: LeoTunnelOrphanStore
     private let fileManager: FileManager
@@ -227,8 +227,9 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
         do {
             let remoteSocketPath = try await resolveRemoteSocketPath(configuration: configuration)
             let localPath = try prepareLocalSocketPath(configuration: configuration)
+            let controlPath = controlPath(for: configuration)
             let arguments = try LeoSSHCommand(configuration: configuration).tunnelArguments(
-                localSocketPath: localPath, remoteSocketPath: remoteSocketPath
+                localSocketPath: localPath, remoteSocketPath: remoteSocketPath, controlPath: controlPath
             )
 
             // A newer select()/retry()/shutdown() -- itself synchronous up to
@@ -236,6 +237,7 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
             // was in flight. Check again before ever constructing (let alone
             // starting) a tunnel.
             guard generation == myGeneration, !isShutDown else { return }
+            removeStaleControlSocket(at: controlPath)
 
             let tunnel = LeoTunnel(
                 executable: sshExecutable,
@@ -340,6 +342,26 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
     private func prepareLocalSocketPath(configuration: LeoHostConfiguration) throws -> String {
         try ensureSocketDirectoryIsPrivate()
         return localSocketDirectory.appendingPathComponent(configuration.localSocketFileName).path
+    }
+
+    /// The tunnel's ControlMaster socket for `configuration`, beside its
+    /// forwarded socket in the owner-only directory. SFTP sessions for the
+    /// host multiplex over it (`LeoHostSelection.makeFileAccess()`).
+    func controlPath(for configuration: LeoHostConfiguration) -> String {
+        localSocketDirectory.appendingPathComponent(configuration.controlSocketFileName).path
+    }
+
+    /// A master that died without cleanup (crash, SIGKILL) leaves its socket
+    /// behind, and `ControlMaster=yes` then runs without multiplexing rather
+    /// than replace it. Safe to remove: the previous tunnel for this
+    /// selection is confirmed gone (`connect` awaited the teardown barrier).
+    private func removeStaleControlSocket(at path: String) {
+        guard fileManager.fileExists(atPath: path) else { return }
+        do {
+            try fileManager.removeItem(atPath: path)
+        } catch {
+            Self.logger.error("stale control socket removal failed path=\(path, privacy: .public) error=\(error.localizedDescription, privacy: .public)")
+        }
     }
 
     /// Owner-only (`0700`) mode: created that way if the directory is new,

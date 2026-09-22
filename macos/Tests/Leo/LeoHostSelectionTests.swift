@@ -108,7 +108,9 @@ import Testing
         await LeoHostSelectionTestSupport.awaitConnected(selection, expectedLocalPath)
 
         let expectedArguments = try LeoSSHCommand(configuration: configuration).tunnelArguments(
-            localSocketPath: expectedLocalPath, remoteSocketPath: "/remote/leo.sock"
+            localSocketPath: expectedLocalPath,
+            remoteSocketPath: "/remote/leo.sock",
+            controlPath: LeoHostSelectionTestSupport.expectedControlPath(configuration)
         )
         await awaitCondition { FileManager.default.fileExists(atPath: argvFile) }
         let actualArgv = try String(contentsOfFile: argvFile, encoding: .utf8).components(separatedBy: "\n")

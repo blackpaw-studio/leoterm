@@ -58,6 +58,15 @@ struct LeoHostConfiguration: Codable, Hashable, Sendable, Identifiable {
         return "\(prefix)-\(suffix).sock"
     }
 
+    /// `cm-<first 12 hex of the uuid>`: the tunnel's ControlMaster socket,
+    /// beside `localSocketFileName`. Keyed by id alone (renaming a host must
+    /// not orphan its master) and kept short because ssh binds a temporary
+    /// `<path>.<16 random chars>` first, so the path gets 17 bytes less of
+    /// the AF_UNIX limit than the forwarded socket does.
+    var controlSocketFileName: String {
+        "cm-" + id.uuidString.replacingOccurrences(of: "-", with: "").lowercased().prefix(12)
+    }
+
     func validate() -> [LeoHostValidationError] {
         var errors: [LeoHostValidationError] = []
         if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

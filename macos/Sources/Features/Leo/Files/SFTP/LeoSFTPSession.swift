@@ -5,7 +5,7 @@ import Foundation
 /// operation launches a fresh one: at most one attempt per operation, never
 /// in the background, so there is no reconnect loop to run away.
 actor LeoSFTPSession {
-    private let launcher: any LeoSFTPLaunching
+    nonisolated let launcher: any LeoSFTPLaunching
     private var connecting: Task<LeoSFTPClient, Error>?
     /// The live transport, kept outside the task so `deinit` can stop it.
     private var transport: LeoSFTPTransport?

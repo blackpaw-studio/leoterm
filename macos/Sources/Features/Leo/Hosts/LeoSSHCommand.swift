@@ -3,15 +3,22 @@ import Foundation
 enum LeoSSHCommandError: Error, Equatable, Sendable {
     case invalidConfiguration([LeoHostValidationError])
     case invalidSocketPath
+    case invalidControlPath
 }
 
 struct LeoSSHCommand: Sendable {
     let configuration: LeoHostConfiguration
 
-    func tunnelArguments(localSocketPath: String, remoteSocketPath: String) throws -> [String] {
+    /// The tunnel process is also the host's ControlMaster, listening on
+    /// `controlPath` (an app-owned path, never the user's own master), so
+    /// SFTP sessions multiplex over this one connection and die with it.
+    /// `ControlPersist=no` keeps the master in this process instead of
+    /// letting a user config fork it into the background.
+    func tunnelArguments(localSocketPath: String, remoteSocketPath: String, controlPath: String) throws -> [String] {
         try validateConfiguration()
         try validateLocalSocketPath(localSocketPath)
         try validateSocketPath(remoteSocketPath)
+        try validateControlPath(controlPath)
         var arguments = [
             "-n", "-N",
             "-o", "BatchMode=yes",
@@ -19,12 +26,36 @@ struct LeoSSHCommand: Sendable {
             "-o", "ExitOnForwardFailure=yes",
             "-o", "ServerAliveInterval=15",
             "-o", "ServerAliveCountMax=3",
-            "-o", "ControlMaster=no",
-            "-o", "ControlPath=none",
+            "-o", "ControlMaster=yes",
+            "-o", "ControlPath=\(controlPath)",
+            "-o", "ControlPersist=no",
             "-o", "StreamLocalBindUnlink=yes"
         ]
         appendIdentityAndPort(to: &arguments)
         arguments += ["-L", "\(localSocketPath):\(remoteSocketPath)", target]
+        return arguments
+    }
+
+    /// `ssh -s <target> sftp` as a mux client of the tunnel's master at
+    /// `controlPath`. ssh tries the ControlPath before dialling; with the
+    /// master gone it would open a fresh connection, which
+    /// `ProxyCommand=/usr/bin/false` turns into an immediate failure
+    /// instead. `-T`: a pty would corrupt the binary protocol.
+    /// `ClearAllForwardings`: a user config's forwards must not be
+    /// re-requested on every session.
+    func sftpArguments(controlPath: String) throws -> [String] {
+        try validateConfiguration()
+        try validateControlPath(controlPath)
+        var arguments = [
+            "-T",
+            "-o", "BatchMode=yes",
+            "-o", "ControlMaster=no",
+            "-o", "ControlPath=\(controlPath)",
+            "-o", "ProxyCommand=/usr/bin/false",
+            "-o", "ClearAllForwardings=yes"
+        ]
+        appendIdentityAndPort(to: &arguments)
+        arguments += ["-s", target, "sftp"]
         return arguments
     }
 
@@ -136,6 +167,18 @@ struct LeoSSHCommand: Sendable {
     private func validateLocalSocketPath(_ path: String) throws {
         try validateSocketPath(path)
         guard path.utf8.count <= 100 else { throw LeoSSHCommandError.invalidSocketPath }
+    }
+
+    /// ssh binds `<ControlPath>.<16 random chars>` before renaming it into
+    /// place, so the path gets 104 - 1 (NUL) - 17 = 86 bytes. Only
+    /// characters ssh's `-o` parser and `%`-token expansion pass through
+    /// untouched are allowed.
+    private func validateControlPath(_ path: String) throws {
+        let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/._+-")
+        guard path.hasPrefix("/"), path.utf8.count <= 86,
+              path.unicodeScalars.allSatisfy({ allowed.contains($0) }) else {
+            throw LeoSSHCommandError.invalidControlPath
+        }
     }
 
     private func validateConfiguration() throws {

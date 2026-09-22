@@ -62,6 +62,18 @@ struct LeoHostConfigurationTests {
         #expect(LeoHostConfiguration(name: String(repeating: "a", count: 25), sshTarget: "build").localSocketFileName.hasPrefix(String(repeating: "a", count: 24)))
     }
 
+    /// The ControlMaster socket name: independent of the (renamable) host
+    /// name and short, because ssh appends a 17-byte suffix to it while
+    /// binding and the whole path must fit the 104-byte AF_UNIX limit.
+    @Test func controlSocketFileNameIsShortAndKeyedByID() {
+        let first = LeoHostConfiguration(id: UUID(uuidString: "0A000000-0000-0000-0000-000000000001")!, name: "Some long host name", sshTarget: "build")
+        let renamed = LeoHostConfiguration(id: first.id, name: "x", sshTarget: "build")
+        let second = LeoHostConfiguration(id: UUID(uuidString: "1B000000-0000-0000-0000-000000000002")!, name: "x", sshTarget: "build")
+        #expect(first.controlSocketFileName == "cm-0a0000000000")
+        #expect(first.controlSocketFileName == renamed.controlSocketFileName)
+        #expect(first.controlSocketFileName != second.controlSocketFileName)
+    }
+
     @Test(arguments: ["[::1]", "::1", "host:1:2", "[host]:22"])
     func rejectsIPv6Targets(_ target: String) {
         #expect(LeoHostConfiguration(name: "build", sshTarget: target).validate().contains(.ipv6NotSupported))
