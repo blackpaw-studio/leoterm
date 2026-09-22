@@ -35,10 +35,17 @@ struct LeoSFTPClient: Sendable {
         try expectOK(try await transport.send(.close(handle: handle)), path: path)
     }
 
-    /// Nil at end of file. May return fewer bytes than asked for.
+    /// Nil at end of file. May return fewer bytes than asked for, never
+    /// more: a longer reply is a protocol error, since the extra bytes would
+    /// be stitched into the file at the wrong offset.
     func read(_ handle: Data, offset: UInt64, length: UInt32, path: String) async throws -> Data? {
         let response = try await transport.send(.read(handle: handle, offset: offset, length: length))
-        if case let .data(data) = response { return data }
+        if case let .data(data) = response {
+            guard data.count <= Int(length) else {
+                throw LeoFileAccessError.protocolError("a \(length)-byte read returned \(data.count) bytes")
+            }
+            return data
+        }
         if case .status(let status) = response, status.code == .eof { return nil }
         throw unexpected(response, expected: "DATA", path: path)
     }
