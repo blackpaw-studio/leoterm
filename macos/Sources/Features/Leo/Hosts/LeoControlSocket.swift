@@ -39,6 +39,13 @@ enum LeoControlSocket {
         return .stale
     }
 
+    /// `connect` succeeding means live; ECONNREFUSED or ENOENT means stale.
+    /// On Darwin, ECONNREFUSED can also come from a live listener whose
+    /// accept backlog is full, so a busy master could be judged stale and
+    /// unlinked. Accepted: the path is scoped to this app bundle and to the
+    /// host's connection settings (`controlSocketFileName(instance:)`), so
+    /// the only listener it can belong to is this instance's own master for
+    /// the same server, and only a previous run's would be there.
     private static func probe(_ path: String) -> LeoControlSocketState {
         var address = sockaddr_un()
         address.sun_family = sa_family_t(AF_UNIX)
