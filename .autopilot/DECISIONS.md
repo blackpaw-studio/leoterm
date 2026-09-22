@@ -156,3 +156,27 @@ Why: a failed baseline must retry; principle 5 is about tunnel reconnects, and t
 Alternatives: one-shot retry timer
 Commit: c5540f3c7
 Veto: [ ]
+
+## D-020 · 2026-09-22 · Tab-count glyph on the subtitle line
+Context: B-006
+Chose: `macwindow` caption2, secondary colour, on the trailing end of the subtitle line; the count appears only when there are 2 or more; splits count, exited attaches don't
+Why: it costs the name no width (lesson from D-012); principle 2: calm
+Alternatives: glyph next to the name
+Commit: 54ae397a2 e05e818b7 71d366ad1 e07fa6b65
+Veto: [ ]
+
+## D-021 · 2026-09-22 · Clicking a row with a live tab focuses that tab
+Context: B-006
+Chose: single click (or Return) on any row whose agent has a live tab focuses its most recently focused tab or split instead of attaching again; option-click and option-double-click skip this; arrows only select
+Why: principle 4: finding an agent's tab takes one click
+Alternatives: focus only on double-click
+Commit: 54ae397a2 e05e818b7 71d366ad1 e07fa6b65
+Veto: [ ]
+
+## D-022 · 2026-09-22 · Selection follows focus only on real focus changes
+Context: B-006
+Chose: the highlight moves when attach focus changes, or when a snapshot brings the focused row back; count-only changes and focus leaving all attaches don't move it
+Why: principle 2: never invent; don't fight the user's arrow keys
+Alternatives: always mirror focus
+Commit: 54ae397a2 e05e818b7 71d366ad1 e07fa6b65
+Veto: [ ]

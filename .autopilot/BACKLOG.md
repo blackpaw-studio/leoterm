@@ -16,6 +16,10 @@ Done: 4e064d6f7 cb18a2a6c 013840a46 465676949 93e0c4f78 60cb67072 f378da52c a089
 Accept: (a) keep a tombstone incarnation when `retain` drops an agent, so a recreated agent at incarnation 0 isn't suppressed by `lastPosted` (scenario in the final B-001 review); (b) retry a pending /state baseline while the sidebar is hidden (`LeoPollScheduler.swift:125` requires visible), since notifications matter most then; (c) low: a baseline applied outside recovery can falsely bump the incarnation (`LeoAttentionReducer.swift:124`). Each with a failing test first. Must land before the leo daemon ships `attention`.
 Source: B-001 final review
 
+## B-016 · Tab ↔ row linkage polish   [ready (next run)]
+Accept: (a) medium, plausible: when clicking a row in a non-key window, the window's activation focus report can land after the tap (it's async via AsyncStream + Task, `LeoAttachCoordinator.swift:74`) and snap the selection back; make the click win deterministically; (b) the row's hover "Attach" button draws over the agent name (shot B-006-3.png); (c) low: `GhosttyAttachTabHost.focusedHandle` uses the controller's focusedSurface, not the first responder, so clicking back into the same terminal after selecting another row doesn't reselect; (d) low: app reactivation sends nil then the real focus, which overwrites an arrow-key selection.
+Source: B-006 reviews + visual check
+
 ## B-002 · Request daemon `attention` field from the leo agent   [done]
 Accept: send the leo agent the exact contract from the spec's "Leo-daemon
 prerequisite" section; log the reply/ETA in DECISIONS.md. No leo repo edits.
@@ -39,10 +43,11 @@ Accept: from a sidebar row (context menu + shortcut), browse the agent's
 workspace tree via B-003 and open files in B-004's pane. Keyboard navigable.
 Source: Evan, vision session; D-007
 
-## B-006 · Tab ↔ row linkage   [ready]
+## B-006 · Tab ↔ row linkage   [done]
 Accept: highlighted row follows the focused attach tab; tab-count glyph on rows
 with live tabs; clicking a highlighted row focuses its tab.
 Source: roadmap Tier 2
+Done: 54ae397a2 e05e818b7 71d366ad1 e07fa6b65 (744 tests). Verified with shots B-006-1..4 using autopilot-scratch.
 
 ## B-007 · Disconnected state   [ready]
 Accept: on tunnel drop or wake, grey the list and show a Retry banner instead
