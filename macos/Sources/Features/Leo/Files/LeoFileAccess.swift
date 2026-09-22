@@ -25,7 +25,12 @@ protocol LeoFileAccess: Sendable {
     /// through a symlink replaces the link's target, not the link. With a
     /// non-nil `expected`, fails with `.conflict` unless the file still has
     /// exactly that version. Returns the stat of the written file.
+    @discardableResult
     func write(_ data: Data, to path: String, expecting expected: LeoFileVersion?) async throws -> LeoFileStat
+
+    /// Releases any connection the accessor holds (the SFTP session). Safe
+    /// to call more than once; a later operation reconnects on demand.
+    func close() async
 }
 
 enum LeoFileKind: Equatable, Sendable {
