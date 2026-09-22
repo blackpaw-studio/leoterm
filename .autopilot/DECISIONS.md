@@ -84,3 +84,11 @@ Why: D-006; app side proceeds against fixtures
 Alternatives: wait to send until B-001 ships (delays the daemon side for no gain)
 Commit: n/a (message only)
 Veto: [ ]
+
+## D-011 · 2026-09-22 · Leo agent's reply on the attention contract
+Context: B-002 reply
+Chose: accepted leo's terms: needs_input from Claude only at first (Codex/opencode go working→finished; absence of needs_input = "not detectable"); revision resets per daemon lifetime, plus a requested daemon boot id in hello to trigger re-baseline; `unknown` after a daemon restart until the next hook; unexpected exit (any code) → errored, explicit stop/suspend incl. idle-suspend → unknown; supervised agents only; field absent on existing agents until respawn. ETA: unscheduled — the leo agent is taking the spec to Evan for approval.
+Why: principle 2 (never invent a state); boot id makes reconnect handling explicit
+Alternatives: suspend keeps last state (would show stale "finished" on sleeping agents)
+Commit: n/a (message only)
+Veto: [ ]

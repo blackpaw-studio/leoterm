@@ -15,7 +15,7 @@ Source: roadmap Tier 1
 Accept: send the leo agent the exact contract from the spec's "Leo-daemon
 prerequisite" section; log the reply/ETA in DECISIONS.md. No leo repo edits.
 Source: attention spec; D-006
-Done: contract sent to leo agent 2026-09-22 (D-010); reply pending.
+Done: contract sent 2026-09-22 (D-010); leo accepted in principle, ETA pending Evan's approval of the daemon spec (D-011).
 
 ## B-003 · File access layer (local FS + SFTP)   [ready]
 Accept: one `LeoFileAccess` protocol, local backend and SFTP backend over the
