@@ -52,7 +52,7 @@ struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
     func read(_ path: String, maxBytes: UInt64) async throws -> LeoFileContents {
         try Self.validate(path)
         let stat = try await backend.stat(path)
-        guard stat.kind != .directory else { throw LeoFileAccessError.isADirectory(path: path) }
+        try Self.requireRegularFile(stat, path: path)
         guard stat.size <= maxBytes else { throw LeoFileAccessError.tooLarge(path: path, size: stat.size, limit: maxBytes) }
         let data = try await backend.contents(of: path, limit: maxBytes)
         guard UInt64(data.count) <= maxBytes else {
@@ -65,12 +65,14 @@ struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
     /// bytes move, and again after the temp file is written, just before the
     /// rename, to shrink the race window to the rename itself (an unavoidable
     /// TOCTOU gap -- neither rename(2) nor SFTP offers compare-and-swap).
+    /// The returned stat is the temp file's, taken before the rename (which
+    /// keeps size and mtime), so a completed save is never reported failed.
     @discardableResult
     func write(_ data: Data, to path: String, expecting expected: LeoFileVersion?) async throws -> LeoFileStat {
         try Self.validate(path)
         let target = try await writeTarget(for: path)
         let existing = try await statIfPresent(target)
-        if existing?.kind == .directory { throw LeoFileAccessError.isADirectory(path: path) }
+        if let existing { try Self.requireRegularFile(existing, path: path) }
         try Self.check(expected, against: existing, path: path)
 
         let temporary = Self.temporarySibling(of: target)
@@ -79,18 +81,20 @@ struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
         } catch {
             throw LeoFileAccessError.wrapping(error, path: temporary).retargeted(to: path)
         }
+        let written: LeoFileStat
         do {
+            written = try await backend.stat(temporary)
             try Self.check(expected, against: try await statIfPresent(target), path: path)
         } catch {
             try? await backend.remove(temporary)
-            throw error
+            throw LeoFileAccessError.wrapping(error, path: temporary).retargeted(to: path)
         }
         do {
             try await backend.replace(target, with: temporary)
         } catch {
             throw LeoFileAccessError.wrapping(error, path: target).retargeted(to: path)
         }
-        return try await backend.stat(target)
+        return written
     }
 
     func close() async {
@@ -120,6 +124,16 @@ struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
         }
     }
 
+    /// Directories get their own error; FIFOs, sockets and devices are
+    /// never opened (a FIFO blocks the opener until a writer appears).
+    private static func requireRegularFile(_ stat: LeoFileStat, path: String) throws {
+        switch stat.kind {
+        case .file: return
+        case .directory: throw LeoFileAccessError.isADirectory(path: path)
+        case .symlink, .other: throw LeoFileAccessError.failed(path: path, reason: "it isn’t a regular file")
+        }
+    }
+
     private static func check(_ expected: LeoFileVersion?, against current: LeoFileStat?, path: String) throws {
         guard let expected, current?.version != expected else { return }
         throw LeoFileAccessError.conflict(path: path)
@@ -130,13 +144,20 @@ struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
     }
 
     /// `.<name>.leo-<random>.tmp` beside the target, so the final rename
-    /// never crosses a filesystem boundary.
+    /// never crosses a filesystem boundary. The name part is capped so the
+    /// temp name stays within NAME_MAX (255 bytes) for any target name.
     static func temporarySibling(of path: String) -> String {
         let directory = (path as NSString).deletingLastPathComponent
         let name = (path as NSString).lastPathComponent
+        // swiftlint:disable:next optional_data_string_conversion
+        let stem = name.utf8.count <= temporaryStemLimit ? name : String(decoding: name.utf8.prefix(temporaryStemLimit), as: UTF8.self)
         let token = UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(12).lowercased()
-        return (directory as NSString).appendingPathComponent(".\(name).leo-\(token).tmp")
+        return (directory as NSString).appendingPathComponent(".\(stem).leo-\(token).tmp")
     }
+
+    /// 255 - 22 bytes of `.` + `.leo-<12>.tmp`, less 3 in case truncating
+    /// mid-character leaves a replacement character (3 bytes in UTF-8).
+    private static var temporaryStemLimit: Int { 230 }
 }
 
 extension LeoFileAccessor where Backend == LeoLocalFileBackend {

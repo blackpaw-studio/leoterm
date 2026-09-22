@@ -183,4 +183,33 @@ struct LeoFileAccessWriteContractTests {
             #expect(try await access.read(path, maxBytes: 10).data.isEmpty)
         }
     }
+
+    @Test(arguments: LeoFileBackendKind.allCases)
+    func writesFilesWhoseNamesAreNearTheLengthLimit(_ kind: LeoFileBackendKind) async throws {
+        try await withLeoFileSandbox(kind) { sandbox, access in
+            let name = String(repeating: "n", count: 250)
+            let path = try sandbox.file(name, "old")
+
+            try await access.write(Data("new".utf8), to: path, expecting: nil)
+
+            #expect(try sandbox.contents(name) == "new")
+            #expect(try sandbox.names() == [name])
+        }
+    }
+
+    /// Opening a FIFO blocks until a writer appears -- locally that would
+    /// hang the caller, remotely the whole sftp-server.
+    @Test(arguments: LeoFileBackendKind.allCases)
+    func specialFilesAreNeverOpened(_ kind: LeoFileBackendKind) async throws {
+        try await withLeoFileSandbox(kind) { sandbox, access in
+            let fifo = sandbox.path("pipe")
+            #expect(mkfifo(fifo, 0o644) == 0)
+            let expected = LeoFileAccessError.failed(path: fifo, reason: "it isn’t a regular file")
+
+            await #expect(throws: expected) { try await access.read(fifo, maxBytes: 10) }
+            await #expect(throws: expected) { try await access.write(Data("x".utf8), to: fifo, expecting: nil) }
+            let kinds = try await access.list(sandbox.root).map(\.kind)
+            #expect(kinds == [.other])
+        }
+    }
 }

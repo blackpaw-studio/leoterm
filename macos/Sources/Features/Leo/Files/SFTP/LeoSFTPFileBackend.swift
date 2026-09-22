@@ -3,12 +3,20 @@ import Foundation
 struct LeoSFTPOptions: Sendable {
     /// Bytes per READ/WRITE request. 32 KiB is the size every SFTP server
     /// must accept.
-    var chunkSize = 32 * 1024
+    let chunkSize: Int
     /// Requests kept in flight at once while streaming a file.
-    var maxRequestsInFlight = 16
+    let maxRequestsInFlight: Int
     /// Use `posix-rename@openssh.com` for an atomic replace when the server
     /// offers it. `false` forces the REMOVE + RENAME fallback (tests).
-    var usesPosixRename = true
+    let usesPosixRename: Bool
+
+    init(chunkSize: Int = 32 * 1024, maxRequestsInFlight: Int = 16, usesPosixRename: Bool = true) {
+        precondition(chunkSize > 0 && chunkSize <= Int(UInt32.max), "chunkSize must fit a READ length")
+        precondition(maxRequestsInFlight > 0, "at least one request must be allowed in flight")
+        self.chunkSize = chunkSize
+        self.maxRequestsInFlight = maxRequestsInFlight
+        self.usesPosixRename = usesPosixRename
+    }
 }
 
 /// `LeoFileAccessBackend` over SFTP v3. Reads and writes are pipelined: up
