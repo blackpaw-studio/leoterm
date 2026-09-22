@@ -12,9 +12,10 @@ using fixture/scratch data.
 Source: roadmap Tier 1
 Done: 4e064d6f7 cb18a2a6c 013840a46 465676949 93e0c4f78 60cb67072 f378da52c a0899a492 190b70f4b c5540f3c7 (726 tests). Verified by screenshot with the DEBUG fixture (D-018). Dock badge and notifications were not visually verified.
 
-## B-015 · Attention edge cases before the daemon ships   [ready]
+## B-015 · Attention edge cases before the daemon ships   [done]
 Accept: (a) keep a tombstone incarnation when `retain` drops an agent, so a recreated agent at incarnation 0 isn't suppressed by `lastPosted` (scenario in the final B-001 review); (b) retry a pending /state baseline while the sidebar is hidden (`LeoPollScheduler.swift:125` requires visible), since notifications matter most then; (c) low: a baseline applied outside recovery can falsely bump the incarnation (`LeoAttentionReducer.swift:124`). Each with a failing test first. Must land before the leo daemon ships `attention`.
 Source: B-001 final review
+Done: c5c24c336 8dfe3aa7c 91fd60791 4fea50a28 a4411496e (866 tests). Also covers leo's 3 live-testing clarifications (unknown never badges; errored survives restart; a fresh row missing the field isn't legacy). Logic only, so not visually verified. Remaining recreate-during-gap edge → B-018.
 
 ## B-016 · Tab ↔ row linkage polish   [ready]
 Accept: (a) medium, plausible: when clicking a row in a non-key window, the window's activation focus report can land after the tap (it's async via AsyncStream + Task, `LeoAttachCoordinator.swift:74`) and snap the selection back; make the click win deterministically; (b) the row's hover "Attach" button draws over the agent name (shot B-006-3.png); (c) low: `GhosttyAttachTabHost.focusedHandle` uses the controller's focusedSurface, not the first responder, so clicking back into the same terminal after selecting another row doesn't reselect; (d) low: app reactivation sends nil then the real focus, which overwrites an arrow-key selection.
@@ -23,6 +24,12 @@ Source: B-006 reviews + visual check
 ## B-017 · File-access polish   [ready]
 Accept: (a) fix the doc comment in `LeoHostConfiguration.swift:67-71` to say the hash covers the app's argv inputs, not ssh_config aliases; (b) home dirs longer than ~33 chars exceed the control-path budget and lose file access; consider a shorter token or a private short dir; (c) remote errors are vaguer than local ("Failure"); map SFTP status codes more finely where possible.
 Source: B-003 reviews
+
+## B-018 · Key attention dedupe on a daemon instance id   [blocked]
+Accept: once the daemon carries a per-instance agent id (changes on delete+recreate, not on resume/restart) on /agents, /state, agent_spawned and attention events, key notification dedupe and incarnation on it and delete the backwards-revision heuristic (`droppedFloors`, tombstones). Until then, known gaps: a recreated agent whose first signal arrives buffered during recovery keeps the old incarnation, so its revs ≤ old floor don't notify (`LeoAttentionReducer.swift:155`); an agent dropped then re-added by consecutive recovery baselines loses its Dock acknowledgement (line 170); a first seen revision equal to the old floor dedupes (line 192).
+Question: waiting on the leo agent (contract request sent 2026-09-22, D-027). Build it against fixtures once leo agrees on the field name? — I'd pick yes.
+Answer:
+Source: B-015 third review
 
 ## B-002 · Request daemon `attention` field from the leo agent   [done]
 Accept: send the leo agent the exact contract from the spec's "Leo-daemon

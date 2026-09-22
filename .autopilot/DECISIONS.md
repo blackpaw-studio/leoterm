@@ -204,3 +204,19 @@ Why: atomic saves protect agents' files; principle 5 (no timers)
 Alternatives: in-place overwrite (torn writes)
 Commit: 7fd10dad9 6f92f70e9 9b466088a a0b838dcd 1c7c93e5f 7858fbda8 4ee7c8353 515e6554b e780ead10 6f52a67c8 da7fca9c4
 Veto: [ ]
+
+## D-026 · 2026-09-22 · Attention: per-row legacy detection, list-driven deletion, bounded tombstones
+Context: B-015 and leo's live-testing clarifications (unknown on launch, errored across restart, a fresh row briefly missing its field)
+Chose: legacy "Working-only" mode stays per row, not daemon-wide, so opencode agents without the field keep their Working badge. Only list membership deletes an agent; a /state that lacks a listed agent drops its state and revision floor but keeps its incarnation. Tombstones are capped at 64 and only tombstoned names are trimmed. A pending `unknown` hides the legacy Working badge while it settles
+Why: principle 2 (never invent a state, no duplicate notifications); a daemon-wide switch would remove a visible feature (stop list)
+Alternatives: daemon-wide legacy switch; treating "missing from /state" as deleted (caused re-notification)
+Commit: c5c24c336 8dfe3aa7c 91fd60791 4fea50a28 a4411496e
+Veto: [ ]
+
+## D-027 · 2026-09-22 · Stop B-015 at three fix rounds and ask the daemon for an instance id
+Context: B-015's third review found another recreate-during-gap edge (already present before B-015). Each round had moved the "was this agent recreated?" guess to a new edge case
+Chose: ship B-015 as is (strictly better than before), file B-018, and ask the leo agent for a per-instance agent id so dedupe stops guessing from revisions
+Why: the gap is a missing daemon fact, not app logic; the skill caps fix attempts at 3; AUTONOMY allows contract requests to the leo agent
+Alternatives: a fourth heuristic patch
+Commit: (none; backlog and message only)
+Veto: [ ]
