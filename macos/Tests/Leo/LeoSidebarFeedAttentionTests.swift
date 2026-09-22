@@ -110,6 +110,25 @@ struct LeoSidebarFeedAttentionTests {
         await harness.stop()
     }
 
+    @Test func erroredSurvivesTheSupervisorsAutomaticRestart() async throws {
+        let harness = AttentionHarness(agents: ["alpha"], state: [observed("alpha", attention: .init(state: .errored, revision: 3))])
+        await harness.start()
+        await harness.waitFor { $0.rows.first?.attention == .errored }
+
+        // The daemon announces a crash restart as state changes (never
+        // agent_spawned) and keeps attention until the next hook.
+        await harness.activity.send(.agentStateChanged(seq: 10, at: nil, agent: "alpha", status: .starting, restarts: 1, wakeOnMessage: nil))
+        await harness.activity.send(.agentStateChanged(seq: 11, at: nil, agent: "alpha", status: .running, restarts: 1, wakeOnMessage: nil))
+        await harness.activity.send(.agentActivity(seq: 12, at: nil, agent: "alpha", activity: .working, currentAction: nil))
+        await harness.pump { $0.rows.first?.activity == .working }
+
+        let snapshot = try #require(await harness.recorder.last)
+        #expect(snapshot.rows.first?.attention == .errored)
+        #expect(snapshot.attentionCount == 1)
+        #expect(await harness.transitions.values.isEmpty)
+        await harness.stop()
+    }
+
     private func badges(_ snapshot: LeoSidebarSnapshot) -> [String: LeoAttentionBadge?] {
         Dictionary(uniqueKeysWithValues: snapshot.rows.map { ($0.name, $0.attention) })
     }
