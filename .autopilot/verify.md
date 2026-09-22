@@ -24,9 +24,9 @@ bash scratchpad/runtests.sh <label>     # scratchpad/ is untracked; copy from ~/
 - Runs `build-for-testing` (Debug, unsigned, `-derivedDataPath macos/build/DD`), then runs the XCTest bundle inside the app. This also works when the console is locked.
 - Then it runs `swiftlint lint --strict --quiet`.
 - Logs go to `/tmp/leo-build-<label>.log` and `/tmp/leo-tests-<label>.log`.
-- Baseline (2026-09-22): 625 tests / 79 suites. The only failure is `ConfigTests/errorsEmptyForValidConfig`, which always fails under this runner; ignore it.
-- There are 3 swiftlint `large_tuple` errors in `macos/Tests/Leo/LeoAttachCoordinatorTests.swift` (B-008).
-- Known flake: `LeoHostSelectionReloadTests.editingAnUnrelatedHostDoesNotReselect`. Re-run once before treating it as real.
+- Baseline (2026-09-22, after B-001): 726 tests. The only failure is `ConfigTests/errorsEmptyForValidConfig`, which always fails under this runner; ignore it.
+- Swiftlint is clean as of B-008 (2026-09-22). Any lint error is new.
+- The `editingAnUnrelatedHostDoesNotReselect` and Observe small-frame flakes were fixed in B-008. Treat a recurrence as real.
 - Don't run two suites' builds at once: `LeoObserveTests/activityClientDeliversSmallCompleteFrameImmediately` flakes.
 - Zig tests, only if `src/` changed: `zig build test -Dtest-filter=<name>`.
 

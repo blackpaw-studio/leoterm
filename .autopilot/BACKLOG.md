@@ -49,12 +49,13 @@ Accept: on tunnel drop or wake, grey the list and show a Retry banner instead
 of stale rows. Manual retry only.
 Source: roadmap Tier 2
 
-## B-008 · Fix order-dependent test flake + swiftlint baseline   [ready]
+## B-008 · Fix order-dependent test flake + swiftlint baseline   [done]
 Accept: `LeoHostSelectionReloadTests.editingAnUnrelatedHostDoesNotReselect`
 passes 10/10 in full serial runs (pid-file read race in
 `LeoHostSelectionTestSupport`); clear the 3 `large_tuple` violations in
 `macos/Tests/Leo/LeoAttachCoordinatorTests.swift:316-319`.
 Source: roadmap Test infra; vision-session test run
+Done: d806f8ecf c3edaf507 a80bd0475. Root cause: fake_ssh wrote the pid file non-atomically. 10/10 full runs; swiftlint clean. Also fixed the Observe 50 ms deadline flake. Test-only change, so no screenshot.
 
 ## B-009 · Search polish   [ready]
 Accept: ⌘F focuses the sidebar filter, fuzzy match, Escape clears.
