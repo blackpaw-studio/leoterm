@@ -25,11 +25,9 @@ Source: B-006 reviews + visual check
 Accept: (a) fix the doc comment in `LeoHostConfiguration.swift:67-71` to say the hash covers the app's argv inputs, not ssh_config aliases; (b) home dirs longer than ~33 chars exceed the control-path budget and lose file access; consider a shorter token or a private short dir; (c) remote errors are vaguer than local ("Failure"); map SFTP status codes more finely where possible.
 Source: B-003 reviews
 
-## B-018 · Key attention dedupe on a daemon instance id   [blocked]
-Accept: once the daemon carries a per-instance agent id (changes on delete+recreate, not on resume/restart) on /agents, /state, agent_spawned and attention events, key notification dedupe and incarnation on it and delete the backwards-revision heuristic (`droppedFloors`, tombstones). Until then, known gaps: a recreated agent whose first signal arrives buffered during recovery keeps the old incarnation, so its revs ≤ old floor don't notify (`LeoAttentionReducer.swift:155`); an agent dropped then re-added by consecutive recovery baselines loses its Dock acknowledgement (line 170); a first seen revision equal to the old floor dedupes (line 192).
-Question: waiting on the leo agent (contract request sent 2026-09-22, D-027). Build it against fixtures once leo agrees on the field name? — I'd pick yes.
-Answer:
-Source: B-015 third review
+## B-018 · Drop the recreate heuristic: dedupe on (boot, name, revision)   [ready]
+Accept: leo confirmed (2026-09-22, spec addition) that a revision is monotonic per agent NAME per boot, including across delete and recreate; revisions only go backwards when boot_id changes. So remove the backwards-revision heuristic from `LeoAttentionReducer` (incarnation bumps on retain/recovery, tombstones and their 64-cap, `droppedFloors`) and key notification dedupe on (bootID, name, revision). A revision ≤ the last seen for that name in the same boot is a duplicate; a recreated agent simply continues at higher revisions. Keep: list-driven deletion of display state, reset on boot change or host switch, and everything from B-015's (b), (d), (e), (f). Rewrite or delete the heuristic's tests; add fixture tests for the three gaps from B-015's third review (a recreated agent's first signal buffered during recovery notifies; an agent re-added by a baseline at the same revision keeps its Dock acknowledgement; a first seen revision equal to the old floor is a duplicate by contract).
+Source: B-015 third review + leo reply (D-027)
 
 ## B-002 · Request daemon `attention` field from the leo agent   [done]
 Accept: send the leo agent the exact contract from the spec's "Leo-daemon

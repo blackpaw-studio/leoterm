@@ -215,7 +215,7 @@ Veto: [ ]
 
 ## D-027 · 2026-09-22 · Stop B-015 at three fix rounds and ask the daemon for an instance id
 Context: B-015's third review found another recreate-during-gap edge (already present before B-015). Each round had moved the "was this agent recreated?" guess to a new edge case
-Chose: ship B-015 as is (strictly better than before), file B-018, and ask the leo agent for a per-instance agent id so dedupe stops guessing from revisions
+Chose: ship B-015 as is (strictly better than before), file B-018, and ask the leo agent for a per-instance agent id so dedupe stops guessing from revisions. leo replied that no id is needed: revisions are monotonic per name per boot, even across delete and recreate. B-018 became a simplification that removes the heuristic
 Why: the gap is a missing daemon fact, not app logic; the skill caps fix attempts at 3; AUTONOMY allows contract requests to the leo agent
 Alternatives: a fourth heuristic patch
 Commit: (none; backlog and message only)
