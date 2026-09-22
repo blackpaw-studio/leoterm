@@ -64,4 +64,19 @@ struct LeoAttentionTransition: Equatable, Sendable {
     /// of that agent is focused. Suppressed transitions are consumed, never
     /// deferred.
     let shouldNotify: Bool
+    let bootID: String?
+    let incarnation: Int
+
+    init(
+        id: LeoAgentRow.ID, from: LeoAttentionState?, to: LeoAttentionState, revision: Int, shouldNotify: Bool,
+        bootID: String? = nil, incarnation: Int = 0
+    ) {
+        self.id = id
+        self.from = from
+        self.to = to
+        self.revision = revision
+        self.shouldNotify = shouldNotify
+        self.bootID = bootID
+        self.incarnation = incarnation
+    }
 }

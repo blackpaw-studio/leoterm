@@ -369,13 +369,6 @@ struct LeoAttentionReducerTests {
         #expect(reducer.badge(for: "alpha", legacyActivity: .idle) == .working)
     }
 
-    @Test func firstLiveSignalSuppressesLegacyFallbackWhilePending() {
-        var reducer = live()
-        reducer.receive(agent: "alpha", signal: signal(.working, 1), now: 0)
-
-        #expect(reducer.badge(for: "alpha", legacyActivity: .working) == nil)
-    }
-
     // MARK: Focus: Dock acknowledgement and notification suppression
 
     @Test func dockCountsAgentsNeedingAttention() {

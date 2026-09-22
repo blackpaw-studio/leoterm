@@ -14,9 +14,16 @@ extension LeoSidebarFeed {
             } catch is CancellationError {
                 return
             } catch {
-                return
+                await self?.activityStateFailed(generation: generation)
             }
         }
+    }
+
+    /// Leaves the baseline pending so the next refresh (poll, SSE or manual)
+    /// retries it; no retry timer of its own.
+    private func activityStateFailed(generation: Int) {
+        guard running, generation == snapshot.generation else { return }
+        needsState = true
     }
 
     func fetchList() async throws -> [LeoAgent] {

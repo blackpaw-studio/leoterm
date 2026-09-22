@@ -137,14 +137,22 @@ actor LeoSidebarFeed {
     func startEventTask() {
         eventTask?.cancel()
         guard running else { return }
-        eventTask = Task { [weak self, activitySource] in
+        eventTask = Task { [weak self, activitySource, connectionGeneration] in
             let events = await activitySource.events()
             for await event in events {
                 guard !Task.isCancelled else { return }
                 guard let self else { return }
-                await self.receive(event)
+                await self.receive(event, generation: connectionGeneration)
             }
         }
+    }
+
+    /// An event from the stream of connection `generation`. One dequeued
+    /// just before a switch can still land after it; it's dropped so it
+    /// can't invent a state or plant another host's boot id.
+    func receive(_ event: LeoObserveEvent, generation: Int) {
+        guard generation == connectionGeneration else { return }
+        receive(event)
     }
 
     func refresh() {
@@ -275,6 +283,11 @@ actor LeoSidebarFeed {
         defer { if !wasCancelled, token == currentRefreshToken { finishRefresh() } }
         let fetchState = needsState
         needsState = false
+        // Until the state fetch actually starts, a failed, stale or cancelled
+        // list refresh leaves the baseline pending for the next poll --
+        // otherwise the attention reducer would stay recovering for good.
+        var stateFetchStarted = false
+        defer { if fetchState, !stateFetchStarted { needsState = true } }
         do {
             let rows = try await fetchList().map { Self.row($0, host: host) }
             guard running, generation == snapshot.generation, token == currentRefreshToken else { return }
@@ -291,7 +304,10 @@ actor LeoSidebarFeed {
             snapshot = snapshot.replacingRows(LeoSidebarReducers.mergeActivity(snapshot.rows, activityByName: activityByName), listRefreshSucceeded: true)
             emit()
             if isManual { await onManualRefresh() }
-            if fetchState { fetchActivityState(generation: generation) }
+            if fetchState {
+                stateFetchStarted = true
+                fetchActivityState(generation: generation)
+            }
         } catch is CancellationError {
             wasCancelled = true
         } catch {

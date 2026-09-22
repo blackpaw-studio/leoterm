@@ -42,10 +42,22 @@ struct LeoAttentionReducer: Equatable, Sendable {
     /// True until the first baseline for the current host, and again from
     /// any recovery/disconnect until the next one.
     private var isRecovering = true
-    /// The focused agent's name, only when it belongs to `host`.
-    private var focusedAgent: String?
+    /// The focused attachment on any host. Kept across host switches: focus
+    /// is only reported when it changes, so switching away and back must
+    /// not forget it.
+    private var focusedID: LeoAgentRow.ID?
     /// The last `hello.boot_id` seen for `host`.
     private var bootID: String?
+    /// Monotonic for the reducer's whole life (kept across host switches):
+    /// each `resetAgent` takes the next value as that agent's incarnation,
+    /// so `(bootID, incarnation, revision)` never repeats for one agent.
+    private var incarnationCounter = 0
+    /// Agents reset since the last host switch or daemon restart; others
+    /// are incarnation 0.
+    private var incarnations: [String: Int] = [:]
+
+    /// The focused agent's name, only when it belongs to `host`.
+    private var focusedAgent: String? { focusedID.flatMap { $0.host == host ? $0.name : nil } }
 
     /// The earliest moment a pending candidate can commit, if any.
     var nextDeadline: TimeInterval? { entries.values.compactMap(\.deadline).min() }
@@ -53,10 +65,14 @@ struct LeoAttentionReducer: Equatable, Sendable {
     // MARK: Connection lifecycle
 
     /// Clears every state, candidate and acknowledgement; the new host is
-    /// silent until its first baseline.
+    /// silent until its first baseline. Focus and the incarnation counter
+    /// carry over.
     mutating func switchHost(_ host: LeoHostID) {
-        self = LeoAttentionReducer()
-        self.host = host
+        var next = LeoAttentionReducer()
+        next.host = host
+        next.focusedID = focusedID
+        next.incarnationCounter = incarnationCounter
+        self = next
     }
 
     /// Records the daemon's `hello.boot_id`. A different id than the last
@@ -70,6 +86,7 @@ struct LeoAttentionReducer: Equatable, Sendable {
         guard let previous = self.bootID, previous != bootID else { return false }
         entries = [:]
         buffered = [:]
+        incarnations = [:]
         isRecovering = true
         return true
     }
@@ -86,8 +103,9 @@ struct LeoAttentionReducer: Equatable, Sendable {
         isRecovering = true
     }
 
-    /// Keeps states for display continuity but excludes them from counts,
-    /// navigation and badges until the next baseline.
+    /// Cancels candidates like `beginRecovery` and marks every state stale:
+    /// hidden from badges, counts and navigation until the next baseline
+    /// replaces them.
     mutating func disconnect() {
         beginRecovery()
         entries = entries.mapValues { entry in
@@ -163,7 +181,7 @@ struct LeoAttentionReducer: Equatable, Sendable {
         let notifies = !isFocused && (signal.state == .needsInput || signal.state == .finished)
         return LeoAttentionTransition(
             id: LeoAgentRow.ID(host: host, name: agent), from: from, to: signal.state,
-            revision: signal.revision, shouldNotify: notifies
+            revision: signal.revision, shouldNotify: notifies, bootID: bootID, incarnation: incarnations[agent] ?? 0
         )
     }
 
@@ -172,7 +190,7 @@ struct LeoAttentionReducer: Equatable, Sendable {
     /// The agent whose attachment is focused (key window -> selected tab ->
     /// focused split), or `nil`. Acknowledges its current attention.
     mutating func focus(_ id: LeoAgentRow.ID?) {
-        focusedAgent = id.flatMap { $0.host == host ? $0.name : nil }
+        focusedID = id
         acknowledgeFocused()
     }
 
@@ -188,12 +206,15 @@ struct LeoAttentionReducer: Equatable, Sendable {
     mutating func resetAgent(_ name: String) {
         entries[name] = nil
         buffered[name] = nil
+        incarnationCounter += 1
+        incarnations[name] = incarnationCounter
     }
 
     /// Drops agents no longer in the agent list.
     mutating func retain(agents: Set<String>) {
         entries = entries.filter { agents.contains($0.key) }
         buffered = buffered.filter { agents.contains($0.key) }
+        incarnations = incarnations.filter { agents.contains($0.key) }
     }
 
     // MARK: Queries
@@ -210,12 +231,15 @@ struct LeoAttentionReducer: Equatable, Sendable {
         return entry.committed?.state.needsAttention ?? false
     }
 
-    /// The row badge. Without semantic attention (legacy daemon) only
-    /// `working` activity shows, as Working -- nothing else is invented.
+    /// The row badge. Without committed semantic attention (legacy daemon,
+    /// or a first signal still settling) only `working` activity shows, as
+    /// Working -- nothing else is invented, and nothing flickers while the
+    /// first candidate waits out its window.
     func badge(for agent: String, legacyActivity: LeoAgentRow.Activity) -> LeoAttentionBadge? {
-        guard let entry = entries[agent] else { return legacyActivity == .working ? .working : nil }
-        guard !entry.isStale, let committed = entry.committed else { return nil }
-        return LeoAttentionBadge(committed.state)
+        guard let entry = entries[agent], let committed = entry.committed else {
+            return legacyActivity == .working ? .working : nil
+        }
+        return entry.isStale ? nil : LeoAttentionBadge(committed.state)
     }
 
     /// Agents needing attention that focus has not yet acknowledged.
