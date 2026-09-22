@@ -42,7 +42,7 @@ Context: roadmap Tier 1 [?]; docs/superpowers/specs/2026-09-21-leo-attention-mod
 Chose: approve as drafted. Tab focus acks the Dock count while the row badge stays; a focused split counts as viewing; Jump is ⌃⌥⌘J. Legacy daemons show Working only, with no heuristics.
 Why: principle 2 (never invent a state)
 Alternatives: idle-after-working heuristic (noisy); hold
-Commit:
+Commit: 4e064d6f7 cb18a2a6c 013840a46 465676949 93e0c4f78 60cb67072 f378da52c a0899a492 190b70f4b c5540f3c7
 Veto: n/a (Evan)
 
 ## D-006 · 2026-09-22 · Daemon attention field via the leo agent
@@ -91,4 +91,68 @@ Chose: accepted leo's terms: needs_input from Claude only at first (Codex/openco
 Why: principle 2 (never invent a state); boot id makes reconnect handling explicit
 Alternatives: suspend keeps last state (would show stale "finished" on sleeping agents)
 Commit: n/a (message only)
+Veto: [ ]
+
+## D-012 · 2026-09-22 · Attention badge is icon-only; state word moves to the subtitle
+Context: B-001 visual check
+Chose: a fixed-width SF Symbol capsule on the trailing edge; subtitle reads "claude · Needs Input", with the state word tinted (primary colour on a selected row); VoiceOver value unchanged
+Why: principle 1/2: the text capsule truncated names to "chro…"; the name is the row's identity
+Alternatives: keep the text capsule and let names truncate; badge on its own line
+Commit: a0899a492
+Veto: [ ]
+
+## D-013 · 2026-09-22 · Agent notifications ship with B-001, opt-in
+Context: B-001 (spec includes notifications)
+Chose: Agents ▸ Agent Notifications… item; permission for `.alert` is requested only when you turn it on; a one-time explanation if denied; notification IDs include boot id + incarnation + revision
+Why: spec calls for them; opt-in keeps it calm
+Alternatives: defer to a later item
+Commit: 93e0c4f78 190b70f4b
+Veto: [ ]
+
+## D-014 · 2026-09-22 · Stale or unknown attention shows no badge
+Context: B-001
+Chose: after a disconnect, stale states lose their badge and drop out of the Dock count and Jump until the next /state baseline; malformed `attention` = absent (legacy); an unrecognised state string = unknown (clears); the legacy Working badge stays until the first attention candidate commits (no flicker)
+Why: principle 2: never show a state that may be wrong
+Alternatives: keep the last state greyed
+Commit: 465676949 190b70f4b
+Veto: [ ]
+
+## D-015 · 2026-09-22 · The attention badge replaces the activity dot
+Context: B-001
+Chose: the leading activity dot is hidden when a row has a badge, so a legacy working agent shows the blue Working badge instead of the green dot
+Why: one status signal per row
+Alternatives: show both
+Commit: 465676949
+Veto: [ ]
+
+## D-016 · 2026-09-22 · One-line focus notification in upstream BaseTerminalController
+Context: B-001 (focused split = viewing)
+Chose: `focusedSurface` posts a notification on change, marked `// MARK: Leo`
+Why: the only hook for split-focus changes; D-002 allows minimal core edits
+Alternatives: poll first responder
+Commit: 465676949
+Veto: [ ]
+
+## D-017 · 2026-09-22 · `attention` on agent_spawned: top level or inside `agent`
+Context: B-001 decoding
+Chose: accept both; top level wins; asked the leo agent to confirm placement
+Why: the daemon spec says only "spawned-agent payloads"
+Alternatives: guess one placement
+Commit: 4e064d6f7
+Veto: [ ]
+
+## D-018 · 2026-09-22 · DEBUG-only `LEO_ATTENTION_FIXTURE` overlay
+Context: B-001 verification
+Chose: DEBUG builds read a JSON file mapping agent → attention and overlay it on /state; nothing is sent anywhere
+Why: allows screenshotting badges before the daemon ships the field
+Alternatives: wait for the daemon
+Commit: 60cb67072
+Veto: [ ]
+
+## D-019 · 2026-09-22 · Poll while the attention baseline is pending, even with SSE up
+Context: B-001 review (N1)
+Chose: the existing 30 s poll also runs while a /state baseline is pending; no new timer
+Why: a failed baseline must retry; principle 5 is about tunnel reconnects, and this reuses the existing poll
+Alternatives: one-shot retry timer
+Commit: c5540f3c7
 Veto: [ ]

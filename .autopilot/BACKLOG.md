@@ -3,13 +3,18 @@
 Ranked. Statuses: `ready`, `ready (next run)`, `blocked`, `done`.
 Source roadmap: `docs/leo/roadmap.md` on `main` (not edited by autopilot).
 
-## B-001 · Attention model, app side   [ready]
+## B-001 · Attention model, app side   [done]
 Accept: implement docs/superpowers/specs/2026-09-21-leo-attention-model.md with
 D-005 answers (tab focus acks Dock count, row badge stays; focused split =
 viewing; ⌃⌥⌘J jump). `LeoAttentionReducer` value type, fixture-driven tests
 for every transition. Legacy daemons show Working only. Screenshot row badges
 using fixture/scratch data.
 Source: roadmap Tier 1
+Done: 4e064d6f7 cb18a2a6c 013840a46 465676949 93e0c4f78 60cb67072 f378da52c a0899a492 190b70f4b c5540f3c7 (726 tests). Verified by screenshot with the DEBUG fixture (D-018). Dock badge and notifications were not visually verified.
+
+## B-015 · Attention edge cases before the daemon ships   [ready (next run)]
+Accept: (a) keep a tombstone incarnation when `retain` drops an agent, so a recreated agent at incarnation 0 isn't suppressed by `lastPosted` (scenario in the final B-001 review); (b) retry a pending /state baseline while the sidebar is hidden (`LeoPollScheduler.swift:125` requires visible), since notifications matter most then; (c) low: a baseline applied outside recovery can falsely bump the incarnation (`LeoAttentionReducer.swift:124`). Each with a failing test first. Must land before the leo daemon ships `attention`.
+Source: B-001 final review
 
 ## B-002 · Request daemon `attention` field from the leo agent   [done]
 Accept: send the leo agent the exact contract from the spec's "Leo-daemon
