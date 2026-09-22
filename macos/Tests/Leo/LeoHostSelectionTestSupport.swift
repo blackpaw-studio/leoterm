@@ -71,6 +71,8 @@ enum LeoHostSelectionTestSupport {
     /// `LeoTunnel`'s readiness loop can resolve before the just-forked
     /// `fake_ssh.py` child has actually reached its own pid-file write --
     /// wait for the file itself, not just `.connected`, before reading it.
+    /// Existence implies complete contents only because `fake_ssh.py`
+    /// publishes the file with an atomic rename.
     static func awaitPID(_ path: String, timeout: TimeInterval = 5) async throws -> Int32 {
         await awaitCondition(timeout: timeout, message: "pid file was never written") { FileManager.default.fileExists(atPath: path) }
         return try readPID(path)
