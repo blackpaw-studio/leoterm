@@ -74,13 +74,14 @@ import OSLog
         let registry = LeoWindowSessionRegistry()
         self.model = model
         self.registry = registry
+        weak var weakSelf: LeoRuntime?
         attentionNotifications = LeoAttentionController(
-            center: notificationCenter, defaults: defaults, showDeniedInstructions: LeoRuntime.presentNotificationsDeniedInstructions
+            center: notificationCenter, defaults: defaults, currentHost: { weakSelf?.hostSelection.selected },
+            showDeniedInstructions: LeoRuntime.presentNotificationsDeniedInstructions
         )
         let requestConfigStore = LeoRequestConfigStore()
         self.requestConfigStore = requestConfigStore
         let host = GhosttyAttachTabHost(registry: registry, requestConfigStore: requestConfigStore)
-        weak var weakSelf: LeoRuntime?
         let hostSelection = LeoHostSelection(
             store: LeoHostStore(defaults: defaults),
             defaults: defaults,

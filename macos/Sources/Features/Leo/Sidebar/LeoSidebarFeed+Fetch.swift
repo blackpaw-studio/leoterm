@@ -63,6 +63,7 @@ extension LeoSidebarFeed {
         // in on top rather than lost.
         activityByName = Self.activities(state)
         applyAttentionBaseline(state)
+        syncBaselinePending()
         drainCoalescedActivity()
         // Not a list refresh -- `LeoSidebarModel.receive` only clears row
         // errors when `listRefreshSucceeded` is true, and an activity-state

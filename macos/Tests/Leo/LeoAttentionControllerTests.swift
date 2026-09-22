@@ -8,6 +8,7 @@ import Testing
 /// (host, agent, revision), and only for transitions the reducer marked.
 @MainActor struct LeoAttentionControllerTests {
     private static let alpha = LeoAgentRow.ID(host: .remote("mars"), name: "alpha")
+    private let host = CurrentHost()
 
     @Test func notificationContentNamesAgentAndHostWithoutTerminalText() throws {
         let finished = try #require(LeoAttentionNotification(transition(.finished, revision: 3)))
@@ -87,8 +88,22 @@ import Testing
         for revision in 1...50 { await controller.handle([transition(.finished, revision: revision)]) }
         #expect(controller.rememberedPostCount == 1)
 
+        host.current = .local
         await controller.handle([transition(.finished, revision: 1, id: .init(host: .local, name: "beta"))])
         #expect(controller.rememberedPostCount == 1, "a host switch prunes the old host's entries")
+    }
+
+    @Test func aLateBatchFromThePreviousHostIsDropped() async {
+        let (controller, center, _) = makeController()
+        await controller.enable()
+        host.current = .local
+        let beta = LeoAgentRow.ID(host: .local, name: "beta")
+        await controller.handle([transition(.finished, revision: 3, id: beta)])
+
+        await controller.handle([transition(.finished, revision: 1)])
+        await controller.handle([transition(.finished, revision: 3, id: beta)])
+
+        #expect(center.posted.map(\.title) == ["beta · localhost"], "mars' batch posts nothing and keeps beta's record")
     }
 
     @Test func deniedAuthorizationStaysOffAndShowsInstructionsOnce() async {
@@ -140,7 +155,8 @@ import Testing
         let center = FakeNotificationCenter(granted: granted)
         let instructions = InstructionsRecorder()
         let controller = LeoAttentionController(
-            center: center, defaults: defaults ?? freshDefaults(), showDeniedInstructions: { instructions.count += 1 }
+            center: center, defaults: defaults ?? freshDefaults(), currentHost: { [host] in host.current },
+            showDeniedInstructions: { instructions.count += 1 }
         )
         return (controller, center, instructions)
     }
@@ -156,6 +172,10 @@ import Testing
         return granted
     }
     func post(_ notification: LeoAttentionNotification) async { posted.append(notification) }
+}
+
+@MainActor private final class CurrentHost {
+    var current: LeoHostID? = .remote("mars")
 }
 
 @MainActor private final class InstructionsRecorder {

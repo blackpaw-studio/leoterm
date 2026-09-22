@@ -117,8 +117,14 @@ struct LeoAttentionReducer: Equatable, Sendable {
 
     /// Replaces every entry with the authoritative `/state` snapshot (even at
     /// a lower revision -- a restarted daemon starts over), then merges any
-    /// newer buffered signals. Never produces transitions.
+    /// newer buffered signals. Never produces transitions. An agent whose
+    /// revision went backwards was recreated (e.g. while SSE was down), so
+    /// it starts a new incarnation, as `resetAgent` would.
     mutating func applyBaseline(_ baseline: [String: LeoAttentionSignal]) {
+        for (agent, signal) in baseline where signal.revision < (entries[agent]?.lastSeenRevision ?? Int.min) {
+            incarnationCounter += 1
+            incarnations[agent] = incarnationCounter
+        }
         var merged = baseline
         for (agent, signal) in buffered where signal.revision > (merged[agent]?.revision ?? Int.min) {
             merged[agent] = signal
@@ -220,6 +226,9 @@ struct LeoAttentionReducer: Equatable, Sendable {
     // MARK: Queries
 
     func state(of agent: String) -> LeoAttentionState? { entries[agent]?.committed?.state }
+
+    /// True until a baseline commits for the current host (buffering live signals).
+    var isAwaitingBaseline: Bool { isRecovering }
 
     /// Whether the daemon has reported semantic attention for `agent`.
     func isSupported(_ agent: String) -> Bool { entries[agent] != nil }

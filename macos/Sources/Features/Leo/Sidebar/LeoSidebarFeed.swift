@@ -261,6 +261,7 @@ actor LeoSidebarFeed {
         needsState = true
         attention.beginRecovery()
         scheduleAttentionTick()
+        syncBaselinePending()
     }
 
     func startRefresh() {

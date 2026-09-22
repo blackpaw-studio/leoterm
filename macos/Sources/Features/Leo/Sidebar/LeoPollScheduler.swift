@@ -5,7 +5,8 @@ import Foundation
 /// within `sseCoalesceInterval`); no periodic poll runs. While SSE is
 /// disconnected or reconnecting, this falls back to periodic polling at
 /// `disconnectedPollInterval`, plus an immediate refresh the moment SSE
-/// reconnects.
+/// reconnects. The same poll also runs while an attention baseline is
+/// pending, even with SSE connected.
 struct LeoPollScheduler {
     enum Input: Sendable {
         case sidebarVisibleCountChanged(Int)
@@ -18,6 +19,8 @@ struct LeoPollScheduler {
         case refreshStarted
         case refreshFinished
         case refreshCancelled
+        /// Whether an attention `/state` baseline is still pending.
+        case baselinePendingChanged(Bool)
     }
 
     enum Output: Equatable, Sendable {
@@ -42,6 +45,7 @@ struct LeoPollScheduler {
     private var polling = false
     private var sseConnected = false
     private var pendingSSERefresh = false
+    private var baselinePending = false
 
     init(now: @escaping @Sendable () -> Date = Date.init) { self.now = now }
 
@@ -68,6 +72,7 @@ struct LeoPollScheduler {
         polling = false
         sseConnected = false
         pendingSSERefresh = false
+        baselinePending = false
     }
 
     mutating func reduce(_ input: Input) -> [Output] {
@@ -104,6 +109,9 @@ struct LeoPollScheduler {
         case .sseRefreshDue:
             pendingSSERefresh = false
             return requestRefresh()
+        case .baselinePendingChanged(let value):
+            baselinePending = value
+            return applyPollingTransition(refreshOnResume: false)
         }
     }
 
@@ -112,8 +120,9 @@ struct LeoPollScheduler {
     private var visible: Bool { visibleCount > 0 && !occluded && !appHidden }
 
     /// True when the periodic-poll fallback should be active: visible, and
-    /// SSE isn't already delivering live updates.
-    private var shouldPoll: Bool { visible && !sseConnected }
+    /// SSE isn't already delivering live updates -- or a baseline is still
+    /// pending, so a failed or stale fetch gets retried by the ordinary poll.
+    private var shouldPoll: Bool { visible && (!sseConnected || baselinePending) }
 
     private mutating func handle(_ event: LeoObserveEvent) -> [Output] {
         switch event {

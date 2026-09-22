@@ -52,6 +52,22 @@ struct LeoAttentionReducerScopeTests {
         #expect(after.first { $0.id.name == "beta" }?.incarnation == 0)
     }
 
+    @Test func aBaselineBelowTheRecordedRevisionStartsANewIncarnation() {
+        var reducer = live(["alpha": signal(.working, 5), "beta": signal(.working, 5)])
+        reducer.receive(agent: "alpha", signal: signal(.finished, 6), now: 0)
+        #expect(reducer.tick(now: 0.3).map(\.incarnation) == [0])
+
+        // Deleted and recreated while SSE was down: revisions start over.
+        reducer.disconnect()
+        reducer.applyBaseline(["alpha": signal(.working, 1), "beta": signal(.working, 5)])
+        reducer.receive(agent: "alpha", signal: signal(.finished, 2), now: 1)
+        reducer.receive(agent: "beta", signal: signal(.finished, 6), now: 1)
+        let after = reducer.tick(now: 1.3)
+
+        #expect(after.first { $0.id.name == "alpha" }?.incarnation != 0)
+        #expect(after.first { $0.id.name == "beta" }?.incarnation == 0)
+    }
+
     // MARK: Focus across a host switch
 
     @Test func focusSurvivesSwitchingAwayAndBack() {

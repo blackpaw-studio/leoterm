@@ -23,7 +23,7 @@ import Testing
         let suite = "LeoAttentionIntegrationTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
         defaults.removePersistentDomain(forName: suite)
-        let controller = LeoAttentionController(center: center, defaults: defaults, showDeniedInstructions: {})
+        let controller = LeoAttentionController(center: center, defaults: defaults, currentHost: { .local }, showDeniedInstructions: {})
         await controller.enable()
         let snapshots = SnapshotBox()
         let feed = LeoSidebarFeed(

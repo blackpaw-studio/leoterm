@@ -27,8 +27,16 @@ extension LeoSidebarFeed {
     /// case where none is.
     private func daemonRestarted(_ hello: LeoObserveEvent) {
         needsState = true
+        syncBaselinePending()
         guard recovering else { return }
         process(scheduler.reduce(.sseEvent(hello)))
+    }
+
+    /// Keeps the scheduler's ordinary poll running while a baseline is
+    /// pending, even with SSE connected, so a failed or stale list or
+    /// `/state` fetch is retried by the next tick -- no timer of its own.
+    func syncBaselinePending() {
+        process(scheduler.reduce(.baselinePendingChanged(needsState || attention.isAwaitingBaseline)))
     }
 
     func applyAttentionBaseline(_ state: [LeoObservedAgent]) {

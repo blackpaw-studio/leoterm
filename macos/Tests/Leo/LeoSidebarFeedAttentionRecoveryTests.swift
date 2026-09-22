@@ -37,6 +37,28 @@ struct LeoSidebarFeedAttentionRecoveryTests {
         await harness.stop()
     }
 
+    @Test func withSSEConnectedTheNextPollTickRetriesAFailedStateFetch() async {
+        let working = LeoObservedAgent(
+            name: "alpha", status: .running, activity: .idle, currentAction: nil, lastActivityAt: nil,
+            attention: .init(state: .working, revision: 1)
+        )
+        let harness = RecoveryHarness(listFailures: 0, stateFailures: 2, state: [working])
+        await harness.start()
+        await awaitCondition { await harness.activity.fetchCount == 1 }
+        await harness.waitFor { $0.rows.map(\.name) == ["alpha"] }
+
+        await harness.feed.receive(.connected)
+        await awaitCondition { await harness.activity.fetchCount == 2 }
+        await harness.feed.receive(
+            .agentActivity(seq: 2, at: nil, agent: "alpha", activity: .idle, currentAction: nil, attention: .init(state: .needsInput, revision: 2))
+        )
+        await harness.settle()
+
+        #expect(await harness.activity.fetchCount == 3, "a poll tick retries /state while SSE is connected")
+        await harness.waitFor { $0.rows.first?.attention == .needsInput }
+        await harness.stop()
+    }
+
     @Test func eventsFromASupersededConnectionAreDropped() async {
         let harness = RecoveryHarness(listFailures: 0, stateFailures: 0, state: [Self.needsInput])
         await harness.start()
