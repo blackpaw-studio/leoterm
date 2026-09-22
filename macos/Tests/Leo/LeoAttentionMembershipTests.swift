@@ -38,6 +38,64 @@ struct LeoAttentionMembershipTests {
         #expect(transitions.first?.incarnation != 0, "and never share the old agent's incarnation")
     }
 
+    // MARK: Listed but missing from /state
+
+    @Test func aListedAgentWithUnreadableAttentionIsNotRenotifiedAfterARecovery() throws {
+        var reducer = live()
+        reducer.receive(agent: "alpha", signal: signal(.finished, 5), now: 0)
+        let finished = try #require(reducer.tick(now: 0.3).first)
+        let posted = try #require(LeoAttentionNotification(finished))
+
+        for recovery in 1...2 {
+            // alpha's /state field decodes to nil; the list still has it.
+            reducer.beginRecovery()
+            reducer.retain(agents: ["alpha"])
+            reducer.applyBaseline([:])
+            #expect(reducer.state(of: "alpha") == nil, "a state the daemon didn't report isn't kept")
+
+            // The daemon re-sends alpha's latest revision.
+            let now = Double(recovery)
+            reducer.receive(agent: "alpha", signal: signal(.finished, 5), now: now)
+            let resent = reducer.tick(now: now + 0.3).compactMap(LeoAttentionNotification.init)
+            #expect(resent.map(\.identifier) == [posted.identifier], "the same post, deduped -- never a new one")
+        }
+    }
+
+    @Test func aListedAgentSpawnedJustBeforeAGapKeepsItsIncarnation() throws {
+        var reducer = live()
+        reducer.resetAgent("alpha")
+        reducer.receive(agent: "alpha", signal: signal(.unknown, 1), now: 0)
+        let spawned = try #require(reducer.tick(now: 0.3).first?.incarnation)
+
+        // The recovery's /state caught alpha before its field was set.
+        reducer.beginRecovery()
+        reducer.retain(agents: ["alpha"])
+        reducer.applyBaseline([:])
+        reducer.receive(agent: "alpha", signal: signal(.needsInput, 2), now: 1)
+        let transitions = reducer.tick(now: 1.3)
+
+        #expect(transitions.map(\.to) == [.needsInput])
+        #expect(transitions.first?.incarnation == spawned)
+    }
+
+    @Test func anAgentLeavingTheListAfterItsFieldWentMissingIsTombstoned() throws {
+        var reducer = live()
+        reducer.receive(agent: "alpha", signal: signal(.finished, 5), now: 0)
+        let first = try #require(reducer.tick(now: 0.3).first)
+        reducer.disconnect()
+        reducer.retain(agents: ["alpha"])
+        reducer.applyBaseline([:])
+
+        // alpha is deleted, then recreated and reaches revision 5 again.
+        reducer.retain(agents: [])
+        reducer.retain(agents: ["alpha"])
+        reducer.receive(agent: "alpha", signal: signal(.finished, 5), now: 1)
+        let transitions = reducer.tick(now: 1.3)
+
+        #expect(transitions.map(\.to) == [.finished])
+        #expect(transitions.first?.incarnation != first.incarnation, "a new agent's post is never deduped against the old one's")
+    }
+
     // MARK: A list fetched before agent_spawned
 
     @Test func aListFetchedBeforeASpawnDoesNotDropTheSpawnedAgent() {
@@ -76,6 +134,26 @@ struct LeoAttentionMembershipTests {
         }
 
         #expect(reducer.tombstoneCount == LeoAttentionReducer.tombstoneLimit)
+    }
+
+    @Test func aLiveAgentAwaitingItsFirstSignalIsNeverTrimmedAsATombstone() throws {
+        var reducer = live()
+        reducer.resetAgent("alpha")
+        reducer.receive(agent: "alpha", signal: signal(.finished, 1), now: 0)
+        let first = try #require(reducer.tick(now: 0.3).first?.incarnation)
+
+        // alpha is recreated; before it signals, many other agents churn.
+        reducer.resetAgent("alpha")
+        for index in 0...LeoAttentionReducer.tombstoneLimit {
+            reducer.receive(agent: "scratch-\(index)", signal: signal(.working, 1), now: 1)
+            reducer.retain(agents: ["alpha"])
+        }
+        reducer.receive(agent: "alpha", signal: signal(.finished, 1), now: 2)
+        let transitions = reducer.tick(now: 2.3)
+
+        #expect(transitions.map(\.to) == [.finished])
+        #expect(transitions.first?.incarnation != first, "never the earlier alpha's notification id")
+        #expect(transitions.first?.incarnation != 0)
     }
 
     @Test func theNewestTombstoneSurvivesTheBound() {
