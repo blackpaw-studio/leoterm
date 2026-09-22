@@ -135,7 +135,7 @@ Veto: [ ]
 
 ## D-017 · 2026-09-22 · `attention` on agent_spawned: top level or inside `agent`
 Context: B-001 decoding
-Chose: accept both; top level wins; asked the leo agent to confirm placement
+Chose: accept both; top level wins. Leo later confirmed the daemon emits it only inside `event.agent` (same struct as /state), and top-level on `agent_activity`. The tolerant decoder stays, since it's harmless. Leo's daemon branch is feat/agent-attention; needs_input → working happens on the next PostToolUse after a prompt resolves.
 Why: the daemon spec says only "spawned-agent payloads"
 Alternatives: guess one placement
 Commit: 4e064d6f7
