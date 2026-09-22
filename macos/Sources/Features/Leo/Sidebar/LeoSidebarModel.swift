@@ -8,7 +8,11 @@ import Foundation
     @Published private(set) var rowErrors: [LeoAgentRow.ID: String] = [:]
     @Published private(set) var rowErrorCodes: [LeoAgentRow.ID: String] = [:]
     @Published private(set) var panelError: String?
+    /// Focused attach row and live attach counts (see `+AttachLinks`).
+    @Published var attachLinks = LeoAttachLinkState.empty
     var attachRequested: (LeoAgentRow, LeoWindowID, AttachDisposition) -> Void = { _, _, _ in }
+    /// Brings the row's existing attach tab forward (no new attach).
+    var focusExistingRequested: (LeoAgentRow) -> Void = { _ in }
     var startDaemonRequested: () -> Void = {}
     var retryRequested: () -> Void = {}
     var sshRequested: (String) -> Void = { _ in }

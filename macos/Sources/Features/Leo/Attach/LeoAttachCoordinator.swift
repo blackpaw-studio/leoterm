@@ -38,7 +38,12 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     private let report: (LeoAttachError) -> Void
     private let lifecycleEventHandled: (AttachLifecycleEvent) -> Void
     private let focusedIdentityChanged: (LeoAgentIdentity?) -> Void
+    private let linkStateChanged: (LeoAttachLinkState) -> Void
     private(set) var focusedIdentity: LeoAgentIdentity?
+    /// Focused row and live attach counts for the sidebar (B-006).
+    private(set) var linkState = LeoAttachLinkState.empty
+    /// Per identity, ordered least -> most recently focused (or opened), so
+    /// `.last` live handle is the one to bring back.
     private var handlesByIdentity: [LeoAgentIdentity: [AttachmentHandle]] = [:]
     private var identityByHandle: [AttachmentHandle: LeoAgentIdentity] = [:]
     private var inactive: Set<AttachmentHandle> = []
@@ -56,7 +61,8 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         },
         report: @escaping (LeoAttachError) -> Void,
         lifecycleEventHandled: @escaping (AttachLifecycleEvent) -> Void = { _ in },
-        focusedIdentityChanged: @escaping (LeoAgentIdentity?) -> Void = { _ in }
+        focusedIdentityChanged: @escaping (LeoAgentIdentity?) -> Void = { _ in },
+        linkStateChanged: @escaping (LeoAttachLinkState) -> Void = { _ in }
     ) {
         self.host = host
         self.executable = executable
@@ -64,6 +70,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         self.report = report
         self.lifecycleEventHandled = lifecycleEventHandled
         self.focusedIdentityChanged = focusedIdentityChanged
+        self.linkStateChanged = linkStateChanged
         lifecycleTask = Task { [weak self, events = host.lifecycleEvents] in
             for await event in events {
                 guard !Task.isCancelled else { return }
@@ -102,11 +109,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         attachInProgress.insert(identity)
         defer { attachInProgress.remove(identity) }
 
-        discardDeadHandles(for: identity)
-        if request.disposition == .tab,
-           let handle = handlesByIdentity[identity]?.last(where: { !inactive.contains($0) }) {
-            host.focus(handle)
-            moveToMostRecent(handle, identity: identity)
+        if request.disposition == .tab, let handle = focusMostRecent(identity) {
             return .success(handle)
         }
 
@@ -134,6 +137,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             // registered here.
             focusedHandle = host.focusedHandle
             updateFocusedIdentity()
+            publishLinkState()
             host.setTitleSeed(handle, title: "\(identity.name) · \(identity.host.displayName)")
             return .success(handle)
         } catch {
@@ -187,6 +191,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     private func receive(_ event: AttachLifecycleEvent) {
         defer {
             updateFocusedIdentity()
+            publishLinkState()
             lifecycleEventHandled(event)
         }
         switch event {
@@ -204,7 +209,32 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             host.setTitleSeed(handle, title: nil)
         case .focusChanged(let handle):
             focusedHandle = handle
+            if let handle, !inactive.contains(handle), let identity = identityByHandle[handle] {
+                moveToMostRecent(handle, identity: identity)
+            }
         }
+    }
+
+    /// Brings `identity`'s most recently focused live attachment forward
+    /// instead of opening a duplicate. `false` when it has none.
+    @discardableResult func focusExisting(_ identity: LeoAgentIdentity) -> Bool {
+        focusMostRecent(identity) != nil
+    }
+
+    private func focusMostRecent(_ identity: LeoAgentIdentity) -> AttachmentHandle? {
+        discardDeadHandles(for: identity)
+        defer { publishLinkState() }
+        guard let handle = handlesByIdentity[identity]?.last(where: { !inactive.contains($0) }) else { return nil }
+        host.focus(handle)
+        moveToMostRecent(handle, identity: identity)
+        return handle
+    }
+
+    private func publishLinkState() {
+        let state = LeoAttachLinkState(focused: focusedIdentity, handlesByIdentity: handlesByIdentity, inactive: inactive)
+        guard state != linkState else { return }
+        linkState = state
+        linkStateChanged(state)
     }
 
     /// An exited attachment shows a placeholder, not the agent, so it no

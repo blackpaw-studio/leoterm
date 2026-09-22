@@ -26,11 +26,28 @@ struct LeoAgentRowPresentation: Equatable {
         static let separator = " · "
     }
 
+    /// Live attach tabs/splits for the agent: a secondary glyph, with the
+    /// number only from two up (one tab is the common case, not news).
+    struct Tabs: Equatable {
+        let countText: String?
+        let accessibilityLabel: String
+
+        static let symbolName = "macwindow"
+
+        init?(count: Int) {
+            guard count > 0 else { return nil }
+            countText = count >= 2 ? "\(count)" : nil
+            accessibilityLabel = count == 1 ? "1 open tab" : "\(count) open tabs"
+        }
+    }
+
     let badge: Badge?
     let subtitle: Subtitle?
+    let tabs: Tabs?
 
-    init(row: LeoAgentRow, isSelected: Bool) {
+    init(row: LeoAgentRow, isSelected: Bool, tabCount: Int = 0) {
         let template = row.template.flatMap { $0.isEmpty ? nil : $0 }
+        tabs = Tabs(count: tabCount)
         guard let attention = row.attention.map(LeoStatusPresentation.attention) else {
             badge = nil
             subtitle = template.map { Subtitle(template: $0, state: nil) }
