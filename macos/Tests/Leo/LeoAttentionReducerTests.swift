@@ -233,10 +233,14 @@ struct LeoAttentionReducerTests {
         #expect(!reducer.needsAttention("alpha"))
     }
 
-    @Test func spawnResetsRevisionTrackingForARecreatedName() {
+    @Test func spawnClearsStateButKeepsTheNamesRevisionFloor() {
         var reducer = live(["alpha": signal(.finished, 9)])
         reducer.resetAgent("alpha")
-        reducer.receive(agent: "alpha", signal: signal(.working, 1), now: 0)
+        #expect(reducer.state(of: "alpha") == nil, "the old agent's finished doesn't carry over")
+
+        reducer.receive(agent: "alpha", signal: signal(.needsInput, 9), now: 0)
+        #expect(reducer.nextDeadline == nil, "revision 9 of this name was already seen")
+        reducer.receive(agent: "alpha", signal: signal(.working, 10), now: 0)
         _ = reducer.tick(now: 0.3)
 
         #expect(reducer.state(of: "alpha") == .working)
@@ -256,7 +260,7 @@ struct LeoAttentionReducerTests {
     }
 
     @Test func baselineReplacesStateEvenAtALowerRevision() {
-        // A restarted daemon starts revisions over; the baseline is authoritative.
+        // In recovery the snapshot is authoritative.
         var reducer = live(["alpha": signal(.finished, 40)])
         reducer.beginRecovery()
         reducer.applyBaseline(["alpha": signal(.working, 1)])

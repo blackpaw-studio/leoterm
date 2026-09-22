@@ -29,8 +29,9 @@ enum LeoAttentionState: String, Equatable, Sendable, Codable {
     }
 }
 
-/// `attention: {state, revision}`. `revision` increases per agent per daemon
-/// lifetime; a signal at or below one already seen is a duplicate/reorder.
+/// `attention: {state, revision}`. `revision` increases per agent name per
+/// daemon boot, across delete/recreate and rename; a signal at or below one
+/// already seen for that name is a duplicate/reorder.
 struct LeoAttentionSignal: Equatable, Sendable, Codable {
     let state: LeoAttentionState
     let revision: Int
@@ -65,11 +66,10 @@ struct LeoAttentionTransition: Equatable, Sendable {
     /// deferred.
     let shouldNotify: Bool
     let bootID: String?
-    let incarnation: Int
 
     init(
         id: LeoAgentRow.ID, from: LeoAttentionState?, to: LeoAttentionState, revision: Int, shouldNotify: Bool,
-        bootID: String? = nil, incarnation: Int = 0
+        bootID: String? = nil
     ) {
         self.id = id
         self.from = from
@@ -77,6 +77,5 @@ struct LeoAttentionTransition: Equatable, Sendable {
         self.revision = revision
         self.shouldNotify = shouldNotify
         self.bootID = bootID
-        self.incarnation = incarnation
     }
 }

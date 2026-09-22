@@ -14,9 +14,9 @@ import Testing
         let finished = try #require(LeoAttentionNotification(transition(.finished, revision: 3)))
         #expect(finished.title == "alpha · mars")
         #expect(finished.body == "Finished")
-        #expect(finished.identifier == "studio.blackpaw.leo.attention.remote.mars.alpha.-.0.3")
-        let scoped = try #require(LeoAttentionNotification(transition(.finished, revision: 3, bootID: "b1", incarnation: 2)))
-        #expect(scoped.identifier == "studio.blackpaw.leo.attention.remote.mars.alpha.b1.2.3")
+        #expect(finished.identifier == "studio.blackpaw.leo.attention.remote.mars.alpha.-.3")
+        let scoped = try #require(LeoAttentionNotification(transition(.finished, revision: 3, bootID: "b1")))
+        #expect(scoped.identifier == "studio.blackpaw.leo.attention.remote.mars.alpha.b1.3")
 
         let local = LeoAgentRow.ID(host: .local, name: "beta")
         let input = try #require(LeoAttentionNotification(transition(.needsInput, revision: 1, id: local)))
@@ -68,17 +68,6 @@ import Testing
         await controller.handle([transition(.finished, revision: 1, bootID: "b2")])
 
         #expect(center.posted.count == 2)
-    }
-
-    @Test func resetAgentPostsRevisionsThatStartOver() async {
-        let (controller, center, _) = makeController()
-        await controller.enable()
-
-        await controller.handle([transition(.finished, revision: 5, bootID: "b1")])
-        await controller.handle([transition(.needsInput, revision: 1, bootID: "b1", incarnation: 1)])
-        await controller.handle([transition(.needsInput, revision: 1, bootID: "b1", incarnation: 1)])
-
-        #expect(center.posted.map(\.body) == ["Finished", "Needs your input"])
     }
 
     @Test func remembersOnlyTheLatestPostPerAgentOnTheCurrentHost() async {
@@ -135,10 +124,10 @@ import Testing
 
     private func transition(
         _ state: LeoAttentionState, revision: Int, notify: Bool = true, id: LeoAgentRow.ID = alpha,
-        bootID: String? = nil, incarnation: Int = 0
+        bootID: String? = nil
     ) -> LeoAttentionTransition {
         LeoAttentionTransition(
-            id: id, from: .working, to: state, revision: revision, shouldNotify: notify, bootID: bootID, incarnation: incarnation
+            id: id, from: .working, to: state, revision: revision, shouldNotify: notify, bootID: bootID
         )
     }
 

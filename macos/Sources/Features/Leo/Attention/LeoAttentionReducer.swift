@@ -12,7 +12,9 @@ import Foundation
 ///   different candidate; a same-state repeat does not extend the window.
 /// - A newer-revision repeat of needs_input/finished/errored is a new event.
 /// - A changed `hello.boot_id` (daemon restart) discards stored revisions.
-/// - Signals at or below an agent's last-seen revision are ignored.
+/// - Signals at or below an agent name's last-seen revision this boot are
+///   duplicates: revisions never repeat per (boot, name), even across a
+///   delete, recreate or rename.
 /// - Baselines (and events buffered while recovering) commit silently.
 /// - Disconnect marks everything stale until the next baseline.
 /// - Focusing an agent acknowledges its Dock contribution; the badge stays.
@@ -24,11 +26,11 @@ struct LeoAttentionReducer: Equatable, Sendable {
         let since: TimeInterval
     }
 
+    /// Display state only; the revision floor and acknowledgement live in
+    /// per-name maps, so they outlive it.
     private struct Entry: Equatable, Sendable {
         var committed: LeoAttentionSignal?
         var candidate: Candidate?
-        var lastSeenRevision: Int
-        var acknowledgedRevision: Int?
         var isStale = false
 
         var deadline: TimeInterval? { candidate.map { $0.since + LeoAttentionReducer.stabilityInterval } }
@@ -48,26 +50,19 @@ struct LeoAttentionReducer: Equatable, Sendable {
     private var focusedID: LeoAgentRow.ID?
     /// The last `hello.boot_id` seen for `host`.
     private var bootID: String?
-    /// Monotonic for the reducer's whole life (kept across host switches):
-    /// each `resetAgent` takes the next value as that agent's incarnation,
-    /// so `(bootID, incarnation, revision)` never repeats for one agent.
-    private var incarnationCounter = 0
-    /// Agents reset, recreated or dropped from the list since the last host
-    /// switch or daemon restart; others are incarnation 0. A dropped agent
-    /// keeps its entry as a tombstone, so one recreated under the same name
-    /// never reuses the incarnation its notifications were posted under.
-    private var incarnations: [String: Int] = [:]
-    /// Names given a tombstone incarnation by `tombstone(_:)` and not heard
-    /// from since. Only these are trimmed, the oldest first, to
-    /// `tombstoneLimit`: a live agent reset by `resetAgent` keeps its
-    /// incarnation however long it stays quiet.
-    private var tombstoned: Set<String> = []
-    /// The revision floor of each listed agent a recovery baseline lacked,
-    /// dropped with its state. The agent's next signal below it means its
-    /// revisions started over (it was recreated), so that signal starts a
-    /// new incarnation; at or above it, the incarnation carries on and a
-    /// re-sent revision dedupes against what was already posted.
-    private var droppedFloors: [String: Int] = [:]
+    /// The highest revision seen per agent name this boot. The daemon's
+    /// counter is per name per boot and survives delete, recreate and
+    /// rename, so `(bootID, name, revision)` is unique: a signal at or below
+    /// it is a duplicate. Kept after an agent's display state goes; cleared
+    /// on a host switch or daemon restart, so one floor per name per boot.
+    private var floors: [String: Int] = [:]
+    /// The revision focus acknowledged per agent name this boot. Revisions
+    /// are unique, so it outlives display state like `floors`.
+    private var acknowledged: [String: Int] = [:]
+    /// Bumped by every `resetAgent`; see `membershipMark`.
+    private var spawnCount = 0
+    /// The `spawnCount` at each agent's latest spawn this boot.
+    private var spawnMarks: [String: Int] = [:]
 
     /// The focused agent's name, only when it belongs to `host`.
     private var focusedAgent: String? { focusedID.flatMap { $0.host == host ? $0.name : nil } }
@@ -77,14 +72,14 @@ struct LeoAttentionReducer: Equatable, Sendable {
 
     // MARK: Connection lifecycle
 
-    /// Clears every state, candidate and acknowledgement; the new host is
-    /// silent until its first baseline. Focus and the incarnation counter
+    /// Clears every state, candidate, floor and acknowledgement; the new
+    /// host is silent until its first baseline. Focus and the spawn count
     /// carry over.
     mutating func switchHost(_ host: LeoHostID) {
         var next = LeoAttentionReducer()
         next.host = host
         next.focusedID = focusedID
-        next.incarnationCounter = incarnationCounter
+        next.spawnCount = spawnCount
         self = next
     }
 
@@ -99,9 +94,9 @@ struct LeoAttentionReducer: Equatable, Sendable {
         guard let previous = self.bootID, previous != bootID else { return false }
         entries = [:]
         buffered = [:]
-        incarnations = [:]
-        tombstoned = []
-        droppedFloors = [:]
+        floors = [:]
+        acknowledged = [:]
+        spawnMarks = [:]
         isRecovering = true
         return true
     }
@@ -132,50 +127,27 @@ struct LeoAttentionReducer: Equatable, Sendable {
 
     /// Replaces entries with the authoritative `/state` snapshot, merged
     /// with any newer buffered signals. Never produces transitions.
-    /// - In recovery the snapshot wins even at a lower revision (a restarted
-    ///   daemon starts over), and an agent whose revision went backwards was
-    ///   recreated (e.g. while SSE was down), so it starts a new incarnation,
-    ///   as `resetAgent` would.
+    /// - In recovery the snapshot wins: candidates were cancelled, so a
+    ///   revision equal to the floor may still be uncommitted.
     /// - Outside recovery live signals already applied are at least as new
     ///   as the snapshot, so those entries (and their candidates) stay.
     /// - Deletion is the agent list's call (`retain`), never the snapshot's:
     ///   an agent can be missing from it only because its field isn't set
-    ///   yet (a fresh agent) or didn't decode.
-    /// - Outside recovery a live (non-stale) entry the snapshot lacks is
-    ///   kept; the next signal stays authoritative.
-    /// - In recovery such an entry may belong to an agent deleted and
-    ///   recreated under the same name, so its state and revision floor are
-    ///   dropped (see `droppedFloors`) but its incarnation is kept.
+    ///   yet (a fresh agent) or didn't decode. Outside recovery a live
+    ///   (non-stale) entry the snapshot lacks is kept; in recovery its state
+    ///   goes (the daemon didn't report it), its floor stays.
     mutating func applyBaseline(_ baseline: [String: LeoAttentionSignal]) {
         let wasRecovering = isRecovering
-        var merged = baseline
-        for (agent, signal) in buffered where signal.revision > (merged[agent]?.revision ?? Int.min) {
-            merged[agent] = signal
-        }
-        for (agent, signal) in baseline where wasRecovering && signal.revision < (entries[agent]?.lastSeenRevision ?? Int.min) {
-            renew(agent)
-        }
-        for (agent, signal) in merged where entries[agent] == nil && signal.revision < (droppedFloors[agent] ?? Int.min) {
-            renew(agent)
+        let merged = buffered.reduce(into: baseline) { result, item in
+            if item.value.revision > (result[item.key]?.revision ?? Int.min) { result[item.key] = item.value }
         }
         let kept = entries.filter { agent, entry in
             guard let signal = merged[agent] else { return !wasRecovering && !entry.isStale }
-            return !wasRecovering && entry.lastSeenRevision >= signal.revision
+            return !wasRecovering && revisionFloor(agent) >= signal.revision
         }
-        let unconfirmed = entries.filter { kept[$0.key] == nil && merged[$0.key] == nil }
-        droppedFloors = droppedFloors.filter { merged[$0.key] == nil }
-            .merging(unconfirmed.mapValues(\.lastSeenRevision)) { _, new in new }
-        tombstoned.subtract(merged.keys)
-        let fresh = merged.filter { kept[$0.key] == nil }.reduce(into: [String: Entry]()) { result, item in
-            let previous = entries[item.key]
-            let keepsAcknowledgement = previous?.committed == item.value
-            result[item.key] = Entry(
-                committed: item.value,
-                lastSeenRevision: item.value.revision,
-                acknowledgedRevision: keepsAcknowledgement ? previous?.acknowledgedRevision : nil
-            )
-        }
+        let fresh = merged.filter { kept[$0.key] == nil }.mapValues { Entry(committed: $0) }
         entries = kept.merging(fresh) { current, _ in current }
+        floors = merged.reduce(into: floors) { result, item in result[item.key] = max(revisionFloor(item.key), item.value.revision) }
         buffered = [:]
         isRecovering = false
         acknowledgeFocused()
@@ -183,18 +155,16 @@ struct LeoAttentionReducer: Equatable, Sendable {
 
     // MARK: Signals and time
 
+    private func revisionFloor(_ agent: String) -> Int { floors[agent] ?? Int.min }
+
     mutating func receive(agent: String, signal: LeoAttentionSignal, now: TimeInterval) {
-        tombstoned.remove(agent)
+        guard signal.revision > revisionFloor(agent) else { return }
         if isRecovering {
             if signal.revision > (buffered[agent]?.revision ?? Int.min) { buffered[agent] = signal }
             return
         }
-        if entries[agent] == nil, let floor = droppedFloors.removeValue(forKey: agent), signal.revision < floor {
-            renew(agent)
-        }
-        var entry = entries[agent] ?? Entry(lastSeenRevision: Int.min)
-        guard signal.revision > entry.lastSeenRevision else { return }
-        entry.lastSeenRevision = signal.revision
+        floors[agent] = signal.revision
+        var entry = entries[agent] ?? Entry()
         if entry.candidate?.signal.state == signal.state {
             // Same-state repeat: newest revision, original window.
             entry.candidate?.signal = signal
@@ -224,12 +194,12 @@ struct LeoAttentionReducer: Equatable, Sendable {
         let from = entry.committed?.state
         entry.committed = signal
         entry.candidate = nil
-        if isFocused && signal.state.needsAttention { entry.acknowledgedRevision = signal.revision }
+        if isFocused && signal.state.needsAttention { acknowledged[agent] = signal.revision }
         entries[agent] = entry
         let notifies = !isFocused && (signal.state == .needsInput || signal.state == .finished)
         return LeoAttentionTransition(
             id: LeoAgentRow.ID(host: host, name: agent), from: from, to: signal.state,
-            revision: signal.revision, shouldNotify: notifies, bootID: bootID, incarnation: incarnations[agent] ?? 0
+            revision: signal.revision, shouldNotify: notifies, bootID: bootID
         )
     }
 
@@ -243,59 +213,32 @@ struct LeoAttentionReducer: Equatable, Sendable {
     }
 
     private mutating func acknowledgeFocused() {
-        guard let agent = focusedAgent, var entry = entries[agent],
-              let committed = entry.committed, committed.state.needsAttention else { return }
-        entry.acknowledgedRevision = committed.revision
-        entries[agent] = entry
+        guard let agent = focusedAgent, let committed = entries[agent]?.committed,
+              committed.state.needsAttention else { return }
+        acknowledged[agent] = committed.revision
     }
 
-    /// A newly spawned agent may reuse a deleted one's name with revisions
-    /// starting over.
+    /// A newly spawned agent has no state yet, whatever an earlier agent
+    /// of that name had. Its revisions continue above the name's floor.
     mutating func resetAgent(_ name: String) {
         entries[name] = nil
         buffered[name] = nil
-        droppedFloors[name] = nil
-        tombstoned.remove(name)
-        renew(name)
+        spawnCount += 1
+        spawnMarks[name] = spawnCount
     }
-
-    /// Starts a new incarnation for `agent`.
-    private mutating func renew(_ agent: String) {
-        incarnationCounter += 1
-        incarnations[agent] = incarnationCounter
-    }
-
-    /// Tombstones kept for agents gone from the list (see `incarnations`).
-    static let tombstoneLimit = 64
 
     /// Pass the value read when a list fetch starts to `retain`, so the
     /// list can't drop an agent spawned (reset) after it was fetched.
-    var membershipMark: Int { incarnationCounter }
+    var membershipMark: Int { spawnCount }
 
-    /// Drops agents no longer in the agent list, leaving each a tombstone
-    /// incarnation (see `incarnations`). Agents reset after `mark` are newer
-    /// than the list and stay.
+    /// Drops the display state of agents no longer in the agent list; their
+    /// floors stay. Agents spawned after `mark` are newer than the list and
+    /// stay.
     mutating func retain(agents: Set<String>, listedSince mark: Int? = nil) {
-        let newer = mark.map { mark in Set(incarnations.filter { $0.value > mark }.keys) } ?? []
+        let newer = mark.map { mark in Set(spawnMarks.filter { $0.value > mark }.keys) } ?? []
         let listed = agents.union(newer).contains
-        let dropped = Set(entries.keys).union(buffered.keys).union(droppedFloors.keys).filter { !listed($0) }
         entries = entries.filter { listed($0.key) }
         buffered = buffered.filter { listed($0.key) }
-        tombstone(dropped)
-    }
-
-    /// Gives each of `agents` a new incarnation and marks it a tombstone,
-    /// then trims tombstones to the newest `tombstoneLimit`.
-    private mutating func tombstone(_ agents: Set<String>) {
-        for agent in agents.sorted() {
-            renew(agent)
-            droppedFloors[agent] = nil
-        }
-        tombstoned.formUnion(agents)
-        let excess = tombstoned.sorted { incarnations[$0, default: 0] < incarnations[$1, default: 0] }
-            .prefix(max(0, tombstoned.count - Self.tombstoneLimit))
-        excess.forEach { incarnations[$0] = nil }
-        tombstoned.subtract(excess)
     }
 
     // MARK: Queries
@@ -307,9 +250,6 @@ struct LeoAttentionReducer: Equatable, Sendable {
 
     /// Whether the daemon has reported semantic attention for `agent`.
     func isSupported(_ agent: String) -> Bool { entries[agent] != nil }
-
-    /// Incarnations kept for agents dropped from the list (tombstones).
-    var tombstoneCount: Int { tombstoned.count }
 
     func isStale(_ agent: String) -> Bool { entries[agent]?.isStale ?? false }
 
@@ -334,7 +274,7 @@ struct LeoAttentionReducer: Equatable, Sendable {
     /// Agents needing attention that focus has not yet acknowledged.
     func dockCount(among agents: Set<String>) -> Int {
         agents.filter { agent in
-            needsAttention(agent) && entries[agent]?.acknowledgedRevision != entries[agent]?.committed?.revision
+            needsAttention(agent) && acknowledged[agent] != entries[agent]?.committed?.revision
         }.count
     }
 

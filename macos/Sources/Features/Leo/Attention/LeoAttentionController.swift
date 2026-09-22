@@ -27,8 +27,7 @@ struct LeoAttentionNotification: Equatable, Sendable {
         case .local: "local"
         case .remote(let name): "remote.\(name)"
         }
-        let scope = "\(transition.bootID ?? "-").\(transition.incarnation)"
-        identifier = "\(Self.identifierPrefix)\(hostKey).\(id.name).\(scope).\(transition.revision)"
+        identifier = "\(Self.identifierPrefix)\(hostKey).\(id.name).\(transition.bootID ?? "-").\(transition.revision)"
         title = "\(id.name) · \(id.host.displayName)"
         userInfo = [Self.hostKey: Self.encode(id.host), Self.agentKey: id.name]
     }
@@ -55,7 +54,7 @@ struct LeoAttentionNotification: Equatable, Sendable {
 
 /// Opt-in notification policy (Agents ▸ Agent Notifications…). `.alert` is
 /// requested only from `enable()`; a denial is explained once. Posts each
-/// (host, agent, boot, incarnation, revision) at most once, and never
+/// (host, agent, boot, revision) at most once, and never
 /// catches up on states that existed before enabling (the reducer only
 /// emits live transitions).
 @MainActor final class LeoAttentionController {
@@ -67,9 +66,9 @@ struct LeoAttentionNotification: Equatable, Sendable {
     private let showDeniedInstructions: () -> Void
     /// The host whose feed is live now; a batch from any other host is late.
     private let currentHost: () -> LeoHostID?
-    /// The latest post per agent. Revisions only grow within one
-    /// `(bootID, incarnation)`, so that is enough to drop repeats; a new boot
-    /// or incarnation replaces it. Only the current host's agents are kept.
+    /// The latest post per agent. Revisions only grow per name within one
+    /// boot, so that is enough to drop repeats; a new boot replaces it. Only
+    /// the current host's agents are kept.
     private var lastPosted: [LeoAgentRow.ID: LeoAttentionTransition] = [:]
 
     init(
@@ -110,8 +109,7 @@ struct LeoAttentionNotification: Equatable, Sendable {
 
     private func alreadyPosted(_ transition: LeoAttentionTransition) -> Bool {
         guard let last = lastPosted[transition.id] else { return false }
-        return last.bootID == transition.bootID && last.incarnation == transition.incarnation
-            && last.revision >= transition.revision
+        return last.bootID == transition.bootID && last.revision >= transition.revision
     }
 }
 
