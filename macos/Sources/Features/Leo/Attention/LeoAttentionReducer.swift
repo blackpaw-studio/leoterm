@@ -56,6 +56,7 @@ struct LeoAttentionReducer: Equatable, Sendable {
     /// switch or daemon restart; others are incarnation 0. A dropped agent
     /// keeps its entry as a tombstone, so one recreated under the same name
     /// never reuses the incarnation its notifications were posted under.
+    /// At most `tombstoneLimit` tombstones are kept, the newest.
     private var incarnations: [String: Int] = [:]
 
     /// The focused agent's name, only when it belongs to `host`.
@@ -125,9 +126,12 @@ struct LeoAttentionReducer: Equatable, Sendable {
     ///   as `resetAgent` would.
     /// - Outside recovery live signals already applied are at least as new
     ///   as the snapshot, so those entries (and their candidates) stay.
-    /// - A fresh agent can be listed a few ms before its field is set, so a
-    ///   live (non-stale) entry the snapshot lacks is kept; the next signal
-    ///   stays authoritative.
+    /// - A fresh agent can be listed a few ms before its field is set, so
+    ///   outside recovery a live (non-stale) entry the snapshot lacks is
+    ///   kept; the next signal stays authoritative. In recovery the snapshot
+    ///   postdates every entry (an agent spawned since is buffered), so an
+    ///   entry it lacks belongs to a deleted -- maybe recreated -- agent and
+    ///   is dropped, leaving a tombstone.
     mutating func applyBaseline(_ baseline: [String: LeoAttentionSignal]) {
         let wasRecovering = isRecovering
         var merged = baseline
@@ -139,9 +143,10 @@ struct LeoAttentionReducer: Equatable, Sendable {
             incarnations[agent] = incarnationCounter
         }
         let kept = entries.filter { agent, entry in
-            guard let signal = merged[agent] else { return !entry.isStale }
+            guard let signal = merged[agent] else { return !wasRecovering && !entry.isStale }
             return !wasRecovering && entry.lastSeenRevision >= signal.revision
         }
+        let dropped = Set(entries.keys).subtracting(kept.keys).subtracting(merged.keys)
         let fresh = merged.filter { kept[$0.key] == nil }.reduce(into: [String: Entry]()) { result, item in
             let previous = entries[item.key]
             let keepsAcknowledgement = previous?.committed == item.value
@@ -153,6 +158,7 @@ struct LeoAttentionReducer: Equatable, Sendable {
         }
         entries = kept.merging(fresh) { current, _ in current }
         buffered = [:]
+        tombstone(dropped)
         isRecovering = false
         acknowledgeFocused()
     }
@@ -230,15 +236,36 @@ struct LeoAttentionReducer: Equatable, Sendable {
         incarnations[name] = incarnationCounter
     }
 
+    /// Tombstones kept for agents gone from the list (see `incarnations`).
+    static let tombstoneLimit = 64
+
+    /// Pass the value read when a list fetch starts to `retain`, so the
+    /// list can't drop an agent spawned (reset) after it was fetched.
+    var membershipMark: Int { incarnationCounter }
+
     /// Drops agents no longer in the agent list, leaving each a tombstone
-    /// incarnation (see `incarnations`).
-    mutating func retain(agents: Set<String>) {
-        for agent in Set(entries.keys).union(buffered.keys).subtracting(agents).sorted() {
+    /// incarnation (see `incarnations`). Agents reset after `mark` are newer
+    /// than the list and stay.
+    mutating func retain(agents: Set<String>, listedSince mark: Int? = nil) {
+        let newer = mark.map { mark in Set(incarnations.filter { $0.value > mark }.keys) } ?? []
+        let listed = agents.union(newer).contains
+        let dropped = Set(entries.keys).union(buffered.keys).filter { !listed($0) }
+        entries = entries.filter { listed($0.key) }
+        buffered = buffered.filter { listed($0.key) }
+        tombstone(dropped)
+    }
+
+    /// Gives each of `agents` a new incarnation, then trims tombstones
+    /// (agents with neither an entry nor a buffered signal) to the newest
+    /// `tombstoneLimit`.
+    private mutating func tombstone(_ agents: Set<String>) {
+        for agent in agents.sorted() {
             incarnationCounter += 1
             incarnations[agent] = incarnationCounter
         }
-        entries = entries.filter { agents.contains($0.key) }
-        buffered = buffered.filter { agents.contains($0.key) }
+        let tombstones = incarnations.filter { entries[$0.key] == nil && buffered[$0.key] == nil }
+        let excess = tombstones.sorted { $0.value < $1.value }.prefix(max(0, tombstones.count - Self.tombstoneLimit))
+        excess.forEach { incarnations[$0.key] = nil }
     }
 
     // MARK: Queries
@@ -250,6 +277,9 @@ struct LeoAttentionReducer: Equatable, Sendable {
 
     /// Whether the daemon has reported semantic attention for `agent`.
     func isSupported(_ agent: String) -> Bool { entries[agent] != nil }
+
+    /// Incarnations kept for agents with no entry (tombstones).
+    var tombstoneCount: Int { incarnations.keys.filter { entries[$0] == nil && buffered[$0] == nil }.count }
 
     func isStale(_ agent: String) -> Bool { entries[agent]?.isStale ?? false }
 

@@ -289,11 +289,12 @@ actor LeoSidebarFeed {
         // otherwise the attention reducer would stay recovering for good.
         var stateFetchStarted = false
         defer { if fetchState, !stateFetchStarted { needsState = true } }
+        let membershipMark = attention.membershipMark
         do {
             let rows = try await fetchList().map { Self.row($0, host: host) }
             guard running, generation == snapshot.generation, token == currentRefreshToken else { return }
             snapshot = LeoSidebarReducers.applyListResult(snapshot, result: LeoSidebarReducers.mergeActivity(rows, activityByName: activityByName), generation: generation)
-            retainAttention(for: rows)
+            retainAttention(for: rows, listedSince: membershipMark)
             recovering = false
             drainCoalescedActivity()
             let buffered = bufferedActivity

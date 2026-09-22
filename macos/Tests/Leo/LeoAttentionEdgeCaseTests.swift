@@ -153,12 +153,12 @@ struct LeoAttentionEdgeCaseTests {
 
     @Test func aBaselineMissingAFreshAgentsFieldKeepsItsSpawnedAttention() {
         var reducer = live()
+
+        // alpha spawns during a recovery whose /state caught it before its
+        // field was set.
+        reducer.beginRecovery()
         reducer.resetAgent("alpha")
         reducer.receive(agent: "alpha", signal: signal(.unknown, 1), now: 0)
-        _ = reducer.tick(now: 0.3)
-
-        // A recovery whose /state caught alpha before its field was set.
-        reducer.beginRecovery()
         reducer.applyBaseline([:])
 
         #expect(reducer.isSupported("alpha"))

@@ -47,8 +47,10 @@ extension LeoSidebarFeed {
         scheduleAttentionTick()
     }
 
-    func retainAttention(for rows: [LeoAgentRow]) {
-        attention.retain(agents: Set(rows.map(\.name)))
+    /// `mark` is `attention.membershipMark` read when the list fetch
+    /// started: an agent spawned while it was in flight stays.
+    func retainAttention(for rows: [LeoAgentRow], listedSince mark: Int) {
+        attention.retain(agents: Set(rows.map(\.name)), listedSince: mark)
         scheduleAttentionTick()
     }
 
