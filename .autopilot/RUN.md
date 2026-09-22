@@ -12,3 +12,4 @@ Wip: none
 - B-008 done: d806f8ecf c3edaf507 a80bd0475; review clean (1 low dismissed: stray .tmp on kill is harmless).
 - B-006: built 54ae397a2 e05e818b7 71d366ad1; verified by screenshot with autopilot-scratch (spawned claude-explorer, idle-suspend 30m); review 1 MED + 3 LOW sent back (attempt 1).
 - B-006 done: 54ae397a2 e05e818b7 71d366ad1 e07fa6b65; leftovers → B-016.
+- B-003 built: 7fd10dad9 6f92f70e9 9b466088a a0b838dcd 1c7c93e5f 7858fbda8 (818 tests). No UI → not visually verified; the SFTP-over-real-ssh path isn't exercised (no autopilot remote host).
