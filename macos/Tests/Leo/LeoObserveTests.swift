@@ -7,7 +7,7 @@ struct LeoObserveTests {
     @Test func activityClientDeliversSmallCompleteFrameImmediately() async throws {
         guard let url = URL(string: "http://127.0.0.1:8370") else { throw LeoDaemonError.transport("Invalid test URL") }
         let client = LeoActivityClient(config: LeoObserveConfig(baseURL: url, token: "token"), transport: SmallFrameTransport())
-        let event = try await nextWithinFiftyMilliseconds(from: await client.events())
+        let event = try await nextEventWhileStreamStaysOpen(from: await client.events())
         #expect(event == .agentActivity(seq: 1, at: nil, agent: "a", activity: .idle, currentAction: nil))
     }
 
@@ -78,14 +78,19 @@ struct LeoObserveTests {
         try Data(contentsOf: URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/\(name)"))
     }
 
-    private func nextWithinFiftyMilliseconds(from stream: AsyncStream<LeoObserveEvent>) async throws -> LeoObserveEvent? {
+    /// "Immediately" means without waiting for more bytes or EOF: the
+    /// transports that use this never finish their stream, so a client that
+    /// buffered a complete frame would never deliver it at all. The deadline
+    /// only turns that hang into a failure; it is not a latency budget (a
+    /// 50 ms one flaked under suite load).
+    private func nextEventWhileStreamStaysOpen(from stream: AsyncStream<LeoObserveEvent>) async throws -> LeoObserveEvent? {
         let result = NextEvent()
         let task = Task {
             var iterator = stream.makeAsyncIterator()
             await result.set(await iterator.next())
         }
         defer { task.cancel() }
-        await awaitCondition(timeout: 0.05, message: "Event was not delivered") { await result.isSet }
+        await awaitCondition(message: "Event was not delivered while the stream stayed open") { await result.isSet }
         return await result.value
     }
 }
