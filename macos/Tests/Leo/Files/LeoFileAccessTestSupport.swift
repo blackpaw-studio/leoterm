@@ -8,13 +8,59 @@ import Testing
 /// identically for local and remote.
 enum LeoFileBackendKind: String, CaseIterable, CustomTestStringConvertible, Sendable {
     case local
+    /// macOS's own `/usr/libexec/sftp-server` over pipes -- no ssh, no sshd.
+    case sftp
+    /// Tiny chunks and a narrow window, so every operation spans many
+    /// pipelined round trips.
+    case sftpSmallChunks
+    /// Ignores `posix-rename@openssh.com`, exercising REMOVE + RENAME.
+    case sftpWithoutPosixRename
 
     var testDescription: String { rawValue }
 
     func makeAccess() -> any LeoFileAccess {
         switch self {
         case .local: LeoFileAccessor.local()
+        case .sftp: LeoFileAccessor.sftp(launcher: LeoSFTPTestServer.launcher())
+        case .sftpSmallChunks:
+            LeoFileAccessor.sftp(launcher: LeoSFTPTestServer.launcher(), options: .init(chunkSize: 1000, maxRequestsInFlight: 3))
+        case .sftpWithoutPosixRename:
+            LeoFileAccessor.sftp(launcher: LeoSFTPTestServer.launcher(), options: .init(usesPosixRename: false))
         }
+    }
+}
+
+enum LeoSFTPTestServer {
+    static let executable = URL(fileURLWithPath: "/usr/libexec/sftp-server")
+
+    static func launcher() -> LeoSFTPProcessLauncher {
+        LeoSFTPProcessLauncher(executable: executable, arguments: [])
+    }
+
+    /// A fake server: `/bin/sh -c script`, speaking whatever bytes the
+    /// script prints. `versionReply` is a valid v3 `SSH_FXP_VERSION` frame.
+    static func script(_ script: String) -> LeoSFTPProcessLauncher {
+        LeoSFTPProcessLauncher(executable: URL(fileURLWithPath: "/bin/sh"), arguments: ["-c", script])
+    }
+
+    static let versionReply = #"printf '\000\000\000\005\002\000\000\000\003'"#
+}
+
+/// Counts launches, delegating to `base`.
+final class LeoCountingSFTPLauncher: LeoSFTPLaunching, @unchecked Sendable {
+    private let base: any LeoSFTPLaunching
+    private let lock = NSLock()
+    private var count = 0
+
+    init(_ base: any LeoSFTPLaunching) {
+        self.base = base
+    }
+
+    var launches: Int { lock.withLock { count } }
+
+    func launch() throws -> LeoSFTPChannel {
+        lock.withLock { count += 1 }
+        return try base.launch()
     }
 }
 
