@@ -264,9 +264,12 @@ struct LeoAttentionReducerTests {
         #expect(reducer.state(of: "alpha") == .working)
     }
 
-    @Test func baselineDropsAgentsItNoLongerReports() {
+    /// A live agent the snapshot merely lacks is kept (a fresh agent can be
+    /// listed before its field is set); deletion is the list's call.
+    @Test func baselineDropsAgentsTheListNoLongerHas() {
         var reducer = live(["alpha": signal(.finished, 1)])
         reducer.beginRecovery()
+        reducer.retain(agents: [])
         reducer.applyBaseline([:])
 
         #expect(reducer.state(of: "alpha") == nil)

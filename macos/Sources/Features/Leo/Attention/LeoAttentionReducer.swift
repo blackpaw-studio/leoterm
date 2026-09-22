@@ -52,8 +52,10 @@ struct LeoAttentionReducer: Equatable, Sendable {
     /// each `resetAgent` takes the next value as that agent's incarnation,
     /// so `(bootID, incarnation, revision)` never repeats for one agent.
     private var incarnationCounter = 0
-    /// Agents reset since the last host switch or daemon restart; others
-    /// are incarnation 0.
+    /// Agents reset, recreated or dropped from the list since the last host
+    /// switch or daemon restart; others are incarnation 0. A dropped agent
+    /// keeps its entry as a tombstone, so one recreated under the same name
+    /// never reuses the incarnation its notifications were posted under.
     private var incarnations: [String: Int] = [:]
 
     /// The focused agent's name, only when it belongs to `host`.
@@ -115,21 +117,32 @@ struct LeoAttentionReducer: Equatable, Sendable {
         }
     }
 
-    /// Replaces every entry with the authoritative `/state` snapshot (even at
-    /// a lower revision -- a restarted daemon starts over), then merges any
-    /// newer buffered signals. Never produces transitions. An agent whose
-    /// revision went backwards was recreated (e.g. while SSE was down), so
-    /// it starts a new incarnation, as `resetAgent` would.
+    /// Replaces entries with the authoritative `/state` snapshot, merged
+    /// with any newer buffered signals. Never produces transitions.
+    /// - In recovery the snapshot wins even at a lower revision (a restarted
+    ///   daemon starts over), and an agent whose revision went backwards was
+    ///   recreated (e.g. while SSE was down), so it starts a new incarnation,
+    ///   as `resetAgent` would.
+    /// - Outside recovery live signals already applied are at least as new
+    ///   as the snapshot, so those entries (and their candidates) stay.
+    /// - A fresh agent can be listed a few ms before its field is set, so a
+    ///   live (non-stale) entry the snapshot lacks is kept; the next signal
+    ///   stays authoritative.
     mutating func applyBaseline(_ baseline: [String: LeoAttentionSignal]) {
-        for (agent, signal) in baseline where signal.revision < (entries[agent]?.lastSeenRevision ?? Int.min) {
-            incarnationCounter += 1
-            incarnations[agent] = incarnationCounter
-        }
+        let wasRecovering = isRecovering
         var merged = baseline
         for (agent, signal) in buffered where signal.revision > (merged[agent]?.revision ?? Int.min) {
             merged[agent] = signal
         }
-        entries = merged.reduce(into: [:]) { result, item in
+        for (agent, signal) in baseline where wasRecovering && signal.revision < (entries[agent]?.lastSeenRevision ?? Int.min) {
+            incarnationCounter += 1
+            incarnations[agent] = incarnationCounter
+        }
+        let kept = entries.filter { agent, entry in
+            guard let signal = merged[agent] else { return !entry.isStale }
+            return !wasRecovering && entry.lastSeenRevision >= signal.revision
+        }
+        let fresh = merged.filter { kept[$0.key] == nil }.reduce(into: [String: Entry]()) { result, item in
             let previous = entries[item.key]
             let keepsAcknowledgement = previous?.committed == item.value
             result[item.key] = Entry(
@@ -138,6 +151,7 @@ struct LeoAttentionReducer: Equatable, Sendable {
                 acknowledgedRevision: keepsAcknowledgement ? previous?.acknowledgedRevision : nil
             )
         }
+        entries = kept.merging(fresh) { current, _ in current }
         buffered = [:]
         isRecovering = false
         acknowledgeFocused()
@@ -216,11 +230,15 @@ struct LeoAttentionReducer: Equatable, Sendable {
         incarnations[name] = incarnationCounter
     }
 
-    /// Drops agents no longer in the agent list.
+    /// Drops agents no longer in the agent list, leaving each a tombstone
+    /// incarnation (see `incarnations`).
     mutating func retain(agents: Set<String>) {
+        for agent in Set(entries.keys).union(buffered.keys).subtracting(agents).sorted() {
+            incarnationCounter += 1
+            incarnations[agent] = incarnationCounter
+        }
         entries = entries.filter { agents.contains($0.key) }
         buffered = buffered.filter { agents.contains($0.key) }
-        incarnations = incarnations.filter { agents.contains($0.key) }
     }
 
     // MARK: Queries
@@ -243,10 +261,12 @@ struct LeoAttentionReducer: Equatable, Sendable {
     /// The row badge. Without committed semantic attention (legacy daemon,
     /// or a first signal still settling) only `working` activity shows, as
     /// Working -- nothing else is invented, and nothing flickers while the
-    /// first candidate waits out its window.
+    /// first candidate waits out its window. A settling `unknown` (every
+    /// launch and resume) shows nothing: the daemon said it isn't working.
     func badge(for agent: String, legacyActivity: LeoAgentRow.Activity) -> LeoAttentionBadge? {
         guard let entry = entries[agent], let committed = entry.committed else {
-            return legacyActivity == .working ? .working : nil
+            let isSettlingUnknown = entries[agent]?.candidate?.signal.state == .unknown
+            return legacyActivity == .working && !isSettlingUnknown ? .working : nil
         }
         return entry.isStale ? nil : LeoAttentionBadge(committed.state)
     }
