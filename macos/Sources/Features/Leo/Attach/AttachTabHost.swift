@@ -21,8 +21,17 @@ enum AttachLifecycleEvent: Equatable, Sendable {
     case focusChanged(AttachmentHandle?)
 }
 
+extension Notification.Name {
+    /// Posted by `BaseTerminalController` whenever its `focusedSurface` is
+    /// assigned (object: the controller).
+    static let leoFocusedSurfaceDidChange = Notification.Name("studio.blackpaw.leo.focusedSurfaceDidChange")
+}
+
 @MainActor protocol AttachTabHost: AnyObject {
     var lifecycleEvents: AsyncStream<AttachLifecycleEvent> { get }
+    /// The attachment that is the focused surface of the key window of the
+    /// active app, if any. Changes are reported as `.focusChanged`.
+    var focusedHandle: AttachmentHandle? { get }
     /// `requestID` looks up the inherited `Ghostty.SurfaceConfiguration`
     /// (if any) from `LeoRequestConfigStore` -- see
     /// `GhosttyAttachTabHost.configuration(command:workingDirectory:requestID:)`.

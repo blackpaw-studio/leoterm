@@ -109,6 +109,8 @@ class AppDelegate: NSObject,
 
     // MARK: Leo
     let leoRuntime: LeoRuntime
+    /// Set once badge authorization has allowed the upstream bell badge.
+    private var bellDockBadgeAuthorized = false
 
     /// Creates an empty placeholder window (via the Leo-owned factory, which
     /// mirrors the upstream `newWindow(_:withBaseConfig:withParent:)`'s
@@ -245,6 +247,7 @@ class AppDelegate: NSObject,
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // MARK: Leo
+        leoRuntime.model.attentionCountChanged = { [weak self] _ in self?.writeDockBadge() }
         leoRuntime.start()
 
         // System settings overrides
@@ -792,11 +795,26 @@ class AppDelegate: NSObject,
     }
 
     private func setDockBadge() {
+        // MARK: Leo
+        // Only reached once badge authorization allows the bell badge.
+        bellDockBadgeAuthorized = true
+        writeDockBadge()
+    }
+
+    // MARK: Leo
+    /// The one Dock badge writer: the selected Leo host's attention count
+    /// takes precedence over the bell count (see `LeoDockBadge`). The
+    /// attention path writes directly -- `NSDockTile` needs no notification
+    /// authorization, so an agent needing input never triggers a prompt.
+    private func writeDockBadge() {
         let bellCount = NSApp.windows
             .compactMap { $0.windowController as? BaseTerminalController }
             .reduce(0) { $0 + ($1.bell ? 1 : 0) }
-        let wantsBadge = ghostty.config.bellFeatures.contains(.attention) && bellCount > 0
-        let label = wantsBadge ? (bellCount > 99 ? "99+" : String(bellCount)) : nil
+        let label = LeoDockBadge.label(
+            attentionCount: MainActor.assumeIsolated { leoRuntime.model.snapshot.attentionCount },
+            bellCount: bellCount,
+            bellBadgeEnabled: bellDockBadgeAuthorized && ghostty.config.bellFeatures.contains(.attention)
+        )
         NSApp.dockTile.badgeLabel = label
         NSApp.dockTile.display()
     }

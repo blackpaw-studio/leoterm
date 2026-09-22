@@ -392,6 +392,12 @@
                                     <action selector="newLeoAgent:" target="-1" id="Leo-New-Agent-Action"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Jump to Next Needing Attention" keyEquivalent="j" id="Leo-Agents-JumpAttention">
+                                <modifierMask key="keyEquivalentModifierMask" control="YES" option="YES" command="YES"/>
+                                <connections>
+                                    <action selector="jumpToNextLeoAgentNeedingAttention:" target="-1" id="Leo-Agents-JumpAttention-Action"/>
+                                </connections>
+                            </menuItem>
                             <menuItem isSeparatorItem="YES" id="Leo-Agents-Separator-1"/>
                             <menuItem title="Start" id="Leo-Agents-Start">
                                 <modifierMask key="keyEquivalentModifierMask"/>

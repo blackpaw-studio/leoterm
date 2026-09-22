@@ -126,8 +126,9 @@ struct LeoAgentRowView: View {
                 Text(row.name)
                     .fontWeight(.medium)
                     .lineLimit(1)
-                    .accessibilityLabel("\(row.name), \(LeoStatusPresentation.agentStatus(row.status).accessibilityLabel)")
+                    .accessibilityLabel(LeoStatusPresentation.rowAccessibilityLabel(row))
                 Spacer(minLength: 4)
+                attentionBadge
                 statusBadge
             }
             // Overlaid on the name line specifically, not the whole row:
@@ -154,17 +155,41 @@ struct LeoAgentRowView: View {
     }
 
     @ViewBuilder private var activityDot: some View {
-        switch row.activity {
-        case .working, .idle:
+        if row.attention == nil, row.activity != .unknown {
             let presentation = LeoStatusPresentation.activity(row.activity)
             Image(systemName: presentation.symbolName)
                 .resizable()
                 .frame(width: 7, height: 7)
                 .foregroundStyle(presentation.color)
                 .accessibilityHidden(true)
-        case .unknown:
-            // No activity data yet; not an error, so no glyph is shown.
+        } else {
+            // No activity data yet (not an error), or the attention badge
+            // already says it: no glyph.
             Color.clear.frame(width: 7, height: 7).accessibilityHidden(true)
+        }
+    }
+
+    /// Static (no animation) attention badge; the symbol's shape carries the
+    /// state for color-blind users and is hidden from VoiceOver, which reads
+    /// the state from the name's label instead. On a selected row it drops
+    /// to the primary color so it keeps contrast against the selection.
+    @ViewBuilder private var attentionBadge: some View {
+        if let attention = row.attention {
+            let presentation = LeoStatusPresentation.attention(attention)
+            let tint = isSelected ? Color.primary : presentation.color
+            HStack(spacing: 3) {
+                Image(systemName: presentation.symbolName).accessibilityHidden(true)
+                Text(presentation.accessibilityLabel)
+            }
+            .font(.caption)
+            .lineLimit(1)
+            .fixedSize()
+            .layoutPriority(1)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(tint.opacity(0.15), in: Capsule())
+            .foregroundStyle(tint)
+            .accessibilityHidden(true)
         }
     }
 

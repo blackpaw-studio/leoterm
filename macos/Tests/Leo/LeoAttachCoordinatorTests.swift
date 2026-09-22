@@ -381,6 +381,7 @@ import Testing
     var titles: [(AttachmentHandle, String?)] = []
     var handles: [AttachmentHandle] = []
     var openHandles: Set<AttachmentHandle> = []
+    var focusedHandle: AttachmentHandle?
     private let continuation: AsyncStream<AttachLifecycleEvent>.Continuation
     private var lifecycleAcknowledgement: CheckedContinuation<Void, Never>?
     let lifecycleEvents: AsyncStream<AttachLifecycleEvent>

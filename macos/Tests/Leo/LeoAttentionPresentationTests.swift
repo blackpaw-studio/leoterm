@@ -94,6 +94,18 @@ struct LeoAttentionPresentationTests {
         #expect(LeoDockBadge.label(attentionCount: 120, bellCount: 0, bellBadgeEnabled: true) == "99+")
     }
 
+    @Test @MainActor func sidebarModelReportsOnlyAttentionCountChanges() {
+        let model = LeoSidebarModel()
+        var counts: [Int] = []
+        model.attentionCountChanged = { counts.append($0) }
+
+        model.receive(.init(rows: [], connectivity: .connected, generation: 1, attentionCount: 2))
+        model.receive(.init(rows: [], connectivity: .connected, generation: 2, attentionCount: 2))
+        model.receive(.init(rows: [], connectivity: .connected, generation: 3, attentionCount: 0))
+
+        #expect(counts == [2, 0])
+    }
+
     private func id(_ name: String) -> LeoAgentRow.ID { .init(host: Self.host, name: name) }
     private func ids(_ names: String...) -> [LeoAgentRow.ID] { names.map(id) }
     private func row(_ name: String, attention: LeoAttentionBadge? = nil) -> LeoAgentRow {

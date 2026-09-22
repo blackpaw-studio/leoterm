@@ -10,10 +10,10 @@ import OSLog
     let registry: LeoWindowSessionRegistry
     let actions: LeoAgentActions
     let hostSelection: LeoHostSelection
-    private let feed: LeoSidebarFeed
+    let feed: LeoSidebarFeed
     private let cli: LeoCLI
     private let defaults: UserDefaults
-    private let attachCoordinator: LeoAttachCoordinator
+    let attachCoordinator: LeoAttachCoordinator
     let newSurfaceRouter: LeoNewSurfaceRouter
     private let picker: LeoWindowPickerRouter
     private let requestConfigStore: LeoRequestConfigStore
@@ -100,7 +100,8 @@ import OSLog
             report: { [weak model] error in
                 let id = LeoAgentRow.ID(host: error.identity.host, name: error.identity.name)
                 model?.setRowError(error.message, for: id)
-            }
+            },
+            focusedIdentityChanged: { identity in weakSelf?.focusedAgentChanged(identity) }
         )
         let pickerRouter = LeoWindowPickerRouter()
         let router = LeoNewSurfaceRouter(

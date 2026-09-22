@@ -12,6 +12,8 @@ import Foundation
     var startDaemonRequested: () -> Void = {}
     var retryRequested: () -> Void = {}
     var sshRequested: (String) -> Void = { _ in }
+    /// Fired when the Dock attention count changes (AppDelegate's badge writer).
+    var attentionCountChanged: (Int) -> Void = { _ in }
 
     init(snapshot: LeoSidebarSnapshot = .init(rows: [], connectivity: .loading, generation: 0)) { self.snapshot = snapshot }
 
@@ -19,7 +21,9 @@ import Foundation
 
     func receive(_ value: LeoSidebarSnapshot) {
         guard value.generation >= snapshot.generation else { return }
+        let previousAttentionCount = snapshot.attentionCount
         snapshot = value
+        if value.attentionCount != previousAttentionCount { attentionCountChanged(value.attentionCount) }
         if value.listRefreshSucceeded {
             rowErrors = [:]
             rowErrorCodes = [:]

@@ -11,14 +11,48 @@ import OSLog
     private let registry: LeoWindowSessionRegistry
     private let requestConfigStore: LeoRequestConfigStore
     private var attachments: [AttachmentHandle: Attachment] = [:]
+    private var focusObservers: [NSObjectProtocol] = []
+    private var reportedFocus: AttachmentHandle?
 
     init(registry: LeoWindowSessionRegistry, requestConfigStore: LeoRequestConfigStore) {
         self.registry = registry
         self.requestConfigStore = requestConfigStore
         (lifecycleEvents, continuation) = AsyncStream.makeStream()
+        observeFocus()
     }
 
-    deinit { continuation.finish() }
+    deinit {
+        continuation.finish()
+        focusObservers.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
+    /// Key window -> its selected tab's controller -> `focusedSurface`, so a
+    /// focused split counts. `nil` while the app is inactive.
+    var focusedHandle: AttachmentHandle? {
+        guard NSApp.isActive, let controller = NSApp.keyWindow?.windowController as? BaseTerminalController,
+              let surface = controller.focusedSurface else { return nil }
+        return attachments.first { $0.value.controller === controller && $0.value.surface === surface }?.key
+    }
+
+    private func observeFocus() {
+        let names: [Notification.Name] = [
+            NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification,
+            NSApplication.didBecomeActiveNotification, NSApplication.didResignActiveNotification,
+            .leoFocusedSurfaceDidChange
+        ]
+        focusObservers = names.map { name in
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.reportFocus() }
+            }
+        }
+    }
+
+    private func reportFocus() {
+        let handle = focusedHandle
+        guard handle != reportedFocus else { return }
+        reportedFocus = handle
+        continuation.yield(.focusChanged(handle))
+    }
 
     func openTab(command: String, workingDirectory: String?, from origin: LeoWindowID, requestID: UUID) throws -> AttachmentHandle {
         guard let source = registry.controller(for: origin) else { throw GhosttyAttachTabHostError.originWindowClosed }
@@ -233,6 +267,8 @@ import OSLog
                 queue: .main
             ) { [weak self] _ in MainActor.assumeIsolated { self?.close(handle) } }
         }
+        // Focus may already be on the new surface (no later notification).
+        DispatchQueue.main.async { [weak self] in self?.reportFocus() }
         return handle
     }
 
@@ -244,6 +280,7 @@ import OSLog
     private func close(_ handle: AttachmentHandle) {
         guard attachments.removeValue(forKey: handle) != nil else { return }
         continuation.yield(.closed(handle))
+        reportFocus()
     }
 }
 

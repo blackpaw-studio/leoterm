@@ -74,6 +74,18 @@ extension TerminalController {
         window?.contentViewController?.presentAsSheet(sheet)
     }
 
+    @IBAction func jumpToNextLeoAgentNeedingAttention(_ sender: Any?) {
+        guard let leoSession, let runtime = leoRuntime else { return }
+        runtime.jumpToNextNeedingAttention(from: leoSession)
+    }
+
+    func validateLeoJumpToAttentionMenuItem(_ item: NSMenuItem) -> Bool {
+        LeoMenuCommands.canJumpToNextNeedingAttention(
+            hasLeoSession: leoSession != nil,
+            hasTarget: leoRuntime?.nextAttentionTarget != nil
+        )
+    }
+
     func validateLeoAttachMenuItem(_ item: NSMenuItem) -> Bool {
         installLeoAgentsMenuDelegateIfNeeded(item.menu)
         return LeoMenuCommands.canAttach(selectedLeoAgentContext)

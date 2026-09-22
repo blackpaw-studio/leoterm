@@ -132,6 +132,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             identityByHandle[handle] = identity
             // The host may report focus on the new surface before it is
             // registered here.
+            focusedHandle = host.focusedHandle
             updateFocusedIdentity()
             host.setTitleSeed(handle, title: "\(identity.name) · \(identity.host.displayName)")
             return .success(handle)
