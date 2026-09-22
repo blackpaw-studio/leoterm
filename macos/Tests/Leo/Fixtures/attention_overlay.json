@@ -1,0 +1,6 @@
+{
+  "alpha": {"state": "needs_input", "revision": 1},
+  "beta": {"state": "finished", "revision": 1},
+  "gamma": {"state": "errored", "revision": 1},
+  "delta": {"state": "working", "revision": 1}
+}

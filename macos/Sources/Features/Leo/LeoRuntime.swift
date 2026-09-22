@@ -44,7 +44,10 @@ import OSLog
 
     convenience init(defaults: UserDefaults = .ghostty) {
         let socketPath = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath
-        let activity = LeoRuntime.makeSocketOrLegacyActivitySource(socketPath: socketPath)
+        var activity = LeoRuntime.makeSocketOrLegacyActivitySource(socketPath: socketPath)
+        #if DEBUG
+        if let overlay = LeoAttentionFixture.load() { activity = LeoAttentionFixture.wrap(activity, overlay: overlay) }
+        #endif
         let daemon = LeoRuntime.makeClient(socketPath: socketPath)
         self.init(daemon: daemon, cli: LeoCLI(), activitySource: activity, defaults: defaults)
     }
