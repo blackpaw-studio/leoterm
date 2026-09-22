@@ -31,7 +31,7 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
 /// the first A's teardown (kicked off by the A->B transition) is still
 /// running -- two live children at once.
 @MainActor final class LeoHostSelection: ObservableObject {
-    private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
+    static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
 
     @Published private(set) var hosts: [LeoHostConfiguration] = []
     @Published private(set) var selected: LeoHostID
@@ -44,9 +44,9 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
     let sshExecutable: URL
     private let transport: any LeoDaemonTransport
     private let orphanStore: LeoTunnelOrphanStore
-    private let fileManager: FileManager
+    let fileManager: FileManager
     private let localSocketPath: String
-    private let localSocketDirectory: URL
+    let localSocketDirectory: URL
     /// Fired synchronously for every state transition, tagged with the
     /// `(host, generation)` it belongs to -- `LeoRuntime` uses this to know
     /// exactly when a *switch* happened (a new `(host, generation)` pair)
@@ -342,26 +342,6 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
     private func prepareLocalSocketPath(configuration: LeoHostConfiguration) throws -> String {
         try ensureSocketDirectoryIsPrivate()
         return localSocketDirectory.appendingPathComponent(configuration.localSocketFileName).path
-    }
-
-    /// The tunnel's ControlMaster socket for `configuration`, beside its
-    /// forwarded socket in the owner-only directory. SFTP sessions for the
-    /// host multiplex over it (`LeoHostSelection.makeFileAccess()`).
-    func controlPath(for configuration: LeoHostConfiguration) -> String {
-        localSocketDirectory.appendingPathComponent(configuration.controlSocketFileName).path
-    }
-
-    /// A master that died without cleanup (crash, SIGKILL) leaves its socket
-    /// behind, and `ControlMaster=yes` then runs without multiplexing rather
-    /// than replace it. Safe to remove: the previous tunnel for this
-    /// selection is confirmed gone (`connect` awaited the teardown barrier).
-    private func removeStaleControlSocket(at path: String) {
-        guard fileManager.fileExists(atPath: path) else { return }
-        do {
-            try fileManager.removeItem(atPath: path)
-        } catch {
-            Self.logger.error("stale control socket removal failed path=\(path, privacy: .public) error=\(error.localizedDescription, privacy: .public)")
-        }
     }
 
     /// Owner-only (`0700`) mode: created that way if the directory is new,
