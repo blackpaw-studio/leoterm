@@ -20,17 +20,22 @@ Source: B-001 final review
 Accept: (a) medium, plausible: when clicking a row in a non-key window, the window's activation focus report can land after the tap (it's async via AsyncStream + Task, `LeoAttachCoordinator.swift:74`) and snap the selection back; make the click win deterministically; (b) the row's hover "Attach" button draws over the agent name (shot B-006-3.png); (c) low: `GhosttyAttachTabHost.focusedHandle` uses the controller's focusedSurface, not the first responder, so clicking back into the same terminal after selecting another row doesn't reselect; (d) low: app reactivation sends nil then the real focus, which overwrites an arrow-key selection.
 Source: B-006 reviews + visual check
 
+## B-017 · File-access polish   [ready (next run)]
+Accept: (a) fix the doc comment in `LeoHostConfiguration.swift:67-71` to say the hash covers the app's argv inputs, not ssh_config aliases; (b) home dirs longer than ~33 chars exceed the control-path budget and lose file access; consider a shorter token or a private short dir; (c) remote errors are vaguer than local ("Failure"); map SFTP status codes more finely where possible.
+Source: B-003 reviews
+
 ## B-002 · Request daemon `attention` field from the leo agent   [done]
 Accept: send the leo agent the exact contract from the spec's "Leo-daemon
 prerequisite" section; log the reply/ETA in DECISIONS.md. No leo repo edits.
 Source: attention spec; D-006
 Done: contract sent 2026-09-22 (D-010); leo accepted in principle, ETA pending Evan's approval of the daemon spec (D-011).
 
-## B-003 · File access layer (local FS + SFTP)   [ready]
+## B-003 · File access layer (local FS + SFTP)   [done]
 Accept: one `LeoFileAccess` protocol, local backend and SFTP backend over the
 existing SSH ControlMaster for the selected host; list dir, read, write
 (atomic), stat/mtime conflict check. Tests with a local sshd or fake.
 Source: Evan, vision session; D-003, D-007
+Done: 7fd10dad9 6f92f70e9 9b466088a a0b838dcd 1c7c93e5f 7858fbda8 4ee7c8353 515e6554b e780ead10 6f52a67c8 da7fca9c4 (839 tests; the shared contract suite runs against local, sftp-server over pipes, chunked, and no-posix-rename). No UI, so no screenshot. The opt-in E2E against localhost reached the real ControlMaster, but SFTP is disabled in this Mac's sshd_config.
 
 ## B-004 · Editor pane for surfaced files   [ready]
 Accept: ⌘-click a path / OSC 8 link in an agent's terminal opens it in a Leo

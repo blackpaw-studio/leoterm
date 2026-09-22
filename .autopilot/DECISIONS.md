@@ -50,7 +50,7 @@ Context: the spec's leo-daemon prerequisite
 Chose: autopilot messages the leo agent with the contract and builds the app side against fixtures. No leo repo edits.
 Why: Evan's choice; keeps the repo boundary
 Alternatives: Evan relays; autopilot edits the leo repo
-Commit:
+Commit: n/a (message only; see D-010, D-011)
 Veto: n/a (Evan)
 
 ## D-007 · 2026-09-22 · How agents surface files
@@ -184,7 +184,23 @@ Veto: [ ]
 ## D-023 · 2026-09-22 · SFTP backend: a hand-rolled SFTP v3 client over the ControlMaster
 Context: B-003, D-003
 Chose: a small Swift SFTP v3 client (pure packet codec + pipe transport) speaking to `ssh <ControlMaster opts> -s <host> sftp`; atomic overwrite via posix-rename@openssh.com when the server offers it; tests run against macOS `/usr/libexec/sftp-server` over pipes
-Why: principle 3 (rides the app's existing tunnel); no third-party dependency (licensing is on the stop list); fully testable without sshd
+Why: principle 3 (rides the app's tunnel); no third-party dependency (licensing is on the stop list); fully testable without sshd
 Alternatives: shelling out to `sftp -b` batch mode (brittle parsing, no conflict check); `ssh host cat/stat` commands (not SFTP, quoting risk); Citadel/libssh2 packages (new dependency, a second SSH stack alongside ControlMaster)
-Commit:
+Commit: 7fd10dad9 6f92f70e9 9b466088a a0b838dcd 1c7c93e5f 7858fbda8 4ee7c8353 515e6554b e780ead10 6f52a67c8 da7fca9c4
+Veto: [ ]
+
+## D-024 · 2026-09-22 · The app's SSH tunnel is now the ControlMaster
+Context: B-003: the app had no ControlMaster to reuse (the tunnel ran ControlMaster=no)
+Chose: the tunnel is the master, with ControlPersist=no. The socket is `~/.leo/state/leoterm/cm-<bundle8>-<id12>-<conn8>`; conn8 hashes target/user/port/identity. A stale socket is unlinked only if connect() is refused and lstat says it's a socket. If the path is invalid or occupied, the tunnel falls back to ControlPath=none and file access reports "unavailable". SFTP runs with ProxyCommand=/usr/bin/false plus sftp(1)'s overrides, so it never opens a second connection
+Why: D-003 needs SFTP over the existing connection; principle 3
+Alternatives: a separate ssh connection per SFTP session (a second auth, and can prompt)
+Commit: a0b838dcd e780ead10 da7fca9c4
+Veto: [ ]
+
+## D-025 · 2026-09-22 · File-access save semantics
+Context: B-003
+Chose: atomic temp+rename on both backends; the conflict token is mtime+size (SFTP v3 has whole-second mtime); a write through a symlink replaces its target; FIFOs/devices are never opened; paths must be absolute; after a disconnect, the next operation makes one fresh attempt with no background retry; save replaces the inode (documented: owner/group, ACLs, xattrs and hard links are lost)
+Why: atomic saves protect agents' files; principle 5 (no timers)
+Alternatives: in-place overwrite (torn writes)
+Commit: 7fd10dad9 6f92f70e9 9b466088a a0b838dcd 1c7c93e5f 7858fbda8 4ee7c8353 515e6554b e780ead10 6f52a67c8 da7fca9c4
 Veto: [ ]
