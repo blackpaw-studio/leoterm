@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Testing
 
@@ -97,7 +98,105 @@ import Testing
         #expect(host.focused.isEmpty)
     }
 
+    @Test func closingTheMostRecentSplitFallsBackToTheNextLiveOne() async {
+        let host = FakeAttachTabHost()
+        let coordinator = makeCoordinator(host: host)
+        await coordinator.attach(identity: local, from: origin, disposition: .reuseOrTab)
+        _ = await coordinator.attach(identity: local, request: splitRequest())
+        _ = await coordinator.attach(identity: local, request: splitRequest())
+        await host.emitAndWait(.focusChanged(host.handles[1]))
+        await host.emitAndWait(.focusChanged(host.handles[0]))
+
+        await host.emitAndWait(.closed(host.handles[0]))
+
+        #expect(coordinator.focusExisting(local))
+        #expect(host.focused == [host.handles[1]], "MRU order is handles[2], handles[1], handles[0]; [0] closed")
+    }
+
+    @Test func focusExistingSkipsAnExitedMostRecentHandle() async {
+        let host = FakeAttachTabHost()
+        let coordinator = makeCoordinator(host: host)
+        await coordinator.attach(identity: local, from: origin, disposition: .reuseOrTab)
+        _ = await coordinator.attach(identity: local, request: splitRequest())
+        await host.emitAndWait(.processExited(host.handles[1]))
+
+        #expect(coordinator.focusExisting(local))
+        #expect(host.focused == [host.handles[0]])
+    }
+
+    @Test func returnGoesThroughReuseOrTabAndFocusesTheLiveTab() async {
+        let host = FakeAttachTabHost()
+        let coordinator = makeCoordinator(host: host)
+        var dispositions: [AttachDisposition] = []
+        let returnKey = { (row: LeoAgentRow) in
+            LeoAttachActivation.activate(row: row, modifierFlags: []) { _, disposition in dispositions.append(disposition) }
+        }
+        await coordinator.attach(identity: local, from: origin, disposition: .reuseOrTab)
+
+        returnKey(row(local))
+        for disposition in dispositions { await coordinator.attach(identity: local, from: origin, disposition: disposition) }
+
+        #expect(dispositions == [.reuseOrTab])
+        #expect(host.tabCalls.count == 1)
+        #expect(host.windowCalls.isEmpty)
+        #expect(host.focused == [host.handles[0]])
+    }
+
     // MARK: Sidebar model
+
+    @Test func aCountOnlyChangeLeavesTheSelectionAlone() {
+        let model = makeModel()
+        model.receiveAttachLinks(LeoAttachLinkState(focused: id(local), tabCounts: [id(local): 1]))
+        model.selection = id(other)
+
+        model.receiveAttachLinks(LeoAttachLinkState(focused: id(local), tabCounts: [id(local): 2]))
+
+        #expect(model.selection == id(other))
+    }
+
+    @Test func anExplicitRowClickWinsOverTheActivatedWindowsFocus() {
+        let model = makeModel()
+        model.selection = id(other)
+        // Clicking `other` in a non-key window: the window becomes key and
+        // reports its own focused attach before the click completes.
+        model.receiveAttachLinks(LeoAttachLinkState(focused: id(local), tabCounts: [id(local): 1]))
+
+        model.rowClicked(row(other))
+
+        #expect(model.selection == id(other))
+    }
+
+    @Test func optionClickDoesNotFocusTheLiveTab() {
+        let model = makeModel()
+        var focusRequests: [LeoAgentRow.ID] = []
+        model.focusExistingRequested = { focusRequests.append($0.id) }
+        model.receiveAttachLinks(LeoAttachLinkState(focused: nil, tabCounts: [id(local): 1]))
+
+        model.rowClicked(row(local), modifierFlags: .option)
+
+        #expect(focusRequests.isEmpty)
+    }
+
+    @Test func switchingHostsBackReselectsTheFocusedRow() {
+        let model = makeModel()
+        model.receiveAttachLinks(LeoAttachLinkState(focused: id(local), tabCounts: [id(local): 1]))
+        model.receive(LeoSidebarSnapshot(rows: [row(remote)], connectivity: .connected, generation: 2))
+        #expect(model.selection == nil)
+
+        model.receive(LeoSidebarSnapshot(rows: [row(local), row(other)], connectivity: .connected, generation: 3))
+
+        #expect(model.selection == id(local))
+    }
+
+    @Test func aRefreshThatStillShowsTheFocusedRowKeepsTheSelection() {
+        let model = makeModel()
+        model.receiveAttachLinks(LeoAttachLinkState(focused: id(local), tabCounts: [id(local): 1]))
+        model.selection = id(other)
+
+        model.receive(LeoSidebarSnapshot(rows: [row(local), row(other)], connectivity: .connected, generation: 2))
+
+        #expect(model.selection == id(other))
+    }
 
     @Test func focusedRowBecomesTheSelection() {
         let model = makeModel()

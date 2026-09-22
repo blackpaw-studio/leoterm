@@ -26,7 +26,9 @@ import Foundation
     func receive(_ value: LeoSidebarSnapshot) {
         guard value.generation >= snapshot.generation else { return }
         let previousAttentionCount = snapshot.attentionCount
+        let previousRows = snapshot.rows
         snapshot = value
+        defer { reapplyFocusedRow(previousRows: previousRows) }
         if value.attentionCount != previousAttentionCount { attentionCountChanged(value.attentionCount) }
         if value.listRefreshSucceeded {
             rowErrors = [:]

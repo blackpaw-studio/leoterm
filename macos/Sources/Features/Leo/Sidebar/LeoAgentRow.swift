@@ -75,7 +75,7 @@ struct LeoAgentRowView: View {
     let tabCount: Int
     let attach: (LeoAgentRow, AttachDisposition) -> Void
     /// A single click; brings an existing attach forward when there is one.
-    let click: () -> Void
+    let click: (NSEvent.ModifierFlags) -> Void
     @ObservedObject var actions: LeoAgentActions
     let error: String?
     let errorCode: String?
@@ -97,7 +97,7 @@ struct LeoAgentRowView: View {
                 .onTapGesture(count: 2) { activate(source: .rowDoubleClick) }
                 // Simultaneous, so it neither delays the double-click nor
                 // takes the click away from the list's own selection.
-                .simultaneousGesture(TapGesture().onEnded { click() })
+                .simultaneousGesture(TapGesture().onEnded { click(NSEvent.modifierFlags) })
         }
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }

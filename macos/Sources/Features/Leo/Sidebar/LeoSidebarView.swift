@@ -165,7 +165,7 @@ struct LeoSidebarView: View {
                                     isSelected: model.selection == row.id,
                                     tabCount: model.tabCount(for: row.id),
                                     attach: { row, disposition in model.attachRequested(row, windowID, disposition) },
-                                    click: { model.rowClicked(row) },
+                                    click: { model.rowClicked(row, modifierFlags: $0) },
                                     actions: actions,
                                     error: model.rowErrors[row.id],
                                     errorCode: model.rowErrorCodes[row.id]
