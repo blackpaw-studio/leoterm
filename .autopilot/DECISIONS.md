@@ -180,3 +180,11 @@ Why: principle 2: never invent; don't fight the user's arrow keys
 Alternatives: always mirror focus
 Commit: 54ae397a2 e05e818b7 71d366ad1 e07fa6b65
 Veto: [ ]
+
+## D-023 · 2026-09-22 · SFTP backend: a hand-rolled SFTP v3 client over the ControlMaster
+Context: B-003, D-003
+Chose: a small Swift SFTP v3 client (pure packet codec + pipe transport) speaking to `ssh <ControlMaster opts> -s <host> sftp`; atomic overwrite via posix-rename@openssh.com when the server offers it; tests run against macOS `/usr/libexec/sftp-server` over pipes
+Why: principle 3 (rides the app's existing tunnel); no third-party dependency (licensing is on the stop list); fully testable without sshd
+Alternatives: shelling out to `sftp -b` batch mode (brittle parsing, no conflict check); `ssh host cat/stat` commands (not SFTP, quoting risk); Citadel/libssh2 packages (new dependency, a second SSH stack alongside ControlMaster)
+Commit:
+Veto: [ ]
