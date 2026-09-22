@@ -20,6 +20,9 @@ enum LeoFileAccessError: Error, Equatable, Sendable {
     /// Any other operating-system or server failure (disk full, read-only
     /// volume, a generic SFTP "Failure").
     case failed(path: String, reason: String)
+    /// File access can't work for this host at all, though its tunnel may
+    /// (e.g. the tunnel runs without the ControlMaster SFTP needs).
+    case unavailable(reason: String)
 
     /// The same error about `path` instead -- used when an operation on an
     /// internal temp file fails, so the user sees the file they saved.
@@ -32,7 +35,7 @@ enum LeoFileAccessError: Error, Equatable, Sendable {
         case .notADirectory: .notADirectory(path: path)
         case .isADirectory: .isADirectory(path: path)
         case let .failed(_, reason): .failed(path: path, reason: reason)
-        case .invalidPath, .disconnected, .protocolError: self
+        case .invalidPath, .disconnected, .protocolError, .unavailable: self
         }
     }
 
@@ -56,6 +59,7 @@ extension LeoFileAccessError: LocalizedError {
         case .disconnected: "The connection to the host was lost."
         case let .protocolError(detail): "The file server sent an unexpected response (\(detail))."
         case let .failed(path, reason): "Couldn’t access “\(Self.displayName(path))”: \(reason)."
+        case let .unavailable(reason): "File access unavailable: \(reason)."
         }
     }
 
@@ -63,6 +67,7 @@ extension LeoFileAccessError: LocalizedError {
         switch self {
         case .conflict: "Reload to see the current version, or save again to replace it."
         case .disconnected: "Reconnect to the host, then try again."
+        case .unavailable: "The host’s agents still work; only browsing and editing its files is affected."
         default: nil
         }
     }

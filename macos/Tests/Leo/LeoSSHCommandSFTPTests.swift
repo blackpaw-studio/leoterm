@@ -12,8 +12,47 @@ struct LeoSSHCommandSFTPTests {
             "-T", "-o", "BatchMode=yes",
             "-o", "ControlMaster=no", "-o", "ControlPath=/tmp/cm-build",
             "-o", "ProxyCommand=/usr/bin/false", "-o", "ClearAllForwardings=yes",
+            "-o", "RemoteCommand=none", "-o", "ForwardAgent=no", "-o", "ForwardX11=no", "-o", "PermitLocalCommand=no",
             "-i", "/keys/build", "-p", "2222", "-s", "evan@build.example", "sftp"
         ])
+    }
+
+    /// The overrides OpenSSH's own `sftp(1)` passes: a user config's
+    /// RemoteCommand would replace the subsystem, agent/X11 forwarding would
+    /// hand the remote side credentials it never needs, a LocalCommand would
+    /// run on every session, and the tunnel's forwards must not be
+    /// re-requested per session.
+    @Test func sftpOverridesUserConfigLikeOpenSSHsSFTPClient() throws {
+        let sftp = try command.sftpArguments(controlPath: "/tmp/cm-build")
+        #expect(Self.option("RemoteCommand", in: sftp) == "none")
+        #expect(Self.option("ForwardAgent", in: sftp) == "no")
+        #expect(Self.option("ForwardX11", in: sftp) == "no")
+        #expect(Self.option("PermitLocalCommand", in: sftp) == "no")
+        #expect(Self.option("ClearAllForwardings", in: sftp) == "yes")
+        let subsystem = try #require(sftp.firstIndex(of: "-s"))
+        let lastOverride = try #require(sftp.firstIndex(of: "PermitLocalCommand=no"))
+        #expect(lastOverride < subsystem, "options precede the target")
+    }
+
+    /// A control path ssh can't use (spaces, non-ASCII, too long) must not
+    /// cost the user the tunnel: it runs without a master instead.
+    @Test func aTunnelWithoutAControlPathDoesNotMultiplex() throws {
+        let tunnel = try command.tunnelArguments(localSocketPath: "/tmp/b.sock", remoteSocketPath: "/r/leo.sock", controlPath: nil)
+        #expect(tunnel == [
+            "-n", "-N", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes", "-o", "ExitOnForwardFailure=yes",
+            "-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=3",
+            "-o", "ControlMaster=no", "-o", "ControlPath=none",
+            "-o", "StreamLocalBindUnlink=yes", "-i", "/keys/build", "-p", "2222", "-L",
+            "/tmp/b.sock:/r/leo.sock", "evan@build.example"
+        ])
+    }
+
+    @Test(arguments: [
+        ("/tmp/cm-build", true), ("/Users/Evan Coleman/.leo/state/leoterm/cm", false), ("/Users/évan/cm", false),
+        ("/tmp/percent%h", false), ("relative/cm", false), ("/tmp/" + String(repeating: "a", count: 82), false)
+    ])
+    func classifiesControlPaths(_ path: String, _ isValid: Bool) {
+        #expect(LeoSSHCommand.isValidControlPath(path) == isValid)
     }
 
     @Test func sftpReusesTheTunnelsControlPathIdentityPortAndTarget() throws {

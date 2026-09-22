@@ -28,7 +28,9 @@ enum LeoHostSelectionTestSupport {
         runner: any LeoProcessRunning = LeoProcessRunner(),
         defaults: UserDefaults? = nil,
         orphanStore: LeoTunnelOrphanStore? = nil,
-        localSocketDirectory: URL = localSocketDirectory
+        localSocketDirectory: URL = localSocketDirectory,
+        sshExecutable: URL = LeoTunnelTestSupport.fixtureURL(),
+        controlSocketInstance: String = LeoHostSelection.defaultControlSocketInstance
     ) -> LeoHostSelection {
         let defaults = defaults ?? (UserDefaults(suiteName: "LeoHostSelectionTests.\(UUID().uuidString)") ?? .standard)
         if let data = try? JSONEncoder().encode(hosts) { defaults.set(data, forKey: LeoHostStore.key) }
@@ -36,11 +38,12 @@ enum LeoHostSelectionTestSupport {
             store: LeoHostStore(defaults: defaults),
             defaults: defaults,
             runner: runner,
-            sshExecutable: LeoTunnelTestSupport.fixtureURL(),
+            sshExecutable: sshExecutable,
             transport: transport,
             orphanStore: orphanStore,
             localSocketPath: localSocketPath,
-            localSocketDirectory: localSocketDirectory
+            localSocketDirectory: localSocketDirectory,
+            controlSocketInstance: controlSocketInstance
         )
     }
 
@@ -50,8 +53,28 @@ enum LeoHostSelectionTestSupport {
 
     /// Where the tunnel's ControlMaster socket lives -- and therefore the
     /// ControlPath every SFTP session must multiplex over.
-    static func expectedControlPath(_ configuration: LeoHostConfiguration, in directory: URL = localSocketDirectory) -> String {
-        directory.appendingPathComponent(configuration.controlSocketFileName).path
+    static func expectedControlPath(
+        _ configuration: LeoHostConfiguration,
+        in directory: URL = localSocketDirectory,
+        instance: String = LeoHostSelection.defaultControlSocketInstance
+    ) -> String {
+        directory.appendingPathComponent(configuration.controlSocketFileName(instance: instance)).path
+    }
+
+    /// A per-test `fake_ssh.py` wrapper that records its argv to `argvFile`
+    /// -- without touching the process-wide environment other suites'
+    /// tunnels also read.
+    static func argvRecordingSSH(in directory: URL, argvFile: String) throws -> URL {
+        let script = directory.appendingPathComponent("ssh")
+        let body = "#!/bin/sh\nFAKE_SSH_ARGV_FILE='\(argvFile)' exec '\(LeoTunnelTestSupport.fixtureURL().path)' \"$@\"\n"
+        try Data(body.utf8).write(to: script)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: script.path)
+        return script
+    }
+
+    static func recordedArgv(_ argvFile: String) async throws -> [String] {
+        await awaitCondition { FileManager.default.fileExists(atPath: argvFile) }
+        return try String(contentsOfFile: argvFile, encoding: .utf8).components(separatedBy: "\n")
     }
 
     /// A directory unique to one test, for tests that assert on the

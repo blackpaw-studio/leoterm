@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 enum LeoHostValidationError: Error, Equatable, Sendable {
@@ -58,13 +59,22 @@ struct LeoHostConfiguration: Codable, Hashable, Sendable, Identifiable {
         return "\(prefix)-\(suffix).sock"
     }
 
-    /// `cm-<first 12 hex of the uuid>`: the tunnel's ControlMaster socket,
-    /// beside `localSocketFileName`. Keyed by id alone (renaming a host must
-    /// not orphan its master) and kept short because ssh binds a temporary
+    /// `cm-<instance>-<first 12 hex of the uuid>`: the tunnel's ControlMaster
+    /// socket, beside `localSocketFileName`. `instance` scopes it to one app
+    /// bundle (`controlSocketInstance(bundleIdentifier:)`), since the debug
+    /// and production apps share the socket directory and must never touch
+    /// each other's master. Keyed by id, not name (renaming a host must not
+    /// orphan its master), and kept short because ssh binds a temporary
     /// `<path>.<16 random chars>` first, so the path gets 17 bytes less of
     /// the AF_UNIX limit than the forwarded socket does.
-    var controlSocketFileName: String {
-        "cm-" + id.uuidString.replacingOccurrences(of: "-", with: "").lowercased().prefix(12)
+    func controlSocketFileName(instance: String) -> String {
+        "cm-\(instance)-" + id.uuidString.replacingOccurrences(of: "-", with: "").lowercased().prefix(12)
+    }
+
+    /// The first 8 hex digits of the bundle identifier's SHA-256: short,
+    /// stable across launches, and path-safe whatever the identifier is.
+    static func controlSocketInstance(bundleIdentifier: String) -> String {
+        SHA256.hash(data: Data(bundleIdentifier.utf8)).prefix(4).map { String(format: "%02x", $0) }.joined()
     }
 
     func validate() -> [LeoHostValidationError] {

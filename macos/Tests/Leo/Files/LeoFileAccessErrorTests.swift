@@ -41,3 +41,12 @@ struct LeoFileAccessErrorTests {
         #expect(LeoFileAccessError.disconnected.retargeted(to: "/d/f") == .disconnected)
     }
 }
+
+extension LeoFileAccessErrorTests {
+    @Test func unavailableNamesTheReasonAndSuggestsWhatStillWorks() {
+        let error = LeoFileAccessError.unavailable(reason: "control path unsupported")
+        #expect(error.localizedDescription == "File access unavailable: control path unsupported.")
+        #expect(error.recoverySuggestion != nil)
+        #expect(error.retargeted(to: "/d/f") == error)
+    }
+}

@@ -44,9 +44,15 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
     let sshExecutable: URL
     private let transport: any LeoDaemonTransport
     private let orphanStore: LeoTunnelOrphanStore
-    let fileManager: FileManager
+    private let fileManager: FileManager
     private let localSocketPath: String
     let localSocketDirectory: URL
+    /// Scopes the ControlMaster socket name to this app bundle; see
+    /// `LeoHostConfiguration.controlSocketFileName(instance:)`.
+    let controlSocketInstance: String
+    static let defaultControlSocketInstance = LeoHostConfiguration.controlSocketInstance(
+        bundleIdentifier: Bundle.main.bundleIdentifier ?? "studio.blackpaw.leo"
+    )
     /// Fired synchronously for every state transition, tagged with the
     /// `(host, generation)` it belongs to -- `LeoRuntime` uses this to know
     /// exactly when a *switch* happened (a new `(host, generation)` pair)
@@ -70,6 +76,7 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
         localSocketPath: String = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath,
         localSocketDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".leo/state/leoterm", isDirectory: true),
+        controlSocketInstance: String = LeoHostSelection.defaultControlSocketInstance,
         connectionTarget: @escaping (LeoHostID, Int, LeoHostConnectionState) -> Void = { _, _, _ in }
     ) {
         self.store = store
@@ -81,6 +88,7 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
         self.fileManager = fileManager
         self.localSocketPath = localSocketPath
         self.localSocketDirectory = localSocketDirectory
+        self.controlSocketInstance = controlSocketInstance
         self.connectionTarget = connectionTarget
         if let value = defaults.string(forKey: "leo.selectedHost"), value != "localhost" {
             selected = .remote(value)
@@ -227,17 +235,15 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
         do {
             let remoteSocketPath = try await resolveRemoteSocketPath(configuration: configuration)
             let localPath = try prepareLocalSocketPath(configuration: configuration)
-            let controlPath = controlPath(for: configuration)
-            let arguments = try LeoSSHCommand(configuration: configuration).tunnelArguments(
-                localSocketPath: localPath, remoteSocketPath: remoteSocketPath, controlPath: controlPath
-            )
 
             // A newer select()/retry()/shutdown() -- itself synchronous up to
             // this point -- may have raced ahead while the async work above
-            // was in flight. Check again before ever constructing (let alone
-            // starting) a tunnel.
+            // was in flight. Check again before touching the control socket
+            // or ever constructing (let alone starting) a tunnel.
             guard generation == myGeneration, !isShutDown else { return }
-            removeStaleControlSocket(at: controlPath)
+            let arguments = try LeoSSHCommand(configuration: configuration).tunnelArguments(
+                localSocketPath: localPath, remoteSocketPath: remoteSocketPath, controlPath: multiplexingControlPath(for: configuration)
+            )
 
             let tunnel = LeoTunnel(
                 executable: sshExecutable,

@@ -69,9 +69,22 @@ struct LeoHostConfigurationTests {
         let first = LeoHostConfiguration(id: UUID(uuidString: "0A000000-0000-0000-0000-000000000001")!, name: "Some long host name", sshTarget: "build")
         let renamed = LeoHostConfiguration(id: first.id, name: "x", sshTarget: "build")
         let second = LeoHostConfiguration(id: UUID(uuidString: "1B000000-0000-0000-0000-000000000002")!, name: "x", sshTarget: "build")
-        #expect(first.controlSocketFileName == "cm-0a0000000000")
-        #expect(first.controlSocketFileName == renamed.controlSocketFileName)
-        #expect(first.controlSocketFileName != second.controlSocketFileName)
+        #expect(first.controlSocketFileName(instance: "1234abcd") == "cm-1234abcd-0a0000000000")
+        #expect(first.controlSocketFileName(instance: "1234abcd") == renamed.controlSocketFileName(instance: "1234abcd"))
+        #expect(first.controlSocketFileName(instance: "1234abcd") != second.controlSocketFileName(instance: "1234abcd"))
+    }
+
+    /// The debug and production bundles share `~/.leo/state/leoterm`; each
+    /// must own its own master socket for the same host.
+    @Test func controlSocketFileNameIsScopedToTheAppInstance() {
+        let host = LeoHostConfiguration(name: "build", sshTarget: "build")
+        let production = LeoHostConfiguration.controlSocketInstance(bundleIdentifier: "studio.blackpaw.leo")
+        let debug = LeoHostConfiguration.controlSocketInstance(bundleIdentifier: "studio.blackpaw.leo.debug")
+
+        #expect(production.count == 8)
+        #expect(production.allSatisfy { $0.isHexDigit && !$0.isUppercase })
+        #expect(production == LeoHostConfiguration.controlSocketInstance(bundleIdentifier: "studio.blackpaw.leo"), "stable across launches")
+        #expect(host.controlSocketFileName(instance: production) != host.controlSocketFileName(instance: debug))
     }
 
     @Test(arguments: ["[::1]", "::1", "host:1:2", "[host]:22"])
