@@ -71,7 +71,11 @@ struct LeoDeleteSheetActionAvailability {
 struct LeoAgentRowView: View {
     let row: LeoAgentRow
     let isSelected: Bool
+    /// Live attach tabs/splits for this agent (B-006).
+    let tabCount: Int
     let attach: (LeoAgentRow, AttachDisposition) -> Void
+    /// A single click; brings an existing attach forward when there is one.
+    let click: () -> Void
     @ObservedObject var actions: LeoAgentActions
     let error: String?
     let errorCode: String?
@@ -91,6 +95,9 @@ struct LeoAgentRowView: View {
             rowDetails
                 .contentShape(Rectangle())
                 .onTapGesture(count: 2) { activate(source: .rowDoubleClick) }
+                // Simultaneous, so it neither delays the double-click nor
+                // takes the click away from the list's own selection.
+                .simultaneousGesture(TapGesture().onEnded { click() })
         }
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
@@ -141,12 +148,20 @@ struct LeoAgentRowView: View {
                     attachAffordance
                 }
             }
-            if let subtitle = presentation.subtitle {
-                // VoiceOver already hears the state on the name's label, so
-                // the subtitle reads only the template, as it did before.
-                subtitleText(subtitle).font(.caption).lineLimit(1)
-                    .accessibilityLabel(subtitle.template ?? "")
-                    .accessibilityHidden(subtitle.template == nil)
+            // The tab glyph lives on the subtitle line, never the name line,
+            // so it costs the name no width.
+            if presentation.subtitle != nil || presentation.tabs != nil {
+                HStack(spacing: 4) {
+                    if let subtitle = presentation.subtitle {
+                        // VoiceOver already hears the state on the name's label, so
+                        // the subtitle reads only the template, as it did before.
+                        subtitleText(subtitle).font(.caption).lineLimit(1)
+                            .accessibilityLabel(subtitle.template ?? "")
+                            .accessibilityHidden(subtitle.template == nil)
+                    }
+                    Spacer(minLength: 4)
+                    tabsGlyph
+                }
             }
             if let detail = row.actionDetail, !detail.isEmpty {
                 Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1)
@@ -174,7 +189,7 @@ struct LeoAgentRowView: View {
     }
 
     private var presentation: LeoAgentRowPresentation {
-        LeoAgentRowPresentation(row: row, isSelected: isSelected)
+        LeoAgentRowPresentation(row: row, isSelected: isSelected, tabCount: tabCount)
     }
 
     /// "claude · Needs Input": the template in secondary, the attention
@@ -205,6 +220,23 @@ struct LeoAgentRowView: View {
                 .fixedSize()
                 .layoutPriority(1)
                 .accessibilityHidden(true)
+        }
+    }
+
+    /// Static, secondary-colored: the agent has live attach tabs. The
+    /// number appears only from two up.
+    @ViewBuilder private var tabsGlyph: some View {
+        if let tabs = presentation.tabs {
+            HStack(spacing: 2) {
+                Image(systemName: LeoAgentRowPresentation.Tabs.symbolName)
+                if let countText = tabs.countText { Text(countText).monospacedDigit() }
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .fixedSize()
+            .help(tabs.accessibilityLabel)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(tabs.accessibilityLabel)
         }
     }
 

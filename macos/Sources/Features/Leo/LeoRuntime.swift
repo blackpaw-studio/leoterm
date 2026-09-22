@@ -111,7 +111,8 @@ import OSLog
                 let id = LeoAgentRow.ID(host: error.identity.host, name: error.identity.name)
                 model?.setRowError(error.message, for: id)
             },
-            focusedIdentityChanged: { identity in weakSelf?.focusedAgentChanged(identity) }
+            focusedIdentityChanged: { identity in weakSelf?.focusedAgentChanged(identity) },
+            linkStateChanged: { [weak model] links in model?.receiveAttachLinks(links) }
         )
         let pickerRouter = LeoWindowPickerRouter()
         let router = LeoNewSurfaceRouter(
@@ -214,6 +215,7 @@ import OSLog
             model?.selection = row.id
             Task { await attachCoordinator?.attach(identity: row.identity, from: origin, disposition: disposition) }
         }
+        model.focusExistingRequested = { [weak attachCoordinator] row in attachCoordinator?.focusExisting(row.identity) }
 
         // `hostSelection`'s `connectionTarget` (wired above) closes over
         // `weakSelf`, which can only be set once `self` is fully

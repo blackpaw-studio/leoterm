@@ -160,10 +160,17 @@ struct LeoSidebarView: View {
                     ForEach(LeoSidebarSectioning.sections(for: model.visibleRows)) { section in
                         Section(header: Text(section.title)) {
                             ForEach(section.rows) { row in
-                                LeoAgentRowView(row: row, isSelected: model.selection == row.id, attach: { row, disposition in
-                                    model.attachRequested(row, windowID, disposition)
-                                }, actions: actions, error: model.rowErrors[row.id], errorCode: model.rowErrorCodes[row.id])
-                                    .tag(row.id)
+                                LeoAgentRowView(
+                                    row: row,
+                                    isSelected: model.selection == row.id,
+                                    tabCount: model.tabCount(for: row.id),
+                                    attach: { row, disposition in model.attachRequested(row, windowID, disposition) },
+                                    click: { model.rowClicked(row) },
+                                    actions: actions,
+                                    error: model.rowErrors[row.id],
+                                    errorCode: model.rowErrorCodes[row.id]
+                                )
+                                .tag(row.id)
                             }
                         }
                     }
