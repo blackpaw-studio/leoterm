@@ -76,3 +76,11 @@ Why: Evan's choice
 Alternatives: files first; attention first
 Commit: n/a
 Veto: n/a (Evan)
+
+## D-010 · 2026-09-22 · Sent the attention contract to the leo agent
+Context: B-002
+Chose: sent the spec's prerequisite verbatim (optional `attention: {state, revision}` on agent_activity, /state, spawn payloads) and asked for an ETA or counter-proposal; told it not to restart the daemon on our account
+Why: D-006; app side proceeds against fixtures
+Alternatives: wait to send until B-001 ships (delays the daemon side for no gain)
+Commit: n/a (message only)
+Veto: [ ]

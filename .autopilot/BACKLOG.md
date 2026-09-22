@@ -11,10 +11,11 @@ for every transition. Legacy daemons show Working only. Screenshot row badges
 using fixture/scratch data.
 Source: roadmap Tier 1
 
-## B-002 · Request daemon `attention` field from the leo agent   [ready]
+## B-002 · Request daemon `attention` field from the leo agent   [done]
 Accept: send the leo agent the exact contract from the spec's "Leo-daemon
 prerequisite" section; log the reply/ETA in DECISIONS.md. No leo repo edits.
 Source: attention spec; D-006
+Done: contract sent to leo agent 2026-09-22 (D-010); reply pending.
 
 ## B-003 · File access layer (local FS + SFTP)   [ready]
 Accept: one `LeoFileAccess` protocol, local backend and SFTP backend over the
