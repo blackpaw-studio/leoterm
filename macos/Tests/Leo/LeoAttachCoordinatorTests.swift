@@ -125,7 +125,7 @@ import Testing
         await coordinator.attach(identity: remoteIdentity, from: origin, disposition: .reuseOrTab)
 
         #expect(builtFor == remoteIdentity)
-        #expect(host.tabCalls.first?.0 == "env -u TMUX -u TMUX_PANE ssh -t 'work' 'leo agent attach -- worker'")
+        #expect(host.tabCalls.first?.command == "env -u TMUX -u TMUX_PANE ssh -t 'work' 'leo agent attach -- worker'")
     }
 
     @Test func remoteCommandBuilderFailureReportsExecutableError() async {
@@ -157,7 +157,7 @@ import Testing
 
         #expect(host.tabCalls.count == 1)
         #expect(host.splitCalls.count == 2)
-        #expect(host.splitCalls.allSatisfy { $0.3 == source && $0.4 == .right })
+        #expect(host.splitCalls.allSatisfy { $0.sourceSurface == source && $0.direction == .right })
     }
 
     @Test func splitWithoutSourceSurfaceReportsAndOpensNothing() async {
@@ -216,7 +216,7 @@ import Testing
         let result = await coordinator.openPlainShell(request: request)
 
         #expect(host.tabCalls.count == 1)
-        #expect(host.tabCalls.first?.0 == "")
+        #expect(host.tabCalls.first?.command == "")
         if case .success = result {} else { Issue.record("expected success") }
         // A second plain shell for the same origin/tab disposition must not
         // reuse -- plain shells carry no identity to key reuse on.
@@ -370,12 +370,39 @@ import Testing
     }
 }
 
+/// One recorded `AttachTabHost` open call; fields a given entry point
+/// doesn't take stay `nil`.
+private struct FakeOpenCall {
+    let command: String
+    let workingDirectory: String?
+    let origin: LeoWindowID?
+    let sourceSurface: UUID?
+    let direction: LeoSplitDirection?
+    let requestID: UUID
+
+    init(
+        command: String,
+        workingDirectory: String?,
+        origin: LeoWindowID? = nil,
+        sourceSurface: UUID? = nil,
+        direction: LeoSplitDirection? = nil,
+        requestID: UUID
+    ) {
+        self.command = command
+        self.workingDirectory = workingDirectory
+        self.origin = origin
+        self.sourceSurface = sourceSurface
+        self.direction = direction
+        self.requestID = requestID
+    }
+}
+
 @MainActor private final class FakeAttachTabHost: AttachTabHost {
     var openError: Error?
-    var tabCalls: [(String, String?, LeoWindowID, UUID)] = []
-    var windowCalls: [(String, String?, UUID)] = []
-    var splitCalls: [(String, String?, LeoWindowID, UUID, LeoSplitDirection, UUID)] = []
-    var placeholderCalls: [(String, String?, LeoWindowID, UUID)] = []
+    var tabCalls: [FakeOpenCall] = []
+    var windowCalls: [FakeOpenCall] = []
+    var splitCalls: [FakeOpenCall] = []
+    var placeholderCalls: [FakeOpenCall] = []
     var placeholderSurfaceIDs: [UUID?] = []
     var focused: [AttachmentHandle] = []
     var titles: [(AttachmentHandle, String?)] = []
@@ -391,12 +418,12 @@ import Testing
     }
 
     func openTab(command: String, workingDirectory: String?, from origin: LeoWindowID, requestID: UUID) throws -> AttachmentHandle {
-        tabCalls.append((command, workingDirectory, origin, requestID))
+        tabCalls.append(FakeOpenCall(command: command, workingDirectory: workingDirectory, origin: origin, requestID: requestID))
         return try opened()
     }
 
     func openWindow(command: String, workingDirectory: String?, requestID: UUID) throws -> AttachmentHandle {
-        windowCalls.append((command, workingDirectory, requestID))
+        windowCalls.append(FakeOpenCall(command: command, workingDirectory: workingDirectory, requestID: requestID))
         return try opened()
     }
 
@@ -408,12 +435,19 @@ import Testing
         direction: LeoSplitDirection,
         requestID: UUID
     ) throws -> AttachmentHandle {
-        splitCalls.append((command, workingDirectory, origin, sourceSurface, direction, requestID))
+        splitCalls.append(FakeOpenCall(
+            command: command,
+            workingDirectory: workingDirectory,
+            origin: origin,
+            sourceSurface: sourceSurface,
+            direction: direction,
+            requestID: requestID
+        ))
         return try opened()
     }
 
     func fillPlaceholder(command: String, workingDirectory: String?, origin: LeoWindowID, surfaceID: UUID?, requestID: UUID) throws -> AttachmentHandle {
-        placeholderCalls.append((command, workingDirectory, origin, requestID))
+        placeholderCalls.append(FakeOpenCall(command: command, workingDirectory: workingDirectory, origin: origin, requestID: requestID))
         placeholderSurfaceIDs.append(surfaceID)
         return try opened()
     }
