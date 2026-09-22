@@ -294,19 +294,78 @@ import Testing
         #expect(host.placeholderSurfaceIDs == [surfaceID])
     }
 
+    // MARK: Focused identity
+
+    @Test func focusedHandleMapsToItsIdentity() async {
+        let host = FakeAttachTabHost()
+        var changes: [LeoAgentIdentity?] = []
+        let coordinator = makeCoordinator(host: host, focusedIdentityChanged: { changes.append($0) })
+        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+
+        await host.emitAndWait(.focusChanged(host.handles[0]))
+
+        #expect(coordinator.focusedIdentity == identity)
+        #expect(changes == [identity])
+    }
+
+    @Test func focusingAnUntrackedSurfaceClearsTheIdentity() async {
+        let host = FakeAttachTabHost()
+        var changes: [LeoAgentIdentity?] = []
+        let coordinator = makeCoordinator(host: host, focusedIdentityChanged: { changes.append($0) })
+        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+        await host.emitAndWait(.focusChanged(host.handles[0]))
+
+        await host.emitAndWait(.focusChanged(AttachmentHandle(surfaceID: UUID(), windowID: origin)))
+        await host.emitAndWait(.focusChanged(nil))
+
+        #expect(coordinator.focusedIdentity == nil)
+        #expect(changes == [identity, nil], "repeated nil is not a change")
+    }
+
+    @Test(arguments: [AttachLifecycleEvent.Kind.closed, .processExited])
+    fileprivate func focusedAttachmentEndingClearsTheIdentity(_ kind: AttachLifecycleEvent.Kind) async {
+        let host = FakeAttachTabHost()
+        var changes: [LeoAgentIdentity?] = []
+        let coordinator = makeCoordinator(host: host, focusedIdentityChanged: { changes.append($0) })
+        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+        await host.emitAndWait(.focusChanged(host.handles[0]))
+
+        await host.emitAndWait(kind.event(host.handles[0]))
+
+        #expect(coordinator.focusedIdentity == nil)
+        #expect(changes == [identity, nil])
+    }
+
+    @Test func splitOfTheSameAgentKeepsItFocused() async {
+        let host = FakeAttachTabHost()
+        let coordinator = makeCoordinator(host: host)
+        let splitSource = UUID()
+        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+        _ = await coordinator.attach(
+            identity: identity,
+            request: LeoSurfaceRequest(origin: origin, disposition: .split(.right), splitSourceSurface: splitSource)
+        )
+
+        await host.emitAndWait(.focusChanged(host.handles[1]))
+
+        #expect(coordinator.focusedIdentity == identity)
+    }
+
     private func makeCoordinator(
         host: FakeAttachTabHost,
         report: @escaping (LeoAttachError) -> Void = { _ in },
         remoteCommandBuilder: @escaping (LeoAgentIdentity) throws -> String = { _ in
             throw LeoDaemonError.hostUnavailable("Remote attach is not configured")
-        }
+        },
+        focusedIdentityChanged: @escaping (LeoAgentIdentity?) -> Void = { _ in }
     ) -> LeoAttachCoordinator {
         LeoAttachCoordinator(
             host: host,
             executable: { "/leo" },
             remoteCommandBuilder: remoteCommandBuilder,
             report: report,
-            lifecycleEventHandled: { host.acknowledge($0) }
+            lifecycleEventHandled: { host.acknowledge($0) },
+            focusedIdentityChanged: focusedIdentityChanged
         )
     }
 }

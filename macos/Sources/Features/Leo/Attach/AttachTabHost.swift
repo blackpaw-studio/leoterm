@@ -15,6 +15,10 @@ enum AttachLifecycleEvent: Equatable, Sendable {
     case closed(AttachmentHandle)
     case titleChanged(AttachmentHandle, String)
     case processExited(AttachmentHandle)
+    /// The attachment (if any) that is now the focused surface of the key
+    /// window, or `nil` when focus left every attachment (another surface,
+    /// no key window, app inactive).
+    case focusChanged(AttachmentHandle?)
 }
 
 @MainActor protocol AttachTabHost: AnyObject {

@@ -37,10 +37,15 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     private let remoteCommandBuilder: (LeoAgentIdentity) throws -> String
     private let report: (LeoAttachError) -> Void
     private let lifecycleEventHandled: (AttachLifecycleEvent) -> Void
+    private let focusedIdentityChanged: (LeoAgentIdentity?) -> Void
+    private(set) var focusedIdentity: LeoAgentIdentity?
     private var handlesByIdentity: [LeoAgentIdentity: [AttachmentHandle]] = [:]
     private var identityByHandle: [AttachmentHandle: LeoAgentIdentity] = [:]
     private var inactive: Set<AttachmentHandle> = []
     private var attachInProgress: Set<LeoAgentIdentity> = []
+    /// The host's last reported focused attachment; mapped to an identity
+    /// only through `identityByHandle` (never titles or sidebar selection).
+    private var focusedHandle: AttachmentHandle?
     private var lifecycleTask: Task<Void, Never>?
 
     init(
@@ -50,13 +55,15 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             throw LeoDaemonError.hostUnavailable("Remote attach is not configured")
         },
         report: @escaping (LeoAttachError) -> Void,
-        lifecycleEventHandled: @escaping (AttachLifecycleEvent) -> Void = { _ in }
+        lifecycleEventHandled: @escaping (AttachLifecycleEvent) -> Void = { _ in },
+        focusedIdentityChanged: @escaping (LeoAgentIdentity?) -> Void = { _ in }
     ) {
         self.host = host
         self.executable = executable
         self.remoteCommandBuilder = remoteCommandBuilder
         self.report = report
         self.lifecycleEventHandled = lifecycleEventHandled
+        self.focusedIdentityChanged = focusedIdentityChanged
         lifecycleTask = Task { [weak self, events = host.lifecycleEvents] in
             for await event in events {
                 guard !Task.isCancelled else { return }
@@ -123,6 +130,9 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             let handle = try createHandle(command: command, workingDirectory: workingDirectory, request: request)
             handlesByIdentity[identity, default: []].append(handle)
             identityByHandle[handle] = identity
+            // The host may report focus on the new surface before it is
+            // registered here.
+            updateFocusedIdentity()
             host.setTitleSeed(handle, title: "\(identity.name) · \(identity.host.displayName)")
             return .success(handle)
         } catch {
@@ -174,7 +184,10 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     }
 
     private func receive(_ event: AttachLifecycleEvent) {
-        defer { lifecycleEventHandled(event) }
+        defer {
+            updateFocusedIdentity()
+            lifecycleEventHandled(event)
+        }
         switch event {
         case .closed(let handle): remove(handle)
         case .processExited(let handle):
@@ -188,7 +201,18 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         case .titleChanged(let handle, let title):
             guard !title.isEmpty, identityByHandle[handle] != nil else { return }
             host.setTitleSeed(handle, title: nil)
+        case .focusChanged(let handle):
+            focusedHandle = handle
         }
+    }
+
+    /// An exited attachment shows a placeholder, not the agent, so it no
+    /// longer counts as viewing it.
+    private func updateFocusedIdentity() {
+        let identity = focusedHandle.flatMap { inactive.contains($0) ? nil : identityByHandle[$0] }
+        guard identity != focusedIdentity else { return }
+        focusedIdentity = identity
+        focusedIdentityChanged(identity)
     }
 
     private func discardDeadHandles(for identity: LeoAgentIdentity) {

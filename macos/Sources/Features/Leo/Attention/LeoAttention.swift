@@ -49,6 +49,8 @@ enum LeoAttentionBadge: Equatable, Sendable {
         case .unknown: return nil
         }
     }
+
+    var needsAttention: Bool { self != .working }
 }
 
 /// A committed *live* change of an agent's attention state, emitted by

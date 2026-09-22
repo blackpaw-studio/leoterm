@@ -76,6 +76,27 @@ enum LeoStatusPresentation {
         }
     }
 
+    /// The attention badge on an agent row (see the attention spec).
+    static func attention(_ badge: LeoAttentionBadge) -> Presentation {
+        switch badge {
+        case .working:
+            return Presentation(symbolName: "gearshape", color: Color(nsColor: .systemBlue), accessibilityLabel: "Working")
+        case .needsInput:
+            return Presentation(symbolName: "questionmark.circle", color: Color(nsColor: .systemOrange), accessibilityLabel: "Needs Input")
+        case .finished:
+            return Presentation(symbolName: "checkmark.circle", color: Color(nsColor: .systemGreen), accessibilityLabel: "Finished")
+        case .errored:
+            return Presentation(symbolName: "exclamationmark.triangle", color: Color(nsColor: .systemRed), accessibilityLabel: "Errored")
+        }
+    }
+
+    /// VoiceOver text for a row: "alpha, Needs Input" when the agent has an
+    /// attention badge, else its lifecycle status ("alpha, Running").
+    static func rowAccessibilityLabel(_ row: LeoAgentRow) -> String {
+        let state = row.attention.map { attention($0).accessibilityLabel } ?? agentStatus(row.status).accessibilityLabel
+        return "\(row.name), \(state)"
+    }
+
     /// The connection glyph shown next to a host in the sidebar's host
     /// picker menu. Only the *selected* host has a live connection state;
     /// every other configured host (and localhost when it isn't selected)
