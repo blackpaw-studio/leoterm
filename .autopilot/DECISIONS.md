@@ -420,3 +420,11 @@ Chose: verification may use peekaboo type/press/click, always with `--app studio
 Why: Evan approved it (inbox, 2026-09-23)
 Commit: n/a
 Veto: n/a (Evan)
+
+## D-053 · 2026-09-23 · Single-instance lock fails closed
+Context: B-027 review HIGH: when the instance lock can't be safely taken (symlink, foreign owner, bad dir), launching anyway lets two copies race tunnel state
+Chose: show "Leo can't start" with the reason and path, one Quit button, and exit; never touch the offending file. The lock sits in the user's private 0700 cache dir, so only the same user or root can cause this
+Why: principle 5 (show it plainly, the user recovers by hand) and the point of D-051
+Alternatives: fail open and log (the first build)
+Commit:
+Veto: [ ]
