@@ -460,3 +460,11 @@ Why: tests must not depend on whether a debug copy is running, and a real launch
 Alternatives: any XCTest env var (first build; a stray variable skipped the lock)
 Commit: 05ec8fd2d 3e3859708 235748c7a b32c98cd4 40fdb2b8a
 Veto: [ ]
+
+## D-058 · 2026-09-23 · The 300 pt terminal floor holds on resize and sidebar re-show
+Context: B-023(c) asked whether the D-036 floor matters beyond opening a pane
+Chose: yes. When the window narrows or ⌘⇧L re-shows the sidebar, the sidebar collapses rather than squeezing the terminal under 300 pt; if that's not enough, the side pane gives way at its minimum
+Why: principle 1 (a first-party Mac app never crushes its main content) and consistency with D-036
+Alternatives: enforce only when a pane opens (the current behavior)
+Commit:
+Veto: [ ]
