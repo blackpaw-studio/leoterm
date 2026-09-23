@@ -64,6 +64,16 @@ struct LeoEditorLinkTests {
         #expect(try LeoEditorLink.parse("src/time:12x") == .init(base: .workspace, path: "src/time:12x"))
     }
 
+    /// Terminal output is untrusted: a huge position must not overflow the
+    /// caret arithmetic. Past the limit (or past `Int.max`), it's the limit.
+    @Test func hugeLinesAndColumnsAreClamped() throws {
+        let limit = 1_000_000
+        #expect(try LeoEditorLink.parse("a.swift:3:9223372036854775807") == .init(base: .workspace, path: "a.swift", line: 3, column: limit))
+        #expect(try LeoEditorLink.parse("a.swift:9223372036854775807") == .init(base: .workspace, path: "a.swift", line: limit))
+        #expect(try LeoEditorLink.parse("a.swift:99999999999999999999999:7") == .init(base: .workspace, path: "a.swift", line: limit, column: 7))
+        #expect(try LeoEditorLink.parse("a.swift:1000000:1000001") == .init(base: .workspace, path: "a.swift", line: limit, column: limit))
+    }
+
     @Test func fileURLsArePercentDecodedAndIgnoreTheirHost() throws {
         #expect(try LeoEditorLink.parse("file:///Users/e/My%20Notes.md") == .init(base: .root, path: "/Users/e/My Notes.md"))
         // The link came from the agent's own terminal, so its host is the

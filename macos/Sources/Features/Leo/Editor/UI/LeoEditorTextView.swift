@@ -75,9 +75,24 @@ final class LeoEditorTextView: NSTextView {
         if !keepingSelection { scrollToBeginningOfDocument(nil) }
     }
 
+    /// Where `reveal` puts the caret, and the line it's on.
+    struct Caret: Equatable {
+        let location: Int
+        let line: NSRange
+    }
+
     /// Puts the caret on `line` (and `column`), 1-based, and scrolls to it.
     func reveal(line: Int, column: Int?) {
-        let text = string as NSString
+        let caret = Self.caret(line: line, column: column, in: string as NSString)
+        setSelectedRange(NSRange(location: caret.location, length: 0))
+        scrollRangeToVisible(caret.line)
+        showFindIndicator(for: caret.line.length > 0 ? caret.line : NSRange(location: caret.location, length: 0))
+    }
+
+    /// The caret for `line` and `column` (1-based) in `text`: past the
+    /// last line, on it; past the end of its line, at the end. Any `Int`
+    /// is safe.
+    static func caret(line: Int, column: Int?, in text: NSString) -> Caret {
         var location = 0
         var current = 1
         while current < line, location < text.length {
@@ -91,10 +106,9 @@ final class LeoEditorTextView: NSTextView {
               CharacterSet.newlines.contains(scalar) {
             lineEnd -= 1
         }
-        let caret = min(location + max((column ?? 1) - 1, 0), lineEnd)
-        setSelectedRange(NSRange(location: caret, length: 0))
-        scrollRangeToVisible(lineRange)
-        showFindIndicator(for: lineRange.length > 0 ? lineRange : NSRange(location: caret, length: 0))
+        // Clamped before adding: `column` comes from terminal output.
+        let offset = min(max(column ?? 1, 1) - 1, text.length)
+        return Caret(location: min(location + offset, lineEnd), line: lineRange)
     }
 
     /// Re-highlights after a user edit.

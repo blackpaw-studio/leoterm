@@ -37,6 +37,10 @@ extension LeoEditorLinkError: LocalizedError {
 /// normalized lexically (never through the local filesystem: the file may
 /// live on a remote host).
 struct LeoEditorLink: Equatable, Sendable {
+    /// The largest line or column a link names: positions come from
+    /// terminal output, which is untrusted, and larger ones are clamped.
+    static let positionLimit = 1_000_000
+
     enum Base: Equatable, Sendable {
         /// `path` is absolute.
         case root
@@ -127,13 +131,15 @@ struct LeoEditorLink: Equatable, Sendable {
     }
 
     /// Splits a trailing `:line` or `:line:column` (and a stray final `:`),
-    /// as compilers and agents print them. Line and column start at 1.
+    /// as compilers and agents print them. Line and column start at 1, and
+    /// stop at `positionLimit` (digits past `Int.max` included).
     private static func splitPosition(_ text: String) -> (String, Int?, Int?) {
         var parts = text.split(separator: ":", omittingEmptySubsequences: false).map(String.init)
         if parts.count > 1, parts.last == "" { parts.removeLast() }
         func number(_ part: String) -> Int? {
-            guard !part.isEmpty, part.allSatisfy(\.isASCII), let value = Int(part), value > 0 else { return nil }
-            return value
+            guard !part.isEmpty, part.allSatisfy({ ("0"..."9").contains($0) }) else { return nil }
+            let value = Int(part) ?? Int.max
+            return value > 0 ? min(value, positionLimit) : nil
         }
         if parts.count > 2, let line = number(parts[parts.count - 2]), let column = number(parts[parts.count - 1]) {
             return (parts.dropLast(2).joined(separator: ":"), line, column)
