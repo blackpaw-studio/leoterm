@@ -44,12 +44,17 @@ struct LeoEditorReveal: Equatable, Sendable {
     /// While a close is waiting on the disk or connection -- queued behind
     /// an operation in flight, or saving after its prompt -- rather than on
     /// its prompt or on nothing at all. Set again on each pass of the wait
-    /// for the document's work.
+    /// for the document's work. Any close in flight counts.
     @Published private(set) var isWaitingToClose = false
     /// While a close is decided -- its prompt answered (or none needed) --
     /// and not yet done: the text is locked, since nothing typed now would
     /// be kept. Not while it merely waits its turn behind another operation.
+    /// Any close in flight counts.
     @Published private(set) var isCommittedToClose = false
+    /// The closes in flight that are waiting, or decided: each close
+    /// changes only its own entry, so one ending never clears another's.
+    private var waitingCloses: Set<UUID> = []
+    private var committedCloses: Set<UUID> = []
     /// Set by `LeoUnsavedEditorsGate` while a quit that can't be asked
     /// again (logging out, Ghostty's quit review) is on this editor:
     /// offers to leave anyway (Keep Waiting / Quit Anyway). The pane shows
@@ -87,11 +92,13 @@ struct LeoEditorReveal: Equatable, Sendable {
     /// when the user cancelled (or chose Save and it failed).
     @discardableResult
     func close() async -> Bool {
-        if queue.isBusy { isWaitingToClose = true }
-        let closed = await queue.run { await self.performClose() }
-        isWaitingToClose = false
-        isCommittedToClose = false
-        return closed
+        let close = UUID()
+        defer {
+            setWaiting(close, false)
+            setCommitted(close)
+        }
+        if queue.isBusy { setWaiting(close, true) }
+        return await queue.run { await self.performClose(close) }
     }
 
     /// The window is gone: drops the document without asking (every close
@@ -153,22 +160,22 @@ struct LeoEditorReveal: Equatable, Sendable {
         return .opened
     }
 
-    private func performClose() async -> Bool {
-        isWaitingToClose = false
+    private func performClose(_ close: UUID) async -> Bool {
+        setWaiting(close, false)
         guard let document else { return true }
-        guard await resolveUnsavedChanges(closing: true) else { return false }
-        isCommittedToClose = true
+        guard await resolveUnsavedChanges(closing: close) else { return false }
+        setCommitted(close, true)
         // Something in flight on the document's own queue (⌘S, a disk
         // check) -- or queued there meanwhile -- is waited for with the
         // document still up, so a pending quit can still offer to leave
         // (`leaveAnyway`).
         while document.isBusy {
-            isWaitingToClose = true
+            setWaiting(close, true)
             await document.drain()
             // Left anyway meanwhile (`abandon`): already dropped.
             guard self.document === document else { return true }
         }
-        isWaitingToClose = false
+        setWaiting(close, false)
         self.document = nil
         reveal = nil
         await document.close()
@@ -184,9 +191,9 @@ struct LeoEditorReveal: Equatable, Sendable {
 
     // MARK: - Helpers
 
-    /// `closing`: a Save waits on the disk or connection for a close
+    /// `closing`: a Save waits on the disk or connection for that close
     /// (`isWaitingToClose`).
-    private func resolveUnsavedChanges(closing: Bool = false) async -> Bool {
+    private func resolveUnsavedChanges(closing close: UUID? = nil) async -> Bool {
         guard let document, document.isDirty else { return true }
         isConfirming = true
         let choice = await confirmUnsaved(document)
@@ -195,13 +202,25 @@ struct LeoEditorReveal: Equatable, Sendable {
         case .cancel: return false
         case .discard: return true
         case .save:
-            if closing {
-                isCommittedToClose = true
-                isWaitingToClose = true
+            if let close {
+                setCommitted(close, true)
+                setWaiting(close, true)
             }
-            defer { if closing { isWaitingToClose = false } }
+            defer { if let close { setWaiting(close, false) } }
             return await document.save() == .saved
         }
+    }
+
+    /// Publishes on every call (even with no change), so each pass of a
+    /// close's wait is announced.
+    private func setWaiting(_ close: UUID, _ isWaiting: Bool) {
+        if isWaiting { waitingCloses.insert(close) } else { waitingCloses.remove(close) }
+        isWaitingToClose = !waitingCloses.isEmpty
+    }
+
+    private func setCommitted(_ close: UUID, _ isCommitted: Bool = false) {
+        if isCommitted { committedCloses.insert(close) } else { committedCloses.remove(close) }
+        isCommittedToClose = !committedCloses.isEmpty
     }
 
     private func requestReveal(_ fileID: LeoEditorFileID, line: Int?, column: Int?) {

@@ -23,6 +23,8 @@ enum LeoSlowSaveFixture {
         private let delay: Duration
         private let lock = NSLock()
         private var isClosed = false
+        /// Holds in progress, cut short by `close`.
+        private var holds: [UUID: Task<Void, Never>] = [:]
 
         init(base: any LeoFileAccess, delay: Duration) {
             self.base = base
@@ -34,14 +36,33 @@ enum LeoSlowSaveFixture {
         func homeDirectory() async throws -> String { try await base.homeDirectory() }
         func read(_ path: String, maxBytes: UInt64) async throws -> LeoFileContents { try await base.read(path, maxBytes: maxBytes) }
 
+        /// Holds for `delay` (or until closed), then writes unless closed
+        /// meanwhile: a save left anyway never lands.
         func write(_ data: Data, to path: String, expecting expected: LeoFileVersion?) async throws -> LeoFileStat {
-            try await Task.sleep(for: delay)
-            guard !lock.withLock({ isClosed }) else { throw LeoFileAccessError.unavailable(reason: "the save was abandoned") }
+            let id = UUID()
+            let delay = delay
+            let hold: Task<Void, Never>? = lock.withLock {
+                guard !isClosed else { return nil }
+                let hold = Task { _ = try? await Task.sleep(for: delay) }
+                holds[id] = hold
+                return hold
+            }
+            await hold?.value
+            let isAbandoned = lock.withLock {
+                holds[id] = nil
+                return isClosed
+            }
+            guard !isAbandoned else { throw LeoFileAccessError.unavailable(reason: "the save was abandoned") }
             return try await base.write(data, to: path, expecting: expected)
         }
 
         func close() async {
-            lock.withLock { isClosed = true }
+            let cut = lock.withLock {
+                isClosed = true
+                defer { holds = [:] }
+                return Array(holds.values)
+            }
+            cut.forEach { $0.cancel() }
             await base.close()
         }
     }

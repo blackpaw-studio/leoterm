@@ -266,6 +266,40 @@ struct LeoEditorBannerTests {
         }
     }
 
+    /// Overlapping closes: one cancelled at its prompt ends while the
+    /// next, decided (Don't Save), still waits on a save in flight. The
+    /// pane stays locked, and closing, until that one is done.
+    @Test(.timeLimit(.minutes(1)))
+    func aCloseThatEndsEarlyLeavesAnotherCloseLocked() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let access = LeoHangingAccess(LeoFileAccessor.local())
+            let model = LeoEditorPaneModel(makeAccess: { _ in access })
+            let pane = LeoEditorPaneViewController(model: model)
+            try await model.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
+            model.document?.edit("b")
+            var answers: [LeoUnsavedChangesChoice] = [.cancel, .discard]
+            model.confirmUnsaved = { _ in answers.removeFirst() }
+            access.hangsWrites = true
+            let commandS = Task { await model.document?.save() }
+            await access.waitUntilWriting()
+
+            let first = Task { await model.close() }
+            let second = Task { await model.close() }
+            #expect(await first.value == false)
+            #expect(await eventually { model.isCommittedToClose && !pane.textView.isEditable })
+            await nextTurn()
+
+            #expect(model.isCommittedToClose, "the first close ending doesn't unlock the second")
+            #expect(model.isWaitingToClose)
+            #expect(!pane.textView.isEditable)
+            #expect(pane.banner.banner == Self.closing)
+            access.release()
+            _ = await commandS.value
+            #expect(await second.value)
+            #expect(!model.isCommittedToClose && !model.isWaitingToClose)
+        }
+    }
+
     private func eventually(_ condition: () -> Bool) async -> Bool {
         let deadline = ContinuousClock.now + .seconds(5)
         while !condition(), ContinuousClock.now < deadline {

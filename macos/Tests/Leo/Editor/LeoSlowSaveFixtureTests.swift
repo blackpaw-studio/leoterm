@@ -26,5 +26,19 @@ struct LeoSlowSaveFixtureTests {
             #expect(try sandbox.contents("a.txt") == "b")
         }
     }
+
+    /// Left anyway during the hold: the save fails at once and never writes.
+    @Test(.timeLimit(.minutes(1)))
+    func closingDuringTheHoldFailsTheSaveWithoutWriting() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let path = try sandbox.file("a.txt", "a")
+            let access = LeoSlowSaveFixture.wrap(LeoFileAccessor.local(), delay: .seconds(3600))
+            let save = Task { try await access.write(Data("b".utf8), to: path, expecting: nil) }
+            await access.close()
+
+            await #expect(throws: LeoFileAccessError.self) { try await save.value }
+            #expect(try sandbox.contents("a.txt") == "a")
+        }
+    }
 }
 #endif
