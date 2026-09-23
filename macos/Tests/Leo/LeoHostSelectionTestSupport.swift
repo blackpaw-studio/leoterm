@@ -30,7 +30,8 @@ enum LeoHostSelectionTestSupport {
         orphanStore: LeoTunnelOrphanStore? = nil,
         localSocketDirectory: URL = localSocketDirectory,
         sshExecutable: URL = LeoTunnelTestSupport.fixtureURL(),
-        controlSocketInstance: String = LeoHostSelection.defaultControlSocketInstance
+        controlSocketInstance: String = LeoHostSelection.defaultControlSocketInstance,
+        controlSocketDirectory: URL? = nil
     ) -> LeoHostSelection {
         let defaults = defaults ?? (UserDefaults(suiteName: "LeoHostSelectionTests.\(UUID().uuidString)") ?? .standard)
         if let data = try? JSONEncoder().encode(hosts) { defaults.set(data, forKey: LeoHostStore.key) }
@@ -43,6 +44,9 @@ enum LeoHostSelectionTestSupport {
             orphanStore: orphanStore,
             localSocketPath: localSocketPath,
             localSocketDirectory: localSocketDirectory,
+            // Beside the forwarded socket unless a test says otherwise: never
+            // the real per-user cache directory.
+            controlSocketDirectory: controlSocketDirectory ?? localSocketDirectory,
             controlSocketInstance: controlSocketInstance
         )
     }

@@ -47,6 +47,8 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
     private let fileManager: FileManager
     private let localSocketPath: String
     let localSocketDirectory: URL
+    /// Holds the ControlMaster sockets; see `LeoControlSocketDirectory`.
+    let controlSocketDirectory: URL
     /// Scopes the ControlMaster socket name to this app bundle; see
     /// `LeoHostConfiguration.controlSocketFileName(instance:)`.
     let controlSocketInstance: String
@@ -76,6 +78,7 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
         localSocketPath: String = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath,
         localSocketDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".leo/state/leoterm", isDirectory: true),
+        controlSocketDirectory: URL? = LeoControlSocketDirectory.default,
         controlSocketInstance: String = LeoHostSelection.defaultControlSocketInstance,
         connectionTarget: @escaping (LeoHostID, Int, LeoHostConnectionState) -> Void = { _, _, _ in }
     ) {
@@ -88,6 +91,7 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
         self.fileManager = fileManager
         self.localSocketPath = localSocketPath
         self.localSocketDirectory = localSocketDirectory
+        self.controlSocketDirectory = controlSocketDirectory ?? localSocketDirectory
         self.controlSocketInstance = controlSocketInstance
         self.connectionTarget = connectionTarget
         if let value = defaults.string(forKey: "leo.selectedHost"), value != "localhost" {

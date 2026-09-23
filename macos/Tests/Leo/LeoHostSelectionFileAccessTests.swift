@@ -129,6 +129,24 @@ import Testing
         selection.shutdown()
     }
 
+    /// A control directory that isn't provably ours (here a planted
+    /// symlink) is never used: no master, and file access says why.
+    @Test func anUnsafeControlDirectoryRunsTheTunnelWithoutFileAccess() async throws {
+        let directory = try makeDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let controlDirectory = directory.appendingPathComponent("cm", isDirectory: true)
+        try FileManager.default.createSymbolicLink(at: controlDirectory, withDestinationURL: directory)
+        let argvFile = directory.appendingPathComponent("argv").path
+
+        let selection = try await connect(in: directory, recordingArgvTo: argvFile, controlSocketDirectory: controlDirectory)
+
+        let argv = try await LeoHostSelectionTestSupport.recordedArgv(argvFile)
+        #expect(argv.contains("ControlPath=none"))
+        #expect(!argv.contains("ControlMaster=yes"))
+        #expect(throws: LeoFileAccessError.unavailable(reason: "control directory is not private")) { try selection.makeFileAccess() }
+        selection.shutdown()
+    }
+
     private func makeDirectory() throws -> URL {
         let directory = LeoHostSelectionTestSupport.makeIsolatedSocketDirectory()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
@@ -137,12 +155,18 @@ import Testing
 
     /// Selects `configuration` with sockets in `directory` and waits for
     /// `.connected`, optionally through an argv-recording fake ssh.
-    private func connect(in directory: URL, recordingArgvTo argvFile: String? = nil, scriptDirectory: URL? = nil) async throws -> LeoHostSelection {
+    private func connect(
+        in directory: URL,
+        recordingArgvTo argvFile: String? = nil,
+        scriptDirectory: URL? = nil,
+        controlSocketDirectory: URL? = nil
+    ) async throws -> LeoHostSelection {
         let ssh = try argvFile.map {
             try LeoHostSelectionTestSupport.argvRecordingSSH(in: scriptDirectory ?? directory, argvFile: $0)
         } ?? LeoTunnelTestSupport.fixtureURL()
         let selection = LeoHostSelectionTestSupport.makeSelection(
-            hosts: [configuration], transport: LeoAlwaysHealthyTransport(), localSocketDirectory: directory, sshExecutable: ssh
+            hosts: [configuration], transport: LeoAlwaysHealthyTransport(), localSocketDirectory: directory, sshExecutable: ssh,
+            controlSocketDirectory: controlSocketDirectory
         )
         await selection.start(flavor: .socketEvents)
         selection.select(.remote("work"))

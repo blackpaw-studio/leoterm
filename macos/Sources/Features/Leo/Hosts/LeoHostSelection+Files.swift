@@ -15,6 +15,13 @@ extension LeoHostSelection {
         guard LeoSSHCommand.isValidControlPath(path) else {
             throw LeoFileAccessError.unavailable(reason: Self.unsupportedControlPath)
         }
+        // A master in a directory another user controls would see every
+        // file this session reads or writes.
+        do {
+            try LeoControlSocketDirectory.prepare(controlSocketDirectory)
+        } catch {
+            throw LeoFileAccessError.unavailable(reason: Self.unsafeControlDirectory)
+        }
         guard LeoControlSocket.inspect(path) != .notASocket else {
             throw LeoFileAccessError.unavailable(reason: Self.occupiedControlPath)
         }
@@ -22,17 +29,19 @@ extension LeoHostSelection {
         return LeoFileAccessor.sftp(launcher: LeoSFTPProcessLauncher(executable: sshExecutable, arguments: arguments))
     }
 
-    /// The tunnel's ControlMaster socket for `configuration`, beside its
-    /// forwarded socket in the owner-only directory, scoped to this app
+    /// The tunnel's ControlMaster socket for `configuration`, in the
+    /// owner-only `controlSocketDirectory` (short whatever the home
+    /// directory; see `LeoControlSocketDirectory`), scoped to this app
     /// bundle. SFTP sessions for the host multiplex over it.
     func controlPath(for configuration: LeoHostConfiguration) -> String {
-        localSocketDirectory.appendingPathComponent(configuration.controlSocketFileName(instance: controlSocketInstance)).path
+        controlSocketDirectory.appendingPathComponent(configuration.controlSocketFileName(instance: controlSocketInstance)).path
     }
 
     /// The control path the tunnel should listen on, or nil to run it
-    /// without a master: when ssh can't use the path (a home directory
-    /// with a space or non-ASCII characters, or one too long), or when
-    /// something other than a socket occupies it. A socket a master that
+    /// without a master: when ssh can't use the path (a directory with a
+    /// space or non-ASCII characters, or one too long), when the directory
+    /// isn't provably private, or when something other than a socket
+    /// occupies it. A socket a master that
     /// died without cleanup left behind is removed first -- otherwise
     /// `ControlMaster=yes` would run without multiplexing rather than
     /// replace it. A live socket is left alone (ssh then disables its own
@@ -42,6 +51,12 @@ extension LeoHostSelection {
         let path = controlPath(for: configuration)
         guard LeoSSHCommand.isValidControlPath(path) else {
             Self.logger.error("control path unsupported by ssh; tunnel runs without file access path=\(path, privacy: .public)")
+            return nil
+        }
+        do {
+            try LeoControlSocketDirectory.prepare(controlSocketDirectory)
+        } catch {
+            Self.logger.error("control directory not private; tunnel runs without file access path=\(path, privacy: .public) error=\(String(describing: error), privacy: .public)")
             return nil
         }
         switch LeoControlSocket.removeIfStale(path) {
@@ -61,4 +76,5 @@ extension LeoHostSelection {
 
     static let unsupportedControlPath = "control path unsupported"
     static let occupiedControlPath = "control path is occupied"
+    static let unsafeControlDirectory = "control directory is not private"
 }
