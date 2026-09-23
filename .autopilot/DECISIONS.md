@@ -316,3 +316,11 @@ Why: principles 2 (calm, no self-presenting alerts), 5 (the user decides, no tim
 Alternatives: a self-presenting alert; abandoning the access on Don't Save
 Commit: 59ffb1fbd 4130f9e75 e43aaa796 7a5ef7310 a89b18a3c 363468b41 98a558bdf e89dc3ff6 445437a58 af5762504 9865e60b3 b9dd6e318 eeb6b86b2 bbcf58601
 Veto: [ ]
+
+## D-040 · 2026-09-23 · Only the three RGI subdivision flags keep their tag characters
+Context: B-020 review: tag runs after U+1F3F4 were capped per flag but not per message, so a hostile server could hide over 1 KB of tag-encoded ASCII in an error ("ASCII smuggling") that agents reading the app's text would see
+Chose: tag characters survive only as part of the England, Scotland or Wales flag sequences; all other tag characters are dropped. Errors from outside LeoFileAccessError are isolated (FSI…PDI) like the rest
+Why: agents read this text (principle 4); three flags cover every RGI subdivision flag, so nothing a person would see is lost
+Alternatives: a per-message cap on tag scalars; dropping all tag characters
+Commit:
+Veto: [ ]

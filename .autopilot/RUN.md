@@ -13,3 +13,4 @@ Untracked-left: macos/default.profraw scratchpad/ zig-out
 - B-022: attempt-2 fixes 9865e60b3 b9dd6e318 (1093 tests). 3rd review: both fixed; new MED (drain only covers the tail at call time) + LOW-MED (typing during the wait lost → read-only) + LOW test timing → attempt 3 (d-88cbd4249530#4), the last.
 - B-022 done: 14 commits 59ffb1fbd..bbcf58601 (1095 tests). 4th review: all fixed, only LOWs → B-024. Load flakes → B-025.
 - B-020: built ad0807785 (1113 tests; timing flakes under load: LeoSyntaxHighlighterAdversarialTests, LeoProcessRunnerTests/timeoutEscalatesToSIGKILL → add to B-025). Error text only → not visually verified. review.security dispatched.
+- B-020: review.security dispatch failed (codex/gpt-6-sol: model metadata not found) → code-reviewer fallback. 1 HIGH (tag smuggling) + 1 MED (foreign errors not isolated) → attempt 1 (d-179092105250#2); D-040.
