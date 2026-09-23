@@ -39,6 +39,26 @@ import AppKit
         return field.stringValue
     }
 
+    /// An editor is waiting on its disk or connection (a save or read that
+    /// hasn't come back) and the user asked to close or quit again: Keep
+    /// Waiting (default), or Close / Quit Anyway, losing its unsaved edits.
+    static func offerToLeave(_ entry: LeoUnsavedEditorsGate.Entry, leaving: LeoUnsavedEditorsGate.Leaving) async -> Bool {
+        entry.bringForward()
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        let fileID = entry.editor.document?.fileID
+        let name = fileID.map { LeoSFTPServerText.sanitized($0.name) } ?? "The file"
+        alert.messageText = "“\(name)” is still being saved or read."
+        let host = fileID?.host.displayName ?? "its disk"
+        let verb = leaving == .quit ? "quit" : "close it"
+        alert.informativeText = "Leo is waiting for \(host) to answer. If you \(verb) now, your unsaved changes to it will be lost."
+        alert.addButton(withTitle: "Keep Waiting")
+        let leave = alert.addButton(withTitle: leaving == .quit ? "Quit Anyway" : "Close Anyway")
+        leave.hasDestructiveAction = true
+        guard let window = NSApp.keyWindow else { return alert.runModal() == .alertSecondButtonReturn }
+        return await present(alert, on: window) == .alertSecondButtonReturn
+    }
+
     static func presentError(_ error: Error, on window: NSWindow?) {
         let alert = NSAlert()
         alert.alertStyle = .warning

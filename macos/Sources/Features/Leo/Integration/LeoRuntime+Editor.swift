@@ -41,12 +41,26 @@ extension LeoRuntime {
         }
     }
 
-    /// Quitting -- or logging out, or installing an update -- with unsaved
-    /// editor edits asks about each window's first (Save / Don't Save /
-    /// Cancel). `true` when it took over: the quit is retried once every
-    /// one is resolved, and dropped on Cancel.
-    func deferQuitForUnsavedEditors() -> Bool {
-        unsavedEditors.deferClose(of: registry.sessions.map(editorEntry(for:))) { NSApp.terminate(nil) }
+    /// Quitting with unsaved editor edits asks about each window's first
+    /// (Save / Don't Save / Cancel); see `LeoUnsavedEditorsGate.deferQuit`.
+    /// nil when there are none; otherwise `applicationShouldTerminate`'s
+    /// answer.
+    func deferQuitForUnsavedEditors(isSystemQuit: Bool) -> NSApplication.TerminateReply? {
+        unsavedEditors.deferQuit(
+            of: registry.sessions.map(editorEntry(for:)), isSystemQuit: isSystemQuit,
+            reply: { NSApp.reply(toApplicationShouldTerminate: $0) }, retry: { NSApp.terminate(nil) }
+        )
+    }
+
+    /// Ghostty's quit review closes windows itself -- no close path runs --
+    /// and its sheets leave other windows editable. Before it closes
+    /// `windows` (or, for nil, before the quit goes ahead), their editors'
+    /// unsaved edits are asked about. `false`: stop the quit.
+    func resolveUnsavedEdits(in windows: [NSWindow]? = nil) async -> Bool {
+        let sessions = registry.sessions.filter { session in
+            windows?.contains { $0 === session.window } ?? true
+        }
+        return await unsavedEditors.resolve(sessions.map(editorEntry(for:)))
     }
 
     /// `session`'s editor for the gate, bringing its window (and tab)

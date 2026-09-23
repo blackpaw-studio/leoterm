@@ -38,6 +38,9 @@ struct LeoEditorReveal: Equatable, Sendable {
     /// Presents the unsaved-changes prompt; the pane's view installs a
     /// sheet. Until then, never discards.
     var confirmUnsaved: @MainActor (LeoEditorDocument) async -> LeoUnsavedChangesChoice = { _ in .cancel }
+    /// While the unsaved-changes prompt is up (as opposed to waiting on the
+    /// disk or network before or after it).
+    private(set) var isConfirming = false
 
     private let makeAccess: @MainActor (LeoHostID) throws -> any LeoFileAccess
     private let policy: LeoEditorContentPolicy
@@ -74,6 +77,17 @@ struct LeoEditorReveal: Equatable, Sendable {
     /// releases its file access -- for a remote host, its `sftp` process.
     func release() async {
         await queue.run { await self.performRelease() }
+    }
+
+    /// Drops the document now, unsaved edits and all, without waiting for
+    /// anything in flight: its disk or connection isn't answering, and the
+    /// user chose to leave anyway. Its access closes in the background,
+    /// which fails what's in flight.
+    func abandon() {
+        guard let document else { return }
+        self.document = nil
+        reveal = nil
+        Task { await document.abandon() }
     }
 
     /// What `~` means on `host`.
@@ -137,7 +151,10 @@ struct LeoEditorReveal: Equatable, Sendable {
 
     private func resolveUnsavedChanges() async -> Bool {
         guard let document, document.isDirty else { return true }
-        switch await confirmUnsaved(document) {
+        isConfirming = true
+        let choice = await confirmUnsaved(document)
+        isConfirming = false
+        switch choice {
         case .cancel: return false
         case .discard: return true
         case .save: return await document.save() == .saved

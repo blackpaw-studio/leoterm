@@ -15,7 +15,7 @@ extension TerminalController {
     static func leoDeferClose(of windows: [NSWindow], retry: @escaping @MainActor () -> Void) -> Bool {
         guard let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime else { return false }
         let sessions = windows.compactMap { ($0.windowController as? TerminalController)?.leoSession }
-        return runtime.unsavedEditors.deferClose(of: sessions.map(runtime.editorEntry(for:)), retry: retry)
+        return runtime.unsavedEditors.deferClose(of: sessions.map(runtime.editorEntry(for:))) { if $0 { retry() } }
     }
 
     /// Leo: ⌘W with focus in the terminal. When it would close the tab

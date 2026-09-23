@@ -172,6 +172,12 @@ enum LeoEditorSaveOutcome: Equatable, Sendable {
         await access.close()
     }
 
+    /// Releases the file access without waiting for what's in flight (which
+    /// then fails): the user chose to leave while it wasn't coming back.
+    func abandon() async {
+        await access.close()
+    }
+
     // MARK: - Operations (serialized)
 
     /// `.reloaded` only when the reload went through; one that failed

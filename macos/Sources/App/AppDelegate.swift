@@ -430,8 +430,10 @@ class AppDelegate: NSObject,
 
         // MARK: Leo
         // Unsaved editor edits are asked about before anything else -- even
-        // an update that's installing, or logout; the quit is retried.
-        if leoRuntime.deferQuitForUnsavedEditors() { return .terminateCancel }
+        // an update that's installing. Logout waits for the answers; any
+        // other quit is retried after them.
+        let leoIsSystemQuit = LeoQuitReason.isSystemQuit(NSAppleEventManager.shared().currentAppleEvent)
+        if let reply = leoRuntime.deferQuitForUnsavedEditors(isSystemQuit: leoIsSystemQuit) { return reply }
 
         // If we've already accepted to install an update, then we don't need to
         // confirm quit. The user is already expecting the update to happen.
@@ -1407,7 +1409,8 @@ extension AppDelegate {
                 )
 
                 if [.OK, .alertFirstButtonReturn].contains(response) {
-                    await NSApp.reply(toApplicationShouldTerminate: true)
+                    // Leo: editor edits made while this was up are asked about.
+                    await NSApp.reply(toApplicationShouldTerminate: leoRuntime.resolveUnsavedEdits())
                 } else {
                     await NSApp.reply(toApplicationShouldTerminate: false)
                 }
@@ -1441,6 +1444,12 @@ extension AppDelegate {
                 )
 
                 if [.OK, .alertFirstButtonReturn].contains(response) {
+                    // Leo: its editor's edits made during the review are asked about.
+                    guard await leoRuntime.resolveUnsavedEdits(in: controller.window.map { [$0] } ?? []) else {
+                        await NSApp.reply(toApplicationShouldTerminate: false)
+                        return
+                    }
+
                     // Close this window and until next review is cancelled
                     await controller.window?.close()
                     continue
@@ -1450,7 +1459,8 @@ extension AppDelegate {
                     return
                 }
             }
-            await NSApp.reply(toApplicationShouldTerminate: true)
+            // Leo: and any other window's.
+            await NSApp.reply(toApplicationShouldTerminate: leoRuntime.resolveUnsavedEdits())
         }
     }
 }

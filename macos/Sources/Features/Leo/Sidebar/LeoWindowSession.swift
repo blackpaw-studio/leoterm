@@ -51,7 +51,7 @@ struct LeoWindowVisibilityState: Equatable {
 
     private let defaults: UserDefaults
     private let onPollabilityChanged: () -> Void
-    private weak var window: NSWindow?
+    private(set) weak var window: NSWindow?
     private var observers: [NSObjectProtocol] = []
     private var visibility = LeoWindowVisibilityState()
 
