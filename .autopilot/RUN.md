@@ -1,6 +1,6 @@
 Status: running
-Item: B-022
-Base: 860df8083ada19da7fd179bb95da485c2426070c
+Item: B-020
+Base: bbcf5860120c669fb2ac7e0d794d764e3c9c4058
 Wip: none
 Untracked-left: macos/default.profraw scratchpad/ zig-out
 
@@ -11,3 +11,4 @@ Untracked-left: macos/default.profraw scratchpad/ zig-out
 - B-022: built 59ffb1fbd 4130f9e75 e43aaa796 7a5ef7310 a89b18a3c (1086 tests). Verified: shot B-022-1 (1400 pt: editor opens at half the width it shares with the terminal). The hung-save banner can't be driven without a hung remote save → not visually verified. review.concurrency: 2 MED (earlier clean entry edited mid-quit is lost; ⌘W on the stuck editor cancels the logout) + 3 LOW; all sent back (attempt 1) to d-88cbd4249530.
 - B-022: attempt-1 fixes 363468b41 98a558bdf e89dc3ff6 445437a58 af5762504 (1091 tests). Re-review: 5/5 fixed; new MED (pre-existing: logout hangs forever when the document queue is hung and the user picks Don't Save) + LOW test gap → attempt 2 (d-88cbd4249530#3). Flake seen once: LeoSidebarFeedActivityCoalescingTests.
 - B-022: attempt-2 fixes 9865e60b3 b9dd6e318 (1093 tests). 3rd review: both fixed; new MED (drain only covers the tail at call time) + LOW-MED (typing during the wait lost → read-only) + LOW test timing → attempt 3 (d-88cbd4249530#4), the last.
+- B-022 done: 14 commits 59ffb1fbd..bbcf58601 (1095 tests). 4th review: all fixed, only LOWs → B-024. Load flakes → B-025.

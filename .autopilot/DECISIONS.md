@@ -306,5 +306,13 @@ Context: B-022 (b) asked for a laptop check or an in-app leave-anyway, and (c) f
 Chose: (b) no laptop check (stop list). While a system quit or logout is pending (`.terminateLater`) behind a hung remote save, the Keep Waiting / Quit Anyway offer is reachable from inside the pending quit itself, not only through a second ⌘Q. (c) The editor opens at half of the width the terminal and editor share, never taking the terminal below D-036's 300 pt floor, and it's placed after the un-collapse finishes. (e) The quit review's button reads "Quit Anyway" when quitting and "Close Anyway" when closing
 Why: principle 1 (HIG button verbs match the action); principle 5 (the user decides, no timers); stop list (laptop)
 Alternatives: wait for Evan to test on the laptop
-Commit:
+Commit: 59ffb1fbd 4130f9e75 e43aaa796 7a5ef7310 a89b18a3c 363468b41 98a558bdf e89dc3ff6 445437a58 af5762504 9865e60b3 b9dd6e318 eeb6b86b2 bbcf58601
+Veto: [ ]
+
+## D-039 · 2026-09-23 · B-022 implementer calls
+Context: B-022 build and three fix rounds
+Chose: while a pending quit or logout waits on an editor's disk or connection, the editor shows a banner ("Quitting is waiting for <host> to finish with …") with a Quit Anyway… button, rather than an alert that pops up by itself (with no timer, a hung save can't be told from a slow one). Leaving from inside a quit keeps that quit going with the other editors; ⌘W on the stuck editor takes the same path (its button still reads "Close Anyway"). The Quit Anyway button is disabled while another leave offer is up. Don't Save during an in-flight save waits for the document's queue to go idle, with the banner up and the text read-only, instead of abandoning the user's own ⌘S. The editor is widened by moving the terminal's trailing divider; reopening a file in an already-open pane keeps its width
+Why: principles 2 (calm, no self-presenting alerts), 5 (the user decides, no timers); no half-written remote files
+Alternatives: a self-presenting alert; abandoning the access on Don't Save
+Commit: 59ffb1fbd 4130f9e75 e43aaa796 7a5ef7310 a89b18a3c 363468b41 98a558bdf e89dc3ff6 445437a58 af5762504 9865e60b3 b9dd6e318 eeb6b86b2 bbcf58601
 Veto: [ ]
