@@ -121,10 +121,10 @@ struct LeoWorkspaceBrowserModelTests {
             await browser.open(agent(sandbox.root))
 
             #expect(names(browser.rootItems) == ["README.md"])
-            browser.toggleHiddenFiles()
+            await browser.toggleHiddenFiles()
             #expect(browser.showsHiddenFiles)
             #expect(names(browser.rootItems) == [".git/", ".env", "README.md"])
-            browser.toggleHiddenFiles()
+            await browser.toggleHiddenFiles()
             #expect(names(browser.rootItems) == ["README.md"])
             await browser.close()
         }

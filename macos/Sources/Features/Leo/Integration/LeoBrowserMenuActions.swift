@@ -31,7 +31,8 @@ extension TerminalController {
 
     /// Agents ▸ Show Hidden Files (⇧⌘.), like Finder's.
     @IBAction func toggleLeoHiddenFiles(_ sender: Any?) {
-        leoSession?.browser.toggleHiddenFiles()
+        guard let browser = leoSession?.browser else { return }
+        Task { await browser.toggleHiddenFiles() }
     }
 
     /// Agents ▸ Reload Files (⌘R while the browser has focus).

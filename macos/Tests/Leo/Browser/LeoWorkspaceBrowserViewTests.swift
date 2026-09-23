@@ -185,7 +185,7 @@ struct LeoWorkspaceBrowserViewTests {
             try sandbox(files)
             let harness = await makeHarness(.local, root: files.root)
 
-            harness.model.toggleHiddenFiles()
+            await harness.model.toggleHiddenFiles()
             harness.browser.sync()
 
             #expect(harness.rows == ["src", ".env", "README.md"])

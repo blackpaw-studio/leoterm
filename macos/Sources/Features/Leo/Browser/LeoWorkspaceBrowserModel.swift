@@ -59,6 +59,8 @@ enum LeoWorkspaceItem: Hashable, Sendable {
 
     static let noWorkspaceMessage = "This agent hasn’t reported a workspace."
     static let emptyMessage = "This folder is empty."
+    /// Symlinks in one folder resolved at once, at most.
+    static let symlinkStatLimit = 8
 
     @Published private(set) var root: Root?
     @Published private(set) var folders: [String: Folder] = [:]
@@ -72,6 +74,8 @@ enum LeoWorkspaceItem: Hashable, Sendable {
     /// The latest listing asked for each folder; an older answer arriving
     /// after it (or after the browser was re-rooted) is dropped.
     private var pending: [String: UUID] = [:]
+    /// Bumped whenever the root is replaced or closed.
+    private var generation = 0
 
     /// `makeAccess` gives file access for a host (one per root, released
     /// when the browser closes or moves to another agent); `openFile` opens
@@ -122,37 +126,47 @@ enum LeoWorkspaceItem: Hashable, Sendable {
     /// Roots the browser at `agent`'s workspace on its host, starting over
     /// (nothing expanded). Already showing that workspace, it reloads
     /// instead, keeping what's expanded.
+    ///
+    /// The new root and its access are in place before anything suspends,
+    /// and every step after a suspension checks it's still current: of
+    /// overlapping opens and closes the last one called wins, and each
+    /// access is closed by whichever call replaced it.
     func open(_ agent: LeoEditorAgentContext) async {
         let next = Self.root(for: agent)
-        let workspace = next.path
         if next == root, access != nil {
             await reload()
             return
         }
-        await reset()
+        let previous = detach()
+        let generation = self.generation
         root = next
-        guard let workspace else {
+        if let workspace = next.path {
+            do {
+                access = try makeAccess(agent.host)
+                folders = [workspace: .loading]
+            } catch {
+                folders = [workspace: .failed(Self.message(for: error))]
+            }
+        } else {
             folders = ["": .failed(Self.noWorkspaceMessage)]
-            return
         }
-        do {
-            access = try makeAccess(agent.host)
-        } catch {
-            folders = [workspace: .failed(Self.message(for: error))]
-            return
-        }
+        await previous?.close()
+        guard generation == self.generation, let workspace = next.path else { return }
         await load(workspace)
     }
 
     /// Lists `folder` the first time it's expanded (or again after it
-    /// failed); after that, only `reload()` lists it.
+    /// failed); after that, only `reload()` lists it. Expanded folders
+    /// inside it that have no listing (a reload dropped it while `folder`
+    /// was collapsed) are listed too.
     func expand(_ folder: String) async {
         guard isOpen else { return }
         expanded.insert(folder)
         switch folders[folder] {
         case nil, .failed: await load(folder)
-        case .loading, .loaded: return
+        case .loading, .loaded: break
         }
+        await loadUnlisted(in: folder)
     }
 
     func collapse(_ folder: String) {
@@ -173,8 +187,11 @@ enum LeoWorkspaceItem: Hashable, Sendable {
         }
     }
 
-    func toggleHiddenFiles() {
+    /// Shown again, an expanded dotfolder whose listing a reload dropped
+    /// is listed again.
+    func toggleHiddenFiles() async {
         showsHiddenFiles.toggle()
+        await loadUnlisted(in: rootKey)
     }
 
     /// Opens `path` in the editor pane (which asks first about unsaved
@@ -196,7 +213,7 @@ enum LeoWorkspaceItem: Hashable, Sendable {
     /// Hides the browser and releases its file access (for a remote host,
     /// its `sftp` process).
     func close() async {
-        await reset()
+        await detach()?.close()
     }
 
     // MARK: - Helpers
@@ -205,19 +222,41 @@ enum LeoWorkspaceItem: Hashable, Sendable {
         Root(host: agent.host, agent: agent.name ?? "", path: agent.workspace.flatMap { $0.hasPrefix("/") ? $0 : nil })
     }
 
-    private func reset() async {
+    /// Clears the browser and bumps `generation`, so anything suspended
+    /// under the old root drops its result. The caller closes the access
+    /// returned.
+    private func detach() -> (any LeoFileAccess)? {
         let previous = access
+        generation += 1
         access = nil
         root = nil
         folders = [:]
         expanded = []
         pending = [:]
         openError = nil
-        await previous?.close()
+        return previous
+    }
+
+    /// Lists every expanded folder shown under `folder` that has no listing,
+    /// deepest last (each listing can reveal more).
+    private func loadUnlisted(in folder: String) async {
+        let generation = self.generation
+        var attempted: Set<String> = []
+        while generation == self.generation {
+            let unlisted = shownFolders(in: folder).filter { folders[$0] == nil && !attempted.contains($0) }
+            guard !unlisted.isEmpty else { return }
+            attempted.formUnion(unlisted)
+            await withTaskGroup(of: Void.self) { group in
+                for unlistedFolder in unlisted {
+                    group.addTask { await self.load(unlistedFolder) }
+                }
+            }
+        }
     }
 
     private func load(_ folder: String) async {
         guard let access else { return }
+        let generation = self.generation
         let request = UUID()
         pending[folder] = request
         if folders[folder] == nil { folders[folder] = .loading }
@@ -227,7 +266,7 @@ enum LeoWorkspaceItem: Hashable, Sendable {
         } catch {
             result = .failed(Self.message(for: error))
         }
-        guard pending[folder] == request else { return }
+        guard generation == self.generation, pending[folder] == request else { return }
         pending[folder] = nil
         folders[folder] = result
     }
@@ -240,23 +279,47 @@ enum LeoWorkspaceItem: Hashable, Sendable {
             .reduce(into: [folder]) { $0.formUnion(shownFolders(in: $1.path)) }
     }
 
+    /// `folder`'s entries, less any name a server should never send (one
+    /// that isn't a single path component). Symlinks are resolved a few at
+    /// a time.
     private static func entries(in folder: String, access: any LeoFileAccess) async throws -> [LeoWorkspaceEntry] {
-        var entries: [LeoWorkspaceEntry] = []
-        for entry in try await access.list(folder) {
-            let path = folder == "/" ? "/" + entry.name : folder + "/" + entry.name
-            entries.append(LeoWorkspaceEntry(name: entry.name, path: path, isFolder: await isFolder(entry, at: path, access: access)))
-        }
-        return entries.sorted(by: finderOrder)
+        let listed = try await access.list(folder).filter { isSingleComponent($0.name) }
+        let paths = listed.map { folder == "/" ? "/" + $0.name : folder + "/" + $0.name }
+        let linkFolders = await symlinkedFolders(listed.indices.filter { listed[$0].kind == .symlink }.map { paths[$0] }, access: access)
+        return listed.indices.map { index in
+            let entry = listed[index]
+            let isFolder = entry.kind == .directory || (entry.kind == .symlink && linkFolders.contains(paths[index]))
+            return LeoWorkspaceEntry(name: entry.name, path: paths[index], isFolder: isFolder)
+        }.sorted(by: finderOrder)
     }
 
-    /// A symlink is a folder when it resolves to one; a dangling link is a
-    /// file (opening it then says it can't be found).
-    private static func isFolder(_ entry: LeoFileEntry, at path: String, access: any LeoFileAccess) async -> Bool {
-        switch entry.kind {
-        case .directory: true
-        case .symlink: (try? await access.stat(path).kind) == .directory
-        case .file, .other: false
+    private static func isSingleComponent(_ name: String) -> Bool {
+        !name.isEmpty && name != "." && name != ".." && !name.contains("/") && !name.contains("\0")
+    }
+
+    /// Which of `links` resolve to a folder, stat-ing at most
+    /// `symlinkStatLimit` at once. A dangling link is a file (opening it
+    /// then says it can't be found).
+    private static func symlinkedFolders(_ links: [String], access: any LeoFileAccess) async -> Set<String> {
+        await withTaskGroup(of: String?.self) { group in
+            var remaining = links[...]
+            for link in remaining.prefix(symlinkStatLimit) {
+                group.addTask { await isFolder(link, access: access) ? link : nil }
+            }
+            remaining = remaining.dropFirst(symlinkStatLimit)
+            var folders: Set<String> = []
+            while let result = await group.next() {
+                if let result { folders.insert(result) }
+                if let link = remaining.popFirst() {
+                    group.addTask { await isFolder(link, access: access) ? link : nil }
+                }
+            }
+            return folders
         }
+    }
+
+    private static func isFolder(_ path: String, access: any LeoFileAccess) async -> Bool {
+        (try? await access.stat(path).kind) == .directory
     }
 
     private static func finderOrder(_ lhs: LeoWorkspaceEntry, _ rhs: LeoWorkspaceEntry) -> Bool {
@@ -268,10 +331,12 @@ enum LeoWorkspaceItem: Hashable, Sendable {
         }
     }
 
-    /// One sanitized line, whatever failed (a `LeoFileAccessError` has
-    /// already sanitized the names it quotes; its reason may still hold a
-    /// line break).
+    /// One sanitized line, whatever failed. Only a `LeoFileAccessError`
+    /// keeps its curly quotes: it wrote them itself, around names it has
+    /// already sanitized (its reason may still hold a line break). Any
+    /// other error's text is treated like a server's.
     static func message(for error: Error) -> String {
-        LeoSFTPServerText.sanitizedMessage(error.localizedDescription)
+        guard error is LeoFileAccessError else { return LeoSFTPServerText.sanitized(error.localizedDescription) }
+        return LeoSFTPServerText.sanitizedMessage(error.localizedDescription)
     }
 }
