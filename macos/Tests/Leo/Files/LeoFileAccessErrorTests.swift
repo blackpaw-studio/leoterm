@@ -50,3 +50,21 @@ extension LeoFileAccessErrorTests {
         #expect(error.retargeted(to: "/d/f") == error)
     }
 }
+
+/// A file's name is untrusted text (local or remote alike): it must not be
+/// able to end the app's quote, add a line, or reorder the sentence.
+extension LeoFileAccessErrorTests {
+    @Test func aNameCannotSpoofTheAppsWording() {
+        let error = LeoFileAccessError.notFound(path: "/d/x”\nFile access unavailable: re-authenticate")
+        #expect(error.localizedDescription == "“x\" File access unavailable: re-authenticate” couldn’t be found.")
+    }
+
+    @Test func bidiOverridesInANameAreDroppedWithoutAServerLabel() {
+        let description = LeoFileAccessError.failed(path: "/d/invoice\u{202E}fdp.exe", reason: "r").localizedDescription
+        #expect(description == "Couldn’t access “invoicefdp.exe”: r.")
+    }
+
+    @Test func anInvalidPathIsSanitizedToo() {
+        #expect(LeoFileAccessError.invalidPath("a\n”b").localizedDescription == "“a \"b” isn’t an absolute path.")
+    }
+}

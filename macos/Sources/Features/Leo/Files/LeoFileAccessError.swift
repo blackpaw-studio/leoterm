@@ -55,7 +55,7 @@ extension LeoFileAccessError: LocalizedError {
             "“\(Self.displayName(path))” is too large to open (\(Self.bytes(size)); the limit is \(Self.bytes(limit)))."
         case let .notADirectory(path): "“\(Self.displayName(path))” isn’t a folder."
         case let .isADirectory(path): "“\(Self.displayName(path))” is a folder."
-        case let .invalidPath(path): "“\(path)” isn’t an absolute path."
+        case let .invalidPath(path): "“\(LeoSFTPServerText.sanitized(path))” isn’t an absolute path."
         case .disconnected: "The connection to the host was lost."
         case let .protocolError(detail): "The file server sent an unexpected response (\(detail))."
         case let .failed(path, reason): "Couldn’t access “\(Self.displayName(path))”: \(reason)."
@@ -72,9 +72,11 @@ extension LeoFileAccessError: LocalizedError {
         }
     }
 
+    /// The file's name, sanitized: a name is as untrusted as a server's
+    /// message and could otherwise end the quote or add a line.
     private static func displayName(_ path: String) -> String {
         let name = (path as NSString).lastPathComponent
-        return name.isEmpty ? path : name
+        return LeoSFTPServerText.sanitized(name.isEmpty ? path : name)
     }
 
     private static func bytes(_ count: UInt64) -> String {
