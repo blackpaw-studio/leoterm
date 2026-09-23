@@ -169,7 +169,7 @@ extension LeoSFTPServerTextTests {
 
         let selectors = text.unicodeScalars.filter { (0xFE00...0xFE0F).contains($0.value) || (0xE0100...0xE01EF).contains($0.value) }
         #expect(selectors.map(\.value) == [0xFE0F, 0xFE0E, 0xFE0F])
-        #expect(text.hasSuffix("bc\u{FE0F}d\u{301}e\u{FE0E}f\u{FE0F} x\u{200D}"))
+        #expect(text.hasSuffix("bc\u{FE0F}d\u{301}e\u{FE0E}f\u{FE0F} x"))
     }
 
     @Test func emojiPresentationAndFlagsSurvive() {
@@ -212,5 +212,96 @@ extension LeoSFTPServerTextTests {
         let isolated = LeoSFTPServerText.isolated(text)
         #expect(LeoSFTPServerText.isolated(isolated) == isolated)
         #expect(LeoSFTPServerText.sanitized(isolated) == once)
+    }
+}
+
+/// D-042: an invisible scalar survives only if it is on the allowlist and
+/// where it belongs; private-use, noncharacters and unassigned become one
+/// U+FFFD.
+extension LeoSFTPServerTextTests {
+    private static func run(_ scalar: UInt32, _ count: Int) -> String {
+        String(repeating: String(Character(Unicode.Scalar(scalar)!)), count: count)
+    }
+
+    @Test func invisibleMarksAreDropped() {
+        let invisible: [UInt32] = [0x034F, 0x17B4, 0x17B5, 0x180B, 0x180C, 0x180D, 0x180F]
+        let packed = (0..<100).map { "a" + invisible.map { Self.run($0, 1) }.joined() + Self.run(0x034F, $0 % 5) }.joined()
+        #expect(clean(packed) == String(repeating: "a", count: 100))
+        #expect(clean("e\u{34F}\u{301}") == "e\u{301}")
+    }
+
+    @Test func zeroWidthJoinersStayOnlyBetweenTwoEmoji() {
+        let flood = "a" + Self.run(0x200D, 800) + "b" + Self.run(0x200D, 3) + "👩" + Self.run(0x200D, 2) + "👨"
+        #expect(clean(flood) == "ab👩\u{200D}👨")
+        #expect(clean("👩\u{200D}a 1\u{200D}2 👩\u{200D} \u{200D}👨") == "👩a 12 👩 👨")
+        #expect(clean("👩\u{1F3FD}\u{200D}💻 👩\u{200D}❤\u{FE0F}\u{200D}👨") == "👩\u{1F3FD}\u{200D}💻 👩\u{200D}❤\u{FE0F}\u{200D}👨")
+    }
+
+    @Test func zeroWidthNonJoinersStayOnlyBetweenLettersOfScriptsThatUseThem() {
+        let persian = "می\u{200C}خواهم"
+        let devanagari = "\u{915}\u{94D}\u{200C}\u{937}"
+        #expect(clean(persian) == persian)
+        #expect(clean(devanagari) == devanagari)
+        #expect(clean("a\u{200C}b" + Self.run(0x200C, 800) + "c") == "abc")
+        #expect(clean("م" + Self.run(0x200C, 5) + "ی \u{200C}خ ی\u{200C}") == "م\u{200C}ی خ ی")
+    }
+
+    @Test func privateUseNoncharactersAndUnassignedBecomeOneReplacementCharacter() {
+        let packed = "a" + Self.run(0xE000, 300) + "b" + Self.run(0xF0000, 3) + Self.run(0x10FFFD, 3) + "c"
+            + Self.run(0xFDD0, 4) + Self.run(0xFFFE, 1) + "d" + Self.run(0x1FC00, 5) + "\u{FFFD}\u{FFFD}e"
+        #expect(clean(packed) == "a\u{FFFD}b\u{FFFD}c\u{FFFD}d\u{FFFD}e")
+    }
+
+    /// Whatever mix of invisible scalars a message holds, what's left can
+    /// hide at most one zero-width scalar per visible character.
+    @Test(arguments: 1...8)
+    func randomInvisiblesLeaveAtMostOneZeroWidthScalarPerVisibleCharacter(_ seed: UInt64) {
+        var random = LeoSplitMix(seed: seed)
+        let pool = Self.invisiblePool + Self.visiblePool
+        let message = String(String.UnicodeScalarView((0..<1000).map { _ in pool[Int(random.next() % UInt64(pool.count))] }))
+
+        let text = clean(message)
+
+        let zeroWidth = text.unicodeScalars.filter(Self.isZeroWidth).count
+        let visible = text.filter { character in
+            !character.isWhitespace && character.unicodeScalars.contains { !Self.isZeroWidth($0) }
+        }.count
+        #expect(zeroWidth <= visible, "\(zeroWidth) zero-width scalars for \(visible) visible characters")
+        #expect(clean(text) == text)
+    }
+
+    private static func isZeroWidth(_ scalar: Unicode.Scalar) -> Bool {
+        let category = scalar.properties.generalCategory
+        return [.format, .control].contains(category)
+            || [0x034F, 0x17B4, 0x17B5, 0x115F, 0x1160, 0x3164, 0xFFA0, 0x2800].contains(scalar.value)
+            || [0xFE00...0xFE0F, 0xE0100...0xE01EF, 0x180B...0x180F].contains { $0.contains(scalar.value) }
+    }
+
+    private static let invisiblePool: [Unicode.Scalar] = [
+        0x00, 0x1B, 0x7F, 0x85, 0xAD, 0x034F, 0x061C, 0x115F, 0x1160, 0x17B4, 0x17B5, 0x180B, 0x180E, 0x180F,
+        0x200B, 0x200C, 0x200D, 0x200E, 0x202E, 0x2060, 0x2066, 0x2068, 0x2069, 0x3164, 0x2800, 0xFE00, 0xFE0E,
+        0xFE0F, 0xFEFF, 0xFFA0, 0xE000, 0xF8FF, 0xFDD0, 0xFFFE, 0x1FC00, 0xE0001, 0xE0067, 0xE007F, 0xE0100,
+        0xE01EF, 0xF0000, 0x10FFFD, 0x1D173,
+    ].compactMap(Unicode.Scalar.init)
+
+    private static let visiblePool: [Unicode.Scalar] = [
+        0x61, 0x20, 0x0645, 0x06CC, 0x0915, 0x094D, 0x0301, 0x05D0, 0x05B8, 0x1F469, 0x1F468, 0x2764, 0x1F3F4,
+    ].compactMap(Unicode.Scalar.init)
+}
+
+/// A deterministic generator, so a failing seed reproduces.
+struct LeoSplitMix: RandomNumberGenerator {
+    private var state: UInt64
+
+    init(seed: UInt64) {
+        state = seed
+    }
+
+    mutating func next() -> UInt64 {
+        state &+= 0x9E37_79B9_7F4A_7C15
+        var mixed = state
+        mixed = (mixed ^ (mixed >> 30)) &* 0xBF58_476D_1CE4_E5B9
+        mixed = (mixed ^ (mixed >> 27)) &* 0x94D0_49BB_1331_11EB
+        return mixed ^ (mixed >> 31)
     }
 }
