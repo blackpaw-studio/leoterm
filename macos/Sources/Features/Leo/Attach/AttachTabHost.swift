@@ -19,6 +19,10 @@ enum AttachLifecycleEvent: Equatable, Sendable {
     /// window, or `nil` when focus left every attachment (another surface,
     /// no key window, app inactive).
     case focusChanged(AttachmentHandle?)
+    /// The app went inactive or has no key window: nothing is focused, but
+    /// focus didn't move anywhere either. The next `.focusChanged` says
+    /// where it resumed.
+    case focusSuspended
 }
 
 extension Notification.Name {
@@ -35,7 +39,7 @@ extension Notification.Name {
     /// The attachment that is the focused surface of the key window of the
     /// active app, if any. Changes are reported as `.focusChanged`.
     var focusedHandle: AttachmentHandle? { get }
-    /// How many `.focusChanged` events have been yielded on
+    /// How many focus events (`.focusChanged`, `.focusSuspended`) have been yielded on
     /// `lifecycleEvents` so far. The Nth focus event on the stream is report
     /// N, so a consumer can tell a report yielded before some moment (e.g.
     /// a user's click) from one yielded after it, even if it hasn't been

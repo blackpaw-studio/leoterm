@@ -12,7 +12,7 @@ import OSLog
     private let requestConfigStore: LeoRequestConfigStore
     private var attachments: [AttachmentHandle: Attachment] = [:]
     private var focusObservers: [NSObjectProtocol] = []
-    private var reportedFocus: AttachmentHandle?
+    private var reportedFocus: AttachLifecycleEvent?
     private(set) var focusReportCount = 0
 
     init(registry: LeoWindowSessionRegistry, requestConfigStore: LeoRequestConfigStore) {
@@ -43,6 +43,14 @@ import OSLog
         return attachments.first { $0.value.controller === controller && $0.value.surface === surface }?.key
     }
 
+    /// What `reportFocus` yields for the given app state. Deactivation (or
+    /// the gap between one window resigning key and the next becoming key)
+    /// suspends focus rather than moving it.
+    func focusEvent(isActive: Bool, keyWindow: NSWindow?) -> AttachLifecycleEvent {
+        guard isActive, let keyWindow else { return .focusSuspended }
+        return .focusChanged(focusedHandle(isActive: true, keyWindow: keyWindow))
+    }
+
     private func observeFocus() {
         let names: [Notification.Name] = [
             NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification,
@@ -64,11 +72,11 @@ import OSLog
     }
 
     private func reportFocus() {
-        let handle = focusedHandle
-        guard handle != reportedFocus else { return }
-        reportedFocus = handle
+        let event = focusEvent(isActive: NSApp.isActive, keyWindow: NSApp.keyWindow)
+        guard event != reportedFocus else { return }
+        reportedFocus = event
         focusReportCount += 1
-        continuation.yield(.focusChanged(handle))
+        continuation.yield(event)
     }
 
     func openTab(command: String, workingDirectory: String?, from origin: LeoWindowID, requestID: UUID) throws -> AttachmentHandle {

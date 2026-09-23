@@ -40,6 +40,14 @@ import Testing
         #expect(host.focusedHandle(isActive: false, keyWindow: window) == nil)
     }
 
+    @Test func anInactiveAppOrNoKeyWindowSuspendsFocusRatherThanClearingIt() {
+        let host = GhosttyAttachTabHost(registry: LeoWindowSessionRegistry(), requestConfigStore: LeoRequestConfigStore())
+        let window = NSWindow()
+        #expect(host.focusEvent(isActive: false, keyWindow: window) == .focusSuspended)
+        #expect(host.focusEvent(isActive: true, keyWindow: nil) == .focusSuspended)
+        #expect(host.focusEvent(isActive: true, keyWindow: window) == .focusChanged(nil), "a non-terminal key window")
+    }
+
     /// SwiftUI installs the surface view in the window on a later layout
     /// pass.
     private func waitUntilInWindow(_ view: NSView, _ window: NSWindow) async throws {

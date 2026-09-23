@@ -96,7 +96,10 @@ struct FakeOpenCall {
     /// Yields `event` without waiting for the coordinator to receive it --
     /// an event still in flight.
     func emit(_ event: AttachLifecycleEvent) {
-        if case .focusChanged = event { focusReportCount += 1 }
+        switch event {
+        case .focusChanged, .focusSuspended: focusReportCount += 1
+        default: break
+        }
         continuation.yield(event)
     }
 

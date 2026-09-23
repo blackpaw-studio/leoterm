@@ -45,6 +45,35 @@ import Testing
         #expect(model.selection == id(third))
     }
 
+    // MARK: (d) App reactivation
+
+    @Test func reactivatingTheAppKeepsAnArrowKeySelection() async {
+        let (host, coordinator, model) = makeLinked()
+        await coordinator.attach(identity: local, from: origin, disposition: .reuseOrTab)
+        await host.emitAndWait(.focusChanged(host.handles[0]))
+        #expect(model.selection == id(local))
+        model.userSelected(id(other))
+
+        await host.emitAndWait(.focusSuspended)
+        #expect(coordinator.focusedIdentity == nil, "the attention feed still hears the user isn't looking")
+        await host.emitAndWait(.focusChanged(host.handles[0]))
+
+        #expect(model.selection == id(other))
+        #expect(coordinator.focusedIdentity == local)
+    }
+
+    @Test func focusResumingOnADifferentAttachAfterReactivationStillMovesTheSelection() async {
+        let (host, coordinator, model) = makeLinked()
+        await coordinator.attach(identity: local, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: other, from: origin, disposition: .newWindow)
+        await host.emitAndWait(.focusChanged(host.handles[0]))
+
+        await host.emitAndWait(.focusSuspended)
+        await host.emitAndWait(.focusChanged(host.handles[1]))
+
+        #expect(model.selection == id(other))
+    }
+
     // MARK: Helpers
 
     /// Waits until every event yielded so far has been handled.
