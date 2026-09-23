@@ -112,4 +112,11 @@ extension LeoSFTPServerTextTests {
         #expect(clean("👨\u{200D}👩\u{200D}👧") == "👨\u{200D}👩\u{200D}👧")
         #expect(clean("می\u{200C}خواهم") == "می\u{200C}خواهم")
     }
+
+    /// A whole message of the app's own (its quotes included) gets the same
+    /// cleaning, but keeps the quotes it wrote.
+    @Test func aMessageKeepsItsOwnQuotes() {
+        #expect(LeoSFTPServerText.sanitizedMessage("Couldn’t open “a”:\nb") == "Couldn’t open “a”: b")
+        #expect(LeoSFTPServerText.sanitizedMessage("“a”\u{202E}") == "“a”")
+    }
 }

@@ -33,6 +33,17 @@ enum LeoSFTPServerText {
     /// app's quote, and anything past `limit` characters or `scalarLimit` scalars cut
     /// to "…".
     static func sanitized(_ text: String) -> String {
+        sanitized(text, keepingQuotes: false)
+    }
+
+    /// `sanitized`, but for a whole message the app wrote (whose names are
+    /// already sanitized), shown on its own rather than quoted: its own
+    /// quotes stay curly.
+    static func sanitizedMessage(_ text: String) -> String {
+        sanitized(text, keepingQuotes: true)
+    }
+
+    private static func sanitized(_ text: String, keepingQuotes: Bool) -> String {
         var result = String.UnicodeScalarView()
         var isSpacePending = false
         var isCut = false
@@ -54,7 +65,7 @@ enum LeoSFTPServerText {
             }
             if isSpacePending { result.append(" ") }
             isSpacePending = false
-            result.append(straightened(scalar))
+            result.append(keepingQuotes ? scalar : straightened(scalar))
         }
         let clean = String(result)
         guard isCut || clean.count > limit || clean.unicodeScalars.count > scalarLimit else { return clean }
