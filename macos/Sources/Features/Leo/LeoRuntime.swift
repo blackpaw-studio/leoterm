@@ -263,7 +263,11 @@ import OSLog
             window: controller.window, controller: controller, defaults: defaults,
             makeFileAccess: { [weak hostSelection] host in
                 guard let hostSelection else { throw LeoFileAccessError.unavailable(reason: "Leo is shutting down") }
-                return try hostSelection.makeFileAccess(for: host)
+                let access = try hostSelection.makeFileAccess(for: host)
+                #if DEBUG
+                if let delay = LeoSlowSaveFixture.delay() { return LeoSlowSaveFixture.wrap(access, delay: delay) }
+                #endif
+                return access
             }
         )
         // Captures `sessionID` (a value), not `session` itself -- `session`
