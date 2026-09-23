@@ -240,7 +240,7 @@ extension LeoEditorPaneViewController: NSTextViewDelegate {
             // A close is decided and the lock hadn't landed yet: put the
             // document's text back and lock now.
             guard let document = shownDocument else { return }
-            textView.load(document.text, keepingSelection: true)
+            textView.revertEdit(to: document.text)
             textView.isEditable = isEditable(document)
             return
         }

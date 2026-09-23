@@ -18,6 +18,8 @@ final class LeoEditorTextView: NSTextView {
     var documentUndoManager = UndoManager()
     /// Where edits landed since the last highlight pass.
     private var pendingHighlight: NSRange?
+    /// The selection when the latest user edit began.
+    private var selectionBeforeEdit: NSRange?
 
     static func make() -> (NSScrollView, LeoEditorTextView) {
         let scrollView = NSScrollView()
@@ -65,14 +67,28 @@ final class LeoEditorTextView: NSTextView {
     /// Replaces the whole text (a newly opened or reloaded file), keeping
     /// the selection where it still fits.
     func load(_ text: String, keepingSelection: Bool) {
-        let selection = selectedRange()
+        load(text, selecting: keepingSelection ? selectedRange() : NSRange(location: 0, length: 0))
+        if !keepingSelection { scrollToBeginningOfDocument(nil) }
+    }
+
+    /// Undoes a refused user edit: back to `text`, with the selection the
+    /// edit replaced (typing collapses it to a caret).
+    func revertEdit(to text: String) {
+        load(text, selecting: selectionBeforeEdit ?? selectedRange())
+    }
+
+    private func load(_ text: String, selecting selection: NSRange) {
         string = text
         highlightAll()
         pendingHighlight = nil
         let length = (text as NSString).length
-        let location = keepingSelection ? min(selection.location, length) : 0
-        setSelectedRange(NSRange(location: location, length: 0))
-        if !keepingSelection { scrollToBeginningOfDocument(nil) }
+        let location = min(selection.location, length)
+        setSelectedRange(NSRange(location: location, length: min(selection.length, length - location)))
+    }
+
+    override func shouldChangeText(in affectedCharRange: NSRange, replacementString: String?) -> Bool {
+        selectionBeforeEdit = selectedRange()
+        return super.shouldChangeText(in: affectedCharRange, replacementString: replacementString)
     }
 
     /// Where `reveal` puts the caret, and the line it's on.
