@@ -51,23 +51,40 @@ struct LeoTunnelOrphanStore {
         clearLocked(matching: record)
     }
 
-    /// If the stored record's pid is still running with the same start time,
-    /// SIGTERM it, give it up to 1s to exit, then SIGKILL if it's still around.
-    /// A mismatched start time means the pid was recycled by an unrelated
-    /// process: it is never signalled and the record is left untouched (there is
-    /// nothing safe to reap). A pid that isn't running at all has its record
-    /// cleared and its socket removed if dead. `inspector`/`signaller`/`sleep` are injected so
-    /// tests can run this synchronously without real processes or real waits.
+    /// Reaps a previous run's tunnel -- but only one whose socket path lock
+    /// (`LeoTunnelSocketLock`, D-049) this call can take. A held lock means
+    /// another running copy of the app owns that path, so the record
+    /// describes its live tunnel: nothing is signalled, removed or cleared.
+    ///
+    /// With the lock held: if the stored record's pid is still running with
+    /// the same start time, SIGTERM it, give it up to 1s to exit, then
+    /// SIGKILL if it's still around. A mismatched start time means the pid
+    /// was recycled by an unrelated process: it is never signalled and the
+    /// record is left untouched (there is nothing safe to reap). A pid that
+    /// isn't running at all has its record cleared. Either way the socket
+    /// at the path goes if it's this user's, without a probe (the lock
+    /// already proves nobody live owns it).
+    ///
+    /// The start time is re-read immediately before each signal, the
+    /// SIGKILL escalation included. Darwin has no way to signal a process
+    /// by identity rather than pid, so a pid that exits and is recycled
+    /// between that read and the `kill` is the one window left -- a few
+    /// instructions wide, and only for a process that happened to exit on
+    /// its own at that exact moment. `inspector`/`signaller`/`sleep` are
+    /// injected so tests can run this synchronously without real processes
+    /// or real waits.
     func reapAtLaunch(
         inspector: (Int32) -> TimeInterval?,
         signaller: (Int32, Int32) -> Void,
         sleep: (Duration) -> Void = leoTunnelRealSleep
     ) {
-        guard let record = current() else { return }
+        guard let record = current(),
+              let pathLock = try? LeoTunnelSocketLock.acquire(for: record.socketPath, owner: socketOwner) else { return }
+        defer { pathLock.release() }
         switch inspector(record.pid) {
         case nil:
             // Already gone (e.g. the machine rebooted): nothing to signal,
-            // but its forward may still be lying there dead.
+            // but its forward may still be lying there.
             removeSocketAndClear(record)
         case record.startTime:
             signaller(record.pid, SIGTERM)
@@ -83,15 +100,14 @@ struct LeoTunnelOrphanStore {
 
     /// A replacement tunnel may have been recorded while we were signalling;
     /// atomically re-check-and-unlink so that race can only ever preserve the
-    /// replacement, never drop it. The socket goes only if it's dead and this
-    /// user's (`LeoControlSocket`): the record may predate B-021 and point
-    /// into `~/.leo/state/leoterm/`, and whatever sits at the path now -- a
-    /// live sibling's socket, a file, another user's socket -- stays.
+    /// replacement, never drop it. The record may predate B-021 and point
+    /// into `~/.leo/state/leoterm/`; only a socket this user owns at the
+    /// recorded path goes -- a file or another user's socket stays.
     private func removeSocketAndClear(_ record: LeoTunnelOrphanRecord) {
         lock.lock()
         defer { lock.unlock() }
         guard current() == record else { return }
-        LeoControlSocket.removeIfStale(record.socketPath, owner: socketOwner)
+        LeoControlSocket.removeOwnedSocket(record.socketPath, owner: socketOwner)
         clearLocked(matching: record)
     }
 

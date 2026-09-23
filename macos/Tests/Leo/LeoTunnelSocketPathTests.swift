@@ -103,9 +103,35 @@ struct LeoTunnelSocketPathTests {
         selection.shutdown()
     }
 
-    /// A live socket at the path is another copy of the app forwarding the
-    /// same host: never unlinked and rebound, the user sees why instead.
-    @MainActor @Test func aLiveSiblingAtTheTunnelPathSurvivesAndTheConnectionFails() async throws {
+    /// Another copy of the app connected to the same host holds the path's
+    /// lock: its tunnel is never unlinked and rebound, the user sees why.
+    @MainActor @Test func aSecondCopyConnectingToTheSameHostFailsAndLeavesTheFirstConnected() async throws {
+        let (legacy, control) = Self.makeDirectories()
+        defer { Self.remove(legacy, control) }
+        let first = LeoHostSelectionTestSupport.makeSelection(
+            hosts: [configuration], localSocketDirectory: legacy, controlSocketDirectory: control
+        )
+        let second = LeoHostSelectionTestSupport.makeSelection(
+            hosts: [configuration], localSocketDirectory: legacy, controlSocketDirectory: control
+        )
+        let path = first.tunnelSocketPath(for: configuration)
+        await first.start(flavor: .socketEvents)
+        await second.start(flavor: .socketEvents)
+        first.select(.remote("work"))
+        await LeoHostSelectionTestSupport.awaitConnected(first, path)
+
+        second.select(.remote("work"))
+
+        await LeoHostSelectionTestSupport.awaitFailed(second)
+        #expect(Self.failureMessage(second).contains("already in use"))
+        #expect(first.state == .connected(socketPath: path))
+        #expect(LeoControlSocket.inspect(path) == .live)
+        second.shutdown()
+        first.shutdown()
+    }
+
+    /// Held lock, dead-looking socket: still the sibling's.
+    @MainActor @Test func aLockedPathFailsTheConnectionEvenIfItsSocketLooksDead() async throws {
         let (legacy, control) = Self.makeDirectories()
         defer { Self.remove(legacy, control) }
         try FileManager.default.createDirectory(at: control, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
@@ -113,15 +139,16 @@ struct LeoTunnelSocketPathTests {
             hosts: [configuration], localSocketDirectory: legacy, controlSocketDirectory: control
         )
         let path = selection.tunnelSocketPath(for: configuration)
-        let listener = try LeoTestUnixSocket.bind(path, listening: true)
-        defer { close(listener) }
+        try LeoTestUnixSocket.leaveStale(path)
+        let sibling = try #require(LeoTestFileLock.hold(path + ".lock"))
+        defer { close(sibling) }
         await selection.start(flavor: .socketEvents)
 
         selection.select(.remote("work"))
 
         await LeoHostSelectionTestSupport.awaitFailed(selection)
         #expect(Self.failureMessage(selection).contains("already in use"))
-        #expect(LeoControlSocket.inspect(path) == .live)
+        #expect(LeoControlSocket.inspect(path) == .stale)
         selection.shutdown()
     }
 

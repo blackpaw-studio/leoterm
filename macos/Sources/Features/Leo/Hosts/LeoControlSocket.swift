@@ -20,16 +20,49 @@ enum LeoControlSocketState: Equatable, Sendable {
     case unknown(Int32)
 }
 
+/// What sits at a socket path by `lstat` alone -- no connect probe.
+enum LeoSocketOccupant: Equatable, Sendable {
+    case absent
+    /// A socket `owner` owns, live or not.
+    case ownSocket
+    case foreign
+    case notASocket
+    case unknown(Int32)
+}
+
 /// Inspects and (only when provably stale) removes a ControlMaster socket.
 /// Uses `lstat`, so a symlink is never followed. Only a socket `owner`
 /// (this process's user) owns is ever judged live or stale.
 enum LeoControlSocket {
     static func inspect(_ path: String, owner: uid_t = geteuid()) -> LeoControlSocketState {
+        switch occupant(path, owner: owner) {
+        case .absent: return .absent
+        case .ownSocket: return probe(path)
+        case .foreign: return .foreign
+        case .notASocket: return .notASocket
+        case .unknown(let code): return .unknown(code)
+        }
+    }
+
+    /// Classifies `path` without connecting to it. Tunnel sockets are judged
+    /// by this plus their path lock (`LeoTunnelSocketLock`), never a probe.
+    static func occupant(_ path: String, owner: uid_t = geteuid()) -> LeoSocketOccupant {
         var info = Darwin.stat()
         guard lstat(path, &info) == 0 else { return errno == ENOENT ? .absent : .unknown(errno) }
         guard info.st_mode & S_IFMT == S_IFSOCK else { return .notASocket }
         guard info.st_uid == owner else { return .foreign }
-        return probe(path)
+        return .ownSocket
+    }
+
+    /// Unlinks `path` only if it's a socket `owner` owns, without probing
+    /// it: for a tunnel socket whose path lock the caller holds, which
+    /// already proves nobody live owns it. Returns what was there.
+    @discardableResult
+    static func removeOwnedSocket(_ path: String, owner: uid_t = geteuid()) -> LeoSocketOccupant {
+        let found = occupant(path, owner: owner)
+        guard found == .ownSocket else { return found }
+        guard unlink(path) == 0 || errno == ENOENT else { return .unknown(errno) }
+        return found
     }
 
     /// Unlinks `path` only when `inspect` finds it `.stale`, and returns

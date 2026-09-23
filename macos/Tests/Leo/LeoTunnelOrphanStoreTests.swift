@@ -133,20 +133,41 @@ struct LeoTunnelOrphanStoreTests {
         #expect(store.current() == nil)
     }
 
-    /// Whatever sits at the recorded path now -- a live socket (another
-    /// copy of the app bound it since), a file, another user's socket -- is
-    /// not this app's dead forward, so it stays.
-    @Test func onlyADeadSocketOfThisUserAtTheRecordedPathIsRemoved() throws {
+    /// Another running copy holds the recorded path's lock: the record is
+    /// its tunnel's, not an orphan. Nothing is signalled or removed.
+    @Test func aRecordWhosePathIsLockedIsNeverReaped() throws {
+        let defaults = try freshDefaults()
+        let path = LeoTunnelTestSupport.socketPath()
+        defer { unlink(path); unlink(path + ".lock") }
+        try LeoTestUnixSocket.leaveStale(path)
+        let sibling = try #require(LeoTestFileLock.hold(path + ".lock"))
+        defer { close(sibling) }
+        let store = LeoTunnelOrphanStore(defaults: defaults, key: "orphan")
+        let record = LeoTunnelOrphanRecord(pid: 42, startTime: 99, socketPath: path)
+        store.record(record)
+        var signals: [Int32] = []
+
+        store.reapAtLaunch(inspector: { _ in 99 }, signaller: { _, signal in signals.append(signal) }, sleep: { _ in })
+
+        #expect(signals.isEmpty)
+        #expect(store.current() == record)
+        #expect(LeoControlSocket.inspect(path) == .stale)
+    }
+
+    /// With the lock free nobody live owns the path, so the dead app's
+    /// socket goes without a probe -- even one its orphaned ssh still
+    /// listens on. A file or another user's socket there stays.
+    @Test func withTheLockFreeOnlyThisUsersSocketAtTheRecordedPathIsRemoved() throws {
         let (root, legacy) = try Self.makeLegacyDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
-        let live = legacy.appendingPathComponent("live.sock").path
+        let listening = legacy.appendingPathComponent("live.sock").path
         let file = legacy.appendingPathComponent("file.sock").path
         let foreign = legacy.appendingPathComponent("foreign.sock").path
-        let listener = try LeoTestUnixSocket.bind(live, listening: true)
+        let listener = try LeoTestUnixSocket.bind(listening, listening: true)
         defer { close(listener) }
         try Data("keep".utf8).write(to: URL(fileURLWithPath: file))
         try LeoTestUnixSocket.leaveStale(foreign)
-        let cases: [(path: String, owner: uid_t)] = [(live, geteuid()), (file, geteuid()), (foreign, geteuid() + 1)]
+        let cases: [(path: String, owner: uid_t)] = [(listening, geteuid()), (file, geteuid()), (foreign, geteuid() + 1)]
 
         for (path, owner) in cases {
             let store = LeoTunnelOrphanStore(defaults: try freshDefaults(), key: "orphan", socketOwner: owner)
@@ -155,9 +176,29 @@ struct LeoTunnelOrphanStoreTests {
             store.reapAtLaunch(inspector: { _ in alive ? 99 : nil }, signaller: { _, _ in alive = false }, sleep: { _ in })
         }
 
-        #expect(LeoControlSocket.inspect(live) == .live)
+        #expect(LeoControlSocket.inspect(listening) == .absent)
         #expect(try String(contentsOfFile: file, encoding: .utf8) == "keep")
         #expect(LeoControlSocket.inspect(foreign) == .stale)
+    }
+
+    /// The pid is re-checked right before every signal, the SIGKILL
+    /// escalation included: a pid recycled in between is never signalled.
+    @Test func aPidRecycledBeforeTheEscalationIsNeverKilled() throws {
+        let defaults = try freshDefaults()
+        let path = LeoTunnelTestSupport.socketPath()
+        defer { unlink(path); unlink(path + ".lock") }
+        let store = LeoTunnelOrphanStore(defaults: defaults, key: "orphan")
+        store.record(LeoTunnelOrphanRecord(pid: 42, startTime: 99, socketPath: path))
+        var signals: [Int32] = []
+        var startTime: TimeInterval = 99
+
+        store.reapAtLaunch(
+            inspector: { _ in startTime },
+            signaller: { _, signal in signals.append(signal) },
+            sleep: { _ in startTime = 100 }
+        )
+
+        #expect(signals == [SIGTERM])
     }
 
     /// A stand-in home's `.leo/state/leoterm/`, never the real one.
