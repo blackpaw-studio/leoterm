@@ -22,7 +22,7 @@ Accept: (a) medium, plausible: when clicking a row in a non-key window, the wind
 Source: B-006 reviews + visual check
 Done: c25cf3523 82c835016 ab3f8c6ff 7d2b676e7 89ff485c9 79f8d61f2 7a3728f4f (867 tests). Verified: shot B-016-1.png (hovered long name truncates before Attach). (a), (c) and (d) are covered by tests only. Test gaps from the review → B-019.
 
-## B-019 · Tests for the host focus sequence and the ordered relay   [ready (next run)]
+## B-019 · Tests for the host focus sequence and the ordered relay   [ready]
 Accept: (a) a host test that collects `lifecycleEvents` around `makeFirstResponder` and checks the exact order: viewing is reported before focus, and focusing the sidebar yields only `.focusChanged(nil)` (`GhosttyAttachTabHostFocusTests.swift:10`); (b) a test that fails if `focusedAgentChanged` stops going through `LeoOrderedRelay` (`LeoRuntime+Attention.swift:10`).
 Source: B-016 second review
 
@@ -31,11 +31,11 @@ Accept: (a) fix the doc comment in `LeoHostConfiguration.swift:67-71` to say the
 Source: B-003 reviews
 Done: 97781e299 f8b3b4350 fb1bb244b 119697892 198da68e3 adb143d49 1c8ae5131 2f5f51b4d abf708a54 (908 tests). Control sockets now live in the per-user cache dir, a fixed 86 bytes whatever the home dir length; foreign-owned sockets are refused; a vanished socket gets a "Reconnect" message; SFTP errors are specific, and server text and filenames are sanitized. No UI, so no screenshot. Remaining sanitizer gaps → B-020; daemon-socket length → B-021.
 
-## B-020 · Sanitize every error string at one choke point   [ready (next run)]
+## B-020 · Sanitize every error string at one choke point   [ready]
 Accept: sanitize `reason`/`detail` once, where it renders (`LeoFileAccessError.errorDescription`), instead of at each source. This closes paths from B-003 that are still raw: the SFTP rename temp name `kept` (`LeoSFTPFileBackend.swift:120`), Foundation's `localizedDescription`, which embeds raw local filenames (`LeoLocalFileBackend.swift:145`, `LeoFileAccessError.swift:44`), and the transport's `describe(error)` (`LeoSFTPTransport.swift:124`). Also: add the missing double-quote lookalikes (U+2E42, U+1F676–1F678, U+05F4, U+02BA, U+3003, U+02DD); wrap interpolated names in FSI…PDI so RTL names can't reorder the surrounding text; raise the mark cap to 3–4 for Hebrew and Indic text; keep tag characters after U+1F3F4 (subdivision flags). Test first, with a spoofing filename through every backend.
 Source: B-017 third security review (D-032)
 
-## B-021 · Forwarded daemon socket path budget   [ready (next run)]
+## B-021 · Forwarded daemon socket path budget   [ready]
 Accept: the forwarded daemon socket in `~/.leo/state/leoterm/` has a 100-byte limit, so home directories longer than roughly 38–58 characters (depending on host name) break the whole tunnel. Move it to the same private per-user cache dir as the control sockets (`LeoControlSocketDirectory`), with the same checks. Failing test first with a long fake home.
 Source: B-017 implementer report
 
@@ -64,7 +64,7 @@ Relative paths resolve against the agent's workspace. Works local and remote.
 Source: Evan, vision session; D-007
 Done: 5980d43a6 95eff7499 8516b9867 f25eefc0c 60b6c5f72 e47c78546 f401ac93e cfb66debf 5036f153b 9db8771af a820ef868 53a8e62b8 120129672 90e96b9ea 0b6569257 eca4cfbc1 a0f19db31 5cd057694 676f70548 (1027 tests; the app launches and stays up). Verified: shot B-004-1.png (Open File in Editor shows a highlighted Swift file in a trailing split). ⌘-click was covered by tests only; with only real agents available, clicking into an agent terminal is off limits. Remote was tested against sftp-server over pipes, with no live remote. Leftovers → B-022 (D-034).
 
-## B-022 · Editor pane: close-gate edge, split width, wiring tests   [ready (next run)]
+## B-022 · Editor pane: close-gate edge, split width, wiring tests   [ready]
 Accept: (a) MEDIUM: the close gate asks only about editors that were dirty when the close began (`LeoUnsavedEditorsGate.swift:97,122`). An editor edited while a system-quit "Keep Waiting / Quit Anyway" offer is up is never asked. Pass the close's full entries into `Resolution` and re-check `hasUnsavedEdits`, with a test. (b) MEDIUM, plausible: logout with a hung SFTP save relies on a second ⌘Q reaching the delegate while `.terminateLater` is pending; check that on the laptop, or offer leave-anyway from within the pending system quit. (c) The pane opens at its 320 pt minimum, not 50/50; position it after the un-collapse finishes, the way the sidebar restores its width. (d) Tests for the TerminalController wiring: `leoKeepForUnsavedEdits`, the early returns in `closeTabImmediately` and `closeWindowImmediately`, the ⌘W override. (e) LOW: the quit review says "Close Anyway" instead of "Quit Anyway"; the offer sheet queues behind an existing sheet.
 Source: B-004 reviews
 
