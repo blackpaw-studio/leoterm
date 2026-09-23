@@ -364,3 +364,11 @@ Why: the tests already catch four real breakages; reverting would remove all cov
 Alternatives: revert B-019 and block it (the literal rule). Veto this to get that
 Commit: c92565ac3 ad537d10e 79d5d9375 6be661a48 24000299e
 Veto: [ ]
+
+## D-046 · 2026-09-23 · A presentation selector survives only when it changes what's drawn
+Context: B-026. Gating FE0E/FE0F on "pictographic" (Emoji + So) dropped valid sequences like ‼️, and still let FE0F follow an emoji that already draws as emoji (😀 vs 😀️ look the same: one hidden bit per emoji). Likewise ZWNJ between Indic letters with no virama changes nothing
+Chose: a selector is kept only after a base listed in Unicode's emoji-variation-sequences.txt, and only when it flips the base's default presentation (FE0F on a text-default base, FE0E on an emoji-default base); keycaps keep digit/#/*+FE0F+20E3. Indic ZWNJ is kept only right after a virama; Arabic ZWNJ only between two joining letters
+Why: every surviving invisible must make a visible difference, so none can carry hidden bits (D-042's allowlist, tightened); principle 4
+Alternatives: accept one hidden bit per emoji; allow every Emoji-property base
+Commit:
+Veto: [ ]
