@@ -3,7 +3,12 @@ import Testing
 
 @testable import Ghostty
 
+@Suite(.timeLimit(.minutes(1)))
 struct LeoSidebarFeedFixTests {
+    /// The list-fetch deadline `fetchList()` races each list call against.
+    static let listDeadline: UInt64 = 5_000_000_000
+
+
     @Test func helloAfterConnectedCoalescesRecoveryRefresh() async throws {
         let daemon = FeedFixDaemon(results: [[agent("alpha")], [agent("bravo")], [agent("charlie")]])
         let activity = FeedFixActivity()
@@ -55,7 +60,7 @@ struct LeoSidebarFeedFixTests {
     }
 
     @Test func listTimeoutRetainsRowsAndSubsequentTickRefreshes() async throws {
-        let clock = FeedFixClock()
+        let clock = LeoFiringClock()
         let daemon = NonCooperativeFeedFixDaemon(results: [[agent("alpha")]])
         let recorder = FeedFixRecorder()
         let feed = makeFeed(daemon: daemon, activity: FeedFixActivity(), recorder: recorder, sleep: { try await clock.sleep($0) })
@@ -64,12 +69,8 @@ struct LeoSidebarFeedFixTests {
         await feed.setPolling(true)
         try await wait { await recorder.last?.rows.map(\.name) == ["alpha"] }
         await feed.refresh()
-        try await wait {
-            let calls = await daemon.listCallCount
-            let sleeps = await clock.sleepCount
-            return calls == 2 && sleeps > 0
-        }
-        await clock.advanceAll()
+        try await until { await daemon.listCallCount == 2 && !clock.pending(Self.listDeadline).isEmpty }
+        clock.fire(Self.listDeadline)
         try await wait {
             if case .failed(let message) = await recorder.last?.connectivity { return message == "timed out" }
             return false
@@ -90,7 +91,8 @@ struct LeoSidebarFeedFixTests {
     /// `LeoPollScheduler`'s state machine, which is covered separately in
     /// `LeoSidebarTests`.
     @Test func sseRefreshTaskReplacesAPendingPredecessorAndIsCancelledOnStop() async throws {
-        let clock = FeedFixClock()
+        let window: UInt64 = 100_000_000
+        let clock = LeoFiringClock()
         let daemon = FeedFixDaemon(results: [[agent("alpha")]])
         let recorder = FeedFixRecorder()
         let feed = makeFeed(daemon: daemon, activity: FeedFixActivity(), recorder: recorder, sleep: { try await clock.sleep($0) })
@@ -100,17 +102,22 @@ struct LeoSidebarFeedFixTests {
         // Re-entry: scheduling a second coalesced-refresh sleep while the
         // first is still pending must cancel the first rather than stacking
         // both (which would otherwise fire two refreshes for one coalescing
-        // window).
+        // window). The clock drops a cancelled sleep synchronously, so once
+        // the successor's sleep is waiting, `pending` is exactly what's left.
         await feed.process([.scheduleSSERefresh(after: 0.1)])
-        try await wait { await clock.sleepCount == 1 }
+        try await until { !clock.pending(window).isEmpty }
+        let first = clock.pending(window)
         await feed.process([.scheduleSSERefresh(after: 0.1)])
-        try await wait { await clock.sleepCount == 1 }
-        #expect(await clock.sleepCount == 1)
+        try await until { clock.pending(window).contains { !first.contains($0) } }
+        let second = clock.pending(window)
+        #expect(first.count == 1)
+        #expect(second.count == 1 && second != first, "first \(first), then \(second)")
 
-        // stop() must cancel the still-pending sleep: advancing it
+        // stop() must cancel the still-pending sleep: firing the window
         // afterward must never produce a refresh or emission.
         await feed.stop()
-        await clock.advanceAll()
+        #expect(clock.pending(window).isEmpty)
+        clock.fire(window)
         for _ in 0..<20 { await Task.yield() }
         #expect(await daemon.listCallCount == 0)
         #expect(await recorder.values.isEmpty)
@@ -231,25 +238,3 @@ private actor FeedFixRecorder {
     func append(_ snapshot: LeoSidebarSnapshot) { values.append(snapshot) }
 }
 
-private actor FeedFixClock {
-    private var waiters: [CheckedContinuation<Void, Error>] = []
-    var sleepCount: Int { waiters.count }
-    func sleep(_ nanoseconds: UInt64) async throws {
-        try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { waiters.append($0) }
-        } onCancel: {
-            Task { await self.cancelAll() }
-        }
-    }
-    func advanceAll() {
-        let pending = waiters
-        waiters = []
-        pending.forEach { $0.resume() }
-    }
-
-    private func cancelAll() {
-        let pending = waiters
-        waiters = []
-        pending.forEach { $0.resume(throwing: CancellationError()) }
-    }
-}

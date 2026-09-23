@@ -130,19 +130,10 @@ private func agent(_ name: String) -> LeoAgent {
     .init(name: name, template: "default", repo: nil, workspace: nil, branch: nil, canonicalPath: nil, status: .running, startedAt: nil, restarts: nil, stoppedReason: nil, wakeOnMessage: nil)
 }
 
-/// Re-checks `condition` until it holds. No deadline: the suite's time
-/// limit is the hang guard, so a slow machine only makes this slower. When
-/// the limit cancels the test, this throws instead of spinning on.
-private func until(_ condition: @Sendable () async -> Bool) async throws {
-    while !(await condition()) {
-        try await Task.sleep(nanoseconds: 1_000_000)
-    }
-}
-
 /// A feed wired to fakes, connected and settled: the first list refresh and
 /// its activity-state fetch have both emitted, and polling is off.
 private struct Harness {
-    let clock = CoalescingClock()
+    let clock = LeoFiringClock()
     let daemon: CoalescingDaemon
     let activity = CoalescingActivity()
     let recorder: CoalescingRecorder
@@ -268,58 +259,4 @@ private actor CoalescingDaemon: LeoDaemonClient {
     func delete(_ name: String, force: Bool?, deleteBranch: Bool?) async throws { fatalError() }
     func deletePlan(_ name: String) async throws -> LeoDeletePlan { fatalError() }
     func logs(_ name: String, lines: Int?) async throws -> String { fatalError() }
-}
-
-/// Holds every sleep until the test fires it, by length -- so firing the
-/// coalescing window never also fires a fetch deadline or an attention
-/// tick. A cancelled sleep leaves at once (synchronously, in `cancel()`),
-/// so `pending` is exact.
-private final class CoalescingClock: @unchecked Sendable {
-    private struct Sleeper {
-        let nanoseconds: UInt64
-        let continuation: CheckedContinuation<Void, Error>
-    }
-
-    private let lock = NSLock()
-    private var sleepers: [Int: Sleeper] = [:]
-    private var cancelledEarly: Set<Int> = []
-    private var nextID = 0
-
-    /// The ids of the sleeps of this length still waiting, oldest first.
-    func pending(_ nanoseconds: UInt64) -> [Int] {
-        lock.withLock { sleepers.filter { $0.value.nanoseconds == nanoseconds }.keys.sorted() }
-    }
-
-    func sleep(_ nanoseconds: UInt64) async throws {
-        let id = lock.withLock { () -> Int in
-            defer { nextID += 1 }
-            return nextID
-        }
-        try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                let cancelled = lock.withLock { () -> Bool in
-                    if cancelledEarly.remove(id) != nil { return true }
-                    sleepers[id] = Sleeper(nanoseconds: nanoseconds, continuation: continuation)
-                    return false
-                }
-                if cancelled { continuation.resume(throwing: CancellationError()) }
-            }
-        } onCancel: {
-            let sleeper = lock.withLock { () -> Sleeper? in
-                guard let sleeper = sleepers.removeValue(forKey: id) else { cancelledEarly.insert(id); return nil }
-                return sleeper
-            }
-            sleeper?.continuation.resume(throwing: CancellationError())
-        }
-    }
-
-    /// Wakes every sleep of this length.
-    func fire(_ nanoseconds: UInt64) {
-        let due = lock.withLock { () -> [Sleeper] in
-            let due = sleepers.filter { $0.value.nanoseconds == nanoseconds }
-            due.keys.forEach { sleepers.removeValue(forKey: $0) }
-            return Array(due.values)
-        }
-        due.forEach { $0.continuation.resume() }
-    }
 }
