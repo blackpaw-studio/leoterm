@@ -42,7 +42,7 @@ struct LeoSSHCommandSFTPTests {
             "-n", "-N", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes", "-o", "ExitOnForwardFailure=yes",
             "-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=3",
             "-o", "ControlMaster=no", "-o", "ControlPath=none",
-            "-i", "/keys/build", "-p", "2222", "-L",
+            "-o", "StreamLocalBindUnlink=yes", "-i", "/keys/build", "-p", "2222", "-L",
             "/tmp/b.sock:/r/leo.sock", "evan@build.example"
         ])
     }

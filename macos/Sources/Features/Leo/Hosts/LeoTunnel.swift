@@ -12,26 +12,6 @@ enum LeoTunnelError: Error, Equatable, Sendable {
     case launchFailed(String)
     case exitedBeforeReady(status: Int32, stderrTail: String)
     case notReady(stderrTail: String)
-    /// A live socket -- another tunnel forwarding the same host -- already
-    /// sits at the local socket path. It is never unlinked.
-    case socketInUse(path: String)
-    /// Something other than a dead socket of this user's sits at the local
-    /// socket path (a file, another user's socket, or one that couldn't be
-    /// checked). It is never unlinked.
-    case socketUnusable(path: String, reason: String)
-}
-
-extension LeoTunnelError: LocalizedError {
-    var errorDescription: String? {
-        switch self {
-        case .launchFailed(let message): return message
-        case .exitedBeforeReady(let status, let tail): return tail.isEmpty ? "ssh exited (\(status))" : tail
-        case .notReady(let tail): return tail.isEmpty ? "The tunnel never became ready" : tail
-        case .socketInUse:
-            return "This host’s tunnel socket is already in use by another copy of Leo, or by an ssh process Leo couldn’t stop. Quit it, then retry"
-        case .socketUnusable(_, let reason): return "The tunnel socket path can’t be used: \(reason)"
-        }
-    }
 }
 
 /// A dumb wrapper around a single `ssh -n -N -L ...` `Process`. `LeoTunnel` owns no
@@ -44,8 +24,6 @@ final class LeoTunnel: @unchecked Sendable {
     private let executable: URL
     private let arguments: [String]
     private let localSocketPath: String
-    /// The only user whose dead socket at `localSocketPath` may be removed.
-    private let socketOwner: uid_t
 
     /// Invoked repeatedly by the readiness loop. **Must honour cancellation** --
     /// `start()` races each call against the remaining time on `deadline` using a
@@ -78,9 +56,6 @@ final class LeoTunnel: @unchecked Sendable {
     private var stderrDrainedFlag = false
     private var exitDelivered = false
     private var onExitCallback: (@Sendable (LeoTunnelExit) -> Void)?
-    /// Held from `start()` until the process has exited; see
-    /// `claimSocketPath()`.
-    private var socketLock: LeoTunnelSocketLock?
 
     /// Fires exactly once, after the process has exited AND its stderr pipe has
     /// reached EOF, on a private queue (never the main thread, never the
@@ -112,27 +87,20 @@ final class LeoTunnel: @unchecked Sendable {
         executable: URL,
         arguments: [String],
         localSocketPath: String,
-        socketOwner: uid_t = geteuid(),
         healthProbe: @escaping @Sendable (String) async throws -> Bool,
         clock: any Clock<Duration> = ContinuousClock()
     ) {
         self.executable = executable
         self.arguments = arguments
         self.localSocketPath = localSocketPath
-        self.socketOwner = socketOwner
         self.healthProbe = healthProbe
         self.clockBox = leoTunnelMakeClockBox(clock)
     }
 
     func start() async throws {
-        try claimSocketPath()
+        try removeStaleSocket()
         installHandlers()
-        do {
-            try launchProcess()
-        } catch {
-            releaseSocketPath()
-            throw error
-        }
+        try launchProcess()
         // Anchored here, right after the process is running, not in `init`: a
         // caller that constructs the tunnel and only calls `start()` later
         // (or is delayed getting scheduled) must still get the full 6s budget.
@@ -164,10 +132,7 @@ final class LeoTunnel: @unchecked Sendable {
         if wasLaunched, process.isRunning { process.terminate() }
         lock.unlock()
 
-        guard wasLaunched else {
-            releaseSocketPath()
-            return
-        }
+        guard wasLaunched else { return }
 
         waitForExit(upTo: 1)
 
@@ -178,7 +143,6 @@ final class LeoTunnel: @unchecked Sendable {
         while process.isRunning {
             Thread.sleep(forTimeInterval: 0.005)
         }
-        releaseSocketPath()
     }
 
     // MARK: - Launch
@@ -219,45 +183,10 @@ final class LeoTunnel: @unchecked Sendable {
         }
     }
 
-    /// Claims the local socket path (D-049): takes its `LeoTunnelSocketLock`,
-    /// which fails with `.socketInUse` while another running copy of the app
-    /// holds it -- whatever its socket looks like, and never touching it.
-    /// With the lock held nobody live owns the path, so a socket this user
-    /// owns there is an orphaned forward and is removed without a probe;
-    /// anything else isn't ours to remove and fails the tunnel. All before
-    /// ssh launches (and ssh itself never unlinks the path, see
-    /// `LeoSSHCommand.tunnelArguments`).
-    private func claimSocketPath() throws {
-        let pathLock: LeoTunnelSocketLock
-        do {
-            pathLock = try LeoTunnelSocketLock.acquire(for: localSocketPath, owner: socketOwner)
-        } catch LeoTunnelSocketLockError.busy {
-            Self.logger.error("tunnel socket path locked by another copy; leaving it path=\(self.localSocketPath, privacy: .public)")
-            throw LeoTunnelError.socketInUse(path: localSocketPath)
-        } catch LeoTunnelSocketLockError.unusable(let reason) {
-            throw LeoTunnelError.socketUnusable(path: localSocketPath, reason: reason)
+    private func removeStaleSocket() throws {
+        if FileManager.default.fileExists(atPath: localSocketPath) {
+            try FileManager.default.removeItem(atPath: localSocketPath)
         }
-        let reason: String? = switch LeoControlSocket.removeOwnedSocket(localSocketPath, owner: socketOwner) {
-        case .absent, .ownSocket: nil
-        case .notASocket: "something other than a socket is there"
-        case .foreign: "it belongs to another user"
-        case .unknown(let code): String(cString: strerror(code))
-        }
-        if let reason {
-            pathLock.release()
-            throw LeoTunnelError.socketUnusable(path: localSocketPath, reason: reason)
-        }
-        lock.withLock { socketLock = pathLock }
-    }
-
-    /// Only once the process is gone (or never launched): until then the
-    /// path is still this tunnel's.
-    private func releaseSocketPath() {
-        let held = lock.withLock {
-            defer { socketLock = nil }
-            return socketLock
-        }
-        held?.release()
     }
 
     private func installHandlers() {
@@ -383,7 +312,6 @@ final class LeoTunnel: @unchecked Sendable {
 
     private func markExited(status: Int32) {
         lock.withLock { exitStatusValue = status }
-        releaseSocketPath()
         attemptDelivery()
     }
 

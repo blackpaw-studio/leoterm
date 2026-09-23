@@ -23,9 +23,7 @@ import Testing
         #expect(window.contentViewController == nil)
 
         let sidebar = LeoSidebarModel()
-        let actions = LeoAgentActions(
-            daemon: StubDaemonClient(), cli: LeoCLI(), model: sidebar, hostSelection: LeoHostSelectionTestSupport.makeSelection(), refresh: {}
-        )
+        let actions = LeoAgentActions(daemon: StubDaemonClient(), cli: LeoCLI(), model: sidebar, refresh: {})
         let presenter = LeoSpawnAgentSheetPresenter()
 
         presenter.present(on: window, sidebar: sidebar, actions: actions) { _ in }

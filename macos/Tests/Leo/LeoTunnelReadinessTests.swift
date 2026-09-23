@@ -36,7 +36,7 @@ struct LeoTunnelReadinessTests {
 
     @Test func removesStaleSocketBeforeLaunch() async throws {
         let path = LeoTunnelTestSupport.socketPath()
-        try LeoTestUnixSocket.leaveStale(path)
+        try Data("stale".utf8).write(to: URL(fileURLWithPath: path))
         let tunnel = LeoTunnel(
             executable: URL(fileURLWithPath: "/usr/bin/python3"),
             arguments: try LeoTunnelTestSupport.arguments(socketPath: path),

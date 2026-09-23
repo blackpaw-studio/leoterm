@@ -377,12 +377,10 @@ extension LeoHostSelectionError: LocalizedError {
             throw LeoHostSelectionError.unsafeSocketDirectory
         }
         let path = tunnelSocketPath(for: configuration)
-        // `lstat` only: whether the path is live is the tunnel's path lock
-        // to say (`LeoTunnel.claimSocketPath`), never a connect probe.
-        switch LeoControlSocket.occupant(path, owner: controlSocketOwner) {
+        switch LeoControlSocket.inspect(path, owner: controlSocketOwner) {
         case .foreign: throw LeoHostSelectionError.foreignTunnelSocket
         case .notASocket: throw LeoHostSelectionError.occupiedTunnelSocketPath
-        case .absent, .ownSocket, .unknown: break
+        case .absent, .live, .stale, .unknown: break
         }
         removeStaleLegacySocket(for: configuration)
         return path
@@ -397,9 +395,7 @@ extension LeoHostSelectionError: LocalizedError {
 
     /// Unlinks only a socket this user owns that nobody listens on (never a
     /// file, a live socket or the directory itself), and never creates the
-    /// old directory. Probed rather than path-locked (D-049): nothing this
-    /// build runs binds there, so no lock could speak for it -- only a
-    /// pre-B-021 build, which never locks, could be listening.
+    /// old directory.
     private func removeStaleLegacySocket(for configuration: LeoHostConfiguration) {
         let path = legacySocketDirectory.appendingPathComponent(configuration.legacySocketFileName).path
         guard path != tunnelSocketPath(for: configuration) else { return }
@@ -423,7 +419,6 @@ extension LeoHostSelectionError: LocalizedError {
             switch error {
             case .launchFailed(let message): stderrTail = message
             case .exitedBeforeReady(_, let tail), .notReady(let tail): stderrTail = tail
-            case .socketInUse, .socketUnusable: stderrTail = error.localizedDescription
             }
         case let error as LeoHostSelectionError:
             stderrTail = error.localizedDescription

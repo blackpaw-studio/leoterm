@@ -11,7 +11,7 @@ struct LeoSSHCommandTests {
             "-n", "-N", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes", "-o", "ExitOnForwardFailure=yes",
             "-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=3",
             "-o", "ControlMaster=yes", "-o", "ControlPath=/tmp/cm-build", "-o", "ControlPersist=no",
-            "-i", "/keys/build", "-p", "2222", "-L",
+            "-o", "StreamLocalBindUnlink=yes", "-i", "/keys/build", "-p", "2222", "-L",
             "/tmp/build.sock:/home/evan/.leo/state/leo.sock", "evan@build.example"
         ])
     }

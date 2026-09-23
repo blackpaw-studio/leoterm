@@ -8,7 +8,7 @@ struct LeoTunnelOrphanStoreTests {
     @Test func matchingPidIsSignalledAndSocketAndRecordAreCleared() throws {
         let defaults = try freshDefaults()
         let path = LeoTunnelTestSupport.socketPath()
-        try LeoTestUnixSocket.leaveStale(path)
+        FileManager.default.createFile(atPath: path, contents: Data())
         let store = LeoTunnelOrphanStore(defaults: defaults, key: "orphan")
         store.record(LeoTunnelOrphanRecord(pid: 42, startTime: 99, socketPath: path))
         var signals: [Int32] = []
@@ -16,103 +16,32 @@ struct LeoTunnelOrphanStoreTests {
 
         store.reapAtLaunch(
             inspector: { _ in alive ? 99 : nil },
-            signaller: { _, signal in signals.append(signal); alive = false; return 0 },
+            signaller: { _, signal in signals.append(signal); alive = false },
             sleep: { _ in }
         )
 
         #expect(signals == [SIGTERM])
-        #expect(store.records().isEmpty)
-        #expect(LeoControlSocket.inspect(path) == .absent)
+        #expect(store.current() == nil)
+        #expect(!FileManager.default.fileExists(atPath: path))
     }
 
     @Test func stillAliveAfterSigtermEscalatesToSigkill() throws {
         let defaults = try freshDefaults()
         let path = LeoTunnelTestSupport.socketPath()
-        try LeoTestUnixSocket.leaveStale(path)
+        FileManager.default.createFile(atPath: path, contents: Data())
         let store = LeoTunnelOrphanStore(defaults: defaults, key: "orphan")
         store.record(LeoTunnelOrphanRecord(pid: 42, startTime: 99, socketPath: path))
         var signals: [Int32] = []
 
         store.reapAtLaunch(
-            inspector: { _ in signals.contains(SIGKILL) ? nil : 99 },
-            signaller: { _, signal in signals.append(signal); return 0 },
+            inspector: { _ in 99 },
+            signaller: { _, signal in signals.append(signal) },
             sleep: { _ in }
         )
 
         #expect(signals == [SIGTERM, SIGKILL])
-        #expect(store.records().isEmpty)
-        #expect(LeoControlSocket.inspect(path) == .absent)
-    }
-
-    /// Still alive after SIGKILL (the start-time check keeps matching):
-    /// never assume it's gone. The record and socket stay, and the path is
-    /// held in use for this run instead of started over.
-    @Test func aProcessThatSurvivesSigkillKeepsItsRecordAndSocketAndThePathInUse() throws {
-        let defaults = try freshDefaults()
-        let path = LeoTunnelTestSupport.socketPath()
-        defer { unlink(path); unlink(path + ".lock") }
-        try LeoTestUnixSocket.leaveStale(path)
-        let store = LeoTunnelOrphanStore(defaults: defaults, key: "orphan")
-        let record = LeoTunnelOrphanRecord(pid: 42, startTime: 99, socketPath: path)
-        store.record(record)
-        var signals: [Int32] = []
-
-        let held = store.reapAtLaunch(
-            inspector: { _ in 99 }, signaller: { _, signal in signals.append(signal); return 0 }, sleep: { _ in }
-        )
-
-        #expect(signals == [SIGTERM, SIGKILL])
-        #expect(store.records() == [record])
-        #expect(LeoControlSocket.inspect(path) == .stale)
-        #expect(LeoTestFileLock.hold(path + ".lock") == nil)
-        held.forEach { $0.release() }
-    }
-
-    /// `kill` failing with anything but ESRCH proves nothing about the
-    /// process: same as surviving.
-    @Test func aFailedKillKeepsTheRecordAndSocket() throws {
-        let defaults = try freshDefaults()
-        let path = LeoTunnelTestSupport.socketPath()
-        defer { unlink(path); unlink(path + ".lock") }
-        try LeoTestUnixSocket.leaveStale(path)
-        let store = LeoTunnelOrphanStore(defaults: defaults, key: "orphan")
-        let record = LeoTunnelOrphanRecord(pid: 42, startTime: 99, socketPath: path)
-        store.record(record)
-
-        let held = store.reapAtLaunch(inspector: { _ in 99 }, signaller: { _, _ in EPERM }, sleep: { _ in })
-
-        #expect(store.records() == [record])
-        #expect(LeoControlSocket.inspect(path) == .stale)
-        held.forEach { $0.release() }
-    }
-
-    /// Two copies connected to two hosts each leave their own record: a
-    /// crash of either is still reaped at the next launch.
-    @Test func recordsForTwoPathsAreKeptAndEachReaped() throws {
-        let defaults = try freshDefaults()
-        let first = LeoTunnelTestSupport.socketPath()
-        let second = LeoTunnelTestSupport.socketPath()
-        defer { [first, second].forEach { unlink($0); unlink($0 + ".lock") } }
-        try LeoTestUnixSocket.leaveStale(first)
-        try LeoTestUnixSocket.leaveStale(second)
-        let store = LeoTunnelOrphanStore(defaults: defaults, key: "orphan")
-        let firstRecord = LeoTunnelOrphanRecord(pid: 42, startTime: 99, socketPath: first)
-        let secondRecord = LeoTunnelOrphanRecord(pid: 43, startTime: 100, socketPath: second)
-        store.record(firstRecord)
-        store.record(secondRecord)
-        #expect(Set(store.records().map(\.pid)) == [42, 43])
-        var dead: Set<Int32> = []
-
-        store.reapAtLaunch(
-            inspector: { pid in dead.contains(pid) ? nil : (pid == 42 ? 99 : 100) },
-            signaller: { pid, _ in dead.insert(pid); return 0 },
-            sleep: { _ in }
-        )
-
-        #expect(dead == [42, 43])
-        #expect(store.records().isEmpty)
-        #expect(LeoControlSocket.inspect(first) == .absent)
-        #expect(LeoControlSocket.inspect(second) == .absent)
+        #expect(store.current() == nil)
+        #expect(!FileManager.default.fileExists(atPath: path))
     }
 
     @Test func mismatchedStartTimeIsNeverSignalledAndRecordIsUntouched() throws {
@@ -126,12 +55,12 @@ struct LeoTunnelOrphanStoreTests {
 
         store.reapAtLaunch(
             inspector: { _ in 100 },
-            signaller: { _, signal in signals.append(signal); return 0 },
+            signaller: { _, signal in signals.append(signal) },
             sleep: { _ in }
         )
 
         #expect(signals.isEmpty)
-        #expect(store.records() == [record])
+        #expect(store.current() == record)
         #expect(FileManager.default.fileExists(atPath: path))
     }
 
@@ -151,158 +80,12 @@ struct LeoTunnelOrphanStoreTests {
                 // is still in flight (e.g. SIGTERM delivery racing a fresh launch).
                 store.record(replacement)
                 alive = false
-                return 0
             },
             sleep: { _ in }
         )
 
-        #expect(store.records() == [replacement])
+        #expect(store.current() == replacement)
         #expect(FileManager.default.fileExists(atPath: replacement.socketPath))
-    }
-
-    /// A crash leaves a record whose ssh already died (e.g. after a reboot):
-    /// nothing to signal, but its dead socket is still cleaned up.
-    @Test func aRecordWhoseProcessIsGoneHasItsDeadSocketRemovedAndIsCleared() throws {
-        let defaults = try freshDefaults()
-        let path = LeoTunnelTestSupport.socketPath()
-        try LeoTestUnixSocket.leaveStale(path)
-        let store = LeoTunnelOrphanStore(defaults: defaults, key: "orphan")
-        store.record(LeoTunnelOrphanRecord(pid: 42, startTime: 99, socketPath: path))
-        var signals: [Int32] = []
-
-        store.reapAtLaunch(inspector: { _ in nil }, signaller: { _, signal in signals.append(signal); return 0 }, sleep: { _ in })
-
-        #expect(signals.isEmpty)
-        #expect(store.records().isEmpty)
-        #expect(LeoControlSocket.inspect(path) == .absent)
-    }
-
-    /// Records saved before B-021 point into `~/.leo/state/leoterm/`. A
-    /// pre-B-021 copy never locks its path, so a live one can't be told
-    /// from an orphan: its process is never signalled, even while alive.
-    /// The record is cleared; the dead socket goes, nothing else is touched
-    /// and no lock file is left behind.
-    @Test func aPreB021RecordIsNeverSignalledAndRemovesOnlyItsOwnDeadSocket() throws {
-        let (root, legacy) = try Self.makeLegacyDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
-        let host = LeoHostConfiguration(name: "work", sshTarget: "evan@work")
-        let recorded = legacy.appendingPathComponent(host.legacySocketFileName).path
-        let otherStale = legacy.appendingPathComponent("other-000000000000.sock").path
-        let live = legacy.appendingPathComponent("live-000000000000.sock").path
-        let file = legacy.appendingPathComponent("notes.txt").path
-        try LeoTestUnixSocket.leaveStale(recorded)
-        try LeoTestUnixSocket.leaveStale(otherStale)
-        let listener = try LeoTestUnixSocket.bind(live, listening: true)
-        defer { close(listener) }
-        try Data("keep".utf8).write(to: URL(fileURLWithPath: file))
-        let store = LeoTunnelOrphanStore(defaults: try freshDefaults(), key: "orphan", legacySocketDirectory: legacy)
-        store.record(LeoTunnelOrphanRecord(pid: 42, startTime: 99, socketPath: recorded))
-        var signals: [Int32] = []
-
-        store.reapAtLaunch(inspector: { _ in 99 }, signaller: { _, signal in signals.append(signal); return 0 }, sleep: { _ in })
-
-        #expect(signals.isEmpty)
-        #expect(LeoControlSocket.inspect(recorded) == .absent)
-        #expect(LeoControlSocket.inspect(otherStale) == .stale)
-        #expect(LeoControlSocket.inspect(live) == .live)
-        #expect(try String(contentsOfFile: file, encoding: .utf8) == "keep")
-        #expect(!FileManager.default.fileExists(atPath: recorded + ".lock"))
-        #expect(store.records().isEmpty)
-    }
-
-    /// A live pre-B-021 copy's socket at the recorded path: left, as is the
-    /// copy itself.
-    @Test func aPreB021RecordsLiveSocketIsLeftAndItsProcessUntouched() throws {
-        let (root, legacy) = try Self.makeLegacyDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
-        let recorded = legacy.appendingPathComponent("work-000000000000.sock").path
-        let listener = try LeoTestUnixSocket.bind(recorded, listening: true)
-        defer { close(listener) }
-        let store = LeoTunnelOrphanStore(defaults: try freshDefaults(), key: "orphan", legacySocketDirectory: legacy)
-        store.record(LeoTunnelOrphanRecord(pid: 42, startTime: 99, socketPath: recorded))
-        var signals: [Int32] = []
-
-        store.reapAtLaunch(inspector: { _ in 99 }, signaller: { _, signal in signals.append(signal); return 0 }, sleep: { _ in })
-
-        #expect(signals.isEmpty)
-        #expect(LeoControlSocket.inspect(recorded) == .live)
-        #expect(store.records().isEmpty)
-    }
-
-    /// Another running copy holds the recorded path's lock: the record is
-    /// its tunnel's, not an orphan. Nothing is signalled or removed.
-    @Test func aRecordWhosePathIsLockedIsNeverReaped() throws {
-        let defaults = try freshDefaults()
-        let path = LeoTunnelTestSupport.socketPath()
-        defer { unlink(path); unlink(path + ".lock") }
-        try LeoTestUnixSocket.leaveStale(path)
-        let sibling = try #require(LeoTestFileLock.hold(path + ".lock"))
-        defer { close(sibling) }
-        let store = LeoTunnelOrphanStore(defaults: defaults, key: "orphan")
-        let record = LeoTunnelOrphanRecord(pid: 42, startTime: 99, socketPath: path)
-        store.record(record)
-        var signals: [Int32] = []
-
-        store.reapAtLaunch(inspector: { _ in 99 }, signaller: { _, signal in signals.append(signal); return 0 }, sleep: { _ in })
-
-        #expect(signals.isEmpty)
-        #expect(store.records() == [record])
-        #expect(LeoControlSocket.inspect(path) == .stale)
-    }
-
-    /// With the lock free nobody live owns the path, so the dead app's
-    /// socket goes without a probe -- even one its orphaned ssh still
-    /// listens on. A file or another user's socket there stays.
-    @Test func withTheLockFreeOnlyThisUsersSocketAtTheRecordedPathIsRemoved() throws {
-        let (root, legacy) = try Self.makeLegacyDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
-        let listening = legacy.appendingPathComponent("live.sock").path
-        let file = legacy.appendingPathComponent("file.sock").path
-        let foreign = legacy.appendingPathComponent("foreign.sock").path
-        let listener = try LeoTestUnixSocket.bind(listening, listening: true)
-        defer { close(listener) }
-        try Data("keep".utf8).write(to: URL(fileURLWithPath: file))
-        try LeoTestUnixSocket.leaveStale(foreign)
-        let cases: [(path: String, owner: uid_t)] = [(listening, geteuid()), (file, geteuid()), (foreign, geteuid() + 1)]
-
-        for (path, owner) in cases {
-            let store = LeoTunnelOrphanStore(defaults: try freshDefaults(), key: "orphan", socketOwner: owner)
-            store.record(LeoTunnelOrphanRecord(pid: 42, startTime: 99, socketPath: path))
-            var alive = true
-            store.reapAtLaunch(inspector: { _ in alive ? 99 : nil }, signaller: { _, _ in alive = false; return 0 }, sleep: { _ in })
-        }
-
-        #expect(LeoControlSocket.inspect(listening) == .absent)
-        #expect(try String(contentsOfFile: file, encoding: .utf8) == "keep")
-        #expect(LeoControlSocket.inspect(foreign) == .stale)
-    }
-
-    /// The pid is re-checked right before every signal, the SIGKILL
-    /// escalation included: a pid recycled in between is never signalled.
-    @Test func aPidRecycledBeforeTheEscalationIsNeverKilled() throws {
-        let defaults = try freshDefaults()
-        let path = LeoTunnelTestSupport.socketPath()
-        defer { unlink(path); unlink(path + ".lock") }
-        let store = LeoTunnelOrphanStore(defaults: defaults, key: "orphan")
-        store.record(LeoTunnelOrphanRecord(pid: 42, startTime: 99, socketPath: path))
-        var signals: [Int32] = []
-        var startTime: TimeInterval = 99
-
-        store.reapAtLaunch(
-            inspector: { _ in startTime },
-            signaller: { _, signal in signals.append(signal); return 0 },
-            sleep: { _ in startTime = 100 }
-        )
-
-        #expect(signals == [SIGTERM])
-    }
-
-    /// A stand-in home's `.leo/state/leoterm/`, never the real one.
-    private static func makeLegacyDirectory() throws -> (root: URL, legacy: URL) {
-        let root = LeoHostSelectionTestSupport.makeIsolatedSocketDirectory()
-        let legacy = root.appendingPathComponent(".leo/state/leoterm", isDirectory: true)
-        try FileManager.default.createDirectory(at: legacy, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-        return (root, legacy)
     }
 
     private func freshDefaults() throws -> UserDefaults {
