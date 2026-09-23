@@ -397,3 +397,11 @@ Alternatives: harden the connect probe with a deadline and errno classification
 Commit: 9bdf7cb22 07e8aaa59 93032ed6e
 Veto: [ ]
 Reverted: 75f5b8eda (B-027 blocked after 3 attempts)
+
+## D-050 · 2026-09-23 · Editor close-wait: lock only once committed; "Closing…" banner
+Context: B-024
+Chose: the text locks once a close is committed (prompt answered or not needed), not whenever the queue is busy; the model refuses edits synchronously then, so a racing keystroke is undone. `Closing “<file>”…` (hourglass, no buttons) shows while any close waits, including one queued behind a slow open with the text still editable; Quit Anyway's banner outranks it, and it outranks disk-conflict/error banners; the copy names the file, not the host. A DEBUG-only `LEO_SLOW_SAVE_SECONDS` hook delays saves. Dismissed: a write already in flight can land after Quit Anyway (inherent, as in B-022)
+Why: principle 2 (calm, explain waits instead of silently locking) and principle 5 (the user can always recover)
+Alternatives: keep locking on any busy queue; a spinner
+Commit: 188851f1f 6a6be8646 7d10d709e 605d43e68
+Veto: [ ]

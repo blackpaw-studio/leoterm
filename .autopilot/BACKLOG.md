@@ -92,9 +92,14 @@ Accept: (a) MEDIUM: the close gate asks only about editors that were dirty when 
 Source: B-004 reviews
 Done: 59ffb1fbd 4130f9e75 e43aaa796 7a5ef7310 a89b18a3c 363468b41 98a558bdf e89dc3ff6 445437a58 af5762504 9865e60b3 b9dd6e318 eeb6b86b2 bbcf58601 (1095 tests). Verified: shot B-022-1 (at 1400 pt the editor opens at half the width it shares with the terminal). The hung-save banner needs a hung remote save to appear, so it's covered by tests only. 3 fix rounds; the 4th review found only LOWs → B-024.
 
-## B-024 · Editor close-wait polish   [ready]
+## B-024 · Editor close-wait polish   [done]
 Accept: (a) the editor goes read-only whenever the model queue is busy (`LeoEditorPaneModel.swift:85`), even before the unsaved-changes prompt shows (e.g. a close queued behind a slow Recent open); lock only after the prompt is answered. (b) A plain ⌘W close (no quit) waiting behind a hung remote save locks the text with no explanation; show a small "Closing…" notice whenever `isWaitingToClose`. (c) The new gate test's 50 ms negative check would also pass if the wait gave up early; make it assert on an event instead.
 Source: B-022 fourth review
+Done: 810596a0a 188851f1f 6a6be8646 7d10d709e 605d43e68 (1145 tests). The text locks only once a close is committed (per-close tokens; the model refuses edits synchronously); `Closing “<file>”…` banner; the gate test waits on an event; DEBUG `LEO_SLOW_SAVE_SECONDS=<n>` delays saves so the banner can be seen. Not visually verified: auto mode refused peekaboo type/press/click, so the Open File dialog couldn't be submitted. 2 fix rounds; the 3rd review found only a LOW → B-030.
+
+## B-030 · Editor: keep the selection when a racing keystroke is refused   [ready (next run)]
+Accept: a keystroke that races the close lock reloads with `keepingSelection: true`, but `LeoEditorTextView.swift:74` collapses the selection to a caret; if the save then fails and the pane unlocks, the selection is gone. Keep the full range, with a test. Also screenshot B-024's `Closing “…”…` banner (launch with `LEO_SLOW_SAVE_SECONDS=30`) once GUI input is allowed again.
+Source: B-024 third review
 
 ## B-025 · Timing-sensitive test flakes under load   [ready]
 Accept: `LeoSidebarFeedActivityCoalescingTests` failed once and `LeoSyntaxHighlighterAdversarialTests` hit its time limits several times and `LeoProcessRunnerTests/timeoutEscalatesToSIGKILL` took 3.9 s against 3 s, all while the machine's load average was ~100 (2026-09-23, B-022/B-020 runs); all passed on rerun. Make both deterministic (inject a clock, or measure work instead of wall time) and prove 10/10 under load.

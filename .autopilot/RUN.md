@@ -1,6 +1,6 @@
 Status: running
-Item: B-024
-Base: 75f5b8eda30e52d52e62b31c220eb446a913b2c8
+Item: B-025
+Base: 605d43e68e4137974561eea8fcbb8227a0be9406
 Wip: none
 Untracked-left: macos/default.profraw scratchpad/ zig-out
 
@@ -18,3 +18,4 @@ Untracked-left: macos/default.profraw scratchpad/ zig-out
 - B-027 blocked: 4th review found 2 HIGH (Retry cannot recover a kept lock; ssh started before its record) + MED + LOW after attempt 3 (93032ed6e). Reverted 77957fcdf..93032ed6e in 75f5b8eda. Question: single instance per bundle? D-049 reverted.
 - B-024: built 810596a0a 188851f1f 6a6be8646 (1141 tests; DEBUG LEO_SLOW_SAVE_SECONDS hook). review: HIGH (overlapping closes reset the shared lock → edits discarded) + MED (slow-save fixture can write after abandonment) → attempt 1 (d-b9a2794fc853#2). Visual check running in parallel.
 - B-024: visual check blocked: auto mode refuses peekaboo type/press/click, so the Open File dialog could not be submitted → not visually verified. Attempt-1 fix 7d10d709e (1143 tests). Re-review: HIGH (a DEBUG fixture write already in flight lands after abandon) dismissed (DEBUG-only; inherent to any in-flight write, per B-022); 2 MED (async lock lets one keystroke through; cancellation test racy) → attempt 2 (d-b9a2794fc853#3).
+- B-024 done: 810596a0a 188851f1f 6a6be8646 7d10d709e 605d43e68 (1145 tests). 3rd review: LOW only → B-030. D-050. Not visually verified.
