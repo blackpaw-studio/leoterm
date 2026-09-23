@@ -8,13 +8,21 @@ import Testing
 /// regex going quadratic hangs the app). Each text strings together runs
 /// of units that attack one kind of rule: unterminated strings full of
 /// escaped quotes, brackets that never close, list markers, keys padded
-/// with spaces, and so on. Serialized: the attacks are CPU-heavy, and
-/// shouldn't starve timing-sensitive suites running beside them.
+/// with spaces, and so on. The regex engine's work is counted in ticks
+/// (see `LeoRegexWorkCounter`), not timed, so a loaded machine can't fail
+/// these and a fast one can't hide a regression. Serialized: the attacks
+/// are CPU-heavy, and shouldn't starve suites running beside them.
 @Suite(.serialized)
 struct LeoSyntaxHighlighterAdversarialTests {
-    /// Generous: linear rules take a few hundredths of this.
-    static let bound = Duration.seconds(1)
     static let megabyte = 1_000_000
+
+    /// One tick (about ten thousand engine steps) per this many characters:
+    /// every attack, in every language, does a third of this or less. A
+    /// rule that re-scans a line at the limit from each place it could
+    /// start costs dozens of times more.
+    static let charactersPerTick = 128
+
+    static func budget(for text: String) -> Int { text.utf16.count / charactersPerTick }
 
     static let units = [
         #""\"#, #"'\"#, #"`\"#, "[", "[a](", "[[a](", "<http://", "<https://a", "- ", "- a ", "a ", "a" + String(repeating: " ", count: 60),
@@ -46,39 +54,39 @@ struct LeoSyntaxHighlighterAdversarialTests {
         return lines.joined(separator: "\n")
     }
 
-    private func time(_ text: String, _ language: LeoEditorLanguage) -> (Duration, [LeoSyntaxSpan]) {
-        var spans: [LeoSyntaxSpan] = []
-        let elapsed = ContinuousClock().measure {
-            spans = LeoSyntaxHighlighter.spans(in: text, language: language)
-        }
-        return (elapsed, spans)
-    }
-
     /// Minified JSON, a log line: one line of a megabyte. Lines this long
-    /// are left plain, so this is about skipping them cheaply.
+    /// are left plain, so this is about skipping them without a scan.
     @Test(arguments: LeoEditorLanguage.allCases)
-    func aMegabyteLineHighlightsQuickly(_ language: LeoEditorLanguage) {
+    func aMegabyteLineIsSkippedWithoutScanning(_ language: LeoEditorLanguage) {
         let text = Self.text(length: Self.megabyte, runLength: 30_000, lineLength: nil)
+        let counter = LeoRegexWorkCounter()
 
-        let (elapsed, spans) = time(text, language)
+        let spans = LeoSyntaxHighlighter.spans(in: text, language: language, matcher: counter.matcher)
 
-        #expect(elapsed < Self.bound, "\(language) took \(elapsed)")
+        #expect(counter.scannedCharacters == 0, "\(language) scanned \(counter.scannedCharacters) characters")
         #expect(spans.isEmpty)
     }
 
     /// Each attack alone, on lines just short enough to be highlighted:
-    /// this is what holds each rule to one pass. A rule that re-scans
-    /// takes a quarter second or more here; one pass, a hundredth.
+    /// this is what holds each rule to one pass. The counted matcher must
+    /// also find exactly what Foundation's does, or it isn't counting the
+    /// regex the app runs.
     @Test(arguments: LeoEditorLanguage.allCases)
-    func everyAttackOnLinesAtTheLimitHighlightsQuickly(_ language: LeoEditorLanguage) {
+    func everyAttackOnLinesAtTheLimitStaysInOnePass(_ language: LeoEditorLanguage) {
         let limit = LeoSyntaxHighlighter.longLineLimit
-        let slow = Self.units.compactMap { unit -> String? in
+        let problems = Self.units.compactMap { unit -> String? in
             let line = String(repeating: unit, count: limit / unit.count)
-            let (elapsed, _) = time(Array(repeating: line, count: 4).joined(separator: "\n"), language)
-            return elapsed < .milliseconds(200) ? nil : "\(unit.debugDescription) took \(elapsed)"
+            let text = Array(repeating: line, count: 4).joined(separator: "\n")
+            let counter = LeoRegexWorkCounter()
+            let spans = LeoSyntaxHighlighter.spans(in: text, language: language, matcher: counter.matcher)
+            if spans != LeoSyntaxHighlighter.spans(in: text, language: language) {
+                return "\(unit.debugDescription) counted spans differ from Foundation's"
+            }
+            let budget = Self.budget(for: text)
+            return counter.ticks <= budget ? nil : "\(unit.debugDescription) took \(counter.ticks) ticks (budget \(budget))"
         }
 
-        #expect(slow.isEmpty, "\(language): \(slow)")
+        #expect(problems.isEmpty, "\(language): \(problems)")
     }
 
     @Test func linesOverTheLimitAreLeftPlainAndTheRestHighlighted() {

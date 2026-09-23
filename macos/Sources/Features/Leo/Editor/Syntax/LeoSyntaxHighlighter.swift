@@ -25,17 +25,24 @@ enum LeoSyntaxHighlighter {
     /// see, and a lot of regex work.
     static let longLineLimit = 4096
 
-    static func spans(in text: String, language: LeoEditorLanguage) -> [LeoSyntaxSpan] {
-        spans(in: text, range: NSRange(location: 0, length: (text as NSString).length), language: language)
+    /// Runs a language's joined regex over one segment of the text. A seam
+    /// for tests that count the regex engine's work; the app uses Foundation's.
+    typealias Matcher = @Sendable (NSRegularExpression, String, NSRange) -> [NSTextCheckingResult]
+    static let foundationMatcher: Matcher = { regex, text, range in regex.matches(in: text, range: range) }
+
+    static func spans(in text: String, language: LeoEditorLanguage, matcher: Matcher = foundationMatcher) -> [LeoSyntaxSpan] {
+        spans(in: text, range: NSRange(location: 0, length: (text as NSString).length), language: language, matcher: matcher)
     }
 
     /// Only matches wholly inside `range` (a construct that starts before
     /// it, like an open block comment, is missed), and none on lines over
     /// `longLineLimit` (a construct spanning one is cut there).
-    static func spans(in text: String, range: NSRange, language: LeoEditorLanguage) -> [LeoSyntaxSpan] {
+    static func spans(
+        in text: String, range: NSRange, language: LeoEditorLanguage, matcher: Matcher = foundationMatcher
+    ) -> [LeoSyntaxSpan] {
         guard let compiled = LeoCompiledGrammar.all[language] else { return [] }
         return highlightableRanges(in: text as NSString, range: range).flatMap { segment in
-            compiled.regex.matches(in: text, range: segment).compactMap(compiled.span(of:))
+            matcher(compiled.regex, text, segment).compactMap(compiled.span(of:))
         }
     }
 
