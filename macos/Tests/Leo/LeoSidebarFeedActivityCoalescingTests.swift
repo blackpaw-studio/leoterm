@@ -29,6 +29,7 @@ struct LeoSidebarFeedActivityCoalescingTests {
         )
 
         // One flush timer for the whole window, and nothing applied yet.
+        try #require(await harness.feed.activityCoalesceTask != nil, "No coalescing window opened")
         await harness.windowOpened()
         #expect(harness.clock.pending(Self.window).count == 1)
         #expect(await harness.recorder.values.count == baseline)
