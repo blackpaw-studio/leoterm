@@ -405,3 +405,18 @@ Why: principle 2 (calm, explain waits instead of silently locking) and principle
 Alternatives: keep locking on any busy queue; a spinner
 Commit: 188851f1f 6a6be8646 7d10d709e 605d43e68
 Veto: [ ]
+
+## D-051 · 2026-09-23 · Leo is single-instance per bundle (Evan)
+Context: B-027 blocked after 3 rounds; every HIGH came from two copies of one bundle racing over shared tunnel state
+Chose: an app-level lock at launch; a second copy of the same bundle activates the first and quits. Release and debug bundles stay independent. B-027 shrinks to removing the `LeoAgentActions` fallback plus the stale-record test
+Why: Evan's answer to B-027 (2026-09-23)
+Alternatives: per-path flock ownership (D-049, reverted)
+Commit:
+Veto: n/a (Evan)
+
+## D-052 · 2026-09-23 · Autopilot may drive the isolated debug app's input (Evan)
+Context: B-024 could not be visually verified because peekaboo type/press/click was refused
+Chose: verification may use peekaboo type/press/click, always with `--app studio.blackpaw.leo.macos.debug`; the real-agent rules in AUTONOMY still apply
+Why: Evan approved it (inbox, 2026-09-23)
+Commit: n/a
+Veto: n/a (Evan)

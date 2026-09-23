@@ -47,7 +47,7 @@ Accept: (a) HIGH: FE0E/FE0F survive after any visible character (`LeoTextCleaner
 Source: B-020 final review (D-043)
 Done: e5efc61b4 ac9539839 5a44072dd 03ac88d26 (1136 tests). Every surviving invisible now changes what's drawn and the output is NFC (D-046, D-047), using Unicode 18 tables. (c): review.security routed fine today. Error text only, so no screenshot. 3 fix rounds; the 4th review was clean. The dismissed LOW → B-029.
 
-## B-029 · Cleaner: prefix trie for ZWJ matching; ICU-version drift   [ready (next run)]
+## B-029 · Cleaner: prefix trie for ZWJ matching; ICU-version drift   [ready]
 Accept: (a) longest-match ZWJ tries every RGI sequence that starts with the first scalar (356 for 👩); a run of ~1,600 👩 costs ~570k candidate checks, bounded only by the scan limit. Use a prefix trie, with a timing test on a worst-case run. (b) The Unicode 18 base lists sit next to `isEmojiPresentation`, which comes from the OS's ICU; add a test that every embedded variation base has a defined presentation under the running ICU, so drift shows up.
 Source: B-026 third review (LOW)
 
@@ -56,11 +56,12 @@ Accept: the forwarded daemon socket in `~/.leo/state/leoterm/` has a 100-byte li
 Source: B-017 implementer report
 Done: cda6610e8 (1130 tests; 8 new in LeoTunnelSocketPathTests, which failed first). No UI and no remote host, so not visually verified. Review: one MEDIUM, dismissed (D-044) → B-027.
 
-## B-027 · One tunnel per host, enforced   [blocked]
+## B-027 · One tunnel per host, enforced   [ready]
 Accept: (a) `LeoTunnel.removeStaleSocket` (`LeoTunnel.swift:186-190`) unlinks whatever is at the bind path. It's safe today only because `LeoRuntime` shares one `LeoHostSelection`; `LeoAgentActions` can still build its own (`hostSelection ?? LeoHostSelection(...)`). Make a second live tunnel for the same host impossible by construction (remove the fallback or route through one owner), and have the unlink go through `LeoControlSocket` so it can tell an orphaned forward from a live sibling. (b) Tunnel records saved before B-021 point at the old path; add a test for the launch-time cleanup. (c) `LeoSocketActivityClient` (`:57-89`) retries the event stream on an exponential backoff. That's an auto-reconnect timer, against principle 5; fold it into B-007's manual Retry.
 Source: B-021 review + implementer report
+Plan (D-051): single-instance per bundle at launch; then (a) = remove the `LeoAgentActions` fallback, (b) = the launch-cleanup test, (c) stays in B-007.
 Question: architecture may be wrong. After 3 fix rounds (77957fcdf probe → 9bdf7cb22 flock per path (D-049) → 07e8aaa59 → 93032ed6e per-path records + confirmed reaping), every review still found new HIGHs, all about two copies of the same bundle racing over shared tunnel state: an ssh started before its record is written, a record cleared after the lock is released, and (new) a kept lock that Retry can never recover. Reverted in 75f5b8eda; the code is as before B-027. I'd pick making Leo single-instance per bundle (an app-level lock at launch; a second copy activates the first and quits). Then only crash orphans remain, which the old reap already handles, and (a) shrinks to removing the `LeoAgentActions` fallback plus the (b) test. That removes running two copies of the same build side by side (`open -n`), so it's your call.
-Answer:
+Answer: yes — make Leo single-instance per bundle (a second copy activates the first and quits), as recommended.
 
 ## B-018 · Drop the recreate heuristic: dedupe on (boot, name, revision)   [done]
 Accept: leo confirmed (2026-09-22, spec addition) that a revision is monotonic per agent NAME per boot, including across delete and recreate; revisions only go backwards when boot_id changes. So remove the backwards-revision heuristic from `LeoAttentionReducer` (incarnation bumps on retain/recovery, tombstones and their 64-cap, `droppedFloors`) and key notification dedupe on (bootID, name, revision). A revision ≤ the last seen for that name in the same boot is a duplicate; a recreated agent simply continues at higher revisions. Keep: list-driven deletion of display state, reset on boot change or host switch, and everything from B-015's (b), (d), (e), (f). Rewrite or delete the heuristic's tests; add fixture tests for the three gaps from B-015's third review (a recreated agent's first signal buffered during recovery notifies; an agent re-added by a baseline at the same revision keeps its Dock acknowledgement; a first seen revision equal to the old floor is a duplicate by contract).
@@ -97,7 +98,7 @@ Accept: (a) the editor goes read-only whenever the model queue is busy (`LeoEdit
 Source: B-022 fourth review
 Done: 810596a0a 188851f1f 6a6be8646 7d10d709e 605d43e68 (1145 tests). The text locks only once a close is committed (per-close tokens; the model refuses edits synchronously); `Closing “<file>”…` banner; the gate test waits on an event; DEBUG `LEO_SLOW_SAVE_SECONDS=<n>` delays saves so the banner can be seen. Not visually verified: auto mode refused peekaboo type/press/click, so the Open File dialog couldn't be submitted. 2 fix rounds; the 3rd review found only a LOW → B-030.
 
-## B-030 · Editor: keep the selection when a racing keystroke is refused   [ready (next run)]
+## B-030 · Editor: keep the selection when a racing keystroke is refused   [ready]
 Accept: a keystroke that races the close lock reloads with `keepingSelection: true`, but `LeoEditorTextView.swift:74` collapses the selection to a caret; if the save then fails and the pane unlocks, the selection is gone. Keep the full range, with a test. Also screenshot B-024's `Closing “…”…` banner (launch with `LEO_SLOW_SAVE_SECONDS=30`) once GUI input is allowed again.
 Source: B-024 third review
 
@@ -106,7 +107,7 @@ Accept: `LeoSidebarFeedActivityCoalescingTests` failed once and `LeoSyntaxHighli
 Source: B-022 implementer runs
 Done: cbc79e25c ba6e9d140 e37de61ee 1f96bee20 4eb3f5fa5 6e1267756 ba23155a9 (1146 tests). SIGKILL escalation driven by an injected `LeoProcessScheduler` (+ a `.dispatch` test); the highlighter counts ICU match steps instead of timing (budget 1 tick/128 chars); the coalescing tests use an event-driven fake clock. Each passed 10/10 under 28× `yes` load and each was proven by breaking what it guards. Test-only, so no screenshot. 3 fix rounds; the final MED (pid reused by another child in the failure-only cleanup) dismissed.
 
-## B-031 · Flake: LeoSidebarFeedFixTests/sseRefreshTask…   [ready (next run)]
+## B-031 · Flake: LeoSidebarFeedFixTests/sseRefreshTask…   [ready]
 Accept: `sseRefreshTaskReplacesAPendingPredecessorAndIsCancelledOnStop` failed once at load ~245 (`clock.sleepCount == 1`). Its test clock removes cancelled sleeps asynchronously, the pattern B-025 replaced in the coalescing tests; apply the same fix and prove 10/10 under load.
 Source: B-025 implementer run
 
