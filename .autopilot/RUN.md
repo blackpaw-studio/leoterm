@@ -1,6 +1,6 @@
 Status: running
-Item: B-017
-Base: 7a3728f4fa3f7889de2ac310c03742192b6dbfa9
+Item: B-004
+Base: abf708a5402fdeef36153ae126348419011ee700
 Wip: none
 
 ## Progress
@@ -13,3 +13,4 @@ Wip: none
 - B-016 done: 7 commits (867 tests). Re-review clean; 2 LOW test gaps → B-019 (ready next run); tab-reuse-on-view logged in D-029.
 - B-017: built 97781e299 f8b3b4350 fb1bb244b (885 tests). No UI → not visually verified. review.security: 1 MED (unsanitized server text) + 3 LOW, all sent back (attempt 1) to d-6d532cbdbef3. Implementer flagged: forwarded daemon socket in ~/.leo/state/leoterm still breaks for long homes → new item.
 - B-017: attempt-1 fixes 119697892 198da68e3 adb143d49 (898 tests). Re-review: only LOWs (Mn flood, filenames unsanitized, quote lookalikes, ZWJ, tests) → sent back (attempt 2) to d-30f1e7df9737.
+- B-017 done: 9 commits (908 tests). 3 fix rounds; 3rd security review MEDs are B-003-era raw paths → B-020 (D-032); daemon socket budget → B-021. Not visually verified (no UI).

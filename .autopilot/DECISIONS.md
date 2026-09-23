@@ -252,3 +252,11 @@ Why: principle 1 (the user's click is authoritative)
 Alternatives: debounce with a timer (principle 5: no timers)
 Commit: c25cf3523
 Veto: [ ]
+
+## D-032 · 2026-09-22 · B-017 closes at 3 fix rounds; the remaining sanitizer gaps move to B-020
+Context: B-017's third security review found 2 MEDIUM unsanitized paths (a rename temp name, and Foundation's localizedDescription) plus LOWs. Both MEDIUM paths date from B-003, not B-017
+Chose: ship B-017 (its acceptance is met) and file B-020 to sanitize once where errors render, not source by source. Control sockets moved to `<DARWIN_USER_CACHE_DIR>/leo/` (C/, not T/, which macOS cleans); a loose directory we own is tightened, a foreign one is refused; the server's error text is quoted as `the server said “…”`; apostrophes are kept and only double-quote lookalikes are straightened
+Why: each round had found another source; one choke point is the structural fix, and the skill caps fix attempts at 3
+Alternatives: a fourth per-source patch
+Commit: 97781e299 f8b3b4350 fb1bb244b 119697892 198da68e3 adb143d49 1c8ae5131 2f5f51b4d abf708a54
+Veto: [ ]
