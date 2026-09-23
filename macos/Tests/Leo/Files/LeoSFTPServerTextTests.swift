@@ -61,3 +61,52 @@ struct LeoSFTPServerTextTests {
         #expect(error == .protocolError("unexpected status ok; the server said “done re-authenticate”"))
     }
 }
+
+/// Text that is short in characters but long in scalars, or that imitates
+/// the app's quotes, must stay bounded and inside the quote.
+extension LeoSFTPServerTextTests {
+    private func clean(_ text: String) -> String { LeoSFTPServerText.sanitized(text) }
+
+    /// One grapheme of 1,600 scalars: a grapheme cap alone never applies.
+    @Test func aCombiningMarkFloodKeepsTwoMarksPerBase() {
+        let flood = "a" + String(repeating: "\u{301}", count: 1599)
+        #expect(clean(flood) == "a\u{301}\u{301}")
+    }
+
+    @Test func zalgoTextKeepsItsLettersAndAtMostTwoMarksEach() {
+        let marks = (0x300...0x31F).compactMap(Unicode.Scalar.init).map(String.init).joined() + "\u{20DD}\u{20DE}"
+        let zalgo = "zalgo".map { String($0) + marks }.joined()
+        let text = clean(zalgo)
+        #expect(text.unicodeScalars.count == 15)
+        #expect(text.unicodeScalars.filter { $0.properties.isAlphabetic && $0.value < 0x80 }.map(String.init).joined() == "zalgo")
+    }
+
+    /// Hangul leading jamo join into one grapheme however many there are.
+    @Test func aSingleHugeGraphemeIsCappedByScalarCount() {
+        let text = clean(String(repeating: "\u{1100}", count: 1000))
+        #expect(text.unicodeScalars.count <= LeoSFTPServerText.scalarLimit)
+        #expect(text.hasSuffix("…"))
+    }
+
+    /// Cut at the scan limit, then almost nothing left once cleaned.
+    @Test func aMostlyInvisibleOverlongMessageIsCutThenShort() {
+        let text = "disk full" + String(repeating: "\u{200B}\u{0}", count: 1000) + " tail"
+        #expect(clean(text) == "disk full…")
+    }
+
+    @Test func everyQuoteLookalikeIsStraightened() {
+        let pairs = (0...0x10FFFF).compactMap(Unicode.Scalar.init)
+            .filter { [.initialPunctuation, .finalPunctuation].contains($0.properties.generalCategory) }
+        let lookalikes = pairs.map(String.init).joined() + "\u{FF02}\u{2033}\u{275D}\u{275E}"
+        let text = clean(lookalikes)
+        #expect(!pairs.isEmpty)
+        #expect(text == String(repeating: "\"", count: text.count))
+        #expect(text.count == lookalikes.unicodeScalars.count)
+    }
+
+    /// ZWJ and ZWNJ join emoji and shape Persian and Indic text.
+    @Test func joinersSurvive() {
+        #expect(clean("👨\u{200D}👩\u{200D}👧") == "👨\u{200D}👩\u{200D}👧")
+        #expect(clean("می\u{200C}خواهم") == "می\u{200C}خواهم")
+    }
+}
