@@ -1,4 +1,4 @@
-Status: running
+Status: finished
 Item: B-019
 Base: a365e74530260b39d76766f680ffa3b1f88ab350
 Wip: none
@@ -23,3 +23,4 @@ Untracked-left: macos/default.profraw scratchpad/ zig-out
 - B-019: attempt-1 fix 79d5d9375 (1132 tests). Re-review: relay test OK; host test P1 (swapped order hangs, not fails) + P2 (50-poll setup) → attempt 2 (d-43d5f92b0d93#3).
 - B-019: attempt-2 fix 6be661a48. Re-review: HIGH (no main-queue barrier before the final count) + MED (5 s deadline under load) → attempt 3 (d-43d5f92b0d93#4), the last.
 - B-019 done: c92565ac3 ad537d10e 79d5d9375 6be661a48 24000299e (1132 tests). 3 fix rounds; final HIGH → B-028 (D-045). Cap of 5 reached.
+- Run finished: cap of 5 reached. autopilot-scratch deleted.
