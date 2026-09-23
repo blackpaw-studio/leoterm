@@ -16,6 +16,14 @@ enum LeoSidebarSplitMetrics {
     static func terminalWidth(splitWidth: CGFloat, paneWidths: [CGFloat], dividers: Int, dividerThickness: CGFloat) -> CGFloat {
         splitWidth - paneWidths.reduce(0, +) - CGFloat(max(dividers, 0)) * dividerThickness
     }
+    /// The width a pane opens at (the editor, D-038): half of `sharedWidth`,
+    /// what it shares with the terminal, but never taking the terminal
+    /// under `terminalFloor` -- nor the pane under its own `minimum`, which
+    /// wins (the pane opens anyway, as with D-036).
+    static func openingPaneWidth(sharedWidth: CGFloat, minimum: CGFloat) -> CGFloat {
+        max(minimum, min((sharedWidth / 2).rounded(.down), sharedWidth - terminalFloor))
+    }
+
     /// Width of the split view's divider, used by `TerminalController` when
     /// sizing a window that shows the sidebar. `NSSplitView.dividerStyle` is
     /// `.thin`, which the HIG defines as 1 pt.

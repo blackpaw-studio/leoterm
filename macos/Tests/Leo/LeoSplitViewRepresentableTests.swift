@@ -83,6 +83,109 @@ import Testing
         #expect(harness.editorItem?.isCollapsed == true)
     }
 
+    // MARK: Opening width (B-022, D-038)
+
+    /// The editor opens at half the width it shares with the terminal --
+    /// not at its minimum -- without moving the sidebar, and then keeps
+    /// that width while the terminal absorbs a window resize.
+    @Test(arguments: [false, true])
+    func theEditorOpensAtHalfTheWidthItSharesWithTheTerminal(besideAClosedBrowser: Bool) async throws {
+        let sandbox = try LeoFileSandbox()
+        defer { sandbox.cleanUp() }
+        let editor = Self.makeEditor()
+        let harness = Harness(preferredWidth: Self.storedWidth, editor: editor, browser: besideAClosedBrowser ? Self.makeBrowser() : nil)
+
+        try await editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.swift", "let a = 1")))
+        await harness.settle()
+        await harness.settle()
+
+        #expect(harness.editorWidth > LeoEditorPaneViewController.minimumWidth + 100)
+        #expect(abs(harness.editorWidth - harness.terminalWidth) <= 1)
+        #expect(abs(harness.sidebarWidth - Self.storedWidth) <= 1)
+        let editorWidth = harness.editorWidth
+        harness.resizeWindow(toWidth: Self.windowWidth + 200)
+        #expect(abs(harness.editorWidth - editorWidth) <= 1)
+        #expect(harness.browserItem?.isCollapsed ?? true)
+
+        // Another file in the open pane keeps the width it has.
+        try await editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("b.swift", "let b = 2")))
+        await harness.settle()
+        await harness.settle()
+        #expect(abs(harness.editorWidth - editorWidth) <= 1)
+        await editor.close()
+    }
+
+    /// A file opened before the split is in a window: the pane opens at
+    /// half once the split first lays out there (setPosition does nothing
+    /// before that).
+    @Test func anEditorOpenedBeforeTheSplitIsInAWindowStillOpensAtHalf() async throws {
+        let sandbox = try LeoFileSandbox()
+        defer { sandbox.cleanUp() }
+        let editor = Self.makeEditor()
+        let component = LeoSplitViewControllerFactory.make(
+            isSidebarVisible: true, preferredWidth: Self.storedWidth, onDividerWidthChange: { _ in },
+            sidebar: AnyView(Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity)),
+            detail: AnyView(Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity)), editor: editor)
+        try await editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.swift", "let a = 1")))
+        await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
+
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: Self.windowWidth, height: Self.windowHeight), styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentViewController = component.controller
+        window.setContentSize(NSSize(width: Self.windowWidth, height: Self.windowHeight))
+        window.makeKeyAndOrderFront(nil)
+        for _ in 0..<2 {
+            window.layoutIfNeeded()
+            await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
+        }
+        window.layoutIfNeeded()
+
+        let panes = component.controller.splitView.arrangedSubviews
+        #expect(panes.count == 3)
+        #expect(panes.last.map { $0.frame.width > LeoEditorPaneViewController.minimumWidth + 100 } == true)
+        #expect(abs((panes.last?.frame.width ?? 0) - panes[1].frame.width) <= 1)
+        window.orderOut(nil)
+        await editor.close()
+    }
+
+    /// Beside the browser, the half is of what the terminal and the editor
+    /// share; the browser keeps its width.
+    @Test func besideTheBrowserTheEditorHalvesWhatItSharesWithTheTerminal() async throws {
+        let sandbox = try LeoFileSandbox()
+        defer { sandbox.cleanUp() }
+        let browser = Self.makeBrowser()
+        let editor = Self.makeEditor()
+        let harness = Harness(preferredWidth: LeoSidebarSplitMetrics.minimumWidth, windowWidth: 1_600, editor: editor, browser: browser)
+        await browser.open(LeoEditorAgentContext(host: .local, name: "scratch", workspace: sandbox.root))
+        await harness.settle()
+        let browserWidth = harness.browserWidth
+
+        try await editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.swift", "let a = 1")))
+        await harness.settle()
+        await harness.settle()
+
+        #expect(harness.sidebarItem?.isCollapsed == false)
+        #expect(abs(harness.browserWidth - browserWidth) <= 1)
+        #expect(abs(harness.editorWidth - harness.terminalWidth) <= 1)
+        #expect(harness.editorWidth > LeoEditorPaneViewController.minimumWidth)
+        await editor.close()
+        await browser.close()
+    }
+
+    /// Half never takes the terminal under its floor: at most what's left
+    /// above it, and never under the editor's own minimum.
+    @Test func theOpeningWidthKeepsTheTerminalFloor() {
+        let minimum = LeoEditorPaneViewController.minimumWidth
+        let floor = LeoSidebarSplitMetrics.terminalFloor
+        #expect(LeoSidebarSplitMetrics.openingPaneWidth(sharedWidth: 1_000, minimum: minimum) == 500)
+        #expect(LeoSidebarSplitMetrics.openingPaneWidth(sharedWidth: 1_001, minimum: minimum) == 500)
+        #expect(LeoSidebarSplitMetrics.openingPaneWidth(sharedWidth: 630, minimum: minimum) == minimum)
+        #expect(LeoSidebarSplitMetrics.openingPaneWidth(sharedWidth: 500, minimum: minimum) == minimum)
+        #expect(LeoSidebarSplitMetrics.openingPaneWidth(sharedWidth: 700, minimum: 100) == 350)
+        #expect(LeoSidebarSplitMetrics.openingPaneWidth(sharedWidth: 700, minimum: 390) == 390)
+        #expect(LeoSidebarSplitMetrics.openingPaneWidth(sharedWidth: 500, minimum: 100) == 500 - floor)
+    }
+
     @Test func holdingPrioritiesLetTheTerminalAbsorbResizes() {
         let terminal = LeoSidebarSplitMetrics.detailHoldingPriority
         let editor = LeoSidebarSplitMetrics.editorHoldingPriority

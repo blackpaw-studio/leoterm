@@ -107,7 +107,7 @@ final class LeoEditorPaneViewController: NSViewController {
     }
 
     private func show(_ document: LeoEditorDocument?) {
-        setLeoSplitItemCollapsed(document == nil)
+        setLeoSplitItemCollapsed(document == nil, openingAtHalfWidth: true)
         documentSubscriptions.removeAll()
         guard let document else {
             shownDocument = nil

@@ -206,6 +206,9 @@ final class LeoSplitViewController: NSSplitViewController {
     /// A width requested before the split view could honour it, applied once
     /// the view reaches a window and lays out. See `applyProgrammaticWidth`.
     private var pendingWidth: CGFloat?
+    /// A pane shown before the split view could lay it out, widened to its
+    /// opening width once it can. See `openAtHalfWidth`.
+    private var pendingOpening: NSSplitViewItem?
     /// Applies a width we chose ourselves -- at controller creation, or when
     /// the sidebar transitions from hidden to shown -- as opposed to one the
     /// user just dragged to. `isApplyingProgrammaticWidth` suppresses
@@ -260,8 +263,40 @@ final class LeoSplitViewController: NSSplitViewController {
         onSidebarAutoCollapse()
     }
 
+    /// After `item` (the editor) is shown: widens it to half of what it
+    /// shares with the terminal (`LeoSidebarSplitMetrics.openingPaneWidth`,
+    /// D-038) once the un-collapse has laid out, as the sidebar gets its
+    /// stored width back after it's shown. Before the split view is in a
+    /// window and has a width, that waits for its first layout.
+    ///
+    /// Only the terminal's trailing divider moves: the holding priorities
+    /// then keep a shown browser's width and give the editor what the
+    /// terminal gives up, collapsed browser or not; the sidebar isn't
+    /// touched.
+    func openAtHalfWidth(_ item: NSSplitViewItem) {
+        guard isReadyToPositionDivider else {
+            pendingOpening = item
+            return
+        }
+        view.layoutSubtreeIfNeeded()
+        // The split's own subviews: an item's view may sit in a wrapper.
+        let panes = splitView.arrangedSubviews
+        guard !item.isCollapsed, let detailItem, panes.count == splitViewItems.count,
+              let terminalIndex = splitViewItems.firstIndex(of: detailItem), let index = splitViewItems.firstIndex(of: item) else { return }
+        let width = panes[index].frame.width
+        let terminal = panes[terminalIndex].frame
+        let opening = LeoSidebarSplitMetrics.openingPaneWidth(sharedWidth: width + terminal.width, minimum: item.minimumThickness)
+        guard opening > width + 0.5 else { return }
+        splitView.setPosition(terminal.maxX - (opening - width), ofDividerAt: terminalIndex)
+    }
+
     override func viewDidLayout() {
         super.viewDidLayout()
+        if let item = pendingOpening, isReadyToPositionDivider {
+            // Outside this layout pass.
+            pendingOpening = nil
+            DispatchQueue.main.async { [weak self] in self?.openAtHalfWidth(item) }
+        }
         guard let width = pendingWidth, isReadyToPositionDivider else { return }
         pendingWidth = nil
         applyProgrammaticWidth(width)
@@ -306,10 +341,14 @@ final class LeoSplitViewController: NSSplitViewController {
 
 extension NSViewController {
     /// Collapses or shows this controller's own split item (the browser's
-    /// or the editor's). Showing it makes room for it first.
-    func setLeoSplitItemCollapsed(_ collapsed: Bool) {
+    /// or the editor's). Showing it makes room for it first, and with
+    /// `openingAtHalfWidth` then widens it to half of what it shares with
+    /// the terminal.
+    func setLeoSplitItemCollapsed(_ collapsed: Bool, openingAtHalfWidth: Bool = false) {
         guard let split = parent as? NSSplitViewController, let item = split.splitViewItem(for: self), item.isCollapsed != collapsed else { return }
-        if !collapsed { (split as? LeoSplitViewController)?.makeRoom(forShowing: item) }
+        let leoSplit = split as? LeoSplitViewController
+        if !collapsed { leoSplit?.makeRoom(forShowing: item) }
         item.isCollapsed = collapsed
+        if !collapsed, openingAtHalfWidth { leoSplit?.openAtHalfWidth(item) }
     }
 }
