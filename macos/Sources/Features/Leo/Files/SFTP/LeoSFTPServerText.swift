@@ -16,18 +16,21 @@ enum LeoSFTPServerText {
     private static let scanLimit = limit * 8
     private static let invisible: Set<Unicode.GeneralCategory> = [.control, .format, .lineSeparator, .paragraphSeparator]
     private static let marks: Set<Unicode.GeneralCategory> = [.nonspacingMark, .enclosingMark]
-    private static let quotes: Set<Unicode.GeneralCategory> = [.initialPunctuation, .finalPunctuation]
-    /// Double quotes and primes outside Pi/Pf.
-    private static let quoteLookalikes: Set<Unicode.Scalar> = ["\u{FF02}", "\u{2033}", "\u{275D}", "\u{275E}"]
+    /// Characters that read as a double quote. The app quotes with “ ”, so
+    /// only these could close its quote; apostrophes and single quotes stay.
+    private static let doubleQuoteLookalikes: Set<Unicode.Scalar> = [
+        "\u{201C}", "\u{201D}", "\u{201E}", "\u{201F}", "\u{AB}", "\u{BB}", "\u{2033}", "\u{2036}",
+        "\u{275D}", "\u{275E}", "\u{301D}", "\u{301E}", "\u{301F}", "\u{FF02}",
+    ]
     /// Format characters that emoji sequences and Persian and Indic text
     /// need; neither moves nor hides other text.
     private static let joiners: Set<Unicode.Scalar> = ["\u{200C}", "\u{200D}"]
 
     /// `text` with whitespace runs (newlines included) collapsed to one
     /// space and trimmed, control and format characters (bidi overrides,
-    /// zero-widths) dropped, combining marks limited per base, quotes and
-    /// their lookalikes straightened so they can't close the app's quote,
-    /// and anything past `limit` characters or `scalarLimit` scalars cut
+    /// zero-widths) dropped, combining marks limited per base, double
+    /// quotes and their lookalikes straightened so they can't close the
+    /// app's quote, and anything past `limit` characters or `scalarLimit` scalars cut
     /// to "…".
     static func sanitized(_ text: String) -> String {
         var result = String.UnicodeScalarView()
@@ -65,6 +68,6 @@ enum LeoSFTPServerText {
     }
 
     private static func straightened(_ scalar: Unicode.Scalar) -> Unicode.Scalar {
-        quotes.contains(scalar.properties.generalCategory) || quoteLookalikes.contains(scalar) ? "\"" : scalar
+        doubleQuoteLookalikes.contains(scalar) ? "\"" : scalar
     }
 }

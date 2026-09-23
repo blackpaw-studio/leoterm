@@ -94,14 +94,17 @@ extension LeoSFTPServerTextTests {
         #expect(clean(text) == "disk full…")
     }
 
-    @Test func everyQuoteLookalikeIsStraightened() {
-        let pairs = (0...0x10FFFF).compactMap(Unicode.Scalar.init)
-            .filter { [.initialPunctuation, .finalPunctuation].contains($0.properties.generalCategory) }
-        let lookalikes = pairs.map(String.init).joined() + "\u{FF02}\u{2033}\u{275D}\u{275E}"
-        let text = clean(lookalikes)
-        #expect(!pairs.isEmpty)
-        #expect(text == String(repeating: "\"", count: text.count))
-        #expect(text.count == lookalikes.unicodeScalars.count)
+    /// The app quotes with “ ”, so only double-quote lookalikes could
+    /// close its quote.
+    @Test func everyDoubleQuoteLookalikeIsStraightened() {
+        let lookalikes = "\u{201C}\u{201D}\u{201E}\u{201F}\u{AB}\u{BB}\u{2033}\u{2036}\u{275D}\u{275E}\u{301D}\u{301E}\u{301F}\u{FF02}"
+        #expect(clean(lookalikes) == String(repeating: "\"", count: lookalikes.unicodeScalars.count))
+    }
+
+    @Test func singleQuotesAndApostrophesSurvive() {
+        let singles = "\u{2018}\u{2019}\u{201A}\u{201B}\u{2039}\u{203A}'"
+        #expect(clean(singles) == singles)
+        #expect(clean("Evan’s notes.md") == "Evan’s notes.md")
     }
 
     /// ZWJ and ZWNJ join emoji and shape Persian and Indic text.
