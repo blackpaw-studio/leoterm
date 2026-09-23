@@ -1,9 +1,11 @@
 import AppKit
 
-/// What the pane's inline banner says, most important first: a conflict
-/// with the disk, then a failed save or reload, then a read-only notice.
+/// What the pane's inline banner says, most important first: a quit
+/// waiting on the editor, a conflict with the disk, then a failed save or
+/// reload, then a read-only notice.
 struct LeoEditorBanner: Equatable {
     enum Action: Equatable {
+        case quitAnyway
         case reload
         case keepMine
         case dismissError
@@ -13,10 +15,19 @@ struct LeoEditorBanner: Equatable {
     let message: String
     let actions: [Action]
 
-    /// nil when there is nothing to say.
-    @MainActor static func current(for document: LeoEditorDocument?) -> LeoEditorBanner? {
+    /// nil when there is nothing to say. `isQuitWaiting`: a pending quit
+    /// is waiting on the document's disk or connection (a save or read
+    /// that hasn't come back), and it can be left from here.
+    @MainActor static func current(for document: LeoEditorDocument?, isQuitWaiting: Bool = false) -> LeoEditorBanner? {
         guard let document else { return nil }
         let name = "“\(LeoSFTPServerText.sanitized(document.displayName))”"
+        if isQuitWaiting {
+            return LeoEditorBanner(
+                symbol: "hourglass",
+                message: "Quitting is waiting for \(document.fileID.host.displayName) to finish with \(name).",
+                actions: [.quitAnyway]
+            )
+        }
         switch document.diskState {
         case .changed:
             return LeoEditorBanner(
@@ -46,6 +57,7 @@ struct LeoEditorBanner: Equatable {
 extension LeoEditorBanner.Action {
     var title: String {
         switch self {
+        case .quitAnyway: "Quit Anyway…"
         case .reload: "Reload"
         case .keepMine: "Keep Mine"
         case .dismissError: "OK"

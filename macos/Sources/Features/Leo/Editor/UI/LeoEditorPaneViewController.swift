@@ -98,6 +98,12 @@ final class LeoEditorPaneViewController: NSViewController {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] reveal in self?.apply(reveal) }
             .store(in: &modelSubscriptions)
+        // A pending quit waiting on the document offers to quit anyway.
+        model.$leaveAnyway.map { _ in () }
+            .merge(with: model.$isConfirming.map { _ in () })
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in self?.refreshChrome() }
+            .store(in: &modelSubscriptions)
     }
 
     private func show(_ document: LeoEditorDocument?) {
@@ -141,7 +147,12 @@ final class LeoEditorPaneViewController: NSViewController {
 
     private func refreshChrome() {
         header.update(document: model.document, recents: model.recents)
-        banner.show(LeoEditorBanner.current(for: model.document))
+        banner.show(shownBanner)
+    }
+
+    /// The banner for the model as it is now.
+    var shownBanner: LeoEditorBanner? {
+        LeoEditorBanner.current(for: model.document, isQuitWaiting: model.leaveAnyway != nil && !model.isConfirming)
     }
 
     private func apply(_ reveal: LeoEditorReveal?) {
@@ -170,9 +181,10 @@ final class LeoEditorPaneViewController: NSViewController {
 
     // MARK: - Helpers
 
-    private func perform(_ action: LeoEditorBanner.Action) {
+    func perform(_ action: LeoEditorBanner.Action) {
         guard let document = model.document else { return }
         switch action {
+        case .quitAnyway: model.leaveAnyway?()
         case .reload: Task { await document.reload() }
         case .keepMine: document.keepMine()
         case .dismissError: document.dismissError()

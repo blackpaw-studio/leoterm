@@ -20,6 +20,56 @@ struct LeoEditorBannerTests {
         }
     }
 
+    /// A pending quit waiting on this editor's disk or connection says so
+    /// first, with the way out (B-022, D-038) -- above even a conflict.
+    @Test func aQuitWaitingOnTheEditorOffersToQuitAnyway() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let document = try await open(sandbox, "a.txt", "a")
+            document.edit("mine")
+            try sandbox.file("a.txt", "theirs, longer")
+            await document.checkDisk()
+
+            let banner = try #require(LeoEditorBanner.current(for: document, isQuitWaiting: true))
+            #expect(banner.actions == [.quitAnyway])
+            #expect(banner.message == "Quitting is waiting for localhost to finish with “a.txt”.")
+            #expect(LeoEditorBanner.Action.quitAnyway.title == "Quit Anyway…")
+            #expect(LeoEditorBanner.current(for: document)?.actions == [.reload, .keepMine])
+            #expect(LeoEditorBanner.current(for: nil, isQuitWaiting: true) == nil)
+        }
+    }
+
+    /// The pane shows it while the quit waits on the disk, not while its
+    /// own prompt is up, and its button makes the offer.
+    @Test(.timeLimit(.minutes(1)))
+    func thePaneOffersToQuitAnywayOutsideItsPrompt() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let model = LeoEditorPaneModel(makeAccess: { _ in LeoFileAccessor.local() })
+            let pane = LeoEditorPaneViewController(model: model)
+            try await model.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
+            model.document?.edit("b")
+            let (answers, answer) = AsyncStream<LeoUnsavedChangesChoice>.makeStream()
+            let (prompts, prompted) = AsyncStream<Void>.makeStream()
+            model.confirmUnsaved = { _ in
+                prompted.yield()
+                for await choice in answers { return choice }
+                return .cancel
+            }
+            var offers = 0
+            #expect(pane.shownBanner == nil)
+
+            model.leaveAnyway = { offers += 1 }
+            #expect(pane.shownBanner?.actions == [.quitAnyway])
+            pane.perform(.quitAnyway)
+            #expect(offers == 1)
+
+            let closing = Task { await model.close() }
+            for await _ in prompts { break }
+            #expect(pane.shownBanner == nil, "not over its own prompt")
+            answer.yield(.discard)
+            #expect(await closing.value)
+        }
+    }
+
     @Test func aChangedFileOffersReloadAndKeepMine() async throws {
         try await withLeoFileSandbox(.local) { sandbox, _ in
             let document = try await open(sandbox, "a.txt", "a")
