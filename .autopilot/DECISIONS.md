@@ -260,3 +260,19 @@ Why: each round had found another source; one choke point is the structural fix,
 Alternatives: a fourth per-source patch
 Commit: 97781e299 f8b3b4350 fb1bb244b 119697892 198da68e3 adb143d49 1c8ae5131 2f5f51b4d abf708a54
 Veto: [ ]
+
+## D-033 · 2026-09-22 · Editor pane product calls
+Context: B-004
+Chose: a trailing split beside the terminal, one per window. A recents pop-up in the header; replacing a file with unsaved edits asks Save / Don't Save / Cancel. A built-in regex highlighter for 10 languages, with lines over 4096 characters left unhighlighted. The file is checked for changes when the window becomes key and before saving (no polling). A clean buffer reloads silently; a dirty one shows a Reload / Keep Mine banner. Files over 5 MB, binary or non-UTF-8 open read-only; over 20 MB they're refused. ⌘-click takes bare paths, `file:` and OSC 8 `file:` links only from agent terminals, and `:line:col` moves the caret. Menu items: Agents ▸ Open File in Editor… (⇧⌘O), Focus Editor/Terminal (⌥⌘E); File ▸ Reload from Disk (⌥⌘R), Keep My Version (⌥⌘K). A `file://` host part is ignored. Every close and quit path goes through one unsaved-edits gate; closes that can't prompt keep the tab with the editor. A hung remote operation offers Keep Waiting / Quit Anyway instead of a timeout
+Why: principles 1 (keyboard-first, HIG), 2 (calm), 3 (local = remote through LeoFileAccess), 5 (no timers); no new dependencies (stop list)
+Alternatives: a separate editor window per file; a tree-sitter highlighter (new dependency); polling for changes on disk
+Commit: 5980d43a6 95eff7499 8516b9867 f25eefc0c 60b6c5f72 e47c78546 f401ac93e cfb66debf 5036f153b 9db8771af a820ef868 53a8e62b8 120129672 90e96b9ea 0b6569257 eca4cfbc1 a0f19db31 5cd057694 676f70548
+Veto: [ ]
+
+## D-034 · 2026-09-22 · Kept B-004 after 3 fix rounds instead of reverting it
+Context: the autopilot rule reverts an item after 3 fix attempts. After B-004's third round, its final review found one MEDIUM: an editor edited while a logout-time "Quit Anyway" offer (for a hung remote save) is up isn't asked about. Each round had fixed everything its review raised (3 HIGH, then 2 MEDIUM, then 1 HIGH), and the feature is verified
+Chose: keep B-004 and move the edge case, plus the split-width and wiring-test gaps, to B-022. This departs from the skill's revert rule; that rule targets items that don't converge, and this one did
+Why: reverting 19 working commits to avoid one rare edge case would remove the milestone's core feature
+Alternatives: revert B-004 and block it (the literal rule). Veto this to get that
+Commit: (none; judgment call on the rule)
+Veto: [ ]

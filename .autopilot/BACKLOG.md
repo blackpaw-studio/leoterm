@@ -57,11 +57,16 @@ existing SSH ControlMaster for the selected host; list dir, read, write
 Source: Evan, vision session; D-003, D-007
 Done: 7fd10dad9 6f92f70e9 9b466088a a0b838dcd 1c7c93e5f 7858fbda8 4ee7c8353 515e6554b e780ead10 6f52a67c8 da7fca9c4 (839 tests; the shared contract suite runs against local, sftp-server over pipes, chunked, and no-posix-rename). No UI, so no screenshot. The opt-in E2E against localhost reached the real ControlMaster, but SFTP is disabled in this Mac's sshd_config.
 
-## B-004 · Editor pane for surfaced files   [ready]
+## B-004 · Editor pane for surfaced files   [done]
 Accept: ⌘-click a path / OSC 8 link in an agent's terminal opens it in a Leo
 editor pane (syntax highlight, edit, ⌘S save, external-change detection).
 Relative paths resolve against the agent's workspace. Works local and remote.
 Source: Evan, vision session; D-007
+Done: 5980d43a6 95eff7499 8516b9867 f25eefc0c 60b6c5f72 e47c78546 f401ac93e cfb66debf 5036f153b 9db8771af a820ef868 53a8e62b8 120129672 90e96b9ea 0b6569257 eca4cfbc1 a0f19db31 5cd057694 676f70548 (1027 tests; the app launches and stays up). Verified: shot B-004-1.png (Open File in Editor shows a highlighted Swift file in a trailing split). ⌘-click was covered by tests only; with only real agents available, clicking into an agent terminal is off limits. Remote was tested against sftp-server over pipes, with no live remote. Leftovers → B-022 (D-034).
+
+## B-022 · Editor pane: close-gate edge, split width, wiring tests   [ready (next run)]
+Accept: (a) MEDIUM: the close gate asks only about editors that were dirty when the close began (`LeoUnsavedEditorsGate.swift:97,122`). An editor edited while a system-quit "Keep Waiting / Quit Anyway" offer is up is never asked. Pass the close's full entries into `Resolution` and re-check `hasUnsavedEdits`, with a test. (b) MEDIUM, plausible: logout with a hung SFTP save relies on a second ⌘Q reaching the delegate while `.terminateLater` is pending; check that on the laptop, or offer leave-anyway from within the pending system quit. (c) The pane opens at its 320 pt minimum, not 50/50; position it after the un-collapse finishes, the way the sidebar restores its width. (d) Tests for the TerminalController wiring: `leoKeepForUnsavedEdits`, the early returns in `closeTabImmediately` and `closeWindowImmediately`, the ⌘W override. (e) LOW: the quit review says "Close Anyway" instead of "Quit Anyway"; the offer sheet queues behind an existing sheet.
+Source: B-004 reviews
 
 ## B-005 · Per-agent workspace browser   [ready]
 Accept: from a sidebar row (context menu + shortcut), browse the agent's

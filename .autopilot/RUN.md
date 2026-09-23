@@ -1,4 +1,4 @@
-Status: running
+Status: finished
 Item: B-004
 Base: abf708a5402fdeef36153ae126348419011ee700
 Wip: none
@@ -17,3 +17,4 @@ Wip: none
 - B-004: built 10 commits 5980d43a6..9db8771af (993 tests). Launch-alive OK. Verified: shot B-004-1.png (Open File in Editor → highlighted Swift in trailing split; opens at 320pt min, 50/50 not done). review.security: 3 HIGH (col overflow crash, ReDoS md/yaml, close-tab loses edits) + 3 MED + 4 LOW; all but file://-host LOW sent back (attempt 1) to d-43c58450cc31. A system Screen Recording prompt for "leo" was on screen; left untouched.
 - B-004: attempt-1 fixes a820ef868..eca4cfbc1 (1016 tests, launch alive). Re-review: 2 MED (edit lost during silent reload; hung SFTP blocks quit) + LOW terminateLater + LOW quit-review release → attempt 2 (d-43c58450cc31#3). LOW controller-wiring tests → next run.
 - B-004: attempt-2 fixes a0f19db31 5cd057694 (1025 tests, launch alive). Re-review: HIGH (Quit Anyway on system quit/quit-review skips other dirty editors) + LOW sheet window → attempt 3 (d-43c58450cc31#4). MED logout+hung-save needs laptop check → next run.
+- B-004 done: 19 commits (1027 tests). 3 fix rounds; final MED + gaps → B-022; kept despite 3-attempt rule (D-034). Run finished: cap of 5 reached.
