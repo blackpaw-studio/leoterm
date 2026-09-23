@@ -75,6 +75,7 @@ import Testing
         // surface has a window); wait for it to land rather than race it.
         // Contains, not last: the order is what the steps below assert.
         try #require(await recorder.waitUntil { $0.contains(.focusChanged(handle)) }, "focus never reached the surface")
+        await recorder.drainMainQueue()
         try #require(await recorder.caughtUp(), "a yielded focus report never arrived")
         #expect(host.focusedHandle == handle)
 
@@ -140,7 +141,7 @@ private final class FirstResponderView: NSView {
     private var waiters: [UUID: Waiter] = [:]
     private var drain: Task<Void, Never>?
 
-    init(_ host: GhosttyAttachTabHost, timeout: Duration = .seconds(5)) {
+    init(_ host: GhosttyAttachTabHost, timeout: Duration = .seconds(30)) {
         self.host = host
         self.timeout = timeout
         drain = Task { [weak self, events = host.lifecycleEvents] in
@@ -156,14 +157,29 @@ private final class FirstResponderView: NSView {
     }
 
     /// Runs `action` and returns the reports received once `count` of them
-    /// have arrived (or the deadline passed), plus any the host yielded
-    /// with them.
+    /// have arrived (or the deadline passed), the main queue has drained
+    /// every focus callback `action` queued, and each report the host
+    /// yielded has arrived -- so a late extra report is counted too.
     func reports(_ count: Int, during action: () -> Void) async -> [AttachLifecycleEvent] {
         let start = received.count
         action()
         await waitUntil { $0.count >= start + count }
+        await drainMainQueue()
         await caughtUp()
         return Array(received[start...])
+    }
+
+    /// Hops the main queue until two consecutive hops yield no new report
+    /// (or the deadline passes): a callback queued before a hop has run
+    /// once that hop resumes.
+    func drainMainQueue() async {
+        let deadline = ContinuousClock.now + timeout
+        var quietHops = 0
+        while quietHops < 2, ContinuousClock.now < deadline, !Task.isCancelled {
+            let before = host.focusReportCount
+            await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
+            quietHops = host.focusReportCount == before ? quietHops + 1 : 0
+        }
     }
 
     /// Whether every report the host has yielded so far has arrived.
