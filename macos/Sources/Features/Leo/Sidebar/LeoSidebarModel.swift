@@ -10,6 +10,12 @@ import Foundation
     @Published private(set) var panelError: String?
     /// Focused attach row and live attach counts (see `+AttachLinks`).
     @Published var attachLinks = LeoAttachLinkState.empty
+    /// The attach host's latest yielded focus report (see
+    /// `LeoAttachCoordinator.latestFocusReport`).
+    var latestFocusReport: () -> Int = { 0 }
+    /// Focus reports up to this one were already in flight when the user
+    /// last selected a row, so they never move the selection.
+    var userSelectionFence: Int?
     var attachRequested: (LeoAgentRow, LeoWindowID, AttachDisposition) -> Void = { _, _, _ in }
     /// Brings the row's existing attach tab forward (no new attach).
     var focusExistingRequested: (LeoAgentRow) -> Void = { _ in }

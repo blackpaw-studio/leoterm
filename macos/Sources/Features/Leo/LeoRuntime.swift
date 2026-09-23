@@ -216,6 +216,7 @@ import OSLog
             Task { await attachCoordinator?.attach(identity: row.identity, from: origin, disposition: disposition) }
         }
         model.focusExistingRequested = { [weak attachCoordinator] row in attachCoordinator?.focusExisting(row.identity) }
+        model.latestFocusReport = { [weak attachCoordinator] in attachCoordinator?.latestFocusReport ?? 0 }
 
         // `hostSelection`'s `connectionTarget` (wired above) closes over
         // `weakSelf`, which can only be set once `self` is fully

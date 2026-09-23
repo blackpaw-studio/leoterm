@@ -51,6 +51,10 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     /// The host's last reported focused attachment; mapped to an identity
     /// only through `identityByHandle` (never titles or sidebar selection).
     private var focusedHandle: AttachmentHandle?
+    /// Which host focus report `focusedHandle` reflects. A synchronous read
+    /// of `host.focusedHandle` is newer than every report yielded so far.
+    private var focusReport = 0
+    private var focusReportsReceived = 0
     private var lifecycleTask: Task<Void, Never>?
 
     init(
@@ -80,6 +84,9 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     }
 
     deinit { lifecycleTask?.cancel() }
+
+    /// The latest focus report the host has yielded, received or not.
+    var latestFocusReport: Int { host.focusReportCount }
 
     var reusableHandleCount: Int {
         identityByHandle.keys.filter { !inactive.contains($0) }.count
@@ -136,6 +143,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             // The host may report focus on the new surface before it is
             // registered here.
             focusedHandle = host.focusedHandle
+            focusReport = host.focusReportCount + 1
             updateFocusedIdentity()
             publishLinkState()
             host.setTitleSeed(handle, title: "\(identity.name) · \(identity.host.displayName)")
@@ -208,6 +216,8 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             guard !title.isEmpty, identityByHandle[handle] != nil else { return }
             host.setTitleSeed(handle, title: nil)
         case .focusChanged(let handle):
+            focusReportsReceived += 1
+            focusReport = focusReportsReceived
             focusedHandle = handle
             if let handle, !inactive.contains(handle), let identity = identityByHandle[handle] {
                 moveToMostRecent(handle, identity: identity)
@@ -231,7 +241,12 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     }
 
     private func publishLinkState() {
-        let state = LeoAttachLinkState(focused: focusedIdentity, handlesByIdentity: handlesByIdentity, inactive: inactive)
+        let state = LeoAttachLinkState(
+            focused: focusedIdentity,
+            handlesByIdentity: handlesByIdentity,
+            inactive: inactive,
+            focusReport: focusReport
+        )
         guard state != linkState else { return }
         linkState = state
         linkStateChanged(state)

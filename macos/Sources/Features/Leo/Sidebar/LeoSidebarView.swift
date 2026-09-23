@@ -156,7 +156,7 @@ struct LeoSidebarView: View {
             } else if model.visibleRows.isEmpty {
                 stateView { Text("No matches") }
             } else {
-                List(selection: $model.selection) {
+                List(selection: Binding(get: { model.selection }, set: { model.userSelected($0) })) {
                     ForEach(LeoSidebarSectioning.sections(for: model.visibleRows)) { section in
                         Section(header: Text(section.title)) {
                             ForEach(section.rows) { row in

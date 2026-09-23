@@ -32,6 +32,12 @@ extension Notification.Name {
     /// The attachment that is the focused surface of the key window of the
     /// active app, if any. Changes are reported as `.focusChanged`.
     var focusedHandle: AttachmentHandle? { get }
+    /// How many `.focusChanged` events have been yielded on
+    /// `lifecycleEvents` so far. The Nth focus event on the stream is report
+    /// N, so a consumer can tell a report yielded before some moment (e.g.
+    /// a user's click) from one yielded after it, even if it hasn't been
+    /// received yet.
+    var focusReportCount: Int { get }
     /// `requestID` looks up the inherited `Ghostty.SurfaceConfiguration`
     /// (if any) from `LeoRequestConfigStore` -- see
     /// `GhosttyAttachTabHost.configuration(command:workingDirectory:requestID:)`.

@@ -42,8 +42,10 @@ struct FakeOpenCall {
     var handles: [AttachmentHandle] = []
     var openHandles: Set<AttachmentHandle> = []
     var focusedHandle: AttachmentHandle?
+    private(set) var focusReportCount = 0
     private let continuation: AsyncStream<AttachLifecycleEvent>.Continuation
     private var lifecycleAcknowledgement: CheckedContinuation<Void, Never>?
+    private var awaitedEvent: AttachLifecycleEvent?
     let lifecycleEvents: AsyncStream<AttachLifecycleEvent>
 
     init() {
@@ -91,10 +93,18 @@ struct FakeOpenCall {
     func focus(_ handle: AttachmentHandle) { focused.append(handle) }
     func isOpen(_ handle: AttachmentHandle) -> Bool { openHandles.contains(handle) }
     func setTitleSeed(_ handle: AttachmentHandle, title: String?) { titles.append((handle, title)) }
+    /// Yields `event` without waiting for the coordinator to receive it --
+    /// an event still in flight.
+    func emit(_ event: AttachLifecycleEvent) {
+        if case .focusChanged = event { focusReportCount += 1 }
+        continuation.yield(event)
+    }
+
     func emitAndWait(_ event: AttachLifecycleEvent) async {
         await withCheckedContinuation { acknowledgement in
             lifecycleAcknowledgement = acknowledgement
-            continuation.yield(event)
+            awaitedEvent = event
+            emit(event)
             Task { [weak self] in
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
                 guard let self, let acknowledgement = self.lifecycleAcknowledgement else { return }
@@ -105,8 +115,10 @@ struct FakeOpenCall {
         }
     }
 
+    /// Resumes `emitAndWait` once its own event is handled; an earlier
+    /// in-flight event (see `emit`) being handled first doesn't count.
     func acknowledge(_ event: AttachLifecycleEvent) {
-        guard lifecycleAcknowledgement != nil else { return }
+        guard lifecycleAcknowledgement != nil, event == awaitedEvent else { return }
         lifecycleAcknowledgement?.resume()
         lifecycleAcknowledgement = nil
     }

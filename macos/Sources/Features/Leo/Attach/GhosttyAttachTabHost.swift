@@ -13,6 +13,7 @@ import OSLog
     private var attachments: [AttachmentHandle: Attachment] = [:]
     private var focusObservers: [NSObjectProtocol] = []
     private var reportedFocus: AttachmentHandle?
+    private(set) var focusReportCount = 0
 
     init(registry: LeoWindowSessionRegistry, requestConfigStore: LeoRequestConfigStore) {
         self.registry = registry
@@ -51,6 +52,7 @@ import OSLog
         let handle = focusedHandle
         guard handle != reportedFocus else { return }
         reportedFocus = handle
+        focusReportCount += 1
         continuation.yield(.focusChanged(handle))
     }
 

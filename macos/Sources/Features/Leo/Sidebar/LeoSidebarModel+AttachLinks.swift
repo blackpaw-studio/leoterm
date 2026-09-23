@@ -7,11 +7,13 @@ extension LeoSidebarModel {
     /// change never reselects (it would yank arrow-key selection back).
     /// Focus leaving every attachment, or landing on an agent this sidebar
     /// isn't showing (another host), keeps the selection rather than
-    /// inventing one.
+    /// inventing one. A report that was already in flight when the user
+    /// last selected a row (e.g. the one a click's window activation
+    /// yields) updates the link state but never the selection.
     func receiveAttachLinks(_ links: LeoAttachLinkState) {
         let previousFocus = attachLinks.focused
         attachLinks = links
-        guard links.focused != previousFocus else { return }
+        guard links.focused != previousFocus, !isFencedByUserSelection(links) else { return }
         selectFocusedRow()
     }
 
@@ -23,6 +25,12 @@ extension LeoSidebarModel {
         selectFocusedRow()
     }
 
+    /// The list's own selection change (click, arrow keys).
+    func userSelected(_ id: LeoAgentRow.ID?) {
+        selection = id
+        fenceInFlightFocusReports()
+    }
+
     func tabCount(for id: LeoAgentRow.ID) -> Int { attachLinks.tabCount(for: id) }
 
     /// A single click. The clicked row wins over any focus the click's
@@ -30,8 +38,18 @@ extension LeoSidebarModel {
     /// plain selection; Option defers to the double-click's new window.
     func rowClicked(_ row: LeoAgentRow, modifierFlags: NSEvent.ModifierFlags = []) {
         selection = row.id
+        fenceInFlightFocusReports()
         guard !modifierFlags.contains(.option), tabCount(for: row.id) > 0 else { return }
         focusExistingRequested(row)
+    }
+
+    private func fenceInFlightFocusReports() {
+        userSelectionFence = latestFocusReport()
+    }
+
+    private func isFencedByUserSelection(_ links: LeoAttachLinkState) -> Bool {
+        guard let userSelectionFence else { return false }
+        return links.focusReport <= userSelectionFence
     }
 
     private func selectFocusedRow() {
