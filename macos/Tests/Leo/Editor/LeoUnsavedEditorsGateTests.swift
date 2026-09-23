@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Foundation
 import Testing
 
@@ -702,6 +703,11 @@ struct LeoUnsavedEditorsGateTests {
             var replies: [Bool] = []
             #expect(gate.deferQuit(of: [entry(stuck, "1", log)], isSystemQuit: true, reply: { replies.append($0) }, retry: {}) == .terminateLater)
             #expect(await eventually { stuck.isWaitingToClose })
+            // Each pass of the close's wait says so again; the pass after
+            // the first save comes back either waits again or gives up.
+            let (passes, pass) = AsyncStream<Bool>.makeStream()
+            let watching = stuck.$isWaitingToClose.dropFirst().sink { pass.yield($0) }
+            defer { watching.cancel() }
 
             stuck.document?.edit("a, edited behind the view's back")
             let secondSave = Task { await stuck.document?.save() }
@@ -709,8 +715,10 @@ struct LeoUnsavedEditorsGateTests {
             _ = await firstSave.value
             await access.waitUntilWriting()
 
-            try? await Task.sleep(for: .milliseconds(50))
-            #expect(stuck.isWaitingToClose, "still waiting, on the second save")
+            var nextPass: Bool?
+            for await waiting in passes { nextPass = waiting; break }
+            #expect(nextPass == true, "still waiting, on the second save")
+            #expect(stuck.isWaitingToClose)
             #expect(stuck.document != nil)
             #expect(replies.isEmpty)
             stuck.leaveAnyway?()
