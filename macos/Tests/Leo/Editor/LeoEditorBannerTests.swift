@@ -45,8 +45,11 @@ struct LeoEditorBannerTests {
     @Test(.timeLimit(.minutes(1)))
     func thePaneOffersToQuitAnywayOnlyOnceTheCloseIsWaiting() async throws {
         try await withLeoFileSandbox(.local) { sandbox, _ in
+            // The open's own access, which its cancel closes, apart from the document's.
             let access = LeoHangingAccess(LeoFileAccessor.local())
-            let model = LeoEditorPaneModel(makeAccess: { _ in access })
+            let reader = LeoHangingAccess(LeoFileAccessor.local())
+            var accesses = [access, reader]
+            let model = LeoEditorPaneModel(makeAccess: { _ in accesses.removeFirst() })
             let pane = LeoEditorPaneViewController(model: model)
             try await model.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
             model.document?.edit("b")
@@ -80,7 +83,8 @@ struct LeoEditorBannerTests {
     }
 
     /// The banner view itself follows the gate: shown when a pending quit
-    /// starts waiting on the editor, hidden again when it stops.
+    /// starts waiting on the editor, back to "Closing…" while no quit is
+    /// pending, and hidden once the close is done.
     @Test(.timeLimit(.minutes(1)))
     func theBannerViewFollowsThePendingQuit() async throws {
         try await withLeoFileSandbox(.local) { sandbox, _ in
@@ -106,9 +110,9 @@ struct LeoEditorBannerTests {
             #expect(await eventually { pane.banner.banner?.isEnabled == true })
 
             model.leaveAnyway = nil
-            #expect(await eventually { pane.banner.isHidden })
+            #expect(await eventually { pane.banner.banner?.actions == [] }, "still closing, with no quit to leave")
             model.leaveAnyway = {}
-            #expect(await eventually { !pane.banner.isHidden })
+            #expect(await eventually { pane.banner.banner?.actions == [.quitAnyway] })
 
             access.release()
             #expect(await closing.value)
@@ -169,6 +173,95 @@ struct LeoEditorBannerTests {
             model.confirmUnsaved = { _ in .discard }
             access.release()
             _ = await opening.value
+            #expect(await closing.value)
+        }
+    }
+
+    /// A close waiting on the disk or connection with no quit behind it
+    /// (a plain ⌘W) says so calmly, with nothing to press (B-024); a
+    /// pending quit's offer to leave comes first.
+    @Test func aCloseWaitingOnTheEditorSaysClosing() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let document = try await open(sandbox, "a.txt", "a")
+            document.edit("mine")
+            try sandbox.file("a.txt", "theirs, longer")
+            await document.checkDisk()
+
+            #expect(LeoEditorBanner.current(for: document, isWaitingToClose: true) == Self.closing)
+            #expect(LeoEditorBanner.current(for: document, isQuitWaiting: true, isWaitingToClose: true)?.actions == [.quitAnyway])
+            #expect(LeoEditorBanner.current(for: nil, isWaitingToClose: true) == nil)
+        }
+    }
+
+    private static let closing = LeoEditorBanner(symbol: "hourglass", message: "Closing “\u{2068}a.txt\u{2069}”…", actions: [])
+
+    /// A plain ⌘W behind a hung save: the text locks, and the pane says why.
+    @Test(.timeLimit(.minutes(1)))
+    func aPlainCloseBehindAHungSaveSaysClosing() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let access = LeoHangingAccess(LeoFileAccessor.local())
+            let model = LeoEditorPaneModel(makeAccess: { _ in access })
+            let pane = LeoEditorPaneViewController(model: model)
+            try await model.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
+            model.document?.edit("b")
+            model.confirmUnsaved = { _ in .save }
+            access.hangsWrites = true
+
+            let closing = Task { await model.close() }
+            await access.waitUntilWriting()
+
+            #expect(model.isWaitingToClose)
+            #expect(await eventually { pane.banner.banner == Self.closing })
+            #expect(!pane.banner.isHidden)
+            #expect(!pane.textView.isEditable)
+            access.release()
+            #expect(await closing.value)
+            #expect(await eventually { pane.banner.isHidden })
+        }
+    }
+
+    /// A close queued behind a slow open is waiting, but nothing is decided
+    /// yet: the text stays editable (it may still be kept) until the close's
+    /// prompt is answered, and locks only then (B-024).
+    @Test(.timeLimit(.minutes(1)))
+    func aCloseQueuedBehindASlowOpenLocksTheTextOnlyOnceItsPromptIsAnswered() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            // The open's own access, which its cancel closes, apart from the document's.
+            let access = LeoHangingAccess(LeoFileAccessor.local())
+            let reader = LeoHangingAccess(LeoFileAccessor.local())
+            var accesses = [access, reader]
+            let model = LeoEditorPaneModel(makeAccess: { _ in accesses.removeFirst() })
+            let pane = LeoEditorPaneViewController(model: model)
+            try await model.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
+            model.document?.edit("b")
+            let (answers, answer) = AsyncStream<LeoUnsavedChangesChoice>.makeStream()
+            let (prompts, prompted) = AsyncStream<Void>.makeStream()
+            model.confirmUnsaved = { _ in
+                prompted.yield()
+                for await choice in answers { return choice }
+                return .cancel
+            }
+            reader.hangsReads = true
+            let opening = Task { try? await model.open(LeoEditorFileID(host: .local, path: try sandbox.file("b.txt", "b"))) }
+            await reader.waitUntilReading()
+
+            let closing = Task { await model.close() }
+            #expect(await eventually { pane.banner.banner == Self.closing }, "waiting behind the open")
+            #expect(pane.textView.isEditable, "not locked before its prompt")
+
+            reader.release()
+            for await _ in prompts { break }
+            answer.yield(.cancel)
+            #expect(await opening.value == .cancelled)
+            for await _ in prompts { break }
+            await nextTurn()
+            #expect(pane.textView.isEditable, "not locked over its own prompt")
+
+            access.hangsWrites = true
+            answer.yield(.save)
+            await access.waitUntilWriting()
+            #expect(await eventually { !pane.textView.isEditable }, "locked once the prompt is answered")
+            access.release()
             #expect(await closing.value)
         }
     }

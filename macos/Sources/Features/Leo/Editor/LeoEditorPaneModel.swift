@@ -43,8 +43,13 @@ struct LeoEditorReveal: Equatable, Sendable {
     private(set) var isConfirming = false
     /// While a close is waiting on the disk or connection -- queued behind
     /// an operation in flight, or saving after its prompt -- rather than on
-    /// its prompt or on nothing at all.
+    /// its prompt or on nothing at all. Set again on each pass of the wait
+    /// for the document's work.
     @Published private(set) var isWaitingToClose = false
+    /// While a close is decided -- its prompt answered (or none needed) --
+    /// and not yet done: the text is locked, since nothing typed now would
+    /// be kept. Not while it merely waits its turn behind another operation.
+    @Published private(set) var isCommittedToClose = false
     /// Set by `LeoUnsavedEditorsGate` while a quit that can't be asked
     /// again (logging out, Ghostty's quit review) is on this editor:
     /// offers to leave anyway (Keep Waiting / Quit Anyway). The pane shows
@@ -85,6 +90,7 @@ struct LeoEditorReveal: Equatable, Sendable {
         if queue.isBusy { isWaitingToClose = true }
         let closed = await queue.run { await self.performClose() }
         isWaitingToClose = false
+        isCommittedToClose = false
         return closed
     }
 
@@ -151,6 +157,7 @@ struct LeoEditorReveal: Equatable, Sendable {
         isWaitingToClose = false
         guard let document else { return true }
         guard await resolveUnsavedChanges(closing: true) else { return false }
+        isCommittedToClose = true
         // Something in flight on the document's own queue (⌘S, a disk
         // check) -- or queued there meanwhile -- is waited for with the
         // document still up, so a pending quit can still offer to leave
@@ -188,7 +195,10 @@ struct LeoEditorReveal: Equatable, Sendable {
         case .cancel: return false
         case .discard: return true
         case .save:
-            if closing { isWaitingToClose = true }
+            if closing {
+                isCommittedToClose = true
+                isWaitingToClose = true
+            }
             defer { if closing { isWaitingToClose = false } }
             return await document.save() == .saved
         }

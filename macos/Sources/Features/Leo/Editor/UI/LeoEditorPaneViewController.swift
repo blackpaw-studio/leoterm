@@ -98,9 +98,10 @@ final class LeoEditorPaneViewController: NSViewController {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] reveal in self?.apply(reveal) }
             .store(in: &modelSubscriptions)
-        // A pending quit waiting on the document offers to quit anyway.
+        // A close waiting on the document says so (a pending quit offers to
+        // quit anyway), and locks the text once it's decided.
         model.$leaveAnyway.map { _ in () }
-            .merge(with: model.$isWaitingToClose.map { _ in () }, model.$isOfferShowing.map { _ in () })
+            .merge(with: model.$isWaitingToClose.map { _ in () }, model.$isOfferShowing.map { _ in () }, model.$isCommittedToClose.map { _ in () })
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in self?.refreshChrome() }
             .store(in: &modelSubscriptions)
@@ -151,16 +152,20 @@ final class LeoEditorPaneViewController: NSViewController {
         if let document = shownDocument { textView.isEditable = isEditable(document) }
     }
 
-    /// Read-only while a close waits on the document's in-flight work:
-    /// nothing typed then would be kept, or a save queued behind it would
-    /// write it after Don't Save.
+    /// Read-only once a close is decided (its prompt answered, or none
+    /// needed) and waits on the document: nothing typed then would be
+    /// kept, or a save queued behind it would write it after Don't Save.
+    /// Still editable while the close merely waits its turn.
     private func isEditable(_ document: LeoEditorDocument) -> Bool {
-        !document.isReadOnly && !model.isWaitingToClose
+        !document.isReadOnly && !model.isCommittedToClose
     }
 
     /// The banner for the model as it is now.
     var shownBanner: LeoEditorBanner? {
-        LeoEditorBanner.current(for: model.document, isQuitWaiting: model.leaveAnyway != nil && model.isWaitingToClose, canLeave: !model.isOfferShowing)
+        LeoEditorBanner.current(
+            for: model.document, isQuitWaiting: model.leaveAnyway != nil && model.isWaitingToClose, canLeave: !model.isOfferShowing,
+            isWaitingToClose: model.isWaitingToClose
+        )
     }
 
     private func apply(_ reveal: LeoEditorReveal?) {

@@ -1,8 +1,8 @@
 import AppKit
 
 /// What the pane's inline banner says, most important first: a quit
-/// waiting on the editor, a conflict with the disk, then a failed save or
-/// reload, then a read-only notice.
+/// waiting on the editor, a close waiting on it, a conflict with the disk,
+/// then a failed save or reload, then a read-only notice.
 struct LeoEditorBanner: Equatable {
     enum Action: Equatable {
         case quitAnyway
@@ -21,8 +21,9 @@ struct LeoEditorBanner: Equatable {
     /// is waiting on the document's disk or connection (a save or read
     /// that hasn't come back), and it can be left from here.
     /// `canLeave`: whether its Quit Anyway can be used now (no offer to
-    /// leave is already showing).
-    @MainActor static func current(for document: LeoEditorDocument?, isQuitWaiting: Bool = false, canLeave: Bool = true) -> LeoEditorBanner? {
+    /// leave is already showing). `isWaitingToClose`: a close is waiting
+    /// on the document's disk or connection (or on work queued before it).
+    @MainActor static func current(for document: LeoEditorDocument?, isQuitWaiting: Bool = false, canLeave: Bool = true, isWaitingToClose: Bool = false) -> LeoEditorBanner? {
         guard let document else { return nil }
         let name = "“\(LeoSFTPServerText.isolated(document.displayName))”"
         if isQuitWaiting {
@@ -32,6 +33,9 @@ struct LeoEditorBanner: Equatable {
                 actions: [.quitAnyway],
                 isEnabled: canLeave
             )
+        }
+        if isWaitingToClose {
+            return LeoEditorBanner(symbol: "hourglass", message: "Closing \(name)…", actions: [])
         }
         switch document.diskState {
         case .changed:
