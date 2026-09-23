@@ -147,7 +147,7 @@ enum LeoEditorSaveOutcome: Equatable, Sendable {
 
     /// Replaces the buffer with the file on disk, clearing any banner.
     func reload() async {
-        await queue.run { await self.performReload() }
+        await queue.run { await self.performReload(keepingEdits: false) }
     }
 
     /// Resolves a banner in favour of the buffer: the next save overwrites
@@ -175,7 +175,8 @@ enum LeoEditorSaveOutcome: Equatable, Sendable {
     // MARK: - Operations (serialized)
 
     /// `.reloaded` only when the reload went through; one that failed
-    /// leaves the buffer as it was.
+    /// leaves the buffer as it was, and one the user typed into while the
+    /// file was read banners the change instead.
     private func performCheck() async -> LeoEditorDiskCheck {
         let current: DiskVersion
         do {
@@ -190,8 +191,11 @@ enum LeoEditorSaveOutcome: Equatable, Sendable {
         }
         if diskState != .inSync, current == observed { return diskState == .deleted ? .deleted : .conflict }
         if current != .absent, !isDirty {
-            guard await performReload() else { return diskState == .deleted ? .deleted : .failed }
-            return .reloaded
+            switch await performReload(keepingEdits: true) {
+            case .reloaded: return .reloaded
+            case .keptEdits: return .conflict
+            case .failed: return diskState == .deleted ? .deleted : .failed
+            }
         }
         flag(current)
         return current == .absent ? .deleted : .conflict
@@ -229,12 +233,28 @@ enum LeoEditorSaveOutcome: Equatable, Sendable {
         }
     }
 
-    /// `true` when the buffer now holds the file on disk.
+    private enum ReloadOutcome {
+        /// The buffer now holds the file on disk.
+        case reloaded
+        /// The buffer was edited while the file was read: it keeps the
+        /// edits, and the change on disk is bannered.
+        case keptEdits
+        case failed
+    }
+
+    /// `keepingEdits`: a silent reload of a clean buffer, which mustn't land
+    /// over edits typed while the file was read (keystrokes aren't queued).
+    /// Otherwise the user chose to take the file on disk.
     @discardableResult
-    private func performReload() async -> Bool {
+    private func performReload(keepingEdits: Bool) async -> ReloadOutcome {
+        let before = text
         do {
             let contents = try await access.read(fileID.path, maxBytes: policy.readLimit)
             let content = await Self.decode(contents.data, with: evaluate)
+            if keepingEdits, isDirty || text != before {
+                flag(.version(contents.stat.version))
+                return .keptEdits
+            }
             text = content.text
             savedText = content.text
             readOnlyReason = content.readOnlyReason
@@ -244,13 +264,13 @@ enum LeoEditorSaveOutcome: Equatable, Sendable {
             diskState = .inSync
             errorMessage = nil
             contentRevision += 1
-            return true
+            return .reloaded
         } catch LeoFileAccessError.notFound {
             flag(.absent)
-            return false
+            return .failed
         } catch {
             errorMessage = error.localizedDescription
-            return false
+            return .failed
         }
     }
 

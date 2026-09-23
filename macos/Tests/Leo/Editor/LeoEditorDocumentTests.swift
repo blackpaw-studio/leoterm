@@ -307,6 +307,31 @@ struct LeoEditorDocumentTests {
         }
     }
 
+    /// Typing while a silent reload reads the file: the reload must not
+    /// land over the edits. The change is bannered instead, edits kept.
+    @Test(.timeLimit(.minutes(1)))
+    func anEditDuringASilentReloadKeepsTheEditsAndBannersTheChange() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, local in
+            let access = LeoGatedReadAccess(local)
+            let document = try await open(try sandbox.file("a.txt", "one"), access)
+            try sandbox.file("a.txt", "one, then two")
+            access.gatesReads = true
+            let check = Task { await document.checkDisk() }
+            await access.waitUntilReading()
+
+            document.edit("one!")
+            access.release()
+
+            #expect(await check.value == .conflict)
+            #expect(document.text == "one!")
+            #expect(document.isDirty)
+            #expect(document.diskState == .changed)
+            document.keepMine()
+            #expect(await document.save() == .saved)
+            #expect(try sandbox.contents("a.txt") == "one!")
+        }
+    }
+
     /// A focus check that finds a change but can't read it hasn't reloaded.
     @Test func aCheckWhoseReloadFailsReportsFailure() async throws {
         try await withLeoFileSandbox(.local) { sandbox, local in
@@ -437,5 +462,48 @@ private final class LeoThreadProbe: @unchecked Sendable {
             counts.calls += 1
             if isMain { counts.onMain += 1 }
         }
+    }
+}
+
+/// `base`, except that while `gatesReads` is set, `read` waits for
+/// `release()` (after signalling `waitUntilReading()`).
+private final class LeoGatedReadAccess: LeoFileAccess, @unchecked Sendable {
+    private let base: any LeoFileAccess
+    private let lock = NSLock()
+    private var gating = false
+    private let reading = AsyncStream<Void>.makeStream()
+    private let gate = AsyncStream<Void>.makeStream()
+
+    init(_ base: any LeoFileAccess) {
+        self.base = base
+    }
+
+    var gatesReads: Bool {
+        get { lock.withLock { gating } }
+        set { lock.withLock { gating = newValue } }
+    }
+
+    func waitUntilReading() async {
+        for await _ in reading.stream { return }
+    }
+
+    func release() {
+        gate.continuation.yield()
+    }
+
+    func list(_ path: String) async throws -> [LeoFileEntry] { try await base.list(path) }
+    func stat(_ path: String) async throws -> LeoFileStat { try await base.stat(path) }
+    func homeDirectory() async throws -> String { try await base.homeDirectory() }
+    func close() async { await base.close() }
+    func write(_ data: Data, to path: String, expecting expected: LeoFileVersion?) async throws -> LeoFileStat {
+        try await base.write(data, to: path, expecting: expected)
+    }
+
+    func read(_ path: String, maxBytes: UInt64) async throws -> LeoFileContents {
+        if gatesReads {
+            reading.continuation.yield()
+            for await _ in gate.stream { break }
+        }
+        return try await base.read(path, maxBytes: maxBytes)
     }
 }
