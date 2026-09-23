@@ -45,8 +45,10 @@ struct LeoProcessRunnerTests {
         let pidFile = FileManager.default.temporaryDirectory.appendingPathComponent("leo-sigkill-\(UUID().uuidString).pid")
         defer { try? FileManager.default.removeItem(at: pidFile) }
         // `exec` keeps the ignored SIGTERM and makes `sleep` the one process
-        // holding the pipes, so it dies to SIGKILL alone.
-        let script = "trap '' TERM; echo $$ > '\(pidFile.path)'; exec sleep 3600"
+        // holding the pipes, so it dies to SIGKILL alone. It outlives the
+        // hang guard (so a missing SIGKILL fails rather than ending
+        // naturally) but is self-limiting, so no failure leaves it for long.
+        let script = "trap '' TERM; echo $$ > '\(pidFile.path)'; exec sleep \(Int(Self.hangGuard * 2))"
         let outcome = Outcome()
         let run = Task {
             do {
@@ -57,35 +59,14 @@ struct LeoProcessRunnerTests {
                 await outcome.set(.failure(error))
             }
         }
-        // However this test leaves -- a failed wait or `#require` included --
-        // the child must not outlive it: kill it if it's known, and step the
-        // runner's own escalation if it isn't.
-        var pid: pid_t?
-        var ended = false
-        defer {
-            if !ended {
-                if let pid { kill(pid, SIGKILL) }
-                scheduler.fireAll()
-                run.cancel()
-            }
+
+        do {
+            try await stepEscalation(scheduler: scheduler, pidFile: pidFile, outcome: outcome)
+        } catch {
+            await endChild(scheduler: scheduler, pidFile: pidFile, outcome: outcome)
+            throw error
         }
-
-        await awaitCondition(timeout: Self.hangGuard, message: "Process never started") {
-            (try? String(contentsOf: pidFile, encoding: .utf8))?.hasSuffix("\n") == true
-        }
-        let child = try #require(pid_t((try String(contentsOf: pidFile, encoding: .utf8)).trimmingCharacters(in: .whitespacesAndNewlines)))
-        pid = child
-        #expect(scheduler.delays == [0.2])
-
-        scheduler.fireNext() // the deadline: SIGTERM, ignored
-        #expect(kill(child, 0) == 0, "The process should have ignored SIGTERM")
-        #expect(scheduler.delays == [1])
-
-        scheduler.fireNext() // the grace period: SIGKILL
-        await awaitCondition(timeout: Self.hangGuard, message: "SIGKILL never ended the run") { await outcome.value != nil }
-        if await outcome.value == nil { kill(child, SIGKILL) }
         await run.value
-        ended = true
 
         let result = await outcome.value
         #expect(throws: LeoDaemonError.timeout) { try result?.get() }
@@ -95,10 +76,39 @@ struct LeoProcessRunnerTests {
         scheduler.fireNext()
     }
 
-    /// The app's scheduler really runs what the escalation schedules: a
-    /// block fires, never before its delay, and a long delay isn't cut short
-    /// (a sentinel scheduled later with no delay fires first). No upper
-    /// bound on when: only `hangGuard` turns a hang into a failure.
+    private func stepEscalation(scheduler: ManualScheduler, pidFile: URL, outcome: Outcome) async throws {
+        await awaitCondition(timeout: Self.hangGuard, message: "Process never started") { Self.pid(in: pidFile) != nil }
+        let child = try #require(Self.pid(in: pidFile))
+        #expect(scheduler.delays == [0.2])
+
+        scheduler.fireNext() // the deadline: SIGTERM, ignored
+        #expect(kill(child, 0) == 0, "The process should have ignored SIGTERM")
+        #expect(scheduler.delays == [1])
+
+        scheduler.fireNext() // the grace period: SIGKILL
+        await awaitCondition(timeout: Self.hangGuard, message: "SIGKILL never ended the run") { await outcome.value != nil }
+        if await outcome.value == nil { throw CancellationError() }
+    }
+
+    /// After a failed step: let the runner escalate on its own, wait
+    /// (bounded) for the run to end, and only if it still hasn't -- so the
+    /// child is unreaped and its pid still ours -- kill it directly.
+    private func endChild(scheduler: ManualScheduler, pidFile: URL, outcome: Outcome) async {
+        scheduler.fireAll()
+        await awaitCondition(timeout: Self.hangGuard, message: "The run never ended") { await outcome.value != nil }
+        if await outcome.value == nil, let pid = Self.pid(in: pidFile) { kill(pid, SIGKILL) }
+    }
+
+    private static func pid(in file: URL) -> pid_t? {
+        guard let text = try? String(contentsOf: file, encoding: .utf8), text.hasSuffix("\n") else { return nil }
+        return pid_t(text.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    /// The app's scheduler really runs what the escalation schedules: blocks
+    /// fire, never before their delay, and a long delay isn't cut short by
+    /// shorter ones firing. The due blocks run on a concurrent queue, so
+    /// their relative order isn't asserted. No upper bound on when: only
+    /// `hangGuard` turns a hang into a failure.
     @Test func dispatchSchedulerRunsBlocksNoSoonerThanTheirDelay() async {
         let fired = FiredLog()
         let start = ContinuousClock.now
@@ -108,7 +118,7 @@ struct LeoProcessRunnerTests {
 
         await awaitCondition(timeout: Self.hangGuard, message: "The scheduled blocks never fired") { fired.entries.count >= 2 }
 
-        #expect(fired.entries == ["sentinel", "short:true"])
+        #expect(Set(fired.entries) == ["sentinel", "short:true"])
     }
 
     /// Only turns a hang into a failure: nothing here is timed against it.
