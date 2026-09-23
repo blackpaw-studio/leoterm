@@ -285,6 +285,64 @@ struct LeoEditorDocumentTests {
         }
     }
 
+    /// A silent reload lands in the view a run-loop turn later; a
+    /// keystroke in that gap was typed into the old text, so it must not
+    /// mark the buffer dirty with it (⌘S would write the stale text back).
+    @Test func anEditOfTheTextBeforeAReloadIsIgnored() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, access in
+            let document = try await open(try sandbox.file("a.txt", "one"), access)
+            let shown = document.contentRevision
+            try sandbox.file("a.txt", "one, then two")
+            #expect(await document.checkDisk() == .reloaded)
+
+            document.edit("one!", revision: shown)
+
+            #expect(document.text == "one, then two")
+            #expect(!document.isDirty)
+            #expect(await document.save() == .unchanged)
+            #expect(try sandbox.contents("a.txt") == "one, then two")
+            // Once the view shows the reload, its edits count again.
+            document.edit("one, then two!", revision: document.contentRevision)
+            #expect(document.isDirty)
+        }
+    }
+
+    /// A focus check that finds a change but can't read it hasn't reloaded.
+    @Test func aCheckWhoseReloadFailsReportsFailure() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, local in
+            let access = LeoFailingReadAccess(local)
+            let document = try await open(try sandbox.file("a.txt", "one"), access)
+            let revision = document.contentRevision
+            try sandbox.file("a.txt", "one, then two")
+            access.failsReads = true
+
+            #expect(await document.checkDisk() == .failed)
+
+            #expect(document.text == "one")
+            #expect(document.contentRevision == revision)
+            #expect(!document.isDirty)
+        }
+    }
+
+    /// Decoding (up to `readLimit`, 20 MB) runs off the main actor, on open
+    /// and on reload.
+    @Test func decodingRunsOffTheMainActor() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, access in
+            let probe = LeoThreadProbe()
+            let policy = LeoEditorContentPolicy.default
+            let fileID = LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "one"))
+            let document = try await LeoEditorDocument.open(fileID, access: access, policy: policy) { data in
+                probe.record()
+                return policy.evaluate(data)
+            }
+            try sandbox.file("a.txt", "one, then two")
+            await document.reload()
+
+            #expect(probe.calls == 2)
+            #expect(probe.onMainThread == 0)
+        }
+    }
+
     @Test(.timeLimit(.minutes(1)))
     func editsMadeWhileASaveIsInFlightStayDirty() async throws {
         try await withLeoFileSandbox(.local) { sandbox, local in
@@ -333,5 +391,51 @@ private final class LeoGatedWriteAccess: LeoFileAccess, @unchecked Sendable {
         writing.continuation.yield()
         for await _ in gate.stream { break }
         return try await base.write(data, to: path, expecting: expected)
+    }
+}
+
+/// `base`, except `read` throws while `failsReads` is set.
+private final class LeoFailingReadAccess: LeoFileAccess, @unchecked Sendable {
+    private let base: any LeoFileAccess
+    private let lock = NSLock()
+    private var failing = false
+
+    var failsReads: Bool {
+        get { lock.withLock { failing } }
+        set { lock.withLock { failing = newValue } }
+    }
+
+    init(_ base: any LeoFileAccess) {
+        self.base = base
+    }
+
+    func list(_ path: String) async throws -> [LeoFileEntry] { try await base.list(path) }
+    func stat(_ path: String) async throws -> LeoFileStat { try await base.stat(path) }
+    func homeDirectory() async throws -> String { try await base.homeDirectory() }
+    func close() async { await base.close() }
+    func write(_ data: Data, to path: String, expecting expected: LeoFileVersion?) async throws -> LeoFileStat {
+        try await base.write(data, to: path, expecting: expected)
+    }
+
+    func read(_ path: String, maxBytes: UInt64) async throws -> LeoFileContents {
+        if failsReads { throw LeoFileAccessError.unavailable(reason: "read failed") }
+        return try await base.read(path, maxBytes: maxBytes)
+    }
+}
+
+/// Counts calls, and how many were on the main thread.
+private final class LeoThreadProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private var counts = (calls: 0, onMain: 0)
+
+    var calls: Int { lock.withLock { counts.calls } }
+    var onMainThread: Int { lock.withLock { counts.onMain } }
+
+    func record() {
+        let isMain = Thread.isMainThread
+        lock.withLock {
+            counts.calls += 1
+            if isMain { counts.onMain += 1 }
+        }
     }
 }

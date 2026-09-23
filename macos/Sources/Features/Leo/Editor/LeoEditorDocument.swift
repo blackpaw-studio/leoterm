@@ -68,8 +68,12 @@ enum LeoEditorSaveOutcome: Equatable, Sendable {
         case absent
     }
 
+    /// Decodes a file's bytes (`policy.evaluate`, unless a test watches it).
+    typealias Evaluate = @Sendable (Data) -> LeoEditorContent
+
     private let access: any LeoFileAccess
     private let policy: LeoEditorContentPolicy
+    private let evaluate: Evaluate
     private let queue = LeoEditorSerialQueue()
     /// The on-disk text the buffer matches when clean; nil after Keep Mine,
     /// when nothing on disk matches it.
@@ -83,29 +87,46 @@ enum LeoEditorSaveOutcome: Equatable, Sendable {
     var displayName: String { fileID.name }
     var isReadOnly: Bool { readOnlyReason != nil }
 
-    private init(fileID: LeoEditorFileID, access: any LeoFileAccess, policy: LeoEditorContentPolicy, contents: LeoFileContents) {
+    private init(
+        fileID: LeoEditorFileID,
+        access: any LeoFileAccess,
+        policy: LeoEditorContentPolicy,
+        evaluate: @escaping Evaluate,
+        content: LeoEditorContent,
+        version: LeoFileVersion
+    ) {
         self.fileID = fileID
         self.access = access
         self.policy = policy
+        self.evaluate = evaluate
         language = LeoEditorLanguage(path: fileID.path)
-        let content = policy.evaluate(contents.data)
         text = content.text
         savedText = content.text
         readOnlyReason = content.readOnlyReason
-        base = .version(contents.stat.version)
+        base = .version(version)
     }
 
     /// Reads the file (failing for folders, missing files and files over
     /// `policy.readLimit`). The caller hands over `access`: `close()`
     /// releases it.
-    static func open(_ fileID: LeoEditorFileID, access: any LeoFileAccess, policy: LeoEditorContentPolicy) async throws -> LeoEditorDocument {
+    static func open(
+        _ fileID: LeoEditorFileID,
+        access: any LeoFileAccess,
+        policy: LeoEditorContentPolicy,
+        evaluate: Evaluate? = nil
+    ) async throws -> LeoEditorDocument {
+        let evaluate = evaluate ?? { policy.evaluate($0) }
         let contents = try await access.read(fileID.path, maxBytes: policy.readLimit)
-        return LeoEditorDocument(fileID: fileID, access: access, policy: policy, contents: contents)
+        let content = await decode(contents.data, with: evaluate)
+        return LeoEditorDocument(fileID: fileID, access: access, policy: policy, evaluate: evaluate, content: content, version: contents.stat.version)
     }
 
-    /// The view's buffer changed. Ignored for read-only documents.
-    func edit(_ newText: String) {
-        guard !isReadOnly else { return }
+    /// The view's buffer changed. `revision` is the `contentRevision` the
+    /// view shows: an edit of text a reload has since replaced (the view
+    /// catches up a run-loop turn later) is ignored, so it can't mark the
+    /// buffer dirty with stale text. Ignored for read-only documents too.
+    func edit(_ newText: String, revision: Int) {
+        guard !isReadOnly, revision == contentRevision else { return }
         text = newText
         let dirty = savedText != newText
         if dirty != isDirty { isDirty = dirty }
@@ -153,6 +174,8 @@ enum LeoEditorSaveOutcome: Equatable, Sendable {
 
     // MARK: - Operations (serialized)
 
+    /// `.reloaded` only when the reload went through; one that failed
+    /// leaves the buffer as it was.
     private func performCheck() async -> LeoEditorDiskCheck {
         let current: DiskVersion
         do {
@@ -167,8 +190,8 @@ enum LeoEditorSaveOutcome: Equatable, Sendable {
         }
         if diskState != .inSync, current == observed { return diskState == .deleted ? .deleted : .conflict }
         if current != .absent, !isDirty {
-            await performReload()
-            return diskState == .inSync ? .reloaded : .deleted
+            guard await performReload() else { return diskState == .deleted ? .deleted : .failed }
+            return .reloaded
         }
         flag(current)
         return current == .absent ? .deleted : .conflict
@@ -206,10 +229,12 @@ enum LeoEditorSaveOutcome: Equatable, Sendable {
         }
     }
 
-    private func performReload() async {
+    /// `true` when the buffer now holds the file on disk.
+    @discardableResult
+    private func performReload() async -> Bool {
         do {
             let contents = try await access.read(fileID.path, maxBytes: policy.readLimit)
-            let content = policy.evaluate(contents.data)
+            let content = await Self.decode(contents.data, with: evaluate)
             text = content.text
             savedText = content.text
             readOnlyReason = content.readOnlyReason
@@ -219,14 +244,23 @@ enum LeoEditorSaveOutcome: Equatable, Sendable {
             diskState = .inSync
             errorMessage = nil
             contentRevision += 1
+            return true
         } catch LeoFileAccessError.notFound {
             flag(.absent)
+            return false
         } catch {
             errorMessage = error.localizedDescription
+            return false
         }
     }
 
     // MARK: - Helpers
+
+    /// Decoding up to `policy.readLimit` (20 MB) takes a while, so it runs
+    /// off the main actor.
+    private static func decode(_ data: Data, with evaluate: @escaping Evaluate) async -> LeoEditorContent {
+        await Task.detached(priority: .userInitiated) { evaluate(data) }.value
+    }
 
     private func diskVersion() async throws -> DiskVersion {
         do {

@@ -219,6 +219,6 @@ final class LeoEditorPaneViewController: NSViewController {
 extension LeoEditorPaneViewController: NSTextViewDelegate {
     func textDidChange(_ notification: Notification) {
         textView.highlightEdits()
-        model.document?.edit(textView.string)
+        model.document?.edit(textView.string, revision: shownRevision)
     }
 }
