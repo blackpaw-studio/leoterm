@@ -108,15 +108,44 @@ struct LeoSFTPClient: Sendable {
         return Self.error(for: status, path: path)
     }
 
+    /// As specific as v3 allows. A server's own message is quoted, as
+    /// strerror is locally -- unless it is just the code's name, which is
+    /// all OpenSSH ever sends ("Failure"), and which gets a sentence here.
     static func error(for status: LeoSFTPStatus, path: String) -> LeoFileAccessError {
+        let message = explanation(status.message)
         switch status.code {
-        case .noSuchFile: .notFound(path: path)
-        case .permissionDenied: .permissionDenied(path: path)
-        case .noConnection, .connectionLost: .disconnected
-        case .unsupported: .protocolError("the server doesn’t support this operation")
-        case .ok, .eof: .protocolError("unexpected status \(status.message.isEmpty ? String(describing: status.code) : status.message)")
-        case .failure, .badMessage, .other: .failed(path: path, reason: status.message.isEmpty ? "the server reported a failure" : status.message)
+        case .noSuchFile: return .notFound(path: path)
+        case .permissionDenied: return .permissionDenied(path: path)
+        case .noConnection, .connectionLost: return .disconnected
+        case .ok, .eof: return .protocolError("unexpected status \(status.message.isEmpty ? String(describing: status.code) : status.message)")
+        case .failure: return .failed(path: path, reason: message ?? "the server couldn’t complete the operation and gave no reason")
+        case .unsupported: return .failed(path: path, reason: message ?? "the server doesn’t support this operation")
+        case .other(let code): return .failed(path: path, reason: message ?? "the server reported error \(code)")
+        case .badMessage:
+            // OpenSSH's sftp-server answers ENAMETOOLONG with BAD_MESSAGE.
+            let reason = isNameTooLong(path) ? "File name too long" : "the server rejected the request as malformed"
+            return .failed(path: path, reason: message ?? reason)
         }
+    }
+
+    /// The server's message with whitespace and a trailing period trimmed,
+    /// or nil when it only restates a status code's name.
+    private static func explanation(_ message: String) -> String? {
+        var text = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        if text.hasSuffix(".") { text.removeLast() }
+        guard !text.isEmpty, !statusNames.contains(text.lowercased()) else { return nil }
+        return text
+    }
+
+    /// OpenSSH's `status_to_message` texts.
+    private static let statusNames: Set<String> = [
+        "success", "end of file", "no such file", "permission denied", "failure",
+        "bad message", "no connection", "connection lost", "operation unsupported", "unknown error",
+    ]
+
+    /// A component over NAME_MAX or a path over PATH_MAX (macOS: 255/1024).
+    private static func isNameTooLong(_ path: String) -> Bool {
+        path.utf8.count >= Int(PATH_MAX) || path.split(separator: "/").contains { $0.utf8.count > Int(NAME_MAX) }
     }
 
     private static func name(of response: LeoSFTPResponse) -> String {

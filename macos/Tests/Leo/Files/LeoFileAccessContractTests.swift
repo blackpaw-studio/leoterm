@@ -113,6 +113,20 @@ struct LeoFileAccessContractTests {
         }
     }
 
+    /// OpenSSH answers ENAMETOOLONG with a bare "Bad message"; the remote
+    /// error must read like the local one.
+    @Test(arguments: LeoFileBackendKind.allCases)
+    func aNameTooLongReadsTheSameForEveryOperation(_ kind: LeoFileBackendKind) async throws {
+        try await withLeoFileSandbox(kind) { sandbox, access in
+            let long = sandbox.path(String(repeating: "n", count: 300))
+            let expected = LeoFileAccessError.failed(path: long, reason: "File name too long")
+            await #expect(throws: expected) { try await access.stat(long) }
+            await #expect(throws: expected) { try await access.read(long, maxBytes: 10) }
+            await #expect(throws: expected) { try await access.list(long) }
+            await #expect(throws: expected) { try await access.write(Data("x".utf8), to: long, expecting: nil) }
+        }
+    }
+
     @Test(arguments: LeoFileBackendKind.allCases)
     func unreadableFilesAndDirectoriesArePermissionDenied(_ kind: LeoFileBackendKind) async throws {
         try await withLeoFileSandbox(kind) { sandbox, access in

@@ -18,7 +18,7 @@ enum LeoFileAccessError: Error, Equatable, Sendable {
     /// The server spoke something other than well-formed SFTP v3.
     case protocolError(String)
     /// Any other operating-system or server failure (disk full, read-only
-    /// volume, a generic SFTP "Failure").
+    /// volume, an SFTP "Failure" or an operation the server doesn’t support).
     case failed(path: String, reason: String)
     /// File access can't work for this host at all, though its tunnel may
     /// (e.g. the tunnel runs without the ControlMaster SFTP needs).
