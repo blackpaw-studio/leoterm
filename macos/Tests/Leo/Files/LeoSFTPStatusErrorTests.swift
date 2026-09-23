@@ -22,11 +22,11 @@ struct LeoSFTPStatusErrorTests {
     /// is locally.
     @Test(arguments: [LeoSFTPStatusCode.failure, .badMessage, .unsupported, .other(42)])
     func aServersOwnMessageIsSurfaced(_ code: LeoSFTPStatusCode) {
-        #expect(error(code, "No space left on device") == .failed(path: path, reason: "No space left on device"))
+        #expect(error(code, "No space left on device") == .failed(path: path, reason: "the server said “No space left on device”"))
     }
 
     @Test func surroundingWhitespaceAndATrailingPeriodAreTrimmed() {
-        #expect(error(.failure, "  Disk quota exceeded.\n") == .failed(path: path, reason: "Disk quota exceeded"))
+        #expect(error(.failure, "  Disk quota exceeded.\n") == .failed(path: path, reason: "the server said “Disk quota exceeded”"))
     }
 
     /// The bare code name adds nothing ("Couldn’t access “x”: Failure."),
@@ -57,7 +57,7 @@ struct LeoSFTPStatusErrorTests {
     }
 
     @Test func successCodesWhereAFailureWasDueAreProtocolErrors() {
-        #expect(error(.ok, "Success") == .protocolError("unexpected status Success"))
+        #expect(error(.ok, "Success") == .protocolError("unexpected status ok"))
         #expect(error(.eof) == .protocolError("unexpected status eof"))
     }
 }

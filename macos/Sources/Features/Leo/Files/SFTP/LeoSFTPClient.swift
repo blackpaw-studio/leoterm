@@ -109,7 +109,8 @@ struct LeoSFTPClient: Sendable {
     }
 
     /// As specific as v3 allows. A server's own message is quoted, as
-    /// strerror is locally -- unless it is just the code's name, which is
+    /// strerror is locally -- sanitized and attributed to the server (see
+    /// `LeoSFTPServerText`) -- unless it is just the code's name, which is
     /// all OpenSSH ever sends ("Failure"), and which gets a sentence here.
     static func error(for status: LeoSFTPStatus, path: String) -> LeoFileAccessError {
         let message = explanation(status.message)
@@ -117,7 +118,9 @@ struct LeoSFTPClient: Sendable {
         case .noSuchFile: return .notFound(path: path)
         case .permissionDenied: return .permissionDenied(path: path)
         case .noConnection, .connectionLost: return .disconnected
-        case .ok, .eof: return .protocolError("unexpected status \(status.message.isEmpty ? String(describing: status.code) : status.message)")
+        case .ok, .eof:
+            let detail = ["unexpected status \(status.code)", message].compactMap { $0 }
+            return .protocolError(detail.joined(separator: "; "))
         case .failure: return .failed(path: path, reason: message ?? "the server couldn’t complete the operation and gave no reason")
         case .unsupported: return .failed(path: path, reason: message ?? "the server doesn’t support this operation")
         case .other(let code): return .failed(path: path, reason: message ?? "the server reported error \(code)")
@@ -128,13 +131,15 @@ struct LeoSFTPClient: Sendable {
         }
     }
 
-    /// The server's message with whitespace and a trailing period trimmed,
-    /// or nil when it only restates a status code's name.
+    /// The server's message sanitized, without a trailing period, and
+    /// quoted as the server's; nil when it is empty or only restates a
+    /// status code's name. Every path that shows server text goes through
+    /// here.
     private static func explanation(_ message: String) -> String? {
-        var text = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        var text = LeoSFTPServerText.sanitized(message)
         if text.hasSuffix(".") { text.removeLast() }
         guard !text.isEmpty, !statusNames.contains(text.lowercased()) else { return nil }
-        return text
+        return LeoSFTPServerText.quoted(text)
     }
 
     /// OpenSSH's `status_to_message` texts.
