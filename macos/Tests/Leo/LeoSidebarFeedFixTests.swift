@@ -8,7 +8,6 @@ struct LeoSidebarFeedFixTests {
     /// The list-fetch deadline `fetchList()` races each list call against.
     static let listDeadline: UInt64 = 5_000_000_000
 
-
     @Test func helloAfterConnectedCoalescesRecoveryRefresh() async throws {
         let daemon = FeedFixDaemon(results: [[agent("alpha")], [agent("bravo")], [agent("charlie")]])
         let activity = FeedFixActivity()
