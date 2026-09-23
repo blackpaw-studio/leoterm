@@ -37,7 +37,13 @@ struct LeoEditorTextViewRevertTests {
     /// from `textDidChange`, before the edit has finished.
     private final class Refuser: NSObject, NSTextViewDelegate {
         var original: String
+        /// Vetoes edits outright, the way AppKit's own checks can.
+        var vetoes = false
         init(_ original: String) { self.original = original }
+
+        func textView(_ textView: NSTextView, shouldChangeTextIn affectedCharRange: NSRange, replacementString: String?) -> Bool {
+            !vetoes
+        }
 
         func textDidChange(_ notification: Notification) {
             (notification.object as? LeoEditorTextView)?.revertEdit(to: original)
@@ -79,6 +85,18 @@ struct LeoEditorTextViewRevertTests {
         refuser.original = ""
         typeOver(NSRange(location: 4, length: 1), in: textView, refuser: refuser)
         #expect(textView.selectedRange() == NSRange(location: 0, length: 0))
+    }
+
+    /// An edit vetoed before it starts leaves no record behind for the
+    /// next refused edit to restore.
+    @Test func aVetoedEditDoesNotLeakItsSelectionIntoTheNextRevert() {
+        let textView = loaded(), refuser = Refuser(text)
+        refuser.vetoes = true
+        typeOver(NSRange(location: 0, length: 5), in: textView, refuser: refuser)
+        #expect(textView.string == text)
+        refuser.vetoes = false
+        typeOver(NSRange(location: 6, length: 5), in: textView, refuser: refuser)
+        #expect(textView.selectedRange() == NSRange(location: 6, length: 5))
     }
 
     /// A clamped endpoint never splits a surrogate pair or a composed

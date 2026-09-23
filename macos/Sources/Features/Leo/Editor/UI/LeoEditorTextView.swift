@@ -97,10 +97,15 @@ final class LeoEditorTextView: NSTextView {
     }
 
     /// Records the selection before the first step of a user edit (a
-    /// compound one, like a smart substitution, asks more than once).
+    /// compound one, like a smart substitution, asks more than once). A
+    /// vetoed first step never reaches `didChangeText`, so it drops its
+    /// own record.
     override func shouldChangeText(in affectedCharRange: NSRange, replacementString: String?) -> Bool {
-        if selectionBeforeEdit == nil { selectionBeforeEdit = selectedRange() }
-        return super.shouldChangeText(in: affectedCharRange, replacementString: replacementString)
+        let isFirstStep = selectionBeforeEdit == nil
+        if isFirstStep { selectionBeforeEdit = selectedRange() }
+        let allowed = super.shouldChangeText(in: affectedCharRange, replacementString: replacementString)
+        if !allowed, isFirstStep { selectionBeforeEdit = nil }
+        return allowed
     }
 
     /// The edit has landed (and `textDidChange` has run): forget it.
