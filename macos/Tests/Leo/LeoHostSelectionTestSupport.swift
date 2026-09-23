@@ -44,17 +44,22 @@ enum LeoHostSelectionTestSupport {
             transport: transport,
             orphanStore: orphanStore,
             localSocketPath: localSocketPath,
-            localSocketDirectory: localSocketDirectory,
-            // Beside the forwarded socket unless a test says otherwise: never
-            // the real per-user cache directory.
+            legacySocketDirectory: localSocketDirectory,
+            // Holds the forwarded and control sockets; the legacy directory
+            // unless a test says otherwise: never the real per-user cache
+            // directory.
             controlSocketDirectory: controlSocketDirectory ?? localSocketDirectory,
             controlSocketInstance: controlSocketInstance,
             controlSocketOwner: controlSocketOwner
         )
     }
 
-    static func expectedLocalSocketPath(_ configuration: LeoHostConfiguration, in directory: URL = localSocketDirectory) -> String {
-        directory.appendingPathComponent(configuration.localSocketFileName).path
+    static func expectedLocalSocketPath(
+        _ configuration: LeoHostConfiguration,
+        in directory: URL = localSocketDirectory,
+        instance: String = LeoHostSelection.defaultControlSocketInstance
+    ) -> String {
+        directory.appendingPathComponent(configuration.tunnelSocketFileName(instance: instance)).path
     }
 
     /// Where the tunnel's ControlMaster socket lives -- and therefore the

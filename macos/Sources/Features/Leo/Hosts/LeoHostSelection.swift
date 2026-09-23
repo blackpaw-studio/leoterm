@@ -13,6 +13,23 @@ enum LeoHostConnectionState: Equatable, Sendable {
 
 enum LeoHostSelectionError: Error, Equatable, Sendable {
     case homeResolutionFailed(String)
+    /// The socket directory failed `LeoControlSocketDirectory.prepare`.
+    case unsafeSocketDirectory
+    /// Another user's socket sits at the forwarded socket's path.
+    case foreignTunnelSocket
+    /// A file, directory or symlink sits at the forwarded socket's path.
+    case occupiedTunnelSocketPath
+}
+
+extension LeoHostSelectionError: LocalizedError {
+    var errorDescription: String? {
+        switch self {
+        case .homeResolutionFailed(let stderr): return stderr
+        case .unsafeSocketDirectory: return "The tunnel socket directory is not private"
+        case .foreignTunnelSocket: return "The tunnel socket belongs to another user"
+        case .occupiedTunnelSocketPath: return "Something other than a socket is at the tunnel socket path"
+        }
+    }
 }
 
 /// Owns exactly one SSH tunnel (`LeoTunnel`) for the selected remote host, if
@@ -44,10 +61,12 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
     let sshExecutable: URL
     private let transport: any LeoDaemonTransport
     private let orphanStore: LeoTunnelOrphanStore
-    private let fileManager: FileManager
     private let localSocketPath: String
-    let localSocketDirectory: URL
-    /// Holds the ControlMaster sockets; see `LeoControlSocketDirectory`.
+    /// `~/.leo/state/leoterm/`, where the forwarded socket lived before
+    /// B-021. Only ever searched for this app's own stale sockets.
+    let legacySocketDirectory: URL
+    /// Holds the forwarded daemon socket and the ControlMaster sockets;
+    /// see `LeoControlSocketDirectory`.
     let controlSocketDirectory: URL
     /// Scopes the ControlMaster socket name to this app bundle; see
     /// `LeoHostConfiguration.controlSocketFileName(instance:)`.
@@ -77,9 +96,8 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
         sshExecutable: URL = URL(fileURLWithPath: "/usr/bin/ssh"),
         transport: any LeoDaemonTransport = LeoUnixSocketTransport(),
         orphanStore: LeoTunnelOrphanStore? = nil,
-        fileManager: FileManager = .default,
         localSocketPath: String = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath,
-        localSocketDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
+        legacySocketDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".leo/state/leoterm", isDirectory: true),
         controlSocketDirectory: URL? = LeoControlSocketDirectory.default,
         controlSocketInstance: String = LeoHostSelection.defaultControlSocketInstance,
@@ -92,10 +110,9 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
         self.sshExecutable = sshExecutable
         self.transport = transport
         self.orphanStore = orphanStore ?? LeoTunnelOrphanStore(defaults: defaults)
-        self.fileManager = fileManager
         self.localSocketPath = localSocketPath
-        self.localSocketDirectory = localSocketDirectory
-        self.controlSocketDirectory = controlSocketDirectory ?? localSocketDirectory
+        self.legacySocketDirectory = legacySocketDirectory
+        self.controlSocketDirectory = controlSocketDirectory ?? legacySocketDirectory
         self.controlSocketInstance = controlSocketInstance
         self.controlSocketOwner = controlSocketOwner
         self.connectionTarget = connectionTarget
@@ -243,7 +260,7 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
         var launchedTunnel: LeoTunnel?
         do {
             let remoteSocketPath = try await resolveRemoteSocketPath(configuration: configuration)
-            let localPath = try prepareLocalSocketPath(configuration: configuration)
+            let localPath = try prepareTunnelSocketPath(configuration: configuration)
 
             // A newer select()/retry()/shutdown() -- itself synchronous up to
             // this point -- may have raced ahead while the async work above
@@ -347,38 +364,44 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
         return resolved
     }
 
-    /// `~/.leo/state/leoterm/` (not `/tmp`): the local tunnel socket grants
-    /// full control of the remote leo daemon to whoever can connect to it,
-    /// so it must not sit in a world-writable directory where any local
-    /// user could plant a listener or otherwise interfere. leo itself keeps
-    /// its own socket under `~/.leo/state`. The directory is created (or
-    /// tightened, if it already exists with looser permissions) to mode
-    /// `0700` -- owner-only -- before every connect attempt.
-    private func prepareLocalSocketPath(configuration: LeoHostConfiguration) throws -> String {
-        try ensureSocketDirectoryIsPrivate()
-        return localSocketDirectory.appendingPathComponent(configuration.localSocketFileName).path
+    /// The forwarded daemon socket grants full control of the remote leo
+    /// daemon to whoever can connect to it, so it lives in the owner-only
+    /// `controlSocketDirectory` (checked before every connect) and is never
+    /// bound over another user's socket or anything that isn't a socket.
+    /// A stale socket this app left at the pre-B-021 location is removed.
+    private func prepareTunnelSocketPath(configuration: LeoHostConfiguration) throws -> String {
+        do {
+            try LeoControlSocketDirectory.prepare(controlSocketDirectory)
+        } catch {
+            Self.logger.error("tunnel socket directory not private path=\(self.controlSocketDirectory.path, privacy: .public) error=\(String(describing: error), privacy: .public)")
+            throw LeoHostSelectionError.unsafeSocketDirectory
+        }
+        let path = tunnelSocketPath(for: configuration)
+        switch LeoControlSocket.inspect(path, owner: controlSocketOwner) {
+        case .foreign: throw LeoHostSelectionError.foreignTunnelSocket
+        case .notASocket: throw LeoHostSelectionError.occupiedTunnelSocketPath
+        case .absent, .live, .stale, .unknown: break
+        }
+        removeStaleLegacySocket(for: configuration)
+        return path
     }
 
-    /// Owner-only (`0700`) mode: created that way if the directory is new,
-    /// tightened if it already exists with looser permissions (e.g. left
-    /// over from a version of this app that used a different mode, or
-    /// tampered with by another local user before this user's session
-    /// created it).
-    private func ensureSocketDirectoryIsPrivate() throws {
-        let path = localSocketDirectory.path
-        let privateMode = 0o700
-        guard fileManager.fileExists(atPath: path) else {
-            try fileManager.createDirectory(
-                at: localSocketDirectory,
-                withIntermediateDirectories: true,
-                attributes: [.posixPermissions: privateMode]
-            )
-            return
+    /// The forwarded daemon socket for `configuration`: in the owner-only
+    /// `controlSocketDirectory` (short whatever the home directory; see
+    /// `LeoControlSocketDirectory`), scoped to this app bundle.
+    func tunnelSocketPath(for configuration: LeoHostConfiguration) -> String {
+        controlSocketDirectory.appendingPathComponent(configuration.tunnelSocketFileName(instance: controlSocketInstance)).path
+    }
+
+    /// Unlinks only a socket this user owns that nobody listens on (never a
+    /// file, a live socket or the directory itself), and never creates the
+    /// old directory.
+    private func removeStaleLegacySocket(for configuration: LeoHostConfiguration) {
+        let path = legacySocketDirectory.appendingPathComponent(configuration.legacySocketFileName).path
+        guard path != tunnelSocketPath(for: configuration) else { return }
+        if LeoControlSocket.removeIfStale(path, owner: controlSocketOwner) == .stale {
+            Self.logger.log("removed stale tunnel socket from the old location path=\(path, privacy: .public)")
         }
-        let attributes = try fileManager.attributesOfItem(atPath: path)
-        let currentMode = (attributes[.posixPermissions] as? NSNumber)?.intValue
-        guard currentMode != privateMode else { return }
-        try fileManager.setAttributes([.posixPermissions: privateMode], ofItemAtPath: path)
     }
 
     private func makeHealthProbe() -> @Sendable (String) async throws -> Bool {
@@ -398,7 +421,7 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
             case .exitedBeforeReady(_, let tail), .notReady(let tail): stderrTail = tail
             }
         case let error as LeoHostSelectionError:
-            if case .homeResolutionFailed(let tail) = error { stderrTail = tail } else { stderrTail = String(describing: error) }
+            stderrTail = error.localizedDescription
         default:
             stderrTail = error.localizedDescription
         }

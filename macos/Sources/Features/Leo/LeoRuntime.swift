@@ -370,12 +370,13 @@ import OSLog
             daemon = localDaemon
             activitySource = localActivitySource
         } else {
-            daemon = LeoSocketDaemonClient(socketPath: socketPath)
+            let tunnelTransport = LeoTunnelSocketTransport(base: LeoUnixSocketTransport())
+            daemon = LeoSocketDaemonClient(socketPath: socketPath, transport: tunnelTransport)
             let remoteFlavor = await LeoSocketDaemonClient.detectFlavor(socketPath: socketPath, transport: hostConnectionTransport)
             activitySource = remoteFlavor == .socketEvents
                 ? LeoSidebarActivitySource(
-                    events: { await LeoSocketActivityClient(socketPath: socketPath).events() },
-                    fetchState: { try await LeoSocketActivityClient(socketPath: socketPath).fetchState() }
+                    events: { await LeoSocketActivityClient(socketPath: socketPath, transport: tunnelTransport).events() },
+                    fetchState: { try await LeoSocketActivityClient(socketPath: socketPath, transport: tunnelTransport).fetchState() }
                   )
                 : LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
         }

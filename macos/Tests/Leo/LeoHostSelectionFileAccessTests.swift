@@ -160,12 +160,13 @@ import Testing
         selection.shutdown()
     }
 
-    /// A home directory with a space makes the control path one ssh can't
-    /// parse; that used to fail the whole tunnel.
-    @Test func aHomeDirectoryWithASpaceStillConnectsWithoutFileAccess() async throws {
+    /// A socket directory with a space makes the control path one ssh can't
+    /// parse; that used to fail the whole tunnel. The forwarded socket has
+    /// no such restriction.
+    @Test func aSocketDirectoryWithASpaceStillConnectsWithoutFileAccess() async throws {
         let base = URL(fileURLWithPath: "/tmp/leo home \(UUID().uuidString.prefix(6))", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: base) }
-        let directory = base.appendingPathComponent(".leo/state/leoterm", isDirectory: true)
+        let directory = base.appendingPathComponent("leo", isDirectory: true)
         try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
         let argvFile = base.appendingPathComponent("argv").path
 
@@ -180,21 +181,23 @@ import Testing
         selection.shutdown()
     }
 
-    /// A control directory that isn't provably ours (here a planted
-    /// symlink) is never used: no master, and file access says why.
-    @Test func anUnsafeControlDirectoryRunsTheTunnelWithoutFileAccess() async throws {
+    /// A socket directory that isn't provably ours (here a planted
+    /// symlink) is never used: the forwarded daemon socket lives there
+    /// too, so the tunnel doesn't start, and says why.
+    @Test func anUnsafeControlDirectoryFailsTheTunnel() async throws {
         let directory = try makeDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let controlDirectory = directory.appendingPathComponent("cm", isDirectory: true)
         try FileManager.default.createSymbolicLink(at: controlDirectory, withDestinationURL: directory)
-        let argvFile = directory.appendingPathComponent("argv").path
+        let selection = LeoHostSelectionTestSupport.makeSelection(
+            hosts: [configuration], localSocketDirectory: directory, controlSocketDirectory: controlDirectory
+        )
+        await selection.start(flavor: .socketEvents)
 
-        let selection = try await connect(in: directory, recordingArgvTo: argvFile, controlSocketDirectory: controlDirectory)
+        selection.select(.remote("work"))
 
-        let argv = try await LeoHostSelectionTestSupport.recordedArgv(argvFile)
-        #expect(argv.contains("ControlPath=none"))
-        #expect(!argv.contains("ControlMaster=yes"))
-        #expect(throws: LeoFileAccessError.unavailable(reason: "control directory is not private")) { try selection.makeFileAccess() }
+        await LeoHostSelectionTestSupport.awaitFailed(selection)
+        #expect(selection.state == .failed(message: "The tunnel socket directory is not private", hint: nil))
         selection.shutdown()
     }
 
@@ -223,7 +226,7 @@ import Testing
         await selection.start(flavor: .socketEvents)
         selection.select(.remote("work"))
         await LeoHostSelectionTestSupport.awaitConnected(
-            selection, LeoHostSelectionTestSupport.expectedLocalSocketPath(configuration, in: directory)
+            selection, LeoHostSelectionTestSupport.expectedLocalSocketPath(configuration, in: controlSocketDirectory ?? directory)
         )
         return selection
     }

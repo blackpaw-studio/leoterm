@@ -40,12 +40,10 @@ struct LeoHostConfiguration: Codable, Hashable, Sendable, Identifiable {
     var host: String { parsedTarget.host }
     var port: Int? { parsedTarget.port }
 
-    /// `<slug ≤24>-<first 12 hex of the uuid>.sock` -- kept short
-    /// deliberately: the local tunnel socket path (base directory + this
-    /// file name) must stay under the ~100-byte AF_UNIX path limit even for
-    /// realistic host names. 12 hex digits (48 bits) of a UUIDv4 is still
-    /// collision-proof for any realistic hosts list.
-    var localSocketFileName: String {
+    /// `<slug ≤24>-<first 12 hex of the uuid>.sock`: where versions before
+    /// B-021 bound the forwarded socket, in `~/.leo/state/leoterm/`. Kept
+    /// only so a stale socket left there can be found and removed.
+    var legacySocketFileName: String {
         let slug = String(name.lowercased().unicodeScalars.map { scalar in
             switch scalar.value {
             case 48...57, 97...122, 45:
@@ -55,8 +53,19 @@ struct LeoHostConfiguration: Codable, Hashable, Sendable, Identifiable {
             }
         })
         let prefix = slug.isEmpty ? "_" : String(slug.prefix(24))
-        let suffix = id.uuidString.replacingOccurrences(of: "-", with: "").lowercased().prefix(12)
-        return "\(prefix)-\(suffix).sock"
+        return "\(prefix)-\(shortID).sock"
+    }
+
+    /// `lt-<instance>-<first 12 hex of the uuid>.sock`: the forwarded daemon
+    /// socket, beside the control sockets in `LeoControlSocketDirectory`.
+    /// Always 29 bytes, so with the directory's fixed length the path fits
+    /// the AF_UNIX limit for every user or for none. Scoped to the app
+    /// bundle like the control socket (both apps share the directory) and
+    /// keyed by id, so a reconnect finds the same path and a rename doesn't
+    /// move it. 12 hex digits (48 bits) of a UUIDv4 is collision-proof for
+    /// any realistic hosts list.
+    func tunnelSocketFileName(instance: String) -> String {
+        "lt-\(instance)-\(shortID).sock"
     }
 
     /// `cm-<instance>-<first 12 hex of the uuid>-<connection>`: the tunnel's
@@ -75,8 +84,11 @@ struct LeoHostConfiguration: Codable, Hashable, Sendable, Identifiable {
     /// `<path>.<16 random chars>` first, so the path gets 17 bytes less of
     /// the AF_UNIX limit than the forwarded socket does.
     func controlSocketFileName(instance: String) -> String {
-        let id = id.uuidString.replacingOccurrences(of: "-", with: "").lowercased().prefix(12)
-        return "cm-\(instance)-\(id)-\(connectionFingerprint)"
+        "cm-\(instance)-\(shortID)-\(connectionFingerprint)"
+    }
+
+    private var shortID: String {
+        String(id.uuidString.replacingOccurrences(of: "-", with: "").lowercased().prefix(12))
     }
 
     /// The first 8 hex digits of the bundle identifier's SHA-256: short,

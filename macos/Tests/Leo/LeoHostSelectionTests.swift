@@ -56,7 +56,7 @@ import Testing
 
         selection.select(.remote("loopback"))
         let expectedPath = LeoHostSelectionTestSupport.expectedLocalSocketPath(configuration, in: directory)
-        #expect(expectedPath == directory.appendingPathComponent(configuration.localSocketFileName).path)
+        #expect(expectedPath == selection.tunnelSocketPath(for: configuration))
         await LeoHostSelectionTestSupport.awaitConnected(selection, expectedPath)
 
         let attributes = try FileManager.default.attributesOfItem(atPath: directory.path)
