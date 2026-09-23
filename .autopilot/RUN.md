@@ -11,3 +11,4 @@ Wip: none
 - B-018 done: f2ed8537a (858 tests). Review clean; 3 LOW dismissed (D-028). Not visually verified (logic only).
 - B-016: built c25cf3523 82c835016 ab3f8c6ff 7d2b676e7 (864 tests). Visual: shot B-016-1.png shows hovered "artist-c…" truncating before Attach (b OK). Review: 2 MED (sidebar focus = not viewing for attention/Jump; unordered focus Tasks) + 3 LOW, all sent back (attempt 1) to d-6ae4aec308d6.
 - B-016 done: 7 commits (867 tests). Re-review clean; 2 LOW test gaps → B-019 (ready next run); tab-reuse-on-view logged in D-029.
+- B-017: built 97781e299 f8b3b4350 fb1bb244b (885 tests). No UI → not visually verified. review.security: 1 MED (unsanitized server text) + 3 LOW, all sent back (attempt 1) to d-6d532cbdbef3. Implementer flagged: forwarded daemon socket in ~/.leo/state/leoterm still breaks for long homes → new item.
