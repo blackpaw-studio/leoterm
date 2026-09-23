@@ -12,6 +12,26 @@ enum LeoTunnelError: Error, Equatable, Sendable {
     case launchFailed(String)
     case exitedBeforeReady(status: Int32, stderrTail: String)
     case notReady(stderrTail: String)
+    /// A live socket -- another tunnel forwarding the same host -- already
+    /// sits at the local socket path. It is never unlinked.
+    case socketInUse(path: String)
+    /// Something other than a dead socket of this user's sits at the local
+    /// socket path (a file, another user's socket, or one that couldn't be
+    /// checked). It is never unlinked.
+    case socketUnusable(path: String, reason: String)
+}
+
+extension LeoTunnelError: LocalizedError {
+    var errorDescription: String? {
+        switch self {
+        case .launchFailed(let message): return message
+        case .exitedBeforeReady(let status, let tail): return tail.isEmpty ? "ssh exited (\(status))" : tail
+        case .notReady(let tail): return tail.isEmpty ? "The tunnel never became ready" : tail
+        case .socketInUse:
+            return "This host’s tunnel socket is already in use by another copy of Leo. Quit it, then retry"
+        case .socketUnusable(_, let reason): return "The tunnel socket path can’t be used: \(reason)"
+        }
+    }
 }
 
 /// A dumb wrapper around a single `ssh -n -N -L ...` `Process`. `LeoTunnel` owns no
@@ -24,6 +44,8 @@ final class LeoTunnel: @unchecked Sendable {
     private let executable: URL
     private let arguments: [String]
     private let localSocketPath: String
+    /// The only user whose dead socket at `localSocketPath` may be removed.
+    private let socketOwner: uid_t
 
     /// Invoked repeatedly by the readiness loop. **Must honour cancellation** --
     /// `start()` races each call against the remaining time on `deadline` using a
@@ -87,12 +109,14 @@ final class LeoTunnel: @unchecked Sendable {
         executable: URL,
         arguments: [String],
         localSocketPath: String,
+        socketOwner: uid_t = geteuid(),
         healthProbe: @escaping @Sendable (String) async throws -> Bool,
         clock: any Clock<Duration> = ContinuousClock()
     ) {
         self.executable = executable
         self.arguments = arguments
         self.localSocketPath = localSocketPath
+        self.socketOwner = socketOwner
         self.healthProbe = healthProbe
         self.clockBox = leoTunnelMakeClockBox(clock)
     }
@@ -183,9 +207,25 @@ final class LeoTunnel: @unchecked Sendable {
         }
     }
 
+    /// Clears the local socket path through `LeoControlSocket`'s probe: only
+    /// a dead socket this user owns (an orphaned forward from a crashed run)
+    /// is removed. A live one is another tunnel forwarding the same host,
+    /// and anything else isn't ours to remove -- both fail the tunnel before
+    /// ssh launches (and ssh itself never unlinks the path, see
+    /// `LeoSSHCommand.tunnelArguments`).
     private func removeStaleSocket() throws {
-        if FileManager.default.fileExists(atPath: localSocketPath) {
-            try FileManager.default.removeItem(atPath: localSocketPath)
+        switch LeoControlSocket.removeIfStale(localSocketPath, owner: socketOwner) {
+        case .absent, .stale:
+            return
+        case .live:
+            Self.logger.error("tunnel socket already live; leaving it path=\(self.localSocketPath, privacy: .public)")
+            throw LeoTunnelError.socketInUse(path: localSocketPath)
+        case .notASocket:
+            throw LeoTunnelError.socketUnusable(path: localSocketPath, reason: "something other than a socket is there")
+        case .foreign:
+            throw LeoTunnelError.socketUnusable(path: localSocketPath, reason: "it belongs to another user")
+        case .unknown(let code):
+            throw LeoTunnelError.socketUnusable(path: localSocketPath, reason: String(cString: strerror(code)))
         }
     }
 

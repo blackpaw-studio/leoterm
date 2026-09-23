@@ -103,6 +103,28 @@ struct LeoTunnelSocketPathTests {
         selection.shutdown()
     }
 
+    /// A live socket at the path is another copy of the app forwarding the
+    /// same host: never unlinked and rebound, the user sees why instead.
+    @MainActor @Test func aLiveSiblingAtTheTunnelPathSurvivesAndTheConnectionFails() async throws {
+        let (legacy, control) = Self.makeDirectories()
+        defer { Self.remove(legacy, control) }
+        try FileManager.default.createDirectory(at: control, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+        let selection = LeoHostSelectionTestSupport.makeSelection(
+            hosts: [configuration], localSocketDirectory: legacy, controlSocketDirectory: control
+        )
+        let path = selection.tunnelSocketPath(for: configuration)
+        let listener = try LeoTestUnixSocket.bind(path, listening: true)
+        defer { close(listener) }
+        await selection.start(flavor: .socketEvents)
+
+        selection.select(.remote("work"))
+
+        await LeoHostSelectionTestSupport.awaitFailed(selection)
+        #expect(Self.failureMessage(selection).contains("already in use"))
+        #expect(LeoControlSocket.inspect(path) == .live)
+        selection.shutdown()
+    }
+
     /// A parent others can rewrite could have the checked directory swapped.
     @MainActor @Test func anUnsafeSocketDirectoryIsRefused() async throws {
         let (legacy, parent) = Self.makeDirectories()

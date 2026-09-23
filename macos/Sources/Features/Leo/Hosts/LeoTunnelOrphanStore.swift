@@ -16,7 +16,7 @@ struct LeoTunnelOrphanRecord: Codable, Equatable, Sendable {
 struct LeoTunnelOrphanStore {
     private let defaults: UserDefaults
     private let key: String
-    private let fileManager: FileManager
+    private let socketOwner: uid_t
     /// Serializes every read-then-write against this store's key: `record`,
     /// `clear(matching:)`, and the unlink+clear at the end of `reapAtLaunch`.
     /// Without it, a `record(_:)` call landing between a "does the stored
@@ -26,10 +26,10 @@ struct LeoTunnelOrphanStore {
     /// caller-supplied and may themselves call back into this store.
     private let lock = NSLock()
 
-    init(defaults: UserDefaults, key: String = "leo.tunnel.orphan", fileManager: FileManager = .default) {
+    init(defaults: UserDefaults, key: String = "leo.tunnel.orphan", socketOwner: uid_t = geteuid()) {
         self.defaults = defaults
         self.key = key
-        self.fileManager = fileManager
+        self.socketOwner = socketOwner
     }
 
     func record(_ record: LeoTunnelOrphanRecord) {
@@ -55,26 +55,43 @@ struct LeoTunnelOrphanStore {
     /// SIGTERM it, give it up to 1s to exit, then SIGKILL if it's still around.
     /// A mismatched start time means the pid was recycled by an unrelated
     /// process: it is never signalled and the record is left untouched (there is
-    /// nothing safe to reap). `inspector`/`signaller`/`sleep` are injected so
+    /// nothing safe to reap). A pid that isn't running at all has its record
+    /// cleared and its socket removed if dead. `inspector`/`signaller`/`sleep` are injected so
     /// tests can run this synchronously without real processes or real waits.
     func reapAtLaunch(
         inspector: (Int32) -> TimeInterval?,
         signaller: (Int32, Int32) -> Void,
         sleep: (Duration) -> Void = leoTunnelRealSleep
     ) {
-        guard let record = current(), inspector(record.pid) == record.startTime else { return }
-        signaller(record.pid, SIGTERM)
-        sleep(.seconds(1))
-        if inspector(record.pid) == record.startTime {
-            signaller(record.pid, SIGKILL)
+        guard let record = current() else { return }
+        switch inspector(record.pid) {
+        case nil:
+            // Already gone (e.g. the machine rebooted): nothing to signal,
+            // but its forward may still be lying there dead.
+            removeSocketAndClear(record)
+        case record.startTime:
+            signaller(record.pid, SIGTERM)
+            sleep(.seconds(1))
+            if inspector(record.pid) == record.startTime {
+                signaller(record.pid, SIGKILL)
+            }
+            removeSocketAndClear(record)
+        default:
+            return
         }
-        // A replacement tunnel may have been recorded while we were signalling;
-        // atomically re-check-and-unlink so that race can only ever preserve
-        // the replacement, never drop it.
+    }
+
+    /// A replacement tunnel may have been recorded while we were signalling;
+    /// atomically re-check-and-unlink so that race can only ever preserve the
+    /// replacement, never drop it. The socket goes only if it's dead and this
+    /// user's (`LeoControlSocket`): the record may predate B-021 and point
+    /// into `~/.leo/state/leoterm/`, and whatever sits at the path now -- a
+    /// live sibling's socket, a file, another user's socket -- stays.
+    private func removeSocketAndClear(_ record: LeoTunnelOrphanRecord) {
         lock.lock()
         defer { lock.unlock() }
         guard current() == record else { return }
-        try? fileManager.removeItem(atPath: record.socketPath)
+        LeoControlSocket.removeIfStale(record.socketPath, owner: socketOwner)
         clearLocked(matching: record)
     }
 

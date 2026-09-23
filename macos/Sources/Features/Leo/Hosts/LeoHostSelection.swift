@@ -419,6 +419,7 @@ extension LeoHostSelectionError: LocalizedError {
             switch error {
             case .launchFailed(let message): stderrTail = message
             case .exitedBeforeReady(_, let tail), .notReady(let tail): stderrTail = tail
+            case .socketInUse, .socketUnusable: stderrTail = error.localizedDescription
             }
         case let error as LeoHostSelectionError:
             stderrTail = error.localizedDescription

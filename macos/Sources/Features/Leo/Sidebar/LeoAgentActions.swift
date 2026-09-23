@@ -9,6 +9,9 @@ import Foundation
     /// (no `host:` parameter): the daemon instance itself already
     /// represents "whichever host is currently connected".
     private var daemon: any LeoDaemonClient
+    /// Always the runtime's single selection -- injected, never built here:
+    /// a second `LeoHostSelection` would own a second tunnel for the same
+    /// host.
     let hostSelection: LeoHostSelection
     private let cli: LeoCLI
     private let model: LeoSidebarModel
@@ -32,19 +35,18 @@ import Foundation
     private var lastKnownTemplateHost: LeoHostID
 
     init(daemon: any LeoDaemonClient, cli: LeoCLI, model: LeoSidebarModel,
-         hostSelection: LeoHostSelection? = nil,
+         hostSelection: LeoHostSelection,
          processRunner: any LeoProcessRunning = LeoProcessRunner(),
          sshExecutable: String = "/usr/bin/ssh",
          refresh: @escaping () -> Void) {
         self.daemon = daemon
         self.cli = cli
         self.model = model
-        let resolvedHostSelection = hostSelection ?? LeoHostSelection(store: LeoHostStore(defaults: .standard), defaults: .standard)
-        self.hostSelection = resolvedHostSelection
+        self.hostSelection = hostSelection
         self.processRunner = processRunner
         self.sshExecutable = sshExecutable
         self.refresh = refresh
-        lastKnownTemplateHost = resolvedHostSelection.selected
+        lastKnownTemplateHost = hostSelection.selected
     }
 
     /// Called by `LeoRuntime` whenever the selected connection's daemon

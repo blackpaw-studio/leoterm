@@ -34,6 +34,17 @@ import Testing
     /// `LeoHostSelectionRaceTests`). Verified here via the `isShutDown`
     /// gate's observable effect: a `select()` after `shutdown()` must be a
     /// no-op.
+    /// One tunnel per host: agent actions use the runtime's own selection,
+    /// never a second one that could start a sibling tunnel.
+    @Test func agentActionsShareTheRuntimesSingleHostSelection() {
+        let defaults = UserDefaults(suiteName: "LeoRuntimeConnectionTests.\(UUID().uuidString)") ?? .standard
+        let activitySource = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
+        let runtime = LeoRuntime(daemon: RuntimeTestDaemon(), cli: LeoCLI(), activitySource: activitySource, defaults: defaults)
+
+        #expect(runtime.actions.hostSelection === runtime.hostSelection)
+        runtime.shutdown()
+    }
+
     @Test func shutdownSynchronouslyEngagesHostSelectionShutdown() throws {
         let daemon = RuntimeTestDaemon()
         let defaults = UserDefaults(suiteName: "LeoRuntimeConnectionTests.\(UUID().uuidString)") ?? .standard

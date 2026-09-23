@@ -18,6 +18,10 @@ struct LeoSSHCommand: Sendable {
     /// isn't a socket) runs the tunnel without multiplexing at all --
     /// `ControlPath=none` also overrides a user config's own -- so the
     /// tunnel still works and only file access is lost.
+    /// No `StreamLocalBindUnlink`: ssh would unlink whatever sits at
+    /// `localSocketPath`, including a live sibling tunnel's socket. `LeoTunnel`
+    /// removes only a dead one first, so a socket bound there in between
+    /// makes the bind fail (`ExitOnForwardFailure`) instead of stealing it.
     func tunnelArguments(localSocketPath: String, remoteSocketPath: String, controlPath: String?) throws -> [String] {
         try validateConfiguration()
         try validateLocalSocketPath(localSocketPath)
@@ -36,7 +40,6 @@ struct LeoSSHCommand: Sendable {
         } else {
             arguments += ["-o", "ControlMaster=no", "-o", "ControlPath=none"]
         }
-        arguments += ["-o", "StreamLocalBindUnlink=yes"]
         appendIdentityAndPort(to: &arguments)
         arguments += ["-L", "\(localSocketPath):\(remoteSocketPath)", target]
         return arguments
