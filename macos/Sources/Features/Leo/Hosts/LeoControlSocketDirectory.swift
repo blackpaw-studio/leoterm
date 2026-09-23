@@ -17,7 +17,7 @@ enum LeoControlSocketDirectoryError: Error, Equatable, Sendable {
 /// ssh leaves a control path 86 bytes (`LeoSSHCommand.isValidControlPath`),
 /// which `~/.leo/state/leoterm/` exhausts for any home directory longer
 /// than ~33 characters. The Darwin per-user cache directory
-/// (`/var/folders/xx/<28 chars>/C/`, 49 bytes) has a fixed length whatever
+/// (`/var/folders/xx/<30 chars>/C/`, 49 bytes) has a fixed length whatever
 /// the home directory, is created by the OS owned by the user with mode
 /// 0700 (so no other user can pre-create or swap anything inside it), and
 /// -- unlike the sibling `T/` -- isn't swept of old files while the app
