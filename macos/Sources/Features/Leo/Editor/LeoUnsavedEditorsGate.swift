@@ -16,8 +16,20 @@ import AppKit
 @MainActor final class LeoUnsavedEditorsGate {
     struct Entry {
         let editor: LeoEditorPaneModel
+        /// The editor's window, for sheets about it (nil: an app-modal alert).
+        let window: @MainActor () -> NSWindow?
         /// Brings the editor's window forward, so its sheet is seen.
         let bringForward: @MainActor () -> Void
+
+        init(
+            editor: LeoEditorPaneModel,
+            window: @escaping @MainActor () -> NSWindow? = { nil },
+            bringForward: @escaping @MainActor () -> Void
+        ) {
+            self.editor = editor
+            self.window = window
+            self.bringForward = bringForward
+        }
     }
 
     /// What the close that's waiting would do.
@@ -82,7 +94,7 @@ import AppKit
                 !current.editor.isConfirming && unsaved.contains { $0.editor === current.editor }
             }
             if let (resolution, entry) = stuck, !isOffering {
-                offerToLeave(entry, stuckIn: resolution, leaving: leaving, completion: completion)
+                offerToLeave(entry, stuckIn: resolution, closing: unsaved, leaving: leaving, completion: completion)
             } else {
                 Task { completion(false) }
             }
@@ -127,11 +139,12 @@ import AppKit
     }
 
     /// Leaving anyway drops the stuck editor's document without waiting for
-    /// what's in flight, and ends the close that was waiting on it; the new
-    /// close then goes ahead (any other editor with unsaved edits is still
-    /// asked about when it runs).
+    /// what's in flight, and ends the close that was waiting on it. That
+    /// gives up only that editor's edits: the new close then asks about the
+    /// rest of `closing` as usual, and their answers decide `completion`.
     private func offerToLeave(
-        _ entry: Entry, stuckIn stuck: Resolution, leaving: Leaving, completion: @escaping @MainActor (Bool) -> Void
+        _ entry: Entry, stuckIn stuck: Resolution, closing: [Entry], leaving: Leaving,
+        completion: @escaping @MainActor (Bool) -> Void
     ) {
         isOffering = true
         Task {
@@ -143,7 +156,8 @@ import AppKit
             }
             entry.editor.abandon()
             finish(stuck, goingAhead: false)
-            completion(true)
+            let rest = closing.filter { $0.editor !== entry.editor }
+            if !deferClose(of: rest, leaving: leaving, completion: completion) { completion(true) }
         }
     }
 }

@@ -261,6 +261,50 @@ struct LeoUnsavedEditorsGateTests {
         }
     }
 
+    /// Leaving the stuck editor anyway only gives up its edits: another
+    /// editor with unsaved edits is still asked about, and its answer
+    /// decides -- on the paths that don't retry: a system quit's reply,
+    /// and `resolve` (Ghostty's quit review).
+    @Test(.timeLimit(.minutes(1)), arguments: [(LeoUnsavedChangesChoice.discard, true), (.cancel, false)])
+    func leavingAStuckEditorStillAsksAboutTheOthers(_ answer: LeoUnsavedChangesChoice, goesOn: Bool) async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            for path in ["systemQuit", "resolve"] {
+                let log = Log()
+                let access = LeoHangingAccess(LeoFileAccessor.local())
+                let stuck = pane(answering: .save, log: log, access: access)
+                try await open(stuck, try sandbox.file("a-\(path).txt", "a"), editing: true)
+                access.hangsWrites = true
+                let other = pane(answering: answer, log: log)
+                try await open(other, try sandbox.file("b-\(path).txt", "b"), editing: true)
+                let gate = gate(leaving: true, log: log)
+                try #require(gate.deferClose(of: [entry(stuck, "1", log)]) { log.outcomes["first"] = $0 })
+                await access.waitUntilWriting()
+                let both = [entry(stuck, "1", log), entry(other, "2", log)]
+
+                let wentOn: Bool
+                if path == "systemQuit" {
+                    var replies: [Bool] = []
+                    #expect(gate.deferQuit(of: both, isSystemQuit: true, reply: { replies.append($0) }, retry: {}) == .terminateLater)
+                    #expect(await eventually { !replies.isEmpty })
+                    try? await Task.sleep(for: .milliseconds(50))
+                    #expect(replies.count == 1, "\(path)")
+                    wentOn = replies.first ?? !goesOn
+                } else {
+                    wentOn = await gate.resolve(both)
+                }
+
+                #expect(wentOn == goesOn, "\(path)")
+                #expect(log.asked == ["a-\(path).txt", "b-\(path).txt"], "\(path)")
+                #expect(stuck.document == nil, "\(path)")
+                #expect((other.document?.isDirty == true) == !goesOn, "\(path)")
+                if !goesOn {
+                    other.confirmUnsaved = { _ in .discard }
+                    await other.close()
+                }
+            }
+        }
+    }
+
     /// One stuck editor doesn't hold up closing another window.
     @Test(.timeLimit(.minutes(1)))
     func anotherEditorsCloseGoesAheadWhileOneIsStuck() async throws {

@@ -51,6 +51,22 @@ struct LeoEditorQuitReviewTests {
     }
 }
 
+/// The "leave anyway?" offer is a sheet on the stuck editor's own window,
+/// not whichever window is key.
+@MainActor
+struct LeoEditorEntryWindowTests {
+    @Test func anEditorsEntryNamesItsWindow() throws {
+        let defaults = try #require(UserDefaults(suiteName: "LeoEditorEntryWindowTests.\(UUID().uuidString)"))
+        let activity = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
+        let runtime = LeoRuntime(daemon: QuitReviewDaemon(), cli: LeoCLI(), activitySource: activity, defaults: defaults)
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: [.titled], backing: .buffered, defer: true)
+        let session = runtime.registry.makeSession(window: window, defaults: defaults)
+
+        #expect(runtime.editorEntry(for: session).window() === window)
+        #expect(LeoUnsavedEditorsGate.Entry(editor: session.editor) {}.window() == nil)
+    }
+}
+
 private actor QuitReviewDaemon: LeoDaemonClient {
     func listAgents() async throws -> [LeoAgent] { [] }
     func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent { throw LeoDaemonError.transport("unused") }

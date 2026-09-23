@@ -63,16 +63,17 @@ extension LeoRuntime {
         return await unsavedEditors.resolve(sessions.map(editorEntry(for:)))
     }
 
-    /// `session`'s editor for the gate, bringing its window (and tab)
-    /// forward before its sheet.
+    /// `session`'s editor for the gate: its window, for sheets about it,
+    /// brought forward (and its tab selected) before one.
     func editorEntry(for session: LeoWindowSession) -> LeoUnsavedEditorsGate.Entry {
         let id = session.id
-        return LeoUnsavedEditorsGate.Entry(editor: session.editor) { [weak self] in
+        let bringForward: @MainActor () -> Void = { [weak self] in
             guard let window = self?.registry.controller(for: id)?.window else { return }
             window.tabGroup?.selectedWindow = window
             if window.isMiniaturized { window.deminiaturize(nil) }
             window.makeKeyAndOrderFront(nil)
         }
+        return LeoUnsavedEditorsGate.Entry(editor: session.editor, window: { [weak session] in session?.window }, bringForward: bringForward)
     }
 
     /// The daemon's current row for the agent (its workspace may have been

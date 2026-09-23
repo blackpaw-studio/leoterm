@@ -55,7 +55,8 @@ import AppKit
         alert.addButton(withTitle: "Keep Waiting")
         let leave = alert.addButton(withTitle: leaving == .quit ? "Quit Anyway" : "Close Anyway")
         leave.hasDestructiveAction = true
-        guard let window = NSApp.keyWindow else { return alert.runModal() == .alertSecondButtonReturn }
+        // On the stuck editor's own window, whichever window is key.
+        guard let window = entry.window() else { return alert.runModal() == .alertSecondButtonReturn }
         return await present(alert, on: window) == .alertSecondButtonReturn
     }
 
