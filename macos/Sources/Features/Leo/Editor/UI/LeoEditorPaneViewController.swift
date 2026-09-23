@@ -10,7 +10,7 @@ final class LeoEditorPaneViewController: NSViewController {
 
     let model: LeoEditorPaneModel
     private let header = LeoEditorHeaderView()
-    private let banner = LeoEditorBannerView()
+    let banner = LeoEditorBannerView()
     private let scrollView: NSScrollView
     let textView: LeoEditorTextView
     private var modelSubscriptions: Set<AnyCancellable> = []

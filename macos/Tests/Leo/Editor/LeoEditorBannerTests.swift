@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Testing
 
@@ -75,6 +76,32 @@ struct LeoEditorBannerTests {
             access.release()
             #expect(await closing.value)
             #expect(pane.shownBanner == nil)
+        }
+    }
+
+    /// The banner view itself follows the gate: shown when a pending quit
+    /// starts waiting on the editor, hidden again when it stops.
+    @Test(.timeLimit(.minutes(1)))
+    func theBannerViewFollowsThePendingQuit() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let access = LeoHangingAccess(LeoFileAccessor.local())
+            let model = LeoEditorPaneModel(makeAccess: { _ in access })
+            let pane = LeoEditorPaneViewController(model: model)
+            try await model.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
+            model.document?.edit("b")
+            model.confirmUnsaved = { _ in .save }
+            access.hangsWrites = true
+            let closing = Task { await model.close() }
+            await access.waitUntilWriting()
+            #expect(await eventually { pane.banner.isHidden })
+
+            model.leaveAnyway = {}
+            #expect(await eventually { !pane.banner.isHidden && pane.banner.banner?.actions == [.quitAnyway] })
+
+            model.leaveAnyway = nil
+            #expect(await eventually { pane.banner.isHidden })
+            access.release()
+            #expect(await closing.value)
         }
     }
 
