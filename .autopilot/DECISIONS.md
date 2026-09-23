@@ -322,7 +322,7 @@ Context: B-020 review: tag runs after U+1F3F4 were capped per flag but not per m
 Chose: tag characters survive only as part of the England, Scotland or Wales flag sequences; all other tag characters are dropped. Errors from outside LeoFileAccessError are isolated (FSI…PDI) like the rest
 Why: agents read this text (principle 4); three flags cover every RGI subdivision flag, so nothing a person would see is lost
 Alternatives: a per-message cap on tag scalars; dropping all tag characters
-Commit:
+Commit: 796b0a2ec
 Veto: [ ]
 
 ## D-041 · 2026-09-23 · Variation selectors and blank fillers in untrusted text
@@ -330,7 +330,7 @@ Context: B-020 re-review: variation selectors (U+FE00–FE0F, U+E0100–E01EF) c
 Chose: keep only U+FE0E and U+FE0F, at most one directly after a base. Drop all other variation selectors, including the ideographic ones (a CJK name can lose a glyph variant, but no characters). Hangul fillers (U+115F, U+1160, U+3164, U+FFA0) and U+2800 count as whitespace
 Why: agents read this text (principle 4); emoji presentation stays intact
 Alternatives: a per-message cap on selectors
-Commit:
+Commit: 8b6494d45
 Veto: [ ]
 
 ## D-042 · 2026-09-23 · Untrusted text keeps invisible characters only from an allowlist
@@ -338,5 +338,13 @@ Context: B-020's third review found two more invisible carriers (U+034F, and unc
 Chose: an invisible scalar survives only if it's on an explicit allowlist and in its allowed position: ZWJ between two emoji, ZWNJ between two letters, a single FE0E/FE0F after a base, and the three RGI flag tag sequences. Every other zero-width scalar is dropped. Private-use, noncharacter and unassigned code points become U+FFFD, at most one in a row
 Why: the structural fix, not a fourth blocklist entry (Engineering Discipline: after 3 attempts the approach is wrong); agents read this text (principle 4)
 Alternatives: keep adding classes to a blocklist
-Commit:
+Commit: 935b5a600
+Veto: [ ]
+
+## D-043 · 2026-09-23 · Kept B-020 after 3 fix rounds instead of reverting it
+Context: after B-020's third round (the allowlist), the final review found one HIGH: FE0E/FE0F may follow any visible character, not only an emoji, which leaves roughly 20–30 bytes of hidden payload per message. The rule is to revert after 3 attempts
+Chose: keep B-020 and file the one-line gate (selectors only after a pictographic base) as B-026. Also: the implementer's calls (a structured `LeoFileAccessReason` so the app's own quotes survive; mark cap 4; "they were kept as “…”"; names wrapped in FSI…PDI in the editor banner, alerts and path prompt; host names in `unavailable` reasons cleaned; strerror treated as trusted; ZWJ runs keep one; "emoji" = Emoji + So)
+Why: the finding is residual, not a regression. Reverting would bring back the pre-B-020 state, whose channels (tag runs, supplementary selectors, raw local filenames) were far larger
+Alternatives: revert B-020 and block it (the literal rule). Veto this to get that
+Commit: ad0807785 796b0a2ec 8b6494d45 935b5a600
 Veto: [ ]
