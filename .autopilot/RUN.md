@@ -1,6 +1,6 @@
 Status: running
-Item: B-016
-Base: f2ed8537acb7b23f8c33935f78fe8c96e82c8385
+Item: B-017
+Base: 7a3728f4fa3f7889de2ac310c03742192b6dbfa9
 Wip: none
 
 ## Progress
@@ -10,3 +10,4 @@ Wip: none
 - B-015 done: c5c24c336 8dfe3aa7c 91fd60791 4fea50a28 a4411496e (866 tests, only the known failure). 3rd review MED (pre-existing recreate edge) + 2 LOW → B-018, blocked on the leo instance-id contract (D-027). Not visually verified (logic only).
 - B-018 done: f2ed8537a (858 tests). Review clean; 3 LOW dismissed (D-028). Not visually verified (logic only).
 - B-016: built c25cf3523 82c835016 ab3f8c6ff 7d2b676e7 (864 tests). Visual: shot B-016-1.png shows hovered "artist-c…" truncating before Attach (b OK). Review: 2 MED (sidebar focus = not viewing for attention/Jump; unordered focus Tasks) + 3 LOW, all sent back (attempt 1) to d-6ae4aec308d6.
+- B-016 done: 7 commits (867 tests). Re-review clean; 2 LOW test gaps → B-019 (ready next run); tab-reuse-on-view logged in D-029.

@@ -228,3 +228,27 @@ Why: principle 2 (no duplicate or lost notifications); relying on the daemon's f
 Alternatives: keep patching the heuristic; ask for an instance_id (leo declined as unnecessary)
 Commit: f2ed8537a
 Veto: [ ]
+
+## D-029 · 2026-09-22 · "Viewing" and "keyboard focus" are separate signals
+Context: B-016; requiring the first responder for row linkage made sidebar focus count as "not looking"
+Chose: the attention feed, Dock acknowledgement and Jump use "viewing" (the key window's focused split, ignoring the first responder). Row linkage and selection use keyboard focus (the first responder). Viewing a tab also makes it the agent's most recently used tab, so a later row click brings it forward. Focus updates reach the attention feed through one ordered relay. Reactivating the app suspends focus instead of clearing it, so an arrow-key selection survives
+Why: principle 2 (never badge or Jump to what you're looking at); D-005 (focused split = viewing); D-022
+Alternatives: one focus signal for both uses (either breaks attention or breaks reselecting a row)
+Commit: 82c835016 ab3f8c6ff 89ff485c9 79f8d61f2
+Veto: [ ]
+
+## D-030 · 2026-09-22 · The hover Attach button reserves its width
+Context: B-016 (b)
+Chose: while a row is hovered, a hidden, zero-height copy of the button reserves space on the name line, so the name truncates before the button. Badges shift left instead of hiding, and the row height stays the same
+Why: principle 1 (HIG: controls never overlap text); nothing is hidden
+Alternatives: hide the badges on hover; show the button only on the subtitle line
+Commit: 7d2b676e7
+Veto: [ ]
+
+## D-031 · 2026-09-22 · A user click or selection wins over in-flight focus reports
+Context: B-016 (a)
+Chose: host focus reports carry a sequence number, and a click, Return or arrow-key selection ignores any report sent before it
+Why: principle 1 (the user's click is authoritative)
+Alternatives: debounce with a timer (principle 5: no timers)
+Commit: c25cf3523
+Veto: [ ]
