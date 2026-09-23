@@ -76,6 +76,9 @@ enum LeoWorkspaceItem: Hashable, Sendable {
     private var pending: [String: UUID] = [:]
     /// Bumped whenever the root is replaced or closed.
     private var generation = 0
+    /// The listings running on `access`, cancelled and waited for before
+    /// it closes: a listing still running could reconnect it after.
+    private var listings: [UUID: Task<[LeoWorkspaceEntry], Error>] = [:]
 
     /// `makeAccess` gives file access for a host (one per root, released
     /// when the browser closes or moves to another agent); `openFile` opens
@@ -130,9 +133,9 @@ enum LeoWorkspaceItem: Hashable, Sendable {
     /// The new root and its access are in place before anything suspends,
     /// and every step after a suspension checks it's still current: of
     /// overlapping opens and closes the last one called wins, and each
-    /// access is closed by whichever call replaced it -- alongside the new
-    /// listing, which never waits for it (an `sftp` process can be slow to
-    /// go).
+    /// access is retired (`retire`) by whichever call replaced it --
+    /// alongside the new listing, which never waits for it (an `sftp`
+    /// process can be slow to go).
     func open(_ agent: LeoEditorAgentContext) async {
         let next = Self.root(for: agent)
         if next == root, access != nil {
@@ -140,7 +143,6 @@ enum LeoWorkspaceItem: Hashable, Sendable {
             return
         }
         let previous = detach()
-        let generation = self.generation
         root = next
         if let workspace = next.path {
             do {
@@ -152,7 +154,7 @@ enum LeoWorkspaceItem: Hashable, Sendable {
         } else {
             folders = ["": .failed(Self.noWorkspaceMessage)]
         }
-        if let previous { Task { await previous.close() } }
+        Task { await Self.retire(previous) }
         guard let workspace = next.path else { return }
         await load(workspace)
     }
@@ -215,7 +217,7 @@ enum LeoWorkspaceItem: Hashable, Sendable {
     /// Hides the browser and releases its file access (for a remote host,
     /// its `sftp` process).
     func close() async {
-        await detach()?.close()
+        await Self.retire(detach())
     }
 
     // MARK: - Helpers
@@ -224,11 +226,18 @@ enum LeoWorkspaceItem: Hashable, Sendable {
         Root(host: agent.host, agent: agent.name ?? "", path: agent.workspace.flatMap { $0.hasPrefix("/") ? $0 : nil })
     }
 
+    /// The old root's file access and the listings still running on it.
+    private struct Detached {
+        let access: (any LeoFileAccess)?
+        let listings: [Task<[LeoWorkspaceEntry], Error>]
+    }
+
     /// Clears the browser and bumps `generation`, so anything suspended
-    /// under the old root drops its result. The caller closes the access
+    /// under the old root drops its result. The caller retires what's
     /// returned.
-    private func detach() -> (any LeoFileAccess)? {
-        let previous = access
+    private func detach() -> Detached {
+        let previous = Detached(access: access, listings: Array(listings.values))
+        listings = [:]
         generation += 1
         access = nil
         root = nil
@@ -237,6 +246,16 @@ enum LeoWorkspaceItem: Hashable, Sendable {
         pending = [:]
         openError = nil
         return previous
+    }
+
+    /// Cancels the old root's listings and closes its access once they've
+    /// finished, so nothing runs on it (or reconnects it) after the close.
+    private static func retire(_ detached: Detached) async {
+        detached.listings.forEach { $0.cancel() }
+        for listing in detached.listings {
+            _ = await listing.result
+        }
+        await detached.access?.close()
     }
 
     /// Lists every expanded folder shown under `folder` that has no listing,
@@ -262,13 +281,17 @@ enum LeoWorkspaceItem: Hashable, Sendable {
         let request = UUID()
         pending[folder] = request
         if folders[folder] == nil { folders[folder] = .loading }
+        let listing = Task { try await Self.entries(in: folder, access: access) }
+        listings[request] = listing
         let result: Folder
         do {
-            result = .loaded(try await Self.entries(in: folder, access: access))
+            result = .loaded(try await listing.value)
         } catch {
             result = .failed(Self.message(for: error))
         }
-        guard generation == self.generation, pending[folder] == request else { return }
+        guard generation == self.generation else { return }
+        listings[request] = nil
+        guard pending[folder] == request else { return }
         pending[folder] = nil
         folders[folder] = result
     }
@@ -283,11 +306,13 @@ enum LeoWorkspaceItem: Hashable, Sendable {
 
     /// `folder`'s entries, less any name a server should never send (one
     /// that isn't a single path component). Symlinks are resolved a few at
-    /// a time.
+    /// a time. Cancelled, it starts nothing more on `access`.
     private static func entries(in folder: String, access: any LeoFileAccess) async throws -> [LeoWorkspaceEntry] {
         let listed = try await access.list(folder).filter { isSingleComponent($0.name) }
+        try Task.checkCancellation()
         let paths = listed.map { folder == "/" ? "/" + $0.name : folder + "/" + $0.name }
         let linkFolders = await symlinkedFolders(listed.indices.filter { listed[$0].kind == .symlink }.map { paths[$0] }, access: access)
+        try Task.checkCancellation()
         return listed.indices.map { index in
             let entry = listed[index]
             let isFolder = entry.kind == .directory || (entry.kind == .symlink && linkFolders.contains(paths[index]))
@@ -312,7 +337,7 @@ enum LeoWorkspaceItem: Hashable, Sendable {
             var folders: Set<String> = []
             while let result = await group.next() {
                 if let result { folders.insert(result) }
-                if let link = remaining.popFirst() {
+                if !Task.isCancelled, let link = remaining.popFirst() {
                     group.addTask { await isFolder(link, access: access) ? link : nil }
                 }
             }

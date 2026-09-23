@@ -131,6 +131,29 @@ struct LeoWorkspaceBrowserHardeningTests {
         }
     }
 
+    /// A replaced root's listing is cancelled, and its access closes only
+    /// once that listing has finished: nothing (an SFTP reconnect) runs on
+    /// it after the close. The new root's listing doesn't wait for either.
+    @Test(.timeLimit(.minutes(1)))
+    func aReplacedRootsListingFinishesBeforeItsAccessCloses() async throws {
+        let gate = LeoCloseGate()
+        let old = LeoGatedStatAccess(gate: gate, links: 2 * LeoWorkspaceBrowserModel.symlinkStatLimit)
+        let queue = LeoAccessQueue([old, LeoStubListAccess(entries: [LeoStubListAccess.entry("b.txt", kind: .file)])])
+        let browser = LeoWorkspaceBrowserModel(makeAccess: { _ in queue.next() }, openFile: { _ in .opened })
+        let first = Task { await browser.open(agent("/a")) }
+        try await eventually { await gate.waiting >= 1 }
+
+        await browser.open(agent("/b"))
+
+        #expect(names(browser.rootItems) == ["b.txt"])
+        #expect(!old.isClosed, "the old listing is still in flight")
+        await gate.open()
+        await first.value
+        try await eventually { old.isClosed }
+        #expect(old.callsInFlightAtClose == 0)
+        #expect(old.callsAfterClose == 0)
+    }
+
     // MARK: Nested expanded folders after a reload
 
     @Test(arguments: [LeoFileBackendKind.local, .sftp])
@@ -310,4 +333,73 @@ final class LeoStubListAccess: LeoFileAccess, @unchecked Sendable {
         throw LeoFileAccessError.notFound(path: path)
     }
     func close() async {}
+}
+
+/// Hands out the accesses given, in order.
+@MainActor final class LeoAccessQueue {
+    private var accesses: [any LeoFileAccess]
+
+    init(_ accesses: [any LeoFileAccess]) {
+        self.accesses = accesses
+    }
+
+    func next() -> any LeoFileAccess { accesses.removeFirst() }
+}
+
+/// Lists `links` symlinks whose stats wait on a gate, and records any call
+/// still running, or started, once it's closed.
+final class LeoGatedStatAccess: LeoFileAccess, @unchecked Sendable {
+    private let gate: LeoCloseGate
+    private let links: Int
+    private let lock = NSLock()
+    private var inFlight = 0
+    private var closed = false
+    private var inFlightAtClose = 0
+    private var afterClose = 0
+
+    init(gate: LeoCloseGate, links: Int) {
+        self.gate = gate
+        self.links = links
+    }
+
+    var isClosed: Bool { lock.withLock { closed } }
+    var callsInFlightAtClose: Int { lock.withLock { inFlightAtClose } }
+    var callsAfterClose: Int { lock.withLock { afterClose } }
+
+    func list(_ path: String) async throws -> [LeoFileEntry] {
+        begin()
+        defer { end() }
+        return (0..<links).map { LeoStubListAccess.entry("link\($0)", kind: .symlink) }
+    }
+
+    func stat(_ path: String) async throws -> LeoFileStat {
+        begin()
+        defer { end() }
+        await gate.wait()
+        return LeoFileStat(kind: .directory, size: 0, modified: .distantPast, permissions: 0o755)
+    }
+
+    func homeDirectory() async throws -> String { "/" }
+    func read(_ path: String, maxBytes: UInt64) async throws -> LeoFileContents { throw LeoFileAccessError.notFound(path: path) }
+    func write(_ data: Data, to path: String, expecting expected: LeoFileVersion?) async throws -> LeoFileStat {
+        throw LeoFileAccessError.notFound(path: path)
+    }
+
+    func close() async {
+        lock.withLock {
+            closed = true
+            inFlightAtClose = inFlight
+        }
+    }
+
+    private func begin() {
+        lock.withLock {
+            inFlight += 1
+            if closed { afterClose += 1 }
+        }
+    }
+
+    private func end() {
+        lock.withLock { inFlight -= 1 }
+    }
 }
