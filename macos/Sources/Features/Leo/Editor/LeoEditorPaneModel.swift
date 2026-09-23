@@ -40,7 +40,11 @@ struct LeoEditorReveal: Equatable, Sendable {
     var confirmUnsaved: @MainActor (LeoEditorDocument) async -> LeoUnsavedChangesChoice = { _ in .cancel }
     /// While the unsaved-changes prompt is up (as opposed to waiting on the
     /// disk or network before or after it).
-    private(set) var isConfirming = false
+    @Published private(set) var isConfirming = false
+    /// Set by `LeoUnsavedEditorsGate` while a quit that can't be asked
+    /// again (logging out, Ghostty's quit review) is waiting on this
+    /// editor: offers to leave anyway (Keep Waiting / Quit Anyway).
+    @Published var leaveAnyway: (@MainActor () -> Void)?
 
     private let makeAccess: @MainActor (LeoHostID) throws -> any LeoFileAccess
     private let policy: LeoEditorContentPolicy
