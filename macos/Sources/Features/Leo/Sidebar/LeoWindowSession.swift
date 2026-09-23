@@ -119,12 +119,18 @@ struct LeoWindowVisibilityState: Equatable {
                 MainActor.assumeIsolated { self?.apply(.miniaturized) }
             },
             center.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.onWindowWillClose() }
+                MainActor.assumeIsolated { self?.windowWillClose() }
             },
             center.addObserver(forName: NSWindow.didDeminiaturizeNotification, object: window, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.apply(.deminiaturized) }
             },
         ]
+    }
+
+    private func windowWillClose() {
+        onWindowWillClose()
+        let editor = editor
+        Task { await editor.release() }
     }
 
     private func apply(_ event: LeoWindowVisibilityState.Event) {

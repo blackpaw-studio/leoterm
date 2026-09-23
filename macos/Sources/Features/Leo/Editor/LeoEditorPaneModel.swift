@@ -69,6 +69,13 @@ struct LeoEditorReveal: Equatable, Sendable {
         await queue.run { await self.performClose() }
     }
 
+    /// The window is gone: drops the document without asking (every close
+    /// asks first, or keeps a window whose editor has unsaved edits) and
+    /// releases its file access -- for a remote host, its `sftp` process.
+    func release() async {
+        await queue.run { await self.performRelease() }
+    }
+
     /// What `~` means on `host`.
     func homeDirectory(on host: LeoHostID) async throws -> String {
         let access = try makeAccess(host)
@@ -117,6 +124,13 @@ struct LeoEditorReveal: Equatable, Sendable {
         reveal = nil
         await document.close()
         return true
+    }
+
+    private func performRelease() async {
+        guard let document else { return }
+        self.document = nil
+        reveal = nil
+        await document.close()
     }
 
     // MARK: - Helpers
