@@ -27,9 +27,10 @@ Accept: (a) a host test that collects `lifecycleEvents` around `makeFirstRespond
 Source: B-016 second review
 Done: c92565ac3 ad537d10e 79d5d9375 6be661a48 24000299e (1132 tests). Each test was proven by breaking what it guards (swapped yield order, viewing = focusedHandle, relay bypassed with a Task, a spurious report one hop late). Test-only, so no screenshot. 3 fix rounds; the final HIGH → B-028 (D-045).
 
-## B-028 · Focus test: require the catch-up before asserting   [ready]
+## B-028 · Focus test: require the catch-up before asserting   [done]
 Accept: `reports` in `GhosttyAttachTabHostFocusTests.swift:168` ignores a false `caughtUp()`, so an extra yielded report that never reaches the recorder can time out while the order check still passes. Fail the step when `caughtUp()` is false; prove it by dropping one report in the recorder.
 Source: B-019 fourth review (D-045)
+Done: 256eeec38 1f924ee53 (1132 tests). Each step shares one 20 s deadline and fails at its call site when a report is lost (proven by dropping one in the final step and one mid-sequence). Test-only, so no screenshot. Re-review: MED (drainMainQueue has no deadline) and LOW (a late arrival passes) dismissed: only a main thread stalled for 40 s+ triggers the MED, and the test still fails then.
 
 ## B-017 · File-access polish   [done]
 Accept: (a) fix the doc comment in `LeoHostConfiguration.swift:67-71` to say the hash covers the app's argv inputs, not ssh_config aliases; (b) home dirs longer than ~33 chars exceed the control-path budget and lose file access; consider a shorter token or a private short dir; (c) remote errors are vaguer than local ("Failure"); map SFTP status codes more finely where possible.
