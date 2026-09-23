@@ -1,6 +1,6 @@
 Status: running
-Item: B-021
-Base: 935b5a600ef85236bcaaabc138c7220784baeb16
+Item: B-019
+Base: a365e74530260b39d76766f680ffa3b1f88ab350
 Wip: none
 Untracked-left: macos/default.profraw scratchpad/ zig-out
 
@@ -18,3 +18,4 @@ Untracked-left: macos/default.profraw scratchpad/ zig-out
 - B-020: attempt-2 fix 8b6494d45 (1117 tests). Fresh fallback review: 2 HIGH (CGJ, uncapped ZWJ/ZWNJ) → attempt 3 (d-179092105250#4), switching to an allowlist (D-042).
 - B-020 done: ad0807785 796b0a2ec 8b6494d45 935b5a600 (1122 tests). 3 fix rounds; final review HIGH (selectors after any base) → B-026; kept per D-043.
 - B-021: built cda6610e8 (1130 tests). No UI → not visually verified. review.security via code-reviewer fallback (codex route broken all run).
+- B-021 done: cda6610e8 (1130 tests). Review: 1 MED dismissed (pre-existing unlink; D-044) → B-027.

@@ -348,3 +348,11 @@ Why: the finding is residual, not a regression. Reverting would bring back the p
 Alternatives: revert B-020 and block it (the literal rule). Veto this to get that
 Commit: ad0807785 796b0a2ec 8b6494d45 935b5a600
 Veto: [ ]
+
+## D-044 · 2026-09-23 · Forwarded daemon socket moves to the short per-user directory
+Context: B-021
+Chose: the socket is `<DARWIN_USER_CACHE_DIR>/leo/lt-<bundle hash>-<id12>.sock` (82 bytes whatever the home dir), stable per host and scoped per app bundle. An unsafe socket directory now fails the whole tunnel, where before only file access was lost. A dead socket this app left in `~/.leo/state/leoterm/` is removed; nothing else there is touched. A vanished socket reads "Reconnect to restore it". The review's MEDIUM (a live socket at the new path is still unlinked and rebound, as before) was dismissed: that unlink predates B-021, production has one host selection, and the only realistic live socket is an orphaned `ssh -L` left by a crashed run, where rebinding is the recovery. Enforcing one tunnel per host → B-027
+Why: principle 3 (the tunnel must work for any home dir); principle 5 (the user can always recover)
+Alternatives: refuse a live socket with "already in use"
+Commit: cda6610e8
+Veto: [ ]
