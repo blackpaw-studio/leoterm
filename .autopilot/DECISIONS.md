@@ -276,3 +276,11 @@ Why: reverting 19 working commits to avoid one rare edge case would remove the m
 Alternatives: revert B-004 and block it (the literal rule). Veto this to get that
 Commit: (none; judgment call on the rule)
 Veto: [ ]
+
+## D-035 · 2026-09-23 · Workspace browser as a file list inside the editor pane
+Context: B-005
+Chose: the browser is a collapsible outline (NSOutlineView) on the leading edge of the B-004 editor split, rooted at the agent's workspace (the same root that relative ⌘-click paths resolve against). Opened from the row context menu "Browse Files" and Agents ▸ Browse Agent Files (⌥⌘B unless taken; implementer picks a free one and reports it). Folders load lazily through LeoFileAccess, folders first then names in Finder order; dotfiles hidden with a Show Hidden Files toggle (⇧⌘.) like Finder. Arrows navigate, → / ← expand and collapse, Return opens the file in the editor pane, Escape returns focus to the terminal. Refresh on window-becomes-key and a manual Reload, never on a timer. Errors show inline in the list, not as alerts
+Why: principles 1 (keyboard-first, Finder conventions), 3 (one LeoFileAccess path, local = SFTP), 4 (read agent files without leaving), 5 (no timers)
+Alternatives: a separate browser window; a popover; an entry in the sidebar tree
+Commit:
+Veto: [ ]
