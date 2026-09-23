@@ -13,6 +13,9 @@ import OSLog
     /// Agents ▸ Agent Notifications… policy for background transitions.
     let attentionNotifications: LeoAttentionController
     let feed: LeoSidebarFeed
+    /// Focus identity into `feed`, delivered in order (see
+    /// `focusedAgentChanged`).
+    let focusedAgentRelay: LeoOrderedRelay<LeoAgentRow.ID?>
     private let cli: LeoCLI
     private let defaults: UserDefaults
     let attachCoordinator: LeoAttachCoordinator
@@ -192,6 +195,7 @@ import OSLog
             onAttentionTransitions: { transitions in weakSelf?.attentionTransitionsCommitted(transitions) },
             sink: { [weak model] snapshot in model?.receive(snapshot) }
         )
+        focusedAgentRelay = LeoOrderedRelay { [weak feed] id in await feed?.setFocusedAgent(id) }
         actions = LeoAgentActions(daemon: daemon, cli: cli, model: model, hostSelection: hostSelection) { [weak feed] in
             Task { await feed?.refresh() }
         }

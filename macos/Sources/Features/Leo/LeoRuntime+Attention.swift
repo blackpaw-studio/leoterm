@@ -6,9 +6,9 @@ import Foundation
 extension LeoRuntime {
     /// Focus identity comes only from `LeoAttachCoordinator`'s
     /// handle -> identity map, never from titles or sidebar selection.
+    /// Changes reach the feed in order, so it ends on the latest one.
     func focusedAgentChanged(_ identity: LeoAgentIdentity?) {
-        let id = identity.map { LeoAgentRow.ID(host: $0.host, name: $0.name) }
-        Task { [feed] in await feed.setFocusedAgent(id) }
+        focusedAgentRelay.send(identity.map { LeoAgentRow.ID(host: $0.host, name: $0.name) })
     }
 
     /// The row Jump would attach to: unfiltered sidebar order, after the
