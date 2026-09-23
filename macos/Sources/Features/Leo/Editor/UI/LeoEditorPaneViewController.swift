@@ -119,7 +119,7 @@ final class LeoEditorPaneViewController: NSViewController {
             shownRevision = document.contentRevision
             textView.documentUndoManager = UndoManager()
             textView.language = document.language
-            textView.isEditable = !document.isReadOnly
+            textView.isEditable = isEditable(document)
             textView.load(document.text, keepingSelection: false)
             appliedReveal = nil
             apply(model.reveal)
@@ -139,7 +139,7 @@ final class LeoEditorPaneViewController: NSViewController {
         if document.contentRevision != shownRevision {
             shownRevision = document.contentRevision
             textView.documentUndoManager.removeAllActions()
-            textView.isEditable = !document.isReadOnly
+            textView.isEditable = isEditable(document)
             textView.load(document.text, keepingSelection: true)
         }
         refreshChrome()
@@ -148,6 +148,14 @@ final class LeoEditorPaneViewController: NSViewController {
     private func refreshChrome() {
         header.update(document: model.document, recents: model.recents)
         banner.show(shownBanner)
+        if let document = shownDocument { textView.isEditable = isEditable(document) }
+    }
+
+    /// Read-only while a close waits on the document's in-flight work:
+    /// nothing typed then would be kept, or a save queued behind it would
+    /// write it after Don't Save.
+    private func isEditable(_ document: LeoEditorDocument) -> Bool {
+        !document.isReadOnly && !model.isWaitingToClose
     }
 
     /// The banner for the model as it is now.

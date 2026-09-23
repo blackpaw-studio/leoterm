@@ -120,6 +120,34 @@ struct LeoEditorBannerTests {
         await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
     }
 
+    /// After Don't Save, while the close waits on the document's in-flight
+    /// work, the text is read-only: nothing typed then would be kept (or,
+    /// worse, written by a save queued behind it).
+    @Test(.timeLimit(.minutes(1)))
+    func theTextIsReadOnlyWhileTheCloseWaits() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let access = LeoHangingAccess(LeoFileAccessor.local())
+            let model = LeoEditorPaneModel(makeAccess: { _ in access })
+            let pane = LeoEditorPaneViewController(model: model)
+            try await model.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
+            model.document?.edit("b")
+            await nextTurn()
+            #expect(pane.textView.isEditable)
+            model.confirmUnsaved = { _ in .discard }
+            access.hangsWrites = true
+            let commandS = Task { await model.document?.save() }
+            await access.waitUntilWriting()
+
+            let closing = Task { await model.close() }
+            #expect(await eventually { model.isWaitingToClose })
+            #expect(await eventually { !pane.textView.isEditable })
+
+            access.release()
+            _ = await commandS.value
+            #expect(await closing.value)
+        }
+    }
+
     /// A close queued behind an operation that isn't coming back (a read
     /// that hangs) is waiting from the start.
     @Test(.timeLimit(.minutes(1)))
