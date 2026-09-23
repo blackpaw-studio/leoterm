@@ -91,11 +91,13 @@ struct LeoEditorBannerTests {
             model.document?.edit("b")
             model.confirmUnsaved = { _ in .save }
             access.hangsWrites = true
+            // As the gate does: set before the close, while nothing waits.
+            model.leaveAnyway = {}
+            await nextTurn()
+            #expect(pane.banner.isHidden)
+
             let closing = Task { await model.close() }
             await access.waitUntilWriting()
-            #expect(await eventually { pane.banner.isHidden })
-
-            model.leaveAnyway = {}
             #expect(await eventually { !pane.banner.isHidden && pane.banner.banner?.actions == [.quitAnyway] })
 
             model.isOfferShowing = true
@@ -105,9 +107,17 @@ struct LeoEditorBannerTests {
 
             model.leaveAnyway = nil
             #expect(await eventually { pane.banner.isHidden })
+            model.leaveAnyway = {}
+            #expect(await eventually { !pane.banner.isHidden })
+
             access.release()
             #expect(await closing.value)
+            #expect(await eventually { pane.banner.isHidden })
         }
+    }
+
+    private func nextTurn() async {
+        await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
     }
 
     /// A close queued behind an operation that isn't coming back (a read
