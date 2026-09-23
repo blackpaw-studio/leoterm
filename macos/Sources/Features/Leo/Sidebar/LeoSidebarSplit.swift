@@ -24,6 +24,35 @@ enum LeoSidebarSplitMetrics {
         max(minimum, min((sharedWidth / 2).rounded(.down), sharedWidth - terminalFloor))
     }
 
+    /// Whether panes `paneWidths` wide (the sidebar and side panes shown
+    /// beside the terminal, a divider each) leave the terminal under
+    /// `terminalFloor` in a split `splitWidth` wide.
+    static func squeezesTerminal(splitWidth: CGFloat, paneWidths: [CGFloat], dividerThickness: CGFloat) -> Bool {
+        terminalWidth(splitWidth: splitWidth, paneWidths: paneWidths, dividers: paneWidths.count, dividerThickness: dividerThickness)
+            < terminalFloor
+    }
+
+    /// What the split does to keep the terminal floor after a layout
+    /// (D-058).
+    enum FloorStep: Equatable {
+        case none
+        /// Collapse the agents sidebar, as when a pane opens (D-036).
+        case collapseSidebar
+        /// Take this much from the side panes -- each down to its minimum
+        /// at most -- and give it to the terminal.
+        case widenTerminal(by: CGFloat)
+    }
+
+    /// The floor holds beside a side pane only, and only a narrowing split
+    /// -- a window resize, never a divider drag or a pane opening --
+    /// acts on it: once the terminal is under its floor, the sidebar
+    /// collapses first, then the side panes give way.
+    static func floorStep(terminalWidth: CGFloat, splitWidthChange: CGFloat, isSidebarShown: Bool, isSidePaneShown: Bool) -> FloorStep {
+        let deficit = terminalFloor - terminalWidth
+        guard isSidePaneShown, splitWidthChange < -widthChangeTolerance, deficit > widthChangeTolerance else { return .none }
+        return isSidebarShown ? .collapseSidebar : .widenTerminal(by: deficit)
+    }
+
     /// Width of the split view's divider, used by `TerminalController` when
     /// sizing a window that shows the sidebar. `NSSplitView.dividerStyle` is
     /// `.thin`, which the HIG defines as 1 pt.

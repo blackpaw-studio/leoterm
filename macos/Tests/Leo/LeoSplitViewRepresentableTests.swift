@@ -322,6 +322,99 @@ import Testing
         await browser.close()
     }
 
+    // MARK: Terminal floor on resize and re-show (D-058)
+
+    /// Both side panes open in a 1 400 pt window, the sidebar at its
+    /// minimum beside them.
+    private func withBothPanes(
+        _ body: (Harness, LeoWorkspaceBrowserModel, LeoEditorPaneModel, () -> Int) async throws -> Void
+    ) async throws {
+        let sandbox = try LeoFileSandbox()
+        defer { sandbox.cleanUp() }
+        let browser = Self.makeBrowser()
+        let editor = Self.makeEditor()
+        var autoCollapses = 0
+        let harness = Harness(
+            preferredWidth: LeoSidebarSplitMetrics.minimumWidth, windowWidth: 1_400, editor: editor, browser: browser,
+            onSidebarAutoCollapse: { autoCollapses += 1 })
+        await browser.open(LeoEditorAgentContext(host: .local, name: "scratch", workspace: sandbox.root))
+        try await editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.swift", "let a = 1")))
+        await harness.settle()
+        try #require(harness.sidebarItem?.isCollapsed == false)
+        try await body(harness, browser, editor) { autoCollapses }
+        await editor.close()
+        await browser.close()
+    }
+
+    /// Narrowing the window collapses the sidebar before the terminal goes
+    /// under its floor, once.
+    @Test func narrowingTheWindowCollapsesTheSidebarToKeepTheTerminalFloor() async throws {
+        try await withBothPanes { harness, _, _, autoCollapses in
+            let editorWidth = harness.editorWidth
+
+            await harness.resizeWindow(stepwiseTo: 1_100)
+
+            #expect(harness.sidebarItem?.isCollapsed == true)
+            #expect(autoCollapses() == 1)
+            #expect(harness.terminalWidth >= LeoSidebarSplitMetrics.terminalFloor)
+            #expect(abs(harness.editorWidth - editorWidth) <= 1, "the terminal absorbed the rest")
+        }
+    }
+
+    /// Past that, the side panes give way down to their minimums before
+    /// the terminal goes under its floor; widening again goes to the
+    /// terminal.
+    @Test func narrowingFurtherMakesTheSidePanesGiveWayThenTheTerminal() async throws {
+        try await withBothPanes { harness, _, _, _ in
+            let step = Harness.resizeStep
+
+            await harness.resizeWindow(stepwiseTo: 900)
+            #expect(abs(harness.terminalWidth - LeoSidebarSplitMetrics.terminalFloor) <= 1)
+            #expect(harness.editorWidth < 500, "the editor gave way")
+
+            await harness.resizeWindow(stepwiseTo: 700)
+            #expect(abs(harness.editorWidth - LeoEditorPaneViewController.minimumWidth) <= 1)
+            #expect(abs(harness.browserWidth - LeoWorkspaceBrowserViewController.minimumWidth) <= 1)
+            #expect(harness.terminalWidth < LeoSidebarSplitMetrics.terminalFloor)
+
+            let editorWidth = harness.editorWidth
+            let terminalWidth = harness.terminalWidth
+            await harness.resizeWindow(stepwiseTo: 800)
+            #expect(harness.terminalWidth >= terminalWidth + 100 - step, "widening goes to the terminal")
+            #expect(harness.editorWidth <= editorWidth + step)
+        }
+    }
+
+    /// A divider drag doesn't narrow the window: the sidebar stays where
+    /// the user put it.
+    @Test func draggingTheSidebarDividerDoesNotCollapseIt() async throws {
+        try await withBothPanes { harness, _, _, autoCollapses in
+            harness.dragDivider(to: LeoSidebarSplitMetrics.maximumWidth)
+            await harness.settle()
+
+            #expect(harness.sidebarItem?.isCollapsed == false)
+            #expect(autoCollapses() == 0)
+        }
+    }
+
+    /// Re-showing the sidebar (⌘⇧L) where it would squeeze the terminal
+    /// is refused; with room, or without a side pane, it's allowed.
+    @Test func theSidebarIsReShownOnlyWhereItKeepsTheTerminalFloor() async throws {
+        try await withBothPanes { harness, browser, editor, _ in
+            let controller = harness.components.controller
+            #expect(!controller.sidebarSqueezesTerminal(atWidth: LeoSidebarSplitMetrics.minimumWidth))
+
+            await harness.resizeWindow(stepwiseTo: 1_100)
+            try #require(harness.sidebarItem?.isCollapsed == true)
+            #expect(controller.sidebarSqueezesTerminal(atWidth: LeoSidebarSplitMetrics.minimumWidth))
+
+            await editor.close()
+            await browser.close()
+            await harness.settle()
+            #expect(!controller.sidebarSqueezesTerminal(atWidth: LeoSidebarSplitMetrics.maximumWidth))
+        }
+    }
+
     @Test func openingTheBrowserShowsItAndClosingHidesIt() async throws {
         let sandbox = try LeoFileSandbox()
         defer { sandbox.cleanUp() }
@@ -426,6 +519,18 @@ import Testing
         func resizeWindow(toWidth width: CGFloat) {
             window.setContentSize(NSSize(width: width, height: LeoSplitViewRepresentableTests.windowHeight))
             layout()
+        }
+
+        static let resizeStep: CGFloat = 5
+
+        /// A live resize: `resizeStep` at a time, settling after each.
+        func resizeWindow(stepwiseTo width: CGFloat) async {
+            var current = window.contentLayoutRect.width
+            while abs(width - current) > 0.5 {
+                current += max(-Self.resizeStep, min(Self.resizeStep, width - current))
+                resizeWindow(toWidth: current)
+                await settle()
+            }
         }
 
         private func layout() {
