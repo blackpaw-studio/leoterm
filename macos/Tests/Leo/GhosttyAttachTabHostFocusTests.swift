@@ -73,21 +73,22 @@ import Testing
         try await waitUntilInWindow(surface, window)
         // `fillPlaceholder` moves focus asynchronously (retrying until the
         // surface has a window); wait for it to land rather than race it.
-        await recorder.waitUntil { $0.last == .focusChanged(handle) }
-        _ = await recorder.reports {}
+        // Contains, not last: the order is what the steps below assert.
+        try #require(await recorder.waitUntil { $0.contains(.focusChanged(handle)) }, "focus never reached the surface")
+        try #require(await recorder.caughtUp(), "a yielded focus report never arrived")
         #expect(host.focusedHandle == handle)
 
         let sidebar = FirstResponderView()
         window.contentView?.addSubview(sidebar)
-        let toSidebar = await recorder.reports { window.makeFirstResponder(sidebar) }
+        let toSidebar = await recorder.reports(1) { window.makeFirstResponder(sidebar) }
         #expect(toSidebar == [.focusChanged(nil)], "the sidebar takes keyboard focus; the tab stays in view")
 
         appState.isActive = false
-        let deactivated = await recorder.reports { window.makeFirstResponder(surface) }
+        let deactivated = await recorder.reports(2) { window.makeFirstResponder(surface) }
         #expect(deactivated == [.viewingChanged(nil), .focusSuspended])
 
         appState.isActive = true
-        let reactivated = await recorder.reports { controller.focusedSurface = surface }
+        let reactivated = await recorder.reports(2) { controller.focusedSurface = surface }
         #expect(reactivated == [.viewingChanged(handle), .focusChanged(handle)], "viewing is reported before focus")
     }
 
@@ -102,11 +103,12 @@ import Testing
     private static var ghostty: Ghostty.App? { (NSApp.delegate as? AppDelegate)?.ghostty }
 
     /// SwiftUI installs the surface view in the window on a later layout
-    /// pass.
-    private func waitUntilInWindow(_ view: NSView, _ window: NSWindow) async throws {
-        for _ in 0..<50 where view.window !== window {
+    /// pass. Gives up at a deadline; cancellation ends the wait at once.
+    private func waitUntilInWindow(_ view: NSView, _ window: NSWindow, timeout: Duration = .seconds(5)) async throws {
+        let deadline = ContinuousClock.now + timeout
+        while view.window !== window, ContinuousClock.now < deadline {
             window.contentView?.layoutSubtreeIfNeeded()
-            try await Task.sleep(nanoseconds: 20_000_000)
+            try await Task.sleep(for: .milliseconds(20))
         }
         try #require(view.window === window, "the surface never joined its window")
     }
@@ -126,17 +128,21 @@ private final class FirstResponderView: NSView {
     }
 }
 
-/// Drains a host's `lifecycleEvents`, keeping the focus reports, and
-/// returns the ones an action produced. Waits on events and main-queue
-/// order, never on wall time.
+/// Drains a host's `lifecycleEvents`, keeping the focus reports. Every
+/// wait is on received events, bounded by a deadline, and ends early if
+/// the test is cancelled -- a missing report fails, it never hangs.
 @MainActor private final class FocusReportRecorder {
+    private typealias Waiter = (isSatisfied: ([AttachLifecycleEvent]) -> Bool, continuation: CheckedContinuation<Void, Never>)
+
     private let host: GhosttyAttachTabHost
+    private let timeout: Duration
     private var received: [AttachLifecycleEvent] = []
-    private var waiters: [(isSatisfied: ([AttachLifecycleEvent]) -> Bool, resume: CheckedContinuation<Void, Never>)] = []
+    private var waiters: [UUID: Waiter] = [:]
     private var drain: Task<Void, Never>?
 
-    init(_ host: GhosttyAttachTabHost) {
+    init(_ host: GhosttyAttachTabHost, timeout: Duration = .seconds(5)) {
         self.host = host
+        self.timeout = timeout
         drain = Task { [weak self, events = host.lifecycleEvents] in
             for await event in events where Self.isFocusReport(event) {
                 self?.receive(event)
@@ -144,33 +150,55 @@ private final class FirstResponderView: NSView {
         }
     }
 
-    func stop() { drain?.cancel() }
+    func stop() {
+        drain?.cancel()
+        waiters.keys.forEach(resume)
+    }
 
-    /// Runs `action`, then returns every focus report the host yielded
-    /// for it. A surface losing focus is reported from a block the host
-    /// queues on the main queue during `action`; one main-queue hop queued
-    /// after `action` runs after that block, so by then the host has
-    /// yielded everything `action` caused.
-    func reports(during action: () -> Void) async -> [AttachLifecycleEvent] {
-        await waitUntil { [host] in $0.count == host.focusReportCount }
+    /// Runs `action` and returns the reports received once `count` of them
+    /// have arrived (or the deadline passed), plus any the host yielded
+    /// with them.
+    func reports(_ count: Int, during action: () -> Void) async -> [AttachLifecycleEvent] {
         let start = received.count
         action()
-        await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
-        await waitUntil { [host] in $0.count == host.focusReportCount }
+        await waitUntil { $0.count >= start + count }
+        await caughtUp()
         return Array(received[start...])
     }
 
-    /// Resumes once the reports received so far satisfy `isSatisfied`.
-    func waitUntil(_ isSatisfied: @escaping ([AttachLifecycleEvent]) -> Bool) async {
-        guard !isSatisfied(received) else { return }
-        await withCheckedContinuation { waiters.append((isSatisfied, $0)) }
+    /// Whether every report the host has yielded so far has arrived.
+    @discardableResult func caughtUp() async -> Bool {
+        await waitUntil { [host] in $0.count >= host.focusReportCount }
+    }
+
+    /// Whether the reports received satisfy `isSatisfied` before the
+    /// deadline (or cancellation).
+    func waitUntil(_ isSatisfied: @escaping ([AttachLifecycleEvent]) -> Bool) async -> Bool {
+        guard !isSatisfied(received) else { return true }
+        let id = UUID()
+        let deadline = Task { [weak self, timeout] in
+            try? await Task.sleep(for: timeout)
+            self?.resume(id)
+        }
+        defer { deadline.cancel() }
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                guard !Task.isCancelled else { return continuation.resume() }
+                waiters[id] = (isSatisfied, continuation)
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in self?.resume(id) }
+        }
+        return isSatisfied(received)
     }
 
     private func receive(_ event: AttachLifecycleEvent) {
         received.append(event)
-        let (ready, pending) = (waiters.filter { $0.isSatisfied(received) }, waiters.filter { !$0.isSatisfied(received) })
-        waiters = pending
-        ready.forEach { $0.resume.resume() }
+        waiters.filter { $0.value.isSatisfied(received) }.keys.forEach(resume)
+    }
+
+    private func resume(_ id: UUID) {
+        waiters.removeValue(forKey: id)?.continuation.resume()
     }
 
     private static func isFocusReport(_ event: AttachLifecycleEvent) -> Bool {
