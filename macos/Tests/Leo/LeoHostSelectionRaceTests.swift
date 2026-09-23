@@ -97,7 +97,7 @@ import Testing
         LeoTunnelTestSupport.setEnvironment("FAKE_SSH_PID_FILE", staleFile)
         selection.select(.remote("stale"))
         let stalePID = try await LeoHostSelectionTestSupport.awaitPID(staleFile)
-        try #require(orphanStore.current()?.pid == stalePID)
+        try #require(orphanStore.records().first?.pid == stalePID)
 
         let freshFile = LeoHostSelectionTestSupport.tempFile()
         LeoTunnelTestSupport.setEnvironment("FAKE_SSH_PID_FILE", freshFile)
@@ -112,7 +112,7 @@ import Testing
         await LeoHostSelectionTestSupport.awaitConnected(selection, expectedFreshPath)
 
         #expect(Darwin.kill(stalePID, 0) == -1 && errno == ESRCH)
-        #expect(orphanStore.current()?.pid != stalePID)
+        #expect(orphanStore.records().first?.pid != stalePID)
         if case .connected(let path) = selection.state {
             #expect(path == expectedFreshPath)
         } else {
@@ -229,7 +229,7 @@ import Testing
         // Recorded at launch -- before the (still-gated) readiness probe
         // has answered at all.
         #expect(selection.state == .connecting)
-        let record = try #require(orphanStore.current())
+        let record = try #require(orphanStore.records().first)
         #expect(record.pid == pid)
         #expect(record.socketPath == expectedPath)
 
@@ -237,6 +237,6 @@ import Testing
         await LeoHostSelectionTestSupport.awaitConnected(selection, expectedPath)
 
         selection.shutdown()
-        await awaitCondition(message: "orphan record was never cleared after shutdown") { orphanStore.current() == nil }
+        await awaitCondition(message: "orphan record was never cleared after shutdown") { orphanStore.records().first == nil }
     }
 }

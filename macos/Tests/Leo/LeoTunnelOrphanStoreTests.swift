@@ -16,12 +16,12 @@ struct LeoTunnelOrphanStoreTests {
 
         store.reapAtLaunch(
             inspector: { _ in alive ? 99 : nil },
-            signaller: { _, signal in signals.append(signal); alive = false },
+            signaller: { _, signal in signals.append(signal); alive = false; return 0 },
             sleep: { _ in }
         )
 
         #expect(signals == [SIGTERM])
-        #expect(store.current() == nil)
+        #expect(store.records().isEmpty)
         #expect(LeoControlSocket.inspect(path) == .absent)
     }
 
@@ -34,14 +34,85 @@ struct LeoTunnelOrphanStoreTests {
         var signals: [Int32] = []
 
         store.reapAtLaunch(
-            inspector: { _ in 99 },
-            signaller: { _, signal in signals.append(signal) },
+            inspector: { _ in signals.contains(SIGKILL) ? nil : 99 },
+            signaller: { _, signal in signals.append(signal); return 0 },
             sleep: { _ in }
         )
 
         #expect(signals == [SIGTERM, SIGKILL])
-        #expect(store.current() == nil)
+        #expect(store.records().isEmpty)
         #expect(LeoControlSocket.inspect(path) == .absent)
+    }
+
+    /// Still alive after SIGKILL (the start-time check keeps matching):
+    /// never assume it's gone. The record and socket stay, and the path is
+    /// held in use for this run instead of started over.
+    @Test func aProcessThatSurvivesSigkillKeepsItsRecordAndSocketAndThePathInUse() throws {
+        let defaults = try freshDefaults()
+        let path = LeoTunnelTestSupport.socketPath()
+        defer { unlink(path); unlink(path + ".lock") }
+        try LeoTestUnixSocket.leaveStale(path)
+        let store = LeoTunnelOrphanStore(defaults: defaults, key: "orphan")
+        let record = LeoTunnelOrphanRecord(pid: 42, startTime: 99, socketPath: path)
+        store.record(record)
+        var signals: [Int32] = []
+
+        let held = store.reapAtLaunch(
+            inspector: { _ in 99 }, signaller: { _, signal in signals.append(signal); return 0 }, sleep: { _ in }
+        )
+
+        #expect(signals == [SIGTERM, SIGKILL])
+        #expect(store.records() == [record])
+        #expect(LeoControlSocket.inspect(path) == .stale)
+        #expect(LeoTestFileLock.hold(path + ".lock") == nil)
+        held.forEach { $0.release() }
+    }
+
+    /// `kill` failing with anything but ESRCH proves nothing about the
+    /// process: same as surviving.
+    @Test func aFailedKillKeepsTheRecordAndSocket() throws {
+        let defaults = try freshDefaults()
+        let path = LeoTunnelTestSupport.socketPath()
+        defer { unlink(path); unlink(path + ".lock") }
+        try LeoTestUnixSocket.leaveStale(path)
+        let store = LeoTunnelOrphanStore(defaults: defaults, key: "orphan")
+        let record = LeoTunnelOrphanRecord(pid: 42, startTime: 99, socketPath: path)
+        store.record(record)
+
+        let held = store.reapAtLaunch(inspector: { _ in 99 }, signaller: { _, _ in EPERM }, sleep: { _ in })
+
+        #expect(store.records() == [record])
+        #expect(LeoControlSocket.inspect(path) == .stale)
+        held.forEach { $0.release() }
+    }
+
+    /// Two copies connected to two hosts each leave their own record: a
+    /// crash of either is still reaped at the next launch.
+    @Test func recordsForTwoPathsAreKeptAndEachReaped() throws {
+        let defaults = try freshDefaults()
+        let first = LeoTunnelTestSupport.socketPath()
+        let second = LeoTunnelTestSupport.socketPath()
+        defer { [first, second].forEach { unlink($0); unlink($0 + ".lock") } }
+        try LeoTestUnixSocket.leaveStale(first)
+        try LeoTestUnixSocket.leaveStale(second)
+        let store = LeoTunnelOrphanStore(defaults: defaults, key: "orphan")
+        let firstRecord = LeoTunnelOrphanRecord(pid: 42, startTime: 99, socketPath: first)
+        let secondRecord = LeoTunnelOrphanRecord(pid: 43, startTime: 100, socketPath: second)
+        store.record(firstRecord)
+        store.record(secondRecord)
+        #expect(Set(store.records().map(\.pid)) == [42, 43])
+        var dead: Set<Int32> = []
+
+        store.reapAtLaunch(
+            inspector: { pid in dead.contains(pid) ? nil : (pid == 42 ? 99 : 100) },
+            signaller: { pid, _ in dead.insert(pid); return 0 },
+            sleep: { _ in }
+        )
+
+        #expect(dead == [42, 43])
+        #expect(store.records().isEmpty)
+        #expect(LeoControlSocket.inspect(first) == .absent)
+        #expect(LeoControlSocket.inspect(second) == .absent)
     }
 
     @Test func mismatchedStartTimeIsNeverSignalledAndRecordIsUntouched() throws {
@@ -55,12 +126,12 @@ struct LeoTunnelOrphanStoreTests {
 
         store.reapAtLaunch(
             inspector: { _ in 100 },
-            signaller: { _, signal in signals.append(signal) },
+            signaller: { _, signal in signals.append(signal); return 0 },
             sleep: { _ in }
         )
 
         #expect(signals.isEmpty)
-        #expect(store.current() == record)
+        #expect(store.records() == [record])
         #expect(FileManager.default.fileExists(atPath: path))
     }
 
@@ -80,11 +151,12 @@ struct LeoTunnelOrphanStoreTests {
                 // is still in flight (e.g. SIGTERM delivery racing a fresh launch).
                 store.record(replacement)
                 alive = false
+                return 0
             },
             sleep: { _ in }
         )
 
-        #expect(store.current() == replacement)
+        #expect(store.records() == [replacement])
         #expect(FileManager.default.fileExists(atPath: replacement.socketPath))
     }
 
@@ -98,10 +170,10 @@ struct LeoTunnelOrphanStoreTests {
         store.record(LeoTunnelOrphanRecord(pid: 42, startTime: 99, socketPath: path))
         var signals: [Int32] = []
 
-        store.reapAtLaunch(inspector: { _ in nil }, signaller: { _, signal in signals.append(signal) }, sleep: { _ in })
+        store.reapAtLaunch(inspector: { _ in nil }, signaller: { _, signal in signals.append(signal); return 0 }, sleep: { _ in })
 
         #expect(signals.isEmpty)
-        #expect(store.current() == nil)
+        #expect(store.records().isEmpty)
         #expect(LeoControlSocket.inspect(path) == .absent)
     }
 
@@ -127,7 +199,7 @@ struct LeoTunnelOrphanStoreTests {
         store.record(LeoTunnelOrphanRecord(pid: 42, startTime: 99, socketPath: recorded))
         var signals: [Int32] = []
 
-        store.reapAtLaunch(inspector: { _ in 99 }, signaller: { _, signal in signals.append(signal) }, sleep: { _ in })
+        store.reapAtLaunch(inspector: { _ in 99 }, signaller: { _, signal in signals.append(signal); return 0 }, sleep: { _ in })
 
         #expect(signals.isEmpty)
         #expect(LeoControlSocket.inspect(recorded) == .absent)
@@ -135,7 +207,7 @@ struct LeoTunnelOrphanStoreTests {
         #expect(LeoControlSocket.inspect(live) == .live)
         #expect(try String(contentsOfFile: file, encoding: .utf8) == "keep")
         #expect(!FileManager.default.fileExists(atPath: recorded + ".lock"))
-        #expect(store.current() == nil)
+        #expect(store.records().isEmpty)
     }
 
     /// A live pre-B-021 copy's socket at the recorded path: left, as is the
@@ -150,11 +222,11 @@ struct LeoTunnelOrphanStoreTests {
         store.record(LeoTunnelOrphanRecord(pid: 42, startTime: 99, socketPath: recorded))
         var signals: [Int32] = []
 
-        store.reapAtLaunch(inspector: { _ in 99 }, signaller: { _, signal in signals.append(signal) }, sleep: { _ in })
+        store.reapAtLaunch(inspector: { _ in 99 }, signaller: { _, signal in signals.append(signal); return 0 }, sleep: { _ in })
 
         #expect(signals.isEmpty)
         #expect(LeoControlSocket.inspect(recorded) == .live)
-        #expect(store.current() == nil)
+        #expect(store.records().isEmpty)
     }
 
     /// Another running copy holds the recorded path's lock: the record is
@@ -171,10 +243,10 @@ struct LeoTunnelOrphanStoreTests {
         store.record(record)
         var signals: [Int32] = []
 
-        store.reapAtLaunch(inspector: { _ in 99 }, signaller: { _, signal in signals.append(signal) }, sleep: { _ in })
+        store.reapAtLaunch(inspector: { _ in 99 }, signaller: { _, signal in signals.append(signal); return 0 }, sleep: { _ in })
 
         #expect(signals.isEmpty)
-        #expect(store.current() == record)
+        #expect(store.records() == [record])
         #expect(LeoControlSocket.inspect(path) == .stale)
     }
 
@@ -197,7 +269,7 @@ struct LeoTunnelOrphanStoreTests {
             let store = LeoTunnelOrphanStore(defaults: try freshDefaults(), key: "orphan", socketOwner: owner)
             store.record(LeoTunnelOrphanRecord(pid: 42, startTime: 99, socketPath: path))
             var alive = true
-            store.reapAtLaunch(inspector: { _ in alive ? 99 : nil }, signaller: { _, _ in alive = false }, sleep: { _ in })
+            store.reapAtLaunch(inspector: { _ in alive ? 99 : nil }, signaller: { _, _ in alive = false; return 0 }, sleep: { _ in })
         }
 
         #expect(LeoControlSocket.inspect(listening) == .absent)
@@ -218,7 +290,7 @@ struct LeoTunnelOrphanStoreTests {
 
         store.reapAtLaunch(
             inspector: { _ in startTime },
-            signaller: { _, signal in signals.append(signal) },
+            signaller: { _, signal in signals.append(signal); return 0 },
             sleep: { _ in startTime = 100 }
         )
 

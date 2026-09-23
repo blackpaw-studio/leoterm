@@ -26,6 +26,10 @@ import OSLog
     private let picker: LeoWindowPickerRouter
     private let requestConfigStore: LeoRequestConfigStore
     private let orphanStore: LeoTunnelOrphanStore
+    /// Path locks for orphaned tunnels `reapAtLaunch` couldn't confirm gone,
+    /// held for the rest of the run so those paths read as in use instead
+    /// of a second tunnel starting beside a process that may still hold one.
+    private var unreapedTunnelPaths: [LeoTunnelSocketLock] = []
     private let localDaemon: any LeoDaemonClient
     private let localActivitySource: LeoSidebarActivitySource
     private let hostConnectionTransport: any LeoDaemonTransport
@@ -242,9 +246,12 @@ import OSLog
         Task {
             // Must run before any tunnel this launch might start, so a
             // leftover record always describes a process untouched this run.
-            await Task.detached {
+            unreapedTunnelPaths = await Task.detached {
                 orphanStore.reapAtLaunch(inspector: leoTunnelRealInspector, signaller: leoTunnelRealSignaller)
             }.value
+            if !unreapedTunnelPaths.isEmpty {
+                Self.logger.error("orphaned tunnels could not be stopped; their paths stay in use count=\(self.unreapedTunnelPaths.count)")
+            }
             let flavor = await LeoSocketDaemonClient.detectFlavor()
             Self.logger.log("detected flavor=\(String(describing: flavor), privacy: .public) connectionSequence=\(self.connectionSequence)")
             await feed.start()

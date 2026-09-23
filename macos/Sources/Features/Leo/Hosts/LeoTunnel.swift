@@ -28,7 +28,7 @@ extension LeoTunnelError: LocalizedError {
         case .exitedBeforeReady(let status, let tail): return tail.isEmpty ? "ssh exited (\(status))" : tail
         case .notReady(let tail): return tail.isEmpty ? "The tunnel never became ready" : tail
         case .socketInUse:
-            return "This host’s tunnel socket is already in use by another copy of Leo. Quit it, then retry"
+            return "This host’s tunnel socket is already in use by another copy of Leo, or by an ssh process Leo couldn’t stop. Quit it, then retry"
         case .socketUnusable(_, let reason): return "The tunnel socket path can’t be used: \(reason)"
         }
     }
