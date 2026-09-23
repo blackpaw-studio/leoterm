@@ -22,3 +22,4 @@ Untracked-left: macos/default.profraw scratchpad/ zig-out
 - B-019: built c92565ac3 ad537d10e (1132 tests). Test-only → not visually verified. review: HIGH (100 ms sleep can miss a delayed bypass) + MED (fixed sleeps in the recorder) → attempt 1 (d-43d5f92b0d93#2). Note: plain review role routed to codex fine; only review.security failed.
 - B-019: attempt-1 fix 79d5d9375 (1132 tests). Re-review: relay test OK; host test P1 (swapped order hangs, not fails) + P2 (50-poll setup) → attempt 2 (d-43d5f92b0d93#3).
 - B-019: attempt-2 fix 6be661a48. Re-review: HIGH (no main-queue barrier before the final count) + MED (5 s deadline under load) → attempt 3 (d-43d5f92b0d93#4), the last.
+- B-019 done: c92565ac3 ad537d10e 79d5d9375 6be661a48 24000299e (1132 tests). 3 fix rounds; final HIGH → B-028 (D-045). Cap of 5 reached.

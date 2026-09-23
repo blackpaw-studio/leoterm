@@ -356,3 +356,11 @@ Why: principle 3 (the tunnel must work for any home dir); principle 5 (the user 
 Alternatives: refuse a live socket with "already in use"
 Commit: cda6610e8
 Veto: [ ]
+
+## D-045 · 2026-09-23 · Kept B-019's tests after 3 fix rounds instead of reverting them
+Context: each B-019 review found a narrower timing hole in the host focus test's waits (a sleep, then a poll limit, then a missing main-queue barrier). The final review found one HIGH: `reports` ignores a false `caughtUp()` (`GhosttyAttachTabHostFocusTests.swift:168`), so a report yielded but never recorded could let the order check pass
+Chose: keep the tests and file the one-line `require caughtUp()` as B-028. The only production changes are two test seams: `GhosttyAttachTabHost.appFocusState` (defaults to NSApp) and `LeoRuntime.focusedAgentSink` (defaults to the feed)
+Why: the tests already catch four real breakages; reverting would remove all coverage to avoid one edge case in the harness itself. Third keep this run (with D-034's B-004 and D-043's B-020): Evan may want to change the 3-round rule rather than have it overridden
+Alternatives: revert B-019 and block it (the literal rule). Veto this to get that
+Commit: c92565ac3 ad537d10e 79d5d9375 6be661a48 24000299e
+Veto: [ ]

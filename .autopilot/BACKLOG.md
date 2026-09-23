@@ -22,9 +22,14 @@ Accept: (a) medium, plausible: when clicking a row in a non-key window, the wind
 Source: B-006 reviews + visual check
 Done: c25cf3523 82c835016 ab3f8c6ff 7d2b676e7 89ff485c9 79f8d61f2 7a3728f4f (867 tests). Verified: shot B-016-1.png (hovered long name truncates before Attach). (a), (c) and (d) are covered by tests only. Test gaps from the review → B-019.
 
-## B-019 · Tests for the host focus sequence and the ordered relay   [ready]
+## B-019 · Tests for the host focus sequence and the ordered relay   [done]
 Accept: (a) a host test that collects `lifecycleEvents` around `makeFirstResponder` and checks the exact order: viewing is reported before focus, and focusing the sidebar yields only `.focusChanged(nil)` (`GhosttyAttachTabHostFocusTests.swift:10`); (b) a test that fails if `focusedAgentChanged` stops going through `LeoOrderedRelay` (`LeoRuntime+Attention.swift:10`).
 Source: B-016 second review
+Done: c92565ac3 ad537d10e 79d5d9375 6be661a48 24000299e (1132 tests). Each test was proven by breaking what it guards (swapped yield order, viewing = focusedHandle, relay bypassed with a Task, a spurious report one hop late). Test-only, so no screenshot. 3 fix rounds; the final HIGH → B-028 (D-045).
+
+## B-028 · Focus test: require the catch-up before asserting   [ready (next run)]
+Accept: `reports` in `GhosttyAttachTabHostFocusTests.swift:168` ignores a false `caughtUp()`, so an extra yielded report that never reaches the recorder can time out while the order check still passes. Fail the step when `caughtUp()` is false; prove it by dropping one report in the recorder.
+Source: B-019 fourth review (D-045)
 
 ## B-017 · File-access polish   [done]
 Accept: (a) fix the doc comment in `LeoHostConfiguration.swift:67-71` to say the hash covers the app's argv inputs, not ssh_config aliases; (b) home dirs longer than ~33 chars exceed the control-path budget and lose file access; consider a shorter token or a private short dir; (c) remote errors are vaguer than local ("Failure"); map SFTP status codes more finely where possible.
