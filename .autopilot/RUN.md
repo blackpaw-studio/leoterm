@@ -1,6 +1,6 @@
 Status: running
-Item: B-031
-Base: de2c47114cc1799758cd0c1c29496c0b2d671e99
+Item: B-023
+Base: 40fdb2b8a733a7a5d3874c4ecdd85513434da10c
 Wip: none
 Untracked-left: macos/default.profraw scratchpad/ zig-out
 
@@ -14,3 +14,5 @@ Untracked-left: macos/default.profraw scratchpad/ zig-out
 - B-034: built 2c05c0b83 (1176 tests). Verified: shot B-034-1 (LEO_OPEN_FILE opens demo.swift in the first window's editor pane). Banner still not captured: typing into the editor works, but the "Save changes?" alert after ⌘W is unreachable to Peekaboo (axElementNotFound), and ⌘S via `peekaboo press` didn't appear to save (unconfirmed; may be the tool). review: HIGH (remote host selected → local open rejected) + 2 MED (`name:12` parsed as a line; test skips the runtime call site) → attempt 1 (d-c2233721e9c2#2).
 - B-034 done: 2c05c0b83 de2c47114 (1177 tests). Re-review: LOW dismissed (D-056). Verified B-034-1 on the final build. Banner → B-035. A truncated suite run (828/1177) → noted on B-031.
 - B-031: built 05ec8fd2d 3e3859708 235748c7a (1179 tests). (a) shared LeoFiringClock, 10/10 under 28× yes. (b) the 828-test stop was runtests.sh's 400 s timeout on a slow machine; the worktree's runtests.sh now reports "RUN INCOMPLETE" and exits 2. Found and fixed: the single-instance check quit parallel `xcodebuild test` workers. Other load flakes seen (LeoSidebarFeedRecoveryTests ×19, AttentionRace ×4, HostSwitch, LeoSidebarTests) → B-036. review.concurrency: HIGH (the new XCTestBundlePath branch accepts any file inside the app) → attempt 1 (d-020658255d34#2).
+- B-031: attempt-1 fix b32c98cd4; re-review MED (direct -XCTest branch) + 2 LOW → attempt 2 40fdb2b8a; 3rd review clean.
+- B-031 done: 05ec8fd2d 3e3859708 235748c7a b32c98cd4 40fdb2b8a (1180 tests). D-057. New: B-036.

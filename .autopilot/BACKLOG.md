@@ -126,10 +126,15 @@ Accept: `LeoSidebarFeedActivityCoalescingTests` failed once and `LeoSyntaxHighli
 Source: B-022 implementer runs
 Done: cbc79e25c ba6e9d140 e37de61ee 1f96bee20 4eb3f5fa5 6e1267756 ba23155a9 (1146 tests). SIGKILL escalation driven by an injected `LeoProcessScheduler` (+ a `.dispatch` test); the highlighter counts ICU match steps instead of timing (budget 1 tick/128 chars); the coalescing tests use an event-driven fake clock. Each passed 10/10 under 28× `yes` load and each was proven by breaking what it guards. Test-only, so no screenshot. 3 fix rounds; the final MED (pid reused by another child in the failure-only cleanup) dismissed.
 
-## B-031 · Flake: LeoSidebarFeedFixTests/sseRefreshTask…   [ready]
+## B-031 · Flake: LeoSidebarFeedFixTests/sseRefreshTask…   [done]
 Accept: `sseRefreshTaskReplacesAPendingPredecessorAndIsCancelledOnStop` failed once at load ~245 (`clock.sleepCount == 1`). Its test clock removes cancelled sleeps asynchronously, the pattern B-025 replaced in the coalescing tests; apply the same fix and prove 10/10 under load.
 Source: B-025 implementer run
 Also seen (B-034, 2026-09-23): one full run stopped after 828 of 1177 tests with no summary and no crash marker; the rerun passed. Find out why.
+Done: 05ec8fd2d 3e3859708 235748c7a b32c98cd4 40fdb2b8a (1180 tests). The SSE test uses the shared firing clock and checks exact pending sleeps (10/10 under 28× `yes`; proven by removing each cancel). The 828-test stop was the script's 400 s timeout on a heavily loaded machine; the script now fails loudly (D-057). Also fixed: parallel `xcodebuild test` hosts were quit by the single-instance check. Test-only and launch-time logic, so no screenshot. 2 fix rounds; 3rd review clean. Other load flakes → B-036.
+
+## B-036 · More sidebar-feed flakes under load   [ready]
+Accept: under 4× load (B-031 run) `LeoSidebarFeedRecoveryTests` failed 19 times (~4 s each), `LeoSidebarFeedAttentionRaceTests` 4, `LeoSidebarFeedHostSwitchTests` and `LeoSidebarTests` once each. Find each root cause, move them onto `LeoFiringClock` or event-driven waits, prove 10/10 under load and that each still fails when its behavior is broken.
+Source: B-031 implementer run
 
 ## B-005 · Per-agent workspace browser   [done]
 Accept: from a sidebar row (context menu + shortcut), browse the agent's

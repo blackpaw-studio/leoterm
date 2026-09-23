@@ -452,3 +452,11 @@ Why: verification needs a way in that automation can reach; principle 3 is untou
 Alternatives: drive the Open panel (automation can't focus it)
 Commit: 2c05c0b83 de2c47114
 Veto: [ ]
+
+## D-057 · 2026-09-23 · What counts as an XCTest host; incomplete test runs fail loudly
+Context: B-031. The single-instance check (D-051) quit parallel `xcodebuild test` workers (`XCInjectBundleInto=unused`), which would also break Xcode ⌘U; a suite run cut off by the script's timeout looked like a pass with fewer tests
+Chose: a process is a test host only when the XCTest injector is loaded AND the executable of an `.xctest` directly in this app's (realpath'd) Contents/PlugIns is loaded, plus `XCInjectBundleInto` naming this executable (direct runs) or `XCTestBundlePath` resolving to that plug-in (xcodebuild). The worktree's `scratchpad/runtests.sh` prints "RUN INCOMPLETE" and exits 2 when the host ends without a summary; `LEO_TEST_TIMEOUT` overrides the 400 s timeout. The B-025 firing clock is shared as `LeoFiringClock`
+Why: tests must not depend on whether a debug copy is running, and a real launch must never skip the lock (D-051)
+Alternatives: any XCTest env var (first build; a stray variable skipped the lock)
+Commit: 05ec8fd2d 3e3859708 235748c7a b32c98cd4 40fdb2b8a
+Veto: [ ]
