@@ -150,17 +150,21 @@ struct LeoSingleInstance {
     let alert: (String) -> Void
     let terminate: (Int32) -> Void
 
-    /// A hosted XCTest run: the injector library is actually loaded into this
-    /// process AND the environment names this very app -- either the
-    /// injector's target is this executable (a direct `-XCTest` run), or, as
-    /// `xcodebuild test` launches it (`XCInjectBundleInto=unused`), the test
-    /// bundle is one of this app's plug-ins and already loaded. Environment
-    /// variables alone (which a child can inherit) are never enough.
-    static func isTestHost(environment: [String: String], executablePath: String?, bundlePath: String? = nil, loadedImages: [String]) -> Bool {
+    /// A hosted XCTest run, three facts together: the injector library is
+    /// loaded; the executable of one of this app's `.xctest` plug-ins is
+    /// loaded (by the time `main.swift` runs, the injector has loaded it,
+    /// under `xcodebuild` and `-XCTest` alike); and the environment names
+    /// this app -- the injector's target is this executable (a direct
+    /// `-XCTest` run) or, as `xcodebuild test` launches it
+    /// (`XCInjectBundleInto=unused`), `XCTestBundlePath` is that plug-in.
+    /// Environment variables alone (which a child can inherit) are never enough.
+    static func isTestHost(environment: [String: String], executablePath: String?, bundlePath: String?, loadedImages: [String]) -> Bool {
         let injectorLoaded = loadedImages.contains { URL(fileURLWithPath: $0).lastPathComponent == "libXCTestBundleInject.dylib" }
-        guard injectorLoaded else { return false }
+        guard injectorLoaded, let bundle = bundlePath.flatMap(realPath) else { return false }
+        let testBundles = loadedPlugInTestBundles(in: bundle, loadedImages: loadedImages)
+        guard !testBundles.isEmpty else { return false }
         return injectsInto(executablePath, environment: environment)
-            || hostsLoadedTestBundle(in: bundlePath, environment: environment, loadedImages: loadedImages)
+            || namesTestBundle(testBundles, in: bundle, environment: environment)
     }
 
     private static func injectsInto(_ executablePath: String?, environment: [String: String]) -> Bool {
@@ -169,21 +173,27 @@ struct LeoSingleInstance {
         return injectedInto == executablePath
     }
 
-    /// `XCTestBundlePath` (absolute, or relative to the app) resolves to a
-    /// `.xctest` directory directly in this app's `Contents/PlugIns`, and
-    /// that bundle's code is loaded -- by the time `main.swift` runs, the
-    /// injector has already loaded it, under `xcodebuild` and `-XCTest` alike.
-    private static func hostsLoadedTestBundle(in bundlePath: String?, environment: [String: String], loadedImages: [String]) -> Bool {
-        guard let testBundle = environment["XCTestBundlePath"], !testBundle.isEmpty,
-              let bundle = bundlePath.flatMap(realPath) else { return false }
+    /// `XCTestBundlePath` (absolute, or relative to the app) resolves to one
+    /// of `testBundles`.
+    private static func namesTestBundle(_ testBundles: Set<String>, in bundle: String, environment: [String: String]) -> Bool {
+        guard let testBundle = environment["XCTestBundlePath"], !testBundle.isEmpty else { return false }
         let candidate = testBundle.hasPrefix("/") ? testBundle : bundle + "/" + testBundle
-        guard let resolved = realPath(candidate) else { return false }
-        let url = URL(fileURLWithPath: resolved)
-        var isDirectory: ObjCBool = false
-        guard url.pathExtension == "xctest",
-              url.deletingLastPathComponent().path == bundle + "/Contents/PlugIns",
-              FileManager.default.fileExists(atPath: resolved, isDirectory: &isDirectory), isDirectory.boolValue else { return false }
-        return loadedImages.contains { realPath($0)?.hasPrefix(resolved + "/Contents/MacOS/") == true }
+        return realPath(candidate).map(testBundles.contains) ?? false
+    }
+
+    /// The resolved `.xctest` directories directly in this app's (resolved)
+    /// `Contents/PlugIns` whose declared executable is a loaded image.
+    private static func loadedPlugInTestBundles(in bundle: String, loadedImages: [String]) -> Set<String> {
+        guard let plugIns = realPath(bundle + "/Contents/PlugIns"),
+              let names = try? FileManager.default.contentsOfDirectory(atPath: plugIns) else { return [] }
+        let loaded = Set(loadedImages.compactMap(realPath))
+        return Set(names.filter { $0.hasSuffix(".xctest") }.compactMap { name -> String? in
+            guard let testBundle = realPath(plugIns + "/" + name),
+                  URL(fileURLWithPath: testBundle).deletingLastPathComponent().path == plugIns,
+                  let executable = Bundle(path: testBundle)?.executableURL.flatMap({ realPath($0.path) }),
+                  loaded.contains(executable) else { return nil }
+            return testBundle
+        })
     }
 
     static func isRunningAsTestHost() -> Bool {
