@@ -50,7 +50,9 @@ enum LeoEditorSaveOutcome: Equatable, Sendable {
 @MainActor final class LeoEditorDocument: ObservableObject {
     let fileID: LeoEditorFileID
     let language: LeoEditorLanguage
-    @Published private(set) var text: String
+    /// The buffer as of the last `edit` (the view owns the live text, so
+    /// keystrokes publish nothing unless the dirty state flips).
+    private(set) var text: String
     @Published private(set) var isDirty = false
     @Published private(set) var diskState = LeoEditorDiskState.inSync
     @Published private(set) var readOnlyReason: LeoEditorReadOnlyReason?
@@ -105,7 +107,8 @@ enum LeoEditorSaveOutcome: Equatable, Sendable {
     func edit(_ newText: String) {
         guard !isReadOnly else { return }
         text = newText
-        isDirty = savedText != newText
+        let dirty = savedText != newText
+        if dirty != isDirty { isDirty = dirty }
     }
 
     /// Compares the disk with the buffer's base: a clean buffer reloads

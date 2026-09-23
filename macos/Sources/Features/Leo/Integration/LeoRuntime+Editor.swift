@@ -30,9 +30,12 @@ extension LeoRuntime {
     }
 
     /// Opens `text` for `agent` in `session`'s pane; failures get a sheet.
+    /// A local folder still opens in Finder, as a ⌘-click did before.
     func openInEditor(_ text: String, for agent: LeoEditorAgentContext, in session: LeoWindowSession, window: NSWindow?) async {
         do {
             try await session.editor.open(link: text, for: agent)
+        } catch LeoFileAccessError.isADirectory(let path) where agent.host == .local {
+            NSWorkspace.shared.open(URL(fileURLWithPath: path, isDirectory: true))
         } catch {
             LeoEditorAlerts.presentError(error, on: window)
         }

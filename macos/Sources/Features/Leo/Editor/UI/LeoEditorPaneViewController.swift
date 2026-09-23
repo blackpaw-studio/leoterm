@@ -63,8 +63,19 @@ final class LeoEditorPaneViewController: NSViewController {
         closePane()
     }
 
+    /// A pane just shown may join its window only on the next layout, so
+    /// a focus request that can't land yet is retried once, next turn.
     func focusText() {
-        view.window?.makeFirstResponder(textView)
+        if let window = view.window, window.makeFirstResponder(textView) { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let window = view.window else { return }
+            window.makeFirstResponder(textView)
+        }
+    }
+
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        textView.fillVisibleHeight()
     }
 
     var hasFocus: Bool {

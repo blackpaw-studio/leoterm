@@ -8,6 +8,9 @@ final class LeoEditorTextView: NSTextView {
     /// units); beyond it, only the edited lines (a construct opened above
     /// them, like a block comment, may then be coloured stale).
     static let fullHighlightLimit = 256_000
+    /// Beyond this, no highlighting at all (a read-only 20 MB log shows as
+    /// plain text rather than stalling on the regex pass).
+    static let highlightLimit = 2_000_000
 
     var language = LeoEditorLanguage.plainText
     let theme = LeoSyntaxTheme.system()
@@ -98,6 +101,7 @@ final class LeoEditorTextView: NSTextView {
     func highlightEdits() {
         guard let storage = textStorage, let edited = pendingHighlight else { return }
         pendingHighlight = nil
+        guard storage.length <= Self.highlightLimit else { return }
         if storage.length <= Self.fullHighlightLimit {
             highlightAll()
         } else {
@@ -108,7 +112,16 @@ final class LeoEditorTextView: NSTextView {
 
     private func highlightAll() {
         guard let storage = textStorage else { return }
+        let language = storage.length <= Self.highlightLimit ? language : .plainText
         LeoSyntaxHighlighter.apply(to: storage, language: language, theme: theme)
+    }
+
+    /// At least as tall as the visible area, so a click below a short
+    /// file's last line still lands in the text.
+    func fillVisibleHeight() {
+        guard let height = enclosingScrollView?.contentSize.height, minSize.height != height else { return }
+        minSize = NSSize(width: 0, height: height)
+        sizeToFit()
     }
 
     // MARK: - Undo (own stack)
