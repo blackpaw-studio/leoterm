@@ -580,6 +580,40 @@ struct LeoUnsavedEditorsGateTests {
         }
     }
 
+    /// ⌘W on the stuck editor during a pending logout offers to close it
+    /// anyway; leaving then goes the same way as the banner's: the logout
+    /// goes on (asking about the others), rather than being cancelled.
+    @Test(.timeLimit(.minutes(1)))
+    func commandWOnTheStuckEditorLetsAPendingQuitGoOn() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let log = Log()
+            let access = LeoHangingAccess(LeoFileAccessor.local())
+            let stuck = pane(answering: .save, log: log, access: access)
+            try await open(stuck, try sandbox.file("a.txt", "a"), editing: true)
+            access.hangsWrites = true
+            let other = pane(answering: .discard, log: log)
+            try await open(other, try sandbox.file("b.txt", "b"), editing: true)
+            let gate = gate(leaving: true, log: log)
+            var replies: [Bool] = []
+            #expect(gate.deferQuit(
+                of: [entry(stuck, "1", log), entry(other, "2", log)], isSystemQuit: true, reply: { replies.append($0) }, retry: {}
+            ) == .terminateLater)
+            await access.waitUntilWriting()
+
+            try #require(gate.deferClose(of: [entry(stuck, "1", log)]) { log.outcomes["commandW"] = $0 })
+            #expect(await eventually { !replies.isEmpty && log.outcomes["commandW"] != nil })
+            try? await Task.sleep(for: .milliseconds(50))
+
+            #expect(log.offers == [.close])
+            #expect(log.outcomes == ["commandW": true])
+            #expect(replies == [true], "the logout goes on")
+            #expect(log.asked == ["a.txt", "b.txt"])
+            #expect(stuck.document == nil)
+            #expect(other.document == nil)
+            #expect(!gate.isAsking)
+        }
+    }
+
     /// Keep Waiting changes nothing: the offer stays reachable, and the
     /// quit goes on once the save comes back.
     @Test(.timeLimit(.minutes(1)))

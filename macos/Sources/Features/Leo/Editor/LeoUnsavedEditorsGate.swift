@@ -119,7 +119,15 @@ import AppKit
             }.first { _, current in
                 !current.editor.isConfirming && unsaved.contains { $0.editor === current.editor }
             }
-            if let (resolution, entry) = stuck, !isOffering {
+            if let (resolution, entry) = stuck, !isOffering, resolution.offersToLeave {
+                // Stuck in a pending quit: leaving goes the banner's way, and
+                // the quit goes on; this close only decides for its others.
+                offerToLeave(entry, from: resolution, leaving: leaving) { [weak self] left in
+                    guard left, let self else { return completion(false) }
+                    let rest = entries.filter { $0.editor !== entry.editor }
+                    if !deferClose(of: rest, leaving: leaving, offersToLeave: offersToLeave, completion: completion) { completion(true) }
+                }
+            } else if let (resolution, entry) = stuck, !isOffering {
                 offerToLeave(entry, stuckIn: resolution, closing: entries, leaving: leaving, offersToLeave: offersToLeave, completion: completion)
             } else {
                 Task { completion(false) }
@@ -181,22 +189,26 @@ import AppKit
         resolution.completion(goingAhead)
     }
 
-    /// From inside a pending quit (`LeoEditorPaneModel.leaveAnyway`):
-    /// leaving drops the stuck editor's document without waiting for
-    /// what's in flight, and the quit goes on to ask about the rest.
-    /// Keep Waiting changes nothing, and the offer stays reachable.
-    private func offerToLeave(_ entry: Entry, from resolution: Resolution) {
-        guard !isOffering, resolution.isStuck(on: entry) else { return }
+    /// From inside a pending quit (`LeoEditorPaneModel.leaveAnyway`, or
+    /// another close of the stuck editor, as `leaving`): leaving drops the
+    /// stuck editor's document without waiting for what's in flight, and
+    /// the quit goes on to ask about the rest. Keep Waiting changes
+    /// nothing, and the offer stays reachable. `then`: whether it left.
+    private func offerToLeave(
+        _ entry: Entry, from resolution: Resolution, leaving: Leaving? = nil, then: @escaping @MainActor (Bool) -> Void = { _ in }
+    ) {
+        guard !isOffering, resolution.isStuck(on: entry) else { return then(false) }
         isOffering = true
         Task {
-            let leave = await offerToLeave(entry, resolution.leaving)
+            let leave = await offerToLeave(entry, leaving ?? resolution.leaving)
             isOffering = false
             // Only if it's still stuck: the save may have come back meanwhile.
-            guard leave, resolution.isStuck(on: entry) else { return }
+            guard leave, resolution.isStuck(on: entry) else { return then(false) }
             entry.editor.leaveAnyway = nil
             entry.editor.abandon()
             resolution.current = nil
             advance(resolution)
+            then(true)
         }
     }
 
