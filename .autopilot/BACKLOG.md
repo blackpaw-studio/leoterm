@@ -68,10 +68,15 @@ Done: 5980d43a6 95eff7499 8516b9867 f25eefc0c 60b6c5f72 e47c78546 f401ac93e cfb6
 Accept: (a) MEDIUM: the close gate asks only about editors that were dirty when the close began (`LeoUnsavedEditorsGate.swift:97,122`). An editor edited while a system-quit "Keep Waiting / Quit Anyway" offer is up is never asked. Pass the close's full entries into `Resolution` and re-check `hasUnsavedEdits`, with a test. (b) MEDIUM, plausible: logout with a hung SFTP save relies on a second ⌘Q reaching the delegate while `.terminateLater` is pending; check that on the laptop, or offer leave-anyway from within the pending system quit. (c) The pane opens at its 320 pt minimum, not 50/50; position it after the un-collapse finishes, the way the sidebar restores its width. (d) Tests for the TerminalController wiring: `leoKeepForUnsavedEdits`, the early returns in `closeTabImmediately` and `closeWindowImmediately`, the ⌘W override. (e) LOW: the quit review says "Close Anyway" instead of "Quit Anyway"; the offer sheet queues behind an existing sheet.
 Source: B-004 reviews
 
-## B-005 · Per-agent workspace browser   [ready]
+## B-005 · Per-agent workspace browser   [done]
 Accept: from a sidebar row (context menu + shortcut), browse the agent's
 workspace tree via B-003 and open files in B-004's pane. Keyboard navigable.
 Source: Evan, vision session; D-007
+Done: 864a16bc6 7204dd557 a2620137c 75a0feeef 860df8083 (1069 tests). Verified: shots B-005-1..5 on autopilot-scratch (row menu ▸ Browse Files, arrow and →/← navigation, Return opens a highlighted file, ⇧⌘. shows dotfiles; in an 800 pt window the sidebar collapses so the terminal keeps its room). Remote tested with the SFTP fake only. Polish → B-023.
+
+## B-023 · Workspace browser polish   [ready (next run)]
+Accept: (a) hidden files show dimmed when Show Hidden Files is on, like Finder; (b) opening a new root waits for the old SFTP access to finish closing before its first listing (`LeoWorkspaceBrowserModel.swift:153`); start the listing first; (c) the 300 pt terminal floor is only enforced when a pane opens, not when the window narrows or ⌘⇧L shows the sidebar again. Decide whether that matters in use.
+Source: B-005 visual check + second review
 
 ## B-006 · Tab ↔ row linkage   [done]
 Accept: highlighted row follows the focused attach tab; tab-count glyph on rows

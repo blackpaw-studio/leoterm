@@ -282,7 +282,7 @@ Context: B-005
 Chose: the browser is a collapsible outline (NSOutlineView) on the leading edge of the B-004 editor split, rooted at the agent's workspace (the same root that relative ⌘-click paths resolve against). Opened from the row context menu "Browse Files" and Agents ▸ Browse Agent Files (⌥⌘B unless taken; implementer picks a free one and reports it). Folders load lazily through LeoFileAccess, folders first then names in Finder order; dotfiles hidden with a Show Hidden Files toggle (⇧⌘.) like Finder. Arrows navigate, → / ← expand and collapse, Return opens the file in the editor pane, Escape returns focus to the terminal. Refresh on window-becomes-key and a manual Reload, never on a timer. Errors show inline in the list, not as alerts
 Why: principles 1 (keyboard-first, Finder conventions), 3 (one LeoFileAccess path, local = SFTP), 4 (read agent files without leaving), 5 (no timers)
 Alternatives: a separate browser window; a popover; an entry in the sidebar tree
-Commit:
+Commit: 864a16bc6 7204dd557 a2620137c 75a0feeef 860df8083
 Veto: [ ]
 
 ## D-036 · 2026-09-23 · The terminal keeps at least 300 pt; side panes make room by collapsing the sidebar
@@ -290,5 +290,13 @@ Context: B-005 review: sidebar + browser + editor left the terminal about 97 pt 
 Chose: the terminal gets a 300 pt floor. When opening the browser or the editor would push it below that, the agents sidebar collapses first (⌘⇧L brings it back). If there's still not enough room, the pane opens anyway at its minimum width; the user's action is never refused
 Why: principle 1 (the terminal is the primary surface; first-party apps give up the sidebar before the content); principle 2 (nothing beeps or refuses)
 Alternatives: refuse and beep; collapse the browser when the editor opens
-Commit:
+Commit: 860df8083
+Veto: [ ]
+
+## D-037 · 2026-09-23 · B-005 implementer calls
+Context: B-005 build and fix round
+Chose: the browser is its own split item between the terminal and the editor (no nested split view). File-open errors show in a dismissible bar under the list; folder-listing errors show as rows you can't select. A symlink to a folder counts as a folder. With no workspace reported, the list says "This agent hasn't reported a workspace." ⌥⌘B steps open → focus → close ("Close Agent Files"). ⌘R reloads and ⌘W closes only while the browser has focus. The hidden-files setting is per window and not saved. The auto-collapse of the sidebar isn't saved as a preference. Symlink stats run at most 8 at a time
+Why: principle 1 (Finder conventions, keyboard-first); avoids the known nested NSSplitView launch crash
+Alternatives: nest the browser in the editor's own split; show errors as alerts
+Commit: 864a16bc6 7204dd557 a2620137c 75a0feeef 860df8083
 Veto: [ ]
