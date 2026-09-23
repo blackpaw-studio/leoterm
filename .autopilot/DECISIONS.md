@@ -394,5 +394,6 @@ Context: B-027. The first fix probed the socket (connect → ECONNREFUSED = dead
 Chose: each tunnel path has `<path>.lock` (same checked dir, 0600, CLOEXEC); the app holds `flock(LOCK_EX|LOCK_NB)` for the tunnel's life. Holding the lock means any socket or orphan record at that path is a dead app's, safe to reap and unlink without a probe; a busy lock → "already in use by another copy of Leo" and nothing is signalled. Also the implementer's calls: `StreamLocalBindUnlink` dropped from the ssh args; records whose process is gone are cleared at launch; `LeoAgentActions` requires the injected selection
 Why: principle 3 (tunnel robustness) and 5 (a crashed run still self-recovers; a live sibling is an explicit error, never silently stolen); the kernel releases the lock on crash
 Alternatives: harden the connect probe with a deadline and errno classification
-Commit:
+Commit: 9bdf7cb22 07e8aaa59 93032ed6e
 Veto: [ ]
+Reverted: 75f5b8eda (B-027 blocked after 3 attempts)

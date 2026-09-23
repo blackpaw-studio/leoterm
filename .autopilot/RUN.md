@@ -1,6 +1,6 @@
 Status: running
-Item: B-027
-Base: 03ac88d2631d59e5277923e6cff2e8f0b4af1d06
+Item: B-024
+Base: 75f5b8eda30e52d52e62b31c220eb446a913b2c8
 Wip: none
 Untracked-left: macos/default.profraw scratchpad/ zig-out
 
@@ -15,3 +15,4 @@ Untracked-left: macos/default.profraw scratchpad/ zig-out
 - B-027: built 77957fcdf (1145 tests). No remote host → not visually verified. review.security: 3 HIGH (probe/unlink race; ECONNREFUSED ambiguous; reap SIGTERMs a sibling, pre-existing) + 2 MED (pid reuse; blocking probe) → attempt 1 (d-a67f56b72e3c#2): flock ownership, D-049.
 - B-027: attempt-1 fix 9bdf7cb22 (1154 tests). Re-review: 2 HIGH + 1 MED, all mixed-version (pre-B-021/pre-D-049 copies running at once): the legacy-record SIGTERM gets fixed (never signal legacy records); the pre-lock cache-path HIGH and the legacy-probe MED are dismissed as an upgrade-overlap window. LOW (lock mode) fixed → attempt 2 (d-a67f56b72e3c#3).
 - B-027: attempt-2 fix 07e8aaa59 (1157 tests). 3rd review: HIGH (single orphan record for all hosts, pre-existing) + MED (reap does not confirm exit) → attempt 3, the last (d-a67f56b72e3c#4).
+- B-027 blocked: 4th review found 2 HIGH (Retry cannot recover a kept lock; ssh started before its record) + MED + LOW after attempt 3 (93032ed6e). Reverted 77957fcdf..93032ed6e in 75f5b8eda. Question: single instance per bundle? D-049 reverted.
