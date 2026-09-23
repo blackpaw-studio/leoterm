@@ -18,7 +18,7 @@ final class LeoEditorTextView: NSTextView {
     var documentUndoManager = UndoManager()
     /// Where edits landed since the last highlight pass.
     private var pendingHighlight: NSRange?
-    /// The selection when the latest user edit began.
+    /// The selection when the pending user edit began.
     private var selectionBeforeEdit: NSRange?
 
     static func make() -> (NSScrollView, LeoEditorTextView) {
@@ -65,30 +65,48 @@ final class LeoEditorTextView: NSTextView {
     }
 
     /// Replaces the whole text (a newly opened or reloaded file), keeping
-    /// the selection where it still fits.
+    /// a caret where the selection began, if it still fits: the new text
+    /// may be unrelated, so a selection over it would be meaningless.
     func load(_ text: String, keepingSelection: Bool) {
-        load(text, selecting: keepingSelection ? selectedRange() : NSRange(location: 0, length: 0))
+        let location = keepingSelection ? selectedRange().location : 0
+        load(text, selecting: NSRange(location: location, length: 0))
         if !keepingSelection { scrollToBeginningOfDocument(nil) }
     }
 
     /// Undoes a refused user edit: back to `text`, with the selection the
     /// edit replaced (typing collapses it to a caret).
     func revertEdit(to text: String) {
-        load(text, selecting: selectionBeforeEdit ?? selectedRange())
+        let selection = selectionBeforeEdit ?? selectedRange()
+        selectionBeforeEdit = nil
+        load(text, selecting: selection)
     }
 
+    /// Sets `text` and selects `selection`, clamped to it and widened to
+    /// whole composed characters (never half a surrogate pair).
     private func load(_ text: String, selecting selection: NSRange) {
         string = text
         highlightAll()
         pendingHighlight = nil
-        let length = (text as NSString).length
-        let location = min(selection.location, length)
-        setSelectedRange(NSRange(location: location, length: min(selection.length, length - location)))
+        let nsText = text as NSString
+        let location = min(selection.location, nsText.length)
+        let clamped = NSRange(location: location, length: min(selection.length, nsText.length - location))
+        let snapped = clamped.length > 0
+            ? nsText.rangeOfComposedCharacterSequences(for: clamped)
+            : NSRange(location: location < nsText.length ? nsText.rangeOfComposedCharacterSequence(at: location).location : location, length: 0)
+        setSelectedRange(snapped)
     }
 
+    /// Records the selection before the first step of a user edit (a
+    /// compound one, like a smart substitution, asks more than once).
     override func shouldChangeText(in affectedCharRange: NSRange, replacementString: String?) -> Bool {
-        selectionBeforeEdit = selectedRange()
+        if selectionBeforeEdit == nil { selectionBeforeEdit = selectedRange() }
         return super.shouldChangeText(in: affectedCharRange, replacementString: replacementString)
+    }
+
+    /// The edit has landed (and `textDidChange` has run): forget it.
+    override func didChangeText() {
+        super.didChangeText()
+        selectionBeforeEdit = nil
     }
 
     /// Where `reveal` puts the caret, and the line it's on.
