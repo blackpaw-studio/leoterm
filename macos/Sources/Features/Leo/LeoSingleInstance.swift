@@ -154,12 +154,13 @@ struct LeoSingleInstance {
     /// process AND the environment names this very app -- either the
     /// injector's target is this executable (a direct `-XCTest` run), or, as
     /// `xcodebuild test` launches it (`XCInjectBundleInto=unused`), the test
-    /// bundle lives inside this app. Environment variables alone (which a
-    /// child can inherit) are never enough.
+    /// bundle is one of this app's plug-ins and already loaded. Environment
+    /// variables alone (which a child can inherit) are never enough.
     static func isTestHost(environment: [String: String], executablePath: String?, bundlePath: String? = nil, loadedImages: [String]) -> Bool {
         let injectorLoaded = loadedImages.contains { URL(fileURLWithPath: $0).lastPathComponent == "libXCTestBundleInject.dylib" }
         guard injectorLoaded else { return false }
-        return injectsInto(executablePath, environment: environment) || hostsTestBundle(in: bundlePath, environment: environment)
+        return injectsInto(executablePath, environment: environment)
+            || hostsLoadedTestBundle(in: bundlePath, environment: environment, loadedImages: loadedImages)
     }
 
     private static func injectsInto(_ executablePath: String?, environment: [String: String]) -> Bool {
@@ -168,14 +169,21 @@ struct LeoSingleInstance {
         return injectedInto == executablePath
     }
 
-    /// `XCTestBundlePath` (absolute, or relative to the app) resolves to an
-    /// existing path strictly inside this app bundle.
-    private static func hostsTestBundle(in bundlePath: String?, environment: [String: String]) -> Bool {
+    /// `XCTestBundlePath` (absolute, or relative to the app) resolves to a
+    /// `.xctest` directory directly in this app's `Contents/PlugIns`, and
+    /// that bundle's code is loaded -- by the time `main.swift` runs, the
+    /// injector has already loaded it, under `xcodebuild` and `-XCTest` alike.
+    private static func hostsLoadedTestBundle(in bundlePath: String?, environment: [String: String], loadedImages: [String]) -> Bool {
         guard let testBundle = environment["XCTestBundlePath"], !testBundle.isEmpty,
               let bundle = bundlePath.flatMap(realPath) else { return false }
         let candidate = testBundle.hasPrefix("/") ? testBundle : bundle + "/" + testBundle
         guard let resolved = realPath(candidate) else { return false }
-        return resolved.hasPrefix(bundle + "/")
+        let url = URL(fileURLWithPath: resolved)
+        var isDirectory: ObjCBool = false
+        guard url.pathExtension == "xctest",
+              url.deletingLastPathComponent().path == bundle + "/Contents/PlugIns",
+              FileManager.default.fileExists(atPath: resolved, isDirectory: &isDirectory), isDirectory.boolValue else { return false }
+        return loadedImages.contains { realPath($0)?.hasPrefix(resolved + "/Contents/MacOS/") == true }
     }
 
     static func isRunningAsTestHost() -> Bool {

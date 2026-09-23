@@ -109,44 +109,38 @@ struct LeoSingleInstanceTests {
     /// `XCInjectBundleInto=unused` and name the test bundle, relative to the
     /// app, in `XCTestBundlePath`. Missing this let a parallel test worker
     /// find its sibling holding the lock and `exit(0)` mid-run.
-    @Test func xcodebuildsInjectionNamingATestBundleInsideThisAppIsATestHost() throws {
-        let own = try #require(Bundle.main.executablePath)
-        let bundle = Bundle.main.bundlePath
-        let plugIn = try #require(Self.hostedTestBundlePath())
-        let images = ["/x/usr/lib/libXCTestBundleInject.dylib"]
+    @Test func xcodebuildsInjectionOfALoadedPlugInTestBundleIsATestHost() throws {
+        let app = try FakeHostApp()
+        defer { app.remove() }
 
-        for testBundle in [plugIn, bundle + "/" + plugIn] {
-            let environment = ["XCInjectBundleInto": "unused", "XCTestBundlePath": testBundle]
-            #expect(LeoSingleInstance.isTestHost(environment: environment, executablePath: own, bundlePath: bundle, loadedImages: images), "\(testBundle)")
-            #expect(!LeoSingleInstance.isTestHost(
-                environment: environment, executablePath: own, bundlePath: bundle, loadedImages: ["/usr/lib/libSystem.B.dylib"]
-            ), "\(testBundle) without the injector")
+        for testBundle in [FakeHostApp.plugIn, app.path + "/" + FakeHostApp.plugIn] {
+            #expect(app.isTestHost(testBundle), "\(testBundle)")
+            #expect(!app.isTestHost(testBundle, loadedImages: [FakeHostApp.injector]), "\(testBundle): test bundle not loaded")
+            #expect(!app.isTestHost(testBundle, loadedImages: [app.testExecutable]), "\(testBundle): no injector")
         }
     }
 
-    /// A test bundle outside this app (an inherited variable, or a path that
-    /// climbs out of it) or one that doesn't exist never makes a test host.
-    @Test func aTestBundlePathOutsideThisAppIsNotATestHost() throws {
-        let own = try #require(Bundle.main.executablePath)
-        let bundle = Bundle.main.bundlePath
-        let plugIn = try #require(Self.hostedTestBundlePath())
-        let images = ["/x/usr/lib/libXCTestBundleInject.dylib"]
-        let outside = ["/tmp", "Contents/../..", "../" + URL(fileURLWithPath: bundle).lastPathComponent + "/" + plugIn + "/../../../..", "Contents/PlugIns/Missing.xctest", ""]
+    /// Only an `.xctest` directory directly in this app's `Contents/PlugIns`
+    /// counts -- not any file in the app, another directory, an `.xctest`
+    /// elsewhere, a path that climbs out, or one that doesn't exist -- and
+    /// only when that bundle's own executable is loaded.
+    @Test func aTestBundlePathThatIsNotALoadedPlugInTestBundleIsNotATestHost() throws {
+        let app = try FakeHostApp()
+        defer { app.remove() }
+        let rejected = [
+            "Contents/Info.plist", "Contents/Resources", "Contents/PlugIns", "Contents/Stray.xctest",
+            "Contents/PlugIns/Nested/Deep.xctest", "Contents/PlugIns/Plain.xctest",
+            "Contents/PlugIns/Missing.xctest", "/tmp", "Contents/../..", "",
+        ]
 
-        for testBundle in outside {
-            let environment = ["XCInjectBundleInto": "unused", "XCTestBundlePath": testBundle]
-            #expect(!LeoSingleInstance.isTestHost(environment: environment, executablePath: own, bundlePath: bundle, loadedImages: images), "\(testBundle)")
+        for testBundle in rejected {
+            let images = [FakeHostApp.injector, app.testExecutable, app.path + "/" + testBundle + "/Contents/MacOS/X"]
+            #expect(!app.isTestHost(testBundle, loadedImages: images), "\(testBundle)")
         }
         #expect(!LeoSingleInstance.isTestHost(
-            environment: ["XCTestBundlePath": plugIn], executablePath: own, bundlePath: nil, loadedImages: images
+            environment: ["XCTestBundlePath": FakeHostApp.plugIn], executablePath: nil, bundlePath: nil,
+            loadedImages: [FakeHostApp.injector, app.testExecutable]
         ), "no bundle path")
-    }
-
-    /// The test bundle this suite runs from, relative to the host app.
-    private static func hostedTestBundlePath() -> String? {
-        let plugIns = Bundle.main.bundleURL.appendingPathComponent("Contents/PlugIns")
-        let name = try? FileManager.default.contentsOfDirectory(atPath: plugIns.path).first { $0.hasSuffix(".xctest") }
-        return name.map { "Contents/PlugIns/" + $0 }
     }
 
     // MARK: - Refusal reasons: each alerts and quits, never launches
@@ -308,5 +302,41 @@ private final class GateSpy {
             bundleIdentifier: "studio.blackpaw.leo.macos.tests", isTestHost: isTestHost,
             acquireLock: acquire, activateOther: activate, alert: alert, terminate: exit
         )
+    }
+}
+
+/// A throwaway app bundle laid out like the test host, with decoys:
+/// `Contents/Info.plist`, `Contents/Resources/`, `Contents/Stray.xctest/`,
+/// `Contents/PlugIns/{Tests,Plain,Nested/Deep}.xctest/`.
+private struct FakeHostApp {
+    static let plugIn = "Contents/PlugIns/Tests.xctest"
+    static let injector = "/x/usr/lib/libXCTestBundleInject.dylib"
+    let path: String
+    var testExecutable: String { path + "/" + Self.plugIn + "/Contents/MacOS/Tests" }
+
+    init() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("leo-fake-host-\(UUID().uuidString)/Fake.app")
+        path = root.path
+        let manager = FileManager.default
+        for directory in ["Contents/MacOS", "Contents/Resources", "Contents/Stray.xctest/Contents/MacOS", "Contents/PlugIns/Tests.xctest/Contents/MacOS",
+                          "Contents/PlugIns/Plain.xctest", "Contents/PlugIns/Nested/Deep.xctest/Contents/MacOS"] {
+            try manager.createDirectory(at: root.appendingPathComponent(directory), withIntermediateDirectories: true)
+        }
+        for file in ["Contents/Info.plist", "Contents/MacOS/Fake", "Contents/Stray.xctest/Contents/MacOS/Stray",
+                     Self.plugIn + "/Contents/MacOS/Tests", "Contents/PlugIns/Nested/Deep.xctest/Contents/MacOS/Deep"] {
+            try Data().write(to: root.appendingPathComponent(file))
+        }
+    }
+
+    func isTestHost(_ testBundle: String, loadedImages: [String]? = nil) -> Bool {
+        LeoSingleInstance.isTestHost(
+            environment: ["XCInjectBundleInto": "unused", "XCTestBundlePath": testBundle],
+            executablePath: path + "/Contents/MacOS/Fake", bundlePath: path,
+            loadedImages: loadedImages ?? [Self.injector, testExecutable]
+        )
+    }
+
+    func remove() {
+        try? FileManager.default.removeItem(atPath: URL(fileURLWithPath: path).deletingLastPathComponent().path)
     }
 }
