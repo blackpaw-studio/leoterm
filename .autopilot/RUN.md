@@ -19,3 +19,4 @@ Untracked-left: macos/default.profraw scratchpad/ zig-out
 - B-020 done: ad0807785 796b0a2ec 8b6494d45 935b5a600 (1122 tests). 3 fix rounds; final review HIGH (selectors after any base) → B-026; kept per D-043.
 - B-021: built cda6610e8 (1130 tests). No UI → not visually verified. review.security via code-reviewer fallback (codex route broken all run).
 - B-021 done: cda6610e8 (1130 tests). Review: 1 MED dismissed (pre-existing unlink; D-044) → B-027.
+- B-019: built c92565ac3 ad537d10e (1132 tests). Test-only → not visually verified. review: HIGH (100 ms sleep can miss a delayed bypass) + MED (fixed sleeps in the recorder) → attempt 1 (d-43d5f92b0d93#2). Note: plain review role routed to codex fine; only review.security failed.
