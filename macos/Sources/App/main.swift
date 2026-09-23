@@ -32,8 +32,9 @@ ghostty_cli_try_action()
 
 // MARK: Leo
 // One copy per bundle ID, decided before the app delegate (and with it any
-// tunnel) exists: a second copy activates the first and exits here. The
-// claim holds the instance lock for the life of the process.
+// tunnel) exists: a second copy activates the first and exits here, and a
+// lock that can't be taken safely alerts and exits 1. The claim holds the
+// instance lock for the life of the process.
 let leoInstanceClaim = LeoSingleInstance.live().claim()
 
 _ = NSApplicationMain(CommandLine.argc, CommandLine.unsafeArgv)

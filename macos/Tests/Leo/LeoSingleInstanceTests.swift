@@ -5,76 +5,171 @@ import Testing
 @testable import Ghostty
 
 /// Leo is single-instance per bundle ID (D-051): a second copy of the same
-/// bundle activates the first and quits before any tunnel state is touched.
+/// bundle activates the first and quits before any tunnel state is touched,
+/// and a lock that can't be taken safely stops the launch (fails closed).
 struct LeoSingleInstanceTests {
     private static let bundleID = "studio.blackpaw.leo.macos.tests"
 
     // MARK: - Decision
 
     @Test func acquiredLockContinuesLaunching() {
-        var activated: [String] = []
-        var terminations = 0
-        let gate = gate(acquire: { _ in .acquired(LeoInstanceLock(descriptor: -1)) },
-                        activated: { activated.append($0) }, terminated: { terminations += 1 })
+        let spy = GateSpy()
 
-        let claim = gate.claim()
+        let claim = spy.gate(acquire: { _ in .acquired(LeoInstanceLock(descriptor: -1)) }).claim()
 
         guard case .primary = claim else { Issue.record("expected .primary, got \(claim)"); return }
-        #expect(activated.isEmpty)
-        #expect(terminations == 0)
+        #expect(spy.activated.isEmpty)
+        #expect(spy.alerts.isEmpty)
+        #expect(spy.exits.isEmpty)
     }
 
-    @Test func busyLockActivatesTheOtherCopyAndTerminates() {
-        var activated: [String] = []
-        var terminations = 0
-        let gate = gate(acquire: { _ in .busy }, activated: { activated.append($0) }, terminated: { terminations += 1 })
+    @Test func busyLockActivatesTheOtherCopyAndExitsCleanly() {
+        let spy = GateSpy()
 
-        let claim = gate.claim()
+        let claim = spy.gate(acquire: { _ in .busy }).claim()
 
         guard case .yielded = claim else { Issue.record("expected .yielded, got \(claim)"); return }
-        #expect(activated == [Self.bundleID])
-        #expect(terminations == 1)
+        #expect(spy.activated == [Self.bundleID])
+        #expect(spy.alerts.isEmpty)
+        #expect(spy.exits == [0])
     }
 
-    @Test(arguments: ["XCTestConfigurationFilePath", "XCTestBundlePath", "XCTestSessionIdentifier", "XCInjectBundleInto"])
-    func aTestHostNeverTakesTheLockOrQuits(variable: String) {
+    @Test func aTestHostNeverTakesTheLockOrQuits() {
+        let spy = GateSpy()
         var attempts = 0
-        var terminations = 0
-        let gate = gate(environment: [variable: "/x"], acquire: { _ in attempts += 1; return .busy },
-                        activated: { _ in }, terminated: { terminations += 1 })
 
-        let claim = gate.claim()
+        let claim = spy.gate(isTestHost: true, acquire: { _ in attempts += 1; return .busy }).claim()
 
         guard case .skipped = claim else { Issue.record("expected .skipped, got \(claim)"); return }
         #expect(attempts == 0)
-        #expect(terminations == 0)
+        #expect(spy.exits.isEmpty)
     }
+
+    /// Fails closed: a lock that can't be taken safely means another copy
+    /// might be running unseen, so this one explains why and quits non-zero.
+    @Test func aRefusedLockAlertsAndQuitsNonZero() {
+        let spy = GateSpy()
+        let refusal = LeoInstanceLockRefusal(error: .notOwned, path: "/c/leo/x.instance.lock")
+
+        let claim = spy.gate(acquire: { _ in .refused(refusal) }).claim()
+
+        guard case .refused = claim else { Issue.record("expected .refused, got \(claim)"); return }
+        #expect(spy.alerts == [refusal.message])
+        #expect(spy.exits == [1])
+        #expect(spy.activated.isEmpty)
+    }
+
+    /// No bundle ID, no bundle-keyed shared state to protect: launch.
+    @Test func aMissingBundleIdentifierSkips() {
+        let spy = GateSpy()
+        let gate = LeoSingleInstance(
+            bundleIdentifier: nil, isTestHost: false,
+            acquireLock: { _ in Issue.record("must not lock"); return .busy },
+            activateOther: spy.activate, alert: spy.alert, terminate: spy.exit
+        )
+
+        guard case .skipped = gate.claim() else { Issue.record("expected .skipped"); return }
+        #expect(spy.exits.isEmpty)
+    }
+
+    // MARK: - Test-host detection
 
     /// This very suite runs hosted in the debug Leo.app, which must not
     /// have quit (or taken the lock) whether or not a debug copy is running.
     @Test func theRealEnvironmentOfThisTestRunIsATestHost() {
-        #expect(LeoSingleInstance.isTestHost(ProcessInfo.processInfo.environment))
+        #expect(LeoSingleInstance.isRunningAsTestHost())
     }
 
-    @Test func aRefusedLockFailsOpen() {
-        var terminations = 0
-        let gate = gate(acquire: { _ in .refused(LeoInstanceLockError.notOwned) },
-                        activated: { _ in Issue.record("must not activate") }, terminated: { terminations += 1 })
+    @Test func aStrayXCTestVariableNamingAnotherExecutableIsNotATestHost() throws {
+        let own = try #require(Bundle.main.executablePath)
+        let images = ["/usr/lib/libXCTestBundleInject.dylib"]
+        let strays: [[String: String]] = [
+            ["XCInjectBundleInto": "/Applications/Other.app/Contents/MacOS/Other"],
+            ["XCInjectBundleInto": "/nonexistent/Leo"],
+            ["XCTestConfigurationFilePath": "/x", "XCTestBundlePath": "/x", "XCTestSessionIdentifier": "x"],
+        ]
+
+        for environment in strays {
+            #expect(!LeoSingleInstance.isTestHost(environment: environment, executablePath: own, loadedImages: images), "\(environment)")
+        }
+    }
+
+    @Test func injectionNamingThisExecutableWithoutTheInjectorLoadedIsNotATestHost() throws {
+        let own = try #require(Bundle.main.executablePath)
+
+        #expect(!LeoSingleInstance.isTestHost(
+            environment: ["XCInjectBundleInto": own], executablePath: own, loadedImages: ["/usr/lib/libSystem.B.dylib"]
+        ))
+        #expect(LeoSingleInstance.isTestHost(
+            environment: ["XCInjectBundleInto": own], executablePath: own, loadedImages: ["/x/usr/lib/libXCTestBundleInject.dylib"]
+        ))
+    }
+
+    // MARK: - Refusal reasons: each alerts and quits, never launches
+
+    enum Refusal: String, CaseIterable {
+        case symlink, directoryAtLockPath, foreignOwner, hardLinked, badBundleID, symlinkedLockDirectory
+    }
+
+    @Test(arguments: Refusal.allCases)
+    func everyRefusalAlertsWithThePathAndQuitsNonZero(_ refusal: Refusal) throws {
+        let parent = try LeoTestSocketDirectory()
+        defer { parent.remove() }
+        var directory = parent.url
+        var bundleID = Self.bundleID
+        var owner = geteuid()
+        let lockPath = { directory.appendingPathComponent(LeoInstanceLock.fileName(for: bundleID)).path }
+        let expectedPath: String
+        switch refusal {
+        case .symlink:
+            try FileManager.default.createSymbolicLink(atPath: lockPath(), withDestinationPath: parent.path("target"))
+            expectedPath = lockPath()
+        case .directoryAtLockPath:
+            try FileManager.default.createDirectory(atPath: lockPath(), withIntermediateDirectories: false)
+            expectedPath = lockPath()
+        case .foreignOwner:
+            owner += 1
+            expectedPath = directory.path
+        case .hardLinked:
+            #expect(FileManager.default.createFile(atPath: lockPath(), contents: nil, attributes: [.posixPermissions: 0o600]))
+            #expect(link(lockPath(), parent.path("other")) == 0)
+            expectedPath = lockPath()
+        case .badBundleID:
+            bundleID = "../escape"
+            expectedPath = "../escape"
+        case .symlinkedLockDirectory:
+            directory = parent.url.appendingPathComponent("leo", isDirectory: true)
+            try FileManager.default.createDirectory(atPath: parent.path("real"), withIntermediateDirectories: false)
+            try FileManager.default.createSymbolicLink(atPath: directory.path, withDestinationPath: parent.path("real"))
+            expectedPath = directory.path
+        }
+        let before = try FileManager.default.contentsOfDirectory(atPath: parent.url.path).sorted()
+        let spy = GateSpy()
+        let gate = LeoSingleInstance(
+            bundleIdentifier: bundleID, isTestHost: false,
+            acquireLock: { [directory, owner] in LeoInstanceLock.acquire(bundleIdentifier: $0, in: directory, owner: owner) },
+            activateOther: spy.activate, alert: spy.alert, terminate: spy.exit
+        )
 
         let claim = gate.claim()
 
-        guard case .failedOpen = claim else { Issue.record("expected .failedOpen, got \(claim)"); return }
-        #expect(terminations == 0)
+        guard case .refused = claim else { Issue.record("expected .refused, got \(claim)"); return }
+        #expect(spy.exits == [1])
+        #expect(spy.activated.isEmpty)
+        #expect(spy.alerts.count == 1)
+        #expect(spy.alerts.first?.contains(expectedPath) == true, "\(spy.alerts)")
+        #expect(try FileManager.default.contentsOfDirectory(atPath: parent.url.path).sorted() == before, "nothing is removed or created")
     }
 
-    @Test func aMissingBundleIdentifierSkips() {
-        let gate = LeoSingleInstance(
-            bundleIdentifier: nil, environment: [:],
-            acquireLock: { _ in Issue.record("must not lock"); return .busy },
-            activateOther: { _ in }, terminate: { Issue.record("must not quit") }
-        )
+    @Test func refusalMessagesNameTheProblemAndTheFix() {
+        let path = "/c/leo/x.instance.lock"
 
-        guard case .skipped = gate.claim() else { Issue.record("expected .skipped"); return }
+        #expect(LeoInstanceLockRefusal(error: .notARegularFile, path: path).message
+            == "\(path) is a symlink or not a regular file. Remove it and open Leo again.")
+        #expect(LeoInstanceLockRefusal(error: .linked, path: path).message
+            == "\(path) has other hard links. Remove it and open Leo again.")
+        #expect(LeoInstanceLockRefusal(error: .notOwned, path: path).message
+            == "\(path) belongs to another user. Remove it and open Leo again.")
     }
 
     // MARK: - Lock file
@@ -123,40 +218,6 @@ struct LeoSingleInstanceTests {
         }
     }
 
-    @Test func aSymlinkAtTheLockPathIsRefusedAndNotFollowed() throws {
-        let directory = try LeoTestSocketDirectory()
-        defer { directory.remove() }
-        let target = directory.path("target")
-        let path = directory.path(LeoInstanceLock.fileName(for: Self.bundleID))
-        try FileManager.default.createSymbolicLink(atPath: path, withDestinationPath: target)
-
-        let attempt = LeoInstanceLock.acquire(bundleIdentifier: Self.bundleID, in: directory.url)
-
-        guard case .refused = attempt else { Issue.record("expected .refused, got \(attempt)"); return }
-        #expect(!FileManager.default.fileExists(atPath: target))
-    }
-
-    @Test func aHardLinkedLockFileIsRefused() throws {
-        let directory = try LeoTestSocketDirectory()
-        defer { directory.remove() }
-        let path = directory.path(LeoInstanceLock.fileName(for: Self.bundleID))
-        #expect(FileManager.default.createFile(atPath: path, contents: nil, attributes: [.posixPermissions: 0o600]))
-        #expect(link(path, directory.path("other")) == 0)
-
-        let attempt = LeoInstanceLock.acquire(bundleIdentifier: Self.bundleID, in: directory.url)
-
-        guard case .refused = attempt else { Issue.record("expected .refused, got \(attempt)"); return }
-    }
-
-    @Test func aLockFileAnotherUserOwnsIsRefused() throws {
-        let directory = try LeoTestSocketDirectory()
-        defer { directory.remove() }
-
-        let attempt = LeoInstanceLock.acquire(bundleIdentifier: Self.bundleID, in: directory.url, owner: geteuid() + 1)
-
-        guard case .refused = attempt else { Issue.record("expected .refused, got \(attempt)"); return }
-    }
-
     @Test func aLooseExistingLockFileIsTightenedTo0600() throws {
         let directory = try LeoTestSocketDirectory()
         defer { directory.remove() }
@@ -181,23 +242,27 @@ struct LeoSingleInstanceTests {
         guard case .refused = attempt else { Issue.record("expected .refused, got \(attempt)"); return }
     }
 
-    // MARK: - Helpers
-
-    private func gate(
-        environment: [String: String] = [:],
-        acquire: @escaping (String) -> LeoInstanceLockAttempt,
-        activated: @escaping (String) -> Void,
-        terminated: @escaping () -> Void
-    ) -> LeoSingleInstance {
-        LeoSingleInstance(
-            bundleIdentifier: Self.bundleID, environment: environment,
-            acquireLock: acquire, activateOther: activated, terminate: terminated
-        )
-    }
-
     private static func acquired(_ attempt: LeoInstanceLockAttempt) -> LeoInstanceLock? {
         if case .acquired(let lock) = attempt { return lock }
         Issue.record("expected .acquired, got \(attempt)")
         return nil
+    }
+}
+
+/// Records what the gate asked the app to do instead of doing it.
+private final class GateSpy {
+    private(set) var activated: [String] = []
+    private(set) var alerts: [String] = []
+    private(set) var exits: [Int32] = []
+
+    func activate(_ bundleID: String) { activated.append(bundleID) }
+    func alert(_ message: String) { alerts.append(message) }
+    func exit(_ status: Int32) { exits.append(status) }
+
+    func gate(isTestHost: Bool = false, acquire: @escaping (String) -> LeoInstanceLockAttempt) -> LeoSingleInstance {
+        LeoSingleInstance(
+            bundleIdentifier: "studio.blackpaw.leo.macos.tests", isTestHost: isTestHost,
+            acquireLock: acquire, activateOther: activate, alert: alert, terminate: exit
+        )
     }
 }

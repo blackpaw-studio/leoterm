@@ -1,11 +1,14 @@
 import AppKit
 import Darwin
 import Foundation
+import MachO
 import OSLog
 
 enum LeoInstanceLockError: Error, Equatable, Sendable {
     /// Not a plain reverse-DNS name, so it can't safely name a file.
     case invalidBundleIdentifier
+    /// macOS didn't report a per-user cache directory.
+    case noCacheDirectory
     /// The lock directory failed `LeoControlSocketDirectory.prepare`.
     case directory(LeoControlSocketDirectoryError)
     /// A symlink, directory, FIFO or anything but a regular file.
@@ -17,11 +20,36 @@ enum LeoInstanceLockError: Error, Equatable, Sendable {
     case system(Int32)
 }
 
+/// Why the lock couldn't be taken safely, and where.
+struct LeoInstanceLockRefusal: Error, Equatable, Sendable {
+    let error: LeoInstanceLockError
+    /// The offending file or directory (the bundle ID for `.invalidBundleIdentifier`).
+    let path: String
+
+    /// The informative text of the "Leo can’t start" alert: the problem,
+    /// the path, and what to do. Leo never removes or changes the file itself.
+    var message: String {
+        let fix = "Remove it and open Leo again."
+        switch error {
+        case .invalidBundleIdentifier: return "This copy of Leo has an unusable bundle identifier (\(path)). Reinstall Leo."
+        case .noCacheDirectory: return "macOS didn’t report a cache folder for your account, so Leo can’t make sure only one copy runs."
+        case .directory(.notADirectory): return "\(path) is a symlink or not a folder. \(fix)"
+        case .directory(.notOwned): return "\(path) belongs to another user. \(fix)"
+        case .directory(.unsafeParent): return "The folder containing \(path) can be changed by other users."
+        case .directory(.system(let code)): return "\(path) can’t be checked: \(String(cString: strerror(code)))."
+        case .notARegularFile: return "\(path) is a symlink or not a regular file. \(fix)"
+        case .notOwned: return "\(path) belongs to another user. \(fix)"
+        case .linked: return "\(path) has other hard links. \(fix)"
+        case .system(let code): return "\(path) can’t be locked: \(String(cString: strerror(code)))."
+        }
+    }
+}
+
 enum LeoInstanceLockAttempt {
     case acquired(LeoInstanceLock)
     /// Another live process holds the lock.
     case busy
-    case refused(any Error)
+    case refused(LeoInstanceLockRefusal)
 }
 
 /// An exclusive `flock` on `<per-user cache dir>/leo/<bundle ID>.instance.lock`,
@@ -46,27 +74,29 @@ final class LeoInstanceLock {
     /// way; the lock file itself must be a regular file `owner` owns with
     /// no other links, and is tightened to 0600.
     static func acquire(bundleIdentifier: String, in directory: URL, owner: uid_t = geteuid()) -> LeoInstanceLockAttempt {
-        guard isSafeFileComponent(bundleIdentifier) else { return .refused(LeoInstanceLockError.invalidBundleIdentifier) }
+        guard isSafeFileComponent(bundleIdentifier) else {
+            return .refused(LeoInstanceLockRefusal(error: .invalidBundleIdentifier, path: bundleIdentifier))
+        }
         do {
             try LeoControlSocketDirectory.prepare(directory, owner: owner)
-        } catch let error as LeoControlSocketDirectoryError {
-            return .refused(LeoInstanceLockError.directory(error))
         } catch {
-            return .refused(error)
+            let reason = error as? LeoControlSocketDirectoryError ?? .system(EINVAL)
+            return .refused(LeoInstanceLockRefusal(error: .directory(reason), path: directory.path))
         }
         let path = directory.appendingPathComponent(fileName(for: bundleIdentifier)).path
+        let refuse = { (error: LeoInstanceLockError) in LeoInstanceLockAttempt.refused(LeoInstanceLockRefusal(error: error, path: path)) }
         let descriptor = open(path, O_RDWR | O_CREAT | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC, 0o600)
         guard descriptor >= 0 else {
-            return .refused(errno == ELOOP ? LeoInstanceLockError.notARegularFile : LeoInstanceLockError.system(errno))
+            return refuse(errno == ELOOP || errno == EISDIR ? .notARegularFile : .system(errno))
         }
         if let error = checkLockFile(descriptor, owner: owner) {
             close(descriptor)
-            return .refused(error)
+            return refuse(error)
         }
         guard flock(descriptor, LOCK_EX | LOCK_NB) == 0 else {
             let code = errno
             close(descriptor)
-            return code == EWOULDBLOCK ? .busy : .refused(LeoInstanceLockError.system(code))
+            return code == EWOULDBLOCK ? .busy : refuse(.system(code))
         }
         return .acquired(LeoInstanceLock(descriptor: descriptor))
     }
@@ -97,37 +127,50 @@ final class LeoInstanceLock {
 /// without touching any of that state. Release and debug bundles have
 /// different IDs and so independent locks.
 ///
-/// Fails open: when the lock can't be checked safely (an unsafe directory,
-/// a symlinked or foreign lock file), Leo launches anyway and logs it. A
-/// test host (the XCTest bundle runs inside the debug Leo.app) never takes
-/// the lock or quits.
+/// Fails closed: when the lock can't be taken safely (an unsafe directory,
+/// a symlinked, foreign or hard-linked lock file), another copy could be
+/// running unseen, so Leo says why in one alert and exits 1, leaving the
+/// offending file alone. A test host (the XCTest bundle runs inside the
+/// debug Leo.app) never takes the lock or quits.
 struct LeoSingleInstance {
     enum Claim {
         /// This copy holds the lock; keep it alive for the process's life.
         case primary(LeoInstanceLock)
-        /// Another copy holds it; that copy was activated and this one told to terminate.
+        /// Another copy holds it: that copy was activated and this one exits 0.
         case yielded
         case skipped(String)
-        case failedOpen(String)
+        /// The lock couldn't be taken safely: alerted, and this copy exits 1.
+        case refused(LeoInstanceLockRefusal)
     }
 
-    private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
-
-    /// Set by xcodebuild/`XCTestBundleInject` for a hosted test run.
-    static let testHostVariables = ["XCTestConfigurationFilePath", "XCTestBundlePath", "XCTestSessionIdentifier", "XCInjectBundleInto"]
-
     let bundleIdentifier: String?
-    let environment: [String: String]
+    let isTestHost: Bool
     let acquireLock: (String) -> LeoInstanceLockAttempt
     let activateOther: (String) -> Void
-    let terminate: () -> Void
+    let alert: (String) -> Void
+    let terminate: (Int32) -> Void
 
-    static func isTestHost(_ environment: [String: String]) -> Bool {
-        testHostVariables.contains { environment[$0] != nil }
+    /// A hosted XCTest run: the injector names this very executable AND the
+    /// injector library is actually loaded into this process. Environment
+    /// variables alone (which a child can inherit) are never enough.
+    static func isTestHost(environment: [String: String], executablePath: String?, loadedImages: [String]) -> Bool {
+        guard let injectedInto = environment["XCInjectBundleInto"].flatMap(realPath),
+              let executablePath = executablePath.flatMap(realPath),
+              injectedInto == executablePath else { return false }
+        return loadedImages.contains { URL(fileURLWithPath: $0).lastPathComponent == "libXCTestBundleInject.dylib" }
+    }
+
+    static func isRunningAsTestHost() -> Bool {
+        isTestHost(
+            environment: ProcessInfo.processInfo.environment,
+            executablePath: Bundle.main.executablePath,
+            loadedImages: loadedImagePaths()
+        )
     }
 
     func claim() -> Claim {
-        guard !Self.isTestHost(environment) else { return .skipped("test host") }
+        guard !isTestHost else { return .skipped("test host") }
+        // No bundle ID means no bundle-keyed defaults or socket paths to share.
         guard let bundleIdentifier else {
             Self.logger.log("no bundle identifier; single-instance check skipped")
             return .skipped("no bundle identifier")
@@ -138,34 +181,49 @@ struct LeoSingleInstance {
         case .busy:
             Self.logger.log("another copy of \(bundleIdentifier, privacy: .public) is running; activating it and quitting")
             activateOther(bundleIdentifier)
-            terminate()
+            terminate(0)
             return .yielded
-        case .refused(let error):
-            let reason = String(describing: error)
-            Self.logger.error("instance lock unavailable; launching without it error=\(reason, privacy: .public)")
-            return .failedOpen(reason)
+        case .refused(let refusal):
+            Self.logger.error("instance lock refused; not starting reason=\(refusal.message, privacy: .public)")
+            alert(refusal.message)
+            terminate(1)
+            return .refused(refusal)
         }
+    }
+
+    private static func realPath(_ path: String) -> String? {
+        guard let resolved = Darwin.realpath(path, nil) else { return nil }
+        defer { free(resolved) }
+        return String(cString: resolved)
     }
 }
 
 extension LeoSingleInstance {
+    private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
+
     /// The real gate: this bundle, the private per-user cache directory,
-    /// `NSRunningApplication` activation, and `exit(0)` -- called from
-    /// `main.swift` before `NSApplicationMain`, so a yielding copy never
-    /// builds an app delegate, a window or a tunnel.
+    /// `NSRunningApplication` activation, a modal alert, and `exit` --
+    /// called from `main.swift` before `NSApplicationMain`, so a copy that
+    /// yields or refuses never builds an app delegate, a window or a tunnel.
     static func live() -> LeoSingleInstance {
         LeoSingleInstance(
             bundleIdentifier: Bundle.main.bundleIdentifier,
-            environment: ProcessInfo.processInfo.environment,
+            isTestHost: isRunningAsTestHost(),
             acquireLock: { bundleIdentifier in
                 guard let directory = LeoControlSocketDirectory.default else {
-                    return .refused(LeoInstanceLockError.system(ENOENT))
+                    return .refused(LeoInstanceLockRefusal(error: .noCacheDirectory, path: "_CS_DARWIN_USER_CACHE_DIR"))
                 }
                 return LeoInstanceLock.acquire(bundleIdentifier: bundleIdentifier, in: directory)
             },
             activateOther: activateRunningCopy,
-            terminate: { exit(0) }
+            alert: presentCannotStart,
+            terminate: { exit($0) }
         )
+    }
+
+    /// Paths of every image dyld has loaded into this process.
+    static func loadedImagePaths() -> [String] {
+        (0..<_dyld_image_count()).compactMap { index in _dyld_get_image_name(index).map { String(cString: $0) } }
     }
 
     private static func activateRunningCopy(of bundleIdentifier: String) {
@@ -180,6 +238,26 @@ extension LeoSingleInstance {
             other.activate()
         } else {
             other.activate(options: [])
+        }
+    }
+
+    /// One plain modal alert with a single Quit button; runs before
+    /// `NSApplicationMain`, on the main thread.
+    private static func presentCannotStart(_ message: String) {
+        MainActor.assumeIsolated {
+            let app = NSApplication.shared
+            app.setActivationPolicy(.regular)
+            if #available(macOS 14.0, *) {
+                app.activate()
+            } else {
+                app.activate(ignoringOtherApps: true)
+            }
+            let alert = NSAlert()
+            alert.alertStyle = .critical
+            alert.messageText = "Leo can’t start"
+            alert.informativeText = message
+            alert.addButton(withTitle: "Quit")
+            alert.runModal()
         }
     }
 }
