@@ -452,6 +452,10 @@ class AppDelegate: NSObject,
             }
         }
 
+        // MARK: Leo
+        // Unsaved editor edits are asked about first; the quit is retried.
+        if leoRuntime.deferQuitForUnsavedEditors() { return .terminateCancel }
+
         // If our app says we don't need to confirm, we can exit now.
         if !ghostty.needsConfirmQuit { return .terminateNow }
 

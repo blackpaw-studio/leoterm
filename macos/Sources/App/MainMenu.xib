@@ -217,6 +217,25 @@
                                     <action selector="closeAllWindows:" target="-1" id="hrz-eb-l5t"/>
                                 </connections>
                             </menuItem>
+                            <!-- MARK: Leo editor pane (B-004) -->
+                            <menuItem isSeparatorItem="YES" id="Leo-Editor-Separator"/>
+                            <menuItem title="Save" keyEquivalent="s" id="Leo-Editor-Save">
+                                <connections>
+                                    <action selector="saveDocument:" target="-1" id="Leo-Editor-Save-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Reload from Disk" keyEquivalent="r" id="Leo-Editor-Reload">
+                                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                <connections>
+                                    <action selector="reloadLeoEditorFromDisk:" target="-1" id="Leo-Editor-Reload-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Keep My Version" keyEquivalent="k" id="Leo-Editor-KeepMine">
+                                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                <connections>
+                                    <action selector="keepLeoEditorVersion:" target="-1" id="Leo-Editor-KeepMine-Action"/>
+                                </connections>
+                            </menuItem>
                         </items>
                     </menu>
                 </menuItem>
@@ -396,6 +415,18 @@
                                 <modifierMask key="keyEquivalentModifierMask" control="YES" option="YES" command="YES"/>
                                 <connections>
                                     <action selector="jumpToNextLeoAgentNeedingAttention:" target="-1" id="Leo-Agents-JumpAttention-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Open File in Editor…" keyEquivalent="O" id="Leo-Agents-OpenFile">
+                                <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
+                                <connections>
+                                    <action selector="openFileInLeoEditor:" target="-1" id="Leo-Agents-OpenFile-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Focus Editor" keyEquivalent="e" id="Leo-Agents-FocusEditor">
+                                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                <connections>
+                                    <action selector="toggleLeoEditorFocus:" target="-1" id="Leo-Agents-FocusEditor-Action"/>
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="Leo-Agents-Separator-1"/>

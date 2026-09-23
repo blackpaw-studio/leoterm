@@ -1556,6 +1556,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 
     @IBAction func closeTab(_ sender: Any?) {
         guard let window = window else { return }
+        if leoDeferCloseForUnsavedEditors(in: [self], retry: { [weak self] in self?.closeTab(sender) }) { return }
         guard window.tabGroup?.windows.count ?? 0 > 1 else {
             closeWindow(sender)
             return
@@ -1642,6 +1643,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 
     @IBAction override func closeWindow(_ sender: Any?) {
         guard let window = window else { return }
+        let leoControllers = (window.tabGroup?.windows ?? [window]).compactMap { $0.windowController as? TerminalController }
+        if leoDeferCloseForUnsavedEditors(in: leoControllers, retry: { [weak self] in self?.closeWindow(sender) }) { return }
 
         // We need to check all the windows in our tab group for confirmation
         // if we're closing the window. If we don't have a tabgroup for any
@@ -1942,6 +1945,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 
 extension TerminalController {
     override func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        if let enabled = validateLeoEditorMenuItem(item) { return enabled }
         switch item.action {
         // MARK: Leo
         case #selector(toggleLeoSidebar(_:)):
