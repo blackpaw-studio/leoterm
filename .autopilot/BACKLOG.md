@@ -72,6 +72,10 @@ Source: B-027 visual check
 Accept: the alert prints the full `/var/folders/…/C/leo/…instance.lock` path, which wraps mid-word (shot B-027-2). Abbreviate it (e.g. `…/leo/<file>`) and add a "Show in Finder" button next to Quit.
 Source: B-027 visual check
 
+## B-034 · DEBUG hook to open a file in the editor at launch   [ready]
+Accept: GUI checks of the editor can't get past the Open File panel (Peekaboo: axElementNotFound / focusVerificationTimeout; osascript keystrokes not allowed). Add a DEBUG-only `LEO_OPEN_FILE=<absolute path>` env that opens that local file in the editor pane of the first window once it's up, like Open File in Editor. It must compile out of release builds, with a test. Then screenshot B-024's `Closing “…”…` banner (launch with `LEO_SLOW_SAVE_SECONDS=30`, edit, ⌘S, ⌘W).
+Source: B-030 visual check
+
 ## B-018 · Drop the recreate heuristic: dedupe on (boot, name, revision)   [done]
 Accept: leo confirmed (2026-09-22, spec addition) that a revision is monotonic per agent NAME per boot, including across delete and recreate; revisions only go backwards when boot_id changes. So remove the backwards-revision heuristic from `LeoAttentionReducer` (incarnation bumps on retain/recovery, tombstones and their 64-cap, `droppedFloors`) and key notification dedupe on (bootID, name, revision). A revision ≤ the last seen for that name in the same boot is a duplicate; a recreated agent simply continues at higher revisions. Keep: list-driven deletion of display state, reset on boot change or host switch, and everything from B-015's (b), (d), (e), (f). Rewrite or delete the heuristic's tests; add fixture tests for the three gaps from B-015's third review (a recreated agent's first signal buffered during recovery notifies; an agent re-added by a baseline at the same revision keeps its Dock acknowledgement; a first seen revision equal to the old floor is a duplicate by contract).
 Source: B-015 third review + leo reply (D-027)
@@ -107,9 +111,10 @@ Accept: (a) the editor goes read-only whenever the model queue is busy (`LeoEdit
 Source: B-022 fourth review
 Done: 810596a0a 188851f1f 6a6be8646 7d10d709e 605d43e68 (1145 tests). The text locks only once a close is committed (per-close tokens; the model refuses edits synchronously); `Closing “<file>”…` banner; the gate test waits on an event; DEBUG `LEO_SLOW_SAVE_SECONDS=<n>` delays saves so the banner can be seen. Not visually verified: auto mode refused peekaboo type/press/click, so the Open File dialog couldn't be submitted. 2 fix rounds; the 3rd review found only a LOW → B-030.
 
-## B-030 · Editor: keep the selection when a racing keystroke is refused   [ready]
+## B-030 · Editor: keep the selection when a racing keystroke is refused   [done]
 Accept: a keystroke that races the close lock reloads with `keepingSelection: true`, but `LeoEditorTextView.swift:74` collapses the selection to a caret; if the save then fails and the pane unlocks, the selection is gone. Keep the full range, with a test. Also screenshot B-024's `Closing “…”…` banner (launch with `LEO_SLOW_SAVE_SECONDS=30`) once GUI input is allowed again.
 Source: B-024 third review
+Done: 31a72e027 0fd885414 ca7f95730 (1171 tests). A refused keystroke restores the whole selection, snapped to whole characters; reloads keep a caret (D-055). Not visually verified: Peekaboo can't focus the Open File panel and osascript may not send keystrokes, so no file could be opened; the banner shot moves to B-034. 2 fix rounds (the first implementer window was lost; a fresh one did round 2); 3rd review clean.
 
 ## B-025 · Timing-sensitive test flakes under load   [done]
 Accept: `LeoSidebarFeedActivityCoalescingTests` failed once and `LeoSyntaxHighlighterAdversarialTests` hit its time limits several times and `LeoProcessRunnerTests/timeoutEscalatesToSIGKILL` took 3.9 s against 3 s, all while the machine's load average was ~100 (2026-09-23, B-022/B-020 runs); all passed on rerun. Make both deterministic (inject a clock, or measure work instead of wall time) and prove 10/10 under load.

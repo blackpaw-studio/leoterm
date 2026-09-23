@@ -436,3 +436,11 @@ Why: principle 3 (tunnel robustness) and D-051
 Alternatives: check in the app delegate; fail open
 Commit: 67de1e864 6fec65c82 73109b6c3
 Veto: [ ]
+
+## D-055 · 2026-09-23 · Refused keystrokes restore the whole selection; reloads keep a caret
+Context: B-030
+Chose: only the refused-keystroke revert restores the full selection (the one recorded on the edit's first `shouldChangeText`, snapped to whole characters); disk or conflict reloads keep a caret at the old location, since the new text may be unrelated. With several selections, only the main one is restored
+Why: principle 1 (behave like a first-party Mac editor) and 5 (the user loses nothing when a save fails and the pane unlocks)
+Alternatives: keep the full range on every reload (review: can highlight unrelated text)
+Commit: 31a72e027 0fd885414 ca7f95730
+Veto: [ ]
