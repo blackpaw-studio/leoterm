@@ -36,21 +36,73 @@ struct LeoProcessRunnerTests {
         }
     }
 
-    /// A process that ignores SIGTERM must still complete, bounded, via the
-    /// SIGKILL escalation 1s after the original deadline.
-    @Test func timeoutEscalatesToSIGKILLWhenTheProcessIgnoresSIGTERM() async {
-        let start = ContinuousClock.now
-        do {
-            _ = try await LeoProcessRunner().run(
-                executable: "/bin/sh", arguments: ["-c", "trap '' TERM; sleep 5"], timeout: 0.2
-            )
-            Issue.record("Expected process to time out")
-        } catch let error as LeoDaemonError {
-            #expect(error == .timeout)
-            // 0.2s original timeout + up to 1s SIGKILL grace + up to 1s force-complete drain.
-            #expect(start.duration(to: .now) < .seconds(3))
-        } catch {
-            Issue.record("Expected timeout, got \(error)")
+    /// A process that ignores SIGTERM must still complete via the SIGKILL
+    /// escalation 1s after the original deadline. The escalation is stepped
+    /// by hand, so this checks what happens at each deadline, not how long
+    /// the machine takes to get there.
+    @Test func timeoutEscalatesToSIGKILLWhenTheProcessIgnoresSIGTERM() async throws {
+        let scheduler = ManualScheduler()
+        let pidFile = FileManager.default.temporaryDirectory.appendingPathComponent("leo-sigkill-\(UUID().uuidString).pid")
+        defer { try? FileManager.default.removeItem(at: pidFile) }
+        // `exec` keeps the ignored SIGTERM and makes `sleep` the one process
+        // holding the pipes, so it dies to SIGKILL alone.
+        let script = "trap '' TERM; echo $$ > '\(pidFile.path)'; exec sleep 3600"
+        let outcome = Outcome()
+        let run = Task {
+            do {
+                let result = try await LeoProcessRunner(scheduler: scheduler.scheduler)
+                    .run(executable: "/bin/sh", arguments: ["-c", script], timeout: 0.2)
+                await outcome.set(.success(result))
+            } catch {
+                await outcome.set(.failure(error))
+            }
         }
+
+        await awaitCondition(timeout: Self.hangGuard, message: "Process never started") {
+            (try? String(contentsOf: pidFile, encoding: .utf8))?.hasSuffix("\n") == true
+        }
+        let pid = try #require(pid_t((try String(contentsOf: pidFile, encoding: .utf8)).trimmingCharacters(in: .whitespacesAndNewlines)))
+        #expect(scheduler.delays == [0.2])
+
+        scheduler.fireNext() // the deadline: SIGTERM, ignored
+        #expect(kill(pid, 0) == 0, "The process should have ignored SIGTERM")
+        #expect(scheduler.delays == [1])
+
+        scheduler.fireNext() // the grace period: SIGKILL
+        await awaitCondition(timeout: Self.hangGuard, message: "SIGKILL never ended the run") { await outcome.value != nil }
+        if await outcome.value == nil { kill(pid, SIGKILL) }
+        await run.value
+
+        let result = await outcome.value
+        #expect(throws: LeoDaemonError.timeout) { try result?.get() }
+        // It ended because the process died, not because the drain timer
+        // (still pending) gave up on it; firing that now changes nothing.
+        #expect(scheduler.delays == [1])
+        scheduler.fireNext()
     }
+
+    /// Only turns a hang into a failure: nothing here is timed against it.
+    static let hangGuard: TimeInterval = 60
+}
+
+/// Holds scheduled actions until the test fires them, in order.
+private final class ManualScheduler: @unchecked Sendable {
+    private let lock = NSLock()
+    private var pending: [(delay: TimeInterval, action: @Sendable () -> Void)] = []
+
+    var scheduler: LeoProcessScheduler {
+        LeoProcessScheduler { [self] delay, action in lock.withLock { pending.append((delay, action)) } }
+    }
+
+    var delays: [TimeInterval] { lock.withLock { pending.map(\.delay) } }
+
+    func fireNext() {
+        let next = lock.withLock { pending.isEmpty ? nil : pending.removeFirst() }
+        next?.action()
+    }
+}
+
+private actor Outcome {
+    private(set) var value: Result<LeoProcessResult, Error>?
+    func set(_ result: Result<LeoProcessResult, Error>) { value = result }
 }
