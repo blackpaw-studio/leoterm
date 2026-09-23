@@ -294,6 +294,7 @@ struct LeoUnsavedEditorsGateTests {
                 }
 
                 #expect(wentOn == goesOn, "\(path)")
+                #expect(log.offers == [.quit], "\(path): a quit says Quit Anyway, not Close Anyway")
                 #expect(log.asked == ["a-\(path).txt", "b-\(path).txt"], "\(path)")
                 #expect(stuck.document == nil, "\(path)")
                 #expect((other.document?.isDirty == true) == !goesOn, "\(path)")

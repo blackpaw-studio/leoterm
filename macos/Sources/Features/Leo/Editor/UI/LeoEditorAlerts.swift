@@ -55,9 +55,19 @@ import AppKit
         alert.addButton(withTitle: "Keep Waiting")
         let leave = alert.addButton(withTitle: leaving == .quit ? "Quit Anyway" : "Close Anyway")
         leave.hasDestructiveAction = true
-        // On the stuck editor's own window, whichever window is key.
+        // On the stuck editor's own window, whichever window is key -- over
+        // any sheet already up there, rather than queued behind it.
         guard let window = entry.window() else { return alert.runModal() == .alertSecondButtonReturn }
-        return await present(alert, on: window) == .alertSecondButtonReturn
+        return await present(alert, on: sheetHost(for: window)) == .alertSecondButtonReturn
+    }
+
+    /// `window`'s frontmost sheet (a sheet's own sheet, and so on), or the
+    /// window itself: a sheet begun on a window that already has one waits
+    /// until that one ends, while a sheet on the sheet shows now.
+    static func sheetHost(for window: NSWindow) -> NSWindow {
+        var host = window
+        while let sheet = host.attachedSheet { host = sheet }
+        return host
     }
 
     static func presentError(_ error: Error, on window: NSWindow?) {
