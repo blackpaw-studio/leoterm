@@ -27,7 +27,7 @@ Accept: (a) a host test that collects `lifecycleEvents` around `makeFirstRespond
 Source: B-016 second review
 Done: c92565ac3 ad537d10e 79d5d9375 6be661a48 24000299e (1132 tests). Each test was proven by breaking what it guards (swapped yield order, viewing = focusedHandle, relay bypassed with a Task, a spurious report one hop late). Test-only, so no screenshot. 3 fix rounds; the final HIGH → B-028 (D-045).
 
-## B-028 · Focus test: require the catch-up before asserting   [ready (next run)]
+## B-028 · Focus test: require the catch-up before asserting   [ready]
 Accept: `reports` in `GhosttyAttachTabHostFocusTests.swift:168` ignores a false `caughtUp()`, so an extra yielded report that never reaches the recorder can time out while the order check still passes. Fail the step when `caughtUp()` is false; prove it by dropping one report in the recorder.
 Source: B-019 fourth review (D-045)
 
@@ -41,7 +41,7 @@ Accept: sanitize `reason`/`detail` once, where it renders (`LeoFileAccessError.e
 Source: B-017 third security review (D-032)
 Done: ad0807785 796b0a2ec 8b6494d45 935b5a600 (1122 tests). Errors are sanitized once where they render; untrusted parts are wrapped in FSI…PDI; invisible characters survive only from an allowlist (D-042). Error text only, so not visually verified. 3 fix rounds; the last review's HIGH → B-026 (D-043).
 
-## B-026 · Presentation selectors only after emoji   [ready (next run)]
+## B-026 · Presentation selectors only after emoji   [ready]
 Accept: (a) HIGH: FE0E/FE0F survive after any visible character (`LeoTextCleaner.swift:97-99,128-132`), so a filename can carry ~1.58 hidden bits per character. Keep them only right after a pictographic base (the same check the ZWJ rule uses). The property test (`randomInvisiblesLeaveAtMostOneZeroWidthScalarPerVisibleCharacter`) passes either way; add a test that a selector after a letter is dropped. (b) NIT: ZWNJ checks only the next scalar is a letter (`:104-105`); check the previous one too. (c) The SFTP security review role (codex/gpt-6-sol) failed with "Model metadata not found" all run; B-020 was reviewed by the Sonnet fallback.
 Source: B-020 final review (D-043)
 
@@ -50,7 +50,7 @@ Accept: the forwarded daemon socket in `~/.leo/state/leoterm/` has a 100-byte li
 Source: B-017 implementer report
 Done: cda6610e8 (1130 tests; 8 new in LeoTunnelSocketPathTests, which failed first). No UI and no remote host, so not visually verified. Review: one MEDIUM, dismissed (D-044) → B-027.
 
-## B-027 · One tunnel per host, enforced   [ready (next run)]
+## B-027 · One tunnel per host, enforced   [ready]
 Accept: (a) `LeoTunnel.removeStaleSocket` (`LeoTunnel.swift:186-190`) unlinks whatever is at the bind path. It's safe today only because `LeoRuntime` shares one `LeoHostSelection`; `LeoAgentActions` can still build its own (`hostSelection ?? LeoHostSelection(...)`). Make a second live tunnel for the same host impossible by construction (remove the fallback or route through one owner), and have the unlink go through `LeoControlSocket` so it can tell an orphaned forward from a live sibling. (b) Tunnel records saved before B-021 point at the old path; add a test for the launch-time cleanup. (c) `LeoSocketActivityClient` (`:57-89`) retries the event stream on an exponential backoff. That's an auto-reconnect timer, against principle 5; fold it into B-007's manual Retry.
 Source: B-021 review + implementer report
 
@@ -84,11 +84,11 @@ Accept: (a) MEDIUM: the close gate asks only about editors that were dirty when 
 Source: B-004 reviews
 Done: 59ffb1fbd 4130f9e75 e43aaa796 7a5ef7310 a89b18a3c 363468b41 98a558bdf e89dc3ff6 445437a58 af5762504 9865e60b3 b9dd6e318 eeb6b86b2 bbcf58601 (1095 tests). Verified: shot B-022-1 (at 1400 pt the editor opens at half the width it shares with the terminal). The hung-save banner needs a hung remote save to appear, so it's covered by tests only. 3 fix rounds; the 4th review found only LOWs → B-024.
 
-## B-024 · Editor close-wait polish   [ready (next run)]
+## B-024 · Editor close-wait polish   [ready]
 Accept: (a) the editor goes read-only whenever the model queue is busy (`LeoEditorPaneModel.swift:85`), even before the unsaved-changes prompt shows (e.g. a close queued behind a slow Recent open); lock only after the prompt is answered. (b) A plain ⌘W close (no quit) waiting behind a hung remote save locks the text with no explanation; show a small "Closing…" notice whenever `isWaitingToClose`. (c) The new gate test's 50 ms negative check would also pass if the wait gave up early; make it assert on an event instead.
 Source: B-022 fourth review
 
-## B-025 · Timing-sensitive test flakes under load   [ready (next run)]
+## B-025 · Timing-sensitive test flakes under load   [ready]
 Accept: `LeoSidebarFeedActivityCoalescingTests` failed once and `LeoSyntaxHighlighterAdversarialTests` hit its time limits several times and `LeoProcessRunnerTests/timeoutEscalatesToSIGKILL` took 3.9 s against 3 s, all while the machine's load average was ~100 (2026-09-23, B-022/B-020 runs); all passed on rerun. Make both deterministic (inject a clock, or measure work instead of wall time) and prove 10/10 under load.
 Source: B-022 implementer runs
 
@@ -98,7 +98,7 @@ workspace tree via B-003 and open files in B-004's pane. Keyboard navigable.
 Source: Evan, vision session; D-007
 Done: 864a16bc6 7204dd557 a2620137c 75a0feeef 860df8083 (1069 tests). Verified: shots B-005-1..5 on autopilot-scratch (row menu ▸ Browse Files, arrow and →/← navigation, Return opens a highlighted file, ⇧⌘. shows dotfiles; in an 800 pt window the sidebar collapses so the terminal keeps its room). Remote tested with the SFTP fake only. Polish → B-023.
 
-## B-023 · Workspace browser polish   [ready (next run)]
+## B-023 · Workspace browser polish   [ready]
 Accept: (a) hidden files show dimmed when Show Hidden Files is on, like Finder; (b) opening a new root waits for the old SFTP access to finish closing before its first listing (`LeoWorkspaceBrowserModel.swift:153`); start the listing first; (c) the 300 pt terminal floor is only enforced when a pane opens, not when the window narrows or ⌘⇧L shows the sidebar again. Decide whether that matters in use.
 Source: B-005 visual check + second review
 
