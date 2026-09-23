@@ -130,7 +130,9 @@ enum LeoWorkspaceItem: Hashable, Sendable {
     /// The new root and its access are in place before anything suspends,
     /// and every step after a suspension checks it's still current: of
     /// overlapping opens and closes the last one called wins, and each
-    /// access is closed by whichever call replaced it.
+    /// access is closed by whichever call replaced it -- alongside the new
+    /// listing, which never waits for it (an `sftp` process can be slow to
+    /// go).
     func open(_ agent: LeoEditorAgentContext) async {
         let next = Self.root(for: agent)
         if next == root, access != nil {
@@ -150,8 +152,8 @@ enum LeoWorkspaceItem: Hashable, Sendable {
         } else {
             folders = ["": .failed(Self.noWorkspaceMessage)]
         }
-        await previous?.close()
-        guard generation == self.generation, let workspace = next.path else { return }
+        if let previous { Task { await previous.close() } }
+        guard let workspace = next.path else { return }
         await load(workspace)
     }
 

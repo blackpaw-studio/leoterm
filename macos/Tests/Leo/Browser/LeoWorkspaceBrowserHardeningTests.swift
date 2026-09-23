@@ -75,10 +75,10 @@ struct LeoWorkspaceBrowserHardeningTests {
 
             #expect(browser.root?.path == sandbox.path("b"))
             #expect(names(browser.rootItems) == ["in-b.txt"])
-            let live = made.accesses.filter { !$0.isClosed }
-            #expect(live.count == 1, "only the browser's own access is still open")
+            // Replaced accesses close alongside the new listing.
+            try await eventually { made.accesses.filter { !$0.isClosed }.count == 1 }
             await browser.close()
-            #expect(made.accesses.filter { !$0.isClosed }.isEmpty)
+            try await eventually { made.accesses.allSatisfy(\.isClosed) }
         }
     }
 
@@ -101,7 +101,33 @@ struct LeoWorkspaceBrowserHardeningTests {
 
             #expect(!browser.isOpen)
             #expect(browser.folders.isEmpty)
-            #expect(made.accesses.filter { !$0.isClosed }.isEmpty)
+            try await eventually { made.accesses.allSatisfy(\.isClosed) }
+        }
+    }
+
+    /// Re-rooting lists the new workspace at once: the old access closes
+    /// alongside, and is still released once its close gets through.
+    @Test(.timeLimit(.minutes(1)))
+    func aNewRootIsListedWithoutWaitingForTheOldAccessToClose() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            for name in ["a", "c"] {
+                try sandbox.directory(name)
+                try sandbox.file("\(name)/in-\(name).txt", "")
+            }
+            let gate = LeoCloseGate()
+            let (browser, made) = gatedBrowser(gate)
+            await browser.open(agent(sandbox.path("c")))
+
+            let opening = Task { await browser.open(agent(sandbox.path("a"))) }
+            try await eventually { names(browser.rootItems) == ["in-a.txt"] }
+
+            #expect(await gate.waiting == 1, "the old access is still closing")
+            #expect(!made.accesses[0].isClosed)
+            await gate.open()
+            await opening.value
+            try await eventually { made.accesses[0].isClosed }
+            #expect(!made.accesses[1].isClosed)
+            await browser.close()
         }
     }
 
