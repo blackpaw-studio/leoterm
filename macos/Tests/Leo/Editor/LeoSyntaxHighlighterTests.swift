@@ -237,13 +237,22 @@ struct LeoSyntaxHighlighterTests {
     }
 
     /// Rules are joined into one alternation and told apart by group
-    /// number, so a rule with its own capture group would shift the rest.
+    /// number; a rule may capture only its span.
     @Test(arguments: LeoEditorLanguage.allCases)
-    func everyRuleCompilesWithoutCaptureGroups(_ language: LeoEditorLanguage) throws {
+    func everyRuleCompilesWithAtMostItsSpanCaptured(_ language: LeoEditorLanguage) throws {
         for rule in LeoSyntaxGrammar.grammar(for: language).rules {
             let regex = try NSRegularExpression(pattern: rule.pattern, options: LeoSyntaxGrammar.options)
-            #expect(regex.numberOfCaptureGroups == 0, "\(language) \(rule.token): \(rule.pattern)")
+            #expect(regex.numberOfCaptureGroups <= 1, "\(language) \(rule.token): \(rule.pattern)")
         }
+    }
+
+    /// A rule's capture group is its span: indentation and list markers
+    /// before a YAML key, `key: ` before a value, `{` before an inline
+    /// table's key, are matched but not coloured.
+    @Test func aCapturedSpanLeavesItsContextPlain() {
+        let yaml = "root:\n  - - name: x\n    port: 80\n"
+        #expect(snapshot(yaml, .yaml) == ["key root", "key name", "key port", "number 80"])
+        #expect(snapshot("t = {a = 1, b = true}\n  c = 2", .toml) == ["key t", "key a", "number 1", "key b", "literal true", "key c", "number 2"])
     }
 
     @MainActor @Test func applyColorsSpansAndResetsTheRest() throws {

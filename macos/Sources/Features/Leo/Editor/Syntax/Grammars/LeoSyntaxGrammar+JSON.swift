@@ -3,7 +3,7 @@ extension LeoSyntaxGrammar {
     static let json = LeoSyntaxGrammar(rules: [
         .lineComment("//"),
         .blockComment,
-        LeoSyntaxRule(.key, #""(?:[^"\\\n]|\\.)*"(?=\s*:)"#),
+        LeoSyntaxRule(.key, LeoSyntaxRule.quoted("\"") + #"(?=\s*:)"#),
         .doubleQuoted,
         LeoSyntaxRule(.number, #"-?\b(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?\b"#),
         .words(.literal, ["true", "false", "null"]),

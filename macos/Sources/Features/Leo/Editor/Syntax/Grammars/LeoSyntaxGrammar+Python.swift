@@ -6,8 +6,8 @@ extension LeoSyntaxGrammar {
         .lineComment("#"),
         LeoSyntaxRule(.string, pythonPrefix + #""""[\s\S]*?(?:"""|\z)"#),
         LeoSyntaxRule(.string, pythonPrefix + #"'''[\s\S]*?(?:'''|\z)"#),
-        LeoSyntaxRule(.string, pythonPrefix + #""(?:[^"\\\n]|\\.)*""#),
-        LeoSyntaxRule(.string, pythonPrefix + #"'(?:[^'\\\n]|\\.)*'"#),
+        LeoSyntaxRule(.string, pythonPrefix + LeoSyntaxRule.quoted("\"")),
+        LeoSyntaxRule(.string, pythonPrefix + LeoSyntaxRule.quoted("'")),
         // Decorators.
         LeoSyntaxRule(.attribute, #"@[A-Za-z_][A-Za-z0-9_.]*"#),
         .number,

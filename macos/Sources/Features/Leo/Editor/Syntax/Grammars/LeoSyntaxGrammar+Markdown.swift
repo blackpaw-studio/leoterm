@@ -8,7 +8,9 @@ extension LeoSyntaxGrammar {
         LeoSyntaxRule(.keyword, #"^[ \t]*(?:[-*+]|[0-9]+[.)])(?=[ \t])"#),
         LeoSyntaxRule(.code, #"`[^`\n]+`"#),
         LeoSyntaxRule(.emphasis, #"\*\*[^*\n]+\*\*|__[^_\n]+__"#),
-        LeoSyntaxRule(.emphasis, #"(?<![\w*])\*[^*\s][^*\n]*\*|(?<!\w)_[^_\s][^_\n]*_(?!\w)"#),
-        LeoSyntaxRule(.link, #"!?\[[^\]\n]*\]\([^)\n]*\)|<https?://[^>\s]+>"#),
+        LeoSyntaxRule(.emphasis, #"\*(?<![\w*]\*)[^*\s][^*\n]*\*|_(?<!\w_)[^_\s][^_\n]*_(?!\w)"#),
+        // Link text and URL can't contain `[`, nor an autolink `<`: a scan
+        // stops where the next link could start.
+        LeoSyntaxRule(.link, #"!?\[[^\[\]\n]{0,512}\]\([^)\[\]\n]{0,2048}\)|<https?://[^<>\s]{1,2048}>"#),
     ])
 }

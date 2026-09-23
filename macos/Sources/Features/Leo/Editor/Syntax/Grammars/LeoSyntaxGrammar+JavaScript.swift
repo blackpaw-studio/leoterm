@@ -20,7 +20,7 @@ extension LeoSyntaxGrammar {
             .lineComment("//"),
             .blockComment,
             // Template literals span lines.
-            LeoSyntaxRule(.string, #"`(?:[^`\\]|\\[\s\S])*`"#),
+            LeoSyntaxRule(.string, LeoSyntaxRule.quoted("`", crossingLines: true)),
             .doubleQuoted,
             .singleQuoted,
             .atName,

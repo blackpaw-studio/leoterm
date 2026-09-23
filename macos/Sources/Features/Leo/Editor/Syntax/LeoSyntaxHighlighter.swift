@@ -14,22 +14,51 @@ struct LeoSyntaxSpan: Equatable, Sendable {
 /// leftmost match wins, and among rules matching at the same place the
 /// earlier one -- which is what keeps `//` inside a string a string, and a
 /// quote inside a comment a comment.
+///
+/// It runs on the main thread, so every rule must stay one pass over the
+/// text: a rule may scan far only where a match is then certain (a comment
+/// to the line end), or where the next place it could start is past where
+/// its scan stops (a string can't start at an escaped quote). Anything
+/// else is bounded. Lines over `longLineLimit` are left plain.
 enum LeoSyntaxHighlighter {
+    /// Longer lines (minified JSON, a log line) are left plain: little to
+    /// see, and a lot of regex work.
+    static let longLineLimit = 4096
+
     static func spans(in text: String, language: LeoEditorLanguage) -> [LeoSyntaxSpan] {
         spans(in: text, range: NSRange(location: 0, length: (text as NSString).length), language: language)
     }
 
     /// Only matches wholly inside `range` (a construct that starts before
-    /// it, like an open block comment, is missed).
+    /// it, like an open block comment, is missed), and none on lines over
+    /// `longLineLimit` (a construct spanning one is cut there).
     static func spans(in text: String, range: NSRange, language: LeoEditorLanguage) -> [LeoSyntaxSpan] {
         guard let compiled = LeoCompiledGrammar.all[language] else { return [] }
-        return compiled.regex.matches(in: text, range: range).compactMap { match in
-            for (index, token) in compiled.tokens.enumerated() {
-                let range = match.range(at: index + 1)
-                if range.location != NSNotFound, range.length > 0 { return LeoSyntaxSpan(range: range, token: token) }
-            }
-            return nil
+        return highlightableRanges(in: text as NSString, range: range).flatMap { segment in
+            compiled.regex.matches(in: text, range: segment).compactMap(compiled.span(of:))
         }
+    }
+
+    /// `range` without its lines over `limit` (terminator excluded): the
+    /// runs of shorter lines between them.
+    static func highlightableRanges(in text: NSString, range: NSRange, limit: Int = longLineLimit) -> [NSRange] {
+        var ranges: [NSRange] = []
+        let end = NSMaxRange(range)
+        var runStart = range.location
+        var lineStart = range.location
+        while lineStart < end {
+            var lineEnd = 0
+            var contentsEnd = 0
+            text.getLineStart(nil, end: &lineEnd, contentsEnd: &contentsEnd, for: NSRange(location: lineStart, length: 0))
+            let next = min(lineEnd, end)
+            if min(contentsEnd, end) - lineStart > limit {
+                if lineStart > runStart { ranges.append(NSRange(location: runStart, length: lineStart - runStart)) }
+                runStart = next
+            }
+            lineStart = next
+        }
+        if end > runStart { ranges.append(NSRange(location: runStart, length: end - runStart)) }
+        return ranges
     }
 
     /// Resets `range` (default: everything) to the plain font and colour,
@@ -46,9 +75,10 @@ enum LeoSyntaxHighlighter {
     }
 }
 
-/// One highlighting rule: every match of `pattern` is a `token` span.
-/// Patterns must not capture (use `(?:…)`): rules are told apart by their
-/// group number in the joined alternation.
+/// One highlighting rule: every match of `pattern` is a `token` span --
+/// or, if the pattern has a capture group, just what that captured
+/// (context to skip, like a YAML key's indentation, without a costly
+/// lookbehind). At most one capture group: use `(?:…)` for the rest.
 struct LeoSyntaxRule: Sendable {
     let token: LeoSyntaxToken
     let pattern: String
@@ -58,9 +88,16 @@ struct LeoSyntaxRule: Sendable {
         self.pattern = pattern
     }
 
-    /// `\b(?:a|b|…)\b`.
+    /// `\b(?:a|b|…)\b`, grouped by first letter (`\b(?:a(?:s|sync)|b…)\b`):
+    /// the regex engine tries alternatives one by one, and a keyword list
+    /// is tried at every word.
     static func words(_ token: LeoSyntaxToken, _ words: [String]) -> LeoSyntaxRule {
-        LeoSyntaxRule(token, #"\b(?:"# + words.map(NSRegularExpression.escapedPattern(for:)).joined(separator: "|") + #")\b"#)
+        let groups = Dictionary(grouping: words.filter { !$0.isEmpty }, by: \.first!).sorted { $0.key < $1.key }
+        let alternatives = groups.map { first, words in
+            let rests = words.map { NSRegularExpression.escapedPattern(for: String($0.dropFirst())) }
+            return NSRegularExpression.escapedPattern(for: String(first)) + "(?:" + rests.joined(separator: "|") + ")"
+        }
+        return LeoSyntaxRule(token, #"\b(?:"# + alternatives.joined(separator: "|") + #")\b"#)
     }
 
     static func lineComment(_ prefix: String) -> LeoSyntaxRule {
@@ -69,8 +106,20 @@ struct LeoSyntaxRule: Sendable {
 
     /// `/* … */`; an unterminated one runs to the end.
     static let blockComment = LeoSyntaxRule(.comment, #"/\*[\s\S]*?(?:\*/|\z)"#)
-    static let doubleQuoted = LeoSyntaxRule(.string, #""(?:[^"\\\n]|\\.)*""#)
-    static let singleQuoted = LeoSyntaxRule(.string, #"'(?:[^'\\\n]|\\.)*'"#)
+    static let doubleQuoted = LeoSyntaxRule(.string, quoted("\""))
+    static let singleQuoted = LeoSyntaxRule(.string, quoted("'"))
+
+    /// A string between `quote`s, with backslash escapes. It never starts
+    /// at an escaped quote, so an unterminated one is scanned once, not
+    /// again from each escaped quote in it (`"\"\"\"…`); the possessive
+    /// `*+` never backtracks into what it scanned. (The quote comes before
+    /// the lookbehind so the engine can skip to quotes.)
+    static func quoted(_ quote: Character, crossingLines: Bool = false) -> String {
+        let other = crossingLines ? #"[^\#(quote)\\]"# : #"[^\#(quote)\\\n]"#
+        let escape = crossingLines ? #"\\[\s\S]"# : #"\\."#
+        return #"\#(quote)(?<!\\\#(quote))(?:\#(other)|\#(escape))*+\#(quote)"#
+    }
+
     /// C-family literals: hex, binary, octal, decimal with fraction/exponent.
     static let number = LeoSyntaxRule(
         .number,
@@ -108,20 +157,45 @@ struct LeoSyntaxGrammar: Sendable {
 
 /// Every grammar's rules joined into one regex, built once.
 private struct LeoCompiledGrammar {
+    /// A rule's group in the joined regex, and the group holding its span
+    /// (the same one, unless the rule captures its span itself).
+    struct Rule {
+        let token: LeoSyntaxToken
+        let group: Int
+        let spanGroup: Int
+    }
+
     let regex: NSRegularExpression
-    let tokens: [LeoSyntaxToken]
+    let rules: [Rule]
+
+    /// The first rule that matched: rules never overlap, since a match is
+    /// exactly one alternative.
+    func span(of match: NSTextCheckingResult) -> LeoSyntaxSpan? {
+        guard let rule = rules.first(where: { match.range(at: $0.group).location != NSNotFound }) else { return nil }
+        let range = match.range(at: rule.spanGroup)
+        guard range.location != NSNotFound, range.length > 0 else { return nil }
+        return LeoSyntaxSpan(range: range, token: rule.token)
+    }
 
     static let all: [LeoEditorLanguage: LeoCompiledGrammar] = {
         var compiled: [LeoEditorLanguage: LeoCompiledGrammar] = [:]
         for language in LeoEditorLanguage.allCases {
-            let rules = LeoSyntaxGrammar.grammar(for: language).rules
-            guard !rules.isEmpty else { continue }
-            let pattern = rules.map { "(\($0.pattern))" }.joined(separator: "|")
+            let grammar = LeoSyntaxGrammar.grammar(for: language).rules
+            guard !grammar.isEmpty else { continue }
+            var rules: [Rule] = []
+            var group = 1
+            for rule in grammar {
+                let captures = (try? NSRegularExpression(pattern: rule.pattern, options: LeoSyntaxGrammar.options))?.numberOfCaptureGroups ?? 0
+                assert(captures <= 1, "\(language) \(rule.token) captures more than its span")
+                rules.append(Rule(token: rule.token, group: group, spanGroup: captures == 1 ? group + 1 : group))
+                group += 1 + captures
+            }
+            let pattern = grammar.map { "(\($0.pattern))" }.joined(separator: "|")
             guard let regex = try? NSRegularExpression(pattern: pattern, options: LeoSyntaxGrammar.options) else {
                 assertionFailure("invalid grammar for \(language)")
                 continue
             }
-            compiled[language] = LeoCompiledGrammar(regex: regex, tokens: rules.map(\.token))
+            compiled[language] = LeoCompiledGrammar(regex: regex, rules: rules)
         }
         return compiled
     }()

@@ -7,7 +7,9 @@ extension LeoSyntaxGrammar {
         LeoSyntaxRule(.string, #"'[^'\n]*'"#),
         // [table] and [[array of tables]] headers.
         LeoSyntaxRule(.heading, #"^[ \t]*\[\[?[^\]\n]*\]\]?"#),
-        LeoSyntaxRule(.key, #"(?:^|(?<=^[ \t]{1,40})|(?<=[{,][ \t]{0,10}))[A-Za-z0-9_\-.]+(?=[ \t]*=)"#),
+        // A key starts a line (after its indentation) or follows `{` or `,`
+        // in an inline table: matched, and left out of the span.
+        LeoSyntaxRule(.key, #"(?:^[ \t]{0,40}+|[{,][ \t]{0,10}+)([A-Za-z0-9_\-.]++)(?=[ \t]*=)"#),
         // Dates and times.
         LeoSyntaxRule(
             .number,
