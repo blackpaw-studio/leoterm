@@ -149,13 +149,15 @@ import AppKit
         advance(resolution)
     }
 
-    /// A pass over the resolution's editors, from the first: the ones
-    /// already closed (or left) no longer have unsaved edits.
+    /// A pass over the resolution's editors: always the first one with
+    /// unsaved edits, so one edited after its turn -- or already passed
+    /// over -- is asked about too. The ones closed (or left) have none, so
+    /// the pass ends once nothing is left unsaved.
     private func advance(_ resolution: Resolution) {
         resolution.pass += 1
         let pass = resolution.pass
         Task {
-            for entry in resolution.entries where Self.hasUnsavedEdits(entry.editor) {
+            while let entry = resolution.entries.first(where: { Self.hasUnsavedEdits($0.editor) }) {
                 resolution.current = entry
                 if resolution.offersToLeave {
                     entry.editor.leaveAnyway = { [weak self] in self?.offerToLeave(entry, from: resolution) }

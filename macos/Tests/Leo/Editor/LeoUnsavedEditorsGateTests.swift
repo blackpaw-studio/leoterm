@@ -459,6 +459,42 @@ struct LeoUnsavedEditorsGateTests {
         }
     }
 
+    /// ...even one the close already passed over: clean when its turn came,
+    /// edited while a later editor's prompt was up. Both the logout's reply
+    /// and `resolve` (Ghostty's quit review) wait for its answer.
+    @Test(.timeLimit(.minutes(1)), arguments: [true, false])
+    func anEarlierEditorEditedDuringTheCloseIsAskedAboutToo(_ isSystemQuit: Bool) async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let log = Log()
+            let earlier = pane(answering: .cancel, log: log)
+            try await open(earlier, try sandbox.file("a.txt", "a"), editing: false)
+            let (dirty, prompts, answer) = heldPane(log)
+            try await open(dirty, try sandbox.file("b.txt", "b"), editing: true)
+            let gate = gate(log: log)
+            let both = [entry(earlier, "1", log), entry(dirty, "2", log)]
+            var replies: [Bool] = []
+            let pending = Task { @MainActor in
+                if isSystemQuit {
+                    #expect(gate.deferQuit(of: both, isSystemQuit: true, reply: { replies.append($0) }, retry: {}) == .terminateLater)
+                } else {
+                    replies.append(await gate.resolve(both))
+                }
+            }
+            for await _ in prompts { break }
+
+            earlier.document?.edit("a, edited while asked about b")
+            answer.yield(.discard)
+            #expect(await eventually { !replies.isEmpty })
+            await pending.value
+
+            #expect(log.asked == ["b.txt", "a.txt"])
+            #expect(replies == [false], "Cancel on a.txt stops the quit")
+            #expect(earlier.document?.isDirty == true)
+            earlier.confirmUnsaved = { _ in .discard }
+            await earlier.close()
+        }
+    }
+
     /// ...and so is one edited while the Keep Waiting / Quit Anyway offer
     /// is up: leaving the stuck editor asks about it rather than dropping it.
     @Test(.timeLimit(.minutes(1)))
