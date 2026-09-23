@@ -74,9 +74,10 @@ import Testing
         // `fillPlaceholder` moves focus asynchronously (retrying until the
         // surface has a window); wait for it to land rather than race it.
         // Contains, not last: the order is what the steps below assert.
-        try #require(await recorder.waitUntil { $0.contains(.focusChanged(handle)) }, "focus never reached the surface")
-        await recorder.drainMainQueue()
-        try #require(await recorder.caughtUp(), "a yielded focus report never arrived")
+        let settled = recorder.deadline()
+        try #require(await recorder.waitUntil(settled) { $0.contains(.focusChanged(handle)) }, "focus never reached the surface")
+        await recorder.drainMainQueue(settled)
+        try #require(await recorder.caughtUp(settled), "a yielded focus report never arrived")
         #expect(host.focusedHandle == handle)
 
         let sidebar = FirstResponderView()
@@ -131,7 +132,9 @@ private final class FirstResponderView: NSView {
 
 /// Drains a host's `lifecycleEvents`, keeping the focus reports. Every
 /// wait is on received events, bounded by a deadline, and ends early if
-/// the test is cancelled -- a missing report fails, it never hangs.
+/// the test is cancelled -- a missing report fails, it never hangs. The
+/// waits of one step share a deadline, so a step that loses a report fails
+/// at its call site well inside the test's time limit.
 @MainActor private final class FocusReportRecorder {
     private typealias Waiter = (isSatisfied: ([AttachLifecycleEvent]) -> Bool, continuation: CheckedContinuation<Void, Never>)
 
@@ -141,7 +144,7 @@ private final class FirstResponderView: NSView {
     private var waiters: [UUID: Waiter] = [:]
     private var drain: Task<Void, Never>?
 
-    init(_ host: GhosttyAttachTabHost, timeout: Duration = .seconds(30)) {
+    init(_ host: GhosttyAttachTabHost, timeout: Duration = .seconds(20)) {
         self.host = host
         self.timeout = timeout
         drain = Task { [weak self, events = host.lifecycleEvents] in
@@ -166,18 +169,23 @@ private final class FirstResponderView: NSView {
         _ count: Int, during action: () -> Void, sourceLocation: SourceLocation = #_sourceLocation
     ) async throws -> [AttachLifecycleEvent] {
         let start = received.count
+        let deadline = deadline()
         action()
-        await waitUntil { $0.count >= start + count }
-        await drainMainQueue()
-        try #require(await caughtUp(), "a yielded focus report never arrived", sourceLocation: sourceLocation)
+        await waitUntil(deadline) { $0.count >= start + count }
+        await drainMainQueue(deadline)
+        try #require(await caughtUp(deadline), "a yielded focus report never arrived", sourceLocation: sourceLocation)
         return Array(received[start...])
+    }
+
+    /// One step's budget, shared by all of its waits.
+    func deadline() -> ContinuousClock.Instant {
+        ContinuousClock.now + timeout
     }
 
     /// Hops the main queue until two consecutive hops yield no new report
     /// (or the deadline passes): a callback queued before a hop has run
     /// once that hop resumes.
-    func drainMainQueue() async {
-        let deadline = ContinuousClock.now + timeout
+    func drainMainQueue(_ deadline: ContinuousClock.Instant) async {
         var quietHops = 0
         while quietHops < 2, ContinuousClock.now < deadline, !Task.isCancelled {
             let before = host.focusReportCount
@@ -187,20 +195,22 @@ private final class FirstResponderView: NSView {
     }
 
     /// Whether every report the host has yielded so far has arrived.
-    func caughtUp() async -> Bool {
-        await waitUntil { [host] in $0.count >= host.focusReportCount }
+    func caughtUp(_ deadline: ContinuousClock.Instant) async -> Bool {
+        await waitUntil(deadline) { [host] in $0.count >= host.focusReportCount }
     }
 
     /// Whether the reports received satisfy `isSatisfied` before the
     /// deadline (or cancellation).
-    func waitUntil(_ isSatisfied: @escaping ([AttachLifecycleEvent]) -> Bool) async -> Bool {
+    func waitUntil(
+        _ deadline: ContinuousClock.Instant, _ isSatisfied: @escaping ([AttachLifecycleEvent]) -> Bool
+    ) async -> Bool {
         guard !isSatisfied(received) else { return true }
         let id = UUID()
-        let deadline = Task { [weak self, timeout] in
-            try? await Task.sleep(for: timeout)
+        let expiry = Task { [weak self] in
+            try? await Task.sleep(until: deadline, clock: .continuous)
             self?.resume(id)
         }
-        defer { deadline.cancel() }
+        defer { expiry.cancel() }
         await withTaskCancellationHandler {
             await withCheckedContinuation { continuation in
                 guard !Task.isCancelled else { return continuation.resume() }
