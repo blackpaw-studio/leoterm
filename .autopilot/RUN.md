@@ -1,4 +1,4 @@
-Status: running
+Status: finished
 Item: B-025
 Base: 605d43e68e4137974561eea8fcbb8227a0be9406
 Wip: none
@@ -22,3 +22,5 @@ Untracked-left: macos/default.profraw scratchpad/ zig-out
 - B-025: built cbc79e25c ba6e9d140 e37de61ee 1f96bee20 (1145 tests; 10/10 under 28× yes load; each proven by breaking what it guards). New flake seen: LeoSidebarFeedFixTests/sseRefreshTask… → B-031. Review: HIGH (until swallows cancellation) + 2 MED (fatalError on missing ICU symbol; .dispatch grace timer uncovered) + LOW → attempt 1 (d-a16546fcc61e#2).
 - B-025: attempt-1 fix 4eb3f5fa5 (1146 tests). Re-review: HIGH (test child can outlive cleanup) + MED (new dispatch test order-flaky) → attempt 2 (d-a16546fcc61e#3).
 - B-025: attempt-2 fix 6e1267756 (1146 tests; LeoProcessRunnerTests 10/10 under load). 3rd review: HIGH (cleanup kill without ownership check) + LOW (set compare) → attempt 3, the last (d-a16546fcc61e#4).
+- B-025 done: cbc79e25c..ba23155a9 (7 commits, 1146 tests). Final MED dismissed. New flake → B-031.
+- Run finished: cap of 5 reached (4 shipped, 1 blocked).

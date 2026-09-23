@@ -34,3 +34,11 @@ Calls for veto: D-035–D-045. D-043 (B-020) and D-045 (B-019) depart from the 3
 Queued (ready next run): B-023 browser polish, B-024 editor close-wait polish, B-025 load flakes, B-026 selectors only after emoji, B-027 one tunnel per host + event-stream backoff, B-028 focus-test catch-up. Ready now: B-007, B-009–B-012
 Tests: 1132 (the only failure is the known ConfigTests/errorsEmptyForValidConfig; LeoSyntaxHighlighterAdversarialTests flakes under load ~100 → B-025); swiftlint clean
 Notes: leo_dispatch role review.security routed to codex/gpt-6-sol and failed every time ("Model metadata for `gpt-6-sol` not found"); security reviews ran on the Sonnet code-reviewer fallback. The plain review role on the same model worked. autopilot-scratch was created for verification and deleted afterwards; its workspace dir is left in place.
+
+## Run 2026-09-23 (afternoon) — 4 shipped, 1 blocked
+- B-028 focus test requires the catch-up: 256eeec38 1f924ee53 (not visually verified: test-only)
+- B-026 hidden-bit channels in untrusted text closed with Unicode 18 tables + NFC: e5efc61b4 ac9539839 5a44072dd 03ac88d26 (not visually verified: error text)
+- B-024 editor close-wait (lock only once committed; "Closing …" banner): 810596a0a 188851f1f 6a6be8646 7d10d709e 605d43e68 (not visually verified: auto mode refused peekaboo input)
+- B-025 load-proof timing tests: cbc79e25c ba6e9d140 e37de61ee 1f96bee20 4eb3f5fa5 6e1267756 ba23155a9 (test-only)
+- B-027 blocked after 3 fix rounds, reverted in 75f5b8eda; question: single instance per bundle?
+- Calls: D-046 D-047 D-048 D-050 (D-049 reverted with B-027). New: B-029 B-030 B-031. Next: B-023, B-029–B-031, B-007.

@@ -101,9 +101,14 @@ Done: 810596a0a 188851f1f 6a6be8646 7d10d709e 605d43e68 (1145 tests). The text l
 Accept: a keystroke that races the close lock reloads with `keepingSelection: true`, but `LeoEditorTextView.swift:74` collapses the selection to a caret; if the save then fails and the pane unlocks, the selection is gone. Keep the full range, with a test. Also screenshot B-024's `Closing “…”…` banner (launch with `LEO_SLOW_SAVE_SECONDS=30`) once GUI input is allowed again.
 Source: B-024 third review
 
-## B-025 · Timing-sensitive test flakes under load   [ready]
+## B-025 · Timing-sensitive test flakes under load   [done]
 Accept: `LeoSidebarFeedActivityCoalescingTests` failed once and `LeoSyntaxHighlighterAdversarialTests` hit its time limits several times and `LeoProcessRunnerTests/timeoutEscalatesToSIGKILL` took 3.9 s against 3 s, all while the machine's load average was ~100 (2026-09-23, B-022/B-020 runs); all passed on rerun. Make both deterministic (inject a clock, or measure work instead of wall time) and prove 10/10 under load.
 Source: B-022 implementer runs
+Done: cbc79e25c ba6e9d140 e37de61ee 1f96bee20 4eb3f5fa5 6e1267756 ba23155a9 (1146 tests). SIGKILL escalation driven by an injected `LeoProcessScheduler` (+ a `.dispatch` test); the highlighter counts ICU match steps instead of timing (budget 1 tick/128 chars); the coalescing tests use an event-driven fake clock. Each passed 10/10 under 28× `yes` load and each was proven by breaking what it guards. Test-only, so no screenshot. 3 fix rounds; the final MED (pid reused by another child in the failure-only cleanup) dismissed.
+
+## B-031 · Flake: LeoSidebarFeedFixTests/sseRefreshTask…   [ready (next run)]
+Accept: `sseRefreshTaskReplacesAPendingPredecessorAndIsCancelledOnStop` failed once at load ~245 (`clock.sleepCount == 1`). Its test clock removes cancelled sleeps asynchronously, the pattern B-025 replaced in the coalescing tests; apply the same fix and prove 10/10 under load.
+Source: B-025 implementer run
 
 ## B-005 · Per-agent workspace browser   [done]
 Accept: from a sidebar row (context menu + shortcut), browse the agent's
