@@ -64,7 +64,9 @@ final class LeoWorkspaceBrowserViewController: NSViewController {
         stack.setAccessibilityLabel("Workspace files")
         view = stack
         view.widthAnchor.constraint(greaterThanOrEqualToConstant: Self.minimumWidth).isActive = true
-        sync()
+        // Not `sync()`: collapsing or expanding its own split item while the
+        // split view is loading it throws in `NSSplitViewController`.
+        showModel()
     }
 
     // MARK: - Focus and actions
@@ -99,6 +101,10 @@ final class LeoWorkspaceBrowserViewController: NSViewController {
     /// expanded, the selected path kept selected.
     func sync() {
         setCollapsed(!model.isOpen)
+        showModel()
+    }
+
+    private func showModel() {
         titleLabel.stringValue = headerTitle
         footer.stringValue = model.openError ?? ""
         footerBox.isHidden = model.openError == nil

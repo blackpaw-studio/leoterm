@@ -307,8 +307,19 @@ struct LeoAgentRowView: View {
         }
         Button("Rename…") { showingRename = true }.disabled(!availability.rename)
         Button("View Logs") { viewLogs() }.disabled(!availability.logs)
+        Button("Browse Files") { browseFiles() }
         Divider()
         Button("Delete…", role: .destructive) { showingDelete = true }.disabled(!availability.delete)
+    }
+
+    /// Opens the workspace browser (B-005) on this agent in the window
+    /// whose sidebar was clicked.
+    private func browseFiles() {
+        guard let controller = NSApp.keyWindow?.windowController as? TerminalController else {
+            actions.setRowError("No terminal window available", for: row)
+            return
+        }
+        controller.browseLeoFiles(for: LeoEditorAgentContext(host: row.host, name: row.name, workspace: row.workspace))
     }
 
     private func viewLogs() {

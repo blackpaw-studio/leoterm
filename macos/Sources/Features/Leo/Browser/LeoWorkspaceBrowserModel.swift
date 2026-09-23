@@ -43,6 +43,13 @@ enum LeoWorkspaceItem: Hashable, Sendable {
         let path: String?
     }
 
+    /// What Browse Agent Files does next.
+    enum BrowseStep: Equatable, Sendable {
+        case open
+        case focus
+        case close
+    }
+
     enum Folder: Equatable, Sendable {
         case loading
         /// Folders first, then names in Finder order.
@@ -100,12 +107,24 @@ enum LeoWorkspaceItem: Hashable, Sendable {
 
     func isExpanded(_ folder: String) -> Bool { expanded.contains(folder) }
 
+    /// Whether the browser is rooted at `agent`'s workspace.
+    func shows(_ agent: LeoEditorAgentContext) -> Bool {
+        root == Self.root(for: agent)
+    }
+
+    /// Browse Agent Files toggles: opens the browser on `agent`, focuses it
+    /// when it already shows that agent, and closes it from inside.
+    func browseStep(for agent: LeoEditorAgentContext, hasFocus: Bool) -> BrowseStep {
+        guard shows(agent) else { return .open }
+        return hasFocus ? .close : .focus
+    }
+
     /// Roots the browser at `agent`'s workspace on its host, starting over
     /// (nothing expanded). Already showing that workspace, it reloads
     /// instead, keeping what's expanded.
     func open(_ agent: LeoEditorAgentContext) async {
-        let workspace = agent.workspace.flatMap { $0.hasPrefix("/") ? $0 : nil }
-        let next = Root(host: agent.host, agent: agent.name ?? "", path: workspace)
+        let next = Self.root(for: agent)
+        let workspace = next.path
         if next == root, access != nil {
             await reload()
             return
@@ -181,6 +200,10 @@ enum LeoWorkspaceItem: Hashable, Sendable {
     }
 
     // MARK: - Helpers
+
+    private static func root(for agent: LeoEditorAgentContext) -> Root {
+        Root(host: agent.host, agent: agent.name ?? "", path: agent.workspace.flatMap { $0.hasPrefix("/") ? $0 : nil })
+    }
 
     private func reset() async {
         let previous = access

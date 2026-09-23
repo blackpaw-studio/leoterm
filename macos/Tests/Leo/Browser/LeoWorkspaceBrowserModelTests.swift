@@ -237,6 +237,25 @@ struct LeoWorkspaceBrowserModelTests {
         #expect(LeoWorkspaceEntry(name: "\u{202E}", path: "/w/\u{202E}", isFolder: false).displayName == "\u{FFFD}")
     }
 
+    /// Agents ▸ Browse Agent Files (⌥⌘B) opens the browser on the agent,
+    /// focuses it when it's already showing that agent, and closes it from
+    /// inside.
+    @Test
+    func browsingTheSameAgentFocusesThenCloses() async {
+        let (browser, _) = makeBrowser(.local)
+        let scratch = agent("/tmp")
+        #expect(browser.browseStep(for: scratch, hasFocus: false) == .open)
+
+        await browser.open(scratch)
+
+        #expect(browser.shows(scratch))
+        #expect(browser.browseStep(for: scratch, hasFocus: false) == .focus)
+        #expect(browser.browseStep(for: scratch, hasFocus: true) == .close)
+        let other = LeoEditorAgentContext(host: .local, name: "other", workspace: "/tmp")
+        #expect(browser.browseStep(for: other, hasFocus: true) == .open)
+        await browser.close()
+    }
+
     @Test(arguments: kinds)
     func reopeningAnotherAgentStartsFresh(_ kind: LeoFileBackendKind) async throws {
         try await withLeoFileSandbox(kind) { sandbox, _ in

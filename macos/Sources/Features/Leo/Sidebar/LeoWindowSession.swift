@@ -48,6 +48,10 @@ struct LeoWindowVisibilityState: Equatable {
     let editor: LeoEditorPaneModel
     /// Its view, once the window's split view has built it (focus moves).
     weak var editorPane: LeoEditorPaneViewController?
+    /// The window's workspace browser (B-005), on the editor's leading
+    /// edge; it opens files in `editor`.
+    let browser: LeoWorkspaceBrowserModel
+    weak var browserPane: LeoWorkspaceBrowserViewController?
 
     private let defaults: UserDefaults
     private let onPollabilityChanged: () -> Void
@@ -64,7 +68,9 @@ struct LeoWindowVisibilityState: Equatable {
     ) {
         self.id = id
         self.defaults = defaults
-        editor = LeoEditorPaneModel(makeAccess: makeFileAccess)
+        let editor = LeoEditorPaneModel(makeAccess: makeFileAccess)
+        self.editor = editor
+        browser = LeoWorkspaceBrowserModel(makeAccess: makeFileAccess, openFile: { try await editor.open($0) })
         self.onPollabilityChanged = onPollabilityChanged
         self.window = window
         // Fresh installs start with the sidebar hidden -- a persisted user
@@ -130,7 +136,9 @@ struct LeoWindowVisibilityState: Equatable {
     private func windowWillClose() {
         onWindowWillClose()
         let editor = editor
+        let browser = browser
         Task { await editor.release() }
+        Task { await browser.close() }
     }
 
     private func apply(_ event: LeoWindowVisibilityState.Event) {

@@ -33,7 +33,11 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
     /// The window's editor pane, a trailing item that collapses while no
     /// file is open (B-004).
     var editor: LeoEditorPaneModel?
+    /// The window's workspace browser, an item on the editor's leading
+    /// edge that collapses while it's closed (B-005).
+    var browser: LeoWorkspaceBrowserModel?
     var onEditorPane: (LeoEditorPaneViewController) -> Void = { _ in }
+    var onBrowserPane: (LeoWorkspaceBrowserViewController) -> Void = { _ in }
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -46,12 +50,14 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
             onDividerWidthChange: onDividerWidthChange,
             sidebar: AnyView(sidebar),
             detail: AnyView(detail),
-            editor: editor)
+            editor: editor,
+            browser: browser)
 
         context.coordinator.sidebarHosting = components.sidebarHosting
         context.coordinator.detailHosting = components.detailHosting
-        if let pane = components.controller.splitViewItems.last?.viewController as? LeoEditorPaneViewController {
-            onEditorPane(pane)
+        for item in components.controller.splitViewItems {
+            if let pane = item.viewController as? LeoEditorPaneViewController { onEditorPane(pane) }
+            if let pane = item.viewController as? LeoWorkspaceBrowserViewController { onBrowserPane(pane) }
         }
 
         return components.controller
@@ -115,7 +121,8 @@ enum LeoSplitViewControllerFactory {
         onDividerWidthChange: @escaping (CGFloat) -> Void,
         sidebar: AnyView,
         detail: AnyView,
-        editor: LeoEditorPaneModel? = nil
+        editor: LeoEditorPaneModel? = nil,
+        browser: LeoWorkspaceBrowserModel? = nil
     ) -> (controller: LeoSplitViewController, sidebarHosting: NSHostingController<AnyView>, detailHosting: NSHostingController<AnyView>) {
         let controller = LeoSplitViewController()
 
@@ -135,6 +142,14 @@ enum LeoSplitViewControllerFactory {
 
         controller.addSplitViewItem(sidebarItem)
         controller.addSplitViewItem(detailItem)
+        if let browser {
+            let browserItem = NSSplitViewItem(viewController: LeoWorkspaceBrowserViewController(model: browser))
+            browserItem.canCollapse = true
+            browserItem.isCollapsed = !browser.isOpen
+            browserItem.holdingPriority = LeoSidebarSplitMetrics.browserHoldingPriority
+            browserItem.minimumThickness = LeoWorkspaceBrowserViewController.minimumWidth
+            controller.addSplitViewItem(browserItem)
+        }
         if let editor {
             let editorItem = NSSplitViewItem(viewController: LeoEditorPaneViewController(model: editor))
             editorItem.canCollapse = true

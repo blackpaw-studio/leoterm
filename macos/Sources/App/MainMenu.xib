@@ -429,6 +429,24 @@
                                     <action selector="toggleLeoEditorFocus:" target="-1" id="Leo-Agents-FocusEditor-Action"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Browse Agent Files" keyEquivalent="b" id="Leo-Agents-BrowseFiles">
+                                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                <connections>
+                                    <action selector="browseLeoAgentFiles:" target="-1" id="Leo-Agents-BrowseFiles-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Show Hidden Files" keyEquivalent="." id="Leo-Agents-HiddenFiles">
+                                <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
+                                <connections>
+                                    <action selector="toggleLeoHiddenFiles:" target="-1" id="Leo-Agents-HiddenFiles-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Reload Files" keyEquivalent="r" id="Leo-Agents-ReloadFiles">
+                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                                <connections>
+                                    <action selector="reloadLeoAgentFiles:" target="-1" id="Leo-Agents-ReloadFiles-Action"/>
+                                </connections>
+                            </menuItem>
                             <menuItem isSeparatorItem="YES" id="Leo-Agents-Separator-1"/>
                             <menuItem title="Start" id="Leo-Agents-Start">
                                 <modifierMask key="keyEquivalentModifierMask"/>

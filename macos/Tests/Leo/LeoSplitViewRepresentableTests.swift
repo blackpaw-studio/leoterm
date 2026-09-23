@@ -86,14 +86,89 @@ import Testing
     @Test func holdingPrioritiesLetTheTerminalAbsorbResizes() {
         let terminal = LeoSidebarSplitMetrics.detailHoldingPriority
         let editor = LeoSidebarSplitMetrics.editorHoldingPriority
+        let browser = LeoSidebarSplitMetrics.browserHoldingPriority
         let sidebar = LeoSidebarSplitMetrics.sidebarHoldingPriority
         #expect(terminal < editor && editor < sidebar)
+        #expect(terminal < browser && browser < sidebar)
         // NSSplitView's low band: higher freezes the pane (see LeoSidebarSplitMetrics).
         #expect(editor.rawValue >= 250 && editor.rawValue <= 260)
+        #expect(browser.rawValue >= 250 && browser.rawValue <= 260)
+    }
+
+    // MARK: Workspace browser (B-005)
+
+    @Test func theBrowserSitsOnTheEditorsLeadingEdgeAndStartsCollapsed() {
+        let harness = Harness(preferredWidth: Self.storedWidth, editor: Self.makeEditor(), browser: Self.makeBrowser())
+
+        let items = harness.components.controller.splitViewItems
+        #expect(items.count == 4)
+        #expect(items[2].viewController is LeoWorkspaceBrowserViewController)
+        #expect(items[3].viewController is LeoEditorPaneViewController)
+        #expect(harness.browserItem?.isCollapsed == true)
+        #expect(abs(harness.sidebarWidth - Self.storedWidth) <= 1)
+    }
+
+    /// The browser can open (or close) before the split view loads its
+    /// views: loading the browser's view must not collapse or expand its
+    /// own split item, which `NSSplitViewController` can't take mid-load.
+    @Test func theBrowserChangingBeforeTheSplitLoadsDoesNotCrash() async throws {
+        let sandbox = try LeoFileSandbox()
+        defer { sandbox.cleanUp() }
+        let opened = Self.makeBrowser()
+        let closed = Self.makeBrowser()
+        await closed.open(LeoEditorAgentContext(host: .local, name: "scratch", workspace: sandbox.root))
+        let components = [opened, closed].map { browser in
+            LeoSplitViewControllerFactory.make(
+                isSidebarVisible: true, preferredWidth: Self.storedWidth, onDividerWidthChange: { _ in },
+                sidebar: AnyView(Color.clear), detail: AnyView(Color.clear), editor: Self.makeEditor(), browser: browser)
+        }
+        await opened.open(LeoEditorAgentContext(host: .local, name: "scratch", workspace: sandbox.root))
+        await closed.close()
+
+        for (index, component) in components.enumerated() {
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: Self.windowWidth, height: Self.windowHeight), styleMask: [.titled], backing: .buffered, defer: false)
+            window.contentViewController = component.controller
+            window.setContentSize(NSSize(width: Self.windowWidth, height: Self.windowHeight))
+            window.layoutIfNeeded()
+            await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
+            window.layoutIfNeeded()
+            let item = component.controller.splitViewItems.first { $0.viewController is LeoWorkspaceBrowserViewController }
+            #expect(item?.isCollapsed == (index == 1))
+            window.close()
+        }
+        await opened.close()
+    }
+
+    @Test func openingTheBrowserShowsItAndClosingHidesIt() async throws {
+        let sandbox = try LeoFileSandbox()
+        defer { sandbox.cleanUp() }
+        try sandbox.file("a.swift", "")
+        let browser = Self.makeBrowser()
+        let harness = Harness(preferredWidth: Self.storedWidth, editor: Self.makeEditor(), browser: browser)
+
+        await browser.open(LeoEditorAgentContext(host: .local, name: "scratch", workspace: sandbox.root))
+        await harness.settle()
+
+        #expect(harness.browserItem?.isCollapsed == false)
+        let width = harness.browserWidth
+        #expect(width >= LeoWorkspaceBrowserViewController.minimumWidth)
+        #expect(abs(harness.sidebarWidth - Self.storedWidth) <= 1)
+        #expect(harness.editorItem?.isCollapsed == true, "the editor stays closed until a file opens")
+
+        harness.resizeWindow(toWidth: Self.windowWidth + 200)
+        #expect(abs(harness.browserWidth - width) <= 1, "the terminal absorbs a window resize")
+
+        await browser.close()
+        await harness.settle()
+        #expect(harness.browserItem?.isCollapsed == true)
     }
 
     private static func makeEditor() -> LeoEditorPaneModel {
         LeoEditorPaneModel(makeAccess: { _ in LeoFileAccessor.local() })
+    }
+
+    private static func makeBrowser() -> LeoWorkspaceBrowserModel {
+        LeoWorkspaceBrowserModel(makeAccess: { _ in LeoFileAccessor.local() }, openFile: { _ in .opened })
     }
 
     /// A live split view controller inside a real, correctly sized window.
@@ -103,14 +178,15 @@ import Testing
                          detailHosting: NSHostingController<AnyView>)
         let window: NSWindow
 
-        init(preferredWidth: CGFloat = 240, editor: LeoEditorPaneModel? = nil) {
+        init(preferredWidth: CGFloat = 240, editor: LeoEditorPaneModel? = nil, browser: LeoWorkspaceBrowserModel? = nil) {
             components = LeoSplitViewControllerFactory.make(
                 isSidebarVisible: true,
                 preferredWidth: preferredWidth,
                 onDividerWidthChange: { _ in },
                 sidebar: Self.flexibleView(),
                 detail: Self.flexibleView(),
-                editor: editor)
+                editor: editor,
+                browser: browser)
 
             window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: LeoSplitViewRepresentableTests.windowWidth, height: LeoSplitViewRepresentableTests.windowHeight),
@@ -133,6 +209,12 @@ import Testing
         }
 
         var editorWidth: CGFloat { editorItem?.viewController.view.frame.width ?? 0 }
+
+        var browserItem: NSSplitViewItem? {
+            components.controller.splitViewItems.first { $0.viewController is LeoWorkspaceBrowserViewController }
+        }
+
+        var browserWidth: CGFloat { browserItem?.viewController.view.frame.width ?? 0 }
 
         /// Lets the pane's main-queue model subscriptions run, then lays out.
         func settle() async {
