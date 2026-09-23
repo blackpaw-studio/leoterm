@@ -67,7 +67,8 @@ import OSLog
         hostConnectionTransport: any LeoDaemonTransport = LeoUnixSocketTransport(),
         hostSelectionRunner: any LeoProcessRunning = LeoProcessRunner(),
         hostSelectionSSHExecutable: URL = URL(fileURLWithPath: "/usr/bin/ssh"),
-        notificationCenter: any LeoNotificationPosting = LeoUserNotificationCenter()
+        notificationCenter: any LeoNotificationPosting = LeoUserNotificationCenter(),
+        focusedAgentSink: (@Sendable (LeoAgentRow.ID?) async -> Void)? = nil
     ) {
         self.cli = cli
         self.defaults = defaults
@@ -198,7 +199,7 @@ import OSLog
             onAttentionTransitions: { transitions in weakSelf?.attentionTransitionsCommitted(transitions) },
             sink: { [weak model] snapshot in model?.receive(snapshot) }
         )
-        focusedAgentRelay = LeoOrderedRelay { [weak feed] id in await feed?.setFocusedAgent(id) }
+        focusedAgentRelay = LeoOrderedRelay(sink: focusedAgentSink ?? { [weak feed] id in await feed?.setFocusedAgent(id) })
         actions = LeoAgentActions(daemon: daemon, cli: cli, model: model, hostSelection: hostSelection) { [weak feed] in
             Task { await feed?.refresh() }
         }

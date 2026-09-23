@@ -47,7 +47,7 @@ struct LeoAttentionReducer: Equatable, Sendable {
     /// The focused attachment on any host. Kept across host switches: focus
     /// is only reported when it changes, so switching away and back must
     /// not forget it.
-    private(set) var focusedID: LeoAgentRow.ID?
+    private var focusedID: LeoAgentRow.ID?
     /// The last `hello.boot_id` seen for `host`.
     private var bootID: String?
     /// The highest revision seen per agent name this boot. The daemon's

@@ -6,26 +6,33 @@ import Testing
 /// B-019: `LeoRuntime.focusedAgentChanged` reaches the feed only through
 /// `focusedAgentRelay` (B-016), so a burst of focus changes lands in order.
 @MainActor struct LeoRuntimeFocusRelayTests {
+    /// The relay's sink sees every change, in order, once the relay has
+    /// drained. A change that goes around the relay never reaches the
+    /// sink, so this does not depend on timing.
     @Test func focusChangesReachTheFeedOnlyThroughTheOrderedRelay() async throws {
         let defaults = try #require(UserDefaults(suiteName: "LeoRuntimeFocusRelayTests.\(UUID().uuidString)"))
         let activitySource = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
-        let runtime = LeoRuntime(daemon: EmptyDaemon(), cli: LeoCLI(), activitySource: activitySource, defaults: defaults)
+        let delivered = Delivered()
+        let runtime = LeoRuntime(
+            daemon: EmptyDaemon(), cli: LeoCLI(), activitySource: activitySource, defaults: defaults,
+            focusedAgentSink: { await delivered.append($0) }
+        )
         defer { runtime.shutdown() }
-        await runtime.feed.start()
         let alpha = LeoAgentIdentity(host: .local, name: "alpha")
         let beta = LeoAgentIdentity(host: .local, name: "beta")
+        let sent = [alpha, nil, beta, nil, alpha]
 
-        for identity in [alpha, nil, beta, nil, alpha] { runtime.focusedAgentChanged(identity) }
+        for identity in sent { runtime.focusedAgentChanged(identity) }
         await runtime.focusedAgentRelay.finish()
-        #expect(await runtime.feed.attention.focusedID == .init(host: .local, name: "alpha"), "the feed ends on the last change")
 
-        // A finished relay drops what it is sent, so a change that still
-        // reaches the feed went around it.
-        runtime.focusedAgentChanged(beta)
-        for _ in 0..<10 { try await Task.sleep(nanoseconds: 10_000_000) }
-        #expect(await runtime.feed.attention.focusedID == .init(host: .local, name: "alpha"), "focus bypassed the ordered relay")
-        await runtime.feed.stop()
+        let expected = sent.map { $0.map { LeoAgentRow.ID(host: $0.host, name: $0.name) } }
+        #expect(await delivered.values == expected, "focus reaches the feed only through the ordered relay")
     }
+}
+
+private actor Delivered {
+    private(set) var values: [LeoAgentRow.ID?] = []
+    func append(_ value: LeoAgentRow.ID?) { values.append(value) }
 }
 
 private struct EmptyDaemon: LeoDaemonClient {

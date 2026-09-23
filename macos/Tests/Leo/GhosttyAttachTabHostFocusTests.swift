@@ -48,7 +48,10 @@ import Testing
     /// Viewing comes before focus (a `.focusChanged` onto an attachment
     /// implies it is viewed), and moving keyboard focus to the sidebar only
     /// clears focus -- the tab beside it is still viewed.
-    @Test(.enabled("needs the test host app's Ghostty.App") { await MainActor.run { Self.ghostty != nil } })
+    @Test(
+        .enabled("needs the test host app's Ghostty.App") { await MainActor.run { Self.ghostty != nil } },
+        .timeLimit(.minutes(1))
+    )
     func focusReportsArriveViewingFirstAndTheSidebarOnlyClearsFocus() async throws {
         let ghostty = try #require(Self.ghostty)
         let controller = TerminalController.leoNewPlaceholderWindow(ghostty)
@@ -68,21 +71,23 @@ import Testing
         let handle = try host.fillPlaceholder(command: "", workingDirectory: nil, origin: session.id, surfaceID: nil, requestID: UUID())
         let surface = try #require(controller.surfaceTree.first { $0.id == handle.surfaceID })
         try await waitUntilInWindow(surface, window)
-        window.makeFirstResponder(surface)
-        _ = try await recorder.reports(during: {})
+        // `fillPlaceholder` moves focus asynchronously (retrying until the
+        // surface has a window); wait for it to land rather than race it.
+        await recorder.waitUntil { $0.last == .focusChanged(handle) }
+        _ = await recorder.reports {}
         #expect(host.focusedHandle == handle)
 
         let sidebar = FirstResponderView()
         window.contentView?.addSubview(sidebar)
-        let toSidebar = try await recorder.reports { window.makeFirstResponder(sidebar) }
+        let toSidebar = await recorder.reports { window.makeFirstResponder(sidebar) }
         #expect(toSidebar == [.focusChanged(nil)], "the sidebar takes keyboard focus; the tab stays in view")
 
         appState.isActive = false
-        let deactivated = try await recorder.reports { window.makeFirstResponder(surface) }
+        let deactivated = await recorder.reports { window.makeFirstResponder(surface) }
         #expect(deactivated == [.viewingChanged(nil), .focusSuspended])
 
         appState.isActive = true
-        let reactivated = try await recorder.reports { controller.focusedSurface = surface }
+        let reactivated = await recorder.reports { controller.focusedSurface = surface }
         #expect(reactivated == [.viewingChanged(handle), .focusChanged(handle)], "viewing is reported before focus")
     }
 
@@ -122,35 +127,50 @@ private final class FirstResponderView: NSView {
 }
 
 /// Drains a host's `lifecycleEvents`, keeping the focus reports, and
-/// returns the ones an action produced once the host has settled.
+/// returns the ones an action produced. Waits on events and main-queue
+/// order, never on wall time.
 @MainActor private final class FocusReportRecorder {
     private let host: GhosttyAttachTabHost
     private var received: [AttachLifecycleEvent] = []
+    private var waiters: [(isSatisfied: ([AttachLifecycleEvent]) -> Bool, resume: CheckedContinuation<Void, Never>)] = []
     private var drain: Task<Void, Never>?
 
     init(_ host: GhosttyAttachTabHost) {
         self.host = host
         drain = Task { [weak self, events = host.lifecycleEvents] in
             for await event in events where Self.isFocusReport(event) {
-                self?.received.append(event)
+                self?.receive(event)
             }
         }
     }
 
     func stop() { drain?.cancel() }
 
-    /// Runs `action`, lets the main queue turn (a surface losing focus is
-    /// reported on the next turn), then waits until every report the host
-    /// has yielded has been received.
-    func reports(during action: () -> Void) async throws -> [AttachLifecycleEvent] {
-        let start = host.focusReportCount
+    /// Runs `action`, then returns every focus report the host yielded
+    /// for it. A surface losing focus is reported from a block the host
+    /// queues on the main queue during `action`; one main-queue hop queued
+    /// after `action` runs after that block, so by then the host has
+    /// yielded everything `action` caused.
+    func reports(during action: () -> Void) async -> [AttachLifecycleEvent] {
+        await waitUntil { [host] in $0.count == host.focusReportCount }
+        let start = received.count
         action()
-        for _ in 0..<5 { try await Task.sleep(nanoseconds: 20_000_000) }
-        for _ in 0..<50 where received.count < host.focusReportCount {
-            try await Task.sleep(nanoseconds: 20_000_000)
-        }
-        try #require(received.count == host.focusReportCount, "every yielded focus report was received")
+        await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
+        await waitUntil { [host] in $0.count == host.focusReportCount }
         return Array(received[start...])
+    }
+
+    /// Resumes once the reports received so far satisfy `isSatisfied`.
+    func waitUntil(_ isSatisfied: @escaping ([AttachLifecycleEvent]) -> Bool) async {
+        guard !isSatisfied(received) else { return }
+        await withCheckedContinuation { waiters.append((isSatisfied, $0)) }
+    }
+
+    private func receive(_ event: AttachLifecycleEvent) {
+        received.append(event)
+        let (ready, pending) = (waiters.filter { $0.isSatisfied(received) }, waiters.filter { !$0.isSatisfied(received) })
+        waiters = pending
+        ready.forEach { $0.resume.resume() }
     }
 
     private static func isFocusReport(_ event: AttachLifecycleEvent) -> Bool {
