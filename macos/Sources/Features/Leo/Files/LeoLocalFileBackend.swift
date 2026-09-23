@@ -22,6 +22,10 @@ struct LeoLocalFileBackend: LeoFileAccessBackend {
         return String(cString: resolved)
     }
 
+    func homeDirectory() async throws -> String {
+        NSHomeDirectory()
+    }
+
     func entries(of directory: String) async throws -> [LeoFileEntry] {
         let names: [String]
         do {

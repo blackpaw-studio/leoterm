@@ -45,8 +45,10 @@ enum LeoFileBackendKind: String, CaseIterable, CustomTestStringConvertible, Send
 enum LeoSFTPTestServer {
     static let executable = URL(fileURLWithPath: "/usr/libexec/sftp-server")
 
+    /// `-d %d` starts in the user's home, as sshd does for a real session
+    /// (run directly, sftp-server would stay in the test's working directory).
     static func launcher() -> LeoSFTPProcessLauncher {
-        LeoSFTPProcessLauncher(executable: executable, arguments: [])
+        LeoSFTPProcessLauncher(executable: executable, arguments: ["-d", "%d"])
     }
 
     /// A fake server: `/bin/sh -c script`, speaking whatever bytes the

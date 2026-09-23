@@ -143,6 +143,18 @@ struct LeoFileAccessContractTests {
         }
     }
 
+    /// `~` in a surfaced path means the agent's host's home, local or remote.
+    @Test(arguments: LeoFileBackendKind.allCases)
+    func homeDirectoryIsTheHostUsersHome(_ kind: LeoFileBackendKind) async throws {
+        try await withLeoFileSandbox(kind) { _, access in
+            let home = try await access.homeDirectory()
+
+            #expect(home.hasPrefix("/"))
+            #expect(try await access.stat(home).kind == .directory)
+            if kind != .sshEndToEnd { #expect(home == NSHomeDirectory()) }
+        }
+    }
+
     @Test(arguments: LeoFileBackendKind.allCases)
     func relativePathsAreRejectedBeforeTouchingTheBackend(_ kind: LeoFileBackendKind) async throws {
         try await withLeoFileSandbox(kind) { _, access in

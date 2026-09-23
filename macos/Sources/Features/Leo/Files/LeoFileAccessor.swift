@@ -11,6 +11,8 @@ protocol LeoFileAccessBackend: Sendable {
     func lstat(_ path: String) async throws -> LeoFileStat
     /// Canonical absolute path with every symlink resolved. `path` exists.
     func realpath(_ path: String) async throws -> String
+    /// The user's home directory, absolute.
+    func homeDirectory() async throws -> String
     /// Unordered; may include `.` and `..`; entries described via `lstat`.
     func entries(of directory: String) async throws -> [LeoFileEntry]
     /// The file's bytes, stopping once more than `limit` have been read.
@@ -47,6 +49,16 @@ struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
     func stat(_ path: String) async throws -> LeoFileStat {
         try Self.validate(path)
         return try await backend.stat(path)
+    }
+
+    /// A server's answer is untrusted: anything but an absolute path is a
+    /// protocol error rather than a base for relative paths.
+    func homeDirectory() async throws -> String {
+        let home = try await backend.homeDirectory()
+        guard home.hasPrefix("/"), !home.contains("\0") else {
+            throw LeoFileAccessError.protocolError("the home directory isn’t an absolute path")
+        }
+        return home
     }
 
     func read(_ path: String, maxBytes: UInt64) async throws -> LeoFileContents {

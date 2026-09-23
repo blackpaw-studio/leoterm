@@ -38,6 +38,7 @@ private final class LeoStatFailsAfterReplaceBackend: LeoFileAccessBackend, @unch
 
     func lstat(_ path: String) async throws -> LeoFileStat { try await base.lstat(path) }
     func realpath(_ path: String) async throws -> String { try await base.realpath(path) }
+    func homeDirectory() async throws -> String { try await base.homeDirectory() }
     func entries(of directory: String) async throws -> [LeoFileEntry] { try await base.entries(of: directory) }
     func contents(of path: String, limit: UInt64) async throws -> Data { try await base.contents(of: path, limit: limit) }
     func create(_ path: String, data: Data, permissions: UInt16?) async throws {

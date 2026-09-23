@@ -37,6 +37,12 @@ struct LeoSFTPFileBackend: LeoFileAccessBackend {
         try await client().realpath(path)
     }
 
+    /// sshd starts the SFTP subsystem in the user's home directory, so
+    /// `.` is home.
+    func homeDirectory() async throws -> String {
+        try await client().realpath(".")
+    }
+
     func entries(of directory: String) async throws -> [LeoFileEntry] {
         let client = try await client()
         let handle = try await client.openDirectory(directory)

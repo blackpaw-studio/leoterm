@@ -14,6 +14,9 @@ protocol LeoFileAccess: Sendable {
     /// Follows symlinks.
     func stat(_ path: String) async throws -> LeoFileStat
 
+    /// The host user's home directory (what `~` means in a surfaced path).
+    func homeDirectory() async throws -> String
+
     /// The file's bytes plus the `stat` taken *before* reading, so
     /// `contents.stat.version` is safe to pass back to `write` as the
     /// conflict token (a change racing the read makes a save report a
