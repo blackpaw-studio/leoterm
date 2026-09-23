@@ -411,7 +411,7 @@ Context: B-027 blocked after 3 rounds; every HIGH came from two copies of one bu
 Chose: an app-level lock at launch; a second copy of the same bundle activates the first and quits. Release and debug bundles stay independent. B-027 shrinks to removing the `LeoAgentActions` fallback plus the stale-record test
 Why: Evan's answer to B-027 (2026-09-23)
 Alternatives: per-path flock ownership (D-049, reverted)
-Commit:
+Commit: 10be4b608 6fec65c82 67de1e864 682f967c4 73109b6c3
 Veto: n/a (Evan)
 
 ## D-052 · 2026-09-23 · Autopilot may drive the isolated debug app's input (Evan)
@@ -426,5 +426,13 @@ Context: B-027 review HIGH: when the instance lock can't be safely taken (symlin
 Chose: show "Leo can't start" with the reason and path, one Quit button, and exit; never touch the offending file. The lock sits in the user's private 0700 cache dir, so only the same user or root can cause this
 Why: principle 5 (show it plainly, the user recovers by hand) and the point of D-051
 Alternatives: fail open and log (the first build)
-Commit:
+Commit: 73109b6c3
+Veto: [ ]
+
+## D-054 · 2026-09-23 · B-027 implementer calls
+Context: B-027
+Chose: the instance check runs in main.swift before NSApplicationMain (a losing copy builds no delegate, runtime or tunnel and exits 0); lock at `<per-user cache dir>/leo/<bundle ID>.instance.lock`, 0600, O_NOFOLLOW|O_CLOEXEC so children never inherit it; a test host is one where `XCInjectBundleInto` resolves to this executable and the XCTest injector is loaded; a missing bundle ID skips the check; a busy lock with no running copy found still quits; a still-live legacy (pre-B-021) socket or ssh is left alone, never signalled
+Why: principle 3 (tunnel robustness) and D-051
+Alternatives: check in the app delegate; fail open
+Commit: 67de1e864 6fec65c82 73109b6c3
 Veto: [ ]
