@@ -2,7 +2,8 @@ import AppKit
 
 /// The pane's header: a pop-up of recently opened files (the open one
 /// selected; choosing another switches to it), the Edited / read-only
-/// state, the language, and a close button.
+/// state, the language, and a close button. Names and folders come from
+/// terminal output or a remote host, so they're shown sanitized.
 final class LeoEditorHeaderView: NSView {
     var onSelectRecent: (LeoEditorFileID) -> Void = { _ in }
     var onClose: () -> Void = {}
@@ -25,7 +26,7 @@ final class LeoEditorHeaderView: NSView {
         self.recents = recents
         let menu = NSMenu()
         for (index, fileID) in recents.enumerated() {
-            let item = NSMenuItem(title: fileID.name, action: #selector(selectRecent(_:)), keyEquivalent: "")
+            let item = NSMenuItem(title: Self.title(for: fileID), action: #selector(selectRecent(_:)), keyEquivalent: "")
             item.target = self
             item.tag = index
             item.toolTip = Self.location(of: fileID)
@@ -37,7 +38,7 @@ final class LeoEditorHeaderView: NSView {
             recentsButton.selectItem(at: index)
             recentsButton.toolTip = Self.location(of: document.fileID)
         }
-        recentsButton.setAccessibilityLabel(document.map { "Open file: \($0.displayName)" } ?? "Recent files")
+        recentsButton.setAccessibilityLabel(Self.accessibilityLabel(forOpen: document?.fileID))
         stateLabel.stringValue = document?.isDirty == true ? "Edited" : ""
         lockImage.isHidden = document?.isReadOnly != true
         languageLabel.stringValue = document?.language.displayName ?? ""
@@ -98,8 +99,16 @@ final class LeoEditorHeaderView: NSView {
 
     /// `name  ~/dir` (the folder in secondary colour), plus the host when
     /// it isn't this Mac.
-    private static func menuTitle(for fileID: LeoEditorFileID) -> NSAttributedString {
-        let title = NSMutableAttributedString(string: fileID.name, attributes: [.font: NSFont.menuFont(ofSize: 0)])
+    static func title(for fileID: LeoEditorFileID) -> String {
+        LeoSFTPServerText.sanitized(fileID.name)
+    }
+
+    static func accessibilityLabel(forOpen fileID: LeoEditorFileID?) -> String {
+        fileID.map { "Open file: \(title(for: $0))" } ?? "Recent files"
+    }
+
+    static func menuTitle(for fileID: LeoEditorFileID) -> NSAttributedString {
+        let title = NSMutableAttributedString(string: Self.title(for: fileID), attributes: [.font: NSFont.menuFont(ofSize: 0)])
         title.append(NSAttributedString(string: "  " + location(of: fileID), attributes: [
             .font: NSFont.menuFont(ofSize: NSFont.smallSystemFontSize),
             .foregroundColor: NSColor.secondaryLabelColor,
@@ -107,9 +116,9 @@ final class LeoEditorHeaderView: NSView {
         return title
     }
 
-    private static func location(of fileID: LeoEditorFileID) -> String {
+    static func location(of fileID: LeoEditorFileID) -> String {
         let directory = (fileID.path as NSString).deletingLastPathComponent
-        let shown = fileID.host == .local ? (directory as NSString).abbreviatingWithTildeInPath : directory
+        let shown = LeoSFTPServerText.sanitized(fileID.host == .local ? (directory as NSString).abbreviatingWithTildeInPath : directory)
         return fileID.host == .local ? shown : "\(shown) — \(fileID.host.displayName)"
     }
 }
