@@ -38,7 +38,7 @@ import Testing
         await selection.start(flavor: .socketEvents)
 
         #expect(try selection.makeFileAccess(for: .local) is LeoFileAccessor<LeoLocalFileBackend>)
-        let expected = LeoFileAccessError.unavailable(reason: "Leo is connected to localhost, not work. Switch hosts to open this file")
+        let expected = LeoFileAccessError.unavailable(reason: "Leo is connected to \("localhost"), not \("work"). Switch hosts to open this file")
         #expect(throws: expected) { try selection.makeFileAccess(for: .remote("work")) }
         selection.shutdown()
     }

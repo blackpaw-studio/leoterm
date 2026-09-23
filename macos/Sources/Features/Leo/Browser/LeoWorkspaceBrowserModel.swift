@@ -331,12 +331,12 @@ enum LeoWorkspaceItem: Hashable, Sendable {
         }
     }
 
-    /// One sanitized line, whatever failed. Only a `LeoFileAccessError`
-    /// keeps its curly quotes: it wrote them itself, around names it has
-    /// already sanitized (its reason may still hold a line break). Any
-    /// other error's text is treated like a server's.
+    /// One sanitized line, whatever failed. A `LeoFileAccessError` is
+    /// shown as it renders itself -- already cleaned, so cleaning it again
+    /// would only straighten its own quotes. Any other error's text is
+    /// treated like a server's.
     static func message(for error: Error) -> String {
         guard error is LeoFileAccessError else { return LeoSFTPServerText.sanitized(error.localizedDescription) }
-        return LeoSFTPServerText.sanitizedMessage(error.localizedDescription)
+        return error.localizedDescription
     }
 }

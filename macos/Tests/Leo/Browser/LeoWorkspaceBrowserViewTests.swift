@@ -204,7 +204,7 @@ struct LeoWorkspaceBrowserViewTests {
             harness.press(.right)
             try await harness.settle { harness.model.folders[files.path("locked")] != .loading && harness.model.isExpanded(files.path("locked")) }
 
-            #expect(harness.rows == ["locked", "  You don’t have permission to access “locked”."])
+            #expect(harness.rows == ["locked", "  You don’t have permission to access “\u{2068}locked\u{2069}”."])
             harness.press(.down)
             #expect(harness.selectedTitle == "locked", "a message row can't be selected")
             await harness.tearDown()
@@ -223,7 +223,7 @@ struct LeoWorkspaceBrowserViewTests {
         await model.openFile("/tmp/big.log")
         browser.sync()
 
-        #expect(browser.footerMessage?.hasPrefix("“big.log” is too large to open") == true)
+        #expect(browser.footerMessage?.hasPrefix("“\u{2068}big.log\u{2069}” is too large to open") == true)
         model.dismissOpenError()
         browser.sync()
         #expect(browser.footerMessage == nil)

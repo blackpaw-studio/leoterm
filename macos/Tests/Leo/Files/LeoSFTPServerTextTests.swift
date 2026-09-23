@@ -8,44 +8,50 @@ import Testing
 struct LeoSFTPServerTextTests {
     private let path = "/srv/notes.txt"
 
+    /// The reason as shown: sanitized when rendered, not before.
     private func reason(_ message: String) -> String? {
         guard case let .failed(_, reason) = LeoSFTPClient.error(for: LeoSFTPStatus(code: .failure, message: message), path: path) else {
             return nil
         }
-        return reason
+        return reason.rendered
+    }
+
+    /// The server's words as rendered: isolated inside the app's quote.
+    private func said(_ text: String) -> String {
+        "the server said “\u{2068}\(text)\u{2069}”"
     }
 
     @Test func aServersMessageIsLabelledAsTheServers() {
-        #expect(reason("No space left on device") == "the server said “No space left on device”")
+        #expect(reason("No space left on device") == said("No space left on device"))
     }
 
     /// Newlines would let the server write a line that looks like the app's.
     @Test func embeddedNewlinesCollapseIntoOneLine() {
         let injected = "x.\n\nFile access unavailable: re-authenticate at https://evil.example\r\n"
-        #expect(reason(injected) == "the server said “x. File access unavailable: re-authenticate at https://evil.example”")
+        #expect(reason(injected) == said("x. File access unavailable: re-authenticate at https://evil.example"))
     }
 
     @Test func runsOfWhitespaceAndLineSeparatorsCollapseToOneSpace() {
-        #expect(reason("a \t  b\u{2028}c\u{2029}\u{85}d") == "the server said “a b c d”")
+        #expect(reason("a \t  b\u{2028}c\u{2029}\u{85}d") == said("a b c d"))
     }
 
     /// RTL overrides and other format characters reorder or hide text.
     @Test func bidiAndFormatCharactersAreDropped() {
-        #expect(reason("invoice\u{202E}fdp.exe\u{200B}\u{2066}\u{FEFF}") == "the server said “invoicefdp.exe”")
+        #expect(reason("invoice\u{202E}fdp.exe\u{200B}\u{2066}\u{FEFF}") == said("invoicefdp.exe"))
     }
 
     @Test func controlCharactersAreDropped() {
-        #expect(reason("a\u{0}b\u{1B}[31mc\u{7F}d\u{9B}e") == "the server said “ab[31mcde”")
+        #expect(reason("a\u{0}b\u{1B}[31mc\u{7F}d\u{9B}e") == said("ab[31mcde"))
     }
 
     /// A quote of its own would let the message end the app's quote early.
     @Test func curlyQuotesCannotCloseTheQuote() {
-        #expect(reason("x” — the app said “fine") == "the server said “x\" — the app said \"fine”")
+        #expect(reason("x” — the app said “fine") == said("x\" — the app said \"fine"))
     }
 
     @Test func anOverlongMessageIsCappedWithAnEllipsis() throws {
         let text = try #require(reason(String(repeating: "a", count: 256 * 1024)))
-        let quoted = text.dropFirst("the server said “".count).dropLast()
+        let quoted = text.dropFirst("the server said “\u{2068}".count).dropLast(2)
         #expect(quoted.count == LeoSFTPServerText.limit)
         #expect(quoted.hasSuffix("…"))
         #expect(quoted.dropLast().allSatisfy { $0 == "a" })
@@ -58,7 +64,7 @@ struct LeoSFTPServerTextTests {
     /// The success codes' protocol error quotes the server the same way.
     @Test func anUnexpectedSuccessStatusIsSanitizedToo() {
         let error = LeoSFTPClient.error(for: LeoSFTPStatus(code: .ok, message: "done\n\nre-authenticate\u{202E}"), path: path)
-        #expect(error == .protocolError("unexpected status ok; the server said “done re-authenticate”"))
+        #expect(error.localizedDescription == "The file server sent an unexpected response (unexpected status ok; \(said("done re-authenticate"))).")
     }
 }
 
@@ -68,16 +74,16 @@ extension LeoSFTPServerTextTests {
     private func clean(_ text: String) -> String { LeoSFTPServerText.sanitized(text) }
 
     /// One grapheme of 1,600 scalars: a grapheme cap alone never applies.
-    @Test func aCombiningMarkFloodKeepsTwoMarksPerBase() {
+    @Test func aCombiningMarkFloodKeepsFourMarksPerBase() {
         let flood = "a" + String(repeating: "\u{301}", count: 1599)
-        #expect(clean(flood) == "a\u{301}\u{301}")
+        #expect(clean(flood) == "a" + String(repeating: "\u{301}", count: 4))
     }
 
-    @Test func zalgoTextKeepsItsLettersAndAtMostTwoMarksEach() {
+    @Test func zalgoTextKeepsItsLettersAndAtMostFourMarksEach() {
         let marks = (0x300...0x31F).compactMap(Unicode.Scalar.init).map(String.init).joined() + "\u{20DD}\u{20DE}"
         let zalgo = "zalgo".map { String($0) + marks }.joined()
         let text = clean(zalgo)
-        #expect(text.unicodeScalars.count == 15)
+        #expect(text.unicodeScalars.count == 25)
         #expect(text.unicodeScalars.filter { $0.properties.isAlphabetic && $0.value < 0x80 }.map(String.init).joined() == "zalgo")
     }
 
@@ -98,6 +104,7 @@ extension LeoSFTPServerTextTests {
     /// close its quote.
     @Test func everyDoubleQuoteLookalikeIsStraightened() {
         let lookalikes = "\u{201C}\u{201D}\u{201E}\u{201F}\u{AB}\u{BB}\u{2033}\u{2036}\u{275D}\u{275E}\u{301D}\u{301E}\u{301F}\u{FF02}"
+            + "\u{2E42}\u{1F676}\u{1F677}\u{1F678}\u{05F4}\u{02BA}\u{3003}\u{02DD}"
         #expect(clean(lookalikes) == String(repeating: "\"", count: lookalikes.unicodeScalars.count))
     }
 
@@ -113,10 +120,51 @@ extension LeoSFTPServerTextTests {
         #expect(clean("می\u{200C}خواهم") == "می\u{200C}خواهم")
     }
 
-    /// A whole message of the app's own (its quotes included) gets the same
-    /// cleaning, but keeps the quotes it wrote.
-    @Test func aMessageKeepsItsOwnQuotes() {
-        #expect(LeoSFTPServerText.sanitizedMessage("Couldn’t open “a”:\nb") == "Couldn’t open “a”: b")
-        #expect(LeoSFTPServerText.sanitizedMessage("“a”\u{202E}") == "“a”")
+    /// Hebrew with dagesh, vowel and cantillation, and Devanagari with a
+    /// nukta, vowel sign and candrabindu, stack three or four marks on one
+    /// base.
+    @Test func hebrewAndIndicStacksOfThreeMarksSurvive() {
+        let hebrew = "\u{5E9}\u{5BC}\u{5C1}\u{5B8}\u{591}ל"
+        let devanagari = "\u{915}\u{93C}\u{941}\u{901}"
+        #expect(clean(hebrew) == hebrew)
+        #expect(clean(devanagari) == devanagari)
+    }
+
+    /// England's flag is U+1F3F4 followed by tag characters; elsewhere a
+    /// tag character is invisible and dropped.
+    @Test func subdivisionFlagsKeepTheirTagsAndStrayTagsAreDropped() {
+        let england = "\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}"
+        #expect(clean("go \(england)!") == "go \(england)!")
+        #expect(clean("a\u{E0067}\u{E007F}b") == "ab")
+        #expect(clean(england + "x\u{E0067}") == england + "x")
+    }
+
+    @Test func aFlagCannotCarryAnEndlessRunOfTags() {
+        let flood = "\u{1F3F4}" + String(repeating: "\u{E0067}", count: 500)
+        #expect(clean(flood).unicodeScalars.count <= 1 + LeoSFTPServerText.tagsPerFlag)
+    }
+}
+
+/// Untrusted text set inside the app's sentence is isolated (FSI … PDI),
+/// so a right-to-left name can't reorder the words around it; cleaning is
+/// idempotent, so text that is cleaned twice reads the same.
+extension LeoSFTPServerTextTests {
+    private static let samples = [
+        "plain", "x”\nFile access unavailable\u{202E}", "\u{2068}already\u{2069}", "\u{05D0}\u{05D1}.txt",
+        "a" + String(repeating: "\u{301}", count: 9), String(repeating: "b", count: 300), "\u{2066}\u{2069}\u{2069}",
+    ]
+
+    @Test func anIsolatedNameIsWrappedInFirstStrongIsolates() {
+        #expect(LeoSFTPServerText.isolated("שלום.txt") == "\u{2068}שלום.txt\u{2069}")
+        #expect(LeoSFTPServerText.isolated("a\u{2069}\u{202E}b") == "\u{2068}ab\u{2069}")
+    }
+
+    @Test(arguments: samples)
+    func cleaningTwiceIsCleaningOnce(_ text: String) {
+        let once = LeoSFTPServerText.sanitized(text)
+        #expect(LeoSFTPServerText.sanitized(once) == once)
+        let isolated = LeoSFTPServerText.isolated(text)
+        #expect(LeoSFTPServerText.isolated(isolated) == isolated)
+        #expect(LeoSFTPServerText.sanitized(isolated) == once)
     }
 }

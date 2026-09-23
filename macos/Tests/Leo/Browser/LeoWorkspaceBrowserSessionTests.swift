@@ -75,7 +75,7 @@ struct LeoWorkspaceBrowserSessionTests {
                 await session.browser.openFile(locked)
 
                 #expect(session.editor.document == nil)
-                #expect(session.browser.openError == "You don’t have permission to access “secret.txt”.")
+                #expect(session.browser.openError == "You don’t have permission to access “\u{2068}secret.txt\u{2069}”.")
             }
         }
     }

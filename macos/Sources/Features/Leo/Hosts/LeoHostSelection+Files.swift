@@ -93,11 +93,11 @@ extension LeoHostSelection {
         }
     }
 
-    static let unsupportedControlPath = "control path unsupported"
-    static let occupiedControlPath = "control path is occupied"
-    static let unsafeControlDirectory = "control directory is not private"
-    static let foreignControlSocket = "the control socket belongs to another user"
-    static let missingControlSocket = "the connection’s control socket is gone. Reconnect to restore file access"
+    static let unsupportedControlPath: LeoFileAccessReason = "control path unsupported"
+    static let occupiedControlPath: LeoFileAccessReason = "control path is occupied"
+    static let unsafeControlDirectory: LeoFileAccessReason = "control directory is not private"
+    static let foreignControlSocket: LeoFileAccessReason = "the control socket belongs to another user"
+    static let missingControlSocket: LeoFileAccessReason = "the connection’s control socket is gone. Reconnect to restore file access"
 
     private var isConnected: Bool {
         if case .connected = state { return true }

@@ -161,7 +161,7 @@ struct LeoWorkspaceBrowserModelTests {
 
             await browser.expand(sandbox.path("locked"))
 
-            #expect(names(browser.items(in: sandbox.path("locked"))) == ["<You don’t have permission to access “locked”.>"])
+            #expect(names(browser.items(in: sandbox.path("locked"))) == ["<You don’t have permission to access “\u{2068}locked\u{2069}”.>"])
             await browser.close()
         }
     }
@@ -173,7 +173,7 @@ struct LeoWorkspaceBrowserModelTests {
 
             await browser.open(agent(sandbox.path("gone")))
 
-            #expect(names(browser.rootItems) == ["<“gone” couldn’t be found.>"])
+            #expect(names(browser.rootItems) == ["<“\u{2068}gone\u{2069}” couldn’t be found.>"])
             await browser.close()
         }
     }
@@ -198,7 +198,7 @@ struct LeoWorkspaceBrowserModelTests {
 
         await browser.open(agent("/work", host: .remote("box")))
 
-        #expect(names(browser.rootItems) == ["<File access unavailable: Leo isn’t connected to box.>"])
+        #expect(names(browser.rootItems) == ["<File access unavailable: Leo isn’t connected to \u{2068}box\u{2069}.>"])
         #expect(browser.root?.host == .remote("box"))
     }
 
@@ -225,7 +225,7 @@ struct LeoWorkspaceBrowserModelTests {
 
         await browser.openFile("/tmp/evil\u{202E}txt.exe")
 
-        #expect(browser.openError == "Couldn’t access “eviltxt.exe”: line one line two.")
+        #expect(browser.openError == "Couldn’t access “\u{2068}eviltxt.exe\u{2069}”: line one line two.")
         await browser.close()
         #expect(browser.openError == nil)
     }

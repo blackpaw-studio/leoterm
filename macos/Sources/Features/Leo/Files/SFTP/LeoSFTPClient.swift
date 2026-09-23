@@ -103,7 +103,7 @@ struct LeoSFTPClient: Sendable {
     /// protocol violation.
     private func unexpected(_ response: LeoSFTPResponse, expected: String, path: String) -> LeoFileAccessError {
         guard case .status(let status) = response else {
-            return .protocolError("expected \(expected), got \(Self.name(of: response))")
+            return .protocolError("expected \(verbatim: expected), got \(verbatim: Self.name(of: response))")
         }
         return Self.error(for: status, path: path)
     }
@@ -119,26 +119,27 @@ struct LeoSFTPClient: Sendable {
         case .permissionDenied: return .permissionDenied(path: path)
         case .noConnection, .connectionLost: return .disconnected
         case .ok, .eof:
-            let detail = ["unexpected status \(status.code)", message].compactMap { $0 }
-            return .protocolError(detail.joined(separator: "; "))
+            let detail: LeoFileAccessReason = "unexpected status \(verbatim: "\(status.code)")"
+            return .protocolError(message.map { detail + "; " + $0 } ?? detail)
         case .failure: return .failed(path: path, reason: message ?? "the server couldn’t complete the operation and gave no reason")
         case .unsupported: return .failed(path: path, reason: message ?? "the server doesn’t support this operation")
         case .other(let code): return .failed(path: path, reason: message ?? "the server reported error \(code)")
         case .badMessage:
             // OpenSSH's sftp-server answers ENAMETOOLONG with BAD_MESSAGE.
-            let reason = isNameTooLong(path) ? "File name too long" : "the server rejected the request as malformed"
+            let reason: LeoFileAccessReason = isNameTooLong(path) ? "File name too long" : "the server rejected the request as malformed"
             return .failed(path: path, reason: message ?? reason)
         }
     }
 
-    /// The server's message sanitized, without a trailing period, and
-    /// quoted as the server's; nil when it is empty or only restates a
-    /// status code's name. Every path that shows server text goes through
-    /// here.
-    private static func explanation(_ message: String) -> String? {
-        var text = LeoSFTPServerText.sanitized(message)
+    /// The server's message without surrounding whitespace or a trailing
+    /// period, quoted as the server's; nil when it shows as nothing or
+    /// only restates a status code's name. Every path that shows server
+    /// text goes through here; it is cleaned when rendered.
+    private static func explanation(_ message: String) -> LeoFileAccessReason? {
+        var text = message.trimmingCharacters(in: .whitespacesAndNewlines)
         if text.hasSuffix(".") { text.removeLast() }
-        guard !text.isEmpty, !statusNames.contains(text.lowercased()) else { return nil }
+        let shown = LeoSFTPServerText.sanitized(text)
+        guard !shown.isEmpty, !statusNames.contains(shown.lowercased()) else { return nil }
         return LeoSFTPServerText.quoted(text)
     }
 

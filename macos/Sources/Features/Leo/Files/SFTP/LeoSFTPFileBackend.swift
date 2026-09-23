@@ -124,7 +124,10 @@ struct LeoSFTPFileBackend: LeoFileAccessBackend {
             try await client.rename(source, to: destination)
         } catch {
             let kept = (source as NSString).lastPathComponent
-            throw LeoFileAccessError.failed(path: destination, reason: "the original was removed but the new contents couldn’t be moved into place; they were kept as \(kept)")
+            throw LeoFileAccessError.failed(
+                path: destination,
+                reason: "the original was removed but the new contents couldn’t be moved into place; they were kept as “\(kept)”"
+            )
         }
     }
 

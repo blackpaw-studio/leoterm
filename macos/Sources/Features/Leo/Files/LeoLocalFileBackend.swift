@@ -134,11 +134,13 @@ struct LeoLocalFileBackend: LeoFileAccessBackend {
         case ENOENT, ENOTDIR, ELOOP, EBADF: .notFound(path: path)
         case EACCES, EPERM: .permissionDenied(path: path)
         case EISDIR: .isADirectory(path: path)
-        default: .failed(path: path, reason: String(cString: strerror(code)))
+        default: .failed(path: path, reason: "\(verbatim: String(cString: strerror(code)))")
         }
     }
 
-    private static func error(_ error: Error, path: String) -> LeoFileAccessError {
+    /// Foundation's description embeds the raw file name, so it is
+    /// untrusted.
+    static func error(_ error: Error, path: String) -> LeoFileAccessError {
         let nsError = error as NSError
         if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError, underlying.domain == NSPOSIXErrorDomain {
             return Self.error(Int32(underlying.code), path: path)
@@ -146,7 +148,7 @@ struct LeoLocalFileBackend: LeoFileAccessBackend {
         switch nsError.code {
         case NSFileNoSuchFileError, NSFileReadNoSuchFileError: return .notFound(path: path)
         case NSFileReadNoPermissionError, NSFileWriteNoPermissionError: return .permissionDenied(path: path)
-        default: return .failed(path: path, reason: nsError.localizedDescription)
+        default: return .failed(path: path, reason: .untrusted(nsError.localizedDescription))
         }
     }
 }

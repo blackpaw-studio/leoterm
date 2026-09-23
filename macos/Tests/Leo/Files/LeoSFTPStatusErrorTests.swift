@@ -22,11 +22,11 @@ struct LeoSFTPStatusErrorTests {
     /// is locally.
     @Test(arguments: [LeoSFTPStatusCode.failure, .badMessage, .unsupported, .other(42)])
     func aServersOwnMessageIsSurfaced(_ code: LeoSFTPStatusCode) {
-        #expect(error(code, "No space left on device") == .failed(path: path, reason: "the server said “No space left on device”"))
+        #expect(error(code, "No space left on device") == .failed(path: path, reason: LeoSFTPServerText.quoted("No space left on device")))
     }
 
     @Test func surroundingWhitespaceAndATrailingPeriodAreTrimmed() {
-        #expect(error(.failure, "  Disk quota exceeded.\n") == .failed(path: path, reason: "the server said “Disk quota exceeded”"))
+        #expect(error(.failure, "  Disk quota exceeded.\n") == .failed(path: path, reason: LeoSFTPServerText.quoted("Disk quota exceeded")))
     }
 
     /// The bare code name adds nothing ("Couldn’t access “x”: Failure."),
@@ -40,7 +40,7 @@ struct LeoSFTPStatusErrorTests {
         (.other(42), "Unknown error", "the server reported error 42"),
     ])
     func aBareCodeNameGetsASpecificSentence(_ code: LeoSFTPStatusCode, _ message: String, _ reason: String) {
-        #expect(error(code, message) == .failed(path: path, reason: reason))
+        #expect(error(code, message) == .failed(path: path, reason: "\(verbatim: reason)"))
     }
 
     /// OpenSSH's sftp-server sends BAD_MESSAGE for ENAMETOOLONG.

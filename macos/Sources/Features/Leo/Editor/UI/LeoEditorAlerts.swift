@@ -7,7 +7,7 @@ import AppKit
     static func confirmUnsavedChanges(to name: String, on window: NSWindow) async -> LeoUnsavedChangesChoice {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "Do you want to save the changes you made to “\(LeoSFTPServerText.sanitized(name))”?"
+        alert.messageText = "Do you want to save the changes you made to “\(LeoSFTPServerText.isolated(name))”?"
         alert.informativeText = "Your changes will be lost if you don’t save them."
         alert.addButton(withTitle: "Save")
         alert.addButton(withTitle: "Cancel")
@@ -47,7 +47,7 @@ import AppKit
         let alert = NSAlert()
         alert.alertStyle = .warning
         let fileID = entry.editor.document?.fileID
-        let name = fileID.map { LeoSFTPServerText.sanitized($0.name) } ?? "The file"
+        let name = fileID.map { LeoSFTPServerText.isolated($0.name) } ?? "The file"
         alert.messageText = "“\(name)” is still being saved or read."
         let host = fileID?.host.displayName ?? "its disk"
         let verb = leaving == .quit ? "quit" : "close it"
@@ -84,13 +84,13 @@ import AppKit
     }
 
     private static func pathPromptDetail(for agent: LeoEditorAgentContext) -> String {
-        guard let name = agent.name.map(LeoSFTPServerText.sanitized) else {
+        guard let name = agent.name.map(LeoSFTPServerText.isolated) else {
             return "Enter an absolute path on \(agent.host.displayName)."
         }
         guard let workspace = agent.workspace else {
             return "\(name) has no workspace, so enter an absolute path on \(agent.host.displayName)."
         }
-        return "Relative paths open in \(name)’s workspace, \(LeoSFTPServerText.sanitized(workspace)), on \(agent.host.displayName)."
+        return "Relative paths open in \(name)’s workspace, \(LeoSFTPServerText.isolated(workspace)), on \(agent.host.displayName)."
     }
 
     private static func present(_ alert: NSAlert, on window: NSWindow) async -> NSApplication.ModalResponse {

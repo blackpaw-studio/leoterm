@@ -32,7 +32,7 @@ struct LeoEditorBannerTests {
 
             let banner = try #require(LeoEditorBanner.current(for: document, isQuitWaiting: true))
             #expect(banner.actions == [.quitAnyway])
-            #expect(banner.message == "Quitting is waiting for localhost to finish with “a.txt”.")
+            #expect(banner.message == "Quitting is waiting for localhost to finish with “\u{2068}a.txt\u{2069}”.")
             #expect(LeoEditorBanner.Action.quitAnyway.title == "Quit Anyway…")
             #expect(LeoEditorBanner.current(for: document)?.actions == [.reload, .keepMine])
             #expect(LeoEditorBanner.current(for: nil, isQuitWaiting: true) == nil)
@@ -190,7 +190,7 @@ struct LeoEditorBannerTests {
 
             let banner = try #require(LeoEditorBanner.current(for: document))
             #expect(banner.actions == [.reload, .keepMine])
-            #expect(banner.message.hasPrefix("“a.txt” changed on disk."))
+            #expect(banner.message.hasPrefix("“\u{2068}a.txt\u{2069}” changed on disk."))
         }
     }
 

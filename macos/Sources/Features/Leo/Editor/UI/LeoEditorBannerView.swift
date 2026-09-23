@@ -24,7 +24,7 @@ struct LeoEditorBanner: Equatable {
     /// leave is already showing).
     @MainActor static func current(for document: LeoEditorDocument?, isQuitWaiting: Bool = false, canLeave: Bool = true) -> LeoEditorBanner? {
         guard let document else { return nil }
-        let name = "“\(LeoSFTPServerText.sanitized(document.displayName))”"
+        let name = "“\(LeoSFTPServerText.isolated(document.displayName))”"
         if isQuitWaiting {
             return LeoEditorBanner(
                 symbol: "hourglass",
