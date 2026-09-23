@@ -17,3 +17,4 @@ Untracked-left: macos/default.profraw scratchpad/ zig-out
 - B-020: attempt-1 fix 796b0a2ec (1114 tests). review.security dispatch failed again (same codex error) → fallback re-review: both fixed; new HIGH (variation-selector smuggling) + MED (blank fillers) → attempt 2 (d-179092105250#3); D-041.
 - B-020: attempt-2 fix 8b6494d45 (1117 tests). Fresh fallback review: 2 HIGH (CGJ, uncapped ZWJ/ZWNJ) → attempt 3 (d-179092105250#4), switching to an allowlist (D-042).
 - B-020 done: ad0807785 796b0a2ec 8b6494d45 935b5a600 (1122 tests). 3 fix rounds; final review HIGH (selectors after any base) → B-026; kept per D-043.
+- B-021: built cda6610e8 (1130 tests). No UI → not visually verified. review.security via code-reviewer fallback (codex route broken all run).
