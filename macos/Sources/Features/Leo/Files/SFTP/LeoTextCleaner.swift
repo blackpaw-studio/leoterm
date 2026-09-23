@@ -5,14 +5,16 @@ import Foundation
 /// blank glyphs collapse to one space, private-use, noncharacter and
 /// unassigned scalars become one U+FFFD, and an invisible scalar survives
 /// only if it is listed here and sits where it belongs:
-/// - ZWJ between two emoji, at most one in a row;
-/// - ZWNJ after an Indic virama before a letter of its script, or between
-///   two Arabic-script letters (D-046);
+/// - ZWJ inside an RGI emoji ZWJ sequence;
+/// - ZWNJ after an Indic virama before a letter of the same script, or
+///   between an Arabic letter that joins forward and one that joins back;
 /// - U+FE0E or U+FE0F, one, right after a base it flips from its default
-///   presentation (D-046), and U+FE0F in a keycap (digit, "#" or "*",
-///   U+FE0F, U+20E3);
+///   presentation, and U+FE0F in a keycap, which always comes out as
+///   digit, "#" or "*", U+FE0F, U+20E3;
 /// - the tags of the three RGI subdivision flags.
-/// Everything else invisible is dropped.
+/// RGI flags and ZWJ sequences (the longest that fits) pass whole.
+/// Everything else invisible is dropped (D-046): each kept invisible
+/// changes what is drawn, so none can carry hidden bits.
 struct LeoTextCleaner {
     /// Combining marks kept after each base scalar -- enough for Hebrew
     /// with cantillation and Indic stacks; more would pile over the lines
@@ -39,19 +41,17 @@ struct LeoTextCleaner {
     /// and emoji presentation selectors are kept.
     private static let variationSelectors: [ClosedRange<UInt32>] = [0xFE00...0xFE0F, 0xE0100...0xE01EF]
     private static let presentationSelectors: Set<Unicode.Scalar> = ["\u{FE0E}", "\u{FE0F}"]
-    /// Keycap bases, which take U+FE0F only before the enclosing keycap.
+    /// Keycap bases, which take U+FE0F only as part of a keycap.
     private static let keycapBases = Set("0123456789#*".unicodeScalars)
     private static let emojiSelector: Unicode.Scalar = "\u{FE0F}"
     private static let keycap: Unicode.Scalar = "\u{20E3}"
-    /// Skin tones, which sit between an emoji and its ZWJ.
-    private static let emojiModifiers: ClosedRange<UInt32> = 0x1F3FB...0x1F3FF
-    private static let zeroWidthJoiner: Unicode.Scalar = "\u{200D}"
     private static let zeroWidthNonJoiner: Unicode.Scalar = "\u{200C}"
     /// Arabic (Persian), which shapes with ZWNJ between letters.
     private static let arabicScripts: [ClosedRange<UInt32>] = [
         0x0600...0x06FF, 0x0750...0x077F, 0x0870...0x08FF, 0xFB50...0xFDFF, 0xFE70...0xFEFF,
     ]
-    /// The Indic scripts, which shape with ZWNJ after a virama.
+    /// The Indic scripts, which shape with ZWNJ after a virama; each has
+    /// its own 128-scalar block.
     private static let indicScripts: ClosedRange<UInt32> = 0x0900...0x0DFF
     /// Bases with a standardized emoji variation sequence: Unicode 18.0.0
     /// emoji-variation-sequences.txt (the same bases take FE0E and FE0F).
@@ -106,10 +106,12 @@ struct LeoTextCleaner {
         var cleaner = LeoTextCleaner(keepsQuotes: keepingQuotes)
         var index = 0
         while index < scalars.count {
-            if let flag = subdivisionFlags.first(where: { scalars[index...].starts(with: $0) }) {
-                cleaner.appendBase(flag)
+            let rest = scalars[index...]
+            let sequences = subdivisionFlags + (LeoUnicodeData.zwjSequences[scalars[index]] ?? [])
+            if let sequence = sequences.first(where: { rest.starts(with: $0) }) {
+                cleaner.appendBase(sequence)
                 cleaner.canTakeSelector = false
-                index += flag.count
+                index += sequence.count
                 continue
             }
             cleaner.take(scalars[index], next: scalars.indices.contains(index + 1) ? scalars[index + 1] : nil)
@@ -137,10 +139,7 @@ struct LeoTextCleaner {
         if scalar.properties.isWhitespace || Self.blanks.contains(scalar) {
             isSpacePending = true
         } else if Self.variationSelectors.contains(where: { $0.contains(scalar.value) }) {
-            guard couldTakeSelector, let base = output.last, Self.keepsSelector(scalar, after: base, before: next) else { return }
-            appendInvisible(scalar)
-        } else if scalar == Self.zeroWidthJoiner {
-            guard !isSpacePending, lastBase.map(Self.isPictographic) == true, next.map(Self.isPictographic) == true else { return }
+            guard couldTakeSelector, let base = output.last, Self.keepsSelector(scalar, after: base) else { return }
             appendInvisible(scalar)
         } else if scalar == Self.zeroWidthNonJoiner {
             guard !isSpacePending, let previous = output.last, let next, Self.letters.contains(next.properties.generalCategory),
@@ -154,9 +153,10 @@ struct LeoTextCleaner {
             canTakeSelector = false
         } else if Self.marks.contains(category) {
             guard markCount < Self.marksPerBase else { return }
+            let isKeycap = scalar == Self.keycap && markCount == 0 && !isSpacePending && output.last.map(Self.keycapBases.contains) == true
             markCount += 1
             appendPendingSpace()
-            output.append(scalar)
+            output.append(contentsOf: isKeycap ? [Self.emojiSelector, scalar] : [scalar])
         } else {
             appendBase([keepsQuotes || !Self.doubleQuoteLookalikes.contains(scalar) ? scalar : "\""])
         }
@@ -179,38 +179,29 @@ struct LeoTextCleaner {
         output.append(scalar)
     }
 
-    /// The last scalar shown, past any presentation selector or skin tone.
-    private var lastBase: Unicode.Scalar? {
-        output.last { !Self.presentationSelectors.contains($0) && !Self.emojiModifiers.contains($0.value) }
-    }
-
     /// The last scalar shown past its marks, if it is a letter.
     private var lastLetter: Unicode.Scalar? {
         output.last { !Self.marks.contains($0.properties.generalCategory) }
             .flatMap { Self.letters.contains($0.properties.generalCategory) ? $0 : nil }
     }
 
-    /// An emoji drawn as a picture -- Swift has no Extended_Pictographic,
-    /// and Emoji alone would include digits, "#" and "*".
-    private static func isPictographic(_ scalar: Unicode.Scalar) -> Bool {
-        scalar.properties.isEmoji && scalar.properties.generalCategory == .otherSymbol
-    }
-
     /// A selector draws differently only where it flips its base's default
-    /// presentation; a keycap base takes U+FE0F only inside its keycap.
-    private static func keepsSelector(_ selector: Unicode.Scalar, after base: Unicode.Scalar, before next: Unicode.Scalar?) -> Bool {
-        if keycapBases.contains(base) { return selector == emojiSelector && next == keycap }
+    /// presentation; a keycap base gets its U+FE0F with the keycap itself.
+    private static func keepsSelector(_ selector: Unicode.Scalar, after base: Unicode.Scalar) -> Bool {
+        if keycapBases.contains(base) { return false }
         let flipsDefault = selector == emojiSelector ? !base.properties.isEmojiPresentation : base.properties.isEmojiPresentation
         return presentationSelectors.contains(selector) && variationBases.contains(base.value) && flipsDefault
     }
 
     private static func followsVirama(_ previous: Unicode.Scalar, _ next: Unicode.Scalar) -> Bool {
         previous.properties.canonicalCombiningClass == .virama
-            && indicScripts.contains(previous.value) && indicScripts.contains(next.value)
+            && indicScripts.contains(previous.value) && previous.value >> 7 == next.value >> 7
     }
 
+    /// ZWNJ shows only where the letters would otherwise join.
     private static func joinsArabic(_ previous: Unicode.Scalar, _ letter: Unicode.Scalar?, _ next: Unicode.Scalar) -> Bool {
-        [previous, letter, next].allSatisfy { scalar in scalar.map { isArabic($0) } == true }
+        isArabic(previous) && letter.map { LeoUnicodeData.joinsForward.contains($0.value) } == true
+            && LeoUnicodeData.joinsBackward.contains(next.value)
     }
 
     private static func isArabic(_ scalar: Unicode.Scalar) -> Bool {

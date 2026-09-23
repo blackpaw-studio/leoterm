@@ -197,12 +197,14 @@ extension LeoSFTPServerTextTests {
         #expect(clean("‼\u{FE0F}⁉\u{FE0F}↔\u{FE0F}") == "‼\u{FE0F}⁉\u{FE0F}↔\u{FE0F}")
     }
 
-    /// Keycaps are RGI only as base + U+FE0F + U+20E3.
-    @Test func keycapsKeepOnlyTheirEmojiSelector() {
+    /// Keycaps are RGI only as base + U+FE0F + U+20E3, so every keycap
+    /// comes out in that one shape.
+    @Test func keycapsComeOutInTheirOneRGIShape() {
         let keycaps = "0123456789#*".map { "\($0)\u{FE0F}\u{20E3}" }.joined(separator: " ")
         #expect(clean(keycaps) == keycaps)
-        #expect(clean("1\u{FE0E}\u{20E3}") == "1\u{20E3}")
-        #expect(clean("1\u{FE0F}\u{FE0F}\u{20E3}") == "1\u{20E3}")
+        #expect(clean("1\u{20E3} #\u{20E3}") == "1\u{FE0F}\u{20E3} #\u{FE0F}\u{20E3}")
+        #expect(clean("1\u{FE0E}\u{20E3}") == "1\u{FE0F}\u{20E3}")
+        #expect(clean("1\u{FE0F}\u{FE0F}\u{20E3}") == "1\u{FE0F}\u{20E3}")
         #expect(clean("a\u{FE0F}\u{20E3}") == "a\u{20E3}")
     }
 
@@ -264,9 +266,15 @@ extension LeoSFTPServerTextTests {
         #expect(clean("e\u{34F}\u{301}") == "e\u{301}")
     }
 
-    @Test func zeroWidthJoinersStayOnlyBetweenTwoEmoji() {
+    /// A ZWJ changes the drawing only inside an RGI ZWJ sequence.
+    @Test func zeroWidthJoinersStayOnlyInsideRGISequences() {
         let flood = "a" + Self.run(0x200D, 800) + "b" + Self.run(0x200D, 3) + "👩" + Self.run(0x200D, 2) + "👨"
-        #expect(clean(flood) == "ab👩\u{200D}👨")
+        #expect(clean(flood) == "ab👩👨")
+        #expect(clean("😀\u{200D}😀") == "😀😀")
+        #expect(clean("👨\u{200D}👩\u{200D}👧") == "👨\u{200D}👩\u{200D}👧")
+        #expect(clean("🏳\u{FE0F}\u{200D}🌈") == "🏳\u{FE0F}\u{200D}🌈")
+        #expect(clean("👨\u{200D}👩\u{200D}👧\u{200D}😀") == "👨\u{200D}👩\u{200D}👧😀")
+        #expect(clean("👩\u{200D}❤\u{200D}👨") == "👩❤👨")
         #expect(clean("👩\u{200D}a 1\u{200D}2 👩\u{200D} \u{200D}👨") == "👩a 12 👩 👨")
         #expect(clean("👩\u{1F3FD}\u{200D}💻 👩\u{200D}❤\u{FE0F}\u{200D}👨") == "👩\u{1F3FD}\u{200D}💻 👩\u{200D}❤\u{FE0F}\u{200D}👨")
     }
@@ -281,6 +289,10 @@ extension LeoSFTPServerTextTests {
         #expect(clean("\u{915}\u{200C}\u{915}") == "\u{915}\u{915}")
         #expect(clean("\u{915}\u{94D}\u{200C}\u{937}") == "\u{915}\u{94D}\u{200C}\u{937}")
         #expect(clean("\u{915}\u{94D}\u{200C}a") == "\u{915}\u{94D}a")
+        #expect(clean("\u{915}\u{94D}\u{200C}\u{995}") == "\u{915}\u{94D}\u{995}")
+        #expect(clean("\u{627}\u{200C}\u{627}") == "\u{627}\u{627}")
+        #expect(clean("\u{628}\u{200C}\u{628}") == "\u{628}\u{200C}\u{628}")
+        #expect(clean("\u{628}\u{200C}\u{627}") == "\u{628}\u{200C}\u{627}")
         #expect(clean("٣\u{200C}ی ،\u{200C}ی \u{964}\u{200C}\u{915}") == "٣ی ،ی \u{964}\u{915}")
     }
 
@@ -309,8 +321,37 @@ extension LeoSFTPServerTextTests {
         #expect(scalars.indices.allSatisfy { index in
             !["\u{FE0E}", "\u{FE0F}"].contains(scalars[index])
                 || index > 0 && (scalars[index] == "\u{FE0F}") != scalars[index - 1].properties.isEmojiPresentation
+                || Self.isKeycap(scalars, at: index - 1)
         })
+        #expect(Self.joinersAreAllInRGISequences(scalars))
+        #expect(scalars.indices.dropFirst().allSatisfy { scalars[$0] != "\u{20E3}" || !"0123456789#*".unicodeScalars.contains(scalars[$0 - 1]) })
+        #expect(scalars.indices.allSatisfy { scalars[$0] != "\u{200C}" || Self.nonJoinerChangesShaping(scalars, at: $0) })
         #expect(clean(text) == text)
+    }
+
+    private static func isKeycap(_ scalars: [Unicode.Scalar], at index: Int) -> Bool {
+        index >= 0 && index + 2 < scalars.count && "0123456789#*".unicodeScalars.contains(scalars[index])
+            && scalars[index + 1] == "\u{FE0F}" && scalars[index + 2] == "\u{20E3}"
+    }
+
+    private static func joinersAreAllInRGISequences(_ scalars: [Unicode.Scalar]) -> Bool {
+        var index = 0
+        while index < scalars.count {
+            let sequence = LeoUnicodeData.zwjSequences[scalars[index]]?.first { scalars[index...].starts(with: $0) }
+            if sequence == nil, scalars[index] == "\u{200D}" { return false }
+            index += sequence?.count ?? 1
+        }
+        return true
+    }
+
+    /// Right after a virama of the same block, or between an Arabic letter
+    /// that joins forward and one that joins back.
+    private static func nonJoinerChangesShaping(_ scalars: [Unicode.Scalar], at index: Int) -> Bool {
+        guard index > 0, index + 1 < scalars.count else { return false }
+        let previous = scalars[index - 1], next = scalars[index + 1]
+        let letter = scalars[..<index].last { ![.nonspacingMark, .enclosingMark].contains($0.properties.generalCategory) }
+        return previous.properties.canonicalCombiningClass == .virama && previous.value >> 7 == next.value >> 7
+            || letter.map { LeoUnicodeData.joinsForward.contains($0.value) } == true && LeoUnicodeData.joinsBackward.contains(next.value)
     }
 
     private static func isZeroWidth(_ scalar: Unicode.Scalar) -> Bool {
@@ -329,6 +370,7 @@ extension LeoSFTPServerTextTests {
 
     private static let visiblePool: [Unicode.Scalar] = [
         0x61, 0x20, 0x0645, 0x06CC, 0x0915, 0x094D, 0x0301, 0x05D0, 0x05B8, 0x1F469, 0x1F468, 0x2764, 0x1F3F4,
+        0x31, 0x23, 0x20E3, 0x0627, 0x0628, 0x0995, 0x1F600, 0x1F467,
     ].compactMap(Unicode.Scalar.init)
 }
 
