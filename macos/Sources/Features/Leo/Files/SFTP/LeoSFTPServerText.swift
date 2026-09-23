@@ -28,6 +28,13 @@ enum LeoSFTPServerText {
     /// Format characters that emoji sequences and Persian and Indic text
     /// need; neither moves nor hides other text.
     private static let joiners: Set<Unicode.Scalar> = ["\u{200C}", "\u{200D}"]
+    /// Glyphs that render as nothing (the Hangul fillers, the Braille
+    /// blank): treated as whitespace, so they collapse like it.
+    private static let blanks: Set<Unicode.Scalar> = ["\u{115F}", "\u{1160}", "\u{3164}", "\u{FFA0}", "\u{2800}"]
+    /// Variation selectors can carry data invisibly (D-041): only the text
+    /// and emoji presentation selectors are kept, one, right after a base.
+    private static let variationSelectors: [ClosedRange<UInt32>] = [0xFE00...0xFE0F, 0xE0100...0xE01EF]
+    private static let presentationSelectors: Set<Unicode.Scalar> = ["\u{FE0E}", "\u{FE0F}"]
     /// The RGI subdivision flags (England, Scotland, Wales): the only tag
     /// sequences kept. Any other tag character is dropped, as tags spell
     /// ASCII invisibly ("ASCII smuggling").
@@ -87,20 +94,29 @@ enum LeoSFTPServerText {
         var result = String.UnicodeScalarView()
         var isSpacePending = false
         var markCount = 0
+        var canTakeSelector = false
         let scalars = Array(text.unicodeScalars.prefix(scanLimit))
         let isCut = text.unicodeScalars.dropFirst(scanLimit).first != nil
         var index = 0
         while index < scalars.count {
             let scalar = scalars[index]
             index += 1
-            if scalar.properties.isWhitespace {
+            if scalar.properties.isWhitespace || blanks.contains(scalar) {
                 isSpacePending = true
+                canTakeSelector = false
+                continue
+            }
+            if variationSelectors.contains(where: { $0.contains(scalar.value) }) {
+                guard canTakeSelector, presentationSelectors.contains(scalar) else { continue }
+                canTakeSelector = false
+                result.append(scalar)
                 continue
             }
             if let flag = subdivisionFlags.first(where: { scalars[(index - 1)...].starts(with: $0) }) {
                 if isSpacePending { result.append(" ") }
                 isSpacePending = false
                 markCount = 0
+                canTakeSelector = false
                 result.append(contentsOf: flag)
                 index += flag.count - 1
                 continue
@@ -114,6 +130,7 @@ enum LeoSFTPServerText {
             } else if !isJoiner {
                 markCount = 0
             }
+            canTakeSelector = !isJoiner && !marks.contains(category)
             if isSpacePending { result.append(" ") }
             isSpacePending = false
             result.append(keepingQuotes ? scalar : straightened(scalar))

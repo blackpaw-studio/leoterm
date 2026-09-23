@@ -156,6 +156,36 @@ extension LeoSFTPServerTextTests {
         #expect(clean(text).contains(rgi[0]))
     }
 
+    /// Variation selectors carry data invisibly too (D-041): only a single
+    /// U+FE0E or U+FE0F right after its base survives.
+    @Test func variationSelectorsAreKeptOnlyAsOneEmojiOrTextSelectorPerBase() {
+        let supplementary = (0xE0100...0xE01EF).compactMap(Unicode.Scalar.init).map(String.init).joined()
+        let standard = (0xFE00...0xFE0D).compactMap(Unicode.Scalar.init).map(String.init).joined()
+        let packed = (0..<150).map { _ in "a" + String(String.UnicodeScalarView(supplementary.unicodeScalars.prefix(4))) }.joined()
+            + "b" + standard + "c\u{FE0F}\u{FE0F}d\u{301}\u{FE0F}e\u{FE0E}\u{FE0E}f\u{FE0F}\u{FE00}\u{FE0E}"
+            + " \u{FE0F}x\u{200D}\u{FE0F}"
+
+        let text = clean(packed)
+
+        let selectors = text.unicodeScalars.filter { (0xFE00...0xFE0F).contains($0.value) || (0xE0100...0xE01EF).contains($0.value) }
+        #expect(selectors.map(\.value) == [0xFE0F, 0xFE0E, 0xFE0F])
+        #expect(text.hasSuffix("bc\u{FE0F}d\u{301}e\u{FE0E}f\u{FE0F} x\u{200D}"))
+    }
+
+    @Test func emojiPresentationAndFlagsSurvive() {
+        let emoji = "❤️ 👩\u{200D}❤\u{FE0F}\u{200D}👨 1\u{FE0F}\u{20E3} ☺︎ " + ["gbeng", "gbsct", "gbwls"].map(Self.flag).joined()
+        #expect(clean(emoji) == emoji)
+    }
+
+    /// Hangul fillers and the Braille blank render as nothing: they are
+    /// whitespace, so a name of them can't pass for a name.
+    @Test func blankGlyphsCollapseLikeWhitespace() {
+        #expect(clean(String(repeating: "\u{3164}", count: 40)).isEmpty)
+        #expect(clean("a\u{115F}\u{1160}b\u{3164}\u{FFA0}c\u{2800}\u{2800}d") == "a b c d")
+        #expect(LeoWorkspaceEntry(name: "\u{3164}\u{3164}", path: "/w/\u{3164}\u{3164}", isFolder: false).displayName == "\u{FFFD}")
+        #expect(LeoFileAccessError.notFound(path: "/w/\u{3164}\u{3164}").localizedDescription == "“\u{2068}\u{2069}” couldn’t be found.")
+    }
+
     private static func flag(_ code: String) -> String {
         "\u{1F3F4}" + code.unicodeScalars.compactMap { Unicode.Scalar(0xE0000 + $0.value) }.map(String.init).joined() + "\u{E007F}"
     }
