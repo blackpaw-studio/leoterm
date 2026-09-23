@@ -96,7 +96,15 @@ struct LeoProcessRunnerTests {
     private func endChild(scheduler: ManualScheduler, pidFile: URL, outcome: Outcome) async {
         scheduler.fireAll()
         await awaitCondition(timeout: Self.hangGuard, message: "The run never ended") { await outcome.value != nil }
-        if await outcome.value == nil, let pid = Self.pid(in: pidFile) { kill(pid, SIGKILL) }
+        if await outcome.value == nil, let pid = Self.pid(in: pidFile), Self.isOurChild(pid) { kill(pid, SIGKILL) }
+    }
+
+    /// The pid still names a child of this process -- not one reused by a
+    /// stranger after the child exited.
+    private static func isOurChild(_ pid: pid_t) -> Bool {
+        var info = proc_bsdinfo()
+        let size = Int32(MemoryLayout<proc_bsdinfo>.size)
+        return proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size && info.pbi_ppid == UInt32(getpid())
     }
 
     private static func pid(in file: URL) -> pid_t? {
@@ -118,7 +126,7 @@ struct LeoProcessRunnerTests {
 
         await awaitCondition(timeout: Self.hangGuard, message: "The scheduled blocks never fired") { fired.entries.count >= 2 }
 
-        #expect(Set(fired.entries) == ["sentinel", "short:true"])
+        #expect(fired.entries.sorted() == ["sentinel", "short:true"])
     }
 
     /// Only turns a hang into a failure: nothing here is timed against it.
