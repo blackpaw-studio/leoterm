@@ -166,6 +166,14 @@ enum LeoEditorSaveOutcome: Equatable, Sendable {
         errorMessage = nil
     }
 
+    /// While a save, reload or disk check is queued or in flight.
+    var isBusy: Bool { queue.isBusy }
+
+    /// Waits for any operation in flight.
+    func drain() async {
+        await queue.drain()
+    }
+
     /// Waits for any operation in flight, then releases the file access.
     func close() async {
         await queue.drain()
