@@ -324,3 +324,11 @@ Why: agents read this text (principle 4); three flags cover every RGI subdivisio
 Alternatives: a per-message cap on tag scalars; dropping all tag characters
 Commit:
 Veto: [ ]
+
+## D-041 · 2026-09-23 · Variation selectors and blank fillers in untrusted text
+Context: B-020 re-review: variation selectors (U+FE00–FE0F, U+E0100–E01EF) counted as combining marks, 4 per base with no cap per message, which leaves room for about 760 hidden bytes; Hangul fillers and Braille blank rendered as invisible text
+Chose: keep only U+FE0E and U+FE0F, at most one directly after a base. Drop all other variation selectors, including the ideographic ones (a CJK name can lose a glyph variant, but no characters). Hangul fillers (U+115F, U+1160, U+3164, U+FFA0) and U+2800 count as whitespace
+Why: agents read this text (principle 4); emoji presentation stays intact
+Alternatives: a per-message cap on selectors
+Commit:
+Veto: [ ]
