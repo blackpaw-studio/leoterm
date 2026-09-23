@@ -4,6 +4,15 @@ import Testing
 @testable import Ghostty
 
 @MainActor struct LeoHostsSheetModelTests {
+    /// Another error's text is untrusted: one line, isolated so implicit
+    /// right-to-left text can't reorder the sheet's words.
+    @Test func aForeignSaveErrorIsCleanedAndIsolated() {
+        struct Foreign: LocalizedError {
+            var errorDescription: String? { "\u{05D0}\u{05D1} \n\u{202E}disk” full" }
+        }
+        #expect(LeoHostsSheetModel.message(for: Foreign()) == "\u{2068}\u{05D0}\u{05D1} disk\" full\u{2069}")
+    }
+
     @Test func draftIsIsolatedFromTheStoreUntilSave() {
         let defaults = defaults()
         let store = LeoHostStore(defaults: defaults)

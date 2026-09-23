@@ -14,9 +14,6 @@ enum LeoSFTPServerText {
     /// with cantillation and Indic stacks; more would pile over the lines
     /// around the text.
     static let marksPerBase = 4
-    /// Tag characters kept after a black flag (U+1F3F4): a subdivision
-    /// flag's code and its cancel tag.
-    static let tagsPerFlag = 8
     /// Scalars examined at most: a status message can run to ~256 KiB.
     private static let scanLimit = limit * 8
     private static let invisible: Set<Unicode.GeneralCategory> = [.control, .format, .lineSeparator, .paragraphSeparator]
@@ -31,8 +28,12 @@ enum LeoSFTPServerText {
     /// Format characters that emoji sequences and Persian and Indic text
     /// need; neither moves nor hides other text.
     private static let joiners: Set<Unicode.Scalar> = ["\u{200C}", "\u{200D}"]
-    private static let blackFlag: Unicode.Scalar = "\u{1F3F4}"
-    private static let tags: ClosedRange<UInt32> = 0xE0020...0xE007F
+    /// The RGI subdivision flags (England, Scotland, Wales): the only tag
+    /// sequences kept. Any other tag character is dropped, as tags spell
+    /// ASCII invisibly ("ASCII smuggling").
+    private static let subdivisionFlags: [[Unicode.Scalar]] = ["gbeng", "gbsct", "gbwls"].map { code in
+        ["\u{1F3F4}"] + code.unicodeScalars.compactMap { Unicode.Scalar(0xE0000 + $0.value) } + ["\u{E007F}"]
+    }
     /// First Strong Isolate and Pop Directional Isolate.
     private static let isolateStart = "\u{2068}"
     private static let isolateEnd = "\u{2069}"
@@ -47,8 +48,18 @@ enum LeoSFTPServerText {
         let (clean, isCut) = cleaned(text, keepingQuotes: false)
         let trimmed = clean.trimmingCharacters(in: .whitespaces)
         guard isCut || trimmed.count > limit || trimmed.unicodeScalars.count > scalarLimit else { return trimmed }
-        let head = String(trimmed.prefix(limit - 1)).unicodeScalars.prefix(scalarLimit - 1)
-        return String(String.UnicodeScalarView(head)).trimmingCharacters(in: .whitespaces) + "…"
+        return head(of: trimmed).trimmingCharacters(in: .whitespaces) + "…"
+    }
+
+    /// Whole characters, room left for "…": a cut never splits one (a
+    /// flag's tags would be left behind).
+    private static func head(of text: String) -> String {
+        var scalarCount = 0
+        let characters = text.prefix(limit - 1).prefix { character in
+            scalarCount += character.unicodeScalars.count
+            return scalarCount < scalarLimit
+        }
+        return String(characters)
     }
 
     /// `sanitized`, isolated (FSI … PDI) so a right-to-left name can't
@@ -76,26 +87,27 @@ enum LeoSFTPServerText {
         var result = String.UnicodeScalarView()
         var isSpacePending = false
         var markCount = 0
-        var tagCount: Int?
-        for (index, scalar) in text.unicodeScalars.enumerated() {
-            guard index < scanLimit else {
-                return (String(result) + (isSpacePending ? " " : ""), true)
-            }
+        let scalars = Array(text.unicodeScalars.prefix(scanLimit))
+        let isCut = text.unicodeScalars.dropFirst(scanLimit).first != nil
+        var index = 0
+        while index < scalars.count {
+            let scalar = scalars[index]
+            index += 1
             if scalar.properties.isWhitespace {
                 isSpacePending = true
-                tagCount = nil
                 continue
             }
-            let isTag = tags.contains(scalar.value)
-            if isTag, let count = tagCount, count < tagsPerFlag {
-                tagCount = count + 1
-                result.append(scalar)
+            if let flag = subdivisionFlags.first(where: { scalars[(index - 1)...].starts(with: $0) }) {
+                if isSpacePending { result.append(" ") }
+                isSpacePending = false
+                markCount = 0
+                result.append(contentsOf: flag)
+                index += flag.count - 1
                 continue
             }
             let category = scalar.properties.generalCategory
             let isJoiner = joiners.contains(scalar)
             guard isJoiner || !invisible.contains(category) else { continue }
-            tagCount = scalar == blackFlag ? 0 : nil
             if marks.contains(category) {
                 guard markCount < marksPerBase else { continue }
                 markCount += 1
@@ -106,7 +118,7 @@ enum LeoSFTPServerText {
             isSpacePending = false
             result.append(keepingQuotes ? scalar : straightened(scalar))
         }
-        return (String(result) + (isSpacePending ? " " : ""), false)
+        return (String(result) + (isSpacePending ? " " : ""), isCut)
     }
 
     private static func straightened(_ scalar: Unicode.Scalar) -> Unicode.Scalar {

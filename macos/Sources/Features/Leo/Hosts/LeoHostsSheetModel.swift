@@ -127,14 +127,15 @@ import Foundation
         return candidate
     }
 
-    private static func message(for error: Error) -> String {
+    static func message(for error: Error) -> String {
         switch error {
         case LeoHostStoreError.invalidConfiguration(let name, let errors):
             return "\(name): " + errors.map(\.leoHostsSheetMessage).joined(separator: ", ")
         case LeoHostStoreError.duplicateName(let name):
             return "A host named \"\(name)\" already exists"
         default:
-            return error.localizedDescription
+            // Untrusted: one line, isolated in its own direction.
+            return LeoSFTPServerText.isolated(error.localizedDescription)
         }
     }
 }

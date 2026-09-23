@@ -112,7 +112,7 @@ extension LeoFileAccessSpoofingTests {
         struct Foreign: LocalizedError {
             var errorDescription: String? { LeoFileAccessSpoofingTests.spoof }
         }
-        #expect(LeoWorkspaceBrowserModel.message(for: Foreign()) == "x\" Reconnect\".txt")
+        #expect(LeoWorkspaceBrowserModel.message(for: Foreign()) == Self.shown)
     }
 
     @Test func theEditorShowsARenderedErrorAsIs() async throws {

@@ -171,7 +171,7 @@ struct LeoWorkspaceBrowserHardeningTests {
 
         await browser.openFile("/tmp/x")
 
-        #expect(browser.openError == "Refused \"evil\" line")
+        #expect(browser.openError == "\u{2068}Refused \"evil\" line\u{2069}")
         await browser.close()
     }
 
