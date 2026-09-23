@@ -300,3 +300,11 @@ Why: principle 1 (Finder conventions, keyboard-first); avoids the known nested N
 Alternatives: nest the browser in the editor's own split; show errors as alerts
 Commit: 864a16bc6 7204dd557 a2620137c 75a0feeef 860df8083
 Veto: [ ]
+
+## D-038 · 2026-09-23 · B-022: handle the hung-save logout in the app; the editor opens at half the content area
+Context: B-022 (b) asked for a laptop check or an in-app leave-anyway, and (c) for 50/50 placement
+Chose: (b) no laptop check (stop list). While a system quit or logout is pending (`.terminateLater`) behind a hung remote save, the Keep Waiting / Quit Anyway offer is reachable from inside the pending quit itself, not only through a second ⌘Q. (c) The editor opens at half of the width the terminal and editor share, never taking the terminal below D-036's 300 pt floor, and it's placed after the un-collapse finishes. (e) The quit review's button reads "Quit Anyway" when quitting and "Close Anyway" when closing
+Why: principle 1 (HIG button verbs match the action); principle 5 (the user decides, no timers); stop list (laptop)
+Alternatives: wait for Evan to test on the laptop
+Commit:
+Veto: [ ]
