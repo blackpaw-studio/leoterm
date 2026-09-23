@@ -100,7 +100,7 @@ final class LeoEditorPaneViewController: NSViewController {
             .store(in: &modelSubscriptions)
         // A pending quit waiting on the document offers to quit anyway.
         model.$leaveAnyway.map { _ in () }
-            .merge(with: model.$isConfirming.map { _ in () })
+            .merge(with: model.$isWaitingToClose.map { _ in () })
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in self?.refreshChrome() }
             .store(in: &modelSubscriptions)
@@ -152,7 +152,7 @@ final class LeoEditorPaneViewController: NSViewController {
 
     /// The banner for the model as it is now.
     var shownBanner: LeoEditorBanner? {
-        LeoEditorBanner.current(for: model.document, isQuitWaiting: model.leaveAnyway != nil && !model.isConfirming)
+        LeoEditorBanner.current(for: model.document, isQuitWaiting: model.leaveAnyway != nil && model.isWaitingToClose)
     }
 
     private func apply(_ reveal: LeoEditorReveal?) {

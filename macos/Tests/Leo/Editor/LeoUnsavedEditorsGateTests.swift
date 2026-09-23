@@ -682,14 +682,15 @@ struct LeoUnsavedEditorsGateTests {
     }
 }
 
-/// `base`, except that while `hangsWrites` is set, `write` never returns
-/// until `release()` -- or `close()`, which fails it, as a closed SFTP
-/// connection fails what's in flight.
+/// `base`, except that while `hangsWrites` (or `hangsReads`) is set,
+/// `write` (or `read`) never returns until `release()` -- or `close()`,
+/// which fails it, as a closed SFTP connection fails what's in flight.
 final class LeoHangingAccess: LeoFileAccess, @unchecked Sendable {
     private let base: any LeoFileAccess
     private let lock = NSLock()
-    private var state = (hanging: false, closed: false)
+    private var state = (hangingWrites: false, hangingReads: false, closed: false)
     private let writing = AsyncStream<Void>.makeStream()
+    private let reading = AsyncStream<Void>.makeStream()
     private let gate = AsyncStream<Bool>.makeStream()
 
     init(_ base: any LeoFileAccess) {
@@ -697,14 +698,23 @@ final class LeoHangingAccess: LeoFileAccess, @unchecked Sendable {
     }
 
     var hangsWrites: Bool {
-        get { lock.withLock { state.hanging } }
-        set { lock.withLock { state.hanging = newValue } }
+        get { lock.withLock { state.hangingWrites } }
+        set { lock.withLock { state.hangingWrites = newValue } }
+    }
+
+    var hangsReads: Bool {
+        get { lock.withLock { state.hangingReads } }
+        set { lock.withLock { state.hangingReads = newValue } }
     }
 
     var isClosed: Bool { lock.withLock { state.closed } }
 
     func waitUntilWriting() async {
         for await _ in writing.stream { return }
+    }
+
+    func waitUntilReading() async {
+        for await _ in reading.stream { return }
     }
 
     func release() {
@@ -714,19 +724,30 @@ final class LeoHangingAccess: LeoFileAccess, @unchecked Sendable {
     func list(_ path: String) async throws -> [LeoFileEntry] { try await base.list(path) }
     func stat(_ path: String) async throws -> LeoFileStat { try await base.stat(path) }
     func homeDirectory() async throws -> String { try await base.homeDirectory() }
-    func read(_ path: String, maxBytes: UInt64) async throws -> LeoFileContents { try await base.read(path, maxBytes: maxBytes) }
+
+    func read(_ path: String, maxBytes: UInt64) async throws -> LeoFileContents {
+        if hangsReads {
+            reading.continuation.yield()
+            try await hang()
+        }
+        return try await base.read(path, maxBytes: maxBytes)
+    }
 
     func write(_ data: Data, to path: String, expecting expected: LeoFileVersion?) async throws -> LeoFileStat {
         if hangsWrites {
             writing.continuation.yield()
-            var released = false
-            for await proceed in gate.stream {
-                released = proceed
-                break
-            }
-            guard released else { throw LeoFileAccessError.disconnected }
+            try await hang()
         }
         return try await base.write(data, to: path, expecting: expected)
+    }
+
+    private func hang() async throws {
+        var released = false
+        for await proceed in gate.stream {
+            released = proceed
+            break
+        }
+        guard released else { throw LeoFileAccessError.disconnected }
     }
 
     func close() async {

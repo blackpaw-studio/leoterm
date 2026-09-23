@@ -38,12 +38,14 @@ struct LeoEditorBannerTests {
         }
     }
 
-    /// The pane shows it while the quit waits on the disk, not while its
-    /// own prompt is up, and its button makes the offer.
+    /// The pane shows it only once the close is actually waiting on the
+    /// disk or connection -- never before or over its own prompt, so it
+    /// doesn't flash ahead of each prompt -- and its button makes the offer.
     @Test(.timeLimit(.minutes(1)))
-    func thePaneOffersToQuitAnywayOutsideItsPrompt() async throws {
+    func thePaneOffersToQuitAnywayOnlyOnceTheCloseIsWaiting() async throws {
         try await withLeoFileSandbox(.local) { sandbox, _ in
-            let model = LeoEditorPaneModel(makeAccess: { _ in LeoFileAccessor.local() })
+            let access = LeoHangingAccess(LeoFileAccessor.local())
+            let model = LeoEditorPaneModel(makeAccess: { _ in access })
             let pane = LeoEditorPaneViewController(model: model)
             try await model.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
             model.document?.edit("b")
@@ -55,19 +57,58 @@ struct LeoEditorBannerTests {
                 return .cancel
             }
             var offers = 0
-            #expect(pane.shownBanner == nil)
 
+            // As the gate does, just before asking the editor to close.
             model.leaveAnyway = { offers += 1 }
-            #expect(pane.shownBanner?.actions == [.quitAnyway])
-            pane.perform(.quitAnyway)
-            #expect(offers == 1)
-
+            #expect(pane.shownBanner == nil, "not before its prompt")
             let closing = Task { await model.close() }
             for await _ in prompts { break }
             #expect(pane.shownBanner == nil, "not over its own prompt")
-            answer.yield(.discard)
+
+            access.hangsWrites = true
+            answer.yield(.save)
+            await access.waitUntilWriting()
+            #expect(pane.shownBanner?.actions == [.quitAnyway], "the save isn't coming back")
+            pane.perform(.quitAnyway)
+            #expect(offers == 1)
+
+            access.release()
+            #expect(await closing.value)
+            #expect(pane.shownBanner == nil)
+        }
+    }
+
+    /// A close queued behind an operation that isn't coming back (a read
+    /// that hangs) is waiting from the start.
+    @Test(.timeLimit(.minutes(1)))
+    func aCloseQueuedBehindAHungOperationIsWaiting() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let access = LeoHangingAccess(LeoFileAccessor.local())
+            let model = LeoEditorPaneModel(makeAccess: { _ in access })
+            let pane = LeoEditorPaneViewController(model: model)
+            try await model.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
+            model.document?.edit("b")
+            model.leaveAnyway = {}
+            access.hangsReads = true
+            let opening = Task { try? await model.open(LeoEditorFileID(host: .local, path: try sandbox.file("b.txt", "b"))) }
+            await access.waitUntilReading()
+
+            let closing = Task { await model.close() }
+            #expect(await eventually { pane.shownBanner?.actions == [.quitAnyway] })
+
+            model.confirmUnsaved = { _ in .discard }
+            access.release()
+            _ = await opening.value
             #expect(await closing.value)
         }
+    }
+
+    private func eventually(_ condition: () -> Bool) async -> Bool {
+        let deadline = ContinuousClock.now + .seconds(5)
+        while !condition(), ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        return condition()
     }
 
     @Test func aChangedFileOffersReloadAndKeepMine() async throws {

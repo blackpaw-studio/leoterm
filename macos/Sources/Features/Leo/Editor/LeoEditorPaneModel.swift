@@ -40,10 +40,15 @@ struct LeoEditorReveal: Equatable, Sendable {
     var confirmUnsaved: @MainActor (LeoEditorDocument) async -> LeoUnsavedChangesChoice = { _ in .cancel }
     /// While the unsaved-changes prompt is up (as opposed to waiting on the
     /// disk or network before or after it).
-    @Published private(set) var isConfirming = false
+    private(set) var isConfirming = false
+    /// While a close is waiting on the disk or connection -- queued behind
+    /// an operation in flight, or saving after its prompt -- rather than on
+    /// its prompt or on nothing at all.
+    @Published private(set) var isWaitingToClose = false
     /// Set by `LeoUnsavedEditorsGate` while a quit that can't be asked
-    /// again (logging out, Ghostty's quit review) is waiting on this
-    /// editor: offers to leave anyway (Keep Waiting / Quit Anyway).
+    /// again (logging out, Ghostty's quit review) is on this editor:
+    /// offers to leave anyway (Keep Waiting / Quit Anyway). The pane shows
+    /// it once the close `isWaitingToClose`.
     @Published var leaveAnyway: (@MainActor () -> Void)?
 
     private let makeAccess: @MainActor (LeoHostID) throws -> any LeoFileAccess
@@ -73,7 +78,10 @@ struct LeoEditorReveal: Equatable, Sendable {
     /// when the user cancelled (or chose Save and it failed).
     @discardableResult
     func close() async -> Bool {
-        await queue.run { await self.performClose() }
+        if queue.isBusy { isWaitingToClose = true }
+        let closed = await queue.run { await self.performClose() }
+        isWaitingToClose = false
+        return closed
     }
 
     /// The window is gone: drops the document without asking (every close
@@ -136,8 +144,9 @@ struct LeoEditorReveal: Equatable, Sendable {
     }
 
     private func performClose() async -> Bool {
+        isWaitingToClose = false
         guard let document else { return true }
-        guard await resolveUnsavedChanges() else { return false }
+        guard await resolveUnsavedChanges(closing: true) else { return false }
         self.document = nil
         reveal = nil
         await document.close()
@@ -153,7 +162,9 @@ struct LeoEditorReveal: Equatable, Sendable {
 
     // MARK: - Helpers
 
-    private func resolveUnsavedChanges() async -> Bool {
+    /// `closing`: a Save waits on the disk or connection for a close
+    /// (`isWaitingToClose`).
+    private func resolveUnsavedChanges(closing: Bool = false) async -> Bool {
         guard let document, document.isDirty else { return true }
         isConfirming = true
         let choice = await confirmUnsaved(document)
@@ -161,7 +172,10 @@ struct LeoEditorReveal: Equatable, Sendable {
         switch choice {
         case .cancel: return false
         case .discard: return true
-        case .save: return await document.save() == .saved
+        case .save:
+            if closing { isWaitingToClose = true }
+            defer { if closing { isWaitingToClose = false } }
+            return await document.save() == .saved
         }
     }
 
