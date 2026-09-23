@@ -98,6 +98,11 @@ struct LeoEditorBannerTests {
             model.leaveAnyway = {}
             #expect(await eventually { !pane.banner.isHidden && pane.banner.banner?.actions == [.quitAnyway] })
 
+            model.isOfferShowing = true
+            #expect(await eventually { pane.banner.banner?.isEnabled == false }, "disabled while an offer is up")
+            model.isOfferShowing = false
+            #expect(await eventually { pane.banner.banner?.isEnabled == true })
+
             model.leaveAnyway = nil
             #expect(await eventually { pane.banner.isHidden })
             access.release()

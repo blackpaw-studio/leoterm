@@ -80,7 +80,15 @@ import AppKit
 
     private let offerToLeave: OfferToLeave
     private var resolutions: [Resolution] = []
-    private var isOffering = false
+    /// While an offer to leave is showing; the editors a pending quit is on
+    /// are told, so their own Quit Anyway waits (`isOfferShowing`).
+    private var isOffering = false {
+        didSet {
+            for resolution in resolutions where resolution.offersToLeave {
+                resolution.current?.editor.isOfferShowing = isOffering
+            }
+        }
+    }
 
     init(offerToLeave: @escaping OfferToLeave = LeoEditorAlerts.offerToLeave) {
         self.offerToLeave = offerToLeave
@@ -168,6 +176,7 @@ import AppKit
             while let entry = resolution.entries.first(where: { Self.hasUnsavedEdits($0.editor) }) {
                 resolution.current = entry
                 if resolution.offersToLeave {
+                    entry.editor.isOfferShowing = isOffering
                     entry.editor.leaveAnyway = { [weak self] in self?.offerToLeave(entry, from: resolution) }
                 }
                 entry.bringForward()

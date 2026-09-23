@@ -14,18 +14,23 @@ struct LeoEditorBanner: Equatable {
     let symbol: String
     let message: String
     let actions: [Action]
+    /// Whether its buttons can be used now.
+    var isEnabled = true
 
     /// nil when there is nothing to say. `isQuitWaiting`: a pending quit
     /// is waiting on the document's disk or connection (a save or read
     /// that hasn't come back), and it can be left from here.
-    @MainActor static func current(for document: LeoEditorDocument?, isQuitWaiting: Bool = false) -> LeoEditorBanner? {
+    /// `canLeave`: whether its Quit Anyway can be used now (no offer to
+    /// leave is already showing).
+    @MainActor static func current(for document: LeoEditorDocument?, isQuitWaiting: Bool = false, canLeave: Bool = true) -> LeoEditorBanner? {
         guard let document else { return nil }
         let name = "“\(LeoSFTPServerText.sanitized(document.displayName))”"
         if isQuitWaiting {
             return LeoEditorBanner(
                 symbol: "hourglass",
                 message: "Quitting is waiting for \(document.fileID.host.displayName) to finish with \(name).",
-                actions: [.quitAnyway]
+                actions: [.quitAnyway],
+                isEnabled: canLeave
             )
         }
         switch document.diskState {
@@ -95,6 +100,7 @@ final class LeoEditorBannerView: NSView {
             button.bezelStyle = .push
             button.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
             button.tag = banner.actions.firstIndex(of: action) ?? 0
+            button.isEnabled = banner.isEnabled
             buttons.addArrangedSubview(button)
         }
         setAccessibilityLabel(banner.message)

@@ -614,6 +614,42 @@ struct LeoUnsavedEditorsGateTests {
         }
     }
 
+    /// While an offer to leave is up (here, ⌘W's), the stuck editor's own
+    /// Quit Anyway is disabled -- it would do nothing -- and comes back
+    /// once the offer is answered.
+    @Test(.timeLimit(.minutes(1)))
+    func theBannersQuitAnywayWaitsWhileAnOfferIsUp() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let log = Log()
+            let access = LeoHangingAccess(LeoFileAccessor.local())
+            let stuck = pane(answering: .save, log: log, access: access)
+            try await open(stuck, try sandbox.file("a.txt", "a"), editing: true)
+            access.hangsWrites = true
+            let (offers, offered) = AsyncStream<Void>.makeStream()
+            let (leaves, leave) = AsyncStream<Bool>.makeStream()
+            let gate = LeoUnsavedEditorsGate { _, _ in
+                offered.yield()
+                for await answer in leaves { return answer }
+                return false
+            }
+            var replies: [Bool] = []
+            #expect(gate.deferQuit(of: [entry(stuck, "1", log)], isSystemQuit: true, reply: { replies.append($0) }, retry: {}) == .terminateLater)
+            await access.waitUntilWriting()
+            #expect(!stuck.isOfferShowing)
+
+            try #require(gate.deferClose(of: [entry(stuck, "1", log)]) { log.outcomes["commandW"] = $0 })
+            for await _ in offers { break }
+            #expect(stuck.isOfferShowing)
+
+            leave.yield(false)
+            #expect(await eventually { log.outcomes["commandW"] != nil })
+            #expect(!stuck.isOfferShowing)
+            #expect(stuck.leaveAnyway != nil)
+            access.release()
+            #expect(await eventually { !replies.isEmpty })
+        }
+    }
+
     /// Keep Waiting changes nothing: the offer stays reachable, and the
     /// quit goes on once the save comes back.
     @Test(.timeLimit(.minutes(1)))

@@ -50,6 +50,10 @@ struct LeoEditorReveal: Equatable, Sendable {
     /// offers to leave anyway (Keep Waiting / Quit Anyway). The pane shows
     /// it once the close `isWaitingToClose`.
     @Published var leaveAnyway: (@MainActor () -> Void)?
+    /// Set by `LeoUnsavedEditorsGate` while an offer to leave (for this
+    /// editor or another) is showing: `leaveAnyway` waits until it's
+    /// answered, so the pane's button is disabled meanwhile.
+    @Published var isOfferShowing = false
 
     private let makeAccess: @MainActor (LeoHostID) throws -> any LeoFileAccess
     private let policy: LeoEditorContentPolicy
