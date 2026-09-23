@@ -322,6 +322,36 @@ import Testing
         #expect(changes == [identity, nil], "repeated nil is not a change")
     }
 
+    /// The approved attention decision: the focused split of the key
+    /// window counts as viewed even while the sidebar has keyboard focus.
+    @Test func keyboardFocusMovingToTheSidebarKeepsTheViewedAgentFocused() async {
+        let host = FakeAttachTabHost()
+        var changes: [LeoAgentIdentity?] = []
+        let coordinator = makeCoordinator(host: host, focusedIdentityChanged: { changes.append($0) })
+        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+        await host.emitAndWait(.focusChanged(host.handles[0]))
+
+        await host.emitAndWait(.focusChanged(nil))
+
+        #expect(coordinator.focusedIdentity == identity)
+        #expect(changes == [identity])
+    }
+
+    @Test func viewingReportsMoveTheFocusedIdentity() async {
+        let host = FakeAttachTabHost()
+        var changes: [LeoAgentIdentity?] = []
+        let coordinator = makeCoordinator(host: host, focusedIdentityChanged: { changes.append($0) })
+        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+
+        await host.emitAndWait(.viewingChanged(host.handles[0]))
+        await host.emitAndWait(.focusChanged(nil))
+        #expect(coordinator.focusedIdentity == identity, "the sidebar has keyboard focus; the tab is still in view")
+        await host.emitAndWait(.viewingChanged(nil))
+
+        #expect(coordinator.focusedIdentity == nil)
+        #expect(changes == [identity, nil])
+    }
+
     @Test(arguments: [AttachLifecycleEvent.Kind.closed, .processExited])
     fileprivate func focusedAttachmentEndingClearsTheIdentity(_ kind: AttachLifecycleEvent.Kind) async {
         let host = FakeAttachTabHost()

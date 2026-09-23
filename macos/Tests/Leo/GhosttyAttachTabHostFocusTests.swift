@@ -5,12 +5,13 @@ import Testing
 
 /// B-016: the host's focused attachment is the surface that really has
 /// keyboard focus (the key window's first responder), not merely the
-/// controller's remembered `focusedSurface`. Drives a real
-/// `TerminalController`; bails out (rather than fails) without the app's
-/// real `Ghostty.App`, like `GhosttyAttachTabHostRebirthTests`.
+/// controller's remembered `focusedSurface`; the viewed attachment is the
+/// latter. Drives a real `TerminalController`, so it is skipped -- visibly
+/// -- without the app's real `Ghostty.App`.
 @MainActor struct GhosttyAttachTabHostFocusTests {
-    @Test func focusFollowsTheFirstResponderNotJustTheFocusedSurface() async throws {
-        guard let ghostty = (NSApp.delegate as? AppDelegate)?.ghostty else { return }
+    @Test(.enabled("needs the test host app's Ghostty.App") { await MainActor.run { Self.ghostty != nil } })
+    func focusFollowsTheFirstResponderNotJustTheFocusedSurface() async throws {
+        let ghostty = try #require(Self.ghostty)
         let controller = TerminalController.leoNewPlaceholderWindow(ghostty)
         defer { controller.window?.close() }
         let registry = LeoWindowSessionRegistry()
@@ -26,6 +27,7 @@ import Testing
         try await waitUntilInWindow(surface, window)
 
         #expect(host.focusedHandle(isActive: true, keyWindow: window) == handle)
+        #expect(host.viewedHandle(isActive: true, keyWindow: window) == handle)
 
         // Selecting a sidebar row: the list takes first responder, the
         // controller still remembers the surface as `focusedSurface`.
@@ -34,10 +36,12 @@ import Testing
         window.makeFirstResponder(sidebar)
         #expect(controller.focusedSurface === surface)
         #expect(host.focusedHandle(isActive: true, keyWindow: window) == nil)
+        #expect(host.viewedHandle(isActive: true, keyWindow: window) == handle, "the tab beside the sidebar is still in view")
 
         window.makeFirstResponder(surface)
         #expect(host.focusedHandle(isActive: true, keyWindow: window) == handle, "clicking back into the terminal")
         #expect(host.focusedHandle(isActive: false, keyWindow: window) == nil)
+        #expect(host.viewedHandle(isActive: false, keyWindow: window) == nil)
     }
 
     @Test func anInactiveAppOrNoKeyWindowSuspendsFocusRatherThanClearingIt() {
@@ -47,6 +51,8 @@ import Testing
         #expect(host.focusEvent(isActive: true, keyWindow: nil) == .focusSuspended)
         #expect(host.focusEvent(isActive: true, keyWindow: window) == .focusChanged(nil), "a non-terminal key window")
     }
+
+    private static var ghostty: Ghostty.App? { (NSApp.delegate as? AppDelegate)?.ghostty }
 
     /// SwiftUI installs the surface view in the window on a later layout
     /// pass.

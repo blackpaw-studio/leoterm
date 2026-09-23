@@ -13,6 +13,7 @@ import OSLog
     private var attachments: [AttachmentHandle: Attachment] = [:]
     private var focusObservers: [NSObjectProtocol] = []
     private var reportedFocus: AttachLifecycleEvent?
+    private var reportedViewing: AttachmentHandle?
     private(set) var focusReportCount = 0
 
     init(registry: LeoWindowSessionRegistry, requestConfigStore: LeoRequestConfigStore) {
@@ -27,19 +28,31 @@ import OSLog
         focusObservers.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
-    /// Key window -> its selected tab's controller -> `focusedSurface`, so a
-    /// focused split counts -- but only while that surface is the window's
-    /// first responder: the controller keeps remembering `focusedSurface`
-    /// after keyboard focus moves to the sidebar. `nil` while the app is
-    /// inactive.
+    /// `viewedHandle`, but only while that surface is the window's first
+    /// responder: the controller keeps remembering `focusedSurface` after
+    /// keyboard focus moves to the sidebar.
     var focusedHandle: AttachmentHandle? {
         focusedHandle(isActive: NSApp.isActive, keyWindow: NSApp.keyWindow)
     }
 
+    /// Key window -> its selected tab's controller -> `focusedSurface`, so a
+    /// focused split counts, first responder or not. `nil` while the app is
+    /// inactive.
+    var viewedHandle: AttachmentHandle? {
+        viewedHandle(isActive: NSApp.isActive, keyWindow: NSApp.keyWindow)
+    }
+
     /// `focusedHandle` for the given app state (injectable for tests).
     func focusedHandle(isActive: Bool, keyWindow: NSWindow?) -> AttachmentHandle? {
+        guard let handle = viewedHandle(isActive: isActive, keyWindow: keyWindow),
+              attachments[handle]?.surface?.isFirstResponder == true else { return nil }
+        return handle
+    }
+
+    /// `viewedHandle` for the given app state (injectable for tests).
+    func viewedHandle(isActive: Bool, keyWindow: NSWindow?) -> AttachmentHandle? {
         guard isActive, let controller = keyWindow?.windowController as? BaseTerminalController,
-              let surface = controller.focusedSurface, surface.isFirstResponder else { return nil }
+              let surface = controller.focusedSurface else { return nil }
         return attachments.first { $0.value.controller === controller && $0.value.surface === surface }?.key
     }
 
@@ -71,10 +84,21 @@ import OSLog
         })
     }
 
+    /// Viewing first: a `.focusChanged` onto an attachment implies it is
+    /// viewed, so the two never disagree once both are delivered.
     private func reportFocus() {
+        let viewing = viewedHandle
+        if viewing != reportedViewing {
+            reportedViewing = viewing
+            yieldFocusReport(.viewingChanged(viewing))
+        }
         let event = focusEvent(isActive: NSApp.isActive, keyWindow: NSApp.keyWindow)
         guard event != reportedFocus else { return }
         reportedFocus = event
+        yieldFocusReport(event)
+    }
+
+    private func yieldFocusReport(_ event: AttachLifecycleEvent) {
         focusReportCount += 1
         continuation.yield(event)
     }

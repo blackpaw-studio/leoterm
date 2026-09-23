@@ -42,6 +42,13 @@ struct FakeOpenCall {
     var handles: [AttachmentHandle] = []
     var openHandles: Set<AttachmentHandle> = []
     var focusedHandle: AttachmentHandle?
+    /// Follows `focusedHandle` (an attachment with keyboard focus is
+    /// viewed) until set.
+    var viewedHandle: AttachmentHandle? {
+        get { viewedHandleOverride ?? focusedHandle }
+        set { viewedHandleOverride = .some(newValue) }
+    }
+    private var viewedHandleOverride: AttachmentHandle??
     private(set) var focusReportCount = 0
     private let continuation: AsyncStream<AttachLifecycleEvent>.Continuation
     private var lifecycleAcknowledgement: CheckedContinuation<Void, Never>?
@@ -97,7 +104,7 @@ struct FakeOpenCall {
     /// an event still in flight.
     func emit(_ event: AttachLifecycleEvent) {
         switch event {
-        case .focusChanged, .focusSuspended: focusReportCount += 1
+        case .focusChanged, .viewingChanged, .focusSuspended: focusReportCount += 1
         default: break
         }
         continuation.yield(event)

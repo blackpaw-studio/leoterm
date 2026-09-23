@@ -48,15 +48,17 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     private var identityByHandle: [AttachmentHandle: LeoAgentIdentity] = [:]
     private var inactive: Set<AttachmentHandle> = []
     private var attachInProgress: Set<LeoAgentIdentity> = []
-    /// The host's last reported focused attachment; mapped to an identity
-    /// only through `identityByHandle` (never titles or sidebar selection).
-    private var focusedHandle: AttachmentHandle?
-    /// The attachment the sidebar links to: `focusedHandle`, except that
-    /// `.focusSuspended` (app inactive) keeps the last one, so focus
-    /// resuming where it was isn't a focus change (D-022).
+    /// The attachment the host last reported the user viewing (behind
+    /// `focusedIdentity`: attention and Jump); mapped to an identity only
+    /// through `identityByHandle` (never titles or sidebar selection).
+    /// Keyboard focus moving to the sidebar doesn't change it.
+    private var viewedHandle: AttachmentHandle?
+    /// The attachment the sidebar links to: the one with keyboard focus,
+    /// except that `.focusSuspended` (app inactive) keeps the last one, so
+    /// focus resuming where it was isn't a focus change (D-022).
     private var linkedHandle: AttachmentHandle?
-    /// Which host focus report `focusedHandle` reflects. A synchronous read
-    /// of `host.focusedHandle` is newer than every report yielded so far.
+    /// Which host focus report the link state reflects. A synchronous read
+    /// of the host is newer than every report yielded so far.
     private var focusReport = 0
     private var focusReportsReceived = 0
     private var lifecycleTask: Task<Void, Never>?
@@ -146,8 +148,13 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             identityByHandle[handle] = identity
             // The host may report focus on the new surface before it is
             // registered here.
-            focusedHandle = host.focusedHandle
-            linkedHandle = focusedHandle
+            viewedHandle = host.viewedHandle
+            linkedHandle = host.focusedHandle
+            // Newer than every report yielded so far. A report already in
+            // flight can land after this and set `focusReport` back to its
+            // own, lower number; the fence still orders correctly because
+            // the state published then *is* that older report's, and the
+            // sidebar judges it by that number like any other report.
             focusReport = host.focusReportCount + 1
             updateFocusedIdentity()
             publishLinkState()
@@ -221,17 +228,29 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             guard !title.isEmpty, identityByHandle[handle] != nil else { return }
             host.setTitleSeed(handle, title: nil)
         case .focusSuspended:
-            focusReportsReceived += 1
-            focusReport = focusReportsReceived
-            focusedHandle = nil
+            receivedFocusReport()
+            viewedHandle = nil
+        case .viewingChanged(let handle):
+            receivedFocusReport()
+            view(handle)
         case .focusChanged(let handle):
-            focusReportsReceived += 1
-            focusReport = focusReportsReceived
-            focusedHandle = handle
+            receivedFocusReport()
             linkedHandle = handle
-            if let handle, !inactive.contains(handle), let identity = identityByHandle[handle] {
-                moveToMostRecent(handle, identity: identity)
-            }
+            // Keyboard focus on an attachment means it is viewed; focus
+            // leaving for the sidebar doesn't mean it no longer is.
+            if let handle { view(handle) }
+        }
+    }
+
+    private func receivedFocusReport() {
+        focusReportsReceived += 1
+        focusReport = focusReportsReceived
+    }
+
+    private func view(_ handle: AttachmentHandle?) {
+        viewedHandle = handle
+        if let handle, !inactive.contains(handle), let identity = identityByHandle[handle] {
+            moveToMostRecent(handle, identity: identity)
         }
     }
 
@@ -265,7 +284,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     /// An exited attachment shows a placeholder, not the agent, so it no
     /// longer counts as viewing it.
     private func updateFocusedIdentity() {
-        let identity = liveIdentity(of: focusedHandle)
+        let identity = liveIdentity(of: viewedHandle)
         guard identity != focusedIdentity else { return }
         focusedIdentity = identity
         focusedIdentityChanged(identity)

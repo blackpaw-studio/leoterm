@@ -15,10 +15,17 @@ enum AttachLifecycleEvent: Equatable, Sendable {
     case closed(AttachmentHandle)
     case titleChanged(AttachmentHandle, String)
     case processExited(AttachmentHandle)
-    /// The attachment (if any) that is now the focused surface of the key
-    /// window, or `nil` when focus left every attachment (another surface,
-    /// no key window, app inactive).
+    /// The attachment (if any) that now has keyboard focus: the focused
+    /// surface of the key window, while it is that window's first
+    /// responder. `nil` when keyboard focus left every attachment (the
+    /// sidebar, another surface). Drives the sidebar row link.
     case focusChanged(AttachmentHandle?)
+    /// The attachment (if any) the user is looking at: the key window's
+    /// focused split, whether or not it has keyboard focus -- clicking the
+    /// sidebar doesn't stop the terminal beside it counting as viewed.
+    /// `nil` while the app is inactive. Drives attention and Jump. A
+    /// non-nil `.focusChanged` implies the same handle is viewed.
+    case viewingChanged(AttachmentHandle?)
     /// The app went inactive or has no key window: nothing is focused, but
     /// focus didn't move anywhere either. The next `.focusChanged` says
     /// where it resumed.
@@ -36,10 +43,14 @@ extension Notification.Name {
 
 @MainActor protocol AttachTabHost: AnyObject {
     var lifecycleEvents: AsyncStream<AttachLifecycleEvent> { get }
-    /// The attachment that is the focused surface of the key window of the
+    /// The attachment that has keyboard focus in the key window of the
     /// active app, if any. Changes are reported as `.focusChanged`.
     var focusedHandle: AttachmentHandle? { get }
-    /// How many focus events (`.focusChanged`, `.focusSuspended`) have been yielded on
+    /// The attachment the user is looking at, if any (see
+    /// `.viewingChanged`, which reports its changes).
+    var viewedHandle: AttachmentHandle? { get }
+    /// How many focus events (`.focusChanged`, `.viewingChanged`,
+    /// `.focusSuspended`) have been yielded on
     /// `lifecycleEvents` so far. The Nth focus event on the stream is report
     /// N, so a consumer can tell a report yielded before some moment (e.g.
     /// a user's click) from one yielded after it, even if it hasn't been
