@@ -468,3 +468,11 @@ Why: principle 1 (a first-party Mac app never crushes its main content) and cons
 Alternatives: enforce only when a pane opens (the current behavior)
 Commit:
 Veto: [ ]
+
+## D-059 · 2026-09-23 · A floor-collapsed sidebar comes back; ⌘⇧L greys out when it can't fit
+Context: B-023 visual check: after narrowing, widening left the sidebar collapsed and the editor squeezed; ⌘⇧L did nothing, silently
+Chose: a sidebar collapsed by the 300 pt floor is transient and returns when the window widens (side panes regain their earlier width first); a sidebar hidden with ⌘⇧L stays hidden. When showing the sidebar would squeeze the terminal, Show Agents Sidebar is disabled, so the shortcut gives the system beep
+Why: principle 1 (behaves like NSSplitView's collapse-on-resize and standard menu validation) and principle 2 (no custom alert)
+Alternatives: stay collapsed until ⌘⇧L; refuse silently
+Commit:
+Veto: [ ]
