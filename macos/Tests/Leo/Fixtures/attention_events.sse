@@ -1,0 +1,24 @@
+event: hello
+data: {"seq":1,"at":"2026-09-22T16:00:00-04:00","version":1,"server_time":"2026-09-22T16:00:00-04:00","boot_id":"boot-a"}
+
+event: agent_activity
+data: {"seq":2,"at":"2026-09-22T16:00:01-04:00","agent":"alpha","activity":"working","current_action":null,"attention":{"state":"working","revision":7}}
+
+event: agent_activity
+data: {"seq":3,"at":"2026-09-22T16:00:02-04:00","agent":"alpha","activity":"idle","current_action":null,"attention":{"state":"needs_input","revision":8}}
+
+event: agent_activity
+data: {"seq":4,"at":"2026-09-22T16:00:03-04:00","agent":"legacy","activity":"working","current_action":null}
+
+event: agent_activity
+data: {"seq":5,"at":"2026-09-22T16:00:04-04:00","agent":"alpha","activity":"idle","current_action":null,"attention":{"state":"brand_new_state","revision":9}}
+
+event: agent_spawned
+data: {"seq":6,"at":"2026-09-22T16:00:05-04:00","agent":{"name":"beta","status":"running"},"attention":{"state":"working","revision":1}}
+
+event: agent_spawned
+data: {"seq":7,"at":"2026-09-22T16:00:06-04:00","agent":{"name":"gamma","status":"running","attention":{"state":"finished","revision":2}}}
+
+event: agent_spawned
+data: {"seq":8,"at":"2026-09-22T16:00:07-04:00","agent":{"name":"delta","status":"running"}}
+

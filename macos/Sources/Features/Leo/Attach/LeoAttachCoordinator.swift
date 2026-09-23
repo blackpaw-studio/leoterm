@@ -37,10 +37,30 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     private let remoteCommandBuilder: (LeoAgentIdentity) throws -> String
     private let report: (LeoAttachError) -> Void
     private let lifecycleEventHandled: (AttachLifecycleEvent) -> Void
+    private let focusedIdentityChanged: (LeoAgentIdentity?) -> Void
+    private let linkStateChanged: (LeoAttachLinkState) -> Void
+    private(set) var focusedIdentity: LeoAgentIdentity?
+    /// Focused row and live attach counts for the sidebar (B-006).
+    private(set) var linkState = LeoAttachLinkState.empty
+    /// Per identity, ordered least -> most recently focused (or opened), so
+    /// `.last` live handle is the one to bring back.
     private var handlesByIdentity: [LeoAgentIdentity: [AttachmentHandle]] = [:]
     private var identityByHandle: [AttachmentHandle: LeoAgentIdentity] = [:]
     private var inactive: Set<AttachmentHandle> = []
     private var attachInProgress: Set<LeoAgentIdentity> = []
+    /// The attachment the host last reported the user viewing (behind
+    /// `focusedIdentity`: attention and Jump); mapped to an identity only
+    /// through `identityByHandle` (never titles or sidebar selection).
+    /// Keyboard focus moving to the sidebar doesn't change it.
+    private var viewedHandle: AttachmentHandle?
+    /// The attachment the sidebar links to: the one with keyboard focus,
+    /// except that `.focusSuspended` (app inactive) keeps the last one, so
+    /// focus resuming where it was isn't a focus change (D-022).
+    private var linkedHandle: AttachmentHandle?
+    /// Which host focus report the link state reflects. A synchronous read
+    /// of the host is newer than every report yielded so far.
+    private var focusReport = 0
+    private var focusReportsReceived = 0
     private var lifecycleTask: Task<Void, Never>?
 
     init(
@@ -50,13 +70,17 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             throw LeoDaemonError.hostUnavailable("Remote attach is not configured")
         },
         report: @escaping (LeoAttachError) -> Void,
-        lifecycleEventHandled: @escaping (AttachLifecycleEvent) -> Void = { _ in }
+        lifecycleEventHandled: @escaping (AttachLifecycleEvent) -> Void = { _ in },
+        focusedIdentityChanged: @escaping (LeoAgentIdentity?) -> Void = { _ in },
+        linkStateChanged: @escaping (LeoAttachLinkState) -> Void = { _ in }
     ) {
         self.host = host
         self.executable = executable
         self.remoteCommandBuilder = remoteCommandBuilder
         self.report = report
         self.lifecycleEventHandled = lifecycleEventHandled
+        self.focusedIdentityChanged = focusedIdentityChanged
+        self.linkStateChanged = linkStateChanged
         lifecycleTask = Task { [weak self, events = host.lifecycleEvents] in
             for await event in events {
                 guard !Task.isCancelled else { return }
@@ -66,6 +90,9 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     }
 
     deinit { lifecycleTask?.cancel() }
+
+    /// The latest focus report the host has yielded, received or not.
+    var latestFocusReport: Int { host.focusReportCount }
 
     var reusableHandleCount: Int {
         identityByHandle.keys.filter { !inactive.contains($0) }.count
@@ -95,11 +122,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         attachInProgress.insert(identity)
         defer { attachInProgress.remove(identity) }
 
-        discardDeadHandles(for: identity)
-        if request.disposition == .tab,
-           let handle = handlesByIdentity[identity]?.last(where: { !inactive.contains($0) }) {
-            host.focus(handle)
-            moveToMostRecent(handle, identity: identity)
+        if request.disposition == .tab, let handle = focusMostRecent(identity) {
             return .success(handle)
         }
 
@@ -123,6 +146,18 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             let handle = try createHandle(command: command, workingDirectory: workingDirectory, request: request)
             handlesByIdentity[identity, default: []].append(handle)
             identityByHandle[handle] = identity
+            // The host may report focus on the new surface before it is
+            // registered here.
+            viewedHandle = host.viewedHandle
+            linkedHandle = host.focusedHandle
+            // Newer than every report yielded so far. A report already in
+            // flight can land after this and set `focusReport` back to its
+            // own, lower number; the fence still orders correctly because
+            // the state published then *is* that older report's, and the
+            // sidebar judges it by that number like any other report.
+            focusReport = host.focusReportCount + 1
+            updateFocusedIdentity()
+            publishLinkState()
             host.setTitleSeed(handle, title: "\(identity.name) · \(identity.host.displayName)")
             return .success(handle)
         } catch {
@@ -174,7 +209,11 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     }
 
     private func receive(_ event: AttachLifecycleEvent) {
-        defer { lifecycleEventHandled(event) }
+        defer {
+            updateFocusedIdentity()
+            publishLinkState()
+            lifecycleEventHandled(event)
+        }
         switch event {
         case .closed(let handle): remove(handle)
         case .processExited(let handle):
@@ -188,7 +227,77 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         case .titleChanged(let handle, let title):
             guard !title.isEmpty, identityByHandle[handle] != nil else { return }
             host.setTitleSeed(handle, title: nil)
+        case .focusSuspended:
+            receivedFocusReport()
+            viewedHandle = nil
+        case .viewingChanged(let handle):
+            receivedFocusReport()
+            view(handle)
+        case .focusChanged(let handle):
+            receivedFocusReport()
+            linkedHandle = handle
+            // Keyboard focus on an attachment means it is viewed; focus
+            // leaving for the sidebar doesn't mean it no longer is.
+            if let handle { view(handle) }
         }
+    }
+
+    private func receivedFocusReport() {
+        focusReportsReceived += 1
+        focusReport = focusReportsReceived
+    }
+
+    private func view(_ handle: AttachmentHandle?) {
+        viewedHandle = handle
+        if let handle, !inactive.contains(handle), let identity = identityByHandle[handle] {
+            moveToMostRecent(handle, identity: identity)
+        }
+    }
+
+    /// The agent attached in the surface `surfaceID`, while that attach is
+    /// live (an exited one shows a placeholder, not the agent).
+    func identity(forSurface surfaceID: UUID) -> LeoAgentIdentity? {
+        identityByHandle.first { $0.key.surfaceID == surfaceID && !inactive.contains($0.key) }?.value
+    }
+
+    /// Brings `identity`'s most recently focused live attachment forward
+    /// instead of opening a duplicate. `false` when it has none.
+    @discardableResult func focusExisting(_ identity: LeoAgentIdentity) -> Bool {
+        focusMostRecent(identity) != nil
+    }
+
+    private func focusMostRecent(_ identity: LeoAgentIdentity) -> AttachmentHandle? {
+        discardDeadHandles(for: identity)
+        defer { publishLinkState() }
+        guard let handle = handlesByIdentity[identity]?.last(where: { !inactive.contains($0) }) else { return nil }
+        host.focus(handle)
+        moveToMostRecent(handle, identity: identity)
+        return handle
+    }
+
+    private func publishLinkState() {
+        let state = LeoAttachLinkState(
+            focused: liveIdentity(of: linkedHandle),
+            handlesByIdentity: handlesByIdentity,
+            inactive: inactive,
+            focusReport: focusReport
+        )
+        guard state != linkState else { return }
+        linkState = state
+        linkStateChanged(state)
+    }
+
+    /// An exited attachment shows a placeholder, not the agent, so it no
+    /// longer counts as viewing it.
+    private func updateFocusedIdentity() {
+        let identity = liveIdentity(of: viewedHandle)
+        guard identity != focusedIdentity else { return }
+        focusedIdentity = identity
+        focusedIdentityChanged(identity)
+    }
+
+    private func liveIdentity(of handle: AttachmentHandle?) -> LeoAgentIdentity? {
+        handle.flatMap { inactive.contains($0) ? nil : identityByHandle[$0] }
     }
 
     private func discardDeadHandles(for identity: LeoAgentIdentity) {

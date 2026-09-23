@@ -446,6 +446,8 @@ extension Ghostty {
             guard let surface = self.surface else { return }
             guard self.focused != focused else { return }
             self.focused = focused
+            // Leo:
+            NotificationCenter.default.post(name: .leoSurfaceFocusDidChange, object: self)
 
             // If we lost our focus then remove the mouse event suppression so
             // our mouse release event leaving the surface can properly be

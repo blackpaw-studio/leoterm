@@ -5,9 +5,12 @@ import Testing
 struct LeoSSHCommandTests {
     @Test func buildsExactTunnelArguments() throws {
         let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "evan@build.example:2222", identityFile: "/keys/build"))
-        #expect(try command.tunnelArguments(localSocketPath: "/tmp/build.sock", remoteSocketPath: "/home/evan/.leo/state/leo.sock") == [
+        #expect(try command.tunnelArguments(
+            localSocketPath: "/tmp/build.sock", remoteSocketPath: "/home/evan/.leo/state/leo.sock", controlPath: "/tmp/cm-build"
+        ) == [
             "-n", "-N", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes", "-o", "ExitOnForwardFailure=yes",
-            "-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=3", "-o", "ControlMaster=no", "-o", "ControlPath=none",
+            "-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=3",
+            "-o", "ControlMaster=yes", "-o", "ControlPath=/tmp/cm-build", "-o", "ControlPersist=no",
             "-o", "StreamLocalBindUnlink=yes", "-i", "/keys/build", "-p", "2222", "-L",
             "/tmp/build.sock:/home/evan/.leo/state/leo.sock", "evan@build.example"
         ])
@@ -111,7 +114,7 @@ struct LeoSSHCommandTests {
     func rejectsColonInSocketPaths(_ local: String, _ remote: String) {
         let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "build"))
         #expect(throws: LeoSSHCommandError.invalidSocketPath) {
-            try command.tunnelArguments(localSocketPath: local, remoteSocketPath: remote)
+            try command.tunnelArguments(localSocketPath: local, remoteSocketPath: remote, controlPath: "/tmp/cm")
         }
     }
 
@@ -120,7 +123,8 @@ struct LeoSSHCommandTests {
         #expect(throws: LeoSSHCommandError.invalidSocketPath) {
             try command.tunnelArguments(
                 localSocketPath: "/tmp/" + String(repeating: "a", count: 96),
-                remoteSocketPath: "/remote/socket"
+                remoteSocketPath: "/remote/socket",
+                controlPath: "/tmp/cm"
             )
         }
     }
@@ -128,8 +132,9 @@ struct LeoSSHCommandTests {
     @Test func buildersRejectInvalidConfigurations() {
         let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "@-V"))
         let expected = LeoSSHCommandError.invalidConfiguration([.unsafeSSHTarget])
-        #expect(throws: expected) { try command.tunnelArguments(localSocketPath: "/tmp/socket", remoteSocketPath: "/remote/socket") }
+        #expect(throws: expected) { try command.tunnelArguments(localSocketPath: "/tmp/socket", remoteSocketPath: "/remote/socket", controlPath: "/tmp/cm") }
         #expect(throws: expected) { try command.execArguments(remoteCommand: ["printf"]) }
+        #expect(throws: expected) { try command.sftpArguments(controlPath: "/tmp/cm") }
         #expect(throws: expected) { try command.attachShellCommand(agent: "agent") }
         #expect(throws: expected) { try command.logsShellCommand(agent: "agent") }
         #expect(throws: expected) { try command.remoteHomeCommand() }

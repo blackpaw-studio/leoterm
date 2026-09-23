@@ -17,7 +17,7 @@ struct LeoActivityCoalescer: Sendable {
     /// per event.
     @discardableResult
     mutating func add(_ event: LeoObserveEvent) -> Bool {
-        guard case let .agentActivity(_, _, name, _, _) = event else { return false }
+        guard case let .agentActivity(_, _, name, _, _, _) = event else { return false }
         let isFirst = isEmpty
         buffered[name] = event
         isEmpty = false

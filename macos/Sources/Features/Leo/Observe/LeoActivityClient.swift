@@ -17,21 +17,46 @@ struct LeoObservedAgent: Codable, Equatable, Sendable {
     let activity: LeoActivity?
     let currentAction: LeoCurrentAction?
     let lastActivityAt: String?
+    let attention: LeoAttentionSignal?
 
     init(name: String, host: String? = nil, status: LeoAgentStatus?, activity: LeoActivity?,
-         currentAction: LeoCurrentAction?, lastActivityAt: String?) {
+         currentAction: LeoCurrentAction?, lastActivityAt: String?, attention: LeoAttentionSignal? = nil) {
         self.name = name
         self.host = host
         self.status = status
         self.activity = activity
         self.currentAction = currentAction
         self.lastActivityAt = lastActivityAt
+        self.attention = attention
     }
 
     enum CodingKeys: String, CodingKey {
-        case name, host, status, activity
+        case name, host, status, activity, attention
         case currentAction = "current_action"
         case lastActivityAt = "last_activity_at"
+    }
+
+    /// Hand-written only so a malformed optional `attention` degrades to
+    /// "absent" (legacy) instead of failing the whole `/state` payload.
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        host = try container.decodeIfPresent(String.self, forKey: .host)
+        status = try container.decodeIfPresent(LeoAgentStatus.self, forKey: .status)
+        activity = try container.decodeIfPresent(LeoActivity.self, forKey: .activity)
+        currentAction = try container.decodeIfPresent(LeoCurrentAction.self, forKey: .currentAction)
+        lastActivityAt = try container.decodeIfPresent(String.self, forKey: .lastActivityAt)
+        attention = try container.decodeIfPresent(LeoLenientAttention.self, forKey: .attention)?.value
+    }
+}
+
+/// Decodes an optional `attention` object without ever failing its parent:
+/// a malformed value (missing revision, wrong types) reads as absent.
+struct LeoLenientAttention: Decodable, Sendable {
+    let value: LeoAttentionSignal?
+
+    init(from decoder: any Decoder) throws {
+        value = try? LeoAttentionSignal(from: decoder)
     }
 }
 
@@ -58,10 +83,13 @@ struct LeoLenientVersion: Decodable, Equatable, Sendable {
 enum LeoObserveEvent: Equatable, Sendable {
     case connected
     case disconnected(reason: String)
-    case hello(seq: Int, at: String?, version: String?, serverTime: String?)
-    case agentSpawned(seq: Int, at: String?, agent: LeoAgent)
+    case hello(seq: Int, at: String?, version: String?, serverTime: String?, bootID: String? = nil)
+    case agentSpawned(seq: Int, at: String?, agent: LeoAgent, attention: LeoAttentionSignal? = nil)
     case agentStateChanged(seq: Int, at: String?, agent: String, status: LeoAgentStatus?, restarts: Int?, wakeOnMessage: Bool?)
-    case agentActivity(seq: Int, at: String?, agent: String, activity: LeoActivity?, currentAction: LeoCurrentAction?)
+    case agentActivity(
+        seq: Int, at: String?, agent: String, activity: LeoActivity?, currentAction: LeoCurrentAction?,
+        attention: LeoAttentionSignal? = nil
+    )
     case agentStopped(seq: Int, at: String?, agent: String, wakeOnMessage: Bool?)
     case gap(expected: Int, received: Int)
     case snapshot([LeoObservedAgent])
@@ -158,7 +186,7 @@ actor LeoActivityClient {
                             }
                         }
                         lastSequence = sequence
-                        if case .hello(let seq, let at, let version, let serverTime) = event {
+                        if case .hello(let seq, let at, let version, let serverTime, _) = event {
                             backoff = initialBackoff
                             leoActivityClientLogger.log("activityClient: hello seq=\(seq) version=\(version ?? "nil", privacy: .public) serverTime=\(serverTime ?? "nil", privacy: .public) at=\(at ?? "nil", privacy: .public)")
                             continuation.yield(.connected)
@@ -199,21 +227,32 @@ actor LeoActivityClient {
         let decoder = JSONDecoder()
         switch name {
         case "hello":
-            struct Payload: Decodable { let seq: Int; let at: String?; let version: LeoLenientVersion?; let serverTime: String?; enum CodingKeys: String, CodingKey { case seq, at, version; case serverTime = "server_time" } }
+            struct Payload: Decodable { let seq: Int; let at: String?; let version: LeoLenientVersion?; let serverTime: String?; let bootID: LeoLenientVersion?; enum CodingKeys: String, CodingKey { case seq, at, version; case serverTime = "server_time"; case bootID = "boot_id" } }
             guard let p = try? decoder.decode(Payload.self, from: data) else { return nil }
-            return .hello(seq: p.seq, at: p.at, version: p.version?.stringValue, serverTime: p.serverTime)
+            return .hello(seq: p.seq, at: p.at, version: p.version?.stringValue, serverTime: p.serverTime, bootID: p.bootID?.stringValue)
         case "agent_spawned":
-            struct Payload: Decodable { let seq: Int; let at: String?; let agent: LeoAgent }
+            struct Nested: Decodable { let attention: LeoLenientAttention? }
+            struct Payload: Decodable { let seq: Int; let at: String?; let agent: LeoAgent; let attention: LeoLenientAttention?; let nested: Nested
+                enum CodingKeys: String, CodingKey { case seq, at, agent, attention }
+                init(from decoder: any Decoder) throws {
+                    let container = try decoder.container(keyedBy: CodingKeys.self)
+                    seq = try container.decode(Int.self, forKey: .seq)
+                    at = try container.decodeIfPresent(String.self, forKey: .at)
+                    agent = try container.decode(LeoAgent.self, forKey: .agent)
+                    attention = try container.decodeIfPresent(LeoLenientAttention.self, forKey: .attention)
+                    nested = try container.decode(Nested.self, forKey: .agent)
+                }
+            }
             guard let p = try? decoder.decode(Payload.self, from: data) else { return nil }
-            return .agentSpawned(seq: p.seq, at: p.at, agent: p.agent)
+            return .agentSpawned(seq: p.seq, at: p.at, agent: p.agent, attention: p.attention?.value ?? p.nested.attention?.value)
         case "agent_state_changed":
             struct Payload: Decodable { let seq: Int; let at: String?; let agent: String; let status: LeoAgentStatus?; let restarts: Int?; let wakeOnMessage: Bool?; enum CodingKeys: String, CodingKey { case seq, at, agent, status, restarts; case wakeOnMessage = "wake_on_message" } }
             guard let p = try? decoder.decode(Payload.self, from: data) else { return nil }
             return .agentStateChanged(seq: p.seq, at: p.at, agent: p.agent, status: p.status, restarts: p.restarts, wakeOnMessage: p.wakeOnMessage)
         case "agent_activity":
-            struct Payload: Decodable { let seq: Int; let at: String?; let agent: String; let activity: LeoActivity?; let currentAction: LeoCurrentAction?; enum CodingKeys: String, CodingKey { case seq, at, agent, activity; case currentAction = "current_action" } }
+            struct Payload: Decodable { let seq: Int; let at: String?; let agent: String; let activity: LeoActivity?; let currentAction: LeoCurrentAction?; let attention: LeoLenientAttention?; enum CodingKeys: String, CodingKey { case seq, at, agent, activity, attention; case currentAction = "current_action" } }
             guard let p = try? decoder.decode(Payload.self, from: data) else { return nil }
-            return .agentActivity(seq: p.seq, at: p.at, agent: p.agent, activity: p.activity, currentAction: p.currentAction)
+            return .agentActivity(seq: p.seq, at: p.at, agent: p.agent, activity: p.activity, currentAction: p.currentAction, attention: p.attention?.value)
         case "agent_stopped":
             struct Payload: Decodable { let seq: Int; let at: String?; let agent: String; let wakeOnMessage: Bool?; enum CodingKeys: String, CodingKey { case seq, at, agent; case wakeOnMessage = "wake_on_message" } }
             guard let p = try? decoder.decode(Payload.self, from: data) else { return nil }
@@ -232,10 +271,19 @@ actor LeoActivityClient {
 extension LeoObserveEvent {
     var sequence: Int {
         switch self {
-        case .hello(let seq, _, _, _), .agentSpawned(let seq, _, _),
-             .agentStateChanged(let seq, _, _, _, _, _), .agentActivity(let seq, _, _, _, _),
+        case .hello(let seq, _, _, _, _), .agentSpawned(let seq, _, _, _),
+             .agentStateChanged(let seq, _, _, _, _, _), .agentActivity(let seq, _, _, _, _, _),
              .agentStopped(let seq, _, _, _): return seq
         case .connected, .disconnected, .gap, .snapshot: return -1
+        }
+    }
+
+    /// The optional semantic attention signal an event carries; `nil` for a
+    /// legacy daemon and for every event kind that never carries one.
+    var attention: LeoAttentionSignal? {
+        switch self {
+        case .agentActivity(_, _, _, _, _, let attention), .agentSpawned(_, _, _, let attention): attention
+        default: nil
         }
     }
 }

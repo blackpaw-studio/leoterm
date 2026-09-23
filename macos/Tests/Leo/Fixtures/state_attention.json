@@ -1,0 +1,5 @@
+{"ok":true,"data":{"agents":[
+  {"name":"alpha","status":"running","activity":"idle","current_action":null,"attention":{"state":"finished","revision":12}},
+  {"name":"beta","status":"running","activity":"working","current_action":null,"attention":{"state":"errored","revision":3}},
+  {"name":"legacy","status":"running","activity":"working","current_action":null}
+]}}

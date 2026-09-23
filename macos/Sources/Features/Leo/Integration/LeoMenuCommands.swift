@@ -40,6 +40,8 @@ enum LeoMenuCommands {
     static func canViewLogs(_ context: AgentContext) -> Bool { enabled(context) { $0.logs } }
     static func canDelete(_ context: AgentContext) -> Bool { enabled(context) { $0.delete } }
 
+    static func canJumpToNextNeedingAttention(hasLeoSession: Bool, hasTarget: Bool) -> Bool { hasLeoSession && hasTarget }
+
     private static func enabled(_ context: AgentContext, _ pick: (LeoRowActionAvailability) -> Bool) -> Bool {
         guard context.hasLeoSession, let availability = context.availability else { return false }
         return pick(availability)

@@ -71,7 +71,11 @@ struct LeoDeleteSheetActionAvailability {
 struct LeoAgentRowView: View {
     let row: LeoAgentRow
     let isSelected: Bool
+    /// Live attach tabs/splits for this agent (B-006).
+    let tabCount: Int
     let attach: (LeoAgentRow, AttachDisposition) -> Void
+    /// A single click; brings an existing attach forward when there is one.
+    let click: (NSEvent.ModifierFlags) -> Void
     @ObservedObject var actions: LeoAgentActions
     let error: String?
     let errorCode: String?
@@ -91,6 +95,9 @@ struct LeoAgentRowView: View {
             rowDetails
                 .contentShape(Rectangle())
                 .onTapGesture(count: 2) { activate(source: .rowDoubleClick) }
+                // Simultaneous, so it neither delays the double-click nor
+                // takes the click away from the list's own selection.
+                .simultaneousGesture(TapGesture().onEnded { click(NSEvent.modifierFlags) })
         }
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
@@ -126,22 +133,44 @@ struct LeoAgentRowView: View {
                 Text(row.name)
                     .fontWeight(.medium)
                     .lineLimit(1)
-                    .accessibilityLabel("\(row.name), \(LeoStatusPresentation.agentStatus(row.status).accessibilityLabel)")
+                    .accessibilityLabel(LeoStatusPresentation.rowAccessibilityLabel(row))
                 Spacer(minLength: 4)
+                attentionBadge
                 statusBadge
+                if isHovered {
+                    // Reserves the button's width (not its height) in the
+                    // line, so the name truncates before the button and the
+                    // badges sit beside it instead of under it.
+                    attachAffordance
+                        .hidden()
+                        .frame(height: 0)
+                        .accessibilityHidden(true)
+                }
             }
             // Overlaid on the name line specifically, not the whole row:
             // rows vary in height (template, action detail, error, progress),
             // and an overlay on the row would float the control vertically
             // centered over that block instead of beside the name. As an
-            // overlay it never reflows the name when it appears.
+            // overlay it never changes the row's height when it appears.
             .overlay(alignment: .trailing) {
                 if isHovered {
                     attachAffordance
                 }
             }
-            if let template = row.template, !template.isEmpty {
-                Text(template).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            // The tab glyph lives on the subtitle line, never the name line,
+            // so it costs the name no width.
+            if presentation.subtitle != nil || presentation.tabs != nil {
+                HStack(spacing: 4) {
+                    if let subtitle = presentation.subtitle {
+                        // VoiceOver already hears the state on the name's label, so
+                        // the subtitle reads only the template, as it did before.
+                        subtitleText(subtitle).font(.caption).lineLimit(1)
+                            .accessibilityLabel(subtitle.template ?? "")
+                            .accessibilityHidden(subtitle.template == nil)
+                    }
+                    Spacer(minLength: 4)
+                    tabsGlyph
+                }
             }
             if let detail = row.actionDetail, !detail.isEmpty {
                 Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1)
@@ -154,17 +183,69 @@ struct LeoAgentRowView: View {
     }
 
     @ViewBuilder private var activityDot: some View {
-        switch row.activity {
-        case .working, .idle:
+        if row.attention == nil, row.activity != .unknown {
             let presentation = LeoStatusPresentation.activity(row.activity)
             Image(systemName: presentation.symbolName)
                 .resizable()
                 .frame(width: 7, height: 7)
                 .foregroundStyle(presentation.color)
                 .accessibilityHidden(true)
-        case .unknown:
-            // No activity data yet; not an error, so no glyph is shown.
+        } else {
+            // No activity data yet (not an error), or the attention badge
+            // already says it: no glyph.
             Color.clear.frame(width: 7, height: 7).accessibilityHidden(true)
+        }
+    }
+
+    private var presentation: LeoAgentRowPresentation {
+        LeoAgentRowPresentation(row: row, isSelected: isSelected, tabCount: tabCount)
+    }
+
+    /// "claude · Needs Input": the template in secondary, the attention
+    /// state word in its state color. One concatenated `Text` so the line
+    /// truncates as a whole.
+    private func subtitleText(_ subtitle: LeoAgentRowPresentation.Subtitle) -> Text {
+        let template = subtitle.template.map { Text($0).foregroundColor(.secondary) }
+        let state = subtitle.state.map { Text($0.label).foregroundColor($0.tint) }
+        let separator = template != nil && state != nil
+            ? Text(LeoAgentRowPresentation.Subtitle.separator).foregroundColor(.secondary)
+            : nil
+        return [template, separator, state].compactMap { $0 }.reduce(Text(""), +)
+    }
+
+    /// Static (no animation), fixed-width, icon-only attention badge so it
+    /// never takes width from the name; the state word is on the subtitle
+    /// line. The symbol's shape carries the state for color-blind users and
+    /// is hidden from VoiceOver, which reads the state from the name's label.
+    @ViewBuilder private var attentionBadge: some View {
+        if let badge = presentation.badge {
+            Image(systemName: badge.symbolName)
+                .font(.caption)
+                .frame(width: 14, height: 14)
+                .padding(.horizontal, 3)
+                .padding(.vertical, 1)
+                .background(badge.tint.opacity(0.15), in: Capsule())
+                .foregroundStyle(badge.tint)
+                .fixedSize()
+                .layoutPriority(1)
+                .accessibilityHidden(true)
+        }
+    }
+
+    /// Static, secondary-colored: the agent has live attach tabs. The
+    /// number appears only from two up.
+    @ViewBuilder private var tabsGlyph: some View {
+        if let tabs = presentation.tabs {
+            HStack(spacing: 2) {
+                Image(systemName: LeoAgentRowPresentation.Tabs.symbolName)
+                if let countText = tabs.countText { Text(countText).monospacedDigit() }
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .fixedSize()
+            .help(tabs.accessibilityLabel)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(tabs.accessibilityLabel)
         }
     }
 

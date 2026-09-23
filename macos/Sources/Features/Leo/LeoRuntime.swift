@@ -10,10 +10,18 @@ import OSLog
     let registry: LeoWindowSessionRegistry
     let actions: LeoAgentActions
     let hostSelection: LeoHostSelection
-    private let feed: LeoSidebarFeed
+    /// Agents ▸ Agent Notifications… policy for background transitions.
+    let attentionNotifications: LeoAttentionController
+    let feed: LeoSidebarFeed
+    /// Every close of a tab, window or the app with unsaved editor edits
+    /// asks through this first (B-004).
+    let unsavedEditors = LeoUnsavedEditorsGate()
+    /// Focus identity into `feed`, delivered in order (see
+    /// `focusedAgentChanged`).
+    let focusedAgentRelay: LeoOrderedRelay<LeoAgentRow.ID?>
     private let cli: LeoCLI
     private let defaults: UserDefaults
-    private let attachCoordinator: LeoAttachCoordinator
+    let attachCoordinator: LeoAttachCoordinator
     let newSurfaceRouter: LeoNewSurfaceRouter
     private let picker: LeoWindowPickerRouter
     private let requestConfigStore: LeoRequestConfigStore
@@ -42,7 +50,10 @@ import OSLog
 
     convenience init(defaults: UserDefaults = .ghostty) {
         let socketPath = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath
-        let activity = LeoRuntime.makeSocketOrLegacyActivitySource(socketPath: socketPath)
+        var activity = LeoRuntime.makeSocketOrLegacyActivitySource(socketPath: socketPath)
+        #if DEBUG
+        if let overlay = LeoAttentionFixture.load() { activity = LeoAttentionFixture.wrap(activity, overlay: overlay) }
+        #endif
         let daemon = LeoRuntime.makeClient(socketPath: socketPath)
         self.init(daemon: daemon, cli: LeoCLI(), activitySource: activity, defaults: defaults)
     }
@@ -55,7 +66,8 @@ import OSLog
         daemon: any LeoDaemonClient, cli: LeoCLI, activitySource: LeoSidebarActivitySource, defaults: UserDefaults = .standard,
         hostConnectionTransport: any LeoDaemonTransport = LeoUnixSocketTransport(),
         hostSelectionRunner: any LeoProcessRunning = LeoProcessRunner(),
-        hostSelectionSSHExecutable: URL = URL(fileURLWithPath: "/usr/bin/ssh")
+        hostSelectionSSHExecutable: URL = URL(fileURLWithPath: "/usr/bin/ssh"),
+        notificationCenter: any LeoNotificationPosting = LeoUserNotificationCenter()
     ) {
         self.cli = cli
         self.defaults = defaults
@@ -68,10 +80,14 @@ import OSLog
         let registry = LeoWindowSessionRegistry()
         self.model = model
         self.registry = registry
+        weak var weakSelf: LeoRuntime?
+        attentionNotifications = LeoAttentionController(
+            center: notificationCenter, defaults: defaults, currentHost: { weakSelf?.hostSelection.selected },
+            showDeniedInstructions: LeoRuntime.presentNotificationsDeniedInstructions
+        )
         let requestConfigStore = LeoRequestConfigStore()
         self.requestConfigStore = requestConfigStore
         let host = GhosttyAttachTabHost(registry: registry, requestConfigStore: requestConfigStore)
-        weak var weakSelf: LeoRuntime?
         let hostSelection = LeoHostSelection(
             store: LeoHostStore(defaults: defaults),
             defaults: defaults,
@@ -100,7 +116,9 @@ import OSLog
             report: { [weak model] error in
                 let id = LeoAgentRow.ID(host: error.identity.host, name: error.identity.name)
                 model?.setRowError(error.message, for: id)
-            }
+            },
+            focusedIdentityChanged: { identity in weakSelf?.focusedAgentChanged(identity) },
+            linkStateChanged: { [weak model] links in model?.receiveAttachLinks(links) }
         )
         let pickerRouter = LeoWindowPickerRouter()
         let router = LeoNewSurfaceRouter(
@@ -177,8 +195,10 @@ import OSLog
         feed = LeoSidebarFeed(
             daemon: daemon, activity: activitySource,
             onManualRefresh: { [actionsBox] in actionsBox.actions?.invalidateTemplateCache() },
+            onAttentionTransitions: { transitions in weakSelf?.attentionTransitionsCommitted(transitions) },
             sink: { [weak model] snapshot in model?.receive(snapshot) }
         )
+        focusedAgentRelay = LeoOrderedRelay { [weak feed] id in await feed?.setFocusedAgent(id) }
         actions = LeoAgentActions(daemon: daemon, cli: cli, model: model, hostSelection: hostSelection) { [weak feed] in
             Task { await feed?.refresh() }
         }
@@ -202,6 +222,8 @@ import OSLog
             model?.selection = row.id
             Task { await attachCoordinator?.attach(identity: row.identity, from: origin, disposition: disposition) }
         }
+        model.focusExistingRequested = { [weak attachCoordinator] row in attachCoordinator?.focusExisting(row.identity) }
+        model.latestFocusReport = { [weak attachCoordinator] in attachCoordinator?.latestFocusReport ?? 0 }
 
         // `hostSelection`'s `connectionTarget` (wired above) closes over
         // `weakSelf`, which can only be set once `self` is fully
@@ -236,7 +258,13 @@ import OSLog
         Task { await feed.stop() }
     }
     func makeWindowSession(for controller: TerminalController) -> LeoWindowSession {
-        let session = registry.makeSession(window: controller.window, controller: controller, defaults: defaults)
+        let session = registry.makeSession(
+            window: controller.window, controller: controller, defaults: defaults,
+            makeFileAccess: { [weak hostSelection] host in
+                guard let hostSelection else { throw LeoFileAccessError.unavailable(reason: "Leo is shutting down") }
+                return try hostSelection.makeFileAccess(for: host)
+            }
+        )
         // Captures `sessionID` (a value), not `session` itself -- `session`
         // owns this closure, so capturing `session` here would be a
         // reference cycle (session -> closure -> session) that keeps the

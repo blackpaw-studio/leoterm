@@ -1,0 +1,133 @@
+import AppKit
+
+/// What the pane's inline banner says, most important first: a conflict
+/// with the disk, then a failed save or reload, then a read-only notice.
+struct LeoEditorBanner: Equatable {
+    enum Action: Equatable {
+        case reload
+        case keepMine
+        case dismissError
+    }
+
+    let symbol: String
+    let message: String
+    let actions: [Action]
+
+    /// nil when there is nothing to say.
+    @MainActor static func current(for document: LeoEditorDocument?) -> LeoEditorBanner? {
+        guard let document else { return nil }
+        let name = "“\(LeoSFTPServerText.sanitized(document.displayName))”"
+        switch document.diskState {
+        case .changed:
+            return LeoEditorBanner(
+                symbol: "exclamationmark.triangle",
+                message: "\(name) changed on disk. Reload to see it, or keep your version and save over it.",
+                actions: [.reload, .keepMine]
+            )
+        case .deleted:
+            return LeoEditorBanner(
+                symbol: "trash",
+                message: "\(name) was deleted on disk. Keep your version to save it again.",
+                actions: [.keepMine]
+            )
+        case .inSync:
+            break
+        }
+        if let error = document.errorMessage {
+            return LeoEditorBanner(symbol: "xmark.octagon", message: error, actions: [.dismissError])
+        }
+        if let reason = document.readOnlyReason {
+            return LeoEditorBanner(symbol: "lock", message: reason.notice, actions: [])
+        }
+        return nil
+    }
+}
+
+extension LeoEditorBanner.Action {
+    var title: String {
+        switch self {
+        case .reload: "Reload"
+        case .keepMine: "Keep Mine"
+        case .dismissError: "OK"
+        }
+    }
+}
+
+/// A calm inline banner: an icon, one line of text, and small buttons.
+final class LeoEditorBannerView: NSView {
+    var onAction: (LeoEditorBanner.Action) -> Void = { _ in }
+
+    private let icon = NSImageView()
+    private let label = NSTextField(wrappingLabelWithString: "")
+    private let buttons = NSStackView()
+    private(set) var banner: LeoEditorBanner?
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        build()
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    func show(_ banner: LeoEditorBanner?) {
+        guard banner != self.banner else { return }
+        self.banner = banner
+        isHidden = banner == nil
+        guard let banner else { return }
+        icon.image = NSImage(systemSymbolName: banner.symbol, accessibilityDescription: nil)
+        label.stringValue = banner.message
+        buttons.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        for action in banner.actions {
+            let button = NSButton(title: action.title, target: self, action: #selector(performAction(_:)))
+            button.controlSize = .small
+            button.bezelStyle = .push
+            button.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+            button.tag = banner.actions.firstIndex(of: action) ?? 0
+            buttons.addArrangedSubview(button)
+        }
+        setAccessibilityLabel(banner.message)
+        NSAccessibility.post(element: self, notification: .layoutChanged)
+    }
+
+    private func build() {
+        setAccessibilityElement(true)
+        setAccessibilityRole(.group)
+        isHidden = true
+
+        icon.symbolConfiguration = .init(pointSize: NSFont.smallSystemFontSize, weight: .regular)
+        icon.contentTintColor = .secondaryLabelColor
+        icon.setContentHuggingPriority(.required, for: .horizontal)
+        label.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        label.textColor = .labelColor
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        buttons.orientation = .horizontal
+        buttons.spacing = 6
+        buttons.setContentHuggingPriority(.required, for: .horizontal)
+
+        let stack = NSStackView(views: [icon, label, buttons])
+        stack.orientation = .horizontal
+        stack.alignment = .centerY
+        stack.spacing = 8
+        stack.edgeInsets = NSEdgeInsets(top: 6, left: 10, bottom: 6, right: 8)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
+            stack.topAnchor.constraint(equalTo: topAnchor),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
+    }
+
+    /// Drawn rather than layer-backed so the dynamic colour follows the
+    /// appearance.
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.windowBackgroundColor.setFill()
+        dirtyRect.fill()
+    }
+
+    @objc private func performAction(_ sender: NSButton) {
+        guard let actions = banner?.actions, actions.indices.contains(sender.tag) else { return }
+        onAction(actions[sender.tag])
+    }
+}

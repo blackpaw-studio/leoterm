@@ -8,10 +8,22 @@ import Foundation
     @Published private(set) var rowErrors: [LeoAgentRow.ID: String] = [:]
     @Published private(set) var rowErrorCodes: [LeoAgentRow.ID: String] = [:]
     @Published private(set) var panelError: String?
+    /// Focused attach row and live attach counts (see `+AttachLinks`).
+    @Published var attachLinks = LeoAttachLinkState.empty
+    /// The attach host's latest yielded focus report (see
+    /// `LeoAttachCoordinator.latestFocusReport`).
+    var latestFocusReport: () -> Int = { 0 }
+    /// Focus reports up to this one were already in flight when the user
+    /// last selected a row, so they never move the selection.
+    var userSelectionFence: Int?
     var attachRequested: (LeoAgentRow, LeoWindowID, AttachDisposition) -> Void = { _, _, _ in }
+    /// Brings the row's existing attach tab forward (no new attach).
+    var focusExistingRequested: (LeoAgentRow) -> Void = { _ in }
     var startDaemonRequested: () -> Void = {}
     var retryRequested: () -> Void = {}
     var sshRequested: (String) -> Void = { _ in }
+    /// Fired when the Dock attention count changes (AppDelegate's badge writer).
+    var attentionCountChanged: (Int) -> Void = { _ in }
 
     init(snapshot: LeoSidebarSnapshot = .init(rows: [], connectivity: .loading, generation: 0)) { self.snapshot = snapshot }
 
@@ -19,7 +31,11 @@ import Foundation
 
     func receive(_ value: LeoSidebarSnapshot) {
         guard value.generation >= snapshot.generation else { return }
+        let previousAttentionCount = snapshot.attentionCount
+        let previousRows = snapshot.rows
         snapshot = value
+        defer { reapplyFocusedRow(previousRows: previousRows) }
+        if value.attentionCount != previousAttentionCount { attentionCountChanged(value.attentionCount) }
         if value.listRefreshSucceeded {
             rowErrors = [:]
             rowErrorCodes = [:]

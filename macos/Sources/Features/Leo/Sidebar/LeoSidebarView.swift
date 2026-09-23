@@ -156,14 +156,21 @@ struct LeoSidebarView: View {
             } else if model.visibleRows.isEmpty {
                 stateView { Text("No matches") }
             } else {
-                List(selection: $model.selection) {
+                List(selection: Binding(get: { model.selection }, set: { model.userSelected($0) })) {
                     ForEach(LeoSidebarSectioning.sections(for: model.visibleRows)) { section in
                         Section(header: Text(section.title)) {
                             ForEach(section.rows) { row in
-                                LeoAgentRowView(row: row, isSelected: model.selection == row.id, attach: { row, disposition in
-                                    model.attachRequested(row, windowID, disposition)
-                                }, actions: actions, error: model.rowErrors[row.id], errorCode: model.rowErrorCodes[row.id])
-                                    .tag(row.id)
+                                LeoAgentRowView(
+                                    row: row,
+                                    isSelected: model.selection == row.id,
+                                    tabCount: model.tabCount(for: row.id),
+                                    attach: { row, disposition in model.attachRequested(row, windowID, disposition) },
+                                    click: { model.rowClicked(row, modifierFlags: $0) },
+                                    actions: actions,
+                                    error: model.rowErrors[row.id],
+                                    errorCode: model.rowErrorCodes[row.id]
+                                )
+                                .tag(row.id)
                             }
                         }
                     }

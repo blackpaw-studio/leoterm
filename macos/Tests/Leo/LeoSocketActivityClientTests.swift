@@ -55,7 +55,7 @@ struct LeoSocketActivityClientTests {
         task.cancel()
         let events = await collector.events
         #expect(events.first == .hello(seq: 1, at: nil, version: "0.29.0", serverTime: nil))
-        #expect(events.contains { if case .agentSpawned(_, _, let agent) = $0 { agent.name == "alpha" } else { false } })
+        #expect(events.contains { if case .agentSpawned(_, _, let agent, _) = $0 { agent.name == "alpha" } else { false } })
         #expect(transport.streamRequests.map(\.path) == ["/events"])
         #expect(transport.streamRequests.map(\.idleTimeout) == [60])
     }
@@ -73,7 +73,7 @@ struct LeoSocketActivityClientTests {
         let events = parser.feed(try fixture("events-real-daemon.sse"))
             .compactMap { LeoActivityClient.decode($0) }
 
-        guard case .hello(let seq, _, let version, let serverTime) = events.first else {
+        guard case .hello(let seq, _, let version, let serverTime, _) = events.first else {
             Issue.record("expected hello first, got \(events.first as Any)")
             return
         }
@@ -88,10 +88,10 @@ struct LeoSocketActivityClientTests {
             if case .agentStopped(_, _, let agent, _) = $0 { agent == "brand" } else { false }
         })
         #expect(events.contains {
-            if case .agentSpawned(_, _, let agent) = $0 { agent.name == "brand" } else { false }
+            if case .agentSpawned(_, _, let agent, _) = $0 { agent.name == "brand" } else { false }
         })
         #expect(events.contains {
-            if case .agentActivity(_, _, let agent, let activity, _) = $0 { agent == "brand" && activity == .working } else { false }
+            if case .agentActivity(_, _, let agent, let activity, _, _) = $0 { agent == "brand" && activity == .working } else { false }
         })
     }
 

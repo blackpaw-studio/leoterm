@@ -48,6 +48,20 @@ import Testing
         #expect(host.focused.isEmpty)
     }
 
+    /// ⌘-click routing (B-004): only a live attach surface has an agent.
+    @Test func aSurfaceMapsToItsLiveAgent() async {
+        let host = FakeAttachTabHost()
+        let coordinator = makeCoordinator(host: host)
+        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+        let handle = host.handles[0]
+
+        #expect(coordinator.identity(forSurface: handle.surfaceID) == identity)
+        #expect(coordinator.identity(forSurface: UUID()) == nil)
+
+        await host.emitAndWait(.processExited(handle))
+        #expect(coordinator.identity(forSurface: handle.surfaceID) == nil)
+    }
+
     @Test func openFailureReportsAndRegistersNothing() async {
         let host = FakeAttachTabHost()
         host.openError = FakeError.failed
@@ -125,7 +139,7 @@ import Testing
         await coordinator.attach(identity: remoteIdentity, from: origin, disposition: .reuseOrTab)
 
         #expect(builtFor == remoteIdentity)
-        #expect(host.tabCalls.first?.0 == "env -u TMUX -u TMUX_PANE ssh -t 'work' 'leo agent attach -- worker'")
+        #expect(host.tabCalls.first?.command == "env -u TMUX -u TMUX_PANE ssh -t 'work' 'leo agent attach -- worker'")
     }
 
     @Test func remoteCommandBuilderFailureReportsExecutableError() async {
@@ -157,7 +171,7 @@ import Testing
 
         #expect(host.tabCalls.count == 1)
         #expect(host.splitCalls.count == 2)
-        #expect(host.splitCalls.allSatisfy { $0.3 == source && $0.4 == .right })
+        #expect(host.splitCalls.allSatisfy { $0.sourceSurface == source && $0.direction == .right })
     }
 
     @Test func splitWithoutSourceSurfaceReportsAndOpensNothing() async {
@@ -216,7 +230,7 @@ import Testing
         let result = await coordinator.openPlainShell(request: request)
 
         #expect(host.tabCalls.count == 1)
-        #expect(host.tabCalls.first?.0 == "")
+        #expect(host.tabCalls.first?.command == "")
         if case .success = result {} else { Issue.record("expected success") }
         // A second plain shell for the same origin/tab disposition must not
         // reuse -- plain shells carry no identity to key reuse on.
@@ -294,102 +308,109 @@ import Testing
         #expect(host.placeholderSurfaceIDs == [surfaceID])
     }
 
+    // MARK: Focused identity
+
+    @Test func focusedHandleMapsToItsIdentity() async {
+        let host = FakeAttachTabHost()
+        var changes: [LeoAgentIdentity?] = []
+        let coordinator = makeCoordinator(host: host, focusedIdentityChanged: { changes.append($0) })
+        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+
+        await host.emitAndWait(.focusChanged(host.handles[0]))
+
+        #expect(coordinator.focusedIdentity == identity)
+        #expect(changes == [identity])
+    }
+
+    @Test func focusingAnUntrackedSurfaceClearsTheIdentity() async {
+        let host = FakeAttachTabHost()
+        var changes: [LeoAgentIdentity?] = []
+        let coordinator = makeCoordinator(host: host, focusedIdentityChanged: { changes.append($0) })
+        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+        await host.emitAndWait(.focusChanged(host.handles[0]))
+
+        await host.emitAndWait(.focusChanged(AttachmentHandle(surfaceID: UUID(), windowID: origin)))
+        await host.emitAndWait(.focusChanged(nil))
+
+        #expect(coordinator.focusedIdentity == nil)
+        #expect(changes == [identity, nil], "repeated nil is not a change")
+    }
+
+    /// The approved attention decision: the focused split of the key
+    /// window counts as viewed even while the sidebar has keyboard focus.
+    @Test func keyboardFocusMovingToTheSidebarKeepsTheViewedAgentFocused() async {
+        let host = FakeAttachTabHost()
+        var changes: [LeoAgentIdentity?] = []
+        let coordinator = makeCoordinator(host: host, focusedIdentityChanged: { changes.append($0) })
+        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+        await host.emitAndWait(.focusChanged(host.handles[0]))
+
+        await host.emitAndWait(.focusChanged(nil))
+
+        #expect(coordinator.focusedIdentity == identity)
+        #expect(changes == [identity])
+    }
+
+    @Test func viewingReportsMoveTheFocusedIdentity() async {
+        let host = FakeAttachTabHost()
+        var changes: [LeoAgentIdentity?] = []
+        let coordinator = makeCoordinator(host: host, focusedIdentityChanged: { changes.append($0) })
+        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+
+        await host.emitAndWait(.viewingChanged(host.handles[0]))
+        await host.emitAndWait(.focusChanged(nil))
+        #expect(coordinator.focusedIdentity == identity, "the sidebar has keyboard focus; the tab is still in view")
+        await host.emitAndWait(.viewingChanged(nil))
+
+        #expect(coordinator.focusedIdentity == nil)
+        #expect(changes == [identity, nil])
+    }
+
+    @Test(arguments: [AttachLifecycleEvent.Kind.closed, .processExited])
+    fileprivate func focusedAttachmentEndingClearsTheIdentity(_ kind: AttachLifecycleEvent.Kind) async {
+        let host = FakeAttachTabHost()
+        var changes: [LeoAgentIdentity?] = []
+        let coordinator = makeCoordinator(host: host, focusedIdentityChanged: { changes.append($0) })
+        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+        await host.emitAndWait(.focusChanged(host.handles[0]))
+
+        await host.emitAndWait(kind.event(host.handles[0]))
+
+        #expect(coordinator.focusedIdentity == nil)
+        #expect(changes == [identity, nil])
+    }
+
+    @Test func splitOfTheSameAgentKeepsItFocused() async {
+        let host = FakeAttachTabHost()
+        let coordinator = makeCoordinator(host: host)
+        let splitSource = UUID()
+        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+        _ = await coordinator.attach(
+            identity: identity,
+            request: LeoSurfaceRequest(origin: origin, disposition: .split(.right), splitSourceSurface: splitSource)
+        )
+
+        await host.emitAndWait(.focusChanged(host.handles[1]))
+
+        #expect(coordinator.focusedIdentity == identity)
+    }
+
     private func makeCoordinator(
         host: FakeAttachTabHost,
         report: @escaping (LeoAttachError) -> Void = { _ in },
         remoteCommandBuilder: @escaping (LeoAgentIdentity) throws -> String = { _ in
             throw LeoDaemonError.hostUnavailable("Remote attach is not configured")
-        }
+        },
+        focusedIdentityChanged: @escaping (LeoAgentIdentity?) -> Void = { _ in }
     ) -> LeoAttachCoordinator {
         LeoAttachCoordinator(
             host: host,
             executable: { "/leo" },
             remoteCommandBuilder: remoteCommandBuilder,
             report: report,
-            lifecycleEventHandled: { host.acknowledge($0) }
+            lifecycleEventHandled: { host.acknowledge($0) },
+            focusedIdentityChanged: focusedIdentityChanged
         )
-    }
-}
-
-@MainActor private final class FakeAttachTabHost: AttachTabHost {
-    var openError: Error?
-    var tabCalls: [(String, String?, LeoWindowID, UUID)] = []
-    var windowCalls: [(String, String?, UUID)] = []
-    var splitCalls: [(String, String?, LeoWindowID, UUID, LeoSplitDirection, UUID)] = []
-    var placeholderCalls: [(String, String?, LeoWindowID, UUID)] = []
-    var placeholderSurfaceIDs: [UUID?] = []
-    var focused: [AttachmentHandle] = []
-    var titles: [(AttachmentHandle, String?)] = []
-    var handles: [AttachmentHandle] = []
-    var openHandles: Set<AttachmentHandle> = []
-    private let continuation: AsyncStream<AttachLifecycleEvent>.Continuation
-    private var lifecycleAcknowledgement: CheckedContinuation<Void, Never>?
-    let lifecycleEvents: AsyncStream<AttachLifecycleEvent>
-
-    init() {
-        (lifecycleEvents, continuation) = AsyncStream.makeStream()
-    }
-
-    func openTab(command: String, workingDirectory: String?, from origin: LeoWindowID, requestID: UUID) throws -> AttachmentHandle {
-        tabCalls.append((command, workingDirectory, origin, requestID))
-        return try opened()
-    }
-
-    func openWindow(command: String, workingDirectory: String?, requestID: UUID) throws -> AttachmentHandle {
-        windowCalls.append((command, workingDirectory, requestID))
-        return try opened()
-    }
-
-    func openSplit(
-        command: String,
-        workingDirectory: String?,
-        origin: LeoWindowID,
-        sourceSurface: UUID,
-        direction: LeoSplitDirection,
-        requestID: UUID
-    ) throws -> AttachmentHandle {
-        splitCalls.append((command, workingDirectory, origin, sourceSurface, direction, requestID))
-        return try opened()
-    }
-
-    func fillPlaceholder(command: String, workingDirectory: String?, origin: LeoWindowID, surfaceID: UUID?, requestID: UUID) throws -> AttachmentHandle {
-        placeholderCalls.append((command, workingDirectory, origin, requestID))
-        placeholderSurfaceIDs.append(surfaceID)
-        return try opened()
-    }
-
-    var reborn: [AttachmentHandle] = []
-    func rebirthPlaceholder(for handle: AttachmentHandle) { reborn.append(handle) }
-
-    func focus(_ handle: AttachmentHandle) { focused.append(handle) }
-    func isOpen(_ handle: AttachmentHandle) -> Bool { openHandles.contains(handle) }
-    func setTitleSeed(_ handle: AttachmentHandle, title: String?) { titles.append((handle, title)) }
-    func emitAndWait(_ event: AttachLifecycleEvent) async {
-        await withCheckedContinuation { acknowledgement in
-            lifecycleAcknowledgement = acknowledgement
-            continuation.yield(event)
-            Task { [weak self] in
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
-                guard let self, let acknowledgement = self.lifecycleAcknowledgement else { return }
-                self.lifecycleAcknowledgement = nil
-                Issue.record("Lifecycle event was not delivered within 1.0 seconds")
-                acknowledgement.resume()
-            }
-        }
-    }
-
-    func acknowledge(_ event: AttachLifecycleEvent) {
-        guard lifecycleAcknowledgement != nil else { return }
-        lifecycleAcknowledgement?.resume()
-        lifecycleAcknowledgement = nil
-    }
-
-    private func opened() throws -> AttachmentHandle {
-        if let openError { throw openError }
-        let handle = AttachmentHandle(surfaceID: UUID(), windowID: LeoWindowID())
-        handles.append(handle)
-        openHandles.insert(handle)
-        return handle
     }
 }
 
@@ -408,18 +429,5 @@ private actor AttachGate {
         isOpen = true
         continuation?.resume()
         continuation = nil
-    }
-}
-
-private extension AttachLifecycleEvent {
-    enum Kind: CaseIterable {
-        case closed, processExited
-
-        func event(_ handle: AttachmentHandle) -> AttachLifecycleEvent {
-            switch self {
-            case .closed: .closed(handle)
-            case .processExited: .processExited(handle)
-            }
-        }
     }
 }

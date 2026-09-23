@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 enum LeoHostValidationError: Error, Equatable, Sendable {
@@ -56,6 +57,47 @@ struct LeoHostConfiguration: Codable, Hashable, Sendable, Identifiable {
         let prefix = slug.isEmpty ? "_" : String(slug.prefix(24))
         let suffix = id.uuidString.replacingOccurrences(of: "-", with: "").lowercased().prefix(12)
         return "\(prefix)-\(suffix).sock"
+    }
+
+    /// `cm-<instance>-<first 12 hex of the uuid>-<connection>`: the tunnel's
+    /// ControlMaster socket, in `LeoControlSocketDirectory`. `instance` scopes
+    /// it to one app bundle (`controlSocketInstance(bundleIdentifier:)`),
+    /// since the debug and production apps share the socket directory and
+    /// must never touch each other's master. Keyed by id, not name (renaming
+    /// a host must not orphan its master). `connection` hashes the app's own
+    /// argv inputs that pick the server (`connectionFingerprint`): a master
+    /// a crashed app left running is reused by the next tunnel, so a host
+    /// whose target, user, port or identity changed since must land on a
+    /// new path rather than send file access to the old server. It does not
+    /// see `~/.ssh/config`: repointing an alias's `HostName` there keeps the
+    /// path, and a master still running reaches the old server until the
+    /// tunnel restarts. Kept short because ssh binds a temporary
+    /// `<path>.<16 random chars>` first, so the path gets 17 bytes less of
+    /// the AF_UNIX limit than the forwarded socket does.
+    func controlSocketFileName(instance: String) -> String {
+        let id = id.uuidString.replacingOccurrences(of: "-", with: "").lowercased().prefix(12)
+        return "cm-\(instance)-\(id)-\(connectionFingerprint)"
+    }
+
+    /// The first 8 hex digits of the bundle identifier's SHA-256: short,
+    /// stable across launches, and path-safe whatever the identifier is.
+    static func controlSocketInstance(bundleIdentifier: String) -> String {
+        Self.shortHash(Data(bundleIdentifier.utf8))
+    }
+
+    /// 8 hex digits of the SHA-256 of the argv inputs `LeoSSHCommand` passes
+    /// ssh to choose the server -- host, user, port, identity file. Not
+    /// what ssh_config resolves them to: an alias hashes as the alias.
+    /// Each field is length-prefixed and nil is distinct from empty, so no
+    /// two different settings encode alike.
+    var connectionFingerprint: String {
+        let fields = [host, user, port.map(String.init), identityFile]
+        let encoded = fields.map { $0.map { "\($0.utf8.count):\($0)" } ?? "-" }.joined(separator: "\n")
+        return Self.shortHash(Data(encoded.utf8))
+    }
+
+    private static func shortHash(_ data: Data) -> String {
+        SHA256.hash(data: data).prefix(4).map { String(format: "%02x", $0) }.joined()
     }
 
     func validate() -> [LeoHostValidationError] {

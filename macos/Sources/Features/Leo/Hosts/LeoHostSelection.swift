@@ -31,7 +31,7 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
 /// the first A's teardown (kicked off by the A->B transition) is still
 /// running -- two live children at once.
 @MainActor final class LeoHostSelection: ObservableObject {
-    private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
+    static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
 
     @Published private(set) var hosts: [LeoHostConfiguration] = []
     @Published private(set) var selected: LeoHostID
@@ -41,12 +41,23 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
     private let store: LeoHostStore
     private let defaults: UserDefaults
     private let runner: any LeoProcessRunning
-    private let sshExecutable: URL
+    let sshExecutable: URL
     private let transport: any LeoDaemonTransport
     private let orphanStore: LeoTunnelOrphanStore
     private let fileManager: FileManager
     private let localSocketPath: String
-    private let localSocketDirectory: URL
+    let localSocketDirectory: URL
+    /// Holds the ControlMaster sockets; see `LeoControlSocketDirectory`.
+    let controlSocketDirectory: URL
+    /// Scopes the ControlMaster socket name to this app bundle; see
+    /// `LeoHostConfiguration.controlSocketFileName(instance:)`.
+    let controlSocketInstance: String
+    /// The only user whose control socket this app will use or remove;
+    /// injectable because tests can't create another user's socket.
+    let controlSocketOwner: uid_t
+    static let defaultControlSocketInstance = LeoHostConfiguration.controlSocketInstance(
+        bundleIdentifier: Bundle.main.bundleIdentifier ?? "studio.blackpaw.leo"
+    )
     /// Fired synchronously for every state transition, tagged with the
     /// `(host, generation)` it belongs to -- `LeoRuntime` uses this to know
     /// exactly when a *switch* happened (a new `(host, generation)` pair)
@@ -70,6 +81,9 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
         localSocketPath: String = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath,
         localSocketDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".leo/state/leoterm", isDirectory: true),
+        controlSocketDirectory: URL? = LeoControlSocketDirectory.default,
+        controlSocketInstance: String = LeoHostSelection.defaultControlSocketInstance,
+        controlSocketOwner: uid_t = geteuid(),
         connectionTarget: @escaping (LeoHostID, Int, LeoHostConnectionState) -> Void = { _, _, _ in }
     ) {
         self.store = store
@@ -81,6 +95,9 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
         self.fileManager = fileManager
         self.localSocketPath = localSocketPath
         self.localSocketDirectory = localSocketDirectory
+        self.controlSocketDirectory = controlSocketDirectory ?? localSocketDirectory
+        self.controlSocketInstance = controlSocketInstance
+        self.controlSocketOwner = controlSocketOwner
         self.connectionTarget = connectionTarget
         if let value = defaults.string(forKey: "leo.selectedHost"), value != "localhost" {
             selected = .remote(value)
@@ -227,15 +244,15 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
         do {
             let remoteSocketPath = try await resolveRemoteSocketPath(configuration: configuration)
             let localPath = try prepareLocalSocketPath(configuration: configuration)
-            let arguments = try LeoSSHCommand(configuration: configuration).tunnelArguments(
-                localSocketPath: localPath, remoteSocketPath: remoteSocketPath
-            )
 
             // A newer select()/retry()/shutdown() -- itself synchronous up to
             // this point -- may have raced ahead while the async work above
-            // was in flight. Check again before ever constructing (let alone
-            // starting) a tunnel.
+            // was in flight. Check again before touching the control socket
+            // or ever constructing (let alone starting) a tunnel.
             guard generation == myGeneration, !isShutDown else { return }
+            let arguments = try LeoSSHCommand(configuration: configuration).tunnelArguments(
+                localSocketPath: localPath, remoteSocketPath: remoteSocketPath, controlPath: multiplexingControlPath(for: configuration)
+            )
 
             let tunnel = LeoTunnel(
                 executable: sshExecutable,

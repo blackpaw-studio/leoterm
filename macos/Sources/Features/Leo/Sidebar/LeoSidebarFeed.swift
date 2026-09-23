@@ -67,6 +67,12 @@ actor LeoSidebarFeed {
     var pollTask: Task<Void, Never>?
     var sseRefreshTask: Task<Void, Never>?
     var scheduler = LeoPollScheduler()
+    /// Semantic attention for the selected host -- see `LeoSidebarFeed+Attention.swift`.
+    var attention = LeoAttentionReducer()
+    var attentionTask: Task<Void, Never>?
+    /// Monotonic seconds; only the attention reducer's stability window reads it.
+    let now: @Sendable () -> TimeInterval
+    let onAttentionTransitions: @MainActor @Sendable ([LeoAttentionTransition]) -> Void
     var running = false
     var needsState = true
     var recovering = false
@@ -86,12 +92,16 @@ actor LeoSidebarFeed {
     init(
         daemon: any LeoDaemonClient, activity: LeoSidebarActivitySource,
         sleep: @escaping @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) },
+        now: @escaping @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
         onManualRefresh: @escaping @MainActor @Sendable () -> Void = {},
+        onAttentionTransitions: @escaping @MainActor @Sendable ([LeoAttentionTransition]) -> Void = { _ in },
         sink: @escaping Sink
     ) {
         self.daemon = daemon
         activitySource = activity
         sleeper = sleep
+        self.now = now
+        self.onAttentionTransitions = onAttentionTransitions
         self.onManualRefresh = onManualRefresh
         self.sink = sink
     }
@@ -111,6 +121,8 @@ actor LeoSidebarFeed {
         pollTask?.cancel()
         sseRefreshTask?.cancel()
         activityCoalesceTask?.cancel()
+        attentionTask?.cancel()
+        attentionTask = nil
         eventTask = nil
         refreshTask = nil
         activityTask = nil
@@ -125,14 +137,22 @@ actor LeoSidebarFeed {
     func startEventTask() {
         eventTask?.cancel()
         guard running else { return }
-        eventTask = Task { [weak self, activitySource] in
+        eventTask = Task { [weak self, activitySource, connectionGeneration] in
             let events = await activitySource.events()
             for await event in events {
                 guard !Task.isCancelled else { return }
                 guard let self else { return }
-                await self.receive(event)
+                await self.receive(event, generation: connectionGeneration)
             }
         }
+    }
+
+    /// An event from the stream of connection `generation`. One dequeued
+    /// just before a switch can still land after it; it's dropped so it
+    /// can't invent a state or plant another host's boot id.
+    func receive(_ event: LeoObserveEvent, generation: Int) {
+        guard generation == connectionGeneration else { return }
+        receive(event)
     }
 
     func refresh() {
@@ -176,6 +196,7 @@ actor LeoSidebarFeed {
         // buffered first so that emission reflects the latest activity
         // instead of a still-pending coalescing window.
         if case .agentActivity = event {} else { drainCoalescedActivity() }
+        receiveAttention(event)
         switch event {
         case .connected:
             Self.logger.log("receive: .connected")
@@ -187,7 +208,7 @@ actor LeoSidebarFeed {
             sseRefreshTask?.cancel()
             sseRefreshTask = nil
             process(scheduler.reduce(.sseEvent(event)))
-        case .hello(let seq, _, let version, _):
+        case .hello(let seq, _, let version, _, _):
             Self.logger.log("receive: .hello seq=\(seq) version=\(version ?? "nil", privacy: .public) awaitingHello=\(self.awaitingHello)")
             if awaitingHello {
                 awaitingHello = false
@@ -216,6 +237,8 @@ actor LeoSidebarFeed {
             sseRefreshTask = nil
             activityByName = [:]
             bufferedActivity = []
+            attention.disconnect()
+            scheduleAttentionTick()
             snapshot = LeoSidebarSnapshot(
                 rows: snapshot.rows.map {
                     LeoAgentRow(host: $0.host, name: $0.name, template: $0.template, status: $0.status, activity: .unknown, actionDetail: nil)
@@ -236,6 +259,9 @@ actor LeoSidebarFeed {
         activityByName = [:]
         recovering = true
         needsState = true
+        attention.beginRecovery()
+        scheduleAttentionTick()
+        syncBaselinePending()
     }
 
     func startRefresh() {
@@ -258,10 +284,17 @@ actor LeoSidebarFeed {
         defer { if !wasCancelled, token == currentRefreshToken { finishRefresh() } }
         let fetchState = needsState
         needsState = false
+        // Until the state fetch actually starts, a failed, stale or cancelled
+        // list refresh leaves the baseline pending for the next poll --
+        // otherwise the attention reducer would stay recovering for good.
+        var stateFetchStarted = false
+        defer { if fetchState, !stateFetchStarted { needsState = true } }
+        let membershipMark = attention.membershipMark
         do {
             let rows = try await fetchList().map { Self.row($0, host: host) }
             guard running, generation == snapshot.generation, token == currentRefreshToken else { return }
             snapshot = LeoSidebarReducers.applyListResult(snapshot, result: LeoSidebarReducers.mergeActivity(rows, activityByName: activityByName), generation: generation)
+            retainAttention(for: rows, listedSince: membershipMark)
             recovering = false
             drainCoalescedActivity()
             let buffered = bufferedActivity
@@ -273,7 +306,10 @@ actor LeoSidebarFeed {
             snapshot = snapshot.replacingRows(LeoSidebarReducers.mergeActivity(snapshot.rows, activityByName: activityByName), listRefreshSucceeded: true)
             emit()
             if isManual { await onManualRefresh() }
-            if fetchState { fetchActivityState(generation: generation) }
+            if fetchState {
+                stateFetchStarted = true
+                fetchActivityState(generation: generation)
+            }
         } catch is CancellationError {
             wasCancelled = true
         } catch {
@@ -290,7 +326,7 @@ actor LeoSidebarFeed {
     }
 
     func emit() {
-        let value = snapshot
+        let value = snapshot.overlayingAttention(attention)
         let previous = emissionTask
         emissionTask = Task { [weak self, sink] in
             await previous?.value

@@ -44,16 +44,27 @@ struct LeoWindowVisibilityState: Equatable {
     /// opportunistic reconciliation (`report()`, only triggered by some
     /// *other* session's state change or a new `makeSession` call).
     var onWindowWillClose: () -> Void = {}
+    /// The window's editor pane (B-004): one per window, beside the terminal.
+    let editor: LeoEditorPaneModel
+    /// Its view, once the window's split view has built it (focus moves).
+    weak var editorPane: LeoEditorPaneViewController?
 
     private let defaults: UserDefaults
     private let onPollabilityChanged: () -> Void
-    private weak var window: NSWindow?
+    private(set) weak var window: NSWindow?
     private var observers: [NSObjectProtocol] = []
     private var visibility = LeoWindowVisibilityState()
 
-    init(id: LeoWindowID = LeoWindowID(), window: NSWindow? = nil, defaults: UserDefaults = .standard, onPollabilityChanged: @escaping () -> Void = {}) {
+    init(
+        id: LeoWindowID = LeoWindowID(),
+        window: NSWindow? = nil,
+        defaults: UserDefaults = .standard,
+        makeFileAccess: @escaping @MainActor (LeoHostID) throws -> any LeoFileAccess = LeoWindowSession.noFileAccess,
+        onPollabilityChanged: @escaping () -> Void = {}
+    ) {
         self.id = id
         self.defaults = defaults
+        editor = LeoEditorPaneModel(makeAccess: makeFileAccess)
         self.onPollabilityChanged = onPollabilityChanged
         self.window = window
         // Fresh installs start with the sidebar hidden -- a persisted user
@@ -64,6 +75,11 @@ struct LeoWindowVisibilityState: Equatable {
     }
 
     deinit { observers.forEach(NotificationCenter.default.removeObserver) }
+
+    /// Until the runtime wires the selected host's file access in.
+    static func noFileAccess(_ host: LeoHostID) throws -> any LeoFileAccess {
+        throw LeoFileAccessError.unavailable(reason: "Leo isn’t connected to \(host.displayName)")
+    }
 
     var isPollable: Bool { (isSidebarVisible || isPickerPresented) && !windowIsOccluded && !windowIsMiniaturized }
 
@@ -103,12 +119,18 @@ struct LeoWindowVisibilityState: Equatable {
                 MainActor.assumeIsolated { self?.apply(.miniaturized) }
             },
             center.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.onWindowWillClose() }
+                MainActor.assumeIsolated { self?.windowWillClose() }
             },
             center.addObserver(forName: NSWindow.didDeminiaturizeNotification, object: window, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.apply(.deminiaturized) }
             },
         ]
+    }
+
+    private func windowWillClose() {
+        onWindowWillClose()
+        let editor = editor
+        Task { await editor.release() }
     }
 
     private func apply(_ event: LeoWindowVisibilityState.Event) {
@@ -135,8 +157,13 @@ struct LeoWindowVisibilityState: Equatable {
     /// `hasPollableSidebar` already is.
     var onUnregistered: (LeoWindowID) -> Void = { _ in }
 
-    func makeSession(window: NSWindow? = nil, controller: TerminalController? = nil, defaults: UserDefaults = .standard) -> LeoWindowSession {
-        let session = LeoWindowSession(window: window, defaults: defaults) { [weak self] in self?.report() }
+    func makeSession(
+        window: NSWindow? = nil,
+        controller: TerminalController? = nil,
+        defaults: UserDefaults = .standard,
+        makeFileAccess: @escaping @MainActor (LeoHostID) throws -> any LeoFileAccess = LeoWindowSession.noFileAccess
+    ) -> LeoWindowSession {
+        let session = LeoWindowSession(window: window, defaults: defaults, makeFileAccess: makeFileAccess) { [weak self] in self?.report() }
         entries[session.id] = Entry(session, controller: controller)
         report()
         return session
@@ -147,6 +174,8 @@ struct LeoWindowVisibilityState: Equatable {
     }
 
     func controller(for id: LeoWindowID) -> TerminalController? { entries[id]?.controller }
+
+    var sessions: [LeoWindowSession] { entries.values.compactMap(\.session) }
 
     private func report() {
         let before = entries.keys

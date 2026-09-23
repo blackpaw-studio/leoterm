@@ -28,7 +28,11 @@ enum LeoHostSelectionTestSupport {
         runner: any LeoProcessRunning = LeoProcessRunner(),
         defaults: UserDefaults? = nil,
         orphanStore: LeoTunnelOrphanStore? = nil,
-        localSocketDirectory: URL = localSocketDirectory
+        localSocketDirectory: URL = localSocketDirectory,
+        sshExecutable: URL = LeoTunnelTestSupport.fixtureURL(),
+        controlSocketInstance: String = LeoHostSelection.defaultControlSocketInstance,
+        controlSocketDirectory: URL? = nil,
+        controlSocketOwner: uid_t = geteuid()
     ) -> LeoHostSelection {
         let defaults = defaults ?? (UserDefaults(suiteName: "LeoHostSelectionTests.\(UUID().uuidString)") ?? .standard)
         if let data = try? JSONEncoder().encode(hosts) { defaults.set(data, forKey: LeoHostStore.key) }
@@ -36,16 +40,47 @@ enum LeoHostSelectionTestSupport {
             store: LeoHostStore(defaults: defaults),
             defaults: defaults,
             runner: runner,
-            sshExecutable: LeoTunnelTestSupport.fixtureURL(),
+            sshExecutable: sshExecutable,
             transport: transport,
             orphanStore: orphanStore,
             localSocketPath: localSocketPath,
-            localSocketDirectory: localSocketDirectory
+            localSocketDirectory: localSocketDirectory,
+            // Beside the forwarded socket unless a test says otherwise: never
+            // the real per-user cache directory.
+            controlSocketDirectory: controlSocketDirectory ?? localSocketDirectory,
+            controlSocketInstance: controlSocketInstance,
+            controlSocketOwner: controlSocketOwner
         )
     }
 
     static func expectedLocalSocketPath(_ configuration: LeoHostConfiguration, in directory: URL = localSocketDirectory) -> String {
         directory.appendingPathComponent(configuration.localSocketFileName).path
+    }
+
+    /// Where the tunnel's ControlMaster socket lives -- and therefore the
+    /// ControlPath every SFTP session must multiplex over.
+    static func expectedControlPath(
+        _ configuration: LeoHostConfiguration,
+        in directory: URL = localSocketDirectory,
+        instance: String = LeoHostSelection.defaultControlSocketInstance
+    ) -> String {
+        directory.appendingPathComponent(configuration.controlSocketFileName(instance: instance)).path
+    }
+
+    /// A per-test `fake_ssh.py` wrapper that records its argv to `argvFile`
+    /// -- without touching the process-wide environment other suites'
+    /// tunnels also read.
+    static func argvRecordingSSH(in directory: URL, argvFile: String) throws -> URL {
+        let script = directory.appendingPathComponent("ssh")
+        let body = "#!/bin/sh\nFAKE_SSH_ARGV_FILE='\(argvFile)' exec '\(LeoTunnelTestSupport.fixtureURL().path)' \"$@\"\n"
+        try Data(body.utf8).write(to: script)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: script.path)
+        return script
+    }
+
+    static func recordedArgv(_ argvFile: String) async throws -> [String] {
+        await awaitCondition { FileManager.default.fileExists(atPath: argvFile) }
+        return try String(contentsOfFile: argvFile, encoding: .utf8).components(separatedBy: "\n")
     }
 
     /// A directory unique to one test, for tests that assert on the
@@ -71,6 +106,8 @@ enum LeoHostSelectionTestSupport {
     /// `LeoTunnel`'s readiness loop can resolve before the just-forked
     /// `fake_ssh.py` child has actually reached its own pid-file write --
     /// wait for the file itself, not just `.connected`, before reading it.
+    /// Existence implies complete contents only because `fake_ssh.py`
+    /// publishes the file with an atomic rename.
     static func awaitPID(_ path: String, timeout: TimeInterval = 5) async throws -> Int32 {
         await awaitCondition(timeout: timeout, message: "pid file was never written") { FileManager.default.fileExists(atPath: path) }
         return try readPID(path)

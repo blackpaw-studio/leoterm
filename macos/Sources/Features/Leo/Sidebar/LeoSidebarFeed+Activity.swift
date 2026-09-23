@@ -9,7 +9,7 @@ extension LeoSidebarFeed {
     /// guaranteed by `LeoActivityCoalescer`).
     func mergeIntoActivityByName(_ events: [LeoObserveEvent]) {
         for event in events {
-            guard case let .agentActivity(_, _, name, activity, currentAction) = event else { continue }
+            guard case let .agentActivity(_, _, name, activity, currentAction, _) = event else { continue }
             activityByName[name] = LeoSidebarActivity(activity: Self.activity(activity), detail: currentAction?.detail)
         }
     }

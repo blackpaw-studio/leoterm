@@ -36,6 +36,16 @@ def serve(path):
             client.sendall(response + b"\r\nConnection: close\r\n\r\n" + body)
 
 
+def publish(path, text):
+    """Write `text` so `path` never exists with partial contents: tests poll
+    for the file's existence and then read it, so a plain `open(path, "w")`
+    exposes an empty file between create and write."""
+    staging = "%s.%d.tmp" % (path, os.getpid())
+    with open(staging, "w") as handle:
+        handle.write(text)
+    os.replace(staging, path)
+
+
 def main():
     # Installed before anything below can block, per the contract every fixture
     # variant is expected to satisfy.
@@ -44,13 +54,11 @@ def main():
 
     argv_file = os.environ.get("FAKE_SSH_ARGV_FILE")
     if argv_file:
-        with open(argv_file, "w") as handle:
-            handle.write("\n".join(sys.argv[1:]))
+        publish(argv_file, "\n".join(sys.argv[1:]))
 
     pid_file = os.environ.get("FAKE_SSH_PID_FILE")
     if pid_file:
-        with open(pid_file, "w") as handle:
-            handle.write(str(os.getpid()))
+        publish(pid_file, str(os.getpid()))
 
     immediate = os.environ.get("FAKE_SSH_EXIT_IMMEDIATELY")
     if immediate is not None:

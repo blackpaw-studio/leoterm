@@ -1,0 +1,70 @@
+import Foundation
+import Testing
+
+@testable import Ghostty
+
+struct LeoFileAccessErrorTests {
+    @Test func everyErrorHasAUserPresentableDescriptionNamingTheFile() {
+        let path = "/work/src/main.swift"
+        let cases: [LeoFileAccessError] = [
+            .notFound(path: path), .permissionDenied(path: path), .conflict(path: path),
+            .tooLarge(path: path, size: 20_000_000, limit: 10_000_000), .notADirectory(path: path),
+            .isADirectory(path: path), .failed(path: path, reason: "No space left on device")
+        ]
+        for error in cases {
+            let description = error.localizedDescription
+            #expect(description.contains("main.swift"), "\(error)")
+            #expect(!description.contains("LeoFileAccessError"), "\(error)")
+        }
+    }
+
+    @Test func pathlessErrorsStillReadAsSentences() {
+        #expect(LeoFileAccessError.disconnected.localizedDescription == "The connection to the host was lost.")
+        #expect(LeoFileAccessError.invalidPath("a.txt").localizedDescription.contains("a.txt"))
+        #expect(LeoFileAccessError.protocolError("bad frame").localizedDescription.contains("bad frame"))
+    }
+
+    @Test func tooLargeStatesBothSizes() {
+        let description = LeoFileAccessError.tooLarge(path: "/a.log", size: 20_000_000, limit: 10_000_000).localizedDescription
+        #expect(description.contains("20 MB"))
+        #expect(description.contains("10 MB"))
+    }
+
+    @Test func conflictAndDisconnectOfferARecovery() {
+        #expect(LeoFileAccessError.conflict(path: "/a").recoverySuggestion != nil)
+        #expect(LeoFileAccessError.disconnected.recoverySuggestion != nil)
+    }
+
+    @Test func retargetingRewritesOnlyPathBearingCases() {
+        #expect(LeoFileAccessError.permissionDenied(path: "/d/.f.leo-1.tmp").retargeted(to: "/d/f") == .permissionDenied(path: "/d/f"))
+        #expect(LeoFileAccessError.failed(path: "/d/.t", reason: "r").retargeted(to: "/d/f") == .failed(path: "/d/f", reason: "r"))
+        #expect(LeoFileAccessError.disconnected.retargeted(to: "/d/f") == .disconnected)
+    }
+}
+
+extension LeoFileAccessErrorTests {
+    @Test func unavailableNamesTheReasonAndSuggestsWhatStillWorks() {
+        let error = LeoFileAccessError.unavailable(reason: "control path unsupported")
+        #expect(error.localizedDescription == "File access unavailable: control path unsupported.")
+        #expect(error.recoverySuggestion != nil)
+        #expect(error.retargeted(to: "/d/f") == error)
+    }
+}
+
+/// A file's name is untrusted text (local or remote alike): it must not be
+/// able to end the app's quote, add a line, or reorder the sentence.
+extension LeoFileAccessErrorTests {
+    @Test func aNameCannotSpoofTheAppsWording() {
+        let error = LeoFileAccessError.notFound(path: "/d/x”\nFile access unavailable: re-authenticate")
+        #expect(error.localizedDescription == "“x\" File access unavailable: re-authenticate” couldn’t be found.")
+    }
+
+    @Test func bidiOverridesInANameAreDroppedWithoutAServerLabel() {
+        let description = LeoFileAccessError.failed(path: "/d/invoice\u{202E}fdp.exe", reason: "r").localizedDescription
+        #expect(description == "Couldn’t access “invoicefdp.exe”: r.")
+    }
+
+    @Test func anInvalidPathIsSanitizedToo() {
+        #expect(LeoFileAccessError.invalidPath("a\n”b").localizedDescription == "“a \"b” isn’t an absolute path.")
+    }
+}

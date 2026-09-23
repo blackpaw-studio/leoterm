@@ -68,6 +68,24 @@ struct LeoSidebarTests {
         #expect(scheduler.reduce(.sseEvent(.connected)) == [.pause, .refreshNow])
     }
 
+    @Test func schedulerRetriesAPendingBaselineWhileTheSidebarIsHidden() {
+        var scheduler = LeoPollScheduler()
+        _ = scheduler.reduce(.sseEvent(.connected))
+
+        #expect(scheduler.reduce(.baselinePendingChanged(true)) == [.resume, .scheduleTick(after: 30)])
+        #expect(scheduler.reduce(.tick) == [.refreshNow, .scheduleTick(after: 30)])
+        #expect(scheduler.reduce(.baselinePendingChanged(false)) == [.pause])
+        #expect(scheduler.reduce(.tick).isEmpty)
+    }
+
+    @Test func schedulerDoesNotPollAHiddenSidebarWhileSSEIsDisconnected() {
+        var scheduler = LeoPollScheduler()
+        _ = scheduler.reduce(.sseEvent(.disconnected(reason: "EOF")))
+
+        #expect(scheduler.reduce(.baselinePendingChanged(true)).isEmpty)
+        #expect(scheduler.reduce(.tick).isEmpty)
+    }
+
     @Test func schedulerBoundsFollowUpRefreshAfterManyTicks() {
         var scheduler = LeoPollScheduler(now: { Date(timeIntervalSince1970: 0) })
         _ = scheduler.reduce(.sidebarVisibleCountChanged(1))

@@ -40,6 +40,9 @@ extension LeoSidebarFeed {
             scheduler.resetConnectionTracking()
             activityByName = [:]
             bufferedActivity = []
+            attentionTask?.cancel()
+            attentionTask = nil
+            attention.switchHost(host)
             needsState = true
             recovering = false
             awaitingHello = false
@@ -86,6 +89,8 @@ extension LeoSidebarFeed {
             snapshot = .init(rows: snapshot.rows, connectivity: .failed(message: message), generation: snapshot.generation + 1)
             refreshTask?.cancel()
             activityTask?.cancel()
+            // A cancelled state fetch never delivered its baseline.
+            needsState = true
             _ = scheduler.reduce(.refreshCancelled)
             process(scheduler.reduce(.sidebarVisibleCountChanged(0)))
             pollTask?.cancel()

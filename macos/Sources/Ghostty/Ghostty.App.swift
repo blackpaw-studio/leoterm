@@ -742,6 +742,8 @@ extension Ghostty {
                 checkForUpdates(app)
 
             case GHOSTTY_ACTION_OPEN_URL:
+                // Leo: file links in an agent's terminal open in its editor pane.
+                if leoOpenURLInEditor(target: target, action.action.open_url) { return true }
                 return openURL(action.action.open_url)
 
             case GHOSTTY_ACTION_UNDO:

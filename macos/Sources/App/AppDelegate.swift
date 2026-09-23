@@ -109,6 +109,8 @@ class AppDelegate: NSObject,
 
     // MARK: Leo
     let leoRuntime: LeoRuntime
+    /// Set once badge authorization has allowed the upstream bell badge.
+    private var bellDockBadgeAuthorized = false
 
     /// Creates an empty placeholder window (via the Leo-owned factory, which
     /// mirrors the upstream `newWindow(_:withBaseConfig:withParent:)`'s
@@ -245,6 +247,7 @@ class AppDelegate: NSObject,
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // MARK: Leo
+        leoRuntime.model.attentionCountChanged = { [weak self] _ in self?.writeDockBadge() }
         leoRuntime.start()
 
         // System settings overrides
@@ -424,6 +427,13 @@ class AppDelegate: NSObject,
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         let windows = NSApplication.shared.windows
         if windows.isEmpty { return .terminateNow }
+
+        // MARK: Leo
+        // Unsaved editor edits are asked about before anything else -- even
+        // an update that's installing. Logout waits for the answers; any
+        // other quit is retried after them.
+        let leoIsSystemQuit = LeoQuitReason.isSystemQuit(NSAppleEventManager.shared().currentAppleEvent)
+        if let reply = leoRuntime.deferQuitForUnsavedEditors(isSystemQuit: leoIsSystemQuit) { return reply }
 
         // If we've already accepted to install an update, then we don't need to
         // confirm quit. The user is already expecting the update to happen.
@@ -792,11 +802,26 @@ class AppDelegate: NSObject,
     }
 
     private func setDockBadge() {
+        // MARK: Leo
+        // Only reached once badge authorization allows the bell badge.
+        bellDockBadgeAuthorized = true
+        writeDockBadge()
+    }
+
+    // MARK: Leo
+    /// The one Dock badge writer: the selected Leo host's attention count
+    /// takes precedence over the bell count (see `LeoDockBadge`). The
+    /// attention path writes directly -- `NSDockTile` needs no notification
+    /// authorization, so an agent needing input never triggers a prompt.
+    private func writeDockBadge() {
         let bellCount = NSApp.windows
             .compactMap { $0.windowController as? BaseTerminalController }
             .reduce(0) { $0 + ($1.bell ? 1 : 0) }
-        let wantsBadge = ghostty.config.bellFeatures.contains(.attention) && bellCount > 0
-        let label = wantsBadge ? (bellCount > 99 ? "99+" : String(bellCount)) : nil
+        let label = LeoDockBadge.label(
+            attentionCount: MainActor.assumeIsolated { leoRuntime.model.snapshot.attentionCount },
+            bellCount: bellCount,
+            bellBadgeEnabled: bellDockBadgeAuthorized && ghostty.config.bellFeatures.contains(.attention)
+        )
         NSApp.dockTile.badgeLabel = label
         NSApp.dockTile.display()
     }
@@ -943,7 +968,12 @@ class AppDelegate: NSObject,
         didReceive: UNNotificationResponse,
         withCompletionHandler: () -> Void
     ) {
-        ghostty.handleUserNotification(response: didReceive)
+        // MARK: Leo
+        let userInfo = didReceive.notification.request.content.userInfo
+        let isLeoAttention = didReceive.actionIdentifier == UNNotificationDefaultActionIdentifier
+            ? MainActor.assumeIsolated { leoRuntime.openAttentionNotification(userInfo: userInfo) }
+            : LeoAttentionNotification.agent(fromUserInfo: userInfo) != nil
+        if !isLeoAttention { ghostty.handleUserNotification(response: didReceive) }
         withCompletionHandler()
     }
 
@@ -952,7 +982,10 @@ class AppDelegate: NSObject,
         willPresent: UNNotification,
         withCompletionHandler: (UNNotificationPresentationOptions) -> Void
     ) {
-        let shouldPresent = ghostty.shouldPresentNotification(notification: willPresent)
+        // MARK: Leo -- attention notifications are only posted for agents
+        // that aren't focused, so they always present.
+        let isLeoAttention = LeoAttentionNotification.agent(fromUserInfo: willPresent.request.content.userInfo) != nil
+        let shouldPresent = isLeoAttention || ghostty.shouldPresentNotification(notification: willPresent)
         let options: UNNotificationPresentationOptions = shouldPresent ? [.banner, .sound] : []
         withCompletionHandler(options)
     }
@@ -1376,7 +1409,8 @@ extension AppDelegate {
                 )
 
                 if [.OK, .alertFirstButtonReturn].contains(response) {
-                    await NSApp.reply(toApplicationShouldTerminate: true)
+                    // Leo: editor edits made while this was up are asked about.
+                    await NSApp.reply(toApplicationShouldTerminate: leoRuntime.resolveUnsavedEdits())
                 } else {
                     await NSApp.reply(toApplicationShouldTerminate: false)
                 }
@@ -1410,6 +1444,12 @@ extension AppDelegate {
                 )
 
                 if [.OK, .alertFirstButtonReturn].contains(response) {
+                    // Leo: its editor's edits made during the review are asked about.
+                    guard await leoRuntime.resolveUnsavedEdits(in: controller.window.map { [$0] } ?? []) else {
+                        await NSApp.reply(toApplicationShouldTerminate: false)
+                        return
+                    }
+
                     // Close this window and until next review is cancelled
                     await controller.window?.close()
                     continue
@@ -1419,7 +1459,8 @@ extension AppDelegate {
                     return
                 }
             }
-            await NSApp.reply(toApplicationShouldTerminate: true)
+            // Leo: and any other window's.
+            await NSApp.reply(toApplicationShouldTerminate: leoRuntime.resolveUnsavedEdits())
         }
     }
 }

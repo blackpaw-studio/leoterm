@@ -30,7 +30,7 @@ struct LeoActivityCoalescerTests {
 
         #expect(drained.count == 2)
         let details = Dictionary(uniqueKeysWithValues: drained.compactMap { event -> (String, String?)? in
-            guard case let .agentActivity(_, _, name, _, currentAction) = event else { return nil }
+            guard case let .agentActivity(_, _, name, _, currentAction, _) = event else { return nil }
             return (name, currentAction?.detail)
         })
         #expect(details["alpha"] == "second")

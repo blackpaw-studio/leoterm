@@ -28,8 +28,14 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
     let actionDetail: String?
     let workspace: String?
     let repo: String?
+    /// The attention badge, overlaid by `LeoSidebarFeed` at emission time
+    /// from `LeoAttentionReducer` (never stored on the feed's own rows).
+    let attention: LeoAttentionBadge?
 
-    init(host: LeoHostID, name: String, template: String?, status: LeoAgentStatus, activity: Activity, actionDetail: String?, workspace: String? = nil, repo: String? = nil) {
+    init(
+        host: LeoHostID, name: String, template: String?, status: LeoAgentStatus, activity: Activity, actionDetail: String?,
+        workspace: String? = nil, repo: String? = nil, attention: LeoAttentionBadge? = nil
+    ) {
         self.host = host
         self.name = name
         self.template = template
@@ -38,6 +44,14 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         self.actionDetail = actionDetail
         self.workspace = workspace
         self.repo = repo
+        self.attention = attention
+    }
+
+    func withAttention(_ attention: LeoAttentionBadge?) -> LeoAgentRow {
+        LeoAgentRow(
+            host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
+            workspace: workspace, repo: repo, attention: attention
+        )
     }
 
     var id: ID { ID(host: host, name: name) }
@@ -55,12 +69,16 @@ struct LeoSidebarSnapshot: Equatable, Sendable {
     let connectivity: LeoConnectivity
     let generation: Int
     let listRefreshSucceeded: Bool
+    /// Agents on this host needing attention that focus hasn't acknowledged
+    /// -- the Dock badge count. Overlaid at emission time, like row badges.
+    let attentionCount: Int
 
-    init(rows: [LeoAgentRow], connectivity: LeoConnectivity, generation: Int, listRefreshSucceeded: Bool = false) {
+    init(rows: [LeoAgentRow], connectivity: LeoConnectivity, generation: Int, listRefreshSucceeded: Bool = false, attentionCount: Int = 0) {
         self.rows = rows
         self.connectivity = connectivity
         self.generation = generation
         self.listRefreshSucceeded = listRefreshSucceeded
+        self.attentionCount = attentionCount
     }
 
     /// Returns a copy with `rows` replaced and `connectivity`/`generation`

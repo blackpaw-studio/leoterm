@@ -42,7 +42,11 @@ class BaseTerminalController: NSWindowController,
 
     /// The currently focused surface.
     var focusedSurface: Ghostty.SurfaceView? {
-        didSet { syncFocusToSurfaceTree() }
+        didSet {
+            syncFocusToSurfaceTree()
+            // MARK: Leo
+            NotificationCenter.default.post(name: .leoFocusedSurfaceDidChange, object: self)
+        }
     }
 
     /// The tree of splits within this terminal window.
