@@ -284,3 +284,11 @@ Why: principles 1 (keyboard-first, Finder conventions), 3 (one LeoFileAccess pat
 Alternatives: a separate browser window; a popover; an entry in the sidebar tree
 Commit:
 Veto: [ ]
+
+## D-036 · 2026-09-23 · The terminal keeps at least 300 pt; side panes make room by collapsing the sidebar
+Context: B-005 review: sidebar + browser + editor left the terminal about 97 pt wide in an 800 pt window
+Chose: the terminal gets a 300 pt floor. When opening the browser or the editor would push it below that, the agents sidebar collapses first (⌘⇧L brings it back). If there's still not enough room, the pane opens anyway at its minimum width; the user's action is never refused
+Why: principle 1 (the terminal is the primary surface; first-party apps give up the sidebar before the content); principle 2 (nothing beeps or refuses)
+Alternatives: refuse and beep; collapse the browser when the editor opens
+Commit:
+Veto: [ ]
