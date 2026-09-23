@@ -444,3 +444,11 @@ Why: principle 1 (behave like a first-party Mac editor) and 5 (the user loses no
 Alternatives: keep the full range on every reload (review: can highlight unrelated text)
 Commit: 31a72e027 0fd885414 ca7f95730
 Veto: [ ]
+
+## D-056 · 2026-09-23 · DEBUG `LEO_OPEN_FILE` opens a local file, literally
+Context: B-034; GUI checks can't get past the Open File panel
+Chose: DEBUG-only `LEO_OPEN_FILE=<absolute path>` opens that file on this Mac in the first window's editor pane, once, whatever host is selected (an optional `access` override on `LeoEditorPaneModel.open`, default unchanged for the menu); the path is taken literally (no `:line`); folders and bad paths are logged and ignored. Dismissed LOW: the fixture file in Recents reopens through the window's access after a host switch (DEBUG-only)
+Why: verification needs a way in that automation can reach; principle 3 is untouched in release
+Alternatives: drive the Open panel (automation can't focus it)
+Commit: 2c05c0b83 de2c47114
+Veto: [ ]

@@ -1,6 +1,6 @@
 Status: running
-Item: B-034
-Base: ca7f95730951c8839f4bf93e88e89d953e0c8add
+Item: B-031
+Base: de2c47114cc1799758cd0c1c29496c0b2d671e99
 Wip: none
 Untracked-left: macos/default.profraw scratchpad/ zig-out
 
@@ -12,3 +12,4 @@ Untracked-left: macos/default.profraw scratchpad/ zig-out
 - B-030: attempt-1 fix 0fd885414 (1170 tests). Re-review: P2 (a record survives a super veto) → attempt 2; the implementer window was gone (paste failed / composer unknown), so cancelled and re-dispatched fresh (d-8e799dea9d4e).
 - B-030 done: 31a72e027 0fd885414 ca7f95730 (1171 tests). 3rd review clean. D-055. Not visually verified → B-034.
 - B-034: built 2c05c0b83 (1176 tests). Verified: shot B-034-1 (LEO_OPEN_FILE opens demo.swift in the first window's editor pane). Banner still not captured: typing into the editor works, but the "Save changes?" alert after ⌘W is unreachable to Peekaboo (axElementNotFound), and ⌘S via `peekaboo press` didn't appear to save (unconfirmed; may be the tool). review: HIGH (remote host selected → local open rejected) + 2 MED (`name:12` parsed as a line; test skips the runtime call site) → attempt 1 (d-c2233721e9c2#2).
+- B-034 done: 2c05c0b83 de2c47114 (1177 tests). Re-review: LOW dismissed (D-056). Verified B-034-1 on the final build. Banner → B-035. A truncated suite run (828/1177) → noted on B-031.

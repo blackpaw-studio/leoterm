@@ -72,9 +72,14 @@ Source: B-027 visual check
 Accept: the alert prints the full `/var/folders/…/C/leo/…instance.lock` path, which wraps mid-word (shot B-027-2). Abbreviate it (e.g. `…/leo/<file>`) and add a "Show in Finder" button next to Quit.
 Source: B-027 visual check
 
-## B-034 · DEBUG hook to open a file in the editor at launch   [ready]
+## B-034 · DEBUG hook to open a file in the editor at launch   [done]
 Accept: GUI checks of the editor can't get past the Open File panel (Peekaboo: axElementNotFound / focusVerificationTimeout; osascript keystrokes not allowed). Add a DEBUG-only `LEO_OPEN_FILE=<absolute path>` env that opens that local file in the editor pane of the first window once it's up, like Open File in Editor. It must compile out of release builds, with a test. Then screenshot B-024's `Closing “…”…` banner (launch with `LEO_SLOW_SAVE_SECONDS=30`, edit, ⌘S, ⌘W).
 Source: B-030 visual check
+Done: 2c05c0b83 de2c47114 (1177 tests). Verified: shot B-034-1 (`LEO_OPEN_FILE` opens demo.swift in the first window's editor pane). The banner shot is still missing → B-035. 1 fix round; re-review found only a LOW (dismissed, D-056).
+
+## B-035 · Screenshot the editor's "Closing…" banner   [ready]
+Accept: capture B-024's `Closing “…”…` banner (debug app with `LEO_OPEN_FILE` + `LEO_SLOW_SAVE_SECONDS=30`). Typing into the editor works with `peekaboo type --foreground --window-id`, but after ⌘W the "Save changes?" alert can't be reached (axElementNotFound for its window, also via `peekaboo dialog`), and `peekaboo press cmd+s` didn't seem to save. Try File ▸ Save via `peekaboo menu click`, then File ▸ Close while the save runs. If alerts stay unreachable, say what would unblock it.
+Source: B-034 visual check
 
 ## B-018 · Drop the recreate heuristic: dedupe on (boot, name, revision)   [done]
 Accept: leo confirmed (2026-09-22, spec addition) that a revision is monotonic per agent NAME per boot, including across delete and recreate; revisions only go backwards when boot_id changes. So remove the backwards-revision heuristic from `LeoAttentionReducer` (incarnation bumps on retain/recovery, tombstones and their 64-cap, `droppedFloors`) and key notification dedupe on (bootID, name, revision). A revision ≤ the last seen for that name in the same boot is a duplicate; a recreated agent simply continues at higher revisions. Keep: list-driven deletion of display state, reset on boot change or host switch, and everything from B-015's (b), (d), (e), (f). Rewrite or delete the heuristic's tests; add fixture tests for the three gaps from B-015's third review (a recreated agent's first signal buffered during recovery notifies; an agent re-added by a baseline at the same revision keeps its Dock acknowledgement; a first seen revision equal to the old floor is a duplicate by contract).
@@ -124,6 +129,7 @@ Done: cbc79e25c ba6e9d140 e37de61ee 1f96bee20 4eb3f5fa5 6e1267756 ba23155a9 (114
 ## B-031 · Flake: LeoSidebarFeedFixTests/sseRefreshTask…   [ready]
 Accept: `sseRefreshTaskReplacesAPendingPredecessorAndIsCancelledOnStop` failed once at load ~245 (`clock.sleepCount == 1`). Its test clock removes cancelled sleeps asynchronously, the pattern B-025 replaced in the coalescing tests; apply the same fix and prove 10/10 under load.
 Source: B-025 implementer run
+Also seen (B-034, 2026-09-23): one full run stopped after 828 of 1177 tests with no summary and no crash marker; the rerun passed. Find out why.
 
 ## B-005 · Per-agent workspace browser   [done]
 Accept: from a sidebar row (context menu + shortcut), browse the agent's
