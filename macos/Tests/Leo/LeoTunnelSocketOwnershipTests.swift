@@ -132,6 +132,31 @@ struct LeoTunnelSocketOwnershipTests {
         #expect(tunnel.pid == nil)
     }
 
+    /// An existing lock file of ours with a looser mode is tightened.
+    @Test func aLooseLockFileIsTightenedToOwnerOnly() throws {
+        let path = LeoTunnelTestSupport.socketPath()
+        defer { Self.cleanUp(path) }
+        FileManager.default.createFile(atPath: path + ".lock", contents: Data(), attributes: [.posixPermissions: 0o644])
+
+        let lock = try LeoTunnelSocketLock.acquire(for: path)
+        defer { lock.release() }
+
+        var info = Darwin.stat()
+        #expect(lstat(path + ".lock", &info) == 0)
+        #expect(info.st_mode & 0o777 == 0o600)
+    }
+
+    /// A hard link could make the lock file an alias of a file elsewhere.
+    @Test func aHardLinkedLockFileIsRefused() throws {
+        let path = LeoTunnelTestSupport.socketPath()
+        let other = path + ".other"
+        defer { Self.cleanUp(path); unlink(other) }
+        FileManager.default.createFile(atPath: other, contents: Data(), attributes: [.posixPermissions: 0o600])
+        #expect(link(other, path + ".lock") == 0)
+
+        #expect(throws: LeoTunnelSocketLockError.self) { _ = try LeoTunnelSocketLock.acquire(for: path) }
+    }
+
     @Test func aFileAtTheSocketPathIsLeftAndTheTunnelFails() async throws {
         let path = LeoTunnelTestSupport.socketPath()
         defer { Self.cleanUp(path) }

@@ -17,6 +17,9 @@ struct LeoTunnelOrphanStore {
     private let defaults: UserDefaults
     private let key: String
     private let socketOwner: uid_t
+    /// Records pointing in here were written by a pre-B-021 build, which
+    /// never locks its path; see `reapAtLaunch`.
+    private let legacySocketDirectory: URL
     /// Serializes every read-then-write against this store's key: `record`,
     /// `clear(matching:)`, and the unlink+clear at the end of `reapAtLaunch`.
     /// Without it, a `record(_:)` call landing between a "does the stored
@@ -26,11 +29,21 @@ struct LeoTunnelOrphanStore {
     /// caller-supplied and may themselves call back into this store.
     private let lock = NSLock()
 
-    init(defaults: UserDefaults, key: String = "leo.tunnel.orphan", socketOwner: uid_t = geteuid()) {
+    init(
+        defaults: UserDefaults,
+        key: String = "leo.tunnel.orphan",
+        socketOwner: uid_t = geteuid(),
+        legacySocketDirectory: URL = LeoTunnelOrphanStore.defaultLegacySocketDirectory
+    ) {
         self.defaults = defaults
         self.key = key
         self.socketOwner = socketOwner
+        self.legacySocketDirectory = legacySocketDirectory
     }
+
+    /// `~/.leo/state/leoterm/`, where the forwarded socket lived before B-021.
+    static let defaultLegacySocketDirectory = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent(".leo/state/leoterm", isDirectory: true)
 
     func record(_ record: LeoTunnelOrphanRecord) {
         lock.lock()
@@ -51,7 +64,8 @@ struct LeoTunnelOrphanStore {
         clearLocked(matching: record)
     }
 
-    /// Reaps a previous run's tunnel -- but only one whose socket path lock
+    /// Reaps a previous run's tunnel -- never one from a pre-B-021 record
+    /// (see `dropLegacy`) and only one whose socket path lock
     /// (`LeoTunnelSocketLock`, D-049) this call can take. A held lock means
     /// another running copy of the app owns that path, so the record
     /// describes its live tunnel: nothing is signalled, removed or cleared.
@@ -78,8 +92,12 @@ struct LeoTunnelOrphanStore {
         signaller: (Int32, Int32) -> Void,
         sleep: (Duration) -> Void = leoTunnelRealSleep
     ) {
-        guard let record = current(),
-              let pathLock = try? LeoTunnelSocketLock.acquire(for: record.socketPath, owner: socketOwner) else { return }
+        guard let record = current() else { return }
+        guard !isLegacy(record) else {
+            dropLegacy(record)
+            return
+        }
+        guard let pathLock = try? LeoTunnelSocketLock.acquire(for: record.socketPath, owner: socketOwner) else { return }
         defer { pathLock.release() }
         switch inspector(record.pid) {
         case nil:
@@ -96,6 +114,24 @@ struct LeoTunnelOrphanStore {
         default:
             return
         }
+    }
+
+    private func isLegacy(_ record: LeoTunnelOrphanRecord) -> Bool {
+        URL(fileURLWithPath: record.socketPath).deletingLastPathComponent().standardizedFileURL.path
+            == legacySocketDirectory.standardizedFileURL.path
+    }
+
+    /// A pre-B-021 record: its build never locked the path, so a live copy
+    /// of it can't be told from an orphan. Its process is never signalled
+    /// (a leftover ssh from a crashed pre-B-021 run is harmless and stays),
+    /// the record is cleared, and the socket goes only if the probe finds
+    /// it dead. No lock file is created in the old directory.
+    private func dropLegacy(_ record: LeoTunnelOrphanRecord) {
+        lock.lock()
+        defer { lock.unlock() }
+        guard current() == record else { return }
+        LeoControlSocket.removeIfStale(record.socketPath, owner: socketOwner)
+        clearLocked(matching: record)
     }
 
     /// A replacement tunnel may have been recorded while we were signalling;

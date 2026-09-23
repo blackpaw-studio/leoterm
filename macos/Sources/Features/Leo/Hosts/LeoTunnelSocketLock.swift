@@ -22,6 +22,8 @@ enum LeoTunnelSocketLockError: Error, Equatable, Sendable {
 /// holders lock different inodes); if the OS purges the directory under a
 /// held lock, the holder's socket is purged with it and its tunnel has to
 /// reconnect anyway, when it contends for the new lock file like anyone.
+/// A copy built before D-049 never takes this lock, so running one
+/// alongside a locking copy of the same bundle is not protected.
 final class LeoTunnelSocketLock: @unchecked Sendable {
     private let lock = NSLock()
     private var descriptor: Int32?
@@ -64,11 +66,16 @@ final class LeoTunnelSocketLock: @unchecked Sendable {
         if let released { close(released) }
     }
 
+    /// A regular file `owner` owns with no other name (a hard link could
+    /// alias a file elsewhere), tightened to 0600 if it was left looser.
     private static func check(_ descriptor: Int32, owner: uid_t) throws {
         var info = Darwin.stat()
         guard fstat(descriptor, &info) == 0 else { throw LeoTunnelSocketLockError.unusable(describe(errno)) }
         guard info.st_mode & S_IFMT == S_IFREG else { throw LeoTunnelSocketLockError.unusable("the lock file is not a regular file") }
         guard info.st_uid == owner else { throw LeoTunnelSocketLockError.unusable("the lock file belongs to another user") }
+        guard info.st_nlink == 1 else { throw LeoTunnelSocketLockError.unusable("the lock file has other links") }
+        guard info.st_mode & 0o7777 != 0o600 else { return }
+        guard fchmod(descriptor, 0o600) == 0 else { throw LeoTunnelSocketLockError.unusable(describe(errno)) }
     }
 
     private static func describe(_ code: Int32) -> String { String(cString: strerror(code)) }
