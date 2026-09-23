@@ -101,7 +101,7 @@ final class LeoEditorPaneViewController: NSViewController {
     }
 
     private func show(_ document: LeoEditorDocument?) {
-        setCollapsed(document == nil)
+        setLeoSplitItemCollapsed(document == nil)
         documentSubscriptions.removeAll()
         guard let document else {
             shownDocument = nil
@@ -149,13 +149,6 @@ final class LeoEditorPaneViewController: NSViewController {
         appliedReveal = reveal.id
         textView.reveal(line: reveal.line, column: reveal.column)
         focusText()
-    }
-
-    /// The pane's split item collapses while nothing is open. Shown, it
-    /// opens at its minimum width the first time, then at its last width.
-    private func setCollapsed(_ collapsed: Bool) {
-        guard let item = (parent as? NSSplitViewController)?.splitViewItem(for: self), item.isCollapsed != collapsed else { return }
-        item.isCollapsed = collapsed
     }
 
     // MARK: - Disk checks

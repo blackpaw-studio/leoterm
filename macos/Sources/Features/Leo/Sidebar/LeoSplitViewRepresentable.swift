@@ -38,6 +38,8 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
     var browser: LeoWorkspaceBrowserModel?
     var onEditorPane: (LeoEditorPaneViewController) -> Void = { _ in }
     var onBrowserPane: (LeoWorkspaceBrowserViewController) -> Void = { _ in }
+    /// The sidebar collapsed to keep the terminal at its floor (D-036).
+    var onSidebarAutoCollapse: () -> Void = {}
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -51,7 +53,8 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
             sidebar: AnyView(sidebar),
             detail: AnyView(detail),
             editor: editor,
-            browser: browser)
+            browser: browser,
+            onSidebarAutoCollapse: onSidebarAutoCollapse)
 
         context.coordinator.sidebarHosting = components.sidebarHosting
         context.coordinator.detailHosting = components.detailHosting
@@ -65,6 +68,7 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
 
     func updateNSViewController(_ controller: LeoSplitViewController, context: Context) {
         controller.onDividerWidthChange = onDividerWidthChange
+        controller.onSidebarAutoCollapse = onSidebarAutoCollapse
         context.coordinator.sidebarHosting?.rootView = AnyView(sidebar)
         context.coordinator.detailHosting?.rootView = AnyView(detail)
 
@@ -122,7 +126,8 @@ enum LeoSplitViewControllerFactory {
         sidebar: AnyView,
         detail: AnyView,
         editor: LeoEditorPaneModel? = nil,
-        browser: LeoWorkspaceBrowserModel? = nil
+        browser: LeoWorkspaceBrowserModel? = nil,
+        onSidebarAutoCollapse: @escaping () -> Void = {}
     ) -> (controller: LeoSplitViewController, sidebarHosting: NSHostingController<AnyView>, detailHosting: NSHostingController<AnyView>) {
         let controller = LeoSplitViewController()
 
@@ -160,8 +165,10 @@ enum LeoSplitViewControllerFactory {
         }
         controller.splitView.dividerStyle = .thin
         controller.sidebarItem = sidebarItem
+        controller.detailItem = detailItem
         controller.lastKnownVisible = isSidebarVisible
         controller.onDividerWidthChange = onDividerWidthChange
+        controller.onSidebarAutoCollapse = onSidebarAutoCollapse
         controller.applyProgrammaticWidth(preferredWidth)
 
         return (controller, sidebarHosting, detailHosting)
@@ -183,7 +190,12 @@ enum LeoSplitViewControllerFactory {
 /// app down at launch.
 final class LeoSplitViewController: NSSplitViewController {
     var sidebarItem: NSSplitViewItem?
+    /// The terminal's item.
+    var detailItem: NSSplitViewItem?
     var onDividerWidthChange: ((CGFloat) -> Void)?
+    /// The sidebar was collapsed to keep the terminal at its floor; the
+    /// window's session records it as hidden (not persisted).
+    var onSidebarAutoCollapse: () -> Void = {}
     var isApplyingProgrammaticWidth = false
     var lastPersistedWidth: CGFloat = 0
     /// Tracks the sidebar's visibility as of the last `updateNSViewController`
@@ -228,6 +240,26 @@ final class LeoSplitViewController: NSSplitViewController {
         clearProgrammaticWidthFlagSoon()
     }
 
+    /// Before `item` (the browser or the editor) is shown: if the terminal
+    /// would end up under `LeoSidebarSplitMetrics.terminalFloor`, collapses
+    /// the agents sidebar first (D-036). If that still isn't enough, the
+    /// pane opens anyway -- the user's action is never refused. Does
+    /// nothing before the split view is in a window and has a width.
+    func makeRoom(forShowing item: NSSplitViewItem) {
+        guard isReadyToPositionDivider, let sidebarItem, !sidebarItem.isCollapsed else { return }
+        let shown = splitViewItems.filter { !$0.isCollapsed || $0 === item }
+        let paneWidths = shown.filter { $0 !== detailItem }.map { pane in
+            pane === item ? max(pane.minimumThickness, pane.viewController.view.frame.width) : pane.viewController.view.frame.width
+        }
+        let terminalWidth = LeoSidebarSplitMetrics.terminalWidth(
+            splitWidth: splitView.bounds.width, paneWidths: paneWidths,
+            dividers: shown.count - 1, dividerThickness: splitView.dividerThickness)
+        guard terminalWidth < LeoSidebarSplitMetrics.terminalFloor else { return }
+        sidebarItem.isCollapsed = true
+        lastKnownVisible = false
+        onSidebarAutoCollapse()
+    }
+
     override func viewDidLayout() {
         super.viewDidLayout()
         guard let width = pendingWidth, isReadyToPositionDivider else { return }
@@ -269,5 +301,15 @@ final class LeoSplitViewController: NSSplitViewController {
         }
         lastPersistedWidth = width
         onDividerWidthChange?(width)
+    }
+}
+
+extension NSViewController {
+    /// Collapses or shows this controller's own split item (the browser's
+    /// or the editor's). Showing it makes room for it first.
+    func setLeoSplitItemCollapsed(_ collapsed: Bool) {
+        guard let split = parent as? NSSplitViewController, let item = split.splitViewItem(for: self), item.isCollapsed != collapsed else { return }
+        if !collapsed { (split as? LeoSplitViewController)?.makeRoom(forShowing: item) }
+        item.isCollapsed = collapsed
     }
 }

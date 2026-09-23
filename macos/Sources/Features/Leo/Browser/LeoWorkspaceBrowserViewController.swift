@@ -100,7 +100,7 @@ final class LeoWorkspaceBrowserViewController: NSViewController {
     /// Makes the outline match the model: rows rebuilt, expanded folders
     /// expanded, the selected path kept selected.
     func sync() {
-        setCollapsed(!model.isOpen)
+        setLeoSplitItemCollapsed(!model.isOpen)
         showModel()
     }
 
@@ -281,11 +281,6 @@ final class LeoWorkspaceBrowserViewController: NSViewController {
     private func focusTerminal() {
         guard let controller = view.window?.windowController as? BaseTerminalController, let surface = controller.focusedSurface else { return }
         Ghostty.moveFocus(to: surface)
-    }
-
-    private func setCollapsed(_ collapsed: Bool) {
-        guard let item = (parent as? NSSplitViewController)?.splitViewItem(for: self), item.isCollapsed != collapsed else { return }
-        item.isCollapsed = collapsed
     }
 
     /// No timers: the workspace is listed again when the window becomes

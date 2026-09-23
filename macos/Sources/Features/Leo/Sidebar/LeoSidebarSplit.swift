@@ -5,6 +5,17 @@ enum LeoSidebarSplitMetrics {
     static let minimumWidth: CGFloat = 200
     static let maximumWidth: CGFloat = 420
     static let minimumTerminalWidth: CGFloat = 30
+    /// The width the terminal keeps when the browser or editor opens
+    /// (D-036): below it, the agents sidebar collapses first. Not a hard
+    /// minimum -- if that isn't enough, the pane opens anyway and the
+    /// terminal gives way down to `minimumTerminalWidth`.
+    static let terminalFloor: CGFloat = 300
+
+    /// What's left for the terminal in a split `splitWidth` wide beside
+    /// panes `paneWidths` wide and `dividers` dividers.
+    static func terminalWidth(splitWidth: CGFloat, paneWidths: [CGFloat], dividers: Int, dividerThickness: CGFloat) -> CGFloat {
+        splitWidth - paneWidths.reduce(0, +) - CGFloat(max(dividers, 0)) * dividerThickness
+    }
     /// Width of the split view's divider, used by `TerminalController` when
     /// sizing a window that shows the sidebar. `NSSplitView.dividerStyle` is
     /// `.thin`, which the HIG defines as 1 pt.
@@ -99,7 +110,10 @@ struct LeoSidebarSplit<Terminal: View>: View {
             editor: session.editor,
             browser: session.browser,
             onEditorPane: { session.editorPane = $0 },
-            onBrowserPane: { session.browserPane = $0 }
+            onBrowserPane: { session.browserPane = $0 },
+            // Not `setSidebarVisible`: an automatic collapse isn't the
+            // user's preference for new windows.
+            onSidebarAutoCollapse: { session.isSidebarVisible = false }
         )
     }
 }

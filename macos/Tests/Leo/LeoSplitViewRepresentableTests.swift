@@ -139,6 +139,86 @@ import Testing
         await opened.close()
     }
 
+    // MARK: Terminal floor (D-036)
+
+    /// Opening the editor beside the browser would leave the terminal
+    /// under its floor: the sidebar collapses first, and says so. The
+    /// browser alone fits, so it doesn't.
+    @Test func openingAPaneThatWouldSqueezeTheTerminalCollapsesTheSidebarFirst() async throws {
+        let sandbox = try LeoFileSandbox()
+        defer { sandbox.cleanUp() }
+        let browser = Self.makeBrowser()
+        let editor = Self.makeEditor()
+        var autoCollapses = 0
+        let harness = Harness(
+            preferredWidth: LeoSidebarSplitMetrics.minimumWidth, windowWidth: 1_000, editor: editor, browser: browser,
+            onSidebarAutoCollapse: { autoCollapses += 1 })
+
+        await browser.open(LeoEditorAgentContext(host: .local, name: "scratch", workspace: sandbox.root))
+        await harness.settle()
+        #expect(harness.sidebarItem?.isCollapsed == false)
+        #expect(autoCollapses == 0)
+
+        try await editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.swift", "let a = 1")))
+        await harness.settle()
+
+        #expect(harness.editorItem?.isCollapsed == false)
+        #expect(harness.sidebarItem?.isCollapsed == true)
+        #expect(autoCollapses == 1)
+        #expect(harness.terminalWidth >= LeoSidebarSplitMetrics.terminalFloor)
+        await editor.close()
+        await browser.close()
+    }
+
+    /// At 800pt, even without the sidebar the terminal is short of its
+    /// floor: the pane opens anyway and the terminal gives way down to its
+    /// minimum -- the user's action is never refused.
+    @Test func whenTheTerminalIsStillShortThePaneOpensAnyway() async throws {
+        let sandbox = try LeoFileSandbox()
+        defer { sandbox.cleanUp() }
+        let browser = Self.makeBrowser()
+        let editor = Self.makeEditor()
+        let harness = Harness(preferredWidth: LeoSidebarSplitMetrics.minimumWidth, windowWidth: 800, editor: editor, browser: browser)
+        await browser.open(LeoEditorAgentContext(host: .local, name: "scratch", workspace: sandbox.root))
+        await harness.settle()
+        #expect(harness.terminalWidth >= LeoSidebarSplitMetrics.terminalFloor, "the browser alone fits beside the sidebar")
+
+        try await editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.swift", "let a = 1")))
+        await harness.settle()
+
+        #expect(harness.editorItem?.isCollapsed == false)
+        #expect(harness.browserItem?.isCollapsed == false)
+        #expect(harness.sidebarItem?.isCollapsed == true)
+        #expect(harness.editorWidth >= LeoEditorPaneViewController.minimumWidth - 1)
+        #expect(harness.browserWidth >= LeoWorkspaceBrowserViewController.minimumWidth - 1)
+        #expect(harness.terminalWidth >= LeoSidebarSplitMetrics.minimumTerminalWidth)
+        #expect(harness.terminalWidth > 200, "only the sidebar gave way, not the terminal down to its minimum")
+        await editor.close()
+        await browser.close()
+    }
+
+    /// With room to spare, the sidebar stays.
+    @Test func aWideWindowKeepsTheSidebar() async throws {
+        let sandbox = try LeoFileSandbox()
+        defer { sandbox.cleanUp() }
+        let browser = Self.makeBrowser()
+        let editor = Self.makeEditor()
+        var autoCollapses = 0
+        let harness = Harness(
+            preferredWidth: LeoSidebarSplitMetrics.minimumWidth, windowWidth: 1_400, editor: editor, browser: browser,
+            onSidebarAutoCollapse: { autoCollapses += 1 })
+
+        await browser.open(LeoEditorAgentContext(host: .local, name: "scratch", workspace: sandbox.root))
+        try await editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.swift", "let a = 1")))
+        await harness.settle()
+
+        #expect(harness.sidebarItem?.isCollapsed == false)
+        #expect(autoCollapses == 0)
+        #expect(harness.terminalWidth >= LeoSidebarSplitMetrics.terminalFloor)
+        await editor.close()
+        await browser.close()
+    }
+
     @Test func openingTheBrowserShowsItAndClosingHidesIt() async throws {
         let sandbox = try LeoFileSandbox()
         defer { sandbox.cleanUp() }
@@ -178,7 +258,10 @@ import Testing
                          detailHosting: NSHostingController<AnyView>)
         let window: NSWindow
 
-        init(preferredWidth: CGFloat = 240, editor: LeoEditorPaneModel? = nil, browser: LeoWorkspaceBrowserModel? = nil) {
+        init(
+            preferredWidth: CGFloat = 240, windowWidth: CGFloat = LeoSplitViewRepresentableTests.windowWidth,
+            editor: LeoEditorPaneModel? = nil, browser: LeoWorkspaceBrowserModel? = nil, onSidebarAutoCollapse: @escaping () -> Void = {}
+        ) {
             components = LeoSplitViewControllerFactory.make(
                 isSidebarVisible: true,
                 preferredWidth: preferredWidth,
@@ -186,10 +269,11 @@ import Testing
                 sidebar: Self.flexibleView(),
                 detail: Self.flexibleView(),
                 editor: editor,
-                browser: browser)
+                browser: browser,
+                onSidebarAutoCollapse: onSidebarAutoCollapse)
 
             window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: LeoSplitViewRepresentableTests.windowWidth, height: LeoSplitViewRepresentableTests.windowHeight),
+                contentRect: NSRect(x: 0, y: 0, width: windowWidth, height: LeoSplitViewRepresentableTests.windowHeight),
                 styleMask: [.titled],
                 backing: .buffered,
                 defer: false)
@@ -197,12 +281,16 @@ import Testing
             // Assigning `contentViewController` shrinks the window to that
             // controller's fitting size, which would leave the split view far
             // too narrow for the divider to have anywhere to travel.
-            window.setContentSize(NSSize(width: LeoSplitViewRepresentableTests.windowWidth, height: LeoSplitViewRepresentableTests.windowHeight))
+            window.setContentSize(NSSize(width: windowWidth, height: LeoSplitViewRepresentableTests.windowHeight))
             window.makeKeyAndOrderFront(nil)
             layout()
         }
 
         var sidebarWidth: CGFloat { components.sidebarHosting.view.frame.width }
+
+        var sidebarItem: NSSplitViewItem? { components.controller.sidebarItem }
+
+        var terminalWidth: CGFloat { components.detailHosting.view.frame.width }
 
         var editorItem: NSSplitViewItem? {
             components.controller.splitViewItems.first { $0.viewController is LeoEditorPaneViewController }
