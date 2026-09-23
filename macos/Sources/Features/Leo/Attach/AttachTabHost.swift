@@ -25,6 +25,9 @@ extension Notification.Name {
     /// Posted by `BaseTerminalController` whenever its `focusedSurface` is
     /// assigned (object: the controller).
     static let leoFocusedSurfaceDidChange = Notification.Name("studio.blackpaw.leo.focusedSurfaceDidChange")
+    /// Posted by `Ghostty.SurfaceView` when it gains or loses keyboard focus
+    /// (first responder in the key window; object: the surface).
+    static let leoSurfaceFocusDidChange = Notification.Name("studio.blackpaw.leo.surfaceFocusDidChange")
 }
 
 @MainActor protocol AttachTabHost: AnyObject {

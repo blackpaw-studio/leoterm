@@ -28,10 +28,18 @@ import OSLog
     }
 
     /// Key window -> its selected tab's controller -> `focusedSurface`, so a
-    /// focused split counts. `nil` while the app is inactive.
+    /// focused split counts -- but only while that surface is the window's
+    /// first responder: the controller keeps remembering `focusedSurface`
+    /// after keyboard focus moves to the sidebar. `nil` while the app is
+    /// inactive.
     var focusedHandle: AttachmentHandle? {
-        guard NSApp.isActive, let controller = NSApp.keyWindow?.windowController as? BaseTerminalController,
-              let surface = controller.focusedSurface else { return nil }
+        focusedHandle(isActive: NSApp.isActive, keyWindow: NSApp.keyWindow)
+    }
+
+    /// `focusedHandle` for the given app state (injectable for tests).
+    func focusedHandle(isActive: Bool, keyWindow: NSWindow?) -> AttachmentHandle? {
+        guard isActive, let controller = keyWindow?.windowController as? BaseTerminalController,
+              let surface = controller.focusedSurface, surface.isFirstResponder else { return nil }
         return attachments.first { $0.value.controller === controller && $0.value.surface === surface }?.key
     }
 
@@ -46,6 +54,13 @@ import OSLog
                 MainActor.assumeIsolated { self?.reportFocus() }
             }
         }
+        // A surface resigning first responder is told before the window's
+        // `firstResponder` moves on, so read it on the next turn.
+        focusObservers.append(NotificationCenter.default.addObserver(
+            forName: .leoSurfaceFocusDidChange, object: nil, queue: .main
+        ) { [weak self] _ in
+            DispatchQueue.main.async { self?.reportFocus() }
+        })
     }
 
     private func reportFocus() {
