@@ -37,6 +37,9 @@ import OSLog
     /// detection would otherwise leave the stale `.connected` build free to
     /// install over it once its `await` finally resolves.
     private var connectionSequence = 0
+    #if DEBUG
+    private let openFileFixture = LeoOpenFileFixture()
+    #endif
 
     /// Pure composition helper: builds a socket daemon client bound to one
     /// socket path. Kept free of runtime/async state so it can be constructed
@@ -291,6 +294,15 @@ import OSLog
             )
             picker.register(presentation, for: sessionID)
         }
+        #if DEBUG
+        openFileFixture.windowCameUp { [weak self, weak session, weak controller] text, agent in
+            // Once the controller has finished setting the window up.
+            Task { @MainActor in
+                guard let self, let session, let controller else { return }
+                await self.openInEditor(text, for: agent, in: session, window: controller.window)
+            }
+        }
+        #endif
         return session
     }
 
