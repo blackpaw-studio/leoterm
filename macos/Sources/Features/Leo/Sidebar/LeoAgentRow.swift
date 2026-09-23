@@ -137,12 +137,21 @@ struct LeoAgentRowView: View {
                 Spacer(minLength: 4)
                 attentionBadge
                 statusBadge
+                if isHovered {
+                    // Reserves the button's width (not its height) in the
+                    // line, so the name truncates before the button and the
+                    // badges sit beside it instead of under it.
+                    attachAffordance
+                        .hidden()
+                        .frame(height: 0)
+                        .accessibilityHidden(true)
+                }
             }
             // Overlaid on the name line specifically, not the whole row:
             // rows vary in height (template, action detail, error, progress),
             // and an overlay on the row would float the control vertically
             // centered over that block instead of beside the name. As an
-            // overlay it never reflows the name when it appears.
+            // overlay it never changes the row's height when it appears.
             .overlay(alignment: .trailing) {
                 if isHovered {
                     attachAffordance
