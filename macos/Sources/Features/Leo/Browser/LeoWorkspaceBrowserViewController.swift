@@ -136,6 +136,11 @@ final class LeoWorkspaceBrowserViewController: NSViewController {
         return item.title
     }
 
+    /// Whether row `row` is dimmed (for tests).
+    func isDimmed(row: Int) -> Bool {
+        (outlineView.item(atRow: row) as? LeoWorkspaceOutlineItem)?.isDimmed ?? false
+    }
+
     // MARK: - Helpers
 
     private func configureOutline() {
@@ -351,6 +356,13 @@ final class LeoWorkspaceOutlineItem: NSObject {
         return entry.path
     }
 
+    /// A hidden entry, shown dimmed like Finder shows it (only listed at
+    /// all while hidden files are shown).
+    var isDimmed: Bool {
+        guard case let .entry(entry) = item else { return false }
+        return entry.isHidden
+    }
+
     var title: String {
         switch item {
         case let .entry(entry): entry.displayName
@@ -362,6 +374,9 @@ final class LeoWorkspaceOutlineItem: NSObject {
 
 /// A row: icon and name, or a quiet placeholder or message.
 private final class LeoWorkspaceCellView: NSTableCellView {
+    /// A hidden entry's icon, faded like its name.
+    private static let dimmedIconAlpha: CGFloat = 0.5
+
     init(identifier: NSUserInterfaceItemIdentifier) {
         super.init(frame: .zero)
         self.identifier = identifier
@@ -397,8 +412,9 @@ private final class LeoWorkspaceCellView: NSTableCellView {
         }
         imageView?.image = symbol.flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: nil) }
         imageView?.contentTintColor = item.folderPath != nil ? .controlAccentColor : .secondaryLabelColor
+        imageView?.alphaValue = item.isDimmed ? Self.dimmedIconAlpha : 1
         if case .entry = item.item {
-            textField?.textColor = .labelColor
+            textField?.textColor = item.isDimmed ? .secondaryLabelColor : .labelColor
             textField?.font = .systemFont(ofSize: NSFont.systemFontSize)
         } else {
             textField?.textColor = .secondaryLabelColor

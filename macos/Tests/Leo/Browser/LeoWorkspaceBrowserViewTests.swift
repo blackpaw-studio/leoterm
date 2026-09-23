@@ -193,6 +193,30 @@ struct LeoWorkspaceBrowserViewTests {
         }
     }
 
+    /// Like Finder, hidden entries shown are dimmed; the rest aren't.
+    @Test
+    func shownHiddenFilesAreDimmed() async throws {
+        try await withLeoFileSandbox(.local) { files, _ in
+            try sandbox(files)
+            try files.directory(".git")
+            let harness = await makeHarness(.local, root: files.root)
+
+            await harness.model.toggleHiddenFiles()
+            harness.browser.sync()
+
+            #expect(harness.rows == [".git", "src", ".env", "README.md"])
+            let dimmed = harness.rows.indices.filter { harness.browser.isDimmed(row: $0) }
+            #expect(dimmed.map { harness.rows[$0] } == [".git", ".env"])
+            for row in harness.rows.indices {
+                let cell = try #require(harness.outline.view(atColumn: 0, row: row, makeIfNecessary: true) as? NSTableCellView)
+                let isDimmed = dimmed.contains(row)
+                #expect(cell.textField?.textColor == (isDimmed ? .secondaryLabelColor : .labelColor), "\(harness.rows[row])")
+                #expect(((cell.imageView?.alphaValue ?? 0) < 1) == isDimmed, "\(harness.rows[row])")
+            }
+            await harness.tearDown()
+        }
+    }
+
     @Test(arguments: [LeoFileBackendKind.local, .sftp])
     func aFolderThatCantBeListedShowsWhyAsAnUnselectableRow(_ kind: LeoFileBackendKind) async throws {
         try await withLeoFileSandbox(kind) { files, _ in
