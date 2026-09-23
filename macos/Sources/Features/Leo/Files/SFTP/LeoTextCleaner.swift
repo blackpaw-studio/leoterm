@@ -6,13 +6,17 @@ import Foundation
 /// unassigned scalars become one U+FFFD, and an invisible scalar survives
 /// only if it is listed here and sits where it belongs:
 /// - ZWJ inside an RGI emoji ZWJ sequence;
-/// - ZWNJ after an Indic virama before a letter of the same script, or
+/// - ZWNJ between consonant + virama and a consonant, all of one Indic
+///   script, or
 ///   between an Arabic letter that joins forward and one that joins back;
 /// - U+FE0E or U+FE0F, one, right after a base it flips from its default
 ///   presentation, and U+FE0F in a keycap, which always comes out as
 ///   digit, "#" or "*", U+FE0F, U+20E3;
 /// - the tags of the three RGI subdivision flags.
-/// RGI flags and ZWJ sequences (the longest that fits) pass whole.
+/// RGI flags and ZWJ sequences (the longest that fits) pass whole. The
+/// scan reads NFD, so the mark cap counts the marks inside a composed
+/// letter, and the result is NFC: canonically equivalent text comes out
+/// the same.
 /// Everything else invisible is dropped (D-046): each kept invisible
 /// changes what is drawn, so none can carry hidden bits.
 struct LeoTextCleaner {
@@ -50,9 +54,6 @@ struct LeoTextCleaner {
     private static let arabicScripts: [ClosedRange<UInt32>] = [
         0x0600...0x06FF, 0x0750...0x077F, 0x0870...0x08FF, 0xFB50...0xFDFF, 0xFE70...0xFEFF,
     ]
-    /// The Indic scripts, which shape with ZWNJ after a virama; each has
-    /// its own 128-scalar block.
-    private static let indicScripts: ClosedRange<UInt32> = 0x0900...0x0DFF
     /// Bases with a standardized emoji variation sequence: Unicode 18.0.0
     /// emoji-variation-sequences.txt (the same bases take FE0E and FE0F).
     private static let variationBases: Set<UInt32> = [
@@ -100,9 +101,10 @@ struct LeoTextCleaner {
         "\u{1F676}", "\u{1F677}", "\u{1F678}", "\u{05F4}", "\u{02BA}", "\u{3003}", "\u{02DD}",
     ]
 
-    /// `scalars` cleaned, whitespace kept (as one space) at either end.
+    /// `input` cleaned, whitespace kept (as one space) at either end.
     /// `keepingQuotes`: the app's own words keep their curly quotes.
-    static func clean(_ scalars: [Unicode.Scalar], keepingQuotes: Bool) -> String {
+    static func clean(_ input: [Unicode.Scalar], keepingQuotes: Bool) -> String {
+        let scalars = Array(String(String.UnicodeScalarView(input)).decomposedStringWithCanonicalMapping.unicodeScalars)
         var cleaner = LeoTextCleaner(keepsQuotes: keepingQuotes)
         var index = 0
         while index < scalars.count {
@@ -117,7 +119,7 @@ struct LeoTextCleaner {
             cleaner.take(scalars[index], next: scalars.indices.contains(index + 1) ? scalars[index + 1] : nil)
             index += 1
         }
-        return String(cleaner.output) + (cleaner.isSpacePending ? " " : "")
+        return (String(cleaner.output) + (cleaner.isSpacePending ? " " : "")).precomposedStringWithCanonicalMapping
     }
 
     private let keepsQuotes: Bool
@@ -143,7 +145,7 @@ struct LeoTextCleaner {
             appendInvisible(scalar)
         } else if scalar == Self.zeroWidthNonJoiner {
             guard !isSpacePending, let previous = output.last, let next, Self.letters.contains(next.properties.generalCategory),
-                  Self.followsVirama(previous, next) || Self.joinsArabic(previous, lastLetter, next) else { return }
+                  Self.followsVirama(previous, consonantBeforeVirama, next) || Self.joinsArabic(previous, lastLetter, next) else { return }
             appendInvisible(scalar)
         } else if Self.invisible.contains(category) || Self.invisibleMarks.contains(scalar) {
             return
@@ -179,6 +181,11 @@ struct LeoTextCleaner {
         output.append(scalar)
     }
 
+    /// The scalar before the last one, past a nukta.
+    private var consonantBeforeVirama: Unicode.Scalar? {
+        output.dropLast().last { $0.properties.canonicalCombiningClass != .nukta }
+    }
+
     /// The last scalar shown past its marks, if it is a letter.
     private var lastLetter: Unicode.Scalar? {
         output.last { !Self.marks.contains($0.properties.generalCategory) }
@@ -193,9 +200,12 @@ struct LeoTextCleaner {
         return presentationSelectors.contains(selector) && variationBases.contains(base.value) && flipsDefault
     }
 
-    private static func followsVirama(_ previous: Unicode.Scalar, _ next: Unicode.Scalar) -> Bool {
-        previous.properties.canonicalCombiningClass == .virama
-            && indicScripts.contains(previous.value) && previous.value >> 7 == next.value >> 7
+    /// ZWNJ shows only where it stops a conjunct: consonant, virama, ZWNJ,
+    /// consonant, all in one script's block.
+    private static func followsVirama(_ previous: Unicode.Scalar, _ consonant: Unicode.Scalar?, _ next: Unicode.Scalar) -> Bool {
+        guard let consonant, previous.properties.canonicalCombiningClass == .virama else { return false }
+        return [consonant, next].allSatisfy { LeoUnicodeData.indicConsonants.contains($0.value) }
+            && [consonant, previous].allSatisfy { $0.value >> 7 == next.value >> 7 }
     }
 
     /// ZWNJ shows only where the letters would otherwise join.

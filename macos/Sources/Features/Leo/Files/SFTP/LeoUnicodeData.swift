@@ -1641,6 +1641,15 @@ enum LeoUnicodeData {
         0889-088F 08A0-08AC 08AE-08C8
         """)
 
+    /// Indic consonants, U+0900-0DFF (Indic_Syllabic_Category=Consonant):
+    /// IndicSyllabicCategory-18.0.0.txt.
+    static let indicConsonants = parseRanges("""
+        0915-0939 0958-095F 0978-097F 0995-09A8 09AA-09B0 09B2 09B6-09B9 09DC-09DD 09DF 09F0-09F1 0A15-0A28 0A2A-0A30
+        0A32-0A33 0A35-0A36 0A38-0A39 0A59-0A5C 0A5E 0A95-0AA8 0AAA-0AB0 0AB2-0AB3 0AB5-0AB9 0AF9 0B15-0B28 0B2A-0B30
+        0B32-0B33 0B35-0B39 0B5C-0B5D 0B5F 0B71 0B95 0B99-0B9A 0B9C 0B9E-0B9F 0BA3-0BA4 0BA8-0BAA 0BAE-0BB9 0C15-0C28
+        0C2A-0C39 0C58-0C5A 0C95-0CA8 0CAA-0CB3 0CB5-0CB9 0CDE 0D15-0D3A 0D9A-0DB1 0DB3-0DBB 0DBD 0DC0-0DC6
+        """)
+
     /// One sequence per line, scalars as space-separated hex.
     private static func parseSequences(_ text: String) -> [[Unicode.Scalar]] {
         text.split(separator: "\n").map { line in

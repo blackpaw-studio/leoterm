@@ -82,7 +82,7 @@ extension LeoSFTPServerTextTests {
     @Test func zalgoTextKeepsItsLettersAndAtMostFourMarksEach() {
         let marks = (0x300...0x31F).compactMap(Unicode.Scalar.init).map(String.init).joined() + "\u{20DD}\u{20DE}"
         let zalgo = "zalgo".map { String($0) + marks }.joined()
-        let text = clean(zalgo)
+        let text = clean(zalgo).decomposedStringWithCanonicalMapping
         #expect(text.unicodeScalars.count == 25)
         #expect(text.unicodeScalars.filter { $0.properties.isAlphabetic && $0.value < 0x80 }.map(String.init).joined() == "zalgo")
     }
@@ -124,11 +124,25 @@ extension LeoSFTPServerTextTests {
     /// nukta, vowel sign and candrabindu, stack three or four marks on one
     /// base.
     @Test func hebrewAndIndicStacksOfThreeMarksSurvive() {
-        let hebrew = "\u{5E9}\u{5BC}\u{5C1}\u{5B8}\u{591}ל"
+        let hebrew = "\u{5E9}\u{5B8}\u{5BC}\u{5C1}\u{591}ל"
         let devanagari = "\u{915}\u{93C}\u{941}\u{901}"
-        #expect(clean(hebrew) == hebrew)
-        #expect(clean(devanagari) == devanagari)
+        #expect(Self.values(clean(hebrew)) == Self.values(hebrew))
+        #expect(Self.values(clean(devanagari)) == Self.values(devanagari))
     }
+
+    /// Canonically equivalent text looks the same, so it comes out the
+    /// same: composed (NFC), marks in canonical order.
+    @Test func canonicallyEquivalentTextComesOutComposed() {
+        #expect(Self.values(clean("e\u{301}")) == [0xE9])
+        #expect(Self.values(clean("\u{1112}\u{1161}\u{11AB}")) == [0xD55C])
+        #expect(Self.values(clean("\u{1112}\u{1161}")) == [0xD558])
+        #expect(Self.values(clean("e\u{323}\u{302}")) == [0x1EC7])
+        #expect(Self.values(clean("e\u{302}\u{323}")) == [0x1EC7])
+        #expect(Self.values(clean("Tiếng Việt 한국어")) == Self.values("Tiếng Việt 한국어".precomposedStringWithCanonicalMapping))
+        #expect(Self.values(clean("\u{5E9}\u{5BC}\u{5C1}\u{5B8}\u{591}")) == [0x5E9, 0x5B8, 0x5BC, 0x5C1, 0x591])
+    }
+
+    private static func values(_ text: String) -> [UInt32] { text.unicodeScalars.map(\.value) }
 
     /// England's flag is U+1F3F4 followed by tag characters; elsewhere a
     /// tag character is invisible and dropped.
@@ -263,7 +277,7 @@ extension LeoSFTPServerTextTests {
         let invisible: [UInt32] = [0x034F, 0x17B4, 0x17B5, 0x180B, 0x180C, 0x180D, 0x180F]
         let packed = (0..<100).map { "a" + invisible.map { Self.run($0, 1) }.joined() + Self.run(0x034F, $0 % 5) }.joined()
         #expect(clean(packed) == String(repeating: "a", count: 100))
-        #expect(clean("e\u{34F}\u{301}") == "e\u{301}")
+        #expect(Self.values(clean("e\u{34F}\u{301}")) == [0xE9])
     }
 
     /// A ZWJ changes the drawing only inside an RGI ZWJ sequence.
@@ -290,6 +304,9 @@ extension LeoSFTPServerTextTests {
         #expect(clean("\u{915}\u{94D}\u{200C}\u{937}") == "\u{915}\u{94D}\u{200C}\u{937}")
         #expect(clean("\u{915}\u{94D}\u{200C}a") == "\u{915}\u{94D}a")
         #expect(clean("\u{915}\u{94D}\u{200C}\u{995}") == "\u{915}\u{94D}\u{995}")
+        #expect(clean("\u{915}\u{94D}\u{200C}\u{905}") == "\u{915}\u{94D}\u{905}")
+        #expect(clean("\u{905}\u{94D}\u{200C}\u{937}") == "\u{905}\u{94D}\u{937}")
+        #expect(Self.values(clean("\u{958}\u{94D}\u{200C}\u{937}")) == [0x915, 0x93C, 0x94D, 0x200C, 0x937])
         #expect(clean("\u{627}\u{200C}\u{627}") == "\u{627}\u{627}")
         #expect(clean("\u{628}\u{200C}\u{628}") == "\u{628}\u{200C}\u{628}")
         #expect(clean("\u{628}\u{200C}\u{627}") == "\u{628}\u{200C}\u{627}")
@@ -326,7 +343,8 @@ extension LeoSFTPServerTextTests {
         #expect(Self.joinersAreAllInRGISequences(scalars))
         #expect(scalars.indices.dropFirst().allSatisfy { scalars[$0] != "\u{20E3}" || !"0123456789#*".unicodeScalars.contains(scalars[$0 - 1]) })
         #expect(scalars.indices.allSatisfy { scalars[$0] != "\u{200C}" || Self.nonJoinerChangesShaping(scalars, at: $0) })
-        #expect(clean(text) == text)
+        #expect(Self.values(text) == Self.values(text.precomposedStringWithCanonicalMapping))
+        #expect(Self.values(clean(text)) == Self.values(text))
     }
 
     private static func isKeycap(_ scalars: [Unicode.Scalar], at index: Int) -> Bool {
@@ -350,7 +368,10 @@ extension LeoSFTPServerTextTests {
         guard index > 0, index + 1 < scalars.count else { return false }
         let previous = scalars[index - 1], next = scalars[index + 1]
         let letter = scalars[..<index].last { ![.nonspacingMark, .enclosingMark].contains($0.properties.generalCategory) }
-        return previous.properties.canonicalCombiningClass == .virama && previous.value >> 7 == next.value >> 7
+        let consonant = scalars[..<(index - 1)].last { $0.properties.canonicalCombiningClass != .nukta }
+        let isConsonant = { (scalar: Unicode.Scalar?) in scalar.map { LeoUnicodeData.indicConsonants.contains($0.value) } == true }
+        return previous.properties.canonicalCombiningClass == .virama && isConsonant(consonant) && isConsonant(next)
+            && [consonant?.value, previous.value].allSatisfy { $0.map { $0 >> 7 } == next.value >> 7 }
             || letter.map { LeoUnicodeData.joinsForward.contains($0.value) } == true && LeoUnicodeData.joinsBackward.contains(next.value)
     }
 
@@ -370,7 +391,8 @@ extension LeoSFTPServerTextTests {
 
     private static let visiblePool: [Unicode.Scalar] = [
         0x61, 0x20, 0x0645, 0x06CC, 0x0915, 0x094D, 0x0301, 0x05D0, 0x05B8, 0x1F469, 0x1F468, 0x2764, 0x1F3F4,
-        0x31, 0x23, 0x20E3, 0x0627, 0x0628, 0x0995, 0x1F600, 0x1F467,
+        0x31, 0x23, 0x20E3, 0x0627, 0x0628, 0x0995, 0x1F600, 0x1F467, 0x0905, 0x093C, 0x0958, 0x0323, 0x0302,
+        0x1112, 0x1161, 0x11AB,
     ].compactMap(Unicode.Scalar.init)
 }
 
