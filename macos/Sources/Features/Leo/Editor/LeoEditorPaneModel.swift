@@ -151,16 +151,17 @@ struct LeoEditorReveal: Equatable, Sendable {
         isWaitingToClose = false
         guard let document else { return true }
         guard await resolveUnsavedChanges(closing: true) else { return false }
-        if document.isBusy {
-            // Something is in flight on the document's own queue (⌘S, a
-            // disk check): wait for it with the document still up, so a
-            // pending quit can still offer to leave (`leaveAnyway`).
+        // Something in flight on the document's own queue (⌘S, a disk
+        // check) -- or queued there meanwhile -- is waited for with the
+        // document still up, so a pending quit can still offer to leave
+        // (`leaveAnyway`).
+        while document.isBusy {
             isWaitingToClose = true
             await document.drain()
-            isWaitingToClose = false
             // Left anyway meanwhile (`abandon`): already dropped.
             guard self.document === document else { return true }
         }
+        isWaitingToClose = false
         self.document = nil
         reveal = nil
         await document.close()

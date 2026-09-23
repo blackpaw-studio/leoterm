@@ -679,9 +679,46 @@ struct LeoUnsavedEditorsGateTests {
             #expect(log.offers == [.quit])
             #expect(replies == [true])
             #expect(stuck.document == nil)
-            #expect(!stuck.isWaitingToClose)
+            #expect(await eventually { !stuck.isWaitingToClose })
             access.release()
             _ = await commandS.value
+        }
+    }
+
+    /// Work queued on the document during that wait (a second ⌘S, a focus
+    /// disk check) is waited for too: if it hangs in turn, the document
+    /// stays up and Quit Anyway stays reachable.
+    @Test(.timeLimit(.minutes(1)))
+    func workQueuedDuringTheWaitIsWaitedForToo() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let log = Log()
+            let access = LeoHangingAccess(LeoFileAccessor.local())
+            let stuck = pane(answering: .discard, log: log, access: access)
+            try await open(stuck, try sandbox.file("a.txt", "a"), editing: true)
+            access.hangsWrites = true
+            let firstSave = Task { await stuck.document?.save() }
+            await access.waitUntilWriting()
+            let gate = gate(leaving: true, log: log)
+            var replies: [Bool] = []
+            #expect(gate.deferQuit(of: [entry(stuck, "1", log)], isSystemQuit: true, reply: { replies.append($0) }, retry: {}) == .terminateLater)
+            #expect(await eventually { stuck.isWaitingToClose })
+
+            stuck.document?.edit("a, edited behind the view's back")
+            let secondSave = Task { await stuck.document?.save() }
+            access.release()
+            _ = await firstSave.value
+            await access.waitUntilWriting()
+
+            try? await Task.sleep(for: .milliseconds(50))
+            #expect(stuck.isWaitingToClose, "still waiting, on the second save")
+            #expect(stuck.document != nil)
+            #expect(replies.isEmpty)
+            stuck.leaveAnyway?()
+            #expect(await eventually { !replies.isEmpty })
+            #expect(replies == [true])
+            #expect(stuck.document == nil)
+            access.release()
+            _ = await secondSave.value
         }
     }
 
