@@ -13,8 +13,12 @@ import Foundation
 /// closed". Narrowly scoped to that flag, not just "has a Leo session":
 /// a normal Leo window whose last surface/tab the user closed must still
 /// close, especially with `quit-after-last-window-closed`.
+///
+/// B-004: nor does it close while the window's editor has unsaved edits
+/// -- a tree that empties without asking (the terminal's process exited)
+/// leaves the editor beside the start screen instead of dropping them.
 enum LeoPlaceholderCloseDecision {
-    static func shouldCloseOnEmptyTree(isEmpty: Bool, isUnfilledPlaceholder: Bool) -> Bool {
-        isEmpty && !isUnfilledPlaceholder
+    static func shouldCloseOnEmptyTree(isEmpty: Bool, isUnfilledPlaceholder: Bool, hasUnsavedEdits: Bool) -> Bool {
+        isEmpty && !isUnfilledPlaceholder && !hasUnsavedEdits
     }
 }

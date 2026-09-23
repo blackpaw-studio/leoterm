@@ -428,6 +428,11 @@ class AppDelegate: NSObject,
         let windows = NSApplication.shared.windows
         if windows.isEmpty { return .terminateNow }
 
+        // MARK: Leo
+        // Unsaved editor edits are asked about before anything else -- even
+        // an update that's installing, or logout; the quit is retried.
+        if leoRuntime.deferQuitForUnsavedEditors() { return .terminateCancel }
+
         // If we've already accepted to install an update, then we don't need to
         // confirm quit. The user is already expecting the update to happen.
         if updateController.shouldTerminateWithoutWarning {
@@ -451,10 +456,6 @@ class AppDelegate: NSObject,
                 }
             }
         }
-
-        // MARK: Leo
-        // Unsaved editor edits are asked about first; the quit is retried.
-        if leoRuntime.deferQuitForUnsavedEditors() { return .terminateCancel }
 
         // If our app says we don't need to confirm, we can exit now.
         if !ghostty.needsConfirmQuit { return .terminateNow }

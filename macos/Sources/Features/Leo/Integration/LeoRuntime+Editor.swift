@@ -41,20 +41,24 @@ extension LeoRuntime {
         }
     }
 
-    /// Quitting with unsaved editor edits asks about each window's first
-    /// (Save / Don't Save / Cancel). `true` when it took over: the quit is
-    /// retried once every one is resolved, and dropped on Cancel.
+    /// Quitting -- or logging out, or installing an update -- with unsaved
+    /// editor edits asks about each window's first (Save / Don't Save /
+    /// Cancel). `true` when it took over: the quit is retried once every
+    /// one is resolved, and dropped on Cancel.
     func deferQuitForUnsavedEditors() -> Bool {
-        let dirty = registry.sessions.filter { $0.editor.document?.isDirty == true }
-        guard !dirty.isEmpty else { return false }
-        Task {
-            for session in dirty {
-                registry.controller(for: session.id)?.window?.makeKeyAndOrderFront(nil)
-                guard await session.editor.close() else { return }
-            }
-            NSApp.terminate(nil)
+        unsavedEditors.deferClose(of: registry.sessions.map(editorEntry(for:))) { NSApp.terminate(nil) }
+    }
+
+    /// `session`'s editor for the gate, bringing its window (and tab)
+    /// forward before its sheet.
+    func editorEntry(for session: LeoWindowSession) -> LeoUnsavedEditorsGate.Entry {
+        let id = session.id
+        return LeoUnsavedEditorsGate.Entry(editor: session.editor) { [weak self] in
+            guard let window = self?.registry.controller(for: id)?.window else { return }
+            window.tabGroup?.selectedWindow = window
+            if window.isMiniaturized { window.deminiaturize(nil) }
+            window.makeKeyAndOrderFront(nil)
         }
-        return true
     }
 
     /// The daemon's current row for the agent (its workspace may have been

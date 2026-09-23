@@ -13,6 +13,9 @@ import OSLog
     /// Agents ▸ Agent Notifications… policy for background transitions.
     let attentionNotifications: LeoAttentionController
     let feed: LeoSidebarFeed
+    /// Every close of a tab, window or the app with unsaved editor edits
+    /// asks through this first (B-004).
+    let unsavedEditors = LeoUnsavedEditorsGate()
     /// Focus identity into `feed`, delivered in order (see
     /// `focusedAgentChanged`).
     let focusedAgentRelay: LeoOrderedRelay<LeoAgentRow.ID?>

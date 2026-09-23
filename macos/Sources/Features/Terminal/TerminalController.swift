@@ -385,7 +385,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 
         // If our surface tree is now nil then we close our window.
         // MARK: Leo -- see `LeoPlaceholderCloseDecision`'s doc.
-        if LeoPlaceholderCloseDecision.shouldCloseOnEmptyTree(isEmpty: to.isEmpty, isUnfilledPlaceholder: leoIsUnfilledPlaceholder) {
+        if LeoPlaceholderCloseDecision.shouldCloseOnEmptyTree(
+            isEmpty: to.isEmpty, isUnfilledPlaceholder: leoIsUnfilledPlaceholder, hasUnsavedEdits: leoHasUnsavedEdits) {
             self.window?.close()
         }
     }
@@ -916,6 +917,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 
     func closeTabImmediately(registerRedo: Bool = true) {
         guard let window = window else { return }
+        // Leo: a tab with unsaved editor edits stays (it can't ask here).
+        if leoKeepForUnsavedEdits() { return }
         guard let tabGroup = window.tabGroup,
                 tabGroup.windows.count > 1 else {
             closeWindowImmediately()
@@ -1041,6 +1044,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     /// confirmation. This will setup proper undo state so the action can be undone.
     func closeWindowImmediately() {
         guard let window = window else { return }
+        // Leo: tabs with unsaved editor edits stay; the others close.
+        if leoCloseWindowKeepingUnsavedEdits() { return }
 
         cancelPendingInitialPresentation()
 
@@ -1175,6 +1180,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 
     /// Close all windows, asking for confirmation if necessary.
     static func closeAllWindows() {
+        // Leo: unsaved editor edits are asked about first.
+        if leoDeferClose(of: all.compactMap(\.window), retry: { closeAllWindows() }) { return }
         // The window we use for confirmations. Try to find the first window that
         // needs quit confirmation. This lets us attach the confirmation to something
         // that is running.
@@ -1554,9 +1561,16 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         ghostty.newTab(surface: surface)
     }
 
+    // Leo: ⌘W in the terminal asks about unsaved editor edits first when
+    // it would close the tab.
+    @IBAction override func close(_ sender: Any) {
+        if leoDeferCloseOfLastSplit(retry: { super.close(sender) }) { return }
+        super.close(sender)
+    }
+
     @IBAction func closeTab(_ sender: Any?) {
         guard let window = window else { return }
-        if leoDeferCloseForUnsavedEditors(in: [self], retry: { [weak self] in self?.closeTab(sender) }) { return }
+        if Self.leoDeferClose(of: [window], retry: { [weak self] in self?.closeTab(sender) }) { return }
         guard window.tabGroup?.windows.count ?? 0 > 1 else {
             closeWindow(sender)
             return
@@ -1581,6 +1595,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 
         // If we only have one window then we have no other tabs to close
         guard tabGroup.windows.count > 1 else { return }
+        // Leo: unsaved editor edits in the other tabs are asked about first.
+        if Self.leoDeferClose(of: tabGroup.windows.filter { $0 != window }, retry: { [weak self] in self?.closeOtherTabs(sender) }) { return }
 
         // Check if we have to confirm close.
         guard tabGroup.windows.contains(where: { window in
@@ -1614,6 +1630,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 
         let tabsToClose = tabGroup.windows.enumerated().filter { $0.offset > currentIndex }
         guard !tabsToClose.isEmpty else { return }
+        // Leo: unsaved editor edits in those tabs are asked about first.
+        if Self.leoDeferClose(of: tabsToClose.map(\.element), retry: { [weak self] in self?.closeTabsOnTheRight(sender) }) { return }
 
         let needsConfirm = tabsToClose.contains { (_, candidate) in
             guard let controller = candidate.windowController as? TerminalController else {
@@ -1643,8 +1661,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 
     @IBAction override func closeWindow(_ sender: Any?) {
         guard let window = window else { return }
-        let leoControllers = (window.tabGroup?.windows ?? [window]).compactMap { $0.windowController as? TerminalController }
-        if leoDeferCloseForUnsavedEditors(in: leoControllers, retry: { [weak self] in self?.closeWindow(sender) }) { return }
+        if Self.leoDeferClose(of: window.tabGroup?.windows ?? [window], retry: { [weak self] in self?.closeWindow(sender) }) { return }
 
         // We need to check all the windows in our tab group for confirmation
         // if we're closing the window. If we don't have a tabgroup for any

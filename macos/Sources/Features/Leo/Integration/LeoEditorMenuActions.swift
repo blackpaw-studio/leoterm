@@ -70,18 +70,4 @@ extension TerminalController {
             return nil
         }
     }
-
-    /// Leo: a tab or window closing with unsaved editor edits asks first
-    /// (Save / Don't Save / Cancel) on the window that has them. `true`
-    /// when it took over; `retry` runs once they're resolved.
-    func leoDeferCloseForUnsavedEditors(in controllers: [TerminalController], retry: @escaping () -> Void) -> Bool {
-        guard let controller = controllers.first(where: { $0.leoSession?.editor.document?.isDirty == true }),
-              let editor = controller.leoSession?.editor else { return false }
-        controller.window?.makeKeyAndOrderFront(nil)
-        Task {
-            guard await editor.close() else { return }
-            retry()
-        }
-        return true
-    }
 }
