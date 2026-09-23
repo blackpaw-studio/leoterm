@@ -30,6 +30,10 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
     var onDividerWidthChange: (CGFloat) -> Void
     let sidebar: Sidebar
     let detail: Detail
+    /// The window's editor pane, a trailing item that collapses while no
+    /// file is open (B-004).
+    var editor: LeoEditorPaneModel?
+    var onEditorPane: (LeoEditorPaneViewController) -> Void = { _ in }
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -41,10 +45,14 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
             preferredWidth: preferredWidth,
             onDividerWidthChange: onDividerWidthChange,
             sidebar: AnyView(sidebar),
-            detail: AnyView(detail))
+            detail: AnyView(detail),
+            editor: editor)
 
         context.coordinator.sidebarHosting = components.sidebarHosting
         context.coordinator.detailHosting = components.detailHosting
+        if let pane = components.controller.splitViewItems.last?.viewController as? LeoEditorPaneViewController {
+            onEditorPane(pane)
+        }
 
         return components.controller
     }
@@ -106,7 +114,8 @@ enum LeoSplitViewControllerFactory {
         preferredWidth: CGFloat,
         onDividerWidthChange: @escaping (CGFloat) -> Void,
         sidebar: AnyView,
-        detail: AnyView
+        detail: AnyView,
+        editor: LeoEditorPaneModel? = nil
     ) -> (controller: LeoSplitViewController, sidebarHosting: NSHostingController<AnyView>, detailHosting: NSHostingController<AnyView>) {
         let controller = LeoSplitViewController()
 
@@ -126,6 +135,14 @@ enum LeoSplitViewControllerFactory {
 
         controller.addSplitViewItem(sidebarItem)
         controller.addSplitViewItem(detailItem)
+        if let editor {
+            let editorItem = NSSplitViewItem(viewController: LeoEditorPaneViewController(model: editor))
+            editorItem.canCollapse = true
+            editorItem.isCollapsed = !editor.isOpen
+            editorItem.holdingPriority = LeoSidebarSplitMetrics.editorHoldingPriority
+            editorItem.minimumThickness = LeoEditorPaneViewController.minimumWidth
+            controller.addSplitViewItem(editorItem)
+        }
         controller.splitView.dividerStyle = .thin
         controller.sidebarItem = sidebarItem
         controller.lastKnownVisible = isSidebarVisible
@@ -162,7 +179,6 @@ final class LeoSplitViewController: NSSplitViewController {
     /// A width requested before the split view could honour it, applied once
     /// the view reaches a window and lays out. See `applyProgrammaticWidth`.
     private var pendingWidth: CGFloat?
-
     /// Applies a width we chose ourselves -- at controller creation, or when
     /// the sidebar transitions from hidden to shown -- as opposed to one the
     /// user just dragged to. `isApplyingProgrammaticWidth` suppresses

@@ -50,6 +50,52 @@ import Testing
         #expect(abs(harness.sidebarWidth - Self.draggedWidth) <= 1)
     }
 
+    // MARK: Editor pane (B-004)
+
+    @Test func theEditorPaneStartsCollapsedWithoutMovingTheSidebar() {
+        let harness = Harness(preferredWidth: Self.storedWidth, editor: Self.makeEditor())
+
+        #expect(harness.components.controller.splitViewItems.count == 3)
+        #expect(harness.editorItem?.isCollapsed == true)
+        #expect(abs(harness.sidebarWidth - Self.storedWidth) <= 1)
+    }
+
+    @Test func openingAFileShowsThePaneBesideTheTerminalAndClosingHidesIt() async throws {
+        let sandbox = try LeoFileSandbox()
+        defer { sandbox.cleanUp() }
+        let editor = Self.makeEditor()
+        let harness = Harness(preferredWidth: Self.storedWidth, editor: editor)
+
+        try await editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.swift", "let a = 1")))
+        await harness.settle()
+
+        #expect(harness.editorItem?.isCollapsed == false)
+        let editorWidth = harness.editorWidth
+        #expect(editorWidth >= LeoEditorPaneViewController.minimumWidth)
+        #expect(abs(harness.sidebarWidth - Self.storedWidth) <= 1)
+
+        // The terminal, not the editor, absorbs a window resize.
+        harness.resizeWindow(toWidth: Self.windowWidth + 200)
+        #expect(abs(harness.editorWidth - editorWidth) <= 1)
+
+        await editor.close()
+        await harness.settle()
+        #expect(harness.editorItem?.isCollapsed == true)
+    }
+
+    @Test func holdingPrioritiesLetTheTerminalAbsorbResizes() {
+        let terminal = LeoSidebarSplitMetrics.detailHoldingPriority
+        let editor = LeoSidebarSplitMetrics.editorHoldingPriority
+        let sidebar = LeoSidebarSplitMetrics.sidebarHoldingPriority
+        #expect(terminal < editor && editor < sidebar)
+        // NSSplitView's low band: higher freezes the pane (see LeoSidebarSplitMetrics).
+        #expect(editor.rawValue >= 250 && editor.rawValue <= 260)
+    }
+
+    private static func makeEditor() -> LeoEditorPaneModel {
+        LeoEditorPaneModel(makeAccess: { _ in LeoFileAccessor.local() })
+    }
+
     /// A live split view controller inside a real, correctly sized window.
     @MainActor private final class Harness {
         let components: (controller: LeoSplitViewController,
@@ -57,13 +103,14 @@ import Testing
                          detailHosting: NSHostingController<AnyView>)
         let window: NSWindow
 
-        init(preferredWidth: CGFloat = 240) {
+        init(preferredWidth: CGFloat = 240, editor: LeoEditorPaneModel? = nil) {
             components = LeoSplitViewControllerFactory.make(
                 isSidebarVisible: true,
                 preferredWidth: preferredWidth,
                 onDividerWidthChange: { _ in },
                 sidebar: Self.flexibleView(),
-                detail: Self.flexibleView())
+                detail: Self.flexibleView(),
+                editor: editor)
 
             window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: LeoSplitViewRepresentableTests.windowWidth, height: LeoSplitViewRepresentableTests.windowHeight),
@@ -80,6 +127,18 @@ import Testing
         }
 
         var sidebarWidth: CGFloat { components.sidebarHosting.view.frame.width }
+
+        var editorItem: NSSplitViewItem? {
+            components.controller.splitViewItems.first { $0.viewController is LeoEditorPaneViewController }
+        }
+
+        var editorWidth: CGFloat { editorItem?.viewController.view.frame.width ?? 0 }
+
+        /// Lets the pane's main-queue model subscriptions run, then lays out.
+        func settle() async {
+            await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
+            layout()
+        }
 
         func dragDivider(to width: CGFloat) {
             components.controller.splitView.setPosition(width, ofDividerAt: 0)

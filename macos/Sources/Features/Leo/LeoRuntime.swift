@@ -255,7 +255,13 @@ import OSLog
         Task { await feed.stop() }
     }
     func makeWindowSession(for controller: TerminalController) -> LeoWindowSession {
-        let session = registry.makeSession(window: controller.window, controller: controller, defaults: defaults)
+        let session = registry.makeSession(
+            window: controller.window, controller: controller, defaults: defaults,
+            makeFileAccess: { [weak hostSelection] host in
+                guard let hostSelection else { throw LeoFileAccessError.unavailable(reason: "Leo is shutting down") }
+                return try hostSelection.makeFileAccess(for: host)
+            }
+        )
         // Captures `sessionID` (a value), not `session` itself -- `session`
         // owns this closure, so capturing `session` here would be a
         // reference cycle (session -> closure -> session) that keeps the

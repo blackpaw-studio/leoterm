@@ -29,6 +29,9 @@ enum LeoSidebarSplitMetrics {
     /// `setPosition(_:ofDividerAt:)` becomes a no-op.
     static let sidebarHoldingPriority = NSLayoutConstraint.Priority(260)
     static let detailHoldingPriority = NSLayoutConstraint.Priority(250)
+    /// Between the two: the terminal still absorbs window resizes, and the
+    /// editor keeps its width like the sidebar.
+    static let editorHoldingPriority = NSLayoutConstraint.Priority(255)
 
     /// Whether a sidebar width reported back by the split view should be
     /// written to `session.preferredWidth`.
@@ -90,7 +93,9 @@ struct LeoSidebarSplit<Terminal: View>: View {
             preferredWidth: session.preferredWidth,
             onDividerWidthChange: { session.setPreferredWidth($0) },
             sidebar: LeoSidebarView(model: model, windowID: session.id, actions: actions),
-            detail: terminal
+            detail: terminal,
+            editor: session.editor,
+            onEditorPane: { session.editorPane = $0 }
         )
     }
 }
