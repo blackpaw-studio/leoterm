@@ -88,6 +88,53 @@ struct LeoTunnelOrphanStoreTests {
         #expect(FileManager.default.fileExists(atPath: replacement.socketPath))
     }
 
+    /// A pre-B-021 record points into `~/.leo/state/leoterm/`. The build that
+    /// wrote it took no instance lock, so it may still be running beside this
+    /// one: its pid is never signalled, the record is dropped, and its socket
+    /// goes only if nothing listens on it.
+    @Test func legacyRecordIsNeverSignalledAndItsStaleSocketAndRecordAreCleared() throws {
+        let defaults = try freshDefaults()
+        let legacy = try LeoTestSocketDirectory()
+        defer { legacy.remove() }
+        let path = legacy.path("hosts-work.sock")
+        try LeoTestUnixSocket.leaveStale(path)
+        let store = LeoTunnelOrphanStore(defaults: defaults, key: "orphan", legacySocketDirectory: legacy.url)
+        store.record(LeoTunnelOrphanRecord(pid: 42, startTime: 99, socketPath: path))
+        var signals: [Int32] = []
+
+        store.reapAtLaunch(
+            inspector: { _ in 99 },
+            signaller: { _, signal in signals.append(signal) },
+            sleep: { _ in }
+        )
+
+        #expect(signals.isEmpty)
+        #expect(store.current() == nil)
+        #expect(LeoControlSocket.inspect(path) == .absent)
+    }
+
+    @Test func legacyRecordLeavesALiveSocketAlone() throws {
+        let defaults = try freshDefaults()
+        let legacy = try LeoTestSocketDirectory()
+        defer { legacy.remove() }
+        let path = legacy.path("hosts-work.sock")
+        let listener = try LeoTestUnixSocket.bind(path, listening: true)
+        defer { close(listener) }
+        let store = LeoTunnelOrphanStore(defaults: defaults, key: "orphan", legacySocketDirectory: legacy.url)
+        store.record(LeoTunnelOrphanRecord(pid: 42, startTime: 99, socketPath: path))
+        var signals: [Int32] = []
+
+        store.reapAtLaunch(
+            inspector: { _ in nil },
+            signaller: { _, signal in signals.append(signal) },
+            sleep: { _ in }
+        )
+
+        #expect(signals.isEmpty)
+        #expect(store.current() == nil)
+        #expect(LeoControlSocket.inspect(path) == .live)
+    }
+
     private func freshDefaults() throws -> UserDefaults {
         let suite = "LeoTunnelOrphanStoreTests.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suite) else { throw CocoaError(.fileNoSuchFile) }
