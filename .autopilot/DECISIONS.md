@@ -332,3 +332,11 @@ Why: agents read this text (principle 4); emoji presentation stays intact
 Alternatives: a per-message cap on selectors
 Commit:
 Veto: [ ]
+
+## D-042 · 2026-09-23 · Untrusted text keeps invisible characters only from an allowlist
+Context: B-020's third review found two more invisible carriers (U+034F, and uncapped ZWJ/ZWNJ). Each round had found a new class
+Chose: an invisible scalar survives only if it's on an explicit allowlist and in its allowed position: ZWJ between two emoji, ZWNJ between two letters, a single FE0E/FE0F after a base, and the three RGI flag tag sequences. Every other zero-width scalar is dropped. Private-use, noncharacter and unassigned code points become U+FFFD, at most one in a row
+Why: the structural fix, not a fourth blocklist entry (Engineering Discipline: after 3 attempts the approach is wrong); agents read this text (principle 4)
+Alternatives: keep adding classes to a blocklist
+Commit:
+Veto: [ ]
