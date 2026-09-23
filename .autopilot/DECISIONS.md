@@ -370,5 +370,21 @@ Context: B-026. Gating FE0E/FE0F on "pictographic" (Emoji + So) dropped valid se
 Chose: a selector is kept only after a base listed in Unicode's emoji-variation-sequences.txt, and only when it flips the base's default presentation (FE0F on a text-default base, FE0E on an emoji-default base); keycaps keep digit/#/*+FE0F+20E3. Indic ZWNJ is kept only right after a virama; Arabic ZWNJ only between two joining letters
 Why: every surviving invisible must make a visible difference, so none can carry hidden bits (D-042's allowlist, tightened); principle 4
 Alternatives: accept one hidden bit per emoji; allow every Emoji-property base
-Commit:
+Commit: e5efc61b4 ac9539839 5a44072dd 03ac88d26
+Veto: [ ]
+
+## D-047 · 2026-09-23 · Untrusted text is canonical: RGI tables, NFC output, canonical keycaps
+Context: B-026 fix rounds 2–3; each review found another invisible whose presence drew identically (ZWJ between non-RGI emoji, alef+ZWNJ, cross-script or vowel-side Indic ZWNJ, optional keycap FE0F, decomposed vs precomposed accents)
+Chose: embed Unicode 18.0 data (emoji-zwj-sequences, emoji-variation-sequences, ArabicShaping Joining_Type, IndicSyllabicCategory consonants) in `LeoUnicodeData.swift`; ZWJ survives only inside the longest exact RGI match; keycaps always come out base+FE0F+20E3; the scan reads NFD and emits NFC (the mark cap of 4 counts marks inside composed letters); Indic ZWNJ needs consonant(+nukta)+virama → same-block consonant; tatweel and Arabic presentation forms don't count as joining; unqualified ZWJ sequences (missing FE0F) lose their joiners
+Why: D-046's rule (an invisible survives only if it changes what's drawn) applied to every carrier, from Unicode's own tables rather than hand ranges; principle 4
+Alternatives: keep patching per-rule blocklists; accept ~1 bit per character
+Commit: 5a44072dd 03ac88d26
+Veto: [ ]
+
+## D-048 · 2026-09-23 · B-027(c) (drop the activity stream's backoff retry) moves into B-007
+Context: B-027(c) says `LeoSocketActivityClient`'s exponential-backoff reconnect is an auto-reconnect timer (against principle 5), to be folded into B-007's manual Retry
+Chose: B-027 does (a) and (b) only; B-007 takes (c). Removing the backoff before a Retry banner exists would leave a dropped stream silently dead until relaunch
+Why: principle 5 needs the manual Retry to exist before the timer can go; never leave the user without a recovery path
+Alternatives: remove the backoff now and rely on relaunch
+Commit: n/a (scope)
 Veto: [ ]

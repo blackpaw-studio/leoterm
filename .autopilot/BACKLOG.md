@@ -42,9 +42,14 @@ Accept: sanitize `reason`/`detail` once, where it renders (`LeoFileAccessError.e
 Source: B-017 third security review (D-032)
 Done: ad0807785 796b0a2ec 8b6494d45 935b5a600 (1122 tests). Errors are sanitized once where they render; untrusted parts are wrapped in FSI…PDI; invisible characters survive only from an allowlist (D-042). Error text only, so not visually verified. 3 fix rounds; the last review's HIGH → B-026 (D-043).
 
-## B-026 · Presentation selectors only after emoji   [ready]
+## B-026 · Presentation selectors only after emoji   [done]
 Accept: (a) HIGH: FE0E/FE0F survive after any visible character (`LeoTextCleaner.swift:97-99,128-132`), so a filename can carry ~1.58 hidden bits per character. Keep them only right after a pictographic base (the same check the ZWJ rule uses). The property test (`randomInvisiblesLeaveAtMostOneZeroWidthScalarPerVisibleCharacter`) passes either way; add a test that a selector after a letter is dropped. (b) NIT: ZWNJ checks only the next scalar is a letter (`:104-105`); check the previous one too. (c) The SFTP security review role (codex/gpt-6-sol) failed with "Model metadata not found" all run; B-020 was reviewed by the Sonnet fallback.
 Source: B-020 final review (D-043)
+Done: e5efc61b4 ac9539839 5a44072dd 03ac88d26 (1136 tests). Every surviving invisible now changes what's drawn and the output is NFC (D-046, D-047), using Unicode 18 tables. (c): review.security routed fine today. Error text only, so no screenshot. 3 fix rounds; the 4th review was clean. The dismissed LOW → B-029.
+
+## B-029 · Cleaner: prefix trie for ZWJ matching; ICU-version drift   [ready (next run)]
+Accept: (a) longest-match ZWJ tries every RGI sequence that starts with the first scalar (356 for 👩); a run of ~1,600 👩 costs ~570k candidate checks, bounded only by the scan limit. Use a prefix trie, with a timing test on a worst-case run. (b) The Unicode 18 base lists sit next to `isEmojiPresentation`, which comes from the OS's ICU; add a test that every embedded variation base has a defined presentation under the running ICU, so drift shows up.
+Source: B-026 third review (LOW)
 
 ## B-021 · Forwarded daemon socket path budget   [done]
 Accept: the forwarded daemon socket in `~/.leo/state/leoterm/` has a 100-byte limit, so home directories longer than roughly 38–58 characters (depending on host name) break the whole tunnel. Move it to the same private per-user cache dir as the control sockets (`LeoControlSocketDirectory`), with the same checks. Failing test first with a long fake home.
@@ -111,7 +116,7 @@ Done: 54ae397a2 e05e818b7 71d366ad1 e07fa6b65 (744 tests). Verified with shots B
 
 ## B-007 · Disconnected state   [ready]
 Accept: on tunnel drop or wake, grey the list and show a Retry banner instead
-of stale rows. Manual retry only.
+of stale rows. Manual retry only. Includes B-027(c): replace `LeoSocketActivityClient`'s exponential-backoff stream retry with this Retry (D-048).
 Source: roadmap Tier 2
 
 ## B-008 · Fix order-dependent test flake + swiftlint baseline   [done]
