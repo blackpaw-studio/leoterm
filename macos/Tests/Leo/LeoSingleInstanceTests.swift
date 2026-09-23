@@ -105,6 +105,50 @@ struct LeoSingleInstanceTests {
         ))
     }
 
+    /// `xcodebuild test` (and Xcode) launch the host with
+    /// `XCInjectBundleInto=unused` and name the test bundle, relative to the
+    /// app, in `XCTestBundlePath`. Missing this let a parallel test worker
+    /// find its sibling holding the lock and `exit(0)` mid-run.
+    @Test func xcodebuildsInjectionNamingATestBundleInsideThisAppIsATestHost() throws {
+        let own = try #require(Bundle.main.executablePath)
+        let bundle = Bundle.main.bundlePath
+        let plugIn = try #require(Self.hostedTestBundlePath())
+        let images = ["/x/usr/lib/libXCTestBundleInject.dylib"]
+
+        for testBundle in [plugIn, bundle + "/" + plugIn] {
+            let environment = ["XCInjectBundleInto": "unused", "XCTestBundlePath": testBundle]
+            #expect(LeoSingleInstance.isTestHost(environment: environment, executablePath: own, bundlePath: bundle, loadedImages: images), "\(testBundle)")
+            #expect(!LeoSingleInstance.isTestHost(
+                environment: environment, executablePath: own, bundlePath: bundle, loadedImages: ["/usr/lib/libSystem.B.dylib"]
+            ), "\(testBundle) without the injector")
+        }
+    }
+
+    /// A test bundle outside this app (an inherited variable, or a path that
+    /// climbs out of it) or one that doesn't exist never makes a test host.
+    @Test func aTestBundlePathOutsideThisAppIsNotATestHost() throws {
+        let own = try #require(Bundle.main.executablePath)
+        let bundle = Bundle.main.bundlePath
+        let plugIn = try #require(Self.hostedTestBundlePath())
+        let images = ["/x/usr/lib/libXCTestBundleInject.dylib"]
+        let outside = ["/tmp", "Contents/../..", "../" + URL(fileURLWithPath: bundle).lastPathComponent + "/" + plugIn + "/../../../..", "Contents/PlugIns/Missing.xctest", ""]
+
+        for testBundle in outside {
+            let environment = ["XCInjectBundleInto": "unused", "XCTestBundlePath": testBundle]
+            #expect(!LeoSingleInstance.isTestHost(environment: environment, executablePath: own, bundlePath: bundle, loadedImages: images), "\(testBundle)")
+        }
+        #expect(!LeoSingleInstance.isTestHost(
+            environment: ["XCTestBundlePath": plugIn], executablePath: own, bundlePath: nil, loadedImages: images
+        ), "no bundle path")
+    }
+
+    /// The test bundle this suite runs from, relative to the host app.
+    private static func hostedTestBundlePath() -> String? {
+        let plugIns = Bundle.main.bundleURL.appendingPathComponent("Contents/PlugIns")
+        let name = try? FileManager.default.contentsOfDirectory(atPath: plugIns.path).first { $0.hasSuffix(".xctest") }
+        return name.map { "Contents/PlugIns/" + $0 }
+    }
+
     // MARK: - Refusal reasons: each alerts and quits, never launches
 
     enum Refusal: String, CaseIterable {

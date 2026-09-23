@@ -150,20 +150,39 @@ struct LeoSingleInstance {
     let alert: (String) -> Void
     let terminate: (Int32) -> Void
 
-    /// A hosted XCTest run: the injector names this very executable AND the
-    /// injector library is actually loaded into this process. Environment
-    /// variables alone (which a child can inherit) are never enough.
-    static func isTestHost(environment: [String: String], executablePath: String?, loadedImages: [String]) -> Bool {
+    /// A hosted XCTest run: the injector library is actually loaded into this
+    /// process AND the environment names this very app -- either the
+    /// injector's target is this executable (a direct `-XCTest` run), or, as
+    /// `xcodebuild test` launches it (`XCInjectBundleInto=unused`), the test
+    /// bundle lives inside this app. Environment variables alone (which a
+    /// child can inherit) are never enough.
+    static func isTestHost(environment: [String: String], executablePath: String?, bundlePath: String? = nil, loadedImages: [String]) -> Bool {
+        let injectorLoaded = loadedImages.contains { URL(fileURLWithPath: $0).lastPathComponent == "libXCTestBundleInject.dylib" }
+        guard injectorLoaded else { return false }
+        return injectsInto(executablePath, environment: environment) || hostsTestBundle(in: bundlePath, environment: environment)
+    }
+
+    private static func injectsInto(_ executablePath: String?, environment: [String: String]) -> Bool {
         guard let injectedInto = environment["XCInjectBundleInto"].flatMap(realPath),
-              let executablePath = executablePath.flatMap(realPath),
-              injectedInto == executablePath else { return false }
-        return loadedImages.contains { URL(fileURLWithPath: $0).lastPathComponent == "libXCTestBundleInject.dylib" }
+              let executablePath = executablePath.flatMap(realPath) else { return false }
+        return injectedInto == executablePath
+    }
+
+    /// `XCTestBundlePath` (absolute, or relative to the app) resolves to an
+    /// existing path strictly inside this app bundle.
+    private static func hostsTestBundle(in bundlePath: String?, environment: [String: String]) -> Bool {
+        guard let testBundle = environment["XCTestBundlePath"], !testBundle.isEmpty,
+              let bundle = bundlePath.flatMap(realPath) else { return false }
+        let candidate = testBundle.hasPrefix("/") ? testBundle : bundle + "/" + testBundle
+        guard let resolved = realPath(candidate) else { return false }
+        return resolved.hasPrefix(bundle + "/")
     }
 
     static func isRunningAsTestHost() -> Bool {
         isTestHost(
             environment: ProcessInfo.processInfo.environment,
             executablePath: Bundle.main.executablePath,
+            bundlePath: Bundle.main.bundlePath,
             loadedImages: loadedImagePaths()
         )
     }
