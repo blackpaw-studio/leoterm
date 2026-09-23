@@ -189,3 +189,14 @@ actor LeoFakeHomeRunner: LeoProcessRunning {
         return LeoProcessResult(stdout: Data(stdout.utf8), stderr: Data(), status: 0)
     }
 }
+
+extension LeoHostSelection {
+    /// A selection on its own throwaway defaults suite, for tests that need
+    /// one to inject but never select or connect a remote host.
+    @MainActor static func isolatedForTesting() -> LeoHostSelection {
+        let suite = "LeoHostSelectionTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite) ?? .standard
+        defaults.removePersistentDomain(forName: suite)
+        return LeoHostSelection(store: LeoHostStore(defaults: defaults), defaults: defaults)
+    }
+}
