@@ -66,6 +66,7 @@ import Testing
         let selection = try await connect(in: directory)
 
         #expect(LeoControlSocket.inspect(live) == .live)
+        #expect(try selection.makeFileAccess() is LeoFileAccessor<LeoSFTPFileBackend>)
         selection.shutdown()
     }
 
@@ -106,6 +107,44 @@ import Testing
         #expect(!argv.contains("ControlMaster=yes"))
         #expect((try? FileManager.default.attributesOfItem(atPath: controlPath)) != nil, "\(kind) was removed")
         #expect(throws: LeoFileAccessError.unavailable(reason: "control path is occupied")) { try selection.makeFileAccess() }
+        selection.shutdown()
+    }
+
+    /// A socket another user planted at the control path could be a fake
+    /// master that sees every file: never removed, never multiplexed over.
+    @Test func aForeignControlSocketIsKeptAndNeverUsed() async throws {
+        let directory = try makeDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let controlPath = LeoHostSelectionTestSupport.expectedControlPath(configuration, in: directory)
+        try LeoTestUnixSocket.leaveStale(controlPath)
+        let argvFile = directory.appendingPathComponent("argv").path
+
+        let selection = try await connect(in: directory, recordingArgvTo: argvFile, controlSocketOwner: geteuid() + 1)
+
+        let argv = try await LeoHostSelectionTestSupport.recordedArgv(argvFile)
+        #expect(argv.contains("ControlPath=none"))
+        #expect(!argv.contains("ControlMaster=yes"))
+        #expect(LeoControlSocket.inspect(controlPath) == .stale, "the foreign socket was removed")
+        let expected = LeoFileAccessError.unavailable(reason: "the control socket belongs to another user")
+        #expect(throws: expected) { try selection.makeFileAccess() }
+        selection.shutdown()
+    }
+
+    /// The OS can purge the cache directory under a running master; file
+    /// access then says how to get it back rather than "disconnected".
+    /// (The fake ssh never creates a master, so its socket is missing.)
+    @Test func aConnectedTunnelWhoseControlSocketIsGoneSaysToReconnect() async throws {
+        let directory = try makeDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let selection = try await connect(in: directory)
+
+        let controlPath = LeoHostSelectionTestSupport.expectedControlPath(configuration, in: directory)
+        #expect(LeoControlSocket.inspect(controlPath) == .absent)
+        let expected = LeoFileAccessError.unavailable(
+            reason: "the connection’s control socket is gone. Reconnect to restore file access"
+        )
+        #expect(throws: expected) { try selection.makeFileAccess() }
         selection.shutdown()
     }
 
@@ -159,14 +198,15 @@ import Testing
         in directory: URL,
         recordingArgvTo argvFile: String? = nil,
         scriptDirectory: URL? = nil,
-        controlSocketDirectory: URL? = nil
+        controlSocketDirectory: URL? = nil,
+        controlSocketOwner: uid_t = geteuid()
     ) async throws -> LeoHostSelection {
         let ssh = try argvFile.map {
             try LeoHostSelectionTestSupport.argvRecordingSSH(in: scriptDirectory ?? directory, argvFile: $0)
         } ?? LeoTunnelTestSupport.fixtureURL()
         let selection = LeoHostSelectionTestSupport.makeSelection(
             hosts: [configuration], transport: LeoAlwaysHealthyTransport(), localSocketDirectory: directory, sshExecutable: ssh,
-            controlSocketDirectory: controlSocketDirectory
+            controlSocketDirectory: controlSocketDirectory, controlSocketOwner: controlSocketOwner
         )
         await selection.start(flavor: .socketEvents)
         selection.select(.remote("work"))

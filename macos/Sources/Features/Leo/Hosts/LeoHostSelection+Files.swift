@@ -7,7 +7,9 @@ extension LeoHostSelection {
     /// tunnel down, operations fail with `.disconnected`). Throws
     /// `.disconnected` when the selected remote host is no longer configured,
     /// and `.unavailable` when the tunnel runs without a master (see
-    /// `multiplexingControlPath(for:)`).
+    /// `multiplexingControlPath(for:)`) or its master's socket has vanished
+    /// (the OS can purge the cache directory under it) -- recovered by
+    /// reconnecting, never automatically.
     func makeFileAccess() throws -> any LeoFileAccess {
         guard case .remote(let name) = selected else { return LeoFileAccessor.local() }
         guard let configuration = hosts.first(where: { $0.name == name }) else { throw LeoFileAccessError.disconnected }
@@ -22,8 +24,11 @@ extension LeoHostSelection {
         } catch {
             throw LeoFileAccessError.unavailable(reason: Self.unsafeControlDirectory)
         }
-        guard LeoControlSocket.inspect(path) != .notASocket else {
-            throw LeoFileAccessError.unavailable(reason: Self.occupiedControlPath)
+        switch LeoControlSocket.inspect(path, owner: controlSocketOwner) {
+        case .notASocket: throw LeoFileAccessError.unavailable(reason: Self.occupiedControlPath)
+        case .foreign: throw LeoFileAccessError.unavailable(reason: Self.foreignControlSocket)
+        case .absent where isConnected: throw LeoFileAccessError.unavailable(reason: Self.missingControlSocket)
+        case .absent, .live, .stale, .unknown: break
         }
         let arguments = try LeoSSHCommand(configuration: configuration).sftpArguments(controlPath: path)
         return LeoFileAccessor.sftp(launcher: LeoSFTPProcessLauncher(executable: sshExecutable, arguments: arguments))
@@ -40,8 +45,8 @@ extension LeoHostSelection {
     /// The control path the tunnel should listen on, or nil to run it
     /// without a master: when ssh can't use the path (a directory with a
     /// space or non-ASCII characters, or one too long), when the directory
-    /// isn't provably private, or when something other than a socket
-    /// occupies it. A socket a master that
+    /// isn't provably private, or when something other than a socket -- or
+    /// another user's socket -- occupies it. A socket a master that
     /// died without cleanup left behind is removed first -- otherwise
     /// `ControlMaster=yes` would run without multiplexing rather than
     /// replace it. A live socket is left alone (ssh then disables its own
@@ -59,7 +64,7 @@ extension LeoHostSelection {
             Self.logger.error("control directory not private; tunnel runs without file access path=\(path, privacy: .public) error=\(String(describing: error), privacy: .public)")
             return nil
         }
-        switch LeoControlSocket.removeIfStale(path) {
+        switch LeoControlSocket.removeIfStale(path, owner: controlSocketOwner) {
         case .absent, .stale:
             return path
         case .live:
@@ -67,6 +72,9 @@ extension LeoHostSelection {
             return path
         case .notASocket:
             Self.logger.error("control path occupied by a non-socket; leaving it, tunnel runs without file access path=\(path, privacy: .public)")
+            return nil
+        case .foreign:
+            Self.logger.error("control socket owned by another user; leaving it, tunnel runs without file access path=\(path, privacy: .public)")
             return nil
         case .unknown(let code):
             Self.logger.error("control socket check failed; leaving it path=\(path, privacy: .public) errno=\(code)")
@@ -77,4 +85,11 @@ extension LeoHostSelection {
     static let unsupportedControlPath = "control path unsupported"
     static let occupiedControlPath = "control path is occupied"
     static let unsafeControlDirectory = "control directory is not private"
+    static let foreignControlSocket = "the control socket belongs to another user"
+    static let missingControlSocket = "the connection’s control socket is gone. Reconnect to restore file access"
+
+    private var isConnected: Bool {
+        if case .connected = state { return true }
+        return false
+    }
 }

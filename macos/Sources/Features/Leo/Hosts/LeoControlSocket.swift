@@ -12,17 +12,23 @@ enum LeoControlSocketState: Equatable, Sendable {
     case stale
     /// A regular file, directory, symlink or anything else. Never removed.
     case notASocket
+    /// A socket another user owns, whoever listens on it: possibly a fake
+    /// master planted to see every file (ssh's mux client never checks the
+    /// master's uid). Never probed, used or removed.
+    case foreign
     /// `lstat` or `connect` failed with this errno. Never removed.
     case unknown(Int32)
 }
 
 /// Inspects and (only when provably stale) removes a ControlMaster socket.
-/// Uses `lstat`, so a symlink is never followed.
+/// Uses `lstat`, so a symlink is never followed. Only a socket `owner`
+/// (this process's user) owns is ever judged live or stale.
 enum LeoControlSocket {
-    static func inspect(_ path: String) -> LeoControlSocketState {
+    static func inspect(_ path: String, owner: uid_t = geteuid()) -> LeoControlSocketState {
         var info = Darwin.stat()
         guard lstat(path, &info) == 0 else { return errno == ENOENT ? .absent : .unknown(errno) }
         guard info.st_mode & S_IFMT == S_IFSOCK else { return .notASocket }
+        guard info.st_uid == owner else { return .foreign }
         return probe(path)
     }
 
@@ -32,8 +38,8 @@ enum LeoControlSocket {
     /// ever binds its own (bundle-scoped) path, and it does so only after
     /// this returns.
     @discardableResult
-    static func removeIfStale(_ path: String) -> LeoControlSocketState {
-        let state = inspect(path)
+    static func removeIfStale(_ path: String, owner: uid_t = geteuid()) -> LeoControlSocketState {
+        let state = inspect(path, owner: owner)
         guard state == .stale else { return state }
         guard unlink(path) == 0 || errno == ENOENT else { return .unknown(errno) }
         return .stale

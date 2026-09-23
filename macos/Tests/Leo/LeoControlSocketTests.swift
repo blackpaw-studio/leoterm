@@ -47,6 +47,30 @@ struct LeoControlSocketTests {
         #expect(LeoControlSocket.inspect(directory.path("dir")) == .notASocket)
     }
 
+    /// ssh's mux client never checks who runs the master it talks to, so a
+    /// socket another user planted at the path is neither used nor removed.
+    @Test func aSocketAnotherUserOwnsIsForeignWhateverItsListener() throws {
+        let directory = try LeoTestSocketDirectory()
+        defer { directory.remove() }
+        let descriptor = try LeoTestUnixSocket.bind(directory.path("live"), listening: true)
+        defer { close(descriptor) }
+        try LeoTestUnixSocket.leaveStale(directory.path("stale"))
+
+        #expect(LeoControlSocket.inspect(directory.path("live"), owner: geteuid() + 1) == .foreign)
+        #expect(LeoControlSocket.inspect(directory.path("stale"), owner: geteuid() + 1) == .foreign)
+        #expect(LeoControlSocket.removeIfStale(directory.path("stale"), owner: geteuid() + 1) == .foreign)
+        #expect(LeoControlSocket.inspect(directory.path("stale")) == .stale, "a foreign socket is never removed")
+    }
+
+    @Test func aSocketWeOwnIsJudgedByItsListener() throws {
+        let directory = try LeoTestSocketDirectory()
+        defer { directory.remove() }
+        let descriptor = try LeoTestUnixSocket.bind(directory.path("cm"), listening: true)
+        defer { close(descriptor) }
+
+        #expect(LeoControlSocket.inspect(directory.path("cm"), owner: geteuid()) == .live)
+    }
+
     @Test func removingAStaleSocketUnlinksIt() throws {
         let directory = try LeoTestSocketDirectory()
         defer { directory.remove() }

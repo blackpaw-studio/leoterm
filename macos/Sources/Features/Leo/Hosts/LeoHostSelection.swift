@@ -52,6 +52,9 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
     /// Scopes the ControlMaster socket name to this app bundle; see
     /// `LeoHostConfiguration.controlSocketFileName(instance:)`.
     let controlSocketInstance: String
+    /// The only user whose control socket this app will use or remove;
+    /// injectable because tests can't create another user's socket.
+    let controlSocketOwner: uid_t
     static let defaultControlSocketInstance = LeoHostConfiguration.controlSocketInstance(
         bundleIdentifier: Bundle.main.bundleIdentifier ?? "studio.blackpaw.leo"
     )
@@ -80,6 +83,7 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
             .appendingPathComponent(".leo/state/leoterm", isDirectory: true),
         controlSocketDirectory: URL? = LeoControlSocketDirectory.default,
         controlSocketInstance: String = LeoHostSelection.defaultControlSocketInstance,
+        controlSocketOwner: uid_t = geteuid(),
         connectionTarget: @escaping (LeoHostID, Int, LeoHostConnectionState) -> Void = { _, _, _ in }
     ) {
         self.store = store
@@ -93,6 +97,7 @@ enum LeoHostSelectionError: Error, Equatable, Sendable {
         self.localSocketDirectory = localSocketDirectory
         self.controlSocketDirectory = controlSocketDirectory ?? localSocketDirectory
         self.controlSocketInstance = controlSocketInstance
+        self.controlSocketOwner = controlSocketOwner
         self.connectionTarget = connectionTarget
         if let value = defaults.string(forKey: "leo.selectedHost"), value != "localhost" {
             selected = .remote(value)
