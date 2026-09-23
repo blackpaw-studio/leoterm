@@ -162,14 +162,35 @@ extension LeoSFTPServerTextTests {
         let supplementary = (0xE0100...0xE01EF).compactMap(Unicode.Scalar.init).map(String.init).joined()
         let standard = (0xFE00...0xFE0D).compactMap(Unicode.Scalar.init).map(String.init).joined()
         let packed = (0..<150).map { _ in "a" + String(String.UnicodeScalarView(supplementary.unicodeScalars.prefix(4))) }.joined()
-            + "b" + standard + "c\u{FE0F}\u{FE0F}d\u{301}\u{FE0F}e\u{FE0E}\u{FE0E}f\u{FE0F}\u{FE00}\u{FE0E}"
+            + "b" + standard + "❤\u{FE0F}\u{FE0F}d\u{301}\u{FE0F}☺\u{FE0E}\u{FE0E}✈\u{FE0F}\u{FE00}\u{FE0E}"
             + " \u{FE0F}x\u{200D}\u{FE0F}"
 
         let text = clean(packed)
 
         let selectors = text.unicodeScalars.filter { (0xFE00...0xFE0F).contains($0.value) || (0xE0100...0xE01EF).contains($0.value) }
         #expect(selectors.map(\.value) == [0xFE0F, 0xFE0E, 0xFE0F])
-        #expect(text.hasSuffix("bc\u{FE0F}d\u{301}e\u{FE0E}f\u{FE0F} x"))
+        #expect(text.hasSuffix("b❤\u{FE0F}d\u{301}☺\u{FE0E}✈\u{FE0F} x"))
+    }
+
+    /// A selector after a letter, digit or mark changes nothing a reader
+    /// sees, so there it could only carry hidden bits: it is dropped.
+    @Test func presentationSelectorsStayOnlyAfterEmoji() {
+        #expect(clean("a\u{FE0F}b\u{FE0E}c") == "abc")
+        #expect(clean("7\u{FE0F}!\u{FE0E}.\u{FE0F}字\u{FE0E}") == "7!.字")
+        #expect(clean("\u{FE0F}x") == "x")
+        #expect(clean("\u{FE0E}❤") == "❤")
+        #expect(clean("❤\u{FE0F}\u{FE0F}") == "❤\u{FE0F}")
+        #expect(clean("❤\u{FE0E}\u{FE0F}") == "❤\u{FE0E}")
+        #expect(clean("👨\u{200D}👩\u{200D}👧\u{200D}👦 🏳\u{FE0F}\u{200D}🌈") == "👨\u{200D}👩\u{200D}👧\u{200D}👦 🏳\u{FE0F}\u{200D}🌈")
+    }
+
+    /// Keycaps are RGI only as base + U+FE0F + U+20E3.
+    @Test func keycapsKeepOnlyTheirEmojiSelector() {
+        let keycaps = "0123456789#*".map { "\($0)\u{FE0F}\u{20E3}" }.joined(separator: " ")
+        #expect(clean(keycaps) == keycaps)
+        #expect(clean("1\u{FE0E}\u{20E3}") == "1\u{20E3}")
+        #expect(clean("1\u{FE0F}\u{FE0F}\u{20E3}") == "1\u{20E3}")
+        #expect(clean("a\u{FE0F}\u{20E3}") == "a\u{20E3}")
     }
 
     @Test func emojiPresentationAndFlagsSurvive() {
@@ -244,6 +265,7 @@ extension LeoSFTPServerTextTests {
         #expect(clean(devanagari) == devanagari)
         #expect(clean("a\u{200C}b" + Self.run(0x200C, 800) + "c") == "abc")
         #expect(clean("م" + Self.run(0x200C, 5) + "ی \u{200C}خ ی\u{200C}") == "م\u{200C}ی خ ی")
+        #expect(clean("٣\u{200C}ی ،\u{200C}ی \u{964}\u{200C}\u{915}") == "٣ی ،ی \u{964}\u{915}")
     }
 
     @Test func privateUseNoncharactersAndUnassignedBecomeOneReplacementCharacter() {
@@ -267,6 +289,10 @@ extension LeoSFTPServerTextTests {
             !character.isWhitespace && character.unicodeScalars.contains { !Self.isZeroWidth($0) }
         }.count
         #expect(zeroWidth <= visible, "\(zeroWidth) zero-width scalars for \(visible) visible characters")
+        let scalars = Array(text.unicodeScalars)
+        #expect(scalars.indices.allSatisfy { index in
+            !["\u{FE0E}", "\u{FE0F}"].contains(scalars[index]) || index > 0 && scalars[index - 1].properties.isEmoji
+        })
         #expect(clean(text) == text)
     }
 

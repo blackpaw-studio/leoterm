@@ -7,7 +7,8 @@ import Foundation
 /// only if it is listed here and sits where it belongs:
 /// - ZWJ between two emoji, ZWNJ between letters of Arabic or an Indic
 ///   script, at most one in a row;
-/// - U+FE0E or U+FE0F, one, right after a base;
+/// - U+FE0E or U+FE0F, one, right after an emoji, and U+FE0F in a
+///   keycap (digit, "#" or "*", U+FE0F, U+20E3);
 /// - the tags of the three RGI subdivision flags.
 /// Everything else invisible is dropped.
 struct LeoTextCleaner {
@@ -36,6 +37,10 @@ struct LeoTextCleaner {
     /// and emoji presentation selectors are kept.
     private static let variationSelectors: [ClosedRange<UInt32>] = [0xFE00...0xFE0F, 0xE0100...0xE01EF]
     private static let presentationSelectors: Set<Unicode.Scalar> = ["\u{FE0E}", "\u{FE0F}"]
+    /// Keycap bases, which take U+FE0F only before the enclosing keycap.
+    private static let keycapBases = Set("0123456789#*".unicodeScalars)
+    private static let emojiSelector: Unicode.Scalar = "\u{FE0F}"
+    private static let keycap: Unicode.Scalar = "\u{20E3}"
     /// Skin tones, which sit between an emoji and its ZWJ.
     private static let emojiModifiers: ClosedRange<UInt32> = 0x1F3FB...0x1F3FF
     private static let zeroWidthJoiner: Unicode.Scalar = "\u{200D}"
@@ -95,13 +100,15 @@ struct LeoTextCleaner {
         if scalar.properties.isWhitespace || Self.blanks.contains(scalar) {
             isSpacePending = true
         } else if Self.variationSelectors.contains(where: { $0.contains(scalar.value) }) {
-            guard couldTakeSelector, Self.presentationSelectors.contains(scalar) else { return }
+            guard couldTakeSelector, Self.presentationSelectors.contains(scalar), let base = output.last,
+                  Self.isPictographic(base) || scalar == Self.emojiSelector && Self.keycapBases.contains(base) && next == Self.keycap
+            else { return }
             appendInvisible(scalar)
         } else if scalar == Self.zeroWidthJoiner {
             guard !isSpacePending, lastBase.map(Self.isPictographic) == true, next.map(Self.isPictographic) == true else { return }
             appendInvisible(scalar)
         } else if scalar == Self.zeroWidthNonJoiner {
-            guard !isSpacePending, output.last.map(Self.usesNonJoiner) == true,
+            guard !isSpacePending, output.last.map(Self.usesNonJoiner) == true, lastLetter.map(Self.usesNonJoiner) == true,
                   let next, Self.usesNonJoiner(next), Self.letters.contains(next.properties.generalCategory) else { return }
             appendInvisible(scalar)
         } else if Self.invisible.contains(category) || Self.invisibleMarks.contains(scalar) {
@@ -140,6 +147,12 @@ struct LeoTextCleaner {
     /// The last scalar shown, past any presentation selector or skin tone.
     private var lastBase: Unicode.Scalar? {
         output.last { !Self.presentationSelectors.contains($0) && !Self.emojiModifiers.contains($0.value) }
+    }
+
+    /// The last scalar shown past its marks, if it is a letter.
+    private var lastLetter: Unicode.Scalar? {
+        output.last { !Self.marks.contains($0.properties.generalCategory) }
+            .flatMap { Self.letters.contains($0.properties.generalCategory) ? $0 : nil }
     }
 
     /// An emoji drawn as a picture -- Swift has no Extended_Pictographic,
