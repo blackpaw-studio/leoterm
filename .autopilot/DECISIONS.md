@@ -388,3 +388,11 @@ Why: principle 5 needs the manual Retry to exist before the timer can go; never 
 Alternatives: remove the backoff now and rely on relaunch
 Commit: n/a (scope)
 Veto: [ ]
+
+## D-049 · 2026-09-23 · Tunnel path ownership = an exclusive flock held by the live app
+Context: B-027. The first fix probed the socket (connect → ECONNREFUSED = dead) and then unlinked it: racy between copies, ECONNREFUSED is ambiguous on Darwin (full backlog), the connect could block, and launch reaping still SIGTERMed a sibling copy's healthy tunnel
+Chose: each tunnel path has `<path>.lock` (same checked dir, 0600, CLOEXEC); the app holds `flock(LOCK_EX|LOCK_NB)` for the tunnel's life. Holding the lock means any socket or orphan record at that path is a dead app's, safe to reap and unlink without a probe; a busy lock → "already in use by another copy of Leo" and nothing is signalled. Also the implementer's calls: `StreamLocalBindUnlink` dropped from the ssh args; records whose process is gone are cleared at launch; `LeoAgentActions` requires the injected selection
+Why: principle 3 (tunnel robustness) and 5 (a crashed run still self-recovers; a live sibling is an explicit error, never silently stolen); the kernel releases the lock on crash
+Alternatives: harden the connect probe with a deadline and errno classification
+Commit:
+Veto: [ ]
