@@ -96,7 +96,7 @@ struct LeoEditorAlertSheetHostTests {
     }
 }
 
-private actor QuitReviewDaemon: LeoDaemonClient {
+actor QuitReviewDaemon: LeoDaemonClient {
     func listAgents() async throws -> [LeoAgent] { [] }
     func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent { throw LeoDaemonError.transport("unused") }
     func start(_ name: String) async throws {}

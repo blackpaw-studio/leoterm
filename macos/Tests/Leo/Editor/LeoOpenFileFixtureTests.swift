@@ -36,23 +36,44 @@ struct LeoOpenFileFixtureTests {
         #expect(!LeoOpenFileFixture.isRegularFile(folder.appendingPathComponent("gone").path))
     }
 
-    /// Only the first window opens it, as a local file, through the opener.
-    @Test func opensThePathOnceForTheFirstWindowAsALocalFile() {
+    /// Only the first window opens it, through the opener.
+    @Test func opensThePathOnceForTheFirstWindow() {
         let fixture = LeoOpenFileFixture(path: "/tmp/a.txt")
-        var opened: [(String, LeoEditorAgentContext)] = []
-        let opener: (String, LeoEditorAgentContext) -> Void = { opened.append(($0, $1)) }
+        var opened: [String] = []
 
-        fixture.windowCameUp(open: opener)
-        fixture.windowCameUp(open: opener)
+        fixture.windowCameUp { opened.append($0) }
+        fixture.windowCameUp { opened.append($0) }
 
-        #expect(opened.map(\.0) == ["/tmp/a.txt"])
-        #expect(opened.map(\.1) == [LeoEditorAgentContext(host: .local, name: nil, workspace: nil)])
+        #expect(opened == ["/tmp/a.txt"])
+    }
+
+    /// With a remote host selected the window's file access refuses local
+    /// files; the fixture still opens its file on this Mac, and takes its
+    /// path literally (a name ending in `:12` is not a line number).
+    @Test func theRuntimeOpensTheFileLocallyAndLiterallyWhateverHostIsSelected() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let defaults = try #require(UserDefaults(suiteName: "LeoOpenFileFixtureTests.\(UUID().uuidString)"))
+            let activity = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
+            let runtime = LeoRuntime(daemon: QuitReviewDaemon(), cli: LeoCLI(), activitySource: activity, defaults: defaults)
+            let session = runtime.registry.makeSession(defaults: defaults, makeFileAccess: { _ in
+                throw LeoFileAccessError.unavailable(reason: "Leo is connected to work, not localhost")
+            })
+            let path = try sandbox.file("foo:12", "twelve")
+            var errors: [String] = []
+
+            await runtime.openFixtureFile(path, in: session) { errors.append($0.localizedDescription) }
+
+            #expect(errors.isEmpty)
+            #expect(session.editor.document?.fileID == LeoEditorFileID(host: .local, path: path))
+            #expect(session.editor.document?.text == "twelve")
+            await session.editor.release()
+        }
     }
 
     @Test func withoutAPathNoWindowOpensAnything() {
         let fixture = LeoOpenFileFixture(path: nil)
         var opened: [String] = []
-        fixture.windowCameUp { text, _ in opened.append(text) }
+        fixture.windowCameUp { opened.append($0) }
         #expect(opened.isEmpty)
     }
 }

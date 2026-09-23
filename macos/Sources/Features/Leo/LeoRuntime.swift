@@ -268,9 +268,10 @@ import OSLog
                 guard let hostSelection else { throw LeoFileAccessError.unavailable(reason: "Leo is shutting down") }
                 let access = try hostSelection.makeFileAccess(for: host)
                 #if DEBUG
-                if let delay = LeoSlowSaveFixture.delay() { return LeoSlowSaveFixture.wrap(access, delay: delay) }
-                #endif
+                return LeoSlowSaveFixture.wrapIfSet(access)
+                #else
                 return access
+                #endif
             }
         )
         // Captures `sessionID` (a value), not `session` itself -- `session`
@@ -295,11 +296,11 @@ import OSLog
             picker.register(presentation, for: sessionID)
         }
         #if DEBUG
-        openFileFixture.windowCameUp { [weak self, weak session, weak controller] text, agent in
+        openFileFixture.windowCameUp { [weak self, weak session, weak controller] path in
             // Once the controller has finished setting the window up.
             Task { @MainActor in
                 guard let self, let session, let controller else { return }
-                await self.openInEditor(text, for: agent, in: session, window: controller.window)
+                await self.openFixtureFile(path, in: session) { LeoEditorAlerts.presentError($0, on: controller.window) }
             }
         }
         #endif

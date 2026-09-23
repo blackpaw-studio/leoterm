@@ -4,9 +4,10 @@ import OSLog
 
 /// DEBUG builds only: opens the local file named by `LEO_OPEN_FILE` (an
 /// absolute path) in the first window's editor pane once that window is up,
-/// as Agents ▸ Open File in Editor… would after the path is typed -- so GUI
-/// checks of the editor needn't get past the Open File panel. Relative,
-/// empty or missing paths are logged and ignored.
+/// so GUI checks of the editor needn't get past the Open File panel. The
+/// path is taken literally (no `:line:column`) and read on this Mac
+/// whatever host is selected. Relative, empty or missing paths are logged
+/// and ignored.
 @MainActor final class LeoOpenFileFixture {
     static let environmentKey = "LEO_OPEN_FILE"
     private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
@@ -39,12 +40,26 @@ import OSLog
         return FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) && !isDirectory.boolValue
     }
 
-    /// A window's session is up: the first one hands the path to `open`,
-    /// as a local file.
-    func windowCameUp(open: (String, LeoEditorAgentContext) -> Void) {
+    /// A window's session is up: the first one hands the path to `open`.
+    func windowCameUp(open: (String) -> Void) {
         guard let path = pending else { return }
         pending = nil
-        open(path, LeoEditorAgentContext(host: .local, name: nil, workspace: nil))
+        open(path)
+    }
+}
+
+extension LeoRuntime {
+    /// Opens `path` in `session`'s editor with local file access, not the
+    /// window's (which refuses local files while a remote host is selected).
+    func openFixtureFile(_ path: String, in session: LeoWindowSession, reportError: (Error) -> Void) async {
+        do {
+            try await session.editor.open(
+                LeoEditorFileID(host: .local, path: path),
+                access: { _ in LeoSlowSaveFixture.wrapIfSet(LeoFileAccessor.local()) }
+            )
+        } catch {
+            reportError(error)
+        }
     }
 }
 #endif

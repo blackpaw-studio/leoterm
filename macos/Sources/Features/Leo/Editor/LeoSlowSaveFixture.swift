@@ -14,6 +14,11 @@ enum LeoSlowSaveFixture {
         return .seconds(seconds)
     }
 
+    /// `access`, holding its saves if `LEO_SLOW_SAVE_SECONDS` is set.
+    static func wrapIfSet(_ access: any LeoFileAccess) -> any LeoFileAccess {
+        delay().map { wrap(access, delay: $0) } ?? access
+    }
+
     /// `onHold`: a save has entered its hold (for tests).
     static func wrap(_ access: any LeoFileAccess, delay: Duration, onHold: @escaping @Sendable () -> Void = {}) -> any LeoFileAccess {
         SlowSaves(base: access, delay: delay, onHold: onHold)

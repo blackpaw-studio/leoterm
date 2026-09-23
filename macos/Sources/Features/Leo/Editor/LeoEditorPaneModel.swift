@@ -81,10 +81,15 @@ struct LeoEditorReveal: Equatable, Sendable {
     /// Opens `fileID`, replacing the current document. The new file is read
     /// before anything is asked, so a file that can't open (the error is
     /// thrown) never costs the user a prompt or their current document.
+    /// `access` stands in for the pane's own file access for this open.
     @discardableResult
-    func open(_ fileID: LeoEditorFileID, line: Int? = nil, column: Int? = nil) async throws -> LeoEditorOpenOutcome {
-        try await queue.runThrowing {
-            try await self.performOpen(fileID, line: line, column: column)
+    func open(
+        _ fileID: LeoEditorFileID, line: Int? = nil, column: Int? = nil,
+        access: (@MainActor (LeoHostID) throws -> any LeoFileAccess)? = nil
+    ) async throws -> LeoEditorOpenOutcome {
+        let makeAccess = access ?? self.makeAccess
+        return try await queue.runThrowing {
+            try await self.performOpen(fileID, line: line, column: column, makeAccess: makeAccess)
         }
     }
 
@@ -145,7 +150,10 @@ struct LeoEditorReveal: Equatable, Sendable {
 
     // MARK: - Operations (serialized)
 
-    private func performOpen(_ fileID: LeoEditorFileID, line: Int?, column: Int?) async throws -> LeoEditorOpenOutcome {
+    private func performOpen(
+        _ fileID: LeoEditorFileID, line: Int?, column: Int?,
+        makeAccess: @MainActor (LeoHostID) throws -> any LeoFileAccess
+    ) async throws -> LeoEditorOpenOutcome {
         if let document, document.fileID == fileID {
             requestReveal(fileID, line: line, column: column)
             return .alreadyOpen
