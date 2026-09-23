@@ -57,21 +57,35 @@ struct LeoProcessRunnerTests {
                 await outcome.set(.failure(error))
             }
         }
+        // However this test leaves -- a failed wait or `#require` included --
+        // the child must not outlive it: kill it if it's known, and step the
+        // runner's own escalation if it isn't.
+        var pid: pid_t?
+        var ended = false
+        defer {
+            if !ended {
+                if let pid { kill(pid, SIGKILL) }
+                scheduler.fireAll()
+                run.cancel()
+            }
+        }
 
         await awaitCondition(timeout: Self.hangGuard, message: "Process never started") {
             (try? String(contentsOf: pidFile, encoding: .utf8))?.hasSuffix("\n") == true
         }
-        let pid = try #require(pid_t((try String(contentsOf: pidFile, encoding: .utf8)).trimmingCharacters(in: .whitespacesAndNewlines)))
+        let child = try #require(pid_t((try String(contentsOf: pidFile, encoding: .utf8)).trimmingCharacters(in: .whitespacesAndNewlines)))
+        pid = child
         #expect(scheduler.delays == [0.2])
 
         scheduler.fireNext() // the deadline: SIGTERM, ignored
-        #expect(kill(pid, 0) == 0, "The process should have ignored SIGTERM")
+        #expect(kill(child, 0) == 0, "The process should have ignored SIGTERM")
         #expect(scheduler.delays == [1])
 
         scheduler.fireNext() // the grace period: SIGKILL
         await awaitCondition(timeout: Self.hangGuard, message: "SIGKILL never ended the run") { await outcome.value != nil }
-        if await outcome.value == nil { kill(pid, SIGKILL) }
+        if await outcome.value == nil { kill(child, SIGKILL) }
         await run.value
+        ended = true
 
         let result = await outcome.value
         #expect(throws: LeoDaemonError.timeout) { try result?.get() }
@@ -81,8 +95,31 @@ struct LeoProcessRunnerTests {
         scheduler.fireNext()
     }
 
+    /// The app's scheduler really runs what the escalation schedules: a
+    /// block fires, never before its delay, and a long delay isn't cut short
+    /// (a sentinel scheduled later with no delay fires first). No upper
+    /// bound on when: only `hangGuard` turns a hang into a failure.
+    @Test func dispatchSchedulerRunsBlocksNoSoonerThanTheirDelay() async {
+        let fired = FiredLog()
+        let start = ContinuousClock.now
+        LeoProcessScheduler.dispatch.after(3600) { fired.append("long") }
+        LeoProcessScheduler.dispatch.after(0.2) { fired.append("short:\(start.duration(to: .now) >= .milliseconds(200))") }
+        LeoProcessScheduler.dispatch.after(0) { fired.append("sentinel") }
+
+        await awaitCondition(timeout: Self.hangGuard, message: "The scheduled blocks never fired") { fired.entries.count >= 2 }
+
+        #expect(fired.entries == ["sentinel", "short:true"])
+    }
+
     /// Only turns a hang into a failure: nothing here is timed against it.
     static let hangGuard: TimeInterval = 60
+}
+
+private final class FiredLog: @unchecked Sendable {
+    private let lock = NSLock()
+    private var log: [String] = []
+    var entries: [String] { lock.withLock { log } }
+    func append(_ entry: String) { lock.withLock { log.append(entry) } }
 }
 
 /// Holds scheduled actions until the test fires them, in order.
@@ -95,6 +132,11 @@ private final class ManualScheduler: @unchecked Sendable {
     }
 
     var delays: [TimeInterval] { lock.withLock { pending.map(\.delay) } }
+
+    /// Fires everything, including what firing schedules.
+    func fireAll() {
+        while !delays.isEmpty { fireNext() }
+    }
 
     func fireNext() {
         let next = lock.withLock { pending.isEmpty ? nil : pending.removeFirst() }

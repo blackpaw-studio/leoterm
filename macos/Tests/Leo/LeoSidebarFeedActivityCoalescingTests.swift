@@ -19,10 +19,10 @@ struct LeoSidebarFeedActivityCoalescingTests {
     static let window = UInt64(LeoSidebarFeed.activityCoalesceInterval * 1_000_000_000)
 
     @Test func burstOfActivityEventsWithinTheWindowProducesOneEmission() async throws {
-        let harness = await Harness.connected(results: [[agent("alpha")]])
+        let harness = try await Harness.connected(results: [[agent("alpha")]])
         let baseline = await harness.recorder.values.count
 
-        await harness.send(
+        try await harness.send(
             .agentActivity(seq: 1, at: nil, agent: "alpha", activity: .working, currentAction: .init(kind: "tool", detail: "one")),
             .agentActivity(seq: 2, at: nil, agent: "alpha", activity: .working, currentAction: .init(kind: "tool", detail: "two")),
             .agentActivity(seq: 3, at: nil, agent: "alpha", activity: .idle, currentAction: .init(kind: "tool", detail: "three"))
@@ -30,12 +30,12 @@ struct LeoSidebarFeedActivityCoalescingTests {
 
         // One flush timer for the whole window, and nothing applied yet.
         try #require(await harness.feed.activityCoalesceTask != nil, "No coalescing window opened")
-        await harness.windowOpened()
+        try await harness.windowOpened()
         #expect(harness.clock.pending(Self.window).count == 1)
         #expect(await harness.recorder.values.count == baseline)
 
         harness.clock.fire(Self.window)
-        await until { await harness.recorder.last?.rows.first?.actionDetail == "three" }
+        try await until { await harness.recorder.last?.rows.first?.actionDetail == "three" }
 
         #expect(await harness.recorder.values.count == baseline + 1)
         #expect(await harness.recorder.last?.rows.first?.activity == .idle)
@@ -43,17 +43,17 @@ struct LeoSidebarFeedActivityCoalescingTests {
     }
 
     @Test func laterEventForAnAgentOverwritesAnEarlierOneInTheSameWindow() async throws {
-        let harness = await Harness.connected(results: [[agent("alpha"), agent("bravo")]])
+        let harness = try await Harness.connected(results: [[agent("alpha"), agent("bravo")]])
         let baseline = await harness.recorder.values.count
 
-        await harness.send(
+        try await harness.send(
             .agentActivity(seq: 1, at: nil, agent: "alpha", activity: .working, currentAction: .init(kind: nil, detail: "stale")),
             .agentActivity(seq: 2, at: nil, agent: "alpha", activity: .idle, currentAction: .init(kind: nil, detail: "fresh")),
             .agentActivity(seq: 3, at: nil, agent: "bravo", activity: .working, currentAction: .init(kind: nil, detail: "bravo-detail"))
         )
-        await harness.windowOpened()
+        try await harness.windowOpened()
         harness.clock.fire(Self.window)
-        await until { await harness.recorder.values.count > baseline }
+        try await until { await harness.recorder.values.count > baseline }
 
         #expect(await harness.recorder.values.count == baseline + 1)
         let snapshot = await harness.recorder.last
@@ -64,47 +64,47 @@ struct LeoSidebarFeedActivityCoalescingTests {
     }
 
     @Test func equalResultingSnapshotSkipsEmission() async throws {
-        let harness = await Harness.connected(results: [[agent("alpha")]])
+        let harness = try await Harness.connected(results: [[agent("alpha")]])
 
         // Prime the row's activity to .working/"busy" and let it flush.
-        await harness.send(.agentActivity(seq: 1, at: nil, agent: "alpha", activity: .working, currentAction: .init(kind: nil, detail: "busy")))
-        await harness.windowOpened()
+        try await harness.send(.agentActivity(seq: 1, at: nil, agent: "alpha", activity: .working, currentAction: .init(kind: nil, detail: "busy")))
+        try await harness.windowOpened()
         harness.clock.fire(Self.window)
-        await until { await harness.recorder.last?.rows.first?.actionDetail == "busy" }
+        try await until { await harness.recorder.last?.rows.first?.actionDetail == "busy" }
         let countAfterFirstFlush = await harness.recorder.values.count
 
         // A second window reporting the exact same activity/detail must not
         // produce another emission. Once that flush has run, a sentinel
         // window's emission must be the very next one.
-        await harness.send(.agentActivity(seq: 2, at: nil, agent: "alpha", activity: .working, currentAction: .init(kind: nil, detail: "busy")))
-        await harness.windowOpened()
+        try await harness.send(.agentActivity(seq: 2, at: nil, agent: "alpha", activity: .working, currentAction: .init(kind: nil, detail: "busy")))
+        try await harness.windowOpened()
         harness.clock.fire(Self.window)
-        await until { await harness.feed.activityCoalesceTask == nil }
-        await harness.send(.agentActivity(seq: 3, at: nil, agent: "alpha", activity: .idle, currentAction: .init(kind: nil, detail: "sentinel")))
-        await harness.windowOpened()
+        try await until { await harness.feed.activityCoalesceTask == nil }
+        try await harness.send(.agentActivity(seq: 3, at: nil, agent: "alpha", activity: .idle, currentAction: .init(kind: nil, detail: "sentinel")))
+        try await harness.windowOpened()
         harness.clock.fire(Self.window)
-        await until { await harness.recorder.last?.rows.first?.actionDetail == "sentinel" }
+        try await until { await harness.recorder.last?.rows.first?.actionDetail == "sentinel" }
 
         #expect(await harness.recorder.values.count == countAfterFirstFlush + 1)
         await harness.feed.stop()
     }
 
     @Test func lifecycleRefreshFlushesBufferedActivityInsteadOfLosingIt() async throws {
-        let harness = await Harness.connected(results: [[agent("alpha")], [agent("alpha"), agent("bravo")]])
+        let harness = try await Harness.connected(results: [[agent("alpha")], [agent("alpha"), agent("bravo")]])
 
         // Start a coalescing window, then -- before it flushes -- a spawn
         // event triggers a list refresh. The buffered activity must not be
         // dropped: the refresh's own emission must reflect it.
-        await harness.send(.agentActivity(seq: 1, at: nil, agent: "alpha", activity: .working, currentAction: .init(kind: nil, detail: "mid-window")))
-        let activityFlush = await harness.windowOpened()
-        await harness.send(.agentSpawned(seq: 2, at: nil, agent: agent("bravo")))
+        try await harness.send(.agentActivity(seq: 1, at: nil, agent: "alpha", activity: .working, currentAction: .init(kind: nil, detail: "mid-window")))
+        let activityFlush = try await harness.windowOpened()
+        try await harness.send(.agentSpawned(seq: 2, at: nil, agent: agent("bravo")))
 
         // The spawn drained the window, cancelling its flush timer...
         #expect(!harness.clock.pending(Self.window).contains(activityFlush))
         // ...and scheduled its own SSE-refresh one, which fires the refresh.
-        await harness.windowOpened()
+        try await harness.windowOpened()
         harness.clock.fire(Self.window)
-        await until { await harness.recorder.last?.rows.count == 2 }
+        try await until { await harness.recorder.last?.rows.count == 2 }
 
         #expect(await harness.daemon.listCallCount == 2)
         #expect(await harness.recorder.last?.rows.map(\.name).sorted() == ["alpha", "bravo"])
@@ -113,11 +113,11 @@ struct LeoSidebarFeedActivityCoalescingTests {
     }
 
     @Test func stopCancelsThePendingBufferAndDropsIt() async throws {
-        let harness = await Harness.connected(results: [[agent("alpha")]])
+        let harness = try await Harness.connected(results: [[agent("alpha")]])
         let baseline = await harness.recorder.values.count
 
-        await harness.send(.agentActivity(seq: 1, at: nil, agent: "alpha", activity: .working, currentAction: .init(kind: nil, detail: "orphaned")))
-        await harness.windowOpened()
+        try await harness.send(.agentActivity(seq: 1, at: nil, agent: "alpha", activity: .working, currentAction: .init(kind: nil, detail: "orphaned")))
+        try await harness.windowOpened()
         await harness.feed.stop()
 
         #expect(harness.clock.pending(Self.window).isEmpty)
@@ -131,10 +131,11 @@ private func agent(_ name: String) -> LeoAgent {
 }
 
 /// Re-checks `condition` until it holds. No deadline: the suite's time
-/// limit is the hang guard, so a slow machine only makes this slower.
-private func until(_ condition: @Sendable () async -> Bool) async {
+/// limit is the hang guard, so a slow machine only makes this slower. When
+/// the limit cancels the test, this throws instead of spinning on.
+private func until(_ condition: @Sendable () async -> Bool) async throws {
     while !(await condition()) {
-        try? await Task.sleep(nanoseconds: 1_000_000)
+        try await Task.sleep(nanoseconds: 1_000_000)
     }
 }
 
@@ -147,12 +148,12 @@ private struct Harness {
     let recorder: CoalescingRecorder
     let feed: LeoSidebarFeed
 
-    static func connected(results: [[LeoAgent]]) async -> Harness {
+    static func connected(results: [[LeoAgent]]) async throws -> Harness {
         let harness = await Harness(daemon: CoalescingDaemon(results: results), recorder: CoalescingRecorder())
         await harness.feed.start()
         await harness.feed.setPolling(true)
-        await until { await harness.activity.fetchCount == 1 }
-        await until {
+        try await until { await harness.activity.fetchCount == 1 }
+        try await until {
             guard let last = await harness.recorder.last else { return false }
             return last.connectivity == .connected && !last.listRefreshSucceeded
         }
@@ -172,15 +173,15 @@ private struct Harness {
 
     /// Waits for a coalescing (or SSE-refresh) sleep to be pending; its id.
     @discardableResult
-    func windowOpened() async -> Int {
-        await until { !clock.pending(LeoSidebarFeedActivityCoalescingTests.window).isEmpty }
+    func windowOpened() async throws -> Int {
+        try await until { !clock.pending(LeoSidebarFeedActivityCoalescingTests.window).isEmpty }
         return clock.pending(LeoSidebarFeedActivityCoalescingTests.window)[0]
     }
 
     /// Sends `events` and returns once the feed has handled every one.
-    func send(_ events: LeoObserveEvent...) async {
+    func send(_ events: LeoObserveEvent...) async throws {
         events.forEach(activity.send)
-        await until { activity.hasDeliveredEverything }
+        try await until { activity.hasDeliveredEverything }
     }
 }
 
