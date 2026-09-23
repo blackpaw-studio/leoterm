@@ -33,7 +33,7 @@ enum LeoSidebarSplitMetrics {
     }
 
     /// What the split does to keep the terminal floor after a layout
-    /// (D-058).
+    /// (D-058, D-059).
     enum FloorStep: Equatable {
         case none
         /// Collapse the agents sidebar, as when a pane opens (D-036).
@@ -41,16 +41,52 @@ enum LeoSidebarSplitMetrics {
         /// Take this much from the side panes -- each down to its minimum
         /// at most -- and give it to the terminal.
         case widenTerminal(by: CGFloat)
+        /// Give this much back to the side pane the floor squeezed.
+        case growPane(by: CGFloat)
+        /// Bring back the sidebar the floor collapsed.
+        case restoreSidebar
     }
 
-    /// The floor holds beside a side pane only, and only a narrowing split
-    /// -- a window resize, never a divider drag or a pane opening --
-    /// acts on it: once the terminal is under its floor, the sidebar
-    /// collapses first, then the side panes give way.
-    static func floorStep(terminalWidth: CGFloat, splitWidthChange: CGFloat, isSidebarShown: Bool, isSidePaneShown: Bool) -> FloorStep {
-        let deficit = terminalFloor - terminalWidth
-        guard isSidePaneShown, splitWidthChange < -widthChangeTolerance, deficit > widthChangeTolerance else { return .none }
-        return isSidebarShown ? .collapseSidebar : .widenTerminal(by: deficit)
+    /// The split as a layout leaves it.
+    struct FloorState: Equatable {
+        var terminalWidth: CGFloat
+        /// Since the last layout: under zero, the window narrowed.
+        var splitWidthChange: CGFloat
+        var isSidebarShown: Bool
+        var isSidePaneShown: Bool
+        /// How far the side pane the floor squeezed is under its earlier
+        /// width.
+        var paneRegrowth: CGFloat = 0
+        /// The width (divider included) of the sidebar the floor
+        /// collapsed; nil when it's shown or the user hid it.
+        var restorableSidebarWidth: CGFloat?
+    }
+
+    /// Room the terminal keeps above its floor beside a sidebar coming
+    /// back, so a window jiggled where it collapsed doesn't flip it.
+    static let sidebarRestoreSlack: CGFloat = 24
+
+    /// Only a resize acts -- never a divider drag or a pane opening.
+    /// Narrowing with the terminal under its floor collapses the sidebar
+    /// first, then the side panes give way. Widening undoes that in
+    /// reverse: the squeezed pane grows back first, then the sidebar the
+    /// floor collapsed returns (with `sidebarRestoreSlack`), and only then
+    /// does the terminal keep the extra.
+    static func floorStep(_ state: FloorState) -> FloorStep {
+        if state.splitWidthChange < -widthChangeTolerance {
+            let deficit = terminalFloor - state.terminalWidth
+            guard state.isSidePaneShown, deficit > widthChangeTolerance else { return .none }
+            return state.isSidebarShown ? .collapseSidebar : .widenTerminal(by: deficit)
+        }
+        guard state.splitWidthChange > widthChangeTolerance else { return .none }
+        let room = state.terminalWidth - terminalFloor
+        if state.paneRegrowth > widthChangeTolerance, room > widthChangeTolerance {
+            return .growPane(by: min(state.paneRegrowth, room))
+        }
+        if let sidebarWidth = state.restorableSidebarWidth, room - sidebarWidth >= sidebarRestoreSlack {
+            return .restoreSidebar
+        }
+        return .none
     }
 
     /// Width of the split view's divider, used by `TerminalController` when
@@ -150,7 +186,9 @@ struct LeoSidebarSplit<Terminal: View>: View {
             onBrowserPane: { session.browserPane = $0 },
             // Not `setSidebarVisible`: an automatic collapse isn't the
             // user's preference for new windows.
-            onSidebarAutoCollapse: { session.isSidebarVisible = false }
+            onSidebarAutoCollapse: { session.isSidebarVisible = false },
+            // Nor is it coming back once the window widens (D-059).
+            onSidebarAutoRestore: { session.isSidebarVisible = true }
         )
     }
 }

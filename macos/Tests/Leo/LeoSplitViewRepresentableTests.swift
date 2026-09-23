@@ -324,24 +324,38 @@ import Testing
 
     // MARK: Terminal floor on resize and re-show (D-058)
 
-    /// Both side panes open in a 1 400 pt window, the sidebar at its
-    /// minimum beside them.
+    /// How often the split collapsed or restored the sidebar for the floor.
+    @MainActor private final class FloorCounts {
+        var collapses = 0
+        var restores = 0
+    }
+
+    /// Both side panes open in a 1 400 pt window, the sidebar (shown
+    /// unless `sidebarVisible` is false) at its minimum beside them.
     private func withBothPanes(
-        _ body: (Harness, LeoWorkspaceBrowserModel, LeoEditorPaneModel, () -> Int) async throws -> Void
+        sidebarVisible: Bool = true,
+        _ body: (Harness, LeoWorkspaceBrowserModel, LeoEditorPaneModel, FloorCounts) async throws -> Void
     ) async throws {
         let sandbox = try LeoFileSandbox()
         defer { sandbox.cleanUp() }
         let browser = Self.makeBrowser()
         let editor = Self.makeEditor()
-        var autoCollapses = 0
+        let counts = FloorCounts()
         let harness = Harness(
-            preferredWidth: LeoSidebarSplitMetrics.minimumWidth, windowWidth: 1_400, editor: editor, browser: browser,
-            onSidebarAutoCollapse: { autoCollapses += 1 })
+            preferredWidth: LeoSidebarSplitMetrics.minimumWidth, windowWidth: 1_400, isSidebarVisible: sidebarVisible,
+            editor: editor, browser: browser,
+            onSidebarAutoCollapse: { counts.collapses += 1 }, onSidebarAutoRestore: { counts.restores += 1 })
         await browser.open(LeoEditorAgentContext(host: .local, name: "scratch", workspace: sandbox.root))
         try await editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.swift", "let a = 1")))
         await harness.settle()
-        try #require(harness.sidebarItem?.isCollapsed == false)
-        try await body(harness, browser, editor) { autoCollapses }
+        if !sidebarVisible {
+            // The factory's first width shows it on layout; the
+            // representable's next update hides it again, as here.
+            harness.sidebarItem?.isCollapsed = true
+            await harness.settle()
+        }
+        try #require(harness.sidebarItem?.isCollapsed == !sidebarVisible)
+        try await body(harness, browser, editor, counts)
         await editor.close()
         await browser.close()
     }
@@ -349,13 +363,13 @@ import Testing
     /// Narrowing the window collapses the sidebar before the terminal goes
     /// under its floor, once.
     @Test func narrowingTheWindowCollapsesTheSidebarToKeepTheTerminalFloor() async throws {
-        try await withBothPanes { harness, _, _, autoCollapses in
+        try await withBothPanes { harness, _, _, counts in
             let editorWidth = harness.editorWidth
 
             await harness.resizeWindow(stepwiseTo: 1_100)
 
             #expect(harness.sidebarItem?.isCollapsed == true)
-            #expect(autoCollapses() == 1)
+            #expect(counts.collapses == 1)
             #expect(harness.terminalWidth >= LeoSidebarSplitMetrics.terminalFloor)
             #expect(abs(harness.editorWidth - editorWidth) <= 1, "the terminal absorbed the rest")
         }
@@ -388,12 +402,12 @@ import Testing
     /// A divider drag doesn't narrow the window: the sidebar stays where
     /// the user put it.
     @Test func draggingTheSidebarDividerDoesNotCollapseIt() async throws {
-        try await withBothPanes { harness, _, _, autoCollapses in
+        try await withBothPanes { harness, _, _, counts in
             harness.dragDivider(to: LeoSidebarSplitMetrics.maximumWidth)
             await harness.settle()
 
             #expect(harness.sidebarItem?.isCollapsed == false)
-            #expect(autoCollapses() == 0)
+            #expect(counts.collapses == 0)
         }
     }
 
@@ -412,6 +426,75 @@ import Testing
             await browser.close()
             await harness.settle()
             #expect(!controller.sidebarSqueezesTerminal(atWidth: LeoSidebarSplitMetrics.maximumWidth))
+        }
+    }
+
+    // MARK: Widening again (D-059)
+
+    /// A sidebar collapsed by the floor is transient: widening back gives
+    /// the editor its width back first, then the sidebar returns, and the
+    /// window ends as it began.
+    @Test func wideningBackRestoresTheSidebarAndTheEditorsWidth() async throws {
+        try await withBothPanes { harness, _, _, counts in
+            let widths = (harness.sidebarWidth, harness.terminalWidth, harness.browserWidth, harness.editorWidth)
+
+            await harness.resizeWindow(stepwiseTo: 700)
+            await harness.resizeWindow(stepwiseTo: 1_400)
+
+            #expect(harness.sidebarItem?.isCollapsed == false)
+            #expect((counts.collapses, counts.restores) == (1, 1))
+            #expect(abs(harness.sidebarWidth - widths.0) <= 1)
+            #expect(abs(harness.terminalWidth - widths.1) <= 1)
+            #expect(abs(harness.browserWidth - widths.2) <= 1)
+            #expect(abs(harness.editorWidth - widths.3) <= 1)
+        }
+    }
+
+    /// The editor grows back before the terminal takes any of the extra.
+    @Test func theSqueezedEditorGrowsBackBeforeTheTerminal() async throws {
+        try await withBothPanes { harness, _, _, _ in
+            await harness.resizeWindow(stepwiseTo: 900)
+            let editorWidth = harness.editorWidth
+
+            await harness.resizeWindow(stepwiseTo: 950)
+
+            #expect(abs(harness.editorWidth - (editorWidth + 50)) <= 1)
+            #expect(abs(harness.terminalWidth - LeoSidebarSplitMetrics.terminalFloor) <= 1)
+        }
+    }
+
+    /// Jiggling the window at the width where the sidebar collapsed
+    /// doesn't flip it back and forth.
+    @Test func jigglingAtTheCollapseEdgeDoesNotOscillate() async throws {
+        try await withBothPanes { harness, _, _, counts in
+            var width = harness.window.contentLayoutRect.width
+            while harness.sidebarItem?.isCollapsed == false, width > 900 {
+                width -= Harness.resizeStep
+                await harness.resizeWindow(stepwiseTo: width)
+            }
+            try #require(counts.collapses == 1)
+
+            for _ in 0..<5 {
+                await harness.resizeWindow(stepwiseTo: width + Harness.resizeStep)
+                await harness.resizeWindow(stepwiseTo: width)
+            }
+
+            #expect(harness.sidebarItem?.isCollapsed == true)
+            #expect((counts.collapses, counts.restores) == (1, 0))
+        }
+    }
+
+    /// A sidebar the user hid stays hidden however wide the window gets.
+    @Test func aSidebarTheUserHidStaysHidden() async throws {
+        try await withBothPanes(sidebarVisible: false) { harness, _, _, counts in
+            let editorWidth = harness.editorWidth
+
+            await harness.resizeWindow(stepwiseTo: 800)
+            await harness.resizeWindow(stepwiseTo: 1_600)
+
+            #expect(harness.sidebarItem?.isCollapsed == true)
+            #expect((counts.collapses, counts.restores) == (0, 0))
+            #expect(abs(harness.editorWidth - editorWidth) <= 1)
         }
     }
 
@@ -456,17 +539,19 @@ import Testing
 
         init(
             preferredWidth: CGFloat = 240, windowWidth: CGFloat = LeoSplitViewRepresentableTests.windowWidth,
-            editor: LeoEditorPaneModel? = nil, browser: LeoWorkspaceBrowserModel? = nil, onSidebarAutoCollapse: @escaping () -> Void = {}
+            isSidebarVisible: Bool = true, editor: LeoEditorPaneModel? = nil, browser: LeoWorkspaceBrowserModel? = nil,
+            onSidebarAutoCollapse: @escaping () -> Void = {}, onSidebarAutoRestore: @escaping () -> Void = {}
         ) {
             components = LeoSplitViewControllerFactory.make(
-                isSidebarVisible: true,
+                isSidebarVisible: isSidebarVisible,
                 preferredWidth: preferredWidth,
                 onDividerWidthChange: { _ in },
                 sidebar: Self.flexibleView(),
                 detail: Self.flexibleView(),
                 editor: editor,
                 browser: browser,
-                onSidebarAutoCollapse: onSidebarAutoCollapse)
+                onSidebarAutoCollapse: onSidebarAutoCollapse,
+                onSidebarAutoRestore: onSidebarAutoRestore)
 
             window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: windowWidth, height: LeoSplitViewRepresentableTests.windowHeight),

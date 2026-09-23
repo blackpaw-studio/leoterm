@@ -41,6 +41,8 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
     /// The sidebar collapsed, or stayed collapsed, to keep the terminal at
     /// its floor (D-036, D-058).
     var onSidebarAutoCollapse: () -> Void = {}
+    /// The sidebar the floor collapsed came back (D-059).
+    var onSidebarAutoRestore: () -> Void = {}
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -55,7 +57,8 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
             detail: AnyView(detail),
             editor: editor,
             browser: browser,
-            onSidebarAutoCollapse: onSidebarAutoCollapse)
+            onSidebarAutoCollapse: onSidebarAutoCollapse,
+            onSidebarAutoRestore: onSidebarAutoRestore)
 
         context.coordinator.sidebarHosting = components.sidebarHosting
         context.coordinator.detailHosting = components.detailHosting
@@ -70,6 +73,7 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
     func updateNSViewController(_ controller: LeoSplitViewController, context: Context) {
         controller.onDividerWidthChange = onDividerWidthChange
         controller.onSidebarAutoCollapse = onSidebarAutoCollapse
+        controller.onSidebarAutoRestore = onSidebarAutoRestore
         context.coordinator.sidebarHosting?.rootView = AnyView(sidebar)
         context.coordinator.detailHosting?.rootView = AnyView(detail)
 
@@ -92,6 +96,8 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
         controller.lastKnownVisible = isSidebarVisible
 
         guard sidebarItem.isCollapsed == isSidebarVisible else { return }
+        // The user's call from here on: not the floor's to undo.
+        controller.forgetFloorCollapse()
 
         // `isCollapsed` flips immediately while the pane's frame animates
         // over several frames. Every intermediate `splitViewDidResizeSubviews`
@@ -135,7 +141,8 @@ enum LeoSplitViewControllerFactory {
         detail: AnyView,
         editor: LeoEditorPaneModel? = nil,
         browser: LeoWorkspaceBrowserModel? = nil,
-        onSidebarAutoCollapse: @escaping () -> Void = {}
+        onSidebarAutoCollapse: @escaping () -> Void = {},
+        onSidebarAutoRestore: @escaping () -> Void = {}
     ) -> (controller: LeoSplitViewController, sidebarHosting: NSHostingController<AnyView>, detailHosting: NSHostingController<AnyView>) {
         let controller = LeoSplitViewController()
 
@@ -177,6 +184,7 @@ enum LeoSplitViewControllerFactory {
         controller.lastKnownVisible = isSidebarVisible
         controller.onDividerWidthChange = onDividerWidthChange
         controller.onSidebarAutoCollapse = onSidebarAutoCollapse
+        controller.onSidebarAutoRestore = onSidebarAutoRestore
         controller.applyProgrammaticWidth(preferredWidth)
 
         return (controller, sidebarHosting, detailHosting)
@@ -204,6 +212,9 @@ final class LeoSplitViewController: NSSplitViewController {
     /// The sidebar was collapsed to keep the terminal at its floor; the
     /// window's session records it as hidden (not persisted).
     var onSidebarAutoCollapse: () -> Void = {}
+    /// The sidebar the floor collapsed came back as the window widened
+    /// (D-059); the window's session records it as shown (not persisted).
+    var onSidebarAutoRestore: () -> Void = {}
     var isApplyingProgrammaticWidth = false
     var lastPersistedWidth: CGFloat = 0
     /// Tracks the sidebar's visibility as of the last `updateNSViewController`
@@ -286,11 +297,53 @@ final class LeoSplitViewController: NSSplitViewController {
     }
 
     /// Collapses the sidebar for the terminal floor; the window's session
-    /// records it as hidden.
+    /// records it as hidden. It's transient (D-059): remembered, with its
+    /// width, to come back as the window widens.
     private func autoCollapseSidebar() {
-        sidebarItem?.isCollapsed = true
+        guard let sidebarItem else { return }
+        floorCollapsedSidebarWidth = sidebarItem.viewController.view.frame.width
+        sidebarItem.isCollapsed = true
         lastKnownVisible = false
         onSidebarAutoCollapse()
+    }
+
+    /// The width of the sidebar the floor collapsed, to restore it at.
+    private var floorCollapsedSidebarWidth: CGFloat?
+    /// The side pane the floor squeezed, and its width before.
+    private var squeezedPane: (item: NSSplitViewItem, width: CGFloat)?
+
+    /// The user showed or hid the sidebar: a collapse the floor made is
+    /// no longer the floor's to undo.
+    func forgetFloorCollapse() {
+        floorCollapsedSidebarWidth = nil
+    }
+
+    private func restoreSidebar() {
+        guard let sidebarItem, let width = floorCollapsedSidebarWidth else { return }
+        floorCollapsedSidebarWidth = nil
+        isApplyingProgrammaticWidth = true
+        sidebarItem.isCollapsed = false
+        lastKnownVisible = true
+        applyProgrammaticWidth(width)
+        onSidebarAutoRestore()
+    }
+
+    /// How far the pane the floor squeezed is under its earlier width;
+    /// forgotten once it's back, or closed.
+    private func squeezedPaneRegrowth() -> CGFloat {
+        guard let squeezed = squeezedPane, !squeezed.item.isCollapsed else {
+            squeezedPane = nil
+            return 0
+        }
+        let regrowth = squeezed.width - squeezed.item.viewController.view.frame.width
+        if regrowth <= 0.5 { squeezedPane = nil }
+        return max(0, regrowth)
+    }
+
+    /// The shown side pane a move of the terminal's trailing divider
+    /// resizes: the one with the lowest holding priority (the editor).
+    private var absorbingPane: NSSplitViewItem? {
+        sidePaneItems.filter { !$0.isCollapsed }.min { $0.holdingPriority < $1.holdingPriority }
     }
 
     /// The split's width at the last layout, to tell a narrowing window
@@ -307,20 +360,24 @@ final class LeoSplitViewController: NSSplitViewController {
         let splitWidth = splitView.bounds.width
         let change = lastSplitWidth.map { splitWidth - $0 } ?? 0
         lastSplitWidth = splitWidth
-        guard change < 0 else { return }
+        guard abs(change) > 0.5 else { return }
         DispatchQueue.main.async { [weak self] in self?.applyFloorStep(splitWidthChange: change) }
     }
 
     private func applyFloorStep(splitWidthChange: CGFloat) {
         guard isReadyToPositionDivider, let sidebarItem, let detailItem else { return }
         view.layoutSubtreeIfNeeded()
-        let step = LeoSidebarSplitMetrics.floorStep(
+        let step = LeoSidebarSplitMetrics.floorStep(LeoSidebarSplitMetrics.FloorState(
             terminalWidth: detailItem.viewController.view.frame.width, splitWidthChange: splitWidthChange,
-            isSidebarShown: !sidebarItem.isCollapsed, isSidePaneShown: sidePaneItems.contains { !$0.isCollapsed })
+            isSidebarShown: !sidebarItem.isCollapsed, isSidePaneShown: sidePaneItems.contains { !$0.isCollapsed },
+            paneRegrowth: squeezedPaneRegrowth(),
+            restorableSidebarWidth: sidebarItem.isCollapsed ? floorCollapsedSidebarWidth.map { $0 + splitView.dividerThickness } : nil))
         switch step {
         case .none: break
         case .collapseSidebar: autoCollapseSidebar()
         case let .widenTerminal(deficit): widenTerminal(by: deficit)
+        case let .growPane(amount): moveTerminalTrailingDivider(by: -amount)
+        case .restoreSidebar: restoreSidebar()
         }
     }
 
@@ -328,17 +385,26 @@ final class LeoSplitViewController: NSSplitViewController {
     /// the side panes have above their minimums: the holding priorities
     /// then take it from the editor first, then the browser. A divider
     /// move (unlike changing priorities) also resets the panes' preferred
-    /// widths, so widening the window again goes to the terminal.
+    /// widths, so widening the window again goes to the terminal -- after
+    /// the squeezed pane (remembered here) grows back.
     private func widenTerminal(by deficit: CGFloat) {
-        let panes = splitView.arrangedSubviews
-        guard let detailItem, panes.count == splitViewItems.count,
-              let terminalIndex = splitViewItems.firstIndex(of: detailItem), terminalIndex < panes.count - 1 else { return }
         let slack = sidePaneItems.filter { !$0.isCollapsed }.reduce(0) { total, pane in
             total + max(0, pane.viewController.view.frame.width - pane.minimumThickness)
         }
         let move = min(deficit, slack)
         guard move > 0.5 else { return }
-        splitView.setPosition(panes[terminalIndex].frame.maxX + move, ofDividerAt: terminalIndex)
+        if squeezedPane == nil, let pane = absorbingPane {
+            squeezedPane = (pane, pane.viewController.view.frame.width)
+        }
+        moveTerminalTrailingDivider(by: move)
+    }
+
+    /// Positive widens the terminal, negative gives the side panes more.
+    private func moveTerminalTrailingDivider(by offset: CGFloat) {
+        let panes = splitView.arrangedSubviews
+        guard let detailItem, panes.count == splitViewItems.count,
+              let terminalIndex = splitViewItems.firstIndex(of: detailItem), terminalIndex < panes.count - 1 else { return }
+        splitView.setPosition(panes[terminalIndex].frame.maxX + offset, ofDividerAt: terminalIndex)
     }
 
     /// After `item` (the editor) is shown: widens it to half of what it

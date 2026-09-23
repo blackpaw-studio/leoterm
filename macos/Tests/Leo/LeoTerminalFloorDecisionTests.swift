@@ -11,8 +11,13 @@ struct LeoTerminalFloorDecisionTests {
     private typealias Metrics = LeoSidebarSplitMetrics
     private static let floor = LeoSidebarSplitMetrics.terminalFloor
 
-    private func step(terminal: CGFloat, change: CGFloat, sidebar: Bool = true, sidePane: Bool = true) -> LeoSidebarSplitMetrics.FloorStep {
-        Metrics.floorStep(terminalWidth: terminal, splitWidthChange: change, isSidebarShown: sidebar, isSidePaneShown: sidePane)
+    private func step(
+        terminal: CGFloat, change: CGFloat, sidebar: Bool = true, sidePane: Bool = true,
+        regrowth: CGFloat = 0, restorableSidebar: CGFloat? = nil
+    ) -> LeoSidebarSplitMetrics.FloorStep {
+        Metrics.floorStep(LeoSidebarSplitMetrics.FloorState(
+            terminalWidth: terminal, splitWidthChange: change, isSidebarShown: sidebar, isSidePaneShown: sidePane,
+            paneRegrowth: regrowth, restorableSidebarWidth: restorableSidebar))
     }
 
     // MARK: Squeezing
@@ -51,5 +56,34 @@ struct LeoTerminalFloorDecisionTests {
     @Test func withoutASidePaneNothingChanges() {
         #expect(step(terminal: 100, change: -10, sidePane: false) == .none)
         #expect(step(terminal: 100, change: -10, sidebar: false, sidePane: false) == .none)
+    }
+
+    // MARK: Widening (D-059)
+
+    /// What the side panes gave up comes back first, as far as the
+    /// terminal has room above its floor.
+    @Test func wideningGivesTheSqueezedPaneBackItsWidthFirst() {
+        #expect(step(terminal: Self.floor + 5, change: 5, sidebar: false, regrowth: 200, restorableSidebar: 201) == .growPane(by: 5))
+        #expect(step(terminal: Self.floor + 50, change: 5, sidebar: false, regrowth: 20) == .growPane(by: 20))
+        #expect(step(terminal: Self.floor, change: 5, sidebar: false, regrowth: 20) == .none)
+    }
+
+    /// Then the sidebar the floor collapsed comes back, once the terminal
+    /// keeps its floor plus some slack beside it -- so a window jiggled at
+    /// the edge doesn't flip it back and forth.
+    @Test func thenTheSidebarTheFloorCollapsedComesBackWithSlack() {
+        let slack = Metrics.sidebarRestoreSlack
+        #expect(slack > 2 * 5, "more than a live-resize step each way")
+        #expect(step(terminal: Self.floor + 201 + slack, change: 5, sidebar: false, restorableSidebar: 201) == .restoreSidebar)
+        #expect(step(terminal: Self.floor + 201 + slack - 1, change: 5, sidebar: false, restorableSidebar: 201) == .none)
+        #expect(step(terminal: Self.floor + 500, change: 5, sidebar: false, sidePane: false, restorableSidebar: 201) == .restoreSidebar)
+    }
+
+    /// A sidebar the user hid (nothing to restore) stays hidden, and
+    /// nothing comes back without the window widening.
+    @Test func onlyWideningRestoresAndOnlyWhatTheFloorTook() {
+        #expect(step(terminal: Self.floor + 500, change: 5, sidebar: false) == .none)
+        #expect(step(terminal: Self.floor + 500, change: 0, sidebar: false, regrowth: 20, restorableSidebar: 201) == .none)
+        #expect(step(terminal: Self.floor + 500, change: -5, sidebar: false, regrowth: 20, restorableSidebar: 201) == .none)
     }
 }
