@@ -300,6 +300,49 @@ struct LeoEditorBannerTests {
         }
     }
 
+    /// Once a close is decided, the model refuses edits itself -- a
+    /// keystroke that lands before the view's lock does isn't taken (the
+    /// close would drop it) -- and the view puts the model's text back.
+    @Test(.timeLimit(.minutes(1)))
+    func aKeystrokeRacingTheLockIsRefusedAndUndone() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let access = LeoHangingAccess(LeoFileAccessor.local())
+            let model = LeoEditorPaneModel(makeAccess: { _ in access })
+            let pane = LeoEditorPaneViewController(model: model)
+            try await model.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
+            model.document?.edit("b")
+            await nextTurn()
+            model.confirmUnsaved = { _ in .discard }
+            access.hangsWrites = true
+            let commandS = Task { await model.document?.save() }
+            await access.waitUntilWriting()
+            let closing = Task { await model.close() }
+            #expect(await eventually { model.isCommittedToClose })
+
+            #expect(!model.edit("typed", revision: model.document?.contentRevision ?? 0))
+            #expect(model.document?.text == "b")
+            pane.textView.string = "b, typed"
+            pane.textDidChange(Notification(name: NSText.didChangeNotification, object: pane.textView))
+            #expect(model.document?.text == "b", "not taken")
+            #expect(pane.textView.string == "b", "put back")
+
+            access.release()
+            _ = await commandS.value
+            #expect(await closing.value)
+        }
+    }
+
+    /// Before any close is decided, edits go through the model as ever.
+    @Test func editsGoThroughWhileNoCloseIsDecided() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let model = LeoEditorPaneModel(makeAccess: { _ in LeoFileAccessor.local() })
+            try await model.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
+            #expect(model.edit("b", revision: model.document?.contentRevision ?? 0))
+            #expect(model.document?.text == "b")
+            #expect(model.document?.isDirty == true)
+        }
+    }
+
     private func eventually(_ condition: () -> Bool) async -> Bool {
         let deadline = ContinuousClock.now + .seconds(5)
         while !condition(), ContinuousClock.now < deadline {

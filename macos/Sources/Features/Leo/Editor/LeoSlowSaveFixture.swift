@@ -14,21 +14,24 @@ enum LeoSlowSaveFixture {
         return .seconds(seconds)
     }
 
-    static func wrap(_ access: any LeoFileAccess, delay: Duration) -> any LeoFileAccess {
-        SlowSaves(base: access, delay: delay)
+    /// `onHold`: a save has entered its hold (for tests).
+    static func wrap(_ access: any LeoFileAccess, delay: Duration, onHold: @escaping @Sendable () -> Void = {}) -> any LeoFileAccess {
+        SlowSaves(base: access, delay: delay, onHold: onHold)
     }
 
     private final class SlowSaves: LeoFileAccess, @unchecked Sendable {
         private let base: any LeoFileAccess
         private let delay: Duration
+        private let onHold: @Sendable () -> Void
         private let lock = NSLock()
         private var isClosed = false
         /// Holds in progress, cut short by `close`.
         private var holds: [UUID: Task<Void, Never>] = [:]
 
-        init(base: any LeoFileAccess, delay: Duration) {
+        init(base: any LeoFileAccess, delay: Duration, onHold: @escaping @Sendable () -> Void) {
             self.base = base
             self.delay = delay
+            self.onHold = onHold
         }
 
         func list(_ path: String) async throws -> [LeoFileEntry] { try await base.list(path) }
@@ -47,12 +50,15 @@ enum LeoSlowSaveFixture {
                 holds[id] = hold
                 return hold
             }
+            if hold != nil { onHold() }
             await hold?.value
             let isAbandoned = lock.withLock {
                 holds[id] = nil
                 return isClosed
             }
             guard !isAbandoned else { throw LeoFileAccessError.unavailable(reason: "the save was abandoned") }
+            // Left anyway once the write is under way, it may still land: as
+            // for any real save in flight under Quit Anyway (B-022).
             return try await base.write(data, to: path, expecting: expected)
         }
 

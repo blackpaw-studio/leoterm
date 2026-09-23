@@ -119,6 +119,17 @@ struct LeoEditorReveal: Equatable, Sendable {
         Task { await document.abandon() }
     }
 
+    /// The user's edit to the document, unless a close is decided
+    /// (`isCommittedToClose`): nothing typed then would be kept, so it's
+    /// refused here, whether or not the view has locked yet. `false` when
+    /// refused; the view puts the document's text back.
+    @discardableResult
+    func edit(_ text: String, revision: Int) -> Bool {
+        guard !isCommittedToClose else { return false }
+        document?.edit(text, revision: revision)
+        return true
+    }
+
     /// What `~` means on `host`.
     func homeDirectory(on host: LeoHostID) async throws -> String {
         let access = try makeAccess(host)

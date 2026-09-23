@@ -236,7 +236,14 @@ final class LeoEditorPaneViewController: NSViewController {
 
 extension LeoEditorPaneViewController: NSTextViewDelegate {
     func textDidChange(_ notification: Notification) {
+        guard model.edit(textView.string, revision: shownRevision) else {
+            // A close is decided and the lock hadn't landed yet: put the
+            // document's text back and lock now.
+            guard let document = shownDocument else { return }
+            textView.load(document.text, keepingSelection: true)
+            textView.isEditable = isEditable(document)
+            return
+        }
         textView.highlightEdits()
-        model.document?.edit(textView.string, revision: shownRevision)
     }
 }
