@@ -81,15 +81,15 @@ import Testing
 
         let sidebar = FirstResponderView()
         window.contentView?.addSubview(sidebar)
-        let toSidebar = await recorder.reports(1) { window.makeFirstResponder(sidebar) }
+        let toSidebar = try await recorder.reports(1) { window.makeFirstResponder(sidebar) }
         #expect(toSidebar == [.focusChanged(nil)], "the sidebar takes keyboard focus; the tab stays in view")
 
         appState.isActive = false
-        let deactivated = await recorder.reports(2) { window.makeFirstResponder(surface) }
+        let deactivated = try await recorder.reports(2) { window.makeFirstResponder(surface) }
         #expect(deactivated == [.viewingChanged(nil), .focusSuspended])
 
         appState.isActive = true
-        let reactivated = await recorder.reports(2) { controller.focusedSurface = surface }
+        let reactivated = try await recorder.reports(2) { controller.focusedSurface = surface }
         #expect(reactivated == [.viewingChanged(handle), .focusChanged(handle)], "viewing is reported before focus")
     }
 
@@ -159,13 +159,17 @@ private final class FirstResponderView: NSView {
     /// Runs `action` and returns the reports received once `count` of them
     /// have arrived (or the deadline passed), the main queue has drained
     /// every focus callback `action` queued, and each report the host
-    /// yielded has arrived -- so a late extra report is counted too.
-    func reports(_ count: Int, during action: () -> Void) async -> [AttachLifecycleEvent] {
+    /// yielded has arrived -- so a late extra report is counted too. Throws
+    /// if a yielded report never arrives: the order check alone would miss
+    /// a lost extra.
+    func reports(
+        _ count: Int, during action: () -> Void, sourceLocation: SourceLocation = #_sourceLocation
+    ) async throws -> [AttachLifecycleEvent] {
         let start = received.count
         action()
         await waitUntil { $0.count >= start + count }
         await drainMainQueue()
-        await caughtUp()
+        try #require(await caughtUp(), "a yielded focus report never arrived", sourceLocation: sourceLocation)
         return Array(received[start...])
     }
 
@@ -183,7 +187,7 @@ private final class FirstResponderView: NSView {
     }
 
     /// Whether every report the host has yielded so far has arrived.
-    @discardableResult func caughtUp() async -> Bool {
+    func caughtUp() async -> Bool {
         await waitUntil { [host] in $0.count >= host.focusReportCount }
     }
 
