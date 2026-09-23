@@ -34,6 +34,17 @@ extension LeoHostSelection {
         return LeoFileAccessor.sftp(launcher: LeoSFTPProcessLauncher(executable: sshExecutable, arguments: arguments))
     }
 
+    /// File access for `host`, which must be the selected host: only it has
+    /// a tunnel (one host at a time, D-008).
+    func makeFileAccess(for host: LeoHostID) throws -> any LeoFileAccess {
+        guard host == selected else {
+            throw LeoFileAccessError.unavailable(
+                reason: "Leo is connected to \(selected.displayName), not \(host.displayName). Switch hosts to open this file"
+            )
+        }
+        return try makeFileAccess()
+    }
+
     /// The tunnel's ControlMaster socket for `configuration`, in the
     /// owner-only `controlSocketDirectory` (short whatever the home
     /// directory; see `LeoControlSocketDirectory`), scoped to this app

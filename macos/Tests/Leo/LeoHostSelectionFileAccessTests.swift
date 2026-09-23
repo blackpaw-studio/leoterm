@@ -31,6 +31,18 @@ import Testing
         selection.shutdown()
     }
 
+    /// Only the selected host has a tunnel, so an agent's files on any other
+    /// host can't be opened until you switch to it.
+    @Test func fileAccessForAHostIsOnlyForTheSelectedOne() async throws {
+        let selection = LeoHostSelectionTestSupport.makeSelection(hosts: [configuration], transport: LeoAlwaysHealthyTransport())
+        await selection.start(flavor: .socketEvents)
+
+        #expect(try selection.makeFileAccess(for: .local) is LeoFileAccessor<LeoLocalFileBackend>)
+        let expected = LeoFileAccessError.unavailable(reason: "Leo is connected to localhost, not work. Switch hosts to open this file")
+        #expect(throws: expected) { try selection.makeFileAccess(for: .remote("work")) }
+        selection.shutdown()
+    }
+
     @Test func anUnknownSelectedHostHasNoFileAccess() async throws {
         let selection = LeoHostSelectionTestSupport.makeSelection(hosts: [], transport: LeoAlwaysHealthyTransport())
         await selection.start(flavor: .socketEvents)

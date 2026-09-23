@@ -69,6 +69,19 @@ struct LeoEditorReveal: Equatable, Sendable {
         await queue.run { await self.performClose() }
     }
 
+    /// What `~` means on `host`.
+    func homeDirectory(on host: LeoHostID) async throws -> String {
+        let access = try makeAccess(host)
+        do {
+            let home = try await access.homeDirectory()
+            await access.close()
+            return home
+        } catch {
+            await access.close()
+            throw error
+        }
+    }
+
     // MARK: - Operations (serialized)
 
     private func performOpen(_ fileID: LeoEditorFileID, line: Int?, column: Int?) async throws -> LeoEditorOpenOutcome {

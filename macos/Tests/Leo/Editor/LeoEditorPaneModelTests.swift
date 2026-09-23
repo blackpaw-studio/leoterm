@@ -8,7 +8,7 @@ import Testing
 /// edits; the recents list lets you switch back.
 @MainActor
 struct LeoEditorPaneModelTests {
-    static let kinds: [LeoFileBackendKind] = [.local, .sftp]
+    nonisolated static let kinds: [LeoFileBackendKind] = [.local, .sftp]
 
     private final class Prompts {
         var asked: [String] = []

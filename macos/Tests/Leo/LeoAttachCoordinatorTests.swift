@@ -48,6 +48,20 @@ import Testing
         #expect(host.focused.isEmpty)
     }
 
+    /// ⌘-click routing (B-004): only a live attach surface has an agent.
+    @Test func aSurfaceMapsToItsLiveAgent() async {
+        let host = FakeAttachTabHost()
+        let coordinator = makeCoordinator(host: host)
+        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+        let handle = host.handles[0]
+
+        #expect(coordinator.identity(forSurface: handle.surfaceID) == identity)
+        #expect(coordinator.identity(forSurface: UUID()) == nil)
+
+        await host.emitAndWait(.processExited(handle))
+        #expect(coordinator.identity(forSurface: handle.surfaceID) == nil)
+    }
+
     @Test func openFailureReportsAndRegistersNothing() async {
         let host = FakeAttachTabHost()
         host.openError = FakeError.failed

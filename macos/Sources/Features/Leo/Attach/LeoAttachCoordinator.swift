@@ -254,6 +254,12 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         }
     }
 
+    /// The agent attached in the surface `surfaceID`, while that attach is
+    /// live (an exited one shows a placeholder, not the agent).
+    func identity(forSurface surfaceID: UUID) -> LeoAgentIdentity? {
+        identityByHandle.first { $0.key.surfaceID == surfaceID && !inactive.contains($0.key) }?.value
+    }
+
     /// Brings `identity`'s most recently focused live attachment forward
     /// instead of opening a duplicate. `false` when it has none.
     @discardableResult func focusExisting(_ identity: LeoAgentIdentity) -> Bool {
