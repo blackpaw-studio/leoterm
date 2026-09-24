@@ -86,6 +86,8 @@ struct LeoAgentRowView: View {
     @State private var showingDelete = false
     @State private var templateLoadError: String?
     @State private var isHovered = false
+    /// The room the subtitle text has, once measured (B-043).
+    @State private var subtitleWidth: CGFloat?
 
     private var availability: LeoRowActionAvailability {
         LeoRowActionAvailability(status: row.status, isPending: actions.pendingActions.contains(row.id))
@@ -216,21 +218,36 @@ struct LeoAgentRowView: View {
             HStack(spacing: 4) {
                 if let subtitle = presentation.subtitle {
                     // VoiceOver already hears the state on the name's label, so
-                    // the subtitle reads only the template and the time.
-                    subtitleText(subtitle).font(.caption)
+                    // the subtitle reads only the template and the time -- the
+                    // full ones, like the tooltip, even when the line drops the
+                    // template for width.
+                    subtitleText(fitted(subtitle)).font(.caption)
+                        .help(subtitle.text)
                         .accessibilityElement(children: .ignore)
                         .accessibilityLabel(subtitle.accessibilityLabel)
                         .accessibilityHidden(subtitle.accessibilityLabel.isEmpty)
+                        // Fills the line so its width is the room the text
+                        // has, whatever the text currently shows.
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { subtitleWidth = $0 }
+                } else {
+                    Spacer(minLength: 4)
                 }
-                Spacer(minLength: 4)
                 tabsGlyph(presentation)
             }
         }
     }
 
+    /// The line as it fits the measured room; whole until the first measure.
+    private func fitted(_ subtitle: LeoAgentRowPresentation.Subtitle) -> LeoAgentRowPresentation.Subtitle {
+        guard let subtitleWidth else { return subtitle }
+        return subtitle.fitting(width: subtitleWidth, measure: LeoAgentRowPresentation.Subtitle.captionWidth)
+    }
+
     /// "claude · Needs Input · 5m": the template and the last-active time
     /// in secondary, the attention state word in its state color. One line;
-    /// when it's too narrow the template truncates first, then the state,
+    /// when it's too narrow the template truncates first (dropping outright
+    /// below a few legible characters, see `fitted`), then the state,
     /// and the time never does (each part is its own text with its own
     /// layout priority; the time is fixed-size).
     private func subtitleText(_ subtitle: LeoAgentRowPresentation.Subtitle) -> some View {
