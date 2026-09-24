@@ -53,6 +53,13 @@ struct LeoWindowVisibilityState: Equatable {
     let browser: LeoWorkspaceBrowserModel
     weak var browserPane: LeoWorkspaceBrowserViewController?
 
+    /// Whether showing the sidebar now would take the terminal under its
+    /// floor beside a side pane (D-058, D-059).
+    var showingSidebarSqueezesTerminal: Bool {
+        let split = (browserPane?.parent ?? editorPane?.parent) as? LeoSplitViewController
+        return split?.sidebarSqueezesTerminal(atWidth: displayedWidth) ?? false
+    }
+
     private let defaults: UserDefaults
     private let onPollabilityChanged: () -> Void
     private(set) weak var window: NSWindow?

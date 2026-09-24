@@ -27,7 +27,12 @@ enum LeoMenuCommands {
         hasLeoSession && isSidebarVisible ? "Hide Agents Sidebar" : "Show Agents Sidebar"
     }
 
-    static func canToggleSidebar(hasLeoSession: Bool) -> Bool { hasLeoSession }
+    /// Hide is always there; Show isn't while showing the sidebar would
+    /// take the terminal under its floor beside a side pane (D-059) --
+    /// disabled, so ⌘⇧L gives the system beep.
+    static func canToggleSidebar(hasLeoSession: Bool, isSidebarVisible: Bool = false, showingSqueezesTerminal: Bool = false) -> Bool {
+        hasLeoSession && (isSidebarVisible || !showingSqueezesTerminal)
+    }
 
     static func canCreateAgent(hasLeoSession: Bool) -> Bool { hasLeoSession }
 

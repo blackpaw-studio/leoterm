@@ -30,6 +30,11 @@ extension TerminalController {
 
     @IBAction func toggleLeoSidebar(_ sender: Any?) {
         guard let leoSession else { return }
+        // The menu item is disabled then; anything else calling this beeps too.
+        guard leoSession.isSidebarVisible || !leoSession.showingSidebarSqueezesTerminal else {
+            NSSound.beep()
+            return
+        }
         leoSession.setSidebarVisible(!leoSession.isSidebarVisible)
     }
 
@@ -62,7 +67,10 @@ extension TerminalController {
             hasLeoSession: hasLeoSession,
             isSidebarVisible: leoSession?.isSidebarVisible ?? false
         )
-        return LeoMenuCommands.canToggleSidebar(hasLeoSession: hasLeoSession)
+        return LeoMenuCommands.canToggleSidebar(
+            hasLeoSession: hasLeoSession,
+            isSidebarVisible: leoSession?.isSidebarVisible ?? false,
+            showingSqueezesTerminal: leoSession?.showingSidebarSqueezesTerminal ?? false)
     }
 
     func validateNewLeoAgentMenuItem(_ item: NSMenuItem) -> Bool {
