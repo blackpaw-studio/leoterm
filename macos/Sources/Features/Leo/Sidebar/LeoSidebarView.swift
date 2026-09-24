@@ -178,7 +178,7 @@ struct LeoSidebarView: View {
                         .multilineTextAlignment(.center)
                     Button("New Agent…") { showingSpawn = true }
                 }
-            } else if model.visibleRows.isEmpty {
+            } else if model.showsNoMatches {
                 stateView { Text("No matches") }
             } else {
                 agentList
@@ -192,7 +192,7 @@ struct LeoSidebarView: View {
                         Button("Start daemon") { model.startDaemonRequested() }
                     }
                 }
-            } else if model.visibleRows.isEmpty {
+            } else if model.showsNoMatches {
                 stateView { Text("No matches") }
             } else {
                 agentList

@@ -51,6 +51,10 @@ import Foundation
         LeoSidebarLayout.visibleRows(rows: snapshot.rows, query: query, preferences: preferences, host: rowsHost)
     }
 
+    /// Only the filter can leave nothing to show: collapsed sections keep
+    /// their headers, which are how they're expanded again.
+    var showsNoMatches: Bool { !snapshot.rows.isEmpty && sections.isEmpty }
+
     /// Every row in unfiltered display order, collapsed ones included.
     var orderedRows: [LeoAgentRow] { LeoSidebarLayout.orderedRows(snapshot.rows, preferences: preferences) }
 

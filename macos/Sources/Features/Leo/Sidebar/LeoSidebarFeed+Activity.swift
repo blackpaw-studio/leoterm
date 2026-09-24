@@ -7,13 +7,17 @@ extension LeoSidebarFeed {
     /// Merges a batch of buffered `agentActivity` events into
     /// `activityByName` in one pass (last write wins per agent, already
     /// guaranteed by `LeoActivityCoalescer`).
-    func mergeIntoActivityByName(_ events: [LeoObserveEvent]) {
+    func mergeIntoActivityByName(_ events: [LeoObserveEvent], latestWorkingAt: [String: Date] = [:]) {
         for event in events {
             guard case let .agentActivity(_, at, name, activity, currentAction, _) = event else { continue }
             activityByName[name] = LeoSidebarActivity.merging(
                 activityByName[name], activity: Self.activity(activity), detail: currentAction?.detail, at: LeoTimestamp.parse(at)
-            )
+            ).advanced(to: latestWorkingAt[name])
         }
+    }
+
+    func mergeIntoActivityByName(_ batch: LeoActivityCoalescer.Batch) {
+        mergeIntoActivityByName(batch.events, latestWorkingAt: batch.latestWorkingAt)
     }
 
     /// Cancels any pending flush timer and merges whatever's currently
@@ -24,7 +28,7 @@ extension LeoSidebarFeed {
     func drainCoalescedActivity() {
         activityCoalesceTask?.cancel()
         activityCoalesceTask = nil
-        mergeIntoActivityByName(activityCoalescer.drain())
+        mergeIntoActivityByName(activityCoalescer.drainBatch())
     }
 
     func scheduleActivityFlush() {
@@ -46,9 +50,9 @@ extension LeoSidebarFeed {
 
     func flushActivity() {
         activityCoalesceTask = nil
-        let events = activityCoalescer.drain()
-        guard !events.isEmpty else { return }
-        mergeIntoActivityByName(events)
+        let batch = activityCoalescer.drainBatch()
+        guard !batch.events.isEmpty else { return }
+        mergeIntoActivityByName(batch)
         // Not a list refresh -- `LeoSidebarModel.receive` only clears row
         // errors when `listRefreshSucceeded` is true, which a coalesced
         // activity-only flush never is (matches the old per-event
@@ -67,6 +71,15 @@ extension LeoSidebarFeed {
                 activity: activity($0.activity), detail: $0.currentAction?.detail, lastActivityAt: LeoTimestamp.parse($0.lastActivityAt)
             ))
         }, uniquingKeysWith: { _, latest in latest })
+    }
+
+    /// A `/observe/state` baseline over what's already applied: the
+    /// baseline's agents and activity win, but a newer time from an event that landed
+    /// while the request was in flight is kept (B-010).
+    static func baseline(_ agents: [LeoObservedAgent], over current: [String: LeoSidebarActivity]) -> [String: LeoSidebarActivity] {
+        Dictionary(uniqueKeysWithValues: activities(agents).map { name, activity in
+            (name, activity.advanced(to: current[name]?.lastActivityAt))
+        })
     }
 
     static func activity(_ activity: LeoActivity?) -> LeoAgentRow.Activity {

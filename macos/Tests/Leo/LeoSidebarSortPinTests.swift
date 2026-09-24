@@ -121,6 +121,23 @@ import Testing
         #expect(makeModel([remote], store: store).sections.first?.isCollapsed == false)
     }
 
+    @Test func collapsingEverySectionStillShowsTheHeadersNotNoMatches() {
+        let model = makeModel([row("r"), row("s", status: .stopped)])
+        model.toggleCollapsed("running")
+        model.toggleCollapsed("stopped")
+        #expect(model.visibleRows.isEmpty)
+        #expect(!model.showsNoMatches)
+        #expect(model.sections.map(\.title) == ["Running", "Stopped"])
+    }
+
+    @Test func noMatchesDependsOnlyOnTheFilter() {
+        let model = makeModel([row("r")])
+        #expect(!model.showsNoMatches)
+        model.query = "zzz"
+        #expect(model.showsNoMatches)
+        #expect(!makeModel([]).showsNoMatches)
+    }
+
     @Test func pinnedSectionCanCollapse() {
         let model = makeModel([row("a"), row("b")])
         model.togglePin(id("a"))

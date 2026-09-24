@@ -60,8 +60,9 @@ extension LeoSidebarFeed {
         guard running, generation == snapshot.generation else { return }
         // `state` is the authoritative baseline as of when the fetch
         // started; anything coalesced since then is newer, so it's merged
-        // in on top rather than lost.
-        activityByName = Self.activities(state)
+        // in on top rather than lost -- and an event already applied keeps
+        // its newer last-activity time.
+        activityByName = Self.baseline(state, over: activityByName)
         applyAttentionBaseline(state)
         syncBaselinePending()
         drainCoalescedActivity()

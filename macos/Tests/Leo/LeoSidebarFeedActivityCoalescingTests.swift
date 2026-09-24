@@ -63,6 +63,48 @@ struct LeoSidebarFeedActivityCoalescingTests {
         await harness.feed.stop()
     }
 
+    /// B-010: last-write-wins must not drop a working stamp that an idle
+    /// event overwrote within the same window.
+    @Test func workingThenIdleInOneWindowKeepsTheWorkingStamp() async throws {
+        let harness = try await Harness.connected(results: [[agent("alpha")]])
+        let baseline = await harness.recorder.values.count
+
+        try await harness.send(
+            .agentActivity(seq: 1, at: "2026-09-24T14:00:00Z", agent: "alpha", activity: .working, currentAction: nil),
+            .agentActivity(seq: 2, at: "2026-09-24T14:00:05Z", agent: "alpha", activity: .idle, currentAction: nil)
+        )
+        try await harness.windowOpened()
+        harness.clock.fire(Self.window)
+        try await until { await harness.recorder.values.count > baseline }
+
+        let row = await harness.recorder.last?.rows.first
+        #expect(row?.activity == .idle)
+        #expect(row?.lastActivityAt == LeoTimestamp.parse("2026-09-24T14:00:00Z"))
+        await harness.feed.stop()
+    }
+
+    /// B-010: a state baseline that was requested before a newer working
+    /// event landed must not move that agent's time backwards.
+    @Test func anOlderStateBaselineNeverMovesLastActivityBackwards() async throws {
+        let harness = try await Harness.connected(results: [[agent("alpha")]])
+        let baseline = await harness.recorder.values.count
+        try await harness.send(
+            .agentActivity(seq: 1, at: "2026-09-24T14:00:10Z", agent: "alpha", activity: .working, currentAction: nil)
+        )
+        try await harness.windowOpened()
+        harness.clock.fire(Self.window)
+        try await until { await harness.recorder.values.count > baseline }
+
+        let state = [LeoObservedAgent(name: "alpha", status: .running, activity: .idle, currentAction: nil, lastActivityAt: "2026-09-24T14:00:00Z")]
+        await harness.feed.applyActivityState(state, generation: harness.feed.snapshot.generation)
+        // The baseline's activity wins; its emission lands asynchronously.
+        try await until { await harness.recorder.last?.rows.first?.activity == .idle }
+
+        let row = await harness.recorder.last?.rows.first
+        #expect(row?.lastActivityAt == LeoTimestamp.parse("2026-09-24T14:00:10Z"))
+        await harness.feed.stop()
+    }
+
     @Test func equalResultingSnapshotSkipsEmission() async throws {
         let harness = try await Harness.connected(results: [[agent("alpha")]])
 

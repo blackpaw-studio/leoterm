@@ -129,6 +129,12 @@ struct LeoSidebarActivity: Equatable, Sendable {
         let time = [previousTime, workingTime].compactMap { $0 }.max()
         return LeoSidebarActivity(activity: activity, detail: detail, lastActivityAt: time)
     }
+
+    /// This reading with its time moved up to `time` when that's newer.
+    func advanced(to time: Date?) -> LeoSidebarActivity {
+        guard let time, time > lastActivityAt ?? .distantPast else { return self }
+        return LeoSidebarActivity(activity: activity, detail: detail, lastActivityAt: time)
+    }
 }
 
 /// Parses the daemon's RFC 3339 timestamps (Go's `time.Time`, which may
