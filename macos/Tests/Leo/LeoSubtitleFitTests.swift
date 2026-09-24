@@ -44,6 +44,14 @@ struct LeoSubtitleFitTests {
         #expect(short.fitting(width: 21, measure: measure).template == nil)
     }
 
+    @Test func aNarrowTemplateThatFitsWholeStaysEvenWhenItsTruncationIsWider() {
+        // "i" is half a point, so "iiiiii" (3) is narrower than "iiiii…" (3.5).
+        let narrow: (String) -> CGFloat = { text in text.reduce(0) { $0 + ($1 == "i" ? 0.5 : 1) } }
+        let line = subtitle(template: "iiiiii") // "iiiiii · Needs Input · 13h" = 3 + 3 + 17
+        #expect(line.fitting(width: 23, measure: narrow) == line)
+        #expect(line.fitting(width: 22.5, measure: narrow).template == nil)
+    }
+
     @Test func theTemplateAloneNeverDrops() {
         let alone = subtitle(template: "claude-opus", state: nil, time: nil)
         #expect(alone.fitting(width: 3, measure: measure) == alone, "nothing else to show; it truncates")

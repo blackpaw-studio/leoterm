@@ -13,10 +13,13 @@ extension LeoAgentRowPresentation.Subtitle {
     func fitting(width: CGFloat, measure: (String) -> CGFloat) -> Self {
         guard let template, state != nil || lastActive != nil else { return self }
         let rest = Self(template: nil, state: state, lastActive: lastActive, lastActiveSpoken: lastActiveSpoken)
-        let legible = template.count > Self.minimumTemplateCharacters
-            ? String(template.prefix(Self.minimumTemplateCharacters)) + "…"
-            : template
-        return width >= measure(legible + Self.separator) + measure(rest.text) ? self : rest
+        let restWidth = measure(rest.text)
+        // The whole template first: a narrow one can be slimmer than its
+        // own five-character truncation.
+        if width >= measure(template + Self.separator) + restWidth { return self }
+        guard template.count > Self.minimumTemplateCharacters else { return rest }
+        let legible = String(template.prefix(Self.minimumTemplateCharacters)) + "…"
+        return width >= measure(legible + Self.separator) + restWidth ? self : rest
     }
 
     /// Drawn width in the subtitle's font (SwiftUI's `.caption`).
