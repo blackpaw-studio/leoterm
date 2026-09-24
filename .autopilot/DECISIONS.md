@@ -633,3 +633,27 @@ Why: test infra (agent decides); dependency injection over globals; a guard so i
 Alternatives: one reused suite per test class (still one plist per class); a protocol wrapper (production already takes UserDefaults)
 Commit: 558a0585e a00d37484 b9cc40d4b
 Veto: [ ]
+
+## D-081 · 2026-09-24 · B-044: Trash the `Leo*Tests*` preference stubs; bare UUIDs stay
+Chose: Evan answered yes to moving the `Leo*Tests*` stubs to the Trash, bare `<UUID>.plist` untouched. Moving user files is a Never-list action, so the item stays blocked as "Needs Evan to do" with a one-line command
+Why: Evan's choice
+Commit: n/a
+Veto: n/a (Evan)
+
+## D-082 · 2026-09-24 · B-010: re-scope Last Activity to /observe/state snapshots only
+Chose: sort by `last_activity_at` from identity-checked /observe/state snapshots; no reordering from live `agent_activity` events; pins, collapse, Name sort and menus ship as built before the revert
+Why: Evan's choice; calm by default, and name-keyed events can't be attributed safely without an incarnation id
+Commit: n/a
+Veto: n/a (Evan)
+
+## D-083 · 2026-09-24 · B-013: request the surface-file event from the leo agent now that B-004 shipped
+Chose: send the daemon-side request to the leo agent; build the app side against fixtures
+Why: Evan's choice; B-004 is done
+Commit: n/a
+Veto: n/a (Evan)
+
+## D-084 · 2026-09-24 · B-014: keep all-hosts sections deferred
+Chose: status `deferred` until Evan says several remotes are in daily use
+Why: Evan's choice (D-008)
+Commit: n/a
+Veto: n/a (Evan)
