@@ -672,3 +672,11 @@ Alternatives: auto-open in any window (steals focus); count in the Dock badge (i
 Commit: 30fe234bf 3a8b8529d 9483da369 69b736464
 Reverted: f3e8d36b3 (B-013 blocked after 3 fix attempts; daemon request stands)
 Veto: [ ]
+
+## D-087 · 2026-09-24 · B-012: no snapshot cache; keep DEBUG launch timing
+Chose: measured before building: the list lands ~120 ms after the sidebar appears (≤300 ms bar), so no cached-snapshot rendering (it would also risk showing stale attention as live). Kept DEBUG-only LaunchTiming marks (launch, window key, sidebar appear, first snapshot, first rows), each logged once
+Why: YAGNI; never invent a state (a cached list is stale by definition)
+Alternatives: cache anyway for remote hosts (unmeasured; revisit when a remote is in daily use)
+Commit: e45d323fb 826e921ee
+Veto: [ ]
+

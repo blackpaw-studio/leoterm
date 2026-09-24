@@ -1,6 +1,6 @@
 Status: running
-Item: B-013
-Base: bb948e3f7
+Item: B-035
+Base: 826e921ee
 Wip: none
 Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 
@@ -15,3 +15,6 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 - B-013 attempt 2 9483da369 (1463 tests). Re-review 2 dispatched.
 - B-013 re-review 2: priors closed (SFTP close is per-access, not the ControlMaster). New MED stale stat replaces newer file → attempt 3 (d-c05363bf82ff#4). LOW dismissed (timeout test uses a fake; transport close fails pending requests by code reading; no remote FIFO fixture).
 - B-013 re-review 3: prior MED closed; new MED queued open always dropped (stale counter), MED closed pane reopens. 3 fix attempts used → reverted f3e8d36b3; blocked (drop auto-open?). D-086 reverted; daemon request stands.
+- B-012: measured (4 cold launches, 103 agents, local): sidebar at +378–400 ms, list at +500–523 ms (~120 ms spinner); first fetch doesn't block first paint → no cache (no change needed). DEBUG-only LaunchTiming kept: e45d323fb. Review dispatched.
+- B-012 review: MED observer never removed, LOW eager detail → attempt 1 826e921ee (1393 tests; list at +517 ms). Re-review dispatched.
+- B-012 done: e45d323fb 826e921ee. Re-review clean. D-087.

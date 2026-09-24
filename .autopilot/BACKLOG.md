@@ -232,10 +232,11 @@ Accept: at default sidebar width, B-011's never-truncating time squeezes the tem
 Source: B-011 visual check
 Done: bb7b9f81c 94685a65c (1346 tests). The template drops when fewer than 5 chars would show; a template that fits whole always shows (D-076). Verified: shot B-043-1 ("claude · Finished · 16h", "assist… · Finished · 16h"). 1 fix round (review MED: whole-fit check first); re-review clean.
 
-## B-012 · Cold start   [ready]
+## B-012 · Cold start   [done]
 Accept: measure launch with sidebar visible; if first fetch blocks first
 paint, render cached last snapshot and refresh in place.
 Source: roadmap Tier 3
+Done: e45d323fb 826e921ee (1393 tests). Measured, no product change needed (D-087): 4 cold launches, 103 agents, local daemon: sidebar appears at +378–400 ms, list lands at +500–523 ms (~120 ms of "Loading agents…"); the fetch doesn't block first paint, so no snapshot cache. DEBUG-only `LaunchTiming` log category kept for re-measuring (`/usr/bin/log show --predicate 'category == "LaunchTiming"'`). Remote (tunnel) cold start not measured: no autopilot remote host. Not visually verified (measurement only).
 
 ## B-013 · Daemon-pushed "surface file" event   [blocked]
 Accept: an agent calls a leo tool; the daemon emits a file-surfaced event;
