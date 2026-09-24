@@ -47,6 +47,17 @@ enum LeoMenuCommands {
 
     static func canJumpToNextNeedingAttention(hasLeoSession: Bool, hasTarget: Bool) -> Bool { hasLeoSession && hasTarget }
 
+    /// Agents ▸ Reconnect (⇧⌘R): the sidebar's Retry, whenever the
+    /// sidebar offers one and it isn't already running.
+    static func canReconnect(hasLeoSession: Bool, connectivity: LeoConnectivity) -> Bool {
+        guard hasLeoSession else { return false }
+        switch connectivity {
+        case .disconnected(_, let isRetrying): return !isRetrying
+        case .failed: return true
+        case .loading, .connected: return false
+        }
+    }
+
     private static func enabled(_ context: AgentContext, _ pick: (LeoRowActionAvailability) -> Bool) -> Bool {
         guard context.hasLeoSession, let availability = context.availability else { return false }
         return pick(availability)

@@ -2002,6 +2002,9 @@ extension TerminalController {
         case #selector(showLeoAgentNotificationSettings(_:)):
             return validateLeoManageHostsMenuItem(item)
 
+        case #selector(reconnectLeo(_:)):
+            return validateLeoReconnectMenuItem(item)
+
         case #selector(closeTabsOnTheRight):
             guard let window, let tabGroup = window.tabGroup else { return false }
             guard let currentIndex = tabGroup.windows.firstIndex(of: window) else { return false }

@@ -65,6 +65,8 @@ actor LeoSidebarFeed {
     var activityTask: Task<Void, Never>?
     private var emissionTask: Task<Void, Never>?
     var pollTask: Task<Void, Never>?
+    /// The one wake liveness check in flight, if any (see `checkLiveness`).
+    var livenessTask: Task<Void, Never>?
     var sseRefreshTask: Task<Void, Never>?
     var scheduler = LeoPollScheduler()
     /// Semantic attention for the selected host -- see `LeoSidebarFeed+Attention.swift`.
@@ -84,6 +86,10 @@ actor LeoSidebarFeed {
     var connectionHost: LeoHostID = .local
     var connectionGeneration = 0
     var selectedHostAvailable = true
+    /// A list has landed for this host since the user last switched to
+    /// it: a later failure is a *drop* (disconnected, rows kept), not a
+    /// connect failure. Survives a same-host Retry.
+    var wasLive = false
     var pollingRequested = false
     /// Bumped each time a refresh starts; lets a stale refresh whose
     /// cancellation lost a race recognize it no longer owns bookkeeping.
@@ -122,6 +128,8 @@ actor LeoSidebarFeed {
         sseRefreshTask?.cancel()
         activityCoalesceTask?.cancel()
         attentionTask?.cancel()
+        livenessTask?.cancel()
+        livenessTask = nil
         attentionTask = nil
         eventTask = nil
         refreshTask = nil
@@ -174,6 +182,10 @@ actor LeoSidebarFeed {
     func setPolling(_ pollable: Bool) {
         guard running else { return }
         pollingRequested = pollable
+        // Connecting, failed or disconnected: only recorded. `.connected`
+        // (see `updateConnection`) starts polling from it; no timer may run
+        // against an unavailable host.
+        guard selectedHostAvailable else { return }
         process(scheduler.reduce(.sidebarVisibleCountChanged(pollable ? 1 : 0)))
     }
 
@@ -231,26 +243,8 @@ actor LeoSidebarFeed {
             }
         case .disconnected(let reason):
             Self.logger.log("receive: .disconnected reason=\(reason, privacy: .public)")
-            // A pending coalesced-refresh sleep is now moot -- the stream
-            // that scheduled it is gone.
-            sseRefreshTask?.cancel()
-            sseRefreshTask = nil
-            activityByName = [:]
-            bufferedActivity = []
-            attention.disconnect()
-            scheduleAttentionTick()
-            snapshot = LeoSidebarSnapshot(
-                rows: snapshot.rows.map {
-                    LeoAgentRow(host: $0.host, name: $0.name, template: $0.template, status: $0.status, activity: .unknown, actionDetail: nil)
-                },
-                connectivity: snapshot.connectivity,
-                generation: snapshot.generation
-            )
-            // Tells the scheduler SSE is down so it falls back to periodic
-            // polling instead of staying paused forever (this was missing:
-            // `.disconnected` never reached the scheduler before).
-            process(scheduler.reduce(.sseEvent(event)))
-            emit()
+            // The stream is gone and nothing reconnects it but Retry (D-061).
+            disconnect(reason: reason)
         }
     }
 
@@ -294,6 +288,7 @@ actor LeoSidebarFeed {
             let rows = try await fetchList().map { Self.row($0, host: host) }
             guard running, generation == snapshot.generation, token == currentRefreshToken else { return }
             snapshot = LeoSidebarReducers.applyListResult(snapshot, result: LeoSidebarReducers.mergeActivity(rows, activityByName: activityByName), generation: generation)
+            wasLive = true
             retainAttention(for: rows, listedSince: membershipMark)
             recovering = false
             drainCoalescedActivity()
@@ -314,6 +309,11 @@ actor LeoSidebarFeed {
             wasCancelled = true
         } catch {
             guard running, generation == snapshot.generation, token == currentRefreshToken else { return }
+            // A Retry whose list fails keeps the banner, with this reason.
+            guard !isDisconnected else {
+                disconnect(reason: error.localizedDescription)
+                return
+            }
             snapshot = LeoSidebarSnapshot(rows: snapshot.rows, connectivity: .failed(message: error.localizedDescription), generation: generation)
             emit()
         }

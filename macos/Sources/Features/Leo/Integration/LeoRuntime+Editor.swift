@@ -23,7 +23,9 @@ extension LeoRuntime {
         if let surface = controller.focusedSurface, let identity = attachCoordinator.identity(forSurface: surface.id) {
             return editorContext(for: identity)
         }
-        if let row = controller.selectedLeoRow {
+        // The raw selection, not the agent-command one: a local agent's
+        // files are still there while its daemon is disconnected.
+        if let row = model.selectedRow {
             return LeoEditorAgentContext(host: row.host, name: row.name, workspace: row.workspace)
         }
         return LeoEditorAgentContext(host: hostSelection.selected, name: nil, workspace: nil)

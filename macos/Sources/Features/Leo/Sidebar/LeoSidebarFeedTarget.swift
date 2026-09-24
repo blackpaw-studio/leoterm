@@ -16,9 +16,16 @@ extension LeoSidebarFeed {
     /// arriving again (e.g. `.connecting` -> `.connected`) is a phase
     /// *update*, not a switch: rows already fetched for it are kept --
     /// `.failed` just greys them via `.failed` connectivity rather than
-    /// clearing them.
+    /// clearing them, or, once the host has been live, disconnects.
+    ///
+    /// A new generation of the *same* host while disconnected is the
+    /// user's Retry (D-061): the rows stay dimmed under the banner, and
+    /// attention keeps its disconnect-recovery state (acknowledgements and
+    /// dedupe survive, as a reconnect's baseline expects), until the new
+    /// connection's list lands -- or fails, keeping the banner.
     func updateConnection(host: LeoHostID, generation: Int, phase: LeoSidebarConnectionPhase) {
         let isNewConnection = connectionHost != host || connectionGeneration != generation
+        let isRetry = isNewConnection && connectionHost == host && isDisconnected
         if isNewConnection {
             connectionHost = host
             connectionGeneration = generation
@@ -26,6 +33,8 @@ extension LeoSidebarFeed {
             eventTask?.cancel()
             refreshTask?.cancel()
             activityTask?.cancel()
+            livenessTask?.cancel()
+            livenessTask = nil
             sseRefreshTask?.cancel()
             sseRefreshTask = nil
             activityCoalesceTask?.cancel()
@@ -42,11 +51,17 @@ extension LeoSidebarFeed {
             bufferedActivity = []
             attentionTask?.cancel()
             attentionTask = nil
-            attention.switchHost(host)
             needsState = true
             recovering = false
             awaitingHello = false
-            snapshot = .init(rows: [], connectivity: .loading, generation: snapshot.generation + 1)
+            if case .disconnected(let reason, _) = snapshot.connectivity, isRetry {
+                scheduleAttentionTick()
+                snapshot = .init(rows: snapshot.rows, connectivity: .disconnected(reason: reason, isRetrying: true), generation: snapshot.generation + 1)
+            } else {
+                attention.switchHost(host)
+                wasLive = false
+                snapshot = .init(rows: [], connectivity: .loading, generation: snapshot.generation + 1)
+            }
         }
 
         switch phase {
@@ -84,6 +99,10 @@ extension LeoSidebarFeed {
             } else {
                 process(outputs)
             }
+        case .failed(let message) where wasLive || isDisconnected:
+            // A live tunnel died, or a Retry's connect failed: keep the rows
+            // under the banner with this reason.
+            disconnect(reason: message)
         case .failed(let message):
             selectedHostAvailable = false
             snapshot = .init(rows: snapshot.rows, connectivity: .failed(message: message), generation: snapshot.generation + 1)

@@ -8,10 +8,8 @@ extension TerminalController {
     /// The sidebar row currently selected in this window's Leo runtime, if
     /// any. Menu commands that act "on the current sidebar selection" read
     /// this rather than duplicating `LeoSidebarModel`'s selection storage.
-    var selectedLeoRow: LeoAgentRow? {
-        guard let runtime = leoRuntime, let id = runtime.model.selection else { return nil }
-        return runtime.model.snapshot.rows.first { $0.id == id }
-    }
+    /// Nil while disconnected, so every agent command is disabled (D-061).
+    var selectedLeoRow: LeoAgentRow? { leoRuntime?.model.actionableSelection }
 
     /// Availability of the agent-scoped commands (Start, Stop, Rename, ...)
     /// for the current window/selection, reusing `LeoRowActionAvailability`

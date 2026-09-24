@@ -85,14 +85,14 @@ struct LeoSidebarFeedHostSwitchTests {
         await awaitCondition { await recorder.last?.rows.map(\.name) == ["alpha"] }
 
         // Same connection (host + generation) transitions to failed -- e.g.
-        // the tunnel died. This is a phase update, not a switch.
+        // the tunnel died. This is a phase update, not a switch; a live
+        // connection that drops is disconnected (D-061).
         await feed.updateConnection(host: .remote("work"), generation: 1, phase: .failed(message: "ssh died"))
 
-        await awaitCondition(message: "never reached .failed") {
-            if case .failed(let message) = await recorder.last?.connectivity { return message == "ssh died" }
-            return false
+        await awaitCondition(message: "never reached .disconnected") {
+            await recorder.last?.connectivity == .disconnected(reason: "ssh died", isRetrying: false)
         }
-        #expect(await recorder.last?.rows.map(\.name) == ["alpha"], "rows must stay (greyed via .failed connectivity), not clear")
+        #expect(await recorder.last?.rows.map(\.name) == ["alpha"], "rows must stay (greyed under the banner), not clear")
 
         await feed.stop()
     }

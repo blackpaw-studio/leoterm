@@ -8,8 +8,8 @@ import Testing
 /// `/events` + `/state` with `attention`, through `LeoSocketActivityClient`,
 /// `LeoSidebarFeed`'s reducer and `LeoAttentionController`. Two agents: the
 /// focused one is suppressed, the background one notifies exactly once,
-/// Jump targets it, and a reconnect replaying the same revisions posts
-/// nothing new.
+/// Jump targets it, and a Retry after the stream drops replays the same
+/// revisions and posts nothing new.
 @MainActor struct LeoAttentionIntegrationTests {
     private static let alpha = LeoAgentRow.ID(host: .local, name: "alpha")
     private static let beta = LeoAgentRow.ID(host: .local, name: "beta")
@@ -18,7 +18,7 @@ import Testing
         let script = FakeAttentionDaemon()
         let server = try ConcurrentUnixSocketServer { client in script.serve(client) }
         defer { server.stop() }
-        let client = LeoSocketActivityClient(socketPath: server.path, initialBackoff: 10_000_000, maximumBackoff: 10_000_000)
+        let client = LeoSocketActivityClient(socketPath: server.path)
         let center = RecordingNotificationCenter()
         let suite = "LeoAttentionIntegrationTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
@@ -26,9 +26,11 @@ import Testing
         let controller = LeoAttentionController(center: center, defaults: defaults, currentHost: { .local }, showDeniedInstructions: {})
         await controller.enable()
         let snapshots = SnapshotBox()
+        let daemon = ListOnlyDaemon(names: ["alpha", "beta"])
+        let source = LeoSidebarActivitySource(events: { await client.events() }, fetchState: { try await client.fetchState() })
         let feed = LeoSidebarFeed(
-            daemon: ListOnlyDaemon(names: ["alpha", "beta"]),
-            activity: .init(events: { await client.events() }, fetchState: { try await client.fetchState() }),
+            daemon: daemon,
+            activity: source,
             onAttentionTransitions: { transitions in Task { await controller.handle(transitions) } },
             sink: { snapshot in Task { await snapshots.set(snapshot) } }
         )
@@ -53,6 +55,15 @@ import Testing
         )
         #expect(target == Self.beta)
 
+        // The first stream closes: the feed waits, disconnected, for Retry
+        // (D-061) -- which reconnects the same host.
+        await awaitCondition(timeout: 5, message: "the dropped stream never disconnected") {
+            if case .disconnected = await snapshots.value?.connectivity { return true }
+            return false
+        }
+        #expect(script.eventsConnections == 1, "no automatic reconnect")
+        await feed.updateConnection(host: .local, generation: 1, phase: .connected(daemon: daemon, activitySource: source))
+
         await awaitCondition(timeout: 5, message: "client never reconnected") { script.eventsConnections >= 2 && script.replayed }
         await awaitCondition(timeout: 2) { await snapshots.value?.rows.first { $0.name == "beta" }?.attention == .finished }
         try await Task.sleep(nanoseconds: 500_000_000)
@@ -75,8 +86,8 @@ private actor SnapshotBox {
 /// Serves `GET /state` and `GET /events` like a leo daemon that emits
 /// `attention`. Every `/events` connection sends `hello`, waits for the
 /// app's silent baseline, then alpha → needs_input r2 and beta → finished
-/// r2; the first connection closes after the commit window (forcing a
-/// reconnect), the second replays the same revisions.
+/// r2; the first connection closes after the commit window (the app then
+/// waits for Retry), the second replays the same revisions.
 private final class FakeAttentionDaemon: @unchecked Sendable {
     private let lock = NSLock()
     private var connections = 0

@@ -92,8 +92,10 @@ struct LeoSidebarFeedRecoveryTests {
         let suiteName = "LeoSidebarFeedRecoveryTests.picker.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
-        let activity = LeoActivityClient(config: .init(baseURL: URL(string: "http://127.0.0.1")!, token: "test"))
-        let runtime = LeoRuntime(daemon: daemon, cli: LeoCLI(), activity: activity, defaults: defaults)
+        // An inert stream: a dead one would (rightly) disconnect the feed
+        // and stop all refreshes (D-061), which is not what this is about.
+        let activity = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
+        let runtime = LeoRuntime(daemon: daemon, cli: LeoCLI(), activitySource: activity, defaults: defaults)
         let session = runtime.makeWindowSession()
 
         runtime.start()

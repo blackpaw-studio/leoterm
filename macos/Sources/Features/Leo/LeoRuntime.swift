@@ -37,8 +37,11 @@ import OSLog
     /// detection would otherwise leave the stale `.connected` build free to
     /// install over it once its `await` finally resolves.
     private var connectionSequence = 0
+    /// Runs the one liveness check per wake (D-061); removed with `self`.
+    private var wakeObservation: LeoNotificationObservation?
     #if DEBUG
     private let openFileFixture = LeoOpenFileFixture()
+    private var forcedDisconnect: AnyObject?
     #endif
 
     /// Pure composition helper: builds a socket daemon client bound to one
@@ -71,7 +74,8 @@ import OSLog
         hostSelectionRunner: any LeoProcessRunning = LeoProcessRunner(),
         hostSelectionSSHExecutable: URL = URL(fileURLWithPath: "/usr/bin/ssh"),
         notificationCenter: any LeoNotificationPosting = LeoUserNotificationCenter(),
-        focusedAgentSink: (@Sendable (LeoAgentRow.ID?) async -> Void)? = nil
+        focusedAgentSink: (@Sendable (LeoAgentRow.ID?) async -> Void)? = nil,
+        wakeNotifications: NotificationCenter = NSWorkspace.shared.notificationCenter
     ) {
         self.cli = cli
         self.defaults = defaults
@@ -236,6 +240,19 @@ import OSLog
         // belongs to, drives which connection the feed and agent actions
         // are bound to.
         weakSelf = self
+
+        // One immediate liveness check per wake, never repeated: a tunnel
+        // or socket that died in sleep shows as disconnected (D-061).
+        wakeObservation = LeoNotificationObservation(center: wakeNotifications, name: NSWorkspace.didWakeNotification) { [weak feed] in
+            Task { await feed?.checkLiveness() }
+        }
+        #if DEBUG
+        if let reason = LeoForcedDisconnectFixture.reason() {
+            forcedDisconnect = LeoForcedDisconnectFixture.arm(model: model, reason: reason) { [weak feed] reason in
+                Task { await feed?.disconnect(reason: reason) }
+            }
+        }
+        #endif
     }
 
     func start() {

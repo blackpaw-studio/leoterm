@@ -501,6 +501,12 @@
                                     <action selector="manageLeoHosts:" target="-1" id="Leo-Agents-ManageHosts-Action"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Reconnect" keyEquivalent="R" id="Leo-Agents-Reconnect">
+                                <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
+                                <connections>
+                                    <action selector="reconnectLeo:" target="-1" id="Leo-Agents-Reconnect-Action"/>
+                                </connections>
+                            </menuItem>
                             <menuItem title="Agent Notifications…" id="Leo-Agents-Notifications">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>

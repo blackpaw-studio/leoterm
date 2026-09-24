@@ -18,23 +18,21 @@ extension LeoUnixSocketTransport: LeoSocketActivityTransport {}
 /// `LeoActivityClient.decode` for wire decoding since the event payloads are
 /// identical to the legacy TCP observability API; the only difference is
 /// transport (unix socket, unprefixed paths, no bearer token).
+///
+/// One stream per `events()` call and no reconnect of its own (principle 5,
+/// D-061): when the stream ends it yields `.disconnected` and finishes, and
+/// the sidebar waits for the user's Retry, which asks for a fresh stream.
 actor LeoSocketActivityClient {
+    /// The reason reported when the daemon ends the stream cleanly.
+    static let closedReason = "Connection closed"
+
     private let socketPath: String
     private let transport: any LeoSocketActivityTransport
-    private let initialBackoff: UInt64
-    private let maximumBackoff: UInt64
-    private let sleeper: @Sendable (UInt64) async throws -> Void
 
     init(socketPath: String = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath,
-         transport: any LeoSocketActivityTransport = LeoUnixSocketTransport(),
-         initialBackoff: UInt64 = 1_000_000_000,
-         maximumBackoff: UInt64 = 30_000_000_000,
-         sleep: @escaping @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) }) {
+         transport: any LeoSocketActivityTransport = LeoUnixSocketTransport()) {
         self.socketPath = socketPath
         self.transport = transport
-        self.initialBackoff = initialBackoff
-        self.maximumBackoff = maximumBackoff
-        sleeper = sleep
     }
 
     func fetchState() async throws -> [LeoObservedAgent] {
@@ -54,41 +52,35 @@ actor LeoSocketActivityClient {
     }
 
     private func run(_ continuation: AsyncStream<LeoObserveEvent>.Continuation) async {
-        var backoff = initialBackoff
+        defer { continuation.finish() }
         var lastSequence: Int?
-        while !Task.isCancelled {
-            var parser = LeoSSEParser()
-            var reason = "EOF"
-            leoSocketActivityLogger.log("socketActivity: connecting socketPath=\(self.socketPath, privacy: .public)")
-            do {
-                for try await bytes in transport.stream(path: "/events", socketPath: socketPath, idleTimeout: 60) {
-                    for raw in parser.feed(bytes) {
-                        guard let event = LeoActivityClient.decode(raw) else { continue }
-                        let sequence = event.sequence
-                        if sequence >= 0, let lastSequence, sequence > lastSequence + 1 {
-                            continuation.yield(.gap(expected: lastSequence + 1, received: sequence))
-                            if let agents = try? await fetchState() { continuation.yield(.snapshot(agents)) }
-                        }
-                        if sequence >= 0 { lastSequence = sequence }
-                        if case .hello(let seq, let at, let version, let serverTime, _) = event {
-                            backoff = initialBackoff
-                            leoSocketActivityLogger.log("socketActivity: hello seq=\(seq) version=\(version ?? "nil", privacy: .public) serverTime=\(serverTime ?? "nil", privacy: .public) at=\(at ?? "nil", privacy: .public)")
-                        }
-                        continuation.yield(event)
+        var parser = LeoSSEParser()
+        var reason = Self.closedReason
+        leoSocketActivityLogger.log("socketActivity: connecting socketPath=\(self.socketPath, privacy: .public)")
+        do {
+            for try await bytes in transport.stream(path: "/events", socketPath: socketPath, idleTimeout: 60) {
+                for raw in parser.feed(bytes) {
+                    guard let event = LeoActivityClient.decode(raw) else { continue }
+                    let sequence = event.sequence
+                    if sequence >= 0, let lastSequence, sequence > lastSequence + 1 {
+                        continuation.yield(.gap(expected: lastSequence + 1, received: sequence))
+                        if let agents = try? await fetchState() { continuation.yield(.snapshot(agents)) }
                     }
+                    if sequence >= 0 { lastSequence = sequence }
+                    if case .hello(let seq, let at, let version, let serverTime, _) = event {
+                        leoSocketActivityLogger.log("socketActivity: hello seq=\(seq) version=\(version ?? "nil", privacy: .public) serverTime=\(serverTime ?? "nil", privacy: .public) at=\(at ?? "nil", privacy: .public)")
+                    }
+                    continuation.yield(event)
                 }
-            } catch is CancellationError { break
-            } catch {
-                reason = Self.reason(for: error)
             }
-            guard !Task.isCancelled else { break }
-            leoSocketActivityLogger.log("socketActivity: disconnected reason=\(reason, privacy: .public)")
-            continuation.yield(.disconnected(reason: reason))
-            leoSocketActivityLogger.log("socketActivity: reconnecting backoffNanoseconds=\(backoff)")
-            do { try await sleeper(backoff) } catch { return }
-            backoff = min(backoff * 2, maximumBackoff)
+        } catch is CancellationError {
+            return
+        } catch {
+            reason = Self.reason(for: error)
         }
-        continuation.finish()
+        guard !Task.isCancelled else { return }
+        leoSocketActivityLogger.log("socketActivity: disconnected reason=\(reason, privacy: .public); waiting for Retry")
+        continuation.yield(.disconnected(reason: reason))
     }
 
     private static func reason(for error: Error) -> String {

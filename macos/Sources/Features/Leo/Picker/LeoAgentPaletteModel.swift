@@ -117,6 +117,9 @@ import Foundation
         case .failed(let message, let hint):
             return [.status(text: message, hint: hint, canRetry: true)] + trailingRows()
         case .connected:
+            if let banner = snapshot.flatMap({ LeoDisconnectedBanner(host: selectedHost, connectivity: $0.connectivity) }) {
+                return [.status(text: banner.title, hint: banner.reason, canRetry: !banner.isRetrying)] + trailingRows()
+            }
             return filteredAgentRows().map(Row.agent) + trailingRows()
         }
     }

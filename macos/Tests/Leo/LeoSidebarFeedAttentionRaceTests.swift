@@ -4,8 +4,9 @@ import Testing
 @testable import Ghostty
 
 /// Fetches that answer for an older moment than they land in: a list or
-/// `/state` fetch still in flight across a daemon restart or an
-/// `agent_spawned`. Each fake answers with the daemon's data as of the call
+/// `/state` fetch still in flight across a daemon restart (a hello with a
+/// new boot id; a dropped stream no longer reconnects on its own, D-061)
+/// or an `agent_spawned`. Each fake answers with the daemon's data as of the call
 /// and can hold the answer back.
 struct LeoSidebarFeedAttentionRaceTests {
     @Test func helloWithANewBootIDWhileTheOldFetchIsStillInFlight() async throws {
@@ -24,7 +25,6 @@ struct LeoSidebarFeedAttentionRaceTests {
 
         // The daemon restarts; the new boot's first hello arrives.
         await harness.activity.setState([observed("alpha", .working, 2)])
-        await harness.activity.send(.disconnected(reason: "EOF"))
         await harness.activity.send(.hello(seq: 1, at: nil, version: nil, serverTime: nil, bootID: "boot-b"))
         await harness.pump { $0.rows.first?.attention == .working }
         await harness.activity.releaseHeld()
@@ -51,7 +51,6 @@ struct LeoSidebarFeedAttentionRaceTests {
 
         // Restart while the feed is still recovering (the list hasn't landed).
         await harness.activity.setState([observed("alpha", .working, 2)])
-        await harness.activity.send(.disconnected(reason: "EOF"))
         await harness.activity.send(.hello(seq: 1, at: nil, version: nil, serverTime: nil, bootID: "boot-b"))
         await harness.daemon.releaseHeld()
         await harness.settle()
