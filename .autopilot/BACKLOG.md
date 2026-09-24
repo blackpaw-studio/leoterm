@@ -194,9 +194,14 @@ passes 10/10 in full serial runs (pid-file read race in
 Source: roadmap Test infra; vision-session test run
 Done: d806f8ecf c3edaf507 a80bd0475. Root cause: fake_ssh wrote the pid file non-atomically. 10/10 full runs; swiftlint clean. Also fixed the Observe 50 ms deadline flake. Test-only change, so no screenshot.
 
-## B-009 · Search polish   [ready]
+## B-009 · Search polish   [done]
 Accept: ⌘F focuses the sidebar filter, fuzzy match, Escape clears.
 Source: roadmap Tier 2
+Done: 93a8c5b9f 823a717fb 03974e177 (1309 tests). Agents ▸ Find Agent… (⌥⌘F, since ⌘F is Ghostty's Find) shows and focuses the filter; ranked fuzzy match with bold matched letters; Escape clears, then returns focus; Return = click the top row (D-071, D-072). Verified: shots B-009-1 ("lha" → leo-home-assistant), B-009-2 (Escape clears), B-009-3 (hidden sidebar → shown + focused, bold "vit"). 1 fix round. New: B-042.
+
+## B-042 · Agent palette: use the sidebar's fuzzy matcher   [ready (next run)]
+Accept: the agent palette (Choose Agent… / ⌘T picker) still uses substring filtering. Reuse `LeoFuzzyMatcher` ranking and bolding so both searches behave the same.
+Source: B-009 implementer
 
 ## B-010 · Sort and pin   [ready]
 Accept: default sort by last activity; pin favourites to top; remember

@@ -567,5 +567,12 @@ Veto: [ ]
 Chose: "Agents ▸ Find Agent…" focuses (showing if hidden) the sidebar filter. Shortcut ⌘F only if Ghostty doesn't already bind ⌘F (terminal find); if it does, keep terminal find on ⌘F and use ⌥⌘F. Fuzzy = case-insensitive subsequence over agent name (and template), ranked exact > prefix > word-boundary > contiguous > scattered, ties by current order; matched characters bold. Escape clears a non-empty filter; Escape on an empty filter returns focus to the terminal. Return attaches/focuses the top match.
 Why: keyboard-first; don't remove an existing feature (terminal find) to satisfy a backlog line
 Alternatives: take ⌘F from terminal find (removes a user-facing feature: stop list); plain substring (misses "lhs" → leo-home-assistant)
-Commit:
+Commit: 93a8c5b9f 823a717fb 03974e177
+Veto: [ ]
+
+## D-072 · 2026-09-24 · B-009 implementer calls
+Chose: ⌥⌘F (Ghostty binds ⌘F to terminal Find via `start_search`); rows ranked across sections, sections ordered by their best match so the top row on screen is what Return picks; template matches count but a name match wins ties and only the name is bolded; Find Agent… is disabled (beeps) when showing the sidebar would squeeze the terminal, like Show Agents Sidebar, and otherwise shows it and saves "visible"; the filter became an AppKit text field (SwiftUI TextField on macOS 13 can't catch Escape/Return); the list's hidden Return button defers to the field when it has focus; matching is case-insensitive but accent-sensitive, counts graphemes, and handles expanding folds (ß↔ss, ﬁ↔fi) because leo agent names aren't restricted to ASCII on spawn; the agent palette keeps its own substring filter
+Why: keyboard-first; don't take an existing shortcut; the top visible row = Return target
+Alternatives: keep section order fixed (Return target not the top row); accent-insensitive (surprising for exact names)
+Commit: 93a8c5b9f 823a717fb 03974e177
 Veto: [ ]
