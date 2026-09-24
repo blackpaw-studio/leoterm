@@ -44,6 +44,9 @@ struct LeoSidebarFeedAttentionRaceTests {
         let harness = RaceHarness(agents: ["alpha"], state: [observed("alpha", .working, 1)])
         await harness.start()
         try await harness.waitFor { $0.rows.first?.attention == .working }
+        // With SSE connected the feed polls only while a baseline is
+        // pending, so no stray poll can take the held list below.
+        await harness.activity.send(.connected)
         await harness.activity.send(.hello(seq: 1, at: nil, version: nil, serverTime: nil, bootID: "boot-a"))
         try await harness.pumpAsync { _ in await harness.activity.fetchCount >= 2 }
         await harness.settle()
@@ -54,10 +57,15 @@ struct LeoSidebarFeedAttentionRaceTests {
         try await harness.pump { $0.rows.first?.attention == .needsInput }
 
         // Another recovery; its list is held, so the feed is still recovering
-        // when the old boot's last signal arrives and is buffered.
+        // when the old boot's last signal arrives and is buffered. A gap
+        // starts its refresh at once, and no sleep is fired until the list
+        // lands, so no coalesced refresh or list deadline can supersede it;
+        // with polling paused and no refresh in flight, the held list is
+        // the gap's.
+        try await until { await harness.feed.refreshTask == nil }
         await harness.daemon.holdNext()
         await harness.activity.send(.gap(expected: 6, received: 9))
-        try await harness.pumpAsync { _ in await harness.daemon.heldCount == 1 }
+        try await until { await harness.daemon.heldCount == 1 }
         await harness.activity.send(.agentActivity(
             seq: 10, at: nil, agent: "alpha", activity: nil, currentAction: nil,
             attention: .init(state: .needsInput, revision: 41)
@@ -72,9 +80,15 @@ struct LeoSidebarFeedAttentionRaceTests {
         await harness.activity.send(.agentActivity(seq: 2, at: nil, agent: "alpha", activity: .idle, currentAction: nil))
         try await until { await harness.feed.bufferedActivity.count == 2 }
         #expect(await harness.feed.recovering, "the hello must arrive while the list is in flight")
+        // The released list lands and starts the restart's /state (fetch 4)
+        // with no sleep in between. The next list (the restart's follow-up,
+        // or a retry had this one timed out) is held meanwhile, so only the
+        // released answer can start fetch 4.
+        await harness.daemon.holdNext()
+        await harness.daemon.releaseOldest()
+        try await until("fetch 4 must follow the released list") { await harness.activity.fetchCount >= 4 }
+        await harness.daemon.stopHolding()
         await harness.daemon.releaseHeld()
-        // The released list is followed by the restart's /state (fetch 4).
-        try await harness.pumpAsync { _ in await harness.activity.fetchCount >= 4 }
         try await harness.waitForStateEmission(generation: await harness.feed.snapshot.generation)
         await harness.settle()
 
@@ -204,11 +218,17 @@ private actor RaceGate {
     var heldCount: Int { held.count }
 
     func holdNext() { holdsNext = true }
+    func stopHolding() { holdsNext = false }
 
     func pass() async {
         guard holdsNext else { return }
         holdsNext = false
         await withCheckedContinuation { held.append($0) }
+    }
+
+    func releaseOldest() {
+        guard !held.isEmpty else { return }
+        held.removeFirst().resume()
     }
 
     func releaseHeld() {
@@ -254,6 +274,8 @@ private actor RaceDaemon: LeoDaemonClient {
     var heldCount: Int { get async { await gate.heldCount } }
     func setAgents(_ agents: [String]) { self.agents = agents }
     func holdNext() async { await gate.holdNext() }
+    func stopHolding() async { await gate.stopHolding() }
+    func releaseOldest() async { await gate.releaseOldest() }
     func releaseHeld() async { await gate.releaseHeld() }
 
     func listAgents() async throws -> [LeoAgent] {
