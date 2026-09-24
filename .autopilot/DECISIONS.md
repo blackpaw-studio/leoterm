@@ -576,3 +576,10 @@ Why: keyboard-first; don't take an existing shortcut; the top visible row = Retu
 Alternatives: keep section order fixed (Return target not the top row); accent-insensitive (surprising for exact names)
 Commit: 93a8c5b9f 823a717fb 03974e177
 Veto: [ ]
+
+## D-073 · 2026-09-24 · B-010: activity sort, a Pinned section, collapsible sections
+Chose: within each section, rows sort by the daemon's last-activity timestamp, newest first, ties/unknown by name; if the daemon exposes no activity time, keep daemon order and log it (never invent a time). Agents ▸ Sort By ▸ Last Activity / Name (checkmarked, remembered). Pin/Unpin from the row context menu and Agents ▸ Pin Agent (conflict-free shortcut) puts agents in a "Pinned" section at the top, keyed by host + agent name; a pinned agent that disappears is kept in prefs but not shown. Section headers get a disclosure control; collapsed state is remembered per host. A search filter shows all matches regardless of collapse.
+Why: keyboard-first (menu + shortcut for each action); calm (no reordering animation spam: rows move only when activity changes)
+Alternatives: star badge on rows without a section (pins get lost in long lists); no Name option (some people want a stable order)
+Commit:
+Veto: [ ]
