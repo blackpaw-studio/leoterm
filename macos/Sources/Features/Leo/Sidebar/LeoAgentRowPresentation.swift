@@ -31,6 +31,50 @@ struct LeoAgentRowPresentation: Equatable {
         var accessibilityLabel: String { [template, lastActiveSpoken].compactMap { $0 }.joined(separator: ", ") }
 
         static let separator = " · "
+
+        /// Which part of the line gives way first when it's too narrow.
+        enum Truncation: Equatable {
+            /// The template: truncates first.
+            case first
+            /// The attention state: truncates once the template is gone.
+            case second
+            /// The last-active time: never truncates.
+            case never
+
+            var layoutPriority: Double {
+                switch self {
+                case .first: 0
+                case .second: 1
+                case .never: 2
+                }
+            }
+        }
+
+        enum Tint: Equatable {
+            case secondary
+            case state(Color)
+        }
+
+        /// One part of the line, drawn as its own text so each truncates
+        /// on its own terms; the separator leads the part it belongs to.
+        struct Segment: Equatable {
+            let text: String
+            let tint: Tint
+            let truncation: Truncation
+            let hasSeparator: Bool
+        }
+
+        /// Template, state, time -- in that order, missing parts omitted.
+        var segments: [Segment] {
+            let parts: [(String, Tint, Truncation)?] = [
+                template.map { ($0, .secondary, .first) },
+                state.map { ($0.label, .state($0.tint), .second) },
+                lastActive.map { ($0, .secondary, .never) }
+            ]
+            return parts.compactMap { $0 }.enumerated().map { index, part in
+                Segment(text: part.0, tint: part.1, truncation: part.2, hasSeparator: index > 0)
+            }
+        }
     }
 
     /// Live attach tabs/splits for the agent: a secondary glyph, with the

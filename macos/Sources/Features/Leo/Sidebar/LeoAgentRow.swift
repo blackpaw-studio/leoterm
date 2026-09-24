@@ -217,7 +217,8 @@ struct LeoAgentRowView: View {
                 if let subtitle = presentation.subtitle {
                     // VoiceOver already hears the state on the name's label, so
                     // the subtitle reads only the template and the time.
-                    subtitleText(subtitle).font(.caption).lineLimit(1)
+                    subtitleText(subtitle).font(.caption)
+                        .accessibilityElement(children: .ignore)
                         .accessibilityLabel(subtitle.accessibilityLabel)
                         .accessibilityHidden(subtitle.accessibilityLabel.isEmpty)
                 }
@@ -228,15 +229,30 @@ struct LeoAgentRowView: View {
     }
 
     /// "claude · Needs Input · 5m": the template and the last-active time
-    /// in secondary, the attention state word in its state color. One
-    /// concatenated `Text` so the line truncates as a whole.
-    private func subtitleText(_ subtitle: LeoAgentRowPresentation.Subtitle) -> Text {
-        let template = subtitle.template.map { Text($0).foregroundColor(.secondary) }
-        let state = subtitle.state.map { Text($0.label).foregroundColor($0.tint) }
-        let lastActive = subtitle.lastActive.map { Text($0).foregroundColor(.secondary) }
-        let separator = Text(LeoAgentRowPresentation.Subtitle.separator).foregroundColor(.secondary)
-        let parts = [template, state, lastActive].compactMap { $0 }
-        return parts.dropFirst().reduce(parts.first ?? Text("")) { $0 + separator + $1 }
+    /// in secondary, the attention state word in its state color. One line;
+    /// when it's too narrow the template truncates first, then the state,
+    /// and the time never does (each part is its own text with its own
+    /// layout priority; the time is fixed-size).
+    private func subtitleText(_ subtitle: LeoAgentRowPresentation.Subtitle) -> some View {
+        HStack(spacing: 0) {
+            ForEach(Array(subtitle.segments.enumerated()), id: \.offset) { _, segment in
+                subtitleSegment(segment)
+            }
+        }
+    }
+
+    @ViewBuilder private func subtitleSegment(_ segment: LeoAgentRowPresentation.Subtitle.Segment) -> some View {
+        let separator = Text(segment.hasSeparator ? LeoAgentRowPresentation.Subtitle.separator : "").foregroundColor(.secondary)
+        let body = switch segment.tint {
+        case .secondary: Text(segment.text).foregroundColor(.secondary)
+        case .state(let tint): Text(segment.text).foregroundColor(tint)
+        }
+        let text = (separator + body).lineLimit(1).truncationMode(.tail).layoutPriority(segment.truncation.layoutPriority)
+        if segment.truncation == .never {
+            text.fixedSize()
+        } else {
+            text
+        }
     }
 
     /// Static (no animation), fixed-width, icon-only attention badge so it
