@@ -15,17 +15,18 @@ enum LeoTestPreferencesListing {
         return URL(fileURLWithPath: home, isDirectory: true).appendingPathComponent("Library/Preferences", isDirectory: true)
     }
 
-    /// Test-suite-named plists in `directory`; a missing directory has none.
-    static func names(in directory: URL = directory) -> Set<String> {
-        Set(((try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []).filter(isTestSuiteName))
+    /// Test-suite-named plists in `directory`. Throws if it can't be read:
+    /// an empty answer would let the guard pass without looking.
+    static func names(in directory: URL = directory) throws -> Set<String> {
+        Set(try FileManager.default.contentsOfDirectory(atPath: directory.path).filter(isTestSuiteName))
     }
 
-    /// `<Leo|Ghostty…>Tests[.anything].plist`, or a bare `<UUID>.plist` (the
-    /// suites some tests named with nothing but a UUID).
+    /// `<Leo|Ghostty…>Tests[.anything].plist`. Bare `<UUID>.plist` suites
+    /// (which some tests once used) are left out: no test makes them now, and
+    /// another process could.
     static func isTestSuiteName(_ fileName: String) -> Bool {
         guard fileName.hasSuffix(".plist") else { return false }
         let domain = String(fileName.dropLast(".plist".count))
-        if UUID(uuidString: domain) != nil { return true }
         let prefix = domain.split(separator: ".", maxSplits: 1).first.map(String.init) ?? domain
         return (prefix.hasPrefix("Leo") || prefix.hasPrefix("Ghostty")) && prefix.hasSuffix("Tests")
     }

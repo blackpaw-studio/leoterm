@@ -10,7 +10,6 @@ struct LeoTestPreferencesListingTests {
         "LeoSidebarFeedRecoveryTests.picker.8A0F1E62-3C1B-4B0E-9D57-2B1C0C7A9F10.plist",
         "LeoHostSelectionTests.applied.plist",
         "GhosttyAttachTabHostFocusTests.x.plist",
-        "8A0F1E62-3C1B-4B0E-9D57-2B1C0C7A9F10.plist",
     ])
     func matchesTestSuiteNames(_ name: String) {
         #expect(LeoTestPreferencesListing.isTestSuiteName(name))
@@ -23,6 +22,8 @@ struct LeoTestPreferencesListingTests {
         "com.google.chrome.for.testing.plist",
         "LeoSidebarTests.plist.lockfile",
         "LeoTestsHelper.plist",
+        // Another process's bare-UUID domain is not the tests' doing.
+        "8A0F1E62-3C1B-4B0E-9D57-2B1C0C7A9F10.plist",
     ])
     func ignoresOtherPlists(_ name: String) {
         #expect(!LeoTestPreferencesListing.isTestSuiteName(name))
@@ -36,6 +37,12 @@ struct LeoTestPreferencesListingTests {
             FileManager.default.createFile(atPath: directory.appendingPathComponent(name).path, contents: Data())
         }
 
-        #expect(LeoTestPreferencesListing.names(in: directory) == ["LeoSidebarTests.a.plist"])
+        #expect(try LeoTestPreferencesListing.names(in: directory) == ["LeoSidebarTests.a.plist"])
+    }
+
+    /// An unreadable directory must fail the guard, never pass as empty.
+    @Test func anUnreadableDirectoryThrowsInsteadOfListingNothing() {
+        let missing = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        #expect(throws: (any Error).self) { try LeoTestPreferencesListing.names(in: missing) }
     }
 }

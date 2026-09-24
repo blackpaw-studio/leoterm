@@ -25,7 +25,7 @@ import XCTest
 final class LeoRealCacheDirectoryGuard: NSObject, XCTestObservation {
     private let directories = [LeoControlSocketDirectory.default, LeoTunnelOrphanStore.defaultLegacySocketDirectory].compactMap(\.self)
     private var before: Set<String> = []
-    private var preferencesBefore: Set<String> = []
+    private var preferencesBefore: Result<Set<String>, any Error> = .success([])
     private static let listedPreferencesLimit = 20
 
     override init() {
@@ -35,14 +35,15 @@ final class LeoRealCacheDirectoryGuard: NSObject, XCTestObservation {
 
     func testBundleWillStart(_: Bundle) {
         before = LeoRealDirectoryListing.paths(in: directories)
-        preferencesBefore = LeoTestPreferencesListing.names()
+        preferencesBefore = Result { try LeoTestPreferencesListing.names() }
     }
 
     func testBundleDidFinish(_: Bundle) {
         // Only the directory this process reserved, if it reserved one.
         LeoHostSelectionTestSupport.socketDirectoryReservation.removeIfReserved()
         let added = LeoRealDirectoryListing.paths(in: directories).subtracting(before)
-        let addedPreferences = LeoTestPreferencesListing.names().subtracting(preferencesBefore)
+        let addedPreferences = Result { try LeoTestPreferencesListing.names() }
+            .flatMap { after in preferencesBefore.map { after.subtracting($0) } }
         let failures = [socketFailure(added), preferencesFailure(addedPreferences)].compactMap(\.self)
         guard !failures.isEmpty else { return }
         FileHandle.standardError.write(Data(failures.joined().utf8))
@@ -60,7 +61,17 @@ final class LeoRealCacheDirectoryGuard: NSObject, XCTestObservation {
         """
     }
 
-    private func preferencesFailure(_ added: Set<String>) -> String? {
+    private func preferencesFailure(_ result: Result<Set<String>, any Error>) -> String? {
+        let added: Set<String>
+        switch result {
+        case let .success(names): added = names
+        case let .failure(error):
+            return """
+            ✘ Test realPreferencesAreUnchanged() failed: couldn't list \(LeoTestPreferencesListing.directory.path) \
+            to check for leaked test-suite plists: \(error)
+
+            """
+        }
         guard !added.isEmpty else { return nil }
         return """
         ✘ Test realPreferencesAreUnchanged() failed: the test run added \(added.count) \
