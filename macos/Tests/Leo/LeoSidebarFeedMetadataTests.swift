@@ -204,6 +204,34 @@ struct LeoSidebarFeedMetadataTests {
         await harness.stop()
     }
 
+    /// B-010 (D-082): Last Activity order follows snapshots only. An
+    /// activity event whose snapshot hasn't landed leaves the order alone;
+    /// the snapshot that reports the newer time moves the row.
+    @Test func sidebarOrderMovesOnlyWhenASnapshotReportsNewerActivity() async throws {
+        let harness = MetadataHarness(
+            agents: [("alpha", "s1"), ("beta", "s1")],
+            state: [observed("alpha", "s1", task: nil, at: "2026-09-24T12:00:00Z"), observed("beta", "s1", task: nil, at: "2026-09-24T10:00:00Z")]
+        )
+        let model = await MainActor.run { LeoSidebarModel() }
+        await harness.start()
+        try await harness.pump { $0.rows.allSatisfy { $0.metadata != nil } }
+        await harness.settle()
+        #expect(await order(harness, model) == ["alpha", "beta"])
+
+        await harness.activity.setState([
+            observed("alpha", "s1", task: nil, at: "2026-09-24T12:00:00Z"), observed("beta", "s1", task: nil, at: "2026-09-24T13:00:00Z")
+        ])
+        await harness.activity.holdNext()
+        await harness.activity.send(.agentActivity(seq: 2, at: nil, agent: "beta", activity: .working, currentAction: nil))
+        try await harness.pump { $0.rows.last?.activity == .working }
+        #expect(await order(harness, model) == ["alpha", "beta"], "the event alone never reorders")
+
+        await harness.activity.releaseHeld()
+        try await harness.pump { $0.rows.last?.metadata?.lastActiveAt == LeoTimestamp.parse("2026-09-24T13:00:00Z") }
+        #expect(await order(harness, model) == ["beta", "alpha"])
+        await harness.stop()
+    }
+
     @Test func burstsOfActivityShareOneFetchInFlight() async throws {
         let harness = MetadataHarness(agents: [("alpha", "s1")], state: [observed("alpha", "s1", task: "first")])
         await harness.start()
@@ -225,11 +253,20 @@ struct LeoSidebarFeedMetadataTests {
     }
 }
 
-private func observed(_ name: String, _ startedAt: String, task: String?) -> LeoObservedAgent {
+private func observed(_ name: String, _ startedAt: String, task: String?, at lastActivityAt: String = "2026-09-24T15:00:00Z") -> LeoObservedAgent {
     LeoObservedAgent(
         name: name, status: .running, activity: .idle, currentAction: task.map { .init(kind: "pane", detail: $0) },
-        lastActivityAt: "2026-09-24T15:00:00Z", startedAt: startedAt
+        lastActivityAt: lastActivityAt, startedAt: startedAt
     )
+}
+
+/// The sidebar's displayed order for the feed's latest snapshot.
+private func order(_ harness: MetadataHarness, _ model: LeoSidebarModel) async -> [String] {
+    guard let snapshot = await harness.recorder.last else { return [] }
+    return await MainActor.run {
+        model.receive(snapshot)
+        return model.visibleRows.map(\.name)
+    }
 }
 
 private func agent(_ name: String, _ startedAt: String) -> LeoAgent {

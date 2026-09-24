@@ -81,6 +81,9 @@ struct LeoAgentRowView: View {
     let errorCode: String?
     /// Name characters the search query matched, drawn bold (B-009).
     var nameHighlights: [Int] = []
+    /// Whether the row is in the Pinned section, and the toggle (B-010).
+    var isPinned = false
+    var togglePin: () -> Void = {}
     @State private var templates: [LeoTemplate] = []
     @State private var showingRename = false
     @State private var showingDelete = false
@@ -367,6 +370,7 @@ struct LeoAgentRowView: View {
         Button("Rename…") { showingRename = true }.disabled(!availability.rename)
         Button("View Logs") { viewLogs() }.disabled(!availability.logs)
         Button("Browse Files") { browseFiles() }
+        Button(LeoMenuCommands.pinToggleTitle(isPinned: isPinned), action: togglePin)
         Divider()
         Button("Delete…", role: .destructive) { showingDelete = true }.disabled(!availability.delete)
     }

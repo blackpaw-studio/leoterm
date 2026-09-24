@@ -525,6 +525,32 @@
                                     <action selector="findLeoAgent:" target="-1" id="Leo-Agents-Find-Action"/>
                                 </connections>
                             </menuItem>
+                            <menuItem isSeparatorItem="YES" id="Leo-Agents-Separator-5"/>
+                            <menuItem title="Pin Agent" keyEquivalent="p" id="Leo-Agents-Pin">
+                                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                <connections>
+                                    <action selector="toggleSelectedLeoAgentPin:" target="-1" id="Leo-Agents-Pin-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Sort By" id="Leo-Agents-SortBy">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <menu key="submenu" title="Sort By" id="Leo-Agents-SortBy-Menu">
+                                    <items>
+                                        <menuItem title="Last Activity" id="Leo-Agents-SortBy-LastActivity">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="sortLeoAgentsByLastActivity:" target="-1" id="Leo-Agents-SortBy-LastActivity-Action"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Name" id="Leo-Agents-SortBy-Name">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="sortLeoAgentsByName:" target="-1" id="Leo-Agents-SortBy-Name-Action"/>
+                                            </connections>
+                                        </menuItem>
+                                    </items>
+                                </menu>
+                            </menuItem>
                         </items>
                     </menu>
                 </menuItem>

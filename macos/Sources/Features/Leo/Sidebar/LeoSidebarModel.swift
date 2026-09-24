@@ -25,9 +25,65 @@ import Foundation
     /// Fired when the Dock attention count changes (AppDelegate's badge writer).
     var attentionCountChanged: (Int) -> Void = { _ in }
 
-    init(snapshot: LeoSidebarSnapshot = .init(rows: [], connectivity: .loading, generation: 0)) { self.snapshot = snapshot }
+    /// Sort order, pins and collapsed sections (B-010), saved to
+    /// `preferencesStore` on every change.
+    @Published private(set) var preferences: LeoSidebarPreferences
+    private let preferencesStore: any LeoSidebarPreferencesStore
 
-    var visibleRows: [LeoAgentRow] { LeoSidebarReducers.filter(LeoSidebarReducers.rank(snapshot.rows), query: query) }
+    init(
+        snapshot: LeoSidebarSnapshot = .init(rows: [], connectivity: .loading, generation: 0),
+        preferencesStore: any LeoSidebarPreferencesStore = LeoInMemorySidebarPreferencesStore()
+    ) {
+        self.snapshot = snapshot
+        self.preferencesStore = preferencesStore
+        preferences = preferencesStore.load()
+    }
+
+    /// The host whose collapsed sections apply: the feed's rows are all
+    /// from the selected host.
+    private var rowsHost: LeoHostID { snapshot.rows.first?.host ?? .local }
+
+    var sections: [LeoSidebarSection] {
+        LeoSidebarLayout.sections(rows: snapshot.rows, query: query, preferences: preferences, host: rowsHost)
+    }
+
+    var visibleRows: [LeoAgentRow] {
+        LeoSidebarLayout.visibleRows(rows: snapshot.rows, query: query, preferences: preferences, host: rowsHost)
+    }
+
+    /// Only the filter can leave nothing to show: collapsed sections keep
+    /// their headers, which are how they're expanded again.
+    var showsNoMatches: Bool { !snapshot.rows.isEmpty && sections.isEmpty }
+
+    /// Every row in unfiltered display order, collapsed ones included.
+    var orderedRows: [LeoAgentRow] { LeoSidebarLayout.orderedRows(snapshot.rows, preferences: preferences) }
+
+    func setSortOrder(_ order: LeoSidebarSortOrder) { update(preferences.with(sortOrder: order)) }
+
+    func isPinned(_ id: LeoAgentRow.ID) -> Bool { preferences.pinned.contains(id) }
+
+    func togglePin(_ id: LeoAgentRow.ID) { update(preferences.togglingPin(id)) }
+
+    func isCollapsed(_ sectionID: String) -> Bool { preferences.isCollapsed(sectionID, host: rowsHost) }
+
+    func toggleCollapsed(_ sectionID: String) {
+        update(preferences.setting(sectionID, collapsed: !isCollapsed(sectionID), host: rowsHost))
+    }
+
+    /// Expands the section holding `id`, so a row something jumps to is
+    /// on screen.
+    func reveal(_ id: LeoAgentRow.ID) {
+        guard let row = snapshot.rows.first(where: { $0.id == id }) else { return }
+        let sectionID = LeoSidebarLayout.sectionID(of: row, preferences: preferences)
+        guard isCollapsed(sectionID) else { return }
+        update(preferences.setting(sectionID, collapsed: false, host: row.host))
+    }
+
+    private func update(_ updated: LeoSidebarPreferences) {
+        guard updated != preferences else { return }
+        preferences = updated
+        preferencesStore.save(updated)
+    }
 
     func receive(_ value: LeoSidebarSnapshot) {
         guard value.generation >= snapshot.generation else { return }

@@ -15,7 +15,7 @@ enum LeoHostID: Hashable, Sendable, Codable {
 struct LeoAgentRow: Identifiable, Equatable, Sendable {
     enum Activity: String, Equatable, Sendable { case working, idle, unknown }
 
-    struct ID: Hashable, Sendable {
+    struct ID: Hashable, Sendable, Codable {
         let host: LeoHostID
         let name: String
     }

@@ -11,11 +11,12 @@ extension LeoRuntime {
         focusedAgentRelay.send(identity.map { LeoAgentRow.ID(host: $0.host, name: $0.name) })
     }
 
-    /// The row Jump would attach to: unfiltered sidebar order, after the
-    /// focused agent (else the selection), skipping the focused agent.
+    /// The row Jump would attach to: unfiltered sidebar order (pinned
+    /// first, collapsed sections included), after the focused agent (else
+    /// the selection), skipping the focused agent.
     var nextAttentionTarget: LeoAgentRow? {
         guard !model.isDisconnected else { return nil }
-        let rows = LeoSidebarReducers.rank(model.snapshot.rows)
+        let rows = model.orderedRows
         let focused = attachCoordinator.focusedIdentity.map { LeoAgentRow.ID(host: $0.host, name: $0.name) }
         let target = LeoAttentionNavigation.next(
             in: rows.map(\.id),
@@ -27,12 +28,13 @@ extension LeoRuntime {
     }
 
     /// Reveals `session`'s sidebar, clears a filter that would hide the
-    /// target, and attaches (reusing a tab when one exists). The selection
+    /// target, expands its collapsed section, and attaches (reusing a tab when one exists). The selection
     /// moves only once the attach succeeds.
     func jumpToNextNeedingAttention(from session: LeoWindowSession) {
         guard let row = nextAttentionTarget else { return }
         session.setSidebarVisible(true)
         if LeoAttentionNavigation.filterHides(row, query: model.query) { model.query = "" }
+        model.reveal(row.id)
         let request = LeoSurfaceRequest(origin: session.id, disposition: .tab)
         Task { [weak self] in
             guard let self else { return }
