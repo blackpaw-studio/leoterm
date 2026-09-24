@@ -30,13 +30,29 @@ import Foundation
     @Published private(set) var preferences: LeoSidebarPreferences
     private let preferencesStore: any LeoSidebarPreferencesStore
 
+    /// Surfaced-file ids already opened, per host (B-013); see
+    /// `LeoSidebarModel+SurfacedFiles.swift`.
+    @Published var surfacedSeen: LeoSurfacedFileLedger
+    let surfacedSeenStore: any LeoSurfacedFileSeenStore
+    /// The agent whose attach tab is focused, as the attach coordinator
+    /// reports it.
+    var focusedAgent: LeoAgentRow.ID?
+    /// A click just opened this agent's file: the focus its attach brings
+    /// counts as the same visit and opens nothing more.
+    var surfacedOpenedByClick: LeoAgentRow.ID?
+    /// Opens a surfaced file in the editor; it was already marked seen.
+    var surfacedFileOpenRequested: (LeoSurfacedFile, LeoAgentRow) -> Void = { _, _ in }
+
     init(
         snapshot: LeoSidebarSnapshot = .init(rows: [], connectivity: .loading, generation: 0),
-        preferencesStore: any LeoSidebarPreferencesStore = LeoInMemorySidebarPreferencesStore()
+        preferencesStore: any LeoSidebarPreferencesStore = LeoInMemorySidebarPreferencesStore(),
+        surfacedSeenStore: any LeoSurfacedFileSeenStore = LeoInMemorySurfacedFileSeenStore()
     ) {
         self.snapshot = snapshot
         self.preferencesStore = preferencesStore
         preferences = preferencesStore.load()
+        self.surfacedSeenStore = surfacedSeenStore
+        surfacedSeen = surfacedSeenStore.load()
     }
 
     /// The host whose collapsed sections apply: the feed's rows are all

@@ -41,6 +41,7 @@ import OSLog
     private var wakeObservation: LeoNotificationObservation?
     #if DEBUG
     private let openFileFixture = LeoOpenFileFixture()
+    private let surfaceFixture = LeoSurfaceFixtureInjector()
     private var forcedDisconnect: AnyObject?
     #endif
 
@@ -86,7 +87,10 @@ import OSLog
         self.hostConnectionTransport = hostConnectionTransport
         let orphanStore = LeoTunnelOrphanStore(defaults: defaults, legacySocketDirectory: hostSelectionLegacySocketDirectory)
         self.orphanStore = orphanStore
-        let model = LeoSidebarModel(preferencesStore: LeoUserDefaultsSidebarPreferencesStore(defaults: defaults))
+        let model = LeoSidebarModel(
+            preferencesStore: LeoUserDefaultsSidebarPreferencesStore(defaults: defaults),
+            surfacedSeenStore: LeoUserDefaultsSurfacedFileSeenStore(defaults: defaults)
+        )
         let registry = LeoWindowSessionRegistry()
         self.model = model
         self.registry = registry
@@ -208,7 +212,11 @@ import OSLog
             daemon: daemon, activity: activitySource,
             onManualRefresh: { [actionsBox] in actionsBox.actions?.invalidateTemplateCache() },
             onAttentionTransitions: { transitions in weakSelf?.attentionTransitionsCommitted(transitions) },
-            sink: { [weak model] snapshot in model?.receive(snapshot) }
+            onFileSurfaced: { host, file in weakSelf?.model.fileSurfaced(file, host: host) },
+            sink: { [weak model] snapshot in
+                model?.receive(snapshot)
+                weakSelf?.snapshotLanded(snapshot)
+            }
         )
         focusedAgentRelay = LeoOrderedRelay(sink: focusedAgentSink ?? { [weak feed] id in await feed?.setFocusedAgent(id) })
         actions = LeoAgentActions(daemon: daemon, cli: cli, model: model, hostSelection: hostSelection) { [weak feed] in
@@ -235,6 +243,7 @@ import OSLog
             Task { await attachCoordinator?.attach(identity: row.identity, from: origin, disposition: disposition) }
         }
         model.focusExistingRequested = { [weak attachCoordinator] row in attachCoordinator?.focusExisting(row.identity) }
+        model.surfacedFileOpenRequested = { file, row in weakSelf?.openSurfacedFile(file, for: row) }
         model.latestFocusReport = { [weak attachCoordinator] in attachCoordinator?.latestFocusReport ?? 0 }
 
         // `hostSelection`'s `connectionTarget` (wired above) closes over
@@ -255,6 +264,15 @@ import OSLog
             forcedDisconnect = LeoForcedDisconnectFixture.arm(model: model, reason: reason) { [weak feed] reason in
                 Task { await feed?.disconnect(reason: reason) }
             }
+        }
+        #endif
+    }
+
+    /// Every snapshot the model receives; DEBUG fixtures hook in here.
+    private func snapshotLanded(_ snapshot: LeoSidebarSnapshot) {
+        #if DEBUG
+        surfaceFixture.snapshotLanded(snapshot) { [feed] files in
+            Task { for file in files { await feed.receive(.fileSurfaced(seq: nil, file: file)) } }
         }
         #endif
     }

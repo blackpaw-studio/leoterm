@@ -84,6 +84,9 @@ struct LeoAgentRowView: View {
     /// Whether the row is in the Pinned section, and the toggle (B-010).
     var isPinned = false
     var togglePin: () -> Void = {}
+    /// This row's unseen surfaced files, newest last, and the open (B-013).
+    var pendingSurfacedFiles: [LeoSurfacedFile] = []
+    var openSurfacedFile: (LeoSurfacedFile) -> Void = { _ in }
     @State private var templates: [LeoTemplate] = []
     @State private var showingRename = false
     @State private var showingDelete = false
@@ -217,7 +220,7 @@ struct LeoAgentRowView: View {
     /// The tab glyph lives on the subtitle line, never the name line, so
     /// it costs the name no width.
     @ViewBuilder private func subtitleLine(_ presentation: LeoAgentRowPresentation) -> some View {
-        if presentation.subtitle != nil || presentation.tabs != nil {
+        if presentation.subtitle != nil || presentation.tabs != nil || !pendingSurfacedFiles.isEmpty {
             HStack(spacing: 4) {
                 if let subtitle = presentation.subtitle {
                     // VoiceOver already hears the state on the name's label, so
@@ -236,6 +239,7 @@ struct LeoAgentRowView: View {
                 } else {
                     Spacer(minLength: 4)
                 }
+                surfacedFilesGlyph
                 tabsGlyph(presentation)
             }
         }
@@ -291,6 +295,24 @@ struct LeoAgentRowView: View {
                 .fixedSize()
                 .layoutPriority(1)
                 .accessibilityHidden(true)
+        }
+    }
+
+    /// Static, secondary-colored, like the tabs glyph: files the agent
+    /// surfaced that haven't been opened. Calm on purpose -- no tint, no
+    /// motion; it isn't "needs input". The tooltip lists them.
+    @ViewBuilder private var surfacedFilesGlyph: some View {
+        if let indicator = LeoSurfacedFilesIndicator(pending: pendingSurfacedFiles) {
+            HStack(spacing: 2) {
+                Image(systemName: LeoSurfacedFilesIndicator.symbolName)
+                Text(indicator.countText).monospacedDigit()
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .fixedSize()
+            .help(indicator.tooltip)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(indicator.accessibilityLabel)
         }
     }
 
@@ -370,6 +392,13 @@ struct LeoAgentRowView: View {
         Button("Rename…") { showingRename = true }.disabled(!availability.rename)
         Button("View Logs") { viewLogs() }.disabled(!availability.logs)
         Button("Browse Files") { browseFiles() }
+        if !row.surfacedFiles.isEmpty {
+            Menu("Surfaced Files") {
+                ForEach(row.surfacedFiles.reversed()) { file in
+                    Button(file.menuTitle) { openSurfacedFile(file) }
+                }
+            }
+        }
         Button(LeoMenuCommands.pinToggleTitle(isPinned: isPinned), action: togglePin)
         Divider()
         Button("Delete…", role: .destructive) { showingDelete = true }.disabled(!availability.delete)

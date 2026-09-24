@@ -222,7 +222,9 @@ struct LeoSidebarView: View {
                             errorCode: model.rowErrorCodes[row.id],
                             nameHighlights: model.searchHighlights(for: row),
                             isPinned: model.isPinned(row.id),
-                            togglePin: { model.togglePin(row.id) }
+                            togglePin: { model.togglePin(row.id) },
+                            pendingSurfacedFiles: model.pendingSurfacedFiles(for: row),
+                            openSurfacedFile: { model.openSurfacedFile($0, for: row) }
                         )
                         .tag(row.id)
                     }

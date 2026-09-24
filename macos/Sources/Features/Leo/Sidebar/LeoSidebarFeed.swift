@@ -91,6 +91,10 @@ actor LeoSidebarFeed {
     /// Monotonic seconds; only the attention reducer's stability window reads it.
     let now: @Sendable () -> TimeInterval
     let onAttentionTransitions: @MainActor @Sendable ([LeoAttentionTransition]) -> Void
+    /// Files surfaced on the selected host (B-013), by incarnation.
+    var surfacedFiles = LeoSurfacedFileIndex.empty
+    /// A live `file_surfaced` with an id not seen before, with its host.
+    let onFileSurfaced: @MainActor @Sendable (LeoHostID, LeoSurfacedFile) -> Void
     var running = false
     var needsState = true
     var recovering = false
@@ -121,6 +125,7 @@ actor LeoSidebarFeed {
         now: @escaping @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
         onManualRefresh: @escaping @MainActor @Sendable () -> Void = {},
         onAttentionTransitions: @escaping @MainActor @Sendable ([LeoAttentionTransition]) -> Void = { _ in },
+        onFileSurfaced: @escaping @MainActor @Sendable (LeoHostID, LeoSurfacedFile) -> Void = { _, _ in },
         sink: @escaping Sink
     ) {
         self.daemon = daemon
@@ -128,6 +133,7 @@ actor LeoSidebarFeed {
         sleeper = sleep
         self.now = now
         self.onAttentionTransitions = onAttentionTransitions
+        self.onFileSurfaced = onFileSurfaced
         self.onManualRefresh = onManualRefresh
         self.sink = sink
     }
@@ -262,6 +268,8 @@ actor LeoSidebarFeed {
             } else if activityCoalescer.add(event) {
                 scheduleActivityFlush()
             }
+        case .fileSurfaced(_, let file):
+            receiveSurfacedFile(file)
         case .disconnected(let reason):
             Self.logger.log("receive: .disconnected reason=\(reason, privacy: .public)")
             // The stream is gone and nothing reconnects it but Retry (D-061).
@@ -350,7 +358,7 @@ actor LeoSidebarFeed {
     }
 
     func emit() {
-        let value = snapshot.overlayingMetadata(metadata).overlayingAttention(attention)
+        let value = displayedSnapshot.overlayingAttention(attention)
         let previous = emissionTask
         emissionTask = Task { [weak self, sink] in
             await previous?.value

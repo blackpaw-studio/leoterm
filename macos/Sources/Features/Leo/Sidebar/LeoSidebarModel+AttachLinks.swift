@@ -39,7 +39,9 @@ extension LeoSidebarModel {
     func rowClicked(_ row: LeoAgentRow, modifierFlags: NSEvent.ModifierFlags = []) {
         selection = row.id
         fenceInFlightFocusReports()
-        guard !modifierFlags.contains(.option), tabCount(for: row.id) > 0 else { return }
+        let focusesExisting = !modifierFlags.contains(.option) && tabCount(for: row.id) > 0
+        surfacedFilesRowClicked(row, focusesExisting: focusesExisting)
+        guard focusesExisting else { return }
         focusExistingRequested(row)
     }
 
