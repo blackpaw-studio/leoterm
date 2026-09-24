@@ -486,3 +486,11 @@ Why: principles 1, 3 and 5
 Alternatives: reopen after close (leaked connections); wait for cancelled listings (hangs on an unresponsive server)
 Commit: 30233456a 36aee4e9e 459098e6b
 Veto: [ ]
+
+## D-061 · 2026-09-23 · B-007 disconnected state: shape of the Retry
+Context: B-007 (grey the list + Retry banner on tunnel drop or wake; drop the activity stream's backoff per D-048)
+Chose: while disconnected, rows stay visible but dimmed and inert (no attach/Jump, no badges, out of the Dock count); a banner at the top of the sidebar reads "Disconnected from <host>" with a Retry button; the same action is a menu item (Agents ▸ Reconnect) with a shortcut that doesn't collide with existing ones. On wake, one immediate liveness check (single shot, never repeated); if it fails, show the disconnected state. `LeoSocketActivityClient`'s exponential-backoff reconnect is removed: a dropped stream enters the disconnected state and waits for Retry. A Retry that fails keeps the banner and shows the (sanitized) reason
+Why: principle 5 (manual recovery, never timers), 2 (calm: one banner, no motion), 1 (menu + shortcut), 3 (same for local and SSH)
+Alternatives: hide rows while disconnected (hides a feature, loses context); treat every wake as disconnected (a banner after every sleep is noise); keep backoff with a banner (a timer)
+Commit:
+Veto: [ ]
