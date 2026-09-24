@@ -68,6 +68,7 @@ struct LeoSidebarFeedRecoveryTests {
         let suiteName = "LeoSidebarFeedRecoveryTests.visible.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
         // An inert stream, as below: a real client to a closed port reports
         // a dead stream, which disconnects the feed (D-061) and can beat
         // the first refresh.
@@ -98,6 +99,7 @@ struct LeoSidebarFeedRecoveryTests {
         let suiteName = "LeoSidebarFeedRecoveryTests.picker.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
         // An inert stream: a dead one would (rightly) disconnect the feed
         // and stop all refreshes (D-061), which is not what this is about.
         let activity = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })

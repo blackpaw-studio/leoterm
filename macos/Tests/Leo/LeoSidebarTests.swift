@@ -124,6 +124,7 @@ struct LeoSidebarTests {
         let suiteName = "LeoSidebarTests.fresh.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
         let session = LeoWindowSession(defaults: defaults)
         #expect(!session.isSidebarVisible)
     }
@@ -136,6 +137,7 @@ struct LeoSidebarTests {
         let suiteName = "LeoSidebarTests.pickerPresented.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
         let session = LeoWindowSession(defaults: defaults)
 
         #expect(!session.isSidebarVisible)
@@ -154,6 +156,7 @@ struct LeoSidebarTests {
         let suiteName = "LeoSidebarTests.widths.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
         defaults.set(false, forKey: "leo.sidebarVisible")
         defaults.set(500, forKey: "leo.sidebarWidth")
         let session = LeoWindowSession(defaults: defaults)
