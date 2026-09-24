@@ -692,3 +692,10 @@ Chose: mark done; Evan moved 26,878 `Leo*Tests*.plist` to ~/.Trash/leo-test-stub
 Why: Evan's action
 Commit: n/a
 Veto: n/a (Evan)
+
+## D-090 · 2026-09-24 · B-045: banner stays its own full-width row; layout fix is pane-wide
+Chose: keep the Closing banner as its own leading-aligned row under the header (not in the header's trailing status slot); pin every pane row to the pane width, so all editor banners move to the leading edge alike; clip the banner's background fill to its bounds
+Why: match the other editor banners (Mac-native consistency); the one-row fix is the same code for every banner
+Alternatives: trailing status slot in the header (new idiom, crowds the mode/close controls)
+Commit: 10ec5d41f 350a88ecc f778624b5
+Veto: [ ]

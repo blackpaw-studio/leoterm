@@ -275,10 +275,11 @@ Accept: at default sidebar width, B-011's never-truncating time squeezes the tem
 Source: B-011 visual check
 Done: bb7b9f81c 94685a65c (1346 tests). The template drops when fewer than 5 chars would show; a template that fits whole always shows (D-076). Verified: shot B-043-1 ("claude · Finished · 16h", "assist… · Finished · 16h"). 1 fix round (review MED: whole-fit check first); re-review clean.
 
-## B-045 · Editor "Closing…" banner replaces the header with a near-empty strip   [ready]
+## B-045 · Editor "Closing…" banner replaces the header with a near-empty strip   [done]
 Issue: #48
 Accept: while a close waits on a save (shot B-035-4), the pane's header row (file name, path, mode) disappears and the banner sits alone at the right edge of an otherwise blank strip. Keep the header visible and show the banner as its own leading-aligned row (or in the header's trailing status slot), matching the other editor banners.
 Source: B-035 visual check
+Done: 10ec5d41f 350a88ecc f778624b5 (1395 tests). Two causes: the pane's stack didn't stretch rows (banner hugged the right edge), and `LeoEditorBannerView.draw` filled the whole dirtyRect, which macOS 14+ lets reach past its bounds, painting over the header and separator. Rows pinned to the pane width; the fill clipped to bounds (D-090). Verified: shot B-045-2.png (header, Edited, separator and a leading `Closing …` row during a held save). 2 fix rounds (header overpaint found by screenshot; test cleanup in defer). 2 review P2s on test strength dismissed (only on an already-failing path; the flat-header regression and the cause are both guarded).
 
 ## B-012 · Cold start   [done]
 Issue: #49
