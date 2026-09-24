@@ -1,9 +1,11 @@
 import AppKit
 
-/// What the pane's inline banner says, most important first: a conflict
-/// with the disk, then a failed save or reload, then a read-only notice.
+/// What the pane's inline banner says, most important first: a quit
+/// waiting on the editor, a close waiting on it, a conflict with the disk,
+/// then a failed save or reload, then a read-only notice.
 struct LeoEditorBanner: Equatable {
     enum Action: Equatable {
+        case quitAnyway
         case reload
         case keepMine
         case dismissError
@@ -12,11 +14,29 @@ struct LeoEditorBanner: Equatable {
     let symbol: String
     let message: String
     let actions: [Action]
+    /// Whether its buttons can be used now.
+    var isEnabled = true
 
-    /// nil when there is nothing to say.
-    @MainActor static func current(for document: LeoEditorDocument?) -> LeoEditorBanner? {
+    /// nil when there is nothing to say. `isQuitWaiting`: a pending quit
+    /// is waiting on the document's disk or connection (a save or read
+    /// that hasn't come back), and it can be left from here.
+    /// `canLeave`: whether its Quit Anyway can be used now (no offer to
+    /// leave is already showing). `isWaitingToClose`: a close is waiting
+    /// on the document's disk or connection (or on work queued before it).
+    @MainActor static func current(for document: LeoEditorDocument?, isQuitWaiting: Bool = false, canLeave: Bool = true, isWaitingToClose: Bool = false) -> LeoEditorBanner? {
         guard let document else { return nil }
-        let name = "“\(LeoSFTPServerText.sanitized(document.displayName))”"
+        let name = "“\(LeoSFTPServerText.isolated(document.displayName))”"
+        if isQuitWaiting {
+            return LeoEditorBanner(
+                symbol: "hourglass",
+                message: "Quitting is waiting for \(document.fileID.host.displayName) to finish with \(name).",
+                actions: [.quitAnyway],
+                isEnabled: canLeave
+            )
+        }
+        if isWaitingToClose {
+            return LeoEditorBanner(symbol: "hourglass", message: "Closing \(name)…", actions: [])
+        }
         switch document.diskState {
         case .changed:
             return LeoEditorBanner(
@@ -46,6 +66,7 @@ struct LeoEditorBanner: Equatable {
 extension LeoEditorBanner.Action {
     var title: String {
         switch self {
+        case .quitAnyway: "Quit Anyway…"
         case .reload: "Reload"
         case .keepMine: "Keep Mine"
         case .dismissError: "OK"
@@ -83,6 +104,7 @@ final class LeoEditorBannerView: NSView {
             button.bezelStyle = .push
             button.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
             button.tag = banner.actions.firstIndex(of: action) ?? 0
+            button.isEnabled = banner.isEnabled
             buttons.addArrangedSubview(button)
         }
         setAccessibilityLabel(banner.message)

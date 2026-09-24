@@ -15,10 +15,27 @@ import OSLog
     private var reportedFocus: AttachLifecycleEvent?
     private var reportedViewing: AttachmentHandle?
     private(set) var focusReportCount = 0
+    private let appFocusState: @MainActor () -> AppFocusState
 
-    init(registry: LeoWindowSessionRegistry, requestConfigStore: LeoRequestConfigStore) {
+    /// Whether the app is active and which window is key. Injectable so
+    /// tests can drive focus reports without the real app being frontmost.
+    struct AppFocusState {
+        var isActive: Bool
+        var keyWindow: NSWindow?
+
+        @MainActor static func current() -> AppFocusState {
+            AppFocusState(isActive: NSApp.isActive, keyWindow: NSApp.keyWindow)
+        }
+    }
+
+    init(
+        registry: LeoWindowSessionRegistry,
+        requestConfigStore: LeoRequestConfigStore,
+        appFocusState: @escaping @MainActor () -> AppFocusState = AppFocusState.current
+    ) {
         self.registry = registry
         self.requestConfigStore = requestConfigStore
+        self.appFocusState = appFocusState
         (lifecycleEvents, continuation) = AsyncStream.makeStream()
         observeFocus()
     }
@@ -32,14 +49,16 @@ import OSLog
     /// responder: the controller keeps remembering `focusedSurface` after
     /// keyboard focus moves to the sidebar.
     var focusedHandle: AttachmentHandle? {
-        focusedHandle(isActive: NSApp.isActive, keyWindow: NSApp.keyWindow)
+        let state = appFocusState()
+        return focusedHandle(isActive: state.isActive, keyWindow: state.keyWindow)
     }
 
     /// Key window -> its selected tab's controller -> `focusedSurface`, so a
     /// focused split counts, first responder or not. `nil` while the app is
     /// inactive.
     var viewedHandle: AttachmentHandle? {
-        viewedHandle(isActive: NSApp.isActive, keyWindow: NSApp.keyWindow)
+        let state = appFocusState()
+        return viewedHandle(isActive: state.isActive, keyWindow: state.keyWindow)
     }
 
     /// `focusedHandle` for the given app state (injectable for tests).
@@ -92,7 +111,8 @@ import OSLog
             reportedViewing = viewing
             yieldFocusReport(.viewingChanged(viewing))
         }
-        let event = focusEvent(isActive: NSApp.isActive, keyWindow: NSApp.keyWindow)
+        let state = appFocusState()
+        let event = focusEvent(isActive: state.isActive, keyWindow: state.keyWindow)
         guard event != reportedFocus else { return }
         reportedFocus = event
         yieldFocusReport(event)

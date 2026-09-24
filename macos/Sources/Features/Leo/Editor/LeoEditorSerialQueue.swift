@@ -5,12 +5,19 @@
 /// change.
 @MainActor final class LeoEditorSerialQueue {
     private var tail: Task<Void, Never>?
+    private var unfinished = 0
+
+    /// While an operation is queued or running.
+    var isBusy: Bool { unfinished > 0 }
 
     func run<T: Sendable>(_ operation: @escaping @MainActor () async -> T) async -> T {
         let previous = tail
+        unfinished += 1
         let task = Task { @MainActor in
             await previous?.value
-            return await operation()
+            let result = await operation()
+            unfinished -= 1
+            return result
         }
         tail = Task { @MainActor in _ = await task.value }
         return await task.value

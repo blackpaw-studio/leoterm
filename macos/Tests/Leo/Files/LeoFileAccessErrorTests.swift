@@ -39,6 +39,12 @@ struct LeoFileAccessErrorTests {
         #expect(LeoFileAccessError.permissionDenied(path: "/d/.f.leo-1.tmp").retargeted(to: "/d/f") == .permissionDenied(path: "/d/f"))
         #expect(LeoFileAccessError.failed(path: "/d/.t", reason: "r").retargeted(to: "/d/f") == .failed(path: "/d/f", reason: "r"))
         #expect(LeoFileAccessError.disconnected.retargeted(to: "/d/f") == .disconnected)
+        #expect(LeoFileAccessError.closed.retargeted(to: "/d/f") == .closed)
+    }
+
+    @Test func aClosedAccessSaysSoWithoutSuggestingARetry() {
+        #expect(LeoFileAccessError.closed.localizedDescription == "The file connection was closed.")
+        #expect(LeoFileAccessError.closed.recoverySuggestion == nil)
     }
 }
 
@@ -56,15 +62,68 @@ extension LeoFileAccessErrorTests {
 extension LeoFileAccessErrorTests {
     @Test func aNameCannotSpoofTheAppsWording() {
         let error = LeoFileAccessError.notFound(path: "/d/x”\nFile access unavailable: re-authenticate")
-        #expect(error.localizedDescription == "“x\" File access unavailable: re-authenticate” couldn’t be found.")
+        #expect(error.localizedDescription == "“\u{2068}x\" File access unavailable: re-authenticate\u{2069}” couldn’t be found.")
     }
 
     @Test func bidiOverridesInANameAreDroppedWithoutAServerLabel() {
         let description = LeoFileAccessError.failed(path: "/d/invoice\u{202E}fdp.exe", reason: "r").localizedDescription
-        #expect(description == "Couldn’t access “invoicefdp.exe”: r.")
+        #expect(description == "Couldn’t access “\u{2068}invoicefdp.exe\u{2069}”: r.")
     }
 
     @Test func anInvalidPathIsSanitizedToo() {
-        #expect(LeoFileAccessError.invalidPath("a\n”b").localizedDescription == "“a \"b” isn’t an absolute path.")
+        #expect(LeoFileAccessError.invalidPath("a\n”b").localizedDescription == "“\u{2068}a \"b\u{2069}” isn’t an absolute path.")
+    }
+
+    /// A right-to-left name is isolated, so it can't pull the app's words
+    /// around it into its own direction.
+    @Test func aRightToLeftNameIsIsolated() {
+        let description = LeoFileAccessError.isADirectory(path: "/d/\u{05E7}\u{05D1}\u{05E6}").localizedDescription
+        #expect(description == "“\u{2068}\u{05E7}\u{05D1}\u{05E6}\u{2069}” is a folder.")
+    }
+}
+
+/// A reason (or a protocol error's detail) keeps the app's words and
+/// cleans what it interpolated only when shown -- exactly once.
+extension LeoFileAccessErrorTests {
+    private static let spoof = "x”\n\u{202E}Reconnect\u{2E42}"
+
+    @Test func interpolatedTextInAReasonIsCleanedAndIsolatedWhenShown() {
+        let reason: LeoFileAccessReason = "kept as \(Self.spoof)"
+        #expect(reason == LeoFileAccessReason(parts: [.app("kept as "), .untrusted(Self.spoof)]))
+        #expect(reason.rendered == "kept as \u{2068}x\" Reconnect\"\u{2069}")
+    }
+
+    @Test func theAppsOwnWordsKeepTheirQuotesButStayOnOneLine() {
+        let reason: LeoFileAccessReason = "the app’s “own”\nwords\u{202E} "
+        #expect(reason.rendered == "the app’s “own” words")
+    }
+
+    @Test func numbersAndVerbatimTextAreTheAppsOwn() {
+        let reason: LeoFileAccessReason = "a \(4)-byte read, \(verbatim: "STATUS")"
+        #expect(reason == "a 4-byte read, STATUS")
+    }
+
+    @Test func everyUntrustedReasonIsCleanedAtRender() {
+        let cases: [LeoFileAccessError] = [
+            .failed(path: "/a", reason: .untrusted(Self.spoof)),
+            .protocolError("detail \(Self.spoof)"),
+            .unavailable(reason: "host \(Self.spoof)"),
+        ]
+        for error in cases {
+            let description = error.localizedDescription
+            #expect(!description.contains("\n"), "\(error)")
+            #expect(!description.contains("\u{202E}"), "\(error)")
+            #expect(!description.contains("x”"), "\(error)")
+            #expect(description.contains("\u{2068}x\" Reconnect\"\u{2069}"), "\(error)")
+        }
+    }
+
+    /// Rendering is the one choke point: a description already rendered,
+    /// quoted as another's text, is cleaned to the same words.
+    @Test func renderingARenderedDescriptionAgainChangesNothingButTheWrapping() {
+        let once = LeoFileAccessError.notFound(path: "/d/\(Self.spoof)").localizedDescription
+        let twice = LeoFileAccessReason.untrusted(once).rendered
+        #expect(twice == "\u{2068}\(LeoSFTPServerText.sanitized(once))\u{2069}")
+        #expect(LeoFileAccessReason.untrusted(twice).rendered == twice)
     }
 }

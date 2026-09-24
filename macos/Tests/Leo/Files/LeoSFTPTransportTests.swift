@@ -96,7 +96,9 @@ struct LeoSFTPTransportTests {
         #expect(launcher.launches == 2)
     }
 
-    @Test func oneSessionServesManyOperationsAndReopensAfterClose() async throws {
+    /// Closing is final: a later call fails as closed and never
+    /// reconnects.
+    @Test func oneSessionServesManyOperationsAndNeverReopensAfterClose() async throws {
         let launcher = LeoCountingSFTPLauncher(LeoSFTPTestServer.launcher())
         let access = LeoFileAccessor.sftp(launcher: launcher)
 
@@ -105,9 +107,42 @@ struct LeoSFTPTransportTests {
         #expect(launcher.launches == 1)
 
         await access.close()
-        _ = try await access.stat("/")
-        #expect(launcher.launches == 2)
-        await access.close()
+        await #expect(throws: LeoFileAccessError.closed) { try await access.stat("/") }
+        await #expect(throws: LeoFileAccessError.closed) { try await access.list("/") }
+        #expect(launcher.launches == 1)
+    }
+
+    /// A server that never answers holds nothing up: closing returns at
+    /// once, whether the request is stuck in the handshake or after it,
+    /// and what's in flight fails as closed.
+    @Test(.timeLimit(.minutes(1)), arguments: ["exec sleep 30", "head -c 9 >/dev/null; \(LeoSFTPTestServer.versionReply); exec sleep 30"])
+    func closingDuringAHungRequestReturnsAtOnceAndFailsItAsClosed(_ script: String) async throws {
+        let launcher = LeoCountingSFTPLauncher(LeoSFTPTestServer.script(script))
+        let access = LeoFileAccessor.sftp(launcher: launcher)
+        let request = Task { try await access.stat("/") }
+        while launcher.launches == 0 { try await Task.sleep(for: .milliseconds(5)) }
+        try await Task.sleep(for: .milliseconds(100))
+
+        let closing = Task { await access.close() }
+        let started = ContinuousClock.now
+        try await eventuallyDone(closing, within: .seconds(2))
+
+        #expect(ContinuousClock.now - started < .seconds(2))
+        await #expect(throws: LeoFileAccessError.closed) { try await request.value }
+        #expect(launcher.launches == 1)
+    }
+
+    private func eventuallyDone(_ task: Task<Void, Never>, within limit: Duration) async throws {
+        let done = LeoDoneFlag()
+        Task {
+            await task.value
+            done.set()
+        }
+        let deadline = ContinuousClock.now + limit
+        while !done.isSet, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        try #require(done.isSet, "close() is still waiting")
     }
 
     @Test func unsupportedServerVersionsAreRefused() async throws {
@@ -118,4 +153,12 @@ struct LeoSFTPTransportTests {
         await #expect(throws: LeoFileAccessError.protocolError("server speaks SFTP v2, not v3")) { try await access.stat("/") }
         await access.close()
     }
+}
+
+final class LeoDoneFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var done = false
+
+    var isSet: Bool { lock.withLock { done } }
+    func set() { lock.withLock { done = true } }
 }

@@ -28,6 +28,15 @@ struct LeoMenuCommandsTests {
         #expect(LeoMenuCommands.canToggleSidebar(hasLeoSession: true))
     }
 
+    /// D-059: Show Agents Sidebar is disabled (so ⌘⇧L beeps) while
+    /// showing it would take the terminal under its floor; Hide never is.
+    @Test func showingTheSidebarIsDisabledWhereItWouldSqueezeTheTerminal() {
+        #expect(!LeoMenuCommands.canToggleSidebar(hasLeoSession: true, isSidebarVisible: false, showingSqueezesTerminal: true))
+        #expect(LeoMenuCommands.canToggleSidebar(hasLeoSession: true, isSidebarVisible: false, showingSqueezesTerminal: false))
+        #expect(LeoMenuCommands.canToggleSidebar(hasLeoSession: true, isSidebarVisible: true, showingSqueezesTerminal: true))
+        #expect(!LeoMenuCommands.canToggleSidebar(hasLeoSession: false, isSidebarVisible: true, showingSqueezesTerminal: false))
+    }
+
     @Test func createAgentRequiresLeoSession() {
         #expect(LeoMenuCommands.canCreateAgent(hasLeoSession: true))
         #expect(!LeoMenuCommands.canCreateAgent(hasLeoSession: false))

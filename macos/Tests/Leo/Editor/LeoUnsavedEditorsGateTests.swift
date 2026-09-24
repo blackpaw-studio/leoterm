@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Foundation
 import Testing
 
@@ -294,6 +295,7 @@ struct LeoUnsavedEditorsGateTests {
                 }
 
                 #expect(wentOn == goesOn, "\(path)")
+                #expect(log.offers == [.quit], "\(path): a quit says Quit Anyway, not Close Anyway")
                 #expect(log.asked == ["a-\(path).txt", "b-\(path).txt"], "\(path)")
                 #expect(stuck.document == nil, "\(path)")
                 #expect((other.document?.isDirty == true) == !goesOn, "\(path)")
@@ -412,6 +414,397 @@ struct LeoUnsavedEditorsGateTests {
         }
     }
 
+    // MARK: Edits made while a close is under way (B-022)
+
+    /// A pane that holds its prompt until `answer` yields, signalling each
+    /// prompt on `prompted`.
+    private func heldPane(
+        _ log: Log, access: (any LeoFileAccess)? = nil
+    ) -> (LeoEditorPaneModel, AsyncStream<Void>, AsyncStream<LeoUnsavedChangesChoice>.Continuation) {
+        let (answers, answer) = AsyncStream<LeoUnsavedChangesChoice>.makeStream()
+        let (prompts, prompted) = AsyncStream<Void>.makeStream()
+        let pane = LeoEditorPaneModel(makeAccess: { _ in access ?? LeoFileAccessor.local() })
+        pane.confirmUnsaved = { document in
+            log.asked.append(document.displayName)
+            prompted.yield()
+            for await choice in answers { return choice }
+            return .cancel
+        }
+        return (pane, prompts, answer)
+    }
+
+    /// An editor edited while the close asks about another one is asked
+    /// about too, in its turn.
+    @Test(.timeLimit(.minutes(1)))
+    func anEditorEditedDuringTheCloseIsAskedAboutToo() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let log = Log()
+            let (first, prompts, answer) = heldPane(log)
+            try await open(first, try sandbox.file("a.txt", "a"), editing: true)
+            let later = pane(answering: .discard, log: log)
+            try await open(later, try sandbox.file("b.txt", "b"), editing: false)
+            let gate = gate(log: log)
+            var replies: [Bool] = []
+            #expect(gate.deferQuit(
+                of: [entry(first, "1", log), entry(later, "2", log)], isSystemQuit: true, reply: { replies.append($0) }, retry: {}
+            ) == .terminateLater)
+            for await _ in prompts { break }
+
+            later.document?.edit("b, edited while asked about a")
+            answer.yield(.discard)
+            #expect(await eventually { !replies.isEmpty })
+
+            #expect(log.asked == ["a.txt", "b.txt"])
+            #expect(replies == [true])
+            #expect(later.document == nil)
+        }
+    }
+
+    /// ...even one the close already passed over: clean when its turn came,
+    /// edited while a later editor's prompt was up. Both the logout's reply
+    /// and `resolve` (Ghostty's quit review) wait for its answer.
+    @Test(.timeLimit(.minutes(1)), arguments: [true, false])
+    func anEarlierEditorEditedDuringTheCloseIsAskedAboutToo(_ isSystemQuit: Bool) async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let log = Log()
+            let earlier = pane(answering: .cancel, log: log)
+            try await open(earlier, try sandbox.file("a.txt", "a"), editing: false)
+            let (dirty, prompts, answer) = heldPane(log)
+            try await open(dirty, try sandbox.file("b.txt", "b"), editing: true)
+            let gate = gate(log: log)
+            let both = [entry(earlier, "1", log), entry(dirty, "2", log)]
+            var replies: [Bool] = []
+            let pending = Task { @MainActor in
+                if isSystemQuit {
+                    #expect(gate.deferQuit(of: both, isSystemQuit: true, reply: { replies.append($0) }, retry: {}) == .terminateLater)
+                } else {
+                    replies.append(await gate.resolve(both))
+                }
+            }
+            for await _ in prompts { break }
+
+            earlier.document?.edit("a, edited while asked about b")
+            answer.yield(.discard)
+            #expect(await eventually { !replies.isEmpty })
+            await pending.value
+
+            #expect(log.asked == ["b.txt", "a.txt"])
+            #expect(replies == [false], "Cancel on a.txt stops the quit")
+            #expect(earlier.document?.isDirty == true)
+            earlier.confirmUnsaved = { _ in .discard }
+            await earlier.close()
+        }
+    }
+
+    /// ...and so is one edited while the Keep Waiting / Quit Anyway offer
+    /// is up: leaving the stuck editor asks about it rather than dropping it.
+    @Test(.timeLimit(.minutes(1)))
+    func anEditorEditedDuringTheOfferIsAskedAboutToo() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let log = Log()
+            let access = LeoHangingAccess(LeoFileAccessor.local())
+            let stuck = pane(answering: .save, log: log, access: access)
+            try await open(stuck, try sandbox.file("a.txt", "a"), editing: true)
+            access.hangsWrites = true
+            let later = pane(answering: .cancel, log: log)
+            try await open(later, try sandbox.file("b.txt", "b"), editing: false)
+            let (offers, offered) = AsyncStream<Void>.makeStream()
+            let (leaves, leave) = AsyncStream<Bool>.makeStream()
+            let gate = LeoUnsavedEditorsGate { _, _ in
+                offered.yield()
+                for await answer in leaves { return answer }
+                return false
+            }
+            try #require(gate.deferClose(of: [entry(stuck, "1", log)]) { log.outcomes["first"] = $0 })
+            await access.waitUntilWriting()
+            var replies: [Bool] = []
+            #expect(gate.deferQuit(
+                of: [entry(stuck, "1", log), entry(later, "2", log)], isSystemQuit: true, reply: { replies.append($0) }, retry: {}
+            ) == .terminateLater)
+            for await _ in offers { break }
+
+            later.document?.edit("b, edited during the offer")
+            leave.yield(true)
+            #expect(await eventually { !replies.isEmpty })
+
+            #expect(log.asked == ["a.txt", "b.txt"])
+            #expect(replies == [false], "Cancel on b.txt stops the quit")
+            #expect(later.document?.isDirty == true)
+            later.confirmUnsaved = { _ in .discard }
+            await later.close()
+        }
+    }
+
+    // MARK: Leaving from inside a pending quit (B-022, D-038)
+
+    /// Logging out behind a save that never comes back: the pending quit
+    /// itself offers to leave (the stuck editor's `leaveAnyway`), with no
+    /// second ⌘Q. Leaving gives up that editor's edits; the others are
+    /// still asked about, and the quit's reply comes once.
+    @Test(.timeLimit(.minutes(1)), arguments: [true, false])
+    func aPendingQuitOffersToLeaveAHungSave(_ isSystemQuit: Bool) async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let log = Log()
+            let access = LeoHangingAccess(LeoFileAccessor.local())
+            let stuck = pane(answering: .save, log: log, access: access)
+            try await open(stuck, try sandbox.file("a.txt", "a"), editing: true)
+            access.hangsWrites = true
+            let other = pane(answering: .discard, log: log)
+            try await open(other, try sandbox.file("b.txt", "b"), editing: true)
+            let gate = gate(leaving: true, log: log)
+            let both = [entry(stuck, "1", log), entry(other, "2", log)]
+            var replies: [Bool] = []
+            let pending = Task { @MainActor in
+                if isSystemQuit {
+                    #expect(gate.deferQuit(of: both, isSystemQuit: true, reply: { replies.append($0) }, retry: {}) == .terminateLater)
+                } else {
+                    replies.append(await gate.resolve(both))
+                }
+            }
+            await access.waitUntilWriting()
+
+            #expect(await eventually { stuck.leaveAnyway != nil && !stuck.isConfirming })
+            #expect(other.leaveAnyway == nil)
+            stuck.leaveAnyway?()
+            #expect(await eventually { !replies.isEmpty })
+            await pending.value
+            try? await Task.sleep(for: .milliseconds(50))
+
+            #expect(log.offers == [.quit])
+            #expect(replies == [true])
+            #expect(log.asked == ["a.txt", "b.txt"])
+            #expect(stuck.document == nil)
+            #expect(other.document == nil)
+            #expect(stuck.leaveAnyway == nil)
+            #expect(!gate.isAsking)
+            #expect(try sandbox.contents("a.txt") == "a")
+        }
+    }
+
+    /// ⌘W on the stuck editor during a pending logout offers to close it
+    /// anyway; leaving then goes the same way as the banner's: the logout
+    /// goes on (asking about the others), rather than being cancelled.
+    @Test(.timeLimit(.minutes(1)))
+    func commandWOnTheStuckEditorLetsAPendingQuitGoOn() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let log = Log()
+            let access = LeoHangingAccess(LeoFileAccessor.local())
+            let stuck = pane(answering: .save, log: log, access: access)
+            try await open(stuck, try sandbox.file("a.txt", "a"), editing: true)
+            access.hangsWrites = true
+            let other = pane(answering: .discard, log: log)
+            try await open(other, try sandbox.file("b.txt", "b"), editing: true)
+            let gate = gate(leaving: true, log: log)
+            var replies: [Bool] = []
+            #expect(gate.deferQuit(
+                of: [entry(stuck, "1", log), entry(other, "2", log)], isSystemQuit: true, reply: { replies.append($0) }, retry: {}
+            ) == .terminateLater)
+            await access.waitUntilWriting()
+
+            try #require(gate.deferClose(of: [entry(stuck, "1", log)]) { log.outcomes["commandW"] = $0 })
+            #expect(await eventually { !replies.isEmpty && log.outcomes["commandW"] != nil })
+            try? await Task.sleep(for: .milliseconds(50))
+
+            #expect(log.offers == [.close])
+            #expect(log.outcomes == ["commandW": true])
+            #expect(replies == [true], "the logout goes on")
+            #expect(log.asked == ["a.txt", "b.txt"])
+            #expect(stuck.document == nil)
+            #expect(other.document == nil)
+            #expect(!gate.isAsking)
+        }
+    }
+
+    /// While an offer to leave is up (here, ⌘W's), the stuck editor's own
+    /// Quit Anyway is disabled -- it would do nothing -- and comes back
+    /// once the offer is answered.
+    @Test(.timeLimit(.minutes(1)))
+    func theBannersQuitAnywayWaitsWhileAnOfferIsUp() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let log = Log()
+            let access = LeoHangingAccess(LeoFileAccessor.local())
+            let stuck = pane(answering: .save, log: log, access: access)
+            try await open(stuck, try sandbox.file("a.txt", "a"), editing: true)
+            access.hangsWrites = true
+            let (offers, offered) = AsyncStream<Void>.makeStream()
+            let (leaves, leave) = AsyncStream<Bool>.makeStream()
+            let gate = LeoUnsavedEditorsGate { _, _ in
+                offered.yield()
+                for await answer in leaves { return answer }
+                return false
+            }
+            var replies: [Bool] = []
+            #expect(gate.deferQuit(of: [entry(stuck, "1", log)], isSystemQuit: true, reply: { replies.append($0) }, retry: {}) == .terminateLater)
+            await access.waitUntilWriting()
+            #expect(!stuck.isOfferShowing)
+
+            try #require(gate.deferClose(of: [entry(stuck, "1", log)]) { log.outcomes["commandW"] = $0 })
+            for await _ in offers { break }
+            #expect(stuck.isOfferShowing)
+
+            leave.yield(false)
+            #expect(await eventually { log.outcomes["commandW"] != nil })
+            #expect(!stuck.isOfferShowing)
+            #expect(stuck.leaveAnyway != nil)
+            access.release()
+            #expect(await eventually { !replies.isEmpty })
+        }
+    }
+
+    /// ⌘S hangs on the document's own queue, then a logout asks and the
+    /// user picks Don't Save: the close waits for that save with the
+    /// document still up, so Quit Anyway stays reachable until it's done,
+    /// and leaving lets the logout go on.
+    @Test(.timeLimit(.minutes(1)))
+    func dontSaveBehindAHungSaveKeepsQuitAnywayReachable() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let log = Log()
+            let access = LeoHangingAccess(LeoFileAccessor.local())
+            let stuck = pane(answering: .discard, log: log, access: access)
+            try await open(stuck, try sandbox.file("a.txt", "a"), editing: true)
+            access.hangsWrites = true
+            let commandS = Task { await stuck.document?.save() }
+            await access.waitUntilWriting()
+            let gate = gate(leaving: true, log: log)
+            var replies: [Bool] = []
+
+            #expect(gate.deferQuit(of: [entry(stuck, "1", log)], isSystemQuit: true, reply: { replies.append($0) }, retry: {}) == .terminateLater)
+
+            #expect(await eventually { log.asked == ["a.txt"] && stuck.isWaitingToClose })
+            #expect(stuck.document != nil, "the pane stays up while the save is in flight")
+            #expect(stuck.leaveAnyway != nil)
+            #expect(replies.isEmpty)
+            stuck.leaveAnyway?()
+            #expect(await eventually { !replies.isEmpty })
+
+            #expect(log.offers == [.quit])
+            #expect(replies == [true])
+            #expect(stuck.document == nil)
+            #expect(await eventually { !stuck.isWaitingToClose })
+            access.release()
+            _ = await commandS.value
+        }
+    }
+
+    /// Work queued on the document during that wait (a second ⌘S, a focus
+    /// disk check) is waited for too: if it hangs in turn, the document
+    /// stays up and Quit Anyway stays reachable.
+    @Test(.timeLimit(.minutes(1)))
+    func workQueuedDuringTheWaitIsWaitedForToo() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let log = Log()
+            let access = LeoHangingAccess(LeoFileAccessor.local())
+            let stuck = pane(answering: .discard, log: log, access: access)
+            try await open(stuck, try sandbox.file("a.txt", "a"), editing: true)
+            access.hangsWrites = true
+            let firstSave = Task { await stuck.document?.save() }
+            await access.waitUntilWriting()
+            let gate = gate(leaving: true, log: log)
+            var replies: [Bool] = []
+            #expect(gate.deferQuit(of: [entry(stuck, "1", log)], isSystemQuit: true, reply: { replies.append($0) }, retry: {}) == .terminateLater)
+            #expect(await eventually { stuck.isWaitingToClose })
+            // Each pass of the close's wait says so again; the pass after
+            // the first save comes back either waits again or gives up.
+            let (passes, pass) = AsyncStream<Bool>.makeStream()
+            let watching = stuck.$isWaitingToClose.dropFirst().sink { pass.yield($0) }
+            defer { watching.cancel() }
+
+            stuck.document?.edit("a, edited behind the view's back")
+            let secondSave = Task { await stuck.document?.save() }
+            access.release()
+            _ = await firstSave.value
+            await access.waitUntilWriting()
+
+            var nextPass: Bool?
+            for await waiting in passes { nextPass = waiting; break }
+            #expect(nextPass == true, "still waiting, on the second save")
+            #expect(stuck.isWaitingToClose)
+            #expect(stuck.document != nil)
+            #expect(replies.isEmpty)
+            stuck.leaveAnyway?()
+            #expect(await eventually { !replies.isEmpty })
+            #expect(replies == [true])
+            #expect(stuck.document == nil)
+            access.release()
+            _ = await secondSave.value
+        }
+    }
+
+    /// ...and if the hung save comes back instead, the close finishes.
+    @Test(.timeLimit(.minutes(1)))
+    func dontSaveBehindASaveThatReturnsFinishesTheClose() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let log = Log()
+            let access = LeoHangingAccess(LeoFileAccessor.local())
+            let stuck = pane(answering: .discard, log: log, access: access)
+            try await open(stuck, try sandbox.file("a.txt", "a"), editing: true)
+            access.hangsWrites = true
+            let commandS = Task { await stuck.document?.save() }
+            await access.waitUntilWriting()
+            let gate = gate(log: log)
+            var replies: [Bool] = []
+            #expect(gate.deferQuit(of: [entry(stuck, "1", log)], isSystemQuit: true, reply: { replies.append($0) }, retry: {}) == .terminateLater)
+            #expect(await eventually { stuck.isWaitingToClose })
+
+            access.release()
+            #expect(await eventually { !replies.isEmpty })
+            #expect(replies == [true])
+            #expect(stuck.document == nil)
+            #expect(log.offers.isEmpty)
+            _ = await commandS.value
+        }
+    }
+
+    /// Keep Waiting changes nothing: the offer stays reachable, and the
+    /// quit goes on once the save comes back.
+    @Test(.timeLimit(.minutes(1)))
+    func keepWaitingInsideAPendingQuitWaitsForTheSave() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let log = Log()
+            let access = LeoHangingAccess(LeoFileAccessor.local())
+            let stuck = pane(answering: .save, log: log, access: access)
+            try await open(stuck, try sandbox.file("a.txt", "a"), editing: true)
+            access.hangsWrites = true
+            let gate = gate(leaving: false, log: log)
+            var replies: [Bool] = []
+            #expect(gate.deferQuit(of: [entry(stuck, "1", log)], isSystemQuit: true, reply: { replies.append($0) }, retry: {}) == .terminateLater)
+            await access.waitUntilWriting()
+            #expect(await eventually { stuck.leaveAnyway != nil && !stuck.isConfirming })
+
+            stuck.leaveAnyway?()
+            #expect(await eventually { log.offers.count == 1 })
+            try? await Task.sleep(for: .milliseconds(50))
+            #expect(replies.isEmpty)
+            #expect(stuck.leaveAnyway != nil)
+
+            access.release()
+            #expect(await eventually { !replies.isEmpty })
+            #expect(replies == [true])
+            #expect(stuck.leaveAnyway == nil)
+            #expect(try sandbox.contents("a.txt") == "a!")
+        }
+    }
+
+    /// A close that can be asked again (⌘W, ⌘Q) doesn't offer from inside:
+    /// asking again is the way to leave.
+    @Test(.timeLimit(.minutes(1)))
+    func anOrdinaryCloseDoesNotOfferFromInside() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let log = Log()
+            let access = LeoHangingAccess(LeoFileAccessor.local())
+            let stuck = pane(answering: .save, log: log, access: access)
+            try await open(stuck, try sandbox.file("a.txt", "a"), editing: true)
+            access.hangsWrites = true
+            let gate = gate(log: log)
+            #expect(gate.deferQuit(of: [entry(stuck, "1", log)], isSystemQuit: false, reply: { _ in }, retry: {}) == .terminateCancel)
+            await access.waitUntilWriting()
+
+            #expect(stuck.leaveAnyway == nil)
+            access.release()
+            #expect(await eventually { stuck.document == nil })
+        }
+    }
+
     @Test func theQuitsReasonComesFromItsAppleEvent() {
         func quit(why: OSType?) -> NSAppleEventDescriptor {
             let event = NSAppleEventDescriptor(
@@ -430,14 +823,15 @@ struct LeoUnsavedEditorsGateTests {
     }
 }
 
-/// `base`, except that while `hangsWrites` is set, `write` never returns
-/// until `release()` -- or `close()`, which fails it, as a closed SFTP
-/// connection fails what's in flight.
+/// `base`, except that while `hangsWrites` (or `hangsReads`) is set,
+/// `write` (or `read`) never returns until `release()` -- or `close()`,
+/// which fails it, as a closed SFTP connection fails what's in flight.
 final class LeoHangingAccess: LeoFileAccess, @unchecked Sendable {
     private let base: any LeoFileAccess
     private let lock = NSLock()
-    private var state = (hanging: false, closed: false)
+    private var state = (hangingWrites: false, hangingReads: false, closed: false)
     private let writing = AsyncStream<Void>.makeStream()
+    private let reading = AsyncStream<Void>.makeStream()
     private let gate = AsyncStream<Bool>.makeStream()
 
     init(_ base: any LeoFileAccess) {
@@ -445,14 +839,23 @@ final class LeoHangingAccess: LeoFileAccess, @unchecked Sendable {
     }
 
     var hangsWrites: Bool {
-        get { lock.withLock { state.hanging } }
-        set { lock.withLock { state.hanging = newValue } }
+        get { lock.withLock { state.hangingWrites } }
+        set { lock.withLock { state.hangingWrites = newValue } }
+    }
+
+    var hangsReads: Bool {
+        get { lock.withLock { state.hangingReads } }
+        set { lock.withLock { state.hangingReads = newValue } }
     }
 
     var isClosed: Bool { lock.withLock { state.closed } }
 
     func waitUntilWriting() async {
         for await _ in writing.stream { return }
+    }
+
+    func waitUntilReading() async {
+        for await _ in reading.stream { return }
     }
 
     func release() {
@@ -462,19 +865,30 @@ final class LeoHangingAccess: LeoFileAccess, @unchecked Sendable {
     func list(_ path: String) async throws -> [LeoFileEntry] { try await base.list(path) }
     func stat(_ path: String) async throws -> LeoFileStat { try await base.stat(path) }
     func homeDirectory() async throws -> String { try await base.homeDirectory() }
-    func read(_ path: String, maxBytes: UInt64) async throws -> LeoFileContents { try await base.read(path, maxBytes: maxBytes) }
+
+    func read(_ path: String, maxBytes: UInt64) async throws -> LeoFileContents {
+        if hangsReads {
+            reading.continuation.yield()
+            try await hang()
+        }
+        return try await base.read(path, maxBytes: maxBytes)
+    }
 
     func write(_ data: Data, to path: String, expecting expected: LeoFileVersion?) async throws -> LeoFileStat {
         if hangsWrites {
             writing.continuation.yield()
-            var released = false
-            for await proceed in gate.stream {
-                released = proceed
-                break
-            }
-            guard released else { throw LeoFileAccessError.disconnected }
+            try await hang()
         }
         return try await base.write(data, to: path, expecting: expected)
+    }
+
+    private func hang() async throws {
+        var released = false
+        for await proceed in gate.stream {
+            released = proceed
+            break
+        }
+        guard released else { throw LeoFileAccessError.disconnected }
     }
 
     func close() async {

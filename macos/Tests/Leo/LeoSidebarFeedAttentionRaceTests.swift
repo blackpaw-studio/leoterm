@@ -4,29 +4,33 @@ import Testing
 @testable import Ghostty
 
 /// Fetches that answer for an older moment than they land in: a list or
-/// `/state` fetch still in flight across a daemon restart or an
-/// `agent_spawned`. Each fake answers with the daemon's data as of the call
+/// `/state` fetch still in flight across a daemon restart (a hello with a
+/// new boot id; a dropped stream no longer reconnects on its own, D-061)
+/// or an `agent_spawned`. Each fake answers with the daemon's data as of the call
 /// and can hold the answer back.
+@Suite(.timeLimit(.minutes(1)))
 struct LeoSidebarFeedAttentionRaceTests {
     @Test func helloWithANewBootIDWhileTheOldFetchIsStillInFlight() async throws {
         let harness = RaceHarness(agents: ["alpha"], state: [observed("alpha", .working, 1)])
         await harness.start()
-        await harness.waitFor { $0.rows.first?.attention == .working }
+        try await harness.waitFor { $0.rows.first?.attention == .working }
         await harness.activity.send(.hello(seq: 1, at: nil, version: nil, serverTime: nil, bootID: "boot-a"))
-        await harness.pumpAsync { _ in await harness.activity.fetchCount >= 2 }
+        try await harness.pumpAsync { _ in await harness.activity.fetchCount >= 2 }
         await harness.settle()
 
         // A recovery's /state is answered by the old daemon but held back.
         await harness.activity.setState([observed("alpha", .needsInput, 40)])
         await harness.activity.holdNext()
         await harness.activity.send(.gap(expected: 2, received: 5))
-        await harness.pumpAsync { _ in await harness.activity.heldCount == 1 }
+        try await harness.pumpAsync { _ in await harness.activity.heldCount == 1 }
 
-        // The daemon restarts; the new boot's first hello arrives.
+        // The daemon restarts; the new boot's first hello arrives. Its
+        // recovery's /state is fetch 4; the old answer is released only
+        // after that recovery's baseline has landed.
         await harness.activity.setState([observed("alpha", .working, 2)])
-        await harness.activity.send(.disconnected(reason: "EOF"))
         await harness.activity.send(.hello(seq: 1, at: nil, version: nil, serverTime: nil, bootID: "boot-b"))
-        await harness.pump { $0.rows.first?.attention == .working }
+        try await harness.pumpAsync { _ in await harness.activity.fetchCount >= 4 }
+        try await harness.waitForStateEmission(generation: await harness.feed.snapshot.generation)
         await harness.activity.releaseHeld()
         await harness.settle()
 
@@ -39,21 +43,23 @@ struct LeoSidebarFeedAttentionRaceTests {
     @Test func helloWithANewBootIDWhileARecoveryListIsStillInFlight() async throws {
         let harness = RaceHarness(agents: ["alpha"], state: [observed("alpha", .working, 1)])
         await harness.start()
-        await harness.waitFor { $0.rows.first?.attention == .working }
+        try await harness.waitFor { $0.rows.first?.attention == .working }
         await harness.activity.send(.hello(seq: 1, at: nil, version: nil, serverTime: nil, bootID: "boot-a"))
-        await harness.pumpAsync { _ in await harness.activity.fetchCount >= 2 }
+        try await harness.pumpAsync { _ in await harness.activity.fetchCount >= 2 }
         await harness.settle()
 
         await harness.activity.setState([observed("alpha", .needsInput, 40)])
         await harness.daemon.holdNext()
         await harness.activity.send(.gap(expected: 2, received: 5))
-        await harness.pumpAsync { _ in await harness.daemon.heldCount == 1 }
+        try await harness.pumpAsync { _ in await harness.daemon.heldCount == 1 }
 
         // Restart while the feed is still recovering (the list hasn't landed).
         await harness.activity.setState([observed("alpha", .working, 2)])
-        await harness.activity.send(.disconnected(reason: "EOF"))
         await harness.activity.send(.hello(seq: 1, at: nil, version: nil, serverTime: nil, bootID: "boot-b"))
         await harness.daemon.releaseHeld()
+        // The released list is followed by the restart's /state (fetch 3).
+        try await harness.pumpAsync { _ in await harness.activity.fetchCount >= 3 }
+        try await harness.waitForStateEmission(generation: await harness.feed.snapshot.generation)
         await harness.settle()
 
         let snapshot = try #require(await harness.recorder.last)
@@ -65,19 +71,19 @@ struct LeoSidebarFeedAttentionRaceTests {
     @Test func aListFetchedBeforeAgentSpawnedKeepsTheSpawnedAgentsAttention() async throws {
         let harness = RaceHarness(agents: ["alpha"], state: [observed("alpha", .working, 1)])
         await harness.start()
-        await harness.waitFor { $0.rows.first?.attention == .working }
+        try await harness.waitFor { $0.rows.first?.attention == .working }
         await harness.settle()
 
         // A list refresh answered before beta existed is held back.
         await harness.daemon.holdNext()
         await harness.activity.send(.agentStateChanged(seq: 2, at: nil, agent: "alpha", status: .running, restarts: nil, wakeOnMessage: nil))
-        await harness.pumpAsync { _ in await harness.daemon.heldCount == 1 }
+        try await harness.pumpAsync { _ in await harness.daemon.heldCount == 1 }
 
         await harness.daemon.setAgents(["alpha", "beta"])
         await harness.activity.send(.agentSpawned(seq: 3, at: nil, agent: agent("beta"), attention: .init(state: .unknown, revision: 1)))
         await harness.activity.send(.agentActivity(seq: 4, at: nil, agent: "beta", activity: .working, currentAction: nil))
         await harness.daemon.releaseHeld()
-        await harness.pump { $0.rows.map(\.name) == ["alpha", "beta"] && $0.rows.last?.activity == .working }
+        try await harness.pump { $0.rows.map(\.name) == ["alpha", "beta"] && $0.rows.last?.activity == .working }
         await harness.settle()
 
         let beta = try #require(await harness.recorder.last?.rows.last)
@@ -130,26 +136,39 @@ private struct RaceHarness {
 
     func stop() async { await feed.stop() }
 
-    func waitFor(_ condition: @escaping @Sendable (LeoSidebarSnapshot) -> Bool) async {
-        await awaitCondition { await recorder.last.map(condition) ?? false }
+    func waitFor(_ condition: @escaping @Sendable (LeoSidebarSnapshot) -> Bool) async throws {
+        try await until { await recorder.last.map(condition) ?? false }
     }
 
     func pump(
         _ condition: @escaping @Sendable (LeoSidebarSnapshot) -> Bool, sourceLocation: SourceLocation = #_sourceLocation
-    ) async {
-        await pumpAsync(sourceLocation: sourceLocation) { snapshot in condition(snapshot) }
+    ) async throws {
+        try await pumpAsync(sourceLocation: sourceLocation) { snapshot in condition(snapshot) }
     }
 
+    /// Fires pending sleeps until `condition` holds; the suite's time limit
+    /// is the hang guard.
     func pumpAsync(
         sourceLocation: SourceLocation = #_sourceLocation, _ condition: @escaping @Sendable (LeoSidebarSnapshot) async -> Bool
-    ) async {
-        let deadline = Date().addingTimeInterval(2)
-        repeat {
-            if let last = await recorder.last, await condition(last) { return }
+    ) async throws {
+        try await until(sourceLocation: sourceLocation) {
+            if let last = await recorder.last, await condition(last) { return true }
             await clock.advanceAll()
-            try? await Task.sleep(nanoseconds: 5_000_000)
-        } while Date() < deadline
-        Issue.record("Condition was not satisfied within 2 seconds", sourceLocation: sourceLocation)
+            return false
+        }
+    }
+
+    /// Fires pending sleeps until the activity-state emission of snapshot
+    /// `generation` is recorded: the first one after that generation's list
+    /// emission (`listRefreshSucceeded` true, then false).
+    func waitForStateEmission(generation: Int, sourceLocation: SourceLocation = #_sourceLocation) async throws {
+        try await until(sourceLocation: sourceLocation) {
+            let found = await recorder.values
+                .drop { !($0.generation == generation && $0.listRefreshSucceeded) }
+                .contains { $0.generation == generation && !$0.listRefreshSucceeded }
+            if !found { await clock.advanceAll() }
+            return found
+        }
     }
 
     /// Fires every pending sleep a few times so follow-up refreshes and

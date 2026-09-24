@@ -96,13 +96,15 @@ extension LeoSidebarFeed {
 
 extension LeoSidebarSnapshot {
     /// Row badges and the Dock count from `reducer`, for rows of its host.
+    /// None while disconnected: the rows are stale, so is their attention.
     func overlayingAttention(_ reducer: LeoAttentionReducer) -> LeoSidebarSnapshot {
-        LeoSidebarSnapshot(
-            rows: rows.map { $0.withAttention(reducer.badge(for: $0.name, legacyActivity: $0.activity)) },
+        let isLive = !connectivity.isDisconnected
+        return LeoSidebarSnapshot(
+            rows: rows.map { $0.withAttention(isLive ? reducer.badge(for: $0.name, legacyActivity: $0.activity) : nil) },
             connectivity: connectivity,
             generation: generation,
             listRefreshSucceeded: listRefreshSucceeded,
-            attentionCount: reducer.dockCount(among: Set(rows.map(\.name)))
+            attentionCount: isLive ? reducer.dockCount(among: Set(rows.map(\.name))) : 0
         )
     }
 }

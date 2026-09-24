@@ -1,7 +1,9 @@
 import Foundation
 
-/// Every failure `LeoFileAccess` reports, local or remote. The UI shows
-/// `localizedDescription` (and `recoverySuggestion`, when present) as is.
+/// Every failure `LeoFileAccess` reports, local or remote. Names, reasons
+/// and details are kept raw and cleaned once, here, when rendered: the UI
+/// shows `localizedDescription` (and `recoverySuggestion`, when present) as
+/// is.
 enum LeoFileAccessError: Error, Equatable, Sendable {
     case notFound(path: String)
     case permissionDenied(path: String)
@@ -15,14 +17,17 @@ enum LeoFileAccessError: Error, Equatable, Sendable {
     /// The SFTP session ended (or could not start): the tunnel is down or
     /// the server exited.
     case disconnected
+    /// The access was closed (`LeoFileAccess.close()`): final, it never
+    /// reconnects.
+    case closed
     /// The server spoke something other than well-formed SFTP v3.
-    case protocolError(String)
+    case protocolError(LeoFileAccessReason)
     /// Any other operating-system or server failure (disk full, read-only
     /// volume, an SFTP "Failure" or an operation the server doesn’t support).
-    case failed(path: String, reason: String)
+    case failed(path: String, reason: LeoFileAccessReason)
     /// File access can't work for this host at all, though its tunnel may
     /// (e.g. the tunnel runs without the ControlMaster SFTP needs).
-    case unavailable(reason: String)
+    case unavailable(reason: LeoFileAccessReason)
 
     /// The same error about `path` instead -- used when an operation on an
     /// internal temp file fails, so the user sees the file they saved.
@@ -35,13 +40,13 @@ enum LeoFileAccessError: Error, Equatable, Sendable {
         case .notADirectory: .notADirectory(path: path)
         case .isADirectory: .isADirectory(path: path)
         case let .failed(_, reason): .failed(path: path, reason: reason)
-        case .invalidPath, .disconnected, .protocolError, .unavailable: self
+        case .invalidPath, .disconnected, .closed, .protocolError, .unavailable: self
         }
     }
 
     /// Wraps anything that is not already a `LeoFileAccessError`.
     static func wrapping(_ error: Error, path: String) -> LeoFileAccessError {
-        (error as? LeoFileAccessError) ?? .failed(path: path, reason: error.localizedDescription)
+        (error as? LeoFileAccessError) ?? .failed(path: path, reason: .untrusted(error.localizedDescription))
     }
 }
 
@@ -55,11 +60,12 @@ extension LeoFileAccessError: LocalizedError {
             "“\(Self.displayName(path))” is too large to open (\(Self.bytes(size)); the limit is \(Self.bytes(limit)))."
         case let .notADirectory(path): "“\(Self.displayName(path))” isn’t a folder."
         case let .isADirectory(path): "“\(Self.displayName(path))” is a folder."
-        case let .invalidPath(path): "“\(LeoSFTPServerText.sanitized(path))” isn’t an absolute path."
+        case let .invalidPath(path): "“\(LeoSFTPServerText.isolated(path))” isn’t an absolute path."
         case .disconnected: "The connection to the host was lost."
-        case let .protocolError(detail): "The file server sent an unexpected response (\(detail))."
-        case let .failed(path, reason): "Couldn’t access “\(Self.displayName(path))”: \(reason)."
-        case let .unavailable(reason): "File access unavailable: \(reason)."
+        case .closed: "The file connection was closed."
+        case let .protocolError(detail): "The file server sent an unexpected response (\(detail.rendered))."
+        case let .failed(path, reason): "Couldn’t access “\(Self.displayName(path))”: \(reason.rendered)."
+        case let .unavailable(reason): "File access unavailable: \(reason.rendered)."
         }
     }
 
@@ -72,11 +78,12 @@ extension LeoFileAccessError: LocalizedError {
         }
     }
 
-    /// The file's name, sanitized: a name is as untrusted as a server's
-    /// message and could otherwise end the quote or add a line.
+    /// The file's name, sanitized and isolated: a name is as untrusted as a
+    /// server's message and could otherwise end the quote, add a line, or
+    /// reorder the sentence.
     private static func displayName(_ path: String) -> String {
         let name = (path as NSString).lastPathComponent
-        return LeoSFTPServerText.sanitized(name.isEmpty ? path : name)
+        return LeoSFTPServerText.isolated(name.isEmpty ? path : name)
     }
 
     private static func bytes(_ count: UInt64) -> String {

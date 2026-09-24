@@ -15,7 +15,7 @@ extension TerminalController {
     @IBAction func attachSelectedLeoAgent(_ sender: Any?) {
         guard let leoSession, let runtime = leoRuntime, let row = selectedLeoRow else { return }
         let disposition = LeoAttachActivation.disposition(for: NSEvent.modifierFlags)
-        runtime.model.attachRequested(row, leoSession.id, disposition)
+        runtime.model.requestAttach(row, from: leoSession.id, disposition: disposition)
     }
 
     @IBAction func startSelectedLeoAgent(_ sender: Any?) {
@@ -77,6 +77,15 @@ extension TerminalController {
     @IBAction func jumpToNextLeoAgentNeedingAttention(_ sender: Any?) {
         guard let leoSession, let runtime = leoRuntime else { return }
         runtime.jumpToNextNeedingAttention(from: leoSession)
+    }
+
+    /// Agents ▸ Reconnect (⇧⌘R): the same Retry as the sidebar's banner.
+    @IBAction func reconnectLeo(_ sender: Any?) {
+        leoRuntime?.model.retry()
+    }
+
+    func validateLeoReconnectMenuItem(_ item: NSMenuItem) -> Bool {
+        LeoMenuCommands.canReconnect(hasLeoSession: leoSession != nil, connectivity: leoRuntime?.model.snapshot.connectivity ?? .loading)
     }
 
     @IBAction func showLeoAgentNotificationSettings(_ sender: Any?) {

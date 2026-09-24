@@ -7,7 +7,7 @@ import Testing
         let daemon = ActionDaemon()
         let model = LeoSidebarModel()
         var refreshes = 0
-        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: model, refresh: { refreshes += 1 })
+        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: model, hostSelection: .isolatedForTesting(), refresh: { refreshes += 1 })
         let row = testRow()
         actions.start(row)
         await awaitCondition { await daemon.calls == ["start:alpha"] }
@@ -29,7 +29,7 @@ import Testing
         let daemon = ActionDaemon(error: .daemon(code: "bad", message: "nope", matches: []))
         let model = LeoSidebarModel()
         var refreshes = 0
-        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: model, refresh: { refreshes += 1 })
+        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: model, hostSelection: .isolatedForTesting(), refresh: { refreshes += 1 })
         let row = testRow()
         actions.restart(row)
         await awaitCondition { await MainActor.run { model.rowErrors[row.id] == "nope" } }
@@ -44,7 +44,7 @@ import Testing
 
     @Test func spawnAttachesNewRow() async {
         let daemon = ActionDaemon()
-        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: LeoSidebarModel(), refresh: {})
+        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), refresh: {})
         var attached: LeoAgentRow?
         actions.spawn(.init(template: "default", repo: "", name: nil, branch: nil, prompt: nil), attach: { row, _ in attached = row }, dismiss: {}, failure: { _ in })
         await awaitCondition { await MainActor.run { attached != nil } }
@@ -54,7 +54,7 @@ import Testing
     @Test func spawnModelIgnoresReentrantSubmits() async {
         let daemon = ActionDaemon(suspendSpawn: true)
         let sidebar = LeoSidebarModel()
-        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: sidebar, refresh: {})
+        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: sidebar, hostSelection: .isolatedForTesting(), refresh: {})
         let model = SpawnAgentModel(cli: testCLI())
         let request = LeoSpawnRequest(template: "default", repo: "", name: nil, branch: nil, prompt: nil)
 
@@ -70,7 +70,7 @@ import Testing
     @Test func successfulSpawnInvokesSidebarAttachRequest() async {
         let daemon = ActionDaemon()
         let sidebar = LeoSidebarModel()
-        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: sidebar, refresh: {})
+        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: sidebar, hostSelection: .isolatedForTesting(), refresh: {})
         let model = SpawnAgentModel(cli: testCLI())
         var attached: LeoAgentRow?
         sidebar.attachRequested = { row, _, _ in attached = row }
@@ -85,7 +85,7 @@ import Testing
 
     @Test func duplicatePendingActionIsIgnored() async {
         let daemon = ActionDaemon(suspendStart: true)
-        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: LeoSidebarModel(), refresh: {})
+        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), refresh: {})
         let row = testRow()
         actions.start(row); actions.start(row)
         await awaitCondition { await daemon.calls == ["start:alpha"] }
@@ -96,7 +96,7 @@ import Testing
         let daemon = ActionDaemon()
         let cli = testCLI(templates: ["one"])
         let model = LeoSidebarModel()
-        let actions = LeoAgentActions(daemon: daemon, cli: cli, model: model, refresh: {})
+        let actions = LeoAgentActions(daemon: daemon, cli: cli, model: model, hostSelection: .isolatedForTesting(), refresh: {})
         #expect(try await actions.templates().map(\.name) == ["one"])
         #expect(try await actions.templates().map(\.name) == ["one"])
         let row = testRow()
@@ -114,7 +114,7 @@ import Testing
         let suiteDefaults = UserDefaults(suiteName: UUID().uuidString) ?? .standard
         let workConfiguration = LeoHostConfiguration(name: "work", sshTarget: "evan@work")
         if let data = try? JSONEncoder().encode([workConfiguration]) { suiteDefaults.set(data, forKey: LeoHostStore.key) }
-        let selection = LeoHostSelection(store: LeoHostStore(defaults: suiteDefaults), defaults: suiteDefaults)
+        let selection = LeoHostSelection.isolatedForTesting(defaults: suiteDefaults)
         await selection.start(flavor: .socketEvents)
         let runner = TemplateSSHRunner()
         let actions = LeoAgentActions(
@@ -143,7 +143,7 @@ import Testing
         let suiteDefaults = UserDefaults(suiteName: UUID().uuidString) ?? .standard
         let workConfiguration = LeoHostConfiguration(name: "work", sshTarget: "evan@work")
         if let data = try? JSONEncoder().encode([workConfiguration]) { suiteDefaults.set(data, forKey: LeoHostStore.key) }
-        let selection = LeoHostSelection(store: LeoHostStore(defaults: suiteDefaults), defaults: suiteDefaults)
+        let selection = LeoHostSelection.isolatedForTesting(defaults: suiteDefaults)
         await selection.start(flavor: .socketEvents)
         let gatedRunner = GatedTemplateRunner()
         let cli = LeoCLI(executableOverride: "/leo", runner: gatedRunner, isExecutable: { _ in true })
@@ -176,7 +176,7 @@ import Testing
     @Test func actionCapturesDaemonAtInvocationAndDropsStaleCompletionAfterASelectionChange() async throws {
         let daemonA = GatedActionDaemon()
         let suiteDefaults = UserDefaults(suiteName: UUID().uuidString) ?? .standard
-        let selection = LeoHostSelection(store: LeoHostStore(defaults: suiteDefaults), defaults: suiteDefaults)
+        let selection = LeoHostSelection.isolatedForTesting(defaults: suiteDefaults)
         await selection.start(flavor: .socketEvents)
         var refreshes = 0
         let actions = LeoAgentActions(daemon: daemonA, cli: testCLI(), model: LeoSidebarModel(), hostSelection: selection, refresh: { refreshes += 1 })

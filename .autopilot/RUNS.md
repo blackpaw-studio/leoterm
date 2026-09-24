@@ -22,3 +22,42 @@ Calls for veto: D-026–D-034. D-034 departs from the 3-attempt revert rule for 
 Queued: B-019, B-020, B-021, B-022 (ready next run); B-005, B-007, B-009–B-012 ready
 Tests: 1027 (the only failure is the known ConfigTests/errorsEmptyForValidConfig); swiftlint clean
 Notes: leo merged the attention contract (PRs #209 and #210) to its main; it isn't released, and release is Evan's call. A macOS Screen Recording prompt for "leo" appeared on Dionysus; it was left untouched. Two implementer windows vanished and one lost its tracking mid-run; the work was recovered each time.
+
+## Run 2026-09-23 (08:58–12:30 EDT): 5 shipped, 0 blocked
+Shipped
+- B-005 Per-agent workspace browser: 864a16bc6 7204dd557 a2620137c 75a0feeef 860df8083. Verified by screenshots B-005-1..5 (row menu ▸ Browse Files, keyboard navigation, Return opens the file, ⇧⌘. shows dotfiles, sidebar collapses at 800 pt)
+- B-022 Editor close gate, split width, wiring tests: 59ffb1fbd..bbcf58601 (14 commits). Verified by screenshot B-022-1 (half-width editor); the hung-save banner is covered by tests only
+- B-020 Sanitize errors at one choke point, with an allowlist for invisible characters: ad0807785 796b0a2ec 8b6494d45 935b5a600. Error text only, so not visually verified
+- B-021 Forwarded daemon socket in the short per-user dir: cda6610e8. No UI and no remote host
+- B-019 Focus-order and ordered-relay tests: c92565ac3 ad537d10e 79d5d9375 6be661a48 24000299e. Test-only
+Calls for veto: D-035–D-045. D-043 (B-020) and D-045 (B-019) depart from the 3-attempt revert rule, as D-034 did
+Queued (ready next run): B-023 browser polish, B-024 editor close-wait polish, B-025 load flakes, B-026 selectors only after emoji, B-027 one tunnel per host + event-stream backoff, B-028 focus-test catch-up. Ready now: B-007, B-009–B-012
+Tests: 1132 (the only failure is the known ConfigTests/errorsEmptyForValidConfig; LeoSyntaxHighlighterAdversarialTests flakes under load ~100 → B-025); swiftlint clean
+Notes: leo_dispatch role review.security routed to codex/gpt-6-sol and failed every time ("Model metadata for `gpt-6-sol` not found"); security reviews ran on the Sonnet code-reviewer fallback. The plain review role on the same model worked. autopilot-scratch was created for verification and deleted afterwards; its workspace dir is left in place.
+
+## Run 2026-09-23 (afternoon) — 4 shipped, 1 blocked
+- B-028 focus test requires the catch-up: 256eeec38 1f924ee53 (not visually verified: test-only)
+- B-026 hidden-bit channels in untrusted text closed with Unicode 18 tables + NFC: e5efc61b4 ac9539839 5a44072dd 03ac88d26 (not visually verified: error text)
+- B-024 editor close-wait (lock only once committed; "Closing …" banner): 810596a0a 188851f1f 6a6be8646 7d10d709e 605d43e68 (not visually verified: auto mode refused peekaboo input)
+- B-025 load-proof timing tests: cbc79e25c ba6e9d140 e37de61ee 1f96bee20 4eb3f5fa5 6e1267756 ba23155a9 (test-only)
+- B-027 blocked after 3 fix rounds, reverted in 75f5b8eda; question: single instance per bundle?
+- Calls: D-046 D-047 D-048 D-050 (D-049 reverted with B-027). New: B-029 B-030 B-031. Next: B-023, B-029–B-031, B-007.
+
+## Run 2026-09-23 (evening) — 5 shipped, 0 blocked
+- B-027 One tunnel per host: 10be4b608 6fec65c82 67de1e864 682f967c4 73109b6c3. Leo is single-instance per bundle (D-051); unsafe lock fails closed with an alert (D-053). Verified: B-027-1, B-027-2. Note: 10be4b608/6fec65c82 carry a 1 MB macos/default.profraw (untracked again in 682f967c4).
+- B-030 Keep the selection on a refused keystroke: 31a72e027 0fd885414 ca7f95730 (D-055). Not visually verified (Open panel unreachable).
+- B-034 DEBUG LEO_OPEN_FILE hook: 2c05c0b83 de2c47114 (D-056). Verified: B-034-1.
+- B-031 Test flakes + truncated run: 05ec8fd2d 3e3859708 235748c7a b32c98cd4 40fdb2b8a (D-057). Also fixed parallel `xcodebuild test` hosts being quit. Test-only.
+- B-023 Workspace browser polish: 30233456a aa5f8d878 39441c27d 36aee4e9e fac40cd67 b6a773954 f8c0c7c77 abd49da71 459098e6b (D-058, D-059, D-060). Verified: B-023-1, B-023-2.
+- Calls: D-053 D-054 D-055 D-056 D-057 D-058 D-059 D-060. Evan's: D-051, D-052.
+- New: B-032 (tests leak sockets into the real cache dir), B-033 (alert path), B-035 (Closing banner shot), B-036 (sidebar-feed flakes), B-037 (sidebar single-jump return).
+- Review fallback: one review dispatch failed ("workspace routing discovery timed out"); Sonnet code-reviewer used for B-030 round 1.
+
+## Run 2026-09-23 (night) — 5 shipped, 0 blocked
+- B-007 Disconnected state: 7a2bf5da5 4f1cd16b7 0ed8a6b8f. A dropped stream, a dead tunnel or a failed wake check dims the rows and shows "Disconnected from <host>" with Retry (Agents ▸ Reconnect ⇧⌘R); the backoff reconnect is gone (D-061, D-062). Verified: B-007-1, B-007-2.
+- B-037 Sidebar returns after a single big widen: 9307c661c (D-063). Verified: B-037-1/2/3.
+- B-032 Tests no longer leak sockets into the real cache dir, and a bundle guard fails any run that does: f6a591e0a 41a653cfd aeb23c6b5 b03191132 (D-064). Test-only.
+- B-036 Sidebar-feed flakes: 744ff0a71 fa3a8ff43 c4498f88e d32b2f060 0a9f77d2f b301bc587; 2020/2020 under 42× load; no product race (D-065). Test-only.
+- B-029 Cleaner ZWJ trie + ICU drift test: 0747da6d4 cef6e152a (D-066). Not visual.
+- Calls: D-061–D-066. New: B-038 (banner reason wrap, Choose Agent while disconnected), B-039 (test plist stubs), B-040 (weak AttentionRace test).
+- Notes: one review dispatch failed ("workspace routing discovery timed out") → Sonnet code-reviewer for B-037. The first B-036 implementer hung 31 min in a PreToolUse hook; cancelled and re-dispatched. Tests: 1249 (known ConfigTests failure only); swiftlint clean.

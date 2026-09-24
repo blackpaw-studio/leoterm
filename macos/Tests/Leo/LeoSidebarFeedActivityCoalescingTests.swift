@@ -7,191 +7,232 @@ import Testing
 /// not trigger one main-actor emission per event. See `LeoActivityCoalescer`
 /// for the pure buffering logic; this covers its wiring into `LeoSidebarFeed`
 /// (timing, ordering against lifecycle events/list refreshes, and teardown).
+///
+/// Nothing here waits on the wall clock: the test fires exactly the sleep it
+/// means to (the coalescing window, never a fetch deadline or an attention
+/// tick), only after the feed has consumed every event sent, and proves a
+/// negative with a later sentinel emission rather than by waiting a while.
+/// The time limit only turns a hang into a failure.
+@Suite(.timeLimit(.minutes(1)))
 struct LeoSidebarFeedActivityCoalescingTests {
+    /// The activity-coalescing window, and the SSE-refresh one (same length).
+    static let window = UInt64(LeoSidebarFeed.activityCoalesceInterval * 1_000_000_000)
+
     @Test func burstOfActivityEventsWithinTheWindowProducesOneEmission() async throws {
-        let clock = CoalescingClock()
-        let daemon = CoalescingDaemon(results: [[agent("alpha")]])
-        let activity = CoalescingActivity()
-        let recorder = CoalescingRecorder()
-        let feed = makeFeed(daemon: daemon, activity: activity, recorder: recorder, sleep: { try await clock.sleep($0) })
+        let harness = try await Harness.connected(results: [[agent("alpha")]])
+        let baseline = await harness.recorder.values.count
 
-        await feed.start(); await feed.setPolling(true)
-        try await wait { await recorder.last?.connectivity == .connected }
-        await feed.setPolling(false)
-        let baseline = await recorder.values.count
+        try await harness.send(
+            .agentActivity(seq: 1, at: nil, agent: "alpha", activity: .working, currentAction: .init(kind: "tool", detail: "one")),
+            .agentActivity(seq: 2, at: nil, agent: "alpha", activity: .working, currentAction: .init(kind: "tool", detail: "two")),
+            .agentActivity(seq: 3, at: nil, agent: "alpha", activity: .idle, currentAction: .init(kind: "tool", detail: "three"))
+        )
 
-        await activity.send(.agentActivity(seq: 1, at: nil, agent: "alpha", activity: .working, currentAction: .init(kind: "tool", detail: "one")))
-        await activity.send(.agentActivity(seq: 2, at: nil, agent: "alpha", activity: .working, currentAction: .init(kind: "tool", detail: "two")))
-        await activity.send(.agentActivity(seq: 3, at: nil, agent: "alpha", activity: .idle, currentAction: .init(kind: "tool", detail: "three")))
-        try await wait { await clock.sleepCount > 0 }
+        // One flush timer for the whole window, and nothing applied yet.
+        try #require(await harness.feed.activityCoalesceTask != nil, "No coalescing window opened")
+        try await harness.windowOpened()
+        #expect(harness.clock.pending(Self.window).count == 1)
+        #expect(await harness.recorder.values.count == baseline)
 
-        // Still within the coalescing window: nothing applied yet.
-        #expect(await recorder.values.count == baseline)
+        harness.clock.fire(Self.window)
+        try await until { await harness.recorder.last?.rows.first?.actionDetail == "three" }
 
-        await pumpAdvancing(clock) { await recorder.values.count == baseline + 1 }
-
-        #expect(await recorder.values.count == baseline + 1)
-        let snapshot = await recorder.last
-        #expect(snapshot?.rows.first?.activity == .idle)
-        #expect(snapshot?.rows.first?.actionDetail == "three")
-        await feed.stop()
+        #expect(await harness.recorder.values.count == baseline + 1)
+        #expect(await harness.recorder.last?.rows.first?.activity == .idle)
+        await harness.feed.stop()
     }
 
     @Test func laterEventForAnAgentOverwritesAnEarlierOneInTheSameWindow() async throws {
-        let clock = CoalescingClock()
-        let daemon = CoalescingDaemon(results: [[agent("alpha"), agent("bravo")]])
-        let activity = CoalescingActivity()
-        let recorder = CoalescingRecorder()
-        let feed = makeFeed(daemon: daemon, activity: activity, recorder: recorder, sleep: { try await clock.sleep($0) })
+        let harness = try await Harness.connected(results: [[agent("alpha"), agent("bravo")]])
+        let baseline = await harness.recorder.values.count
 
-        await feed.start(); await feed.setPolling(true)
-        try await wait { await recorder.last?.connectivity == .connected }
-        await feed.setPolling(false)
+        try await harness.send(
+            .agentActivity(seq: 1, at: nil, agent: "alpha", activity: .working, currentAction: .init(kind: nil, detail: "stale")),
+            .agentActivity(seq: 2, at: nil, agent: "alpha", activity: .idle, currentAction: .init(kind: nil, detail: "fresh")),
+            .agentActivity(seq: 3, at: nil, agent: "bravo", activity: .working, currentAction: .init(kind: nil, detail: "bravo-detail"))
+        )
+        try await harness.windowOpened()
+        harness.clock.fire(Self.window)
+        try await until { await harness.recorder.values.count > baseline }
 
-        await activity.send(.agentActivity(seq: 1, at: nil, agent: "alpha", activity: .working, currentAction: .init(kind: nil, detail: "stale")))
-        await activity.send(.agentActivity(seq: 2, at: nil, agent: "alpha", activity: .idle, currentAction: .init(kind: nil, detail: "fresh")))
-        await activity.send(.agentActivity(seq: 3, at: nil, agent: "bravo", activity: .working, currentAction: .init(kind: nil, detail: "bravo-detail")))
-
-        await pumpAdvancing(clock) { await recorder.last?.rows.first(where: { $0.name == "alpha" })?.actionDetail == "fresh" }
-        let snapshot = await recorder.last
+        #expect(await harness.recorder.values.count == baseline + 1)
+        let snapshot = await harness.recorder.last
+        #expect(snapshot?.rows.first(where: { $0.name == "alpha" })?.actionDetail == "fresh")
         #expect(snapshot?.rows.first(where: { $0.name == "alpha" })?.activity == .idle)
         #expect(snapshot?.rows.first(where: { $0.name == "bravo" })?.activity == .working)
-        await feed.stop()
+        await harness.feed.stop()
     }
 
     @Test func equalResultingSnapshotSkipsEmission() async throws {
-        let clock = CoalescingClock()
-        let daemon = CoalescingDaemon(results: [[agent("alpha")]])
-        let activity = CoalescingActivity()
-        let recorder = CoalescingRecorder()
-        let feed = makeFeed(daemon: daemon, activity: activity, recorder: recorder, sleep: { try await clock.sleep($0) })
-
-        await feed.start(); await feed.setPolling(true)
-        try await wait { await recorder.last?.connectivity == .connected }
-        await feed.setPolling(false)
+        let harness = try await Harness.connected(results: [[agent("alpha")]])
 
         // Prime the row's activity to .working/"busy" and let it flush.
-        await activity.send(.agentActivity(seq: 1, at: nil, agent: "alpha", activity: .working, currentAction: .init(kind: nil, detail: "busy")))
-        await pumpAdvancing(clock) { await recorder.last?.rows.first?.actionDetail == "busy" }
-        let countAfterFirstFlush = await recorder.values.count
+        try await harness.send(.agentActivity(seq: 1, at: nil, agent: "alpha", activity: .working, currentAction: .init(kind: nil, detail: "busy")))
+        try await harness.windowOpened()
+        harness.clock.fire(Self.window)
+        try await until { await harness.recorder.last?.rows.first?.actionDetail == "busy" }
+        let countAfterFirstFlush = await harness.recorder.values.count
 
         // A second window reporting the exact same activity/detail must not
-        // produce another emission.
-        await activity.send(.agentActivity(seq: 2, at: nil, agent: "alpha", activity: .working, currentAction: .init(kind: nil, detail: "busy")))
-        try await wait { await clock.sleepCount > 0 }
-        await pumpFor(clock, duration: 0.3)
+        // produce another emission. Once that flush has run, a sentinel
+        // window's emission must be the very next one.
+        try await harness.send(.agentActivity(seq: 2, at: nil, agent: "alpha", activity: .working, currentAction: .init(kind: nil, detail: "busy")))
+        try await harness.windowOpened()
+        harness.clock.fire(Self.window)
+        try await until { await harness.feed.activityCoalesceTask == nil }
+        try await harness.send(.agentActivity(seq: 3, at: nil, agent: "alpha", activity: .idle, currentAction: .init(kind: nil, detail: "sentinel")))
+        try await harness.windowOpened()
+        harness.clock.fire(Self.window)
+        try await until { await harness.recorder.last?.rows.first?.actionDetail == "sentinel" }
 
-        #expect(await recorder.values.count == countAfterFirstFlush)
-        await feed.stop()
+        #expect(await harness.recorder.values.count == countAfterFirstFlush + 1)
+        await harness.feed.stop()
     }
 
     @Test func lifecycleRefreshFlushesBufferedActivityInsteadOfLosingIt() async throws {
-        let clock = CoalescingClock()
-        let daemon = CoalescingDaemon(results: [[agent("alpha")], [agent("alpha"), agent("bravo")]])
-        let activity = CoalescingActivity()
-        let recorder = CoalescingRecorder()
-        let feed = makeFeed(daemon: daemon, activity: activity, recorder: recorder, sleep: { try await clock.sleep($0) })
-
-        await feed.start(); await feed.setPolling(true)
-        try await wait { await recorder.last?.connectivity == .connected }
-        await feed.setPolling(false)
+        let harness = try await Harness.connected(results: [[agent("alpha")], [agent("alpha"), agent("bravo")]])
 
         // Start a coalescing window, then -- before it flushes -- a spawn
         // event triggers a list refresh. The buffered activity must not be
-        // dropped: the refresh's own emission (or the one right after) must
-        // reflect it.
-        await activity.send(.agentActivity(seq: 1, at: nil, agent: "alpha", activity: .working, currentAction: .init(kind: nil, detail: "mid-window")))
-        try await wait { await clock.sleepCount > 0 }
-        await activity.send(.agentSpawned(seq: 2, at: nil, agent: agent("bravo")))
-        // The activity-coalescing sleep was cancelled by the spawn's own
-        // drain; its (new) SSE-refresh-coalescing sleep needs to be
-        // registered before it can be advanced, so pump the clock instead
-        // of firing it exactly once.
-        await pumpAdvancing(clock) { await daemon.listCallCount == 2 }
-        try await wait { await recorder.last?.rows.first(where: { $0.name == "alpha" })?.actionDetail == "mid-window" }
-        #expect(await recorder.last?.rows.map(\.name).sorted() == ["alpha", "bravo"])
-        await feed.stop()
+        // dropped: the refresh's own emission must reflect it.
+        try await harness.send(.agentActivity(seq: 1, at: nil, agent: "alpha", activity: .working, currentAction: .init(kind: nil, detail: "mid-window")))
+        let activityFlush = try await harness.windowOpened()
+        try await harness.send(.agentSpawned(seq: 2, at: nil, agent: agent("bravo")))
+
+        // The spawn drained the window, cancelling its flush timer...
+        #expect(!harness.clock.pending(Self.window).contains(activityFlush))
+        // ...and scheduled its own SSE-refresh one, which fires the refresh.
+        try await harness.windowOpened()
+        harness.clock.fire(Self.window)
+        try await until { await harness.recorder.last?.rows.count == 2 }
+
+        #expect(await harness.daemon.listCallCount == 2)
+        #expect(await harness.recorder.last?.rows.map(\.name).sorted() == ["alpha", "bravo"])
+        #expect(await harness.recorder.last?.rows.first(where: { $0.name == "alpha" })?.actionDetail == "mid-window")
+        await harness.feed.stop()
     }
 
     @Test func stopCancelsThePendingBufferAndDropsIt() async throws {
-        let clock = CoalescingClock()
-        let daemon = CoalescingDaemon(results: [[agent("alpha")]])
-        let activity = CoalescingActivity()
-        let recorder = CoalescingRecorder()
-        let feed = makeFeed(daemon: daemon, activity: activity, recorder: recorder, sleep: { try await clock.sleep($0) })
+        let harness = try await Harness.connected(results: [[agent("alpha")]])
+        let baseline = await harness.recorder.values.count
 
-        await feed.start(); await feed.setPolling(true)
-        try await wait { await recorder.last?.connectivity == .connected }
-        await feed.setPolling(false)
-        let baseline = await recorder.values.count
+        try await harness.send(.agentActivity(seq: 1, at: nil, agent: "alpha", activity: .working, currentAction: .init(kind: nil, detail: "orphaned")))
+        try await harness.windowOpened()
+        await harness.feed.stop()
 
-        await activity.send(.agentActivity(seq: 1, at: nil, agent: "alpha", activity: .working, currentAction: .init(kind: nil, detail: "orphaned")))
-        try await wait { await clock.sleepCount > 0 }
-        await feed.stop()
-        await clock.advanceAll()
-        for _ in 0..<20 { await Task.yield() }
-
-        #expect(await recorder.values.count == baseline)
-    }
-
-    private func makeFeed(daemon: CoalescingDaemon, activity: CoalescingActivity, recorder: CoalescingRecorder, sleep: @escaping @Sendable (UInt64) async throws -> Void) -> LeoSidebarFeed {
-        let source = LeoSidebarActivitySource(events: { await activity.events() }, fetchState: { await activity.fetchState() })
-        let sink: LeoSidebarFeed.Sink = { snapshot in Task { await recorder.append(snapshot) } }
-        return LeoSidebarFeed(daemon: daemon, activity: source, sleep: sleep, sink: sink)
-    }
-
-    private func agent(_ name: String) -> LeoAgent {
-        .init(name: name, template: "default", repo: nil, workspace: nil, branch: nil, canonicalPath: nil, status: .running, startedAt: nil, restarts: nil, stoppedReason: nil, wakeOnMessage: nil)
-    }
-
-    private func wait(_ condition: @escaping @Sendable () async -> Bool) async throws {
-        await awaitCondition(condition)
-    }
-
-    /// Repeatedly advances `clock` until `condition` holds. A single
-    /// `advanceAll()` only fires whatever's registered on the clock *right
-    /// now* -- a sleep scheduled moments later (e.g. the SSE-refresh sleep
-    /// a lifecycle event schedules right after cancelling/draining the
-    /// activity-coalescing one) wouldn't be caught by it. Pumping instead
-    /// of firing once avoids depending on exact interleaving between an
-    /// event's own cancellation and its follow-up scheduling.
-    private func pumpAdvancing(
-        _ clock: CoalescingClock, timeout: TimeInterval = 2,
-        _ condition: @escaping @Sendable () async -> Bool
-    ) async {
-        let deadline = Date().addingTimeInterval(timeout)
-        repeat {
-            if await condition() { return }
-            await clock.advanceAll()
-            try? await Task.sleep(nanoseconds: 5_000_000)
-        } while Date() < deadline
-        Issue.record("Condition was not satisfied within \(timeout) seconds")
-    }
-
-    /// Advances `clock` repeatedly for `duration` without asserting
-    /// anything -- used to prove a negative (no emission happens) while
-    /// still giving any pending sleep a chance to fire.
-    private func pumpFor(_ clock: CoalescingClock, duration: TimeInterval) async {
-        let deadline = Date().addingTimeInterval(duration)
-        repeat {
-            await clock.advanceAll()
-            try? await Task.sleep(nanoseconds: 5_000_000)
-        } while Date() < deadline
+        #expect(harness.clock.pending(Self.window).isEmpty)
+        harness.clock.fire(Self.window)
+        #expect(await harness.recorder.values.count == baseline)
     }
 }
 
-private actor CoalescingActivity {
-    private let stream: AsyncStream<LeoObserveEvent>
-    private let continuation: AsyncStream<LeoObserveEvent>.Continuation
-    private(set) var fetchCount = 0
-    private var state: [LeoObservedAgent] = []
-    init() { (stream, continuation) = AsyncStream.makeStream() }
-    func events() -> AsyncStream<LeoObserveEvent> { stream }
-    func fetchState() -> [LeoObservedAgent] { fetchCount += 1; return state }
-    func send(_ event: LeoObserveEvent) { continuation.yield(event) }
+private func agent(_ name: String) -> LeoAgent {
+    .init(name: name, template: "default", repo: nil, workspace: nil, branch: nil, canonicalPath: nil, status: .running, startedAt: nil, restarts: nil, stoppedReason: nil, wakeOnMessage: nil)
 }
 
-private actor CoalescingRecorder {
+/// A feed wired to fakes, connected and settled: the first list refresh and
+/// its activity-state fetch have both emitted, and polling is off.
+private struct Harness {
+    let clock = LeoFiringClock()
+    let daemon: CoalescingDaemon
+    let activity = CoalescingActivity()
+    let recorder: CoalescingRecorder
+    let feed: LeoSidebarFeed
+
+    static func connected(results: [[LeoAgent]]) async throws -> Harness {
+        let harness = await Harness(daemon: CoalescingDaemon(results: results), recorder: CoalescingRecorder())
+        await harness.feed.start()
+        await harness.feed.setPolling(true)
+        try await until { await harness.activity.fetchCount == 1 }
+        try await until {
+            guard let last = await harness.recorder.last else { return false }
+            return last.connectivity == .connected && !last.listRefreshSucceeded
+        }
+        await harness.feed.setPolling(false)
+        return harness
+    }
+
+    private init(daemon: CoalescingDaemon, recorder: CoalescingRecorder) {
+        self.daemon = daemon
+        self.recorder = recorder
+        let source = LeoSidebarActivitySource(events: { [activity] in activity.events() }, fetchState: { [activity] in activity.fetchState() })
+        feed = LeoSidebarFeed(
+            daemon: daemon, activity: source, sleep: { [clock] in try await clock.sleep($0) }, now: { 0 },
+            sink: { [recorder] snapshot in recorder.append(snapshot) }
+        )
+    }
+
+    /// Waits for a coalescing (or SSE-refresh) sleep to be pending; its id.
+    @discardableResult
+    func windowOpened() async throws -> Int {
+        try await until { !clock.pending(LeoSidebarFeedActivityCoalescingTests.window).isEmpty }
+        return clock.pending(LeoSidebarFeedActivityCoalescingTests.window)[0]
+    }
+
+    /// Sends `events` and returns once the feed has handled every one.
+    func send(_ events: LeoObserveEvent...) async throws {
+        events.forEach(activity.send)
+        try await until { activity.hasDeliveredEverything }
+    }
+}
+
+/// An event stream that knows how far its consumer has got: the feed asks
+/// for the next event only after it has handled the last one.
+private final class CoalescingActivity: @unchecked Sendable {
+    private let lock = NSLock()
+    private var queue: [LeoObserveEvent] = []
+    private var waiter: CheckedContinuation<LeoObserveEvent?, Never>?
+    private var sent = 0
+    private var requests = 0
+    private var fetches = 0
+
+    var fetchCount: Int { lock.withLock { fetches } }
+    /// Every event sent has been handled, and the feed is waiting for more.
+    var hasDeliveredEverything: Bool { lock.withLock { requests > sent && waiter != nil } }
+
+    func events() -> AsyncStream<LeoObserveEvent> {
+        AsyncStream(unfolding: { await self.next() })
+    }
+
+    func fetchState() -> [LeoObservedAgent] {
+        lock.withLock { fetches += 1 }
+        return []
+    }
+
+    func send(_ event: LeoObserveEvent) {
+        let waiting = lock.withLock { () -> CheckedContinuation<LeoObserveEvent?, Never>? in
+            sent += 1
+            guard let waiter else { queue.append(event); return nil }
+            self.waiter = nil
+            return waiter
+        }
+        waiting?.resume(returning: event)
+    }
+
+    private func next() async -> LeoObserveEvent? {
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                let ready = lock.withLock { () -> LeoObserveEvent?? in
+                    requests += 1
+                    if !queue.isEmpty { return .some(queue.removeFirst()) }
+                    if Task.isCancelled { return .some(nil) }
+                    waiter = continuation
+                    return nil
+                }
+                if let ready { continuation.resume(returning: ready) }
+            }
+        } onCancel: {
+            let waiting = lock.withLock { () -> CheckedContinuation<LeoObserveEvent?, Never>? in
+                defer { waiter = nil }
+                return waiter
+            }
+            waiting?.resume(returning: nil)
+        }
+    }
+}
+
+/// Appends on the main actor, in the order the feed emits.
+@MainActor private final class CoalescingRecorder {
     private(set) var values: [LeoSidebarSnapshot] = []
     var last: LeoSidebarSnapshot? { values.last }
     func append(_ snapshot: LeoSidebarSnapshot) { values.append(snapshot) }
@@ -218,36 +259,4 @@ private actor CoalescingDaemon: LeoDaemonClient {
     func delete(_ name: String, force: Bool?, deleteBranch: Bool?) async throws { fatalError() }
     func deletePlan(_ name: String) async throws -> LeoDeletePlan { fatalError() }
     func logs(_ name: String, lines: Int?) async throws -> String { fatalError() }
-}
-
-/// Unlike the other test suites' shared clocks (which cancel *every* pending
-/// sleep on any one call's cancellation), this tracks each sleep by its own
-/// id so that `fetchList`'s losing-race deadline sleep -- cancelled the
-/// instant the list result wins -- can't spuriously cancel an unrelated
-/// pending sleep (e.g. the activity-coalescing flush) that happens to be
-/// outstanding on the same clock at the same time.
-private actor CoalescingClock {
-    private var waiters: [Int: CheckedContinuation<Void, Error>] = [:]
-    private var nextID = 0
-    var sleepCount: Int { waiters.count }
-    func sleep(_ nanoseconds: UInt64) async throws {
-        let id = nextID
-        nextID += 1
-        try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                waiters[id] = continuation
-            }
-        } onCancel: {
-            Task { await self.cancel(id) }
-        }
-    }
-    func advanceAll() {
-        let pending = waiters
-        waiters = [:]
-        pending.values.forEach { $0.resume() }
-    }
-    private func cancel(_ id: Int) {
-        guard let continuation = waiters.removeValue(forKey: id) else { return }
-        continuation.resume(throwing: CancellationError())
-    }
 }

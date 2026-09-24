@@ -12,7 +12,8 @@ enum LeoControlSocketDirectoryError: Error, Equatable, Sendable {
     case system(Int32)
 }
 
-/// Where ControlMaster sockets live: `<per-user cache dir>/leo/`.
+/// Where the tunnel's sockets live -- the forwarded daemon socket and the
+/// ControlMaster socket: `<per-user cache dir>/leo/`.
 ///
 /// ssh leaves a control path 86 bytes (`LeoSSHCommand.isValidControlPath`),
 /// which `~/.leo/state/leoterm/` exhausts for any home directory longer
@@ -24,6 +25,8 @@ enum LeoControlSocketDirectoryError: Error, Equatable, Sendable {
 /// runs, which would unlink a long-lived master's socket. 49 + `leo/` +
 /// the 33-byte `controlSocketFileName` is exactly 86: both halves are
 /// fixed-length, so it fits for every user or for none, never by accident.
+/// The forwarded socket (`tunnelSocketFileName`, 29 bytes) takes 82 of
+/// the 100 bytes `LeoSSHCommand` allows it, on the same terms.
 enum LeoControlSocketDirectory {
     static let name = "leo"
 

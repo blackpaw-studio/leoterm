@@ -37,6 +37,12 @@ import OSLog
     /// detection would otherwise leave the stale `.connected` build free to
     /// install over it once its `await` finally resolves.
     private var connectionSequence = 0
+    /// Runs the one liveness check per wake (D-061); removed with `self`.
+    private var wakeObservation: LeoNotificationObservation?
+    #if DEBUG
+    private let openFileFixture = LeoOpenFileFixture()
+    private var forcedDisconnect: AnyObject?
+    #endif
 
     /// Pure composition helper: builds a socket daemon client bound to one
     /// socket path. Kept free of runtime/async state so it can be constructed
@@ -67,14 +73,18 @@ import OSLog
         hostConnectionTransport: any LeoDaemonTransport = LeoUnixSocketTransport(),
         hostSelectionRunner: any LeoProcessRunning = LeoProcessRunner(),
         hostSelectionSSHExecutable: URL = URL(fileURLWithPath: "/usr/bin/ssh"),
-        notificationCenter: any LeoNotificationPosting = LeoUserNotificationCenter()
+        hostSelectionLegacySocketDirectory: URL = LeoTunnelOrphanStore.defaultLegacySocketDirectory,
+        hostSelectionControlSocketDirectory: URL? = LeoControlSocketDirectory.default,
+        notificationCenter: any LeoNotificationPosting = LeoUserNotificationCenter(),
+        focusedAgentSink: (@Sendable (LeoAgentRow.ID?) async -> Void)? = nil,
+        wakeNotifications: NotificationCenter = NSWorkspace.shared.notificationCenter
     ) {
         self.cli = cli
         self.defaults = defaults
         localDaemon = daemon
         localActivitySource = activitySource
         self.hostConnectionTransport = hostConnectionTransport
-        let orphanStore = LeoTunnelOrphanStore(defaults: defaults)
+        let orphanStore = LeoTunnelOrphanStore(defaults: defaults, legacySocketDirectory: hostSelectionLegacySocketDirectory)
         self.orphanStore = orphanStore
         let model = LeoSidebarModel()
         let registry = LeoWindowSessionRegistry()
@@ -95,6 +105,8 @@ import OSLog
             sshExecutable: hostSelectionSSHExecutable,
             transport: hostConnectionTransport,
             orphanStore: orphanStore,
+            legacySocketDirectory: hostSelectionLegacySocketDirectory,
+            controlSocketDirectory: hostSelectionControlSocketDirectory,
             connectionTarget: { host, generation, state in
                 weakSelf?.applyConnection(host: host, generation: generation, state: state)
             }
@@ -198,7 +210,7 @@ import OSLog
             onAttentionTransitions: { transitions in weakSelf?.attentionTransitionsCommitted(transitions) },
             sink: { [weak model] snapshot in model?.receive(snapshot) }
         )
-        focusedAgentRelay = LeoOrderedRelay { [weak feed] id in await feed?.setFocusedAgent(id) }
+        focusedAgentRelay = LeoOrderedRelay(sink: focusedAgentSink ?? { [weak feed] id in await feed?.setFocusedAgent(id) })
         actions = LeoAgentActions(daemon: daemon, cli: cli, model: model, hostSelection: hostSelection) { [weak feed] in
             Task { await feed?.refresh() }
         }
@@ -232,6 +244,19 @@ import OSLog
         // belongs to, drives which connection the feed and agent actions
         // are bound to.
         weakSelf = self
+
+        // One immediate liveness check per wake, never repeated: a tunnel
+        // or socket that died in sleep shows as disconnected (D-061).
+        wakeObservation = LeoNotificationObservation(center: wakeNotifications, name: NSWorkspace.didWakeNotification) { [weak feed] in
+            Task { await feed?.checkLiveness() }
+        }
+        #if DEBUG
+        if let reason = LeoForcedDisconnectFixture.reason() {
+            forcedDisconnect = LeoForcedDisconnectFixture.arm(model: model, reason: reason) { [weak feed] reason in
+                Task { await feed?.disconnect(reason: reason) }
+            }
+        }
+        #endif
     }
 
     func start() {
@@ -262,7 +287,12 @@ import OSLog
             window: controller.window, controller: controller, defaults: defaults,
             makeFileAccess: { [weak hostSelection] host in
                 guard let hostSelection else { throw LeoFileAccessError.unavailable(reason: "Leo is shutting down") }
-                return try hostSelection.makeFileAccess(for: host)
+                let access = try hostSelection.makeFileAccess(for: host)
+                #if DEBUG
+                return LeoSlowSaveFixture.wrapIfSet(access)
+                #else
+                return access
+                #endif
             }
         )
         // Captures `sessionID` (a value), not `session` itself -- `session`
@@ -286,6 +316,15 @@ import OSLog
             )
             picker.register(presentation, for: sessionID)
         }
+        #if DEBUG
+        openFileFixture.windowCameUp { [weak self, weak session, weak controller] path in
+            // Once the controller has finished setting the window up.
+            Task { @MainActor in
+                guard let self, let session, let controller else { return }
+                await self.openFixtureFile(path, in: session) { LeoEditorAlerts.presentError($0, on: controller.window) }
+            }
+        }
+        #endif
         return session
     }
 
@@ -370,12 +409,13 @@ import OSLog
             daemon = localDaemon
             activitySource = localActivitySource
         } else {
-            daemon = LeoSocketDaemonClient(socketPath: socketPath)
+            let tunnelTransport = LeoTunnelSocketTransport(base: LeoUnixSocketTransport())
+            daemon = LeoSocketDaemonClient(socketPath: socketPath, transport: tunnelTransport)
             let remoteFlavor = await LeoSocketDaemonClient.detectFlavor(socketPath: socketPath, transport: hostConnectionTransport)
             activitySource = remoteFlavor == .socketEvents
                 ? LeoSidebarActivitySource(
-                    events: { await LeoSocketActivityClient(socketPath: socketPath).events() },
-                    fetchState: { try await LeoSocketActivityClient(socketPath: socketPath).fetchState() }
+                    events: { await LeoSocketActivityClient(socketPath: socketPath, transport: tunnelTransport).events() },
+                    fetchState: { try await LeoSocketActivityClient(socketPath: socketPath, transport: tunnelTransport).fetchState() }
                   )
                 : LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
         }

@@ -10,7 +10,7 @@ final class LeoEditorPaneViewController: NSViewController {
 
     let model: LeoEditorPaneModel
     private let header = LeoEditorHeaderView()
-    private let banner = LeoEditorBannerView()
+    let banner = LeoEditorBannerView()
     private let scrollView: NSScrollView
     let textView: LeoEditorTextView
     private var modelSubscriptions: Set<AnyCancellable> = []
@@ -98,10 +98,17 @@ final class LeoEditorPaneViewController: NSViewController {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] reveal in self?.apply(reveal) }
             .store(in: &modelSubscriptions)
+        // A close waiting on the document says so (a pending quit offers to
+        // quit anyway), and locks the text once it's decided.
+        model.$leaveAnyway.map { _ in () }
+            .merge(with: model.$isWaitingToClose.map { _ in () }, model.$isOfferShowing.map { _ in () }, model.$isCommittedToClose.map { _ in () })
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in self?.refreshChrome() }
+            .store(in: &modelSubscriptions)
     }
 
     private func show(_ document: LeoEditorDocument?) {
-        setCollapsed(document == nil)
+        setLeoSplitItemCollapsed(document == nil, openingAtHalfWidth: true)
         documentSubscriptions.removeAll()
         guard let document else {
             shownDocument = nil
@@ -113,7 +120,7 @@ final class LeoEditorPaneViewController: NSViewController {
             shownRevision = document.contentRevision
             textView.documentUndoManager = UndoManager()
             textView.language = document.language
-            textView.isEditable = !document.isReadOnly
+            textView.isEditable = isEditable(document)
             textView.load(document.text, keepingSelection: false)
             appliedReveal = nil
             apply(model.reveal)
@@ -133,7 +140,7 @@ final class LeoEditorPaneViewController: NSViewController {
         if document.contentRevision != shownRevision {
             shownRevision = document.contentRevision
             textView.documentUndoManager.removeAllActions()
-            textView.isEditable = !document.isReadOnly
+            textView.isEditable = isEditable(document)
             textView.load(document.text, keepingSelection: true)
         }
         refreshChrome()
@@ -141,7 +148,24 @@ final class LeoEditorPaneViewController: NSViewController {
 
     private func refreshChrome() {
         header.update(document: model.document, recents: model.recents)
-        banner.show(LeoEditorBanner.current(for: model.document))
+        banner.show(shownBanner)
+        if let document = shownDocument { textView.isEditable = isEditable(document) }
+    }
+
+    /// Read-only once a close is decided (its prompt answered, or none
+    /// needed) and waits on the document: nothing typed then would be
+    /// kept, or a save queued behind it would write it after Don't Save.
+    /// Still editable while the close merely waits its turn.
+    private func isEditable(_ document: LeoEditorDocument) -> Bool {
+        !document.isReadOnly && !model.isCommittedToClose
+    }
+
+    /// The banner for the model as it is now.
+    var shownBanner: LeoEditorBanner? {
+        LeoEditorBanner.current(
+            for: model.document, isQuitWaiting: model.leaveAnyway != nil && model.isWaitingToClose, canLeave: !model.isOfferShowing,
+            isWaitingToClose: model.isWaitingToClose
+        )
     }
 
     private func apply(_ reveal: LeoEditorReveal?) {
@@ -149,13 +173,6 @@ final class LeoEditorPaneViewController: NSViewController {
         appliedReveal = reveal.id
         textView.reveal(line: reveal.line, column: reveal.column)
         focusText()
-    }
-
-    /// The pane's split item collapses while nothing is open. Shown, it
-    /// opens at its minimum width the first time, then at its last width.
-    private func setCollapsed(_ collapsed: Bool) {
-        guard let item = (parent as? NSSplitViewController)?.splitViewItem(for: self), item.isCollapsed != collapsed else { return }
-        item.isCollapsed = collapsed
     }
 
     // MARK: - Disk checks
@@ -177,9 +194,10 @@ final class LeoEditorPaneViewController: NSViewController {
 
     // MARK: - Helpers
 
-    private func perform(_ action: LeoEditorBanner.Action) {
+    func perform(_ action: LeoEditorBanner.Action) {
         guard let document = model.document else { return }
         switch action {
+        case .quitAnyway: model.leaveAnyway?()
         case .reload: Task { await document.reload() }
         case .keepMine: document.keepMine()
         case .dismissError: document.dismissError()
@@ -218,7 +236,14 @@ final class LeoEditorPaneViewController: NSViewController {
 
 extension LeoEditorPaneViewController: NSTextViewDelegate {
     func textDidChange(_ notification: Notification) {
+        guard model.edit(textView.string, revision: shownRevision) else {
+            // A close is decided and the lock hadn't landed yet: put the
+            // document's text back and lock now.
+            guard let document = shownDocument else { return }
+            textView.revertEdit(to: document.text)
+            textView.isEditable = isEditable(document)
+            return
+        }
         textView.highlightEdits()
-        model.document?.edit(textView.string, revision: shownRevision)
     }
 }

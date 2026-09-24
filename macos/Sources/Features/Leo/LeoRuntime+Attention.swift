@@ -14,6 +14,7 @@ extension LeoRuntime {
     /// The row Jump would attach to: unfiltered sidebar order, after the
     /// focused agent (else the selection), skipping the focused agent.
     var nextAttentionTarget: LeoAgentRow? {
+        guard !model.isDisconnected else { return nil }
         let rows = LeoSidebarReducers.rank(model.snapshot.rows)
         let focused = attachCoordinator.focusedIdentity.map { LeoAgentRow.ID(host: $0.host, name: $0.name) }
         let target = LeoAttentionNavigation.next(

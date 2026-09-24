@@ -55,6 +55,7 @@ peekaboo menu list  --app $APPID --bridge-socket "$PB_SOCK"
 peekaboo menu click --app $APPID --path "Agents > Show Agents Sidebar" --bridge-socket "$PB_SOCK"   # ⌘⇧L
 peekaboo click|type|press ... --app $APPID --bridge-socket "$PB_SOCK"
 ```
+- Evan approved type/press/click on the debug bundle for verification (D-052). Check the frontmost app first.
 - "menu click dispatched but not verified" is normal. Confirm with a screenshot.
 - The Agents menu has: New Agent… (⌘⇧A), Show Agents Sidebar (⌘⇧L).
 

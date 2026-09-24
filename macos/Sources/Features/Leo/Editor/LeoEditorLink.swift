@@ -25,7 +25,7 @@ extension LeoEditorLinkError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .empty: "Enter the path of a file to open."
-        case let .invalid(text): "“\(LeoSFTPServerText.sanitized(text))” isn’t a file path."
+        case let .invalid(text): "“\(LeoSFTPServerText.isolated(text))” isn’t a file path."
         case .noWorkspace: "This agent has no workspace, so a relative path can’t be opened. Use an absolute path."
         }
     }

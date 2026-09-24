@@ -19,7 +19,7 @@ struct LeoControlSocketDirectoryTests {
         let selection = LeoHostSelection(
             store: LeoHostStore(defaults: defaults),
             defaults: defaults,
-            localSocketDirectory: URL(fileURLWithPath: home + "/.leo/state/leoterm", isDirectory: true)
+            legacySocketDirectory: URL(fileURLWithPath: home + "/.leo/state/leoterm", isDirectory: true)
         )
 
         let path = selection.controlPath(for: configuration)

@@ -41,6 +41,29 @@ struct LeoEditorReveal: Equatable, Sendable {
     /// While the unsaved-changes prompt is up (as opposed to waiting on the
     /// disk or network before or after it).
     private(set) var isConfirming = false
+    /// While a close is waiting on the disk or connection -- queued behind
+    /// an operation in flight, or saving after its prompt -- rather than on
+    /// its prompt or on nothing at all. Set again on each pass of the wait
+    /// for the document's work. Any close in flight counts.
+    @Published private(set) var isWaitingToClose = false
+    /// While a close is decided -- its prompt answered (or none needed) --
+    /// and not yet done: the text is locked, since nothing typed now would
+    /// be kept. Not while it merely waits its turn behind another operation.
+    /// Any close in flight counts.
+    @Published private(set) var isCommittedToClose = false
+    /// The closes in flight that are waiting, or decided: each close
+    /// changes only its own entry, so one ending never clears another's.
+    private var waitingCloses: Set<UUID> = []
+    private var committedCloses: Set<UUID> = []
+    /// Set by `LeoUnsavedEditorsGate` while a quit that can't be asked
+    /// again (logging out, Ghostty's quit review) is on this editor:
+    /// offers to leave anyway (Keep Waiting / Quit Anyway). The pane shows
+    /// it once the close `isWaitingToClose`.
+    @Published var leaveAnyway: (@MainActor () -> Void)?
+    /// Set by `LeoUnsavedEditorsGate` while an offer to leave (for this
+    /// editor or another) is showing: `leaveAnyway` waits until it's
+    /// answered, so the pane's button is disabled meanwhile.
+    @Published var isOfferShowing = false
 
     private let makeAccess: @MainActor (LeoHostID) throws -> any LeoFileAccess
     private let policy: LeoEditorContentPolicy
@@ -58,10 +81,15 @@ struct LeoEditorReveal: Equatable, Sendable {
     /// Opens `fileID`, replacing the current document. The new file is read
     /// before anything is asked, so a file that can't open (the error is
     /// thrown) never costs the user a prompt or their current document.
+    /// `access` stands in for the pane's own file access for this open.
     @discardableResult
-    func open(_ fileID: LeoEditorFileID, line: Int? = nil, column: Int? = nil) async throws -> LeoEditorOpenOutcome {
-        try await queue.runThrowing {
-            try await self.performOpen(fileID, line: line, column: column)
+    func open(
+        _ fileID: LeoEditorFileID, line: Int? = nil, column: Int? = nil,
+        access: (@MainActor (LeoHostID) throws -> any LeoFileAccess)? = nil
+    ) async throws -> LeoEditorOpenOutcome {
+        let makeAccess = access ?? self.makeAccess
+        return try await queue.runThrowing {
+            try await self.performOpen(fileID, line: line, column: column, makeAccess: makeAccess)
         }
     }
 
@@ -69,7 +97,13 @@ struct LeoEditorReveal: Equatable, Sendable {
     /// when the user cancelled (or chose Save and it failed).
     @discardableResult
     func close() async -> Bool {
-        await queue.run { await self.performClose() }
+        let close = UUID()
+        defer {
+            setWaiting(close, false)
+            setCommitted(close)
+        }
+        if queue.isBusy { setWaiting(close, true) }
+        return await queue.run { await self.performClose(close) }
     }
 
     /// The window is gone: drops the document without asking (every close
@@ -90,6 +124,17 @@ struct LeoEditorReveal: Equatable, Sendable {
         Task { await document.abandon() }
     }
 
+    /// The user's edit to the document, unless a close is decided
+    /// (`isCommittedToClose`): nothing typed then would be kept, so it's
+    /// refused here, whether or not the view has locked yet. `false` when
+    /// refused; the view puts the document's text back.
+    @discardableResult
+    func edit(_ text: String, revision: Int) -> Bool {
+        guard !isCommittedToClose else { return false }
+        document?.edit(text, revision: revision)
+        return true
+    }
+
     /// What `~` means on `host`.
     func homeDirectory(on host: LeoHostID) async throws -> String {
         let access = try makeAccess(host)
@@ -105,7 +150,10 @@ struct LeoEditorReveal: Equatable, Sendable {
 
     // MARK: - Operations (serialized)
 
-    private func performOpen(_ fileID: LeoEditorFileID, line: Int?, column: Int?) async throws -> LeoEditorOpenOutcome {
+    private func performOpen(
+        _ fileID: LeoEditorFileID, line: Int?, column: Int?,
+        makeAccess: @MainActor (LeoHostID) throws -> any LeoFileAccess
+    ) async throws -> LeoEditorOpenOutcome {
         if let document, document.fileID == fileID {
             requestReveal(fileID, line: line, column: column)
             return .alreadyOpen
@@ -131,9 +179,22 @@ struct LeoEditorReveal: Equatable, Sendable {
         return .opened
     }
 
-    private func performClose() async -> Bool {
+    private func performClose(_ close: UUID) async -> Bool {
+        setWaiting(close, false)
         guard let document else { return true }
-        guard await resolveUnsavedChanges() else { return false }
+        guard await resolveUnsavedChanges(closing: close) else { return false }
+        setCommitted(close, true)
+        // Something in flight on the document's own queue (⌘S, a disk
+        // check) -- or queued there meanwhile -- is waited for with the
+        // document still up, so a pending quit can still offer to leave
+        // (`leaveAnyway`).
+        while document.isBusy {
+            setWaiting(close, true)
+            await document.drain()
+            // Left anyway meanwhile (`abandon`): already dropped.
+            guard self.document === document else { return true }
+        }
+        setWaiting(close, false)
         self.document = nil
         reveal = nil
         await document.close()
@@ -149,7 +210,9 @@ struct LeoEditorReveal: Equatable, Sendable {
 
     // MARK: - Helpers
 
-    private func resolveUnsavedChanges() async -> Bool {
+    /// `closing`: a Save waits on the disk or connection for that close
+    /// (`isWaitingToClose`).
+    private func resolveUnsavedChanges(closing close: UUID? = nil) async -> Bool {
         guard let document, document.isDirty else { return true }
         isConfirming = true
         let choice = await confirmUnsaved(document)
@@ -157,8 +220,26 @@ struct LeoEditorReveal: Equatable, Sendable {
         switch choice {
         case .cancel: return false
         case .discard: return true
-        case .save: return await document.save() == .saved
+        case .save:
+            if let close {
+                setCommitted(close, true)
+                setWaiting(close, true)
+            }
+            defer { if let close { setWaiting(close, false) } }
+            return await document.save() == .saved
         }
+    }
+
+    /// Publishes on every call (even with no change), so each pass of a
+    /// close's wait is announced.
+    private func setWaiting(_ close: UUID, _ isWaiting: Bool) {
+        if isWaiting { waitingCloses.insert(close) } else { waitingCloses.remove(close) }
+        isWaitingToClose = !waitingCloses.isEmpty
+    }
+
+    private func setCommitted(_ close: UUID, _ isCommitted: Bool = false) {
+        if isCommitted { committedCloses.insert(close) } else { committedCloses.remove(close) }
+        isCommittedToClose = !committedCloses.isEmpty
     }
 
     private func requestReveal(_ fileID: LeoEditorFileID, line: Int?, column: Int?) {

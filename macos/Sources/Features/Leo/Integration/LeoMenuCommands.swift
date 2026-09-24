@@ -27,7 +27,12 @@ enum LeoMenuCommands {
         hasLeoSession && isSidebarVisible ? "Hide Agents Sidebar" : "Show Agents Sidebar"
     }
 
-    static func canToggleSidebar(hasLeoSession: Bool) -> Bool { hasLeoSession }
+    /// Hide is always there; Show isn't while showing the sidebar would
+    /// take the terminal under its floor beside a side pane (D-059) --
+    /// disabled, so ⌘⇧L gives the system beep.
+    static func canToggleSidebar(hasLeoSession: Bool, isSidebarVisible: Bool = false, showingSqueezesTerminal: Bool = false) -> Bool {
+        hasLeoSession && (isSidebarVisible || !showingSqueezesTerminal)
+    }
 
     static func canCreateAgent(hasLeoSession: Bool) -> Bool { hasLeoSession }
 
@@ -41,6 +46,17 @@ enum LeoMenuCommands {
     static func canDelete(_ context: AgentContext) -> Bool { enabled(context) { $0.delete } }
 
     static func canJumpToNextNeedingAttention(hasLeoSession: Bool, hasTarget: Bool) -> Bool { hasLeoSession && hasTarget }
+
+    /// Agents ▸ Reconnect (⇧⌘R): the sidebar's Retry, whenever the
+    /// sidebar offers one and it isn't already running.
+    static func canReconnect(hasLeoSession: Bool, connectivity: LeoConnectivity) -> Bool {
+        guard hasLeoSession else { return false }
+        switch connectivity {
+        case .disconnected(_, let isRetrying): return !isRetrying
+        case .failed: return true
+        case .loading, .connected: return false
+        }
+    }
 
     private static func enabled(_ context: AgentContext, _ pick: (LeoRowActionAvailability) -> Bool) -> Bool {
         guard context.hasLeoSession, let availability = context.availability else { return false }

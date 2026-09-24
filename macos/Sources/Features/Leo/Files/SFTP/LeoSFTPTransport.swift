@@ -72,10 +72,10 @@ final class LeoSFTPTransport: @unchecked Sendable {
         }
     }
 
-    /// Ends the session: fails everything pending with `.disconnected`,
-    /// closes the server's stdin and terminates it. Idempotent.
-    func close() {
-        end(with: .disconnected)
+    /// Ends the session: fails everything pending with `error`, closes the
+    /// server's stdin and terminates it. Idempotent.
+    func close(with error: LeoFileAccessError = .disconnected) {
+        end(with: error)
     }
 
     // MARK: - Writing
@@ -169,12 +169,14 @@ final class LeoSFTPTransport: @unchecked Sendable {
         channel.terminate()
     }
 
-    private static func describe(_ error: Error) -> String {
+    /// What failed to decode. Anything other than a codec error is
+    /// described by its own text, which is untrusted.
+    static func describe(_ error: Error) -> LeoFileAccessReason {
         switch error {
         case let LeoSFTPCodecError.unexpectedType(type): "unexpected packet type \(type)"
         case let LeoSFTPCodecError.badLength(length): "bad packet length \(length)"
         case LeoSFTPCodecError.truncated: "truncated packet"
-        default: String(describing: error)
+        default: .untrusted(String(describing: error))
         }
     }
 }

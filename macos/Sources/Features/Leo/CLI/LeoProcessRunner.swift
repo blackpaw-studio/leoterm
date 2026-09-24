@@ -11,7 +11,24 @@ protocol LeoProcessRunning: Sendable {
     func run(executable: String, arguments: [String], timeout: TimeInterval) async throws -> LeoProcessResult
 }
 
+/// Runs an action after a delay in seconds: when a timeout fires and
+/// escalates. A seam for tests that step the escalation by hand; the app
+/// uses a global dispatch queue.
+struct LeoProcessScheduler: Sendable {
+    let after: @Sendable (TimeInterval, @escaping @Sendable () -> Void) -> Void
+
+    static let dispatch = LeoProcessScheduler { delay, action in
+        DispatchQueue.global().asyncAfter(deadline: .now() + delay, execute: action)
+    }
+}
+
 struct LeoProcessRunner: LeoProcessRunning {
+    private let scheduler: LeoProcessScheduler
+
+    init(scheduler: LeoProcessScheduler = .dispatch) {
+        self.scheduler = scheduler
+    }
+
     func run(executable: String, arguments: [String], timeout: TimeInterval = 30) async throws -> LeoProcessResult {
         try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
@@ -22,7 +39,7 @@ struct LeoProcessRunner: LeoProcessRunning {
             let stderr = Pipe()
             process.standardOutput = stdout
             process.standardError = stderr
-            let state = LeoProcessRunState(continuation: continuation)
+            let state = LeoProcessRunState(continuation: continuation, scheduler: scheduler)
             process.terminationHandler = { process in
                 state.finished(status: process.terminationStatus)
             }
@@ -53,6 +70,7 @@ struct LeoProcessRunner: LeoProcessRunning {
 private final class LeoProcessRunState: @unchecked Sendable {
     private let lock = NSLock()
     private let continuation: CheckedContinuation<LeoProcessResult, Error>
+    private let scheduler: LeoProcessScheduler
     private var stdout = Data()
     private var stderr = Data()
     private var readersRemaining = 2
@@ -60,12 +78,13 @@ private final class LeoProcessRunState: @unchecked Sendable {
     private var timedOut = false
     private var completed = false
 
-    init(continuation: CheckedContinuation<LeoProcessResult, Error>) {
+    init(continuation: CheckedContinuation<LeoProcessResult, Error>, scheduler: LeoProcessScheduler) {
         self.continuation = continuation
+        self.scheduler = scheduler
     }
 
     func startTimeout(after timeout: TimeInterval, process: Process) {
-        DispatchQueue.global().asyncAfter(deadline: .now() + timeout) { [weak self, weak process] in
+        scheduler.after(timeout) { [weak self, weak process] in
             guard let self else { return }
             self.lock.lock()
             guard !self.completed else { self.lock.unlock(); return }
@@ -77,7 +96,7 @@ private final class LeoProcessRunState: @unchecked Sendable {
     }
 
     private func escalateAfterGracePeriod(process: Process?) {
-        DispatchQueue.global().asyncAfter(deadline: .now() + 1) { [weak self, weak process] in
+        scheduler.after(1) { [weak self, weak process] in
             guard let self else { return }
             self.lock.lock()
             let stillRunning = !self.completed
@@ -86,7 +105,7 @@ private final class LeoProcessRunState: @unchecked Sendable {
             if let process, process.isRunning {
                 Darwin.kill(process.processIdentifier, SIGKILL)
             }
-            DispatchQueue.global().asyncAfter(deadline: .now() + 1) { [weak self] in
+            self.scheduler.after(1) { [weak self] in
                 self?.forceComplete()
             }
         }

@@ -183,6 +183,12 @@ final class LeoTunnel: @unchecked Sendable {
         }
     }
 
+    /// Unlinks whatever sits at the bind path without asking who made it.
+    /// Safe only because of two invariants: Leo is single-instance per
+    /// bundle ID (`LeoSingleInstance`, D-051), so no other copy can own a
+    /// tunnel on this bundle-scoped path; and `LeoRuntime` owns the one
+    /// `LeoHostSelection`, which tears the previous tunnel down before it
+    /// starts the next. Anything here is therefore a dead run's leftover.
     private func removeStaleSocket() throws {
         if FileManager.default.fileExists(atPath: localSocketPath) {
             try FileManager.default.removeItem(atPath: localSocketPath)

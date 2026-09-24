@@ -113,10 +113,14 @@ import Foundation
     private func buildRows() -> [Row] {
         switch hostState {
         case .connecting:
-            return [.status(text: "Connecting to \(selectedHost.displayName)…", hint: nil, canRetry: false)] + trailingRows()
+            return [.status(text: "Connecting to \(LeoSFTPServerText.sanitized(selectedHost.displayName))…", hint: nil, canRetry: false)] + trailingRows()
         case .failed(let message, let hint):
-            return [.status(text: message, hint: hint, canRetry: true)] + trailingRows()
+            // Remote ssh stderr: through the one sanitizer (B-020).
+            return [.status(text: LeoSFTPServerText.sanitized(message), hint: hint.map(LeoSFTPServerText.sanitized), canRetry: true)] + trailingRows()
         case .connected:
+            if let banner = snapshot.flatMap({ LeoDisconnectedBanner(host: selectedHost, connectivity: $0.connectivity) }) {
+                return [.status(text: banner.title, hint: banner.reason, canRetry: !banner.isRetrying)] + trailingRows()
+            }
             return filteredAgentRows().map(Row.agent) + trailingRows()
         }
     }

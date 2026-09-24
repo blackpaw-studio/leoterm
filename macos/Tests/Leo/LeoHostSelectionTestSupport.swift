@@ -7,20 +7,34 @@ import Testing
 enum LeoHostSelectionTestSupport {
     static let localSocketPath = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath
 
-    /// Tests never touch the real `~/.leo/state/leoterm` -- that's
-    /// production data. They share this directory instead, injected
-    /// through `LeoHostSelection`'s `localSocketDirectory` parameter;
-    /// sharing it across tests is safe because `ensureSocketDirectoryIsPrivate`
-    /// is idempotent, and tests that care about the directory's own
-    /// permissions (as opposed to just the socket path) use their own
-    /// private directory instead. `/tmp` (not `FileManager.default
-    /// .temporaryDirectory`, i.e. `$TMPDIR`) deliberately: macOS's
-    /// per-process confined `$TMPDIR` (`/var/folders/<random>/T/`) is long
-    /// enough on its own that `<TMPDIR>/leoterm-tests-hosts/<name>-<hex>.sock`
-    /// regularly exceeds the ~100-byte AF_UNIX path limit
-    /// `LeoSSHCommand.tunnelArguments` enforces -- the same overflow that
-    /// motivates this whole fix for the production directory.
-    static let localSocketDirectory = URL(fileURLWithPath: "/tmp/leoterm-tests-hosts", isDirectory: true)
+    /// Tests never touch the real `~/.leo/state/leoterm` or per-user cache
+    /// directory -- that's production data. They share this directory
+    /// instead, injected through `LeoHostSelection`'s socket-directory
+    /// parameters; sharing it across one process's tests is safe because
+    /// `LeoControlSocketDirectory.prepare` is idempotent and every host
+    /// configuration has its own id. It is unique to this test process
+    /// (B-032): a fixed path is shared by every run and parallel worker, so
+    /// a later run meets stale sockets and one worker's
+    /// `LeoTunnel.removeStaleSocket()` can unlink another's live socket.
+    /// Reserved atomically (`socketDirectoryReservation`), and removed by
+    /// `LeoRealCacheDirectoryGuard` when the bundle finishes.
+    /// Tests that care about the directory's own permissions use their own
+    /// (`makeIsolatedSocketDirectory`). `/tmp` (not `$TMPDIR`) and only 8
+    /// hex characters deliberately: macOS's per-process `$TMPDIR`
+    /// (`/var/folders/<random>/T/`) is long enough on its own to push a
+    /// socket path past the AF_UNIX limit `LeoSSHCommand.tunnelArguments`
+    /// enforces -- the same overflow that motivated moving the production
+    /// directory.
+    static let localSocketDirectory: URL = {
+        do {
+            return try socketDirectoryReservation.reserve()
+        } catch {
+            preconditionFailure("could not reserve the test socket directory: \(error)")
+        }
+    }()
+
+    /// 27 bytes, like `makeIsolatedSocketDirectory`'s paths.
+    static let socketDirectoryReservation = LeoReservedTestDirectory(template: "/tmp/leoterm-tests-XXXXXXXX")
 
     @MainActor static func makeSelection(
         hosts: [LeoHostConfiguration] = [],
@@ -44,17 +58,22 @@ enum LeoHostSelectionTestSupport {
             transport: transport,
             orphanStore: orphanStore,
             localSocketPath: localSocketPath,
-            localSocketDirectory: localSocketDirectory,
-            // Beside the forwarded socket unless a test says otherwise: never
-            // the real per-user cache directory.
+            legacySocketDirectory: localSocketDirectory,
+            // Holds the forwarded and control sockets; the legacy directory
+            // unless a test says otherwise: never the real per-user cache
+            // directory.
             controlSocketDirectory: controlSocketDirectory ?? localSocketDirectory,
             controlSocketInstance: controlSocketInstance,
             controlSocketOwner: controlSocketOwner
         )
     }
 
-    static func expectedLocalSocketPath(_ configuration: LeoHostConfiguration, in directory: URL = localSocketDirectory) -> String {
-        directory.appendingPathComponent(configuration.localSocketFileName).path
+    static func expectedLocalSocketPath(
+        _ configuration: LeoHostConfiguration,
+        in directory: URL = localSocketDirectory,
+        instance: String = LeoHostSelection.defaultControlSocketInstance
+    ) -> String {
+        directory.appendingPathComponent(configuration.tunnelSocketFileName(instance: instance)).path
     }
 
     /// Where the tunnel's ControlMaster socket lives -- and therefore the
@@ -182,5 +201,27 @@ actor LeoFakeHomeRunner: LeoProcessRunning {
     func run(executable: String, arguments: [String], timeout _: TimeInterval) async throws -> LeoProcessResult {
         calls.append((executable, arguments))
         return LeoProcessResult(stdout: Data(stdout.utf8), stderr: Data(), status: 0)
+    }
+}
+
+extension LeoHostSelection {
+    /// A selection on its own throwaway defaults suite (or `defaults`), for
+    /// tests that need one to inject: its sockets live in the shared test
+    /// directory, never the real per-user cache directory (B-032).
+    @MainActor static func isolatedForTesting(defaults: UserDefaults? = nil) -> LeoHostSelection {
+        let defaults = defaults ?? {
+            let suite = "LeoHostSelectionTests.\(UUID().uuidString)"
+            let defaults = UserDefaults(suiteName: suite) ?? .standard
+            defaults.removePersistentDomain(forName: suite)
+            return defaults
+        }()
+        let directory = LeoHostSelectionTestSupport.localSocketDirectory
+        return LeoHostSelection(
+            store: LeoHostStore(defaults: defaults),
+            defaults: defaults,
+            orphanStore: LeoTunnelOrphanStore(defaults: defaults, legacySocketDirectory: directory),
+            legacySocketDirectory: directory,
+            controlSocketDirectory: directory
+        )
     }
 }

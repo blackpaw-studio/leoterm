@@ -25,7 +25,7 @@ protocol LeoFileAccessBackend: Sendable {
     /// Moves `source` over `destination`, replacing it. On failure, removes
     /// `source` unless that could lose the only copy of the data.
     func replace(_ destination: String, with source: String) async throws
-    /// Releases any connection; a later call may open a new one.
+    /// Releases any connection. Final: a later call fails as `.closed`.
     func close() async
 }
 
@@ -37,8 +37,16 @@ extension LeoFileAccessBackend {
 /// contract's semantics are implemented.
 struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
     let backend: Backend
+    /// Set by `close()`, after which every call fails as `.closed` -- for
+    /// every backend alike.
+    private let closed = LeoFileAccessClosedFlag()
+
+    init(backend: Backend) {
+        self.backend = backend
+    }
 
     func list(_ path: String) async throws -> [LeoFileEntry] {
+        try closed.check()
         try Self.validate(path)
         guard try await backend.stat(path).kind == .directory else { throw LeoFileAccessError.notADirectory(path: path) }
         return try await backend.entries(of: path)
@@ -47,6 +55,7 @@ struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
     }
 
     func stat(_ path: String) async throws -> LeoFileStat {
+        try closed.check()
         try Self.validate(path)
         return try await backend.stat(path)
     }
@@ -54,6 +63,7 @@ struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
     /// A server's answer is untrusted: anything but an absolute path is a
     /// protocol error rather than a base for relative paths.
     func homeDirectory() async throws -> String {
+        try closed.check()
         let home = try await backend.homeDirectory()
         guard home.hasPrefix("/"), !home.contains("\0") else {
             throw LeoFileAccessError.protocolError("the home directory isn’t an absolute path")
@@ -62,6 +72,7 @@ struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
     }
 
     func read(_ path: String, maxBytes: UInt64) async throws -> LeoFileContents {
+        try closed.check()
         try Self.validate(path)
         let stat = try await backend.stat(path)
         try Self.requireRegularFile(stat, path: path)
@@ -81,6 +92,7 @@ struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
     /// keeps size and mtime), so a completed save is never reported failed.
     @discardableResult
     func write(_ data: Data, to path: String, expecting expected: LeoFileVersion?) async throws -> LeoFileStat {
+        try closed.check()
         try Self.validate(path)
         let target = try await writeTarget(for: path)
         let existing = try await statIfPresent(target)
@@ -110,6 +122,7 @@ struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
     }
 
     func close() async {
+        closed.set()
         await backend.close()
     }
 
@@ -175,5 +188,19 @@ struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
 extension LeoFileAccessor where Backend == LeoLocalFileBackend {
     static func local() -> LeoFileAccessor<LeoLocalFileBackend> {
         LeoFileAccessor(backend: LeoLocalFileBackend())
+    }
+}
+
+/// Whether a `LeoFileAccessor` (a value type, copied freely) was closed.
+final class LeoFileAccessClosedFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var isSet = false
+
+    func set() {
+        lock.withLock { isSet = true }
+    }
+
+    func check() throws {
+        if lock.withLock({ isSet }) { throw LeoFileAccessError.closed }
     }
 }

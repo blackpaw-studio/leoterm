@@ -81,6 +81,7 @@ struct LeoSidebarView: View {
                 .buttonStyle(.borderless)
                 .help("New Agent…")
                 .accessibilityLabel("New Agent…")
+                .disabled(model.isDisconnected)
             }
             Menu {
                 hostMenuItem(name: "localhost", isSelected: hostSelection.selected == .local) {
@@ -107,6 +108,10 @@ struct LeoSidebarView: View {
             .help(hostSelection.legacyTooltip ?? "Select host")
             .accessibilityLabel("Host")
 
+            if let banner = LeoDisconnectedBanner(host: hostSelection.selected, connectivity: model.snapshot.connectivity) {
+                LeoDisconnectedBannerView(banner: banner) { model.retry() }
+            }
+
             TextField("Search agents", text: $model.query)
                 .textFieldStyle(.roundedBorder)
 
@@ -119,7 +124,7 @@ struct LeoSidebarView: View {
         .padding(.bottom, 10)
         .sheet(isPresented: $showingSpawn) {
             SpawnAgentSheet(model: model, actions: actions) { row, disposition in
-                model.attachRequested(row, windowID, disposition)
+                model.requestAttach(row, from: windowID, disposition: disposition)
             }
         }
         .sheet(item: $hostsSheetModel) { sheetModel in
@@ -134,9 +139,10 @@ struct LeoSidebarView: View {
         case .loading:
             stateView { ProgressView(); Text("Loading agents…") }
         case .failed(let message):
+            let panel = LeoConnectionFailurePanel(message: message, hint: hostSelection.state.failureHint)
             stateView {
-                Text(message).multilineTextAlignment(.center).textSelection(.enabled)
-                if case .failed(_, let hint) = hostSelection.state, let hint, let ssh = hostSelection.selectedConfiguration?.sshTarget {
+                Text(panel.message).multilineTextAlignment(.center).textSelection(.enabled)
+                if let hint = panel.hint, let ssh = hostSelection.selectedConfiguration?.sshTarget {
                     Text(hint).font(.caption).multilineTextAlignment(.center)
                     Button("Open SSH") { model.sshRequested(ssh) }
                 }
@@ -156,34 +162,58 @@ struct LeoSidebarView: View {
             } else if model.visibleRows.isEmpty {
                 stateView { Text("No matches") }
             } else {
-                List(selection: Binding(get: { model.selection }, set: { model.userSelected($0) })) {
-                    ForEach(LeoSidebarSectioning.sections(for: model.visibleRows)) { section in
-                        Section(header: Text(section.title)) {
-                            ForEach(section.rows) { row in
-                                LeoAgentRowView(
-                                    row: row,
-                                    isSelected: model.selection == row.id,
-                                    tabCount: model.tabCount(for: row.id),
-                                    attach: { row, disposition in model.attachRequested(row, windowID, disposition) },
-                                    click: { model.rowClicked(row, modifierFlags: $0) },
-                                    actions: actions,
-                                    error: model.rowErrors[row.id],
-                                    errorCode: model.rowErrorCodes[row.id]
-                                )
-                                .tag(row.id)
-                            }
-                        }
+                agentList
+            }
+        case .disconnected:
+            // The banner above says what happened and offers Retry; the
+            // rows stay, dimmed and inert, until a Retry lands a fresh list.
+            if model.snapshot.rows.isEmpty {
+                stateView {
+                    if hostSelection.selected == .local {
+                        Button("Start daemon") { model.startDaemonRequested() }
                     }
                 }
-                .listStyle(.sidebar)
-                .overlay(alignment: .bottomTrailing) {
-                    Button("") { attachSelected() }
-                        .keyboardShortcut(.return, modifiers: [])
-                        .opacity(0)
-                        .disabled(model.selection == nil)
-                        .accessibilityHidden(true)
+            } else if model.visibleRows.isEmpty {
+                stateView { Text("No matches") }
+            } else {
+                agentList
+                    .disabled(true)
+                    .opacity(Self.inertOpacity)
+                    .accessibilityHint("Disconnected")
+            }
+        }
+    }
+
+    /// How far a disconnected sidebar's stale rows are dimmed.
+    private static let inertOpacity = 0.45
+
+    private var agentList: some View {
+        List(selection: Binding(get: { model.selection }, set: { model.userSelected($0) })) {
+            ForEach(LeoSidebarSectioning.sections(for: model.visibleRows)) { section in
+                Section(header: Text(section.title)) {
+                    ForEach(section.rows) { row in
+                        LeoAgentRowView(
+                            row: row,
+                            isSelected: model.selection == row.id,
+                            tabCount: model.tabCount(for: row.id),
+                            attach: { row, disposition in model.requestAttach(row, from: windowID, disposition: disposition) },
+                            click: { model.rowClicked(row, modifierFlags: $0) },
+                            actions: actions,
+                            error: model.rowErrors[row.id],
+                            errorCode: model.rowErrorCodes[row.id]
+                        )
+                        .tag(row.id)
+                    }
                 }
             }
+        }
+        .listStyle(.sidebar)
+        .overlay(alignment: .bottomTrailing) {
+            Button("") { attachSelected() }
+                .keyboardShortcut(.return, modifiers: [])
+                .opacity(0)
+                .disabled(model.actionableSelection == nil)
+                .accessibilityHidden(true)
         }
     }
 
@@ -197,10 +227,10 @@ struct LeoSidebarView: View {
     }
 
     private func attachSelected() {
-        guard let selection = model.selection,
+        guard let selection = model.actionableSelection?.id,
               let row = model.visibleRows.first(where: { $0.id == selection }) else { return }
         LeoAttachActivation.activate(source: .keyboard, row: row) { row, disposition in
-            model.attachRequested(row, windowID, disposition)
+            model.requestAttach(row, from: windowID, disposition: disposition)
         }
     }
 
@@ -226,5 +256,39 @@ struct LeoSidebarView: View {
             }
         }
         .accessibilityLabel("\(name), \(presentation.accessibilityLabel)")
+    }
+}
+
+/// "Disconnected from <host>" with the sanitized reason and Retry (D-061).
+/// Calm: one static banner, no motion beyond the system's small spinner
+/// while a Retry is in flight.
+struct LeoDisconnectedBannerView: View {
+    let banner: LeoDisconnectedBanner
+    let retry: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "bolt.horizontal.circle")
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(banner.title).font(.callout.weight(.semibold))
+                Text(banner.reason)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+                    .textSelection(.enabled)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if banner.isRetrying {
+                ProgressView().controlSize(.small).accessibilityLabel("Reconnecting")
+            } else {
+                Button("Retry", action: retry).controlSize(.small)
+            }
+        }
+        .padding(8)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(banner.title)
     }
 }

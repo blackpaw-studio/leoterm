@@ -56,10 +56,10 @@ struct LeoHostConfigurationTests {
     @Test func localSocketNameIsSafeUniqueAndNeverDotDot() {
         let first = LeoHostConfiguration(id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, name: "A B", sshTarget: "build")
         let second = LeoHostConfiguration(id: UUID(uuidString: "10000000-0000-0000-0000-000000000002")!, name: "A_B", sshTarget: "build")
-        #expect(first.localSocketFileName == "a_b-000000000000.sock")
-        #expect(first.localSocketFileName != second.localSocketFileName)
-        #expect(LeoHostConfiguration(name: "..", sshTarget: "build").localSocketFileName != "..")
-        #expect(LeoHostConfiguration(name: String(repeating: "a", count: 25), sshTarget: "build").localSocketFileName.hasPrefix(String(repeating: "a", count: 24)))
+        #expect(first.legacySocketFileName == "a_b-000000000000.sock")
+        #expect(first.legacySocketFileName != second.legacySocketFileName)
+        #expect(LeoHostConfiguration(name: "..", sshTarget: "build").legacySocketFileName != "..")
+        #expect(LeoHostConfiguration(name: String(repeating: "a", count: 25), sshTarget: "build").legacySocketFileName.hasPrefix(String(repeating: "a", count: 24)))
     }
 
     /// The ControlMaster socket name: independent of the (renamable) host

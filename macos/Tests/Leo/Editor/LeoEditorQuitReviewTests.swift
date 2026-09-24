@@ -67,7 +67,36 @@ struct LeoEditorEntryWindowTests {
     }
 }
 
-private actor QuitReviewDaemon: LeoDaemonClient {
+/// The offer to leave anyway goes on the frontmost sheet of the editor's
+/// window -- over a sheet already up there, not queued behind it (B-022).
+@MainActor
+struct LeoEditorAlertSheetHostTests {
+    @Test func theOfferGoesOnTheFrontmostSheet() throws {
+        func window() -> NSWindow {
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 300, height: 200), styleMask: [.titled], backing: .buffered, defer: false)
+            window.isReleasedWhenClosed = false
+            return window
+        }
+        let parent = window()
+        parent.orderFront(nil)
+        defer { parent.orderOut(nil) }
+        #expect(LeoEditorAlerts.sheetHost(for: parent) === parent)
+
+        let sheet = window()
+        let nested = window()
+        parent.beginSheet(sheet, completionHandler: nil)
+        sheet.beginSheet(nested, completionHandler: nil)
+        defer {
+            sheet.endSheet(nested)
+            parent.endSheet(sheet)
+        }
+        try #require(parent.attachedSheet === sheet)
+
+        #expect(LeoEditorAlerts.sheetHost(for: parent) === nested)
+    }
+}
+
+actor QuitReviewDaemon: LeoDaemonClient {
     func listAgents() async throws -> [LeoAgent] { [] }
     func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent { throw LeoDaemonError.transport("unused") }
     func start(_ name: String) async throws {}

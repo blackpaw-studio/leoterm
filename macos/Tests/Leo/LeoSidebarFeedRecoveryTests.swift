@@ -3,6 +3,7 @@ import Testing
 
 @testable import Ghostty
 
+@Suite(.timeLimit(.minutes(1)))
 struct LeoSidebarFeedRecoveryTests {
     @Test @MainActor func runtimeDoesNotRetainSidebarModelThroughAttachHandler() {
         let daemon = RecoveryDaemon(agents: [])
@@ -31,7 +32,7 @@ struct LeoSidebarFeedRecoveryTests {
         await feed.start()
         await feed.setPolling(true)
 
-        await awaitCondition { await recorder.last?.rows.map(\.name) == ["alpha"] }
+        try await until { await recorder.last?.rows.map(\.name) == ["alpha"] }
         let snapshot = await recorder.last
         #expect(snapshot?.connectivity == .connected)
         #expect(snapshot?.rows.first?.activity == .unknown)
@@ -54,19 +55,25 @@ struct LeoSidebarFeedRecoveryTests {
         await feed.start()
         await feed.setPolling(true)
 
-        await awaitCondition { await suspendedState.isSuspended }
-        await awaitCondition { await recorder.last?.rows.map(\.name) == ["alpha"] }
+        try await until { await suspendedState.isSuspended }
+        try await until { await recorder.last?.rows.map(\.name) == ["alpha"] }
         #expect(await recorder.last?.connectivity == .connected)
         await feed.stop()
-        await awaitCondition { await suspendedState.wasCancelled }
+        try await until { await suspendedState.wasCancelled }
     }
 
     @Test @MainActor func startingAfterRegisteringVisibleSessionRefreshesImmediately() async throws {
         let daemon = RecoveryDaemon(agents: [agent("alpha")])
-        let defaults = UserDefaults(suiteName: "LeoSidebarFeedRecoveryTests")!
-        defaults.removePersistentDomain(forName: "LeoSidebarFeedRecoveryTests")
-        let activity = LeoActivityClient(config: .init(baseURL: URL(string: "http://127.0.0.1")!, token: "test"))
-        let runtime = LeoRuntime(daemon: daemon, cli: LeoCLI(), activity: activity, defaults: defaults)
+        // Parallel test hosts share one preferences domain per name.
+        let suiteName = "LeoSidebarFeedRecoveryTests.visible.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        // An inert stream, as below: a real client to a closed port reports
+        // a dead stream, which disconnects the feed (D-061) and can beat
+        // the first refresh.
+        let activity = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
+        let runtime = LeoRuntime(daemon: daemon, cli: LeoCLI(), activitySource: activity, defaults: defaults)
         let session = runtime.makeWindowSession()
         // The sidebar is hidden by default on a fresh install -- this test
         // is specifically about *visible*-sidebar pollability, so state
@@ -92,8 +99,11 @@ struct LeoSidebarFeedRecoveryTests {
         let suiteName = "LeoSidebarFeedRecoveryTests.picker.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
-        let activity = LeoActivityClient(config: .init(baseURL: URL(string: "http://127.0.0.1")!, token: "test"))
-        let runtime = LeoRuntime(daemon: daemon, cli: LeoCLI(), activity: activity, defaults: defaults)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        // An inert stream: a dead one would (rightly) disconnect the feed
+        // and stop all refreshes (D-061), which is not what this is about.
+        let activity = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
+        let runtime = LeoRuntime(daemon: daemon, cli: LeoCLI(), activitySource: activity, defaults: defaults)
         let session = runtime.makeWindowSession()
 
         runtime.start()
@@ -113,7 +123,7 @@ struct LeoSidebarFeedRecoveryTests {
     }
 
     private func eventually(_ condition: @escaping @Sendable () async -> Bool) async throws {
-        await awaitCondition(condition)
+        try await until { await condition() }
     }
 }
 

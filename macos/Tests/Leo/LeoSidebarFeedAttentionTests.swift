@@ -6,6 +6,7 @@ import Testing
 /// `LeoAttentionReducer` wired into `LeoSidebarFeed`: baselines from
 /// `/state`, live commits through the injected sleeper, disconnect, focus,
 /// host switch and the legacy fallback, all observed on emitted snapshots.
+@Suite(.timeLimit(.minutes(1)))
 struct LeoSidebarFeedAttentionTests {
     @Test func baselineShowsBadgesAndDockCountWithoutTransitions() async throws {
         let harness = AttentionHarness(agents: ["alpha", "beta", "legacy"], state: [
@@ -15,7 +16,7 @@ struct LeoSidebarFeedAttentionTests {
         ])
         await harness.start()
 
-        await harness.waitFor { $0.rows.first { $0.name == "alpha" }?.attention == .needsInput }
+        try await harness.waitFor { $0.rows.first { $0.name == "alpha" }?.attention == .needsInput }
         let snapshot = try #require(await harness.recorder.last)
         #expect(badges(snapshot) == ["alpha": .needsInput, "beta": .working, "legacy": .working])
         #expect(snapshot.attentionCount == 1)
@@ -26,16 +27,16 @@ struct LeoSidebarFeedAttentionTests {
     @Test func liveSignalCommitsThroughTheDeadlineAndReportsOneTransition() async throws {
         let harness = AttentionHarness(agents: ["alpha"], state: [observed("alpha", attention: .init(state: .working, revision: 1))])
         await harness.start()
-        await harness.waitFor { $0.rows.first?.attention == .working }
+        try await harness.waitFor { $0.rows.first?.attention == .working }
 
         await harness.activity.send(.agentActivity(
             seq: 10, at: nil, agent: "alpha", activity: .idle, currentAction: nil,
             attention: .init(state: .finished, revision: 2)
         ))
-        await harness.pump { $0.rows.first?.attention == .finished }
+        try await harness.pump { $0.rows.first?.attention == .finished }
 
         #expect(await harness.recorder.last?.attentionCount == 1)
-        await awaitCondition { await harness.transitions.values.count == 1 }
+        try await until { await harness.transitions.values.count == 1 }
         #expect(await harness.transitions.values == [[.init(
             id: .init(host: .local, name: "alpha"), from: .working, to: .finished, revision: 2, shouldNotify: true
         )]])
@@ -45,10 +46,10 @@ struct LeoSidebarFeedAttentionTests {
     @Test func idleActivityNeverOverwritesSemanticWorking() async throws {
         let harness = AttentionHarness(agents: ["alpha"], state: [observed("alpha", attention: .init(state: .working, revision: 1))])
         await harness.start()
-        await harness.waitFor { $0.rows.first?.attention == .working }
+        try await harness.waitFor { $0.rows.first?.attention == .working }
 
         await harness.activity.send(.agentActivity(seq: 10, at: nil, agent: "alpha", activity: .idle, currentAction: nil))
-        await harness.pump { $0.rows.first?.activity == .idle }
+        try await harness.pump { $0.rows.first?.activity == .idle }
 
         #expect(await harness.recorder.last?.rows.first?.attention == .working)
         await harness.stop()
@@ -57,44 +58,44 @@ struct LeoSidebarFeedAttentionTests {
     @Test func disconnectHidesStaleBadgesAndClearsTheCount() async throws {
         let harness = AttentionHarness(agents: ["alpha"], state: [observed("alpha", attention: .init(state: .finished, revision: 1))])
         await harness.start()
-        await harness.waitFor { $0.attentionCount == 1 }
+        try await harness.waitFor { $0.attentionCount == 1 }
 
         await harness.activity.send(.disconnected(reason: "EOF"))
 
-        await harness.waitFor { $0.rows.first?.attention == nil && $0.attentionCount == 0 }
+        try await harness.waitFor { $0.rows.first?.attention == nil && $0.attentionCount == 0 }
         await harness.stop()
     }
 
     @Test func focusingTheAgentAcknowledgesTheDockCountButKeepsTheBadge() async throws {
         let harness = AttentionHarness(agents: ["alpha"], state: [observed("alpha", attention: .init(state: .needsInput, revision: 1))])
         await harness.start()
-        await harness.waitFor { $0.attentionCount == 1 }
+        try await harness.waitFor { $0.attentionCount == 1 }
 
         await harness.feed.setFocusedAgent(.init(host: .local, name: "alpha"))
 
-        await harness.waitFor { $0.attentionCount == 0 && $0.rows.first?.attention == .needsInput }
+        try await harness.waitFor { $0.attentionCount == 0 && $0.rows.first?.attention == .needsInput }
         await harness.stop()
     }
 
     @Test func changedHelloBootIDReBaselinesWithoutKeepingAcknowledgements() async throws {
         let harness = AttentionHarness(agents: ["alpha"], state: [observed("alpha", attention: .init(state: .finished, revision: 1))])
         await harness.start()
-        await harness.waitFor { $0.attentionCount == 1 }
+        try await harness.waitFor { $0.attentionCount == 1 }
         await harness.feed.setFocusedAgent(.init(host: .local, name: "alpha"))
         await harness.feed.setFocusedAgent(nil)
-        await harness.waitFor { $0.attentionCount == 0 }
+        try await harness.waitFor { $0.attentionCount == 0 }
         let fetchesBefore = await harness.activity.fetchCount
 
         await harness.activity.send(.hello(seq: 1, at: nil, version: nil, serverTime: nil, bootID: "b1"))
-        await harness.pumpAsync { _ in await harness.activity.fetchCount > fetchesBefore }
+        try await harness.pumpAsync { _ in await harness.activity.fetchCount > fetchesBefore }
         await harness.activity.send(.hello(seq: 1, at: nil, version: nil, serverTime: nil, bootID: "b1"))
         let fetchesAfterSameBoot = await harness.activity.fetchCount
-        await harness.pumpAsync { _ in await harness.activity.fetchCount > fetchesAfterSameBoot }
+        try await harness.pumpAsync { _ in await harness.activity.fetchCount > fetchesAfterSameBoot }
         #expect(await harness.recorder.last?.attentionCount == 0, "same boot_id is a normal reconnect")
 
         await harness.activity.send(.hello(seq: 1, at: nil, version: nil, serverTime: nil, bootID: "b2"))
 
-        await harness.pump { $0.attentionCount == 1 }
+        try await harness.pump { $0.attentionCount == 1 }
         #expect(await harness.transitions.values.isEmpty, "restart baselines never notify")
         await harness.stop()
     }
@@ -102,25 +103,25 @@ struct LeoSidebarFeedAttentionTests {
     @Test func hostSwitchClearsBadgesAndCount() async throws {
         let harness = AttentionHarness(agents: ["alpha"], state: [observed("alpha", attention: .init(state: .errored, revision: 1))])
         await harness.start()
-        await harness.waitFor { $0.attentionCount == 1 }
+        try await harness.waitFor { $0.attentionCount == 1 }
 
         await harness.feed.updateConnection(host: .remote("mars"), generation: 1, phase: .connecting)
 
-        await harness.waitFor { $0.rows.isEmpty && $0.attentionCount == 0 }
+        try await harness.waitFor { $0.rows.isEmpty && $0.attentionCount == 0 }
         await harness.stop()
     }
 
     @Test func erroredSurvivesTheSupervisorsAutomaticRestart() async throws {
         let harness = AttentionHarness(agents: ["alpha"], state: [observed("alpha", attention: .init(state: .errored, revision: 3))])
         await harness.start()
-        await harness.waitFor { $0.rows.first?.attention == .errored }
+        try await harness.waitFor { $0.rows.first?.attention == .errored }
 
         // The daemon announces a crash restart as state changes (never
         // agent_spawned) and keeps attention until the next hook.
         await harness.activity.send(.agentStateChanged(seq: 10, at: nil, agent: "alpha", status: .starting, restarts: 1, wakeOnMessage: nil))
         await harness.activity.send(.agentStateChanged(seq: 11, at: nil, agent: "alpha", status: .running, restarts: 1, wakeOnMessage: nil))
         await harness.activity.send(.agentActivity(seq: 12, at: nil, agent: "alpha", activity: .working, currentAction: nil))
-        await harness.pump { $0.rows.first?.activity == .working }
+        try await harness.pump { $0.rows.first?.activity == .working }
 
         let snapshot = try #require(await harness.recorder.last)
         #expect(snapshot.rows.first?.attention == .errored)
@@ -171,23 +172,26 @@ private struct AttentionHarness {
 
     func stop() async { await feed.stop() }
 
-    func waitFor(_ condition: @escaping @Sendable (LeoSidebarSnapshot) -> Bool) async {
-        await awaitCondition { await recorder.last.map(condition) ?? false }
+    func waitFor(_ condition: @escaping @Sendable (LeoSidebarSnapshot) -> Bool) async throws {
+        try await until { await recorder.last.map(condition) ?? false }
     }
 
     /// Fires pending sleeps until `condition` holds (see the coalescing tests).
-    func pump(_ condition: @escaping @Sendable (LeoSidebarSnapshot) -> Bool) async {
-        await pumpAsync { snapshot in condition(snapshot) }
+    func pump(
+        _ condition: @escaping @Sendable (LeoSidebarSnapshot) -> Bool, sourceLocation: SourceLocation = #_sourceLocation
+    ) async throws {
+        try await pumpAsync(sourceLocation: sourceLocation) { snapshot in condition(snapshot) }
     }
 
-    func pumpAsync(_ condition: @escaping @Sendable (LeoSidebarSnapshot) async -> Bool) async {
-        let deadline = Date().addingTimeInterval(2)
-        repeat {
-            if let last = await recorder.last, await condition(last) { return }
+    /// The suite's time limit is the hang guard.
+    func pumpAsync(
+        sourceLocation: SourceLocation = #_sourceLocation, _ condition: @escaping @Sendable (LeoSidebarSnapshot) async -> Bool
+    ) async throws {
+        try await until(sourceLocation: sourceLocation) {
+            if let last = await recorder.last, await condition(last) { return true }
             await clock.advanceAll()
-            try? await Task.sleep(nanoseconds: 5_000_000)
-        } while Date() < deadline
-        Issue.record("Condition was not satisfied within 2 seconds")
+            return false
+        }
     }
 }
 

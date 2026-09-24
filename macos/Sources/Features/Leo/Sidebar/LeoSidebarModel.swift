@@ -45,6 +45,21 @@ import Foundation
     }
 
     func retry() { retryRequested() }
+
+    /// Rows are shown but inert while disconnected (D-061).
+    var isDisconnected: Bool { snapshot.connectivity.isDisconnected }
+
+    var selectedRow: LeoAgentRow? { selection.flatMap { id in snapshot.rows.first { $0.id == id } } }
+
+    /// The selected row, when agent commands may act on it: never while
+    /// disconnected.
+    var actionableSelection: LeoAgentRow? { isDisconnected ? nil : selectedRow }
+
+    /// Every sidebar attach goes through here; a no-op while disconnected.
+    func requestAttach(_ row: LeoAgentRow, from windowID: LeoWindowID, disposition: AttachDisposition) {
+        guard !isDisconnected else { return }
+        attachRequested(row, windowID, disposition)
+    }
     func setRowError(_ message: String, code: String? = nil, for id: LeoAgentRow.ID) {
         rowErrors[id] = message
         rowErrorCodes[id] = code

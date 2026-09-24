@@ -17,6 +17,9 @@ struct LeoTunnelOrphanStore {
     private let defaults: UserDefaults
     private let key: String
     private let fileManager: FileManager
+    /// Records pointing in here were written by a pre-B-021 build; see
+    /// `reapAtLaunch`.
+    private let legacySocketDirectory: URL
     /// Serializes every read-then-write against this store's key: `record`,
     /// `clear(matching:)`, and the unlink+clear at the end of `reapAtLaunch`.
     /// Without it, a `record(_:)` call landing between a "does the stored
@@ -26,11 +29,21 @@ struct LeoTunnelOrphanStore {
     /// caller-supplied and may themselves call back into this store.
     private let lock = NSLock()
 
-    init(defaults: UserDefaults, key: String = "leo.tunnel.orphan", fileManager: FileManager = .default) {
+    init(
+        defaults: UserDefaults,
+        key: String = "leo.tunnel.orphan",
+        fileManager: FileManager = .default,
+        legacySocketDirectory: URL = LeoTunnelOrphanStore.defaultLegacySocketDirectory
+    ) {
         self.defaults = defaults
         self.key = key
         self.fileManager = fileManager
+        self.legacySocketDirectory = legacySocketDirectory
     }
+
+    /// `~/.leo/state/leoterm/`, where the forwarded socket lived before B-021.
+    static let defaultLegacySocketDirectory = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent(".leo/state/leoterm", isDirectory: true)
 
     func record(_ record: LeoTunnelOrphanRecord) {
         lock.lock()
@@ -55,14 +68,23 @@ struct LeoTunnelOrphanStore {
     /// SIGTERM it, give it up to 1s to exit, then SIGKILL if it's still around.
     /// A mismatched start time means the pid was recycled by an unrelated
     /// process: it is never signalled and the record is left untouched (there is
-    /// nothing safe to reap). `inspector`/`signaller`/`sleep` are injected so
+    /// nothing safe to reap). A live matching pid is provably a dead run's
+    /// orphan only because Leo is single-instance per bundle
+    /// (`LeoSingleInstance`, D-051): no other copy sharing these defaults is
+    /// running. Pre-B-021 records predate that lock and are only dropped
+    /// (`dropLegacy`). `inspector`/`signaller`/`sleep` are injected so
     /// tests can run this synchronously without real processes or real waits.
     func reapAtLaunch(
         inspector: (Int32) -> TimeInterval?,
         signaller: (Int32, Int32) -> Void,
         sleep: (Duration) -> Void = leoTunnelRealSleep
     ) {
-        guard let record = current(), inspector(record.pid) == record.startTime else { return }
+        guard let record = current() else { return }
+        guard !isLegacy(record) else {
+            dropLegacy(record)
+            return
+        }
+        guard inspector(record.pid) == record.startTime else { return }
         signaller(record.pid, SIGTERM)
         sleep(.seconds(1))
         if inspector(record.pid) == record.startTime {
@@ -75,6 +97,25 @@ struct LeoTunnelOrphanStore {
         defer { lock.unlock() }
         guard current() == record else { return }
         try? fileManager.removeItem(atPath: record.socketPath)
+        clearLocked(matching: record)
+    }
+
+    private func isLegacy(_ record: LeoTunnelOrphanRecord) -> Bool {
+        URL(fileURLWithPath: record.socketPath).deletingLastPathComponent().standardizedFileURL.path
+            == legacySocketDirectory.standardizedFileURL.path
+    }
+
+    /// A pre-B-021 record: the build that wrote it took no instance lock
+    /// (D-051), so it may still be running beside this one and its pid
+    /// can't be proven an orphan. It is never signalled (a leftover ssh
+    /// from a crashed pre-B-021 run is harmless and stays), the record is
+    /// cleared, and the socket goes only if `LeoControlSocket` finds it
+    /// ours and dead.
+    private func dropLegacy(_ record: LeoTunnelOrphanRecord) {
+        lock.lock()
+        defer { lock.unlock() }
+        guard current() == record else { return }
+        LeoControlSocket.removeIfStale(record.socketPath)
         clearLocked(matching: record)
     }
 

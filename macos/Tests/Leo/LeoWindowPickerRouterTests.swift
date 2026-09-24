@@ -39,7 +39,7 @@ import Testing
         let sidebar = LeoSidebarModel()
         let suite = "LeoWindowPickerRouterTests.\(UUID().uuidString)"
         let hostDefaults = UserDefaults(suiteName: suite)!
-        let hostSelection = LeoHostSelection(store: LeoHostStore(defaults: hostDefaults), defaults: hostDefaults)
+        let hostSelection = LeoHostSelection.isolatedForTesting(defaults: hostDefaults)
         let actions = LeoAgentActions(daemon: StubDaemonClient(), cli: LeoCLI(), model: sidebar, hostSelection: hostSelection, refresh: {})
         let router = LeoNewSurfaceRouter(
             attach: { _, _ in .success(()) },
@@ -78,7 +78,7 @@ import Testing
         let sidebar = LeoSidebarModel()
         let suite = "LeoWindowPickerRouterTests.\(UUID().uuidString)"
         let hostDefaults = UserDefaults(suiteName: suite)!
-        let hostSelection = LeoHostSelection(store: LeoHostStore(defaults: hostDefaults), defaults: hostDefaults)
+        let hostSelection = LeoHostSelection.isolatedForTesting(defaults: hostDefaults)
         let actions = LeoAgentActions(daemon: StubDaemonClient(), cli: LeoCLI(), model: sidebar, hostSelection: hostSelection, refresh: {})
         let router = LeoNewSurfaceRouter(
             attach: { _, _ in .success(()) },

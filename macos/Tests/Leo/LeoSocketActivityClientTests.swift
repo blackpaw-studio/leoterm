@@ -98,7 +98,7 @@ struct LeoSocketActivityClientTests {
     @Test func sequenceGapFetchesStateSnapshot() async throws {
         let transport = GapTransport()
         let collector = EventCollector()
-        let stream = await LeoSocketActivityClient(transport: transport, sleep: { _ in throw CancellationError() }).events()
+        let stream = await LeoSocketActivityClient(transport: transport).events()
         let task = Task { for await event in stream { await collector.append(event) } }
 
         await awaitCondition {
@@ -110,21 +110,29 @@ struct LeoSocketActivityClientTests {
         task.cancel()
     }
 
-    @Test func closedStreamDisconnectsThenReconnectsAfterInjectedBackoff() async throws {
+    /// Principle 5 (D-048/D-061): a dropped stream reports `.disconnected`
+    /// once and ends -- no backoff timer, no second connection. Recovery is
+    /// the user's Retry, which opens a fresh stream.
+    @Test func closedStreamDisconnectsOnceAndNeverReconnects() async throws {
         let transport = ReconnectingTransport()
-        let backoff = BackoffClock()
-        let client = LeoSocketActivityClient(transport: transport, initialBackoff: 7, sleep: { try await backoff.sleep($0) })
-        let collector = EventCollector()
-        let stream = await client.events()
-        let task = Task { for await event in stream { await collector.append(event) } }
+        let stream = await LeoSocketActivityClient(transport: transport).events()
 
-        await awaitCondition { await collector.events.contains(.disconnected(reason: "EOF")) }
+        var events: [LeoObserveEvent] = []
+        for await event in stream { events.append(event) }
+
+        #expect(events == [.disconnected(reason: "Connection closed")])
         #expect(transport.streamCount == 1)
-        #expect(await backoff.delays == [7])
-        await backoff.advance()
-        await awaitCondition { transport.streamCount == 2 }
+    }
 
-        task.cancel()
+    @Test func aStreamThatFailsReportsItsReasonAndEnds() async throws {
+        let transport = FailingStreamTransport()
+        let stream = await LeoSocketActivityClient(transport: transport).events()
+
+        var events: [LeoObserveEvent] = []
+        for await event in stream { events.append(event) }
+
+        #expect(events == [.disconnected(reason: "Connection refused")])
+        #expect(transport.streamCount == 1)
     }
 
     @Test func cancellingStreamClosesTheUnderlyingTransportStream() async throws {
@@ -184,18 +192,6 @@ private final class RecordingTransport: LeoSocketActivityTransport, @unchecked S
     }
 }
 
-private actor BackoffClock {
-    private var continuation: CheckedContinuation<Void, Error>?
-    private(set) var delays: [UInt64] = []
-
-    func sleep(_ delay: UInt64) async throws {
-        delays.append(delay)
-        try await withCheckedThrowingContinuation { continuation = $0 }
-    }
-
-    func advance() { continuation?.resume(); continuation = nil }
-}
-
 private final class ReconnectingTransport: LeoSocketActivityTransport, @unchecked Sendable {
     private let lock = NSLock()
     private var count = 0
@@ -227,5 +223,20 @@ private final class GapTransport: LeoSocketActivityTransport, @unchecked Sendabl
         AsyncThrowingStream { continuation in
             continuation.yield(Data("event: hello\ndata: {\"seq\":1}\n\nevent: agent_stopped\ndata: {\"seq\":3,\"agent\":\"a\"}\n\n".utf8))
         }
+    }
+}
+
+private final class FailingStreamTransport: LeoSocketActivityTransport, @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    var streamCount: Int { lock.withLock { count } }
+
+    func send(_: LeoHTTPRequest, socketPath _: String, timeout _: TimeInterval) async throws -> LeoHTTPResponse {
+        .init(status: 200, body: Data(#"{"ok":true,"data":{"agents":[]}}"#.utf8))
+    }
+
+    func stream(path _: String, socketPath _: String, idleTimeout _: TimeInterval) -> AsyncThrowingStream<Data, Error> {
+        lock.withLock { count += 1 }
+        return AsyncThrowingStream { $0.finish(throwing: LeoDaemonError.transport("Connection refused")) }
     }
 }

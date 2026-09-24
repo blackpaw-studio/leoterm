@@ -62,6 +62,15 @@ enum LeoConnectivity: Equatable, Sendable {
     case loading
     case connected
     case failed(message: String)
+    /// A live connection dropped (stream end, tunnel exit, failed wake
+    /// check): rows stay, dimmed and inert, until the user's Retry lands a
+    /// fresh list (D-061). `reason` is raw; it's sanitized when rendered.
+    /// `isRetrying` while that Retry is in flight.
+    case disconnected(reason: String, isRetrying: Bool)
+
+    var isDisconnected: Bool {
+        if case .disconnected = self { true } else { false }
+    }
 }
 
 struct LeoSidebarSnapshot: Equatable, Sendable {

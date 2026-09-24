@@ -1963,6 +1963,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 extension TerminalController {
     override func validateMenuItem(_ item: NSMenuItem) -> Bool {
         if let enabled = validateLeoEditorMenuItem(item) { return enabled }
+        if let enabled = validateLeoBrowserMenuItem(item) { return enabled }
         switch item.action {
         // MARK: Leo
         case #selector(toggleLeoSidebar(_:)):
@@ -2000,6 +2001,9 @@ extension TerminalController {
 
         case #selector(showLeoAgentNotificationSettings(_:)):
             return validateLeoManageHostsMenuItem(item)
+
+        case #selector(reconnectLeo(_:)):
+            return validateLeoReconnectMenuItem(item)
 
         case #selector(closeTabsOnTheRight):
             guard let window, let tabGroup = window.tabGroup else { return false }
