@@ -2017,6 +2017,9 @@ extension TerminalController {
         case #selector(reconnectLeo(_:)):
             return validateLeoReconnectMenuItem(item)
 
+        case #selector(openLeoSurfacedFile(_:)):
+            return validateLeoOpenSurfacedFileMenuItem(item)
+
         case #selector(closeTabsOnTheRight):
             guard let window, let tabGroup = window.tabGroup else { return false }
             guard let currentIndex = tabGroup.windows.firstIndex(of: window) else { return false }

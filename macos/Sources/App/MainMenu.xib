@@ -423,6 +423,12 @@
                                     <action selector="openFileInLeoEditor:" target="-1" id="Leo-Agents-OpenFile-Action"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Open Surfaced File" keyEquivalent="o" id="Leo-Agents-OpenSurfaced">
+                                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                <connections>
+                                    <action selector="openLeoSurfacedFile:" target="-1" id="Leo-Agents-OpenSurfaced-Action"/>
+                                </connections>
+                            </menuItem>
                             <menuItem title="Focus Editor" keyEquivalent="e" id="Leo-Agents-FocusEditor">
                                 <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                 <connections>

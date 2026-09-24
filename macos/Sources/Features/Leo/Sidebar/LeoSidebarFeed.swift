@@ -91,6 +91,8 @@ actor LeoSidebarFeed {
     /// Monotonic seconds; only the attention reducer's stability window reads it.
     let now: @Sendable () -> TimeInterval
     let onAttentionTransitions: @MainActor @Sendable ([LeoAttentionTransition]) -> Void
+    /// Files surfaced on the selected host (B-013), by incarnation.
+    var surfacedFiles = LeoSurfacedFileIndex.empty
     var running = false
     var needsState = true
     var recovering = false
@@ -262,6 +264,8 @@ actor LeoSidebarFeed {
             } else if activityCoalescer.add(event) {
                 scheduleActivityFlush()
             }
+        case .fileSurfaced(_, let file):
+            receiveSurfacedFile(file)
         case .disconnected(let reason):
             Self.logger.log("receive: .disconnected reason=\(reason, privacy: .public)")
             // The stream is gone and nothing reconnects it but Retry (D-061).
@@ -350,7 +354,7 @@ actor LeoSidebarFeed {
     }
 
     func emit() {
-        let value = snapshot.overlayingMetadata(metadata).overlayingAttention(attention)
+        let value = displayedSnapshot.overlayingAttention(attention)
         let previous = emissionTask
         emissionTask = Task { [weak self, sink] in
             await previous?.value

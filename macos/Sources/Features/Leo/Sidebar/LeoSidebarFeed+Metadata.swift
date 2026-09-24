@@ -72,11 +72,12 @@ extension LeoSidebarFeed {
         guard metadataInFlight == request else { return }
         metadataInFlight = nil
         metadataTask = nil
-        let shown = snapshot.overlayingMetadata(metadata)
-        if let state, applyMetadata(state, request: request, generation: generation),
-           snapshot.overlayingMetadata(metadata) != shown {
-            emit()
+        let shown = displayedSnapshot
+        if let state, generation == snapshot.generation {
+            mergeSurfacedFiles(from: state)
+            applyMetadata(state, request: request, generation: generation)
         }
+        if displayedSnapshot != shown { emit() }
         if metadataRefreshPending { requestMetadataRefresh() }
     }
 }
