@@ -142,9 +142,14 @@ workspace tree via B-003 and open files in B-004's pane. Keyboard navigable.
 Source: Evan, vision session; D-007
 Done: 864a16bc6 7204dd557 a2620137c 75a0feeef 860df8083 (1069 tests). Verified: shots B-005-1..5 on autopilot-scratch (row menu ▸ Browse Files, arrow and →/← navigation, Return opens a highlighted file, ⇧⌘. shows dotfiles; in an 800 pt window the sidebar collapses so the terminal keeps its room). Remote tested with the SFTP fake only. Polish → B-023.
 
-## B-023 · Workspace browser polish   [ready]
+## B-023 · Workspace browser polish   [done]
 Accept: (a) hidden files show dimmed when Show Hidden Files is on, like Finder; (b) opening a new root waits for the old SFTP access to finish closing before its first listing (`LeoWorkspaceBrowserModel.swift:153`); start the listing first; (c) the 300 pt terminal floor is only enforced when a pane opens, not when the window narrows or ⌘⇧L shows the sidebar again. Decide whether that matters in use.
 Source: B-005 visual check + second review
+Done: 30233456a aa5f8d878 39441c27d 36aee4e9e fac40cd67 b6a773954 f8c0c7c77 abd49da71 459098e6b (1207 tests). Hidden entries dim; a new root lists at once and the old access closes immediately and for good; the terminal keeps 300 pt on resize and ⌘⇧L is greyed out when the sidebar can't fit (D-058, D-059, D-060). Verified: shots B-023-1 (at 700 pt the terminal holds 300, the editor gives way) and B-023-2 (back at 1400 the editor regains its width). (a) and (b) are covered by tests only (no autopilot-scratch agent to browse). 2 fix rounds; the 3rd review's two P2s dismissed (D-060). Sidebar return on a single jump → B-037.
+
+## B-037 · Floor-collapsed sidebar doesn't return on a single big widen   [ready]
+Accept: with the editor open, resizing 1400 → 700 → 1400 in single jumps brings the editor back but not the sidebar (shot B-023-2); in the round-1 build it did come back. D-059 says a floor-collapsed sidebar returns once the terminal keeps 300 + 24 pt. Add the single-jump case to the real-window harness and fix.
+Source: B-023 visual check
 
 ## B-006 · Tab ↔ row linkage   [done]
 Accept: highlighted row follows the focused attach tab; tab-count glyph on rows

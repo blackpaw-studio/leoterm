@@ -42,3 +42,13 @@ Notes: leo_dispatch role review.security routed to codex/gpt-6-sol and failed ev
 - B-025 load-proof timing tests: cbc79e25c ba6e9d140 e37de61ee 1f96bee20 4eb3f5fa5 6e1267756 ba23155a9 (test-only)
 - B-027 blocked after 3 fix rounds, reverted in 75f5b8eda; question: single instance per bundle?
 - Calls: D-046 D-047 D-048 D-050 (D-049 reverted with B-027). New: B-029 B-030 B-031. Next: B-023, B-029–B-031, B-007.
+
+## Run 2026-09-23 (evening) — 5 shipped, 0 blocked
+- B-027 One tunnel per host: 10be4b608 6fec65c82 67de1e864 682f967c4 73109b6c3. Leo is single-instance per bundle (D-051); unsafe lock fails closed with an alert (D-053). Verified: B-027-1, B-027-2. Note: 10be4b608/6fec65c82 carry a 1 MB macos/default.profraw (untracked again in 682f967c4).
+- B-030 Keep the selection on a refused keystroke: 31a72e027 0fd885414 ca7f95730 (D-055). Not visually verified (Open panel unreachable).
+- B-034 DEBUG LEO_OPEN_FILE hook: 2c05c0b83 de2c47114 (D-056). Verified: B-034-1.
+- B-031 Test flakes + truncated run: 05ec8fd2d 3e3859708 235748c7a b32c98cd4 40fdb2b8a (D-057). Also fixed parallel `xcodebuild test` hosts being quit. Test-only.
+- B-023 Workspace browser polish: 30233456a aa5f8d878 39441c27d 36aee4e9e fac40cd67 b6a773954 f8c0c7c77 abd49da71 459098e6b (D-058, D-059, D-060). Verified: B-023-1, B-023-2.
+- Calls: D-053 D-054 D-055 D-056 D-057 D-058 D-059 D-060. Evan's: D-051, D-052.
+- New: B-032 (tests leak sockets into the real cache dir), B-033 (alert path), B-035 (Closing banner shot), B-036 (sidebar-feed flakes), B-037 (sidebar single-jump return).
+- Review fallback: one review dispatch failed ("workspace routing discovery timed out"); Sonnet code-reviewer used for B-030 round 1.

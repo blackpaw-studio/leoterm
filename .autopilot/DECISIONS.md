@@ -466,7 +466,7 @@ Context: B-023(c) asked whether the D-036 floor matters beyond opening a pane
 Chose: yes. When the window narrows or ⌘⇧L re-shows the sidebar, the sidebar collapses rather than squeezing the terminal under 300 pt; if that's not enough, the side pane gives way at its minimum
 Why: principle 1 (a first-party Mac app never crushes its main content) and consistency with D-036
 Alternatives: enforce only when a pane opens (the current behavior)
-Commit:
+Commit: 39441c27d abd49da71
 Veto: [ ]
 
 ## D-059 · 2026-09-23 · A floor-collapsed sidebar comes back; ⌘⇧L greys out when it can't fit
@@ -474,5 +474,13 @@ Context: B-023 visual check: after narrowing, widening left the sidebar collapse
 Chose: a sidebar collapsed by the 300 pt floor is transient and returns when the window widens (side panes regain their earlier width first); a sidebar hidden with ⌘⇧L stays hidden. When showing the sidebar would squeeze the terminal, Show Agents Sidebar is disabled, so the shortcut gives the system beep
 Why: principle 1 (behaves like NSSplitView's collapse-on-resize and standard menu validation) and principle 2 (no custom alert)
 Alternatives: stay collapsed until ⌘⇧L; refuse silently
-Commit:
+Commit: b6a773954 f8c0c7c77
+Veto: [ ]
+
+## D-060 · 2026-09-23 · B-023 implementer calls; closing a file access is final
+Context: B-023
+Chose: "hidden" means dot-files only (SFTP v3 has no hidden flag; local = remote); the 300 pt floor applies only while a side pane is shown; dragging a divider never collapses the sidebar; the sidebar returns only when the terminal would keep 300 + 24 pt; only the editor grows back (the browser keeps its width). `LeoFileAccess.close()` is immediate and final: in-flight and later calls fail with "The file connection was closed.", SFTP never relaunches, and a browser root switch closes the old access at once. Dismissed: a local write already in progress that completes after close reports success (true: the file was written; as in D-050); a hung process spawn could delay close (Process.run returns after fork/exec)
+Why: principles 1, 3 and 5
+Alternatives: reopen after close (leaked connections); wait for cancelled listings (hangs on an unresponsive server)
+Commit: 30233456a 36aee4e9e 459098e6b
 Veto: [ ]
