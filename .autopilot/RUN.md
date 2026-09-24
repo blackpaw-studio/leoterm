@@ -7,3 +7,4 @@ Untracked-left: macos/default.profraw scratchpad/ zig-out
 ## Progress
 - Preflight: main already merged; inbox empty; no vetoes or answers. Order this run: B-007, B-037, B-032, B-036, B-029 (user-facing milestone gaps first, then test hygiene, then the cleaner hardening).
 - B-007: built 7a2bf5da5 (1231 tests). Verified: B-007-1 (LEO_FORCE_DISCONNECTED: banner + dimmed rows), B-007-2 (Agents ▸ Reconnect ⇧⌘R restores rows and badges). Polish seen: the banner's reason wraps mid-word in the narrow sidebar. review.concurrency: HIGH (stale phase after Retry) + 2 MED (stale wake check; palette unsanitized) → attempt 1 (d-7b7d11d7e8bf#2).
+- B-007: attempt-1 fix 4f1cd16b7 (1235 tests). Re-review: HIGH (late `.connected` after `.failed` in one generation) + MED (sidebar `.failed` panel unsanitized) → attempt 2 (d-7b7d11d7e8bf#3). LOW dismissed: the wake-token test drives the token check directly because actor arrival order can't be forced in a test.
