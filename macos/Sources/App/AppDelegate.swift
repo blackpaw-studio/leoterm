@@ -248,9 +248,7 @@ class AppDelegate: NSObject,
     func applicationDidFinishLaunching(_ notification: Notification) {
         #if DEBUG
         LeoLaunchTiming.mark("didFinishLaunching")
-        NotificationCenter.default.addObserver(forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main) { _ in
-            MainActor.assumeIsolated { LeoLaunchTiming.mark("firstWindowKey") }
-        }
+        LeoLaunchTiming.markOnFirst(NSWindow.didBecomeKeyNotification, as: "firstWindowKey")
         #endif
         // MARK: Leo
         leoRuntime.model.attentionCountChanged = { [weak self] _ in self?.writeDockBadge() }

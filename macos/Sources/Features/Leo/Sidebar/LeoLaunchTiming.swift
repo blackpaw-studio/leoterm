@@ -10,10 +10,30 @@ enum LeoLaunchTiming {
     private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "LaunchTiming")
     @MainActor private static var logged: Set<String> = []
 
-    @MainActor static func mark(_ milestone: String, _ detail: String = "") {
+    /// `detail` is only built the first time `milestone` is marked.
+    @MainActor static func mark(_ milestone: String, _ detail: @autoclosure () -> String = "") {
         guard logged.insert(milestone).inserted else { return }
         let ms = Int((Date().timeIntervalSince1970 - processStart) * 1000)
-        logger.log("\(milestone, privacy: .public) +\(ms)ms \(detail, privacy: .public)")
+        let text = detail()
+        logger.log("\(milestone, privacy: .public) +\(ms)ms \(text, privacy: .public)")
+    }
+
+    /// Marks `milestone` on the first `name` notification, then stops observing.
+    @MainActor static func markOnFirst(_ name: Notification.Name, as milestone: String, center: NotificationCenter = .default) {
+        let box = ObserverBox()
+        box.token = center.addObserver(forName: name, object: nil, queue: .main) { [box] _ in
+            MainActor.assumeIsolated {
+                mark(milestone)
+                guard let token = box.token else { return }
+                center.removeObserver(token)
+                box.token = nil
+            }
+        }
+    }
+
+    private final class ObserverBox: @unchecked Sendable {
+        /// Only touched on the main queue.
+        var token: NSObjectProtocol?
     }
 
     private static let processStart: TimeInterval = {
