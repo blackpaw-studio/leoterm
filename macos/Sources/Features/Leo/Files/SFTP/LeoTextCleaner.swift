@@ -94,7 +94,9 @@ struct LeoTextCleaner {
     }
 
     /// Finds the RGI flags and ZWJ sequences `clean` keeps whole.
-    static let sequenceMatcher: LeoSequenceMatcher = LeoLinearSequenceMatcher()
+    static let sequenceMatcher: LeoSequenceMatcher = LeoSequenceTrie(
+        subdivisionFlags + LeoUnicodeData.zwjSequences.values.flatMap { $0 }
+    )
 
     /// Characters that read as a double quote. The app quotes with “ ”, so
     /// only these could close its quote; apostrophes and single quotes stay.

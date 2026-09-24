@@ -9,17 +9,40 @@ protocol LeoSequenceMatcher {
     func longestMatch(in text: ArraySlice<Unicode.Scalar>) -> (length: Int, steps: Int)
 }
 
-/// Tries every listed sequence that starts with the first scalar, longest
-/// first; a step is one sequence tried.
-struct LeoLinearSequenceMatcher: LeoSequenceMatcher {
-    func longestMatch(in text: ArraySlice<Unicode.Scalar>) -> (length: Int, steps: Int) {
-        guard let first = text.first else { return (0, 0) }
-        let sequences = LeoTextCleaner.subdivisionFlags + (LeoUnicodeData.zwjSequences[first] ?? [])
-        var steps = 0
-        for sequence in sequences {
-            steps += 1
-            if text.starts(with: sequence) { return (sequence.count, steps) }
+/// A prefix trie of the listed sequences, built once: a match walks one
+/// node per scalar, so a step is one scalar looked up and a match takes at
+/// most the longest sequence's length plus one.
+struct LeoSequenceTrie: LeoSequenceMatcher {
+    private struct Node {
+        var children: [Unicode.Scalar: Int] = [:]
+        var endsSequence = false
+    }
+
+    /// Node 0 is the root.
+    private let nodes: [Node]
+
+    init(_ sequences: [[Unicode.Scalar]]) {
+        nodes = sequences.reduce(into: [Node()]) { nodes, sequence in
+            let last = sequence.reduce(0) { node, scalar in
+                if let child = nodes[node].children[scalar] { return child }
+                nodes.append(Node())
+                nodes[node].children[scalar] = nodes.count - 1
+                return nodes.count - 1
+            }
+            nodes[last].endsSequence = last != 0
         }
-        return (0, steps)
+    }
+
+    func longestMatch(in text: ArraySlice<Unicode.Scalar>) -> (length: Int, steps: Int) {
+        var node = 0
+        var length = 0
+        var steps = 0
+        for (depth, scalar) in zip(1..., text) {
+            steps += 1
+            guard let child = nodes[node].children[scalar] else { break }
+            node = child
+            if nodes[node].endsSequence { length = depth }
+        }
+        return (length, steps)
     }
 }
