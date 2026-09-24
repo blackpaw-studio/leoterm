@@ -48,22 +48,38 @@ struct LeoSidebarFeedAttentionRaceTests {
         try await harness.pumpAsync { _ in await harness.activity.fetchCount >= 2 }
         await harness.settle()
 
+        // The old boot's /state answers needs_input at revision 40.
         await harness.activity.setState([observed("alpha", .needsInput, 40)])
-        await harness.daemon.holdNext()
         await harness.activity.send(.gap(expected: 2, received: 5))
-        try await harness.pumpAsync { _ in await harness.daemon.heldCount == 1 }
+        try await harness.pump { $0.rows.first?.attention == .needsInput }
 
-        // Restart while the feed is still recovering (the list hasn't landed).
+        // Another recovery; its list is held, so the feed is still recovering
+        // when the old boot's last signal arrives and is buffered.
+        await harness.daemon.holdNext()
+        await harness.activity.send(.gap(expected: 6, received: 9))
+        try await harness.pumpAsync { _ in await harness.daemon.heldCount == 1 }
+        await harness.activity.send(.agentActivity(
+            seq: 10, at: nil, agent: "alpha", activity: nil, currentAction: nil,
+            attention: .init(state: .needsInput, revision: 41)
+        ))
+        try await until { await harness.feed.bufferedActivity.count == 1 }
+
+        // The daemon restarts mid-recovery: revisions start over, so only
+        // the boot reset keeps revision 41 from outranking the new baseline.
+        // The next event is buffered only once the hello has been read.
         await harness.activity.setState([observed("alpha", .working, 2)])
         await harness.activity.send(.hello(seq: 1, at: nil, version: nil, serverTime: nil, bootID: "boot-b"))
+        await harness.activity.send(.agentActivity(seq: 2, at: nil, agent: "alpha", activity: .idle, currentAction: nil))
+        try await until { await harness.feed.bufferedActivity.count == 2 }
+        #expect(await harness.feed.recovering, "the hello must arrive while the list is in flight")
         await harness.daemon.releaseHeld()
-        // The released list is followed by the restart's /state (fetch 3).
-        try await harness.pumpAsync { _ in await harness.activity.fetchCount >= 3 }
+        // The released list is followed by the restart's /state (fetch 4).
+        try await harness.pumpAsync { _ in await harness.activity.fetchCount >= 4 }
         try await harness.waitForStateEmission(generation: await harness.feed.snapshot.generation)
         await harness.settle()
 
         let snapshot = try #require(await harness.recorder.last)
-        #expect(snapshot.rows.first?.attention == .working)
+        #expect(snapshot.rows.first?.attention == .working, "the old boot's needs_input must never land")
         #expect(snapshot.attentionCount == 0)
         await harness.stop()
     }
