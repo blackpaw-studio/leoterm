@@ -152,7 +152,7 @@ struct LeoSidebarFeedFixTests {
     }
 
     private func wait(_ condition: @escaping @Sendable () async -> Bool) async throws {
-        await awaitCondition(condition)
+        try await until { await condition() }
     }
 }
 

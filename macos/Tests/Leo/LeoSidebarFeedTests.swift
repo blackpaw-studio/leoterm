@@ -3,6 +3,7 @@ import Testing
 
 @testable import Ghostty
 
+@Suite(.timeLimit(.minutes(1)))
 struct LeoSidebarFeedTests {
     @Test func visibleSidebarImmediatelyFetchesAndPublishesRows() async throws {
         let daemon = FakeDaemonClient(results: [.success([agent("alpha")])])
@@ -27,10 +28,10 @@ struct LeoSidebarFeedTests {
         let feed = makeFeed(daemon: daemon, recorder: recorder)
 
         await feed.start(); await feed.setPolling(true)
-        await awaitCondition { await recorder.last?.connectivity == .connected }
+        try await until { await recorder.last?.connectivity == .connected }
         await feed.refresh()
-        await awaitCondition(message: "Second list request was not made") { await daemon.listCallCount == 2 }
-        await awaitCondition(message: "Failed list snapshot was not published") {
+        try await until("Second list request was not made") { await daemon.listCallCount == 2 }
+        try await until("Failed list snapshot was not published") {
             await recorder.values.contains {
                 if case let .failed(message) = $0.connectivity { return message.contains("unavailable") }
                 return false
@@ -209,7 +210,7 @@ struct LeoSidebarFeedTests {
     }
 
     private func eventually(_ condition: @escaping @Sendable () async -> Bool) async throws {
-        await awaitCondition(condition)
+        try await until { await condition() }
     }
 }
 

@@ -10,6 +10,7 @@ import Testing
 /// new one; a `.failed` connection keeps its last-known rows (greyed, not
 /// cleared); and after a switch, only the new connection's daemon ever sees
 /// another request.
+@Suite(.timeLimit(.minutes(1)))
 struct LeoSidebarFeedHostSwitchTests {
     /// Covers a refresh-ownership race: `performRefresh`'s cleanup ran
     /// unconditionally whenever the refresh wasn't itself cancelled. If a
@@ -36,7 +37,7 @@ struct LeoSidebarFeedHostSwitchTests {
         await feed.start()
         await feed.setInitialPolling(true)
         await feed.updateConnection(host: .local, generation: 1, phase: .connected(daemon: daemonA, activitySource: Self.emptyActivity))
-        await awaitCondition(message: "First refresh (A) was not requested") { await daemonA.callCount == 1 }
+        try await until("First refresh (A) was not requested") { await daemonA.callCount == 1 }
 
         // Switch connections first -- this synchronously cancels A's
         // in-flight refresh and starts B's -- and only then release A's
@@ -47,7 +48,7 @@ struct LeoSidebarFeedHostSwitchTests {
         await feed.updateConnection(host: .remote("work"), generation: 2, phase: .connected(daemon: daemonB, activitySource: Self.emptyActivity))
         await daemonA.resolve(index: 0, .success([Self.agent("alpha")]))
 
-        await awaitCondition(message: "Second refresh (B) was not requested") { await daemonB.callCount >= 1 }
+        try await until("Second refresh (B) was not requested") { await daemonB.callCount >= 1 }
         for _ in 0..<50 { await Task.yield() }
 
         let callsBeforeExtraRequest = await daemonB.callCount
@@ -60,7 +61,7 @@ struct LeoSidebarFeedHostSwitchTests {
         )
 
         await daemonB.resolveAllPending(.success([Self.agent("bravo")]))
-        await awaitCondition(message: "The newer connection's result was not installed") {
+        try await until("The newer connection's result was not installed") {
             await recorder.last?.rows.map(\.name) == ["bravo"]
         }
         #expect(
@@ -82,14 +83,14 @@ struct LeoSidebarFeedHostSwitchTests {
         await feed.start()
         await feed.setInitialPolling(true)
         await feed.updateConnection(host: .remote("work"), generation: 1, phase: .connected(daemon: daemon, activitySource: Self.emptyActivity))
-        await awaitCondition { await recorder.last?.rows.map(\.name) == ["alpha"] }
+        try await until { await recorder.last?.rows.map(\.name) == ["alpha"] }
 
         // Same connection (host + generation) transitions to failed -- e.g.
         // the tunnel died. This is a phase update, not a switch; a live
         // connection that drops is disconnected (D-061).
         await feed.updateConnection(host: .remote("work"), generation: 1, phase: .failed(message: "ssh died"))
 
-        await awaitCondition(message: "never reached .disconnected") {
+        try await until("never reached .disconnected") {
             await recorder.last?.connectivity == .disconnected(reason: "ssh died", isRetrying: false)
         }
         #expect(await recorder.last?.rows.map(\.name) == ["alpha"], "rows must stay (greyed under the banner), not clear")
@@ -107,14 +108,14 @@ struct LeoSidebarFeedHostSwitchTests {
         await feed.start()
         await feed.setInitialPolling(true)
         await feed.updateConnection(host: .local, generation: 1, phase: .connected(daemon: daemon, activitySource: Self.emptyActivity))
-        await awaitCondition { await recorder.last?.rows.map(\.name) == ["alpha"] }
+        try await until { await recorder.last?.rows.map(\.name) == ["alpha"] }
 
         // A genuinely NEW host+generation failing immediately (e.g. an
         // unconfigured remote host) is a switch: it must never show the
         // previous host's rows.
         await feed.updateConnection(host: .remote("ghost"), generation: 2, phase: .failed(message: "Unknown host ghost"))
 
-        await awaitCondition(message: "never reached .failed") {
+        try await until("never reached .failed") {
             if case .failed = await recorder.last?.connectivity { return true }
             return false
         }
@@ -134,10 +135,10 @@ struct LeoSidebarFeedHostSwitchTests {
         await feed.start()
         await feed.setInitialPolling(true)
         await feed.updateConnection(host: .local, generation: 1, phase: .connected(daemon: daemonA, activitySource: Self.emptyActivity))
-        await awaitCondition { await recorder.last?.rows.map(\.name) == ["a"] }
+        try await until { await recorder.last?.rows.map(\.name) == ["a"] }
 
         await feed.updateConnection(host: .remote("work"), generation: 2, phase: .connected(daemon: daemonB, activitySource: Self.emptyActivity))
-        await awaitCondition { await recorder.last?.rows.map(\.name) == ["b"] }
+        try await until { await recorder.last?.rows.map(\.name) == ["b"] }
 
         let callsToAAtSwitch = await daemonA.callCount
         await feed.refresh()
@@ -170,11 +171,11 @@ struct LeoSidebarFeedHostSwitchTests {
         // Establish that polling is genuinely active BEFORE the reconnect:
         // the initial refresh happened, a tick was scheduled, and advancing
         // the clock actually fires it.
-        await awaitCondition(message: "initial refresh never happened") { await daemon.callCount >= 1 }
-        await awaitCondition(message: "poll tick was never scheduled") { await clock.waiterCount >= 1 }
+        try await until("initial refresh never happened") { await daemon.callCount >= 1 }
+        try await until("poll tick was never scheduled") { await clock.waiterCount >= 1 }
         await clock.advance()
-        await awaitCondition(message: "the established tick never refreshed") { await daemon.callCount >= 2 }
-        await awaitCondition(message: "poll tick was never rescheduled") { await clock.waiterCount >= 1 }
+        try await until("the established tick never refreshed") { await daemon.callCount >= 2 }
+        try await until("poll tick was never rescheduled") { await clock.waiterCount >= 1 }
 
         // The tunnel drops and LeoHostSelection retries: a NEW generation
         // goes through `.connecting` (pausing the scheduler) before
@@ -184,15 +185,15 @@ struct LeoSidebarFeedHostSwitchTests {
         await feed.updateConnection(host: .remote("work"), generation: 2, phase: .connecting)
         await feed.updateConnection(host: .remote("work"), generation: 2, phase: .connected(daemon: daemon, activitySource: Self.emptyActivity))
 
-        await awaitCondition(message: "the reconnect's own refresh never happened") { await daemon.callCount > callsBeforeReconnect }
-        await awaitCondition(message: "poll tick was never rescheduled after reconnecting") { await clock.waiterCount >= 1 }
+        try await until("the reconnect's own refresh never happened") { await daemon.callCount > callsBeforeReconnect }
+        try await until("poll tick was never rescheduled after reconnecting") { await clock.waiterCount >= 1 }
 
         await clock.advance()
-        await awaitCondition(message: "first post-reconnect tick never refreshed") { await daemon.callCount > callsBeforeReconnect + 1 }
-        await awaitCondition(message: "poll tick was never rescheduled again") { await clock.waiterCount >= 1 }
+        try await until("first post-reconnect tick never refreshed") { await daemon.callCount > callsBeforeReconnect + 1 }
+        try await until("poll tick was never rescheduled again") { await clock.waiterCount >= 1 }
 
         await clock.advance()
-        await awaitCondition(message: "second post-reconnect tick never refreshed") { await daemon.callCount > callsBeforeReconnect + 2 }
+        try await until("second post-reconnect tick never refreshed") { await daemon.callCount > callsBeforeReconnect + 2 }
 
         await feed.stop()
     }
@@ -231,30 +232,30 @@ struct LeoSidebarFeedHostSwitchTests {
             host: .local, generation: 1,
             phase: .connected(daemon: daemonA, activitySource: .init(events: { await activityA.events() }, fetchState: { await activityA.fetchState() }))
         )
-        await awaitCondition(message: "initial refresh for A never happened") { await daemonA.callCount >= 1 }
+        try await until("initial refresh for A never happened") { await daemonA.callCount >= 1 }
 
         // SSE actually connects for A: the fallback poll pauses in favor of
         // push-driven refreshes.
         await activityA.send(.connected)
-        await awaitCondition(message: "the SSE-connect refresh for A never happened") { await daemonA.callCount >= 2 }
+        try await until("the SSE-connect refresh for A never happened") { await daemonA.callCount >= 2 }
 
         // A structural event arrives and schedules a coalesced refresh that
         // has NOT fired yet when the connection switches away from A.
         await activityA.send(.agentStopped(seq: 1, at: nil, agent: "a", wakeOnMessage: nil))
-        await awaitCondition(message: "the coalesced SSE refresh was never scheduled") { await clock.waiterCount >= 1 }
+        try await until("the coalesced SSE refresh was never scheduled") { await clock.waiterCount >= 1 }
 
         await feed.updateConnection(host: .remote("work"), generation: 2, phase: .connected(daemon: daemonB, activitySource: Self.emptyActivity))
-        await awaitCondition(message: "the new connection never refreshed") { await daemonB.callCount >= 1 }
+        try await until("the new connection never refreshed") { await daemonB.callCount >= 1 }
 
         // B's own SSE hasn't connected yet -- the scheduler must keep
         // re-polling it on the 30s fallback cadence rather than sitting dead
         // because of A's now-irrelevant, stale SSE-connected state.
         let callsAfterSwitch = await daemonB.callCount
         for _ in 0..<3 {
-            await awaitCondition(message: "fallback poll tick was never (re)scheduled for the new connection") { await clock.waiterCount >= 1 }
+            try await until("fallback poll tick was never (re)scheduled for the new connection") { await clock.waiterCount >= 1 }
             await clock.advance()
         }
-        await awaitCondition(message: "fallback polling never kept refreshing the new connection") { await daemonB.callCount > callsAfterSwitch }
+        try await until("fallback polling never kept refreshing the new connection") { await daemonB.callCount > callsAfterSwitch }
 
         await feed.stop()
     }
