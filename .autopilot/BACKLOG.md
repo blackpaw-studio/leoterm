@@ -176,9 +176,14 @@ of stale rows. Manual retry only. Includes B-027(c): replace `LeoSocketActivityC
 Source: roadmap Tier 2
 Done: 7a2bf5da5 4f1cd16b7 0ed8a6b8f (1237 tests). A dropped stream, a dead tunnel or a failed wake check dims the rows and shows "Disconnected from <host>" with Retry (Agents ▸ Reconnect, ⇧⌘R); the backoff is gone (D-061, D-062). Verified: shots B-007-1 (banner over dimmed rows) and B-007-2 (Reconnect restores rows and badges), on the first build; the 2 fix rounds changed phase ordering and error sanitizing only. Banner polish → B-038.
 
-## B-038 · Disconnected banner: reason text wraps mid-word   [ready]
+## B-038 · Disconnected banner: reason text wraps mid-word   [done]
 Accept: in the default-width sidebar the banner's reason breaks mid-identifier (shot B-007-1: "LEO_-FORCE_DISCO…"), and the main pane's "Choose Agent…" stays enabled while disconnected. Truncate the reason to one line with the full text in a tooltip, and disable or explain Choose Agent while disconnected.
 Source: B-007 visual check
+Done: 622783dad d1e8e149a (1254 tests). The reason is one line with the full text as a tooltip; Choose Agent… is disabled (plain bordered) with "Disconnected from <host>. Reconnect first (⇧⌘R)." (D-067, D-068). Verified: shots B-038-1 (one-line reason), B-038-2 (visibly disabled button). 1 fix round. New: B-041.
+
+## B-041 · Palette's disconnected row: same one-line treatment   [ready (next run)]
+Accept: the command palette's disconnected row shows the same banner text as the sidebar but wasn't given B-038's one-line truncation + tooltip. Match it.
+Source: B-038 implementer
 
 ## B-008 · Fix order-dependent test flake + swiftlint baseline   [done]
 Accept: `LeoHostSelectionReloadTests.editingAnUnrelatedHostDoesNotReselect`

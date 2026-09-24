@@ -539,5 +539,12 @@ Veto: [ ]
 Chose: truncate the banner's reason to one line (tail truncation) with the full sanitized reason as its tooltip; disable the main pane's "Choose Agent…" while the feed is disconnected, with help text "Disconnected from <host>. Reconnect first (⇧⌘R)."
 Why: "calm" + "manual recovery": a picker that lists stale agents invites a failing attach; the banner already offers Retry
 Alternatives: leave it enabled and show an error on use (a click that can only fail)
-Commit:
+Commit: 622783dad d1e8e149a
+Veto: [ ]
+
+## D-068 · 2026-09-24 · B-038 implementer calls
+Chose: ⌘T/⌘D (New Tab / Split) stay enabled while disconnected, since their picker already shows the disconnected row with Retry (B-007); loading and failed states keep Choose Agent enabled (only disconnected disables it); the disabled button drops to plain `.bordered` because a disabled `.borderedProminent` still reads as pressable blue in dark mode; the palette's disconnected row is not restyled (B-041); review LOW dismissed: the tests check the view model, not the rendered view, but the live AX check confirmed the wiring (is_enabled=false, correct help) and a SwiftUI render test needs hosting infra this item doesn't warrant
+Why: calm; don't disable general commands for one state; visible affordance
+Alternatives: disable ⌘T/⌘D too (hides general commands); opacity hack on the prominent button
+Commit: 622783dad d1e8e149a
 Veto: [ ]
