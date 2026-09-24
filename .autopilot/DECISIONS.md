@@ -548,3 +548,10 @@ Why: calm; don't disable general commands for one state; visible affordance
 Alternatives: disable ⌘T/⌘D too (hides general commands); opacity hack on the prominent button
 Commit: 622783dad d1e8e149a
 Veto: [ ]
+
+## D-069 · 2026-09-24 · B-033: abbreviate the lock path; "Show in Finder" reveals the lock file
+Chose: the "Leo can't start" alert shows `…/leo/<file name>` (last directory + file) instead of the full `/var/folders/…` path; the full path goes in the alert's informative text only as a selectable accessory or is dropped; buttons "Quit" (default) and "Show in Finder" (reveals and selects the lock file via NSWorkspace.activateFileViewerSelecting, then keeps the alert up)
+Why: Mac-native (HIG alerts: short text, a concrete next step); "everything through Leo"
+Alternatives: middle-truncating the full path (still unreadable); a "Copy Path" button (Finder is the more native next step)
+Commit:
+Veto: [ ]
