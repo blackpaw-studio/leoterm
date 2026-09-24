@@ -333,7 +333,7 @@ import Testing
     /// Both side panes open in a 1 400 pt window, the sidebar (shown
     /// unless `sidebarVisible` is false) at its minimum beside them.
     private func withBothPanes(
-        sidebarVisible: Bool = true,
+        sidebarVisible: Bool = true, opensBrowser: Bool = true,
         _ body: (Harness, LeoWorkspaceBrowserModel, LeoEditorPaneModel, FloorCounts) async throws -> Void
     ) async throws {
         let sandbox = try LeoFileSandbox()
@@ -345,7 +345,9 @@ import Testing
             preferredWidth: LeoSidebarSplitMetrics.minimumWidth, windowWidth: 1_400, isSidebarVisible: sidebarVisible,
             editor: editor, browser: browser,
             onSidebarAutoCollapse: { counts.collapses += 1 }, onSidebarAutoRestore: { counts.restores += 1 })
-        await browser.open(LeoEditorAgentContext(host: .local, name: "scratch", workspace: sandbox.root))
+        if opensBrowser {
+            await browser.open(LeoEditorAgentContext(host: .local, name: "scratch", workspace: sandbox.root))
+        }
         try await editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.swift", "let a = 1")))
         await harness.settle()
         if !sidebarVisible {
@@ -372,6 +374,29 @@ import Testing
             #expect(counts.collapses == 1)
             #expect(harness.terminalWidth >= LeoSidebarSplitMetrics.terminalFloor)
             #expect(abs(harness.editorWidth - editorWidth) <= 1, "the terminal absorbed the rest")
+        }
+    }
+
+    /// Beside the editor alone (the browser collapsed between them), the
+    /// terminal keeps its floor down to where the editor is at its
+    /// minimum: 300 + 1 + 320 = 621 pt. Live resizes step by 5 pt or by
+    /// 40; a jump (zoom, tiling) goes there at once.
+    @Test(arguments: [[700], [900, 700], [621]] as [[CGFloat]], [5, 40, 0] as [CGFloat])
+    func besideTheEditorAloneTheFloorHoldsToTheEditorsMinimum(_ path: [CGFloat], step: CGFloat) async throws {
+        try await withBothPanes(opensBrowser: false) { harness, _, _, _ in
+            for width in path {
+                if step == 0 {
+                    harness.resizeWindow(toWidth: width)
+                    await harness.settle()
+                    await harness.settle()
+                } else {
+                    await harness.resizeWindow(stepwiseTo: width, step: step)
+                }
+            }
+
+            #expect(harness.sidebarItem?.isCollapsed == true)
+            #expect(harness.terminalWidth >= LeoSidebarSplitMetrics.terminalFloor - 1, "terminal \(harness.terminalWidth)")
+            #expect(harness.editorWidth >= LeoEditorPaneViewController.minimumWidth - 1)
         }
     }
 
@@ -609,10 +634,10 @@ import Testing
         static let resizeStep: CGFloat = 5
 
         /// A live resize: `resizeStep` at a time, settling after each.
-        func resizeWindow(stepwiseTo width: CGFloat) async {
+        func resizeWindow(stepwiseTo width: CGFloat, step: CGFloat = resizeStep) async {
             var current = window.contentLayoutRect.width
             while abs(width - current) > 0.5 {
-                current += max(-Self.resizeStep, min(Self.resizeStep, width - current))
+                current += max(-step, min(step, width - current))
                 resizeWindow(toWidth: current)
                 await settle()
             }

@@ -374,7 +374,11 @@ final class LeoSplitViewController: NSSplitViewController {
             restorableSidebarWidth: sidebarItem.isCollapsed ? floorCollapsedSidebarWidth.map { $0 + splitView.dividerThickness } : nil))
         switch step {
         case .none: break
-        case .collapseSidebar: autoCollapseSidebar()
+        case .collapseSidebar:
+            autoCollapseSidebar()
+            // Not a resize, so no later layout asks again: whatever the
+            // sidebar didn't free, the side panes give now.
+            applyFloorStep(splitWidthChange: splitWidthChange)
         case let .widenTerminal(deficit): widenTerminal(by: deficit)
         case let .growPane(amount): moveTerminalTrailingDivider(by: -amount)
         case .restoreSidebar: restoreSidebar()
