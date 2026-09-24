@@ -26,9 +26,13 @@ struct LeoInstanceLockRefusal: Error, Equatable, Sendable {
     /// The offending file or directory (the bundle ID for `.invalidBundleIdentifier`).
     let path: String
 
-    /// The informative text of the "Leo can’t start" alert: the problem,
-    /// the path, and what to do. Leo never removes or changes the file itself.
-    var message: String {
+    /// The problem, the path, and what to do. Leo never removes or changes
+    /// the file itself.
+    var message: String { message(showing: path) }
+
+    /// `message` naming the path as `shownPath` (the alert shortens it).
+    func message(showing shownPath: String) -> String {
+        let path = shownPath
         let fix = "Remove it and open Leo again."
         switch error {
         case .invalidBundleIdentifier: return "This copy of Leo has an unusable bundle identifier (\(path)). Reinstall Leo."
@@ -147,7 +151,7 @@ struct LeoSingleInstance {
     let isTestHost: Bool
     let acquireLock: (String) -> LeoInstanceLockAttempt
     let activateOther: (String) -> Void
-    let alert: (String) -> Void
+    let alert: (LeoInstanceLockRefusal) -> Void
     let terminate: (Int32) -> Void
 
     /// A hosted XCTest run, three facts together: the injector library is
@@ -222,7 +226,7 @@ struct LeoSingleInstance {
             return .yielded
         case .refused(let refusal):
             Self.logger.error("instance lock refused; not starting reason=\(refusal.message, privacy: .public)")
-            alert(refusal.message)
+            alert(refusal)
             terminate(1)
             return .refused(refusal)
         }
@@ -250,6 +254,13 @@ extension LeoSingleInstance {
                 guard let directory = LeoControlSocketDirectory.default else {
                     return .refused(LeoInstanceLockRefusal(error: .noCacheDirectory, path: "_CS_DARWIN_USER_CACHE_DIR"))
                 }
+                #if DEBUG
+                if let forced = forcedStartFailure(
+                    environment: ProcessInfo.processInfo.environment, bundleIdentifier: bundleIdentifier, directory: directory
+                ) {
+                    return .refused(forced)
+                }
+                #endif
                 return LeoInstanceLock.acquire(bundleIdentifier: bundleIdentifier, in: directory)
             },
             activateOther: activateRunningCopy,
@@ -278,9 +289,20 @@ extension LeoSingleInstance {
         }
     }
 
-    /// One plain modal alert with a single Quit button; runs before
-    /// `NSApplicationMain`, on the main thread.
-    private static func presentCannotStart(_ message: String) {
+    #if DEBUG
+    /// `LEO_FORCE_START_FAILURE=1` makes a debug build refuse its real lock
+    /// path as hard-linked, without opening or touching the file, so the
+    /// "Leo can’t start" alert can be seen. Compiled out of release builds.
+    static func forcedStartFailure(environment: [String: String], bundleIdentifier: String, directory: URL) -> LeoInstanceLockRefusal? {
+        guard environment["LEO_FORCE_START_FAILURE"] == "1" else { return nil }
+        let path = directory.appendingPathComponent(LeoInstanceLock.fileName(for: bundleIdentifier)).path
+        return LeoInstanceLockRefusal(error: .linked, path: path)
+    }
+    #endif
+
+    /// The modal "Leo can’t start" alert (`LeoCannotStartAlert`); returns on
+    /// Quit. Runs before `NSApplicationMain`, on the main thread.
+    private static func presentCannotStart(_ refusal: LeoInstanceLockRefusal) {
         MainActor.assumeIsolated {
             let app = NSApplication.shared
             app.setActivationPolicy(.regular)
@@ -289,12 +311,7 @@ extension LeoSingleInstance {
             } else {
                 app.activate(ignoringOtherApps: true)
             }
-            let alert = NSAlert()
-            alert.alertStyle = .critical
-            alert.messageText = "Leo can’t start"
-            alert.informativeText = message
-            alert.addButton(withTitle: "Quit")
-            alert.runModal()
+            LeoCannotStartAlertPresenter(content: LeoCannotStartAlert(refusal: refusal)).run()
         }
     }
 }

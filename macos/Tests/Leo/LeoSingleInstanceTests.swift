@@ -54,7 +54,7 @@ struct LeoSingleInstanceTests {
         let claim = spy.gate(acquire: { _ in .refused(refusal) }).claim()
 
         guard case .refused = claim else { Issue.record("expected .refused, got \(claim)"); return }
-        #expect(spy.alerts == [refusal.message])
+        #expect(spy.alerts == [refusal])
         #expect(spy.exits == [1])
         #expect(spy.activated.isEmpty)
     }
@@ -211,7 +211,7 @@ struct LeoSingleInstanceTests {
         #expect(spy.exits == [1])
         #expect(spy.activated.isEmpty)
         #expect(spy.alerts.count == 1)
-        #expect(spy.alerts.first?.contains(expectedPath) == true, "\(spy.alerts)")
+        #expect(spy.alerts.first?.message.contains(expectedPath) == true, "\(spy.alerts)")
         #expect(try FileManager.default.contentsOfDirectory(atPath: parent.url.path).sorted() == before, "nothing is removed or created")
     }
 
@@ -306,11 +306,11 @@ struct LeoSingleInstanceTests {
 /// Records what the gate asked the app to do instead of doing it.
 private final class GateSpy {
     private(set) var activated: [String] = []
-    private(set) var alerts: [String] = []
+    private(set) var alerts: [LeoInstanceLockRefusal] = []
     private(set) var exits: [Int32] = []
 
     func activate(_ bundleID: String) { activated.append(bundleID) }
-    func alert(_ message: String) { alerts.append(message) }
+    func alert(_ refusal: LeoInstanceLockRefusal) { alerts.append(refusal) }
     func exit(_ status: Int32) { exits.append(status) }
 
     func gate(isTestHost: Bool = false, acquire: @escaping (String) -> LeoInstanceLockAttempt) -> LeoSingleInstance {
