@@ -492,5 +492,13 @@ Context: B-007 (grey the list + Retry banner on tunnel drop or wake; drop the ac
 Chose: while disconnected, rows stay visible but dimmed and inert (no attach/Jump, no badges, out of the Dock count); a banner at the top of the sidebar reads "Disconnected from <host>" with a Retry button; the same action is a menu item (Agents ▸ Reconnect) with a shortcut that doesn't collide with existing ones. On wake, one immediate liveness check (single shot, never repeated); if it fails, show the disconnected state. `LeoSocketActivityClient`'s exponential-backoff reconnect is removed: a dropped stream enters the disconnected state and waits for Retry. A Retry that fails keeps the banner and shows the (sanitized) reason
 Why: principle 5 (manual recovery, never timers), 2 (calm: one banner, no motion), 1 (menu + shortcut), 3 (same for local and SSH)
 Alternatives: hide rows while disconnected (hides a feature, loses context); treat every wake as disconnected (a banner after every sleep is noise); keep backoff with a banner (a timer)
-Commit:
+Commit: 7a2bf5da5 4f1cd16b7 0ed8a6b8f
+Veto: [ ]
+
+## D-062 · 2026-09-23 · B-007 implementer calls
+Context: B-007
+Chose: Reconnect is ⇧⌘R (free in MainMenu.xib and Ghostty defaults; a test guards clashes); host label "localhost" as in the picker; the banner sits under the host picker, above search; Retry reuses `hostSelection.retry()` for local and remote and keeps attention state on a same-host retry; a host that never loaded keeps the old full-panel error (Open SSH / Start daemon) and only a once-live connection becomes Disconnected; after Start daemon you press Retry; a clean stream end reads "Connection closed"; New Agent (+) and the palette are disabled while disconnected (the palette shows Retry); the editor keeps the selected row's workspace; the legacy TCP client keeps its backoff code but the sidebar stops reading it on disconnect; a connection generation's phases only move forward (connecting → connected → failed, failed final) and older generations are dropped; wake checks carry a token and only the latest applies. DEBUG `LEO_FORCE_DISCONNECTED=1` forces the state once after the first list
+Why: principles 1, 2, 3 and 5
+Alternatives: a banner above the "Agents" header (farther from the rows it describes); auto-reconnect after Start daemon (a timer in disguise)
+Commit: 7a2bf5da5 4f1cd16b7 0ed8a6b8f
 Veto: [ ]

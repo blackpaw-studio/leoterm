@@ -157,10 +157,15 @@ with live tabs; clicking a highlighted row focuses its tab.
 Source: roadmap Tier 2
 Done: 54ae397a2 e05e818b7 71d366ad1 e07fa6b65 (744 tests). Verified with shots B-006-1..4 using autopilot-scratch.
 
-## B-007 · Disconnected state   [ready]
+## B-007 · Disconnected state   [done]
 Accept: on tunnel drop or wake, grey the list and show a Retry banner instead
 of stale rows. Manual retry only. Includes B-027(c): replace `LeoSocketActivityClient`'s exponential-backoff stream retry with this Retry (D-048).
 Source: roadmap Tier 2
+Done: 7a2bf5da5 4f1cd16b7 0ed8a6b8f (1237 tests). A dropped stream, a dead tunnel or a failed wake check dims the rows and shows "Disconnected from <host>" with Retry (Agents ▸ Reconnect, ⇧⌘R); the backoff is gone (D-061, D-062). Verified: shots B-007-1 (banner over dimmed rows) and B-007-2 (Reconnect restores rows and badges), on the first build; the 2 fix rounds changed phase ordering and error sanitizing only. Banner polish → B-038.
+
+## B-038 · Disconnected banner: reason text wraps mid-word   [ready (next run)]
+Accept: in the default-width sidebar the banner's reason breaks mid-identifier (shot B-007-1: "LEO_-FORCE_DISCO…"), and the main pane's "Choose Agent…" stays enabled while disconnected. Truncate the reason to one line with the full text in a tooltip, and disable or explain Choose Agent while disconnected.
+Source: B-007 visual check
 
 ## B-008 · Fix order-dependent test flake + swiftlint baseline   [done]
 Accept: `LeoHostSelectionReloadTests.editingAnUnrelatedHostDoesNotReselect`
