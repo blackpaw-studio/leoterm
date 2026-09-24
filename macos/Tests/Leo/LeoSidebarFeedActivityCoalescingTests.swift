@@ -136,6 +136,72 @@ struct LeoSidebarFeedActivityCoalescingTests {
         await harness.feed.stop()
     }
 
+    /// B-010: activity that arrives while a list fetch is in flight is
+    /// newer than that list; the list omitting a just-spawned agent must
+    /// not discard its activity.
+    @Test func activityForAnAgentTheInFlightListPredatesSurvivesThatList() async throws {
+        let harness = try await Harness.connected(results: [[agent("alpha")]])
+        try await harness.send(.agentStateChanged(seq: 1, at: nil, agent: "alpha", status: .running, restarts: 0, wakeOnMessage: false))
+        try await harness.windowOpened()
+        harness.clock.fire(Self.window)
+        try await until { await harness.daemon.pendingListCount == 1 }
+
+        try await harness.send(
+            .agentActivity(seq: 2, at: "2026-09-24T14:00:10Z", agent: "bravo", activity: .working, currentAction: .init(kind: nil, detail: "new"))
+        )
+        try await harness.windowOpened()
+        harness.clock.fire(Self.window)
+        try await until { await harness.feed.activityByName["bravo"] != nil }
+
+        let beforeList = await harness.recorder.values.count
+        await harness.daemon.respond([agent("alpha")])
+        try await until { await harness.recorder.values.count > beforeList }
+        #expect(await harness.feed.activityByName["bravo"]?.detail == "new")
+
+        try await harness.send(.agentSpawned(seq: 3, at: nil, agent: agent("bravo")))
+        try await harness.windowOpened()
+        harness.clock.fire(Self.window)
+        try await until { await harness.daemon.pendingListCount == 1 }
+        await harness.daemon.respond([agent("alpha"), agent("bravo")])
+        try await until { await harness.recorder.last?.rows.count == 2 }
+
+        let bravo = await harness.recorder.last?.rows.first { $0.name == "bravo" }
+        #expect(bravo?.actionDetail == "new")
+        #expect(bravo?.lastActivityAt == LeoTimestamp.parse("2026-09-24T14:00:10Z"))
+        await harness.feed.stop()
+    }
+
+    /// B-010: activity kept only because it arrived during a list fetch
+    /// that omitted its agent must not pass to a namesake created later.
+    @Test func activityDrainedAfterADeletingListIsNotInheritedByANamesake() async throws {
+        let harness = try await Harness.connected(results: [[agent("alpha")]])
+        try await harness.send(.agentStopped(seq: 1, at: nil, agent: "alpha", wakeOnMessage: false))
+        try await harness.windowOpened()
+        harness.clock.fire(Self.window)
+        try await until { await harness.daemon.pendingListCount == 1 }
+
+        // Late activity for the old alpha, still coalescing when the list lands.
+        try await harness.send(
+            .agentActivity(seq: 2, at: "2026-09-24T14:00:10Z", agent: "alpha", activity: .working, currentAction: .init(kind: nil, detail: "old"))
+        )
+        try await harness.windowOpened()
+        await harness.daemon.respond([])
+        try await until { await harness.recorder.last?.rows.isEmpty == true }
+
+        try await harness.send(.agentSpawned(seq: 3, at: nil, agent: agent("alpha")))
+        try await harness.windowOpened()
+        harness.clock.fire(Self.window)
+        try await until { await harness.daemon.pendingListCount == 1 }
+        await harness.daemon.respond([agent("alpha")])
+        try await until { await harness.recorder.last?.rows.count == 1 }
+
+        let row = await harness.recorder.last?.rows.first
+        #expect(row?.lastActivityAt == nil)
+        #expect(row?.actionDetail == nil)
+        #expect(row?.activity == .unknown)
+        await harness.feed.stop()
+    }
+
     @Test func equalResultingSnapshotSkipsEmission() async throws {
         let harness = try await Harness.connected(results: [[agent("alpha")]])
 
@@ -322,6 +388,9 @@ private actor CoalescingDaemon: LeoDaemonClient {
         if !results.isEmpty { return results.removeFirst() }
         return await withCheckedContinuation { waiters.append($0) }
     }
+    var pendingListCount: Int { waiters.count }
+    /// Answers the oldest list fetch still in flight.
+    func respond(_ agents: [LeoAgent]) { waiters.removeFirst().resume(returning: agents) }
     func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent { fatalError() }
     func start(_ name: String) async throws { fatalError() }
     func stop(_ name: String, wakeOnMessage: Bool?) async throws { fatalError() }

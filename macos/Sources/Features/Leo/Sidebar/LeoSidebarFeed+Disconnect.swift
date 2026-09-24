@@ -23,7 +23,7 @@ extension LeoSidebarFeed {
         activityCoalesceTask?.cancel()
         activityCoalesceTask = nil
         activityCoalescer = LeoActivityCoalescer()
-        activityByName = [:]
+        resetActivity()
         bufferedActivity = []
         attention.disconnect()
         scheduleAttentionTick()

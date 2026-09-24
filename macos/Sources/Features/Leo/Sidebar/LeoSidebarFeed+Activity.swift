@@ -74,12 +74,58 @@ extension LeoSidebarFeed {
     }
 
     /// A `/observe/state` baseline over what's already applied: the
-    /// baseline's agents and activity win, but a newer time from an event that landed
-    /// while the request was in flight is kept (B-010).
-    static func baseline(_ agents: [LeoObservedAgent], over current: [String: LeoSidebarActivity]) -> [String: LeoSidebarActivity] {
-        Dictionary(uniqueKeysWithValues: activities(agents).map { name, activity in
-            (name, activity.advanced(to: current[name]?.lastActivityAt))
-        })
+    /// baseline's agents and activity win, but a newer time from an event
+    /// already applied is kept, and so are entries in `newer` (updated
+    /// after the state fetch started) for agents the baseline lacks (B-010).
+    static func baseline(
+        _ agents: [LeoObservedAgent], over current: [String: LeoSidebarActivity], keeping newer: Set<String> = []
+    ) -> [String: LeoSidebarActivity] {
+        let fromState = activities(agents).reduce(into: [String: LeoSidebarActivity]()) { result, entry in
+            result[entry.key] = entry.value.advanced(to: current[entry.key]?.lastActivityAt)
+        }
+        return current.filter { newer.contains($0.key) && fromState[$0.key] == nil }.merging(fromState) { _, state in state }
+    }
+
+    /// B-010's one rule for pruning at a list refresh, judged by when that
+    /// list fetch started (`listMark`). A listed agent keeps its entry if
+    /// the previous list had it too, if the entry was carried over for it
+    /// (see below), or if the entry is newer than this fetch. An unlisted
+    /// agent keeps it -- and it's carried -- only if the entry is newer
+    /// than this fetch AND the previous list didn't have the agent: activity
+    /// for a spawn this list predates, not a straggler from an agent this
+    /// list just removed. So a gone agent's activity never reaches a
+    /// namesake, and a new agent's never waits for a second event.
+    static func survivors(
+        _ activity: [String: LeoSidebarActivity], stamps: [String: Int], listed: Set<String>,
+        previouslyListed: Set<String>, carried: Set<String>, listMark: Int
+    ) -> [String: LeoSidebarActivity] {
+        activity.filter { name, _ in
+            let isNewer = (stamps[name] ?? 0) > listMark
+            guard listed.contains(name) else { return isNewer && !previouslyListed.contains(name) }
+            return previouslyListed.contains(name) || carried.contains(name) || isNewer
+        }
+    }
+
+    func pruneActivity(listed: Set<String>, listMark: Int) {
+        activityByName = Self.survivors(
+            activityByName, stamps: activityStamps, listed: listed,
+            previouslyListed: lastListedNames, carried: carriedActivityNames, listMark: listMark
+        )
+        activityStamps = activityStamps.filter { activityByName[$0.key] != nil }
+        carriedActivityNames = Set(activityByName.keys).subtracting(listed)
+        lastListedNames = listed
+    }
+
+    func nextActivityTick() -> Int {
+        activityTick += 1
+        return activityTick
+    }
+
+    /// Forgets all activity (boot, reconnect, disconnect, host switch).
+    func resetActivity() {
+        activityByName = [:]
+        activityStamps = [:]
+        carriedActivityNames = []
     }
 
     static func activity(_ activity: LeoActivity?) -> LeoAgentRow.Activity {
