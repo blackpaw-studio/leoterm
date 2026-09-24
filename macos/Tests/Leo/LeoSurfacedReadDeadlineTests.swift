@@ -40,6 +40,15 @@ struct LeoSurfacedReadDeadlineTests {
         #expect(pane.document?.fileID.path == "/w/a.txt")
     }
 
+    /// An auto-open compares this before handing over: any open since
+    /// (the user's, or another auto-open's) means the pane moved on.
+    @Test func everyOpenRequestAdvancesThePanesOpenCount() async throws {
+        let pane = LeoEditorPaneModel(makeAccess: { _ in HangingAccess(hanging: []) })
+        let before = pane.openRequests
+        try await pane.open(LeoEditorFileID(host: .local, path: "/w/a.txt"))
+        #expect(pane.openRequests == before + 1)
+    }
+
     @Test func automaticOpensUseTheDeadline() {
         #expect(LeoReadDeadline.automaticOpen.seconds > 0)
     }

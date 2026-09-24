@@ -198,6 +198,24 @@ struct LeoSurfacedFileRoutingTests {
         #expect(opened.files == [file], "once")
     }
 
+    /// What an auto-open re-checks after its stat: the same agent's tab is
+    /// focused and still shows the file's incarnation.
+    @Test func theAutoOpenGuardFailsOnceFocusOrIncarnationMoves() {
+        let file = surfaced("u-1", agent: "alpha", startedAt: "s1")
+        let model = makeModel([row("alpha", "s1", files: [file]), row("beta", "s1")])
+        focus(model, "alpha")
+        let stillWanted = model.surfacedAutoOpenGuard(for: file, row: model.snapshot.rows[0])
+        #expect(stillWanted())
+        focus(model, "beta")
+        #expect(!stillWanted(), "focus moved to another agent")
+
+        let restarted = makeModel([row("alpha", "s1", files: [file])])
+        focus(restarted, "alpha")
+        let guardBeforeRestart = restarted.surfacedAutoOpenGuard(for: file, row: restarted.snapshot.rows[0])
+        restarted.receive(LeoSidebarSnapshot(rows: [row("alpha", "s2")], connectivity: .connected, generation: 2))
+        #expect(!guardBeforeRestart(), "the agent restarted")
+    }
+
     // MARK: Focus and click
 
     @Test func focusingAnAgentOpensItsNewestPendingFileAndLeavesTheRest() {

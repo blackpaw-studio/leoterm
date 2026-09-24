@@ -105,6 +105,19 @@ extension LeoSidebarModel {
         surfacedOpenedByClick = row.id
     }
 
+    /// What an automatic open re-checks once its stat returns: focus is
+    /// where it was, the row is still the file's incarnation, and -- when
+    /// the request came from that agent's focused tab -- the tab still
+    /// shows it.
+    func surfacedAutoOpenGuard(for file: LeoSurfacedFile, row: LeoAgentRow) -> @MainActor () -> Bool {
+        let focusAtRequest = focusedAgent
+        return { [weak self] in
+            guard let self, !isDisconnected, focusedAgent == focusAtRequest,
+                  let current = snapshot.rows.first(where: { $0.id == row.id }), current.startedAt == file.startedAt else { return false }
+            return focusAtRequest != row.id || tabsShow(current)
+        }
+    }
+
     /// The user named `file` (a menu).
     func openSurfacedFile(_ file: LeoSurfacedFile, for row: LeoAgentRow) {
         surfacedFileOpenRequested(file, row, .manual)

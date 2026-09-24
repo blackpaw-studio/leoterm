@@ -25,6 +25,8 @@ enum LeoSurfacedOpenMode: Equatable, Sendable { case automatic, manual }
         let stat: @MainActor (LeoEditorFileID) async throws -> LeoFileStat
         let open: @MainActor (LeoEditorFileID, Int?) async throws -> LeoEditorOpenOutcome
         let reportError: @MainActor (Error) -> Void
+        /// Re-checked after an automatic open's stat, before the editor.
+        var isStillWanted: @MainActor () -> Bool = { true }
     }
 
     private struct Incarnation: Hashable {
@@ -79,6 +81,11 @@ enum LeoSurfacedOpenMode: Equatable, Sendable { case automatic, manual }
             }
         } catch {
             Self.logger.log("surfaced file \(request.file.id, privacy: .public) not auto-opened: \(error.localizedDescription, privacy: .public)")
+            return
+        }
+        // The user may have moved on while the stat was out.
+        guard request.target.isStillWanted() else {
+            Self.logger.log("surfaced file \(request.file.id, privacy: .public) not auto-opened: focus or the pane moved on")
             return
         }
         await openInEditor(request)

@@ -75,6 +75,15 @@ struct LeoSurfacedFileOpenerTests {
         #expect(harness.errors.isEmpty)
     }
 
+    /// Re-review: the user moved on while the stat was out (another tab,
+    /// a restart, another file in the pane) -- the auto-open is dropped.
+    @Test func anAutomaticOpenNoLongerWantedAfterItsStatIsDropped() async {
+        let harness = OpenerHarness(stats: ["/w/a": stat(.file, size: 1)], stillWanted: false)
+        await harness.opener.open(surfaced("u-1", agent: "alpha", startedAt: "s1", absPath: "/w/a"), host: .local, mode: .automatic, in: harness.target)
+        #expect(harness.opened.isEmpty)
+        #expect(harness.seen.isEmpty)
+    }
+
     /// A real named pipe, through the real local file access: never opened
     /// (the read would block forever), only badged.
     @Test func aRealFIFOIsNeverAutoOpened() async throws {
@@ -162,7 +171,7 @@ private func surfaced(_ id: String, agent: String, startedAt: String, path: Stri
 
     init(
         stats: [String: LeoFileStat], defaultStat: LeoFileStat? = nil, gate: StatGate? = nil, openFails: Bool = false,
-        outcome: LeoEditorOpenOutcome = .opened
+        outcome: LeoEditorOpenOutcome = .opened, stillWanted: Bool = true
     ) {
         opener = LeoSurfacedFileOpener { [unowned self] file, _ in seen.append(file.id) }
         target = LeoSurfacedFileOpener.Target(
@@ -176,7 +185,8 @@ private func surfaced(_ id: String, agent: String, startedAt: String, path: Stri
                 if openFails { throw LeoFileAccessError.notFound(path: id.path) }
                 return outcome
             },
-            reportError: { [unowned self] in errors.append($0) }
+            reportError: { [unowned self] in errors.append($0) },
+            isStillWanted: { stillWanted }
         )
     }
 }

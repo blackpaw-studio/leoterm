@@ -78,6 +78,10 @@ struct LeoEditorReveal: Equatable, Sendable {
 
     var isOpen: Bool { document != nil }
 
+    /// Counts `open` calls, so a deferred automatic open can tell the
+    /// pane was asked to open something since it started.
+    private(set) var openRequests = 0
+
     /// Opens `fileID`, replacing the current document. The new file is read
     /// before anything is asked, so a file that can't open (the error is
     /// thrown) never costs the user a prompt or their current document.
@@ -89,6 +93,7 @@ struct LeoEditorReveal: Equatable, Sendable {
         access: (@MainActor (LeoHostID) throws -> any LeoFileAccess)? = nil,
         readDeadline: LeoReadDeadline? = nil
     ) async throws -> LeoEditorOpenOutcome {
+        openRequests += 1
         let baseAccess = access ?? self.makeAccess
         let makeAccess: @MainActor (LeoHostID) throws -> any LeoFileAccess = { host in
             let access = try baseAccess(host)

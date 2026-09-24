@@ -13,12 +13,15 @@ extension LeoRuntime {
             return
         }
         let editor = session.editor
+        let paneOpens = editor.openRequests
+        let stillWanted = model.surfacedAutoOpenGuard(for: file, row: row)
         let target = LeoSurfacedFileOpener.Target(
             stat: { try await editor.stat($0) },
             open: { fileID, line in
                 try await editor.open(fileID, line: line, readDeadline: mode == .automatic ? .automaticOpen : nil)
             },
-            reportError: { [weak controller] in LeoEditorAlerts.presentError($0, on: controller?.window) }
+            reportError: { [weak controller] in LeoEditorAlerts.presentError($0, on: controller?.window) },
+            isStillWanted: { stillWanted() && editor.openRequests == paneOpens }
         )
         Task { await surfacedFileOpener.open(file, host: row.host, mode: mode, in: target) }
     }
