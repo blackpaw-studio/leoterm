@@ -34,13 +34,32 @@ struct LeoCannotStartAlertTests {
 
     // MARK: - Content
 
-    @Test func theAlertNamesTheProblemWithTheShortPath() {
+    /// The sentence never holds a path (a long file name wrapped and got
+    /// hyphenated in it); the short path goes on its own line below.
+    @Test func theSentenceNamesTheProblemAndThePathHasItsOwnLine() {
         let alert = LeoCannotStartAlert(refusal: LeoInstanceLockRefusal(error: .linked, path: Self.lockPath), fileExists: { _ in true })
 
         #expect(alert.messageText == "Leo can’t start")
-        #expect(alert.informativeText
-            == "…/leo/studio.blackpaw.leo.macos.instance.lock has other hard links. Remove it and open Leo again.")
-        #expect(!alert.informativeText.contains("/var/folders"))
+        #expect(alert.informativeText == "Leo’s instance lock has other hard links. Remove it and open Leo again.")
+        #expect(alert.pathLine == LeoCannotStartAlert.PathLine(
+            text: "…/leo/studio.blackpaw.leo.macos.instance.lock", fullPath: Self.lockPath
+        ))
+    }
+
+    @Test(arguments: [
+        (LeoInstanceLockError.notARegularFile, "Leo’s instance lock is a symlink or not a regular file. Remove it and open Leo again."),
+        (.notOwned, "Leo’s instance lock belongs to another user. Remove it and open Leo again."),
+        (.system(EACCES), "Leo’s instance lock can’t be locked: Permission denied."),
+        (.directory(.notADirectory), "Leo’s lock folder is a symlink or not a folder. Remove it and open Leo again."),
+        (.directory(.notOwned), "Leo’s lock folder belongs to another user. Remove it and open Leo again."),
+        (.directory(.unsafeParent), "The folder containing Leo’s lock folder can be changed by other users."),
+        (.directory(.system(ENOENT)), "Leo’s lock folder can’t be checked: No such file or directory."),
+    ])
+    func everyFileRefusalSentenceIsPathFree(error: LeoInstanceLockError, sentence: String) {
+        let alert = LeoCannotStartAlert(refusal: LeoInstanceLockRefusal(error: error, path: Self.lockPath), fileExists: { _ in true })
+
+        #expect(alert.informativeText == sentence)
+        #expect(alert.pathLine?.fullPath == Self.lockPath)
     }
 
     @Test func anExistingFileIsRevealedItself() {
@@ -70,6 +89,7 @@ struct LeoCannotStartAlertTests {
         let alert = LeoCannotStartAlert(refusal: refusal, fileExists: { _ in Issue.record("must not stat"); return true })
 
         #expect(alert.revealTarget == nil)
+        #expect(alert.pathLine == nil)
         #expect(alert.informativeText == refusal.message)
     }
 
@@ -104,6 +124,28 @@ struct LeoCannotStartAlertTests {
         let alert = LeoCannotStartAlertPresenter(content: content, reveal: { _ in Issue.record("must not reveal") }).makeAlert()
 
         #expect(alert.buttons.map(\.title) == ["Quit"])
+        #expect(alert.accessoryView == nil)
+    }
+
+    /// One selectable line, truncated in the middle rather than wrapped,
+    /// the whole path in its tooltip, as wide as the alert's text.
+    @MainActor
+    @Test func thePathLineIsOneMiddleTruncatedSelectableLine() throws {
+        let content = LeoCannotStartAlert(refusal: LeoInstanceLockRefusal(error: .linked, path: Self.lockPath), fileExists: { _ in true })
+
+        let alert = LeoCannotStartAlertPresenter(content: content, reveal: { _ in }).makeAlert()
+
+        let label = try #require(alert.accessoryView as? NSTextField)
+        #expect(label.stringValue == "…/leo/studio.blackpaw.leo.macos.instance.lock")
+        #expect(label.toolTip == Self.lockPath)
+        #expect(label.lineBreakMode == .byTruncatingMiddle)
+        #expect(label.maximumNumberOfLines == 1)
+        #expect(label.usesSingleLineMode)
+        #expect(label.isSelectable)
+        #expect(!label.isEditable)
+        #expect(label.frame.width > 0)
+        #expect(label.frame.width <= alert.window.frame.width)
+        #expect(label.frame.height < 2 * label.intrinsicContentSize.height, "one line, not wrapped")
     }
 
     // MARK: - Debug trigger
