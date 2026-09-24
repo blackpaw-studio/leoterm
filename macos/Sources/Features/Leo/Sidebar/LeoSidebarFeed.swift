@@ -56,7 +56,11 @@ actor LeoSidebarFeed {
     var metadataTask: Task<Void, Never>?
     /// The request number of the metadata fetch in flight, if any.
     var metadataInFlight: Int?
-    /// Something asked for a snapshot while one was in flight.
+    /// A snapshot is owed: asked for while one was in flight, or activity
+    /// was drained outside a flush. Consumed when the fetch in flight
+    /// finishes, after a list refresh, and after a `/state` baseline
+    /// applies; cleared by `resetMetadata` and when a baseline fetch
+    /// starts (the baseline covers it).
     var metadataRefreshPending = false
     var metadataRequestSeq = 0
     var metadataAppliedSeq = 0

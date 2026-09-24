@@ -7,6 +7,9 @@ extension LeoSidebarFeed {
     func fetchActivityState(generation: Int) {
         activityTask?.cancel()
         let metadataRequest = nextMetadataRequest()
+        // This baseline covers whatever was owed until now; only activity
+        // drained after it starts needs a snapshot of its own.
+        metadataRefreshPending = false
         activityTask = Task { [weak self, activitySource] in
             do {
                 let state = try await Self.fetchState(from: activitySource)
@@ -72,6 +75,9 @@ extension LeoSidebarFeed {
         // fetch fixing/breaking an agent's activity overlay isn't that.
         snapshot = snapshot.replacingRows(LeoSidebarReducers.mergeActivity(snapshot.rows, activityByName: activityByName), listRefreshSucceeded: false)
         emit()
+        // Activity drained here (or pending from before) may postdate
+        // `state`: its snapshot follows now.
+        if metadataRefreshPending { requestMetadataRefresh() }
     }
 
     static func fetchState(from source: LeoSidebarActivitySource) async throws -> [LeoObservedAgent] {

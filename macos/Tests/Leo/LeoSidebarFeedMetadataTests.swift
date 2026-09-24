@@ -178,6 +178,32 @@ struct LeoSidebarFeedMetadataTests {
         await harness.stop()
     }
 
+    /// An event coalesced while the baseline `/state` is in flight, drained
+    /// by that baseline before its flush timer fires: the baseline may
+    /// predate it, so a trailing snapshot must follow -- without any poll
+    /// tick or later event to prompt it (the clock is never advanced).
+    @Test func anEventDrainedByTheBaselineGetsATrailingSnapshot() async throws {
+        let harness = MetadataHarness(agents: [("alpha", "s1")], state: [observed("alpha", "s1", task: "before")])
+        await harness.activity.holdNext()
+        await harness.start()
+        try await until { await harness.activity.heldCount == 1 }
+
+        await harness.activity.send(.agentActivity(seq: 2, at: nil, agent: "alpha", activity: .working, currentAction: nil))
+        try await until { await harness.feed.activityCoalesceTask != nil }
+        await harness.activity.setState([observed("alpha", "s1", task: "after")])
+        // Any trailing fetch is held in turn; then the baseline is released.
+        await harness.activity.holdNext()
+        await harness.activity.releaseHeld()
+        try await until { await harness.recorder.last?.rows.first?.metadata?.task == "before" }
+
+        // Started in the same turn the baseline applied.
+        #expect(await harness.feed.metadataInFlight != nil, "the drained event's refresh was never started")
+        try await until { await harness.activity.heldCount == 1 }
+        await harness.activity.releaseHeld()
+        try await until { await harness.recorder.last?.rows.first?.metadata?.task == "after" }
+        await harness.stop()
+    }
+
     @Test func burstsOfActivityShareOneFetchInFlight() async throws {
         let harness = MetadataHarness(agents: [("alpha", "s1")], state: [observed("alpha", "s1", task: "first")])
         await harness.start()
