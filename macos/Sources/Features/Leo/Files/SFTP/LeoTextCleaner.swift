@@ -56,7 +56,7 @@ struct LeoTextCleaner {
     ]
     /// Bases with a standardized emoji variation sequence: Unicode 18.0.0
     /// emoji-variation-sequences.txt (the same bases take FE0E and FE0F).
-    private static let variationBases: Set<UInt32> = [
+    static let variationBases: Set<UInt32> = [
         0x23, 0x2A, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0xA9, 0xAE, 0x203C, 0x2049, 0x2122,
         0x2139, 0x2194, 0x2195, 0x2196, 0x2197, 0x2198, 0x2199, 0x21A9, 0x21AA, 0x231A, 0x231B, 0x2328, 0x23CF, 0x23E9,
         0x23EA, 0x23EB, 0x23EC, 0x23ED, 0x23EE, 0x23EF, 0x23F0, 0x23F1, 0x23F2, 0x23F3, 0x23F8, 0x23F9, 0x23FA, 0x24C2,
@@ -89,9 +89,12 @@ struct LeoTextCleaner {
     ]
     /// The RGI subdivision flags (England, Scotland, Wales): the only tag
     /// sequences kept, as tags spell ASCII invisibly ("ASCII smuggling").
-    private static let subdivisionFlags: [[Unicode.Scalar]] = ["gbeng", "gbsct", "gbwls"].map { code in
+    static let subdivisionFlags: [[Unicode.Scalar]] = ["gbeng", "gbsct", "gbwls"].map { code in
         ["\u{1F3F4}"] + code.unicodeScalars.compactMap { Unicode.Scalar(0xE0000 + $0.value) } + ["\u{E007F}"]
     }
+
+    /// Finds the RGI flags and ZWJ sequences `clean` keeps whole.
+    static let sequenceMatcher: LeoSequenceMatcher = LeoLinearSequenceMatcher()
 
     /// Characters that read as a double quote. The app quotes with “ ”, so
     /// only these could close its quote; apostrophes and single quotes stay.
@@ -104,22 +107,30 @@ struct LeoTextCleaner {
     /// `input` cleaned, whitespace kept (as one space) at either end.
     /// `keepingQuotes`: the app's own words keep their curly quotes.
     static func clean(_ input: [Unicode.Scalar], keepingQuotes: Bool) -> String {
+        cleaned(input, keepingQuotes: keepingQuotes).text
+    }
+
+    /// `clean`, with the steps `matcher` took to find the RGI sequences.
+    static func cleaned(
+        _ input: [Unicode.Scalar], keepingQuotes: Bool, matcher: LeoSequenceMatcher = sequenceMatcher
+    ) -> (text: String, matchSteps: Int) {
         let scalars = Array(String(String.UnicodeScalarView(input)).decomposedStringWithCanonicalMapping.unicodeScalars)
         var cleaner = LeoTextCleaner(keepsQuotes: keepingQuotes)
         var index = 0
+        var steps = 0
         while index < scalars.count {
-            let rest = scalars[index...]
-            let sequences = subdivisionFlags + (LeoUnicodeData.zwjSequences[scalars[index]] ?? [])
-            if let sequence = sequences.first(where: { rest.starts(with: $0) }) {
-                cleaner.appendBase(sequence)
+            let match = matcher.longestMatch(in: scalars[index...])
+            steps += match.steps
+            if match.length > 0 {
+                cleaner.appendBase(Array(scalars[index..<(index + match.length)]))
                 cleaner.canTakeSelector = false
-                index += sequence.count
+                index += match.length
                 continue
             }
             cleaner.take(scalars[index], next: scalars.indices.contains(index + 1) ? scalars[index + 1] : nil)
             index += 1
         }
-        return (String(cleaner.output) + (cleaner.isSpacePending ? " " : "")).precomposedStringWithCanonicalMapping
+        return ((String(cleaner.output) + (cleaner.isSpacePending ? " " : "")).precomposedStringWithCanonicalMapping, steps)
     }
 
     private let keepsQuotes: Bool
