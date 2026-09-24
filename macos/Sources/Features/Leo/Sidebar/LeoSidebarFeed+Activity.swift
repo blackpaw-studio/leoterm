@@ -22,7 +22,11 @@ extension LeoSidebarFeed {
     func drainCoalescedActivity() {
         activityCoalesceTask?.cancel()
         activityCoalesceTask = nil
-        mergeIntoActivityByName(activityCoalescer.drain())
+        let events = activityCoalescer.drain()
+        mergeIntoActivityByName(events)
+        // Asked for by whatever runs next (a list refresh or lifecycle
+        // event), or dropped by a recovery that fetches `/state` anyway.
+        if !events.isEmpty { metadataRefreshPending = true }
     }
 
     func scheduleActivityFlush() {
@@ -47,6 +51,9 @@ extension LeoSidebarFeed {
         let events = activityCoalescer.drain()
         guard !events.isEmpty else { return }
         mergeIntoActivityByName(events)
+        // The events only say something changed; the metadata comes from a
+        // fresh snapshot, never from their payloads (D-074).
+        requestMetadataRefresh()
         // Not a list refresh -- `LeoSidebarModel.receive` only clears row
         // errors when `listRefreshSucceeded` is true, which a coalesced
         // activity-only flush never is (matches the old per-event

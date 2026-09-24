@@ -6,11 +6,12 @@ import Foundation
 extension LeoSidebarFeed {
     func fetchActivityState(generation: Int) {
         activityTask?.cancel()
+        let metadataRequest = nextMetadataRequest()
         activityTask = Task { [weak self, activitySource] in
             do {
                 let state = try await Self.fetchState(from: activitySource)
                 guard let self else { return }
-                await self.applyActivityState(state, generation: generation)
+                await self.applyActivityState(state, generation: generation, metadataRequest: metadataRequest)
             } catch is CancellationError {
                 return
             } catch {
@@ -56,8 +57,9 @@ extension LeoSidebarFeed {
         return try result.get()
     }
 
-    func applyActivityState(_ state: [LeoObservedAgent], generation: Int) {
+    func applyActivityState(_ state: [LeoObservedAgent], generation: Int, metadataRequest: Int) {
         guard running, generation == snapshot.generation else { return }
+        applyMetadata(state, request: metadataRequest, generation: generation)
         // `state` is the authoritative baseline as of when the fetch
         // started; anything coalesced since then is newer, so it's merged
         // in on top rather than lost.

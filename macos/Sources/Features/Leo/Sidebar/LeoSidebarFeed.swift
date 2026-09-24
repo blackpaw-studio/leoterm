@@ -50,6 +50,16 @@ actor LeoSidebarFeed {
     let sleeper: @Sendable (UInt64) async throws -> Void
     var snapshot = LeoSidebarSnapshot(rows: [], connectivity: .loading, generation: 0)
     var activityByName: [String: LeoSidebarActivity] = [:]
+    /// Row metadata from the latest applied `/state` snapshot -- see
+    /// `LeoSidebarFeed+Metadata.swift`.
+    var metadata = LeoAgentMetadataIndex.empty
+    var metadataTask: Task<Void, Never>?
+    /// The request number of the metadata fetch in flight, if any.
+    var metadataInFlight: Int?
+    /// Something asked for a snapshot while one was in flight.
+    var metadataRefreshPending = false
+    var metadataRequestSeq = 0
+    var metadataAppliedSeq = 0
     var bufferedActivity: [LeoObserveEvent] = []
     /// Coalesces `agentActivity` SSE events so a chatty agent applies at
     /// most one merge + emission per `activityCoalesceInterval`, instead of
@@ -135,6 +145,7 @@ actor LeoSidebarFeed {
         activityCoalesceTask?.cancel()
         attentionTask?.cancel()
         cancelLivenessCheck()
+        resetMetadata()
         attentionTask = nil
         eventTask = nil
         refreshTask = nil
@@ -240,6 +251,7 @@ actor LeoSidebarFeed {
             process(scheduler.reduce(.sseEvent(event)))
         case .agentSpawned, .agentStateChanged, .agentStopped:
             process(scheduler.reduce(.sseEvent(event)))
+            requestMetadataRefresh()
         case .agentActivity:
             if recovering {
                 bufferedActivity.append(event)
@@ -256,6 +268,7 @@ actor LeoSidebarFeed {
     private func prepareRecovery() {
         snapshot = LeoSidebarSnapshot(rows: snapshot.rows, connectivity: snapshot.connectivity, generation: snapshot.generation + 1)
         activityByName = [:]
+        resetMetadata()
         recovering = true
         needsState = true
         attention.beginRecovery()
@@ -309,6 +322,8 @@ actor LeoSidebarFeed {
             if fetchState {
                 stateFetchStarted = true
                 fetchActivityState(generation: generation)
+            } else if metadataRefreshPending {
+                requestMetadataRefresh()
             }
         } catch is CancellationError {
             wasCancelled = true
@@ -331,7 +346,7 @@ actor LeoSidebarFeed {
     }
 
     func emit() {
-        let value = snapshot.overlayingAttention(attention)
+        let value = snapshot.overlayingMetadata(metadata).overlayingAttention(attention)
         let previous = emissionTask
         emissionTask = Task { [weak self, sink] in
             await previous?.value
@@ -388,7 +403,8 @@ actor LeoSidebarFeed {
     }
 
     private static func row(_ agent: LeoAgent, host: LeoHostID) -> LeoAgentRow {
-        LeoAgentRow(host: host, name: agent.name, template: agent.template, status: agent.status ?? .unknown("missing"), activity: .unknown, actionDetail: nil, workspace: agent.workspace, repo: agent.repo)
+        LeoAgentRow(host: host, name: agent.name, template: agent.template, status: agent.status ?? .unknown("missing"), activity: .unknown, actionDetail: nil, workspace: agent.workspace, repo: agent.repo,
+                    startedAt: agent.startedAt)
     }
 }
 

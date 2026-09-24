@@ -18,9 +18,13 @@ struct LeoObservedAgent: Codable, Equatable, Sendable {
     let currentAction: LeoCurrentAction?
     let lastActivityAt: String?
     let attention: LeoAttentionSignal?
+    /// When this incarnation started; the same value the agent list
+    /// reports, so it identifies which incarnation an entry describes.
+    let startedAt: String?
 
     init(name: String, host: String? = nil, status: LeoAgentStatus?, activity: LeoActivity?,
-         currentAction: LeoCurrentAction?, lastActivityAt: String?, attention: LeoAttentionSignal? = nil) {
+         currentAction: LeoCurrentAction?, lastActivityAt: String?, attention: LeoAttentionSignal? = nil,
+         startedAt: String? = nil) {
         self.name = name
         self.host = host
         self.status = status
@@ -28,12 +32,14 @@ struct LeoObservedAgent: Codable, Equatable, Sendable {
         self.currentAction = currentAction
         self.lastActivityAt = lastActivityAt
         self.attention = attention
+        self.startedAt = startedAt
     }
 
     enum CodingKeys: String, CodingKey {
         case name, host, status, activity, attention
         case currentAction = "current_action"
         case lastActivityAt = "last_activity_at"
+        case startedAt = "started_at"
     }
 
     /// Hand-written only so a malformed optional `attention` degrades to
@@ -47,6 +53,7 @@ struct LeoObservedAgent: Codable, Equatable, Sendable {
         currentAction = try container.decodeIfPresent(LeoCurrentAction.self, forKey: .currentAction)
         lastActivityAt = try container.decodeIfPresent(String.self, forKey: .lastActivityAt)
         attention = try container.decodeIfPresent(LeoLenientAttention.self, forKey: .attention)?.value
+        startedAt = try? container.decodeIfPresent(String.self, forKey: .startedAt)
     }
 }
 

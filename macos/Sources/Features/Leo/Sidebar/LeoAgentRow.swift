@@ -165,23 +165,13 @@ struct LeoAgentRowView: View {
                     attachAffordance
                 }
             }
-            // The tab glyph lives on the subtitle line, never the name line,
-            // so it costs the name no width.
-            if presentation.subtitle != nil || presentation.tabs != nil {
-                HStack(spacing: 4) {
-                    if let subtitle = presentation.subtitle {
-                        // VoiceOver already hears the state on the name's label, so
-                        // the subtitle reads only the template, as it did before.
-                        subtitleText(subtitle).font(.caption).lineLimit(1)
-                            .accessibilityLabel(subtitle.template ?? "")
-                            .accessibilityHidden(subtitle.template == nil)
-                    }
-                    Spacer(minLength: 4)
-                    tabsGlyph
-                }
-            }
-            if let detail = row.actionDetail, !detail.isEmpty {
-                Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            subtitleLine
+            // The current task as the daemon's last snapshot reported it
+            // (already sanitized); the tooltip holds what the line cuts.
+            if let task = presentation().task {
+                Text(task).font(.caption).foregroundStyle(.secondary)
+                    .lineLimit(1).truncationMode(.tail)
+                    .help(task)
             }
             if let error, !error.isEmpty {
                 Text(error).font(.caption).foregroundStyle(Color(nsColor: .systemRed)).lineLimit(2)
@@ -205,20 +195,48 @@ struct LeoAgentRowView: View {
         }
     }
 
-    private var presentation: LeoAgentRowPresentation {
-        LeoAgentRowPresentation(row: row, isSelected: isSelected, tabCount: tabCount)
+    private func presentation(now: Date? = nil) -> LeoAgentRowPresentation {
+        LeoAgentRowPresentation(row: row, isSelected: isSelected, tabCount: tabCount, now: now)
     }
 
-    /// "claude · Needs Input": the template in secondary, the attention
-    /// state word in its state color. One concatenated `Text` so the line
-    /// truncates as a whole.
+    /// Only a row with a "last active" time re-renders, once a minute --
+    /// never per event.
+    @ViewBuilder private var subtitleLine: some View {
+        if row.metadata?.lastActiveAt != nil || row.metadata?.isWorking == true {
+            TimelineView(.everyMinute) { context in subtitleLine(presentation(now: context.date)) }
+        } else {
+            subtitleLine(presentation())
+        }
+    }
+
+    /// The tab glyph lives on the subtitle line, never the name line, so
+    /// it costs the name no width.
+    @ViewBuilder private func subtitleLine(_ presentation: LeoAgentRowPresentation) -> some View {
+        if presentation.subtitle != nil || presentation.tabs != nil {
+            HStack(spacing: 4) {
+                if let subtitle = presentation.subtitle {
+                    // VoiceOver already hears the state on the name's label, so
+                    // the subtitle reads only the template and the time.
+                    subtitleText(subtitle).font(.caption).lineLimit(1)
+                        .accessibilityLabel(subtitle.accessibilityLabel)
+                        .accessibilityHidden(subtitle.accessibilityLabel.isEmpty)
+                }
+                Spacer(minLength: 4)
+                tabsGlyph(presentation)
+            }
+        }
+    }
+
+    /// "claude · Needs Input · 5m": the template and the last-active time
+    /// in secondary, the attention state word in its state color. One
+    /// concatenated `Text` so the line truncates as a whole.
     private func subtitleText(_ subtitle: LeoAgentRowPresentation.Subtitle) -> Text {
         let template = subtitle.template.map { Text($0).foregroundColor(.secondary) }
         let state = subtitle.state.map { Text($0.label).foregroundColor($0.tint) }
-        let separator = template != nil && state != nil
-            ? Text(LeoAgentRowPresentation.Subtitle.separator).foregroundColor(.secondary)
-            : nil
-        return [template, separator, state].compactMap { $0 }.reduce(Text(""), +)
+        let lastActive = subtitle.lastActive.map { Text($0).foregroundColor(.secondary) }
+        let separator = Text(LeoAgentRowPresentation.Subtitle.separator).foregroundColor(.secondary)
+        let parts = [template, state, lastActive].compactMap { $0 }
+        return parts.dropFirst().reduce(parts.first ?? Text("")) { $0 + separator + $1 }
     }
 
     /// Static (no animation), fixed-width, icon-only attention badge so it
@@ -226,7 +244,7 @@ struct LeoAgentRowView: View {
     /// line. The symbol's shape carries the state for color-blind users and
     /// is hidden from VoiceOver, which reads the state from the name's label.
     @ViewBuilder private var attentionBadge: some View {
-        if let badge = presentation.badge {
+        if let badge = presentation().badge {
             Image(systemName: badge.symbolName)
                 .font(.caption)
                 .frame(width: 14, height: 14)
@@ -242,7 +260,7 @@ struct LeoAgentRowView: View {
 
     /// Static, secondary-colored: the agent has live attach tabs. The
     /// number appears only from two up.
-    @ViewBuilder private var tabsGlyph: some View {
+    @ViewBuilder private func tabsGlyph(_ presentation: LeoAgentRowPresentation) -> some View {
         if let tabs = presentation.tabs {
             HStack(spacing: 2) {
                 Image(systemName: LeoAgentRowPresentation.Tabs.symbolName)

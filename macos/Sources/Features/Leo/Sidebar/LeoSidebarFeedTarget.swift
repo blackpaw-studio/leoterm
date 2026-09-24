@@ -67,6 +67,7 @@ extension LeoSidebarFeed {
             // poll in the meantime (see LeoSidebarFeedHostSwitchTests).
             scheduler.resetConnectionTracking()
             activityByName = [:]
+            resetMetadata()
             bufferedActivity = []
             attentionTask?.cancel()
             attentionTask = nil

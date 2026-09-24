@@ -24,6 +24,7 @@ extension LeoSidebarFeed {
         activityCoalesceTask = nil
         activityCoalescer = LeoActivityCoalescer()
         activityByName = [:]
+        resetMetadata()
         bufferedActivity = []
         attention.disconnect()
         scheduleAttentionTick()
@@ -40,7 +41,7 @@ extension LeoSidebarFeed {
         snapshot = LeoSidebarSnapshot(
             rows: snapshot.rows.map {
                 LeoAgentRow(host: $0.host, name: $0.name, template: $0.template, status: $0.status, activity: .unknown, actionDetail: nil,
-                            workspace: $0.workspace, repo: $0.repo)
+                            workspace: $0.workspace, repo: $0.repo, startedAt: $0.startedAt)
             },
             connectivity: .disconnected(reason: reason, isRetrying: false),
             generation: snapshot.generation + 1
