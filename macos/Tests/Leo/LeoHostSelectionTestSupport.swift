@@ -16,7 +16,8 @@ enum LeoHostSelectionTestSupport {
     /// (B-032): a fixed path is shared by every run and parallel worker, so
     /// a later run meets stale sockets and one worker's
     /// `LeoTunnel.removeStaleSocket()` can unlink another's live socket.
-    /// `LeoRealCacheDirectoryGuard` removes it when the bundle finishes.
+    /// Reserved atomically (`socketDirectoryReservation`), and removed by
+    /// `LeoRealCacheDirectoryGuard` when the bundle finishes.
     /// Tests that care about the directory's own permissions use their own
     /// (`makeIsolatedSocketDirectory`). `/tmp` (not `$TMPDIR`) and only 8
     /// hex characters deliberately: macOS's per-process `$TMPDIR`
@@ -24,7 +25,16 @@ enum LeoHostSelectionTestSupport {
     /// socket path past the AF_UNIX limit `LeoSSHCommand.tunnelArguments`
     /// enforces -- the same overflow that motivated moving the production
     /// directory.
-    static let localSocketDirectory = makeIsolatedSocketDirectory()
+    static let localSocketDirectory: URL = {
+        do {
+            return try socketDirectoryReservation.reserve()
+        } catch {
+            preconditionFailure("could not reserve the test socket directory: \(error)")
+        }
+    }()
+
+    /// 27 bytes, like `makeIsolatedSocketDirectory`'s paths.
+    static let socketDirectoryReservation = LeoReservedTestDirectory(template: "/tmp/leoterm-tests-XXXXXXXX")
 
     @MainActor static func makeSelection(
         hosts: [LeoHostConfiguration] = [],
