@@ -200,9 +200,10 @@ Accept: ⌘F focuses the sidebar filter, fuzzy match, Escape clears.
 Source: roadmap Tier 2
 Done: 93a8c5b9f 823a717fb 03974e177 (1309 tests). Agents ▸ Find Agent… (⌥⌘F, since ⌘F is Ghostty's Find) shows and focuses the filter; ranked fuzzy match with bold matched letters; Escape clears, then returns focus; Return = click the top row (D-071, D-072). Verified: shots B-009-1 ("lha" → leo-home-assistant), B-009-2 (Escape clears), B-009-3 (hidden sidebar → shown + focused, bold "vit"). 1 fix round. New: B-042.
 
-## B-042 · Agent palette: use the sidebar's fuzzy matcher   [ready]
+## B-042 · Agent palette: use the sidebar's fuzzy matcher   [done]
 Accept: the agent palette (Choose Agent… / ⌘T picker) still uses substring filtering. Reuse `LeoFuzzyMatcher` ranking and bolding so both searches behave the same.
 Source: B-009 implementer
+Done: 9a355633e (1352 tests). Palette ranks and bolds with `LeoFuzzyMatcher`; secondary field is repo (D-078). Verified: shot B-042-1 ("lha" → leo-home-assistant on top, bold letters). Review clean.
 
 ## B-010 · Sort and pin   [blocked]
 Accept: default sort by last activity; pin favourites to top; remember

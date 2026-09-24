@@ -612,3 +612,10 @@ Why: one source for disconnected copy; Mac-native (tooltip for truncated text)
 Alternatives: copy the banner's strings into a status row (drifts, which is how B-041 happened)
 Commit: 40966ae59
 Veto: [ ]
+
+## D-078 · 2026-09-24 · B-042: palette fuzzy match on name, then repo
+Chose: the agent palette uses `LeoFuzzyMatcher` (same ranking, bolding, case folding as the sidebar), but its secondary field is repo, not template, because repo is the subtitle a palette row shows and the old substring filter matched it; only the name is bolded; New Agent…, Plain Shell, status and disconnected rows keep their placement; empty query keeps sidebar order; a filter change selects the top row. Sidebar and palette each keep a 3-line bolding helper (the matcher has no SwiftUI)
+Why: keyboard-first — both searches behave the same; don't match text the row doesn't show
+Alternatives: name + template like the sidebar (matches invisible text); name only (drops the old repo matching)
+Commit: 9a355633e
+Veto: [ ]
