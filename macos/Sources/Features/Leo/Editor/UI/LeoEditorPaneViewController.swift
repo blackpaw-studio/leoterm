@@ -46,12 +46,17 @@ final class LeoEditorPaneViewController: NSViewController {
     override func loadView() {
         let separator = NSBox()
         separator.boxType = .separator
-        let stack = NSStackView(views: [header, separator, banner, scrollView])
+        let rows = [header, separator, banner, scrollView]
+        let stack = NSStackView(views: rows)
         stack.orientation = .vertical
         stack.spacing = 0
         stack.alignment = .width
         stack.setHuggingPriority(.defaultLow, for: .vertical)
         stack.setAccessibilityLabel("Editor pane")
+        // `.width` alignment alone leaves a row as narrow as its content:
+        // the banner then sat at the trailing edge (B-045). Every row spans
+        // the pane.
+        NSLayoutConstraint.activate(rows.map { $0.widthAnchor.constraint(equalTo: stack.widthAnchor) })
         view = stack
         view.widthAnchor.constraint(greaterThanOrEqualToConstant: Self.minimumWidth).isActive = true
     }
