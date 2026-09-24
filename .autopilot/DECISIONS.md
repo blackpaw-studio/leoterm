@@ -598,3 +598,10 @@ Why: never invent a state; calm (no per-event re-render); the time is the new in
 Alternatives: merge event payloads (B-010's race); truncate the whole subtitle as one string (hides the time)
 Commit: a8b800d41 fd679d90a 8b5808341
 Veto: [ ]
+
+## D-076 · 2026-09-24 · B-043: drop the template from a too-narrow subtitle
+Chose: when the row subtitle can't show at least ~5 characters of the template, drop the template and keep state + time; a template that fits whole still shows; the full subtitle stays in the tooltip/accessibility label. Implementer calls: minimum is exactly 5 chars; a subtitle that is only the template never drops it; widths measured with the .caption1 NSFont; the tooltip now shows on every row with a subtitle.
+Why: calm — the trailing column is reserved for the attention badge, so the time stays in the subtitle; "clau…" is noise, not information
+Alternatives: move the time to the trailing badge column (competes with the attention badge); a second subtitle line (taller rows)
+Commit: bb7b9f81c 94685a65c
+Veto: [ ]

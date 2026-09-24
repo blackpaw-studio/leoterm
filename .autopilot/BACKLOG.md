@@ -216,9 +216,10 @@ when the daemon exposes them.
 Source: roadmap Tier 2
 Done: a8b800d41 fd679d90a 8b5808341 (1338 tests). Rows show "· 13h" / "· Sep 23" from identity-checked /observe/state snapshots (`started_at` match), and a task line when the daemon reports `current_action` (none live today). Tokens/cost aren't exposed per agent, so they're omitted (D-074, D-075). Verified: shots B-011-1 (first build, time truncated) and B-011-2 (time always shown). Task line not seen live (no agent reports one); unit-tested. 2 fix rounds. New: B-043.
 
-## B-043 · Row subtitle squeezes the template to "clau…"   [ready]
+## B-043 · Row subtitle squeezes the template to "clau…"   [done]
 Accept: at default sidebar width, B-011's never-truncating time squeezes the template to "clau…" or "…" (shot B-011-2). Drop the template from the subtitle when it can't fit at least ~5 characters, or move the time to the trailing badge column, so the line reads cleanly.
 Source: B-011 visual check
+Done: bb7b9f81c 94685a65c (1346 tests). The template drops when fewer than 5 chars would show; a template that fits whole always shows (D-076). Verified: shot B-043-1 ("claude · Finished · 16h", "assist… · Finished · 16h"). 1 fix round (review MED: whole-fit check first); re-review clean.
 
 ## B-012 · Cold start   [ready]
 Accept: measure launch with sidebar visible; if first fetch blocks first
