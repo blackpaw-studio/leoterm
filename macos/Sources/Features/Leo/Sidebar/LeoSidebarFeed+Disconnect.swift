@@ -17,8 +17,7 @@ extension LeoSidebarFeed {
         eventTask = nil
         refreshTask?.cancel()
         activityTask?.cancel()
-        livenessTask?.cancel()
-        livenessTask = nil
+        cancelLivenessCheck()
         sseRefreshTask?.cancel()
         sseRefreshTask = nil
         activityCoalesceTask?.cancel()
@@ -51,26 +50,41 @@ extension LeoSidebarFeed {
 
     /// One liveness check after the Mac wakes (single shot, never
     /// repeated): the agent list, bounded by `fetchList`'s deadline. A
-    /// failure disconnects; a success changes nothing.
-    func checkLiveness() {
-        guard running, selectedHostAvailable, !isDisconnected else { return }
-        livenessTask?.cancel()
-        let generation = connectionGeneration
+    /// failure disconnects; a success changes nothing. Returns the check's
+    /// token, or nil when none runs.
+    @discardableResult
+    func checkLiveness() -> Int? {
+        guard running, selectedHostAvailable, !isDisconnected else { return nil }
+        cancelLivenessCheck()
+        let token = livenessToken
         livenessTask = Task { [weak self] in
             guard let self else { return }
             do {
                 _ = try await self.fetchList()
+                await self.livenessCheckFinished(.success(()), token: token)
             } catch is CancellationError {
                 return
             } catch {
-                await self.livenessCheckFailed(error, generation: generation)
+                await self.livenessCheckFinished(.failure(error), token: token)
             }
         }
+        return token
     }
 
-    private func livenessCheckFailed(_ error: Error, generation: Int) {
+    /// Cancels the check in flight and retires its token, so a result it
+    /// may still deliver is recognized as stale.
+    func cancelLivenessCheck() {
+        livenessTask?.cancel()
         livenessTask = nil
-        guard generation == connectionGeneration, selectedHostAvailable, !isDisconnected else { return }
-        disconnect(reason: error.localizedDescription)
+        livenessToken += 1
+    }
+
+    /// Applies check `token`'s result -- only if it's still the latest
+    /// check: a superseded one (its error already on its way when the next
+    /// wake cancelled it) must never disconnect a healthy connection.
+    func livenessCheckFinished(_ result: Result<Void, Error>, token: Int) {
+        guard token == livenessToken, selectedHostAvailable, !isDisconnected else { return }
+        livenessTask = nil
+        if case .failure(let error) = result { disconnect(reason: error.localizedDescription) }
     }
 }

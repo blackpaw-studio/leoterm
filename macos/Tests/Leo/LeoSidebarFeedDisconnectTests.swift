@@ -200,6 +200,70 @@ struct LeoSidebarFeedDisconnectTests {
         await harness.stop()
     }
 
+    /// `LeoRuntime` forwards each phase in its own task, so an older
+    /// generation's phase can land after a newer Retry connected. It must
+    /// never reset or disconnect the live sidebar.
+    @Test func phasesFromAnOlderGenerationNeverReplaceALiveRetry() async throws {
+        let harness = DisconnectHarness(results: [.success(["alpha"])], host: .remote("mars"))
+        await harness.connect()
+        await harness.waitFor { $0.connectivity == .connected }
+        await harness.activity.send(.disconnected(reason: "Connection closed"))
+        await harness.waitFor { if case .disconnected = $0.connectivity { true } else { false } }
+
+        let retryDaemon = DisconnectDaemon(results: [.success(["alpha", "beta"])])
+        await harness.feed.updateConnection(
+            host: .remote("mars"), generation: 3,
+            phase: .connected(daemon: retryDaemon, activitySource: DisconnectActivity().source)
+        )
+        await harness.waitFor { $0.connectivity == .connected && $0.rows.map(\.name) == ["alpha", "beta"] }
+        let emitted = await harness.recorder.count
+
+        await harness.feed.updateConnection(host: .remote("mars"), generation: 2, phase: .connecting)
+        await harness.feed.updateConnection(host: .remote("mars"), generation: 2, phase: .failed(message: "stale"))
+        await harness.feed.updateConnection(host: .remote("mars"), generation: 1, phase: .failed(message: "older"))
+        await harness.settle()
+
+        #expect(await harness.recorder.count == emitted)
+        #expect(await harness.recorder.last?.connectivity == .connected)
+        #expect(await harness.recorder.last?.rows.map(\.name) == ["alpha", "beta"])
+        await harness.feed.refresh()
+        await awaitCondition { await retryDaemon.listCallCount == 2 }
+        await harness.stop()
+    }
+
+    /// Within one generation, `.connecting` always precedes `.connected`;
+    /// a late one is stale and must not take the host down.
+    @Test func aLateConnectingForTheLiveGenerationIsIgnored() async throws {
+        let harness = DisconnectHarness(results: [.success(["alpha"]), .success(["alpha"])], host: .remote("mars"))
+        await harness.connect()
+        await harness.waitFor { $0.connectivity == .connected }
+
+        await harness.feed.updateConnection(host: .remote("mars"), generation: 1, phase: .connecting)
+        await harness.feed.refresh()
+
+        await awaitCondition { await harness.daemon.listCallCount == 2 }
+        #expect(await harness.recorder.last?.connectivity == .connected)
+        await harness.stop()
+    }
+
+    /// A superseded wake check's failure (e.g. one whose error was already
+    /// on its way when the next wake cancelled it) never disconnects.
+    @Test func aStaleWakeCheckFailureIsIgnored() async throws {
+        let harness = DisconnectHarness(results: [.success(["alpha"])])
+        await harness.connect()
+        await harness.waitFor { $0.connectivity == .connected }
+
+        let first = await harness.feed.checkLiveness()
+        let second = await harness.feed.checkLiveness()
+        await harness.daemon.resolve(.success(["alpha"]))
+        await harness.feed.livenessCheckFinished(.failure(LeoDaemonError.timeout), token: try #require(first))
+        await harness.settle()
+
+        #expect(second != first)
+        #expect(await harness.recorder.last?.connectivity == .connected)
+        await harness.stop()
+    }
+
     @Test func disconnectRequestEntersTheSameState() async throws {
         let harness = DisconnectHarness(results: [.success(["alpha"])])
         await harness.connect()

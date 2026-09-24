@@ -79,6 +79,20 @@ import Testing
         #expect(retried)
     }
 
+    /// A remote tunnel's failure text is ssh's stderr: sanitized (B-020).
+    @Test func thePaletteSanitizesATunnelFailure() {
+        let message = "ssh: \u{202E}denied\nnow\u{0007}"
+        let hint = "Run `ssh \u{202E}evil` once"
+        let model = LeoAgentPaletteModel()
+        model.update(
+            snapshot: LeoSidebarSnapshot(rows: [], connectivity: .loading, generation: 0),
+            selectedHost: .remote("mars"),
+            hostState: .failed(message: message, hint: hint)
+        )
+
+        #expect(model.rows.first == .status(text: LeoSFTPServerText.sanitized(message), hint: LeoSFTPServerText.sanitized(hint), canRetry: true))
+    }
+
     // MARK: Sidebar model
 
     @Test func rowsAreInertWhileDisconnected() {

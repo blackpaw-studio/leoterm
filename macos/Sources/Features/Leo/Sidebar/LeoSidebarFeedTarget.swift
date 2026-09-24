@@ -23,7 +23,16 @@ extension LeoSidebarFeed {
     /// attention keeps its disconnect-recovery state (acknowledgements and
     /// dedupe survive, as a reconnect's baseline expects), until the new
     /// connection's list lands -- or fails, keeping the banner.
+    ///
+    /// Generations only move forward: `LeoRuntime` forwards each phase in
+    /// its own task, so an older generation's phase (or a `.connecting`
+    /// for a connection already past it) can arrive late. It's dropped --
+    /// it must never reset or disconnect a newer, live connection.
     func updateConnection(host: LeoHostID, generation: Int, phase: LeoSidebarConnectionPhase) {
+        guard !isStale(host: host, generation: generation, phase: phase) else {
+            Self.logger.log("updateConnection: dropping stale phase host=\(host.displayName, privacy: .public) generation=\(generation) current=\(self.connectionGeneration)")
+            return
+        }
         let isNewConnection = connectionHost != host || connectionGeneration != generation
         let isRetry = isNewConnection && connectionHost == host && isDisconnected
         if isNewConnection {
@@ -33,8 +42,8 @@ extension LeoSidebarFeed {
             eventTask?.cancel()
             refreshTask?.cancel()
             activityTask?.cancel()
-            livenessTask?.cancel()
-            livenessTask = nil
+            cancelLivenessCheck()
+            connectionPhaseSettled = false
             sseRefreshTask?.cancel()
             sseRefreshTask = nil
             activityCoalesceTask?.cancel()
@@ -79,6 +88,7 @@ extension LeoSidebarFeed {
             pollTask?.cancel()
             if isNewConnection { emit() }
         case .connected(let daemon, let activitySource):
+            connectionPhaseSettled = true
             self.daemon = daemon
             self.activitySource = activitySource
             selectedHostAvailable = true
@@ -100,10 +110,12 @@ extension LeoSidebarFeed {
                 process(outputs)
             }
         case .failed(let message) where wasLive || isDisconnected:
+            connectionPhaseSettled = true
             // A live tunnel died, or a Retry's connect failed: keep the rows
             // under the banner with this reason.
             disconnect(reason: message)
         case .failed(let message):
+            connectionPhaseSettled = true
             selectedHostAvailable = false
             snapshot = .init(rows: snapshot.rows, connectivity: .failed(message: message), generation: snapshot.generation + 1)
             refreshTask?.cancel()
@@ -115,5 +127,11 @@ extension LeoSidebarFeed {
             pollTask?.cancel()
             emit()
         }
+    }
+
+    private func isStale(host: LeoHostID, generation: Int, phase: LeoSidebarConnectionPhase) -> Bool {
+        if generation < connectionGeneration { return true }
+        guard host == connectionHost, generation == connectionGeneration, case .connecting = phase else { return false }
+        return connectionPhaseSettled
     }
 }

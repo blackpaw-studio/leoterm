@@ -67,6 +67,8 @@ actor LeoSidebarFeed {
     var pollTask: Task<Void, Never>?
     /// The one wake liveness check in flight, if any (see `checkLiveness`).
     var livenessTask: Task<Void, Never>?
+    /// Identifies the latest wake check; an older one's result is stale.
+    var livenessToken = 0
     var sseRefreshTask: Task<Void, Never>?
     var scheduler = LeoPollScheduler()
     /// Semantic attention for the selected host -- see `LeoSidebarFeed+Attention.swift`.
@@ -85,6 +87,9 @@ actor LeoSidebarFeed {
     /// same host (a new generation) is still recognized as a switch.
     var connectionHost: LeoHostID = .local
     var connectionGeneration = 0
+    /// The current connection has moved past `.connecting` (to connected
+    /// or failed); a late `.connecting` for it is stale.
+    var connectionPhaseSettled = false
     var selectedHostAvailable = true
     /// A list has landed for this host since the user last switched to
     /// it: a later failure is a *drop* (disconnected, rows kept), not a
@@ -128,8 +133,7 @@ actor LeoSidebarFeed {
         sseRefreshTask?.cancel()
         activityCoalesceTask?.cancel()
         attentionTask?.cancel()
-        livenessTask?.cancel()
-        livenessTask = nil
+        cancelLivenessCheck()
         attentionTask = nil
         eventTask = nil
         refreshTask = nil
