@@ -76,3 +76,11 @@ peekaboo see --no-elements --mode window --app $APPID \
 - No autopilot-owned remote host is configured.
 - Verify SFTP/remote behaviour with tests against a local sshd or fake.
 - Live remote verification needs a host Evan names. Until then, it's not visually verifiable.
+
+## Editor close/save alerts (B-035, 2026-09-24)
+- `open -n --env LEO_OPEN_FILE=<scratch file> --env LEO_SLOW_SAVE_SECONDS=30 Leo.app` opens the file in the editor pane with every save held 30 s.
+- Type with `peekaboo type <text> --foreground --app $APPID --window-id <main window id>`.
+- File ▸ Close (menu click) shows the "Do you want to save…" alert as its own pixels-only window (no AX element): capture it with `see --window-id <alert id>` (ignore the AX error; the PNG is written).
+- To answer it: check the debug app is frontmost, then `peekaboo press return --foreground --bridge-socket "$PB_SOCK"` (global, no `--app`; `--app`/`--window-id` fail with axElementNotFound). Return = Save.
+- Capture within the hold to see the `Closing “…”…` banner. File ▸ Save via menu click does save (held, so "Edited" stays until it lands).
+

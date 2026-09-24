@@ -18,3 +18,4 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 - B-012: measured (4 cold launches, 103 agents, local): sidebar at +378–400 ms, list at +500–523 ms (~120 ms spinner); first fetch doesn't block first paint → no cache (no change needed). DEBUG-only LaunchTiming kept: e45d323fb. Review dispatched.
 - B-012 review: MED observer never removed, LOW eager detail → attempt 1 826e921ee (1393 tests; list at +517 ms). Re-review dispatched.
 - B-012 done: e45d323fb 826e921ee. Re-review clean. D-087.
+- B-035 done: verification only (shots B-035-2, -4, -5). Recipe added to verify.md. New: B-045 (ready next run).

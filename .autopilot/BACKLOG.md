@@ -80,9 +80,10 @@ Accept: GUI checks of the editor can't get past the Open File panel (Peekaboo: a
 Source: B-030 visual check
 Done: 2c05c0b83 de2c47114 (1177 tests). Verified: shot B-034-1 (`LEO_OPEN_FILE` opens demo.swift in the first window's editor pane). The banner shot is still missing → B-035. 1 fix round; re-review found only a LOW (dismissed, D-056).
 
-## B-035 · Screenshot the editor's "Closing…" banner   [ready]
+## B-035 · Screenshot the editor's "Closing…" banner   [done]
 Accept: capture B-024's `Closing “…”…` banner (debug app with `LEO_OPEN_FILE` + `LEO_SLOW_SAVE_SECONDS=30`). Typing into the editor works with `peekaboo type --foreground --window-id`, but after ⌘W the "Save changes?" alert can't be reached (axElementNotFound for its window, also via `peekaboo dialog`), and `peekaboo press cmd+s` didn't seem to save. Try File ▸ Save via `peekaboo menu click`, then File ▸ Close while the save runs. If alerts stay unreachable, say what would unblock it.
 Source: B-034 visual check
+Done: verification only, no code. Shots B-035-2 (the "Do you want to save…" alert, captured by its window id), B-035-4 (`⌛ Closing “b035.txt”…` while a 30 s held save runs), B-035-5 (pane gone once the save landed; file on disk has the edit). Unblocked by a global `peekaboo press return --foreground` after checking the debug app is frontmost (the alert has no AX element). Recipe in verify.md. Polish → B-045.
 
 ## B-018 · Drop the recreate heuristic: dedupe on (boot, name, revision)   [done]
 Accept: leo confirmed (2026-09-22, spec addition) that a revision is monotonic per agent NAME per boot, including across delete and recreate; revisions only go backwards when boot_id changes. So remove the backwards-revision heuristic from `LeoAttentionReducer` (incarnation bumps on retain/recovery, tombstones and their 64-cap, `droppedFloors`) and key notification dedupe on (bootID, name, revision). A revision ≤ the last seen for that name in the same boot is a duplicate; a recreated agent simply continues at higher revisions. Keep: list-driven deletion of display state, reset on boot change or host switch, and everything from B-015's (b), (d), (e), (f). Rewrite or delete the heuristic's tests; add fixture tests for the three gaps from B-015's third review (a recreated agent's first signal buffered during recovery notifies; an agent re-added by a baseline at the same revision keeps its Dock acknowledgement; a first seen revision equal to the old floor is a duplicate by contract).
@@ -231,6 +232,10 @@ Done: a8b800d41 fd679d90a 8b5808341 (1338 tests). Rows show "· 13h" / "· Sep 2
 Accept: at default sidebar width, B-011's never-truncating time squeezes the template to "clau…" or "…" (shot B-011-2). Drop the template from the subtitle when it can't fit at least ~5 characters, or move the time to the trailing badge column, so the line reads cleanly.
 Source: B-011 visual check
 Done: bb7b9f81c 94685a65c (1346 tests). The template drops when fewer than 5 chars would show; a template that fits whole always shows (D-076). Verified: shot B-043-1 ("claude · Finished · 16h", "assist… · Finished · 16h"). 1 fix round (review MED: whole-fit check first); re-review clean.
+
+## B-045 · Editor "Closing…" banner replaces the header with a near-empty strip   [ready (next run)]
+Accept: while a close waits on a save (shot B-035-4), the pane's header row (file name, path, mode) disappears and the banner sits alone at the right edge of an otherwise blank strip. Keep the header visible and show the banner as its own leading-aligned row (or in the header's trailing status slot), matching the other editor banners.
+Source: B-035 visual check
 
 ## B-012 · Cold start   [done]
 Accept: measure launch with sidebar visible; if first fetch blocks first
