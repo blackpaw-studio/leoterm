@@ -1,4 +1,5 @@
 import Foundation
+import Testing
 
 /// An injected `sleep` that holds every sleep until the test fires it, by
 /// length -- so firing, say, a coalescing window never also fires a fetch
@@ -56,9 +57,19 @@ final class LeoFiringClock: @unchecked Sendable {
 
 /// Re-checks `condition` until it holds. No deadline: the suite's time
 /// limit is the hang guard, so a slow machine only makes this slower. When
-/// the limit cancels the test, this throws instead of spinning on.
-func until(_ condition: @Sendable () async -> Bool) async throws {
+/// the limit cancels the test, this records `message` at the caller and
+/// throws instead of spinning on.
+func until(
+    _ message: String = "Condition was not satisfied",
+    sourceLocation: SourceLocation = #_sourceLocation,
+    _ condition: @Sendable () async -> Bool
+) async throws {
     while !(await condition()) {
-        try await Task.sleep(nanoseconds: 1_000_000)
+        do {
+            try await Task.sleep(nanoseconds: 1_000_000)
+        } catch {
+            Issue.record("\(message) before the time limit", sourceLocation: sourceLocation)
+            throw error
+        }
     }
 }
