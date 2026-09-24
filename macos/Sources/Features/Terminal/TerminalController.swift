@@ -1969,6 +1969,9 @@ extension TerminalController {
         case #selector(toggleLeoSidebar(_:)):
             return validateLeoSidebarMenuItem(item)
 
+        case #selector(findLeoAgent(_:)):
+            return validateFindLeoAgentMenuItem(item)
+
         case #selector(newLeoAgent(_:)):
             return validateNewLeoAgentMenuItem(item)
 

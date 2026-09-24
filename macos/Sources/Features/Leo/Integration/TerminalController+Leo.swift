@@ -36,6 +36,16 @@ extension TerminalController {
         leoSession.setSidebarVisible(!leoSession.isSidebarVisible)
     }
 
+    /// Agents ▸ Find Agent… (⌥⌘F; ⌘F is the terminal's Find).
+    @IBAction func findLeoAgent(_ sender: Any?) {
+        guard let leoSession else { return }
+        guard leoSession.isSidebarVisible || !leoSession.showingSidebarSqueezesTerminal else {
+            NSSound.beep()
+            return
+        }
+        leoSession.requestSearchFocus()
+    }
+
     @IBAction func startLeoDaemon(_ sender: Any?) {
         do {
             let path = try (NSApp.delegate as? AppDelegate)?.leoRuntime.resolveExecutablePath()
@@ -67,6 +77,13 @@ extension TerminalController {
         )
         return LeoMenuCommands.canToggleSidebar(
             hasLeoSession: hasLeoSession,
+            isSidebarVisible: leoSession?.isSidebarVisible ?? false,
+            showingSqueezesTerminal: leoSession?.showingSidebarSqueezesTerminal ?? false)
+    }
+
+    func validateFindLeoAgentMenuItem(_ item: NSMenuItem) -> Bool {
+        LeoMenuCommands.canFindAgent(
+            hasLeoSession: leoSession != nil,
             isSidebarVisible: leoSession?.isSidebarVisible ?? false,
             showingSqueezesTerminal: leoSession?.showingSidebarSqueezesTerminal ?? false)
     }

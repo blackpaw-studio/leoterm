@@ -30,6 +30,9 @@ struct LeoWindowVisibilityState: Equatable {
     /// `LeoPickerPresentation` via `setPickerPresented(_:)`.
     @Published private(set) var isPickerPresented = false { didSet { changed() } }
     @Published private(set) var preferredWidth: CGFloat
+    /// Bumped by Agents ▸ Find Agent… (B-009); the sidebar's search field
+    /// takes focus whenever it changes.
+    @Published private(set) var searchFocusRequest = 0
     @Published var windowIsOccluded = false { didSet { changed() } }
     @Published var windowIsMiniaturized = false { didSet { changed() } }
     var displayedWidth: CGFloat { min(max(preferredWidth, 200), 420) }
@@ -99,6 +102,12 @@ struct LeoWindowVisibilityState: Equatable {
     func setSidebarVisible(_ visible: Bool) {
         isSidebarVisible = visible
         defaults.set(visible, forKey: "leo.sidebarVisible")
+    }
+
+    /// Agents ▸ Find Agent…: show the sidebar if hidden and focus its filter.
+    func requestSearchFocus() {
+        if !isSidebarVisible { setSidebarVisible(true) }
+        searchFocusRequest += 1
     }
 
     /// Called by `LeoPickerPresentation` when its panel is shown/dismissed.

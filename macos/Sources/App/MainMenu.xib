@@ -519,6 +519,12 @@
                                     <action selector="toggleLeoSidebar:" target="-1" id="Leo-Sidebar-Action"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Find Agent…" keyEquivalent="f" id="Leo-Agents-Find">
+                                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                <connections>
+                                    <action selector="findLeoAgent:" target="-1" id="Leo-Agents-Find-Action"/>
+                                </connections>
+                            </menuItem>
                         </items>
                     </menu>
                 </menuItem>

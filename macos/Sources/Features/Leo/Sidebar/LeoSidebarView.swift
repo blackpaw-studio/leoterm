@@ -57,14 +57,18 @@ struct LeoSidebarView: View {
     @ObservedObject var model: LeoSidebarModel
     let windowID: LeoWindowID
     @ObservedObject var actions: LeoAgentActions
+    /// Bumped by Agents ▸ Find Agent…; each change focuses the search field.
+    let searchFocusRequest: Int
     @ObservedObject private var hostSelection: LeoHostSelection
     @State private var showingSpawn = false
+    @State private var searchField = LeoSidebarSearchFieldHandle()
     @State private var hostsSheetModel: LeoHostsSheetModel?
 
-    init(model: LeoSidebarModel, windowID: LeoWindowID, actions: LeoAgentActions) {
+    init(model: LeoSidebarModel, windowID: LeoWindowID, actions: LeoAgentActions, searchFocusRequest: Int = 0) {
         self.model = model
         self.windowID = windowID
         self.actions = actions
+        self.searchFocusRequest = searchFocusRequest
         _hostSelection = ObservedObject(wrappedValue: actions.hostSelection)
     }
 
@@ -112,8 +116,13 @@ struct LeoSidebarView: View {
                 LeoDisconnectedBannerView(banner: banner) { model.retry() }
             }
 
-            TextField("Search agents", text: $model.query)
-                .textFieldStyle(.roundedBorder)
+            LeoSidebarSearchField(
+                text: $model.query,
+                handle: searchField,
+                onSubmit: { model.searchSubmit() },
+                onCancel: searchEscape
+            )
+            .accessibilityLabel("Search agents")
 
             content
             if let panelError {
@@ -122,6 +131,7 @@ struct LeoSidebarView: View {
         }
         .padding(.horizontal, 10)
         .padding(.bottom, 10)
+        .onChange(of: searchFocusRequest) { _ in searchField.focus() }
         .sheet(isPresented: $showingSpawn) {
             SpawnAgentSheet(model: model, actions: actions) { row, disposition in
                 model.requestAttach(row, from: windowID, disposition: disposition)
@@ -200,7 +210,8 @@ struct LeoSidebarView: View {
                             click: { model.rowClicked(row, modifierFlags: $0) },
                             actions: actions,
                             error: model.rowErrors[row.id],
-                            errorCode: model.rowErrorCodes[row.id]
+                            errorCode: model.rowErrorCodes[row.id],
+                            nameHighlights: model.searchHighlights(for: row)
                         )
                         .tag(row.id)
                     }
@@ -209,7 +220,9 @@ struct LeoSidebarView: View {
         }
         .listStyle(.sidebar)
         .overlay(alignment: .bottomTrailing) {
-            Button("") { attachSelected() }
+            // A key equivalent, so it sees Return before the search
+            // field does; there Return means the top match instead.
+            Button("") { searchField.hasFocus ? model.searchSubmit() : attachSelected() }
                 .keyboardShortcut(.return, modifiers: [])
                 .opacity(0)
                 .disabled(model.actionableSelection == nil)
@@ -224,6 +237,13 @@ struct LeoSidebarView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func searchEscape() {
+        switch model.searchEscape() {
+        case .cleared: break
+        case .leaveField: searchField.focusTerminal()
+        }
     }
 
     private func attachSelected() {

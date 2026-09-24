@@ -79,6 +79,8 @@ struct LeoAgentRowView: View {
     @ObservedObject var actions: LeoAgentActions
     let error: String?
     let errorCode: String?
+    /// Name characters the search query matched, drawn bold (B-009).
+    var nameHighlights: [Int] = []
     @State private var templates: [LeoTemplate] = []
     @State private var showingRename = false
     @State private var showingDelete = false
@@ -127,10 +129,16 @@ struct LeoAgentRowView: View {
             .background(Color.secondary.opacity(0.18), in: Capsule())
     }
 
+    private var nameText: Text {
+        LeoFuzzyMatcher.highlightRuns(name: row.name, offsets: nameHighlights).reduce(Text("")) { text, run in
+            text + Text(run.text).fontWeight(run.isMatched ? .bold : nil)
+        }
+    }
+
     private var rowDetails: some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack {
-                Text(row.name)
+                nameText
                     .fontWeight(.medium)
                     .lineLimit(1)
                     .accessibilityLabel(LeoStatusPresentation.rowAccessibilityLabel(row))

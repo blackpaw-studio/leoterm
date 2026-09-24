@@ -34,6 +34,11 @@ enum LeoMenuCommands {
         hasLeoSession && (isSidebarVisible || !showingSqueezesTerminal)
     }
 
+    /// Find Agent… shows a hidden sidebar, so it's gated like Show.
+    static func canFindAgent(hasLeoSession: Bool, isSidebarVisible: Bool, showingSqueezesTerminal: Bool) -> Bool {
+        canToggleSidebar(hasLeoSession: hasLeoSession, isSidebarVisible: isSidebarVisible, showingSqueezesTerminal: showingSqueezesTerminal)
+    }
+
     static func canCreateAgent(hasLeoSession: Bool) -> Bool { hasLeoSession }
 
     static func canAttach(_ context: AgentContext) -> Bool { enabled(context) { $0.attach } }
