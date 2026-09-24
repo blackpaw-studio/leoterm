@@ -86,7 +86,7 @@ import OSLog
         self.hostConnectionTransport = hostConnectionTransport
         let orphanStore = LeoTunnelOrphanStore(defaults: defaults, legacySocketDirectory: hostSelectionLegacySocketDirectory)
         self.orphanStore = orphanStore
-        let model = LeoSidebarModel(preferencesStore: LeoUserDefaultsSidebarPreferencesStore(defaults: defaults))
+        let model = LeoSidebarModel()
         let registry = LeoWindowSessionRegistry()
         self.model = model
         self.registry = registry

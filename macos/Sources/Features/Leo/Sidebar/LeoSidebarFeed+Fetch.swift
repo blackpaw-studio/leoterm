@@ -6,12 +6,11 @@ import Foundation
 extension LeoSidebarFeed {
     func fetchActivityState(generation: Int) {
         activityTask?.cancel()
-        let stamp = nextActivityTick()
         activityTask = Task { [weak self, activitySource] in
             do {
                 let state = try await Self.fetchState(from: activitySource)
                 guard let self else { return }
-                await self.applyActivityState(state, generation: generation, stamp: stamp)
+                await self.applyActivityState(state, generation: generation)
             } catch is CancellationError {
                 return
             } catch {
@@ -57,18 +56,12 @@ extension LeoSidebarFeed {
         return try result.get()
     }
 
-    /// `stamp` is the tick taken when the state fetch started.
-    func applyActivityState(_ state: [LeoObservedAgent], generation: Int, stamp: Int? = nil) {
+    func applyActivityState(_ state: [LeoObservedAgent], generation: Int) {
         guard running, generation == snapshot.generation else { return }
-        let stamp = stamp ?? nextActivityTick()
         // `state` is the authoritative baseline as of when the fetch
         // started; anything coalesced since then is newer, so it's merged
-        // in on top rather than lost -- and an event already applied keeps
-        // its newer last-activity time.
-        let newer = Set(activityStamps.filter { $0.value > stamp }.keys)
-        activityByName = Self.baseline(state, over: activityByName, keeping: newer)
-        for agent in state { activityStamps[agent.name] = max(activityStamps[agent.name] ?? stamp, stamp) }
-        activityStamps = activityStamps.filter { activityByName[$0.key] != nil || newer.contains($0.key) }
+        // in on top rather than lost.
+        activityByName = Self.activities(state)
         applyAttentionBaseline(state)
         syncBaselinePending()
         drainCoalescedActivity()

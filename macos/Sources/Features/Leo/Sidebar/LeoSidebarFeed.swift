@@ -50,15 +50,6 @@ actor LeoSidebarFeed {
     let sleeper: @Sendable (UInt64) async throws -> Void
     var snapshot = LeoSidebarSnapshot(rows: [], connectivity: .loading, generation: 0)
     var activityByName: [String: LeoSidebarActivity] = [:]
-    /// Orders activity against list fetches (B-010): every activity event
-    /// and state-fetch start takes the next tick, and each agent's entry
-    /// remembers its latest -- see `pruneActivity`.
-    var activityTick = 0
-    var activityStamps: [String: Int] = [:]
-    /// Agent names in the last list refresh applied, and the unlisted ones
-    /// whose activity it kept (a spawn it predated).
-    var lastListedNames: Set<String> = []
-    var carriedActivityNames: Set<String> = []
     var bufferedActivity: [LeoObserveEvent] = []
     /// Coalesces `agentActivity` SSE events so a chatty agent applies at
     /// most one merge + emission per `activityCoalesceInterval`, instead of
@@ -249,8 +240,7 @@ actor LeoSidebarFeed {
             process(scheduler.reduce(.sseEvent(event)))
         case .agentSpawned, .agentStateChanged, .agentStopped:
             process(scheduler.reduce(.sseEvent(event)))
-        case .agentActivity(_, _, let name, _, _, _):
-            activityStamps[name] = nextActivityTick()
+        case .agentActivity:
             if recovering {
                 bufferedActivity.append(event)
             } else if activityCoalescer.add(event) {
@@ -265,7 +255,7 @@ actor LeoSidebarFeed {
 
     private func prepareRecovery() {
         snapshot = LeoSidebarSnapshot(rows: snapshot.rows, connectivity: snapshot.connectivity, generation: snapshot.generation + 1)
-        resetActivity()
+        activityByName = [:]
         recovering = true
         needsState = true
         attention.beginRecovery()
@@ -299,21 +289,21 @@ actor LeoSidebarFeed {
         var stateFetchStarted = false
         defer { if fetchState, !stateFetchStarted { needsState = true } }
         let membershipMark = attention.membershipMark
-        let listMark = activityTick
         do {
             let rows = try await fetchList().map { Self.row($0, host: host) }
             guard running, generation == snapshot.generation, token == currentRefreshToken else { return }
-            // Everything buffered or coalescing goes in first, so the prune
-            // judges it too rather than a later drain slipping it past.
-            drainCoalescedActivity()
-            let buffered = bufferedActivity
-            bufferedActivity = []
-            mergeIntoActivityByName(buffered)
-            pruneActivity(listed: Set(rows.map(\.name)), listMark: listMark)
             snapshot = LeoSidebarReducers.applyListResult(snapshot, result: LeoSidebarReducers.mergeActivity(rows, activityByName: activityByName), generation: generation)
             wasLive = true
             retainAttention(for: rows, listedSince: membershipMark)
             recovering = false
+            drainCoalescedActivity()
+            let buffered = bufferedActivity
+            bufferedActivity = []
+            mergeIntoActivityByName(buffered)
+            // Still the same successful list refresh as `applyListResult`
+            // above -- merging in buffered/coalesced activity must not
+            // reset `listRefreshSucceeded` back to its `false` default.
+            snapshot = snapshot.replacingRows(LeoSidebarReducers.mergeActivity(snapshot.rows, activityByName: activityByName), listRefreshSucceeded: true)
             emit()
             if isManual { await onManualRefresh() }
             if fetchState {

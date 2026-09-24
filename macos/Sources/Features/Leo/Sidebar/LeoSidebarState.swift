@@ -15,7 +15,7 @@ enum LeoHostID: Hashable, Sendable, Codable {
 struct LeoAgentRow: Identifiable, Equatable, Sendable {
     enum Activity: String, Equatable, Sendable { case working, idle, unknown }
 
-    struct ID: Hashable, Sendable, Codable {
+    struct ID: Hashable, Sendable {
         let host: LeoHostID
         let name: String
     }
@@ -31,13 +31,10 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
     /// The attention badge, overlaid by `LeoSidebarFeed` at emission time
     /// from `LeoAttentionReducer` (never stored on the feed's own rows).
     let attention: LeoAttentionBadge?
-    /// When the daemon last saw the agent active (B-010's Last Activity
-    /// sort); nil when it hasn't said.
-    let lastActivityAt: Date?
 
     init(
         host: LeoHostID, name: String, template: String?, status: LeoAgentStatus, activity: Activity, actionDetail: String?,
-        workspace: String? = nil, repo: String? = nil, attention: LeoAttentionBadge? = nil, lastActivityAt: Date? = nil
+        workspace: String? = nil, repo: String? = nil, attention: LeoAttentionBadge? = nil
     ) {
         self.host = host
         self.name = name
@@ -48,13 +45,12 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         self.workspace = workspace
         self.repo = repo
         self.attention = attention
-        self.lastActivityAt = lastActivityAt
     }
 
     func withAttention(_ attention: LeoAttentionBadge?) -> LeoAgentRow {
         LeoAgentRow(
             host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
-            workspace: workspace, repo: repo, attention: attention, lastActivityAt: lastActivityAt
+            workspace: workspace, repo: repo, attention: attention
         )
     }
 
@@ -112,46 +108,4 @@ enum AttachDisposition: Sendable { case reuseOrTab, newWindow }
 struct LeoSidebarActivity: Equatable, Sendable {
     let activity: LeoAgentRow.Activity
     let detail: String?
-    let lastActivityAt: Date?
-
-    init(activity: LeoAgentRow.Activity, detail: String?, lastActivityAt: Date? = nil) {
-        self.activity = activity
-        self.detail = detail
-        self.lastActivityAt = lastActivityAt
-    }
-
-    /// An `agent_activity` event over the previous reading. Only a
-    /// "working" event moves the time, to its daemon-stamped `at`, and
-    /// never backwards; nothing here invents a time.
-    static func merging(_ previous: LeoSidebarActivity?, activity: LeoAgentRow.Activity, detail: String?, at: Date?) -> LeoSidebarActivity {
-        let previousTime = previous?.lastActivityAt
-        let workingTime = activity == .working ? at : nil
-        let time = [previousTime, workingTime].compactMap { $0 }.max()
-        return LeoSidebarActivity(activity: activity, detail: detail, lastActivityAt: time)
-    }
-
-    /// This reading with its time moved up to `time` when that's newer.
-    func advanced(to time: Date?) -> LeoSidebarActivity {
-        guard let time, time > lastActivityAt ?? .distantPast else { return self }
-        return LeoSidebarActivity(activity: activity, detail: detail, lastActivityAt: time)
-    }
-}
-
-/// Parses the daemon's RFC 3339 timestamps (Go's `time.Time`, which may
-/// carry nanoseconds).
-enum LeoTimestamp {
-    static func parse(_ value: String?) -> Date? {
-        guard let value, !value.isEmpty else { return nil }
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = formatter.date(from: millisecondPrecision(value)) { return date }
-        formatter.formatOptions = [.withInternetDateTime]
-        return formatter.date(from: value)
-    }
-
-    /// `ISO8601DateFormatter` rejects more than three fractional digits.
-    private static func millisecondPrecision(_ value: String) -> String {
-        guard let range = value.range(of: #"\.\d{4,}"#, options: .regularExpression) else { return value }
-        return value.replacingCharacters(in: range, with: String(value[range].prefix(4)))
-    }
 }

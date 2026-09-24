@@ -66,8 +66,7 @@ extension LeoSidebarFeed {
             // new connection's own SSE reported in, killing the 30s fallback
             // poll in the meantime (see LeoSidebarFeedHostSwitchTests).
             scheduler.resetConnectionTracking()
-            resetActivity()
-            lastListedNames = []
+            activityByName = [:]
             bufferedActivity = []
             attentionTask?.cancel()
             attentionTask = nil

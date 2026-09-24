@@ -1972,15 +1972,6 @@ extension TerminalController {
         case #selector(findLeoAgent(_:)):
             return validateFindLeoAgentMenuItem(item)
 
-        case #selector(toggleSelectedLeoAgentPin(_:)):
-            return validateLeoPinMenuItem(item)
-
-        case #selector(sortLeoAgentsByLastActivity(_:)):
-            return validateLeoSortMenuItem(item, order: .lastActivity)
-
-        case #selector(sortLeoAgentsByName(_:)):
-            return validateLeoSortMenuItem(item, order: .name)
-
         case #selector(newLeoAgent(_:)):
             return validateNewLeoAgentMenuItem(item)
 
