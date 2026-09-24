@@ -141,6 +141,9 @@ struct LeoSidebarView: View {
         .padding(.horizontal, 10)
         .padding(.bottom, 10)
         .onChange(of: searchFocusRequest) { _ in searchField.focus() }
+        #if DEBUG
+        .onAppear { LeoLaunchTiming.mark("sidebarAppeared", "connectivity=\(model.snapshot.connectivity) rows=\(model.snapshot.rows.count)") }
+        #endif
         .sheet(isPresented: $showingSpawn) {
             SpawnAgentSheet(model: model, actions: actions) { row, disposition in
                 model.requestAttach(row, from: windowID, disposition: disposition)

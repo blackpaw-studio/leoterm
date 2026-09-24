@@ -90,6 +90,10 @@ import Foundation
         let previousAttentionCount = snapshot.attentionCount
         let previousRows = snapshot.rows
         snapshot = value
+        #if DEBUG
+        LeoLaunchTiming.mark("firstSnapshot", "connectivity=\(value.connectivity) rows=\(value.rows.count)")
+        if !value.rows.isEmpty { LeoLaunchTiming.mark("firstRows", "rows=\(value.rows.count)") }
+        #endif
         defer { reapplyFocusedRow(previousRows: previousRows) }
         if value.attentionCount != previousAttentionCount { attentionCountChanged(value.attentionCount) }
         if value.listRefreshSucceeded {
