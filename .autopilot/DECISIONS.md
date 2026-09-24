@@ -526,3 +526,11 @@ Why: tests must fail only when behavior breaks; event-driven waits over deadline
 Alternatives: longer deadlines (still flaky under enough load, and slower)
 Commit: 744ff0a71 fa3a8ff43 c4498f88e d32b2f060 0a9f77d2f b301bc587
 Veto: [ ]
+
+## D-066 · 2026-09-23 · B-029 implementer calls; ZWJ matching through a static trie
+Context: B-029 (longest-match ZWJ checks cost ~570k candidates for a run of 1,600 👩)
+Chose: a static prefix trie behind a `LeoSequenceMatcher` protocol that counts steps; the cleaner takes the matcher as a parameter (production uses the static trie) and returns the step count so work bounds are asserted by counting, not timing; the old matcher lives on only in tests as a differential oracle; `subdivisionFlags`/`variationBases` are no longer private so tests can read them; "has a defined presentation" means assigned and emoji under ICU; the long truncated-sequence test runs 400 scalars (the 👩 test runs 1,600)
+Why: identical output (35,546-input differential, 0 differences) with linear work; tests that don't flake under load (B-025, B-031, B-036)
+Alternatives: cap the candidate list (changes output); wall-clock thresholds (flaky)
+Commit: 0747da6d4 cef6e152a
+Veto: [ ]

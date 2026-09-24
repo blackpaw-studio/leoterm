@@ -47,9 +47,10 @@ Accept: (a) HIGH: FE0E/FE0F survive after any visible character (`LeoTextCleaner
 Source: B-020 final review (D-043)
 Done: e5efc61b4 ac9539839 5a44072dd 03ac88d26 (1136 tests). Every surviving invisible now changes what's drawn and the output is NFC (D-046, D-047), using Unicode 18 tables. (c): review.security routed fine today. Error text only, so no screenshot. 3 fix rounds; the 4th review was clean. The dismissed LOW → B-029.
 
-## B-029 · Cleaner: prefix trie for ZWJ matching; ICU-version drift   [ready]
+## B-029 · Cleaner: prefix trie for ZWJ matching; ICU-version drift   [done]
 Accept: (a) longest-match ZWJ tries every RGI sequence that starts with the first scalar (356 for 👩); a run of ~1,600 👩 costs ~570k candidate checks, bounded only by the scan limit. Use a prefix trie, with a timing test on a worst-case run. (b) The Unicode 18 base lists sit next to `isEmojiPresentation`, which comes from the OS's ICU; add a test that every embedded variation base has a defined presentation under the running ICU, so drift shows up.
 Source: B-026 third review (LOW)
+Done: 0747da6d4 cef6e152a (1249 tests). 👩×1,600: 574,400 → ~3,200 steps. Differential over 35,546 inputs: 0 differences. All 371 variation bases are emoji under this machine's ICU (D-066). review.security clean. No UI change, so no screenshot.
 
 ## B-021 · Forwarded daemon socket path budget   [done]
 Accept: the forwarded daemon socket in `~/.leo/state/leoterm/` has a 100-byte limit, so home directories longer than roughly 38–58 characters (depending on host name) break the whole tunnel. Move it to the same private per-user cache dir as the control sockets (`LeoControlSocketDirectory`), with the same checks. Failing test first with a long fake home.

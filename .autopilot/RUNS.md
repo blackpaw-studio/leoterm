@@ -52,3 +52,12 @@ Notes: leo_dispatch role review.security routed to codex/gpt-6-sol and failed ev
 - Calls: D-053 D-054 D-055 D-056 D-057 D-058 D-059 D-060. Evan's: D-051, D-052.
 - New: B-032 (tests leak sockets into the real cache dir), B-033 (alert path), B-035 (Closing banner shot), B-036 (sidebar-feed flakes), B-037 (sidebar single-jump return).
 - Review fallback: one review dispatch failed ("workspace routing discovery timed out"); Sonnet code-reviewer used for B-030 round 1.
+
+## Run 2026-09-23 (night) — 5 shipped, 0 blocked
+- B-007 Disconnected state: 7a2bf5da5 4f1cd16b7 0ed8a6b8f. A dropped stream, a dead tunnel or a failed wake check dims the rows and shows "Disconnected from <host>" with Retry (Agents ▸ Reconnect ⇧⌘R); the backoff reconnect is gone (D-061, D-062). Verified: B-007-1, B-007-2.
+- B-037 Sidebar returns after a single big widen: 9307c661c (D-063). Verified: B-037-1/2/3.
+- B-032 Tests no longer leak sockets into the real cache dir, and a bundle guard fails any run that does: f6a591e0a 41a653cfd aeb23c6b5 b03191132 (D-064). Test-only.
+- B-036 Sidebar-feed flakes: 744ff0a71 fa3a8ff43 c4498f88e d32b2f060 0a9f77d2f b301bc587; 2020/2020 under 42× load; no product race (D-065). Test-only.
+- B-029 Cleaner ZWJ trie + ICU drift test: 0747da6d4 cef6e152a (D-066). Not visual.
+- Calls: D-061–D-066. New: B-038 (banner reason wrap, Choose Agent while disconnected), B-039 (test plist stubs), B-040 (weak AttentionRace test).
+- Notes: one review dispatch failed ("workspace routing discovery timed out") → Sonnet code-reviewer for B-037. The first B-036 implementer hung 31 min in a PreToolUse hook; cancelled and re-dispatched. Tests: 1249 (known ConfigTests failure only); swiftlint clean.

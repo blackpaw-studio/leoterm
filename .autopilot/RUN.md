@@ -1,4 +1,4 @@
-Status: running
+Status: finished
 Item: B-029
 Base: 5a10d5414
 Wip: none
@@ -17,3 +17,5 @@ Untracked-left: macos/default.profraw scratchpad/ zig-out
 - B-036: first implementer (d-ab34a23ef277) hung 31 min inside a PreToolUse hook with no commits (orchestrator Escape into its pane was refused by auto mode); cancelled and re-dispatched fresh. Its notes: at 42× load the flakes widen (Recovery, Disconnect, Attention, FixTests); `phasesFromAnOlderGeneration…` fails on recorder.count == emitted (not a timeout).
 - B-036: re-dispatched (d-74bf21601c40): 744ff0a71 fa3a8ff43 c4498f88e d32b2f060 0a9f77d2f, test-only (1244 tests; 2020/2020 LeoSidebar* under 42× load; every break-check failed). No product race: the B-007 Disconnect failure was a test ordering assumption. review: 2 LOW, no weakened waits; LOW (UUID defaults domains never removed) → attempt 1 (d-74bf21601c40#2); LOW (1 ms polling on a failing until) dismissed, since it only happens on the failure path and the time limit caps it.
 - B-036 done: 744ff0a71 fa3a8ff43 c4498f88e d32b2f060 0a9f77d2f b301bc587. D-065. New: B-039, B-040.
+- B-029 done: 0747da6d4 cef6e152a (1249 tests). review.security clean. D-066.
+- Run finished: cap of 5 reached (5 shipped, 0 blocked).
