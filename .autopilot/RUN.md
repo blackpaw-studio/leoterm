@@ -10,3 +10,4 @@ Untracked-left: macos/default.profraw scratchpad/ zig-out
 - B-007: attempt-1 fix 4f1cd16b7 (1235 tests). Re-review: HIGH (late `.connected` after `.failed` in one generation) + MED (sidebar `.failed` panel unsanitized) → attempt 2 (d-7b7d11d7e8bf#3). LOW dismissed: the wake-token test drives the token check directly because actor arrival order can't be forced in a test.
 - B-007 done: 7a2bf5da5 4f1cd16b7 0ed8a6b8f (1237 tests). Attempt-2 fix 0ed8a6b8f; 3rd review clean. D-061, D-062. Verified B-007-1/2. New: B-038.
 - B-037: built 9307c661c (1239 tests). Verified: B-037-1/2/3 (1400 → 700 → 1400 single jumps; sidebar and editor both return). review dispatch failed ("workspace routing discovery timed out") → code-reviewer fallback.
+- B-037 done: 9307c661c (1239 tests). Review (Sonnet fallback) clean; 2 LOW dismissed (D-063). Verified B-037-1/2/3.

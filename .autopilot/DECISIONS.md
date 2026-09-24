@@ -502,3 +502,11 @@ Why: principles 1, 2, 3 and 5
 Alternatives: a banner above the "Agents" header (farther from the rows it describes); auto-reconnect after Start daemon (a timer in disguise)
 Commit: 7a2bf5da5 4f1cd16b7 0ed8a6b8f
 Veto: [ ]
+
+## D-063 · 2026-09-23 · B-037 implementer calls; floor re-check is bounded
+Context: B-037 (a single big widen restored the editor but not the floor-collapsed sidebar)
+Chose: the editor's width is recorded in viewWillLayout, before NSSplitView's own resize layout shrinks it; after a side pane regrows, the floor rule runs once more (at most once) so the sidebar can return; the existing collapse-then-regrow path is bounded the same way (it used to re-run without a limit). Test harness gained `jumpWindow(to:)` (one resize, three settles). Review LOWs dismissed: the depth-1 re-run only matters if a second squeezable pane is added later; the synchronous re-entry through layoutSubtreeIfNeeded early-returns because the window width didn't change
+Why: D-059 and D-060 as written; principle 1 (behaves like a native split view)
+Alternatives: re-run until stable (a layout loop risk); a deferred re-check on the next runloop (a visible two-step jump)
+Commit: 9307c661c
+Veto: [ ]

@@ -147,9 +147,10 @@ Accept: (a) hidden files show dimmed when Show Hidden Files is on, like Finder; 
 Source: B-005 visual check + second review
 Done: 30233456a aa5f8d878 39441c27d 36aee4e9e fac40cd67 b6a773954 f8c0c7c77 abd49da71 459098e6b (1207 tests). Hidden entries dim; a new root lists at once and the old access closes immediately and for good; the terminal keeps 300 pt on resize and ⌘⇧L is greyed out when the sidebar can't fit (D-058, D-059, D-060). Verified: shots B-023-1 (at 700 pt the terminal holds 300, the editor gives way) and B-023-2 (back at 1400 the editor regains its width). (a) and (b) are covered by tests only (no autopilot-scratch agent to browse). 2 fix rounds; the 3rd review's two P2s dismissed (D-060). Sidebar return on a single jump → B-037.
 
-## B-037 · Floor-collapsed sidebar doesn't return on a single big widen   [ready]
+## B-037 · Floor-collapsed sidebar doesn't return on a single big widen   [done]
 Accept: with the editor open, resizing 1400 → 700 → 1400 in single jumps brings the editor back but not the sidebar (shot B-023-2); in the round-1 build it did come back. D-059 says a floor-collapsed sidebar returns once the terminal keeps 300 + 24 pt. Add the single-jump case to the real-window harness and fix.
 Source: B-023 visual check
+Done: 9307c661c (1239 tests). Two causes: a divider move after regrowth never re-checked the sidebar, and the editor's width was recorded after NSSplitView had already shrunk it (D-063). Verified: shots B-037-1/2/3 (1400 → 700 → 1400 in single jumps: the sidebar and the editor's full width both return). Review clean.
 
 ## B-006 · Tab ↔ row linkage   [done]
 Accept: highlighted row follows the focused attach tab; tab-count glyph on rows
