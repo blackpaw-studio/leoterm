@@ -13,13 +13,9 @@ enum LeoSidebarReducers {
         }
     }
 
+    /// The search filter: fuzzy-ranked over name and template (B-009).
     static func filter(_ rows: [LeoAgentRow], query: String) -> [LeoAgentRow] {
-        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !needle.isEmpty else { return rows }
-        return rows.filter {
-            $0.name.range(of: needle, options: .caseInsensitive) != nil ||
-                $0.template?.range(of: needle, options: .caseInsensitive) != nil
-        }
+        LeoFuzzyMatcher.rank(rows, query: query)
     }
 
     static func mergeActivity(_ rows: [LeoAgentRow], activityByName: [String: LeoSidebarActivity]) -> [LeoAgentRow] {
