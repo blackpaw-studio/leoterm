@@ -140,11 +140,11 @@ Accept: under 4× load (B-031 run) `LeoSidebarFeedRecoveryTests` failed 19 times
 Source: B-031 implementer run
 Done: 744ff0a71 fa3a8ff43 c4498f88e d32b2f060 0a9f77d2f b301bc587 (1244 tests). All 13 LeoSidebar* suites 10/10 under 42× load (2020/2020); each flaky test failed when its behavior was broken. Causes: wall-clock deadlines, a Disconnect count taken before the post-baseline emission, an AttentionRace restart wait satisfied too early, and a defaults domain shared across parallel hosts. No product race (D-065). Test-only. The first implementer hung in a hook and was replaced. Follow-ups → B-039, B-040.
 
-## B-039 · Tests leave empty preference plists behind   [ready (next run)]
+## B-039 · Tests leave empty preference plists behind   [ready]
 Accept: `~/Library/Preferences` holds ~830 empty stubs from test runs (737 `LeoSidebarFeedRecoveryTests.picker.<UUID>`, 45 `…visible.<UUID>`, 44 `LeoSidebarTests.widths.<UUID>`, plus fixed-name ones); `removePersistentDomain` doesn't remove the file. Inject an in-memory defaults store (or a single reused suite per test class, cleared per test) so a full run adds no plist files, and add that to the B-032 bundle guard. Don't delete the existing stubs; list them.
 Source: B-036 review
 
-## B-040 · AttentionRace: `…RecoveryListIsStillInFlight` doesn't guard boot reset   [ready (next run)]
+## B-040 · AttentionRace: `…RecoveryListIsStillInFlight` doesn't guard boot reset   [ready]
 Accept: the test still passes with boot reset disabled, because no fetch returns the old boot's data; it fails only when the recovery baseline is skipped. Redesign it so an old-boot answer arrives in flight and the test fails when boot reset is broken.
 Source: B-036 implementer break-check
 
@@ -176,7 +176,7 @@ of stale rows. Manual retry only. Includes B-027(c): replace `LeoSocketActivityC
 Source: roadmap Tier 2
 Done: 7a2bf5da5 4f1cd16b7 0ed8a6b8f (1237 tests). A dropped stream, a dead tunnel or a failed wake check dims the rows and shows "Disconnected from <host>" with Retry (Agents ▸ Reconnect, ⇧⌘R); the backoff is gone (D-061, D-062). Verified: shots B-007-1 (banner over dimmed rows) and B-007-2 (Reconnect restores rows and badges), on the first build; the 2 fix rounds changed phase ordering and error sanitizing only. Banner polish → B-038.
 
-## B-038 · Disconnected banner: reason text wraps mid-word   [ready (next run)]
+## B-038 · Disconnected banner: reason text wraps mid-word   [ready]
 Accept: in the default-width sidebar the banner's reason breaks mid-identifier (shot B-007-1: "LEO_-FORCE_DISCO…"), and the main pane's "Choose Agent…" stays enabled while disconnected. Truncate the reason to one line with the full text in a tooltip, and disable or explain Choose Agent while disconnected.
 Source: B-007 visual check
 
