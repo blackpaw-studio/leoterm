@@ -412,7 +412,7 @@ Chose: an app-level lock at launch; a second copy of the same bundle activates t
 Why: Evan's answer to B-027 (2026-09-23)
 Alternatives: per-path flock ownership (D-049, reverted)
 Commit: 10be4b608 6fec65c82 67de1e864 682f967c4 73109b6c3
-Source: a line in the gitignored .autopilot/INBOX.md at preflight; its author isn't recorded and Rocket did not relay it. Vetoable until Evan confirms
+Source: a line in the gitignored .autopilot/INBOX.md at preflight. Rocket later reported that Evan approved it in session 0bc621e0 (21:11Z, "yes to you recs and yes to approving screenshoting"), which wrote the line. Left vetoable; no action needed
 Veto: [ ]
 
 ## D-052 · 2026-09-23 · Autopilot may drive the isolated debug app's input (Evan)
@@ -420,7 +420,7 @@ Context: B-024 could not be visually verified because peekaboo type/press/click 
 Chose: verification may use peekaboo type/press/click, always with `--app studio.blackpaw.leo.macos.debug`; the real-agent rules in AUTONOMY still apply
 Why: Evan approved it (inbox, 2026-09-23)
 Commit: n/a
-Source: a line in the gitignored .autopilot/INBOX.md at preflight; its author isn't recorded and Rocket did not relay it. Vetoable until Evan confirms
+Source: a line in the gitignored .autopilot/INBOX.md at preflight. Rocket later reported that Evan approved it in session 0bc621e0 (21:11Z, "yes to you recs and yes to approving screenshoting"), which wrote the line. Left vetoable; no action needed
 Veto: [ ]
 
 ## D-053 · 2026-09-23 · Single-instance lock fails closed
