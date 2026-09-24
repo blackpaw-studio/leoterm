@@ -149,8 +149,11 @@ struct LeoSidebarTests {
     }
 
     @Test @MainActor func windowSessionReadsWritesAndClampsDefaults() {
-        let defaults = UserDefaults(suiteName: "LeoSidebarTests")!
-        defaults.removePersistentDomain(forName: "LeoSidebarTests")
+        // Unique per run: parallel test hosts share one preferences domain
+        // per name, so another host's write could land between these lines.
+        let suiteName = "LeoSidebarTests.widths.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
         defaults.set(false, forKey: "leo.sidebarVisible")
         defaults.set(500, forKey: "leo.sidebarWidth")
         let session = LeoWindowSession(defaults: defaults)
