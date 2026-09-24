@@ -518,3 +518,11 @@ Why: dependency injection over globals; tests never touch real user state
 Alternatives: clean the real dir after tests (deletes shared state the real app uses); a fixed shared /tmp dir (parallel workers collide)
 Commit: f6a591e0a 41a653cfd aeb23c6b5 b03191132
 Veto: [ ]
+
+## D-065 · 2026-09-23 · B-036 implementer calls; the flakes were test waits, not product races
+Context: B-036 (sidebar-feed suites flaked under CPU load)
+Chose: every LeoSidebarFeed* suite (not only the named ones) moves from 1–2 s wall-clock deadlines to `until` waits under a 1-minute suite time limit; `until` takes an optional message recorded if the limit cancels it; load proof at 42× `yes` (3× cores) instead of B-031's 2×; timed-out break-checks run one test at a time (a timeout kills the whole host under xcodebuild); per-test UUID defaults domains are removed in a `defer` (macOS still leaves empty plist stubs; not deleted). No product code changed: the B-007 Disconnect failure was the emission count being taken before the activity-state emission that follows each baseline. Dismissed: a review LOW that a failing `until` polls every 1 ms (failure path only, capped by the time limit)
+Why: tests must fail only when behavior breaks; event-driven waits over deadlines (B-025, B-031)
+Alternatives: longer deadlines (still flaky under enough load, and slower)
+Commit: 744ff0a71 fa3a8ff43 c4498f88e d32b2f060 0a9f77d2f b301bc587
+Veto: [ ]
