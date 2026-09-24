@@ -1,29 +1,42 @@
 import Foundation
 import OSLog
 
-/// Which surfaced-file ids the user has opened, per host (B-013), so a
-/// `/state` recovery never re-badges them. Each host keeps its latest
-/// `perHostLimit` ids, oldest first.
+/// Which surfaced files the user has opened, per host (B-013), so a
+/// `/state` recovery never re-badges them. A file is its incarnation
+/// (agent + `started_at`) plus its id: a new incarnation reusing an id is
+/// another file. Each host keeps its latest `perHostLimit`, oldest first.
 struct LeoSurfacedFileLedger: Equatable, Sendable, Codable {
     static let perHostLimit = 200
 
+    private struct Entry: Equatable, Hashable, Sendable, Codable {
+        let agent: String
+        let startedAt: String
+        let id: String
+
+        init(_ file: LeoSurfacedFile) {
+            agent = file.agent
+            startedAt = file.startedAt
+            id = file.id
+        }
+    }
+
     /// Keyed by `hostKey`; a Codable map with string keys stays a plain
     /// JSON object.
-    private let seen: [String: [String]]
+    private let seen: [String: [Entry]]
 
     init() { seen = [:] }
 
-    private init(seen: [String: [String]]) { self.seen = seen }
+    private init(seen: [String: [Entry]]) { self.seen = seen }
 
-    func isSeen(_ id: String, host: LeoHostID) -> Bool {
-        seen[Self.hostKey(host)]?.contains(id) ?? false
+    func isSeen(_ file: LeoSurfacedFile, host: LeoHostID) -> Bool {
+        seen[Self.hostKey(host)]?.contains(Entry(file)) ?? false
     }
 
-    func markingSeen(_ id: String, host: LeoHostID) -> LeoSurfacedFileLedger {
-        guard !isSeen(id, host: host) else { return self }
+    func markingSeen(_ file: LeoSurfacedFile, host: LeoHostID) -> LeoSurfacedFileLedger {
+        guard !isSeen(file, host: host) else { return self }
         let key = Self.hostKey(host)
-        let ids = Array(((seen[key] ?? []) + [id]).suffix(Self.perHostLimit))
-        return LeoSurfacedFileLedger(seen: seen.merging([key: ids]) { _, new in new })
+        let entries = Array(((seen[key] ?? []) + [Entry(file)]).suffix(Self.perHostLimit))
+        return LeoSurfacedFileLedger(seen: seen.merging([key: entries]) { _, new in new })
     }
 
     private static func hostKey(_ host: LeoHostID) -> String {
@@ -40,9 +53,10 @@ protocol LeoSurfacedFileSeenStore {
 }
 
 /// The ledger as JSON under one key. Unreadable data reads as nothing
-/// seen: at worst a file badges again.
+/// seen: at worst a file badges again. v2: entries are keyed by
+/// incarnation + id (the id-only v1 key is ignored).
 final class LeoUserDefaultsSurfacedFileSeenStore: LeoSurfacedFileSeenStore {
-    static let key = "leo.surfacedFiles.seen"
+    static let key = "leo.surfacedFiles.seen.v2"
     private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
     private let defaults: UserDefaults
 

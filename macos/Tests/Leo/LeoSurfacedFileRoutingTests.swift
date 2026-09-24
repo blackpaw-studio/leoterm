@@ -14,26 +14,42 @@ struct LeoSurfacedFileRoutingTests {
     @Test func seenIdsPersistPerHost() {
         let defaults = LeoInMemoryDefaults()
         let store = LeoUserDefaultsSurfacedFileSeenStore(defaults: defaults)
-        store.save(LeoSurfacedFileLedger().markingSeen("u-1", host: .local).markingSeen("u-2", host: .remote("work")))
+        let one = surfaced("u-1", agent: "alpha", startedAt: "s1")
+        let two = surfaced("u-2", agent: "alpha", startedAt: "s1")
+        store.save(LeoSurfacedFileLedger().markingSeen(one, host: .local).markingSeen(two, host: .remote("work")))
 
         let reloaded = LeoUserDefaultsSurfacedFileSeenStore(defaults: defaults).load()
-        #expect(reloaded.isSeen("u-1", host: .local))
-        #expect(!reloaded.isSeen("u-1", host: .remote("work")), "a seen id is per host")
-        #expect(reloaded.isSeen("u-2", host: .remote("work")))
+        #expect(reloaded.isSeen(one, host: .local))
+        #expect(!reloaded.isSeen(one, host: .remote("work")), "a seen id is per host")
+        #expect(reloaded.isSeen(two, host: .remote("work")))
+        #expect(!reloaded.isSeen(surfaced("u-1", agent: "alpha", startedAt: "s2"), host: .local), "and per incarnation")
     }
 
     @Test func theLedgerKeepsOnlyTheLatestSeenIdsPerHost() {
         let limit = LeoSurfacedFileLedger.perHostLimit
-        let ledger = (0...limit).reduce(LeoSurfacedFileLedger()) { $0.markingSeen("u-\($1)", host: .local) }
-        #expect(!ledger.isSeen("u-0", host: .local))
-        #expect(ledger.isSeen("u-\(limit)", host: .local))
-        #expect(ledger.markingSeen("u-\(limit)", host: .local) == ledger, "marking again is a no-op")
+        let files = (0...limit).map { surfaced("u-\($0)", agent: "alpha", startedAt: "s1") }
+        let ledger = files.reduce(LeoSurfacedFileLedger()) { $0.markingSeen($1, host: .local) }
+        #expect(!ledger.isSeen(files[0], host: .local))
+        #expect(ledger.isSeen(files[limit], host: .local))
+        #expect(ledger.markingSeen(files[limit], host: .local) == ledger, "marking again is a no-op")
     }
 
     @Test func unreadableStoredDataReadsAsNothingSeen() {
         let defaults = LeoInMemoryDefaults()
         defaults.set(Data("garbage".utf8), forKey: LeoUserDefaultsSurfacedFileSeenStore.key)
         #expect(LeoUserDefaultsSurfacedFileSeenStore(defaults: defaults).load() == LeoSurfacedFileLedger())
+    }
+
+    /// Review #2: seen is per incarnation, so a new incarnation reusing an
+    /// id still badges, across a relaunch.
+    @Test func aSeenIdDoesNotHideANewIncarnationsFileWithTheSameId() {
+        let defaults = LeoInMemoryDefaults()
+        let old = surfaced("u-1", agent: "alpha", startedAt: "s1")
+        makeModel([row("alpha", "s1", files: [old])], defaults: defaults).markSurfacedFileSeen(old, host: .local)
+
+        let new = surfaced("u-1", agent: "alpha", startedAt: "s2")
+        let relaunched = makeModel([row("alpha", "s2", files: [new])], defaults: defaults)
+        #expect(relaunched.pendingSurfacedFiles(for: relaunched.snapshot.rows[0]) == [new])
     }
 
     /// `/state` recovery after a restart doesn't re-badge what was opened.

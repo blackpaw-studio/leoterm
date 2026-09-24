@@ -9,7 +9,7 @@ import Foundation
 extension LeoSidebarModel {
     /// This row's unseen surfaced files, newest last.
     func pendingSurfacedFiles(for row: LeoAgentRow) -> [LeoSurfacedFile] {
-        row.surfacedFiles.filter { !surfacedSeen.isSeen($0.id, host: row.host) }
+        row.surfacedFiles.filter { !surfacedSeen.isSeen($0, host: row.host) }
     }
 
     /// The user named `file` (a menu). Nothing happens while disconnected
@@ -33,7 +33,7 @@ extension LeoSidebarModel {
     /// Called by the opener once the pane shows `file`; until then it
     /// keeps its badge.
     func markSurfacedFileSeen(_ file: LeoSurfacedFile, host: LeoHostID) {
-        let updated = surfacedSeen.markingSeen(file.id, host: host)
+        let updated = surfacedSeen.markingSeen(file, host: host)
         guard updated != surfacedSeen else { return }
         surfacedSeen = updated
         surfacedSeenStore.save(updated)

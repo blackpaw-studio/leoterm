@@ -66,6 +66,40 @@ struct LeoSurfacedFileIndexTests {
         #expect(live.merging(state: state).files(name: "alpha", startedAt: "s1").map(\.id) == ["u-1", "u-2", "u-3"])
     }
 
+    /// Review #2: identity is (incarnation, id). A new incarnation reusing
+    /// an id is a different file.
+    @Test func aNewIncarnationReusingAnIdIsANewFile() {
+        let first = LeoSurfacedFileIndex.empty.inserting(surfaced("u-1", agent: "alpha", startedAt: "s1")).index
+        let second = first.inserting(surfaced("u-1", agent: "alpha", startedAt: "s2"))
+        #expect(second.isNew)
+        #expect(second.index.files(name: "alpha", startedAt: "s2").map(\.id) == ["u-1"])
+
+        let state = [observed("alpha", "s2", files: [surfaced("u-1", agent: "alpha", startedAt: "s2")])]
+        #expect(first.merging(state: state).files(name: "alpha", startedAt: "s2").map(\.id) == ["u-1"])
+    }
+
+    /// Review #3: a full baseline (the daemon's newest 20) can't say
+    /// whether an event-only file is newer or fell out of its window; one
+    /// without a later `at` is dropped, never promoted to newest.
+    @Test func aFullBaselineDropsAnEventOnlyFileItCantPlaceAsNewer() {
+        let cap = LeoSurfacedFileIndex.perIncarnationLimit
+        let baseline = (1...cap).map { surfaced("u-\($0)", agent: "alpha", startedAt: "s1", at: at($0)) }
+        let live = LeoSurfacedFileIndex.empty
+            .inserting(surfaced("old", agent: "alpha", startedAt: "s1", at: at(0))).index
+            .inserting(surfaced("undated", agent: "alpha", startedAt: "s1")).index
+            .inserting(surfaced("new", agent: "alpha", startedAt: "s1", at: at(cap + 1))).index
+        let merged = live.merging(state: [observed("alpha", "s1", files: baseline)]).files(name: "alpha", startedAt: "s1")
+        #expect(merged.map(\.id) == Array(baseline.map(\.id).dropFirst()) + ["new"])
+    }
+
+    /// Below the cap the baseline holds everything the daemon had, so an
+    /// event-only file came after the fetch: kept as newest.
+    @Test func aPartialBaselineKeepsEventOnlyFilesAsNewest() {
+        let live = LeoSurfacedFileIndex.empty.inserting(surfaced("undated", agent: "alpha", startedAt: "s1")).index
+        let merged = live.merging(state: [observed("alpha", "s1", files: [surfaced("u-1", agent: "alpha", startedAt: "s1")])])
+        #expect(merged.files(name: "alpha", startedAt: "s1").map(\.id) == ["u-1", "undated"])
+    }
+
     @Test func anOldDaemonsStateChangesNothing() {
         let state = [LeoObservedAgent(name: "alpha", status: .running, activity: nil, currentAction: nil, lastActivityAt: nil, startedAt: "s1")]
         #expect(LeoSurfacedFileIndex.empty.merging(state: state) == .empty)
@@ -73,9 +107,18 @@ struct LeoSurfacedFileIndexTests {
 }
 
 func surfaced(
-    _ id: String, agent: String, startedAt: String, path: String = "src/file.swift", line: Int? = nil, reason: String? = nil
+    _ id: String, agent: String, startedAt: String, path: String = "src/file.swift", line: Int? = nil, reason: String? = nil,
+    at: String? = nil
 ) -> LeoSurfacedFile {
-    LeoSurfacedFile(id: id, agent: agent, startedAt: startedAt, path: path, absPath: "/w/\(agent)/\(path)", line: line, reason: reason)
+    LeoSurfacedFile(id: id, agent: agent, startedAt: startedAt, path: path, absPath: "/w/\(agent)/\(path)", line: line, reason: reason, at: at)
+}
+
+private func at(_ minute: Int) -> String { String(format: "2026-09-24T15:%02d:00Z", minute) }
+
+private func observed(_ name: String, _ startedAt: String, files: [LeoSurfacedFile]) -> LeoObservedAgent {
+    LeoObservedAgent(
+        name: name, status: .running, activity: nil, currentAction: nil, lastActivityAt: nil, startedAt: startedAt, surfacedFiles: files
+    )
 }
 
 private func row(_ name: String, _ startedAt: String?, host: LeoHostID = .local) -> LeoAgentRow {
