@@ -680,3 +680,15 @@ Alternatives: cache anyway for remote hosts (unmeasured; revisit when a remote i
 Commit: e45d323fb 826e921ee
 Veto: [ ]
 
+
+## D-088 · 2026-09-24 · B-013: drop auto-open; surfaced files are badge-only
+Chose: no auto-open on focus. Pending surfaced files show the quiet row badge; Evan opens them with ⌥⌘O or the row's Surfaced Files menu. Re-apply the reviewed parts of 30fe234bf..69b736464 (decode, incarnation-keyed badge, menus, ⌥⌘O, path/size/SFTP hardening) minus auto-open
+Why: Evan's choice; calm by default, never steals the pane; auto-open failed review 4 times on races
+Commit:
+Veto: n/a (Evan)
+
+## D-089 · 2026-09-24 · B-044: stubs trashed by Evan
+Chose: mark done; Evan moved 26,878 `Leo*Tests*.plist` to ~/.Trash/leo-test-stubs; bare UUID plists untouched
+Why: Evan's action
+Commit: n/a
+Veto: n/a (Evan)

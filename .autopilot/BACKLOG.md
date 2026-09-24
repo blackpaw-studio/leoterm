@@ -173,12 +173,13 @@ Accept: `~/Library/Preferences` holds ~830 empty stubs from test runs (737 `LeoS
 Source: B-036 review
 Done: 558a0585e a00d37484 b9cc40d4b (1360 tests). Tests use an in-memory `UserDefaults` subclass; the bundle guard fails on any new `Leo*Tests*`/`Ghostty*Tests*` plist (D-080). Full run: 0 new plists (was +74). Break-checked (a real suite back in `LeoSidebarTests.widths` → guard fails). 1 fix round; 1 LOW dismissed. Test-only. Stubs → B-044.
 
-## B-044 · Delete the old test preference stubs   [blocked]
+## B-044 · Delete the old test preference stubs   [done]
 Issue: #33
 Accept: ~/Library/Preferences on Dionysus holds 31,098 empty stubs from old test runs (list: /private/tmp/b039-stubs.txt; mostly `Leo*Tests.<UUID>.plist` and 4,220 bare `<UUID>.plist`). B-039 stopped new ones.
 Question: Needs Evan to do: deleting user files is on the Never list. OK to move the `Leo*Tests*` ones (not the bare UUIDs, which may not all be ours) to the Trash? I'd pick yes; the bare UUIDs stay.
 Answer: accept your recommendation (yes; the bare UUIDs stay)
 Needs Evan to do: moving files to the Trash is still on the Never list (an answer settles the call, not the action). Run on Dionysus: `mkdir -p ~/.Trash/leo-test-stubs && find ~/Library/Preferences -maxdepth 1 -name 'Leo*Tests*.plist' -exec mv {} ~/.Trash/leo-test-stubs/ +`, then mark this done.
+Done: by Evan 2026-09-24: 26,878 `Leo*Tests*.plist` moved to ~/.Trash/leo-test-stubs; bare UUID plists untouched (D-089). No commits.
 
 ## B-040 · AttentionRace: `…RecoveryListIsStillInFlight` doesn't guard boot reset   [done]
 Issue: #34
@@ -274,7 +275,7 @@ Accept: at default sidebar width, B-011's never-truncating time squeezes the tem
 Source: B-011 visual check
 Done: bb7b9f81c 94685a65c (1346 tests). The template drops when fewer than 5 chars would show; a template that fits whole always shows (D-076). Verified: shot B-043-1 ("claude · Finished · 16h", "assist… · Finished · 16h"). 1 fix round (review MED: whole-fit check first); re-review clean.
 
-## B-045 · Editor "Closing…" banner replaces the header with a near-empty strip   [ready (next run)]
+## B-045 · Editor "Closing…" banner replaces the header with a near-empty strip   [ready]
 Issue: #48
 Accept: while a close waits on a save (shot B-035-4), the pane's header row (file name, path, mode) disappears and the banner sits alone at the right edge of an otherwise blank strip. Keep the header visible and show the banner as its own leading-aligned row (or in the header's trailing status slot), matching the other editor banners.
 Source: B-035 visual check
@@ -286,7 +287,7 @@ paint, render cached last snapshot and refresh in place.
 Source: roadmap Tier 3
 Done: e45d323fb 826e921ee (1393 tests). Measured, no product change needed (D-087): 4 cold launches, 103 agents, local daemon: sidebar appears at +378–400 ms, list lands at +500–523 ms (~120 ms of "Loading agents…"); the fetch doesn't block first paint, so no snapshot cache. DEBUG-only `LaunchTiming` log category kept for re-measuring (`/usr/bin/log show --predicate 'category == "LaunchTiming"'`). Remote (tunnel) cold start not measured: no autopilot remote host. Not visually verified (measurement only).
 
-## B-013 · Daemon-pushed "surface file" event   [blocked]
+## B-013 · Daemon-pushed "surface file" event   [ready]
 Issue: #50
 Accept: an agent calls a leo tool; the daemon emits a file-surfaced event;
 Leo badges the row and opens/queues the file.
@@ -295,7 +296,7 @@ B-004 ships, or wait for you? — I'd pick requesting it after B-004 ships.
 Old-Answer: accept your recommendation (requesting it after B-004 ships)
 Daemon: contract sent and approved by Evan via the leo agent 2026-09-24 (D-086); leo is building it, no restart, release at Evan's call.
 Question: architecture may be wrong — decode, incarnation-keyed badge, Surfaced Files menus, ⌥⌘O and the path/regular-file/size/SFTP-timeout hardening all passed review, but AUTO-OPENING a file when the agent's tab is focused failed review 4 times running, each fix exposing a new race: new incarnation opening in an old tab; stale stat replacing a newer file; then a queued open always dropped and a closed pane reopening (commits 30fe234bf..69b736464, reverted in f3e8d36b3). I'd pick dropping auto-open: badge only, and you open with ⌥⌘O / the row's Surfaced Files menu (calmer, never steals the pane). The rest re-applies from those commits. OK?
-Answer:
+Answer: yes — drop auto-open; surfaced files are badge-only, opened with ⌥⌘O / the row Surfaced Files menu; re-apply the rest from 30fe234bf..69b736464
 
 ## B-014 · All hosts at once as sidebar sections   [deferred]
 Question: deferred by D-008 until several remotes are in daily use. Tell me
