@@ -7,15 +7,16 @@ import Testing
 /// puts the feed in `.disconnected`: rows stay (activity cleared) but no
 /// refresh, poll or stream runs until the user's Retry -- which, for the
 /// same host, keeps the rows dimmed until the new connection's list lands.
+@Suite(.timeLimit(.minutes(1)))
 struct LeoSidebarFeedDisconnectTests {
     @Test func aDroppedStreamKeepsTheRowsAndStopsEveryTimer() async throws {
         let harness = DisconnectHarness(results: [.success(["alpha"])])
         await harness.connect()
-        await harness.waitFor { $0.connectivity == .connected && $0.rows.map(\.name) == ["alpha"] }
+        try await harness.waitFor { $0.connectivity == .connected && $0.rows.map(\.name) == ["alpha"] }
 
         await harness.activity.send(.disconnected(reason: "Connection closed"))
 
-        await harness.waitFor { $0.connectivity == .disconnected(reason: "Connection closed", isRetrying: false) }
+        try await harness.waitFor { $0.connectivity == .disconnected(reason: "Connection closed", isRetrying: false) }
         let snapshot = try #require(await harness.recorder.last)
         #expect(snapshot.rows.map(\.name) == ["alpha"])
         #expect(snapshot.rows.allSatisfy { $0.activity == .unknown })
@@ -27,9 +28,9 @@ struct LeoSidebarFeedDisconnectTests {
     @Test func nothingRefreshesWhileDisconnected() async throws {
         let harness = DisconnectHarness(results: [.success(["alpha"])])
         await harness.connect()
-        await harness.waitFor { $0.connectivity == .connected }
+        try await harness.waitFor { $0.connectivity == .connected }
         await harness.activity.send(.disconnected(reason: "Connection closed"))
-        await harness.waitFor { if case .disconnected = $0.connectivity { true } else { false } }
+        try await harness.waitFor { if case .disconnected = $0.connectivity { true } else { false } }
         let calls = await harness.daemon.listCallCount
 
         await harness.feed.refresh()
@@ -50,11 +51,11 @@ struct LeoSidebarFeedDisconnectTests {
                           attention: .init(state: .needsInput, revision: 3))]
         )
         await harness.connect()
-        await harness.waitFor { $0.attentionCount == 1 }
+        try await harness.waitFor { $0.attentionCount == 1 }
 
         await harness.activity.send(.disconnected(reason: "Connection closed"))
 
-        await harness.waitFor { if case .disconnected = $0.connectivity { true } else { false } }
+        try await harness.waitFor { if case .disconnected = $0.connectivity { true } else { false } }
         let snapshot = try #require(await harness.recorder.last)
         #expect(snapshot.attentionCount == 0)
         #expect(snapshot.rows.allSatisfy { $0.attention == nil })
@@ -64,31 +65,31 @@ struct LeoSidebarFeedDisconnectTests {
     @Test func retryKeepsTheRowsDimmedUntilTheNewListLands() async throws {
         let harness = DisconnectHarness(results: [.success(["alpha"])])
         await harness.connect()
-        await harness.waitFor { $0.connectivity == .connected }
+        try await harness.waitFor { $0.connectivity == .connected }
         await harness.activity.send(.disconnected(reason: "Connection closed"))
-        await harness.waitFor { if case .disconnected = $0.connectivity { true } else { false } }
+        try await harness.waitFor { if case .disconnected = $0.connectivity { true } else { false } }
 
         let retryDaemon = DisconnectDaemon(results: [])
         let retryActivity = DisconnectActivity()
         await harness.feed.updateConnection(host: .local, generation: 2, phase: .connecting)
-        await harness.waitFor { $0.connectivity == .disconnected(reason: "Connection closed", isRetrying: true) }
+        try await harness.waitFor { $0.connectivity == .disconnected(reason: "Connection closed", isRetrying: true) }
         #expect(await harness.recorder.last?.rows.map(\.name) == ["alpha"])
 
         await harness.feed.updateConnection(host: .local, generation: 2, phase: .connected(daemon: retryDaemon, activitySource: retryActivity.source))
-        await awaitCondition { await retryDaemon.listCallCount == 1 }
+        try await until { await retryDaemon.listCallCount == 1 }
         #expect(await harness.recorder.last?.connectivity == .disconnected(reason: "Connection closed", isRetrying: true))
 
         await retryDaemon.resolve(.success(["alpha", "beta"]))
-        await harness.waitFor { $0.connectivity == .connected && $0.rows.map(\.name) == ["alpha", "beta"] }
+        try await harness.waitFor { $0.connectivity == .connected && $0.rows.map(\.name) == ["alpha", "beta"] }
         await harness.stop()
     }
 
     @Test func aFailedRetryKeepsTheBannerWithTheNewReason() async throws {
         let harness = DisconnectHarness(results: [.success(["alpha"])])
         await harness.connect()
-        await harness.waitFor { $0.connectivity == .connected }
+        try await harness.waitFor { $0.connectivity == .connected }
         await harness.activity.send(.disconnected(reason: "Connection closed"))
-        await harness.waitFor { if case .disconnected = $0.connectivity { true } else { false } }
+        try await harness.waitFor { if case .disconnected = $0.connectivity { true } else { false } }
 
         let retryDaemon = DisconnectDaemon(results: [.failure(LeoDaemonError.transport("refused"))])
         await harness.feed.updateConnection(
@@ -97,7 +98,7 @@ struct LeoSidebarFeedDisconnectTests {
         )
 
         let reason = LeoDaemonError.transport("refused").localizedDescription
-        await harness.waitFor { $0.connectivity == .disconnected(reason: reason, isRetrying: false) }
+        try await harness.waitFor { $0.connectivity == .disconnected(reason: reason, isRetrying: false) }
         #expect(await harness.recorder.last?.rows.map(\.name) == ["alpha"])
         await harness.settle()
         #expect(await harness.clock.waiterCount == 0)
@@ -107,14 +108,14 @@ struct LeoSidebarFeedDisconnectTests {
     @Test func aTunnelThatFailsDuringRetryKeepsTheBanner() async throws {
         let harness = DisconnectHarness(results: [.success(["alpha"])], host: .remote("mars"))
         await harness.connect()
-        await harness.waitFor { $0.connectivity == .connected }
+        try await harness.waitFor { $0.connectivity == .connected }
         await harness.activity.send(.disconnected(reason: "Connection closed"))
-        await harness.waitFor { if case .disconnected = $0.connectivity { true } else { false } }
+        try await harness.waitFor { if case .disconnected = $0.connectivity { true } else { false } }
 
         await harness.feed.updateConnection(host: .remote("mars"), generation: 2, phase: .connecting)
         await harness.feed.updateConnection(host: .remote("mars"), generation: 2, phase: .failed(message: "ssh exited (255)"))
 
-        await harness.waitFor { $0.connectivity == .disconnected(reason: "ssh exited (255)", isRetrying: false) }
+        try await harness.waitFor { $0.connectivity == .disconnected(reason: "ssh exited (255)", isRetrying: false) }
         #expect(await harness.recorder.last?.rows.map(\.name) == ["alpha"])
         await harness.stop()
     }
@@ -124,11 +125,11 @@ struct LeoSidebarFeedDisconnectTests {
     @Test func aTunnelDropOnALiveConnectionIsDisconnectedNotFailed() async throws {
         let harness = DisconnectHarness(results: [.success(["alpha"])], host: .remote("mars"))
         await harness.connect()
-        await harness.waitFor { $0.connectivity == .connected }
+        try await harness.waitFor { $0.connectivity == .connected }
 
         await harness.feed.updateConnection(host: .remote("mars"), generation: 1, phase: .failed(message: "ssh exited (255)"))
 
-        await harness.waitFor { $0.connectivity == .disconnected(reason: "ssh exited (255)", isRetrying: false) }
+        try await harness.waitFor { $0.connectivity == .disconnected(reason: "ssh exited (255)", isRetrying: false) }
         #expect(await harness.recorder.last?.rows.map(\.name) == ["alpha"])
         await harness.stop()
     }
@@ -140,32 +141,32 @@ struct LeoSidebarFeedDisconnectTests {
 
         await harness.feed.updateConnection(host: .remote("mars"), generation: 1, phase: .failed(message: "Unknown host mars"))
 
-        await harness.waitFor { $0.connectivity == .failed(message: "Unknown host mars") }
+        try await harness.waitFor { $0.connectivity == .failed(message: "Unknown host mars") }
         await harness.stop()
     }
 
     @Test func switchingToAnotherHostWhileDisconnectedStartsClean() async throws {
         let harness = DisconnectHarness(results: [.success(["alpha"])])
         await harness.connect()
-        await harness.waitFor { $0.connectivity == .connected }
+        try await harness.waitFor { $0.connectivity == .connected }
         await harness.activity.send(.disconnected(reason: "Connection closed"))
-        await harness.waitFor { if case .disconnected = $0.connectivity { true } else { false } }
+        try await harness.waitFor { if case .disconnected = $0.connectivity { true } else { false } }
 
         await harness.feed.updateConnection(host: .remote("mars"), generation: 2, phase: .connecting)
 
-        await harness.waitFor { $0.connectivity == .loading && $0.rows.isEmpty }
+        try await harness.waitFor { $0.connectivity == .loading && $0.rows.isEmpty }
         await harness.stop()
     }
 
     @Test func aFailedWakeCheckDisconnects() async throws {
         let harness = DisconnectHarness(results: [.success(["alpha"]), .failure(LeoDaemonError.timeout)])
         await harness.connect()
-        await harness.waitFor { $0.connectivity == .connected }
+        try await harness.waitFor { $0.connectivity == .connected }
 
         await harness.feed.checkLiveness()
 
         let reason = LeoDaemonError.timeout.localizedDescription
-        await harness.waitFor { $0.connectivity == .disconnected(reason: reason, isRetrying: false) }
+        try await harness.waitFor { $0.connectivity == .disconnected(reason: reason, isRetrying: false) }
         #expect(await harness.daemon.listCallCount == 2)
         await harness.stop()
     }
@@ -173,11 +174,11 @@ struct LeoSidebarFeedDisconnectTests {
     @Test func aPassingWakeCheckChangesNothingAndIsNotRepeated() async throws {
         let harness = DisconnectHarness(results: [.success(["alpha"]), .success(["alpha"])])
         await harness.connect()
-        await harness.waitFor { $0.connectivity == .connected }
+        try await harness.waitForBaseline(rows: ["alpha"])
         let emitted = await harness.recorder.count
 
         await harness.feed.checkLiveness()
-        await awaitCondition { await harness.daemon.listCallCount == 2 }
+        try await until { await harness.daemon.listCallCount == 2 }
         await harness.settle()
 
         #expect(await harness.daemon.listCallCount == 2, "one check per wake, never a loop")
@@ -189,9 +190,9 @@ struct LeoSidebarFeedDisconnectTests {
     @Test func noWakeCheckRunsWhileAlreadyDisconnected() async throws {
         let harness = DisconnectHarness(results: [.success(["alpha"])])
         await harness.connect()
-        await harness.waitFor { $0.connectivity == .connected }
+        try await harness.waitFor { $0.connectivity == .connected }
         await harness.activity.send(.disconnected(reason: "Connection closed"))
-        await harness.waitFor { if case .disconnected = $0.connectivity { true } else { false } }
+        try await harness.waitFor { if case .disconnected = $0.connectivity { true } else { false } }
 
         await harness.feed.checkLiveness()
         await harness.settle()
@@ -206,16 +207,16 @@ struct LeoSidebarFeedDisconnectTests {
     @Test func phasesFromAnOlderGenerationNeverReplaceALiveRetry() async throws {
         let harness = DisconnectHarness(results: [.success(["alpha"])], host: .remote("mars"))
         await harness.connect()
-        await harness.waitFor { $0.connectivity == .connected }
+        try await harness.waitFor { $0.connectivity == .connected }
         await harness.activity.send(.disconnected(reason: "Connection closed"))
-        await harness.waitFor { if case .disconnected = $0.connectivity { true } else { false } }
+        try await harness.waitFor { if case .disconnected = $0.connectivity { true } else { false } }
 
         let retryDaemon = DisconnectDaemon(results: [.success(["alpha", "beta"])])
         await harness.feed.updateConnection(
             host: .remote("mars"), generation: 3,
             phase: .connected(daemon: retryDaemon, activitySource: DisconnectActivity().source)
         )
-        await harness.waitFor { $0.connectivity == .connected && $0.rows.map(\.name) == ["alpha", "beta"] }
+        try await harness.waitForBaseline(rows: ["alpha", "beta"])
         let emitted = await harness.recorder.count
 
         await harness.feed.updateConnection(host: .remote("mars"), generation: 2, phase: .connecting)
@@ -227,7 +228,7 @@ struct LeoSidebarFeedDisconnectTests {
         #expect(await harness.recorder.last?.connectivity == .connected)
         #expect(await harness.recorder.last?.rows.map(\.name) == ["alpha", "beta"])
         await harness.feed.refresh()
-        await awaitCondition { await retryDaemon.listCallCount == 2 }
+        try await until { await retryDaemon.listCallCount == 2 }
         await harness.stop()
     }
 
@@ -236,12 +237,12 @@ struct LeoSidebarFeedDisconnectTests {
     @Test func aLateConnectingForTheLiveGenerationIsIgnored() async throws {
         let harness = DisconnectHarness(results: [.success(["alpha"]), .success(["alpha"])], host: .remote("mars"))
         await harness.connect()
-        await harness.waitFor { $0.connectivity == .connected }
+        try await harness.waitFor { $0.connectivity == .connected }
 
         await harness.feed.updateConnection(host: .remote("mars"), generation: 1, phase: .connecting)
         await harness.feed.refresh()
 
-        await awaitCondition { await harness.daemon.listCallCount == 2 }
+        try await until { await harness.daemon.listCallCount == 2 }
         #expect(await harness.recorder.last?.connectivity == .connected)
         await harness.stop()
     }
@@ -255,7 +256,7 @@ struct LeoSidebarFeedDisconnectTests {
         await harness.feed.setInitialPolling(true)
         await harness.feed.updateConnection(host: .remote("mars"), generation: 1, phase: .connecting)
         await harness.feed.updateConnection(host: .remote("mars"), generation: 1, phase: .failed(message: "ssh exited (255)"))
-        await harness.waitFor { $0.connectivity == .failed(message: "ssh exited (255)") }
+        try await harness.waitFor { $0.connectivity == .failed(message: "ssh exited (255)") }
 
         let lateDaemon = DisconnectDaemon(results: [.success(["ghost"])])
         await harness.feed.updateConnection(
@@ -275,7 +276,7 @@ struct LeoSidebarFeedDisconnectTests {
     @Test func aStaleWakeCheckFailureIsIgnored() async throws {
         let harness = DisconnectHarness(results: [.success(["alpha"])])
         await harness.connect()
-        await harness.waitFor { $0.connectivity == .connected }
+        try await harness.waitFor { $0.connectivity == .connected }
 
         let first = await harness.feed.checkLiveness()
         let second = await harness.feed.checkLiveness()
@@ -291,11 +292,11 @@ struct LeoSidebarFeedDisconnectTests {
     @Test func disconnectRequestEntersTheSameState() async throws {
         let harness = DisconnectHarness(results: [.success(["alpha"])])
         await harness.connect()
-        await harness.waitFor { $0.connectivity == .connected }
+        try await harness.waitFor { $0.connectivity == .connected }
 
         await harness.feed.disconnect(reason: "Forced")
 
-        await harness.waitFor { $0.connectivity == .disconnected(reason: "Forced", isRetrying: false) }
+        try await harness.waitFor { $0.connectivity == .disconnected(reason: "Forced", isRetrying: false) }
         #expect(await harness.recorder.last?.rows.map(\.name) == ["alpha"])
         await harness.stop()
     }
@@ -334,8 +335,19 @@ private struct DisconnectHarness {
 
     func stop() async { await feed.stop() }
 
-    func waitFor(_ condition: @escaping @Sendable (LeoSidebarSnapshot) -> Bool) async {
-        await awaitCondition(timeout: 2) { await recorder.last.map(condition) ?? false }
+    func waitFor(_ condition: @escaping @Sendable (LeoSidebarSnapshot) -> Bool) async throws {
+        try await until { await recorder.last.map(condition) ?? false }
+    }
+
+    /// Waits for the activity-state emission that follows a connection's
+    /// first list (`listRefreshSucceeded` false, after the list's true): the
+    /// last one that connection makes on its own, so counting from here
+    /// counts only what the test causes.
+    func waitForBaseline(rows: [String]) async throws {
+        try await until {
+            await recorder.values.drop { !($0.listRefreshSucceeded && $0.rows.map(\.name) == rows) }
+                .contains { $0.connectivity == .connected && $0.rows.map(\.name) == rows && !$0.listRefreshSucceeded }
+        }
     }
 
     /// Lets every task the last call started run to its next suspension.
