@@ -145,9 +145,10 @@ Done: 744ff0a71 fa3a8ff43 c4498f88e d32b2f060 0a9f77d2f b301bc587 (1244 tests). 
 Accept: `~/Library/Preferences` holds ~830 empty stubs from test runs (737 `LeoSidebarFeedRecoveryTests.picker.<UUID>`, 45 `…visible.<UUID>`, 44 `LeoSidebarTests.widths.<UUID>`, plus fixed-name ones); `removePersistentDomain` doesn't remove the file. Inject an in-memory defaults store (or a single reused suite per test class, cleared per test) so a full run adds no plist files, and add that to the B-032 bundle guard. Don't delete the existing stubs; list them.
 Source: B-036 review
 
-## B-040 · AttentionRace: `…RecoveryListIsStillInFlight` doesn't guard boot reset   [ready]
+## B-040 · AttentionRace: `…RecoveryListIsStillInFlight` doesn't guard boot reset   [done]
 Accept: the test still passes with boot reset disabled, because no fetch returns the old boot's data; it fails only when the recovery baseline is skipped. Redesign it so an old-boot answer arrives in flight and the test fails when boot reset is broken.
 Source: B-036 implementer break-check
+Done: 669c92d1f 892b6f18e fb92b79d9 (1352 tests). Test-only: an old boot's buffered needs_input now outranks the new baseline unless boot reset works (D-079). Break-checked (boot reset off, post-restart baseline skipped: both fail); 10/10 under 3× core-count load. 2 fix rounds (review.concurrency: list deadline race, fetch-count ambiguity); 1 LOW dismissed. Not visually verified (test-only).
 
 ## B-005 · Per-agent workspace browser   [done]
 Accept: from a sidebar row (context menu + shortcut), browse the agent's

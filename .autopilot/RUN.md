@@ -1,6 +1,6 @@
 Status: running
-Item: B-040
-Base: 9a355633e
+Item: B-039
+Base: fb92b79d9
 Wip: none
 Untracked-left: macos/default.profraw scratchpad/ zig-out
 
@@ -10,3 +10,5 @@ Untracked-left: macos/default.profraw scratchpad/ zig-out
 - B-043 done: bb7b9f81c 94685a65c (1346 tests). Verified B-043-1. review MED (narrow template that fits whole dropped) + LOW (uniform-width test) → attempt 1 94685a65c; re-review clean. D-076.
 - B-041 done: 40966ae59 (1347 tests). Verified B-041-2 (palette is its own panel window: capture it by --window-id). review: 1 LOW dismissed (D-077).
 - B-042 done: 9a355633e (1352 tests). Verified B-042-1 (typed into the palette panel with `type --foreground --window-id`). Review clean. D-078.
+- B-040: built 669c92d1f (1352 tests; break-checks: boot reset off → fails, post-restart baseline skipped → fails; 10/10 under load). review.concurrency MED (pump fires the list deadline) → attempt 1 892b6f18e; LOW dismissed (a retained display entry the baseline always replaces isn't visible). Re-review MED (fetch 4 may predate release) + LOW (no local bound) → attempt 2 (d-ccfd517838b7#3).
+- B-040 done: 669c92d1f 892b6f18e fb92b79d9 (1352 tests). Attempt-2 fix fb92b79d9; re-review: MED closed, 1 LOW dismissed (skipped baseline still fails, at the 1-minute limit). D-079.

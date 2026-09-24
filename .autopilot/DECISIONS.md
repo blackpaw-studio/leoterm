@@ -619,3 +619,10 @@ Why: keyboard-first — both searches behave the same; don't match text the row 
 Alternatives: name + template like the sidebar (matches invisible text); name only (drops the old repo matching)
 Commit: 9a355633e
 Veto: [ ]
+
+## D-079 · 2026-09-24 · B-040: redesign the in-flight recovery test around a buffered old-boot signal
+Chose: kept the test's name and assertions and rebuilt its sequence: the old boot's /state lands needs_input (rev 40), a second recovery's list is held, the old boot's last needs_input signal (rev 41) is buffered, then the new boot's hello (baseline rev 2) with a marker event proving it was read mid-recovery. The old-boot data arrives as a live signal, not a fetch, because a stale /state answer can't reach the new boot (generation bump drops it). Released list proven by its own landed/failed result; later lists held; a list timeout fails at once with a named message. "Baseline skipped" = only the post-restart baseline. Review LOWs dismissed: a retained old display entry is replaced by the baseline before anyone sees it; a skipped post-restart baseline still fails the test, just at the suite's 1-minute limit
+Why: the test must fail when boot reset breaks (break-checked: boot reset off → needsInput shown; baseline skipped → nil); event-driven, 10/10 under 3× core-count load
+Alternatives: a sibling test (duplicates setup); an old-boot /state answer in flight (unreachable in a real sequence)
+Commit: 669c92d1f 892b6f18e fb92b79d9
+Veto: [ ]
