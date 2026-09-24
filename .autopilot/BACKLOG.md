@@ -288,7 +288,7 @@ paint, render cached last snapshot and refresh in place.
 Source: roadmap Tier 3
 Done: e45d323fb 826e921ee (1393 tests). Measured, no product change needed (D-087): 4 cold launches, 103 agents, local daemon: sidebar appears at +378–400 ms, list lands at +500–523 ms (~120 ms of "Loading agents…"); the fetch doesn't block first paint, so no snapshot cache. DEBUG-only `LaunchTiming` log category kept for re-measuring (`/usr/bin/log show --predicate 'category == "LaunchTiming"'`). Remote (tunnel) cold start not measured: no autopilot remote host. Not visually verified (measurement only).
 
-## B-013 · Daemon-pushed "surface file" event   [ready]
+## B-013 · Daemon-pushed "surface file" event   [done]
 Issue: #50
 Accept: an agent calls a leo tool; the daemon emits a file-surfaced event;
 Leo badges the row and opens/queues the file.
@@ -298,8 +298,14 @@ Old-Answer: accept your recommendation (requesting it after B-004 ships)
 Daemon: contract sent and approved by Evan via the leo agent 2026-09-24 (D-086); leo is building it, no restart, release at Evan's call.
 Question: architecture may be wrong — decode, incarnation-keyed badge, Surfaced Files menus, ⌥⌘O and the path/regular-file/size/SFTP-timeout hardening all passed review, but AUTO-OPENING a file when the agent's tab is focused failed review 4 times running, each fix exposing a new race: new incarnation opening in an old tab; stale stat replacing a newer file; then a queued open always dropped and a closed pane reopening (commits 30fe234bf..69b736464, reverted in f3e8d36b3). I'd pick dropping auto-open: badge only, and you open with ⌥⌘O / the row's Surfaced Files menu (calmer, never steals the pane). The rest re-applies from those commits. OK?
 Answer: yes — drop auto-open; surfaced files are badge-only, opened with ⌥⌘O / the row Surfaced Files menu; re-apply the rest from 30fe234bf..69b736464
+Done: 70a2b21e8 eed22646d 813d4f335 263040196 (1459 tests). Re-applied f3e8d36b3's revert minus all auto-open (D-088): badge only; opens via row ▸ Surfaced Files ▸ or Agents ▸ Open Surfaced File (⌥⌘O, needs a selected row). Pane re-checks the incarnation after the read and after the unsaved prompt; identity and seen ledger keyed by agent + started_at + id; live events ordered by `at` (D-091). Verified: shots B-013-1 (row badge 2), B-013-2-screen (Surfaced Files submenu, screen capture), B-013-3 (menu open → notes.md at line 3, badge 1), B-013-4 (⌥⌘O → plan.py, badge cleared), with a DEBUG `LEO_SURFACE_FIXTURE` on a temporary autopilot-scratch (deleted). Daemon side not released, so fixture only; remote not visually verified. 2 fix rounds (review.concurrency: open-queue identity HIGH, id-only identity, baseline ordering ×3); 2 round-3 P2s dismissed → B-046.
 
 ## B-014 · All hosts at once as sidebar sections   [deferred]
 Question: deferred by D-008 until several remotes are in daily use. Tell me
 when that's true. — I'd pick keeping it deferred.
 Answer: accept your recommendation (keeping it deferred)
+
+## B-046 · Surfaced files: keep `at` order through a partial /state merge   [ready (next run)]
+Accept: a partial baseline appends event-only files as newest, so `[t1, t2(live), t3]` becomes `[t1, t3, t2]` and ⌥⌘O picks t2 (`LeoSurfacedFileIndex.swift:64`). Place event-only files by `at` when merging. Also: a full (20-sent) baseline whose entries are all malformed returns early and leaves stale live files (`:59`); treat it as an empty full baseline. Failing tests first.
+Source: B-013 third review (dismissed as non-blocking)
+

@@ -684,7 +684,7 @@ Veto: [ ]
 ## D-088 · 2026-09-24 · B-013: drop auto-open; surfaced files are badge-only
 Chose: no auto-open on focus. Pending surfaced files show the quiet row badge; Evan opens them with ⌥⌘O or the row's Surfaced Files menu. Re-apply the reviewed parts of 30fe234bf..69b736464 (decode, incarnation-keyed badge, menus, ⌥⌘O, path/size/SFTP hardening) minus auto-open
 Why: Evan's choice; calm by default, never steals the pane; auto-open failed review 4 times on races
-Commit:
+Commit: 70a2b21e8 eed22646d 813d4f335 263040196
 Veto: n/a (Evan)
 
 ## D-089 · 2026-09-24 · B-044: stubs trashed by Evan
@@ -698,4 +698,11 @@ Chose: keep the Closing banner as its own leading-aligned row under the header (
 Why: match the other editor banners (Mac-native consistency); the one-row fix is the same code for every banner
 Alternatives: trailing status slot in the header (new idiom, crowds the mode/close controls)
 Commit: 10ec5d41f 350a88ecc f778624b5
+Veto: [ ]
+
+## D-091 · 2026-09-24 · B-013 implementer calls (badge-only surfaced files)
+Chose: (1) "seen" = the user opened it and the pane showed it; a cancelled unsaved prompt or failed open keeps the badge. (2) A non-regular file on a user open shows the error sheet (the user asked, so fail visibly). (3) No separate surfaced-file size cap; the editor's 20 MB read cap / 5 MB read-only rule applies. (4) ⌥⌘O opens the newest pending file, else the newest. (5) 5 s first-read deadline kept for user opens (stuck SFTP). (6) Identity and seen ledger keyed by agent + started_at + id, bounded 200/host, new key `leo.surfacedFiles.seen.v2` (old id-only entries ignored; only debug builds wrote them). (7) A full (20-sent) /state baseline drops live-only files it can't place as newer by `at`; a partial one keeps them; live events are placed by `at`, dropped if older than a full index
+Why: calm; never invent a state; local = remote (deadline); fail visibly on user action
+Alternatives: mark seen on menu display (hides files never read); migrate the v1 ledger (debug-only data)
+Commit: 70a2b21e8 eed22646d 813d4f335 263040196
 Veto: [ ]
