@@ -141,9 +141,15 @@ Accept: under 4× load (B-031 run) `LeoSidebarFeedRecoveryTests` failed 19 times
 Source: B-031 implementer run
 Done: 744ff0a71 fa3a8ff43 c4498f88e d32b2f060 0a9f77d2f b301bc587 (1244 tests). All 13 LeoSidebar* suites 10/10 under 42× load (2020/2020); each flaky test failed when its behavior was broken. Causes: wall-clock deadlines, a Disconnect count taken before the post-baseline emission, an AttentionRace restart wait satisfied too early, and a defaults domain shared across parallel hosts. No product race (D-065). Test-only. The first implementer hung in a hook and was replaced. Follow-ups → B-039, B-040.
 
-## B-039 · Tests leave empty preference plists behind   [ready]
+## B-039 · Tests leave empty preference plists behind   [done]
 Accept: `~/Library/Preferences` holds ~830 empty stubs from test runs (737 `LeoSidebarFeedRecoveryTests.picker.<UUID>`, 45 `…visible.<UUID>`, 44 `LeoSidebarTests.widths.<UUID>`, plus fixed-name ones); `removePersistentDomain` doesn't remove the file. Inject an in-memory defaults store (or a single reused suite per test class, cleared per test) so a full run adds no plist files, and add that to the B-032 bundle guard. Don't delete the existing stubs; list them.
 Source: B-036 review
+Done: 558a0585e a00d37484 b9cc40d4b (1360 tests). Tests use an in-memory `UserDefaults` subclass; the bundle guard fails on any new `Leo*Tests*`/`Ghostty*Tests*` plist (D-080). Full run: 0 new plists (was +74). Break-checked (a real suite back in `LeoSidebarTests.widths` → guard fails). 1 fix round; 1 LOW dismissed. Test-only. Stubs → B-044.
+
+## B-044 · Delete the old test preference stubs   [blocked]
+Accept: ~/Library/Preferences on Dionysus holds 31,098 empty stubs from old test runs (list: /private/tmp/b039-stubs.txt; mostly `Leo*Tests.<UUID>.plist` and 4,220 bare `<UUID>.plist`). B-039 stopped new ones.
+Question: Needs Evan to do: deleting user files is on the Never list. OK to move the `Leo*Tests*` ones (not the bare UUIDs, which may not all be ours) to the Trash? I'd pick yes; the bare UUIDs stay.
+Answer:
 
 ## B-040 · AttentionRace: `…RecoveryListIsStillInFlight` doesn't guard boot reset   [done]
 Accept: the test still passes with boot reset disabled, because no fetch returns the old boot's data; it fails only when the recovery baseline is skipped. Redesign it so an old-boot answer arrives in flight and the test fails when boot reset is broken.

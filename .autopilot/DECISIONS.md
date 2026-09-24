@@ -626,3 +626,10 @@ Why: the test must fail when boot reset breaks (break-checked: boot reset off �
 Alternatives: a sibling test (duplicates setup); an old-boot /state answer in flight (unreachable in a real sequence)
 Commit: 669c92d1f 892b6f18e fb92b79d9
 Veto: [ ]
+
+## D-080 · 2026-09-24 · B-039: in-memory defaults for tests, plist guard in the bundle check
+Chose: `LeoInMemoryDefaults`, a test-only `UserDefaults` subclass overriding every getter/setter (persistent-domain methods trap), injected into every test that used `UserDefaults(suiteName:)` (28 files); production code, domains and keys unchanged. The B-032 bundle guard snapshots `Leo*Tests*` / `Ghostty*Tests*` plists in the real ~/Library/Preferences before/after the run and fails on new ones; a listing error fails the guard (never an empty set); bare `<UUID>.plist` isn't counted (other processes make those). Existing stubs left in place (Never list): 31,098, listed in /private/tmp/b039-stubs.txt → B-044. Review LOW dismissed: a missing ~/Library/Preferences fails the guard, but every macOS login account has one
+Why: test infra (agent decides); dependency injection over globals; a guard so it can't regress
+Alternatives: one reused suite per test class (still one plist per class); a protocol wrapper (production already takes UserDefaults)
+Commit: 558a0585e a00d37484 b9cc40d4b
+Veto: [ ]

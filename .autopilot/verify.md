@@ -57,7 +57,10 @@ peekaboo click|type|press ... --app $APPID --bridge-socket "$PB_SOCK"
 ```
 - Evan approved type/press/click on the debug bundle for verification (D-052). Check the frontmost app first.
 - "menu click dispatched but not verified" is normal. Confirm with a screenshot.
-- The Agents menu has: New Agent… (⌘⇧A), Show Agents Sidebar (⌘⇧L).
+- The Agents menu has: New Agent… (⌘⇧A), Show Agents Sidebar (⌘⇧L), Find Agent… (⌥⌘F).
+- The agent palette opens with File ▸ New Tab (menu click). It's its own panel window: find its id with `peekaboo window list --app $APPID --json` and capture with `see --window-id <id>`. Type into it with `peekaboo type <text> --foreground --app $APPID --window-id <id>` (the debug app must already be frontmost). Never press Return there with real agents listed.
+- `LEO_FORCE_DISCONNECTED=1` (DEBUG, `open -n --env`) forces the disconnected state after the first list.
+- Quitting via AppleScript can hang; `pkill -f` the debug binary path instead.
 
 ## Screenshots
 ```

@@ -73,3 +73,15 @@ Blocked
 Calls: D-067 D-068 D-069 D-070 D-071 D-072 D-074 D-075 (D-073 reverted with B-010)
 New: B-041 B-042 B-043
 Next up: B-039, B-040, B-041, B-042, B-043, B-035, B-012
+
+## Run 2026-09-24 (afternoon) — 5 shipped, 0 blocked
+Shipped
+- B-043 Row subtitle drops the template instead of "clau…"; a template that fits whole stays — bb7b9f81c 94685a65c (verified: B-043-1)
+- B-041 Palette's disconnected row: the sidebar banner's one-line reason + tooltip — 40966ae59 (verified: B-041-2)
+- B-042 Agent palette uses the sidebar's fuzzy matcher (name, then repo), bold letters — 9a355633e (verified: B-042-1)
+- B-040 AttentionRace in-flight test now fails when boot reset breaks — 669c92d1f 892b6f18e fb92b79d9 (test-only; break-checked; 10/10 under load)
+- B-039 Tests use in-memory defaults; bundle guard fails on any new test plist — 558a0585e a00d37484 b9cc40d4b (test-only; 0 new plists per run)
+Calls: D-076 D-077 D-078 D-079 D-080
+New: B-044 (delete 31k old test stubs — needs Evan)
+Next up: B-035, B-012; still blocked: B-010 (re-scope?), B-013, B-014, B-044
+Tests: 1360 (known ConfigTests failure only); swiftlint clean.
