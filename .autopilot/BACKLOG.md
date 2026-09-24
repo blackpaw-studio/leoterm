@@ -237,12 +237,15 @@ Accept: measure launch with sidebar visible; if first fetch blocks first
 paint, render cached last snapshot and refresh in place.
 Source: roadmap Tier 3
 
-## B-013 · Daemon-pushed "surface file" event   [ready]
+## B-013 · Daemon-pushed "surface file" event   [blocked]
 Accept: an agent calls a leo tool; the daemon emits a file-surfaced event;
 Leo badges the row and opens/queues the file.
-Question: needs a leo daemon change — request it from the leo agent after
+Old-Question: needs a leo daemon change — request it from the leo agent after
 B-004 ships, or wait for you? — I'd pick requesting it after B-004 ships.
-Answer: accept your recommendation (requesting it after B-004 ships)
+Old-Answer: accept your recommendation (requesting it after B-004 ships)
+Daemon: contract sent and approved by Evan via the leo agent 2026-09-24 (D-086); leo is building it, no restart, release at Evan's call.
+Question: architecture may be wrong — decode, incarnation-keyed badge, Surfaced Files menus, ⌥⌘O and the path/regular-file/size/SFTP-timeout hardening all passed review, but AUTO-OPENING a file when the agent's tab is focused failed review 4 times running, each fix exposing a new race: new incarnation opening in an old tab; stale stat replacing a newer file; then a queued open always dropped and a closed pane reopening (commits 30fe234bf..69b736464, reverted in f3e8d36b3). I'd pick dropping auto-open: badge only, and you open with ⌥⌘O / the row's Surfaced Files menu (calmer, never steals the pane). The rest re-applies from those commits. OK?
+Answer:
 
 ## B-014 · All hosts at once as sidebar sections   [deferred]
 Question: deferred by D-008 until several remotes are in daily use. Tell me

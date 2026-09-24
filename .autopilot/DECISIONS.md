@@ -669,5 +669,6 @@ Veto: [ ]
 Chose: sent the leo agent a contract (tool `leo_surface_file {path, line?, reason?}`; SSE `file_surfaced` with `started_at` + `id` + `abs_path`; `/observe/state` `surfaced_files` ≤20). Leo's reply: stat on call (missing/dir rejected), line ≥1, reason >200 rejected, in-memory only (resets on restart/new incarnation), no ETA until Evan approves the daemon feature; I agreed to agents only in v1 (dispatches rejected). App side, built against fixtures: attach by `started_at` identity, dedupe by id, sanitize text; pending files show a quiet doc glyph + count on the row (no sound, no Dock count); if the agent's tab is focused, the newest opens in the editor pane at once, otherwise it opens when that tab is next focused; row menu Surfaced Files ▸ and Agents ▸ Open Surfaced File reach the rest; seen ids persist per host
 Why: calm (a surfaced file isn't "needs input", so no Dock badge or motion); everything through Leo; never steal focus from the agent you're working in
 Alternatives: auto-open in any window (steals focus); count in the Dock badge (inflates the needs-you count)
-Commit:
+Commit: 30fe234bf 3a8b8529d 9483da369 69b736464
+Reverted: f3e8d36b3 (B-013 blocked after 3 fix attempts; daemon request stands)
 Veto: [ ]

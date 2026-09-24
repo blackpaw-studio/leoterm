@@ -14,3 +14,4 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 - B-013 attempt 1 3a8b8529d (1452 tests). Re-review: prior MEDs closed; HIGH row-click/refocus bypasses incarnation gate, HIGH SFTP FIFO swap after stat (bounded by timeout, not redesign), MED seen-before-open → attempt 2 (d-c05363bf82ff#3).
 - B-013 attempt 2 9483da369 (1463 tests). Re-review 2 dispatched.
 - B-013 re-review 2: priors closed (SFTP close is per-access, not the ControlMaster). New MED stale stat replaces newer file → attempt 3 (d-c05363bf82ff#4). LOW dismissed (timeout test uses a fake; transport close fails pending requests by code reading; no remote FIFO fixture).
+- B-013 re-review 3: prior MED closed; new MED queued open always dropped (stale counter), MED closed pane reopens. 3 fix attempts used → reverted f3e8d36b3; blocked (drop auto-open?). D-086 reverted; daemon request stands.
