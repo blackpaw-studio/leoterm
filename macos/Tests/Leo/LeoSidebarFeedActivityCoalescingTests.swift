@@ -105,6 +105,37 @@ struct LeoSidebarFeedActivityCoalescingTests {
         await harness.feed.stop()
     }
 
+    /// B-010: activity is pruned with the list (as display state is,
+    /// B-018), so an agent recreated under a deleted one's name starts clean.
+    @Test func aRecreatedAgentInheritsNoActivityFromADeletedNamesake() async throws {
+        let harness = try await Harness.connected(results: [[agent("alpha")], [], [agent("alpha")]])
+        let baseline = await harness.recorder.values.count
+        try await harness.send(
+            .agentActivity(seq: 1, at: "2026-09-24T14:00:10Z", agent: "alpha", activity: .working, currentAction: .init(kind: nil, detail: "old"))
+        )
+        try await harness.windowOpened()
+        harness.clock.fire(Self.window)
+        try await until { await harness.recorder.values.count > baseline }
+        #expect(await harness.recorder.last?.rows.first?.lastActivityAt != nil)
+
+        try await harness.send(.agentStopped(seq: 2, at: nil, agent: "alpha", wakeOnMessage: false))
+        try await harness.windowOpened()
+        harness.clock.fire(Self.window)
+        try await until { await harness.recorder.last?.rows.isEmpty == true }
+
+        try await harness.send(.agentSpawned(seq: 3, at: nil, agent: agent("alpha")))
+        try await harness.windowOpened()
+        harness.clock.fire(Self.window)
+        try await until { await harness.recorder.last?.rows.count == 1 }
+
+        let row = await harness.recorder.last?.rows.first
+        #expect(row?.lastActivityAt == nil)
+        #expect(row?.activity == .unknown)
+        #expect(row?.actionDetail == nil)
+        #expect(await harness.feed.activityByName["alpha"] == nil)
+        await harness.feed.stop()
+    }
+
     @Test func equalResultingSnapshotSkipsEmission() async throws {
         let harness = try await Harness.connected(results: [[agent("alpha")]])
 

@@ -292,6 +292,10 @@ actor LeoSidebarFeed {
         do {
             let rows = try await fetchList().map { Self.row($0, host: host) }
             guard running, generation == snapshot.generation, token == currentRefreshToken else { return }
+            // List-driven deletion (as for display state, B-018): an agent
+            // recreated under a gone one's name starts with no activity.
+            let listed = Set(rows.map(\.name))
+            activityByName = activityByName.filter { listed.contains($0.key) }
             snapshot = LeoSidebarReducers.applyListResult(snapshot, result: LeoSidebarReducers.mergeActivity(rows, activityByName: activityByName), generation: generation)
             wasLive = true
             retainAttention(for: rows, listedSince: membershipMark)
