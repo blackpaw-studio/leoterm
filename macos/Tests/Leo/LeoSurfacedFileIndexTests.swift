@@ -100,6 +100,40 @@ struct LeoSurfacedFileIndexTests {
         #expect(merged.files(name: "alpha", startedAt: "s1").map(\.id) == ["u-1", "undated"])
     }
 
+    /// Re-review #1: a live event with `at` is placed by it, so a delayed
+    /// one never lands as newest; older than everything in a full index,
+    /// it's dropped rather than evicting a newer file.
+    @Test func aLiveEventIsPlacedByItsTimestamp() {
+        let partial = [1, 3].reduce(LeoSurfacedFileIndex.empty) { $0.inserting(surfaced("u-\($1)", agent: "alpha", startedAt: "s1", at: at($1))).index }
+        let placed = partial.inserting(surfaced("u-2", agent: "alpha", startedAt: "s1", at: at(2)))
+        #expect(placed.isNew)
+        #expect(placed.index.files(name: "alpha", startedAt: "s1").map(\.id) == ["u-1", "u-2", "u-3"])
+
+        let cap = LeoSurfacedFileIndex.perIncarnationLimit
+        let full = (1...cap).reduce(LeoSurfacedFileIndex.empty) { $0.inserting(surfaced("u-\($1)", agent: "alpha", startedAt: "s1", at: at($1 * 2))).index }
+        let stale = full.inserting(surfaced("stale", agent: "alpha", startedAt: "s1", at: at(1)))
+        #expect(!stale.isNew)
+        #expect(stale.index.files(name: "alpha", startedAt: "s1") == full.files(name: "alpha", startedAt: "s1"))
+
+        let between = full.inserting(surfaced("mid", agent: "alpha", startedAt: "s1", at: at(5))).index.files(name: "alpha", startedAt: "s1")
+        #expect(between.map(\.id).prefix(3) == ["u-2", "mid", "u-3"], "the oldest is evicted, not a newer one")
+        #expect(between.last?.id == "u-\(cap)")
+    }
+
+    /// Re-review #2: fullness is the count the daemon sent, before a
+    /// malformed or duplicate entry is filtered out.
+    @Test func aFullBaselineWithAMalformedEntryIsStillFull() throws {
+        let cap = LeoSurfacedFileIndex.perIncarnationLimit
+        let entries = (1..<cap).map {
+            #"{"agent":"alpha","started_at":"s1","id":"u-\#($0)","path":"f","abs_path":"/w/f\#($0)","at":"\#(at($0))"}"#
+        } + [#"{"agent":"alpha"}"#]
+        let json = #"{"name":"alpha","started_at":"s1","surfaced_files":[\#(entries.joined(separator: ","))]}"#
+        let agent = try JSONDecoder().decode(LeoObservedAgent.self, from: Data(json.utf8))
+        #expect(agent.surfacedFiles.count == cap - 1)
+        let live = LeoSurfacedFileIndex.empty.inserting(surfaced("undated", agent: "alpha", startedAt: "s1")).index
+        #expect(!live.merging(state: [agent]).files(name: "alpha", startedAt: "s1").map(\.id).contains("undated"))
+    }
+
     @Test func anOldDaemonsStateChangesNothing() {
         let state = [LeoObservedAgent(name: "alpha", status: .running, activity: nil, currentAction: nil, lastActivityAt: nil, startedAt: "s1")]
         #expect(LeoSurfacedFileIndex.empty.merging(state: state) == .empty)

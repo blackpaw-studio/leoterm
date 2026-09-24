@@ -116,12 +116,16 @@ struct LeoLenientSurfacedFiles: Decodable, Sendable {
     static let limit = LeoSurfacedFileIndex.perIncarnationLimit
 
     let files: [LeoSurfacedFile]
+    /// How many entries the daemon sent, before any was skipped.
+    let sentCount: Int
 
     init(from decoder: any Decoder) throws {
         guard var container = try? decoder.unkeyedContainer() else {
             files = []
+            sentCount = 0
             return
         }
+        sentCount = container.count ?? 0
         var skip = max(0, (container.count ?? 0) - Self.limit)
         var files: [LeoSurfacedFile] = []
         while !container.isAtEnd {

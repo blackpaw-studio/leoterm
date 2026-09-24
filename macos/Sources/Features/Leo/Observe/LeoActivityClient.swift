@@ -24,10 +24,13 @@ struct LeoObservedAgent: Codable, Equatable, Sendable {
     /// B-013: files this incarnation surfaced, newest last (at most 20);
     /// empty for a daemon that doesn't report them.
     let surfacedFiles: [LeoSurfacedFile]
+    /// How many `surfaced_files` entries the daemon sent, counted before
+    /// malformed or excess ones were dropped (whether its list was full).
+    let surfacedFilesSent: Int
 
     init(name: String, host: String? = nil, status: LeoAgentStatus?, activity: LeoActivity?,
          currentAction: LeoCurrentAction?, lastActivityAt: String?, attention: LeoAttentionSignal? = nil,
-         startedAt: String? = nil, surfacedFiles: [LeoSurfacedFile] = []) {
+         startedAt: String? = nil, surfacedFiles: [LeoSurfacedFile] = [], surfacedFilesSent: Int? = nil) {
         self.name = name
         self.host = host
         self.status = status
@@ -37,6 +40,7 @@ struct LeoObservedAgent: Codable, Equatable, Sendable {
         self.attention = attention
         self.startedAt = startedAt
         self.surfacedFiles = surfacedFiles
+        self.surfacedFilesSent = surfacedFilesSent ?? surfacedFiles.count
     }
 
     enum CodingKeys: String, CodingKey {
@@ -59,7 +63,9 @@ struct LeoObservedAgent: Codable, Equatable, Sendable {
         lastActivityAt = try container.decodeIfPresent(String.self, forKey: .lastActivityAt)
         attention = try container.decodeIfPresent(LeoLenientAttention.self, forKey: .attention)?.value
         startedAt = try? container.decodeIfPresent(String.self, forKey: .startedAt)
-        surfacedFiles = (try? container.decodeIfPresent(LeoLenientSurfacedFiles.self, forKey: .surfacedFiles))??.files ?? []
+        let lenientFiles = (try? container.decodeIfPresent(LeoLenientSurfacedFiles.self, forKey: .surfacedFiles)) ?? nil
+        surfacedFiles = lenientFiles?.files ?? []
+        surfacedFilesSent = lenientFiles?.sentCount ?? 0
     }
 }
 
