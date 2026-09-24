@@ -50,7 +50,12 @@ enum LeoMenuCommands {
     static func canViewLogs(_ context: AgentContext) -> Bool { enabled(context) { $0.logs } }
     static func canDelete(_ context: AgentContext) -> Bool { enabled(context) { $0.delete } }
 
-    static func canJumpToNextNeedingAttention(hasLeoSession: Bool, hasTarget: Bool) -> Bool { hasLeoSession && hasTarget }
+    /// Agents ▸ Pin Agent / Unpin Agent (⌥⌘P) on the selected row (B-010).
+    static func pinToggleTitle(isPinned: Bool) -> String { isPinned ? "Unpin Agent" : "Pin Agent" }
+
+    static func canTogglePin(_ context: AgentContext) -> Bool { context.hasLeoSession && context.availability != nil }
+
+        static func canJumpToNextNeedingAttention(hasLeoSession: Bool, hasTarget: Bool) -> Bool { hasLeoSession && hasTarget }
 
     /// Agents ▸ Reconnect (⇧⌘R): the sidebar's Retry, whenever the
     /// sidebar offers one and it isn't already running.

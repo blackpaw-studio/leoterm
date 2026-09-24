@@ -10,6 +10,15 @@ struct LeoSidebarSection: Identifiable, Equatable {
     let id: String
     let title: String
     let rows: [LeoAgentRow]
+    /// Header only; the rows stay listed here but aren't shown (B-010).
+    let isCollapsed: Bool
+
+    init(id: String, title: String, rows: [LeoAgentRow], isCollapsed: Bool = false) {
+        self.id = id
+        self.title = title
+        self.rows = rows
+        self.isCollapsed = isCollapsed
+    }
 }
 
 enum LeoSidebarSectioning {
@@ -29,7 +38,7 @@ enum LeoSidebarSectioning {
         }
     }
 
-    private static func sectionKey(for status: LeoAgentStatus) -> String {
+    static func sectionKey(for status: LeoAgentStatus) -> String {
         switch status {
         case .running: "running"
         case .starting: "starting"
@@ -38,7 +47,7 @@ enum LeoSidebarSectioning {
         }
     }
 
-    private static func title(for key: String) -> String {
+    static func title(for key: String) -> String {
         switch key {
         case "running": return "Running"
         case "starting": return "Starting"
@@ -199,9 +208,9 @@ struct LeoSidebarView: View {
 
     private var agentList: some View {
         List(selection: Binding(get: { model.selection }, set: { model.userSelected($0) })) {
-            ForEach(LeoSidebarSectioning.sections(for: model.visibleRows)) { section in
-                Section(header: Text(section.title)) {
-                    ForEach(section.rows) { row in
+            ForEach(model.sections) { section in
+                Section(header: sectionHeader(section)) {
+                    ForEach(section.isCollapsed ? [] : section.rows) { row in
                         LeoAgentRowView(
                             row: row,
                             isSelected: model.selection == row.id,
@@ -211,7 +220,9 @@ struct LeoSidebarView: View {
                             actions: actions,
                             error: model.rowErrors[row.id],
                             errorCode: model.rowErrorCodes[row.id],
-                            nameHighlights: model.searchHighlights(for: row)
+                            nameHighlights: model.searchHighlights(for: row),
+                            isPinned: model.isPinned(row.id),
+                            togglePin: { model.togglePin(row.id) }
                         )
                         .tag(row.id)
                     }
@@ -230,7 +241,19 @@ struct LeoSidebarView: View {
         }
     }
 
-    private func stateView<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+    /// A section title with a disclosure chevron (B-010). While the filter
+    /// is non-empty every match shows, so there's nothing to collapse.
+    @ViewBuilder private func sectionHeader(_ section: LeoSidebarSection) -> some View {
+        if LeoSidebarLayout.isFiltering(model.query) {
+            Text(section.title)
+        } else {
+            LeoSidebarSectionHeader(title: section.title, isCollapsed: section.isCollapsed) {
+                model.toggleCollapsed(section.id)
+            }
+        }
+    }
+
+        private func stateView<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         VStack(spacing: 10) {
             Spacer()
             content()
