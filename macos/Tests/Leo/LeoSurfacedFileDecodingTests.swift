@@ -62,6 +62,41 @@ struct LeoSurfacedFileDecodingTests {
         #expect(decode("file_surfaced", json) == nil)
     }
 
+    // MARK: Security review #1 and #4
+
+    @Test(arguments: ["/w/../etc/passwd", "/w/a/..", "/../x"])
+    func anAbsPathWithParentComponentsIsDropped(absPath: String) {
+        let json = #"{"agent":"alpha","started_at":"s1","id":"u","path":"a","abs_path":"\#(absPath)"}"#
+        #expect(decode("file_surfaced", json) == nil)
+    }
+
+    @Test func anAbsPathIsStandardized() throws {
+        let json = #"{"agent":"alpha","started_at":"s1","id":"u","path":"a","abs_path":"/w//alpha/./src/a.swift"}"#
+        guard case .fileSurfaced(_, let file) = try #require(decode("file_surfaced", json)) else {
+            Issue.record("not decoded")
+            return
+        }
+        #expect(file.absPath == "/w/alpha/src/a.swift")
+    }
+
+    @Test func overlongFieldsDropTheEntry() {
+        let longPath = "/" + String(repeating: "a", count: LeoSurfacedFile.maxPathBytes)
+        let longReason = String(repeating: "r", count: LeoSurfacedFile.maxReasonCharacters + 1)
+        let base = #"{"agent":"alpha","started_at":"s1","id":"u","#
+        #expect(decode("file_surfaced", base + #""path":"a","abs_path":"\#(longPath)"}"#) == nil)
+        #expect(decode("file_surfaced", base + #""path":"\#(longPath)","abs_path":"/a"}"#) == nil)
+        #expect(decode("file_surfaced", base + #""path":"a","abs_path":"/a","reason":"\#(longReason)"}"#) == nil)
+        let okReason = String(repeating: "r", count: LeoSurfacedFile.maxReasonCharacters)
+        #expect(decode("file_surfaced", base + #""path":"a","abs_path":"/a","reason":"\#(okReason)"}"#) != nil)
+    }
+
+    @Test func stateKeepsOnlyTheLastTwentyEntriesPerAgent() throws {
+        let entries = (1...25).map { #"{"agent":"alpha","started_at":"s1","id":"u-\#($0)","path":"a","abs_path":"/a"}"# }
+        let json = #"{"name":"alpha","started_at":"s1","surfaced_files":[\#(entries.joined(separator: ","))]}"#
+        let agent = try JSONDecoder().decode(LeoObservedAgent.self, from: Data(json.utf8))
+        #expect(agent.surfacedFiles.map(\.id) == (6...25).map { "u-\($0)" })
+    }
+
     @Test func aBadLineOrReasonDegradesToAbsent() throws {
         let json = #"{"agent":"alpha","started_at":"s1","id":"u","path":"a","abs_path":"/a","line":0,"reason":42}"#
         guard case .fileSurfaced(_, let file) = try #require(decode("file_surfaced", json)) else {

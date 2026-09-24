@@ -1,5 +1,16 @@
 import Foundation
 
+/// The incarnation the focused attach tab shows. Tabs don't carry
+/// `started_at`, so it's the row's when focus arrives (or, focus arriving
+/// before the list, the row's first); once the row reports another one
+/// while that tab stays focused -- a restart under the same name -- it's
+/// unknown until focus moves again.
+enum LeoFocusedIncarnation: Equatable, Sendable {
+    case awaitingRow
+    case known(String)
+    case unknown
+}
+
 /// B-013 routing: a surfaced file is *pending* until opened. One that
 /// arrives while its agent's attach tab is focused opens at once; the rest
 /// wait, and the newest pending one opens when the user next focuses that
@@ -18,8 +29,19 @@ extension LeoSidebarModel {
     func fileSurfaced(_ file: LeoSurfacedFile, host: LeoHostID) {
         guard !isDisconnected,
               let row = snapshot.rows.first(where: { $0.host == host && $0.name == file.agent && $0.startedAt == file.startedAt }),
-              row.id == focusedAgent, !surfacedSeen.isSeen(file.id, host: host) else { return }
-        openSurfacedFile(file, for: row)
+              row.id == focusedAgent, focusedIncarnation == .known(file.startedAt),
+              !surfacedSeen.isSeen(file.id, host: host) else { return }
+        surfacedFileOpenRequested(file, row, .automatic)
+    }
+
+    /// Called as each snapshot lands.
+    func trackFocusedIncarnation() {
+        guard let focusedAgent, let row = snapshot.rows.first(where: { $0.id == focusedAgent }) else { return }
+        switch focusedIncarnation {
+        case .awaitingRow: focusedIncarnation = row.startedAt.map { .known($0) } ?? .unknown
+        case .known(let startedAt) where startedAt != row.startedAt: focusedIncarnation = .unknown
+        case .known, .unknown: break
+        }
     }
 
     /// Focus moved to `id`'s attach tab (or off every one): the newest
@@ -27,6 +49,8 @@ extension LeoSidebarModel {
     func focusedAgentChanged(_ id: LeoAgentRow.ID?) {
         guard id != focusedAgent else { return }
         focusedAgent = id
+        focusedIncarnation = .awaitingRow
+        trackFocusedIncarnation()
         let clickOpened = surfacedOpenedByClick
         surfacedOpenedByClick = nil
         guard let id, id != clickOpened, let row = snapshot.rows.first(where: { $0.id == id }) else { return }
@@ -42,14 +66,19 @@ extension LeoSidebarModel {
         surfacedOpenedByClick = row.id
     }
 
-    /// Marks `file` seen and asks for it to open.
+    /// The user named `file` (a menu): marks it seen and asks for it to open.
     func openSurfacedFile(_ file: LeoSurfacedFile, for row: LeoAgentRow) {
-        let updated = surfacedSeen.markingSeen(file.id, host: row.host)
-        if updated != surfacedSeen {
-            surfacedSeen = updated
-            surfacedSeenStore.save(updated)
-        }
-        surfacedFileOpenRequested(file, row)
+        markSurfacedFileSeen(file, host: row.host)
+        surfacedFileOpenRequested(file, row, .manual)
+    }
+
+    /// An automatic open is marked seen here, by the opener, only once its
+    /// checks pass; until then the file keeps its badge.
+    func markSurfacedFileSeen(_ file: LeoSurfacedFile, host: LeoHostID) {
+        let updated = surfacedSeen.markingSeen(file.id, host: host)
+        guard updated != surfacedSeen else { return }
+        surfacedSeen = updated
+        surfacedSeenStore.save(updated)
     }
 
     /// Agents ▸ Open Surfaced File: the newest pending file, else the
@@ -64,7 +93,7 @@ extension LeoSidebarModel {
     @discardableResult
     private func openNewestPendingSurfacedFile(for row: LeoAgentRow) -> Bool {
         guard !isDisconnected, let file = pendingSurfacedFiles(for: row).last else { return false }
-        openSurfacedFile(file, for: row)
+        surfacedFileOpenRequested(file, row, .automatic)
         return true
     }
 }

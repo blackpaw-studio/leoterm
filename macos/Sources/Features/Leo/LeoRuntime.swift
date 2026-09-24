@@ -16,6 +16,8 @@ import OSLog
     /// Every close of a tab, window or the app with unsaved editor edits
     /// asks through this first (B-004).
     let unsavedEditors = LeoUnsavedEditorsGate()
+    /// Checks and coalesces surfaced-file opens (B-013).
+    private(set) var surfacedFileOpener: LeoSurfacedFileOpener!
     /// Focus identity into `feed`, delivered in order (see
     /// `focusedAgentChanged`).
     let focusedAgentRelay: LeoOrderedRelay<LeoAgentRow.ID?>
@@ -243,7 +245,7 @@ import OSLog
             Task { await attachCoordinator?.attach(identity: row.identity, from: origin, disposition: disposition) }
         }
         model.focusExistingRequested = { [weak attachCoordinator] row in attachCoordinator?.focusExisting(row.identity) }
-        model.surfacedFileOpenRequested = { file, row in weakSelf?.openSurfacedFile(file, for: row) }
+        model.surfacedFileOpenRequested = { file, row, mode in weakSelf?.openSurfacedFile(file, for: row, mode: mode) }
         model.latestFocusReport = { [weak attachCoordinator] in attachCoordinator?.latestFocusReport ?? 0 }
 
         // `hostSelection`'s `connectionTarget` (wired above) closes over
@@ -253,6 +255,7 @@ import OSLog
         // belongs to, drives which connection the feed and agent actions
         // are bound to.
         weakSelf = self
+        surfacedFileOpener = LeoSurfacedFileOpener { [weak model] file, host in model?.markSurfacedFileSeen(file, host: host) }
 
         // One immediate liveness check per wake, never repeated: a tunnel
         // or socket that died in sleep shows as disconnected (D-061).

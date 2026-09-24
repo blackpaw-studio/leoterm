@@ -32,15 +32,21 @@ struct LeoSurfacedFile: Equatable, Sendable, Identifiable, Codable {
         self.at = at
     }
 
+    /// The contract's bounds; a longer field drops the entry.
+    static let maxPathBytes = 4096
+    static let maxReasonCharacters = 200
+
     enum CodingKeys: String, CodingKey {
         case id, agent, path, line, reason, at
         case startedAt = "started_at"
         case absPath = "abs_path"
     }
 
-    /// Identity and the path to open are required (an absolute `abs_path`:
-    /// nothing is resolved against a guessed directory); `line`, `reason`
-    /// and `at` of the wrong type or range read as absent.
+    /// Identity and the path to open are required: an absolute `abs_path`
+    /// (nothing is resolved against a guessed directory) with no `..`
+    /// component, standardized. Fields past the contract's bounds drop the
+    /// entry. `line`, `reason` and `at` of the wrong type or range read as
+    /// absent.
     init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         func required(_ key: CodingKeys) throws -> String {
@@ -50,17 +56,36 @@ struct LeoSurfacedFile: Equatable, Sendable, Identifiable, Codable {
             }
             return value
         }
+        func bounded(_ key: CodingKeys) throws -> String {
+            let value = try required(key)
+            guard value.utf8.count <= Self.maxPathBytes else {
+                throw DecodingError.dataCorruptedError(forKey: key, in: container, debugDescription: "too long")
+            }
+            return value
+        }
         id = try required(.id)
         agent = try required(.agent)
         startedAt = try required(.startedAt)
-        path = try required(.path)
-        absPath = try required(.absPath)
-        guard absPath.hasPrefix("/") else {
-            throw DecodingError.dataCorruptedError(forKey: .absPath, in: container, debugDescription: "not absolute")
+        path = try bounded(.path)
+        guard let absPath = Self.standardized(try bounded(.absPath)) else {
+            throw DecodingError.dataCorruptedError(forKey: .absPath, in: container, debugDescription: "not absolute, or has ..")
         }
+        self.absPath = absPath
         line = (try? container.decodeIfPresent(Int.self, forKey: .line)).flatMap { $0 }.flatMap { $0 >= 1 ? $0 : nil }
         reason = (try? container.decodeIfPresent(String.self, forKey: .reason)).flatMap { $0 }
+        if let reason, reason.count > Self.maxReasonCharacters {
+            throw DecodingError.dataCorruptedError(forKey: .reason, in: container, debugDescription: "too long")
+        }
         at = (try? container.decodeIfPresent(String.self, forKey: .at)).flatMap { $0 }
+    }
+
+    /// `path` with empty and `.` components removed; nil unless absolute and
+    /// free of `..` (which a symlinked directory makes ambiguous anyway).
+    static func standardized(_ path: String) -> String? {
+        guard path.hasPrefix("/"), !path.contains("\0") else { return nil }
+        let components = path.split(separator: "/", omittingEmptySubsequences: true).filter { $0 != "." }
+        guard !components.contains("..") else { return nil }
+        return "/" + components.joined(separator: "/")
     }
 
     /// The file name from `path`, sanitized (the whole path when it has no
@@ -86,7 +111,10 @@ struct LeoSurfacedFile: Equatable, Sendable, Identifiable, Codable {
 
 /// Decodes `/state`'s optional `surfaced_files` without ever failing its
 /// parent: a malformed entry is dropped, a malformed array reads as empty.
+/// Only the last `limit` entries (the newest) are decoded at all.
 struct LeoLenientSurfacedFiles: Decodable, Sendable {
+    static let limit = LeoSurfacedFileIndex.perIncarnationLimit
+
     let files: [LeoSurfacedFile]
 
     init(from decoder: any Decoder) throws {
@@ -94,16 +122,20 @@ struct LeoLenientSurfacedFiles: Decodable, Sendable {
             files = []
             return
         }
+        var skip = max(0, (container.count ?? 0) - Self.limit)
         var files: [LeoSurfacedFile] = []
         while !container.isAtEnd {
-            if let file = try? container.decode(LeoSurfacedFile.self) {
+            if skip > 0 {
+                skip -= 1
+                _ = try? container.decode(LeoSkippedValue.self)
+            } else if let file = try? container.decode(LeoSurfacedFile.self) {
                 files.append(file)
             } else {
                 // Skips the bad element so the next one is read.
                 _ = try? container.decode(LeoSkippedValue.self)
             }
         }
-        self.files = files
+        self.files = Array(files.suffix(Self.limit))
     }
 }
 

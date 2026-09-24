@@ -37,11 +37,13 @@ import Foundation
     /// The agent whose attach tab is focused, as the attach coordinator
     /// reports it.
     var focusedAgent: LeoAgentRow.ID?
+    /// Which incarnation the focused tab shows (see `+SurfacedFiles`).
+    var focusedIncarnation = LeoFocusedIncarnation.awaitingRow
     /// A click just opened this agent's file: the focus its attach brings
     /// counts as the same visit and opens nothing more.
     var surfacedOpenedByClick: LeoAgentRow.ID?
     /// Opens a surfaced file in the editor; it was already marked seen.
-    var surfacedFileOpenRequested: (LeoSurfacedFile, LeoAgentRow) -> Void = { _, _ in }
+    var surfacedFileOpenRequested: (LeoSurfacedFile, LeoAgentRow, LeoSurfacedOpenMode) -> Void = { _, _, _ in }
 
     init(
         snapshot: LeoSidebarSnapshot = .init(rows: [], connectivity: .loading, generation: 0),
@@ -106,6 +108,7 @@ import Foundation
         let previousAttentionCount = snapshot.attentionCount
         let previousRows = snapshot.rows
         snapshot = value
+        trackFocusedIncarnation()
         defer { reapplyFocusedRow(previousRows: previousRows) }
         if value.attentionCount != previousAttentionCount { attentionCountChanged(value.attentionCount) }
         if value.listRefreshSucceeded {

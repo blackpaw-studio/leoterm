@@ -93,6 +93,55 @@ struct LeoSurfacedFileRoutingTests {
         #expect(opened.files.isEmpty)
     }
 
+    // MARK: Incarnation of the focused tab (security review #2)
+
+    /// The agent restarted under the same name while its old tab stayed
+    /// focused: the new incarnation's file must not open in that tab's window.
+    @Test func anArrivalAfterARestartUnderTheFocusedTabIsQueued() {
+        let model = makeModel([row("alpha", "s1")])
+        let opened = OpenLog(model)
+        model.focusedAgentChanged(id("alpha"))
+        model.receive(LeoSidebarSnapshot(rows: [row("alpha", "s2")], connectivity: .connected, generation: 2))
+
+        let file = surfaced("u-1", agent: "alpha", startedAt: "s2")
+        model.fileSurfaced(file, host: .local)
+        #expect(opened.files.isEmpty)
+        model.receive(LeoSidebarSnapshot(rows: [row("alpha", "s2", files: [file])], connectivity: .connected, generation: 3))
+        #expect(model.pendingSurfacedFiles(for: model.snapshot.rows[0]) == [file])
+    }
+
+    @Test func anArrivalForAFocusedAgentOfUnknownIncarnationIsQueued() {
+        let model = makeModel([LeoAgentRow(host: .local, name: "alpha", template: nil, status: .running, activity: .unknown, actionDetail: nil)])
+        let opened = OpenLog(model)
+        model.focusedAgentChanged(id("alpha"))
+        model.fileSurfaced(surfaced("u-1", agent: "alpha", startedAt: "s1"), host: .local)
+        #expect(opened.files.isEmpty)
+    }
+
+    /// Focus reported before the first list: the row's first incarnation
+    /// is the tab's.
+    @Test func focusBeforeTheFirstListAdoptsTheRowsIncarnation() {
+        let model = makeModel([])
+        let opened = OpenLog(model)
+        model.focusedAgentChanged(id("alpha"))
+        model.receive(LeoSidebarSnapshot(rows: [row("alpha", "s1")], connectivity: .connected, generation: 2))
+        let file = surfaced("u-1", agent: "alpha", startedAt: "s1")
+        model.fileSurfaced(file, host: .local)
+        #expect(opened.files == [file])
+    }
+
+    @Test func automaticOpensAreSeenOnlyOnceTheOpenerAcceptsThem() {
+        let file = surfaced("u-1", agent: "alpha", startedAt: "s1")
+        let model = makeModel([row("alpha", "s1", files: [file])])
+        let opened = OpenLog(model, rejectsAuto: true)
+        model.focusedAgentChanged(id("alpha"))
+        #expect(opened.modes == [.automatic])
+        #expect(model.pendingSurfacedFiles(for: model.snapshot.rows[0]) == [file], "a skipped auto-open keeps its badge")
+        model.openSurfacedFile(file, for: model.snapshot.rows[0])
+        #expect(opened.modes == [.automatic, .manual])
+        #expect(model.pendingSurfacedFiles(for: model.snapshot.rows[0]).isEmpty)
+    }
+
     // MARK: Focus and click
 
     @Test func focusingAnAgentOpensItsNewestPendingFileAndLeavesTheRest() {
@@ -239,10 +288,17 @@ struct LeoSurfacedFileRoutingTests {
     }
 }
 
+/// Records open requests. An automatic one is marked seen only as the
+/// opener would once its checks pass -- here, unless `rejectsAuto`.
 @MainActor private final class OpenLog {
     private(set) var files: [LeoSurfacedFile] = []
+    private(set) var modes: [LeoSurfacedOpenMode] = []
 
-    init(_ model: LeoSidebarModel) {
-        model.surfacedFileOpenRequested = { [weak self] file, _ in self?.files.append(file) }
+    init(_ model: LeoSidebarModel, rejectsAuto: Bool = false) {
+        model.surfacedFileOpenRequested = { [weak self, weak model] file, row, mode in
+            self?.files.append(file)
+            self?.modes.append(mode)
+            if mode == .automatic, !rejectsAuto { model?.markSurfacedFileSeen(file, host: row.host) }
+        }
     }
 }

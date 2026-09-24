@@ -148,6 +148,20 @@ struct LeoEditorReveal: Equatable, Sendable {
         }
     }
 
+    /// `fileID`'s stat on its host (following symlinks), through the
+    /// pane's own file access.
+    func stat(_ fileID: LeoEditorFileID) async throws -> LeoFileStat {
+        let access = try makeAccess(fileID.host)
+        do {
+            let stat = try await access.stat(fileID.path)
+            await access.close()
+            return stat
+        } catch {
+            await access.close()
+            throw error
+        }
+    }
+
     // MARK: - Operations (serialized)
 
     private func performOpen(
