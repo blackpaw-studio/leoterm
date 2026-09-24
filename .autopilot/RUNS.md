@@ -99,3 +99,11 @@ Calls: D-081..D-084 (Evan's answers), D-085, D-087 (D-086 reverted with B-013)
 New: B-045 (Closing banner blanks the editor header; next run)
 Next up: B-045; blocked: B-013, B-044; deferred: B-014
 Tests: 1393 (known ConfigTests failure only); swiftlint clean.
+
+## Run 2026-09-24 (evening) — 2 shipped, 0 blocked
+- B-045 Editor Closing banner: 10ec5d41f 350a88ecc f778624b5. Header stays, banner is a leading full-width row; root cause was the banner's dirtyRect fill overpainting the header (macOS 14 no-clip). Verified: B-045-2.png.
+- B-013 Surfaced files, badge-only: 70a2b21e8 eed22646d 813d4f335 263040196. Row badge + Surfaced Files menu + ⌥⌘O; no auto-open. Verified: B-013-1..4 (DEBUG fixture on a temporary autopilot-scratch, deleted).
+- B-044 marked done (Evan trashed the stubs).
+Calls: D-088, D-089 (Evan), D-090, D-091
+Board sync: B-014 `deferred` has no board column (2 non-fatal warnings)
+Next up: B-046 (next run); deferred: B-014

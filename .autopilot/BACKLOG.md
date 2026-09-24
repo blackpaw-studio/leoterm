@@ -306,6 +306,7 @@ when that's true. — I'd pick keeping it deferred.
 Answer: accept your recommendation (keeping it deferred)
 
 ## B-046 · Surfaced files: keep `at` order through a partial /state merge   [ready (next run)]
+Issue: #51
 Accept: a partial baseline appends event-only files as newest, so `[t1, t2(live), t3]` becomes `[t1, t3, t2]` and ⌥⌘O picks t2 (`LeoSurfacedFileIndex.swift:64`). Place event-only files by `at` when merging. Also: a full (20-sent) baseline whose entries are all malformed returns early and leaves stale live files (`:59`); treat it as an empty full baseline. Failing tests first.
 Source: B-013 third review (dismissed as non-blocking)
 
