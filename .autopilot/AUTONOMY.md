@@ -10,6 +10,8 @@ Anything reversible inside the vision:
   upstream merges get costlier with each one)
 - Messaging the `leo` agent (`leo_send_message`) with daemon contract
   requests, e.g. the attention field; build the app side against fixtures
+- Board sync: create/edit/comment on/close `autopilot`-labeled issues and set
+  card Status on this repo's `leoterm autopilot` project only (never delete).
 
 ## Stop list (Evan decides)
 - Pushing any branch, merging to `main`, tagging, releasing, publishing
