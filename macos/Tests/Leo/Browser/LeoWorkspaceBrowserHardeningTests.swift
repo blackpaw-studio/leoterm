@@ -131,11 +131,11 @@ struct LeoWorkspaceBrowserHardeningTests {
         }
     }
 
-    /// A replaced root's listing is cancelled, and its access closes only
-    /// once that listing has finished: nothing (an SFTP reconnect) runs on
-    /// it after the close. The new root's listing doesn't wait for either.
+    /// A replaced root's access closes at once, its listing still in
+    /// flight; the listing is cancelled and starts nothing more on it. The
+    /// new root's listing doesn't wait for either.
     @Test(.timeLimit(.minutes(1)))
-    func aReplacedRootsListingFinishesBeforeItsAccessCloses() async throws {
+    func aReplacedRootsAccessClosesAtOnceAndItsListingStops() async throws {
         let gate = LeoCloseGate()
         let old = LeoGatedStatAccess(gate: gate, links: 2 * LeoWorkspaceBrowserModel.symlinkStatLimit)
         let queue = LeoAccessQueue([old, LeoStubListAccess(entries: [LeoStubListAccess.entry("b.txt", kind: .file)])])
@@ -146,12 +146,32 @@ struct LeoWorkspaceBrowserHardeningTests {
         await browser.open(agent("/b"))
 
         #expect(names(browser.rootItems) == ["b.txt"])
-        #expect(!old.isClosed, "the old listing is still in flight")
+        try await eventually { old.isClosed }
         await gate.open()
         await first.value
-        try await eventually { old.isClosed }
-        #expect(old.callsInFlightAtClose == 0)
         #expect(old.callsAfterClose == 0)
+    }
+
+    /// Over SFTP, a server that never answers the old root's listing
+    /// doesn't keep its connection open: re-rooting closes it at once, the
+    /// listing fails, and nothing reconnects.
+    @Test(.timeLimit(.minutes(1)))
+    func aHungSFTPListingDoesNotKeepTheOldConnectionOpen() async throws {
+        let script = "head -c 9 >/dev/null; \(LeoSFTPTestServer.versionReply); exec sleep 30"
+        let launcher = LeoCountingSFTPLauncher(LeoSFTPTestServer.script(script))
+        let hung = LeoCloseProbe(LeoFileAccessor.sftp(launcher: launcher))
+        let queue = LeoAccessQueue([hung, LeoStubListAccess(entries: [LeoStubListAccess.entry("b.txt", kind: .file)])])
+        let browser = LeoWorkspaceBrowserModel(makeAccess: { _ in queue.next() }, openFile: { _ in .opened })
+        let first = Task { await browser.open(agent("/a")) }
+        try await eventually { launcher.launches == 1 }
+        try await Task.sleep(for: .milliseconds(100))
+
+        await browser.open(agent("/b"))
+
+        try await eventually { hung.hasClosed }
+        await first.value
+        #expect(launcher.launches == 1)
+        await browser.close()
     }
 
     // MARK: Nested expanded folders after a reload
@@ -347,14 +367,13 @@ final class LeoStubListAccess: LeoFileAccess, @unchecked Sendable {
 }
 
 /// Lists `links` symlinks whose stats wait on a gate, and records any call
-/// still running, or started, once it's closed.
+/// started once it's closed.
 final class LeoGatedStatAccess: LeoFileAccess, @unchecked Sendable {
     private let gate: LeoCloseGate
     private let links: Int
     private let lock = NSLock()
     private var inFlight = 0
     private var closed = false
-    private var inFlightAtClose = 0
     private var afterClose = 0
 
     init(gate: LeoCloseGate, links: Int) {
@@ -363,7 +382,6 @@ final class LeoGatedStatAccess: LeoFileAccess, @unchecked Sendable {
     }
 
     var isClosed: Bool { lock.withLock { closed } }
-    var callsInFlightAtClose: Int { lock.withLock { inFlightAtClose } }
     var callsAfterClose: Int { lock.withLock { afterClose } }
 
     func list(_ path: String) async throws -> [LeoFileEntry] {
@@ -388,7 +406,6 @@ final class LeoGatedStatAccess: LeoFileAccess, @unchecked Sendable {
     func close() async {
         lock.withLock {
             closed = true
-            inFlightAtClose = inFlight
         }
     }
 
@@ -401,5 +418,31 @@ final class LeoGatedStatAccess: LeoFileAccess, @unchecked Sendable {
 
     private func end() {
         lock.withLock { inFlight -= 1 }
+    }
+}
+
+/// Delegates to `base`, noting when `close()` has returned.
+final class LeoCloseProbe: LeoFileAccess, @unchecked Sendable {
+    private let base: any LeoFileAccess
+    private let lock = NSLock()
+    private var closed = false
+
+    init(_ base: any LeoFileAccess) {
+        self.base = base
+    }
+
+    var hasClosed: Bool { lock.withLock { closed } }
+
+    func list(_ path: String) async throws -> [LeoFileEntry] { try await base.list(path) }
+    func stat(_ path: String) async throws -> LeoFileStat { try await base.stat(path) }
+    func homeDirectory() async throws -> String { try await base.homeDirectory() }
+    func read(_ path: String, maxBytes: UInt64) async throws -> LeoFileContents { try await base.read(path, maxBytes: maxBytes) }
+    func write(_ data: Data, to path: String, expecting expected: LeoFileVersion?) async throws -> LeoFileStat {
+        try await base.write(data, to: path, expecting: expected)
+    }
+
+    func close() async {
+        await base.close()
+        lock.withLock { closed = true }
     }
 }

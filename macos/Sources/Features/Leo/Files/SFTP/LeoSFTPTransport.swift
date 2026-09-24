@@ -72,10 +72,10 @@ final class LeoSFTPTransport: @unchecked Sendable {
         }
     }
 
-    /// Ends the session: fails everything pending with `.disconnected`,
-    /// closes the server's stdin and terminates it. Idempotent.
-    func close() {
-        end(with: .disconnected)
+    /// Ends the session: fails everything pending with `error`, closes the
+    /// server's stdin and terminates it. Idempotent.
+    func close(with error: LeoFileAccessError = .disconnected) {
+        end(with: error)
     }
 
     // MARK: - Writing

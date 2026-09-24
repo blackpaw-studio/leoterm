@@ -39,8 +39,10 @@ protocol LeoFileAccess: Sendable {
     @discardableResult
     func write(_ data: Data, to path: String, expecting expected: LeoFileVersion?) async throws -> LeoFileStat
 
-    /// Releases any connection the accessor holds (the SFTP session). Safe
-    /// to call more than once; a later operation reconnects on demand.
+    /// Releases any connection the accessor holds (the SFTP session) at
+    /// once, without waiting for what's in flight, which fails. Final: every
+    /// later call fails with `.closed` and nothing reconnects. Safe to call
+    /// more than once.
     func close() async
 }
 

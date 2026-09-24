@@ -39,6 +39,12 @@ struct LeoFileAccessErrorTests {
         #expect(LeoFileAccessError.permissionDenied(path: "/d/.f.leo-1.tmp").retargeted(to: "/d/f") == .permissionDenied(path: "/d/f"))
         #expect(LeoFileAccessError.failed(path: "/d/.t", reason: "r").retargeted(to: "/d/f") == .failed(path: "/d/f", reason: "r"))
         #expect(LeoFileAccessError.disconnected.retargeted(to: "/d/f") == .disconnected)
+        #expect(LeoFileAccessError.closed.retargeted(to: "/d/f") == .closed)
+    }
+
+    @Test func aClosedAccessSaysSoWithoutSuggestingARetry() {
+        #expect(LeoFileAccessError.closed.localizedDescription == "The file connection was closed.")
+        #expect(LeoFileAccessError.closed.recoverySuggestion == nil)
     }
 }
 

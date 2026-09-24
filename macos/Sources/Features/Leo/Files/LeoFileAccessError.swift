@@ -17,6 +17,9 @@ enum LeoFileAccessError: Error, Equatable, Sendable {
     /// The SFTP session ended (or could not start): the tunnel is down or
     /// the server exited.
     case disconnected
+    /// The access was closed (`LeoFileAccess.close()`): final, it never
+    /// reconnects.
+    case closed
     /// The server spoke something other than well-formed SFTP v3.
     case protocolError(LeoFileAccessReason)
     /// Any other operating-system or server failure (disk full, read-only
@@ -37,7 +40,7 @@ enum LeoFileAccessError: Error, Equatable, Sendable {
         case .notADirectory: .notADirectory(path: path)
         case .isADirectory: .isADirectory(path: path)
         case let .failed(_, reason): .failed(path: path, reason: reason)
-        case .invalidPath, .disconnected, .protocolError, .unavailable: self
+        case .invalidPath, .disconnected, .closed, .protocolError, .unavailable: self
         }
     }
 
@@ -59,6 +62,7 @@ extension LeoFileAccessError: LocalizedError {
         case let .isADirectory(path): "“\(Self.displayName(path))” is a folder."
         case let .invalidPath(path): "“\(LeoSFTPServerText.isolated(path))” isn’t an absolute path."
         case .disconnected: "The connection to the host was lost."
+        case .closed: "The file connection was closed."
         case let .protocolError(detail): "The file server sent an unexpected response (\(detail.rendered))."
         case let .failed(path, reason): "Couldn’t access “\(Self.displayName(path))”: \(reason.rendered)."
         case let .unavailable(reason): "File access unavailable: \(reason.rendered)."

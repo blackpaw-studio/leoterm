@@ -1,14 +1,18 @@
 import Foundation
 
 /// Owns the one SFTP connection an accessor uses, opening it lazily. After
-/// the connection ends (tunnel dropped, server exited, `close()`), the next
-/// operation launches a fresh one: at most one attempt per operation, never
-/// in the background, so there is no reconnect loop to run away.
+/// the connection ends (tunnel dropped, server exited), the next operation
+/// launches a fresh one: at most one attempt per operation, never in the
+/// background, so there is no reconnect loop to run away. `close()` is
+/// final: it ends the connection at once, even mid-handshake, fails what's
+/// in flight as `.closed`, and nothing launches again.
 actor LeoSFTPSession {
     nonisolated let launcher: any LeoSFTPLaunching
     private var connecting: Task<LeoSFTPClient, Error>?
-    /// The live transport, kept outside the task so `deinit` can stop it.
+    /// The latest transport, from its launch on (before its handshake), so
+    /// `close()` and `deinit` can stop it without waiting for the server.
     private var transport: LeoSFTPTransport?
+    private var isClosed = false
 
     init(launcher: any LeoSFTPLaunching) {
         self.launcher = launcher
@@ -20,35 +24,39 @@ actor LeoSFTPSession {
 
     func client() async throws -> LeoSFTPClient {
         while true {
+            guard !isClosed else { throw LeoFileAccessError.closed }
             if let current = connecting {
                 if let client = try? await current.value, !client.transport.isClosed { return client }
-                // Another caller may have started a replacement while this
-                // one was suspended; join it instead of launching a second.
+                // Another caller may have started a replacement (or closed
+                // the session) while this one was suspended.
                 guard connecting == current else { continue }
             }
-            let task = Task { [launcher] in try await Self.connect(using: launcher) }
+            let transport = try Self.launch(using: launcher)
+            self.transport = transport
+            let task = Task { try await Self.handshake(on: transport) }
             connecting = task
             let client = try await task.value
-            if connecting == task { transport = client.transport }
+            guard !isClosed else { throw LeoFileAccessError.closed }
             return client
         }
     }
 
-    func close() async {
-        guard let current = connecting else { return }
+    func close() {
+        isClosed = true
         connecting = nil
+        transport?.close(with: .closed)
         transport = nil
-        (try? await current.value)?.transport.close()
     }
 
-    private static func connect(using launcher: any LeoSFTPLaunching) async throws -> LeoSFTPClient {
-        let channel: LeoSFTPChannel
+    private static func launch(using launcher: any LeoSFTPLaunching) throws -> LeoSFTPTransport {
         do {
-            channel = try launcher.launch()
+            return LeoSFTPTransport(channel: try launcher.launch())
         } catch {
             throw LeoFileAccessError.disconnected
         }
-        let transport = LeoSFTPTransport(channel: channel)
+    }
+
+    private static func handshake(on transport: LeoSFTPTransport) async throws -> LeoSFTPClient {
         do {
             let server = try await transport.handshake()
             guard server.version == LeoSFTPCodec.protocolVersion else {

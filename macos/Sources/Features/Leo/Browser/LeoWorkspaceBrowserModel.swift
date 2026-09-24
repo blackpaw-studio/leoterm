@@ -76,8 +76,7 @@ enum LeoWorkspaceItem: Hashable, Sendable {
     private var pending: [String: UUID] = [:]
     /// Bumped whenever the root is replaced or closed.
     private var generation = 0
-    /// The listings running on `access`, cancelled and waited for before
-    /// it closes: a listing still running could reconnect it after.
+    /// The listings running on `access`, cancelled when it's retired.
     private var listings: [UUID: Task<[LeoWorkspaceEntry], Error>] = [:]
 
     /// `makeAccess` gives file access for a host (one per root, released
@@ -248,13 +247,12 @@ enum LeoWorkspaceItem: Hashable, Sendable {
         return previous
     }
 
-    /// Cancels the old root's listings and closes its access once they've
-    /// finished, so nothing runs on it (or reconnects it) after the close.
+    /// Cancels the old root's listings and closes its access at once --
+    /// never waiting for them, as a hung server would never let them end.
+    /// A closed access is final: what they still ask of it fails fast and
+    /// reconnects nothing.
     private static func retire(_ detached: Detached) async {
         detached.listings.forEach { $0.cancel() }
-        for listing in detached.listings {
-            _ = await listing.result
-        }
         await detached.access?.close()
     }
 

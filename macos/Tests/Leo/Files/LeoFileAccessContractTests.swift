@@ -9,6 +9,27 @@ import Testing
 /// Writes live in `LeoFileAccessWriteContractTests`.
 @Suite(LeoSSHEndToEnd.trait)
 struct LeoFileAccessContractTests {
+    /// Closing is final, locally as over SFTP: every later call fails as
+    /// closed.
+    @Test(arguments: [LeoFileBackendKind.local, .sftp])
+    func aClosedAccessRefusesEveryCall(_ kind: LeoFileBackendKind) async throws {
+        let sandbox = try LeoFileSandbox()
+        defer { sandbox.cleanUp() }
+        let path = try sandbox.file("a.txt", "a")
+        let access = kind.makeAccess()
+        _ = try await access.stat(path)
+
+        await access.close()
+
+        await #expect(throws: LeoFileAccessError.closed) { try await access.stat(path) }
+        await #expect(throws: LeoFileAccessError.closed) { try await access.list(sandbox.root) }
+        await #expect(throws: LeoFileAccessError.closed) { try await access.read(path, maxBytes: 10) }
+        await #expect(throws: LeoFileAccessError.closed) { try await access.homeDirectory() }
+        await #expect(throws: LeoFileAccessError.closed) { try await access.write(Data("b".utf8), to: path, expecting: nil) }
+        #expect(try String(contentsOfFile: path, encoding: .utf8) == "a")
+        await access.close()
+    }
+
     @Test(arguments: LeoFileBackendKind.allCases)
     func listsEntriesSortedByNameWithKindSizeAndTime(_ kind: LeoFileBackendKind) async throws {
         try await withLeoFileSandbox(kind) { sandbox, access in
