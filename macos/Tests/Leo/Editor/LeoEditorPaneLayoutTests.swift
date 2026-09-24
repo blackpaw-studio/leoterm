@@ -16,6 +16,12 @@ struct LeoEditorPaneLayoutTests {
             let pane = LeoEditorPaneViewController(model: model)
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 500), styleMask: [.titled], backing: .buffered, defer: false)
             window.contentView = pane.view
+            // Even when a `#require` below ends the test early: no held
+            // save or window outlives it.
+            defer {
+                access.release()
+                window.contentView = nil
+            }
             try await model.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
             model.document?.edit("b")
             model.confirmUnsaved = { _ in .save }
@@ -50,7 +56,6 @@ struct LeoEditorPaneLayoutTests {
 
             access.release()
             #expect(await closing.value)
-            window.contentView = nil
         }
     }
 
@@ -98,8 +103,8 @@ struct LeoEditorPaneLayoutTests {
         let context = try #require(NSGraphicsContext(bitmapImageRep: rep))
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = context
+        defer { NSGraphicsContext.restoreGraphicsState() }
         banner.draw(NSRect(x: 0, y: 0, width: 100, height: 60))
-        NSGraphicsContext.restoreGraphicsState()
 
         #expect(rep.colorAt(x: 50, y: 50)?.alphaComponent != 0, "its own bounds are filled")
         #expect(rep.colorAt(x: 50, y: 5)?.alphaComponent == 0, "nothing above it is")
