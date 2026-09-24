@@ -12,3 +12,4 @@ Untracked-left: macos/default.profraw scratchpad/ zig-out
 - B-037: built 9307c661c (1239 tests). Verified: B-037-1/2/3 (1400 → 700 → 1400 single jumps; sidebar and editor both return). review dispatch failed ("workspace routing discovery timed out") → code-reviewer fallback.
 - B-037 done: 9307c661c (1239 tests). Review (Sonnet fallback) clean; 2 LOW dismissed (D-063). Verified B-037-1/2/3.
 - B-032: built f6a591e0a 41a653cfd (1239 tests). Test-only. review: HIGH dismissed (the guard caught the real leak in run b032red, so bundle callbacks fire for Swift Testing) + MED (shared permanent /tmp dir) → attempt 1 (d-1d6b71d11dd5#2).
+- B-032: attempt-1 fix aeb23c6b5 (1241 tests; guard timing confirmed: start snapshot precedes Swift Testing's run start). Re-review: MED (per-process dir not reserved exclusively; cleanup could remove another run's dir) → attempt 2 (d-1d6b71d11dd5#3).
