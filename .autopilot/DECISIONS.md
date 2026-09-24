@@ -534,3 +534,10 @@ Why: identical output (35,546-input differential, 0 differences) with linear wor
 Alternatives: cap the candidate list (changes output); wall-clock thresholds (flaky)
 Commit: 0747da6d4 cef6e152a
 Veto: [ ]
+
+## D-067 · B-038: Choose Agent while disconnected is disabled, with the reason as help text
+Chose: truncate the banner's reason to one line (tail truncation) with the full sanitized reason as its tooltip; disable the main pane's "Choose Agent…" while the feed is disconnected, with help text "Disconnected from <host>. Reconnect first (⇧⌘R)."
+Why: "calm" + "manual recovery": a picker that lists stale agents invites a failing attach; the banner already offers Retry
+Alternatives: leave it enabled and show an error on use (a click that can only fail)
+Commit:
+Veto: [ ]
