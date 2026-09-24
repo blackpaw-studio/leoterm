@@ -64,9 +64,10 @@ Question: architecture may be wrong. After 3 fix rounds (77957fcdf probe → 9bd
 Answer: yes — make Leo single-instance per bundle (a second copy activates the first and quits), as recommended.
 Done: 10be4b608 6fec65c82 67de1e864 682f967c4 73109b6c3 (1163 tests). Leo is single-instance per bundle ID (D-051); an unsafe lock path fails closed with an alert (D-053); `LeoAgentActions` takes the runtime's one `LeoHostSelection`; legacy records are cleared, never signalled. Verified: shots B-027-1 (a second `open -n` exits, the first stays frontmost) and B-027-2 (the "Leo can't start" alert for a symlinked lock). 1 fix round; re-review clean. Note: 10be4b608 and 6fec65c82 also carry a 1 MB `macos/default.profraw`, untracked again in 682f967c4 (history not rewritten).
 
-## B-032 · Tests leak tunnel sockets into the real cache dir   [ready]
+## B-032 · Tests leak tunnel sockets into the real cache dir   [done]
 Accept: the per-user cache dir (`$(getconf DARWIN_USER_CACHE_DIR)leo`) held ~70 stale `lt-a14bb2a8-*.sock` files (plus a few `.sock.lock`) timestamped through today's test runs. Find the tests that create them, point them at a temp dir (inject the directory), and add a check that a full run leaves the real dir unchanged. Don't delete the existing files; list them in the report.
 Source: B-027 visual check
+Done: f6a591e0a 41a653cfd aeb23c6b5 b03191132 (1244 tests). Root cause: `LeoRuntimeConnectionTests.failureDuringGatedFlavorDetection…` built a LeoRuntime on the real socket dir and SIGKILLed the fake ssh; six more test sites used real dirs. The `.sock.lock` files came from the reverted B-027 attempt. A bundle guard now fails the run if the real dirs gain entries (D-064). Existing files left in place: 116 `lt-a14bb2a8-*.sock`, 5 `*.sock.lock`, 1 instance lock (2026-09-23 11:38–21:54), plus the old `/tmp/leoterm-tests-hosts`. Test-only, so no screenshot. 2 fix rounds.
 
 ## B-033 · "Leo can't start" alert: readable path   [ready]
 Accept: the alert prints the full `/var/folders/…/C/leo/…instance.lock` path, which wraps mid-word (shot B-027-2). Abbreviate it (e.g. `…/leo/<file>`) and add a "Show in Finder" button next to Quit.
@@ -133,6 +134,7 @@ Also seen (B-034, 2026-09-23): one full run stopped after 828 of 1177 tests with
 Done: 05ec8fd2d 3e3859708 235748c7a b32c98cd4 40fdb2b8a (1180 tests). The SSE test uses the shared firing clock and checks exact pending sleeps (10/10 under 28× `yes`; proven by removing each cancel). The 828-test stop was the script's 400 s timeout on a heavily loaded machine; the script now fails loudly (D-057). Also fixed: parallel `xcodebuild test` hosts were quit by the single-instance check. Test-only and launch-time logic, so no screenshot. 2 fix rounds; 3rd review clean. Other load flakes → B-036.
 
 ## B-036 · More sidebar-feed flakes under load   [ready]
+Also seen once (B-032 run): `LeoSidebarFeedDisconnectTests/aPassingWakeCheckChangesNothingAndIsNotRepeated`.
 Accept: under 4× load (B-031 run) `LeoSidebarFeedRecoveryTests` failed 19 times (~4 s each), `LeoSidebarFeedAttentionRaceTests` 4, `LeoSidebarFeedHostSwitchTests` and `LeoSidebarTests` once each. Find each root cause, move them onto `LeoFiringClock` or event-driven waits, prove 10/10 under load and that each still fails when its behavior is broken.
 Source: B-031 implementer run
 

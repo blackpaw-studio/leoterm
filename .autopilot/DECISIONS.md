@@ -510,3 +510,11 @@ Why: D-059 and D-060 as written; principle 1 (behaves like a native split view)
 Alternatives: re-run until stable (a layout loop risk); a deferred re-check on the next runloop (a visible two-step jump)
 Commit: 9307c661c
 Veto: [ ]
+
+## D-064 · 2026-09-23 · B-032 implementer calls; test sockets live in a reserved temp dir
+Context: B-032 (a test drove LeoRuntime with the real socket dir; one leaked socket per full run)
+Chose: `LeoRuntime.init` takes the socket directories (defaults unchanged for the app); test host selections use a per-process `mkdtemp` dir `/tmp/leoterm-tests-XXXXXXXX`, removed at bundle end only if this process reserved it; a test-bundle principal class (`LeoRealCacheDirectoryGuard`) snapshots the real cache dir and `~/.leo/state/leoterm` before any test and exits the host non-zero if a run added entries (additions only, since the running debug app shares the dir; a remote connection from the debug app during a run can false-positive and the message says so). `LeoAgentActionsTests` still spawns real `/usr/bin/ssh` (sockets now in the temp dir). Dismissed: a review HIGH that Swift Testing emits no XCTestObservation callbacks (the bundle start snapshot logs before Swift Testing's run start and caught the real leak in run b032red); a final MED that cleanup could delete a replacement dir at the reserved path (needs our 0700 dir deleted mid-run and a new mkdtemp colliding on the same random name, in test-only /tmp)
+Why: dependency injection over globals; tests never touch real user state
+Alternatives: clean the real dir after tests (deletes shared state the real app uses); a fixed shared /tmp dir (parallel workers collide)
+Commit: f6a591e0a 41a653cfd aeb23c6b5 b03191132
+Veto: [ ]
