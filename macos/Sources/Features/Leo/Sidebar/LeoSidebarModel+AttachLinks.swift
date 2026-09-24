@@ -13,7 +13,6 @@ extension LeoSidebarModel {
     func receiveAttachLinks(_ links: LeoAttachLinkState) {
         let previousFocus = attachLinks.focused
         attachLinks = links
-        trackTabIncarnations()
         guard links.focused != previousFocus, !isFencedByUserSelection(links) else { return }
         selectFocusedRow()
     }
@@ -40,9 +39,7 @@ extension LeoSidebarModel {
     func rowClicked(_ row: LeoAgentRow, modifierFlags: NSEvent.ModifierFlags = []) {
         selection = row.id
         fenceInFlightFocusReports()
-        let focusesExisting = !modifierFlags.contains(.option) && tabCount(for: row.id) > 0
-        surfacedFilesRowClicked(row, focusesExisting: focusesExisting)
-        guard focusesExisting else { return }
+        guard !modifierFlags.contains(.option), tabCount(for: row.id) > 0 else { return }
         focusExistingRequested(row)
     }
 

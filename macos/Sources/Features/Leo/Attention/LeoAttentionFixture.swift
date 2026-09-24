@@ -27,8 +27,7 @@ enum LeoAttentionFixture {
                 guard let signal = overlay[agent.name] else { return agent }
                 return LeoObservedAgent(
                     name: agent.name, host: agent.host, status: agent.status, activity: agent.activity,
-                    currentAction: agent.currentAction, lastActivityAt: agent.lastActivityAt, attention: signal,
-                    startedAt: agent.startedAt, surfacedFiles: agent.surfacedFiles
+                    currentAction: agent.currentAction, lastActivityAt: agent.lastActivityAt, attention: signal
                 )
             }
         })

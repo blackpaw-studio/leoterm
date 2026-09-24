@@ -44,18 +44,10 @@ struct LeoLocalFileBackend: LeoFileAccessBackend {
         }
     }
 
-    /// Opened non-blocking and checked to be a regular file before any
-    /// read: a FIFO or device swapped in after the caller's `stat` fails
-    /// instead of hanging the open or the read.
     func contents(of path: String, limit: UInt64) async throws -> Data {
-        let descriptor = open(path, O_RDONLY | O_CLOEXEC | O_NONBLOCK)
+        let descriptor = open(path, O_RDONLY | O_CLOEXEC)
         guard descriptor >= 0 else { throw Self.error(errno, path: path) }
         defer { Darwin.close(descriptor) }
-        var info = Darwin.stat()
-        guard fstat(descriptor, &info) == 0 else { throw Self.error(errno, path: path) }
-        guard info.st_mode & S_IFMT == S_IFREG else {
-            throw LeoFileAccessError.failed(path: path, reason: "it isn’t a regular file")
-        }
         var data = Data()
         var buffer = [UInt8](repeating: 0, count: Self.readChunkSize)
         while UInt64(data.count) <= limit {

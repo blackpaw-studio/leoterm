@@ -78,27 +78,16 @@ struct LeoEditorReveal: Equatable, Sendable {
 
     var isOpen: Bool { document != nil }
 
-    /// Counts `open` calls, so a deferred automatic open can tell the
-    /// pane was asked to open something since it started.
-    private(set) var openRequests = 0
-
     /// Opens `fileID`, replacing the current document. The new file is read
     /// before anything is asked, so a file that can't open (the error is
     /// thrown) never costs the user a prompt or their current document.
-    /// `access` stands in for the pane's own file access for this open;
-    /// `readDeadline` bounds its first read (see `LeoReadDeadline`).
+    /// `access` stands in for the pane's own file access for this open.
     @discardableResult
     func open(
         _ fileID: LeoEditorFileID, line: Int? = nil, column: Int? = nil,
-        access: (@MainActor (LeoHostID) throws -> any LeoFileAccess)? = nil,
-        readDeadline: LeoReadDeadline? = nil
+        access: (@MainActor (LeoHostID) throws -> any LeoFileAccess)? = nil
     ) async throws -> LeoEditorOpenOutcome {
-        openRequests += 1
-        let baseAccess = access ?? self.makeAccess
-        let makeAccess: @MainActor (LeoHostID) throws -> any LeoFileAccess = { host in
-            let access = try baseAccess(host)
-            return readDeadline.map { $0.wrap(access) } ?? access
-        }
+        let makeAccess = access ?? self.makeAccess
         return try await queue.runThrowing {
             try await self.performOpen(fileID, line: line, column: column, makeAccess: makeAccess)
         }
@@ -153,20 +142,6 @@ struct LeoEditorReveal: Equatable, Sendable {
             let home = try await access.homeDirectory()
             await access.close()
             return home
-        } catch {
-            await access.close()
-            throw error
-        }
-    }
-
-    /// `fileID`'s stat on its host (following symlinks), through the
-    /// pane's own file access.
-    func stat(_ fileID: LeoEditorFileID) async throws -> LeoFileStat {
-        let access = try makeAccess(fileID.host)
-        do {
-            let stat = try await access.stat(fileID.path)
-            await access.close()
-            return stat
         } catch {
             await access.close()
             throw error

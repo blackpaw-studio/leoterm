@@ -8,9 +8,7 @@ extension LeoRuntime {
     /// handle -> identity map, never from titles or sidebar selection.
     /// Changes reach the feed in order, so it ends on the latest one.
     func focusedAgentChanged(_ identity: LeoAgentIdentity?) {
-        let id = identity.map { LeoAgentRow.ID(host: $0.host, name: $0.name) }
-        focusedAgentRelay.send(id)
-        model.focusedAgentChanged(id)
+        focusedAgentRelay.send(identity.map { LeoAgentRow.ID(host: $0.host, name: $0.name) })
     }
 
     /// The row Jump would attach to: unfiltered sidebar order (pinned

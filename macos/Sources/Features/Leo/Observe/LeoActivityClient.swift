@@ -21,13 +21,10 @@ struct LeoObservedAgent: Codable, Equatable, Sendable {
     /// When this incarnation started; the same value the agent list
     /// reports, so it identifies which incarnation an entry describes.
     let startedAt: String?
-    /// B-013: files this incarnation surfaced, newest last (at most 20);
-    /// empty for a daemon that doesn't report them.
-    let surfacedFiles: [LeoSurfacedFile]
 
     init(name: String, host: String? = nil, status: LeoAgentStatus?, activity: LeoActivity?,
          currentAction: LeoCurrentAction?, lastActivityAt: String?, attention: LeoAttentionSignal? = nil,
-         startedAt: String? = nil, surfacedFiles: [LeoSurfacedFile] = []) {
+         startedAt: String? = nil) {
         self.name = name
         self.host = host
         self.status = status
@@ -36,7 +33,6 @@ struct LeoObservedAgent: Codable, Equatable, Sendable {
         self.lastActivityAt = lastActivityAt
         self.attention = attention
         self.startedAt = startedAt
-        self.surfacedFiles = surfacedFiles
     }
 
     enum CodingKeys: String, CodingKey {
@@ -44,7 +40,6 @@ struct LeoObservedAgent: Codable, Equatable, Sendable {
         case currentAction = "current_action"
         case lastActivityAt = "last_activity_at"
         case startedAt = "started_at"
-        case surfacedFiles = "surfaced_files"
     }
 
     /// Hand-written only so a malformed optional `attention` degrades to
@@ -59,7 +54,6 @@ struct LeoObservedAgent: Codable, Equatable, Sendable {
         lastActivityAt = try container.decodeIfPresent(String.self, forKey: .lastActivityAt)
         attention = try container.decodeIfPresent(LeoLenientAttention.self, forKey: .attention)?.value
         startedAt = try? container.decodeIfPresent(String.self, forKey: .startedAt)
-        surfacedFiles = (try? container.decodeIfPresent(LeoLenientSurfacedFiles.self, forKey: .surfacedFiles))??.files ?? []
     }
 }
 
@@ -106,9 +100,6 @@ enum LeoObserveEvent: Equatable, Sendable {
     case agentStopped(seq: Int, at: String?, agent: String, wakeOnMessage: Bool?)
     case gap(expected: Int, received: Int)
     case snapshot([LeoObservedAgent])
-    /// B-013: the agent asked the user to look at a file. `seq` is
-    /// optional: a seq-less event never takes part in gap detection.
-    case fileSurfaced(seq: Int?, file: LeoSurfacedFile)
 }
 
 protocol LeoActivityTransport: Sendable {
@@ -195,13 +186,13 @@ actor LeoActivityClient {
                     for raw in parser.feed(bytes) {
                         guard let event = Self.decode(raw) else { continue }
                         let sequence = event.sequence
-                        if sequence >= 0, let lastSequence, sequence > lastSequence + 1 {
+                        if let lastSequence, sequence > lastSequence + 1 {
                             continuation.yield(.gap(expected: lastSequence + 1, received: sequence))
                             if let agents = try? await fetchState() {
                                 continuation.yield(.snapshot(agents))
                             }
                         }
-                        if sequence >= 0 { lastSequence = sequence }
+                        lastSequence = sequence
                         if case .hello(let seq, let at, let version, let serverTime, _) = event {
                             backoff = initialBackoff
                             leoActivityClientLogger.log("activityClient: hello seq=\(seq) version=\(version ?? "nil", privacy: .public) serverTime=\(serverTime ?? "nil", privacy: .public) at=\(at ?? "nil", privacy: .public)")
@@ -239,7 +230,7 @@ actor LeoActivityClient {
     }
 
     static func decode(_ raw: LeoSSEEvent) -> LeoObserveEvent? {
-        guard let data = raw.data.data(using: .utf8), let name = raw.name ?? typeField(of: data) else { return nil }
+        guard let name = raw.name, let data = raw.data.data(using: .utf8) else { return nil }
         let decoder = JSONDecoder()
         switch name {
         case "hello":
@@ -273,18 +264,8 @@ actor LeoActivityClient {
             struct Payload: Decodable { let seq: Int; let at: String?; let agent: String; let wakeOnMessage: Bool?; enum CodingKeys: String, CodingKey { case seq, at, agent; case wakeOnMessage = "wake_on_message" } }
             guard let p = try? decoder.decode(Payload.self, from: data) else { return nil }
             return .agentStopped(seq: p.seq, at: p.at, agent: p.agent, wakeOnMessage: p.wakeOnMessage)
-        case "file_surfaced":
-            struct Payload: Decodable { let seq: Int? }
-            guard let file = try? decoder.decode(LeoSurfacedFile.self, from: data) else { return nil }
-            return .fileSurfaced(seq: (try? decoder.decode(Payload.self, from: data))?.seq, file: file)
         default: return nil
         }
-    }
-
-    /// The payload's own `type`, for an event sent without an SSE `event:` name.
-    private static func typeField(of data: Data) -> String? {
-        struct Typed: Decodable { let type: String }
-        return (try? JSONDecoder().decode(Typed.self, from: data))?.type
     }
 
     private static func reason(for error: Error) -> String {
@@ -300,7 +281,6 @@ extension LeoObserveEvent {
         case .hello(let seq, _, _, _, _), .agentSpawned(let seq, _, _, _),
              .agentStateChanged(let seq, _, _, _, _, _), .agentActivity(let seq, _, _, _, _, _),
              .agentStopped(let seq, _, _, _): return seq
-        case .fileSurfaced(let seq, _): return seq ?? -1
         case .connected, .disconnected, .gap, .snapshot: return -1
         }
     }
