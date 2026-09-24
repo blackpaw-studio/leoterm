@@ -26,8 +26,7 @@ struct LeoPlaceholderView: View {
                     .foregroundStyle(.secondary)
             }
             HStack(spacing: 12) {
-                Button("Choose Agent…", action: openPicker)
-                    .buttonStyle(.borderedProminent)
+                chooseAgentButton
                     .disabled(!chooseAgent.isEnabled)
                     .help(chooseAgent.help)
                 Button("Show Terminal Drawer", action: toggleDrawer)
@@ -36,5 +35,18 @@ struct LeoPlaceholderView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.regularMaterial)
+    }
+
+    /// A disabled `.borderedProminent` keeps nearly its full accent fill in
+    /// dark mode, so it still reads as the thing to press. Prominence is
+    /// for the one action available; while there isn't one, the button is
+    /// a plain bordered one and gets the familiar greyed look.
+    @ViewBuilder private var chooseAgentButton: some View {
+        let button = Button("Choose Agent…", action: openPicker)
+        if chooseAgent.isProminent {
+            button.buttonStyle(.borderedProminent)
+        } else {
+            button.buttonStyle(.bordered)
+        }
     }
 }

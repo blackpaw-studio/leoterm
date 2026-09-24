@@ -6,6 +6,8 @@ import Foundation
 struct LeoPlaceholderChooseAgent: Equatable {
     let isEnabled: Bool
     let help: String
+    /// Drawn as the window's prominent action only while it can be pressed.
+    var isProminent: Bool { isEnabled }
 
     init(host: LeoHostID, connectivity: LeoConnectivity) {
         if let banner = LeoDisconnectedBanner(host: host, connectivity: connectivity) {

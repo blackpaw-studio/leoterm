@@ -22,12 +22,14 @@ import Testing
     @Test func chooseAgentIsEnabledWithItsShortcutAsHelpWhileConnected() {
         let state = LeoPlaceholderChooseAgent(host: .local, connectivity: .connected)
         #expect(state.isEnabled)
+        #expect(state.isProminent)
         #expect(state.help == "⌘T")
     }
 
     @Test func chooseAgentIsDisabledWhileDisconnectedAndSaysHowToReconnect() {
         let state = LeoPlaceholderChooseAgent(host: .remote("mars"), connectivity: .disconnected(reason: "ssh exited (255)", isRetrying: false))
         #expect(!state.isEnabled)
+        #expect(!state.isProminent)
         #expect(state.help == "Disconnected from mars. Reconnect first (⇧⌘R).")
     }
 
@@ -51,6 +53,7 @@ import Testing
 
         model.receive(.init(rows: [], connectivity: .disconnected(reason: "Connection closed", isRetrying: false), generation: 2))
         #expect(!state().isEnabled)
+        #expect(!state().isProminent)
         #expect(state().help == "Disconnected from localhost. Reconnect first (⇧⌘R).")
 
         model.receive(.init(rows: [], connectivity: .disconnected(reason: "Connection closed", isRetrying: true), generation: 3))
@@ -58,6 +61,7 @@ import Testing
 
         model.receive(.init(rows: [], connectivity: .connected, generation: 4))
         #expect(state().isEnabled)
+        #expect(state().isProminent)
         #expect(state().help == "⌘T")
     }
 }
