@@ -64,7 +64,7 @@ import Testing
 
     // MARK: Palette
 
-    @Test func thePaletteShowsTheDisconnectedStateInsteadOfAttachableRows() {
+    @Test func thePaletteShowsTheDisconnectedStateInsteadOfAttachableRows() throws {
         var retried = false
         let model = LeoAgentPaletteModel(retry: { retried = true })
         model.update(
@@ -73,7 +73,8 @@ import Testing
             hostState: .connected(socketPath: "/tmp/leo.sock")
         )
 
-        #expect(model.rows == [.status(text: "Disconnected from localhost", hint: "Connection closed", canRetry: true), .newAgent, .plainShell])
+        let banner = LeoDisconnectedBanner(host: .local, connectivity: .disconnected(reason: "Connection closed", isRetrying: false))
+        #expect(model.rows == [.disconnected(try #require(banner)), .newAgent, .plainShell])
         #expect(model.confirm() == nil)
         model.retryConnection()
         #expect(retried)

@@ -108,6 +108,8 @@ private struct LeoAgentPaletteRowView: View {
             Text("Plain Shell")
         case .status(let text, let hint, let canRetry):
             statusContent(text: text, hint: hint, canRetry: canRetry)
+        case .disconnected(let banner):
+            disconnectedContent(banner)
         }
     }
 
@@ -142,6 +144,26 @@ private struct LeoAgentPaletteRowView: View {
                 .foregroundStyle(presentation.color)
                 .frame(width: 7, height: 7)
                 .accessibilityLabel(presentation.accessibilityLabel)
+        }
+    }
+
+    /// Same treatment as the sidebar banner (B-038): the reason is one
+    /// tail-truncated line with the full text as tooltip and AX label.
+    @ViewBuilder private func disconnectedContent(_ banner: LeoDisconnectedBanner) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(banner.title).font(.body).foregroundStyle(.secondary)
+            Text(banner.reason)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(banner.reasonLineLimit)
+                .truncationMode(.tail)
+                .help(banner.reasonHelp)
+                .accessibilityLabel(banner.reasonHelp)
+        }
+        Spacer(minLength: 8)
+        if !banner.isRetrying {
+            Button("Retry", action: onRetry)
+                .buttonStyle(.borderless)
         }
     }
 

@@ -9,6 +9,9 @@ import Foundation
         case newAgent
         case plainShell
         case status(text: String, hint: String?, canRetry: Bool)
+        /// The sidebar's disconnected banner itself (D-061), so the palette
+        /// shows the same words with the same one-line reason (B-041).
+        case disconnected(LeoDisconnectedBanner)
     }
 
     private enum RowIdentity: Equatable {
@@ -84,7 +87,7 @@ import Foundation
         case .agent(let agentRow): return .agent(agentRow.identity)
         case .newAgent: return .newAgent
         case .plainShell: return .plainShell
-        case .status: return nil
+        case .status, .disconnected: return nil
         }
     }
 
@@ -92,7 +95,8 @@ import Foundation
 
     /// Invokes the injected retry closure. Callers (the palette view) are
     /// expected to only surface the retry affordance when the current
-    /// selection is a `.status(canRetry: true)` row, but this is safe to
+    /// selection is a `.status(canRetry: true)` row (or a `.disconnected`
+    /// one that isn't already retrying), but this is safe to
     /// call unconditionally -- retrying a connected/connecting host is a
     /// harmless no-op at the `LeoHostSelection` layer.
     func retryConnection() {
@@ -119,7 +123,7 @@ import Foundation
             return [.status(text: LeoSFTPServerText.sanitized(message), hint: hint.map(LeoSFTPServerText.sanitized), canRetry: true)] + trailingRows()
         case .connected:
             if let banner = snapshot.flatMap({ LeoDisconnectedBanner(host: selectedHost, connectivity: $0.connectivity) }) {
-                return [.status(text: banner.title, hint: banner.reason, canRetry: !banner.isRetrying)] + trailingRows()
+                return [.disconnected(banner)] + trailingRows()
             }
             return filteredAgentRows().map(Row.agent) + trailingRows()
         }
@@ -146,7 +150,7 @@ import Foundation
         case .agent: true
         case .newAgent: isConnected
         case .plainShell: true
-        case .status: false
+        case .status, .disconnected: false
         }
     }
 
@@ -159,7 +163,7 @@ import Foundation
         case .agent(let agentRow): .agent(agentRow.id)
         case .newAgent: .newAgent
         case .plainShell: .plainShell
-        case .status: .status
+        case .status, .disconnected: .status
         }
     }
 

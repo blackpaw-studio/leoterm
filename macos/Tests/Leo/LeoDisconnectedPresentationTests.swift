@@ -17,6 +17,30 @@ import Testing
         #expect(banner.reasonHelp == banner.reason)
     }
 
+    // MARK: Palette (B-041)
+
+    /// The palette's disconnected row is the sidebar banner itself, so its
+    /// reason gets the same one line + full-text tooltip.
+    @Test func thePalettesDisconnectedRowCarriesTheBannersOneLineReason() throws {
+        let raw = "LEO_FORCE_DISCONNECTED=1 forced this state after the first list\nfor screenshots"
+        let model = LeoAgentPaletteModel()
+        model.update(
+            snapshot: LeoSidebarSnapshot(rows: [], connectivity: .disconnected(reason: raw, isRetrying: false), generation: 1),
+            selectedHost: .remote("mars"),
+            hostState: .connected(socketPath: "/tmp/leo.sock")
+        )
+        guard case .disconnected(let banner) = model.rows.first else {
+            Issue.record("expected the disconnected row first, got \(model.rows)")
+            return
+        }
+        let sidebar = try #require(LeoDisconnectedBanner(host: .remote("mars"), connectivity: .disconnected(reason: raw, isRetrying: false)))
+        #expect(banner == sidebar)
+        #expect(banner.title == "Disconnected from mars")
+        #expect(banner.reasonLineLimit == 1)
+        #expect(banner.reasonHelp == LeoSFTPServerText.sanitized(raw))
+        #expect(model.confirm() == nil)
+    }
+
     // MARK: Choose Agent…
 
     @Test func chooseAgentIsEnabledWithItsShortcutAsHelpWhileConnected() {
