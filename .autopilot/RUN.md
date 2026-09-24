@@ -17,3 +17,4 @@ Untracked-left: macos/default.profraw scratchpad/ zig-out
 - B-031: attempt-1 fix b32c98cd4; re-review MED (direct -XCTest branch) + 2 LOW → attempt 2 40fdb2b8a; 3rd review clean.
 - B-031 done: 05ec8fd2d 3e3859708 235748c7a b32c98cd4 40fdb2b8a (1180 tests). D-057. New: B-036.
 - B-023: built 30233456a aa5f8d878 39441c27d (1192 tests). Shots B-023-2/3 (floor holds at 900 and 700 pt), B-023-4 (widening leaves sidebar collapsed, editor squeezed). review (2 runs; the first dispatch timed out at the daemon but ran): P2 (in-flight listing can reconnect after close) + LOW (refusal test doesn't toggle) → attempt 1 (d-fcb2528388a6#2) with D-059.
+- B-023: attempt-1 fixes 36aee4e9e fac40cd67 b6a773954 f8c0c7c77 (1202 tests). Shot B-023-3: sidebar and editor return at 1400. Regression at 700 pt (terminal ~265). review.concurrency: P2 (retire waits on SFTP sends that ignore cancellation) → attempt 2 (d-fcb2528388a6#3): a closed access is terminal and never reconnects.
