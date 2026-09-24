@@ -61,3 +61,15 @@ Notes: leo_dispatch role review.security routed to codex/gpt-6-sol and failed ev
 - B-029 Cleaner ZWJ trie + ICU drift test: 0747da6d4 cef6e152a (D-066). Not visual.
 - Calls: D-061–D-066. New: B-038 (banner reason wrap, Choose Agent while disconnected), B-039 (test plist stubs), B-040 (weak AttentionRace test).
 - Notes: one review dispatch failed ("workspace routing discovery timed out") → Sonnet code-reviewer for B-037. The first B-036 implementer hung 31 min in a PreToolUse hook; cancelled and re-dispatched. Tests: 1249 (known ConfigTests failure only); swiftlint clean.
+
+## Run 2026-09-24 — 4 shipped, 1 blocked
+Shipped
+- B-038 Disconnected banner: one-line reason + tooltip; Choose Agent… visibly disabled while disconnected — 622783dad d1e8e149a (verified: B-038-1/2)
+- B-033 "Leo can't start" alert: path-free sentence, one middle-truncated path line, Show in Finder — 7dd3ea2bf f93fab899 e2736fec7 (verified: B-033-1/2; Show in Finder unit-tested only, alert AX unreachable)
+- B-009 Search: Agents ▸ Find Agent… ⌥⌘F, ranked fuzzy match with bold letters, Escape clears — 93a8c5b9f 823a717fb 03974e177 (verified: B-009-1/2/3)
+- B-011 Row metadata: relative last-active time from identity-checked snapshots; task line when reported; no tokens/cost (not exposed) — a8b800d41 fd679d90a 8b5808341 (verified: B-011-1/2)
+Blocked
+- B-010 Sort and pin: event-driven last-activity ordering failed review 4× (namesake races); reverted f6dfc8aec. Question: re-scope to snapshot-only sort?
+Calls: D-067 D-068 D-069 D-070 D-071 D-072 D-074 D-075 (D-073 reverted with B-010)
+New: B-041 B-042 B-043
+Next up: B-039, B-040, B-041, B-042, B-043, B-035, B-012
