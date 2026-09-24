@@ -7,20 +7,24 @@ import Testing
 enum LeoHostSelectionTestSupport {
     static let localSocketPath = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath
 
-    /// Tests never touch the real `~/.leo/state/leoterm` -- that's
-    /// production data. They share this directory instead, injected
-    /// through `LeoHostSelection`'s `localSocketDirectory` parameter;
-    /// sharing it across tests is safe because `ensureSocketDirectoryIsPrivate`
-    /// is idempotent, and tests that care about the directory's own
-    /// permissions (as opposed to just the socket path) use their own
-    /// private directory instead. `/tmp` (not `FileManager.default
-    /// .temporaryDirectory`, i.e. `$TMPDIR`) deliberately: macOS's
-    /// per-process confined `$TMPDIR` (`/var/folders/<random>/T/`) is long
-    /// enough on its own that `<TMPDIR>/leoterm-tests-hosts/<name>-<hex>.sock`
-    /// regularly exceeds the ~100-byte AF_UNIX path limit
-    /// `LeoSSHCommand.tunnelArguments` enforces -- the same overflow that
-    /// motivates this whole fix for the production directory.
-    static let localSocketDirectory = URL(fileURLWithPath: "/tmp/leoterm-tests-hosts", isDirectory: true)
+    /// Tests never touch the real `~/.leo/state/leoterm` or per-user cache
+    /// directory -- that's production data. They share this directory
+    /// instead, injected through `LeoHostSelection`'s socket-directory
+    /// parameters; sharing it across one process's tests is safe because
+    /// `LeoControlSocketDirectory.prepare` is idempotent and every host
+    /// configuration has its own id. It is unique to this test process
+    /// (B-032): a fixed path is shared by every run and parallel worker, so
+    /// a later run meets stale sockets and one worker's
+    /// `LeoTunnel.removeStaleSocket()` can unlink another's live socket.
+    /// `LeoRealCacheDirectoryGuard` removes it when the bundle finishes.
+    /// Tests that care about the directory's own permissions use their own
+    /// (`makeIsolatedSocketDirectory`). `/tmp` (not `$TMPDIR`) and only 8
+    /// hex characters deliberately: macOS's per-process `$TMPDIR`
+    /// (`/var/folders/<random>/T/`) is long enough on its own to push a
+    /// socket path past the AF_UNIX limit `LeoSSHCommand.tunnelArguments`
+    /// enforces -- the same overflow that motivated moving the production
+    /// directory.
+    static let localSocketDirectory = makeIsolatedSocketDirectory()
 
     @MainActor static func makeSelection(
         hosts: [LeoHostConfiguration] = [],

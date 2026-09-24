@@ -32,6 +32,8 @@ final class LeoRealCacheDirectoryGuard: NSObject, XCTestObservation {
     }
 
     func testBundleDidFinish(_: Bundle) {
+        // This process's own directory (unique name), never another run's.
+        try? FileManager.default.removeItem(at: LeoHostSelectionTestSupport.localSocketDirectory)
         let added = LeoRealDirectoryListing.paths(in: directories).subtracting(before)
         guard !added.isEmpty else { return }
         let message = """
