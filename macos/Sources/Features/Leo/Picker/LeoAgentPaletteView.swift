@@ -51,7 +51,12 @@ struct LeoAgentPaletteView: View {
             ScrollView {
                 LazyVStack(spacing: 2) {
                     ForEach(Array(model.rows.enumerated()), id: \.offset) { index, row in
-                        LeoAgentPaletteRowView(row: row, isSelected: index == model.selectedIndex, onRetry: onRetry)
+                        LeoAgentPaletteRowView(
+                            row: row,
+                            isSelected: index == model.selectedIndex,
+                            nameHighlights: { model.nameHighlights(for: $0) },
+                            onRetry: onRetry
+                        )
                             .id(index)
                             .contentShape(Rectangle())
                             .onTapGesture {
@@ -81,6 +86,8 @@ struct LeoAgentPaletteView: View {
 private struct LeoAgentPaletteRowView: View {
     let row: LeoAgentPaletteModel.Row
     let isSelected: Bool
+    /// Name characters the filter matched, drawn bold (B-042).
+    let nameHighlights: (LeoAgentRow) -> [Int]
     let onRetry: () -> Void
 
     var body: some View {
@@ -116,7 +123,7 @@ private struct LeoAgentPaletteRowView: View {
     @ViewBuilder private func agentContent(_ agentRow: LeoAgentRow) -> some View {
         activityDot(agentRow)
         VStack(alignment: .leading, spacing: 2) {
-            Text(agentRow.name).font(.body)
+            nameText(agentRow).font(.body)
             if let repo = agentRow.repo, !repo.isEmpty {
                 Text(repo).font(.caption).foregroundStyle(.secondary)
             }
@@ -129,6 +136,13 @@ private struct LeoAgentPaletteRowView: View {
                 .padding(.vertical, 2)
                 .background(.secondary.opacity(0.15), in: Capsule())
                 .foregroundStyle(.secondary)
+        }
+    }
+
+    /// Same bolding as the sidebar row (B-009).
+    private func nameText(_ agentRow: LeoAgentRow) -> Text {
+        LeoFuzzyMatcher.highlightRuns(name: agentRow.name, offsets: nameHighlights(agentRow)).reduce(Text("")) { text, run in
+            text + Text(run.text).fontWeight(run.isMatched ? .bold : nil)
         }
     }
 

@@ -71,6 +71,12 @@ import Foundation
         selectedRowIdentity = identity(for: rows[index])
     }
 
+    /// Name characters to draw bold for the current filter, as the sidebar
+    /// does (B-042).
+    func nameHighlights(for row: LeoAgentRow) -> [Int] {
+        LeoFuzzyMatcher.nameHighlights(for: row, query: filterText)
+    }
+
     func reportFailure(_ message: String) {
         attachError = message
     }
@@ -136,13 +142,9 @@ import Foundation
     private func filteredAgentRows() -> [LeoAgentRow] {
         guard let snapshot else { return [] }
         let scoped = snapshot.rows.filter { $0.host == selectedHost }
-        let ranked = LeoSidebarReducers.rank(scoped)
-        let needle = filterText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !needle.isEmpty else { return ranked }
-        return ranked.filter {
-            $0.name.range(of: needle, options: .caseInsensitive) != nil ||
-                ($0.repo?.range(of: needle, options: .caseInsensitive) != nil)
-        }
+        // The sidebar's fuzzy matcher (B-042), over name then repo -- the
+        // two fields a palette row shows. Ties keep the sidebar order.
+        return LeoFuzzyMatcher.rank(LeoSidebarReducers.rank(scoped), query: filterText, secondary: \.repo)
     }
 
     private func isConfirmable(_ row: Row) -> Bool {

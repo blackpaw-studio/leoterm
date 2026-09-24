@@ -49,14 +49,21 @@ enum LeoFuzzyMatcher {
         }
     }
 
-    /// Rows matching `query` on their name or template, best match first;
-    /// ties keep the incoming (sidebar) order. An empty query changes
-    /// nothing.
-    static func rank(_ rows: [LeoAgentRow], query: String) -> [LeoAgentRow] {
+    /// Rows matching `query` on their name or `secondary` field (the
+    /// sidebar's template by default; the palette's repo), best match
+    /// first; ties keep the incoming (sidebar) order. An empty query
+    /// changes nothing.
+    static func rank(
+        _ rows: [LeoAgentRow],
+        query: String,
+        secondary: (LeoAgentRow) -> String? = \.template
+    ) -> [LeoAgentRow] {
         let needle = trimmed(query)
         guard !needle.isEmpty else { return rows }
         return rows.enumerated()
-            .compactMap { index, row in sortKey(for: row, query: needle).map { (key: $0, index: index, row: row) } }
+            .compactMap { index, row in
+                sortKey(for: row, query: needle, secondary: secondary).map { (key: $0, index: index, row: row) }
+            }
             .sorted { ($0.key, $0.index) < ($1.key, $1.index) }
             .map(\.row)
     }
@@ -88,11 +95,11 @@ enum LeoFuzzyMatcher {
 
     private static let wordSeparators: Set<Character> = ["-", "_", ".", " "]
 
-    /// Tier first; at the same tier a name match beats a template match.
-    private static func sortKey(for row: LeoAgentRow, query: String) -> Int? {
+    /// Tier first; at the same tier a name match beats a secondary match.
+    private static func sortKey(for row: LeoAgentRow, query: String, secondary: (LeoAgentRow) -> String?) -> Int? {
         let nameKey = match(query, in: row.name).map { $0.tier.rawValue * 2 }
-        let templateKey = row.template.flatMap { match(query, in: $0) }.map { $0.tier.rawValue * 2 + 1 }
-        return [nameKey, templateKey].compactMap { $0 }.min()
+        let secondaryKey = secondary(row).flatMap { match(query, in: $0) }.map { $0.tier.rawValue * 2 + 1 }
+        return [nameKey, secondaryKey].compactMap { $0 }.min()
     }
 
     private static func trimmed(_ query: String) -> String {

@@ -47,6 +47,61 @@ import Testing
         #expect(model.confirm() == .agent(row("other", repo: "ghostty").identity))
     }
 
+    // MARK: B-042 -- the sidebar's fuzzy matcher
+
+    private func connected(_ rows: [LeoAgentRow]) -> LeoAgentPaletteModel {
+        let model = LeoAgentPaletteModel()
+        model.update(snapshot: snapshot(rows), selectedHost: .local, hostState: .connected(socketPath: "/tmp/leo.sock"))
+        return model
+    }
+
+    @Test func filterMatchesInOrderLettersLikeTheSidebar() {
+        let model = connected([row("leo-home-assistant"), row("olympus")])
+
+        model.filterText = "lha"
+
+        #expect(model.rows == [.agent(row("leo-home-assistant")), .newAgent, .plainShell])
+    }
+
+    @Test func filterRanksBetterShapedMatchesFirstAndReturnTakesTheTop() {
+        // Alphabetical (the unfiltered order) would put "alpha-leo" first.
+        let model = connected([row("alpha-leo"), row("leo"), row("leoterm"), row("lxexo")])
+
+        model.filterText = "leo"
+
+        #expect(model.rows == [
+            .agent(row("leo")), .agent(row("leoterm")), .agent(row("alpha-leo")), .agent(row("lxexo")),
+            .newAgent, .plainShell,
+        ])
+        #expect(model.confirm() == .agent(row("leo").identity))
+    }
+
+    @Test func filterStillMatchesRepoButANameMatchRanksFirst() {
+        let model = connected([row("alpha", repo: "worker"), row("worker", repo: "ghostty")])
+
+        model.filterText = "worker"
+
+        #expect(model.rows == [
+            .agent(row("worker", repo: "ghostty")), .agent(row("alpha", repo: "worker")), .newAgent, .plainShell,
+        ])
+    }
+
+    @Test func filterFoldsNonASCIICase() {
+        let model = connected([row("Straße"), row("other")])
+
+        model.filterText = "STRASSE"
+
+        #expect(model.rows == [.agent(row("Straße")), .newAgent, .plainShell])
+    }
+
+    @Test func nameHighlightsBoldTheMatchedLetters() {
+        let model = connected([row("leo-home-assistant", repo: "lha")])
+
+        #expect(model.nameHighlights(for: row("leo-home-assistant", repo: "lha")).isEmpty)
+        model.filterText = " lha "
+        #expect(model.nameHighlights(for: row("leo-home-assistant", repo: "lha")) == [0, 4, 9])
+    }
+
     @Test func hostIsolationOnlyShowsSelectedHostAgents() {
         let model = LeoAgentPaletteModel()
         model.update(
