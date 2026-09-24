@@ -562,3 +562,10 @@ Why: HIG (short alert text, a concrete next step); the item's goal was no mid-wo
 Alternatives: path inside the sentence (breaks mid-word at alert width)
 Commit: 7dd3ea2bf f93fab899 e2736fec7
 Veto: [ ]
+
+## D-071 · 2026-09-24 · B-009: sidebar search shortcut, fuzzy ranking, Escape
+Chose: "Agents ▸ Find Agent…" focuses (showing if hidden) the sidebar filter. Shortcut ⌘F only if Ghostty doesn't already bind ⌘F (terminal find); if it does, keep terminal find on ⌘F and use ⌥⌘F. Fuzzy = case-insensitive subsequence over agent name (and template), ranked exact > prefix > word-boundary > contiguous > scattered, ties by current order; matched characters bold. Escape clears a non-empty filter; Escape on an empty filter returns focus to the terminal. Return attaches/focuses the top match.
+Why: keyboard-first; don't remove an existing feature (terminal find) to satisfy a backlog line
+Alternatives: take ⌘F from terminal find (removes a user-facing feature: stop list); plain substring (misses "lhs" → leo-home-assistant)
+Commit:
+Veto: [ ]
