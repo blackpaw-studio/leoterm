@@ -475,6 +475,42 @@ import Testing
         }
     }
 
+    /// A jump (zoom, tiling) rather than a live resize: 1 400 → 700 →
+    /// 1 400 pt at once still gives the editor its width back and brings
+    /// the sidebar back (B-037), beside the browser or not.
+    @Test(arguments: [true, false])
+    func wideningBackInOneJumpRestoresTheSidebarAndTheEditorsWidth(opensBrowser: Bool) async throws {
+        try await withBothPanes(opensBrowser: opensBrowser) { harness, _, _, counts in
+            let widths = (harness.sidebarWidth, harness.terminalWidth, harness.editorWidth)
+
+            await harness.jumpWindow(to: 700)
+            try #require(harness.sidebarItem?.isCollapsed == true)
+            await harness.jumpWindow(to: 1_400)
+
+            #expect(harness.sidebarItem?.isCollapsed == false)
+            #expect((counts.collapses, counts.restores) == (1, 1))
+            #expect(abs(harness.sidebarWidth - widths.0) <= 1)
+            #expect(abs(harness.terminalWidth - widths.1) <= 1)
+            #expect(abs(harness.editorWidth - widths.2) <= 1)
+        }
+    }
+
+    /// With only the sidebar collapsed (no pane squeezed), one jump wider
+    /// brings it back.
+    @Test func aJumpWiderRestoresASidebarCollapsedAlone() async throws {
+        try await withBothPanes { harness, _, _, counts in
+            let editorWidth = harness.editorWidth
+            await harness.resizeWindow(stepwiseTo: 1_100)
+            try #require(harness.sidebarItem?.isCollapsed == true)
+            try #require(abs(harness.editorWidth - editorWidth) <= 1)
+
+            await harness.jumpWindow(to: 1_400)
+
+            #expect(harness.sidebarItem?.isCollapsed == false)
+            #expect((counts.collapses, counts.restores) == (1, 1))
+        }
+    }
+
     /// The editor grows back before the terminal takes any of the extra.
     @Test func theSqueezedEditorGrowsBackBeforeTheTerminal() async throws {
         try await withBothPanes { harness, _, _, _ in
@@ -641,6 +677,12 @@ import Testing
                 resizeWindow(toWidth: current)
                 await settle()
             }
+        }
+
+        /// A resize in one go (zoom, tiling), then the floor's follow-ups.
+        func jumpWindow(to width: CGFloat) async {
+            resizeWindow(toWidth: width)
+            for _ in 0..<3 { await settle() }
         }
 
         private func layout() {

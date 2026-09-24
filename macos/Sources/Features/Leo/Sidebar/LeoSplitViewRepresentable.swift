@@ -349,6 +349,10 @@ final class LeoSplitViewController: NSSplitViewController {
     /// The split's width at the last layout, to tell a narrowing window
     /// from a divider drag.
     private var lastSplitWidth: CGFloat?
+    /// The absorbing pane and its width before this layout: a jump (zoom,
+    /// tiling) squeezes it within the resize's own layout, before the
+    /// floor acts, so its earlier width is only known from here.
+    private var paneBeforeLayout: (item: NSSplitViewItem, width: CGFloat)?
 
     /// Keeps the terminal floor as the window resizes (D-058): see
     /// `LeoSidebarSplitMetrics.floorStep`. The split's width change is
@@ -361,12 +365,30 @@ final class LeoSplitViewController: NSSplitViewController {
         let change = lastSplitWidth.map { splitWidth - $0 } ?? 0
         lastSplitWidth = splitWidth
         guard abs(change) > 0.5 else { return }
-        DispatchQueue.main.async { [weak self] in self?.applyFloorStep(splitWidthChange: change) }
+        let paneBefore = change < 0 ? paneBeforeLayout : nil
+        DispatchQueue.main.async { [weak self] in
+            self?.applyFloorStep(splitWidthChange: change, paneBefore: paneBefore)
+        }
     }
 
-    private func applyFloorStep(splitWidthChange: CGFloat) {
+    /// The window narrowed and the split itself took from the absorbing
+    /// pane, `before` as it was: a squeeze to undo on widening (B-037).
+    private func rememberSqueeze(from before: (item: NSSplitViewItem, width: CGFloat)?) {
+        guard squeezedPane == nil, let before, !before.item.isCollapsed,
+              before.item.viewController.view.frame.width < before.width - 0.5 else { return }
+        squeezedPane = before
+    }
+
+    /// `paneBefore`: the absorbing pane before a narrowing, which the
+    /// split may already have squeezed. `isFollowUp`: the step before this
+    /// one, in the same resize, moved something itself -- no later layout
+    /// asks again, so this asks once.
+    private func applyFloorStep(
+        splitWidthChange: CGFloat, paneBefore: (item: NSSplitViewItem, width: CGFloat)? = nil, isFollowUp: Bool = false
+    ) {
         guard isReadyToPositionDivider, let sidebarItem, let detailItem else { return }
         view.layoutSubtreeIfNeeded()
+        rememberSqueeze(from: paneBefore)
         let step = LeoSidebarSplitMetrics.floorStep(LeoSidebarSplitMetrics.FloorState(
             terminalWidth: detailItem.viewController.view.frame.width, splitWidthChange: splitWidthChange,
             isSidebarShown: !sidebarItem.isCollapsed, isSidePaneShown: sidePaneItems.contains { !$0.isCollapsed },
@@ -378,9 +400,13 @@ final class LeoSplitViewController: NSSplitViewController {
             autoCollapseSidebar()
             // Not a resize, so no later layout asks again: whatever the
             // sidebar didn't free, the side panes give now.
-            applyFloorStep(splitWidthChange: splitWidthChange)
+            if !isFollowUp { applyFloorStep(splitWidthChange: splitWidthChange, isFollowUp: true) }
         case let .widenTerminal(deficit): widenTerminal(by: deficit)
-        case let .growPane(amount): moveTerminalTrailingDivider(by: -amount)
+        case let .growPane(amount):
+            moveTerminalTrailingDivider(by: -amount)
+            // A jump wide enough for the pane and the sidebar: the sidebar
+            // the floor collapsed comes back too (B-037).
+            if !isFollowUp { applyFloorStep(splitWidthChange: splitWidthChange, isFollowUp: true) }
         case .restoreSidebar: restoreSidebar()
         }
     }
@@ -436,6 +462,11 @@ final class LeoSplitViewController: NSSplitViewController {
         let opening = LeoSidebarSplitMetrics.openingPaneWidth(sharedWidth: width + terminal.width, minimum: item.minimumThickness)
         guard opening > width + 0.5 else { return }
         splitView.setPosition(terminal.maxX - (opening - width), ofDividerAt: terminalIndex)
+    }
+
+    override func viewWillLayout() {
+        super.viewWillLayout()
+        paneBeforeLayout = absorbingPane.map { ($0, $0.viewController.view.frame.width) }
     }
 
     override func viewDidLayout() {
