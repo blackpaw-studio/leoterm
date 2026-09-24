@@ -101,19 +101,21 @@ import Testing
     // MARK: Find Agent… (session + menu)
 
     @Test func findAgentShowsAHiddenSidebarAndRequestsFocus() {
-        let session = makeSession(sidebarVisible: false)
-        let before = session.searchFocusRequest
-        session.requestSearchFocus()
-        #expect(session.isSidebarVisible)
-        #expect(session.searchFocusRequest == before + 1)
+        withSession(sidebarVisible: false) { session in
+            let before = session.searchFocusRequest
+            session.requestSearchFocus()
+            #expect(session.isSidebarVisible)
+            #expect(session.searchFocusRequest == before + 1)
+        }
     }
 
     @Test func findAgentOnAVisibleSidebarStillRequestsFocusEachTime() {
-        let session = makeSession(sidebarVisible: true)
-        session.requestSearchFocus()
-        session.requestSearchFocus()
-        #expect(session.isSidebarVisible)
-        #expect(session.searchFocusRequest == 2)
+        withSession(sidebarVisible: true) { session in
+            session.requestSearchFocus()
+            session.requestSearchFocus()
+            #expect(session.isSidebarVisible)
+            #expect(session.searchFocusRequest == 2)
+        }
     }
 
     @Test func findAgentMenuItemEnablement() {
@@ -128,12 +130,13 @@ import Testing
         LeoSidebarModel(snapshot: LeoSidebarSnapshot(rows: rows, connectivity: .connected, generation: 1))
     }
 
-    private func makeSession(sidebarVisible: Bool) -> LeoWindowSession {
-        let suite = "LeoSidebarSearchTests"
-        let defaults = UserDefaults(suiteName: suite)!
-        defaults.removePersistentDomain(forName: suite)
+    /// Each test gets its own preferences domain (B-036), removed when it ends.
+    private func withSession(sidebarVisible: Bool, _ body: (LeoWindowSession) -> Void) {
+        let suiteName = "LeoSidebarSearchTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
         defaults.set(sidebarVisible, forKey: "leo.sidebarVisible")
-        return LeoWindowSession(defaults: defaults)
+        body(LeoWindowSession(defaults: defaults))
     }
 
     private func row(_ name: String, status: LeoAgentStatus = .running) -> LeoAgentRow {

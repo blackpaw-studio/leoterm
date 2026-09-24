@@ -70,6 +70,38 @@ struct LeoSidebarFuzzyMatchTests {
         #expect(match?.offsets == [5, 6, 7])
     }
 
+    // MARK: Expanding case folds (one character folds to several)
+
+    @Test func foldedMultiCharacterQueryMatchesAnExpandingCharacter() {
+        // "ß" folds to "ss": the query spans one name character.
+        let match = LeoFuzzyMatcher.match("ss", in: "straße")
+        #expect(match?.tier == .substring)
+        #expect(match?.offsets == [4])
+    }
+
+    @Test func expandingQueryCharacterMatchesItsFoldedSpelling() {
+        let match = LeoFuzzyMatcher.match("ß", in: "strasse")
+        #expect(match?.tier == .substring)
+        #expect(match?.offsets == [4, 5])
+    }
+
+    @Test func ligatureMatchesItsLetters() {
+        #expect(LeoFuzzyMatcher.match("file", in: "ﬁle") == .init(tier: .exact, offsets: [0, 1, 2]))
+        #expect(LeoFuzzyMatcher.match("fil", in: "ﬁle") == .init(tier: .prefix, offsets: [0, 1]))
+    }
+
+    @Test func wordBoundaryCountsFromTheStartOfAnExpandingCharacter() {
+        let match = LeoFuzzyMatcher.match("ssx", in: "web-ßx")
+        #expect(match?.tier == .wordBoundary)
+        #expect(match?.offsets == [4, 5])
+    }
+
+    @Test func subsequenceAcrossAnExpandingCharacterBoldsWholeCharacters() {
+        let match = LeoFuzzyMatcher.match("sx", in: "ßax")
+        #expect(match?.tier == .subsequence)
+        #expect(match?.offsets == [0, 2])
+    }
+
     @Test func emojiNamesMatchByCharacter() {
         let match = LeoFuzzyMatcher.match("🚀x", in: "🚀-x")
         #expect(match?.tier == .subsequence)
