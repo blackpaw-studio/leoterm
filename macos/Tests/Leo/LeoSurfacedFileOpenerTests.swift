@@ -67,6 +67,27 @@ struct LeoSurfacedFileOpenerTests {
         #expect(harness.seen.isEmpty)
     }
 
+    /// The open itself gets the identity check, to re-run where the pane
+    /// commits the document (review #1).
+    @Test func theOpenCarriesTheIdentityCheckToThePane() async {
+        var wanted = true
+        var passed: (@MainActor () -> Bool)?
+        let target = LeoSurfacedFileOpener.Target(
+            stat: { _ in stat(.file, size: 1) },
+            open: { _, _, isStillWanted in
+                passed = isStillWanted
+                return .opened
+            },
+            reportError: { _ in },
+            isStillWanted: { wanted }
+        )
+        await LeoSurfacedFileOpener { _, _ in }.open(surfaced("u-1", agent: "alpha", startedAt: "s1", absPath: "/w/a"), host: .local, in: target)
+        let check = try? #require(passed)
+        #expect(check?() == true)
+        wanted = false
+        #expect(check?() == false)
+    }
+
     /// A real named pipe, through the real local file access: never opened
     /// (the read would block forever).
     @Test func aRealFIFOIsNeverOpened() async throws {
@@ -78,7 +99,7 @@ struct LeoSurfacedFileOpenerTests {
         var errors = 0
         let target = LeoSurfacedFileOpener.Target(
             stat: { try await LeoFileAccessor.local().stat($0.path) },
-            open: { id, _ in
+            open: { id, _, _ in
                 opened.append(id.path)
                 return .opened
             },
@@ -128,7 +149,7 @@ private func surfaced(_ id: String, agent: String, startedAt: String, path: Stri
                 guard let stat = stats[id.path] else { throw LeoFileAccessError.notFound(path: id.path) }
                 return stat
             },
-            open: { [unowned self] id, line in
+            open: { [unowned self] id, line, _ in
                 opened.append("\(id.path):\(line.map(String.init) ?? "-")")
                 if openFails { throw LeoFileAccessError.notFound(path: id.path) }
                 return outcome

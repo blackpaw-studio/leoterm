@@ -83,11 +83,15 @@ struct LeoEditorReveal: Equatable, Sendable {
     /// thrown) never costs the user a prompt or their current document.
     /// `access` stands in for the pane's own file access for this open;
     /// `readDeadline` bounds its first read (see `LeoReadDeadline`).
+    /// `isStillWanted` is re-checked where the open commits -- before a
+    /// reveal, after the read, and after the unsaved-changes prompt -- and
+    /// a `false` leaves the pane as it was (`.cancelled`).
     @discardableResult
     func open(
         _ fileID: LeoEditorFileID, line: Int? = nil, column: Int? = nil,
         access: (@MainActor (LeoHostID) throws -> any LeoFileAccess)? = nil,
-        readDeadline: LeoReadDeadline? = nil
+        readDeadline: LeoReadDeadline? = nil,
+        isStillWanted: @escaping @MainActor () -> Bool = { true }
     ) async throws -> LeoEditorOpenOutcome {
         let baseAccess = access ?? self.makeAccess
         let makeAccess: @MainActor (LeoHostID) throws -> any LeoFileAccess = { host in
@@ -95,7 +99,7 @@ struct LeoEditorReveal: Equatable, Sendable {
             return readDeadline.map { $0.wrap(access) } ?? access
         }
         return try await queue.runThrowing {
-            try await self.performOpen(fileID, line: line, column: column, makeAccess: makeAccess)
+            try await self.performOpen(fileID, line: line, column: column, makeAccess: makeAccess, isStillWanted: isStillWanted)
         }
     }
 
@@ -172,9 +176,11 @@ struct LeoEditorReveal: Equatable, Sendable {
 
     private func performOpen(
         _ fileID: LeoEditorFileID, line: Int?, column: Int?,
-        makeAccess: @MainActor (LeoHostID) throws -> any LeoFileAccess
+        makeAccess: @MainActor (LeoHostID) throws -> any LeoFileAccess,
+        isStillWanted: @MainActor () -> Bool
     ) async throws -> LeoEditorOpenOutcome {
         if let document, document.fileID == fileID {
+            guard isStillWanted() else { return .cancelled }
             requestReveal(fileID, line: line, column: column)
             return .alreadyOpen
         }
@@ -186,7 +192,7 @@ struct LeoEditorReveal: Equatable, Sendable {
             await access.close()
             throw error
         }
-        guard await resolveUnsavedChanges() else {
+        guard isStillWanted(), await resolveUnsavedChanges(), isStillWanted() else {
             await opened.close()
             return .cancelled
         }

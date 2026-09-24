@@ -13,9 +13,9 @@ import Foundation
     /// errors go.
     struct Target {
         let stat: @MainActor (LeoEditorFileID) async throws -> LeoFileStat
-        let open: @MainActor (LeoEditorFileID, Int?) async throws -> LeoEditorOpenOutcome
+        let open: @MainActor (LeoEditorFileID, Int?, @escaping @MainActor () -> Bool) async throws -> LeoEditorOpenOutcome
         let reportError: @MainActor (Error) -> Void
-        /// Re-checked after the stat, before the editor.
+        /// Re-checked after the stat, and by the pane before it commits.
         var isStillWanted: @MainActor () -> Bool = { true }
     }
 
@@ -34,8 +34,11 @@ import Foundation
             }
             // The agent may have restarted while the stat was out.
             guard target.isStillWanted() else { return }
-            let outcome = try await target.open(fileID, file.line)
-            // Not seen when the user cancelled its unsaved-changes prompt.
+            // Re-checked again where the pane commits the document: the
+            // open can wait in the pane's queue, and on its prompt.
+            let outcome = try await target.open(fileID, file.line, target.isStillWanted)
+            // Not seen when the user cancelled its unsaved-changes prompt,
+            // or the agent restarted meanwhile.
             guard outcome != .cancelled else { return }
             markSeen(file, host)
         } catch {
