@@ -142,10 +142,12 @@ final class LeoEditorBannerView: NSView {
     }
 
     /// Drawn rather than layer-backed so the dynamic colour follows the
-    /// appearance.
+    /// appearance. Only within its bounds: views don't clip to them (macOS
+    /// 14+), so `dirtyRect` can reach past it -- filling that painted over
+    /// the header above (B-045).
     override func draw(_ dirtyRect: NSRect) {
         NSColor.windowBackgroundColor.setFill()
-        dirtyRect.fill()
+        dirtyRect.intersection(bounds).fill()
     }
 
     @objc private func performAction(_ sender: NSButton) {
