@@ -60,9 +60,12 @@ struct LeoSidebarFeedAttentionRaceTests {
         // when the old boot's last signal arrives and is buffered. A gap
         // starts its refresh at once, and no sleep is fired until the list
         // lands, so no coalesced refresh or list deadline can supersede it;
-        // with polling paused and no refresh in flight, the held list is
-        // the gap's.
-        try await until { await harness.feed.refreshTask == nil }
+        // with polling paused and no refresh or metadata fetch in flight,
+        // the held list is the gap's.
+        try await until {
+            let inFlight = await (harness.feed.refreshTask, harness.feed.metadataInFlight)
+            return inFlight.0 == nil && inFlight.1 == nil
+        }
         await harness.daemon.holdNext()
         await harness.activity.send(.gap(expected: 6, received: 9))
         try await until { await harness.daemon.heldCount == 1 }
@@ -80,13 +83,22 @@ struct LeoSidebarFeedAttentionRaceTests {
         await harness.activity.send(.agentActivity(seq: 2, at: nil, agent: "alpha", activity: .idle, currentAction: nil))
         try await until { await harness.feed.bufferedActivity.count == 2 }
         #expect(await harness.feed.recovering, "the hello must arrive while the list is in flight")
-        // The released list lands and starts the restart's /state (fetch 4)
-        // with no sleep in between. The next list (the restart's follow-up,
-        // or a retry had this one timed out) is held meanwhile, so only the
-        // released answer can start fetch 4.
+        // Only the held list is released; the next one (the restart's
+        // follow-up, or a retry had this one timed out) stays held. The
+        // released list either lands or fails, and either is emitted.
+        let emissionsAtRelease = await harness.recorder.values.count
+        let fetchesAtRelease = await harness.activity.fetchCount
         await harness.daemon.holdNext()
         await harness.daemon.releaseOldest()
-        try await until("fetch 4 must follow the released list") { await harness.activity.fetchCount >= 4 }
+        let outcome = try await harness.nextListOutcome(after: emissionsAtRelease)
+        let landed = outcome.listRefreshSucceeded
+        #expect(landed, "the released list must land, not time out: \(outcome.connectivity)")
+        // Landing starts the restart's /state at once. Nothing else can
+        // fetch meanwhile: every later list is held, and metadata waits for
+        // the pending baseline.
+        if landed {
+            try await until { await harness.activity.fetchCount > fetchesAtRelease }
+        }
         await harness.daemon.stopHolding()
         await harness.daemon.releaseHeld()
         try await harness.waitForStateEmission(generation: await harness.feed.snapshot.generation)
@@ -199,6 +211,17 @@ private struct RaceHarness {
             if !found { await clock.advanceAll() }
             return found
         }
+    }
+
+    /// The first emission after the first `count` that ends a list refresh:
+    /// it landed (`listRefreshSucceeded`) or failed.
+    func nextListOutcome(after count: Int) async throws -> LeoSidebarSnapshot {
+        let isOutcome: @Sendable (LeoSidebarSnapshot) -> Bool = { snapshot in
+            if case .failed = snapshot.connectivity { return true }
+            return snapshot.listRefreshSucceeded
+        }
+        try await until { await recorder.values.dropFirst(count).contains(where: isOutcome) }
+        return try #require(await recorder.values.dropFirst(count).first(where: isOutcome))
     }
 
     /// Fires every pending sleep a few times so follow-up refreshes and
