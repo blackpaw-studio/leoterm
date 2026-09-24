@@ -85,3 +85,17 @@ Calls: D-076 D-077 D-078 D-079 D-080
 New: B-044 (delete 31k old test stubs — needs Evan)
 Next up: B-035, B-012; still blocked: B-010 (re-scope?), B-013, B-014, B-044
 Tests: 1360 (known ConfigTests failure only); swiftlint clean.
+
+## Run 2026-09-24 (evening) — 3 shipped, 1 blocked
+Shipped
+- B-010 Sort and pin (re-scoped): Last Activity from identity-checked /state snapshots only; Sort By ▸ Last Activity / Name; Pin (⌥⌘P) into a Pinned section; collapsible sections per host — dfe6f29e8 (verified: B-010-1/2)
+- B-012 Cold start: measured, list lands ~120 ms after the sidebar (+500–523 ms); no cache needed; DEBUG LaunchTiming kept — e45d323fb 826e921ee (measurement only)
+- B-035 Editor "Closing…" banner captured during a held save — no code (verified: B-035-2/4/5; recipe in verify.md)
+Blocked
+- B-013 Surfaced files: daemon contract approved by Evan via leo (being built). App side's auto-open failed review 4× (races); reverted f3e8d36b3. Question: drop auto-open, badge + ⌥⌘O/menu only?
+Needs Evan to do
+- B-044 Trash the Leo*Tests* preference stubs (one-line command in BACKLOG)
+Calls: D-081..D-084 (Evan's answers), D-085, D-087 (D-086 reverted with B-013)
+New: B-045 (Closing banner blanks the editor header; next run)
+Next up: B-045; blocked: B-013, B-044; deferred: B-014
+Tests: 1393 (known ConfigTests failure only); swiftlint clean.

@@ -1,4 +1,4 @@
-Status: running
+Status: finished
 Item: B-035
 Base: 826e921ee
 Wip: none
@@ -19,3 +19,4 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 - B-012 review: MED observer never removed, LOW eager detail → attempt 1 826e921ee (1393 tests; list at +517 ms). Re-review dispatched.
 - B-012 done: e45d323fb 826e921ee. Re-review clean. D-087.
 - B-035 done: verification only (shots B-035-2, -4, -5). Recipe added to verify.md. New: B-045 (ready next run).
+- Finished: no ready items left (4 processed).
