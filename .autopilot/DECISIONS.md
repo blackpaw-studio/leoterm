@@ -605,3 +605,10 @@ Why: calm — the trailing column is reserved for the attention badge, so the ti
 Alternatives: move the time to the trailing badge column (competes with the attention badge); a second subtitle line (taller rows)
 Commit: bb7b9f81c 94685a65c
 Veto: [ ]
+
+## D-077 · 2026-09-24 · B-041: the palette row is the sidebar's banner value
+Chose: the palette's disconnected row carries the `LeoDisconnectedBanner` value itself (`Row.disconnected`), so text, one-line limit, tooltip and sanitizer come from one place; explicit accessibility label with the full reason; connecting / connection-failed `.status` rows left as they were. Review LOW dismissed: tests assert the banner values, not the rendered SwiftUI modifiers; that needs a view-inspection dependency, the sidebar banner has the same limit, and shot B-041-2 covers the rendering
+Why: one source for disconnected copy; Mac-native (tooltip for truncated text)
+Alternatives: copy the banner's strings into a status row (drifts, which is how B-041 happened)
+Commit: 40966ae59
+Veto: [ ]

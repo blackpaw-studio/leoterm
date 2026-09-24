@@ -182,9 +182,10 @@ Accept: in the default-width sidebar the banner's reason breaks mid-identifier (
 Source: B-007 visual check
 Done: 622783dad d1e8e149a (1254 tests). The reason is one line with the full text as a tooltip; Choose Agent… is disabled (plain bordered) with "Disconnected from <host>. Reconnect first (⇧⌘R)." (D-067, D-068). Verified: shots B-038-1 (one-line reason), B-038-2 (visibly disabled button). 1 fix round. New: B-041.
 
-## B-041 · Palette's disconnected row: same one-line treatment   [ready]
+## B-041 · Palette's disconnected row: same one-line treatment   [done]
 Accept: the command palette's disconnected row shows the same banner text as the sidebar but wasn't given B-038's one-line truncation + tooltip. Match it.
 Source: B-038 implementer
+Done: 40966ae59 (1347 tests). The palette row reuses the sidebar's banner value: one-line reason, tooltip, accessibility label (D-077). Verified: shot B-041-2 (palette row, `LEO_FORCE_DISCONNECTED=1`, New Tab); the forced reason is short, so the "…" isn't visible. Review: 1 LOW dismissed.
 
 ## B-008 · Fix order-dependent test flake + swiftlint baseline   [done]
 Accept: `LeoHostSelectionReloadTests.editingAnUnrelatedHostDoesNotReselect`
