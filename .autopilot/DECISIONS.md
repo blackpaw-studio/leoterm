@@ -584,3 +584,10 @@ Alternatives: star badge on rows without a section (pins get lost in long lists)
 Commit: c7e629b18 893207531 7135d921d a2f710afb 94cb3a42b
 Reverted: f6dfc8aec (B-010 blocked after 3 fix attempts)
 Veto: [ ]
+
+## D-074 · 2026-09-24 · B-011: row metadata from snapshots only, identity-checked
+Chose: show a relative "last active" time ("2m", "3h", "Sep 21") and a one-line current task only when the daemon reports them; take them from the /observe/state snapshot as a whole (no per-event merging), and attach a snapshot entry to a row only when it provably belongs to that incarnation (matching revision/identity field the daemon provides; if none exists, drop the entry whenever the list has seen the name disappear since the snapshot was requested). The relative label re-renders on a minute-granular TimelineView, not per event. Tokens/cost only if the daemon exposes them; otherwise omitted. Metadata stays secondary text in the existing subtitle line (calm), truncated to one line with a tooltip.
+Why: "never invent a state" — B-010 showed name-keyed, event-merged activity races; snapshot-only is calm and correct
+Alternatives: advance times from live events (B-010's failure mode)
+Commit:
+Veto: [ ]
