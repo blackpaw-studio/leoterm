@@ -70,9 +70,10 @@ Accept: the per-user cache dir (`$(getconf DARWIN_USER_CACHE_DIR)leo`) held ~70 
 Source: B-027 visual check
 Done: f6a591e0a 41a653cfd aeb23c6b5 b03191132 (1244 tests). Root cause: `LeoRuntimeConnectionTests.failureDuringGatedFlavorDetection…` built a LeoRuntime on the real socket dir and SIGKILLed the fake ssh; six more test sites used real dirs. The `.sock.lock` files came from the reverted B-027 attempt. A bundle guard now fails the run if the real dirs gain entries (D-064). Existing files left in place: 116 `lt-a14bb2a8-*.sock`, 5 `*.sock.lock`, 1 instance lock (2026-09-23 11:38–21:54), plus the old `/tmp/leoterm-tests-hosts`. Test-only, so no screenshot. 2 fix rounds.
 
-## B-033 · "Leo can't start" alert: readable path   [ready]
+## B-033 · "Leo can't start" alert: readable path   [done]
 Accept: the alert prints the full `/var/folders/…/C/leo/…instance.lock` path, which wraps mid-word (shot B-027-2). Abbreviate it (e.g. `…/leo/<file>`) and add a "Show in Finder" button next to Quit.
 Source: B-027 visual check
+Done: 7dd3ea2bf f93fab899 e2736fec7 (1269 tests). The sentence is path-free; `…/leo/<file>` sits on one middle-truncated line with the full path as tooltip; Show in Finder reveals the lock (or its folder if it's gone) and keeps the alert up (D-069, D-070). Verified: shots B-033-1 (first build, mid-word break) and B-033-2 (fixed). Show in Finder not clicked live: the alert's AX tree is unreachable (same as B-035); unit-tested through an injected reveal. 2 fix rounds.
 
 ## B-034 · DEBUG hook to open a file in the editor at launch   [done]
 Accept: GUI checks of the editor can't get past the Open File panel (Peekaboo: axElementNotFound / focusVerificationTimeout; osascript keystrokes not allowed). Add a DEBUG-only `LEO_OPEN_FILE=<absolute path>` env that opens that local file in the editor pane of the first window once it's up, like Open File in Editor. It must compile out of release builds, with a test. Then screenshot B-024's `Closing “…”…` banner (launch with `LEO_SLOW_SAVE_SECONDS=30`, edit, ⌘S, ⌘W).

@@ -553,5 +553,12 @@ Veto: [ ]
 Chose: the "Leo can't start" alert shows `…/leo/<file name>` (last directory + file) instead of the full `/var/folders/…` path; the full path goes in the alert's informative text only as a selectable accessory or is dropped; buttons "Quit" (default) and "Show in Finder" (reveals and selects the lock file via NSWorkspace.activateFileViewerSelecting, then keeps the alert up)
 Why: Mac-native (HIG alerts: short text, a concrete next step); "everything through Leo"
 Alternatives: middle-truncating the full path (still unreadable); a "Copy Path" button (Finder is the more native next step)
-Commit:
+Commit: 7dd3ea2bf f93fab899 e2736fec7
+Veto: [ ]
+
+## D-070 · 2026-09-24 · B-033 implementer calls; path on its own line
+Chose: the sentence names the file by role ("Leo's instance lock …", "Leo's lock folder …") and the short path sits on its own small, grey, selectable, middle-truncated line under it, full path (sanitized) as tooltip, because even `…/leo/<file>` hyphenated mid-word in the 260pt alert; control, format and line/paragraph-separator scalars in the path show as U+FFFD; non-file refusals keep Quit only; DEBUG-only `LEO_FORCE_START_FAILURE=1` simulates the refusal without touching the lock; Show in Finder picks file vs. folder at click time; the `alert` callback takes the whole refusal. Review LOWs dismissed: the unsanitized refusal message only carries Leo's own bundle ID (from its signed Info.plist, not untrusted), and the Show-in-Finder test calls the selector directly because a unit test can't drive NSAlert's modal loop
+Why: HIG (short alert text, a concrete next step); the item's goal was no mid-word breaks
+Alternatives: path inside the sentence (breaks mid-word at alert width)
+Commit: 7dd3ea2bf f93fab899 e2736fec7
 Veto: [ ]
