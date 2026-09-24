@@ -115,7 +115,7 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                             terminalContent
 
                             if viewModel.surfaceTree.isEmpty {
-                                leoPlaceholder(session: leoSession)
+                                leoPlaceholder(session: leoSession, runtime: runtime)
                             }
                         }
                     }
@@ -144,8 +144,10 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
     }
 
     /// The Leo start screen, shown in place of an empty terminal column.
-    private func leoPlaceholder(session: LeoWindowSession) -> some View {
+    private func leoPlaceholder(session: LeoWindowSession, runtime: LeoRuntime) -> some View {
         LeoPlaceholderView(
+            model: runtime.model,
+            hostSelection: runtime.hostSelection,
             openPicker: { session.openPicker(surfaceID: nil) },
             toggleDrawer: {
                 guard let appDelegate = NSApp.delegate as? AppDelegate else { return }
@@ -166,8 +168,11 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                         tree: viewModel.surfaceTree,
                         action: { delegate?.performSplitAction($0) },
                         leafOverlay: { surface in
-                            guard let leoSession, leoPlaceholderSurfaceIDs.contains(surface.id) else { return nil }
+                            guard let leoSession, leoPlaceholderSurfaceIDs.contains(surface.id),
+                                  let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime else { return nil }
                             return AnyView(LeoPlaceholderView(
+                                model: runtime.model,
+                                hostSelection: runtime.hostSelection,
                                 openPicker: { leoSession.openPicker(surfaceID: surface.id) },
                                 toggleDrawer: {
                                     guard let appDelegate = NSApp.delegate as? AppDelegate else { return }

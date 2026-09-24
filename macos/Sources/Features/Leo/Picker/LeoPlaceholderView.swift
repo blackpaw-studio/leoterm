@@ -4,8 +4,14 @@ import SwiftUI
 /// `surfaceTree` is empty (a brand-new window, or the last surface in a
 /// placeholder window closed).
 struct LeoPlaceholderView: View {
+    @ObservedObject var model: LeoSidebarModel
+    @ObservedObject var hostSelection: LeoHostSelection
     let openPicker: () -> Void
     let toggleDrawer: () -> Void
+
+    private var chooseAgent: LeoPlaceholderChooseAgent {
+        LeoPlaceholderChooseAgent(host: hostSelection.selected, connectivity: model.snapshot.connectivity)
+    }
 
     var body: some View {
         VStack(spacing: 16) {
@@ -22,7 +28,8 @@ struct LeoPlaceholderView: View {
             HStack(spacing: 12) {
                 Button("Choose Agent…", action: openPicker)
                     .buttonStyle(.borderedProminent)
-                    .help("⌘T")
+                    .disabled(!chooseAgent.isEnabled)
+                    .help(chooseAgent.help)
                 Button("Show Terminal Drawer", action: toggleDrawer)
                     .buttonStyle(.bordered)
             }

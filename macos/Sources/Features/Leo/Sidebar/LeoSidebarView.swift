@@ -276,7 +276,9 @@ struct LeoDisconnectedBannerView: View {
                 Text(banner.reason)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(3)
+                    .lineLimit(banner.reasonLineLimit)
+                    .truncationMode(.tail)
+                    .help(banner.reasonHelp)
                     .textSelection(.enabled)
             }
             .frame(maxWidth: .infinity, alignment: .leading)

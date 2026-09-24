@@ -7,6 +7,11 @@ struct LeoDisconnectedBanner: Equatable {
     let title: String
     let reason: String
     let isRetrying: Bool
+    /// One line, tail-truncated: a long reason (an identifier, a path)
+    /// would otherwise wrap mid-word in the narrow sidebar (B-038).
+    let reasonLineLimit = 1
+    /// The whole (sanitized) reason, for the truncated line's tooltip.
+    var reasonHelp: String { reason }
 
     init?(host: LeoHostID, connectivity: LeoConnectivity) {
         guard case .disconnected(let reason, let isRetrying) = connectivity else { return nil }
