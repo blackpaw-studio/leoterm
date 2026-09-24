@@ -412,14 +412,16 @@ Chose: an app-level lock at launch; a second copy of the same bundle activates t
 Why: Evan's answer to B-027 (2026-09-23)
 Alternatives: per-path flock ownership (D-049, reverted)
 Commit: 10be4b608 6fec65c82 67de1e864 682f967c4 73109b6c3
-Veto: n/a (Evan)
+Source: a line in the gitignored .autopilot/INBOX.md at preflight; its author isn't recorded and Rocket did not relay it. Vetoable until Evan confirms
+Veto: [ ]
 
 ## D-052 · 2026-09-23 · Autopilot may drive the isolated debug app's input (Evan)
 Context: B-024 could not be visually verified because peekaboo type/press/click was refused
 Chose: verification may use peekaboo type/press/click, always with `--app studio.blackpaw.leo.macos.debug`; the real-agent rules in AUTONOMY still apply
 Why: Evan approved it (inbox, 2026-09-23)
 Commit: n/a
-Veto: n/a (Evan)
+Source: a line in the gitignored .autopilot/INBOX.md at preflight; its author isn't recorded and Rocket did not relay it. Vetoable until Evan confirms
+Veto: [ ]
 
 ## D-053 · 2026-09-23 · Single-instance lock fails closed
 Context: B-027 review HIGH: when the instance lock can't be safely taken (symlink, foreign owner, bad dir), launching anyway lets two copies race tunnel state
