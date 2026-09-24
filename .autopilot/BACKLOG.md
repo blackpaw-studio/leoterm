@@ -210,10 +210,15 @@ Source: roadmap Tier 2
 Question: architecture may be wrong — the pin, collapse, Name sort and menus all worked (shots B-010-2..5), but advancing Last Activity from live `agent_activity` events keyed only by agent NAME failed review 4 times running: a stale /observe/state fetch or SSE recovery can put a deleted agent's activity on a recreated namesake, or drop a just-spawned agent's activity (commits c7e629b18..94cb3a42b, reverted in f6dfc8aec). I'd pick re-scoping it: sort by `last_activity_at` from /observe/state snapshots only (no event-driven reordering, which is also calmer), and ship pins/collapse/Name sort as they were. The alternative is asking the leo agent for a per-agent incarnation id on list/state/events so activity can be keyed by (name, incarnation). OK to re-scope?
 Answer:
 
-## B-011 · Row metadata   [ready]
+## B-011 · Row metadata   [done]
 Accept: relative "last active" time and current task line; tokens/cost only
 when the daemon exposes them.
 Source: roadmap Tier 2
+Done: a8b800d41 fd679d90a 8b5808341 (1338 tests). Rows show "· 13h" / "· Sep 23" from identity-checked /observe/state snapshots (`started_at` match), and a task line when the daemon reports `current_action` (none live today). Tokens/cost aren't exposed per agent, so they're omitted (D-074, D-075). Verified: shots B-011-1 (first build, time truncated) and B-011-2 (time always shown). Task line not seen live (no agent reports one); unit-tested. 2 fix rounds. New: B-043.
+
+## B-043 · Row subtitle squeezes the template to "clau…"   [ready (next run)]
+Accept: at default sidebar width, B-011's never-truncating time squeezes the template to "clau…" or "…" (shot B-011-2). Drop the template from the subtitle when it can't fit at least ~5 characters, or move the time to the trailing badge column, so the line reads cleanly.
+Source: B-011 visual check
 
 ## B-012 · Cold start   [ready]
 Accept: measure launch with sidebar visible; if first fetch blocks first

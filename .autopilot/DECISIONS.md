@@ -589,5 +589,12 @@ Veto: [ ]
 Chose: show a relative "last active" time ("2m", "3h", "Sep 21") and a one-line current task only when the daemon reports them; take them from the /observe/state snapshot as a whole (no per-event merging), and attach a snapshot entry to a row only when it provably belongs to that incarnation (matching revision/identity field the daemon provides; if none exists, drop the entry whenever the list has seen the name disappear since the snapshot was requested). The relative label re-renders on a minute-granular TimelineView, not per event. Tokens/cost only if the daemon exposes them; otherwise omitted. Metadata stays secondary text in the existing subtitle line (calm), truncated to one line with a tooltip.
 Why: "never invent a state" — B-010 showed name-keyed, event-merged activity races; snapshot-only is calm and correct
 Alternatives: advance times from live events (B-010's failure mode)
-Commit:
+Commit: a8b800d41 fd679d90a 8b5808341
+Veto: [ ]
+
+## D-075 · 2026-09-24 · B-011 implementer calls
+Chose: `started_at` (present in list and /state, byte-identical for all 103 live agents) is the incarnation id, and metadata attaches only when both sides have it and match; the task line comes from the identity-checked snapshot's `current_action.detail` (sanitized, one line, tooltip) and replaces the old event-fed action-detail line; activity/lifecycle events only request a fresh /state (one in flight + one trailing; a starting baseline clears the owed flag, applying it starts any owed refetch); a snapshot the daemon marks working shows "now"; stopped agents keep matching metadata; >24h shows the date (year only if not this year); subtitle is three texts with layout priority template < state < time (time fixed-size, never truncates); tokens/cost omitted because the daemon doesn't expose them per agent (`harness.Usage` never reaches observe). Review LOW dismissed: a working snapshot with no timestamp or detail shows no "now", since the row's Working label already reports it
+Why: never invent a state; calm (no per-event re-render); the time is the new information, so it must survive narrow widths
+Alternatives: merge event payloads (B-010's race); truncate the whole subtitle as one string (hides the time)
+Commit: a8b800d41 fd679d90a 8b5808341
 Veto: [ ]
