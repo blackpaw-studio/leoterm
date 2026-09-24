@@ -20,8 +20,14 @@ enum LeoSidebarReducers {
 
     static func mergeActivity(_ rows: [LeoAgentRow], activityByName: [String: LeoSidebarActivity]) -> [LeoAgentRow] {
         rows.map { row in
-            guard row.status != .stopped, let overlay = activityByName[row.name] else { return row }
-            return LeoAgentRow(host: row.host, name: row.name, template: row.template, status: row.status, activity: overlay.activity, actionDetail: overlay.detail, workspace: row.workspace, repo: row.repo)
+            guard let overlay = activityByName[row.name] else { return row }
+            // A stopped agent keeps no live activity, only when it was last active.
+            let isStopped = row.status == .stopped
+            return LeoAgentRow(
+                host: row.host, name: row.name, template: row.template, status: row.status,
+                activity: isStopped ? row.activity : overlay.activity, actionDetail: isStopped ? row.actionDetail : overlay.detail,
+                workspace: row.workspace, repo: row.repo, lastActivityAt: overlay.lastActivityAt
+            )
         }
     }
 

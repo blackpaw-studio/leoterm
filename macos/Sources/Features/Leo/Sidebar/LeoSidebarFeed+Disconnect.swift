@@ -36,11 +36,12 @@ extension LeoSidebarFeed {
         pollTask?.cancel()
         pollTask = nil
         // A new generation: a list or state fetch still in flight from the
-        // dropped connection can never land over this.
+        // dropped connection can never land over this. The last-activity
+        // times are history, not live state: they stay so the order holds.
         snapshot = LeoSidebarSnapshot(
             rows: snapshot.rows.map {
                 LeoAgentRow(host: $0.host, name: $0.name, template: $0.template, status: $0.status, activity: .unknown, actionDetail: nil,
-                            workspace: $0.workspace, repo: $0.repo)
+                            workspace: $0.workspace, repo: $0.repo, lastActivityAt: $0.lastActivityAt)
             },
             connectivity: .disconnected(reason: reason, isRetrying: false),
             generation: snapshot.generation + 1

@@ -9,8 +9,10 @@ extension LeoSidebarFeed {
     /// guaranteed by `LeoActivityCoalescer`).
     func mergeIntoActivityByName(_ events: [LeoObserveEvent]) {
         for event in events {
-            guard case let .agentActivity(_, _, name, activity, currentAction, _) = event else { continue }
-            activityByName[name] = LeoSidebarActivity(activity: Self.activity(activity), detail: currentAction?.detail)
+            guard case let .agentActivity(_, at, name, activity, currentAction, _) = event else { continue }
+            activityByName[name] = LeoSidebarActivity.merging(
+                activityByName[name], activity: Self.activity(activity), detail: currentAction?.detail, at: LeoTimestamp.parse(at)
+            )
         }
     }
 
@@ -61,7 +63,9 @@ extension LeoSidebarFeed {
     /// connection (see `LeoSidebarFeedTarget.updateConnection`).
     static func activities(_ agents: [LeoObservedAgent]) -> [String: LeoSidebarActivity] {
         Dictionary(agents.map {
-            ($0.name, LeoSidebarActivity(activity: activity($0.activity), detail: $0.currentAction?.detail))
+            ($0.name, LeoSidebarActivity(
+                activity: activity($0.activity), detail: $0.currentAction?.detail, lastActivityAt: LeoTimestamp.parse($0.lastActivityAt)
+            ))
         }, uniquingKeysWith: { _, latest in latest })
     }
 
