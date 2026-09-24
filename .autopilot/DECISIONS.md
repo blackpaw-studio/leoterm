@@ -581,5 +581,6 @@ Veto: [ ]
 Chose: within each section, rows sort by the daemon's last-activity timestamp, newest first, ties/unknown by name; if the daemon exposes no activity time, keep daemon order and log it (never invent a time). Agents ▸ Sort By ▸ Last Activity / Name (checkmarked, remembered). Pin/Unpin from the row context menu and Agents ▸ Pin Agent (conflict-free shortcut) puts agents in a "Pinned" section at the top, keyed by host + agent name; a pinned agent that disappears is kept in prefs but not shown. Section headers get a disclosure control; collapsed state is remembered per host. A search filter shows all matches regardless of collapse.
 Why: keyboard-first (menu + shortcut for each action); calm (no reordering animation spam: rows move only when activity changes)
 Alternatives: star badge on rows without a section (pins get lost in long lists); no Name option (some people want a stable order)
-Commit:
+Commit: c7e629b18 893207531 7135d921d a2f710afb 94cb3a42b
+Reverted: f6dfc8aec (B-010 blocked after 3 fix attempts)
 Veto: [ ]
