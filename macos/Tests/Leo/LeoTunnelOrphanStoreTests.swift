@@ -6,7 +6,7 @@ import Testing
 
 struct LeoTunnelOrphanStoreTests {
     @Test func matchingPidIsSignalledAndSocketAndRecordAreCleared() throws {
-        let defaults = try freshDefaults()
+        let defaults = freshDefaults()
         let path = LeoTunnelTestSupport.socketPath()
         FileManager.default.createFile(atPath: path, contents: Data())
         let store = LeoTunnelOrphanStore(defaults: defaults, key: "orphan")
@@ -26,7 +26,7 @@ struct LeoTunnelOrphanStoreTests {
     }
 
     @Test func stillAliveAfterSigtermEscalatesToSigkill() throws {
-        let defaults = try freshDefaults()
+        let defaults = freshDefaults()
         let path = LeoTunnelTestSupport.socketPath()
         FileManager.default.createFile(atPath: path, contents: Data())
         let store = LeoTunnelOrphanStore(defaults: defaults, key: "orphan")
@@ -45,7 +45,7 @@ struct LeoTunnelOrphanStoreTests {
     }
 
     @Test func mismatchedStartTimeIsNeverSignalledAndRecordIsUntouched() throws {
-        let defaults = try freshDefaults()
+        let defaults = freshDefaults()
         let path = LeoTunnelTestSupport.socketPath()
         FileManager.default.createFile(atPath: path, contents: Data())
         let store = LeoTunnelOrphanStore(defaults: defaults, key: "orphan")
@@ -65,7 +65,7 @@ struct LeoTunnelOrphanStoreTests {
     }
 
     @Test func replacementRecordWrittenDuringReapIsPreservedAndItsSocketIsUntouched() throws {
-        let defaults = try freshDefaults()
+        let defaults = freshDefaults()
         let store = LeoTunnelOrphanStore(defaults: defaults, key: "orphan")
         let original = LeoTunnelOrphanRecord(pid: 42, startTime: 99, socketPath: LeoTunnelTestSupport.socketPath())
         let replacement = LeoTunnelOrphanRecord(pid: 43, startTime: 100, socketPath: LeoTunnelTestSupport.socketPath())
@@ -93,7 +93,7 @@ struct LeoTunnelOrphanStoreTests {
     /// one: its pid is never signalled, the record is dropped, and its socket
     /// goes only if nothing listens on it.
     @Test func legacyRecordIsNeverSignalledAndItsStaleSocketAndRecordAreCleared() throws {
-        let defaults = try freshDefaults()
+        let defaults = freshDefaults()
         let legacy = try LeoTestSocketDirectory()
         defer { legacy.remove() }
         let path = legacy.path("hosts-work.sock")
@@ -114,7 +114,7 @@ struct LeoTunnelOrphanStoreTests {
     }
 
     @Test func legacyRecordLeavesALiveSocketAlone() throws {
-        let defaults = try freshDefaults()
+        let defaults = freshDefaults()
         let legacy = try LeoTestSocketDirectory()
         defer { legacy.remove() }
         let path = legacy.path("hosts-work.sock")
@@ -135,10 +135,7 @@ struct LeoTunnelOrphanStoreTests {
         #expect(LeoControlSocket.inspect(path) == .live)
     }
 
-    private func freshDefaults() throws -> UserDefaults {
-        let suite = "LeoTunnelOrphanStoreTests.\(UUID().uuidString)"
-        guard let defaults = UserDefaults(suiteName: suite) else { throw CocoaError(.fileNoSuchFile) }
-        defaults.removePersistentDomain(forName: suite)
-        return defaults
+    private func freshDefaults() -> UserDefaults {
+        LeoInMemoryDefaults()
     }
 }

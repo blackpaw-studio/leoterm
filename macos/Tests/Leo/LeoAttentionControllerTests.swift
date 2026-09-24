@@ -132,10 +132,7 @@ import Testing
     }
 
     private func freshDefaults() -> UserDefaults {
-        let suite = "LeoAttentionControllerTests.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        defaults.removePersistentDomain(forName: suite)
-        return defaults
+        LeoInMemoryDefaults()
     }
 
     private func makeController(

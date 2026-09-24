@@ -143,7 +143,6 @@ import Testing
     }
 
     private func defaults() -> UserDefaults {
-        let suite = "LeoHostsSheetModelTests.\(UUID().uuidString)"
-        return UserDefaults(suiteName: suite) ?? .standard
+        LeoInMemoryDefaults()
     }
 }

@@ -48,7 +48,7 @@ enum LeoHostSelectionTestSupport {
         controlSocketDirectory: URL? = nil,
         controlSocketOwner: uid_t = geteuid()
     ) -> LeoHostSelection {
-        let defaults = defaults ?? (UserDefaults(suiteName: "LeoHostSelectionTests.\(UUID().uuidString)") ?? .standard)
+        let defaults = defaults ?? LeoInMemoryDefaults()
         if let data = try? JSONEncoder().encode(hosts) { defaults.set(data, forKey: LeoHostStore.key) }
         return LeoHostSelection(
             store: LeoHostStore(defaults: defaults),
@@ -205,16 +205,11 @@ actor LeoFakeHomeRunner: LeoProcessRunning {
 }
 
 extension LeoHostSelection {
-    /// A selection on its own throwaway defaults suite (or `defaults`), for
+    /// A selection on its own in-memory defaults (or `defaults`), for
     /// tests that need one to inject: its sockets live in the shared test
     /// directory, never the real per-user cache directory (B-032).
     @MainActor static func isolatedForTesting(defaults: UserDefaults? = nil) -> LeoHostSelection {
-        let defaults = defaults ?? {
-            let suite = "LeoHostSelectionTests.\(UUID().uuidString)"
-            let defaults = UserDefaults(suiteName: suite) ?? .standard
-            defaults.removePersistentDomain(forName: suite)
-            return defaults
-        }()
+        let defaults = defaults ?? LeoInMemoryDefaults()
         let directory = LeoHostSelectionTestSupport.localSocketDirectory
         return LeoHostSelection(
             store: LeoHostStore(defaults: defaults),

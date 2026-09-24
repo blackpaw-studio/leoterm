@@ -15,9 +15,8 @@ import Testing
         let controller = TerminalController.leoNewPlaceholderWindow(ghostty)
         defer { controller.window?.close() }
         let registry = LeoWindowSessionRegistry()
-        let suite = "GhosttyAttachTabHostFocusTests.\(UUID().uuidString)"
         let session = registry.makeSession(
-            window: controller.window, controller: controller, defaults: try #require(UserDefaults(suiteName: suite))
+            window: controller.window, controller: controller, defaults: LeoInMemoryDefaults()
         )
         let host = GhosttyAttachTabHost(registry: registry, requestConfigStore: LeoRequestConfigStore())
         let handle = try host.fillPlaceholder(command: "", workingDirectory: nil, origin: session.id, surfaceID: nil, requestID: UUID())
@@ -58,9 +57,8 @@ import Testing
         defer { controller.window?.close() }
         let window = try #require(controller.window)
         let registry = LeoWindowSessionRegistry()
-        let suite = "GhosttyAttachTabHostFocusTests.\(UUID().uuidString)"
         let session = registry.makeSession(
-            window: window, controller: controller, defaults: try #require(UserDefaults(suiteName: suite))
+            window: window, controller: controller, defaults: LeoInMemoryDefaults()
         )
         let appState = AppStateBox(isActive: true, keyWindow: window)
         let host = GhosttyAttachTabHost(registry: registry, requestConfigStore: LeoRequestConfigStore()) {

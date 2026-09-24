@@ -65,10 +65,7 @@ struct LeoSidebarFeedRecoveryTests {
     @Test @MainActor func startingAfterRegisteringVisibleSessionRefreshesImmediately() async throws {
         let daemon = RecoveryDaemon(agents: [agent("alpha")])
         // Parallel test hosts share one preferences domain per name.
-        let suiteName = "LeoSidebarFeedRecoveryTests.visible.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defaults.removePersistentDomain(forName: suiteName)
-        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let defaults = LeoInMemoryDefaults()
         // An inert stream, as below: a real client to a closed port reports
         // a dead stream, which disconnects the feed (D-061) and can beat
         // the first refresh.
@@ -96,10 +93,7 @@ struct LeoSidebarFeedRecoveryTests {
     /// sidebar visibility.
     @Test @MainActor func presentingPickerWithHiddenSidebarRefreshesImmediately() async throws {
         let daemon = RecoveryDaemon(agents: [agent("alpha")])
-        let suiteName = "LeoSidebarFeedRecoveryTests.picker.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defaults.removePersistentDomain(forName: suiteName)
-        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let defaults = LeoInMemoryDefaults()
         // An inert stream: a dead one would (rightly) disconnect the feed
         // and stop all refreshes (D-061), which is not what this is about.
         let activity = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })

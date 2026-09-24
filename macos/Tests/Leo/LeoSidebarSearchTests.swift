@@ -132,9 +132,7 @@ import Testing
 
     /// Each test gets its own preferences domain (B-036), removed when it ends.
     private func withSession(sidebarVisible: Bool, _ body: (LeoWindowSession) -> Void) {
-        let suiteName = "LeoSidebarSearchTests.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let defaults = LeoInMemoryDefaults()
         defaults.set(sidebarVisible, forKey: "leo.sidebarVisible")
         body(LeoWindowSession(defaults: defaults))
     }

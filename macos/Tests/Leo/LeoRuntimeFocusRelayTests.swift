@@ -10,7 +10,7 @@ import Testing
     /// drained. A change that goes around the relay never reaches the
     /// sink, so this does not depend on timing.
     @Test func focusChangesReachTheFeedOnlyThroughTheOrderedRelay() async throws {
-        let defaults = try #require(UserDefaults(suiteName: "LeoRuntimeFocusRelayTests.\(UUID().uuidString)"))
+        let defaults = LeoInMemoryDefaults()
         let activitySource = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
         let delivered = Delivered()
         let runtime = LeoRuntime(

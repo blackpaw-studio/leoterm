@@ -25,9 +25,7 @@ import Testing
 
     private func controller() async -> (LeoAttentionController, ContractNotificationCenter) {
         let center = ContractNotificationCenter()
-        let suite = "LeoAttentionRevisionContractTests.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        defaults.removePersistentDomain(forName: suite)
+        let defaults = LeoInMemoryDefaults()
         let controller = LeoAttentionController(
             center: center, defaults: defaults, currentHost: { Self.host }, showDeniedInstructions: {}
         )

@@ -132,7 +132,7 @@ import Testing
     @Test func wakeRunsExactlyOneLivenessCheckAndAFailureDisconnects() async throws {
         let daemon = WakeDaemon(failAfter: 1)
         let center = NotificationCenter()
-        let defaults = try #require(UserDefaults(suiteName: "LeoDisconnectedStateTests.\(UUID().uuidString)"))
+        let defaults = LeoInMemoryDefaults()
         let runtime = LeoRuntime(
             daemon: daemon, cli: LeoCLI(),
             activitySource: .init(events: { AsyncStream { $0.finish() } }, fetchState: { [] }),

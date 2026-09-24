@@ -84,7 +84,7 @@ import Testing
     /// though its own probe eventually succeeds.
     @Test func staleSuccessWhileProbeGatedNeverPublishesConnectedAndClearsTheOrphanRecord() async throws {
         let transport = LeoGatedTransport()
-        let suiteDefaults = UserDefaults(suiteName: UUID().uuidString) ?? .standard
+        let suiteDefaults = LeoInMemoryDefaults()
         let orphanStore = LeoTunnelOrphanStore(defaults: suiteDefaults)
         let stale = LeoHostConfiguration(name: "stale", sshTarget: "evan@stale", remoteSocketPath: "/remote/leo.sock")
         let fresh = LeoHostConfiguration(name: "fresh", sshTarget: "evan@fresh", remoteSocketPath: "/remote/leo.sock")
@@ -215,7 +215,7 @@ import Testing
         defer { LeoTunnelTestSupport.setEnvironment("FAKE_SSH_PID_FILE", nil) }
 
         let transport = LeoGatedTransport()
-        let suiteDefaults = UserDefaults(suiteName: UUID().uuidString) ?? .standard
+        let suiteDefaults = LeoInMemoryDefaults()
         let orphanStore = LeoTunnelOrphanStore(defaults: suiteDefaults)
         let configuration = LeoHostConfiguration(name: "work", sshTarget: "evan@work", remoteSocketPath: "/remote/leo.sock")
         let selection = LeoHostSelectionTestSupport.makeSelection(

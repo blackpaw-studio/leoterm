@@ -9,7 +9,7 @@ import Testing
 @MainActor struct LeoRuntimeConnectionTests {
     @Test func startupRoutesListAndActionRequestsToTheSelectedConnectionsDaemon() async throws {
         let daemon = RuntimeTestDaemon()
-        let defaults = UserDefaults(suiteName: "LeoRuntimeConnectionTests.\(UUID().uuidString)") ?? .standard
+        let defaults = LeoInMemoryDefaults()
         let activitySource = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
         let runtime = LeoRuntime(daemon: daemon, cli: LeoCLI(), activitySource: activitySource, defaults: defaults)
         _ = runtime.makeWindowSession()
@@ -36,7 +36,7 @@ import Testing
     /// no-op.
     @Test func shutdownSynchronouslyEngagesHostSelectionShutdown() throws {
         let daemon = RuntimeTestDaemon()
-        let defaults = UserDefaults(suiteName: "LeoRuntimeConnectionTests.\(UUID().uuidString)") ?? .standard
+        let defaults = LeoInMemoryDefaults()
         let activitySource = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
         let runtime = LeoRuntime(daemon: daemon, cli: LeoCLI(), activitySource: activitySource, defaults: defaults)
 
@@ -61,7 +61,7 @@ import Testing
         defer { LeoTunnelTestSupport.setEnvironment("FAKE_SSH_PID_FILE", nil) }
 
         let configuration = LeoHostConfiguration(name: "work", sshTarget: "evan@work", remoteSocketPath: "/remote/leo.sock")
-        let defaults = UserDefaults(suiteName: "LeoRuntimeConnectionTests.\(UUID().uuidString)") ?? .standard
+        let defaults = LeoInMemoryDefaults()
         if let data = try? JSONEncoder().encode([configuration]) { defaults.set(data, forKey: LeoHostStore.key) }
         let transport = SequenceGatedHealthTransport()
         let daemon = RuntimeTestDaemon()

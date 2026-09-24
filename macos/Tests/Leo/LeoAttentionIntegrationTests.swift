@@ -20,9 +20,7 @@ import Testing
         defer { server.stop() }
         let client = LeoSocketActivityClient(socketPath: server.path)
         let center = RecordingNotificationCenter()
-        let suite = "LeoAttentionIntegrationTests.\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: suite))
-        defaults.removePersistentDomain(forName: suite)
+        let defaults = LeoInMemoryDefaults()
         let controller = LeoAttentionController(center: center, defaults: defaults, currentHost: { .local }, showDeniedInstructions: {})
         await controller.enable()
         let snapshots = SnapshotBox()

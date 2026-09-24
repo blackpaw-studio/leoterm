@@ -20,7 +20,7 @@ import Testing
     /// would leak this suite's `select(.remote(...))` calls into every other
     /// test that default-constructs a `LeoHostSelection` against `.standard`.
     private func makeHostSelection() -> LeoHostSelection {
-        let defaults = UserDefaults(suiteName: "LeoPickerPresentationTests.\(UUID().uuidString)")!
+        let defaults = LeoInMemoryDefaults()
         return LeoHostSelection.isolatedForTesting(defaults: defaults)
     }
 

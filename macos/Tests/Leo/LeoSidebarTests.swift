@@ -121,10 +121,7 @@ struct LeoSidebarTests {
     }
 
     @Test @MainActor func windowSessionDefaultsToHiddenSidebarOnFreshInstall() {
-        let suiteName = "LeoSidebarTests.fresh.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defaults.removePersistentDomain(forName: suiteName)
-        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let defaults = LeoInMemoryDefaults()
         let session = LeoWindowSession(defaults: defaults)
         #expect(!session.isSidebarVisible)
     }
@@ -134,10 +131,7 @@ struct LeoSidebarTests {
     /// stale/empty agent list. `setPickerPresented(_:)` is the only other
     /// input to `isPollable` besides `isSidebarVisible`.
     @Test @MainActor func windowSessionIsPollableWhilePickerPresentedEvenWithSidebarHidden() {
-        let suiteName = "LeoSidebarTests.pickerPresented.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defaults.removePersistentDomain(forName: suiteName)
-        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let defaults = LeoInMemoryDefaults()
         let session = LeoWindowSession(defaults: defaults)
 
         #expect(!session.isSidebarVisible)
@@ -151,12 +145,7 @@ struct LeoSidebarTests {
     }
 
     @Test @MainActor func windowSessionReadsWritesAndClampsDefaults() {
-        // Unique per run: parallel test hosts share one preferences domain
-        // per name, so another host's write could land between these lines.
-        let suiteName = "LeoSidebarTests.widths.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defaults.removePersistentDomain(forName: suiteName)
-        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let defaults = LeoInMemoryDefaults()
         defaults.set(false, forKey: "leo.sidebarVisible")
         defaults.set(500, forKey: "leo.sidebarWidth")
         let session = LeoWindowSession(defaults: defaults)

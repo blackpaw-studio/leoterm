@@ -15,7 +15,7 @@ struct LeoControlSocketDirectoryTests {
     /// path past the AF_UNIX budget and cost the host its file access.
     @MainActor @Test func aLongHomeDirectoryStillYieldsAUsableControlPath() throws {
         let home = "/Users/" + String(repeating: "h", count: 80)
-        let defaults = try #require(UserDefaults(suiteName: "LeoControlSocketDirectoryTests.\(UUID().uuidString)"))
+        let defaults = LeoInMemoryDefaults()
         let selection = LeoHostSelection(
             store: LeoHostStore(defaults: defaults),
             defaults: defaults,

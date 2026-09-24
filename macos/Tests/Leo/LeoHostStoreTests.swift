@@ -51,9 +51,6 @@ struct LeoHostStoreTests {
     }
 
     private func testDefaults() -> UserDefaults {
-        let suite = "LeoHostStoreTests.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        defaults.removePersistentDomain(forName: suite)
-        return defaults
+        LeoInMemoryDefaults()
     }
 }

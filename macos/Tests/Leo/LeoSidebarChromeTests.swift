@@ -107,8 +107,7 @@ struct LeoSidebarChromeTests {
     @Test @MainActor func splitPreferenceRoundTripsThroughTheSession() {
         // The split view clamps to the items' min/max thickness, so the
         // session stores exactly what the user dragged to.
-        let defaults = UserDefaults(suiteName: "LeoSidebarSplitTests")!
-        defaults.removePersistentDomain(forName: "LeoSidebarSplitTests")
+        let defaults = LeoInMemoryDefaults()
         let session = LeoWindowSession(defaults: defaults)
         session.setPreferredWidth(500)
 

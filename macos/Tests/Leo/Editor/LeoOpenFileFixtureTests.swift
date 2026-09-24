@@ -52,7 +52,7 @@ struct LeoOpenFileFixtureTests {
     /// path literally (a name ending in `:12` is not a line number).
     @Test func theRuntimeOpensTheFileLocallyAndLiterallyWhateverHostIsSelected() async throws {
         try await withLeoFileSandbox(.local) { sandbox, _ in
-            let defaults = try #require(UserDefaults(suiteName: "LeoOpenFileFixtureTests.\(UUID().uuidString)"))
+            let defaults = LeoInMemoryDefaults()
             let activity = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
             let runtime = LeoRuntime(daemon: QuitReviewDaemon(), cli: LeoCLI(), activitySource: activity, defaults: defaults)
             let session = runtime.registry.makeSession(defaults: defaults, makeFileAccess: { _ in

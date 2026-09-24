@@ -10,7 +10,7 @@ import Testing
 @MainActor struct LeoHostSelectionReloadTests {
     @Test func removingTheSelectedHostRevertsSelectionToLocalhost() async throws {
         let work = LeoHostConfiguration(name: "work", sshTarget: "evan@work", remoteSocketPath: "/remote/leo.sock")
-        let suiteDefaults = UserDefaults(suiteName: UUID().uuidString) ?? .standard
+        let suiteDefaults = LeoInMemoryDefaults()
         let selection = LeoHostSelectionTestSupport.makeSelection(hosts: [work], transport: LeoAlwaysHealthyTransport(), defaults: suiteDefaults)
         await selection.start(flavor: .socketEvents)
         selection.select(.remote("work"))
@@ -28,7 +28,7 @@ import Testing
 
     @Test func editingTheSelectedHostsTargetReselectsExactlyOnce() async throws {
         let work = LeoHostConfiguration(name: "work", sshTarget: "evan@work", remoteSocketPath: "/remote/leo.sock")
-        let suiteDefaults = UserDefaults(suiteName: UUID().uuidString) ?? .standard
+        let suiteDefaults = LeoInMemoryDefaults()
         let selection = LeoHostSelectionTestSupport.makeSelection(hosts: [work], transport: LeoAlwaysHealthyTransport(), defaults: suiteDefaults)
         await selection.start(flavor: .socketEvents)
 
@@ -59,7 +59,7 @@ import Testing
     @Test func editingAnUnrelatedHostDoesNotReselect() async throws {
         let work = LeoHostConfiguration(name: "work", sshTarget: "evan@work", remoteSocketPath: "/remote/leo.sock")
         let other = LeoHostConfiguration(name: "other", sshTarget: "evan@other")
-        let suiteDefaults = UserDefaults(suiteName: UUID().uuidString) ?? .standard
+        let suiteDefaults = LeoInMemoryDefaults()
         let selection = LeoHostSelectionTestSupport.makeSelection(hosts: [work, other], transport: LeoAlwaysHealthyTransport(), defaults: suiteDefaults)
         await selection.start(flavor: .socketEvents)
 

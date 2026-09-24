@@ -111,7 +111,7 @@ import Testing
     /// its own cache entry.
     @Test func templateCacheIsScopedToSelectedHost() async throws {
         let daemon = ActionDaemon()
-        let suiteDefaults = UserDefaults(suiteName: UUID().uuidString) ?? .standard
+        let suiteDefaults = LeoInMemoryDefaults()
         let workConfiguration = LeoHostConfiguration(name: "work", sshTarget: "evan@work")
         if let data = try? JSONEncoder().encode([workConfiguration]) { suiteDefaults.set(data, forKey: LeoHostStore.key) }
         let selection = LeoHostSelection.isolatedForTesting(defaults: suiteDefaults)
@@ -140,7 +140,7 @@ import Testing
     /// completes.
     @Test func hostSwitchDuringInFlightTemplatesFetchNeverLeaksTheOldHostsTemplates() async throws {
         let daemon = ActionDaemon()
-        let suiteDefaults = UserDefaults(suiteName: UUID().uuidString) ?? .standard
+        let suiteDefaults = LeoInMemoryDefaults()
         let workConfiguration = LeoHostConfiguration(name: "work", sshTarget: "evan@work")
         if let data = try? JSONEncoder().encode([workConfiguration]) { suiteDefaults.set(data, forKey: LeoHostStore.key) }
         let selection = LeoHostSelection.isolatedForTesting(defaults: suiteDefaults)
@@ -175,7 +175,7 @@ import Testing
     /// has moved on.
     @Test func actionCapturesDaemonAtInvocationAndDropsStaleCompletionAfterASelectionChange() async throws {
         let daemonA = GatedActionDaemon()
-        let suiteDefaults = UserDefaults(suiteName: UUID().uuidString) ?? .standard
+        let suiteDefaults = LeoInMemoryDefaults()
         let selection = LeoHostSelection.isolatedForTesting(defaults: suiteDefaults)
         await selection.start(flavor: .socketEvents)
         var refreshes = 0

@@ -13,9 +13,7 @@ struct LeoEditorWindowTeardownTests {
         try await withLeoFileSandbox(.local) { sandbox, _ in
             let access = LeoCloseSpyAccess(LeoFileAccessor.local())
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: [.titled], backing: .buffered, defer: true)
-            let suite = "LeoEditorWindowTeardownTests.\(UUID().uuidString)"
-            let defaults = try #require(UserDefaults(suiteName: suite))
-            defer { defaults.removePersistentDomain(forName: suite) }
+            let defaults = LeoInMemoryDefaults()
             let session = LeoWindowSession(window: window, defaults: defaults, makeFileAccess: { _ in access })
             try await session.editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
             #expect(!access.isClosed)

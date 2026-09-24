@@ -11,7 +11,7 @@ import Testing
 @MainActor
 struct LeoEditorQuitReviewTests {
     private func makeRuntime() -> (LeoRuntime, UserDefaults) {
-        let defaults = UserDefaults(suiteName: "LeoEditorQuitReviewTests.\(UUID().uuidString)") ?? .standard
+        let defaults = LeoInMemoryDefaults()
         let activity = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
         return (LeoRuntime(daemon: QuitReviewDaemon(), cli: LeoCLI(), activitySource: activity, defaults: defaults), defaults)
     }
@@ -56,7 +56,7 @@ struct LeoEditorQuitReviewTests {
 @MainActor
 struct LeoEditorEntryWindowTests {
     @Test func anEditorsEntryNamesItsWindow() throws {
-        let defaults = try #require(UserDefaults(suiteName: "LeoEditorEntryWindowTests.\(UUID().uuidString)"))
+        let defaults = LeoInMemoryDefaults()
         let activity = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
         let runtime = LeoRuntime(daemon: QuitReviewDaemon(), cli: LeoCLI(), activitySource: activity, defaults: defaults)
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: [.titled], backing: .buffered, defer: true)

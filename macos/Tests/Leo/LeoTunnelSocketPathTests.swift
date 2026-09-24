@@ -14,7 +14,7 @@ struct LeoTunnelSocketPathTests {
 
     @MainActor @Test func aLongHomeDirectoryStillYieldsAUsableTunnelSocketPath() throws {
         let home = "/Users/" + String(repeating: "h", count: 80)
-        let defaults = try #require(UserDefaults(suiteName: "LeoTunnelSocketPathTests.\(UUID().uuidString)"))
+        let defaults = LeoInMemoryDefaults()
         let selection = LeoHostSelection(
             store: LeoHostStore(defaults: defaults),
             defaults: defaults,

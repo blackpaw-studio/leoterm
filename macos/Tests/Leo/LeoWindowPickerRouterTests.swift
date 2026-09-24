@@ -37,8 +37,7 @@ import Testing
             contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: false
         )
         let sidebar = LeoSidebarModel()
-        let suite = "LeoWindowPickerRouterTests.\(UUID().uuidString)"
-        let hostDefaults = UserDefaults(suiteName: suite)!
+        let hostDefaults = LeoInMemoryDefaults()
         let hostSelection = LeoHostSelection.isolatedForTesting(defaults: hostDefaults)
         let actions = LeoAgentActions(daemon: StubDaemonClient(), cli: LeoCLI(), model: sidebar, hostSelection: hostSelection, refresh: {})
         let router = LeoNewSurfaceRouter(
@@ -76,8 +75,7 @@ import Testing
             contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: false
         )
         let sidebar = LeoSidebarModel()
-        let suite = "LeoWindowPickerRouterTests.\(UUID().uuidString)"
-        let hostDefaults = UserDefaults(suiteName: suite)!
+        let hostDefaults = LeoInMemoryDefaults()
         let hostSelection = LeoHostSelection.isolatedForTesting(defaults: hostDefaults)
         let actions = LeoAgentActions(daemon: StubDaemonClient(), cli: LeoCLI(), model: sidebar, hostSelection: hostSelection, refresh: {})
         let router = LeoNewSurfaceRouter(

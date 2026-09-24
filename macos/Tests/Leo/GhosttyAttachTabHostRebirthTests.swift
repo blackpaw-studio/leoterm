@@ -11,10 +11,7 @@ import Testing
 /// fail) when that isn't available.
 @MainActor struct GhosttyAttachTabHostRebirthTests {
     private func makeDefaults() -> UserDefaults {
-        let suite = "GhosttyAttachTabHostRebirthTests.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        defaults.removePersistentDomain(forName: suite)
-        return defaults
+        LeoInMemoryDefaults()
     }
 
     /// Everything `makeFilledPlaceholder()` needs to hand back to a test:

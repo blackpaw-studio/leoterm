@@ -6,10 +6,7 @@ import Testing
 
 @MainActor struct LeoWindowSessionRegistryTests {
     private func makeDefaults() -> UserDefaults {
-        let suite = "LeoWindowSessionRegistryTests.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        defaults.removePersistentDomain(forName: suite)
-        return defaults
+        LeoInMemoryDefaults()
     }
 
     /// Review finding: `LeoRuntime.makeWindowSession(for:)` wires
