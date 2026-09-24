@@ -182,7 +182,7 @@ Accept: in the default-width sidebar the banner's reason breaks mid-identifier (
 Source: B-007 visual check
 Done: 622783dad d1e8e149a (1254 tests). The reason is one line with the full text as a tooltip; Choose Agent… is disabled (plain bordered) with "Disconnected from <host>. Reconnect first (⇧⌘R)." (D-067, D-068). Verified: shots B-038-1 (one-line reason), B-038-2 (visibly disabled button). 1 fix round. New: B-041.
 
-## B-041 · Palette's disconnected row: same one-line treatment   [ready (next run)]
+## B-041 · Palette's disconnected row: same one-line treatment   [ready]
 Accept: the command palette's disconnected row shows the same banner text as the sidebar but wasn't given B-038's one-line truncation + tooltip. Match it.
 Source: B-038 implementer
 
@@ -199,7 +199,7 @@ Accept: ⌘F focuses the sidebar filter, fuzzy match, Escape clears.
 Source: roadmap Tier 2
 Done: 93a8c5b9f 823a717fb 03974e177 (1309 tests). Agents ▸ Find Agent… (⌥⌘F, since ⌘F is Ghostty's Find) shows and focuses the filter; ranked fuzzy match with bold matched letters; Escape clears, then returns focus; Return = click the top row (D-071, D-072). Verified: shots B-009-1 ("lha" → leo-home-assistant), B-009-2 (Escape clears), B-009-3 (hidden sidebar → shown + focused, bold "vit"). 1 fix round. New: B-042.
 
-## B-042 · Agent palette: use the sidebar's fuzzy matcher   [ready (next run)]
+## B-042 · Agent palette: use the sidebar's fuzzy matcher   [ready]
 Accept: the agent palette (Choose Agent… / ⌘T picker) still uses substring filtering. Reuse `LeoFuzzyMatcher` ranking and bolding so both searches behave the same.
 Source: B-009 implementer
 
@@ -216,7 +216,7 @@ when the daemon exposes them.
 Source: roadmap Tier 2
 Done: a8b800d41 fd679d90a 8b5808341 (1338 tests). Rows show "· 13h" / "· Sep 23" from identity-checked /observe/state snapshots (`started_at` match), and a task line when the daemon reports `current_action` (none live today). Tokens/cost aren't exposed per agent, so they're omitted (D-074, D-075). Verified: shots B-011-1 (first build, time truncated) and B-011-2 (time always shown). Task line not seen live (no agent reports one); unit-tested. 2 fix rounds. New: B-043.
 
-## B-043 · Row subtitle squeezes the template to "clau…"   [ready (next run)]
+## B-043 · Row subtitle squeezes the template to "clau…"   [ready]
 Accept: at default sidebar width, B-011's never-truncating time squeezes the template to "clau…" or "…" (shot B-011-2). Drop the template from the subtitle when it can't fit at least ~5 characters, or move the time to the trailing badge column, so the line reads cleanly.
 Source: B-011 visual check
 
