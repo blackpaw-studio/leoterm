@@ -191,12 +191,23 @@ actor LeoFakeHomeRunner: LeoProcessRunning {
 }
 
 extension LeoHostSelection {
-    /// A selection on its own throwaway defaults suite, for tests that need
-    /// one to inject but never select or connect a remote host.
-    @MainActor static func isolatedForTesting() -> LeoHostSelection {
-        let suite = "LeoHostSelectionTests.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite) ?? .standard
-        defaults.removePersistentDomain(forName: suite)
-        return LeoHostSelection(store: LeoHostStore(defaults: defaults), defaults: defaults)
+    /// A selection on its own throwaway defaults suite (or `defaults`), for
+    /// tests that need one to inject: its sockets live in the shared test
+    /// directory, never the real per-user cache directory (B-032).
+    @MainActor static func isolatedForTesting(defaults: UserDefaults? = nil) -> LeoHostSelection {
+        let defaults = defaults ?? {
+            let suite = "LeoHostSelectionTests.\(UUID().uuidString)"
+            let defaults = UserDefaults(suiteName: suite) ?? .standard
+            defaults.removePersistentDomain(forName: suite)
+            return defaults
+        }()
+        let directory = LeoHostSelectionTestSupport.localSocketDirectory
+        return LeoHostSelection(
+            store: LeoHostStore(defaults: defaults),
+            defaults: defaults,
+            orphanStore: LeoTunnelOrphanStore(defaults: defaults, legacySocketDirectory: directory),
+            legacySocketDirectory: directory,
+            controlSocketDirectory: directory
+        )
     }
 }

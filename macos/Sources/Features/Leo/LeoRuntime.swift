@@ -73,6 +73,8 @@ import OSLog
         hostConnectionTransport: any LeoDaemonTransport = LeoUnixSocketTransport(),
         hostSelectionRunner: any LeoProcessRunning = LeoProcessRunner(),
         hostSelectionSSHExecutable: URL = URL(fileURLWithPath: "/usr/bin/ssh"),
+        hostSelectionLegacySocketDirectory: URL = LeoTunnelOrphanStore.defaultLegacySocketDirectory,
+        hostSelectionControlSocketDirectory: URL? = LeoControlSocketDirectory.default,
         notificationCenter: any LeoNotificationPosting = LeoUserNotificationCenter(),
         focusedAgentSink: (@Sendable (LeoAgentRow.ID?) async -> Void)? = nil,
         wakeNotifications: NotificationCenter = NSWorkspace.shared.notificationCenter
@@ -82,7 +84,7 @@ import OSLog
         localDaemon = daemon
         localActivitySource = activitySource
         self.hostConnectionTransport = hostConnectionTransport
-        let orphanStore = LeoTunnelOrphanStore(defaults: defaults)
+        let orphanStore = LeoTunnelOrphanStore(defaults: defaults, legacySocketDirectory: hostSelectionLegacySocketDirectory)
         self.orphanStore = orphanStore
         let model = LeoSidebarModel()
         let registry = LeoWindowSessionRegistry()
@@ -103,6 +105,8 @@ import OSLog
             sshExecutable: hostSelectionSSHExecutable,
             transport: hostConnectionTransport,
             orphanStore: orphanStore,
+            legacySocketDirectory: hostSelectionLegacySocketDirectory,
+            controlSocketDirectory: hostSelectionControlSocketDirectory,
             connectionTarget: { host, generation, state in
                 weakSelf?.applyConnection(host: host, generation: generation, state: state)
             }

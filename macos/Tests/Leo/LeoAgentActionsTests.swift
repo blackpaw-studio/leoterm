@@ -114,7 +114,7 @@ import Testing
         let suiteDefaults = UserDefaults(suiteName: UUID().uuidString) ?? .standard
         let workConfiguration = LeoHostConfiguration(name: "work", sshTarget: "evan@work")
         if let data = try? JSONEncoder().encode([workConfiguration]) { suiteDefaults.set(data, forKey: LeoHostStore.key) }
-        let selection = LeoHostSelection(store: LeoHostStore(defaults: suiteDefaults), defaults: suiteDefaults)
+        let selection = LeoHostSelection.isolatedForTesting(defaults: suiteDefaults)
         await selection.start(flavor: .socketEvents)
         let runner = TemplateSSHRunner()
         let actions = LeoAgentActions(
@@ -143,7 +143,7 @@ import Testing
         let suiteDefaults = UserDefaults(suiteName: UUID().uuidString) ?? .standard
         let workConfiguration = LeoHostConfiguration(name: "work", sshTarget: "evan@work")
         if let data = try? JSONEncoder().encode([workConfiguration]) { suiteDefaults.set(data, forKey: LeoHostStore.key) }
-        let selection = LeoHostSelection(store: LeoHostStore(defaults: suiteDefaults), defaults: suiteDefaults)
+        let selection = LeoHostSelection.isolatedForTesting(defaults: suiteDefaults)
         await selection.start(flavor: .socketEvents)
         let gatedRunner = GatedTemplateRunner()
         let cli = LeoCLI(executableOverride: "/leo", runner: gatedRunner, isExecutable: { _ in true })
@@ -176,7 +176,7 @@ import Testing
     @Test func actionCapturesDaemonAtInvocationAndDropsStaleCompletionAfterASelectionChange() async throws {
         let daemonA = GatedActionDaemon()
         let suiteDefaults = UserDefaults(suiteName: UUID().uuidString) ?? .standard
-        let selection = LeoHostSelection(store: LeoHostStore(defaults: suiteDefaults), defaults: suiteDefaults)
+        let selection = LeoHostSelection.isolatedForTesting(defaults: suiteDefaults)
         await selection.start(flavor: .socketEvents)
         var refreshes = 0
         let actions = LeoAgentActions(daemon: daemonA, cli: testCLI(), model: LeoSidebarModel(), hostSelection: selection, refresh: { refreshes += 1 })

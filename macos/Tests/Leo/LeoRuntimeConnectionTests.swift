@@ -69,7 +69,9 @@ import Testing
         let runtime = LeoRuntime(
             daemon: daemon, cli: LeoCLI(), activitySource: activitySource, defaults: defaults,
             hostConnectionTransport: transport,
-            hostSelectionSSHExecutable: LeoTunnelTestSupport.fixtureURL()
+            hostSelectionSSHExecutable: LeoTunnelTestSupport.fixtureURL(),
+            hostSelectionLegacySocketDirectory: LeoHostSelectionTestSupport.localSocketDirectory,
+            hostSelectionControlSocketDirectory: LeoHostSelectionTestSupport.localSocketDirectory
         )
 
         await runtime.hostSelection.start(flavor: .socketEvents)

@@ -21,7 +21,7 @@ import Testing
     /// test that default-constructs a `LeoHostSelection` against `.standard`.
     private func makeHostSelection() -> LeoHostSelection {
         let defaults = UserDefaults(suiteName: "LeoPickerPresentationTests.\(UUID().uuidString)")!
-        return LeoHostSelection(store: LeoHostStore(defaults: defaults), defaults: defaults)
+        return LeoHostSelection.isolatedForTesting(defaults: defaults)
     }
 
     private func makeActions(sidebar: LeoSidebarModel, hostSelection: LeoHostSelection) -> LeoAgentActions {
