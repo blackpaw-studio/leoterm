@@ -1,6 +1,6 @@
 # Backlog
 
-Ranked. Statuses: `ready`, `ready (next run)`, `blocked`, `done`.
+Ranked. Statuses: `ready`, `ready (next run)`, `blocked`, `deferred`, `done`.
 Source roadmap: `docs/leo/roadmap.md` on `main` (not edited by autopilot).
 
 ## B-001 · Attention model, app side   [done]
@@ -213,12 +213,13 @@ Accept: the agent palette (Choose Agent… / ⌘T picker) still uses substring f
 Source: B-009 implementer
 Done: 9a355633e (1352 tests). Palette ranks and bolds with `LeoFuzzyMatcher`; secondary field is repo (D-078). Verified: shot B-042-1 ("lha" → leo-home-assistant on top, bold letters). Review clean.
 
-## B-010 · Sort and pin   [ready]
+## B-010 · Sort and pin   [done]
 Accept: default sort by last activity; pin favourites to top; remember
 collapsed sections.
 Source: roadmap Tier 2
 Question: architecture may be wrong — the pin, collapse, Name sort and menus all worked (shots B-010-2..5), but advancing Last Activity from live `agent_activity` events keyed only by agent NAME failed review 4 times running: a stale /observe/state fetch or SSE recovery can put a deleted agent's activity on a recreated namesake, or drop a just-spawned agent's activity (commits c7e629b18..94cb3a42b, reverted in f6dfc8aec). I'd pick re-scoping it: sort by `last_activity_at` from /observe/state snapshots only (no event-driven reordering, which is also calmer), and ship pins/collapse/Name sort as they were. The alternative is asking the leo agent for a per-agent incarnation id on list/state/events so activity can be keyed by (name, incarnation). OK to re-scope?
 Answer: accept your recommendation (re-scoping it: sort by `last_activity_at` from /observe/state snapshots only (no event-driven reordering, which is also calmer), and ship pins/collapse/Name sort as they were)
+Done: dfe6f29e8 (1393 tests). Snapshot-only Last Activity sort (D-082, D-085); pins (⌥⌘P, row menu), collapsible sections per host, Sort By ▸ Last Activity / Name restored from the reverted attempt minus event-driven activity. Verified: shots B-010-1 (Pinned + activity order) and B-010-2 (Name sort). Review clean.
 
 ## B-011 · Row metadata   [done]
 Accept: relative "last active" time and current task line; tokens/cost only

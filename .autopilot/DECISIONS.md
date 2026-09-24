@@ -643,7 +643,7 @@ Veto: n/a (Evan)
 ## D-082 · 2026-09-24 · B-010: re-scope Last Activity to /observe/state snapshots only
 Chose: sort by `last_activity_at` from identity-checked /observe/state snapshots; no reordering from live `agent_activity` events; pins, collapse, Name sort and menus ship as built before the revert
 Why: Evan's choice; calm by default, and name-keyed events can't be attributed safely without an incarnation id
-Commit: n/a
+Commit: dfe6f29e8
 Veto: n/a (Evan)
 
 ## D-083 · 2026-09-24 · B-013: request the surface-file event from the leo agent now that B-004 shipped
@@ -657,3 +657,10 @@ Chose: status `deferred` until Evan says several remotes are in daily use
 Why: Evan's choice (D-008)
 Commit: n/a
 Veto: n/a (Evan)
+
+## D-085 · 2026-09-24 · B-010 implementer calls (snapshot-only sort)
+Chose: (1) a section with no snapshot time on any row keeps daemon order (before the first /state lands); otherwise newest first, ties and time-less rows by name. (2) The sidebar no longer ranks working agents first (that rank came from live events); the palette still does. (3) The snapshot's working flag doesn't affect sort, only the row's label. (4) No log line for "no activity time" (would fire on every launch before /state). (5) Pins stay keyed by host + name, so a deleted agent's pin carries to a recreated namesake (as D-073 chose; no activity carries). `LeoAgentRow.ID` is Codable for pin storage
+Why: D-082 snapshot-only; calm (rows move only on a new snapshot); never invent a state
+Alternatives: keep working-first from events (the B-010 race); log missing times (noise)
+Commit: dfe6f29e8
+Veto: [ ]
