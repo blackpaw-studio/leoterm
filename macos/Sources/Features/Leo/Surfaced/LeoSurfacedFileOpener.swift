@@ -9,8 +9,8 @@ enum LeoSurfacedOpenMode: Equatable, Sendable { case automatic, manual }
 /// stats the file on its host (following symlinks, so the target is what's
 /// checked) and goes ahead only for a regular file under
 /// `autoOpenLimit`: a directory, FIFO, device or socket -- which could hang
-/// the read -- or a huge file only keeps its badge, quietly. It's marked
-/// seen only once it passes. Each incarnation has at most one automatic
+/// the read -- or a huge file only keeps its badge, quietly. Either way a
+/// file is marked seen only once the pane shows it. Each incarnation has at most one automatic
 /// open in flight and one waiting; a newer arrival replaces the waiting
 /// one, and the ones it replaced just stay badged. A manual open goes
 /// straight to the editor, whose own checks and error sheet apply (the
@@ -23,7 +23,7 @@ enum LeoSurfacedOpenMode: Equatable, Sendable { case automatic, manual }
     /// errors go.
     struct Target {
         let stat: @MainActor (LeoEditorFileID) async throws -> LeoFileStat
-        let open: @MainActor (LeoEditorFileID, Int?) async throws -> Void
+        let open: @MainActor (LeoEditorFileID, Int?) async throws -> LeoEditorOpenOutcome
         let reportError: @MainActor (Error) -> Void
     }
 
@@ -52,7 +52,7 @@ enum LeoSurfacedOpenMode: Equatable, Sendable { case automatic, manual }
     func open(_ file: LeoSurfacedFile, host: LeoHostID, mode: LeoSurfacedOpenMode, in target: Target) async {
         let request = Request(file: file, host: host, target: target)
         guard mode == .automatic else {
-            await openInEditor(request)
+            await openInEditor(request, mode: .manual)
             return
         }
         let key = Incarnation(host: host, name: file.agent, startedAt: file.startedAt)
@@ -81,14 +81,23 @@ enum LeoSurfacedOpenMode: Equatable, Sendable { case automatic, manual }
             Self.logger.log("surfaced file \(request.file.id, privacy: .public) not auto-opened: \(error.localizedDescription, privacy: .public)")
             return
         }
-        markSeen(request.file, request.host)
         await openInEditor(request)
     }
 
-    private func openInEditor(_ request: Request) async {
+    /// Marked seen only when the pane shows the file (not when the user
+    /// cancelled its unsaved-changes prompt). An automatic open's failure
+    /// -- its read timed out, the file vanished -- fails closed: the badge
+    /// stays and no sheet appears; a manual one's gets the editor's sheet.
+    private func openInEditor(_ request: Request, mode: LeoSurfacedOpenMode = .automatic) async {
         do {
-            try await request.target.open(LeoEditorFileID(host: request.host, path: request.file.absPath), request.file.line)
+            let outcome = try await request.target.open(LeoEditorFileID(host: request.host, path: request.file.absPath), request.file.line)
+            guard outcome != .cancelled else { return }
+            markSeen(request.file, request.host)
         } catch {
+            guard mode == .manual else {
+                Self.logger.log("surfaced file \(request.file.id, privacy: .public) auto-open failed: \(error.localizedDescription, privacy: .public)")
+                return
+            }
             request.target.reportError(error)
         }
     }

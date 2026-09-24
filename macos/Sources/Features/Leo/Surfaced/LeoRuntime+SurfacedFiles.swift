@@ -15,7 +15,9 @@ extension LeoRuntime {
         let editor = session.editor
         let target = LeoSurfacedFileOpener.Target(
             stat: { try await editor.stat($0) },
-            open: { fileID, line in try await editor.open(fileID, line: line) },
+            open: { fileID, line in
+                try await editor.open(fileID, line: line, readDeadline: mode == .automatic ? .automaticOpen : nil)
+            },
             reportError: { [weak controller] in LeoEditorAlerts.presentError($0, on: controller?.window) }
         )
         Task { await surfacedFileOpener.open(file, host: row.host, mode: mode, in: target) }

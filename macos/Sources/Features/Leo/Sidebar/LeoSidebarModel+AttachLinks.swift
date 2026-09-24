@@ -13,6 +13,7 @@ extension LeoSidebarModel {
     func receiveAttachLinks(_ links: LeoAttachLinkState) {
         let previousFocus = attachLinks.focused
         attachLinks = links
+        trackTabIncarnations()
         guard links.focused != previousFocus, !isFencedByUserSelection(links) else { return }
         selectFocusedRow()
     }

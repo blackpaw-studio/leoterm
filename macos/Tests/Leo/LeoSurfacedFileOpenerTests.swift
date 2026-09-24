@@ -48,6 +48,33 @@ struct LeoSurfacedFileOpenerTests {
         #expect(harness.errors.count == 1)
     }
 
+    // MARK: Seen only on a successful open (re-review #2)
+
+    @Test(arguments: [LeoSurfacedOpenMode.automatic, .manual])
+    func aCancelledOpenKeepsTheBadge(mode: LeoSurfacedOpenMode) async {
+        let harness = OpenerHarness(stats: ["/w/a": stat(.file, size: 1)], outcome: .cancelled)
+        await harness.opener.open(surfaced("u-1", agent: "alpha", startedAt: "s1", absPath: "/w/a"), host: .local, mode: mode, in: harness.target)
+        #expect(harness.opened == ["/w/a:-"])
+        #expect(harness.seen.isEmpty)
+    }
+
+    @Test(arguments: [LeoEditorOpenOutcome.opened, .alreadyOpen])
+    func aManualOpenThatShowsTheFileMarksItSeen(outcome: LeoEditorOpenOutcome) async {
+        let harness = OpenerHarness(stats: [:], outcome: outcome)
+        await harness.opener.open(surfaced("u-1", agent: "alpha", startedAt: "s1", absPath: "/w/a"), host: .local, mode: .manual, in: harness.target)
+        #expect(harness.seen == ["u-1"])
+    }
+
+    /// Re-review #3: an automatic open whose read timed out (or failed any
+    /// way) fails closed -- badge kept, no sheet.
+    @Test func aFailedAutomaticOpenKeepsTheBadgeQuietly() async {
+        let harness = OpenerHarness(stats: ["/w/a": stat(.file, size: 1)], openFails: true)
+        await harness.opener.open(surfaced("u-1", agent: "alpha", startedAt: "s1", absPath: "/w/a"), host: .local, mode: .automatic, in: harness.target)
+        #expect(harness.opened == ["/w/a:-"])
+        #expect(harness.seen.isEmpty)
+        #expect(harness.errors.isEmpty)
+    }
+
     /// A real named pipe, through the real local file access: never opened
     /// (the read would block forever), only badged.
     @Test func aRealFIFOIsNeverAutoOpened() async throws {
@@ -58,7 +85,10 @@ struct LeoSurfacedFileOpenerTests {
         var opened: [String] = []
         let target = LeoSurfacedFileOpener.Target(
             stat: { try await LeoFileAccessor.local().stat($0.path) },
-            open: { id, _ in opened.append(id.path) },
+            open: { id, _ in
+                opened.append(id.path)
+                return .opened
+            },
             reportError: { _ in }
         )
         let opener = LeoSurfacedFileOpener { _, _ in }
@@ -130,7 +160,10 @@ private func surfaced(_ id: String, agent: String, startedAt: String, path: Stri
     private(set) var opener: LeoSurfacedFileOpener!
     private(set) var target: LeoSurfacedFileOpener.Target!
 
-    init(stats: [String: LeoFileStat], defaultStat: LeoFileStat? = nil, gate: StatGate? = nil, openFails: Bool = false) {
+    init(
+        stats: [String: LeoFileStat], defaultStat: LeoFileStat? = nil, gate: StatGate? = nil, openFails: Bool = false,
+        outcome: LeoEditorOpenOutcome = .opened
+    ) {
         opener = LeoSurfacedFileOpener { [unowned self] file, _ in seen.append(file.id) }
         target = LeoSurfacedFileOpener.Target(
             stat: { id in
@@ -141,6 +174,7 @@ private func surfaced(_ id: String, agent: String, startedAt: String, path: Stri
             open: { [unowned self] id, line in
                 opened.append("\(id.path):\(line.map(String.init) ?? "-")")
                 if openFails { throw LeoFileAccessError.notFound(path: id.path) }
+                return outcome
             },
             reportError: { [unowned self] in errors.append($0) }
         )

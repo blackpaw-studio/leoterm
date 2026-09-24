@@ -42,7 +42,7 @@ struct LeoSurfacedFileRoutingTests {
         let defaults = LeoInMemoryDefaults()
         let file = surfaced("u-1", agent: "alpha", startedAt: "s1")
         let first = makeModel([row("alpha", "s1", files: [file])], defaults: defaults)
-        first.openSurfacedFile(file, for: first.snapshot.rows[0])
+        first.markSurfacedFileSeen(file, host: .local)
 
         let relaunched = makeModel([row("alpha", "s1", files: [file])], defaults: defaults)
         #expect(relaunched.pendingSurfacedFiles(for: relaunched.snapshot.rows[0]).isEmpty)
@@ -54,7 +54,7 @@ struct LeoSurfacedFileRoutingTests {
         let file = surfaced("u-1", agent: "alpha", startedAt: "s1", line: 12)
         let model = makeModel([row("alpha", "s1")])
         let opened = OpenLog(model)
-        model.focusedAgentChanged(id("alpha"))
+        focus(model, "alpha")
         #expect(opened.files.isEmpty)
 
         model.fileSurfaced(file, host: .local)
@@ -68,7 +68,7 @@ struct LeoSurfacedFileRoutingTests {
         let file = surfaced("u-1", agent: "alpha", startedAt: "s1")
         let model = makeModel([row("alpha", "s1", files: [file]), row("beta", "s1")])
         let opened = OpenLog(model)
-        model.focusedAgentChanged(id("beta"))
+        focus(model, "beta")
 
         model.fileSurfaced(file, host: .local)
         #expect(opened.files.isEmpty)
@@ -78,7 +78,7 @@ struct LeoSurfacedFileRoutingTests {
     @Test func anArrivalForAnotherIncarnationOfTheFocusedNameNeverOpens() {
         let model = makeModel([row("alpha", "s2")])
         let opened = OpenLog(model)
-        model.focusedAgentChanged(id("alpha"))
+        focus(model, "alpha")
         model.fileSurfaced(surfaced("u-1", agent: "alpha", startedAt: "s1"), host: .local)
         model.fileSurfaced(surfaced("u-2", agent: "alpha", startedAt: "s2"), host: .remote("work"))
         #expect(opened.files.isEmpty)
@@ -88,7 +88,7 @@ struct LeoSurfacedFileRoutingTests {
         let file = surfaced("u-1", agent: "alpha", startedAt: "s1")
         let model = makeModel([row("alpha", "s1", files: [file])], connectivity: .disconnected(reason: "gone", isRetrying: false))
         let opened = OpenLog(model)
-        model.focusedAgentChanged(id("alpha"))
+        focus(model, "alpha")
         model.fileSurfaced(file, host: .local)
         #expect(opened.files.isEmpty)
     }
@@ -100,7 +100,7 @@ struct LeoSurfacedFileRoutingTests {
     @Test func anArrivalAfterARestartUnderTheFocusedTabIsQueued() {
         let model = makeModel([row("alpha", "s1")])
         let opened = OpenLog(model)
-        model.focusedAgentChanged(id("alpha"))
+        focus(model, "alpha")
         model.receive(LeoSidebarSnapshot(rows: [row("alpha", "s2")], connectivity: .connected, generation: 2))
 
         let file = surfaced("u-1", agent: "alpha", startedAt: "s2")
@@ -113,7 +113,7 @@ struct LeoSurfacedFileRoutingTests {
     @Test func anArrivalForAFocusedAgentOfUnknownIncarnationIsQueued() {
         let model = makeModel([LeoAgentRow(host: .local, name: "alpha", template: nil, status: .running, activity: .unknown, actionDetail: nil)])
         let opened = OpenLog(model)
-        model.focusedAgentChanged(id("alpha"))
+        focus(model, "alpha")
         model.fileSurfaced(surfaced("u-1", agent: "alpha", startedAt: "s1"), host: .local)
         #expect(opened.files.isEmpty)
     }
@@ -123,7 +123,7 @@ struct LeoSurfacedFileRoutingTests {
     @Test func focusBeforeTheFirstListAdoptsTheRowsIncarnation() {
         let model = makeModel([])
         let opened = OpenLog(model)
-        model.focusedAgentChanged(id("alpha"))
+        focus(model, "alpha")
         model.receive(LeoSidebarSnapshot(rows: [row("alpha", "s1")], connectivity: .connected, generation: 2))
         let file = surfaced("u-1", agent: "alpha", startedAt: "s1")
         model.fileSurfaced(file, host: .local)
@@ -134,12 +134,68 @@ struct LeoSurfacedFileRoutingTests {
         let file = surfaced("u-1", agent: "alpha", startedAt: "s1")
         let model = makeModel([row("alpha", "s1", files: [file])])
         let opened = OpenLog(model, rejectsAuto: true)
-        model.focusedAgentChanged(id("alpha"))
+        focus(model, "alpha")
         #expect(opened.modes == [.automatic])
         #expect(model.pendingSurfacedFiles(for: model.snapshot.rows[0]) == [file], "a skipped auto-open keeps its badge")
         model.openSurfacedFile(file, for: model.snapshot.rows[0])
         #expect(opened.modes == [.automatic, .manual])
         #expect(model.pendingSurfacedFiles(for: model.snapshot.rows[0]).isEmpty)
+    }
+
+    // MARK: The tab's incarnation on refocus and click (re-review #1)
+
+    /// The focused tab's agent restarted; the user looks away and back at
+    /// that same old tab: the new incarnation's file stays badged.
+    @Test func refocusingATabFromBeforeARestartOpensNothing() {
+        let model = makeModel([row("alpha", "s1")])
+        let opened = OpenLog(model)
+        focus(model, "alpha")
+        model.focusedAgentChanged(nil)
+        let file = surfaced("u-1", agent: "alpha", startedAt: "s2")
+        model.receive(LeoSidebarSnapshot(rows: [row("alpha", "s2", files: [file])], connectivity: .connected, generation: 2))
+        model.focusedAgentChanged(id("alpha"))
+        #expect(opened.files.isEmpty)
+        #expect(model.pendingSurfacedFiles(for: model.snapshot.rows[0]) == [file])
+    }
+
+    @Test func clickingTheRowOfARestartedAgentWhoseOldTabIsFocusedOpensNothing() {
+        let model = makeModel([row("alpha", "s1")])
+        let opened = OpenLog(model)
+        focus(model, "alpha")
+        let file = surfaced("u-1", agent: "alpha", startedAt: "s2")
+        model.receive(LeoSidebarSnapshot(rows: [row("alpha", "s2", files: [file])], connectivity: .connected, generation: 2))
+        model.rowClicked(model.snapshot.rows[0])
+        #expect(opened.files.isEmpty)
+        #expect(model.openNewestSurfacedFile(for: model.snapshot.rows[0]), "still reachable from the menus")
+        #expect(opened.modes == [.manual])
+    }
+
+    /// Once the old tabs are gone, a tab attached to the new incarnation
+    /// opens its files again.
+    @Test func aFreshAttachAfterTheOldTabsCloseOpensAgain() {
+        let model = makeModel([row("alpha", "s1")])
+        let opened = OpenLog(model)
+        focus(model, "alpha")
+        let file = surfaced("u-1", agent: "alpha", startedAt: "s2")
+        model.receive(LeoSidebarSnapshot(rows: [row("alpha", "s2", files: [file])], connectivity: .connected, generation: 2))
+        model.receiveAttachLinks(LeoAttachLinkState(focused: nil, tabCounts: [:]))
+        model.focusedAgentChanged(nil)
+        focus(model, "alpha")
+        #expect(opened.files == [file])
+    }
+
+    /// The attach coordinator reports focus before the link state that
+    /// shows the new tab: the open waits for it.
+    @Test func aNewTabsFocusReportedBeforeItsLinkStateStillOpens() {
+        let file = surfaced("u-1", agent: "alpha", startedAt: "s1")
+        let model = makeModel([row("alpha", "s1", files: [file])])
+        let opened = OpenLog(model)
+        model.focusedAgentChanged(id("alpha"))
+        #expect(opened.files.isEmpty)
+        model.receiveAttachLinks(LeoAttachLinkState(focused: id("alpha"), tabCounts: [id("alpha"): 1]))
+        #expect(opened.files == [file])
+        model.receiveAttachLinks(LeoAttachLinkState(focused: id("alpha"), tabCounts: [id("alpha"): 2]))
+        #expect(opened.files == [file], "once")
     }
 
     // MARK: Focus and click
@@ -150,20 +206,20 @@ struct LeoSurfacedFileRoutingTests {
         let model = makeModel([row("alpha", "s1", files: [older, newer])])
         let opened = OpenLog(model)
 
-        model.focusedAgentChanged(id("alpha"))
+        focus(model, "alpha")
         #expect(opened.files == [newer])
         #expect(model.pendingSurfacedFiles(for: model.snapshot.rows[0]) == [older])
 
-        model.focusedAgentChanged(id("alpha"))
+        focus(model, "alpha")
         #expect(opened.files == [newer], "focus that didn't change opens nothing")
     }
 
     @Test func focusingAnAgentWithNothingPendingOpensNothing() {
         let file = surfaced("u-1", agent: "alpha", startedAt: "s1")
         let model = makeModel([row("alpha", "s1", files: [file])])
-        model.openSurfacedFile(file, for: model.snapshot.rows[0])
+        model.markSurfacedFileSeen(file, host: .local)
         let opened = OpenLog(model)
-        model.focusedAgentChanged(id("alpha"))
+        focus(model, "alpha")
         #expect(opened.files.isEmpty)
     }
 
@@ -180,14 +236,14 @@ struct LeoSurfacedFileRoutingTests {
     @Test func clickingARowWithAnUnfocusedAttachLeavesTheOpenToFocus() {
         let file = surfaced("u-1", agent: "alpha", startedAt: "s1")
         let model = makeModel([row("alpha", "s1", files: [file])])
-        model.attachLinks = LeoAttachLinkState(focused: nil, tabCounts: [id("alpha"): 1])
+        model.receiveAttachLinks(LeoAttachLinkState(focused: nil, tabCounts: [id("alpha"): 1]))
         let opened = OpenLog(model)
         var focused: [String] = []
         model.focusExistingRequested = { focused.append($0.name) }
         model.rowClicked(model.snapshot.rows[0])
         #expect(focused == ["alpha"])
         #expect(opened.files.isEmpty)
-        model.focusedAgentChanged(id("alpha"))
+        focus(model, "alpha")
         #expect(opened.files == [file])
     }
 
@@ -200,12 +256,12 @@ struct LeoSurfacedFileRoutingTests {
         let opened = OpenLog(model)
         model.rowClicked(model.snapshot.rows[0])
         model.rowClicked(model.snapshot.rows[0])
-        model.focusedAgentChanged(id("alpha"))
+        focus(model, "alpha")
         #expect(opened.files == [newer])
 
         // A later visit opens the next one.
         model.focusedAgentChanged(nil)
-        model.focusedAgentChanged(id("alpha"))
+        focus(model, "alpha")
         #expect(opened.files == [newer, older])
     }
 
@@ -215,7 +271,7 @@ struct LeoSurfacedFileRoutingTests {
         let older = surfaced("u-1", agent: "alpha", startedAt: "s1")
         let newer = surfaced("u-2", agent: "alpha", startedAt: "s1")
         let model = makeModel([row("alpha", "s1", files: [older, newer])])
-        model.openSurfacedFile(newer, for: model.snapshot.rows[0])
+        model.markSurfacedFileSeen(newer, host: .local)
         let opened = OpenLog(model)
 
         #expect(model.openNewestSurfacedFile(for: model.snapshot.rows[0]))
@@ -282,14 +338,22 @@ struct LeoSurfacedFileRoutingTests {
 
     private func id(_ name: String) -> LeoAgentRow.ID { LeoAgentRow.ID(host: .local, name: name) }
 
+    /// Focus lands on an attach tab of `name` (one live tab), as the attach
+    /// coordinator reports it: link state first, then the focused identity.
+    private func focus(_ model: LeoSidebarModel, _ name: String) {
+        let tabs = model.attachLinks.tabCounts.merging([id(name): max(1, model.tabCount(for: id(name)))]) { _, new in new }
+        model.receiveAttachLinks(LeoAttachLinkState(focused: id(name), tabCounts: tabs))
+        model.focusedAgentChanged(id(name))
+    }
+
     private func row(_ name: String, _ startedAt: String, files: [LeoSurfacedFile] = []) -> LeoAgentRow {
         LeoAgentRow(host: .local, name: name, template: nil, status: .running, activity: .unknown, actionDetail: nil, startedAt: startedAt)
             .withSurfacedFiles(files)
     }
 }
 
-/// Records open requests. An automatic one is marked seen only as the
-/// opener would once its checks pass -- here, unless `rejectsAuto`.
+/// Records open requests, marking each seen as the opener does once the
+/// file opens -- an automatic one only unless `rejectsAuto`.
 @MainActor private final class OpenLog {
     private(set) var files: [LeoSurfacedFile] = []
     private(set) var modes: [LeoSurfacedOpenMode] = []
@@ -298,7 +362,7 @@ struct LeoSurfacedFileRoutingTests {
         model.surfacedFileOpenRequested = { [weak self, weak model] file, row, mode in
             self?.files.append(file)
             self?.modes.append(mode)
-            if mode == .automatic, !rejectsAuto { model?.markSurfacedFileSeen(file, host: row.host) }
+            if mode == .manual || !rejectsAuto { model?.markSurfacedFileSeen(file, host: row.host) }
         }
     }
 }

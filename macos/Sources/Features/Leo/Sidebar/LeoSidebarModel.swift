@@ -37,8 +37,12 @@ import Foundation
     /// The agent whose attach tab is focused, as the attach coordinator
     /// reports it.
     var focusedAgent: LeoAgentRow.ID?
-    /// Which incarnation the focused tab shows (see `+SurfacedFiles`).
-    var focusedIncarnation = LeoFocusedIncarnation.awaitingRow
+    /// Which incarnation each agent's live attach tabs show (see
+    /// `+SurfacedFiles`).
+    var tabIncarnations: [LeoAgentRow.ID: LeoTabIncarnation] = [:]
+    /// Focus reached this agent before its tab's incarnation was known;
+    /// its open waits for the link state or snapshot that settles it.
+    var focusOpenAwaitingTab: LeoAgentRow.ID?
     /// A click just opened this agent's file: the focus its attach brings
     /// counts as the same visit and opens nothing more.
     var surfacedOpenedByClick: LeoAgentRow.ID?
@@ -108,7 +112,7 @@ import Foundation
         let previousAttentionCount = snapshot.attentionCount
         let previousRows = snapshot.rows
         snapshot = value
-        trackFocusedIncarnation()
+        trackTabIncarnations()
         defer { reapplyFocusedRow(previousRows: previousRows) }
         if value.attentionCount != previousAttentionCount { attentionCountChanged(value.attentionCount) }
         if value.listRefreshSucceeded {
