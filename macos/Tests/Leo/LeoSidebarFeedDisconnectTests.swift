@@ -246,6 +246,30 @@ struct LeoSidebarFeedDisconnectTests {
         await harness.stop()
     }
 
+    /// `applyConnected` can be overtaken by the tunnel's `.failed` for the
+    /// same generation: once that generation has failed, its late
+    /// `.connected` must not bring the dead connection back.
+    @Test func aLateConnectedAfterItsGenerationFailedIsIgnored() async throws {
+        let harness = DisconnectHarness(results: [])
+        await harness.feed.start()
+        await harness.feed.setInitialPolling(true)
+        await harness.feed.updateConnection(host: .remote("mars"), generation: 1, phase: .connecting)
+        await harness.feed.updateConnection(host: .remote("mars"), generation: 1, phase: .failed(message: "ssh exited (255)"))
+        await harness.waitFor { $0.connectivity == .failed(message: "ssh exited (255)") }
+
+        let lateDaemon = DisconnectDaemon(results: [.success(["ghost"])])
+        await harness.feed.updateConnection(
+            host: .remote("mars"), generation: 1,
+            phase: .connected(daemon: lateDaemon, activitySource: DisconnectActivity().source)
+        )
+        await harness.feed.refresh()
+        await harness.settle()
+
+        #expect(await lateDaemon.listCallCount == 0)
+        #expect(await harness.recorder.last?.connectivity == .failed(message: "ssh exited (255)"))
+        await harness.stop()
+    }
+
     /// A superseded wake check's failure (e.g. one whose error was already
     /// on its way when the next wake cancelled it) never disconnects.
     @Test func aStaleWakeCheckFailureIsIgnored() async throws {

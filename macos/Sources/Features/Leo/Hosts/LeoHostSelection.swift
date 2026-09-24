@@ -9,6 +9,10 @@ enum LeoHostConnectionState: Equatable, Sendable {
     case connecting
     case connected(socketPath: String)
     case failed(message: String, hint: String?)
+
+    var failureHint: String? {
+        if case .failed(_, let hint) = self { hint } else { nil }
+    }
 }
 
 enum LeoHostSelectionError: Error, Equatable, Sendable {

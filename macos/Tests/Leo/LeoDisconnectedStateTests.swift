@@ -93,6 +93,18 @@ import Testing
         #expect(model.rows.first == .status(text: LeoSFTPServerText.sanitized(message), hint: LeoSFTPServerText.sanitized(hint), canRetry: true))
     }
 
+    /// The sidebar's full-panel failure (an initial remote connect that
+    /// failed) shows ssh's stderr and a hint naming the configured target:
+    /// both sanitized (B-020).
+    @Test func theSidebarFailurePanelIsSanitized() {
+        let message = "ssh: \u{202E}denied\nnow\u{0007}"
+        let hint = "Run `ssh \u{202E}evil` once"
+        let panel = LeoConnectionFailurePanel(message: message, hint: hint)
+        #expect(panel.message == LeoSFTPServerText.sanitized(message))
+        #expect(panel.hint == LeoSFTPServerText.sanitized(hint))
+        #expect(LeoConnectionFailurePanel(message: "x", hint: nil).hint == nil)
+    }
+
     // MARK: Sidebar model
 
     @Test func rowsAreInertWhileDisconnected() {

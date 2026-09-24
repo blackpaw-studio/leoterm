@@ -87,9 +87,10 @@ actor LeoSidebarFeed {
     /// same host (a new generation) is still recognized as a switch.
     var connectionHost: LeoHostID = .local
     var connectionGeneration = 0
-    /// The current connection has moved past `.connecting` (to connected
-    /// or failed); a late `.connecting` for it is stale.
-    var connectionPhaseSettled = false
+    /// How far the current connection's phases have got (see
+    /// `LeoSidebarConnectionPhase.order`): within one generation they only
+    /// move forward, so a late earlier phase is stale.
+    var connectionPhaseOrder = 0
     var selectedHostAvailable = true
     /// A list has landed for this host since the user last switched to
     /// it: a later failure is a *drop* (disconnected, rows kept), not a

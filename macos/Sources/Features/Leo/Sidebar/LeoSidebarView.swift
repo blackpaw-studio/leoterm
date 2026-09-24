@@ -139,9 +139,10 @@ struct LeoSidebarView: View {
         case .loading:
             stateView { ProgressView(); Text("Loading agents…") }
         case .failed(let message):
+            let panel = LeoConnectionFailurePanel(message: message, hint: hostSelection.state.failureHint)
             stateView {
-                Text(message).multilineTextAlignment(.center).textSelection(.enabled)
-                if case .failed(_, let hint) = hostSelection.state, let hint, let ssh = hostSelection.selectedConfiguration?.sshTarget {
+                Text(panel.message).multilineTextAlignment(.center).textSelection(.enabled)
+                if let hint = panel.hint, let ssh = hostSelection.selectedConfiguration?.sshTarget {
                     Text(hint).font(.caption).multilineTextAlignment(.center)
                     Button("Open SSH") { model.sshRequested(ssh) }
                 }
