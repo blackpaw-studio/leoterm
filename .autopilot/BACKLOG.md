@@ -149,7 +149,8 @@ Done: 558a0585e a00d37484 b9cc40d4b (1360 tests). Tests use an in-memory `UserDe
 ## B-044 · Delete the old test preference stubs   [blocked]
 Accept: ~/Library/Preferences on Dionysus holds 31,098 empty stubs from old test runs (list: /private/tmp/b039-stubs.txt; mostly `Leo*Tests.<UUID>.plist` and 4,220 bare `<UUID>.plist`). B-039 stopped new ones.
 Question: Needs Evan to do: deleting user files is on the Never list. OK to move the `Leo*Tests*` ones (not the bare UUIDs, which may not all be ours) to the Trash? I'd pick yes; the bare UUIDs stay.
-Answer:
+Answer: accept your recommendation (yes; the bare UUIDs stay)
+Needs Evan to do: moving files to the Trash is still on the Never list (an answer settles the call, not the action). Run on Dionysus: `mkdir -p ~/.Trash/leo-test-stubs && find ~/Library/Preferences -maxdepth 1 -name 'Leo*Tests*.plist' -exec mv {} ~/.Trash/leo-test-stubs/ +`, then mark this done.
 
 ## B-040 · AttentionRace: `…RecoveryListIsStillInFlight` doesn't guard boot reset   [done]
 Accept: the test still passes with boot reset disabled, because no fetch returns the old boot's data; it fails only when the recovery baseline is skipped. Redesign it so an old-boot answer arrives in flight and the test fails when boot reset is broken.
@@ -212,12 +213,12 @@ Accept: the agent palette (Choose Agent… / ⌘T picker) still uses substring f
 Source: B-009 implementer
 Done: 9a355633e (1352 tests). Palette ranks and bolds with `LeoFuzzyMatcher`; secondary field is repo (D-078). Verified: shot B-042-1 ("lha" → leo-home-assistant on top, bold letters). Review clean.
 
-## B-010 · Sort and pin   [blocked]
+## B-010 · Sort and pin   [ready]
 Accept: default sort by last activity; pin favourites to top; remember
 collapsed sections.
 Source: roadmap Tier 2
 Question: architecture may be wrong — the pin, collapse, Name sort and menus all worked (shots B-010-2..5), but advancing Last Activity from live `agent_activity` events keyed only by agent NAME failed review 4 times running: a stale /observe/state fetch or SSE recovery can put a deleted agent's activity on a recreated namesake, or drop a just-spawned agent's activity (commits c7e629b18..94cb3a42b, reverted in f6dfc8aec). I'd pick re-scoping it: sort by `last_activity_at` from /observe/state snapshots only (no event-driven reordering, which is also calmer), and ship pins/collapse/Name sort as they were. The alternative is asking the leo agent for a per-agent incarnation id on list/state/events so activity can be keyed by (name, incarnation). OK to re-scope?
-Answer:
+Answer: accept your recommendation (re-scoping it: sort by `last_activity_at` from /observe/state snapshots only (no event-driven reordering, which is also calmer), and ship pins/collapse/Name sort as they were)
 
 ## B-011 · Row metadata   [done]
 Accept: relative "last active" time and current task line; tokens/cost only
@@ -235,14 +236,14 @@ Accept: measure launch with sidebar visible; if first fetch blocks first
 paint, render cached last snapshot and refresh in place.
 Source: roadmap Tier 3
 
-## B-013 · Daemon-pushed "surface file" event   [blocked]
+## B-013 · Daemon-pushed "surface file" event   [ready]
 Accept: an agent calls a leo tool; the daemon emits a file-surfaced event;
 Leo badges the row and opens/queues the file.
 Question: needs a leo daemon change — request it from the leo agent after
 B-004 ships, or wait for you? — I'd pick requesting it after B-004 ships.
-Answer:
+Answer: accept your recommendation (requesting it after B-004 ships)
 
-## B-014 · All hosts at once as sidebar sections   [blocked]
+## B-014 · All hosts at once as sidebar sections   [deferred]
 Question: deferred by D-008 until several remotes are in daily use. Tell me
 when that's true. — I'd pick keeping it deferred.
-Answer:
+Answer: accept your recommendation (keeping it deferred)
