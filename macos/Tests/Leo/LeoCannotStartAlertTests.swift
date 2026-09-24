@@ -30,6 +30,24 @@ struct LeoCannotStartAlertTests {
     @Test func unusualCharactersAreKeptVisibleAndControlsNeutralised() {
         #expect(LeoCannotStartAlert.abbreviated("/Users/Zoë Q/Caches/lëo dir/a b.lock") == "…/lëo dir/a b.lock")
         #expect(LeoCannotStartAlert.abbreviated("/a/b/le\no/x\u{202E}kcol.lock") == "…/le\u{FFFD}o/x\u{FFFD}kcol.lock")
+        #expect(LeoCannotStartAlert.abbreviated("/a/b/l\u{2028}e\u{2029}o/x\u{85}y\u{0B}.lock")
+            == "…/l\u{FFFD}e\u{FFFD}o/x\u{FFFD}y\u{FFFD}.lock")
+    }
+
+    /// The tooltip is text too: the full path is shown whole but neutralised
+    /// the same way. Show in Finder still gets the real path.
+    @MainActor
+    @Test func theTooltipPathIsNeutralisedButTheRevealPathIsNot() throws {
+        let path = "/a/b\u{2028}c/x\u{202E}.lock"
+        var revealed: [[String]] = []
+        let content = LeoCannotStartAlert(refusal: LeoInstanceLockRefusal(error: .linked, path: path))
+
+        #expect(content.pathLine?.fullPath == "/a/b\u{FFFD}c/x\u{FFFD}.lock")
+        let presenter = LeoCannotStartAlertPresenter(content: content, fileExists: { _ in true }, reveal: { revealed.append($0.map(\.path)) })
+        let alert = presenter.makeAlert()
+        #expect((alert.accessoryView as? NSTextField)?.toolTip == "/a/b\u{FFFD}c/x\u{FFFD}.lock")
+        try withExtendedLifetime(presenter) { try Self.clickShowInFinder(alert) }
+        #expect(revealed == [[path]])
     }
 
     // MARK: - Content
@@ -37,7 +55,7 @@ struct LeoCannotStartAlertTests {
     /// The sentence never holds a path (a long file name wrapped and got
     /// hyphenated in it); the short path goes on its own line below.
     @Test func theSentenceNamesTheProblemAndThePathHasItsOwnLine() {
-        let alert = LeoCannotStartAlert(refusal: LeoInstanceLockRefusal(error: .linked, path: Self.lockPath), fileExists: { _ in true })
+        let alert = LeoCannotStartAlert(refusal: LeoInstanceLockRefusal(error: .linked, path: Self.lockPath))
 
         #expect(alert.messageText == "Leo can’t start")
         #expect(alert.informativeText == "Leo’s instance lock has other hard links. Remove it and open Leo again.")
@@ -56,26 +74,23 @@ struct LeoCannotStartAlertTests {
         (.directory(.system(ENOENT)), "Leo’s lock folder can’t be checked: No such file or directory."),
     ])
     func everyFileRefusalSentenceIsPathFree(error: LeoInstanceLockError, sentence: String) {
-        let alert = LeoCannotStartAlert(refusal: LeoInstanceLockRefusal(error: error, path: Self.lockPath), fileExists: { _ in true })
+        let alert = LeoCannotStartAlert(refusal: LeoInstanceLockRefusal(error: error, path: Self.lockPath))
 
         #expect(alert.informativeText == sentence)
         #expect(alert.pathLine?.fullPath == Self.lockPath)
     }
 
     @Test func anExistingFileIsRevealedItself() {
-        let alert = LeoCannotStartAlert(refusal: LeoInstanceLockRefusal(error: .linked, path: Self.lockPath), fileExists: { _ in true })
+        let alert = LeoCannotStartAlert(refusal: LeoInstanceLockRefusal(error: .linked, path: Self.lockPath))
 
-        #expect(alert.revealTarget?.path == Self.lockPath)
+        #expect(alert.revealTarget(fileExists: { _ in true })?.path == Self.lockPath)
     }
 
     @Test func aMissingFileRevealsItsFolder() {
         var asked: [String] = []
-        let alert = LeoCannotStartAlert(
-            refusal: LeoInstanceLockRefusal(error: .system(EACCES), path: Self.lockPath),
-            fileExists: { asked.append($0); return false }
-        )
+        let alert = LeoCannotStartAlert(refusal: LeoInstanceLockRefusal(error: .system(EACCES), path: Self.lockPath))
 
-        #expect(alert.revealTarget?.path == "/var/folders/ab/xyz_123/C/leo")
+        #expect(alert.revealTarget(fileExists: { asked.append($0); return false })?.path == "/var/folders/ab/xyz_123/C/leo")
         #expect(asked == [Self.lockPath])
     }
 
@@ -86,9 +101,9 @@ struct LeoCannotStartAlertTests {
         LeoInstanceLockRefusal(error: .noCacheDirectory, path: "_CS_DARWIN_USER_CACHE_DIR"),
     ])
     func aRefusalWithoutAFileHasNoRevealTarget(refusal: LeoInstanceLockRefusal) {
-        let alert = LeoCannotStartAlert(refusal: refusal, fileExists: { _ in Issue.record("must not stat"); return true })
+        let alert = LeoCannotStartAlert(refusal: refusal)
 
-        #expect(alert.revealTarget == nil)
+        #expect(alert.revealTarget(fileExists: { _ in Issue.record("must not stat"); return true }) == nil)
         #expect(alert.pathLine == nil)
         #expect(alert.informativeText == refusal.message)
     }
@@ -98,8 +113,8 @@ struct LeoCannotStartAlertTests {
     @MainActor
     @Test func quitIsTheDefaultAndShowInFinderRevealsWithoutDismissing() throws {
         var revealed: [[String]] = []
-        let content = LeoCannotStartAlert(refusal: LeoInstanceLockRefusal(error: .linked, path: Self.lockPath), fileExists: { _ in true })
-        let presenter = LeoCannotStartAlertPresenter(content: content, reveal: { revealed.append($0.map(\.path)) })
+        let content = LeoCannotStartAlert(refusal: LeoInstanceLockRefusal(error: .linked, path: Self.lockPath))
+        let presenter = LeoCannotStartAlertPresenter(content: content, fileExists: { _ in true }, reveal: { revealed.append($0.map(\.path)) })
 
         let alert = presenter.makeAlert()
 
@@ -117,9 +132,34 @@ struct LeoCannotStartAlertTests {
         #expect(revealed == [[Self.lockPath]])
     }
 
+    /// The alert says to remove the file; if the user does and then clicks
+    /// Show in Finder, the folder is revealed, not a file that's gone.
+    @MainActor
+    @Test func showInFinderChoosesFileOrFolderWhenClicked() throws {
+        var exists = true
+        var revealed: [[String]] = []
+        let content = LeoCannotStartAlert(refusal: LeoInstanceLockRefusal(error: .linked, path: Self.lockPath))
+        let presenter = LeoCannotStartAlertPresenter(
+            content: content, fileExists: { _ in exists }, reveal: { revealed.append($0.map(\.path)) }
+        )
+        let alert = presenter.makeAlert()
+
+        exists = false
+        try withExtendedLifetime(presenter) { try Self.clickShowInFinder(alert) }
+
+        #expect(revealed == [["/var/folders/ab/xyz_123/C/leo"]])
+    }
+
+    @MainActor
+    private static func clickShowInFinder(_ alert: NSAlert) throws {
+        let show = try #require(alert.buttons.first { $0.title == "Show in Finder" })
+        let target = try #require(show.target as? NSObject)
+        target.perform(try #require(show.action), with: show)
+    }
+
     @MainActor
     @Test func withoutARevealTargetThereIsOnlyQuit() {
-        let content = LeoCannotStartAlert(refusal: LeoInstanceLockRefusal(error: .noCacheDirectory, path: "_CS_DARWIN_USER_CACHE_DIR"), fileExists: { _ in true })
+        let content = LeoCannotStartAlert(refusal: LeoInstanceLockRefusal(error: .noCacheDirectory, path: "_CS_DARWIN_USER_CACHE_DIR"))
 
         let alert = LeoCannotStartAlertPresenter(content: content, reveal: { _ in Issue.record("must not reveal") }).makeAlert()
 
@@ -131,7 +171,7 @@ struct LeoCannotStartAlertTests {
     /// the whole path in its tooltip, as wide as the alert's text.
     @MainActor
     @Test func thePathLineIsOneMiddleTruncatedSelectableLine() throws {
-        let content = LeoCannotStartAlert(refusal: LeoInstanceLockRefusal(error: .linked, path: Self.lockPath), fileExists: { _ in true })
+        let content = LeoCannotStartAlert(refusal: LeoInstanceLockRefusal(error: .linked, path: Self.lockPath))
 
         let alert = LeoCannotStartAlertPresenter(content: content, reveal: { _ in }).makeAlert()
 

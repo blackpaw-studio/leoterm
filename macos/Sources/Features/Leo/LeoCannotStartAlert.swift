@@ -17,20 +17,31 @@ struct LeoCannotStartAlert: Equatable {
     let informativeText: String
     /// Nil when the refusal isn't about a file at all.
     let pathLine: PathLine?
-    /// The offending file, or its folder when the file isn't there; nil when
-    /// the refusal isn't about a file at all.
-    let revealTarget: URL?
+    /// The refused path, unaltered, for Show in Finder; nil when the refusal
+    /// isn't about a file at all.
+    private let refusedPath: String?
 
-    init(refusal: LeoInstanceLockRefusal, fileExists: (String) -> Bool = Self.entryExists) {
+    init(refusal: LeoInstanceLockRefusal) {
         guard let subject = Self.subject(of: refusal.error) else {
             informativeText = refusal.message
             pathLine = nil
-            revealTarget = nil
+            refusedPath = nil
             return
         }
         informativeText = refusal.message(showing: subject)
-        pathLine = PathLine(text: Self.abbreviated(refusal.path), fullPath: refusal.path)
-        revealTarget = Self.revealTarget(for: refusal.path, fileExists: fileExists)
+        pathLine = PathLine(text: Self.abbreviated(refusal.path), fullPath: Self.neutralised(refusal.path))
+        refusedPath = refusal.path
+    }
+
+    var canReveal: Bool { refusedPath != nil }
+
+    /// The offending file, or its folder when the file isn't there (asked
+    /// each time: the alert tells the user to remove it); nil when the
+    /// refusal isn't about a file at all.
+    func revealTarget(fileExists: (String) -> Bool = Self.entryExists) -> URL? {
+        guard let path = refusedPath else { return nil }
+        guard !fileExists(path) else { return URL(fileURLWithPath: path) }
+        return URL(fileURLWithPath: (path as NSString).deletingLastPathComponent, isDirectory: true)
     }
 
     /// What the refused path is, in words; nil when there's no file.
@@ -43,25 +54,24 @@ struct LeoCannotStartAlert: Equatable {
     }
 
     /// `…/<last folder>/<name>` for a path deeper than that, else the whole
-    /// path. Control and invisible formatting characters (a newline, a
-    /// right-to-left override) become U+FFFD so a file name can't reshape
-    /// the alert text.
+    /// path, `neutralised`.
     static func abbreviated(_ path: String) -> String {
         let components = path.split(separator: "/", omittingEmptySubsequences: true)
-        let shown = components.count > 2 ? "…/" + components.suffix(2).joined(separator: "/") : path
-        return String(String.UnicodeScalarView(shown.unicodeScalars.map(visible)))
+        return neutralised(components.count > 2 ? "…/" + components.suffix(2).joined(separator: "/") : path)
+    }
+
+    /// Control, invisible formatting and line/paragraph separator characters
+    /// (a newline, U+2028, a right-to-left override) become U+FFFD so a file
+    /// name can't reshape the alert text or its tooltip.
+    static func neutralised(_ text: String) -> String {
+        String(String.UnicodeScalarView(text.unicodeScalars.map(visible)))
     }
 
     private static func visible(_ scalar: Unicode.Scalar) -> Unicode.Scalar {
         switch scalar.properties.generalCategory {
-        case .control, .format: return "\u{FFFD}"
+        case .control, .format, .lineSeparator, .paragraphSeparator: return "\u{FFFD}"
         default: return scalar
         }
-    }
-
-    private static func revealTarget(for path: String, fileExists: (String) -> Bool) -> URL {
-        guard !fileExists(path) else { return URL(fileURLWithPath: path) }
-        return URL(fileURLWithPath: (path as NSString).deletingLastPathComponent, isDirectory: true)
     }
 
     /// Anything at `path`, a dangling symlink included: that's what's in the way.
@@ -78,10 +88,16 @@ struct LeoCannotStartAlert: Equatable {
 @MainActor
 final class LeoCannotStartAlertPresenter: NSObject {
     private let content: LeoCannotStartAlert
+    private let fileExists: (String) -> Bool
     private let reveal: ([URL]) -> Void
 
-    init(content: LeoCannotStartAlert, reveal: @escaping ([URL]) -> Void = NSWorkspace.shared.activateFileViewerSelecting) {
+    init(
+        content: LeoCannotStartAlert,
+        fileExists: @escaping (String) -> Bool = LeoCannotStartAlert.entryExists,
+        reveal: @escaping ([URL]) -> Void = NSWorkspace.shared.activateFileViewerSelecting
+    ) {
         self.content = content
+        self.fileExists = fileExists
         self.reveal = reveal
     }
 
@@ -91,7 +107,7 @@ final class LeoCannotStartAlertPresenter: NSObject {
         alert.messageText = content.messageText
         alert.informativeText = content.informativeText
         alert.addButton(withTitle: "Quit")
-        if content.revealTarget != nil {
+        if content.canReveal {
             let show = alert.addButton(withTitle: "Show in Finder")
             show.target = self
             show.action = #selector(showInFinder(_:))
@@ -141,7 +157,7 @@ final class LeoCannotStartAlertPresenter: NSObject {
     }
 
     @objc private func showInFinder(_ sender: Any?) {
-        guard let target = content.revealTarget else { return }
+        guard let target = content.revealTarget(fileExists: fileExists) else { return }
         reveal([target])
     }
 }
