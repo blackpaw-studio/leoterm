@@ -164,6 +164,7 @@ Why: it costs the name no width (lesson from D-012); principle 2: calm
 Alternatives: glyph next to the name
 Commit: 54ae397a2 e05e818b7 71d366ad1 e07fa6b65
 Veto: [ ]
+Superseded: glyph removed by B-047 (d403a2c9a), approved by Evan 2026-09-24
 
 ## D-021 · 2026-09-22 · Clicking a row with a live tab focuses that tab
 Context: B-006
@@ -712,4 +713,11 @@ Chose: (1) An agent with no `started_at` is still skipped in a /state merge. (2)
 Why: never invent a state; calm (⌥⌘O opens the truly newest file); one ordering rule for both paths
 Alternatives: drop undated live files in a partial merge (would hide a file the daemon reported)
 Commit: a91e50296 a70d51027
+Veto: [ ]
+
+## D-093 · 2026-09-24 · B-047 implementer calls (one tab per agent)
+Chose: (1) Reuse B-006's `LeoAttachCoordinator.focusMostRecent` (host + name, most recently used live attachment); a same-named agent on another host never matches. (2) When "Choose Agent…" on a blank start-screen tab jumps to an existing tab, the blank tab closes (only if still unfilled, no editor/browser pane), as Safari does. (3) A leftover placeholder pane from an exited attach is filled in place, not jumped away from (same as Split). (4) The palette shows "⌘↩ New Tab" at the right of the search field, only for ⌘T and start-screen requests; the row's Attach button tooltip mentions ⌘-click; the row context menu gets "Attach in New Tab". (5) ⌘-double-click opens one new tab (the second click focuses it). (6) A single click on a row with no tab still only selects it (D-021).
+Why: principle 4 (no hunting for an agent's tab); principle 1 (Safari conventions, every action in a menu); no empty tabs left behind
+Alternatives: leave the blank start tab open; a footer hint in the palette (changes the fixed panel height)
+Commit: d403a2c9a
 Veto: [ ]

@@ -312,10 +312,15 @@ Source: B-013 third review (dismissed as non-blocking)
 Done: a91e50296 a70d51027 (1463 tests). Event-only files placed by `at` in partial merges (shared rule with live events); an all-malformed full baseline clears stale live files; cleared incarnations leave the 64-slot LRU (D-092). Tests: partial-merge order, ⌥⌘O picks t3 after `[t1, t2(live), t3]` (red on pre-B-046 code), malformed full baseline, cleared-incarnation bound. Not visually verified: index-only change, no UI change. 1 fix round (review.concurrency LOW: empty cleared entry held an LRU slot); round 2 clean.
 
 
-## B-047 · One tab per agent — sidebar and palette focus the existing tab   [ready]
+## B-047 · One tab per agent — sidebar and palette focus the existing tab   [done]
 Issue: #52
 Why: Clicking an agent row, or choosing an agent in the palette (Choose Agent… / ⌘T picker), goes to that agent's open tab instead of attaching a duplicate. Serves "Everything through Leo" (no hunting for an agent's tab) and "Keyboard-first".
 Accept: With a tab already attached to agent X, clicking X's row (highlighted or not) selects that tab and focuses its terminal, and the tab count stays the same; the same happens when X is chosen from the palette, including when the tab is in another window (that window comes forward); with no tab open for X, clicking or choosing X attaches a new tab as it does today; ⌘-click on a row and ⌘-Return in the palette force a new tab (Safari convention; shown in the menu or tooltip); the row's tab-count glyph is removed (Evan approved the removal 2026-09-24); tests cover the lookup for each entry point, plus a screenshot from the isolated debug build using autopilot-scratch.
 Out: Closing or merging duplicate tabs that already exist (focus the most recently used one); changing Split (⌘D), which still attaches a new split; any per-agent limit enforced by the daemon.
 Source: Evan (/feature, 2026-09-24)
 Inbox: 20260925T002247437461Z-47b2bf9d#1
+Done: d403a2c9a (1477 tests). Row click and palette choice (⌘T, Choose Agent…) focus the agent's open tab via B-006's lookup (host + name, most recent); ⌘-click / ⌘↩ / row menu "Attach in New Tab" force a new tab; tab-count glyph removed (D-020 superseded); decisions D-093. Verified: shots B-047-1 (scratch attached in its own window), B-047-2 (row click from the other window brings that window forward; still one tmux client, no new window). Palette path and ⌘↩ not visually verified (peekaboo dismissed the palette on refocus) → B-048. Review clean, 0 fix rounds.
+
+## B-048 · Verify palette ⌘↩ vs Toggle Full Screen   [ready (next run)]
+Accept: in the isolated debug build, the agent palette's ⌘↩ opens a new tab for the chosen agent and does not toggle full screen (the main menu's Toggle Full Screen is also ⌘↩; `LeoAgentPalettePanel.swift:120` intercepts in performKeyEquivalent). Also confirm ⌘-click on an already-selected row leaves it selected. Add a test if either is wrong. Screenshot with autopilot-scratch only.
+Source: B-047 implementer report (unverified in the GUI)
