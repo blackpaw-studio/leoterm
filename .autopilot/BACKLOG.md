@@ -313,6 +313,7 @@ Done: a91e50296 a70d51027 (1463 tests). Event-only files placed by `at` in parti
 
 
 ## B-047 · One tab per agent — sidebar and palette focus the existing tab   [ready]
+Issue: #52
 Why: Clicking an agent row, or choosing an agent in the palette (Choose Agent… / ⌘T picker), goes to that agent's open tab instead of attaching a duplicate. Serves "Everything through Leo" (no hunting for an agent's tab) and "Keyboard-first".
 Accept: With a tab already attached to agent X, clicking X's row (highlighted or not) selects that tab and focuses its terminal, and the tab count stays the same; the same happens when X is chosen from the palette, including when the tab is in another window (that window comes forward); with no tab open for X, clicking or choosing X attaches a new tab as it does today; ⌘-click on a row and ⌘-Return in the palette force a new tab (Safari convention; shown in the menu or tooltip); the row's tab-count glyph is removed (Evan approved the removal 2026-09-24); tests cover the lookup for each entry point, plus a screenshot from the isolated debug build using autopilot-scratch.
 Out: Closing or merging duplicate tabs that already exist (focus the most recently used one); changing Split (⌘D), which still attaches a new split; any per-agent limit enforced by the daemon.
