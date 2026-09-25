@@ -305,8 +305,9 @@ Question: deferred by D-008 until several remotes are in daily use. Tell me
 when that's true. — I'd pick keeping it deferred.
 Answer: accept your recommendation (keeping it deferred)
 
-## B-046 · Surfaced files: keep `at` order through a partial /state merge   [ready]
+## B-046 · Surfaced files: keep `at` order through a partial /state merge   [done]
 Issue: #51
 Accept: a partial baseline appends event-only files as newest, so `[t1, t2(live), t3]` becomes `[t1, t3, t2]` and ⌥⌘O picks t2 (`LeoSurfacedFileIndex.swift:64`). Place event-only files by `at` when merging. Also: a full (20-sent) baseline whose entries are all malformed returns early and leaves stale live files (`:59`); treat it as an empty full baseline. Failing tests first.
 Source: B-013 third review (dismissed as non-blocking)
+Done: a91e50296 a70d51027 (1463 tests). Event-only files placed by `at` in partial merges (shared rule with live events); an all-malformed full baseline clears stale live files; cleared incarnations leave the 64-slot LRU (D-092). Tests: partial-merge order, ⌥⌘O picks t3 after `[t1, t2(live), t3]` (red on pre-B-046 code), malformed full baseline, cleared-incarnation bound. Not visually verified: index-only change, no UI change. 1 fix round (review.concurrency LOW: empty cleared entry held an LRU slot); round 2 clean.
 

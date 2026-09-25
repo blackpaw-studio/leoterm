@@ -706,3 +706,10 @@ Why: calm; never invent a state; local = remote (deadline); fail visibly on user
 Alternatives: mark seen on menu display (hides files never read); migrate the v1 ledger (debug-only data)
 Commit: 70a2b21e8 eed22646d 813d4f335 263040196
 Veto: [ ]
+
+## D-092 · 2026-09-24 · B-046 implementer calls (surfaced-file merge edge cases)
+Chose: (1) An agent with no `started_at` is still skipped in a /state merge. (2) An all-malformed full baseline clears an incarnation that already has files; with nothing stored it is a no-op (no empty entry). (3) A cleared incarnation is removed from the index and the LRU, so it doesn't hold one of the 64 slots. (4) In a partial merge an undated event-only file is placed as newest; equal `at` keeps existing order. (5) Live events and the /state merge share one placement rule (before the first later `at`).
+Why: never invent a state; calm (⌥⌘O opens the truly newest file); one ordering rule for both paths
+Alternatives: drop undated live files in a partial merge (would hide a file the daemon reported)
+Commit: a91e50296 a70d51027
+Veto: [ ]
