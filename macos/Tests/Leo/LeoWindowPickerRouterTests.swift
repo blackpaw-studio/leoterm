@@ -41,7 +41,7 @@ import Testing
         let hostSelection = LeoHostSelection.isolatedForTesting(defaults: hostDefaults)
         let actions = LeoAgentActions(daemon: StubDaemonClient(), cli: LeoCLI(), model: sidebar, hostSelection: hostSelection, refresh: {})
         let router = LeoNewSurfaceRouter(
-            attach: { _, _ in .success(()) },
+            attach: { _, _, _ in .success(()) },
             openPlainShell: { _ in .success(()) },
             presentSpawn: { _, complete in complete(nil) }
         )
@@ -79,7 +79,7 @@ import Testing
         let hostSelection = LeoHostSelection.isolatedForTesting(defaults: hostDefaults)
         let actions = LeoAgentActions(daemon: StubDaemonClient(), cli: LeoCLI(), model: sidebar, hostSelection: hostSelection, refresh: {})
         let router = LeoNewSurfaceRouter(
-            attach: { _, _ in .success(()) },
+            attach: { _, _, _ in .success(()) },
             openPlainShell: { _ in .success(()) },
             presentSpawn: { _, complete in complete(nil) }
         )

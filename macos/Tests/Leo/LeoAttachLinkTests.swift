@@ -232,19 +232,6 @@ import Testing
         #expect(focusRequests == [id(local)], "a row without a live tab keeps today's click behaviour")
     }
 
-    // MARK: Row presentation
-
-    @Test func tabGlyphShowsOnlyForLiveTabsAndCountsFromTwo() {
-        let row = row(local)
-        #expect(LeoAgentRowPresentation(row: row, isSelected: false, tabCount: 0).tabs == nil)
-        let one = LeoAgentRowPresentation(row: row, isSelected: false, tabCount: 1).tabs
-        #expect(one?.countText == nil)
-        #expect(one?.accessibilityLabel == "1 open tab")
-        let three = LeoAgentRowPresentation(row: row, isSelected: false, tabCount: 3).tabs
-        #expect(three?.countText == "3")
-        #expect(three?.accessibilityLabel == "3 open tabs")
-    }
-
     // MARK: Helpers
 
     private func id(_ identity: LeoAgentIdentity) -> LeoAgentRow.ID { LeoAgentRow.ID(host: identity.host, name: identity.name) }

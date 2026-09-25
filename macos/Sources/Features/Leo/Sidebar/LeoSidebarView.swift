@@ -217,9 +217,8 @@ struct LeoSidebarView: View {
                         LeoAgentRowView(
                             row: row,
                             isSelected: model.selection == row.id,
-                            tabCount: model.tabCount(for: row.id),
                             attach: { row, disposition in model.requestAttach(row, from: windowID, disposition: disposition) },
-                            click: { model.rowClicked(row, modifierFlags: $0) },
+                            click: { model.rowClicked(row, modifierFlags: $0, clickCount: $1, from: windowID) },
                             actions: actions,
                             error: model.rowErrors[row.id],
                             errorCode: model.rowErrorCodes[row.id],

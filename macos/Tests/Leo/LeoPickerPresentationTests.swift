@@ -89,6 +89,25 @@ import Testing
         #expect(env.panel.lastModel?.rows.contains { if case .agent(let agentRow) = $0 { agentRow.name == "alpha" } else { false } } == true)
     }
 
+    /// B-047: ⌘Return means "new tab" only where Return can go to an
+    /// open tab instead (⌘T, the start screen) -- never for a split.
+    @Test(arguments: [
+        (LeoSurfaceDisposition.tab, true),
+        (.placeholder, true),
+        (.placeholder(surfaceID: UUID()), false),
+        (.split(.right), false),
+        (.window, false)
+    ])
+    func newTabHintShowsWhereReturnReusesAnOpenTab(_ disposition: LeoSurfaceDisposition, _ shows: Bool) {
+        let env = makeEnvironment()
+        let request = LeoSurfaceRequest(origin: origin, disposition: disposition, splitSourceSurface: UUID())
+        env.router.begin(request)
+
+        env.presentation.present(request: request)
+
+        #expect(env.panel.lastModel?.reusesOpenTabs == shows)
+    }
+
     @Test func confirmedAgentChoiceCommitsToRouter() async {
         let env = makeEnvironment()
         let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
@@ -477,7 +496,7 @@ private func waitFor(timeout: TimeInterval = 2, _ condition: @escaping () -> Boo
 
     func makeRouter(pickerRouter: LeoWindowPickerRouter) -> LeoNewSurfaceRouter {
         LeoNewSurfaceRouter(
-            attach: { [weak self] identity, request in
+            attach: { [weak self] identity, request, _ in
                 self?.attachCalls.append((identity, request))
                 self?.workedRequests.append(request)
                 if let gate = self?.attachGate { await gate.enterAndWaitForRelease() }

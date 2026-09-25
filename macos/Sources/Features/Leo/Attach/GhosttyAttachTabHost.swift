@@ -265,6 +265,17 @@ import OSLog
         Ghostty.moveFocus(to: surface)
     }
 
+    func discardEmptyPlaceholder(origin: LeoWindowID) {
+        guard let controller = registry.controller(for: origin), controller.leoIsUnfilledPlaceholder,
+              controller.surfaceTree.isEmpty, let session = controller.leoSession,
+              session.editorPane == nil, session.browserPane == nil else { return }
+        Self.logger.log("discardEmptyPlaceholder origin=\(origin.rawValue.uuidString, privacy: .public)")
+        // Closes just this tab (a tabbed window's tabs are windows). The
+        // same close an emptied tree takes -- no undo: there is nothing
+        // in a blank start screen to bring back.
+        controller.window?.close()
+    }
+
     func isOpen(_ handle: AttachmentHandle) -> Bool {
         guard let attachment = attachments[handle], let controller = attachment.controller, let surface = attachment.surface else { return false }
         return controller.window != nil && controller.surfaceTree.contains(surface)

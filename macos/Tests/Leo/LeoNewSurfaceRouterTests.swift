@@ -336,7 +336,7 @@ import Testing
 
     func makeRouter() -> LeoNewSurfaceRouter {
         let router = LeoNewSurfaceRouter(
-            attach: { [weak self] identity, request in
+            attach: { [weak self] identity, request, _ in
                 self?.attachCalls.append((identity, request))
                 if let gate = self?.attachGate { await gate.enterAndWaitForRelease() }
                 return self?.attachResult ?? .success(())

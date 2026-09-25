@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Spotlight-style body for `LeoAgentPalettePanel`: a search field over a
@@ -39,9 +40,19 @@ struct LeoAgentPaletteView: View {
                 text: $model.filterText,
                 onMoveUp: { model.moveSelection(by: -1) },
                 onMoveDown: { model.moveSelection(by: 1) },
-                onSubmit: commitSelection,
+                onSubmit: { commitSelection(reuse: $0) },
                 onCancel: { onCommit(.cancel) }
             )
+            // B-047: Return goes to an agent's open tab; say how to get
+            // a new one. In the header, so the panel's height is unchanged.
+            if model.reusesOpenTabs {
+                Text("⌘↩ New Tab")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize()
+                    .help("Return goes to the agent's open tab. ⌘Return opens a new tab.")
+                    .accessibilityLabel("Command-Return opens the agent in a new tab")
+            }
         }
         .padding(16)
     }
@@ -61,7 +72,7 @@ struct LeoAgentPaletteView: View {
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 model.select(index)
-                                commitSelection()
+                                commitSelection(reuse: LeoAttachReuse(modifierFlags: NSEvent.modifierFlags))
                             }
                     }
                 }
@@ -77,8 +88,8 @@ struct LeoAgentPaletteView: View {
         }
     }
 
-    private func commitSelection() {
-        guard let choice = model.confirm() else { return }
+    private func commitSelection(reuse: LeoAttachReuse) {
+        guard let choice = model.confirm(reuse: reuse) else { return }
         onCommit(choice)
     }
 }

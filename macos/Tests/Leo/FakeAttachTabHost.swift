@@ -97,6 +97,9 @@ struct FakeOpenCall {
     var reborn: [AttachmentHandle] = []
     func rebirthPlaceholder(for handle: AttachmentHandle) { reborn.append(handle) }
 
+    var discardedPlaceholders: [LeoWindowID] = []
+    func discardEmptyPlaceholder(origin: LeoWindowID) { discardedPlaceholders.append(origin) }
+
     func focus(_ handle: AttachmentHandle) { focused.append(handle) }
     func isOpen(_ handle: AttachmentHandle) -> Bool { openHandles.contains(handle) }
     func setTitleSeed(_ handle: AttachmentHandle, title: String?) { titles.append((handle, title)) }

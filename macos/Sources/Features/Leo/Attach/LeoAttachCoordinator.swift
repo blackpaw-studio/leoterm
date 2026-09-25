@@ -105,24 +105,37 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
 
     /// Legacy entry point for existing attach callers (sidebar row click,
     /// CLI-driven attach). Maps onto the `LeoSurfaceRequest`-based API below;
-    /// `.reuseOrTab` becomes `.tab` (reuse-eligible), `.newWindow` becomes
-    /// `.window` (always creates).
+    /// `.reuseOrTab` becomes `.tab` (reuse-eligible), `.newTab` a `.tab`
+    /// that always creates (⌘-click), `.newWindow` becomes `.window`
+    /// (always creates).
     func attach(identity: LeoAgentIdentity, from origin: LeoWindowID, disposition: AttachDisposition) async {
-        let mapped: LeoSurfaceDisposition = disposition == .reuseOrTab ? .tab : .window
-        _ = await attach(identity: identity, request: LeoSurfaceRequest(origin: origin, disposition: mapped))
+        let (mapped, reuse): (LeoSurfaceDisposition, LeoAttachReuse) = switch disposition {
+        case .reuseOrTab: (.tab, .focusExisting)
+        case .newTab: (.tab, .alwaysNew)
+        case .newWindow: (.window, .alwaysNew)
+        }
+        _ = await attach(identity: identity, request: LeoSurfaceRequest(origin: origin, disposition: mapped), reuse: reuse)
     }
 
-    /// Core attach implementation. Only `.tab` reuses a live handle for
-    /// `identity` -- `.split`, `.window`, and `.placeholder` always create a
-    /// new destination (tmux allows multiple attached clients).
-    func attach(identity: LeoAgentIdentity, request: LeoSurfaceRequest) async -> Result<AttachmentHandle, LeoAttachError> {
+    /// Core attach implementation. One tab per agent (B-047): a `.tab` or
+    /// start-screen request goes to `identity`'s most recently used live
+    /// attachment when it has one, unless `reuse` is `.alwaysNew`; the start
+    /// screen it came from is then closed. `.split`, `.window`, and a pane
+    /// placeholder always create a new destination (tmux allows multiple
+    /// attached clients).
+    func attach(
+        identity: LeoAgentIdentity,
+        request: LeoSurfaceRequest,
+        reuse: LeoAttachReuse = .focusExisting
+    ) async -> Result<AttachmentHandle, LeoAttachError> {
         guard !attachInProgress.contains(identity) else {
             return .failure(.init(identity: identity, kind: .openFailed("Attach already in progress")))
         }
         attachInProgress.insert(identity)
         defer { attachInProgress.remove(identity) }
 
-        if request.disposition == .tab, let handle = focusMostRecent(identity) {
+        if reuse == .focusExisting, request.disposition.reusesOpenTab, let handle = focusMostRecent(identity) {
+            if request.disposition != .tab { host.discardEmptyPlaceholder(origin: request.origin) }
             return .success(handle)
         }
 

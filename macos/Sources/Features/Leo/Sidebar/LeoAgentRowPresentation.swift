@@ -77,35 +77,18 @@ struct LeoAgentRowPresentation: Equatable {
         }
     }
 
-    /// Live attach tabs/splits for the agent: a secondary glyph, with the
-    /// number only from two up (one tab is the common case, not news).
-    struct Tabs: Equatable {
-        let countText: String?
-        let accessibilityLabel: String
-
-        static let symbolName = "macwindow"
-
-        init?(count: Int) {
-            guard count > 0 else { return nil }
-            countText = count >= 2 ? "\(count)" : nil
-            accessibilityLabel = count == 1 ? "1 open tab" : "\(count) open tabs"
-        }
-    }
-
     let badge: Badge?
     let subtitle: Subtitle?
-    let tabs: Tabs?
     /// The agent's current task (already sanitized), for its own line.
     let task: String?
 
     /// `now` dates the "last active" label; without it (no clock yet) the
     /// subtitle has no time. Metadata the daemon didn't report adds nothing.
     init(
-        row: LeoAgentRow, isSelected: Bool, tabCount: Int = 0, now: Date? = nil,
+        row: LeoAgentRow, isSelected: Bool, now: Date? = nil,
         timeZone: TimeZone = .current, locale: Locale = .current
     ) {
         let template = row.template.flatMap { $0.isEmpty ? nil : $0 }
-        tabs = Tabs(count: tabCount)
         task = row.metadata?.task
         let attention = row.attention.map(LeoStatusPresentation.attention)
         // On a selected row the state drops to the primary color for contrast.

@@ -17,6 +17,26 @@ enum LeoSurfaceDisposition: Equatable, Sendable {
     static var placeholder: Self { .placeholder(surfaceID: nil) }
 }
 
+extension LeoSurfaceDisposition {
+    /// B-047: where an agent's open tab stands in for a new one. A fresh
+    /// tab (⌘T) or start screen (`.placeholder(surfaceID: nil)`) does; a
+    /// split, a new window, and a pane left in an existing tab by an exited
+    /// attach always attach.
+    var reusesOpenTab: Bool {
+        switch self {
+        case .tab, .placeholder(surfaceID: nil): true
+        case .split, .window, .placeholder: false
+        }
+    }
+}
+
+/// B-047: whether an attach goes to the agent's open tab (the default) or
+/// always opens a new one (⌘-click, ⌘Return).
+enum LeoAttachReuse: Equatable, Sendable {
+    case focusExisting
+    case alwaysNew
+}
+
 struct LeoSurfaceRequestTarget: Hashable, Sendable {
     let windowID: LeoWindowID
     let surfaceID: UUID?

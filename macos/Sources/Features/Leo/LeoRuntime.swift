@@ -140,11 +140,11 @@ import OSLog
         )
         let pickerRouter = LeoWindowPickerRouter()
         let router = LeoNewSurfaceRouter(
-            attach: { [weak attachCoordinator] identity, request in
+            attach: { [weak attachCoordinator] identity, request, reuse in
                 guard let attachCoordinator else {
                     return .failure(.init(identity: identity, kind: .openFailed("Leo runtime is unavailable")))
                 }
-                return await attachCoordinator.attach(identity: identity, request: request).map { _ in () }
+                return await attachCoordinator.attach(identity: identity, request: request, reuse: reuse).map { _ in () }
             },
             openPlainShell: { [weak attachCoordinator] request in
                 guard let attachCoordinator else {

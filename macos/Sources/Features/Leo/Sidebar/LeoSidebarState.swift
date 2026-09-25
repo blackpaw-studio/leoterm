@@ -132,7 +132,8 @@ struct LeoSidebarSnapshot: Equatable, Sendable {
     }
 }
 
-enum AttachDisposition: Sendable { case reuseOrTab, newWindow }
+/// `.newTab` is ⌘-click's: a tab even when the agent has one open (B-047).
+enum AttachDisposition: Sendable { case reuseOrTab, newTab, newWindow }
 
 struct LeoSidebarActivity: Equatable, Sendable {
     let activity: LeoAgentRow.Activity

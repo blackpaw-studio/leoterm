@@ -8,7 +8,7 @@ import OSLog
 @MainActor final class LeoNewSurfaceRouter {
     private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
 
-    private let attach: (LeoAgentIdentity, LeoSurfaceRequest) async -> Result<Void, LeoAttachError>
+    private let attach: (LeoAgentIdentity, LeoSurfaceRequest, LeoAttachReuse) async -> Result<Void, LeoAttachError>
     private let openPlainShell: (LeoSurfaceRequest) async -> Result<Void, LeoAttachError>
     private let presentSpawn: (LeoSurfaceRequest, @escaping (LeoAgentIdentity?) -> Void) -> Void
     private let isRequestValid: (LeoSurfaceRequest) -> Bool
@@ -40,7 +40,7 @@ import OSLog
     private var pendingSpawnResumes: [UUID: (LeoAgentIdentity?) -> Void] = [:]
 
     init(
-        attach: @escaping (LeoAgentIdentity, LeoSurfaceRequest) async -> Result<Void, LeoAttachError>,
+        attach: @escaping (LeoAgentIdentity, LeoSurfaceRequest, LeoAttachReuse) async -> Result<Void, LeoAttachError>,
         openPlainShell: @escaping (LeoSurfaceRequest) async -> Result<Void, LeoAttachError>,
         presentSpawn: @escaping (LeoSurfaceRequest, @escaping (LeoAgentIdentity?) -> Void) -> Void,
         isRequestValid: @escaping (LeoSurfaceRequest) -> Bool = { _ in true },
@@ -123,15 +123,15 @@ import OSLog
         case .cancel:
             Self.logger.log("requestOutcome id=\(request.id.uuidString, privacy: .public) outcome=cancel")
             retireIfActive(request)
-        case .agent(let identity):
-            let result = await attach(identity, request)
+        case .agent(let identity, let reuse):
+            let result = await attach(identity, request, reuse)
             settle(result, request: request)
         case .plainShell:
             let result = await openPlainShell(request)
             settle(result, request: request)
         case .newAgent:
             guard let identity = await requestSpawnedIdentity(for: request) else { return }
-            let result = await attach(identity, request)
+            let result = await attach(identity, request, .focusExisting)
             settle(result, request: request)
         }
     }

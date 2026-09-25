@@ -71,11 +71,10 @@ struct LeoDeleteSheetActionAvailability {
 struct LeoAgentRowView: View {
     let row: LeoAgentRow
     let isSelected: Bool
-    /// Live attach tabs/splits for this agent (B-006).
-    let tabCount: Int
     let attach: (LeoAgentRow, AttachDisposition) -> Void
-    /// A single click; brings an existing attach forward when there is one.
-    let click: (NSEvent.ModifierFlags) -> Void
+    /// A single click (modifiers, click count); brings an existing attach
+    /// forward when there is one, or opens a new tab on ⌘-click.
+    let click: (NSEvent.ModifierFlags, Int) -> Void
     @ObservedObject var actions: LeoAgentActions
     let error: String?
     let errorCode: String?
@@ -107,7 +106,9 @@ struct LeoAgentRowView: View {
                 .onTapGesture(count: 2) { activate(source: .rowDoubleClick) }
                 // Simultaneous, so it neither delays the double-click nor
                 // takes the click away from the list's own selection.
-                .simultaneousGesture(TapGesture().onEnded { click(NSEvent.modifierFlags) })
+                .simultaneousGesture(TapGesture().onEnded {
+                    click(NSEvent.modifierFlags, NSApp.currentEvent?.clickCount ?? 1)
+                })
         }
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
@@ -128,6 +129,7 @@ struct LeoAgentRowView: View {
         // material: materials belong to the chrome layer, and a control
         // inside a list row is content sitting on the sidebar's own material.
         Button("Attach") { activate(source: .button) }
+            .help("Go to \(row.name)'s open tab, or attach one. ⌘-click the row for a new tab.")
             .buttonStyle(.borderless)
             .controlSize(.small)
             .disabled(!availability.attach)
@@ -204,7 +206,7 @@ struct LeoAgentRowView: View {
     }
 
     private func presentation(now: Date? = nil) -> LeoAgentRowPresentation {
-        LeoAgentRowPresentation(row: row, isSelected: isSelected, tabCount: tabCount, now: now)
+        LeoAgentRowPresentation(row: row, isSelected: isSelected, now: now)
     }
 
     /// Only a row with a "last active" time re-renders, once a minute --
@@ -217,10 +219,10 @@ struct LeoAgentRowView: View {
         }
     }
 
-    /// The tab glyph lives on the subtitle line, never the name line, so
-    /// it costs the name no width.
+    /// The surfaced-files glyph lives on the subtitle line, never the name
+    /// line, so it costs the name no width.
     @ViewBuilder private func subtitleLine(_ presentation: LeoAgentRowPresentation) -> some View {
-        if presentation.subtitle != nil || presentation.tabs != nil || !pendingSurfacedFiles.isEmpty {
+        if presentation.subtitle != nil || !pendingSurfacedFiles.isEmpty {
             HStack(spacing: 4) {
                 if let subtitle = presentation.subtitle {
                     // VoiceOver already hears the state on the name's label, so
@@ -240,7 +242,6 @@ struct LeoAgentRowView: View {
                     Spacer(minLength: 4)
                 }
                 surfacedFilesGlyph
-                tabsGlyph(presentation)
             }
         }
     }
@@ -298,7 +299,7 @@ struct LeoAgentRowView: View {
         }
     }
 
-    /// Static, secondary-colored, like the tabs glyph: files the agent
+    /// Static, secondary-colored: files the agent
     /// surfaced that haven't been opened. Calm on purpose -- no tint, no
     /// motion; it isn't "needs input". The tooltip lists them.
     @ViewBuilder private var surfacedFilesGlyph: some View {
@@ -313,23 +314,6 @@ struct LeoAgentRowView: View {
             .help(indicator.tooltip)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(indicator.accessibilityLabel)
-        }
-    }
-
-    /// Static, secondary-colored: the agent has live attach tabs. The
-    /// number appears only from two up.
-    @ViewBuilder private func tabsGlyph(_ presentation: LeoAgentRowPresentation) -> some View {
-        if let tabs = presentation.tabs {
-            HStack(spacing: 2) {
-                Image(systemName: LeoAgentRowPresentation.Tabs.symbolName)
-                if let countText = tabs.countText { Text(countText).monospacedDigit() }
-            }
-            .font(.caption2)
-            .foregroundStyle(.secondary)
-            .fixedSize()
-            .help(tabs.accessibilityLabel)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(tabs.accessibilityLabel)
         }
     }
 
@@ -368,6 +352,8 @@ struct LeoAgentRowView: View {
 
     @ViewBuilder private var menu: some View {
         Button("Attach") { activate(source: .button) }.disabled(!availability.attach)
+        // B-047: ⌘-click's new tab, for the mouse user who doesn't know it.
+        Button("Attach in New Tab") { attach(row, .newTab) }.disabled(!availability.attach)
         Button("Start") { actions.start(row) }.disabled(!availability.start)
         Button("Stop") { actions.stop(row) }.disabled(!availability.stop)
         Button("Restart") { actions.restart(row) }.disabled(!availability.restart)

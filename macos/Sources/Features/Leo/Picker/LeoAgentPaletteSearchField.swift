@@ -19,6 +19,24 @@ enum LeoAgentPaletteFieldCommand: Equatable {
     }
 }
 
+extension LeoAgentPaletteFieldCommand {
+    private static let returnKeyCodes: Set<UInt16> = [36, 76] // Return, keypad Enter
+
+    /// ⌘Return: confirm the row in a new tab (B-047). Caught as a key
+    /// equivalent, before the menu's ⌘Return (Toggle Full Screen) can be.
+    static func isForcedSubmit(keyCode: UInt16, modifierFlags: NSEvent.ModifierFlags) -> Bool {
+        returnKeyCodes.contains(keyCode) && modifierFlags.contains(.command)
+    }
+}
+
+extension LeoAttachReuse {
+    /// ⌘ forces a new tab (Safari's ⌘-click and ⌘Return); other modifiers
+    /// don't change Return.
+    init(modifierFlags: NSEvent.ModifierFlags) {
+        self = modifierFlags.contains(.command) ? .alwaysNew : .focusExisting
+    }
+}
+
 /// A plain `NSTextField` bridged into SwiftUI so ↑/↓/Return/Esc can be
 /// intercepted before the field editor consumes them -- SwiftUI's
 /// `.onMoveCommand`/`.onSubmit`/`.onExitCommand` never see those keys while
@@ -30,7 +48,7 @@ struct LeoAgentPaletteSearchField: NSViewRepresentable {
     @Binding var text: String
     let onMoveUp: () -> Void
     let onMoveDown: () -> Void
-    let onSubmit: () -> Void
+    let onSubmit: (LeoAttachReuse) -> Void
     let onCancel: () -> Void
 
     func makeNSView(context: Context) -> NSTextField {
@@ -84,7 +102,7 @@ struct LeoAgentPaletteSearchField: NSViewRepresentable {
             switch action {
             case .moveUp: parent.onMoveUp()
             case .moveDown: parent.onMoveDown()
-            case .submit: parent.onSubmit()
+            case .submit: parent.onSubmit(LeoAttachReuse(modifierFlags: NSApp.currentEvent?.modifierFlags ?? []))
             case .cancel: parent.onCancel()
             }
             return true

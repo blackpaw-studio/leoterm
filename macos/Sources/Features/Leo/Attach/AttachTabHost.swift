@@ -75,6 +75,10 @@ extension Notification.Name {
     /// attach surface. Always creates -- there is nothing to reuse.
     func fillPlaceholder(command: String, workingDirectory: String?, origin: LeoWindowID, surfaceID: UUID?, requestID: UUID) throws -> AttachmentHandle
     func rebirthPlaceholder(for handle: AttachmentHandle)
+    /// Closes `origin`'s tab when it is still an unfilled start screen with
+    /// nothing else in it (its request went to an agent's open tab
+    /// instead, B-047). Anything else -- a terminal, an editor -- keeps it.
+    func discardEmptyPlaceholder(origin: LeoWindowID)
     func focus(_ handle: AttachmentHandle)
     func isOpen(_ handle: AttachmentHandle) -> Bool
     func setTitleSeed(_ handle: AttachmentHandle, title: String?)

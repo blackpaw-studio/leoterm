@@ -36,9 +36,23 @@ extension LeoSidebarModel {
     /// A single click. The clicked row wins over any focus the click's
     /// window activation reported first. Rows without a live attach keep
     /// plain selection; Option defers to the double-click's new window.
-    func rowClicked(_ row: LeoAgentRow, modifierFlags: NSEvent.ModifierFlags = []) {
+    /// ⌘-click attaches a new tab in `origin`'s window even when the agent
+    /// has one (B-047, Safari's convention) -- once: a ⌘-double-click's
+    /// second click (`clickCount` 2) leaves it to the double-click, which
+    /// brings that new tab forward.
+    func rowClicked(
+        _ row: LeoAgentRow,
+        modifierFlags: NSEvent.ModifierFlags = [],
+        clickCount: Int = 1,
+        from origin: LeoWindowID? = nil
+    ) {
         selection = row.id
         fenceInFlightFocusReports()
+        if modifierFlags.contains(.command) {
+            guard clickCount == 1, let origin else { return }
+            requestAttach(row, from: origin, disposition: .newTab)
+            return
+        }
         guard !modifierFlags.contains(.option), tabCount(for: row.id) > 0 else { return }
         focusExistingRequested(row)
     }
