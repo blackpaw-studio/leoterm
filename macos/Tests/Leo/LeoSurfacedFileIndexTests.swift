@@ -134,6 +134,29 @@ struct LeoSurfacedFileIndexTests {
         #expect(!live.merging(state: [agent]).files(name: "alpha", startedAt: "s1").map(\.id).contains("undated"))
     }
 
+    /// B-046: a partial baseline places an event-only file by its `at`, so
+    /// ⌥⌘O (newest) never picks a live file that's older than the baseline's
+    /// newest.
+    @Test func aPartialBaselinePlacesEventOnlyFilesByTheirTimestamp() {
+        let live = LeoSurfacedFileIndex.empty
+            .inserting(surfaced("u-2", agent: "alpha", startedAt: "s1", at: at(2))).index
+            .inserting(surfaced("undated", agent: "alpha", startedAt: "s1")).index
+        let baseline = [1, 3].map { surfaced("u-\($0)", agent: "alpha", startedAt: "s1", at: at($0)) }
+        let merged = live.merging(state: [observed("alpha", "s1", files: baseline)]).files(name: "alpha", startedAt: "s1")
+        #expect(merged.map(\.id) == ["u-1", "u-2", "u-3", "undated"])
+    }
+
+    /// B-046: a full baseline whose entries are all malformed is still a
+    /// full baseline: an empty one, so stale live files don't survive it.
+    @Test func aFullBaselineOfOnlyMalformedEntriesClearsStaleLiveFiles() throws {
+        let entries = Array(repeating: #"{"agent":"alpha"}"#, count: LeoSurfacedFileIndex.perIncarnationLimit)
+        let json = #"{"name":"alpha","started_at":"s1","surfaced_files":[\#(entries.joined(separator: ","))]}"#
+        let agent = try JSONDecoder().decode(LeoObservedAgent.self, from: Data(json.utf8))
+        #expect(agent.surfacedFiles.isEmpty)
+        let live = LeoSurfacedFileIndex.empty.inserting(surfaced("stale", agent: "alpha", startedAt: "s1", at: at(1))).index
+        #expect(live.merging(state: [agent]).files(name: "alpha", startedAt: "s1").isEmpty)
+    }
+
     @Test func anOldDaemonsStateChangesNothing() {
         let state = [LeoObservedAgent(name: "alpha", status: .running, activity: nil, currentAction: nil, lastActivityAt: nil, startedAt: "s1")]
         #expect(LeoSurfacedFileIndex.empty.merging(state: state) == .empty)

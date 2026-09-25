@@ -42,33 +42,33 @@ struct LeoSurfacedFileIndex: Equatable, Sendable {
         let key = Incarnation(name: file.agent, startedAt: file.startedAt)
         let known = files[key] ?? []
         guard !known.contains(where: { $0.id == file.id }) else { return (self, false) }
-        let position = Self.date(file.at).flatMap { at in known.firstIndex { Self.date($0.at).map { $0 > at } ?? false } } ?? known.endIndex
-        guard position > 0 || known.count < Self.perIncarnationLimit else { return (self, false) }
-        var list = known
-        list.insert(file, at: position)
-        return (replacing(key, with: list), true)
+        guard Self.position(of: file, in: known) > 0 || known.count < Self.perIncarnationLimit else { return (self, false) }
+        return (replacing(key, with: Self.placing(known, file)), true)
     }
 
     /// Recovery from `/state`: each incarnation's reported list (newest
     /// last) is authoritative for order. Entries filed under an
-    /// incarnation other than the agent's own are ignored. See
+    /// incarnation other than the agent's own are ignored; a full baseline
+    /// whose entries were all ignored is an empty full baseline. See
     /// `eventOnly(_:after:)` for files only a live event reported.
     func merging(state: [LeoObservedAgent]) -> LeoSurfacedFileIndex {
         state.reduce(self) { index, agent in
-            let reported = Self.unique(agent.surfacedFiles.filter { $0.agent == agent.name && $0.startedAt == agent.startedAt })
-            guard let first = reported.first else { return index }
-            let key = Incarnation(name: first.agent, startedAt: first.startedAt)
-            let reportedIDs = Set(reported.map(\.id))
-            let eventOnly = (index.files[key] ?? []).filter { !reportedIDs.contains($0.id) }
+            guard let startedAt = agent.startedAt else { return index }
+            let key = Incarnation(name: agent.name, startedAt: startedAt)
+            let known = index.files[key] ?? []
+            let reported = Self.unique(agent.surfacedFiles.filter { $0.agent == agent.name && $0.startedAt == startedAt })
             let isFull = agent.surfacedFilesSent >= Self.perIncarnationLimit
-            return index.replacing(key, with: reported + Self.eventOnly(eventOnly, after: reported, isFull: isFull))
+            guard !reported.isEmpty || (isFull && !known.isEmpty) else { return index }
+            let reportedIDs = Set(reported.map(\.id))
+            let eventOnly = known.filter { !reportedIDs.contains($0.id) }
+            return index.replacing(key, with: Self.eventOnly(eventOnly, after: reported, isFull: isFull).reduce(reported, Self.placing))
         }
     }
 
     /// Files a live event reported but `/state`'s `baseline` didn't.
     /// `isFull`: the daemon sent its cap's worth, counted before any entry
     /// was filtered out. Below the cap the baseline held everything it had, so they came
-    /// after the fetch: kept as newest. A full baseline can't tell a newer
+    /// after the fetch: kept, placed by `at` like a live event (B-046). A full baseline can't tell a newer
     /// file from an older one that fell out of its window, so only files
     /// whose `at` is later than every baseline `at` stay; the rest are
     /// dropped rather than promoted to newest (the next `/state` restores
@@ -77,6 +77,17 @@ struct LeoSurfacedFileIndex: Equatable, Sendable {
         guard isFull else { return files }
         guard let newest = baseline.compactMap({ date($0.at) }).max() else { return [] }
         return files.filter { date($0.at).map { $0 > newest } ?? false }
+    }
+
+    /// `file` inserted before the first entry with a later `at`; without
+    /// an `at`, appended as the newest.
+    private static func placing(_ list: [LeoSurfacedFile], _ file: LeoSurfacedFile) -> [LeoSurfacedFile] {
+        let position = position(of: file, in: list)
+        return Array(list[..<position]) + [file] + Array(list[position...])
+    }
+
+    private static func position(of file: LeoSurfacedFile, in list: [LeoSurfacedFile]) -> Int {
+        date(file.at).flatMap { at in list.firstIndex { date($0.at).map { $0 > at } ?? false } } ?? list.endIndex
     }
 
     private static func date(_ at: String?) -> Date? {
