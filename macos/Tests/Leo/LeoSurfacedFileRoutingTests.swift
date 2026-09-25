@@ -105,6 +105,24 @@ struct LeoSurfacedFileRoutingTests {
         #expect(!model.openNewestSurfacedFile(for: row("beta", "s1")))
     }
 
+    /// B-046: a partial `/state` merge keeps a live file in `at` order, so
+    /// ⌥⌘O picks the baseline's newer file, not the live one.
+    @Test func openSurfacedFileAfterAPartialMergePicksTheNewestByTimestamp() {
+        let file = { (id: String, minute: Int) in surfaced(id, agent: "alpha", startedAt: "s1", at: "2026-09-24T15:0\(minute):00Z") }
+        let live = LeoSurfacedFileIndex.empty.inserting(file("t2", 2)).index
+        let state = LeoObservedAgent(
+            name: "alpha", status: .running, activity: nil, currentAction: nil, lastActivityAt: nil, startedAt: "s1",
+            surfacedFiles: [file("t1", 1), file("t3", 3)]
+        )
+        let merged = live.merging(state: [state]).attach(to: [row("alpha", "s1")])
+        #expect(merged[0].surfacedFiles.map(\.id) == ["t1", "t2", "t3"])
+        let model = makeModel(merged)
+        let opened = OpenLog(model)
+
+        #expect(model.openNewestSurfacedFile(for: model.snapshot.rows[0]))
+        #expect(opened.files.map(\.id) == ["t3"])
+    }
+
     @Test func openingASpecificFileMarksOnlyItSeen() {
         let older = surfaced("u-1", agent: "alpha", startedAt: "s1")
         let newer = surfaced("u-2", agent: "alpha", startedAt: "s1")

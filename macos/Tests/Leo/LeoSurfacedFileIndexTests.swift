@@ -157,6 +157,22 @@ struct LeoSurfacedFileIndexTests {
         #expect(live.merging(state: [agent]).files(name: "alpha", startedAt: "s1").isEmpty)
     }
 
+    /// B-046 review: a cleared incarnation is forgotten, not kept as an
+    /// empty, recently used entry that would crowd out one with files.
+    @Test func aClearedIncarnationDoesNotCountTowardTheBound() {
+        let limit = LeoSurfacedFileIndex.incarnationLimit
+        let keeper = LeoSurfacedFileIndex.empty.inserting(surfaced("kept", agent: "keeper", startedAt: "s")).index
+        let cleared = (1..<limit).reduce(keeper) { index, n in
+            let agent = LeoObservedAgent(
+                name: "agent-\(n)", status: .running, activity: nil, currentAction: nil, lastActivityAt: nil, startedAt: "s",
+                surfacedFilesSent: LeoSurfacedFileIndex.perIncarnationLimit
+            )
+            return index.inserting(surfaced("u-\(n)", agent: "agent-\(n)", startedAt: "s")).index.merging(state: [agent])
+        }
+        let index = cleared.inserting(surfaced("late", agent: "late", startedAt: "s")).index
+        #expect(index.files(name: "keeper", startedAt: "s").map(\.id) == ["kept"])
+    }
+
     @Test func anOldDaemonsStateChangesNothing() {
         let state = [LeoObservedAgent(name: "alpha", status: .running, activity: nil, currentAction: nil, lastActivityAt: nil, startedAt: "s1")]
         #expect(LeoSurfacedFileIndex.empty.merging(state: state) == .empty)

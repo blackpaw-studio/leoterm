@@ -98,7 +98,12 @@ struct LeoSurfacedFileIndex: Equatable, Sendable {
         return plain.date(from: at) ?? fractional.date(from: at)
     }
 
+    /// An empty `list` forgets `key` rather than keeping an empty, recently
+    /// used entry that counts toward `incarnationLimit`.
     private func replacing(_ key: Incarnation, with list: [LeoSurfacedFile]) -> LeoSurfacedFileIndex {
+        guard !list.isEmpty else {
+            return LeoSurfacedFileIndex(files: files.filter { $0.key != key }, recency: recency.filter { $0 != key })
+        }
         let recency = recency.filter { $0 != key } + [key]
         let evicted = Set(recency.dropLast(Self.incarnationLimit))
         var files = files.filter { !evicted.contains($0.key) }
