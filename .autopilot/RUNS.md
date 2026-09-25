@@ -114,3 +114,8 @@ Calls: D-092
 Board sync: B-014 `deferred` has no board column (2 non-fatal warnings)
 Next up: none ready; deferred: B-014
 Tests: 1463 (known ConfigTests failure only); swiftlint clean.
+
+## Run 2026-09-24 (evening) — 1 shipped, 0 blocked
+- B-047 One tab per agent — d403a2c9a. Row click / palette choice focus the agent's open tab (other window comes forward); ⌘-click, ⌘↩, "Attach in New Tab" force a new one; tab-count glyph removed. Verified: B-047-1, B-047-2 (row click reuse across windows). Palette ⌘↩ not visually verified → B-048.
+- Calls: D-093 (blank start tab closes after jumping; ⌘↩ hint in palette search field; placeholder panes fill in place).
+- Next up: B-048 (ready next run).

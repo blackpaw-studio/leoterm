@@ -322,5 +322,6 @@ Inbox: 20260925T002247437461Z-47b2bf9d#1
 Done: d403a2c9a (1477 tests). Row click and palette choice (⌘T, Choose Agent…) focus the agent's open tab via B-006's lookup (host + name, most recent); ⌘-click / ⌘↩ / row menu "Attach in New Tab" force a new tab; tab-count glyph removed (D-020 superseded); decisions D-093. Verified: shots B-047-1 (scratch attached in its own window), B-047-2 (row click from the other window brings that window forward; still one tmux client, no new window). Palette path and ⌘↩ not visually verified (peekaboo dismissed the palette on refocus) → B-048. Review clean, 0 fix rounds.
 
 ## B-048 · Verify palette ⌘↩ vs Toggle Full Screen   [ready (next run)]
+Issue: #53
 Accept: in the isolated debug build, the agent palette's ⌘↩ opens a new tab for the chosen agent and does not toggle full screen (the main menu's Toggle Full Screen is also ⌘↩; `LeoAgentPalettePanel.swift:120` intercepts in performKeyEquivalent). Also confirm ⌘-click on an already-selected row leaves it selected. Add a test if either is wrong. Screenshot with autopilot-scratch only.
 Source: B-047 implementer report (unverified in the GUI)
