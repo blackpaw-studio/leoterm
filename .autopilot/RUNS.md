@@ -107,3 +107,10 @@ Tests: 1393 (known ConfigTests failure only); swiftlint clean.
 Calls: D-088, D-089 (Evan), D-090, D-091
 Board sync: B-014 `deferred` has no board column (2 non-fatal warnings)
 Next up: B-046 (next run); deferred: B-014
+
+## Run 2026-09-24 (night) — 1 shipped, 0 blocked
+- B-046 Surfaced files keep `at` order through a partial /state merge: a91e50296 a70d51027. Event-only files placed by `at`; an all-malformed full baseline clears stale live files; cleared incarnations free their LRU slot. Not visually verified (index-only; unit tests incl. ⌥⌘O routing).
+Calls: D-092
+Board sync: B-014 `deferred` has no board column (2 non-fatal warnings)
+Next up: none ready; deferred: B-014
+Tests: 1463 (known ConfigTests failure only); swiftlint clean.
