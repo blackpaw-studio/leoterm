@@ -13,5 +13,6 @@ jobs:
   build:
     needs: ci
     uses: ./.github/workflows/leo-build.yml
+    secrets: inherit
     with:
       ref: ci/leo-release
