@@ -58,6 +58,14 @@ login keychain, which is why the runner is a LaunchAgent (`~/actions-runner`,
 - **Sparkle EdDSA key**: keychain account `studio.blackpaw.leo` (Sparkle `generate_keys --account studio.blackpaw.leo`). It is backed up in 1Password *Olympus* → `Leo Sparkle EdDSA key`. To restore: `generate_keys --account studio.blackpaw.leo -f <file>`. The public key is in `macos/Ghostty-Info.plist` (`SUPublicEDKey`) and in `leo-build.yml`.
 - **Toolchain**: `DEVELOPER_DIR=/Applications/Xcode-26.3.0.app` (Xcode 26.5's SDK breaks Zig linking) and Zig 0.16 from `~/.local/bin`.
 
+### Keychain must be unlocked for the runner
+
+`leo-build` starts with `check-signing.sh`, which fails fast with
+`errSecInternalComponent` / "User interaction is not allowed" when the
+runner's (Aqua) session sees the login keychain as locked. An unlocked
+keychain in an ssh session does not carry over to the runner. The sign
+step and `sign_update` in `leo-release` both need that session unlocked.
+
 ## After an upstream sync
 
 Upstream syncs can add new workflows, and those start out **enabled**. Disable
