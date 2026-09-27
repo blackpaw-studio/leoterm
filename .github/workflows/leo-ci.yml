@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_call:
 
 concurrency:
   group: leo-ci-${{ github.event.pull_request.number || github.ref }}
@@ -19,7 +20,7 @@ jobs:
   test-macos:
     # Never run fork PRs on the self-hosted runner.
     if: >-
-      github.event_name == 'push' ||
+      github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, macOS, leo]
     timeout-minutes: 120
