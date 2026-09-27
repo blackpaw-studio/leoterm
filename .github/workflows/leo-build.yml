@@ -62,6 +62,9 @@ jobs:
           sparse-checkout: .github/scripts/leo
           persist-credentials: false
 
+      - name: Check signing material
+        run: ci/.github/scripts/leo/check-signing.sh
+
       - name: Resolve ref
         id: ref
         env:
