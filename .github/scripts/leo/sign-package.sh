@@ -1,16 +1,20 @@
 #!/usr/bin/env bash
 # Sign, package, notarize and staple Leo.app.
-# Env: APP (path to Leo.app), SIGN_IDENTITY, NOTARY_PROFILE, OUT_DIR,
-#      ENTITLEMENTS (path), DEVELOPER_DIR.
+# Env: APP (path to Leo.app), SIGN_IDENTITY, OUT_DIR, ENTITLEMENTS (path),
+#      DEVELOPER_DIR, LEO_KEYCHAIN (set by keychain.sh create),
+#      APPLE_NOTARIZATION_KEY, APPLE_NOTARIZATION_KEY_ID, APPLE_NOTARIZATION_ISSUER.
 # Produces $OUT_DIR/Leo.dmg and $OUT_DIR/Leo-macos-universal.zip.
 set -euo pipefail
 
-: "${APP:?}" "${SIGN_IDENTITY:?}" "${NOTARY_PROFILE:?}" "${OUT_DIR:?}" "${ENTITLEMENTS:?}"
+: "${APP:?}" "${SIGN_IDENTITY:?}" "${OUT_DIR:?}" "${ENTITLEMENTS:?}" "${LEO_KEYCHAIN:?}" \
+  "${APPLE_NOTARIZATION_KEY:?}" "${APPLE_NOTARIZATION_KEY_ID:?}" "${APPLE_NOTARIZATION_ISSUER:?}"
 mkdir -p "$OUT_DIR"
 dmg="$OUT_DIR/Leo.dmg"
 zip="$OUT_DIR/Leo-macos-universal.zip"
 
-sign() { /usr/bin/codesign --force --timestamp --options runtime --sign "$SIGN_IDENTITY" "$@"; }
+# --keychain: the identity only exists in the per-job keychain, and codesign
+# needs to be told where to find it explicitly.
+sign() { /usr/bin/codesign --force --timestamp --options runtime --keychain "$LEO_KEYCHAIN" --sign "$SIGN_IDENTITY" "$@"; }
 
 echo "::group::codesign"
 # Sparkle's helpers must be signed inside-out before the framework itself.
@@ -28,24 +32,30 @@ echo "::endgroup::"
 
 echo "::group::create DMG"
 staging="$(mktemp -d "${RUNNER_TEMP:-/tmp}/leo-dmg.XXXXXX")"
-npx --yes create-dmg@8.1.0 --overwrite --no-version-in-filename \
-  --identity="$SIGN_IDENTITY" "$APP" "$staging"
+# create-dmg cannot be pointed at a keychain, so sign the DMG here instead.
+npx --yes create-dmg@8.1.0 --overwrite --no-version-in-filename --no-code-sign \
+  "$APP" "$staging"
 mv "$staging"/*.dmg "$dmg"
 rm -rf "$staging"
+/usr/bin/codesign --force --timestamp --keychain "$LEO_KEYCHAIN" --sign "$SIGN_IDENTITY" "$dmg"
 /usr/bin/codesign --verify --verbose=2 "$dmg"
 echo "::endgroup::"
 
 echo "::group::notarize"
-result="$(xcrun notarytool submit "$dmg" --keychain-profile "$NOTARY_PROFILE" \
-  --wait --timeout 45m --output-format json)"
+notary_key="${RUNNER_TEMP:?}/leo-notary-key.p8"
+printf '%s' "$APPLE_NOTARIZATION_KEY" > "$notary_key"
+notary=(--key "$notary_key" --key-id "$APPLE_NOTARIZATION_KEY_ID" --issuer "$APPLE_NOTARIZATION_ISSUER")
+result="$(xcrun notarytool submit "$dmg" "${notary[@]}" --wait --timeout 45m --output-format json)"
 echo "$result"
 status="$(plutil -extract status raw - <<<"$result" 2>/dev/null || true)"
 if [[ "$status" != "Accepted" ]]; then
   id="$(plutil -extract id raw - <<<"$result" 2>/dev/null || true)"
-  [[ -n "$id" ]] && xcrun notarytool log "$id" --keychain-profile "$NOTARY_PROFILE" || true
+  [[ -n "$id" ]] && xcrun notarytool log "$id" "${notary[@]}" || true
+  rm -f "$notary_key"
   echo "::error::Notarization status: ${status:-unknown}"
   exit 1
 fi
+rm -f "$notary_key"
 xcrun stapler staple "$dmg"
 xcrun stapler staple "$APP"
 echo "::endgroup::"

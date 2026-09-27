@@ -1,8 +1,9 @@
 name: Leo Build
 
 # Signed, notarized Leo.app build on the self-hosted Mac (Dionysus).
-# Signing identity, notary profile and Sparkle key live in that Mac's login
-# keychain, not in GitHub secrets. See docs/leo/ci.md.
+# The signing identity, notarization key and Sparkle key all come from
+# GitHub Actions secrets into a per-job keychain in $RUNNER_TEMP; nothing
+# depends on persistent state on the runner. See docs/leo/ci.md.
 
 on:
   workflow_dispatch:
@@ -39,8 +40,7 @@ permissions:
 env:
   DEVELOPER_DIR: /Applications/Xcode-26.3.0.app/Contents/Developer
   SIGN_IDENTITY: "Developer ID Application: Evan Coleman (52M9C6892K)"
-  NOTARY_PROFILE: leo-notary
-  SPARKLE_PUBLIC_KEY: jkWqeN0Svgm9TVnzuTPhKVOAeve6Vy490D82GRkGcVM=
+  SPARKLE_PUBLIC_KEY: yQcDYO8rnAKiOrSW0D5dJNNXk/SWj09TmVLjScZb/d4=
 
 jobs:
   build:
@@ -62,7 +62,18 @@ jobs:
           sparse-checkout: .github/scripts/leo
           persist-credentials: false
 
+      - name: Create signing keychain
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          MACOS_CI_KEYCHAIN_PWD: ${{ secrets.MACOS_CI_KEYCHAIN_PWD }}
+        run: ci/.github/scripts/leo/keychain.sh create
+
       - name: Check signing material
+        env:
+          APPLE_NOTARIZATION_KEY: ${{ secrets.APPLE_NOTARIZATION_KEY }}
+          APPLE_NOTARIZATION_KEY_ID: ${{ secrets.APPLE_NOTARIZATION_KEY_ID }}
+          APPLE_NOTARIZATION_ISSUER: ${{ secrets.APPLE_NOTARIZATION_ISSUER }}
         run: ci/.github/scripts/leo/check-signing.sh
 
       - name: Resolve ref
@@ -115,6 +126,9 @@ jobs:
           APP: ${{ steps.app.outputs.path }}
           ENTITLEMENTS: ${{ github.workspace }}/src/macos/Ghostty.entitlements
           OUT_DIR: ${{ runner.temp }}/leo-dist
+          APPLE_NOTARIZATION_KEY: ${{ secrets.APPLE_NOTARIZATION_KEY }}
+          APPLE_NOTARIZATION_KEY_ID: ${{ secrets.APPLE_NOTARIZATION_KEY_ID }}
+          APPLE_NOTARIZATION_ISSUER: ${{ secrets.APPLE_NOTARIZATION_ISSUER }}
         run: ../ci/.github/scripts/leo/sign-package.sh
 
       - name: Upload artifact
@@ -134,3 +148,7 @@ jobs:
         run: |
           rm -rf "$TEMP_DIR/DerivedData" "$TEMP_DIR/leo-dist" "$TEMP_DIR"/leo-dmg.*
           rm -rf src/macos/build src/zig-out src/macos/GhosttyKit.xcframework
+
+      - name: Destroy signing keychain
+        if: always()
+        run: ci/.github/scripts/leo/keychain.sh cleanup

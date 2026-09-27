@@ -49,22 +49,59 @@ because `gh` otherwise resolves to upstream `ghostty-org/ghostty`.
 
 ## Where keys live
 
-Nothing signing-related is in GitHub secrets. Everything is in Dionysus's
-login keychain, which is why the runner is a LaunchAgent (`~/actions-runner`,
-`./svc.sh status|stop|start`) rather than a daemon.
+All signing material lives in GitHub Actions secrets on
+`blackpaw-studio/leoterm`, not on Dionysus. Each signing job builds a
+throwaway keychain under `$RUNNER_TEMP` (`.github/scripts/leo/keychain.sh`),
+uses it, then deletes it in an `if: always()` step — nothing persists on the
+runner between jobs, and the same steps would work unmodified on
+`macos-latest`. Dionysus stays the `runs-on` target only for cost/speed, not
+because it holds credentials; the runner is still a LaunchAgent
+(`~/actions-runner`, `./svc.sh status|stop|start`).
 
-- **Developer ID**: `Developer ID Application: Evan Coleman (52M9C6892K)` in the login keychain.
-- **Notarization**: `notarytool` keychain profile `leo-notary`. The source is the 1Password *Blackpaw Studio* item `App Store Connect Blackpaw Studio Admin` (key id, issuer id, `AuthKey_7W2NBJ7PA7.p8`). To recreate it: `xcrun notarytool store-credentials leo-notary --key <p8> --key-id … --issuer …`, then delete the `.p8`.
-- **Sparkle EdDSA key**: keychain account `studio.blackpaw.leo` (Sparkle `generate_keys --account studio.blackpaw.leo`). It is backed up in 1Password *Olympus* → `Leo Sparkle EdDSA key`. To restore: `generate_keys --account studio.blackpaw.leo -f <file>`. The public key is in `macos/Ghostty-Info.plist` (`SUPublicEDKey`) and in `leo-build.yml`.
+Secrets:
+
+| Secret | Contents | Source / backup |
+| --- | --- | --- |
+| `MACOS_CERTIFICATE` | base64 of a `.p12` containing **only** `Developer ID Application: Evan Coleman (52M9C6892K)` (sha1 `1C6A4945…`) | 1Password *Olympus* → `Leo Developer ID p12` (file attachment + password) |
+| `MACOS_CERTIFICATE_PWD` | password for that `.p12` | same 1Password item |
+| `MACOS_CI_KEYCHAIN_PWD` | throwaway password for the per-job temp keychain | not backed up; rotate freely, `keychain.sh` regenerates the keychain every run |
+| `APPLE_NOTARIZATION_KEY` | contents of `AuthKey_7W2NBJ7PA7.p8` | 1Password *Blackpaw Studio* → `App Store Connect Blackpaw Studio Admin` |
+| `APPLE_NOTARIZATION_KEY_ID` | `7W2NBJ7PA7` | same item, field `key id` |
+| `APPLE_NOTARIZATION_ISSUER` | issuer UUID | same item, field `issuer id` |
+| `SPARKLE_PRIVATE_KEY` | base64 EdDSA private key (Sparkle `generate_keys`) | 1Password *Olympus* → `Leo Sparkle EdDSA key` |
+
+The Developer ID's private key also stays in Dionysus's **login** keychain
+(unrelated to CI) because Evan signs local builds there.
+
 - **Toolchain**: `DEVELOPER_DIR=/Applications/Xcode-26.3.0.app` (Xcode 26.5's SDK breaks Zig linking) and Zig 0.16 from `~/.local/bin`.
+- **Public key**: the Sparkle public key is in `macos/Ghostty-Info.plist` (`SUPublicEDKey`) and in `leo-build.yml` (`SPARKLE_PUBLIC_KEY`); keep both in sync with the `public key` field on the 1Password item.
 
-### Keychain must be unlocked for the runner
+### Rotating a secret
 
-`leo-build` starts with `check-signing.sh`, which fails fast with
-`errSecInternalComponent` / "User interaction is not allowed" when the
-runner's (Aqua) session sees the login keychain as locked. An unlocked
-keychain in an ssh session does not carry over to the runner. The sign
-step and `sign_update` in `leo-release` both need that session unlocked.
+1. Generate/export the new value (see "Source / backup" above for where each
+   one comes from; export a `.p12` for just the Developer ID identity by
+   isolating it in a scratch keychain first — `security export` ignores any
+   identity-name filter and otherwise dumps every identity in the keychain).
+2. `echo -n '<value>' | gh secret set <NAME> -R blackpaw-studio/leoterm` (pipe
+   file-based secrets with `cat`, e.g. the `.p12` via `base64` or the `.p8`
+   directly). Never pass secret values as command-line arguments or print
+   them.
+3. Update the matching 1Password item (edits keep prior versions in history).
+4. Run `leo-build` once (`gh workflow run leo-build.yml -R blackpaw-studio/leoterm`)
+   to confirm the new secret works before relying on it for a release.
+5. If you rotated the Developer ID cert or the notarization key, delete the
+   superseded 1Password item version's file/credential only after confirming
+   the new one signs and notarizes successfully.
+
+### Team mismatch hazard
+
+The Developer ID identity belongs to team `52M9C6892K`. The notarization API
+key must belong to the **same** team/account that issued that identity — if
+`APPLE_NOTARIZATION_KEY`/`_KEY_ID`/`_ISSUER` come from a different Apple
+Developer team, notarization fails with a team or authorization error.
+`check-signing.sh` authenticates with `notarytool history` before the build
+starts specifically to catch this early; treat that failure as a
+configuration problem to fix, not something to retry.
 
 ## After an upstream sync
 

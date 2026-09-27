@@ -18,6 +18,7 @@ permissions:
 jobs:
   build:
     uses: ./.github/workflows/leo-build.yml
+    secrets: inherit
     with:
       ref: ${{ github.sha }}
       release-tag: ${{ github.ref_name }}
@@ -34,7 +35,6 @@ jobs:
       TAG: ${{ github.ref_name }}
       SPARKLE_VERSION: 2.9.6
       SPARKLE_SHA256: 8d5fb41d960b43f4a68aa14126bf62b098544ec8d191cdcc73eb14e63a8e7606
-      SPARKLE_ACCOUNT: studio.blackpaw.leo
       LEO_VERSION: ${{ needs.build.outputs.version }}
       LEO_BUILD: ${{ needs.build.outputs.build }}
       LEO_COMMIT: ${{ needs.build.outputs.commit }}
@@ -67,8 +67,13 @@ jobs:
 
       - name: Update appcast
         working-directory: dist
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
-          sign_update --account "$SPARKLE_ACCOUNT" Leo.dmg > sign_update.txt
+          sparkle_key="${RUNNER_TEMP:?}/leo-sparkle-key.txt"
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > "$sparkle_key"
+          sign_update --ed-key-file "$sparkle_key" Leo.dmg > sign_update.txt
+          rm -f "$sparkle_key"
           # Start from the latest release's appcast; the first release has none.
           if ! gh release download --pattern appcast.xml --output appcast.xml 2>/dev/null; then
             echo "No previous appcast; starting a new one"
@@ -92,4 +97,4 @@ jobs:
         if: always()
         env:
           TEMP_DIR: ${{ runner.temp }}
-        run: rm -rf dist "$TEMP_DIR/sparkle"
+        run: rm -rf dist "$TEMP_DIR/sparkle" "$TEMP_DIR/leo-sparkle-key.txt"
