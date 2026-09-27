@@ -1,0 +1,17 @@
+# TEMPORARY: exercises leo-build/leo-ci from the ci/leo-release branch before
+# they exist on main (workflow_dispatch needs the file on the default branch).
+# Remove before merging.
+name: Leo Verify Branch
+on:
+  push:
+    branches: [ci/leo-release]
+permissions:
+  contents: read
+jobs:
+  ci:
+    uses: ./.github/workflows/leo-ci.yml
+  build:
+    needs: ci
+    uses: ./.github/workflows/leo-build.yml
+    with:
+      ref: ci/leo-release
