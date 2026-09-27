@@ -1,0 +1,95 @@
+name: Leo Release
+
+# Push a leo-vX.Y.Z tag to build, sign, notarize and publish a GitHub
+# Release with Leo.dmg, the zip and an updated Sparkle appcast.
+
+on:
+  push:
+    tags:
+      - "leo-v[0-9]+.[0-9]+.[0-9]+"
+
+concurrency:
+  group: leo-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: ./.github/workflows/leo-build.yml
+    with:
+      ref: ${{ github.sha }}
+      release-tag: ${{ github.ref_name }}
+
+  publish:
+    needs: build
+    runs-on: [self-hosted, macOS, leo]
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ github.ref_name }}
+      SPARKLE_VERSION: 2.9.6
+      SPARKLE_SHA256: 8d5fb41d960b43f4a68aa14126bf62b098544ec8d191cdcc73eb14e63a8e7606
+      SPARKLE_ACCOUNT: studio.blackpaw.leo
+      LEO_VERSION: ${{ needs.build.outputs.version }}
+      LEO_BUILD: ${{ needs.build.outputs.build }}
+      LEO_COMMIT: ${{ needs.build.outputs.commit }}
+      LEO_COMMIT_LONG: ${{ needs.build.outputs.commit_long }}
+      LEO_TAG: ${{ github.ref_name }}
+      LEO_REPO: ${{ github.server_url }}/${{ github.repository }}
+    steps:
+      - name: Checkout CI scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: ci
+          sparse-checkout: .github/scripts/leo
+          persist-credentials: false
+
+      - name: Download build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ needs.build.outputs.artifact }}
+          path: dist
+
+      - name: Setup Sparkle tools
+        working-directory: ${{ runner.temp }}
+        run: |
+          rm -rf sparkle && mkdir sparkle && cd sparkle
+          curl -fsSL -o sparkle.zip \
+            "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-for-Swift-Package-Manager.zip"
+          echo "${SPARKLE_SHA256}  sparkle.zip" | shasum -a 256 -c -
+          unzip -q sparkle.zip
+          echo "$PWD/bin" >> "$GITHUB_PATH"
+
+      - name: Update appcast
+        working-directory: dist
+        run: |
+          sign_update --account "$SPARKLE_ACCOUNT" Leo.dmg > sign_update.txt
+          # Start from the latest release's appcast; the first release has none.
+          if ! gh release download --pattern appcast.xml --output appcast.xml 2>/dev/null; then
+            echo "No previous appcast; starting a new one"
+            rm -f appcast.xml
+          fi
+          python3 ../ci/.github/scripts/leo/update_appcast.py
+          mv appcast_new.xml appcast.xml
+          rm sign_update.txt
+          xmllint --noout appcast.xml
+
+      - name: Publish release
+        working-directory: dist
+        run: |
+          gh release create "$TAG" \
+            --verify-tag \
+            --title "Leo ${LEO_VERSION}" \
+            --generate-notes \
+            Leo.dmg Leo-macos-universal.zip appcast.xml
+
+      - name: Clean up
+        if: always()
+        env:
+          TEMP_DIR: ${{ runner.temp }}
+        run: rm -rf dist "$TEMP_DIR/sparkle"
