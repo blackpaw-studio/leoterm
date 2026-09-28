@@ -81,7 +81,13 @@ jobs:
         env:
           REF_INPUT: ${{ inputs.ref }}
           DEFAULT_SHA: ${{ github.sha }}
-        run: echo "checkout=$(ci/.github/scripts/leo/resolve-ref.sh)" >> "$GITHUB_OUTPUT"
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Assign first: `echo "x=$(failing-cmd)" >> file` swallows a
+          # non-zero exit from the substitution even under `set -e`.
+          checkout="$(ci/.github/scripts/leo/resolve-ref.sh)"
+          echo "checkout=$checkout" >> "$GITHUB_OUTPUT"
 
       - name: Checkout source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
