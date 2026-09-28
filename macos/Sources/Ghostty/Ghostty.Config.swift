@@ -71,9 +71,11 @@ extension Ghostty {
                 ghostty_config_load_default_files(cfg)
             }
 
-            // We only load CLI args when not running in Xcode because in Xcode we
-            // pass some special parameters to control the debugger.
-            if !isRunningInXcode() {
+            // We only load CLI args when not running in Xcode (which passes some
+            // special parameters to control the debugger) or under XCTest (whose
+            // own argv/host-injection plumbing is not meaningful Ghostty config;
+            // see isRunningXCTest()).
+            if !isRunningInXcode() && !isRunningXCTest() {
                 ghostty_config_load_cli_args(cfg)
             }
 

@@ -1,0 +1,160 @@
+name: Leo Build
+
+# Signed, notarized Leo.app build on the self-hosted Mac (Dionysus).
+# The signing identity, notarization key and Sparkle key all come from
+# GitHub Actions secrets into a per-job keychain in $RUNNER_TEMP; nothing
+# depends on persistent state on the runner. See docs/leo/ci.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "SHA, branch, leo-vX.Y.Z tag, or PR number (empty = dispatching commit)"
+        required: false
+        type: string
+  workflow_call:
+    inputs:
+      ref:
+        description: "SHA, branch, leo-vX.Y.Z tag, or PR number (empty = calling commit)"
+        required: false
+        type: string
+      release-tag:
+        description: "leo-vX.Y.Z when building a release"
+        required: false
+        type: string
+    outputs:
+      version:
+        value: ${{ jobs.build.outputs.version }}
+      build:
+        value: ${{ jobs.build.outputs.build }}
+      commit:
+        value: ${{ jobs.build.outputs.commit }}
+      commit_long:
+        value: ${{ jobs.build.outputs.commit_long }}
+      artifact:
+        value: ${{ jobs.build.outputs.artifact }}
+
+permissions:
+  contents: read
+
+env:
+  DEVELOPER_DIR: /Applications/Xcode-26.3.0.app/Contents/Developer
+  SIGN_IDENTITY: "Developer ID Application: Evan Coleman (52M9C6892K)"
+
+jobs:
+  build:
+    runs-on: [self-hosted, macOS, leo]
+    timeout-minutes: 150
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      build: ${{ steps.version.outputs.build }}
+      commit: ${{ steps.version.outputs.commit }}
+      commit_long: ${{ steps.version.outputs.commit_long }}
+      artifact: ${{ steps.names.outputs.artifact }}
+    steps:
+      # CI scripts come from the workflow's own commit so that any ref,
+      # including one that predates these scripts, can be built.
+      - name: Checkout CI scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: ci
+          sparse-checkout: .github/scripts/leo
+          persist-credentials: false
+
+      - name: Create signing keychain
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          MACOS_CI_KEYCHAIN_PWD: ${{ secrets.MACOS_CI_KEYCHAIN_PWD }}
+        run: ci/.github/scripts/leo/keychain.sh create
+
+      - name: Check signing material
+        env:
+          APPLE_NOTARIZATION_KEY: ${{ secrets.APPLE_NOTARIZATION_KEY }}
+          APPLE_NOTARIZATION_KEY_ID: ${{ secrets.APPLE_NOTARIZATION_KEY_ID }}
+          APPLE_NOTARIZATION_ISSUER: ${{ secrets.APPLE_NOTARIZATION_ISSUER }}
+        run: ci/.github/scripts/leo/check-signing.sh
+
+      - name: Resolve ref
+        id: ref
+        env:
+          REF_INPUT: ${{ inputs.ref }}
+          DEFAULT_SHA: ${{ github.sha }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Assign first: `echo "x=$(failing-cmd)" >> file` swallows a
+          # non-zero exit from the substitution even under `set -e`.
+          checkout="$(ci/.github/scripts/leo/resolve-ref.sh)"
+          echo "checkout=$checkout" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: src
+          ref: ${{ steps.ref.outputs.checkout }}
+          fetch-depth: 0
+          fetch-tags: true
+          clean: true
+          persist-credentials: false
+
+      - name: Compute version
+        id: version
+        working-directory: src
+        env:
+          RELEASE_TAG: ${{ inputs.release-tag }}
+        run: ../ci/.github/scripts/leo/version.sh
+
+      - name: Artifact names
+        id: names
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: echo "artifact=leo-macos-${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Leo.app
+        id: app
+        working-directory: src
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          SHORT_VERSION: ${{ steps.version.outputs.short_version }}
+          BUILD: ${{ steps.version.outputs.build }}
+          COMMIT: ${{ steps.version.outputs.commit }}
+          DERIVED_DATA: ${{ runner.temp }}/DerivedData
+        run: |
+          xcodebuild -version
+          zig version
+          app="$(../ci/.github/scripts/leo/build-app.sh | tail -1)"
+          echo "path=$app" >> "$GITHUB_OUTPUT"
+
+      - name: Sign, notarize and package
+        working-directory: src
+        env:
+          APP: ${{ steps.app.outputs.path }}
+          ENTITLEMENTS: ${{ github.workspace }}/src/macos/Ghostty.entitlements
+          OUT_DIR: ${{ runner.temp }}/leo-dist
+          APPLE_NOTARIZATION_KEY: ${{ secrets.APPLE_NOTARIZATION_KEY }}
+          APPLE_NOTARIZATION_KEY_ID: ${{ secrets.APPLE_NOTARIZATION_KEY_ID }}
+          APPLE_NOTARIZATION_ISSUER: ${{ secrets.APPLE_NOTARIZATION_ISSUER }}
+        run: ../ci/.github/scripts/leo/sign-package.sh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ steps.names.outputs.artifact }}
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/leo-dist/Leo.dmg
+            ${{ runner.temp }}/leo-dist/Leo-macos-universal.zip
+
+      - name: Clean up
+        if: always()
+        env:
+          TEMP_DIR: ${{ runner.temp }}
+        run: |
+          rm -rf "$TEMP_DIR/DerivedData" "$TEMP_DIR/leo-dist" "$TEMP_DIR"/leo-dmg.*
+          rm -rf src/macos/build src/zig-out src/macos/GhosttyKit.xcframework
+
+      - name: Destroy signing keychain
+        if: always()
+        run: ci/.github/scripts/leo/keychain.sh cleanup
