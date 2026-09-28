@@ -30,6 +30,37 @@ sign --entitlements "$ENTITLEMENTS" "$APP"
 /usr/bin/codesign --verify --deep --strict --verbose=2 "$APP"
 echo "::endgroup::"
 
+# notarytool submit/staple share a key file and a status check; --keychain
+# would be no help here since neither talks to a keychain.
+notary_key="${RUNNER_TEMP:?}/leo-notary-key.p8"
+printf '%s' "$APPLE_NOTARIZATION_KEY" > "$notary_key"
+notary=(--key "$notary_key" --key-id "$APPLE_NOTARIZATION_KEY_ID" --issuer "$APPLE_NOTARIZATION_ISSUER")
+notarize() {
+  # $1: path to submit. $2: path to staple (defaults to $1; a .zip can be
+  # submitted but not stapled, so the app case staples $APP instead).
+  local submit="$1" staple="${2:-$1}" result status id
+  result="$(xcrun notarytool submit "$submit" "${notary[@]}" --wait --timeout 45m --output-format json)"
+  echo "$result"
+  status="$(plutil -extract status raw - <<<"$result" 2>/dev/null || true)"
+  if [[ "$status" != "Accepted" ]]; then
+    id="$(plutil -extract id raw - <<<"$result" 2>/dev/null || true)"
+    [[ -n "$id" ]] && xcrun notarytool log "$id" "${notary[@]}" || true
+    rm -f "$notary_key"
+    echo "::error::Notarization status for $submit: ${status:-unknown}"
+    exit 1
+  fi
+  xcrun stapler staple "$staple"
+}
+
+# The app must be stapled BEFORE it goes into the DMG, or the copy shipped
+# inside the DMG is never stapled even though the standalone $APP is.
+echo "::group::notarize app"
+app_zip="$(mktemp -d "${RUNNER_TEMP:-/tmp}/leo-appzip.XXXXXX")/Leo.zip"
+ditto -c -k --keepParent "$APP" "$app_zip"
+notarize "$app_zip" "$APP"
+rm -rf "$(dirname "$app_zip")"
+echo "::endgroup::"
+
 echo "::group::create DMG"
 staging="$(mktemp -d "${RUNNER_TEMP:-/tmp}/leo-dmg.XXXXXX")"
 # create-dmg cannot be pointed at a keychain, so sign the DMG here instead.
@@ -41,23 +72,9 @@ rm -rf "$staging"
 /usr/bin/codesign --verify --verbose=2 "$dmg"
 echo "::endgroup::"
 
-echo "::group::notarize"
-notary_key="${RUNNER_TEMP:?}/leo-notary-key.p8"
-printf '%s' "$APPLE_NOTARIZATION_KEY" > "$notary_key"
-notary=(--key "$notary_key" --key-id "$APPLE_NOTARIZATION_KEY_ID" --issuer "$APPLE_NOTARIZATION_ISSUER")
-result="$(xcrun notarytool submit "$dmg" "${notary[@]}" --wait --timeout 45m --output-format json)"
-echo "$result"
-status="$(plutil -extract status raw - <<<"$result" 2>/dev/null || true)"
-if [[ "$status" != "Accepted" ]]; then
-  id="$(plutil -extract id raw - <<<"$result" 2>/dev/null || true)"
-  [[ -n "$id" ]] && xcrun notarytool log "$id" "${notary[@]}" || true
-  rm -f "$notary_key"
-  echo "::error::Notarization status: ${status:-unknown}"
-  exit 1
-fi
+echo "::group::notarize DMG"
+notarize "$dmg"
 rm -f "$notary_key"
-xcrun stapler staple "$dmg"
-xcrun stapler staple "$APP"
 echo "::endgroup::"
 
 echo "::group::verify"
