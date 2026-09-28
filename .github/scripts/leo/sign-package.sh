@@ -62,11 +62,14 @@ rm -rf "$(dirname "$app_zip")"
 echo "::endgroup::"
 
 echo "::group::create DMG"
+# hdiutil only, not a third-party tool (create-dmg/npx): secrets are loaded
+# in this process (LEO_KEYCHAIN, the notary key file) for the rest of the
+# script, and nothing fetched from npm gets to run while that's true.
 staging="$(mktemp -d "${RUNNER_TEMP:-/tmp}/leo-dmg.XXXXXX")"
-# create-dmg cannot be pointed at a keychain, so sign the DMG here instead.
-npx --yes create-dmg@8.1.0 --overwrite --no-version-in-filename --no-code-sign \
-  "$APP" "$staging"
-mv "$staging"/*.dmg "$dmg"
+ditto "$APP" "$staging/Leo.app"
+ln -s /Applications "$staging/Applications"
+rm -f "$dmg"
+hdiutil create -volname Leo -srcfolder "$staging" -fs HFS+ -format UDZO -ov "$dmg"
 rm -rf "$staging"
 /usr/bin/codesign --force --timestamp --keychain "$LEO_KEYCHAIN" --sign "$SIGN_IDENTITY" "$dmg"
 /usr/bin/codesign --verify --verbose=2 "$dmg"
