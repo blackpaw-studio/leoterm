@@ -78,17 +78,28 @@ jobs:
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
-          sparkle_key="${RUNNER_TEMP:?}/leo-sparkle-key.txt"
+          umask 077
+          sparkle_dir="$(mktemp -d "${RUNNER_TEMP:?}/leo-sparkle-key.XXXXXX")"
+          trap 'rm -rf "$sparkle_dir"' EXIT
+          sparkle_key="$sparkle_dir/leo-sparkle-key.txt"
           printf '%s' "$SPARKLE_PRIVATE_KEY" > "$sparkle_key"
           sign_update --ed-key-file "$sparkle_key" Leo.dmg > sign_update.txt
           sig="$(grep -o 'sparkle:edSignature="[^"]*"' sign_update.txt | cut -d'"' -f2)"
           [[ -n "$sig" ]] || { echo "::error::sign_update.txt has no sparkle:edSignature"; exit 1; }
           sign_update --ed-key-file "$sparkle_key" --verify Leo.dmg "$sig"
           rm -f "$sparkle_key"
-          # Start from the latest release's appcast; the first release has none.
-          if ! gh release download --pattern appcast.xml --output appcast.xml 2>/dev/null; then
-            echo "No previous appcast; starting a new one"
+          # Start from the latest release's appcast; the first release has
+          # none. Only that case (no prior release at all) gets an empty
+          # appcast -- any other download failure (network, permissions, a
+          # release that's missing its appcast asset) fails the job instead
+          # of silently starting over.
+          release_count="$(gh release list --limit 1 --json tagName --jq 'length')"
+          if [[ "$release_count" -eq 0 ]]; then
+            echo "No previous release; starting a new appcast"
             rm -f appcast.xml
+          elif ! gh release download --pattern appcast.xml --output appcast.xml; then
+            echo "::error::Previous release exists but appcast.xml download failed" >&2
+            exit 1
           fi
           python3 ../ci/.github/scripts/leo/update_appcast.py
           mv appcast_new.xml appcast.xml
@@ -108,4 +119,4 @@ jobs:
         if: always()
         env:
           TEMP_DIR: ${{ runner.temp }}
-        run: rm -rf dist "$TEMP_DIR/sparkle" "$TEMP_DIR/leo-sparkle-key.txt"
+        run: rm -rf dist "$TEMP_DIR/sparkle" "$TEMP_DIR"/leo-sparkle-key.*
