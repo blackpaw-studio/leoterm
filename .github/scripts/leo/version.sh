@@ -36,8 +36,13 @@ commit="$(git rev-parse --short=9 HEAD)"
 build="$(git rev-list --count HEAD)"
 
 # The highest leo-v* tag by semver, not `git describe` (which picks the
-# nearest tag by commit-graph distance, not the highest version).
-last_release="$(git tag --list 'leo-v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -1)"
+# nearest tag by commit-graph distance, not the highest version). The glob
+# passed to --list is loose (it would match a suffixed tag like
+# leo-v1.2.3-rc1 too, and those can sort above plain X.Y.Z tags), so filter
+# with the same strict regex the release-tag check below uses before
+# picking the highest one.
+last_release="$(git tag --list 'leo-v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname \
+  | grep -E '^leo-v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)"
 last_release="${last_release#leo-v}"
 
 if [[ -n "$tag" ]]; then

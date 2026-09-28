@@ -22,6 +22,10 @@ commit "main 2"
 git -C "$repo" tag leo-v1.10.0 # higher than 1.9.0 under semver, not lexical sort
 commit "main 3"
 git -C "$repo" tag leo-v1.9.0
+# A suffixed tag ranks above plain X.Y.Z tags under -sort=-v:refname and
+# must never be picked as "last release" -- it isn't a strict leo-vX.Y.Z
+# release tag and would make short_version non-numeric.
+git -C "$repo" tag leo-v999.0.0-rc1
 release_commit="$(git -C "$repo" rev-parse HEAD)"
 
 # origin/main: actions/checkout leaves a real remote-tracking ref, so
@@ -58,6 +62,13 @@ check_dev_build() {
     pass=$((pass + 1))
   else
     echo "FAIL: dev build version line unexpected: $(grep '^version=' <<<"$out")"
+    fail=$((fail + 1))
+  fi
+  if [[ "$short" != "999.0.0-rc1" ]]; then
+    echo "PASS: the suffixed tag leo-v999.0.0-rc1 is ignored despite ranking above plain X.Y.Z tags"
+    pass=$((pass + 1))
+  else
+    echo "FAIL: short_version picked up the suffixed tag: '$short'"
     fail=$((fail + 1))
   fi
 }
