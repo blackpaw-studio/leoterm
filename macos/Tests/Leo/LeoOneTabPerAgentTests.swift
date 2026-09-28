@@ -160,7 +160,7 @@ import Testing
         let model = makeModel()
         var focusRequests: [LeoAgentRow.ID] = []
         var attaches: [(LeoAgentRow.ID, LeoWindowID, AttachDisposition)] = []
-        model.focusExistingRequested = { focusRequests.append($0.id) }
+        model.focusExistingRequested = { row, _ in focusRequests.append(row.id) }
         model.attachRequested = { attaches.append(($0.id, $1, $2)) }
         model.receiveAttachLinks(LeoAttachLinkState(focused: nil, tabCounts: [id(local): 1]))
 

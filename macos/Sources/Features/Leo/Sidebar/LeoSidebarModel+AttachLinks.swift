@@ -62,7 +62,7 @@ extension LeoSidebarModel {
             return
         }
         guard !modifierFlags.contains(.option), tabCount(for: row.id) > 0 else { return }
-        focusExistingRequested(row)
+        focusExistingRequested(row, origin)
     }
 
     /// The second click goes to the agent once (B-048): its open tab or a

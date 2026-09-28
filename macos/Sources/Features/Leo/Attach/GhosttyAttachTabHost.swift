@@ -266,14 +266,39 @@ import OSLog
     }
 
     func discardEmptyPlaceholder(origin: LeoWindowID) {
-        guard let controller = registry.controller(for: origin), controller.leoIsUnfilledPlaceholder,
-              controller.surfaceTree.isEmpty, let session = controller.leoSession,
-              session.editorPane == nil, session.browserPane == nil else { return }
+        guard let controller = registry.controller(for: origin),
+              Self.startTabState(of: controller)?.isUntouched == true else { return }
         Self.logger.log("discardEmptyPlaceholder origin=\(origin.rawValue.uuidString, privacy: .public)")
         // Closes just this tab (a tabbed window's tabs are windows). The
         // same close an emptied tree takes -- no undo: there is nothing
-        // in a blank start screen to bring back.
-        controller.window?.close()
+        // in a blank start screen to bring back. On the next turn: a
+        // sidebar click (B-050) asks from inside that window's own mouse
+        // event, which AppKit is still delivering to it.
+        DispatchQueue.main.async { [weak controller] in
+            guard let controller, Self.startTabState(of: controller)?.isUntouched == true else { return }
+            controller.window?.close()
+        }
+    }
+
+    func isLoneStartTab(origin: LeoWindowID) -> Bool {
+        guard let controller = registry.controller(for: origin) else { return false }
+        return Self.startTabState(of: controller)?.isLoneUntouched == true
+    }
+
+    /// `nil` for a window with no Leo session (no start screen at all).
+    /// The editor and browser count by what they show: their pane views
+    /// (`editorPane`, `browserPane`) exist in every window once its split
+    /// view is built, open or not. A tabbed window's tabs are windows in
+    /// one tab group; a window not (yet) in a group is its only tab.
+    private static func startTabState(of controller: TerminalController) -> LeoStartTabState? {
+        guard let session = controller.leoSession else { return nil }
+        return LeoStartTabState(
+            isUnfilledPlaceholder: controller.leoIsUnfilledPlaceholder,
+            hasTerminal: !controller.surfaceTree.isEmpty,
+            isEditorOpen: session.editor.isOpen,
+            isBrowserOpen: session.browser.isOpen,
+            tabCount: max(controller.window?.tabGroup?.windows.count ?? 1, 1)
+        )
     }
 
     func isOpen(_ handle: AttachmentHandle) -> Bool {

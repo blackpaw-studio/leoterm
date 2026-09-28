@@ -78,6 +78,10 @@ extension Notification.Name {
     /// nothing else in it (its request went to an agent's open tab
     /// instead, B-047). Anything else -- a terminal, an editor -- keeps it.
     func discardEmptyPlaceholder(origin: LeoWindowID)
+    /// B-050: `origin`'s window has exactly one tab and it is an untouched
+    /// start screen (`LeoStartTabState.isLoneUntouched`), so an attach
+    /// asked of that window fills it instead of opening a tab beside it.
+    func isLoneStartTab(origin: LeoWindowID) -> Bool
     func focus(_ handle: AttachmentHandle)
     func isOpen(_ handle: AttachmentHandle) -> Bool
     /// Titles `handle`'s tab after the agent attached in it (B-052), in

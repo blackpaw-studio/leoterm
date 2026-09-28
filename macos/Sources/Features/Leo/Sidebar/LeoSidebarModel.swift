@@ -17,8 +17,9 @@ import Foundation
     /// last selected a row, so they never move the selection.
     var userSelectionFence: Int?
     var attachRequested: (LeoAgentRow, LeoWindowID, AttachDisposition) -> Void = { _, _, _ in }
-    /// Brings the row's existing attach tab forward (no new attach).
-    var focusExistingRequested: (LeoAgentRow) -> Void = { _ in }
+    /// Brings the row's existing attach tab forward (no new attach). The
+    /// window clicked in, if known, loses its lone start tab (B-050).
+    var focusExistingRequested: (LeoAgentRow, LeoWindowID?) -> Void = { _, _ in }
     var startDaemonRequested: () -> Void = {}
     var retryRequested: () -> Void = {}
     var sshRequested: (String) -> Void = { _ in }

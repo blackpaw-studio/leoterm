@@ -243,7 +243,9 @@ import OSLog
             model?.selection = row.id
             Task { await attachCoordinator?.attach(identity: row.identity, from: origin, disposition: disposition) }
         }
-        model.focusExistingRequested = { [weak attachCoordinator] row in attachCoordinator?.focusExisting(row.identity) }
+        model.focusExistingRequested = { [weak attachCoordinator] row, origin in
+            attachCoordinator?.focusExisting(row.identity, from: origin)
+        }
         model.surfacedFileOpenRequested = { file, row, stillWanted in weakSelf?.openSurfacedFile(file, for: row, stillWanted: stillWanted) }
         model.latestFocusReport = { [weak attachCoordinator] in attachCoordinator?.latestFocusReport ?? 0 }
 

@@ -122,7 +122,8 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     /// attachment when it has one, unless `reuse` is `.alwaysNew`; the start
     /// screen it came from is then closed. `.split`, `.window`, and a pane
     /// placeholder always create a new destination (tmux allows multiple
-    /// attached clients).
+    /// attached clients). A `.tab` asked of a window whose only tab is an
+    /// untouched start screen is treated as that start screen (B-050).
     func attach(
         identity: LeoAgentIdentity,
         request: LeoSurfaceRequest,
@@ -134,6 +135,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         attachInProgress.insert(identity)
         defer { attachInProgress.remove(identity) }
 
+        let request = fillingLoneStartTab(request, reuse: reuse)
         if reuse == .focusExisting, request.disposition.reusesOpenTab, let handle = focusMostRecent(identity) {
             if request.disposition != .tab { host.discardEmptyPlaceholder(origin: request.origin) }
             return .success(handle)
@@ -271,9 +273,24 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     }
 
     /// Brings `identity`'s most recently focused live attachment forward
-    /// instead of opening a duplicate. `false` when it has none.
-    @discardableResult func focusExisting(_ identity: LeoAgentIdentity) -> Bool {
-        focusMostRecent(identity) != nil
+    /// instead of opening a duplicate. `false` when it has none. When the
+    /// request came from `origin` and that window's only tab is an
+    /// untouched start screen, that tab closes, as it does when the
+    /// palette jumps away from it (B-050, D-093).
+    @discardableResult func focusExisting(_ identity: LeoAgentIdentity, from origin: LeoWindowID? = nil) -> Bool {
+        guard focusMostRecent(identity) != nil else { return false }
+        if let origin, host.isLoneStartTab(origin: origin) { host.discardEmptyPlaceholder(origin: origin) }
+        return true
+    }
+
+    /// B-050: a new tab asked of a window whose only tab is an untouched
+    /// start screen goes into that start screen instead (the same request,
+    /// so its inherited configuration still applies); if the agent already
+    /// has a tab, the start screen is what gets discarded after the jump.
+    /// ⌘ (`.alwaysNew`) keeps the new tab.
+    private func fillingLoneStartTab(_ request: LeoSurfaceRequest, reuse: LeoAttachReuse) -> LeoSurfaceRequest {
+        guard reuse == .focusExisting, request.disposition == .tab, host.isLoneStartTab(origin: request.origin) else { return request }
+        return LeoSurfaceRequest(id: request.id, origin: request.origin, disposition: .placeholder)
     }
 
     private func focusMostRecent(_ identity: LeoAgentIdentity) -> AttachmentHandle? {

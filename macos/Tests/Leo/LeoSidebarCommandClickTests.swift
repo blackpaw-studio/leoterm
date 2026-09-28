@@ -135,7 +135,7 @@ struct LeoSidebarCommandClickTests {
         model.attachRequested = { [weak self] row, windowID, disposition in
             self?.attaches.append((row.id, windowID, disposition))
         }
-        model.focusExistingRequested = { [weak self] row in self?.focusRequests.append(row.id) }
+        model.focusExistingRequested = { [weak self] row, _ in self?.focusRequests.append(row.id) }
         monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseUp) { [weak self] event in
             if let self, event.window === window { mouseUps += 1 }
             return event

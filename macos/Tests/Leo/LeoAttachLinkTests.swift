@@ -169,7 +169,7 @@ import Testing
     @Test func optionClickDoesNotFocusTheLiveTab() {
         let model = makeModel()
         var focusRequests: [LeoAgentRow.ID] = []
-        model.focusExistingRequested = { focusRequests.append($0.id) }
+        model.focusExistingRequested = { row, _ in focusRequests.append(row.id) }
         model.receiveAttachLinks(LeoAttachLinkState(focused: nil, tabCounts: [id(local): 1]))
 
         model.rowClicked(row(local), modifierFlags: .option)
@@ -223,7 +223,7 @@ import Testing
     @Test func clickingARowWithALiveTabFocusesIt() {
         let model = makeModel()
         var focusRequests: [LeoAgentRow.ID] = []
-        model.focusExistingRequested = { focusRequests.append($0.id) }
+        model.focusExistingRequested = { row, _ in focusRequests.append(row.id) }
         model.receiveAttachLinks(LeoAttachLinkState(focused: nil, tabCounts: [id(local): 2]))
 
         model.rowClicked(row(local))

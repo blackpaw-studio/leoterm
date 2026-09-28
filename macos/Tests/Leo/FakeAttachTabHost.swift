@@ -100,6 +100,10 @@ struct FakeOpenCall {
     var discardedPlaceholders: [LeoWindowID] = []
     func discardEmptyPlaceholder(origin: LeoWindowID) { discardedPlaceholders.append(origin) }
 
+    /// Windows whose only tab is an untouched start screen (B-050).
+    var loneStartTabs: Set<LeoWindowID> = []
+    func isLoneStartTab(origin: LeoWindowID) -> Bool { loneStartTabs.contains(origin) }
+
     func focus(_ handle: AttachmentHandle) { focused.append(handle) }
     func isOpen(_ handle: AttachmentHandle) -> Bool { openHandles.contains(handle) }
     func setAgentName(_ handle: AttachmentHandle, name: String) { agentNames.append((handle, name)) }

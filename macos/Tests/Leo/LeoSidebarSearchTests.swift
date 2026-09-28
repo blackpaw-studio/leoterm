@@ -62,7 +62,7 @@ import Testing
         let apple = row("apple")
         let model = makeModel([apple])
         var focused: [String] = []
-        model.focusExistingRequested = { focused.append($0.name) }
+        model.focusExistingRequested = { row, _ in focused.append(row.name) }
         model.receiveAttachLinks(LeoAttachLinkState(focused: nil, tabCounts: [apple.id: 1]))
         model.query = "app"
 

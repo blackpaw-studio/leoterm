@@ -20,7 +20,7 @@ import Testing
         let model = LeoSidebarModel(snapshot: LeoSidebarSnapshot(rows: [worker], connectivity: .connected, generation: 1))
         let log = Log()
         model.attachRequested = { log.attaches.append($2) }
-        model.focusExistingRequested = { _ in log.focusRequests += 1 }
+        model.focusExistingRequested = { _, _ in log.focusRequests += 1 }
         if tabs > 0 { model.receiveAttachLinks(LeoAttachLinkState(focused: nil, tabCounts: [worker.id: tabs])) }
         return (model, log)
     }
