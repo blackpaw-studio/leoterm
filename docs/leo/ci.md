@@ -31,7 +31,14 @@ Versioning:
 - `CFBundleVersion` is `git rev-list --count HEAD`, which is monotonically
   increasing **only on `main`**: it counts commits reachable from `HEAD`, so
   a diverged branch can produce a build number lower than, equal to, or out
-  of order with another branch's.
+  of order with another branch's. A dev build's `CFBundleVersion` is only
+  meaningfully ordered against other builds taken from `main`; don't compare
+  it across branches.
+- Only tags matching `^leo-v[0-9]+\.[0-9]+\.[0-9]+$` (a release tag, checked
+  strictly) are meant to be releases. A tag with any other suffix (e.g. a
+  `-rc1` prerelease) is not a valid release tag and is not something to rely
+  on for the "last release" lookup either -- keep release tags plain
+  `leo-vX.Y.Z`.
 - Unit tests run by injecting the bundle into the host app, because `xcodebuild test` hangs while the Mac is locked. The runner requires a zero exit status and zero reported test failures; there is no tolerated/waived failure.
 
 ## Cut a release
