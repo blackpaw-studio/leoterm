@@ -5,6 +5,7 @@
 #      APPLE_NOTARIZATION_KEY, APPLE_NOTARIZATION_KEY_ID, APPLE_NOTARIZATION_ISSUER.
 # Produces $OUT_DIR/Leo.dmg and $OUT_DIR/Leo-macos-universal.zip.
 set -euo pipefail
+umask 077
 
 : "${APP:?}" "${SIGN_IDENTITY:?}" "${OUT_DIR:?}" "${ENTITLEMENTS:?}" "${LEO_KEYCHAIN:?}" \
   "${APPLE_NOTARIZATION_KEY:?}" "${APPLE_NOTARIZATION_KEY_ID:?}" "${APPLE_NOTARIZATION_ISSUER:?}"
@@ -31,8 +32,12 @@ sign --entitlements "$ENTITLEMENTS" "$APP"
 echo "::endgroup::"
 
 # notarytool submit/staple share a key file and a status check; --keychain
-# would be no help here since neither talks to a keychain.
-notary_key="${RUNNER_TEMP:?}/leo-notary-key.p8"
+# would be no help here since neither talks to a keychain. The key file
+# lives in its own per-job temp dir, removed on any exit (not just the
+# happy path) so a mid-script failure never leaves it behind.
+notary_dir="$(mktemp -d "${RUNNER_TEMP:?}/leo-notary-key.XXXXXX")"
+trap 'rm -rf "$notary_dir"' EXIT
+notary_key="$notary_dir/leo-notary-key.p8"
 printf '%s' "$APPLE_NOTARIZATION_KEY" > "$notary_key"
 notary=(--key "$notary_key" --key-id "$APPLE_NOTARIZATION_KEY_ID" --issuer "$APPLE_NOTARIZATION_ISSUER")
 notarize() {
