@@ -4,119 +4,181 @@ import Testing
 
 @testable import Ghostty
 
-/// B-048: ⌘-click on a sidebar row, through the real list. The clicks are
-/// posted to the app's event queue, so they reach the row the way the
-/// window server delivers them: the `List`'s table and the row's tap
-/// gesture both see the one event. ⌘-click opens a new tab (B-047,
-/// Safari's convention) and the clicked row stays selected -- the table's
-/// own ⌘-click (toggle the row off) must not win.
+/// B-048: clicks on a sidebar row, through the real list. The clicks are
+/// posted to the app's event queue, so they reach the list the way the
+/// window server delivers them. The sidebar's window is never key here:
+/// another window holds key (or the app is in the background), as when a
+/// ⌘-click lands on a background window, which doesn't make it key. That
+/// keeps these tests independent of which app is frontmost.
+///
+/// ⌘-click opens a new tab (B-047, Safari's convention) and the clicked
+/// row stays selected -- the table's own ⌘-click (toggle the row off)
+/// must not win.
 @MainActor @Suite(.serialized)
 struct LeoSidebarCommandClickTests {
-    private static let worker = LeoAgentRow(
+    private let worker = LeoAgentRow(
         host: .local, name: "worker", template: nil, status: .running, activity: .idle, actionDetail: nil
     )
-    private static let settleTimeout = Duration.seconds(3)
-
-    @MainActor private final class Harness {
-        let model: LeoSidebarModel
-        let window: NSWindow
-        let origin = LeoWindowID()
-        var attaches: [(LeoAgentRow.ID, LeoWindowID, AttachDisposition)] = []
-        var focusRequests: [LeoAgentRow.ID] = []
-
-        init() {
-            model = LeoSidebarModel(snapshot: LeoSidebarSnapshot(
-                rows: [LeoSidebarCommandClickTests.worker], connectivity: .connected, generation: 1))
-            let actions = LeoAgentActions(
-                daemon: CommandClickDaemon(), cli: LeoCLI(), model: model,
-                hostSelection: .isolatedForTesting(), refresh: {})
-            window = NSWindow(
-                contentRect: NSRect(x: 120, y: 120, width: 320, height: 480),
-                styleMask: [.titled], backing: .buffered, defer: false)
-            window.isReleasedWhenClosed = false
-            window.contentView = NSHostingView(rootView: LeoSidebarView(model: model, windowID: origin, actions: actions))
-            model.attachRequested = { [unowned self] row, windowID, disposition in
-                attaches.append((row.id, windowID, disposition))
-            }
-            model.focusExistingRequested = { [unowned self] row in focusRequests.append(row.id) }
-        }
-
-        var table: NSTableView? { Self.tables(in: window.contentView).first }
-
-        /// The agent's row: the last one, below its section header.
-        var agentRowIndex: Int? { table.map { $0.numberOfRows - 1 } }
-
-        func show() async throws {
-            window.makeKeyAndOrderFront(nil)
-            try await settle { (agentRowIndex ?? -1) >= 0 }
-        }
-
-        /// Posts a down/up pair on the agent's row, then waits out the
-        /// double-click interval so the next click is a new single click.
-        func click(_ modifierFlags: NSEvent.ModifierFlags, until condition: () -> Bool) async throws {
-            let table = try #require(table)
-            let index = try #require(agentRowIndex)
-            let rect = table.rect(ofRow: index)
-            let point = table.convert(NSPoint(x: rect.midX, y: rect.midY), to: nil)
-            window.makeKeyAndOrderFront(nil)
-            for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
-                let event = try #require(NSEvent.mouseEvent(
-                    with: type, location: point, modifierFlags: modifierFlags,
-                    timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
-                    context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
-                NSApp.postEvent(event, atStart: false)
-            }
-            try await settle(condition)
-            try await Task.sleep(for: .seconds(NSEvent.doubleClickInterval + 0.1))
-        }
-
-        func settle(_ condition: () -> Bool) async throws {
-            let deadline = ContinuousClock.now + LeoSidebarCommandClickTests.settleTimeout
-            while !condition(), ContinuousClock.now < deadline {
-                try await Task.sleep(for: .milliseconds(20))
-            }
-        }
-
-        func close() { window.close() }
-
-        private static func tables(in view: NSView?) -> [NSTableView] {
-            guard let view else { return [] }
-            return (view as? NSTableView).map { [$0] } ?? view.subviews.flatMap { tables(in: $0) }
-        }
-    }
 
     @Test func commandClickOnTheSelectedRowOpensANewTabAndKeepsItSelected() async throws {
-        let harness = Harness()
+        let harness = try await CommandClickHarness(row: worker)
         defer { harness.close() }
-        try await harness.show()
-        let id = Self.worker.id
 
-        try await harness.click([]) { harness.model.selection == id }
-        #expect(harness.model.selection == id)
+        try await harness.clickRow([])
+        #expect(harness.model.selection == worker.id)
         #expect(harness.attaches.isEmpty, "a plain click on a row with no tab only selects it")
 
-        try await harness.click(.command) { !harness.attaches.isEmpty }
+        try await harness.clickRow(.command)
 
-        #expect(harness.attaches.map(\.0) == [id])
+        #expect(harness.attaches.map(\.0) == [worker.id])
         #expect(harness.attaches.first?.1 == harness.origin)
         #expect(harness.attaches.first?.2 == .newTab)
         #expect(harness.focusRequests.isEmpty)
-        #expect(harness.model.selection == id, "the list's ⌘-click must not toggle the row off")
-        #expect(harness.table?.selectedRow == harness.agentRowIndex, "the row keeps its highlight")
+        #expect(harness.model.selection == worker.id, "the list's ⌘-click must not toggle the row off")
+        #expect(harness.table.selectedRow == harness.agentRowIndex, "the row keeps its highlight")
     }
 
     @Test func commandClickOnAnUnselectedRowSelectsItAndOpensANewTab() async throws {
-        let harness = Harness()
+        let harness = try await CommandClickHarness(row: worker)
         defer { harness.close() }
-        try await harness.show()
-        let id = Self.worker.id
 
-        try await harness.click(.command) { !harness.attaches.isEmpty }
+        try await harness.clickRow(.command)
 
-        #expect(harness.attaches.map(\.0) == [id])
+        #expect(harness.attaches.map(\.0) == [worker.id])
         #expect(harness.attaches.first?.2 == .newTab)
-        #expect(harness.model.selection == id)
-        #expect(harness.table?.selectedRow == harness.agentRowIndex)
+        #expect(harness.model.selection == worker.id)
+        #expect(harness.table.selectedRow == harness.agentRowIndex)
+    }
+
+    @Test func plainClickOnARowWithATabFocusesIt() async throws {
+        let harness = try await CommandClickHarness(row: worker)
+        defer { harness.close() }
+        harness.model.receiveAttachLinks(LeoAttachLinkState(focused: nil, tabCounts: [worker.id: 1]))
+
+        try await harness.clickRow([])
+
+        #expect(harness.focusRequests == [worker.id])
+        #expect(harness.attaches.isEmpty)
+    }
+
+    /// Intended, as in Finder's sidebar: once a row is selected, clicking
+    /// empty space keeps it (the list's selection is required, which is
+    /// also what stops ⌘-click toggling the row off).
+    @Test func clickingEmptySidebarSpaceKeepsTheSelection() async throws {
+        let harness = try await CommandClickHarness(row: worker)
+        defer { harness.close() }
+        try await harness.clickRow([])
+        try #require(harness.model.selection == worker.id)
+
+        try await harness.clickEmptySpace()
+
+        #expect(harness.model.selection == worker.id)
+        #expect(harness.table.selectedRow == harness.agentRowIndex)
+        #expect(harness.attaches.isEmpty)
+        #expect(harness.focusRequests.isEmpty)
+    }
+}
+
+// MARK: - Harness
+
+@MainActor private final class CommandClickHarness {
+    let model: LeoSidebarModel
+    let window: NSWindow
+    let table: NSTableView
+    let origin = LeoWindowID()
+    private(set) var attaches: [(LeoAgentRow.ID, LeoWindowID, AttachDisposition)] = []
+    private(set) var focusRequests: [LeoAgentRow.ID] = []
+    /// Holds key, so the sidebar's window never has it.
+    private let keyWindow: NSWindow
+    private var mouseUps = 0
+    private var monitor: Any?
+
+    init(row: LeoAgentRow) async throws {
+        model = LeoSidebarModel(snapshot: LeoSidebarSnapshot(rows: [row], connectivity: .connected, generation: 1))
+        let actions = LeoAgentActions(
+            daemon: CommandClickDaemon(), cli: LeoCLI(), model: model,
+            hostSelection: .isolatedForTesting(), refresh: {})
+        window = Self.makeWindow(at: NSPoint(x: 120, y: 120))
+        keyWindow = Self.makeWindow(at: NSPoint(x: 480, y: 120))
+        window.contentView = NSHostingView(rootView: LeoSidebarView(model: model, windowID: origin, actions: actions))
+        window.orderFront(nil)
+        keyWindow.makeKeyAndOrderFront(nil)
+        table = try await Self.settledTable(in: window)
+        model.attachRequested = { [unowned self] row, windowID, disposition in
+            attaches.append((row.id, windowID, disposition))
+        }
+        model.focusExistingRequested = { [unowned self] row in focusRequests.append(row.id) }
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseUp) { [unowned self] event in
+            if event.window === window { mouseUps += 1 }
+            return event
+        }
+    }
+
+    /// The agent's row: the last one, below its section header.
+    var agentRowIndex: Int { table.numberOfRows - 1 }
+
+    func clickRow(_ modifierFlags: NSEvent.ModifierFlags) async throws {
+        let rect = table.rect(ofRow: agentRowIndex)
+        try await click(at: NSPoint(x: rect.midX, y: rect.midY), modifierFlags)
+    }
+
+    func clickEmptySpace() async throws {
+        let rect = table.rect(ofRow: agentRowIndex)
+        let below = NSPoint(x: rect.midX, y: rect.maxY + 40)
+        try #require(table.row(at: below) == -1 && table.visibleRect.contains(below), "no empty space below the rows")
+        try await click(at: below, [])
+    }
+
+    func close() {
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        window.close()
+        keyWindow.close()
+    }
+
+    /// Posts a down/up pair at `point` (table coordinates), waits until the
+    /// up has been dispatched, then waits out the double-click interval so
+    /// the next click is a new single click.
+    private func click(at point: NSPoint, _ modifierFlags: NSEvent.ModifierFlags) async throws {
+        // A plain click makes the sidebar's window key; take it back.
+        keyWindow.makeKeyAndOrderFront(nil)
+        try #require(!window.isKeyWindow, "the sidebar's window must not be key")
+        let location = table.convert(point, to: nil)
+        let expectedUps = mouseUps + 1
+        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+            let event = try #require(NSEvent.mouseEvent(
+                with: type, location: location, modifierFlags: modifierFlags,
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
+            NSApp.postEvent(event, atStart: false)
+        }
+        try await Self.settle { mouseUps >= expectedUps }
+        try #require(mouseUps >= expectedUps, "the posted click was never dispatched")
+        try await Task.sleep(for: .seconds(NSEvent.doubleClickInterval + 0.1))
+    }
+
+    private static func makeWindow(at origin: NSPoint) -> NSWindow {
+        let window = NSWindow(
+            contentRect: NSRect(origin: origin, size: NSSize(width: 320, height: 480)),
+            styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        return window
+    }
+
+    private static func settledTable(in window: NSWindow) async throws -> NSTableView {
+        try await settle { tables(in: window.contentView).first.map { $0.numberOfRows > 0 } ?? false }
+        return try #require(tables(in: window.contentView).first)
+    }
+
+    private static func settle(_ condition: () -> Bool) async throws {
+        let deadline = ContinuousClock.now + .seconds(3)
+        while !condition(), ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+    }
+
+    private static func tables(in view: NSView?) -> [NSTableView] {
+        guard let view else { return [] }
+        return (view as? NSTableView).map { [$0] } ?? view.subviews.flatMap { tables(in: $0) }
     }
 }
 

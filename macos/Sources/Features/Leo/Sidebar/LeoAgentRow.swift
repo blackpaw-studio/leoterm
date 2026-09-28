@@ -72,8 +72,9 @@ struct LeoAgentRowView: View {
     let row: LeoAgentRow
     let isSelected: Bool
     let attach: (LeoAgentRow, AttachDisposition) -> Void
-    /// A single click (modifiers, click count); brings an existing attach
-    /// forward when there is one, or opens a new tab on ⌘-click.
+    /// A single click (the event's modifiers, click count); brings an
+    /// existing attach forward when there is one, or opens a new tab on
+    /// ⌘-click.
     let click: (NSEvent.ModifierFlags, Int) -> Void
     @ObservedObject var actions: LeoAgentActions
     let error: String?
@@ -104,13 +105,11 @@ struct LeoAgentRowView: View {
             rowDetails
                 .contentShape(Rectangle())
                 .onTapGesture(count: 2) { activate(source: .rowDoubleClick) }
-                // Simultaneous, so it neither delays the double-click nor
-                // takes the click away from the list's own selection. The
-                // modifiers are the click's own, not whatever is held now.
-                .simultaneousGesture(TapGesture().onEnded {
-                    let event = NSApp.currentEvent
-                    click(event?.modifierFlags ?? NSEvent.modifierFlags, event?.clickCount ?? 1)
-                })
+                // Not a tap gesture: that misses clicks in a window that
+                // isn't key (a ⌘-click on a background window), and the
+                // catcher reads the click's own modifiers (B-048). It never
+                // takes the click from the list's own selection.
+                .background(LeoRowClickCatcher(onClick: click))
         }
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
