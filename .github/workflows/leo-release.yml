@@ -46,9 +46,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: ci
+          # Non-cone mode: cone mode only accepts directories, not the plist file.
           sparse-checkout: |
-            .github/scripts/leo
-            macos/Ghostty-Info.plist
+            /.github/scripts/leo/
+            /macos/Ghostty-Info.plist
+          sparse-checkout-cone-mode: false
           persist-credentials: false
 
       - name: Check Sparkle key
