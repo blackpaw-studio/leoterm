@@ -3,14 +3,14 @@
 #
 # `xcodebuild test` hangs when the runner Mac's console is locked (Xcode
 # treats the Mac as a passcode-protected device), so the bundle is injected
-# into the host app directly instead. Under that runner
-# ConfigTests/errorsEmptyForValidConfig always fails (the -XCTest argv lands
-# in the app's CLI config), so it is the one tolerated failure.
+# into the host app directly instead. That injection makes the process see
+# `-XCTest All <bundle>` on its own argv; Ghostty.Config.loadConfig skips CLI
+# arg parsing whenever isRunningXCTest() is true specifically so that argv
+# never reaches config parsing, so no test failures need to be tolerated here.
 # Env: DERIVED_DATA, DEVELOPER_DIR. Optional LOG (default $RUNNER_TEMP/leo-tests.log).
 set -euo pipefail
 
 : "${DERIVED_DATA:?}" "${DEVELOPER_DIR:?}"
-readonly KNOWN_FAILURES='^errorsEmptyForValidConfig$'
 readonly TEST_TIMEOUT_SECONDS=900
 log="${LOG:-${RUNNER_TEMP:-/tmp}/leo-tests.log}"
 cd "$(git rev-parse --show-toplevel)/macos"
@@ -51,13 +51,16 @@ if [[ -z "$summary" ]]; then
   echo "::error::Test runner exited ($rc) without a summary"
   exit 1
 fi
-
-failed="$(grep -E '^✘ Test [^ ]+\(.*\) failed' "$log" \
-  | sed -E 's/^✘ Test ([^(]+)\(.*/\1/' | sort -u || true)"
-unexpected="$(grep -Ev "$KNOWN_FAILURES" <<<"$failed" | grep -v '^$' || true)"
-if [[ -n "$unexpected" ]]; then
+if [[ $rc -ne 0 ]]; then
   grep -E '^✘' "$log" | head -60
-  echo "::error::Unexpected test failures: $(tr '\n' ' ' <<<"$unexpected")"
+  echo "::error::Test runner exited with status $rc"
   exit 1
 fi
-echo "All tests passed (tolerated: ${failed:-none})"
+
+failed="$(grep -E '^✘ Test ' "$log" || true)"
+if [[ -n "$failed" ]]; then
+  echo "$failed" | head -60
+  echo "::error::Test failures reported despite a zero exit status"
+  exit 1
+fi
+echo "All tests passed"
