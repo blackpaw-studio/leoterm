@@ -24,10 +24,35 @@ EOF
 chmod +x "$fakebin/gh"
 export PATH="$fakebin:$PATH"
 
+# A scratch "origin" + clone so the sha-reachability check has something
+# real to fetch/inspect without touching the actual leoterm repo or network.
+origin="$(mktemp -d)"
+repo="$(mktemp -d)"
+trap 'rm -rf "$fakebin" "$origin" "$repo"' EXIT
+git init -q --bare "$origin"
+git init -q -b main "$repo"
+git -C "$repo" config user.email test@example.com
+git -C "$repo" config user.name test
+git -C "$repo" remote add origin "$origin"
+git -C "$repo" commit -q --allow-empty -m "on main"
+git -C "$repo" push -q origin main
+reachable_sha="$(git -C "$repo" rev-parse HEAD)"
+
+# A commit that only exists in a second clone -- never pushed to origin --
+# simulates a fork PR's head commit: valid hex, unreachable from any branch
+# or tag of the base repo.
+fork_repo="$(mktemp -d)"
+trap 'rm -rf "$fakebin" "$origin" "$repo" "$fork_repo"' EXIT
+git init -q -b main "$fork_repo"
+git -C "$fork_repo" config user.email test@example.com
+git -C "$fork_repo" config user.name test
+git -C "$fork_repo" commit -q --allow-empty -m "fork-only commit"
+unreachable_sha="$(git -C "$fork_repo" rev-parse HEAD)"
+
 run() {
-  # $1: REF_INPUT, $2: GH_FAKE_HEAD_REPO (optional)
+  # $1: REF_INPUT, $2: GH_FAKE_HEAD_REPO (optional), $3: RESOLVE_REF_GIT_DIR (optional)
   REF_INPUT="$1" GH_FAKE_HEAD_REPO="${2:-}" GITHUB_REPOSITORY="blackpaw-studio/leoterm" \
-    DEFAULT_SHA="deadbeef" ../resolve-ref.sh
+    DEFAULT_SHA="deadbeef" RESOLVE_REF_GIT_DIR="${3:-$repo}" ../resolve-ref.sh
 }
 
 check() {
@@ -53,7 +78,8 @@ check "fork PR number is rejected" 1 "42" "someone-else/leoterm"
 check "PR lookup with no head repo is rejected" 1 "42" ""
 check "raw refs/pull/* form is rejected" 1 "refs/pull/42/head"
 check "raw refs/pull/*/merge form is rejected" 1 "refs/pull/42/merge"
-check "plain sha still resolves" 0 "0123abc" "" "0123abc"
+check "sha reachable from a remote branch resolves" 0 "$reachable_sha" "" "$reachable_sha"
+check "sha not reachable from any branch or tag is rejected" 1 "$unreachable_sha"
 check "empty ref falls back to DEFAULT_SHA" 0 "" "" "deadbeef"
 check "branch name still resolves" 0 "main" "" "refs/heads/main"
 
