@@ -380,6 +380,24 @@ import Testing
         #expect(log.starts.isEmpty)
     }
 
+    // MARK: Accessibility
+
+    /// B-049: VoiceOver's press on a row (AXPress) is a plain single click,
+    /// so a stopped agent still asks first.
+    @Test func theRowsAccessibilityPressIsASingleClick() {
+        let agent = row("scratch", .stopped)
+        let worker = row()
+        let (model, log) = makeModel([agent, worker])
+
+        LeoRowAccessibility.press { model.rowClicked(agent, modifierFlags: $0, clickCount: $1, from: origin) }
+        LeoRowAccessibility.press { model.rowClicked(worker, modifierFlags: $0, clickCount: $1, from: otherWindow) }
+
+        #expect(model.startPrompt(in: origin)?.agent == agent.id)
+        #expect(log.starts.isEmpty)
+        #expect(log.attaches.map(\.0) == [worker.id])
+        #expect(log.dispositions == [.reuseOrTab])
+    }
+
     @Test func returnWithoutASelectionDoesNothing() {
         let (model, log) = makeModel([row()])
 

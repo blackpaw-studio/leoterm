@@ -95,9 +95,12 @@ struct LeoAgentRowView: View {
                 // own modifiers and count, so a double-click is the second
                 // click (B-048). It never takes the click from the list's
                 // own selection.
-                .background(LeoRowClickCatcher(onClick: click))
+                .background(LeoRowClickCatcher(identity: row.id, onClick: click))
         }
         .contentShape(Rectangle())
+        // No button in the row to press, so the row itself is the press.
+        .accessibilityAction { LeoRowAccessibility.press(click) }
+        .accessibilityAction(named: LeoRowAccessibility.pressName) { LeoRowAccessibility.press(click) }
         .contextMenu { menu }
         .sheet(isPresented: $showingRename) { LeoRenameAgentSheet(row: row, actions: actions) }
         .sheet(isPresented: $showingDelete) {

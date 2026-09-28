@@ -11,11 +11,14 @@ import SwiftUI
 /// as before. The row has no controls of its own (B-049), so every click
 /// inside it is a row click.
 struct LeoRowClickCatcher: NSViewRepresentable {
+    /// The row this view currently backs (its agent's id).
+    let identity: AnyHashable
     let onClick: (NSEvent.ModifierFlags, Int) -> Void
 
     func makeNSView(context: Context) -> LeoRowClickCatcherView { LeoRowClickCatcherView() }
 
     func updateNSView(_ view: LeoRowClickCatcherView, context: Context) {
+        view.identity = identity
         view.onClick = onClick
         view.isEnabled = context.environment.isEnabled
     }
@@ -24,10 +27,17 @@ struct LeoRowClickCatcher: NSViewRepresentable {
 final class LeoRowClickCatcherView: NSView {
     var onClick: (NSEvent.ModifierFlags, Int) -> Void = { _, _ in }
     var isEnabled = true
+    /// The row this view backs. Rows re-sort live, and SwiftUI may hand
+    /// this view (with a new `onClick`) to another row between mouse-down
+    /// and mouse-up; that mouse-up is no click on the new row (B-049).
+    var identity: AnyHashable?
     private var monitor: Any?
-    /// The last mouse-down landed here, so the matching mouse-up is a click
-    /// (a drag in from another row is not).
-    private var isArmed = false
+    /// The row the last mouse-down landed on, when it landed here: the
+    /// matching mouse-up is a click only on that same row (a drag in from
+    /// another row, or a rebind to another agent, is not).
+    private var armed: Armed?
+
+    private struct Armed { let identity: AnyHashable? }
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
@@ -49,10 +59,11 @@ final class LeoRowClickCatcherView: NSView {
         let isInside = contains(event)
         switch event.type {
         case .leftMouseDown:
-            isArmed = isInside && isEnabled && !event.modifierFlags.contains(.control)
+            let isArmed = isInside && isEnabled && !event.modifierFlags.contains(.control)
+            armed = isArmed ? Armed(identity: identity) : nil
         case .leftMouseUp:
-            defer { isArmed = false }
-            guard isArmed, isInside, isEnabled else { return }
+            defer { armed = nil }
+            guard let armed, armed.identity == identity, isInside, isEnabled else { return }
             onClick(event.modifierFlags, event.clickCount)
         default:
             break
@@ -70,5 +81,16 @@ final class LeoRowClickCatcherView: NSView {
         guard let monitor else { return }
         NSEvent.removeMonitor(monitor)
         self.monitor = nil
+    }
+}
+
+/// VoiceOver's press on a row (AXPress): a plain single click, so it goes
+/// wherever a click goes -- the agent's tab, a new attach, or the Start
+/// prompt (B-049).
+enum LeoRowAccessibility {
+    static let pressName = "Open"
+
+    static func press(_ click: (NSEvent.ModifierFlags, Int) -> Void) {
+        click([], 1)
     }
 }

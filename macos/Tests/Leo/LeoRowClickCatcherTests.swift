@@ -78,6 +78,36 @@ import Testing
         #expect(harness.clicks.isEmpty)
     }
 
+    /// B-049: rows re-sort live and SwiftUI may hand this view to another
+    /// row (a new `identity` and `onClick`) between mouse-down and
+    /// mouse-up. That mouse-up is not a click on the new row.
+    @Test func aClickWhoseRowChangedBeforeMouseUpIsDropped() {
+        let harness = Harness()
+        harness.catcher.identity = "alpha"
+        var otherRowClicks = 0
+
+        harness.send(.leftMouseDown, at: Harness.inside)
+        harness.catcher.identity = "bravo"
+        harness.catcher.onClick = { _, _ in otherRowClicks += 1 }
+        harness.send(.leftMouseUp, at: Harness.inside)
+
+        #expect(harness.clicks.isEmpty)
+        #expect(otherRowClicks == 0)
+    }
+
+    @Test func aClickOnTheSameRowSurvivesARebind() {
+        let harness = Harness()
+        harness.catcher.identity = "alpha"
+        var reboundClicks = 0
+
+        harness.send(.leftMouseDown, at: Harness.inside)
+        harness.catcher.identity = "alpha"
+        harness.catcher.onClick = { _, _ in reboundClicks += 1 }
+        harness.send(.leftMouseUp, at: Harness.inside)
+
+        #expect(reboundClicks == 1)
+    }
+
     @Test func neverTakesTheClickFromTheListOrRow() {
         let harness = Harness()
 
