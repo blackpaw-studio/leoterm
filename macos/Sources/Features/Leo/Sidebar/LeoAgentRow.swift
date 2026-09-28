@@ -2,21 +2,8 @@ import AppKit
 import SwiftUI
 
 enum LeoAttachActivation {
-    enum Source {
-        case button
-        case keyboard
-    }
-
     static func disposition(for modifierFlags: NSEvent.ModifierFlags) -> AttachDisposition {
         modifierFlags.contains(.option) ? .newWindow : .reuseOrTab
-    }
-
-    static func activate(
-        source _: Source,
-        row: LeoAgentRow,
-        attach: (LeoAgentRow, AttachDisposition) -> Void
-    ) {
-        activate(row: row, modifierFlags: NSEvent.modifierFlags, attach: attach)
     }
 
     static func activate(
@@ -89,13 +76,8 @@ struct LeoAgentRowView: View {
     @State private var showingRename = false
     @State private var showingDelete = false
     @State private var templateLoadError: String?
-    @State private var isHovered = false
     /// The room the subtitle text has, once measured (B-043).
     @State private var subtitleWidth: CGFloat?
-    /// Where the hover Attach button is while shown, in `detailsSpace`, so
-    /// a click on it isn't also a row click (B-048).
-    @State private var attachButtonFrame: CGRect?
-    private static let detailsSpace = "LeoAgentRowView.details"
 
     private var availability: LeoRowActionAvailability {
         LeoRowActionAvailability(status: row.status, isPending: actions.pendingActions.contains(row.id))
@@ -105,42 +87,22 @@ struct LeoAgentRowView: View {
         HStack(spacing: 8) {
             activityDot
             rowDetails
-                .coordinateSpace(name: Self.detailsSpace)
                 .contentShape(Rectangle())
-                // Not tap gestures: those miss clicks in a window that isn't
-                // key (a ⌘-click on a background window), and the catcher
-                // reads the click's own modifiers and count, so a
-                // double-click is the second click (B-048). It never takes
-                // the click from the list's own selection.
-                .background(LeoRowClickCatcher(excluding: attachButtonFrame, onClick: click))
+                // The whole row is the target, like Finder or Mail (B-049);
+                // there's no per-row button to aim for. Not tap gestures:
+                // those miss clicks in a window that isn't key (a ⌘-click on
+                // a background window), and the catcher reads the click's
+                // own modifiers and count, so a double-click is the second
+                // click (B-048). It never takes the click from the list's
+                // own selection.
+                .background(LeoRowClickCatcher(onClick: click))
         }
         .contentShape(Rectangle())
-        .onHover { isHovered = $0 }
         .contextMenu { menu }
         .sheet(isPresented: $showingRename) { LeoRenameAgentSheet(row: row, actions: actions) }
         .sheet(isPresented: $showingDelete) {
             LeoDeleteAgentSheet(row: row, actions: actions, error: error, errorCode: errorCode)
         }
-    }
-
-    private var attachAffordance: some View {
-        // Hover-revealed and borderless, the Mac convention for a per-row
-        // secondary action (Mail and Finder do this). Attaching stays
-        // reachable without hover via double-click, Return, the context
-        // menu, and the Agents menu, so nothing depends on hover alone.
-        //
-        // The fill deliberately matches the status badge rather than using a
-        // material: materials belong to the chrome layer, and a control
-        // inside a list row is content sitting on the sidebar's own material.
-        Button("Attach") { activate(source: .button) }
-            .help("Go to \(row.name)'s open tab, or attach one. ⌘-click the row for a new tab.")
-            .buttonStyle(.borderless)
-            .controlSize(.small)
-            .disabled(!availability.attach)
-            .accessibilityLabel("Attach to \(row.name)")
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(Color.secondary.opacity(0.18), in: Capsule())
     }
 
     private var nameText: Text {
@@ -159,29 +121,6 @@ struct LeoAgentRowView: View {
                 Spacer(minLength: 4)
                 attentionBadge
                 statusBadge
-                if isHovered {
-                    // Reserves the button's width (not its height) in the
-                    // line, so the name truncates before the button and the
-                    // badges sit beside it instead of under it.
-                    attachAffordance
-                        .hidden()
-                        .frame(height: 0)
-                        .accessibilityHidden(true)
-                }
-            }
-            // Overlaid on the name line specifically, not the whole row:
-            // rows vary in height (template, action detail, error, progress),
-            // and an overlay on the row would float the control vertically
-            // centered over that block instead of beside the name. As an
-            // overlay it never changes the row's height when it appears.
-            .overlay(alignment: .trailing) {
-                if isHovered {
-                    attachAffordance
-                        .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(Self.detailsSpace)) } action: {
-                            attachButtonFrame = $0
-                        }
-                        .onDisappear { attachButtonFrame = nil }
-                }
             }
             subtitleLine
             // The current task as the daemon's last snapshot reported it
@@ -354,12 +293,10 @@ struct LeoAgentRowView: View {
         }
     }
 
-    private func activate(source: LeoAttachActivation.Source) {
-        LeoAttachActivation.activate(source: source, row: row, attach: attach)
-    }
-
     @ViewBuilder private var menu: some View {
-        Button("Attach") { activate(source: .button) }.disabled(!availability.attach)
+        Button("Attach") {
+            LeoAttachActivation.activate(row: row, modifierFlags: NSEvent.modifierFlags, attach: attach)
+        }.disabled(!availability.attach)
         // B-047: ⌘-click's new tab, for the mouse user who doesn't know it.
         Button("Attach in New Tab") { attach(row, .newTab) }.disabled(!availability.attach)
         Button("Start") { actions.start(row) }.disabled(!availability.start)

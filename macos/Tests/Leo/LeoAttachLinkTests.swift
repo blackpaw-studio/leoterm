@@ -229,7 +229,7 @@ import Testing
         model.rowClicked(row(local))
         model.rowClicked(row(other))
 
-        #expect(focusRequests == [id(local)], "a row without a live tab keeps today's click behaviour")
+        #expect(focusRequests == [id(local)], "a row without a live tab is attached instead (B-049), never focused")
     }
 
     // MARK: Helpers

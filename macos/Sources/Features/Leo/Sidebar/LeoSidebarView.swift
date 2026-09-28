@@ -128,7 +128,7 @@ struct LeoSidebarView: View {
             LeoSidebarSearchField(
                 text: $model.query,
                 handle: searchField,
-                onSubmit: { model.searchSubmit() },
+                onSubmit: { model.searchSubmit(from: windowID) },
                 onCancel: searchEscape
             )
             .accessibilityLabel("Search agents")
@@ -152,9 +152,22 @@ struct LeoSidebarView: View {
         .sheet(item: $hostsSheetModel) { sheetModel in
             LeoHostsSheet(model: sheetModel) { hostsSheetModel = nil }
         }
+        .sheet(item: startPromptBinding) { item in LeoStartAgentSheet(model: model, prompt: item.prompt) }
     }
 
     private var panelError: String? { model.panelError }
+
+    /// This window's "Start <name>?" prompt (B-049); the model holds one
+    /// per window, so the sheet shows only where the click was.
+    private var startPromptBinding: Binding<LeoStartPromptSheetItem?> {
+        Binding(
+            get: { model.startPrompt(in: windowID).map(LeoStartPromptSheetItem.init(prompt:)) },
+            set: { newValue in
+                guard newValue == nil, let prompt = model.startPrompt(in: windowID) else { return }
+                model.cancelStartPrompt(prompt.id)
+            }
+        )
+    }
 
     @ViewBuilder private var content: some View {
         switch model.snapshot.connectivity {
@@ -241,7 +254,9 @@ struct LeoSidebarView: View {
         .overlay(alignment: .bottomTrailing) {
             // A key equivalent, so it sees Return before the search
             // field does; there Return means the top match instead.
-            Button("") { searchField.hasFocus ? model.searchSubmit() : attachSelected() }
+            // Both are a click on a row (B-049): the top match, or the
+            // selection. Arrow keys only move the selection.
+            Button("") { searchField.hasFocus ? model.searchSubmit(from: windowID) : model.activateSelection(from: windowID) }
                 .keyboardShortcut(.return, modifiers: [])
                 .opacity(0)
                 .disabled(model.actionableSelection == nil)
@@ -274,14 +289,6 @@ struct LeoSidebarView: View {
         switch model.searchEscape() {
         case .cleared: break
         case .leaveField: searchField.focusTerminal()
-        }
-    }
-
-    private func attachSelected() {
-        guard let selection = model.actionableSelection?.id,
-              let row = model.visibleRows.first(where: { $0.id == selection }) else { return }
-        LeoAttachActivation.activate(source: .keyboard, row: row) { row, disposition in
-            model.requestAttach(row, from: windowID, disposition: disposition)
         }
     }
 

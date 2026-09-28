@@ -8,19 +8,15 @@ import SwiftUI
 /// monitor sees every click the app dispatches, key window or not, with
 /// the event's own modifiers and click count. The view takes no part in
 /// hit testing, so the list and the row's other gestures see each click
-/// as before -- which is why it has to be told where the row's own
-/// controls are: a click on one of those is not a row click.
+/// as before. The row has no controls of its own (B-049), so every click
+/// inside it is a row click.
 struct LeoRowClickCatcher: NSViewRepresentable {
-    /// A control inside the row (its Attach button), in the row's
-    /// top-left-origin coordinates.
-    var excluding: CGRect?
     let onClick: (NSEvent.ModifierFlags, Int) -> Void
 
     func makeNSView(context: Context) -> LeoRowClickCatcherView { LeoRowClickCatcherView() }
 
     func updateNSView(_ view: LeoRowClickCatcherView, context: Context) {
         view.onClick = onClick
-        view.excludedRect = excluding
         view.isEnabled = context.environment.isEnabled
     }
 }
@@ -28,16 +24,12 @@ struct LeoRowClickCatcher: NSViewRepresentable {
 final class LeoRowClickCatcherView: NSView {
     var onClick: (NSEvent.ModifierFlags, Int) -> Void = { _, _ in }
     var isEnabled = true
-    var excludedRect: CGRect?
     private var monitor: Any?
     /// The last mouse-down landed here, so the matching mouse-up is a click
     /// (a drag in from another row is not).
     private var isArmed = false
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
-
-    /// Matches SwiftUI's coordinates, so `excludedRect` needs no flip.
-    override var isFlipped: Bool { true }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
@@ -71,7 +63,7 @@ final class LeoRowClickCatcherView: NSView {
         guard let window, event.window === window, !isHiddenOrHasHiddenAncestor else { return false }
         // `visibleRect` alone can reach past the view's own bounds.
         let point = convert(event.locationInWindow, from: nil)
-        return bounds.contains(point) && visibleRect.contains(point) && excludedRect?.contains(point) != true
+        return bounds.contains(point) && visibleRect.contains(point)
     }
 
     private func removeMonitor() {

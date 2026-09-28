@@ -224,6 +224,7 @@ import OSLog
             Task { await feed?.refresh() }
         }
         actionsBox.actions = actions
+        model.startRequested = { [weak actions] row, completion in actions?.start(row, completion: completion) }
         model.retryRequested = { [hostSelection] in hostSelection.retry() }
         registry.pollabilityChanged = { [feed] pollable in Task { await feed.setPolling(pollable) } }
         model.startDaemonRequested = { [weak self] in

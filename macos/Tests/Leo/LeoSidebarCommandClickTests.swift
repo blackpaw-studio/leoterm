@@ -24,16 +24,17 @@ struct LeoSidebarCommandClickTests {
         let harness = try await CommandClickHarness(row: worker)
         defer { harness.close() }
 
+        harness.model.receiveAttachLinks(LeoAttachLinkState(focused: nil, tabCounts: [worker.id: 1]))
         try await harness.clickRow([])
         #expect(harness.model.selection == worker.id)
-        #expect(harness.attaches.isEmpty, "a plain click on a row with no tab only selects it")
+        #expect(harness.focusRequests == [worker.id], "a plain click on a row with a tab goes to that tab")
 
         try await harness.clickRow(.command)
 
         #expect(harness.attaches.map(\.0) == [worker.id])
         #expect(harness.attaches.first?.1 == harness.origin)
         #expect(harness.attaches.first?.2 == .newTab)
-        #expect(harness.focusRequests.isEmpty)
+        #expect(harness.focusRequests == [worker.id])
         #expect(harness.model.selection == worker.id, "the list's ⌘-click must not toggle the row off")
         #expect(harness.table.selectedRow == harness.agentRowIndex, "the row keeps its highlight")
     }
@@ -71,17 +72,19 @@ struct LeoSidebarCommandClickTests {
         #expect(harness.focusRequests.isEmpty)
     }
 
-    /// The button is the row's own control: its click is never also a row
-    /// click, or a ⌘-click would open two tabs.
-    @Test(arguments: [NSEvent.ModifierFlags.command, []])
-    func clickingTheAttachButtonAttachesExactlyOnce(modifierFlags: NSEvent.ModifierFlags) async throws {
-        let harness = try await CommandClickHarness(row: worker, isSidebarKey: true)
+    /// B-049: the row is the target -- one click attaches, with no
+    /// button to aim for.
+    @Test func plainClickOnARowWithoutATabAttachesExactlyOnce() async throws {
+        let harness = try await CommandClickHarness(row: worker)
         defer { harness.close() }
 
-        try await harness.clickAttachButton(modifierFlags)
+        try await harness.clickRow([])
 
-        #expect(harness.attaches.map(\.2) == [.reuseOrTab])
+        #expect(harness.attaches.map(\.0) == [worker.id])
+        #expect(harness.attaches.first?.1 == harness.origin)
+        #expect(harness.attaches.first?.2 == .reuseOrTab)
         #expect(harness.focusRequests.isEmpty)
+        #expect(harness.model.selection == worker.id)
     }
 
     /// Intended, as in Finder's sidebar: once a row is selected, clicking
@@ -92,12 +95,13 @@ struct LeoSidebarCommandClickTests {
         defer { harness.close() }
         try await harness.clickRow([])
         try #require(harness.model.selection == worker.id)
+        let attachesBefore = harness.attaches.count
 
         try await harness.clickEmptySpace()
 
         #expect(harness.model.selection == worker.id)
         #expect(harness.table.selectedRow == harness.agentRowIndex)
-        #expect(harness.attaches.isEmpty)
+        #expect(harness.attaches.count == attachesBefore, "empty space is not a row click")
         #expect(harness.focusRequests.isEmpty)
     }
 }
@@ -111,22 +115,17 @@ struct LeoSidebarCommandClickTests {
     let origin = LeoWindowID()
     private(set) var attaches: [(LeoAgentRow.ID, LeoWindowID, AttachDisposition)] = []
     private(set) var focusRequests: [LeoAgentRow.ID] = []
-    /// Holds key, so the sidebar's window never has it -- unless the test
-    /// needs the sidebar key (SwiftUI's Button acts only in a key window);
-    /// then the sidebar's window claims key itself, since activating the
-    /// test host isn't in the test's control.
+    /// Holds key, so the sidebar's window never has it.
     private let keyWindow: NSWindow
-    private let isSidebarKey: Bool
     private var mouseUps = 0
     private var monitor: Any?
 
-    init(row: LeoAgentRow, isSidebarKey: Bool = false) async throws {
-        self.isSidebarKey = isSidebarKey
+    init(row: LeoAgentRow) async throws {
         model = LeoSidebarModel(snapshot: LeoSidebarSnapshot(rows: [row], connectivity: .connected, generation: 1))
         let actions = LeoAgentActions(
             daemon: CommandClickDaemon(), cli: LeoCLI(), model: model,
             hostSelection: .isolatedForTesting(), refresh: {})
-        window = isSidebarKey ? AlwaysKeyWindow.make(at: NSPoint(x: 120, y: 120)) : Self.makeWindow(at: NSPoint(x: 120, y: 120))
+        window = Self.makeWindow(at: NSPoint(x: 120, y: 120))
         keyWindow = Self.makeWindow(at: NSPoint(x: 480, y: 120))
         window.contentView = NSHostingView(rootView: LeoSidebarView(model: model, windowID: origin, actions: actions))
         window.orderFront(nil)
@@ -155,35 +154,6 @@ struct LeoSidebarCommandClickTests {
         let center = NSPoint(x: rect.midX, y: rect.midY)
         try await click(at: center, modifierFlags, clickCount: 1, waitsOutDoubleClick: false)
         try await click(at: center, modifierFlags, clickCount: 2)
-    }
-
-    /// Hovers the row so its Attach button shows, then clicks the button
-    /// where the row's click catcher says it is.
-    func clickAttachButton(_ modifierFlags: NSEvent.ModifierFlags) async throws {
-        let catcher = try #require(Self.views(LeoRowClickCatcherView.self, in: window.contentView).first)
-        try hoverAgentRow()
-        try await Self.settle { catcher.excludedRect != nil }
-        let button = try #require(catcher.excludedRect, "the hovered row never showed its Attach button")
-        let center = catcher.convert(NSPoint(x: button.midX, y: button.midY), to: table)
-        try await click(at: center, modifierFlags)
-    }
-
-    /// Posted mouse-moved events don't drive tracking areas (AppKit uses the
-    /// real cursor), so this enters the row's tracking areas directly.
-    private func hoverAgentRow() throws {
-        let rowView = try #require(table.rowView(atRow: agentRowIndex, makeIfNecessary: false))
-        let rect = table.rect(ofRow: agentRowIndex)
-        let location = table.convert(NSPoint(x: rect.midX, y: rect.midY), to: nil)
-        let areas = Self.descendants(of: rowView).flatMap(\.trackingAreas)
-        try #require(!areas.isEmpty, "the row has no tracking areas to hover")
-        for area in areas {
-            let enter = try #require(NSEvent.enterExitEvent(
-                with: .mouseEntered, location: location, modifierFlags: [],
-                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
-                context: nil, eventNumber: 0,
-                trackingNumber: Int(bitPattern: Unmanaged.passUnretained(area).toOpaque()), userData: nil))
-            (area.owner as? NSResponder)?.mouseEntered(with: enter)
-        }
     }
 
     func clickEmptySpace() async throws {
@@ -223,7 +193,6 @@ struct LeoSidebarCommandClickTests {
 
     /// A plain click makes the sidebar's window key; take it back.
     private func holdKey() async throws {
-        guard !isSidebarKey else { return }
         keyWindow.makeKeyAndOrderFront(nil)
         try #require(!window.isKeyWindow, "the sidebar's window must not be key")
     }
@@ -250,26 +219,9 @@ struct LeoSidebarCommandClickTests {
 
     private static func tables(in view: NSView?) -> [NSTableView] { views(NSTableView.self, in: view) }
 
-    private static func descendants(of view: NSView) -> [NSView] {
-        [view] + view.subviews.flatMap(descendants(of:))
-    }
-
     private static func views<View: NSView>(_ type: View.Type, in view: NSView?) -> [View] {
         guard let view else { return [] }
         return (view as? View).map { [$0] } ?? view.subviews.flatMap { views(type, in: $0) }
-    }
-}
-
-/// Key whether or not the test host is the active app.
-private final class AlwaysKeyWindow: NSWindow {
-    override var isKeyWindow: Bool { true }
-
-    static func make(at origin: NSPoint) -> NSWindow {
-        let window = AlwaysKeyWindow(
-            contentRect: NSRect(origin: origin, size: NSSize(width: 320, height: 480)),
-            styleMask: [.titled], backing: .buffered, defer: false)
-        window.isReleasedWhenClosed = false
-        return window
     }
 }
 

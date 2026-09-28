@@ -51,30 +51,34 @@ extension LeoSidebarModel {
         }
     }
 
-    /// Rows without a live attach keep plain selection; Option defers to
-    /// the double-click's new window. ⌘-click attaches a new tab in
-    /// `origin`'s window even when the agent has one (B-047, Safari's
-    /// convention).
+    /// A click goes to the agent (B-049): its open tab, else a new attach;
+    /// an agent that isn't running asks to start first (see
+    /// `+StartPrompt`). ⌘-click attaches a new tab in `origin`'s window even
+    /// when the agent has one (B-047, Safari's convention). Option defers
+    /// to the double-click's new window.
     private func singleClicked(_ row: LeoAgentRow, modifierFlags: NSEvent.ModifierFlags, from origin: LeoWindowID?) {
         if modifierFlags.contains(.command) {
-            guard let origin else { return }
-            requestAttach(row, from: origin, disposition: .newTab)
+            go(to: row, from: origin, disposition: .newTab)
             return
         }
-        guard !modifierFlags.contains(.option), tabCount(for: row.id) > 0 else { return }
-        focusExistingRequested(row, origin)
+        guard !modifierFlags.contains(.option) else { return }
+        if row.status == .running, tabCount(for: row.id) > 0 {
+            focusExistingRequested(row, origin)
+            return
+        }
+        go(to: row, from: origin, disposition: .reuseOrTab)
     }
 
-    /// The second click goes to the agent once (B-048): its open tab or a
-    /// new attach, ⌥ in a new window. A plain double-click on a row with a
-    /// tab already went there on the first click; a ⌘-double-click's second
-    /// click brings the first click's new tab forward (D-093).
+    /// The first click already went to the agent, so a plain second click
+    /// does nothing more (B-048). ⌥ opens it in a new window; a
+    /// ⌘-double-click's second click brings the first click's new tab
+    /// forward (D-093). Neither asks twice for a stopped agent.
     private func doubleClicked(_ row: LeoAgentRow, modifierFlags: NSEvent.ModifierFlags, from origin: LeoWindowID?) {
-        guard let origin else { return }
-        let disposition = LeoAttachActivation.disposition(for: modifierFlags)
-        let wentOnFirstClick = disposition == .reuseOrTab && !modifierFlags.contains(.command) && tabCount(for: row.id) > 0
-        guard !wentOnFirstClick else { return }
-        requestAttach(row, from: origin, disposition: disposition)
+        if modifierFlags.contains(.option) {
+            go(to: row, from: origin, disposition: .newWindow)
+        } else if modifierFlags.contains(.command) {
+            go(to: row, from: origin, disposition: .reuseOrTab)
+        }
     }
 
     private func fenceInFlightFocusReports() {

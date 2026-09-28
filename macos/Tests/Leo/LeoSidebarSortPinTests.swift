@@ -228,14 +228,14 @@ import Testing
         model.toggleCollapsed("stopped")
         model.query = "app"
         #expect(model.sections.first?.rows.first?.name == "apple")
-        model.searchSubmit()
+        model.searchSubmit(from: LeoWindowID())
         #expect(model.selection == id("apple"))
     }
 
     @Test func returnWithoutAFilterSkipsCollapsedSections() {
         let model = makeModel([row("r"), row("s", status: .stopped)])
         model.toggleCollapsed("running")
-        model.searchSubmit()
+        model.searchSubmit(from: LeoWindowID())
         #expect(model.selection == id("s"))
     }
 

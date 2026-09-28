@@ -23,8 +23,8 @@ extension LeoSidebarModel {
 
     /// Return: the same as clicking the top-ranked row. Inert while
     /// disconnected, like the rows themselves (D-061).
-    func searchSubmit() {
+    func searchSubmit(from origin: LeoWindowID) {
         guard !isDisconnected, let top = visibleRows.first else { return }
-        rowClicked(top)
+        rowClicked(top, from: origin)
     }
 }

@@ -20,6 +20,12 @@ import Foundation
     /// Brings the row's existing attach tab forward (no new attach). The
     /// window clicked in, if known, loses its lone start tab (B-050).
     var focusExistingRequested: (LeoAgentRow, LeoWindowID?) -> Void = { _, _ in }
+    /// Starts an agent through the daemon; the completion says whether the
+    /// daemon accepted it (B-049's start prompt).
+    var startRequested: (LeoAgentRow, @escaping (Bool) -> Void) -> Void = { _, _ in }
+    /// Open "Start <name>?" prompts, one per window at most (see
+    /// `+StartPrompt`; only that extension changes them).
+    @Published var startPrompts: [LeoWindowID: LeoStartPrompt] = [:]
     var startDaemonRequested: () -> Void = {}
     var retryRequested: () -> Void = {}
     var sshRequested: (String) -> Void = { _ in }
@@ -112,6 +118,7 @@ import Foundation
             rowErrors = [:]
             rowErrorCodes = [:]
         }
+        resolveStartPrompts()
         guard let selection, !value.rows.contains(where: { $0.id == selection }) else { return }
         self.selection = nil
     }

@@ -65,7 +65,15 @@ import Foundation
         Task { await templateCache.invalidate() }
     }
 
-    func start(_ row: LeoAgentRow) { run(row) { daemon in try await daemon.start(row.name) } }
+    /// `completion` says whether the daemon accepted the start; a refusal
+    /// also shows on the row. Neither is called when a start for the row
+    /// is already in flight or the host changed meanwhile.
+    func start(_ row: LeoAgentRow, completion: @escaping (Bool) -> Void = { _ in }) {
+        run(
+            row, onSuccess: { (_: Void) in completion(true) }, onFailure: { completion(false) },
+            operation: { daemon in try await daemon.start(row.name) }
+        )
+    }
     func stop(_ row: LeoAgentRow) { run(row) { daemon in try await daemon.stop(row.name, wakeOnMessage: nil) } }
     func restart(_ row: LeoAgentRow) { run(row) { daemon in _ = try await daemon.restart(row.name) } }
     func setTemplate(_ row: LeoAgentRow, template: String) { run(row) { daemon in try await daemon.setTemplate(row.name, template: template) } }
@@ -152,6 +160,7 @@ import Foundation
     /// never invoked from inside `operation` itself where a stale
     /// completion could still reach it.
     private func run<T>(_ row: LeoAgentRow, refreshOnSuccess: Bool = true, onSuccess: @escaping (T) -> Void = { (_: T) in },
+                        onFailure: @escaping () -> Void = {},
                         operation: @escaping @MainActor (any LeoDaemonClient) async throws -> T) {
         guard pendingActions.insert(row.id).inserted else { return }
         let capturedDaemon = daemon
@@ -167,6 +176,7 @@ import Foundation
             } catch {
                 guard self.hostSelection.generationToken == capturedGeneration else { return }
                 self.model.setRowError(Self.message(error), code: Self.code(error), for: row.id)
+                onFailure()
             }
         }
     }

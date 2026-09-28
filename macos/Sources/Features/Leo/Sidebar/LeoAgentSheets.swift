@@ -86,3 +86,56 @@ struct LeoDeleteAgentSheet: View {
         .task { actions.deletePlan(row) { deletePlan = $0 } }
     }
 }
+
+/// The start sheet's presentation item: equal by id alone, so the sheet
+/// stays up (and its `onDisappear` doesn't fire) when its prompt moves
+/// from asking to waiting.
+struct LeoStartPromptSheetItem: Identifiable, Equatable {
+    let prompt: LeoStartPrompt
+    var id: LeoStartPrompt.ID { prompt.id }
+
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.id == rhs.id }
+}
+
+/// B-049: asked when a click would go to an agent that isn't running. Start
+/// starts it through the daemon; the sheet then waits, cancellably, until
+/// the daemon reports it running and the model attaches it. Reads the
+/// prompt's current phase from the model, so the same sheet moves from
+/// asking to waiting.
+struct LeoStartAgentSheet: View {
+    @ObservedObject var model: LeoSidebarModel
+    let prompt: LeoStartPrompt
+
+    private var current: LeoStartPrompt {
+        model.startPrompt(in: prompt.origin).flatMap { $0.id == prompt.id ? $0 : nil } ?? prompt
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            switch current.phase {
+            case .confirm:
+                Text("Start \(prompt.agent.name)?").font(.headline)
+                Text("It opens here once it\u{2019}s running.").foregroundStyle(.secondary)
+            case .waiting:
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Starting \(prompt.agent.name)\u{2026}").font(.headline)
+                }
+                Text("It opens here once it\u{2019}s running.").foregroundStyle(.secondary)
+            }
+            HStack {
+                Spacer()
+                Button("Cancel") { model.cancelStartPrompt(prompt.id) }
+                    .keyboardShortcut(.cancelAction)
+                if current.phase == .confirm {
+                    Button("Start") { model.confirmStart(prompt.id) }
+                        .keyboardShortcut(.defaultAction)
+                }
+            }
+        }
+        .padding().frame(width: 360)
+        // Closing the window (or anything else that takes the sheet away)
+        // ends the wait: nothing attaches into a window that's gone.
+        .onDisappear { model.cancelStartPrompt(prompt.id) }
+    }
+}

@@ -25,6 +25,26 @@ import Testing
         #expect(refreshes == 6)
     }
 
+    /// B-049: the start prompt attaches only after the daemon accepted the
+    /// start; a refusal shows on the row as before.
+    @Test func startReportsWhetherTheDaemonAcceptedIt() async {
+        let model = LeoSidebarModel()
+        let row = testRow()
+        var results: [Bool] = []
+        let accepting = LeoAgentActions(daemon: ActionDaemon(), cli: testCLI(), model: model, hostSelection: .isolatedForTesting(), refresh: {})
+        accepting.start(row) { results.append($0) }
+        await awaitCondition { await MainActor.run { results == [true] } }
+
+        let refusing = LeoAgentActions(
+            daemon: ActionDaemon(error: .daemon(code: "bad", message: "nope", matches: [])), cli: testCLI(), model: model,
+            hostSelection: .isolatedForTesting(), refresh: {})
+        refusing.start(row) { results.append($0) }
+        await awaitCondition { await MainActor.run { results == [true, false] } }
+
+        #expect(results == [true, false])
+        #expect(model.rowErrors[row.id] == "nope")
+    }
+
     @Test func rowErrorsPersistUntilSuccessfulListRefresh() async {
         let daemon = ActionDaemon(error: .daemon(code: "bad", message: "nope", matches: []))
         let model = LeoSidebarModel()

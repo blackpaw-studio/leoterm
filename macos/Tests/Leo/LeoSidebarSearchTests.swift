@@ -54,7 +54,7 @@ import Testing
     @Test func returnSelectsTheTopRankedRowLikeAClick() {
         let model = makeModel([row("web-app"), row("apple")])
         model.query = "app"
-        model.searchSubmit()
+        model.searchSubmit(from: LeoWindowID())
         #expect(model.selection == row("apple").id)
     }
 
@@ -66,25 +66,38 @@ import Testing
         model.receiveAttachLinks(LeoAttachLinkState(focused: nil, tabCounts: [apple.id: 1]))
         model.query = "app"
 
-        model.searchSubmit()
+        model.searchSubmit(from: LeoWindowID())
 
         #expect(focused == ["apple"])
     }
 
-    @Test func returnNeverAttachesANewSession() {
+    /// B-049: a click on a running row without a tab attaches it, and
+    /// Return here is that click.
+    @Test func returnAttachesTheTopRowLikeAClick() {
         let model = makeModel([row("apple")])
-        var attached = 0
-        model.attachRequested = { _, _, _ in attached += 1 }
+        let window = LeoWindowID()
+        var attached: [(String, LeoWindowID, AttachDisposition)] = []
+        model.attachRequested = { attached.append(($0.name, $1, $2)) }
         model.query = "app"
-        model.searchSubmit()
-        #expect(attached == 0)
+        model.searchSubmit(from: window)
+        #expect(attached.map(\.0) == ["apple"])
+        #expect(attached.first?.1 == window)
+        #expect(attached.first?.2 == .reuseOrTab)
+    }
+
+    @Test func returnOnAStoppedTopRowAsksToStartIt() {
+        let model = makeModel([row("apple", status: .stopped)])
+        let window = LeoWindowID()
+        model.query = "app"
+        model.searchSubmit(from: window)
+        #expect(model.startPrompt(in: window)?.agent == row("apple", status: .stopped).id)
     }
 
     @Test func returnWithNoMatchesDoesNothing() {
         let model = makeModel([row("apple")])
         model.selection = row("apple").id
         model.query = "zzz"
-        model.searchSubmit()
+        model.searchSubmit(from: LeoWindowID())
         #expect(model.selection == row("apple").id)
     }
 
@@ -94,7 +107,7 @@ import Testing
             connectivity: .disconnected(reason: "gone", isRetrying: false),
             generation: 1))
         model.query = "app"
-        model.searchSubmit()
+        model.searchSubmit(from: LeoWindowID())
         #expect(model.selection == nil)
     }
 
