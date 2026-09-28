@@ -721,3 +721,11 @@ Why: principle 4 (no hunting for an agent's tab); principle 1 (Safari convention
 Alternatives: leave the blank start tab open; a footer hint in the palette (changes the fixed panel height)
 Commit: d403a2c9a
 Veto: [ ]
+
+## D-094 · 2026-09-28 · B-048 sidebar click handling (implementer calls)
+Chose: (1) The sidebar list requires a selection (non-optional List overload), so ⌘-click on the selected row keeps it selected and clicking empty sidebar space no longer clears the selection, as in Finder's sidebar. (2) Row clicks are read from the mouse events through a per-row local event monitor (`LeoRowClickCatcher`), because SwiftUI tap gestures never fire in a window that isn't key. So a plain click on a row in a background window now also focuses that agent's open tab on the first click, and ⌘-click opens a new tab there. (3) `rowClicked` is the only decision point for single and double clicks. The row's double-tap gesture is gone, and clicks on the hover Attach button are excluded, so every click acts exactly once. (4) A ⌘⌥ double-click opens one tab and then one window, since ⌥ always wins for the second click. It is left untested as an edge combination.
+Why: principle 1 (Mac-native: Finder/Safari click conventions); the fix for a real bug (⌘-click deselected the row and never opened a tab)
+Alternatives: SwiftUI `.allowsWindowActivationEvents()` (fixes plain clicks but not ⌘-clicks); ignoring the nil selection in the model (the table highlight still dropped)
+Commit: e13738b88 0604cc27f 5bd615a31
+Veto: [ ]
+

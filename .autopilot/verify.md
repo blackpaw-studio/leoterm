@@ -84,3 +84,10 @@ peekaboo see --no-elements --mode window --app $APPID \
 - To answer it: check the debug app is frontmost, then `peekaboo press return --foreground --bridge-socket "$PB_SOCK"` (global, no `--app`; `--app`/`--window-id` fail with axElementNotFound). Return = Save.
 - Capture within the hold to see the `Closing “…”…` banner. File ▸ Save via menu click does save (held, so "Edited" stays until it lands).
 
+
+## Sidebar row clicks (B-048, 2026-09-28)
+- **Filter first.** Rows re-sort live by Last Activity, so a real agent can slide under the cursor between a capture and a click. Before any row click, run Agents ▸ Find Agent… (menu click) and type `autopilot-scratch` so it's the only row.
+- Plain and double clicks: `peekaboo click --at <x,y> [--double] --foreground --app $APPID --window-id <id>` (window-relative coordinates).
+- Modifier clicks need a snapshot and GLOBAL coordinates: `peekaboo see --mode window ... --json` → `snapshot_id`, then `peekaboo click --snapshot <id> --at <globalX,globalY> --modifiers cmd --foreground`. Delivery is unreliable (a "cursor restoration" warning, and sometimes the click never lands), so treat a ⌘-click result as inconclusive and rely on `LeoSidebarCommandClickTests`.
+- CGEvents posted from this shell don't reach the app (no Accessibility permission).
+- Count attaches with `tmux -L leo list-clients | grep scratch`. Before quitting, detach the scratch clients.
