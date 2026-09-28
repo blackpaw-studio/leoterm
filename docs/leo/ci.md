@@ -86,7 +86,7 @@ The Developer ID's private key also stays in Dionysus's **login** keychain
 (unrelated to CI) because Evan signs local builds there.
 
 - **Toolchain**: `DEVELOPER_DIR=/Applications/Xcode-26.3.0.app` (Xcode 26.5's SDK breaks Zig linking) and Zig 0.16 from `~/.local/bin`.
-- **Public key**: the Sparkle public key is in `macos/Ghostty-Info.plist` (`SUPublicEDKey`) and in `leo-build.yml` (`SPARKLE_PUBLIC_KEY`); keep both in sync with the `public key` field on the 1Password item.
+- **Public key**: `macos/Ghostty-Info.plist`'s `SUPublicEDKey` is the single source of truth (Xcode bakes it into the built app; there is no separate workflow copy). Keep it in sync with the `public key` field on the 1Password item. `sparkle-key-check.sh` derives the expected public key from `SPARKLE_PRIVATE_KEY` and diffs it against this same plist value before every release signs anything.
 
 ### Rotating a secret
 
