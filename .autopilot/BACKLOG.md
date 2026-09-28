@@ -321,7 +321,37 @@ Source: Evan (/feature, 2026-09-24)
 Inbox: 20260925T002247437461Z-47b2bf9d#1
 Done: d403a2c9a (1477 tests). Row click and palette choice (⌘T, Choose Agent…) focus the agent's open tab via B-006's lookup (host + name, most recent); ⌘-click / ⌘↩ / row menu "Attach in New Tab" force a new tab; tab-count glyph removed (D-020 superseded); decisions D-093. Verified: shots B-047-1 (scratch attached in its own window), B-047-2 (row click from the other window brings that window forward; still one tmux client, no new window). Palette path and ⌘↩ not visually verified (peekaboo dismissed the palette on refocus) → B-048. Review clean, 0 fix rounds.
 
-## B-048 · Verify palette ⌘↩ vs Toggle Full Screen   [ready (next run)]
+## B-048 · Verify palette ⌘↩ vs Toggle Full Screen   [ready]
 Issue: #53
 Accept: in the isolated debug build, the agent palette's ⌘↩ opens a new tab for the chosen agent and does not toggle full screen (the main menu's Toggle Full Screen is also ⌘↩; `LeoAgentPalettePanel.swift:120` intercepts in performKeyEquivalent). Also confirm ⌘-click on an already-selected row leaves it selected. Add a test if either is wrong. Screenshot with autopilot-scratch only.
 Source: B-047 implementer report (unverified in the GUI)
+
+## B-051 · Bug — working agents show "Finished" (suspected subagents)   [blocked]
+Why: The status badge has to be trustworthy or the attention model means nothing. Serves "Calm, attention-driven: never invent a state".
+Accept: Reproduce on autopilot-scratch with a scripted turn that starts a background subagent, then record the SSE attention events and the row's state over time; name the root cause (app mapping vs daemon hook semantics) with that trace as evidence; if it's app-side, fix it test-first with a failing test that replays the trace; if it's daemon-side, write the contract change (e.g. keep `working` until SubagentStop / background tasks finish) as a spec and block on Evan.
+Out: Adding app-side heuristics that override daemon state; Codex/opencode subagent detection.
+Source: Evan (/feature, 2026-09-28)
+Inbox: 20260928T193703549149Z-2d2188b3#1
+Question: Needs Evan to do: send the daemon contract change to the leo agent, and time the leo release/restart. Reply "B-051: done" once it's done.
+Answer:
+
+## B-052 · Attach tabs are titled with the agent's name   [ready]
+Why: Tabs should tell you which agent is inside at a glance, so you don't have to click through them. Serves "Everything through Leo" (no hunting for an agent's tab).
+Accept: A tab attached to agent X shows "X" as its tab and window title, whatever the terminal inside sets via OSC; with splits, the title follows the focused split's agent; a title the user sets with Ghostty's Change Title… still wins; non-attach tabs (start page, plain shells) keep Ghostty's normal title; the name stays after reattach or an agent restart; tests cover the title source for each case, plus a screenshot from the isolated debug build using autopilot-scratch only (tab bar showing "autopilot-scratch").
+Out: Status badges or icons in the tab; showing the terminal's own title alongside the name (autopilot may put it in the tooltip); renaming agents.
+Source: Evan (/feature, 2026-09-28)
+Inbox: 20260928T193739823707Z-618b4900#1
+
+## B-050 · First attach fills the start-page tab   [ready]
+Why: Opening your first agent shouldn't leave an empty start-page tab behind. Serves "Mac-native" (Safari fills a blank tab rather than opening a new one) and "Calm".
+Accept: With only the start page open in the key window, clicking a sidebar row, choosing from the palette, or Agents ▸ Attach attaches in that tab instead of adding one, so the tab count stays 1; this only happens while the start tab is still untouched (no typing, no editor or browser pane), otherwise a new tab opens as today; ⌘-click / ⌘↩ still force a new tab; tests cover each entry point, plus screenshots from the isolated debug build using autopilot-scratch only (before and after the first attach, one tab).
+Out: Reusing start-page tabs in other windows; changing what the start page shows; Split (⌘D).
+Source: Evan (/feature, 2026-09-28)
+Inbox: 20260928T193703430864Z-eed13c51#1
+
+## B-049 · Click a row to open its agent; ask before starting a stopped one   [ready]
+Why: One click on any sidebar row takes you into that agent, so there's no hover button to aim for. Serves "Everything through Leo" and "Mac-native" (a row is the target, like Finder or Mail).
+Accept: The hover "Attach" button is gone from rows (the context menu keeps Attach, Attach in New Tab and Start); a single click on a running agent with no open tab attaches a new tab, and a click on one with a tab still focuses that tab (B-047), with ⌘-click still forcing a new tab; a click on a stopped agent shows a sheet "Start <name>?" (Start / Cancel), and Start starts it through the daemon then attaches once it reports running, while Cancel leaves the agent and tabs untouched; arrow keys still only select and Return acts like a click; tests cover each click path, plus screenshots from the isolated debug build using autopilot-scratch only (row without the button, the start prompt, the attached tab after Start).
+Out: Auto-starting without asking; changes to Split (⌘D) or the palette's behaviour for running agents; restart/stop flows; errored-agent recovery beyond showing the same prompt.
+Source: Evan (/feature, 2026-09-28)
+Inbox: 20260928T193634323347Z-31fbe8d8#1
