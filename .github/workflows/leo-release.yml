@@ -46,8 +46,16 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: ci
-          sparse-checkout: .github/scripts/leo
+          sparse-checkout: |
+            .github/scripts/leo
+            macos/Ghostty-Info.plist
           persist-credentials: false
+
+      - name: Check Sparkle key
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          PLIST: ${{ github.workspace }}/ci/macos/Ghostty-Info.plist
+        run: ci/.github/scripts/leo/sparkle-key-check.sh
 
       - name: Download build
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -73,6 +81,9 @@ jobs:
           sparkle_key="${RUNNER_TEMP:?}/leo-sparkle-key.txt"
           printf '%s' "$SPARKLE_PRIVATE_KEY" > "$sparkle_key"
           sign_update --ed-key-file "$sparkle_key" Leo.dmg > sign_update.txt
+          sig="$(grep -o 'sparkle:edSignature="[^"]*"' sign_update.txt | cut -d'"' -f2)"
+          [[ -n "$sig" ]] || { echo "::error::sign_update.txt has no sparkle:edSignature"; exit 1; }
+          sign_update --ed-key-file "$sparkle_key" --verify Leo.dmg "$sig"
           rm -f "$sparkle_key"
           # Start from the latest release's appcast; the first release has none.
           if ! gh release download --pattern appcast.xml --output appcast.xml 2>/dev/null; then
