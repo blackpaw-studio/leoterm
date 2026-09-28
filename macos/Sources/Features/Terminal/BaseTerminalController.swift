@@ -892,9 +892,17 @@ class BaseTerminalController: NSWindowController,
         if let titleSurface = focusedSurface ?? lastFocusedSurface,
            surfaceTree.contains(titleSurface) {
             // If we have a surface, we want to listen for title changes.
+            // MARK: Leo -- an attach shows its agent's name (B-052).
             titleSurface.$title
-                .combineLatest(titleSurface.$bell)
-                .map { [weak self] in self?.computeTitle(title: $0, bell: $1) ?? "" }
+                .combineLatest(titleSurface.$bell, titleSurface.$leoAgentName)
+                .map { [weak self, weak titleSurface] title, bell, agentName in
+                    let shown = LeoTabTitleSource.resolve(
+                        terminalTitle: title,
+                        isUserSet: titleSurface?.leoTitleIsUserSet ?? false,
+                        agentName: agentName
+                    ).title
+                    return self?.computeTitle(title: shown, bell: bell) ?? ""
+                }
                 .sink { [weak self] in self?.titleDidChange(to: $0) }
                 .store(in: &focusedSurfaceCancellables)
         } else {

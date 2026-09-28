@@ -78,8 +78,8 @@ import Testing
 
     /// Waits until every event yielded so far has been handled.
     private func settle(_ host: FakeAttachTabHost) async {
-        guard let handle = host.handles.first else { return }
-        await host.emitAndWait(.titleChanged(handle, ""))
+        // Closing a handle the coordinator never registered changes nothing.
+        await host.emitAndWait(.closed(AttachmentHandle(surfaceID: UUID(), windowID: LeoWindowID())))
     }
 
     private func id(_ identity: LeoAgentIdentity) -> LeoAgentRow.ID { LeoAgentRow.ID(host: identity.host, name: identity.name) }

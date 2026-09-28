@@ -38,7 +38,7 @@ struct FakeOpenCall {
     var placeholderCalls: [FakeOpenCall] = []
     var placeholderSurfaceIDs: [UUID?] = []
     var focused: [AttachmentHandle] = []
-    var titles: [(AttachmentHandle, String?)] = []
+    var agentNames: [(AttachmentHandle, String)] = []
     var handles: [AttachmentHandle] = []
     var openHandles: Set<AttachmentHandle> = []
     var focusedHandle: AttachmentHandle?
@@ -102,7 +102,7 @@ struct FakeOpenCall {
 
     func focus(_ handle: AttachmentHandle) { focused.append(handle) }
     func isOpen(_ handle: AttachmentHandle) -> Bool { openHandles.contains(handle) }
-    func setTitleSeed(_ handle: AttachmentHandle, title: String?) { titles.append((handle, title)) }
+    func setAgentName(_ handle: AttachmentHandle, name: String) { agentNames.append((handle, name)) }
     /// Yields `event` without waiting for the coordinator to receive it --
     /// an event still in flight.
     func emit(_ event: AttachLifecycleEvent) {

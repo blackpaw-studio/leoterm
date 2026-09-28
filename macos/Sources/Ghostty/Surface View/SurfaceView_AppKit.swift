@@ -219,6 +219,13 @@ extension Ghostty {
         // by the user, this is set to the prior value (which may be empty, but non-nil).
         private var titleFromTerminal: String?
 
+        // MARK: Leo
+        /// The Leo agent attached in this surface, shown as its tab title in
+        /// place of the terminal's own (B-052, `LeoTabTitleSource`).
+        @Published var leoAgentName: String?
+        /// Whether `title` was set by the user (Change Terminal Title…).
+        var leoTitleIsUserSet: Bool { titleFromTerminal != nil }
+
         // The cached contents of the screen.
         private(set) var cachedScreenContents: CachedValue<String>
         private(set) var cachedVisibleContents: CachedValue<String>

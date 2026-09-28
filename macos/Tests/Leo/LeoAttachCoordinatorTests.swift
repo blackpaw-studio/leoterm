@@ -75,23 +75,55 @@ import Testing
         #expect(host.tabCalls.count == 2)
     }
 
-    @Test func seedsTitleAndClearsOnLaterNonemptyTitle() async {
+    // MARK: Tab title (B-052)
+
+    @Test func attachNamesItsSurfaceAfterTheAgent() async {
         let host = FakeAttachTabHost()
         let coordinator = makeCoordinator(host: host)
         await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
-        let handle = host.handles[0]
-        #expect(host.titles.count == 1)
-        #expect(host.titles.first?.0 == handle)
-        #expect(host.titles.first?.1 == "worker · localhost")
-        await host.emitAndWait(.titleChanged(handle, "tmux title"))
-        #expect(host.titles.last?.1 == nil)
+        #expect(host.agentNames.count == 1)
+        #expect(host.agentNames.first?.0 == host.handles[0])
+        #expect(host.agentNames.first?.1 == "worker")
     }
 
-    @Test func titleSeedRemainsWithoutChange() async {
+    @Test(arguments: [LeoSurfaceDisposition.split(.right), .window, .placeholder(surfaceID: UUID())])
+    func everyAttachDestinationIsNamed(_ disposition: LeoSurfaceDisposition) async {
+        let host = FakeAttachTabHost()
+        let coordinator = makeCoordinator(host: host)
+        let request = LeoSurfaceRequest(origin: origin, disposition: disposition, splitSourceSurface: UUID())
+        _ = await coordinator.attach(identity: identity, request: request)
+        #expect(host.agentNames.map(\.1) == ["worker"])
+        #expect(host.agentNames.map(\.0) == host.handles)
+    }
+
+    @Test func reusingAnOpenTabDoesNotRenameIt() async {
         let host = FakeAttachTabHost()
         let coordinator = makeCoordinator(host: host)
         await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
-        #expect(host.titles.count == 1)
+        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+        #expect(host.agentNames.count == 1)
+    }
+
+    @Test func reattachAfterExitNamesTheNewSurface() async {
+        let host = FakeAttachTabHost()
+        let coordinator = makeCoordinator(host: host)
+        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+        let first = host.handles[0]
+        await host.emitAndWait(.processExited(first))
+
+        let request = LeoSurfaceRequest(origin: origin, disposition: .placeholder(surfaceID: first.surfaceID))
+        _ = await coordinator.attach(identity: identity, request: request)
+
+        #expect(host.handles.count == 2)
+        #expect(host.agentNames.map(\.0) == host.handles)
+        #expect(host.agentNames.map(\.1) == ["worker", "worker"])
+    }
+
+    @Test func plainShellIsNotNamed() async {
+        let host = FakeAttachTabHost()
+        let coordinator = makeCoordinator(host: host)
+        _ = await coordinator.openPlainShell(request: LeoSurfaceRequest(origin: origin, disposition: .tab))
+        #expect(host.agentNames.isEmpty)
     }
 
     @Test func closedAccordingToHostIsDiscarded() async {

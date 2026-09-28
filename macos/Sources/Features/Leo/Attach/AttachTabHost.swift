@@ -13,7 +13,6 @@ struct AttachmentHandle: Hashable, Sendable {
 
 enum AttachLifecycleEvent: Equatable, Sendable {
     case closed(AttachmentHandle)
-    case titleChanged(AttachmentHandle, String)
     case processExited(AttachmentHandle)
     /// The attachment (if any) that now has keyboard focus: the focused
     /// surface of the key window, while it is that window's first
@@ -81,5 +80,7 @@ extension Notification.Name {
     func discardEmptyPlaceholder(origin: LeoWindowID)
     func focus(_ handle: AttachmentHandle)
     func isOpen(_ handle: AttachmentHandle) -> Bool
-    func setTitleSeed(_ handle: AttachmentHandle, title: String?)
+    /// Titles `handle`'s tab after the agent attached in it (B-052), in
+    /// place of whatever title the terminal sets.
+    func setAgentName(_ handle: AttachmentHandle, name: String)
 }

@@ -171,7 +171,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             focusReport = host.focusReportCount + 1
             updateFocusedIdentity()
             publishLinkState()
-            host.setTitleSeed(handle, title: "\(identity.name) · \(identity.host.displayName)")
+            host.setAgentName(handle, name: identity.name)
             return .success(handle)
         } catch {
             let attachError = LeoAttachError(identity: identity, kind: .openFailed(error.localizedDescription))
@@ -237,9 +237,6 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             guard identityByHandle[handle] != nil else { return }
             inactive.insert(handle)
             host.rebirthPlaceholder(for: handle)
-        case .titleChanged(let handle, let title):
-            guard !title.isEmpty, identityByHandle[handle] != nil else { return }
-            host.setTitleSeed(handle, title: nil)
         case .focusSuspended:
             receivedFocusReport()
             viewedHandle = nil

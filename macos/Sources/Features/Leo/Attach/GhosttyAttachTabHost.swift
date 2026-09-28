@@ -281,14 +281,11 @@ import OSLog
         return controller.window != nil && controller.surfaceTree.contains(surface)
     }
 
-    func setTitleSeed(_ handle: AttachmentHandle, title: String?) {
-        guard let controller = attachments[handle]?.controller else { return }
-        if title == nil {
-            guard controller.titleOverride == attachments[handle]?.titleSeed else { return }
-        } else {
-            attachments[handle]?.titleSeed = title
-        }
-        controller.titleOverride = title
+    /// Titles `handle`'s surface after its agent (B-052). The name stays on
+    /// that surface -- through the exited placeholder -- until the slot is
+    /// refilled with a new surface.
+    func setAgentName(_ handle: AttachmentHandle, name: String) {
+        attachments[handle]?.surface?.leoAgentName = name
     }
 
     /// Starts from the inherited config stashed for this request (if any --
@@ -328,11 +325,6 @@ import OSLog
             .sink { [weak self] _ in
                 DispatchQueue.main.async { self?.reconcile(handle) }
             }
-            .store(in: &attachment.cancellables)
-        surface.$title
-            .dropFirst()
-            .filter { !$0.isEmpty }
-            .sink { [weak self] title in self?.continuation.yield(.titleChanged(handle, title)) }
             .store(in: &attachment.cancellables)
         surface.$childExitedMessage
             .dropFirst()
@@ -385,7 +377,6 @@ private enum GhosttyAttachTabHostError: Error, LocalizedError {
 @MainActor private final class Attachment {
     weak var controller: TerminalController?
     weak var surface: Ghostty.SurfaceView?
-    var titleSeed: String?
     var cancellables: Set<AnyCancellable> = []
     var closeObserver: NSObjectProtocol?
 
