@@ -736,3 +736,10 @@ Alternatives: "name · host" (noisier for the common single-host case); fall bac
 Commit: ee274b7f9
 Veto: [ ]
 
+## D-096 · 2026-09-28 · B-050 implementer calls (first attach fills the start tab)
+Chose: (1) "Only the start page open" means the key window has exactly one tab and it's an untouched start screen: the unfilled placeholder, with no terminal, editor document, or browser open. A blank start tab beside other tabs still gets a new tab. The terminal drawer is app-wide, so it doesn't count. (2) When the agent already has a tab, the app focuses that tab and closes the lone start tab, as in D-093(2). A sidebar single-click on such a row now does this too. (3) Palette Return and spawn-sheet attaches from the start page fill it; ⌘↩ and ⌘-click force a new tab, and ⌥ opens a new window. (4) The discard close waits one main-queue turn and re-checks that the tab is still untouched, because a sidebar click asks from inside that window's own mouse event. (5) The "untouched" check now reads whether an editor or browser is actually open. The old check looked at the pane views, which exist in every shown window, so D-093's blank-tab close never fired in practice.
+Why: principle 1 (Mac-native: Safari fills a blank tab); calm (no empty tabs left behind)
+Alternatives: fill a selected blank start tab even beside other tabs (surprising in a busy window)
+Commit: 6875f2be7 14951a372
+Veto: [ ]
+

@@ -346,13 +346,14 @@ Source: Evan (/feature, 2026-09-28)
 Inbox: 20260928T193739823707Z-618b4900#1
 Done: ee274b7f9 (1513 tests). The focused surface's agent name drives the tab and window title through `LeoTabTitleSource`; OSC titles are ignored for attach tabs; Change Tab Title… and Change Terminal Title… still win; splits follow the focused split's agent; decisions D-095. Verified: shots B-052-1 (tab and window read autopilot-scratch while Claude and tmux set their own titles; the start tab keeps 👻 Ghostty), -2 (Change Tab Title… "my-tab" wins), -3 (clearing it restores the name), -4 (the name persists after an agent restart), -5 (the reattached tab is named). Change Terminal Title… and split focus are covered by tests only. Review clean, 0 fix rounds. Reattach-in-place gap → B-053.
 
-## B-050 · First attach fills the start-page tab   [ready]
+## B-050 · First attach fills the start-page tab   [done]
 Issue: #56
 Why: Opening your first agent shouldn't leave an empty start-page tab behind. Serves "Mac-native" (Safari fills a blank tab rather than opening a new one) and "Calm".
 Accept: With only the start page open in the key window, clicking a sidebar row, choosing from the palette, or Agents ▸ Attach attaches in that tab instead of adding one, so the tab count stays 1; this only happens while the start tab is still untouched (no typing, no editor or browser pane), otherwise a new tab opens as today; ⌘-click / ⌘↩ still force a new tab; tests cover each entry point, plus screenshots from the isolated debug build using autopilot-scratch only (before and after the first attach, one tab).
 Out: Reusing start-page tabs in other windows; changing what the start page shows; Split (⌘D).
 Source: Evan (/feature, 2026-09-28)
 Inbox: 20260928T193703430864Z-eed13c51#1
+Done: 6875f2be7 14951a372 (1534 tests, twice). An attach into a lone untouched start tab fills it; if the agent already has a tab, that tab is focused and the start tab closes; decisions D-096. Fixed an existing bug: the untouched check used pane view refs that always exist. Verified: shots B-050-1 → -2 (a double-click in a start-only window attaches in place; one tab, same window), -3 → -4 (a row click from a fresh start window jumps to scratch's window and the start window closes; still one tmux client). ⌘-click, a touched start tab, and Agents ▸ Attach are covered by tests only. 1 fix round: the new integration suite showed real windows that stole key status from GhosttyAttachTabHostFocusTests; it now builds them hidden.
 
 ## B-049 · Click a row to open its agent; ask before starting a stopped one   [ready]
 Issue: #57
