@@ -18,9 +18,21 @@ The repo is private, so fork PR workflows are disabled at the repo level too.
 
 Versioning:
 
-- Releases use the tag version. Other builds use `<latest leo-v tag or 0.0.0>-dev.<shortsha>`.
-- `CFBundleVersion` is `git rev-list --count HEAD`.
-- Unit tests run by injecting the bundle into the host app, because `xcodebuild test` hangs while the Mac is locked. `ConfigTests/errorsEmptyForValidConfig` always fails under that runner, so the script tolerates that one failure.
+- Releases use the tag version. Other builds use `<last release's X.Y.Z or 0.0.0>-dev.<shortsha>`.
+  "Last release" is the highest `leo-v*` tag by semver (`git tag --sort=-v:refname`),
+  not `git describe` (which picks the nearest tag by commit-graph distance).
+- A release tag must be an ancestor of `origin/main`; `version.sh` fails the
+  build otherwise, so a release can never ship a commit that hasn't landed on main.
+- `CFBundleShortVersionString` is always strictly numeric `X.Y.Z` (Apple
+  requires this): the release tag's version, or the last release's version
+  for dev builds. The commit/dev identity instead goes in the `GhosttyCommit`
+  Info.plist key (`version.sh`'s `short_version` vs `version`/`commit` outputs;
+  set in `build-app.sh`).
+- `CFBundleVersion` is `git rev-list --count HEAD`, which is monotonically
+  increasing **only on `main`**: it counts commits reachable from `HEAD`, so
+  a diverged branch can produce a build number lower than, equal to, or out
+  of order with another branch's.
+- Unit tests run by injecting the bundle into the host app, because `xcodebuild test` hangs while the Mac is locked. The runner requires a zero exit status and zero reported test failures; there is no tolerated/waived failure.
 
 ## Cut a release
 
@@ -102,6 +114,37 @@ Developer team, notarization fails with a team or authorization error.
 `check-signing.sh` authenticates with `notarytool history` before the build
 starts specifically to catch this early; treat that failure as a
 configuration problem to fix, not something to retry.
+
+## Auto-update (disabled while private)
+
+Evan's decision: alpha, private repo, distribute via GitHub Releases; Sparkle
+auto-update is **off** until the repo goes public.
+
+- `macos/Ghostty-Info.plist` sets `SUEnableAutomaticChecks` to `NO`.
+  `build-app.sh` leaves that key alone (it used to delete it at build time —
+  don't reintroduce that).
+- `AppDelegate.ghosttyConfigDidChange` reads `SUEnableAutomaticChecks` from
+  the bundle's `Info.plist`: when it is `false`, it forces
+  `updater.automaticallyChecksForUpdates = false` and
+  `automaticallyDownloadsUpdates = false`, overriding whatever the `auto-update`
+  config option says. No background check ever runs, so no update error can
+  surface to the user unprompted.
+- The manual **Check for Updates…** menu item stays enabled: `UpdateController.checkForUpdates()`
+  already fails gracefully (an alert with retry/dismiss, not a crash) if the
+  private repo's appcast 404s, so it doesn't need to be hidden.
+- `leo-release.yml` still generates and publishes `appcast.xml` on every
+  release (cheap, and ready for the day auto-update is turned back on) even
+  though no client can reach it while the repo is private.
+
+**When the repo goes public**, to re-enable auto-update:
+
+1. Remove or set `SUEnableAutomaticChecks` to `YES` in `macos/Ghostty-Info.plist`.
+2. Revert the `build-app.sh` comment/behavior note above (no script change
+   needed once the plist key itself changes).
+3. Confirm `https://github.com/blackpaw-studio/leoterm/releases/latest/download/appcast.xml`
+   resolves anonymously (no auth prompt / 404).
+4. Do a manual "Check for Updates…" against a real release to confirm the
+   full Sparkle flow (download, verify, install) before relying on background checks.
 
 ## After an upstream sync
 
