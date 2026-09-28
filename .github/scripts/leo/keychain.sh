@@ -33,6 +33,12 @@ create() {
   p12="$workdir/leo-cert.p12"
   saved_list="$workdir/leo-keychain-search-list"
 
+  # Register the cleanup handle (this job's keychain + temp dir) before
+  # anything is created, so a failure partway through create -- decode,
+  # import, the search-list swap, any of it -- still leaves cleanup able to
+  # find and remove what did get created.
+  [[ -n "${GITHUB_ENV:-}" ]] && echo "LEO_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
+
   echo "$MACOS_CERTIFICATE" | base64 --decode > "$p12"
 
   security create-keychain -p "$MACOS_CI_KEYCHAIN_PWD" "$keychain"
@@ -49,9 +55,6 @@ create() {
   done < "$saved_list"
   security list-keychains -d user -s "$keychain" ${others[@]+"${others[@]}"}
 
-  # LEO_KEYCHAIN doubles as the handle cleanup uses to find this job's temp
-  # dir (saved_list and any leftover secret files live alongside it).
-  [[ -n "${GITHUB_ENV:-}" ]] && echo "LEO_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
   security list-keychains -d user
 }
 
