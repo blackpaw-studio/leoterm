@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 # Build Leo.app (Release, unsigned) and stamp its Info.plist.
-# Env: VERSION, BUILD, COMMIT, SPARKLE_PUBLIC_KEY, DERIVED_DATA, DEVELOPER_DIR.
+# Env: VERSION, SHORT_VERSION, BUILD, COMMIT, SPARKLE_PUBLIC_KEY, DERIVED_DATA,
+#      DEVELOPER_DIR.
+# VERSION feeds zig's -Dversion-string (may carry a "-dev.<sha>" suffix).
+# SHORT_VERSION is the strictly numeric X.Y.Z that Apple requires for
+# CFBundleShortVersionString; the dev/sha identity instead goes into the
+# GhosttyCommit plist key below (an existing upstream Info.plist key).
 # Prints nothing on stdout except the path of the built app on the last line.
 set -euo pipefail
 
-: "${VERSION:?}" "${BUILD:?}" "${COMMIT:?}" "${SPARKLE_PUBLIC_KEY:?}" "${DERIVED_DATA:?}"
+: "${VERSION:?}" "${SHORT_VERSION:?}" "${BUILD:?}" "${COMMIT:?}" "${SPARKLE_PUBLIC_KEY:?}" "${DERIVED_DATA:?}"
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
@@ -41,9 +46,14 @@ plist="$app/Contents/Info.plist"
 pb() { /usr/libexec/PlistBuddy -c "$1" "$plist" >&2; }
 pb "Set :GhosttyCommit $COMMIT"
 pb "Set :CFBundleVersion $BUILD"
-pb "Set :CFBundleShortVersionString $VERSION"
+pb "Set :CFBundleShortVersionString $SHORT_VERSION"
 pb "Set :SUPublicEDKey $SPARKLE_PUBLIC_KEY"
-# Let Sparkle use its default (ask the user) instead of the dev-time "off".
-pb "Delete :SUEnableAutomaticChecks" || true
+# SUEnableAutomaticChecks stays NO (set in Ghostty-Info.plist) while the repo
+# is private: an anonymous Sparkle client 404s on the appcast, so automatic
+# checks would only ever fail. AppDelegate.ghosttyConfigDidChange reads this
+# key and disables both automaticallyChecksForUpdates and
+# automaticallyDownloadsUpdates when it is false. Flip this back to a plain
+# "ask the user" default (delete the key, or set it true) once the repo goes
+# public -- see docs/leo/ci.md.
 
 echo "$app"

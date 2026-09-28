@@ -117,6 +117,7 @@ jobs:
         working-directory: src
         env:
           VERSION: ${{ steps.version.outputs.version }}
+          SHORT_VERSION: ${{ steps.version.outputs.short_version }}
           BUILD: ${{ steps.version.outputs.build }}
           COMMIT: ${{ steps.version.outputs.commit }}
           DERIVED_DATA: ${{ runner.temp }}/DerivedData
