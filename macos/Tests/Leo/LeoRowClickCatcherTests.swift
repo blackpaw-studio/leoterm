@@ -78,6 +78,21 @@ import Testing
         #expect(harness.clicks.isEmpty)
     }
 
+    /// The excluded rect (the row's Attach button) is in SwiftUI's
+    /// top-left-origin coordinates: the catcher spans window y 20...60, so
+    /// its top 20 points are window y 40...60.
+    @Test func ignoresClicksInTheExcludedRect() {
+        let harness = Harness()
+        harness.catcher.excludedRect = CGRect(x: 60, y: 0, width: 40, height: 20)
+
+        harness.click(at: NSPoint(x: 100, y: 50), .command)
+        harness.click(at: NSPoint(x: 100, y: 50))
+        harness.click(at: NSPoint(x: 100, y: 30))
+        harness.click(at: NSPoint(x: 40, y: 50))
+
+        #expect(harness.clicks == [Click(modifierFlags: [], clickCount: 1), Click(modifierFlags: [], clickCount: 1)])
+    }
+
     @Test func neverTakesTheClickFromTheListOrRow() {
         let harness = Harness()
 

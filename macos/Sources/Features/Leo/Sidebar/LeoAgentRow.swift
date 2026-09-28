@@ -4,7 +4,6 @@ import SwiftUI
 enum LeoAttachActivation {
     enum Source {
         case button
-        case rowDoubleClick
         case keyboard
     }
 
@@ -72,9 +71,8 @@ struct LeoAgentRowView: View {
     let row: LeoAgentRow
     let isSelected: Bool
     let attach: (LeoAgentRow, AttachDisposition) -> Void
-    /// A single click (the event's modifiers, click count); brings an
-    /// existing attach forward when there is one, or opens a new tab on
-    /// ⌘-click.
+    /// A click (the event's modifiers, click count): see
+    /// `LeoSidebarModel.rowClicked`.
     let click: (NSEvent.ModifierFlags, Int) -> Void
     @ObservedObject var actions: LeoAgentActions
     let error: String?
@@ -94,6 +92,10 @@ struct LeoAgentRowView: View {
     @State private var isHovered = false
     /// The room the subtitle text has, once measured (B-043).
     @State private var subtitleWidth: CGFloat?
+    /// Where the hover Attach button is while shown, in `detailsSpace`, so
+    /// a click on it isn't also a row click (B-048).
+    @State private var attachButtonFrame: CGRect?
+    private static let detailsSpace = "LeoAgentRowView.details"
 
     private var availability: LeoRowActionAvailability {
         LeoRowActionAvailability(status: row.status, isPending: actions.pendingActions.contains(row.id))
@@ -103,13 +105,14 @@ struct LeoAgentRowView: View {
         HStack(spacing: 8) {
             activityDot
             rowDetails
+                .coordinateSpace(name: Self.detailsSpace)
                 .contentShape(Rectangle())
-                .onTapGesture(count: 2) { activate(source: .rowDoubleClick) }
-                // Not a tap gesture: that misses clicks in a window that
-                // isn't key (a ⌘-click on a background window), and the
-                // catcher reads the click's own modifiers (B-048). It never
-                // takes the click from the list's own selection.
-                .background(LeoRowClickCatcher(onClick: click))
+                // Not tap gestures: those miss clicks in a window that isn't
+                // key (a ⌘-click on a background window), and the catcher
+                // reads the click's own modifiers and count, so a
+                // double-click is the second click (B-048). It never takes
+                // the click from the list's own selection.
+                .background(LeoRowClickCatcher(excluding: attachButtonFrame, onClick: click))
         }
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
@@ -174,6 +177,10 @@ struct LeoAgentRowView: View {
             .overlay(alignment: .trailing) {
                 if isHovered {
                     attachAffordance
+                        .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(Self.detailsSpace)) } action: {
+                            attachButtonFrame = $0
+                        }
+                        .onDisappear { attachButtonFrame = nil }
                 }
             }
             subtitleLine

@@ -175,14 +175,13 @@ import Testing
 
     @Test func onlyTheFirstClickOfACommandDoubleClickOpensATab() {
         let model = makeModel()
-        var attaches = 0
-        model.attachRequested = { _, _, _ in attaches += 1 }
+        var dispositions: [AttachDisposition] = []
+        model.attachRequested = { dispositions.append($2) }
 
         model.rowClicked(row(local), modifierFlags: .command, clickCount: 1, from: origin)
         model.rowClicked(row(local), modifierFlags: .command, clickCount: 2, from: origin)
 
-        #expect(attaches == 1, "the double-click's own attach then brings that tab forward")
-        #expect(LeoAttachActivation.disposition(for: [.command]) == .reuseOrTab)
+        #expect(dispositions == [.newTab, .reuseOrTab], "the second click brings that new tab forward (D-093)")
     }
 
     @Test func commandClickIsInertWhileDisconnected() {
