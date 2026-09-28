@@ -11,3 +11,4 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 - B-048 fix attempt 1 (e13738b88): deselect fixed and verified (shots B-048-1..3); ⌘-click attach not reproduced in the GUI, and the reviewer saw the new tests fail → sent back (fix round 1).
 - B-048 fix round 1 (0604cc27f, LeoRowClickCatcher): the review found a HIGH (⌘-click on the Attach button double-attaches) and a MEDIUM (a double-click fires the row click more than once); the LOW about one monitor per row was dismissed (small row counts, clean lifecycle) → fix round 2.
 - B-048 done (e13738b88 0604cc27f 5bd615a31): 1497 tests, lint clean; round 2 review clean (1 LOW dismissed: the ⌘⌥ double-click combination). Palette ⌘↩ verified; the ⌘-click attach was not visually verified (peekaboo). verify.md now has row-click notes.
+- B-052 done (ee274b7f9): 1513 tests, lint clean, review clean. Shots B-052-1..5. Polish gap → B-053 (next run).

@@ -729,3 +729,10 @@ Alternatives: SwiftUI `.allowsWindowActivationEvents()` (fixes plain clicks but 
 Commit: e13738b88 0604cc27f 5bd615a31
 Veto: [ ]
 
+## D-095 · 2026-09-28 · B-052 implementer calls (agent-name tab titles)
+Chose: (1) The title is the bare agent name without the host (e.g. "autopilot-scratch"); same-named agents on two hosts read alike. (2) After an attach exits (e.g. an agent restart), the placeholder left in the tab keeps the agent's name until something refills the slot; a plain shell there drops it. (3) No tooltip with the terminal's own title (keeps the upstream diff small). (4) The command palette's "Focus: …" entries still show the terminal's title. (5) The old "name · host" title seed, which borrowed the Change Tab Title… slot and was cleared by the first OSC title, was removed together with the unused `.titleChanged` event. Precedence is: Change Tab Title… > Change Terminal Title… > agent name > terminal title.
+Why: principle 4 (find an agent's tab at a glance); calm (the name doesn't flicker when tmux or Claude retitle); minimal upstream diff
+Alternatives: "name · host" (noisier for the common single-host case); fall back to tmux's last title after exit
+Commit: ee274b7f9
+Veto: [ ]
+

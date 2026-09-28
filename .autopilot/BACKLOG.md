@@ -337,13 +337,14 @@ Inbox: 20260928T193703549149Z-2d2188b3#1
 Question: Needs Evan to do: send the daemon contract change to the leo agent, and time the leo release/restart. Reply "B-051: done" once it's done.
 Answer:
 
-## B-052 · Attach tabs are titled with the agent's name   [ready]
+## B-052 · Attach tabs are titled with the agent's name   [done]
 Issue: #55
 Why: Tabs should tell you which agent is inside at a glance, so you don't have to click through them. Serves "Everything through Leo" (no hunting for an agent's tab).
 Accept: A tab attached to agent X shows "X" as its tab and window title, whatever the terminal inside sets via OSC; with splits, the title follows the focused split's agent; a title the user sets with Ghostty's Change Title… still wins; non-attach tabs (start page, plain shells) keep Ghostty's normal title; the name stays after reattach or an agent restart; tests cover the title source for each case, plus a screenshot from the isolated debug build using autopilot-scratch only (tab bar showing "autopilot-scratch").
 Out: Status badges or icons in the tab; showing the terminal's own title alongside the name (autopilot may put it in the tooltip); renaming agents.
 Source: Evan (/feature, 2026-09-28)
 Inbox: 20260928T193739823707Z-618b4900#1
+Done: ee274b7f9 (1513 tests). The focused surface's agent name drives the tab and window title through `LeoTabTitleSource`; OSC titles are ignored for attach tabs; Change Tab Title… and Change Terminal Title… still win; splits follow the focused split's agent; decisions D-095. Verified: shots B-052-1 (tab and window read autopilot-scratch while Claude and tmux set their own titles; the start tab keeps 👻 Ghostty), -2 (Change Tab Title… "my-tab" wins), -3 (clearing it restores the name), -4 (the name persists after an agent restart), -5 (the reattached tab is named). Change Terminal Title… and split focus are covered by tests only. Review clean, 0 fix rounds. Reattach-in-place gap → B-053.
 
 ## B-050 · First attach fills the start-page tab   [ready]
 Issue: #56
@@ -360,3 +361,8 @@ Accept: The hover "Attach" button is gone from rows (the context menu keeps Atta
 Out: Auto-starting without asking; changes to Split (⌘D) or the palette's behaviour for running agents; restart/stop flows; errored-agent recovery beyond showing the same prompt.
 Source: Evan (/feature, 2026-09-28)
 Inbox: 20260928T193634323347Z-31fbe8d8#1
+
+## B-053 · Reattach after an agent restart refills the exited tab   [ready (next run)]
+Accept: After an attached agent restarts, its tab shows the "No Agent Attached" placeholder but keeps the agent's name (D-095). A sidebar double-click, Return, or palette choice for that agent should refill that placeholder, and focus it, instead of opening a new tab beside it. Today you get two same-named tabs, one of them empty (seen in B-052 verification, shots B-052-4/-5). ⌘-click / ⌘↩ still force a new tab. Test the lookup (an exited placeholder carrying the agent's name counts as that agent's tab). Screenshot with autopilot-scratch only.
+Source: B-052 verification
+
