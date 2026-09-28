@@ -105,9 +105,11 @@ struct LeoAgentRowView: View {
                 .contentShape(Rectangle())
                 .onTapGesture(count: 2) { activate(source: .rowDoubleClick) }
                 // Simultaneous, so it neither delays the double-click nor
-                // takes the click away from the list's own selection.
+                // takes the click away from the list's own selection. The
+                // modifiers are the click's own, not whatever is held now.
                 .simultaneousGesture(TapGesture().onEnded {
-                    click(NSEvent.modifierFlags, NSApp.currentEvent?.clickCount ?? 1)
+                    let event = NSApp.currentEvent
+                    click(event?.modifierFlags ?? NSEvent.modifierFlags, event?.clickCount ?? 1)
                 })
         }
         .contentShape(Rectangle())

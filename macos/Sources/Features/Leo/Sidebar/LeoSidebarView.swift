@@ -210,7 +210,11 @@ struct LeoSidebarView: View {
     private static let inertOpacity = 0.45
 
     private var agentList: some View {
-        List(selection: Binding(get: { model.selection }, set: { model.userSelected($0) })) {
+        // Selection is required (`SelectionValue` is the optional ID
+        // itself, so each row's tag is `Optional(row.id)`): the table
+        // then never toggles the selected row off on ⌘-click, which here
+        // opens a new tab (B-047, B-048). `nil` still shows no selection.
+        List<LeoAgentRow.ID?, _>(selection: Binding(get: { model.selection }, set: { model.userSelected($0) })) {
             ForEach(model.sections) { section in
                 Section(header: sectionHeader(section)) {
                     ForEach(section.isCollapsed ? [] : section.rows) { row in
@@ -228,7 +232,7 @@ struct LeoSidebarView: View {
                             pendingSurfacedFiles: model.pendingSurfacedFiles(for: row),
                             openSurfacedFile: { model.openSurfacedFile($0, for: row) }
                         )
-                        .tag(row.id)
+                        .tag(Optional(row.id))
                     }
                 }
             }
