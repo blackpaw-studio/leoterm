@@ -34,6 +34,6 @@ Lane: B-056
 Lane: B-057
   Branch: autopilot-lane/B-057
   Base: 126ff4c0ab38a8616ee081a44065cfb45e0681d8
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
