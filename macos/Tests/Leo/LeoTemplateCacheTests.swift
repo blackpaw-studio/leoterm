@@ -69,6 +69,24 @@ struct LeoTemplateCacheTests {
         #expect(await loader.callCount == 2)
     }
 
+    /// B-054: a read for another host never sees, or joins, the previous
+    /// host's value or in-flight fetch -- the switch is atomic inside the
+    /// actor, so no caller can observe the old host's templates in between.
+    @Test func aReadForAnotherHostNeverSeesThePreviousHostsTemplates() async throws {
+        let local = TemplateLoader(values: [["local"]], suspended: true)
+        let remote = TemplateLoader(values: [["work"]])
+        let cache = LeoTemplateCache()
+
+        async let inFlight = cache.refreshIfStale(for: .local) { try await local.load() }
+        await local.waitForCalls(1)
+        #expect(try await cache.refreshIfStale(for: .remote("work")) { try await remote.load() }.map(\.name) == ["work"])
+        await local.resume()
+
+        #expect(try await inFlight.map(\.name) == ["local"])
+        #expect(try await cache.refreshIfStale(for: .remote("work")) { try await remote.load() }.map(\.name) == ["work"])
+        #expect(await remote.callCount == 1)
+    }
+
     @Test func staleCacheBeyondTTLRefetchesOnNextRead() async throws {
         let loader = TemplateLoader(values: [["one"], ["two"]])
         let clock = TestClock()

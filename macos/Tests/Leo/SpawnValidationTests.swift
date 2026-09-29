@@ -1,3 +1,5 @@
+import Combine
+import Foundation
 import Testing
 @testable import Ghostty
 
@@ -17,14 +19,13 @@ struct SpawnValidationTests {
         #expect(SpawnValidation.spawn(template: "swift", repo: "/repo", name: "ok", pathExists: { _ in true }) == nil)
     }
 
-    @Test func selectedTemplateMustBeFetched() async {
-        let cli = LeoCLI(executableOverride: "/leo", runner: SpawnRunner(), isExecutable: { _ in true })
-        let model = await MainActor.run { SpawnAgentModel(cli: cli) }
-        await model.loadTemplates()
-        await MainActor.run {
-            model.template = "missing"
-            #expect(model.validationError == "Choose an available template")
-        }
+    @Test @MainActor func selectedTemplateMustBeFetched() {
+        let list = Just(LeoTemplateListState.loaded([LeoTemplate(name: "swift")])).eraseToAnyPublisher()
+        let model = SpawnAgentModel(templateList: list)
+        model.template = "missing"
+        #expect(model.validationError == "Choose an available template")
+        model.template = "swift"
+        #expect(model.validationError == nil)
     }
 
     @Test(arguments: [
@@ -33,11 +34,5 @@ struct SpawnValidationTests {
         ("new-name", nil)
     ]) func renameRules(value: String, expected: String?) {
         #expect(SpawnValidation.rename(value, current: "same") == expected)
-    }
-}
-
-private struct SpawnRunner: LeoProcessRunning {
-    func run(executable: String, arguments: [String], timeout: TimeInterval) async throws -> LeoProcessResult {
-        LeoProcessResult(stdout: Data("[{\"name\":\"swift\"}]".utf8), stderr: Data(), status: 0)
     }
 }

@@ -72,10 +72,8 @@ struct LeoAgentRowView: View {
     /// This row's unseen surfaced files, newest last, and the open (B-013).
     var pendingSurfacedFiles: [LeoSurfacedFile] = []
     var openSurfacedFile: (LeoSurfacedFile) -> Void = { _ in }
-    @State private var templates: [LeoTemplate] = []
     @State private var showingRename = false
     @State private var showingDelete = false
-    @State private var templateLoadError: String?
     /// The room the subtitle text has, once measured (B-043).
     @State private var subtitleWidth: CGFloat?
 
@@ -309,24 +307,11 @@ struct LeoAgentRowView: View {
         Button("Start") { actions.start(row) }.disabled(!availability.start)
         Button("Stop") { actions.stop(row) }.disabled(!availability.stop)
         Button("Restart") { actions.restart(row) }.disabled(!availability.restart)
-        Menu("Set Template") {
-            if let templateLoadError {
-                Text("Templates unavailable: \(templateLoadError)")
-            } else {
-                ForEach(templates) { template in
-                Button { actions.setTemplate(row, template: template.name) } label: {
-                    HStack {
-                        Text(template.name)
-                        if template.name == row.template { Image(systemName: "checkmark") }
-                    }
-                }
-            }
-            }
-        }
-        .disabled(!availability.setTemplate)
-        .task {
-            do { templates = try await actions.templates() } catch { templateLoadError = error.localizedDescription }
-        }
+        // B-054: reads the list `actions` prefetched on host selection. A
+        // per-row fetch started from inside the context menu could only
+        // land after the menu was already built, so the first open was empty.
+        Menu("Set Template") { templateItems }
+            .disabled(!availability.setTemplate)
         Button("Rename…") { showingRename = true }.disabled(!availability.rename)
         Button("View Logs") { viewLogs() }.disabled(!availability.logs)
         Button("Browse Files") { browseFiles() }
@@ -340,6 +325,26 @@ struct LeoAgentRowView: View {
         Button(LeoMenuCommands.pinToggleTitle(isPinned: isPinned), action: togglePin)
         Divider()
         Button("Delete…", role: .destructive) { showingDelete = true }.disabled(!availability.delete)
+    }
+
+    @ViewBuilder private var templateItems: some View {
+        switch actions.templateList {
+        case .loading:
+            Text("Loading Templates…")
+        case .failed(let message):
+            Text("Templates unavailable: \(message)")
+        case .loaded(let templates) where templates.isEmpty:
+            Text("No Templates")
+        case .loaded(let templates):
+            ForEach(templates) { template in
+                Button { actions.setTemplate(row, template: template.name) } label: {
+                    HStack {
+                        Text(template.name)
+                        if template.name == row.template { Image(systemName: "checkmark") }
+                    }
+                }
+            }
+        }
     }
 
     /// Opens the workspace browser (B-005) on this agent in the window

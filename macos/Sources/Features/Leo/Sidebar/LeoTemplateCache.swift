@@ -11,8 +11,9 @@ import Foundation
 /// Templates are host *configuration* -- they don't change when agents
 /// spawn or stop -- so this cache is deliberately NOT invalidated by every
 /// sidebar list refresh (that would fetch more often than a naive TTL once
-/// the list refresh became SSE-driven). The caller invalidates explicitly
-/// on a host switch or a user-initiated sidebar refresh; `templateCacheTTL`
+/// the list refresh became SSE-driven). A host switch invalidates through
+/// `refreshIfStale(for:_:)`; the caller invalidates explicitly on a
+/// user-initiated sidebar refresh; `templateCacheTTL`
 /// below is only a backstop against a stale cache outliving both of those
 /// (e.g. a template renamed on the daemon side during a long idle window).
 ///
@@ -36,6 +37,8 @@ actor LeoTemplateCache {
     private let clock: @Sendable () -> Date
     private var state: State = .idle
     private var generation = 0
+    /// The host `state` belongs to, once `refreshIfStale(for:_:)` is used.
+    private var host: LeoHostID?
 
     init(clock: @escaping @Sendable () -> Date = { Date() }) {
         self.clock = clock
@@ -61,6 +64,20 @@ actor LeoTemplateCache {
         case .fetching(let task):
             return try await task.value
         }
+    }
+
+    /// `refreshIfStale`, scoped to `host`: a read for a different host than
+    /// the cached (or in-flight) one invalidates first, inside the actor,
+    /// so no reader can ever see or join the previous host's templates
+    /// (B-054).
+    func refreshIfStale(
+        for host: LeoHostID, _ fetch: @escaping @Sendable () async throws -> [LeoTemplate]
+    ) async throws -> [LeoTemplate] {
+        if host != self.host {
+            invalidate()
+            self.host = host
+        }
+        return try await refreshIfStale(fetch)
     }
 
     private func startFetch(_ fetch: @escaping @Sendable () async throws -> [LeoTemplate]) async throws -> [LeoTemplate] {

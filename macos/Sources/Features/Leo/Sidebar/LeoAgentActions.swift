@@ -3,6 +3,12 @@ import Foundation
 
 @MainActor final class LeoAgentActions: ObservableObject {
     @Published private(set) var pendingActions: Set<LeoAgentRow.ID> = []
+    /// The selected host's templates, for every UI reader (New Agent sheet,
+    /// a row's Set Template submenu): prefetched on each host selection so
+    /// a menu has them on its first open, and reset to `.loading` the
+    /// moment the host changes so the old host's list is never shown for
+    /// the new one (B-054).
+    @Published private(set) var templateList: LeoTemplateListState = .loading
     /// Bound to whatever connection is currently selected -- updated by
     /// `LeoRuntime` (via `updateDaemon`) each time `LeoHostSelection`
     /// reports a new connected socket. Every call below is unscoped
@@ -16,23 +22,25 @@ import Foundation
     private let cli: LeoCLI
     private let model: LeoSidebarModel
     private let refresh: () -> Void
-    var cliForSpawn: LeoCLI { cli }
     private let processRunner: any LeoProcessRunning
     private let sshExecutable: String
     /// One cache instance for whichever host is currently selected --
-    /// rows and the Agents-menu submenu both read through `templates()`
-    /// below, never fetching on their own. Templates are host
+    /// `templateList` and the Agents-menu submenu both read through
+    /// `templates()` below, never fetching on their own. Templates are host
     /// *configuration*, not agent state, so this is deliberately NOT
     /// invalidated by every (now SSE-driven, frequent) sidebar list
-    /// refresh -- only by: the selected host changing (detected
-    /// synchronously at the top of `templates()`, below -- a Combine
-    /// subscription would invalidate asynchronously and could lose a race
-    /// against a `templates()` call issued right after `select()`
-    /// returns), a user-initiated sidebar refresh (`invalidateTemplateCache`,
-    /// called by `LeoRuntime` off the feed's `onManualRefresh` hook), and
-    /// `LeoTemplateCache.templateCacheTTL` as a backstop.
+    /// refresh -- only by: the selected host changing (keyed inside the
+    /// cache actor by `refreshIfStale(for:_:)`, so the switch is atomic
+    /// with the read), a user-initiated sidebar refresh
+    /// (`invalidateTemplateCache`, called by `LeoRuntime` off the feed's
+    /// `onManualRefresh` hook), and `LeoTemplateCache.templateCacheTTL` as
+    /// a backstop.
     private let templateCache = LeoTemplateCache()
-    private var lastKnownTemplateHost: LeoHostID
+    /// The host `templateList` describes, and a token bumped by every
+    /// reload so a fetch that lands after a newer one started is dropped.
+    private var templateListHost: LeoHostID?
+    private var templateListToken = 0
+    private var selectionObservation: AnyCancellable?
 
     init(daemon: any LeoDaemonClient, cli: LeoCLI, model: LeoSidebarModel,
          hostSelection: LeoHostSelection,
@@ -46,7 +54,12 @@ import Foundation
         self.processRunner = processRunner
         self.sshExecutable = sshExecutable
         self.refresh = refresh
-        lastKnownTemplateHost = hostSelection.selected
+        // `dropFirst`: the list loads on the first `select()` (which
+        // `LeoHostSelection.start` always makes, once hosts are loaded),
+        // not at construction, before a remote host's configuration exists.
+        selectionObservation = hostSelection.$selected.dropFirst().sink { [weak self] host in
+            self?.hostSelected(host)
+        }
     }
 
     /// Called by `LeoRuntime` whenever the selected connection's daemon
@@ -62,7 +75,43 @@ import Foundation
     /// demand without every row or the Agents menu fetching for themselves.
     func invalidateTemplateCache() {
         let templateCache = templateCache
-        Task { await templateCache.invalidate() }
+        let token = nextTemplateListToken()
+        Task { [weak self] in
+            await templateCache.invalidate()
+            await self?.reloadTemplateList(token: token)
+        }
+    }
+
+    /// `$selected` publishes before the new value is stored, so the
+    /// reload is deferred to a task, which reads the stored selection.
+    /// The old host's list (or a failure) is cleared synchronously, here;
+    /// re-selecting the same host (a retry) keeps its loaded list showing.
+    private func hostSelected(_ host: LeoHostID) {
+        if host != templateListHost || !templateList.isLoaded {
+            templateListHost = host
+            templateList = .loading
+        }
+        let token = nextTemplateListToken()
+        Task { [weak self] in await self?.reloadTemplateList(token: token) }
+    }
+
+    private func nextTemplateListToken() -> Int {
+        templateListToken += 1
+        return templateListToken
+    }
+
+    /// Publishes the selected host's templates unless a newer reload (a
+    /// later host switch or manual refresh) started meanwhile.
+    private func reloadTemplateList(token: Int) async {
+        guard token == templateListToken else { return }
+        let state: LeoTemplateListState
+        do {
+            state = .loaded(try await templates())
+        } catch {
+            state = .failed(Self.message(error))
+        }
+        guard token == templateListToken else { return }
+        templateList = state
     }
 
     /// `completion` says whether the daemon accepted the start; a refusal
@@ -94,11 +143,7 @@ import Foundation
     /// path itself works.
     func templates() async throws -> [LeoTemplate] {
         let host = hostSelection.selected
-        if host != lastKnownTemplateHost {
-            lastKnownTemplateHost = host
-            await templateCache.invalidate()
-        }
-        return try await templateCache.refreshIfStale { [cli, processRunner, sshExecutable, host, configuration = hostSelection.selectedConfiguration] in
+        return try await templateCache.refreshIfStale(for: host) { [cli, processRunner, sshExecutable, host, configuration = hostSelection.selectedConfiguration] in
             if host == .local {
                 return try await cli.templateList()
             } else if let configuration {
