@@ -111,6 +111,11 @@ extension Notification.Name {
     /// the start screen; the window stays. Hidden, its shell is let go and
     /// what the window shows is untouched. Already closed, nothing happens.
     func closeTerminal(_ handle: AttachmentHandle)
+    /// B-057: `window`'s sidebar selects the terminal row its content area
+    /// shows -- or, showing an agent or the start screen, none, so the
+    /// agent's selection shows. A row selected to be shown that wasn't
+    /// (its confirm cancelled, its shell let go) gives its selection back.
+    func selectShownTerminal(in window: LeoWindowID)
     /// Titles `handle`'s surface -- and so its window, while focused --
     /// after the agent attached in it (B-052), in place of whatever title
     /// the terminal sets.

@@ -61,6 +61,41 @@ import Testing
         #expect(host.replacementConfirmations.last == window)
     }
 
+    /// The row was selected when clicked. Showing it didn't happen -- its
+    /// confirm was cancelled, the host let its shell go meanwhile, or it
+    /// closed -- so the sidebar selects what the window does show again,
+    /// and nothing on screen changes.
+    @Test(arguments: ["cancelled", "not revealed", "closed"])
+    func aTerminalNotShownGivesTheSelectionBack(_ outcome: String) async throws {
+        let (host, coordinator) = make()
+        let shell = try await newShell(coordinator)
+        await coordinator.attach(identity: worker, from: window, disposition: .content)
+        let agent = try #require(host.shownInContent[window])
+        switch outcome {
+        case "cancelled": host.confirmsReplacement = false
+        case "not revealed": host.refusesReveal = true
+        default: coordinator.closeTerminal(shell)
+        }
+
+        await coordinator.showTerminal(shell)
+
+        #expect(host.reselectedWindows == [window])
+        #expect(host.revealed.isEmpty)
+        #expect(host.shownInContent[window] == agent)
+    }
+
+    @Test func aShownTerminalKeepsItsSelection() async throws {
+        let (host, coordinator) = make()
+        let shell = try await newShell(coordinator)
+        await coordinator.attach(identity: worker, from: window, disposition: .content)
+
+        await coordinator.showTerminal(shell)
+        await coordinator.showTerminal(shell)
+
+        #expect(host.revealed == [shell])
+        #expect(host.reselectedWindows.isEmpty, "the host selects what it reveals")
+    }
+
     @Test func aGoneTerminalShowsNothingAndAsksNothing() async throws {
         let (host, coordinator) = make()
         _ = try await newShell(coordinator)

@@ -252,30 +252,90 @@ import Testing
     /// shell's tree out of the keep and lets it go, once. `LeoLiveSurfaces`
     /// on its own, so what it lets go is counted directly.
     @Test func discardingAKeptTreeLetsItGo() throws {
-        let app = try #require(Self.ghostty?.app, "these tests need the app's Ghostty.App")
-        let window = LeoWindowID()
-        let letGo = LetGoLog()
-        let shell = Ghostty.SurfaceView(app, baseConfig: nil)
-        let live = LeoLiveSurfaces(
-            isAgent: { _ in false },
-            isTerminalRow: { [weak shell] in $0 === shell },
-            isClient: { _ in false },
-            letGo: { letGo.trees.append(Array($0)) }
-        )
-        live.hide(SplitTree(view: shell), in: window, showing: SplitTree())
-        try #require(live.keptSurfaces(in: window).map(\.id) == [shell.id])
+        let keep = try KeptShell()
+        try keep.hide()
 
-        #expect(live.discardKept(treeHolding: shell, in: window))
+        #expect(keep.live.discardKept(treeHolding: keep.shell, in: keep.window))
 
-        #expect(live.hiddenSurfaces(in: window).isEmpty)
-        #expect(!live.contains(shell, in: window))
-        #expect(letGo.trees.map { $0.map(\.id) } == [[shell.id]], "let go once")
-        #expect(!live.discardKept(treeHolding: shell, in: window), "nothing left to discard")
-        #expect(letGo.trees.count == 1)
+        #expect(keep.live.hiddenSurfaces(in: keep.window).isEmpty)
+        #expect(!keep.live.contains(keep.shell, in: keep.window))
+        #expect(keep.letGo.trees.map { $0.map(\.id) } == [[keep.shell.id]], "let go once")
+        #expect(!keep.live.discardKept(treeHolding: keep.shell, in: keep.window), "nothing left to discard")
+        #expect(keep.letGo.trees.count == 1)
+    }
+
+    /// B-057: a row's shell that has exited has nothing to show again, so
+    /// nothing keeps it: switched away from once exited, taken to be shown,
+    /// or dropped with the dead, it is let go -- once. (`hasExited` stands
+    /// in for the shell's end.)
+    @Test(arguments: ["hidden once exited", "taken", "dropped with the dead"])
+    func aKeptShellThatExitedIsLetGo(_ path: String) throws {
+        let keep = try KeptShell()
+        if path != "hidden once exited" { try keep.hide() }
+        keep.exit.hasExited = true
+
+        switch path {
+        case "hidden once exited": keep.live.hide(SplitTree(view: keep.shell), in: keep.window, showing: SplitTree())
+        case "taken": #expect(keep.live.take(treeHolding: keep.shell, in: keep.window) == nil, "nothing to show")
+        default: keep.live.dropDead()
+        }
+
+        #expect(keep.live.hiddenSurfaces(in: keep.window).isEmpty)
+        #expect(keep.letGo.trees.map { $0.map(\.id) } == [[keep.shell.id]], "let go once")
+    }
+
+    /// B-057: Ghostty's close request for a kept shell is its row's to act
+    /// on (the host closes the row, as ⌘W does), never the pool's: the
+    /// pool's handling of it leaves the keep alone.
+    @Test func aCloseRequestForAKeptShellIsNotThePools() throws {
+        let keep = try KeptShell()
+        try keep.hide()
+
+        #expect(!keep.live.surfaceClosed(keep.shell), "not the pool's")
+
+        #expect(keep.live.keptSurfaces(in: keep.window).map(\.id) == [keep.shell.id])
+        #expect(keep.letGo.trees.isEmpty)
     }
 
     @MainActor private final class LetGoLog {
         var trees: [[Ghostty.SurfaceView]] = []
+    }
+
+    @MainActor private final class ExitFlag {
+        var hasExited = false
+    }
+
+    /// `LeoLiveSurfaces` on its own with one terminal row's shell, so what
+    /// it lets go is counted directly and the shell's exit is scripted.
+    @MainActor private struct KeptShell {
+        let window = LeoWindowID()
+        let letGo: LetGoLog
+        let exit: ExitFlag
+        let shell: Ghostty.SurfaceView
+        let live: LeoLiveSurfaces
+
+        init() throws {
+            let app = try #require(LeoLivePoolIntegrationTests.ghostty?.app, "these tests need the app's Ghostty.App")
+            let shell = Ghostty.SurfaceView(app, baseConfig: nil)
+            let letGo = LetGoLog()
+            let exit = ExitFlag()
+            self.shell = shell
+            self.letGo = letGo
+            self.exit = exit
+            live = LeoLiveSurfaces(
+                isAgent: { _ in false },
+                isTerminalRow: { [weak shell] in $0 === shell },
+                isClient: { _ in false },
+                hasExited: { _ in exit.hasExited },
+                letGo: { letGo.trees.append(Array($0)) }
+            )
+        }
+
+        /// Switched away from: kept for its row.
+        func hide() throws {
+            live.hide(SplitTree(view: shell), in: window, showing: SplitTree())
+            try #require(live.keptSurfaces(in: window).map(\.id) == [shell.id])
+        }
     }
 
     @Test func aHiddenSurfaceWhoseProcessEndsIsLetGo() async throws {

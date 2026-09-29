@@ -232,6 +232,8 @@ import OSLog
         live.keptSurfaces(in: window).contains { $0.needsConfirmQuit }
     }
 
+    func selectShownTerminal(in window: LeoWindowID) {}
+
     /// The window's sidebar selects the terminal row it now shows, or --
     /// showing an agent, or the start screen -- none.
     private func selectShownTerminal(in controller: TerminalController) {

@@ -127,6 +127,12 @@ struct FakeOpenCall {
         emit(.closed(handle))
     }
 
+    /// Every window whose sidebar was told to select what it shows again.
+    private(set) var reselectedWindows: [LeoWindowID] = []
+    func selectShownTerminal(in window: LeoWindowID) {
+        reselectedWindows.append(window)
+    }
+
     /// The window's pool holds `handle` hidden.
     func isHidden(_ handle: AttachmentHandle) -> Bool {
         (pools[handle.windowID]?.entries.contains(handle) ?? false) || (keptShells[handle.windowID]?.contains(handle) ?? false)
