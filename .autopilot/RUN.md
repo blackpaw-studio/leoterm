@@ -18,3 +18,4 @@ Lane: B-057
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+- Board sync (preflight): B-014: unknown status [deferred]
