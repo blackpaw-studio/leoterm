@@ -37,6 +37,16 @@ import Testing
         #expect(list(a, b, c).neighbour(of: ids[closing]) == ids[expected], "\(which)")
     }
 
+    /// Fix round 2: a neighbour with nothing to show is passed over -- the
+    /// rows after first, then those before, each nearest first.
+    @Test func neighboursAreTheRowsAfterThenBeforeNearestFirst() {
+        let d = UUID()
+
+        #expect(list(a, b, c, d).neighbours(of: c) == [d, b, a])
+        #expect(list(a, b, c, d).neighbours(of: a) == [b, c, d])
+        #expect(list(a, b).neighbours(of: c).isEmpty, "not listed")
+    }
+
     @Test func theOnlyRowHasNoNeighbour() {
         #expect(list(a).neighbour(of: a) == nil)
         #expect(list(a).neighbour(of: b) == nil, "not listed")

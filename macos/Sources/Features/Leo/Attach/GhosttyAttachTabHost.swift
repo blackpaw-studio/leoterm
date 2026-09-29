@@ -192,11 +192,11 @@ import OSLog
         Self.logger.log("closeTerminal window=\(handle.windowID.rawValue.uuidString, privacy: .public) hidden=true")
     }
 
-    /// The shown row's shell closed. The neighbouring row's hidden shell
-    /// takes its place -- the same surface -- or, with none (or none left
-    /// alive), the start screen does; the window stays. What closed is let
-    /// go at once: its surfaces free their ptys, and its handles (so its
-    /// row) close.
+    /// The shown row's shell closed. The nearest neighbouring row with a
+    /// live hidden shell takes its place -- the same surface -- or, with
+    /// none, the start screen does; the window stays. (A neighbour whose
+    /// shell ended is let go on the way.) What closed is let go at once:
+    /// its surfaces free their ptys, and its handles (so its row) close.
     private func closeShownTerminal(_ handle: AttachmentHandle, in controller: TerminalController) {
         guard let terminals = controller.leoSession?.terminals else { return }
         let closing = controller.surfaceTree
@@ -212,16 +212,18 @@ import OSLog
         Self.logger.log("closeTerminal window=\(handle.windowID.rawValue.uuidString, privacy: .public) neighbour=\(!controller.surfaceTree.isEmpty)")
     }
 
-    /// The neighbouring row's hidden tree, taken to be shown, and the
-    /// surface to focus in it.
+    /// The nearest neighbouring row's hidden tree that can be shown,
+    /// taken to be shown, and the surface to focus in it.
     private func neighbourTree(
         of handle: AttachmentHandle,
         in terminals: LeoWindowTerminals
     ) -> (SplitTree<Ghostty.SurfaceView>, Ghostty.SurfaceView)? {
-        guard let neighbour = terminals.list.neighbour(of: handle.surfaceID),
-              let surface = attachments[AttachmentHandle(surfaceID: neighbour, windowID: handle.windowID)]?.surface,
-              let tree = live.take(treeHolding: surface, in: handle.windowID) else { return nil }
-        return (tree, surface)
+        for neighbour in terminals.list.neighbours(of: handle.surfaceID) {
+            guard let surface = attachments[AttachmentHandle(surfaceID: neighbour, windowID: handle.windowID)]?.surface,
+                  let tree = live.take(treeHolding: surface, in: handle.windowID) else { continue }
+            return (tree, surface)
+        }
+        return nil
     }
 
     /// Whether closing `window` would kill a busy shell it keeps hidden
@@ -308,23 +310,51 @@ import OSLog
     /// A hidden surface's process ending reaches no controller: Ghostty
     /// shows no exit message off screen (Leo posts
     /// `.leoWindowlessChildExited` instead), and a close request (when
-    /// Ghostty closes on exit) names a surface in no tree. The pool takes
+    /// Ghostty closes on exit) names a surface in no tree. The host takes
     /// both -- on the next turn: both arrive from inside libghostty's
     /// handling of that very surface, which must not be freed under it.
+    ///
+    /// Whose a close request is, is decided when it arrives: a terminal
+    /// row's shell hidden then gets no controller's close, so its row
+    /// closes the way ⌘W's does (`closeRequested`) -- which holds whether
+    /// a reveal has shown it by the next turn, it is still hidden, or it
+    /// is already gone. Anything else hidden is the pool's.
     private func observeHiddenSurfaceExits() {
         let center = NotificationCenter.default
         hiddenExitObservers = [
             center.addObserver(forName: Ghostty.Notification.ghosttyCloseSurface, object: nil, queue: .main) { [weak self] notification in
                 guard let surface = notification.object as? Ghostty.SurfaceView else { return }
-                DispatchQueue.main.async { [weak surface] in
-                    guard let surface else { return }
-                    _ = self?.live.surfaceClosed(surface)
+                MainActor.assumeIsolated {
+                    let hiddenRow = self?.hiddenTerminalRow(surface)
+                    DispatchQueue.main.async { [weak surface] in
+                        guard let surface else { return }
+                        if let hiddenRow {
+                            self?.requestClose(of: hiddenRow)
+                        } else {
+                            _ = self?.live.surfaceClosed(surface)
+                        }
+                    }
                 }
             },
             center.addObserver(forName: .leoWindowlessChildExited, object: nil, queue: .main) { [weak self] _ in
                 DispatchQueue.main.async { self?.live.dropDead() }
             },
         ]
+    }
+
+    /// The terminal row whose shell `surface` is, while no controller
+    /// shows it.
+    private func hiddenTerminalRow(_ surface: Ghostty.SurfaceView) -> AttachmentHandle? {
+        guard let handle = attachments.first(where: { $0.value.isTerminalRow && $0.value.surface === surface })?.key,
+              !isShown(handle) else { return nil }
+        return handle
+    }
+
+    /// Closes `handle`'s row as its controller's close does: through its
+    /// window's terminals, so the coordinator hears of it (nothing, once
+    /// the row is gone).
+    private func requestClose(of handle: AttachmentHandle) {
+        attachments[handle]?.controller?.leoSession?.terminals.closeRequested(handle.surfaceID)
     }
 
     private func makeSurface(

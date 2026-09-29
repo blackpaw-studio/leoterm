@@ -44,10 +44,15 @@ struct LeoTerminalList: Equatable, Sendable {
     /// The row shown once `id` closes, as Finder and Mail pick one after a
     /// delete: the next row, else the previous one. `nil` when `id` is the
     /// only row, or isn't listed.
-    func neighbour(of id: UUID) -> UUID? {
-        guard let index = rows.firstIndex(where: { $0.id == id }) else { return nil }
-        if rows.indices.contains(index + 1) { return rows[index + 1].id }
-        return index > 0 ? rows[index - 1].id : nil
+    func neighbour(of id: UUID) -> UUID? { neighbours(of: id).first }
+
+    /// Every other row, in the order one is picked to show once `id`
+    /// closes: the rows after it, nearest first, then those before it,
+    /// nearest first -- so a neighbour with nothing to show is passed over
+    /// for the next. Empty when `id` isn't listed.
+    func neighbours(of id: UUID) -> [UUID] {
+        guard let index = rows.firstIndex(where: { $0.id == id }) else { return [] }
+        return (rows[(index + 1)...] + rows[..<index].reversed()).map(\.id)
     }
 }
 
