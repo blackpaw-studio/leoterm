@@ -232,6 +232,33 @@ struct LeoSidebarFeedMetadataTests {
         await harness.stop()
     }
 
+    /// B-063: every activity burst refetches `/state`, so busy agents'
+    /// one-second timestamps used to leapfrog on each snapshot. Snapshots
+    /// whose newest time rotates between two busy agents keep the order.
+    @Test func aFeedSnapshotSequenceKeepsTheOrder() async throws {
+        let harness = MetadataHarness(
+            agents: [("alpha", "s1"), ("beta", "s1")],
+            state: [observed("alpha", "s1", task: nil, at: "2026-09-24T12:00:00Z"), observed("beta", "s1", task: nil, at: "2026-09-24T11:59:50Z")]
+        )
+        let model = await MainActor.run { LeoSidebarModel() }
+        await harness.start()
+        try await harness.pump { $0.rows.allSatisfy { $0.metadata != nil } }
+        await harness.settle()
+        #expect(await order(harness, model) == ["alpha", "beta"])
+
+        let snapshots = [("12:00:05", "12:00:20"), ("12:00:30", "12:00:25")]
+        for (seq, (alpha, beta)) in zip(2..., snapshots) {
+            let betaTime = "2026-09-24T\(beta)Z"
+            await harness.activity.setState([
+                observed("alpha", "s1", task: nil, at: "2026-09-24T\(alpha)Z"), observed("beta", "s1", task: nil, at: betaTime)
+            ])
+            await harness.activity.send(.agentActivity(seq: seq, at: nil, agent: "beta", activity: .working, currentAction: nil))
+            try await harness.pump { $0.rows.last?.metadata?.lastActiveAt == LeoTimestamp.parse(betaTime) }
+            #expect(await order(harness, model) == ["alpha", "beta"], "after the snapshot at \(beta)")
+        }
+        await harness.stop()
+    }
+
     @Test func burstsOfActivityShareOneFetchInFlight() async throws {
         let harness = MetadataHarness(agents: [("alpha", "s1")], state: [observed("alpha", "s1", task: "first")])
         await harness.start()
