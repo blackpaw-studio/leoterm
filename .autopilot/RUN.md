@@ -33,7 +33,7 @@ Finished 1: B-057 landed e5f683b24 · shot /Users/evan/.leo/agents/leoterm/.git/
 Lane: B-063
   Branch: autopilot-lane/B-063
   Base: b7f45bbd2e442a2b91609aaf24a6f69c6186f5ae
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -43,3 +43,5 @@ Lane: B-063
   Call: The 5-min window is measured from the snapshot's newest last_activity_at, not the wall clock — P2 never invent a state
   Call: Streaks reset on host switch, reconnect or disconnect; a row missing from a snapshot, without a time, or a new incarnation starts a fresh streak (may move once) — P2
   Call: Accepted trade-off: an agent whose timestamp stalls >5 min (long tool call) moves twice (drops, then returns to the top on resume); a long-running busy agent ranks below one whose burst began more recently — P2
+- B-063 landed (merge d904cf393).
+Finished 2: B-063 landed d904cf393 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-063-1.png

@@ -78,13 +78,14 @@ Out: persisting pools across app launches; per-agent pinning into the pool
 Source: Evan (/vision revision, 2026-09-28)
 Done: b9e6ec48a 9d4b8033b b40d3a4bb (1636 tests, lint clean; 1 fix round; re-review: all fixes hold, no CRITICAL/HIGH). Verified live with autopilot-scratch: hide → reveal kept the same tmux client (same tty and created time) and scrollback (B-056-2 → -3, fixed build); cross-window selection released the other window's hidden copy and attached one fresh client (B-056-4, pre-fix build). Eviction past N=4 needs 5 agents: tests only. SSH path: tests only (no autopilot remote host).
 
-## B-063 · Bug — running agents' sidebar order keeps switching   [ready]
+## B-063 · Bug — running agents' sidebar order keeps switching   [done]
 Issue: #67
 Type: bug
 Report: The order of the running agents in the sidebar keeps switching around. It's a little jarring.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: Evan (/issue, 2026-09-29)
 Inbox: 20260929T161723581510Z-15416219#1
+Done: 857387ff9 745f2568e 554584894 1479faac8 (1707 tests, lint clean; general review clean; 0 fix rounds. Root cause: busy agents' last_activity_at leapfrogged on every snapshot; fixed with streak hysteresis (D-118..D-121). Verified by tests (5 of 8 new tests fail on the test-only commit); shots B-063-1..9 show a stable order, but agents were idle so the live leapfrog wasn't exercised)
 
 ## B-064 · Bug — no spacing at the top of the sidebar   [ready]
 Issue: #68

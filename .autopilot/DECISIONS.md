@@ -904,3 +904,31 @@ Chose: Closing a row's shell beside a split closes only that pane, using upstrea
 Why: D-100
 Commit: f57f9fefc 54bde45c1 a831d8e4a 8766c056f 53f51762a 518b87ab7 0d22ce11f 3e390d0d0 490cf77c7 0fbb8746e 7d52dd411 773d86267 3aa4bb698 68293ed56 7ea968957 bbb6b2fe5 5d1f1fe3c 78fa2682f 4cc74629c
 Veto: [ ]
+
+## D-118 · 2026-09-29 · Last Activity sort gets streak hysteresis: rows active within 5 min of the…
+Context: B-063 (runner call).
+Chose: Last Activity sort gets streak hysteresis: rows active within 5 min of the snapshot's newest last_activity_at come first, ordered by when their streak began; the rest by last_activity_at then name; snapshots only (D-082 kept); supersedes D-085's plain "newest first"
+Why: P2 calm
+Commit: 857387ff9 745f2568e 554584894 1479faac8
+Veto: [ ]
+
+## D-119 · 2026-09-29 · The 5-min window is measured from the snapshot's newest last_activity_at,…
+Context: B-063 (runner call).
+Chose: The 5-min window is measured from the snapshot's newest last_activity_at, not the wall clock
+Why: P2 never invent a state
+Commit: 857387ff9 745f2568e 554584894 1479faac8
+Veto: [ ]
+
+## D-120 · 2026-09-29 · Streaks reset on host switch, reconnect or disconnect; a row missing from a…
+Context: B-063 (runner call).
+Chose: Streaks reset on host switch, reconnect or disconnect; a row missing from a snapshot, without a time, or a new incarnation starts a fresh streak (may move once)
+Why: P2
+Commit: 857387ff9 745f2568e 554584894 1479faac8
+Veto: [ ]
+
+## D-121 · 2026-09-29 · Accepted trade-off: an agent whose timestamp stalls >5 min (long tool call)…
+Context: B-063 (runner call).
+Chose: Accepted trade-off: an agent whose timestamp stalls >5 min (long tool call) moves twice (drops, then returns to the top on resume); a long-running busy agent ranks below one whose burst began more recently
+Why: P2
+Commit: 857387ff9 745f2568e 554584894 1479faac8
+Veto: [ ]
