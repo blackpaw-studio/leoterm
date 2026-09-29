@@ -4,6 +4,7 @@ Ranked. Statuses: `ready`, `ready (next run)`, `blocked`, `deferred`, `done`, `i
 Source roadmap: `docs/leo/roadmap.md` on `main` (not edited by autopilot).
 
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [ready]
+Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
 Accept: with a remote host selected, the New Agent sheet's Template picker lists the remote daemon's templates, not the local CLI's (test with a fake remote fetch); a row's right-click Set Template submenu lists the host's templates on the first open, confirmed by a debug-build screenshot; after a host switch both lists show the new host's templates, never the old host's (test)
 Out: no changes to the Agents menu bar ▸ Set Template path (already works); no template editing or creation UI
@@ -12,30 +13,35 @@ Source: Evan (/feature, 2026-09-28)
 Inbox: 20260929T012753703255Z-9360b771#1
 
 ## B-055 · One content area per window; sidebar selects what's shown   [ready]
+Issue: #60
 Why: principle 6 (the sidebar is the navigation) and principle 1 (Mac-native: Mail/Finder switch content from the sidebar, no tabs)
 Accept: no tab bar appears in any window, including after ⌘N or a restored session; clicking a row, Return, or palette choice shows that agent in the window's content area, replacing what was shown; the sidebar (width, collapse, scroll, search) never changes or redraws on a switch (before/after screenshot pair); one agent is on screen in at most one window, and selecting it elsewhere focuses that window (as B-047); tab-only affordances (Attach in New Tab, ⌘-click/⌘↩ new tab, start-tab fill) are removed or remapped, each logged; tests plus screenshots with autopilot-scratch only
 Out: the live pool (B-056), plain-shell rows (B-057), splits (B-058); multi-window layouts beyond ⌘N
 Source: Evan (/vision revision, 2026-09-28)
 
 ## B-056 · Live surface pool: instant switches, detach beyond it   [ready]
+Issue: #61
 Why: principle 6 (switching must feel instant) and principle 2 (calm: no flicker or redraw on switch)
 Accept: switching back to one of the N most recently viewed agents shows its existing surface with Ghostty scrollback, scroll position and selection intact, with no new tmux client (test via the attach count); selecting an agent outside the pool evicts the least recently viewed one (its tmux client detaches) and attaches the new one; the tmux client count never exceeds N per window, and none leaks after a close or quit; after an agent restart the shown surface reattaches in place; N is a named constant chosen and logged by autopilot; works the same over the SSH tunnel
 Out: persisting pools across app launches; per-agent pinning into the pool
 Source: Evan (/vision revision, 2026-09-28)
 
 ## B-057 · Plain shells as "Terminals" sidebar rows   [ready]
+Issue: #62
 Why: principle 6 (everything on screen comes from a sidebar row) and principle 1 (every action has a shortcut and a menu item)
 Accept: a "Terminals" section lists open plain shells, titled by the terminal title; ⌘T (and File ▸ New Terminal) creates a shell and selects it; closing a shell (⌘W, or exit) removes its row and selects a neighbour; shells take part in the live pool like agents; the section hides when empty; tests plus a screenshot
 Out: naming or pinning shells; shells on remote hosts beyond what Ghostty already does
 Source: Evan (/vision revision, 2026-09-28)
 
 ## B-058 · Splits inside the content area   [ready]
+Issue: #63
 Why: principle 6 (the layout belongs to the selected row) with splits kept (D-100)
 Accept: ⌘D and the editor/file pane still split the content area; a split can show a second agent or shell, picked from the sidebar or palette; every row on screen is highlighted in the sidebar, the focused one distinctly; switching away from a split layout and back restores it intact; tests plus a screenshot of an agent + shell split with both rows highlighted
 Out: saved layouts; dragging rows into splits (later polish)
 Source: Evan (/vision revision, 2026-09-28)
 
 ## B-059 · Keyboard switching between rows   [ready]
+Issue: #64
 Why: principle 1 (keyboard-first; every action has a shortcut and a menu item)
 Accept: the old tab shortcuts are remapped to rows (⌘1–⌘9 select the Nth visible row, ⌃Tab/⌃⇧Tab or ⌘⇧]/[ go to the next/previous row, ⌃⌥⌘J still jumps to the next agent that needs you); each has a Window-menu item; the shortcuts skip collapsed sections; tests cover each shortcut
 Out: user-configurable bindings beyond Ghostty's keybind config
