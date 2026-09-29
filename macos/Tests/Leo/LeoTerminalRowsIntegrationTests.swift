@@ -86,13 +86,20 @@ import Testing
 
     /// A new terminal row, as ⌘T makes one; `command` stands in for what
     /// its shell runs, and `input` is typed into it (via the request's
-    /// inherited configuration).
-    private func newShell(_ fixture: Fixture, running command: String? = nil, typing input: String? = nil) throws -> AttachmentHandle {
+    /// inherited configuration). `waiting`: once `command` ends, Ghostty
+    /// waits for a key rather than asking to close (`wait-after-command`).
+    private func newShell(
+        _ fixture: Fixture,
+        running command: String? = nil,
+        typing input: String? = nil,
+        waiting: Bool = false
+    ) throws -> AttachmentHandle {
         let requestID = UUID()
-        if command != nil || input != nil {
+        if command != nil || input != nil || waiting {
             var config = Ghostty.SurfaceConfiguration()
             config.command = command
             config.initialInput = input
+            config.waitAfterCommand = waiting
             fixture.configs.set(config, for: requestID)
         }
         return try fixture.host.showInContent(command: "", workingDirectory: nil, origin: fixture.origin, requestID: requestID)
@@ -376,6 +383,107 @@ import Testing
         try? await Task.sleep(for: .milliseconds(100))
         #expect(fixture.events.events.filter { $0 == .closed(closing) }.count == 1, "closed once")
         #expect(!fixture.closes.windowClosed)
+    }
+
+    // MARK: A hidden row's shell ending (fix round 2)
+
+    /// Ghostty's close request for a hidden row's ended shell is the
+    /// host's to act on (no controller shows that surface). A reveal
+    /// landing before it is handled mustn't leave the row showing a shell
+    /// that is gone. (The notification stands in for the shell's end.)
+    @Test func aRevealRacingAHiddenShellsCloseRequestStillClosesTheRow() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let ending = try newShell(fixture)
+        let endingView = try #require(fixture.view(ending))
+        let neighbour = try newShell(fixture)
+        let neighbourView = try #require(fixture.view(neighbour))
+
+        NotificationCenter.default.post(
+            name: Ghostty.Notification.ghosttyCloseSurface, object: endingView, userInfo: ["process_alive": false]
+        )
+        #expect(fixture.host.reveal(ending), "in the same turn, before the close request is handled")
+
+        #expect(await eventually { !fixture.terminals.contains(ending.surfaceID) }, "its row goes")
+        #expect(!fixture.host.isOpen(ending))
+        #expect(fixture.shown().count == 1 && fixture.shown().first === neighbourView, "its neighbour shows instead")
+        #expect(fixture.terminals.selection == neighbour.surfaceID)
+        #expect(await eventually { fixture.events.events.contains(.closed(ending)) })
+        #expect(!fixture.closes.windowClosed)
+    }
+
+    /// A row whose shell ended on screen (Ghostty waiting for a key) and
+    /// was then switched away from has nothing to show: revealing it lets
+    /// it go instead, and what the window shows stays.
+    @Test func revealingARowWhoseShellEndedLetsItGo() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let ended = try newShell(fixture, running: "/bin/sleep 0.3", waiting: true)
+        let endedView = try #require(fixture.view(ended))
+        try #require(await eventually(.seconds(8)) { endedView.processExited })
+        let agent = try attachAgent(fixture)
+        try #require(fixture.terminals.contains(ended.surfaceID))
+
+        #expect(!fixture.host.reveal(ended), "nothing to show")
+
+        #expect(!fixture.terminals.contains(ended.surfaceID), "its row goes")
+        #expect(!fixture.host.isOpen(ended))
+        #expect(fixture.host.isShown(agent), "what the window shows stays")
+        #expect(await eventually { fixture.events.events.contains(.closed(ended)) })
+    }
+
+    /// Closing the shown row passes over a neighbour whose shell ended
+    /// while hidden -- that row goes too -- to the next live one.
+    @Test func closingTheShownShellSkipsANeighbourWhoseShellEnded() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let live = try newShell(fixture)
+        let liveView = try #require(fixture.view(live))
+        let ended = try newShell(fixture, running: "/bin/sleep 0.3", waiting: true)
+        let endedView = try #require(fixture.view(ended))
+        try #require(await eventually(.seconds(8)) { endedView.processExited })
+        let closing = try newShell(fixture)
+
+        fixture.host.closeTerminal(closing)
+
+        #expect(fixture.shown().count == 1 && fixture.shown().first === liveView, "the next live row")
+        #expect(fixture.terminals.rows.map(\.id) == [live.surfaceID])
+        #expect(fixture.terminals.selection == live.surfaceID)
+        #expect(!fixture.closes.windowClosed)
+    }
+
+    /// A hidden row's shell can end with no close request at all (Ghostty
+    /// waits for a key, or the exit was abnormally quick): all that is
+    /// heard is its windowless exit, and its row goes then.
+    @Test func aHiddenShellThatEndsWithoutAskingToCloseLosesItsRow() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let ending = try newShell(fixture, running: "/bin/sleep 0.5", waiting: true)
+        let agent = try attachAgent(fixture)
+
+        #expect(await eventually(.seconds(8)) { !fixture.terminals.contains(ending.surfaceID) })
+        #expect(!fixture.host.isOpen(ending))
+        #expect(fixture.host.isShown(agent), "what the window shows stays")
+    }
+
+    /// A shell split beside a row has no row of its own to come back by,
+    /// so switching away closes the whole content (the coordinator asks
+    /// first when a shell in it is busy): nothing hidden holds a shell a
+    /// later close could kill without asking.
+    @Test func aRowWithAShellSplitBesideItIsNotKept() throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let row = try newShell(fixture)
+        let split = try fixture.host.openSplit(
+            command: "", workingDirectory: nil, origin: fixture.origin,
+            sourceSurface: row.surfaceID, direction: .right, requestID: UUID()
+        )
+
+        _ = try attachAgent(fixture)
+
+        #expect(fixture.host.hiddenSurfaces(in: fixture.windowID).isEmpty)
+        #expect(!fixture.host.isOpen(row) && !fixture.host.isOpen(split))
+        #expect(!fixture.terminals.contains(row.surfaceID), "its row closes with it")
     }
 
     // MARK: Tabs (unreachable while tabbing is disallowed, D-104 -- never silent)

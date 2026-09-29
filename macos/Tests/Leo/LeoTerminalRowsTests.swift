@@ -179,7 +179,9 @@ import Testing
 
     @Test(arguments: [
         ([LeoContentReplacement.Shown(isAgent: false, isTerminalRow: true, needsConfirmQuit: true)], LeoContentReplacement.Fate.keep),
-        ([.init(isAgent: false, isTerminalRow: true, needsConfirmQuit: false), .init(isAgent: false, needsConfirmQuit: true)], .keep),
+        // A shell split beside a row has no row of its own: the whole
+        // content closes (asking first when busy), as beside an agent.
+        ([.init(isAgent: false, isTerminalRow: true, needsConfirmQuit: false), .init(isAgent: false, needsConfirmQuit: true)], .close),
         ([.init(isAgent: true, needsConfirmQuit: true)], .pool),
         ([.init(isAgent: true, needsConfirmQuit: true), .init(isAgent: false, isTerminalRow: true, needsConfirmQuit: false)], .close),
         ([.init(isAgent: false, needsConfirmQuit: false)], .close),
@@ -195,6 +197,17 @@ import Testing
         let shown = [LeoContentReplacement.Shown(isAgent: false, isTerminalRow: true, needsConfirmQuit: true)]
 
         #expect(!LeoContentReplacement.needsConfirmation(shown))
+    }
+
+    /// Fix round 2: a busy shell split beside a row would close with it,
+    /// so switching away asks first.
+    @Test func aBusyShellSplitBesideATerminalRowAsks() {
+        let shown = [
+            LeoContentReplacement.Shown(isAgent: false, isTerminalRow: true, needsConfirmQuit: false),
+            .init(isAgent: false, needsConfirmQuit: true),
+        ]
+
+        #expect(LeoContentReplacement.needsConfirmation(shown))
     }
 
     /// B-058 territory keeps today's safe behaviour: a shell beside an
