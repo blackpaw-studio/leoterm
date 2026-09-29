@@ -3,6 +3,36 @@
 Ranked. Statuses: `ready`, `ready (next run)`, `blocked`, `deferred`, `done`, `idea`, `dropped`.
 Source roadmap: `docs/leo/roadmap.md` on `main` (not edited by autopilot).
 
+## B-067 · Terminals row scrolls into view when created or selected   [ready (next run)]
+Why: the section sits under a long agent list (~40 agents); a new or selected Terminals row stays off-screen — seen in B-057 verify
+Accept: creating or selecting a Terminals row scrolls it into view; test
+Source: autopilot polish (B-057)
+
+## B-068 · Tell same-directory shells apart   [ready (next run)]
+Why: two shells in the same directory both read "~" in the Terminals section
+Accept: rows for shells with identical titles get a distinguishing suffix (tty or index); test
+Source: autopilot polish (B-057)
+
+## B-069 · Start screen: New Terminal button   [ready (next run)]
+Why: the start screen says "open a plain shell" but offers no New Terminal button (principle 1: visible action)
+Accept: start screen has a New Terminal button doing exactly ⌘T; test + screenshot
+Source: autopilot polish (B-057)
+
+## B-070 · Window title after the last shell closes   [ready (next run)]
+Why: after the last Terminals row closes the window title is just the ghost icon, without "Ghostty"
+Accept: window title reads the normal start title; test
+Source: autopilot polish (B-057)
+
+## B-071 · Bug — ⌘Z of a split close after a row switch can silently kill a busy hidden row's shell   [ready (next run)]
+Why: B-057 concurrency review (MEDIUM, dismissed as pre-existing): ⌘D, ⌘W the split, switch rows, ⌘Z within 5 s replays the old tree, bypassing retire/kept. Suggested fix: undoManager.removeAllActions(withTarget:) in leoReplaceContent/leoShowStartScreen. Also: a keyboard-selected but not shown hidden row that exits leaves the selection nil (LOW)
+Accept: a failing test reproduces the undo-replay kill; it passes after the fix; selection falls back to what's shown; nothing else regresses
+Source: autopilot polish (B-057)
+
+## B-072 · Test infra: runtests.sh crashes the test host (libghostty env pointer vs setenv)   [ready (next run)]
+Why: canonical scratchpad/runtests.sh crashes at LeoLivePoolIntegrationTests/switchingBackShowsTheSameSurfaceInstance (libghostty holds a pointer into environ; later FAKE_SSH_* setenv invalidates it), also on baseline; B-057 used a wrapper presetting LANG, __CF_USER_TEXT_ENCODING, __LLVM_PROFILE_RT_INIT_ONCE. Also lengthen aNewShellIsASelectedRowTitledByItsTerminal's eventually timeout (flaky under load)
+Accept: the canonical suite runs green without the wrapper (fix the setenv use or copy env for libghostty); flaky timeout lengthened; verify.md updated
+Source: autopilot polish (B-057)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
