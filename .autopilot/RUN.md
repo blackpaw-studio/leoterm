@@ -26,5 +26,6 @@ Lane: B-056
   Branch: autopilot-lane/B-056
   Base: b99094c9ecd9e1431b1c380c2b1e0bb1d2f24c09
   State: verifying
-  Fixes: 0
+  Fixes: 1
   Wip: none
+- B-056 verify: shots B-056-1..4. Hide→reveal keeps the same tmux client and scrollback; cross-window selection released W1's hidden copy (one fresh client). Reviews: HIGH busy shell in a pooled split killed silently on eviction; MEDIUM untested cross-identity confirm interleaving; MEDIUM isConfirmed bookkeeping; LOWs → fix round 1.
