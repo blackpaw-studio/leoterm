@@ -4,46 +4,55 @@ Ranked. Statuses: `ready`, `ready (next run)`, `blocked`, `deferred`, `done`, `i
 Source roadmap: `docs/leo/roadmap.md` on `main` (not edited by autopilot).
 
 ## B-067 · Terminals row scrolls into view when created or selected   [ready (next run)]
+Issue: #71
 Why: the section sits under a long agent list (~40 agents); a new or selected Terminals row stays off-screen — seen in B-057 verify
 Accept: creating or selecting a Terminals row scrolls it into view; test
 Source: autopilot polish (B-057)
 
 ## B-068 · Tell same-directory shells apart   [ready (next run)]
+Issue: #72
 Why: two shells in the same directory both read "~" in the Terminals section
 Accept: rows for shells with identical titles get a distinguishing suffix (tty or index); test
 Source: autopilot polish (B-057)
 
 ## B-069 · Start screen: New Terminal button   [ready (next run)]
+Issue: #73
 Why: the start screen says "open a plain shell" but offers no New Terminal button (principle 1: visible action)
 Accept: start screen has a New Terminal button doing exactly ⌘T; test + screenshot
 Source: autopilot polish (B-057)
 
 ## B-070 · Window title after the last shell closes   [ready (next run)]
+Issue: #74
 Why: after the last Terminals row closes the window title is just the ghost icon, without "Ghostty"
 Accept: window title reads the normal start title; test
 Source: autopilot polish (B-057)
 
 ## B-071 · Bug — ⌘Z of a split close after a row switch can silently kill a busy hidden row's shell   [ready (next run)]
+Issue: #75
 Why: B-057 concurrency review (MEDIUM, dismissed as pre-existing): ⌘D, ⌘W the split, switch rows, ⌘Z within 5 s replays the old tree, bypassing retire/kept. Suggested fix: undoManager.removeAllActions(withTarget:) in leoReplaceContent/leoShowStartScreen. Also: a keyboard-selected but not shown hidden row that exits leaves the selection nil (LOW)
 Accept: a failing test reproduces the undo-replay kill; it passes after the fix; selection falls back to what's shown; nothing else regresses
 Source: autopilot polish (B-057)
 
 ## B-072 · Test infra: runtests.sh crashes the test host (libghostty env pointer vs setenv)   [ready (next run)]
+Issue: #76
 Why: canonical scratchpad/runtests.sh crashes at LeoLivePoolIntegrationTests/switchingBackShowsTheSameSurfaceInstance (libghostty holds a pointer into environ; later FAKE_SSH_* setenv invalidates it), also on baseline; B-057 used a wrapper presetting LANG, __CF_USER_TEXT_ENCODING, __LLVM_PROFILE_RT_INIT_ONCE. Also lengthen aNewShellIsASelectedRowTitledByItsTerminal's eventually timeout (flaky under load)
 Accept: the canonical suite runs green without the wrapper (fix the setenv use or copy env for libghostty); flaky timeout lengthened; verify.md updated
 Source: autopilot polish (B-057)
 
 ## B-073 · runtests.sh test-host timeout too short under load   [ready (next run)]
+Issue: #77
 Why: the 400 s test-host timeout cut off a full run at this host's load (300–950) during B-063 verify
 Accept: timeout configurable/raised so a loaded run completes; flake-free rerun
 Source: autopilot polish (B-063)
 
 ## B-074 · Sidebar under the traffic lights with macos-titlebar-style=hidden   [ready (next run)]
+Issue: #78
 Why: pre-existing: .ignoresSafeArea(.top) (TerminalView.swift:205) puts the whole sidebar under the traffic lights in the hidden titlebar style (seen in B-064)
 Accept: with titlebar-style hidden the sidebar header clears the traffic lights; layout test in the real split-view hierarchy; screenshot
 Source: autopilot polish (B-064)
 
 ## B-075 · Search field grabs keyboard focus on launch   [ready (next run)]
+Issue: #79
 Why: the sidebar search field shows a focus ring on launch (seen in B-064 verify); a first-party sidebar doesn't take focus from content
 Accept: on launch focus goes to the content area, not the search field; test
 Source: autopilot polish (B-064)

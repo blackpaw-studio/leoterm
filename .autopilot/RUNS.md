@@ -139,3 +139,9 @@ Next up: B-053 (next run); blocked: B-051; deferred: B-014
 - Stopped early: during B-057 verification a blind keystroke sequence in a fresh debug build started and attached the real agent alfred-itunes-dj. It was detached within seconds, not stopped (Evan decides).
 - B-057 left unlanded (2 review HIGHs + not visually verified). Next run: fix, re-review, re-verify.
 - Filed: B-061 (inject template fetch in tests), B-062 (tab-era renames + review cleanups), both ready (next run).
+
+## Run 2026-09-29 (stopped early at Evan's request, to release)
+Fixed: B-063 sidebar order churn (d904cf393, streak hysteresis; tests only), B-064 sidebar top spacing (ed551bcca; shot B-064-1)
+Shipped: B-057 Terminals sidebar rows (e5f683b24; both prior HIGHs fixed; shots B-057-9..11)
+Calls: D-112..D-124 (veto-able). Filed: B-067..B-075 (next run).
+Notes: B-057 runner used 3 fix rounds against a budget of 2; test runner needs env presets (verify.md, B-072); landed lanes' worktrees kept (untracked build files); Board sync: B-014 unknown status [deferred].
