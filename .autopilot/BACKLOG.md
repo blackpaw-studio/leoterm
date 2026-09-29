@@ -57,6 +57,16 @@ Why: the sidebar search field shows a focus ring on launch (seen in B-064 verify
 Accept: on launch focus goes to the content area, not the search field; test
 Source: autopilot polish (B-064)
 
+## B-076 · Tighten LeoNoTabBarTests' xib ⌘T guard   [ready (next run)]
+Why: the guard at LeoNoTabBarTests:92-93 can only pass: New Terminal takes ⌘T from the Ghostty config, and an empty `<modifierMask/>` slips past the filter
+Accept: the guard fails if any xib item other than New Terminal binds ⌘T (including an empty modifierMask), or its message is reworded to say what it really checks; suite green
+Source: autopilot polish (B-066)
+
+## B-077 · verify.md: palette is Choose Agent… (⌘O), not File ▸ New Tab   [ready (next run)]
+Why: verify.md still says "the agent palette opens with File ▸ New Tab"; that menu item is now New Terminal (⌘T), and the palette is Choose Agent… (⌘O)
+Accept: verify.md's palette instructions name Choose Agent… (⌘O)
+Source: autopilot polish (B-066)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
