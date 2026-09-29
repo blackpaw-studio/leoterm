@@ -38,6 +38,16 @@ Why: the 400 s test-host timeout cut off a full run at this host's load (300–9
 Accept: timeout configurable/raised so a loaded run completes; flake-free rerun
 Source: autopilot polish (B-063)
 
+## B-074 · Sidebar under the traffic lights with macos-titlebar-style=hidden   [ready (next run)]
+Why: pre-existing: .ignoresSafeArea(.top) (TerminalView.swift:205) puts the whole sidebar under the traffic lights in the hidden titlebar style (seen in B-064)
+Accept: with titlebar-style hidden the sidebar header clears the traffic lights; layout test in the real split-view hierarchy; screenshot
+Source: autopilot polish (B-064)
+
+## B-075 · Search field grabs keyboard focus on launch   [ready (next run)]
+Why: the sidebar search field shows a focus ring on launch (seen in B-064 verify); a first-party sidebar doesn't take focus from content
+Accept: on launch focus goes to the content area, not the search field; test
+Source: autopilot polish (B-064)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
