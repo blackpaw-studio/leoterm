@@ -860,5 +860,47 @@ Context: B-057. A plain shell becomes a "Terminals" row. D-109 kept shells out o
 Chose: a shell row owns its surface for the row's whole life. Switching away hides it (same instance, like the pool), it never gets LRU-evicted, and it doesn't count toward N (N bounds tmux clients; a shell is a local pty). It ends only when you close it (⌘W / File ▸ Close, or `exit`), with Ghostty's usual busy-process confirm. D-106's "Close Terminal?" on switching away from a shell no longer applies, since switching doesn't close it.
 Why: principle 6 (a row is a place you can go back to); principle 2 (no silent kills)
 Alternatives: pool shells under the LRU (silent kills); close shells on switch (rows would vanish)
-Commit:
+Commit: f57f9fefc 54bde45c1 a831d8e4a 8766c056f 53f51762a 518b87ab7 0d22ce11f 3e390d0d0 490cf77c7 0fbb8746e 7d52dd411 773d86267 3aa4bb698 68293ed56 7ea968957 bbb6b2fe5 5d1f1fe3c 78fa2682f 4cc74629c
+Veto: [ ]
+
+## D-112 · 2026-09-29 · Close is made order-independent (shown/hidden/gone) rather than pinning Dispatch
+Context: B-057 (runner call).
+Chose: Close is made order-independent (shown/hidden/gone) rather than pinning DispatchQueue vs Task order
+Why: P2 never invent state
+Commit: f57f9fefc 54bde45c1 a831d8e4a 8766c056f 53f51762a 518b87ab7 0d22ce11f 3e390d0d0 490cf77c7 0fbb8746e 7d52dd411 773d86267 3aa4bb698 68293ed56 7ea968957 bbb6b2fe5 5d1f1fe3c 78fa2682f 4cc74629c
+Veto: [ ]
+
+## D-113 · 2026-09-29 · Tab-close, Close Other Tabs, Close Tabs on the Right and ⌘Q confirm on busy hidd
+Context: B-057 (runner call).
+Chose: Tab-close, Close Other Tabs, Close Tabs on the Right and ⌘Q confirm on busy hidden shells
+Why: P2 never destroy work without asking, D-111
+Commit: f57f9fefc 54bde45c1 a831d8e4a 8766c056f 53f51762a 518b87ab7 0d22ce11f 3e390d0d0 490cf77c7 0fbb8746e 7d52dd411 773d86267 3aa4bb698 68293ed56 7ea968957 bbb6b2fe5 5d1f1fe3c 78fa2682f 4cc74629c
+Veto: [ ]
+
+## D-114 · 2026-09-29 · fate keeps a tree only if all surfaces are rows; a row plus a ⌘D split closes th
+Context: B-057 (runner call).
+Chose: fate keeps a tree only if all surfaces are rows; a row plus a ⌘D split closes the row's own shell on switch-away (asks if busy): interim, deferred to B-058
+Why: D-100
+Commit: f57f9fefc 54bde45c1 a831d8e4a 8766c056f 53f51762a 518b87ab7 0d22ce11f 3e390d0d0 490cf77c7 0fbb8746e 7d52dd411 773d86267 3aa4bb698 68293ed56 7ea968957 bbb6b2fe5 5d1f1fe3c 78fa2682f 4cc74629c
+Veto: [ ]
+
+## D-115 · 2026-09-29 · A shown row's close request stays with its controller (keeps ⌘W's confirm); only
+Context: B-057 (runner call).
+Chose: A shown row's close request stays with its controller (keeps ⌘W's confirm); only hidden rows with process_alive=false route to the three-case close
+Why: P2
+Commit: f57f9fefc 54bde45c1 a831d8e4a 8766c056f 53f51762a 518b87ab7 0d22ce11f 3e390d0d0 490cf77c7 0fbb8746e 7d52dd411 773d86267 3aa4bb698 68293ed56 7ea968957 bbb6b2fe5 5d1f1fe3c 78fa2682f 4cc74629c
+Veto: [ ]
+
+## D-116 · 2026-09-29 · Selection returns to what's shown when a show is cancelled, superseded or fails;
+Context: B-057 (runner call).
+Chose: Selection returns to what's shown when a show is cancelled, superseded or fails; the content area is left untouched
+Why: P6
+Commit: f57f9fefc 54bde45c1 a831d8e4a 8766c056f 53f51762a 518b87ab7 0d22ce11f 3e390d0d0 490cf77c7 0fbb8746e 7d52dd411 773d86267 3aa4bb698 68293ed56 7ea968957 bbb6b2fe5 5d1f1fe3c 78fa2682f 4cc74629c
+Veto: [ ]
+
+## D-117 · 2026-09-29 · Closing a row's shell beside a split closes only that pane, using upstream's und
+Context: B-057 (runner call).
+Chose: Closing a row's shell beside a split closes only that pane, using upstream's undoable split close
+Why: D-100
+Commit: f57f9fefc 54bde45c1 a831d8e4a 8766c056f 53f51762a 518b87ab7 0d22ce11f 3e390d0d0 490cf77c7 0fbb8746e 7d52dd411 773d86267 3aa4bb698 68293ed56 7ea968957 bbb6b2fe5 5d1f1fe3c 78fa2682f 4cc74629c
 Veto: [ ]

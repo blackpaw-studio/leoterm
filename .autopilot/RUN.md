@@ -13,7 +13,7 @@ Untracked-left: /Users/evan/.leo/agents/leoterm/.git/autopilot/lanes/B-057: maco
 Lane: B-057
   Branch: autopilot-lane/B-057
   Base: 126ff4c0ab38a8616ee081a44065cfb45e0681d8
-  State: verifying
+  State: landed
   Fixes: 4
   Wip: none
   Reverifies: 0
@@ -27,3 +27,5 @@ Lane: B-057
   Call: Closing a row's shell beside a split closes only that pane, using upstream's undoable split close — D-100
 - Board sync (preflight): B-014: unknown status [deferred]
 - B-057 runner: ready at f57f9fefc (1700/1700 via wrapper rt.sh, lint clean; general+concurrency full reviews; implementer-hard, 3 fix rounds reported — Fixes 4 likely double-counts the orchestrator's fix order). Calls checked vs D-109/D-111: the split-close interim narrows D-111 only for B-058's split case and still confirms; not a contradiction. Polish + notes filed as B-067..B-072.
+- B-057 landed (merge e5f683b24).
+Finished 1: B-057 landed e5f683b24 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-057-9.png

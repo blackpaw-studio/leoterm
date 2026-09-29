@@ -105,13 +105,14 @@ Out: any other buttons (settings, new agent, search, etc.) — add later as sepa
 Source: Evan (/feature, 2026-09-29)
 Inbox: 20260929T161921499761Z-63fc4dc4#1
 
-## B-057 · Plain shells as "Terminals" sidebar rows   [ready]
+## B-057 · Plain shells as "Terminals" sidebar rows   [done]
 Issue: #62
 Why: principle 6 (everything on screen comes from a sidebar row) and principle 1 (every action has a shortcut and a menu item)
 Accept: a "Terminals" section lists open plain shells, titled by the terminal title; ⌘T (and File ▸ New Terminal) creates a shell and selects it; closing a shell (⌘W, or exit) removes its row and selects a neighbour; shells take part in the live pool like agents; the section hides when empty; tests plus a screenshot
 Out: naming or pinning shells; shells on remote hosts beyond what Ghostty already does
 Source: Evan (/vision revision, 2026-09-28)
 
+Done: f57f9fefc 54bde45c1 a831d8e4a 8766c056f 53f51762a 518b87ab7 0d22ce11f 3e390d0d0 490cf77c7 0fbb8746e 7d52dd411 773d86267 3aa4bb698 68293ed56 7ea968957 bbb6b2fe5 5d1f1fe3c 78fa2682f 4cc74629c(1700 tests via env-preset runner, lint clean; general + concurrency reviews; implementer-hard, 3 fix rounds). Fixed both prior HIGHs (exit racing a reveal; busy hidden shells now confirm on tab-close/⌘Q). Verified by screenshots B-057-9 (Terminals section, two rows, newest selected), -10 (Close selects neighbour), -11 (section hides when empty). exit, OSC title and pool behaviour: tests only. Follow-ups B-067..B-072.
 ## B-058 · Splits inside the content area   [ready]
 Issue: #63
 Why: principle 6 (the layout belongs to the selected row) with splits kept (D-100)
