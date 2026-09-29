@@ -13,7 +13,7 @@ Source: Evan (/feature, 2026-09-28)
 Inbox: 20260929T012753703255Z-9360b771#1
 Done: 3a2205a65 (1573 tests, lint clean, review clean). Root causes: SpawnAgentModel used the local CLI regardless of host; the row fetched templates itself after the context menu was built. Verified by screenshot: row Set Template submenu filled on first open (B-054-3), New Agent sheet (B-054-4). The sheet's Template popup and the remote-host path were not visually verified (no AX on the sheet; no autopilot remote host); covered by LeoTemplateListTests with a fake remote.
 
-## B-061 · Tests: inject the template fetch so LeoRuntime tests don't run real ssh   [ready (next run)]
+## B-061 · Tests: inject the template fetch so LeoRuntime tests don't run real ssh   [ready]
 Issue: #65
 Why: since B-054, selecting the remote host "work" in LeoRuntimeConnectionTests also starts a real `/usr/bin/ssh -o BatchMode=yes evan@work … template list` (tests already open real tunnels there). Hang/isolation risk.
 Accept: LeoRuntime takes an injectable template-fetch runner; tests pass a fake; no test spawns ssh for templates (assert via the fake).
@@ -28,7 +28,7 @@ Out: the live pool (B-056), plain-shell rows (B-057), splits (B-058); multi-wind
 Source: Evan (/vision revision, 2026-09-28)
 Done: 4134ce4f4 6fb5c8c8d (1593 tests, lint clean; general + lifecycle reviews: no blockers). Verified by screenshots: B-055-1 → -2 (start screen → autopilot-scratch in the content area; no tab bar; sidebar geometry unchanged; window titled with the agent; one tmux client), -3 (⌘N window, no tab bar, on-screen row highlighted), -4 (clicking scratch from the new window focused the existing one and closed the untouched start window; still one client).
 
-## B-062 · Rename tab-era internals (AttachTabHost, tabCount, LeoTabTitleSource)   [ready (next run)]
+## B-062 · Rename tab-era internals (AttachTabHost, tabCount, LeoTabTitleSource)   [ready]
 Issue: #66
 Why: after B-055 there are no tabs; internal names still say "tab" (kept to shrink B-055's diff).
 Accept: mechanical rename to content/window vocabulary; unify the two "is this an agent" predicates (attachment.isAttach vs leoAgentName, B-056 review) into one source; prune contentVersion on window close; fix LeoLivePoolIntegrationTests' `hiddenSurfaces(in: fixture.origin)` assertions, which check a test-local session id and so pass vacuously; no behaviour change; suite green.
