@@ -26,18 +26,20 @@ extension LeoSidebarFeed {
         return metadataRequestSeq
     }
 
-    /// Applies snapshot `request` of generation `generation` as a whole.
+    /// Applies snapshot `request` of generation `generation` as a whole,
+    /// continuing the activity streaks of the one before it (B-063).
     /// Returns whether it was current enough to apply.
     @discardableResult
     func applyMetadata(_ state: [LeoObservedAgent], request: Int, generation: Int) -> Bool {
         guard running, generation == snapshot.generation, request > metadataAppliedSeq else { return false }
         metadataAppliedSeq = request
-        metadata = LeoAgentMetadataIndex(state: state)
+        metadata = LeoAgentMetadataIndex(state: state, previous: metadata)
         return true
     }
 
-    /// Forgets every snapshot (host switch, reconnect, disconnect): any
-    /// fetch still in flight can no longer apply.
+    /// Forgets every snapshot (host switch, reconnect, disconnect), and
+    /// with them every activity streak: any fetch still in flight can no
+    /// longer apply.
     func resetMetadata() {
         metadataTask?.cancel()
         metadataTask = nil
