@@ -4,10 +4,10 @@ import Foundation
 /// showed. Agents detach losslessly -- tmux keeps them, and the row brings
 /// them back -- so replacing one never asks. A terminal row's shell is
 /// hidden, not closed (B-057, D-111), so it never asks either. Only what
-/// has no row to come back to -- a shell beside an agent in a split (B-058
-/// territory), or a window's shell Leo didn't make -- closes with the
-/// switch, and a running process there asks first, in Ghostty's own terms
-/// (`needsConfirmQuit`, D-106).
+/// has no row to come back to -- a shell split beside an agent or a row
+/// (B-058 territory), or a window's shell Leo didn't make -- closes with
+/// the switch, and a running process there asks first, in Ghostty's own
+/// terms (`needsConfirmQuit`, D-106).
 enum LeoContentReplacement {
     /// One surface the content area shows now.
     struct Shown: Equatable, Sendable {
@@ -34,14 +34,13 @@ enum LeoContentReplacement {
         case close
     }
 
-    /// All agents: the pool. No agent, and a terminal row's shell: kept
-    /// for that row -- with any other shell split beside it, so nothing in
-    /// it closes. Anything else (a shell beside an agent) closes; it is
-    /// never pooled, so no later eviction kills a shell silently (D-109).
+    /// All agents: the pool. Nothing but a terminal row's shell: kept for
+    /// that row. Anything else -- a shell split beside an agent or a row --
+    /// closes (asking first when busy); it is never hidden, so no later
+    /// eviction or close kills a shell silently (D-109).
     static func fate(_ shown: [Shown]) -> Fate {
         if keepsAttached(shown) { return .pool }
-        let isTerminal = !shown.contains(where: \.isAgent) && shown.contains(where: \.isTerminalRow)
-        return isTerminal ? .keep : .close
+        return !shown.isEmpty && shown.allSatisfy(\.isTerminalRow) ? .keep : .close
     }
 
     /// Only content that closes with the switch asks, and only for a
