@@ -3,7 +3,7 @@
 Ranked. Statuses: `ready`, `ready (next run)`, `blocked`, `deferred`, `done`, `idea`, `dropped`.
 Source roadmap: `docs/leo/roadmap.md` on `main` (not edited by autopilot).
 
-## B-054 · Bug — template lists are empty in New Agent and row Set Template   [ready]
+## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
 Accept: with a remote host selected, the New Agent sheet's Template picker lists the remote daemon's templates, not the local CLI's (test with a fake remote fetch); a row's right-click Set Template submenu lists the host's templates on the first open, confirmed by a debug-build screenshot; after a host switch both lists show the new host's templates, never the old host's (test)
@@ -11,6 +11,14 @@ Out: no changes to the Agents menu bar ▸ Set Template path (already works); no
 Note: diagnosis 2026-09-28: (1) SpawnAgentModel.loadTemplates() always calls the local cli.templateList(), ignoring the selected host (the laptop's own leo returns []); LeoAgentActions.templates() already handles remote hosts through LeoTemplateCache plus an ssh exec, verified working from the laptop. (2) LeoAgentRow's Set Template Menu inside .contextMenu fills from row @State through a .task, which likely never runs in the NSMenu-snapshotted context menu (unconfirmed; reproduce first). Suggested fix: one published, host-aware template list on LeoAgentActions, prefetched on host change, read by both.
 Source: Evan (/feature, 2026-09-28)
 Inbox: 20260929T012753703255Z-9360b771#1
+Done: 3a2205a65 (1573 tests, lint clean, review clean). Root causes: SpawnAgentModel used the local CLI regardless of host; the row fetched templates itself after the context menu was built. Verified by screenshot: row Set Template submenu filled on first open (B-054-3), New Agent sheet (B-054-4). The sheet's Template popup and the remote-host path were not visually verified (no AX on the sheet; no autopilot remote host); covered by LeoTemplateListTests with a fake remote.
+
+## B-061 · Tests: inject the template fetch so LeoRuntime tests don't run real ssh   [ready (next run)]
+Issue: #65
+Why: since B-054, selecting the remote host "work" in LeoRuntimeConnectionTests also starts a real `/usr/bin/ssh -o BatchMode=yes evan@work … template list` (tests already open real tunnels there). Hang/isolation risk.
+Accept: LeoRuntime takes an injectable template-fetch runner; tests pass a fake; no test spawns ssh for templates (assert via the fake).
+Out: the existing tunnel tests' real ssh use.
+Source: B-054 implementer + review
 
 ## B-055 · One content area per window; sidebar selects what's shown   [ready]
 Issue: #60

@@ -781,3 +781,19 @@ Why: B-054 is small and independent; tab-specific items are moot without tabs
 Alternatives: sidebar navigation first
 Commit:
 Veto: n/a (Evan)
+
+## D-102 · 2026-09-28 · Template list loads per host selection, not at startup
+Context: B-054. The row menu and New Agent sheet now read one host-aware list on LeoAgentActions.
+Chose: fetch when start() (or a later switch) selects a host, since a remote host's settings aren't loaded when LeoAgentActions is created. Re-selecting the same host keeps the loaded list on screen while it refetches; a failed list goes back to loading. The row menu shows "Loading Templates…", "Templates unavailable: …" or "No Templates" instead of an empty submenu.
+Why: principle 3 (local = remote); principle 2 (report what the daemon said, no blank menus)
+Alternatives: fetch at creation (wrong host for remotes); fetch per menu open (the NSMenu snapshot is built before an async fetch returns)
+Commit: 3a2205a65
+Veto: [ ]
+
+## D-103 · 2026-09-28 · Row template list refreshes only on host switch or manual refresh
+Context: B-054.
+Chose: the shared list is refetched on host selection or invalidateTemplateCache; the 5-minute cache expiry now only affects the Agents menu bar path. A host change while the New Agent sheet is open keeps the chosen template, which then fails validation ("Choose an available template") if the new host lacks it.
+Why: calm and predictable; templates rarely change mid-session
+Alternatives: periodic refetch; clear the sheet's selection on host change
+Commit: 3a2205a65
+Veto: [ ]
