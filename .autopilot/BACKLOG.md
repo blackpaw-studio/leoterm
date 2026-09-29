@@ -31,16 +31,17 @@ Done: 4134ce4f4 6fb5c8c8d (1593 tests, lint clean; general + lifecycle reviews: 
 ## B-062 · Rename tab-era internals (AttachTabHost, tabCount, LeoTabTitleSource)   [ready (next run)]
 Issue: #66
 Why: after B-055 there are no tabs; internal names still say "tab" (kept to shrink B-055's diff).
-Accept: mechanical rename to content/window vocabulary; no behaviour change; suite green.
+Accept: mechanical rename to content/window vocabulary; unify the two "is this an agent" predicates (attachment.isAttach vs leoAgentName, B-056 review) into one source; prune contentVersion on window close; no behaviour change; suite green.
 Out: behaviour changes.
 Source: B-055 implementer
 
-## B-056 · Live surface pool: instant switches, detach beyond it   [ready]
+## B-056 · Live surface pool: instant switches, detach beyond it   [done]
 Issue: #61
 Why: principle 6 (switching must feel instant) and principle 2 (calm: no flicker or redraw on switch)
 Accept: switching back to one of the N most recently viewed agents shows its existing surface with Ghostty scrollback, scroll position and selection intact, with no new tmux client (test via the attach count); selecting an agent outside the pool evicts the least recently viewed one (its tmux client detaches) and attaches the new one; the tmux client count never exceeds N per window, and none leaks after a close or quit; after an agent restart the shown surface reattaches in place; N is a named constant chosen and logged by autopilot; works the same over the SSH tunnel
 Out: persisting pools across app launches; per-agent pinning into the pool
 Source: Evan (/vision revision, 2026-09-28)
+Done: b9e6ec48a 9d4b8033b b40d3a4bb (1636 tests, lint clean; 1 fix round; re-review: all fixes hold, no CRITICAL/HIGH). Verified live with autopilot-scratch: hide → reveal kept the same tmux client (same tty and created time) and scrollback (B-056-2 → -3, fixed build); cross-window selection released the other window's hidden copy and attached one fresh client (B-056-4, pre-fix build). Eviction past N=4 needs 5 agents: tests only. SSH path: tests only (no autopilot remote host).
 
 ## B-057 · Plain shells as "Terminals" sidebar rows   [ready]
 Issue: #62

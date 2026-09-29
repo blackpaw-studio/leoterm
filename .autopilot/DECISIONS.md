@@ -836,5 +836,21 @@ Context: B-056. Recently viewed surfaces stay attached but hidden; beyond N the 
 Chose: N = 4 per window (a named constant). Hidden pooled surfaces keep their current size (no resize while hidden), so a tmux window isn't reflowed by a hidden client.
 Why: covers the common "flip between 2–4 agents" loop instantly while bounding tmux clients, memory and SSH channels (principle 3: remote tunnels multiplex every client)
 Alternatives: 8 (more clients per remote host, more memory); unbounded LRU (leaks clients)
-Commit:
+Commit: b9e6ec48a 9d4b8033b b40d3a4bb
+Veto: [ ]
+
+## D-109 · 2026-09-29 · Pool mechanics: only all-agent trees, release-and-reattach across windows
+Context: B-056.
+Chose: the pool keeps a displaced tree only if every surface in it is an agent attach; a tree with any plain shell closes at displacement (after D-106's confirm if busy), so eviction never kills a shell silently. Capacity is counted in tmux clients (a two-agent split counts 2). An agent hidden in window A is not "on screen": selecting it in window B releases A's hidden copy and attaches fresh (never two clients). An exited pane refills in place only in its own window. Hidden surfaces leave the view hierarchy and are occluded (no resize, no rendering); Ghostty.App.showChildExited posts a Swift-only notification so windowless exits are let go on the next turn.
+Why: principle 2 (never destroy work without asking), principle 6 (instant switches), bounded clients per D-108
+Alternatives: move the hidden tree across windows (surface reparenting risk); pool shells too (silent kills on eviction)
+Commit: b9e6ec48a 9d4b8033b b40d3a4bb
+Veto: [ ]
+
+## D-110 · 2026-09-29 · A content request superseded while asking is dropped
+Context: B-056 fix round. Two rows clicked in quick succession while a "Close Terminal?" confirm is up.
+Chose: each window has a content version bumped on every content replacement; a request whose confirm returns after the content was replaced by a newer request is a quiet cancel. A cancelled competing request doesn't drop the waiting one.
+Why: the newest intent wins; nothing replaces content nobody agreed to replace
+Alternatives: queue requests; per-window in-flight lock that ignores later clicks
+Commit: b40d3a4bb
 Veto: [ ]
