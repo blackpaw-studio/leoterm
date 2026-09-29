@@ -66,6 +66,9 @@ struct LeoSidebarView: View {
     @ObservedObject var model: LeoSidebarModel
     let windowID: LeoWindowID
     @ObservedObject var actions: LeoAgentActions
+    /// This window's own plain shells (B-057): per window, while `model`'s
+    /// agent list is app-wide.
+    @ObservedObject var terminals: LeoWindowTerminals
     /// Bumped by Agents ▸ Find Agent…; each change focuses the search field.
     let searchFocusRequest: Int
     @ObservedObject private var hostSelection: LeoHostSelection
@@ -73,10 +76,17 @@ struct LeoSidebarView: View {
     @State private var searchField = LeoSidebarSearchFieldHandle()
     @State private var hostsSheetModel: LeoHostsSheetModel?
 
-    init(model: LeoSidebarModel, windowID: LeoWindowID, actions: LeoAgentActions, searchFocusRequest: Int = 0) {
+    init(
+        model: LeoSidebarModel,
+        windowID: LeoWindowID,
+        actions: LeoAgentActions,
+        terminals: LeoWindowTerminals,
+        searchFocusRequest: Int = 0
+    ) {
         self.model = model
         self.windowID = windowID
         self.actions = actions
+        self.terminals = terminals
         self.searchFocusRequest = searchFocusRequest
         _hostSelection = ObservedObject(wrappedValue: actions.hostSelection)
     }
@@ -169,7 +179,34 @@ struct LeoSidebarView: View {
         )
     }
 
+    /// The agent list (or what stands in for it), with this window's
+    /// Terminals section: the shells don't need the daemon, so they show
+    /// whatever state the agents are in.
     @ViewBuilder private var content: some View {
+        if showsAgentList {
+            sidebarList(agentSections: model.sections, agentsInert: model.isDisconnected)
+        } else {
+            agentState
+            if showsTerminals { sidebarList(agentSections: [], agentsInert: false) }
+        }
+    }
+
+    /// Rows to list: connected (or disconnected, dimmed) with agents that
+    /// match the filter.
+    private var showsAgentList: Bool {
+        switch model.snapshot.connectivity {
+        case .connected, .disconnected: !model.snapshot.rows.isEmpty && !model.showsNoMatches
+        case .loading, .failed: false
+        }
+    }
+
+    /// The Terminals section hides when the window has no shells, and
+    /// while the filter (which searches agents) has text.
+    private var showsTerminals: Bool {
+        !terminals.rows.isEmpty && !LeoSidebarLayout.isFiltering(model.query)
+    }
+
+    @ViewBuilder private var agentState: some View {
         switch model.snapshot.connectivity {
         case .loading:
             stateView { ProgressView(); Text("Loading agents…") }
@@ -184,68 +221,52 @@ struct LeoSidebarView: View {
                 Button("Retry") { model.retry() }
                 Button("Start daemon") { model.startDaemonRequested() }
             }
-        case .connected:
-            if model.snapshot.rows.isEmpty {
-                stateView {
-                    Text("No Agents").font(.headline)
-                    Text("Spawn an agent to start working with it from this window.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                    Button("New Agent…") { showingSpawn = true }
-                }
-            } else if model.showsNoMatches {
-                stateView { Text("No matches") }
-            } else {
-                agentList
+        case .connected where model.snapshot.rows.isEmpty:
+            stateView {
+                Text("No Agents").font(.headline)
+                Text("Spawn an agent to start working with it from this window.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                Button("New Agent…") { showingSpawn = true }
             }
-        case .disconnected:
-            // The banner above says what happened and offers Retry; the
-            // rows stay, dimmed and inert, until a Retry lands a fresh list.
-            if model.snapshot.rows.isEmpty {
-                stateView {
-                    if hostSelection.selected == .local {
-                        Button("Start daemon") { model.startDaemonRequested() }
-                    }
+        case .disconnected where model.snapshot.rows.isEmpty:
+            // The banner above says what happened and offers Retry.
+            stateView {
+                if hostSelection.selected == .local {
+                    Button("Start daemon") { model.startDaemonRequested() }
                 }
-            } else if model.showsNoMatches {
-                stateView { Text("No matches") }
-            } else {
-                agentList
-                    .disabled(true)
-                    .opacity(Self.inertOpacity)
-                    .accessibilityHint("Disconnected")
             }
+        case .connected, .disconnected:
+            stateView { Text("No matches") }
         }
     }
 
     /// How far a disconnected sidebar's stale rows are dimmed.
     private static let inertOpacity = 0.45
 
-    private var agentList: some View {
+    /// Agent sections, then this window's Terminals. Disconnected, the
+    /// agent rows stay listed but dimmed and inert until a Retry lands a
+    /// fresh list (D-061); the terminals don't depend on the daemon.
+    private func sidebarList(agentSections: [LeoSidebarSection], agentsInert: Bool) -> some View {
         // Selection is required (`SelectionValue` is the optional ID
-        // itself, so each row's tag is `Optional(row.id)`): the table
-        // then never toggles the selected row off on ⌘-click, which here
-        // opens a new window (B-048, D-104). `nil` still shows no selection.
-        List<LeoAgentRow.ID?, _>(selection: Binding(get: { model.selection }, set: { model.userSelected($0) })) {
-            ForEach(model.sections) { section in
+        // itself, so each row's tag is `Optional(id)`): the table then
+        // never toggles the selected row off on ⌘-click, which here opens
+        // a new window (B-048, D-104). `nil` still shows no selection.
+        List<LeoSidebarItemID?, _>(selection: selectionBinding) {
+            ForEach(agentSections) { section in
                 Section(header: sectionHeader(section)) {
-                    ForEach(section.isCollapsed ? [] : section.rows) { row in
-                        LeoAgentRowView(
-                            row: row,
-                            isSelected: model.selection == row.id,
-                            attach: { row, disposition in model.requestAttach(row, from: windowID, disposition: disposition) },
-                            click: { model.rowClicked(row, modifierFlags: $0, clickCount: $1, from: windowID) },
-                            actions: actions,
-                            error: model.rowErrors[row.id],
-                            errorCode: model.rowErrorCodes[row.id],
-                            nameHighlights: model.searchHighlights(for: row),
-                            isPinned: model.isPinned(row.id),
-                            togglePin: { model.togglePin(row.id) },
-                            pendingSurfacedFiles: model.pendingSurfacedFiles(for: row),
-                            openSurfacedFile: { model.openSurfacedFile($0, for: row) }
-                        )
-                        .tag(Optional(row.id))
+                    agentRows(section)
+                        .disabled(agentsInert)
+                        .opacity(agentsInert ? Self.inertOpacity : 1)
+                        .accessibilityHint(agentsInert ? "Disconnected" : "")
+                }
+            }
+            if showsTerminals {
+                Section(header: Text("Terminals")) {
+                    ForEach(terminals.rows) { row in
+                        LeoTerminalRowView(row: row) { terminals.activate(row.id) }
+                            .tag(Optional(LeoSidebarItemID.terminal(row.id)))
                     }
                 }
             }
@@ -256,11 +277,45 @@ struct LeoSidebarView: View {
             // field does; there Return means the top match instead.
             // Both are a click on a row (B-049): the top match, or the
             // selection. Arrow keys only move the selection.
-            Button("") { searchField.hasFocus ? model.searchSubmit(from: windowID) : model.activateSelection(from: windowID) }
-                .keyboardShortcut(.return, modifiers: [])
-                .opacity(0)
-                .disabled(model.actionableSelection == nil)
-                .accessibilityHidden(true)
+            Button("") {
+                if searchField.hasFocus {
+                    model.searchSubmit(from: windowID)
+                } else {
+                    LeoSidebarSelection.activate(model: model, terminals: terminals, from: windowID)
+                }
+            }
+            .keyboardShortcut(.return, modifiers: [])
+            .opacity(0)
+            .disabled(!LeoSidebarSelection.canActivate(model: model, terminals: terminals))
+            .accessibilityHidden(true)
+        }
+    }
+
+    /// The window's selection: its terminal row, else the app-wide agent.
+    private var selectionBinding: Binding<LeoSidebarItemID?> {
+        Binding(
+            get: { LeoSidebarSelection.current(model: model, terminals: terminals) },
+            set: { LeoSidebarSelection.select($0, model: model, terminals: terminals) }
+        )
+    }
+
+    private func agentRows(_ section: LeoSidebarSection) -> some View {
+        ForEach(section.isCollapsed ? [] : section.rows) { row in
+            LeoAgentRowView(
+                row: row,
+                isSelected: LeoSidebarSelection.current(model: model, terminals: terminals) == .agent(row.id),
+                attach: { row, disposition in model.requestAttach(row, from: windowID, disposition: disposition) },
+                click: { model.rowClicked(row, modifierFlags: $0, clickCount: $1, from: windowID) },
+                actions: actions,
+                error: model.rowErrors[row.id],
+                errorCode: model.rowErrorCodes[row.id],
+                nameHighlights: model.searchHighlights(for: row),
+                isPinned: model.isPinned(row.id),
+                togglePin: { model.togglePin(row.id) },
+                pendingSurfacedFiles: model.pendingSurfacedFiles(for: row),
+                openSurfacedFile: { model.openSurfacedFile($0, for: row) }
+            )
+            .tag(Optional(LeoSidebarItemID.agent(row.id)))
         }
     }
 
