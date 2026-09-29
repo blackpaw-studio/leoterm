@@ -797,3 +797,11 @@ Why: calm and predictable; templates rarely change mid-session
 Alternatives: periodic refetch; clear the sheet's selection on host change
 Commit: 3a2205a65
 Veto: [ ]
+
+## D-104 · 2026-09-28 · Tab-only affordances remap to "new window"
+Context: B-055 removes the tab bar (D-098).
+Chose: "Attach in New Tab" becomes "Open in New Window"; ⌘-click a row and ⌘↩ in the palette open the agent in a new window (focusing its existing window instead if it's already on screen there, per B-047). Start-tab fill (D-096) is moot: selecting a row simply replaces the content area. ⌘T stays a plain shell (B-057 turns it into a Terminals row); until then it shows the shell in the content area.
+Why: principle 1 (Finder/Mail: ⌘-open means a new window); keeps the modifier gesture meaningful instead of dead
+Alternatives: remove the ⌘ variants entirely; ⌘-click opens a split (that's B-058's job)
+Commit:
+Veto: [ ]
