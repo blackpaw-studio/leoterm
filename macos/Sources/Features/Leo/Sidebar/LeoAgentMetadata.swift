@@ -12,8 +12,10 @@ struct LeoAgentMetadata: Equatable, Sendable {
     /// `current_action.detail`, sanitized (agent-controlled text); never
     /// empty.
     let task: String?
-    /// B-063: when this row's current streak of activity began, while it
-    /// is active; nil when inactive.
+    /// B-063: when this incarnation's current streak of activity began,
+    /// while it is active (see `LeoAgentMetadataIndex.activeWindow`); nil
+    /// when it isn't. The Last Activity sort ranks by it, so busy agents
+    /// hold their places instead of leapfrogging on every snapshot.
     let activeSince: Date?
 
     init(lastActiveAt: Date?, isWorking: Bool, task: String?, activeSince: Date? = nil) {
@@ -28,8 +30,30 @@ struct LeoAgentMetadata: Equatable, Sendable {
 /// An entry attaches to a row only when both carry the same `started_at`:
 /// a snapshot requested before a delete + recreate describes the old
 /// incarnation and must never paint its namesake (D-074).
+///
+/// B-063: each entry also carries its incarnation's activity streak from
+/// the previous index. A streak continues while each gap between
+/// consecutive `last_activity_at` values is at most `activeWindow`, and
+/// restarts after a longer gap, on first sight, or for a new incarnation.
+/// A row is active while its time is within `activeWindow` of the
+/// snapshot's newest time -- daemon data, never the wall clock. Only the
+/// previous index is remembered: a row missing from one snapshot, or
+/// reporting no time, starts a fresh streak.
 struct LeoAgentMetadataIndex: Equatable, Sendable {
+    /// How far apart activity may be and still count as one streak, and
+    /// how far behind the snapshot's newest time a row may be and still
+    /// count as active.
+    static let activeWindow: TimeInterval = 5 * 60
+
     private struct Entry: Equatable, Sendable {
+        let startedAt: String
+        let metadata: LeoAgentMetadata
+        /// When the streak began, whether or not the row is active now.
+        let streakStart: Date?
+    }
+
+    private struct Reported {
+        let name: String
         let startedAt: String
         let metadata: LeoAgentMetadata
     }
@@ -40,14 +64,27 @@ struct LeoAgentMetadataIndex: Equatable, Sendable {
 
     private init(entries: [String: Entry]) { self.entries = entries }
 
-    init(state: [LeoObservedAgent], previous: LeoAgentMetadataIndex) {
-        self.init(state: state)
+    /// A lone snapshot: every streak starts at its row's own time.
+    init(state: [LeoObservedAgent]) {
+        self.init(state: state, previous: .empty)
     }
 
-    init(state: [LeoObservedAgent]) {
-        let pairs = state.compactMap { agent -> (String, Entry)? in
+    /// `state`, continuing the streaks `previous` saw.
+    init(state: [LeoObservedAgent], previous: LeoAgentMetadataIndex) {
+        let reported = state.compactMap { agent -> Reported? in
             guard let startedAt = agent.startedAt, !startedAt.isEmpty, let metadata = Self.metadata(agent) else { return nil }
-            return (agent.name, Entry(startedAt: startedAt, metadata: metadata))
+            return Reported(name: agent.name, startedAt: startedAt, metadata: metadata)
+        }
+        let newest = reported.compactMap(\.metadata.lastActiveAt).max()
+        let pairs = reported.map { report -> (String, Entry) in
+            let time = report.metadata.lastActiveAt
+            let streakStart = previous.streakStart(name: report.name, startedAt: report.startedAt, continuingAt: time)
+            let isActive = Self.isActive(time, newest: newest)
+            let metadata = LeoAgentMetadata(
+                lastActiveAt: time, isWorking: report.metadata.isWorking, task: report.metadata.task,
+                activeSince: isActive ? streakStart : nil
+            )
+            return (report.name, Entry(startedAt: report.startedAt, metadata: metadata, streakStart: streakStart))
         }
         self.init(entries: Dictionary(pairs, uniquingKeysWith: { _, latest in latest }))
     }
@@ -59,6 +96,23 @@ struct LeoAgentMetadataIndex: Equatable, Sendable {
 
     func attach(to rows: [LeoAgentRow]) -> [LeoAgentRow] {
         rows.map { $0.withMetadata(metadata(name: $0.name, startedAt: $0.startedAt)) }
+    }
+
+    /// Where a streak stands once this incarnation reports `time`: the
+    /// earlier start while the gap since its last time is within the
+    /// window, else `time` itself.
+    private func streakStart(name: String, startedAt: String, continuingAt time: Date?) -> Date? {
+        guard let time else { return nil }
+        guard let entry = entries[name], entry.startedAt == startedAt,
+              let lastTime = entry.metadata.lastActiveAt, let start = entry.streakStart,
+              time.timeIntervalSince(lastTime) <= Self.activeWindow
+        else { return time }
+        return min(start, time)
+    }
+
+    private static func isActive(_ time: Date?, newest: Date?) -> Bool {
+        guard let time, let newest else { return false }
+        return newest.timeIntervalSince(time) <= activeWindow
     }
 
     private static func metadata(_ agent: LeoObservedAgent) -> LeoAgentMetadata? {
