@@ -29,3 +29,13 @@ Lane: B-057
 - B-057 runner: ready at f57f9fefc (1700/1700 via wrapper rt.sh, lint clean; general+concurrency full reviews; implementer-hard, 3 fix rounds reported — Fixes 4 likely double-counts the orchestrator's fix order). Calls checked vs D-109/D-111: the split-close interim narrows D-111 only for B-058's split case and still confirms; not a contradiction. Polish + notes filed as B-067..B-072.
 - B-057 landed (merge e5f683b24).
 Finished 1: B-057 landed e5f683b24 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-057-9.png
+
+Lane: B-063
+  Branch: autopilot-lane/B-063
+  Base: b7f45bbd2e442a2b91609aaf24a6f69c6186f5ae
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-29T18:27:00Z
