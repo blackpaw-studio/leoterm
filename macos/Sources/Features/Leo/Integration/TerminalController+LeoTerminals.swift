@@ -38,4 +38,12 @@ extension TerminalController {
     var leoNeedsConfirmClose: Bool {
         surfaceTree.contains(where: { $0.needsConfirmQuit }) || leoSession?.terminals.hasBusyHiddenShell() == true
     }
+
+    /// Whether closing `windows` would kill a running process: shown, or
+    /// hidden for a terminal row (`leoNeedsConfirmClose`). What every tab
+    /// close path asks, as Close Window does. Windows that aren't
+    /// terminals don't count.
+    static func leoAnyNeedsConfirmClose(_ windows: [NSWindow]) -> Bool {
+        windows.contains { ($0.windowController as? TerminalController)?.leoNeedsConfirmClose == true }
+    }
 }

@@ -1598,7 +1598,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
             return
         }
 
-        guard surfaceTree.contains(where: { $0.needsConfirmQuit }) else {
+        // MARK: Leo -- hidden terminal rows' shells count (B-057).
+        guard Self.leoAnyNeedsConfirmClose([window]) else {
             closeTabImmediately()
             return
         }
@@ -1621,18 +1622,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         if Self.leoDeferClose(of: tabGroup.windows.filter { $0 != window }, retry: { [weak self] in self?.closeOtherTabs(sender) }) { return }
 
         // Check if we have to confirm close.
-        guard tabGroup.windows.contains(where: { window in
-            // Ignore ourself
-            if window == self.window { return false }
-
-            // Ignore non-terminals
-            guard let controller = window.windowController as? TerminalController else {
-                return false
-            }
-
-            // Check if any surfaces require confirmation
-            return controller.surfaceTree.contains(where: { $0.needsConfirmQuit })
-        }) else {
+        // MARK: Leo -- hidden terminal rows' shells count (B-057).
+        guard Self.leoAnyNeedsConfirmClose(tabGroup.windows.filter { $0 != window }) else {
             self.closeOtherTabsImmediately()
             return
         }
@@ -1655,15 +1646,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         // Leo: unsaved editor edits in those tabs are asked about first.
         if Self.leoDeferClose(of: tabsToClose.map(\.element), retry: { [weak self] in self?.closeTabsOnTheRight(sender) }) { return }
 
-        let needsConfirm = tabsToClose.contains { (_, candidate) in
-            guard let controller = candidate.windowController as? TerminalController else {
-                return false
-            }
-
-            return controller.surfaceTree.contains(where: { $0.needsConfirmQuit })
-        }
-
-        if !needsConfirm {
+        // MARK: Leo -- hidden terminal rows' shells count (B-057).
+        if !Self.leoAnyNeedsConfirmClose(tabsToClose.map(\.element)) {
             self.closeTabsOnTheRightImmediately()
             return
         }

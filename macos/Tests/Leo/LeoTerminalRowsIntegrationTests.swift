@@ -80,6 +80,7 @@ import Testing
     private func close(_ fixture: Fixture) {
         fixture.events.task?.cancel()
         fixture.closes.observer.map(NotificationCenter.default.removeObserver)
+        guard !fixture.closes.windowClosed else { return }
         fixture.controller.closeTabImmediately(registerRedo: false)
     }
 
@@ -375,6 +376,64 @@ import Testing
         try? await Task.sleep(for: .milliseconds(100))
         #expect(fixture.events.events.filter { $0 == .closed(closing) }.count == 1, "closed once")
         #expect(!fixture.closes.windowClosed)
+    }
+
+    // MARK: Tabs (unreachable while tabbing is disallowed, D-104 -- never silent)
+
+    /// The start screen shows nothing to ask about, so only the hidden
+    /// shell decides.
+    @Test(arguments: [true, false])
+    func aBusyHiddenShellCountsForClosingTabs(_ isBusy: Bool) throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        fixture.host.closeTerminal(try newShell(fixture))
+        try #require(fixture.controller.surfaceTree.isEmpty)
+        fixture.terminals.hasBusyHiddenShell = { isBusy }
+        let window = try #require(fixture.controller.window)
+
+        #expect(TerminalController.leoAnyNeedsConfirmClose([window]) == isBusy)
+    }
+
+    /// Close Tab, Close Other Tabs and Close Tabs on the Right ask about a
+    /// busy shell a closing window keeps hidden, as Close Window does. The
+    /// app disallows tabbing, so the test groups two windows itself; each
+    /// shows the start screen, so only the hidden shell asks. A sheet that
+    /// appears is cancelled, so nothing closes and the suite never hangs.
+    @Test(.timeLimit(.minutes(1)), arguments: ["Close Tab", "Close Other Tabs", "Close Tabs on the Right"])
+    func closingTabsAsksForABusyHiddenShell(_ command: String) async throws {
+        let left = try makeFixture()
+        let right = try makeFixture()
+        defer { close(left); close(right) }
+        let windows = try [left, right].map { fixture in
+            fixture.host.closeTerminal(try newShell(fixture))
+            let window = try #require(fixture.controller.window)
+            window.tabbingMode = .automatic
+            return window
+        }
+        windows[0].addTabbedWindow(windows[1], ordered: .above)
+        try #require(windows[0].tabGroup?.windows == windows, "AppKit grouped them, left to right")
+        let (acting, closing) = switch command {
+        case "Close Tab": (left, left)
+        case "Close Other Tabs": (right, left)
+        default: (left, right)
+        }
+        closing.terminals.hasBusyHiddenShell = { true }
+        let asking = try #require(acting.controller.window)
+        // A sheet reliably attaches only to a window on screen.
+        asking.tabGroup?.selectedWindow = asking
+        asking.orderFront(nil)
+
+        switch command {
+        case "Close Tab": acting.controller.closeTab(nil)
+        case "Close Other Tabs": acting.controller.closeOtherTabs(nil)
+        default: acting.controller.closeTabsOnTheRight(nil)
+        }
+
+        #expect(await eventually(.seconds(10)) { asking.attachedSheet != nil }, "it asks first")
+        #expect(!closing.closes.windowClosed)
+        asking.attachedSheet.map { asking.endSheet($0, returnCode: .alertSecondButtonReturn) }
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(!closing.closes.windowClosed, "Cancel keeps it")
     }
 
     @Test func aHiddenShellWhoseProcessEndsLosesItsRow() async throws {
