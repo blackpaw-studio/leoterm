@@ -33,8 +33,8 @@ import Foundation
     /// since live snapshot refreshes (agents starting/stopping) must not
     /// silently dismiss a still-relevant error.
     @Published private(set) var attachError: String?
-    /// Whether ⌘Return (a new window, D-104) is worth a hint: a ⌘T or
-    /// start-screen request, not a split. Set by the presenter per request.
+    /// Whether ⌘Return (a new window, D-104) is worth a hint: a Choose
+    /// Agent… (⌘O) or start-screen request, not a split. Set by the presenter per request.
     @Published var offersNewWindow = false
 
     private let retry: () -> Void

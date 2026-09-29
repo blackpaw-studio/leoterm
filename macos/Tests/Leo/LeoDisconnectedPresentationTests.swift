@@ -47,7 +47,7 @@ import Testing
         let state = LeoPlaceholderChooseAgent(host: .local, connectivity: .connected)
         #expect(state.isEnabled)
         #expect(state.isProminent)
-        #expect(state.help == "⌘T")
+        #expect(state.help == "⌘O")
     }
 
     @Test func chooseAgentIsDisabledWhileDisconnectedAndSaysHowToReconnect() {
@@ -86,6 +86,6 @@ import Testing
         model.receive(.init(rows: [], connectivity: .connected, generation: 4))
         #expect(state().isEnabled)
         #expect(state().isProminent)
-        #expect(state().help == "⌘T")
+        #expect(state().help == "⌘O")
     }
 }

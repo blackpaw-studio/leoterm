@@ -245,7 +245,7 @@ import SwiftUI
     /// no way to tell "the panel is about to be re-presented for a newer
     /// request" from "this is a real terminal outcome". Dismissing here
     /// unconditionally would flash the panel closed-then-reopened for every
-    /// rapid double-gesture (e.g. two Cmd+T).
+    /// rapid double-gesture (e.g. two Choose Agent… presses).
     ///
     /// Instead this defers the actual dismiss by one main-thread runloop
     /// turn: `LeoRuntime.routeNewSurface` always calls `present(_:)`

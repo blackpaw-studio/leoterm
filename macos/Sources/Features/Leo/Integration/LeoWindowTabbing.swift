@@ -13,6 +13,9 @@ enum LeoWindowTabbing {
     static let newTerminalTitle = "New Terminal"
     static let chooseAgentTitle = "Choose Agent…"
     static let changeWindowTitleTitle = "Change Window Title…"
+    /// Choose Agent…'s key equivalent as shown to users (MainMenu.xib's
+    /// ⌘O). ⌘T is New Terminal (B-066, D-125).
+    static let chooseAgentShortcut = "⌘O"
 
     /// App-wide, before any window exists: drops Show Tab Bar, Show All
     /// Tabs, Merge All Windows and Move Tab to New Window from the Window
