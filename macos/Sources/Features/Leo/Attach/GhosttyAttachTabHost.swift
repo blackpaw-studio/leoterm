@@ -317,24 +317,22 @@ import OSLog
     /// handling of that very surface, which must not be freed under it.
     ///
     /// Whose a close request is, is decided when it arrives: a terminal
-    /// row's shell hidden then gets no controller's close, so its row
-    /// closes the way ⌘W's does (`closeRequested`) -- which holds whether
-    /// a reveal has shown it by the next turn, it is still hidden, or it
-    /// is already gone. Anything else hidden is the pool's.
+    /// row's shell hidden then gets no controller's close, so -- its
+    /// process having ended -- its row closes the way ⌘W's does
+    /// (`closeRequested`), which holds whether a reveal has shown it by the
+    /// next turn, it is still hidden, or it is already gone. Anything else
+    /// hidden is the pool's.
     private func observeHiddenSurfaceExits() {
         let center = NotificationCenter.default
         hiddenExitObservers = [
             center.addObserver(forName: Ghostty.Notification.ghosttyCloseSurface, object: nil, queue: .main) { [weak self] notification in
                 guard let surface = notification.object as? Ghostty.SurfaceView else { return }
+                let processEnded = notification.userInfo?["process_alive"] as? Bool == false
                 MainActor.assumeIsolated {
                     let hiddenRow = self?.hiddenTerminalRow(surface)
                     DispatchQueue.main.async { [weak surface] in
                         guard let surface else { return }
-                        if let hiddenRow {
-                            self?.requestClose(of: hiddenRow)
-                        } else {
-                            _ = self?.live.surfaceClosed(surface)
-                        }
+                        self?.handleCloseRequest(of: surface, hiddenRow: hiddenRow, processEnded: processEnded)
                     }
                 }
             },
@@ -342,6 +340,20 @@ import OSLog
                 DispatchQueue.main.async { self?.live.dropDead() }
             },
         ]
+    }
+
+    /// A close request for `surface`, a turn after it arrived. Not a hidden
+    /// row's: the pool's (which leaves the rows' keep alone). A hidden
+    /// row's whose process lives -- nothing reaches a hidden shell to ask
+    /// that -- is left be: only its row's close or its exit ends a kept
+    /// shell (D-111).
+    private func handleCloseRequest(of surface: Ghostty.SurfaceView, hiddenRow: AttachmentHandle?, processEnded: Bool) {
+        guard let hiddenRow else {
+            live.surfaceClosed(surface)
+            return
+        }
+        guard processEnded else { return }
+        requestClose(of: hiddenRow)
     }
 
     /// The terminal row whose shell `surface` is, while no controller
