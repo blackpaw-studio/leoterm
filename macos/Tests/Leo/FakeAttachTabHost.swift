@@ -32,7 +32,7 @@ struct FakeOpenCall {
 
 @MainActor final class FakeAttachTabHost: AttachTabHost {
     var openError: Error?
-    var tabCalls: [FakeOpenCall] = []
+    var contentCalls: [FakeOpenCall] = []
     var windowCalls: [FakeOpenCall] = []
     var splitCalls: [FakeOpenCall] = []
     var placeholderCalls: [FakeOpenCall] = []
@@ -59,9 +59,24 @@ struct FakeOpenCall {
         (lifecycleEvents, continuation) = AsyncStream.makeStream()
     }
 
-    func openTab(command: String, workingDirectory: String?, from origin: LeoWindowID, requestID: UUID) throws -> AttachmentHandle {
-        tabCalls.append(FakeOpenCall(command: command, workingDirectory: workingDirectory, origin: origin, requestID: requestID))
-        return try opened()
+    /// Handles open in each window's content area, by window (B-055).
+    private(set) var shownInContent: [LeoWindowID: AttachmentHandle] = [:]
+
+    /// Replaces what `origin` showed: its previous handle closes, as the
+    /// real host's tree observer reports once the surface is gone.
+    func showInContent(command: String, workingDirectory: String?, origin: LeoWindowID, requestID: UUID) throws -> AttachmentHandle {
+        contentCalls.append(FakeOpenCall(command: command, workingDirectory: workingDirectory, origin: origin, requestID: requestID))
+        let handle = try opened(in: origin)
+        if let displaced = shownInContent.updateValue(handle, forKey: origin) { openHandles.remove(displaced) }
+        return handle
+    }
+
+    /// What `confirmReplacingContent` answers, and who asked.
+    var confirmsReplacement = true
+    var replacementConfirmations: [LeoWindowID] = []
+    func confirmReplacingContent(origin: LeoWindowID) async -> Bool {
+        replacementConfirmations.append(origin)
+        return confirmsReplacement
     }
 
     func openWindow(command: String, workingDirectory: String?, requestID: UUID) throws -> AttachmentHandle {
@@ -85,13 +100,13 @@ struct FakeOpenCall {
             direction: direction,
             requestID: requestID
         ))
-        return try opened()
+        return try opened(in: origin)
     }
 
     func fillPlaceholder(command: String, workingDirectory: String?, origin: LeoWindowID, surfaceID: UUID?, requestID: UUID) throws -> AttachmentHandle {
         placeholderCalls.append(FakeOpenCall(command: command, workingDirectory: workingDirectory, origin: origin, requestID: requestID))
         placeholderSurfaceIDs.append(surfaceID)
-        return try opened()
+        return try opened(in: origin)
     }
 
     var reborn: [AttachmentHandle] = []
@@ -99,10 +114,6 @@ struct FakeOpenCall {
 
     var discardedPlaceholders: [LeoWindowID] = []
     func discardEmptyPlaceholder(origin: LeoWindowID) { discardedPlaceholders.append(origin) }
-
-    /// Windows whose only tab is an untouched start screen (B-050).
-    var loneStartTabs: Set<LeoWindowID> = []
-    func isLoneStartTab(origin: LeoWindowID) -> Bool { loneStartTabs.contains(origin) }
 
     func focus(_ handle: AttachmentHandle) { focused.append(handle) }
     func isOpen(_ handle: AttachmentHandle) -> Bool { openHandles.contains(handle) }
@@ -140,9 +151,9 @@ struct FakeOpenCall {
         lifecycleAcknowledgement = nil
     }
 
-    private func opened() throws -> AttachmentHandle {
+    private func opened(in window: LeoWindowID = LeoWindowID()) throws -> AttachmentHandle {
         if let openError { throw openError }
-        let handle = AttachmentHandle(surfaceID: UUID(), windowID: LeoWindowID())
+        let handle = AttachmentHandle(surfaceID: UUID(), windowID: window)
         handles.append(handle)
         openHandles.insert(handle)
         return handle

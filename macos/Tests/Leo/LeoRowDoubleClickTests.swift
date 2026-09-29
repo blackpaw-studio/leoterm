@@ -35,7 +35,7 @@ import Testing
 
         doubleClick(model)
 
-        #expect(log.attaches == [.reuseOrTab])
+        #expect(log.attaches == [.content])
         #expect(log.focusRequests == 0)
         #expect(model.selection == worker.id)
     }
@@ -65,7 +65,7 @@ import Testing
         doubleClick(model)
         model.rowClicked(worker, clickCount: 3, from: origin)
 
-        #expect(log.attaches == [.reuseOrTab])
+        #expect(log.attaches == [.content])
     }
 
     @Test func doubleClickIsInertWhileDisconnected() {

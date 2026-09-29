@@ -28,14 +28,15 @@ extension LeoRuntime {
     }
 
     /// Reveals `session`'s sidebar, clears a filter that would hide the
-    /// target, expands its collapsed section, and attaches (reusing a tab when one exists). The selection
+    /// target, expands its collapsed section, and shows it in this window's
+    /// content area (or brings forward the window already showing it). The selection
     /// moves only once the attach succeeds.
     func jumpToNextNeedingAttention(from session: LeoWindowSession) {
         guard let row = nextAttentionTarget else { return }
         session.setSidebarVisible(true)
         if LeoAttentionNavigation.filterHides(row, query: model.query) { model.query = "" }
         model.reveal(row.id)
-        let request = LeoSurfaceRequest(origin: session.id, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: session.id, disposition: .content)
         Task { [weak self] in
             guard let self else { return }
             if case .success = await self.attachCoordinator.attach(identity: row.identity, request: request) {
@@ -59,7 +60,7 @@ extension LeoRuntime {
         let identity = model.snapshot.rows.first { $0.id == id }?.identity ?? LeoAgentIdentity(host: id.host, name: id.name)
         let origin = (NSApp.keyWindow?.windowController as? TerminalController)?.leoSession?.id
             ?? TerminalController.preferredParent?.leoSession?.id
-        let request = LeoSurfaceRequest(origin: origin ?? LeoWindowID(), disposition: origin == nil ? .window : .tab)
+        let request = LeoSurfaceRequest(origin: origin ?? LeoWindowID(), disposition: origin == nil ? .window : .content)
         NSApp.activate(ignoringOtherApps: true)
         Task { [weak self] in
             guard let self else { return }

@@ -85,8 +85,8 @@ final class LeoRowClickCatcherView: NSView {
 }
 
 /// VoiceOver's press on a row (AXPress): a plain single click, so it goes
-/// wherever a click goes -- the agent's tab, a new attach, or the Start
-/// prompt (B-049).
+/// wherever a click goes -- the window showing the agent, this window's
+/// content area, or the Start prompt (B-049).
 enum LeoRowAccessibility {
     static let pressName = "Open"
 

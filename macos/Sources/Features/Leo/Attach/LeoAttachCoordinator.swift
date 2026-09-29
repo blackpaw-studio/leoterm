@@ -5,6 +5,9 @@ struct LeoAttachError: Error, Equatable, Sendable {
         case executable(String)
         case invalidName
         case openFailed(String)
+        /// The user kept what the content area showed (B-055). Nothing
+        /// failed, so nothing is reported.
+        case cancelled
     }
 
     let identity: LeoAgentIdentity
@@ -14,8 +17,11 @@ struct LeoAttachError: Error, Equatable, Sendable {
         switch kind {
         case .executable(let message), .openFailed(let message): message
         case .invalidName: "Agent names cannot contain NUL or newline characters"
+        case .cancelled: "Cancelled"
         }
     }
+
+    var isCancellation: Bool { kind == .cancelled }
 }
 
 private enum LeoAttachCoordinatorError: Error, LocalizedError {
@@ -104,30 +110,31 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     var inactiveHandleCount: Int { inactive.count }
 
     /// Legacy entry point for existing attach callers (sidebar row click,
-    /// CLI-driven attach). Maps onto the `LeoSurfaceRequest`-based API below;
-    /// `.reuseOrTab` becomes `.tab` (reuse-eligible), `.newTab` a `.tab`
-    /// that always creates (⌘-click), `.newWindow` becomes `.window`
-    /// (always creates).
+    /// Return, Agents ▸ Attach). Maps onto the `LeoSurfaceRequest`-based
+    /// API below: `.content` is the window's content area, `.newWindow` a
+    /// new window.
     func attach(identity: LeoAgentIdentity, from origin: LeoWindowID, disposition: AttachDisposition) async {
-        let (mapped, reuse): (LeoSurfaceDisposition, LeoAttachReuse) = switch disposition {
-        case .reuseOrTab: (.tab, .focusExisting)
-        case .newTab: (.tab, .alwaysNew)
-        case .newWindow: (.window, .alwaysNew)
+        let mapped: LeoSurfaceDisposition = switch disposition {
+        case .content: .content
+        case .newWindow: .window
         }
-        _ = await attach(identity: identity, request: LeoSurfaceRequest(origin: origin, disposition: mapped), reuse: reuse)
+        _ = await attach(identity: identity, request: LeoSurfaceRequest(origin: origin, disposition: mapped))
     }
 
-    /// Core attach implementation. One tab per agent (B-047): a `.tab` or
-    /// start-screen request goes to `identity`'s most recently used live
-    /// attachment when it has one, unless `reuse` is `.alwaysNew`; the start
-    /// screen it came from is then closed. `.split`, `.window`, and a pane
-    /// placeholder always create a new destination (tmux allows multiple
-    /// attached clients). A `.tab` asked of a window whose only tab is an
-    /// untouched start screen is treated as that start screen (B-050).
+    /// Core attach implementation. One agent is on screen in at most one
+    /// window (B-047, B-055): a content-area, start-screen or new-window
+    /// request for an agent already shown brings that surface's window
+    /// forward, and an untouched start screen it came from closes.
+    /// Otherwise `.content` replaces what the window's content area shows
+    /// (asking first if that would kill a running shell) and `.window`
+    /// opens a new window; `.split` and a pane placeholder always create
+    /// (tmux allows multiple attached clients). `.newWindow` placement (⌘↩)
+    /// sends a content-area or start-screen request to a new window; a
+    /// split or pane request goes where it asked.
     func attach(
         identity: LeoAgentIdentity,
         request: LeoSurfaceRequest,
-        reuse: LeoAttachReuse = .focusExisting
+        placement: LeoAttachPlacement = .requested
     ) async -> Result<AttachmentHandle, LeoAttachError> {
         guard !attachInProgress.contains(identity) else {
             return .failure(.init(identity: identity, kind: .openFailed("Attach already in progress")))
@@ -135,9 +142,9 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         attachInProgress.insert(identity)
         defer { attachInProgress.remove(identity) }
 
-        let request = fillingLoneStartTab(request, reuse: reuse)
-        if reuse == .focusExisting, request.disposition.reusesOpenTab, let handle = focusMostRecent(identity) {
-            if request.disposition != .tab { host.discardEmptyPlaceholder(origin: request.origin) }
+        let request = placement == .newWindow && request.disposition.offersNewWindow ? request.inNewWindow : request
+        if request.disposition.focusesAgentOnScreen, let handle = focusMostRecent(identity) {
+            discardStartScreen(request.origin, jumpingTo: handle)
             return .success(handle)
         }
 
@@ -156,6 +163,9 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             return .failure(attachError)
         }
 
+        guard await confirmReplacingContent(for: request) else {
+            return .failure(.init(identity: identity, kind: .cancelled))
+        }
         do {
             let workingDirectory = LeoAttachCommand.workingDirectory(identity: identity)
             let handle = try createHandle(command: command, workingDirectory: workingDirectory, request: request)
@@ -186,6 +196,9 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     /// configuration -- the picker's "Plain shell" row. No identity, so no
     /// reuse and no attach bookkeeping; always creates.
     func openPlainShell(request: LeoSurfaceRequest) async -> Result<AttachmentHandle, LeoAttachError> {
+        guard await confirmReplacingContent(for: request) else {
+            return .failure(.init(identity: Self.plainShellIdentity, kind: .cancelled))
+        }
         do {
             let handle = try createHandle(command: "", workingDirectory: nil, request: request)
             return .success(handle)
@@ -200,10 +213,16 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     /// no agent identity; only `message`/`kind` are meaningful to callers.
     private static let plainShellIdentity = LeoAgentIdentity(host: .local, name: "")
 
+    /// Only a content-area request replaces anything.
+    private func confirmReplacingContent(for request: LeoSurfaceRequest) async -> Bool {
+        guard request.disposition == .content else { return true }
+        return await host.confirmReplacingContent(origin: request.origin)
+    }
+
     private func createHandle(command: String, workingDirectory: String?, request: LeoSurfaceRequest) throws -> AttachmentHandle {
         switch request.disposition {
-        case .tab:
-            return try host.openTab(command: command, workingDirectory: workingDirectory, from: request.origin, requestID: request.id)
+        case .content:
+            return try host.showInContent(command: command, workingDirectory: workingDirectory, origin: request.origin, requestID: request.id)
         case .split(let direction):
             guard let sourceSurface = request.splitSourceSurface else {
                 throw LeoAttachCoordinatorError.missingSplitSource
@@ -273,24 +292,20 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     }
 
     /// Brings `identity`'s most recently focused live attachment forward
-    /// instead of opening a duplicate. `false` when it has none. When the
-    /// request came from `origin` and that window's only tab is an
-    /// untouched start screen, that tab closes, as it does when the
-    /// palette jumps away from it (B-050, D-093).
+    /// instead of opening a duplicate. `false` when it has none. An
+    /// untouched start screen the request came from then closes (B-050,
+    /// D-093).
     @discardableResult func focusExisting(_ identity: LeoAgentIdentity, from origin: LeoWindowID? = nil) -> Bool {
-        guard focusMostRecent(identity) != nil else { return false }
-        if let origin, host.isLoneStartTab(origin: origin) { host.discardEmptyPlaceholder(origin: origin) }
+        guard let handle = focusMostRecent(identity) else { return false }
+        if let origin { discardStartScreen(origin, jumpingTo: handle) }
         return true
     }
 
-    /// B-050: a new tab asked of a window whose only tab is an untouched
-    /// start screen goes into that start screen instead (the same request,
-    /// so its inherited configuration still applies); if the agent already
-    /// has a tab, the start screen is what gets discarded after the jump.
-    /// ⌘ (`.alwaysNew`) keeps the new tab.
-    private func fillingLoneStartTab(_ request: LeoSurfaceRequest, reuse: LeoAttachReuse) -> LeoSurfaceRequest {
-        guard reuse == .focusExisting, request.disposition == .tab, host.isLoneStartTab(origin: request.origin) else { return request }
-        return LeoSurfaceRequest(id: request.id, origin: request.origin, disposition: .placeholder)
+    /// A jump to an agent shown in another window leaves `origin` behind;
+    /// the host closes it only if it is still an untouched start screen.
+    private func discardStartScreen(_ origin: LeoWindowID, jumpingTo handle: AttachmentHandle) {
+        guard handle.windowID != origin else { return }
+        host.discardEmptyPlaceholder(origin: origin)
     }
 
     private func focusMostRecent(_ identity: LeoAgentIdentity) -> AttachmentHandle? {

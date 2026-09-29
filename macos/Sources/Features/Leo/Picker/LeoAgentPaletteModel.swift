@@ -33,10 +33,9 @@ import Foundation
     /// since live snapshot refreshes (agents starting/stopping) must not
     /// silently dismiss a still-relevant error.
     @Published private(set) var attachError: String?
-    /// Whether Return on an agent goes to its open tab, so ⌘Return (a new
-    /// tab) is worth a hint: a ⌘T or start-screen request, not a split
-    /// (B-047). Set by the presenter per request.
-    @Published var reusesOpenTabs = false
+    /// Whether ⌘Return (a new window, D-104) is worth a hint: a ⌘T or
+    /// start-screen request, not a split. Set by the presenter per request.
+    @Published var offersNewWindow = false
 
     private let retry: () -> Void
     private var snapshot: LeoSidebarSnapshot?
@@ -89,14 +88,14 @@ import Foundation
         attachError = nil
     }
 
-    /// `reuse` is Return's (`.focusExisting`) or ⌘Return's (`.alwaysNew`);
+    /// `placement` is Return's (`.requested`) or ⌘Return's (`.newWindow`);
     /// only an agent row carries it.
-    func confirm(reuse: LeoAttachReuse = .focusExisting) -> LeoPickerChoice? {
+    func confirm(placement: LeoAttachPlacement = .requested) -> LeoPickerChoice? {
         guard let selectedIndex, rows.indices.contains(selectedIndex) else { return nil }
         let row = rows[selectedIndex]
         guard isConfirmable(row) else { return nil }
         switch row {
-        case .agent(let agentRow): return .agent(agentRow.identity, reuse: reuse)
+        case .agent(let agentRow): return .agent(agentRow.identity, placement: placement)
         case .newAgent: return .newAgent
         case .plainShell: return .plainShell
         case .status, .disconnected: return nil

@@ -140,11 +140,11 @@ import OSLog
         )
         let pickerRouter = LeoWindowPickerRouter()
         let router = LeoNewSurfaceRouter(
-            attach: { [weak attachCoordinator] identity, request, reuse in
+            attach: { [weak attachCoordinator] identity, request, placement in
                 guard let attachCoordinator else {
                     return .failure(.init(identity: identity, kind: .openFailed("Leo runtime is unavailable")))
                 }
-                return await attachCoordinator.attach(identity: identity, request: request, reuse: reuse).map { _ in () }
+                return await attachCoordinator.attach(identity: identity, request: request, placement: placement).map { _ in () }
             },
             openPlainShell: { [weak attachCoordinator] request in
                 guard let attachCoordinator else {
@@ -234,8 +234,8 @@ import OSLog
         model.sshRequested = { [weak self] target in
             guard let self, let controller = NSApp.keyWindow?.windowController as? TerminalController else { return }
             do {
-                guard LeoCommandLauncher.openTab(in: controller, command: try LeoCommandLauncher.sshHintCommand(target: target)) else {
-                    self.model.setPanelError("Unable to open a terminal tab")
+                guard LeoCommandLauncher.openWindow(in: controller, command: try LeoCommandLauncher.sshHintCommand(target: target)) else {
+                    self.model.setPanelError("Unable to open a terminal window")
                     return
                 }
             } catch { self.model.setPanelError(error.localizedDescription) }
@@ -450,8 +450,8 @@ import OSLog
     private func startDaemon(in controller: TerminalController) {
         do {
             let command = try LeoCommandLauncher.startDaemonCommand(executablePath: resolveExecutablePath())
-            guard LeoCommandLauncher.openTab(in: controller, command: command) else {
-                model.setPanelError("Unable to open a terminal tab")
+            guard LeoCommandLauncher.openWindow(in: controller, command: command) else {
+                model.setPanelError("Unable to open a terminal window")
                 return
             }
         } catch {

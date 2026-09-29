@@ -51,8 +51,8 @@ extension TerminalController {
             } else {
                 command = try LeoLogsCommand.build(executablePath: runtime.resolveExecutablePath(), agentName: row.name)
             }
-            guard LeoCommandLauncher.openTab(in: self, command: command) else {
-                runtime.actions.setRowError("Unable to open a terminal tab", for: row)
+            guard LeoCommandLauncher.openWindow(in: self, command: command) else {
+                runtime.actions.setRowError("Unable to open a terminal window", for: row)
                 return
             }
         } catch {

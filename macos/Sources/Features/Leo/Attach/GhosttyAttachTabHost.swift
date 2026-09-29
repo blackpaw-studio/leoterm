@@ -53,7 +53,7 @@ import OSLog
         return focusedHandle(isActive: state.isActive, keyWindow: state.keyWindow)
     }
 
-    /// Key window -> its selected tab's controller -> `focusedSurface`, so a
+    /// Key window -> its controller -> `focusedSurface`, so a
     /// focused split counts, first responder or not. `nil` while the app is
     /// inactive.
     var viewedHandle: AttachmentHandle? {
@@ -123,15 +123,60 @@ import OSLog
         continuation.yield(event)
     }
 
-    func openTab(command: String, workingDirectory: String?, from origin: LeoWindowID, requestID: UUID) throws -> AttachmentHandle {
-        guard let source = registry.controller(for: origin) else { throw GhosttyAttachTabHostError.originWindowClosed }
-        guard let controller = TerminalController.newTab(
-            source.ghostty,
-            from: source.window,
-            withBaseConfig: configuration(command: command, workingDirectory: workingDirectory, requestID: requestID)
-        ) else { throw GhosttyAttachTabHostError.cannotOpenTab }
-        guard let surface = controller.surfaceTree.first else { throw GhosttyAttachTabHostError.surfaceUnavailable }
-        return try register(controller, surface: surface)
+    /// B-055: a row shown in `origin`'s one content area. The empty start
+    /// screen is filled (sized as a new window's first surface); anything
+    /// else -- one surface or a whole split tree -- is swapped out whole
+    /// for the new surface, in the same window beside the same sidebar.
+    func showInContent(command: String, workingDirectory: String?, origin: LeoWindowID, requestID: UUID) throws -> AttachmentHandle {
+        guard let controller = registry.controller(for: origin) else { throw GhosttyAttachTabHostError.originWindowClosed }
+        if controller.surfaceTree.isEmpty {
+            return try fillPlaceholder(command: command, workingDirectory: workingDirectory, origin: origin, surfaceID: nil, requestID: requestID)
+        }
+        let newView = try makeSurface(in: controller, command: command, workingDirectory: workingDirectory, requestID: requestID)
+        let displaced = controller.leoReplaceContent(with: SplitTree(view: newView), focusing: newView)
+        retire(displaced, from: controller)
+        Self.logger.log("showInContent requestID=\(requestID.uuidString, privacy: .public) replaced=\(Array(displaced).count)")
+        return try register(controller, surface: newView)
+    }
+
+    func confirmReplacingContent(origin: LeoWindowID) async -> Bool {
+        guard let controller = registry.controller(for: origin) else { return true }
+        let shown = controller.surfaceTree.map {
+            LeoContentReplacement.Shown(isAgent: $0.leoAgentName != nil, needsConfirmQuit: $0.needsConfirmQuit)
+        }
+        guard LeoContentReplacement.needsConfirmation(shown) else { return true }
+        let response = await controller.confirmCloseAsync(
+            messageText: LeoContentReplacement.messageText,
+            informativeText: LeoContentReplacement.informativeText,
+            confirmButtonTitle: LeoContentReplacement.confirmButtonTitle
+        )
+        // `nil`: another alert is already up on this window -- don't close.
+        return response.map { [.alertFirstButtonReturn, .OK].contains($0) } ?? false
+    }
+
+    /// What leaves the content area on a switch. B-055 lets it go: once
+    /// the tree is dropped nothing holds its surfaces, so each frees its
+    /// Ghostty surface and pty, and an attach's tmux client detaches
+    /// (`register`'s tree observer then reports its handle `.closed`).
+    /// B-056's pool keeps the most recent ones here instead. Exited attach
+    /// panes stop counting as placeholders.
+    private func retire(_ displaced: SplitTree<Ghostty.SurfaceView>, from controller: TerminalController) {
+        displaced.forEach { controller.leoSession?.fillPlaceholder(surfaceID: $0.id) }
+    }
+
+    private func makeSurface(
+        in controller: TerminalController,
+        command: String,
+        workingDirectory: String?,
+        requestID: UUID
+    ) throws -> Ghostty.SurfaceView {
+        guard let ghosttyApp = controller.ghostty.app else { throw GhosttyAttachTabHostError.noTerminalWindow }
+        let view = Ghostty.SurfaceView(
+            ghosttyApp,
+            baseConfig: configuration(command: command, workingDirectory: workingDirectory, requestID: requestID)
+        )
+        guard view.surface != nil else { throw GhosttyAttachTabHostError.surfaceUnavailable }
+        return view
     }
 
     func openWindow(command: String, workingDirectory: String?, requestID: UUID) throws -> AttachmentHandle {
@@ -184,13 +229,7 @@ import OSLog
         do {
             guard let controller = registry.controller(for: origin) else { throw GhosttyAttachTabHostError.originWindowClosed }
             if surfaceID == nil { guard controller.surfaceTree.isEmpty else { throw GhosttyAttachTabHostError.placeholderNotEmpty } }
-            guard let ghosttyApp = controller.ghostty.app else { throw GhosttyAttachTabHostError.noTerminalWindow }
-
-            let newView = Ghostty.SurfaceView(
-                ghosttyApp,
-                baseConfig: configuration(command: command, workingDirectory: workingDirectory, requestID: requestID)
-            )
-            guard newView.surface != nil else { throw GhosttyAttachTabHostError.surfaceUnavailable }
+            let newView = try makeSurface(in: controller, command: command, workingDirectory: workingDirectory, requestID: requestID)
 
             if let surfaceID {
                 guard let oldView = controller.surfaceTree.first(where: { $0.id == surfaceID }),
@@ -252,7 +291,6 @@ import OSLog
     func focus(_ handle: AttachmentHandle) {
         guard let attachment = attachments[handle], let controller = attachment.controller, let surface = attachment.surface,
               controller.surfaceTree.contains(surface), let window = controller.window else { return }
-        window.tabGroup?.selectedWindow = window
         if window.isMiniaturized { window.deminiaturize(nil) }
         window.makeKeyAndOrderFront(nil)
         Ghostty.moveFocus(to: surface)
@@ -267,37 +305,29 @@ import OSLog
 
     func discardEmptyPlaceholder(origin: LeoWindowID) {
         guard let controller = registry.controller(for: origin),
-              Self.startTabState(of: controller)?.isUntouched == true else { return }
+              Self.startScreenState(of: controller)?.isUntouched == true else { return }
         Self.logger.log("discardEmptyPlaceholder origin=\(origin.rawValue.uuidString, privacy: .public)")
-        // Closes just this tab (a tabbed window's tabs are windows). The
-        // same close an emptied tree takes -- no undo: there is nothing
-        // in a blank start screen to bring back. On the next turn: a
-        // sidebar click (B-050) asks from inside that window's own mouse
+        // The same close an emptied tree takes -- no undo: there is
+        // nothing in a blank start screen to bring back. On the next turn:
+        // a sidebar click (B-050) asks from inside that window's own mouse
         // event, which AppKit is still delivering to it.
         DispatchQueue.main.async { [weak controller] in
-            guard let controller, Self.startTabState(of: controller)?.isUntouched == true else { return }
+            guard let controller, Self.startScreenState(of: controller)?.isUntouched == true else { return }
             controller.window?.close()
         }
-    }
-
-    func isLoneStartTab(origin: LeoWindowID) -> Bool {
-        guard let controller = registry.controller(for: origin) else { return false }
-        return Self.startTabState(of: controller)?.isLoneUntouched == true
     }
 
     /// `nil` for a window with no Leo session (no start screen at all).
     /// The editor and browser count by what they show: their pane views
     /// (`editorPane`, `browserPane`) exist in every window once its split
-    /// view is built, open or not. A tabbed window's tabs are windows in
-    /// one tab group; a window not (yet) in a group is its only tab.
-    private static func startTabState(of controller: TerminalController) -> LeoStartTabState? {
+    /// view is built, open or not.
+    private static func startScreenState(of controller: TerminalController) -> LeoStartScreenState? {
         guard let session = controller.leoSession else { return nil }
-        return LeoStartTabState(
+        return LeoStartScreenState(
             isUnfilledPlaceholder: controller.leoIsUnfilledPlaceholder,
             hasTerminal: !controller.surfaceTree.isEmpty,
             isEditorOpen: session.editor.isOpen,
-            isBrowserOpen: session.browser.isOpen,
-            tabCount: max(controller.window?.tabGroup?.windows.count ?? 1, 1)
+            isBrowserOpen: session.browser.isOpen
         )
     }
 
@@ -382,13 +412,12 @@ import OSLog
 }
 
 private enum GhosttyAttachTabHostError: Error, LocalizedError {
-    case originWindowClosed, cannotOpenTab, noTerminalWindow, surfaceUnavailable
+    case originWindowClosed, noTerminalWindow, surfaceUnavailable
     case splitSourceUnavailable, cannotOpenSplit, placeholderNotEmpty, placeholderUnavailable
 
     var errorDescription: String? {
         switch self {
         case .originWindowClosed: "The originating terminal window is closed"
-        case .cannotOpenTab: "Ghostty could not open a new tab"
         case .noTerminalWindow: "No terminal window is available"
         case .surfaceUnavailable: "The new terminal surface is unavailable"
         case .splitSourceUnavailable: "The surface to split from is no longer available"

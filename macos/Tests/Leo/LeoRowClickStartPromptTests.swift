@@ -54,7 +54,7 @@ import Testing
 
         #expect(log.attaches.map(\.0) == [worker.id])
         #expect(log.attaches.first?.1 == origin)
-        #expect(log.dispositions == [.reuseOrTab])
+        #expect(log.dispositions == [.content])
         #expect(log.focusRequests.isEmpty)
         #expect(model.startPrompt(in: origin) == nil)
     }
@@ -69,13 +69,13 @@ import Testing
         #expect(log.attaches.isEmpty)
     }
 
-    @Test func commandClickStillForcesANewTab() {
+    @Test func commandClickOpensANewWindow() {
         let worker = row()
         let (model, log) = makeModel([worker], tabs: [worker.id: 1])
 
         model.rowClicked(worker, modifierFlags: .command, from: origin)
 
-        #expect(log.dispositions == [.newTab])
+        #expect(log.dispositions == [.newWindow])
         #expect(log.focusRequests.isEmpty)
     }
 
@@ -97,7 +97,7 @@ import Testing
         model.rowClicked(worker, clickCount: 1, from: origin)
         model.rowClicked(worker, clickCount: 2, from: origin)
 
-        #expect(log.dispositions == [.reuseOrTab])
+        #expect(log.dispositions == [.content])
         #expect(log.focusRequests.isEmpty)
     }
 
@@ -139,7 +139,7 @@ import Testing
 
         report(model, [row("scratch", .running)])
 
-        #expect(log.dispositions == [.reuseOrTab])
+        #expect(log.dispositions == [.content])
         #expect(model.startPrompt(in: origin) == nil)
     }
 
@@ -162,7 +162,7 @@ import Testing
 
         #expect(log.attaches.map(\.0) == [agent.id])
         #expect(log.attaches.first?.1 == origin)
-        #expect(log.dispositions == [.reuseOrTab])
+        #expect(log.dispositions == [.content])
         #expect(model.startPrompt(in: origin) == nil)
         report(model, [row("scratch", .running)])
         #expect(log.attaches.count == 1)
@@ -177,7 +177,7 @@ import Testing
         report(model, [row("scratch", .running)])
         log.startCompletions.first?(true)
 
-        #expect(log.dispositions == [.reuseOrTab])
+        #expect(log.dispositions == [.content])
     }
 
     @Test func confirmingTwiceStartsOnce() throws {
@@ -192,7 +192,7 @@ import Testing
         #expect(log.starts == [agent.id])
     }
 
-    @Test func commandClickOnAStoppedAgentAttachesANewTabAfterStart() throws {
+    @Test func commandClickOnAStoppedAgentOpensANewWindowAfterStart() throws {
         let agent = row("scratch", .stopped)
         let (model, log) = makeModel([agent])
         model.rowClicked(agent, modifierFlags: .command, from: origin)
@@ -200,7 +200,7 @@ import Testing
 
         report(model, [row("scratch", .running)])
 
-        #expect(log.dispositions == [.newTab])
+        #expect(log.dispositions == [.newWindow])
     }
 
     @Test func aFailedStartNeverAttaches() throws {
@@ -355,7 +355,7 @@ import Testing
 
         model.activateSelection(from: origin)
 
-        #expect(log.dispositions == [.reuseOrTab])
+        #expect(log.dispositions == [.content])
     }
 
     @Test func returnOnARowWithATabFocusesIt() {
@@ -395,7 +395,7 @@ import Testing
         #expect(model.startPrompt(in: origin)?.agent == agent.id)
         #expect(log.starts.isEmpty)
         #expect(log.attaches.map(\.0) == [worker.id])
-        #expect(log.dispositions == [.reuseOrTab])
+        #expect(log.dispositions == [.content])
     }
 
     @Test func returnWithoutASelectionDoesNothing() {
@@ -413,10 +413,10 @@ import Testing
     @Test func theSheetItemIsTheSameAcrossPhases() {
         let prompt = LeoStartPrompt(
             id: UUID(), agent: LeoAgentRow.ID(host: .local, name: "scratch"), origin: LeoWindowID(),
-            disposition: .reuseOrTab, phase: .confirm)
+            disposition: .content, phase: .confirm)
 
         #expect(LeoStartPromptSheetItem(prompt: prompt) == LeoStartPromptSheetItem(prompt: prompt.with(phase: .waiting)))
         #expect(LeoStartPromptSheetItem(prompt: prompt) != LeoStartPromptSheetItem(prompt: LeoStartPrompt(
-            id: UUID(), agent: prompt.agent, origin: prompt.origin, disposition: .reuseOrTab, phase: .confirm)))
+            id: UUID(), agent: prompt.agent, origin: prompt.origin, disposition: .content, phase: .confirm)))
     }
 }

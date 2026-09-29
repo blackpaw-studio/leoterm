@@ -226,7 +226,7 @@ struct LeoSidebarView: View {
         // Selection is required (`SelectionValue` is the optional ID
         // itself, so each row's tag is `Optional(row.id)`): the table
         // then never toggles the selected row off on ⌘-click, which here
-        // opens a new tab (B-047, B-048). `nil` still shows no selection.
+        // opens a new window (B-048, D-104). `nil` still shows no selection.
         List<LeoAgentRow.ID?, _>(selection: Binding(get: { model.selection }, set: { model.userSelected($0) })) {
             ForEach(model.sections) { section in
                 Section(header: sectionHeader(section)) {

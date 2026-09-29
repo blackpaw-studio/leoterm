@@ -8,7 +8,7 @@ import Testing
 struct LeoSidebarChromeTests {
     @Test func attachActivationMapsOptionModifierAndInvokesSinkOnce() {
         #expect(LeoAttachActivation.disposition(for: [.option]) == .newWindow)
-        #expect(LeoAttachActivation.disposition(for: [.command, .shift]) == .reuseOrTab)
+        #expect(LeoAttachActivation.disposition(for: [.command, .shift]) == .content)
 
         let row = LeoAgentRow(host: .local, name: "agent", template: nil, status: .running, activity: .unknown, actionDetail: nil)
         var calls: [(LeoAgentRow, AttachDisposition)] = []
@@ -89,7 +89,7 @@ struct LeoSidebarChromeTests {
     }
 
     @Test func commandLauncherReportsFailedTabLaunch() {
-        #expect(!LeoCommandLauncher.didOpenTab { nil })
+        #expect(!LeoCommandLauncher.didOpen { nil })
     }
 
     @Test @MainActor func sessionOcclusionReducerTracksWindowState() {

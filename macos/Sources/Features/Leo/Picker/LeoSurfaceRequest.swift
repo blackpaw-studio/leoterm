@@ -9,7 +9,9 @@ enum LeoSplitDirection: Equatable, Sendable {
 
 /// Where a resolved picker choice should land.
 enum LeoSurfaceDisposition: Equatable, Sendable {
-    case tab
+    /// The origin window's one content area, in place of what it shows
+    /// (B-055); the empty start screen is filled.
+    case content
     case split(LeoSplitDirection)
     case window
     case placeholder(surfaceID: UUID?)
@@ -18,23 +20,28 @@ enum LeoSurfaceDisposition: Equatable, Sendable {
 }
 
 extension LeoSurfaceDisposition {
-    /// B-047: where an agent's open tab stands in for a new one. A fresh
-    /// tab (⌘T) or start screen (`.placeholder(surfaceID: nil)`) does; a
-    /// split, a new window, and a pane left in an existing tab by an exited
-    /// attach always attach.
-    var reusesOpenTab: Bool {
+    /// B-047, B-055: one agent is on screen in at most one window, so an
+    /// agent already shown goes forward instead: in the content area (⌘T,
+    /// a row), on the start screen, and in a new window (⌘-click, ⌘↩). A
+    /// split and a pane left by an exited attach always attach.
+    var focusesAgentOnScreen: Bool {
         switch self {
-        case .tab, .placeholder(surfaceID: nil): true
-        case .split, .window, .placeholder: false
+        case .content, .window, .placeholder(surfaceID: nil): true
+        case .split, .placeholder: false
         }
     }
+
+    /// Where Return shows the choice in this window, so ⌘Return (a new
+    /// window, D-104) is a real alternative: ⌘T and the start screen.
+    var offersNewWindow: Bool { self == .content || self == .placeholder }
 }
 
-/// B-047: whether an attach goes to the agent's open tab (the default) or
-/// always opens a new one (⌘-click, ⌘Return).
-enum LeoAttachReuse: Equatable, Sendable {
-    case focusExisting
-    case alwaysNew
+/// B-055 (D-104): where an agent choice goes -- where the request asked
+/// (Return, a click), or a new window (⌘↩ in the palette). Either way an
+/// agent already on screen is focused instead.
+enum LeoAttachPlacement: Equatable, Sendable {
+    case requested
+    case newWindow
 }
 
 struct LeoSurfaceRequestTarget: Hashable, Sendable {
@@ -65,5 +72,11 @@ struct LeoSurfaceRequest: Equatable, Sendable {
         self.origin = origin
         self.disposition = disposition
         self.splitSourceSurface = splitSourceSurface
+    }
+
+    /// This request (same id, so its inherited configuration still
+    /// applies) sent to a new window instead (⌘↩, ⌘-click).
+    var inNewWindow: LeoSurfaceRequest {
+        LeoSurfaceRequest(id: id, origin: origin, disposition: .window)
     }
 }

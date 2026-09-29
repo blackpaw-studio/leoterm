@@ -432,7 +432,8 @@ class BaseTerminalController: NSWindowController,
         guard let window else { return }
 
         let alert = NSAlert()
-        alert.messageText = "Change Tab Title"
+        // Leo: no tabs (D-098); the tab title is the window's.
+        alert.messageText = "Change Window Title"
         alert.informativeText = "Leave blank to restore the default."
         alert.alertStyle = .informational
 

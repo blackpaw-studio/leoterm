@@ -26,6 +26,27 @@ extension TerminalController {
         return LeoMenuCommands.AgentContext(hasLeoSession: leoSession != nil, availability: availability)
     }
 
+    /// B-055: the window's one content area shows `tree` in place of what
+    /// it showed; the sidebar, editor and browser panes are the window's
+    /// and stay as they are. Returns the displaced tree, for the caller to
+    /// retire (today) or keep hidden (B-056's pool).
+    ///
+    /// Assigned directly, not through `replaceSurfaceTree`: that registers
+    /// an undo, and undoing a switch would resurrect surfaces whose tmux
+    /// clients were let go. Focus moves without a `from:` so nothing keeps
+    /// the displaced surfaces alive past this turn.
+    @discardableResult
+    func leoReplaceContent(
+        with tree: SplitTree<Ghostty.SurfaceView>,
+        focusing view: Ghostty.SurfaceView
+    ) -> SplitTree<Ghostty.SurfaceView> {
+        let displaced = surfaceTree
+        surfaceTree = tree
+        focusedSurface = view
+        Ghostty.moveFocus(to: view)
+        return displaced
+    }
+
     @IBAction func toggleLeoSidebar(_ sender: Any?) {
         guard let leoSession else { return }
         // The menu item is disabled then; anything else calling this beeps too.
@@ -51,8 +72,8 @@ extension TerminalController {
             let path = try (NSApp.delegate as? AppDelegate)?.leoRuntime.resolveExecutablePath()
             guard let path else { return }
             let command = try LeoCommandLauncher.startDaemonCommand(executablePath: path)
-            guard LeoCommandLauncher.openTab(in: self, command: command) else {
-                (NSApp.delegate as? AppDelegate)?.leoRuntime.model.setPanelError("Unable to open a terminal tab")
+            guard LeoCommandLauncher.openWindow(in: self, command: command) else {
+                (NSApp.delegate as? AppDelegate)?.leoRuntime.model.setPanelError("Unable to open a terminal window")
                 return
             }
         } catch {

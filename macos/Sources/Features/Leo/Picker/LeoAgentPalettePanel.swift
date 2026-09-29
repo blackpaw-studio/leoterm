@@ -115,14 +115,14 @@ enum LeoAgentPalettePanelLayout {
     /// consume (e.g. focus briefly outside the text field). Never acts while
     /// the field editor has marked text (an in-progress IME composition), so
     /// this can't steal a keystroke mid-composition.
-    /// ⌘Return confirms in a new tab (B-047). A key equivalent reaches the
+    /// ⌘Return confirms in a new window (D-104). A key equivalent reaches the
     /// key window before the main menu, whose ⌘Return is Toggle Full Screen.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         guard event.type == .keyDown, !firstResponderHasMarkedText, let currentModel,
               LeoAgentPaletteFieldCommand.isForcedSubmit(keyCode: event.keyCode, modifierFlags: event.modifierFlags) else {
             return super.performKeyEquivalent(with: event)
         }
-        if let choice = currentModel.confirm(reuse: .alwaysNew) { onCommitHandler?(choice) }
+        if let choice = currentModel.confirm(placement: .newWindow) { onCommitHandler?(choice) }
         return true
     }
 
@@ -137,7 +137,7 @@ enum LeoAgentPalettePanelLayout {
         case .some(.downArrow):
             currentModel?.moveSelection(by: 1)
         case .some(.carriageReturn), .some(.enter):
-            if let choice = currentModel?.confirm(reuse: LeoAttachReuse(modifierFlags: event.modifierFlags)) { onCommitHandler?(choice) }
+            if let choice = currentModel?.confirm(placement: LeoAttachPlacement(modifierFlags: event.modifierFlags)) { onCommitHandler?(choice) }
         default:
             if event.keyCode == 53 { // Escape
                 onCommitHandler?(.cancel)

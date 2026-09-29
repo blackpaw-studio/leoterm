@@ -8,7 +8,7 @@ import OSLog
 @MainActor final class LeoNewSurfaceRouter {
     private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
 
-    private let attach: (LeoAgentIdentity, LeoSurfaceRequest, LeoAttachReuse) async -> Result<Void, LeoAttachError>
+    private let attach: (LeoAgentIdentity, LeoSurfaceRequest, LeoAttachPlacement) async -> Result<Void, LeoAttachError>
     private let openPlainShell: (LeoSurfaceRequest) async -> Result<Void, LeoAttachError>
     private let presentSpawn: (LeoSurfaceRequest, @escaping (LeoAgentIdentity?) -> Void) -> Void
     private let isRequestValid: (LeoSurfaceRequest) -> Bool
@@ -40,7 +40,7 @@ import OSLog
     private var pendingSpawnResumes: [UUID: (LeoAgentIdentity?) -> Void] = [:]
 
     init(
-        attach: @escaping (LeoAgentIdentity, LeoSurfaceRequest, LeoAttachReuse) async -> Result<Void, LeoAttachError>,
+        attach: @escaping (LeoAgentIdentity, LeoSurfaceRequest, LeoAttachPlacement) async -> Result<Void, LeoAttachError>,
         openPlainShell: @escaping (LeoSurfaceRequest) async -> Result<Void, LeoAttachError>,
         presentSpawn: @escaping (LeoSurfaceRequest, @escaping (LeoAgentIdentity?) -> Void) -> Void,
         isRequestValid: @escaping (LeoSurfaceRequest) -> Bool = { _ in true },
@@ -123,15 +123,15 @@ import OSLog
         case .cancel:
             Self.logger.log("requestOutcome id=\(request.id.uuidString, privacy: .public) outcome=cancel")
             retireIfActive(request)
-        case .agent(let identity, let reuse):
-            let result = await attach(identity, request, reuse)
+        case .agent(let identity, let placement):
+            let result = await attach(identity, request, placement)
             settle(result, request: request)
         case .plainShell:
             let result = await openPlainShell(request)
             settle(result, request: request)
         case .newAgent:
             guard let identity = await requestSpawnedIdentity(for: request) else { return }
-            let result = await attach(identity, request, .focusExisting)
+            let result = await attach(identity, request, .requested)
             settle(result, request: request)
         }
     }
@@ -156,6 +156,11 @@ import OSLog
         switch result {
         case .success:
             Self.logger.log("requestOutcome id=\(request.id.uuidString, privacy: .public) outcome=success")
+            retireIfActive(request)
+        case .failure(let error) where error.isCancellation:
+            // The user kept what the window showed (B-055): as final as
+            // a cancelled palette, and not an error to show.
+            Self.logger.log("requestOutcome id=\(request.id.uuidString, privacy: .public) outcome=cancel")
             retireIfActive(request)
         case .failure(let error):
             Self.logger.log("requestOutcome id=\(request.id.uuidString, privacy: .public) outcome=failure message=\(error.message, privacy: .public)")

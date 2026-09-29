@@ -17,8 +17,9 @@ import Foundation
     /// last selected a row, so they never move the selection.
     var userSelectionFence: Int?
     var attachRequested: (LeoAgentRow, LeoWindowID, AttachDisposition) -> Void = { _, _, _ in }
-    /// Brings the row's existing attach tab forward (no new attach). The
-    /// window clicked in, if known, loses its lone start tab (B-050).
+    /// Brings forward the window already showing the row's agent (no new
+    /// attach). The window clicked in, if known, closes when it is an
+    /// untouched start screen (B-050).
     var focusExistingRequested: (LeoAgentRow, LeoWindowID?) -> Void = { _, _ in }
     /// Starts an agent through the daemon; the completion says whether the
     /// daemon accepted it (B-049's start prompt).

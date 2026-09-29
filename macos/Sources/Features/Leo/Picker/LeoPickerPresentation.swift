@@ -144,7 +144,7 @@ import SwiftUI
         activeRequest = request
         isAttachInProgress = false
         paletteModel.clearFailure()
-        paletteModel.reusesOpenTabs = request.disposition.reusesOpenTab
+        paletteModel.offersNewWindow = request.disposition.offersNewWindow
         refreshModel()
         Self.logger.log("present requestID=\(request.id.uuidString, privacy: .public) rows=\(self.paletteModel.rows.count) hostState=\(String(describing: self.hostSelection.state), privacy: .public)")
         guard window != nil else {

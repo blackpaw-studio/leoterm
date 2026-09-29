@@ -82,7 +82,7 @@ import Testing
         model.searchSubmit(from: window)
         #expect(attached.map(\.0) == ["apple"])
         #expect(attached.first?.1 == window)
-        #expect(attached.first?.2 == .reuseOrTab)
+        #expect(attached.first?.2 == .content)
     }
 
     @Test func returnOnAStoppedTopRowAsksToStartIt() {
