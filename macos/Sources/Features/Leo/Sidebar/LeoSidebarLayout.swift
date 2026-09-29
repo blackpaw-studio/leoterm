@@ -11,17 +11,21 @@ import Foundation
 enum LeoSidebarLayout {
     static let pinnedSectionID = "pinned"
 
-    /// Last Activity: newest snapshot time first, ties and rows without one
-    /// by name -- unless none of these rows has a time (no snapshot yet, or the
-    /// daemon reports none), when the daemon's order is kept rather than a
-    /// time invented (D-073, D-082).
+    /// Last Activity: active rows first, newest streak first (B-063: busy
+    /// agents hold their places rather than leapfrogging on each snapshot's
+    /// one-second times); then the rest, newest snapshot time first; ties
+    /// and rows without a time by name -- unless none of these rows has a
+    /// time (no snapshot yet, or the daemon reports none), when the daemon's
+    /// order is kept rather than a time invented (D-073, D-082).
     static func sorted(_ rows: [LeoAgentRow], by order: LeoSidebarSortOrder) -> [LeoAgentRow] {
         switch order {
         case .name:
             return rows.sorted(by: nameAscending)
         case .lastActivity:
             guard rows.contains(where: { activityTime($0) != nil }) else { return rows }
-            return rows.sorted { lhs, rhs in newerFirst(activityTime(lhs), activityTime(rhs)) ?? nameAscending(lhs, rhs) }
+            return rows.sorted { lhs, rhs in
+                activeFirst(lhs, rhs) ?? newerFirst(rankTime(lhs), rankTime(rhs)) ?? nameAscending(lhs, rhs)
+            }
         }
     }
 
@@ -29,6 +33,16 @@ enum LeoSidebarLayout {
     /// snapshot attached to this row (D-074, D-075). Never a live
     /// `agent_activity` event, so events alone don't reorder rows.
     static func activityTime(_ row: LeoAgentRow) -> Date? { row.metadata?.lastActiveAt }
+
+    /// Within a tier: an active row's streak start, else its activity time.
+    private static func rankTime(_ row: LeoAgentRow) -> Date? { row.metadata?.activeSince ?? activityTime(row) }
+
+    /// Nil when both rows are in the same tier.
+    private static func activeFirst(_ lhs: LeoAgentRow, _ rhs: LeoAgentRow) -> Bool? {
+        let lhsActive = lhs.metadata?.activeSince != nil
+        let rhsActive = rhs.metadata?.activeSince != nil
+        return lhsActive == rhsActive ? nil : lhsActive
+    }
 
     static func sections(rows: [LeoAgentRow], query: String, preferences: LeoSidebarPreferences, host: LeoHostID) -> [LeoSidebarSection] {
         if isFiltering(query) { return LeoSidebarSectioning.sections(for: filtered(rows, query: query, order: preferences.sortOrder)) }
