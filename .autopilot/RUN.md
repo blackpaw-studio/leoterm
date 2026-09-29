@@ -13,9 +13,10 @@ Untracked-left: /Users/evan/.leo/agents/leoterm/.git/autopilot/lanes/B-057: maco
 Lane: B-057
   Branch: autopilot-lane/B-057
   Base: 126ff4c0ab38a8616ee081a44065cfb45e0681d8
-  State: verifying
-  Fixes: 0
+  State: building
+  Fixes: 1
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-09-29T16:32:00Z
 - Board sync (preflight): B-014: unknown status [deferred]
