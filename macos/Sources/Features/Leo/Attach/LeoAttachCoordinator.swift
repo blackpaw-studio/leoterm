@@ -49,7 +49,8 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     /// Focused row and live attach counts for the sidebar (B-006).
     private(set) var linkState = LeoAttachLinkState.empty
     /// Per identity, ordered least -> most recently focused (or opened), so
-    /// `.last` live handle is the one to bring back.
+    /// `.last` live handle is the one to bring back. Includes handles
+    /// hidden in a window's live pool (B-056): attached until evicted.
     private var handlesByIdentity: [LeoAgentIdentity: [AttachmentHandle]] = [:]
     private var identityByHandle: [AttachmentHandle: LeoAgentIdentity] = [:]
     private var inactive: Set<AttachmentHandle> = []
@@ -125,10 +126,14 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     /// window (B-047, B-055): a content-area, start-screen or new-window
     /// request for an agent already shown brings that surface's window
     /// forward, and an untouched start screen it came from closes.
-    /// Otherwise `.content` replaces what the window's content area shows
-    /// (asking first if that would kill a running shell) and `.window`
-    /// opens a new window; `.split` and a pane placeholder always create
-    /// (tmux allows multiple attached clients). `.newWindow` placement (⌘↩)
+    /// Otherwise `.content` shows the agent in the window's content area
+    /// (asking first if that would kill a running shell): its exited pane
+    /// there is refilled in place, its hidden surface in this window's live
+    /// pool is shown again (B-056), and anything else attaches anew.
+    /// `.window` opens a new window; `.split` and a pane placeholder always
+    /// create (tmux allows multiple attached clients). Attaching anew first
+    /// lets go of the agent's surfaces hidden in any pool, so no hidden
+    /// tmux client is left behind for it. `.newWindow` placement (⌘↩)
     /// sends a content-area or start-screen request to a new window; a
     /// split or pane request goes where it asked.
     func attach(
@@ -142,17 +147,35 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         attachInProgress.insert(identity)
         defer { attachInProgress.remove(identity) }
 
-        let request = placement == .newWindow && request.disposition.offersNewWindow ? request.inNewWindow : request
-        if request.disposition.focusesAgentOnScreen, let handle = focusMostRecent(identity) {
-            discardStartScreen(request.origin, jumpingTo: handle)
+        let placed = placement == .newWindow && request.disposition.offersNewWindow ? request.inNewWindow : request
+        discardDeadHandles(for: identity)
+        if placed.disposition.focusesAgentOnScreen, let handle = focusOnScreen(identity) {
+            discardStartScreen(placed.origin, jumpingTo: handle)
             return .success(handle)
         }
-
+        let request = refillingExitedPane(of: identity, placed)
+        var isConfirmed = false
+        if request.disposition == .content, hiddenHandle(of: identity, in: request.origin) != nil {
+            guard await confirmReplacingContent(for: request) else { return .failure(.init(identity: identity, kind: .cancelled)) }
+            isConfirmed = true
+            if let handle = revealHidden(identity, in: request.origin) { return .success(handle) }
+        }
         let command: String
+        switch attachCommand(for: identity) {
+        case .success(let built): command = built
+        case .failure(let error): return .failure(error)
+        }
+        if !isConfirmed {
+            guard await confirmReplacingContent(for: request) else { return .failure(.init(identity: identity, kind: .cancelled)) }
+        }
+        return attachAnew(identity: identity, command: command, request: request)
+    }
+
+    private func attachCommand(for identity: LeoAgentIdentity) -> Result<String, LeoAttachError> {
         do {
-            command = identity.host == .local
+            return .success(identity.host == .local
                 ? try LeoAttachCommand.build(executable: try executable(), identity: identity)
-                : try remoteCommandBuilder(identity)
+                : try remoteCommandBuilder(identity))
         } catch LeoAttachCommandError.invalidAgentName {
             let attachError = LeoAttachError(identity: identity, kind: .invalidName)
             report(attachError)
@@ -162,27 +185,20 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             report(attachError)
             return .failure(attachError)
         }
+    }
 
-        guard await confirmReplacingContent(for: request) else {
-            return .failure(.init(identity: identity, kind: .cancelled))
-        }
+    private func attachAnew(
+        identity: LeoAgentIdentity,
+        command: String,
+        request: LeoSurfaceRequest
+    ) -> Result<AttachmentHandle, LeoAttachError> {
+        releaseHidden(identity)
         do {
             let workingDirectory = LeoAttachCommand.workingDirectory(identity: identity)
             let handle = try createHandle(command: command, workingDirectory: workingDirectory, request: request)
             handlesByIdentity[identity, default: []].append(handle)
             identityByHandle[handle] = identity
-            // The host may report focus on the new surface before it is
-            // registered here.
-            viewedHandle = host.viewedHandle
-            linkedHandle = host.focusedHandle
-            // Newer than every report yielded so far. A report already in
-            // flight can land after this and set `focusReport` back to its
-            // own, lower number; the fence still orders correctly because
-            // the state published then *is* that older report's, and the
-            // sidebar judges it by that number like any other report.
-            focusReport = host.focusReportCount + 1
-            updateFocusedIdentity()
-            publishLinkState()
+            adoptHostFocus()
             host.setAgentName(handle, name: identity.name)
             return .success(handle)
         } catch {
@@ -190,6 +206,62 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             report(attachError)
             return .failure(attachError)
         }
+    }
+
+    /// The host may report focus on a surface it just showed before this
+    /// knows about it, so read its focus now. That read is newer than every
+    /// report yielded so far. A report already in flight can land after
+    /// this and set `focusReport` back to its own, lower number; the fence
+    /// still orders correctly because the state published then *is* that
+    /// older report's, and the sidebar judges it by that number like any
+    /// other report.
+    private func adoptHostFocus() {
+        viewedHandle = host.viewedHandle
+        linkedHandle = host.focusedHandle
+        focusReport = host.focusReportCount + 1
+        updateFocusedIdentity()
+        publishLinkState()
+    }
+
+    /// B-056: `identity`'s surface hidden in `window`'s live pool, shown
+    /// again: the same surface, so no new tmux client and nothing lost.
+    /// `nil` when it has none there (or the host let it go meanwhile).
+    private func revealHidden(_ identity: LeoAgentIdentity, in window: LeoWindowID) -> AttachmentHandle? {
+        guard let hidden = hiddenHandle(of: identity, in: window) else { return nil }
+        guard host.reveal(hidden) else {
+            remove(hidden)
+            return nil
+        }
+        moveToMostRecent(hidden, identity: identity)
+        adoptHostFocus()
+        return hidden
+    }
+
+    private func hiddenHandle(of identity: LeoAgentIdentity, in window: LeoWindowID) -> AttachmentHandle? {
+        handlesByIdentity[identity]?.last { !inactive.contains($0) && $0.windowID == window && !host.isShown($0) }
+    }
+
+    /// B-056: one tmux client per agent. Its surfaces hidden in any
+    /// window's pool are let go before it attaches anew; the host's
+    /// `.closed` for each then finds nothing left to remove.
+    private func releaseHidden(_ identity: LeoAgentIdentity) {
+        let hidden = (handlesByIdentity[identity] ?? []).filter { !inactive.contains($0) && !host.isShown($0) }
+        for handle in hidden {
+            host.release(handle)
+            remove(handle)
+        }
+    }
+
+    /// After an agent restart its exited pane stays on screen as a
+    /// placeholder. Showing the agent in that window refills the pane in
+    /// place -- the rest of a split stays as it is -- rather than
+    /// replacing the whole content area (B-053, folded into B-056).
+    private func refillingExitedPane(of identity: LeoAgentIdentity, _ request: LeoSurfaceRequest) -> LeoSurfaceRequest {
+        guard request.disposition == .content,
+              let exited = handlesByIdentity[identity]?.last(where: {
+                  inactive.contains($0) && $0.windowID == request.origin && host.isShown($0)
+              }) else { return request }
+        return LeoSurfaceRequest(id: request.id, origin: request.origin, disposition: .placeholder(surfaceID: exited.surfaceID))
     }
 
     /// `request`'s disposition with the default (no attach command) surface
@@ -291,12 +363,14 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         identityByHandle.first { $0.key.surfaceID == surfaceID && !inactive.contains($0.key) }?.value
     }
 
-    /// Brings `identity`'s most recently focused live attachment forward
-    /// instead of opening a duplicate. `false` when it has none. An
+    /// Brings `identity`'s most recently focused attachment on screen
+    /// forward instead of opening a duplicate. `false` when none is on
+    /// screen (one hidden in a live pool isn't: `attach` shows it). An
     /// untouched start screen the request came from then closes (B-050,
     /// D-093).
     @discardableResult func focusExisting(_ identity: LeoAgentIdentity, from origin: LeoWindowID? = nil) -> Bool {
-        guard let handle = focusMostRecent(identity) else { return false }
+        discardDeadHandles(for: identity)
+        guard let handle = focusOnScreen(identity) else { return false }
         if let origin { discardStartScreen(origin, jumpingTo: handle) }
         return true
     }
@@ -308,19 +382,20 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         host.discardEmptyPlaceholder(origin: origin)
     }
 
-    private func focusMostRecent(_ identity: LeoAgentIdentity) -> AttachmentHandle? {
-        discardDeadHandles(for: identity)
+    private func focusOnScreen(_ identity: LeoAgentIdentity) -> AttachmentHandle? {
         defer { publishLinkState() }
-        guard let handle = handlesByIdentity[identity]?.last(where: { !inactive.contains($0) }) else { return nil }
+        guard let handle = handlesByIdentity[identity]?.last(where: { !inactive.contains($0) && host.isShown($0) }) else { return nil }
         host.focus(handle)
         moveToMostRecent(handle, identity: identity)
         return handle
     }
 
     private func publishLinkState() {
+        // Rows count what is on screen: a surface hidden in a live pool
+        // is attached but not shown, so a click shows it (via `attach`).
         let state = LeoAttachLinkState(
             focused: liveIdentity(of: linkedHandle),
-            handlesByIdentity: handlesByIdentity,
+            handlesByIdentity: handlesByIdentity.mapValues { $0.filter(host.isShown) },
             inactive: inactive,
             focusReport: focusReport
         )

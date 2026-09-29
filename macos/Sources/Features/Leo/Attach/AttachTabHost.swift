@@ -38,6 +38,10 @@ extension Notification.Name {
     /// Posted by `Ghostty.SurfaceView` when it gains or loses keyboard focus
     /// (first responder in the key window; object: the surface).
     static let leoSurfaceFocusDidChange = Notification.Name("studio.blackpaw.leo.surfaceFocusDidChange")
+    /// Posted by `Ghostty.App` when a surface's process exits while it is
+    /// in no window -- hidden in a live pool (B-056) -- so Ghostty shows no
+    /// exit message for it (object: the surface).
+    static let leoWindowlessChildExited = Notification.Name("studio.blackpaw.leo.windowlessChildExited")
 }
 
 @MainActor protocol AttachTabHost: AnyObject {
@@ -88,7 +92,19 @@ extension Notification.Name {
     /// Anything else -- a terminal, an editor -- keeps it.
     func discardEmptyPlaceholder(origin: LeoWindowID)
     func focus(_ handle: AttachmentHandle)
+    /// Attached: shown, or hidden in its window's live pool (B-056).
     func isOpen(_ handle: AttachmentHandle) -> Bool
+    /// On screen: in its window's content area (not hidden in its pool).
+    func isShown(_ handle: AttachmentHandle) -> Bool
+    /// B-056: shows the hidden content holding `handle` in its window's
+    /// content area again -- the same surfaces, no new tmux client -- in
+    /// place of what it showed (which is pooled in turn). `false` when
+    /// `handle` isn't hidden in its window's pool.
+    func reveal(_ handle: AttachmentHandle) -> Bool
+    /// B-056: lets go of the hidden content holding `handle`, so its tmux
+    /// clients detach and its handles close. Content on screen is left
+    /// alone.
+    func release(_ handle: AttachmentHandle)
     /// Titles `handle`'s surface -- and so its window, while focused --
     /// after the agent attached in it (B-052), in place of whatever title
     /// the terminal sets.

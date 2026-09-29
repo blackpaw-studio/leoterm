@@ -61,14 +61,65 @@ struct FakeOpenCall {
 
     /// Handles open in each window's content area, by window (B-055).
     private(set) var shownInContent: [LeoWindowID: AttachmentHandle] = [:]
+    /// Each window's live pool (B-056), with the real policy: an agent
+    /// shown (one named by `setAgentName`) is hidden when replaced, and
+    /// the least recently viewed is let go beyond capacity.
+    private(set) var pools: [LeoWindowID: LeoLivePool<AttachmentHandle>] = [:]
+    /// What `reveal` showed again, and what the pool let go (evicted or
+    /// released), in order.
+    private(set) var revealed: [AttachmentHandle] = []
+    private(set) var letGo: [AttachmentHandle] = []
 
-    /// Replaces what `origin` showed: its previous handle closes, as the
-    /// real host's tree observer reports once the surface is gone.
+    /// Replaces what `origin` showed: an agent is hidden in the window's
+    /// pool, anything else closes (as the real host reports once its
+    /// surface is gone).
     func showInContent(command: String, workingDirectory: String?, origin: LeoWindowID, requestID: UUID) throws -> AttachmentHandle {
         contentCalls.append(FakeOpenCall(command: command, workingDirectory: workingDirectory, origin: origin, requestID: requestID))
         let handle = try opened(in: origin)
-        if let displaced = shownInContent.updateValue(handle, forKey: origin) { openHandles.remove(displaced) }
+        show(handle, in: origin, clients: command.isEmpty ? 0 : 1)
         return handle
+    }
+
+    func isShown(_ handle: AttachmentHandle) -> Bool { openHandles.contains(handle) && !isHidden(handle) }
+
+    /// Makes `reveal` answer `false`, as the real host does when it let
+    /// the hidden surface go meanwhile.
+    var refusesReveal = false
+    func reveal(_ handle: AttachmentHandle) -> Bool {
+        guard !refusesReveal, let pool = pools[handle.windowID], case let (remaining, taken?) = pool.taking(where: { $0 == handle }) else { return false }
+        pools[handle.windowID] = remaining
+        revealed.append(taken)
+        show(taken, in: handle.windowID, clients: 1)
+        return true
+    }
+
+    func release(_ handle: AttachmentHandle) {
+        guard let pool = pools[handle.windowID] else { return }
+        let (remaining, removed) = pool.removing { $0 == handle }
+        pools[handle.windowID] = remaining
+        removed.forEach(drop)
+    }
+
+    /// The window's pool holds `handle` hidden.
+    func isHidden(_ handle: AttachmentHandle) -> Bool { pools[handle.windowID]?.entries.contains(handle) ?? false }
+
+    private func show(_ handle: AttachmentHandle, in window: LeoWindowID, clients: Int) {
+        var pool = pools[window] ?? LeoLivePool()
+        if let displaced = shownInContent.updateValue(handle, forKey: window) {
+            if isAgent(displaced) { pool = pool.hiding(displaced) } else { openHandles.remove(displaced) }
+        }
+        let (trimmed, evicted) = pool.trimmed(shownClients: clients) { [openHandles] in openHandles.contains($0) ? 1 : 0 }
+        pools[window] = trimmed
+        evicted.forEach(drop)
+    }
+
+    private func isAgent(_ handle: AttachmentHandle) -> Bool { agentNames.contains { $0.0 == handle } }
+
+    /// Let go by the pool: the surface goes, and the host reports it closed.
+    private func drop(_ handle: AttachmentHandle) {
+        guard openHandles.remove(handle) != nil else { return }
+        letGo.append(handle)
+        emit(.closed(handle))
     }
 
     /// What `confirmReplacingContent` answers, and who asked.

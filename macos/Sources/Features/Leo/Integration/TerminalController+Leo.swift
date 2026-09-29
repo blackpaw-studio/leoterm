@@ -28,8 +28,8 @@ extension TerminalController {
 
     /// B-055: the window's one content area shows `tree` in place of what
     /// it showed; the sidebar, editor and browser panes are the window's
-    /// and stay as they are. Returns the displaced tree, for the caller to
-    /// retire (today) or keep hidden (B-056's pool).
+    /// and stay as they are. Returns the displaced tree, which the caller
+    /// hides in the window's live pool or lets go (B-056).
     ///
     /// Assigned directly, not through `replaceSurfaceTree`: that registers
     /// an undo, and undoing a switch would resurrect surfaces whose tmux

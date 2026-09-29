@@ -16,6 +16,12 @@ import OSLog
     private var reportedViewing: AttachmentHandle?
     private(set) var focusReportCount = 0
     private let appFocusState: @MainActor () -> AppFocusState
+    /// B-056: what each window keeps attached but hidden.
+    private lazy var live = LeoLiveSurfaces(
+        isClient: { [weak self] in self?.isLiveAttach($0) ?? false },
+        letGo: { [weak self] in self?.closeHandles(in: $0) }
+    )
+    private var hiddenExitObservers: [NSObjectProtocol] = []
 
     /// Whether the app is active and which window is key. Injectable so
     /// tests can drive focus reports without the real app being frontmost.
@@ -38,11 +44,13 @@ import OSLog
         self.appFocusState = appFocusState
         (lifecycleEvents, continuation) = AsyncStream.makeStream()
         observeFocus()
+        observeHiddenSurfaceExits()
     }
 
     deinit {
         continuation.finish()
         focusObservers.forEach { NotificationCenter.default.removeObserver($0) }
+        hiddenExitObservers.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
     /// `viewedHandle`, but only while that surface is the window's first
@@ -134,9 +142,34 @@ import OSLog
         }
         let newView = try makeSurface(in: controller, command: command, workingDirectory: workingDirectory, requestID: requestID)
         let displaced = controller.leoReplaceContent(with: SplitTree(view: newView), focusing: newView)
+        let handle = try register(controller, surface: newView, isAttach: !command.isEmpty)
         retire(displaced, from: controller)
         Self.logger.log("showInContent requestID=\(requestID.uuidString, privacy: .public) replaced=\(Array(displaced).count)")
-        return try register(controller, surface: newView)
+        return handle
+    }
+
+    /// B-056: shows the hidden tree holding `handle`'s surface again, in
+    /// place of what its window shows -- the same `Ghostty.SurfaceView`s,
+    /// so no new tmux client, and scrollback, scroll position and
+    /// selection are as they were left. `false` when it isn't hidden (or
+    /// nothing in it is still attached, and it was let go).
+    func reveal(_ handle: AttachmentHandle) -> Bool {
+        guard let attachment = attachments[handle], let controller = attachment.controller,
+              let surface = attachment.surface, controller.window != nil,
+              let tree = live.take(treeHolding: surface, in: handle.windowID) else { return false }
+        let displaced = controller.leoReplaceContent(with: tree, focusing: surface)
+        retire(displaced, from: controller)
+        reportExitedPanes(in: tree)
+        Self.logger.log("reveal window=\(handle.windowID.rawValue.uuidString, privacy: .public) surfaces=\(Array(tree).count)")
+        return true
+    }
+
+    /// B-056: lets go of the hidden tree holding `handle`'s surface; its
+    /// tmux clients detach and its handles close. Shown content is left
+    /// alone.
+    func release(_ handle: AttachmentHandle) {
+        guard let surface = attachments[handle]?.surface else { return }
+        live.release(treeHolding: surface, in: handle.windowID)
     }
 
     func confirmReplacingContent(origin: LeoWindowID) async -> Bool {
@@ -154,14 +187,67 @@ import OSLog
         return response.map { [.alertFirstButtonReturn, .OK].contains($0) } ?? false
     }
 
-    /// What leaves the content area on a switch. B-055 lets it go: once
-    /// the tree is dropped nothing holds its surfaces, so each frees its
-    /// Ghostty surface and pty, and an attach's tmux client detaches
-    /// (`register`'s tree observer then reports its handle `.closed`).
-    /// B-056's pool keeps the most recent ones here instead. Exited attach
-    /// panes stop counting as placeholders.
+    /// What leaves the content area on a switch goes into the window's
+    /// live pool (B-056), and whatever no longer fits -- or holds no live
+    /// attach, like a plain shell -- is let go: nothing holds its surfaces
+    /// then, so each frees its Ghostty surface and pty, an attach's tmux
+    /// client detaches, and its handle is reported `.closed`. Hidden
+    /// exited panes stop counting as placeholders (`reveal` reports them
+    /// again).
     private func retire(_ displaced: SplitTree<Ghostty.SurfaceView>, from controller: TerminalController) {
         displaced.forEach { controller.leoSession?.fillPlaceholder(surfaceID: $0.id) }
+        guard let window = controller.leoSession?.id else { return }
+        live.hide(displaced, in: window, showing: controller.surfaceTree)
+    }
+
+    /// A new attach in `controller`'s content area may leave its window
+    /// over capacity; the least recently viewed hidden trees go.
+    private func trimLivePool(of controller: TerminalController) {
+        guard let window = controller.leoSession?.id else { return }
+        live.trim(window, showing: controller.surfaceTree)
+    }
+
+    /// A pane that exited while hidden got no child-exited message (Ghostty
+    /// shows none off screen), and one that exited while shown lost its
+    /// placeholder when hidden: either way it is reported again now.
+    private func reportExitedPanes(in tree: SplitTree<Ghostty.SurfaceView>) {
+        for (handle, attachment) in attachments where attachment.isAttach {
+            guard let surface = attachment.surface, tree.contains(where: { $0 === surface }), surface.processExited else { continue }
+            continuation.yield(.processExited(handle))
+        }
+    }
+
+    /// A tmux client: a live attach surface (not a plain shell, not exited).
+    private func isLiveAttach(_ surface: Ghostty.SurfaceView) -> Bool {
+        !surface.processExited && attachments.values.contains { $0.isAttach && $0.surface === surface }
+    }
+
+    /// The handles of every surface in `tree` (which the pool let go) close.
+    private func closeHandles(in tree: SplitTree<Ghostty.SurfaceView>) {
+        let handles = attachments.filter { entry in tree.contains { $0 === entry.value.surface } }.keys
+        handles.forEach(close)
+    }
+
+    /// A hidden surface's process ending reaches no controller: Ghostty
+    /// shows no exit message off screen (Leo posts
+    /// `.leoWindowlessChildExited` instead), and a close request (when
+    /// Ghostty closes on exit) names a surface in no tree. The pool takes
+    /// both -- on the next turn: both arrive from inside libghostty's
+    /// handling of that very surface, which must not be freed under it.
+    private func observeHiddenSurfaceExits() {
+        let center = NotificationCenter.default
+        hiddenExitObservers = [
+            center.addObserver(forName: Ghostty.Notification.ghosttyCloseSurface, object: nil, queue: .main) { [weak self] notification in
+                guard let surface = notification.object as? Ghostty.SurfaceView else { return }
+                DispatchQueue.main.async { [weak surface] in
+                    guard let surface else { return }
+                    _ = self?.live.surfaceClosed(surface)
+                }
+            },
+            center.addObserver(forName: .leoWindowlessChildExited, object: nil, queue: .main) { [weak self] _ in
+                DispatchQueue.main.async { self?.live.dropDead() }
+            },
+        ]
     }
 
     private func makeSurface(
@@ -186,7 +272,7 @@ import OSLog
             withBaseConfig: configuration(command: command, workingDirectory: workingDirectory, requestID: requestID)
         )
         guard let surface = controller.surfaceTree.first else { throw GhosttyAttachTabHostError.surfaceUnavailable }
-        return try register(controller, surface: surface)
+        return try register(controller, surface: surface, isAttach: !command.isEmpty)
     }
 
     /// Always creates a new split off `sourceSurface`, even if that surface
@@ -211,7 +297,8 @@ import OSLog
                 direction: leoSplitTreeDirection(for: direction),
                 baseConfig: configuration(command: command, workingDirectory: workingDirectory, requestID: requestID)
             ) else { throw GhosttyAttachTabHostError.cannotOpenSplit }
-            let handle = try register(controller, surface: newView)
+            let handle = try register(controller, surface: newView, isAttach: !command.isEmpty)
+            trimLivePool(of: controller)
             Self.logger.log("openSplit requestID=\(requestID.uuidString, privacy: .public) result=success")
             return handle
         } catch {
@@ -279,7 +366,8 @@ import OSLog
             controller.leoRegisterFilledPlaceholderUndo()
             }
 
-            let handle = try register(controller, surface: newView)
+            let handle = try register(controller, surface: newView, isAttach: !command.isEmpty)
+            trimLivePool(of: controller)
             Self.logger.log("fillPlaceholder requestID=\(requestID.uuidString, privacy: .public) result=success")
             return handle
         } catch {
@@ -331,9 +419,22 @@ import OSLog
         )
     }
 
+    /// Shown, or hidden in its window's live pool (B-056): either way its
+    /// tmux client is attached.
     func isOpen(_ handle: AttachmentHandle) -> Bool {
-        guard let attachment = attachments[handle], let controller = attachment.controller, let surface = attachment.surface else { return false }
-        return controller.window != nil && controller.surfaceTree.contains(surface)
+        guard let (controller, surface) = liveSurface(handle) else { return false }
+        return controller.surfaceTree.contains(surface) || live.contains(surface, in: handle.windowID)
+    }
+
+    func isShown(_ handle: AttachmentHandle) -> Bool {
+        guard let (controller, surface) = liveSurface(handle) else { return false }
+        return controller.surfaceTree.contains(surface)
+    }
+
+    private func liveSurface(_ handle: AttachmentHandle) -> (TerminalController, Ghostty.SurfaceView)? {
+        guard let attachment = attachments[handle], let controller = attachment.controller,
+              let surface = attachment.surface, controller.window != nil else { return nil }
+        return (controller, surface)
     }
 
     /// Titles `handle`'s surface after its agent (B-052). The name stays on
@@ -367,12 +468,12 @@ import OSLog
     /// split, the controller may already own other surfaces, and focus can
     /// lag the insertion by a runloop turn, so either fallback can resolve
     /// to the wrong (pre-existing) surface.
-    private func register(_ controller: TerminalController, surface: Ghostty.SurfaceView) throws -> AttachmentHandle {
+    private func register(_ controller: TerminalController, surface: Ghostty.SurfaceView, isAttach: Bool) throws -> AttachmentHandle {
         guard let session = controller.leoSession, controller.surfaceTree.contains(surface) else {
             throw GhosttyAttachTabHostError.surfaceUnavailable
         }
         let handle = AttachmentHandle(surfaceID: surface.id, windowID: session.id)
-        let attachment = Attachment(controller: controller, surface: surface)
+        let attachment = Attachment(controller: controller, surface: surface, isAttach: isAttach)
         attachments[handle] = attachment
 
         controller.$surfaceTree
@@ -392,7 +493,7 @@ import OSLog
                 forName: NSWindow.willCloseNotification,
                 object: window,
                 queue: .main
-            ) { [weak self] _ in MainActor.assumeIsolated { self?.close(handle) } }
+            ) { [weak self] _ in MainActor.assumeIsolated { self?.windowWillClose(handle) } }
         }
         // Focus may already be on the new surface (no later notification).
         DispatchQueue.main.async { [weak self] in self?.reportFocus() }
@@ -402,6 +503,12 @@ import OSLog
     private func reconcile(_ handle: AttachmentHandle) {
         guard !isOpen(handle) else { return }
         close(handle)
+    }
+
+    /// Hidden trees go with their window: no tmux client outlives it.
+    private func windowWillClose(_ handle: AttachmentHandle) {
+        close(handle)
+        live.releaseAll(in: handle.windowID)
     }
 
     private func close(_ handle: AttachmentHandle) {
@@ -431,12 +538,15 @@ private enum GhosttyAttachTabHostError: Error, LocalizedError {
 @MainActor private final class Attachment {
     weak var controller: TerminalController?
     weak var surface: Ghostty.SurfaceView?
+    /// An agent attach (a tmux client), not a plain shell.
+    let isAttach: Bool
     var cancellables: Set<AnyCancellable> = []
     var closeObserver: NSObjectProtocol?
 
-    init(controller: TerminalController, surface: Ghostty.SurfaceView) {
+    init(controller: TerminalController, surface: Ghostty.SurfaceView, isAttach: Bool) {
         self.controller = controller
         self.surface = surface
+        self.isAttach = isAttach
     }
 
     deinit {
