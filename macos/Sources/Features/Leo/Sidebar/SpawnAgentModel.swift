@@ -7,18 +7,22 @@ import Foundation
     @Published var name = ""
     @Published var branch = ""
     @Published var prompt = ""
-    @Published private(set) var templates: [LeoTemplate] = []
+    /// The selected host's list, mirrored from `LeoAgentActions
+    /// .templateList` (B-054): never fetched here, so the sheet offers
+    /// exactly what a row's Set Template submenu does, for the same host.
+    @Published private(set) var templateList: LeoTemplateListState = .loading
     @Published private(set) var error: String?
     @Published private(set) var isSpawning = false
-    private let cli: LeoCLI
 
-    init(cli: LeoCLI) { self.cli = cli }
-    func loadTemplates() async {
-        do {
-            templates = try await cli.templateList()
-        } catch {
-            self.error = error.localizedDescription
-        }
+    init(templateList: AnyPublisher<LeoTemplateListState, Never>) {
+        templateList.assign(to: &$templateList)
+    }
+
+    var templates: [LeoTemplate] { templateList.templates }
+
+    var templateError: String? {
+        if case .failed(let message) = templateList { return "Templates unavailable: \(message)" }
+        return nil
     }
     var validationError: String? {
         if !template.isEmpty, !templates.contains(where: { $0.name == template }) {

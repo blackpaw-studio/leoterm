@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import Testing
 @testable import Ghostty
@@ -75,7 +76,7 @@ import Testing
         let daemon = ActionDaemon(suspendSpawn: true)
         let sidebar = LeoSidebarModel()
         let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: sidebar, hostSelection: .isolatedForTesting(), refresh: {})
-        let model = SpawnAgentModel(cli: testCLI())
+        let model = SpawnAgentModel(templateList: actions.$templateList.eraseToAnyPublisher())
         let request = LeoSpawnRequest(template: "default", repo: "", name: nil, branch: nil, prompt: nil)
 
         model.spawn(request, actions: actions, attach: { _, _ in }, dismiss: {})
@@ -91,7 +92,7 @@ import Testing
         let daemon = ActionDaemon()
         let sidebar = LeoSidebarModel()
         let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: sidebar, hostSelection: .isolatedForTesting(), refresh: {})
-        let model = SpawnAgentModel(cli: testCLI())
+        let model = SpawnAgentModel(templateList: actions.$templateList.eraseToAnyPublisher())
         var attached: LeoAgentRow?
         sidebar.attachRequested = { row, _, _ in attached = row }
 

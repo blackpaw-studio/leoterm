@@ -1,3 +1,4 @@
+import Combine
 import AppKit
 import SwiftUI
 
@@ -13,7 +14,7 @@ struct SpawnAgentSheet: View {
     init(model: LeoSidebarModel, actions: LeoAgentActions, attach: @escaping (LeoAgentRow, AttachDisposition) -> Void,
          chooseDirectory: @escaping () -> String? = SpawnAgentSheet.openPanel) {
         sidebar = model; self.actions = actions; self.attach = attach
-        _model = StateObject(wrappedValue: SpawnAgentModel(cli: actions.cliForSpawn))
+        _model = StateObject(wrappedValue: SpawnAgentModel(templateList: actions.$templateList.eraseToAnyPublisher()))
         self.chooseDirectory = chooseDirectory
     }
     var body: some View {
@@ -28,10 +29,9 @@ struct SpawnAgentSheet: View {
             TextField("Name", text: $model.name)
             TextField("Branch", text: $model.branch)
             TextEditor(text: $model.prompt).frame(minHeight: 80)
-            if let error = model.error ?? model.validationError { Text(error).foregroundStyle(.red) }
+            if let error = model.error ?? model.templateError ?? model.validationError { Text(error).foregroundStyle(.red) }
         }
         .padding().frame(width: 440)
-        .task { await model.loadTemplates() }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
             ToolbarItem(placement: .confirmationAction) { Button("Create") { spawn() }.disabled(model.validationError != nil || model.isSpawning) }
