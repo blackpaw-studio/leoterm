@@ -248,6 +248,36 @@ import Testing
         fixture.events.task?.cancel()
     }
 
+    /// B-057: a terminal row closing while its shell is hidden takes the
+    /// shell's tree out of the keep and lets it go, once. `LeoLiveSurfaces`
+    /// on its own, so what it lets go is counted directly.
+    @Test func discardingAKeptTreeLetsItGo() throws {
+        let app = try #require(Self.ghostty?.app, "these tests need the app's Ghostty.App")
+        let window = LeoWindowID()
+        let letGo = LetGoLog()
+        let shell = Ghostty.SurfaceView(app, baseConfig: nil)
+        let live = LeoLiveSurfaces(
+            isAgent: { _ in false },
+            isTerminalRow: { [weak shell] in $0 === shell },
+            isClient: { _ in false },
+            letGo: { letGo.trees.append(Array($0)) }
+        )
+        live.hide(SplitTree(view: shell), in: window, showing: SplitTree())
+        try #require(live.keptSurfaces(in: window).map(\.id) == [shell.id])
+
+        #expect(live.discardKept(treeHolding: shell, in: window))
+
+        #expect(live.hiddenSurfaces(in: window).isEmpty)
+        #expect(!live.contains(shell, in: window))
+        #expect(letGo.trees.map { $0.map(\.id) } == [[shell.id]], "let go once")
+        #expect(!live.discardKept(treeHolding: shell, in: window), "nothing left to discard")
+        #expect(letGo.trees.count == 1)
+    }
+
+    @MainActor private final class LetGoLog {
+        var trees: [[Ghostty.SurfaceView]] = []
+    }
+
     @Test func aHiddenSurfaceWhoseProcessEndsIsLetGo() async throws {
         let fixture = try makeFixture()
         defer { close(fixture) }

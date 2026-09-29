@@ -371,8 +371,9 @@ import Testing
         #expect(fixture.shown().map(\.id) == [other.surfaceID])
         #expect(fixture.terminals.selection == other.surfaceID)
         #expect(!fixture.host.isOpen(closing))
+        #expect(await eventually { fixture.events.events.contains(.closed(closing)) })
         try? await Task.sleep(for: .milliseconds(100))
-        #expect(fixture.events.events.filter { $0 == .closed(closing) }.count == 1)
+        #expect(fixture.events.events.filter { $0 == .closed(closing) }.count == 1, "closed once")
         #expect(!fixture.closes.windowClosed)
     }
 

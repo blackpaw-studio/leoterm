@@ -299,12 +299,16 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         adoptHostFocus()
     }
 
-    /// B-057: the shown terminal row `handle` closed (⌘W once Ghostty's
-    /// confirm is answered, or `exit`): the host shows its neighbour, or
-    /// the start screen.
+    /// B-057: the terminal row `handle` closed (⌘W once Ghostty's confirm
+    /// is answered, or `exit`). Shown, the host shows its neighbour, or the
+    /// start screen, in its place. Hidden -- a reveal got there first --
+    /// the host lets it go and nothing on screen changes, so a request
+    /// asking meanwhile isn't superseded and focus stays where it was.
     func closeTerminal(_ handle: AttachmentHandle) {
-        guard host.isShown(handle) else { return }
+        guard host.isOpen(handle) else { return }
+        let wasShown = host.isShown(handle)
         host.closeTerminal(handle)
+        guard wasShown else { return }
         contentReplaced(in: handle.windowID)
         adoptHostFocus()
     }

@@ -123,6 +123,19 @@ import GhosttyKit
         return trees[index]
     }
 
+    /// A terminal row closed while its shell was hidden (B-057): the tree
+    /// kept for it is taken out and let go -- the whole tree, as closing a
+    /// shown row lets go of all its window showed. (A kept tree is one
+    /// row's shell until B-058 gives rows their splits.) `false` when
+    /// nothing in `window`'s keep holds `surface`: already let go, or
+    /// never kept.
+    @discardableResult
+    func discardKept(treeHolding surface: Ghostty.SurfaceView, in window: LeoWindowID) -> Bool {
+        guard let tree = takeKept(treeHolding: surface, in: window) else { return false }
+        letGo(tree)
+        return true
+    }
+
     /// Lets go of the hidden tree holding `surface` (the agent is wanted
     /// elsewhere: one tmux client per agent).
     func release(treeHolding surface: Ghostty.SurfaceView, in window: LeoWindowID) {

@@ -114,8 +114,18 @@ struct FakeOpenCall {
         removed.forEach(drop)
     }
 
+    /// Every `closeTerminal` call. As the real host does, a shown or
+    /// hidden row's shell is let go (the window then shows nothing here,
+    /// rather than a neighbour) and reported closed; a gone one is left be.
     var closedTerminals: [AttachmentHandle] = []
-    func closeTerminal(_ handle: AttachmentHandle) { closedTerminals.append(handle) }
+    func closeTerminal(_ handle: AttachmentHandle) {
+        closedTerminals.append(handle)
+        keptShells[handle.windowID]?.removeAll { $0 == handle }
+        if shownInContent[handle.windowID] == handle { shownInContent[handle.windowID] = nil }
+        terminalRows.remove(handle)
+        guard openHandles.remove(handle) != nil else { return }
+        emit(.closed(handle))
+    }
 
     /// The window's pool holds `handle` hidden.
     func isHidden(_ handle: AttachmentHandle) -> Bool {

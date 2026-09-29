@@ -178,14 +178,27 @@ import OSLog
         live.release(treeHolding: surface, in: handle.windowID)
     }
 
-    /// B-057: the shown terminal row's shell closed (⌘W, `exit`). The
-    /// neighbouring row's hidden shell takes its place -- the same surface
-    /// -- or, with none (or none left alive), the start screen does; the
-    /// window stays. What closed is let go at once: its surfaces free their
-    /// ptys, and its handles (so its row) close.
+    /// B-057: a terminal row's shell closed (⌘W, `exit`) -- whether it is
+    /// still on screen or not: its close lands a turn late, or once a
+    /// confirm is answered, so a reveal may have hidden it meanwhile.
+    /// Shown, its neighbour takes its place; hidden, it is let go from the
+    /// keep and nothing on screen changes; already gone (Ghostty's close
+    /// observer got there first), nothing happens. Any order of the two
+    /// ends the same.
     func closeTerminal(_ handle: AttachmentHandle) {
-        guard let (controller, surface) = liveSurface(handle), controller.surfaceTree.contains(surface),
-              let terminals = controller.leoSession?.terminals else { return }
+        guard let (controller, surface) = liveSurface(handle) else { return }
+        if controller.surfaceTree.contains(surface) { return closeShownTerminal(handle, in: controller) }
+        guard live.discardKept(treeHolding: surface, in: handle.windowID) else { return }
+        Self.logger.log("closeTerminal window=\(handle.windowID.rawValue.uuidString, privacy: .public) hidden=true")
+    }
+
+    /// The shown row's shell closed. The neighbouring row's hidden shell
+    /// takes its place -- the same surface -- or, with none (or none left
+    /// alive), the start screen does; the window stays. What closed is let
+    /// go at once: its surfaces free their ptys, and its handles (so its
+    /// row) close.
+    private func closeShownTerminal(_ handle: AttachmentHandle, in controller: TerminalController) {
+        guard let terminals = controller.leoSession?.terminals else { return }
         let closing = controller.surfaceTree
         if let (tree, focus) = neighbourTree(of: handle, in: terminals) {
             controller.leoReplaceContent(with: tree, focusing: focus)

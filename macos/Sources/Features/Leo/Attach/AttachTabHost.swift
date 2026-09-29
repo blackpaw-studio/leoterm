@@ -105,10 +105,11 @@ extension Notification.Name {
     /// clients detach and its handles close. Content on screen is left
     /// alone.
     func release(_ handle: AttachmentHandle)
-    /// B-057: closes the shown terminal row `handle` (its shell went:
-    /// ⌘W, or `exit`). Its window shows the neighbouring terminal row
-    /// instead -- the same hidden surface -- or, with none, the start
-    /// screen; the window stays.
+    /// B-057: closes the terminal row `handle` (its shell went: ⌘W, or
+    /// `exit`), shown or hidden. Shown, its window shows the neighbouring
+    /// terminal row instead -- the same hidden surface -- or, with none,
+    /// the start screen; the window stays. Hidden, its shell is let go and
+    /// what the window shows is untouched. Already closed, nothing happens.
     func closeTerminal(_ handle: AttachmentHandle)
     /// Titles `handle`'s surface -- and so its window, while focused --
     /// after the agent attached in it (B-052), in place of whatever title
