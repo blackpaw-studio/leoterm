@@ -8,8 +8,8 @@ import GhosttyKit
 /// B-057 (D-111): beside the pool, each window keeps its terminal rows'
 /// hidden shells for as long as their rows live -- never evicted, never
 /// counted against the pool's tmux clients. Only closing the shell (or its
-/// window) ends one, or its process ending: a kept shell is never shown
-/// again once it has exited.
+/// window) ends one, or its process ending: a shell that has exited is
+/// never kept, nor shown again.
 ///
 /// Hidden surfaces stay attached -- the tmux client, scrollback, scroll
 /// position and selection all live on -- but off the view hierarchy they
@@ -73,7 +73,9 @@ import GhosttyKit
 
     /// `displaced` just left `window`'s content area for `shown`. All
     /// agents: hidden in the pool as the most recently viewed entry. A
-    /// terminal row's shell alone: kept for the row. Anything else -- a
+    /// terminal row's shell alone: kept for the row -- unless it has
+    /// already ended (Ghostty waiting for a key), when there is nothing to
+    /// come back to and it is let go with its row. Anything else -- a
     /// plain shell beside an agent or a row -- is let go straight away
     /// (D-106 asked before closing a busy one): no hidden tree holds a
     /// shell for a later eviction or close to kill silently. Then the pool
@@ -83,6 +85,8 @@ import GhosttyKit
         case .pool:
             displaced.forEach(Self.stopDrawing)
             pools[window] = pool(of: window).hiding(displaced)
+        case .keep where holdsExitedShell(displaced):
+            letGo(displaced)
         case .keep:
             displaced.forEach(Self.stopDrawing)
             kept[window, default: []].append(displaced)
