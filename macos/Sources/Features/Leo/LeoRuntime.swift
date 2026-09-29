@@ -24,6 +24,9 @@ import OSLog
     private let cli: LeoCLI
     private let defaults: UserDefaults
     let attachCoordinator: LeoAttachCoordinator
+    /// The Ghostty side of attaching, for what only it can answer (hidden
+    /// shells' processes, B-057).
+    private let attachHost: GhosttyAttachTabHost
     let newSurfaceRouter: LeoNewSurfaceRouter
     private let picker: LeoWindowPickerRouter
     private let requestConfigStore: LeoRequestConfigStore
@@ -104,6 +107,7 @@ import OSLog
         let requestConfigStore = LeoRequestConfigStore()
         self.requestConfigStore = requestConfigStore
         let host = GhosttyAttachTabHost(registry: registry, requestConfigStore: requestConfigStore)
+        attachHost = host
         let hostSelection = LeoHostSelection(
             store: LeoHostStore(defaults: defaults),
             defaults: defaults,
@@ -328,6 +332,7 @@ import OSLog
             self.openPicker(windowID: sessionID, surfaceID: surfaceID)
         }
         session.onWindowWillClose = { [weak self] in self?.teardownWindow(sessionID) }
+        wireTerminals(session.terminals, window: sessionID)
         if let window = controller.window {
             let presentation = LeoPickerPresentation(
                 window: window,
@@ -349,6 +354,34 @@ import OSLog
         }
         #endif
         return session
+    }
+
+    /// B-057: a window's terminal rows show, close and count their hidden
+    /// shells through the coordinator and host.
+    private func wireTerminals(_ terminals: LeoWindowTerminals, window: LeoWindowID) {
+        terminals.showRequested = { [weak attachCoordinator] id in
+            Task { await attachCoordinator?.showTerminal(AttachmentHandle(surfaceID: id, windowID: window)) }
+        }
+        terminals.closeRequested = { [weak attachCoordinator] id in
+            attachCoordinator?.closeTerminal(AttachmentHandle(surfaceID: id, windowID: window))
+        }
+        terminals.hasBusyHiddenShell = { [weak attachHost] in attachHost?.hiddenTerminalsNeedConfirmQuit(in: window) ?? false }
+    }
+
+    /// B-057: ⌘T and File ▸ New Terminal. A new shell row in `origin`,
+    /// shown in its content area (filling a start screen) and selected.
+    /// `inheritedConfig` is the triggering terminal's, as for any new
+    /// surface (see `routeNewSurface`).
+    func newTerminal(origin: LeoWindowID, inheritedConfig: Ghostty.SurfaceConfiguration? = nil) {
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
+        requestConfigStore.set(inheritedConfig, for: request.id)
+        Self.logger.log("newTerminal origin=\(origin.rawValue.uuidString, privacy: .public)")
+        Task { [weak self] in
+            guard let self else { return }
+            let result = await attachCoordinator.openPlainShell(request: request)
+            requestConfigStore.drop(for: request.id)
+            if case .failure(let error) = result, !error.isCancellation { model.setPanelError(error.message) }
+        }
     }
 
     func makeWindowSession() -> LeoWindowSession {

@@ -16,6 +16,10 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     /// empty-tree-closes-window guard below -- only the former should skip
     /// the close; the latter must close exactly like upstream always has.
     private(set) var leoIsUnfilledPlaceholder = false
+    /// B-057: whether the window has ever shown a terminal. A start screen
+    /// its last terminal row left behind isn't a new window: filling it
+    /// again keeps the window's size and undo, and never discards it.
+    private(set) var leoHasShownContent = false
 
     /// Intercepts the `new_split` core action: if this window has a Leo
     /// session and a non-empty tree, the split is routed to the agent
@@ -99,6 +103,23 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         return c
     }
 
+    /// The window shows a terminal again (B-057): an empty tree from here
+    /// on closes it as usual.
+    func leoMarkFilled() {
+        leoIsUnfilledPlaceholder = false
+        leoHasShownContent = true
+    }
+
+    /// B-057: the window's last terminal row closed. The window keeps its
+    /// sidebar and panes and shows the start screen, as a new one does.
+    func leoShowStartScreen() {
+        leoIsUnfilledPlaceholder = true
+        surfaceTree = .init()
+        // As `TerminalView` would if it reported a nil focus: the closed
+        // shell's title goes with it.
+        focusedSurfaceDidChange(to: nil)
+    }
+
     /// Registers a minimal undo action for a just-created empty placeholder
     /// window: undo just closes it, guarded to no-op if it was since
     /// filled (in which case `leoRegisterFilledPlaceholderUndo` has already
@@ -121,7 +142,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     /// so a filled placeholder undoes/redoes exactly like a normal window
     /// from here on, and redo can never reopen it empty.
     func leoRegisterFilledPlaceholderUndo() {
-        leoIsUnfilledPlaceholder = false
+        leoMarkFilled()
         guard let undoManager else { return }
         let tree = surfaceTree
         let ghostty = self.ghostty
@@ -278,6 +299,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         // would be too late -- that very first `surfaceTreeDidChange` call
         // already happened by then.
         self.leoIsUnfilledPlaceholder = leoIsPlaceholder
+        self.leoHasShownContent = !leoIsPlaceholder
 
         super.init(ghostty, baseConfig: base, surfaceTree: tree)
 
@@ -897,6 +919,9 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
             return
         }
 
+        // MARK: Leo -- a terminal row closes, not its window (B-057).
+        if leoCloseTerminalRow(node, withConfirmation: withConfirmation) { return }
+
         // More than 1 window means we have tabs and we're closing a tab
         if window?.tabGroup?.windows.count ?? 0 > 1 {
             if withConfirmation {
@@ -1185,11 +1210,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         // The window we use for confirmations. Try to find the first window that
         // needs quit confirmation. This lets us attach the confirmation to something
         // that is running.
-        guard let confirmWindow = all
-            .first(where: { $0.surfaceTree.contains(where: { $0.needsConfirmQuit }) })?
-            .surfaceTree.first(where: { $0.needsConfirmQuit })?
-            .window
-        else {
+        // MARK: Leo -- hidden terminal rows' shells count (B-057).
+        guard let confirmWindow = all.first(where: \.leoNeedsConfirmClose)?.window else {
             closeAllWindowsImmediately()
             return
         }
@@ -1459,6 +1481,12 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         return false
     }
 
+    // MARK: Leo -- quitting asks about a busy shell kept hidden for a
+    // terminal row, as closing the window does (B-057).
+    override func windowCanBeClosedWithoutConfirmation() -> Bool {
+        super.windowCanBeClosedWithoutConfirmation() && leoSession?.terminals.hasBusyHiddenShell() != true
+    }
+
     override func windowWillClose(_ notification: Notification) {
         super.windowWillClose(notification)
         cancelPendingInitialPresentation()
@@ -1552,9 +1580,9 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     }
 
     @IBAction func newTab(_ sender: Any?) {
-        // MARK: Leo
+        // MARK: Leo -- ⌘T on the start screen is a new terminal row too (B-057).
         if let leoSession, surfaceTree.isEmpty {
-            (NSApp.delegate as? AppDelegate)?.leoRuntime.routeNewSurface(.placeholder, origin: leoSession.id)
+            (NSApp.delegate as? AppDelegate)?.leoRuntime.newTerminal(origin: leoSession.id)
             return
         }
         guard let surface = focusedSurface?.surface else { return }
@@ -1576,7 +1604,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
             return
         }
 
-        guard surfaceTree.contains(where: { $0.needsConfirmQuit }) else {
+        // MARK: Leo -- hidden terminal rows' shells count (B-057).
+        guard Self.leoAnyNeedsConfirmClose([window]) else {
             closeTabImmediately()
             return
         }
@@ -1599,18 +1628,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         if Self.leoDeferClose(of: tabGroup.windows.filter { $0 != window }, retry: { [weak self] in self?.closeOtherTabs(sender) }) { return }
 
         // Check if we have to confirm close.
-        guard tabGroup.windows.contains(where: { window in
-            // Ignore ourself
-            if window == self.window { return false }
-
-            // Ignore non-terminals
-            guard let controller = window.windowController as? TerminalController else {
-                return false
-            }
-
-            // Check if any surfaces require confirmation
-            return controller.surfaceTree.contains(where: { $0.needsConfirmQuit })
-        }) else {
+        // MARK: Leo -- hidden terminal rows' shells count (B-057).
+        guard Self.leoAnyNeedsConfirmClose(tabGroup.windows.filter { $0 != window }) else {
             self.closeOtherTabsImmediately()
             return
         }
@@ -1633,15 +1652,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         // Leo: unsaved editor edits in those tabs are asked about first.
         if Self.leoDeferClose(of: tabsToClose.map(\.element), retry: { [weak self] in self?.closeTabsOnTheRight(sender) }) { return }
 
-        let needsConfirm = tabsToClose.contains { (_, candidate) in
-            guard let controller = candidate.windowController as? TerminalController else {
-                return false
-            }
-
-            return controller.surfaceTree.contains(where: { $0.needsConfirmQuit })
-        }
-
-        if !needsConfirm {
+        // MARK: Leo -- hidden terminal rows' shells count (B-057).
+        if !Self.leoAnyNeedsConfirmClose(tabsToClose.map(\.element)) {
             self.closeTabsOnTheRightImmediately()
             return
         }
@@ -1669,7 +1681,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         let windows: [NSWindow] = window.tabGroup?.windows ?? [window]
         let confirmControllers = windows
             .compactMap({ $0.windowController as? TerminalController })
-            .filter({ $0.surfaceTree.contains(where: { $0.needsConfirmQuit }) })
+            // MARK: Leo -- hidden terminal rows' shells count (B-057).
+            .filter(\.leoNeedsConfirmClose)
         guard
             !confirmControllers.isEmpty
         else {

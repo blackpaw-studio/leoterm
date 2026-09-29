@@ -285,6 +285,37 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         }
     }
 
+    /// B-057 (D-111): a terminal row clicked (or Return) shows its shell in
+    /// its window's content area: the same surface, hidden since it was
+    /// switched away from. Already shown, it is focused. Like any row,
+    /// replacing what the window shows asks first when that would close a
+    /// busy shell (and a newer request replacing it meanwhile wins, D-110).
+    /// The row was selected when clicked: when it isn't shown after all
+    /// (the confirm cancelled, its shell let go or closed meanwhile), the
+    /// sidebar selects what the window does show again.
+    func showTerminal(_ handle: AttachmentHandle) async {
+        guard host.isOpen(handle) else { return host.selectShownTerminal(in: handle.windowID) }
+        if host.isShown(handle) { return host.focus(handle) }
+        guard await confirmReplacingContent(for: LeoSurfaceRequest(origin: handle.windowID, disposition: .content)),
+              host.reveal(handle) else { return host.selectShownTerminal(in: handle.windowID) }
+        contentReplaced(in: handle.windowID)
+        adoptHostFocus()
+    }
+
+    /// B-057: the terminal row `handle` closed (⌘W once Ghostty's confirm
+    /// is answered, or `exit`). Shown, the host shows its neighbour, or the
+    /// start screen, in its place. Hidden -- a reveal got there first --
+    /// the host lets it go and nothing on screen changes, so a request
+    /// asking meanwhile isn't superseded and focus stays where it was.
+    func closeTerminal(_ handle: AttachmentHandle) {
+        guard host.isOpen(handle) else { return }
+        let wasShown = host.isShown(handle)
+        host.closeTerminal(handle)
+        guard wasShown else { return }
+        contentReplaced(in: handle.windowID)
+        adoptHostFocus()
+    }
+
     /// Sentinel identity attached to plain-shell errors. Plain shells carry
     /// no agent identity; only `message`/`kind` are meaningful to callers.
     private static let plainShellIdentity = LeoAgentIdentity(host: .local, name: "")

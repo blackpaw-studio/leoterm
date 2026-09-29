@@ -55,6 +55,8 @@ struct LeoWindowVisibilityState: Equatable {
     /// edge; it opens files in `editor`.
     let browser: LeoWorkspaceBrowserModel
     weak var browserPane: LeoWorkspaceBrowserViewController?
+    /// The window's plain shells, its sidebar's Terminals section (B-057).
+    let terminals = LeoWindowTerminals()
 
     /// Whether showing the sidebar now would take the terminal under its
     /// floor beside a side pane (D-058, D-059).

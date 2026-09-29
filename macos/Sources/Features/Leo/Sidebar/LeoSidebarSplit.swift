@@ -178,7 +178,10 @@ struct LeoSidebarSplit<Terminal: View>: View {
             isSidebarVisible: session.isSidebarVisible,
             preferredWidth: session.preferredWidth,
             onDividerWidthChange: { session.setPreferredWidth($0) },
-            sidebar: LeoSidebarView(model: model, windowID: session.id, actions: actions, searchFocusRequest: session.searchFocusRequest),
+            sidebar: LeoSidebarView(
+                model: model, windowID: session.id, actions: actions, terminals: session.terminals,
+                searchFocusRequest: session.searchFocusRequest
+            ),
             detail: terminal,
             editor: session.editor,
             browser: session.browser,

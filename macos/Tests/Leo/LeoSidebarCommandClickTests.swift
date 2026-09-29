@@ -127,7 +127,7 @@ struct LeoSidebarCommandClickTests {
             hostSelection: .isolatedForTesting(), refresh: {})
         window = Self.makeWindow(at: NSPoint(x: 120, y: 120))
         keyWindow = Self.makeWindow(at: NSPoint(x: 480, y: 120))
-        window.contentView = NSHostingView(rootView: LeoSidebarView(model: model, windowID: origin, actions: actions))
+        window.contentView = NSHostingView(rootView: LeoSidebarView(model: model, windowID: origin, actions: actions, terminals: LeoWindowTerminals()))
         window.orderFront(nil)
         keyWindow.makeKeyAndOrderFront(nil)
         table = try await Self.settledTable(in: window)
