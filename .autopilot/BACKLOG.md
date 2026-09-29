@@ -64,8 +64,13 @@ Source: autopilot polish (B-066)
 
 ## B-077 · verify.md: palette is Choose Agent… (⌘O), not File ▸ New Tab   [ready (next run)]
 Why: verify.md still says "the agent palette opens with File ▸ New Tab"; that menu item is now New Terminal (⌘T), and the palette is Choose Agent… (⌘O)
-Accept: verify.md's palette instructions name Choose Agent… (⌘O)
+Accept: verify.md's palette instructions name Choose Agent… (⌘O); the B-057 GUI tip is corrected (AX set-value on the search field changes its text but not the filter; use Agents ▸ Find Agent… plus peekaboo type / press delete, per B-067 verify)
 Source: autopilot polish (B-066)
+
+## B-078 · Tests for B-067's calm-scroll claims   [ready (next run)]
+Why: "a retitle doesn't move the scroll offset" and "re-selecting a row already on screen doesn't scroll" hold only by construction; nothing catches a regression
+Accept: tests assert both; reword the misleading doc comment on aNewRowBelowAListedOneIsRevealedWhole's "same turn" case (it passed before the fix)
+Source: autopilot polish (B-067)
 
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59

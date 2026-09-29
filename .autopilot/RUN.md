@@ -28,9 +28,12 @@ Lane: B-067
   Branch: autopilot-lane/B-067
   Base: 00903ad066e09e9c9692b001fe9afca6f419a1fa
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: fa7a0d9b579554f70ae842d1c5f8fb58930b03b5
   Dispatched: 2026-09-29T23:12:02Z
+  Call: The selected terminal row is also revealed when the filter clears or the list reappears, as Mail reveals its selection after a search — principle 1
+  Call: Retitles and agent refreshes never scroll, and a row already on screen doesn't move — principle 2 calm
+- B-067 runner: ready at fa7a0d9b5 (1715/1715, lint clean; general full; implementer/opus, 0 fix rounds). Harness couldn't reproduce B-057-8's partial reveal; only the live GUI run confirms the one-turn deferral. Polish filed as B-078; verify.md search-field tip folded into B-077.
