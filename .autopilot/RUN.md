@@ -16,6 +16,6 @@ Lane: B-054
 Lane: B-055
   Branch: autopilot-lane/B-055
   Base: 0ca3255cf4ad2126c807e8e243908b2750dc2f0b
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
