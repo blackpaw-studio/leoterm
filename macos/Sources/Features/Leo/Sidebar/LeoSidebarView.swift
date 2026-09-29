@@ -253,25 +253,26 @@ struct LeoSidebarView: View {
         // itself, so each row's tag is `Optional(id)`): the table then
         // never toggles the selected row off on ⌘-click, which here opens
         // a new window (B-048, D-104). `nil` still shows no selection.
-        List<LeoSidebarItemID?, _>(selection: selectionBinding) {
-            ForEach(agentSections) { section in
-                Section(header: sectionHeader(section)) {
-                    agentRows(section)
-                        .disabled(agentsInert)
-                        .opacity(agentsInert ? Self.inertOpacity : 1)
-                        .accessibilityHint(agentsInert ? "Disconnected" : "")
-                }
-            }
-            if showsTerminals {
-                Section(header: Text("Terminals")) {
-                    ForEach(terminals.rows) { row in
-                        LeoTerminalRowView(row: row) { terminals.activate(row.id) }
-                            .tag(Optional(LeoSidebarItemID.terminal(row.id)))
+        ScrollViewReader { proxy in
+            List<LeoSidebarItemID?, _>(selection: selectionBinding) {
+                ForEach(agentSections) { section in
+                    Section(header: sectionHeader(section)) {
+                        agentRows(section)
+                            .disabled(agentsInert)
+                            .opacity(agentsInert ? Self.inertOpacity : 1)
+                            .accessibilityHint(agentsInert ? "Disconnected" : "")
                     }
                 }
+                if showsTerminals { terminalSection }
+            }
+            .listStyle(.sidebar)
+            // A terminal the window just showed (⌘T makes one at the end
+            // of the list) is scrolled into view, without animation.
+            .onChange(of: terminals.selection) { selected in
+                guard let selected else { return }
+                proxy.scrollTo(LeoSidebarItemID.terminal(selected))
             }
         }
-        .listStyle(.sidebar)
         .overlay(alignment: .bottomTrailing) {
             // A key equivalent, so it sees Return before the search
             // field does; there Return means the top match instead.
@@ -288,6 +289,16 @@ struct LeoSidebarView: View {
             .opacity(0)
             .disabled(!LeoSidebarSelection.canActivate(model: model, terminals: terminals))
             .accessibilityHidden(true)
+        }
+    }
+
+    private var terminalSection: some View {
+        Section(header: Text("Terminals")) {
+            ForEach(terminals.rows) { row in
+                LeoTerminalRowView(row: row) { terminals.activate(row.id) }
+                    .tag(Optional(LeoSidebarItemID.terminal(row.id)))
+                    .id(LeoSidebarItemID.terminal(row.id))
+            }
         }
     }
 

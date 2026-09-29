@@ -50,6 +50,11 @@ import Testing
         #expect(list(a).retitling(a, to: "  ").rows.first?.displayTitle == "Terminal")
     }
 
+    /// Ghostty's own stand-in for a terminal that set no title isn't one.
+    @Test func ghosttysPlaceholderTitleReadsTerminal() {
+        #expect(list(a).retitling(a, to: "👻").rows.first?.displayTitle == "Terminal")
+    }
+
     // MARK: One window's rows
 
     @Test func removingTheSelectedRowClearsTheSelection() {

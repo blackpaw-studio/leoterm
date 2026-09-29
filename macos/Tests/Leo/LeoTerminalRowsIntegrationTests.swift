@@ -251,6 +251,21 @@ import Testing
         #expect(!fixture.closes.windowClosed, "the window and its sidebar stay")
     }
 
+    @Test func theStartScreenDropsTheClosedShellsWindowTitle() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let shell = try newShell(fixture)
+        let view = try #require(fixture.view(shell))
+        // What `TerminalView` reports once the shell has focus.
+        fixture.controller.focusedSurfaceDidChange(to: view)
+        view.setTitle("make test")
+        #expect(await eventually { fixture.controller.window?.title == "make test" })
+
+        fixture.host.closeTerminal(shell)
+
+        #expect(fixture.controller.window?.title != "make test", "nothing on screen is titled that any more")
+    }
+
     @Test func aShellShownAfterTheStartScreenKeepsTheWindowSize() throws {
         let fixture = try makeFixture()
         defer { close(fixture) }

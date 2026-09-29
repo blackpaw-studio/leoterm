@@ -12,9 +12,12 @@ struct LeoTerminalRow: Identifiable, Equatable, Sendable {
 
     /// What a row shows before its terminal has set a title.
     static let untitled = "Terminal"
+    /// What Ghostty titles a surface whose terminal set none.
+    static let ghosttyFallbackTitle = "👻"
 
     var displayTitle: String {
-        title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Self.untitled : title
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty || trimmed == Self.ghosttyFallbackTitle ? Self.untitled : title
     }
 }
 

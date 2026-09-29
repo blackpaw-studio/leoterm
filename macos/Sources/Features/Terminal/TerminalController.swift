@@ -120,7 +120,9 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     func leoShowStartScreen() {
         leoIsUnfilledPlaceholder = true
         surfaceTree = .init()
-        focusedSurface = nil
+        // As `TerminalView` would if it reported a nil focus: the closed
+        // shell's title goes with it.
+        focusedSurfaceDidChange(to: nil)
     }
 
     private func leoRegisterCloseOnUndoIfEmpty() {
