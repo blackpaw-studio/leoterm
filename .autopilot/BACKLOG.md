@@ -125,13 +125,14 @@ Source: Evan (/issue, 2026-09-29)
 Inbox: 20260929T161756385296Z-8ceb2d26#1
 Done: 2c56d320f 35f2f475f 4331c902a (1711 tests, lint clean; general review clean; 0 fix rounds. Header now has a 10 pt top inset and ≥8 pt title–button gap via LeoSidebarChromeMetrics (shared with B-065). Verified at native pixels in shot B-064-1: ~14 pt clear below the titlebar, + on the same row. Hidden-titlebar style → B-074)
 
-## B-066 · Bug — ⌘T shortcut collides (agent palette vs quick terminal)   [ready]
+## B-066 · Bug — ⌘T shortcut collides (agent palette vs quick terminal)   [done]
 Issue: #69
 Type: bug
 Report: I think we have Command-T opening the agent palette but we also have it for the quick terminal so I think we need to update those keyboard shortcuts.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: Evan (/issue, 2026-09-29)
 Inbox: 20260929T161943538717Z-c7a22381#1
+Done: 930a1f331 (1713 tests). ⌘T was already New Terminal alone after B-057; the remaining clash was the start screen's Choose Agent… tooltip still saying ⌘T. It now reads ⌘O from one constant tied to the menu item by a test. Quick Terminal has no default key (upstream unbound). If ⌘T still opens the quick terminal, check for a toggle_quick_terminal keybind in your personal Ghostty config. Decisions D-125..D-128.
 
 ## B-065 · Sidebar convenience button bar (Quick Terminal, New Terminal)   [ready]
 Issue: #70

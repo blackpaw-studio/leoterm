@@ -958,5 +958,26 @@ Veto: [ ]
 Context: B-066 (Evan: ⌘T opens both the agent palette and the quick terminal).
 Chose: ⌘T stays New Terminal (a plain-shell row), per the milestone's Done 3. Any other action bound to ⌘T (agent palette / Choose Agent…, quick terminal) moves to a free, Mac-conventional shortcut and keeps its menu item; the runner picks the exact keys and logs them. Supersedes D-107's "Choose Agent… (⌘T, the palette)" binding and matches D-099.
 Why: VISION Done 3 fixes ⌘T; AUTONOMY lets the agent pick shortcuts not fixed by a decision; principle 1 (every action keeps a shortcut and a menu item)
-Commit:
+Commit: 930a1f331
+Veto: [ ]
+
+## D-126 · 2026-09-29 · Choose Agent… (the palette) stays on ⌘O, where B-057 put it; ⌘T is New…
+Context: B-066 (runner call).
+Chose: Choose Agent… (the palette) stays on ⌘O, where B-057 put it; ⌘T is New Terminal alone
+Why: principle 1 / AUTONOMY shortcuts (D-125)
+Commit: 930a1f331
+Veto: [ ]
+
+## D-127 · 2026-09-29 · Quick Terminal keeps its menu item and no default key (upstream ships …
+Context: B-066 (runner call).
+Chose: Quick Terminal keeps its menu item and no default key (upstream ships it unbound)
+Why: AUTONOMY UX/shortcuts
+Commit: 930a1f331
+Veto: [ ]
+
+## D-128 · 2026-09-29 · Start-screen tooltip reads LeoWindowTabbing.chooseAgentShortcut ("⌘O")…
+Context: B-066 (runner call).
+Chose: Start-screen tooltip reads LeoWindowTabbing.chooseAgentShortcut ("⌘O"), tied to the menu item by a test
+Why: AUTONOMY bug fixes/test infra
+Commit: 930a1f331
 Veto: [ ]
