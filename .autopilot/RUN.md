@@ -45,3 +45,14 @@ Lane: B-063
   Call: Accepted trade-off: an agent whose timestamp stalls >5 min (long tool call) moves twice (drops, then returns to the top on resume); a long-running busy agent ranks below one whose burst began more recently — P2
 - B-063 landed (merge d904cf393).
 Finished 2: B-063 landed d904cf393 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-063-1.png
+
+Lane: B-064
+  Branch: autopilot-lane/B-064
+  Base: acb5a23fc41b0b9f0082ba6ec204aeec91d815f0
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-29T19:50:00Z
+- 2026-09-29T21:07Z Evan: pause at the next stopping point, then merge to main, push, and cut a release. No new lanes after B-064.
