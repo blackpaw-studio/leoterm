@@ -82,6 +82,39 @@ import Testing
         #expect(host.closedTerminals == [shell])
     }
 
+    /// A shell a switch hid can still be closing (`exit` racing the switch,
+    /// or ⌘W's confirm answered after it): the host lets it go. Nothing on
+    /// screen changed, so a request asking meanwhile still goes ahead, and
+    /// focus isn't read again.
+    @Test func closingAHiddenTerminalIsStillTheHosts() async throws {
+        let (host, coordinator) = make()
+        let shell = try await newShell(coordinator)
+        await coordinator.attach(identity: worker, from: window, disposition: .content)
+        let agent = try #require(host.handles.last)
+        try #require(host.isHidden(shell))
+        host.heldConfirmations = 1
+        let waiting = Task { await coordinator.attach(identity: LeoAgentIdentity(host: .local, name: "other"), request: .init(origin: window, disposition: .content)) }
+        while host.pendingConfirmationCount == 0 { await Task.yield() }
+        host.focusedHandle = agent
+
+        coordinator.closeTerminal(shell)
+
+        #expect(host.closedTerminals == [shell])
+        #expect(coordinator.linkState.focused == nil, "focus wasn't read again")
+        host.resumeConfirmation(true)
+        let result = await waiting.value
+        #expect((try? result.get()) != nil, "the content area wasn't replaced, so the waiting request isn't superseded")
+    }
+
+    @Test func closingAGoneTerminalDoesNothing() async throws {
+        let (host, coordinator) = make()
+        _ = try await newShell(coordinator)
+
+        coordinator.closeTerminal(AttachmentHandle(surfaceID: UUID(), windowID: window))
+
+        #expect(host.closedTerminals.isEmpty)
+    }
+
     /// D-110: a request still asking when a terminal switch replaced the
     /// content is dropped -- the switch was the newer intent.
     @Test func aRequestAskingWhenATerminalIsShownIsDropped() async throws {

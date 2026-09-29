@@ -297,6 +297,85 @@ import Testing
         #expect(!fixture.closes.windowClosed)
     }
 
+    /// `exit` reaches the row a turn late (from inside libghostty's
+    /// handling of that very surface), and ⌘W only once its confirm is
+    /// answered: a reveal can hide the closing shell first. Its row still
+    /// closes. (Driven without Ghostty's close notification, whose own
+    /// observer would otherwise tidy up a hidden shell and mask this.)
+    @Test func anExitRacingARevealStillClosesTheRow() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let neighbour = try newShell(fixture)
+        let neighbourView = try #require(fixture.view(neighbour))
+        let closing = try newShell(fixture)
+        let gone = Weak(fixture.view(closing))
+
+        fixture.controller.closeSurface(try #require(fixture.controller.surfaceTree.root), withConfirmation: false)
+        #expect(fixture.host.reveal(neighbour), "in the same turn, before the close lands")
+
+        #expect(await eventually { !fixture.terminals.contains(closing.surfaceID) }, "its row goes")
+        #expect(!fixture.host.isOpen(closing), "nothing keeps it hidden for a row that's gone")
+        #expect(await eventually { fixture.events.events.contains(.closed(closing)) })
+        #expect(await eventually { gone.view == nil }, "its surface and pty are freed")
+        #expect(fixture.shown().first === neighbourView, "what the reveal showed stays")
+        #expect(fixture.terminals.selection == neighbour.surfaceID)
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(!fixture.closes.windowClosed)
+    }
+
+    /// Closing a row whose shell is hidden lets that shell go and leaves
+    /// the content area -- and the sidebar's selection, even one arrowed
+    /// onto another hidden row -- as they were.
+    @Test func closingAHiddenShellsRowLetsItGo() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let selected = try newShell(fixture)
+        let closing = try newShell(fixture)
+        let gone = Weak(fixture.view(closing))
+        let shown = try newShell(fixture)
+        let shownView = try #require(fixture.view(shown))
+        fixture.terminals.select(selected.surfaceID)
+
+        fixture.host.closeTerminal(closing)
+
+        #expect(fixture.terminals.rows.map(\.id) == [selected.surfaceID, shown.surfaceID])
+        #expect(!fixture.host.isOpen(closing))
+        #expect(fixture.shown().count == 1 && fixture.shown().first === shownView, "what the window shows is untouched")
+        #expect(fixture.terminals.selection == selected.surfaceID, "the selection doesn't move")
+        #expect(await eventually { fixture.events.events.contains(.closed(closing)) })
+        #expect(await eventually { gone.view == nil }, "its surface and pty are freed")
+    }
+
+    /// Ghostty's close observer (`exit` on a hidden shell) and the row's
+    /// deferred close can both run, in either order: whichever comes
+    /// second finds nothing left to do.
+    @Test(arguments: ["shown", "hidden", "hidden, after its exit"])
+    func closingATerminalTwiceIsHarmless(_ state: String) async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let other = try newShell(fixture)
+        let closing = try newShell(fixture)
+        let closingView = try #require(fixture.view(closing))
+        if state != "shown" { #expect(fixture.host.reveal(other)) }
+        if state == "hidden, after its exit" {
+            NotificationCenter.default.post(
+                name: Ghostty.Notification.ghosttyCloseSurface, object: closingView, userInfo: ["process_alive": false]
+            )
+            #expect(await eventually { !fixture.terminals.contains(closing.surfaceID) })
+        }
+
+        fixture.host.closeTerminal(closing)
+        fixture.host.closeTerminal(closing)
+
+        #expect(fixture.terminals.rows.map(\.id) == [other.surfaceID])
+        #expect(fixture.shown().map(\.id) == [other.surfaceID])
+        #expect(fixture.terminals.selection == other.surfaceID)
+        #expect(!fixture.host.isOpen(closing))
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(fixture.events.events.filter { $0 == .closed(closing) }.count == 1)
+        #expect(!fixture.closes.windowClosed)
+    }
+
     @Test func aHiddenShellWhoseProcessEndsLosesItsRow() async throws {
         let fixture = try makeFixture()
         defer { close(fixture) }
