@@ -23,3 +23,14 @@ Lane: B-066
 - B-066 runner: ready at 81ba3075a (1713/1713, lint clean; general full review; implementer/opus, 0 fix rounds). Base already had ⌘T on New Terminal alone; the clash left was the start screen's Choose Agent… tooltip still saying ⌘T. If Evan still sees ⌘T open the quick terminal, it's likely a toggle_quick_terminal keybind in his personal Ghostty config. Polish filed as B-076, B-077.
 - B-066 landed (merge 4880318bb).
 Finished 1: B-066 landed 4880318bb · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-066-1.png
+
+Lane: B-067
+  Branch: autopilot-lane/B-067
+  Base: 00903ad066e09e9c9692b001fe9afca6f419a1fa
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-29T23:12:02Z
