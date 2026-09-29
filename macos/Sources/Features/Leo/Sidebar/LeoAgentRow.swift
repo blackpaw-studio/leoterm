@@ -95,10 +95,13 @@ struct LeoAgentRowView: View {
                 // own modifiers and count, so a double-click is the second
                 // click (B-048). It never takes the click from the list's
                 // own selection.
-                .background(LeoRowClickCatcher(identity: row.id, onClick: click))
+                .background(LeoRowClickCatcher(identity: row.id, onClick: click).accessibilityHidden(true))
         }
         .contentShape(Rectangle())
-        // No button in the row to press, so the row itself is the press.
+        // One element per row: the name's label (name, state), then the
+        // subtitle, task and error. There's no button in the row to press,
+        // so the row itself is the press.
+        .accessibilityElement(children: .combine)
         .accessibilityAction { LeoRowAccessibility.press(click) }
         .accessibilityAction(named: LeoRowAccessibility.pressName) { LeoRowAccessibility.press(click) }
         .contextMenu { menu }
@@ -284,6 +287,7 @@ struct LeoAgentRowView: View {
                 .padding(.vertical, 2)
                 .background(presentation.color.opacity(0.18), in: Capsule())
                 .foregroundStyle(presentation.color)
+                .accessibilityHidden(true)
         }
     }
 
