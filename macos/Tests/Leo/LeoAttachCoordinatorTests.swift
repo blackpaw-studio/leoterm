@@ -10,41 +10,43 @@ import Testing
     @Test func reuseOpensThenFocusesExisting() async {
         let host = FakeAttachTabHost()
         let coordinator = makeCoordinator(host: host)
-        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
-        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
-        #expect(host.tabCalls.count == 1)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        #expect(host.contentCalls.count == 1)
         #expect(host.focused == [host.handles[0]])
     }
 
-    @Test func newWindowAlwaysOpens() async {
+    /// B-055: one agent on screen in at most one window, so a second
+    /// new-window request brings the first window forward.
+    @Test func newWindowOpensOnceThenFocuses() async {
         let host = FakeAttachTabHost()
         let coordinator = makeCoordinator(host: host)
         await coordinator.attach(identity: identity, from: origin, disposition: .newWindow)
         await coordinator.attach(identity: identity, from: origin, disposition: .newWindow)
-        #expect(host.windowCalls.count == 2)
-        #expect(host.focused.isEmpty)
+        #expect(host.windowCalls.count == 1)
+        #expect(host.focused == [host.handles[0]])
     }
 
     @Test func concurrentReuseCoalescesOpen() async {
         let host = FakeAttachTabHost()
         let coordinator = makeCoordinator(host: host)
         await withTaskGroup(of: Void.self) { group in
-            group.addTask { await coordinator.attach(identity: self.identity, from: self.origin, disposition: .reuseOrTab) }
-            group.addTask { await coordinator.attach(identity: self.identity, from: self.origin, disposition: .reuseOrTab) }
+            group.addTask { await coordinator.attach(identity: self.identity, from: self.origin, disposition: .content) }
+            group.addTask { await coordinator.attach(identity: self.identity, from: self.origin, disposition: .content) }
         }
-        #expect(host.tabCalls.count == 1)
+        #expect(host.contentCalls.count == 1)
     }
 
     @Test(arguments: [AttachLifecycleEvent.Kind.closed, .processExited])
     fileprivate func lifecycleMakesNextAttachOpenFresh(_ kind: AttachLifecycleEvent.Kind) async {
         let host = FakeAttachTabHost()
         let coordinator = makeCoordinator(host: host)
-        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
         let first = host.handles[0]
         await host.emitAndWait(kind.event(first))
         #expect(await coordinator.reusableHandleCount == 0)
-        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
-        #expect(host.tabCalls.count == 2)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        #expect(host.contentCalls.count == 2)
         #expect(host.focused.isEmpty)
     }
 
@@ -52,7 +54,7 @@ import Testing
     @Test func aSurfaceMapsToItsLiveAgent() async {
         let host = FakeAttachTabHost()
         let coordinator = makeCoordinator(host: host)
-        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
         let handle = host.handles[0]
 
         #expect(coordinator.identity(forSurface: handle.surfaceID) == identity)
@@ -67,12 +69,12 @@ import Testing
         host.openError = FakeError.failed
         var errors: [LeoAttachError] = []
         let coordinator = makeCoordinator(host: host) { errors.append($0) }
-        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
         host.openError = nil
-        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
         #expect(errors.count == 1)
         #expect(errors.first?.identity == identity)
-        #expect(host.tabCalls.count == 2)
+        #expect(host.contentCalls.count == 2)
     }
 
     // MARK: Tab title (B-052)
@@ -80,7 +82,7 @@ import Testing
     @Test func attachNamesItsSurfaceAfterTheAgent() async {
         let host = FakeAttachTabHost()
         let coordinator = makeCoordinator(host: host)
-        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
         #expect(host.agentNames.count == 1)
         #expect(host.agentNames.first?.0 == host.handles[0])
         #expect(host.agentNames.first?.1 == "worker")
@@ -99,15 +101,15 @@ import Testing
     @Test func reusingAnOpenTabDoesNotRenameIt() async {
         let host = FakeAttachTabHost()
         let coordinator = makeCoordinator(host: host)
-        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
-        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
         #expect(host.agentNames.count == 1)
     }
 
     @Test func reattachAfterExitNamesTheNewSurface() async {
         let host = FakeAttachTabHost()
         let coordinator = makeCoordinator(host: host)
-        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
         let first = host.handles[0]
         await host.emitAndWait(.processExited(first))
 
@@ -122,17 +124,17 @@ import Testing
     @Test func plainShellIsNotNamed() async {
         let host = FakeAttachTabHost()
         let coordinator = makeCoordinator(host: host)
-        _ = await coordinator.openPlainShell(request: LeoSurfaceRequest(origin: origin, disposition: .tab))
+        _ = await coordinator.openPlainShell(request: LeoSurfaceRequest(origin: origin, disposition: .content))
         #expect(host.agentNames.isEmpty)
     }
 
     @Test func closedAccordingToHostIsDiscarded() async {
         let host = FakeAttachTabHost()
         let coordinator = makeCoordinator(host: host)
-        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
         host.openHandles.remove(host.handles[0])
-        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
-        #expect(host.tabCalls.count == 2)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        #expect(host.contentCalls.count == 2)
     }
 
     @Test func delayedFailureIsReportedForAttachedIdentityNotCurrentSelection() async {
@@ -149,7 +151,7 @@ import Testing
         model.selection = .init(host: first.host, name: first.name)
         let task = Task {
             await gate.wait()
-            await coordinator.attach(identity: first, from: self.origin, disposition: .reuseOrTab)
+            await coordinator.attach(identity: first, from: self.origin, disposition: .content)
         }
         model.selection = .init(host: second.host, name: second.name)
         await gate.open()
@@ -168,10 +170,10 @@ import Testing
             return "env -u TMUX -u TMUX_PANE ssh -t 'work' 'leo agent attach -- worker'"
         })
 
-        await coordinator.attach(identity: remoteIdentity, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: remoteIdentity, from: origin, disposition: .content)
 
         #expect(builtFor == remoteIdentity)
-        #expect(host.tabCalls.first?.command == "env -u TMUX -u TMUX_PANE ssh -t 'work' 'leo agent attach -- worker'")
+        #expect(host.contentCalls.first?.command == "env -u TMUX -u TMUX_PANE ssh -t 'work' 'leo agent attach -- worker'")
     }
 
     @Test func remoteCommandBuilderFailureReportsExecutableError() async {
@@ -184,24 +186,24 @@ import Testing
             remoteCommandBuilder: { _ in throw LeoDaemonError.hostUnavailable("Remote host work is not configured") }
         )
 
-        await coordinator.attach(identity: remoteIdentity, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: remoteIdentity, from: origin, disposition: .content)
 
         #expect(reported?.identity == remoteIdentity)
-        #expect(host.tabCalls.isEmpty)
+        #expect(host.contentCalls.isEmpty)
     }
 
     @Test func splitAlwaysOpensEvenWithLiveTab() async {
         let host = FakeAttachTabHost()
         let coordinator = makeCoordinator(host: host)
         let source = UUID()
-        let tabRequest = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let tabRequest = LeoSurfaceRequest(origin: origin, disposition: .content)
         let splitRequest = LeoSurfaceRequest(origin: origin, disposition: .split(.right), splitSourceSurface: source)
 
         _ = await coordinator.attach(identity: identity, request: tabRequest)
         _ = await coordinator.attach(identity: identity, request: splitRequest)
         _ = await coordinator.attach(identity: identity, request: splitRequest)
 
-        #expect(host.tabCalls.count == 1)
+        #expect(host.contentCalls.count == 1)
         #expect(host.splitCalls.count == 2)
         #expect(host.splitCalls.allSatisfy { $0.sourceSurface == source && $0.direction == .right })
     }
@@ -230,7 +232,7 @@ import Testing
         if case .success = result {} else { Issue.record("expected success") }
     }
 
-    @Test func windowRequestAlwaysOpensViaSurfaceRequestAPI() async {
+    @Test func windowRequestOpensOnceThenFocusesViaSurfaceRequestAPI() async {
         let host = FakeAttachTabHost()
         let coordinator = makeCoordinator(host: host)
         let request = LeoSurfaceRequest(origin: origin, disposition: .window)
@@ -238,18 +240,19 @@ import Testing
         _ = await coordinator.attach(identity: identity, request: request)
         _ = await coordinator.attach(identity: identity, request: request)
 
-        #expect(host.windowCalls.count == 2)
+        #expect(host.windowCalls.count == 1)
+        #expect(host.focused == [host.handles[0]])
     }
 
-    @Test func tabRequestReusesLiveHandle() async {
+    @Test func contentRequestReusesLiveHandle() async {
         let host = FakeAttachTabHost()
         let coordinator = makeCoordinator(host: host)
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
 
         let first = await coordinator.attach(identity: identity, request: request)
         let second = await coordinator.attach(identity: identity, request: request)
 
-        #expect(host.tabCalls.count == 1)
+        #expect(host.contentCalls.count == 1)
         #expect(host.focused.count == 1)
         if case .success(let a) = first, case .success(let b) = second { #expect(a == b) } else { Issue.record("expected success") }
     }
@@ -257,17 +260,17 @@ import Testing
     @Test func openPlainShellUsesRequestDispositionWithNoIdentityBookkeeping() async {
         let host = FakeAttachTabHost()
         let coordinator = makeCoordinator(host: host)
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
 
         let result = await coordinator.openPlainShell(request: request)
 
-        #expect(host.tabCalls.count == 1)
-        #expect(host.tabCalls.first?.command == "")
+        #expect(host.contentCalls.count == 1)
+        #expect(host.contentCalls.first?.command == "")
         if case .success = result {} else { Issue.record("expected success") }
         // A second plain shell for the same origin/tab disposition must not
         // reuse -- plain shells carry no identity to key reuse on.
         _ = await coordinator.openPlainShell(request: request)
-        #expect(host.tabCalls.count == 2)
+        #expect(host.contentCalls.count == 2)
     }
 
     @Test func openPlainShellFailureReportsWithSentinelIdentity() async {
@@ -286,7 +289,7 @@ import Testing
     @Test func plainShellProcessExitedThenClosedLeavesNoState() async {
         let host = FakeAttachTabHost()
         let coordinator = makeCoordinator(host: host)
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
 
         let result = await coordinator.openPlainShell(request: request)
         guard case .success(let handle) = result else {
@@ -304,7 +307,7 @@ import Testing
     @Test func agentProcessExitReplacesOnlyThatAgentSurface() async {
         let host = FakeAttachTabHost()
         let coordinator = makeCoordinator(host: host)
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         guard case .success(let handle) = await coordinator.attach(identity: identity, request: request) else {
             Issue.record("expected success")
             return
@@ -319,7 +322,7 @@ import Testing
     @Test func plainShellExitDoesNotRebirth() async {
         let host = FakeAttachTabHost()
         let coordinator = makeCoordinator(host: host)
-        guard case .success(let handle) = await coordinator.openPlainShell(request: .init(origin: origin, disposition: .tab)) else {
+        guard case .success(let handle) = await coordinator.openPlainShell(request: .init(origin: origin, disposition: .content)) else {
             Issue.record("expected success")
             return
         }
@@ -346,7 +349,7 @@ import Testing
         let host = FakeAttachTabHost()
         var changes: [LeoAgentIdentity?] = []
         let coordinator = makeCoordinator(host: host, focusedIdentityChanged: { changes.append($0) })
-        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
 
         await host.emitAndWait(.focusChanged(host.handles[0]))
 
@@ -358,7 +361,7 @@ import Testing
         let host = FakeAttachTabHost()
         var changes: [LeoAgentIdentity?] = []
         let coordinator = makeCoordinator(host: host, focusedIdentityChanged: { changes.append($0) })
-        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
         await host.emitAndWait(.focusChanged(host.handles[0]))
 
         await host.emitAndWait(.focusChanged(AttachmentHandle(surfaceID: UUID(), windowID: origin)))
@@ -374,7 +377,7 @@ import Testing
         let host = FakeAttachTabHost()
         var changes: [LeoAgentIdentity?] = []
         let coordinator = makeCoordinator(host: host, focusedIdentityChanged: { changes.append($0) })
-        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
         await host.emitAndWait(.focusChanged(host.handles[0]))
 
         await host.emitAndWait(.focusChanged(nil))
@@ -387,7 +390,7 @@ import Testing
         let host = FakeAttachTabHost()
         var changes: [LeoAgentIdentity?] = []
         let coordinator = makeCoordinator(host: host, focusedIdentityChanged: { changes.append($0) })
-        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
 
         await host.emitAndWait(.viewingChanged(host.handles[0]))
         await host.emitAndWait(.focusChanged(nil))
@@ -403,7 +406,7 @@ import Testing
         let host = FakeAttachTabHost()
         var changes: [LeoAgentIdentity?] = []
         let coordinator = makeCoordinator(host: host, focusedIdentityChanged: { changes.append($0) })
-        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
         await host.emitAndWait(.focusChanged(host.handles[0]))
 
         await host.emitAndWait(kind.event(host.handles[0]))
@@ -416,7 +419,7 @@ import Testing
         let host = FakeAttachTabHost()
         let coordinator = makeCoordinator(host: host)
         let splitSource = UUID()
-        await coordinator.attach(identity: identity, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
         _ = await coordinator.attach(
             identity: identity,
             request: LeoSurfaceRequest(origin: origin, disposition: .split(.right), splitSourceSurface: splitSource)

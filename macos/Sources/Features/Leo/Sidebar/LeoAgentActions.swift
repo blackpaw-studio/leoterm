@@ -182,7 +182,7 @@ import Foundation
                 let agent = try await capturedDaemon.spawn(request)
                 guard self.hostSelection.generationToken == capturedGeneration else { return }
                 dismiss(); refresh()
-                attach(LeoAgentRow(host: host, name: agent.name, template: agent.template, status: agent.status ?? .unknown("unknown"), activity: .unknown, actionDetail: nil), .reuseOrTab)
+                attach(LeoAgentRow(host: host, name: agent.name, template: agent.template, status: agent.status ?? .unknown("unknown"), activity: .unknown, actionDetail: nil), .content)
             } catch {
                 guard self.hostSelection.generationToken == capturedGeneration else { return }
                 failure(Self.message(error))

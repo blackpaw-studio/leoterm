@@ -58,10 +58,18 @@ extension Notification.Name {
     /// `requestID` looks up the inherited `Ghostty.SurfaceConfiguration`
     /// (if any) from `LeoRequestConfigStore` -- see
     /// `GhosttyAttachTabHost.configuration(command:workingDirectory:requestID:)`.
-    func openTab(command: String, workingDirectory: String?, from origin: LeoWindowID, requestID: UUID) throws -> AttachmentHandle
+    ///
+    /// B-055: shows a new surface in `origin`'s content area in place of
+    /// whatever it showed (the whole split tree), or fills it when it is
+    /// the empty start screen. Never a tab: a window has one content area.
+    func showInContent(command: String, workingDirectory: String?, origin: LeoWindowID, requestID: UUID) throws -> AttachmentHandle
+    /// Whether `showInContent` may replace what `origin` shows. Agents
+    /// detach losslessly (tmux keeps them), so only a plain shell with a
+    /// running process asks first; `false` when the user cancels.
+    func confirmReplacingContent(origin: LeoWindowID) async -> Bool
     func openWindow(command: String, workingDirectory: String?, requestID: UUID) throws -> AttachmentHandle
     /// Always creates a new split (tmux allows multiple clients on the same
-    /// agent, so -- unlike `.tab` -- this is never a reuse/focus path).
+    /// agent, so -- unlike `.content` -- this is never a reuse/focus path).
     func openSplit(
         command: String,
         workingDirectory: String?,
@@ -74,17 +82,15 @@ extension Notification.Name {
     /// attach surface. Always creates -- there is nothing to reuse.
     func fillPlaceholder(command: String, workingDirectory: String?, origin: LeoWindowID, surfaceID: UUID?, requestID: UUID) throws -> AttachmentHandle
     func rebirthPlaceholder(for handle: AttachmentHandle)
-    /// Closes `origin`'s tab when it is still an unfilled start screen with
-    /// nothing else in it (its request went to an agent's open tab
-    /// instead, B-047). Anything else -- a terminal, an editor -- keeps it.
+    /// Closes `origin`'s window when it is still an untouched start screen
+    /// (`LeoStartScreenState.isUntouched`): its request went to an agent
+    /// already on screen in another window instead (B-047, B-055).
+    /// Anything else -- a terminal, an editor -- keeps it.
     func discardEmptyPlaceholder(origin: LeoWindowID)
-    /// B-050: `origin`'s window has exactly one tab and it is an untouched
-    /// start screen (`LeoStartTabState.isLoneUntouched`), so an attach
-    /// asked of that window fills it instead of opening a tab beside it.
-    func isLoneStartTab(origin: LeoWindowID) -> Bool
     func focus(_ handle: AttachmentHandle)
     func isOpen(_ handle: AttachmentHandle) -> Bool
-    /// Titles `handle`'s tab after the agent attached in it (B-052), in
-    /// place of whatever title the terminal sets.
+    /// Titles `handle`'s surface -- and so its window, while focused --
+    /// after the agent attached in it (B-052), in place of whatever title
+    /// the terminal sets.
     func setAgentName(_ handle: AttachmentHandle, name: String)
 }

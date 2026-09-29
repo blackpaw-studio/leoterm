@@ -127,16 +127,18 @@ class AppDelegate: NSObject,
         leoRuntime.routeNewSurface(.placeholder, origin: leoSession.id, inheritedConfig: baseConfig)
     }
 
-    /// Routes a `.tab` request for `window` if it's a Leo-managed terminal
-    /// window, falling back to `leoRouteNewWindow()` (placeholder) if not --
-    /// e.g. the fallback new-tab menu item with no existing window.
+    /// Routes a `.content` request for `window` (B-055: no tabs; the
+    /// palette's choice shows in the window's content area) if it's a
+    /// Leo-managed terminal window, falling back to `leoRouteNewWindow()`
+    /// (placeholder) if not -- e.g. the fallback new-tab menu item with no
+    /// existing window.
     @MainActor private func leoRouteNewTab(from window: NSWindow?, baseConfig: Ghostty.SurfaceConfiguration? = nil) {
         guard let window, let controller = window.windowController as? TerminalController,
               let leoSession = controller.leoSession else {
             leoRouteNewWindow(baseConfig: baseConfig)
             return
         }
-        leoRuntime.routeNewSurface(.tab, origin: leoSession.id, inheritedConfig: baseConfig)
+        leoRuntime.routeNewSurface(.content, origin: leoSession.id, inheritedConfig: baseConfig)
     }
 
     /// The global undo manager for app-level state such as window restoration.

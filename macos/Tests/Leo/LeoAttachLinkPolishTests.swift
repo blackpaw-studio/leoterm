@@ -15,7 +15,7 @@ import Testing
 
     @Test func aFocusReportInFlightDuringAClickDoesNotSnapTheSelectionBack() async {
         let (host, coordinator, model) = makeLinked()
-        await coordinator.attach(identity: local, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: local, from: origin, disposition: .content)
         await coordinator.attach(identity: other, from: origin, disposition: .newWindow)
         await host.emitAndWait(.focusChanged(host.handles[1]))
         #expect(model.selection == id(other))
@@ -36,7 +36,7 @@ import Testing
 
     @Test func aFocusReportInFlightDuringAListSelectionDoesNotOverrideIt() async {
         let (host, coordinator, model) = makeLinked()
-        await coordinator.attach(identity: local, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: local, from: origin, disposition: .content)
 
         host.emit(.focusChanged(host.handles[0]))
         model.userSelected(id(third))
@@ -49,7 +49,7 @@ import Testing
 
     @Test func reactivatingTheAppKeepsAnArrowKeySelection() async {
         let (host, coordinator, model) = makeLinked()
-        await coordinator.attach(identity: local, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: local, from: origin, disposition: .content)
         await host.emitAndWait(.focusChanged(host.handles[0]))
         #expect(model.selection == id(local))
         model.userSelected(id(other))
@@ -64,7 +64,7 @@ import Testing
 
     @Test func focusResumingOnADifferentAttachAfterReactivationStillMovesTheSelection() async {
         let (host, coordinator, model) = makeLinked()
-        await coordinator.attach(identity: local, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: local, from: origin, disposition: .content)
         await coordinator.attach(identity: other, from: origin, disposition: .newWindow)
         await host.emitAndWait(.focusChanged(host.handles[0]))
 

@@ -117,13 +117,13 @@ import Testing
 
         #expect(model.isDisconnected)
         #expect(model.actionableSelection == nil)
-        model.requestAttach(Self.alpha, from: LeoWindowID(), disposition: .reuseOrTab)
+        model.requestAttach(Self.alpha, from: LeoWindowID(), disposition: .content)
         #expect(attached.isEmpty)
 
         model.receive(LeoSidebarSnapshot(rows: [Self.alpha], connectivity: .connected, generation: 2))
         #expect(!model.isDisconnected)
         #expect(model.actionableSelection == Self.alpha)
-        model.requestAttach(Self.alpha, from: LeoWindowID(), disposition: .reuseOrTab)
+        model.requestAttach(Self.alpha, from: LeoWindowID(), disposition: .content)
         #expect(attached == ["alpha"])
     }
 

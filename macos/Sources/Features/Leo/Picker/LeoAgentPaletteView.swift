@@ -40,18 +40,18 @@ struct LeoAgentPaletteView: View {
                 text: $model.filterText,
                 onMoveUp: { model.moveSelection(by: -1) },
                 onMoveDown: { model.moveSelection(by: 1) },
-                onSubmit: { commitSelection(reuse: $0) },
+                onSubmit: { commitSelection(placement: $0) },
                 onCancel: { onCommit(.cancel) }
             )
-            // B-047: Return goes to an agent's open tab; say how to get
-            // a new one. In the header, so the panel's height is unchanged.
-            if model.reusesOpenTabs {
-                Text("⌘↩ New Tab")
+            // D-104: Return shows the agent in this window; say how to
+            // get a new one. In the header, so the panel's height is unchanged.
+            if model.offersNewWindow {
+                Text("⌘↩ New Window")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize()
-                    .help("Return goes to the agent's open tab. ⌘Return opens a new tab.")
-                    .accessibilityLabel("Command-Return opens the agent in a new tab")
+                    .help("Return shows the agent in this window. ⌘Return opens it in a new window.")
+                    .accessibilityLabel("Command-Return opens the agent in a new window")
             }
         }
         .padding(16)
@@ -72,7 +72,7 @@ struct LeoAgentPaletteView: View {
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 model.select(index)
-                                commitSelection(reuse: LeoAttachReuse(modifierFlags: NSEvent.modifierFlags))
+                                commitSelection(placement: LeoAttachPlacement(modifierFlags: NSEvent.modifierFlags))
                             }
                     }
                 }
@@ -88,8 +88,8 @@ struct LeoAgentPaletteView: View {
         }
     }
 
-    private func commitSelection(reuse: LeoAttachReuse) {
-        guard let choice = model.confirm(reuse: reuse) else { return }
+    private func commitSelection(placement: LeoAttachPlacement) {
+        guard let choice = model.confirm(placement: placement) else { return }
         onCommit(choice)
     }
 }

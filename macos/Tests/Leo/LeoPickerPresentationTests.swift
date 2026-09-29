@@ -80,7 +80,7 @@ import Testing
     @Test func presentFeedsModelWithCurrentSnapshot() {
         let row = LeoAgentRow(host: .local, name: "alpha", template: nil, status: .running, activity: .idle, actionDetail: nil)
         let env = makeEnvironment(rows: [row])
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         env.router.begin(request)
 
         env.presentation.present(request: request)
@@ -89,28 +89,29 @@ import Testing
         #expect(env.panel.lastModel?.rows.contains { if case .agent(let agentRow) = $0 { agentRow.name == "alpha" } else { false } } == true)
     }
 
-    /// B-047: ⌘Return means "new tab" only where Return can go to an
-    /// open tab instead (⌘T, the start screen) -- never for a split.
+    /// D-104: ⌘Return means "new window" only where Return shows the
+    /// choice in this window (⌘T, the start screen) -- never for a split,
+    /// an exited pane, or a request that already is a new window.
     @Test(arguments: [
-        (LeoSurfaceDisposition.tab, true),
+        (LeoSurfaceDisposition.content, true),
         (.placeholder, true),
         (.placeholder(surfaceID: UUID()), false),
         (.split(.right), false),
         (.window, false)
     ])
-    func newTabHintShowsWhereReturnReusesAnOpenTab(_ disposition: LeoSurfaceDisposition, _ shows: Bool) {
+    func newWindowHintShowsWhereReturnShowsTheChoiceHere(_ disposition: LeoSurfaceDisposition, _ shows: Bool) {
         let env = makeEnvironment()
         let request = LeoSurfaceRequest(origin: origin, disposition: disposition, splitSourceSurface: UUID())
         env.router.begin(request)
 
         env.presentation.present(request: request)
 
-        #expect(env.panel.lastModel?.reusesOpenTabs == shows)
+        #expect(env.panel.lastModel?.offersNewWindow == shows)
     }
 
     @Test func confirmedAgentChoiceCommitsToRouter() async {
         let env = makeEnvironment()
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         env.router.begin(request)
         env.presentation.present(request: request)
 
@@ -122,7 +123,7 @@ import Testing
 
     @Test func cancelDismissesPanelAndRouterReceivesCancel() async {
         let env = makeEnvironment()
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         env.router.begin(request)
         env.presentation.present(request: request)
 
@@ -138,7 +139,7 @@ import Testing
     /// stale/empty agent list the moment the palette opens.
     @Test func presentingAndCancellingTogglePickerPresentedForPolling() async {
         let env = makeEnvironment()
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         env.router.begin(request)
         env.presentation.present(request: request)
 
@@ -152,7 +153,7 @@ import Testing
 
     @Test func resignKeyCancelsWhenNoHandoffOrAttachInProgress() async {
         let env = makeEnvironment()
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         env.router.begin(request)
         env.presentation.present(request: request)
 
@@ -164,7 +165,7 @@ import Testing
 
     @Test func resignKeyDoesNothingDuringSpawnHandoff() {
         let env = makeEnvironment()
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         env.router.begin(request)
         env.presentation.present(request: request)
 
@@ -178,7 +179,7 @@ import Testing
 
     @Test func resignKeyDoesNothingDuringInFlightAttach() async {
         let env = makeEnvironment()
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         env.routerSpy.attachGate = ChooseGate()
         env.router.begin(request)
         env.presentation.present(request: request)
@@ -193,7 +194,7 @@ import Testing
 
     @Test func spawnHandoffCompletesOnceWithIdentity() {
         let env = makeEnvironment()
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         env.router.begin(request)
         env.presentation.present(request: request)
 
@@ -208,7 +209,7 @@ import Testing
 
     @Test func spawnHandoffCompletesOnceWithNilOnDismiss() {
         let env = makeEnvironment()
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         env.router.begin(request)
         env.presentation.present(request: request)
 
@@ -228,7 +229,7 @@ import Testing
     /// by whatever was active when the sheet was first presented.
     @Test func supersededSpawnSheetCallbackIgnoresStateForTheOldRequest() async {
         let env = makeEnvironment()
-        let first = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let first = LeoSurfaceRequest(origin: origin, disposition: .content)
         env.router.begin(first)
         env.presentation.present(request: first)
 
@@ -314,7 +315,7 @@ import Testing
 
     @Test func failureKeepsRequestActiveAndShowsMessage() {
         let env = makeEnvironment()
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         env.router.begin(request)
         env.presentation.present(request: request)
 
@@ -330,7 +331,7 @@ import Testing
     @Test func spawnThenAttachFailureRePresentsThePalette() async {
         let env = makeEnvironment()
         env.routerSpy.attachResult = .failure(.init(identity: identity, kind: .openFailed("boom")))
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         env.router.begin(request)
         env.presentation.present(request: request)
         #expect(env.panel.presentCallCount == 1)
@@ -348,7 +349,7 @@ import Testing
 
     @Test func parentCloseInvalidatesAndClosesPanel() {
         let env = makeEnvironment()
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         env.router.begin(request)
         env.presentation.present(request: request)
 
@@ -367,7 +368,7 @@ import Testing
     /// presented exactly once and never dismissed.
     @Test func supersedingBeginKeepsThePanelPresentedExactlyOnceWithTheNewRequest() async {
         let env = makeEnvironment()
-        let first = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let first = LeoSurfaceRequest(origin: origin, disposition: .content)
         env.router.begin(first)
         env.presentation.present(request: first)
         #expect(env.panel.presentCallCount == 1)
@@ -399,7 +400,7 @@ import Testing
     /// async wait to prove the update lands immediately.
     @Test func liveHostStateUpdateUsesTheEmittedValueNotAStaleRead() {
         let env = makeEnvironment()
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         env.router.begin(request)
         env.presentation.present(request: request)
 

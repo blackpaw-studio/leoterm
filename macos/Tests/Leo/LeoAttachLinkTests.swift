@@ -18,7 +18,7 @@ import Testing
         let host = FakeAttachTabHost()
         var states: [LeoAttachLinkState] = []
         let coordinator = makeCoordinator(host: host) { states.append($0) }
-        await coordinator.attach(identity: local, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: local, from: origin, disposition: .content)
         _ = await coordinator.attach(identity: local, request: splitRequest())
         await coordinator.attach(identity: other, from: origin, disposition: .newWindow)
 
@@ -35,7 +35,7 @@ import Testing
     @Test func linkStateReportsTheFocusedRow() async {
         let host = FakeAttachTabHost()
         let coordinator = makeCoordinator(host: host)
-        await coordinator.attach(identity: local, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: local, from: origin, disposition: .content)
 
         await host.emitAndWait(.focusChanged(host.handles[0]))
         #expect(coordinator.linkState.focused == id(local))
@@ -47,12 +47,12 @@ import Testing
     @Test func localAndRemoteAgentsWithTheSameNameAreDistinct() async {
         let host = FakeAttachTabHost()
         let coordinator = makeCoordinator(host: host)
-        await coordinator.attach(identity: local, from: origin, disposition: .reuseOrTab)
-        await coordinator.attach(identity: remote, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: local, from: origin, disposition: .content)
+        await coordinator.attach(identity: remote, from: LeoWindowID(), disposition: .content)
 
         await host.emitAndWait(.focusChanged(host.handles[1]))
 
-        #expect(host.tabCalls.count == 2)
+        #expect(host.contentCalls.count == 2)
         #expect(coordinator.linkState.tabCounts == [id(local): 1, id(remote): 1])
         #expect(coordinator.linkState.focused == id(remote))
         #expect(coordinator.focusExisting(remote))
@@ -64,7 +64,7 @@ import Testing
     @Test func focusExistingFocusesTheMostRecentlyFocusedAttachment() async {
         let host = FakeAttachTabHost()
         let coordinator = makeCoordinator(host: host)
-        await coordinator.attach(identity: local, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: local, from: origin, disposition: .content)
         _ = await coordinator.attach(identity: local, request: splitRequest())
         await host.emitAndWait(.focusChanged(host.handles[0]))
         await host.emitAndWait(.focusChanged(nil))
@@ -76,13 +76,13 @@ import Testing
     @Test func reuseAttachFocusesTheMostRecentlyFocusedAttachment() async {
         let host = FakeAttachTabHost()
         let coordinator = makeCoordinator(host: host)
-        await coordinator.attach(identity: local, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: local, from: origin, disposition: .content)
         _ = await coordinator.attach(identity: local, request: splitRequest())
         await host.emitAndWait(.focusChanged(host.handles[0]))
 
-        await coordinator.attach(identity: local, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: local, from: origin, disposition: .content)
 
-        #expect(host.tabCalls.count == 1)
+        #expect(host.contentCalls.count == 1)
         #expect(host.focused == [host.handles[0]])
     }
 
@@ -91,7 +91,7 @@ import Testing
         let coordinator = makeCoordinator(host: host)
         #expect(!coordinator.focusExisting(local))
 
-        await coordinator.attach(identity: local, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: local, from: origin, disposition: .content)
         await host.emitAndWait(.processExited(host.handles[0]))
 
         #expect(!coordinator.focusExisting(local))
@@ -101,7 +101,7 @@ import Testing
     @Test func closingTheMostRecentSplitFallsBackToTheNextLiveOne() async {
         let host = FakeAttachTabHost()
         let coordinator = makeCoordinator(host: host)
-        await coordinator.attach(identity: local, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: local, from: origin, disposition: .content)
         _ = await coordinator.attach(identity: local, request: splitRequest())
         _ = await coordinator.attach(identity: local, request: splitRequest())
         await host.emitAndWait(.focusChanged(host.handles[1]))
@@ -116,7 +116,7 @@ import Testing
     @Test func focusExistingSkipsAnExitedMostRecentHandle() async {
         let host = FakeAttachTabHost()
         let coordinator = makeCoordinator(host: host)
-        await coordinator.attach(identity: local, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: local, from: origin, disposition: .content)
         _ = await coordinator.attach(identity: local, request: splitRequest())
         await host.emitAndWait(.processExited(host.handles[1]))
 
@@ -131,13 +131,13 @@ import Testing
         let returnKey = { (row: LeoAgentRow) in
             LeoAttachActivation.activate(row: row, modifierFlags: []) { _, disposition in dispositions.append(disposition) }
         }
-        await coordinator.attach(identity: local, from: origin, disposition: .reuseOrTab)
+        await coordinator.attach(identity: local, from: origin, disposition: .content)
 
         returnKey(row(local))
         for disposition in dispositions { await coordinator.attach(identity: local, from: origin, disposition: disposition) }
 
-        #expect(dispositions == [.reuseOrTab])
-        #expect(host.tabCalls.count == 1)
+        #expect(dispositions == [.content])
+        #expect(host.contentCalls.count == 1)
         #expect(host.windowCalls.isEmpty)
         #expect(host.focused == [host.handles[0]])
     }

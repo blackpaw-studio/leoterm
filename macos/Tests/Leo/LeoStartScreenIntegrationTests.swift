@@ -4,9 +4,8 @@ import Testing
 
 @testable import Ghostty
 
-/// B-050 against a real start-screen `TerminalController`: what
-/// `GhosttyAttachTabHost` reports as a lone untouched start tab, and when
-/// it closes one. Needs the app's real `Ghostty.App`, so these bail out
+/// B-050 against a real start-screen `TerminalController`: when
+/// `GhosttyAttachTabHost` closes an untouched start window. Needs the app's real `Ghostty.App`, so these bail out
 /// (rather than fail) without it.
 ///
 /// The windows are built (content laid out, so the editor and browser pane
@@ -16,9 +15,10 @@ import Testing
 /// `GhosttyAttachTabHostFocusTests` lost its sidebar focus report). Every
 /// test checks that its windows stayed hidden and never became key.
 ///
-/// No terminal surface is created here; the attach decisions themselves are
-/// covered against a fake host in `LeoStartTabFillTests`.
-@MainActor @Suite(.serialized) struct LeoStartTabFillIntegrationTests {
+/// The one terminal surface here is never focused (it would make its
+/// window key); the attach decisions themselves are covered against a fake
+/// host in `LeoStartScreenTests`.
+@MainActor @Suite(.serialized) struct LeoStartScreenIntegrationTests {
     private struct Fixture {
         let host: GhosttyAttachTabHost
         let controller: TerminalController
@@ -50,7 +50,7 @@ import Testing
         await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
     }
 
-    /// Closes just the tabs the test made (never another window's).
+    /// Closes just the windows the test made (never another one).
     private func close(_ controllers: TerminalController...) {
         controllers.forEach { $0.closeTabImmediately(registerRedo: false) }
     }
@@ -61,36 +61,31 @@ import Testing
         #expect(windows.allSatisfy { $0?.isKeyWindow != true }, "took the key window", sourceLocation: sourceLocation)
     }
 
-    @Test func aBuiltStartWindowIsALoneStartTab() async {
-        guard let fixture = makeFixture() else { return }
-        defer { close(fixture.controller) }
-        await nextMainTurn()
-
-        #expect(fixture.controller.leoSession?.editorPane != nil, "the pane views exist with nothing open in them")
-        #expect(fixture.host.isLoneStartTab(origin: fixture.origin))
-        expectLeftFocusAlone(fixture.controller.window)
-    }
-
-    @Test func aStartTabBesideAnotherTabIsNotLone() async throws {
-        guard let fixture = makeFixture(), let ghostty = Self.ghostty else { return }
-        let other = makeStartWindow(ghostty)
-        defer { close(other, fixture.controller) }
+    @Test func aStartWindowShowingATerminalIsNeverDiscarded() async throws {
+        guard let fixture = makeFixture(), let app = Self.ghostty?.app else { return }
         let window = try #require(fixture.controller.window)
-        let otherWindow = try #require(other.window)
+        fixture.controller.surfaceTree = SplitTree(view: Ghostty.SurfaceView(app, baseConfig: nil))
+        let flag = CloseFlag()
+        let observer = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: nil) { _ in
+            MainActor.assumeIsolated { flag.isClosed = true }
+        }
+        defer {
+            NotificationCenter.default.removeObserver(observer)
+            if !flag.isClosed { close(fixture.controller) }
+        }
 
-        window.addTabbedWindow(otherWindow, ordered: .above)
+        fixture.host.discardEmptyPlaceholder(origin: fixture.origin)
         await nextMainTurn()
 
-        try #require(window.tabGroup?.windows.count == 2)
-        #expect(!fixture.host.isLoneStartTab(origin: fixture.origin))
-        expectLeftFocusAlone(window, otherWindow)
+        #expect(!flag.isClosed)
+        expectLeftFocusAlone(window)
     }
 
-    @Test func anUnknownWindowIsNotAStartTab() {
+    @Test func anUnknownWindowIsNeverDiscarded() {
         guard let fixture = makeFixture() else { return }
         defer { close(fixture.controller) }
 
-        #expect(!fixture.host.isLoneStartTab(origin: LeoWindowID()))
+        fixture.host.discardEmptyPlaceholder(origin: LeoWindowID())
     }
 
     /// A sidebar click asks from inside the start window's own mouse

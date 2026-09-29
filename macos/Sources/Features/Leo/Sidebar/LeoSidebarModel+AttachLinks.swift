@@ -51,14 +51,14 @@ extension LeoSidebarModel {
         }
     }
 
-    /// A click goes to the agent (B-049): its open tab, else a new attach;
-    /// an agent that isn't running asks to start first (see
-    /// `+StartPrompt`). ⌘-click attaches a new tab in `origin`'s window even
-    /// when the agent has one (B-047, Safari's convention). Option defers
-    /// to the double-click's new window.
+    /// A click goes to the agent (B-049): the window already showing it,
+    /// else this window's content area; an agent that isn't running asks
+    /// to start first (see `+StartPrompt`). ⌘-click opens it in a new
+    /// window, or brings forward the one showing it (B-055, D-104).
+    /// Option defers to the double-click's new window.
     private func singleClicked(_ row: LeoAgentRow, modifierFlags: NSEvent.ModifierFlags, from origin: LeoWindowID?) {
         if modifierFlags.contains(.command) {
-            go(to: row, from: origin, disposition: .newTab)
+            go(to: row, from: origin, disposition: .newWindow)
             return
         }
         guard !modifierFlags.contains(.option) else { return }
@@ -66,18 +66,18 @@ extension LeoSidebarModel {
             focusExistingRequested(row, origin)
             return
         }
-        go(to: row, from: origin, disposition: .reuseOrTab)
+        go(to: row, from: origin, disposition: .content)
     }
 
     /// The first click already went to the agent, so a plain second click
     /// does nothing more (B-048). ⌥ opens it in a new window; a
-    /// ⌘-double-click's second click brings the first click's new tab
+    /// ⌘-double-click's second click brings the first click's window
     /// forward (D-093). Neither asks twice for a stopped agent.
     private func doubleClicked(_ row: LeoAgentRow, modifierFlags: NSEvent.ModifierFlags, from origin: LeoWindowID?) {
         if modifierFlags.contains(.option) {
             go(to: row, from: origin, disposition: .newWindow)
         } else if modifierFlags.contains(.command) {
-            go(to: row, from: origin, disposition: .reuseOrTab)
+            go(to: row, from: origin, disposition: .content)
         }
     }
 

@@ -3,7 +3,7 @@ import SwiftUI
 
 enum LeoAttachActivation {
     static func disposition(for modifierFlags: NSEvent.ModifierFlags) -> AttachDisposition {
-        modifierFlags.contains(.option) ? .newWindow : .reuseOrTab
+        modifierFlags.contains(.option) ? .newWindow : .content
     }
 
     static func activate(
@@ -302,8 +302,8 @@ struct LeoAgentRowView: View {
         Button("Attach") {
             LeoAttachActivation.activate(row: row, modifierFlags: NSEvent.modifierFlags, attach: attach)
         }.disabled(!availability.attach)
-        // B-047: ⌘-click's new tab, for the mouse user who doesn't know it.
-        Button("Attach in New Tab") { attach(row, .newTab) }.disabled(!availability.attach)
+        // D-104: ⌘-click's new window, for the mouse user who doesn't know it.
+        Button("Open in New Window") { attach(row, .newWindow) }.disabled(!availability.attach)
         Button("Start") { actions.start(row) }.disabled(!availability.start)
         Button("Stop") { actions.stop(row) }.disabled(!availability.stop)
         Button("Restart") { actions.restart(row) }.disabled(!availability.restart)
@@ -375,8 +375,8 @@ struct LeoAgentRowView: View {
             } else {
                 command = try LeoLogsCommand.build(executablePath: runtime.resolveExecutablePath(), agentName: row.name)
             }
-            guard LeoCommandLauncher.openTab(in: controller, command: command) else {
-                actions.setRowError("Unable to open a terminal tab", for: row)
+            guard LeoCommandLauncher.openWindow(in: controller, command: command) else {
+                actions.setRowError("Unable to open a terminal window", for: row)
                 return
             }
         } catch {

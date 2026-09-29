@@ -10,7 +10,7 @@ import Testing
     @Test func cancelMakesNoCalls() async {
         let spy = RouterSpy()
         let router = spy.makeRouter()
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         router.begin(request)
 
         await router.choose(.cancel, for: request)
@@ -22,7 +22,7 @@ import Testing
     }
 
     @Test(arguments: [
-        LeoSurfaceDisposition.tab,
+        LeoSurfaceDisposition.content,
         .split(.right),
         .window,
         .placeholder
@@ -82,7 +82,7 @@ import Testing
         let spawned = LeoAgentIdentity(host: .local, name: "spawned")
         spy.spawnResult = spawned
         let router = spy.makeRouter()
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         router.begin(request)
 
         await router.choose(.newAgent, for: request)
@@ -96,7 +96,7 @@ import Testing
         let spy = RouterSpy()
         spy.spawnResult = nil
         let router = spy.makeRouter()
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         router.begin(request)
 
         await router.choose(.newAgent, for: request)
@@ -110,7 +110,7 @@ import Testing
         spy.spawnResult = spawned
         spy.invalidateOriginBeforeSpawnResolves = true
         let router = spy.makeRouter()
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         router.begin(request)
 
         await router.choose(.newAgent, for: request)
@@ -121,7 +121,7 @@ import Testing
     @Test func staleRequestNotActiveForOriginMakesNoCalls() async {
         let spy = RouterSpy()
         let router = spy.makeRouter()
-        let first = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let first = LeoSurfaceRequest(origin: origin, disposition: .content)
         let second = LeoSurfaceRequest(origin: origin, disposition: .window)
         router.begin(first)
         router.begin(second)
@@ -134,7 +134,7 @@ import Testing
     @Test func invalidatedRequestMakesNoCalls() async {
         let spy = RouterSpy()
         let router = spy.makeRouter()
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         router.begin(request)
         router.invalidate(origin: origin)
 
@@ -147,7 +147,7 @@ import Testing
         let spy = RouterSpy()
         spy.isRequestValid = { _ in false }
         let router = spy.makeRouter()
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         router.begin(request)
 
         await router.choose(.agent(identity), for: request)
@@ -160,7 +160,7 @@ import Testing
         let gate = ChooseGate()
         spy.attachGate = gate
         let router = spy.makeRouter()
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         router.begin(request)
 
         // First call enters `attach` and suspends there (gated); give it a
@@ -195,7 +195,7 @@ import Testing
     @Test func repeatedChooseAfterSuccessCreatesNothing() async {
         let spy = RouterSpy()
         let router = spy.makeRouter()
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         router.begin(request)
 
         await router.choose(.agent(identity), for: request)
@@ -210,7 +210,7 @@ import Testing
     @Test func chooseAfterCancelCreatesNothing() async {
         let spy = RouterSpy()
         let router = spy.makeRouter()
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         router.begin(request)
 
         await router.choose(.cancel, for: request)
@@ -224,7 +224,7 @@ import Testing
         spy.spawnResult = LeoAgentIdentity(host: .local, name: "spawned")
         spy.supersedeOriginBeforeSpawnResolves = true
         let router = spy.makeRouter()
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         router.begin(request)
 
         await router.choose(.newAgent, for: request)
@@ -236,7 +236,7 @@ import Testing
         let spy = RouterSpy()
         spy.attachResult = .failure(.init(identity: identity, kind: .openFailed("boom")))
         let router = spy.makeRouter()
-        let request = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         router.begin(request)
 
         await router.choose(.agent(identity), for: request)
@@ -281,8 +281,8 @@ import Testing
     @Test func chooseDetachedSurvivesASubsequentBeginForTheSameOrigin() async {
         let spy = RouterSpy()
         let router = spy.makeRouter()
-        let first = LeoSurfaceRequest(origin: origin, disposition: .tab)
-        let second = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let first = LeoSurfaceRequest(origin: origin, disposition: .content)
+        let second = LeoSurfaceRequest(origin: origin, disposition: .content)
 
         router.begin(first)
         #expect(router.chooseDetached(.plainShell, for: first))
@@ -301,15 +301,15 @@ import Testing
         spy.onRequestEnded = { ended.append($0) }
         let router = spy.makeRouter()
 
-        let cancelled = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let cancelled = LeoSurfaceRequest(origin: origin, disposition: .content)
         router.begin(cancelled)
         await router.choose(.cancel, for: cancelled)
 
-        let succeeded = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let succeeded = LeoSurfaceRequest(origin: origin, disposition: .content)
         router.begin(succeeded)
         await router.choose(.agent(identity), for: succeeded)
 
-        let displaced = LeoSurfaceRequest(origin: origin, disposition: .tab)
+        let displaced = LeoSurfaceRequest(origin: origin, disposition: .content)
         router.begin(displaced)
         router.invalidate(origin: origin)
 

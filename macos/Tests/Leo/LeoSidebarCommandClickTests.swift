@@ -11,7 +11,7 @@ import Testing
 /// ⌘-click lands on a background window, which doesn't make it key. That
 /// keeps these tests independent of which app is frontmost.
 ///
-/// ⌘-click opens a new tab (B-047, Safari's convention) and the clicked
+/// ⌘-click opens a new window (D-104) and the clicked
 /// row stays selected -- the table's own ⌘-click (toggle the row off)
 /// must not win.
 @MainActor @Suite(.serialized)
@@ -20,33 +20,33 @@ struct LeoSidebarCommandClickTests {
         host: .local, name: "worker", template: nil, status: .running, activity: .idle, actionDetail: nil
     )
 
-    @Test func commandClickOnTheSelectedRowOpensANewTabAndKeepsItSelected() async throws {
+    @Test func commandClickOnTheSelectedRowOpensANewWindowAndKeepsItSelected() async throws {
         let harness = try await CommandClickHarness(row: worker)
         defer { harness.close() }
 
         harness.model.receiveAttachLinks(LeoAttachLinkState(focused: nil, tabCounts: [worker.id: 1]))
         try await harness.clickRow([])
         #expect(harness.model.selection == worker.id)
-        #expect(harness.focusRequests == [worker.id], "a plain click on a row with a tab goes to that tab")
+        #expect(harness.focusRequests == [worker.id], "a plain click on a row shown in a window goes to that window")
 
         try await harness.clickRow(.command)
 
         #expect(harness.attaches.map(\.0) == [worker.id])
         #expect(harness.attaches.first?.1 == harness.origin)
-        #expect(harness.attaches.first?.2 == .newTab)
+        #expect(harness.attaches.first?.2 == .newWindow)
         #expect(harness.focusRequests == [worker.id])
         #expect(harness.model.selection == worker.id, "the list's ⌘-click must not toggle the row off")
         #expect(harness.table.selectedRow == harness.agentRowIndex, "the row keeps its highlight")
     }
 
-    @Test func commandClickOnAnUnselectedRowSelectsItAndOpensANewTab() async throws {
+    @Test func commandClickOnAnUnselectedRowSelectsItAndOpensANewWindow() async throws {
         let harness = try await CommandClickHarness(row: worker)
         defer { harness.close() }
 
         try await harness.clickRow(.command)
 
         #expect(harness.attaches.map(\.0) == [worker.id])
-        #expect(harness.attaches.first?.2 == .newTab)
+        #expect(harness.attaches.first?.2 == .newWindow)
         #expect(harness.model.selection == worker.id)
         #expect(harness.table.selectedRow == harness.agentRowIndex)
     }
@@ -68,7 +68,7 @@ struct LeoSidebarCommandClickTests {
 
         try await harness.doubleClickRow()
 
-        #expect(harness.attaches.map(\.2) == [.reuseOrTab])
+        #expect(harness.attaches.map(\.2) == [.content])
         #expect(harness.focusRequests.isEmpty)
     }
 
@@ -82,7 +82,7 @@ struct LeoSidebarCommandClickTests {
 
         #expect(harness.attaches.map(\.0) == [worker.id])
         #expect(harness.attaches.first?.1 == harness.origin)
-        #expect(harness.attaches.first?.2 == .reuseOrTab)
+        #expect(harness.attaches.first?.2 == .content)
         #expect(harness.focusRequests.isEmpty)
         #expect(harness.model.selection == worker.id)
     }
