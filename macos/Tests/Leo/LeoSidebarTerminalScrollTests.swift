@@ -37,9 +37,68 @@ struct LeoSidebarTerminalScrollTests {
         #expect(await eventually { isVisible(row: row, in: table) }, "the selected terminal row is on screen")
     }
 
+    /// B-067, as ⌘T lands on a long list whose Terminals section already
+    /// shows a row near the bottom: the new row, one row further down, is
+    /// revealed whole, not left cut off at the list's bottom edge.
+    @Test(arguments: ["the same turn", "a later turn"])
+    func aNewRowBelowAListedOneIsRevealedWhole(_ selectedIn: String) async throws {
+        let terminals = LeoWindowTerminals()
+        let listed = UUID()
+        terminals.add(listed, title: "Terminal")
+        let window = try makeWindow(terminals: terminals)
+        defer { window.close() }
+        let table = try await settledTable(in: window)
+        terminals.select(listed)
+        try #require(await eventually { isVisible(row: table.numberOfRows - 1, in: table) }, "the listed row is on screen")
+        let rowsBefore = table.numberOfRows
+
+        let id = UUID()
+        terminals.add(id, title: "Terminal")
+        if selectedIn == "a later turn" {
+            // As the attach host does: the row lists, then its shell shows.
+            try #require(await eventually { table.numberOfRows > rowsBefore }, "the new row lists")
+        }
+        terminals.select(id)
+
+        #expect(await eventually { table.numberOfRows > rowsBefore && isVisible(row: table.numberOfRows - 1, in: table) },
+                "the new terminal row is wholly on screen")
+    }
+
+    /// B-067: the filter hides the Terminals section, so a row selected
+    /// meanwhile (⌘T with a search still in the field) is revealed once
+    /// the filter clears -- as Mail reveals its selection after a search.
+    @Test(arguments: ["agent-1", "no-such-agent"])
+    func aRowSelectedWhileFilteredIsRevealedWhenTheFilterClears(_ query: String) async throws {
+        let terminals = LeoWindowTerminals()
+        let (window, model) = try makeWindowAndModel(terminals: terminals)
+        defer { window.close() }
+        _ = try await settledTable(in: window)
+        model.query = query
+        let id = UUID()
+        terminals.add(id, title: "Terminal")
+        terminals.select(id)
+        try await Task.sleep(for: .milliseconds(200))
+
+        model.query = ""
+
+        #expect(await eventually {
+            guard let table = tables(in: window.contentView).first, table.numberOfRows > Self.agentCount else { return false }
+            return isVisible(row: table.numberOfRows - 1, in: table)
+        }, "the selected terminal row is on screen once the Terminals section shows again")
+    }
+
     private func makeWindow(terminals: LeoWindowTerminals) throws -> NSWindow {
+        try makeWindowAndModel(terminals: terminals).window
+    }
+
+    private func makeWindowAndModel(terminals: LeoWindowTerminals) throws -> (window: NSWindow, model: LeoSidebarModel) {
+        // Like a real list: rows of mixed heights (a template adds a
+        // subtitle line) in more than one section.
         let agents = (0 ..< Self.agentCount).map {
-            LeoAgentRow(host: .local, name: "agent-\($0)", template: nil, status: .running, activity: .idle, actionDetail: nil)
+            LeoAgentRow(
+                host: .local, name: "agent-\($0)", template: $0.isMultiple(of: 3) ? nil : "claude",
+                status: $0 < Self.agentCount / 2 ? .running : .stopped, activity: .idle, actionDetail: nil
+            )
         }
         let model = LeoSidebarModel(snapshot: LeoSidebarSnapshot(rows: agents, connectivity: .connected, generation: 1))
         let actions = LeoAgentActions(
@@ -54,14 +113,15 @@ struct LeoSidebarTerminalScrollTests {
             rootView: LeoSidebarView(model: model, windowID: LeoWindowID(), actions: actions, terminals: terminals)
         )
         window.orderFront(nil)
-        return window
+        return (window, model)
     }
 
-    /// The row's middle is within what the list's scroll view shows.
+    /// The whole row (to within a point) is within what the list's scroll
+    /// view shows: a row cut off at an edge isn't revealed.
     private func isVisible(row: Int, in table: NSTableView) -> Bool {
         guard row >= 0, row < table.numberOfRows else { return false }
-        let rect = table.rect(ofRow: row)
-        return table.visibleRect.contains(NSPoint(x: rect.midX, y: rect.midY))
+        let rect = table.rect(ofRow: row).insetBy(dx: 0, dy: 1)
+        return table.visibleRect.contains(rect)
     }
 
     private func settledTable(in window: NSWindow) async throws -> NSTableView {
