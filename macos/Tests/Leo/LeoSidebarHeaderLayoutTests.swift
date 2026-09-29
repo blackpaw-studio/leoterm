@@ -44,6 +44,15 @@ struct LeoSidebarHeaderLayoutTests {
         #expect(button.maxX <= width, "the button \(button) stays inside the \(width) pt sidebar")
     }
 
+    @Test func sidebarChromeMetricsAreTheSingleSourceOfSpacing() {
+        #expect(LeoSidebarChromeMetrics.topInset >= 8, "the chrome clears the titlebar")
+        #expect(LeoSidebarChromeMetrics.titleAccessoryMinSpacing >= 8, "a title never runs into its accessory")
+        #expect(
+            LeoSidebarChromeMetrics.topInset == LeoSidebarChromeMetrics.itemSpacing,
+            "the gap under the titlebar matches the rhythm between rows"
+        )
+    }
+
     // MARK: - Harness
 
     private func makeWindow(width: CGFloat) -> (NSWindow, HeaderFrames) {
