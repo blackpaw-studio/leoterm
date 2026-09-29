@@ -981,3 +981,17 @@ Chose: Start-screen tooltip reads LeoWindowTabbing.chooseAgentShortcut ("⌘O"),
 Why: AUTONOMY bug fixes/test infra
 Commit: 930a1f331
 Veto: [ ]
+
+## D-129 · 2026-09-29 · The selected terminal row is also revealed when the filter clears or t…
+Context: B-067 (runner call).
+Chose: The selected terminal row is also revealed when the filter clears or the list reappears, as Mail reveals its selection after a search
+Why: principle 1 Mac-native
+Commit: c905bd4c9 f8135ef58
+Veto: [ ]
+
+## D-130 · 2026-09-29 · Retitles and agent refreshes never scroll, and a row already on screen…
+Context: B-067 (runner call).
+Chose: Retitles and agent refreshes never scroll, and a row already on screen doesn't move
+Why: principle 2 calm
+Commit: c905bd4c9 f8135ef58
+Veto: [ ]

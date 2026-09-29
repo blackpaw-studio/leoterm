@@ -3,11 +3,12 @@
 Ranked. Statuses: `ready`, `ready (next run)`, `blocked`, `deferred`, `done`, `idea`, `dropped`.
 Source roadmap: `docs/leo/roadmap.md` on `main` (not edited by autopilot).
 
-## B-067 · Terminals row scrolls into view when created or selected   [ready]
+## B-067 · Terminals row scrolls into view when created or selected   [done]
 Issue: #71
 Why: the section sits under a long agent list (~40 agents); a new or selected Terminals row stays off-screen — seen in B-057 verify
 Accept: creating or selecting a Terminals row scrolls it into view; test
 Source: autopilot polish (B-057)
+Done: c905bd4c9 f8135ef58 (1715 tests). A created or selected Terminals row scrolls fully into view, also after the filter clears; retitles and refreshes never scroll. Decisions D-129, D-130.
 
 ## B-068 · Tell same-directory shells apart   [ready]
 Issue: #72
