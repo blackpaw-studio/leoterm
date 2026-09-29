@@ -365,6 +365,7 @@ Inbox: 20260928T193634323347Z-31fbe8d8#1
 Done: a9dbf4e11 11930305f cf5025227 (1566 tests). The hover Attach button is gone. A single click opens a running agent: it focuses the agent's tab, or attaches (filling a lone start tab). A non-running agent gets a "Start <name>?" sheet, and the attach happens only once the daemon reports it running. Return acts like a click, arrows only select, and the row has an "Open" accessibility action; decisions D-097. Verified: shots B-049-1 (no button), -2 (the Start prompt), -3 (a single click on running scratch attaches in place), -4 (Start → attached once running); Cancel via Escape left the agent stopped with no tab. The "Starting…" state wasn't captured, and VoiceOver wasn't exercised. 2 review fix rounds (row identity across a re-sort; accessibility).
 
 ## B-053 · Reattach after an agent restart refills the exited tab   [ready (next run)]
+Issue: #58
 Accept: After an attached agent restarts, its tab shows the "No Agent Attached" placeholder but keeps the agent's name (D-095). A sidebar double-click, Return, or palette choice for that agent should refill that placeholder, and focus it, instead of opening a new tab beside it. Today you get two same-named tabs, one of them empty (seen in B-052 verification, shots B-052-4/-5). ⌘-click / ⌘↩ still force a new tab. Test the lookup (an exited placeholder carrying the agent's name counts as that agent's tab). Screenshot with autopilot-scratch only.
 Source: B-052 verification
 

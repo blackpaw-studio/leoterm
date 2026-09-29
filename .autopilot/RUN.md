@@ -1,4 +1,4 @@
-Status: running
+Status: finished
 Item: B-049
 Base: ac2b14c7d
 Wip: none
@@ -16,3 +16,4 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 - B-050 done (6875f2be7 14951a372): 1534 tests ×2, lint clean; reviews clean (the test-fix review's MEDIUM was dismissed: the test asserts editorPane != nil before isLoneStartTab, so it's a real guard). Shots B-050-1..4. The implementer's setenv/Zig Environ host crash is UNCONFIRMED: it happened only under load average ~178 from another project's xctest; 5+ later runs were clean.
 - B-049 (a9dbf4e11): verified shots B-049-1 (no hover button), -2 (Start prompt), -4 (Start → attached in the start tab); Cancel verified (scratch still stopped, no tab). Review: MEDIUM incarnation dismissed (open-by-name is intended; attach is non-destructive); 2 LOWs (row identity across a re-sort, accessibility action) → fix round 1.
 - B-049 done (a9dbf4e11 11930305f cf5025227): 1566 tests, lint clean; round 2 was accessibility modifiers only (checked against the review's prescription). No ready items left → finishing run. autopilot-scratch stopped (not deleted).
+- Board sync (finish): B-014: unknown status [deferred]

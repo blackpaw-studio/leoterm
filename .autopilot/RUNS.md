@@ -119,3 +119,16 @@ Tests: 1463 (known ConfigTests failure only); swiftlint clean.
 - B-047 One tab per agent — d403a2c9a. Row click / palette choice focus the agent's open tab (other window comes forward); ⌘-click, ⌘↩, "Attach in New Tab" force a new one; tab-count glyph removed. Verified: B-047-1, B-047-2 (row click reuse across windows). Palette ⌘↩ not visually verified → B-048.
 - Calls: D-093 (blank start tab closes after jumping; ⌘↩ hint in palette search field; placeholder panes fill in place).
 - Next up: B-048 (ready next run).
+
+## Run 2026-09-28 — 4 shipped, 0 blocked by the run (B-051 waiting on Evan)
+- B-048 Sidebar ⌘-click: e13738b88 0604cc27f 5bd615a31. Palette ⌘↩ was already correct. The ⌘-click deselected the row and never attached. Fixed with a required List selection plus `LeoRowClickCatcher` (clicks read from mouse events, so rows work in non-key windows); double-click and the Attach button act exactly once. Verified: B-048-1..3; the ⌘-click attach itself was not visually verified (peekaboo modifier clicks are unreliable), so tests only. 2 fix rounds.
+- B-052 Attach tabs titled with the agent's name: ee274b7f9. Verified B-052-1..5 (title, Change Tab Title… wins and clears, restart, reattach).
+- B-050 First attach fills the start-page tab: 6875f2be7 14951a372. Also fixed D-093's blank-tab close, which never fired (the check used pane refs). Verified B-050-1..4. 1 fix round (the new integration tests showed windows that stole key status from another suite).
+- B-049 Click a row to open; Start prompt for stopped agents: a9dbf4e11 11930305f cf5025227. Verified B-049-1..4 plus Cancel. 2 fix rounds (row identity across a re-sort; accessibility).
+- Inbox: B-049..B-052 added; B-051 blocked (Needs Evan: daemon contract change + leo release timing).
+Calls: D-094, D-095, D-096, D-097
+New: B-053 reattach after a restart refills the exited tab (ready next run)
+Unconfirmed: the implementer saw a test-host crash (Zig Environ, tunnel tests' setenv) only under heavy load from another project's tests; not reproduced in 5+ runs.
+Board sync: B-014 `deferred` has no board column (non-fatal warnings)
+Tests: 1566, all pass; swiftlint clean.
+Next up: B-053 (next run); blocked: B-051; deferred: B-014
