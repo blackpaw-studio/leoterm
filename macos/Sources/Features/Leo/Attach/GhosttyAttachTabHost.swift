@@ -19,6 +19,7 @@ import OSLog
     /// B-056: what each window keeps attached but hidden.
     private lazy var live = LeoLiveSurfaces(
         isAgent: { [weak self] in self?.isAttach($0) ?? false },
+        isTerminalRow: { [weak self] in self?.isTerminalRow($0) ?? false },
         isClient: { [weak self] in self?.isLiveAttach($0) ?? false },
         letGo: { [weak self] in self?.closeHandles(in: $0) }
     )
@@ -145,8 +146,9 @@ import OSLog
         }
         let newView = try makeSurface(in: controller, command: command, workingDirectory: workingDirectory, requestID: requestID)
         let displaced = controller.leoReplaceContent(with: SplitTree(view: newView), focusing: newView)
-        let handle = try register(controller, surface: newView, isAttach: !command.isEmpty)
+        let handle = try register(controller, surface: newView, isAttach: !command.isEmpty, isTerminalRow: command.isEmpty)
         retire(displaced, from: controller)
+        selectShownTerminal(in: controller)
         Self.logger.log("showInContent requestID=\(requestID.uuidString, privacy: .public) replaced=\(Array(displaced).count)")
         return handle
     }
@@ -163,6 +165,7 @@ import OSLog
         let displaced = controller.leoReplaceContent(with: tree, focusing: surface)
         retire(displaced, from: controller)
         reportExitedPanes(in: tree)
+        selectShownTerminal(in: controller)
         Self.logger.log("reveal window=\(handle.windowID.rawValue.uuidString, privacy: .public) surfaces=\(Array(tree).count)")
         return true
     }
@@ -175,10 +178,58 @@ import OSLog
         live.release(treeHolding: surface, in: handle.windowID)
     }
 
+    /// B-057: the shown terminal row's shell closed (⌘W, `exit`). The
+    /// neighbouring row's hidden shell takes its place -- the same surface
+    /// -- or, with none (or none left alive), the start screen does; the
+    /// window stays. What closed is let go at once: its surfaces free their
+    /// ptys, and its handles (so its row) close.
+    func closeTerminal(_ handle: AttachmentHandle) {
+        guard let (controller, surface) = liveSurface(handle), controller.surfaceTree.contains(surface),
+              let terminals = controller.leoSession?.terminals else { return }
+        let closing = controller.surfaceTree
+        if let (tree, focus) = neighbourTree(of: handle, in: terminals) {
+            controller.leoReplaceContent(with: tree, focusing: focus)
+            reportExitedPanes(in: tree)
+        } else {
+            controller.leoShowStartScreen()
+        }
+        closing.forEach { controller.leoSession?.fillPlaceholder(surfaceID: $0.id) }
+        closeHandles(in: closing)
+        selectShownTerminal(in: controller)
+        Self.logger.log("closeTerminal window=\(handle.windowID.rawValue.uuidString, privacy: .public) neighbour=\(!controller.surfaceTree.isEmpty)")
+    }
+
+    /// The neighbouring row's hidden tree, taken to be shown, and the
+    /// surface to focus in it.
+    private func neighbourTree(
+        of handle: AttachmentHandle,
+        in terminals: LeoWindowTerminals
+    ) -> (SplitTree<Ghostty.SurfaceView>, Ghostty.SurfaceView)? {
+        guard let neighbour = terminals.list.neighbour(of: handle.surfaceID),
+              let surface = attachments[AttachmentHandle(surfaceID: neighbour, windowID: handle.windowID)]?.surface,
+              let tree = live.take(treeHolding: surface, in: handle.windowID) else { return nil }
+        return (tree, surface)
+    }
+
+    /// Whether closing `window` would kill a busy shell it keeps hidden
+    /// for a terminal row (a hidden agent detaches losslessly).
+    func hiddenTerminalsNeedConfirmQuit(in window: LeoWindowID) -> Bool {
+        live.keptSurfaces(in: window).contains { $0.needsConfirmQuit }
+    }
+
+    /// The window's sidebar selects the terminal row it now shows, or --
+    /// showing an agent, or the start screen -- none.
+    private func selectShownTerminal(in controller: TerminalController) {
+        guard let terminals = controller.leoSession?.terminals else { return }
+        terminals.select(controller.surfaceTree.first { terminals.contains($0.id) }?.id)
+    }
+
     func confirmReplacingContent(origin: LeoWindowID) async -> Bool {
         guard let controller = registry.controller(for: origin) else { return true }
         let shown = controller.surfaceTree.map {
-            LeoContentReplacement.Shown(isAgent: $0.leoAgentName != nil, needsConfirmQuit: $0.needsConfirmQuit)
+            LeoContentReplacement.Shown(
+                isAgent: $0.leoAgentName != nil, isTerminalRow: isTerminalRow($0), needsConfirmQuit: $0.needsConfirmQuit
+            )
         }
         guard LeoContentReplacement.needsConfirmation(shown) else { return true }
         let response = await controller.confirmCloseAsync(
@@ -223,6 +274,11 @@ import OSLog
     /// An agent attach surface (live or exited), not a plain shell.
     private func isAttach(_ surface: Ghostty.SurfaceView) -> Bool {
         attachments.values.contains { $0.isAttach && $0.surface === surface }
+    }
+
+    /// A terminal row's own shell (B-057).
+    private func isTerminalRow(_ surface: Ghostty.SurfaceView) -> Bool {
+        attachments.values.contains { $0.isTerminalRow && $0.surface === surface }
     }
 
     /// A tmux client: a live attach surface (not a plain shell, not exited).
@@ -280,7 +336,9 @@ import OSLog
             withBaseConfig: configuration(command: command, workingDirectory: workingDirectory, requestID: requestID)
         )
         guard let surface = controller.surfaceTree.first else { throw GhosttyAttachTabHostError.surfaceUnavailable }
-        return try register(controller, surface: surface, isAttach: !command.isEmpty)
+        let handle = try register(controller, surface: surface, isAttach: !command.isEmpty, isTerminalRow: command.isEmpty)
+        selectShownTerminal(in: controller)
+        return handle
     }
 
     /// Always creates a new split off `sourceSurface`, even if that surface
@@ -363,19 +421,28 @@ import OSLog
             // close). The `didSet` observer this triggers is the normal
             // non-init path, so `surfaceTreeDidChange`'s empty-tree-closes-
             // window guard doesn't fire here (this transition is empty -> non-empty).
+            let isFirstContent = !controller.leoHasShownContent
             controller.surfaceTree = SplitTree(view: newView)
             controller.focusedSurface = newView
             controller.focusSurface(newView)
-            // `windowDidLoad` ran once already, with no surface, so its
-            // default-size logic (which depends on `focusedSurface`) was a
-            // no-op -- and the placeholder-creation undo (a plain "close if
-            // still empty") no longer applies now that there's real content.
-            controller.leoApplyInitialSize()
-            controller.leoRegisterFilledPlaceholderUndo()
+            if isFirstContent {
+                // `windowDidLoad` ran once already, with no surface, so its
+                // default-size logic (which depends on `focusedSurface`) was
+                // a no-op -- and the placeholder-creation undo (a plain "close
+                // if still empty") no longer applies now that there's real
+                // content.
+                controller.leoApplyInitialSize()
+                controller.leoRegisterFilledPlaceholderUndo()
+            } else {
+                // B-057: a start screen its last terminal row left keeps
+                // the window's size.
+                controller.leoMarkFilled()
+            }
             }
 
-            let handle = try register(controller, surface: newView, isAttach: !command.isEmpty)
+            let handle = try register(controller, surface: newView, isAttach: !command.isEmpty, isTerminalRow: surfaceID == nil && command.isEmpty)
             trimLivePool(of: controller)
+            selectShownTerminal(in: controller)
             Self.logger.log("fillPlaceholder requestID=\(requestID.uuidString, privacy: .public) result=success")
             return handle
         } catch {
@@ -420,7 +487,8 @@ import OSLog
     private static func startScreenState(of controller: TerminalController) -> LeoStartScreenState? {
         guard let session = controller.leoSession else { return nil }
         return LeoStartScreenState(
-            isUnfilledPlaceholder: controller.leoIsUnfilledPlaceholder,
+            // A start screen the window's last terminal row left isn't new.
+            isUnfilledPlaceholder: controller.leoIsUnfilledPlaceholder && !controller.leoHasShownContent,
             hasTerminal: !controller.surfaceTree.isEmpty,
             isEditorOpen: session.editor.isOpen,
             isBrowserOpen: session.browser.isOpen
@@ -479,13 +547,22 @@ import OSLog
     /// split, the controller may already own other surfaces, and focus can
     /// lag the insertion by a runloop turn, so either fallback can resolve
     /// to the wrong (pre-existing) surface.
-    private func register(_ controller: TerminalController, surface: Ghostty.SurfaceView, isAttach: Bool) throws -> AttachmentHandle {
+    ///
+    /// B-057: a plain shell shown as a window's whole content is a terminal
+    /// row in that window's sidebar, titled by its terminal.
+    private func register(
+        _ controller: TerminalController,
+        surface: Ghostty.SurfaceView,
+        isAttach: Bool,
+        isTerminalRow: Bool = false
+    ) throws -> AttachmentHandle {
         guard let session = controller.leoSession, controller.surfaceTree.contains(surface) else {
             throw GhosttyAttachTabHostError.surfaceUnavailable
         }
         let handle = AttachmentHandle(surfaceID: surface.id, windowID: session.id)
-        let attachment = Attachment(controller: controller, surface: surface, isAttach: isAttach)
+        let attachment = Attachment(controller: controller, surface: surface, isAttach: isAttach, isTerminalRow: isTerminalRow)
         attachments[handle] = attachment
+        if isTerminalRow { addTerminalRow(surface, to: session.terminals, cancellables: &attachment.cancellables) }
 
         controller.$surfaceTree
             .dropFirst()
@@ -503,6 +580,20 @@ import OSLog
         // Focus may already be on the new surface (no later notification).
         DispatchQueue.main.async { [weak self] in self?.reportFocus() }
         return handle
+    }
+
+    /// The row follows its terminal's title as it changes.
+    private func addTerminalRow(
+        _ surface: Ghostty.SurfaceView,
+        to terminals: LeoWindowTerminals,
+        cancellables: inout Set<AnyCancellable>
+    ) {
+        let id = surface.id
+        terminals.add(id, title: surface.title)
+        surface.$title
+            .removeDuplicates()
+            .sink { [weak terminals] in terminals?.retitle(id, to: $0) }
+            .store(in: &cancellables)
     }
 
     private func reconcile(_ handle: AttachmentHandle) {
@@ -530,7 +621,11 @@ import OSLog
     }
 
     private func close(_ handle: AttachmentHandle) {
-        guard attachments.removeValue(forKey: handle) != nil else { return }
+        guard let attachment = attachments.removeValue(forKey: handle) else { return }
+        if attachment.isTerminalRow {
+            (attachment.controller?.leoSession ?? registry.controller(for: handle.windowID)?.leoSession)?
+                .terminals.remove(handle.surfaceID)
+        }
         continuation.yield(.closed(handle))
         reportFocus()
     }
@@ -558,11 +653,14 @@ private enum GhosttyAttachTabHostError: Error, LocalizedError {
     weak var surface: Ghostty.SurfaceView?
     /// An agent attach (a tmux client), not a plain shell.
     let isAttach: Bool
+    /// A terminal row's own shell (B-057).
+    let isTerminalRow: Bool
     var cancellables: Set<AnyCancellable> = []
 
-    init(controller: TerminalController, surface: Ghostty.SurfaceView, isAttach: Bool) {
+    init(controller: TerminalController, surface: Ghostty.SurfaceView, isAttach: Bool, isTerminalRow: Bool) {
         self.controller = controller
         self.surface = surface
         self.isAttach = isAttach
+        self.isTerminalRow = isTerminalRow
     }
 }

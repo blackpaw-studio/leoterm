@@ -285,6 +285,30 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         }
     }
 
+    /// B-057 (D-111): a terminal row clicked (or Return) shows its shell in
+    /// its window's content area: the same surface, hidden since it was
+    /// switched away from. Already shown, it is focused. Like any row,
+    /// replacing what the window shows asks first when that would close a
+    /// busy shell (and a newer request replacing it meanwhile wins, D-110).
+    func showTerminal(_ handle: AttachmentHandle) async {
+        guard host.isOpen(handle) else { return }
+        if host.isShown(handle) { return host.focus(handle) }
+        guard await confirmReplacingContent(for: LeoSurfaceRequest(origin: handle.windowID, disposition: .content)),
+              host.reveal(handle) else { return }
+        contentReplaced(in: handle.windowID)
+        adoptHostFocus()
+    }
+
+    /// B-057: the shown terminal row `handle` closed (⌘W once Ghostty's
+    /// confirm is answered, or `exit`): the host shows its neighbour, or
+    /// the start screen.
+    func closeTerminal(_ handle: AttachmentHandle) {
+        guard host.isShown(handle) else { return }
+        host.closeTerminal(handle)
+        contentReplaced(in: handle.windowID)
+        adoptHostFocus()
+    }
+
     /// Sentinel identity attached to plain-shell errors. Plain shells carry
     /// no agent identity; only `message`/`kind` are meaningful to callers.
     private static let plainShellIdentity = LeoAgentIdentity(host: .local, name: "")

@@ -21,8 +21,10 @@ extension TerminalController {
     /// Leo: ⌘W with focus in the terminal. When it would close the tab
     /// (it's the only split), unsaved editor edits are asked about first:
     /// `true` when the gate took it over.
+    /// A terminal row's shell closes only its row (B-057), so nothing asks.
     func leoDeferCloseOfLastSplit(retry: @escaping @MainActor () -> Void) -> Bool {
         guard !surfaceTree.isSplit, let window else { return false }
+        if let root = surfaceTree.root, leoIsTerminalRow(root) { return false }
         return Self.leoDeferClose(of: [window], retry: retry)
     }
 

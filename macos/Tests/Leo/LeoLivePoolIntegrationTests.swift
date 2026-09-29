@@ -157,7 +157,9 @@ import Testing
         #expect(handles.filter(tracker.isAlive).count == LeoLivePoolCapacity.perWindow)
     }
 
-    @Test func aPlainShellIsNotPooled() async throws {
+    /// D-111: a terminal row's shell is hidden for the row's life -- kept
+    /// beside the pool, not in it (never evicted, never counted).
+    @Test func aPlainShellRowIsKeptHiddenBesideThePool() async throws {
         let fixture = try makeFixture()
         defer { close(fixture) }
         let tracker = Tracker()
@@ -165,8 +167,10 @@ import Testing
 
         _ = try attach(fixture, tracker)
 
-        #expect(!fixture.host.isOpen(shell), "D-106: a shell has no row to come back to yet (B-057)")
-        #expect(await eventually { !tracker.isAlive(shell) })
+        #expect(fixture.host.isOpen(shell), "B-057: its row brings it back")
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(tracker.isAlive(shell))
+        #expect(fixture.host.hiddenSurfaces(in: shell.windowID).map(\.id) == [shell.surfaceID])
     }
 
     @Test func releasingLetsTheHiddenSurfaceGo() async throws {

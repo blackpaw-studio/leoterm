@@ -2,25 +2,56 @@ import Foundation
 
 /// B-055: showing a row in a window's content area replaces what it
 /// showed. Agents detach losslessly -- tmux keeps them, and the row brings
-/// them back -- so replacing one never asks. A plain shell has no row to
-/// come back to yet (B-057), so one with a running process asks first, in
-/// Ghostty's own terms (`needsConfirmQuit`).
+/// them back -- so replacing one never asks. A terminal row's shell is
+/// hidden, not closed (B-057, D-111), so it never asks either. Only what
+/// has no row to come back to -- a shell beside an agent in a split (B-058
+/// territory), or a window's shell Leo didn't make -- closes with the
+/// switch, and a running process there asks first, in Ghostty's own terms
+/// (`needsConfirmQuit`, D-106).
 enum LeoContentReplacement {
     /// One surface the content area shows now.
     struct Shown: Equatable, Sendable {
         /// An attach surface (live or exited): it carries an agent's name.
         let isAgent: Bool
+        /// A terminal row's own shell (B-057).
+        let isTerminalRow: Bool
         let needsConfirmQuit: Bool
+
+        init(isAgent: Bool, isTerminalRow: Bool = false, needsConfirmQuit: Bool) {
+            self.isAgent = isAgent
+            self.isTerminalRow = isTerminalRow
+            self.needsConfirmQuit = needsConfirmQuit
+        }
     }
 
+    /// What becomes of content leaving the content area.
+    enum Fate: Equatable, Sendable {
+        /// Hidden in the window's live pool (B-056), LRU-bounded.
+        case pool
+        /// Hidden for its terminal row's whole life (D-111).
+        case keep
+        /// Let go: its surfaces close.
+        case close
+    }
+
+    /// All agents: the pool. No agent, and a terminal row's shell: kept
+    /// for that row -- with any other shell split beside it, so nothing in
+    /// it closes. Anything else (a shell beside an agent) closes; it is
+    /// never pooled, so no later eviction kills a shell silently (D-109).
+    static func fate(_ shown: [Shown]) -> Fate {
+        if keepsAttached(shown) { return .pool }
+        let isTerminal = !shown.contains(where: \.isAgent) && shown.contains(where: \.isTerminalRow)
+        return isTerminal ? .keep : .close
+    }
+
+    /// Only content that closes with the switch asks, and only for a
+    /// shell with a running process.
     static func needsConfirmation(_ shown: [Shown]) -> Bool {
-        shown.contains { !$0.isAgent && $0.needsConfirmQuit }
+        fate(shown) == .close && shown.contains { !$0.isAgent && $0.needsConfirmQuit }
     }
 
-    /// Whether content leaving the content area is kept attached (hidden
-    /// in the window's live pool, B-056): only when every surface in it is
-    /// an agent. A plain shell has no row to come back to, and D-106's
-    /// consent covers closing it now, not a silent eviction later.
+    /// Whether content leaving the content area is pooled (B-056): only
+    /// when every surface in it is an agent.
     static func keepsAttached(_ shown: [Shown]) -> Bool { !shown.isEmpty && shown.allSatisfy(\.isAgent) }
 
     static let messageText = "Close Terminal?"

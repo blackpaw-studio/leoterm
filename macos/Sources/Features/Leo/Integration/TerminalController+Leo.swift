@@ -1,4 +1,5 @@
 import AppKit
+import GhosttyKit
 import SwiftUI
 
 extension TerminalController {
@@ -8,8 +9,12 @@ extension TerminalController {
     /// The sidebar row currently selected in this window's Leo runtime, if
     /// any. Menu commands that act "on the current sidebar selection" read
     /// this rather than duplicating `LeoSidebarModel`'s selection storage.
-    /// Nil while disconnected, so every agent command is disabled (D-061).
-    var selectedLeoRow: LeoAgentRow? { leoRuntime?.model.actionableSelection }
+    /// Nil while disconnected, so every agent command is disabled (D-061),
+    /// and while this window's sidebar selects a terminal row (B-057).
+    var selectedLeoRow: LeoAgentRow? {
+        guard leoSession?.terminals.selection == nil else { return nil }
+        return leoRuntime?.model.actionableSelection
+    }
 
     /// Availability of the agent-scoped commands (Start, Stop, Rename, ...)
     /// for the current window/selection, reusing `LeoRowActionAvailability`
@@ -41,10 +46,23 @@ extension TerminalController {
         focusing view: Ghostty.SurfaceView
     ) -> SplitTree<Ghostty.SurfaceView> {
         let displaced = surfaceTree
+        if !tree.isEmpty { leoMarkFilled() }
         surfaceTree = tree
         focusedSurface = view
         Ghostty.moveFocus(to: view)
         return displaced
+    }
+
+    /// File ▸ Choose Agent… (⌘O): the agent palette, whose choice shows
+    /// in this window's content area -- or fills its start screen (B-057
+    /// moved it off ⌘T). A plain shell chosen there inherits the focused
+    /// terminal's configuration, as ⌘T's does.
+    @IBAction func chooseLeoAgent(_ sender: Any?) {
+        guard let leoSession, let leoRuntime else { return }
+        let inherited = focusedSurface?.surface.map {
+            Ghostty.SurfaceConfiguration(from: ghostty_surface_inherited_config($0, GHOSTTY_SURFACE_CONTEXT_TAB))
+        }
+        leoRuntime.routeNewSurface(surfaceTree.isEmpty ? .placeholder : .content, origin: leoSession.id, inheritedConfig: inherited)
     }
 
     @IBAction func toggleLeoSidebar(_ sender: Any?) {

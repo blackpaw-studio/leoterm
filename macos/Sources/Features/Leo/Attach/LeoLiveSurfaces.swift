@@ -5,6 +5,11 @@ import GhosttyKit
 /// and what hiding one means for Ghostty. A pooled entry is the whole tree
 /// the window showed (D-105), so B-058 can bring its split layout back.
 ///
+/// B-057 (D-111): beside the pool, each window keeps its terminal rows'
+/// hidden shells for as long as their rows live -- never evicted, never
+/// counted against the pool's tmux clients. Only closing the shell (or its
+/// window) ends one.
+///
 /// Hidden surfaces stay attached -- the tmux client, scrollback, scroll
 /// position and selection all live on -- but off the view hierarchy they
 /// get no layout (so no resize, and no tmux reflow), and they are told
@@ -14,11 +19,15 @@ import GhosttyKit
     typealias Tree = SplitTree<Ghostty.SurfaceView>
 
     private var pools: [LeoWindowID: LeoLivePool<Tree>] = [:]
+    /// Each window's hidden terminal-row trees, oldest first (B-057).
+    private var kept: [LeoWindowID: [Tree]] = [:]
     private let capacity: Int
     /// Whether a surface counts as a tmux client: a live attach.
     private let isClient: (Ghostty.SurfaceView) -> Bool
     /// Whether a surface is an agent attach (live or exited), not a shell.
     private let isAgent: (Ghostty.SurfaceView) -> Bool
+    /// Whether a surface is a terminal row's own shell (B-057).
+    private let isTerminalRow: (Ghostty.SurfaceView) -> Bool
     /// Called with every tree the pool lets go (evicted, dead, or its
     /// window closed): the host closes its handles. Nothing else holds the
     /// surfaces, so they free their ptys and each tmux client detaches.
@@ -27,11 +36,13 @@ import GhosttyKit
     init(
         capacity: Int = LeoLivePoolCapacity.perWindow,
         isAgent: @escaping (Ghostty.SurfaceView) -> Bool,
+        isTerminalRow: @escaping (Ghostty.SurfaceView) -> Bool = { _ in false },
         isClient: @escaping (Ghostty.SurfaceView) -> Bool,
         letGo: @escaping (Tree) -> Void
     ) {
         self.capacity = capacity
         self.isAgent = isAgent
+        self.isTerminalRow = isTerminalRow
         self.isClient = isClient
         self.letGo = letGo
     }
@@ -39,30 +50,48 @@ import GhosttyKit
     /// How many tmux clients `tree` holds.
     func clients(in tree: Tree) -> Int { tree.filter(isClient).count }
 
-    /// Whether `surface` is hidden in `window`'s pool.
+    /// Whether `surface` is hidden in `window` (its pool, or kept for its
+    /// terminal row).
     func contains(_ surface: Ghostty.SurfaceView, in window: LeoWindowID) -> Bool {
-        pool(of: window).entries.contains { Self.tree($0, holds: surface) }
+        hiddenTrees(in: window).contains { Self.tree($0, holds: surface) }
     }
 
-    /// Every surface hidden in `window`'s pool.
+    /// Every surface hidden in `window`: pooled, then kept.
     func hiddenSurfaces(in window: LeoWindowID) -> [Ghostty.SurfaceView] {
-        pool(of: window).entries.flatMap { Array($0) }
+        hiddenTrees(in: window).flatMap { Array($0) }
     }
 
-    /// `displaced` just left `window`'s content area for `shown`: it is
-    /// hidden as the most recently viewed entry, then the pool is trimmed.
-    /// A tree holding any plain shell -- even beside an agent -- is let go
-    /// straight away (D-106 asked before closing a busy one): it is never
-    /// in the pool for a later eviction to kill silently.
+    /// Every surface `window` keeps hidden for its terminal rows.
+    func keptSurfaces(in window: LeoWindowID) -> [Ghostty.SurfaceView] {
+        (kept[window] ?? []).flatMap { Array($0) }
+    }
+
+    /// `displaced` just left `window`'s content area for `shown`. All
+    /// agents: hidden in the pool as the most recently viewed entry. A
+    /// terminal row's tree: kept for the row. Anything else -- a plain
+    /// shell beside an agent -- is let go straight away (D-106 asked before
+    /// closing a busy one): no shell is ever in the pool for a later
+    /// eviction to kill silently. Then the pool is trimmed.
     func hide(_ displaced: Tree, in window: LeoWindowID, showing shown: Tree) {
-        let shownKinds = displaced.map { LeoContentReplacement.Shown(isAgent: isAgent($0), needsConfirmQuit: false) }
-        guard LeoContentReplacement.keepsAttached(shownKinds) else {
+        switch LeoContentReplacement.fate(displaced.map(kind)) {
+        case .pool:
+            displaced.forEach(Self.stopDrawing)
+            pools[window] = pool(of: window).hiding(displaced)
+        case .keep:
+            displaced.forEach(Self.stopDrawing)
+            kept[window, default: []].append(displaced)
+        case .close:
             letGo(displaced)
-            return trim(window, showing: shown)
         }
-        displaced.forEach(Self.stopDrawing)
-        pools[window] = pool(of: window).hiding(displaced)
         trim(window, showing: shown)
+    }
+
+    private func kind(_ surface: Ghostty.SurfaceView) -> LeoContentReplacement.Shown {
+        LeoContentReplacement.Shown(isAgent: isAgent(surface), isTerminalRow: isTerminalRow(surface), needsConfirmQuit: false)
+    }
+
+    private func hiddenTrees(in window: LeoWindowID) -> [Tree] {
+        pool(of: window).entries + (kept[window] ?? [])
     }
 
     /// Drops what no longer fits beside `shown` (least recently viewed
@@ -73,10 +102,11 @@ import GhosttyKit
         evicted.forEach(letGo)
     }
 
-    /// The hidden tree holding `surface`, taken out of the pool to be
-    /// shown. `nil` (and the tree let go) when none, or nothing in it is
-    /// still attached.
+    /// The hidden tree holding `surface`, taken out of the pool (or the
+    /// terminal rows' keep) to be shown. `nil` when none -- and a pooled
+    /// tree with nothing in it still attached is let go instead.
     func take(treeHolding surface: Ghostty.SurfaceView, in window: LeoWindowID) -> Tree? {
+        if let terminal = takeKept(treeHolding: surface, in: window) { return terminal }
         let (remaining, taken) = pool(of: window).taking { Self.tree($0, holds: surface) }
         store(remaining, for: window)
         guard let taken else { return nil }
@@ -85,6 +115,12 @@ import GhosttyKit
             return nil
         }
         return taken
+    }
+
+    private func takeKept(treeHolding surface: Ghostty.SurfaceView, in window: LeoWindowID) -> Tree? {
+        guard let trees = kept[window], let index = trees.firstIndex(where: { Self.tree($0, holds: surface) }) else { return nil }
+        storeKept(trees.enumerated().filter { $0.offset != index }.map(\.element), for: window)
+        return trees[index]
     }
 
     /// Lets go of the hidden tree holding `surface` (the agent is wanted
@@ -97,8 +133,9 @@ import GhosttyKit
 
     /// `window` closed: everything it held hidden goes with it.
     func releaseAll(in window: LeoWindowID) {
-        guard let pool = pools.removeValue(forKey: window) else { return }
-        pool.entries.forEach(letGo)
+        let pooled = pools.removeValue(forKey: window)?.entries ?? []
+        let terminals = kept.removeValue(forKey: window) ?? []
+        (pooled + terminals).forEach(letGo)
     }
 
     /// Ghostty asked to close `surface` (its process ended). A shown one is
@@ -109,6 +146,7 @@ import GhosttyKit
     /// controller closes -- so this deliberately does nothing then.
     @discardableResult
     func surfaceClosed(_ surface: Ghostty.SurfaceView) -> Bool {
+        if keptSurfaceClosed(surface) { return true }
         guard let window = pools.first(where: { $0.value.entries.contains { Self.tree($0, holds: surface) } })?.key else {
             return false
         }
@@ -119,6 +157,22 @@ import GhosttyKit
         store(LeoLivePool(capacity: pool.capacity, entries: entries.filter(isKept)), for: window)
         entries.filter { !$0.isEmpty && !isKept($0) }.forEach(letGo)
         return true
+    }
+
+    /// A kept shell's process ended (`exit`): it leaves its tree, and a
+    /// tree left with no terminal row -- nothing to show it by -- goes.
+    private func keptSurfaceClosed(_ surface: Ghostty.SurfaceView) -> Bool {
+        guard let window = kept.first(where: { $0.value.contains { Self.tree($0, holds: surface) } })?.key else { return false }
+        let trees = (kept[window] ?? []).map { Self.removing(surface, from: $0) }
+        letGo(Tree(view: surface))
+        let hasRow: (Tree) -> Bool = { [isTerminalRow] in $0.contains(where: isTerminalRow) }
+        storeKept(trees.filter(hasRow), for: window)
+        trees.filter { !$0.isEmpty && !hasRow($0) }.forEach(letGo)
+        return true
+    }
+
+    private func storeKept(_ trees: [Tree], for window: LeoWindowID) {
+        kept[window] = trees.isEmpty ? nil : trees
     }
 
     private static func removing(_ surface: Ghostty.SurfaceView, from tree: Tree) -> Tree {

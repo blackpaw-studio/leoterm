@@ -100,21 +100,19 @@ import Testing
         #expect(Array(fixture.controller.surfaceTree).map(\.id) == [handle.surfaceID])
     }
 
-    /// The tmux-client leak guard: nothing keeps a displaced surface alive,
-    /// so its Ghostty surface and pty are freed (an attach's `tmux attach`
-    /// exits), and its handle is reported closed.
-    @Test func theDisplacedAttachIsReleasedAndReportedClosed() async throws {
+    /// The leak guard: nothing keeps a displaced surface with no row to
+    /// come back to alive, so its Ghostty surface and pty are freed. (A
+    /// terminal row's shell is kept hidden instead, B-057; an agent is
+    /// pooled, B-056.)
+    @Test func aDisplacedSurfaceWithNoRowIsFreed() async throws {
         guard let fixture = makeFixture() else { return }
         defer { close(fixture) }
-        let first = try show(fixture)
-        weak var firstSurface = fixture.surface(first)
+        weak var firstSurface = fixture.controller.surfaceTree.first
         try #require(firstSurface != nil)
 
         let second = try show(fixture)
 
-        #expect(!fixture.host.isOpen(first))
         #expect(fixture.host.isOpen(second))
-        #expect(await eventually { fixture.events.events.contains(.closed(first)) }, "the old handle closes")
         #expect(await eventually { firstSurface == nil }, "the displaced surface (and its pty) is freed")
         #expect(!fixture.events.events.contains(.closed(second)))
     }

@@ -70,12 +70,19 @@ struct FakeOpenCall {
     private(set) var revealed: [AttachmentHandle] = []
     private(set) var letGo: [AttachmentHandle] = []
 
+    /// Each window's terminal rows' shells hidden for the row's life
+    /// (B-057, D-111), beside the pool.
+    private(set) var keptShells: [LeoWindowID: [AttachmentHandle]] = [:]
+    /// Plain shells shown in a content area: terminal rows.
+    private(set) var terminalRows: Set<AttachmentHandle> = []
+
     /// Replaces what `origin` showed: an agent is hidden in the window's
-    /// pool, anything else closes (as the real host reports once its
-    /// surface is gone).
+    /// pool, a terminal row's shell is kept hidden, anything else closes
+    /// (as the real host reports once its surface is gone).
     func showInContent(command: String, workingDirectory: String?, origin: LeoWindowID, requestID: UUID) throws -> AttachmentHandle {
         contentCalls.append(FakeOpenCall(command: command, workingDirectory: workingDirectory, origin: origin, requestID: requestID))
         let handle = try opened(in: origin)
+        if command.isEmpty { terminalRows.insert(handle) }
         show(handle, in: origin, clients: command.isEmpty ? 0 : 1)
         return handle
     }
@@ -86,7 +93,14 @@ struct FakeOpenCall {
     /// the hidden surface go meanwhile.
     var refusesReveal = false
     func reveal(_ handle: AttachmentHandle) -> Bool {
-        guard !refusesReveal, let pool = pools[handle.windowID], case let (remaining, taken?) = pool.taking(where: { $0 == handle }) else { return false }
+        guard !refusesReveal else { return false }
+        if keptShells[handle.windowID]?.contains(handle) == true {
+            keptShells[handle.windowID]?.removeAll { $0 == handle }
+            revealed.append(handle)
+            show(handle, in: handle.windowID, clients: 0)
+            return true
+        }
+        guard let pool = pools[handle.windowID], case let (remaining, taken?) = pool.taking(where: { $0 == handle }) else { return false }
         pools[handle.windowID] = remaining
         revealed.append(taken)
         show(taken, in: handle.windowID, clients: 1)
@@ -100,13 +114,24 @@ struct FakeOpenCall {
         removed.forEach(drop)
     }
 
+    var closedTerminals: [AttachmentHandle] = []
+    func closeTerminal(_ handle: AttachmentHandle) { closedTerminals.append(handle) }
+
     /// The window's pool holds `handle` hidden.
-    func isHidden(_ handle: AttachmentHandle) -> Bool { pools[handle.windowID]?.entries.contains(handle) ?? false }
+    func isHidden(_ handle: AttachmentHandle) -> Bool {
+        (pools[handle.windowID]?.entries.contains(handle) ?? false) || (keptShells[handle.windowID]?.contains(handle) ?? false)
+    }
 
     private func show(_ handle: AttachmentHandle, in window: LeoWindowID, clients: Int) {
         var pool = pools[window] ?? LeoLivePool()
         if let displaced = shownInContent.updateValue(handle, forKey: window) {
-            if isAgent(displaced) { pool = pool.hiding(displaced) } else { openHandles.remove(displaced) }
+            if isAgent(displaced) {
+                pool = pool.hiding(displaced)
+            } else if terminalRows.contains(displaced) {
+                keptShells[window, default: []].append(displaced)
+            } else {
+                openHandles.remove(displaced)
+            }
         }
         let (trimmed, evicted) = pool.trimmed(shownClients: clients) { [openHandles] in openHandles.contains($0) ? 1 : 0 }
         pools[window] = trimmed
