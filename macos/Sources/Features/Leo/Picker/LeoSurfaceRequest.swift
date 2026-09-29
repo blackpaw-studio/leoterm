@@ -21,8 +21,8 @@ enum LeoSurfaceDisposition: Equatable, Sendable {
 
 extension LeoSurfaceDisposition {
     /// B-047, B-055: one agent is on screen in at most one window, so an
-    /// agent already shown goes forward instead: in the content area (⌘T,
-    /// a row), on the start screen, and in a new window (⌘-click, ⌘↩). A
+    /// agent already shown goes forward instead: in the content area (Choose
+    /// Agent…, a row), on the start screen, and in a new window (⌘-click, ⌘↩). A
     /// split and a pane left by an exited attach always attach.
     var focusesAgentOnScreen: Bool {
         switch self {
@@ -32,7 +32,8 @@ extension LeoSurfaceDisposition {
     }
 
     /// Where Return shows the choice in this window, so ⌘Return (a new
-    /// window, D-104) is a real alternative: ⌘T and the start screen.
+    /// window, D-104) is a real alternative: Choose Agent… (⌘O) and the
+    /// start screen.
     var offersNewWindow: Bool { self == .content || self == .placeholder }
 }
 
@@ -49,7 +50,8 @@ struct LeoSurfaceRequestTarget: Hashable, Sendable {
     let surfaceID: UUID?
 }
 
-/// One in-flight "new surface" gesture (Cmd+T, Cmd+D, Cmd+N, launch window).
+/// One in-flight "new surface" gesture (Choose Agent…, Cmd+D, Cmd+N,
+/// launch window).
 /// Pure value type; `LeoNewSurfaceRouter` tracks these by `id` to detect
 /// staleness and `origin` to detect which window a follow-up request
 /// supersedes.

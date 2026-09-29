@@ -15,7 +15,7 @@ struct LeoPlaceholderChooseAgent: Equatable {
             help = "\(banner.title). Reconnect first (⇧⌘R)."
         } else {
             isEnabled = true
-            help = "⌘T"
+            help = LeoWindowTabbing.chooseAgentShortcut
         }
     }
 }

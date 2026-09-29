@@ -69,6 +69,42 @@ import Testing
         #expect(xib.map(\.action) == ["chooseLeoAgent:"], "nothing else in the menus uses ⌘O")
     }
 
+    /// Every main-menu item (submenus included) on plain ⌘`key`.
+    private func commandItems(_ key: String) -> [NSMenuItem] {
+        func walk(_ menu: NSMenu?) -> [NSMenuItem] {
+            (menu?.items ?? []).flatMap { [$0] + walk($0.submenu) }
+        }
+        return walk(NSApp.mainMenu).filter {
+            $0.keyEquivalent == key && $0.keyEquivalentModifierMask.intersection(.deviceIndependentFlagsMask) == .command
+        }
+    }
+
+    /// B-066 (D-125): ⌘T is New Terminal and nothing else -- not the agent
+    /// palette, not the quick terminal.
+    @Test func commandTIsNewTerminalAlone() throws {
+        let items = commandItems("t")
+
+        #expect(items.map(\.title) == ["New Terminal"])
+        #expect(items.first?.action == #selector(TerminalController.newTab(_:)))
+        let quick = menuItems(#selector(AppDelegate.toggleQuickTerminal(_:)))
+        #expect(!quick.isEmpty, "the quick terminal keeps its menu item")
+        #expect(quick.allSatisfy { $0.keyEquivalent != "t" || $0.keyEquivalentModifierMask != .command })
+        let xib = try LeoMenuXib.shortcuts().filter { $0.shortcut == "⌘t" }
+        #expect(xib.allSatisfy { $0.action == "newTab:" }, "nothing in the xib claims ⌘T but New Terminal")
+    }
+
+    /// B-066: the start screen's Choose Agent… tooltip names the palette's
+    /// real shortcut (⌘O), not ⌘T, which makes a terminal.
+    @Test func thePlaceholderHintNamesChooseAgentsMenuShortcut() throws {
+        let item = try #require(menuItems(#selector(TerminalController.chooseLeoAgent(_:))).first)
+        let shortcut = "⌘" + item.keyEquivalent.uppercased()
+
+        let help = LeoPlaceholderChooseAgent(host: .local, connectivity: .connected).help
+
+        #expect(help != "⌘T", "⌘T is New Terminal")
+        #expect(help == shortcut)
+    }
+
     @Test func closeTabIsHidden() {
         let items = menuItems(#selector(TerminalController.closeTab(_:)))
 
