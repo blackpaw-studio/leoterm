@@ -1633,7 +1633,8 @@ extension Ghostty {
             item.setImageIfDesired(systemSymbolName: "eye.fill")
             item.state = readonly ? .on : .off
             menu.addItem(.separator())
-            item = menu.addItem(withTitle: "Change Tab Title...", action: #selector(BaseTerminalController.changeTabTitle(_:)), keyEquivalent: "")
+            // Leo: no tabs (D-098); the tab title is the window's.
+            item = menu.addItem(withTitle: LeoWindowTabbing.changeWindowTitleTitle, action: #selector(BaseTerminalController.changeTabTitle(_:)), keyEquivalent: "")
             item.setImageIfDesired(systemSymbolName: "pencil.line")
             item = menu.addItem(withTitle: "Change Terminal Title...", action: #selector(changeTitle(_:)), keyEquivalent: "")
 

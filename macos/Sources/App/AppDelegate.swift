@@ -220,6 +220,8 @@ class AppDelegate: NSObject,
     // MARK: - NSApplicationDelegate
 
     func applicationWillFinishLaunching(_ notification: Notification) {
+        // MARK: Leo -- no tab bar, before any window or menu exists (D-098).
+        LeoWindowTabbing.disableAutomaticTabbing()
         #if DEBUG
         if
             let suite = UserDefaults.ghosttySuite,
@@ -370,6 +372,8 @@ class AppDelegate: NSObject,
 
         // Setup our menu
         setupMenuImages()
+        // MARK: Leo -- tab menu items remapped or hidden (D-104).
+        LeoWindowTabbing.remapMenu(newTab: menuNewTab, closeTab: menuCloseTab, changeTabTitle: menuChangeTabTitle)
 
         // Setup signal handlers
         setupSignals()
@@ -1177,7 +1181,8 @@ extension AppDelegate {
 
     private func reloadDockMenu() {
         let newWindow = NSMenuItem(title: "New Window", action: #selector(newWindow), keyEquivalent: "")
-        let newTab = NSMenuItem(title: "New Tab", action: #selector(newTab), keyEquivalent: "")
+        // MARK: Leo -- ⌘T's palette, not a tab (D-104).
+        let newTab = NSMenuItem(title: LeoWindowTabbing.chooseAgentTitle, action: #selector(newTab), keyEquivalent: "")
 
         dockMenu.removeAllItems()
         dockMenu.addItem(newWindow)
