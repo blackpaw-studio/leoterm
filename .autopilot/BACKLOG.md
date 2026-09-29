@@ -43,6 +43,34 @@ Out: persisting pools across app launches; per-agent pinning into the pool
 Source: Evan (/vision revision, 2026-09-28)
 Done: b9e6ec48a 9d4b8033b b40d3a4bb (1636 tests, lint clean; 1 fix round; re-review: all fixes hold, no CRITICAL/HIGH). Verified live with autopilot-scratch: hide → reveal kept the same tmux client (same tty and created time) and scrollback (B-056-2 → -3, fixed build); cross-window selection released the other window's hidden copy and attached one fresh client (B-056-4, pre-fix build). Eviction past N=4 needs 5 agents: tests only. SSH path: tests only (no autopilot remote host).
 
+## B-063 · Bug — running agents' sidebar order keeps switching   [ready]
+Type: bug
+Report: The order of the running agents in the sidebar keeps switching around. It's a little jarring.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: Evan (/issue, 2026-09-29)
+Inbox: 20260929T161723581510Z-15416219#1
+
+## B-064 · Bug — no spacing at the top of the sidebar   [ready]
+Type: bug
+Report: Can we also fix the spacing at the top of the sidebar? It looks like between the title bar of the window, the agents text, and the plus button, there's no space.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: Evan (/issue, 2026-09-29)
+Inbox: 20260929T161756385296Z-8ceb2d26#1
+
+## B-066 · Bug — ⌘T shortcut collides (agent palette vs quick terminal)   [ready]
+Type: bug
+Report: I think we have Command-T opening the agent palette but we also have it for the quick terminal so I think we need to update those keyboard shortcuts.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: Evan (/issue, 2026-09-29)
+Inbox: 20260929T161943538717Z-c7a22381#1
+
+## B-065 · Sidebar convenience button bar (Quick Terminal, New Terminal)   [ready]
+Why: One-click access to common window actions from the sidebar, which is the navigation (principle 6), without making a shortcut the only way in; every button also keeps its menu item and shortcut (principle 1).
+Accept: a compact bar of SF Symbol icon buttons sits in the sidebar (header or footer, agent's call per HIG) and matches the corrected top-spacing layout; the Quick Terminal button toggles Ghostty's quick terminal (same action as the menu item/shortcut), verified by screenshot of it opening and closing; the New Terminal button creates and selects a plain-shell row exactly as ⌘T does (after B-057); each button has a tooltip naming its shortcut and an accessibility label; tests plus screenshots from the isolated debug build
+Out: any other buttons (settings, new agent, search, etc.) — add later as separate items; user-customizable button sets; restyling the rest of the sidebar
+Source: Evan (/feature, 2026-09-29)
+Inbox: 20260929T161921499761Z-63fc4dc4#1
+
 ## B-057 · Plain shells as "Terminals" sidebar rows   [ready]
 Issue: #62
 Why: principle 6 (everything on screen comes from a sidebar row) and principle 1 (every action has a shortcut and a menu item)
