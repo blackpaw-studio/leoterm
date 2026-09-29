@@ -23,6 +23,9 @@ ln -s ~/.leo/agents/leoterm/zig-out zig-out
 ```
 bash scratchpad/runtests.sh <label>     # scratchpad/ is untracked; copy from ~/.leo/agents/leoterm/scratchpad/runtests.sh
 ```
+- **Test-host crash workaround (2026-09-29, until B-072):** plain `runtests.sh` crashes the test host at `LeoLivePoolIntegrationTests/switchingBackShowsTheSameSurfaceInstance` (libghostty keeps a pointer into `environ`; a later test `setenv` reallocs it). Run it with those vars preset so `environ` stays the exec-time array:
+  `LANG=en_US.UTF-8 __CF_USER_TEXT_ENCODING=0x1F5:0x0:0x0 __LLVM_PROFILE_RT_INIT_ONCE=__LLVM_PROFILE_RT_INIT_ONCE bash scratchpad/runtests.sh <label>`
+- GUI tip (B-057): the sidebar search filter hides the Terminals section by design. Clear it with AX set-value of a single space on the search field; menu clicks (File ▸ New Terminal, File ▸ Close) need no key presses.
 - Runs `build-for-testing` (Debug, unsigned, `-derivedDataPath macos/build/DD`), then runs the XCTest bundle inside the app. This also works when the console is locked.
 - Then it runs `swiftlint lint --strict --quiet`.
 - Logs go to `/tmp/leo-build-<label>.log` and `/tmp/leo-tests-<label>.log`.
