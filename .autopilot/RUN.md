@@ -37,3 +37,4 @@ Lane: B-057
   State: verifying
   Fixes: 0
   Wip: none
+- INCIDENT 2026-09-29 01:30 EDT (B-057 verify): after a fresh debug launch I sent ⌘T, typed `echo FIRST` + Return, ⌘T, `echo SECOND` + Return, all with the debug app frontmost but without a screenshot confirming focus first. The window ended up attached to the real agent `alfred-itunes-dj`, which was stopped before and now runs (its tmux session was created at 01:30:57). Most likely a Return reached the sidebar/start flow and started and attached the top (pinned) row via the B-049 Start prompt. I detached the client and killed the debug app within seconds. I did NOT stop the agent (a second touch; Evan decides). Whether any typed text reached it is unknown: my read of its pane was blocked by the permission classifier. The screenshot shows an empty input prompt. Run stopped early; B-057 left unlanded (not visually verified).
