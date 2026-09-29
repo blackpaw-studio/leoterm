@@ -8,6 +8,6 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 Lane: B-054
   Branch: autopilot-lane/B-054
   Base: 159c2f7af8910e4071ea836e9e8ece84cf5e8cd2
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
