@@ -854,3 +854,11 @@ Why: the newest intent wins; nothing replaces content nobody agreed to replace
 Alternatives: queue requests; per-window in-flight lock that ignores later clicks
 Commit: b40d3a4bb
 Veto: [ ]
+
+## D-111 · 2026-09-29 · Shell rows keep their shell alive while hidden; they don't count toward N
+Context: B-057. A plain shell becomes a "Terminals" row. D-109 kept shells out of the agent pool so eviction never kills one silently.
+Chose: a shell row owns its surface for the row's whole life. Switching away hides it (same instance, like the pool), it never gets LRU-evicted, and it doesn't count toward N (N bounds tmux clients; a shell is a local pty). It ends only when you close it (⌘W / File ▸ Close, or `exit`), with Ghostty's usual busy-process confirm. D-106's "Close Terminal?" on switching away from a shell no longer applies, since switching doesn't close it.
+Why: principle 6 (a row is a place you can go back to); principle 2 (no silent kills)
+Alternatives: pool shells under the LRU (silent kills); close shells on switch (rows would vanish)
+Commit:
+Veto: [ ]

@@ -30,3 +30,10 @@ Lane: B-056
   Wip: none
 - B-056 verify: shots B-056-1..4. Hide→reveal keeps the same tmux client and scrollback; cross-window selection released W1's hidden copy (one fresh client). Reviews: HIGH busy shell in a pooled split killed silently on eviction; MEDIUM untested cross-identity confirm interleaving; MEDIUM isConfirmed bookkeeping; LOWs → fix round 1.
 - B-056 done (b9e6ec48a 9d4b8033b b40d3a4bb, merge dc9658ba3): 1636 tests, lint clean. Fix round 1 fixed the HIGH (no pooling of trees with a shell), consolidated confirm, added the superseded-request rule (D-110), per-window close hook, #require'd fixture. Re-review: all 5 hold; MEDIUM divergent agent predicates (latent) and LOW contentVersion pruning folded into B-062. Row highlight in other windows = shared app-wide list selection (pre-existing; B-058 owns per-window on-screen highlight).
+
+Lane: B-057
+  Branch: autopilot-lane/B-057
+  Base: 126ff4c0ab38a8616ee081a44065cfb45e0681d8
+  State: building
+  Fixes: 0
+  Wip: none
