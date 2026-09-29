@@ -49,11 +49,24 @@ import Testing
 
     // MARK: Menus (D-104)
 
-    @Test func newTabIsChooseAgent() {
+    /// B-057: ⌘T (Ghostty's `new_tab`) makes a terminal row.
+    @Test func newTabIsNewTerminal() {
         let items = menuItems(#selector(TerminalController.newTab(_:)))
 
         #expect(!items.isEmpty)
-        #expect(items.allSatisfy { $0.title == "Choose Agent…" })
+        #expect(items.allSatisfy { $0.title == "New Terminal" })
+    }
+
+    /// B-057: the palette keeps a menu item, now on ⌘O (⌘⇧P is Ghostty's
+    /// command palette).
+    @Test func chooseAgentIsCommandO() throws {
+        let items = menuItems(#selector(TerminalController.chooseLeoAgent(_:)))
+
+        #expect(items.map(\.title) == ["Choose Agent…"])
+        #expect(items.first?.keyEquivalent == "o")
+        #expect(items.first?.keyEquivalentModifierMask == .command)
+        let xib = try LeoMenuXib.shortcuts().filter { $0.shortcut == "⌘o" }
+        #expect(xib.map(\.action) == ["chooseLeoAgent:"], "nothing else in the menus uses ⌘O")
     }
 
     @Test func closeTabIsHidden() {
@@ -70,10 +83,11 @@ import Testing
         #expect(items.allSatisfy { $0.title == "Change Window Title…" })
     }
 
-    @Test func theDockMenuOffersChooseAgentNotNewTab() {
-        let titles = (NSApp.delegate as? AppDelegate)?.applicationDockMenu(NSApp)?.items.map(\.title) ?? []
+    @Test func theDockMenuOffersNewTerminalAndChooseAgentNotNewTab() {
+        let items = (NSApp.delegate as? AppDelegate)?.applicationDockMenu(NSApp)?.items ?? []
 
-        #expect(!titles.contains("New Tab"))
-        #expect(titles.contains("Choose Agent…"))
+        #expect(!items.map(\.title).contains("New Tab"))
+        #expect(items.first { $0.title == "New Terminal" }?.action == #selector(AppDelegate.newTab(_:)))
+        #expect(items.first { $0.title == "Choose Agent…" }?.action == #selector(AppDelegate.chooseLeoAgent(_:)))
     }
 }

@@ -130,15 +130,24 @@ class AppDelegate: NSObject,
     /// Routes a `.content` request for `window` (B-055: no tabs; the
     /// palette's choice shows in the window's content area) if it's a
     /// Leo-managed terminal window, falling back to `leoRouteNewWindow()`
-    /// (placeholder) if not -- e.g. the fallback new-tab menu item with no
-    /// existing window.
-    @MainActor private func leoRouteNewTab(from window: NSWindow?, baseConfig: Ghostty.SurfaceConfiguration? = nil) {
+    /// (placeholder) if not -- e.g. Choose Agent… with no existing window.
+    @MainActor private func leoRouteChooseAgent(from window: NSWindow?, baseConfig: Ghostty.SurfaceConfiguration? = nil) {
         guard let window, let controller = window.windowController as? TerminalController,
               let leoSession = controller.leoSession else {
             leoRouteNewWindow(baseConfig: baseConfig)
             return
         }
         leoRuntime.routeNewSurface(.content, origin: leoSession.id, inheritedConfig: baseConfig)
+    }
+
+    /// B-057: ⌘T (Ghostty's `new_tab`) and File ▸ New Terminal make a
+    /// terminal row in `window`, shown there; with no Leo window, in a new
+    /// one (its start screen filled with the shell).
+    @MainActor private func leoNewTerminal(from window: NSWindow?, baseConfig: Ghostty.SurfaceConfiguration? = nil) {
+        let controller = (window?.windowController as? TerminalController).flatMap { $0.leoSession == nil ? nil : $0 }
+            ?? TerminalController.leoNewPlaceholderWindow(ghostty)
+        guard let leoSession = controller.leoSession else { return }
+        leoRuntime.newTerminal(origin: leoSession.id, inheritedConfig: baseConfig)
     }
 
     /// The global undo manager for app-level state such as window restoration.
@@ -806,9 +815,9 @@ class AppDelegate: NSObject,
         // a regular terminal controller.
         guard window.windowController is TerminalController else { return }
 
-        // MARK: Leo
+        // MARK: Leo -- a terminal row, not a tab (B-057).
         let configAny = notification.userInfo?[Ghostty.Notification.NewSurfaceConfigKey]
-        leoRouteNewTab(from: window, baseConfig: configAny as? Ghostty.SurfaceConfiguration)
+        leoNewTerminal(from: window, baseConfig: configAny as? Ghostty.SurfaceConfiguration)
     }
 
     private func setDockBadge() {
@@ -1051,8 +1060,14 @@ class AppDelegate: NSObject,
     }
 
     @IBAction func newTab(_ sender: Any?) {
-        // MARK: Leo
-        leoRouteNewTab(from: TerminalController.preferredParent?.window)
+        // MARK: Leo -- New Terminal (B-057).
+        leoNewTerminal(from: TerminalController.preferredParent?.window)
+    }
+
+    /// File ▸ Choose Agent… with no terminal window to ask, and the Dock
+    /// menu's (B-057).
+    @IBAction func chooseLeoAgent(_ sender: Any?) {
+        leoRouteChooseAgent(from: TerminalController.preferredParent?.window)
     }
 
     @IBAction func closeAllWindows(_ sender: Any?) {
@@ -1183,12 +1198,14 @@ extension AppDelegate {
 
     private func reloadDockMenu() {
         let newWindow = NSMenuItem(title: "New Window", action: #selector(newWindow), keyEquivalent: "")
-        // MARK: Leo -- ⌘T's palette, not a tab (D-104).
-        let newTab = NSMenuItem(title: LeoWindowTabbing.chooseAgentTitle, action: #selector(newTab), keyEquivalent: "")
+        // MARK: Leo -- a terminal row, not a tab, and the palette (B-057).
+        let newTab = NSMenuItem(title: LeoWindowTabbing.newTerminalTitle, action: #selector(newTab), keyEquivalent: "")
+        let chooseAgent = NSMenuItem(title: LeoWindowTabbing.chooseAgentTitle, action: #selector(chooseLeoAgent), keyEquivalent: "")
 
         dockMenu.removeAllItems()
         dockMenu.addItem(newWindow)
         dockMenu.addItem(newTab)
+        dockMenu.addItem(chooseAgent)
     }
 
     /// Setup all the images for our menu items.
