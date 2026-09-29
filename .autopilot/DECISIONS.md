@@ -953,3 +953,10 @@ Chose: LeoSidebarHeader takes its trailing control as a @ViewBuilder so B-065 ca
 Why: AUTONOMY layout
 Commit: 2c56d320f 35f2f475f 4331c902a
 Veto: [ ]
+
+## D-125 · 2026-09-29 · ⌘T belongs to New Terminal; the colliding action gets a new shortcut
+Context: B-066 (Evan: ⌘T opens both the agent palette and the quick terminal).
+Chose: ⌘T stays New Terminal (a plain-shell row), per the milestone's Done 3. Any other action bound to ⌘T (agent palette / Choose Agent…, quick terminal) moves to a free, Mac-conventional shortcut and keeps its menu item; the runner picks the exact keys and logs them. Supersedes D-107's "Choose Agent… (⌘T, the palette)" binding and matches D-099.
+Why: VISION Done 3 fixes ⌘T; AUTONOMY lets the agent pick shortcuts not fixed by a decision; principle 1 (every action keeps a shortcut and a menu item)
+Commit:
+Veto: [ ]
