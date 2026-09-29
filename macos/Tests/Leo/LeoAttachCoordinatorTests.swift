@@ -46,7 +46,9 @@ import Testing
         await host.emitAndWait(kind.event(first))
         #expect(await coordinator.reusableHandleCount == 0)
         await coordinator.attach(identity: identity, from: origin, disposition: .content)
-        #expect(host.contentCalls.count == 2)
+        #expect(host.contentCalls.count + host.placeholderCalls.count == 2)
+        // B-056: an exited pane still on screen is refilled in place.
+        #expect(host.placeholderSurfaceIDs == (kind == .processExited ? [first.surfaceID] : []))
         #expect(host.focused.isEmpty)
     }
 
