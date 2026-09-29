@@ -1,7 +1,50 @@
 # Backlog
 
-Ranked. Statuses: `ready`, `ready (next run)`, `blocked`, `deferred`, `done`.
+Ranked. Statuses: `ready`, `ready (next run)`, `blocked`, `deferred`, `done`, `idea`, `dropped`.
 Source roadmap: `docs/leo/roadmap.md` on `main` (not edited by autopilot).
+
+## B-054 · Bug — template lists are empty in New Agent and row Set Template   [ready]
+Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
+Accept: with a remote host selected, the New Agent sheet's Template picker lists the remote daemon's templates, not the local CLI's (test with a fake remote fetch); a row's right-click Set Template submenu lists the host's templates on the first open, confirmed by a debug-build screenshot; after a host switch both lists show the new host's templates, never the old host's (test)
+Out: no changes to the Agents menu bar ▸ Set Template path (already works); no template editing or creation UI
+Note: diagnosis 2026-09-28: (1) SpawnAgentModel.loadTemplates() always calls the local cli.templateList(), ignoring the selected host (the laptop's own leo returns []); LeoAgentActions.templates() already handles remote hosts through LeoTemplateCache plus an ssh exec, verified working from the laptop. (2) LeoAgentRow's Set Template Menu inside .contextMenu fills from row @State through a .task, which likely never runs in the NSMenu-snapshotted context menu (unconfirmed; reproduce first). Suggested fix: one published, host-aware template list on LeoAgentActions, prefetched on host change, read by both.
+Source: Evan (/feature, 2026-09-28)
+Inbox: 20260929T012753703255Z-9360b771#1
+
+## B-055 · One content area per window; sidebar selects what's shown   [ready]
+Why: principle 6 (the sidebar is the navigation) and principle 1 (Mac-native: Mail/Finder switch content from the sidebar, no tabs)
+Accept: no tab bar appears in any window, including after ⌘N or a restored session; clicking a row, Return, or palette choice shows that agent in the window's content area, replacing what was shown; the sidebar (width, collapse, scroll, search) never changes or redraws on a switch (before/after screenshot pair); one agent is on screen in at most one window, and selecting it elsewhere focuses that window (as B-047); tab-only affordances (Attach in New Tab, ⌘-click/⌘↩ new tab, start-tab fill) are removed or remapped, each logged; tests plus screenshots with autopilot-scratch only
+Out: the live pool (B-056), plain-shell rows (B-057), splits (B-058); multi-window layouts beyond ⌘N
+Source: Evan (/vision revision, 2026-09-28)
+
+## B-056 · Live surface pool: instant switches, detach beyond it   [ready]
+Why: principle 6 (switching must feel instant) and principle 2 (calm: no flicker or redraw on switch)
+Accept: switching back to one of the N most recently viewed agents shows its existing surface with Ghostty scrollback, scroll position and selection intact, with no new tmux client (test via the attach count); selecting an agent outside the pool evicts the least recently viewed one (its tmux client detaches) and attaches the new one; the tmux client count never exceeds N per window, and none leaks after a close or quit; after an agent restart the shown surface reattaches in place; N is a named constant chosen and logged by autopilot; works the same over the SSH tunnel
+Out: persisting pools across app launches; per-agent pinning into the pool
+Source: Evan (/vision revision, 2026-09-28)
+
+## B-057 · Plain shells as "Terminals" sidebar rows   [ready]
+Why: principle 6 (everything on screen comes from a sidebar row) and principle 1 (every action has a shortcut and a menu item)
+Accept: a "Terminals" section lists open plain shells, titled by the terminal title; ⌘T (and File ▸ New Terminal) creates a shell and selects it; closing a shell (⌘W, or exit) removes its row and selects a neighbour; shells take part in the live pool like agents; the section hides when empty; tests plus a screenshot
+Out: naming or pinning shells; shells on remote hosts beyond what Ghostty already does
+Source: Evan (/vision revision, 2026-09-28)
+
+## B-058 · Splits inside the content area   [ready]
+Why: principle 6 (the layout belongs to the selected row) with splits kept (D-100)
+Accept: ⌘D and the editor/file pane still split the content area; a split can show a second agent or shell, picked from the sidebar or palette; every row on screen is highlighted in the sidebar, the focused one distinctly; switching away from a split layout and back restores it intact; tests plus a screenshot of an agent + shell split with both rows highlighted
+Out: saved layouts; dragging rows into splits (later polish)
+Source: Evan (/vision revision, 2026-09-28)
+
+## B-059 · Keyboard switching between rows   [ready]
+Why: principle 1 (keyboard-first; every action has a shortcut and a menu item)
+Accept: the old tab shortcuts are remapped to rows (⌘1–⌘9 select the Nth visible row, ⌃Tab/⌃⇧Tab or ⌘⇧]/[ go to the next/previous row, ⌃⌥⌘J still jumps to the next agent that needs you); each has a Window-menu item; the shortcuts skip collapsed sections; tests cover each shortcut
+Out: user-configurable bindings beyond Ghostty's keybind config
+Source: Evan (/vision revision, 2026-09-28)
+
+## B-060 · One sidebar per window, shared by all its tabs   [dropped]
+Dropped: superseded before it was built, since tabs are removed (D-098, D-101). Recorded so the queued inbox line is skipped.
+Source: Evan (/feature, 2026-09-28)
+Inbox: 20260929T012306706070Z-b5d95371#1
 
 ## B-001 · Attention model, app side   [done]
 Issue: #7
@@ -364,7 +407,8 @@ Source: Evan (/feature, 2026-09-28)
 Inbox: 20260928T193634323347Z-31fbe8d8#1
 Done: a9dbf4e11 11930305f cf5025227 (1566 tests). The hover Attach button is gone. A single click opens a running agent: it focuses the agent's tab, or attaches (filling a lone start tab). A non-running agent gets a "Start <name>?" sheet, and the attach happens only once the daemon reports it running. Return acts like a click, arrows only select, and the row has an "Open" accessibility action; decisions D-097. Verified: shots B-049-1 (no button), -2 (the Start prompt), -3 (a single click on running scratch attaches in place), -4 (Start → attached once running); Cancel via Escape left the agent stopped with no tab. The "Starting…" state wasn't captured, and VoiceOver wasn't exercised. 2 review fix rounds (row identity across a re-sort; accessibility).
 
-## B-053 · Reattach after an agent restart refills the exited tab   [ready (next run)]
+## B-053 · Reattach after an agent restart refills the exited tab   [dropped]
+Dropped: superseded by the tab-bar removal (D-098, D-101); in-place reattach after a restart is part of B-056.
 Issue: #58
 Accept: After an attached agent restarts, its tab shows the "No Agent Attached" placeholder but keeps the agent's name (D-095). A sidebar double-click, Return, or palette choice for that agent should refill that placeholder, and focus it, instead of opening a new tab beside it. Today you get two same-named tabs, one of them empty (seen in B-052 verification, shots B-052-4/-5). ⌘-click / ⌘↩ still force a new tab. Test the lookup (an exited placeholder carrying the agent's name counts as that agent's tab). Screenshot with autopilot-scratch only.
 Source: B-052 verification

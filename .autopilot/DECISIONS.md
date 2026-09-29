@@ -750,3 +750,34 @@ Alternatives: close the sheet at once and attach silently later (the pending att
 Commit: a9dbf4e11 11930305f cf5025227
 Veto: [ ]
 
+## D-098 · 2026-09-28 · Remove the tab bar; the sidebar is the navigation
+Context: Evan (/vision revision). Sidebars were drawn per tab and could differ in width.
+Chose: No tab bar. Each window has one sidebar and one content area that shows the selected row. The N most recently viewed surfaces stay attached but hidden, so switching among them is instant and keeps scrollback; beyond N, the least recently viewed detaches and reattaches on selection. New principle 6 and new milestone "Sidebar navigation". This approves removing tabs, a user-facing feature on the stop list. It supersedes the tab-specific parts of D-093, D-095 (tab title), and D-096 (start-tab fill).
+Why: principle 1 (Mail/Finder-style sidebar navigation); per-tab sidebars can't be the same sidebar; the pool avoids per-switch reattach latency, lost Ghostty scrollback, and tmux resize reflow
+Alternatives: keep native tabs and sync the sidebar across them (still two navigation systems); detach/reattach on every switch (slow over SSH, loses scrollback and view state)
+Commit:
+Veto: n/a (Evan)
+
+## D-099 · 2026-09-28 · Plain shells are sidebar rows
+Context: D-098 leaves no tab bar for non-agent shells.
+Chose: A "Terminals" sidebar section; ⌘T creates a shell and selects it. The app-wide terminal drawer is unchanged.
+Why: principle 6 (one place to navigate)
+Alternatives: drawer only (shells become second-class); both (two homes for shells)
+Commit:
+Veto: n/a (Evan)
+
+## D-100 · 2026-09-28 · Keep splits in the content area
+Context: D-098.
+Chose: ⌘D and the editor/file pane still split the content area; a split may show a second agent or shell; every row on screen is highlighted.
+Why: agents side by side, and the editor next to its terminal, are core workflows
+Alternatives: editor split only; no splits
+Commit:
+Veto: n/a (Evan)
+
+## D-101 · 2026-09-28 · Backlog after the revision
+Context: D-098.
+Chose: the template-list bug (B-054) goes first, then B-055–B-059. B-053 (refill an exited tab) and the queued "one sidebar per window" entry (B-060) are dropped as superseded.
+Why: B-054 is small and independent; tab-specific items are moot without tabs
+Alternatives: sidebar navigation first
+Commit:
+Veto: n/a (Evan)
