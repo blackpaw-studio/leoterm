@@ -265,12 +265,7 @@ struct LeoSidebarView: View {
                 if showsTerminals { terminalSection }
             }
             .listStyle(.sidebar)
-            // A terminal the window just showed (⌘T makes one at the end
-            // of the list) is scrolled into view, without animation.
-            .onChange(of: terminals.selection) { selected in
-                guard let selected else { return }
-                proxy.scrollTo(LeoSidebarItemID.terminal(selected))
-            }
+            .leoRevealsTerminalRow(terminals.selection, isListed: showsTerminals, proxy: proxy)
         }
         .overlay(alignment: .bottomTrailing) {
             // A key equivalent, so it sees Return before the search
