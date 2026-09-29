@@ -830,3 +830,11 @@ Why: principle 1; no tab concepts left in the UI
 Alternatives: keep New Tab as a synonym for New Window
 Commit: 4134ce4f4 6fb5c8c8d
 Veto: [ ]
+
+## D-108 · 2026-09-28 · Live pool size N = 4 per window
+Context: B-056. Recently viewed surfaces stay attached but hidden; beyond N the least recently viewed detaches.
+Chose: N = 4 per window (a named constant). Hidden pooled surfaces keep their current size (no resize while hidden), so a tmux window isn't reflowed by a hidden client.
+Why: covers the common "flip between 2–4 agents" loop instantly while bounding tmux clients, memory and SSH channels (principle 3: remote tunnels multiplex every client)
+Alternatives: 8 (more clients per remote host, more memory); unbounded LRU (leaks clients)
+Commit:
+Veto: [ ]
