@@ -743,3 +743,10 @@ Alternatives: fill a selected blank start tab even beside other tabs (surprising
 Commit: 6875f2be7 14951a372
 Veto: [ ]
 
+## D-097 · 2026-09-28 · B-049 implementer calls (click a row to open; ask before starting)
+Chose: (1) After Start, the sheet stays up as "Starting <name>…" with a spinner and only Cancel, until the daemon reports the agent running, so the pending attach stays visible and cancellable. (2) Clicking an agent that's already `.starting` opens the sheet straight into that waiting state, with no second start. (3) Every non-running status (stopped, unknown/errored) gets the prompt, even when the agent still has a tab open. (4) Return in the search field now acts like a click on the top row (it attaches or prompts), replacing B-009's "Return never attaches". (5) Context-menu Attach and Agents ▸ Attach on a stopped agent behave as before, with no prompt. (6) The row is one accessibility element with a default "Open" action that takes the single-click path; the click catcher and the status badge are hidden from accessibility. (7) A click counts only if the same row is under the view at mouse-down and mouse-up (rows re-sort live). (8) The start-wait matches by agent name, not incarnation: "open X" attaches to whichever X reports running.
+Why: principle 1 (the row is the target, as in Finder and Mail; confirm with a sheet); principle 5 (no timers: attach only when the daemon reports running); never attach an agent the user didn't click
+Alternatives: close the sheet at once and attach silently later (the pending attach is invisible); keep Return in search as select-only
+Commit: a9dbf4e11 11930305f cf5025227
+Veto: [ ]
+
