@@ -394,6 +394,20 @@ import Testing
         #expect(TerminalController.leoAnyNeedsConfirmClose([window]) == isBusy)
     }
 
+    /// Quitting (⌘Q) asks each window whether it can close without
+    /// confirmation; a busy shell it keeps hidden says no, as it does for
+    /// Close Window.
+    @Test(arguments: [true, false])
+    func aBusyHiddenShellCountsForQuitting(_ isBusy: Bool) throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        fixture.host.closeTerminal(try newShell(fixture))
+        try #require(fixture.controller.surfaceTree.isEmpty)
+        fixture.terminals.hasBusyHiddenShell = { isBusy }
+
+        #expect(fixture.controller.windowCanBeClosedWithoutConfirmation() == !isBusy)
+    }
+
     /// Close Tab, Close Other Tabs and Close Tabs on the Right ask about a
     /// busy shell a closing window keeps hidden, as Close Window does. The
     /// app disallows tabbing, so the test groups two windows itself; each

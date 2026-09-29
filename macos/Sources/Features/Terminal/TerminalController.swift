@@ -1481,6 +1481,12 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         return false
     }
 
+    // MARK: Leo -- quitting asks about a busy shell kept hidden for a
+    // terminal row, as closing the window does (B-057).
+    override func windowCanBeClosedWithoutConfirmation() -> Bool {
+        super.windowCanBeClosedWithoutConfirmation() && leoSession?.terminals.hasBusyHiddenShell() != true
+    }
+
     override func windowWillClose(_ notification: Notification) {
         super.windowWillClose(notification)
         cancelPendingInitialPresentation()
