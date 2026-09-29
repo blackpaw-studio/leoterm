@@ -20,12 +20,20 @@ Accept: LeoRuntime takes an injectable template-fetch runner; tests pass a fake;
 Out: the existing tunnel tests' real ssh use.
 Source: B-054 implementer + review
 
-## B-055 · One content area per window; sidebar selects what's shown   [ready]
+## B-055 · One content area per window; sidebar selects what's shown   [done]
 Issue: #60
 Why: principle 6 (the sidebar is the navigation) and principle 1 (Mac-native: Mail/Finder switch content from the sidebar, no tabs)
 Accept: no tab bar appears in any window, including after ⌘N or a restored session; clicking a row, Return, or palette choice shows that agent in the window's content area, replacing what was shown; the sidebar (width, collapse, scroll, search) never changes or redraws on a switch (before/after screenshot pair); one agent is on screen in at most one window, and selecting it elsewhere focuses that window (as B-047); tab-only affordances (Attach in New Tab, ⌘-click/⌘↩ new tab, start-tab fill) are removed or remapped, each logged; tests plus screenshots with autopilot-scratch only
 Out: the live pool (B-056), plain-shell rows (B-057), splits (B-058); multi-window layouts beyond ⌘N
 Source: Evan (/vision revision, 2026-09-28)
+Done: 4134ce4f4 6fb5c8c8d (1593 tests, lint clean; general + lifecycle reviews: no blockers). Verified by screenshots: B-055-1 → -2 (start screen → autopilot-scratch in the content area; no tab bar; sidebar geometry unchanged; window titled with the agent; one tmux client), -3 (⌘N window, no tab bar, on-screen row highlighted), -4 (clicking scratch from the new window focused the existing one and closed the untouched start window; still one client).
+
+## B-062 · Rename tab-era internals (AttachTabHost, tabCount, LeoTabTitleSource)   [ready (next run)]
+Issue: #66
+Why: after B-055 there are no tabs; internal names still say "tab" (kept to shrink B-055's diff).
+Accept: mechanical rename to content/window vocabulary; no behaviour change; suite green.
+Out: behaviour changes.
+Source: B-055 implementer
 
 ## B-056 · Live surface pool: instant switches, detach beyond it   [ready]
 Issue: #61

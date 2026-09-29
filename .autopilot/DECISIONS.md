@@ -803,5 +803,30 @@ Context: B-055 removes the tab bar (D-098).
 Chose: "Attach in New Tab" becomes "Open in New Window"; ⌘-click a row and ⌘↩ in the palette open the agent in a new window (focusing its existing window instead if it's already on screen there, per B-047). Start-tab fill (D-096) is moot: selecting a row simply replaces the content area. ⌘T stays a plain shell (B-057 turns it into a Terminals row); until then it shows the shell in the content area.
 Why: principle 1 (Finder/Mail: ⌘-open means a new window); keeps the modifier gesture meaningful instead of dead
 Alternatives: remove the ⌘ variants entirely; ⌘-click opens a split (that's B-058's job)
-Commit:
+Commit: 4134ce4f4 6fb5c8c8d
+Note: ⌘T already opened the agent palette (not a shell); it stays the palette, retitled "Choose Agent…", and its choice replaces the content area (see D-107).
+Veto: [ ]
+
+## D-105 · 2026-09-28 · Until B-058, switching away from a split shows only the new agent
+Context: B-055 swaps the window's whole surface tree on a row switch.
+Chose: the split layout is dropped on switch; B-058 restores layouts. An exited pane's refill (placeholder) still always attaches, so an agent can briefly be on screen twice; B-056/B-058 close that gap.
+Why: keeps B-055 a clean swap seam; splits are B-058's scope
+Alternatives: refuse to switch away from a split; keep splits by swapping only the focused pane
+Commit: 4134ce4f4 6fb5c8c8d
+Veto: [ ]
+
+## D-106 · 2026-09-28 · Replacing a busy plain shell asks first
+Context: B-055. Switching rows replaces the content area; a plain shell's process would die.
+Chose: if the shown shell has a running process (Ghostty's needsConfirmQuit), ask "Close Terminal?" (Close / Cancel); Cancel keeps it silently. Replacing an agent never asks (tmux keeps it). If another alert is already up, the switch counts as cancelled.
+Why: principle 2 (calm) and Mac norms for destroying work
+Alternatives: never ask; always ask
+Commit: 4134ce4f4 6fb5c8c8d
+Veto: [ ]
+
+## D-107 · 2026-09-28 · Tab menu items after the tab bar's removal
+Context: B-055, D-098.
+Chose: native tabbing disallowed app-wide (Show Tab Bar, Show All Tabs, Merge All Windows, Move Tab to New Window disappear); File ▸ New Tab becomes "Choose Agent…" (⌘T, the palette); Close Tab hidden (⌘W still closes); "Change Tab Title…" becomes "Change Window Title…"; Dock/Services/App Intents/AppleScript tab requests open a window. An untouched start window closes when a jump shows the agent in another window; a ⌘-click that opens a new window keeps it. ⌘1–9 / ⌃Tab left inert for B-059.
+Why: principle 1; no tab concepts left in the UI
+Alternatives: keep New Tab as a synonym for New Window
+Commit: 4134ce4f4 6fb5c8c8d
 Veto: [ ]

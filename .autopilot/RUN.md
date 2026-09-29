@@ -16,6 +16,8 @@ Lane: B-054
 Lane: B-055
   Branch: autopilot-lane/B-055
   Base: 0ca3255cf4ad2126c807e8e243908b2750dc2f0b
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
+- B-055 done (4134ce4f4 6fb5c8c8d, merge 9a3fe356b): 1593 tests, lint clean. Reviews (general + lifecycle): no CRITICAL/HIGH. Dismissed: MEDIUM per-origin in-flight guard (swaps run on the main actor; the last click wins and the displaced tree is retired/freed, verified one tmux client live); LOW confirm TOCTOU (a process starting in the same run-loop turn; negligible); LOW attachments/isOpen brief disagreement (every caller re-derives from surfaceTree); LOW dealloc-as-proxy test (live check showed one tmux client after switches). Filed B-062 (rename internals, next run).
+- Verify note: one ⌘N keypress was sent while Google Chrome was frontmost (it may have opened a Chrome window; Chrome didn't answer AppleEvents to check). Since then every key press activates the debug app by bundle id and checks frontmost first.
