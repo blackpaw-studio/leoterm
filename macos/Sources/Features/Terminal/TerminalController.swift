@@ -103,11 +103,6 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         return c
     }
 
-    /// Registers a minimal undo action for a just-created empty placeholder
-    /// window: undo just closes it, guarded to no-op if it was since
-    /// filled (in which case `leoRegisterFilledPlaceholderUndo` has already
-    /// replaced this registration). No redo -- recreating an empty window
-    /// on redo isn't useful.
     /// The window shows a terminal again (B-057): an empty tree from here
     /// on closes it as usual.
     func leoMarkFilled() {
@@ -125,6 +120,11 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         focusedSurfaceDidChange(to: nil)
     }
 
+    /// Registers a minimal undo action for a just-created empty placeholder
+    /// window: undo just closes it, guarded to no-op if it was since
+    /// filled (in which case `leoRegisterFilledPlaceholderUndo` has already
+    /// replaced this registration). No redo -- recreating an empty window
+    /// on redo isn't useful.
     private func leoRegisterCloseOnUndoIfEmpty() {
         guard let undoManager else { return }
         undoManager.setActionName("New Window")
