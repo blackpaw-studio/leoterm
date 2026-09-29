@@ -33,6 +33,11 @@ Why: canonical scratchpad/runtests.sh crashes at LeoLivePoolIntegrationTests/swi
 Accept: the canonical suite runs green without the wrapper (fix the setenv use or copy env for libghostty); flaky timeout lengthened; verify.md updated
 Source: autopilot polish (B-057)
 
+## B-073 · runtests.sh test-host timeout too short under load   [ready (next run)]
+Why: the 400 s test-host timeout cut off a full run at this host's load (300–950) during B-063 verify
+Accept: timeout configurable/raised so a loaded run completes; flake-free rerun
+Source: autopilot polish (B-063)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)

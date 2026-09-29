@@ -33,9 +33,13 @@ Finished 1: B-057 landed e5f683b24 · shot /Users/evan/.leo/agents/leoterm/.git/
 Lane: B-063
   Branch: autopilot-lane/B-063
   Base: b7f45bbd2e442a2b91609aaf24a6f69c6186f5ae
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 7c6556dfa8a4c46c42c102cc8cb2a0f8d4637404
   Dispatched: 2026-09-29T18:27:00Z
+  Call: Last Activity sort gets streak hysteresis: rows active within 5 min of the snapshot's newest last_activity_at come first, ordered by when their streak began; the rest by last_activity_at then name; snapshots only (D-082 kept); supersedes D-085's plain "newest first" — P2 calm
+  Call: The 5-min window is measured from the snapshot's newest last_activity_at, not the wall clock — P2 never invent a state
+  Call: Streaks reset on host switch, reconnect or disconnect; a row missing from a snapshot, without a time, or a new incarnation starts a fresh streak (may move once) — P2
+  Call: Accepted trade-off: an agent whose timestamp stalls >5 min (long tool call) moves twice (drops, then returns to the top on resume); a long-running busy agent ranks below one whose burst began more recently — P2
