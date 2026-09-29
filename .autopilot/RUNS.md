@@ -132,3 +132,10 @@ Unconfirmed: the implementer saw a test-host crash (Zig Environ, tunnel tests' s
 Board sync: B-014 `deferred` has no board column (non-fatal warnings)
 Tests: 1566, all pass; swiftlint clean.
 Next up: B-053 (next run); blocked: B-051; deferred: B-014
+
+## Run 2026-09-28/29 — 3 shipped, stopped early (incident)
+- Shipped: B-054 (3a2205a65) host-aware template lists; B-055 (4134ce4f4 6fb5c8c8d) no tab bar, one content area per window; B-056 (b9e6ec48a 9d4b8033b b40d3a4bb) live surface pool N=4.
+- Calls: D-102, D-103, D-104, D-105, D-106, D-107, D-108, D-109, D-110, D-111.
+- Stopped early: during B-057 verification a blind keystroke sequence in a fresh debug build started and attached the real agent alfred-itunes-dj. It was detached within seconds, not stopped (Evan decides).
+- B-057 left unlanded (2 review HIGHs + not visually verified). Next run: fix, re-review, re-verify.
+- Filed: B-061 (inject template fetch in tests), B-062 (tab-era renames + review cleanups), both ready (next run).

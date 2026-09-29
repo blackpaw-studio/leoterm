@@ -31,7 +31,7 @@ Done: 4134ce4f4 6fb5c8c8d (1593 tests, lint clean; general + lifecycle reviews: 
 ## B-062 · Rename tab-era internals (AttachTabHost, tabCount, LeoTabTitleSource)   [ready (next run)]
 Issue: #66
 Why: after B-055 there are no tabs; internal names still say "tab" (kept to shrink B-055's diff).
-Accept: mechanical rename to content/window vocabulary; unify the two "is this an agent" predicates (attachment.isAttach vs leoAgentName, B-056 review) into one source; prune contentVersion on window close; no behaviour change; suite green.
+Accept: mechanical rename to content/window vocabulary; unify the two "is this an agent" predicates (attachment.isAttach vs leoAgentName, B-056 review) into one source; prune contentVersion on window close; fix LeoLivePoolIntegrationTests' `hiddenSurfaces(in: fixture.origin)` assertions, which check a test-local session id and so pass vacuously; no behaviour change; suite green.
 Out: behaviour changes.
 Source: B-055 implementer
 

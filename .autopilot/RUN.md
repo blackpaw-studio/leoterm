@@ -1,4 +1,4 @@
-Status: running
+Status: finished
 Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 
 ## Progress
@@ -39,3 +39,5 @@ Lane: B-057
   Wip: none
 - INCIDENT 2026-09-29 01:30 EDT (B-057 verify): after a fresh debug launch I sent ⌘T, typed `echo FIRST` + Return, ⌘T, `echo SECOND` + Return, all with the debug app frontmost but without a screenshot confirming focus first. The window ended up attached to the real agent `alfred-itunes-dj`, which was stopped before and now runs (its tmux session was created at 01:30:57). Most likely a Return reached the sidebar/start flow and started and attached the top (pinned) row via the B-049 Start prompt. I detached the client and killed the debug app within seconds. I did NOT stop the agent (a second touch; Evan decides). Whether any typed text reached it is unknown: my read of its pane was blocked by the permission classifier. The screenshot shows an empty input prompt. Run stopped early; B-057 left unlanded (not visually verified).
 - B-057 review (lifecycle): HIGH, a shown row's `exit` racing a reveal of another row skips cleanup (`GhosttyAttachTabHost.closeTerminal` guards on `surfaceTree.contains`), leaving a dead row in `kept`. LOW: ordering between DispatchQueue deferrals and Task continuations isn't pinned. To fix next run, before landing.
+- B-057 review (general): HIGH, TerminalController closeTab / closeOtherTabs / closeTabsOnTheRight still use the bare needsConfirmQuit check instead of leoNeedsConfirmClose (a busy hidden row shell could die without a prompt; mostly unreachable now that tabbing is disallowed, but fix anyway). LOW: fate `.keep` for a non-row shell beside a row (B-058). B-057 left unlanded at State: verifying for next run's preflight: apply both HIGHs, re-review, and re-verify with the safe GUI protocol.
+- Finish: `autopilot-lane finish` left the landed lanes B-054/B-055/B-056 in place because their worktrees hold untracked build symlinks, scratchpad/ and default.profraw (not deleted). B-057 unlanded.
