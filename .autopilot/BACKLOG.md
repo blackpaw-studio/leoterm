@@ -13,7 +13,7 @@ Source: Evan (/feature, 2026-09-28)
 Inbox: 20260929T012753703255Z-9360b771#1
 Done: 3a2205a65 (1573 tests, lint clean, review clean). Root causes: SpawnAgentModel used the local CLI regardless of host; the row fetched templates itself after the context menu was built. Verified by screenshot: row Set Template submenu filled on first open (B-054-3), New Agent sheet (B-054-4). The sheet's Template popup and the remote-host path were not visually verified (no AX on the sheet; no autopilot remote host); covered by LeoTemplateListTests with a fake remote.
 
-## B-061 · Tests: inject the template fetch so LeoRuntime tests don't run real ssh   [ready (next run)]
+## B-061 · Tests: inject the template fetch so LeoRuntime tests don't run real ssh   [ready]
 Issue: #65
 Why: since B-054, selecting the remote host "work" in LeoRuntimeConnectionTests also starts a real `/usr/bin/ssh -o BatchMode=yes evan@work … template list` (tests already open real tunnels there). Hang/isolation risk.
 Accept: LeoRuntime takes an injectable template-fetch runner; tests pass a fake; no test spawns ssh for templates (assert via the fake).
@@ -28,10 +28,10 @@ Out: the live pool (B-056), plain-shell rows (B-057), splits (B-058); multi-wind
 Source: Evan (/vision revision, 2026-09-28)
 Done: 4134ce4f4 6fb5c8c8d (1593 tests, lint clean; general + lifecycle reviews: no blockers). Verified by screenshots: B-055-1 → -2 (start screen → autopilot-scratch in the content area; no tab bar; sidebar geometry unchanged; window titled with the agent; one tmux client), -3 (⌘N window, no tab bar, on-screen row highlighted), -4 (clicking scratch from the new window focused the existing one and closed the untouched start window; still one client).
 
-## B-062 · Rename tab-era internals (AttachTabHost, tabCount, LeoTabTitleSource)   [ready (next run)]
+## B-062 · Rename tab-era internals (AttachTabHost, tabCount, LeoTabTitleSource)   [ready]
 Issue: #66
 Why: after B-055 there are no tabs; internal names still say "tab" (kept to shrink B-055's diff).
-Accept: mechanical rename to content/window vocabulary; unify the two "is this an agent" predicates (attachment.isAttach vs leoAgentName, B-056 review) into one source; prune contentVersion on window close; no behaviour change; suite green.
+Accept: mechanical rename to content/window vocabulary; unify the two "is this an agent" predicates (attachment.isAttach vs leoAgentName, B-056 review) into one source; prune contentVersion on window close; fix LeoLivePoolIntegrationTests' `hiddenSurfaces(in: fixture.origin)` assertions, which check a test-local session id and so pass vacuously; no behaviour change; suite green.
 Out: behaviour changes.
 Source: B-055 implementer
 
@@ -42,6 +42,38 @@ Accept: switching back to one of the N most recently viewed agents shows its exi
 Out: persisting pools across app launches; per-agent pinning into the pool
 Source: Evan (/vision revision, 2026-09-28)
 Done: b9e6ec48a 9d4b8033b b40d3a4bb (1636 tests, lint clean; 1 fix round; re-review: all fixes hold, no CRITICAL/HIGH). Verified live with autopilot-scratch: hide → reveal kept the same tmux client (same tty and created time) and scrollback (B-056-2 → -3, fixed build); cross-window selection released the other window's hidden copy and attached one fresh client (B-056-4, pre-fix build). Eviction past N=4 needs 5 agents: tests only. SSH path: tests only (no autopilot remote host).
+
+## B-063 · Bug — running agents' sidebar order keeps switching   [ready]
+Issue: #67
+Type: bug
+Report: The order of the running agents in the sidebar keeps switching around. It's a little jarring.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: Evan (/issue, 2026-09-29)
+Inbox: 20260929T161723581510Z-15416219#1
+
+## B-064 · Bug — no spacing at the top of the sidebar   [ready]
+Issue: #68
+Type: bug
+Report: Can we also fix the spacing at the top of the sidebar? It looks like between the title bar of the window, the agents text, and the plus button, there's no space.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: Evan (/issue, 2026-09-29)
+Inbox: 20260929T161756385296Z-8ceb2d26#1
+
+## B-066 · Bug — ⌘T shortcut collides (agent palette vs quick terminal)   [ready]
+Issue: #69
+Type: bug
+Report: I think we have Command-T opening the agent palette but we also have it for the quick terminal so I think we need to update those keyboard shortcuts.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: Evan (/issue, 2026-09-29)
+Inbox: 20260929T161943538717Z-c7a22381#1
+
+## B-065 · Sidebar convenience button bar (Quick Terminal, New Terminal)   [ready]
+Issue: #70
+Why: One-click access to common window actions from the sidebar, which is the navigation (principle 6), without making a shortcut the only way in; every button also keeps its menu item and shortcut (principle 1).
+Accept: a compact bar of SF Symbol icon buttons sits in the sidebar (header or footer, agent's call per HIG) and matches the corrected top-spacing layout; the Quick Terminal button toggles Ghostty's quick terminal (same action as the menu item/shortcut), verified by screenshot of it opening and closing; the New Terminal button creates and selects a plain-shell row exactly as ⌘T does (after B-057); each button has a tooltip naming its shortcut and an accessibility label; tests plus screenshots from the isolated debug build
+Out: any other buttons (settings, new agent, search, etc.) — add later as separate items; user-customizable button sets; restyling the rest of the sidebar
+Source: Evan (/feature, 2026-09-29)
+Inbox: 20260929T161921499761Z-63fc4dc4#1
 
 ## B-057 · Plain shells as "Terminals" sidebar rows   [ready]
 Issue: #62
