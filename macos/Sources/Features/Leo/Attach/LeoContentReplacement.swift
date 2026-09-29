@@ -38,6 +38,13 @@ enum LeoContentReplacement {
     /// that row. Anything else -- a shell split beside an agent or a row --
     /// closes (asking first when busy); it is never hidden, so no later
     /// eviction or close kills a shell silently (D-109).
+    ///
+    /// Known tension, an interim call: D-111 says a row's shell lives until
+    /// its row closes, but a row with a ⌘D split beside it closes whole
+    /// on switch-away -- the row's own shell too, after the busy confirm.
+    /// Keeping the row's pane alone would drop the split; keeping both
+    /// would hide a non-row shell nothing can come back to. Splits within
+    /// a row are B-058's (D-100) to settle.
     static func fate(_ shown: [Shown]) -> Fate {
         if keepsAttached(shown) { return .pool }
         return !shown.isEmpty && shown.allSatisfy(\.isTerminalRow) ? .keep : .close
