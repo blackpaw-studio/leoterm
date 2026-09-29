@@ -106,9 +106,10 @@ extension Notification.Name {
     /// alone.
     func release(_ handle: AttachmentHandle)
     /// B-057: closes the terminal row `handle` (its shell went: ⌘W, or
-    /// `exit`), shown or hidden. Shown, its window shows the neighbouring
-    /// terminal row instead -- the same hidden surface -- or, with none,
-    /// the start screen; the window stays. Hidden, its shell is let go and
+    /// `exit`), shown or hidden. Shown alone, its window shows the
+    /// neighbouring terminal row instead -- the same hidden surface -- or,
+    /// with none, the start screen; the window stays. Shown with a split
+    /// beside it, only its own pane closes. Hidden, its shell is let go and
     /// what the window shows is untouched. Already closed, nothing happens.
     func closeTerminal(_ handle: AttachmentHandle)
     /// B-057: `window`'s sidebar selects the terminal row its content area

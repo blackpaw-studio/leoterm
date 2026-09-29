@@ -181,23 +181,28 @@ import OSLog
     /// B-057: a terminal row's shell closed (⌘W, `exit`) -- whether it is
     /// still on screen or not: its close lands a turn late, or once a
     /// confirm is answered, so a reveal may have hidden it meanwhile.
-    /// Shown, its neighbour takes its place; hidden, it is let go from the
-    /// keep and nothing on screen changes; already gone (Ghostty's close
-    /// observer got there first), nothing happens. Any order of the two
-    /// ends the same.
+    /// Shown, it closes on screen (`closeShownTerminal`); hidden, it is
+    /// let go from the keep and nothing on screen changes; already gone
+    /// (Ghostty's close observer got there first), nothing happens. Any
+    /// order of the two ends the same.
     func closeTerminal(_ handle: AttachmentHandle) {
         guard let (controller, surface) = liveSurface(handle) else { return }
-        if controller.surfaceTree.contains(surface) { return closeShownTerminal(handle, in: controller) }
+        if controller.surfaceTree.contains(surface) { return closeShownTerminal(handle, surface: surface, in: controller) }
         guard live.discardKept(treeHolding: surface, in: handle.windowID) else { return }
         Self.logger.log("closeTerminal window=\(handle.windowID.rawValue.uuidString, privacy: .public) hidden=true")
     }
 
-    /// The shown row's shell closed. The nearest neighbouring row with a
-    /// live hidden shell takes its place -- the same surface -- or, with
-    /// none, the start screen does; the window stays. (A neighbour whose
-    /// shell ended is let go on the way.) What closed is let go at once:
-    /// its surfaces free their ptys, and its handles (so its row) close.
-    private func closeShownTerminal(_ handle: AttachmentHandle, in controller: TerminalController) {
+    /// The shown row's shell closed. Alone in the window: the nearest
+    /// neighbouring row with a live hidden shell takes its place -- the
+    /// same surface -- or, with none, the start screen does; the window
+    /// stays. (A neighbour whose shell ended is let go on the way.) What
+    /// closed is let go at once: its surfaces free their ptys, and its
+    /// handles (so its row) close. With a split beside it, only its own
+    /// pane closes (`closeShownPane`).
+    private func closeShownTerminal(_ handle: AttachmentHandle, surface: Ghostty.SurfaceView, in controller: TerminalController) {
+        guard case .leaf(let root)? = controller.surfaceTree.root, root === surface else {
+            return closeShownPane(handle, surface: surface, in: controller)
+        }
         guard let terminals = controller.leoSession?.terminals else { return }
         let closing = controller.surfaceTree
         if let (tree, focus) = neighbourTree(of: handle, in: terminals) {
@@ -210,6 +215,18 @@ import OSLog
         closeHandles(in: closing)
         selectShownTerminal(in: controller)
         Self.logger.log("closeTerminal window=\(handle.windowID.rawValue.uuidString, privacy: .public) neighbour=\(!controller.surfaceTree.isEmpty)")
+    }
+
+    /// The shown row's shell closed with a split (⌘D) beside it: only its
+    /// own pane closes, as a split's close does (undoable, focus moving
+    /// on), and its handle -- so its row -- with it. What is split beside
+    /// it stays: a busy shell there is never closed without asking.
+    private func closeShownPane(_ handle: AttachmentHandle, surface: Ghostty.SurfaceView, in controller: TerminalController) {
+        guard let node = controller.surfaceTree.root?.node(view: surface) else { return }
+        controller.closeSurface(node, withConfirmation: false)
+        closeHandles(in: SplitTree(view: surface))
+        selectShownTerminal(in: controller)
+        Self.logger.log("closeTerminal window=\(handle.windowID.rawValue.uuidString, privacy: .public) pane=true")
     }
 
     /// The nearest neighbouring row's hidden tree that can be shown,
