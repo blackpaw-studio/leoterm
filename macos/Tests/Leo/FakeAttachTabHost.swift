@@ -127,7 +127,20 @@ struct FakeOpenCall {
     var replacementConfirmations: [LeoWindowID] = []
     func confirmReplacingContent(origin: LeoWindowID) async -> Bool {
         replacementConfirmations.append(origin)
-        return confirmsReplacement
+        guard heldConfirmations > 0 else { return confirmsReplacement }
+        heldConfirmations -= 1
+        return await withCheckedContinuation { pendingConfirmations.append($0) }
+    }
+
+    /// How many of the next confirmations suspend (as the real alert does)
+    /// until `resumeConfirmation` answers them, oldest first.
+    var heldConfirmations = 0
+    private var pendingConfirmations: [CheckedContinuation<Bool, Never>] = []
+    var pendingConfirmationCount: Int { pendingConfirmations.count }
+
+    func resumeConfirmation(_ answer: Bool) {
+        guard !pendingConfirmations.isEmpty else { return }
+        pendingConfirmations.removeFirst().resume(returning: answer)
     }
 
     func openWindow(command: String, workingDirectory: String?, requestID: UUID) throws -> AttachmentHandle {

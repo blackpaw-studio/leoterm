@@ -55,6 +55,9 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     private var identityByHandle: [AttachmentHandle: LeoAgentIdentity] = [:]
     private var inactive: Set<AttachmentHandle> = []
     private var attachInProgress: Set<LeoAgentIdentity> = []
+    /// Bumped each time a window's content area is replaced, so a request
+    /// that waited on a confirmation can tell it was superseded.
+    private var contentVersion: [LeoWindowID: Int] = [:]
     /// The attachment the host last reported the user viewing (behind
     /// `focusedIdentity`: attention and Jump); mapped to an identity only
     /// through `identityByHandle` (never titles or sidebar selection).
@@ -154,21 +157,19 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             return .success(handle)
         }
         let request = refillingExitedPane(of: identity, placed)
-        var isConfirmed = false
-        if request.disposition == .content, hiddenHandle(of: identity, in: request.origin) != nil {
-            guard await confirmReplacingContent(for: request) else { return .failure(.init(identity: identity, kind: .cancelled)) }
-            isConfirmed = true
-            if let handle = revealHidden(identity, in: request.origin) { return .success(handle) }
+        let isHidden = request.disposition == .content && hiddenHandle(of: identity, in: request.origin) != nil
+        // Showing a hidden surface needs no command; attaching anew builds
+        // it before asking, so a bad executable never asks first.
+        let built = isHidden ? nil : attachCommand(for: identity)
+        if case .failure(let error) = built { return .failure(error) }
+        guard await confirmReplacingContent(for: request) else {
+            return .failure(.init(identity: identity, kind: .cancelled))
         }
-        let command: String
-        switch attachCommand(for: identity) {
-        case .success(let built): command = built
+        if isHidden, let handle = revealHidden(identity, in: request.origin) { return .success(handle) }
+        switch built ?? attachCommand(for: identity) {
+        case .success(let command): return attachAnew(identity: identity, command: command, request: request)
         case .failure(let error): return .failure(error)
         }
-        if !isConfirmed {
-            guard await confirmReplacingContent(for: request) else { return .failure(.init(identity: identity, kind: .cancelled)) }
-        }
-        return attachAnew(identity: identity, command: command, request: request)
     }
 
     private func attachCommand(for identity: LeoAgentIdentity) -> Result<String, LeoAttachError> {
@@ -196,6 +197,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         do {
             let workingDirectory = LeoAttachCommand.workingDirectory(identity: identity)
             let handle = try createHandle(command: command, workingDirectory: workingDirectory, request: request)
+            if request.disposition == .content { contentReplaced(in: request.origin) }
             handlesByIdentity[identity, default: []].append(handle)
             identityByHandle[handle] = identity
             adoptHostFocus()
@@ -232,6 +234,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             remove(hidden)
             return nil
         }
+        contentReplaced(in: window)
         moveToMostRecent(hidden, identity: identity)
         adoptHostFocus()
         return hidden
@@ -273,6 +276,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         }
         do {
             let handle = try createHandle(command: "", workingDirectory: nil, request: request)
+            if request.disposition == .content { contentReplaced(in: request.origin) }
             return .success(handle)
         } catch {
             let attachError = LeoAttachError(identity: Self.plainShellIdentity, kind: .openFailed(error.localizedDescription))
@@ -285,10 +289,21 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     /// no agent identity; only `message`/`kind` are meaningful to callers.
     private static let plainShellIdentity = LeoAgentIdentity(host: .local, name: "")
 
-    /// Only a content-area request replaces anything.
+    /// Only a content-area request replaces anything. The answer is about
+    /// what the window showed when it asked: if another request replaced
+    /// that content while this one waited, this one is dropped (a quiet
+    /// cancel) -- the newer request wins, and nothing replaces content
+    /// nobody confirmed replacing.
     private func confirmReplacingContent(for request: LeoSurfaceRequest) async -> Bool {
         guard request.disposition == .content else { return true }
-        return await host.confirmReplacingContent(origin: request.origin)
+        let version = contentVersion[request.origin, default: 0]
+        guard await host.confirmReplacingContent(origin: request.origin) else { return false }
+        return contentVersion[request.origin, default: 0] == version
+    }
+
+    /// `window`'s content area now shows something else.
+    private func contentReplaced(in window: LeoWindowID) {
+        contentVersion[window, default: 0] += 1
     }
 
     private func createHandle(command: String, workingDirectory: String?, request: LeoSurfaceRequest) throws -> AttachmentHandle {

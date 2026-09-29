@@ -146,6 +146,64 @@ import Testing
         #expect(host.isHidden(host.handles[0]))
     }
 
+    // MARK: Requests racing on one window
+
+    /// A's confirmation is about what the window showed when A asked; B
+    /// replaced that meanwhile, so A is dropped (a quiet cancel) rather
+    /// than replacing content nobody confirmed. The newer request wins.
+    @Test func aContentRequestSupersededWhileAskingIsDropped() async {
+        let (host, coordinator) = make()
+        await showEach(agents.prefix(3), coordinator)
+        host.heldConfirmations = 1
+        let pending = Task { await coordinator.attach(identity: agents[3], request: content()) }
+        await waitUntil { host.pendingConfirmationCount == 1 }
+        #expect(host.pendingConfirmationCount == 1)
+
+        _ = await coordinator.attach(identity: agents[4], request: content())
+        host.resumeConfirmation(true)
+        let result = await pending.value
+
+        if case .failure(let error) = result { #expect(error.isCancellation) } else { Issue.record("expected A dropped") }
+        #expect(host.shownInContent[window] == host.handles.last, "B, the newer request, is shown")
+        #expect(host.contentCalls.count == 4, "A never attached")
+        let open = host.handles.filter(host.isOpen)
+        #expect(open.count <= LeoLivePoolCapacity.perWindow)
+        #expect(open.allSatisfy { host.isShown($0) || host.isHidden($0) }, "no orphaned hidden surface")
+        #expect(coordinator.reusableHandleCount == open.count, "one handle per agent, all tracked")
+    }
+
+    @Test func aSupersededRevealIsDroppedToo() async {
+        let (host, coordinator) = make()
+        await showEach(agents.prefix(2), coordinator)
+        host.heldConfirmations = 1
+        let pending = Task { await coordinator.attach(identity: agents[0], request: content()) }
+        await waitUntil { host.pendingConfirmationCount == 1 }
+
+        _ = await coordinator.attach(identity: agents[2], request: content())
+        host.resumeConfirmation(true)
+        _ = await pending.value
+
+        #expect(host.revealed.isEmpty)
+        #expect(host.shownInContent[window] == host.handles[2])
+        #expect(host.isHidden(host.handles[0]) && host.isHidden(host.handles[1]))
+    }
+
+    @Test func aCancelledCompetingRequestDoesNotDropTheWaitingOne() async {
+        let (host, coordinator) = make()
+        await showEach(agents.prefix(1), coordinator)
+        host.heldConfirmations = 1
+        let pending = Task { await coordinator.attach(identity: agents[1], request: content()) }
+        await waitUntil { host.pendingConfirmationCount == 1 }
+        host.confirmsReplacement = false
+
+        _ = await coordinator.attach(identity: agents[2], request: content())
+        host.resumeConfirmation(true)
+        let result = await pending.value
+
+        #expect((try? result.get()) == host.handles.last)
+        #expect(host.shownInContent[window] == host.handles.last)
+    }
+
     // MARK: One tmux client per agent across windows
 
     @Test func anAgentHiddenInAnotherWindowIsLetGoThenShownHere() async {

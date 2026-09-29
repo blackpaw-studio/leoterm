@@ -17,6 +17,8 @@ import GhosttyKit
     private let capacity: Int
     /// Whether a surface counts as a tmux client: a live attach.
     private let isClient: (Ghostty.SurfaceView) -> Bool
+    /// Whether a surface is an agent attach (live or exited), not a shell.
+    private let isAgent: (Ghostty.SurfaceView) -> Bool
     /// Called with every tree the pool lets go (evicted, dead, or its
     /// window closed): the host closes its handles. Nothing else holds the
     /// surfaces, so they free their ptys and each tmux client detaches.
@@ -24,10 +26,12 @@ import GhosttyKit
 
     init(
         capacity: Int = LeoLivePoolCapacity.perWindow,
+        isAgent: @escaping (Ghostty.SurfaceView) -> Bool,
         isClient: @escaping (Ghostty.SurfaceView) -> Bool,
         letGo: @escaping (Tree) -> Void
     ) {
         self.capacity = capacity
+        self.isAgent = isAgent
         self.isClient = isClient
         self.letGo = letGo
     }
@@ -47,9 +51,15 @@ import GhosttyKit
 
     /// `displaced` just left `window`'s content area for `shown`: it is
     /// hidden as the most recently viewed entry, then the pool is trimmed.
-    /// A tree with no live attach (a plain shell) is let go straight away.
+    /// A tree holding any plain shell -- even beside an agent -- is let go
+    /// straight away (D-106 asked before closing a busy one): it is never
+    /// in the pool for a later eviction to kill silently.
     func hide(_ displaced: Tree, in window: LeoWindowID, showing shown: Tree) {
-        guard !displaced.isEmpty else { return trim(window, showing: shown) }
+        let shownKinds = displaced.map { LeoContentReplacement.Shown(isAgent: isAgent($0), needsConfirmQuit: false) }
+        guard LeoContentReplacement.keepsAttached(shownKinds) else {
+            letGo(displaced)
+            return trim(window, showing: shown)
+        }
         displaced.forEach(Self.stopDrawing)
         pools[window] = pool(of: window).hiding(displaced)
         trim(window, showing: shown)
@@ -94,6 +104,9 @@ import GhosttyKit
     /// Ghostty asked to close `surface` (its process ended). A shown one is
     /// its window's business; a hidden one leaves its pooled tree, and a
     /// tree left with no live attach goes. Returns whether it was hidden.
+    /// Not hidden is the common case, not an error: the host hears every
+    /// close request, and nearly all name a surface on screen, which its
+    /// controller closes -- so this deliberately does nothing then.
     @discardableResult
     func surfaceClosed(_ surface: Ghostty.SurfaceView) -> Bool {
         guard let window = pools.first(where: { $0.value.entries.contains { Self.tree($0, holds: surface) } })?.key else {

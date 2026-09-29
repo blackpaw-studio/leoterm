@@ -48,8 +48,11 @@ import Testing
 
     private static var ghostty: Ghostty.App? { (NSApp.delegate as? AppDelegate)?.ghostty }
 
-    private func makeFixture() -> Fixture? {
-        guard let ghostty = Self.ghostty, let app = ghostty.app else { return nil }
+    /// Fails (never passes vacuously) without the app's real Ghostty.App:
+    /// `runtests.sh` runs the suite inside the Leo app, which has one.
+    private func makeFixture() throws -> Fixture {
+        let ghostty = try #require(Self.ghostty, "these tests need the app's Ghostty.App")
+        let app = try #require(ghostty.app)
         let first = Ghostty.SurfaceView(app, baseConfig: nil)
         let controller = TerminalController(ghostty, withSurfaceTree: SplitTree(view: first))
         controller.window?.contentView?.layoutSubtreeIfNeeded()
@@ -85,7 +88,7 @@ import Testing
     }
 
     @Test func switchingBackShowsTheSameSurfaceInstance() async throws {
-        guard let fixture = makeFixture() else { return }
+        let fixture = try makeFixture()
         defer { close(fixture) }
         let tracker = Tracker()
         let first = try attach(fixture, tracker)
@@ -107,7 +110,7 @@ import Testing
     }
 
     @Test func aHiddenSurfaceLeavesTheViewHierarchy() async throws {
-        guard let fixture = makeFixture() else { return }
+        let fixture = try makeFixture()
         defer { close(fixture) }
         let tracker = Tracker()
         let first = try attach(fixture, tracker)
@@ -122,7 +125,8 @@ import Testing
     }
 
     @Test func aWindowResizeDoesNotResizeAHiddenSurface() async throws {
-        guard let fixture = makeFixture(), let window = fixture.controller.window else { return }
+        let fixture = try makeFixture()
+        let window = try #require(fixture.controller.window)
         defer { close(fixture) }
         let tracker = Tracker()
         let first = try attach(fixture, tracker)
@@ -141,7 +145,7 @@ import Testing
     }
 
     @Test func beyondFourTheLeastRecentlyViewedIsFreed() async throws {
-        guard let fixture = makeFixture() else { return }
+        let fixture = try makeFixture()
         defer { close(fixture) }
         let tracker = Tracker()
         let handles = try (0..<5).map { _ in try attach(fixture, tracker) }
@@ -154,7 +158,7 @@ import Testing
     }
 
     @Test func aPlainShellIsNotPooled() async throws {
-        guard let fixture = makeFixture() else { return }
+        let fixture = try makeFixture()
         defer { close(fixture) }
         let tracker = Tracker()
         let shell = try attach(fixture, tracker, command: "")
@@ -166,7 +170,7 @@ import Testing
     }
 
     @Test func releasingLetsTheHiddenSurfaceGo() async throws {
-        guard let fixture = makeFixture() else { return }
+        let fixture = try makeFixture()
         defer { close(fixture) }
         let tracker = Tracker()
         let first = try attach(fixture, tracker)
@@ -183,7 +187,7 @@ import Testing
     }
 
     @Test func closingTheWindowFreesItsHiddenSurfaces() async throws {
-        guard let fixture = makeFixture() else { return }
+        let fixture = try makeFixture()
         let tracker = Tracker()
         let first = try attach(fixture, tracker)
         let second = try attach(fixture, tracker)
@@ -198,8 +202,50 @@ import Testing
         fixture.events.task?.cancel()
     }
 
+    /// Fix round 1: an agent split beside a plain shell is never pooled;
+    /// displacing it (after D-106's ask) lets all of it go, so no hidden
+    /// shell is ever in reach of a later eviction.
+    @Test func aSplitHoldingAPlainShellIsNotPooled() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let tracker = Tracker()
+        let agent = try attach(fixture, tracker)
+        let app = try #require(Self.ghostty?.app)
+        weak var shell: Ghostty.SurfaceView?
+        do {
+            let agentView = try #require(tracker.view(agent))
+            let view = Ghostty.SurfaceView(app, baseConfig: nil)
+            shell = view
+            fixture.controller.surfaceTree = try fixture.controller.surfaceTree.inserting(view: view, at: agentView, direction: .right)
+        }
+
+        let next = try attach(fixture, tracker)
+
+        #expect(!fixture.host.isOpen(agent), "the agent went with the shell, at once")
+        #expect(fixture.host.hiddenSurfaces(in: fixture.origin).isEmpty, "nothing with a shell in the pool for an eviction to kill")
+        #expect(await eventually { !tracker.isAlive(agent) }, "the agent is freed, not kept hidden")
+        #expect(await eventually { shell == nil }, "the shell is freed")
+        #expect(fixture.host.isShown(next))
+    }
+
+    @Test func closingTheWindowClosesEachHandleOnce() async throws {
+        let fixture = try makeFixture()
+        let tracker = Tracker()
+        let handles = try (0..<3).map { _ in try attach(fixture, tracker) }
+
+        fixture.controller.window?.close()
+
+        #expect(await eventually { handles.allSatisfy { fixture.events.events.contains(.closed($0)) } })
+        try? await Task.sleep(for: .milliseconds(100))
+        for handle in handles {
+            #expect(fixture.events.events.filter { $0 == .closed(handle) }.count == 1)
+        }
+        #expect(fixture.host.hiddenSurfaces(in: fixture.origin).isEmpty)
+        fixture.events.task?.cancel()
+    }
+
     @Test func aHiddenSurfaceWhoseProcessEndsIsLetGo() async throws {
-        guard let fixture = makeFixture() else { return }
+        let fixture = try makeFixture()
         defer { close(fixture) }
         let tracker = Tracker()
         let first = try attach(fixture, tracker, command: "/bin/sleep 1")

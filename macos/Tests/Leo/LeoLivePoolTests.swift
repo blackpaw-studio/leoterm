@@ -100,6 +100,28 @@ struct LeoLivePoolTests {
         #expect(remaining.entries == ["b"])
     }
 
+    /// Fix round 1: a plain shell has no row to come back to, so content
+    /// holding one -- even beside an agent in a split -- is never kept
+    /// hidden: it goes through D-106 (ask if busy, then close) instead.
+    @Test(arguments: [
+        ([LeoContentReplacement.Shown(isAgent: true, needsConfirmQuit: true)], true),
+        ([.init(isAgent: true, needsConfirmQuit: false), .init(isAgent: true, needsConfirmQuit: false)], true),
+        ([.init(isAgent: true, needsConfirmQuit: true), .init(isAgent: false, needsConfirmQuit: true)], false),
+        ([.init(isAgent: true, needsConfirmQuit: true), .init(isAgent: false, needsConfirmQuit: false)], false),
+        ([.init(isAgent: false, needsConfirmQuit: false)], false),
+        ([], false),
+    ])
+    func onlyAllAgentContentIsKeptAttached(_ shown: [LeoContentReplacement.Shown], _ keeps: Bool) {
+        #expect(LeoContentReplacement.keepsAttached(shown) == keeps)
+    }
+
+    @Test func anAgentBesideABusyShellStillAsks() {
+        let shown = [LeoContentReplacement.Shown(isAgent: true, needsConfirmQuit: true), .init(isAgent: false, needsConfirmQuit: true)]
+
+        #expect(LeoContentReplacement.needsConfirmation(shown))
+        #expect(!LeoContentReplacement.keepsAttached(shown), "Close closes all of it")
+    }
+
     @Test func aCustomCapacityIsKept() {
         let pool = LeoLivePool<String>(capacity: 2).hiding("a").hiding("b")
 

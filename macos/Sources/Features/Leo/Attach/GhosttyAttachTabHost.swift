@@ -18,10 +18,12 @@ import OSLog
     private let appFocusState: @MainActor () -> AppFocusState
     /// B-056: what each window keeps attached but hidden.
     private lazy var live = LeoLiveSurfaces(
+        isAgent: { [weak self] in self?.isAttach($0) ?? false },
         isClient: { [weak self] in self?.isLiveAttach($0) ?? false },
         letGo: { [weak self] in self?.closeHandles(in: $0) }
     )
     private var hiddenExitObservers: [NSObjectProtocol] = []
+    private var windowCloseObservers: [LeoWindowID: NSObjectProtocol] = [:]
 
     /// Whether the app is active and which window is key. Injectable so
     /// tests can drive focus reports without the real app being frontmost.
@@ -51,6 +53,7 @@ import OSLog
         continuation.finish()
         focusObservers.forEach { NotificationCenter.default.removeObserver($0) }
         hiddenExitObservers.forEach { NotificationCenter.default.removeObserver($0) }
+        windowCloseObservers.values.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
     /// `viewedHandle`, but only while that surface is the window's first
@@ -217,9 +220,14 @@ import OSLog
         }
     }
 
+    /// An agent attach surface (live or exited), not a plain shell.
+    private func isAttach(_ surface: Ghostty.SurfaceView) -> Bool {
+        attachments.values.contains { $0.isAttach && $0.surface === surface }
+    }
+
     /// A tmux client: a live attach surface (not a plain shell, not exited).
     private func isLiveAttach(_ surface: Ghostty.SurfaceView) -> Bool {
-        !surface.processExited && attachments.values.contains { $0.isAttach && $0.surface === surface }
+        !surface.processExited && isAttach(surface)
     }
 
     /// The handles of every surface in `tree` (which the pool let go) close.
@@ -426,6 +434,9 @@ import OSLog
         return controller.surfaceTree.contains(surface) || live.contains(surface, in: handle.windowID)
     }
 
+    /// What `window` keeps hidden (tests and diagnostics).
+    func hiddenSurfaces(in window: LeoWindowID) -> [Ghostty.SurfaceView] { live.hiddenSurfaces(in: window) }
+
     func isShown(_ handle: AttachmentHandle) -> Bool {
         guard let (controller, surface) = liveSurface(handle) else { return false }
         return controller.surfaceTree.contains(surface)
@@ -488,13 +499,7 @@ import OSLog
             .prefix(1)
             .sink { [weak self] _ in self?.continuation.yield(.processExited(handle)) }
             .store(in: &attachment.cancellables)
-        if let window = controller.window {
-            attachment.closeObserver = NotificationCenter.default.addObserver(
-                forName: NSWindow.willCloseNotification,
-                object: window,
-                queue: .main
-            ) { [weak self] _ in MainActor.assumeIsolated { self?.windowWillClose(handle) } }
-        }
+        observeClose(of: controller, as: session.id)
         // Focus may already be on the new surface (no later notification).
         DispatchQueue.main.async { [weak self] in self?.reportFocus() }
         return handle
@@ -505,10 +510,23 @@ import OSLog
         close(handle)
     }
 
-    /// Hidden trees go with their window: no tmux client outlives it.
-    private func windowWillClose(_ handle: AttachmentHandle) {
-        close(handle)
-        live.releaseAll(in: handle.windowID)
+    /// One close hook per window, installed with its first handle.
+    private func observeClose(of controller: TerminalController, as windowID: LeoWindowID) {
+        guard windowCloseObservers[windowID] == nil, let window = controller.window else { return }
+        windowCloseObservers[windowID] = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification, object: window, queue: .main
+        ) { [weak self] _ in MainActor.assumeIsolated { self?.windowWillClose(windowID) } }
+    }
+
+    /// Every handle the window held closes, and its hidden trees go with
+    /// it: no tmux client outlives its window. Keyed by window, so nothing
+    /// here depends on its (weakly held) surfaces still being alive.
+    private func windowWillClose(_ windowID: LeoWindowID) {
+        if let observer = windowCloseObservers.removeValue(forKey: windowID) {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        attachments.keys.filter { $0.windowID == windowID }.forEach(close)
+        live.releaseAll(in: windowID)
     }
 
     private func close(_ handle: AttachmentHandle) {
@@ -541,15 +559,10 @@ private enum GhosttyAttachTabHostError: Error, LocalizedError {
     /// An agent attach (a tmux client), not a plain shell.
     let isAttach: Bool
     var cancellables: Set<AnyCancellable> = []
-    var closeObserver: NSObjectProtocol?
 
     init(controller: TerminalController, surface: Ghostty.SurfaceView, isAttach: Bool) {
         self.controller = controller
         self.surface = surface
         self.isAttach = isAttach
-    }
-
-    deinit {
-        if let closeObserver { NotificationCenter.default.removeObserver(closeObserver) }
     }
 }
