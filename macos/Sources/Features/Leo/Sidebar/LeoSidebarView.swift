@@ -95,6 +95,7 @@ struct LeoSidebarView: View {
         VStack(spacing: 10) {
             HStack {
                 Text("Agents").font(.headline)
+                    .leoSidebarHeaderFrame(.title)
                 Spacer()
                 Button {
                     showingSpawn = true
@@ -105,6 +106,7 @@ struct LeoSidebarView: View {
                 .help("New Agent…")
                 .accessibilityLabel("New Agent…")
                 .disabled(model.isDisconnected)
+                .leoSidebarHeaderFrame(.accessory)
             }
             Menu {
                 hostMenuItem(name: "localhost", isSelected: hostSelection.selected == .local) {
