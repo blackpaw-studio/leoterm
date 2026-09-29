@@ -97,13 +97,14 @@ Source: Evan (/issue, 2026-09-29)
 Inbox: 20260929T161723581510Z-15416219#1
 Done: 857387ff9 745f2568e 554584894 1479faac8 (1707 tests, lint clean; general review clean; 0 fix rounds. Root cause: busy agents' last_activity_at leapfrogged on every snapshot; fixed with streak hysteresis (D-118..D-121). Verified by tests (5 of 8 new tests fail on the test-only commit); shots B-063-1..9 show a stable order, but agents were idle so the live leapfrog wasn't exercised)
 
-## B-064 · Bug — no spacing at the top of the sidebar   [ready]
+## B-064 · Bug — no spacing at the top of the sidebar   [done]
 Issue: #68
 Type: bug
 Report: Can we also fix the spacing at the top of the sidebar? It looks like between the title bar of the window, the agents text, and the plus button, there's no space.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: Evan (/issue, 2026-09-29)
 Inbox: 20260929T161756385296Z-8ceb2d26#1
+Done: 2c56d320f 35f2f475f 4331c902a (1711 tests, lint clean; general review clean; 0 fix rounds. Header now has a 10 pt top inset and ≥8 pt title–button gap via LeoSidebarChromeMetrics (shared with B-065). Verified at native pixels in shot B-064-1: ~14 pt clear below the titlebar, + on the same row. Hidden-titlebar style → B-074)
 
 ## B-066 · Bug — ⌘T shortcut collides (agent palette vs quick terminal)   [ready]
 Issue: #69

@@ -932,3 +932,24 @@ Chose: Accepted trade-off: an agent whose timestamp stalls >5 min (long tool cal
 Why: P2
 Commit: 857387ff9 745f2568e 554584894 1479faac8
 Veto: [ ]
+
+## D-122 · 2026-09-29 · Sidebar header: top inset 10 pt and a minimum 8 pt gap between the title and…
+Context: B-064 (runner call).
+Chose: Sidebar header: top inset 10 pt and a minimum 8 pt gap between the title and the + button, in one LeoSidebarChromeMetrics enum shared with B-065
+Why: P1 Mac-native (Mail/Finder sidebar)
+Commit: 2c56d320f 35f2f475f 4331c902a
+Veto: [ ]
+
+## D-123 · 2026-09-29 · Fix only the default titlebar style; the hidden-titlebar overlap is a follow-up
+Context: B-064 (runner call).
+Chose: Fix only the default titlebar style; the hidden-titlebar overlap is a follow-up
+Why: AUTONOMY UX/layout
+Commit: 2c56d320f 35f2f475f 4331c902a
+Veto: [ ]
+
+## D-124 · 2026-09-29 · LeoSidebarHeader takes its trailing control as a @ViewBuilder so B-065 can…
+Context: B-064 (runner call).
+Chose: LeoSidebarHeader takes its trailing control as a @ViewBuilder so B-065 can pass any control
+Why: AUTONOMY layout
+Commit: 2c56d320f 35f2f475f 4331c902a
+Veto: [ ]
