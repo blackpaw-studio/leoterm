@@ -92,10 +92,8 @@ struct LeoSidebarView: View {
     }
 
     var body: some View {
-        VStack(spacing: 10) {
-            HStack {
-                Text("Agents").font(.headline)
-                Spacer()
+        VStack(spacing: LeoSidebarChromeMetrics.itemSpacing) {
+            LeoSidebarHeader("Agents") {
                 Button {
                     showingSpawn = true
                 } label: {
@@ -148,8 +146,9 @@ struct LeoSidebarView: View {
                 Text(panelError).font(.caption).foregroundStyle(Color(nsColor: .systemRed))
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.bottom, 10)
+        .padding(.top, LeoSidebarChromeMetrics.topInset)
+        .padding(.horizontal, LeoSidebarChromeMetrics.horizontalInset)
+        .padding(.bottom, LeoSidebarChromeMetrics.itemSpacing)
         .onChange(of: searchFocusRequest) { _ in searchField.focus() }
         #if DEBUG
         .onAppear { LeoLaunchTiming.mark("sidebarAppeared", "connectivity=\(model.snapshot.connectivity) rows=\(model.snapshot.rows.count)") }
