@@ -290,11 +290,14 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     /// switched away from. Already shown, it is focused. Like any row,
     /// replacing what the window shows asks first when that would close a
     /// busy shell (and a newer request replacing it meanwhile wins, D-110).
+    /// The row was selected when clicked: when it isn't shown after all
+    /// (the confirm cancelled, its shell let go or closed meanwhile), the
+    /// sidebar selects what the window does show again.
     func showTerminal(_ handle: AttachmentHandle) async {
-        guard host.isOpen(handle) else { return }
+        guard host.isOpen(handle) else { return host.selectShownTerminal(in: handle.windowID) }
         if host.isShown(handle) { return host.focus(handle) }
         guard await confirmReplacingContent(for: LeoSurfaceRequest(origin: handle.windowID, disposition: .content)),
-              host.reveal(handle) else { return }
+              host.reveal(handle) else { return host.selectShownTerminal(in: handle.windowID) }
         contentReplaced(in: handle.windowID)
         adoptHostFocus()
     }

@@ -232,7 +232,11 @@ import OSLog
         live.keptSurfaces(in: window).contains { $0.needsConfirmQuit }
     }
 
-    func selectShownTerminal(in window: LeoWindowID) {}
+    func selectShownTerminal(in window: LeoWindowID) {
+        let controller = attachments.first { $0.key.windowID == window }?.value.controller ?? registry.controller(for: window)
+        guard let controller else { return }
+        selectShownTerminal(in: controller)
+    }
 
     /// The window's sidebar selects the terminal row it now shows, or --
     /// showing an agent, or the start screen -- none.
