@@ -176,14 +176,15 @@ import GhosttyKit
     }
 
     /// Ghostty asked to close `surface` (its process ended). A shown one is
-    /// its window's business; a hidden one leaves its pooled tree, and a
-    /// tree left with no live attach goes. Returns whether it was hidden.
-    /// Not hidden is the common case, not an error: the host hears every
-    /// close request, and nearly all name a surface on screen, which its
-    /// controller closes -- so this deliberately does nothing then.
+    /// its window's business; a pooled one leaves its tree, and a tree
+    /// left with no live attach goes. Returns whether it was pooled. Not
+    /// pooled is the common case, not an error: the host hears every close
+    /// request, and nearly all name a surface on screen, which its
+    /// controller closes -- so this deliberately does nothing then. Nor
+    /// does it touch a shell kept for a terminal row: that ends only by its
+    /// row's close (`discardKept`), which the host routes the request to.
     @discardableResult
     func surfaceClosed(_ surface: Ghostty.SurfaceView) -> Bool {
-        if keptSurfaceClosed(surface) { return true }
         guard let window = pools.first(where: { $0.value.entries.contains { Self.tree($0, holds: surface) } })?.key else {
             return false
         }
@@ -194,13 +195,6 @@ import GhosttyKit
         store(LeoLivePool(capacity: pool.capacity, entries: entries.filter(isKept)), for: window)
         entries.filter { !$0.isEmpty && !isKept($0) }.forEach(letGo)
         return true
-    }
-
-    /// A kept shell's process ended (`exit`): its tree -- that shell
-    /// alone -- goes, and so its row.
-    private func keptSurfaceClosed(_ surface: Ghostty.SurfaceView) -> Bool {
-        guard let window = kept.first(where: { $0.value.contains { Self.tree($0, holds: surface) } })?.key else { return false }
-        return discardKept(treeHolding: surface, in: window)
     }
 
     private func storeKept(_ trees: [Tree], for window: LeoWindowID) {
