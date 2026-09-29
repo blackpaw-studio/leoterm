@@ -12,6 +12,16 @@ struct LeoAgentMetadata: Equatable, Sendable {
     /// `current_action.detail`, sanitized (agent-controlled text); never
     /// empty.
     let task: String?
+    /// B-063: when this row's current streak of activity began, while it
+    /// is active; nil when inactive.
+    let activeSince: Date?
+
+    init(lastActiveAt: Date?, isWorking: Bool, task: String?, activeSince: Date? = nil) {
+        self.lastActiveAt = lastActiveAt
+        self.isWorking = isWorking
+        self.task = task
+        self.activeSince = activeSince
+    }
 }
 
 /// One `/state` snapshot's metadata, keyed by name and applied as a whole.
@@ -29,6 +39,10 @@ struct LeoAgentMetadataIndex: Equatable, Sendable {
     static let empty = LeoAgentMetadataIndex(entries: [:])
 
     private init(entries: [String: Entry]) { self.entries = entries }
+
+    init(state: [LeoObservedAgent], previous: LeoAgentMetadataIndex) {
+        self.init(state: state)
+    }
 
     init(state: [LeoObservedAgent]) {
         let pairs = state.compactMap { agent -> (String, Entry)? in
