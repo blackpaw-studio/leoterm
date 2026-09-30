@@ -1387,6 +1387,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         container.initialContentSize = leoConfiguredContentSize
 
         window.contentView = container
+        // MARK: Leo -- not the sidebar's search field (B-075).
+        leoLeaveInitialFocusToContent(container)
 
         // If we have a default size, we want to apply it.
         if let defaultSize {
@@ -1542,6 +1544,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         super.windowDidBecomeKey(notification)
         self.relabelTabs()
         self.fixTabBar()
+        // MARK: Leo (B-075)
+        leoRebuildKeyViewLoop()
     }
 
     override func windowDidMove(_ notification: Notification) {
