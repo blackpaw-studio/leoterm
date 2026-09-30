@@ -138,9 +138,10 @@ import Testing
         #expect(fixture.window.frame == frame, "the window resized on its own")
     }
 
-    /// A window filled before it is presented (a script, an intent) takes
-    /// the configured size -- the terminal's, plus the sidebar beside it --
-    /// never the SwiftUI view's, and keeps it once presented.
+    /// A window filled before it is presented (File > New Terminal with no
+    /// window open, when its shell lands first) takes the configured size
+    /// -- the terminal's, plus the sidebar beside it -- never the SwiftUI
+    /// view's, and keeps it once presented.
     @Test(.enabled("needs the app's Ghostty.App") { await MainActor.run { Self.hasGhostty } })
     func aWindowFilledBeforeItShowsTakesTheConfiguredSize() async throws {
         let fixture = try Fixture.make()
