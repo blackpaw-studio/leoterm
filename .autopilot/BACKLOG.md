@@ -342,6 +342,26 @@ Why: B-090 verify couldn't find "Agents ▸ Show Agents Sidebar" while the sideb
 Accept: verify.md's GUI tips name the toggle as Show/Hide Agents Sidebar depending on state
 Source: autopilot polish (B-090)
 
+## B-118 · Single-instance: reject a marked pid that isn't this bundle   [ready (next run)]
+Why: compare proc_pidpath or bundle ID as well as the uid before waiting on a marked pid; shrinks the same-user pid-reuse wait risk (security + concurrency)
+Accept: compare proc_pidpath or bundle ID as well as the uid before waiting on a marked pid; test where behaviour changes
+Source: autopilot polish (B-092)
+
+## B-119 · Single-instance: log when the release retry runs out   [ready (next run)]
+Why: log an error naming the pid and pause count when the release retry is exhausted, so a stuck-mark yield is distinguishable in the field
+Accept: log an error naming the pid and pause count when the release retry is exhausted, so a stuck-mark yield is distinguishable in the field; test where behaviour changes
+Source: autopilot polish (B-092)
+
+## B-120 · Single-instance: fix maxReleasePauses doc comment   [ready (next run)]
+Why: the attempt doc comment says "maxReleasePauses times (seconds; …)" but the constant is a count, ~5 s total
+Accept: the attempt doc comment says "maxReleasePauses times (seconds; test where behaviour changes
+Source: autopilot polish (B-092)
+
+## B-121 · LeoTestProcess.gone() pid reuse flake   [ready (next run)]
+Why: gone() returns a reaped pid that can be reused; re-check ESRCH just before use
+Accept: gone() returns a reaped pid that can be reused; test where behaviour changes
+Source: autopilot polish (B-092)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
