@@ -40,13 +40,14 @@ Source: Evan (/issue, 2026-09-29)
 Inbox: 20260929T222627147110Z-2d6d1eb8#1
 Done: 14a220074 1f5142c27. (1740 tests). The sidebar width is stored in leo.sidebarWidth and restored at launch without being overwritten. Decisions D-144..D-146.
 
-## B-085 · Window doesn't always appear on launch   [ready]
+## B-085 · Window doesn't always appear on launch   [done]
 Issue: #89
 Type: bug
 Report: on launch the window doesnt always appear
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: Evan (/issue, 2026-09-29)
 Inbox: 20260929T222806706604Z-d192c093#1
+Done: 976d04bdd e9704ec97 9294a360a d864e17ef 770af2035 25766f135 cf5835310 3bf796b62 06d53d284 d313bbcca bfb1f4642. (1787 tests). The first window opens at launch even without activation; tiny saved frames are neither saved nor restored; an untouched launch window gives way to a requested one. Decisions D-147..D-154.
 
 ## B-086 · Window shrinks to a tiny size on first agent attach after launch   [ready]
 Issue: #90

@@ -1107,3 +1107,59 @@ Chose: Tests go in the existing LeoSplitViewRepresentableTests.swift, not a new 
 Why: AUTONOMY test infra
 Commit: 14a220074 1f5142c27
 Veto: [ ]
+
+## D-147 · 2026-09-30 · A launch that never becomes active still opens its window
+Context: B-085 (runner call).
+Chose: A launch that never becomes active still opens its window
+Why: P1
+Commit: 976d04bdd e9704ec97 9294a360a d864e17ef 770af2035 25766f135 cf5835310 3bf796b62 06d53d284 d313bbcca bfb1f4642
+Veto: [ ]
+
+## D-148 · 2026-09-30 · Saved frames below a usable minimum (300x150, or window.minSize if la…
+Context: B-085 (runner call).
+Chose: Saved frames below a usable minimum (300x150, or window.minSize if larger) are neither saved nor restored; the saved origin is kept when the size is refused
+Why: P1/P2, D-036
+Commit: 976d04bdd e9704ec97 9294a360a d864e17ef 770af2035 25766f135 cf5835310 3bf796b62 06d53d284 d313bbcca bfb1f4642
+Veto: [ ]
+
+## D-149 · 2026-09-30 · An untouched launch window gives way to the first window a request op…
+Context: B-085 (runner call).
+Chose: An untouched launch window gives way to the first window a request opens through newWindow/newTab (AppleScript, Intent, Service, open-file, notification); it closes only once the requested window is visible, which takes its spot
+Why: P2, AUTONOMY
+Commit: 976d04bdd e9704ec97 9294a360a d864e17ef 770af2035 25766f135 cf5835310 3bf796b62 06d53d284 d313bbcca bfb1f4642
+Veto: [ ]
+
+## D-150 · 2026-09-30 · "Touched" means any key, mouse or scroll event in Leo; a launch windo…
+Context: B-085 (runner call).
+Chose: "Touched" means any key, mouse or scroll event in Leo; a launch window with a sheet up, or a newWindow whose explicit parent is the launch window, is kept
+Why: AUTONOMY
+Commit: 976d04bdd e9704ec97 9294a360a d864e17ef 770af2035 25766f135 cf5835310 3bf796b62 06d53d284 d313bbcca bfb1f4642
+Veto: [ ]
+
+## D-151 · 2026-09-30 · The launch window opens as the bare start screen, not through the pal…
+Context: B-085 (runner call).
+Chose: The launch window opens as the bare start screen, not through the palette route (no palette flash or stuck clipped palette on background launch)
+Why: P2
+Commit: 976d04bdd e9704ec97 9294a360a d864e17ef 770af2035 25766f135 cf5835310 3bf796b62 06d53d284 d313bbcca bfb1f4642
+Veto: [ ]
+
+## D-152 · 2026-09-30 · NSApp.activate is kept in the placeholder presentation, so background…
+Context: B-085 (runner call).
+Chose: NSApp.activate is kept in the placeholder presentation, so background and login-item launches come to the front
+Why: P1
+Commit: 976d04bdd e9704ec97 9294a360a d864e17ef 770af2035 25766f135 cf5835310 3bf796b62 06d53d284 d313bbcca bfb1f4642
+Veto: [ ]
+
+## D-153 · 2026-09-30 · An XCTest host never adopts its launch window
+Context: B-085 (runner call).
+Chose: An XCTest host never adopts its launch window
+Why: D-057
+Commit: 976d04bdd e9704ec97 9294a360a d864e17ef 770af2035 25766f135 cf5835310 3bf796b62 06d53d284 d313bbcca bfb1f4642
+Veto: [ ]
+
+## D-154 · 2026-09-30 · Log line "opening the initial window on <event>"; callback types are …
+Context: B-085 (runner call).
+Chose: Log line "opening the initial window on <event>"; callback types are @MainActor @Sendable
+Why: AUTONOMY implementation approach
+Commit: 976d04bdd e9704ec97 9294a360a d864e17ef 770af2035 25766f135 cf5835310 3bf796b62 06d53d284 d313bbcca bfb1f4642
+Veto: [ ]

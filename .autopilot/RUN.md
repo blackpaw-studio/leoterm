@@ -48,7 +48,7 @@ Lane: B-085
   Branch: autopilot-lane/B-085
   Base: 87ca72ee58584c7801ce70eca978860b88296fa5
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 2
   Wip: none
   Reverifies: 0
@@ -63,3 +63,5 @@ Lane: B-085
   Call: An XCTest host never adopts its launch window — D-057
   Call: Log line "opening the initial window on <event>"; callback types are @MainActor @Sendable — AUTONOMY implementation approach
 - B-085 runner: ready at 976d04bdd (1787/1787, lint clean; general+concurrency full then delta; implementer-hard/opus, 2 fix rounds). Root causes: (A) first window opened only on first activation (background launch gave no window 15/15); (B) tiny saved frames (266x221) persisted, likely B-086's downstream. GUI: plain 8/8, background 5/5, relaunch 3/3, cold folder 3/3, one window every time. Fix C (quit-then-reopen race, 1/5 forced) not built, filed B-092. AppleScript/Intents/Services not driven live (no TCC consent); covered by integration tests. Polish filed as B-092..B-095.
+- B-085 landed (merge feb25ef04).
+Finished 3: B-085 landed feb25ef04 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-085-1.png
