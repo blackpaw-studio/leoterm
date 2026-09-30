@@ -1086,3 +1086,24 @@ Chose: Clear undo in leoKeepForUnsavedEdits where the tree is emptied, not in fi
 Why: AUTONOMY implementation approach
 Commit: 3c11d58f5 554d32298 73ccd5035 c32e920d8 1c7b13222 c9ce67411 bc8aae9f1
 Veto: [ ]
+
+## D-144 · 2026-09-29 · Keep the injected UserDefaults key `leo.sidebarWidth` (one width shar…
+Context: B-084 (runner call).
+Chose: Keep the injected UserDefaults key `leo.sidebarWidth` (one width shared by all windows, last change wins) rather than NSSplitView autosaveName
+Why: P1, P6, AUTONOMY implementation latitude
+Commit: 14a220074 1f5142c27
+Veto: [ ]
+
+## D-145 · 2026-09-29 · Restoring the width must cause no visible jump at launch
+Context: B-084 (runner call).
+Chose: Restoring the width must cause no visible jump at launch
+Why: P2
+Commit: 14a220074 1f5142c27
+Veto: [ ]
+
+## D-146 · 2026-09-29 · Tests go in the existing LeoSplitViewRepresentableTests.swift, not a …
+Context: B-084 (runner call).
+Chose: Tests go in the existing LeoSplitViewRepresentableTests.swift, not a new file
+Why: AUTONOMY test infra
+Commit: 14a220074 1f5142c27
+Veto: [ ]

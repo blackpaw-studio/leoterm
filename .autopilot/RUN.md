@@ -31,7 +31,7 @@ Lane: B-084
   Branch: autopilot-lane/B-084
   Base: 5d2ab05b759c7ecc1c51228732495fc12b617d82
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -41,3 +41,5 @@ Lane: B-084
   Call: Restoring the width must cause no visible jump at launch — P2
   Call: Tests go in the existing LeoSplitViewRepresentableTests.swift, not a new file — AUTONOMY test infra
 - B-084 runner: ready at c0a13e45d (1740/1740, lint clean; general full; implementer/opus, 0 fix rounds). Red confirmed (stored 200 not 360). GUI: 330 and 420 survived quit/relaunch. Debug-domain leo.sidebarWidth left at 330. Polish filed as B-089, B-090 (bug: hidden sidebar un-collapses at launch), B-091.
+- B-084 landed (merge 2dc23544c).
+Finished 2: B-084 landed 2dc23544c · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-084-1.png

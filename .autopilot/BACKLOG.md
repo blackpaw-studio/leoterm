@@ -31,13 +31,14 @@ Accept: window title reads the normal start title; test
 Source: autopilot polish (B-057)
 Done: 01fb138dd (1730 tests). After the last shell closes the window reads "👻 Ghostty", like a fresh window; a Change Window Title… override survives. Decisions D-138, D-139.
 
-## B-084 · Sidebar width isn't remembered between launches   [ready]
+## B-084 · Sidebar width isn't remembered between launches   [done]
 Issue: #88
 Type: bug
 Report: the sidebar width is not remembered between launches
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: Evan (/issue, 2026-09-29)
 Inbox: 20260929T222627147110Z-2d6d1eb8#1
+Done: 14a220074 1f5142c27. (1740 tests). The sidebar width is stored in leo.sidebarWidth and restored at launch without being overwritten. Decisions D-144..D-146.
 
 ## B-085 · Window doesn't always appear on launch   [ready]
 Issue: #89
