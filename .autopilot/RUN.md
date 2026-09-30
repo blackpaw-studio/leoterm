@@ -56,3 +56,14 @@ Lane: B-068
 - B-068 runner: ready at 7f4db8ef2 (1724/1724; general full; implementer/opus, 0 fix rounds). Two integration tests moved to a /bin/cat stand-in (prompt retitle race). Polish filed as B-079; B-072 noted.
 - B-068 landed (merge 2f94a8036).
 Finished 3: B-068 landed 2f94a8036 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-068-1.png
+
+Lane: B-069
+  Branch: autopilot-lane/B-069
+  Base: 84fb9f4ff009fbb18e8b1855a744587332dacc01
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-30T00:26:01Z
