@@ -272,9 +272,11 @@ Lane: B-061
   Branch: autopilot-lane/B-061
   Base: c5d634ff6f69f5a94959c42eb14493c829377de7
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 88b38af8c29ff219b4f0b419760d863cf52e40f9
   Dispatched: 2026-09-30T13:09:18Z
+  Call: LeoRuntime's template fetch reuses the existing LeoProcessRunning protocol; templateFetchRunner has no default, so a test that omits it won't compile; the shared fake lives in LeoTemplateFetchTestSupport.swift — AUTONOMY test infrastructure
+- B-061 runner: ready at 88b38af8c (1835/1835, lint clean; general full, no blocking; implementer/opus, 0 fix rounds). Not visually verified: no UI change. Polish filed as B-112.

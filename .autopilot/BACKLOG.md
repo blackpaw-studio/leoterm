@@ -280,6 +280,11 @@ Why: B-083 review: leoForgetContentUndo's doc (TerminalController+Leo.swift:68-7
 Accept: each fixed or explicitly dismissed; suite green
 Source: autopilot polish (B-083)
 
+## B-112 · Finish test isolation for LeoRuntime / LeoAgentActions   [ready (next run)]
+Why: B-061 review: LeoRecordingTemplateRunner nearly duplicates the private TemplateSSHRunner (LeoAgentActionsTests.swift:293) — merge them with an injectable stdout; LeoRuntime tests still run the real local `leo template list` via LeoCLI(); LeoAgentActions.init still defaults processRunner to the real runner (about 10 tests rely on it)
+Accept: one shared template-runner fake; LeoRuntime tests inject a fake LeoCLI runner; LeoAgentActions.init has no real-runner default and no test spawns a real process for templates
+Source: autopilot polish (B-061)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
