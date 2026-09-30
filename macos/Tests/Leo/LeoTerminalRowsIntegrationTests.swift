@@ -139,10 +139,7 @@ import Testing
         defer { close(fixture) }
         let shell = try newShell(fixture)
 
-        _ = try fixture.host.openSplit(
-            command: "", workingDirectory: nil, origin: fixture.origin,
-            sourceSurface: shell.surfaceID, direction: .right, requestID: UUID()
-        )
+        _ = try openSplit(fixture, beside: shell)
 
         #expect(fixture.terminals.rows.map(\.id) == [shell.surfaceID], "B-058 decides what a split is")
     }
@@ -558,10 +555,7 @@ import Testing
         let fixture = try makeFixture()
         defer { close(fixture) }
         let row = try newShell(fixture)
-        let split = try fixture.host.openSplit(
-            command: "", workingDirectory: nil, origin: fixture.origin,
-            sourceSurface: row.surfaceID, direction: .right, requestID: UUID()
-        )
+        let split = try openSplit(fixture, beside: row)
 
         _ = try attachAgent(fixture)
 
@@ -577,10 +571,7 @@ import Testing
         let fixture = try makeFixture()
         defer { close(fixture) }
         let row = try newShell(fixture)
-        let split = try fixture.host.openSplit(
-            command: "", workingDirectory: nil, origin: fixture.origin,
-            sourceSurface: row.surfaceID, direction: .right, requestID: UUID()
-        )
+        let split = try openSplit(fixture, beside: row)
         let splitView = try #require(fixture.view(split))
 
         fixture.host.closeTerminal(row)
@@ -597,10 +588,12 @@ import Testing
 
     // MARK: Undo across a content swap (B-071)
 
-    /// This window's undo, emptied.
+    /// The undo manager -- the app's one -- with nothing ⌘Z could replay
+    /// from an earlier test, nor from this window.
     private func freshUndo(_ fixture: Fixture) throws -> UndoManager {
         let undoManager = try #require(fixture.controller.undoManager)
         undoManager.removeAllActions(withTarget: fixture.controller)
+        undoManager.leoRemoveActionsTestsCanReplay(ghostty: fixture.controller.ghostty)
         return undoManager
     }
 
@@ -643,7 +636,7 @@ import Testing
         #expect(fixture.shown().map(\.id) == [busy.surfaceID], "what the window shows stays")
         #expect(fixture.host.isShown(busy))
         try? await Task.sleep(for: .milliseconds(200))
-        #expect(busyView.view != nil, "its surface and pty live")
+        #expect(busyView.view != nil, "not freed yet (the host's pool may hold it either way)")
         #expect(!fixture.events.events.contains(.closed(busy)), "its row never closed")
         #expect(fixture.terminals.rows.map(\.id) == rows)
         #expect(fixture.terminals.selection == busy.surfaceID)
