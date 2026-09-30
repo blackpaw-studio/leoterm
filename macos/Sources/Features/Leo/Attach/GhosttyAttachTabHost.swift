@@ -700,12 +700,21 @@ import OSLog
 
     private func close(_ handle: AttachmentHandle) {
         guard let attachment = attachments.removeValue(forKey: handle) else { return }
-        if attachment.isTerminalRow {
-            (attachment.controller?.leoSession ?? registry.controller(for: handle.windowID)?.leoSession)?
-                .terminals.remove(handle.surfaceID)
-        }
+        if attachment.isTerminalRow { removeTerminalRow(handle, of: attachment) }
         continuation.yield(.closed(handle))
         reportFocus()
+    }
+
+    /// A closed shell's row goes. Selected -- a hidden row arrowed onto,
+    /// closed or exited -- the sidebar selects what the window shows
+    /// instead: its row, or none so the agent's selection shows (B-071,
+    /// D-116).
+    private func removeTerminalRow(_ handle: AttachmentHandle, of attachment: Attachment) {
+        guard let controller = attachment.controller ?? registry.controller(for: handle.windowID),
+              let terminals = controller.leoSession?.terminals else { return }
+        let wasSelected = terminals.selection == handle.surfaceID
+        terminals.remove(handle.surfaceID)
+        if wasSelected { selectShownTerminal(in: controller) }
     }
 }
 
