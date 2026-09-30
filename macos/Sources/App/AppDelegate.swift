@@ -88,7 +88,15 @@ class AppDelegate: NSObject,
     // MARK: Leo
     /// Opens the first window once per launch, active or not (B-085); also
     /// holds reopen off until launch has been handled.
-    private var initialWindowGate = LeoInitialWindowGate()
+    @MainActor private lazy var initialWindowOpener = LeoInitialWindowOpener(
+        windowCount: { TerminalController.all.count },
+        initialWindow: { [unowned self] in self.derivedConfig.initialWindow },
+        openWindow: { [unowned self] in
+            self.undoManager.disableUndoRegistration()
+            self.leoRouteNewWindow()
+            self.undoManager.enableUndoRegistration()
+        }
+    )
 
     /// This is set in applicationDidFinishLaunching with the system uptime so we can determine the
     /// seconds since the process was launched.
@@ -416,10 +424,11 @@ class AppDelegate: NSObject,
 
         // MARK: Leo
         // The first window no longer waits for activation (B-085). One hop,
-        // so AppKit's launch open-file events have made their windows first.
-        DispatchQueue.main.async { [weak self] in
-            self?.openInitialWindowIfNeeded(on: .didFinishLaunching)
-        }
+        // so AppKit's launch open-file events have made their windows first;
+        // a script, intent or Service launch leaves it to its request.
+        initialWindowOpener.didFinishLaunching(
+            isDefaultLaunch: LeoInitialWindowOpener.isDefaultLaunch(userInfo: notification.userInfo)
+        )
     }
 
     func applicationDidHide(_ notification: Notification) {
@@ -433,24 +442,7 @@ class AppDelegate: NSObject,
 
         // First launch stuff
         // MARK: Leo -- activation may come before the launch hop (B-085).
-        openInitialWindowIfNeeded(on: .didBecomeActive)
-    }
-
-    /// Opens the launch's first window if `event` is the first launch event
-    /// and no window exists yet. It is possible to have other windows at
-    /// launch: `application(_:openFile:)` is called before either event.
-    @MainActor private func openInitialWindowIfNeeded(on event: LeoInitialWindowGate.Event) {
-        let shouldOpen = initialWindowGate.shouldOpenInitialWindow(
-            on: event,
-            windowCount: TerminalController.all.count,
-            initialWindow: derivedConfig.initialWindow
-        )
-        guard shouldOpen else { return }
-        Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
-            .log("opening the initial window on \(String(describing: event), privacy: .public)")
-        undoManager.disableUndoRegistration()
-        leoRouteNewWindow()
-        undoManager.enableUndoRegistration()
+        initialWindowOpener.didBecomeActive()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -521,11 +513,7 @@ class AppDelegate: NSObject,
         //
         // MARK: Leo -- and until launch has opened (or declined) its first
         // window, launch owns it (B-085).
-        let shouldOpen = initialWindowGate.shouldOpenOnReopen(
-            hasVisibleWindows: flag,
-            windowCount: TerminalController.all.count
-        )
-        guard shouldOpen else { return true }
+        guard initialWindowOpener.shouldOpenOnReopen(hasVisibleWindows: flag) else { return true }
 
         // No visible windows, open a new one.
         // MARK: Leo
