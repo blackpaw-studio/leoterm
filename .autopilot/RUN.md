@@ -321,3 +321,14 @@ Lane: B-065
 - B-065 runner: ready at b53f52fdb (general full, no blocking; implementer/opus, 0 fix rounds). GUI: footer bar; New Terminal adds and selects a shell row; Quick Terminal opens and closes. Polish filed as B-113, B-114.
 - B-065 landed (merge c8804dee3).
 Finished 19: B-065 landed c8804dee3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-065-2.png
+
+Lane: B-058
+  Branch: autopilot-lane/B-058
+  Base: b25524869ca8aac8bdc3b19c366ffa3dca79a4a5
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-30T14:49:01Z
