@@ -65,3 +65,14 @@ Lane: B-085
 - B-085 runner: ready at 976d04bdd (1787/1787, lint clean; general+concurrency full then delta; implementer-hard/opus, 2 fix rounds). Root causes: (A) first window opened only on first activation (background launch gave no window 15/15); (B) tiny saved frames (266x221) persisted, likely B-086's downstream. GUI: plain 8/8, background 5/5, relaunch 3/3, cold folder 3/3, one window every time. Fix C (quit-then-reopen race, 1/5 forced) not built, filed B-092. AppleScript/Intents/Services not driven live (no TCC consent); covered by integration tests. Polish filed as B-092..B-095.
 - B-085 landed (merge feb25ef04).
 Finished 3: B-085 landed feb25ef04 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-085-1.png
+
+Lane: B-086
+  Branch: autopilot-lane/B-086
+  Base: 8b5ef5fe1346cd7c5e0f5bd743ba8be58cc3435b
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-30T06:45:29Z
