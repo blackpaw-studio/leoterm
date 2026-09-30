@@ -60,6 +60,7 @@ pub fn init(opts: InitOpts) !void {
         .io_impl = undefined,
         .gpa = null,
         .alloc = undefined,
+        .environ_arena = undefined,
         .environ = switch (opts) {
             .main, .tool => |m| m.environ,
             .c => |c| c.environ,
@@ -109,6 +110,8 @@ pub fn init(opts: InitOpts) !void {
         std.heap.c_allocator
     else
         unreachable;
+
+    self.environ_arena = .init(self.alloc);
 
     // Set up our main I/O implementation (fully threaded w/allocator). Note
     // that we cannot use any implementation supplied from main at this point,
@@ -204,9 +207,11 @@ pub fn init(opts: InitOpts) !void {
     // We need to make sure the process locale is set properly. Locale
     // affects a lot of behaviors in a shell.
     //
-    // We need to re-sync the environment after this completes.
+    // We need to re-sync the environment after this completes. Nothing may
+    // read self.environ in between: ensureLocale's setenv may free the libc
+    // array it points into.
     try internal_os.ensureLocale();
-    syncEnviron();
+    try syncEnvironOrErr();
 
     // Initialize glslang for shader compilation
     try glslang.init();
@@ -242,6 +247,9 @@ pub fn deinit() void {
 
     // Release our I/O instance
     self.io_impl.deinit();
+
+    // Release every environment copy made by syncEnviron
+    self.environ_arena.deinit();
 
     if (self.gpa) |*value| {
         // We want to ensure that we deinit the GPA because this is
@@ -291,6 +299,15 @@ pub fn environMap() !std.process.Environ.Map {
 /// from the process. No-op on Windows, asserts libc and an initialized global
 /// state on everything else.
 ///
+/// The global Environ is a copy of the process environment taken here, never
+/// a view of libc's `environ`, which a later `setenv` may free. A change made
+/// with `setenv` or `unsetenv` is therefore only seen after calling this
+/// again. Copies are kept until `deinit` so that a reader still holding an
+/// older one stays valid. If the copy cannot be allocated, the error is logged
+/// and the previous Environ is kept. If the I/O implementation had already
+/// scanned the environment, its memoized values (PATH, HOME, ...) are dropped
+/// rather than rebuilt from the new copy.
+///
 /// It is not valid to run this within any code that needs to be run through
 /// tests. For any of these, re-factor the code to take an environment map
 /// instead, where you can modify the environment as needed.
@@ -305,20 +322,41 @@ pub fn environMap() !std.process.Environ.Map {
 /// `unsetenv` - as a rule, beyond initialization, favor
 /// `std.process.Environ.Map` whenever possible.
 pub fn syncEnviron() void {
+    syncEnvironOrErr() catch |err| {
+        std.log.err("failed to copy the environment, keeping the previous one err={}", .{err});
+    };
+}
+
+/// `syncEnviron`, but returning the allocation error instead of keeping the
+/// previous Environ, which during `init` is still a view of libc's `environ`.
+fn syncEnvironOrErr() std.mem.Allocator.Error!void {
     switch (builtin.os.tag) {
         .windows => {},
         else => {
             assert(builtin.link_libc);
             assert(!builtin.is_test);
-            const new_environ: std.process.Environ = .{ .block = .{ .slice = std.c.environ[0..env_len: {
-                var len: usize = 0;
-                while (std.c.environ[len]) |_| : (len += 1) {}
-                break :env_len len;
-            } :null] } };
-            state.?.environ = new_environ;
-            state.?.io_impl.environ = .{ .process_environ = new_environ };
+            const self = &state.?;
+            const block = try dupeEnvironBlock(
+                self.environ_arena.allocator(),
+                std.c.environ,
+            );
+            const new_environ: std.process.Environ = .{ .block = block };
+            self.environ = new_environ;
+            self.io_impl.environ = .{ .process_environ = new_environ };
         },
     }
+}
+
+/// Deep-copies a POSIX environment block (e.g. libc's `environ`) into memory
+/// owned by `gpa`. libc reallocates and frees its `environ` array when
+/// `setenv` adds a variable, and `unsetenv` shifts its entries, so nothing
+/// that outlives the call may point into it.
+fn dupeEnvironBlock(
+    gpa: std.mem.Allocator,
+    live: [*:null]const ?[*:0]const u8,
+) std.mem.Allocator.Error!std.process.Environ.PosixBlock {
+    const view: std.process.Environ = .{ .block = .{ .slice = std.mem.span(live) } };
+    return view.createPosixBlock(gpa, .{});
 }
 
 /// Helper to return either the state's args, or one from testing.
@@ -381,6 +419,8 @@ pub const GlobalState = struct {
     gpa: ?GPA,
     alloc: std.mem.Allocator,
     environ: std.process.Environ,
+    /// Owns the copies of the process environment made by `syncEnviron`.
+    environ_arena: std.heap.ArenaAllocator,
     args: std.process.Args,
     tmp_dir_path: ?[]const u8,
     action: ?cli.ghostty.Action,
@@ -444,3 +484,37 @@ pub const ResourceLimits = struct {
         if (self.nofile) |lim| internal_os.restoreMaxFiles(lim);
     }
 };
+
+test "global: dupeEnvironBlock is independent of the source" {
+    if (comptime std.process.Environ.Block != std.process.Environ.PosixBlock) {
+        return error.SkipZigTest;
+    }
+
+    const testing = std.testing;
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+
+    // Stands in for libc's `environ`, which a later setenv/unsetenv may
+    // rewrite, shift, or free.
+    var foo = "FOO=bar".*;
+    var baz = "BAZ=1".*;
+    var live = [_:null]?[*:0]const u8{ &foo, &baz };
+
+    const copy = try dupeEnvironBlock(arena.allocator(), &live);
+
+    // Scribble over the strings and shift the array like unsetenv("FOO").
+    @memset(&foo, 'x');
+    live[0] = &baz;
+    live[1] = null;
+
+    try testing.expectEqual(@as(usize, 2), copy.slice.len);
+    try testing.expect(copy.slice[0] != null and copy.slice[1] != null);
+    try testing.expectEqualStrings("FOO=bar", std.mem.span(copy.slice[0].?));
+    try testing.expectEqualStrings("BAZ=1", std.mem.span(copy.slice[1].?));
+
+    const env: std.process.Environ = .{ .block = copy };
+    var map = try env.createMap(testing.allocator);
+    defer map.deinit();
+    try testing.expectEqualStrings("bar", map.get("FOO").?);
+    try testing.expectEqualStrings("1", map.get("BAZ").?);
+}
