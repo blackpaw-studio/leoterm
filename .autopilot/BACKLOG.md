@@ -211,6 +211,7 @@ Source: autopilot polish (B-072)
 Why: LeoSidebarTerminalScrollTests/aRowSelectedWhileFilteredIsRevealedWhenTheFilterClears flaked once in B-071 verify and once in B-074's red run (the "no-such-agent" case), passing on rerun
 Accept: root cause found and the test is deterministic (no timing-based waits); suite green on repeated runs
 Source: autopilot polish (B-074)
+Note: B-078 hint (unverified): in the "no-such-agent" case "No matches" replaces the list, so the table may be a fresh one revealed by onAppear; the test uses a Task.sleep+eventually pattern.
 
 ## B-100 · Hidden titlebar style: side-pane headers and corner inset   [ready (next run)]
 Why: B-074 verify: in hidden style the editor/workspace-browser header rows now run to the window top and may sit flush (untested, not captured); the sidebar header is 14 pt from the rounded corner, a little tight
@@ -226,6 +227,11 @@ Source: autopilot polish (B-075)
 Why: B-076 review: chooseAgentIsCommandO (LeoNoTabBarTests.swift:68) still filters inline and misses a bare O (use LeoMenuXib.claims(on:byAnyoneBut:)); the ⌘T guard exempts newTab: from the bare-T rule; the live-menu ⌘T check covers only Quick Terminal
 Accept: ⌘O guard catches a bare O; New Terminal may hold only ⌘T; the live-menu check covers every item; each proved red by a mutation
 Source: autopilot polish (B-076)
+
+## B-103 · Calm-scroll test hardening   [ready (next run)]
+Why: B-078 review polish: afterPendingUpdates only catches a scroll within ~5 dispatches (an animated/asyncAfter/Task.sleep scroll would pass); the tests park at offset 0 so a reset-to-top or a table rebuild goes unseen; the retitle case doesn't await its positive signal; the doc comment cites project history and omits D-129's "list reappears" half
+Accept: the helper documents its window limit; tests park mid-list and assert table identity; retitle awaits the new row text before counting turns; comment fixed
+Source: autopilot polish (B-078)
 
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
