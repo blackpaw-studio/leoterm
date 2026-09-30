@@ -120,7 +120,6 @@ import Testing
     @Test func switchingIsNotUndoable() throws {
         guard let fixture = makeFixture(), let undoManager = fixture.controller.undoManager else { return }
         defer { close(fixture) }
-        undoManager.removeAllActions(withTarget: fixture.controller)
         undoManager.leoRemoveActionsTestsCanReplay(ghostty: fixture.controller.ghostty)
         let handle = try show(fixture)
 
