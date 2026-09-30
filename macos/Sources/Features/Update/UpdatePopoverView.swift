@@ -160,6 +160,12 @@ private struct UpdateAvailableView: View {
                         }
                     }
                     .textSelection(.enabled)
+
+                    if !UpdatePolicy.installsAllowed {
+                        Text("Debug build: installing is disabled")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                    }
                 }
 
                 HStack(spacing: 8) {
@@ -185,6 +191,7 @@ private struct UpdateAvailableView: View {
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
+                    .disabled(!UpdatePolicy.installsAllowed)
                 }
             }
             .padding(16)

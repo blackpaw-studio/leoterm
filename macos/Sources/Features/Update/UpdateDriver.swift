@@ -38,7 +38,11 @@ class UpdateDriver: NSObject, SPUUserDriver {
     }
 
     func show(_ request: SPUUpdatePermissionRequest,
-              reply: @escaping @Sendable (SUUpdatePermissionResponse) -> Void) {
+              reply sparkleReply: @escaping @Sendable (SUUpdatePermissionResponse) -> Void) {
+        // Debug builds never let an answer turn on automatic downloads.
+        let reply: @Sendable (SUUpdatePermissionResponse) -> Void = { response in
+            sparkleReply(UpdatePolicy.gatedPermission(response, installsAllowed: UpdatePolicy.installsAllowed))
+        }
         viewModel.state = .permissionRequest(.init(request: request, reply: { [weak viewModel] response in
             viewModel?.state = .idle
             reply(response)
@@ -58,7 +62,12 @@ class UpdateDriver: NSObject, SPUUserDriver {
 
     func showUpdateFound(with appcastItem: SUAppcastItem,
                          state: SPUUserUpdateState,
-                         reply: @escaping @Sendable (SPUUserUpdateChoice) -> Void) {
+                         reply sparkleReply: @escaping @Sendable (SPUUserUpdateChoice) -> Void) {
+        // Debug builds can find an update but never install it: Install
+        // becomes Dismiss, on both the popover and the standard alert.
+        let reply: @Sendable (SPUUserUpdateChoice) -> Void = { choice in
+            sparkleReply(UpdatePolicy.gatedChoice(choice, installsAllowed: UpdatePolicy.installsAllowed))
+        }
         viewModel.state = .updateAvailable(.init(appcastItem: appcastItem, reply: reply))
         if !hasUnobtrusiveTarget {
             standard.showUpdateFound(with: appcastItem, state: state, reply: reply)
@@ -161,7 +170,10 @@ class UpdateDriver: NSObject, SPUUserDriver {
         }
     }
 
-    func showReady(toInstallAndRelaunch reply: @escaping @Sendable (SPUUserUpdateChoice) -> Void) {
+    func showReady(toInstallAndRelaunch sparkleReply: @escaping @Sendable (SPUUserUpdateChoice) -> Void) {
+        let reply: @Sendable (SPUUserUpdateChoice) -> Void = { choice in
+            sparkleReply(UpdatePolicy.gatedChoice(choice, installsAllowed: UpdatePolicy.installsAllowed))
+        }
         if !hasUnobtrusiveTarget {
             standard.showReady(toInstallAndRelaunch: reply)
         } else {
