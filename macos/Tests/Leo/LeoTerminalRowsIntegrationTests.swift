@@ -131,7 +131,9 @@ import Testing
         #expect(fixture.terminals.rows.map(\.id) == [shell.surfaceID])
         #expect(fixture.terminals.selection == shell.surfaceID, "⌘T selects it")
         view.setTitle("~/src/leo")
-        #expect(await eventually { fixture.terminals.rows.first?.title == "~/src/leo" }, "live-updating")
+        // A generous wait: the row retitles on the main actor, which a
+        // loaded host can starve (B-072; B-068 removed the shell's race).
+        #expect(await eventually(.seconds(10)) { fixture.terminals.rows.first?.title == "~/src/leo" }, "live-updating")
     }
 
     @Test func aShellInASplitIsNotARow() throws {
