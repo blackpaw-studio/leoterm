@@ -477,6 +477,10 @@ pub const ResourceLimits = struct {
 };
 
 test "global: dupeEnvironBlock is independent of the source" {
+    if (comptime std.process.Environ.Block != std.process.Environ.PosixBlock) {
+        return error.SkipZigTest;
+    }
+
     const testing = std.testing;
     var arena: std.heap.ArenaAllocator = .init(testing.allocator);
     defer arena.deinit();
