@@ -3,9 +3,11 @@ import Foundation
 
 /// B-057 (D-099, D-111): one plain shell in its window's "Terminals"
 /// sidebar section. The row owns its one surface for its whole life:
-/// switching away hides it, and only closing it (⌘W, `exit`) ends it.
+/// switching away hides it, and only closing it (⌘W, `exit`) ends it --
+/// unless its pane closes beside a split, when a plain shell left there
+/// carries it on in its sidebar slot (B-082).
 struct LeoTerminalRow: Identifiable, Equatable, Sendable {
-    /// The shell's surface.
+    /// The shell's surface (the one carrying the row on, after B-082).
     let id: UUID
     /// The terminal's own title (Ghostty's surface title), as it changes.
     let title: String
@@ -38,6 +40,15 @@ struct LeoTerminalList: Equatable, Sendable {
     }
 
     func removing(_ id: UUID) -> Self { Self(rows: rows.filter { $0.id != id }) }
+
+    /// `id`'s row carried on as `row`, in its place (B-082). A row already
+    /// listed as `row` stays as it is, and `id`'s goes. Unchanged when `id`
+    /// isn't listed.
+    func replacing(_ id: UUID, with row: LeoTerminalRow) -> Self {
+        guard contains(id) else { return self }
+        if row.id != id && contains(row.id) { return removing(id) }
+        return Self(rows: rows.map { $0.id == id ? row : $0 })
+    }
 
     func retitling(_ id: UUID, to title: String) -> Self {
         Self(rows: rows.map { $0.id == id ? LeoTerminalRow(id: id, title: title) : $0 })
@@ -88,6 +99,14 @@ struct LeoTerminalList: Equatable, Sendable {
 
     func retitle(_ id: UUID, to title: String) {
         update(list.retitling(id, to: title))
+    }
+
+    /// B-082: `id`'s row carries on as `newID`'s shell, in its slot; a
+    /// selection on it moves along. Nothing changes when `id` isn't listed.
+    func replace(_ id: UUID, with newID: UUID, title: String) {
+        guard contains(id) else { return }
+        update(list.replacing(id, with: LeoTerminalRow(id: newID, title: title)))
+        if selection == id { selection = newID }
     }
 
     /// The row is gone (its shell closed); so is its selection.
