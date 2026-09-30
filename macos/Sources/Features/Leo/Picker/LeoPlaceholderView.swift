@@ -7,6 +7,8 @@ struct LeoPlaceholderView: View {
     @ObservedObject var model: LeoSidebarModel
     @ObservedObject var hostSelection: LeoHostSelection
     let openPicker: () -> Void
+    /// File ▸ New Terminal (⌘T) for this window (B-069).
+    let newTerminal: () -> Void
     let toggleDrawer: () -> Void
 
     private var chooseAgent: LeoPlaceholderChooseAgent {
@@ -29,6 +31,9 @@ struct LeoPlaceholderView: View {
                 chooseAgentButton
                     .disabled(!chooseAgent.isEnabled)
                     .help(chooseAgent.help)
+                Button(LeoPlaceholderNewTerminal.title, action: newTerminal)
+                    .buttonStyle(.bordered)
+                    .help(LeoPlaceholderNewTerminal.help)
                 Button("Show Terminal Drawer", action: toggleDrawer)
                     .buttonStyle(.bordered)
             }

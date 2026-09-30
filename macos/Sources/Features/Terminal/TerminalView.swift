@@ -149,6 +149,7 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
             model: runtime.model,
             hostSelection: runtime.hostSelection,
             openPicker: { session.openPicker(surfaceID: nil) },
+            newTerminal: { LeoPlaceholderNewTerminal.send(to: delegate) },
             toggleDrawer: {
                 guard let appDelegate = NSApp.delegate as? AppDelegate else { return }
                 appDelegate.toggleQuickTerminal(appDelegate)
@@ -174,6 +175,7 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                                 model: runtime.model,
                                 hostSelection: runtime.hostSelection,
                                 openPicker: { leoSession.openPicker(surfaceID: surface.id) },
+                                newTerminal: { LeoPlaceholderNewTerminal.send(to: delegate) },
                                 toggleDrawer: {
                                     guard let appDelegate = NSApp.delegate as? AppDelegate else { return }
                                     appDelegate.toggleQuickTerminal(appDelegate)
