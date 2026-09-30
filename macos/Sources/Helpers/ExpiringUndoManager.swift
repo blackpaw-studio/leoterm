@@ -56,7 +56,13 @@ class ExpiringUndoManager: UndoManager {
     /// the undo manager is reset.
     override func removeAllActions() {
         super.removeAllActions()
+
+        // Snapshot before clearing: freeing a target inside the setter runs
+        // its deinit, which re-enters removeAllActions(withTarget:) and
+        // touches expiringTargets mid-write (an exclusivity violation).
+        let expired = expiringTargets
         expiringTargets = []
+        expired.forEach { $0.expire() }
     }
 
     /// Removes all undo and redo operations involving the specified target.
