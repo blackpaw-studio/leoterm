@@ -160,3 +160,14 @@ Lane: B-076
 - B-076 runner: ready at 0e60b2510 (1797/1797, lint clean; general full; implementer/opus, 0 fix rounds; GUI skipped, test-only). Verifier's mutation (bare T on Quick Terminal) turned the guard red. Polish filed as B-102.
 - B-076 landed (merge 98f02585d).
 Finished 10: B-076 landed 98f02585d · not visually verified
+
+Lane: B-078
+  Branch: autopilot-lane/B-078
+  Base: 4d8808cd40f9077443bc24053919a2517f8d9f7f
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-30T10:28:54Z
