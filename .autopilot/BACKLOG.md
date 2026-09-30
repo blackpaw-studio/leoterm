@@ -204,6 +204,16 @@ Why: B-072 review: the Swift regression test fails without the fix only if envir
 Accept: the regression test forces environ to move (or asserts its precondition); an allocation-failure test for dupeEnvironBlock; the other two fixed or documented; suite green
 Source: autopilot polish (B-072)
 
+## B-099 · Flaky sidebar scroll test after a filter clears   [ready (next run)]
+Why: LeoSidebarTerminalScrollTests/aRowSelectedWhileFilteredIsRevealedWhenTheFilterClears flaked once in B-071 verify and once in B-074's red run (the "no-such-agent" case), passing on rerun
+Accept: root cause found and the test is deterministic (no timing-based waits); suite green on repeated runs
+Source: autopilot polish (B-074)
+
+## B-100 · Hidden titlebar style: side-pane headers and corner inset   [ready (next run)]
+Why: B-074 verify: in hidden style the editor/workspace-browser header rows now run to the window top and may sit flush (untested, not captured); the sidebar header is 14 pt from the rounded corner, a little tight
+Accept: in hidden style the side-pane headers have the same top inset as the sidebar header; a layout test; screenshot
+Source: autopilot polish (B-074)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)

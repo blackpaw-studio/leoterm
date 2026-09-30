@@ -114,9 +114,14 @@ Lane: B-074
   Branch: autopilot-lane/B-074
   Base: f72f253c362bab5a1a906492becaad8fe661b81c
   Tier: light
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 995fab04eca6d21cb0d4bfc37a83687cc919cbd5
   Dispatched: 2026-09-30T08:30:04Z
+  Call: In hidden titlebar style the sidebar header and the terminal run to the window's top edge with only the 10 pt D-122 inset, keeping no room for the hidden buttons — AUTONOMY: layout
+  Call: The fix keys on the window class (HiddenTitlebarTerminalWindow), not the live config — AUTONOMY: implementation approach
+  Call: TerminalController.windowNibName reads the controller's own config instead of the app delegate's (same object in the app; lets the test use the real path) — AUTONOMY: implementation approach
+  Call: In Leo windows terminalContent uses the same window-class check as the split; non-Leo windows keep upstream's live-config check — AUTONOMY: implementation approach
+- B-074 runner: ready at 995fab04e (suite green, lint clean; general full then delta; implementer/opus, 1 fix round; stayed light). Finding: no titlebar style draws the traffic lights over the sidebar; the real bug was an empty ~52 pt band at the top in hidden style. Now 14 pt in hidden; other styles unchanged (shots for hidden, transparent, native, tabs). Polish filed as B-099 (scroll-test flake, seen twice), B-100.
