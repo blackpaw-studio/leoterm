@@ -20,6 +20,9 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     /// its last terminal row left behind isn't a new window: filling it
     /// again keeps the window's size and undo, and never discards it.
     private(set) var leoHasShownContent = false
+    /// B-070: the title the window loaded with (the nib's "👻 Ghostty", or
+    /// the config's `title`) -- what a start screen reads.
+    private var leoStartTitle: String?
 
     /// Intercepts the `new_split` core action: if this window has a Leo
     /// session and a non-empty tree, the split is routed to the agent
@@ -116,9 +119,13 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         leoIsUnfilledPlaceholder = true
         surfaceTree = .init()
         // As `TerminalView` would if it reported a nil focus: the closed
-        // shell's title goes with it.
+        // shell's title and proxy icon go with it, and the window reads as
+        // a new one does (B-070).
         focusedSurfaceDidChange(to: nil)
+        pwdDidChange(to: nil)
     }
+
+    override var titleWithNoSurface: String { leoStartTitle ?? super.titleWithNoSurface }
 
     /// Registers a minimal undo action for a just-created empty placeholder
     /// window: undo just closes it, guarded to no-op if it was since
@@ -1318,6 +1325,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     override func windowDidLoad() {
         super.windowDidLoad()
         guard let window else { return }
+        // MARK: Leo -- before any surface retitles it (B-070).
+        leoStartTitle = window.title
 
         // I copy this because we may change the source in the future but also because
         // I regularly audit our codebase for "ghostty.config" access because generally
