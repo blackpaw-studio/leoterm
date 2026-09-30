@@ -137,17 +137,35 @@ installs its own updates from GitHub Releases.
   - `check`: background checks; an available update shows the update pill.
   - `download`: background checks and silent downloads, installed on quit.
   - unset: Leo leaves both alone, so Sparkle asks once ("check automatically?")
-    on the second launch, through the update pill's permission popover.
+    through the update pill's permission popover: on a fresh install's second
+    launch, and on an existing install's first launch of a B-115 build.
+    Every earlier build stored `SUEnableAutomaticChecks = NO` in the user's
+    defaults, which beats Info.plist, so `UpdateDefaultsMigration` clears it
+    (and `SUAutomaticallyUpdate`) once, behind the `LeoAutoUpdateDefaultsReset`
+    marker. Setting `auto-update` writes Sparkle's stored answer, so clearing
+    it again later keeps that answer and doesn't bring the prompt back.
 - The manual **Check for Updates…** menu item always works, whatever
   `auto-update` says.
 - **Debug builds can check but never install.** Under `DEBUG`,
-  `UpdatePolicy.installsAllowed` is false: automatic downloads are forced off,
-  every install reply (`UpdateDriver.showUpdateFound`, `showReady`) becomes a
-  dismiss, a permission answer can't turn automatic downloads on, and the popover
-  says "Debug build: installing is disabled" with Install disabled. The debug
-  `CFBundleVersion` is 1, so Check for Updates… in a debug build always reports
-  the newest release as available, which exercises the feed without touching
-  the app. XCTest hosts never start the updater at all.
+  `UpdatePolicy.installsAllowed` is false, and every path Sparkle could install
+  through is closed:
+  - `auto-update` (set or unset) never turns automatic downloads on, and a
+    permission answer can't either (`UpdatePolicy.settings`, `gatedPermission`).
+  - `UpdateDriver` gates every reply: before a download, Install becomes
+    Dismiss; once an update is downloaded or installing (`showReady`, or
+    `showUpdateFound` at a later stage), every choice becomes Skip, because
+    Sparkle still installs a dismissed staged update on quit.
+  - Sparkle's standard alert still shows its "Automatically download and
+    install updates" checkbox. If someone ticks it, the delegate refuses the
+    next background check (`UpdatePolicy.mayCheck`), so Sparkle's silent
+    download-and-install-on-quit driver never runs. The next launch or config
+    reload turns the setting back off.
+  - The popover says "Debug build: installing is disabled" and disables Install.
+
+  The debug `CFBundleVersion` is 1, so Check for Updates… in a debug build
+  always reports the newest release as available. That exercises the feed
+  without touching the app. XCTest hosts never start the updater, and the UI
+  tests launch the app with `-SUEnableAutomaticChecks NO`.
 - `leo-release.yml` generates and publishes `appcast.xml` on every release.
   `macos/Tests/Update/Fixtures/appcast.xml` is a verbatim copy of the published
   appcast, and `AppcastFixtureTests` checks the newest item, its version and
