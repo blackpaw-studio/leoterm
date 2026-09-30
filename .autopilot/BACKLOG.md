@@ -196,6 +196,11 @@ Report: B-086 review (both lenses): Reset Window Size (returnToDefaultSize / res
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot polish (B-086)
 
+## B-098 · B-072 environ test and Zig follow-ups   [ready (next run)]
+Why: B-072 review: the Swift regression test fails without the fix only if environ was already on the heap at init (a host that inherits LANG can pass without the fix); the init OOM path has no test (std.testing.checkAllAllocationFailures on dupeEnvironBlock); the environ arena grows one copy per syncEnviron; io_impl.environ_initialized stays set after a sync
+Accept: the regression test forces environ to move (or asserts its precondition); an allocation-failure test for dupeEnvironBlock; the other two fixed or documented; suite green
+Source: autopilot polish (B-072)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)

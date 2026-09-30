@@ -88,9 +88,18 @@ Lane: B-072
   Branch: autopilot-lane/B-072
   Base: efe117dd0be9de6cc50a48536665905d86704786
   Tier: full
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: a88c3c1b2b6e1e76241df59f38cfb2c45ebb5048
   Dispatched: 2026-09-30T07:24:32Z
+  Call: Fix the hazard in libghostty (src/global.zig only) rather than with a test-only workaround — AUTONOMY: approach; minimal Zig
+  Call: Keep the tests' setenv calls as the regression — AUTONOMY: test infra
+  Call: Lengthen aNewShellIsASelectedRowTitledByItsTerminal to 10 s even though B-068 made it mostly moot — AUTONOMY: flake fixes
+  Call: The environ arena keeps each copy until deinit (grows once per sync), so readers of an older snapshot stay valid — AUTONOMY: approach
+  Call: io_impl.environ_initialized is not reset; memoised PATH/HOME are dropped, not rebuilt (avoids touching std Io.Threaded internals) — AUTONOMY: approach, minimal Zig
+  Call: No shared env lock with LeoTunnelTestSupport; the burst stays in process — AUTONOMY: test infra
+  Call: init uses a fallible syncEnvironOrErr (ghostty_init fails cleanly on OOM); GTK keeps the void log-and-keep syncEnviron — AUTONOMY: approach
+  Call: Zig comments don't mention B-072 (keeps the upstream diff neutral) — AUTONOMY: minimal Zig
+- B-072 runner: ready at a88c3c1b2 (wrapperless 1788/1788 twice, lint clean; general+concurrency+security full then delta; implementer-hard/opus, 1 fix round). Fix in src/global.zig: syncEnviron keeps its own copy. GUI smoke: New Terminal rows spawn, HOME/TERM reach the child. verify.md updated (orchestrator). Shared post-B-072 xcframework copied to .git/autopilot/shared/. Red runs left 5 .ghosttycrash files in ~/.local/state/ghostty/crash/ (not deleted). Polish filed as B-098.

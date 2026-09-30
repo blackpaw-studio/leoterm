@@ -15,6 +15,7 @@ ln -s ~/.leo/agents/leoterm/zig-out zig-out
 #   DEVELOPER_DIR=/Applications/Xcode-26.3.0.app/Contents/Developer \
 #     zig build -Demit-xcframework=true -Demit-macos-app=false
 ```
+- **Post-B-072 xcframework:** B-072 changed `src/global.zig`; the main checkout's xcframework (2026-09-20) predates it. Symlink the autopilot-built copy instead: `ln -s ~/.leo/agents/leoterm/.git/autopilot/shared/GhosttyKit.xcframework macos/GhosttyKit.xcframework` and `ln -s ~/.leo/agents/leoterm/.git/autopilot/shared/zig-out zig-out` (built from autopilot at B-072), or build one in the lane. Before building, `unlink zig-out macos/GhosttyKit.xcframework`: never build through a zig-out symlink into the main checkout. After any `src/` commit, rebuild before claiming green: `ghostty-internal.a` must be newer than the last `src/` commit.
 - Always use Xcode 26.3 (`DEVELOPER_DIR=/Applications/Xcode-26.3.0.app/Contents/Developer`). The Xcode 26.5 SDK breaks Zig linking.
 - Zig is 0.16.0 (`~/.local/bin/zig`).
 - A stale xcframework causes Swift errors like `ghostty_clipboard_content_s has no member len`. To fix it, delete `macos/GhosttyKit.xcframework zig-out .zig-cache` and rebuild.
@@ -23,13 +24,13 @@ ln -s ~/.leo/agents/leoterm/zig-out zig-out
 ```
 bash scratchpad/runtests.sh <label>     # scratchpad/ is untracked; copy from ~/.leo/agents/leoterm/scratchpad/runtests.sh
 ```
-- **Test-host crash workaround (2026-09-29, until B-072):** plain `runtests.sh` crashes the test host at `LeoLivePoolIntegrationTests/switchingBackShowsTheSameSurfaceInstance` (libghostty keeps a pointer into `environ`; a later test `setenv` reallocs it). Run it with those vars preset so `environ` stays the exec-time array:
-  `LANG=en_US.UTF-8 __CF_USER_TEXT_ENCODING=0x1F5:0x0:0x0 __LLVM_PROFILE_RT_INIT_ONCE=__LLVM_PROFILE_RT_INIT_ONCE bash scratchpad/runtests.sh <label>`
+- **Test-host environ crash fixed (B-072, 2026-09-30):** plain `bash scratchpad/runtests.sh <label>` runs green with no env-var wrapper. libghostty's `syncEnviron()` now copies the environment instead of pointing into libc's `environ`, which a test's `setenv` could free under the next new surface. `LeoEnvironSnapshotTests` guards it. With a pre-B-072 xcframework the plain runner still crashes the host (the old `LANG=… __CF_USER_TEXT_ENCODING=… __LLVM_PROFILE_RT_INIT_ONCE=…` prefix is only a stopgap).
+- Copy `scratchpad/runtests.sh` from the autopilot worktree (`~/.leo/agents/leoterm/.git/autopilot/worktree/scratchpad/runtests.sh`), not Evan's checkout: only that copy has D-057's "RUN INCOMPLETE"/LEO_TEST_TIMEOUT check.
 - GUI tip (B-057): the sidebar search filter hides the Terminals section by design. Clear it with AX set-value of a single space on the search field; menu clicks (File ▸ New Terminal, File ▸ Close) need no key presses.
 - Runs `build-for-testing` (Debug, unsigned, `-derivedDataPath macos/build/DD`), then runs the XCTest bundle inside the app. This also works when the console is locked.
 - Then it runs `swiftlint lint --strict --quiet`.
 - Logs go to `/tmp/leo-build-<label>.log` and `/tmp/leo-tests-<label>.log`.
-- Baseline (2026-09-22, after B-001): 726 tests. The only failure is `ConfigTests/errorsEmptyForValidConfig`, which always fails under this runner; ignore it.
+- Baseline (2026-09-22, after B-001): 726 tests. `ConfigTests/errorsEmptyForValidConfig` passed in every run on 2026-09-30; treat a failure as real.
 - Swiftlint is clean as of B-008 (2026-09-22). Any lint error is new.
 - The `editingAnUnrelatedHostDoesNotReselect` and Observe small-frame flakes were fixed in B-008. Treat a recurrence as real.
 - Don't run two suites' builds at once: `LeoObserveTests/activityClientDeliversSmallCompleteFrameImmediately` flakes.
