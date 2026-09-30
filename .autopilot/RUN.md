@@ -74,3 +74,14 @@ Lane: B-069
 - B-069 runner: ready at f12743766 (1727/1727, lint clean; general full; implementer/opus, 0 fix rounds). Polish filed as B-080.
 - B-069 landed (merge 8976cf27b).
 Finished 4: B-069 landed 8976cf27b · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-069-1.png
+
+Lane: B-070
+  Branch: autopilot-lane/B-070
+  Base: c816b50f24896c83e5a4f85ada009f159bfa25ee
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-30T00:43:21Z
