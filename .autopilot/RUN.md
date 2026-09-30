@@ -34,3 +34,14 @@ Lane: B-090
 - B-090 runner: ready at 988d3dca0 (general full; implementer/opus; 0 fix rounds; 1850/1850 green). GUI: hidden sidebar stays collapsed through relaunch; re-show restores 330 pt.
 - B-090 landed (merge 24dfd079f).
 Finished 1: B-090 landed 24dfd079f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-090-1.png
+
+Lane: B-092
+  Branch: autopilot-lane/B-092
+  Base: 6d0774aae56de0e3550d1f882ffd0b3882f3eb4e
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-30T18:48:32Z
