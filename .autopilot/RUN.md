@@ -1,7 +1,7 @@
 Status: running
 Started: 2026-09-30T02:53:08Z
 Budget: 20 items, until 2026-09-30T14:53:08Z
-Digested-through: 0
+Digested-through: 5
 Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 Untracked-left: /Users/evan/.leo/agents/leoterm/.git/autopilot/lanes/B-071: macos/default.profraw scratchpad/ zig-out
 
