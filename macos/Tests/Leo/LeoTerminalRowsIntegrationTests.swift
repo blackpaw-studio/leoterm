@@ -570,7 +570,8 @@ import Testing
 
     /// A row's shell closing while a shell is split beside it (⌘D) closes
     /// its own pane only, as a split's close does: the shell beside it --
-    /// busy or not -- is never closed without asking.
+    /// busy or not -- is never closed without asking. It carries the row
+    /// on (B-082), so the sidebar still reaches what the window shows.
     @Test func closingARowsShellLeavesTheShellSplitBesideIt() async throws {
         let fixture = try makeFixture()
         defer { close(fixture) }
@@ -583,11 +584,183 @@ import Testing
         #expect(fixture.shown().count == 1 && fixture.shown().first === splitView, "the shell beside it stays")
         #expect(fixture.host.isOpen(split))
         #expect(!fixture.host.isOpen(row))
-        #expect(!fixture.terminals.contains(row.surfaceID), "its row goes")
-        #expect(fixture.terminals.selection == nil)
+        #expect(fixture.terminals.rows.map(\.id) == [split.surfaceID], "the shell beside it carries the row on")
+        #expect(fixture.terminals.selection == split.surfaceID)
         #expect(await eventually { fixture.events.events.contains(.closed(row)) })
         #expect(!fixture.events.events.contains(.closed(split)))
         #expect(!fixture.closes.windowClosed)
+    }
+
+    // MARK: A row's pane closing beside a split (B-082)
+
+    /// File ▸ Close, ⌘W or `exit` on the row's own pane with a shell split
+    /// beside it is upstream's split close (the pane isn't the tree's
+    /// root). The shell left on screen carries the row on in its slot,
+    /// selected: the sidebar still reaches it.
+    @Test func closingARowsPaneBesideASplitKeepsTheSplitOnARow() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let older = try newShell(fixture)
+        let row = try newShell(fixture)
+        let split = try openSplit(fixture, beside: row)
+        let splitView = try #require(fixture.view(split))
+
+        try closePane(fixture, row)
+
+        #expect(await eventually { fixture.terminals.rows.map(\.id) == [older.surfaceID, split.surfaceID] }, "in the row's slot")
+        #expect(fixture.terminals.selection == split.surfaceID)
+        #expect(fixture.shown().count == 1 && fixture.shown().first === splitView)
+        #expect(fixture.host.isOpen(split) && fixture.host.isOpen(older))
+        #expect(!fixture.host.isOpen(row))
+        #expect(await eventually { fixture.events.events.contains(.closed(row)) })
+        #expect(!fixture.events.events.contains(.closed(split)))
+        #expect(!fixture.closes.windowClosed)
+    }
+
+    /// The next New Terminal hides the shell that carried the row on, as
+    /// it would any row's, rather than killing it without asking.
+    @Test func newTerminalAfterClosingARowsPaneHidesTheSplitInsteadOfKillingIt() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let row = try newShell(fixture)
+        let split = try openSplit(fixture, beside: row)
+        let splitView = try #require(fixture.view(split))
+        try closePane(fixture, row)
+        try #require(await eventually { !fixture.terminals.contains(row.surfaceID) }, "the pane's close landed")
+
+        let new = try newShell(fixture)
+
+        #expect(fixture.host.isOpen(split), "kept, not killed")
+        #expect(fixture.host.hiddenSurfaces(in: fixture.windowID).contains { $0 === splitView })
+        #expect(fixture.terminals.rows.map(\.id) == [split.surfaceID, new.surfaceID])
+        #expect(fixture.terminals.selection == new.surfaceID)
+        // What `LeoRuntime` wires, less the coordinator's confirm.
+        fixture.terminals.showRequested = { [host = fixture.host, window = fixture.windowID] in
+            _ = host.reveal(AttachmentHandle(surfaceID: $0, windowID: window))
+        }
+        fixture.terminals.activate(split.surfaceID)
+        #expect(fixture.shown().count == 1 && fixture.shown().first === splitView, "the same surface")
+        #expect(fixture.terminals.selection == split.surfaceID)
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(!fixture.events.events.contains(.closed(split)))
+    }
+
+    /// With two shells left beside the closed pane, one carries the row
+    /// on -- the focused one, else the first -- and the other stays split
+    /// beside it (B-058 decides more).
+    @Test(arguments: [false, true])
+    func closingARowsPaneBesideTwoShellsPutsOneOnTheRow(_ focusingTheLast: Bool) async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let older = try newShell(fixture)
+        let row = try newShell(fixture)
+        let rowView = try #require(fixture.view(row))
+        let splits = [try openSplit(fixture, beside: row), try openSplit(fixture, beside: row)]
+        let survivors = fixture.shown().filter { $0 !== rowView }
+        try #require(survivors.count == 2)
+        let expected = try #require(focusingTheLast ? survivors.last : survivors.first)
+        // File ▸ Close acts on the focused pane; a script can close another.
+        fixture.controller.focusedSurface = focusingTheLast ? expected : rowView
+
+        try closePane(fixture, row)
+
+        #expect(await eventually { !fixture.terminals.contains(row.surfaceID) })
+        #expect(fixture.terminals.rows.map(\.id) == [older.surfaceID, expected.id], "one takes the row's slot")
+        #expect(fixture.terminals.selection == expected.id)
+        #expect(fixture.shown().map(\.id) == survivors.map(\.id), "the other stays split beside it")
+        #expect(splits.allSatisfy(fixture.host.isOpen))
+    }
+
+    /// Only a plain shell Leo made takes a row: beside an agent, nothing
+    /// is invented -- the agent's own row reaches it.
+    @Test func closingARowsPaneBesideAnAgentAdoptsNothing() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let row = try newShell(fixture)
+        let agent = try openSplit(fixture, beside: row, command: Self.standIn)
+
+        try closePane(fixture, row)
+
+        #expect(await eventually { fixture.events.events.contains(.closed(row)) })
+        #expect(fixture.terminals.rows.isEmpty)
+        #expect(fixture.terminals.selection == nil)
+        #expect(fixture.shown().map(\.id) == [agent.surfaceID])
+        #expect(fixture.host.isShown(agent))
+    }
+
+    /// Closing the window closes every pane at once: nothing carries a
+    /// row on.
+    @Test func aRowsPaneClosingWithItsWindowAdoptsNothing() async throws {
+        let fixture = try makeFixture()
+        let row = try newShell(fixture)
+        let split = try openSplit(fixture, beside: row)
+
+        fixture.controller.window?.close()
+
+        #expect(await eventually { fixture.events.events.contains(.closed(row)) && fixture.events.events.contains(.closed(split)) })
+        #expect(fixture.terminals.rows.isEmpty)
+        #expect(fixture.terminals.selection == nil)
+        fixture.events.task?.cancel()
+        fixture.closes.observer.map(NotificationCenter.default.removeObserver)
+    }
+
+    /// A hidden row closing (its row's ⌘W, its shell's end) leaves what
+    /// the window shows alone -- even a shell left beside a closed agent,
+    /// which has no row: that closing row wasn't beside it.
+    @Test func closingAHiddenRowGivesNothingOnScreenItsSlot() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let hidden = try newShell(fixture)
+        let agent = try attachAgent(fixture)
+        let split = try openSplit(fixture, beside: agent)
+        try closePane(fixture, agent)
+        try #require(await eventually { fixture.events.events.contains(.closed(agent)) })
+        try #require(fixture.shown().map(\.id) == [split.surfaceID])
+
+        fixture.host.closeTerminal(hidden)
+
+        #expect(await eventually { fixture.events.events.contains(.closed(hidden)) })
+        #expect(fixture.terminals.rows.isEmpty, "the shell beside the agent was never the hidden row's")
+        #expect(fixture.terminals.selection == nil)
+        #expect(fixture.host.isShown(split))
+    }
+
+    /// Once it carries the row on, the shell closes like any row's: its
+    /// row goes and the start screen shows; the window stays.
+    @Test func theShellCarryingTheRowOnClosesLikeAnyRow() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let row = try newShell(fixture)
+        let split = try openSplit(fixture, beside: row)
+        try closePane(fixture, row)
+        try #require(await eventually { !fixture.terminals.contains(row.surfaceID) })
+
+        // `exit`, or ⌘W once its confirm is answered.
+        fixture.controller.closeSurface(try #require(fixture.controller.surfaceTree.root), withConfirmation: false)
+
+        #expect(await eventually { !fixture.terminals.contains(split.surfaceID) && fixture.controller.surfaceTree.isEmpty })
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(!fixture.closes.windowClosed, "the window and its sidebar stay")
+    }
+
+    /// ⌘Z of the pane's close brings the pane back beside the shell that
+    /// carries the row on; that row stays as it is.
+    @Test func undoingARowsPaneCloseLeavesTheRowCarriedOn() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let undoManager = try freshUndo(fixture)
+        let row = try newShell(fixture)
+        let split = try openSplit(fixture, beside: row, isUndoable: false)
+        try closePane(fixture, row)
+        try #require(await eventually { !fixture.terminals.contains(row.surfaceID) })
+
+        undoManager.undo()
+
+        #expect(Set(fixture.shown().map(\.id)) == [row.surfaceID, split.surfaceID], "upstream's undo")
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(fixture.terminals.rows.map(\.id) == [split.surfaceID])
+        #expect(fixture.terminals.selection == split.surfaceID)
+        #expect(fixture.host.isShown(split))
     }
 
     // MARK: Undo across a content swap (B-071)
@@ -606,24 +779,27 @@ import Testing
     /// two undo groups and ⌘Z undoes only ⌘W's, but the test host's busy
     /// run loop never ends an event's group (`groupsByEvent`), so both
     /// would share one and ⌘Z would undo the two at once.
+    /// `command`: an agent stand-in split beside it, not a plain shell.
     private func openSplit(
         _ fixture: Fixture,
         beside row: AttachmentHandle,
+        command: String = "",
         isUndoable: Bool = true
     ) throws -> AttachmentHandle {
         let undoManager = isUndoable ? nil : fixture.controller.undoManager
         undoManager?.disableUndoRegistration()
         defer { undoManager?.enableUndoRegistration() }
         return try fixture.host.openSplit(
-            command: "", workingDirectory: nil, origin: fixture.origin,
+            command: command, workingDirectory: nil, origin: fixture.origin,
             sourceSurface: row.surfaceID, direction: .right, requestID: UUID()
         )
     }
 
-    /// ⌘W on `split` (its confirm already answered): the controller's own
-    /// undoable "Close Terminal".
-    private func closeSplit(_ fixture: Fixture, _ split: AttachmentHandle) throws {
-        let view = try #require(fixture.view(split))
+    /// File ▸ Close or ⌘W on `pane`, one of a split's (its confirm already
+    /// answered), or its `exit`: the controller's own undoable "Close
+    /// Terminal".
+    private func closePane(_ fixture: Fixture, _ pane: AttachmentHandle) throws {
+        let view = try #require(fixture.view(pane))
         let node = try #require(fixture.controller.surfaceTree.root?.node(view: view))
         fixture.controller.closeSurface(node, withConfirmation: false)
     }
@@ -655,7 +831,7 @@ import Testing
         let row = try newShell(fixture)
         let rowView = try #require(fixture.view(row))
         let split = try openSplit(fixture, beside: row, isUndoable: false)
-        try closeSplit(fixture, split)
+        try closePane(fixture, split)
         let busy = try newShell(fixture, typing: "sleep 30\n")
         let busyView = Weak(fixture.view(busy))
         try #require(busyView.view != nil)
@@ -695,7 +871,7 @@ import Testing
         let undoManager = try freshUndo(fixture)
         let row = try newShell(fixture)
         let split = try openSplit(fixture, beside: row, isUndoable: false)
-        try closeSplit(fixture, split)
+        try closePane(fixture, split)
         fixture.host.closeTerminal(row)
         try #require(fixture.controller.surfaceTree.isEmpty, "the start screen")
 
@@ -715,7 +891,7 @@ import Testing
         let undoManager = try freshUndo(fixture)
         let row = try newShell(fixture)
         let split = try openSplit(fixture, beside: row, isUndoable: false)
-        try closeSplit(fixture, split)
+        try closePane(fixture, split)
         try #require(fixture.shown().map(\.id) == [row.surfaceID])
 
         undoManager.undo()
