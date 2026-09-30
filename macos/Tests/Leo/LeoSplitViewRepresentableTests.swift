@@ -646,17 +646,51 @@ import Testing
         defer { harness.close() }
         let controller = harness.components.controller
         let sidebarItem = try #require(harness.sidebarItem)
-        // As the representable's next update does for a hidden sidebar.
-        sidebarItem.isCollapsed = true
-        await harness.settle()
+        // Still hidden: launching didn't un-collapse it (B-090).
+        try #require(sidebarItem.isCollapsed)
 
-        // And as it shows one (⌘⇧L), with the session's width.
+        // As the representable shows one (⌘⇧L), with the session's width.
         controller.isApplyingProgrammaticWidth = true
         sidebarItem.isCollapsed = false
         controller.applyProgrammaticWidth(Self.relaunchedWidth)
         for _ in 0..<3 { await harness.settle() }
 
         #expect(abs(harness.sidebarWidth - Self.relaunchedWidth) <= 1)
+        #expect(defaults.double(forKey: Self.widthKey) == Double(Self.relaunchedWidth))
+    }
+
+    // MARK: Hidden at launch (B-090)
+
+    /// A sidebar hidden at launch stays collapsed through the layouts that
+    /// restore the stored width: never un-collapsed, not even for one
+    /// layout (the representable's next update would then re-collapse it
+    /// with an animation), and nothing stored.
+    @Test(arguments: [false, true])
+    func aSidebarHiddenAtLaunchStaysCollapsed(attachesAfterAMainQueueTurn: Bool) async throws {
+        let defaults = LeoInMemoryDefaults()
+        defaults.set(Double(Self.relaunchedWidth), forKey: Self.widthKey)
+        let session = LeoWindowSession(defaults: defaults)
+        let harness = Harness(
+            preferredWidth: session.preferredWidth, isSidebarVisible: false,
+            onDividerWidthChange: { session.setPreferredWidth($0) }, attachesWindow: false)
+        defer { harness.close() }
+        let sidebarItem = try #require(harness.sidebarItem)
+        var collapsedTrace: [Bool] = []
+        let observation = sidebarItem.observe(\.isCollapsed, options: [.initial, .new]) { item, _ in
+            collapsedTrace.append(item.isCollapsed)
+        }
+        defer { observation.invalidate() }
+
+        if attachesAfterAMainQueueTurn {
+            await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
+        }
+        harness.attachWindow()
+        for _ in 0..<3 { await harness.settle() }
+
+        #expect(collapsedTrace.allSatisfy { $0 }, "isCollapsed trace: \(collapsedTrace)")
+        #expect(sidebarItem.isCollapsed)
+        // The terminal has the whole split: no sidebar pixels showing.
+        #expect(abs(harness.terminalWidth - harness.components.controller.splitView.bounds.width) <= 1)
         #expect(defaults.double(forKey: Self.widthKey) == Double(Self.relaunchedWidth))
     }
 
