@@ -20,8 +20,15 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     /// its last terminal row left behind isn't a new window: filling it
     /// again keeps the window's size and undo, and never discards it.
     private(set) var leoHasShownContent = false
-    /// B-070: the title the window loaded with (the nib's "👻 Ghostty", or
-    /// the config's `title`) -- what a start screen reads.
+    /// B-070: the title a new window loads with -- the config's `title`,
+    /// else the nib's "👻 Ghostty" -- which a start screen reads.
+    ///
+    /// Captured once, in `windowDidLoad` (B-081): a config reload that
+    /// changes `title` doesn't reach an open window's start screen, only
+    /// windows made after it. That matches upstream: `TerminalWindow`
+    /// applies the configured title to the window once, as it loads; after
+    /// that only a surface retitles it (the core resends a reloaded
+    /// `title` to each surface), and a start screen has none.
     private var leoStartTitle: String?
 
     /// Intercepts the `new_split` core action: if this window has a Leo
@@ -1337,8 +1344,11 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     override func windowDidLoad() {
         super.windowDidLoad()
         guard let window else { return }
-        // MARK: Leo -- before any surface retitles it (B-070).
-        leoStartTitle = window.title
+        // MARK: Leo -- before any surface retitles it (B-070). From this
+        // controller's own app config, which `TerminalWindow` titled the
+        // window from (the same object in the app; B-081 lets a test load
+        // one with a `title`), else the title the window loaded with.
+        leoStartTitle = ghostty.config.title ?? window.title
 
         // I copy this because we may change the source in the future but also because
         // I regularly audit our codebase for "ghostty.config" access because generally
