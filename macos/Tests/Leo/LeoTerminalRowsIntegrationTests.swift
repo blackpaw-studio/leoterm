@@ -751,6 +751,39 @@ import Testing
         #expect(fixture.terminals.selection == nil)
     }
 
+    /// A hidden row the sidebar selected (arrowed onto, not shown) closing
+    /// hands the selection to what the window shows: its row, or none, so
+    /// the agent's selection shows (B-071, D-116).
+    @Test(arguments: ["a row", "an agent"])
+    func closingASelectedHiddenShellHandsTheSelectionToWhatIsShown(_ shown: String) throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let hidden = try newShell(fixture)
+        let shownRow = shown == "a row" ? try newShell(fixture) : nil
+        if shownRow == nil { _ = try attachAgent(fixture) }
+        fixture.terminals.select(hidden.surfaceID)
+
+        fixture.host.closeTerminal(hidden)
+
+        #expect(!fixture.terminals.contains(hidden.surfaceID))
+        #expect(fixture.terminals.selection == shownRow?.surfaceID)
+    }
+
+    /// Its shell exiting does the same.
+    @Test func aSelectedHiddenShellThatExitsHandsTheSelectionToWhatIsShown() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        // As `aHiddenShellWhoseProcessEndsLosesItsRow`: the user's own
+        // shell, told to `exit` after a moment.
+        let exiting = try newShell(fixture, typing: "sleep 1; exit\n")
+        let shown = try newShell(fixture)
+        fixture.terminals.select(exiting.surfaceID)
+
+        #expect(await eventually(.seconds(8)) { !fixture.terminals.contains(exiting.surfaceID) })
+        #expect(fixture.terminals.selection == shown.surfaceID)
+        #expect(fixture.host.isShown(shown))
+    }
+
     // MARK: Tabs (unreachable while tabbing is disallowed, D-104 -- never silent)
 
     /// The start screen shows nothing to ask about, so only the hidden
