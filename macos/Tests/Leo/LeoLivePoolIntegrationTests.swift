@@ -109,6 +109,30 @@ import Testing
         #expect(!fixture.events.events.contains(.closed(second)))
     }
 
+    /// A surface still titled after an agent but with no attach handle --
+    /// as upstream's Undo of Close Terminal puts it back after its handle
+    /// closed -- is nothing the pool could reveal: switched away from, it
+    /// is let go like a plain shell, never hidden as a tmux client that a
+    /// new attach would then duplicate (B-056).
+    @Test func aNamedSurfaceWithNoHandleIsLetGoNotPooled() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let tracker = Tracker()
+        weak var orphan: Ghostty.SurfaceView?
+        do {
+            let view = try #require(fixture.shown().first)
+            view.leoAgentName = "worker"
+            orphan = view
+        }
+
+        let next = try attach(fixture, tracker)
+
+        #expect(!fixture.host.hiddenSurfaces(in: next.windowID).contains { $0 === orphan }, "not pooled as an agent")
+        #expect(fixture.host.hiddenSurfaces(in: next.windowID).isEmpty, "nothing hidden to count as a client")
+        #expect(await eventually { orphan == nil }, "let go, so its surface is freed")
+        #expect(fixture.host.isShown(next))
+    }
+
     @Test func aHiddenSurfaceLeavesTheViewHierarchy() async throws {
         let fixture = try makeFixture()
         defer { close(fixture) }

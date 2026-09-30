@@ -16,9 +16,11 @@ import OSLog
     private var reportedViewing: AttachmentHandle?
     private(set) var focusReportCount = 0
     private let appFocusState: @MainActor () -> AppFocusState
-    /// B-056: what each window keeps attached but hidden.
+    /// B-056: what each window keeps attached but hidden. The pool asks
+    /// `isRegisteredAgent`, not `isAgent`: it may only hold what it can
+    /// reveal through a handle.
     private lazy var live = LeoLiveSurfaces(
-        isAgent: { [weak self] in self?.isAgent($0) ?? false },
+        isAgent: { [weak self] in self?.isRegisteredAgent($0) ?? false },
         isTerminalRow: { [weak self] in self?.isTerminalRow($0) ?? false },
         isClient: { [weak self] in self?.isLiveAgent($0) ?? false },
         letGo: { [weak self] in self?.closeHandles(in: $0) }
@@ -311,11 +313,21 @@ import OSLog
         }
     }
 
-    /// The one "is this an agent" check: titled after an agent
-    /// (`leoAgentName`, B-052) or registered as an agent attach -- live or
-    /// exited, not a plain shell. Either signal alone counts (B-082).
+    /// Registered as an agent attach (live or exited): a handle reaches
+    /// it, so the pool can hide it and reveal it again. The one
+    /// handle-backed primitive; `isAgent` builds on it.
+    private func isRegisteredAgent(_ surface: Ghostty.SurfaceView) -> Bool {
+        attachments.values.contains { $0.isAgent && $0.surface === surface }
+    }
+
+    /// Is this an agent at all: registered, or still titled after one
+    /// (`leoAgentName`, B-052) -- as upstream's Undo of Close Terminal puts
+    /// a surface back after its handle closed. Either signal alone counts
+    /// for asking before replacing it and for blocking adoption (B-082).
+    /// Not for the pool: no handle can reveal a name-only surface, so
+    /// pooling it would leave a tmux client a new attach duplicates.
     private func isAgent(_ surface: Ghostty.SurfaceView) -> Bool {
-        surface.leoAgentName != nil || attachments.values.contains { $0.isAgent && $0.surface === surface }
+        surface.leoAgentName != nil || isRegisteredAgent(surface)
     }
 
     /// A terminal row's own shell (B-057).
@@ -323,9 +335,10 @@ import OSLog
         attachments.values.contains { $0.isTerminalRow && $0.surface === surface }
     }
 
-    /// A tmux client: a live agent surface (not a plain shell, not exited).
+    /// A tmux client the pool counts: a live registered agent surface (not
+    /// a plain shell, not exited).
     private func isLiveAgent(_ surface: Ghostty.SurfaceView) -> Bool {
-        !surface.processExited && isAgent(surface)
+        !surface.processExited && isRegisteredAgent(surface)
     }
 
     /// The handles of every surface in `tree` (which the pool let go) close.
@@ -769,7 +782,7 @@ import OSLog
               !tree.contains(where: { isTerminalRow($0) || isAgent($0) }) else { return nil }
         let shells = tree.compactMap { surface in
             attachments.values
-                .first { $0.controller === controller && $0.surface === surface && !isAgent(surface) }
+                .first { $0.controller === controller && $0.surface === surface }
                 .map { (surface, $0) }
         }
         return shells.first { $0.0 === controller.focusedSurface } ?? shells.first
