@@ -241,6 +241,16 @@ Why: B-080 review: LeoMenuShortcutHint lacks @MainActor (LeoShortcutHints.swift:
 Accept: each fixed or explicitly dismissed; tests for the function-key and unchanged-sync cases
 Source: autopilot polish (B-080)
 
+## B-105 · Terminals-close landing polish   [ready (next run)]
+Why: B-081 review: the top landing after the last shell closes also fires when the Terminals section was already scrolled off, moving rows the user was reading (P2); removing the !isFiltering guard (LeoTerminalsSectionExit.swift:83) fails no test; the top landing sits 10 pt below the true top (scrollTo on the first section can't reach offset 0 past the table's top margin)
+Accept: the landing happens only when the Terminals section was on screen; a test pins the filter guard; the top landing reaches the list's launch offset, or a comment explains why it doesn't
+Source: autopilot polish (B-081)
+
+## B-106 · Selected agent row unhighlighted after the last shell closes   [ready (next run)]
+Why: B-081 implementer: after the last Terminals row closes, the selected agent row isn't highlighted while it's off screen
+Accept: the selected agent row shows its selection highlight once revealed, with a test
+Source: autopilot polish (B-081)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)

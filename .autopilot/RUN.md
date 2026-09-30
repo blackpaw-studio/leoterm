@@ -214,9 +214,15 @@ Lane: B-081
   Branch: autopilot-lane/B-081
   Base: 326aab4899539430f3516dc087c30678306f0a43
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: e523e0db97497a45789e9b3ada324e4b5e5059d0
   Dispatched: 2026-09-30T11:24:47Z
+  Call: Landing at "the top" means scrolling to the first section; its header sits at the list's top edge, 10 pt off the launch position because of the table's top margin — P2
+  Call: The landing uses the list's own minimal, unanimated scrollTo, so a selection already on screen doesn't move — P2/D-130
+  Call: With no selected agent the list goes to the top, even if the user had scrolled mid-list — acceptance criteria ("the selection or the top")
+  Call: When the filter hides the Terminals section the list doesn't move; only closing the last row lands — P6
+  Call: The start-title test runs its own Ghostty.App on a temp config (precedent: LeoSidebarTitlebarStyleTests) — AUTONOMY test infra
+- B-081 runner: ready at e523e0db9 (1819/1819, lint clean; one known B-099 flake in run 1; general full, no blocking; implementer/opus, 0 fix rounds). GUI: New Terminal scrolls to Terminals; after File > Close the sidebar is back at the top. Polish filed as B-105, B-106.
