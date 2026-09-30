@@ -456,6 +456,27 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     // of each other.
     private static var lastCascadePoint = NSPoint(x: 0, y: 0)
 
+    // MARK: Leo -- `LeoLaunchPlaceholderWindow` (B-085)
+
+    /// Held before this window closes: `newTab` cascades its window then,
+    /// from this window's top left, landing on its spot.
+    func holdSpotForReplacement() {
+        guard let frame = window?.frame else { return }
+        Self.lastCascadePoint = NSPoint(x: frame.minX, y: frame.maxY)
+    }
+
+    /// Held again after the close (`windowWillClose` moves the cascade
+    /// point to the key window) for a `newWindow` window, which cascades a
+    /// turn later. That cascade only reads it with other windows still
+    /// open; alone, the window keeps the frame it restored, which is this
+    /// window's too.
+    func closeReplacedLeoPlaceholder() {
+        guard let window else { return }
+        let frame = window.frame
+        window.close()
+        Self.lastCascadePoint = NSPoint(x: frame.minX, y: frame.maxY)
+    }
+
     private static func applyCascade(to window: NSWindow, hasFixedPos: Bool) {
         if hasFixedPos { return }
 
@@ -570,6 +591,10 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
                 }
             }
         }
+
+        // MARK: Leo -- an untouched launch window gives way to this one,
+        // unless it asked for it (B-085).
+        (NSApp.delegate as? AppDelegate)?.leoLaunchPlaceholder.windowDidOpen(c, parent: explicitParent?.windowController)
 
         return c
     }
@@ -783,6 +808,12 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
                 }
             }
         }
+
+        // MARK: Leo -- with tabs off (D-098) this is a window of its own; an
+        // untouched launch window gives way to it (B-085). Every caller names
+        // a parent, the launch window when it's the preferred one, so unlike
+        // `newWindow` the parent can't tell who asked.
+        (NSApp.delegate as? AppDelegate)?.leoLaunchPlaceholder.windowDidOpen(controller)
 
         return controller
     }

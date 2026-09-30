@@ -85,8 +85,36 @@ class AppDelegate: NSObject,
     /// The dock menu
     private var dockMenu: NSMenu = NSMenu()
 
-    /// This is only true before application has become active.
-    private var applicationHasBecomeActive: Bool = false
+    // MARK: Leo
+    /// Opens the first window once per launch, active or not (B-085); also
+    /// holds reopen off until launch has been handled.
+    @MainActor private lazy var initialWindowOpener = LeoInitialWindowOpener(
+        windowCount: { TerminalController.all.count },
+        initialWindow: { [unowned self] in self.derivedConfig.initialWindow },
+        openWindow: { [unowned self] in
+            self.undoManager.disableUndoRegistration()
+            self.leoOpenLaunchWindow()
+            self.undoManager.enableUndoRegistration()
+        }
+    )
+
+    /// The launch's own window (B-085): the start screen alone, with no
+    /// agent palette. A window shown in the foreground takes key status
+    /// from the palette, which then closes; opened in the background (the
+    /// launch no longer waits for activation), nothing did, and the
+    /// palette stayed up over it.
+    @discardableResult
+    @MainActor func leoOpenLaunchWindow() -> TerminalController {
+        let controller = TerminalController.leoNewPlaceholderWindow(ghostty)
+        leoLaunchPlaceholder.launchDidOpen(controller)
+        return controller
+    }
+
+    /// The launch's own window, until it gives way to a requested one or
+    /// the user touches Leo (B-085). An XCTest host keeps its own.
+    @MainActor private(set) lazy var leoLaunchPlaceholder = LeoLaunchPlaceholder(
+        adoptsLaunchWindows: !LeoSingleInstance.isRunningAsTestHost()
+    )
 
     /// This is set in applicationDidFinishLaunching with the system uptime so we can determine the
     /// seconds since the process was launched.
@@ -411,6 +439,12 @@ class AppDelegate: NSObject,
                 NSApp.arrangeInFront(nil)
             }
         }
+
+        // MARK: Leo
+        // The first window no longer waits for activation (B-085). One hop,
+        // so AppKit's launch open-file events have made their windows first;
+        // a script, intent or Service window arriving later replaces it.
+        initialWindowOpener.didFinishLaunching()
     }
 
     func applicationDidHide(_ notification: Notification) {
@@ -423,20 +457,8 @@ class AppDelegate: NSObject,
         self.hiddenState = nil
 
         // First launch stuff
-        if !applicationHasBecomeActive {
-            applicationHasBecomeActive = true
-
-            // Let's launch our first window. We only do this if we have no other windows. It
-            // is possible to have other windows in a few scenarios:
-            //   - if we're opening a URL since `application(_:openFile:)` is called before this.
-            //   - if we're restoring from persisted state
-            if TerminalController.all.isEmpty && derivedConfig.initialWindow {
-                undoManager.disableUndoRegistration()
-                // MARK: Leo
-                leoRouteNewWindow()
-                undoManager.enableUndoRegistration()
-            }
-        }
+        // MARK: Leo -- activation may come before the launch hop (B-085).
+        initialWindowOpener.didBecomeActive()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -499,18 +521,15 @@ class AppDelegate: NSObject,
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         // If we have visible windows then we allow macOS to do its default behavior
         // of focusing one of them.
-        guard !flag else { return true }
-
+        //
         // If we have any windows in our terminal manager we don't do anything.
         // This is possible with flag set to false if there a race where the
         // window is still initializing and is not visible but the user clicked
         // the dock icon.
-        guard TerminalController.all.isEmpty else { return true }
-
-        // If the application isn't active yet then we don't want to process
-        // this because we're not ready. This happens sometimes in Xcode runs
-        // but I haven't seen it happen in releases. I'm unsure why.
-        guard applicationHasBecomeActive else { return true }
+        //
+        // MARK: Leo -- and until launch has opened (or declined) its first
+        // window, launch owns it (B-085).
+        guard initialWindowOpener.shouldOpenOnReopen(hasVisibleWindows: flag) else { return true }
 
         // No visible windows, open a new one.
         // MARK: Leo
