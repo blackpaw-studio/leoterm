@@ -30,6 +30,7 @@ bash scratchpad/runtests.sh <label>     # scratchpad/ is untracked; copy from ~/
 - Runs `build-for-testing` (Debug, unsigned, `-derivedDataPath macos/build/DD`), then runs the XCTest bundle inside the app. This also works when the console is locked.
 - Then it runs `swiftlint lint --strict --quiet`.
 - Logs go to `/tmp/leo-build-<label>.log` and `/tmp/leo-tests-<label>.log`.
+- Test-host timeout (B-073): the autopilot worktree's `runtests.sh` defaults to 900 s (`LEO_TEST_TIMEOUT` overrides). A normal run takes ~95 s; at load 300+ a full run can exceed 400 s. A timeout prints "RUN INCOMPLETE … killed by the Ns timeout"; rerun with a larger `LEO_TEST_TIMEOUT` rather than reading it as a failure.
 - Baseline (2026-09-22, after B-001): 726 tests. `ConfigTests/errorsEmptyForValidConfig` passed in every run on 2026-09-30; treat a failure as real.
 - Swiftlint is clean as of B-008 (2026-09-22). Any lint error is new.
 - The `editingAnUnrelatedHostDoesNotReselect` and Observe small-frame flakes were fixed in B-008. Treat a recurrence as real.

@@ -1254,3 +1254,10 @@ Chose: The orchestrator edits verify.md directly as a state commit and marks the
 Why: AUTONOMY implementation approach / test infra
 Commit: dca59c5f9
 Veto: [ ]
+
+## D-168 · 2026-09-30 · Test-host timeout default raised to 900 s; LEO_TEST_TIMEOUT stays the override
+Context: B-073. The timeout was already configurable (LEO_TEST_TIMEOUT, D-057); the runner script is untracked scratch, so no lane change is possible.
+Chose: Raise the autopilot worktree runtests.sh default from 400 s to 900 s and document the override and the RUN INCOMPLETE message in verify.md
+Why: AUTONOMY test infra / flake fixes
+Commit: (verify.md state commit)
+Veto: [ ]

@@ -73,11 +73,12 @@ Note: B-068 moved aNewShellIsASelectedRowTitledByItsTerminal to a /bin/cat stand
 Source: autopilot polish (B-057)
 Done: a88c3c1b2 3631ebc4b 96c0589bc 508100cd3 2463458fd 0f9f87938. (1788 tests, no wrapper). libghostty's syncEnviron keeps its own copy of the environment, so a later setenv can't free it under a new surface; the canonical runner is green without the env wrapper; verify.md updated. Decisions D-159..D-166.
 
-## B-073 · runtests.sh test-host timeout too short under load   [ready]
+## B-073 · runtests.sh test-host timeout too short under load   [done]
 Issue: #77
 Why: the 400 s test-host timeout cut off a full run at this host's load (300–950) during B-063 verify
 Accept: timeout configurable/raised so a loaded run completes; flake-free rerun
 Source: autopilot polish (B-063)
+Done: no code change — timeout already configurable via LEO_TEST_TIMEOUT (D-057); autopilot runtests.sh default raised 400→900 s (untracked scratch) and verify.md documents it. Runs since at load were complete (B-072: 1788/1788 twice). Decision D-168.
 
 ## B-074 · Sidebar under the traffic lights with macos-titlebar-style=hidden   [ready]
 Issue: #78

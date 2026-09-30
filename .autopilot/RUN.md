@@ -107,3 +107,5 @@ Lane: B-072
 Finished 5: B-072 landed 668489764 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-072-1.png
 - B-077 applied directly by the orchestrator (verify.md only; lanes can't change .autopilot/), dca59c5f9. D-167.
 Finished 6: B-077 done (no code change)
+- B-073 applied directly by the orchestrator: already configurable (LEO_TEST_TIMEOUT); scratch runtests.sh default 900 s; verify.md note. D-168.
+Finished 7: B-073 done (no code change)
