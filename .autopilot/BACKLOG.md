@@ -221,6 +221,11 @@ Why: B-075 review/verify: the key-view-loop rebuild timing is untested at real l
 Accept: a test in real launch order proves Tab reaches the search field; a test that showing a row makes its surface first responder; comment corrected
 Source: autopilot polish (B-075)
 
+## B-102 · Menu shortcut guard coverage   [ready (next run)]
+Why: B-076 review: chooseAgentIsCommandO (LeoNoTabBarTests.swift:68) still filters inline and misses a bare O (use LeoMenuXib.claims(on:byAnyoneBut:)); the ⌘T guard exempts newTab: from the bare-T rule; the live-menu ⌘T check covers only Quick Terminal
+Accept: ⌘O guard catches a bare O; New Terminal may hold only ⌘T; the live-menu check covers every item; each proved red by a mutation
+Source: autopilot polish (B-076)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
