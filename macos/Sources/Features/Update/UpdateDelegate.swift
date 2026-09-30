@@ -10,6 +10,21 @@ extension UpdateDriver: SPUUpdaterDelegate {
         return UpdateFeed.urlString(for: appDelegate.ghostty.config.autoUpdateChannel)
     }
 
+    /// Debug builds refuse a background check while automatic downloads are
+    /// on: Sparkle would download and install on quit without asking us, so
+    /// no reply gate could stop it (see `UpdatePolicy.mayCheck`).
+    func updater(_ updater: SPUUpdater, mayPerform updateCheck: SPUUpdateCheck) throws {
+        guard !UpdatePolicy.mayCheck(
+            updateCheck,
+            automaticallyDownloads: updater.automaticallyDownloadsUpdates,
+            installsAllowed: installsAllowed
+        ) else { return }
+        AppDelegate.logger.info("skipping a background update check: this build can't install updates")
+        throw NSError(domain: "studio.blackpaw.leo.update", code: 1, userInfo: [
+            NSLocalizedDescriptionKey: "This build can't install updates automatically.",
+        ])
+    }
+
     /// Called when an update is scheduled to install silently,
     /// which occurs when `auto-update = download`.
     ///

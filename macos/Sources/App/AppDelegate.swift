@@ -900,18 +900,18 @@ class AppDelegate: NSObject,
 
         // Sync our auto-update settings from the "auto-update" config (B-115).
         // Unset leaves Sparkle's own settings alone, so it asks the user once
-        // ("check automatically?") on the second launch. Debug builds never
-        // download automatically, whatever the config or an earlier answer says.
+        // ("check automatically?"). Debug builds never download automatically,
+        // whatever the config or an earlier answer says.
         //
         // Note: when testing `auto-update = download` in a release build, you
         // may need to `Clean Build Folder` if a background install has begun.
         let updater = updateController.updater
-        if let settings = UpdatePolicy.settings(for: config.autoUpdate, installsAllowed: UpdatePolicy.installsAllowed) {
-            updater.automaticallyChecksForUpdates = settings.checks
-            updater.automaticallyDownloadsUpdates = settings.downloads
+        let settings = UpdatePolicy.settings(for: config.autoUpdate, installsAllowed: UpdatePolicy.installsAllowed)
+        if let checks = settings.checks {
+            updater.automaticallyChecksForUpdates = checks
         }
-        if !UpdatePolicy.installsAllowed {
-            updater.automaticallyDownloadsUpdates = false
+        if let downloads = settings.downloads {
+            updater.automaticallyDownloadsUpdates = downloads
         }
 
         // Config could change keybindings, so update everything that depends on that
