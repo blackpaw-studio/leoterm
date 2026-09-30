@@ -1520,3 +1520,45 @@ Chose: Test names where "Tab" means an upstream tab (LeoNoTabBarTests, changeTab
 Why: AUTONOMY naming
 Commit: 93b48c55f, 419cb7a7f, 16e2c07cb, 14a6cfe2c, 99e7b46aa, 465cad581
 Veto: [ ]
+
+## D-206 · 2026-09-30 · The button bar is a sidebar footer, not the header (Finder/Mail/Xcode…
+Context: B-065 (runner call).
+Chose: The button bar is a sidebar footer, not the header (Finder/Mail/Xcode convention); keeps the top calm and D-122's layout untouched
+Why: P1 HIG, P2
+Commit: 2b4c91a31, 84a74db61, 20f63fa80
+Veto: [ ]
+
+## D-207 · 2026-09-30 · Icons: `terminal` (New Terminal) and `rectangle.tophalf.inset.filled`…
+Context: B-065 (runner call).
+Chose: Icons: `terminal` (New Terminal) and `rectangle.tophalf.inset.filled` (Quick Terminal); borderless, secondary tint, no labels
+Why: P2
+Commit: 2b4c91a31, 84a74db61, 20f63fa80
+Veto: [ ]
+
+## D-208 · 2026-09-30 · Tooltip is "<Menu Title> <live shortcut>" via LeoMenuShortcutHint, ti…
+Context: B-065 (runner call).
+Chose: Tooltip is "<Menu Title> <live shortcut>" via LeoMenuShortcutHint, title only when unbound (Quick Terminal is unbound by default)
+Why: P1, B-080
+Commit: 2b4c91a31, 84a74db61, 20f63fa80
+Veto: [ ]
+
+## D-209 · 2026-09-30 · Order: New Terminal, then Quick Terminal
+Context: B-065 (runner call).
+Chose: Order: New Terminal, then Quick Terminal
+Why: P6
+Commit: 2b4c91a31, 84a74db61, 20f63fa80
+Veto: [ ]
+
+## D-210 · 2026-09-30 · 22×22 pt hit targets (named constant), spaced with LeoSidebarChromeMe…
+Context: B-065 (runner call).
+Chose: 22×22 pt hit targets (named constant), spaced with LeoSidebarChromeMetrics.itemSpacing
+Why: AUTONOMY UX details
+Commit: 2b4c91a31, 84a74db61, 20f63fa80
+Veto: [ ]
+
+## D-211 · 2026-09-30 · Buttons are .focusable(false) so they don't steal terminal focus
+Context: B-065 (runner call).
+Chose: Buttons are .focusable(false) so they don't steal terminal focus
+Why: P1
+Commit: 2b4c91a31, 84a74db61, 20f63fa80
+Veto: [ ]

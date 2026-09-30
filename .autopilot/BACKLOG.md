@@ -364,13 +364,14 @@ Source: Evan (/issue, 2026-09-29)
 Inbox: 20260929T161943538717Z-c7a22381#1
 Done: 930a1f331 (1713 tests). ⌘T was already New Terminal alone after B-057; the remaining clash was the start screen's Choose Agent… tooltip still saying ⌘T. It now reads ⌘O from one constant tied to the menu item by a test. Quick Terminal has no default key (upstream unbound). If ⌘T still opens the quick terminal, check for a toggle_quick_terminal keybind in your personal Ghostty config. Decisions D-125..D-128.
 
-## B-065 · Sidebar convenience button bar (Quick Terminal, New Terminal)   [ready]
+## B-065 · Sidebar convenience button bar (Quick Terminal, New Terminal)   [done]
 Issue: #70
 Why: One-click access to common window actions from the sidebar, which is the navigation (principle 6), without making a shortcut the only way in; every button also keeps its menu item and shortcut (principle 1).
 Accept: a compact bar of SF Symbol icon buttons sits in the sidebar (header or footer, agent's call per HIG) and matches the corrected top-spacing layout; the Quick Terminal button toggles Ghostty's quick terminal (same action as the menu item/shortcut), verified by screenshot of it opening and closing; the New Terminal button creates and selects a plain-shell row exactly as ⌘T does (after B-057); each button has a tooltip naming its shortcut and an accessibility label; tests plus screenshots from the isolated debug build
 Out: any other buttons (settings, new agent, search, etc.) — add later as separate items; user-customizable button sets; restyling the rest of the sidebar
 Source: Evan (/feature, 2026-09-29)
 Inbox: 20260929T161921499761Z-63fc4dc4#1
+Done: 2b4c91a31, 84a74db61, 20f63fa80. A sidebar footer bar with New Terminal and Quick Terminal icon buttons; tooltips name the live shortcut; same actions as the menu items Decisions D-206..D-211.
 
 ## B-057 · Plain shells as "Terminals" sidebar rows   [done]
 Issue: #62

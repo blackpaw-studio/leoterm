@@ -306,7 +306,7 @@ Lane: B-065
   Branch: autopilot-lane/B-065
   Base: d1e5297faa91e7e191ccda6e6b301e49b81ee8bc
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -319,3 +319,5 @@ Lane: B-065
   Call: 22×22 pt hit targets (named constant), spaced with LeoSidebarChromeMetrics.itemSpacing — AUTONOMY UX details
   Call: Buttons are .focusable(false) so they don't steal terminal focus — P1
 - B-065 runner: ready at b53f52fdb (general full, no blocking; implementer/opus, 0 fix rounds). GUI: footer bar; New Terminal adds and selects a shell row; Quick Terminal opens and closes. Polish filed as B-113, B-114.
+- B-065 landed (merge c8804dee3).
+Finished 19: B-065 landed c8804dee3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-065-2.png
