@@ -207,9 +207,11 @@ pub fn init(opts: InitOpts) !void {
     // We need to make sure the process locale is set properly. Locale
     // affects a lot of behaviors in a shell.
     //
-    // We need to re-sync the environment after this completes.
+    // We need to re-sync the environment after this completes. Nothing may
+    // read self.environ in between: ensureLocale's setenv may free the libc
+    // array it points into.
     try internal_os.ensureLocale();
-    syncEnviron();
+    try syncEnvironOrErr();
 
     // Initialize glslang for shader compilation
     try glslang.init();
@@ -301,8 +303,10 @@ pub fn environMap() !std.process.Environ.Map {
 /// a view of libc's `environ`, which a later `setenv` may free. A change made
 /// with `setenv` or `unsetenv` is therefore only seen after calling this
 /// again. Copies are kept until `deinit` so that a reader still holding an
-/// older one stays valid. If the copy cannot be allocated, the previous
-/// Environ is kept.
+/// older one stays valid. If the copy cannot be allocated, the error is logged
+/// and the previous Environ is kept. If the I/O implementation had already
+/// scanned the environment, its memoized values (PATH, HOME, ...) are dropped
+/// rather than rebuilt from the new copy.
 ///
 /// It is not valid to run this within any code that needs to be run through
 /// tests. For any of these, re-factor the code to take an environment map
@@ -318,19 +322,24 @@ pub fn environMap() !std.process.Environ.Map {
 /// `unsetenv` - as a rule, beyond initialization, favor
 /// `std.process.Environ.Map` whenever possible.
 pub fn syncEnviron() void {
+    syncEnvironOrErr() catch |err| {
+        std.log.err("failed to copy the environment, keeping the previous one err={}", .{err});
+    };
+}
+
+/// `syncEnviron`, but returning the allocation error instead of keeping the
+/// previous Environ, which during `init` is still a view of libc's `environ`.
+fn syncEnvironOrErr() std.mem.Allocator.Error!void {
     switch (builtin.os.tag) {
         .windows => {},
         else => {
             assert(builtin.link_libc);
             assert(!builtin.is_test);
             const self = &state.?;
-            const block = dupeEnvironBlock(
+            const block = try dupeEnvironBlock(
                 self.environ_arena.allocator(),
                 std.c.environ,
-            ) catch |err| {
-                std.log.err("failed to copy the environment, keeping the previous one err={}", .{err});
-                return;
-            };
+            );
             const new_environ: std.process.Environ = .{ .block = block };
             self.environ = new_environ;
             self.io_impl.environ = .{ .process_environ = new_environ };
