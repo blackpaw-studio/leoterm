@@ -287,9 +287,15 @@ Lane: B-062
   Branch: autopilot-lane/B-062
   Base: 7d66f41e3dfc1a745a4619e34c21b2238ccedecd
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 465cad581d62fd9e9ac804de674b577aac3f3990
   Dispatched: 2026-09-30T13:25:21Z
+  Call: Names AttachContentHost / GhosttyAttachContentHost / FakeAttachContentHost / LeoTitleSource / attachCount(s) / isAgent / isLiveAgent — AUTONOMY naming
+  Call: One agent predicate in two layers: handle-backed isRegisteredAgent is the primitive (live pool, isLiveAgent); isAgent = leoAgentName != nil || isRegisteredAgent gates replace-confirm and orphan adoption, so both B-082 signals still block adoption — AUTONOMY implementation approach
+  Call: The live pool lets go of (doesn't pool) an Undo-restored agent surface that has a name but no handle, so it never keeps an unrevealable duplicate tmux client (B-056) — P6
+  Call: contentVersion is pruned by a direct, idempotent LeoAttachCoordinator.windowClosed(_:) from LeoRuntime.teardownWindow and registry.onUnregistered, not a new lifecycle event — AUTONOMY implementation approach
+  Call: Test names where "Tab" means an upstream tab (LeoNoTabBarTests, changeTabTitleStillWins, …) keep their names — AUTONOMY naming
+- B-062 runner: ready at 465cad581 (1839/1839, lint clean; general + concurrency full, general delta after 1 in-runner fix round: the union predicate had pooled name-only Undo-restored agent surfaces, pinned by aNamedSurfaceWithNoHandleIsLetGoNotPooled; implementer/opus). verify.md focus-test name updated by the orchestrator.
