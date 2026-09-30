@@ -363,6 +363,11 @@ Why: gone() returns a reaped pid that can be reused; re-check ESRCH just before 
 Accept: gone() returns a reaped pid that can be reused; test where behaviour changes
 Source: autopilot polish (B-092)
 
+## B-122 · Test Return To Default Size menu enabled state   [ready (next run)]
+Why: a test for the Return To Default Size menu item's enabled state (validateMenuItem/isChanged) on a filled start screen
+Accept: a test for the Return To Default Size menu item's enabled state (validateMenuItem/isChanged) on a filled start screen
+Source: autopilot polish (B-097)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
