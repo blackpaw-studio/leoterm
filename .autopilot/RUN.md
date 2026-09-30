@@ -56,3 +56,14 @@ Lane: B-092
 - B-092 runner: ready at 70179b891 (general/concurrency/security delta from e03a59f96; both blocking findings confirmed fixed). 1875/1875 on run 3 (two unrelated load flakes in runs 1-2). GUI race 12/12 left exactly one Leo; D-051 holds.
 - B-092 landed (merge 22fe40225).
 Finished 2: B-092 landed 22fe40225 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-092-1.png
+
+Lane: B-097
+  Branch: autopilot-lane/B-097
+  Base: c8718647a94978eca08f0461faaa7a577a684c58
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-30T22:20:59Z
