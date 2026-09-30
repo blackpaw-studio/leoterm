@@ -144,3 +144,14 @@ Lane: B-075
 - B-075 runner: ready at cde59cbe9 (1793/1793, lint clean; general full; implementer/opus, 0 fix rounds; stayed light). Applies to every Leo window. GUI: no focus ring on the search field at launch; after New Terminal the cursor blinks (focus judged from pixels; AX denied). B-087's hollow cursor has a different cause. Polish filed as B-101.
 - B-075 landed (merge dcff3a923).
 Finished 9: B-075 landed dcff3a923 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-075-1.png
+
+Lane: B-076
+  Branch: autopilot-lane/B-076
+  Base: cdd17e4e6ae6d372df75c45ecaef51b228db91fc
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-30T10:04:43Z
