@@ -583,6 +583,83 @@ import Testing
         #expect(harness.browserItem?.isCollapsed == true)
     }
 
+    // MARK: Width across launches (B-084)
+
+    private static let relaunchedWidth: CGFloat = 360
+    private static let widthKey = "leo.sidebarWidth"
+
+    /// Builds the split as the app does at launch: from a window session
+    /// reading `defaults`, persisting divider moves back through it.
+    private static func launch(
+        _ defaults: UserDefaults, attachesAfterAMainQueueTurn: Bool = false, isSidebarVisible: Bool = true
+    ) async -> Harness {
+        let session = LeoWindowSession(defaults: defaults)
+        let harness = Harness(
+            preferredWidth: session.preferredWidth, isSidebarVisible: isSidebarVisible,
+            onDividerWidthChange: { session.setPreferredWidth($0) }, attachesWindow: !attachesAfterAMainQueueTurn)
+        if attachesAfterAMainQueueTurn {
+            await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
+            harness.attachWindow()
+        }
+        for _ in 0..<3 { await harness.settle() }
+        return harness
+    }
+
+    /// Opening a window restores the stored width and leaves it stored:
+    /// the layout that applies it isn't the user's drag.
+    @Test(arguments: [false, true])
+    func launchingDoesNotOverwriteTheStoredSidebarWidth(attachesAfterAMainQueueTurn: Bool) async {
+        let defaults = LeoInMemoryDefaults()
+        defaults.set(Double(Self.relaunchedWidth), forKey: Self.widthKey)
+
+        let harness = await Self.launch(defaults, attachesAfterAMainQueueTurn: attachesAfterAMainQueueTurn)
+        defer { harness.close() }
+
+        #expect(defaults.double(forKey: Self.widthKey) == Double(Self.relaunchedWidth))
+        #expect(abs(harness.sidebarWidth - Self.relaunchedWidth) <= 1)
+    }
+
+    /// The width the user dragged to is the one the next launch opens at.
+    @Test func aDraggedWidthSurvivesARelaunch() async {
+        let defaults = LeoInMemoryDefaults()
+        defaults.set(240.0, forKey: Self.widthKey)
+        let draggedWidth: CGFloat = 330
+
+        let first = await Self.launch(defaults)
+        first.dragDivider(to: draggedWidth)
+        await first.settle()
+        first.close()
+        await first.settle()
+        let relaunched = await Self.launch(defaults, attachesAfterAMainQueueTurn: true)
+        defer { relaunched.close() }
+
+        #expect(abs(relaunched.sidebarWidth - draggedWidth) <= 1)
+        #expect(abs(defaults.double(forKey: Self.widthKey) - Double(draggedWidth)) <= 1)
+    }
+
+    /// A sidebar hidden at launch opens at the stored width when shown,
+    /// and showing it stores nothing new.
+    @Test func aHiddenSidebarShownAfterLaunchOpensAtTheStoredWidth() async throws {
+        let defaults = LeoInMemoryDefaults()
+        defaults.set(Double(Self.relaunchedWidth), forKey: Self.widthKey)
+        let harness = await Self.launch(defaults, attachesAfterAMainQueueTurn: true, isSidebarVisible: false)
+        defer { harness.close() }
+        let controller = harness.components.controller
+        let sidebarItem = try #require(harness.sidebarItem)
+        // As the representable's next update does for a hidden sidebar.
+        sidebarItem.isCollapsed = true
+        await harness.settle()
+
+        // And as it shows one (⌘⇧L), with the session's width.
+        controller.isApplyingProgrammaticWidth = true
+        sidebarItem.isCollapsed = false
+        controller.applyProgrammaticWidth(Self.relaunchedWidth)
+        for _ in 0..<3 { await harness.settle() }
+
+        #expect(abs(harness.sidebarWidth - Self.relaunchedWidth) <= 1)
+        #expect(defaults.double(forKey: Self.widthKey) == Double(Self.relaunchedWidth))
+    }
+
     private static func makeEditor() -> LeoEditorPaneModel {
         LeoEditorPaneModel(makeAccess: { _ in LeoFileAccessor.local() })
     }
@@ -598,15 +675,21 @@ import Testing
                          detailHosting: NSHostingController<AnyView>)
         let window: NSWindow
 
+        private let windowWidth: CGFloat
+
+        /// `attachesWindow: false` leaves the split out of any window until
+        /// `attachWindow()`, as the app's SwiftUI hosting view does for a
+        /// main-queue turn after building it.
         init(
             preferredWidth: CGFloat = 240, windowWidth: CGFloat = LeoSplitViewRepresentableTests.windowWidth,
             isSidebarVisible: Bool = true, editor: LeoEditorPaneModel? = nil, browser: LeoWorkspaceBrowserModel? = nil,
-            onSidebarAutoCollapse: @escaping () -> Void = {}, onSidebarAutoRestore: @escaping () -> Void = {}
+            onSidebarAutoCollapse: @escaping () -> Void = {}, onSidebarAutoRestore: @escaping () -> Void = {},
+            onDividerWidthChange: @escaping (CGFloat) -> Void = { _ in }, attachesWindow: Bool = true
         ) {
             components = LeoSplitViewControllerFactory.make(
                 isSidebarVisible: isSidebarVisible,
                 preferredWidth: preferredWidth,
-                onDividerWidthChange: { _ in },
+                onDividerWidthChange: onDividerWidthChange,
                 sidebar: Self.flexibleView(),
                 detail: Self.flexibleView(),
                 editor: editor,
@@ -614,11 +697,17 @@ import Testing
                 onSidebarAutoCollapse: onSidebarAutoCollapse,
                 onSidebarAutoRestore: onSidebarAutoRestore)
 
+            self.windowWidth = windowWidth
             window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: windowWidth, height: LeoSplitViewRepresentableTests.windowHeight),
                 styleMask: [.titled],
                 backing: .buffered,
                 defer: false)
+            window.isReleasedWhenClosed = false
+            if attachesWindow { attachWindow() }
+        }
+
+        func attachWindow() {
             window.contentViewController = components.controller
             // Assigning `contentViewController` shrinks the window to that
             // controller's fitting size, which would leave the split view far
@@ -626,6 +715,11 @@ import Testing
             window.setContentSize(NSSize(width: windowWidth, height: LeoSplitViewRepresentableTests.windowHeight))
             window.makeKeyAndOrderFront(nil)
             layout()
+        }
+
+        /// The window closes, as at quit.
+        func close() {
+            window.close()
         }
 
         var sidebarWidth: CGFloat { components.sidebarHosting.view.frame.width }
