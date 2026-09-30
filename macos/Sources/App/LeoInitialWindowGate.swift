@@ -9,16 +9,14 @@
 /// events, so a launch document's window counts) or the first activation,
 /// whichever comes first. Later events never open another.
 ///
-/// Only AppKit's default launch (the Dock, Finder, `open`, a login item)
-/// opens from the hop. A launch that came to run a script's `make new
-/// window`, an App Intent or a Service gets that request after the hop,
-/// and the request opens the window it wants: the hop leaves the launch
-/// to activation, as upstream did, so no placeholder opens beside it.
+/// Every launch opens from the hop, AppKit's non-default launches too: one
+/// restoring saved state (after a crash, a force quit or a restart) is one.
+/// A script, App Intent or Service request arrives after the hop; the
+/// window it opens replaces the launch's (`LeoLaunchPlaceholder`).
 struct LeoInitialWindowGate {
     enum Event: Equatable, Sendable {
-        /// The main-queue hop queued at the end of `applicationDidFinishLaunching`;
-        /// `isDefaultLaunch` is AppKit's `launchIsDefaultUserInfoKey`.
-        case didFinishLaunching(isDefaultLaunch: Bool)
+        /// The main-queue hop queued at the end of `applicationDidFinishLaunching`.
+        case didFinishLaunching
         /// The app's first `applicationDidBecomeActive`.
         case didBecomeActive
     }
@@ -29,12 +27,11 @@ struct LeoInitialWindowGate {
     var isLaunchHandled: Bool { handledBy != nil }
 
     /// Whether `event` should open the first window. The first event of a
-    /// launch decides and marks the launch handled -- except a request
-    /// launch's hop, which leaves it to activation. It opens a window
-    /// unless one already exists (a launch document or a request opened
-    /// it) or the config turns `initial-window` off.
+    /// launch decides and marks the launch handled: it opens a window
+    /// unless one already exists (a launch document opened it) or the
+    /// config turns `initial-window` off.
     mutating func shouldOpenInitialWindow(on event: Event, windowCount: Int, initialWindow: Bool) -> Bool {
-        guard handledBy == nil, event != .didFinishLaunching(isDefaultLaunch: false) else { return false }
+        guard handledBy == nil else { return false }
         handledBy = event
         return windowCount == 0 && initialWindow
     }

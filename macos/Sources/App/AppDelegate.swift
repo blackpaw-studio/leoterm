@@ -93,10 +93,15 @@ class AppDelegate: NSObject,
         initialWindow: { [unowned self] in self.derivedConfig.initialWindow },
         openWindow: { [unowned self] in
             self.undoManager.disableUndoRegistration()
-            self.leoRouteNewWindow()
+            let controller = self.leoRouteNewWindow()
             self.undoManager.enableUndoRegistration()
+            self.leoLaunchPlaceholder.adopt(controller)
         }
     )
+
+    /// The launch's own window, until it gives way to a requested one or
+    /// the user touches Leo (B-085).
+    @MainActor private(set) lazy var leoLaunchPlaceholder = LeoLaunchPlaceholder()
 
     /// This is set in applicationDidFinishLaunching with the system uptime so we can determine the
     /// seconds since the process was launched.
@@ -130,11 +135,13 @@ class AppDelegate: NSObject,
     /// path: `new_window`, launch, reopen, and the fallback new-window menu
     /// item. `baseConfig` is the inherited `SurfaceConfiguration` (if any)
     /// from whatever triggered this -- see `LeoRuntime.routeNewSurface`.
-    @MainActor private func leoRouteNewWindow(baseConfig: Ghostty.SurfaceConfiguration? = nil) {
+    @discardableResult
+    @MainActor private func leoRouteNewWindow(baseConfig: Ghostty.SurfaceConfiguration? = nil) -> TerminalController {
         let controller = TerminalController.leoNewPlaceholderWindow(ghostty)
-        guard let leoSession = controller.leoSession else { return }
+        guard let leoSession = controller.leoSession else { return controller }
         Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo").log("leoRouteNewWindow origin=\(leoSession.id.rawValue.uuidString, privacy: .public)")
         leoRuntime.routeNewSurface(.placeholder, origin: leoSession.id, inheritedConfig: baseConfig)
+        return controller
     }
 
     /// Routes a `.content` request for `window` (B-055: no tabs; the
@@ -425,10 +432,8 @@ class AppDelegate: NSObject,
         // MARK: Leo
         // The first window no longer waits for activation (B-085). One hop,
         // so AppKit's launch open-file events have made their windows first;
-        // a script, intent or Service launch leaves it to its request.
-        initialWindowOpener.didFinishLaunching(
-            isDefaultLaunch: LeoInitialWindowOpener.isDefaultLaunch(userInfo: notification.userInfo)
-        )
+        // a script, intent or Service window arriving later replaces it.
+        initialWindowOpener.didFinishLaunching()
     }
 
     func applicationDidHide(_ notification: Notification) {

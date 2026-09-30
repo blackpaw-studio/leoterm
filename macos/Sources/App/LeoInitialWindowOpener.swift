@@ -1,4 +1,4 @@
-import AppKit
+import Foundation
 import OSLog
 
 /// Wires `LeoInitialWindowGate` to the app's launch, activation and reopen
@@ -27,20 +27,11 @@ final class LeoInitialWindowOpener {
         self.schedule = schedule
     }
 
-    /// AppKit's `launchIsDefaultUserInfoKey` from the did-finish-launching
-    /// notification: false when the launch came to open a file, perform a
-    /// Service or run a script. Assumed true when absent, so a launch is
-    /// never left without a window on a missing key (P1).
-    nonisolated static func isDefaultLaunch(userInfo: [AnyHashable: Any]?) -> Bool {
-        (userInfo?[NSApplication.launchIsDefaultUserInfoKey] as? NSNumber)?.boolValue ?? true
-    }
-
     /// Call at the end of `applicationDidFinishLaunching`: queues the launch
     /// hop, which runs after AppKit's launch open-file events.
-    func didFinishLaunching(isDefaultLaunch: Bool) {
-        Self.logger.log("launch isDefault=\(isDefaultLaunch, privacy: .public)")
+    func didFinishLaunching() {
         schedule { [weak self] in
-            self?.openIfNeeded(on: .didFinishLaunching(isDefaultLaunch: isDefaultLaunch))
+            self?.openIfNeeded(on: .didFinishLaunching)
         }
     }
 

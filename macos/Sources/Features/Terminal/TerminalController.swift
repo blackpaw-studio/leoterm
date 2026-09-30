@@ -456,6 +456,24 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     // of each other.
     private static var lastCascadePoint = NSPoint(x: 0, y: 0)
 
+    // MARK: Leo -- `LeoLaunchPlaceholderWindow` (B-085)
+
+    /// A new window cascades as it shows (`newTab`) or a turn later
+    /// (`newWindow`): both land on this window's top left.
+    func holdSpotForReplacement() {
+        guard let frame = window?.frame else { return }
+        Self.lastCascadePoint = NSPoint(x: frame.minX, y: frame.maxY)
+    }
+
+    /// Closing resets the cascade point (`windowWillClose`), so the spot is
+    /// held again after it.
+    func closeReplacedLeoPlaceholder() {
+        guard let window else { return }
+        let frame = window.frame
+        window.close()
+        Self.lastCascadePoint = NSPoint(x: frame.minX, y: frame.maxY)
+    }
+
     private static func applyCascade(to window: NSWindow, hasFixedPos: Bool) {
         if hasFixedPos { return }
 
@@ -570,6 +588,9 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
                 }
             }
         }
+
+        // MARK: Leo -- an untouched launch window gives way to this one (B-085).
+        (NSApp.delegate as? AppDelegate)?.leoLaunchPlaceholder.windowDidOpen(c)
 
         return c
     }
@@ -783,6 +804,10 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
                 }
             }
         }
+
+        // MARK: Leo -- with tabs off (D-098) this is a window of its own; an
+        // untouched launch window gives way to it (B-085).
+        (NSApp.delegate as? AppDelegate)?.leoLaunchPlaceholder.windowDidOpen(controller)
 
         return controller
     }
