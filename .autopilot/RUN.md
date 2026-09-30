@@ -70,3 +70,14 @@ Lane: B-097
 - B-097 runner: ready at f188dfa08 (general full; 1876/1876; GUI: Return To Default Size on a filled start screen → configured size + sidebar, no shrink).
 - B-097 landed (merge 79c3dd7b6).
 Finished 3: B-097 landed 79c3dd7b6 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-097-1.png
+
+Lane: B-109
+  Branch: autopilot-lane/B-109
+  Base: 6dac1903eae33858817f3a036ddc268dce33fa22
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-30T22:37:30Z
