@@ -1310,3 +1310,17 @@ Chose: The key view loop is rebuilt (async, next turn) each time the window beco
 Why: AUTONOMY implementation approach
 Commit: 6b5dfa44a da808024b
 Veto: [ ]
+
+## D-176 · 2026-09-30 · Keep parsing MainMenu.xib rather than loading the real nib (loading i…
+Context: B-076 (runner call).
+Chose: Keep parsing MainMenu.xib rather than loading the real nib (loading it builds AppDelegate; the live menu is rewritten from the config); the live-menu ⌘T check stays
+Why: AUTONOMY test infra
+Commit: 922ba4b00
+Veto: [ ]
+
+## D-177 · 2026-09-30 · A bare T (empty <modifierMask/>) on any item except New Terminal (new…
+Context: B-076 (runner call).
+Chose: A bare T (empty <modifierMask/>) on any item except New Terminal (newTab:) is also a violation
+Why: AUTONOMY implementation approach
+Commit: 922ba4b00
+Veto: [ ]

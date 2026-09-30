@@ -149,7 +149,7 @@ Lane: B-076
   Branch: autopilot-lane/B-076
   Base: cdd17e4e6ae6d372df75c45ecaef51b228db91fc
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -158,3 +158,5 @@ Lane: B-076
   Call: Keep parsing MainMenu.xib rather than loading the real nib (loading it builds AppDelegate; the live menu is rewritten from the config); the live-menu ⌘T check stays — AUTONOMY test infra
   Call: A bare T (empty <modifierMask/>) on any item except New Terminal (newTab:) is also a violation — AUTONOMY implementation approach
 - B-076 runner: ready at 0e60b2510 (1797/1797, lint clean; general full; implementer/opus, 0 fix rounds; GUI skipped, test-only). Verifier's mutation (bare T on Quick Terminal) turned the guard red. Polish filed as B-102.
+- B-076 landed (merge 98f02585d).
+Finished 10: B-076 landed 98f02585d · not visually verified

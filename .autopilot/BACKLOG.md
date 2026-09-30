@@ -94,11 +94,12 @@ Accept: on launch focus goes to the content area, not the search field; test
 Source: autopilot polish (B-064)
 Done: 6b5dfa44a da808024b. (1793 tests). A new window's focus starts in the content area; the search field no longer takes focus at launch. Decisions D-173..D-175.
 
-## B-076 · Tighten LeoNoTabBarTests' xib ⌘T guard   [ready]
+## B-076 · Tighten LeoNoTabBarTests' xib ⌘T guard   [done]
 Issue: #80
 Why: the guard at LeoNoTabBarTests:92-93 can only pass: New Terminal takes ⌘T from the Ghostty config, and an empty `<modifierMask/>` slips past the filter
 Accept: the guard fails if any xib item other than New Terminal binds ⌘T (including an empty modifierMask), or its message is reworded to say what it really checks; suite green
 Source: autopilot polish (B-066)
+Done: 922ba4b00. (1797 tests). The xib guard now fails if any item other than New Terminal binds ⌘T or a bare T; proved red by a mutation. Decisions D-176..D-177.
 
 ## B-077 · verify.md: palette is Choose Agent… (⌘O), not File ▸ New Tab   [done]
 Issue: #81
