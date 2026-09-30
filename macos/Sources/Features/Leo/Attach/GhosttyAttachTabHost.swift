@@ -509,7 +509,8 @@ import OSLog
                 // default-size logic (which depends on `focusedSurface`) was
                 // a no-op -- and the placeholder-creation undo (a plain "close
                 // if still empty") no longer applies now that there's real
-                // content.
+                // content. A window already on screen keeps its size
+                // (B-086); only one not yet shown is sized here.
                 controller.leoApplyInitialSize()
                 controller.leoRegisterFilledPlaceholderUndo()
             } else {
