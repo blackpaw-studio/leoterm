@@ -18,3 +18,14 @@ Lane: B-058
   Reviewed-tip: none
   Dispatched: 2026-09-30T14:49:01Z
 - Board sync: B-014: unknown status [deferred] (exit 1)
+
+Lane: B-090
+  Branch: autopilot-lane/B-090
+  Base: 7c2f61a96d53b634458dc895c3c85941a68735db
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-30T18:21:35Z
