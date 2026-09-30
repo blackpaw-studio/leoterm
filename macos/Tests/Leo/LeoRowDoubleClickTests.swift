@@ -16,12 +16,12 @@ import Testing
         var focusRequests = 0
     }
 
-    private func makeModel(attaches: Int = 0) -> (LeoSidebarModel, Log) {
+    private func makeModel(liveAttaches: Int = 0) -> (LeoSidebarModel, Log) {
         let model = LeoSidebarModel(snapshot: LeoSidebarSnapshot(rows: [worker], connectivity: .connected, generation: 1))
         let log = Log()
         model.attachRequested = { log.attaches.append($2) }
         model.focusExistingRequested = { _, _ in log.focusRequests += 1 }
-        if attaches > 0 { model.receiveAttachLinks(LeoAttachLinkState(focused: nil, attachCounts: [worker.id: attaches])) }
+        if liveAttaches > 0 { model.receiveAttachLinks(LeoAttachLinkState(focused: nil, attachCounts: [worker.id: liveAttaches])) }
         return (model, log)
     }
 
@@ -41,7 +41,7 @@ import Testing
     }
 
     @Test func doubleClickWithALiveAttachFocusesItOnce() {
-        let (model, log) = makeModel(attaches: 1)
+        let (model, log) = makeModel(liveAttaches: 1)
 
         doubleClick(model)
 
@@ -50,8 +50,8 @@ import Testing
     }
 
     @Test(arguments: [0, 1])
-    func optionDoubleClickOpensOneNewWindow(attaches: Int) {
-        let (model, log) = makeModel(attaches: attaches)
+    func optionDoubleClickOpensOneNewWindow(liveAttaches: Int) {
+        let (model, log) = makeModel(liveAttaches: liveAttaches)
 
         doubleClick(model, .option)
 

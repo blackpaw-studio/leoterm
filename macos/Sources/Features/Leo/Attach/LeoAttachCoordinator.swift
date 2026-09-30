@@ -329,8 +329,9 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         guard request.disposition == .content else { return true }
         let version = contentVersion[request.origin, default: 0]
         guard await host.confirmReplacingContent(origin: request.origin) else { return false }
-        // Its window closed meanwhile (`windowClosed`): the host reports
-        // that, as it did before the version was pruned.
+        // Its window closed meanwhile (`windowClosed`): the request goes on
+        // to the host as it did before the version was pruned (which
+        // reports a closed origin once the registry no longer resolves it).
         guard let now = contentVersion[request.origin] else { return true }
         return now == version
     }

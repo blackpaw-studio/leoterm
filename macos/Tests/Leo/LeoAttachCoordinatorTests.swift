@@ -449,10 +449,10 @@ import Testing
     }
 
     /// A request asking to replace a window's content when that window
-    /// closes resolves as before pruning: it goes on to the host (which,
-    /// for a real closed window, reports it closed) rather than being
-    /// dropped as superseded.
-    @Test func aRequestAwaitingConfirmOnAClosedWindowResolvesAsBefore() async {
+    /// closes, with nothing having replaced its content meanwhile, resolves
+    /// as before pruning: it goes on to the host rather than being dropped
+    /// as superseded.
+    @Test func aRequestAwaitingConfirmOnAWindowThatClosesUnreplacedGoesOn() async throws {
         let host = FakeAttachContentHost()
         let coordinator = makeCoordinator(host: host)
         await coordinator.attach(identity: identity, from: origin, disposition: .content)
@@ -460,7 +460,7 @@ import Testing
         let next = LeoAgentIdentity(host: .local, name: "next")
         let pending = Task { await coordinator.attach(identity: next, request: LeoSurfaceRequest(origin: origin, disposition: .content)) }
         await waitUntil { host.pendingConfirmationCount == 1 }
-        try? #require(host.pendingConfirmationCount == 1)
+        try #require(host.pendingConfirmationCount == 1)
 
         coordinator.windowClosed(origin)
         host.resumeConfirmation(true)
