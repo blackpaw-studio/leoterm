@@ -122,11 +122,12 @@ Accept: the tooltip covers the whole row label; displayTitle is trimmed; the com
 Source: autopilot polish (B-068)
 Done: 2aa0a78b3. (1801 tests). The Terminals row tooltip covers the whole label including the (2) suffix; displayed titles are trimmed. Decisions D-180..D-181.
 
-## B-080 · Start-screen shortcut hints follow the live keybinds   [ready]
+## B-080 · Start-screen shortcut hints follow the live keybinds   [done]
 Issue: #84
 Why: B-069's New Terminal tooltip hardcodes "⌘T", but AppDelegate syncs ⌘T from the user's Ghostty new_tab keybind, so a rebind makes the hint wrong; the menu-item tests look items up by key "t" and would fail on a rebind instead of catching drift
 Accept: the start-screen hints are built from the synced menu items (or config.keyboardShortcut(for:)); tests look items up by selector (TerminalController.newTab(_:)); a rebind test shows the hint following
 Source: autopilot polish (B-069)
+Done: d864297ac. (1811 tests). Start-screen New Terminal and Choose Agent… hints read the live menu shortcuts, so a rebind shows the new key; no shortcut means no hint. Decisions D-182..D-184.
 
 ## B-081 · Sidebar scroll and start title after the last shell closes   [ready]
 Issue: #85

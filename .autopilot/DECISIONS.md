@@ -1352,3 +1352,24 @@ Chose: A named `help` property on the label model rather than reusing `text`
 Why: AUTONOMY test infra
 Commit: 2aa0a78b3
 Veto: [ ]
+
+## D-182 · 2026-09-30 · Start-screen buttons show a tooltip only when there is hint text, so …
+Context: B-080 (runner call).
+Chose: Start-screen buttons show a tooltip only when there is hint text, so an item with no shortcut gets no tooltip rather than an empty or wrong one
+Why: AUTONOMY UX details
+Commit: d864297ac
+Veto: [ ]
+
+## D-183 · 2026-09-30 · Choose Agent… gets the same live-menu hint (its ⌘O comes from the xib…
+Context: B-080 (runner call).
+Chose: Choose Agent… gets the same live-menu hint (its ⌘O comes from the xib; reading the menu item covers any change)
+Why: AUTONOMY implementation approach
+Commit: d864297ac
+Veto: [ ]
+
+## D-184 · 2026-09-30 · The disconnected tooltip still hardcodes "Reconnect first (⇧⌘R)"; Rec…
+Context: B-080 (runner call).
+Chose: The disconnected tooltip still hardcodes "Reconnect first (⇧⌘R)"; Reconnect isn't config-synced and is out of scope
+Why: AUTONOMY scope
+Commit: d864297ac
+Veto: [ ]

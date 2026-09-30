@@ -197,7 +197,7 @@ Lane: B-080
   Branch: autopilot-lane/B-080
   Base: 48df7593a3dd028c80ed4e627020861f33d443f3
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -207,3 +207,5 @@ Lane: B-080
   Call: Choose Agent… gets the same live-menu hint (its ⌘O comes from the xib; reading the menu item covers any change) — AUTONOMY implementation approach
   Call: The disconnected tooltip still hardcodes "Reconnect first (⇧⌘R)"; Reconnect isn't config-synced and is out of scope — AUTONOMY scope
 - B-080 runner: ready at f18910adc (1811/1811, lint clean; general full, no blocking; implementer/opus, 0 fix rounds). GUI: tooltip reads ⇧⌘Y with a scratch config rebinding new_tab, ⌘T with an empty one. Polish filed as B-104.
+- B-080 landed (merge 518efbdc4).
+Finished 13: B-080 landed 518efbdc4 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-080-0.png
