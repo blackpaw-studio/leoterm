@@ -60,6 +60,12 @@ import Testing
         #expect(list(a).retitling(a, to: "  ").rows.first?.displayTitle == "Terminal")
     }
 
+    /// B-079: the row shows the title it groups by, so " ~ " reads "~".
+    @Test func aRowsTitleDropsSurroundingSpace() {
+        #expect(list(a).retitling(a, to: "  ~ \n").rows.first?.displayTitle == "~")
+        #expect(list(a).retitling(a, to: " vim  notes ").rows.first?.displayTitle == "vim  notes", "inner space stays")
+    }
+
     /// Ghostty's own stand-in for a terminal that set no title isn't one.
     @Test func ghosttysPlaceholderTitleReadsTerminal() {
         #expect(list(a).retitling(a, to: "👻").rows.first?.displayTitle == "Terminal")

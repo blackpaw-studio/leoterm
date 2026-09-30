@@ -24,7 +24,6 @@ struct LeoTerminalRowView: View {
                     .fontWeight(.medium)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                    .help(label.text)
                 if let suffix = label.suffix {
                     Text(suffix)
                         .foregroundStyle(.secondary)
@@ -33,6 +32,8 @@ struct LeoTerminalRowView: View {
                         .fixedSize()
                 }
             }
+            // On the whole label, so hovering the "(2)" shows it too (B-079).
+            .help(label.help)
             Spacer(minLength: 0)
         }
         .contentShape(Rectangle())

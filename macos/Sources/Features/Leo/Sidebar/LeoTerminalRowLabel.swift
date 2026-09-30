@@ -8,7 +8,7 @@ import Foundation
 struct LeoTerminalRowLabel: Identifiable, Equatable, Sendable {
     /// The row's surface.
     let id: UUID
-    /// The row's display title, as its terminal set it.
+    /// The row's display title, as its terminal set it, trimmed.
     let title: String
     /// Its place among the rows showing the same title, oldest first,
     /// from 2; `nil` for the first (or only) one.
@@ -17,8 +17,11 @@ struct LeoTerminalRowLabel: Identifiable, Equatable, Sendable {
     /// The suffix shown after the title, e.g. "(2)"; `nil` when none.
     var suffix: String? { ordinal.map { "(\($0))" } }
 
-    /// The whole label, e.g. "~ (2)": the tooltip and VoiceOver read this.
+    /// The whole label, e.g. "~ (2)": VoiceOver reads this.
     var text: String { suffix.map { "\(title) \($0)" } ?? title }
+
+    /// The row's tooltip: the whole label, suffix included (B-079).
+    var help: String { text }
 }
 
 extension LeoTerminalList {
@@ -27,13 +30,14 @@ extension LeoTerminalList {
     /// shell (always listed last) never relabels an older one, and a
     /// label changes only when which rows share its title does.
     var labels: [LeoTerminalRowLabel] {
-        // Titles that differ only in surrounding space look the same.
-        let keys = rows.map { $0.displayTitle.trimmingCharacters(in: .whitespacesAndNewlines) }
+        // Trimmed, so titles that differ only in surrounding space group
+        // (and read) the same.
+        let titles = rows.map(\.displayTitle)
         return rows.indices.map { index in
-            let place = keys[..<index].filter { $0 == keys[index] }.count + 1
+            let place = titles[..<index].filter { $0 == titles[index] }.count + 1
             return LeoTerminalRowLabel(
                 id: rows[index].id,
-                title: rows[index].displayTitle,
+                title: titles[index],
                 ordinal: place > 1 ? place : nil)
         }
     }

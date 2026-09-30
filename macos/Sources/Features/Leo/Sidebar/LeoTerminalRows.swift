@@ -15,9 +15,11 @@ struct LeoTerminalRow: Identifiable, Equatable, Sendable {
     /// What Ghostty titles a surface whose terminal set none.
     static let ghosttyFallbackTitle = "👻"
 
+    /// The title as the row shows it: without surrounding space (B-079),
+    /// else "Terminal".
     var displayTitle: String {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty || trimmed == Self.ghosttyFallbackTitle ? Self.untitled : title
+        return trimmed.isEmpty || trimmed == Self.ghosttyFallbackTitle ? Self.untitled : trimmed
     }
 }
 
