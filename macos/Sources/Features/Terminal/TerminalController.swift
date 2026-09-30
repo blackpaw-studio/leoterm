@@ -114,10 +114,12 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     }
 
     /// B-057: the window's last terminal row closed. The window keeps its
-    /// sidebar and panes and shows the start screen, as a new one does.
+    /// sidebar and panes and shows the start screen, as a new one does --
+    /// with nothing to undo back into it (B-071).
     func leoShowStartScreen() {
         leoIsUnfilledPlaceholder = true
         surfaceTree = .init()
+        leoForgetContentUndo()
         // As `TerminalView` would if it reported a nil focus: the closed
         // shell's title and proxy icon go with it, and the window reads as
         // a new one does (B-070).

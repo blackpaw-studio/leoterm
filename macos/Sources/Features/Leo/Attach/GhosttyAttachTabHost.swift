@@ -182,9 +182,10 @@ import OSLog
     /// still on screen or not: its close lands a turn late, or once a
     /// confirm is answered, so a reveal may have hidden it meanwhile.
     /// Shown, it closes on screen (`closeShownTerminal`); hidden, it is
-    /// let go from the keep and nothing on screen changes; already gone
-    /// (Ghostty's close observer got there first), nothing happens. Any
-    /// order of the two ends the same.
+    /// let go from the keep and nothing on screen changes (a selection on
+    /// its row returns to what is shown, `removeTerminalRow`); already
+    /// gone (Ghostty's close observer got there first), nothing happens.
+    /// Any order of the two ends the same.
     func closeTerminal(_ handle: AttachmentHandle) {
         guard let (controller, surface) = liveSurface(handle) else { return }
         if controller.surfaceTree.contains(surface) { return closeShownTerminal(handle, surface: surface, in: controller) }
@@ -700,12 +701,21 @@ import OSLog
 
     private func close(_ handle: AttachmentHandle) {
         guard let attachment = attachments.removeValue(forKey: handle) else { return }
-        if attachment.isTerminalRow {
-            (attachment.controller?.leoSession ?? registry.controller(for: handle.windowID)?.leoSession)?
-                .terminals.remove(handle.surfaceID)
-        }
+        if attachment.isTerminalRow { removeTerminalRow(handle, of: attachment) }
         continuation.yield(.closed(handle))
         reportFocus()
+    }
+
+    /// A closed shell's row goes. Selected -- a hidden row arrowed onto,
+    /// closed or exited -- the sidebar selects what the window shows
+    /// instead: its row, or none so the agent's selection shows (B-071,
+    /// D-116).
+    private func removeTerminalRow(_ handle: AttachmentHandle, of attachment: Attachment) {
+        guard let controller = attachment.controller ?? registry.controller(for: handle.windowID),
+              let terminals = controller.leoSession?.terminals else { return }
+        let wasSelected = terminals.selection == handle.surfaceID
+        terminals.remove(handle.surfaceID)
+        if wasSelected { selectShownTerminal(in: controller) }
     }
 }
 

@@ -38,8 +38,9 @@ extension TerminalController {
     ///
     /// Assigned directly, not through `replaceSurfaceTree`: that registers
     /// an undo, and undoing a switch would resurrect surfaces whose tmux
-    /// clients were let go. Focus moves without a `from:` so nothing keeps
-    /// the displaced surfaces alive past this turn.
+    /// clients were let go. Nor does the window's earlier undo cross it
+    /// (`leoForgetContentUndo`, B-071). Focus moves without a `from:` so
+    /// nothing keeps the displaced surfaces alive past this turn.
     @discardableResult
     func leoReplaceContent(
         with tree: SplitTree<Ghostty.SurfaceView>,
@@ -48,9 +49,23 @@ extension TerminalController {
         let displaced = surfaceTree
         if !tree.isEmpty { leoMarkFilled() }
         surfaceTree = tree
+        leoForgetContentUndo()
         focusedSurface = view
         Ghostty.moveFocus(to: view)
         return displaced
+    }
+
+    /// B-071: undo doesn't cross a content swap or the start screen. What
+    /// this window's undo holds -- ⌘D's "New Split", a split's "Close
+    /// Terminal", their redos, its "New Window" -- replays by assigning a
+    /// tree from before, which skips the host's retire: what the window
+    /// shows then would be dropped without being kept (a busy shell killed
+    /// without asking), and the replayed tree could show a row that is
+    /// still kept hidden. So they are forgotten here; a split closed before
+    /// the swap was confirmed at ⌘W and would expire after `undo-timeout`
+    /// anyway. Other windows' undo is untouched.
+    func leoForgetContentUndo() {
+        undoManager?.removeAllActions(withTarget: self)
     }
 
     /// File ▸ Choose Agent… (⌘O): the agent palette, whose choice shows

@@ -87,6 +87,45 @@ struct LeoTerminalControllerEditorCloseTests {
         }
     }
 
+    /// B-071: the start screen kept for unsaved edits is one ⌘Z doesn't
+    /// cross either. Agent A with a split S; ⌘W A; S exits, so the start
+    /// screen shows beside the editor; a shell is chosen there. ⌘Z then
+    /// would replay [A, S] over that shell and drop it without asking.
+    @Test func undoAfterTheStartScreenKeptForUnsavedEditsLeavesTheNewShellAlone() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            guard let tab = try await makeTab(in: sandbox, editing: true) else { return }
+            let controller = tab.controller
+            let undoManager = try #require(controller.undoManager)
+            undoManager.removeAllActions(withTarget: controller)
+            undoManager.leoRemoveActionsTestsCanReplay(ghostty: controller.ghostty)
+            let host = GhosttyAttachTabHost(
+                registry: try #require((NSApp.delegate as? AppDelegate)?.leoRuntime.registry), requestConfigStore: LeoRequestConfigStore())
+            let agent = try host.fillPlaceholder(
+                command: "/bin/cat", workingDirectory: nil, origin: tab.session.id, surfaceID: nil, requestID: UUID())
+            // ⌘D kept out of undo: typed, it is its own undo group, but the
+            // test host never ends one (`groupsByEvent`), so ⌘Z would undo
+            // it with ⌘W's.
+            undoManager.disableUndoRegistration()
+            let split = try host.openSplit(
+                command: "", workingDirectory: nil, origin: tab.session.id,
+                sourceSurface: agent.surfaceID, direction: .right, requestID: UUID())
+            undoManager.enableUndoRegistration()
+            let agentView = try #require(controller.surfaceTree.first { $0.id == agent.surfaceID })
+            controller.closeSurface(try #require(controller.surfaceTree.root?.node(view: agentView)), withConfirmation: false)
+            let splitView = try #require(controller.surfaceTree.first { $0.id == split.surfaceID })
+            controller.closeSurface(try #require(controller.surfaceTree.root?.node(view: splitView)), withConfirmation: false)
+            try #require(controller.surfaceTree.isEmpty, "the start screen, kept for the editor's edits")
+            let shell = try host.fillPlaceholder(
+                command: "", workingDirectory: nil, origin: tab.session.id, surfaceID: nil, requestID: UUID())
+
+            undoManager.undo()
+
+            #expect(Array(controller.surfaceTree).map(\.id) == [shell.surfaceID], "the chosen shell stays")
+            #expect(host.isShown(shell))
+            await tearDown(tab)
+        }
+    }
+
     // MARK: Closes that can't ask
 
     /// `closeTabImmediately` and `closeWindowImmediately` (the terminal's
