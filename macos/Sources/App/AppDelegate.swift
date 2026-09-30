@@ -309,6 +309,10 @@ class AppDelegate: NSObject,
             toggleSecureInput(self)
         }
 
+        // Clear the auto-update answers pre-B-115 builds stored, before the
+        // initial config applies `auto-update`, so Sparkle can ask once.
+        UpdateDefaultsMigration.run(.standard)
+
         // Initial config loading
         ghosttyConfigDidChange(config: ghostty.config)
 
