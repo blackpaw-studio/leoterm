@@ -331,6 +331,16 @@ Why: B-065 implementer: runtests.sh's failure grep misses parameterized tests (n
 Accept: the failure list names parameterized failures; verify.md updated
 Source: autopilot polish (B-065)
 
+## B-116 · Sidebar programmatic-width doc comment   [ready (next run)]
+Why: B-090 review polish
+Accept: applyProgrammaticWidth's doc comment (LeoSplitViewRepresentable.swift) says a collapsed sidebar drops the pending width and gets it when shown
+Source: autopilot polish (B-090)
+
+## B-117 · verify.md: sidebar toggle menu path reads Hide/Show   [ready (next run)]
+Why: B-090 verify couldn't find "Agents ▸ Show Agents Sidebar" while the sidebar was visible (the item reads "Hide Agents Sidebar" then)
+Accept: verify.md's GUI tips name the toggle as Show/Hide Agents Sidebar depending on state
+Source: autopilot polish (B-090)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
