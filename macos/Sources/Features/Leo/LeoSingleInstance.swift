@@ -53,6 +53,9 @@ enum LeoInstanceLockAttempt {
     case acquired(LeoInstanceLock)
     /// Another live process holds the lock.
     case busy
+    /// The holder is quitting: it marked the lock when its quit was approved
+    /// and holds it only until its process ends (B-092).
+    case holderExiting
     case refused(LeoInstanceLockRefusal)
 }
 
@@ -61,7 +64,17 @@ enum LeoInstanceLockAttempt {
 /// exits). The kernel drops it when the process dies, so a crash never
 /// leaves it stuck; `O_CLOEXEC` keeps shells and ssh children Leo spawns
 /// from inheriting (and outliving it with) the lock.
+///
+/// The file is empty while its holder runs. A holder that is quitting
+/// writes `exitingMark` into it, so a copy launched during the quit waits
+/// for the lock instead of yielding to a copy that is about to be gone
+/// (B-092). Whoever takes the lock next empties the file again.
 final class LeoInstanceLock {
+    /// What a quitting holder writes, byte for byte.
+    static let exitingMark = Array("exiting\n".utf8)
+    /// Enough to tell the mark from anything longer.
+    private static let markReadLimit = 16
+
     private let descriptor: Int32
 
     init(descriptor: Int32) {
@@ -74,10 +87,51 @@ final class LeoInstanceLock {
 
     static func fileName(for bundleIdentifier: String) -> String { "\(bundleIdentifier).instance.lock" }
 
+    /// Marks the held lock exiting, through the held descriptor; the lock
+    /// itself stays held until this object goes (the process ends).
+    @discardableResult
+    func markExiting() -> Bool {
+        guard descriptor >= 0 else { return false }
+        let written = Self.exitingMark.withUnsafeBytes { pwrite(descriptor, $0.baseAddress, $0.count, 0) }
+        return written == Self.exitingMark.count
+    }
+
     /// Same owner-only directory the tunnel sockets use, checked the same
     /// way; the lock file itself must be a regular file `owner` owns with
-    /// no other links, and is tightened to 0600.
+    /// no other links, and is tightened to 0600. Never blocks: a held lock
+    /// is `.holderExiting` when its holder marked it, otherwise `.busy`.
     static func acquire(bundleIdentifier: String, in directory: URL, owner: uid_t = geteuid()) -> LeoInstanceLockAttempt {
+        withCheckedLockFile(bundleIdentifier, in: directory, owner: owner) { descriptor, path in
+            guard flock(descriptor, LOCK_EX | LOCK_NB) == 0 else {
+                let code = errno
+                guard code == EWOULDBLOCK else { return .refused(LeoInstanceLockRefusal(error: .system(code), path: path)) }
+                return isMarkedExiting(descriptor) ? .holderExiting : .busy
+            }
+            return holding(descriptor, path: path)
+        }
+    }
+
+    /// `acquire`, with the same checks on the file, but blocking in `flock`
+    /// until the holder lets go: for a holder marked exiting, whose process
+    /// is about to end. No timeout (principle 5): a holder that hangs while
+    /// quitting is ended by hand, and this copy then carries on. `O_NONBLOCK`
+    /// on the descriptor doesn't affect `flock`.
+    static func waitAndAcquire(bundleIdentifier: String, in directory: URL, owner: uid_t = geteuid()) -> LeoInstanceLockAttempt {
+        withCheckedLockFile(bundleIdentifier, in: directory, owner: owner) { descriptor, path in
+            while flock(descriptor, LOCK_EX) != 0 {
+                let code = errno
+                guard code == EINTR else { return .refused(LeoInstanceLockRefusal(error: .system(code), path: path)) }
+            }
+            return holding(descriptor, path: path)
+        }
+    }
+
+    /// Opens and checks the lock file, then hands its descriptor to `lock`,
+    /// and closes it unless `lock` returns `.acquired` (which then owns it).
+    private static func withCheckedLockFile(
+        _ bundleIdentifier: String, in directory: URL, owner: uid_t,
+        lock: (_ descriptor: Int32, _ path: String) -> LeoInstanceLockAttempt
+    ) -> LeoInstanceLockAttempt {
         guard isSafeFileComponent(bundleIdentifier) else {
             return .refused(LeoInstanceLockRefusal(error: .invalidBundleIdentifier, path: bundleIdentifier))
         }
@@ -97,12 +151,27 @@ final class LeoInstanceLock {
             close(descriptor)
             return refuse(error)
         }
-        guard flock(descriptor, LOCK_EX | LOCK_NB) == 0 else {
-            let code = errno
-            close(descriptor)
-            return code == EWOULDBLOCK ? .busy : refuse(.system(code))
+        let attempt = lock(descriptor, path)
+        if case .acquired = attempt { return attempt }
+        close(descriptor)
+        return attempt
+    }
+
+    /// The lock is ours: empty the file before anything else, so the mark
+    /// the previous holder left never makes a later copy wait on this live
+    /// one. If it can't be emptied, refuse (D-053) rather than run with it.
+    private static func holding(_ descriptor: Int32, path: String) -> LeoInstanceLockAttempt {
+        guard ftruncate(descriptor, 0) == 0 else {
+            return .refused(LeoInstanceLockRefusal(error: .system(errno), path: path))
         }
         return .acquired(LeoInstanceLock(descriptor: descriptor))
+    }
+
+    /// The file holds exactly `exitingMark`.
+    private static func isMarkedExiting(_ descriptor: Int32) -> Bool {
+        var buffer = [UInt8](repeating: 0, count: markReadLimit)
+        let count = buffer.withUnsafeMutableBytes { pread(descriptor, $0.baseAddress, $0.count, 0) }
+        return count >= 0 && Array(buffer.prefix(count)) == exitingMark
     }
 
     private static func checkLockFile(_ descriptor: Int32, owner: uid_t) -> LeoInstanceLockError? {
@@ -131,6 +200,12 @@ final class LeoInstanceLock {
 /// without touching any of that state. Release and debug bundles have
 /// different IDs and so independent locks.
 ///
+/// Except when the holder is quitting (B-092): it marks the lock as soon as
+/// its quit is approved (and again in `applicationWillTerminate`), and a
+/// copy launched then waits for it to exit and carries on as the primary.
+/// Yielding would activate a copy that is about to be gone and leave no
+/// Leo running.
+///
 /// Fails closed: when the lock can't be taken safely (an unsafe directory,
 /// a symlinked, foreign or hard-linked lock file), another copy could be
 /// running unseen, so Leo says why in one alert and exits 1, leaving the
@@ -145,11 +220,39 @@ struct LeoSingleInstance {
         case skipped(String)
         /// The lock couldn't be taken safely: alerted, and this copy exits 1.
         case refused(LeoInstanceLockRefusal)
+
+        /// Marks a held lock exiting once the quit is final, so a copy
+        /// launched during it waits for this one to go. Nothing to mark for
+        /// any other claim.
+        func markExiting() {
+            guard case .primary(let lock) = self else { return }
+            guard !lock.markExiting() else { return }
+            let code = errno
+            LeoSingleInstance.logger.error("couldn't mark the instance lock exiting errno=\(code, privacy: .public)")
+        }
+
+        /// `applicationShouldTerminate`'s `reply`, marking the lock exiting
+        /// when it lets the quit go ahead. AppKit runs
+        /// `applicationWillTerminate` only ~50 ms after that, which is the
+        /// very window B-092 hit; a later or cancelled quit isn't final yet.
+        func markingExiting(ifApproved reply: NSApplication.TerminateReply) -> NSApplication.TerminateReply {
+            if reply == .terminateNow { markExiting() }
+            return reply
+        }
+
+        /// The same for `NSApp.reply(toApplicationShouldTerminate:)`.
+        func markingExiting(ifApproved shouldTerminate: Bool) -> Bool {
+            if shouldTerminate { markExiting() }
+            return shouldTerminate
+        }
     }
 
     let bundleIdentifier: String?
     let isTestHost: Bool
     let acquireLock: (String) -> LeoInstanceLockAttempt
+    /// Blocks until the lock is free; only called when `acquireLock` found
+    /// its holder quitting.
+    let waitForLock: (String) -> LeoInstanceLockAttempt
     let activateOther: (String) -> Void
     let alert: (LeoInstanceLockRefusal) -> Void
     let terminate: (Int32) -> Void
@@ -216,10 +319,19 @@ struct LeoSingleInstance {
             Self.logger.log("no bundle identifier; single-instance check skipped")
             return .skipped("no bundle identifier")
         }
-        switch acquireLock(bundleIdentifier) {
+        let attempt = acquireLock(bundleIdentifier)
+        guard case .holderExiting = attempt else { return settle(attempt, for: bundleIdentifier) }
+        Self.logger.log("the copy of \(bundleIdentifier, privacy: .public) holding the lock is quitting; waiting for it to exit")
+        return settle(waitForLock(bundleIdentifier), for: bundleIdentifier)
+    }
+
+    /// Carry on (`.acquired`), yield (D-051) or alert and quit (D-053).
+    private func settle(_ attempt: LeoInstanceLockAttempt, for bundleIdentifier: String) -> Claim {
+        switch attempt {
         case .acquired(let lock):
             return .primary(lock)
-        case .busy:
+        // A holder still quitting after the wait: yield rather than wait again.
+        case .busy, .holderExiting:
             Self.logger.log("another copy of \(bundleIdentifier, privacy: .public) is running; activating it and quitting")
             activateOther(bundleIdentifier)
             terminate(0)
@@ -251,22 +363,33 @@ extension LeoSingleInstance {
             bundleIdentifier: Bundle.main.bundleIdentifier,
             isTestHost: isRunningAsTestHost(),
             acquireLock: { bundleIdentifier in
-                guard let directory = LeoControlSocketDirectory.default else {
-                    return .refused(LeoInstanceLockRefusal(error: .noCacheDirectory, path: "_CS_DARWIN_USER_CACHE_DIR"))
+                inLockDirectory { directory in
+                    #if DEBUG
+                    if let forced = forcedStartFailure(
+                        environment: ProcessInfo.processInfo.environment, bundleIdentifier: bundleIdentifier, directory: directory
+                    ) {
+                        return .refused(forced)
+                    }
+                    #endif
+                    return LeoInstanceLock.acquire(bundleIdentifier: bundleIdentifier, in: directory)
                 }
-                #if DEBUG
-                if let forced = forcedStartFailure(
-                    environment: ProcessInfo.processInfo.environment, bundleIdentifier: bundleIdentifier, directory: directory
-                ) {
-                    return .refused(forced)
-                }
-                #endif
-                return LeoInstanceLock.acquire(bundleIdentifier: bundleIdentifier, in: directory)
+            },
+            waitForLock: { bundleIdentifier in
+                inLockDirectory { LeoInstanceLock.waitAndAcquire(bundleIdentifier: bundleIdentifier, in: $0) }
             },
             activateOther: activateRunningCopy,
             alert: presentCannotStart,
             terminate: { exit($0) }
         )
+    }
+
+    /// `body` with the private per-user lock directory; refused when macOS
+    /// reports no cache directory.
+    private static func inLockDirectory(_ body: (URL) -> LeoInstanceLockAttempt) -> LeoInstanceLockAttempt {
+        guard let directory = LeoControlSocketDirectory.default else {
+            return .refused(LeoInstanceLockRefusal(error: .noCacheDirectory, path: "_CS_DARWIN_USER_CACHE_DIR"))
+        }
+        return body(directory)
     }
 
     /// Paths of every image dyld has loaded into this process.
