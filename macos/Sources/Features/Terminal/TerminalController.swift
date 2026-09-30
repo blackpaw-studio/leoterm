@@ -181,6 +181,12 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     /// does: never read from the SwiftUI view, which hasn't caught up with
     /// the new surface yet and reports a far smaller size.
     func leoApplyInitialSize() {
+        // B-097: what `windowDidLoad` gives the container, so Reset Window
+        // Size (and its menu item's enabled state) reads the configured
+        // size, not the SwiftUI view's -- whether or not the window is
+        // sized here.
+        (window?.contentView as? TerminalViewContainer)?.initialContentSize = leoConfiguredContentSize
+
         guard let window, let defaultSize, LeoInitialSizeDecision.shouldSize(
             isVisible: window.isVisible, isAwaitingPresentation: pendingInitialPresentation != nil
         ) else { return }

@@ -159,4 +159,24 @@ import Testing
         #expect(fixture.window.isVisible, "the window was still presented")
         #expect(fixture.contentSize == expected, "presenting it kept the size")
     }
+
+    /// B-097: Window > Reset Window Size on a start screen that has filled
+    /// returns to the configured size -- the terminal's, plus the sidebar
+    /// beside it -- never the SwiftUI view's intrinsic size.
+    @Test(.enabled("needs the app's Ghostty.App") { await MainActor.run { Self.hasGhostty } })
+    func resetWindowSizeOnAFilledStartScreenTakesTheConfiguredSize() async throws {
+        let fixture = try await Fixture.shown()
+        defer { fixture.close() }
+        let session = try #require(fixture.controller.leoSession)
+        let sidebar = session.isSidebarVisible ? session.displayedWidth + LeoSidebarSplitMetrics.dividerWidth : 0
+        let expected = NSSize(width: Self.configuredSize.width + sidebar, height: Self.configuredSize.height)
+
+        let surface = try fixture.fill().surface
+        fixture.applyFirstContentSize(to: surface)
+        await Self.drainMainQueue()
+        fixture.controller.returnToDefaultSize(nil)
+        await Self.drainMainQueue()
+
+        #expect(fixture.contentSize == expected, "Reset Window Size used the SwiftUI view's size")
+    }
 }
