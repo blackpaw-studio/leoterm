@@ -89,8 +89,80 @@ import Testing
         let quick = menuItems(#selector(AppDelegate.toggleQuickTerminal(_:)))
         #expect(!quick.isEmpty, "the quick terminal keeps its menu item")
         #expect(quick.allSatisfy { $0.keyEquivalent != "t" || $0.keyEquivalentModifierMask != .command })
-        let xib = try LeoMenuXib.shortcuts().filter { $0.shortcut == "⌘t" }
-        #expect(xib.allSatisfy { $0.action == "newTab:" }, "nothing in the xib claims ⌘T but New Terminal")
+        let intruders = try Self.commandTIntruders(LeoMenuXib.shortcuts())
+        #expect(
+            intruders.map(\.title) == [],
+            "no xib item but New Terminal binds ⌘T or a bare T (New Terminal's own ⌘T comes from the config's new_tab)"
+        )
+    }
+
+    // MARK: The xib ⌘T guard (B-076)
+
+    /// Shortcuts only New Terminal may have in the xib: ⌘T, and a bare T,
+    /// which is what an empty `<modifierMask/>` on a "t" key really binds.
+    private static let commandTLookalikes: Set<String> = ["⌘t", "t"]
+
+    private static func commandTIntruders(_ items: [LeoMenuXib.MenuShortcut]) -> [LeoMenuXib.MenuShortcut] {
+        LeoMenuXib.claims(on: commandTLookalikes, byAnyoneBut: "newTab:", in: items)
+    }
+
+    /// Parses menu items as they'd sit in MainMenu.xib.
+    private static func fixture(_ menuItems: String) throws -> [LeoMenuXib.MenuShortcut] {
+        try LeoMenuXib.shortcuts(in: XMLDocument(xmlString: "<menu><items>\(menuItems)</items></menu>"))
+    }
+
+    private static let newTerminalOnCommandT = """
+        <menuItem title="New Tab" keyEquivalent="t" id="n1">
+            <connections><action selector="newTab:" target="-1" id="a1"/></connections>
+        </menuItem>
+        """
+
+    /// Masks decode as a loaded nib reports them (ibtool + NSNib, B-076).
+    @Test func xibModifierMasksDecodeLikeALoadedNib() throws {
+        let items = try Self.fixture("""
+            <menuItem title="None" keyEquivalent="t" id="i1"/>
+            <menuItem title="Empty" keyEquivalent="t" id="i2"><modifierMask key="keyEquivalentModifierMask"/></menuItem>
+            <menuItem title="Command" keyEquivalent="t" id="i3"><modifierMask key="keyEquivalentModifierMask" command="YES"/></menuItem>
+            <menuItem title="Upper" keyEquivalent="T" id="i4"/>
+            <menuItem title="Option" keyEquivalent="t" id="i5"><modifierMask key="keyEquivalentModifierMask" option="YES"/></menuItem>
+            """)
+
+        #expect(items.map(\.shortcut) == ["⌘t", "t", "⌘t", "⇧⌘t", "⌥t"])
+    }
+
+    @Test func theXibGuardFlagsAnotherItemOnCommandT() throws {
+        let items = try Self.fixture(Self.newTerminalOnCommandT + """
+            <menuItem title="Quick Terminal" keyEquivalent="t" id="q1">
+                <connections><action selector="toggleQuickTerminal:" target="-1" id="a2"/></connections>
+            </menuItem>
+            """)
+
+        #expect(Self.commandTIntruders(items).map(\.title) == ["Quick Terminal"])
+    }
+
+    @Test func theXibGuardFlagsABareTFromAnEmptyModifierMask() throws {
+        let items = try Self.fixture(Self.newTerminalOnCommandT + """
+            <menuItem title="Quick Terminal" keyEquivalent="t" id="q1">
+                <modifierMask key="keyEquivalentModifierMask"/>
+                <connections><action selector="toggleQuickTerminal:" target="-1" id="a2"/></connections>
+            </menuItem>
+            """)
+
+        #expect(Self.commandTIntruders(items).map(\.title) == ["Quick Terminal"])
+    }
+
+    @Test func theXibGuardLeavesOtherTChordsAlone() throws {
+        let items = try Self.fixture(Self.newTerminalOnCommandT + """
+            <menuItem title="Shifted" keyEquivalent="T" id="s1">
+                <connections><action selector="toggleQuickTerminal:" target="-1" id="a2"/></connections>
+            </menuItem>
+            <menuItem title="Optioned" keyEquivalent="t" id="o1">
+                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                <connections><action selector="toggleQuickTerminal:" target="-1" id="a3"/></connections>
+            </menuItem>
+            """)
+
+        #expect(Self.commandTIntruders(items).isEmpty)
     }
 
     /// B-066: the start screen's Choose Agent… tooltip names the palette's
