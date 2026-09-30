@@ -39,3 +39,14 @@ Lane: B-067
 - B-067 runner: ready at fa7a0d9b5 (1715/1715, lint clean; general full; implementer/opus, 0 fix rounds). Harness couldn't reproduce B-057-8's partial reveal; only the live GUI run confirms the one-turn deferral. Polish filed as B-078; verify.md search-field tip folded into B-077.
 - B-067 landed (merge 36c07da8b).
 Finished 2: B-067 landed 36c07da8b · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-067-1.png
+
+Lane: B-068
+  Branch: autopilot-lane/B-068
+  Base: caa947dd04da18fba08a8fb25b24645ea0074043
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-29T23:39:16Z
