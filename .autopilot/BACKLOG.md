@@ -86,6 +86,11 @@ Why: B-069's New Terminal tooltip hardcodes "⌘T", but AppDelegate syncs ⌘T f
 Accept: the start-screen hints are built from the synced menu items (or config.keyboardShortcut(for:)); tests look items up by selector (TerminalController.newTab(_:)); a rebind test shows the hint following
 Source: autopilot polish (B-069)
 
+## B-081 · Sidebar scroll and start title after the last shell closes   [ready (next run)]
+Why: B-070 verify: after the last shell closes, the sidebar stays scrolled to the bottom where the Terminals section was; leoStartTitle is captured once at windowDidLoad (a config `title` reload doesn't reach an open window's start screen; matches upstream) and has no explicit test with a config `title` set
+Accept: after the last Terminals row closes the sidebar keeps a sensible scroll position (the selection or the top), calmly; a comment documents leoStartTitle's capture; a test with a config `title` set
+Source: autopilot polish (B-070)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
