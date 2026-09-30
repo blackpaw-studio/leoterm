@@ -1372,7 +1372,9 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         let leoSession = (NSApp.delegate as? AppDelegate)?.leoRuntime.makeWindowSession(for: self)
         self.leoSession = leoSession
         let container = TerminalViewContainer {
-            TerminalView(ghostty: ghostty, viewModel: self, delegate: self, leoSession: leoSession)
+            TerminalView(
+                ghostty: ghostty, viewModel: self, delegate: self, leoSession: leoSession,
+                leoSplitIgnoredEdges: LeoTitlebarInsets.splitIgnoredEdges(in: window))
         }
 
         // Set the initial content size on the container so that

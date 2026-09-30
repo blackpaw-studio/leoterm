@@ -51,6 +51,10 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
     // MARK: Leo
     let leoSession: LeoWindowSession?
 
+    /// The window edges the sidebar split extends into, past the safe area
+    /// (B-074). See `LeoTitlebarInsets`.
+    let leoSplitIgnoredEdges: Edge.Set
+
     /// Mirrors `leoSession.placeholderSurfaceIDs`. `leoSession` is a plain
     /// `let` (an optional cannot be `@ObservedObject`), so this view is not
     /// subscribed to it: rebirthing a placeholder changed the session without
@@ -70,12 +74,14 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
         ghostty: Ghostty.App,
         viewModel: ViewModel,
         delegate: (any TerminalViewDelegate)?,
-        leoSession: LeoWindowSession? = nil
+        leoSession: LeoWindowSession? = nil,
+        leoSplitIgnoredEdges: Edge.Set = []
     ) {
         self.ghostty = ghostty
         self.viewModel = viewModel
         self.delegate = delegate
         self.leoSession = leoSession
+        self.leoSplitIgnoredEdges = leoSplitIgnoredEdges
     }
 
     /// The most recently focused surface, equal to `focusedSurface` when it is non-nil.
@@ -119,6 +125,7 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                             }
                         }
                     }
+                    .ignoresSafeArea(.container, edges: leoSplitIgnoredEdges)
                 } else {
                     terminalContent
                 }
