@@ -88,7 +88,7 @@ Lane: B-072
   Branch: autopilot-lane/B-072
   Base: efe117dd0be9de6cc50a48536665905d86704786
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
@@ -103,3 +103,5 @@ Lane: B-072
   Call: init uses a fallible syncEnvironOrErr (ghostty_init fails cleanly on OOM); GTK keeps the void log-and-keep syncEnviron — AUTONOMY: approach
   Call: Zig comments don't mention B-072 (keeps the upstream diff neutral) — AUTONOMY: minimal Zig
 - B-072 runner: ready at a88c3c1b2 (wrapperless 1788/1788 twice, lint clean; general+concurrency+security full then delta; implementer-hard/opus, 1 fix round). Fix in src/global.zig: syncEnviron keeps its own copy. GUI smoke: New Terminal rows spawn, HOME/TERM reach the child. verify.md updated (orchestrator). Shared post-B-072 xcframework copied to .git/autopilot/shared/. Red runs left 5 .ghosttycrash files in ~/.local/state/ghostty/crash/ (not deleted). Polish filed as B-098.
+- B-072 landed (merge 668489764).
+Finished 5: B-072 landed 668489764 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-072-1.png

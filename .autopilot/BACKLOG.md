@@ -65,12 +65,13 @@ Accept: a failing test reproduces the undo-replay kill; it passes after the fix;
 Source: autopilot polish (B-057)
 Done: 3c11d58f5 554d32298 73ccd5035 c32e920d8 1c7b13222 c9ce67411 bc8aae9f1 (1737 tests). After a content swap or the start screen ⌘Z no longer replays the old tree; a selected row that closes hands the selection to what's shown. Decisions D-140..D-143.
 
-## B-072 · Test infra: runtests.sh crashes the test host (libghostty env pointer vs setenv)   [ready]
+## B-072 · Test infra: runtests.sh crashes the test host (libghostty env pointer vs setenv)   [done]
 Issue: #76
 Why: canonical scratchpad/runtests.sh crashes at LeoLivePoolIntegrationTests/switchingBackShowsTheSameSurfaceInstance (libghostty holds a pointer into environ; later FAKE_SSH_* setenv invalidates it), also on baseline; B-057 used a wrapper presetting LANG, __CF_USER_TEXT_ENCODING, __LLVM_PROFILE_RT_INIT_ONCE. Also lengthen aNewShellIsASelectedRowTitledByItsTerminal's eventually timeout (flaky under load)
 Accept: the canonical suite runs green without the wrapper (fix the setenv use or copy env for libghostty); flaky timeout lengthened; verify.md updated
 Note: B-068 moved aNewShellIsASelectedRowTitledByItsTerminal to a /bin/cat stand-in (the flake's cause was a login shell's prompt retitle), so the timeout part may already be moot.
 Source: autopilot polish (B-057)
+Done: a88c3c1b2 3631ebc4b 96c0589bc 508100cd3 2463458fd 0f9f87938. (1788 tests, no wrapper). libghostty's syncEnviron keeps its own copy of the environment, so a later setenv can't free it under a new surface; the canonical runner is green without the env wrapper; verify.md updated. Decisions D-159..D-166.
 
 ## B-073 · runtests.sh test-host timeout too short under load   [ready]
 Issue: #77

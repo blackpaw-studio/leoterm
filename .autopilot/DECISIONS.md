@@ -1191,3 +1191,59 @@ Chose: Integration tests save and restore NSWindowLastPosition in the debug app'
 Why: AUTONOMY test infra
 Commit: 3c3189960 c8fa29411 528d63ebe
 Veto: [ ]
+
+## D-159 · 2026-09-30 · Fix the hazard in libghostty (src/global.zig only) rather than with a…
+Context: B-072 (runner call).
+Chose: Fix the hazard in libghostty (src/global.zig only) rather than with a test-only workaround
+Why: AUTONOMY: approach; minimal Zig
+Commit: a88c3c1b2 3631ebc4b 96c0589bc 508100cd3 2463458fd 0f9f87938
+Veto: [ ]
+
+## D-160 · 2026-09-30 · Keep the tests' setenv calls as the regression
+Context: B-072 (runner call).
+Chose: Keep the tests' setenv calls as the regression
+Why: AUTONOMY: test infra
+Commit: a88c3c1b2 3631ebc4b 96c0589bc 508100cd3 2463458fd 0f9f87938
+Veto: [ ]
+
+## D-161 · 2026-09-30 · Lengthen aNewShellIsASelectedRowTitledByItsTerminal to 10 s even thou…
+Context: B-072 (runner call).
+Chose: Lengthen aNewShellIsASelectedRowTitledByItsTerminal to 10 s even though B-068 made it mostly moot
+Why: AUTONOMY: flake fixes
+Commit: a88c3c1b2 3631ebc4b 96c0589bc 508100cd3 2463458fd 0f9f87938
+Veto: [ ]
+
+## D-162 · 2026-09-30 · The environ arena keeps each copy until deinit (grows once per sync),…
+Context: B-072 (runner call).
+Chose: The environ arena keeps each copy until deinit (grows once per sync), so readers of an older snapshot stay valid
+Why: AUTONOMY: approach
+Commit: a88c3c1b2 3631ebc4b 96c0589bc 508100cd3 2463458fd 0f9f87938
+Veto: [ ]
+
+## D-163 · 2026-09-30 · io_impl.environ_initialized is not reset; memoised PATH/HOME are drop…
+Context: B-072 (runner call).
+Chose: io_impl.environ_initialized is not reset; memoised PATH/HOME are dropped, not rebuilt (avoids touching std Io.Threaded internals)
+Why: AUTONOMY: approach, minimal Zig
+Commit: a88c3c1b2 3631ebc4b 96c0589bc 508100cd3 2463458fd 0f9f87938
+Veto: [ ]
+
+## D-164 · 2026-09-30 · No shared env lock with LeoTunnelTestSupport; the burst stays in proc…
+Context: B-072 (runner call).
+Chose: No shared env lock with LeoTunnelTestSupport; the burst stays in process
+Why: AUTONOMY: test infra
+Commit: a88c3c1b2 3631ebc4b 96c0589bc 508100cd3 2463458fd 0f9f87938
+Veto: [ ]
+
+## D-165 · 2026-09-30 · init uses a fallible syncEnvironOrErr (ghostty_init fails cleanly on …
+Context: B-072 (runner call).
+Chose: init uses a fallible syncEnvironOrErr (ghostty_init fails cleanly on OOM); GTK keeps the void log-and-keep syncEnviron
+Why: AUTONOMY: approach
+Commit: a88c3c1b2 3631ebc4b 96c0589bc 508100cd3 2463458fd 0f9f87938
+Veto: [ ]
+
+## D-166 · 2026-09-30 · Zig comments don't mention B-072 (keeps the upstream diff neutral)
+Context: B-072 (runner call).
+Chose: Zig comments don't mention B-072 (keeps the upstream diff neutral)
+Why: AUTONOMY: minimal Zig
+Commit: a88c3c1b2 3631ebc4b 96c0589bc 508100cd3 2463458fd 0f9f87938
+Veto: [ ]
