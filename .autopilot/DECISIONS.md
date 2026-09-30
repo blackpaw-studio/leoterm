@@ -1450,3 +1450,31 @@ Chose: LeoTerminalList.replacing drops the old row if the new id is already list
 Why: P6
 Commit: b3e29e2c4, b818ba40a, 4d41627b1
 Veto: [ ]
+
+## D-196 · 2026-09-30 · Dismiss point 5 (cross-window Move Split undo) in B-083 and park the …
+Context: B-083 (runner call).
+Chose: Dismiss point 5 (cross-window Move Split undo) in B-083 and park the cross-window surface move (ownership, rows, undo) as its own follow-up (B-110)
+Why: AUTONOMY implementation approach; P2 no half-fixed state; D-141 forbids clearing the other window's undo
+Commit: 02fa5f775, 81126012d, 7c4403ba4, f971917cf
+Veto: [ ]
+
+## D-197 · 2026-09-30 · Document the cross-window limit in the leoForgetContentUndo doc, not …
+Context: B-083 (runner call).
+Chose: Document the cross-window limit in the leoForgetContentUndo doc, not in code
+Why: AUTONOMY implementation approach
+Commit: 02fa5f775, 81126012d, 7c4403ba4, f971917cf
+Veto: [ ]
+
+## D-198 · 2026-09-30 · Put point 3's processExited assertion in the shared helper expectUndo…
+Context: B-083 (runner call).
+Chose: Put point 3's processExited assertion in the shared helper expectUndoLeftTheSwitchAlone so both callers get it
+Why: AUTONOMY test infrastructure
+Commit: 02fa5f775, 81126012d, 7c4403ba4, f971917cf
+Veto: [ ]
+
+## D-199 · 2026-09-30 · Delete the now-wrong LeoUndoTestSupport paragraph about avoiding remo…
+Context: B-083 (runner call).
+Chose: Delete the now-wrong LeoUndoTestSupport paragraph about avoiding removeAllActions()
+Why: AUTONOMY implementation approach
+Commit: 02fa5f775, 81126012d, 7c4403ba4, f971917cf
+Veto: [ ]

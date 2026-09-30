@@ -143,11 +143,12 @@ Accept: a failing test reproduces it; after the fix the remaining pane stays rea
 Source: autopilot polish (B-071)
 Done: b3e29e2c4, b818ba40a, 4d41627b1. Closing a row's pane beside a split hands the row on to the surviving plain shell (still selected), so it stays reachable and New Terminal no longer kills it Decisions D-190..D-195.
 
-## B-083 · B-071 test and undo-manager polish   [ready]
+## B-083 · B-071 test and undo-manager polish   [done]
 Issue: #87
 Why: B-071 review polish: EditorCloseTests:91-93 doc says "S exits" but the test closes S; LeoContentSwapIntegrationTests.swift:126 calls undo() on the shared manager without leoRemoveActionsTestsCanReplay; RowsIntegrationTests:639 should also assert busyView.view?.processExited == false; ExpiringUndoManager.removeAllActions() crashes from re-entrant deinit (latent upstream bug, no production caller: snapshot the set before clearing). Also: Move Split cross-window undo leaves the other window's half after a swap (concurrency review, narrowed by B-071)
 Accept: each fixed or explicitly dismissed; suite green
 Source: autopilot polish (B-071)
+Done: 02fa5f775, 81126012d, 7c4403ba4, f971917cf. ExpiringUndoManager.removeAllActions no longer crashes on re-entry; B-071 undo-test polish; the cross-window Move Split undo limit is documented and parked as B-110 Decisions D-196..D-199.
 
 ## B-087 · Cursor looks unfocused after a row switch or palette Escape   [ready (next run)]
 Why: B-071 verify saw a hollow (unfocused) cursor right after a row switch and after Escape closes the palette; pre-existing

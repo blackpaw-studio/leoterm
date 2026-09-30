@@ -254,7 +254,7 @@ Lane: B-083
   Branch: autopilot-lane/B-083
   Base: 5d329e0dd168f9aa1bc8585dd7c67cba512778fd
   Tier: light→full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -265,3 +265,5 @@ Lane: B-083
   Call: Put point 3's processExited assertion in the shared helper expectUndoLeftTheSwitchAlone so both callers get it — AUTONOMY test infrastructure
   Call: Delete the now-wrong LeoUndoTestSupport paragraph about avoiding removeAllActions() — AUTONOMY implementation approach
 - B-083 runner: ready at 8faecd5ed (1834/1834, lint clean; promoted light→full on point 5; general + concurrency full, no blocking; implementer/opus, 0 fix rounds). ExpiringUndoManager.removeAllActions no longer crashes (red: "Simultaneous accesses"). Point 5 parked as B-110; polish filed as B-111.
+- B-083 landed (merge 44bc4c74a).
+Finished 16: B-083 landed 44bc4c74a · not visually verified
