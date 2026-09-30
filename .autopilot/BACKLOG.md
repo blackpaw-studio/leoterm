@@ -150,174 +150,181 @@ Accept: each fixed or explicitly dismissed; suite green
 Source: autopilot polish (B-071)
 Done: 02fa5f775, 81126012d, 7c4403ba4, f971917cf. ExpiringUndoManager.removeAllActions no longer crashes on re-entry; B-071 undo-test polish; the cross-window Move Split undo limit is documented and parked as B-110 Decisions D-196..D-199.
 
-## B-087 · Cursor looks unfocused after a row switch or palette Escape   [ready (next run)]
+## B-115 · In-app updates on (repo is public)   [ready]
+Why: Leo finds and installs its own updates from GitHub Releases instead of manual DMG downloads (P4 everything through Leo)
+Accept: Ghostty-Info.plist no longer forces SUEnableAutomaticChecks off, and the `auto-update` config (off/check/download, unset → Sparkle's first-launch "check automatically?" prompt) drives the updater again, with a test per value; a test parses a fixture copy of the published appcast and confirms the newest item, version and edSignature are read; in the isolated debug build, Check for Updates… reaches the public appcast and shows the available/up-to-date UI, not an error (shot, without clicking Install); build-app.sh's comment and docs/leo/ci.md's "Auto-update" section describe it as on, with the go-public checklist marked done
+Out: moving hosting off GitHub Releases; delta updates; a separate beta channel; changes to the release workflow or signing; installing an update over any real Leo install (the end-to-end install check on Evan's laptop stays his step after the next release)
+Source: Evan (/feature, 2026-09-30)
+Inbox: 20260930T181536331640Z-c923592e#1
+
+## B-087 · Cursor looks unfocused after a row switch or palette Escape   [ready]
 Issue: #91
 Why: B-071 verify saw a hollow (unfocused) cursor right after a row switch and after Escape closes the palette; pre-existing
 Accept: after a row switch or dismissing the palette, the shown terminal is first responder and its cursor is focused; test
 Source: autopilot polish (B-071)
 
-## B-088 · "Close Terminal?" confirm names the pane it closes   [ready (next run)]
+## B-088 · "Close Terminal?" confirm names the pane it closes   [ready]
 Issue: #92
 Why: B-071 verify: the close confirm doesn't say which pane/row it will close, which is ambiguous beside a split
 Accept: the confirm names the row/pane being closed; test
 Source: autopilot polish (B-071)
 
-## B-089 · Sidebar width persistence hardening   [ready (next run)]
+## B-089 · Sidebar width persistence hardening   [ready]
 Issue: #93
 Why: B-084 review: lastPersistedWidth records the requested width, not the applied one (narrow-then-widen launch could persist a clamped width); the pending branch's programmatic-width flag relies on pendingWidth always clearing via applyProgrammaticWidth; "leo.sidebarWidth" literal repeated 3x
 Accept: lastPersistedWidth comes from the sidebar's actual frame after setPosition, with a harness case for narrow-then-widen; the flag is documented or dropped; one key constant; suite green
 Source: autopilot polish (B-084)
 
-## B-090 · Bug — a sidebar hidden at launch un-collapses, then re-collapses with animation   [ready (next run)]
+## B-090 · Bug — a sidebar hidden at launch un-collapses, then re-collapses with animation   [ready]
 Issue: #94
 Type: bug
 Report: B-084 review/implementer: a sidebar that starts hidden is un-collapsed by the pending setPosition at first layout, then re-collapsed with an animation (pre-existing). Breaks P2 calm and "hidden with ⌘⇧L stays hidden"
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot polish (B-084)
 
-## B-091 · Wide sidebar truncates the content toolbar   [ready (next run)]
+## B-091 · Wide sidebar truncates the content toolbar   [ready]
 Issue: #95
 Why: B-084 verify: at a 420 pt sidebar in an 800 pt window, "Show Terminal Drawer" truncates
 Accept: a content minimum width (or a sidebar maximum tied to window width) keeps content controls untruncated; test + screenshot
 Source: autopilot polish (B-084)
 
-## B-092 · Bug — a fast quit-then-reopen can leave no Leo running   [ready (next run)]
+## B-092 · Bug — a fast quit-then-reopen can leave no Leo running   [ready]
 Issue: #96
 Type: bug
 Report: B-085 diagnosis: a new copy launched ~50 ms into the previous copy's quit (forced `open -n`) yields to the still-exiting copy under the single-instance lock, and then no Leo remains (1/5 forced, 0/24 via plain open). LaunchServices reports the dying copy isTerminated=false. Candidate fix: mark the lock "exiting" in applicationWillTerminate; a new copy that sees the mark blocks on flock instead of quitting (keeps D-051/D-053)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot polish (B-085)
 
-## B-093 · Launch-window replacement polish   [ready (next run)]
+## B-093 · Launch-window replacement polish   [ready]
 Issue: #97
 Why: B-085 review/verify: with a hidden launch (`open -j`, login item hidden) the requested window may read isVisible=false so both windows stay; the queued close doesn't re-check the launch window is still visible (narrow double-close); after a request replaces the launch window the sidebar search isn't focused; plan file not amended for LeoLaunchPlaceholder, the palette change, the 300x150 floor
 Accept: each fixed or explicitly dismissed with a test where behaviour changes
 Source: autopilot polish (B-085)
 
-## B-094 · B-085 integration test hardening   [ready (next run)]
+## B-094 · B-085 integration test hardening   [ready]
 Issue: #98
 Why: B-085 review: the launch-placeholder integration tests silently pass without a live Ghostty.App (use .enabled(if:)); the defer close is registered after a #require; drainMainQueue waits a fixed 4 turns; lastCascadePoint isn't restored; the newTab test lacks a launchWindow==nil assert
 Accept: each fixed; suite green
 Source: autopilot polish (B-085)
 
-## B-095 · Reopen and fallback New Window flash the palette   [ready (next run)]
+## B-095 · Reopen and fallback New Window flash the palette   [ready]
 Issue: #99
 Why: B-085 verify: Dock reopen and the fallback New Window still route through the palette (present-then-dismiss flash), unlike the launch window which now opens as the bare start screen (P2)
 Accept: reopen and fallback New Window open the bare start screen with no palette flash; test
 Source: autopilot polish (B-085)
 
-## B-096 · B-086 test and doc fixes   [ready (next run)]
+## B-096 · B-086 test and doc fixes   [ready]
 Issue: #100
 Why: B-086 review: firstFillAfterAStartScreenLeaveKeepsTheFrame can never fail (initialSize is set after the refill and the size step is never called); LeoFirstAttachWindowSizeTests doc comment (~L141) wrongly says New Terminal can fill before the window shows
 Accept: the test calls leoApplyInitialSize after setting initialSize and fails without the B-086 guard (or is dropped); the comment is corrected
 Source: autopilot polish (B-086)
 
-## B-097 · Bug — Reset Window Size shrinks a start-screen window   [ready (next run)]
+## B-097 · Bug — Reset Window Size shrinks a start-screen window   [ready]
 Issue: #101
 Type: bug
 Report: B-086 review (both lenses): Reset Window Size (returnToDefaultSize / reset_window_size) still reads the SwiftUI intrinsic size because container.initialContentSize stays nil for start-screen windows; the same class of shrink as B-086 when window-width/window-height are set. Suggested fix: set initialContentSize = leoConfiguredContentSize on first fill
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot polish (B-086)
 
-## B-098 · B-072 environ test and Zig follow-ups   [ready (next run)]
+## B-098 · B-072 environ test and Zig follow-ups   [ready]
 Issue: #102
 Why: B-072 review: the Swift regression test fails without the fix only if environ was already on the heap at init (a host that inherits LANG can pass without the fix); the init OOM path has no test (std.testing.checkAllAllocationFailures on dupeEnvironBlock); the environ arena grows one copy per syncEnviron; io_impl.environ_initialized stays set after a sync
 Accept: the regression test forces environ to move (or asserts its precondition); an allocation-failure test for dupeEnvironBlock; the other two fixed or documented; suite green
 Source: autopilot polish (B-072)
 
-## B-099 · Flaky sidebar scroll test after a filter clears   [ready (next run)]
+## B-099 · Flaky sidebar scroll test after a filter clears   [ready]
 Issue: #103
 Why: LeoSidebarTerminalScrollTests/aRowSelectedWhileFilteredIsRevealedWhenTheFilterClears flaked once in B-071 verify and once in B-074's red run (the "no-such-agent" case), passing on rerun
 Accept: root cause found and the test is deterministic (no timing-based waits); suite green on repeated runs
 Source: autopilot polish (B-074)
 Note: B-078 hint (unverified): in the "no-such-agent" case "No matches" replaces the list, so the table may be a fresh one revealed by onAppear; the test uses a Task.sleep+eventually pattern.
 
-## B-100 · Hidden titlebar style: side-pane headers and corner inset   [ready (next run)]
+## B-100 · Hidden titlebar style: side-pane headers and corner inset   [ready]
 Issue: #104
 Why: B-074 verify: in hidden style the editor/workspace-browser header rows now run to the window top and may sit flush (untested, not captured); the sidebar header is 14 pt from the rounded corner, a little tight
 Accept: in hidden style the side-pane headers have the same top inset as the sidebar header; a layout test; screenshot
 Source: autopilot polish (B-074)
 
-## B-101 · Launch-focus test gaps   [ready (next run)]
+## B-101 · Launch-focus test gaps   [ready]
 Issue: #105
 Why: B-075 review/verify: the key-view-loop rebuild timing is untested at real launch order (the test waits ~1 s for the search field before windowDidBecomeKey; if the rebuild runs before the field exists, Tab won't reach it until the window regains key — TerminalController+LeoLaunchFocus.swift:26-30); no unit test for "row shown → terminal surface becomes first responder" (verified only visually); the comment overstates when the loop refreshes after a sidebar/pane toggle
 Accept: a test in real launch order proves Tab reaches the search field; a test that showing a row makes its surface first responder; comment corrected
 Source: autopilot polish (B-075)
 
-## B-102 · Menu shortcut guard coverage   [ready (next run)]
+## B-102 · Menu shortcut guard coverage   [ready]
 Issue: #106
 Why: B-076 review: chooseAgentIsCommandO (LeoNoTabBarTests.swift:68) still filters inline and misses a bare O (use LeoMenuXib.claims(on:byAnyoneBut:)); the ⌘T guard exempts newTab: from the bare-T rule; the live-menu ⌘T check covers only Quick Terminal
 Accept: ⌘O guard catches a bare O; New Terminal may hold only ⌘T; the live-menu check covers every item; each proved red by a mutation
 Source: autopilot polish (B-076)
 
-## B-103 · Calm-scroll test hardening   [ready (next run)]
+## B-103 · Calm-scroll test hardening   [ready]
 Issue: #107
 Why: B-078 review polish: afterPendingUpdates only catches a scroll within ~5 dispatches (an animated/asyncAfter/Task.sleep scroll would pass); the tests park at offset 0 so a reset-to-top or a table rebuild goes unseen; the retitle case doesn't await its positive signal; the doc comment cites project history and omits D-129's "list reappears" half
 Accept: the helper documents its window limit; tests park mid-list and assert table identity; retitle awaits the new row text before counting turns; comment fixed
 Source: autopilot polish (B-078)
 
-## B-104 · Shortcut hint polish   [ready (next run)]
+## B-104 · Shortcut hint polish   [ready]
 Issue: #108
 Why: B-080 review: LeoMenuShortcutHint lacks @MainActor (LeoShortcutHints.swift:43); a function-key binding (super+f1) gives no hint where "⌘F1" could be spelled (:56); no test for publish-only-on-change (:95-96); theButtonsHintNamesTheMenuItemsLiveShortcut passes trivially if both sides are nil (LeoPlaceholderNewTerminalTests.swift:370); stale "(⌘T)" doc comment in LeoPlaceholderView.swift; the disconnected Choose Agent… tooltip hardcodes ⇧⌘R
 Accept: each fixed or explicitly dismissed; tests for the function-key and unchanged-sync cases
 Source: autopilot polish (B-080)
 
-## B-105 · Terminals-close landing polish   [ready (next run)]
+## B-105 · Terminals-close landing polish   [ready]
 Issue: #109
 Why: B-081 review: the top landing after the last shell closes also fires when the Terminals section was already scrolled off, moving rows the user was reading (P2); removing the !isFiltering guard (LeoTerminalsSectionExit.swift:83) fails no test; the top landing sits 10 pt below the true top (scrollTo on the first section can't reach offset 0 past the table's top margin)
 Accept: the landing happens only when the Terminals section was on screen; a test pins the filter guard; the top landing reaches the list's launch offset, or a comment explains why it doesn't
 Source: autopilot polish (B-081)
 
-## B-106 · Selected agent row unhighlighted after the last shell closes   [ready (next run)]
+## B-106 · Selected agent row unhighlighted after the last shell closes   [ready]
 Issue: #110
 Why: B-081 implementer: after the last Terminals row closes, the selected agent row isn't highlighted while it's off screen
 Accept: the selected agent row shows its selection highlight once revealed, with a test
 Source: autopilot polish (B-081)
 
-## B-107 · Row hand-on polish after a split pane closes   [ready (next run)]
+## B-107 · Row hand-on polish after a split pane closes   [ready]
 Issue: #111
 Why: B-082 review: the row goes to the first pane in tree order, not the pane upstream focuses next (focusedSurface is stale at both call sites), so the sidebar selection can differ from keyboard focus; adoption runs a turn late (run pending reconciles synchronously at the top of confirmReplacingContent/showInContent/reveal); the `controller.window != nil` comment overstates "window open"; the fate() doc doesn't mention an adopted row in a [row, plain] tree; the verifier saw the survivor's "Last login" lines scroll away on reflow (unconfirmed)
 Accept: the row follows upstream's next-focus pane (or the doc says tree order), with a test; a same-turn adoption test; the comments are corrected
 Source: autopilot polish (B-082)
 
-## B-108 · Undo-restored split panes get no terminal handle   [ready (next run)]
+## B-108 · Undo-restored split panes get no terminal handle   [ready]
 Issue: #112
 Why: B-082 review: close the row's pane, undo the close, then undo New Split (or close the carried-on row's pane): the restored pane has no handle and is orphaned again. Not a regression; overlaps B-058
 Accept: a failing test reproduces it; restored panes are adopted or reachable from a row
 Source: autopilot polish (B-082)
 
-## B-109 · Closed split pane's shell lingers ~40 s   [ready (next run)]
+## B-109 · Closed split pane's shell lingers ~40 s   [ready]
 Issue: #113
 Type: bug
 Why: B-082 verify: after File > Close on a split pane, its shell (pid 36119) was still alive 2 s later and gone about 40 s later
 Accept: confirm or rule out with a test; if real, closing a pane ends its shell promptly
 Source: autopilot polish (B-082)
 
-## B-110 · Dragging a Leo surface between windows: rows, window ownership and undo   [ready (next run)]
+## B-110 · Dragging a Leo surface between windows: rows, window ownership and undo   [ready]
 Issue: #114
 Why: B-083 (point 5, parked): the host keeps surface S under window A after splitDidDrop or drag-to-new-window; the Move Split undo halves misbehave after either window swaps, and ⌘Z can free S's shell without a confirm once the redo expires (P2: nothing dies without asking). Candidate fixes: (a) a swap-generation guard in upstream's cross-window branches, or (b) moving row ownership on drop
 Accept: failing tests reproduce the orphaned ownership and the unconfirmed shell free; after the fix a moved surface belongs to (and is reachable from) the window it's in, and no undo path frees a shell without asking
 Source: autopilot (B-083 dismissal)
 
-## B-111 · Undo docs and test-name polish   [ready (next run)]
+## B-111 · Undo docs and test-name polish   [ready]
 Issue: #115
 Why: B-083 review: leoForgetContentUndo's doc (TerminalController+Leo.swift:68-71) says "Close Terminal + replace", which fits only splitDidDrop (say "one action per window") and understates the cross-window effect (name the B-110 shell-free risk); redundant removeAllActions(withTarget:) before leoRemoveActionsTestsCanReplay at LeoTerminalControllerEditorCloseTests.swift:~99; rename removeAllActionsDropsExpiringUndosWithoutReentering to ...WithoutAnExclusivityViolation; the removeAllActions() comment doesn't mention the explicit expire() plus the idempotent second expire
 Accept: each fixed or explicitly dismissed; suite green
 Source: autopilot polish (B-083)
 
-## B-112 · Finish test isolation for LeoRuntime / LeoAgentActions   [ready (next run)]
+## B-112 · Finish test isolation for LeoRuntime / LeoAgentActions   [ready]
 Issue: #116
 Why: B-061 review: LeoRecordingTemplateRunner nearly duplicates the private TemplateSSHRunner (LeoAgentActionsTests.swift:293) — merge them with an injectable stdout; LeoRuntime tests still run the real local `leo template list` via LeoCLI(); LeoAgentActions.init still defaults processRunner to the real runner (about 10 tests rely on it)
 Accept: one shared template-runner fake; LeoRuntime tests inject a fake LeoCLI runner; LeoAgentActions.init has no real-runner default and no test spawns a real process for templates
 Source: autopilot polish (B-061)
 
-## B-113 · Sidebar button bar polish   [ready (next run)]
+## B-113 · Sidebar button bar polish   [ready]
 Issue: #117
 Why: B-065 review: LeoSidebarButton.send duplicates LeoPlaceholderNewTerminal.send and `newTab:` is defined twice (route the placeholder closures through LeoSidebarButton, TerminalView.swift:173-176, 200-203, 322-323); the start-screen placeholder closures still capture self in TerminalView (the capture that leaked displaced surfaces from the sidebar) — check for a leak; swapping the two closures in LeoSidebarView.perform passes every test (add a view-glue test with recording closures); parameterize the footer layout test over failed/loading states; the Quick Terminal glyph (rectangle.tophalf.inset.filled, also Split Up's) doesn't read as a drop-down terminal; the start screen says "Show Terminal Drawer" while the menu and button say "Quick Terminal"
 Accept: each fixed or explicitly dismissed; one naming for the quick terminal; tests for the closure wiring and footer states
 Source: autopilot polish (B-065)
 
-## B-114 · runtests.sh misses parameterized test failures in its grep   [ready (next run)]
+## B-114 · runtests.sh misses parameterized test failures in its grep   [ready]
 Issue: #118
 Why: B-065 implementer: runtests.sh's failure grep misses parameterized tests (names with `(_:)`); only the summary count catches them
 Accept: the failure list names parameterized failures; verify.md updated
@@ -409,7 +416,7 @@ Out: naming or pinning shells; shells on remote hosts beyond what Ghostty alread
 Source: Evan (/vision revision, 2026-09-28)
 
 Done: f57f9fefc 54bde45c1 a831d8e4a 8766c056f 53f51762a 518b87ab7 0d22ce11f 3e390d0d0 490cf77c7 0fbb8746e 7d52dd411 773d86267 3aa4bb698 68293ed56 7ea968957 bbb6b2fe5 5d1f1fe3c 78fa2682f 4cc74629c(1700 tests via env-preset runner, lint clean; general + concurrency reviews; implementer-hard, 3 fix rounds). Fixed both prior HIGHs (exit racing a reveal; busy hidden shells now confirm on tab-close/⌘Q). Verified by screenshots B-057-9 (Terminals section, two rows, newest selected), -10 (Close selects neighbour), -11 (section hides when empty). exit, OSC title and pool behaviour: tests only. Follow-ups B-067..B-072.
-## B-058 · Splits inside the content area   [blocked]
+## B-058 · Splits inside the content area   [idea]
 Issue: #63
 Why: principle 6 (the layout belongs to the selected row) with splits kept (D-100)
 Accept: ⌘D and the editor/file pane still split the content area; a split can show a second agent or shell, picked from the sidebar or palette; every row on screen is highlighted in the sidebar, the focused one distinctly; switching away from a split layout and back restores it intact; tests plus a screenshot of an agent + shell split with both rows highlighted
@@ -417,7 +424,8 @@ Out: saved layouts; dragging rows into splits (later polish)
 Source: Evan (/vision revision, 2026-09-28)
 Note: B-071 verify saw ⌘D / Split Right open the agent palette instead of splitting directly; settle this here.
 Question: runner timed out after 3h — build mode, mid fix round: two delta reviews agreed the 4 earlier fixes hold and 1 blocking item remains (the on-screen row reveal only fires once); a verify was in progress. Lane's last commit 36ebe103c. Work kept on autopilot-lane/B-058 (held: shelve refused on untracked build output). Resume it next run?
-Answer:
+Answer: punt — not sure we need it; don't resume. Keep the held lane/branch autopilot-lane/B-058 as-is; park the item.
+Parked: Evan, 2026-09-30 (D-212). Held lane autopilot-lane/B-058 kept as-is. "/feature B-058" to revive.
 
 ## B-059 · Keyboard switching between rows   [ready]
 Issue: #64

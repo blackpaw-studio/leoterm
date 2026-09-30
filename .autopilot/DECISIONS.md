@@ -1562,3 +1562,10 @@ Chose: Buttons are .focusable(false) so they don't steal terminal focus
 Why: P1
 Commit: 2b4c91a31, 84a74db61, 20f63fa80
 Veto: [ ]
+
+## D-212 · 2026-09-30 · B-058 parked, not resumed
+Context: B-058 (splits inside the content area) held after a runner timeout; Evan answered.
+Chose: punt — not sure we need it; don't resume. Keep the held lane/branch autopilot-lane/B-058 as-is; park the item (status idea).
+Why: Evan's answer
+Commit:
+Veto: n/a (Evan)
