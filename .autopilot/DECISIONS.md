@@ -1618,3 +1618,52 @@ Chose: A failed truncate on acquire refuses with the D-053 alert
 Why: D-053
 Commit: 85ca7d75b, 712e5b926, 8094e6416
 Veto: [ ]
+
+## D-220 · 2026-09-30 · Debug builds can check for updates but never install or auto-download…
+Context: B-115 (runner call).
+Chose: Debug builds can check for updates but never install or auto-download (stage-gated replies + mayPerform guard on background checks)
+Why: item guardrail, reversible
+Commit: 1616be959, 33d913f26, 5136f6c76, d5b151c71, aba15d23a, bf2628285, a24ed1fae, 10bb68570
+Veto: [ ]
+
+## D-221 · 2026-09-30 · Unset auto-update defers to Sparkle's own permission prompt, with a o…
+Context: B-115 (runner call).
+Chose: Unset auto-update defers to Sparkle's own permission prompt, with a one-time marker-keyed defaults reset so existing installs get asked
+Why: P4
+Commit: 1616be959, 33d913f26, 5136f6c76, d5b151c71, aba15d23a, bf2628285, a24ed1fae, 10bb68570
+Veto: [ ]
+
+## D-222 · 2026-09-30 · Debug popover caption "Debug build: installing is disabled", with Ins…
+Context: B-115 (runner call).
+Chose: Debug popover caption "Debug build: installing is disabled", with Install disabled
+Why: AUTONOMY copy/UX
+Commit: 1616be959, 33d913f26, 5136f6c76, d5b151c71, aba15d23a, bf2628285, a24ed1fae, 10bb68570
+Veto: [ ]
+
+## D-223 · 2026-09-30 · Appcast test uses a test-local XMLParser on a #filePath fixture, not …
+Context: B-115 (runner call).
+Chose: Appcast test uses a test-local XMLParser on a #filePath fixture, not Sparkle private API
+Why: AUTONOMY test infrastructure
+Commit: 1616be959, 33d913f26, 5136f6c76, d5b151c71, aba15d23a, bf2628285, a24ed1fae, 10bb68570
+Veto: [ ]
+
+## D-224 · 2026-09-30 · XCTest hosts skip starting the updater; UI tests pass -SUEnableAutoma…
+Context: B-115 (runner call).
+Chose: XCTest hosts skip starting the updater; UI tests pass -SUEnableAutomaticChecks NO
+Why: AUTONOMY test infrastructure
+Commit: 1616be959, 33d913f26, 5136f6c76, d5b151c71, aba15d23a, bf2628285, a24ed1fae, 10bb68570
+Veto: [ ]
+
+## D-225 · 2026-09-30 · Runtime mayPerform guard instead of a Debug-only SUAllowsAutomaticUpd…
+Context: B-115 (runner call).
+Chose: Runtime mayPerform guard instead of a Debug-only SUAllowsAutomaticUpdates plist key, because the release workflow PlistBuddy-reads the source plist
+Why: AUTONOMY implementation approach
+Commit: 1616be959, 33d913f26, 5136f6c76, d5b151c71, aba15d23a, bf2628285, a24ed1fae, 10bb68570
+Veto: [ ]
+
+## D-226 · 2026-09-30 · ci.md go-public checklist items 1–3 marked done 2026-09-30; item 4 (E…
+Context: B-115 (runner call).
+Chose: ci.md go-public checklist items 1–3 marked done 2026-09-30; item 4 (Evan's post-release install check) left open
+Why: item Accept
+Commit: 1616be959, 33d913f26, 5136f6c76, d5b151c71, aba15d23a, bf2628285, a24ed1fae, 10bb68570
+Veto: [ ]

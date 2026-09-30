@@ -92,7 +92,7 @@ Lane: B-115
   Branch: autopilot-lane/B-115
   Base: 4e277a77c69fa740a25ce20b7ad2489b66808bfb
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
@@ -107,3 +107,5 @@ Lane: B-115
   Call: ci.md go-public checklist items 1–3 marked done 2026-09-30; item 4 (Evan's post-release install check) left open — item Accept
 - B-115 runner forced to hand back (reported blocked) with reviews approved at 10bb68570 (general+security delta) but the fix-round verifier still running; 1 fix round used. That orphaned verifier holds the verify lock; waiting for its report.
 - B-115 runner: ready at 10bb68570 assembled from the cut-off runner's approved general+security delta reviews and its orphaned fix-round verifier (pass: 1899/1899 on rerun after one LeoLivePool flake; GUI: defaults reset → Sparkle permission prompt; Check for Updates… → 'Update Available: 0.5.0', nothing installed).
+- B-115 landed (merge b39524b69).
+Finished 5: B-115 landed b39524b69 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-115-3.png

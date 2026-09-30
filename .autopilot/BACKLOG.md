@@ -150,13 +150,14 @@ Accept: each fixed or explicitly dismissed; suite green
 Source: autopilot polish (B-071)
 Done: 02fa5f775, 81126012d, 7c4403ba4, f971917cf. ExpiringUndoManager.removeAllActions no longer crashes on re-entry; B-071 undo-test polish; the cross-window Move Split undo limit is documented and parked as B-110 Decisions D-196..D-199.
 
-## B-115 · In-app updates on (repo is public)   [ready]
+## B-115 · In-app updates on (repo is public)   [done]
 Issue: #119
 Why: Leo finds and installs its own updates from GitHub Releases instead of manual DMG downloads (P4 everything through Leo)
 Accept: Ghostty-Info.plist no longer forces SUEnableAutomaticChecks off, and the `auto-update` config (off/check/download, unset → Sparkle's first-launch "check automatically?" prompt) drives the updater again, with a test per value; a test parses a fixture copy of the published appcast and confirms the newest item, version and edSignature are read; in the isolated debug build, Check for Updates… reaches the public appcast and shows the available/up-to-date UI, not an error (shot, without clicking Install); build-app.sh's comment and docs/leo/ci.md's "Auto-update" section describe it as on, with the go-public checklist marked done
 Out: moving hosting off GitHub Releases; delta updates; a separate beta channel; changes to the release workflow or signing; installing an update over any real Leo install (the end-to-end install check on Evan's laptop stays his step after the next release)
 Source: Evan (/feature, 2026-09-30)
 Inbox: 20260930T181536331640Z-c923592e#1
+Done: 2026-09-30 · 1616be959, 33d913f26, 5136f6c76, d5b151c71, aba15d23a, bf2628285, a24ed1fae, 10bb68570 · D-220, D-221, D-222, D-223, D-224, D-225, D-226
 
 ## B-087 · Cursor looks unfocused after a row switch or palette Escape   [ready]
 Issue: #91
