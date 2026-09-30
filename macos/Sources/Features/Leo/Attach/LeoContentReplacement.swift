@@ -7,7 +7,8 @@ import Foundation
 /// has no row to come back to -- a shell split beside an agent or a row
 /// (B-058 territory), or a window's shell Leo didn't make -- closes with
 /// the switch, and a running process there asks first, in Ghostty's own
-/// terms (`needsConfirmQuit`, D-106).
+/// terms (`needsConfirmQuit`, D-106). A shell a row's closed pane left on
+/// its own carries that row on (B-082), so it is kept, not closed.
 enum LeoContentReplacement {
     /// One surface the content area shows now.
     struct Shown: Equatable, Sendable {

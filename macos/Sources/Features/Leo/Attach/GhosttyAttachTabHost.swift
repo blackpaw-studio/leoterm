@@ -220,12 +220,13 @@ import OSLog
 
     /// The shown row's shell closed with a split (⌘D) beside it: only its
     /// own pane closes, as a split's close does (undoable, focus moving
-    /// on), and its handle -- so its row -- with it. What is split beside
-    /// it stays: a busy shell there is never closed without asking.
+    /// on), and its handle with it. What is split beside it stays: a busy
+    /// shell there is never closed without asking, and a plain shell left
+    /// there carries the row on (B-082).
     private func closeShownPane(_ handle: AttachmentHandle, surface: Ghostty.SurfaceView, in controller: TerminalController) {
         guard let node = controller.surfaceTree.root?.node(view: surface) else { return }
         controller.closeSurface(node, withConfirmation: false)
-        closeHandles(in: SplitTree(view: surface))
+        close(handle, handingOnItsRow: true)
         selectShownTerminal(in: controller)
         Self.logger.log("closeTerminal window=\(handle.windowID.rawValue.uuidString, privacy: .public) pane=true")
     }
@@ -328,7 +329,7 @@ import OSLog
     /// The handles of every surface in `tree` (which the pool let go) close.
     private func closeHandles(in tree: SplitTree<Ghostty.SurfaceView>) {
         let handles = attachments.filter { entry in tree.contains { $0 === entry.value.surface } }.keys
-        handles.forEach(close)
+        handles.forEach { close($0) }
     }
 
     /// A hidden surface's process ending reaches no controller: Ghostty
@@ -662,23 +663,35 @@ import OSLog
         return handle
     }
 
-    /// The row follows its terminal's title as it changes.
     private func addTerminalRow(
         _ surface: Ghostty.SurfaceView,
         to terminals: LeoWindowTerminals,
         cancellables: inout Set<AnyCancellable>
     ) {
+        terminals.add(surface.id, title: surface.title)
+        followTitle(of: surface, in: terminals, cancellables: &cancellables)
+    }
+
+    /// The row follows its terminal's title as it changes.
+    private func followTitle(
+        of surface: Ghostty.SurfaceView,
+        in terminals: LeoWindowTerminals,
+        cancellables: inout Set<AnyCancellable>
+    ) {
         let id = surface.id
-        terminals.add(id, title: surface.title)
         surface.$title
             .removeDuplicates()
             .sink { [weak terminals] in terminals?.retitle(id, to: $0) }
             .store(in: &cancellables)
     }
 
+    /// `handle`'s surface left what its window shows without the host
+    /// hiding it or letting it go (which close its handle there and then):
+    /// upstream took it out -- a split's close (File ▸ Close, ⌘W, `exit`),
+    /// or an undo. A row's pane closing so hands its row on (B-082).
     private func reconcile(_ handle: AttachmentHandle) {
         guard !isOpen(handle) else { return }
-        close(handle)
+        close(handle, handingOnItsRow: true)
     }
 
     /// One close hook per window, installed with its first handle.
@@ -696,27 +709,68 @@ import OSLog
         if let observer = windowCloseObservers.removeValue(forKey: windowID) {
             NotificationCenter.default.removeObserver(observer)
         }
-        attachments.keys.filter { $0.windowID == windowID }.forEach(close)
+        attachments.keys.filter { $0.windowID == windowID }.forEach { close($0) }
         live.releaseAll(in: windowID)
     }
 
-    private func close(_ handle: AttachmentHandle) {
+    /// `handingOnItsRow`: `handle`'s pane closed from what its window shows,
+    /// beside a split, so a plain shell left there may carry its row on
+    /// (B-082). Every other close -- hidden, let go, its window's, or its
+    /// whole content's -- leaves nothing on screen that was beside it.
+    private func close(_ handle: AttachmentHandle, handingOnItsRow: Bool = false) {
         guard let attachment = attachments.removeValue(forKey: handle) else { return }
-        if attachment.isTerminalRow { removeTerminalRow(handle, of: attachment) }
+        if attachment.isTerminalRow { removeTerminalRow(handle, of: attachment, handingOn: handingOnItsRow) }
         continuation.yield(.closed(handle))
         reportFocus()
     }
 
-    /// A closed shell's row goes. Selected -- a hidden row arrowed onto,
-    /// closed or exited -- the sidebar selects what the window shows
-    /// instead: its row, or none so the agent's selection shows (B-071,
-    /// D-116).
-    private func removeTerminalRow(_ handle: AttachmentHandle, of attachment: Attachment) {
+    /// A closed shell's row goes -- or, handed on, carries on as the
+    /// orphaned shell beside it (`adoptOrphanedShell`). Selected -- a
+    /// hidden row arrowed onto, closed or exited -- the sidebar selects
+    /// what the window shows instead: its row, or none so the agent's
+    /// selection shows (B-071, D-116, D-142).
+    private func removeTerminalRow(_ handle: AttachmentHandle, of attachment: Attachment, handingOn: Bool) {
         guard let controller = attachment.controller ?? registry.controller(for: handle.windowID),
               let terminals = controller.leoSession?.terminals else { return }
         let wasSelected = terminals.selection == handle.surfaceID
-        terminals.remove(handle.surfaceID)
+        let isHandedOn = handingOn && adoptOrphanedShell(replacing: handle, in: controller, terminals: terminals)
+        if !isHandedOn { terminals.remove(handle.surfaceID) }
         if wasSelected { selectShownTerminal(in: controller) }
+    }
+
+    /// B-082: a row's pane closed beside a split, and what its window
+    /// shows now holds no row and no agent. A plain shell Leo made there
+    /// -- the focused one, else the first -- carries the row on in its
+    /// sidebar slot, titled by its terminal, its selection moving along:
+    /// the sidebar still reaches what the window shows, and a switch hides
+    /// it as any row's rather than killing it. `false` when there is none
+    /// (beside an agent, whose row reaches it, nothing is invented).
+    private func adoptOrphanedShell(
+        replacing handle: AttachmentHandle,
+        in controller: TerminalController,
+        terminals: LeoWindowTerminals
+    ) -> Bool {
+        guard terminals.contains(handle.surfaceID), let (surface, heir) = orphanedShell(in: controller) else { return false }
+        heir.isTerminalRow = true
+        terminals.replace(handle.surfaceID, with: surface.id, title: surface.title)
+        followTitle(of: surface, in: terminals, cancellables: &heir.cancellables)
+        Self.logger.log("closeTerminal window=\(handle.windowID.rawValue.uuidString, privacy: .public) handedOn=true")
+        return true
+    }
+
+    /// The plain shell to carry a closed row on in `controller`'s window,
+    /// while what it shows holds no row and no agent: the focused one, else
+    /// the first in the split. Only shells Leo made (a registered handle).
+    private func orphanedShell(in controller: TerminalController) -> (Ghostty.SurfaceView, Attachment)? {
+        let tree = controller.surfaceTree
+        guard controller.window != nil,
+              !tree.contains(where: { isTerminalRow($0) || isAttach($0) || $0.leoAgentName != nil }) else { return nil }
+        let shells = tree.compactMap { surface in
+            attachments.values
+                .first { $0.controller === controller && $0.surface === surface && !$0.isAttach }
+                .map { (surface, $0) }
+        }
+        return shells.first { $0.0 === controller.focusedSurface } ?? shells.first
     }
 }
 
@@ -742,8 +796,9 @@ private enum GhosttyAttachTabHostError: Error, LocalizedError {
     weak var surface: Ghostty.SurfaceView?
     /// An agent attach (a tmux client), not a plain shell.
     let isAttach: Bool
-    /// A terminal row's own shell (B-057).
-    let isTerminalRow: Bool
+    /// A terminal row's own shell (B-057) -- or, since its row's pane
+    /// closed beside it, the one carrying that row on (B-082).
+    var isTerminalRow: Bool
     var cancellables: Set<AnyCancellable> = []
 
     init(controller: TerminalController, surface: Ghostty.SurfaceView, isAttach: Bool, isTerminalRow: Bool) {
