@@ -7,14 +7,13 @@ class LastWindowPosition {
     static let positionKey = "NSWindowLastPosition"
 
     // MARK: Leo
-    /// The smallest window frame worth saving or restoring (B-085): room for
-    /// the agents sidebar at its minimum beside a terminal at its floor. A
-    /// window that shrank below it (B-086) would otherwise be saved and come
-    /// back that small on every later launch, reading as no window at all.
-    static let leoMinimumSize = NSSize(
-        width: LeoSidebarSplitMetrics.minimumWidth + LeoSidebarSplitMetrics.terminalFloor,
-        height: 200
-    )
+    /// The smallest window frame worth saving or restoring (B-085): as wide
+    /// as the terminal floor alone. A window that shrank below it (B-086)
+    /// would otherwise be saved and come back that small on every later
+    /// launch -- at the start screen's content minimum, 266x221. Anything
+    /// the layout means to allow stays above it, a window with its sidebar
+    /// hidden (D-036) included.
+    static let leoMinimumSize = NSSize(width: LeoSidebarSplitMetrics.terminalFloor, height: 150)
 
     private let defaults: UserDefaults
 
