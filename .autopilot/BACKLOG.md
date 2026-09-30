@@ -38,6 +38,7 @@ Source: autopilot polish (B-057)
 Issue: #76
 Why: canonical scratchpad/runtests.sh crashes at LeoLivePoolIntegrationTests/switchingBackShowsTheSameSurfaceInstance (libghostty holds a pointer into environ; later FAKE_SSH_* setenv invalidates it), also on baseline; B-057 used a wrapper presetting LANG, __CF_USER_TEXT_ENCODING, __LLVM_PROFILE_RT_INIT_ONCE. Also lengthen aNewShellIsASelectedRowTitledByItsTerminal's eventually timeout (flaky under load)
 Accept: the canonical suite runs green without the wrapper (fix the setenv use or copy env for libghostty); flaky timeout lengthened; verify.md updated
+Note: B-068 moved aNewShellIsASelectedRowTitledByItsTerminal to a /bin/cat stand-in (the flake's cause was a login shell's prompt retitle), so the timeout part may already be moot.
 Source: autopilot polish (B-057)
 
 ## B-073 · runtests.sh test-host timeout too short under load   [ready]
@@ -72,6 +73,11 @@ Source: autopilot polish (B-066)
 Why: "a retitle doesn't move the scroll offset" and "re-selecting a row already on screen doesn't scroll" hold only by construction; nothing catches a regression
 Accept: tests assert both; reword the misleading doc comment on aNewRowBelowAListedOneIsRevealedWhole's "same turn" case (it passed before the fix)
 Source: autopilot polish (B-067)
+
+## B-079 · Terminals row label polish (tooltip, trimmed title, test comments)   [ready (next run)]
+Why: B-068 review polish: hovering the "(2)" suffix shows no tooltip (`.help` sits on the title Text only, LeoTerminalRowView.swift:27); labels group by the trimmed title but show the untrimmed one, so " ~ " shows a stray space (LeoTerminalRowLabel.swift:31,36); the "(B-068)" comments at LeoTerminalRowsIntegrationTests.swift:126,267 wrongly imply B-068 caused the prompt-retitle race
+Accept: the tooltip covers the whole row label; displayTitle is trimmed; the comments cite the shell-integration prompt retitle; tests for the first two
+Source: autopilot polish (B-068)
 
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59

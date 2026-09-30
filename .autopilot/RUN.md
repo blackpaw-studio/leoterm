@@ -44,9 +44,13 @@ Lane: B-068
   Branch: autopilot-lane/B-068
   Base: caa947dd04da18fba08a8fb25b24645ea0074043
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 7f4db8ef29323576e4eb3f23305b764170a5ac84
   Dispatched: 2026-09-29T23:39:16Z
+  Call: Numbered suffix, not a tty name: the first row stays plain ("~", "~ (2)", "~ (3)"), like Finder's "untitled folder 2" — principle 1, AUTONOMY UX/copy
+  Call: Labels are recomputed from row order and titles: a retitle or close can renumber later same-titled rows, but rows never move and a new shell never relabels an older one — AUTONOMY, D-130
+  Call: The suffix is secondary-coloured with monospaced digits and never truncates — AUTONOMY polish
+- B-068 runner: ready at 7f4db8ef2 (1724/1724; general full; implementer/opus, 0 fix rounds). Two integration tests moved to a /bin/cat stand-in (prompt retitle race). Polish filed as B-079; B-072 noted.
