@@ -8,7 +8,7 @@ import Testing
 /// B-022): a close that can't ask keeps the tab, and ⌘W in the terminal
 /// asks first. Drives real controllers, so it needs the app's real
 /// `Ghostty.App` (via `AppDelegate`) and bails out without it, like
-/// `GhosttyAttachTabHostRebirthTests`.
+/// `GhosttyAttachContentHostRebirthTests`.
 @MainActor
 struct LeoTerminalControllerEditorCloseTests {
     /// A placeholder window and its session, its editor open on `a.txt`
@@ -32,7 +32,7 @@ struct LeoTerminalControllerEditorCloseTests {
 
     /// Gives the tab a live terminal, as an attached agent's.
     private func fill(_ tab: Tab) throws {
-        let host = GhosttyAttachTabHost(
+        let host = GhosttyAttachContentHost(
             registry: try #require((NSApp.delegate as? AppDelegate)?.leoRuntime.registry), requestConfigStore: LeoRequestConfigStore())
         _ = try host.fillPlaceholder(command: "", workingDirectory: nil, origin: tab.session.id, surfaceID: nil, requestID: UUID())
     }
@@ -98,7 +98,7 @@ struct LeoTerminalControllerEditorCloseTests {
             let undoManager = try #require(controller.undoManager)
             undoManager.removeAllActions(withTarget: controller)
             undoManager.leoRemoveActionsTestsCanReplay(ghostty: controller.ghostty)
-            let host = GhosttyAttachTabHost(
+            let host = GhosttyAttachContentHost(
                 registry: try #require((NSApp.delegate as? AppDelegate)?.leoRuntime.registry), requestConfigStore: LeoRequestConfigStore())
             let agent = try host.fillPlaceholder(
                 command: "/bin/cat", workingDirectory: nil, origin: tab.session.id, surfaceID: nil, requestID: UUID())

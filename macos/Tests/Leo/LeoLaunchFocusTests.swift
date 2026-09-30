@@ -14,7 +14,7 @@ import Testing
 /// start-screen `TerminalController` with its sidebar showing) and orders
 /// it on screen, which is when AppKit picks. The windows are never made
 /// key: suites run in parallel in one app, and a key window takes focus
-/// from `GhosttyAttachTabHostFocusTests`.
+/// from `GhosttyAttachContentHostFocusTests`.
 ///
 /// Needs the test host's `Ghostty.App` and `LeoRuntime`; either missing
 /// fails the test rather than passing it silently.

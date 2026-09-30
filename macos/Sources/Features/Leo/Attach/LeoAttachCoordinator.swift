@@ -35,7 +35,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
 }
 
 @MainActor final class LeoAttachCoordinator {
-    private let host: any AttachTabHost
+    private let host: any AttachContentHost
     private let executable: () throws -> String
     /// Builds the shell command for a *remote* identity (an app-owned SSH
     /// attach via `LeoSSHCommand.attachShellCommand`). Local identities
@@ -74,7 +74,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     private var lifecycleTask: Task<Void, Never>?
 
     init(
-        host: any AttachTabHost,
+        host: any AttachContentHost,
         executable: @escaping () throws -> String,
         remoteCommandBuilder: @escaping (LeoAgentIdentity) throws -> String = { _ in
             throw LeoDaemonError.hostUnavailable("Remote attach is not configured")
@@ -329,13 +329,25 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         guard request.disposition == .content else { return true }
         let version = contentVersion[request.origin, default: 0]
         guard await host.confirmReplacingContent(origin: request.origin) else { return false }
-        return contentVersion[request.origin, default: 0] == version
+        // Its window closed meanwhile (`windowClosed`): the request goes on
+        // to the host as it did before the version was pruned (which
+        // reports a closed origin once the registry no longer resolves it).
+        guard let now = contentVersion[request.origin] else { return true }
+        return now == version
     }
 
     /// `window`'s content area now shows something else.
     private func contentReplaced(in window: LeoWindowID) {
         contentVersion[window, default: 0] += 1
     }
+
+    /// `window` closed: its content version goes with it. Idempotent.
+    func windowClosed(_ window: LeoWindowID) {
+        contentVersion.removeValue(forKey: window)
+    }
+
+    /// The windows with a content version (tests).
+    var contentVersionWindows: Set<LeoWindowID> { Set(contentVersion.keys) }
 
     private func createHandle(command: String, workingDirectory: String?, request: LeoSurfaceRequest) throws -> AttachmentHandle {
         switch request.disposition {

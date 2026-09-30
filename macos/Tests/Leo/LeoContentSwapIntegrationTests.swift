@@ -14,7 +14,7 @@ import Testing
 /// surfaces run the default shell (`command: ""`), never an agent.
 @MainActor @Suite(.serialized) struct LeoContentSwapIntegrationTests {
     private struct Fixture {
-        let host: GhosttyAttachTabHost
+        let host: GhosttyAttachContentHost
         let controller: TerminalController
         let origin: LeoWindowID
         let events: EventLog
@@ -39,7 +39,7 @@ import Testing
         controller.window?.contentView?.layoutSubtreeIfNeeded()
         let registry = LeoWindowSessionRegistry()
         let session = registry.makeSession(window: controller.window, controller: controller, defaults: LeoInMemoryDefaults())
-        let host = GhosttyAttachTabHost(registry: registry, requestConfigStore: LeoRequestConfigStore()) {
+        let host = GhosttyAttachContentHost(registry: registry, requestConfigStore: LeoRequestConfigStore()) {
             .init(isActive: false, keyWindow: nil)
         }
         let log = EventLog()

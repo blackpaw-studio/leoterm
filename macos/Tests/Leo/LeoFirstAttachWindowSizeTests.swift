@@ -26,7 +26,7 @@ import Testing
         let app: AppDelegate
         let controller: TerminalController
         let window: NSWindow
-        let host: GhosttyAttachTabHost
+        let host: GhosttyAttachContentHost
         let origin: LeoWindowID
         let savedPosition: Any?
 
@@ -38,7 +38,7 @@ import Testing
             let window = try #require(controller.window)
             let registry = LeoWindowSessionRegistry()
             let origin = registry.makeSession(window: window, controller: controller, defaults: LeoInMemoryDefaults()).id
-            let host = GhosttyAttachTabHost(registry: registry, requestConfigStore: LeoRequestConfigStore()) {
+            let host = GhosttyAttachContentHost(registry: registry, requestConfigStore: LeoRequestConfigStore()) {
                 .init(isActive: false, keyWindow: nil)
             }
             return Fixture(app: app, controller: controller, window: window, host: host, origin: origin, savedPosition: savedPosition)

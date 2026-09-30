@@ -3,7 +3,7 @@ import Testing
 
 @testable import Ghostty
 
-/// One recorded `AttachTabHost` open call; fields a given entry point
+/// One recorded `AttachContentHost` open call; fields a given entry point
 /// doesn't take stay `nil`.
 struct FakeOpenCall {
     let command: String
@@ -30,7 +30,7 @@ struct FakeOpenCall {
     }
 }
 
-@MainActor final class FakeAttachTabHost: AttachTabHost {
+@MainActor final class FakeAttachContentHost: AttachContentHost {
     var openError: Error?
     var contentCalls: [FakeOpenCall] = []
     var windowCalls: [FakeOpenCall] = []

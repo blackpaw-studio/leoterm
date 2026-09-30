@@ -17,7 +17,7 @@ import Testing
     private static let standIn = "/bin/cat"
 
     @MainActor private struct Fixture {
-        let host: GhosttyAttachTabHost
+        let host: GhosttyAttachContentHost
         let configs: LeoRequestConfigStore
         let controller: TerminalController
         /// Where requests are routed from (the host's registry entry).
@@ -61,7 +61,7 @@ import Testing
         let origin = registry.makeSession(window: controller.window, controller: controller, defaults: LeoInMemoryDefaults()).id
         let session = try #require(controller.leoSession)
         let configs = LeoRequestConfigStore()
-        let host = GhosttyAttachTabHost(registry: registry, requestConfigStore: configs) { .init(isActive: false, keyWindow: nil) }
+        let host = GhosttyAttachContentHost(registry: registry, requestConfigStore: configs) { .init(isActive: false, keyWindow: nil) }
         // What `LeoRuntime` wires for the app's own sessions.
         let sessionID = session.id
         session.terminals.closeRequested = { [weak host] in host?.closeTerminal(AttachmentHandle(surfaceID: $0, windowID: sessionID)) }
@@ -686,6 +686,24 @@ import Testing
         #expect(fixture.terminals.selection == nil)
         #expect(fixture.shown().map(\.id) == [agent.surfaceID])
         #expect(fixture.host.isShown(agent))
+    }
+
+    /// The agent name alone (no attach handle) marks a surface as an
+    /// agent too: a plain-shell split titled after an agent takes no row.
+    @Test func aNamedSurfaceBesideAClosedRowBlocksAdoption() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let row = try newShell(fixture)
+        let split = try openSplit(fixture, beside: row)
+        let splitView = try #require(fixture.view(split))
+        splitView.leoAgentName = "named"
+
+        try closePane(fixture, row)
+
+        #expect(await eventually { fixture.events.events.contains(.closed(row)) })
+        #expect(fixture.terminals.rows.isEmpty, "the named split is not handed the row")
+        #expect(fixture.terminals.selection == nil)
+        #expect(fixture.shown().map(\.id) == [split.surfaceID])
     }
 
     /// Closing the window closes every pane at once: nothing carries a

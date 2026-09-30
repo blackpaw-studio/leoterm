@@ -5,7 +5,7 @@ import Testing
 
 /// B-048: a sidebar row's double-click is decided in `rowClicked` alone,
 /// from the second click (`clickCount` 2), and goes to the agent exactly
-/// once: the first click already focused an open tab; otherwise the
+/// once: the first click already focused a live attach; otherwise the
 /// second attaches (⌥: in a new window).
 @MainActor struct LeoRowDoubleClickTests {
     private let worker = LeoAgentRow(host: .local, name: "worker", template: nil, status: .running, activity: .idle, actionDetail: nil)
@@ -16,12 +16,12 @@ import Testing
         var focusRequests = 0
     }
 
-    private func makeModel(tabs: Int = 0) -> (LeoSidebarModel, Log) {
+    private func makeModel(liveAttaches: Int = 0) -> (LeoSidebarModel, Log) {
         let model = LeoSidebarModel(snapshot: LeoSidebarSnapshot(rows: [worker], connectivity: .connected, generation: 1))
         let log = Log()
         model.attachRequested = { log.attaches.append($2) }
         model.focusExistingRequested = { _, _ in log.focusRequests += 1 }
-        if tabs > 0 { model.receiveAttachLinks(LeoAttachLinkState(focused: nil, tabCounts: [worker.id: tabs])) }
+        if liveAttaches > 0 { model.receiveAttachLinks(LeoAttachLinkState(focused: nil, attachCounts: [worker.id: liveAttaches])) }
         return (model, log)
     }
 
@@ -30,7 +30,7 @@ import Testing
         model.rowClicked(worker, modifierFlags: flags, clickCount: 2, from: origin)
     }
 
-    @Test func doubleClickWithoutATabAttachesOnce() {
+    @Test func doubleClickWithoutALiveAttachAttachesOnce() {
         let (model, log) = makeModel()
 
         doubleClick(model)
@@ -40,8 +40,8 @@ import Testing
         #expect(model.selection == worker.id)
     }
 
-    @Test func doubleClickWithATabFocusesItOnce() {
-        let (model, log) = makeModel(tabs: 1)
+    @Test func doubleClickWithALiveAttachFocusesItOnce() {
+        let (model, log) = makeModel(liveAttaches: 1)
 
         doubleClick(model)
 
@@ -50,8 +50,8 @@ import Testing
     }
 
     @Test(arguments: [0, 1])
-    func optionDoubleClickOpensOneNewWindow(tabs: Int) {
-        let (model, log) = makeModel(tabs: tabs)
+    func optionDoubleClickOpensOneNewWindow(liveAttaches: Int) {
+        let (model, log) = makeModel(liveAttaches: liveAttaches)
 
         doubleClick(model, .option)
 

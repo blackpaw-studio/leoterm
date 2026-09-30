@@ -77,7 +77,7 @@ import Testing
     // MARK: Helpers
 
     /// Waits until every event yielded so far has been handled.
-    private func settle(_ host: FakeAttachTabHost) async {
+    private func settle(_ host: FakeAttachContentHost) async {
         // Closing a handle the coordinator never registered changes nothing.
         await host.emitAndWait(.closed(AttachmentHandle(surfaceID: UUID(), windowID: LeoWindowID())))
     }
@@ -88,8 +88,8 @@ import Testing
         LeoAgentRow(host: identity.host, name: identity.name, template: nil, status: .running, activity: .idle, actionDetail: nil)
     }
 
-    private func makeLinked() -> (FakeAttachTabHost, LeoAttachCoordinator, LeoSidebarModel) {
-        let host = FakeAttachTabHost()
+    private func makeLinked() -> (FakeAttachContentHost, LeoAttachCoordinator, LeoSidebarModel) {
+        let host = FakeAttachContentHost()
         let model = LeoSidebarModel(snapshot: LeoSidebarSnapshot(
             rows: [row(local), row(other), row(third)], connectivity: .connected, generation: 1
         ))

@@ -95,8 +95,8 @@ import Testing
         await showEach(agents.prefix(2), coordinator)
 
         #expect(coordinator.reusableHandleCount == 2, "hidden stays open until evicted")
-        #expect(coordinator.linkState.tabCount(for: rowID(agents[0])) == 0, "a click shows it rather than focusing nothing")
-        #expect(coordinator.linkState.tabCount(for: rowID(agents[1])) == 1)
+        #expect(coordinator.linkState.attachCount(for: rowID(agents[0])) == 0, "a click shows it rather than focusing nothing")
+        #expect(coordinator.linkState.attachCount(for: rowID(agents[1])) == 1)
         #expect(!coordinator.focusExisting(agents[0], from: window))
         #expect(host.focused.isEmpty)
     }
@@ -107,8 +107,8 @@ import Testing
 
         _ = await coordinator.attach(identity: agents[0], request: content())
 
-        #expect(coordinator.linkState.tabCount(for: rowID(agents[0])) == 1)
-        #expect(coordinator.linkState.tabCount(for: rowID(agents[1])) == 0)
+        #expect(coordinator.linkState.attachCount(for: rowID(agents[0])) == 1)
+        #expect(coordinator.linkState.attachCount(for: rowID(agents[1])) == 0)
     }
 
     @Test func anEvictedAgentLeavesTheRegistry() async {
@@ -285,8 +285,8 @@ import Testing
         while !condition(), ContinuousClock.now < deadline { await Task.yield() }
     }
 
-    private func make() -> (FakeAttachTabHost, LeoAttachCoordinator) {
-        let host = FakeAttachTabHost()
+    private func make() -> (FakeAttachContentHost, LeoAttachCoordinator) {
+        let host = FakeAttachContentHost()
         let coordinator = LeoAttachCoordinator(
             host: host,
             executable: { "/leo" },

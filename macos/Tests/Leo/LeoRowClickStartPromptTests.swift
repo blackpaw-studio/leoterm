@@ -4,7 +4,7 @@ import Testing
 @testable import Ghostty
 
 /// B-049: one click on a row takes you into its agent. A running agent is
-/// attached (or its open tab focused); an agent that isn't running asks
+/// attached (or its live attach focused); an agent that isn't running asks
 /// "Start <name>?" first, and attaches only once the daemon reports it
 /// running. Return is the same click; arrow keys only select.
 @MainActor struct LeoRowClickStartPromptTests {
@@ -25,7 +25,7 @@ import Testing
 
     private func makeModel(
         _ rows: [LeoAgentRow],
-        tabs: [LeoAgentRow.ID: Int] = [:],
+        attaches: [LeoAgentRow.ID: Int] = [:],
         connectivity: LeoConnectivity = .connected
     ) -> (LeoSidebarModel, Log) {
         let model = LeoSidebarModel(snapshot: LeoSidebarSnapshot(rows: rows, connectivity: connectivity, generation: 1))
@@ -36,7 +36,7 @@ import Testing
             log.starts.append(row.id)
             log.startCompletions.append(completion)
         }
-        if !tabs.isEmpty { model.receiveAttachLinks(LeoAttachLinkState(focused: nil, tabCounts: tabs)) }
+        if !attaches.isEmpty { model.receiveAttachLinks(LeoAttachLinkState(focused: nil, attachCounts: attaches)) }
         return (model, log)
     }
 
@@ -46,7 +46,7 @@ import Testing
 
     // MARK: Running agents
 
-    @Test func singleClickOnARunningRowWithoutATabAttachesOnce() {
+    @Test func singleClickOnARunningRowWithoutALiveAttachAttachesOnce() {
         let worker = row()
         let (model, log) = makeModel([worker])
 
@@ -59,9 +59,9 @@ import Testing
         #expect(model.startPrompt(in: origin) == nil)
     }
 
-    @Test func singleClickOnARunningRowWithATabFocusesIt() {
+    @Test func singleClickOnARunningRowWithALiveAttachFocusesIt() {
         let worker = row()
-        let (model, log) = makeModel([worker], tabs: [worker.id: 1])
+        let (model, log) = makeModel([worker], attaches: [worker.id: 1])
 
         model.rowClicked(worker, from: origin)
 
@@ -71,7 +71,7 @@ import Testing
 
     @Test func commandClickOpensANewWindow() {
         let worker = row()
-        let (model, log) = makeModel([worker], tabs: [worker.id: 1])
+        let (model, log) = makeModel([worker], attaches: [worker.id: 1])
 
         model.rowClicked(worker, modifierFlags: .command, from: origin)
 
@@ -119,9 +119,9 @@ import Testing
         #expect(log.focusRequests.isEmpty)
     }
 
-    @Test func aStoppedAgentWithATabStillAsks() {
+    @Test func aStoppedAgentWithALiveAttachStillAsks() {
         let agent = row("scratch", .stopped)
-        let (model, log) = makeModel([agent], tabs: [agent.id: 1])
+        let (model, log) = makeModel([agent], attaches: [agent.id: 1])
 
         model.rowClicked(agent, from: origin)
 
@@ -218,7 +218,7 @@ import Testing
 
     @Test func cancelLeavesTheAgentAndTabsAlone() throws {
         let agent = row("scratch", .stopped)
-        let (model, log) = makeModel([agent], tabs: [agent.id: 1])
+        let (model, log) = makeModel([agent], attaches: [agent.id: 1])
         model.rowClicked(agent, from: origin)
 
         model.cancelStartPrompt(try #require(model.startPrompt(in: origin)).id)
@@ -358,9 +358,9 @@ import Testing
         #expect(log.dispositions == [.content])
     }
 
-    @Test func returnOnARowWithATabFocusesIt() {
+    @Test func returnOnARowWithALiveAttachFocusesIt() {
         let worker = row()
-        let (model, log) = makeModel([worker], tabs: [worker.id: 1])
+        let (model, log) = makeModel([worker], attaches: [worker.id: 1])
         model.userSelected(worker.id)
 
         model.activateSelection(from: origin)

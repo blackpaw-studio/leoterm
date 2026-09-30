@@ -8,7 +8,7 @@ import Testing
     private let origin = LeoWindowID()
 
     @Test func reuseOpensThenFocusesExisting() async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         let coordinator = makeCoordinator(host: host)
         await coordinator.attach(identity: identity, from: origin, disposition: .content)
         await coordinator.attach(identity: identity, from: origin, disposition: .content)
@@ -19,7 +19,7 @@ import Testing
     /// B-055: one agent on screen in at most one window, so a second
     /// new-window request brings the first window forward.
     @Test func newWindowOpensOnceThenFocuses() async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         let coordinator = makeCoordinator(host: host)
         await coordinator.attach(identity: identity, from: origin, disposition: .newWindow)
         await coordinator.attach(identity: identity, from: origin, disposition: .newWindow)
@@ -28,7 +28,7 @@ import Testing
     }
 
     @Test func concurrentReuseCoalescesOpen() async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         let coordinator = makeCoordinator(host: host)
         await withTaskGroup(of: Void.self) { group in
             group.addTask { await coordinator.attach(identity: self.identity, from: self.origin, disposition: .content) }
@@ -39,7 +39,7 @@ import Testing
 
     @Test(arguments: [AttachLifecycleEvent.Kind.closed, .processExited])
     fileprivate func lifecycleMakesNextAttachOpenFresh(_ kind: AttachLifecycleEvent.Kind) async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         let coordinator = makeCoordinator(host: host)
         await coordinator.attach(identity: identity, from: origin, disposition: .content)
         let first = host.handles[0]
@@ -54,7 +54,7 @@ import Testing
 
     /// ⌘-click routing (B-004): only a live attach surface has an agent.
     @Test func aSurfaceMapsToItsLiveAgent() async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         let coordinator = makeCoordinator(host: host)
         await coordinator.attach(identity: identity, from: origin, disposition: .content)
         let handle = host.handles[0]
@@ -67,7 +67,7 @@ import Testing
     }
 
     @Test func openFailureReportsAndRegistersNothing() async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         host.openError = FakeError.failed
         var errors: [LeoAttachError] = []
         let coordinator = makeCoordinator(host: host) { errors.append($0) }
@@ -82,7 +82,7 @@ import Testing
     // MARK: Tab title (B-052)
 
     @Test func attachNamesItsSurfaceAfterTheAgent() async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         let coordinator = makeCoordinator(host: host)
         await coordinator.attach(identity: identity, from: origin, disposition: .content)
         #expect(host.agentNames.count == 1)
@@ -92,7 +92,7 @@ import Testing
 
     @Test(arguments: [LeoSurfaceDisposition.split(.right), .window, .placeholder(surfaceID: UUID())])
     func everyAttachDestinationIsNamed(_ disposition: LeoSurfaceDisposition) async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         let coordinator = makeCoordinator(host: host)
         let request = LeoSurfaceRequest(origin: origin, disposition: disposition, splitSourceSurface: UUID())
         _ = await coordinator.attach(identity: identity, request: request)
@@ -100,8 +100,8 @@ import Testing
         #expect(host.agentNames.map(\.0) == host.handles)
     }
 
-    @Test func reusingAnOpenTabDoesNotRenameIt() async {
-        let host = FakeAttachTabHost()
+    @Test func reusingOpenContentDoesNotRenameIt() async {
+        let host = FakeAttachContentHost()
         let coordinator = makeCoordinator(host: host)
         await coordinator.attach(identity: identity, from: origin, disposition: .content)
         await coordinator.attach(identity: identity, from: origin, disposition: .content)
@@ -109,7 +109,7 @@ import Testing
     }
 
     @Test func reattachAfterExitNamesTheNewSurface() async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         let coordinator = makeCoordinator(host: host)
         await coordinator.attach(identity: identity, from: origin, disposition: .content)
         let first = host.handles[0]
@@ -124,14 +124,14 @@ import Testing
     }
 
     @Test func plainShellIsNotNamed() async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         let coordinator = makeCoordinator(host: host)
         _ = await coordinator.openPlainShell(request: LeoSurfaceRequest(origin: origin, disposition: .content))
         #expect(host.agentNames.isEmpty)
     }
 
     @Test func closedAccordingToHostIsDiscarded() async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         let coordinator = makeCoordinator(host: host)
         await coordinator.attach(identity: identity, from: origin, disposition: .content)
         host.openHandles.remove(host.handles[0])
@@ -143,7 +143,7 @@ import Testing
         let first = LeoAgentIdentity(host: .local, name: "first")
         let second = LeoAgentIdentity(host: .local, name: "second")
         let model = LeoSidebarModel()
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         host.openError = FakeError.failed
         let gate = AttachGate()
         let coordinator = makeCoordinator(host: host) { error in
@@ -164,7 +164,7 @@ import Testing
     }
 
     @Test func remoteIdentityUsesTheRemoteCommandBuilderNotTheLocalExecutable() async throws {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         let remoteIdentity = LeoAgentIdentity(host: .remote("work"), name: "worker")
         var builtFor: LeoAgentIdentity?
         let coordinator = makeCoordinator(host: host, remoteCommandBuilder: { identity in
@@ -179,7 +179,7 @@ import Testing
     }
 
     @Test func remoteCommandBuilderFailureReportsExecutableError() async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         let remoteIdentity = LeoAgentIdentity(host: .remote("work"), name: "worker")
         var reported: LeoAttachError?
         let coordinator = makeCoordinator(
@@ -194,8 +194,8 @@ import Testing
         #expect(host.contentCalls.isEmpty)
     }
 
-    @Test func splitAlwaysOpensEvenWithLiveTab() async {
-        let host = FakeAttachTabHost()
+    @Test func splitAlwaysOpensEvenWithLiveAttach() async {
+        let host = FakeAttachContentHost()
         let coordinator = makeCoordinator(host: host)
         let source = UUID()
         let tabRequest = LeoSurfaceRequest(origin: origin, disposition: .content)
@@ -211,7 +211,7 @@ import Testing
     }
 
     @Test func splitWithoutSourceSurfaceReportsAndOpensNothing() async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         var errors: [LeoAttachError] = []
         let coordinator = makeCoordinator(host: host) { errors.append($0) }
         let request = LeoSurfaceRequest(origin: origin, disposition: .split(.left))
@@ -224,7 +224,7 @@ import Testing
     }
 
     @Test func placeholderFillsExactlyOncePerRequest() async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         let coordinator = makeCoordinator(host: host)
         let request = LeoSurfaceRequest(origin: origin, disposition: .placeholder)
 
@@ -235,7 +235,7 @@ import Testing
     }
 
     @Test func windowRequestOpensOnceThenFocusesViaSurfaceRequestAPI() async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         let coordinator = makeCoordinator(host: host)
         let request = LeoSurfaceRequest(origin: origin, disposition: .window)
 
@@ -247,7 +247,7 @@ import Testing
     }
 
     @Test func contentRequestReusesLiveHandle() async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         let coordinator = makeCoordinator(host: host)
         let request = LeoSurfaceRequest(origin: origin, disposition: .content)
 
@@ -260,7 +260,7 @@ import Testing
     }
 
     @Test func openPlainShellUsesRequestDispositionWithNoIdentityBookkeeping() async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         let coordinator = makeCoordinator(host: host)
         let request = LeoSurfaceRequest(origin: origin, disposition: .content)
 
@@ -276,7 +276,7 @@ import Testing
     }
 
     @Test func openPlainShellFailureReportsWithSentinelIdentity() async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         host.openError = FakeError.failed
         var errors: [LeoAttachError] = []
         let coordinator = makeCoordinator(host: host) { errors.append($0) }
@@ -289,7 +289,7 @@ import Testing
     }
 
     @Test func plainShellProcessExitedThenClosedLeavesNoState() async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         let coordinator = makeCoordinator(host: host)
         let request = LeoSurfaceRequest(origin: origin, disposition: .content)
 
@@ -307,7 +307,7 @@ import Testing
     }
 
     @Test func agentProcessExitReplacesOnlyThatAgentSurface() async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         let coordinator = makeCoordinator(host: host)
         let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         guard case .success(let handle) = await coordinator.attach(identity: identity, request: request) else {
@@ -322,7 +322,7 @@ import Testing
     }
 
     @Test func plainShellExitDoesNotRebirth() async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         let coordinator = makeCoordinator(host: host)
         guard case .success(let handle) = await coordinator.openPlainShell(request: .init(origin: origin, disposition: .content)) else {
             Issue.record("expected success")
@@ -335,7 +335,7 @@ import Testing
     }
 
     @Test func placeholderChoiceReplacesTargetSurface() async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         let coordinator = makeCoordinator(host: host)
         let surfaceID = UUID()
         let request = LeoSurfaceRequest(origin: origin, disposition: .placeholder(surfaceID: surfaceID))
@@ -348,7 +348,7 @@ import Testing
     // MARK: Focused identity
 
     @Test func focusedHandleMapsToItsIdentity() async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         var changes: [LeoAgentIdentity?] = []
         let coordinator = makeCoordinator(host: host, focusedIdentityChanged: { changes.append($0) })
         await coordinator.attach(identity: identity, from: origin, disposition: .content)
@@ -360,7 +360,7 @@ import Testing
     }
 
     @Test func focusingAnUntrackedSurfaceClearsTheIdentity() async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         var changes: [LeoAgentIdentity?] = []
         let coordinator = makeCoordinator(host: host, focusedIdentityChanged: { changes.append($0) })
         await coordinator.attach(identity: identity, from: origin, disposition: .content)
@@ -376,7 +376,7 @@ import Testing
     /// The approved attention decision: the focused split of the key
     /// window counts as viewed even while the sidebar has keyboard focus.
     @Test func keyboardFocusMovingToTheSidebarKeepsTheViewedAgentFocused() async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         var changes: [LeoAgentIdentity?] = []
         let coordinator = makeCoordinator(host: host, focusedIdentityChanged: { changes.append($0) })
         await coordinator.attach(identity: identity, from: origin, disposition: .content)
@@ -389,7 +389,7 @@ import Testing
     }
 
     @Test func viewingReportsMoveTheFocusedIdentity() async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         var changes: [LeoAgentIdentity?] = []
         let coordinator = makeCoordinator(host: host, focusedIdentityChanged: { changes.append($0) })
         await coordinator.attach(identity: identity, from: origin, disposition: .content)
@@ -405,7 +405,7 @@ import Testing
 
     @Test(arguments: [AttachLifecycleEvent.Kind.closed, .processExited])
     fileprivate func focusedAttachmentEndingClearsTheIdentity(_ kind: AttachLifecycleEvent.Kind) async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         var changes: [LeoAgentIdentity?] = []
         let coordinator = makeCoordinator(host: host, focusedIdentityChanged: { changes.append($0) })
         await coordinator.attach(identity: identity, from: origin, disposition: .content)
@@ -418,7 +418,7 @@ import Testing
     }
 
     @Test func splitOfTheSameAgentKeepsItFocused() async {
-        let host = FakeAttachTabHost()
+        let host = FakeAttachContentHost()
         let coordinator = makeCoordinator(host: host)
         let splitSource = UUID()
         await coordinator.attach(identity: identity, from: origin, disposition: .content)
@@ -432,8 +432,51 @@ import Testing
         #expect(coordinator.focusedIdentity == identity)
     }
 
+    // MARK: A closed window's content version (B-062)
+
+    @Test func closingAWindowForgetsItsContentVersion() async {
+        let host = FakeAttachContentHost()
+        let coordinator = makeCoordinator(host: host)
+        let other = LeoWindowID()
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        await coordinator.attach(identity: LeoAgentIdentity(host: .local, name: "other"), from: other, disposition: .content)
+        #expect(coordinator.contentVersionWindows == [origin, other])
+
+        coordinator.windowClosed(origin)
+        coordinator.windowClosed(origin)
+
+        #expect(coordinator.contentVersionWindows == [other], "only the closed window's entry goes, idempotently")
+    }
+
+    /// A request asking to replace a window's content when that window
+    /// closes, with nothing having replaced its content meanwhile, resolves
+    /// as before pruning: it goes on to the host rather than being dropped
+    /// as superseded.
+    @Test func aRequestAwaitingConfirmOnAWindowThatClosesUnreplacedGoesOn() async throws {
+        let host = FakeAttachContentHost()
+        let coordinator = makeCoordinator(host: host)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        host.heldConfirmations = 1
+        let next = LeoAgentIdentity(host: .local, name: "next")
+        let pending = Task { await coordinator.attach(identity: next, request: LeoSurfaceRequest(origin: origin, disposition: .content)) }
+        await waitUntil { host.pendingConfirmationCount == 1 }
+        try #require(host.pendingConfirmationCount == 1)
+
+        coordinator.windowClosed(origin)
+        host.resumeConfirmation(true)
+        let result = await pending.value
+
+        #expect((try? result.get()) == host.handles.last)
+        #expect(host.contentCalls.count == 2, "not dropped as superseded")
+    }
+
+    private func waitUntil(_ condition: () -> Bool) async {
+        let deadline = ContinuousClock.now + .seconds(2)
+        while !condition(), ContinuousClock.now < deadline { await Task.yield() }
+    }
+
     private func makeCoordinator(
-        host: FakeAttachTabHost,
+        host: FakeAttachContentHost,
         report: @escaping (LeoAttachError) -> Void = { _ in },
         remoteCommandBuilder: @escaping (LeoAgentIdentity) throws -> String = { _ in
             throw LeoDaemonError.hostUnavailable("Remote attach is not configured")

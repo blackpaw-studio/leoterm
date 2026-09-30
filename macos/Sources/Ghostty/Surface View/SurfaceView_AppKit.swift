@@ -220,8 +220,8 @@ extension Ghostty {
         private var titleFromTerminal: String?
 
         // MARK: Leo
-        /// The Leo agent attached in this surface, shown as its tab title in
-        /// place of the terminal's own (B-052, `LeoTabTitleSource`).
+        /// The Leo agent attached in this surface, shown as its window title in
+        /// place of the terminal's own (B-052, `LeoTitleSource`).
         @Published var leoAgentName: String?
         /// Whether `title` was set by the user (Change Terminal Title…).
         var leoTitleIsUserSet: Bool { titleFromTerminal != nil }

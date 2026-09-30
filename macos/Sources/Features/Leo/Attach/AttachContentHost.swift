@@ -44,7 +44,7 @@ extension Notification.Name {
     static let leoWindowlessChildExited = Notification.Name("studio.blackpaw.leo.windowlessChildExited")
 }
 
-@MainActor protocol AttachTabHost: AnyObject {
+@MainActor protocol AttachContentHost: AnyObject {
     var lifecycleEvents: AsyncStream<AttachLifecycleEvent> { get }
     /// The attachment that has keyboard focus in the key window of the
     /// active app, if any. Changes are reported as `.focusChanged`.
@@ -61,7 +61,7 @@ extension Notification.Name {
     var focusReportCount: Int { get }
     /// `requestID` looks up the inherited `Ghostty.SurfaceConfiguration`
     /// (if any) from `LeoRequestConfigStore` -- see
-    /// `GhosttyAttachTabHost.configuration(command:workingDirectory:requestID:)`.
+    /// `GhosttyAttachContentHost.configuration(command:workingDirectory:requestID:)`.
     ///
     /// B-055: shows a new surface in `origin`'s content area in place of
     /// whatever it showed (the whole split tree), or fills it when it is

@@ -9,8 +9,8 @@ import Testing
     private let worker = LeoAgentIdentity(host: .local, name: "worker")
     private let window = LeoWindowID()
 
-    private func make() -> (FakeAttachTabHost, LeoAttachCoordinator) {
-        let host = FakeAttachTabHost()
+    private func make() -> (FakeAttachContentHost, LeoAttachCoordinator) {
+        let host = FakeAttachContentHost()
         let coordinator = LeoAttachCoordinator(
             host: host,
             executable: { "/leo" },

@@ -24,7 +24,7 @@ struct LeoSidebarCommandClickTests {
         let harness = try await CommandClickHarness(row: worker)
         defer { harness.close() }
 
-        harness.model.receiveAttachLinks(LeoAttachLinkState(focused: nil, tabCounts: [worker.id: 1]))
+        harness.model.receiveAttachLinks(LeoAttachLinkState(focused: nil, attachCounts: [worker.id: 1]))
         try await harness.clickRow([])
         #expect(harness.model.selection == worker.id)
         #expect(harness.focusRequests == [worker.id], "a plain click on a row shown in a window goes to that window")
@@ -51,10 +51,10 @@ struct LeoSidebarCommandClickTests {
         #expect(harness.table.selectedRow == harness.agentRowIndex)
     }
 
-    @Test func plainClickOnARowWithATabFocusesIt() async throws {
+    @Test func plainClickOnARowWithALiveAttachFocusesIt() async throws {
         let harness = try await CommandClickHarness(row: worker)
         defer { harness.close() }
-        harness.model.receiveAttachLinks(LeoAttachLinkState(focused: nil, tabCounts: [worker.id: 1]))
+        harness.model.receiveAttachLinks(LeoAttachLinkState(focused: nil, attachCounts: [worker.id: 1]))
 
         try await harness.clickRow([])
 
@@ -74,7 +74,7 @@ struct LeoSidebarCommandClickTests {
 
     /// B-049: the row is the target -- one click attaches, with no
     /// button to aim for.
-    @Test func plainClickOnARowWithoutATabAttachesExactlyOnce() async throws {
+    @Test func plainClickOnARowWithoutALiveAttachAttachesExactlyOnce() async throws {
         let harness = try await CommandClickHarness(row: worker)
         defer { harness.close() }
 

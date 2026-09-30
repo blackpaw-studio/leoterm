@@ -76,7 +76,7 @@ struct LeoSurfacedFileRoutingTests {
 
         // It arrives (the feed's snapshot carries it) while alpha's tab is focused.
         model.receive(LeoSidebarSnapshot(rows: [row("alpha", "s1", files: [file]), row("beta", "s1")], connectivity: .connected, generation: 2))
-        model.receiveAttachLinks(LeoAttachLinkState(focused: nil, tabCounts: model.attachLinks.tabCounts))
+        model.receiveAttachLinks(LeoAttachLinkState(focused: nil, attachCounts: model.attachLinks.attachCounts))
         focus(model, "beta")
         focus(model, "alpha")
         model.rowClicked(model.snapshot.rows[0])
@@ -203,11 +203,11 @@ struct LeoSurfacedFileRoutingTests {
 
     private func id(_ name: String) -> LeoAgentRow.ID { LeoAgentRow.ID(host: .local, name: name) }
 
-    /// Focus lands on an attach tab of `name` (one live tab), as the attach
+    /// Focus lands on an attach surface of `name` (one live attach), as the attach
     /// coordinator's link state reports it.
     private func focus(_ model: LeoSidebarModel, _ name: String) {
-        let tabs = model.attachLinks.tabCounts.merging([id(name): max(1, model.tabCount(for: id(name)))]) { _, new in new }
-        model.receiveAttachLinks(LeoAttachLinkState(focused: id(name), tabCounts: tabs))
+        let attaches = model.attachLinks.attachCounts.merging([id(name): max(1, model.attachCount(for: id(name)))]) { _, new in new }
+        model.receiveAttachLinks(LeoAttachLinkState(focused: id(name), attachCounts: attaches))
     }
 
     private func row(_ name: String, _ startedAt: String, files: [LeoSurfacedFile] = []) -> LeoAgentRow {

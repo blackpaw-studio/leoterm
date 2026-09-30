@@ -17,7 +17,7 @@ import Testing
     private static let standIn = "/bin/cat"
 
     private struct Fixture {
-        let host: GhosttyAttachTabHost
+        let host: GhosttyAttachContentHost
         let controller: TerminalController
         let origin: LeoWindowID
         let events: EventLog
@@ -58,7 +58,7 @@ import Testing
         controller.window?.contentView?.layoutSubtreeIfNeeded()
         let registry = LeoWindowSessionRegistry()
         let session = registry.makeSession(window: controller.window, controller: controller, defaults: LeoInMemoryDefaults())
-        let host = GhosttyAttachTabHost(registry: registry, requestConfigStore: LeoRequestConfigStore()) {
+        let host = GhosttyAttachContentHost(registry: registry, requestConfigStore: LeoRequestConfigStore()) {
             .init(isActive: false, keyWindow: nil)
         }
         let log = EventLog()
@@ -107,6 +107,30 @@ import Testing
         try? await Task.sleep(for: .milliseconds(100))
         #expect(!fixture.events.events.contains(.closed(first)))
         #expect(!fixture.events.events.contains(.closed(second)))
+    }
+
+    /// A surface still titled after an agent but with no attach handle --
+    /// as upstream's Undo of Close Terminal puts it back after its handle
+    /// closed -- is nothing the pool could reveal: switched away from, it
+    /// is let go like a plain shell, never hidden as a tmux client that a
+    /// new attach would then duplicate (B-056).
+    @Test func aNamedSurfaceWithNoHandleIsLetGoNotPooled() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let tracker = Tracker()
+        weak var orphan: Ghostty.SurfaceView?
+        do {
+            let view = try #require(fixture.shown().first)
+            view.leoAgentName = "worker"
+            orphan = view
+        }
+
+        let next = try attach(fixture, tracker)
+
+        #expect(!fixture.host.hiddenSurfaces(in: next.windowID).contains { $0 === orphan }, "not pooled as an agent")
+        #expect(fixture.host.hiddenSurfaces(in: next.windowID).isEmpty, "nothing hidden to count as a client")
+        #expect(await eventually { orphan == nil }, "let go, so its surface is freed")
+        #expect(fixture.host.isShown(next))
     }
 
     @Test func aHiddenSurfaceLeavesTheViewHierarchy() async throws {
@@ -225,8 +249,9 @@ import Testing
 
         let next = try attach(fixture, tracker)
 
+        #expect(next.windowID == agent.windowID)
         #expect(!fixture.host.isOpen(agent), "the agent went with the shell, at once")
-        #expect(fixture.host.hiddenSurfaces(in: fixture.origin).isEmpty, "nothing with a shell in the pool for an eviction to kill")
+        #expect(fixture.host.hiddenSurfaces(in: agent.windowID).isEmpty, "nothing with a shell in the pool for an eviction to kill")
         #expect(await eventually { !tracker.isAlive(agent) }, "the agent is freed, not kept hidden")
         #expect(await eventually { shell == nil }, "the shell is freed")
         #expect(fixture.host.isShown(next))
@@ -236,6 +261,12 @@ import Testing
         let fixture = try makeFixture()
         let tracker = Tracker()
         let handles = try (0..<3).map { _ in try attach(fixture, tracker) }
+        // Handles carry the controller's own session id; `fixture.origin` is
+        // the test registry's, which the pool never keys by -- asserting on it
+        // passed vacuously.
+        let window = handles[0].windowID
+        #expect(window != fixture.origin)
+        #expect(fixture.host.hiddenSurfaces(in: window).count == 2, "the check below can fail")
 
         fixture.controller.window?.close()
 
@@ -244,7 +275,7 @@ import Testing
         for handle in handles {
             #expect(fixture.events.events.filter { $0 == .closed(handle) }.count == 1)
         }
-        #expect(fixture.host.hiddenSurfaces(in: fixture.origin).isEmpty)
+        #expect(fixture.host.hiddenSurfaces(in: window).isEmpty)
         fixture.events.task?.cancel()
     }
 

@@ -50,7 +50,7 @@ import Testing
 
         #expect(host.focused.isEmpty, "worker's surface left the window, so there is nothing to focus")
         #expect(host.contentCalls.count == 3)
-        #expect(coordinator.linkState.tabCounts[LeoAgentRow.ID(host: .local, name: "worker")] == 1)
+        #expect(coordinator.linkState.attachCounts[LeoAgentRow.ID(host: .local, name: "worker")] == 1)
     }
 
     @Test func paletteChoiceOnAContentRequestShowsItThere() async {
@@ -292,7 +292,7 @@ import Testing
         var attaches: [(LeoAgentRow.ID, LeoWindowID, AttachDisposition)] = []
         model.focusExistingRequested = { row, _ in focusRequests.append(row.id) }
         model.attachRequested = { attaches.append(($0.id, $1, $2)) }
-        model.receiveAttachLinks(LeoAttachLinkState(focused: nil, tabCounts: [id(worker): 1]))
+        model.receiveAttachLinks(LeoAttachLinkState(focused: nil, attachCounts: [id(worker): 1]))
 
         model.rowClicked(row(worker), modifierFlags: .command, from: window)
 
@@ -343,8 +343,8 @@ import Testing
 
     @MainActor private final class Reported { var errors: [LeoAttachError] = [] }
 
-    private func makeReporting() -> (FakeAttachTabHost, LeoAttachCoordinator, Reported) {
-        let host = FakeAttachTabHost()
+    private func makeReporting() -> (FakeAttachContentHost, LeoAttachCoordinator, Reported) {
+        let host = FakeAttachContentHost()
         let reported = Reported()
         let coordinator = LeoAttachCoordinator(
             host: host,
@@ -356,7 +356,7 @@ import Testing
         return (host, coordinator, reported)
     }
 
-    private func make() -> (FakeAttachTabHost, LeoAttachCoordinator) {
+    private func make() -> (FakeAttachContentHost, LeoAttachCoordinator) {
         let (host, coordinator, _) = makeReporting()
         return (host, coordinator)
     }

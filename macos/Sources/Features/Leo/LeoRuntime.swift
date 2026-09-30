@@ -29,7 +29,7 @@ import OSLog
     let attachCoordinator: LeoAttachCoordinator
     /// The Ghostty side of attaching, for what only it can answer (hidden
     /// shells' processes, B-057).
-    private let attachHost: GhosttyAttachTabHost
+    private let attachHost: GhosttyAttachContentHost
     let newSurfaceRouter: LeoNewSurfaceRouter
     private let picker: LeoWindowPickerRouter
     private let requestConfigStore: LeoRequestConfigStore
@@ -123,7 +123,7 @@ import OSLog
         )
         let requestConfigStore = LeoRequestConfigStore()
         self.requestConfigStore = requestConfigStore
-        let host = GhosttyAttachTabHost(registry: registry, requestConfigStore: requestConfigStore)
+        let host = GhosttyAttachContentHost(registry: registry, requestConfigStore: requestConfigStore)
         attachHost = host
         let hostSelection = LeoHostSelection(
             store: LeoHostStore(defaults: defaults),
@@ -213,11 +213,13 @@ import OSLog
         // may be a while (or never, for a single-window quit). The prompt
         // path is `LeoWindowSession.onWindowWillClose`, wired in
         // `makeWindowSession(for:)` to call this same teardown immediately.
-        // Both call `router.invalidate`/`pickerRouter.unregister`, which are
-        // idempotent, so running it twice for the same window is harmless.
-        registry.onUnregistered = { [weak router, weak pickerRouter] windowID in
+        // Both call `router.invalidate`/`pickerRouter.unregister`/
+        // `attachCoordinator.windowClosed`, which are idempotent, so running
+        // it twice for the same window is harmless.
+        registry.onUnregistered = { [weak router, weak pickerRouter, weak attachCoordinator] windowID in
             router?.invalidate(origin: windowID)
             pickerRouter?.unregister(origin: windowID)
+            attachCoordinator?.windowClosed(windowID)
         }
 
         // `actions` doesn't exist yet at the point `feed` is constructed
@@ -408,14 +410,15 @@ import OSLog
     }
 
     /// Tears down everything scoped to `windowID`: any pending new-surface
-    /// request and that window's palette presentation (panel, model,
-    /// subscriptions). Idempotent -- safe to call from both
+    /// request, that window's palette presentation (panel, model,
+    /// subscriptions) and its attach bookkeeping. Idempotent -- safe to call from both
     /// `LeoWindowSession.onWindowWillClose` (prompt path) and
     /// `registry.onUnregistered` (fallback reconciliation), which may both
     /// fire for the same window.
     private func teardownWindow(_ windowID: LeoWindowID) {
         newSurfaceRouter.invalidate(origin: windowID)
         picker.unregister(origin: windowID)
+        attachCoordinator.windowClosed(windowID)
     }
 
     /// Begins a new-surface gesture (Cmd+T, Cmd+D, Cmd+N, launch, or the
@@ -426,7 +429,7 @@ import OSLog
     /// the focused surface's working directory) -- stashed in
     /// `requestConfigStore` keyed by the request's id, since
     /// `LeoSurfaceRequest` itself stays a pure value type with no AppKit
-    /// dependency. `GhosttyAttachTabHost` consumes it when it actually
+    /// dependency. `GhosttyAttachContentHost` consumes it when it actually
     /// creates the destination surface.
     func routeNewSurface(
         _ disposition: LeoSurfaceDisposition,
