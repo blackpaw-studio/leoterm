@@ -32,10 +32,14 @@ extension TerminalController {
     /// AppleScript, undo or redo, a drag took the last split -- never drops
     /// unsaved editor edits. The tab stays with its editor, and the start
     /// screen replaces its terminal (`LeoPlaceholderCloseDecision` keeps
-    /// the window). `true` when it kept the tab.
+    /// the window), with nothing to undo back into it (B-071). `true` when
+    /// it kept the tab.
     func leoKeepForUnsavedEdits() -> Bool {
         guard leoHasUnsavedEdits else { return false }
-        if !surfaceTree.isEmpty { surfaceTree = .init() }
+        if !surfaceTree.isEmpty {
+            surfaceTree = .init()
+            leoForgetContentUndo()
+        }
         leoSession?.editorPane?.focusText()
         return true
     }
