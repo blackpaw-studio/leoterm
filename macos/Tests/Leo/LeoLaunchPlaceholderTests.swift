@@ -1,3 +1,4 @@
+import AppKit
 import Testing
 
 @testable import Ghostty
@@ -9,17 +10,32 @@ import Testing
 /// It stays for good once the user touches Leo or it shows anything.
 @MainActor
 struct LeoLaunchPlaceholderTests {
-    private final class FakeWindow: LeoLaunchPlaceholderWindow {
+    private final class FakeWindow: LeoLaunchPlaceholderWindow, LeoRequestedWindow {
         var isPristineLeoPlaceholder = true
+        var isLeoWindowShown = true
         private(set) var isClosed = false
         private(set) var spotsHeld = 0
+        private var closeObserver: (@MainActor () -> Void)?
         var onClose: () -> Void = {}
+
+        var isObservingClose: Bool { closeObserver != nil }
 
         func holdSpotForReplacement() { spotsHeld += 1 }
 
         func closeReplacedLeoPlaceholder() {
             isClosed = true
             onClose()
+        }
+
+        func observeLeoWindowClose(_ onClose: @escaping @MainActor @Sendable () -> Void) -> () -> Void {
+            closeObserver = onClose
+            return { [weak self] in self?.closeObserver = nil }
+        }
+
+        /// Closed by something other than the tracker: a script, the app.
+        func closeOnItsOwn() {
+            isClosed = true
+            closeObserver?()
         }
     }
 
@@ -140,6 +156,104 @@ struct LeoLaunchPlaceholderTests {
         #expect(!harness.isObservingInput)
     }
 
+    /// The review's P1 case: a requested window whose presentation failed
+    /// or was cancelled must not take the launch window with it.
+    @Test func requestedWindowThatNeverShowsLeavesTheLaunchWindow() {
+        let harness = Harness()
+        let tracker = makeTracker(harness)
+        let launch = FakeWindow()
+        let requested = FakeWindow()
+        requested.isLeoWindowShown = false
+
+        tracker.adopt(launch)
+        tracker.windowDidOpen(requested)
+        harness.runQueued()
+
+        #expect(!launch.isClosed)
+    }
+
+    @Test func requestedWindowGoneBeforeItsTurnLeavesTheLaunchWindow() {
+        let harness = Harness()
+        let tracker = makeTracker(harness)
+        let launch = FakeWindow()
+
+        tracker.adopt(launch)
+        do {
+            let requested = FakeWindow()
+            tracker.windowDidOpen(requested)
+        }
+        harness.runQueued()
+
+        #expect(!launch.isClosed)
+    }
+
+    /// Something closed the launch window without a key or mouse press (a
+    /// script's `close window 1`): the tracker lets it go, so a later
+    /// request neither takes its old spot nor closes it again.
+    @Test func launchWindowClosedOnItsOwnIsForgotten() {
+        let harness = Harness()
+        let tracker = makeTracker(harness)
+        let launch = FakeWindow()
+
+        tracker.adopt(launch)
+        launch.closeOnItsOwn()
+        let isForgotten = tracker.launchWindow == nil
+        let stoppedObserving = !harness.isObservingInput && !launch.isObservingClose
+        tracker.windowDidOpen(FakeWindow())
+        harness.runQueued()
+
+        #expect(isForgotten)
+        #expect(stoppedObserving)
+        #expect(launch.spotsHeld == 0)
+    }
+
+    /// A window the launch window's own start screen opened (Start daemon,
+    /// ssh) -- by an accessibility press, say, which is no key or mouse
+    /// event -- leaves it where it is.
+    @Test func windowTheLaunchWindowAskedForLeavesIt() {
+        let harness = Harness()
+        let tracker = makeTracker(harness)
+        let launch = FakeWindow()
+
+        tracker.adopt(launch)
+        tracker.windowDidOpen(FakeWindow(), parent: launch)
+        harness.runQueued()
+
+        #expect(!launch.isClosed)
+        #expect(launch.spotsHeld == 0)
+        #expect(tracker.launchWindow == nil)
+    }
+
+    @Test func pressingOrScrollingAnywhereInLeoCountsAsTouchingIt() {
+        let touches: [NSEvent.EventTypeMask] = [.keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown, .scrollWheel]
+
+        #expect(touches.allSatisfy { LeoLaunchPlaceholder.touchEvents.contains($0) })
+        #expect(!LeoLaunchPlaceholder.touchEvents.contains(.mouseMoved), "passing the pointer over it is not a touch")
+    }
+
+    /// In an XCTest host the launch window is never handed over: tests
+    /// open real windows, and must not close the host's.
+    @Test func trackerThatSkipsLaunchWindowsLeavesThemAlone() {
+        let harness = Harness()
+        let tracker = LeoLaunchPlaceholder(
+            adoptsLaunchWindows: false,
+            observeUserInput: { callback in
+                harness.onInput = callback
+                return { harness.onInput = nil }
+            },
+            schedule: { harness.queued.append($0) }
+        )
+        let launch = FakeWindow()
+
+        tracker.launchDidOpen(launch)
+        tracker.windowDidOpen(FakeWindow())
+        harness.runQueued()
+
+        #expect(!launch.isClosed)
+        #expect(tracker.launchWindow == nil)
+        #expect(!harness.isObservingInput)
+    }
+
     @Test func theLaunchWindowItselfIsNotARequest() {
         let harness = Harness()
         let tracker = makeTracker(harness)
@@ -169,7 +283,7 @@ struct LeoLaunchPlaceholderTests {
         let opener = LeoInitialWindowOpener(
             windowCount: { windows.count },
             initialWindow: { true },
-            openWindow: { tracker.adopt(open()) },
+            openWindow: { tracker.launchDidOpen(open()) },
             schedule: { harness.queued.append($0) }
         )
 
