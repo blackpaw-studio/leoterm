@@ -176,3 +176,14 @@ Lane: B-078
 - B-078 runner: ready at 827ab9de9 (1799/1799, lint clean; general full; implementer/opus, 0 fix rounds; GUI skipped, test-only). Verifier's mutations turned each new test red. Polish filed as B-103; B-099 hint noted.
 - B-078 landed (merge 442cac897).
 Finished 11: B-078 landed 442cac897 · not visually verified
+
+Lane: B-079
+  Branch: autopilot-lane/B-079
+  Base: 6f8aa33d61a2dada4a2f78f2b6febe6bfaba7541
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-30T10:48:36Z
