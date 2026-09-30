@@ -1341,6 +1341,9 @@ extension AppDelegate {
 
         // Dock menu
         reloadDockMenu()
+
+        // The start screen's shortcut tooltips follow the items (B-080).
+        leoRuntime.shortcutHints.sync(menu: NSApp.mainMenu)
     }
 
     @MainActor private func syncMenuShortcut(_ config: Ghostty.Config, action: String, menuItem: NSMenuItem?) {

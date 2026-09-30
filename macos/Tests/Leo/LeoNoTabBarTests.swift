@@ -166,15 +166,16 @@ import Testing
     }
 
     /// B-066: the start screen's Choose Agent… tooltip names the palette's
-    /// real shortcut (⌘O), not ⌘T, which makes a terminal.
+    /// real shortcut (⌘O), not ⌘T, which makes a terminal. B-080: it is
+    /// read off the live menu item.
     @Test func thePlaceholderHintNamesChooseAgentsMenuShortcut() throws {
         let item = try #require(menuItems(#selector(TerminalController.chooseLeoAgent(_:))).first)
-        let shortcut = "⌘" + item.keyEquivalent.uppercased()
+        let hints = try #require((NSApp.delegate as? AppDelegate)?.leoRuntime.shortcutHints)
 
-        let help = LeoPlaceholderChooseAgent(host: .local, connectivity: .connected).help
+        let help = LeoPlaceholderChooseAgent(host: .local, connectivity: .connected, shortcut: hints.chooseAgent).help
 
-        #expect(help != "⌘T", "⌘T is New Terminal")
-        #expect(help == shortcut)
+        #expect(help == "⌘O")
+        #expect(help == LeoMenuShortcutHint.text(for: item))
     }
 
     @Test func closeTabIsHidden() {

@@ -3,19 +3,21 @@ import Foundation
 /// Whether the placeholder's "Choose Agent…" can be pressed, and its
 /// tooltip. While the feed is disconnected the palette could only show the
 /// same banner, so the button is disabled and says how to get back (D-067).
+/// Otherwise the tooltip is the menu item's live `shortcut` (B-080), and
+/// there is none when the item has no shortcut.
 struct LeoPlaceholderChooseAgent: Equatable {
     let isEnabled: Bool
-    let help: String
+    let help: String?
     /// Drawn as the window's prominent action only while it can be pressed.
     var isProminent: Bool { isEnabled }
 
-    init(host: LeoHostID, connectivity: LeoConnectivity) {
+    init(host: LeoHostID, connectivity: LeoConnectivity, shortcut: String?) {
         if let banner = LeoDisconnectedBanner(host: host, connectivity: connectivity) {
             isEnabled = false
             help = "\(banner.title). Reconnect first (⇧⌘R)."
         } else {
             isEnabled = true
-            help = LeoWindowTabbing.chooseAgentShortcut
+            help = shortcut
         }
     }
 }
