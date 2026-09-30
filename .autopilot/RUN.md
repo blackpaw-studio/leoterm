@@ -127,3 +127,14 @@ Lane: B-074
 - B-074 runner: ready at 995fab04e (suite green, lint clean; general full then delta; implementer/opus, 1 fix round; stayed light). Finding: no titlebar style draws the traffic lights over the sidebar; the real bug was an empty ~52 pt band at the top in hidden style. Now 14 pt in hidden; other styles unchanged (shots for hidden, transparent, native, tabs). Polish filed as B-099 (scroll-test flake, seen twice), B-100.
 - B-074 landed (merge 15a4fb832).
 Finished 8: B-074 landed 15a4fb832 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-074-1.png
+
+Lane: B-075
+  Branch: autopilot-lane/B-075
+  Base: 5050edce58ce767156cff981d80e5cf3572b1224
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-30T09:28:44Z
