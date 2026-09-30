@@ -108,11 +108,12 @@ Accept: verify.md's palette instructions name Choose Agent… (⌘O); the B-057 
 Source: autopilot polish (B-066)
 Done: no code change — verify.md edited by the orchestrator (dca59c5f9): palette is Choose Agent… (⌘O); search filter via Find Agent… + type/delete. Decision D-167.
 
-## B-078 · Tests for B-067's calm-scroll claims   [ready]
+## B-078 · Tests for B-067's calm-scroll claims   [done]
 Issue: #82
 Why: "a retitle doesn't move the scroll offset" and "re-selecting a row already on screen doesn't scroll" hold only by construction; nothing catches a regression
 Accept: tests assert both; reword the misleading doc comment on aNewRowBelowAListedOneIsRevealedWhole's "same turn" case (it passed before the fix)
 Source: autopilot polish (B-067)
+Done: 125f2a501. (1799 tests). Tests pin that a retitle/refresh doesn't scroll and re-selecting an on-screen row doesn't scroll; each proved red by a mutation; doc comment reworded. Decisions D-178..D-179.
 
 ## B-079 · Terminals row label polish (tooltip, trimmed title, test comments)   [ready]
 Issue: #83

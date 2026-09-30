@@ -165,7 +165,7 @@ Lane: B-078
   Branch: autopilot-lane/B-078
   Base: 4d8808cd40f9077443bc24053919a2517f8d9f7f
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -174,3 +174,5 @@ Lane: B-078
   Call: Run-loop turn counting (afterPendingUpdates, 5 turns) proves nothing scrolled where there's no event to wait for — AUTONOMY test infra
   Call: The agent-row factory moved to static agents(count:) (test code only) — AUTONOMY test infra
 - B-078 runner: ready at 827ab9de9 (1799/1799, lint clean; general full; implementer/opus, 0 fix rounds; GUI skipped, test-only). Verifier's mutations turned each new test red. Polish filed as B-103; B-099 hint noted.
+- B-078 landed (merge 442cac897).
+Finished 11: B-078 landed 442cac897 · not visually verified

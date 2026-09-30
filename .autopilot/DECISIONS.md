@@ -1324,3 +1324,17 @@ Chose: A bare T (empty <modifierMask/>) on any item except New Terminal (newTab:
 Why: AUTONOMY implementation approach
 Commit: 922ba4b00
 Veto: [ ]
+
+## D-178 · 2026-09-30 · Run-loop turn counting (afterPendingUpdates, 5 turns) proves nothing …
+Context: B-078 (runner call).
+Chose: Run-loop turn counting (afterPendingUpdates, 5 turns) proves nothing scrolled where there's no event to wait for
+Why: AUTONOMY test infra
+Commit: 125f2a501
+Veto: [ ]
+
+## D-179 · 2026-09-30 · The agent-row factory moved to static agents(count:) (test code only)
+Context: B-078 (runner call).
+Chose: The agent-row factory moved to static agents(count:) (test code only)
+Why: AUTONOMY test infra
+Commit: 125f2a501
+Veto: [ ]
