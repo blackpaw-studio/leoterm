@@ -184,6 +184,17 @@ Why: B-085 verify: Dock reopen and the fallback New Window still route through t
 Accept: reopen and fallback New Window open the bare start screen with no palette flash; test
 Source: autopilot polish (B-085)
 
+## B-096 · B-086 test and doc fixes   [ready (next run)]
+Why: B-086 review: firstFillAfterAStartScreenLeaveKeepsTheFrame can never fail (initialSize is set after the refill and the size step is never called); LeoFirstAttachWindowSizeTests doc comment (~L141) wrongly says New Terminal can fill before the window shows
+Accept: the test calls leoApplyInitialSize after setting initialSize and fails without the B-086 guard (or is dropped); the comment is corrected
+Source: autopilot polish (B-086)
+
+## B-097 · Bug — Reset Window Size shrinks a start-screen window   [ready (next run)]
+Type: bug
+Report: B-086 review (both lenses): Reset Window Size (returnToDefaultSize / reset_window_size) still reads the SwiftUI intrinsic size because container.initialContentSize stays nil for start-screen windows; the same class of shrink as B-086 when window-width/window-height are set. Suggested fix: set initialContentSize = leoConfiguredContentSize on first fill
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot polish (B-086)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
