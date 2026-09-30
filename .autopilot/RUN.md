@@ -253,10 +253,15 @@ Finished 15: B-082 landed 2c957c192 · shot /Users/evan/.leo/agents/leoterm/.git
 Lane: B-083
   Branch: autopilot-lane/B-083
   Base: 5d329e0dd168f9aa1bc8585dd7c67cba512778fd
-  Tier: light
-  State: building
+  Tier: light→full
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 8faecd5ed37ad4096b66639db58f7b1a9a0fd16a
   Dispatched: 2026-09-30T12:49:33Z
+  Call: Dismiss point 5 (cross-window Move Split undo) in B-083 and park the cross-window surface move (ownership, rows, undo) as its own follow-up (B-110) — AUTONOMY implementation approach; P2 no half-fixed state; D-141 forbids clearing the other window's undo
+  Call: Document the cross-window limit in the leoForgetContentUndo doc, not in code — AUTONOMY implementation approach
+  Call: Put point 3's processExited assertion in the shared helper expectUndoLeftTheSwitchAlone so both callers get it — AUTONOMY test infrastructure
+  Call: Delete the now-wrong LeoUndoTestSupport paragraph about avoiding removeAllActions() — AUTONOMY implementation approach
+- B-083 runner: ready at 8faecd5ed (1834/1834, lint clean; promoted light→full on point 5; general + concurrency full, no blocking; implementer/opus, 0 fix rounds). ExpiringUndoManager.removeAllActions no longer crashes (red: "Simultaneous accesses"). Point 5 parked as B-110; polish filed as B-111.

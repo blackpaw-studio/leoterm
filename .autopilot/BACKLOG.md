@@ -269,6 +269,16 @@ Why: B-082 verify: after File > Close on a split pane, its shell (pid 36119) was
 Accept: confirm or rule out with a test; if real, closing a pane ends its shell promptly
 Source: autopilot polish (B-082)
 
+## B-110 · Dragging a Leo surface between windows: rows, window ownership and undo   [ready (next run)]
+Why: B-083 (point 5, parked): the host keeps surface S under window A after splitDidDrop or drag-to-new-window; the Move Split undo halves misbehave after either window swaps, and ⌘Z can free S's shell without a confirm once the redo expires (P2: nothing dies without asking). Candidate fixes: (a) a swap-generation guard in upstream's cross-window branches, or (b) moving row ownership on drop
+Accept: failing tests reproduce the orphaned ownership and the unconfirmed shell free; after the fix a moved surface belongs to (and is reachable from) the window it's in, and no undo path frees a shell without asking
+Source: autopilot (B-083 dismissal)
+
+## B-111 · Undo docs and test-name polish   [ready (next run)]
+Why: B-083 review: leoForgetContentUndo's doc (TerminalController+Leo.swift:68-71) says "Close Terminal + replace", which fits only splitDidDrop (say "one action per window") and understates the cross-window effect (name the B-110 shell-free risk); redundant removeAllActions(withTarget:) before leoRemoveActionsTestsCanReplay at LeoTerminalControllerEditorCloseTests.swift:~99; rename removeAllActionsDropsExpiringUndosWithoutReentering to ...WithoutAnExclusivityViolation; the removeAllActions() comment doesn't mention the explicit expire() plus the idempotent second expire
+Accept: each fixed or explicitly dismissed; suite green
+Source: autopilot polish (B-083)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
