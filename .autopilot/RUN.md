@@ -267,3 +267,14 @@ Lane: B-083
 - B-083 runner: ready at 8faecd5ed (1834/1834, lint clean; promoted light→full on point 5; general + concurrency full, no blocking; implementer/opus, 0 fix rounds). ExpiringUndoManager.removeAllActions no longer crashes (red: "Simultaneous accesses"). Point 5 parked as B-110; polish filed as B-111.
 - B-083 landed (merge 44bc4c74a).
 Finished 16: B-083 landed 44bc4c74a · not visually verified
+
+Lane: B-061
+  Branch: autopilot-lane/B-061
+  Base: c5d634ff6f69f5a94959c42eb14493c829377de7
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-30T13:09:18Z
