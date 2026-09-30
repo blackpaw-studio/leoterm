@@ -182,9 +182,10 @@ import OSLog
     /// still on screen or not: its close lands a turn late, or once a
     /// confirm is answered, so a reveal may have hidden it meanwhile.
     /// Shown, it closes on screen (`closeShownTerminal`); hidden, it is
-    /// let go from the keep and nothing on screen changes; already gone
-    /// (Ghostty's close observer got there first), nothing happens. Any
-    /// order of the two ends the same.
+    /// let go from the keep and nothing on screen changes (a selection on
+    /// its row returns to what is shown, `removeTerminalRow`); already
+    /// gone (Ghostty's close observer got there first), nothing happens.
+    /// Any order of the two ends the same.
     func closeTerminal(_ handle: AttachmentHandle) {
         guard let (controller, surface) = liveSurface(handle) else { return }
         if controller.surfaceTree.contains(surface) { return closeShownTerminal(handle, surface: surface, in: controller) }
