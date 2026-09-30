@@ -5,10 +5,21 @@ import Sparkle
 class UpdateDriver: NSObject, SPUUserDriver {
     let viewModel: UpdateViewModel
     let standard: SPUStandardUserDriver
+    /// False in debug builds: every reply to Sparkle is gated so nothing
+    /// is ever installed (see `UpdatePolicy`).
+    let installsAllowed: Bool
+    private let unobtrusiveTargetCheck: () -> Bool
 
-    init(viewModel: UpdateViewModel, hostBundle: Bundle) {
+    init(
+        viewModel: UpdateViewModel,
+        hostBundle: Bundle,
+        installsAllowed: Bool = UpdatePolicy.installsAllowed,
+        hasUnobtrusiveTarget: @escaping () -> Bool = UpdateDriver.anyTerminalWindowIsVisible
+    ) {
         self.viewModel = viewModel
         self.standard = SPUStandardUserDriver(hostBundle: hostBundle, delegate: nil)
+        self.installsAllowed = installsAllowed
+        self.unobtrusiveTargetCheck = hasUnobtrusiveTarget
         super.init()
 
         NotificationCenter.default.addObserver(
@@ -38,7 +49,12 @@ class UpdateDriver: NSObject, SPUUserDriver {
     }
 
     func show(_ request: SPUUpdatePermissionRequest,
-              reply: @escaping @Sendable (SUUpdatePermissionResponse) -> Void) {
+              reply sparkleReply: @escaping @Sendable (SUUpdatePermissionResponse) -> Void) {
+        // Debug builds never let an answer turn on automatic downloads.
+        let installsAllowed = installsAllowed
+        let reply: @Sendable (SUUpdatePermissionResponse) -> Void = { response in
+            sparkleReply(UpdatePolicy.gatedPermission(response, installsAllowed: installsAllowed))
+        }
         viewModel.state = .permissionRequest(.init(request: request, reply: { [weak viewModel] response in
             viewModel?.state = .idle
             reply(response)
@@ -59,9 +75,25 @@ class UpdateDriver: NSObject, SPUUserDriver {
     func showUpdateFound(with appcastItem: SUAppcastItem,
                          state: SPUUserUpdateState,
                          reply: @escaping @Sendable (SPUUserUpdateChoice) -> Void) {
+        showUpdateFound(with: appcastItem, stage: state.stage, reply: reply) { [standard] gatedReply in
+            standard.showUpdateFound(with: appcastItem, state: state, reply: gatedReply)
+        }
+    }
+
+    /// `showUpdateFound` given only the update's stage, so tests can drive
+    /// it (`SPUUserUpdateState` has no public initializer). Debug builds can
+    /// find an update but never install it: both the popover and the
+    /// standard alert (`showStandardAlert`) get the gated reply.
+    func showUpdateFound(
+        with appcastItem: SUAppcastItem,
+        stage: SPUUserUpdateStage,
+        reply sparkleReply: @escaping @Sendable (SPUUserUpdateChoice) -> Void,
+        showStandardAlert: (@escaping @Sendable (SPUUserUpdateChoice) -> Void) -> Void
+    ) {
+        let reply = gated(sparkleReply, stage: stage)
         viewModel.state = .updateAvailable(.init(appcastItem: appcastItem, reply: reply))
         if !hasUnobtrusiveTarget {
-            standard.showUpdateFound(with: appcastItem, state: state, reply: reply)
+            showStandardAlert(reply)
         }
     }
 
@@ -161,7 +193,10 @@ class UpdateDriver: NSObject, SPUUserDriver {
         }
     }
 
-    func showReady(toInstallAndRelaunch reply: @escaping @Sendable (SPUUserUpdateChoice) -> Void) {
+    func showReady(toInstallAndRelaunch sparkleReply: @escaping @Sendable (SPUUserUpdateChoice) -> Void) {
+        // The update is already downloaded: a debug build skips it, since
+        // Dismiss would still install it when the app quits.
+        let reply = gated(sparkleReply, stage: .downloaded)
         if !hasUnobtrusiveTarget {
             standard.showReady(toInstallAndRelaunch: reply)
         } else {
@@ -200,9 +235,26 @@ class UpdateDriver: NSObject, SPUUserDriver {
 
     /// True if there is a target that can render our unobtrusive update checker.
     var hasUnobtrusiveTarget: Bool {
+        unobtrusiveTargetCheck()
+    }
+
+    static func anyTerminalWindowIsVisible() -> Bool {
         NSApp.windows.contains { window in
             (window is TerminalWindow || window is QuickTerminalWindow) &&
             window.isVisible
+        }
+    }
+
+    // MARK: Install Gate
+
+    /// `sparkleReply`, answering through `UpdatePolicy.gatedChoice`.
+    private func gated(
+        _ sparkleReply: @escaping @Sendable (SPUUserUpdateChoice) -> Void,
+        stage: SPUUserUpdateStage
+    ) -> @Sendable (SPUUserUpdateChoice) -> Void {
+        let installsAllowed = installsAllowed
+        return { choice in
+            sparkleReply(UpdatePolicy.gatedChoice(choice, stage: stage, installsAllowed: installsAllowed))
         }
     }
 }

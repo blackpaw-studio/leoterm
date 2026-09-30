@@ -11,6 +11,7 @@ final class GhosttyMouseStateTests: GhosttyCustomConfigCase {
     // https://github.com/ghostty-org/ghostty/pull/11276
     @MainActor func testSelectionFocusChange() async throws {
         let app = XCUIApplication()
+        app.launchArguments.append(contentsOf: Self.noUpdateChecksArguments)
         app.activate()
         // Write dummy text to a temp file, cat it into the terminal, then clean up
         let lines = (1...200).map { "Line \($0): The quick brown fox jumps over the lazy dog. Lorem ipsum dolor sit amet, consectetur adipiscing elit." }

@@ -122,36 +122,65 @@ Developer team, notarization fails with a team or authorization error.
 starts specifically to catch this early; treat that failure as a
 configuration problem to fix, not something to retry.
 
-## Auto-update (disabled while private)
+## Auto-update (on)
 
-Evan's decision: alpha, private repo, distribute via GitHub Releases; Sparkle
-auto-update is **off** until the repo goes public.
+The repo is public, so Sparkle auto-update is **on** (B-115). Leo finds and
+installs its own updates from GitHub Releases.
 
-- `macos/Ghostty-Info.plist` sets `SUEnableAutomaticChecks` to `NO`.
-  `build-app.sh` leaves that key alone (it used to delete it at build time —
-  don't reintroduce that).
-- `AppDelegate.ghosttyConfigDidChange` reads `SUEnableAutomaticChecks` from
-  the bundle's `Info.plist`: when it is `false`, it forces
-  `updater.automaticallyChecksForUpdates = false` and
-  `automaticallyDownloadsUpdates = false`, overriding whatever the `auto-update`
-  config option says. No background check ever runs, so no update error can
-  surface to the user unprompted.
-- The manual **Check for Updates…** menu item stays enabled: `UpdateController.checkForUpdates()`
-  already fails gracefully (an alert with retry/dismiss, not a crash) if the
-  private repo's appcast 404s, so it doesn't need to be hidden.
-- `leo-release.yml` still generates and publishes `appcast.xml` on every
-  release (cheap, and ready for the day auto-update is turned back on) even
-  though no client can reach it while the repo is private.
+- `macos/Ghostty-Info.plist` no longer sets `SUEnableAutomaticChecks`, and
+  `build-app.sh` doesn't touch it either (it used to delete it at build time;
+  don't reintroduce that). The feed URL (`UpdateFeed`) and `SUPublicEDKey` are
+  unchanged.
+- `AppDelegate.ghosttyConfigDidChange` applies `UpdatePolicy.settings`, which
+  maps the `auto-update` config to Sparkle:
+  - `off`: no background checks, no automatic downloads.
+  - `check`: background checks; an available update shows the update pill.
+  - `download`: background checks and silent downloads, installed on quit.
+  - unset: Leo leaves both alone, so Sparkle asks once ("check automatically?")
+    through the update pill's permission popover: on a fresh install's second
+    launch, and on an existing install's first launch of a B-115 build.
+    Every earlier build stored `SUEnableAutomaticChecks = NO` in the user's
+    defaults, which beats Info.plist, so `UpdateDefaultsMigration` clears it
+    (and `SUAutomaticallyUpdate`) once, behind the `LeoAutoUpdateDefaultsReset`
+    marker. Setting `auto-update` writes Sparkle's stored answer, so clearing
+    it again later keeps that answer and doesn't bring the prompt back.
+- The manual **Check for Updates…** menu item always works, whatever
+  `auto-update` says.
+- **Debug builds can check but never install.** Under `DEBUG`,
+  `UpdatePolicy.installsAllowed` is false, and every path Sparkle could install
+  through is closed:
+  - `auto-update` (set or unset) never turns automatic downloads on, and a
+    permission answer can't either (`UpdatePolicy.settings`, `gatedPermission`).
+  - `UpdateDriver` gates every reply: before a download, Install becomes
+    Dismiss; once an update is downloaded or installing (`showReady`, or
+    `showUpdateFound` at a later stage), every choice becomes Skip, because
+    Sparkle still installs a dismissed staged update on quit.
+  - Sparkle's standard alert still shows its "Automatically download and
+    install updates" checkbox. If someone ticks it, the delegate refuses the
+    next background check (`UpdatePolicy.mayCheck`), so Sparkle's silent
+    download-and-install-on-quit driver never runs. The next launch or config
+    reload turns the setting back off.
+  - The popover says "Debug build: installing is disabled" and disables Install.
 
-**When the repo goes public**, to re-enable auto-update:
+  The debug `CFBundleVersion` is 1, so Check for Updates… in a debug build
+  always reports the newest release as available. That exercises the feed
+  without touching the app. XCTest hosts never start the updater, and the UI
+  tests launch the app with `-SUEnableAutomaticChecks NO`.
+- `leo-release.yml` generates and publishes `appcast.xml` on every release.
+  `macos/Tests/Update/Fixtures/appcast.xml` is a verbatim copy of the published
+  appcast, and `AppcastFixtureTests` checks the newest item, its version and
+  its `edSignature` parse. Refresh the copy when the appcast format changes;
+  it doesn't need to track every release.
 
-1. Remove or set `SUEnableAutomaticChecks` to `YES` in `macos/Ghostty-Info.plist`.
-2. Revert the `build-app.sh` comment/behavior note above (no script change
-   needed once the plist key itself changes).
-3. Confirm `https://github.com/blackpaw-studio/leoterm/releases/latest/download/appcast.xml`
-   resolves anonymously (no auth prompt / 404).
-4. Do a manual "Check for Updates…" against a real release to confirm the
-   full Sparkle flow (download, verify, install) before relying on background checks.
+Going-public checklist (done 2026-09-30 unless noted):
+
+1. [x] Remove `SUEnableAutomaticChecks` from `macos/Ghostty-Info.plist`.
+2. [x] Update the `build-app.sh` comment (no script change needed).
+3. [x] Confirm `https://github.com/blackpaw-studio/leoterm/releases/latest/download/appcast.xml`
+   resolves anonymously (no auth prompt, no 404).
+4. [ ] Evan: after the next release, run Check for Updates… on a real
+   (non-debug) install and confirm the full Sparkle flow (download, verify,
+   install, relaunch).
 
 ## After an upstream sync
 

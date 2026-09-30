@@ -51,12 +51,10 @@ pb() { /usr/libexec/PlistBuddy -c "$1" "$plist" >&2; }
 pb "Set :GhosttyCommit $COMMIT"
 pb "Set :CFBundleVersion $BUILD"
 pb "Set :CFBundleShortVersionString $SHORT_VERSION"
-# SUEnableAutomaticChecks stays NO (set in Ghostty-Info.plist) while the repo
-# is private: an anonymous Sparkle client 404s on the appcast, so automatic
-# checks would only ever fail. AppDelegate.ghosttyConfigDidChange reads this
-# key and disables both automaticallyChecksForUpdates and
-# automaticallyDownloadsUpdates when it is false. Flip this back to a plain
-# "ask the user" default (delete the key, or set it true) once the repo goes
-# public -- see docs/leo/ci.md.
+# Auto-update is on: Ghostty-Info.plist no longer sets SUEnableAutomaticChecks,
+# and this script leaves Sparkle's keys alone (the feed URL and SUPublicEDKey
+# stay as built). AppDelegate.ghosttyConfigDidChange applies the `auto-update`
+# config (off/check/download) through UpdatePolicy; unset lets Sparkle ask the
+# user once. See docs/leo/ci.md "Auto-update (on)".
 
 echo "$app"
