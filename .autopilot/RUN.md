@@ -192,3 +192,14 @@ Lane: B-079
 - B-079 runner: ready at 74788f654 (1801/1801, lint clean; general full, no findings; implementer/opus, 0 fix rounds). GUI: tooltip "~ (2)" under the hovered suffix. Polish (help aliases text) not filed: trivial.
 - B-079 landed (merge b7bff26e4).
 Finished 12: B-079 landed b7bff26e4 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-079-1.png
+
+Lane: B-080
+  Branch: autopilot-lane/B-080
+  Base: 48df7593a3dd028c80ed4e627020861f33d443f3
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-30T11:04:08Z
