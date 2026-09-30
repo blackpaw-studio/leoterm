@@ -145,6 +145,22 @@ Why: B-071 verify: the close confirm doesn't say which pane/row it will close, w
 Accept: the confirm names the row/pane being closed; test
 Source: autopilot polish (B-071)
 
+## B-089 · Sidebar width persistence hardening   [ready (next run)]
+Why: B-084 review: lastPersistedWidth records the requested width, not the applied one (narrow-then-widen launch could persist a clamped width); the pending branch's programmatic-width flag relies on pendingWidth always clearing via applyProgrammaticWidth; "leo.sidebarWidth" literal repeated 3x
+Accept: lastPersistedWidth comes from the sidebar's actual frame after setPosition, with a harness case for narrow-then-widen; the flag is documented or dropped; one key constant; suite green
+Source: autopilot polish (B-084)
+
+## B-090 · Bug — a sidebar hidden at launch un-collapses, then re-collapses with animation   [ready (next run)]
+Type: bug
+Report: B-084 review/implementer: a sidebar that starts hidden is un-collapsed by the pending setPosition at first layout, then re-collapsed with an animation (pre-existing). Breaks P2 calm and "hidden with ⌘⇧L stays hidden"
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot polish (B-084)
+
+## B-091 · Wide sidebar truncates the content toolbar   [ready (next run)]
+Why: B-084 verify: at a 420 pt sidebar in an 800 pt window, "Show Terminal Drawer" truncates
+Accept: a content minimum width (or a sidebar maximum tied to window width) keeps content controls untruncated; test + screenshot
+Source: autopilot polish (B-084)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
