@@ -12,7 +12,10 @@ struct LeoLaunchPlaceholderTests {
     private final class FakeWindow: LeoLaunchPlaceholderWindow {
         var isPristineLeoPlaceholder = true
         private(set) var isClosed = false
+        private(set) var spotsHeld = 0
         var onClose: () -> Void = {}
+
+        func holdSpotForReplacement() { spotsHeld += 1 }
 
         func closeReplacedLeoPlaceholder() {
             isClosed = true
@@ -60,6 +63,22 @@ struct LeoLaunchPlaceholderTests {
         #expect(!closedBeforeTheRequestedWindowShows)
         #expect(launch.isClosed)
         #expect(!requested.isClosed)
+    }
+
+    /// The requested window cascades onto the launch window's spot rather
+    /// than one step off it: held before the requested window shows (a
+    /// new-tab window cascades as it shows) and again as the launch window
+    /// closes (a new window cascades a turn later).
+    @Test func requestedWindowTakesTheLaunchWindowsSpot() {
+        let harness = Harness()
+        let tracker = makeTracker(harness)
+        let launch = FakeWindow()
+
+        tracker.adopt(launch)
+        tracker.windowDidOpen(FakeWindow())
+        let heldBeforeTheRequestedWindowShows = launch.spotsHeld
+
+        #expect(heldBeforeTheRequestedWindowShows == 1)
     }
 
     @Test func launchWindowTheUserTouchedStays() {
@@ -134,10 +153,10 @@ struct LeoLaunchPlaceholderTests {
         #expect(harness.isObservingInput)
     }
 
-    /// The review's blocking case where AppKit counts the script's or
-    /// intent's launch as a default one: the hop opens the launch window,
-    /// the request's window arrives after it, and one window is left.
-    @Test func defaultLaunchEndsWithOnlyTheRequestedWindow() {
+    /// The review's blocking case: the hop opens the launch window, then a
+    /// cold `make new window` script, New Terminal intent or New Window
+    /// Here service opens its window and activates the app. One is left.
+    @Test func requestLaunchEndsWithOnlyTheRequestedWindow() {
         let harness = Harness()
         let tracker = makeTracker(harness)
         var windows: [FakeWindow] = []
@@ -154,7 +173,7 @@ struct LeoLaunchPlaceholderTests {
             schedule: { harness.queued.append($0) }
         )
 
-        opener.didFinishLaunching(isDefaultLaunch: true)
+        opener.didFinishLaunching()
         harness.runQueued()
         let requested = open()
         tracker.windowDidOpen(requested)

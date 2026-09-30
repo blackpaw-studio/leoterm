@@ -1,24 +1,22 @@
-import AppKit
 import Testing
 
 @testable import Ghostty
 
 /// B-085: the launch hop, activation and reopen all go through one
-/// `LeoInitialWindowOpener`, and so one gate. Every launch ends with
-/// exactly one window: a default launch opens it from the hop, active or
-/// not; a launch that came to run a script, an App Intent or a Service
-/// ends with only the window that request opened.
+/// `LeoInitialWindowOpener`, and so one gate: every launch opens exactly
+/// one window from the hop, active or not. (A launch a script, App Intent
+/// or Service started ends with only the window it asked for: see
+/// `LeoLaunchPlaceholderTests`.)
 @MainActor
 struct LeoInitialWindowOpenerTests {
-    /// Stands in for the app: windows the opener opened, windows a request
-    /// opened, and the launch hop queued but not yet run.
+    /// Stands in for the app: the windows the opener opened, and the
+    /// launch hop queued but not yet run.
     private final class FakeApp {
         var opened = 0
-        var requested = 0
         var initialWindow = true
         var queued: [@MainActor () -> Void] = []
 
-        var windowCount: Int { opened + requested }
+        var windowCount: Int { opened }
 
         @MainActor func runQueued() {
             let blocks = queued
@@ -40,7 +38,7 @@ struct LeoInitialWindowOpenerTests {
         let app = FakeApp()
         let opener = makeOpener(app)
 
-        opener.didFinishLaunching(isDefaultLaunch: true)
+        opener.didFinishLaunching()
         let openedBeforeTheHop = app.opened
         app.runQueued()
 
@@ -52,7 +50,7 @@ struct LeoInitialWindowOpenerTests {
         let app = FakeApp()
         let opener = makeOpener(app)
 
-        opener.didFinishLaunching(isDefaultLaunch: true)
+        opener.didFinishLaunching()
         app.runQueued()
         opener.didBecomeActive()
         opener.didBecomeActive()
@@ -64,37 +62,9 @@ struct LeoInitialWindowOpenerTests {
         let app = FakeApp()
         let opener = makeOpener(app)
 
-        opener.didFinishLaunching(isDefaultLaunch: true)
+        opener.didFinishLaunching()
         opener.didBecomeActive()
         app.runQueued()
-
-        #expect(app.opened == 1)
-    }
-
-    /// The review's blocking case: a cold `make new window` script, New
-    /// Terminal intent or New Window Here service reaches the app after
-    /// `applicationDidFinishLaunching` -- after the hop -- then activates it.
-    /// The launch must end with only the requested window.
-    @Test func requestLaunchEndsWithOnlyTheRequestedWindow() {
-        let app = FakeApp()
-        let opener = makeOpener(app)
-
-        opener.didFinishLaunching(isDefaultLaunch: false)
-        app.runQueued()
-        app.requested += 1
-        opener.didBecomeActive()
-
-        #expect(app.opened == 0)
-        #expect(app.windowCount == 1)
-    }
-
-    @Test func requestLaunchThatOpensNoWindowOpensOneOnActivation() {
-        let app = FakeApp()
-        let opener = makeOpener(app)
-
-        opener.didFinishLaunching(isDefaultLaunch: false)
-        app.runQueued()
-        opener.didBecomeActive()
 
         #expect(app.opened == 1)
     }
@@ -103,7 +73,7 @@ struct LeoInitialWindowOpenerTests {
         let app = FakeApp()
         let opener = makeOpener(app)
 
-        opener.didFinishLaunching(isDefaultLaunch: true)
+        opener.didFinishLaunching()
         let beforeTheHop = opener.shouldOpenOnReopen(hasVisibleWindows: false)
         app.runQueued()
         let withTheLaunchWindow = opener.shouldOpenOnReopen(hasVisibleWindows: true)
@@ -113,14 +83,5 @@ struct LeoInitialWindowOpenerTests {
         #expect(!beforeTheHop)
         #expect(!withTheLaunchWindow)
         #expect(withNoWindowLeft)
-    }
-
-    @Test func defaultLaunchReadsAppKitsKeyAndAssumesDefaultWithoutIt() {
-        let key = NSApplication.launchIsDefaultUserInfoKey
-
-        #expect(!LeoInitialWindowOpener.isDefaultLaunch(userInfo: [key: NSNumber(value: false)]))
-        #expect(LeoInitialWindowOpener.isDefaultLaunch(userInfo: [key: NSNumber(value: true)]))
-        #expect(LeoInitialWindowOpener.isDefaultLaunch(userInfo: nil))
-        #expect(LeoInitialWindowOpener.isDefaultLaunch(userInfo: [:]))
     }
 }
