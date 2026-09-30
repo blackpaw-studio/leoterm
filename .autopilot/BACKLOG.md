@@ -97,11 +97,12 @@ Why: the guard at LeoNoTabBarTests:92-93 can only pass: New Terminal takes ⌘T 
 Accept: the guard fails if any xib item other than New Terminal binds ⌘T (including an empty modifierMask), or its message is reworded to say what it really checks; suite green
 Source: autopilot polish (B-066)
 
-## B-077 · verify.md: palette is Choose Agent… (⌘O), not File ▸ New Tab   [ready]
+## B-077 · verify.md: palette is Choose Agent… (⌘O), not File ▸ New Tab   [done]
 Issue: #81
 Why: verify.md still says "the agent palette opens with File ▸ New Tab"; that menu item is now New Terminal (⌘T), and the palette is Choose Agent… (⌘O)
 Accept: verify.md's palette instructions name Choose Agent… (⌘O); the B-057 GUI tip is corrected (AX set-value on the search field changes its text but not the filter; use Agents ▸ Find Agent… plus peekaboo type / press delete, per B-067 verify)
 Source: autopilot polish (B-066)
+Done: no code change — verify.md edited by the orchestrator (dca59c5f9): palette is Choose Agent… (⌘O); search filter via Find Agent… + type/delete. Decision D-167.
 
 ## B-078 · Tests for B-067's calm-scroll claims   [ready]
 Issue: #82

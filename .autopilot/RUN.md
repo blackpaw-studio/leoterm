@@ -105,3 +105,5 @@ Lane: B-072
 - B-072 runner: ready at a88c3c1b2 (wrapperless 1788/1788 twice, lint clean; general+concurrency+security full then delta; implementer-hard/opus, 1 fix round). Fix in src/global.zig: syncEnviron keeps its own copy. GUI smoke: New Terminal rows spawn, HOME/TERM reach the child. verify.md updated (orchestrator). Shared post-B-072 xcframework copied to .git/autopilot/shared/. Red runs left 5 .ghosttycrash files in ~/.local/state/ghostty/crash/ (not deleted). Polish filed as B-098.
 - B-072 landed (merge 668489764).
 Finished 5: B-072 landed 668489764 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-072-1.png
+- B-077 applied directly by the orchestrator (verify.md only; lanes can't change .autopilot/), dca59c5f9. D-167.
+Finished 6: B-077 done (no code change)

@@ -1247,3 +1247,10 @@ Chose: Zig comments don't mention B-072 (keeps the upstream diff neutral)
 Why: AUTONOMY: minimal Zig
 Commit: a88c3c1b2 3631ebc4b 96c0589bc 508100cd3 2463458fd 0f9f87938
 Veto: [ ]
+
+## D-167 · 2026-09-30 · verify.md-only items are applied by the orchestrator, not a lane
+Context: B-077. Lanes can't change .autopilot/ (land refuses), so a runner can't deliver an item whose whole change is verify.md.
+Chose: The orchestrator edits verify.md directly as a state commit and marks the item done with no code change
+Why: AUTONOMY implementation approach / test infra
+Commit: dca59c5f9
+Veto: [ ]
