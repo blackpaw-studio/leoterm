@@ -39,7 +39,7 @@ Lane: B-092
   Branch: autopilot-lane/B-092
   Base: 6d0774aae56de0e3550d1f882ffd0b3882f3eb4e
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
@@ -54,3 +54,5 @@ Lane: B-092
 - B-092: orphaned implementer-hard finished fix round 1 at 8094e6416 (pid-in-mark + kqueue NOTE_EXIT wait + non-blocking re-acquire; bounded 5 s release retry deviation). Its full suite timed out at load 200-460 (not green). Orphaned fixture pid 22743 (fake_ssh.py) left alive; kill was denied to it and not done here. Fresh build runner dispatched to resume at integrate/review/verify, Fix-base e03a59f96.
 - B-092 runner and its reviewers/verifier died on an expired OAuth token (401) after integrating (eaa8a9594). Evan re-ran /login; redispatched the same resume brief rather than stopping the run. The dead verifier's suite (pid 47142, timeout 3000) was still running in the lane.
 - B-092 runner: ready at 70179b891 (general/concurrency/security delta from e03a59f96; both blocking findings confirmed fixed). 1875/1875 on run 3 (two unrelated load flakes in runs 1-2). GUI race 12/12 left exactly one Leo; D-051 holds.
+- B-092 landed (merge 22fe40225).
+Finished 2: B-092 landed 22fe40225 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-092-1.png

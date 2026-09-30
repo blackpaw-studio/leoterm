@@ -1583,3 +1583,38 @@ Chose: B-084's aHiddenSidebarShownAfterLaunchOpensAtTheStoredWidth now uses `try
 Why: AUTONOMY test-infra latitude
 Commit: 980ec80b4, 8e7cd5d02
 Veto: [ ]
+
+## D-215 · 2026-09-30 · Store the exiting mark inside the existing lock file, not a separate …
+Context: B-092 (runner call).
+Chose: Store the exiting mark inside the existing lock file, not a separate marker or a LaunchServices check (B-085 showed isTerminated is unreliable)
+Why: AUTONOMY implementation approach
+Commit: 85ca7d75b, 712e5b926, 8094e6416
+Veto: [ ]
+
+## D-216 · 2026-09-30 · The waiting copy shows no UI and has no timeout while a quitting hold…
+Context: B-092 (runner call).
+Chose: The waiting copy shows no UI and has no timeout while a quitting holder is alive
+Why: P5, P2
+Commit: 85ca7d75b, 712e5b926, 8094e6416
+Veto: [ ]
+
+## D-217 · 2026-09-30 · Mark on quit approval (every terminateNow/true reply) plus in applica…
+Context: B-092 (runner call).
+Chose: Mark on quit approval (every terminateNow/true reply) plus in applicationWillTerminate as a backstop
+Why: AUTONOMY bug fix
+Commit: 85ca7d75b, 712e5b926, 8094e6416
+Veto: [ ]
+
+## D-218 · 2026-09-30 · Wait on the marked pid via kqueue NOTE_EXIT, then a bounded ~5 s rele…
+Context: B-092 (runner call).
+Chose: Wait on the marked pid via kqueue NOTE_EXIT, then a bounded ~5 s release retry (2 ms × 2500) covering XNU's exit-before-flock-release gap, then yield per D-051
+Why: P5 (not a user-facing retry)
+Commit: 85ca7d75b, 712e5b926, 8094e6416
+Veto: [ ]
+
+## D-219 · 2026-09-30 · A failed truncate on acquire refuses with the D-053 alert
+Context: B-092 (runner call).
+Chose: A failed truncate on acquire refuses with the D-053 alert
+Why: D-053
+Commit: 85ca7d75b, 712e5b926, 8094e6416
+Veto: [ ]

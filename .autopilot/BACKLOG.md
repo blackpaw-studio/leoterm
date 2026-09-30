@@ -190,12 +190,13 @@ Why: B-084 verify: at a 420 pt sidebar in an 800 pt window, "Show Terminal Drawe
 Accept: a content minimum width (or a sidebar maximum tied to window width) keeps content controls untruncated; test + screenshot
 Source: autopilot polish (B-084)
 
-## B-092 · Bug — a fast quit-then-reopen can leave no Leo running   [ready]
+## B-092 · Bug — a fast quit-then-reopen can leave no Leo running   [done]
 Issue: #96
 Type: bug
 Report: B-085 diagnosis: a new copy launched ~50 ms into the previous copy's quit (forced `open -n`) yields to the still-exiting copy under the single-instance lock, and then no Leo remains (1/5 forced, 0/24 via plain open). LaunchServices reports the dying copy isTerminated=false. Candidate fix: mark the lock "exiting" in applicationWillTerminate; a new copy that sees the mark blocks on flock instead of quitting (keeps D-051/D-053)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot polish (B-085)
+Done: 2026-09-30 · 85ca7d75b, 712e5b926, 8094e6416 · D-215, D-216, D-217, D-218, D-219
 
 ## B-093 · Launch-window replacement polish   [ready]
 Issue: #97
