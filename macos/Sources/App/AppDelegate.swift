@@ -312,8 +312,11 @@ class AppDelegate: NSObject,
         // Initial config loading
         ghosttyConfigDidChange(config: ghostty.config)
 
-        // Start our update checker.
-        updateController.startUpdater()
+        // Start our update checker. An XCTest host never does: it must not
+        // reach the network or show Sparkle's permission prompt mid-suite.
+        if !LeoSingleInstance.isRunningAsTestHost() {
+            updateController.startUpdater()
+        }
 
         // Register our service provider. This must happen after everything is initialized.
         NSApp.servicesProvider = ServiceProvider()
@@ -891,26 +894,20 @@ class AppDelegate: NSObject,
         default: UserDefaults.ghostty.removeObject(forKey: "NSQuitAlwaysKeepsWindows")
         }
 
-        // Sync our auto-update settings. If SUEnableAutomaticChecks (in our Info.plist) is
-        // explicitly false (NO), auto-updates are disabled. Otherwise, we use the behavior
-        // defined by our "auto-update" configuration (if set) or fall back to Sparkle
-        // user-based defaults.
-        if Bundle.main.infoDictionary?["SUEnableAutomaticChecks"] as? Bool == false {
-            updateController.updater.automaticallyChecksForUpdates = false
-            updateController.updater.automaticallyDownloadsUpdates = false
-        } else if let autoUpdate = config.autoUpdate {
-            updateController.updater.automaticallyChecksForUpdates =
-                autoUpdate == .check || autoUpdate == .download
-            updateController.updater.automaticallyDownloadsUpdates =
-                autoUpdate == .download
-            /*
-             To test `auto-update` easily, uncomment the line below and
-             delete `SUEnableAutomaticChecks` in Ghostty-Info.plist.
-
-             Note: When `auto-update = download`, you may need to
-             `Clean Build Folder` if a background install has already begun.
-             */
-            // updateController.updater.checkForUpdatesInBackground()
+        // Sync our auto-update settings from the "auto-update" config (B-115).
+        // Unset leaves Sparkle's own settings alone, so it asks the user once
+        // ("check automatically?") on the second launch. Debug builds never
+        // download automatically, whatever the config or an earlier answer says.
+        //
+        // Note: when testing `auto-update = download` in a release build, you
+        // may need to `Clean Build Folder` if a background install has begun.
+        let updater = updateController.updater
+        if let settings = UpdatePolicy.settings(for: config.autoUpdate, installsAllowed: UpdatePolicy.installsAllowed) {
+            updater.automaticallyChecksForUpdates = settings.checks
+            updater.automaticallyDownloadsUpdates = settings.downloads
+        }
+        if !UpdatePolicy.installsAllowed {
+            updater.automaticallyDownloadsUpdates = false
         }
 
         // Config could change keybindings, so update everything that depends on that
