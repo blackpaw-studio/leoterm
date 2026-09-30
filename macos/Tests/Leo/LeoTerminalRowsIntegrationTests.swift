@@ -817,6 +817,7 @@ import Testing
         #expect(fixture.host.isShown(busy))
         try? await Task.sleep(for: .milliseconds(200))
         #expect(busyView.view != nil, "not freed yet (the host's pool may hold it either way)")
+        #expect(busyView.view?.processExited == false, "its shell still runs")
         #expect(!fixture.events.events.contains(.closed(busy)), "its row never closed")
         #expect(fixture.terminals.rows.map(\.id) == rows)
         #expect(fixture.terminals.selection == busy.surfaceID)

@@ -88,7 +88,7 @@ struct LeoTerminalControllerEditorCloseTests {
     }
 
     /// B-071: the start screen kept for unsaved edits is one ⌘Z doesn't
-    /// cross either. Agent A with a split S; ⌘W A; S exits, so the start
+    /// cross either. Agent A with a split S; ⌘W A, then ⌘W S, so the start
     /// screen shows beside the editor; a shell is chosen there. ⌘Z then
     /// would replay [A, S] over that shell and drop it without asking.
     @Test func undoAfterTheStartScreenKeptForUnsavedEditsLeavesTheNewShellAlone() async throws {
