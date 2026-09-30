@@ -285,6 +285,16 @@ Why: B-061 review: LeoRecordingTemplateRunner nearly duplicates the private Temp
 Accept: one shared template-runner fake; LeoRuntime tests inject a fake LeoCLI runner; LeoAgentActions.init has no real-runner default and no test spawns a real process for templates
 Source: autopilot polish (B-061)
 
+## B-113 · Sidebar button bar polish   [ready (next run)]
+Why: B-065 review: LeoSidebarButton.send duplicates LeoPlaceholderNewTerminal.send and `newTab:` is defined twice (route the placeholder closures through LeoSidebarButton, TerminalView.swift:173-176, 200-203, 322-323); the start-screen placeholder closures still capture self in TerminalView (the capture that leaked displaced surfaces from the sidebar) — check for a leak; swapping the two closures in LeoSidebarView.perform passes every test (add a view-glue test with recording closures); parameterize the footer layout test over failed/loading states; the Quick Terminal glyph (rectangle.tophalf.inset.filled, also Split Up's) doesn't read as a drop-down terminal; the start screen says "Show Terminal Drawer" while the menu and button say "Quick Terminal"
+Accept: each fixed or explicitly dismissed; one naming for the quick terminal; tests for the closure wiring and footer states
+Source: autopilot polish (B-065)
+
+## B-114 · runtests.sh misses parameterized test failures in its grep   [ready (next run)]
+Why: B-065 implementer: runtests.sh's failure grep misses parameterized tests (names with `(_:)`); only the summary count catches them
+Accept: the failure list names parameterized failures; verify.md updated
+Source: autopilot polish (B-065)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)

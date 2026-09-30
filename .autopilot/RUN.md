@@ -306,9 +306,16 @@ Lane: B-065
   Branch: autopilot-lane/B-065
   Base: d1e5297faa91e7e191ccda6e6b301e49b81ee8bc
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: b53f52fdb20ce5123030a6966edf909713620807
   Dispatched: 2026-09-30T14:17:34Z
+  Call: The button bar is a sidebar footer, not the header (Finder/Mail/Xcode convention); keeps the top calm and D-122's layout untouched — P1 HIG, P2
+  Call: Icons: `terminal` (New Terminal) and `rectangle.tophalf.inset.filled` (Quick Terminal); borderless, secondary tint, no labels — P2
+  Call: Tooltip is "<Menu Title> <live shortcut>" via LeoMenuShortcutHint, title only when unbound (Quick Terminal is unbound by default) — P1, B-080
+  Call: Order: New Terminal, then Quick Terminal — P6
+  Call: 22×22 pt hit targets (named constant), spaced with LeoSidebarChromeMetrics.itemSpacing — AUTONOMY UX details
+  Call: Buttons are .focusable(false) so they don't steal terminal focus — P1
+- B-065 runner: ready at b53f52fdb (general full, no blocking; implementer/opus, 0 fix rounds). GUI: footer bar; New Terminal adds and selects a shell row; Quick Terminal opens and closes. Polish filed as B-113, B-114.
