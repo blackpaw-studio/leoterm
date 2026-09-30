@@ -288,10 +288,10 @@ struct LeoSidebarView: View {
 
     private var terminalSection: some View {
         Section(header: Text("Terminals")) {
-            ForEach(terminals.rows) { row in
-                LeoTerminalRowView(row: row) { terminals.activate(row.id) }
-                    .tag(Optional(LeoSidebarItemID.terminal(row.id)))
-                    .id(LeoSidebarItemID.terminal(row.id))
+            ForEach(terminals.list.labels) { label in
+                LeoTerminalRowView(label: label) { terminals.activate(label.id) }
+                    .tag(Optional(LeoSidebarItemID.terminal(label.id)))
+                    .id(LeoSidebarItemID.terminal(label.id))
             }
         }
     }

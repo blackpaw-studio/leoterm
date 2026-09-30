@@ -123,7 +123,9 @@ import Testing
         let fixture = try makeFixture()
         defer { close(fixture) }
 
-        let shell = try newShell(fixture)
+        // A stand-in that never titles itself: a real shell's prompt can
+        // retitle the row after `setTitle` (B-068).
+        let shell = try newShell(fixture, running: Self.standIn)
         let view = try #require(fixture.view(shell))
 
         #expect(fixture.terminals.rows.map(\.id) == [shell.surfaceID])
@@ -262,7 +264,9 @@ import Testing
     @Test func theStartScreenDropsTheClosedShellsWindowTitle() async throws {
         let fixture = try makeFixture()
         defer { close(fixture) }
-        let shell = try newShell(fixture)
+        // A stand-in that never titles itself: a real shell's prompt can
+        // retitle the window after `setTitle` (B-068).
+        let shell = try newShell(fixture, running: Self.standIn)
         let view = try #require(fixture.view(shell))
         // What `TerminalView` reports once the shell has focus.
         fixture.controller.focusedSurfaceDidChange(to: view)
