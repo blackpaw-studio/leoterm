@@ -249,3 +249,14 @@ Lane: B-082
 - B-082 runner: ready at b87998370 (1832/1832, lint clean; general + concurrency full, no blocking; implementer-hard/opus, 0 fix rounds). GUI: after File > Close on the original pane the "~" row stays selected on the surviving shell; the next New Terminal adds "~ (2)" and the survivor lives. Polish filed as B-107, B-108, B-109.
 - B-082 landed (merge 2c957c192).
 Finished 15: B-082 landed 2c957c192 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-082-8.png
+
+Lane: B-083
+  Branch: autopilot-lane/B-083
+  Base: 5d329e0dd168f9aa1bc8585dd7c67cba512778fd
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-30T12:49:33Z
