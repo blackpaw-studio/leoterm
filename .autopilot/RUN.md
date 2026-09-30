@@ -109,3 +109,14 @@ Finished 5: B-072 landed 668489764 · shot /Users/evan/.leo/agents/leoterm/.git/
 Finished 6: B-077 done (no code change)
 - B-073 applied directly by the orchestrator: already configurable (LEO_TEST_TIMEOUT); scratch runtests.sh default 900 s; verify.md note. D-168.
 Finished 7: B-073 done (no code change)
+
+Lane: B-074
+  Branch: autopilot-lane/B-074
+  Base: f72f253c362bab5a1a906492becaad8fe661b81c
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-30T08:30:04Z

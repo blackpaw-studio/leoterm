@@ -5,11 +5,11 @@ Evidence (2026-09-28, two temp worktrees at a8d9e29a5, labels par-a*/par-b*, hos
 All commands run from the worktree `~/.leo/autopilot/leoterm`. Tested 2026-09-22.
 
 ## Prereqs (once per worktree)
-The worktree needs the Zig-built xcframework. Symlink it from the main checkout,
+The worktree needs the Zig-built xcframework. Symlink the autopilot shared build,
 or rebuild it if `src/` changed:
 ```
-ln -s ~/.leo/agents/leoterm/macos/GhosttyKit.xcframework macos/GhosttyKit.xcframework
-ln -s ~/.leo/agents/leoterm/zig-out zig-out
+ln -s ~/.leo/agents/leoterm/.git/autopilot/shared/GhosttyKit.xcframework macos/GhosttyKit.xcframework   # post-B-072 build
+ln -s ~/.leo/agents/leoterm/.git/autopilot/shared/zig-out zig-out
 # If you edited src/ (Zig), replace the symlink with a real build:
 #   rm macos/GhosttyKit.xcframework
 #   DEVELOPER_DIR=/Applications/Xcode-26.3.0.app/Contents/Developer \
@@ -22,7 +22,7 @@ ln -s ~/.leo/agents/leoterm/zig-out zig-out
 
 ## Build + test (one script)
 ```
-bash scratchpad/runtests.sh <label>     # scratchpad/ is untracked; copy from ~/.leo/agents/leoterm/scratchpad/runtests.sh
+bash scratchpad/runtests.sh <label>     # scratchpad/ is untracked; copy from ~/.leo/agents/leoterm/.git/autopilot/worktree/scratchpad/runtests.sh
 ```
 - **Test-host environ crash fixed (B-072, 2026-09-30):** plain `bash scratchpad/runtests.sh <label>` runs green with no env-var wrapper. libghostty's `syncEnviron()` now copies the environment instead of pointing into libc's `environ`, which a test's `setenv` could free under the next new surface. `LeoEnvironSnapshotTests` guards it. With a pre-B-072 xcframework the plain runner still crashes the host (the old `LANG=… __CF_USER_TEXT_ENCODING=… __LLVM_PROFILE_RT_INIT_ONCE=…` prefix is only a stopgap).
 - Copy `scratchpad/runtests.sh` from the autopilot worktree (`~/.leo/agents/leoterm/.git/autopilot/worktree/scratchpad/runtests.sh`), not Evan's checkout: only that copy has D-057's "RUN INCOMPLETE"/LEO_TEST_TIMEOUT check.
