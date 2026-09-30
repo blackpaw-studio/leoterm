@@ -158,3 +158,35 @@ Calls: D-125..D-139
 Stopped: B-071 runner returned Error (harness forced hand-back while its fix-round verifier ran). Reviews on bc8aae9f1 approved; only verify missing. Left unlanded on autopilot-lane/B-071 (verifying, Fixes 1) for a re-verify at next preflight.
 Filed next run: B-076..B-083 (B-082 is a pre-existing split-close orphan bug). Inbox: 3 bugs queued mid-run.
 Lanes: landed lanes B-054..B-070 not removed (untracked build output); orphan verifier test host was running in lanes/B-071.
+
+## Run 2026-09-30 02:53Z → 18:02Z
+🛠 leoterm autopilot — 3 fixed, 14 shipped, 1 blocked
+Fixed
+• B-084 sidebar width remembered across launches (2dc23544c) · full
+• B-085 window always appears on launch (feb25ef04) · full
+• B-086 no tiny window on first attach (610f7170c) · full
+Shipped
+• B-071 ⌘Z of a split close no longer kills a busy hidden shell (8cede5a7f) · full
+• B-072 libghostty copies environ; test host no longer crashes (668489764) · full
+• B-074 hidden-titlebar band fixed (15a4fb832) · light
+• B-075 search field doesn't grab focus on launch (dcff3a923) · light
+• B-076, B-078 test tightening (98f02585d, 442cac897; not visually verified) · light
+• B-079 Terminals row label polish (b7bff26e4) · light
+• B-080 start-screen hints follow live keybinds (518efbdc4) · light
+• B-081 sidebar lands on selection/top after last shell closes (7c0ac3f91) · light
+• B-082 closing a row's pane beside a split hands the row on (2c957c192) · full
+• B-083 undo-manager re-entry crash + test polish (44bc4c74a; not visually verified) · light→full
+• B-061 template fetch injected in tests (55944084a; not visually verified) · light
+• B-062 tab-era renames, one agent predicate (232172574; not visually verified) · full
+• B-065 sidebar footer: New Terminal + Quick Terminal (c8804dee3) · full
+• B-073, B-077 done without a lane (verify.md/runtests.sh)
+Escalated to the hard implementer: B-082 (plan Difficulty: hard)
+Calls: D-140..D-211 (veto-able)
+Needs you
+• B-058 held on autopilot-lane/B-058 (shelve refused: untracked build output) — runner timed out at 3h mid fix round; 1 blocking item left (on-screen row reveal fires once). Resume next run? I'd pick yes.
+Filed next run: B-087..B-114 (incl. bugs B-090, B-092, B-097, B-109; B-110 cross-window drag can free a shell without asking)
+Next up: B-059, then B-087+
+Interim updates: 3 posted, through item 15
+Lanes: landed lanes kept (untracked build output); Untracked-left in main worktree and lanes/B-071
+Board sync: 1 failure (B-014 unknown status [deferred])
+Merge when happy: git -C /Users/evan/.leo/agents/leoterm merge autopilot
