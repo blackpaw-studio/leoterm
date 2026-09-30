@@ -61,9 +61,14 @@ Lane: B-069
   Branch: autopilot-lane/B-069
   Base: 84fb9f4ff009fbb18e8b1855a744587332dacc01
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: f12743766d043014cada1ae123bec4f572bc79aa
   Dispatched: 2026-09-30T00:26:01Z
+  Call: The start-screen New Terminal button sends ⌘T's newTab: to the clicked window's controller (nil-target fallback), so the row lands in that window — AUTONOMY UX
+  Call: The button is plain bordered; Choose Agent… stays the one prominent button — AUTONOMY layout/polish
+  Call: The button is always enabled, even while disconnected (a shell doesn't need the daemon) — AUTONOMY UX
+  Call: Its title and "⌘T" tooltip come from LeoWindowTabbing constants tied to the ⌘T menu item by a test (D-128 pattern) — principle 1, AUTONOMY copy
+- B-069 runner: ready at f12743766 (1727/1727, lint clean; general full; implementer/opus, 0 fix rounds). Polish filed as B-080.

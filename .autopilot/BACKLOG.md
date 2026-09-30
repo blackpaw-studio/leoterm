@@ -80,6 +80,11 @@ Why: B-068 review polish: hovering the "(2)" suffix shows no tooltip (`.help` si
 Accept: the tooltip covers the whole row label; displayTitle is trimmed; the comments cite the shell-integration prompt retitle; tests for the first two
 Source: autopilot polish (B-068)
 
+## B-080 · Start-screen shortcut hints follow the live keybinds   [ready (next run)]
+Why: B-069's New Terminal tooltip hardcodes "⌘T", but AppDelegate syncs ⌘T from the user's Ghostty new_tab keybind, so a rebind makes the hint wrong; the menu-item tests look items up by key "t" and would fail on a rebind instead of catching drift
+Accept: the start-screen hints are built from the synced menu items (or config.keyboardShortcut(for:)); tests look items up by selector (TerminalController.newTab(_:)); a rebind test shows the hint following
+Source: autopilot polish (B-069)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
