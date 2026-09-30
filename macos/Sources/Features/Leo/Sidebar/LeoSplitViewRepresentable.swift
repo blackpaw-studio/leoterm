@@ -239,7 +239,8 @@ final class LeoSplitViewController: NSSplitViewController {
     /// `splitViewDidResizeSubviews` notification arrives on a later layout
     /// pass, not within this call, so clearing it immediately would leave
     /// the guard covering nothing and let this programmatic move get
-    /// persisted as if the user had dragged there.
+    /// persisted as if the user had dragged there. A width that has to
+    /// wait for the split view keeps the flag up until it is applied.
     func applyProgrammaticWidth(_ width: CGFloat) {
         guard isReadyToPositionDivider else {
             // The split view has no width of its own yet -- it isn't in a
@@ -250,9 +251,11 @@ final class LeoSplitViewController: NSSplitViewController {
             // `viewDidLayout`, and deliberately do NOT touch
             // `lastPersistedWidth`: recording a width that was never applied
             // would let the next resize notification overwrite the stored
-            // preference with the minimum.
+            // preference with the minimum. The guard stays up until the
+            // width is applied (B-084): the layouts before that report the
+            // pre-restore width, not a drag.
             pendingWidth = width
-            clearProgrammaticWidthFlagSoon()
+            isApplyingProgrammaticWidth = true
             return
         }
 
@@ -506,10 +509,16 @@ final class LeoSplitViewController: NSSplitViewController {
     /// holding priority keeps its width fixed while the terminal pane
     /// absorbs the change; programmatic width changes we make ourselves are
     /// excluded via `isApplyingProgrammaticWidth`.
+    ///
+    /// Nor does a layout before the stored width is applied (B-084): the
+    /// split view isn't in a window yet, or still holds `pendingWidth`, so
+    /// the width it reports is the minimum or fitting width, and persisting
+    /// it would lose the stored width at the next launch.
     override func splitViewDidResizeSubviews(_ notification: Notification) {
         super.splitViewDidResizeSubviews(notification)
 
-        guard !isApplyingProgrammaticWidth, let sidebarItem, !sidebarItem.isCollapsed else { return }
+        guard !isApplyingProgrammaticWidth, pendingWidth == nil, isReadyToPositionDivider else { return }
+        guard let sidebarItem, !sidebarItem.isCollapsed else { return }
         let width = sidebarItem.viewController.view.frame.width
         guard LeoSidebarSplitMetrics.shouldPersist(newWidth: width, lastPersistedWidth: lastPersistedWidth, isCollapsed: false) else {
             return
