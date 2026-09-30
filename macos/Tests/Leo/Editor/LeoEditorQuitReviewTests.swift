@@ -13,7 +13,7 @@ struct LeoEditorQuitReviewTests {
     private func makeRuntime() -> (LeoRuntime, UserDefaults) {
         let defaults = LeoInMemoryDefaults()
         let activity = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
-        return (LeoRuntime(daemon: QuitReviewDaemon(), cli: LeoCLI(), activitySource: activity, defaults: defaults), defaults)
+        return (LeoRuntime(daemon: QuitReviewDaemon(), cli: LeoCLI(), activitySource: activity, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner()), defaults)
     }
 
     private func window() -> NSWindow {
@@ -58,7 +58,7 @@ struct LeoEditorEntryWindowTests {
     @Test func anEditorsEntryNamesItsWindow() throws {
         let defaults = LeoInMemoryDefaults()
         let activity = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
-        let runtime = LeoRuntime(daemon: QuitReviewDaemon(), cli: LeoCLI(), activitySource: activity, defaults: defaults)
+        let runtime = LeoRuntime(daemon: QuitReviewDaemon(), cli: LeoCLI(), activitySource: activity, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner())
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: [.titled], backing: .buffered, defer: true)
         let session = runtime.registry.makeSession(window: window, defaults: defaults)
 

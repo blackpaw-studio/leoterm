@@ -70,15 +70,29 @@ import OSLog
         if let overlay = LeoAttentionFixture.load() { activity = LeoAttentionFixture.wrap(activity, overlay: overlay) }
         #endif
         let daemon = LeoRuntime.makeClient(socketPath: socketPath)
-        self.init(daemon: daemon, cli: LeoCLI(), activitySource: activity, defaults: defaults)
+        self.init(
+            daemon: daemon, cli: LeoCLI(), activitySource: activity, defaults: defaults,
+            templateFetchRunner: LeoProcessRunner()
+        )
     }
 
-    convenience init(daemon: any LeoDaemonClient, cli: LeoCLI, activity: LeoActivityClient, defaults: UserDefaults = .standard) {
-        self.init(daemon: daemon, cli: cli, activitySource: LeoSidebarActivitySource(client: activity), defaults: defaults)
+    convenience init(
+        daemon: any LeoDaemonClient, cli: LeoCLI, activity: LeoActivityClient, defaults: UserDefaults = .standard,
+        templateFetchRunner: any LeoProcessRunning
+    ) {
+        self.init(
+            daemon: daemon, cli: cli, activitySource: LeoSidebarActivitySource(client: activity), defaults: defaults,
+            templateFetchRunner: templateFetchRunner
+        )
     }
 
+    /// `templateFetchRunner` runs a remote host's one-off
+    /// `ssh … leo template list --json` (B-061). Deliberately no default:
+    /// every caller but the app's own `init(defaults:)` is a test, and a
+    /// test that forgot it would ssh into a real host on selecting it.
     init(
         daemon: any LeoDaemonClient, cli: LeoCLI, activitySource: LeoSidebarActivitySource, defaults: UserDefaults = .standard,
+        templateFetchRunner: any LeoProcessRunning,
         hostConnectionTransport: any LeoDaemonTransport = LeoUnixSocketTransport(),
         hostSelectionRunner: any LeoProcessRunning = LeoProcessRunner(),
         hostSelectionSSHExecutable: URL = URL(fileURLWithPath: "/usr/bin/ssh"),
@@ -227,7 +241,9 @@ import OSLog
             }
         )
         focusedAgentRelay = LeoOrderedRelay(sink: focusedAgentSink ?? { [weak feed] id in await feed?.setFocusedAgent(id) })
-        actions = LeoAgentActions(daemon: daemon, cli: cli, model: model, hostSelection: hostSelection) { [weak feed] in
+        actions = LeoAgentActions(
+            daemon: daemon, cli: cli, model: model, hostSelection: hostSelection, processRunner: templateFetchRunner
+        ) { [weak feed] in
             Task { await feed?.refresh() }
         }
         actionsBox.actions = actions
