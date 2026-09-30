@@ -26,7 +26,7 @@ bash scratchpad/runtests.sh <label>     # scratchpad/ is untracked; copy from ~/
 ```
 - **Test-host environ crash fixed (B-072, 2026-09-30):** plain `bash scratchpad/runtests.sh <label>` runs green with no env-var wrapper. libghostty's `syncEnviron()` now copies the environment instead of pointing into libc's `environ`, which a test's `setenv` could free under the next new surface. `LeoEnvironSnapshotTests` guards it. With a pre-B-072 xcframework the plain runner still crashes the host (the old `LANG=… __CF_USER_TEXT_ENCODING=… __LLVM_PROFILE_RT_INIT_ONCE=…` prefix is only a stopgap).
 - Copy `scratchpad/runtests.sh` from the autopilot worktree (`~/.leo/agents/leoterm/.git/autopilot/worktree/scratchpad/runtests.sh`), not Evan's checkout: only that copy has D-057's "RUN INCOMPLETE"/LEO_TEST_TIMEOUT check.
-- GUI tip (B-057): the sidebar search filter hides the Terminals section by design. Clear it with AX set-value of a single space on the search field; menu clicks (File ▸ New Terminal, File ▸ Close) need no key presses.
+- GUI tip (B-057, corrected by B-067/B-077): the sidebar search filter hides the Terminals section by design. AX set-value on the search field changes its text but NOT the filter; to filter or clear it, use Agents ▸ Find Agent… (menu click), then `peekaboo type` / `peekaboo press delete` (debug app frontmost). Menu clicks (File ▸ New Terminal, File ▸ Close) need no key presses.
 - Runs `build-for-testing` (Debug, unsigned, `-derivedDataPath macos/build/DD`), then runs the XCTest bundle inside the app. This also works when the console is locked.
 - Then it runs `swiftlint lint --strict --quiet`.
 - Logs go to `/tmp/leo-build-<label>.log` and `/tmp/leo-tests-<label>.log`.
@@ -64,7 +64,7 @@ peekaboo click|type|press ... --app $APPID --bridge-socket "$PB_SOCK"
 - Evan approved type/press/click on the debug bundle for verification (D-052). Check the frontmost app first.
 - "menu click dispatched but not verified" is normal. Confirm with a screenshot.
 - The Agents menu has: New Agent… (⌘⇧A), Show Agents Sidebar (⌘⇧L), Find Agent… (⌥⌘F).
-- The agent palette opens with File ▸ New Tab (menu click). It's its own panel window: find its id with `peekaboo window list --app $APPID --json` and capture with `see --window-id <id>`. Type into it with `peekaboo type <text> --foreground --app $APPID --window-id <id>` (the debug app must already be frontmost). Never press Return there with real agents listed.
+- The agent palette is Choose Agent… (⌘O; menu click on it). File ▸ New Terminal (⌘T) makes a plain shell row; ⌘D / File ▸ Split Right also open the palette (click Plain Shell for a shell split; never press Return there). It's its own panel window: find its id with `peekaboo window list --app $APPID --json` and capture with `see --window-id <id>`. Type into it with `peekaboo type <text> --foreground --app $APPID --window-id <id>` (the debug app must already be frontmost). Never press Return there with real agents listed.
 - `LEO_FORCE_DISCONNECTED=1` (DEBUG, `open -n --env`) forces the disconnected state after the first list.
 - Quitting via AppleScript can hang; `pkill -f` the debug binary path instead.
 
