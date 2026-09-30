@@ -371,6 +371,46 @@ Why: a test for the Return To Default Size menu item's enabled state (validateMe
 Accept: a test for the Return To Default Size menu item's enabled state (validateMenuItem/isChanged) on a filled start screen
 Source: autopilot polish (B-097)
 
+## B-123 · Updater mayPerform adapter test   [ready (next run)]
+Why: test updater(_:mayPerform:) beyond the pure UpdatePolicy.mayCheck (both B-115 reviewers)
+Accept: test updater(_:mayPerform:) beyond the pure UpdatePolicy.mayCheck (both B-115 reviewers)
+Source: autopilot polish (B-115)
+
+## B-124 · Name UpdateDelegate error constants   [ready (next run)]
+Why: inline error code 1 and domain string in UpdateDelegate.swift:119 should be named constants
+Accept: inline error code 1 and domain string in UpdateDelegate.swift:119 should be named constants
+Source: autopilot polish (B-115)
+
+## B-125 · GhosttyMouseStateTests launch arguments   [ready (next run)]
+Why: it uses activate(), not launch(); confirm -SUEnableAutomaticChecks NO applies or switch to launch()
+Accept: it uses activate(), not launch(); confirm -SUEnableAutomaticChecks NO applies or switch to launch()
+Source: autopilot polish (B-115)
+
+## B-126 · Pin update defaults reset before startUpdater   [ready (next run)]
+Why: the migration-before-startUpdater order (AppDelegate.swift:313) has no test or comment pinning it
+Accept: the migration-before-startUpdater order (AppDelegate.swift:313) has no test or comment pinning it
+Source: autopilot polish (B-115)
+
+## B-127 · Appcast fixture refresh note   [ready (next run)]
+Why: AppcastFixtureTests hard-codes 18527/0.5.0 against a #filePath fixture; document refreshing both together
+Accept: AppcastFixtureTests hard-codes 18527/0.5.0 against a #filePath fixture; document refreshing both together
+Source: autopilot polish (B-115)
+
+## B-128 · Update permission prompt shows twice at launch   [ready (next run)]
+Why: B-115 verify: the pill and Sparkle's standard alert both asked "Check for updates automatically?" at launch (likely no terminal window visible yet); ci.md says pill popover only
+Accept: B-115 verify: the pill and Sparkle's standard alert both asked "Check for updates automatically?" at launch (likely no terminal window visible yet); ci.md says pill popover only
+Source: autopilot polish (B-115)
+
+## B-129 · Debug update alert offers auto-install checkbox   [ready (next run)]
+Why: B-115 verify: Sparkle's standard permission alert offers "Automatically download and install updates" in Debug builds; hide it or make it inert there
+Accept: B-115 verify: Sparkle's standard permission alert offers "Automatically download and install updates" in Debug builds; hide it or make it inert there
+Source: autopilot polish (B-115)
+
+## B-130 · App menu says About Ghostty   [ready (next run)]
+Why: B-115 verify: the app menu still lists "About Ghostty" (pre-existing); should read About Leo
+Accept: B-115 verify: the app menu still lists "About Ghostty" (pre-existing); should read About Leo
+Source: autopilot polish (B-115)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)

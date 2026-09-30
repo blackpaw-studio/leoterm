@@ -92,11 +92,11 @@ Lane: B-115
   Branch: autopilot-lane/B-115
   Base: 4e277a77c69fa740a25ce20b7ad2489b66808bfb
   Tier: full
-  State: building
+  State: verifying
   Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 10bb68570a3cdda84a7a84a6a76f6d7bd9409074
   Dispatched: 2026-09-30T23:06:45Z
   Call: Debug builds can check for updates but never install or auto-download (stage-gated replies + mayPerform guard on background checks) — item guardrail, reversible
   Call: Unset auto-update defers to Sparkle's own permission prompt, with a one-time marker-keyed defaults reset so existing installs get asked — P4
@@ -106,3 +106,4 @@ Lane: B-115
   Call: Runtime mayPerform guard instead of a Debug-only SUAllowsAutomaticUpdates plist key, because the release workflow PlistBuddy-reads the source plist — AUTONOMY implementation approach
   Call: ci.md go-public checklist items 1–3 marked done 2026-09-30; item 4 (Evan's post-release install check) left open — item Accept
 - B-115 runner forced to hand back (reported blocked) with reviews approved at 10bb68570 (general+security delta) but the fix-round verifier still running; 1 fix round used. That orphaned verifier holds the verify lock; waiting for its report.
+- B-115 runner: ready at 10bb68570 assembled from the cut-off runner's approved general+security delta reviews and its orphaned fix-round verifier (pass: 1899/1899 on rerun after one LeoLivePool flake; GUI: defaults reset → Sparkle permission prompt; Check for Updates… → 'Update Available: 0.5.0', nothing installed).
