@@ -46,11 +46,13 @@ extension LeoRuntime {
     /// Quitting with unsaved editor edits asks about each window's first
     /// (Save / Don't Save / Cancel); see `LeoUnsavedEditorsGate.deferQuit`.
     /// nil when there are none; otherwise `applicationShouldTerminate`'s
-    /// answer.
-    func deferQuitForUnsavedEditors(isSystemQuit: Bool) -> NSApplication.TerminateReply? {
+    /// answer. A system quit's deferred answer goes to `reply` (the app's
+    /// `NSApp.reply(toApplicationShouldTerminate:)`, which marks the
+    /// instance lock first on a yes).
+    func deferQuitForUnsavedEditors(isSystemQuit: Bool, reply: @escaping @MainActor (Bool) -> Void) -> NSApplication.TerminateReply? {
         unsavedEditors.deferQuit(
             of: registry.sessions.map(editorEntry(for:)), isSystemQuit: isSystemQuit,
-            reply: { NSApp.reply(toApplicationShouldTerminate: $0) }, retry: { NSApp.terminate(nil) }
+            reply: reply, retry: { NSApp.terminate(nil) }
         )
     }
 

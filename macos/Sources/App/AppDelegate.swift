@@ -466,6 +466,14 @@ class AppDelegate: NSObject,
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // MARK: Leo
+        // An approved quit is final: mark the instance lock now, not ~50 ms
+        // later in `applicationWillTerminate`, so a copy launched meanwhile
+        // waits for this one instead of yielding to it (B-092).
+        leoInstanceClaim.markingExiting(ifApproved: ghosttyShouldTerminate(sender))
+    }
+
+    @MainActor private func ghosttyShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         let windows = NSApplication.shared.windows
         if windows.isEmpty { return .terminateNow }
 
@@ -474,7 +482,9 @@ class AppDelegate: NSObject,
         // an update that's installing. Logout waits for the answers; any
         // other quit is retried after them.
         let leoIsSystemQuit = LeoQuitReason.isSystemQuit(NSAppleEventManager.shared().currentAppleEvent)
-        if let reply = leoRuntime.deferQuitForUnsavedEditors(isSystemQuit: leoIsSystemQuit) { return reply }
+        if let reply = leoRuntime.deferQuitForUnsavedEditors(
+            isSystemQuit: leoIsSystemQuit, reply: leoInstanceClaim.markingExiting(before: { NSApp.reply(toApplicationShouldTerminate: $0) })
+        ) { return reply }
 
         // If we've already accepted to install an update, then we don't need to
         // confirm quit. The user is already expecting the update to happen.
@@ -508,6 +518,9 @@ class AppDelegate: NSObject,
 
     func applicationWillTerminate(_ notification: Notification) {
         // MARK: Leo
+        // Already marked where the quit was approved; this covers any
+        // approval that didn't pass through there (B-092).
+        leoInstanceClaim.markExiting()
         leoRuntime.shutdown()
 
         // We have no notifications we want to persist after death,
@@ -1460,7 +1473,8 @@ extension AppDelegate {
 
                 if [.OK, .alertFirstButtonReturn].contains(response) {
                     // Leo: editor edits made while this was up are asked about.
-                    await NSApp.reply(toApplicationShouldTerminate: leoRuntime.resolveUnsavedEdits())
+                    // A yes marks the instance lock (B-092).
+                    await NSApp.reply(toApplicationShouldTerminate: leoInstanceClaim.markingExiting(ifApproved: leoRuntime.resolveUnsavedEdits()))
                 } else {
                     await NSApp.reply(toApplicationShouldTerminate: false)
                 }
@@ -1509,8 +1523,8 @@ extension AppDelegate {
                     return
                 }
             }
-            // Leo: and any other window's.
-            await NSApp.reply(toApplicationShouldTerminate: leoRuntime.resolveUnsavedEdits())
+            // Leo: and any other window's. A yes marks the instance lock (B-092).
+            await NSApp.reply(toApplicationShouldTerminate: leoInstanceClaim.markingExiting(ifApproved: leoRuntime.resolveUnsavedEdits()))
         }
     }
 }
