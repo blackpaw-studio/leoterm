@@ -1373,3 +1373,38 @@ Chose: The disconnected tooltip still hardcodes "Reconnect first (⇧⌘R)"; Rec
 Why: AUTONOMY scope
 Commit: d864297ac
 Veto: [ ]
+
+## D-185 · 2026-09-30 · Landing at "the top" means scrolling to the first section; its header…
+Context: B-081 (runner call).
+Chose: Landing at "the top" means scrolling to the first section; its header sits at the list's top edge, 10 pt off the launch position because of the table's top margin
+Why: P2
+Commit: 1b7d6fefc, c56e8fdc9
+Veto: [ ]
+
+## D-186 · 2026-09-30 · The landing uses the list's own minimal, unanimated scrollTo, so a se…
+Context: B-081 (runner call).
+Chose: The landing uses the list's own minimal, unanimated scrollTo, so a selection already on screen doesn't move
+Why: P2/D-130
+Commit: 1b7d6fefc, c56e8fdc9
+Veto: [ ]
+
+## D-187 · 2026-09-30 · With no selected agent the list goes to the top, even if the user had…
+Context: B-081 (runner call).
+Chose: With no selected agent the list goes to the top, even if the user had scrolled mid-list
+Why: acceptance criteria ("the selection or the top")
+Commit: 1b7d6fefc, c56e8fdc9
+Veto: [ ]
+
+## D-188 · 2026-09-30 · When the filter hides the Terminals section the list doesn't move; on…
+Context: B-081 (runner call).
+Chose: When the filter hides the Terminals section the list doesn't move; only closing the last row lands
+Why: P6
+Commit: 1b7d6fefc, c56e8fdc9
+Veto: [ ]
+
+## D-189 · 2026-09-30 · The start-title test runs its own Ghostty.App on a temp config (prece…
+Context: B-081 (runner call).
+Chose: The start-title test runs its own Ghostty.App on a temp config (precedent: LeoSidebarTitlebarStyleTests)
+Why: AUTONOMY test infra
+Commit: 1b7d6fefc, c56e8fdc9
+Veto: [ ]

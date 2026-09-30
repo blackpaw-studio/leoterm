@@ -129,11 +129,12 @@ Accept: the start-screen hints are built from the synced menu items (or config.k
 Source: autopilot polish (B-069)
 Done: d864297ac. (1811 tests). Start-screen New Terminal and Choose Agent… hints read the live menu shortcuts, so a rebind shows the new key; no shortcut means no hint. Decisions D-182..D-184.
 
-## B-081 · Sidebar scroll and start title after the last shell closes   [ready]
+## B-081 · Sidebar scroll and start title after the last shell closes   [done]
 Issue: #85
 Why: B-070 verify: after the last shell closes, the sidebar stays scrolled to the bottom where the Terminals section was; leoStartTitle is captured once at windowDidLoad (a config `title` reload doesn't reach an open window's start screen; matches upstream) and has no explicit test with a config `title` set
 Accept: after the last Terminals row closes the sidebar keeps a sensible scroll position (the selection or the top), calmly; a comment documents leoStartTitle's capture; a test with a config `title` set
 Source: autopilot polish (B-070)
+Done: 1b7d6fefc, c56e8fdc9. After the last Terminals row closes, the sidebar lands on the selected agent or the top, unanimated; the start screen reads the controller's config title, with a comment and a config-title test Decisions D-185..D-189.
 
 ## B-082 · Bug — closing a row's original pane beside a split orphans the other pane   [ready]
 Issue: #86
