@@ -1016,3 +1016,31 @@ Chose: The suffix is secondary-coloured with monospaced digits and never truncat
 Why: AUTONOMY polish
 Commit: 59b259e37 677060e4f
 Veto: [ ]
+
+## D-134 · 2026-09-29 · The start-screen New Terminal button sends ⌘T's newTab: to the clicked…
+Context: B-069 (runner call).
+Chose: The start-screen New Terminal button sends ⌘T's newTab: to the clicked window's controller (nil-target fallback), so the row lands in that window
+Why: AUTONOMY UX
+Commit: 7ba7c4400
+Veto: [ ]
+
+## D-135 · 2026-09-29 · The button is plain bordered; Choose Agent… stays the one prominent bu…
+Context: B-069 (runner call).
+Chose: The button is plain bordered; Choose Agent… stays the one prominent button
+Why: AUTONOMY layout/polish
+Commit: 7ba7c4400
+Veto: [ ]
+
+## D-136 · 2026-09-29 · The button is always enabled, even while disconnected (a shell doesn't…
+Context: B-069 (runner call).
+Chose: The button is always enabled, even while disconnected (a shell doesn't need the daemon)
+Why: AUTONOMY UX
+Commit: 7ba7c4400
+Veto: [ ]
+
+## D-137 · 2026-09-29 · Its title and "⌘T" tooltip come from LeoWindowTabbing constants tied t…
+Context: B-069 (runner call).
+Chose: Its title and "⌘T" tooltip come from LeoWindowTabbing constants tied to the ⌘T menu item by a test (D-128 pattern)
+Why: principle 1, AUTONOMY copy
+Commit: 7ba7c4400
+Veto: [ ]

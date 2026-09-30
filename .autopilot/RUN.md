@@ -61,7 +61,7 @@ Lane: B-069
   Branch: autopilot-lane/B-069
   Base: 84fb9f4ff009fbb18e8b1855a744587332dacc01
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -72,3 +72,5 @@ Lane: B-069
   Call: The button is always enabled, even while disconnected (a shell doesn't need the daemon) — AUTONOMY UX
   Call: Its title and "⌘T" tooltip come from LeoWindowTabbing constants tied to the ⌘T menu item by a test (D-128 pattern) — principle 1, AUTONOMY copy
 - B-069 runner: ready at f12743766 (1727/1727, lint clean; general full; implementer/opus, 0 fix rounds). Polish filed as B-080.
+- B-069 landed (merge 8976cf27b).
+Finished 4: B-069 landed 8976cf27b · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-069-1.png

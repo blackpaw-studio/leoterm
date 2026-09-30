@@ -17,11 +17,12 @@ Accept: rows for shells with identical titles get a distinguishing suffix (tty o
 Source: autopilot polish (B-057)
 Done: 59b259e37 677060e4f (1724 tests). Same-titled Terminals rows read "~", "~ (2)", "~ (3)"; closing an older one renumbers later ones. Decisions D-131..D-133.
 
-## B-069 · Start screen: New Terminal button   [ready]
+## B-069 · Start screen: New Terminal button   [done]
 Issue: #73
 Why: the start screen says "open a plain shell" but offers no New Terminal button (principle 1: visible action)
 Accept: start screen has a New Terminal button doing exactly ⌘T; test + screenshot
 Source: autopilot polish (B-057)
+Done: 7ba7c4400 (1727 tests). A bordered New Terminal button (⌘T tooltip) sits beside Choose Agent… on the start screen and creates a Terminals row in that window. Decisions D-134..D-137.
 
 ## B-070 · Window title after the last shell closes   [ready]
 Issue: #74
