@@ -164,67 +164,44 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         }
     }
 
-    /// Re-runs the initial-size logic from `windowDidLoad` (the
-    /// `container.initialContentSize` / `defaultSize.apply(to:)` block)
-    /// for a window that was created empty (a Leo placeholder) and has
-    /// just been filled with a real surface -- `windowDidLoad` already ran
-    /// once with no surface, so `defaultSize` (which depends on
-    /// `focusedSurface`) was nil then and nothing was sized.
+    /// The first content of a window created empty (a Leo start screen):
+    /// `windowDidLoad` ran with no surface, so no configured size
+    /// (`window-width`/`window-height`, `window-maximize`) was applied.
     ///
-    /// `.contentIntrinsicSize` reads `window.contentView?.intrinsicContentSize`,
-    /// but the SwiftUI `TerminalView` hasn't re-rendered with the new
-    /// `SurfaceView` yet when `GhosttyAttachTabHost.fillPlaceholder` calls
-    /// this (that happens on a later runloop turn) -- reading it
-    /// synchronously here would collapse the window to the empty
-    /// placeholder's near-zero intrinsic size. `attempt` defers the read
-    /// via `DispatchQueue.main.async` until `LeoInitialSizeDecision`
-    /// considers the intrinsic size plausible, retrying up to
-    /// `LeoInitialSizeDecision.maxAttempts` times before giving up and
-    /// leaving the window at its current (never-shrunk) size.
-    ///
-    /// `frameAtSchedule` is the window's frame at the moment the current
-    /// attempt was scheduled -- `nil` only on the initial synchronous call.
-    /// Each retry re-checks `LeoInitialSizeDecision.shouldContinue` against
-    /// it, so a user resize/move or a window close between attempts
-    /// abandons the whole sequence instead of clobbering whatever the user
-    /// (or something else) did in the meantime.
-    func leoApplyInitialSize(attempt: Int = 0, frameAtSchedule: NSRect? = nil) {
-        guard let window, let defaultSize else { return }
+    /// B-086: a window already shown keeps its frame (P1, P2) -- see
+    /// `LeoInitialSizeDecision`. One not yet shown (filled on the turn it
+    /// was made) takes the configured size, computed as `windowDidLoad`
+    /// does: never read from the SwiftUI view, which hasn't caught up with
+    /// the new surface yet and reports a far smaller size.
+    func leoApplyInitialSize() {
+        guard let window, let defaultSize, LeoInitialSizeDecision.shouldSize(
+            isVisible: window.isVisible, isAwaitingPresentation: pendingInitialPresentation != nil
+        ) else { return }
 
-        if let frameAtSchedule {
-            let shouldContinue = LeoInitialSizeDecision.shouldContinue(
-                attempt: attempt,
-                frameAtSchedule: frameAtSchedule,
-                currentFrame: window.frame,
-                isVisible: window.isVisible
-            )
-            guard shouldContinue else { return }
-        }
-
-        // `.frame` (maximize) doesn't depend on content-view layout, so it
-        // applies immediately exactly as `windowDidLoad` does.
+        // `.frame` (maximize) doesn't depend on the content, so it applies
+        // exactly as `windowDidLoad` does.
         guard case .contentIntrinsicSize = defaultSize else {
             defaultSize.apply(to: window)
             return
         }
 
-        window.contentView?.layoutSubtreeIfNeeded()
-        let intrinsic = window.contentView?.intrinsicContentSize ?? .zero
-        let cellSize = focusedSurface?.cellSize ?? .zero
-
-        guard LeoInitialSizeDecision.shouldApply(intrinsic: intrinsic, cellSize: cellSize) else {
-            let scheduledFrame = window.frame
-            DispatchQueue.main.async { [weak self] in
-                self?.leoApplyInitialSize(attempt: attempt + 1, frameAtSchedule: scheduledFrame)
-            }
-            return
-        }
-
-        defaultSize.apply(to: window)
+        guard let size = leoConfiguredContentSize else { return }
+        window.setContentSize(size)
+        window.constrainToScreen()
         if let screen = window.screen ?? NSScreen.main {
             let frame = adjustForWindowPosition(frame: window.frame, on: screen)
             window.setFrameOrigin(frame.origin)
         }
+    }
+
+    /// The window content size `window-width`/`window-height` ask for: the
+    /// focused surface's, plus the sidebar when it shows. Nil when unset.
+    private var leoConfiguredContentSize: NSSize? {
+        LeoInitialSizeDecision.contentSize(
+            initialSize: focusedSurface?.initialSize,
+            sidebarWidth: leoSession.flatMap { $0.isSidebarVisible ? $0.displayedWidth : nil },
+            dividerWidth: LeoSidebarSplitMetrics.dividerWidth
+        )
     }
 
     override var windowNibName: NSNib.Name? {
@@ -1403,14 +1380,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         // without waiting for @FocusedValue to propagate through the
         // SwiftUI focus chain.
         // MARK: Leo
-        if let size = focusedSurface?.initialSize, leoSession?.isSidebarVisible == true {
-            container.initialContentSize = NSSize(
-                width: size.width + (leoSession?.displayedWidth ?? 0) + LeoSidebarSplitMetrics.dividerWidth,
-                height: size.height
-            )
-        } else {
-            container.initialContentSize = focusedSurface?.initialSize
-        }
+        container.initialContentSize = leoConfiguredContentSize
 
         window.contentView = container
 
