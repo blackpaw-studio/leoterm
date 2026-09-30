@@ -1485,3 +1485,38 @@ Chose: LeoRuntime's template fetch reuses the existing LeoProcessRunning protoco
 Why: AUTONOMY test infrastructure
 Commit: f859b45c5
 Veto: [ ]
+
+## D-201 · 2026-09-30 · Names AttachContentHost / GhosttyAttachContentHost / FakeAttachConten…
+Context: B-062 (runner call).
+Chose: Names AttachContentHost / GhosttyAttachContentHost / FakeAttachContentHost / LeoTitleSource / attachCount(s) / isAgent / isLiveAgent
+Why: AUTONOMY naming
+Commit: 93b48c55f, 419cb7a7f, 16e2c07cb, 14a6cfe2c, 99e7b46aa, 465cad581
+Veto: [ ]
+
+## D-202 · 2026-09-30 · One agent predicate in two layers: handle-backed isRegisteredAgent is…
+Context: B-062 (runner call).
+Chose: One agent predicate in two layers: handle-backed isRegisteredAgent is the primitive (live pool, isLiveAgent); isAgent = leoAgentName != nil || isRegisteredAgent gates replace-confirm and orphan adoption, so both B-082 signals still block adoption
+Why: AUTONOMY implementation approach
+Commit: 93b48c55f, 419cb7a7f, 16e2c07cb, 14a6cfe2c, 99e7b46aa, 465cad581
+Veto: [ ]
+
+## D-203 · 2026-09-30 · The live pool lets go of (doesn't pool) an Undo-restored agent surfac…
+Context: B-062 (runner call).
+Chose: The live pool lets go of (doesn't pool) an Undo-restored agent surface that has a name but no handle, so it never keeps an unrevealable duplicate tmux client (B-056)
+Why: P6
+Commit: 93b48c55f, 419cb7a7f, 16e2c07cb, 14a6cfe2c, 99e7b46aa, 465cad581
+Veto: [ ]
+
+## D-204 · 2026-09-30 · contentVersion is pruned by a direct, idempotent LeoAttachCoordinator…
+Context: B-062 (runner call).
+Chose: contentVersion is pruned by a direct, idempotent LeoAttachCoordinator.windowClosed(_:) from LeoRuntime.teardownWindow and registry.onUnregistered, not a new lifecycle event
+Why: AUTONOMY implementation approach
+Commit: 93b48c55f, 419cb7a7f, 16e2c07cb, 14a6cfe2c, 99e7b46aa, 465cad581
+Veto: [ ]
+
+## D-205 · 2026-09-30 · Test names where "Tab" means an upstream tab (LeoNoTabBarTests, chang…
+Context: B-062 (runner call).
+Chose: Test names where "Tab" means an upstream tab (LeoNoTabBarTests, changeTabTitleStillWins, …) keep their names
+Why: AUTONOMY naming
+Commit: 93b48c55f, 419cb7a7f, 16e2c07cb, 14a6cfe2c, 99e7b46aa, 465cad581
+Veto: [ ]

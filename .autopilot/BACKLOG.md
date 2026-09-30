@@ -311,12 +311,13 @@ Out: the live pool (B-056), plain-shell rows (B-057), splits (B-058); multi-wind
 Source: Evan (/vision revision, 2026-09-28)
 Done: 4134ce4f4 6fb5c8c8d (1593 tests, lint clean; general + lifecycle reviews: no blockers). Verified by screenshots: B-055-1 → -2 (start screen → autopilot-scratch in the content area; no tab bar; sidebar geometry unchanged; window titled with the agent; one tmux client), -3 (⌘N window, no tab bar, on-screen row highlighted), -4 (clicking scratch from the new window focused the existing one and closed the untouched start window; still one client).
 
-## B-062 · Rename tab-era internals (AttachTabHost, tabCount, LeoTabTitleSource)   [ready]
+## B-062 · Rename tab-era internals (AttachTabHost, tabCount, LeoTabTitleSource)   [done]
 Issue: #66
 Why: after B-055 there are no tabs; internal names still say "tab" (kept to shrink B-055's diff).
 Accept: mechanical rename to content/window vocabulary; unify the two "is this an agent" predicates (attachment.isAttach vs leoAgentName, B-056 review) into one source; prune contentVersion on window close; fix LeoLivePoolIntegrationTests' `hiddenSurfaces(in: fixture.origin)` assertions, which check a test-local session id and so pass vacuously; no behaviour change; suite green.
 Out: behaviour changes.
 Source: B-055 implementer
+Done: 93b48c55f, 419cb7a7f, 16e2c07cb, 14a6cfe2c, 99e7b46aa, 465cad581. Tab-era internals renamed to content/attach vocabulary; one agent predicate (isRegisteredAgent primitive, isAgent union); contentVersion pruned on window close; vacuous pool assertions fixed; no behaviour change Decisions D-201..D-205.
 
 ## B-056 · Live surface pool: instant switches, detach beyond it   [done]
 Issue: #61

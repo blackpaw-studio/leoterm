@@ -287,7 +287,7 @@ Lane: B-062
   Branch: autopilot-lane/B-062
   Base: 7d66f41e3dfc1a745a4619e34c21b2238ccedecd
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -299,3 +299,5 @@ Lane: B-062
   Call: contentVersion is pruned by a direct, idempotent LeoAttachCoordinator.windowClosed(_:) from LeoRuntime.teardownWindow and registry.onUnregistered, not a new lifecycle event — AUTONOMY implementation approach
   Call: Test names where "Tab" means an upstream tab (LeoNoTabBarTests, changeTabTitleStillWins, …) keep their names — AUTONOMY naming
 - B-062 runner: ready at 465cad581 (1839/1839, lint clean; general + concurrency full, general delta after 1 in-runner fix round: the union predicate had pooled name-only Undo-restored agent surfaces, pinned by aNamedSurfaceWithNoHandleIsLetGoNotPooled; implementer/opus). verify.md focus-test name updated by the orchestrator.
+- B-062 landed (merge 232172574).
+Finished 18: B-062 landed 232172574 · not visually verified
