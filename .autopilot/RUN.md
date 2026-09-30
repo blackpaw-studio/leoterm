@@ -228,3 +228,14 @@ Lane: B-081
 - B-081 runner: ready at e523e0db9 (1819/1819, lint clean; one known B-099 flake in run 1; general full, no blocking; implementer/opus, 0 fix rounds). GUI: New Terminal scrolls to Terminals; after File > Close the sidebar is back at the top. Polish filed as B-105, B-106.
 - B-081 landed (merge 7c0ac3f91).
 Finished 14: B-081 landed 7c0ac3f91 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-081-3.png
+
+Lane: B-082
+  Branch: autopilot-lane/B-082
+  Base: 8ae4e0b10fc3a67a52664a71727f2bd12ac3e113
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-30T12:14:34Z
