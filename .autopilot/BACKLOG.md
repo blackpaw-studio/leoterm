@@ -49,13 +49,14 @@ Source: Evan (/issue, 2026-09-29)
 Inbox: 20260929T222806706604Z-d192c093#1
 Done: 976d04bdd e9704ec97 9294a360a d864e17ef 770af2035 25766f135 cf5835310 3bf796b62 06d53d284 d313bbcca bfb1f4642. (1787 tests). The first window opens at launch even without activation; tiny saved frames are neither saved nor restored; an untouched launch window gives way to a requested one. Decisions D-147..D-154.
 
-## B-086 · Window shrinks to a tiny size on first agent attach after launch   [ready]
+## B-086 · Window shrinks to a tiny size on first agent attach after launch   [done]
 Issue: #90
 Type: bug
 Report: when attaching to the first agent after launching, the app window shrinks to a tiny size
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: Evan (/issue, 2026-09-29)
 Inbox: 20260929T222831661985Z-ec1de91b#1
+Done: 3c3189960 c8fa29411 528d63ebe. (1787 tests). A window already on screen keeps its frame on its first agent attach; window-width/window-height size only a window filled before it shows. Decisions D-155..D-158.
 
 ## B-071 · Bug — ⌘Z of a split close after a row switch can silently kill a busy hidden row's shell   [done]
 Issue: #75

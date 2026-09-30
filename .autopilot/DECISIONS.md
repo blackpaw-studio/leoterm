@@ -1163,3 +1163,31 @@ Chose: Log line "opening the initial window on <event>"; callback types are @Mai
 Why: AUTONOMY implementation approach
 Commit: 976d04bdd e9704ec97 9294a360a d864e17ef 770af2035 25766f135 cf5835310 3bf796b62 06d53d284 d313bbcca bfb1f4642
 Veto: [ ]
+
+## D-155 · 2026-09-30 · A window already on screen keeps its frame on its first attach; windo…
+Context: B-086 (runner call).
+Chose: A window already on screen keeps its frame on its first attach; window-width/window-height size only a window that gets content before it is shown
+Why: P1, P2 (D-145 no-jump)
+Commit: 3c3189960 c8fa29411 528d63ebe
+Veto: [ ]
+
+## D-156 · 2026-09-30 · A window counts as shown once its first presentation has run, so a mi…
+Context: B-086 (runner call).
+Chose: A window counts as shown once its first presentation has run, so a minimized window or a hidden app also keeps its frame
+Why: P1
+Commit: 3c3189960 c8fa29411 528d63ebe
+Veto: [ ]
+
+## D-157 · 2026-09-30 · windowDidLoad and first fill share one explicit size formula (leoConf…
+Context: B-086 (runner call).
+Chose: windowDidLoad and first fill share one explicit size formula (leoConfiguredContentSize) instead of the SwiftUI intrinsic size
+Why: AUTONOMY implementation approach
+Commit: 3c3189960 c8fa29411 528d63ebe
+Veto: [ ]
+
+## D-158 · 2026-09-30 · Integration tests save and restore NSWindowLastPosition in the debug …
+Context: B-086 (runner call).
+Chose: Integration tests save and restore NSWindowLastPosition in the debug app's defaults
+Why: AUTONOMY test infra
+Commit: 3c3189960 c8fa29411 528d63ebe
+Veto: [ ]

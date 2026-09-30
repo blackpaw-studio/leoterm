@@ -70,7 +70,7 @@ Lane: B-086
   Branch: autopilot-lane/B-086
   Base: 8b5ef5fe1346cd7c5e0f5bd743ba8be58cc3435b
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -81,3 +81,5 @@ Lane: B-086
   Call: windowDidLoad and first fill share one explicit size formula (leoConfiguredContentSize) instead of the SwiftUI intrinsic size — AUTONOMY implementation approach
   Call: Integration tests save and restore NSWindowLastPosition in the debug app's defaults — AUTONOMY test infra
 - B-086 runner: ready at 25d982e73 (1787/1787, lint clean; general+concurrency full; implementer-hard/opus, 0 fix rounds). Root cause (stack trace): first fill of a shown start screen applied SwiftUI's intrinsic size (800x114, cell size 0) when the config sets window-width/window-height; window shrank 800x632 to 800x146. Evan's laptop config likely sets them. GUI: first attach to autopilot-scratch kept 800x632, also after relaunch. Polish filed as B-096, B-097 (bug: Reset Window Size same shrink).
+- B-086 landed (merge 610f7170c).
+Finished 4: B-086 landed 610f7170c · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-086-1.png
