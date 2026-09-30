@@ -93,15 +93,28 @@ class AppDelegate: NSObject,
         initialWindow: { [unowned self] in self.derivedConfig.initialWindow },
         openWindow: { [unowned self] in
             self.undoManager.disableUndoRegistration()
-            let controller = self.leoRouteNewWindow()
+            self.leoOpenLaunchWindow()
             self.undoManager.enableUndoRegistration()
-            self.leoLaunchPlaceholder.adopt(controller)
         }
     )
 
+    /// The launch's own window (B-085): the start screen alone, with no
+    /// agent palette. A window shown in the foreground takes key status
+    /// from the palette, which then closes; opened in the background (the
+    /// launch no longer waits for activation), nothing did, and the
+    /// palette stayed up over it.
+    @discardableResult
+    @MainActor func leoOpenLaunchWindow() -> TerminalController {
+        let controller = TerminalController.leoNewPlaceholderWindow(ghostty)
+        leoLaunchPlaceholder.launchDidOpen(controller)
+        return controller
+    }
+
     /// The launch's own window, until it gives way to a requested one or
-    /// the user touches Leo (B-085).
-    @MainActor private(set) lazy var leoLaunchPlaceholder = LeoLaunchPlaceholder()
+    /// the user touches Leo (B-085). An XCTest host keeps its own.
+    @MainActor private(set) lazy var leoLaunchPlaceholder = LeoLaunchPlaceholder(
+        adoptsLaunchWindows: !LeoSingleInstance.isRunningAsTestHost()
+    )
 
     /// This is set in applicationDidFinishLaunching with the system uptime so we can determine the
     /// seconds since the process was launched.
@@ -135,13 +148,11 @@ class AppDelegate: NSObject,
     /// path: `new_window`, launch, reopen, and the fallback new-window menu
     /// item. `baseConfig` is the inherited `SurfaceConfiguration` (if any)
     /// from whatever triggered this -- see `LeoRuntime.routeNewSurface`.
-    @discardableResult
-    @MainActor private func leoRouteNewWindow(baseConfig: Ghostty.SurfaceConfiguration? = nil) -> TerminalController {
+    @MainActor private func leoRouteNewWindow(baseConfig: Ghostty.SurfaceConfiguration? = nil) {
         let controller = TerminalController.leoNewPlaceholderWindow(ghostty)
-        guard let leoSession = controller.leoSession else { return controller }
+        guard let leoSession = controller.leoSession else { return }
         Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo").log("leoRouteNewWindow origin=\(leoSession.id.rawValue.uuidString, privacy: .public)")
         leoRuntime.routeNewSurface(.placeholder, origin: leoSession.id, inheritedConfig: baseConfig)
-        return controller
     }
 
     /// Routes a `.content` request for `window` (B-055: no tabs; the

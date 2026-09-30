@@ -13,13 +13,13 @@ final class LeoInitialWindowOpener {
     private let windowCount: @MainActor () -> Int
     private let initialWindow: @MainActor () -> Bool
     private let openWindow: @MainActor () -> Void
-    private let schedule: (@escaping @MainActor () -> Void) -> Void
+    private let schedule: (@escaping @MainActor @Sendable () -> Void) -> Void
 
     init(
         windowCount: @escaping @MainActor () -> Int,
         initialWindow: @escaping @MainActor () -> Bool,
         openWindow: @escaping @MainActor () -> Void,
-        schedule: @escaping (@escaping @MainActor () -> Void) -> Void = LeoInitialWindowOpener.onNextMainQueueTurn
+        schedule: @escaping (@escaping @MainActor @Sendable () -> Void) -> Void = LeoInitialWindowOpener.onNextMainQueueTurn
     ) {
         self.windowCount = windowCount
         self.initialWindow = initialWindow
@@ -51,7 +51,7 @@ final class LeoInitialWindowOpener {
         openWindow()
     }
 
-    nonisolated static func onNextMainQueueTurn(_ block: @escaping @MainActor () -> Void) {
+    nonisolated static func onNextMainQueueTurn(_ block: @escaping @MainActor @Sendable () -> Void) {
         DispatchQueue.main.async { MainActor.assumeIsolated { block() } }
     }
 }
