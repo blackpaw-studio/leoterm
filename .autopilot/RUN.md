@@ -23,7 +23,7 @@ Lane: B-090
   Branch: autopilot-lane/B-090
   Base: 7c2f61a96d53b634458dc895c3c85941a68735db
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -32,3 +32,5 @@ Lane: B-090
   Call: Launch test asserts "terminal fills the split" rather than "sidebar frame is 0" (a collapsed item keeps a stale 200 pt frame; the terminal width is what the user sees) — AUTONOMY test-infra latitude
   Call: B-084's aHiddenSidebarShownAfterLaunchOpensAtTheStoredWidth now uses `try #require(sidebarItem.isCollapsed)` instead of forcing isCollapsed = true, which had masked this bug — AUTONOMY test-infra latitude
 - B-090 runner: ready at 988d3dca0 (general full; implementer/opus; 0 fix rounds; 1850/1850 green). GUI: hidden sidebar stays collapsed through relaunch; re-show restores 330 pt.
+- B-090 landed (merge 24dfd079f).
+Finished 1: B-090 landed 24dfd079f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-090-1.png

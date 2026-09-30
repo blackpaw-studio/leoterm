@@ -1569,3 +1569,17 @@ Chose: punt — not sure we need it; don't resume. Keep the held lane/branch aut
 Why: Evan's answer
 Commit:
 Veto: n/a (Evan)
+
+## D-213 · 2026-09-30 · Launch test asserts "terminal fills the split" rather than "sidebar f…
+Context: B-090 (runner call).
+Chose: Launch test asserts "terminal fills the split" rather than "sidebar frame is 0" (a collapsed item keeps a stale 200 pt frame; the terminal width is what the user sees)
+Why: AUTONOMY test-infra latitude
+Commit: 980ec80b4, 8e7cd5d02
+Veto: [ ]
+
+## D-214 · 2026-09-30 · B-084's aHiddenSidebarShownAfterLaunchOpensAtTheStoredWidth now uses …
+Context: B-090 (runner call).
+Chose: B-084's aHiddenSidebarShownAfterLaunchOpensAtTheStoredWidth now uses `try #require(sidebarItem.isCollapsed)` instead of forcing isCollapsed = true, which had masked this bug
+Why: AUTONOMY test-infra latitude
+Commit: 980ec80b4, 8e7cd5d02
+Veto: [ ]

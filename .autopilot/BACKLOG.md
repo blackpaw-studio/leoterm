@@ -176,12 +176,13 @@ Why: B-084 review: lastPersistedWidth records the requested width, not the appli
 Accept: lastPersistedWidth comes from the sidebar's actual frame after setPosition, with a harness case for narrow-then-widen; the flag is documented or dropped; one key constant; suite green
 Source: autopilot polish (B-084)
 
-## B-090 · Bug — a sidebar hidden at launch un-collapses, then re-collapses with animation   [ready]
+## B-090 · Bug — a sidebar hidden at launch un-collapses, then re-collapses with animation   [done]
 Issue: #94
 Type: bug
 Report: B-084 review/implementer: a sidebar that starts hidden is un-collapsed by the pending setPosition at first layout, then re-collapsed with an animation (pre-existing). Breaks P2 calm and "hidden with ⌘⇧L stays hidden"
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot polish (B-084)
+Done: 2026-09-30 · 980ec80b4, 8e7cd5d02 · D-213, D-214
 
 ## B-091 · Wide sidebar truncates the content toolbar   [ready]
 Issue: #95
