@@ -197,9 +197,13 @@ Lane: B-080
   Branch: autopilot-lane/B-080
   Base: 48df7593a3dd028c80ed4e627020861f33d443f3
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: f18910adc2d7ccb8ee407687ebcf2b9993f12fdf
   Dispatched: 2026-09-30T11:04:08Z
+  Call: Start-screen buttons show a tooltip only when there is hint text, so an item with no shortcut gets no tooltip rather than an empty or wrong one — AUTONOMY UX details
+  Call: Choose Agent… gets the same live-menu hint (its ⌘O comes from the xib; reading the menu item covers any change) — AUTONOMY implementation approach
+  Call: The disconnected tooltip still hardcodes "Reconnect first (⇧⌘R)"; Reconnect isn't config-synced and is out of scope — AUTONOMY scope
+- B-080 runner: ready at f18910adc (1811/1811, lint clean; general full, no blocking; implementer/opus, 0 fix rounds). GUI: tooltip reads ⇧⌘Y with a scratch config rebinding new_tab, ⌘T with an empty one. Polish filed as B-104.

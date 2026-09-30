@@ -235,6 +235,11 @@ Why: B-078 review polish: afterPendingUpdates only catches a scroll within ~5 di
 Accept: the helper documents its window limit; tests park mid-list and assert table identity; retitle awaits the new row text before counting turns; comment fixed
 Source: autopilot polish (B-078)
 
+## B-104 · Shortcut hint polish   [ready (next run)]
+Why: B-080 review: LeoMenuShortcutHint lacks @MainActor (LeoShortcutHints.swift:43); a function-key binding (super+f1) gives no hint where "⌘F1" could be spelled (:56); no test for publish-only-on-change (:95-96); theButtonsHintNamesTheMenuItemsLiveShortcut passes trivially if both sides are nil (LeoPlaceholderNewTerminalTests.swift:370); stale "(⌘T)" doc comment in LeoPlaceholderView.swift; the disconnected Choose Agent… tooltip hardcodes ⇧⌘R
+Accept: each fixed or explicitly dismissed; tests for the function-key and unchanged-sync cases
+Source: autopilot polish (B-080)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
