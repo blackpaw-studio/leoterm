@@ -181,7 +181,7 @@ Lane: B-079
   Branch: autopilot-lane/B-079
   Base: 6f8aa33d61a2dada4a2f78f2b6febe6bfaba7541
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -190,3 +190,5 @@ Lane: B-079
   Call: The tooltip (.help) sits on the title+suffix label HStack, not the whole row — AUTONOMY UX details
   Call: A named `help` property on the label model rather than reusing `text` — AUTONOMY test infra
 - B-079 runner: ready at 74788f654 (1801/1801, lint clean; general full, no findings; implementer/opus, 0 fix rounds). GUI: tooltip "~ (2)" under the hovered suffix. Polish (help aliases text) not filed: trivial.
+- B-079 landed (merge b7bff26e4).
+Finished 12: B-079 landed b7bff26e4 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-079-1.png

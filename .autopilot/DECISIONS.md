@@ -1338,3 +1338,17 @@ Chose: The agent-row factory moved to static agents(count:) (test code only)
 Why: AUTONOMY test infra
 Commit: 125f2a501
 Veto: [ ]
+
+## D-180 · 2026-09-30 · The tooltip (.help) sits on the title+suffix label HStack, not the wh…
+Context: B-079 (runner call).
+Chose: The tooltip (.help) sits on the title+suffix label HStack, not the whole row
+Why: AUTONOMY UX details
+Commit: 2aa0a78b3
+Veto: [ ]
+
+## D-181 · 2026-09-30 · A named `help` property on the label model rather than reusing `text`
+Context: B-079 (runner call).
+Chose: A named `help` property on the label model rather than reusing `text`
+Why: AUTONOMY test infra
+Commit: 2aa0a78b3
+Veto: [ ]

@@ -115,11 +115,12 @@ Accept: tests assert both; reword the misleading doc comment on aNewRowBelowALis
 Source: autopilot polish (B-067)
 Done: 125f2a501. (1799 tests). Tests pin that a retitle/refresh doesn't scroll and re-selecting an on-screen row doesn't scroll; each proved red by a mutation; doc comment reworded. Decisions D-178..D-179.
 
-## B-079 · Terminals row label polish (tooltip, trimmed title, test comments)   [ready]
+## B-079 · Terminals row label polish (tooltip, trimmed title, test comments)   [done]
 Issue: #83
 Why: B-068 review polish: hovering the "(2)" suffix shows no tooltip (`.help` sits on the title Text only, LeoTerminalRowView.swift:27); labels group by the trimmed title but show the untrimmed one, so " ~ " shows a stray space (LeoTerminalRowLabel.swift:31,36); the "(B-068)" comments at LeoTerminalRowsIntegrationTests.swift:126,267 wrongly imply B-068 caused the prompt-retitle race
 Accept: the tooltip covers the whole row label; displayTitle is trimmed; the comments cite the shell-integration prompt retitle; tests for the first two
 Source: autopilot polish (B-068)
+Done: 2aa0a78b3. (1801 tests). The Terminals row tooltip covers the whole label including the (2) suffix; displayed titles are trimmed. Decisions D-180..D-181.
 
 ## B-080 · Start-screen shortcut hints follow the live keybinds   [ready]
 Issue: #84
