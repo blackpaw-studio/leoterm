@@ -3,7 +3,7 @@ import Combine
 import GhosttyKit
 import OSLog
 
-@MainActor final class GhosttyAttachTabHost: AttachTabHost {
+@MainActor final class GhosttyAttachContentHost: AttachContentHost {
     private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
 
     let lifecycleEvents: AsyncStream<AttachLifecycleEvent>
@@ -140,7 +140,7 @@ import OSLog
     /// else -- one surface or a whole split tree -- is swapped out whole
     /// for the new surface, in the same window beside the same sidebar.
     func showInContent(command: String, workingDirectory: String?, origin: LeoWindowID, requestID: UUID) throws -> AttachmentHandle {
-        guard let controller = registry.controller(for: origin) else { throw GhosttyAttachTabHostError.originWindowClosed }
+        guard let controller = registry.controller(for: origin) else { throw GhosttyAttachContentHostError.originWindowClosed }
         if controller.surfaceTree.isEmpty {
             return try fillPlaceholder(command: command, workingDirectory: workingDirectory, origin: origin, surfaceID: nil, requestID: requestID)
         }
@@ -402,22 +402,22 @@ import OSLog
         workingDirectory: String?,
         requestID: UUID
     ) throws -> Ghostty.SurfaceView {
-        guard let ghosttyApp = controller.ghostty.app else { throw GhosttyAttachTabHostError.noTerminalWindow }
+        guard let ghosttyApp = controller.ghostty.app else { throw GhosttyAttachContentHostError.noTerminalWindow }
         let view = Ghostty.SurfaceView(
             ghosttyApp,
             baseConfig: configuration(command: command, workingDirectory: workingDirectory, requestID: requestID)
         )
-        guard view.surface != nil else { throw GhosttyAttachTabHostError.surfaceUnavailable }
+        guard view.surface != nil else { throw GhosttyAttachContentHostError.surfaceUnavailable }
         return view
     }
 
     func openWindow(command: String, workingDirectory: String?, requestID: UUID) throws -> AttachmentHandle {
-        guard let ghostty = TerminalController.preferredParent?.ghostty else { throw GhosttyAttachTabHostError.noTerminalWindow }
+        guard let ghostty = TerminalController.preferredParent?.ghostty else { throw GhosttyAttachContentHostError.noTerminalWindow }
         let controller = TerminalController.newWindow(
             ghostty,
             withBaseConfig: configuration(command: command, workingDirectory: workingDirectory, requestID: requestID)
         )
-        guard let surface = controller.surfaceTree.first else { throw GhosttyAttachTabHostError.surfaceUnavailable }
+        guard let surface = controller.surfaceTree.first else { throw GhosttyAttachContentHostError.surfaceUnavailable }
         let handle = try register(controller, surface: surface, isAgent: !command.isEmpty, isTerminalRow: command.isEmpty)
         selectShownTerminal(in: controller)
         return handle
@@ -425,7 +425,7 @@ import OSLog
 
     /// Always creates a new split off `sourceSurface`, even if that surface
     /// already has other splits -- `.split` never reuses (see
-    /// `AttachTabHost.openSplit`).
+    /// `AttachContentHost.openSplit`).
     func openSplit(
         command: String,
         workingDirectory: String?,
@@ -436,15 +436,15 @@ import OSLog
     ) throws -> AttachmentHandle {
         Self.logger.log("openSplit requestID=\(requestID.uuidString, privacy: .public) origin=\(origin.rawValue.uuidString, privacy: .public)")
         do {
-            guard let controller = registry.controller(for: origin) else { throw GhosttyAttachTabHostError.originWindowClosed }
+            guard let controller = registry.controller(for: origin) else { throw GhosttyAttachContentHostError.originWindowClosed }
             guard let sourceView = controller.surfaceTree.first(where: { $0.id == sourceSurface }) else {
-                throw GhosttyAttachTabHostError.splitSourceUnavailable
+                throw GhosttyAttachContentHostError.splitSourceUnavailable
             }
             guard let newView = controller.leoCreateSplit(
                 at: sourceView,
                 direction: leoSplitTreeDirection(for: direction),
                 baseConfig: configuration(command: command, workingDirectory: workingDirectory, requestID: requestID)
-            ) else { throw GhosttyAttachTabHostError.cannotOpenSplit }
+            ) else { throw GhosttyAttachContentHostError.cannotOpenSplit }
             let handle = try register(controller, surface: newView, isAgent: !command.isEmpty)
             trimLivePool(of: controller)
             Self.logger.log("openSplit requestID=\(requestID.uuidString, privacy: .public) result=success")
@@ -462,14 +462,14 @@ import OSLog
     func fillPlaceholder(command: String, workingDirectory: String?, origin: LeoWindowID, surfaceID: UUID?, requestID: UUID) throws -> AttachmentHandle {
         Self.logger.log("fillPlaceholder requestID=\(requestID.uuidString, privacy: .public) origin=\(origin.rawValue.uuidString, privacy: .public)")
         do {
-            guard let controller = registry.controller(for: origin) else { throw GhosttyAttachTabHostError.originWindowClosed }
-            if surfaceID == nil { guard controller.surfaceTree.isEmpty else { throw GhosttyAttachTabHostError.placeholderNotEmpty } }
+            guard let controller = registry.controller(for: origin) else { throw GhosttyAttachContentHostError.originWindowClosed }
+            if surfaceID == nil { guard controller.surfaceTree.isEmpty else { throw GhosttyAttachContentHostError.placeholderNotEmpty } }
             let newView = try makeSurface(in: controller, command: command, workingDirectory: workingDirectory, requestID: requestID)
 
             if let surfaceID {
                 guard let oldView = controller.surfaceTree.first(where: { $0.id == surfaceID }),
                       let oldNode = controller.surfaceTree.root?.node(view: oldView) else {
-                    throw GhosttyAttachTabHostError.placeholderUnavailable
+                    throw GhosttyAttachContentHostError.placeholderUnavailable
                 }
                 let newTree = try controller.surfaceTree.replacing(node: oldNode, with: .leaf(view: newView))
                 // Assigned directly (not via `replaceSurfaceTree`, which always
@@ -640,7 +640,7 @@ import OSLog
         isTerminalRow: Bool = false
     ) throws -> AttachmentHandle {
         guard let session = controller.leoSession, controller.surfaceTree.contains(surface) else {
-            throw GhosttyAttachTabHostError.surfaceUnavailable
+            throw GhosttyAttachContentHostError.surfaceUnavailable
         }
         let handle = AttachmentHandle(surfaceID: surface.id, windowID: session.id)
         let attachment = Attachment(controller: controller, surface: surface, isAgent: isAgent, isTerminalRow: isTerminalRow)
@@ -776,7 +776,7 @@ import OSLog
     }
 }
 
-private enum GhosttyAttachTabHostError: Error, LocalizedError {
+private enum GhosttyAttachContentHostError: Error, LocalizedError {
     case originWindowClosed, noTerminalWindow, surfaceUnavailable
     case splitSourceUnavailable, cannotOpenSplit, placeholderNotEmpty, placeholderUnavailable
 

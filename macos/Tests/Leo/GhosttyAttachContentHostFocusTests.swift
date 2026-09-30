@@ -8,7 +8,7 @@ import Testing
 /// controller's remembered `focusedSurface`; the viewed attachment is the
 /// latter. Drives a real `TerminalController`, so it is skipped -- visibly
 /// -- without the app's real `Ghostty.App`.
-@MainActor struct GhosttyAttachTabHostFocusTests {
+@MainActor struct GhosttyAttachContentHostFocusTests {
     @Test(.enabled("needs the test host app's Ghostty.App") { await MainActor.run { Self.ghostty != nil } })
     func focusFollowsTheFirstResponderNotJustTheFocusedSurface() async throws {
         let ghostty = try #require(Self.ghostty)
@@ -18,7 +18,7 @@ import Testing
         let session = registry.makeSession(
             window: controller.window, controller: controller, defaults: LeoInMemoryDefaults()
         )
-        let host = GhosttyAttachTabHost(registry: registry, requestConfigStore: LeoRequestConfigStore())
+        let host = GhosttyAttachContentHost(registry: registry, requestConfigStore: LeoRequestConfigStore())
         let handle = try host.fillPlaceholder(command: "", workingDirectory: nil, origin: session.id, surfaceID: nil, requestID: UUID())
         let window = try #require(controller.window)
         let surface = try #require(controller.surfaceTree.first { $0.id == handle.surfaceID })
@@ -61,8 +61,8 @@ import Testing
             window: window, controller: controller, defaults: LeoInMemoryDefaults()
         )
         let appState = AppStateBox(isActive: true, keyWindow: window)
-        let host = GhosttyAttachTabHost(registry: registry, requestConfigStore: LeoRequestConfigStore()) {
-            GhosttyAttachTabHost.AppFocusState(isActive: appState.isActive, keyWindow: appState.keyWindow)
+        let host = GhosttyAttachContentHost(registry: registry, requestConfigStore: LeoRequestConfigStore()) {
+            GhosttyAttachContentHost.AppFocusState(isActive: appState.isActive, keyWindow: appState.keyWindow)
         }
         let recorder = FocusReportRecorder(host)
         defer { recorder.stop() }
@@ -93,7 +93,7 @@ import Testing
     }
 
     @Test func anInactiveAppOrNoKeyWindowSuspendsFocusRatherThanClearingIt() {
-        let host = GhosttyAttachTabHost(registry: LeoWindowSessionRegistry(), requestConfigStore: LeoRequestConfigStore())
+        let host = GhosttyAttachContentHost(registry: LeoWindowSessionRegistry(), requestConfigStore: LeoRequestConfigStore())
         let window = NSWindow()
         #expect(host.focusEvent(isActive: false, keyWindow: window) == .focusSuspended)
         #expect(host.focusEvent(isActive: true, keyWindow: nil) == .focusSuspended)
@@ -136,13 +136,13 @@ private final class FirstResponderView: NSView {
 @MainActor private final class FocusReportRecorder {
     private typealias Waiter = (isSatisfied: ([AttachLifecycleEvent]) -> Bool, continuation: CheckedContinuation<Void, Never>)
 
-    private let host: GhosttyAttachTabHost
+    private let host: GhosttyAttachContentHost
     private let timeout: Duration
     private var received: [AttachLifecycleEvent] = []
     private var waiters: [UUID: Waiter] = [:]
     private var drain: Task<Void, Never>?
 
-    init(_ host: GhosttyAttachTabHost, timeout: Duration = .seconds(20)) {
+    init(_ host: GhosttyAttachContentHost, timeout: Duration = .seconds(20)) {
         self.host = host
         self.timeout = timeout
         drain = Task { [weak self, events = host.lifecycleEvents] in

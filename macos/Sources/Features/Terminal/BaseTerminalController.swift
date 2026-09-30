@@ -897,7 +897,7 @@ class BaseTerminalController: NSWindowController,
             titleSurface.$title
                 .combineLatest(titleSurface.$bell, titleSurface.$leoAgentName)
                 .map { [weak self, weak titleSurface] title, bell, agentName in
-                    let shown = LeoTabTitleSource.resolve(
+                    let shown = LeoTitleSource.resolve(
                         terminalTitle: title,
                         isUserSet: titleSurface?.leoTitleIsUserSet ?? false,
                         agentName: agentName

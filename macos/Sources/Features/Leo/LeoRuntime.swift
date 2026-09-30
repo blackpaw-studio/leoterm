@@ -29,7 +29,7 @@ import OSLog
     let attachCoordinator: LeoAttachCoordinator
     /// The Ghostty side of attaching, for what only it can answer (hidden
     /// shells' processes, B-057).
-    private let attachHost: GhosttyAttachTabHost
+    private let attachHost: GhosttyAttachContentHost
     let newSurfaceRouter: LeoNewSurfaceRouter
     private let picker: LeoWindowPickerRouter
     private let requestConfigStore: LeoRequestConfigStore
@@ -123,7 +123,7 @@ import OSLog
         )
         let requestConfigStore = LeoRequestConfigStore()
         self.requestConfigStore = requestConfigStore
-        let host = GhosttyAttachTabHost(registry: registry, requestConfigStore: requestConfigStore)
+        let host = GhosttyAttachContentHost(registry: registry, requestConfigStore: requestConfigStore)
         attachHost = host
         let hostSelection = LeoHostSelection(
             store: LeoHostStore(defaults: defaults),
@@ -429,7 +429,7 @@ import OSLog
     /// the focused surface's working directory) -- stashed in
     /// `requestConfigStore` keyed by the request's id, since
     /// `LeoSurfaceRequest` itself stays a pure value type with no AppKit
-    /// dependency. `GhosttyAttachTabHost` consumes it when it actually
+    /// dependency. `GhosttyAttachContentHost` consumes it when it actually
     /// creates the destination surface.
     func routeNewSurface(
         _ disposition: LeoSurfaceDisposition,

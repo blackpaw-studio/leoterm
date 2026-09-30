@@ -5,7 +5,7 @@ import GhosttyKit
 /// `SplitTree<Ghostty.SurfaceView>.NewDirection`, the type `newSplit`
 /// actually takes. Kept as free functions (rather than an extension on the
 /// generic nested type, which Swift can't target directly) so both
-/// `TerminalController` and `GhosttyAttachTabHost` share one mapping.
+/// `TerminalController` and `GhosttyAttachContentHost` share one mapping.
 func leoSplitTreeDirection(for direction: LeoSplitDirection) -> SplitTree<Ghostty.SurfaceView>.NewDirection {
     switch direction {
     case .left: .left

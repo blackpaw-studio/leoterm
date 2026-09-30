@@ -17,7 +17,7 @@ import Testing
     private static let standIn = "/bin/cat"
 
     @MainActor private struct Fixture {
-        let host: GhosttyAttachTabHost
+        let host: GhosttyAttachContentHost
         let configs: LeoRequestConfigStore
         let controller: TerminalController
         /// Where requests are routed from (the host's registry entry).
@@ -61,7 +61,7 @@ import Testing
         let origin = registry.makeSession(window: controller.window, controller: controller, defaults: LeoInMemoryDefaults()).id
         let session = try #require(controller.leoSession)
         let configs = LeoRequestConfigStore()
-        let host = GhosttyAttachTabHost(registry: registry, requestConfigStore: configs) { .init(isActive: false, keyWindow: nil) }
+        let host = GhosttyAttachContentHost(registry: registry, requestConfigStore: configs) { .init(isActive: false, keyWindow: nil) }
         // What `LeoRuntime` wires for the app's own sessions.
         let sessionID = session.id
         session.terminals.closeRequested = { [weak host] in host?.closeTerminal(AttachmentHandle(surfaceID: $0, windowID: sessionID)) }

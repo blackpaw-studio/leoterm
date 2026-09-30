@@ -9,7 +9,7 @@ struct LeoTestPreferencesListingTests {
         "LeoSidebarSplitTests.plist",
         "LeoSidebarFeedRecoveryTests.picker.8A0F1E62-3C1B-4B0E-9D57-2B1C0C7A9F10.plist",
         "LeoHostSelectionTests.applied.plist",
-        "GhosttyAttachTabHostFocusTests.x.plist",
+        "GhosttyAttachContentHostFocusTests.x.plist",
     ])
     func matchesTestSuiteNames(_ name: String) {
         #expect(LeoTestPreferencesListing.isTestSuiteName(name))

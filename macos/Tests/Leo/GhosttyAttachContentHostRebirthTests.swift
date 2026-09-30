@@ -3,13 +3,13 @@ import Testing
 
 @testable import Ghostty
 
-/// Exercises `GhosttyAttachTabHost.fillPlaceholder`'s per-leaf (non-nil
+/// Exercises `GhosttyAttachContentHost.fillPlaceholder`'s per-leaf (non-nil
 /// `surfaceID`) branch against a real `TerminalController` -- there is no
 /// lighter-weight fixture for this host, since it drives real AppKit
 /// windows and `Ghostty.SurfaceView`s. Requires the app's real `Ghostty.App`
 /// (via `AppDelegate`), which is why these tests bail out (rather than
 /// fail) when that isn't available.
-@MainActor struct GhosttyAttachTabHostRebirthTests {
+@MainActor struct GhosttyAttachContentHostRebirthTests {
     private func makeDefaults() -> UserDefaults {
         LeoInMemoryDefaults()
     }
@@ -19,7 +19,7 @@ import Testing
     /// pass on the next `fillPlaceholder` call, and the handle the initial
     /// fill produced.
     private struct FilledPlaceholder {
-        let host: GhosttyAttachTabHost
+        let host: GhosttyAttachContentHost
         let controller: TerminalController
         let origin: LeoWindowID
         let firstHandle: AttachmentHandle
@@ -36,7 +36,7 @@ import Testing
         let controller = TerminalController.leoNewPlaceholderWindow(ghostty)
         let registry = LeoWindowSessionRegistry()
         let session = registry.makeSession(window: controller.window, controller: controller, defaults: makeDefaults())
-        let host = GhosttyAttachTabHost(registry: registry, requestConfigStore: LeoRequestConfigStore())
+        let host = GhosttyAttachContentHost(registry: registry, requestConfigStore: LeoRequestConfigStore())
         let firstHandle = try host.fillPlaceholder(
             command: "", workingDirectory: nil, origin: session.id, surfaceID: nil, requestID: UUID()
         )

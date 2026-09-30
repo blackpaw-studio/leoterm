@@ -3,13 +3,13 @@ import Testing
 
 @testable import Ghostty
 
-/// B-052 against a real `TerminalController`: an attach tab's window/tab
+/// B-052 against a real `TerminalController`: an attach surface's window
 /// title is its agent's name, following the focused split; Change Tab
 /// Title… still wins; other surfaces keep Ghostty's own title. Needs the
 /// app's real `Ghostty.App`, so these bail out (rather than fail) without it.
-@MainActor struct LeoTabTitleIntegrationTests {
+@MainActor struct LeoTitleIntegrationTests {
     private struct Fixture {
-        let host: GhosttyAttachTabHost
+        let host: GhosttyAttachContentHost
         let controller: TerminalController
         let origin: LeoWindowID
         let handle: AttachmentHandle
@@ -32,7 +32,7 @@ import Testing
         let controller = TerminalController.leoNewPlaceholderWindow(ghostty)
         let registry = LeoWindowSessionRegistry()
         let session = registry.makeSession(window: controller.window, controller: controller, defaults: LeoInMemoryDefaults())
-        let host = GhosttyAttachTabHost(registry: registry, requestConfigStore: LeoRequestConfigStore())
+        let host = GhosttyAttachContentHost(registry: registry, requestConfigStore: LeoRequestConfigStore())
         let handle = try host.fillPlaceholder(command: "", workingDirectory: nil, origin: session.id, surfaceID: nil, requestID: UUID())
         let fixture = Fixture(host: host, controller: controller, origin: session.id, handle: handle)
         fixture.focus(handle)
@@ -52,7 +52,7 @@ import Testing
         }
     }
 
-    @Test func attachTabIsTitledWithTheAgentName() throws {
+    @Test func attachSurfaceIsTitledWithTheAgentName() throws {
         guard let fixture = try makeFixture() else { return }
         defer { fixture.window?.close() }
 

@@ -8,7 +8,7 @@ import GhosttyKit
 class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Controller {
     // MARK: Leo
     private(set) var leoSession: LeoWindowSession?
-    /// True from `leoNewPlaceholderWindow` until `GhosttyAttachTabHost.
+    /// True from `leoNewPlaceholderWindow` until `GhosttyAttachContentHost.
     /// fillPlaceholder` successfully replaces the empty tree, or forever for
     /// a placeholder the user never fills. Distinguishes "this window was
     /// deliberately created empty and is showing `LeoPlaceholderView`" from
@@ -59,7 +59,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     }
 
     /// The committed split-creation path: bypasses the picker interception
-    /// above. Called only by `GhosttyAttachTabHost.openSplit` once the
+    /// above. Called only by `GhosttyAttachContentHost.openSplit` once the
     /// picker has resolved a `.split` request.
     func leoCreateSplit(
         at oldView: Ghostty.SurfaceView,
@@ -150,7 +150,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         }
     }
 
-    /// Called by `GhosttyAttachTabHost.fillPlaceholder` once a placeholder
+    /// Called by `GhosttyAttachContentHost.fillPlaceholder` once a placeholder
     /// window's empty tree has been replaced with a real surface. Replaces
     /// whatever undo action is currently registered (the "close if still
     /// empty" one above) with a normal "New Window" undo/redo pair for the

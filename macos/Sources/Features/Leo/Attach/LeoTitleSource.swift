@@ -1,9 +1,9 @@
-/// Where a surface's contribution to its tab and window title comes from
+/// Where a surface's contribution to its window title comes from
 /// (B-052). An attach surface shows its agent's name, whatever the terminal
 /// inside sets via OSC; a title the user set with Change Terminal Title…
 /// still wins. Change Tab Title… (`BaseTerminalController.titleOverride`)
 /// sits above all of this and is applied by the controller as before.
-enum LeoTabTitleSource: Equatable {
+enum LeoTitleSource: Equatable {
     /// Set by the user with Change Terminal Title….
     case userTitle(String)
     /// The Leo agent attached in the surface.

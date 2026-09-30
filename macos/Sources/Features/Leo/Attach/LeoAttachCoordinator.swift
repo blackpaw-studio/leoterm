@@ -35,7 +35,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
 }
 
 @MainActor final class LeoAttachCoordinator {
-    private let host: any AttachTabHost
+    private let host: any AttachContentHost
     private let executable: () throws -> String
     /// Builds the shell command for a *remote* identity (an app-owned SSH
     /// attach via `LeoSSHCommand.attachShellCommand`). Local identities
@@ -74,7 +74,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     private var lifecycleTask: Task<Void, Never>?
 
     init(
-        host: any AttachTabHost,
+        host: any AttachContentHost,
         executable: @escaping () throws -> String,
         remoteCommandBuilder: @escaping (LeoAgentIdentity) throws -> String = { _ in
             throw LeoDaemonError.hostUnavailable("Remote attach is not configured")

@@ -5,14 +5,14 @@ import Testing
 @testable import Ghostty
 
 /// B-050 against a real start-screen `TerminalController`: when
-/// `GhosttyAttachTabHost` closes an untouched start window. Needs the app's real `Ghostty.App`, so these bail out
+/// `GhosttyAttachContentHost` closes an untouched start window. Needs the app's real `Ghostty.App`, so these bail out
 /// (rather than fail) without it.
 ///
 /// The windows are built (content laid out, so the editor and browser pane
 /// views exist as they do on screen) but never shown: suites run in
 /// parallel in one app, and a shown window takes key status and the app's
 /// activation from whichever suite is driving focus (B-050 fix round 1:
-/// `GhosttyAttachTabHostFocusTests` lost its sidebar focus report). Every
+/// `GhosttyAttachContentHostFocusTests` lost its sidebar focus report). Every
 /// test checks that its windows stayed hidden and never became key.
 ///
 /// The one terminal surface here is never focused (it would make its
@@ -20,7 +20,7 @@ import Testing
 /// host in `LeoStartScreenTests`.
 @MainActor @Suite(.serialized) struct LeoStartScreenIntegrationTests {
     private struct Fixture {
-        let host: GhosttyAttachTabHost
+        let host: GhosttyAttachContentHost
         let controller: TerminalController
         let origin: LeoWindowID
     }
@@ -32,7 +32,7 @@ import Testing
         let registry = LeoWindowSessionRegistry()
         let controller = makeStartWindow(ghostty)
         let session = registry.makeSession(window: controller.window, controller: controller, defaults: LeoInMemoryDefaults())
-        let host = GhosttyAttachTabHost(registry: registry, requestConfigStore: LeoRequestConfigStore())
+        let host = GhosttyAttachContentHost(registry: registry, requestConfigStore: LeoRequestConfigStore())
         return Fixture(host: host, controller: controller, origin: session.id)
     }
 
@@ -91,7 +91,7 @@ import Testing
     /// A sidebar click asks from inside the start window's own mouse
     /// event, so the window closes on the next turn, not under AppKit's
     /// feet.
-    @Test func discardingTheStartTabWaitsForTheNextTurn() async throws {
+    @Test func discardingTheStartScreenWaitsForTheNextTurn() async throws {
         guard let fixture = makeFixture() else { return }
         let window = try #require(fixture.controller.window)
         let flag = CloseFlag()

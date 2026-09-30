@@ -94,7 +94,7 @@ import Testing
         let model = LeoSidebarModel(snapshot: LeoSidebarSnapshot(rows: [row], connectivity: .connected, generation: 1))
         var requests: [(LeoAgentRow.ID, LeoWindowID?)] = []
         model.focusExistingRequested = { requests.append(($0.id, $1)) }
-        model.receiveAttachLinks(LeoAttachLinkState(focused: nil, tabCounts: [row.id: 1]))
+        model.receiveAttachLinks(LeoAttachLinkState(focused: nil, attachCounts: [row.id: 1]))
 
         model.rowClicked(row, from: startWindow)
 
@@ -140,8 +140,8 @@ import Testing
         LeoStartScreenState(isUnfilledPlaceholder: true, hasTerminal: false, isEditorOpen: false, isBrowserOpen: false)
     }
 
-    private func make() -> (FakeAttachTabHost, LeoAttachCoordinator) {
-        let host = FakeAttachTabHost()
+    private func make() -> (FakeAttachContentHost, LeoAttachCoordinator) {
+        let host = FakeAttachContentHost()
         let coordinator = LeoAttachCoordinator(
             host: host,
             executable: { "/leo" },

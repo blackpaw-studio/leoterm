@@ -31,7 +31,7 @@ extension LeoSidebarModel {
         fenceInFlightFocusReports()
     }
 
-    func tabCount(for id: LeoAgentRow.ID) -> Int { attachLinks.tabCount(for: id) }
+    func attachCount(for id: LeoAgentRow.ID) -> Int { attachLinks.attachCount(for: id) }
 
     /// Every click on a row, the one place a click's meaning is decided.
     /// The clicked row wins over any focus the click's window activation
@@ -62,7 +62,7 @@ extension LeoSidebarModel {
             return
         }
         guard !modifierFlags.contains(.option) else { return }
-        if row.status == .running, tabCount(for: row.id) > 0 {
+        if row.status == .running, attachCount(for: row.id) > 0 {
             focusExistingRequested(row, origin)
             return
         }
