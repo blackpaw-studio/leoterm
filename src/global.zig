@@ -60,6 +60,7 @@ pub fn init(opts: InitOpts) !void {
         .io_impl = undefined,
         .gpa = null,
         .alloc = undefined,
+        .environ_arena = undefined,
         .environ = switch (opts) {
             .main, .tool => |m| m.environ,
             .c => |c| c.environ,
@@ -109,6 +110,8 @@ pub fn init(opts: InitOpts) !void {
         std.heap.c_allocator
     else
         unreachable;
+
+    self.environ_arena = .init(self.alloc);
 
     // Set up our main I/O implementation (fully threaded w/allocator). Note
     // that we cannot use any implementation supplied from main at this point,
@@ -243,6 +246,9 @@ pub fn deinit() void {
     // Release our I/O instance
     self.io_impl.deinit();
 
+    // Release every environment copy made by syncEnviron
+    self.environ_arena.deinit();
+
     if (self.gpa) |*value| {
         // We want to ensure that we deinit the GPA because this is
         // the point at which it will output if there were safety violations.
@@ -291,6 +297,13 @@ pub fn environMap() !std.process.Environ.Map {
 /// from the process. No-op on Windows, asserts libc and an initialized global
 /// state on everything else.
 ///
+/// The global Environ is a copy of the process environment taken here, never
+/// a view of libc's `environ`, which a later `setenv` may free. A change made
+/// with `setenv` or `unsetenv` is therefore only seen after calling this
+/// again. Copies are kept until `deinit` so that a reader still holding an
+/// older one stays valid. If the copy cannot be allocated, the previous
+/// Environ is kept.
+///
 /// It is not valid to run this within any code that needs to be run through
 /// tests. For any of these, re-factor the code to take an environment map
 /// instead, where you can modify the environment as needed.
@@ -310,13 +323,17 @@ pub fn syncEnviron() void {
         else => {
             assert(builtin.link_libc);
             assert(!builtin.is_test);
-            const new_environ: std.process.Environ = .{ .block = .{ .slice = std.c.environ[0..env_len: {
-                var len: usize = 0;
-                while (std.c.environ[len]) |_| : (len += 1) {}
-                break :env_len len;
-            } :null] } };
-            state.?.environ = new_environ;
-            state.?.io_impl.environ = .{ .process_environ = new_environ };
+            const self = &state.?;
+            const block = dupeEnvironBlock(
+                self.environ_arena.allocator(),
+                std.c.environ,
+            ) catch |err| {
+                std.log.err("failed to copy the environment, keeping the previous one err={}", .{err});
+                return;
+            };
+            const new_environ: std.process.Environ = .{ .block = block };
+            self.environ = new_environ;
+            self.io_impl.environ = .{ .process_environ = new_environ };
         },
     }
 }
@@ -393,6 +410,8 @@ pub const GlobalState = struct {
     gpa: ?GPA,
     alloc: std.mem.Allocator,
     environ: std.process.Environ,
+    /// Owns the copies of the process environment made by `syncEnviron`.
+    environ_arena: std.heap.ArenaAllocator,
     args: std.process.Args,
     tmp_dir_path: ?[]const u8,
     action: ?cli.ghostty.Action,
