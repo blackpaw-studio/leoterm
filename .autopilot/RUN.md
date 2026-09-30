@@ -22,3 +22,4 @@ Lane: B-071
   Call: Clearing covers every undo action targeting that controller (tree edits, redos, its New Window); other windows' undo is untouched — P2, AUTONOMY implementation approach
   Call: When a selected row closes by any path, the selection returns to what the window shows (its row, or none so the agent's selection shows) — P6, D-116
   Call: Clear undo in leoKeepForUnsavedEdits where the tree is emptied, not in fillPlaceholder's refill branch — AUTONOMY implementation approach
+- Board sync: B-014: unknown status [deferred] (exit 1)
