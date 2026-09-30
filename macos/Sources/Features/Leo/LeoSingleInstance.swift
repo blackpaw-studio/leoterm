@@ -53,9 +53,9 @@ enum LeoInstanceLockAttempt {
     case acquired(LeoInstanceLock)
     /// Another live process holds the lock.
     case busy
-    /// The holder is quitting: it marked the lock when its quit was approved
-    /// and holds it only until its process ends (B-092).
-    case holderExiting
+    /// The holder is quitting: it marked the lock with its pid when its quit
+    /// was approved, and holds it only until that process ends (B-092).
+    case holderExiting(pid_t)
     case refused(LeoInstanceLockRefusal)
 }
 
@@ -66,14 +66,14 @@ enum LeoInstanceLockAttempt {
 /// from inheriting (and outliving it with) the lock.
 ///
 /// The file is empty while its holder runs. A holder that is quitting
-/// writes `exitingMark` into it, so a copy launched during the quit waits
-/// for the lock instead of yielding to a copy that is about to be gone
-/// (B-092). Whoever takes the lock next empties the file again.
+/// writes `exiting <its pid>\n` into it, so a copy launched during the quit
+/// waits for that process to end instead of yielding to a copy that is
+/// about to be gone (B-092). Whoever takes the lock next empties the file.
 final class LeoInstanceLock {
-    /// What a quitting holder writes, byte for byte.
-    static let exitingMark = Array("exiting\n".utf8)
-    /// Enough to tell the mark from anything longer.
-    private static let markReadLimit = 16
+    private static let markPrefix = Array("exiting ".utf8)
+    /// More than any mark, so a longer file is never mistaken for one.
+    private static let markReadLimit = 32
+    private static let maxPIDDigits = 10
 
     private let descriptor: Int32
 
@@ -87,40 +87,62 @@ final class LeoInstanceLock {
 
     static func fileName(for bundleIdentifier: String) -> String { "\(bundleIdentifier).instance.lock" }
 
-    /// Marks the held lock exiting, through the held descriptor; the lock
-    /// itself stays held until this object goes (the process ends).
-    @discardableResult
-    func markExiting() -> Bool {
-        guard descriptor >= 0 else { return false }
-        let written = Self.exitingMark.withUnsafeBytes { pwrite(descriptor, $0.baseAddress, $0.count, 0) }
-        return written == Self.exitingMark.count
+    /// Marks the held lock exiting, naming `pid` (this process), through the
+    /// held descriptor; the lock stays held until this object goes (the
+    /// process ends).
+    func markExiting(as pid: pid_t = getpid()) throws {
+        guard descriptor >= 0 else { throw LeoInstanceLockError.system(EBADF) }
+        let mark = Array("exiting \(pid)\n".utf8)
+        let written = mark.withUnsafeBytes { pwrite(descriptor, $0.baseAddress, $0.count, 0) }
+        guard written >= 0 else { throw LeoInstanceLockError.system(errno) }
+        guard written == mark.count else { throw LeoInstanceLockError.system(EIO) }
+        guard ftruncate(descriptor, off_t(mark.count)) == 0 else { throw LeoInstanceLockError.system(errno) }
+    }
+
+    /// The pid in an exact `exiting <pid>\n` mark (1-10 digits, no leading
+    /// zero, a positive `pid_t`); nil for anything else.
+    static func markedPID(in bytes: [UInt8]) -> pid_t? {
+        guard bytes.starts(with: markPrefix), bytes.last == UInt8(ascii: "\n") else { return nil }
+        let digits = bytes.dropFirst(markPrefix.count).dropLast()
+        guard (1...maxPIDDigits).contains(digits.count), digits.first != UInt8(ascii: "0"),
+              digits.allSatisfy({ (UInt8(ascii: "0")...UInt8(ascii: "9")).contains($0) }) else { return nil }
+        return String(bytes: digits, encoding: .ascii).flatMap { pid_t($0) }
+    }
+
+    /// Blocks until process `pid` has exited -- a kqueue `NOTE_EXIT`, no
+    /// timeout (principle 5: a quitting copy that hangs is ended by hand).
+    /// Returns at once when it's already gone, is this process, or isn't
+    /// `owner`'s: a reused pid, not a copy that could hold our 0600 lock.
+    /// "Gone" includes a process that is still exiting: the kernel reports
+    /// that before it releases the process's lock, which
+    /// `LeoSingleInstance.attempt` allows for.
+    static func waitForExit(of pid: pid_t, owner: uid_t = geteuid()) {
+        guard pid > 0, pid != getpid(), isProcess(pid, ownedBy: owner) else { return }
+        let queue = kqueue()
+        guard queue >= 0 else { return }
+        defer { close(queue) }
+        var change = Darwin.kevent(
+            ident: UInt(pid), filter: Int16(EVFILT_PROC), flags: UInt16(EV_ADD | EV_ONESHOT),
+            fflags: UInt32(NOTE_EXIT), data: 0, udata: nil
+        )
+        var event = Darwin.kevent()
+        // A process that's already gone comes back at once, as an EV_ERROR event.
+        while kevent(queue, &change, 1, &event, 1, nil) < 0, errno == EINTR {}
     }
 
     /// Same owner-only directory the tunnel sockets use, checked the same
     /// way; the lock file itself must be a regular file `owner` owns with
     /// no other links, and is tightened to 0600. Never blocks: a held lock
     /// is `.holderExiting` when its holder marked it, otherwise `.busy`.
+    /// There's no waiting on the lock itself: a copy that waits does so on
+    /// the marked process (`waitForExit`) and then tries again, so it never
+    /// ends up queued behind a live copy.
     static func acquire(bundleIdentifier: String, in directory: URL, owner: uid_t = geteuid()) -> LeoInstanceLockAttempt {
         withCheckedLockFile(bundleIdentifier, in: directory, owner: owner) { descriptor, path in
             guard flock(descriptor, LOCK_EX | LOCK_NB) == 0 else {
                 let code = errno
                 guard code == EWOULDBLOCK else { return .refused(LeoInstanceLockRefusal(error: .system(code), path: path)) }
-                return isMarkedExiting(descriptor) ? .holderExiting : .busy
-            }
-            return holding(descriptor, path: path)
-        }
-    }
-
-    /// `acquire`, with the same checks on the file, but blocking in `flock`
-    /// until the holder lets go: for a holder marked exiting, whose process
-    /// is about to end. No timeout (principle 5): a holder that hangs while
-    /// quitting is ended by hand, and this copy then carries on. `O_NONBLOCK`
-    /// on the descriptor doesn't affect `flock`.
-    static func waitAndAcquire(bundleIdentifier: String, in directory: URL, owner: uid_t = geteuid()) -> LeoInstanceLockAttempt {
-        withCheckedLockFile(bundleIdentifier, in: directory, owner: owner) { descriptor, path in
-            while flock(descriptor, LOCK_EX) != 0 {
-                let code = errno
-                guard code == EINTR else { return .refused(LeoInstanceLockRefusal(error: .system(code), path: path)) }
+                return markedPID(descriptor).map(LeoInstanceLockAttempt.holderExiting) ?? .busy
             }
             return holding(descriptor, path: path)
         }
@@ -167,11 +189,17 @@ final class LeoInstanceLock {
         return .acquired(LeoInstanceLock(descriptor: descriptor))
     }
 
-    /// The file holds exactly `exitingMark`.
-    private static func isMarkedExiting(_ descriptor: Int32) -> Bool {
+    /// The pid the file's mark names, if it holds exactly one.
+    private static func markedPID(_ descriptor: Int32) -> pid_t? {
         var buffer = [UInt8](repeating: 0, count: markReadLimit)
         let count = buffer.withUnsafeMutableBytes { pread(descriptor, $0.baseAddress, $0.count, 0) }
-        return count >= 0 && Array(buffer.prefix(count)) == exitingMark
+        return count > 0 ? markedPID(in: Array(buffer.prefix(count))) : nil
+    }
+
+    private static func isProcess(_ pid: pid_t, ownedBy owner: uid_t) -> Bool {
+        var info = proc_bsdinfo()
+        let size = Int32(MemoryLayout<proc_bsdinfo>.size)
+        return proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size && info.pbi_uid == owner
     }
 
     private static func checkLockFile(_ descriptor: Int32, owner: uid_t) -> LeoInstanceLockError? {
@@ -200,11 +228,12 @@ final class LeoInstanceLock {
 /// without touching any of that state. Release and debug bundles have
 /// different IDs and so independent locks.
 ///
-/// Except when the holder is quitting (B-092): it marks the lock as soon as
-/// its quit is approved (and again in `applicationWillTerminate`), and a
-/// copy launched then waits for it to exit and carries on as the primary.
-/// Yielding would activate a copy that is about to be gone and leave no
-/// Leo running.
+/// Except when the holder is quitting (B-092): it marks the lock with its
+/// pid as soon as its quit is approved (and again in
+/// `applicationWillTerminate`), and a copy launched then waits for that
+/// process to exit and tries again, becoming the primary -- or yielding to
+/// whichever copy got there first. Yielding to the quitting copy itself
+/// would leave no Leo running.
 ///
 /// Fails closed: when the lock can't be taken safely (an unsafe directory,
 /// a symlinked, foreign or hard-linked lock file), another copy could be
@@ -226,9 +255,11 @@ struct LeoSingleInstance {
         /// any other claim.
         func markExiting() {
             guard case .primary(let lock) = self else { return }
-            guard !lock.markExiting() else { return }
-            let code = errno
-            LeoSingleInstance.logger.error("couldn't mark the instance lock exiting errno=\(code, privacy: .public)")
+            do {
+                try lock.markExiting()
+            } catch {
+                LeoSingleInstance.logger.error("couldn't mark the instance lock exiting: \(String(describing: error), privacy: .public)")
+            }
         }
 
         /// `applicationShouldTerminate`'s `reply`, marking the lock exiting
@@ -245,14 +276,22 @@ struct LeoSingleInstance {
             if shouldTerminate { markExiting() }
             return shouldTerminate
         }
+
+        /// `reply` for a deferred answer (after `.terminateLater`), marking
+        /// the lock exiting first when it's a yes.
+        func markingExiting(before reply: @escaping @MainActor (Bool) -> Void) -> @MainActor (Bool) -> Void {
+            { shouldTerminate in reply(markingExiting(ifApproved: shouldTerminate)) }
+        }
     }
 
     let bundleIdentifier: String?
     let isTestHost: Bool
     let acquireLock: (String) -> LeoInstanceLockAttempt
-    /// Blocks until the lock is free; only called when `acquireLock` found
-    /// its holder quitting.
-    let waitForLock: (String) -> LeoInstanceLockAttempt
+    /// Blocks until a process that marked the lock exiting has ended.
+    let waitForExit: (pid_t) -> Void
+    /// A short pause before trying again while a copy already waited out
+    /// still holds its lock (see `maxReleasePauses`).
+    let pauseForRelease: () -> Void
     let activateOther: (String) -> Void
     let alert: (LeoInstanceLockRefusal) -> Void
     let terminate: (Int32) -> Void
@@ -319,10 +358,35 @@ struct LeoSingleInstance {
             Self.logger.log("no bundle identifier; single-instance check skipped")
             return .skipped("no bundle identifier")
         }
-        let attempt = acquireLock(bundleIdentifier)
-        guard case .holderExiting = attempt else { return settle(attempt, for: bundleIdentifier) }
-        Self.logger.log("the copy of \(bundleIdentifier, privacy: .public) holding the lock is quitting; waiting for it to exit")
-        return settle(waitForLock(bundleIdentifier), for: bundleIdentifier)
+        return settle(attempt(bundleIdentifier), for: bundleIdentifier)
+    }
+
+    /// `acquireLock`, waiting out each holder that marked itself quitting and
+    /// then trying again. It never waits on the lock itself, so a copy that
+    /// took the lock meanwhile is found, and yielded to.
+    ///
+    /// The kernel reports a process gone a moment before it releases its
+    /// lock, so a try can still find the mark of a copy already waited out.
+    /// That's retried after a short pause, up to `maxReleasePauses` times
+    /// (seconds; the release takes well under a millisecond): long before
+    /// that, the lock is free, or a new holder has emptied the file and is
+    /// yielded to. A mark still there after all of them was left on a live
+    /// holder that never clears it (an older build): `settle` yields to it.
+    private func attempt(_ bundleIdentifier: String) -> LeoInstanceLockAttempt {
+        var waitedOut: Set<pid_t> = []
+        var pauses = 0
+        while true {
+            let attempt = acquireLock(bundleIdentifier)
+            guard case .holderExiting(let pid) = attempt else { return attempt }
+            if waitedOut.insert(pid).inserted {
+                Self.logger.log("the copy of \(bundleIdentifier, privacy: .public) holding the lock (pid \(pid, privacy: .public)) is quitting; waiting for it to exit")
+                waitForExit(pid)
+            } else {
+                guard pauses < Self.maxReleasePauses else { return attempt }
+                pauses += 1
+                pauseForRelease()
+            }
+        }
     }
 
     /// Carry on (`.acquired`), yield (D-051) or alert and quit (D-053).
@@ -330,7 +394,7 @@ struct LeoSingleInstance {
         switch attempt {
         case .acquired(let lock):
             return .primary(lock)
-        // A holder still quitting after the wait: yield rather than wait again.
+        // `.holderExiting` here: a mark a live holder never cleared (see `attempt`).
         case .busy, .holderExiting:
             Self.logger.log("another copy of \(bundleIdentifier, privacy: .public) is running; activating it and quitting")
             activateOther(bundleIdentifier)
@@ -353,6 +417,11 @@ struct LeoSingleInstance {
 
 extension LeoSingleInstance {
     private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
+    /// With `releasePauseMicroseconds`, about 5 s: a bound for a copy
+    /// already waited out to let go of its lock (see `attempt`), not a
+    /// timeout on anything the user waits for.
+    static let maxReleasePauses = 2_500
+    private static let releasePauseMicroseconds: useconds_t = 2_000
 
     /// The real gate: this bundle, the private per-user cache directory,
     /// `NSRunningApplication` activation, a modal alert, and `exit` --
@@ -374,9 +443,8 @@ extension LeoSingleInstance {
                     return LeoInstanceLock.acquire(bundleIdentifier: bundleIdentifier, in: directory)
                 }
             },
-            waitForLock: { bundleIdentifier in
-                inLockDirectory { LeoInstanceLock.waitAndAcquire(bundleIdentifier: bundleIdentifier, in: $0) }
-            },
+            waitForExit: { LeoInstanceLock.waitForExit(of: $0) },
+            pauseForRelease: { usleep(releasePauseMicroseconds) },
             activateOther: activateRunningCopy,
             alert: presentCannotStart,
             terminate: { exit($0) }

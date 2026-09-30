@@ -49,6 +49,51 @@ struct LeoEditorQuitReviewTests {
             #expect(editors.allSatisfy { $0.document == nil })
         }
     }
+
+    /// A system quit the unsaved-editors gate lets go ahead answers through
+    /// the reply the app passes in, which marks the instance lock exiting
+    /// first, like every approved quit (B-092).
+    @Test(.timeLimit(.minutes(1)))
+    func anApprovedSystemQuitMarksTheInstanceLockBeforeReplying() async throws {
+        let directory = try LeoTestSocketDirectory()
+        defer { directory.remove() }
+        let claim = LeoSingleInstance.Claim.primary(try LeoInstanceLockTestFile.held(in: directory))
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let (runtime, defaults) = makeRuntime()
+            let window = window()
+            let session = runtime.registry.makeSession(window: window, defaults: defaults, makeFileAccess: { _ in LeoFileAccessor.local() })
+            session.editor.confirmUnsaved = { _ in .discard }
+            try await session.editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
+            session.editor.document?.edit("edited")
+            var replies: [Bool] = []
+            var markedWhenReplying: [Bool] = []
+
+            let reply = runtime.deferQuitForUnsavedEditors(isSystemQuit: true, reply: claim.markingExiting(before: { shouldTerminate in
+                if case .holderExiting = LeoInstanceLockTestFile.acquire(in: directory) {
+                    markedWhenReplying.append(true)
+                } else {
+                    markedWhenReplying.append(false)
+                }
+                replies.append(shouldTerminate)
+            }))
+
+            #expect(reply == .terminateLater)
+            #expect(await eventually { !replies.isEmpty })
+            #expect(replies == [true])
+            #expect(markedWhenReplying == [true])
+            withExtendedLifetime((session, window)) {}
+        }
+        withExtendedLifetime(claim) {}
+    }
+
+    /// Polls: the gate answers from a task it starts.
+    private func eventually(_ condition: () -> Bool) async -> Bool {
+        let deadline = ContinuousClock.now + .seconds(5)
+        while !condition(), ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        return condition()
+    }
 }
 
 /// The "leave anyway?" offer is a sheet on the stuck editor's own window,

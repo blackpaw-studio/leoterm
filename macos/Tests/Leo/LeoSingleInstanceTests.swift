@@ -1,4 +1,3 @@
-import AppKit
 import Darwin
 import Foundation
 import Testing
@@ -9,12 +8,12 @@ import Testing
 /// bundle activates the first and quits before any tunnel state is touched,
 /// and a lock that can't be taken safely stops the launch (fails closed).
 struct LeoSingleInstanceTests {
-    private static let bundleID = "studio.blackpaw.leo.macos.tests"
+    private static let bundleID = LeoGateSpy.bundleID
 
     // MARK: - Decision
 
     @Test func acquiredLockContinuesLaunching() {
-        let spy = GateSpy()
+        let spy = LeoGateSpy()
 
         let claim = spy.gate(acquire: { _ in .acquired(LeoInstanceLock(descriptor: -1)) }).claim()
 
@@ -25,7 +24,7 @@ struct LeoSingleInstanceTests {
     }
 
     @Test func busyLockActivatesTheOtherCopyAndExitsCleanly() {
-        let spy = GateSpy()
+        let spy = LeoGateSpy()
 
         let claim = spy.gate(acquire: { _ in .busy }).claim()
 
@@ -36,38 +35,39 @@ struct LeoSingleInstanceTests {
         #expect(spy.waits.isEmpty)
     }
 
-    /// B-092: the holder is quitting (it marked the lock when its quit was
-    /// approved), so this copy waits for it to go and carries on as the
-    /// primary instead of yielding to a dying copy.
-    @Test func anExitingHolderIsWaitedForNotYieldedTo() {
-        let spy = GateSpy()
+    /// B-092: the holder is quitting (it marked the lock with its pid when
+    /// its quit was approved), so this copy waits for that process to end,
+    /// tries again, and carries on as the primary.
+    @Test func anExitingHolderIsWaitedOutNotYieldedTo() {
+        let spy = LeoGateSpy()
 
-        let claim = spy.gate(acquire: { _ in .holderExiting }, wait: { _ in .acquired(LeoInstanceLock(descriptor: -1)) }).claim()
+        let claim = spy.gate(acquire: Self.answering([.holderExiting(42), .acquired(LeoInstanceLock(descriptor: -1))])).claim()
 
         guard case .primary = claim else { Issue.record("expected .primary, got \(claim)"); return }
-        #expect(spy.waits == [Self.bundleID])
+        #expect(spy.waits == [42])
         #expect(spy.activated.isEmpty)
         #expect(spy.alerts.isEmpty)
         #expect(spy.exits.isEmpty)
     }
 
-    /// The wait ends the way a first attempt would: busy still yields (D-051).
-    @Test func aWaitThatEndsBusyStillYields() {
-        let spy = GateSpy()
+    /// The next try settles like a first one: busy still yields (D-051) ...
+    @Test func aTryAfterTheWaitThatIsBusyStillYields() {
+        let spy = LeoGateSpy()
 
-        let claim = spy.gate(acquire: { _ in .holderExiting }, wait: { _ in .busy }).claim()
+        let claim = spy.gate(acquire: Self.answering([.holderExiting(42), .busy])).claim()
 
         guard case .yielded = claim else { Issue.record("expected .yielded, got \(claim)"); return }
+        #expect(spy.waits == [42])
         #expect(spy.activated == [Self.bundleID])
         #expect(spy.exits == [0])
     }
 
     /// ... and a refusal still alerts and quits non-zero (D-053).
-    @Test func aRefusedWaitAlertsAndQuitsNonZero() {
-        let spy = GateSpy()
+    @Test func aRefusedTryAfterTheWaitAlertsAndQuitsNonZero() {
+        let spy = LeoGateSpy()
         let refusal = LeoInstanceLockRefusal(error: .linked, path: "/c/leo/x.instance.lock")
 
-        let claim = spy.gate(acquire: { _ in .holderExiting }, wait: { _ in .refused(refusal) }).claim()
+        let claim = spy.gate(acquire: Self.answering([.holderExiting(42), .refused(refusal)])).claim()
 
         guard case .refused = claim else { Issue.record("expected .refused, got \(claim)"); return }
         #expect(spy.alerts == [refusal])
@@ -75,8 +75,51 @@ struct LeoSingleInstanceTests {
         #expect(spy.activated.isEmpty)
     }
 
+    /// A copy that took the lock during the wait and is itself quitting by
+    /// the next try is waited out in turn.
+    @Test func eachNewlyQuittingHolderIsWaitedOut() {
+        let spy = LeoGateSpy()
+
+        let claim = spy.gate(acquire: Self.answering([.holderExiting(42), .holderExiting(43), .acquired(LeoInstanceLock(descriptor: -1))])).claim()
+
+        guard case .primary = claim else { Issue.record("expected .primary, got \(claim)"); return }
+        #expect(spy.waits == [42, 43])
+        #expect(spy.exits.isEmpty)
+    }
+
+    /// XNU reports a quitting copy gone (the wait returns at once) a moment
+    /// before it releases its lock, so the next try can find the same mark.
+    /// Give it that moment: the real launch/quit race otherwise left no Leo.
+    @Test func aCopyWaitedOutThatStillHoldsItsLockIsGivenAMoment() {
+        let spy = LeoGateSpy()
+
+        let claim = spy.gate(acquire: Self.answering([
+            .holderExiting(42), .holderExiting(42), .holderExiting(42), .acquired(LeoInstanceLock(descriptor: -1)),
+        ])).claim()
+
+        guard case .primary = claim else { Issue.record("expected .primary, got \(claim)"); return }
+        #expect(spy.waits == [42])
+        #expect(spy.pauses == 2)
+        #expect(spy.exits.isEmpty)
+    }
+
+    /// Still marked by a copy already waited out, long after it's gone: a
+    /// live copy holds the lock and never cleared the mark (an older build).
+    /// Yield to it after a bounded moment: never wait again, never block.
+    @Test func aMarkNamingACopyAlreadyWaitedOutIsALiveHolderInTheEnd() {
+        let spy = LeoGateSpy()
+
+        let claim = spy.gate(acquire: Self.answering([.holderExiting(42)])).claim()
+
+        guard case .yielded = claim else { Issue.record("expected .yielded, got \(claim)"); return }
+        #expect(spy.waits == [42])
+        #expect(spy.pauses == LeoSingleInstance.maxReleasePauses)
+        #expect(spy.activated == [Self.bundleID])
+        #expect(spy.exits == [0])
+    }
+
     @Test func aTestHostNeverTakesTheLockOrQuits() {
-        let spy = GateSpy()
+        let spy = LeoGateSpy()
         var attempts = 0
 
         let claim = spy.gate(isTestHost: true, acquire: { _ in attempts += 1; return .busy }).claim()
@@ -89,7 +132,7 @@ struct LeoSingleInstanceTests {
     /// Fails closed: a lock that can't be taken safely means another copy
     /// might be running unseen, so this one explains why and quits non-zero.
     @Test func aRefusedLockAlertsAndQuitsNonZero() {
-        let spy = GateSpy()
+        let spy = LeoGateSpy()
         let refusal = LeoInstanceLockRefusal(error: .notOwned, path: "/c/leo/x.instance.lock")
 
         let claim = spy.gate(acquire: { _ in .refused(refusal) }).claim()
@@ -102,10 +145,10 @@ struct LeoSingleInstanceTests {
 
     /// No bundle ID, no bundle-keyed shared state to protect: launch.
     @Test func aMissingBundleIdentifierSkips() {
-        let spy = GateSpy()
+        let spy = LeoGateSpy()
         let gate = LeoSingleInstance(
             bundleIdentifier: nil, isTestHost: false,
-            acquireLock: { _ in Issue.record("must not lock"); return .busy }, waitForLock: spy.wait,
+            acquireLock: { _ in Issue.record("must not lock"); return .busy }, waitForExit: spy.waitForExit, pauseForRelease: spy.pauseForRelease,
             activateOther: spy.activate, alert: spy.alert, terminate: spy.exit
         )
 
@@ -240,11 +283,11 @@ struct LeoSingleInstanceTests {
             expectedPath = directory.path
         }
         let before = try FileManager.default.contentsOfDirectory(atPath: parent.url.path).sorted()
-        let spy = GateSpy()
+        let spy = LeoGateSpy()
         let gate = LeoSingleInstance(
             bundleIdentifier: bundleID, isTestHost: false,
             acquireLock: { [directory, owner] in LeoInstanceLock.acquire(bundleIdentifier: $0, in: directory, owner: owner) },
-            waitForLock: spy.wait, activateOther: spy.activate, alert: spy.alert, terminate: spy.exit
+            waitForExit: spy.waitForExit, pauseForRelease: spy.pauseForRelease, activateOther: spy.activate, alert: spy.alert, terminate: spy.exit
         )
 
         let claim = gate.claim()
@@ -339,262 +382,16 @@ struct LeoSingleInstanceTests {
         guard case .refused = attempt else { Issue.record("expected .refused, got \(attempt)"); return }
     }
 
-    // MARK: - A holder that is quitting (B-092)
-
-    /// B-092: a copy launched ~50 ms into the previous copy's quit found the
-    /// lock still held, activated the dying copy and exited 0, leaving no
-    /// Leo. Now the quitting holder marks the lock, and the new copy waits
-    /// for it to go and becomes the primary. Dropping `holder` in the wait
-    /// seam stands in for the dying copy's process ending.
-    @Test func aCopyLaunchedWhileTheHolderIsExitingTakesOverInsteadOfQuitting() throws {
-        let directory = try LeoTestSocketDirectory()
-        defer { directory.remove() }
-        var holder: LeoInstanceLock? = try Self.heldLock(in: directory)
-        #expect(holder?.markExiting() == true)
-        let spy = GateSpy()
-        let gate = spy.gate(
-            acquire: { LeoInstanceLock.acquire(bundleIdentifier: $0, in: directory.url) },
-            wait: { bundleID in
-                holder = nil
-                return LeoInstanceLock.waitAndAcquire(bundleIdentifier: bundleID, in: directory.url)
-            }
-        )
-
-        let claim = gate.claim()
-
-        guard case .primary = claim else { Issue.record("expected .primary, got \(claim)"); return }
-        #expect(spy.waits == [Self.bundleID])
-        #expect(spy.exits.isEmpty)
-        #expect(spy.activated.isEmpty)
-        #expect(spy.alerts.isEmpty)
-    }
-
-    /// D-051 still holds: a live holder that isn't quitting is activated and
-    /// this copy exits 0 without waiting.
-    @Test func aLiveHolderWithoutTheExitingMarkIsStillYieldedTo() throws {
-        let directory = try LeoTestSocketDirectory()
-        defer { directory.remove() }
-        let holder = try Self.heldLock(in: directory)
-        let spy = GateSpy()
-
-        let claim = withExtendedLifetime(holder) {
-            spy.gate(acquire: { LeoInstanceLock.acquire(bundleIdentifier: $0, in: directory.url) }).claim()
-        }
-
-        guard case .yielded = claim else { Issue.record("expected .yielded, got \(claim)"); return }
-        #expect(spy.exits == [0])
-        #expect(spy.activated == [Self.bundleID])
-        #expect(spy.waits.isEmpty)
-    }
-
-    @Test func markingExitingKeepsTheLockHeld() throws {
-        let directory = try LeoTestSocketDirectory()
-        defer { directory.remove() }
-        let holder = try Self.heldLock(in: directory)
-
-        #expect(holder.markExiting())
-        let second = withExtendedLifetime(holder) { LeoInstanceLock.acquire(bundleIdentifier: Self.bundleID, in: directory.url) }
-
-        guard case .holderExiting = second else { Issue.record("expected .holderExiting, got \(second)"); return }
-    }
-
-    /// `main.swift`'s claim is what `applicationWillTerminate` marks.
-    @Test func aPrimaryClaimMarksItsLockExiting() throws {
-        let directory = try LeoTestSocketDirectory()
-        defer { directory.remove() }
-        let claim = GateSpy().gate(acquire: { LeoInstanceLock.acquire(bundleIdentifier: $0, in: directory.url) }).claim()
-        guard case .primary = claim else { Issue.record("expected .primary, got \(claim)"); return }
-
-        claim.markExiting()
-        let second = withExtendedLifetime(claim) { LeoInstanceLock.acquire(bundleIdentifier: Self.bundleID, in: directory.url) }
-
-        guard case .holderExiting = second else { Issue.record("expected .holderExiting, got \(second)"); return }
-    }
-
-    /// AppKit runs `applicationWillTerminate` ~50 ms after the quit is
-    /// approved, so the mark goes on at approval: `.terminateNow` from
-    /// `applicationShouldTerminate`, or `reply(toApplicationShouldTerminate:
-    /// true)`. A later or cancelled quit may still not happen: no mark.
-    @Test(arguments: [
-        (NSApplication.TerminateReply.terminateNow, true),
-        (.terminateLater, false),
-        (.terminateCancel, false),
-    ])
-    func onlyAnApprovedQuitMarksTheLockExiting(reply: NSApplication.TerminateReply, marks: Bool) throws {
-        let directory = try LeoTestSocketDirectory()
-        defer { directory.remove() }
-        let claim = GateSpy().gate(acquire: { LeoInstanceLock.acquire(bundleIdentifier: $0, in: directory.url) }).claim()
-        guard case .primary = claim else { Issue.record("expected .primary, got \(claim)"); return }
-
-        let passedOn = claim.markingExiting(ifApproved: reply)
-        let second = withExtendedLifetime(claim) { LeoInstanceLock.acquire(bundleIdentifier: Self.bundleID, in: directory.url) }
-
-        #expect(passedOn == reply)
-        switch (second, marks) {
-        case (.holderExiting, true), (.busy, false): break
-        default: Issue.record("marks=\(marks), got \(second)")
-        }
-    }
-
-    @Test(arguments: [true, false])
-    func onlyAnApprovingReplyMarksTheLockExiting(shouldTerminate: Bool) throws {
-        let directory = try LeoTestSocketDirectory()
-        defer { directory.remove() }
-        let claim = GateSpy().gate(acquire: { LeoInstanceLock.acquire(bundleIdentifier: $0, in: directory.url) }).claim()
-        guard case .primary = claim else { Issue.record("expected .primary, got \(claim)"); return }
-
-        let passedOn = claim.markingExiting(ifApproved: shouldTerminate)
-        let second = withExtendedLifetime(claim) { LeoInstanceLock.acquire(bundleIdentifier: Self.bundleID, in: directory.url) }
-
-        #expect(passedOn == shouldTerminate)
-        switch (second, shouldTerminate) {
-        case (.holderExiting, true), (.busy, false): break
-        default: Issue.record("shouldTerminate=\(shouldTerminate), got \(second)")
-        }
-    }
-
-    /// The next primary empties the file, so a mark left by a copy that has
-    /// since exited never makes a later copy wait on a live one.
-    @Test func aStaleExitingMarkIsClearedByTheNextPrimary() throws {
-        let directory = try LeoTestSocketDirectory()
-        defer { directory.remove() }
-        let path = directory.path(LeoInstanceLock.fileName(for: Self.bundleID))
-        var first: LeoInstanceLock? = try Self.heldLock(in: directory)
-        #expect(first?.markExiting() == true)
-        withExtendedLifetime(first) {}
-        first = nil
-        #expect(Self.fileSize(path) > 0, "the mark outlives the copy that wrote it")
-        let second = try Self.heldLock(in: directory)
-
-        let third = withExtendedLifetime(second) { LeoInstanceLock.acquire(bundleIdentifier: Self.bundleID, in: directory.url) }
-
-        guard case .busy = third else { Issue.record("expected .busy, got \(third)"); return }
-        #expect(Self.fileSize(path) == 0)
-    }
-
-    /// Only Leo's own mark, byte for byte, makes a copy wait.
-    @Test(arguments: ["exiting", "exiting\nmore", "EXITING\n", "busy\n"])
-    func anythingButTheExactMarkIsBusy(contents: String) throws {
-        let directory = try LeoTestSocketDirectory()
-        defer { directory.remove() }
-        let holder = try Self.heldLock(in: directory)
-        // In place, not replaced: the holder's lock stays on this very file.
-        let writer = open(directory.path(LeoInstanceLock.fileName(for: Self.bundleID)), O_WRONLY | O_TRUNC | O_CLOEXEC)
-        #expect(writer >= 0)
-        #expect(Array(contents.utf8).withUnsafeBytes { write(writer, $0.baseAddress, $0.count) } == contents.utf8.count)
-        close(writer)
-
-        let second = withExtendedLifetime(holder) { LeoInstanceLock.acquire(bundleIdentifier: Self.bundleID, in: directory.url) }
-
-        guard case .busy = second else { Issue.record("expected .busy, got \(second)"); return }
-    }
-
-    /// The wait is a real blocking `flock` (on an `O_NONBLOCK` descriptor):
-    /// it hands over the lock only once the quitting holder lets it go.
-    @Test func waitAndAcquireBlocksUntilTheHolderIsReleased() throws {
-        let directory = try LeoTestSocketDirectory()
-        defer { directory.remove() }
-        let holder = HeldLock(try Self.heldLock(in: directory))
-        #expect(holder.markExiting())
-        Thread {
-            usleep(50_000) // let the waiter reach flock first
-            holder.release()
-        }.start()
-
-        let attempt = LeoInstanceLock.waitAndAcquire(bundleIdentifier: Self.bundleID, in: directory.url)
-
-        guard case .acquired = attempt else { Issue.record("expected .acquired, got \(attempt)"); return }
-        #expect(holder.isReleased)
-    }
-
-    /// The wait checks the file exactly as `acquire` does, before blocking
-    /// on it (a refusal returns at once, even while the file is locked).
-    @Test func waitAndAcquireRefusesAnUnsafeLockFileWithoutWaiting() throws {
-        let directory = try LeoTestSocketDirectory()
-        defer { directory.remove() }
-        let path = directory.path(LeoInstanceLock.fileName(for: Self.bundleID))
-        let descriptor = open(path, O_RDWR | O_CREAT | O_CLOEXEC, 0o600)
-        #expect(descriptor >= 0)
-        defer { close(descriptor) }
-        #expect(flock(descriptor, LOCK_EX | LOCK_NB) == 0)
-        #expect(link(path, directory.path("other")) == 0)
-
-        let attempt = LeoInstanceLock.waitAndAcquire(bundleIdentifier: Self.bundleID, in: directory.url)
-
-        guard case .refused(let refusal) = attempt else { Issue.record("expected .refused, got \(attempt)"); return }
-        #expect(refusal == LeoInstanceLockRefusal(error: .linked, path: path))
-    }
-
     private static func acquired(_ attempt: LeoInstanceLockAttempt) -> LeoInstanceLock? {
         if case .acquired(let lock) = attempt { return lock }
         Issue.record("expected .acquired, got \(attempt)")
         return nil
     }
 
-    /// A held lock on this suite's bundle ID in `directory`.
-    private static func heldLock(in directory: LeoTestSocketDirectory) throws -> LeoInstanceLock {
-        try #require(acquired(LeoInstanceLock.acquire(bundleIdentifier: bundleID, in: directory.url)))
-    }
-
-    private static func fileSize(_ path: String) -> Int64 {
-        var info = Darwin.stat()
-        return lstat(path, &info) == 0 ? info.st_size : -1
-    }
-}
-
-/// A lock handed to another thread, which drops it the way a quitting
-/// copy's exit would.
-private final class HeldLock: @unchecked Sendable {
-    private let mutex = NSLock()
-    private var lock: LeoInstanceLock?
-    private var released = false
-
-    init(_ lock: LeoInstanceLock) { self.lock = lock }
-
-    var isReleased: Bool { mutex.withLock { released } }
-
-    func markExiting() -> Bool { mutex.withLock { lock?.markExiting() ?? false } }
-
-    func release() {
-        mutex.withLock {
-            lock = nil
-            released = true
-        }
-    }
-}
-
-/// Records what the gate asked the app to do instead of doing it.
-private final class GateSpy {
-    private(set) var activated: [String] = []
-    private(set) var alerts: [LeoInstanceLockRefusal] = []
-    private(set) var exits: [Int32] = []
-    private(set) var waits: [String] = []
-
-    func activate(_ bundleID: String) { activated.append(bundleID) }
-    func alert(_ refusal: LeoInstanceLockRefusal) { alerts.append(refusal) }
-    func exit(_ status: Int32) { exits.append(status) }
-
-    /// Records the wait; the lock stays busy.
-    func wait(_ bundleID: String) -> LeoInstanceLockAttempt {
-        waits.append(bundleID)
-        return .busy
-    }
-
-    func gate(
-        isTestHost: Bool = false,
-        acquire: @escaping (String) -> LeoInstanceLockAttempt,
-        wait: ((String) -> LeoInstanceLockAttempt)? = nil
-    ) -> LeoSingleInstance {
-        LeoSingleInstance(
-            bundleIdentifier: "studio.blackpaw.leo.macos.tests", isTestHost: isTestHost,
-            acquireLock: acquire,
-            waitForLock: { [self] bundleID in
-                guard let wait else { return self.wait(bundleID) }
-                waits.append(bundleID)
-                return wait(bundleID)
-            },
-            activateOther: activate, alert: alert, terminate: exit
-        )
+    /// Answers each attempt with the next of `attempts`, then the last again.
+    private static func answering(_ attempts: [LeoInstanceLockAttempt]) -> (String) -> LeoInstanceLockAttempt {
+        var remaining = attempts[...]
+        return { _ in remaining.count > 1 ? remaining.removeFirst() : remaining[remaining.startIndex] }
     }
 }
 

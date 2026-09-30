@@ -482,7 +482,9 @@ class AppDelegate: NSObject,
         // an update that's installing. Logout waits for the answers; any
         // other quit is retried after them.
         let leoIsSystemQuit = LeoQuitReason.isSystemQuit(NSAppleEventManager.shared().currentAppleEvent)
-        if let reply = leoRuntime.deferQuitForUnsavedEditors(isSystemQuit: leoIsSystemQuit) { return reply }
+        if let reply = leoRuntime.deferQuitForUnsavedEditors(
+            isSystemQuit: leoIsSystemQuit, reply: leoInstanceClaim.markingExiting(before: { NSApp.reply(toApplicationShouldTerminate: $0) })
+        ) { return reply }
 
         // If we've already accepted to install an update, then we don't need to
         // confirm quit. The user is already expecting the update to happen.
