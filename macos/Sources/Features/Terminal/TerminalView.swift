@@ -157,6 +157,7 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
         LeoPlaceholderView(
             model: runtime.model,
             hostSelection: runtime.hostSelection,
+            shortcutHints: runtime.shortcutHints,
             openPicker: { session.openPicker(surfaceID: nil) },
             newTerminal: { LeoPlaceholderNewTerminal.send(to: delegate) },
             toggleDrawer: {
@@ -183,6 +184,7 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                             return AnyView(LeoPlaceholderView(
                                 model: runtime.model,
                                 hostSelection: runtime.hostSelection,
+                                shortcutHints: runtime.shortcutHints,
                                 openPicker: { leoSession.openPicker(surfaceID: surface.id) },
                                 newTerminal: { LeoPlaceholderNewTerminal.send(to: delegate) },
                                 toggleDrawer: {

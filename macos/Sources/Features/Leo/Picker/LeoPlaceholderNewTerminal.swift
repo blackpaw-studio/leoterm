@@ -6,8 +6,7 @@ import AppKit
 /// (D-099, D-125).
 enum LeoPlaceholderNewTerminal {
     static let title = LeoWindowTabbing.newTerminalTitle
-    /// The tooltip: the menu item's shortcut (D-128's pattern).
-    static let help = LeoWindowTabbing.newTerminalShortcut
+    // The tooltip is the menu item's live shortcut: LeoShortcutHints (B-080).
     /// File ▸ New Terminal's action.
     static let action = #selector(TerminalController.newTab(_:))
 

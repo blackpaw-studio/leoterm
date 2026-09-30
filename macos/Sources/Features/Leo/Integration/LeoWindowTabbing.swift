@@ -13,13 +13,8 @@ enum LeoWindowTabbing {
     static let newTerminalTitle = "New Terminal"
     static let chooseAgentTitle = "Choose Agent…"
     static let changeWindowTitleTitle = "Change Window Title…"
-    /// Choose Agent…'s key equivalent as shown to users (MainMenu.xib's
-    /// ⌘O). ⌘T is New Terminal (B-066, D-125).
-    static let chooseAgentShortcut = "⌘O"
-    /// New Terminal's key equivalent as shown to users (Ghostty's default
-    /// `new_tab` binding, synced onto the menu item). The start screen's
-    /// New Terminal tooltip (B-069).
-    static let newTerminalShortcut = "⌘T"
+    // The shortcuts shown for these (⌘T, ⌘O by default) are read off the
+    // live menu items: LeoShortcutHints (B-080).
 
     /// App-wide, before any window exists: drops Show Tab Bar, Show All
     /// Tabs, Merge All Windows and Move Tab to New Window from the Window

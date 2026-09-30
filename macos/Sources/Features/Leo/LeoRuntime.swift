@@ -16,6 +16,9 @@ import OSLog
     /// Every close of a tab, window or the app with unsaved editor edits
     /// asks through this first (B-004).
     let unsavedEditors = LeoUnsavedEditorsGate()
+    /// The start screen's shortcut tooltips, read off the live menu each
+    /// time AppDelegate syncs its shortcuts from the config (B-080).
+    let shortcutHints = LeoShortcutHints()
     /// Checks surfaced-file opens the user asks for (B-013).
     private(set) var surfacedFileOpener: LeoSurfacedFileOpener!
     /// Focus identity into `feed`, delivered in order (see

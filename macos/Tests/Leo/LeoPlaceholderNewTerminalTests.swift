@@ -6,16 +6,13 @@ import Testing
 /// B-069: the start screen's New Terminal button is File ▸ New Terminal
 /// (⌘T) itself -- the menu item's own action, sent the way AppKit sends it,
 /// and a tooltip naming the menu item's own shortcut. Runs against the app
-/// the tests are hosted in, so the main menu is the real one.
+/// the tests are hosted in, so the main menu is the real one. B-080: the
+/// item is found by its action, not its key, so a rebound `new_tab` still
+/// finds it and the hint is checked against whatever it is bound to.
 @MainActor @Suite(.serialized) struct LeoPlaceholderNewTerminalTests {
-    /// Every main-menu item (submenus included) on plain ⌘`key`.
-    private func commandItems(_ key: String) -> [NSMenuItem] {
-        func walk(_ menu: NSMenu?) -> [NSMenuItem] {
-            (menu?.items ?? []).flatMap { [$0] + walk($0.submenu) }
-        }
-        return walk(NSApp.mainMenu).filter {
-            $0.keyEquivalent == key && $0.keyEquivalentModifierMask.intersection(.deviceIndependentFlagsMask) == .command
-        }
+    /// File ▸ New Terminal, by its action.
+    private func newTerminalItem() -> NSMenuItem? {
+        LeoMenuShortcutHint.menuItem(action: #selector(TerminalController.newTab(_:)), in: NSApp.mainMenu)
     }
 
     /// Stands in for the window's controller: answers ⌘T's selector.
@@ -24,17 +21,18 @@ import Testing
         @objc func newTab(_ sender: Any?) { senders.append(sender) }
     }
 
-    @Test func theButtonIsTheCommandTMenuItem() throws {
-        let item = try #require(commandItems("t").first, "⌘T is in the main menu")
+    @Test func theButtonIsTheNewTerminalMenuItem() throws {
+        let item = try #require(newTerminalItem(), "New Terminal is in the main menu")
 
         #expect(LeoPlaceholderNewTerminal.action == item.action)
         #expect(LeoPlaceholderNewTerminal.title == item.title)
     }
 
-    @Test func theButtonsHintNamesTheCommandTMenuItemsShortcut() throws {
-        let item = try #require(commandItems("t").first)
+    @Test func theButtonsHintNamesTheMenuItemsLiveShortcut() throws {
+        let item = try #require(newTerminalItem())
+        let hints = try #require((NSApp.delegate as? AppDelegate)?.leoRuntime.shortcutHints)
 
-        #expect(LeoPlaceholderNewTerminal.help == "⌘" + item.keyEquivalent.uppercased())
+        #expect(hints.newTerminal == LeoMenuShortcutHint.text(for: item))
     }
 
     @Test func pressingItSendsTheMenuActionToTheWindowsController() {

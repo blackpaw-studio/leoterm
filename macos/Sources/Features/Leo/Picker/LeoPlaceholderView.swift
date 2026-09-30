@@ -6,13 +6,15 @@ import SwiftUI
 struct LeoPlaceholderView: View {
     @ObservedObject var model: LeoSidebarModel
     @ObservedObject var hostSelection: LeoHostSelection
+    /// The buttons' tooltips: the menu items' live shortcuts (B-080).
+    @ObservedObject var shortcutHints: LeoShortcutHints
     let openPicker: () -> Void
     /// File ▸ New Terminal (⌘T) for this window (B-069).
     let newTerminal: () -> Void
     let toggleDrawer: () -> Void
 
     private var chooseAgent: LeoPlaceholderChooseAgent {
-        LeoPlaceholderChooseAgent(host: hostSelection.selected, connectivity: model.snapshot.connectivity)
+        LeoPlaceholderChooseAgent(host: hostSelection.selected, connectivity: model.snapshot.connectivity, shortcut: shortcutHints.chooseAgent)
     }
 
     var body: some View {
@@ -30,10 +32,10 @@ struct LeoPlaceholderView: View {
             HStack(spacing: 12) {
                 chooseAgentButton
                     .disabled(!chooseAgent.isEnabled)
-                    .help(chooseAgent.help)
+                    .help(ifAny: chooseAgent.help)
                 Button(LeoPlaceholderNewTerminal.title, action: newTerminal)
                     .buttonStyle(.bordered)
-                    .help(LeoPlaceholderNewTerminal.help)
+                    .help(ifAny: shortcutHints.newTerminal)
                 Button("Show Terminal Drawer", action: toggleDrawer)
                     .buttonStyle(.bordered)
             }
@@ -52,6 +54,18 @@ struct LeoPlaceholderView: View {
             button.buttonStyle(.borderedProminent)
         } else {
             button.buttonStyle(.bordered)
+        }
+    }
+}
+
+private extension View {
+    /// A tooltip only when there is text: an unbound shortcut shows none
+    /// rather than an empty or stale one (B-080).
+    @ViewBuilder func help(ifAny text: String?) -> some View {
+        if let text, !text.isEmpty {
+            help(text)
+        } else {
+            self
         }
     }
 }
