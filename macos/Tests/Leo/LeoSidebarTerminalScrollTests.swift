@@ -37,9 +37,13 @@ struct LeoSidebarTerminalScrollTests {
         #expect(await eventually { isVisible(row: row, in: table) }, "the selected terminal row is on screen")
     }
 
-    /// B-067, as ⌘T lands on a long list whose Terminals section already
-    /// shows a row near the bottom: the new row, one row further down, is
-    /// revealed whole, not left cut off at the list's bottom edge.
+    /// B-067, on a long list whose Terminals section already shows a row
+    /// at the bottom edge: a new row selected one further down is revealed
+    /// whole, not left cut off there -- whether it's added and selected in
+    /// the same turn (as ⌘T does) or a later one (as the attach host does).
+    /// A guard, not a reproduction: both cases passed before B-067's
+    /// reveal (checked again in B-078); the filter cases below are the
+    /// ones it fixed.
     @Test(arguments: ["the same turn", "a later turn"])
     func aNewRowBelowAListedOneIsRevealedWhole(_ selectedIn: String) async throws {
         let terminals = LeoWindowTerminals()
@@ -87,20 +91,76 @@ struct LeoSidebarTerminalScrollTests {
         }, "the selected terminal row is on screen once the Terminals section shows again")
     }
 
+    /// B-078 (D-130): with the selected terminal row scrolled away (the
+    /// user went up to the agents), its shell retitling or the agent list
+    /// refreshing leaves the list where the user put it.
+    @Test(arguments: ["a retitle", "an agent refresh"])
+    func aRetitleOrRefreshLeavesTheScrollOffsetAlone(_ change: String) async throws {
+        let terminals = LeoWindowTerminals()
+        let selected = UUID()
+        terminals.add(selected, title: "Terminal")
+        let (window, model) = try makeWindowAndModel(terminals: terminals)
+        defer { window.close() }
+        let table = try await settledTable(in: window)
+        terminals.select(selected)
+        try #require(await eventually { isVisible(row: table.numberOfRows - 1, in: table) }, "the selected row is revealed")
+        table.scrollRowToVisible(0)
+        await afterPendingUpdates()
+        try #require(!isVisible(row: table.numberOfRows - 1, in: table), "the selected row is scrolled away")
+        let offset = table.visibleRect.minY
+        let rowsBefore = table.numberOfRows
+
+        if change == "a retitle" {
+            terminals.retitle(selected, to: "vim notes.md")
+        } else {
+            // One more agent, so the refresh shows in the list.
+            model.receive(LeoSidebarSnapshot(rows: Self.agents(count: Self.agentCount + 1), connectivity: .connected, generation: 2))
+            try #require(await eventually { table.numberOfRows > rowsBefore }, "the refresh lists")
+        }
+        await afterPendingUpdates()
+
+        #expect(table.visibleRect.minY == offset, "the list stays where it was")
+    }
+
+    /// B-078 (D-130): selecting a row that's already wholly on screen
+    /// doesn't move the list, even when the row isn't at an edge.
+    @Test func selectingARowAlreadyOnScreenDoesNotScroll() async throws {
+        let terminals = LeoWindowTerminals()
+        let first = UUID()
+        let second = UUID()
+        terminals.add(first, title: "Terminal")
+        terminals.add(second, title: "Terminal")
+        let window = try makeWindow(terminals: terminals)
+        defer { window.close() }
+        let table = try await settledTable(in: window)
+        terminals.select(second)
+        let lastRow = table.numberOfRows - 1
+        try #require(await eventually { isVisible(row: lastRow, in: table) }, "the second row is revealed")
+        // Up by half a row: the first row stays wholly on screen, clear
+        // of the bottom edge, and the second is cut off there.
+        let halfRow = (table.rect(ofRow: lastRow).height / 2).rounded()
+        table.scroll(NSPoint(x: table.visibleRect.minX, y: table.visibleRect.minY - halfRow))
+        await afterPendingUpdates()
+        let firstRow = lastRow - 1
+        try #require(isVisible(row: firstRow, in: table) && !isVisible(row: lastRow, in: table), "the first row is on screen, the second cut off")
+        try #require(table.rect(ofRow: firstRow).maxY < table.visibleRect.maxY - 1, "the first row isn't at the bottom edge")
+        let offset = table.visibleRect.minY
+
+        terminals.select(first)
+        try #require(await eventually { table.selectedRow == firstRow }, "the list selects the first row")
+        await afterPendingUpdates()
+
+        #expect(table.visibleRect.minY == offset, "the list doesn't move")
+    }
+
     private func makeWindow(terminals: LeoWindowTerminals) throws -> NSWindow {
         try makeWindowAndModel(terminals: terminals).window
     }
 
     private func makeWindowAndModel(terminals: LeoWindowTerminals) throws -> (window: NSWindow, model: LeoSidebarModel) {
-        // Like a real list: rows of mixed heights (a template adds a
-        // subtitle line) in more than one section.
-        let agents = (0 ..< Self.agentCount).map {
-            LeoAgentRow(
-                host: .local, name: "agent-\($0)", template: $0.isMultiple(of: 3) ? nil : "claude",
-                status: $0 < Self.agentCount / 2 ? .running : .stopped, activity: .idle, actionDetail: nil
-            )
-        }
-        let model = LeoSidebarModel(snapshot: LeoSidebarSnapshot(rows: agents, connectivity: .connected, generation: 1))
+        let model = LeoSidebarModel(
+            snapshot: LeoSidebarSnapshot(rows: Self.agents(count: Self.agentCount), connectivity: .connected, generation: 1)
+        )
         let actions = LeoAgentActions(
             daemon: ScrollTestDaemon(), cli: LeoCLI(), model: model, hostSelection: .isolatedForTesting(), refresh: {}
         )
@@ -114,6 +174,26 @@ struct LeoSidebarTerminalScrollTests {
         )
         window.orderFront(nil)
         return (window, model)
+    }
+
+    /// Like a real list: rows of mixed heights (a template adds a
+    /// subtitle line) in more than one section.
+    private static func agents(count: Int) -> [LeoAgentRow] {
+        (0 ..< count).map {
+            LeoAgentRow(
+                host: .local, name: "agent-\($0)", template: $0.isMultiple(of: 3) ? nil : "claude",
+                status: $0 < agentCount / 2 ? .running : .stopped, activity: .idle, actionDetail: nil
+            )
+        }
+    }
+
+    /// Lets the main run loop turn a few times, so whatever a change
+    /// prompts has landed: SwiftUI applies it on a later turn, and a reveal
+    /// runs a turn after that. Counts turns, not time.
+    private func afterPendingUpdates(turns: Int = 5) async {
+        for _ in 0 ..< turns {
+            await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
+        }
     }
 
     /// The whole row (to within a point) is within what the list's scroll
