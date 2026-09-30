@@ -16,11 +16,9 @@ import Testing
 @MainActor @Suite(.serialized) struct LeoEnvironSnapshotTests {
     private static let standIn = "/bin/cat"
 
-    /// libc grows `environ` one slot per new variable, moving it to a bigger
-    /// block (and freeing the old one) only once its allocation is full. At
-    /// least `minAddedVariables`, so freed blocks are reused and hold garbage;
-    /// more if the array has not moved yet (it may have grown in an earlier run).
-    private static let minAddedVariables = 512
+    /// libc grows `environ` one slot per new variable and moves it to a
+    /// bigger block (freeing the old one) once its allocation is full,
+    /// usually within a few variables. The cap only bounds the loop.
     private static let maxAddedVariables = 4096
 
     private static var ghostty: Ghostty.App? { (NSApp.delegate as? AppDelegate)?.ghostty }
@@ -33,14 +31,16 @@ import Testing
         return condition()
     }
 
-    /// Adds variables until libc has moved `environ` to a new block, then
-    /// removes them: the environment is as it was, but not where it was.
-    /// Returns whether it moved.
+    /// Adds variables only until libc moves `environ` to a new block, then
+    /// removes them at once: the environment is as it was, but not where it
+    /// was. The test host is shared and other suites' threads read `environ`
+    /// (`ProcessInfo.environment`, `Process` spawns), so the burst stays as
+    /// short as the move allows. Returns whether it moved.
     private func reallocateEnviron() -> Bool {
         let before = environ
         var added: [String] = []
         defer { added.forEach { unsetenv($0) } }
-        while added.count < Self.minAddedVariables || environ == before, added.count < Self.maxAddedVariables {
+        while environ == before, added.count < Self.maxAddedVariables {
             let name = "LEO_B072_\(added.count)"
             setenv(name, "1", 1)
             added.append(name)
