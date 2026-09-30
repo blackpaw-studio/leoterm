@@ -259,6 +259,15 @@ final class LeoSplitViewController: NSSplitViewController {
             return
         }
 
+        if sidebarItem?.isCollapsed == true {
+            // A collapsed sidebar has no width to place, and `setPosition`
+            // would un-collapse it -- a sidebar hidden at launch then showed
+            // for a layout and re-collapsed with an animation (B-090). It
+            // gets the stored width when it's shown.
+            clearProgrammaticWidthFlagSoon()
+            return
+        }
+
         isApplyingProgrammaticWidth = true
         splitView.setPosition(width, ofDividerAt: 0)
         lastPersistedWidth = width

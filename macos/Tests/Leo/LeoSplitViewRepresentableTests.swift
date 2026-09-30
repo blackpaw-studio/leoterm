@@ -646,11 +646,10 @@ import Testing
         defer { harness.close() }
         let controller = harness.components.controller
         let sidebarItem = try #require(harness.sidebarItem)
-        // As the representable's next update does for a hidden sidebar.
-        sidebarItem.isCollapsed = true
-        await harness.settle()
+        // Still hidden: launching didn't un-collapse it (B-090).
+        try #require(sidebarItem.isCollapsed)
 
-        // And as it shows one (⌘⇧L), with the session's width.
+        // As the representable shows one (⌘⇧L), with the session's width.
         controller.isApplyingProgrammaticWidth = true
         sidebarItem.isCollapsed = false
         controller.applyProgrammaticWidth(Self.relaunchedWidth)
@@ -690,7 +689,8 @@ import Testing
 
         #expect(collapsedTrace.allSatisfy { $0 }, "isCollapsed trace: \(collapsedTrace)")
         #expect(sidebarItem.isCollapsed)
-        #expect(harness.sidebarWidth <= 1)
+        // The terminal has the whole split: no sidebar pixels showing.
+        #expect(abs(harness.terminalWidth - harness.components.controller.splitView.bounds.width) <= 1)
         #expect(defaults.double(forKey: Self.widthKey) == Double(Self.relaunchedWidth))
     }
 
