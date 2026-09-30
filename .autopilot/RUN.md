@@ -282,3 +282,14 @@ Lane: B-061
 - B-061 runner: ready at 88b38af8c (1835/1835, lint clean; general full, no blocking; implementer/opus, 0 fix rounds). Not visually verified: no UI change. Polish filed as B-112.
 - B-061 landed (merge 55944084a).
 Finished 17: B-061 landed 55944084a · not visually verified
+
+Lane: B-062
+  Branch: autopilot-lane/B-062
+  Base: 7d66f41e3dfc1a745a4619e34c21b2238ccedecd
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-30T13:25:21Z
