@@ -87,3 +87,14 @@ Lane: B-109
 - B-109 runner: blocked, couldn't reproduce. Closed pane's shell lives exactly for the Close Terminal undo window (5 s undo-timeout); pin tests 14c6dae64 + doc a5462b28a unreviewed, not integrated.
 - B-109 shelved on autopilot-shelved/B-109.
 Finished 4: B-109 blocked
+
+Lane: B-115
+  Branch: autopilot-lane/B-115
+  Base: 4e277a77c69fa740a25ce20b7ad2489b66808bfb
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-30T23:06:45Z
