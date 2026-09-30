@@ -40,9 +40,15 @@ class GhosttyCustomConfigCase: XCTestCase {
         try newConfig.write(to: configFile, atomically: true, encoding: .utf8)
     }
 
+    /// Keeps Sparkle from checking or asking to ("check automatically?")
+    /// while a UI test drives the app: the update pill would sit in the
+    /// titlebar the tests inspect.
+    static let noUpdateChecksArguments = ["-SUEnableAutomaticChecks", "NO"]
+
     func ghosttyApplication(defaultsSuite: String = GhosttyCustomConfigCase.defaultsSuiteName) throws -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments.append(contentsOf: ["-ApplePersistenceIgnoreState", "YES"])
+        app.launchArguments.append(contentsOf: Self.noUpdateChecksArguments)
         app.launchEnvironment["GHOSTTY_CONFIG_PATH"] = configFile.path
         app.launchEnvironment["GHOSTTY_USER_DEFAULTS_SUITE"] = defaultsSuite
         return app
