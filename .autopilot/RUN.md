@@ -109,3 +109,14 @@ Lane: B-115
 - B-115 runner: ready at 10bb68570 assembled from the cut-off runner's approved general+security delta reviews and its orphaned fix-round verifier (pass: 1899/1899 on rerun after one LeoLivePool flake; GUI: defaults reset → Sparkle permission prompt; Check for Updates… → 'Update Available: 0.5.0', nothing installed).
 - B-115 landed (merge b39524b69).
 Finished 5: B-115 landed b39524b69 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-115-3.png
+
+Lane: B-087
+  Branch: autopilot-lane/B-087
+  Base: 312de477041e48f637cc913654c00e2da1d4ce6e
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-30T23:49:11Z
