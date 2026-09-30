@@ -81,3 +81,7 @@ Lane: B-109
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-09-30T22:37:30Z
+  Call: Treat the post-close linger as intended: the shell lives only while ⌘Z can restore the pane (Ghostty undo-timeout, 5 s default), with no product fix — P1, AUTONOMY bug fixes/test infrastructure (consistent with D-140/D-141/D-198)
+  Call: Put the pins in LeoTerminalRowsIntegrationTests, reusing freshUndo/openSplit/closePane/Weak — AUTONOMY test infrastructure
+  Call: shellPID waits for a foreground process named other than ""/"login" (setuid /usr/bin/login owns the pgid first) — AUTONOMY test infrastructure
+- B-109 runner: blocked, couldn't reproduce. Closed pane's shell lives exactly for the Close Terminal undo window (5 s undo-timeout); pin tests 14c6dae64 + doc a5462b28a unreviewed, not integrated.
