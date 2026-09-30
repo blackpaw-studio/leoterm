@@ -1044,3 +1044,17 @@ Chose: Its title and "⌘T" tooltip come from LeoWindowTabbing constants tied to
 Why: principle 1, AUTONOMY copy
 Commit: 7ba7c4400
 Veto: [ ]
+
+## D-138 · 2026-09-29 · A title set with Change Window Title… survives the start screen; it na…
+Context: B-070 (runner call).
+Chose: A title set with Change Window Title… survives the start screen; it names the window, not the shell
+Why: principle 1, D-107
+Commit: 01fb138dd
+Veto: [ ]
+
+## D-139 · 2026-09-29 · The closed shell's folder proxy icon is cleared on the start screen, m…
+Context: B-070 (runner call).
+Chose: The closed shell's folder proxy icon is cleared on the start screen, matching a fresh window
+Why: principle 2 never invent a state
+Commit: 01fb138dd
+Veto: [ ]

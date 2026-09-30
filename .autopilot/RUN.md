@@ -79,7 +79,7 @@ Lane: B-070
   Branch: autopilot-lane/B-070
   Base: c816b50f24896c83e5a4f85ada009f159bfa25ee
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -88,3 +88,5 @@ Lane: B-070
   Call: A title set with Change Window Title… survives the start screen; it names the window, not the shell — principle 1, D-107
   Call: The closed shell's folder proxy icon is cleared on the start screen, matching a fresh window — principle 2 never invent a state
 - B-070 runner: ready at 6456f9987 (1730/1730, lint clean; general full; implementer/opus, 0 fix rounds). Root cause: leoShowStartScreen → focusedSurfaceDidChange(nil) set a bare "👻"; the old test only asserted the title wasn't the shell's. Polish filed as B-081.
+- B-070 landed (merge d58cdd886).
+Finished 5: B-070 landed d58cdd886 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-070-1.png

@@ -24,11 +24,12 @@ Accept: start screen has a New Terminal button doing exactly ⌘T; test + screen
 Source: autopilot polish (B-057)
 Done: 7ba7c4400 (1727 tests). A bordered New Terminal button (⌘T tooltip) sits beside Choose Agent… on the start screen and creates a Terminals row in that window. Decisions D-134..D-137.
 
-## B-070 · Window title after the last shell closes   [ready]
+## B-070 · Window title after the last shell closes   [done]
 Issue: #74
 Why: after the last Terminals row closes the window title is just the ghost icon, without "Ghostty"
 Accept: window title reads the normal start title; test
 Source: autopilot polish (B-057)
+Done: 01fb138dd (1730 tests). After the last shell closes the window reads "👻 Ghostty", like a fresh window; a Change Window Title… override survives. Decisions D-138, D-139.
 
 ## B-071 · Bug — ⌘Z of a split close after a row switch can silently kill a busy hidden row's shell   [ready]
 Issue: #75
