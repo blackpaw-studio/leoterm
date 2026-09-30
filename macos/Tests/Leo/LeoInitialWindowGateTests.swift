@@ -11,7 +11,7 @@ struct LeoInitialWindowGateTests {
     @Test func launchThatNeverActivatesStillOpensOneWindow() {
         var gate = LeoInitialWindowGate()
 
-        let atLaunch = gate.shouldOpenInitialWindow(on: .didFinishLaunching, windowCount: 0, initialWindow: true)
+        let atLaunch = gate.shouldOpenInitialWindow(on: .didFinishLaunching(isDefaultLaunch: true), windowCount: 0, initialWindow: true)
 
         #expect(atLaunch)
         #expect(gate.isLaunchHandled)
@@ -20,14 +20,14 @@ struct LeoInitialWindowGateTests {
     @Test func activationAfterLaunchDoesNotOpenASecondWindow() {
         var gate = LeoInitialWindowGate()
 
-        let atLaunch = gate.shouldOpenInitialWindow(on: .didFinishLaunching, windowCount: 0, initialWindow: true)
+        let atLaunch = gate.shouldOpenInitialWindow(on: .didFinishLaunching(isDefaultLaunch: true), windowCount: 0, initialWindow: true)
         // The window may still be setting up (count 0): the gate alone
         // must keep activation from opening another.
         let atActivation = gate.shouldOpenInitialWindow(on: .didBecomeActive, windowCount: 0, initialWindow: true)
 
         #expect(atLaunch)
         #expect(!atActivation)
-        #expect(gate.handledBy == .didFinishLaunching)
+        #expect(gate.handledBy == .didFinishLaunching(isDefaultLaunch: true))
     }
 
     /// Activation can land before the queued launch hop runs; then it opens
@@ -36,7 +36,7 @@ struct LeoInitialWindowGateTests {
         var gate = LeoInitialWindowGate()
 
         let atActivation = gate.shouldOpenInitialWindow(on: .didBecomeActive, windowCount: 0, initialWindow: true)
-        let atLaunch = gate.shouldOpenInitialWindow(on: .didFinishLaunching, windowCount: 0, initialWindow: true)
+        let atLaunch = gate.shouldOpenInitialWindow(on: .didFinishLaunching(isDefaultLaunch: true), windowCount: 0, initialWindow: true)
 
         #expect(atActivation)
         #expect(!atLaunch)
@@ -48,7 +48,7 @@ struct LeoInitialWindowGateTests {
     @Test func launchDocumentWindowSuppressesThePlaceholder() {
         var gate = LeoInitialWindowGate()
 
-        let atLaunch = gate.shouldOpenInitialWindow(on: .didFinishLaunching, windowCount: 1, initialWindow: true)
+        let atLaunch = gate.shouldOpenInitialWindow(on: .didFinishLaunching(isDefaultLaunch: true), windowCount: 1, initialWindow: true)
         let atActivation = gate.shouldOpenInitialWindow(on: .didBecomeActive, windowCount: 0, initialWindow: true)
 
         #expect(!atLaunch)
@@ -56,10 +56,38 @@ struct LeoInitialWindowGateTests {
         #expect(gate.isLaunchHandled)
     }
 
+    /// A launch to run a script (`make new window`), an App Intent or a
+    /// Service, or to open a file, isn't AppKit's default launch: the
+    /// request opens the window it wants, after `applicationDidFinishLaunching`,
+    /// so the launch hop leaves the first window to activation, as upstream did.
+    @Test func requestLaunchLeavesTheFirstWindowToTheRequest() {
+        var gate = LeoInitialWindowGate()
+
+        let atLaunch = gate.shouldOpenInitialWindow(on: .didFinishLaunching(isDefaultLaunch: false), windowCount: 0, initialWindow: true)
+        let launchHandledByTheHop = gate.isLaunchHandled
+        // The request's own window exists by the time it activates the app.
+        let atActivation = gate.shouldOpenInitialWindow(on: .didBecomeActive, windowCount: 1, initialWindow: true)
+
+        #expect(!atLaunch)
+        #expect(!launchHandledByTheHop)
+        #expect(!atActivation)
+        #expect(gate.handledBy == .didBecomeActive)
+    }
+
+    @Test func requestLaunchThatOpensNoWindowOpensOneOnActivation() {
+        var gate = LeoInitialWindowGate()
+
+        let atLaunch = gate.shouldOpenInitialWindow(on: .didFinishLaunching(isDefaultLaunch: false), windowCount: 0, initialWindow: true)
+        let atActivation = gate.shouldOpenInitialWindow(on: .didBecomeActive, windowCount: 0, initialWindow: true)
+
+        #expect(!atLaunch)
+        #expect(atActivation)
+    }
+
     @Test func initialWindowOffOpensNothingAtLaunch() {
         var gate = LeoInitialWindowGate()
 
-        let atLaunch = gate.shouldOpenInitialWindow(on: .didFinishLaunching, windowCount: 0, initialWindow: false)
+        let atLaunch = gate.shouldOpenInitialWindow(on: .didFinishLaunching(isDefaultLaunch: true), windowCount: 0, initialWindow: false)
         let atActivation = gate.shouldOpenInitialWindow(on: .didBecomeActive, windowCount: 0, initialWindow: false)
 
         #expect(!atLaunch)
@@ -77,7 +105,7 @@ struct LeoInitialWindowGateTests {
     /// launch with `initial-window = false`.
     @Test func reopenWithNoWindowAfterLaunchOpensOne() {
         var gate = LeoInitialWindowGate()
-        _ = gate.shouldOpenInitialWindow(on: .didFinishLaunching, windowCount: 0, initialWindow: false)
+        _ = gate.shouldOpenInitialWindow(on: .didFinishLaunching(isDefaultLaunch: true), windowCount: 0, initialWindow: false)
 
         #expect(gate.shouldOpenOnReopen(hasVisibleWindows: false, windowCount: 0))
     }
@@ -86,7 +114,7 @@ struct LeoInitialWindowGateTests {
     /// (not yet visible) must not get a twin.
     @Test func reopenWithAVisibleOrPendingWindowOpensNothing() {
         var gate = LeoInitialWindowGate()
-        _ = gate.shouldOpenInitialWindow(on: .didFinishLaunching, windowCount: 0, initialWindow: true)
+        _ = gate.shouldOpenInitialWindow(on: .didFinishLaunching(isDefaultLaunch: true), windowCount: 0, initialWindow: true)
 
         #expect(!gate.shouldOpenOnReopen(hasVisibleWindows: true, windowCount: 1))
         #expect(!gate.shouldOpenOnReopen(hasVisibleWindows: false, windowCount: 1))

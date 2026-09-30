@@ -72,13 +72,23 @@ struct LastWindowPositionTests {
         #expect(restored([200, 150, 1000, 700], origin: false, size: false) == nil)
     }
 
+    /// The floor sits above the start screen's content minimum (a restored
+    /// 40x30 window came up 266x221 and was saved again) and below any
+    /// size the layout means to allow: D-036 lets the window go under the
+    /// sidebar minimum plus `terminalFloor` once the sidebar is hidden.
     @Test func minimumSizeIsTheLargerOfTheWindowsAndLeosFloor() {
         let floor = LastWindowPosition.minimumSize(windowMinSize: .zero)
 
-        #expect(floor.width >= LeoSidebarSplitMetrics.minimumWidth + LeoSidebarSplitMetrics.terminalFloor)
-        #expect(floor.height >= 200)
+        #expect(floor == NSSize(width: LeoSidebarSplitMetrics.terminalFloor, height: 150))
+        #expect(floor.width > 266)
         #expect(LastWindowPosition.minimumSize(windowMinSize: NSSize(width: 2000, height: 50))
             == NSSize(width: 2000, height: floor.height))
+    }
+
+    /// Narrower than the sidebar minimum plus `terminalFloor`, as a window
+    /// with its sidebar hidden may be.
+    @Test func narrowWindowTheLayoutAllowsIsRestored() {
+        #expect(restored([200, 150, 420, 300]) == NSRect(x: 200, y: 150, width: 420, height: 300))
     }
 
     // MARK: Save
@@ -99,5 +109,13 @@ struct LastWindowPositionTests {
         #expect(!position.save(frame: NSRect(x: 300, y: 400, width: 266, height: 221), minimumSize: minimum))
 
         #expect(defaults.array(forKey: LastWindowPosition.positionKey) as? [Double] == [200, 150, 1000, 700])
+    }
+
+    @Test func narrowWindowTheLayoutAllowsIsSaved() {
+        let defaults = LeoInMemoryDefaults()
+        let position = LastWindowPosition(defaults: defaults)
+
+        #expect(position.save(frame: NSRect(x: 200, y: 150, width: 420, height: 300), minimumSize: minimum))
+        #expect(defaults.array(forKey: LastWindowPosition.positionKey) as? [Double] == [200, 150, 420, 300])
     }
 }
