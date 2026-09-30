@@ -321,6 +321,18 @@ pub fn syncEnviron() void {
     }
 }
 
+/// Deep-copies a POSIX environment block (e.g. libc's `environ`) into memory
+/// owned by `gpa`. libc reallocates and frees its `environ` array when
+/// `setenv` adds a variable, and `unsetenv` shifts its entries, so nothing
+/// that outlives the call may point into it.
+fn dupeEnvironBlock(
+    gpa: std.mem.Allocator,
+    live: [*:null]const ?[*:0]const u8,
+) std.mem.Allocator.Error!std.process.Environ.PosixBlock {
+    const view: std.process.Environ = .{ .block = .{ .slice = std.mem.span(live) } };
+    return view.createPosixBlock(gpa, .{});
+}
+
 /// Helper to return either the state's args, or one from testing.
 ///
 /// Asserts that the global state is initialized when not running as a test.
@@ -444,3 +456,33 @@ pub const ResourceLimits = struct {
         if (self.nofile) |lim| internal_os.restoreMaxFiles(lim);
     }
 };
+
+test "global: dupeEnvironBlock is independent of the source" {
+    const testing = std.testing;
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+
+    // Stands in for libc's `environ`, which a later setenv/unsetenv may
+    // rewrite, shift, or free.
+    var foo = "FOO=bar".*;
+    var baz = "BAZ=1".*;
+    var live = [_:null]?[*:0]const u8{ &foo, &baz };
+
+    const copy = try dupeEnvironBlock(arena.allocator(), &live);
+
+    // Scribble over the strings and shift the array like unsetenv("FOO").
+    @memset(&foo, 'x');
+    live[0] = &baz;
+    live[1] = null;
+
+    try testing.expectEqual(@as(usize, 2), copy.slice.len);
+    try testing.expect(copy.slice[0] != null and copy.slice[1] != null);
+    try testing.expectEqualStrings("FOO=bar", std.mem.span(copy.slice[0].?));
+    try testing.expectEqualStrings("BAZ=1", std.mem.span(copy.slice[1].?));
+
+    const env: std.process.Environ = .{ .block = copy };
+    var map = try env.createMap(testing.allocator);
+    defer map.deinit();
+    try testing.expectEqualStrings("bar", map.get("FOO").?);
+    try testing.expectEqualStrings("1", map.get("BAZ").?);
+}
