@@ -225,8 +225,9 @@ import Testing
 
         let next = try attach(fixture, tracker)
 
+        #expect(next.windowID == agent.windowID)
         #expect(!fixture.host.isOpen(agent), "the agent went with the shell, at once")
-        #expect(fixture.host.hiddenSurfaces(in: fixture.origin).isEmpty, "nothing with a shell in the pool for an eviction to kill")
+        #expect(fixture.host.hiddenSurfaces(in: agent.windowID).isEmpty, "nothing with a shell in the pool for an eviction to kill")
         #expect(await eventually { !tracker.isAlive(agent) }, "the agent is freed, not kept hidden")
         #expect(await eventually { shell == nil }, "the shell is freed")
         #expect(fixture.host.isShown(next))
@@ -236,6 +237,12 @@ import Testing
         let fixture = try makeFixture()
         let tracker = Tracker()
         let handles = try (0..<3).map { _ in try attach(fixture, tracker) }
+        // Handles carry the controller's own session id; `fixture.origin` is
+        // the test registry's, which the pool never keys by -- asserting on it
+        // passed vacuously.
+        let window = handles[0].windowID
+        #expect(window != fixture.origin)
+        #expect(fixture.host.hiddenSurfaces(in: window).count == 2, "the check below can fail")
 
         fixture.controller.window?.close()
 
@@ -244,7 +251,7 @@ import Testing
         for handle in handles {
             #expect(fixture.events.events.filter { $0 == .closed(handle) }.count == 1)
         }
-        #expect(fixture.host.hiddenSurfaces(in: fixture.origin).isEmpty)
+        #expect(fixture.host.hiddenSurfaces(in: window).isEmpty)
         fixture.events.task?.cancel()
     }
 

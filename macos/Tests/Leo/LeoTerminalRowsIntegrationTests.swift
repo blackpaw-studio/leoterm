@@ -688,6 +688,24 @@ import Testing
         #expect(fixture.host.isShown(agent))
     }
 
+    /// The agent name alone (no attach handle) marks a surface as an
+    /// agent too: a plain-shell split titled after an agent takes no row.
+    @Test func aNamedSurfaceBesideAClosedRowBlocksAdoption() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let row = try newShell(fixture)
+        let split = try openSplit(fixture, beside: row)
+        let splitView = try #require(fixture.view(split))
+        splitView.leoAgentName = "named"
+
+        try closePane(fixture, row)
+
+        #expect(await eventually { fixture.events.events.contains(.closed(row)) })
+        #expect(fixture.terminals.rows.isEmpty, "the named split is not handed the row")
+        #expect(fixture.terminals.selection == nil)
+        #expect(fixture.shown().map(\.id) == [split.surfaceID])
+    }
+
     /// Closing the window closes every pane at once: nothing carries a
     /// row on.
     @Test func aRowsPaneClosingWithItsWindowAdoptsNothing() async throws {
