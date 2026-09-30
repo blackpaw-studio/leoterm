@@ -15,6 +15,7 @@ import Testing
         let delivered = Delivered()
         let runtime = LeoRuntime(
             daemon: EmptyDaemon(), cli: LeoCLI(), activitySource: activitySource, defaults: defaults,
+            templateFetchRunner: LeoRecordingTemplateRunner(),
             focusedAgentSink: { await delivered.append($0) }
         )
         defer { runtime.shutdown() }

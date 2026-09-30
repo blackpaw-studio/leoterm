@@ -11,7 +11,7 @@ import Testing
         let daemon = RuntimeTestDaemon()
         let defaults = LeoInMemoryDefaults()
         let activitySource = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
-        let runtime = LeoRuntime(daemon: daemon, cli: LeoCLI(), activitySource: activitySource, defaults: defaults)
+        let runtime = LeoRuntime(daemon: daemon, cli: LeoCLI(), activitySource: activitySource, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner())
         _ = runtime.makeWindowSession()
 
         runtime.start()
@@ -38,7 +38,7 @@ import Testing
         let daemon = RuntimeTestDaemon()
         let defaults = LeoInMemoryDefaults()
         let activitySource = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
-        let runtime = LeoRuntime(daemon: daemon, cli: LeoCLI(), activitySource: activitySource, defaults: defaults)
+        let runtime = LeoRuntime(daemon: daemon, cli: LeoCLI(), activitySource: activitySource, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner())
 
         runtime.shutdown()
         let stateAfterShutdown = runtime.hostSelection.state
@@ -46,6 +46,38 @@ import Testing
         runtime.hostSelection.select(.remote("anything"))
 
         #expect(runtime.hostSelection.state == stateAfterShutdown, "select() after shutdown() must be a no-op")
+    }
+
+    /// B-061: selecting a remote host loads its templates through the
+    /// runner `LeoRuntime` was given -- the same ssh exec production runs,
+    /// but no real `ssh` process is launched against the host.
+    @Test func selectingARemoteHostFetchesItsTemplatesThroughTheInjectedRunner() async throws {
+        let configuration = LeoHostConfiguration(name: "work", sshTarget: "evan@work", remoteSocketPath: "/remote/leo.sock")
+        let defaults = LeoInMemoryDefaults()
+        defaults.set(try JSONEncoder().encode([configuration]), forKey: LeoHostStore.key)
+        let templateRunner = LeoRecordingTemplateRunner()
+        let activitySource = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
+        let runtime = LeoRuntime(
+            daemon: RuntimeTestDaemon(), cli: LeoCLI(), activitySource: activitySource, defaults: defaults,
+            templateFetchRunner: templateRunner,
+            hostConnectionTransport: LeoAlwaysHealthyTransport(),
+            hostSelectionSSHExecutable: LeoTunnelTestSupport.fixtureURL(),
+            hostSelectionLegacySocketDirectory: LeoHostSelectionTestSupport.localSocketDirectory,
+            hostSelectionControlSocketDirectory: LeoHostSelectionTestSupport.localSocketDirectory
+        )
+        defer { runtime.shutdown() }
+
+        await runtime.hostSelection.start(flavor: .socketEvents)
+        runtime.hostSelection.select(.remote("work"))
+
+        await awaitCondition(timeout: 5, message: "the remote host's templates never loaded") {
+            await runtime.actions.templateList == .loaded([])
+        }
+        let calls = await templateRunner.calls
+        #expect(calls.count == 1, "one template fetch per host selection, got \(calls)")
+        let call = try #require(calls.first)
+        #expect(call.executable == "/usr/bin/ssh", "production's ssh exec, handed to the injected runner")
+        #expect(call.arguments == ["-o", "BatchMode=yes", "evan@work", "~/'.local/bin/leo' 'template' 'list' '--json'"])
     }
 
     /// `applyConnected`'s flavor-detection `await` is the one place a stale
@@ -68,6 +100,7 @@ import Testing
         let activitySource = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
         let runtime = LeoRuntime(
             daemon: daemon, cli: LeoCLI(), activitySource: activitySource, defaults: defaults,
+            templateFetchRunner: LeoRecordingTemplateRunner(),
             hostConnectionTransport: transport,
             hostSelectionSSHExecutable: LeoTunnelTestSupport.fixtureURL(),
             hostSelectionLegacySocketDirectory: LeoHostSelectionTestSupport.localSocketDirectory,
