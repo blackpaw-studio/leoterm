@@ -71,23 +71,36 @@ struct LeoSidebarView: View {
     @ObservedObject var terminals: LeoWindowTerminals
     /// Bumped by Agents ▸ Find Agent…; each change focuses the search field.
     let searchFocusRequest: Int
+    /// The footer buttons' tooltips (B-065).
+    @ObservedObject private var shortcutHints: LeoShortcutHints
+    /// What the footer's buttons do: this window's File ▸ New Terminal and
+    /// View ▸ Quick Terminal.
+    private let newTerminal: () -> Void
+    private let toggleQuickTerminal: () -> Void
     @ObservedObject private var hostSelection: LeoHostSelection
     @State private var showingSpawn = false
     @State private var searchField = LeoSidebarSearchFieldHandle()
     @State private var hostsSheetModel: LeoHostsSheetModel?
 
-    init(
+    /// Main-actor so a missing `shortcutHints` (tests) can be made here.
+    @MainActor init(
         model: LeoSidebarModel,
         windowID: LeoWindowID,
         actions: LeoAgentActions,
         terminals: LeoWindowTerminals,
-        searchFocusRequest: Int = 0
+        searchFocusRequest: Int = 0,
+        shortcutHints: LeoShortcutHints? = nil,
+        newTerminal: @escaping () -> Void = {},
+        toggleQuickTerminal: @escaping () -> Void = {}
     ) {
         self.model = model
         self.windowID = windowID
         self.actions = actions
         self.terminals = terminals
         self.searchFocusRequest = searchFocusRequest
+        _shortcutHints = ObservedObject(wrappedValue: shortcutHints ?? LeoShortcutHints())
+        self.newTerminal = newTerminal
+        self.toggleQuickTerminal = toggleQuickTerminal
         _hostSelection = ObservedObject(wrappedValue: actions.hostSelection)
     }
 
@@ -140,11 +153,13 @@ struct LeoSidebarView: View {
                 onCancel: searchEscape
             )
             .accessibilityLabel("Search agents")
+            .leoSidebarHeaderFrame(.searchField)
 
             content
             if let panelError {
                 Text(panelError).font(.caption).foregroundStyle(Color(nsColor: .systemRed))
             }
+            LeoSidebarButtonBar(hints: shortcutHints, perform: perform)
         }
         .padding(.top, LeoSidebarChromeMetrics.topInset)
         .padding(.horizontal, LeoSidebarChromeMetrics.horizontalInset)
@@ -165,6 +180,13 @@ struct LeoSidebarView: View {
     }
 
     private var panelError: String? { model.panelError }
+
+    private func perform(_ button: LeoSidebarButton) {
+        switch button {
+        case .newTerminal: newTerminal()
+        case .quickTerminal: toggleQuickTerminal()
+        }
+    }
 
     /// This window's "Start <name>?" prompt (B-049); the model holds one
     /// per window, so the sheet shows only where the click was.

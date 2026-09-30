@@ -118,16 +118,27 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                 if let leoSession, let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime {
                     LeoSidebarSplit(
                         session: leoSession, model: runtime.model, actions: runtime.actions,
-                        titlebarIgnoredEdges: leoSplitIgnoredEdges
-                    ) {
-                        ZStack {
-                            terminalContent
+                        titlebarIgnoredEdges: leoSplitIgnoredEdges,
+                        // B-065: the sidebar footer's buttons are the menu
+                        // items' own actions. New Terminal targets this
+                        // window's controller, as the start screen's does.
+                        // Capture the delegate alone, never `self`: the
+                        // sidebar keeps this closure, and a copy of this view
+                        // holds the focused surface (`@FocusedValue`), which
+                        // would keep a displaced surface and its pty alive.
+                        shortcutHints: runtime.shortcutHints,
+                        newTerminal: { [weak delegate] in LeoSidebarButton.newTerminal.send(to: delegate) },
+                        toggleQuickTerminal: { LeoSidebarButton.quickTerminal.send(to: NSApp.delegate) },
+                        terminal: {
+                            ZStack {
+                                terminalContent
 
-                            if viewModel.surfaceTree.isEmpty {
-                                leoPlaceholder(session: leoSession, runtime: runtime)
+                                if viewModel.surfaceTree.isEmpty {
+                                    leoPlaceholder(session: leoSession, runtime: runtime)
+                                }
                             }
                         }
-                    }
+                    )
                 } else {
                     terminalContent
                 }

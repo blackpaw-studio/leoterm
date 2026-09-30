@@ -11,6 +11,7 @@ import Testing
 @MainActor @Suite(.serialized) struct LeoShortcutHintsTests {
     private static let newTab = #selector(TerminalController.newTab(_:))
     private static let chooseAgent = #selector(TerminalController.chooseLeoAgent(_:))
+    private static let quickTerminal = #selector(AppDelegate.toggleQuickTerminal(_:))
 
     private func item(_ key: String, _ modifiers: NSEvent.ModifierFlags, action: Selector? = nil) -> NSMenuItem {
         let item = NSMenuItem(title: "Item", action: action, keyEquivalent: key)
@@ -115,6 +116,23 @@ import Testing
         #expect(hints.chooseAgent == nil)
     }
 
+    /// B-065: the sidebar's Quick Terminal button reads View ▸ Quick
+    /// Terminal's shortcut the same way. It ships unbound (the keybind is
+    /// global), so no hint until the config binds it.
+    @Test func theQuickTerminalHintFollowsItsMenuItem() {
+        let quickTerminal = item("", [], action: Self.quickTerminal)
+        let main = menu(newTerminal: item("t", .command, action: Self.newTab), chooseAgent: quickTerminal)
+        let hints = LeoShortcutHints()
+
+        hints.sync(menu: main)
+        #expect(hints.quickTerminal == nil, "unbound: no hint")
+
+        quickTerminal.keyEquivalent = "`"
+        quickTerminal.keyEquivalentModifierMask = [.command, .option]
+        hints.sync(menu: main)
+        #expect(hints.quickTerminal == "⌥⌘`")
+    }
+
     /// A reload while the start screen shows: the view observes the hints,
     /// so a sync that changes one must publish.
     @Test func aSyncThatChangesAHintPublishes() {
@@ -138,6 +156,7 @@ import Testing
         let hints = LeoShortcutHints()
         #expect(hints.newTerminal == nil)
         #expect(hints.chooseAgent == nil)
+        #expect(hints.quickTerminal == nil)
     }
 
     // MARK: The running app
@@ -151,5 +170,7 @@ import Testing
 
         #expect(runtime.shortcutHints.newTerminal == LeoMenuShortcutHint.text(for: newTerminal))
         #expect(runtime.shortcutHints.chooseAgent == LeoMenuShortcutHint.text(for: chooseAgent))
+        let quickTerminal = try #require(LeoMenuShortcutHint.menuItem(action: Self.quickTerminal, in: NSApp.mainMenu))
+        #expect(runtime.shortcutHints.quickTerminal == LeoMenuShortcutHint.text(for: quickTerminal))
     }
 }

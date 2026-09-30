@@ -41,23 +41,33 @@ enum LeoMenuShortcutHint {
     }
 }
 
-/// The start screen's shortcut tooltips (New Terminal, Choose Agent…).
-/// AppDelegate calls `sync(menu:)` after every menu-shortcut sync (launch,
-/// config reload, keyboard-layout change); the start screen observes it,
-/// so an open start screen follows a reload.
+/// The start screen's and the sidebar button bar's shortcut tooltips (New
+/// Terminal, Choose Agent…, Quick Terminal). AppDelegate calls
+/// `sync(menu:)` after every menu-shortcut sync (launch, config reload,
+/// keyboard-layout change); the views observe it, so an open start screen
+/// or sidebar follows a reload.
 @MainActor final class LeoShortcutHints: ObservableObject {
     static let newTerminalAction = #selector(TerminalController.newTab(_:))
     static let chooseAgentAction = #selector(TerminalController.chooseLeoAgent(_:))
+    static let quickTerminalAction = #selector(AppDelegate.toggleQuickTerminal(_:))
 
     /// Nil until the first sync, and whenever the item has no shortcut.
     @Published private(set) var newTerminal: String?
     @Published private(set) var chooseAgent: String?
+    /// View ▸ Quick Terminal's: ships unbound (its keybind is global).
+    @Published private(set) var quickTerminal: String?
 
     func sync(menu: NSMenu?) {
-        let newTerminal = LeoMenuShortcutHint.text(for: LeoMenuShortcutHint.menuItem(action: Self.newTerminalAction, in: menu))
-        let chooseAgent = LeoMenuShortcutHint.text(for: LeoMenuShortcutHint.menuItem(action: Self.chooseAgentAction, in: menu))
+        let newTerminal = Self.hint(for: Self.newTerminalAction, in: menu)
+        let chooseAgent = Self.hint(for: Self.chooseAgentAction, in: menu)
+        let quickTerminal = Self.hint(for: Self.quickTerminalAction, in: menu)
         // Publish only real changes: every reload re-syncs.
         if newTerminal != self.newTerminal { self.newTerminal = newTerminal }
         if chooseAgent != self.chooseAgent { self.chooseAgent = chooseAgent }
+        if quickTerminal != self.quickTerminal { self.quickTerminal = quickTerminal }
+    }
+
+    private static func hint(for action: Selector, in menu: NSMenu?) -> String? {
+        LeoMenuShortcutHint.text(for: LeoMenuShortcutHint.menuItem(action: action, in: menu))
     }
 }
