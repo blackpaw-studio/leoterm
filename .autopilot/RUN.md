@@ -209,3 +209,14 @@ Lane: B-080
 - B-080 runner: ready at f18910adc (1811/1811, lint clean; general full, no blocking; implementer/opus, 0 fix rounds). GUI: tooltip reads ⇧⌘Y with a scratch config rebinding new_tab, ⌘T with an empty one. Polish filed as B-104.
 - B-080 landed (merge 518efbdc4).
 Finished 13: B-080 landed 518efbdc4 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-080-0.png
+
+Lane: B-081
+  Branch: autopilot-lane/B-081
+  Base: 326aab4899539430f3516dc087c30678306f0a43
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-30T11:24:47Z
