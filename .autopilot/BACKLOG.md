@@ -87,11 +87,12 @@ Accept: with titlebar-style hidden the sidebar header clears the traffic lights;
 Source: autopilot polish (B-064)
 Done: 995fab04e 67ee5def8. In the hidden titlebar style the sidebar header sits 14 pt from the top (no empty 52 pt band); other styles unchanged. No style draws the traffic lights over the sidebar. Decisions D-169..D-172.
 
-## B-075 · Search field grabs keyboard focus on launch   [ready]
+## B-075 · Search field grabs keyboard focus on launch   [done]
 Issue: #79
 Why: the sidebar search field shows a focus ring on launch (seen in B-064 verify); a first-party sidebar doesn't take focus from content
 Accept: on launch focus goes to the content area, not the search field; test
 Source: autopilot polish (B-064)
+Done: 6b5dfa44a da808024b. (1793 tests). A new window's focus starts in the content area; the search field no longer takes focus at launch. Decisions D-173..D-175.
 
 ## B-076 · Tighten LeoNoTabBarTests' xib ⌘T guard   [ready]
 Issue: #80

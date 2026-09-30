@@ -132,7 +132,7 @@ Lane: B-075
   Branch: autopilot-lane/B-075
   Base: 5050edce58ce767156cff981d80e5cf3572b1224
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -142,3 +142,5 @@ Lane: B-075
   Call: Tab from the start screen still goes to the search field; ⌥⌘F stays the intended way in — P1, AUTONOMY UX details
   Call: The key view loop is rebuilt (async, next turn) each time the window becomes key, because AppKit's automatic pick no longer builds it — AUTONOMY implementation approach
 - B-075 runner: ready at cde59cbe9 (1793/1793, lint clean; general full; implementer/opus, 0 fix rounds; stayed light). Applies to every Leo window. GUI: no focus ring on the search field at launch; after New Terminal the cursor blinks (focus judged from pixels; AX denied). B-087's hollow cursor has a different cause. Polish filed as B-101.
+- B-075 landed (merge dcff3a923).
+Finished 9: B-075 landed dcff3a923 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-075-1.png

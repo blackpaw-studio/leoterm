@@ -1289,3 +1289,24 @@ Chose: In Leo windows terminalContent uses the same window-class check as the sp
 Why: AUTONOMY: implementation approach
 Commit: 995fab04e 67ee5def8
 Veto: [ ]
+
+## D-173 · 2026-09-30 · On the start screen nothing holds focus; the window itself does, like…
+Context: B-075 (runner call).
+Chose: On the start screen nothing holds focus; the window itself does, like a Finder window with no selection (its SwiftUI buttons can't take focus without Full Keyboard Access)
+Why: P1, AUTONOMY UX details
+Commit: 6b5dfa44a da808024b
+Veto: [ ]
+
+## D-174 · 2026-09-30 · Tab from the start screen still goes to the search field; ⌥⌘F stays t…
+Context: B-075 (runner call).
+Chose: Tab from the start screen still goes to the search field; ⌥⌘F stays the intended way in
+Why: P1, AUTONOMY UX details
+Commit: 6b5dfa44a da808024b
+Veto: [ ]
+
+## D-175 · 2026-09-30 · The key view loop is rebuilt (async, next turn) each time the window …
+Context: B-075 (runner call).
+Chose: The key view loop is rebuilt (async, next turn) each time the window becomes key, because AppKit's automatic pick no longer builds it
+Why: AUTONOMY implementation approach
+Commit: 6b5dfa44a da808024b
+Veto: [ ]
