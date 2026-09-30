@@ -1478,3 +1478,10 @@ Chose: Delete the now-wrong LeoUndoTestSupport paragraph about avoiding removeAl
 Why: AUTONOMY implementation approach
 Commit: 02fa5f775, 81126012d, 7c4403ba4, f971917cf
 Veto: [ ]
+
+## D-200 · 2026-09-30 · LeoRuntime's template fetch reuses the existing LeoProcessRunning pro…
+Context: B-061 (runner call).
+Chose: LeoRuntime's template fetch reuses the existing LeoProcessRunning protocol; templateFetchRunner has no default, so a test that omits it won't compile; the shared fake lives in LeoTemplateFetchTestSupport.swift
+Why: AUTONOMY test infrastructure
+Commit: f859b45c5
+Veto: [ ]

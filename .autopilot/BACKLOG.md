@@ -295,12 +295,13 @@ Source: Evan (/feature, 2026-09-28)
 Inbox: 20260929T012753703255Z-9360b771#1
 Done: 3a2205a65 (1573 tests, lint clean, review clean). Root causes: SpawnAgentModel used the local CLI regardless of host; the row fetched templates itself after the context menu was built. Verified by screenshot: row Set Template submenu filled on first open (B-054-3), New Agent sheet (B-054-4). The sheet's Template popup and the remote-host path were not visually verified (no AX on the sheet; no autopilot remote host); covered by LeoTemplateListTests with a fake remote.
 
-## B-061 · Tests: inject the template fetch so LeoRuntime tests don't run real ssh   [ready]
+## B-061 · Tests: inject the template fetch so LeoRuntime tests don't run real ssh   [done]
 Issue: #65
 Why: since B-054, selecting the remote host "work" in LeoRuntimeConnectionTests also starts a real `/usr/bin/ssh -o BatchMode=yes evan@work … template list` (tests already open real tunnels there). Hang/isolation risk.
 Accept: LeoRuntime takes an injectable template-fetch runner; tests pass a fake; no test spawns ssh for templates (assert via the fake).
 Out: the existing tunnel tests' real ssh use.
 Source: B-054 implementer + review
+Done: f859b45c5. LeoRuntime takes an injected template-fetch runner; tests pass a recording fake, so no test spawns ssh for templates Decision D-200.
 
 ## B-055 · One content area per window; sidebar selects what's shown   [done]
 Issue: #60
