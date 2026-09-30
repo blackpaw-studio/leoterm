@@ -136,11 +136,12 @@ Accept: after the last Terminals row closes the sidebar keeps a sensible scroll 
 Source: autopilot polish (B-070)
 Done: 1b7d6fefc, c56e8fdc9. After the last Terminals row closes, the sidebar lands on the selected agent or the top, unanimated; the start screen reads the controller's config title, with a comment and a config-title test Decisions D-185..D-189.
 
-## B-082 · Bug — closing a row's original pane beside a split orphans the other pane   [ready]
+## B-082 · Bug — closing a row's original pane beside a split orphans the other pane   [done]
 Issue: #86
 Why: B-071 verify (shot B-071-9): File ▸ Close on the row's original pane while a split is open drops the row but leaves the other pane on screen with no row, and the next New Terminal kills that orphaned shell without asking (breaks principles 2 and 6). Pre-existing; related to D-117 and B-058
 Accept: a failing test reproduces it; after the fix the remaining pane stays reachable from a row (or asks before it is replaced); nothing else regresses
 Source: autopilot polish (B-071)
+Done: b3e29e2c4, b818ba40a, 4d41627b1. Closing a row's pane beside a split hands the row on to the surviving plain shell (still selected), so it stays reachable and New Terminal no longer kills it Decisions D-190..D-195.
 
 ## B-083 · B-071 test and undo-manager polish   [ready]
 Issue: #87

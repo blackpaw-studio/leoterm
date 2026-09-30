@@ -233,7 +233,7 @@ Lane: B-082
   Branch: autopilot-lane/B-082
   Base: 8ae4e0b10fc3a67a52664a71727f2bd12ac3e113
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -247,3 +247,5 @@ Lane: B-082
   Call: LeoTerminalList.replacing drops the old row if the new id is already listed; replacing with its own id just retitles — P6
   Escalated: implementer-hard/opus (plan Difficulty: hard)
 - B-082 runner: ready at b87998370 (1832/1832, lint clean; general + concurrency full, no blocking; implementer-hard/opus, 0 fix rounds). GUI: after File > Close on the original pane the "~" row stays selected on the surviving shell; the next New Terminal adds "~ (2)" and the survivor lives. Polish filed as B-107, B-108, B-109.
+- B-082 landed (merge 2c957c192).
+Finished 15: B-082 landed 2c957c192 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-082-8.png

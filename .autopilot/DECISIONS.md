@@ -1408,3 +1408,45 @@ Chose: The start-title test runs its own Ghostty.App on a temp config (precedent
 Why: AUTONOMY test infra
 Commit: 1b7d6fefc, c56e8fdc9
 Veto: [ ]
+
+## D-190 · 2026-09-30 · When a row's pane closes beside a split, the row keeps its sidebar sl…
+Context: B-082 (runner call).
+Chose: When a row's pane closes beside a split, the row keeps its sidebar slot and carries on as the surviving plain shell (retitled, still selected); extends D-117
+Why: P6, P2
+Commit: b3e29e2c4, b818ba40a, 4d41627b1
+Veto: [ ]
+
+## D-191 · 2026-09-30 · With several shells left, the focused survivor else the first in tree…
+Context: B-082 (runner call).
+Chose: With several shells left, the focused survivor else the first in tree order takes the row; the rest stay split beside it (more is B-058, per D-100)
+Why: P6
+Commit: b3e29e2c4, b818ba40a, 4d41627b1
+Veto: [ ]
+
+## D-192 · 2026-09-30 · Only Leo-made plain shells are adopted; an attach handle or leoAgentN…
+Context: B-082 (runner call).
+Chose: Only Leo-made plain shells are adopted; an attach handle or leoAgentName blocks adoption, and handle-less surfaces are never adopted
+Why: P2
+Commit: b3e29e2c4, b818ba40a, 4d41627b1
+Veto: [ ]
+
+## D-193 · 2026-09-30 · An agent pane closing beside a plain shell is left alone here and not…
+Context: B-082 (runner call).
+Chose: An agent pane closing beside a plain shell is left alone here and noted for B-058
+Why: scope, P2
+Commit: b3e29e2c4, b818ba40a, 4d41627b1
+Veto: [ ]
+
+## D-194 · 2026-09-30 · Adoption is opt-in: only reconcile (upstream removed the pane) and cl…
+Context: B-082 (runner call).
+Chose: Adoption is opt-in: only reconcile (upstream removed the pane) and closeShownPane hand the row on, so closing a hidden row never gives its slot to an unrelated on-screen shell
+Why: P2
+Commit: b3e29e2c4, b818ba40a, 4d41627b1
+Veto: [ ]
+
+## D-195 · 2026-09-30 · LeoTerminalList.replacing drops the old row if the new id is already …
+Context: B-082 (runner call).
+Chose: LeoTerminalList.replacing drops the old row if the new id is already listed; replacing with its own id just retitles
+Why: P6
+Commit: b3e29e2c4, b818ba40a, 4d41627b1
+Veto: [ ]
