@@ -75,7 +75,7 @@ Lane: B-109
   Branch: autopilot-lane/B-109
   Base: 6dac1903eae33858817f3a036ddc268dce33fa22
   Tier: full
-  State: building
+  State: shelved
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -85,3 +85,5 @@ Lane: B-109
   Call: Put the pins in LeoTerminalRowsIntegrationTests, reusing freshUndo/openSplit/closePane/Weak — AUTONOMY test infrastructure
   Call: shellPID waits for a foreground process named other than ""/"login" (setuid /usr/bin/login owns the pgid first) — AUTONOMY test infrastructure
 - B-109 runner: blocked, couldn't reproduce. Closed pane's shell lives exactly for the Close Terminal undo window (5 s undo-timeout); pin tests 14c6dae64 + doc a5462b28a unreviewed, not integrated.
+- B-109 shelved on autopilot-shelved/B-109.
+Finished 4: B-109 blocked

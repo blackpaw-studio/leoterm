@@ -297,12 +297,14 @@ Why: B-082 review: close the row's pane, undo the close, then undo New Split (or
 Accept: a failing test reproduces it; restored panes are adopted or reachable from a row
 Source: autopilot polish (B-082)
 
-## B-109 · Closed split pane's shell lingers ~40 s   [ready]
+## B-109 · Closed split pane's shell lingers ~40 s   [blocked]
 Issue: #113
 Type: bug
 Why: B-082 verify: after File > Close on a split pane, its shell (pid 36119) was still alive 2 s later and gone about 40 s later
 Accept: confirm or rule out with a test; if real, closing a pane ends its shell promptly
 Source: autopilot polish (B-082)
+Question: couldn't reproduce — a test shows a closed pane's shell lives only for the Close Terminal undo window (undo closure holds the tree; undo-timeout 5 s default): view freed 5.1–5.25 s after close, zsh reaped right after; forgetting undo ends it in 0.13–1.13 s; ⌘Z within the window restores the same shell. B-082's "gone ~40 s later" was likely just the next check. Pin tests + a doc comment are on autopilot-shelved/B-109 (unreviewed). Work kept on autopilot-shelved/B-109. Reply "B-109: close" to close it, or "B-109: <more detail>" to retry.
+Answer:
 
 ## B-110 · Dragging a Leo surface between windows: rows, window ownership and undo   [ready]
 Issue: #114
