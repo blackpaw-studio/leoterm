@@ -145,3 +145,16 @@ Fixed: B-063 sidebar order churn (d904cf393, streak hysteresis; tests only), B-0
 Shipped: B-057 Terminals sidebar rows (e5f683b24; both prior HIGHs fixed; shots B-057-9..11)
 Calls: D-112..D-124 (veto-able). Filed: B-067..B-075 (next run).
 Notes: B-057 runner used 3 fix rounds against a budget of 2; test runner needs env presets (verify.md, B-072); landed lanes' worktrees kept (untracked build files); Board sync: B-014 unknown status [deferred].
+
+## Run 2026-09-29 22:22Z → 2026-09-30 02:20Z (early stop)
+🛠 leoterm autopilot — 5 shipped, 0 blocked (early stop)
+Shipped
+• B-066 ⌘T collision — ⌘T is New Terminal alone; start screen hints ⌘O for Choose Agent… (930a1f331) · light
+• B-067 Terminals row scrolls into view on create/select/filter-clear (c905bd4c9 f8135ef58) · light
+• B-068 same-titled shells read "~", "~ (2)" (59b259e37 677060e4f) · light
+• B-069 start-screen New Terminal button (7ba7c4400) · light
+• B-070 window reads "👻 Ghostty" after the last shell closes (01fb138dd) · light
+Calls: D-125..D-139
+Stopped: B-071 runner returned Error (harness forced hand-back while its fix-round verifier ran). Reviews on bc8aae9f1 approved; only verify missing. Left unlanded on autopilot-lane/B-071 (verifying, Fixes 1) for a re-verify at next preflight.
+Filed next run: B-076..B-083 (B-082 is a pre-existing split-close orphan bug). Inbox: 3 bugs queued mid-run.
+Lanes: landed lanes B-054..B-070 not removed (untracked build output); orphan verifier test host was running in lanes/B-071.

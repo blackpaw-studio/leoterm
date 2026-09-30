@@ -63,41 +63,49 @@ Accept: on launch focus goes to the content area, not the search field; test
 Source: autopilot polish (B-064)
 
 ## B-076 · Tighten LeoNoTabBarTests' xib ⌘T guard   [ready (next run)]
+Issue: #80
 Why: the guard at LeoNoTabBarTests:92-93 can only pass: New Terminal takes ⌘T from the Ghostty config, and an empty `<modifierMask/>` slips past the filter
 Accept: the guard fails if any xib item other than New Terminal binds ⌘T (including an empty modifierMask), or its message is reworded to say what it really checks; suite green
 Source: autopilot polish (B-066)
 
 ## B-077 · verify.md: palette is Choose Agent… (⌘O), not File ▸ New Tab   [ready (next run)]
+Issue: #81
 Why: verify.md still says "the agent palette opens with File ▸ New Tab"; that menu item is now New Terminal (⌘T), and the palette is Choose Agent… (⌘O)
 Accept: verify.md's palette instructions name Choose Agent… (⌘O); the B-057 GUI tip is corrected (AX set-value on the search field changes its text but not the filter; use Agents ▸ Find Agent… plus peekaboo type / press delete, per B-067 verify)
 Source: autopilot polish (B-066)
 
 ## B-078 · Tests for B-067's calm-scroll claims   [ready (next run)]
+Issue: #82
 Why: "a retitle doesn't move the scroll offset" and "re-selecting a row already on screen doesn't scroll" hold only by construction; nothing catches a regression
 Accept: tests assert both; reword the misleading doc comment on aNewRowBelowAListedOneIsRevealedWhole's "same turn" case (it passed before the fix)
 Source: autopilot polish (B-067)
 
 ## B-079 · Terminals row label polish (tooltip, trimmed title, test comments)   [ready (next run)]
+Issue: #83
 Why: B-068 review polish: hovering the "(2)" suffix shows no tooltip (`.help` sits on the title Text only, LeoTerminalRowView.swift:27); labels group by the trimmed title but show the untrimmed one, so " ~ " shows a stray space (LeoTerminalRowLabel.swift:31,36); the "(B-068)" comments at LeoTerminalRowsIntegrationTests.swift:126,267 wrongly imply B-068 caused the prompt-retitle race
 Accept: the tooltip covers the whole row label; displayTitle is trimmed; the comments cite the shell-integration prompt retitle; tests for the first two
 Source: autopilot polish (B-068)
 
 ## B-080 · Start-screen shortcut hints follow the live keybinds   [ready (next run)]
+Issue: #84
 Why: B-069's New Terminal tooltip hardcodes "⌘T", but AppDelegate syncs ⌘T from the user's Ghostty new_tab keybind, so a rebind makes the hint wrong; the menu-item tests look items up by key "t" and would fail on a rebind instead of catching drift
 Accept: the start-screen hints are built from the synced menu items (or config.keyboardShortcut(for:)); tests look items up by selector (TerminalController.newTab(_:)); a rebind test shows the hint following
 Source: autopilot polish (B-069)
 
 ## B-081 · Sidebar scroll and start title after the last shell closes   [ready (next run)]
+Issue: #85
 Why: B-070 verify: after the last shell closes, the sidebar stays scrolled to the bottom where the Terminals section was; leoStartTitle is captured once at windowDidLoad (a config `title` reload doesn't reach an open window's start screen; matches upstream) and has no explicit test with a config `title` set
 Accept: after the last Terminals row closes the sidebar keeps a sensible scroll position (the selection or the top), calmly; a comment documents leoStartTitle's capture; a test with a config `title` set
 Source: autopilot polish (B-070)
 
 ## B-082 · Bug — closing a row's original pane beside a split orphans the other pane   [ready (next run)]
+Issue: #86
 Why: B-071 verify (shot B-071-9): File ▸ Close on the row's original pane while a split is open drops the row but leaves the other pane on screen with no row, and the next New Terminal kills that orphaned shell without asking (breaks principles 2 and 6). Pre-existing; related to D-117 and B-058
 Accept: a failing test reproduces it; after the fix the remaining pane stays reachable from a row (or asks before it is replaced); nothing else regresses
 Source: autopilot polish (B-071)
 
 ## B-083 · B-071 test and undo-manager polish   [ready (next run)]
+Issue: #87
 Why: B-071 review polish: EditorCloseTests:91-93 doc says "S exits" but the test closes S; LeoContentSwapIntegrationTests.swift:126 calls undo() on the shared manager without leoRemoveActionsTestsCanReplay; RowsIntegrationTests:639 should also assert busyView.view?.processExited == false; ExpiringUndoManager.removeAllActions() crashes from re-entrant deinit (latent upstream bug, no production caller: snapshot the set before clearing). Also: Move Split cross-window undo leaves the other window's half after a swap (concurrency review, narrowed by B-071)
 Accept: each fixed or explicitly dismissed; suite green
 Source: autopilot polish (B-071)
