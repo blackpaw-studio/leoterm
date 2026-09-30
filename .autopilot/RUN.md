@@ -95,9 +95,14 @@ Lane: B-071
   Branch: autopilot-lane/B-071
   Base: dc69452597d918d43a9d1746729a6970d0fe5e67
   Tier: full
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: bc8aae9f1ae31e096c6609dfff562082b9dc2190
   Dispatched: 2026-09-30T01:09:23Z
+  Call: After a content swap, the start screen, or the unsaved-edits start screen, ⌘Z does nothing to that window's tree (undo is dropped, not replayed) — P2, D-111/D-116
+  Call: Clearing covers every undo action targeting that controller (tree edits, redos, its New Window); other windows' undo is untouched — P2, AUTONOMY implementation approach
+  Call: When a selected row closes by any path, the selection returns to what the window shows (its row, or none so the agent's selection shows) — P6, D-116
+  Call: Clear undo in leoKeepForUnsavedEdits where the tree is emptied, not in fillPlaceholder's refill branch — AUTONOMY implementation approach
+- B-071 runner: Result blocked with Error: "The harness forced a hand-back ("[handback-send-enforce] Your report has not been delivered") while the verifier was still running." Both delta reviews (general, concurrency) on bc8aae9f1 approved with no blocking findings; round 0 verify passed on 06b9480b5 (1736/1736, GUI); implementer's own run on bc8aae9f1 1737/1737; the fix-round-1 verify never reported. Early stop per the Error rule. Block set to verifying with Reviewed-tip bc8aae9f1 so the next preflight dispatches a re-verify round (only verify is missing). The orphaned verifier's test host was still running in the lane (pid 97279) at stop; it may take the verify lock afterwards (stale after 6h). Polish filed as B-082 (pre-existing bug), B-083; ⌘D-opens-palette noted on B-058.

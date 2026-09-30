@@ -92,6 +92,16 @@ Why: B-070 verify: after the last shell closes, the sidebar stays scrolled to th
 Accept: after the last Terminals row closes the sidebar keeps a sensible scroll position (the selection or the top), calmly; a comment documents leoStartTitle's capture; a test with a config `title` set
 Source: autopilot polish (B-070)
 
+## B-082 · Bug — closing a row's original pane beside a split orphans the other pane   [ready (next run)]
+Why: B-071 verify (shot B-071-9): File ▸ Close on the row's original pane while a split is open drops the row but leaves the other pane on screen with no row, and the next New Terminal kills that orphaned shell without asking (breaks principles 2 and 6). Pre-existing; related to D-117 and B-058
+Accept: a failing test reproduces it; after the fix the remaining pane stays reachable from a row (or asks before it is replaced); nothing else regresses
+Source: autopilot polish (B-071)
+
+## B-083 · B-071 test and undo-manager polish   [ready (next run)]
+Why: B-071 review polish: EditorCloseTests:91-93 doc says "S exits" but the test closes S; LeoContentSwapIntegrationTests.swift:126 calls undo() on the shared manager without leoRemoveActionsTestsCanReplay; RowsIntegrationTests:639 should also assert busyView.view?.processExited == false; ExpiringUndoManager.removeAllActions() crashes from re-entrant deinit (latent upstream bug, no production caller: snapshot the set before clearing). Also: Move Split cross-window undo leaves the other window's half after a swap (concurrency review, narrowed by B-071)
+Accept: each fixed or explicitly dismissed; suite green
+Source: autopilot polish (B-071)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
@@ -181,6 +191,7 @@ Why: principle 6 (the layout belongs to the selected row) with splits kept (D-10
 Accept: ⌘D and the editor/file pane still split the content area; a split can show a second agent or shell, picked from the sidebar or palette; every row on screen is highlighted in the sidebar, the focused one distinctly; switching away from a split layout and back restores it intact; tests plus a screenshot of an agent + shell split with both rows highlighted
 Out: saved layouts; dragging rows into splits (later polish)
 Source: Evan (/vision revision, 2026-09-28)
+Note: B-071 verify saw ⌘D / Split Right open the agent palette instead of splitting directly; settle this here.
 
 ## B-059 · Keyboard switching between rows   [ready]
 Issue: #64
