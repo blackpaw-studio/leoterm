@@ -1058,3 +1058,31 @@ Chose: The closed shell's folder proxy icon is cleared on the start screen, matc
 Why: principle 2 never invent a state
 Commit: 01fb138dd
 Veto: [ ]
+
+## D-140 · 2026-09-29 · After a content swap, the start screen, or the unsaved-edits start sc…
+Context: B-071 (runner call).
+Chose: After a content swap, the start screen, or the unsaved-edits start screen, ⌘Z does nothing to that window's tree (undo is dropped, not replayed)
+Why: P2, D-111/D-116
+Commit: 3c11d58f5 554d32298 73ccd5035 c32e920d8 1c7b13222 c9ce67411 bc8aae9f1
+Veto: [ ]
+
+## D-141 · 2026-09-29 · Clearing covers every undo action targeting that controller (tree edi…
+Context: B-071 (runner call).
+Chose: Clearing covers every undo action targeting that controller (tree edits, redos, its New Window); other windows' undo is untouched
+Why: P2, AUTONOMY implementation approach
+Commit: 3c11d58f5 554d32298 73ccd5035 c32e920d8 1c7b13222 c9ce67411 bc8aae9f1
+Veto: [ ]
+
+## D-142 · 2026-09-29 · When a selected row closes by any path, the selection returns to what…
+Context: B-071 (runner call).
+Chose: When a selected row closes by any path, the selection returns to what the window shows (its row, or none so the agent's selection shows)
+Why: P6, D-116
+Commit: 3c11d58f5 554d32298 73ccd5035 c32e920d8 1c7b13222 c9ce67411 bc8aae9f1
+Veto: [ ]
+
+## D-143 · 2026-09-29 · Clear undo in leoKeepForUnsavedEdits where the tree is emptied, not i…
+Context: B-071 (runner call).
+Chose: Clear undo in leoKeepForUnsavedEdits where the tree is emptied, not in fillPlaceholder's refill branch
+Why: AUTONOMY implementation approach
+Commit: 3c11d58f5 554d32298 73ccd5035 c32e920d8 1c7b13222 c9ce67411 bc8aae9f1
+Veto: [ ]

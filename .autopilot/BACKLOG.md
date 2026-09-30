@@ -55,11 +55,12 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: Evan (/issue, 2026-09-29)
 Inbox: 20260929T222831661985Z-ec1de91b#1
 
-## B-071 · Bug — ⌘Z of a split close after a row switch can silently kill a busy hidden row's shell   [ready]
+## B-071 · Bug — ⌘Z of a split close after a row switch can silently kill a busy hidden row's shell   [done]
 Issue: #75
 Why: B-057 concurrency review (MEDIUM, dismissed as pre-existing): ⌘D, ⌘W the split, switch rows, ⌘Z within 5 s replays the old tree, bypassing retire/kept. Suggested fix: undoManager.removeAllActions(withTarget:) in leoReplaceContent/leoShowStartScreen. Also: a keyboard-selected but not shown hidden row that exits leaves the selection nil (LOW)
 Accept: a failing test reproduces the undo-replay kill; it passes after the fix; selection falls back to what's shown; nothing else regresses
 Source: autopilot polish (B-057)
+Done: 3c11d58f5 554d32298 73ccd5035 c32e920d8 1c7b13222 c9ce67411 bc8aae9f1 (1737 tests). After a content swap or the start screen ⌘Z no longer replays the old tree; a selected row that closes hands the selection to what's shown. Decisions D-140..D-143.
 
 ## B-072 · Test infra: runtests.sh crashes the test host (libghostty env pointer vs setenv)   [ready]
 Issue: #76
