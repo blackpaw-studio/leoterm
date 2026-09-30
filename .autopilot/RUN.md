@@ -301,3 +301,14 @@ Lane: B-062
 - B-062 runner: ready at 465cad581 (1839/1839, lint clean; general + concurrency full, general delta after 1 in-runner fix round: the union predicate had pooled name-only Undo-restored agent surfaces, pinned by aNamedSurfaceWithNoHandleIsLetGoNotPooled; implementer/opus). verify.md focus-test name updated by the orchestrator.
 - B-062 landed (merge 232172574).
 Finished 18: B-062 landed 232172574 · not visually verified
+
+Lane: B-065
+  Branch: autopilot-lane/B-065
+  Base: d1e5297faa91e7e191ccda6e6b301e49b81ee8bc
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-30T14:17:34Z
