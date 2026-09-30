@@ -35,8 +35,20 @@ struct LeoTerminalRowLabelTests {
         #expect(texts(list("", "👻", "  ")) == ["Terminal", "Terminal (2)", "Terminal (3)"])
     }
 
+    /// ...and read the same: no stray space before the title or the suffix.
     @Test func titlesThatOnlyDifferInSurroundingSpaceAreTheSame() {
-        #expect(texts(list("~", " ~ ")).last?.hasSuffix("(2)") == true)
+        let labels = list("~", " ~ ").labels
+
+        #expect(labels.map(\.title) == ["~", "~"])
+        #expect(labels.map(\.text) == ["~", "~ (2)"])
+    }
+
+    /// B-079: the row's one tooltip reads its whole label, title and
+    /// suffix, so hovering the "(2)" shows it too.
+    @Test func theTooltipReadsTheWholeLabel() {
+        let labels = list("~", " ~ ", "vim").labels
+
+        #expect(labels.map(\.help) == ["~", "~ (2)", "vim"])
     }
 
     @Test func labelsFollowTheRowsInOrder() {
