@@ -71,6 +71,54 @@ import Testing
         #expect(list(a).retitling(a, to: "👻").rows.first?.displayTitle == "Terminal")
     }
 
+    // MARK: A row carried on by another shell (B-082)
+
+    @Test func replacingARowKeepsItsSlot() {
+        let x = UUID()
+
+        let replaced = list(a, b, c).replacing(b, with: LeoTerminalRow(id: x, title: "zsh"))
+
+        #expect(replaced.rows.map(\.id) == [a, x, c])
+        #expect(replaced.rows[1].title == "zsh", "titled by its own terminal")
+    }
+
+    @Test func replacingARowThatIsntListedChangesNothing() {
+        #expect(list(a, b).replacing(c, with: LeoTerminalRow(id: UUID(), title: "")) == list(a, b))
+    }
+
+    @Test func replacingWithARowAlreadyListedKeepsOne() {
+        #expect(list(a, b, c).replacing(b, with: LeoTerminalRow(id: c, title: "")).rows.map(\.id) == [a, c])
+        #expect(list(a, b).replacing(b, with: LeoTerminalRow(id: b, title: "zsh")).rows.map(\.title) == ["", "zsh"], "itself: retitled")
+    }
+
+    @Test func replacingCarriesTheSelection() {
+        let x = UUID()
+        let terminals = LeoWindowTerminals()
+        terminals.add(a, title: "")
+        terminals.add(b, title: "")
+        terminals.select(b)
+
+        terminals.replace(b, with: x, title: "zsh")
+
+        #expect(terminals.rows.map(\.id) == [a, x])
+        #expect(terminals.rows.map(\.title) == ["", "zsh"])
+        #expect(terminals.selection == x)
+    }
+
+    @Test func replacingLeavesASelectionElsewhere() {
+        let x = UUID()
+        let terminals = LeoWindowTerminals()
+        terminals.add(a, title: "")
+        terminals.add(b, title: "")
+        terminals.select(a)
+
+        terminals.replace(b, with: x, title: "")
+        terminals.replace(c, with: UUID(), title: "")
+
+        #expect(terminals.rows.map(\.id) == [a, x], "a row that isn't listed changes nothing")
+        #expect(terminals.selection == a)
+    }
+
     // MARK: One window's rows
 
     @Test func removingTheSelectedRowClearsTheSelection() {
