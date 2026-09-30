@@ -326,9 +326,11 @@ Lane: B-058
   Branch: autopilot-lane/B-058
   Base: b25524869ca8aac8bdc3b19c366ffa3dca79a4a5
   Tier: full
-  State: building
+  State: held
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-09-30T14:49:01Z
+- B-058 runner timed out after 3h (dispatched 14:49Z, stopped 17:57Z); it was mid fix round with a verify in progress. Verify lock released; the lane debug app was quit and its autopilot-scratch tmux client detached. shelve refused (untracked build output: default.profraw, macos/default.profraw, scratchpad/, zig-out), so the lane is held on autopilot-lane/B-058.
+Finished 20: B-058 blocked

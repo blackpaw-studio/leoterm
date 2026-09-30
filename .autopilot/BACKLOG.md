@@ -381,13 +381,15 @@ Out: naming or pinning shells; shells on remote hosts beyond what Ghostty alread
 Source: Evan (/vision revision, 2026-09-28)
 
 Done: f57f9fefc 54bde45c1 a831d8e4a 8766c056f 53f51762a 518b87ab7 0d22ce11f 3e390d0d0 490cf77c7 0fbb8746e 7d52dd411 773d86267 3aa4bb698 68293ed56 7ea968957 bbb6b2fe5 5d1f1fe3c 78fa2682f 4cc74629c(1700 tests via env-preset runner, lint clean; general + concurrency reviews; implementer-hard, 3 fix rounds). Fixed both prior HIGHs (exit racing a reveal; busy hidden shells now confirm on tab-close/⌘Q). Verified by screenshots B-057-9 (Terminals section, two rows, newest selected), -10 (Close selects neighbour), -11 (section hides when empty). exit, OSC title and pool behaviour: tests only. Follow-ups B-067..B-072.
-## B-058 · Splits inside the content area   [ready]
+## B-058 · Splits inside the content area   [blocked]
 Issue: #63
 Why: principle 6 (the layout belongs to the selected row) with splits kept (D-100)
 Accept: ⌘D and the editor/file pane still split the content area; a split can show a second agent or shell, picked from the sidebar or palette; every row on screen is highlighted in the sidebar, the focused one distinctly; switching away from a split layout and back restores it intact; tests plus a screenshot of an agent + shell split with both rows highlighted
 Out: saved layouts; dragging rows into splits (later polish)
 Source: Evan (/vision revision, 2026-09-28)
 Note: B-071 verify saw ⌘D / Split Right open the agent palette instead of splitting directly; settle this here.
+Question: runner timed out after 3h — build mode, mid fix round: two delta reviews agreed the 4 earlier fixes hold and 1 blocking item remains (the on-screen row reveal only fires once); a verify was in progress. Lane's last commit 36ebe103c. Work kept on autopilot-lane/B-058 (held: shelve refused on untracked build output). Resume it next run?
+Answer:
 
 ## B-059 · Keyboard switching between rows   [ready]
 Issue: #64
