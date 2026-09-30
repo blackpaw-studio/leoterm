@@ -278,6 +278,57 @@ import Testing
         #expect(fixture.controller.window?.title != "make test", "nothing on screen is titled that any more")
     }
 
+    /// B-070: the start screen the last row leaves reads exactly as a new
+    /// window's does ("👻 Ghostty", or the config's `title`), not a bare 👻.
+    @Test func theStartScreenReadsANewWindowsTitle() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let fresh = TerminalController(fixture.controller.ghostty, withSurfaceTree: .init(), leoIsPlaceholder: true)
+        defer { fresh.window?.close() }
+        let startTitle = try #require(fresh.window?.title)
+        let shell = try newShell(fixture, running: Self.standIn)
+        let view = try #require(fixture.view(shell))
+        fixture.controller.focusedSurfaceDidChange(to: view)
+        view.setTitle("make test")
+        #expect(await eventually { fixture.controller.window?.title == "make test" })
+
+        fixture.host.closeTerminal(shell)
+
+        #expect(fixture.controller.window?.title == startTitle)
+    }
+
+    /// B-070: nor does its title bar keep the closed shell's directory as a
+    /// proxy icon; a new window has none.
+    @Test func theStartScreenDropsTheClosedShellsProxyIcon() throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let shell = try newShell(fixture, running: Self.standIn)
+        let view = try #require(fixture.view(shell))
+        fixture.controller.focusedSurfaceDidChange(to: view)
+        // What `TerminalView` reports for the shell's working directory.
+        fixture.controller.pwdDidChange(to: URL(fileURLWithPath: NSTemporaryDirectory()))
+        try #require(fixture.controller.window?.representedURL != nil, "macos-titlebar-proxy-icon is visible by default")
+
+        fixture.host.closeTerminal(shell)
+
+        #expect(fixture.controller.window?.representedURL == nil)
+    }
+
+    /// B-070: a title chosen with Change Window Title… names the window, not
+    /// the shell, so the start screen keeps it.
+    @Test func aChosenWindowTitleOutlivesTheLastShell() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let shell = try newShell(fixture, running: Self.standIn)
+        let view = try #require(fixture.view(shell))
+        fixture.controller.focusedSurfaceDidChange(to: view)
+        fixture.controller.titleOverride = "Build box"
+
+        fixture.host.closeTerminal(shell)
+
+        #expect(fixture.controller.window?.title == "Build box")
+    }
+
     @Test func aShellShownAfterTheStartScreenKeepsTheWindowSize() throws {
         let fixture = try makeFixture()
         defer { close(fixture) }

@@ -908,9 +908,12 @@ class BaseTerminalController: NSWindowController,
                 .store(in: &focusedSurfaceCancellables)
         } else {
             // There is no surface to listen to titles for.
-            titleDidChange(to: "👻")
+            titleDidChange(to: titleWithNoSurface)
         }
     }
+
+    // MARK: Leo -- what the window reads with no surface to title it (B-070).
+    var titleWithNoSurface: String { "👻" }
 
     private func computeTitle(title: String, bell: Bool) -> String {
         var result = title
