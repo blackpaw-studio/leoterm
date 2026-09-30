@@ -48,9 +48,18 @@ Lane: B-085
   Branch: autopilot-lane/B-085
   Base: 87ca72ee58584c7801ce70eca978860b88296fa5
   Tier: full
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 2
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 976d04bdd57dee6370d842b4d9041959754c2c30
   Dispatched: 2026-09-30T03:41:15Z
+  Call: A launch that never becomes active still opens its window — P1
+  Call: Saved frames below a usable minimum (300x150, or window.minSize if larger) are neither saved nor restored; the saved origin is kept when the size is refused — P1/P2, D-036
+  Call: An untouched launch window gives way to the first window a request opens through newWindow/newTab (AppleScript, Intent, Service, open-file, notification); it closes only once the requested window is visible, which takes its spot — P2, AUTONOMY
+  Call: "Touched" means any key, mouse or scroll event in Leo; a launch window with a sheet up, or a newWindow whose explicit parent is the launch window, is kept — AUTONOMY
+  Call: The launch window opens as the bare start screen, not through the palette route (no palette flash or stuck clipped palette on background launch) — P2
+  Call: NSApp.activate is kept in the placeholder presentation, so background and login-item launches come to the front — P1
+  Call: An XCTest host never adopts its launch window — D-057
+  Call: Log line "opening the initial window on <event>"; callback types are @MainActor @Sendable — AUTONOMY implementation approach
+- B-085 runner: ready at 976d04bdd (1787/1787, lint clean; general+concurrency full then delta; implementer-hard/opus, 2 fix rounds). Root causes: (A) first window opened only on first activation (background launch gave no window 15/15); (B) tiny saved frames (266x221) persisted, likely B-086's downstream. GUI: plain 8/8, background 5/5, relaunch 3/3, cold folder 3/3, one window every time. Fix C (quit-then-reopen race, 1/5 forced) not built, filed B-092. AppleScript/Intents/Services not driven live (no TCC consent); covered by integration tests. Polish filed as B-092..B-095.

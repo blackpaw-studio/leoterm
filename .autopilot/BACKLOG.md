@@ -162,6 +162,27 @@ Why: B-084 verify: at a 420 pt sidebar in an 800 pt window, "Show Terminal Drawe
 Accept: a content minimum width (or a sidebar maximum tied to window width) keeps content controls untruncated; test + screenshot
 Source: autopilot polish (B-084)
 
+## B-092 · Bug — a fast quit-then-reopen can leave no Leo running   [ready (next run)]
+Type: bug
+Report: B-085 diagnosis: a new copy launched ~50 ms into the previous copy's quit (forced `open -n`) yields to the still-exiting copy under the single-instance lock, and then no Leo remains (1/5 forced, 0/24 via plain open). LaunchServices reports the dying copy isTerminated=false. Candidate fix: mark the lock "exiting" in applicationWillTerminate; a new copy that sees the mark blocks on flock instead of quitting (keeps D-051/D-053)
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot polish (B-085)
+
+## B-093 · Launch-window replacement polish   [ready (next run)]
+Why: B-085 review/verify: with a hidden launch (`open -j`, login item hidden) the requested window may read isVisible=false so both windows stay; the queued close doesn't re-check the launch window is still visible (narrow double-close); after a request replaces the launch window the sidebar search isn't focused; plan file not amended for LeoLaunchPlaceholder, the palette change, the 300x150 floor
+Accept: each fixed or explicitly dismissed with a test where behaviour changes
+Source: autopilot polish (B-085)
+
+## B-094 · B-085 integration test hardening   [ready (next run)]
+Why: B-085 review: the launch-placeholder integration tests silently pass without a live Ghostty.App (use .enabled(if:)); the defer close is registered after a #require; drainMainQueue waits a fixed 4 turns; lastCascadePoint isn't restored; the newTab test lacks a launchWindow==nil assert
+Accept: each fixed; suite green
+Source: autopilot polish (B-085)
+
+## B-095 · Reopen and fallback New Window flash the palette   [ready (next run)]
+Why: B-085 verify: Dock reopen and the fallback New Window still route through the palette (present-then-dismiss flash), unlike the launch window which now opens as the bare start screen (P2)
+Accept: reopen and fallback New Window open the bare start screen with no palette flash; test
+Source: autopilot polish (B-085)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
