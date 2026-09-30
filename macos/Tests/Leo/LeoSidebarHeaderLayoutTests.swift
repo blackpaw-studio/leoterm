@@ -44,6 +44,29 @@ struct LeoSidebarHeaderLayoutTests {
         #expect(button.maxX <= width, "the button \(button) stays inside the \(width) pt sidebar")
     }
 
+    /// B-065: the footer button bar sits below the list, inside the
+    /// sidebar's margins, and doesn't move the header.
+    @Test(arguments: [defaultWidth, minimumSidebarWidth])
+    func buttonBarSitsBelowTheListInsideTheSidebar(_ width: CGFloat) async throws {
+        let (window, frames) = makeWindow(width: width)
+        defer { window.close() }
+        let bar = try #require(await frames.settled(.buttonBar), "\(frames)")
+        let search = try #require(await frames.settled(.searchField), "\(frames)")
+        let title = try #require(await frames.settled(.title), "\(frames)")
+        let button = try #require(await frames.settled(.accessory), "\(frames)")
+        let inset = LeoSidebarChromeMetrics.horizontalInset
+
+        #expect(abs(bar.minX - inset) <= 1, "the bar \(bar) keeps the leading margin")
+        #expect(abs(bar.maxX - (width - inset)) <= 1, "the bar \(bar) keeps the trailing margin of the \(width) pt sidebar")
+        #expect(bar.minY > search.maxY + LeoSidebarChromeMetrics.itemSpacing, "the bar \(bar) sits below the search field \(search) and the list")
+        #expect(
+            abs(Self.height - bar.maxY - LeoSidebarChromeMetrics.itemSpacing) <= 1,
+            "the bar \(bar) is pinned to the sidebar's bottom edge, one item-spacing up"
+        )
+        #expect(title.minY >= LeoSidebarChromeMetrics.topInset - 1, "the header \(title) keeps its top inset")
+        #expect(button.minX - title.maxX >= LeoSidebarChromeMetrics.titleAccessoryMinSpacing, "title \(title) and button \(button) keep a gap")
+    }
+
     @Test func sidebarChromeMetricsAreTheSingleSourceOfSpacing() {
         #expect(LeoSidebarChromeMetrics.topInset >= 8, "the chrome clears the titlebar")
         #expect(LeoSidebarChromeMetrics.titleAccessoryMinSpacing >= 8, "a title never runs into its accessory")

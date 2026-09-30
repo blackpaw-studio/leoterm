@@ -162,15 +162,26 @@ struct LeoSidebarSplit<Terminal: View>: View {
     /// The top safe-area edges the split and the sidebar extend into (the
     /// hidden titlebar style, B-074). See `LeoTitlebarInsets`.
     private let titlebarIgnoredEdges: Edge.Set
+    /// The sidebar footer's buttons (B-065): see `LeoSidebarView`.
+    private let shortcutHints: LeoShortcutHints
+    private let newTerminal: () -> Void
+    private let toggleQuickTerminal: () -> Void
 
     init(
         session: LeoWindowSession, model: LeoSidebarModel, actions: LeoAgentActions,
-        titlebarIgnoredEdges: Edge.Set = [], @ViewBuilder terminal: () -> Terminal
+        titlebarIgnoredEdges: Edge.Set = [],
+        shortcutHints: LeoShortcutHints,
+        newTerminal: @escaping () -> Void,
+        toggleQuickTerminal: @escaping () -> Void,
+        @ViewBuilder terminal: () -> Terminal
     ) {
         self.session = session
         self.model = model
         self.actions = actions
         self.titlebarIgnoredEdges = titlebarIgnoredEdges
+        self.shortcutHints = shortcutHints
+        self.newTerminal = newTerminal
+        self.toggleQuickTerminal = toggleQuickTerminal
         self.terminal = terminal()
     }
 
@@ -190,7 +201,8 @@ struct LeoSidebarSplit<Terminal: View>: View {
             // alone isn't enough.
             sidebar: LeoSidebarView(
                 model: model, windowID: session.id, actions: actions, terminals: session.terminals,
-                searchFocusRequest: session.searchFocusRequest
+                searchFocusRequest: session.searchFocusRequest,
+                shortcutHints: shortcutHints, newTerminal: newTerminal, toggleQuickTerminal: toggleQuickTerminal
             ).ignoresSafeArea(.container, edges: titlebarIgnoredEdges),
             detail: terminal,
             editor: session.editor,
