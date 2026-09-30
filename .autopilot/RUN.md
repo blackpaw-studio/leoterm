@@ -83,3 +83,14 @@ Lane: B-086
 - B-086 runner: ready at 25d982e73 (1787/1787, lint clean; general+concurrency full; implementer-hard/opus, 0 fix rounds). Root cause (stack trace): first fill of a shown start screen applied SwiftUI's intrinsic size (800x114, cell size 0) when the config sets window-width/window-height; window shrank 800x632 to 800x146. Evan's laptop config likely sets them. GUI: first attach to autopilot-scratch kept 800x632, also after relaunch. Polish filed as B-096, B-097 (bug: Reset Window Size same shrink).
 - B-086 landed (merge 610f7170c).
 Finished 4: B-086 landed 610f7170c · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-086-1.png
+
+Lane: B-072
+  Branch: autopilot-lane/B-072
+  Base: efe117dd0be9de6cc50a48536665905d86704786
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-30T07:24:32Z
