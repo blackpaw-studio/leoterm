@@ -90,3 +90,14 @@ Lane: B-070
 - B-070 runner: ready at 6456f9987 (1730/1730, lint clean; general full; implementer/opus, 0 fix rounds). Root cause: leoShowStartScreen → focusedSurfaceDidChange(nil) set a bare "👻"; the old test only asserted the title wasn't the shell's. Polish filed as B-081.
 - B-070 landed (merge d58cdd886).
 Finished 5: B-070 landed d58cdd886 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-070-1.png
+
+Lane: B-071
+  Branch: autopilot-lane/B-071
+  Base: dc69452597d918d43a9d1746729a6970d0fe5e67
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-30T01:09:23Z
