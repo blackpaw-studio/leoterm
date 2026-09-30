@@ -261,11 +261,18 @@ struct LeoSidebarView: View {
                             .opacity(agentsInert ? Self.inertOpacity : 1)
                             .accessibilityHint(agentsInert ? "Disconnected" : "")
                     }
+                    .id(LeoSidebarSectionAnchor(sectionID: section.id))
                 }
                 if showsTerminals { terminalSection }
             }
             .listStyle(.sidebar)
             .leoRevealsTerminalRow(terminals.selection, isListed: showsTerminals, proxy: proxy)
+            .leoLandsWhenTerminalsClose(
+                isListed: showsTerminals,
+                isFiltering: LeoSidebarLayout.isFiltering(model.query),
+                landing: LeoTerminalsSectionExit.landing(selectedAgent: model.selection, in: agentSections),
+                proxy: proxy
+            )
         }
         .overlay(alignment: .bottomTrailing) {
             // A key equivalent, so it sees Return before the search
@@ -321,6 +328,7 @@ struct LeoSidebarView: View {
                 openSurfacedFile: { model.openSurfacedFile($0, for: row) }
             )
             .tag(Optional(LeoSidebarItemID.agent(row.id)))
+            .id(LeoSidebarItemID.agent(row.id))
         }
     }
 

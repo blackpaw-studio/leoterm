@@ -153,6 +153,68 @@ struct LeoSidebarTerminalScrollTests {
         #expect(table.visibleRect.minY == offset, "the list doesn't move")
     }
 
+    /// B-081: the window's last terminal row closes while it's revealed at
+    /// the bottom of a long list. The section goes, and the list lands on
+    /// the window's selection (the agent it falls back to), or its top
+    /// when nothing is selected -- not wherever the section's removal
+    /// left it.
+    @Test(arguments: ["the selected agent", "the top"])
+    func closingTheLastRowLandsOnTheSelectionOrTheTop(_ landing: String) async throws {
+        let terminals = LeoWindowTerminals()
+        let (window, model) = try makeWindowAndModel(terminals: terminals)
+        defer { window.close() }
+        let table = try await settledTable(in: window)
+        if landing == "the selected agent" { model.userSelected(Self.agents(count: Self.agentCount)[0].id) }
+        let shell = try await revealedLastRow(in: table, terminals: terminals)
+        let rowsBefore = table.numberOfRows
+
+        terminals.remove(shell)
+        await afterPendingUpdates()
+
+        try #require(table.numberOfRows < rowsBefore, "the Terminals section is gone")
+        if landing == "the selected agent" {
+            let selected = table.selectedRow
+            try #require(selected >= 0, "the list selects the agent")
+            #expect(isVisible(row: selected, in: table), "the selected agent row is on screen")
+        } else {
+            #expect(isVisible(row: 0, in: table), "the list is at its top")
+        }
+    }
+
+    /// B-081 (D-130): a selected agent that's already on screen once the
+    /// section goes keeps its place: the list doesn't move to it or to
+    /// the top. A guard: the list already stayed put before B-081.
+    @Test func closingTheLastRowLeavesASelectionOnScreenWhereItIs() async throws {
+        let terminals = LeoWindowTerminals()
+        let (window, model) = try makeWindowAndModel(terminals: terminals)
+        defer { window.close() }
+        let table = try await settledTable(in: window)
+        // The last agent: right above the Terminals section.
+        model.userSelected(Self.agents(count: Self.agentCount)[Self.agentCount - 1].id)
+        let shell = try await revealedLastRow(in: table, terminals: terminals)
+
+        terminals.remove(shell)
+        await afterPendingUpdates()
+
+        let selected = table.selectedRow
+        try #require(selected >= 0, "the list selects the agent")
+        #expect(isVisible(row: selected, in: table), "the selected agent row is on screen")
+        #expect(abs(table.visibleRect.maxY - table.bounds.maxY) <= 1, "the list stays at its bottom, where the selection shows")
+    }
+
+    /// A new terminal row, selected and revealed at the bottom of the list
+    /// (as ⌘T leaves it).
+    private func revealedLastRow(in table: NSTableView, terminals: LeoWindowTerminals) async throws -> UUID {
+        let rowsBefore = table.numberOfRows
+        let id = UUID()
+        terminals.add(id, title: "Terminal")
+        terminals.select(id)
+        await afterPendingUpdates()
+        try #require(table.numberOfRows > rowsBefore && isVisible(row: table.numberOfRows - 1, in: table), "the row is revealed")
+        try #require(!isVisible(row: 0, in: table), "the list is scrolled away from its top")
+        return id
+    }
+
     private func makeWindow(terminals: LeoWindowTerminals) throws -> NSWindow {
         try makeWindowAndModel(terminals: terminals).window
     }
