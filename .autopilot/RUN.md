@@ -44,7 +44,7 @@ Lane: B-068
   Branch: autopilot-lane/B-068
   Base: caa947dd04da18fba08a8fb25b24645ea0074043
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -54,3 +54,5 @@ Lane: B-068
   Call: Labels are recomputed from row order and titles: a retitle or close can renumber later same-titled rows, but rows never move and a new shell never relabels an older one — AUTONOMY, D-130
   Call: The suffix is secondary-coloured with monospaced digits and never truncates — AUTONOMY polish
 - B-068 runner: ready at 7f4db8ef2 (1724/1724; general full; implementer/opus, 0 fix rounds). Two integration tests moved to a /bin/cat stand-in (prompt retitle race). Polish filed as B-079; B-072 noted.
+- B-068 landed (merge 2f94a8036).
+Finished 3: B-068 landed 2f94a8036 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-068-1.png

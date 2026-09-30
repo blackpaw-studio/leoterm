@@ -10,11 +10,12 @@ Accept: creating or selecting a Terminals row scrolls it into view; test
 Source: autopilot polish (B-057)
 Done: c905bd4c9 f8135ef58 (1715 tests). A created or selected Terminals row scrolls fully into view, also after the filter clears; retitles and refreshes never scroll. Decisions D-129, D-130.
 
-## B-068 · Tell same-directory shells apart   [ready]
+## B-068 · Tell same-directory shells apart   [done]
 Issue: #72
 Why: two shells in the same directory both read "~" in the Terminals section
 Accept: rows for shells with identical titles get a distinguishing suffix (tty or index); test
 Source: autopilot polish (B-057)
+Done: 59b259e37 677060e4f (1724 tests). Same-titled Terminals rows read "~", "~ (2)", "~ (3)"; closing an older one renumbers later ones. Decisions D-131..D-133.
 
 ## B-069 · Start screen: New Terminal button   [ready]
 Issue: #73

@@ -995,3 +995,24 @@ Chose: Retitles and agent refreshes never scroll, and a row already on screen do
 Why: principle 2 calm
 Commit: c905bd4c9 f8135ef58
 Veto: [ ]
+
+## D-131 · 2026-09-29 · Numbered suffix, not a tty name: the first row stays plain ("~", "~ (2…
+Context: B-068 (runner call).
+Chose: Numbered suffix, not a tty name: the first row stays plain ("~", "~ (2)", "~ (3)"), like Finder's "untitled folder 2"
+Why: principle 1, AUTONOMY UX/copy
+Commit: 59b259e37 677060e4f
+Veto: [ ]
+
+## D-132 · 2026-09-29 · Labels are recomputed from row order and titles: a retitle or close ca…
+Context: B-068 (runner call).
+Chose: Labels are recomputed from row order and titles: a retitle or close can renumber later same-titled rows, but rows never move and a new shell never relabels an older one
+Why: AUTONOMY, D-130
+Commit: 59b259e37 677060e4f
+Veto: [ ]
+
+## D-133 · 2026-09-29 · The suffix is secondary-coloured with monospaced digits and never trun…
+Context: B-068 (runner call).
+Chose: The suffix is secondary-coloured with monospaced digits and never truncates
+Why: AUTONOMY polish
+Commit: 59b259e37 677060e4f
+Veto: [ ]
