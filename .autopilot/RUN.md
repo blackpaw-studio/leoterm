@@ -43,3 +43,14 @@ Lane: B-084
 - B-084 runner: ready at c0a13e45d (1740/1740, lint clean; general full; implementer/opus, 0 fix rounds). Red confirmed (stored 200 not 360). GUI: 330 and 420 survived quit/relaunch. Debug-domain leo.sidebarWidth left at 330. Polish filed as B-089, B-090 (bug: hidden sidebar un-collapses at launch), B-091.
 - B-084 landed (merge 2dc23544c).
 Finished 2: B-084 landed 2dc23544c · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-084-1.png
+
+Lane: B-085
+  Branch: autopilot-lane/B-085
+  Base: 87ca72ee58584c7801ce70eca978860b88296fa5
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-30T03:41:15Z
