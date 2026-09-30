@@ -134,6 +134,16 @@ Why: B-071 review polish: EditorCloseTests:91-93 doc says "S exits" but the test
 Accept: each fixed or explicitly dismissed; suite green
 Source: autopilot polish (B-071)
 
+## B-087 · Cursor looks unfocused after a row switch or palette Escape   [ready (next run)]
+Why: B-071 verify saw a hollow (unfocused) cursor right after a row switch and after Escape closes the palette; pre-existing
+Accept: after a row switch or dismissing the palette, the shown terminal is first responder and its cursor is focused; test
+Source: autopilot polish (B-071)
+
+## B-088 · "Close Terminal?" confirm names the pane it closes   [ready (next run)]
+Why: B-071 verify: the close confirm doesn't say which pane/row it will close, which is ambiguous beside a split
+Accept: the confirm names the row/pane being closed; test
+Source: autopilot polish (B-071)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
