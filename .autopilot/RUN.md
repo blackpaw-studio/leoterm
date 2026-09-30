@@ -132,9 +132,13 @@ Lane: B-075
   Branch: autopilot-lane/B-075
   Base: 5050edce58ce767156cff981d80e5cf3572b1224
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: cde59cbe92020220b344c7f32dc0f4afe6fdfdd8
   Dispatched: 2026-09-30T09:28:44Z
+  Call: On the start screen nothing holds focus; the window itself does, like a Finder window with no selection (its SwiftUI buttons can't take focus without Full Keyboard Access) — P1, AUTONOMY UX details
+  Call: Tab from the start screen still goes to the search field; ⌥⌘F stays the intended way in — P1, AUTONOMY UX details
+  Call: The key view loop is rebuilt (async, next turn) each time the window becomes key, because AppKit's automatic pick no longer builds it — AUTONOMY implementation approach
+- B-075 runner: ready at cde59cbe9 (1793/1793, lint clean; general full; implementer/opus, 0 fix rounds; stayed light). Applies to every Leo window. GUI: no focus ring on the search field at launch; after New Terminal the cursor blinks (focus judged from pixels; AX denied). B-087's hollow cursor has a different cause. Polish filed as B-101.

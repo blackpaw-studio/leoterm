@@ -215,6 +215,11 @@ Why: B-074 verify: in hidden style the editor/workspace-browser header rows now 
 Accept: in hidden style the side-pane headers have the same top inset as the sidebar header; a layout test; screenshot
 Source: autopilot polish (B-074)
 
+## B-101 · Launch-focus test gaps   [ready (next run)]
+Why: B-075 review/verify: the key-view-loop rebuild timing is untested at real launch order (the test waits ~1 s for the search field before windowDidBecomeKey; if the rebuild runs before the field exists, Tab won't reach it until the window regains key — TerminalController+LeoLaunchFocus.swift:26-30); no unit test for "row shown → terminal surface becomes first responder" (verified only visually); the comment overstates when the loop refreshes after a sidebar/pane toggle
+Accept: a test in real launch order proves Tab reaches the search field; a test that showing a row makes its surface first responder; comment corrected
+Source: autopilot polish (B-075)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
