@@ -181,9 +181,12 @@ Lane: B-079
   Branch: autopilot-lane/B-079
   Base: 6f8aa33d61a2dada4a2f78f2b6febe6bfaba7541
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 74788f6540de04fe20e322cb98724694507133a4
   Dispatched: 2026-09-30T10:48:36Z
+  Call: The tooltip (.help) sits on the title+suffix label HStack, not the whole row — AUTONOMY UX details
+  Call: A named `help` property on the label model rather than reusing `text` — AUTONOMY test infra
+- B-079 runner: ready at 74788f654 (1801/1801, lint clean; general full, no findings; implementer/opus, 0 fix rounds). GUI: tooltip "~ (2)" under the hovered suffix. Polish (help aliases text) not filed: trivial.
