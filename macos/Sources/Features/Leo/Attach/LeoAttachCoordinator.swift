@@ -329,13 +329,24 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         guard request.disposition == .content else { return true }
         let version = contentVersion[request.origin, default: 0]
         guard await host.confirmReplacingContent(origin: request.origin) else { return false }
-        return contentVersion[request.origin, default: 0] == version
+        // Its window closed meanwhile (`windowClosed`): the host reports
+        // that, as it did before the version was pruned.
+        guard let now = contentVersion[request.origin] else { return true }
+        return now == version
     }
 
     /// `window`'s content area now shows something else.
     private func contentReplaced(in window: LeoWindowID) {
         contentVersion[window, default: 0] += 1
     }
+
+    /// `window` closed: its content version goes with it. Idempotent.
+    func windowClosed(_ window: LeoWindowID) {
+        contentVersion.removeValue(forKey: window)
+    }
+
+    /// The windows with a content version (tests).
+    var contentVersionWindows: Set<LeoWindowID> { Set(contentVersion.keys) }
 
     private func createHandle(command: String, workingDirectory: String?, request: LeoSurfaceRequest) throws -> AttachmentHandle {
         switch request.disposition {

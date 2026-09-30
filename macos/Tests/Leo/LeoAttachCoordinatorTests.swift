@@ -432,6 +432,49 @@ import Testing
         #expect(coordinator.focusedIdentity == identity)
     }
 
+    // MARK: A closed window's content version (B-062)
+
+    @Test func closingAWindowForgetsItsContentVersion() async {
+        let host = FakeAttachTabHost()
+        let coordinator = makeCoordinator(host: host)
+        let other = LeoWindowID()
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        await coordinator.attach(identity: LeoAgentIdentity(host: .local, name: "other"), from: other, disposition: .content)
+        #expect(coordinator.contentVersionWindows == [origin, other])
+
+        coordinator.windowClosed(origin)
+        coordinator.windowClosed(origin)
+
+        #expect(coordinator.contentVersionWindows == [other], "only the closed window's entry goes, idempotently")
+    }
+
+    /// A request asking to replace a window's content when that window
+    /// closes resolves as before pruning: it goes on to the host (which,
+    /// for a real closed window, reports it closed) rather than being
+    /// dropped as superseded.
+    @Test func aRequestAwaitingConfirmOnAClosedWindowResolvesAsBefore() async {
+        let host = FakeAttachTabHost()
+        let coordinator = makeCoordinator(host: host)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        host.heldConfirmations = 1
+        let next = LeoAgentIdentity(host: .local, name: "next")
+        let pending = Task { await coordinator.attach(identity: next, request: LeoSurfaceRequest(origin: origin, disposition: .content)) }
+        await waitUntil { host.pendingConfirmationCount == 1 }
+        try? #require(host.pendingConfirmationCount == 1)
+
+        coordinator.windowClosed(origin)
+        host.resumeConfirmation(true)
+        let result = await pending.value
+
+        #expect((try? result.get()) == host.handles.last)
+        #expect(host.contentCalls.count == 2, "not dropped as superseded")
+    }
+
+    private func waitUntil(_ condition: () -> Bool) async {
+        let deadline = ContinuousClock.now + .seconds(2)
+        while !condition(), ContinuousClock.now < deadline { await Task.yield() }
+    }
+
     private func makeCoordinator(
         host: FakeAttachTabHost,
         report: @escaping (LeoAttachError) -> Void = { _ in },

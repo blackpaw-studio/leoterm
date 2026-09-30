@@ -213,11 +213,13 @@ import OSLog
         // may be a while (or never, for a single-window quit). The prompt
         // path is `LeoWindowSession.onWindowWillClose`, wired in
         // `makeWindowSession(for:)` to call this same teardown immediately.
-        // Both call `router.invalidate`/`pickerRouter.unregister`, which are
-        // idempotent, so running it twice for the same window is harmless.
-        registry.onUnregistered = { [weak router, weak pickerRouter] windowID in
+        // Both call `router.invalidate`/`pickerRouter.unregister`/
+        // `attachCoordinator.windowClosed`, which are idempotent, so running
+        // it twice for the same window is harmless.
+        registry.onUnregistered = { [weak router, weak pickerRouter, weak attachCoordinator] windowID in
             router?.invalidate(origin: windowID)
             pickerRouter?.unregister(origin: windowID)
+            attachCoordinator?.windowClosed(windowID)
         }
 
         // `actions` doesn't exist yet at the point `feed` is constructed
@@ -408,14 +410,15 @@ import OSLog
     }
 
     /// Tears down everything scoped to `windowID`: any pending new-surface
-    /// request and that window's palette presentation (panel, model,
-    /// subscriptions). Idempotent -- safe to call from both
+    /// request, that window's palette presentation (panel, model,
+    /// subscriptions) and its attach bookkeeping. Idempotent -- safe to call from both
     /// `LeoWindowSession.onWindowWillClose` (prompt path) and
     /// `registry.onUnregistered` (fallback reconciliation), which may both
     /// fire for the same window.
     private func teardownWindow(_ windowID: LeoWindowID) {
         newSurfaceRouter.invalidate(origin: windowID)
         picker.unregister(origin: windowID)
+        attachCoordinator.windowClosed(windowID)
     }
 
     /// Begins a new-surface gesture (Cmd+T, Cmd+D, Cmd+N, launch, or the
