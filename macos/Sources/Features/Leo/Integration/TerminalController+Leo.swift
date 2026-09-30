@@ -64,6 +64,15 @@ extension TerminalController {
     /// still kept hidden. So they are forgotten here; a split closed before
     /// the swap was confirmed at ⌘W and would expire after `undo-timeout`
     /// anyway. Other windows' undo is untouched.
+    ///
+    /// Known limit: all windows share one undo manager, and a cross-window
+    /// Move Split is one undo group holding two actions -- a "Close
+    /// Terminal" targeting the source window and a replace targeting the
+    /// destination. This drops only the swapped controller's half; the
+    /// partner half, targeting the other window, stays (D-141). What a
+    /// surface moved between windows means (its row and window ownership
+    /// after `splitDidDrop` / `ghosttySurfaceDragEndedNoTarget`, and its
+    /// undo) is parked as a separate follow-up.
     func leoForgetContentUndo() {
         undoManager?.removeAllActions(withTarget: self)
     }
