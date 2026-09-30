@@ -159,11 +159,18 @@ struct LeoSidebarSplit<Terminal: View>: View {
     @ObservedObject var model: LeoSidebarModel
     @ObservedObject var actions: LeoAgentActions
     private let terminal: Terminal
+    /// The top safe-area edges the split and the sidebar extend into (the
+    /// hidden titlebar style, B-074). See `LeoTitlebarInsets`.
+    private let titlebarIgnoredEdges: Edge.Set
 
-    init(session: LeoWindowSession, model: LeoSidebarModel, actions: LeoAgentActions, @ViewBuilder terminal: () -> Terminal) {
+    init(
+        session: LeoWindowSession, model: LeoSidebarModel, actions: LeoAgentActions,
+        titlebarIgnoredEdges: Edge.Set = [], @ViewBuilder terminal: () -> Terminal
+    ) {
         self.session = session
         self.model = model
         self.actions = actions
+        self.titlebarIgnoredEdges = titlebarIgnoredEdges
         self.terminal = terminal()
     }
 
@@ -178,10 +185,13 @@ struct LeoSidebarSplit<Terminal: View>: View {
             isSidebarVisible: session.isSidebarVisible,
             preferredWidth: session.preferredWidth,
             onDividerWidthChange: { session.setPreferredWidth($0) },
+            // The sidebar's own hosting view gets the window's titlebar
+            // inset plus the system sidebar's, so ignoring it on the split
+            // alone isn't enough.
             sidebar: LeoSidebarView(
                 model: model, windowID: session.id, actions: actions, terminals: session.terminals,
                 searchFocusRequest: session.searchFocusRequest
-            ),
+            ).ignoresSafeArea(.container, edges: titlebarIgnoredEdges),
             detail: terminal,
             editor: session.editor,
             browser: session.browser,
@@ -193,5 +203,6 @@ struct LeoSidebarSplit<Terminal: View>: View {
             // Nor is it coming back once the window widens (D-059).
             onSidebarAutoRestore: { session.isSidebarVisible = true }
         )
+        .ignoresSafeArea(.container, edges: titlebarIgnoredEdges)
     }
 }
