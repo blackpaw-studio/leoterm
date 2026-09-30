@@ -61,10 +61,12 @@ Lane: B-097
   Branch: autopilot-lane/B-097
   Base: c8718647a94978eca08f0461faaa7a577a684c58
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: f188dfa0887a59e707c4a343d3e69588d40721d1
   Dispatched: 2026-09-30T22:20:59Z
 - B-097 runner: ready at f188dfa08 (general full; 1876/1876; GUI: Return To Default Size on a filled start screen → configured size + sidebar, no shrink).
+- B-097 landed (merge 79c3dd7b6).
+Finished 3: B-097 landed 79c3dd7b6 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-097-1.png

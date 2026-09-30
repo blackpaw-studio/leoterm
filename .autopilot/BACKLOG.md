@@ -222,12 +222,13 @@ Why: B-086 review: firstFillAfterAStartScreenLeaveKeepsTheFrame can never fail (
 Accept: the test calls leoApplyInitialSize after setting initialSize and fails without the B-086 guard (or is dropped); the comment is corrected
 Source: autopilot polish (B-086)
 
-## B-097 · Bug — Reset Window Size shrinks a start-screen window   [ready]
+## B-097 · Bug — Reset Window Size shrinks a start-screen window   [done]
 Issue: #101
 Type: bug
 Report: B-086 review (both lenses): Reset Window Size (returnToDefaultSize / reset_window_size) still reads the SwiftUI intrinsic size because container.initialContentSize stays nil for start-screen windows; the same class of shrink as B-086 when window-width/window-height are set. Suggested fix: set initialContentSize = leoConfiguredContentSize on first fill
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot polish (B-086)
+Done: 2026-09-30 · d1161c857, 88c4d4088
 
 ## B-098 · B-072 environ test and Zig follow-ups   [ready]
 Issue: #102
