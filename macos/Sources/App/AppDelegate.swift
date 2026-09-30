@@ -85,8 +85,10 @@ class AppDelegate: NSObject,
     /// The dock menu
     private var dockMenu: NSMenu = NSMenu()
 
-    /// This is only true before application has become active.
-    private var applicationHasBecomeActive: Bool = false
+    // MARK: Leo
+    /// Opens the first window once per launch, active or not (B-085); also
+    /// holds reopen off until launch has been handled.
+    private var initialWindowGate = LeoInitialWindowGate()
 
     /// This is set in applicationDidFinishLaunching with the system uptime so we can determine the
     /// seconds since the process was launched.
@@ -411,6 +413,13 @@ class AppDelegate: NSObject,
                 NSApp.arrangeInFront(nil)
             }
         }
+
+        // MARK: Leo
+        // The first window no longer waits for activation (B-085). One hop,
+        // so AppKit's launch open-file events have made their windows first.
+        DispatchQueue.main.async { [weak self] in
+            self?.openInitialWindowIfNeeded(on: .didFinishLaunching)
+        }
     }
 
     func applicationDidHide(_ notification: Notification) {
@@ -423,20 +432,25 @@ class AppDelegate: NSObject,
         self.hiddenState = nil
 
         // First launch stuff
-        if !applicationHasBecomeActive {
-            applicationHasBecomeActive = true
+        // MARK: Leo -- activation may come before the launch hop (B-085).
+        openInitialWindowIfNeeded(on: .didBecomeActive)
+    }
 
-            // Let's launch our first window. We only do this if we have no other windows. It
-            // is possible to have other windows in a few scenarios:
-            //   - if we're opening a URL since `application(_:openFile:)` is called before this.
-            //   - if we're restoring from persisted state
-            if TerminalController.all.isEmpty && derivedConfig.initialWindow {
-                undoManager.disableUndoRegistration()
-                // MARK: Leo
-                leoRouteNewWindow()
-                undoManager.enableUndoRegistration()
-            }
-        }
+    /// Opens the launch's first window if `event` is the first launch event
+    /// and no window exists yet. It is possible to have other windows at
+    /// launch: `application(_:openFile:)` is called before either event.
+    @MainActor private func openInitialWindowIfNeeded(on event: LeoInitialWindowGate.Event) {
+        let shouldOpen = initialWindowGate.shouldOpenInitialWindow(
+            on: event,
+            windowCount: TerminalController.all.count,
+            initialWindow: derivedConfig.initialWindow
+        )
+        guard shouldOpen else { return }
+        Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
+            .log("opening the initial window on \(String(describing: event), privacy: .public)")
+        undoManager.disableUndoRegistration()
+        leoRouteNewWindow()
+        undoManager.enableUndoRegistration()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -499,18 +513,19 @@ class AppDelegate: NSObject,
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         // If we have visible windows then we allow macOS to do its default behavior
         // of focusing one of them.
-        guard !flag else { return true }
-
+        //
         // If we have any windows in our terminal manager we don't do anything.
         // This is possible with flag set to false if there a race where the
         // window is still initializing and is not visible but the user clicked
         // the dock icon.
-        guard TerminalController.all.isEmpty else { return true }
-
-        // If the application isn't active yet then we don't want to process
-        // this because we're not ready. This happens sometimes in Xcode runs
-        // but I haven't seen it happen in releases. I'm unsure why.
-        guard applicationHasBecomeActive else { return true }
+        //
+        // MARK: Leo -- and until launch has opened (or declined) its first
+        // window, launch owns it (B-085).
+        let shouldOpen = initialWindowGate.shouldOpenOnReopen(
+            hasVisibleWindows: flag,
+            windowCount: TerminalController.all.count
+        )
+        guard shouldOpen else { return true }
 
         // No visible windows, open a new one.
         // MARK: Leo

@@ -11,7 +11,9 @@ struct LeoInitialWindowGateTests {
     @Test func launchThatNeverActivatesStillOpensOneWindow() {
         var gate = LeoInitialWindowGate()
 
-        #expect(gate.shouldOpenInitialWindow(on: .didFinishLaunching, windowCount: 0, initialWindow: true))
+        let atLaunch = gate.shouldOpenInitialWindow(on: .didFinishLaunching, windowCount: 0, initialWindow: true)
+
+        #expect(atLaunch)
         #expect(gate.isLaunchHandled)
     }
 
