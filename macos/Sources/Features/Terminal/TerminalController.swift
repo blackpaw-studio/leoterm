@@ -207,8 +207,10 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     override var windowNibName: NSNib.Name? {
         let defaultValue = "Terminal"
 
-        guard let appDelegate = NSApp.delegate as? AppDelegate else { return defaultValue }
-        let config = appDelegate.ghostty.config
+        // MARK: Leo -- this controller's own app config rather than the app
+        // delegate's (B-074): the same object in the app, and it lets a
+        // test build a window of any titlebar style through this path.
+        let config = ghostty.config
 
         // If we have no window decorations, there's no reason to do anything but
         // the default titlebar (because there will be no titlebar).

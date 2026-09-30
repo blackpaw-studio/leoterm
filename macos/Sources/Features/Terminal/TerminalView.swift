@@ -116,7 +116,10 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                 // covered the sidebar, so toggling the sidebar on the start
                 // screen slid it out behind the placeholder.
                 if let leoSession, let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime {
-                    LeoSidebarSplit(session: leoSession, model: runtime.model, actions: runtime.actions) {
+                    LeoSidebarSplit(
+                        session: leoSession, model: runtime.model, actions: runtime.actions,
+                        titlebarIgnoredEdges: leoSplitIgnoredEdges
+                    ) {
                         ZStack {
                             terminalContent
 
@@ -125,7 +128,6 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                             }
                         }
                     }
-                    .ignoresSafeArea(.container, edges: leoSplitIgnoredEdges)
                 } else {
                     terminalContent
                 }
@@ -211,7 +213,17 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                                idealHeight: lastFocusedSurface?.value?.initialSize?.height)
         }
         // Ignore safe area to extend up in to the titlebar region if we have the "hidden" titlebar style
-        .ignoresSafeArea(.container, edges: ghostty.config.macosTitlebarStyle == .hidden ? .top : [])
+        .ignoresSafeArea(.container, edges: terminalIgnoredEdges)
+    }
+
+    // MARK: Leo
+
+    /// In a Leo window, the same window-keyed edges as the sidebar split
+    /// (B-074), so the terminal and the sidebar can't disagree
+    /// after a config reload; upstream's live-config check otherwise.
+    private var terminalIgnoredEdges: Edge.Set {
+        guard leoSession == nil else { return leoSplitIgnoredEdges }
+        return ghostty.config.macosTitlebarStyle == .hidden ? .top : []
     }
 }
 

@@ -5,28 +5,29 @@ import Testing
 @testable import Ghostty
 
 /// B-074: the sidebar header against the window's buttons, for every
-/// `macos-titlebar-style`. Each test builds a real `TerminalController`
-/// from that style's nib (so the real window subclass applies its style
-/// mask, titlebar and buttons), with the real `LeoSidebarSplit` inside, and
-/// compares where the header lands with where the window buttons are, both
-/// in window coordinates. The windows are laid out and shown (never made
-/// key) so AppKit places the titlebar and buttons.
+/// `macos-titlebar-style`. Each test builds a window the way the app does:
+/// a `Ghostty.App` loaded from a config file that sets the style (and
+/// nothing else), and a real `TerminalController` on it, which picks the
+/// style's nib and window subclass itself. The real `LeoSidebarSplit` lays
+/// out inside; the header's frame and the window buttons' frames are then
+/// compared in window coordinates. The windows are shown, never made key,
+/// so AppKit places the titlebar and buttons.
 ///
-/// Bails out (rather than fails) without the app's real `Ghostty.App`, like
-/// the other `TerminalController` integration tests.
+/// Needs the test host's `LeoRuntime` and a loadable Ghostty config; either
+/// missing fails the test rather than passing it silently.
 @MainActor @Suite(.serialized)
 struct LeoSidebarTitlebarStyleTests {
     /// How far a header row may sit from where the chrome metrics put it:
     /// the row's height is the button's, so the title is centred in it.
     private static let rowTolerance: CGFloat = 6
 
-    @Test(arguments: TitlebarStyleNib.allCases)
-    func theWindowButtonsNeverOverlapTheSidebarHeader(_ style: TitlebarStyleNib) async throws {
-        guard let fixture = try await StyledWindowFixture.make(style) else { return }
+    @Test(arguments: TitlebarStyle.allCases)
+    func theWindowButtonsNeverOverlapTheSidebarHeader(_ style: TitlebarStyle) async throws {
+        let fixture = try await StyledWindowFixture.make(style)
         defer { fixture.close() }
 
         for (kind, button) in fixture.visibleWindowButtons {
-            #expect(!button.intersects(fixture.header), "\(style): the \(kind) button \(button) overlaps the header \(fixture.header)")
+            #expect(!button.intersects(fixture.header), "\(style): the \(kind) button \(button) overlaps the header; \(fixture.diagnostics)")
         }
     }
 
@@ -35,49 +36,62 @@ struct LeoSidebarTitlebarStyleTests {
     /// header takes the top strip with only the chrome's own inset -- no
     /// room reserved for buttons that aren't drawn.
     @Test func theHiddenStyleDrawsNoButtonsAndReservesNoRoomForThem() async throws {
-        guard let fixture = try await StyledWindowFixture.make(.hidden) else { return }
+        let fixture = try await StyledWindowFixture.make(.hidden)
         defer { fixture.close() }
 
+        #expect(fixture.window is HiddenTitlebarTerminalWindow, "\(type(of: fixture.window))")
         #expect(fixture.visibleWindowButtons.isEmpty, "buttons drawn: \(fixture.visibleWindowButtons)")
         #expect(fixture.splitTop == fixture.windowTop, "an empty band above the split: \(fixture.diagnostics)")
         let gap = fixture.windowTop - fixture.header.maxY
-        #expect(gap >= LeoSidebarChromeMetrics.topInset - 1, "the header sits \(gap) pt under the window's top edge")
-        #expect(gap <= LeoSidebarChromeMetrics.topInset + Self.rowTolerance, "the header sits \(gap) pt under the window's top edge; \(fixture.diagnostics)")
+        #expect(gap >= LeoSidebarChromeMetrics.topInset - 1, "the header sits \(gap) pt under the window's top edge; \(fixture.diagnostics)")
+        #expect(
+            gap <= LeoSidebarChromeMetrics.topInset + Self.rowTolerance,
+            "the header sits \(gap) pt under the window's top edge; \(fixture.diagnostics)"
+        )
     }
 
     /// The titled styles (the default, `transparent`, among them) keep
-    /// D-122's layout: the header clears the titlebar's bottom edge by the
-    /// chrome's top inset.
-    @Test(arguments: [TitlebarStyleNib.native, .transparent, .tabs])
-    func titledStylesKeepTheHeaderTheChromeInsetBelowTheTitlebar(_ style: TitlebarStyleNib) async throws {
-        guard let fixture = try await StyledWindowFixture.make(style) else { return }
+    /// D-122's layout: the split starts at the titlebar's bottom edge and
+    /// the header clears it by the chrome's top inset.
+    @Test(arguments: [TitlebarStyle.native, .transparent, .tabs, .tabsVentura])
+    func titledStylesKeepTheHeaderTheChromeInsetBelowTheTitlebar(_ style: TitlebarStyle) async throws {
+        let fixture = try await StyledWindowFixture.make(style)
         defer { fixture.close() }
 
-        #expect(fixture.splitTop == fixture.titlebarBottom, "\(style): the split runs under the titlebar: \(fixture.diagnostics)")
+        #expect(fixture.splitTop == fixture.titlebarBottom, "\(style): the split runs under the titlebar; \(fixture.diagnostics)")
         let gap = fixture.titlebarBottom - fixture.header.maxY
         #expect(gap >= LeoSidebarChromeMetrics.topInset - 1, "\(style): the header sits \(gap) pt under the titlebar; \(fixture.diagnostics)")
-        #expect(gap <= LeoSidebarChromeMetrics.topInset + Self.rowTolerance, "\(style): the header sits \(gap) pt under the titlebar; \(fixture.diagnostics)")
+        #expect(
+            gap <= LeoSidebarChromeMetrics.topInset + Self.rowTolerance,
+            "\(style): the header sits \(gap) pt under the titlebar; \(fixture.diagnostics)"
+        )
     }
 }
 
-/// The nib `TerminalController.windowNibName` picks for each
-/// `macos-titlebar-style` (`tabs` on macOS 26+).
-enum TitlebarStyleNib: String, CaseIterable, CustomTestStringConvertible {
-    case native = "Terminal"
-    case transparent = "TerminalTransparentTitlebar"
-    case tabs = "TerminalTabsTitlebarTahoe"
-    case hidden = "TerminalHiddenTitlebar"
+/// A `macos-titlebar-style` value, plus the pre-Tahoe tabs window, which
+/// config can't select on macOS 26 and later.
+enum TitlebarStyle: String, CaseIterable, CustomTestStringConvertible {
+    case native
+    case transparent
+    case tabs
+    case hidden
+    case tabsVentura
 
-    var testDescription: String { "\(self)" }
+    var testDescription: String { rawValue }
+
+    /// The config value that selects this style.
+    var configValue: String { self == .tabsVentura ? "tabs" : rawValue }
 }
 
-/// A `TerminalController` whose window comes from a given style's nib
-/// rather than the one the app's config picks.
+/// The app's own `TerminalController`, except that the pre-Tahoe tabs
+/// window is forced for `.tabsVentura`; every other style goes through the
+/// controller's own config-driven nib choice.
 private final class StyledTerminalController: TerminalController {
-    private let styleNib: TitlebarStyleNib
+    private static let venturaTabsNib = "TerminalTabsTitlebarVentura"
+    private let forcesVenturaTabs: Bool
 
-    init(_ ghostty: Ghostty.App, style: TitlebarStyleNib) {
-        styleNib = style
+    init(_ ghostty: Ghostty.App, style: TitlebarStyle) {
+        forcesVenturaTabs = style == .tabsVentura
         super.init(ghostty, withSurfaceTree: .init(), leoIsPlaceholder: true)
     }
 
@@ -86,12 +100,12 @@ private final class StyledTerminalController: TerminalController {
         fatalError("init(coder:) has not been implemented")
     }
 
-    override var windowNibName: NSNib.Name? { styleNib.rawValue }
+    override var windowNibName: NSNib.Name? { forcesVenturaTabs ? Self.venturaTabsNib : super.windowNibName }
 
-    /// The nib lives in the app, not in the test bundle this subclass
+    /// The nibs live in the app, not in the test bundle this subclass
     /// comes from.
     override var windowNibPath: String? {
-        Bundle(for: TerminalController.self).path(forResource: styleNib.rawValue, ofType: "nib")
+        windowNibName.flatMap { Bundle(for: TerminalController.self).path(forResource: $0, ofType: "nib") }
     }
 }
 
@@ -128,10 +142,20 @@ private struct StyledWindowFixture {
         controller.closeTabImmediately(registerRedo: false)
     }
 
-    static func make(_ style: TitlebarStyleNib) async throws -> StyledWindowFixture? {
-        guard let ghostty = (NSApp.delegate as? AppDelegate)?.ghostty, ghostty.readiness == .ready,
-              (NSApp.delegate as? AppDelegate)?.leoRuntime != nil else { return nil }
+    static func make(_ style: TitlebarStyle) async throws -> StyledWindowFixture {
+        try #require((NSApp.delegate as? AppDelegate)?.leoRuntime != nil, "the test host has no LeoRuntime")
+        let ghostty = try StyleConfig.app(for: style)
+        try #require(ghostty.readiness == .ready, "\(style): the Ghostty app didn't load its config")
         let controller = StyledTerminalController(ghostty, style: style)
+        do {
+            return try await measure(controller, style: style)
+        } catch {
+            controller.closeTabImmediately(registerRedo: false)
+            throw error
+        }
+    }
+
+    private static func measure(_ controller: TerminalController, style: TitlebarStyle) async throws -> StyledWindowFixture {
         let window = try #require(controller.window)
         controller.leoSession?.isSidebarVisible = true
         window.orderFront(nil)
@@ -143,9 +167,9 @@ private struct StyledWindowFixture {
         let host = sidebar.view.convert(sidebar.view.bounds, to: nil)
         // SwiftUI's y runs down from the host's top; the window's runs up.
         let header = CGRect(x: host.minX + relative.minX, y: host.maxY - relative.maxY, width: relative.width, height: relative.height)
-        let diagnostics = "window \(window.frame.size) layout \(window.contentLayoutRect) host \(host) "
-            + "hostSafeArea \(sidebar.view.safeAreaInsets) header \(header)"
         let splitTop = split.splitView.convert(split.splitView.bounds, to: nil).maxY
+        let diagnostics = "\(type(of: window)) \(window.frame.size) host \(host) safe area \(sidebar.view.safeAreaInsets) "
+            + "split top \(splitTop) header \(header)"
         return StyledWindowFixture(controller: controller, window: window, header: header, splitTop: splitTop, diagnostics: diagnostics)
     }
 
@@ -169,21 +193,36 @@ private struct StyledWindowFixture {
     }
 }
 
-/// Where the header parts and the hosting view's full bounds land, in
-/// SwiftUI's global space.
+/// A `Ghostty.App` whose config sets only the titlebar style, loaded from
+/// a temporary file (never the user's config).
+@MainActor
+private enum StyleConfig {
+    static func app(for style: TitlebarStyle) throws -> Ghostty.App {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("leo-b074-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = directory.appendingPathComponent("config")
+        try "macos-titlebar-style = \(style.configValue)\n".write(to: file, atomically: true, encoding: .utf8)
+        let app = Ghostty.App(configPath: file.path)
+        try #require(app.config.macosTitlebarStyle.rawValue == style.configValue, "\(style): the config didn't take")
+        return app
+    }
+}
+
+/// Where the header parts and the sidebar's full bounds land, in SwiftUI's
+/// global space.
 @MainActor
 private final class HeaderProbe: CustomStringConvertible {
+    /// Polls between re-probes while nothing has reported.
+    private static let reprobeInterval = 10
+
+    /// The sidebar root's frame grown by its safe-area insets: the hosting
+    /// view's full bounds. (A background that ignores the safe area does not
+    /// reach into it here, which once hid the whole bug.)
     private var host: CGRect?
     private var parts: [LeoSidebarHeaderPart: CGRect] = [:]
 
     var description: String { "host \(host.map { "\($0)" } ?? "unreported"); parts \(parts)" }
-
-    func record(_ part: LeoSidebarHeaderPart, _ frame: CGRect) { parts[part] = frame }
-
-    func recordHost(_ frame: CGRect) { host = frame }
-
-    /// Polls between re-probes while nothing has reported.
-    private static let reprobeInterval = 10
 
     /// Makes `sidebar` report its header parts and its full bounds here.
     /// The split view reassigns the sidebar's root view whenever SwiftUI
@@ -192,15 +231,20 @@ private final class HeaderProbe: CustomStringConvertible {
     func probe(_ sidebar: NSHostingController<AnyView>) {
         sidebar.rootView = AnyView(
             sidebar.rootView
-                .environment(\.leoSidebarHeaderFrameSink) { [weak self] part, frame in self?.record(part, frame) }
-                .background {
-                    Color.clear.ignoresSafeArea()
-                        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { [weak self] in self?.recordHost($0) }
-                })
+                .environment(\.leoSidebarHeaderFrameSink) { [weak self] part, frame in self?.parts[part] = frame }
+                .onGeometryChange(for: CGRect.self) { proxy in
+                    let frame = proxy.frame(in: .global)
+                    let insets = proxy.safeAreaInsets
+                    return CGRect(
+                        x: frame.minX - insets.leading, y: frame.minY - insets.top,
+                        width: frame.width + insets.leading + insets.trailing, height: frame.height + insets.top + insets.bottom)
+                } action: { [weak self] in self?.host = $0 })
     }
 
     /// The header row (title ∪ accessory) relative to the hosting view's
-    /// top-left corner, once it has held still for a few polls.
+    /// top-left corner, once it has held still for a few polls. Nil if that
+    /// never happens, or if the measured host isn't the hosting view's size
+    /// (the reference would be wrong).
     func settledHeader(probing sidebar: NSHostingController<AnyView>, timeout: Duration = .seconds(10)) async -> CGRect? {
         let deadline = ContinuousClock.now + timeout
         var last: CGRect?
@@ -209,7 +253,7 @@ private final class HeaderProbe: CustomStringConvertible {
         while ContinuousClock.now < deadline {
             if relativeHeader == nil, polls % Self.reprobeInterval == 0 { probe(sidebar) }
             polls += 1
-            let current = relativeHeader
+            let current = relativeHeader.flatMap { host?.size == sidebar.view.bounds.size ? $0 : nil }
             stablePolls = (current != nil && current == last) ? stablePolls + 1 : 0
             if stablePolls >= 3 { return current }
             last = current
