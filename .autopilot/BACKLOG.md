@@ -252,6 +252,22 @@ Why: B-081 implementer: after the last Terminals row closes, the selected agent 
 Accept: the selected agent row shows its selection highlight once revealed, with a test
 Source: autopilot polish (B-081)
 
+## B-107 · Row hand-on polish after a split pane closes   [ready (next run)]
+Why: B-082 review: the row goes to the first pane in tree order, not the pane upstream focuses next (focusedSurface is stale at both call sites), so the sidebar selection can differ from keyboard focus; adoption runs a turn late (run pending reconciles synchronously at the top of confirmReplacingContent/showInContent/reveal); the `controller.window != nil` comment overstates "window open"; the fate() doc doesn't mention an adopted row in a [row, plain] tree; the verifier saw the survivor's "Last login" lines scroll away on reflow (unconfirmed)
+Accept: the row follows upstream's next-focus pane (or the doc says tree order), with a test; a same-turn adoption test; the comments are corrected
+Source: autopilot polish (B-082)
+
+## B-108 · Undo-restored split panes get no terminal handle   [ready (next run)]
+Why: B-082 review: close the row's pane, undo the close, then undo New Split (or close the carried-on row's pane): the restored pane has no handle and is orphaned again. Not a regression; overlaps B-058
+Accept: a failing test reproduces it; restored panes are adopted or reachable from a row
+Source: autopilot polish (B-082)
+
+## B-109 · Closed split pane's shell lingers ~40 s   [ready (next run)]
+Type: bug
+Why: B-082 verify: after File > Close on a split pane, its shell (pid 36119) was still alive 2 s later and gone about 40 s later
+Accept: confirm or rule out with a test; if real, closing a pane ends its shell promptly
+Source: autopilot polish (B-082)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)

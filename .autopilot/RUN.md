@@ -233,9 +233,17 @@ Lane: B-082
   Branch: autopilot-lane/B-082
   Base: 8ae4e0b10fc3a67a52664a71727f2bd12ac3e113
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: b87998370505c1b72374a6e64f782ecb028b580f
   Dispatched: 2026-09-30T12:14:34Z
+  Call: When a row's pane closes beside a split, the row keeps its sidebar slot and carries on as the surviving plain shell (retitled, still selected); extends D-117 — P6, P2
+  Call: With several shells left, the focused survivor else the first in tree order takes the row; the rest stay split beside it (more is B-058, per D-100) — P6
+  Call: Only Leo-made plain shells are adopted; an attach handle or leoAgentName blocks adoption, and handle-less surfaces are never adopted — P2
+  Call: An agent pane closing beside a plain shell is left alone here and noted for B-058 — scope, P2
+  Call: Adoption is opt-in: only reconcile (upstream removed the pane) and closeShownPane hand the row on, so closing a hidden row never gives its slot to an unrelated on-screen shell — P2
+  Call: LeoTerminalList.replacing drops the old row if the new id is already listed; replacing with its own id just retitles — P6
+  Escalated: implementer-hard/opus (plan Difficulty: hard)
+- B-082 runner: ready at b87998370 (1832/1832, lint clean; general + concurrency full, no blocking; implementer-hard/opus, 0 fix rounds). GUI: after File > Close on the original pane the "~" row stays selected on the surviving shell; the next New Terminal adds "~ (2)" and the survivor lives. Polish filed as B-107, B-108, B-109.
