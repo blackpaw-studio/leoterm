@@ -80,11 +80,12 @@ Accept: timeout configurable/raised so a loaded run completes; flake-free rerun
 Source: autopilot polish (B-063)
 Done: no code change — timeout already configurable via LEO_TEST_TIMEOUT (D-057); autopilot runtests.sh default raised 400→900 s (untracked scratch) and verify.md documents it. Runs since at load were complete (B-072: 1788/1788 twice). Decision D-168.
 
-## B-074 · Sidebar under the traffic lights with macos-titlebar-style=hidden   [ready]
+## B-074 · Sidebar under the traffic lights with macos-titlebar-style=hidden   [done]
 Issue: #78
 Why: pre-existing: .ignoresSafeArea(.top) (TerminalView.swift:205) puts the whole sidebar under the traffic lights in the hidden titlebar style (seen in B-064)
 Accept: with titlebar-style hidden the sidebar header clears the traffic lights; layout test in the real split-view hierarchy; screenshot
 Source: autopilot polish (B-064)
+Done: 995fab04e 67ee5def8. In the hidden titlebar style the sidebar header sits 14 pt from the top (no empty 52 pt band); other styles unchanged. No style draws the traffic lights over the sidebar. Decisions D-169..D-172.
 
 ## B-075 · Search field grabs keyboard focus on launch   [ready]
 Issue: #79

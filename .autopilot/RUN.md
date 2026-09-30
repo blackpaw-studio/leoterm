@@ -114,7 +114,7 @@ Lane: B-074
   Branch: autopilot-lane/B-074
   Base: f72f253c362bab5a1a906492becaad8fe661b81c
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
@@ -125,3 +125,5 @@ Lane: B-074
   Call: TerminalController.windowNibName reads the controller's own config instead of the app delegate's (same object in the app; lets the test use the real path) — AUTONOMY: implementation approach
   Call: In Leo windows terminalContent uses the same window-class check as the split; non-Leo windows keep upstream's live-config check — AUTONOMY: implementation approach
 - B-074 runner: ready at 995fab04e (suite green, lint clean; general full then delta; implementer/opus, 1 fix round; stayed light). Finding: no titlebar style draws the traffic lights over the sidebar; the real bug was an empty ~52 pt band at the top in hidden style. Now 14 pt in hidden; other styles unchanged (shots for hidden, transparent, native, tabs). Polish filed as B-099 (scroll-test flake, seen twice), B-100.
+- B-074 landed (merge 15a4fb832).
+Finished 8: B-074 landed 15a4fb832 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-074-1.png

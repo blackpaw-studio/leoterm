@@ -1261,3 +1261,31 @@ Chose: Raise the autopilot worktree runtests.sh default from 400 s to 900 s and 
 Why: AUTONOMY test infra / flake fixes
 Commit: (verify.md state commit)
 Veto: [ ]
+
+## D-169 · 2026-09-30 · In hidden titlebar style the sidebar header and the terminal run to t…
+Context: B-074 (runner call).
+Chose: In hidden titlebar style the sidebar header and the terminal run to the window's top edge with only the 10 pt D-122 inset, keeping no room for the hidden buttons
+Why: AUTONOMY: layout
+Commit: 995fab04e 67ee5def8
+Veto: [ ]
+
+## D-170 · 2026-09-30 · The fix keys on the window class (HiddenTitlebarTerminalWindow), not …
+Context: B-074 (runner call).
+Chose: The fix keys on the window class (HiddenTitlebarTerminalWindow), not the live config
+Why: AUTONOMY: implementation approach
+Commit: 995fab04e 67ee5def8
+Veto: [ ]
+
+## D-171 · 2026-09-30 · TerminalController.windowNibName reads the controller's own config in…
+Context: B-074 (runner call).
+Chose: TerminalController.windowNibName reads the controller's own config instead of the app delegate's (same object in the app; lets the test use the real path)
+Why: AUTONOMY: implementation approach
+Commit: 995fab04e 67ee5def8
+Veto: [ ]
+
+## D-172 · 2026-09-30 · In Leo windows terminalContent uses the same window-class check as th…
+Context: B-074 (runner call).
+Chose: In Leo windows terminalContent uses the same window-class check as the split; non-Leo windows keep upstream's live-config check
+Why: AUTONOMY: implementation approach
+Commit: 995fab04e 67ee5def8
+Veto: [ ]
