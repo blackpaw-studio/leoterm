@@ -93,8 +93,16 @@ Lane: B-115
   Base: 4e277a77c69fa740a25ce20b7ad2489b66808bfb
   Tier: full
   State: building
-  Fixes: 0
+  Fixes: 1
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-09-30T23:06:45Z
+  Call: Debug builds can check for updates but never install or auto-download (stage-gated replies + mayPerform guard on background checks) — item guardrail, reversible
+  Call: Unset auto-update defers to Sparkle's own permission prompt, with a one-time marker-keyed defaults reset so existing installs get asked — P4
+  Call: Debug popover caption "Debug build: installing is disabled", with Install disabled — AUTONOMY copy/UX
+  Call: Appcast test uses a test-local XMLParser on a #filePath fixture, not Sparkle private API — AUTONOMY test infrastructure
+  Call: XCTest hosts skip starting the updater; UI tests pass -SUEnableAutomaticChecks NO — AUTONOMY test infrastructure
+  Call: Runtime mayPerform guard instead of a Debug-only SUAllowsAutomaticUpdates plist key, because the release workflow PlistBuddy-reads the source plist — AUTONOMY implementation approach
+  Call: ci.md go-public checklist items 1–3 marked done 2026-09-30; item 4 (Evan's post-release install check) left open — item Accept
+- B-115 runner forced to hand back (reported blocked) with reviews approved at 10bb68570 (general+security delta) but the fix-round verifier still running; 1 fix round used. That orphaned verifier holds the verify lock; waiting for its report.
