@@ -26,3 +26,14 @@ Lane: B-071
 - B-071 runner (re-verify): ready at adafa81c8 (1737/1737, lint clean; general delta, code identical to reviewed bc8aae9f1; no implementer). GUI: split, ⌘W, ⌘T, ⌘Z replays nothing; busy row's shell survives. Verify note: ⌘D / Split Right now open the agent palette (pick Plain Shell). Polish filed as B-087, B-088.
 - B-071 landed (merge 8cede5a7f).
 Finished 1: B-071 landed 8cede5a7f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-071-1.png
+
+Lane: B-084
+  Branch: autopilot-lane/B-084
+  Base: 5d2ab05b759c7ecc1c51228732495fc12b617d82
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-09-30T03:10:37Z
