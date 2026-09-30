@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// The sidebar chrome's spacing, in one place so every strip of chrome above
-/// the list (this header, the host picker, the search field, B-065's button
-/// bar) keeps the same rhythm. Modelled on the macOS 26 Mail and Finder
+/// The sidebar chrome's spacing, in one place so every strip of chrome
+/// (above the list: this header, the host picker, the search field; below
+/// it: B-065's footer button bar) keeps the same rhythm. Modelled on the macOS 26 Mail and Finder
 /// sidebars: the first control clears the titlebar by about the same gap
 /// that separates the controls from each other, and nothing touches the
 /// sidebar's edges.
@@ -43,10 +43,13 @@ struct LeoSidebarHeader<Accessory: View>: View {
 
 // MARK: - Layout probe
 
-/// The measurable parts of the sidebar header.
+/// The measurable parts of the sidebar's chrome.
 enum LeoSidebarHeaderPart: Hashable {
     case title
     case accessory
+    case searchField
+    /// The footer button bar (B-065), below the list.
+    case buttonBar
 }
 
 /// Receives where a header part lands, in SwiftUI's global space (y down;
