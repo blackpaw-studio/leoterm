@@ -210,3 +210,14 @@ Lane: B-094
 - B-094 runner: ready at 8d3c675b3 (general full; 1935/1935; test-only, not visually verified).
 - B-094 landed (merge 81fb09527).
 Finished 11: B-094 landed 81fb09527 · not visually verified
+
+Lane: B-095
+  Branch: autopilot-lane/B-095
+  Base: 2cbbcc40bf814a43a61678fb9d90592a08367796
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-01T04:19:17Z
