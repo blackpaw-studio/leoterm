@@ -224,11 +224,12 @@ Accept: reopen and fallback New Window open the bare start screen with no palett
 Source: autopilot polish (B-085)
 Done: 2026-10-01 · 13d56313c · D-244, D-245
 
-## B-096 · B-086 test and doc fixes   [ready]
+## B-096 · B-086 test and doc fixes   [done]
 Issue: #100
 Why: B-086 review: firstFillAfterAStartScreenLeaveKeepsTheFrame can never fail (initialSize is set after the refill and the size step is never called); LeoFirstAttachWindowSizeTests doc comment (~L141) wrongly says New Terminal can fill before the window shows
 Accept: the test calls leoApplyInitialSize after setting initialSize and fails without the B-086 guard (or is dropped); the comment is corrected
 Source: autopilot polish (B-086)
+Done: 2026-10-01 · 0bc16b549
 
 ## B-097 · Bug — Reset Window Size shrinks a start-screen window   [done]
 Issue: #101
