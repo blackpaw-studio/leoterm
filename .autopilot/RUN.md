@@ -177,3 +177,14 @@ Lane: B-091
 - B-091 runner: ready at 42ecc4794 (general full + delta, 1 fix round). Call check: the regrow call narrows D-231 (logged this run for B-089's launch narrow-then-widen case) to launch clamps; judged a scoping refinement, not a contradiction — flagged in the digest for veto.
 - B-091 landed (merge 5927cb915).
 Finished 9: B-091 landed 5927cb915 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-091-1.png
+
+Lane: B-093
+  Branch: autopilot-lane/B-093
+  Base: a954c07625ae70186ce19b93b6c9c3cb7fc93256
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-01T03:11:12Z
