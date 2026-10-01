@@ -215,9 +215,12 @@ Lane: B-095
   Branch: autopilot-lane/B-095
   Base: 2cbbcc40bf814a43a61678fb9d90592a08367796
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: ba17e03d88ea4c1133a6c5d019711ea7c69b5b6b
   Dispatched: 2026-10-01T04:19:17Z
+  Call: Reopen's window is not adopted as a launch placeholder (D-149 covers only the launch window) — P2
+  Call: Scope limited to reopen and the app delegate's fallback New Window; Ghostty's new_window (⌘N from a terminal with content) and Choose Agent… with no window still route through the palette (Choose Agent is an explicit request for it) — P1
+- B-095 runner: ready at ba17e03d8 (general full; 1937/1937; GUI: reopen and New Window log no palette present).

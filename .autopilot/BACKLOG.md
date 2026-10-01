@@ -488,6 +488,11 @@ Why: LeoLaunchPlaceholderIntegrationTests close() (:90,100-101) only closes visi
 Accept: LeoLaunchPlaceholderIntegrationTests close() (:90,100-101) only closes visible windows; also close windows whose controller has leoIsAwaitingPresentation, and fold the trait's duplicated MainActor.run restore into one helper
 Source: autopilot polish (B-094)
 
+## B-145 · File ▸ New Window and ⌘N skip the palette flash   [ready (next run)]
+Why: File ▸ New Window while a start-screen window is key, and ⌘N (ghosttyNewWindow) from a terminal with content, still route through leoRouteNewWindow and the palette (TerminalController.swift:1638-1642); swap to the bare start screen like B-095, and document the Dock right-click New Window in AppDelegate.newWindow's doc comment
+Accept: File ▸ New Window while a start-screen window is key, and ⌘N (ghosttyNewWindow) from a terminal with content, still route through leoRouteNewWindow and the palette (TerminalController.swift:1638-1642); swap to the bare start screen like B-095, and document the Dock right-click New Window in AppDelegate.newWindow's doc comment
+Source: autopilot polish (B-095)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
