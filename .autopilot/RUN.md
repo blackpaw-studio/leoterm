@@ -182,7 +182,7 @@ Lane: B-093
   Branch: autopilot-lane/B-093
   Base: a954c07625ae70186ce19b93b6c9c3cb7fc93256
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -194,3 +194,5 @@ Lane: B-093
   Call: Sub-issue 4 (B-085 plan file not amended) dismissed: that plan is gitignored scratch for a done item; D-148..D-151, commits and doc comments are the record — AUTONOMY implementation approach
   Call: Kept the "presentation ran" flag rather than recording showWindowSafely's Bool — AUTONOMY implementation approach
 - B-093 runner: ready at 31c2d6557 (general+concurrency full; 1935/1935; GUI: 3 hidden cold folder launches → exactly one window).
+- B-093 landed (merge 2f4df216b).
+Finished 10: B-093 landed 2f4df216b · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-093-1.png

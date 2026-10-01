@@ -1751,3 +1751,38 @@ Chose: With the sidebar shown, a configured window-width under 450 pt opens the 
 Why: P1, D-144, D-145
 Commit: 25f7b4bd7, 42ecc4794
 Veto: [ ]
+
+## D-239 · 2026-09-30 · While Leo is hidden (open -j, hidden login item), a requested window …
+Context: B-093 (runner call).
+Chose: While Leo is hidden (open -j, hidden login item), a requested window counts as shown once its presentation ran and until it closes; when not hidden it must still be on screen (extends D-149)
+Why: P1, AUTONOMY bug fix
+Commit: 3d90cb41f, b09da3a64, 846d9b336, 6f0759f97, 5f7b9c4fb
+Veto: [ ]
+
+## D-240 · 2026-09-30 · The queued close also requires the launch window to still be open and…
+Context: B-093 (runner call).
+Chose: The queued close also requires the launch window to still be open and shown, so it is never closed twice
+Why: AUTONOMY bug fix
+Commit: 3d90cb41f, b09da3a64, 846d9b336, 6f0759f97, 5f7b9c4fb
+Veto: [ ]
+
+## D-241 · 2026-09-30 · Sub-issue 3 (search not focused after replacement) dismissed: a new w…
+Context: B-093 (runner call).
+Chose: Sub-issue 3 (search not focused after replacement) dismissed: a new window's focus stays in its content per B-075/D-173/D-174 (⌥⌘F enters search); a guard assertion covers the replacing window
+Why: P1, D-173
+Commit: 3d90cb41f, b09da3a64, 846d9b336, 6f0759f97, 5f7b9c4fb
+Veto: [ ]
+
+## D-242 · 2026-09-30 · Sub-issue 4 (B-085 plan file not amended) dismissed: that plan is git…
+Context: B-093 (runner call).
+Chose: Sub-issue 4 (B-085 plan file not amended) dismissed: that plan is gitignored scratch for a done item; D-148..D-151, commits and doc comments are the record
+Why: AUTONOMY implementation approach
+Commit: 3d90cb41f, b09da3a64, 846d9b336, 6f0759f97, 5f7b9c4fb
+Veto: [ ]
+
+## D-243 · 2026-09-30 · Kept the "presentation ran" flag rather than recording showWindowSafe…
+Context: B-093 (runner call).
+Chose: Kept the "presentation ran" flag rather than recording showWindowSafely's Bool
+Why: AUTONOMY implementation approach
+Commit: 3d90cb41f, b09da3a64, 846d9b336, 6f0759f97, 5f7b9c4fb
+Veto: [ ]

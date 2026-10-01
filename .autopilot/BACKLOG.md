@@ -203,11 +203,12 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: autopilot polish (B-085)
 Done: 2026-09-30 · 85ca7d75b, 712e5b926, 8094e6416 · D-215, D-216, D-217, D-218, D-219
 
-## B-093 · Launch-window replacement polish   [ready]
+## B-093 · Launch-window replacement polish   [done]
 Issue: #97
 Why: B-085 review/verify: with a hidden launch (`open -j`, login item hidden) the requested window may read isVisible=false so both windows stay; the queued close doesn't re-check the launch window is still visible (narrow double-close); after a request replaces the launch window the sidebar search isn't focused; plan file not amended for LeoLaunchPlaceholder, the palette change, the 300x150 floor
 Accept: each fixed or explicitly dismissed with a test where behaviour changes
 Source: autopilot polish (B-085)
+Done: 2026-09-30 · 3d90cb41f, b09da3a64, 846d9b336, 6f0759f97, 5f7b9c4fb · D-239, D-240, D-241, D-242, D-243
 
 ## B-094 · B-085 integration test hardening   [ready]
 Issue: #98
