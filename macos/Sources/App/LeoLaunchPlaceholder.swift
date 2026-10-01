@@ -1,8 +1,10 @@
 import AppKit
 
-/// What `LeoLaunchPlaceholder` needs from the window a launch opened.
+/// What `LeoLaunchPlaceholder` needs from the window a launch opened. It
+/// reads shown as a requested window does, so the queued close skips a
+/// launch window something else already closed (B-093).
 @MainActor
-protocol LeoLaunchPlaceholderWindow: AnyObject {
+protocol LeoLaunchPlaceholderWindow: LeoRequestedWindow {
     /// Still the empty start screen it opened with: it never showed an
     /// agent or a terminal, and no sheet is up on it.
     var isPristineLeoPlaceholder: Bool { get }
@@ -19,8 +21,19 @@ protocol LeoLaunchPlaceholderWindow: AnyObject {
 /// What `LeoLaunchPlaceholder` needs from a window something asked for.
 @MainActor
 protocol LeoRequestedWindow: AnyObject {
-    /// On screen: its presentation ran, and it hasn't closed.
+    /// Shown, as `LeoWindowPresence` decides.
     var isLeoWindowShown: Bool { get }
+}
+
+/// Whether a window counts as shown (B-093). A hidden app (`open -j`, a
+/// login item set to hide) reports every window `isVisible == false`, so
+/// on screen alone would keep a hidden launch's two windows. While hidden,
+/// a window shows once its presentation ran and until it closes; otherwise
+/// it must also be on screen, so a presentation that failed never counts.
+enum LeoWindowPresence {
+    static func isShown(presented: Bool, closed: Bool, isVisible: Bool, appIsHidden: Bool) -> Bool {
+        presented && !closed && (isVisible || appIsHidden)
+    }
 }
 
 /// The empty window a launch opened on its own (B-085) gives way to the
@@ -84,7 +97,8 @@ final class LeoLaunchPlaceholder {
     /// pristine launch window gives way to it: `requested` cascades onto
     /// its spot, and the launch window closes once `requested` has shown
     /// (that presentation is already on the main queue). If `requested`
-    /// never shows, the launch window stays: never no window.
+    /// never shows, the launch window stays: never no window. A launch
+    /// window closed in between is not closed again.
     func windowDidOpen(_ requested: any LeoRequestedWindow, parent: AnyObject? = nil) {
         guard let placeholder = window, placeholder !== requested else { return }
         settle()
@@ -92,7 +106,7 @@ final class LeoLaunchPlaceholder {
         placeholder.holdSpotForReplacement()
         schedule { [weak placeholder, weak requested] in
             guard let placeholder, let requested, requested.isLeoWindowShown,
-                  placeholder.isPristineLeoPlaceholder else { return }
+                  placeholder.isLeoWindowShown, placeholder.isPristineLeoPlaceholder else { return }
             placeholder.closeReplacedLeoPlaceholder()
         }
     }
@@ -116,13 +130,21 @@ final class LeoLaunchPlaceholder {
     }
 }
 
-extension TerminalController: LeoLaunchPlaceholderWindow, LeoRequestedWindow {
+extension TerminalController: LeoLaunchPlaceholderWindow {
     var isPristineLeoPlaceholder: Bool {
         guard let window else { return false }
         return leoIsUnfilledPlaceholder && !leoHasShownContent && surfaceTree.isEmpty && window.attachedSheet == nil
     }
 
-    var isLeoWindowShown: Bool { window?.isVisible == true }
+    var isLeoWindowShown: Bool {
+        guard let window else { return false }
+        return LeoWindowPresence.isShown(
+            presented: leoInitialPresentationRan,
+            closed: leoWindowDidClose,
+            isVisible: window.isVisible,
+            appIsHidden: NSApp.isHidden
+        )
+    }
 
     func observeLeoWindowClose(_ onClose: @escaping @MainActor @Sendable () -> Void) -> () -> Void {
         // No window, nothing to watch -- and a nil object would watch every window.

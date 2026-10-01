@@ -20,6 +20,12 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     /// its last terminal row left behind isn't a new window: filling it
     /// again keeps the window's size and undo, and never discards it.
     private(set) var leoHasShownContent = false
+    /// B-093: the window's initial presentation ran (it was shown, or
+    /// would have been had the app not been hidden), and it has since
+    /// closed. `LeoWindowPresence` reads them for a hidden app, whose
+    /// windows all read `isVisible == false`.
+    private(set) var leoInitialPresentationRan = false
+    private(set) var leoWindowDidClose = false
     /// B-070: the title a new window loads with -- the config's `title`,
     /// else the nib's "👻 Ghostty" -- which a start screen reads.
     ///
@@ -385,6 +391,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
             defer { self.pendingInitialPresentation = nil }
             guard pendingInitialPresentation?.isCancelled == false else { return }
             block()
+            leoInitialPresentationRan = true
         }
 
         let workItem = scheduledWorkItem!
@@ -1534,6 +1541,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 
     override func windowWillClose(_ notification: Notification) {
         super.windowWillClose(notification)
+        leoWindowDidClose = true
         cancelPendingInitialPresentation()
         self.relabelTabs()
 
