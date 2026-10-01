@@ -61,3 +61,14 @@ Lane: B-102
   Call: Refines D-177: New Terminal may hold only ⌘T (a bare T on New Terminal is now a violation); same rule for Choose Agent… and O — AUTONOMY: test infrastructure
   Call: Removed unused LeoMenuXib.claims(on:byAnyoneBut:); live checks count hidden items too (stricter reading) — AUTONOMY: test infrastructure
 Finished 3: B-102 landed 5d8556fcf · not visually verified
+
+Lane: B-103
+  Branch: autopilot-lane/B-103
+  Base: 456e3c1f4698743f677e662f2afed1a9c6420c24
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-01T18:00:19Z
