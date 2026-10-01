@@ -555,6 +555,7 @@ final class LeoSplitViewController: NSSplitViewController {
     override func splitViewDidResizeSubviews(_ notification: Notification) {
         super.splitViewDidResizeSubviews(notification)
 
+        // Only the sidebar's own divider is a sidebar-width choice: one that pushes it from the terminal's side isn't.
         guard Self.isSidebarDividerMove(notification.userInfo) else { return }
         guard !isApplyingProgrammaticWidth, pendingWidth == nil, isReadyToPositionDivider else { return }
         guard let sidebarItem, !sidebarItem.isCollapsed else { return }
