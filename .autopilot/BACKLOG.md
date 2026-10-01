@@ -450,6 +450,21 @@ Why: runtests.sh labels ConfigTests/errorsEmptyForValidConfig an "expected basel
 Accept: runtests.sh labels ConfigTests/errorsEmptyForValidConfig an "expected baseline failure", contradicting verify.md; drop the label
 Source: autopilot polish (B-089)
 
+## B-138 · Start-screen button row adapts below 450 pt content   [ready (next run)]
+Why: content can still fall under 450 pt (window < ~651 pt, hidden sidebar in a < 450 pt window, a narrow split leaf, a side pane open) and the start-screen buttons truncate; let the row adapt (e.g. ViewThatFits)
+Accept: content can still fall under 450 pt (window < ~651 pt, hidden sidebar in a < 450 pt window, a narrow split leaf, a side pane open) and the start-screen buttons truncate; let the row adapt (e.g. ViewThatFits)
+Source: autopilot polish (B-091)
+
+## B-139 · B-091 resize test hardening   [ready (next run)]
+Why: add a per-step "clamp never shows" frame check in the live narrowing test; use a 1 pt tolerance in LeoFirstAttachWindowSizeTests.swift:193
+Accept: add a per-step "clamp never shows" frame check in the live narrowing test; use a 1 pt tolerance in LeoFirstAttachWindowSizeTests.swift:193
+Source: autopilot polish (B-091)
+
+## B-140 · Return To Default Size restores a launch-clamped sidebar   [ready (next run)]
+Why: Return To Default Size leaves a launch-clamped sidebar at ~349 pt instead of the stored 420 until relaunch; settle together with the regrow item
+Accept: Return To Default Size leaves a launch-clamped sidebar at ~349 pt instead of the stored 420 until relaunch; settle together with the regrow item
+Source: autopilot polish (B-091)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
