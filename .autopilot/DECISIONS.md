@@ -2003,3 +2003,10 @@ Chose: Near-edge test parks one row above the section, not 1 pt (AppKit nudges 2
 Why: AUTONOMY: test infrastructure
 Commit: 5ce958ac9, 75c512e4c, 1b9d09aed
 Veto: [ ]
+
+## D-275 · 2026-10-01 · The selection-highlight regression test checks a pixel probe (selecte…
+Context: B-106 (runner call).
+Chose: The selection-highlight regression test checks a pixel probe (selected row vs an unselected row) on top of isSelected, per the verify-absolute rule
+Why: AUTONOMY: test infrastructure
+Commit: 6b08d7233, c1b36b866
+Veto: [ ]

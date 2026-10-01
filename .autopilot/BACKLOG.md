@@ -296,11 +296,12 @@ Accept: the landing happens only when the Terminals section was on screen; a tes
 Source: autopilot polish (B-081)
 Done: 5ce958ac9 75c512e4c 1b9d09aed. Closing the last shell lands only when the Terminals section was on screen (refines D-187); the top landing reaches the launch offset (refines D-185); a test pins the filter guard. Promoted light→full (163-line diff); 1 fix round (cell-reuse flake fixed deterministically). Suite 1962 green ×3; shots B-105-1..4.
 
-## B-106 · Selected agent row unhighlighted after the last shell closes   [ready]
+## B-106 · Selected agent row unhighlighted after the last shell closes   [done]
 Issue: #110
 Why: B-081 implementer: after the last Terminals row closes, the selected agent row isn't highlighted while it's off screen
 Accept: the selected agent row shows its selection highlight once revealed, with a test
 Source: autopilot polish (B-081)
+Done: 6b08d7233 c1b36b866. Didn't reproduce: the selected agent row is already highlighted once revealed after the last shell closes (fails when the selection's agent fallback is removed). Regression test added (isSelected, selectedRowIndexes, pixel probe); no production change.
 
 ## B-107 · Row hand-on polish after a split pane closes   [ready]
 Issue: #111

@@ -125,10 +125,11 @@ Lane: B-106
   Branch: autopilot-lane/B-106
   Base: bdba773c3a52cbfc3b988bec54f0b5a165c335ed
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
   Reviewed-tip: c1b36b866c36812e653854a32c6a5e1a1e6f6130
   Dispatched: 2026-10-01T21:56:26Z
   Call: The selection-highlight regression test checks a pixel probe (selected row vs an unselected row) on top of isSelected, per the verify-absolute rule — AUTONOMY: test infrastructure
+Finished 8: B-106 landed d4530e569 · not visually verified
