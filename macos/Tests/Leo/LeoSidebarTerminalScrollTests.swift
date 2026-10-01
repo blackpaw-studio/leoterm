@@ -234,6 +234,7 @@ struct LeoSidebarTerminalScrollTests {
         let (window, model) = try makeWindowAndModel(terminals: terminals)
         defer { window.close() }
         let table = try await settledTable(in: window)
+        let launchOffset = clipOffset(of: table)
         if landing == "the selected agent" { model.userSelected(Self.agents(count: Self.agentCount)[0].id) }
         let shell = try await revealedLastRow(in: table, terminals: terminals)
         let rowsBefore = table.numberOfRows
@@ -248,6 +249,8 @@ struct LeoSidebarTerminalScrollTests {
             #expect(isVisible(row: selected, in: table), "the selected agent row is on screen")
         } else {
             #expect(isVisible(row: 0, in: table), "the list is at its top")
+            // B-105: its very top, above the first header's top margin.
+            #expect(clipOffset(of: table) == launchOffset, "the list is back where it launched")
         }
     }
 
@@ -270,6 +273,66 @@ struct LeoSidebarTerminalScrollTests {
         try #require(selected >= 0, "the list selects the agent")
         #expect(isVisible(row: selected, in: table), "the selected agent row is on screen")
         #expect(abs(table.visibleRect.maxY - table.bounds.maxY) <= 1, "the list stays at its bottom, where the selection shows")
+    }
+
+    /// B-105 (P2): the last row closes while the Terminals section is
+    /// scrolled off below (the user went up to the agents). Its going
+    /// moves nothing on screen, so the list stays where the user put it:
+    /// no landing on the top or on a selected agent that's off screen.
+    /// Parked mid-list, so either jump shows, or with the section's header
+    /// a row below the bottom edge, where the list may already keep its
+    /// views: only what shows counts. (Any nearer, and the list's own
+    /// clamp to its shorter content moves it a point or two.)
+    @Test(arguments: ["no selection", "a selected agent off screen"], ["mid-list", "a row below the bottom edge"])
+    func closingTheLastRowScrolledOffLeavesTheListWhereItIs(_ selection: String, _ parked: String) async throws {
+        let terminals = LeoWindowTerminals()
+        let (window, model) = try makeWindowAndModel(terminals: terminals)
+        defer { window.close() }
+        let table = try await settledTable(in: window)
+        if selection == "a selected agent off screen" { model.userSelected(Self.agents(count: Self.agentCount)[0].id) }
+        let shell = try await revealedLastRow(in: table, terminals: terminals)
+        let header = table.numberOfRows - 2
+        let parkedY = parked == "mid-list"
+            ? table.rect(ofRow: Self.agentCount / 2).minY // an agent halfway down at the top edge
+            : table.rect(ofRow: header).minY - table.visibleRect.height - table.rect(ofRow: header - 1).height
+        table.scroll(NSPoint(x: table.visibleRect.minX, y: parkedY))
+        await afterPendingUpdates()
+        try #require(!isVisible(row: 0, in: table) && !table.visibleRect.intersects(table.rect(ofRow: header)),
+                     "the list is parked between its top and the Terminals section")
+        let offset = table.visibleRect.minY
+        let rowsBefore = table.numberOfRows
+
+        terminals.remove(shell)
+        await afterPendingUpdates()
+
+        try #require(table.numberOfRows < rowsBefore, "the Terminals section is gone")
+        #expect(tables(in: window.contentView).first === table, "the list is the same one")
+        #expect(table.visibleRect.minY == offset, "the list stays where it was")
+    }
+
+    /// D-188: the filter hiding the Terminals section isn't its closing,
+    /// so the list doesn't land on its top, even with the section on
+    /// screen and nothing selected. A filter every agent matches keeps
+    /// the list long, so a landing would show. The shell retitles first
+    /// (as a new one does once it starts), so the sidebar last saw its
+    /// terminals change with the section on screen.
+    @Test func filteringAwayTheTerminalsSectionDoesNotLandOnTheTop() async throws {
+        let terminals = LeoWindowTerminals()
+        let (window, model) = try makeWindowAndModel(terminals: terminals)
+        defer { window.close() }
+        let table = try await settledTable(in: window)
+        let shell = try await revealedLastRow(in: table, terminals: terminals)
+        terminals.retitle(shell, to: "zsh")
+        await afterPendingUpdates()
+        try #require(isVisible(row: table.numberOfRows - 1, in: table), "the row is still on screen")
+        let rowsBefore = table.numberOfRows
+
+        model.query = "agent"
+        await afterPendingUpdates()
+
+        try #require(tables(in: window.contentView).first === table, "the list is the same one")
+        try #require(table.numberOfRows < rowsBefore && table.numberOfRows >= Self.agentCount, "the filter hides only the Terminals section")
+        #expect(!isVisible(row: 0, in: table), "the list stays away from its top")
     }
 
     /// A new terminal row, selected and revealed at the bottom of the list
@@ -375,6 +438,12 @@ struct LeoSidebarTerminalScrollTests {
     /// Within anti-aliasing's faintest fringe of each other.
     private static func isNear(_ lhs: [CGFloat], _ rhs: [CGFloat]) -> Bool {
         zip(lhs, rhs).allSatisfy { abs($0 - $1) < 0.1 }
+    }
+
+    /// Where the list's scroll view shows its content from, insets and
+    /// margins included: unlike `visibleRect`, not cut off at the table.
+    private func clipOffset(of table: NSTableView) -> CGFloat? {
+        table.enclosingScrollView?.contentView.bounds.minY
     }
 
     /// The whole row (to within a point) is within what the list's scroll
