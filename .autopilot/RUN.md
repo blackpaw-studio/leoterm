@@ -147,7 +147,7 @@ Lane: B-089
   Base: 04a9561ad35bc215137af413546c6e3b61905e98
   Tier: full
   State: building
-  Fixes: 0
+  Fixes: 2
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
