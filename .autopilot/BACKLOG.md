@@ -595,6 +595,21 @@ Why: while the window stays key, Tab uses the old loop after a sidebar/pane togg
 Accept: while the window stays key, Tab uses the old loop after a sidebar/pane toggle until the window becomes key again (documented in B-101's comment); rebuild it on toggle
 Source: autopilot polish (B-101)
 
+## B-158 · Document LeoMenuXib's ignored modifier flags   [ready (next run)]
+Why: LeoMenuXib.swift:52-56: the live encoder ignores .function/.numericPad/.capsLock; the old exact-.command check was dropped silently — document it
+Accept: LeoMenuXib.swift:52-56: the live encoder ignores .function/.numericPad/.capsLock; the old exact-.command check was dropped silently — document it
+Source: autopilot polish (B-102)
+
+## B-159 · liveShortcutsDecodeLikeTheXib compares against the xib decoder   [ready (next run)]
+Why: it compares hard-coded strings rather than the xib decoder's output; add a bare "T" (→ "⇧t") case so the name holds
+Accept: it compares hard-coded strings rather than the xib decoder's output; add a bare "T" (→ "⇧t") case so the name holds
+Source: autopilot polish (B-102)
+
+## B-160 · Live ⌘O check can pass vacuously   [ready (next run)]
+Why: chooseAgentIsCommandO's live check passes if the live walk returns nothing; assert the walk finds Choose Agent… on "⌘o"
+Accept: chooseAgentIsCommandO's live check passes if the live walk returns nothing; assert the walk finds Choose Agent… on "⌘o"
+Source: autopilot polish (B-102)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
