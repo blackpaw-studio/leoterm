@@ -19,8 +19,19 @@ protocol LeoLaunchPlaceholderWindow: AnyObject {
 /// What `LeoLaunchPlaceholder` needs from a window something asked for.
 @MainActor
 protocol LeoRequestedWindow: AnyObject {
-    /// On screen: its presentation ran, and it hasn't closed.
+    /// Shown, as `LeoWindowPresence` decides.
     var isLeoWindowShown: Bool { get }
+}
+
+/// Whether a window counts as shown (B-093). A hidden app (`open -j`, a
+/// login item set to hide) reports every window `isVisible == false`, so
+/// on screen alone would keep a hidden launch's two windows. While hidden,
+/// a window shows once its presentation ran and until it closes; otherwise
+/// it must also be on screen, so a presentation that failed never counts.
+enum LeoWindowPresence {
+    static func isShown(presented: Bool, closed: Bool, isVisible: Bool, appIsHidden: Bool) -> Bool {
+        presented && !closed && (isVisible || appIsHidden)
+    }
 }
 
 /// The empty window a launch opened on its own (B-085) gives way to the
@@ -122,7 +133,15 @@ extension TerminalController: LeoLaunchPlaceholderWindow, LeoRequestedWindow {
         return leoIsUnfilledPlaceholder && !leoHasShownContent && surfaceTree.isEmpty && window.attachedSheet == nil
     }
 
-    var isLeoWindowShown: Bool { window?.isVisible == true }
+    var isLeoWindowShown: Bool {
+        guard let window else { return false }
+        return LeoWindowPresence.isShown(
+            presented: leoInitialPresentationRan,
+            closed: leoWindowDidClose,
+            isVisible: window.isVisible,
+            appIsHidden: NSApp.isHidden
+        )
+    }
 
     func observeLeoWindowClose(_ onClose: @escaping @MainActor @Sendable () -> Void) -> () -> Void {
         // No window, nothing to watch -- and a nil object would watch every window.
