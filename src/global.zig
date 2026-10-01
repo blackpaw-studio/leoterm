@@ -306,7 +306,10 @@ pub fn environMap() !std.process.Environ.Map {
 /// older one stays valid. If the copy cannot be allocated, the error is logged
 /// and the previous Environ is kept. If the I/O implementation had already
 /// scanned the environment, its memoized values (PATH, HOME, ...) are dropped
-/// rather than rebuilt from the new copy.
+/// rather than rebuilt from the new copy. `std.Io.Threaded.environ_initialized`
+/// stays set, so the I/O side never rescans and uses its defaults instead
+/// (e.g. `default_PATH` when it searches PATH); the block it hands to child
+/// processes is still the new copy.
 ///
 /// It is not valid to run this within any code that needs to be run through
 /// tests. For any of these, re-factor the code to take an environment map
@@ -434,6 +437,7 @@ pub const GlobalState = struct {
     alloc: std.mem.Allocator,
     environ: std.process.Environ,
     /// Owns the copies of the process environment made by `syncEnviron`.
+    /// It grows by one full copy per call and is only freed at `deinit`.
     environ_arena: std.heap.ArenaAllocator,
     args: std.process.Args,
     tmp_dir_path: ?[]const u8,
