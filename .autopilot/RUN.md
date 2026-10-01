@@ -108,3 +108,14 @@ Lane: B-105
   Call: Terminals section is read from the table's last labels.count+1 rows rather than per-row probes (unreliable under cell reuse); LeoSidebarSectionAnchor and the section .id removed — AUTONOMY: implementation approach
   Call: Near-edge test parks one row above the section, not 1 pt (AppKit nudges 2 pt at 1 pt) — AUTONOMY: test infrastructure
 Finished 6: B-105 landed 6a4442a11 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-105-1.png
+
+Lane: B-147
+  Branch: autopilot-lane/B-147
+  Base: 708717ded19067c690e6be365cad0e3b3d14b265
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-01T21:42:22Z
