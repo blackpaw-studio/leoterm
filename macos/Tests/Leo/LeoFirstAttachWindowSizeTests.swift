@@ -71,9 +71,24 @@ import Testing
 
         /// The first content's size step, now that the surface has its
         /// configured size -- what `fillPlaceholder` runs for it.
-        func applyFirstContentSize(to surface: Ghostty.SurfaceView) {
-            surface.initialSize = LeoFirstAttachWindowSizeTests.configuredSize
+        func applyFirstContentSize(
+            to surface: Ghostty.SurfaceView, configuredSize: NSSize = LeoFirstAttachWindowSizeTests.configuredSize
+        ) {
+            surface.initialSize = configuredSize
             controller.leoApplyInitialSize()
+        }
+
+        /// The sidebar's width in the window's split, nil while collapsed.
+        var sidebarWidth: CGFloat? {
+            guard let contentView = window.contentView,
+                  let split = Self.splitController(in: contentView),
+                  let item = split.sidebarItem, !item.isCollapsed else { return nil }
+            return item.viewController.view.frame.width
+        }
+
+        private static func splitController(in view: NSView) -> LeoSplitViewController? {
+            if let split = (view as? NSSplitView)?.delegate as? LeoSplitViewController { return split }
+            return view.subviews.lazy.compactMap { splitController(in: $0) }.first
         }
 
         var contentSize: NSSize { window.contentRect(forFrameRect: window.frame).size }
@@ -158,6 +173,27 @@ import Testing
         await Self.drainMainQueue()
         #expect(fixture.window.isVisible, "the window was still presented")
         #expect(fixture.contentSize == expected, "presenting it kept the size")
+    }
+
+    /// B-091: a configured terminal narrower than the content minimum
+    /// opens beside the sidebar at that minimum, so the sidebar keeps its
+    /// stored width rather than being clamped to make room (D-145).
+    @Test(.enabled("needs the app's Ghostty.App") { await MainActor.run { Self.hasGhostty } })
+    func aNarrowConfiguredTerminalOpensWideEnoughForTheStoredSidebar() async throws {
+        let fixture = try Fixture.make()
+        defer { fixture.close() }
+        let session = try #require(fixture.controller.leoSession)
+        try #require(session.isSidebarVisible)
+        let narrow = NSSize(width: 300, height: Self.configuredSize.height)
+
+        let surface = try fixture.fill().surface
+        fixture.applyFirstContentSize(to: surface, configuredSize: narrow)
+        await Self.drainMainQueue()
+
+        let expectedWidth = LeoSidebarSplitMetrics.contentMinimumWidth + session.displayedWidth + LeoSidebarSplitMetrics.dividerWidth
+        #expect(fixture.contentSize.width == expectedWidth)
+        let sidebarWidth = try #require(fixture.sidebarWidth, "the sidebar showed")
+        #expect(abs(sidebarWidth - session.displayedWidth) <= 1, "sidebar \(sidebarWidth), stored \(session.displayedWidth)")
     }
 
     /// B-097: Window > Reset Window Size on a start screen that has filled

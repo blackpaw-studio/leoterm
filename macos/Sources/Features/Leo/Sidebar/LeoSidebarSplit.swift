@@ -14,7 +14,10 @@ enum LeoSidebarSplitMetrics {
     /// the start screen's button row whole (409 pt), with the HIG's 20 pt
     /// window margins either side. `LeoSidebarContentMinimumTests` measures
     /// the row against it. Not a minimum for the content itself -- a
-    /// narrow window, or a side pane, still takes it lower.
+    /// narrow window, a side pane, or a terminal split leaf (each leaf
+    /// gets its own start screen) still takes it lower. A configured
+    /// `window-width` opens at least this wide beside the sidebar
+    /// (`LeoInitialSizeDecision`).
     static let contentMinimumWidth: CGFloat = 450
 
     /// The sidebar's maximum in a split `splitWidth` wide (B-091): whatever

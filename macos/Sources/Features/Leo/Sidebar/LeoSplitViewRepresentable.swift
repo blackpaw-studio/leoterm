@@ -511,9 +511,9 @@ final class LeoSplitViewController: NSSplitViewController {
     /// leaves the content `LeoSidebarSplitMetrics.contentMinimumWidth`.
     /// A window resize that lowers it clamps the sidebar without a divider
     /// move, so nothing is persisted (D-233); widening again gives the
-    /// width back, as with the terminal's minimum (B-089). Setting it asks
-    /// for another layout before the window draws, so the clamp never
-    /// shows; an unchanged maximum isn't set, so that settles.
+    /// width back (`narrowingTheWindowNarrowsAWideSidebarBeforeTheContent`).
+    /// Setting it asks for another layout before the window draws, so the
+    /// clamp never shows; an unchanged maximum isn't set, so that settles.
     private func updateSidebarMaximum() {
         guard let sidebarItem, splitView.bounds.width > 0 else { return }
         let maximum = LeoSidebarSplitMetrics.sidebarMaximumWidth(

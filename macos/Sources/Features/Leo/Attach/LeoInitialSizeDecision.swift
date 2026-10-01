@@ -23,9 +23,15 @@ enum LeoInitialSizeDecision {
     /// sidebar and its divider beside it when the sidebar shows
     /// (`sidebarWidth` is nil when it's hidden). Nil when no size is
     /// configured.
+    ///
+    /// Beside the sidebar, the terminal gets at least
+    /// `LeoSidebarSplitMetrics.contentMinimumWidth` (B-091): the sidebar's
+    /// maximum leaves the content that much, so a narrower terminal would
+    /// clamp the sidebar's stored width as the window opens.
     static func contentSize(initialSize: CGSize?, sidebarWidth: CGFloat?, dividerWidth: CGFloat) -> CGSize? {
         guard let initialSize else { return nil }
         guard let sidebarWidth else { return initialSize }
-        return CGSize(width: initialSize.width + sidebarWidth + dividerWidth, height: initialSize.height)
+        let terminalWidth = max(initialSize.width, LeoSidebarSplitMetrics.contentMinimumWidth)
+        return CGSize(width: terminalWidth + sidebarWidth + dividerWidth, height: initialSize.height)
     }
 }
