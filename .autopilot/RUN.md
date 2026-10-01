@@ -77,3 +77,14 @@ Lane: B-103
   Call: Calm-scroll waits read the window's current list, so a rebuilt list fails an explicit same-list (===) check — AUTONOMY: test infrastructure
   Call: Calm-scroll doc comments drop project history and cite both halves of D-129 — AUTONOMY: test infrastructure
 Finished 4: B-103 landed cf1ecdd0e · not visually verified
+
+Lane: B-104
+  Branch: autopilot-lane/B-104
+  Base: 1ce88330c279a664c103d0eee358da9a1cc10e8a
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-01T18:58:27Z
