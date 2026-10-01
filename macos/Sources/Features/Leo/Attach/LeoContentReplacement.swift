@@ -13,12 +13,15 @@ enum LeoContentReplacement {
     /// One surface the content area shows now.
     struct Shown: Equatable, Sendable {
         /// An attach surface (live or exited): it carries an agent's name.
+        /// What its window title and sidebar row call it (B-088).
+        let name: String
         let isAgent: Bool
         /// A terminal row's own shell (B-057).
         let isTerminalRow: Bool
         let needsConfirmQuit: Bool
 
-        init(isAgent: Bool, isTerminalRow: Bool = false, needsConfirmQuit: Bool) {
+        init(name: String = LeoTerminalRow.untitled, isAgent: Bool, isTerminalRow: Bool = false, needsConfirmQuit: Bool) {
+            self.name = name
             self.isAgent = isAgent
             self.isTerminalRow = isTerminalRow
             self.needsConfirmQuit = needsConfirmQuit
@@ -61,7 +64,10 @@ enum LeoContentReplacement {
     /// when every surface in it is an agent.
     static func keepsAttached(_ shown: [Shown]) -> Bool { !shown.isEmpty && shown.allSatisfy(\.isAgent) }
 
-    static let messageText = "Close Terminal?"
+    /// Names each busy shell the switch closes (B-088).
+    static func messageText(_ shown: [Shown]) -> String {
+        LeoCloseConfirmation.messageText(closing: shown.filter { !$0.isAgent && $0.needsConfirmQuit }.map(\.name))
+    }
     static let informativeText = "The terminal in this window still has a running process. "
         + "Showing another row here closes it, and the process will be killed."
     static let confirmButtonTitle = "Close"

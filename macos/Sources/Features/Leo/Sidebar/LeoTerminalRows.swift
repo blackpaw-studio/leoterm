@@ -19,9 +19,12 @@ struct LeoTerminalRow: Identifiable, Equatable, Sendable {
 
     /// The title as the row shows it: without surrounding space (B-079),
     /// else "Terminal".
-    var displayTitle: String {
+    var displayTitle: String { Self.displayTitle(of: title) }
+
+    /// `title` as a row shows it (also what a close confirm names, B-088).
+    static func displayTitle(of title: String) -> String {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty || trimmed == Self.ghosttyFallbackTitle ? Self.untitled : trimmed
+        return trimmed.isEmpty || trimmed == ghosttyFallbackTitle ? untitled : trimmed
     }
 }
 

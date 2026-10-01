@@ -947,7 +947,12 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     ) {
         // If this isn't the root then we're dealing with a split closure.
         if surfaceTree.root != node {
-            super.closeSurface(node, withConfirmation: withConfirmation)
+            // MARK: Leo -- the confirm names the pane it closes (B-088).
+            guard withConfirmation else {
+                super.closeSurface(node, withConfirmation: false)
+                return
+            }
+            leoConfirmClosingPane(node) { [weak self] in self?.leoCloseConfirmedPane(node) }
             return
         }
 
@@ -970,6 +975,12 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         } else {
             closeWindowImmediately()
         }
+    }
+
+    /// A split's pane whose confirm was answered Close (B-088): upstream's
+    /// own close, which skips a pane that's no longer in the tree.
+    private func leoCloseConfirmedPane(_ node: SplitTree<Ghostty.SurfaceView>.Node) {
+        super.closeSurface(node, withConfirmation: false)
     }
 
     func closeTabImmediately(registerRedo: Bool = true) {

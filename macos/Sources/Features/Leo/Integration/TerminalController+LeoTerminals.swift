@@ -27,10 +27,21 @@ extension TerminalController {
             return true
         }
         confirmClose(
-            messageText: "Close Terminal?",
-            informativeText: "The terminal still has a running process. If you close the terminal the process will be killed."
+            messageText: LeoCloseConfirmation.messageText(closing: [view.leoPaneName]),
+            informativeText: LeoCloseConfirmation.rowInformativeText
         ) { close() }
         return true
+    }
+
+    /// Closing `node`, one of a split's panes, after a busy-process confirm
+    /// that names it (B-088); `remove` closes it once confirmed.
+    func leoConfirmClosingPane(_ node: SplitTree<Ghostty.SurfaceView>.Node, remove: @escaping () -> Void) {
+        let names = node.leaves().map(\.leoPaneName)
+        confirmClose(
+            messageText: LeoCloseConfirmation.messageText(closing: names),
+            informativeText: LeoCloseConfirmation.paneInformativeText,
+            completion: remove
+        )
     }
 
     /// Whether closing this window would kill a running process: one it
@@ -45,5 +56,13 @@ extension TerminalController {
     /// terminals don't count.
     static func leoAnyNeedsConfirmClose(_ windows: [NSWindow]) -> Bool {
         windows.contains { ($0.windowController as? TerminalController)?.leoNeedsConfirmClose == true }
+    }
+}
+
+extension Ghostty.SurfaceView {
+    /// What a close confirm calls this pane (B-088): its title as the
+    /// window and its sidebar row show it.
+    var leoPaneName: String {
+        LeoCloseConfirmation.name(title: title, isUserSet: leoTitleIsUserSet, agentName: leoAgentName)
     }
 }
