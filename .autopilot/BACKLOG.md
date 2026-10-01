@@ -579,6 +579,21 @@ Why: B-100 verify: in titled styles the workspace-browser header's close glyph s
 Accept: B-100 verify: in titled styles the workspace-browser header's close glyph sits about 3 pt under the titlebar
 Source: autopilot polish (B-100)
 
+## B-155 · LeoLaunchFocusTests #require message wording   [ready (next run)]
+Why: LeoLaunchFocusTests.swift:60 says "wasn't built when the loop was rebuilt" but the check runs one turn after the rebuild; reword to "doesn't exist after the rebuild turn"
+Accept: LeoLaunchFocusTests.swift:60 says "wasn't built when the loop was rebuilt" but the check runs one turn after the rebuild; reword to "doesn't exist after the rebuild turn"
+Source: autopilot polish (B-101)
+
+## B-156 · waitForSearchField counts turns instead of sleeping   [ready (next run)]
+Why: LeoLaunchFocusTests.swift:110-117 still polls with Task.sleep(20ms); D-178/D-254 prefer nextMainTurn() turn counting
+Accept: LeoLaunchFocusTests.swift:110-117 still polls with Task.sleep(20ms); D-178/D-254 prefer nextMainTurn() turn counting
+Source: autopilot polish (B-101)
+
+## B-157 · Rebuild the key view loop after a sidebar or pane toggle   [ready (next run)]
+Why: while the window stays key, Tab uses the old loop after a sidebar/pane toggle until the window becomes key again (documented in B-101's comment); rebuild it on toggle
+Accept: while the window stays key, Tab uses the old loop after a sidebar/pane toggle until the window becomes key again (documented in B-101's comment); rebuild it on toggle
+Source: autopilot polish (B-101)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
