@@ -10,7 +10,7 @@ import Testing
 /// It stays for good once the user touches Leo or it shows anything.
 @MainActor
 struct LeoLaunchPlaceholderTests {
-    private final class FakeWindow: LeoLaunchPlaceholderWindow, LeoRequestedWindow {
+    private final class FakeWindow: LeoLaunchPlaceholderWindow {
         var isPristineLeoPlaceholder = true
         var isLeoWindowShown = true
         private(set) var isClosed = false
