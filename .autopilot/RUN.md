@@ -124,3 +124,14 @@ Lane: B-087
 - B-087 runner: ready at d40d4f212 (general full; 1902/1902; GUI: palette split, row switch back, palette Escape all end with a focused cursor). Root cause: a palette-chosen split lost focus to its source pane; row-switch/Escape symptoms were harness artifacts.
 - B-087 landed (merge ac58f9d6c).
 Finished 6: B-087 landed ac58f9d6c · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-087-6.png
+
+Lane: B-088
+  Branch: autopilot-lane/B-088
+  Base: 8e40d2f18eea99413b6b7df5a3876781f3473141
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-01T00:52:39Z
