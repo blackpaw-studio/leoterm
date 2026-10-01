@@ -11,7 +11,7 @@ import Testing
 
     private static var running: LeoSidebarSection { LeoSidebarSection(id: "running", title: "Running", rows: [row("a"), row("b")]) }
     private static var stopped: LeoSidebarSection { LeoSidebarSection(id: "stopped", title: "Stopped", rows: [row("c")]) }
-    private static var top: LeoTerminalsSectionExit.Landing { .section(LeoSidebarSectionAnchor(sectionID: "running")) }
+    private static var top: LeoTerminalsSectionExit.Landing { .top }
 
     @Test func aListedSelectedAgentIsTheLanding() {
         let landing = LeoTerminalsSectionExit.landing(selectedAgent: Self.row("c").id, in: [Self.running, Self.stopped])
