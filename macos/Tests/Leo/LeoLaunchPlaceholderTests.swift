@@ -311,13 +311,15 @@ struct LeoLaunchPlaceholderTests {
         let harness = Harness()
         let tracker = makeTracker(harness)
         let launch = FakeWindow()
+        let requested = FakeWindow()
 
         tracker.adopt(launch)
-        tracker.windowDidOpen(FakeWindow())
+        tracker.windowDidOpen(requested)
         launch.closeOnItsOwn()
         harness.runQueued()
 
         #expect(launch.replacedCloses == 0)
+        #expect(!requested.isClosed)
     }
 
     /// A hidden launch (`open -j`, a login item set to hide): every window
