@@ -196,3 +196,14 @@ Lane: B-093
 - B-093 runner: ready at 31c2d6557 (general+concurrency full; 1935/1935; GUI: 3 hidden cold folder launches → exactly one window).
 - B-093 landed (merge 2f4df216b).
 Finished 10: B-093 landed 2f4df216b · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-093-1.png
+
+Lane: B-094
+  Branch: autopilot-lane/B-094
+  Base: 5c928805a04210b51f0e0d9636a332b5c3a03dd0
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-01T03:37:42Z
