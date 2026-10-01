@@ -217,11 +217,12 @@ Accept: each fixed; suite green
 Source: autopilot polish (B-085)
 Done: 2026-10-01 · 17f1d88b6
 
-## B-095 · Reopen and fallback New Window flash the palette   [ready]
+## B-095 · Reopen and fallback New Window flash the palette   [done]
 Issue: #99
 Why: B-085 verify: Dock reopen and the fallback New Window still route through the palette (present-then-dismiss flash), unlike the launch window which now opens as the bare start screen (P2)
 Accept: reopen and fallback New Window open the bare start screen with no palette flash; test
 Source: autopilot polish (B-085)
+Done: 2026-10-01 · 13d56313c · D-244, D-245
 
 ## B-096 · B-086 test and doc fixes   [ready]
 Issue: #100

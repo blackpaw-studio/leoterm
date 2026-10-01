@@ -215,7 +215,7 @@ Lane: B-095
   Branch: autopilot-lane/B-095
   Base: 2cbbcc40bf814a43a61678fb9d90592a08367796
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -224,3 +224,5 @@ Lane: B-095
   Call: Reopen's window is not adopted as a launch placeholder (D-149 covers only the launch window) — P2
   Call: Scope limited to reopen and the app delegate's fallback New Window; Ghostty's new_window (⌘N from a terminal with content) and Choose Agent… with no window still route through the palette (Choose Agent is an explicit request for it) — P1
 - B-095 runner: ready at ba17e03d8 (general full; 1937/1937; GUI: reopen and New Window log no palette present).
+- B-095 landed (merge e68957a5d).
+Finished 12: B-095 landed e68957a5d · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-095-1.png

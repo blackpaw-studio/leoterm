@@ -1786,3 +1786,17 @@ Chose: Kept the "presentation ran" flag rather than recording showWindowSafely's
 Why: AUTONOMY implementation approach
 Commit: 3d90cb41f, b09da3a64, 846d9b336, 6f0759f97, 5f7b9c4fb
 Veto: [ ]
+
+## D-244 · 2026-10-01 · Reopen's window is not adopted as a launch placeholder (D-149 covers …
+Context: B-095 (runner call).
+Chose: Reopen's window is not adopted as a launch placeholder (D-149 covers only the launch window)
+Why: P2
+Commit: 13d56313c
+Veto: [ ]
+
+## D-245 · 2026-10-01 · Scope limited to reopen and the app delegate's fallback New Window; G…
+Context: B-095 (runner call).
+Chose: Scope limited to reopen and the app delegate's fallback New Window; Ghostty's new_window (⌘N from a terminal with content) and Choose Agent… with no window still route through the palette (Choose Agent is an explicit request for it)
+Why: P1
+Commit: 13d56313c
+Veto: [ ]
