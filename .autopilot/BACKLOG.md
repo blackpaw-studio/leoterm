@@ -643,6 +643,16 @@ Why: B-104 verify: the DEBUG fixture didn't take effect on the first launch; a r
 Accept: B-104 verify: the DEBUG fixture didn't take effect on the first launch; a relaunch worked — possible arming race
 Source: autopilot polish (B-104)
 
+## B-167 · Pin the Terminals section as non-collapsible   [ready (next run)]
+Why: LeoSidebarView.swift:304's labels.count + 1 assumes the section is never natively collapsed; if a .sidebar List lets users hide it, last-N rows could include agent rows and land falsely — confirm or add .collapsible(false)
+Accept: LeoSidebarView.swift:304's labels.count + 1 assumes the section is never natively collapsed; if a .sidebar List lets users hide it, last-N rows could include agent rows and land falsely — confirm or add .collapsible(false)
+Source: autopilot polish (B-105)
+
+## B-168 · Drop dead non-flipped branches in LeoTerminalsViewport   [ready (next run)]
+Why: scrollToTop/unobscuredBounds (LeoTerminalsViewport.swift:68,:78) have untested, unreachable non-flipped branches (NSTableView is flipped) — drop or test them
+Accept: scrollToTop/unobscuredBounds (LeoTerminalsViewport.swift:68,:78) have untested, unreachable non-flipped branches (NSTableView is flipped) — drop or test them
+Source: autopilot polish (B-105)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
