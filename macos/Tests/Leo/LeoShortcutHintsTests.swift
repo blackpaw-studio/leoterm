@@ -12,6 +12,7 @@ import Testing
     private static let newTab = #selector(TerminalController.newTab(_:))
     private static let chooseAgent = #selector(TerminalController.chooseLeoAgent(_:))
     private static let quickTerminal = #selector(AppDelegate.toggleQuickTerminal(_:))
+    private static let reconnect = #selector(TerminalController.reconnectLeo(_:))
 
     private func item(_ key: String, _ modifiers: NSEvent.ModifierFlags, action: Selector? = nil) -> NSMenuItem {
         let item = NSMenuItem(title: "Item", action: action, keyEquivalent: key)
@@ -46,11 +47,23 @@ import Testing
         #expect(LeoMenuShortcutHint.text(for: item("", .command)) == nil)
     }
 
-    /// A key the hint can't spell (F1 is a private-use character) is left
-    /// out rather than shown as a stray glyph.
+    /// B-104: AppKit carries F1–F35 as private-use characters; the hint
+    /// spells them the way the menu bar does ("⌘F1"), not as a stray glyph.
+    @Test func aFunctionKeyShortcutIsSpelled() {
+        #expect(LeoMenuShortcutHint.text(for: item(functionKey(NSF1FunctionKey), .command)) == "⌘F1")
+        #expect(LeoMenuShortcutHint.text(for: item(functionKey(NSF12FunctionKey), [.shift, .command])) == "⇧⌘F12")
+        #expect(LeoMenuShortcutHint.text(for: item(functionKey(NSF35FunctionKey), [.control, .option])) == "⌃⌥F35")
+    }
+
+    /// A key the hint can't spell (Insert has no Mac key cap; a bare control
+    /// character) is left out rather than shown as a stray glyph.
     @Test func anUnspellableKeyMeansNoHint() {
-        let f1 = String(Character(UnicodeScalar(NSF1FunctionKey)!))
-        #expect(LeoMenuShortcutHint.text(for: item(f1, .command)) == nil)
+        #expect(LeoMenuShortcutHint.text(for: item(functionKey(NSInsertFunctionKey), .command)) == nil)
+        #expect(LeoMenuShortcutHint.text(for: item("\u{1}", .command)) == nil)
+    }
+
+    private func functionKey(_ key: Int) -> String {
+        UnicodeScalar(key).map { String(Character($0)) } ?? ""
     }
 
     /// Finds the item by its action, not its key, and prefers the one that
@@ -151,26 +164,70 @@ import Testing
         subscription.cancel()
     }
 
+    /// B-104: AppDelegate re-syncs on every config reload and layout change;
+    /// a sync that changes nothing must not publish, or every open start
+    /// screen and sidebar redraws for nothing.
+    @Test func aSyncWithUnchangedShortcutsDoesNotPublish() {
+        let quickTerminal = NSMenuItem(title: "Quick Terminal", action: Self.quickTerminal, keyEquivalent: "")
+        let main = menu(newTerminal: item("t", .command, action: Self.newTab), chooseAgent: item("o", .command, action: Self.chooseAgent))
+        main.items.first?.submenu?.addItem(quickTerminal)
+        main.items.first?.submenu?.addItem(item("R", .command, action: Self.reconnect))
+        let hints = LeoShortcutHints()
+        hints.sync(menu: main)
+        var changes = 0
+        let subscription = hints.objectWillChange.sink { changes += 1 }
+
+        hints.sync(menu: main)
+
+        #expect(changes == 0)
+        #expect(hints.newTerminal == "⌘T")
+        #expect(hints.reconnect == "⇧⌘R")
+        subscription.cancel()
+    }
+
+    /// B-104: the disconnected Choose Agent… tooltip names Agents ▸
+    /// Reconnect's shortcut off its menu item too (⇧⌘R in the xib).
+    @Test func theReconnectHintFollowsItsMenuItem() {
+        let reconnect = item("R", .command, action: Self.reconnect)
+        let main = menu(newTerminal: item("t", .command, action: Self.newTab), chooseAgent: reconnect)
+        let hints = LeoShortcutHints()
+
+        hints.sync(menu: main)
+        #expect(hints.reconnect == "⇧⌘R")
+
+        reconnect.keyEquivalent = ""
+        hints.sync(menu: main)
+        #expect(hints.reconnect == nil)
+    }
+
     /// Nothing to show before the first sync: no guessed shortcut.
     @Test func hintsStartEmpty() {
         let hints = LeoShortcutHints()
         #expect(hints.newTerminal == nil)
         #expect(hints.chooseAgent == nil)
         #expect(hints.quickTerminal == nil)
+        #expect(hints.reconnect == nil)
     }
 
     // MARK: The running app
 
     /// The app's hints are the real menu's: AppDelegate syncs them with the
-    /// menu shortcuts.
+    /// menu shortcuts. B-104: Choose Agent… (⌘O) and Reconnect (⇧⌘R) carry
+    /// their shortcuts in the xib, so a nil on both sides is a failure, not
+    /// a match. Quick Terminal ships unbound, so nil is a real answer there.
     @Test func theAppsHintsMatchTheRealMenu() throws {
         let runtime = try #require((NSApp.delegate as? AppDelegate)?.leoRuntime)
+        let hints = runtime.shortcutHints
         let newTerminal = try #require(LeoMenuShortcutHint.menuItem(action: Self.newTab, in: NSApp.mainMenu))
         let chooseAgent = try #require(LeoMenuShortcutHint.menuItem(action: Self.chooseAgent, in: NSApp.mainMenu))
+        let reconnect = try #require(LeoMenuShortcutHint.menuItem(action: Self.reconnect, in: NSApp.mainMenu))
 
-        #expect(runtime.shortcutHints.newTerminal == LeoMenuShortcutHint.text(for: newTerminal))
-        #expect(runtime.shortcutHints.chooseAgent == LeoMenuShortcutHint.text(for: chooseAgent))
+        #expect(hints.newTerminal == LeoMenuShortcutHint.text(for: newTerminal))
+        let chooseAgentHint = try #require(hints.chooseAgent, "Choose Agent… carries ⌘O")
+        let reconnectHint = try #require(hints.reconnect, "Reconnect carries ⇧⌘R")
+        #expect(chooseAgentHint == LeoMenuShortcutHint.text(for: chooseAgent))
+        #expect(reconnectHint == LeoMenuShortcutHint.text(for: reconnect))
         let quickTerminal = try #require(LeoMenuShortcutHint.menuItem(action: Self.quickTerminal, in: NSApp.mainMenu))
-        #expect(runtime.shortcutHints.quickTerminal == LeoMenuShortcutHint.text(for: quickTerminal))
+        #expect(hints.quickTerminal == LeoMenuShortcutHint.text(for: quickTerminal))
     }
 }
