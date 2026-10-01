@@ -27,6 +27,9 @@ import OSLog
     )
     private var hiddenExitObservers: [NSObjectProtocol] = []
     private var windowCloseObservers: [LeoWindowID: NSObjectProtocol] = [:]
+    /// B-107: handles whose window's surface tree changed since they were
+    /// last reconciled, oldest first (`runPendingReconciles`).
+    private var pendingReconciles: [PendingReconcile] = []
 
     /// Whether the app is active and which window is key. Injectable so
     /// tests can drive focus reports without the real app being frontmost.
@@ -142,6 +145,7 @@ import OSLog
     /// else -- one surface or a whole split tree -- is swapped out whole
     /// for the new surface, in the same window beside the same sidebar.
     func showInContent(command: String, workingDirectory: String?, origin: LeoWindowID, requestID: UUID) throws -> AttachmentHandle {
+        runPendingReconciles()
         guard let controller = registry.controller(for: origin) else { throw GhosttyAttachContentHostError.originWindowClosed }
         if controller.surfaceTree.isEmpty {
             return try fillPlaceholder(command: command, workingDirectory: workingDirectory, origin: origin, surfaceID: nil, requestID: requestID)
@@ -161,6 +165,7 @@ import OSLog
     /// selection are as they were left. `false` when it isn't hidden (or
     /// nothing in it is still attached, and it was let go).
     func reveal(_ handle: AttachmentHandle) -> Bool {
+        runPendingReconciles()
         guard let attachment = attachments[handle], let controller = attachment.controller,
               let surface = attachment.surface, controller.window != nil,
               let tree = live.take(treeHolding: surface, in: handle.windowID) else { return false }
@@ -224,11 +229,13 @@ import OSLog
     /// own pane closes, as a split's close does (undoable, focus moving
     /// on), and its handle with it. What is split beside it stays: a busy
     /// shell there is never closed without asking, and a plain shell left
-    /// there carries the row on (B-082).
+    /// there carries the row on (B-082) -- the one upstream focuses next
+    /// (B-107), worked out before the close moves focus.
     private func closeShownPane(_ handle: AttachmentHandle, surface: Ghostty.SurfaceView, in controller: TerminalController) {
         guard let node = controller.surfaceTree.root?.node(view: surface) else { return }
+        let heir = controller.surfaceTree.leoFocusAfterClosing(node, focused: controller.focusedSurface)
         controller.closeSurface(node, withConfirmation: false)
-        close(handle, handingOnItsRow: true)
+        close(handle, handingOnItsRow: RowHandOn(heir: heir))
         selectShownTerminal(in: controller)
         Self.logger.log("closeTerminal window=\(handle.windowID.rawValue.uuidString, privacy: .public) pane=true")
     }
@@ -267,6 +274,7 @@ import OSLog
     }
 
     func confirmReplacingContent(origin: LeoWindowID) async -> Bool {
+        runPendingReconciles()
         guard let controller = registry.controller(for: origin) else { return true }
         let shown = controller.surfaceTree.map {
             LeoContentReplacement.Shown(
@@ -670,10 +678,14 @@ import OSLog
         attachments[handle] = attachment
         if isTerminalRow { addTerminalRow(surface, to: session.terminals, cancellables: &attachment.cancellables) }
 
+        // `@Published` tells before it sets (willSet): the controller still
+        // holds the old tree here. Read it rather than keep it (a `scan`
+        // would hold every closed surface until the next change).
         controller.$surfaceTree
             .dropFirst()
-            .sink { [weak self] _ in
-                DispatchQueue.main.async { self?.reconcile(handle) }
+            .sink { [weak self, weak controller] new in
+                guard let controller else { return }
+                self?.surfaceTreeChanged(for: handle, from: controller.surfaceTree, to: new)
             }
             .store(in: &attachment.cancellables)
         surface.$childExitedMessage
@@ -710,13 +722,48 @@ import OSLog
             .store(in: &cancellables)
     }
 
+    /// B-107: `handle`'s window's surface tree is about to change (from
+    /// `old` to `new`); it is reconciled once the change has landed -- on
+    /// the next turn, or sooner when a content swap or its confirm comes
+    /// first. Its surface leaving: the pane upstream focuses next is
+    /// worked out now, while focus is still on the pane that closes
+    /// (upstream moves it a turn later).
+    private func surfaceTreeChanged(
+        for handle: AttachmentHandle,
+        from old: SplitTree<Ghostty.SurfaceView>,
+        to new: SplitTree<Ghostty.SurfaceView>
+    ) {
+        let heir = attachments[handle].flatMap { attachment -> Ghostty.SurfaceView? in
+            guard let surface = attachment.surface, !new.contains(where: { $0 === surface }),
+                  let node = old.root?.node(view: surface) else { return nil }
+            return old.leoFocusAfterClosing(node, focused: attachment.controller?.focusedSurface)
+        }
+        if let index = pendingReconciles.firstIndex(where: { $0.handle == handle }) {
+            if heir != nil { pendingReconciles[index].handOn = RowHandOn(heir: heir) }
+        } else {
+            pendingReconciles.append(PendingReconcile(handle: handle, handOn: RowHandOn(heir: heir)))
+        }
+        DispatchQueue.main.async { [weak self] in self?.runPendingReconciles() }
+    }
+
+    /// Reconciles every handle whose window's tree changed, oldest first.
+    /// Run on the turn after each change, and first thing in each content
+    /// swap and its confirm, so a switch in the very turn a row's pane
+    /// closed already finds the shell carrying its row on. Idempotent:
+    /// a handle still open, or already closed, is left as it is.
+    private func runPendingReconciles() {
+        let pending = pendingReconciles
+        pendingReconciles = []
+        pending.forEach { reconcile($0.handle, handOn: $0.handOn) }
+    }
+
     /// `handle`'s surface left what its window shows without the host
     /// hiding it or letting it go (which close its handle there and then):
     /// upstream took it out -- a split's close (File ▸ Close, ⌘W, `exit`),
     /// or an undo. A row's pane closing so hands its row on (B-082).
-    private func reconcile(_ handle: AttachmentHandle) {
+    private func reconcile(_ handle: AttachmentHandle, handOn: RowHandOn) {
         guard !isOpen(handle) else { return }
-        close(handle, handingOnItsRow: true)
+        close(handle, handingOnItsRow: handOn)
     }
 
     /// One close hook per window, installed with its first handle.
@@ -742,9 +789,9 @@ import OSLog
     /// beside a split, so a plain shell left there may carry its row on
     /// (B-082). Every other close -- hidden, let go, its window's, or its
     /// whole content's -- leaves nothing on screen that was beside it.
-    private func close(_ handle: AttachmentHandle, handingOnItsRow: Bool = false) {
+    private func close(_ handle: AttachmentHandle, handingOnItsRow handOn: RowHandOn? = nil) {
         guard let attachment = attachments.removeValue(forKey: handle) else { return }
-        if attachment.isTerminalRow { removeTerminalRow(handle, of: attachment, handingOn: handingOnItsRow) }
+        if attachment.isTerminalRow { removeTerminalRow(handle, of: attachment, handingOn: handOn) }
         continuation.yield(.closed(handle))
         reportFocus()
     }
@@ -754,39 +801,54 @@ import OSLog
     /// hidden row arrowed onto, closed or exited -- the sidebar selects
     /// what the window shows instead: its row, or none so the agent's
     /// selection shows (B-071, D-116, D-142).
-    private func removeTerminalRow(_ handle: AttachmentHandle, of attachment: Attachment, handingOn: Bool) {
+    private func removeTerminalRow(_ handle: AttachmentHandle, of attachment: Attachment, handingOn handOn: RowHandOn?) {
         guard let controller = attachment.controller ?? registry.controller(for: handle.windowID),
               let terminals = controller.leoSession?.terminals else { return }
         let wasSelected = terminals.selection == handle.surfaceID
-        let isHandedOn = handingOn && adoptOrphanedShell(replacing: handle, in: controller, terminals: terminals)
+        let isHandedOn = handOn.map { adoptOrphanedShell(replacing: handle, preferring: $0.heir, in: controller, terminals: terminals) } ?? false
         if !isHandedOn { terminals.remove(handle.surfaceID) }
         if wasSelected { selectShownTerminal(in: controller) }
     }
 
     /// B-082: a row's pane closed beside a split, and what its window
     /// shows now holds no row and no agent. A plain shell Leo made there
-    /// -- the focused one, else the first -- carries the row on in its
-    /// sidebar slot, titled by its terminal, its selection moving along:
-    /// the sidebar still reaches what the window shows, and a switch hides
-    /// it as any row's rather than killing it. `false` when there is none
-    /// (beside an agent, whose row reaches it, nothing is invented).
+    /// -- `preferred`, the pane upstream focuses next (B-107), else the
+    /// first in tree order -- carries the row on in its sidebar slot,
+    /// titled by its terminal, its selection moving along: the sidebar
+    /// still reaches what the window shows, selecting what has keyboard
+    /// focus, and a switch hides it as any row's rather than killing it.
+    /// `false` when there is none (beside an agent, whose row reaches it,
+    /// nothing is invented).
     private func adoptOrphanedShell(
         replacing handle: AttachmentHandle,
+        preferring preferred: Ghostty.SurfaceView?,
         in controller: TerminalController,
         terminals: LeoWindowTerminals
     ) -> Bool {
-        guard terminals.contains(handle.surfaceID), let (surface, heir) = orphanedShell(in: controller) else { return false }
-        heir.isTerminalRow = true
+        guard terminals.contains(handle.surfaceID),
+              let (surface, adopted) = orphanedShell(in: controller, preferring: preferred) else { return false }
+        adopted.isTerminalRow = true
         terminals.replace(handle.surfaceID, with: surface.id, title: surface.title)
-        followTitle(of: surface, in: terminals, cancellables: &heir.cancellables)
+        followTitle(of: surface, in: terminals, cancellables: &adopted.cancellables)
         Self.logger.log("closeTerminal window=\(handle.windowID.rawValue.uuidString, privacy: .public) handedOn=true")
         return true
     }
 
     /// The plain shell to carry a closed row on in `controller`'s window,
-    /// while what it shows holds no row and no agent: the focused one, else
-    /// the first in the split. Only shells Leo made (a registered handle).
-    private func orphanedShell(in controller: TerminalController) -> (Ghostty.SurfaceView, Attachment)? {
+    /// while what it shows holds no row and no agent: `preferred` -- the
+    /// pane upstream focuses next, worked out before the close (by now
+    /// `focusedSurface` may still name the closed pane) -- when it is one
+    /// of them, else the first in tree order (several panes closing at
+    /// once can take it too). Only shells Leo made (a registered handle).
+    ///
+    /// `controller.window != nil` only says the controller still holds its
+    /// window, not that the window is open or on screen. A window that
+    /// closes closes its handles in `windowWillClose`, without handing a
+    /// row on, so a closing window adopts nothing all the same.
+    private func orphanedShell(
+        in controller: TerminalController,
+        preferring preferred: Ghostty.SurfaceView?
+    ) -> (Ghostty.SurfaceView, Attachment)? {
         let tree = controller.surfaceTree
         guard controller.window != nil,
               !tree.contains(where: { isTerminalRow($0) || isAgent($0) }) else { return nil }
@@ -795,7 +857,7 @@ import OSLog
                 .first { $0.controller === controller && $0.surface === surface }
                 .map { (surface, $0) }
         }
-        return shells.first { $0.0 === controller.focusedSurface } ?? shells.first
+        return shells.first { $0.0 === preferred } ?? shells.first
     }
 }
 
@@ -814,6 +876,18 @@ private enum GhosttyAttachContentHostError: Error, LocalizedError {
         case .placeholderUnavailable: "The placeholder surface is unavailable"
         }
     }
+}
+
+/// B-082/B-107: a row's pane that closed beside a split may hand its row
+/// on; `heir` is the pane upstream focuses next, when known.
+@MainActor private struct RowHandOn {
+    weak var heir: Ghostty.SurfaceView?
+}
+
+/// B-107: a handle to reconcile once its window's tree change lands.
+@MainActor private struct PendingReconcile {
+    let handle: AttachmentHandle
+    var handOn: RowHandOn
 }
 
 @MainActor private final class Attachment {
