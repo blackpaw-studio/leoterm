@@ -660,6 +660,16 @@ Why: runtests.sh still labels ConfigTests/errorsEmptyForValidConfig "an expected
 Accept: runtests.sh still labels ConfigTests/errorsEmptyForValidConfig "an expected baseline failure"; verify.md says to treat a failure of that test as real (see also B-137)
 Source: autopilot polish (B-147)
 
+## B-170 · isOffScreen fails loudly on a bad row index   [ready (next run)]
+Why: LeoSidebarTerminalScrollTests.swift:543 returns true for a row that doesn't exist, so a bad index would pass the off-screen precondition silently
+Accept: LeoSidebarTerminalScrollTests.swift:543 returns true for a row that doesn't exist, so a bad index would pass the off-screen precondition silently
+Source: autopilot polish (B-106)
+
+## B-171 · A focus report after a shell closes could reselect another agent   [ready (next run)]
+Why: B-106 review (unconfirmed): after the last shell closes and the list lands, a late focus report could reselect a different agent a turn later; pin with a test through the real attach/focus path
+Accept: B-106 review (unconfirmed): after the last shell closes and the list lands, a late focus report could reselect a different agent a turn later; pin with a test through the real attach/focus path
+Source: autopilot polish (B-106)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
