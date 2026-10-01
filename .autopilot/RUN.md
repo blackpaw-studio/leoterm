@@ -259,3 +259,14 @@ Lane: B-098
 - B-098 runner: ready at 6ca8fe0dd (general+concurrency full; Zig global 80/80; 1937/1937). Found a std 0.16.0 createPosixBlock errdefer bug (worth reporting upstream; nothing filed). src/ changed: the shared xcframework under .git/autopilot/shared predates this — rebuild before lanes symlink it.
 - B-098 landed (merge 9ef762c2b).
 Finished 14: B-098 landed 9ef762c2b · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-098-1.png
+
+Lane: B-099
+  Branch: autopilot-lane/B-099
+  Base: 9f020dc4568d3b694a411b9ceff1dcbf85833eaf
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-01T05:34:38Z
