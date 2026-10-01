@@ -19,14 +19,13 @@ import SwiftUI
 /// section as of the terminals' last change, which is the closing only
 /// while the filter is empty -- one more reason for the filter guard.
 struct LeoTerminalsSectionExit: ViewModifier {
-    /// Whether the Terminals section is in the list.
-    let isListed: Bool
+    /// How many rows the Terminals section has in the list: its header
+    /// and terminals, or 0 when it isn't listed.
+    let sectionRows: Int
     /// Whether the search filter has text (which hides the section).
     let isFiltering: Bool
     /// Where the list lands; see `LeoTerminalsSectionExit.landing`.
     let landing: Landing?
-    /// Where the section shows (B-105), snapshotted on `terminalsWillChange`.
-    let viewport: LeoTerminalsViewport
     /// The window's terminals about to change: the only way the section
     /// closes while the filter is empty.
     let terminalsWillChange: ObservableObjectPublisher
@@ -34,6 +33,8 @@ struct LeoTerminalsSectionExit: ViewModifier {
 
     /// Whether the section was listed as of the last change seen.
     @State private var wasListed = false
+    /// Where the section shows (B-105), snapshotted on `terminalsWillChange`.
+    @State private var viewport = LeoTerminalsViewport()
 
     /// What a landing follows. The landing itself is in it so the change
     /// that closes the section reads the current one (the action's
@@ -46,10 +47,14 @@ struct LeoTerminalsSectionExit: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            .background(LeoTerminalsViewportFinder(viewport: viewport).accessibilityHidden(true))
             .onAppear { wasListed = isListed }
-            .onReceive(terminalsWillChange) { viewport.snapshot() }
+            // Its rows as of the last update, which the list has.
+            .onReceive(terminalsWillChange) { viewport.snapshot(sectionRows: sectionRows) }
             .onChange(of: trigger) { settle($0) }
     }
+
+    private var isListed: Bool { sectionRows > 0 }
 
     private var trigger: Trigger { Trigger(isListed: isListed, isFiltering: isFiltering, landing: landing) }
 
@@ -94,12 +99,12 @@ extension LeoTerminalsSectionExit {
 
 extension View {
     func leoLandsWhenTerminalsClose(
-        isListed: Bool, isFiltering: Bool, landing: LeoTerminalsSectionExit.Landing?,
-        viewport: LeoTerminalsViewport, terminalsWillChange: ObservableObjectPublisher, proxy: ScrollViewProxy
+        sectionRows: Int, isFiltering: Bool, landing: LeoTerminalsSectionExit.Landing?,
+        terminalsWillChange: ObservableObjectPublisher, proxy: ScrollViewProxy
     ) -> some View {
         modifier(LeoTerminalsSectionExit(
-            isListed: isListed, isFiltering: isFiltering, landing: landing,
-            viewport: viewport, terminalsWillChange: terminalsWillChange, proxy: proxy
+            sectionRows: sectionRows, isFiltering: isFiltering, landing: landing,
+            terminalsWillChange: terminalsWillChange, proxy: proxy
         ))
     }
 }

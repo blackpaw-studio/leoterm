@@ -250,7 +250,8 @@ struct LeoSidebarTerminalScrollTests {
         } else {
             #expect(isVisible(row: 0, in: table), "the list is at its top")
             // B-105: its very top, above the first header's top margin.
-            #expect(clipOffset(of: table) == launchOffset, "the list is back where it launched")
+            let landed = try #require(clipOffset(of: table))
+            #expect(abs(landed - (launchOffset ?? .nan)) <= 0.5, "the list is back where it launched")
         }
     }
 

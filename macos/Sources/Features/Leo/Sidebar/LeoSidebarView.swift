@@ -81,7 +81,6 @@ struct LeoSidebarView: View {
     @State private var showingSpawn = false
     @State private var searchField = LeoSidebarSearchFieldHandle()
     @State private var hostsSheetModel: LeoHostsSheetModel?
-    @State private var terminalsViewport = LeoTerminalsViewport()
 
     /// Main-actor so a missing `shortcutHints` (tests) can be made here.
     @MainActor init(
@@ -301,10 +300,10 @@ struct LeoSidebarView: View {
             .listStyle(.sidebar)
             .leoRevealsTerminalRow(terminals.selection, isListed: showsTerminals, listsAgents: listsAgents, proxy: proxy)
             .leoLandsWhenTerminalsClose(
-                isListed: showsTerminals,
+                // Its header and terminals.
+                sectionRows: showsTerminals ? terminals.rows.count + 1 : 0,
                 isFiltering: LeoSidebarLayout.isFiltering(model.query),
                 landing: LeoTerminalsSectionExit.landing(selectedAgent: model.selection, in: agentSections),
-                viewport: terminalsViewport,
                 terminalsWillChange: terminals.objectWillChange,
                 proxy: proxy
             )
@@ -329,10 +328,9 @@ struct LeoSidebarView: View {
     }
 
     private var terminalSection: some View {
-        Section(header: Text("Terminals").leoProbesTerminalsViewport(terminalsViewport)) {
+        Section(header: Text("Terminals")) {
             ForEach(terminals.list.labels) { label in
                 LeoTerminalRowView(label: label) { terminals.activate(label.id) }
-                    .leoProbesTerminalsViewport(terminalsViewport)
                     .tag(Optional(LeoSidebarItemID.terminal(label.id)))
                     .id(LeoSidebarItemID.terminal(label.id))
             }
