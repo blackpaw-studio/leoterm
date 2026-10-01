@@ -141,3 +141,14 @@ Lane: B-088
 - B-088 runner: ready at cf49e5f3a (general full; 1913/1913; GUI shots of named confirms).
 - B-088 landed (merge 132099737).
 Finished 7: B-088 landed 132099737 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-088-3.png
+
+Lane: B-089
+  Branch: autopilot-lane/B-089
+  Base: 04a9561ad35bc215137af413546c6e3b61905e98
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-01T01:21:27Z
