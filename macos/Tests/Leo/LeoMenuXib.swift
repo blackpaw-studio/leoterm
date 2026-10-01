@@ -1,7 +1,8 @@
-import Foundation
+import AppKit
 
 /// The main menu's key equivalents, read from the xib source
-/// (instantiating MainMenu would also build its AppDelegate).
+/// (instantiating MainMenu would also build its AppDelegate) or from a
+/// live `NSMenu`, in one "⌃⌥⇧⌘key" form so one guard checks both.
 enum LeoMenuXib {
     struct MenuShortcut {
         let title: String
@@ -26,15 +27,38 @@ enum LeoMenuXib {
             guard let item = node as? XMLElement, let key = item.attribute(forName: "keyEquivalent")?.stringValue, !key.isEmpty else { return nil }
             let mask = item.elements(forName: "modifierMask").first
             func has(_ name: String) -> Bool { mask?.attribute(forName: name)?.stringValue == "YES" }
-            let shift = has("shift") || key != key.lowercased()
-            let shortcut = (has("control") ? "⌃" : "") + (has("option") ? "⌥" : "") + (shift ? "⇧" : "") + (has("command") || mask == nil ? "⌘" : "") + key.lowercased()
+            let flags: NSEvent.ModifierFlags = mask == nil ? .command : [
+                has("control") ? .control : [], has("option") ? .option : [],
+                has("shift") ? .shift : [], has("command") ? .command : [],
+            ]
             let action = item.elements(forName: "connections").first?.elements(forName: "action").first?.attribute(forName: "selector")?.stringValue
-            return MenuShortcut(title: item.attribute(forName: "title")?.stringValue ?? "", action: action, shortcut: shortcut)
+            return MenuShortcut(title: item.attribute(forName: "title")?.stringValue ?? "", action: action, shortcut: shortcut(key, flags))
         }
     }
 
-    /// The items in `items` bound to any of `shortcuts` whose action isn't `owner`.
-    static func claims(on shortcuts: Set<String>, byAnyoneBut owner: String, in items: [MenuShortcut]) -> [MenuShortcut] {
-        items.filter { shortcuts.contains($0.shortcut) && $0.action != owner }
+    /// Every item in `menu` (submenus included) with a key equivalent,
+    /// hidden ones too.
+    static func shortcuts(in menu: NSMenu?) -> [MenuShortcut] {
+        (menu?.items ?? []).flatMap { item -> [MenuShortcut] in
+            let own = item.keyEquivalent.isEmpty ? [] : [MenuShortcut(
+                title: item.title,
+                action: item.action.map(NSStringFromSelector),
+                shortcut: shortcut(item.keyEquivalent, item.keyEquivalentModifierMask)
+            )]
+            return own + shortcuts(in: item.submenu)
+        }
+    }
+
+    private static func shortcut(_ key: String, _ flags: NSEvent.ModifierFlags) -> String {
+        let shift = flags.contains(.shift) || key != key.lowercased()
+        return (flags.contains(.control) ? "⌃" : "") + (flags.contains(.option) ? "⌥" : "")
+            + (shift ? "⇧" : "") + (flags.contains(.command) ? "⌘" : "") + key.lowercased()
+    }
+
+    /// The items in `items` that break "only `owner` holds ⌘`key`": anyone
+    /// else on ⌘`key`, and anyone at all -- `owner` included -- on a bare
+    /// `key`, which is what an empty `<modifierMask/>` really binds (B-102).
+    static func intruders(onCommand key: String, ownedBy owner: String, in items: [MenuShortcut]) -> [MenuShortcut] {
+        items.filter { $0.shortcut == key || ($0.shortcut == "⌘" + key && $0.action != owner) }
     }
 }

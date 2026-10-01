@@ -65,45 +65,40 @@ import Testing
         #expect(items.map(\.title) == ["Choose Agent…"])
         #expect(items.first?.keyEquivalent == "o")
         #expect(items.first?.keyEquivalentModifierMask == .command)
-        let xib = try LeoMenuXib.shortcuts().filter { $0.shortcut == "⌘o" }
-        #expect(xib.map(\.action) == ["chooseLeoAgent:"], "nothing else in the menus uses ⌘O")
-    }
-
-    /// Every main-menu item (submenus included) on plain ⌘`key`.
-    private func commandItems(_ key: String) -> [NSMenuItem] {
-        func walk(_ menu: NSMenu?) -> [NSMenuItem] {
-            (menu?.items ?? []).flatMap { [$0] + walk($0.submenu) }
-        }
-        return walk(NSApp.mainMenu).filter {
-            $0.keyEquivalent == key && $0.keyEquivalentModifierMask.intersection(.deviceIndependentFlagsMask) == .command
-        }
+        let xib = try LeoMenuXib.shortcuts()
+        #expect(xib.contains { $0.action == "chooseLeoAgent:" && $0.shortcut == "⌘o" })
+        #expect(Self.commandOIntruders(xib).map(\.title) == [], "no xib item but Choose Agent… binds ⌘O, and none binds a bare O")
+        #expect(
+            Self.commandOIntruders(LeoMenuXib.shortcuts(in: NSApp.mainMenu)).map(\.title) == [],
+            "no live menu item but Choose Agent… binds ⌘O, and none binds a bare O"
+        )
     }
 
     /// B-066 (D-125): ⌘T is New Terminal and nothing else -- not the agent
     /// palette, not the quick terminal.
     @Test func commandTIsNewTerminalAlone() throws {
-        let items = commandItems("t")
+        let live = LeoMenuXib.shortcuts(in: NSApp.mainMenu)
 
-        #expect(items.map(\.title) == ["New Terminal"])
-        #expect(items.first?.action == #selector(TerminalController.newTab(_:)))
-        let quick = menuItems(#selector(AppDelegate.toggleQuickTerminal(_:)))
-        #expect(!quick.isEmpty, "the quick terminal keeps its menu item")
-        #expect(quick.allSatisfy { $0.keyEquivalent != "t" || $0.keyEquivalentModifierMask != .command })
+        #expect(live.filter { $0.shortcut == "⌘t" }.map(\.title) == ["New Terminal"])
+        #expect(live.first { $0.shortcut == "⌘t" }?.action == "newTab:")
+        #expect(!menuItems(#selector(AppDelegate.toggleQuickTerminal(_:))).isEmpty, "the quick terminal keeps its menu item")
+        #expect(
+            Self.commandTIntruders(live).map(\.title) == [],
+            "no live menu item but New Terminal binds ⌘T, and none binds a bare T"
+        )
         let intruders = try Self.commandTIntruders(LeoMenuXib.shortcuts())
         #expect(
             intruders.map(\.title) == [],
-            "no xib item but New Terminal binds ⌘T or a bare T (New Terminal's own ⌘T comes from the config's new_tab)"
+            "no xib item but New Terminal binds ⌘T, and none binds a bare T (New Terminal's own ⌘T comes from the config's new_tab)"
         )
     }
 
     // MARK: The xib ⌘T guard (B-076)
 
-    /// Shortcuts only New Terminal may have in the xib: ⌘T, and a bare T,
-    /// which is what an empty `<modifierMask/>` on a "t" key really binds.
-    private static let commandTLookalikes: Set<String> = ["⌘t", "t"]
-
+    /// Only New Terminal may hold ⌘T; nothing, New Terminal included, may
+    /// hold a bare T, which is what an empty `<modifierMask/>` really binds.
     private static func commandTIntruders(_ items: [LeoMenuXib.MenuShortcut]) -> [LeoMenuXib.MenuShortcut] {
-        LeoMenuXib.claims(on: commandTLookalikes, byAnyoneBut: "newTab:", in: items)
+        LeoMenuXib.intruders(onCommand: "t", ownedBy: "newTab:", in: items)
     }
 
     /// Parses menu items as they'd sit in MainMenu.xib.
@@ -151,6 +146,71 @@ import Testing
         #expect(Self.commandTIntruders(items).map(\.title) == ["Quick Terminal"])
     }
 
+    /// B-102: New Terminal may hold only ⌘T, never a bare T.
+    @Test func theXibGuardFlagsABareTOnNewTerminal() throws {
+        let items = try Self.fixture("""
+            <menuItem title="New Tab" keyEquivalent="t" id="n1">
+                <modifierMask key="keyEquivalentModifierMask"/>
+                <connections><action selector="newTab:" target="-1" id="a1"/></connections>
+            </menuItem>
+            """)
+
+        #expect(Self.commandTIntruders(items).map(\.title) == ["New Tab"])
+    }
+
+    // MARK: The ⌘O guard (B-102)
+
+    /// Only Choose Agent… may hold ⌘O; nothing may hold a bare O.
+    private static func commandOIntruders(_ items: [LeoMenuXib.MenuShortcut]) -> [LeoMenuXib.MenuShortcut] {
+        LeoMenuXib.intruders(onCommand: "o", ownedBy: "chooseLeoAgent:", in: items)
+    }
+
+    private static let chooseAgentOnCommandO = """
+        <menuItem title="Choose Agent…" keyEquivalent="o" id="c1">
+            <connections><action selector="chooseLeoAgent:" target="-1" id="a1"/></connections>
+        </menuItem>
+        """
+
+    @Test func theOGuardFlagsAnotherItemOnCommandOOrABareO() throws {
+        let items = try Self.fixture(Self.chooseAgentOnCommandO + """
+            <menuItem title="Open" keyEquivalent="o" id="o1">
+                <connections><action selector="openDocument:" target="-1" id="a2"/></connections>
+            </menuItem>
+            <menuItem title="Bare" keyEquivalent="o" id="o2">
+                <modifierMask key="keyEquivalentModifierMask"/>
+                <connections><action selector="openFileInLeoEditor:" target="-1" id="a3"/></connections>
+            </menuItem>
+            """)
+
+        #expect(Self.commandOIntruders(items).map(\.title) == ["Open", "Bare"])
+    }
+
+    @Test func theOGuardFlagsABareOOnChooseAgent() throws {
+        let items = try Self.fixture("""
+            <menuItem title="Choose Agent…" keyEquivalent="o" id="c1">
+                <modifierMask key="keyEquivalentModifierMask"/>
+                <connections><action selector="chooseLeoAgent:" target="-1" id="a1"/></connections>
+            </menuItem>
+            """)
+
+        #expect(Self.commandOIntruders(items).map(\.title) == ["Choose Agent…"])
+    }
+
+    @Test func theOGuardLeavesChooseAgentAndOtherOChordsAlone() throws {
+        let items = try Self.fixture(Self.chooseAgentOnCommandO + """
+            <menuItem title="Open File in Editor…" keyEquivalent="O" id="s1">
+                <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
+                <connections><action selector="openFileInLeoEditor:" target="-1" id="a2"/></connections>
+            </menuItem>
+            <menuItem title="Open Surfaced File" keyEquivalent="o" id="s2">
+                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                <connections><action selector="openLeoSurfacedFile:" target="-1" id="a3"/></connections>
+            </menuItem>
+            """)
+
+        #expect(Self.commandOIntruders(items).isEmpty)
+    }
+
     @Test func theXibGuardLeavesOtherTChordsAlone() throws {
         let items = try Self.fixture(Self.newTerminalOnCommandT + """
             <menuItem title="Shifted" keyEquivalent="T" id="s1">
@@ -163,6 +223,56 @@ import Testing
             """)
 
         #expect(Self.commandTIntruders(items).isEmpty)
+    }
+
+    // MARK: The live-menu guard (B-102)
+
+    private static func liveItem(_ title: String, _ action: String, _ key: String, _ mask: NSEvent.ModifierFlags) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: NSSelectorFromString(action), keyEquivalent: key)
+        item.keyEquivalentModifierMask = mask
+        return item
+    }
+
+    /// A fake main menu: `items` sit in a File submenu.
+    private static func liveMenu(_ items: [NSMenuItem]) -> NSMenu {
+        let file = NSMenu(title: "File")
+        items.forEach(file.addItem)
+        let main = NSMenu(title: "Main")
+        let top = NSMenuItem(title: "File", action: nil, keyEquivalent: "")
+        top.submenu = file
+        main.addItem(top)
+        return main
+    }
+
+    @Test func liveShortcutsDecodeLikeTheXib() {
+        let menu = Self.liveMenu([
+            Self.liveItem("Command", "a:", "t", .command),
+            Self.liveItem("Bare", "b:", "t", []),
+            Self.liveItem("Upper", "c:", "T", .command),
+            Self.liveItem("Option", "d:", "t", .option),
+            Self.liveItem("None", "e:", "", .command),
+        ])
+
+        let shortcuts = LeoMenuXib.shortcuts(in: menu)
+
+        #expect(shortcuts.map(\.shortcut) == ["⌘t", "t", "⇧⌘t", "⌥t"])
+        #expect(shortcuts.map(\.action) == ["a:", "b:", "c:", "d:"])
+    }
+
+    @Test func theLiveGuardFlagsAnyItemOnCommandTOrABareT() {
+        let menu = Self.liveMenu([
+            Self.liveItem("New Terminal", "newTab:", "t", .command),
+            Self.liveItem("Close Window", "performClose:", "t", .command),
+            Self.liveItem("Bare", "toggleQuickTerminal:", "t", []),
+        ])
+
+        #expect(Self.commandTIntruders(LeoMenuXib.shortcuts(in: menu)).map(\.title) == ["Close Window", "Bare"])
+    }
+
+    @Test func theLiveGuardFlagsABareTOnNewTerminal() {
+        let menu = Self.liveMenu([Self.liveItem("New Terminal", "newTab:", "t", [])])
+
+        #expect(Self.commandTIntruders(LeoMenuXib.shortcuts(in: menu)).map(\.title) == ["New Terminal"])
     }
 
     /// B-066: the start screen's Choose Agent… tooltip names the palette's
