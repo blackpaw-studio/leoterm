@@ -11,8 +11,9 @@ import SwiftUI
 /// Window resizes are kept from disturbing the sidebar's width by giving it
 /// a higher holding priority than the detail (terminal) pane: `NSSplitView`
 /// resizes the lower-priority pane first, so the terminal absorbs window
-/// resizes and the sidebar's reported width only changes when the user (or
-/// assistive technology) actually moves the divider.
+/// resizes until it reaches its minimum width. Past that the sidebar gives
+/// way, so only a divider move is persisted (see
+/// `LeoSplitViewController.splitViewDidResizeSubviews`).
 ///
 /// Both priorities live in `NSSplitView`'s low band (see
 /// `LeoSidebarSplitMetrics`). Only their *order* matters for who absorbs a
@@ -240,7 +241,14 @@ final class LeoSplitViewController: NSSplitViewController {
     /// pass, not within this call, so clearing it immediately would leave
     /// the guard covering nothing and let this programmatic move get
     /// persisted as if the user had dragged there. A width that has to
-    /// wait for the split view keeps the flag up until it is applied.
+    /// wait for the split view is held in `pendingWidth`; this path doesn't
+    /// raise the flag, and `pendingWidth != nil` is what keeps the layouts
+    /// before it's applied from being persisted.
+    ///
+    /// On that same turn, `lastPersistedWidth` becomes the width the
+    /// sidebar actually got (B-089): a window too narrow for `width`
+    /// clamps it, and recording the width asked for would make widening
+    /// the window afterwards look like a drag to the clamped width.
     func applyProgrammaticWidth(_ width: CGFloat) {
         guard isReadyToPositionDivider else {
             // The split view has no width of its own yet -- it isn't in a
@@ -251,11 +259,12 @@ final class LeoSplitViewController: NSSplitViewController {
             // `viewDidLayout`, and deliberately do NOT touch
             // `lastPersistedWidth`: recording a width that was never applied
             // would let the next resize notification overwrite the stored
-            // preference with the minimum. The guard stays up until the
-            // width is applied (B-084): the layouts before that report the
-            // pre-restore width, not a drag.
+            // preference with the minimum. This path doesn't raise the
+            // flag; until the width is applied (B-084), `pendingWidth != nil`
+            // is what keeps `splitViewDidResizeSubviews` from persisting:
+            // the layouts before that report the pre-restore width, not a
+            // drag.
             pendingWidth = width
-            isApplyingProgrammaticWidth = true
             return
         }
 
@@ -271,7 +280,7 @@ final class LeoSplitViewController: NSSplitViewController {
         isApplyingProgrammaticWidth = true
         splitView.setPosition(width, ofDividerAt: 0)
         lastPersistedWidth = width
-        clearProgrammaticWidthFlagSoon()
+        clearProgrammaticWidthFlagSoon(recordingAppliedWidth: true)
     }
 
     /// Before `item` (the browser or the editor) is shown: if the terminal
@@ -502,30 +511,52 @@ final class LeoSplitViewController: NSSplitViewController {
     /// Clears the guard on the next main-queue turn rather than synchronously:
     /// the resulting `splitViewDidResizeSubviews` notification arrives on a
     /// later layout pass, so clearing it immediately would leave the guard
-    /// covering nothing.
-    private func clearProgrammaticWidthFlagSoon() {
+    /// covering nothing. `recordingAppliedWidth` first records the width
+    /// the sidebar got, while the guard still covers the layout that takes.
+    private func clearProgrammaticWidthFlagSoon(recordingAppliedWidth: Bool = false) {
         DispatchQueue.main.async { [weak self] in
-            self?.isApplyingProgrammaticWidth = false
+            guard let self else { return }
+            if recordingAppliedWidth { recordAppliedWidth() }
+            isApplyingProgrammaticWidth = false
         }
     }
 
-    /// Persists the sidebar's current width whenever the split view reports
-    /// a resize, as long as the sidebar isn't collapsed and the width
-    /// actually moved. This fires for both a genuine divider drag and an
-    /// assistive-technology-driven adjustment (e.g. VoiceOver incrementing
-    /// the divider) -- both are real user intent and both should be
-    /// remembered. Window resizes don't reach here because the sidebar's
-    /// holding priority keeps its width fixed while the terminal pane
-    /// absorbs the change; programmatic width changes we make ourselves are
-    /// excluded via `isApplyingProgrammaticWidth`.
+    /// Settles the layout `setPosition` asked for -- one AppKit was about
+    /// to run anyway, so nothing visibly moves (D-145) -- and records the
+    /// sidebar's width from it. Runs on a later main-queue turn, never
+    /// inside a layout pass. A sidebar collapsed meanwhile (⌘⇧L, the
+    /// terminal floor) keeps a stale frame, so it records nothing.
+    private func recordAppliedWidth() {
+        guard isReadyToPositionDivider else { return }
+        view.layoutSubtreeIfNeeded()
+        guard let sidebarItem, !sidebarItem.isCollapsed else { return }
+        lastPersistedWidth = sidebarItem.viewController.view.frame.width
+    }
+
+    /// Persists the sidebar's width when the user moves its divider, as
+    /// long as the sidebar isn't collapsed and the width actually moved: a
+    /// mouse drag, or an adjustment through `setPosition(_:ofDividerAt:)`.
+    ///
+    /// Only a divider move counts (B-089). A window resize also reaches
+    /// here: once the terminal is at its minimum, narrowing the window
+    /// squeezes the sidebar, and widening gives the width back. Neither is
+    /// the user's width, so neither is persisted, nor recorded as
+    /// `lastPersistedWidth`. Programmatic width changes we make ourselves
+    /// are excluded via `isApplyingProgrammaticWidth`.
     ///
     /// Nor does a layout before the stored width is applied (B-084): the
     /// split view isn't in a window yet, or still holds `pendingWidth`, so
     /// the width it reports is the minimum or fitting width, and persisting
-    /// it would lose the stored width at the next launch.
+    /// it would lose the stored width at the next launch. The pending path
+    /// doesn't raise `isApplyingProgrammaticWidth`; the `pendingWidth ==
+    /// nil` check is what guards those layouts, so it must stay. A split
+    /// that never reaches a window keeps its pending width and never
+    /// persists.
     override func splitViewDidResizeSubviews(_ notification: Notification) {
         super.splitViewDidResizeSubviews(notification)
 
+        // Only the sidebar's own divider is a sidebar-width choice: one that pushes it from the terminal's side isn't.
+        guard Self.isSidebarDividerMove(notification.userInfo) else { return }
         guard !isApplyingProgrammaticWidth, pendingWidth == nil, isReadyToPositionDivider else { return }
         guard let sidebarItem, !sidebarItem.isCollapsed else { return }
         let width = sidebarItem.viewController.view.frame.width
@@ -534,6 +565,26 @@ final class LeoSplitViewController: NSSplitViewController {
         }
         lastPersistedWidth = width
         onDividerWidthChange?(width)
+    }
+
+    /// `NSSplitView.didResizeSubviewsNotification`'s user info. AppKit
+    /// documents `NSSplitViewDividerIndex`, but also posts it for layouts
+    /// (one per divider). `NSSplitViewUserResizeKey` is undocumented; AppKit
+    /// adds it only when a divider's position was set -- 1 for a mouse drag,
+    /// 0 for `setPosition(_:ofDividerAt:)` -- and never for the layouts a
+    /// window resize causes. `aMouseDragOnTheDividerIsStored` and
+    /// `aWindowResizeThatClampsTheSidebarStoresNothing` fail if that
+    /// changes.
+    private enum ResizeInfoKey {
+        static let dividerIndex = "NSSplitViewDividerIndex"
+        static let userResize = "NSSplitViewUserResizeKey"
+    }
+
+    /// Whether a resize notification is the sidebar's own divider (index 0)
+    /// being moved, as opposed to a layout.
+    private static func isSidebarDividerMove(_ userInfo: [AnyHashable: Any]?) -> Bool {
+        guard let userInfo, userInfo[ResizeInfoKey.userResize] != nil else { return false }
+        return (userInfo[ResizeInfoKey.dividerIndex] as? Int) == 0
     }
 }
 

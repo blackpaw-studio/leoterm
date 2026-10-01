@@ -586,16 +586,16 @@ import Testing
     // MARK: Width across launches (B-084)
 
     private static let relaunchedWidth: CGFloat = 360
-    private static let widthKey = "leo.sidebarWidth"
 
     /// Builds the split as the app does at launch: from a window session
     /// reading `defaults`, persisting divider moves back through it.
     private static func launch(
-        _ defaults: UserDefaults, attachesAfterAMainQueueTurn: Bool = false, isSidebarVisible: Bool = true
+        _ defaults: UserDefaults, attachesAfterAMainQueueTurn: Bool = false, isSidebarVisible: Bool = true,
+        windowWidth: CGFloat = LeoSplitViewRepresentableTests.windowWidth, editor: LeoEditorPaneModel? = nil
     ) async -> Harness {
         let session = LeoWindowSession(defaults: defaults)
         let harness = Harness(
-            preferredWidth: session.preferredWidth, isSidebarVisible: isSidebarVisible,
+            preferredWidth: session.preferredWidth, windowWidth: windowWidth, isSidebarVisible: isSidebarVisible, editor: editor,
             onDividerWidthChange: { session.setPreferredWidth($0) }, attachesWindow: !attachesAfterAMainQueueTurn)
         if attachesAfterAMainQueueTurn {
             await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
@@ -610,22 +610,26 @@ import Testing
     @Test(arguments: [false, true])
     func launchingDoesNotOverwriteTheStoredSidebarWidth(attachesAfterAMainQueueTurn: Bool) async {
         let defaults = LeoInMemoryDefaults()
-        defaults.set(Double(Self.relaunchedWidth), forKey: Self.widthKey)
+        defaults.set(Double(Self.relaunchedWidth), forKey: LeoWindowSession.sidebarWidthKey)
 
         let harness = await Self.launch(defaults, attachesAfterAMainQueueTurn: attachesAfterAMainQueueTurn)
         defer { harness.close() }
 
-        #expect(defaults.double(forKey: Self.widthKey) == Double(Self.relaunchedWidth))
+        #expect(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) == Double(Self.relaunchedWidth))
         #expect(abs(harness.sidebarWidth - Self.relaunchedWidth) <= 1)
     }
 
-    /// The width the user dragged to is the one the next launch opens at.
-    @Test func aDraggedWidthSurvivesARelaunch() async {
+    /// The width the user dragged to is the one the next launch opens at,
+    /// whichever turn the first launch's window arrived on: the guard on
+    /// the layouts that restore the width drops once it's applied.
+    @Test(arguments: [false, true])
+    func aDraggedWidthSurvivesARelaunch(attachesAfterAMainQueueTurn: Bool) async {
         let defaults = LeoInMemoryDefaults()
-        defaults.set(240.0, forKey: Self.widthKey)
+        defaults.set(240.0, forKey: LeoWindowSession.sidebarWidthKey)
         let draggedWidth: CGFloat = 330
 
-        let first = await Self.launch(defaults)
+        let first = await Self.launch(defaults, attachesAfterAMainQueueTurn: attachesAfterAMainQueueTurn)
+        #expect(!first.components.controller.isApplyingProgrammaticWidth)
         first.dragDivider(to: draggedWidth)
         await first.settle()
         first.close()
@@ -634,14 +638,125 @@ import Testing
         defer { relaunched.close() }
 
         #expect(abs(relaunched.sidebarWidth - draggedWidth) <= 1)
-        #expect(abs(defaults.double(forKey: Self.widthKey) - Double(draggedWidth)) <= 1)
+        #expect(abs(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) - Double(draggedWidth)) <= 1)
     }
+
+    /// A window too narrow for the stored width clamps the sidebar. What
+    /// it records is the width the sidebar got, not the one asked for, so
+    /// widening the window afterwards stores nothing: the stored width is
+    /// still the one the next launch opens at (B-089).
+    @Test(arguments: [false, true])
+    func aNarrowLaunchThenWidenKeepsTheStoredWidth(attachesAfterAMainQueueTurn: Bool) async {
+        let defaults = LeoInMemoryDefaults()
+        let storedWidth = LeoSidebarSplitMetrics.maximumWidth
+        defaults.set(Double(storedWidth), forKey: LeoWindowSession.sidebarWidthKey)
+        let harness = await Self.launch(
+            defaults, attachesAfterAMainQueueTurn: attachesAfterAMainQueueTurn, windowWidth: Self.narrowWindowWidth)
+        defer { harness.close() }
+        let controller = harness.components.controller
+        // Clamped: the terminal keeps its minimum beside it.
+        #expect(harness.sidebarWidth < storedWidth - 1)
+        #expect(abs(controller.lastPersistedWidth - harness.sidebarWidth) <= 1)
+
+        await harness.jumpWindow(to: Self.windowWidth)
+
+        #expect(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) == Double(storedWidth))
+    }
+
+    /// A window narrowed until the terminal is at its minimum squeezes the
+    /// sidebar too, and widening it again gives the width back. Neither is
+    /// the user's choice, so the stored width stays (B-089).
+    @Test(arguments: [false, true])
+    func aWindowResizeThatClampsTheSidebarStoresNothing(isLive: Bool) async {
+        let defaults = LeoInMemoryDefaults()
+        let storedWidth: CGFloat = 300
+        defaults.set(Double(storedWidth), forKey: LeoWindowSession.sidebarWidthKey)
+        let harness = await Self.launch(defaults)
+        defer { harness.close() }
+
+        if isLive {
+            await harness.resizeWindow(stepwiseTo: Self.clampingWindowWidth, step: Self.liveResizeStep)
+        } else {
+            await harness.jumpWindow(to: Self.clampingWindowWidth)
+        }
+        #expect(harness.sidebarWidth < storedWidth - 1)
+        await harness.jumpWindow(to: Self.windowWidth)
+
+        #expect(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) == Double(storedWidth))
+        #expect(abs(harness.components.controller.lastPersistedWidth - storedWidth) <= 1)
+    }
+
+    /// A divider move right after a resize that clamped the sidebar is
+    /// the user's, and is stored.
+    @Test func aDividerMoveAfterAClampingResizeIsStored() async {
+        let defaults = LeoInMemoryDefaults()
+        defaults.set(300.0, forKey: LeoWindowSession.sidebarWidthKey)
+        let harness = await Self.launch(defaults)
+        defer { harness.close() }
+        await harness.jumpWindow(to: Self.clampingWindowWidth)
+        await harness.jumpWindow(to: Self.windowWidth)
+
+        harness.dragDivider(to: Self.draggedWidth)
+        await harness.settle()
+
+        #expect(abs(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) - Double(Self.draggedWidth)) <= 1)
+    }
+
+    /// A real mouse drag on the divider, through `NSSplitView`'s own
+    /// tracking, is stored.
+    @Test func aMouseDragOnTheDividerIsStored() async throws {
+        let defaults = LeoInMemoryDefaults()
+        defaults.set(300.0, forKey: LeoWindowSession.sidebarWidthKey)
+        let harness = await Self.launch(defaults)
+        defer { harness.close() }
+
+        try harness.mouseDragDivider(by: 30)
+        await harness.settle()
+
+        #expect(abs(harness.sidebarWidth - 330) <= 1)
+        #expect(abs(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) - 330) <= 1)
+    }
+
+    /// Dragging the terminal's trailing divider past the terminal's minimum
+    /// pushes the sidebar too. Only the sidebar's own divider is a
+    /// sidebar-width choice, so the pushed width isn't stored (B-089).
+    @Test func pushingTheSidebarWithTheEditorsDividerStoresNothing() async throws {
+        let sandbox = try LeoFileSandbox()
+        defer { sandbox.cleanUp() }
+        let defaults = LeoInMemoryDefaults()
+        let storedWidth: CGFloat = 300
+        defaults.set(Double(storedWidth), forKey: LeoWindowSession.sidebarWidthKey)
+        let editor = Self.makeEditor()
+        let harness = await Self.launch(defaults, editor: editor)
+        defer { harness.close() }
+        try await editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.swift", "let a = 1")))
+        await harness.settle()
+        await harness.settle()
+        let push: CGFloat = 50
+
+        try harness.mouseDragDivider(
+            at: 1, by: -(harness.terminalWidth - LeoSidebarSplitMetrics.minimumTerminalWidth + push))
+        await harness.settle()
+
+        #expect(abs(harness.sidebarWidth - (storedWidth - push)) <= 1)
+        #expect(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) == Double(storedWidth))
+        #expect(abs(harness.components.controller.lastPersistedWidth - storedWidth) <= 1)
+        await editor.close()
+    }
+
+    /// Narrow enough that the terminal reaches its minimum and the sidebar
+    /// gives way, but above the window's minimum.
+    private static let clampingWindowWidth: CGFloat = 240
+    private static let liveResizeStep: CGFloat = 40
+
+    /// Narrower than the stored maximum width plus the terminal's minimum.
+    private static let narrowWindowWidth: CGFloat = 320
 
     /// A sidebar hidden at launch opens at the stored width when shown,
     /// and showing it stores nothing new.
     @Test func aHiddenSidebarShownAfterLaunchOpensAtTheStoredWidth() async throws {
         let defaults = LeoInMemoryDefaults()
-        defaults.set(Double(Self.relaunchedWidth), forKey: Self.widthKey)
+        defaults.set(Double(Self.relaunchedWidth), forKey: LeoWindowSession.sidebarWidthKey)
         let harness = await Self.launch(defaults, attachesAfterAMainQueueTurn: true, isSidebarVisible: false)
         defer { harness.close() }
         let controller = harness.components.controller
@@ -656,7 +771,7 @@ import Testing
         for _ in 0..<3 { await harness.settle() }
 
         #expect(abs(harness.sidebarWidth - Self.relaunchedWidth) <= 1)
-        #expect(defaults.double(forKey: Self.widthKey) == Double(Self.relaunchedWidth))
+        #expect(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) == Double(Self.relaunchedWidth))
     }
 
     // MARK: Hidden at launch (B-090)
@@ -668,7 +783,7 @@ import Testing
     @Test(arguments: [false, true])
     func aSidebarHiddenAtLaunchStaysCollapsed(attachesAfterAMainQueueTurn: Bool) async throws {
         let defaults = LeoInMemoryDefaults()
-        defaults.set(Double(Self.relaunchedWidth), forKey: Self.widthKey)
+        defaults.set(Double(Self.relaunchedWidth), forKey: LeoWindowSession.sidebarWidthKey)
         let session = LeoWindowSession(defaults: defaults)
         let harness = Harness(
             preferredWidth: session.preferredWidth, isSidebarVisible: false,
@@ -691,7 +806,7 @@ import Testing
         #expect(sidebarItem.isCollapsed)
         // The terminal has the whole split: no sidebar pixels showing.
         #expect(abs(harness.terminalWidth - harness.components.controller.splitView.bounds.width) <= 1)
-        #expect(defaults.double(forKey: Self.widthKey) == Double(Self.relaunchedWidth))
+        #expect(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) == Double(Self.relaunchedWidth))
     }
 
     private static func makeEditor() -> LeoEditorPaneModel {
@@ -782,6 +897,33 @@ import Testing
 
         func dragDivider(to width: CGFloat) {
             components.controller.splitView.setPosition(width, ofDividerAt: 0)
+            layout()
+        }
+
+        /// Drags the sidebar's divider `offset` with the mouse: the events
+        /// are queued first, then `mouseDown` runs `NSSplitView`'s own
+        /// tracking loop, which takes them off the queue.
+        /// `index` 0 is the sidebar's divider, 1 the terminal's trailing one.
+        func mouseDragDivider(at index: Int = 0, by offset: CGFloat) throws {
+            let split = components.controller.splitView
+            let panes = split.arrangedSubviews
+            try #require(index < panes.count - 1)
+            let start = split.convert(
+                NSPoint(x: panes[index].frame.maxX + split.dividerThickness / 2, y: split.bounds.midY), to: nil)
+            let mouse = { (type: NSEvent.EventType, dx: CGFloat) in
+                NSEvent.mouseEvent(
+                    with: type, location: NSPoint(x: start.x + dx, y: start.y), modifierFlags: [],
+                    timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: self.window.windowNumber, context: nil,
+                    eventNumber: 0, clickCount: 1, pressure: 1)
+            }
+            let down = try #require(mouse(.leftMouseDown, 0))
+            let drag = try #require(mouse(.leftMouseDragged, offset))
+            let up = try #require(mouse(.leftMouseUp, offset))
+            NSApp.postEvent(drag, atStart: false)
+            NSApp.postEvent(up, atStart: false)
+            split.mouseDown(with: down)
+            // A missed hit test leaves them queued: keep them out of later tests.
+            NSApp.discardEvents(matching: [.leftMouseDragged, .leftMouseUp], before: nil)
             layout()
         }
 

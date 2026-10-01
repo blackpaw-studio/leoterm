@@ -22,6 +22,8 @@ struct LeoWindowVisibilityState: Equatable {
 }
 
 @MainActor final class LeoWindowSession: ObservableObject {
+    /// The sidebar's width, one value shared by every window (D-144).
+    static let sidebarWidthKey = "leo.sidebarWidth"
     let id: LeoWindowID
     @Published var isSidebarVisible: Bool { didSet { changed() } }
     /// True while this window's agent palette is on screen. The sidebar can
@@ -88,7 +90,7 @@ struct LeoWindowVisibilityState: Equatable {
         // Fresh installs start with the sidebar hidden -- a persisted user
         // choice (the key is present, either true or false) always wins.
         isSidebarVisible = defaults.object(forKey: "leo.sidebarVisible") as? Bool ?? false
-        preferredWidth = (defaults.object(forKey: "leo.sidebarWidth") as? NSNumber).map { CGFloat($0.doubleValue) } ?? 260
+        preferredWidth = (defaults.object(forKey: Self.sidebarWidthKey) as? NSNumber).map { CGFloat($0.doubleValue) } ?? 260
         observeWindow()
     }
 
@@ -124,7 +126,7 @@ struct LeoWindowVisibilityState: Equatable {
 
     func setPreferredWidth(_ width: CGFloat) {
         preferredWidth = width
-        defaults.set(Double(width), forKey: "leo.sidebarWidth")
+        defaults.set(Double(width), forKey: Self.sidebarWidthKey)
     }
 
     func openPicker(surfaceID: UUID?) { openPicker(surfaceID) }
