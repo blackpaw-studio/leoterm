@@ -627,6 +627,21 @@ Why: :256 ("before B-081"), :390 ("only wait on time (B-099)") and the retitle t
 Accept: :256 ("before B-081"), :390 ("only wait on time (B-099)") and the retitle test's "B-078 (D-130)" opener: keep IDs as labels, drop the history
 Source: autopilot polish (B-103)
 
+## B-164 · F-key config rebinds reach menu items and hints   [ready (next run)]
+Why: map GHOSTTY_KEY_F1…F25 in Ghostty.keyToEquivalent / keyboardShortcut(for:) so a binding like super+f1=new_tab shows on the menu item and the start-screen hint (B-104 left it: upstream drops F-keys)
+Accept: map GHOSTTY_KEY_F1…F25 in Ghostty.keyToEquivalent / keyboardShortcut(for:) so a binding like super+f1=new_tab shows on the menu item and the start-screen hint (B-104 left it: upstream drops F-keys)
+Source: autopilot polish (B-104)
+
+## B-165 · Shortcut hint test helper takes a reconnect: parameter   [ready (next run)]
+Why: LeoShortcutHintsTests.swift:351 passes the Reconnect item through the chooseAgent: parameter; give it its own parameter
+Accept: LeoShortcutHintsTests.swift:351 passes the Reconnect item through the chooseAgent: parameter; give it its own parameter
+Source: autopilot polish (B-104)
+
+## B-166 · LEO_FORCE_DISCONNECTED sometimes doesn't arm on first launch   [ready (next run)]
+Why: B-104 verify: the DEBUG fixture didn't take effect on the first launch; a relaunch worked — possible arming race
+Accept: B-104 verify: the DEBUG fixture didn't take effect on the first launch; a relaunch worked — possible arming race
+Source: autopilot polish (B-104)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)

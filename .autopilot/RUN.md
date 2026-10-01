@@ -82,9 +82,11 @@ Lane: B-104
   Branch: autopilot-lane/B-104
   Base: 1ce88330c279a664c103d0eee358da9a1cc10e8a
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 5b60a45039e52cd530ee4e1e1f91e96ccb75a7ae
   Dispatched: 2026-10-01T18:58:27Z
+  Call: The disconnected Choose Agent… tooltip reads Agents ▸ Reconnect's live shortcut instead of hardcoding ⇧⌘R (follows B-080's Choose Agent precedent) — AUTONOMY: UX details, copy
+  Call: Start-screen hints spell F1–F35 ("⌘F1") when a menu item carries one; config F-key rebinds still reach no menu item because upstream keyToEquivalent drops F-keys — left as a follow-up — AUTONOMY: implementation approach
