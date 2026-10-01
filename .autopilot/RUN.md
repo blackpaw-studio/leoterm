@@ -159,3 +159,14 @@ Lane: B-089
 - B-089 runner: ready at e41196534 after 2 fix rounds (r1 GUI: a window-resize clamp persisted 200; r2: other-divider behaviour untested). 1918/1918.
 - B-089 landed (merge 2a0e35545).
 Finished 8: B-089 landed 2a0e35545 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-089-1.png
+
+Lane: B-091
+  Branch: autopilot-lane/B-091
+  Base: 96f747f5463b63392cb95a6ef654f19074259f41
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-01T02:28:17Z
