@@ -44,6 +44,22 @@ import Testing
         var observer: NSObjectProtocol?
     }
 
+    /// Cancels the first alert sheet that appears on a window.
+    @MainActor private final class SheetWatch {
+        private(set) var sawSheet = false
+
+        func cancelAny(on window: NSWindow) async {
+            while !Task.isCancelled {
+                if let sheet = window.attachedSheet {
+                    sawSheet = true
+                    window.endSheet(sheet, returnCode: .alertSecondButtonReturn)
+                    return
+                }
+                try? await Task.sleep(for: .milliseconds(20))
+            }
+        }
+    }
+
     private final class Weak {
         weak var view: Ghostty.SurfaceView?
         init(_ view: Ghostty.SurfaceView?) { self.view = view }
@@ -115,6 +131,17 @@ import Testing
             try? await Task.sleep(for: .milliseconds(20))
         }
         return condition()
+    }
+
+    /// Lets the main run loop turn until `condition` holds, at most
+    /// `limit` times: counts turns, not time (D-178).
+    private func turns(limit: Int = 50, until condition: () -> Bool) async -> Bool {
+        for _ in 0 ..< limit where !condition() { await nextTurn() }
+        return condition()
+    }
+
+    private func nextTurn() async {
+        await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
     }
 
     // MARK: Rows
@@ -646,8 +673,10 @@ import Testing
     }
 
     /// With two shells left beside the closed pane, one carries the row
-    /// on -- the focused one, else the first -- and the other stays split
-    /// beside it (B-058 decides more).
+    /// on -- the pane upstream focuses next (B-107): the row being the
+    /// leftmost, the next one, which tree order picks too; closed by a
+    /// script while another pane holds focus, that pane -- and the other
+    /// stays split beside it (B-058 decides more).
     @Test(arguments: [false, true])
     func closingARowsPaneBesideTwoShellsPutsOneOnTheRow(_ focusingTheLast: Bool) async throws {
         let fixture = try makeFixture()
@@ -669,6 +698,125 @@ import Testing
         #expect(fixture.terminals.selection == expected.id)
         #expect(fixture.shown().map(\.id) == survivors.map(\.id), "the other stays split beside it")
         #expect(splits.allSatisfy(fixture.host.isOpen))
+    }
+
+    /// Past the longest `Ghostty.moveFocus` retry chain (50 + 100 + 200 +
+    /// 400 ms; timed, not turn-based): a split's focus move still pending
+    /// by then never lands.
+    private static let pendingFocusMovesLand: Duration = .seconds(1)
+
+    /// B-107: [s2, s1, row] -- a shell split to the row's left, then one
+    /// to that shell's left; the row holds keyboard focus. Once the row's
+    /// pane closes upstream focuses s1, the pane before it (the row isn't
+    /// the leftmost); tree order would pick s2, the last split made.
+    /// Returns the row and the pane upstream focuses next.
+    private func rowRightOfTwoSplits(_ fixture: Fixture) async throws -> (AttachmentHandle, Ghostty.SurfaceView) {
+        let row = try newShell(fixture)
+        let first = try openSplit(fixture, beside: row, direction: .left)
+        _ = try openSplit(fixture, beside: first, direction: .left)
+        let rowView = try #require(fixture.view(row))
+        let panes = fixture.shown()
+        try #require(panes.count == 3 && panes[1].id == first.surfaceID && panes[2] === rowView)
+        // The splits' own focus moves land first; then File ▸ Close acts
+        // on the focused row.
+        try? await Task.sleep(for: Self.pendingFocusMovesLand)
+        fixture.controller.focusedSurface = rowView
+        fixture.controller.window?.makeFirstResponder(rowView)
+        return (row, panes[1])
+    }
+
+    /// Keyboard focus -- the window's first responder, and the pane the
+    /// controller names focused -- is the pane the sidebar selects.
+    private func focusMatchesSelection(_ fixture: Fixture) -> Bool {
+        guard let selected = fixture.shown().first(where: { $0.id == fixture.terminals.selection }) else { return false }
+        return fixture.controller.window?.firstResponder === selected && fixture.controller.focusedSurface === selected
+    }
+
+    /// B-107: the row goes to the pane upstream focuses once the row's
+    /// pane closes, not the first in tree order, so the sidebar's
+    /// selection is what has keyboard focus (P6).
+    @Test func closingARowsPaneHandsTheRowToTheNextFocusedPane() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let (row, heir) = try await rowRightOfTwoSplits(fixture)
+
+        try closePane(fixture, row)
+
+        #expect(await turns { !fixture.terminals.contains(row.surfaceID) })
+        #expect(fixture.terminals.rows.map(\.id) == [heir.id], "the pane focused next, not the first")
+        #expect(fixture.terminals.selection == heir.id)
+        #expect(await turns { focusMatchesSelection(fixture) }, "the selection is what has keyboard focus")
+    }
+
+    /// The same through the row's own close (its ⌘W, `closeShownPane`).
+    @Test func closingTheShownRowsPaneHandsTheRowToTheNextFocusedPane() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let (row, heir) = try await rowRightOfTwoSplits(fixture)
+
+        fixture.host.closeTerminal(row)
+
+        #expect(fixture.terminals.rows.map(\.id) == [heir.id], "the pane focused next, not the first")
+        #expect(fixture.terminals.selection == heir.id)
+        #expect(await turns { focusMatchesSelection(fixture) }, "the selection is what has keyboard focus")
+    }
+
+    /// B-107: a switch in the very turn the row's pane closed -- before
+    /// the host's own hop to reconcile -- still finds the shell left
+    /// beside it carrying the row on, so it hides it as a row's rather
+    /// than closing it.
+    @Test(arguments: ["showInContent", "reveal"])
+    func aSwitchInTheCloseTurnStillFindsTheRowCarriedOn(_ via: String) async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let older = try newShell(fixture)
+        let row = try newShell(fixture)
+        let split = try openSplit(fixture, beside: row)
+        let splitView = try #require(fixture.view(split))
+
+        try closePane(fixture, row)
+        let shown: AttachmentHandle
+        if via == "reveal" {
+            #expect(fixture.host.reveal(older), "the older row was kept hidden")
+            shown = older
+        } else {
+            shown = try newShell(fixture)
+        }
+
+        #expect(fixture.host.isOpen(split) && !fixture.host.isShown(split), "kept, not closed")
+        #expect(fixture.host.hiddenSurfaces(in: fixture.windowID).contains { $0 === splitView })
+        let expected = via == "reveal" ? [older.surfaceID, split.surfaceID] : [older.surfaceID, split.surfaceID, shown.surfaceID]
+        #expect(fixture.terminals.rows.map(\.id) == expected, "in the row's slot")
+        #expect(fixture.terminals.selection == shown.surfaceID)
+        #expect(await turns { fixture.events.events.contains(.closed(row)) })
+        #expect(!fixture.events.events.contains(.closed(split)))
+    }
+
+    /// B-107: asking before a switch in the turn the row's pane closed
+    /// sees the busy shell beside it already carrying the row on: it is
+    /// kept, so nothing asks. An alert that did appear is cancelled so
+    /// the suite never hangs.
+    @Test(.timeLimit(.minutes(1)))
+    func aBusySplitLeftByAClosedRowDoesNotAskInTheSameTurn() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let window = try #require(fixture.controller.window)
+        let row = try newShell(fixture)
+        let split = try openSplit(fixture, beside: row, running: Self.standIn)
+        let splitView = try #require(fixture.view(split))
+        try #require(await eventually { splitView.needsConfirmQuit }, "the split's process is running")
+        // A sheet reliably attaches only to a window on screen.
+        window.orderFront(nil)
+        let sheets = SheetWatch()
+        let watcher = Task { await sheets.cancelAny(on: window) }
+        defer { watcher.cancel() }
+
+        try closePane(fixture, row)
+        let mayReplace = await fixture.host.confirmReplacingContent(origin: fixture.origin)
+
+        #expect(mayReplace)
+        #expect(!sheets.sawSheet, "the shell carries the row on, so nothing closes")
+        #expect(fixture.terminals.rows.map(\.id) == [split.surfaceID])
     }
 
     /// Only a plain shell Leo made takes a row: beside an agent, nothing
@@ -798,18 +946,27 @@ import Testing
     /// run loop never ends an event's group (`groupsByEvent`), so both
     /// would share one and ⌘Z would undo the two at once.
     /// `command`: an agent stand-in split beside it, not a plain shell.
+    /// `running`: what a plain shell split runs instead of a shell.
     private func openSplit(
         _ fixture: Fixture,
         beside row: AttachmentHandle,
         command: String = "",
+        running shellCommand: String? = nil,
+        direction: LeoSplitDirection = .right,
         isUndoable: Bool = true
     ) throws -> AttachmentHandle {
         let undoManager = isUndoable ? nil : fixture.controller.undoManager
         undoManager?.disableUndoRegistration()
         defer { undoManager?.enableUndoRegistration() }
+        let requestID = UUID()
+        if let shellCommand {
+            var config = Ghostty.SurfaceConfiguration()
+            config.command = shellCommand
+            fixture.configs.set(config, for: requestID)
+        }
         return try fixture.host.openSplit(
             command: command, workingDirectory: nil, origin: fixture.origin,
-            sourceSurface: row.surfaceID, direction: .right, requestID: UUID()
+            sourceSurface: row.surfaceID, direction: direction, requestID: requestID
         )
     }
 
