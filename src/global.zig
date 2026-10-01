@@ -351,12 +351,26 @@ fn syncEnvironOrErr() std.mem.Allocator.Error!void {
 /// owned by `gpa`. libc reallocates and frees its `environ` array when
 /// `setenv` adds a variable, and `unsetenv` shifts its entries, so nothing
 /// that outlives the call may point into it.
+///
+/// This copies by hand rather than with `Environ.createPosixBlock`, whose
+/// cleanup on allocation failure frees the pointer array with the wrong
+/// length.
 fn dupeEnvironBlock(
     gpa: std.mem.Allocator,
     live: [*:null]const ?[*:0]const u8,
 ) std.mem.Allocator.Error!std.process.Environ.PosixBlock {
-    const view: std.process.Environ = .{ .block = .{ .slice = std.mem.span(live) } };
-    return view.createPosixBlock(gpa, .{});
+    const source = std.mem.span(live);
+    const entries = try gpa.allocSentinel(?[*:0]const u8, source.len, null);
+    var copied: usize = 0;
+    errdefer {
+        for (entries[0..copied]) |entry| gpa.free(std.mem.span(entry.?));
+        gpa.free(entries);
+    }
+    for (source, entries) |entry, *copy| {
+        copy.* = (try gpa.dupeZ(u8, std.mem.span(entry.?))).ptr;
+        copied += 1;
+    }
+    return .{ .slice = entries };
 }
 
 /// Helper to return either the state's args, or one from testing.
@@ -517,4 +531,32 @@ test "global: dupeEnvironBlock is independent of the source" {
     defer map.deinit();
     try testing.expectEqualStrings("bar", map.get("FOO").?);
     try testing.expectEqualStrings("1", map.get("BAZ").?);
+}
+
+test "global: dupeEnvironBlock frees everything on allocation failure" {
+    if (comptime std.process.Environ.Block != std.process.Environ.PosixBlock) {
+        return error.SkipZigTest;
+    }
+
+    const testing = std.testing;
+    const live = [_:null]?[*:0]const u8{ "FOO=bar", "BAZ=1", "QUX=" };
+
+    // Fails each allocation in turn (the pointer array, then every string)
+    // and checks that a failed copy returns OutOfMemory without leaking the
+    // allocations made before it.
+    try testing.checkAllAllocationFailures(
+        testing.allocator,
+        struct {
+            fn dupeAndFree(
+                gpa: std.mem.Allocator,
+                source: [*:null]const ?[*:0]const u8,
+            ) !void {
+                const block = try dupeEnvironBlock(gpa, source);
+                defer block.deinit(gpa);
+                try testing.expectEqual(@as(usize, 3), block.slice.len);
+                try testing.expectEqualStrings("FOO=bar", std.mem.span(block.slice[0].?));
+            }
+        }.dupeAndFree,
+        .{&live},
+    );
 }
