@@ -270,12 +270,12 @@ import OSLog
         guard let controller = registry.controller(for: origin) else { return true }
         let shown = controller.surfaceTree.map {
             LeoContentReplacement.Shown(
-                isAgent: isAgent($0), isTerminalRow: isTerminalRow($0), needsConfirmQuit: $0.needsConfirmQuit
+                name: $0.leoPaneName, isAgent: isAgent($0), isTerminalRow: isTerminalRow($0), needsConfirmQuit: $0.needsConfirmQuit
             )
         }
         guard LeoContentReplacement.needsConfirmation(shown) else { return true }
         let response = await controller.confirmCloseAsync(
-            messageText: LeoContentReplacement.messageText,
+            messageText: LeoContentReplacement.messageText(shown),
             informativeText: LeoContentReplacement.informativeText,
             confirmButtonTitle: LeoContentReplacement.confirmButtonTitle
         )
