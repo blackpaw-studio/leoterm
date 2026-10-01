@@ -241,6 +241,11 @@ final class LeoSplitViewController: NSSplitViewController {
     /// the guard covering nothing and let this programmatic move get
     /// persisted as if the user had dragged there. A width that has to
     /// wait for the split view keeps the flag up until it is applied.
+    ///
+    /// On that same turn, `lastPersistedWidth` becomes the width the
+    /// sidebar actually got (B-089): a window too narrow for `width`
+    /// clamps it, and recording the width asked for would make widening
+    /// the window afterwards look like a drag to the clamped width.
     func applyProgrammaticWidth(_ width: CGFloat) {
         guard isReadyToPositionDivider else {
             // The split view has no width of its own yet -- it isn't in a
@@ -271,7 +276,7 @@ final class LeoSplitViewController: NSSplitViewController {
         isApplyingProgrammaticWidth = true
         splitView.setPosition(width, ofDividerAt: 0)
         lastPersistedWidth = width
-        clearProgrammaticWidthFlagSoon()
+        clearProgrammaticWidthFlagSoon(recordingAppliedWidth: true)
     }
 
     /// Before `item` (the browser or the editor) is shown: if the terminal
@@ -502,11 +507,26 @@ final class LeoSplitViewController: NSSplitViewController {
     /// Clears the guard on the next main-queue turn rather than synchronously:
     /// the resulting `splitViewDidResizeSubviews` notification arrives on a
     /// later layout pass, so clearing it immediately would leave the guard
-    /// covering nothing.
-    private func clearProgrammaticWidthFlagSoon() {
+    /// covering nothing. `recordingAppliedWidth` first records the width
+    /// the sidebar got, while the guard still covers the layout that takes.
+    private func clearProgrammaticWidthFlagSoon(recordingAppliedWidth: Bool = false) {
         DispatchQueue.main.async { [weak self] in
-            self?.isApplyingProgrammaticWidth = false
+            guard let self else { return }
+            if recordingAppliedWidth { recordAppliedWidth() }
+            isApplyingProgrammaticWidth = false
         }
+    }
+
+    /// Settles the layout `setPosition` asked for -- one AppKit was about
+    /// to run anyway, so nothing visibly moves (D-145) -- and records the
+    /// sidebar's width from it. Runs on a later main-queue turn, never
+    /// inside a layout pass. A sidebar collapsed meanwhile (⌘⇧L, the
+    /// terminal floor) keeps a stale frame, so it records nothing.
+    private func recordAppliedWidth() {
+        guard isReadyToPositionDivider else { return }
+        view.layoutSubtreeIfNeeded()
+        guard let sidebarItem, !sidebarItem.isCollapsed else { return }
+        lastPersistedWidth = sidebarItem.viewController.view.frame.width
     }
 
     /// Persists the sidebar's current width whenever the split view reports
