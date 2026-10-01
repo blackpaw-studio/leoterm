@@ -166,11 +166,12 @@ Accept: after a row switch or dismissing the palette, the shown terminal is firs
 Source: autopilot polish (B-071)
 Done: 2026-09-30 · 03136e14f, 09f7d4de2 · D-227
 
-## B-088 · "Close Terminal?" confirm names the pane it closes   [ready]
+## B-088 · "Close Terminal?" confirm names the pane it closes   [done]
 Issue: #92
 Why: B-071 verify: the close confirm doesn't say which pane/row it will close, which is ambiguous beside a split
 Accept: the confirm names the row/pane being closed; test
 Source: autopilot polish (B-071)
+Done: 2026-09-30 · c606e4f2d · D-228, D-229, D-230
 
 ## B-089 · Sidebar width persistence hardening   [ready]
 Issue: #93

@@ -1674,3 +1674,24 @@ Chose: The fix is Leo-side in GhosttyAttachContentHost.openSplit (sets controlle
 Why: AUTONOMY implementation approach
 Commit: 03136e14f, 09f7d4de2
 Veto: [ ]
+
+## D-228 · 2026-09-30 · Confirm copy is `Close “<name>”?`; two names both quoted, three+ `… a…
+Context: B-088 (runner call).
+Chose: Confirm copy is `Close “<name>”?`; two names both quoted, three+ `… and N other terminals?`; split-pane detail says the other splits stay open
+Why: AUTONOMY UX/copy, P1
+Commit: c606e4f2d
+Veto: [ ]
+
+## D-229 · 2026-09-30 · Pane name follows window title / sidebar row title, control chars cle…
+Context: B-088 (runner call).
+Chose: Pane name follows window title / sidebar row title, control chars cleaned, capped at 60 chars middle-truncated
+Why: AUTONOMY UX details
+Commit: c606e4f2d
+Veto: [ ]
+
+## D-230 · 2026-09-30 · Red-X Close Window and close-window-with-tabs keep "Close Terminal?" …
+Context: B-088 (runner call).
+Chose: Red-X Close Window and close-window-with-tabs keep "Close Terminal?" (whole window, not ambiguous)
+Why: AUTONOMY small scope cut
+Commit: c606e4f2d
+Veto: [ ]
