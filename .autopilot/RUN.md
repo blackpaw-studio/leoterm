@@ -23,9 +23,12 @@ Lane: B-100
   Branch: autopilot-lane/B-100
   Base: 32a88bbf472d150a1c20171a5879150840a9eca7
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 54f46f35ccad5080d575882e87e9b79f0c2fb2d7
   Dispatched: 2026-10-01T16:03:21Z
+  Call: The shared hidden-style inset stays at 10 pt, not enlarged for the "tight" corner, because D-169 fixes it — AUTONOMY: layout/polish
+  Call: Side-pane headers centre on the sidebar header's line rather than aligning control-frame tops — P1 Mac-native, toolbar-style alignment
+  Call: New LeoSidebarChromeMetrics.headerRowHeight = 16 applied to LeoSidebarHeader as .frame(minHeight:), so the sidebar doesn't move — AUTONOMY: implementation

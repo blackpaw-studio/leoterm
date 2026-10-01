@@ -558,6 +558,26 @@ Why: loading test: assert rect(ofRow:).intersects(visibleRect) with a minY == 0 
 Accept: loading test: assert rect(ofRow:).intersects(visibleRect) with a minY == 0 precondition; test the agents-going listsAgents direction; replace settledTable's 3 s first-population poll with a signal
 Source: autopilot polish (B-099)
 
+## B-151 · B-100 pane layout test measures from the window top   [ready (next run)]
+Why: assert the side-pane close glyph's midY is within 1 pt of topInset + headerRowHeight/2 below the window top; the B-074 sidebar bound (gap 9–16 pt) ties the panes to the window edge only indirectly
+Accept: assert the side-pane close glyph's midY is within 1 pt of topInset + headerRowHeight/2 below the window top; the B-074 sidebar bound (gap 9–16 pt) ties the panes to the window edge only indirectly
+Source: autopilot polish (B-100)
+
+## B-152 · headerRowHeight is a minimum, not a height   [ready (next run)]
+Why: LeoSidebarHeader uses .frame(minHeight: headerRowHeight), so the sidebar row can grow and move its centre while the side panes stay at 18 pt; use .frame(height:) or rename it headerRowMinHeight
+Accept: LeoSidebarHeader uses .frame(minHeight: headerRowHeight), so the sidebar row can grow and move its centre while the side panes stay at 18 pt; use .frame(height:) or rename it headerRowMinHeight
+Source: autopilot polish (B-100)
+
+## B-153 · Header centres differ by 1–1.5 px in hidden style   [ready (next run)]
+Why: B-100 shot: browser close ≈17, editor ≈18, sidebar + ≈18.5 px; align them exactly
+Accept: B-100 shot: browser close ≈17, editor ≈18, sidebar + ≈18.5 px; align them exactly
+Source: autopilot polish (B-100)
+
+## B-154 · Titled styles: browser header close glyph tight under the titlebar   [ready (next run)]
+Why: B-100 verify: in titled styles the workspace-browser header's close glyph sits about 3 pt under the titlebar
+Accept: B-100 verify: in titled styles the workspace-browser header's close glyph sits about 3 pt under the titlebar
+Source: autopilot polish (B-100)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
