@@ -663,6 +663,65 @@ import Testing
         #expect(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) == Double(storedWidth))
     }
 
+    /// A window narrowed until the terminal is at its minimum squeezes the
+    /// sidebar too, and widening it again gives the width back. Neither is
+    /// the user's choice, so the stored width stays (B-089).
+    @Test(arguments: [false, true])
+    func aWindowResizeThatClampsTheSidebarStoresNothing(isLive: Bool) async {
+        let defaults = LeoInMemoryDefaults()
+        let storedWidth: CGFloat = 300
+        defaults.set(Double(storedWidth), forKey: LeoWindowSession.sidebarWidthKey)
+        let harness = await Self.launch(defaults)
+        defer { harness.close() }
+
+        if isLive {
+            await harness.resizeWindow(stepwiseTo: Self.clampingWindowWidth, step: Self.liveResizeStep)
+        } else {
+            await harness.jumpWindow(to: Self.clampingWindowWidth)
+        }
+        #expect(harness.sidebarWidth < storedWidth - 1)
+        await harness.jumpWindow(to: Self.windowWidth)
+
+        #expect(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) == Double(storedWidth))
+        #expect(abs(harness.components.controller.lastPersistedWidth - storedWidth) <= 1)
+    }
+
+    /// A divider move right after a resize that clamped the sidebar is
+    /// the user's, and is stored.
+    @Test func aDividerMoveAfterAClampingResizeIsStored() async {
+        let defaults = LeoInMemoryDefaults()
+        defaults.set(300.0, forKey: LeoWindowSession.sidebarWidthKey)
+        let harness = await Self.launch(defaults)
+        defer { harness.close() }
+        await harness.jumpWindow(to: Self.clampingWindowWidth)
+        await harness.jumpWindow(to: Self.windowWidth)
+
+        harness.dragDivider(to: Self.draggedWidth)
+        await harness.settle()
+
+        #expect(abs(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) - Double(Self.draggedWidth)) <= 1)
+    }
+
+    /// A real mouse drag on the divider, through `NSSplitView`'s own
+    /// tracking, is stored.
+    @Test func aMouseDragOnTheDividerIsStored() async throws {
+        let defaults = LeoInMemoryDefaults()
+        defaults.set(300.0, forKey: LeoWindowSession.sidebarWidthKey)
+        let harness = await Self.launch(defaults)
+        defer { harness.close() }
+
+        try harness.mouseDragDivider(by: 30)
+        await harness.settle()
+
+        #expect(abs(harness.sidebarWidth - 330) <= 1)
+        #expect(abs(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) - 330) <= 1)
+    }
+
+    /// Narrow enough that the terminal reaches its minimum and the sidebar
+    /// gives way, but above the window's minimum.
+    private static let clampingWindowWidth: CGFloat = 240
+    private static let liveResizeStep: CGFloat = 40
+
     /// Narrower than the stored maximum width plus the terminal's minimum.
     private static let narrowWindowWidth: CGFloat = 320
 
@@ -811,6 +870,29 @@ import Testing
 
         func dragDivider(to width: CGFloat) {
             components.controller.splitView.setPosition(width, ofDividerAt: 0)
+            layout()
+        }
+
+        /// Drags the sidebar's divider `offset` with the mouse: the events
+        /// are queued first, then `mouseDown` runs `NSSplitView`'s own
+        /// tracking loop, which takes them off the queue.
+        func mouseDragDivider(by offset: CGFloat) throws {
+            let split = components.controller.splitView
+            let sidebar = try #require(sidebarItem)
+            let start = split.convert(
+                NSPoint(x: sidebar.viewController.view.frame.maxX + split.dividerThickness / 2, y: split.bounds.midY), to: nil)
+            let mouse = { (type: NSEvent.EventType, dx: CGFloat) in
+                NSEvent.mouseEvent(
+                    with: type, location: NSPoint(x: start.x + dx, y: start.y), modifierFlags: [],
+                    timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: self.window.windowNumber, context: nil,
+                    eventNumber: 0, clickCount: 1, pressure: 1)
+            }
+            let down = try #require(mouse(.leftMouseDown, 0))
+            let drag = try #require(mouse(.leftMouseDragged, offset))
+            let up = try #require(mouse(.leftMouseUp, offset))
+            NSApp.postEvent(drag, atStart: false)
+            NSApp.postEvent(up, atStart: false)
+            split.mouseDown(with: down)
             layout()
         }
 
