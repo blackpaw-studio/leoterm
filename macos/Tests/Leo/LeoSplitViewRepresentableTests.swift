@@ -586,7 +586,6 @@ import Testing
     // MARK: Width across launches (B-084)
 
     private static let relaunchedWidth: CGFloat = 360
-    private static let widthKey = "leo.sidebarWidth"
 
     /// Builds the split as the app does at launch: from a window session
     /// reading `defaults`, persisting divider moves back through it.
@@ -610,19 +609,19 @@ import Testing
     @Test(arguments: [false, true])
     func launchingDoesNotOverwriteTheStoredSidebarWidth(attachesAfterAMainQueueTurn: Bool) async {
         let defaults = LeoInMemoryDefaults()
-        defaults.set(Double(Self.relaunchedWidth), forKey: Self.widthKey)
+        defaults.set(Double(Self.relaunchedWidth), forKey: LeoWindowSession.sidebarWidthKey)
 
         let harness = await Self.launch(defaults, attachesAfterAMainQueueTurn: attachesAfterAMainQueueTurn)
         defer { harness.close() }
 
-        #expect(defaults.double(forKey: Self.widthKey) == Double(Self.relaunchedWidth))
+        #expect(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) == Double(Self.relaunchedWidth))
         #expect(abs(harness.sidebarWidth - Self.relaunchedWidth) <= 1)
     }
 
     /// The width the user dragged to is the one the next launch opens at.
     @Test func aDraggedWidthSurvivesARelaunch() async {
         let defaults = LeoInMemoryDefaults()
-        defaults.set(240.0, forKey: Self.widthKey)
+        defaults.set(240.0, forKey: LeoWindowSession.sidebarWidthKey)
         let draggedWidth: CGFloat = 330
 
         let first = await Self.launch(defaults)
@@ -634,14 +633,14 @@ import Testing
         defer { relaunched.close() }
 
         #expect(abs(relaunched.sidebarWidth - draggedWidth) <= 1)
-        #expect(abs(defaults.double(forKey: Self.widthKey) - Double(draggedWidth)) <= 1)
+        #expect(abs(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) - Double(draggedWidth)) <= 1)
     }
 
     /// A sidebar hidden at launch opens at the stored width when shown,
     /// and showing it stores nothing new.
     @Test func aHiddenSidebarShownAfterLaunchOpensAtTheStoredWidth() async throws {
         let defaults = LeoInMemoryDefaults()
-        defaults.set(Double(Self.relaunchedWidth), forKey: Self.widthKey)
+        defaults.set(Double(Self.relaunchedWidth), forKey: LeoWindowSession.sidebarWidthKey)
         let harness = await Self.launch(defaults, attachesAfterAMainQueueTurn: true, isSidebarVisible: false)
         defer { harness.close() }
         let controller = harness.components.controller
@@ -656,7 +655,7 @@ import Testing
         for _ in 0..<3 { await harness.settle() }
 
         #expect(abs(harness.sidebarWidth - Self.relaunchedWidth) <= 1)
-        #expect(defaults.double(forKey: Self.widthKey) == Double(Self.relaunchedWidth))
+        #expect(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) == Double(Self.relaunchedWidth))
     }
 
     // MARK: Hidden at launch (B-090)
@@ -668,7 +667,7 @@ import Testing
     @Test(arguments: [false, true])
     func aSidebarHiddenAtLaunchStaysCollapsed(attachesAfterAMainQueueTurn: Bool) async throws {
         let defaults = LeoInMemoryDefaults()
-        defaults.set(Double(Self.relaunchedWidth), forKey: Self.widthKey)
+        defaults.set(Double(Self.relaunchedWidth), forKey: LeoWindowSession.sidebarWidthKey)
         let session = LeoWindowSession(defaults: defaults)
         let harness = Harness(
             preferredWidth: session.preferredWidth, isSidebarVisible: false,
@@ -691,7 +690,7 @@ import Testing
         #expect(sidebarItem.isCollapsed)
         // The terminal has the whole split: no sidebar pixels showing.
         #expect(abs(harness.terminalWidth - harness.components.controller.splitView.bounds.width) <= 1)
-        #expect(defaults.double(forKey: Self.widthKey) == Double(Self.relaunchedWidth))
+        #expect(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) == Double(Self.relaunchedWidth))
     }
 
     private static func makeEditor() -> LeoEditorPaneModel {

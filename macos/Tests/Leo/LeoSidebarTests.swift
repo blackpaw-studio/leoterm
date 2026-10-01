@@ -147,7 +147,7 @@ struct LeoSidebarTests {
     @Test @MainActor func windowSessionReadsWritesAndClampsDefaults() {
         let defaults = LeoInMemoryDefaults()
         defaults.set(false, forKey: "leo.sidebarVisible")
-        defaults.set(500, forKey: "leo.sidebarWidth")
+        defaults.set(500, forKey: LeoWindowSession.sidebarWidthKey)
         let session = LeoWindowSession(defaults: defaults)
         #expect(!session.isSidebarVisible)
         #expect(session.preferredWidth == 500)
@@ -155,7 +155,7 @@ struct LeoSidebarTests {
         session.setPreferredWidth(100)
         #expect(session.preferredWidth == 100)
         #expect(session.displayedWidth == 200)
-        #expect(defaults.double(forKey: "leo.sidebarWidth") == 100)
+        #expect(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) == 100)
     }
 
     private func row(_ name: String, template: String? = nil, status: LeoAgentStatus = .running, activity: LeoAgentRow.Activity = .unknown) -> LeoAgentRow {
