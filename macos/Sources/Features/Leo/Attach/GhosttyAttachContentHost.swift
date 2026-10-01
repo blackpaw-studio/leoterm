@@ -30,6 +30,10 @@ import OSLog
     /// B-107: handles whose window's surface tree changed since they were
     /// last reconciled, oldest first (`runPendingReconciles`).
     private var pendingReconciles: [PendingReconcile] = []
+    /// B-108: Leo's own plain shells upstream took out of what their
+    /// window shows (a split's close, an undo); one an undo or redo puts
+    /// back gets its handle again (`restoreReturnedShells`).
+    private var departed: [DepartedShell] = []
 
     /// Whether the app is active and which window is key. Injectable so
     /// tests can drive focus reports without the real app being frontmost.
@@ -752,6 +756,7 @@ import OSLog
     /// closed already finds the shell carrying its row on. Idempotent:
     /// a handle still open, or already closed, is left as it is.
     private func runPendingReconciles() {
+        restoreReturnedShells()
         let pending = pendingReconciles
         pendingReconciles = []
         pending.forEach { reconcile($0.handle, handOn: $0.handOn) }
@@ -760,7 +765,9 @@ import OSLog
     /// `handle`'s surface left what its window shows without the host
     /// hiding it or letting it go (which close its handle there and then):
     /// upstream took it out -- a split's close (File ▸ Close, ⌘W, `exit`),
-    /// or an undo. A row's pane closing so hands its row on (B-082).
+    /// or an undo. A row's pane closing so hands its row on (B-082), and a
+    /// plain shell is noted, so an undo putting it back restores its
+    /// handle (B-108).
     private func reconcile(_ handle: AttachmentHandle, handOn: RowHandOn) {
         guard !isOpen(handle) else { return }
         close(handle, handingOnItsRow: handOn)
@@ -783,17 +790,59 @@ import OSLog
         }
         attachments.keys.filter { $0.windowID == windowID }.forEach { close($0) }
         live.releaseAll(in: windowID)
+        departed.removeAll { $0.windowID == windowID }
     }
 
     /// `handingOnItsRow`: `handle`'s pane closed from what its window shows,
     /// beside a split, so a plain shell left there may carry its row on
-    /// (B-082). Every other close -- hidden, let go, its window's, or its
-    /// whole content's -- leaves nothing on screen that was beside it.
+    /// (B-082), and -- a plain shell itself -- an undo may put it back
+    /// (B-108). Every other close -- hidden, let go, its window's, or its
+    /// whole content's -- leaves nothing on screen that was beside it, and
+    /// nothing an undo brings back.
     private func close(_ handle: AttachmentHandle, handingOnItsRow handOn: RowHandOn? = nil) {
         guard let attachment = attachments.removeValue(forKey: handle) else { return }
+        if handOn != nil { noteDeparture(of: attachment, from: handle.windowID) }
         if attachment.isTerminalRow { removeTerminalRow(handle, of: attachment, handingOn: handOn) }
         continuation.yield(.closed(handle))
         reportFocus()
+    }
+
+    /// B-108: a plain shell Leo made left what its window shows by
+    /// upstream's hand. Upstream's undo (or redo) can put the very same
+    /// surface back, so it is noted -- weakly: once no undo holds it, it
+    /// frees and the note with it. An agent's pane, even one only titled
+    /// after an agent, is never noted (D-192).
+    private func noteDeparture(of attachment: Attachment, from windowID: LeoWindowID) {
+        guard !attachment.isAgent, let controller = attachment.controller,
+              let surface = attachment.surface, surface.leoAgentName == nil else { return }
+        departed.removeAll { $0.surface == nil || $0.surface === surface }
+        departed.append(DepartedShell(controller: controller, surface: surface, windowID: windowID))
+    }
+
+    /// B-108: a noted shell back in its own window's tree -- an undo or
+    /// redo of a split's close or New Split -- gets its handle again, as a
+    /// plain shell beside what is shown (not a row: a row it had was
+    /// carried on beside it, D-190), so a later close can hand a row to
+    /// it. Only the window it left takes it back (B-110 parks moves
+    /// between windows). Run before reconciling, and before adopting, so a
+    /// close in the undo's own turn already finds it.
+    private func restoreReturnedShells() {
+        departed.removeAll { $0.surface == nil || $0.controller == nil }
+        let returned = departed.filter(\.hasReturned)
+        guard !returned.isEmpty else { return }
+        departed.removeAll { $0.hasReturned }
+        returned.forEach(restore)
+    }
+
+    private func restore(_ shell: DepartedShell) {
+        guard let controller = shell.controller, let surface = shell.surface, surface.leoAgentName == nil,
+              !attachments.values.contains(where: { $0.surface === surface }) else { return }
+        do {
+            let handle = try register(controller, surface: surface, isAgent: false)
+            Self.logger.log("restoreReturnedShells window=\(handle.windowID.rawValue.uuidString, privacy: .public)")
+        } catch {
+            Self.logger.log("restoreReturnedShells failed error=\(String(describing: error), privacy: .public)")
+        }
     }
 
     /// A closed shell's row goes -- or, handed on, carries on as the
@@ -825,6 +874,7 @@ import OSLog
         in controller: TerminalController,
         terminals: LeoWindowTerminals
     ) -> Bool {
+        restoreReturnedShells()
         guard terminals.contains(handle.surfaceID),
               let (surface, adopted) = orphanedShell(in: controller, preferring: preferred) else { return false }
         adopted.isTerminalRow = true
@@ -839,7 +889,8 @@ import OSLog
     /// pane upstream focuses next, worked out before the close (by now
     /// `focusedSurface` may still name the closed pane) -- when it is one
     /// of them, else the first in tree order (several panes closing at
-    /// once can take it too). Only shells Leo made (a registered handle).
+    /// once can take it too). Only shells Leo made (a registered handle --
+    /// one an undo put back has its own again, B-108).
     ///
     /// `controller.window != nil` only says the controller still holds its
     /// window, not that the window is open or on screen. A window that
@@ -882,6 +933,20 @@ private enum GhosttyAttachContentHostError: Error, LocalizedError {
 /// on; `heir` is the pane upstream focuses next, when known.
 @MainActor private struct RowHandOn {
     weak var heir: Ghostty.SurfaceView?
+}
+
+/// B-108: a plain shell Leo made that upstream took out of `controller`'s
+/// tree, held weakly until an undo puts it back or it frees.
+@MainActor private struct DepartedShell {
+    weak var controller: TerminalController?
+    weak var surface: Ghostty.SurfaceView?
+    let windowID: LeoWindowID
+
+    /// Back in the tree of the window it left, still open.
+    var hasReturned: Bool {
+        guard let controller, let surface, controller.window != nil else { return false }
+        return controller.surfaceTree.contains(surface)
+    }
 }
 
 /// B-107: a handle to reconcile once its window's tree change lands.
