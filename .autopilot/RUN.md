@@ -201,9 +201,10 @@ Lane: B-094
   Branch: autopilot-lane/B-094
   Base: 5c928805a04210b51f0e0d9636a332b5c3a03dd0
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 8d3c675b397a4b2222f61a26976da9882e3c79bc
   Dispatched: 2026-10-01T03:37:42Z
+- B-094 runner: ready at 8d3c675b3 (general full; 1935/1935; test-only, not visually verified).

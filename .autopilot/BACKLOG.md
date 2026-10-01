@@ -482,6 +482,11 @@ Why: B-093 verify: a replaced launch window stays off-screen in the CG window li
 Accept: B-093 verify: a replaced launch window stays off-screen in the CG window list; check whether its controller is ever freed
 Source: autopilot polish (B-093)
 
+## B-144 · Launch-placeholder test cleanup closes pending windows   [ready (next run)]
+Why: LeoLaunchPlaceholderIntegrationTests close() (:90,100-101) only closes visible windows; also close windows whose controller has leoIsAwaitingPresentation, and fold the trait's duplicated MainActor.run restore into one helper
+Accept: LeoLaunchPlaceholderIntegrationTests close() (:90,100-101) only closes visible windows; also close windows whose controller has leoIsAwaitingPresentation, and fold the trait's duplicated MainActor.run restore into one helper
+Source: autopilot polish (B-094)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
