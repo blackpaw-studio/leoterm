@@ -129,9 +129,13 @@ Lane: B-088
   Branch: autopilot-lane/B-088
   Base: 8e40d2f18eea99413b6b7df5a3876781f3473141
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: cf49e5f3a6e4dbd90165e686792d167a1f8e66b0
   Dispatched: 2026-10-01T00:52:39Z
+  Call: Confirm copy is `Close “<name>”?`; two names both quoted, three+ `… and N other terminals?`; split-pane detail says the other splits stay open — AUTONOMY UX/copy, P1
+  Call: Pane name follows window title / sidebar row title, control chars cleaned, capped at 60 chars middle-truncated — AUTONOMY UX details
+  Call: Red-X Close Window and close-window-with-tabs keep "Close Terminal?" (whole window, not ambiguous) — AUTONOMY small scope cut
+- B-088 runner: ready at cf49e5f3a (general full; 1913/1913; GUI shots of named confirms).

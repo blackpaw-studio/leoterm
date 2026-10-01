@@ -423,6 +423,11 @@ Why: focusedSurface didSet posts .leoFocusedSurfaceDidChange before register(), 
 Accept: focusedSurface didSet posts .leoFocusedSurfaceDidChange before register(), so a brief nil focus report is possible (GhosttyAttachContentHost.swift:470, same in fillPlaceholder); move the assignment after register
 Source: autopilot polish (B-087)
 
+## B-133 · Close-confirm polish   [ready (next run)]
+Why: guard surfaceTree.contains(node) before leoConfirmClosingPane (TerminalController.swift:950-955); narrow title cleaning in LeoCloseConfirmation.swift:43-49 so ZWJ emoji survive and spacing matches the sidebar; add a left/right hint when two panes share a name
+Accept: guard surfaceTree.contains(node) before leoConfirmClosingPane (TerminalController.swift:950-955); narrow title cleaning in LeoCloseConfirmation.swift:43-49 so ZWJ emoji survive and spacing matches the sidebar; add a left/right hint when two panes share a name
+Source: autopilot polish (B-088)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
