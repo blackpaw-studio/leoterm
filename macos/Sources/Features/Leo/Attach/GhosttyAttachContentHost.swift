@@ -458,6 +458,16 @@ import OSLog
                 direction: leoSplitTreeDirection(for: direction),
                 baseConfig: configuration(command: command, workingDirectory: workingDirectory, requestID: requestID)
             ) else { throw GhosttyAttachContentHostError.cannotOpenSplit }
+            // B-087: the split's focus move is still pending (it waits for
+            // SwiftUI to put `newView` in the window), and the palette that
+            // asked for it is the key window. Making the split hands the
+            // source pane to a new container view, which leaves the window
+            // itself first responder; when the palette closes and this
+            // window becomes key, `windowDidBecomeKey` focuses
+            // `focusedSurface` -- still the source pane, which then wins.
+            // Naming the new split here, as `leoReplaceContent` does for a
+            // swap, makes both moves land on it.
+            controller.focusedSurface = newView
             let handle = try register(controller, surface: newView, isAgent: !command.isEmpty)
             trimLivePool(of: controller)
             Self.logger.log("openSplit requestID=\(requestID.uuidString, privacy: .public) result=success")
