@@ -48,7 +48,10 @@ enum LeoContentReplacement {
     /// on switch-away -- the row's own shell too, after the busy confirm.
     /// Keeping the row's pane alone would drop the split; keeping both
     /// would hide a non-row shell nothing can come back to. Splits within
-    /// a row are B-058's (D-100) to settle.
+    /// a row are B-058's (D-100) to settle. The same holds for a row
+    /// carried on by a shell its closed pane left (B-082) while another
+    /// plain shell stays split beside it: that is a [row, plain] tree too,
+    /// so it closes whole on switch-away, after the busy confirm.
     static func fate(_ shown: [Shown]) -> Fate {
         if keepsAttached(shown) { return .pool }
         return !shown.isEmpty && shown.allSatisfy(\.isTerminalRow) ? .keep : .close

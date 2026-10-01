@@ -284,4 +284,38 @@ import Testing
 
         #expect(LeoContentReplacement.needsConfirmation(shown))
     }
+
+    // MARK: Who upstream focuses after a pane closes (B-107)
+
+    /// Three panes split left to right, in tree order.
+    private func threePanes() throws -> (SplitTree<MockView>, [MockView]) {
+        let views = [MockView(), MockView(), MockView()]
+        let tree = try SplitTree(view: views[0])
+            .inserting(view: views[1], at: views[0], direction: .right)
+            .inserting(view: views[2], at: views[1], direction: .right)
+        return (tree, views)
+    }
+
+    /// Upstream's `findNextFocusTargetAfterClosing`: the focused pane
+    /// closing hands focus to the next pane when it was the leftmost, else
+    /// to the previous one ([row,a,b] -> a, [a,row,b] -> a, [a,b,row] -> b).
+    @Test(arguments: [(0, 1), (1, 0), (2, 1)])
+    func leoFocusAfterClosingMirrorsUpstream(_ closing: Int, _ expected: Int) throws {
+        let (tree, views) = try threePanes()
+        let node = try #require(tree.root?.node(view: views[closing]))
+
+        #expect(tree.leoFocusAfterClosing(node, focused: views[closing]) === views[expected])
+    }
+
+    /// Closing a pane that doesn't hold focus leaves focus where it is;
+    /// with nothing focused there is nothing to follow.
+    @Test(arguments: [0, 1, 2])
+    func leoFocusAfterClosingAnUnfocusedPaneKeepsTheFocus(_ closing: Int) throws {
+        let (tree, views) = try threePanes()
+        let node = try #require(tree.root?.node(view: views[closing]))
+        let focused = views[(closing + 1) % views.count]
+
+        #expect(tree.leoFocusAfterClosing(node, focused: focused) === focused)
+        #expect(tree.leoFocusAfterClosing(node, focused: nil) == nil)
+    }
 }
