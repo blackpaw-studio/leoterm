@@ -506,6 +506,21 @@ Why: B-098 changed src/global.zig; .git/autopilot/shared/GhosttyKit.xcframework 
 Accept: B-098 changed src/global.zig; .git/autopilot/shared/GhosttyKit.xcframework + zig-out were built at B-072, so lanes that symlink them per verify.md run a stale libghostty; rebuild and update verify.md's note
 Source: autopilot polish (B-098)
 
+## B-148 · Sidebar list stays mounted in No Agents/Loading/Failed with terminals   [ready (next run)]
+Why: the onAppear remount race is still reachable in those states with terminals and a filter (LeoSidebarView.swift:216); keep the list mounted when terminal rows exist; fix the doc comments that say only the first list uses onAppear (LeoSidebarView.swift:214, LeoTerminalRowReveal.swift:12)
+Accept: the onAppear remount race is still reachable in those states with terminals and a filter (LeoSidebarView.swift:216); keep the list mounted when terminal rows exist; fix the doc comments that say only the first list uses onAppear (LeoSidebarView.swift:214, LeoTerminalRowReveal.swift:12)
+Source: autopilot polish (B-099)
+
+## B-149 · Reveal the selected row after AppKit layout   [ready (next run)]
+Why: Loading→connected leaves the row partly cut off ~7/60 (pre-existing); order the reveal after layout
+Accept: Loading→connected leaves the row partly cut off ~7/60 (pre-existing); order the reveal after layout
+Source: autopilot polish (B-099)
+
+## B-150 · B-099 scroll test hardening   [ready (next run)]
+Why: loading test: assert rect(ofRow:).intersects(visibleRect) with a minY == 0 precondition; test the agents-going listsAgents direction; replace settledTable's 3 s first-population poll with a signal
+Accept: loading test: assert rect(ofRow:).intersects(visibleRect) with a minY == 0 precondition; test the agents-going listsAgents direction; replace settledTable's 3 s first-population poll with a signal
+Source: autopilot polish (B-099)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)

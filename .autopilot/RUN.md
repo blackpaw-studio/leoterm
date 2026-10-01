@@ -264,9 +264,15 @@ Lane: B-099
   Branch: autopilot-lane/B-099
   Base: 9f020dc4568d3b694a411b9ceff1dcbf85833eaf
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 750a70567b16dd79e622fe50968603c175e23b67
   Dispatched: 2026-10-01T05:34:38Z
+  Call: "No matches" is an overlay on the same sidebar list instead of a replacement view, so the selection is revealed reliably after a search clears, as in Mail — P1 (serves D-129; D-130 holds)
+  Call: The selected terminal is re-revealed when agents start or stop being listed (Loading→connected), matching pre-B-099 behaviour — D-129
+  Call: The loading-reveal layout race is left as a documented follow-up — AUTONOMY flake fixes/test infrastructure
+  Call: Timing waits replaced with run-loop turn counting (afterPendingUpdates) — AUTONOMY test infrastructure, D-178
+  Call: Unreachable connected/disconnected-with-rows branch in agentState renders EmptyView() — AUTONOMY implementation approach
+- B-099 runner: ready at 750a70567 (general+concurrency full; 1939/1939 x5; stress loop 0/40 x5 vs 4-9 misses before).
