@@ -300,8 +300,8 @@ struct LeoSidebarView: View {
             .listStyle(.sidebar)
             .leoRevealsTerminalRow(terminals.selection, isListed: showsTerminals, listsAgents: listsAgents, proxy: proxy)
             .leoLandsWhenTerminalsClose(
-                // Its header and terminals.
-                sectionRows: showsTerminals ? terminals.rows.count + 1 : 0,
+                // Its header's row and each terminal row `terminalSection` lists.
+                sectionRows: showsTerminals ? terminals.list.labels.count + 1 : 0,
                 isFiltering: LeoSidebarLayout.isFiltering(model.query),
                 landing: LeoTerminalsSectionExit.landing(selectedAgent: model.selection, in: agentSections),
                 terminalsWillChange: terminals.objectWillChange,

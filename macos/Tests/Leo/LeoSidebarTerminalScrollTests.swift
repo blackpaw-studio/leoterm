@@ -250,8 +250,9 @@ struct LeoSidebarTerminalScrollTests {
         } else {
             #expect(isVisible(row: 0, in: table), "the list is at its top")
             // B-105: its very top, above the first header's top margin.
+            let launched = try #require(launchOffset)
             let landed = try #require(clipOffset(of: table))
-            #expect(abs(landed - (launchOffset ?? .nan)) <= 0.5, "the list is back where it launched")
+            #expect(abs(landed - launched) <= 0.5, "the list is back where it launched")
         }
     }
 
@@ -334,6 +335,34 @@ struct LeoSidebarTerminalScrollTests {
         try #require(tables(in: window.contentView).first === table, "the list is the same one")
         try #require(table.numberOfRows < rowsBefore && table.numberOfRows >= Self.agentCount, "the filter hides only the Terminals section")
         #expect(!isVisible(row: 0, in: table), "the list stays away from its top")
+    }
+
+    /// B-105: the section counts as on screen with only its "Terminals"
+    /// header showing at the bottom edge and its row below it, so the last
+    /// row's closing lands the list on its top -- where it launched.
+    @Test func closingTheLastRowWithOnlyItsHeaderShowingLands() async throws {
+        let terminals = LeoWindowTerminals()
+        let (window, _) = try makeWindowAndModel(terminals: terminals)
+        defer { window.close() }
+        let table = try await settledTable(in: window)
+        let launched = try #require(clipOffset(of: table))
+        let shell = try await revealedLastRow(in: table, terminals: terminals)
+        let header = table.numberOfRows - 2
+        // Half the header above the bottom edge.
+        table.scroll(NSPoint(x: table.visibleRect.minX, y: table.rect(ofRow: header).midY - table.visibleRect.height))
+        await afterPendingUpdates()
+        try #require(table.visibleRect.intersects(table.rect(ofRow: header)), "the header shows")
+        try #require(!table.visibleRect.intersects(table.rect(ofRow: header + 1)), "the terminal row is below the edge")
+        try #require(!isVisible(row: 0, in: table), "the list is away from its top")
+        let rowsBefore = table.numberOfRows
+
+        terminals.remove(shell)
+        await afterPendingUpdates()
+
+        try #require(table.numberOfRows < rowsBefore, "the Terminals section is gone")
+        #expect(isVisible(row: 0, in: table), "the list is at its top")
+        let landed = try #require(clipOffset(of: table))
+        #expect(abs(landed - launched) <= 0.5, "the list is back where it launched")
     }
 
     /// A new terminal row, selected and revealed at the bottom of the list

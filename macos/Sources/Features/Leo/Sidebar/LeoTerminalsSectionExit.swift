@@ -16,8 +16,10 @@ import SwiftUI
 /// agents arriving above it. And only when the section showed on screen
 /// as it closed (B-105): scrolled off below, its going moves nothing the
 /// user sees, so the list stays where they put it. That reads the
-/// section as of the terminals' last change, which is the closing only
-/// while the filter is empty -- one more reason for the filter guard.
+/// section as of the terminals' last change. With the filter empty the
+/// section only closes by such a change, so the reading is that close's
+/// own; a stale one, from before the filter hid the section, is harmless
+/// because the filter guard never lands then.
 struct LeoTerminalsSectionExit: ViewModifier {
     /// How many rows the Terminals section has in the list: its header
     /// and terminals, or 0 when it isn't listed.
