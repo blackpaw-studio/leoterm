@@ -240,3 +240,14 @@ Lane: B-096
 - B-096 runner: ready at ea8787f10 (general full; 1937/1937; test now fails with the B-086 guard off; test-only).
 - B-096 landed (merge f26efd431).
 Finished 13: B-096 landed f26efd431 · not visually verified
+
+Lane: B-098
+  Branch: autopilot-lane/B-098
+  Base: c8b4cf5d1397bf1d1a2d759c354a56176a0e0803
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-01T05:07:46Z
