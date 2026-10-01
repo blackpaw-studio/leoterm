@@ -289,11 +289,12 @@ Accept: each fixed or explicitly dismissed; tests for the function-key and uncha
 Source: autopilot polish (B-080)
 Done: 3612df84d 83224b8a9. LeoMenuShortcutHint is @MainActor; hints spell F-keys (⌘F1); publish-only-on-change and function-key tests; the nil==nil trivial pass fixed; stale (⌘T) comment fixed; the disconnected Choose Agent… tooltip reads Reconnect's live shortcut. F-key config rebinds reaching menus dismissed as out of scope (follow-up filed). Suite 1952 green; shots B-104-1..2.
 
-## B-105 · Terminals-close landing polish   [ready]
+## B-105 · Terminals-close landing polish   [done]
 Issue: #109
 Why: B-081 review: the top landing after the last shell closes also fires when the Terminals section was already scrolled off, moving rows the user was reading (P2); removing the !isFiltering guard (LeoTerminalsSectionExit.swift:83) fails no test; the top landing sits 10 pt below the true top (scrollTo on the first section can't reach offset 0 past the table's top margin)
 Accept: the landing happens only when the Terminals section was on screen; a test pins the filter guard; the top landing reaches the list's launch offset, or a comment explains why it doesn't
 Source: autopilot polish (B-081)
+Done: 5ce958ac9 75c512e4c 1b9d09aed. Closing the last shell lands only when the Terminals section was on screen (refines D-187); the top landing reaches the launch offset (refines D-185); a test pins the filter guard. Promoted light→full (163-line diff); 1 fix round (cell-reuse flake fixed deterministically). Suite 1962 green ×3; shots B-105-1..4.
 
 ## B-106 · Selected agent row unhighlighted after the last shell closes   [ready]
 Issue: #110

@@ -96,7 +96,7 @@ Lane: B-105
   Branch: autopilot-lane/B-105
   Base: e07af107321cb313b7a0df7f2b3874bd29e51737
   Tier: light→full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
@@ -107,3 +107,4 @@ Lane: B-105
   Call: "On screen" means any part of the Terminals header or rows inside the clip view minus its content insets; a row only touching the edge doesn't count — AUTONOMY: UX details
   Call: Terminals section is read from the table's last labels.count+1 rows rather than per-row probes (unreliable under cell reuse); LeoSidebarSectionAnchor and the section .id removed — AUTONOMY: implementation approach
   Call: Near-edge test parks one row above the section, not 1 pt (AppKit nudges 2 pt at 1 pt) — AUTONOMY: test infrastructure
+Finished 6: B-105 landed 6a4442a11 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-105-1.png

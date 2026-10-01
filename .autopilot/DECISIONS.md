@@ -1968,3 +1968,38 @@ Chose: Start-screen hints spell F1–F35 ("⌘F1") when a menu item carries one;
 Why: AUTONOMY: implementation approach
 Commit: 3612df84d, 83224b8a9
 Veto: [ ]
+
+## D-270 · 2026-10-01 · Refines D-187: with nothing selected, the list goes to the top only i…
+Context: B-105 (runner call).
+Chose: Refines D-187: with nothing selected, the list goes to the top only if the Terminals section was on screen when it closed; if it was scrolled off (selection or not) the list stays put
+Why: P2 calm
+Commit: 5ce958ac9, 75c512e4c, 1b9d09aed
+Veto: [ ]
+
+## D-271 · 2026-10-01 · Refines D-185: the top landing reaches the list's launch offset (top …
+Context: B-105 (runner call).
+Chose: Refines D-185: the top landing reaches the list's launch offset (top margin included) by scrolling the NSScrollView itself, not scrollTo(first header)
+Why: P2 calm
+Commit: 5ce958ac9, 75c512e4c, 1b9d09aed
+Veto: [ ]
+
+## D-272 · 2026-10-01 · "On screen" means any part of the Terminals header or rows inside the…
+Context: B-105 (runner call).
+Chose: "On screen" means any part of the Terminals header or rows inside the clip view minus its content insets; a row only touching the edge doesn't count
+Why: AUTONOMY: UX details
+Commit: 5ce958ac9, 75c512e4c, 1b9d09aed
+Veto: [ ]
+
+## D-273 · 2026-10-01 · Terminals section is read from the table's last labels.count+1 rows r…
+Context: B-105 (runner call).
+Chose: Terminals section is read from the table's last labels.count+1 rows rather than per-row probes (unreliable under cell reuse); LeoSidebarSectionAnchor and the section .id removed
+Why: AUTONOMY: implementation approach
+Commit: 5ce958ac9, 75c512e4c, 1b9d09aed
+Veto: [ ]
+
+## D-274 · 2026-10-01 · Near-edge test parks one row above the section, not 1 pt (AppKit nudg…
+Context: B-105 (runner call).
+Chose: Near-edge test parks one row above the section, not 1 pt (AppKit nudges 2 pt at 1 pt)
+Why: AUTONOMY: test infrastructure
+Commit: 5ce958ac9, 75c512e4c, 1b9d09aed
+Veto: [ ]
