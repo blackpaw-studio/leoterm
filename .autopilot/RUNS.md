@@ -190,3 +190,42 @@ Interim updates: 3 posted, through item 15
 Lanes: landed lanes kept (untracked build output); Untracked-left in main worktree and lanes/B-071
 Board sync: 1 failure (B-014 unknown status [deferred])
 Merge when happy: git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-09-30T18:19:05Z → 2026-10-01T06:34:33Z
+🛠 leoterm autopilot — 3 fixed, 11 shipped, 1 blocked
+Fixed
+• B-090 Sidebar hidden at launch stays hidden (980ec80b4, 8e7cd5d02) (verified: screenshot) · light
+• B-092 Fast quit→reopen leaves exactly one Leo; pid-in-lock + kqueue wait (85ca7d75b, 712e5b926, 8094e6416) (verified: screenshot, 12/12 race) · full
+• B-097 Reset Window Size keeps the configured size on a start screen (d1161c857, 88c4d4088) (verified: screenshot) · light
+Shipped
+• B-115 In-app updates on; debug builds check but never install (1616be959…10bb68570) (verified: screenshot) · full
+• B-087 Palette-chosen split keeps cursor focus (09f7d4de2) (verified: screenshot) · light
+• B-088 Close confirms name the pane/row (c606e4f2d) (verified: screenshot) · light
+• B-089 Sidebar width persists only on its own divider move (…e41196534) (verified: screenshot) · full
+• B-091 Content keeps ≥450 pt; sidebar gives way (25f7b4bd7, 42ecc4794) (verified: screenshot) · light
+• B-093 Hidden-launch window replacement fixes (…5f7b9c4fb) (verified: screenshot) · full
+• B-094 Launch-placeholder test hardening (17f1d88b6) (not visually verified: test-only) · light
+• B-095 Dock reopen / fallback New Window: no palette flash (13d56313c) (verified: screenshot) · light
+• B-096 B-086 test now fails without its guard (0bc16b549) (not visually verified: test-only) · light
+• B-098 Environ OOM test; found a std 0.16.0 createPosixBlock bug (…e0c6a8db1) (verified: screenshot) · full
+• B-099 Sidebar scroll flake fixed: "No matches" overlays the list (…291915f91) (verified: screenshot) · full
+Calls I made — reply "veto D-0xx" to undo
+• D-218 relaunch retries ≤5 s for the dying copy's lock release
+• D-221 unset auto-update → Sparkle's prompt; one-time defaults reset
+• D-228 `Close “<name>”?` copy
+• D-235 content minimum 450 pt
+• D-237 resize-clamped sidebar regrows on widen (narrows my own D-231 — landed, flagged)
+• D-251 "No matches" is an overlay on the list
+Needs you — reply "B-0xx: <answer>"
+• B-109 couldn't reproduce: closed pane's shell lives only the 5 s undo window. "B-109: close" or more detail. Pin tests on autopilot-shelved/B-109.
+• Orphaned test fixture pid 22743 (fake_ssh.py) still running — kill when convenient.
+• autopilot-lane finish removed nothing: every landed lane (B-054…B-115) has untracked build leftovers (profraw, scratchpad/, zig-out) so it refuses. Lanes need a gitignore or finish should ignore untracked output.
+• Shared xcframework under .git/autopilot/shared predates B-098's src/ change (filed as polish).
+• Two runners were cut off by the harness mid-round and one round died on an expired login; I finished them from the orphaned agents' reports rather than stopping the run.
+Ideas parked — "/feature B-0xx" to spec one
+• B-058 Splits inside the content area
+Next up: B-100, B-101 (+35 polish items queued for next run)
+Interim updates: 2 posted, through item 10
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
