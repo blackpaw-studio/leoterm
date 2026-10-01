@@ -95,9 +95,9 @@ Finished 5: B-104 landed 0968f1e4a · shot /Users/evan/.leo/agents/leoterm/.git/
 Lane: B-105
   Branch: autopilot-lane/B-105
   Base: e07af107321cb313b7a0df7f2b3874bd29e51737
-  Tier: light
+  Tier: light→full
   State: building
-  Fixes: 0
+  Fixes: 1
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
