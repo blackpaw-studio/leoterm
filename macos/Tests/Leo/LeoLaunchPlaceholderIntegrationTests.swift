@@ -8,42 +8,87 @@ import Testing
 /// `newTab` (an opened folder; a window of its own with tabs off) hand the
 /// window they open to the app's `LeoLaunchPlaceholder`, and an untouched
 /// launch window gives way to it on its spot. Needs the app's real
-/// `Ghostty.App`, so these bail out (rather than fail) without it.
+/// `Ghostty.App`, so the suite is skipped (and says so) without it.
 ///
 /// Unlike most integration suites here the windows are shown: the
 /// replacement is about what is on screen. Each test adopts its own launch
-/// window (the test host's is never adopted) and leaves the tracker holding
-/// nothing; undo registration is off while windows open, so the app's undo
-/// stack is left alone. Requested windows run the default shell, never an
-/// agent.
-@MainActor @Suite(.serialized) struct LeoLaunchPlaceholderIntegrationTests {
+/// window (the test host's is never adopted), closes every window it
+/// opened even when a requirement fails, and leaves the tracker holding
+/// nothing and the cascade point where it found it; undo registration is
+/// off while windows open, so the app's undo stack is left alone.
+/// Requested windows run the default shell, never an agent.
+@MainActor @Suite(
+    .serialized,
+    .enabled("needs the app's Ghostty.App") { await MainActor.run { hasLiveGhosttyApp } },
+    LeoCascadePointRestoringTrait()
+)
+struct LeoLaunchPlaceholderIntegrationTests {
     private static var app: AppDelegate? { NSApp.delegate as? AppDelegate }
 
-    /// The app, when it has a real `Ghostty.App` to make surfaces with.
-    private func liveApp() -> AppDelegate? {
-        guard let app = Self.app, app.ghostty.app != nil else { return nil }
-        return app
+    /// How long a step may take to settle on a loaded host.
+    private static let settleTimeout: Duration = .seconds(30)
+
+    /// The app, with the real `Ghostty.App` the suite's trait checked for.
+    private func liveApp() throws -> AppDelegate {
+        try #require(Self.app)
     }
 
-    /// Enough main-queue turns for a presentation, the cascade `newWindow`
-    /// queues from it, and the tracker's close.
-    private func drainMainQueue() async {
-        for _ in 0..<4 {
-            await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
+    /// What one main-queue turn can change about `controllers` and the
+    /// tracker: whether it settled is whether a turn changed none of it.
+    private struct Snapshot: Equatable {
+        let windows: [WindowState]
+        let launchWindow: ObjectIdentifier?
+
+        struct WindowState: Equatable {
+            let isVisible: Bool
+            let isShown: Bool
+            let frame: NSRect?
         }
     }
 
-    private func withoutUndo<T>(_ app: AppDelegate, _ body: () -> T) -> T {
+    private func snapshot(_ app: AppDelegate, _ controllers: [TerminalController]) -> Snapshot {
+        Snapshot(
+            windows: controllers.map {
+                .init(isVisible: $0.window?.isVisible == true, isShown: $0.isLeoWindowShown, frame: $0.window?.frame)
+            },
+            launchWindow: app.leoLaunchPlaceholder.launchWindow.map(ObjectIdentifier.init)
+        )
+    }
+
+    private func nextMainQueueTurn() async {
+        await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
+    }
+
+    /// Waits until no presentation `controllers` queued is still pending
+    /// (each ran, or was cancelled by a close) and a whole main-queue turn
+    /// after that changed nothing about them: by then whatever those
+    /// presentations queued -- the cascade, the tracker's close -- has run
+    /// too. False if that never happens within the timeout.
+    private func settle(_ app: AppDelegate, _ controllers: TerminalController...) async -> Bool {
+        let deadline = ContinuousClock.now + Self.settleTimeout
+        var previous: Snapshot?
+        while ContinuousClock.now < deadline {
+            await nextMainQueueTurn()
+            let current = snapshot(app, controllers)
+            if !controllers.contains(where: \.leoIsAwaitingPresentation), current == previous { return true }
+            previous = current
+        }
+        return false
+    }
+
+    private func withoutUndo<T>(_ app: AppDelegate, _ body: () throws -> T) rethrows -> T {
         app.undoManager.disableUndoRegistration()
         defer { app.undoManager.enableUndoRegistration() }
-        return body()
+        return try body()
     }
 
     /// A start window as the launch opens it -- shown -- handed to the
-    /// app's tracker.
-    private func makeLaunchWindow(_ app: AppDelegate) async -> TerminalController {
+    /// app's tracker. Closed again if it never settles.
+    private func makeLaunchWindow(_ app: AppDelegate) async throws -> TerminalController {
         let launch = withoutUndo(app) { TerminalController.leoNewPlaceholderWindow(app.ghostty) }
-        await drainMainQueue()
+        let isSettled = await settle(app, launch)
+        if !isSettled { close(launch) }
+        try #require(isSettled, "the launch window's presentation never settled")
         app.leoLaunchPlaceholder.adopt(launch)
         return launch
     }
@@ -85,15 +130,16 @@ import Testing
     }
 
     @Test func aNewWindowReplacesTheLaunchWindowOnItsSpot() async throws {
-        guard let app = liveApp() else { return }
-        let launch = await makeLaunchWindow(app)
+        let app = try liveApp()
+        let launch = try await makeLaunchWindow(app)
+        defer { close(launch) }
         let closed = CloseFlag(launch.window)
         defer { closed.stop() }
         let spot = try #require(topLeft(launch))
 
         let requested = withoutUndo(app) { TerminalController.newWindow(app.ghostty) }
-        defer { close(requested, launch) }
-        await drainMainQueue()
+        defer { close(requested) }
+        try #require(await settle(app, launch, requested), "the windows never settled")
 
         #expect(closed.isClosed)
         #expect(requested.window?.isVisible == true)
@@ -106,35 +152,39 @@ import Testing
     }
 
     @Test func aNewTabWindowReplacesTheLaunchWindowOnItsSpot() async throws {
-        guard let app = liveApp() else { return }
-        let launch = await makeLaunchWindow(app)
+        let app = try liveApp()
+        let launch = try await makeLaunchWindow(app)
+        defer { close(launch) }
         let closed = CloseFlag(launch.window)
         defer { closed.stop() }
         let spot = try #require(topLeft(launch))
 
-        let requested = try #require(withoutUndo(app) { TerminalController.newTab(app.ghostty, from: launch.window) })
-        defer { close(requested, launch) }
-        await drainMainQueue()
+        let opened = withoutUndo(app) { TerminalController.newTab(app.ghostty, from: launch.window) }
+        defer { close(opened) }
+        let requested = try #require(opened)
+        try #require(await settle(app, launch, requested), "the windows never settled")
 
         #expect(closed.isClosed)
         #expect(requested.window?.isVisible == true)
         #expect(shown(launch, requested) == [ObjectIdentifier(requested)])
         #expect(topLeft(requested) == spot)
+        #expect(app.leoLaunchPlaceholder.launchWindow == nil)
     }
 
     /// The review's P1 case: the requested window never shows (its
     /// presentation is cancelled when it closes first), so Leo must not
     /// end up with no window at all.
-    @Test func aRequestedWindowClosedBeforeItShowsLeavesTheLaunchWindow() async {
-        guard let app = liveApp() else { return }
-        let launch = await makeLaunchWindow(app)
+    @Test func aRequestedWindowClosedBeforeItShowsLeavesTheLaunchWindow() async throws {
+        let app = try liveApp()
+        let launch = try await makeLaunchWindow(app)
+        defer { close(launch) }
         let closed = CloseFlag(launch.window)
         defer { closed.stop() }
 
         let requested = withoutUndo(app) { TerminalController.newWindow(app.ghostty) }
+        defer { close(requested) }
         requested.window?.close()
-        defer { close(requested, launch) }
-        await drainMainQueue()
+        try #require(await settle(app, launch, requested), "the windows never settled")
 
         #expect(!closed.isClosed)
         #expect(launch.window?.isVisible == true)
@@ -142,15 +192,16 @@ import Testing
 
     /// `LeoCommandLauncher.openWindow(in:)` from the start screen's own
     /// buttons (Start daemon, ssh) names the launch window as the parent.
-    @Test func aWindowTheLaunchWindowOpensLeavesIt() async {
-        guard let app = liveApp() else { return }
-        let launch = await makeLaunchWindow(app)
+    @Test func aWindowTheLaunchWindowOpensLeavesIt() async throws {
+        let app = try liveApp()
+        let launch = try await makeLaunchWindow(app)
+        defer { close(launch) }
         let closed = CloseFlag(launch.window)
         defer { closed.stop() }
 
         let requested = withoutUndo(app) { TerminalController.newWindow(app.ghostty, withParent: launch.window) }
-        defer { close(requested, launch) }
-        await drainMainQueue()
+        defer { close(requested) }
+        try #require(await settle(app, launch, requested), "the windows never settled")
 
         #expect(!closed.isClosed)
         #expect(shown(launch, requested).count == 2)
@@ -158,20 +209,19 @@ import Testing
     }
 
     @Test func aLaunchWindowShowingASheetStays() async throws {
-        guard let app = liveApp() else { return }
-        let launch = await makeLaunchWindow(app)
+        let app = try liveApp()
+        let launch = try await makeLaunchWindow(app)
+        defer { close(launch) }
         let window = try #require(launch.window)
         let closed = CloseFlag(window)
         defer { closed.stop() }
         let sheet = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: [.titled], backing: .buffered, defer: true)
         window.beginSheet(sheet, completionHandler: nil)
+        defer { window.endSheet(sheet) }
 
         let requested = withoutUndo(app) { TerminalController.newWindow(app.ghostty) }
-        defer {
-            window.endSheet(sheet)
-            close(requested, launch)
-        }
-        await drainMainQueue()
+        defer { close(requested) }
+        try #require(await settle(app, launch, requested), "the windows never settled")
 
         #expect(!closed.isClosed)
     }
@@ -179,8 +229,8 @@ import Testing
     /// B-093: the launch window reads shown once presented and stops the
     /// moment it closes, which the queued close checks before closing it.
     @Test func aClosedLaunchWindowNoLongerReadsShown() async throws {
-        guard let app = liveApp() else { return }
-        let launch = await makeLaunchWindow(app)
+        let app = try liveApp()
+        let launch = try await makeLaunchWindow(app)
         defer { close(launch) }
         let window = try #require(launch.window)
         let shownOnceOpen = launch.isLeoWindowShown
@@ -194,8 +244,8 @@ import Testing
     /// Closed without a key or mouse press (a script's `close window 1`):
     /// the tracker stops watching it.
     @Test func aLaunchWindowClosedOnItsOwnIsForgotten() async throws {
-        guard let app = liveApp() else { return }
-        let launch = await makeLaunchWindow(app)
+        let app = try liveApp()
+        let launch = try await makeLaunchWindow(app)
         defer { close(launch) }
 
         launch.window?.close()
@@ -208,7 +258,7 @@ import Testing
     /// status from it, stayed up over a background launch's window). The
     /// test host never hands it to the tracker.
     @Test func theLaunchWindowOpensWithoutThePaletteAndTheTestHostKeepsIt() async throws {
-        guard let app = liveApp() else { return }
+        let app = try liveApp()
 
         let launch = withoutUndo(app) { app.leoOpenLaunchWindow() }
         defer { close(launch) }
@@ -216,7 +266,36 @@ import Testing
 
         #expect(!session.isPickerPresented)
         #expect(app.leoLaunchPlaceholder.launchWindow !== launch)
-        await drainMainQueue()
+        try #require(await settle(app, launch), "the windows never settled")
         #expect(launch.window?.isVisible == true)
+    }
+}
+
+/// The app has a real `Ghostty.App` to make surfaces with. Outside the
+/// suite: its own `@Suite` attribute can't name the suite.
+@MainActor private var hasLiveGhosttyApp: Bool {
+    (NSApp.delegate as? AppDelegate)?.ghostty.app != nil
+}
+
+/// Puts `TerminalController`'s cascade point back after each test: the
+/// tests above move it (a replaced launch window holds its spot there),
+/// and the next window anything opens would cascade from it. Recursive,
+/// so each test gets its own scope; that makes it a `TestTrait` too, which
+/// Swift Testing requires of a trait it applies to test functions (the
+/// host traps at discovery without it).
+struct LeoCascadePointRestoringTrait: TestTrait, SuiteTrait, TestScoping {
+    var isRecursive: Bool { true }
+
+    func provideScope(
+        for test: Test, testCase: Test.Case?, performing function: @Sendable @concurrent () async throws -> Void
+    ) async throws {
+        let saved = await MainActor.run { TerminalController.leoCascadePoint }
+        do {
+            try await function()
+        } catch {
+            await MainActor.run { TerminalController.leoCascadePoint = saved }
+            throw error
+        }
+        await MainActor.run { TerminalController.leoCascadePoint = saved }
     }
 }

@@ -457,6 +457,17 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 
     // MARK: Leo -- `LeoLaunchPlaceholderWindow` (B-085)
 
+    /// The point the next window cascades from, for tests that open
+    /// windows to put back afterwards (B-094).
+    static var leoCascadePoint: NSPoint {
+        get { lastCascadePoint }
+        set { lastCascadePoint = newValue }
+    }
+
+    /// The window's initial presentation is still queued: it has neither
+    /// run nor been cancelled by a close (B-094).
+    var leoIsAwaitingPresentation: Bool { pendingInitialPresentation != nil }
+
     /// Held before this window closes: `newTab` cascades its window then,
     /// from this window's top left, landing on its spot.
     func holdSpotForReplacement() {
