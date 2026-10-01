@@ -1870,3 +1870,10 @@ Chose: Unreachable connected/disconnected-with-rows branch in agentState renders
 Why: AUTONOMY implementation approach
 Commit: 2e7667d9b, 811717ef8, 6fcb8552c, 757c80895, 291915f91
 Veto: [ ]
+
+## D-256 · 2026-10-01 · B-109 closed as not reproducible
+Context: B-109 (closed split pane's shell lingers) blocked as couldn't-reproduce; Evan answered.
+Chose: close — the shell lives only for the Close Terminal undo window; autopilot-shelved/B-109 kept as-is.
+Why: Evan's answer
+Commit:
+Veto: n/a (Evan)
