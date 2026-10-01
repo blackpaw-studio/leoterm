@@ -412,6 +412,16 @@ Why: B-115 verify: the app menu still lists "About Ghostty" (pre-existing); shou
 Accept: B-115 verify: the app menu still lists "About Ghostty" (pre-existing); should read About Leo
 Source: autopilot polish (B-115)
 
+## B-131 · B-087 focus test hardening   [ready (next run)]
+Why: LeoContentFocusTests: drive Escape via LeoPickerPresentation.commit(.cancel) not panel.dismiss() (45-48); #require(window.isKeyWindow) after dismiss in the split test (154); row-switch guard doc says it covers the host step only (24-36)
+Accept: LeoContentFocusTests: drive Escape via LeoPickerPresentation.commit(.cancel) not panel.dismiss() (45-48); #require(window.isKeyWindow) after dismiss in the split test (154); row-switch guard doc says it covers the host step only (24-36)
+Source: autopilot polish (B-087)
+
+## B-132 · Focused-surface report ordering on split open   [ready (next run)]
+Why: focusedSurface didSet posts .leoFocusedSurfaceDidChange before register(), so a brief nil focus report is possible (GhosttyAttachContentHost.swift:470, same in fillPlaceholder); move the assignment after register
+Accept: focusedSurface didSet posts .leoFocusedSurfaceDidChange before register(), so a brief nil focus report is possible (GhosttyAttachContentHost.swift:470, same in fillPlaceholder); move the assignment after register
+Source: autopilot polish (B-087)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
