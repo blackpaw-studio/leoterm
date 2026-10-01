@@ -19,10 +19,12 @@ extension TerminalController {
     /// Skipping AppKit's first pick also skips the key view loop it builds
     /// alongside it (the nibs turn off `autorecalculatesKeyViewLoop`), so
     /// Tab from the start screen reached nothing. The loop is rebuilt each
-    /// time the window becomes key -- the only time Tab can reach it --
-    /// on the next turn, once the split view has built its panes. This
-    /// never moves the first responder, and it keeps the loop current
-    /// after the sidebar or a pane was shown or hidden.
+    /// time the window becomes key, on the next turn. Ordering the window
+    /// in builds the sidebar, so its search field is in the loop at launch
+    /// (`LeoLaunchFocusTests`); the turn is margin. This never moves the
+    /// first responder. It is rebuilt only then: a sidebar or pane shown
+    /// or hidden while the window stays key keeps the loop from the last
+    /// time it became key.
     func leoRebuildKeyViewLoop() {
         DispatchQueue.main.async { [weak self] in
             self?.window?.recalculateKeyViewLoop()
