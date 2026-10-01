@@ -282,7 +282,7 @@ import Testing
         let item = try #require(menuItems(#selector(TerminalController.chooseLeoAgent(_:))).first)
         let hints = try #require((NSApp.delegate as? AppDelegate)?.leoRuntime.shortcutHints)
 
-        let help = LeoPlaceholderChooseAgent(host: .local, connectivity: .connected, shortcut: hints.chooseAgent).help
+        let help = LeoPlaceholderChooseAgent(host: .local, connectivity: .connected, shortcut: hints.chooseAgent, reconnectShortcut: hints.reconnect).help
 
         #expect(help == "⌘O")
         #expect(help == LeoMenuShortcutHint.text(for: item))

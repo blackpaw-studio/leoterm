@@ -9,12 +9,12 @@ struct LeoPlaceholderView: View {
     /// The buttons' tooltips: the menu items' live shortcuts (B-080).
     @ObservedObject var shortcutHints: LeoShortcutHints
     let openPicker: () -> Void
-    /// File ▸ New Terminal (⌘T) for this window (B-069).
+    /// File ▸ New Terminal for this window (B-069).
     let newTerminal: () -> Void
     let toggleDrawer: () -> Void
 
     private var chooseAgent: LeoPlaceholderChooseAgent {
-        LeoPlaceholderChooseAgent(host: hostSelection.selected, connectivity: model.snapshot.connectivity, shortcut: shortcutHints.chooseAgent)
+        LeoPlaceholderChooseAgent(host: hostSelection.selected, connectivity: model.snapshot.connectivity, shortcut: shortcutHints.chooseAgent, reconnectShortcut: shortcutHints.reconnect)
     }
 
     var body: some View {

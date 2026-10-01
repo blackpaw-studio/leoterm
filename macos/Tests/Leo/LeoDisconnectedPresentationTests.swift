@@ -44,23 +44,34 @@ import Testing
     // MARK: Choose Agent…
 
     @Test func chooseAgentIsEnabledWithItsShortcutAsHelpWhileConnected() {
-        let state = LeoPlaceholderChooseAgent(host: .local, connectivity: .connected, shortcut: "⌘O")
+        let state = LeoPlaceholderChooseAgent(host: .local, connectivity: .connected, shortcut: "⌘O", reconnectShortcut: "⇧⌘R")
         #expect(state.isEnabled)
         #expect(state.isProminent)
         #expect(state.help == "⌘O")
     }
 
     @Test func chooseAgentIsDisabledWhileDisconnectedAndSaysHowToReconnect() {
-        let state = LeoPlaceholderChooseAgent(host: .remote("mars"), connectivity: .disconnected(reason: "ssh exited (255)", isRetrying: false), shortcut: "⌘O")
+        let state = LeoPlaceholderChooseAgent(host: .remote("mars"), connectivity: .disconnected(reason: "ssh exited (255)", isRetrying: false), shortcut: "⌘O", reconnectShortcut: "⇧⌘R")
         #expect(!state.isEnabled)
         #expect(!state.isProminent)
         #expect(state.help == "Disconnected from mars. Reconnect first (⇧⌘R).")
     }
 
+    /// B-104: the "how to reconnect" names Agents ▸ Reconnect's live
+    /// shortcut, and drops it rather than guess when Reconnect has none.
+    @Test func theDisconnectedHelpNamesReconnectsLiveShortcut() {
+        let disconnected = LeoConnectivity.disconnected(reason: "x", isRetrying: false)
+        let rebound = LeoPlaceholderChooseAgent(host: .local, connectivity: disconnected, shortcut: "⌘O", reconnectShortcut: "⌥⌘R")
+        let unbound = LeoPlaceholderChooseAgent(host: .local, connectivity: disconnected, shortcut: "⌘O", reconnectShortcut: nil)
+
+        #expect(rebound.help == "Disconnected from localhost. Reconnect first (⌥⌘R).")
+        #expect(unbound.help == "Disconnected from localhost. Reconnect first.")
+    }
+
     /// B-080: with Choose Agent… unbound the tooltip is left out, not a
     /// stale "⌘O".
     @Test func chooseAgentHasNoHintWithoutAShortcut() {
-        let state = LeoPlaceholderChooseAgent(host: .local, connectivity: .connected, shortcut: nil)
+        let state = LeoPlaceholderChooseAgent(host: .local, connectivity: .connected, shortcut: nil, reconnectShortcut: "⇧⌘R")
         #expect(state.isEnabled)
         #expect(state.help == nil)
     }
@@ -68,16 +79,16 @@ import Testing
     /// Only a disconnected feed disables it: loading and failed states have
     /// their own panels, and the palette explains them.
     @Test func chooseAgentStaysEnabledOutsideTheDisconnectedState() {
-        #expect(LeoPlaceholderChooseAgent(host: .local, connectivity: .loading, shortcut: "⌘O").isEnabled)
-        #expect(LeoPlaceholderChooseAgent(host: .local, connectivity: .failed(message: "x"), shortcut: "⌘O").isEnabled)
-        #expect(!LeoPlaceholderChooseAgent(host: .local, connectivity: .disconnected(reason: "x", isRetrying: true), shortcut: "⌘O").isEnabled)
+        #expect(LeoPlaceholderChooseAgent(host: .local, connectivity: .loading, shortcut: "⌘O", reconnectShortcut: "⇧⌘R").isEnabled)
+        #expect(LeoPlaceholderChooseAgent(host: .local, connectivity: .failed(message: "x"), shortcut: "⌘O", reconnectShortcut: "⇧⌘R").isEnabled)
+        #expect(!LeoPlaceholderChooseAgent(host: .local, connectivity: .disconnected(reason: "x", isRetrying: true), shortcut: "⌘O", reconnectShortcut: "⇧⌘R").isEnabled)
     }
 
     /// Follows the sidebar model's snapshots: connect → disconnect → reconnect.
     @Test func chooseAgentFollowsTheFeedAcrossConnectDisconnectReconnect() {
         let model = LeoSidebarModel()
         func state() -> LeoPlaceholderChooseAgent {
-            LeoPlaceholderChooseAgent(host: .local, connectivity: model.snapshot.connectivity, shortcut: "⌘O")
+            LeoPlaceholderChooseAgent(host: .local, connectivity: model.snapshot.connectivity, shortcut: "⌘O", reconnectShortcut: "⇧⌘R")
         }
 
         model.receive(.init(rows: [], connectivity: .connected, generation: 1))
