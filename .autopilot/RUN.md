@@ -33,3 +33,14 @@ Lane: B-100
   Call: Side-pane headers centre on the sidebar header's line rather than aligning control-frame tops — P1 Mac-native, toolbar-style alignment
   Call: New LeoSidebarChromeMetrics.headerRowHeight = 16 applied to LeoSidebarHeader as .frame(minHeight:), so the sidebar doesn't move — AUTONOMY: implementation
 Finished 1: B-100 landed 3b5b1b95c · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-100-1.png
+
+Lane: B-101
+  Branch: autopilot-lane/B-101
+  Base: 25caa8be6e2dd727036a58742a6ffdbba451ad25
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-01T16:49:45Z
