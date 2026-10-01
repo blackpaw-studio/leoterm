@@ -348,211 +348,211 @@ Why: B-065 implementer: runtests.sh's failure grep misses parameterized tests (n
 Accept: the failure list names parameterized failures; verify.md updated
 Source: autopilot polish (B-065)
 
-## B-116 · Sidebar programmatic-width doc comment   [ready (next run)]
+## B-116 · Sidebar programmatic-width doc comment   [ready]
 Issue: #120
 Why: B-090 review polish
 Accept: applyProgrammaticWidth's doc comment (LeoSplitViewRepresentable.swift) says a collapsed sidebar drops the pending width and gets it when shown
 Source: autopilot polish (B-090)
 
-## B-117 · verify.md: sidebar toggle menu path reads Hide/Show   [ready (next run)]
+## B-117 · verify.md: sidebar toggle menu path reads Hide/Show   [ready]
 Issue: #121
 Why: B-090 verify couldn't find "Agents ▸ Show Agents Sidebar" while the sidebar was visible (the item reads "Hide Agents Sidebar" then)
 Accept: verify.md's GUI tips name the toggle as Show/Hide Agents Sidebar depending on state
 Source: autopilot polish (B-090)
 
-## B-118 · Single-instance: reject a marked pid that isn't this bundle   [ready (next run)]
+## B-118 · Single-instance: reject a marked pid that isn't this bundle   [ready]
 Issue: #122
 Why: compare proc_pidpath or bundle ID as well as the uid before waiting on a marked pid; shrinks the same-user pid-reuse wait risk (security + concurrency)
 Accept: compare proc_pidpath or bundle ID as well as the uid before waiting on a marked pid; test where behaviour changes
 Source: autopilot polish (B-092)
 
-## B-119 · Single-instance: log when the release retry runs out   [ready (next run)]
+## B-119 · Single-instance: log when the release retry runs out   [ready]
 Issue: #123
 Why: log an error naming the pid and pause count when the release retry is exhausted, so a stuck-mark yield is distinguishable in the field
 Accept: log an error naming the pid and pause count when the release retry is exhausted, so a stuck-mark yield is distinguishable in the field; test where behaviour changes
 Source: autopilot polish (B-092)
 
-## B-120 · Single-instance: fix maxReleasePauses doc comment   [ready (next run)]
+## B-120 · Single-instance: fix maxReleasePauses doc comment   [ready]
 Issue: #124
 Why: the attempt doc comment says "maxReleasePauses times (seconds; …)" but the constant is a count, ~5 s total
 Accept: the attempt doc comment says "maxReleasePauses times (seconds; test where behaviour changes
 Source: autopilot polish (B-092)
 
-## B-121 · LeoTestProcess.gone() pid reuse flake   [ready (next run)]
+## B-121 · LeoTestProcess.gone() pid reuse flake   [ready]
 Issue: #125
 Why: gone() returns a reaped pid that can be reused; re-check ESRCH just before use
 Accept: gone() returns a reaped pid that can be reused; test where behaviour changes
 Source: autopilot polish (B-092)
 
-## B-122 · Test Return To Default Size menu enabled state   [ready (next run)]
+## B-122 · Test Return To Default Size menu enabled state   [ready]
 Issue: #126
 Why: a test for the Return To Default Size menu item's enabled state (validateMenuItem/isChanged) on a filled start screen
 Accept: a test for the Return To Default Size menu item's enabled state (validateMenuItem/isChanged) on a filled start screen
 Source: autopilot polish (B-097)
 
-## B-123 · Updater mayPerform adapter test   [ready (next run)]
+## B-123 · Updater mayPerform adapter test   [ready]
 Issue: #127
 Why: test updater(_:mayPerform:) beyond the pure UpdatePolicy.mayCheck (both B-115 reviewers)
 Accept: test updater(_:mayPerform:) beyond the pure UpdatePolicy.mayCheck (both B-115 reviewers)
 Source: autopilot polish (B-115)
 
-## B-124 · Name UpdateDelegate error constants   [ready (next run)]
+## B-124 · Name UpdateDelegate error constants   [ready]
 Issue: #128
 Why: inline error code 1 and domain string in UpdateDelegate.swift:119 should be named constants
 Accept: inline error code 1 and domain string in UpdateDelegate.swift:119 should be named constants
 Source: autopilot polish (B-115)
 
-## B-125 · GhosttyMouseStateTests launch arguments   [ready (next run)]
+## B-125 · GhosttyMouseStateTests launch arguments   [ready]
 Issue: #129
 Why: it uses activate(), not launch(); confirm -SUEnableAutomaticChecks NO applies or switch to launch()
 Accept: it uses activate(), not launch(); confirm -SUEnableAutomaticChecks NO applies or switch to launch()
 Source: autopilot polish (B-115)
 
-## B-126 · Pin update defaults reset before startUpdater   [ready (next run)]
+## B-126 · Pin update defaults reset before startUpdater   [ready]
 Issue: #130
 Why: the migration-before-startUpdater order (AppDelegate.swift:313) has no test or comment pinning it
 Accept: the migration-before-startUpdater order (AppDelegate.swift:313) has no test or comment pinning it
 Source: autopilot polish (B-115)
 
-## B-127 · Appcast fixture refresh note   [ready (next run)]
+## B-127 · Appcast fixture refresh note   [ready]
 Issue: #131
 Why: AppcastFixtureTests hard-codes 18527/0.5.0 against a #filePath fixture; document refreshing both together
 Accept: AppcastFixtureTests hard-codes 18527/0.5.0 against a #filePath fixture; document refreshing both together
 Source: autopilot polish (B-115)
 
-## B-128 · Update permission prompt shows twice at launch   [ready (next run)]
+## B-128 · Update permission prompt shows twice at launch   [ready]
 Issue: #132
 Why: B-115 verify: the pill and Sparkle's standard alert both asked "Check for updates automatically?" at launch (likely no terminal window visible yet); ci.md says pill popover only
 Accept: B-115 verify: the pill and Sparkle's standard alert both asked "Check for updates automatically?" at launch (likely no terminal window visible yet); ci.md says pill popover only
 Source: autopilot polish (B-115)
 
-## B-129 · Debug update alert offers auto-install checkbox   [ready (next run)]
+## B-129 · Debug update alert offers auto-install checkbox   [ready]
 Issue: #133
 Why: B-115 verify: Sparkle's standard permission alert offers "Automatically download and install updates" in Debug builds; hide it or make it inert there
 Accept: B-115 verify: Sparkle's standard permission alert offers "Automatically download and install updates" in Debug builds; hide it or make it inert there
 Source: autopilot polish (B-115)
 
-## B-130 · App menu says About Ghostty   [ready (next run)]
+## B-130 · App menu says About Ghostty   [ready]
 Issue: #134
 Why: B-115 verify: the app menu still lists "About Ghostty" (pre-existing); should read About Leo
 Accept: B-115 verify: the app menu still lists "About Ghostty" (pre-existing); should read About Leo
 Source: autopilot polish (B-115)
 
-## B-131 · B-087 focus test hardening   [ready (next run)]
+## B-131 · B-087 focus test hardening   [ready]
 Issue: #135
 Why: LeoContentFocusTests: drive Escape via LeoPickerPresentation.commit(.cancel) not panel.dismiss() (45-48); #require(window.isKeyWindow) after dismiss in the split test (154); row-switch guard doc says it covers the host step only (24-36)
 Accept: LeoContentFocusTests: drive Escape via LeoPickerPresentation.commit(.cancel) not panel.dismiss() (45-48); #require(window.isKeyWindow) after dismiss in the split test (154); row-switch guard doc says it covers the host step only (24-36)
 Source: autopilot polish (B-087)
 
-## B-132 · Focused-surface report ordering on split open   [ready (next run)]
+## B-132 · Focused-surface report ordering on split open   [ready]
 Issue: #136
 Why: focusedSurface didSet posts .leoFocusedSurfaceDidChange before register(), so a brief nil focus report is possible (GhosttyAttachContentHost.swift:470, same in fillPlaceholder); move the assignment after register
 Accept: focusedSurface didSet posts .leoFocusedSurfaceDidChange before register(), so a brief nil focus report is possible (GhosttyAttachContentHost.swift:470, same in fillPlaceholder); move the assignment after register
 Source: autopilot polish (B-087)
 
-## B-133 · Close-confirm polish   [ready (next run)]
+## B-133 · Close-confirm polish   [ready]
 Issue: #137
 Why: guard surfaceTree.contains(node) before leoConfirmClosingPane (TerminalController.swift:950-955); narrow title cleaning in LeoCloseConfirmation.swift:43-49 so ZWJ emoji survive and spacing matches the sidebar; add a left/right hint when two panes share a name
 Accept: guard surfaceTree.contains(node) before leoConfirmClosingPane (TerminalController.swift:950-955); narrow title cleaning in LeoCloseConfirmation.swift:43-49 so ZWJ emoji survive and spacing matches the sidebar; add a left/right hint when two panes share a name
 Source: autopilot polish (B-088)
 
-## B-134 · Clamped sidebar regrows to its stored width on widen   [ready (next run)]
+## B-134 · Clamped sidebar regrows to its stored width on widen   [ready]
 Issue: #138
 Why: B-089 verify: after a window narrows and widens again, the sidebar stays ~195 pt until relaunch; regrow it toward the stored width
 Accept: B-089 verify: after a window narrows and widens again, the sidebar stays ~195 pt until relaunch; regrow it toward the stored width
 Source: autopilot polish (B-089)
 
-## B-135 · Sidebar width comment refresh   [ready (next run)]
+## B-135 · Sidebar width comment refresh   [ready]
 Issue: #139
 Why: LeoSplitViewRepresentable :240 and clearProgrammaticWidthFlagSoon still say the resize notification "arrives on a later layout pass"; class doc :195-198 should say "when the user moves the sidebar's divider"
 Accept: LeoSplitViewRepresentable :240 and clearProgrammaticWidthFlagSoon still say the resize notification "arrives on a later layout pass"; class doc :195-198 should say "when the user moves the sidebar's divider"
 Source: autopilot polish (B-089)
 
-## B-136 · Serialize event-posting test suites   [ready (next run)]
+## B-136 · Serialize event-posting test suites   [ready]
 Issue: #140
 Why: mouseDragDivider and LeoSidebarCommandClickTests.click share the app event queue in a parallelizable plan; serialize them
 Accept: mouseDragDivider and LeoSidebarCommandClickTests.click share the app event queue in a parallelizable plan; serialize them
 Source: autopilot polish (B-089)
 
-## B-137 · runtests.sh baseline note for ConfigTests   [ready (next run)]
+## B-137 · runtests.sh baseline note for ConfigTests   [ready]
 Issue: #141
 Why: runtests.sh labels ConfigTests/errorsEmptyForValidConfig an "expected baseline failure", contradicting verify.md; drop the label
 Accept: runtests.sh labels ConfigTests/errorsEmptyForValidConfig an "expected baseline failure", contradicting verify.md; drop the label
 Source: autopilot polish (B-089)
 
-## B-138 · Start-screen button row adapts below 450 pt content   [ready (next run)]
+## B-138 · Start-screen button row adapts below 450 pt content   [ready]
 Issue: #142
 Why: content can still fall under 450 pt (window < ~651 pt, hidden sidebar in a < 450 pt window, a narrow split leaf, a side pane open) and the start-screen buttons truncate; let the row adapt (e.g. ViewThatFits)
 Accept: content can still fall under 450 pt (window < ~651 pt, hidden sidebar in a < 450 pt window, a narrow split leaf, a side pane open) and the start-screen buttons truncate; let the row adapt (e.g. ViewThatFits)
 Source: autopilot polish (B-091)
 
-## B-139 · B-091 resize test hardening   [ready (next run)]
+## B-139 · B-091 resize test hardening   [ready]
 Issue: #143
 Why: add a per-step "clamp never shows" frame check in the live narrowing test; use a 1 pt tolerance in LeoFirstAttachWindowSizeTests.swift:193
 Accept: add a per-step "clamp never shows" frame check in the live narrowing test; use a 1 pt tolerance in LeoFirstAttachWindowSizeTests.swift:193
 Source: autopilot polish (B-091)
 
-## B-140 · Return To Default Size restores a launch-clamped sidebar   [ready (next run)]
+## B-140 · Return To Default Size restores a launch-clamped sidebar   [ready]
 Issue: #144
 Why: Return To Default Size leaves a launch-clamped sidebar at ~349 pt instead of the stored 420 until relaunch; settle together with the regrow item
 Accept: Return To Default Size leaves a launch-clamped sidebar at ~349 pt instead of the stored 420 until relaunch; settle together with the regrow item
 Source: autopilot polish (B-091)
 
-## B-141 · Inject NSApp.isHidden into isLeoWindowShown   [ready (next run)]
+## B-141 · Inject NSApp.isHidden into isLeoWindowShown   [ready]
 Issue: #145
 Why: the hidden branch of TerminalController.isLeoWindowShown reads a global and its real wiring is untested; inject it (DI preference)
 Accept: the hidden branch of TerminalController.isLeoWindowShown reads a global and its real wiring is untested; inject it (DI preference)
 Source: autopilot polish (B-093)
 
-## B-142 · Off-screen 500x500 window on folder-open   [ready (next run)]
+## B-142 · Off-screen 500x500 window on folder-open   [ready]
 Issue: #146
 Why: B-093 verify: an untitled 500x500 pixels-only window at (0,550) appears on every folder-open path (cold or running); likely pre-existing — find and remove it
 Accept: B-093 verify: an untitled 500x500 pixels-only window at (0,550) appears on every folder-open path (cold or running); likely pre-existing — find and remove it
 Source: autopilot polish (B-093)
 
-## B-143 · Replaced launch window lingers in the window list   [ready (next run)]
+## B-143 · Replaced launch window lingers in the window list   [ready]
 Issue: #147
 Why: B-093 verify: a replaced launch window stays off-screen in the CG window list; check whether its controller is ever freed
 Accept: B-093 verify: a replaced launch window stays off-screen in the CG window list; check whether its controller is ever freed
 Source: autopilot polish (B-093)
 
-## B-144 · Launch-placeholder test cleanup closes pending windows   [ready (next run)]
+## B-144 · Launch-placeholder test cleanup closes pending windows   [ready]
 Issue: #148
 Why: LeoLaunchPlaceholderIntegrationTests close() (:90,100-101) only closes visible windows; also close windows whose controller has leoIsAwaitingPresentation, and fold the trait's duplicated MainActor.run restore into one helper
 Accept: LeoLaunchPlaceholderIntegrationTests close() (:90,100-101) only closes visible windows; also close windows whose controller has leoIsAwaitingPresentation, and fold the trait's duplicated MainActor.run restore into one helper
 Source: autopilot polish (B-094)
 
-## B-145 · File ▸ New Window and ⌘N skip the palette flash   [ready (next run)]
+## B-145 · File ▸ New Window and ⌘N skip the palette flash   [ready]
 Issue: #149
 Why: File ▸ New Window while a start-screen window is key, and ⌘N (ghosttyNewWindow) from a terminal with content, still route through leoRouteNewWindow and the palette (TerminalController.swift:1638-1642); swap to the bare start screen like B-095, and document the Dock right-click New Window in AppDelegate.newWindow's doc comment
 Accept: File ▸ New Window while a start-screen window is key, and ⌘N (ghosttyNewWindow) from a terminal with content, still route through leoRouteNewWindow and the palette (TerminalController.swift:1638-1642); swap to the bare start screen like B-095, and document the Dock right-click New Window in AppDelegate.newWindow's doc comment
 Source: autopilot polish (B-095)
 
-## B-146 · Environ comment wording   [ready (next run)]
+## B-146 · Environ comment wording   [ready]
 Issue: #150
 Why: src/global.zig:309: say "environ_initialized stays set" only matters if the I/O side scanned before the sync; macos/Sources/App/main.swift:34-38: the probe runs after ghostty_cli_try_action too ("after init, before NSApplicationMain")
 Accept: src/global.zig:309: say "environ_initialized stays set" only matters if the I/O side scanned before the sync; macos/Sources/App/main.swift:34-38: the probe runs after ghostty_cli_try_action too ("after init, before NSApplicationMain")
 Source: autopilot polish (B-098)
 
-## B-147 · Rebuild the shared autopilot xcframework after B-098   [ready (next run)]
+## B-147 · Rebuild the shared autopilot xcframework after B-098   [ready]
 Issue: #151
 Why: B-098 changed src/global.zig; .git/autopilot/shared/GhosttyKit.xcframework + zig-out were built at B-072, so lanes that symlink them per verify.md run a stale libghostty; rebuild and update verify.md's note
 Accept: B-098 changed src/global.zig; .git/autopilot/shared/GhosttyKit.xcframework + zig-out were built at B-072, so lanes that symlink them per verify.md run a stale libghostty; rebuild and update verify.md's note
 Source: autopilot polish (B-098)
 
-## B-148 · Sidebar list stays mounted in No Agents/Loading/Failed with terminals   [ready (next run)]
+## B-148 · Sidebar list stays mounted in No Agents/Loading/Failed with terminals   [ready]
 Issue: #152
 Why: the onAppear remount race is still reachable in those states with terminals and a filter (LeoSidebarView.swift:216); keep the list mounted when terminal rows exist; fix the doc comments that say only the first list uses onAppear (LeoSidebarView.swift:214, LeoTerminalRowReveal.swift:12)
 Accept: the onAppear remount race is still reachable in those states with terminals and a filter (LeoSidebarView.swift:216); keep the list mounted when terminal rows exist; fix the doc comments that say only the first list uses onAppear (LeoSidebarView.swift:214, LeoTerminalRowReveal.swift:12)
 Source: autopilot polish (B-099)
 
-## B-149 · Reveal the selected row after AppKit layout   [ready (next run)]
+## B-149 · Reveal the selected row after AppKit layout   [ready]
 Issue: #153
 Why: Loading→connected leaves the row partly cut off ~7/60 (pre-existing); order the reveal after layout
 Accept: Loading→connected leaves the row partly cut off ~7/60 (pre-existing); order the reveal after layout
 Source: autopilot polish (B-099)
 
-## B-150 · B-099 scroll test hardening   [ready (next run)]
+## B-150 · B-099 scroll test hardening   [ready]
 Issue: #154
 Why: loading test: assert rect(ofRow:).intersects(visibleRect) with a minY == 0 precondition; test the agents-going listsAgents direction; replace settledTable's 3 s first-population poll with a signal
 Accept: loading test: assert rect(ofRow:).intersects(visibleRect) with a minY == 0 precondition; test the agents-going listsAgents direction; replace settledTable's 3 s first-population poll with a signal
