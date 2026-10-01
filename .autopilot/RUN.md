@@ -146,9 +146,14 @@ Lane: B-089
   Branch: autopilot-lane/B-089
   Base: 04a9561ad35bc215137af413546c6e3b61905e98
   Tier: full
-  State: building
+  State: verifying
   Fixes: 2
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: e4119653474156e094bd8ca0155a1d1931d2585c
   Dispatched: 2026-10-01T01:21:27Z
+  Call: When a widened window gives room back, a clamped sidebar keeps its current width; the stored preference is untouched and the next launch opens at it — P2, D-144/D-145
+  Call: The pending-branch flag write is dropped rather than documented; the pendingWidth guard covers it (comment says the check must stay) — P1
+  Call: Width persists only on a user/setPosition move of the sidebar's own divider (NSSplitViewUserResizeKey + divider index 0); window-resize clamps and terminal-floor layouts never persist — D-144, P2
+  Call: A drag of the terminal/editor divider that pushes the sidebar is not stored as a sidebar width (test-pinned) — P6, D-144
+- B-089 runner: ready at e41196534 after 2 fix rounds (r1 GUI: a window-resize clamp persisted 200; r2: other-divider behaviour untested). 1918/1918.

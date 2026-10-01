@@ -429,6 +429,26 @@ Why: guard surfaceTree.contains(node) before leoConfirmClosingPane (TerminalCont
 Accept: guard surfaceTree.contains(node) before leoConfirmClosingPane (TerminalController.swift:950-955); narrow title cleaning in LeoCloseConfirmation.swift:43-49 so ZWJ emoji survive and spacing matches the sidebar; add a left/right hint when two panes share a name
 Source: autopilot polish (B-088)
 
+## B-134 · Clamped sidebar regrows to its stored width on widen   [ready (next run)]
+Why: B-089 verify: after a window narrows and widens again, the sidebar stays ~195 pt until relaunch; regrow it toward the stored width
+Accept: B-089 verify: after a window narrows and widens again, the sidebar stays ~195 pt until relaunch; regrow it toward the stored width
+Source: autopilot polish (B-089)
+
+## B-135 · Sidebar width comment refresh   [ready (next run)]
+Why: LeoSplitViewRepresentable :240 and clearProgrammaticWidthFlagSoon still say the resize notification "arrives on a later layout pass"; class doc :195-198 should say "when the user moves the sidebar's divider"
+Accept: LeoSplitViewRepresentable :240 and clearProgrammaticWidthFlagSoon still say the resize notification "arrives on a later layout pass"; class doc :195-198 should say "when the user moves the sidebar's divider"
+Source: autopilot polish (B-089)
+
+## B-136 · Serialize event-posting test suites   [ready (next run)]
+Why: mouseDragDivider and LeoSidebarCommandClickTests.click share the app event queue in a parallelizable plan; serialize them
+Accept: mouseDragDivider and LeoSidebarCommandClickTests.click share the app event queue in a parallelizable plan; serialize them
+Source: autopilot polish (B-089)
+
+## B-137 · runtests.sh baseline note for ConfigTests   [ready (next run)]
+Why: runtests.sh labels ConfigTests/errorsEmptyForValidConfig an "expected baseline failure", contradicting verify.md; drop the label
+Accept: runtests.sh labels ConfigTests/errorsEmptyForValidConfig an "expected baseline failure", contradicting verify.md; drop the label
+Source: autopilot polish (B-089)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
