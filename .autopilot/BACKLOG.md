@@ -188,11 +188,12 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: autopilot polish (B-084)
 Done: 2026-09-30 · 980ec80b4, 8e7cd5d02 · D-213, D-214
 
-## B-091 · Wide sidebar truncates the content toolbar   [ready]
+## B-091 · Wide sidebar truncates the content toolbar   [done]
 Issue: #95
 Why: B-084 verify: at a 420 pt sidebar in an 800 pt window, "Show Terminal Drawer" truncates
 Accept: a content minimum width (or a sidebar maximum tied to window width) keeps content controls untruncated; test + screenshot
 Source: autopilot polish (B-084)
+Done: 2026-09-30 · 25f7b4bd7, 42ecc4794 · D-235, D-236, D-237, D-238
 
 ## B-092 · Bug — a fast quit-then-reopen can leave no Leo running   [done]
 Issue: #96

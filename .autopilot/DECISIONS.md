@@ -1723,3 +1723,31 @@ Chose: A drag of the terminal/editor divider that pushes the sidebar is not stor
 Why: P6, D-144
 Commit: 0cd940a68, 111c6aff9, d373aecc3, 5ea58f8a0, 1b956fa7c, 862fbb512, 5ee90bebb, e41196534
 Veto: [ ]
+
+## D-235 · 2026-09-30 · contentMinimumWidth = 450 pt (start-screen button row measured at 409…
+Context: B-091 (runner call).
+Chose: contentMinimumWidth = 450 pt (start-screen button row measured at 409 pt, plus the HIG's 20 pt margins)
+Why: P1, AUTONOMY UX details
+Commit: 25f7b4bd7, 42ecc4794
+Veto: [ ]
+
+## D-236 · 2026-09-30 · When the window narrows, the sidebar gives way before the content
+Context: B-091 (runner call).
+Chose: When the window narrows, the sidebar gives way before the content
+Why: P1 (same spirit as D-036)
+Commit: 25f7b4bd7, 42ecc4794
+Veto: [ ]
+
+## D-237 · 2026-09-30 · A sidebar clamped by a window resize regrows when the window widens; …
+Context: B-091 (runner call).
+Chose: A sidebar clamped by a window resize regrows when the window widens; a sidebar clamped at launch keeps its clamped width (scopes D-231 to launch clamps)
+Why: P1, P2, D-231/D-233
+Commit: 25f7b4bd7, 42ecc4794
+Veto: [ ]
+
+## D-238 · 2026-09-30 · With the sidebar shown, a configured window-width under 450 pt opens …
+Context: B-091 (runner call).
+Chose: With the sidebar shown, a configured window-width under 450 pt opens the terminal at 450 pt so the stored sidebar isn't clamped (Reset Window Size shares this path)
+Why: P1, D-144, D-145
+Commit: 25f7b4bd7, 42ecc4794
+Veto: [ ]

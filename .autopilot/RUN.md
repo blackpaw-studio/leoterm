@@ -164,7 +164,7 @@ Lane: B-091
   Branch: autopilot-lane/B-091
   Base: 96f747f5463b63392cb95a6ef654f19074259f41
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
@@ -175,3 +175,5 @@ Lane: B-091
   Call: A sidebar clamped by a window resize regrows when the window widens; a sidebar clamped at launch keeps its clamped width (scopes D-231 to launch clamps) — P1, P2, D-231/D-233
   Call: With the sidebar shown, a configured window-width under 450 pt opens the terminal at 450 pt so the stored sidebar isn't clamped (Reset Window Size shares this path) — P1, D-144, D-145
 - B-091 runner: ready at 42ecc4794 (general full + delta, 1 fix round). Call check: the regrow call narrows D-231 (logged this run for B-089's launch narrow-then-widen case) to launch clamps; judged a scoping refinement, not a contradiction — flagged in the digest for veto.
+- B-091 landed (merge 5927cb915).
+Finished 9: B-091 landed 5927cb915 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-091-1.png
