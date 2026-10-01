@@ -31,6 +31,13 @@ if ghostty_init(UInt(CommandLine.argc), CommandLine.unsafeArgv) != GHOSTTY_SUCCE
 ghostty_cli_try_action()
 
 // MARK: Leo
+// Whether libc's `environ` was a malloc'd block when `ghostty_init` returned
+// (it is once anything has `setenv`'d, e.g. libghostty setting LANG; the
+// exec-provided block reports 0). Only a malloc'd block can later be freed
+// under a reader, so `LeoEnvironSnapshotTests` requires it. Sampled here,
+// before anything else can move `environ`; only compared, never dereferenced.
+let leoEnvironWasOnHeapAtGhosttyInit = malloc_size(environ) > 0
+
 // One copy per bundle ID, decided before the app delegate (and with it any
 // tunnel) exists: a second copy activates the first and exits here, and a
 // lock that can't be taken safely alerts and exits 1. A copy that finds the

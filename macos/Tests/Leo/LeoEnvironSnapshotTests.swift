@@ -12,6 +12,14 @@ import Testing
 /// opened after `LeoTunnelTestSupport` set its `FAKE_SSH_*` variables).
 /// Needs the app's real `Ghostty.App`.
 ///
+/// The old code could only crash if the block it viewed was malloc'd, i.e.
+/// something had already `setenv`'d by the time `ghostty_init` returned
+/// (libghostty's LANG, CoreFoundation's `__CF_USER_TEXT_ENCODING`, the
+/// coverage runtime's `__LLVM_PROFILE_RT_INIT_ONCE`). A host that inherits
+/// all of those keeps libc's exec-provided block, which is never freed, so
+/// the test would pass without the fix. It therefore requires
+/// `leoEnvironWasOnHeapAtGhosttyInit` rather than passing vacuously.
+///
 /// The surface runs `/bin/cat`, never a shell or a real agent.
 @MainActor @Suite(.serialized) struct LeoEnvironSnapshotTests {
     private static let standIn = "/bin/cat"
@@ -49,6 +57,9 @@ import Testing
     }
 
     @Test func aSurfaceSpawnsAfterEnvironIsReallocated() async throws {
+        try #require(
+            leoEnvironWasOnHeapAtGhosttyInit,
+            "precondition: environ was malloc'd at ghostty_init (something setenv'd before it returned), else this host cannot reproduce the freed-block read")
         let app = try #require(Self.ghostty?.app, "this test needs the app's Ghostty.App")
         try #require(reallocateEnviron(), "libc moved environ, freeing the block it was in")
 
