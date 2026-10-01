@@ -611,6 +611,21 @@ Why: chooseAgentIsCommandO's live check passes if the live walk returns nothing;
 Accept: chooseAgentIsCommandO's live check passes if the live walk returns nothing; assert the walk finds Choose Agent… on "⌘o"
 Source: autopilot polish (B-102)
 
+## B-161 · Retitle signal: wait for a stable measurement   [ready (next run)]
+Why: the pixel-width retitle signal could pass on a half-laid-out first render; measure until two consecutive turns agree or require titleEnd past icon+gap; it also depends on "vim notes.md" drawing wider than "Terminal" (fragile if fonts or the fixture change)
+Accept: the pixel-width retitle signal could pass on a half-laid-out first render; measure until two consecutive turns agree or require titleEnd past icon+gap; it also depends on "vim notes.md" drawing wider than "Terminal" (fragile if fonts or the fixture change)
+Source: autopilot polish (B-103)
+
+## B-162 · turns(limit:until:) stops when the condition holds and gets a clearer name   [ready (next run)]
+Why: it keeps evaluating condition() after it turns true (up to ~50 extra renders) — use a while loop; rename to e.g. turnsUntil(_:limit:) to avoid confusion with afterPendingUpdates' turns:
+Accept: it keeps evaluating condition() after it turns true (up to ~50 extra renders) — use a while loop; rename to e.g. turnsUntil(_:limit:) to avoid confusion with afterPendingUpdates' turns:
+Source: autopilot polish (B-103)
+
+## B-163 · Drop remaining project-history comments in LeoSidebarTerminalScrollTests   [ready (next run)]
+Why: :256 ("before B-081"), :390 ("only wait on time (B-099)") and the retitle test's "B-078 (D-130)" opener: keep IDs as labels, drop the history
+Accept: :256 ("before B-081"), :390 ("only wait on time (B-099)") and the retitle test's "B-078 (D-130)" opener: keep IDs as labels, drop the history
+Source: autopilot polish (B-103)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)

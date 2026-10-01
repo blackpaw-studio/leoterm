@@ -66,9 +66,13 @@ Lane: B-103
   Branch: autopilot-lane/B-103
   Base: 456e3c1f4698743f677e662f2afed1a9c6420c24
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 7562d130f8287bd3eaad6e70370a44dc4dd78568
   Dispatched: 2026-10-01T18:00:19Z
+  Call: Pixel-width "new title drawn" signal for the retitle test, because SwiftUI AX text is unavailable in the test host — AUTONOMY: test infrastructure
+  Call: New turns(limit:until:) helper counts run-loop turns until a condition holds (max 50) instead of a time wait — AUTONOMY: test infrastructure, D-178/D-254
+  Call: Calm-scroll waits read the window's current list, so a rebuilt list fails an explicit same-list (===) check — AUTONOMY: test infrastructure
+  Call: Calm-scroll doc comments drop project history and cite both halves of D-129 — AUTONOMY: test infrastructure
