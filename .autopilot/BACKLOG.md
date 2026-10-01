@@ -239,11 +239,12 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: autopilot polish (B-086)
 Done: 2026-09-30 · d1161c857, 88c4d4088
 
-## B-098 · B-072 environ test and Zig follow-ups   [ready]
+## B-098 · B-072 environ test and Zig follow-ups   [done]
 Issue: #102
 Why: B-072 review: the Swift regression test fails without the fix only if environ was already on the heap at init (a host that inherits LANG can pass without the fix); the init OOM path has no test (std.testing.checkAllAllocationFailures on dupeEnvironBlock); the environ arena grows one copy per syncEnviron; io_impl.environ_initialized stays set after a sync
 Accept: the regression test forces environ to move (or asserts its precondition); an allocation-failure test for dupeEnvironBlock; the other two fixed or documented; suite green
 Source: autopilot polish (B-072)
+Done: 2026-10-01 · 7a79610f8, 6b44c1a22, e0c6a8db1 · D-246, D-247, D-248, D-249, D-250
 
 ## B-099 · Flaky sidebar scroll test after a filter clears   [ready]
 Issue: #103

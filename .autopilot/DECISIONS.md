@@ -1800,3 +1800,38 @@ Chose: Scope limited to reopen and the app delegate's fallback New Window; Ghost
 Why: P1
 Commit: 13d56313c
 Veto: [ ]
+
+## D-246 · 2026-10-01 · Assert the environ-on-heap precondition with #require, not a skip (a …
+Context: B-098 (runner call).
+Chose: Assert the environ-on-heap precondition with #require, not a skip (a silent skip hides lost coverage)
+Why: AUTONOMY test infrastructure
+Commit: 7a79610f8, 6b44c1a22, e0c6a8db1
+Veto: [ ]
+
+## D-247 · 2026-10-01 · Arena growth and environ_initialized documented, not fixed, consisten…
+Context: B-098 (runner call).
+Chose: Arena growth and environ_initialized documented, not fixed, consistent with D-162/D-163
+Why: AUTONOMY implementation approach, minimal Zig
+Commit: 7a79610f8, 6b44c1a22, e0c6a8db1
+Veto: [ ]
+
+## D-248 · 2026-10-01 · Probe lives in main.swift's Leo section (leoInstanceClaim pattern)
+Context: B-098 (runner call).
+Chose: Probe lives in main.swift's Leo section (leoInstanceClaim pattern)
+Why: AUTONOMY implementation approach, naming
+Commit: 7a79610f8, 6b44c1a22, e0c6a8db1
+Veto: [ ]
+
+## D-249 · 2026-10-01 · dupeEnvironBlock owns its deep copy instead of calling std createPosi…
+Context: B-098 (runner call).
+Chose: dupeEnvironBlock owns its deep copy instead of calling std createPosixBlock (std 0.16.0 errdefer frees the pointer array with the wrong length; found by the new OOM test)
+Why: AUTONOMY bug fix, minimal Zig
+Commit: 7a79610f8, 6b44c1a22, e0c6a8db1
+Veto: [ ]
+
+## D-250 · 2026-10-01 · No B-072 mention in Zig comments
+Context: B-098 (runner call).
+Chose: No B-072 mention in Zig comments
+Why: D-166
+Commit: 7a79610f8, 6b44c1a22, e0c6a8db1
+Veto: [ ]

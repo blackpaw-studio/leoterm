@@ -245,7 +245,7 @@ Lane: B-098
   Branch: autopilot-lane/B-098
   Base: c8b4cf5d1397bf1d1a2d759c354a56176a0e0803
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -257,3 +257,5 @@ Lane: B-098
   Call: dupeEnvironBlock owns its deep copy instead of calling std createPosixBlock (std 0.16.0 errdefer frees the pointer array with the wrong length; found by the new OOM test) — AUTONOMY bug fix, minimal Zig
   Call: No B-072 mention in Zig comments — D-166
 - B-098 runner: ready at 6ca8fe0dd (general+concurrency full; Zig global 80/80; 1937/1937). Found a std 0.16.0 createPosixBlock errdefer bug (worth reporting upstream; nothing filed). src/ changed: the shared xcframework under .git/autopilot/shared predates this — rebuild before lanes symlink it.
+- B-098 landed (merge 9ef762c2b).
+Finished 14: B-098 landed 9ef762c2b · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-098-1.png
