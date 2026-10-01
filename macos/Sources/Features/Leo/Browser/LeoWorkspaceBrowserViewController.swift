@@ -10,6 +10,10 @@ final class LeoWorkspaceBrowserViewController: NSViewController {
     static let minimumWidth: CGFloat = 180
 
     let model: LeoWorkspaceBrowserModel
+    /// How far below the pane's top edge its header row starts, centred on
+    /// the sidebar header's line; nil keeps the header's own row. See
+    /// `LeoTitlebarInsets.sidePaneHeaderTopInset`.
+    private let headerTopInset: CGFloat?
     let outlineView = LeoWorkspaceOutlineView()
     /// Escape: back to the terminal beside the browser.
     var onEscape: () -> Void = {}
@@ -29,8 +33,9 @@ final class LeoWorkspaceBrowserViewController: NSViewController {
 
     /// Binds to the model right away, as the editor pane does: a collapsed
     /// split item's view isn't loaded until it is shown.
-    init(model: LeoWorkspaceBrowserModel) {
+    init(model: LeoWorkspaceBrowserModel, headerTopInset: CGFloat? = nil) {
         self.model = model
+        self.headerTopInset = headerTopInset
         super.init(nibName: nil, bundle: nil)
         onEscape = { [weak self] in self?.focusTerminal() }
         model.objectWillChange
@@ -56,12 +61,16 @@ final class LeoWorkspaceBrowserViewController: NSViewController {
 
         let separator = NSBox()
         separator.boxType = .separator
-        let stack = NSStackView(views: [makeHeader(), separator, scrollView, makeFooter()])
+        let (header, close) = makeHeader()
+        let stack = NSStackView(views: [header, separator, scrollView, makeFooter()])
         stack.orientation = .vertical
         stack.spacing = 0
         stack.alignment = .width
         stack.setHuggingPriority(.defaultLow, for: .vertical)
         stack.setAccessibilityLabel("Workspace files")
+        if let headerTopInset {
+            LeoTitlebarInsets.insetHeader(of: stack, at: headerTopInset, centring: close)
+        }
         view = stack
         view.widthAnchor.constraint(greaterThanOrEqualToConstant: Self.minimumWidth).isActive = true
         // Not `sync()`: collapsing or expanding its own split item while the
@@ -162,7 +171,8 @@ final class LeoWorkspaceBrowserViewController: NSViewController {
         outlineView.setAccessibilityLabel("Workspace files")
     }
 
-    private func makeHeader() -> NSView {
+    /// The header row, and its close button.
+    private func makeHeader() -> (row: NSView, close: NSView) {
         titleLabel.font = .systemFont(ofSize: NSFont.smallSystemFontSize, weight: .semibold)
         titleLabel.lineBreakMode = .byTruncatingMiddle
         titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -172,7 +182,7 @@ final class LeoWorkspaceBrowserViewController: NSViewController {
         header.orientation = .horizontal
         header.spacing = 6
         header.edgeInsets = NSEdgeInsets(top: 6, left: 10, bottom: 6, right: 8)
-        return header
+        return (header, close)
     }
 
     private func makeFooter() -> NSView {

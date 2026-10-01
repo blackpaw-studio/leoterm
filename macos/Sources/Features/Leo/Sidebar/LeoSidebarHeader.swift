@@ -15,6 +15,10 @@ enum LeoSidebarChromeMetrics {
     static let itemSpacing: CGFloat = 10
     /// The least room between a header's title and its trailing accessory.
     static let titleAccessoryMinSpacing: CGFloat = 8
+    /// A header row's height: the title's `.headline` line, with the
+    /// accessory centred on it. In the hidden titlebar style the side
+    /// panes' headers centre on the same line (B-100).
+    static let headerRowHeight: CGFloat = 16
 }
 
 /// A sidebar header row: a title on the leading edge and an accessory
@@ -38,6 +42,7 @@ struct LeoSidebarHeader<Accessory: View>: View {
             accessory
                 .leoSidebarHeaderFrame(.accessory)
         }
+        .frame(minHeight: LeoSidebarChromeMetrics.headerRowHeight)
     }
 }
 

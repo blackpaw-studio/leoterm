@@ -28,4 +28,30 @@ enum LeoTitlebarInsets {
     static func splitIgnoredEdges(in window: NSWindow?) -> Edge.Set {
         window is HiddenTitlebarTerminalWindow ? .top : []
     }
+
+    /// Where the side panes' (the workspace browser's and the editor's)
+    /// header rows start below the split's top edge, for a split that
+    /// ignores `edges` (`splitIgnoredEdges`, B-100). Running to the
+    /// window's top edge, they take the sidebar header's inset, so all
+    /// three headers share one line. Nil under a titlebar: the headers keep
+    /// their own rows there, flush under it.
+    static func sidePaneHeaderTopInset(splitIgnoring edges: Edge.Set) -> CGFloat? {
+        edges.contains(.top) ? LeoSidebarChromeMetrics.topInset : nil
+    }
+
+    /// Centres `control`, one of `pane`'s header controls, on a sidebar
+    /// header row (`LeoSidebarChromeMetrics.headerRowHeight`) starting
+    /// `inset` below the pane's top edge. The header's own controls are
+    /// centred on one line, so the whole header follows; an empty first
+    /// row takes up the room above it.
+    @MainActor
+    static func insetHeader(of pane: NSStackView, at inset: CGFloat, centring control: NSView) {
+        let spacer = NSView()
+        spacer.setAccessibilityElement(false)
+        pane.insertArrangedSubview(spacer, at: 0)
+        NSLayoutConstraint.activate([
+            spacer.widthAnchor.constraint(equalTo: pane.widthAnchor),
+            control.centerYAnchor.constraint(equalTo: pane.topAnchor, constant: inset + LeoSidebarChromeMetrics.headerRowHeight / 2),
+        ])
+    }
 }

@@ -15,6 +15,9 @@ final class LeoEditorHeaderView: NSView {
     private let closeButton = NSButton()
     private var recents: [LeoEditorFileID] = []
 
+    /// The control the pane centres the header on when it insets it (B-100).
+    var closeControl: NSView { closeButton }
+
     override init(frame: NSRect) {
         super.init(frame: frame)
         build()

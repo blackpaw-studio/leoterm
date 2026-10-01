@@ -37,6 +37,10 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
     /// The window's workspace browser, an item on the editor's leading
     /// edge that collapses while it's closed (B-005).
     var browser: LeoWorkspaceBrowserModel?
+    /// Where the side panes' header rows start below the split's top edge;
+    /// nil keeps their own rows. Fixed when the panes are built, as
+    /// the window's titlebar style is (D-170).
+    var sidePaneHeaderTopInset: CGFloat?
     var onEditorPane: (LeoEditorPaneViewController) -> Void = { _ in }
     var onBrowserPane: (LeoWorkspaceBrowserViewController) -> Void = { _ in }
     /// The sidebar collapsed, or stayed collapsed, to keep the terminal at
@@ -58,6 +62,7 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
             detail: AnyView(detail),
             editor: editor,
             browser: browser,
+            sidePaneHeaderTopInset: sidePaneHeaderTopInset,
             onSidebarAutoCollapse: onSidebarAutoCollapse,
             onSidebarAutoRestore: onSidebarAutoRestore)
 
@@ -142,6 +147,7 @@ enum LeoSplitViewControllerFactory {
         detail: AnyView,
         editor: LeoEditorPaneModel? = nil,
         browser: LeoWorkspaceBrowserModel? = nil,
+        sidePaneHeaderTopInset: CGFloat? = nil,
         onSidebarAutoCollapse: @escaping () -> Void = {},
         onSidebarAutoRestore: @escaping () -> Void = {}
     ) -> (controller: LeoSplitViewController, sidebarHosting: NSHostingController<AnyView>, detailHosting: NSHostingController<AnyView>) {
@@ -164,7 +170,8 @@ enum LeoSplitViewControllerFactory {
         controller.addSplitViewItem(sidebarItem)
         controller.addSplitViewItem(detailItem)
         if let browser {
-            let browserItem = NSSplitViewItem(viewController: LeoWorkspaceBrowserViewController(model: browser))
+            let browserItem = NSSplitViewItem(
+                viewController: LeoWorkspaceBrowserViewController(model: browser, headerTopInset: sidePaneHeaderTopInset))
             browserItem.canCollapse = true
             browserItem.isCollapsed = !browser.isOpen
             browserItem.holdingPriority = LeoSidebarSplitMetrics.browserHoldingPriority
@@ -172,7 +179,8 @@ enum LeoSplitViewControllerFactory {
             controller.addSplitViewItem(browserItem)
         }
         if let editor {
-            let editorItem = NSSplitViewItem(viewController: LeoEditorPaneViewController(model: editor))
+            let editorItem = NSSplitViewItem(
+                viewController: LeoEditorPaneViewController(model: editor, headerTopInset: sidePaneHeaderTopInset))
             editorItem.canCollapse = true
             editorItem.isCollapsed = !editor.isOpen
             editorItem.holdingPriority = LeoSidebarSplitMetrics.editorHoldingPriority
