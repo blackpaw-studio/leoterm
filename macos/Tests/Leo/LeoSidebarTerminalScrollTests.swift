@@ -38,13 +38,12 @@ struct LeoSidebarTerminalScrollTests {
         #expect(isVisible(row: table.numberOfRows - 1, in: table), "the selected terminal row is on screen")
     }
 
-    /// B-067, on a long list whose Terminals section already shows a row
-    /// at the bottom edge: a new row selected one further down is revealed
-    /// whole, not left cut off there -- whether it's added and selected in
-    /// the same turn (as ⌘T does) or a later one (as the attach host does).
-    /// A guard, not a reproduction: both cases passed before B-067's
-    /// reveal (checked again in B-078); the filter cases below are the
-    /// ones it fixed.
+    /// On a long list whose Terminals section already shows a row at the
+    /// bottom edge, a new row selected one further down is revealed whole,
+    /// not left cut off there -- whether it's added and selected in the
+    /// same turn (as ⌘T does) or a later one (as the attach host does).
+    /// The list's own minimal scroll does this; D-129's reveals, when the
+    /// filter clears or the list reappears, are the cases below.
     @Test(arguments: ["the same turn", "a later turn"])
     func aNewRowBelowAListedOneIsRevealedWhole(_ selectedIn: String) async throws {
         let terminals = LeoWindowTerminals()
@@ -72,13 +71,12 @@ struct LeoSidebarTerminalScrollTests {
                 "the new terminal row is wholly on screen")
     }
 
-    /// B-067: the filter hides the Terminals section, so a row selected
+    /// D-129: the filter hides the Terminals section, so a row selected
     /// meanwhile (⌘T with a search still in the field) is revealed once
     /// the filter clears -- as Mail reveals its selection after a search.
-    /// B-099: counts run-loop turns, not time. The "no-such-agent" case
-    /// flaked while "No matches" replaced the list: clearing the filter
-    /// built a new one, whose first-appearance reveal could run before it
-    /// had its rows.
+    /// With "no-such-agent" the list empties under "No matches" and fills
+    /// again, so the reveal follows the list's own change, not a new
+    /// list's first appearance (which can run before it has its rows).
     @Test(arguments: ["agent-1", "no-such-agent"])
     func aRowSelectedWhileFilteredIsRevealedWhenTheFilterClears(_ query: String) async throws {
         let terminals = LeoWindowTerminals()
@@ -121,12 +119,12 @@ struct LeoSidebarTerminalScrollTests {
         #expect((tables(in: window.contentView).first?.numberOfRows ?? 0) > Self.agentCount, "it lists the agents again")
     }
 
-    /// B-099 (D-129): a terminal row selected while the agents are still
-    /// loading is revealed once they list above it and push it down, in
-    /// the same list. Only the scroll down to it is required, not the row
-    /// wholly on screen: here the list also grows into the space Loading
-    /// had, and the reveal can land before AppKit lays that out (see
-    /// `LeoTerminalRowReveal.reveal`).
+    /// D-129, the list reappearing: a terminal row selected while the
+    /// agents are still loading is revealed once they list above it and
+    /// push it down, in the same list. Only the scroll down to it is
+    /// required, not the row wholly on screen: here the list also grows
+    /// into the space Loading had, and the reveal can land before AppKit
+    /// lays that out (see `LeoTerminalRowReveal.reveal`).
     @Test func aRowSelectedWhileLoadingIsRevealedWhenTheAgentsList() async throws {
         let terminals = LeoWindowTerminals()
         let id = UUID()
@@ -149,7 +147,8 @@ struct LeoSidebarTerminalScrollTests {
 
     /// B-078 (D-130): with the selected terminal row scrolled away (the
     /// user went up to the agents), its shell retitling or the agent list
-    /// refreshing leaves the list where the user put it.
+    /// refreshing leaves the list where the user put it: the same list, at
+    /// the same offset. Parked mid-list, so a jump to the top shows too.
     @Test(arguments: ["a retitle", "an agent refresh"])
     func aRetitleOrRefreshLeavesTheScrollOffsetAlone(_ change: String) async throws {
         let terminals = LeoWindowTerminals()
@@ -160,22 +159,33 @@ struct LeoSidebarTerminalScrollTests {
         let table = try await settledTable(in: window)
         terminals.select(selected)
         await afterPendingUpdates()
-        try #require(isVisible(row: table.numberOfRows - 1, in: table), "the selected row is revealed")
-        table.scrollRowToVisible(0)
+        let selectedRow = table.numberOfRows - 1
+        try #require(isVisible(row: selectedRow, in: table), "the selected row is revealed")
+        // Mid-list: an agent halfway down at the top edge.
+        table.scroll(NSPoint(x: table.visibleRect.minX, y: table.rect(ofRow: Self.agentCount / 2).minY))
         await afterPendingUpdates()
-        try #require(!isVisible(row: table.numberOfRows - 1, in: table), "the selected row is scrolled away")
+        try #require(!isVisible(row: 0, in: table) && !isVisible(row: selectedRow, in: table),
+                     "the list is parked between its top and the selected row")
         let offset = table.visibleRect.minY
         let rowsBefore = table.numberOfRows
 
+        // The window's list, whichever it is: a rebuilt one shows the
+        // change too, and the identity check below names it.
+        let list = { tables(in: window.contentView).first }
         if change == "a retitle" {
+            let titleEnd = try #require(drawingEnd(ofRow: selectedRow, in: table), "the row draws its title")
             terminals.retitle(selected, to: "vim notes.md")
+            // The new title is longer, so the row draws further right.
+            let drawnEnd = { list().flatMap { drawingEnd(ofRow: selectedRow, in: $0) } ?? 0 }
+            try #require(await turns { drawnEnd() > titleEnd }, "the row draws its new title: it ended at \(titleEnd), now \(drawnEnd())")
         } else {
             // One more agent, so the refresh shows in the list.
             model.receive(LeoSidebarSnapshot(rows: Self.agents(count: Self.agentCount + 1), connectivity: .connected, generation: 2))
+            try #require(await turns { (list()?.numberOfRows ?? 0) > rowsBefore }, "the refresh lists")
         }
         await afterPendingUpdates()
-        try #require(change == "a retitle" || table.numberOfRows > rowsBefore, "the refresh lists")
 
+        #expect(list() === table, "the list is the same one")
         #expect(table.visibleRect.minY == offset, "the list stays where it was")
     }
 
@@ -202,11 +212,13 @@ struct LeoSidebarTerminalScrollTests {
         let firstRow = lastRow - 1
         try #require(isVisible(row: firstRow, in: table) && !isVisible(row: lastRow, in: table), "the first row is on screen, the second cut off")
         try #require(table.rect(ofRow: firstRow).maxY < table.visibleRect.maxY - 1, "the first row isn't at the bottom edge")
+        try #require(!isVisible(row: 0, in: table), "the list is scrolled away from its top")
         let offset = table.visibleRect.minY
 
         terminals.select(first)
         await afterPendingUpdates()
 
+        #expect(tables(in: window.contentView).first === table, "the list is the same one")
         try #require(table.selectedRow == firstRow, "the list selects the first row")
         #expect(table.visibleRect.minY == offset, "the list doesn't move")
     }
@@ -313,10 +325,56 @@ struct LeoSidebarTerminalScrollTests {
     /// Lets the main run loop turn a few times, so whatever a change
     /// prompts has landed: SwiftUI applies it on a later turn, and a reveal
     /// runs a turn after that. Counts turns, not time.
+    ///
+    /// Its window is `turns` main-queue hops, no more. A "nothing moved"
+    /// check after it sees only a scroll that lands inside that window --
+    /// the reveal's own path, a hop after SwiftUI's update. A scroll that
+    /// lands later (animated, or deferred by `asyncAfter`, a timer or
+    /// `Task.sleep`) comes after the check and passes unseen.
     private func afterPendingUpdates(turns: Int = 5) async {
-        for _ in 0 ..< turns {
-            await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
+        for _ in 0 ..< turns { await nextTurn() }
+    }
+
+    /// Lets the main run loop turn until `condition` holds, at most
+    /// `limit` times: for a change that has a sign of its own to wait for.
+    /// Counts turns, not time.
+    private func turns(limit: Int = 50, until condition: () -> Bool) async -> Bool {
+        for _ in 0 ..< limit where !condition() { await nextTurn() }
+        return condition()
+    }
+
+    private func nextTurn() async {
+        await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
+    }
+
+    /// How far right `row`'s drawing reaches, in points: for a terminal
+    /// row, the end of its title (a spacer follows it). Drawn from the
+    /// list's own view for the row, made if it's off screen, so it shows
+    /// what the list has rather than what the model holds. Pixels, as
+    /// SwiftUI gives the test host no accessibility text for the row.
+    /// `nil` when the row draws nothing.
+    private func drawingEnd(ofRow row: Int, in table: NSTableView) -> CGFloat? {
+        guard row >= 0, row < table.numberOfRows,
+              let view = table.view(atColumn: 0, row: row, makeIfNecessary: true),
+              let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds),
+              rep.pixelsWide > 0, rep.pixelsHigh > 0 else { return nil }
+        view.cacheDisplay(in: view.bounds, to: rep)
+        // The row's far right is the spacer's: background.
+        let background = Self.rgba(rep.colorAt(x: rep.pixelsWide - 1, y: rep.pixelsHigh / 2))
+        let lastDrawn = (0 ..< rep.pixelsWide).reversed().first { x in
+            (0 ..< rep.pixelsHigh).contains { y in !Self.isNear(Self.rgba(rep.colorAt(x: x, y: y)), background) }
         }
+        return lastDrawn.map { CGFloat($0 + 1) * view.bounds.width / CGFloat(rep.pixelsWide) }
+    }
+
+    private static func rgba(_ color: NSColor?) -> [CGFloat] {
+        guard let color = color?.usingColorSpace(.deviceRGB) else { return [0, 0, 0, 0] }
+        return [color.redComponent, color.greenComponent, color.blueComponent, color.alphaComponent]
+    }
+
+    /// Within anti-aliasing's faintest fringe of each other.
+    private static func isNear(_ lhs: [CGFloat], _ rhs: [CGFloat]) -> Bool {
+        zip(lhs, rhs).allSatisfy { abs($0 - $1) < 0.1 }
     }
 
     /// The whole row (to within a point) is within what the list's scroll
