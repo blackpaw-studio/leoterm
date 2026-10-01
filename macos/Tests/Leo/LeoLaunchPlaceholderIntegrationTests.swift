@@ -78,6 +78,12 @@ import Testing
         controllers.filter { $0.window?.isVisible == true }.map(ObjectIdentifier.init)
     }
 
+    /// A text field (the sidebar's search, say) is being edited: its field
+    /// editor is the window's first responder.
+    private func isEditingText(_ controller: TerminalController) -> Bool {
+        (controller.window?.firstResponder as? NSText)?.isFieldEditor == true
+    }
+
     @Test func aNewWindowReplacesTheLaunchWindowOnItsSpot() async throws {
         guard let app = liveApp() else { return }
         let launch = await makeLaunchWindow(app)
@@ -94,6 +100,9 @@ import Testing
         #expect(shown(launch, requested) == [ObjectIdentifier(requested)])
         #expect(topLeft(requested) == spot)
         #expect(app.leoLaunchPlaceholder.launchWindow == nil)
+        // B-093: the window taking the launch window's place starts in its
+        // content, never the sidebar's search field (D-173; ⌥⌘F gets there).
+        #expect(!isEditingText(requested), "first responder: \(String(describing: requested.window?.firstResponder))")
     }
 
     @Test func aNewTabWindowReplacesTheLaunchWindowOnItsSpot() async throws {
@@ -165,6 +174,21 @@ import Testing
         await drainMainQueue()
 
         #expect(!closed.isClosed)
+    }
+
+    /// B-093: the launch window reads shown once presented and stops the
+    /// moment it closes, which the queued close checks before closing it.
+    @Test func aClosedLaunchWindowNoLongerReadsShown() async throws {
+        guard let app = liveApp() else { return }
+        let launch = await makeLaunchWindow(app)
+        defer { close(launch) }
+        let window = try #require(launch.window)
+        let shownOnceOpen = launch.isLeoWindowShown
+
+        window.close()
+
+        #expect(shownOnceOpen)
+        #expect(!launch.isLeoWindowShown)
     }
 
     /// Closed without a key or mouse press (a script's `close window 1`):
