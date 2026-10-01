@@ -203,20 +203,30 @@ struct LeoSidebarView: View {
     /// The agent list (or what stands in for it), with this window's
     /// Terminals section: the shells don't need the daemon, so they show
     /// whatever state the agents are in.
+    ///
+    /// One list, in one place, whatever it shows (B-099): a filter that
+    /// matches nothing empties it under "No matches" rather than replacing
+    /// it, and the agents arriving fill the list the Terminals were in. So
+    /// the list's reveal of the selected terminal row (B-067) follows the
+    /// list's own changes, never a new list's first appearance, which can
+    /// come before AppKit has built its table.
     @ViewBuilder private var content: some View {
-        if showsAgentList {
-            sidebarList(agentSections: model.sections, agentsInert: model.isDisconnected)
-        } else {
-            agentState
-            if showsTerminals { sidebarList(agentSections: [], agentsInert: false) }
+        if !listsAgents { agentState }
+        if listsAgents || showsTerminals {
+            sidebarList(agentSections: listsAgents ? model.sections : [], agentsInert: listsAgents && model.isDisconnected)
+                .overlay {
+                    if listsAgents && model.showsNoMatches {
+                        Text("No matches").allowsHitTesting(false)
+                    }
+                }
         }
     }
 
-    /// Rows to list: connected (or disconnected, dimmed) with agents that
-    /// match the filter.
-    private var showsAgentList: Bool {
+    /// Rows to list: connected (or disconnected, dimmed) with agents, even
+    /// when the filter matches none of them.
+    private var listsAgents: Bool {
         switch model.snapshot.connectivity {
-        case .connected, .disconnected: !model.snapshot.rows.isEmpty && !model.showsNoMatches
+        case .connected, .disconnected: !model.snapshot.rows.isEmpty
         case .loading, .failed: false
         }
     }
@@ -259,7 +269,8 @@ struct LeoSidebarView: View {
                 }
             }
         case .connected, .disconnected:
-            stateView { Text("No matches") }
+            // Agents to list: the list shows them, or "No matches" over it.
+            EmptyView()
         }
     }
 
@@ -288,7 +299,7 @@ struct LeoSidebarView: View {
                 if showsTerminals { terminalSection }
             }
             .listStyle(.sidebar)
-            .leoRevealsTerminalRow(terminals.selection, isListed: showsTerminals, proxy: proxy)
+            .leoRevealsTerminalRow(terminals.selection, isListed: showsTerminals, listsAgents: listsAgents, proxy: proxy)
             .leoLandsWhenTerminalsClose(
                 isListed: showsTerminals,
                 isFiltering: LeoSidebarLayout.isFiltering(model.query),
