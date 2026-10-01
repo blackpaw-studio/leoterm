@@ -182,9 +182,15 @@ Lane: B-093
   Branch: autopilot-lane/B-093
   Base: a954c07625ae70186ce19b93b6c9c3cb7fc93256
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 31c2d6557308d00be4e55a7611599a3c3a3f5050
   Dispatched: 2026-10-01T03:11:12Z
+  Call: While Leo is hidden (open -j, hidden login item), a requested window counts as shown once its presentation ran and until it closes; when not hidden it must still be on screen (extends D-149) — P1, AUTONOMY bug fix
+  Call: The queued close also requires the launch window to still be open and shown, so it is never closed twice — AUTONOMY bug fix
+  Call: Sub-issue 3 (search not focused after replacement) dismissed: a new window's focus stays in its content per B-075/D-173/D-174 (⌥⌘F enters search); a guard assertion covers the replacing window — P1, D-173
+  Call: Sub-issue 4 (B-085 plan file not amended) dismissed: that plan is gitignored scratch for a done item; D-148..D-151, commits and doc comments are the record — AUTONOMY implementation approach
+  Call: Kept the "presentation ran" flag rather than recording showWindowSafely's Bool — AUTONOMY implementation approach
+- B-093 runner: ready at 31c2d6557 (general+concurrency full; 1935/1935; GUI: 3 hidden cold folder launches → exactly one window).

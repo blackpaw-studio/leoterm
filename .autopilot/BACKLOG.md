@@ -466,6 +466,21 @@ Why: Return To Default Size leaves a launch-clamped sidebar at ~349 pt instead o
 Accept: Return To Default Size leaves a launch-clamped sidebar at ~349 pt instead of the stored 420 until relaunch; settle together with the regrow item
 Source: autopilot polish (B-091)
 
+## B-141 · Inject NSApp.isHidden into isLeoWindowShown   [ready (next run)]
+Why: the hidden branch of TerminalController.isLeoWindowShown reads a global and its real wiring is untested; inject it (DI preference)
+Accept: the hidden branch of TerminalController.isLeoWindowShown reads a global and its real wiring is untested; inject it (DI preference)
+Source: autopilot polish (B-093)
+
+## B-142 · Off-screen 500x500 window on folder-open   [ready (next run)]
+Why: B-093 verify: an untitled 500x500 pixels-only window at (0,550) appears on every folder-open path (cold or running); likely pre-existing — find and remove it
+Accept: B-093 verify: an untitled 500x500 pixels-only window at (0,550) appears on every folder-open path (cold or running); likely pre-existing — find and remove it
+Source: autopilot polish (B-093)
+
+## B-143 · Replaced launch window lingers in the window list   [ready (next run)]
+Why: B-093 verify: a replaced launch window stays off-screen in the CG window list; check whether its controller is ever freed
+Accept: B-093 verify: a replaced launch window stays off-screen in the CG window list; check whether its controller is ever freed
+Source: autopilot polish (B-093)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
