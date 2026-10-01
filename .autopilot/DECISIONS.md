@@ -1667,3 +1667,10 @@ Chose: ci.md go-public checklist items 1–3 marked done 2026-09-30; item 4 (Eva
 Why: item Accept
 Commit: 1616be959, 33d913f26, 5136f6c76, d5b151c71, aba15d23a, bf2628285, a24ed1fae, 10bb68570
 Veto: [ ]
+
+## D-227 · 2026-09-30 · The fix is Leo-side in GhosttyAttachContentHost.openSplit (sets contr…
+Context: B-087 (runner call).
+Chose: The fix is Leo-side in GhosttyAttachContentHost.openSplit (sets controller.focusedSurface = newView); upstream BaseTerminalController.windowDidBecomeKey left alone, keeping the upstream diff small
+Why: AUTONOMY implementation approach
+Commit: 03136e14f, 09f7d4de2
+Veto: [ ]

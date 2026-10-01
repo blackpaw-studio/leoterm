@@ -114,7 +114,7 @@ Lane: B-087
   Branch: autopilot-lane/B-087
   Base: 312de477041e48f637cc913654c00e2da1d4ce6e
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -122,3 +122,5 @@ Lane: B-087
   Dispatched: 2026-09-30T23:49:11Z
   Call: The fix is Leo-side in GhosttyAttachContentHost.openSplit (sets controller.focusedSurface = newView); upstream BaseTerminalController.windowDidBecomeKey left alone, keeping the upstream diff small — AUTONOMY implementation approach
 - B-087 runner: ready at d40d4f212 (general full; 1902/1902; GUI: palette split, row switch back, palette Escape all end with a focused cursor). Root cause: a palette-chosen split lost focus to its source pane; row-switch/Escape symptoms were harness artifacts.
+- B-087 landed (merge ac58f9d6c).
+Finished 6: B-087 landed ac58f9d6c · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-087-6.png

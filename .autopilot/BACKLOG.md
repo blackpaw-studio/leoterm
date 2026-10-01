@@ -159,11 +159,12 @@ Source: Evan (/feature, 2026-09-30)
 Inbox: 20260930T181536331640Z-c923592e#1
 Done: 2026-09-30 · 1616be959, 33d913f26, 5136f6c76, d5b151c71, aba15d23a, bf2628285, a24ed1fae, 10bb68570 · D-220, D-221, D-222, D-223, D-224, D-225, D-226
 
-## B-087 · Cursor looks unfocused after a row switch or palette Escape   [ready]
+## B-087 · Cursor looks unfocused after a row switch or palette Escape   [done]
 Issue: #91
 Why: B-071 verify saw a hollow (unfocused) cursor right after a row switch and after Escape closes the palette; pre-existing
 Accept: after a row switch or dismissing the palette, the shown terminal is first responder and its cursor is focused; test
 Source: autopilot polish (B-071)
+Done: 2026-09-30 · 03136e14f, 09f7d4de2 · D-227
 
 ## B-088 · "Close Terminal?" confirm names the pane it closes   [ready]
 Issue: #92
