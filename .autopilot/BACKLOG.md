@@ -268,11 +268,12 @@ Accept: a test in real launch order proves Tab reaches the search field; a test 
 Source: autopilot polish (B-075)
 Done: c640ac20b f09c93245. Real-launch-order Tab test (parameterized .nextTurn/.immediately) proves Tab reaches the search field; row-shown → first-responder covered by B-087's LeoContentFocusTests.aRowSwitchFocusesTheShownTerminal; launch-focus comment corrected. No production change; suite 1941 green; mutation-checked.
 
-## B-102 · Menu shortcut guard coverage   [ready]
+## B-102 · Menu shortcut guard coverage   [done]
 Issue: #106
 Why: B-076 review: chooseAgentIsCommandO (LeoNoTabBarTests.swift:68) still filters inline and misses a bare O (use LeoMenuXib.claims(on:byAnyoneBut:)); the ⌘T guard exempts newTab: from the bare-T rule; the live-menu ⌘T check covers only Quick Terminal
 Accept: ⌘O guard catches a bare O; New Terminal may hold only ⌘T; the live-menu check covers every item; each proved red by a mutation
 Source: autopilot polish (B-076)
+Done: 1f32b5966. ⌘O guard catches a bare O; New Terminal may hold only ⌘T (refines D-177); the live-menu check covers every item; each guard proved red by mutation. Tests only; suite 1948 green.
 
 ## B-103 · Calm-scroll test hardening   [ready]
 Issue: #107

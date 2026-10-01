@@ -1912,3 +1912,17 @@ Chose: Parameterized the Tab test over presentation timing (.nextTurn real order
 Why: AUTONOMY: test infrastructure
 Commit: c640ac20b, f09c93245
 Veto: [ ]
+
+## D-262 · 2026-10-01 · Refines D-177: New Terminal may hold only ⌘T (a bare T on New Termina…
+Context: B-102 (runner call).
+Chose: Refines D-177: New Terminal may hold only ⌘T (a bare T on New Terminal is now a violation); same rule for Choose Agent… and O
+Why: AUTONOMY: test infrastructure
+Commit: 1f32b5966
+Veto: [ ]
+
+## D-263 · 2026-10-01 · Removed unused LeoMenuXib.claims(on:byAnyoneBut:); live checks count …
+Context: B-102 (runner call).
+Chose: Removed unused LeoMenuXib.claims(on:byAnyoneBut:); live checks count hidden items too (stricter reading)
+Why: AUTONOMY: test infrastructure
+Commit: 1f32b5966
+Veto: [ ]
