@@ -138,7 +138,8 @@ import Testing
     }
 
     /// B-057: a start screen its last terminal left keeps the window's size
-    /// when it fills again.
+    /// when it fills again -- even through the first content's size step,
+    /// with a size configured: the window has been shown (B-086).
     @Test(.enabled("needs the app's Ghostty.App") { await MainActor.run { Self.hasGhostty } })
     func firstFillAfterAStartScreenLeaveKeepsTheFrame() async throws {
         let fixture = try await Fixture.shown()
@@ -147,16 +148,19 @@ import Testing
         try fixture.closeShownTerminal(fixture.fill().handle)
 
         let surface = try fixture.fill().surface
-        surface.initialSize = Self.configuredSize
+        fixture.applyFirstContentSize(to: surface)
         await Self.drainMainQueue()
 
         #expect(fixture.window.frame == frame, "the window resized on its own")
     }
 
-    /// A window filled before it is presented (File > New Terminal with no
-    /// window open, when its shell lands first) takes the configured size
+    /// A window filled before it is presented takes the configured size
     /// -- the terminal's, plus the sidebar beside it -- never the SwiftUI
-    /// view's, and keeps it once presented.
+    /// view's, and keeps it once presented. No app path fills a start
+    /// screen that early today: File > New Terminal with no window open
+    /// fills it from a task that runs after the window's first
+    /// presentation, so it keeps its frame as a shown window does. This
+    /// pins the branch for a fill on the turn the window is made.
     @Test(.enabled("needs the app's Ghostty.App") { await MainActor.run { Self.hasGhostty } })
     func aWindowFilledBeforeItShowsTakesTheConfiguredSize() async throws {
         let fixture = try Fixture.make()
