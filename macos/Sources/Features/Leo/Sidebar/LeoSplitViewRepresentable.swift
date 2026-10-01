@@ -240,7 +240,8 @@ final class LeoSplitViewController: NSSplitViewController {
     /// pass, not within this call, so clearing it immediately would leave
     /// the guard covering nothing and let this programmatic move get
     /// persisted as if the user had dragged there. A width that has to
-    /// wait for the split view keeps the flag up until it is applied.
+    /// wait for the split view is held in `pendingWidth` instead, which
+    /// alone keeps the layouts before it's applied from being persisted.
     ///
     /// On that same turn, `lastPersistedWidth` becomes the width the
     /// sidebar actually got (B-089): a window too narrow for `width`
@@ -256,11 +257,11 @@ final class LeoSplitViewController: NSSplitViewController {
             // `viewDidLayout`, and deliberately do NOT touch
             // `lastPersistedWidth`: recording a width that was never applied
             // would let the next resize notification overwrite the stored
-            // preference with the minimum. The guard stays up until the
-            // width is applied (B-084): the layouts before that report the
-            // pre-restore width, not a drag.
+            // preference with the minimum. Until the width is applied
+            // (B-084), `pendingWidth != nil` alone keeps
+            // `splitViewDidResizeSubviews` from persisting: the layouts
+            // before that report the pre-restore width, not a drag.
             pendingWidth = width
-            isApplyingProgrammaticWidth = true
             return
         }
 
@@ -542,7 +543,11 @@ final class LeoSplitViewController: NSSplitViewController {
     /// Nor does a layout before the stored width is applied (B-084): the
     /// split view isn't in a window yet, or still holds `pendingWidth`, so
     /// the width it reports is the minimum or fitting width, and persisting
-    /// it would lose the stored width at the next launch.
+    /// it would lose the stored width at the next launch. The
+    /// `pendingWidth == nil` check is the only guard for those layouts --
+    /// `isApplyingProgrammaticWidth` isn't raised while a width is pending
+    /// -- so it must stay. A split that never reaches a window keeps its
+    /// pending width and never persists.
     override func splitViewDidResizeSubviews(_ notification: Notification) {
         super.splitViewDidResizeSubviews(notification)
 
