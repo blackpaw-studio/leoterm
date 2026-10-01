@@ -15,6 +15,8 @@ struct LeoLaunchPlaceholderTests {
         var isLeoWindowShown = true
         private(set) var isClosed = false
         private(set) var spotsHeld = 0
+        /// Times the tracker closed it as replaced.
+        private(set) var replacedCloses = 0
         private var closeObserver: (@MainActor () -> Void)?
         var onClose: () -> Void = {}
 
@@ -23,7 +25,9 @@ struct LeoLaunchPlaceholderTests {
         func holdSpotForReplacement() { spotsHeld += 1 }
 
         func closeReplacedLeoPlaceholder() {
+            replacedCloses += 1
             isClosed = true
+            isLeoWindowShown = false
             onClose()
         }
 
@@ -35,6 +39,7 @@ struct LeoLaunchPlaceholderTests {
         /// Closed by something other than the tracker: a script, the app.
         func closeOnItsOwn() {
             isClosed = true
+            isLeoWindowShown = false
             closeObserver?()
         }
     }
@@ -296,5 +301,61 @@ struct LeoLaunchPlaceholderTests {
 
         #expect(windows.count == 1)
         #expect(windows.first === requested)
+    }
+
+    /// The review's narrow double close: something else closed the launch
+    /// window between the request and the queued close (a script's `close
+    /// window 1` on the same turn). The tracker had already let go of it,
+    /// so the queued close must check it is still open.
+    @Test func launchWindowClosedBeforeItsTurnIsNotClosedAgain() {
+        let harness = Harness()
+        let tracker = makeTracker(harness)
+        let launch = FakeWindow()
+
+        tracker.adopt(launch)
+        tracker.windowDidOpen(FakeWindow())
+        launch.closeOnItsOwn()
+        harness.runQueued()
+
+        #expect(launch.replacedCloses == 0)
+    }
+
+    /// A hidden launch (`open -j`, a login item set to hide): every window
+    /// of a hidden app reads `isVisible == false`, so on-screen alone would
+    /// leave both windows. Presented and still open counts as shown then.
+    @Test func hiddenLaunchStillEndsWithOnlyTheRequestedWindow() {
+        let harness = Harness()
+        let tracker = makeTracker(harness)
+        let launch = FakeWindow()
+        let requested = FakeWindow()
+        let shownWhileHidden = LeoWindowPresence.isShown(presented: true, closed: false, isVisible: false, appIsHidden: true)
+        launch.isLeoWindowShown = shownWhileHidden
+        requested.isLeoWindowShown = shownWhileHidden
+
+        tracker.adopt(launch)
+        tracker.windowDidOpen(requested)
+        harness.runQueued()
+
+        #expect(launch.replacedCloses == 1)
+        #expect(!requested.isClosed)
+    }
+
+    @Test func presentedWindowOfAHiddenAppCountsAsShown() {
+        #expect(LeoWindowPresence.isShown(presented: true, closed: false, isVisible: false, appIsHidden: true))
+    }
+
+    @Test func windowOfAHiddenAppThatNeverPresentedIsNotShown() {
+        #expect(!LeoWindowPresence.isShown(presented: false, closed: false, isVisible: false, appIsHidden: true))
+    }
+
+    @Test func closedWindowOfAHiddenAppIsNotShown() {
+        #expect(!LeoWindowPresence.isShown(presented: true, closed: true, isVisible: false, appIsHidden: true))
+    }
+
+    /// Not hidden, the window must really be on screen: a presentation that
+    /// failed leaves the launch window, never no window (B-085).
+    @Test func windowOfAVisibleAppMustBeOnScreen() {
+        #expect(!LeoWindowPresence.isShown(presented: true, closed: false, isVisible: false, appIsHidden: false))
+        #expect(LeoWindowPresence.isShown(presented: true, closed: false, isVisible: true, appIsHidden: false))
     }
 }
