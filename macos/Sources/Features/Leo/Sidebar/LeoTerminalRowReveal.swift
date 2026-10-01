@@ -3,10 +3,15 @@ import SwiftUI
 /// B-067: the Terminals section sits below every agent, so the window's
 /// selected terminal row is scrolled into view whenever it's newly
 /// selected (⌘T adds and selects one) or newly listed (the section shows
-/// again once the search filter clears, or the list itself reappears) --
-/// as Mail and Finder reveal their selection. The scroll is the list's
-/// own minimal one, without animation; a row already on screen doesn't
-/// move, and nothing else (a retitle, an agent refresh) scrolls.
+/// again once the search filter clears), when the agents arrive above it
+/// or go, and when the window's list first appears -- as Mail and Finder
+/// reveal their selection. The scroll is the list's own minimal one,
+/// without animation; a row already on screen doesn't move, and nothing
+/// else (a retitle, an agent refresh) scrolls.
+///
+/// The sidebar keeps one list through filtering and loading (B-099), so
+/// only the window's first list goes through `onAppear`; every later
+/// reveal follows a change to the list it's in.
 struct LeoTerminalRowReveal: ViewModifier {
     /// The window's selected terminal row, if any.
     let selection: UUID?
