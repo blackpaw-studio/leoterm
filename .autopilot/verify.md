@@ -8,14 +8,14 @@ All commands run from the worktree `~/.leo/autopilot/leoterm`. Tested 2026-09-22
 The worktree needs the Zig-built xcframework. Symlink the autopilot shared build,
 or rebuild it if `src/` changed:
 ```
-ln -s ~/.leo/agents/leoterm/.git/autopilot/shared/GhosttyKit.xcframework macos/GhosttyKit.xcframework   # post-B-072 build
+ln -s ~/.leo/agents/leoterm/.git/autopilot/shared/GhosttyKit.xcframework macos/GhosttyKit.xcframework   # rebuilt 2026-10-01 @ 708717ded
 ln -s ~/.leo/agents/leoterm/.git/autopilot/shared/zig-out zig-out
 # If you edited src/ (Zig), replace the symlink with a real build:
 #   rm macos/GhosttyKit.xcframework
 #   DEVELOPER_DIR=/Applications/Xcode-26.3.0.app/Contents/Developer \
 #     zig build -Demit-xcframework=true -Demit-macos-app=false
 ```
-- **Post-B-072 xcframework:** B-072 changed `src/global.zig`; the main checkout's xcframework (2026-09-20) predates it. Symlink the autopilot-built copy instead: `ln -s ~/.leo/agents/leoterm/.git/autopilot/shared/GhosttyKit.xcframework macos/GhosttyKit.xcframework` and `ln -s ~/.leo/agents/leoterm/.git/autopilot/shared/zig-out zig-out` (built from autopilot at B-072), or build one in the lane. Before building, `unlink zig-out macos/GhosttyKit.xcframework`: never build through a zig-out symlink into the main checkout. After any `src/` commit, rebuild before claiming green: `ghostty-internal.a` must be newer than the last `src/` commit.
+- **Shared xcframework (rebuilt 2026-10-01 after B-098, B-147):** `src/` changed after the main checkout's xcframework (2026-09-20) was built, so use the autopilot-built copy instead: `ln -s ~/.leo/agents/leoterm/.git/autopilot/shared/GhosttyKit.xcframework macos/GhosttyKit.xcframework` and `ln -s ~/.leo/agents/leoterm/.git/autopilot/shared/zig-out zig-out`. It was built 2026-10-01 from autopilot at 708717ded, which includes B-098's `src/global.zig` change (last `src/` commit 6b44c1a22). Or build one in the lane. Before building, `unlink zig-out macos/GhosttyKit.xcframework`: never build through a zig-out symlink into the main checkout or shared/. After any `src/` commit, rebuild before claiming green: `ghostty-internal.a` must be newer than the last `src/` commit. When `src/` changes on autopilot, rebuild shared/ the same way as B-147: build in a lane, move the old copies to `~/.Trash/` with a timestamp, then `ditto` the new ones in. (The `zig-out` symlink shows as untracked `?? zig-out`; that's expected.)
 - Always use Xcode 26.3 (`DEVELOPER_DIR=/Applications/Xcode-26.3.0.app/Contents/Developer`). The Xcode 26.5 SDK breaks Zig linking.
 - Zig is 0.16.0 (`~/.local/bin/zig`).
 - A stale xcframework causes Swift errors like `ghostty_clipboard_content_s has no member len`. To fix it, delete `macos/GhosttyKit.xcframework zig-out .zig-cache` and rebuild.

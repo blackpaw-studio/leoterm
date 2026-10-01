@@ -540,11 +540,12 @@ Why: src/global.zig:309: say "environ_initialized stays set" only matters if the
 Accept: src/global.zig:309: say "environ_initialized stays set" only matters if the I/O side scanned before the sync; macos/Sources/App/main.swift:34-38: the probe runs after ghostty_cli_try_action too ("after init, before NSApplicationMain")
 Source: autopilot polish (B-098)
 
-## B-147 · Rebuild the shared autopilot xcframework after B-098   [ready]
+## B-147 · Rebuild the shared autopilot xcframework after B-098   [done]
 Issue: #151
 Why: B-098 changed src/global.zig; .git/autopilot/shared/GhosttyKit.xcframework + zig-out were built at B-072, so lanes that symlink them per verify.md run a stale libghostty; rebuild and update verify.md's note
 Accept: B-098 changed src/global.zig; .git/autopilot/shared/GhosttyKit.xcframework + zig-out were built at B-072, so lanes that symlink them per verify.md run a stale libghostty; rebuild and update verify.md's note
 Source: autopilot polish (B-098)
+Done: no code change — shared GhosttyKit.xcframework + zig-out rebuilt 2026-10-01 17:45 from 708717ded (ghostty-internal.a newer than last src/ commit 6b44c1a22); old copies moved to ~/.Trash; suite 1962 green through the symlinks (implementer and verifier); verify.md note updated. Lane cleared on autopilot-shelved/B-147 (untracked scratch only).
 
 ## B-148 · Sidebar list stays mounted in No Agents/Loading/Failed with terminals   [ready]
 Issue: #152
@@ -653,6 +654,11 @@ Source: autopilot polish (B-105)
 Why: scrollToTop/unobscuredBounds (LeoTerminalsViewport.swift:68,:78) have untested, unreachable non-flipped branches (NSTableView is flipped) — drop or test them
 Accept: scrollToTop/unobscuredBounds (LeoTerminalsViewport.swift:68,:78) have untested, unreachable non-flipped branches (NSTableView is flipped) — drop or test them
 Source: autopilot polish (B-105)
+
+## B-169 · runtests.sh baseline message contradicts verify.md   [ready (next run)]
+Why: runtests.sh still labels ConfigTests/errorsEmptyForValidConfig "an expected baseline failure"; verify.md says to treat a failure of that test as real (see also B-137)
+Accept: runtests.sh still labels ConfigTests/errorsEmptyForValidConfig "an expected baseline failure"; verify.md says to treat a failure of that test as real (see also B-137)
+Source: autopilot polish (B-147)
 
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59

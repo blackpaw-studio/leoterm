@@ -113,9 +113,10 @@ Lane: B-147
   Branch: autopilot-lane/B-147
   Base: 708717ded19067c690e6be365cad0e3b3d14b265
   Tier: light
-  State: building
+  State: shelved
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 096acffb0d1a2ea2a12fa2e544d4563eca751f20
   Dispatched: 2026-10-01T21:42:22Z
+Finished 7: B-147 done (no code change)
