@@ -1898,3 +1898,17 @@ Chose: New LeoSidebarChromeMetrics.headerRowHeight = 16 applied to LeoSidebarHea
 Why: AUTONOMY: implementation
 Commit: 50fdea4fa, 32d413573, 7c9cb2d1f
 Veto: [ ]
+
+## D-260 · 2026-10-01 · Relied on B-087's LeoContentFocusTests.aRowSwitchFocusesTheShownTermi…
+Context: B-101 (runner call).
+Chose: Relied on B-087's LeoContentFocusTests.aRowSwitchFocusesTheShownTerminal for the row-shown → first-responder criterion instead of a duplicate test
+Why: AUTONOMY: test infrastructure
+Commit: c640ac20b, f09c93245
+Veto: [ ]
+
+## D-261 · 2026-10-01 · Parameterized the Tab test over presentation timing (.nextTurn real o…
+Context: B-101 (runner call).
+Chose: Parameterized the Tab test over presentation timing (.nextTurn real order, .immediately worst case)
+Why: AUTONOMY: test infrastructure
+Commit: c640ac20b, f09c93245
+Veto: [ ]

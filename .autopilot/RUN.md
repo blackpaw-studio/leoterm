@@ -38,7 +38,7 @@ Lane: B-101
   Branch: autopilot-lane/B-101
   Base: 25caa8be6e2dd727036a58742a6ffdbba451ad25
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -46,3 +46,4 @@ Lane: B-101
   Dispatched: 2026-10-01T16:49:45Z
   Call: Relied on B-087's LeoContentFocusTests.aRowSwitchFocusesTheShownTerminal for the row-shown → first-responder criterion instead of a duplicate test — AUTONOMY: test infrastructure
   Call: Parameterized the Tab test over presentation timing (.nextTurn real order, .immediately worst case) — AUTONOMY: test infrastructure
+Finished 2: B-101 landed c1ad0a447 · not visually verified

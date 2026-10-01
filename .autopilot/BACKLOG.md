@@ -261,11 +261,12 @@ Accept: in hidden style the side-pane headers have the same top inset as the sid
 Source: autopilot polish (B-074)
 Done: 50fdea4fa 32d413573 7c9cb2d1f. In hidden titlebar style the editor and workspace-browser headers centre on the sidebar header's line (10 pt D-169 inset, kept per D-169); layout test LeoSidePaneTitlebarStyleTests; suite 1941 green; shots B-100-1..4.
 
-## B-101 · Launch-focus test gaps   [ready]
+## B-101 · Launch-focus test gaps   [done]
 Issue: #105
 Why: B-075 review/verify: the key-view-loop rebuild timing is untested at real launch order (the test waits ~1 s for the search field before windowDidBecomeKey; if the rebuild runs before the field exists, Tab won't reach it until the window regains key — TerminalController+LeoLaunchFocus.swift:26-30); no unit test for "row shown → terminal surface becomes first responder" (verified only visually); the comment overstates when the loop refreshes after a sidebar/pane toggle
 Accept: a test in real launch order proves Tab reaches the search field; a test that showing a row makes its surface first responder; comment corrected
 Source: autopilot polish (B-075)
+Done: c640ac20b f09c93245. Real-launch-order Tab test (parameterized .nextTurn/.immediately) proves Tab reaches the search field; row-shown → first-responder covered by B-087's LeoContentFocusTests.aRowSwitchFocusesTheShownTerminal; launch-focus comment corrected. No production change; suite 1941 green; mutation-checked.
 
 ## B-102 · Menu shortcut guard coverage   [ready]
 Issue: #106
