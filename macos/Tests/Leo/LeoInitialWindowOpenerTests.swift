@@ -9,10 +9,11 @@ import Testing
 /// `LeoLaunchPlaceholderTests`.)
 @MainActor
 struct LeoInitialWindowOpenerTests {
-    /// Stands in for the app: the windows the opener opened, and the
-    /// launch hop queued but not yet run.
+    /// Stands in for the app: the windows the opener opened (launch and
+    /// reopen apart), and the launch hop queued but not yet run.
     private final class FakeApp {
         var opened = 0
+        var reopened = 0
         var initialWindow = true
         var queued: [@MainActor () -> Void] = []
 
@@ -30,6 +31,7 @@ struct LeoInitialWindowOpenerTests {
             windowCount: { app.windowCount },
             initialWindow: { app.initialWindow },
             openWindow: { app.opened += 1 },
+            openOnReopen: { app.reopened += 1 },
             schedule: { app.queued.append($0) }
         )
     }
@@ -83,5 +85,29 @@ struct LeoInitialWindowOpenerTests {
         #expect(!beforeTheHop)
         #expect(!withTheLaunchWindow)
         #expect(withNoWindowLeft)
+    }
+
+    /// B-095: a Dock click with no window left opens the start screen
+    /// through the reopen opener (no palette, never adopted as a launch
+    /// window) and tells AppKit it handled the reopen; otherwise it opens
+    /// nothing and leaves AppKit its default.
+    @Test func reopenOpensTheStartScreenOnlyWhenTheGateSays() {
+        let app = FakeApp()
+        let opener = makeOpener(app)
+
+        opener.didFinishLaunching()
+        let beforeTheHop = opener.reopen(hasVisibleWindows: false)
+        app.runQueued()
+        let withTheLaunchWindow = opener.reopen(hasVisibleWindows: true)
+        let reopenedWithAWindow = app.reopened
+        app.opened = 0 // the user closed it
+        let withNoWindowLeft = opener.reopen(hasVisibleWindows: false)
+
+        #expect(beforeTheHop)
+        #expect(withTheLaunchWindow)
+        #expect(reopenedWithAWindow == 0)
+        #expect(!withNoWindowLeft)
+        #expect(app.reopened == 1)
+        #expect(app.opened == 0)
     }
 }

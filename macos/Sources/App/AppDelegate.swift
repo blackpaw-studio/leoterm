@@ -95,7 +95,8 @@ class AppDelegate: NSObject,
             self.undoManager.disableUndoRegistration()
             self.leoOpenLaunchWindow()
             self.undoManager.enableUndoRegistration()
-        }
+        },
+        openOnReopen: { [unowned self] in self.leoOpenStartScreenWindow() }
     )
 
     /// The launch's own window (B-085): the start screen alone, with no
@@ -105,9 +106,18 @@ class AppDelegate: NSObject,
     /// palette stayed up over it.
     @discardableResult
     @MainActor func leoOpenLaunchWindow() -> TerminalController {
-        let controller = TerminalController.leoNewPlaceholderWindow(ghostty)
+        let controller = leoOpenStartScreenWindow()
         leoLaunchPlaceholder.launchDidOpen(controller)
         return controller
+    }
+
+    /// A new window showing the start screen alone, with no agent palette
+    /// (B-095): the launch window, Dock reopen and the fallback New Window.
+    /// The palette those last two presented closed again the moment the
+    /// window showed and took key status from it.
+    @discardableResult
+    @MainActor func leoOpenStartScreenWindow() -> TerminalController {
+        TerminalController.leoNewPlaceholderWindow(ghostty)
     }
 
     /// The launch's own window, until it gives way to a requested one or
@@ -144,10 +154,12 @@ class AppDelegate: NSObject,
     /// mirrors the upstream `newWindow(_:withBaseConfig:withParent:)`'s
     /// fullscreen/opacity/cascade handling for an empty tree -- see its
     /// doc) and routes a `.placeholder` request to the agent picker for it.
-    /// Shared by every "no existing window to attach a tab/split into"
-    /// path: `new_window`, launch, reopen, and the fallback new-window menu
-    /// item. `baseConfig` is the inherited `SurfaceConfiguration` (if any)
-    /// from whatever triggered this -- see `LeoRuntime.routeNewSurface`.
+    /// Shared by the "no existing window to attach a tab/split into" paths
+    /// that still ask for an agent: `new_window` and Choose Agent… with no
+    /// window (launch, reopen and the fallback New Window open the bare
+    /// start screen instead: `leoOpenStartScreenWindow`). `baseConfig` is
+    /// the inherited `SurfaceConfiguration` (if any) from whatever
+    /// triggered this -- see `LeoRuntime.routeNewSurface`.
     @MainActor private func leoRouteNewWindow(baseConfig: Ghostty.SurfaceConfiguration? = nil) {
         let controller = TerminalController.leoNewPlaceholderWindow(ghostty)
         guard let leoSession = controller.leoSession else { return }
@@ -548,13 +560,9 @@ class AppDelegate: NSObject,
         // the dock icon.
         //
         // MARK: Leo -- and until launch has opened (or declined) its first
-        // window, launch owns it (B-085).
-        guard initialWindowOpener.shouldOpenOnReopen(hasVisibleWindows: flag) else { return true }
-
-        // No visible windows, open a new one.
-        // MARK: Leo
-        leoRouteNewWindow()
-        return false
+        // window, launch owns it (B-085). With no window, reopen opens the
+        // start screen alone, as launch does (B-095).
+        initialWindowOpener.reopen(hasVisibleWindows: flag)
     }
 
     func application(_ sender: NSApplication, openFile filename: String) -> Bool {
@@ -1088,8 +1096,8 @@ class AppDelegate: NSObject,
     }
 
     @IBAction func newWindow(_ sender: Any?) {
-        // MARK: Leo
-        leoRouteNewWindow()
+        // MARK: Leo -- the start screen alone, as launch opens (B-095).
+        leoOpenStartScreenWindow()
     }
 
     @IBAction func newTab(_ sender: Any?) {

@@ -289,6 +289,7 @@ struct LeoLaunchPlaceholderTests {
             windowCount: { windows.count },
             initialWindow: { true },
             openWindow: { tracker.launchDidOpen(open()) },
+            openOnReopen: { _ = open() },
             schedule: { harness.queued.append($0) }
         )
 
