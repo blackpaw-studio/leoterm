@@ -210,11 +210,12 @@ Accept: each fixed or explicitly dismissed with a test where behaviour changes
 Source: autopilot polish (B-085)
 Done: 2026-09-30 · 3d90cb41f, b09da3a64, 846d9b336, 6f0759f97, 5f7b9c4fb · D-239, D-240, D-241, D-242, D-243
 
-## B-094 · B-085 integration test hardening   [ready]
+## B-094 · B-085 integration test hardening   [done]
 Issue: #98
 Why: B-085 review: the launch-placeholder integration tests silently pass without a live Ghostty.App (use .enabled(if:)); the defer close is registered after a #require; drainMainQueue waits a fixed 4 turns; lastCascadePoint isn't restored; the newTab test lacks a launchWindow==nil assert
 Accept: each fixed; suite green
 Source: autopilot polish (B-085)
+Done: 2026-10-01 · 17f1d88b6
 
 ## B-095 · Reopen and fallback New Window flash the palette   [ready]
 Issue: #99
