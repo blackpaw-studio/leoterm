@@ -254,11 +254,12 @@ Source: autopilot polish (B-074)
 Note: B-078 hint (unverified): in the "no-such-agent" case "No matches" replaces the list, so the table may be a fresh one revealed by onAppear; the test uses a Task.sleep+eventually pattern.
 Done: 2026-10-01 · 2e7667d9b, 811717ef8, 6fcb8552c, 757c80895, 291915f91 · D-251, D-252, D-253, D-254, D-255
 
-## B-100 · Hidden titlebar style: side-pane headers and corner inset   [ready]
+## B-100 · Hidden titlebar style: side-pane headers and corner inset   [done]
 Issue: #104
 Why: B-074 verify: in hidden style the editor/workspace-browser header rows now run to the window top and may sit flush (untested, not captured); the sidebar header is 14 pt from the rounded corner, a little tight
 Accept: in hidden style the side-pane headers have the same top inset as the sidebar header; a layout test; screenshot
 Source: autopilot polish (B-074)
+Done: 50fdea4fa 32d413573 7c9cb2d1f. In hidden titlebar style the editor and workspace-browser headers centre on the sidebar header's line (10 pt D-169 inset, kept per D-169); layout test LeoSidePaneTitlebarStyleTests; suite 1941 green; shots B-100-1..4.
 
 ## B-101 · Launch-focus test gaps   [ready]
 Issue: #105

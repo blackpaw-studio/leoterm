@@ -1877,3 +1877,24 @@ Chose: close — the shell lives only for the Close Terminal undo window; autopi
 Why: Evan's answer
 Commit:
 Veto: n/a (Evan)
+
+## D-257 · 2026-10-01 · The shared hidden-style inset stays at 10 pt, not enlarged for the "t…
+Context: B-100 (runner call).
+Chose: The shared hidden-style inset stays at 10 pt, not enlarged for the "tight" corner, because D-169 fixes it
+Why: AUTONOMY: layout/polish
+Commit: 50fdea4fa, 32d413573, 7c9cb2d1f
+Veto: [ ]
+
+## D-258 · 2026-10-01 · Side-pane headers centre on the sidebar header's line rather than ali…
+Context: B-100 (runner call).
+Chose: Side-pane headers centre on the sidebar header's line rather than aligning control-frame tops
+Why: P1 Mac-native, toolbar-style alignment
+Commit: 50fdea4fa, 32d413573, 7c9cb2d1f
+Veto: [ ]
+
+## D-259 · 2026-10-01 · New LeoSidebarChromeMetrics.headerRowHeight = 16 applied to LeoSideba…
+Context: B-100 (runner call).
+Chose: New LeoSidebarChromeMetrics.headerRowHeight = 16 applied to LeoSidebarHeader as .frame(minHeight:), so the sidebar doesn't move
+Why: AUTONOMY: implementation
+Commit: 50fdea4fa, 32d413573, 7c9cb2d1f
+Veto: [ ]
