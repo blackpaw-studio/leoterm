@@ -2010,3 +2010,31 @@ Chose: The selection-highlight regression test checks a pixel probe (selected ro
 Why: AUTONOMY: test infrastructure
 Commit: 6b08d7233, c1b36b866
 Veto: [ ]
+
+## D-276 · 2026-10-01 · Refines D-191: the focused survivor is upstream's next-focus pane aft…
+Context: B-107 (runner call).
+Chose: Refines D-191: the focused survivor is upstream's next-focus pane after the close (previous leaf, or next if the closed pane was leftmost), else the first in tree order; the old code read a stale focusedSurface
+Why: P6 sidebar is the navigation
+Commit: 0ede659d9, 0c129e5cd, 5679f7b0a
+Veto: [ ]
+
+## D-277 · 2026-10-01 · Pending reconciles run synchronously (oldest first) at the top of sho…
+Context: B-107 (runner call).
+Chose: Pending reconciles run synchronously (oldest first) at the top of showInContent, reveal and confirmReplacingContent, so a same-turn switch keeps the carried-on shell
+Why: P2 / AUTONOMY: implementation
+Commit: 0ede659d9, 0c129e5cd, 5679f7b0a
+Veto: [ ]
+
+## D-278 · 2026-10-01 · A pending entry merged before its drain keeps the earlier heir unless…
+Context: B-107 (runner call).
+Chose: A pending entry merged before its drain keeps the earlier heir unless a later change computes a new one
+Why: AUTONOMY: implementation
+Commit: 0ede659d9, 0c129e5cd, 5679f7b0a
+Veto: [ ]
+
+## D-279 · 2026-10-01 · The survivor's "Last login" reflow is assessed, not fixed: it is upst…
+Context: B-107 (runner call).
+Chose: The survivor's "Last login" reflow is assessed, not fixed: it is upstream/shell behaviour
+Why: AUTONOMY: keep Zig minimal
+Commit: 0ede659d9, 0c129e5cd, 5679f7b0a
+Veto: [ ]

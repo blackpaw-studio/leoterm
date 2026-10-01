@@ -303,11 +303,12 @@ Accept: the selected agent row shows its selection highlight once revealed, with
 Source: autopilot polish (B-081)
 Done: 6b08d7233 c1b36b866. Didn't reproduce: the selected agent row is already highlighted once revealed after the last shell closes (fails when the selection's agent fallback is removed). Regression test added (isSelected, selectedRowIndexes, pixel probe); no production change.
 
-## B-107 · Row hand-on polish after a split pane closes   [ready]
+## B-107 · Row hand-on polish after a split pane closes   [done]
 Issue: #111
 Why: B-082 review: the row goes to the first pane in tree order, not the pane upstream focuses next (focusedSurface is stale at both call sites), so the sidebar selection can differ from keyboard focus; adoption runs a turn late (run pending reconciles synchronously at the top of confirmReplacingContent/showInContent/reveal); the `controller.window != nil` comment overstates "window open"; the fate() doc doesn't mention an adopted row in a [row, plain] tree; the verifier saw the survivor's "Last login" lines scroll away on reflow (unconfirmed)
 Accept: the row follows upstream's next-focus pane (or the doc says tree order), with a test; a same-turn adoption test; the comments are corrected
 Source: autopilot polish (B-082)
+Done: 0ede659d9 0c129e5cd 5679f7b0a. A closed row hands on to upstream's next-focus pane (refines D-191), in the same turn (pending reconciles drain at the top of showInContent/reveal/confirmReplacingContent); tests for next-focus and same-turn switch; comments corrected; Last-login reflow assessed (upstream/shell). Suite 1969 green; shots B-107-1..5.
 
 ## B-108 · Undo-restored split panes get no terminal handle   [ready]
 Issue: #112
