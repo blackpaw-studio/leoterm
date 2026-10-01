@@ -269,6 +269,29 @@ struct LeoLaunchPlaceholderIntegrationTests {
         try #require(await settle(app, launch), "the windows never settled")
         #expect(launch.window?.isVisible == true)
     }
+
+    /// B-095: File ▸ New Window with no terminal window to ask (the app
+    /// delegate's fallback) opens the start screen alone, as the launch
+    /// window does: the palette it used to present closed again the moment
+    /// the window showed and took key status from it. Not a launch window,
+    /// so the tracker never adopts it.
+    @Test func theFallbackNewWindowOpensTheStartScreenWithoutThePalette() async throws {
+        let app = try liveApp()
+        let before = Set(TerminalController.all.map(ObjectIdentifier.init))
+
+        withoutUndo(app) { app.newWindow(nil) }
+        let opened = TerminalController.all.filter { !before.contains(ObjectIdentifier($0)) }
+        defer { opened.forEach { close($0) } }
+        let window = try #require(opened.first)
+        let session = try #require(window.leoSession)
+
+        #expect(opened.count == 1)
+        #expect(!session.isPickerPresented)
+        #expect(app.leoLaunchPlaceholder.launchWindow !== window)
+        try #require(await settle(app, window), "the window never settled")
+        #expect(window.window?.isVisible == true)
+        #expect(!session.isPickerPresented)
+    }
 }
 
 /// The app has a real `Ghostty.App` to make surfaces with. Outside the
