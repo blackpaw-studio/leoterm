@@ -9,8 +9,9 @@ import SwiftUI
 ///
 /// Calm (P2, D-130): the list's own minimal scroll, without animation, so
 /// a selected row already on screen doesn't move; only the section's
-/// closing does this, never the filter hiding it (the filter replaces the
-/// whole list) or the list reappearing.
+/// closing does this, never the filter hiding it (that change comes with
+/// `isFiltering`, even when no agent matches and the list empties) or the
+/// agents arriving above it.
 struct LeoTerminalsSectionExit: ViewModifier {
     /// Whether the Terminals section is in the list.
     let isListed: Bool

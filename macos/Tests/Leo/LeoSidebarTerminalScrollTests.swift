@@ -32,9 +32,10 @@ struct LeoSidebarTerminalScrollTests {
             terminals.select(listed)
         }
 
-        _ = await eventually { table.numberOfRows > rowsBefore || selected == "a listed row" }
-        let row = table.numberOfRows - 1
-        #expect(await eventually { isVisible(row: row, in: table) }, "the selected terminal row is on screen")
+        await afterPendingUpdates()
+
+        try #require(table.numberOfRows > rowsBefore || selected == "a listed row", "the new row lists")
+        #expect(isVisible(row: table.numberOfRows - 1, in: table), "the selected terminal row is on screen")
     }
 
     /// B-067, on a long list whose Terminals section already shows a row
@@ -53,24 +54,31 @@ struct LeoSidebarTerminalScrollTests {
         defer { window.close() }
         let table = try await settledTable(in: window)
         terminals.select(listed)
-        try #require(await eventually { isVisible(row: table.numberOfRows - 1, in: table) }, "the listed row is on screen")
+        await afterPendingUpdates()
+        try #require(isVisible(row: table.numberOfRows - 1, in: table), "the listed row is on screen")
         let rowsBefore = table.numberOfRows
 
         let id = UUID()
         terminals.add(id, title: "Terminal")
         if selectedIn == "a later turn" {
             // As the attach host does: the row lists, then its shell shows.
-            try #require(await eventually { table.numberOfRows > rowsBefore }, "the new row lists")
+            await afterPendingUpdates()
+            try #require(table.numberOfRows > rowsBefore, "the new row lists")
         }
         terminals.select(id)
+        await afterPendingUpdates()
 
-        #expect(await eventually { table.numberOfRows > rowsBefore && isVisible(row: table.numberOfRows - 1, in: table) },
+        #expect(table.numberOfRows > rowsBefore && isVisible(row: table.numberOfRows - 1, in: table),
                 "the new terminal row is wholly on screen")
     }
 
     /// B-067: the filter hides the Terminals section, so a row selected
     /// meanwhile (⌘T with a search still in the field) is revealed once
     /// the filter clears -- as Mail reveals its selection after a search.
+    /// B-099: counts run-loop turns, not time. The "no-such-agent" case
+    /// flaked while "No matches" replaced the list: clearing the filter
+    /// built a new one, whose first-appearance reveal could run before it
+    /// had its rows.
     @Test(arguments: ["agent-1", "no-such-agent"])
     func aRowSelectedWhileFilteredIsRevealedWhenTheFilterClears(_ query: String) async throws {
         let terminals = LeoWindowTerminals()
@@ -81,14 +89,62 @@ struct LeoSidebarTerminalScrollTests {
         let id = UUID()
         terminals.add(id, title: "Terminal")
         terminals.select(id)
-        try await Task.sleep(for: .milliseconds(200))
+        await afterPendingUpdates()
+        try #require((tables(in: window.contentView).first?.numberOfRows ?? 0) <= Self.agentCount, "the filter hides the Terminals section")
 
         model.query = ""
+        await afterPendingUpdates()
 
-        #expect(await eventually {
-            guard let table = tables(in: window.contentView).first, table.numberOfRows > Self.agentCount else { return false }
-            return isVisible(row: table.numberOfRows - 1, in: table)
-        }, "the selected terminal row is on screen once the Terminals section shows again")
+        let table = try #require(tables(in: window.contentView).first)
+        #expect(table.numberOfRows > Self.agentCount && isVisible(row: table.numberOfRows - 1, in: table),
+                "the selected terminal row is on screen once the Terminals section shows again")
+    }
+
+    /// B-099: a filter that matches no agent leaves the list in place,
+    /// empty under "No matches", instead of swapping it for another view,
+    /// so the same list comes back when the filter clears.
+    @Test func aFilterWithNoMatchesKeepsTheListInPlace() async throws {
+        let (window, model) = try makeWindowAndModel(terminals: LeoWindowTerminals())
+        defer { window.close() }
+        let table = try await settledTable(in: window)
+
+        model.query = "no-such-agent"
+        await afterPendingUpdates()
+
+        #expect(tables(in: window.contentView).first === table, "the list stays while nothing matches")
+        #expect(table.numberOfRows == 0, "the list is empty")
+
+        model.query = ""
+        await afterPendingUpdates()
+
+        #expect(tables(in: window.contentView).first === table, "the same list is back")
+        #expect((tables(in: window.contentView).first?.numberOfRows ?? 0) > Self.agentCount, "it lists the agents again")
+    }
+
+    /// B-099 (D-129): a terminal row selected while the agents are still
+    /// loading is revealed once they list above it and push it down, in
+    /// the same list. Only the scroll down to it is required, not the row
+    /// wholly on screen: here the list also grows into the space Loading
+    /// had, and the reveal can land before AppKit lays that out (see
+    /// `LeoTerminalRowReveal.reveal`).
+    @Test func aRowSelectedWhileLoadingIsRevealedWhenTheAgentsList() async throws {
+        let terminals = LeoWindowTerminals()
+        let id = UUID()
+        terminals.add(id, title: "Terminal")
+        terminals.select(id)
+        let (window, model) = try makeWindowAndModel(
+            terminals: terminals, snapshot: LeoSidebarSnapshot(rows: [], connectivity: .loading, generation: 1)
+        )
+        defer { window.close() }
+        // The Terminals header and its row.
+        let table = try await settledTable(in: window, moreThan: 1)
+
+        model.receive(LeoSidebarSnapshot(rows: Self.agents(count: Self.agentCount), connectivity: .connected, generation: 2))
+        await afterPendingUpdates()
+
+        try #require(tables(in: window.contentView).first === table, "the same list takes the agents")
+        try #require(table.numberOfRows > Self.agentCount, "the agents list above the row")
+        #expect(table.visibleRect.minY > 0, "the list scrolls down to the selected terminal row")
     }
 
     /// B-078 (D-130): with the selected terminal row scrolled away (the
@@ -103,7 +159,8 @@ struct LeoSidebarTerminalScrollTests {
         defer { window.close() }
         let table = try await settledTable(in: window)
         terminals.select(selected)
-        try #require(await eventually { isVisible(row: table.numberOfRows - 1, in: table) }, "the selected row is revealed")
+        await afterPendingUpdates()
+        try #require(isVisible(row: table.numberOfRows - 1, in: table), "the selected row is revealed")
         table.scrollRowToVisible(0)
         await afterPendingUpdates()
         try #require(!isVisible(row: table.numberOfRows - 1, in: table), "the selected row is scrolled away")
@@ -115,9 +172,9 @@ struct LeoSidebarTerminalScrollTests {
         } else {
             // One more agent, so the refresh shows in the list.
             model.receive(LeoSidebarSnapshot(rows: Self.agents(count: Self.agentCount + 1), connectivity: .connected, generation: 2))
-            try #require(await eventually { table.numberOfRows > rowsBefore }, "the refresh lists")
         }
         await afterPendingUpdates()
+        try #require(change == "a retitle" || table.numberOfRows > rowsBefore, "the refresh lists")
 
         #expect(table.visibleRect.minY == offset, "the list stays where it was")
     }
@@ -135,7 +192,8 @@ struct LeoSidebarTerminalScrollTests {
         let table = try await settledTable(in: window)
         terminals.select(second)
         let lastRow = table.numberOfRows - 1
-        try #require(await eventually { isVisible(row: lastRow, in: table) }, "the second row is revealed")
+        await afterPendingUpdates()
+        try #require(isVisible(row: lastRow, in: table), "the second row is revealed")
         // Up by half a row: the first row stays wholly on screen, clear
         // of the bottom edge, and the second is cut off there.
         let halfRow = (table.rect(ofRow: lastRow).height / 2).rounded()
@@ -147,9 +205,9 @@ struct LeoSidebarTerminalScrollTests {
         let offset = table.visibleRect.minY
 
         terminals.select(first)
-        try #require(await eventually { table.selectedRow == firstRow }, "the list selects the first row")
         await afterPendingUpdates()
 
+        try #require(table.selectedRow == firstRow, "the list selects the first row")
         #expect(table.visibleRect.minY == offset, "the list doesn't move")
     }
 
@@ -219,9 +277,12 @@ struct LeoSidebarTerminalScrollTests {
         try makeWindowAndModel(terminals: terminals).window
     }
 
-    private func makeWindowAndModel(terminals: LeoWindowTerminals) throws -> (window: NSWindow, model: LeoSidebarModel) {
+    /// `snapshot` defaults to the connected list of `agentCount` agents.
+    private func makeWindowAndModel(
+        terminals: LeoWindowTerminals, snapshot: LeoSidebarSnapshot? = nil
+    ) throws -> (window: NSWindow, model: LeoSidebarModel) {
         let model = LeoSidebarModel(
-            snapshot: LeoSidebarSnapshot(rows: Self.agents(count: Self.agentCount), connectivity: .connected, generation: 1)
+            snapshot: snapshot ?? LeoSidebarSnapshot(rows: Self.agents(count: Self.agentCount), connectivity: .connected, generation: 1)
         )
         let actions = LeoAgentActions(
             daemon: ScrollTestDaemon(), cli: LeoCLI(), model: model, hostSelection: .isolatedForTesting(), refresh: {}
@@ -266,8 +327,12 @@ struct LeoSidebarTerminalScrollTests {
         return table.visibleRect.contains(rect)
     }
 
-    private func settledTable(in window: NSWindow) async throws -> NSTableView {
-        _ = await eventually { tables(in: window.contentView).first.map { $0.numberOfRows > Self.agentCount } ?? false }
+    /// The window's list once it first fills: more than `rows` rows (by
+    /// default, more than the agents alone). The suite's only wait on time
+    /// (B-099): a new window's first population has no change of the
+    /// test's own to count turns from. Every later change counts turns.
+    private func settledTable(in window: NSWindow, moreThan rows: Int = Self.agentCount) async throws -> NSTableView {
+        _ = await eventually { tables(in: window.contentView).first.map { $0.numberOfRows > rows } ?? false }
         return try #require(tables(in: window.contentView).first)
     }
 
