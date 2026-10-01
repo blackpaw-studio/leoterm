@@ -111,10 +111,13 @@ private final class StyledTerminalController: TerminalController {
 
 /// A shown, laid-out window of one titlebar style, with the sidebar
 /// header's frame and the window buttons' frames in window coordinates.
+/// Shared with `LeoSidePaneTitlebarStyleTests` (B-100).
 @MainActor
-private struct StyledWindowFixture {
+struct StyledWindowFixture {
     let controller: TerminalController
     let window: NSWindow
+    /// The window's sidebar split.
+    let split: LeoSplitViewController
     /// The header row (title and accessory), in window coordinates.
     let header: CGRect
     /// The split view's top edge (sidebar and terminal), in window
@@ -170,7 +173,8 @@ private struct StyledWindowFixture {
         let splitTop = split.splitView.convert(split.splitView.bounds, to: nil).maxY
         let diagnostics = "\(type(of: window)) \(window.frame.size) host \(host) safe area \(sidebar.view.safeAreaInsets) "
             + "split top \(splitTop) header \(header)"
-        return StyledWindowFixture(controller: controller, window: window, header: header, splitTop: splitTop, diagnostics: diagnostics)
+        return StyledWindowFixture(
+            controller: controller, window: window, split: split, header: header, splitTop: splitTop, diagnostics: diagnostics)
     }
 
     /// The sidebar's hosting controller, once the split view is built.
