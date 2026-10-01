@@ -1695,3 +1695,31 @@ Chose: Red-X Close Window and close-window-with-tabs keep "Close Terminal?" (who
 Why: AUTONOMY small scope cut
 Commit: c606e4f2d
 Veto: [ ]
+
+## D-231 · 2026-09-30 · When a widened window gives room back, a clamped sidebar keeps its cu…
+Context: B-089 (runner call).
+Chose: When a widened window gives room back, a clamped sidebar keeps its current width; the stored preference is untouched and the next launch opens at it
+Why: P2, D-144/D-145
+Commit: 0cd940a68, 111c6aff9, d373aecc3, 5ea58f8a0, 1b956fa7c, 862fbb512, 5ee90bebb, e41196534
+Veto: [ ]
+
+## D-232 · 2026-09-30 · The pending-branch flag write is dropped rather than documented; the …
+Context: B-089 (runner call).
+Chose: The pending-branch flag write is dropped rather than documented; the pendingWidth guard covers it (comment says the check must stay)
+Why: P1
+Commit: 0cd940a68, 111c6aff9, d373aecc3, 5ea58f8a0, 1b956fa7c, 862fbb512, 5ee90bebb, e41196534
+Veto: [ ]
+
+## D-233 · 2026-09-30 · Width persists only on a user/setPosition move of the sidebar's own d…
+Context: B-089 (runner call).
+Chose: Width persists only on a user/setPosition move of the sidebar's own divider (NSSplitViewUserResizeKey + divider index 0); window-resize clamps and terminal-floor layouts never persist
+Why: D-144, P2
+Commit: 0cd940a68, 111c6aff9, d373aecc3, 5ea58f8a0, 1b956fa7c, 862fbb512, 5ee90bebb, e41196534
+Veto: [ ]
+
+## D-234 · 2026-09-30 · A drag of the terminal/editor divider that pushes the sidebar is not …
+Context: B-089 (runner call).
+Chose: A drag of the terminal/editor divider that pushes the sidebar is not stored as a sidebar width (test-pinned)
+Why: P6, D-144
+Commit: 0cd940a68, 111c6aff9, d373aecc3, 5ea58f8a0, 1b956fa7c, 862fbb512, 5ee90bebb, e41196534
+Veto: [ ]

@@ -146,7 +146,7 @@ Lane: B-089
   Branch: autopilot-lane/B-089
   Base: 04a9561ad35bc215137af413546c6e3b61905e98
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 2
   Wip: none
   Reverifies: 0
@@ -157,3 +157,5 @@ Lane: B-089
   Call: Width persists only on a user/setPosition move of the sidebar's own divider (NSSplitViewUserResizeKey + divider index 0); window-resize clamps and terminal-floor layouts never persist — D-144, P2
   Call: A drag of the terminal/editor divider that pushes the sidebar is not stored as a sidebar width (test-pinned) — P6, D-144
 - B-089 runner: ready at e41196534 after 2 fix rounds (r1 GUI: a window-resize clamp persisted 200; r2: other-divider behaviour untested). 1918/1918.
+- B-089 landed (merge 2a0e35545).
+Finished 8: B-089 landed 2a0e35545 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-089-1.png

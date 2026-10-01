@@ -173,11 +173,12 @@ Accept: the confirm names the row/pane being closed; test
 Source: autopilot polish (B-071)
 Done: 2026-09-30 · c606e4f2d · D-228, D-229, D-230
 
-## B-089 · Sidebar width persistence hardening   [ready]
+## B-089 · Sidebar width persistence hardening   [done]
 Issue: #93
 Why: B-084 review: lastPersistedWidth records the requested width, not the applied one (narrow-then-widen launch could persist a clamped width); the pending branch's programmatic-width flag relies on pendingWidth always clearing via applyProgrammaticWidth; "leo.sidebarWidth" literal repeated 3x
 Accept: lastPersistedWidth comes from the sidebar's actual frame after setPosition, with a harness case for narrow-then-widen; the flag is documented or dropped; one key constant; suite green
 Source: autopilot polish (B-084)
+Done: 2026-09-30 · 0cd940a68, 111c6aff9, d373aecc3, 5ea58f8a0, 1b956fa7c, 862fbb512, 5ee90bebb, e41196534 · D-231, D-232, D-233, D-234
 
 ## B-090 · Bug — a sidebar hidden at launch un-collapses, then re-collapses with animation   [done]
 Issue: #94
