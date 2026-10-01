@@ -275,11 +275,12 @@ Accept: ⌘O guard catches a bare O; New Terminal may hold only ⌘T; the live-m
 Source: autopilot polish (B-076)
 Done: 1f32b5966. ⌘O guard catches a bare O; New Terminal may hold only ⌘T (refines D-177); the live-menu check covers every item; each guard proved red by mutation. Tests only; suite 1948 green.
 
-## B-103 · Calm-scroll test hardening   [ready]
+## B-103 · Calm-scroll test hardening   [done]
 Issue: #107
 Why: B-078 review polish: afterPendingUpdates only catches a scroll within ~5 dispatches (an animated/asyncAfter/Task.sleep scroll would pass); the tests park at offset 0 so a reset-to-top or a table rebuild goes unseen; the retitle case doesn't await its positive signal; the doc comment cites project history and omits D-129's "list reappears" half
 Accept: the helper documents its window limit; tests park mid-list and assert table identity; retitle awaits the new row text before counting turns; comment fixed
 Source: autopilot polish (B-078)
+Done: 396984a56. Calm-scroll tests park mid-list, assert same-list identity, await the retitle's drawn signal before counting turns; helper documents its window; comments cite both halves of D-129. Tests only; each proved red by sabotage; suite 1948 green.
 
 ## B-104 · Shortcut hint polish   [ready]
 Issue: #108

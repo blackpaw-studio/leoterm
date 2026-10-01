@@ -1926,3 +1926,31 @@ Chose: Removed unused LeoMenuXib.claims(on:byAnyoneBut:); live checks count hidd
 Why: AUTONOMY: test infrastructure
 Commit: 1f32b5966
 Veto: [ ]
+
+## D-264 · 2026-10-01 · Pixel-width "new title drawn" signal for the retitle test, because Sw…
+Context: B-103 (runner call).
+Chose: Pixel-width "new title drawn" signal for the retitle test, because SwiftUI AX text is unavailable in the test host
+Why: AUTONOMY: test infrastructure
+Commit: 396984a56
+Veto: [ ]
+
+## D-265 · 2026-10-01 · New turns(limit:until:) helper counts run-loop turns until a conditio…
+Context: B-103 (runner call).
+Chose: New turns(limit:until:) helper counts run-loop turns until a condition holds (max 50) instead of a time wait
+Why: AUTONOMY: test infrastructure, D-178/D-254
+Commit: 396984a56
+Veto: [ ]
+
+## D-266 · 2026-10-01 · Calm-scroll waits read the window's current list, so a rebuilt list f…
+Context: B-103 (runner call).
+Chose: Calm-scroll waits read the window's current list, so a rebuilt list fails an explicit same-list (===) check
+Why: AUTONOMY: test infrastructure
+Commit: 396984a56
+Veto: [ ]
+
+## D-267 · 2026-10-01 · Calm-scroll doc comments drop project history and cite both halves of…
+Context: B-103 (runner call).
+Chose: Calm-scroll doc comments drop project history and cite both halves of D-129
+Why: AUTONOMY: test infrastructure
+Commit: 396984a56
+Veto: [ ]

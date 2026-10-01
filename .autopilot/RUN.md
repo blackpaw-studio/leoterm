@@ -66,7 +66,7 @@ Lane: B-103
   Branch: autopilot-lane/B-103
   Base: 456e3c1f4698743f677e662f2afed1a9c6420c24
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -76,3 +76,4 @@ Lane: B-103
   Call: New turns(limit:until:) helper counts run-loop turns until a condition holds (max 50) instead of a time wait — AUTONOMY: test infrastructure, D-178/D-254
   Call: Calm-scroll waits read the window's current list, so a rebuilt list fails an explicit same-list (===) check — AUTONOMY: test infrastructure
   Call: Calm-scroll doc comments drop project history and cite both halves of D-129 — AUTONOMY: test infrastructure
+Finished 4: B-103 landed cf1ecdd0e · not visually verified
