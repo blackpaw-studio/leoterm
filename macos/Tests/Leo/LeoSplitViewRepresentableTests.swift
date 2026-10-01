@@ -591,11 +591,11 @@ import Testing
     /// reading `defaults`, persisting divider moves back through it.
     private static func launch(
         _ defaults: UserDefaults, attachesAfterAMainQueueTurn: Bool = false, isSidebarVisible: Bool = true,
-        windowWidth: CGFloat = LeoSplitViewRepresentableTests.windowWidth
+        windowWidth: CGFloat = LeoSplitViewRepresentableTests.windowWidth, editor: LeoEditorPaneModel? = nil
     ) async -> Harness {
         let session = LeoWindowSession(defaults: defaults)
         let harness = Harness(
-            preferredWidth: session.preferredWidth, windowWidth: windowWidth, isSidebarVisible: isSidebarVisible,
+            preferredWidth: session.preferredWidth, windowWidth: windowWidth, isSidebarVisible: isSidebarVisible, editor: editor,
             onDividerWidthChange: { session.setPreferredWidth($0) }, attachesWindow: !attachesAfterAMainQueueTurn)
         if attachesAfterAMainQueueTurn {
             await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
@@ -715,6 +715,33 @@ import Testing
 
         #expect(abs(harness.sidebarWidth - 330) <= 1)
         #expect(abs(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) - 330) <= 1)
+    }
+
+    /// Dragging the terminal's trailing divider past the terminal's minimum
+    /// pushes the sidebar too. Only the sidebar's own divider is a
+    /// sidebar-width choice, so the pushed width isn't stored (B-089).
+    @Test func pushingTheSidebarWithTheEditorsDividerStoresNothing() async throws {
+        let sandbox = try LeoFileSandbox()
+        defer { sandbox.cleanUp() }
+        let defaults = LeoInMemoryDefaults()
+        let storedWidth: CGFloat = 300
+        defaults.set(Double(storedWidth), forKey: LeoWindowSession.sidebarWidthKey)
+        let editor = Self.makeEditor()
+        let harness = await Self.launch(defaults, editor: editor)
+        defer { harness.close() }
+        try await editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.swift", "let a = 1")))
+        await harness.settle()
+        await harness.settle()
+        let push: CGFloat = 50
+
+        try harness.mouseDragDivider(
+            at: 1, by: -(harness.terminalWidth - LeoSidebarSplitMetrics.minimumTerminalWidth + push))
+        await harness.settle()
+
+        #expect(abs(harness.sidebarWidth - (storedWidth - push)) <= 1)
+        #expect(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) == Double(storedWidth))
+        #expect(abs(harness.components.controller.lastPersistedWidth - storedWidth) <= 1)
+        await editor.close()
     }
 
     /// Narrow enough that the terminal reaches its minimum and the sidebar
@@ -876,11 +903,13 @@ import Testing
         /// Drags the sidebar's divider `offset` with the mouse: the events
         /// are queued first, then `mouseDown` runs `NSSplitView`'s own
         /// tracking loop, which takes them off the queue.
-        func mouseDragDivider(by offset: CGFloat) throws {
+        /// `index` 0 is the sidebar's divider, 1 the terminal's trailing one.
+        func mouseDragDivider(at index: Int = 0, by offset: CGFloat) throws {
             let split = components.controller.splitView
-            let sidebar = try #require(sidebarItem)
+            let panes = split.arrangedSubviews
+            try #require(index < panes.count - 1)
             let start = split.convert(
-                NSPoint(x: sidebar.viewController.view.frame.maxX + split.dividerThickness / 2, y: split.bounds.midY), to: nil)
+                NSPoint(x: panes[index].frame.maxX + split.dividerThickness / 2, y: split.bounds.midY), to: nil)
             let mouse = { (type: NSEvent.EventType, dx: CGFloat) in
                 NSEvent.mouseEvent(
                     with: type, location: NSPoint(x: start.x + dx, y: start.y), modifierFlags: [],
@@ -893,6 +922,8 @@ import Testing
             NSApp.postEvent(drag, atStart: false)
             NSApp.postEvent(up, atStart: false)
             split.mouseDown(with: down)
+            // A missed hit test leaves them queued: keep them out of later tests.
+            NSApp.discardEvents(matching: [.leftMouseDragged, .leftMouseUp], before: nil)
             layout()
         }
 
