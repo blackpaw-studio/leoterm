@@ -492,6 +492,9 @@ final class LeoSplitViewController: NSSplitViewController {
 
     override func viewDidLayout() {
         super.viewDidLayout()
+        // Before a pending width is applied, so it's clamped from the
+        // first layout in a window: no jump at launch (D-145).
+        updateSidebarMaximum()
         if let item = pendingOpening, isReadyToPositionDivider {
             // Outside this layout pass.
             pendingOpening = nil
@@ -501,6 +504,22 @@ final class LeoSplitViewController: NSSplitViewController {
         guard let width = pendingWidth, isReadyToPositionDivider else { return }
         pendingWidth = nil
         applyProgrammaticWidth(width)
+    }
+
+    /// Ties the sidebar's maximum to the split's width (B-091), so a wide
+    /// sidebar -- dragged, restored, or kept as the window narrows --
+    /// leaves the content `LeoSidebarSplitMetrics.contentMinimumWidth`.
+    /// A window resize that lowers it clamps the sidebar without a divider
+    /// move, so nothing is persisted (D-233); widening again gives the
+    /// width back (`narrowingTheWindowNarrowsAWideSidebarBeforeTheContent`).
+    /// Setting it asks for another layout before the window draws, so the
+    /// clamp never shows; an unchanged maximum isn't set, so that settles.
+    private func updateSidebarMaximum() {
+        guard let sidebarItem, splitView.bounds.width > 0 else { return }
+        let maximum = LeoSidebarSplitMetrics.sidebarMaximumWidth(
+            splitWidth: splitView.bounds.width, dividerThickness: splitView.dividerThickness)
+        guard abs(sidebarItem.maximumThickness - maximum) > 0.5 else { return }
+        sidebarItem.maximumThickness = maximum
     }
 
     /// Whether `setPosition(_:ofDividerAt:)` can actually take effect.

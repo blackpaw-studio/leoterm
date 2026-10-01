@@ -27,6 +27,24 @@ struct LeoInitialSizeDecisionTests {
         #expect(size == CGSize(width: 640 + 220 + 1, height: 384))
     }
 
+    /// B-091: beside the sidebar, the terminal gets at least the content
+    /// minimum, so the sidebar's maximum (which leaves the content that)
+    /// never clamps the stored width the window opens with.
+    @Test func aNarrowConfiguredTerminalOpensWideEnoughForTheStoredSidebar() {
+        let narrow = CGSize(width: 300, height: 384)
+
+        let size = LeoInitialSizeDecision.contentSize(initialSize: narrow, sidebarWidth: 260, dividerWidth: 1)
+
+        #expect(size == CGSize(width: LeoSidebarSplitMetrics.contentMinimumWidth + 260 + 1, height: 384))
+    }
+
+    /// Without the sidebar there's nothing to clamp: the configured size.
+    @Test func aNarrowConfiguredTerminalWithoutTheSidebarKeepsItsSize() {
+        let narrow = CGSize(width: 300, height: 384)
+
+        #expect(LeoInitialSizeDecision.contentSize(initialSize: narrow, sidebarWidth: nil, dividerWidth: 1) == narrow)
+    }
+
     @Test func aHiddenSidebarAddsNothing() {
         let size = LeoInitialSizeDecision.contentSize(initialSize: initialSize, sidebarWidth: nil, dividerWidth: 1)
         #expect(size == initialSize)

@@ -10,6 +10,24 @@ enum LeoSidebarSplitMetrics {
     /// minimum -- if that isn't enough, the pane opens anyway and the
     /// terminal gives way down to `minimumTerminalWidth`.
     static let terminalFloor: CGFloat = 300
+    /// The narrowest a wide sidebar leaves the content beside it (B-091):
+    /// the start screen's button row whole (409 pt), with the HIG's 20 pt
+    /// window margins either side. `LeoSidebarContentMinimumTests` measures
+    /// the row against it. Not a minimum for the content itself -- a
+    /// narrow window, a side pane, or a terminal split leaf (each leaf
+    /// gets its own start screen) still takes it lower. A configured
+    /// `window-width` opens at least this wide beside the sidebar
+    /// (`LeoInitialSizeDecision`).
+    static let contentMinimumWidth: CGFloat = 450
+
+    /// The sidebar's maximum in a split `splitWidth` wide (B-091): whatever
+    /// leaves the content `contentMinimumWidth`, within the sidebar's own
+    /// `minimumWidth`...`maximumWidth`. So as the window narrows, the
+    /// sidebar gives way before the content -- as a first-party sidebar
+    /// does (D-036) -- down to its own minimum.
+    static func sidebarMaximumWidth(splitWidth: CGFloat, dividerThickness: CGFloat) -> CGFloat {
+        min(maximumWidth, max(minimumWidth, splitWidth - dividerThickness - contentMinimumWidth))
+    }
 
     /// What's left for the terminal in a split `splitWidth` wide beside
     /// panes `paneWidths` wide and `dividers` dividers.
