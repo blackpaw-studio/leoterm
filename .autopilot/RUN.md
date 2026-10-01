@@ -149,3 +149,14 @@ Lane: B-107
   Call: A pending entry merged before its drain keeps the earlier heir unless a later change computes a new one — AUTONOMY: implementation
   Call: The survivor's "Last login" reflow is assessed, not fixed: it is upstream/shell behaviour — AUTONOMY: keep Zig minimal
 Finished 9: B-107 landed 9b4c072ae · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-107-1.png
+
+Lane: B-108
+  Branch: autopilot-lane/B-108
+  Base: 8c3074906d1026f70604a57963e58c1edebfcc8f
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-01T23:19:57Z
