@@ -138,9 +138,13 @@ Lane: B-107
   Branch: autopilot-lane/B-107
   Base: 59b6e334432f6933fccc0206579d5cee1a6621ed
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: fc71cf1191d30337f350b5b9802d401a77f5030c
   Dispatched: 2026-10-01T22:31:52Z
+  Call: Refines D-191: the focused survivor is upstream's next-focus pane after the close (previous leaf, or next if the closed pane was leftmost), else the first in tree order; the old code read a stale focusedSurface — P6 sidebar is the navigation
+  Call: Pending reconciles run synchronously (oldest first) at the top of showInContent, reveal and confirmReplacingContent, so a same-turn switch keeps the carried-on shell — P2 / AUTONOMY: implementation
+  Call: A pending entry merged before its drain keeps the earlier heir unless a later change computes a new one — AUTONOMY: implementation
+  Call: The survivor's "Last login" reflow is assessed, not fixed: it is upstream/shell behaviour — AUTONOMY: keep Zig minimal

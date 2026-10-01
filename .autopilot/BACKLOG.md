@@ -671,6 +671,16 @@ Why: B-106 review (unconfirmed): after the last shell closes and the list lands,
 Accept: B-106 review (unconfirmed): after the last shell closes and the list lands, a late focus report could reselect a different agent a turn later; pin with a test through the real attach/focus path
 Source: autopilot polish (B-106)
 
+## B-172 · Drain pending reconciles before a sidebar click selects   [ready (next run)]
+Why: a sidebar click queued just before the row's pane closes runs ahead of the drain hop, selects nil, and leaves the adopted row unselected; drain in showTerminal or isOpen/selectShownTerminal (B-107 concurrency review)
+Accept: a sidebar click queued just before the row's pane closes runs ahead of the drain hop, selects nil, and leaves the adopted row unselected; drain in showTerminal or isOpen/selectShownTerminal (B-107 concurrency review)
+Source: autopilot polish (B-107)
+
+## B-173 · pendingFocusMovesLand polls instead of sleeping 1 s   [ready (next run)]
+Why: replace the fixed 1 s sleep with an eventually-poll on firstResponder/focusedSurface (moveFocus retries on asyncAfter timers); a disclosed D-178 exception that could flake under a main-thread stall
+Accept: replace the fixed 1 s sleep with an eventually-poll on firstResponder/focusedSurface (moveFocus retries on asyncAfter timers); a disclosed D-178 exception that could flake under a main-thread stall
+Source: autopilot polish (B-107)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)
