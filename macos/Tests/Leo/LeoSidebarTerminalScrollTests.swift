@@ -277,6 +277,54 @@ struct LeoSidebarTerminalScrollTests {
         #expect(abs(table.visibleRect.maxY - table.bounds.maxY) <= 1, "the list stays at its bottom, where the selection shows")
     }
 
+    /// B-106 (P6): the last row closes while it's selected and the agent
+    /// the window falls back to is off screen. Once that agent's row is
+    /// revealed -- by the landing, or by the user scrolling up to it when
+    /// the section was already scrolled off and the list stayed put
+    /// (B-105) -- it shows the selection highlight, not a plain row.
+    @Test(arguments: ["the landing", "scrolling up to it"])
+    func theSelectedAgentRowIsHighlightedOnceRevealed(_ revealedBy: String) async throws {
+        let terminals = LeoWindowTerminals()
+        let (window, model) = try makeWindowAndModel(terminals: terminals)
+        defer { window.close() }
+        let table = try await settledTable(in: window)
+        model.userSelected(Self.agents(count: Self.agentCount)[0].id)
+        let shell = try await revealedLastRow(in: table, terminals: terminals)
+        if revealedBy == "scrolling up to it" {
+            // Mid-list: the Terminals section below, the agent above.
+            table.scroll(NSPoint(x: table.visibleRect.minX, y: table.rect(ofRow: Self.agentCount / 2).minY))
+            await afterPendingUpdates()
+            try #require(!isVisible(row: 0, in: table) && !isVisible(row: table.numberOfRows - 1, in: table),
+                         "the list is parked between the agent and the Terminals section")
+        }
+        // The list's order: the Running header (row 0), then agent-0 onward.
+        let agentRow = 1
+        try #require(isOffScreen(row: agentRow, in: table), "the selected agent row is off screen")
+        let rowsBefore = table.numberOfRows
+
+        terminals.remove(shell)
+        await afterPendingUpdates()
+        try #require(table.numberOfRows < rowsBefore, "the Terminals section is gone")
+        if revealedBy == "scrolling up to it" {
+            try #require(isOffScreen(row: agentRow, in: table), "the agent is still off screen")
+            table.scroll(NSPoint(x: table.visibleRect.minX, y: 0))
+            await afterPendingUpdates()
+        }
+
+        try #require(isVisible(row: agentRow, in: table), "the selected agent row is on screen")
+        #expect(table.selectedRowIndexes == [agentRow], "the list selects the agent")
+        let rowView = table.rowView(atRow: agentRow, makeIfNecessary: false)
+        #expect(rowView?.isSelected == true, "the agent's row shows the selection highlight")
+        // Drawn, not just flagged: the row fills where an unselected one
+        // shows the list's background.
+        // agent-3 (agent-1 and -2 have a subtitle line): one line, like agent-0.
+        let unselected = agentRow + 3
+        try #require(table.selectedRowIndexes.contains(unselected) == false && isVisible(row: unselected, in: table))
+        let fill = try #require(highlightProbe(ofRow: agentRow, in: table), "the agent's row draws")
+        let background = try #require(highlightProbe(ofRow: unselected, in: table), "an unselected row draws")
+        #expect(!Self.isNear(fill, background), "the agent's row draws a highlight: \(fill) vs \(background)")
+    }
+
     /// B-105 (P2): the last row closes while the Terminals section is
     /// scrolled off below (the user went up to the agents). Its going
     /// moves nothing on screen, so the list stays where the user put it:
@@ -449,9 +497,7 @@ struct LeoSidebarTerminalScrollTests {
     private func drawingEnd(ofRow row: Int, in table: NSTableView) -> CGFloat? {
         guard row >= 0, row < table.numberOfRows,
               let view = table.view(atColumn: 0, row: row, makeIfNecessary: true),
-              let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds),
-              rep.pixelsWide > 0, rep.pixelsHigh > 0 else { return nil }
-        view.cacheDisplay(in: view.bounds, to: rep)
+              let rep = bitmap(of: view) else { return nil }
         // The row's far right is the spacer's: background.
         let background = Self.rgba(rep.colorAt(x: rep.pixelsWide - 1, y: rep.pixelsHigh / 2))
         let lastDrawn = (0 ..< rep.pixelsWide).reversed().first { x in
@@ -470,10 +516,32 @@ struct LeoSidebarTerminalScrollTests {
         zip(lhs, rhs).allSatisfy { abs($0 - $1) < 0.1 }
     }
 
+    /// The colour `row`'s view draws three quarters of the way across and
+    /// halfway down: past a short title, inside a selection highlight.
+    /// Drawn from the list's own row view, so it shows what's on screen.
+    private func highlightProbe(ofRow row: Int, in table: NSTableView) -> [CGFloat]? {
+        guard let view = table.rowView(atRow: row, makeIfNecessary: false), let rep = bitmap(of: view) else { return nil }
+        return Self.rgba(rep.colorAt(x: rep.pixelsWide * 3 / 4, y: rep.pixelsHigh / 2))
+    }
+
+    /// `view` as drawn, or nil when it has no pixels.
+    private func bitmap(of view: NSView) -> NSBitmapImageRep? {
+        guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds),
+              rep.pixelsWide > 0, rep.pixelsHigh > 0 else { return nil }
+        view.cacheDisplay(in: view.bounds, to: rep)
+        return rep
+    }
+
     /// Where the list's scroll view shows its content from, insets and
     /// margins included: unlike `visibleRect`, not cut off at the table.
     private func clipOffset(of table: NSTableView) -> CGFloat? {
         table.enclosingScrollView?.contentView.bounds.minY
+    }
+
+    /// No part of the row is within what the list shows.
+    private func isOffScreen(row: Int, in table: NSTableView) -> Bool {
+        guard row >= 0, row < table.numberOfRows else { return true }
+        return !table.visibleRect.intersects(table.rect(ofRow: row))
     }
 
     /// The whole row (to within a point) is within what the list's scroll
