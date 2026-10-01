@@ -1954,3 +1954,17 @@ Chose: Calm-scroll doc comments drop project history and cite both halves of D-1
 Why: AUTONOMY: test infrastructure
 Commit: 396984a56
 Veto: [ ]
+
+## D-268 · 2026-10-01 · The disconnected Choose Agent… tooltip reads Agents ▸ Reconnect's liv…
+Context: B-104 (runner call).
+Chose: The disconnected Choose Agent… tooltip reads Agents ▸ Reconnect's live shortcut instead of hardcoding ⇧⌘R (follows B-080's Choose Agent precedent)
+Why: AUTONOMY: UX details, copy
+Commit: 3612df84d, 83224b8a9
+Veto: [ ]
+
+## D-269 · 2026-10-01 · Start-screen hints spell F1–F35 ("⌘F1") when a menu item carries one;…
+Context: B-104 (runner call).
+Chose: Start-screen hints spell F1–F35 ("⌘F1") when a menu item carries one; config F-key rebinds still reach no menu item because upstream keyToEquivalent drops F-keys — left as a follow-up
+Why: AUTONOMY: implementation approach
+Commit: 3612df84d, 83224b8a9
+Veto: [ ]

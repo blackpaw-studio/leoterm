@@ -282,11 +282,12 @@ Accept: the helper documents its window limit; tests park mid-list and assert ta
 Source: autopilot polish (B-078)
 Done: 396984a56. Calm-scroll tests park mid-list, assert same-list identity, await the retitle's drawn signal before counting turns; helper documents its window; comments cite both halves of D-129. Tests only; each proved red by sabotage; suite 1948 green.
 
-## B-104 · Shortcut hint polish   [ready]
+## B-104 · Shortcut hint polish   [done]
 Issue: #108
 Why: B-080 review: LeoMenuShortcutHint lacks @MainActor (LeoShortcutHints.swift:43); a function-key binding (super+f1) gives no hint where "⌘F1" could be spelled (:56); no test for publish-only-on-change (:95-96); theButtonsHintNamesTheMenuItemsLiveShortcut passes trivially if both sides are nil (LeoPlaceholderNewTerminalTests.swift:370); stale "(⌘T)" doc comment in LeoPlaceholderView.swift; the disconnected Choose Agent… tooltip hardcodes ⇧⌘R
 Accept: each fixed or explicitly dismissed; tests for the function-key and unchanged-sync cases
 Source: autopilot polish (B-080)
+Done: 3612df84d 83224b8a9. LeoMenuShortcutHint is @MainActor; hints spell F-keys (⌘F1); publish-only-on-change and function-key tests; the nil==nil trivial pass fixed; stale (⌘T) comment fixed; the disconnected Choose Agent… tooltip reads Reconnect's live shortcut. F-key config rebinds reaching menus dismissed as out of scope (follow-up filed). Suite 1952 green; shots B-104-1..2.
 
 ## B-105 · Terminals-close landing polish   [ready]
 Issue: #109

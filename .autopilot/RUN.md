@@ -1,7 +1,7 @@
 Status: running
 Started: 2026-10-01T16:01:52Z
 Budget: 20 items, until 2026-10-02T04:01:52Z
-Digested-through: 0
+Digested-through: 5
 Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 
 ## Progress
@@ -82,7 +82,7 @@ Lane: B-104
   Branch: autopilot-lane/B-104
   Base: 1ce88330c279a664c103d0eee358da9a1cc10e8a
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -90,3 +90,4 @@ Lane: B-104
   Dispatched: 2026-10-01T18:58:27Z
   Call: The disconnected Choose Agent… tooltip reads Agents ▸ Reconnect's live shortcut instead of hardcoding ⇧⌘R (follows B-080's Choose Agent precedent) — AUTONOMY: UX details, copy
   Call: Start-screen hints spell F1–F35 ("⌘F1") when a menu item carries one; config F-key rebinds still reach no menu item because upstream keyToEquivalent drops F-keys — left as a follow-up — AUTONOMY: implementation approach
+Finished 5: B-104 landed 0968f1e4a · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-104-1.png
