@@ -226,3 +226,14 @@ Lane: B-095
 - B-095 runner: ready at ba17e03d8 (general full; 1937/1937; GUI: reopen and New Window log no palette present).
 - B-095 landed (merge e68957a5d).
 Finished 12: B-095 landed e68957a5d · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-095-1.png
+
+Lane: B-096
+  Branch: autopilot-lane/B-096
+  Base: bde5d2b8b853a6a79e83f4c788961dc13afbaffd
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-01T04:50:31Z
