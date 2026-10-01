@@ -264,7 +264,7 @@ Lane: B-099
   Branch: autopilot-lane/B-099
   Base: 9f020dc4568d3b694a411b9ceff1dcbf85833eaf
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -276,3 +276,5 @@ Lane: B-099
   Call: Timing waits replaced with run-loop turn counting (afterPendingUpdates) — AUTONOMY test infrastructure, D-178
   Call: Unreachable connected/disconnected-with-rows branch in agentState renders EmptyView() — AUTONOMY implementation approach
 - B-099 runner: ready at 750a70567 (general+concurrency full; 1939/1939 x5; stress loop 0/40 x5 vs 4-9 misses before).
+- B-099 landed (merge 662ff83d6).
+Finished 15: B-099 landed 662ff83d6 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-099-1.png

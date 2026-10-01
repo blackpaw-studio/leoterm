@@ -1835,3 +1835,38 @@ Chose: No B-072 mention in Zig comments
 Why: D-166
 Commit: 7a79610f8, 6b44c1a22, e0c6a8db1
 Veto: [ ]
+
+## D-251 · 2026-10-01 · "No matches" is an overlay on the same sidebar list instead of a repl…
+Context: B-099 (runner call).
+Chose: "No matches" is an overlay on the same sidebar list instead of a replacement view, so the selection is revealed reliably after a search clears, as in Mail
+Why: P1 (serves D-129; D-130 holds)
+Commit: 2e7667d9b, 811717ef8, 6fcb8552c, 757c80895, 291915f91
+Veto: [ ]
+
+## D-252 · 2026-10-01 · The selected terminal is re-revealed when agents start or stop being …
+Context: B-099 (runner call).
+Chose: The selected terminal is re-revealed when agents start or stop being listed (Loading→connected), matching pre-B-099 behaviour
+Why: D-129
+Commit: 2e7667d9b, 811717ef8, 6fcb8552c, 757c80895, 291915f91
+Veto: [ ]
+
+## D-253 · 2026-10-01 · The loading-reveal layout race is left as a documented follow-up
+Context: B-099 (runner call).
+Chose: The loading-reveal layout race is left as a documented follow-up
+Why: AUTONOMY flake fixes/test infrastructure
+Commit: 2e7667d9b, 811717ef8, 6fcb8552c, 757c80895, 291915f91
+Veto: [ ]
+
+## D-254 · 2026-10-01 · Timing waits replaced with run-loop turn counting (afterPendingUpdate…
+Context: B-099 (runner call).
+Chose: Timing waits replaced with run-loop turn counting (afterPendingUpdates)
+Why: AUTONOMY test infrastructure, D-178
+Commit: 2e7667d9b, 811717ef8, 6fcb8552c, 757c80895, 291915f91
+Veto: [ ]
+
+## D-255 · 2026-10-01 · Unreachable connected/disconnected-with-rows branch in agentState ren…
+Context: B-099 (runner call).
+Chose: Unreachable connected/disconnected-with-rows branch in agentState renders EmptyView()
+Why: AUTONOMY implementation approach
+Commit: 2e7667d9b, 811717ef8, 6fcb8552c, 757c80895, 291915f91
+Veto: [ ]

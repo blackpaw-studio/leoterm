@@ -246,12 +246,13 @@ Accept: the regression test forces environ to move (or asserts its precondition)
 Source: autopilot polish (B-072)
 Done: 2026-10-01 · 7a79610f8, 6b44c1a22, e0c6a8db1 · D-246, D-247, D-248, D-249, D-250
 
-## B-099 · Flaky sidebar scroll test after a filter clears   [ready]
+## B-099 · Flaky sidebar scroll test after a filter clears   [done]
 Issue: #103
 Why: LeoSidebarTerminalScrollTests/aRowSelectedWhileFilteredIsRevealedWhenTheFilterClears flaked once in B-071 verify and once in B-074's red run (the "no-such-agent" case), passing on rerun
 Accept: root cause found and the test is deterministic (no timing-based waits); suite green on repeated runs
 Source: autopilot polish (B-074)
 Note: B-078 hint (unverified): in the "no-such-agent" case "No matches" replaces the list, so the table may be a fresh one revealed by onAppear; the test uses a Task.sleep+eventually pattern.
+Done: 2026-10-01 · 2e7667d9b, 811717ef8, 6fcb8552c, 757c80895, 291915f91 · D-251, D-252, D-253, D-254, D-255
 
 ## B-100 · Hidden titlebar style: side-pane headers and corner inset   [ready]
 Issue: #104
