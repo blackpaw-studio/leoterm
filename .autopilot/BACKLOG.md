@@ -310,11 +310,12 @@ Accept: the row follows upstream's next-focus pane (or the doc says tree order),
 Source: autopilot polish (B-082)
 Done: 0ede659d9 0c129e5cd 5679f7b0a. A closed row hands on to upstream's next-focus pane (refines D-191), in the same turn (pending reconciles drain at the top of showInContent/reveal/confirmReplacingContent); tests for next-focus and same-turn switch; comments corrected; Last-login reflow assessed (upstream/shell). Suite 1969 green; shots B-107-1..5.
 
-## B-108 · Undo-restored split panes get no terminal handle   [ready]
+## B-108 · Undo-restored split panes get no terminal handle   [done]
 Issue: #112
 Why: B-082 review: close the row's pane, undo the close, then undo New Split (or close the carried-on row's pane): the restored pane has no handle and is orphaned again. Not a regression; overlaps B-058
 Accept: a failing test reproduces it; restored panes are adopted or reachable from a row
 Source: autopilot polish (B-082)
+Done: 4540801bc dda028e02 f8878eeca 8f0d20276 05160bf62. Undo-restored plain-shell panes get their Leo handle back (re-registered, never adopted handle-less), so they are reachable as plain splits beside the carried-on row; same mechanism for any undo/redo; failing test first; same-turn close test. 1 fix round. Suite 1975 green; shots B-108-1..10.
 
 ## B-109 · Closed split pane's shell lingers ~40 s   [done]
 Issue: #113

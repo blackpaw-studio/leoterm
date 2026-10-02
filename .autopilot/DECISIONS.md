@@ -2038,3 +2038,31 @@ Chose: The survivor's "Last login" reflow is assessed, not fixed: it is upstream
 Why: AUTONOMY: keep Zig minimal
 Commit: 0ede659d9, 0c129e5cd, 5679f7b0a
 Veto: [ ]
+
+## D-280 · 2026-10-01 · An undo-restored pane comes back as a plain split with its handle, no…
+Context: B-108 (runner call).
+Chose: An undo-restored pane comes back as a plain split with its handle, not as a row; the split carrying the row keeps it until that split closes
+Why: D-190, P6
+Commit: 4540801bc, dda028e02, f8878eeca, 8f0d20276, 05160bf62
+Veto: [ ]
+
+## D-281 · 2026-10-01 · Restored panes become reachable by re-registering Leo's own handle, n…
+Context: B-108 (runner call).
+Chose: Restored panes become reachable by re-registering Leo's own handle, never by adopting handle-less surfaces
+Why: D-192, P6
+Commit: 4540801bc, dda028e02, f8878eeca, 8f0d20276, 05160bf62
+Veto: [ ]
+
+## D-282 · 2026-10-01 · Plain splits brought back by any undo or redo also get their handles …
+Context: B-108 (runner call).
+Chose: Plain splits brought back by any undo or redo also get their handles back through the same mechanism
+Why: AUTONOMY: bug fixes
+Commit: 4540801bc, dda028e02, f8878eeca, 8f0d20276, 05160bf62
+Veto: [ ]
+
+## D-283 · 2026-10-01 · Only the window a pane left takes it back; moves between windows stay…
+Context: B-108 (runner call).
+Chose: Only the window a pane left takes it back; moves between windows stay with B-110
+Why: AUTONOMY: implementation approach
+Commit: 4540801bc, dda028e02, f8878eeca, 8f0d20276, 05160bf62
+Veto: [ ]
