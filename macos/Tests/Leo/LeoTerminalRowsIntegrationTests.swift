@@ -929,6 +929,157 @@ import Testing
         #expect(fixture.host.isShown(split))
     }
 
+    // MARK: Undo-restored panes (B-108)
+
+    /// A row, ⌘D a shell beside it, ⌘W the row's pane (the split carries
+    /// the row on), then ⌘Z of that close: the row's own pane is back
+    /// beside the split. Returns the row, its view, and the split.
+    /// `afterTurn: false` returns in the undo's own turn, before the host's
+    /// hop to reconcile the change.
+    private func rowPaneClosedThenUndone(
+        _ fixture: Fixture,
+        _ undoManager: UndoManager,
+        isSplitUndoable: Bool,
+        afterTurn: Bool = true
+    ) async throws -> (row: AttachmentHandle, rowView: Ghostty.SurfaceView, split: AttachmentHandle) {
+        let row = try newShell(fixture)
+        let rowView = try #require(fixture.view(row))
+        let split = try isSplitUndoable
+            ? undoManager.leoInOwnUndoGroup { try openSplit(fixture, beside: row) }
+            : openSplit(fixture, beside: row, isUndoable: false)
+        try undoManager.leoInOwnUndoGroup { try closePane(fixture, row) }
+        try #require(await turns { !fixture.terminals.contains(row.surfaceID) }, "the split carries the row on")
+
+        undoManager.leoUndoLastGroup()
+
+        try #require(Set(fixture.shown().map(\.id)) == [row.surfaceID, split.surfaceID], "upstream's undo of the close")
+        if afterTurn { await nextTurn() }
+        return (row, rowView, split)
+    }
+
+    /// The pane an undo puts back has its Leo handle again: the sidebar
+    /// reaches it (P6). The split still carries the row on (D-190).
+    @Test func undoingARowsPaneCloseReRegistersThePane() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let undoManager = try freshUndo(fixture)
+
+        let (row, _, split) = try await rowPaneClosedThenUndone(fixture, undoManager, isSplitUndoable: false)
+
+        #expect(await turns { fixture.host.isOpen(row) }, "its handle is back")
+        #expect(fixture.terminals.rows.map(\.id) == [split.surfaceID])
+        #expect(fixture.terminals.selection == split.surfaceID)
+    }
+
+    /// ⌘Z once more, of New Split: the split carrying the row goes, and the
+    /// restored pane -- the window's only one -- carries the row on rather
+    /// than being left with no row reaching it.
+    @Test func undoingNewSplitAfterUndoingARowsPaneCloseHandsTheRowToTheRestoredPane() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let undoManager = try freshUndo(fixture)
+        let (row, rowView, split) = try await rowPaneClosedThenUndone(fixture, undoManager, isSplitUndoable: true)
+
+        undoManager.leoUndoLastGroup()
+
+        #expect(fixture.shown().count == 1 && fixture.shown().first === rowView, "upstream's undo of New Split")
+        #expect(await turns { fixture.terminals.rows.map(\.id) == [row.surfaceID] }, "the restored pane carries the row on")
+        #expect(fixture.terminals.selection == row.surfaceID)
+        #expect(fixture.host.isOpen(row))
+        #expect(await turns { fixture.events.events.contains(.closed(split)) })
+    }
+
+    /// Redo of New Split puts the split back with its handle; the restored
+    /// pane keeps the row.
+    @Test func redoingNewSplitReRegistersTheSplit() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let undoManager = try freshUndo(fixture)
+        let (row, _, split) = try await rowPaneClosedThenUndone(fixture, undoManager, isSplitUndoable: true)
+        undoManager.leoUndoLastGroup()
+        try #require(await turns { fixture.terminals.rows.map(\.id) == [row.surfaceID] })
+
+        undoManager.redo()
+
+        #expect(Set(fixture.shown().map(\.id)) == [row.surfaceID, split.surfaceID], "upstream's redo")
+        #expect(await turns { fixture.host.isOpen(split) }, "its handle is back")
+        #expect(fixture.terminals.rows.map(\.id) == [row.surfaceID])
+        #expect(fixture.host.isOpen(row))
+    }
+
+    /// After the undo, the split carrying the row closes -- its row's ⌘W
+    /// (`closeTerminal`), or File ▸ Close / `exit` on its pane: the
+    /// restored pane takes the row on, in its slot.
+    @Test(arguments: ["closeTerminal", "closePane"])
+    func closingTheCarriedOnPaneAfterUndoHandsTheRowToTheRestoredPane(_ via: String) async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let undoManager = try freshUndo(fixture)
+        let older = try newShell(fixture)
+        let (row, rowView, split) = try await rowPaneClosedThenUndone(fixture, undoManager, isSplitUndoable: false)
+        try #require(fixture.terminals.rows.map(\.id) == [older.surfaceID, split.surfaceID])
+
+        if via == "closeTerminal" {
+            fixture.host.closeTerminal(split)
+        } else {
+            try closePane(fixture, split)
+        }
+
+        #expect(await turns { fixture.terminals.rows.map(\.id) == [older.surfaceID, row.surfaceID] }, "in the row's slot")
+        #expect(fixture.shown().count == 1 && fixture.shown().first === rowView)
+        #expect(fixture.terminals.selection == row.surfaceID)
+        #expect(fixture.host.isOpen(row))
+        #expect(fixture.host.isOpen(older))
+        #expect(!fixture.closes.windowClosed)
+    }
+
+    /// The same, with the carried-on row's ⌘W in the undo's own turn --
+    /// before the host's hop has given the restored pane its handle back:
+    /// handing the row on finds it all the same.
+    @Test func closingTheCarriedOnRowInTheUndosTurnHandsTheRowToTheRestoredPane() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let undoManager = try freshUndo(fixture)
+        let older = try newShell(fixture)
+        let (row, rowView, split) = try await rowPaneClosedThenUndone(
+            fixture, undoManager, isSplitUndoable: false, afterTurn: false
+        )
+
+        fixture.host.closeTerminal(split)
+
+        #expect(fixture.terminals.rows.map(\.id) == [older.surfaceID, row.surfaceID], "in the row's slot, at once")
+        #expect(fixture.shown().count == 1 && fixture.shown().first === rowView)
+        #expect(fixture.terminals.selection == row.surfaceID)
+        #expect(fixture.host.isOpen(row))
+        #expect(await turns { fixture.events.events.contains(.closed(split)) })
+        #expect(fixture.terminals.rows.map(\.id) == [older.surfaceID, row.surfaceID], "still, once the host's hop ran")
+        #expect(!fixture.closes.windowClosed)
+    }
+
+    /// Only Leo's own plain shells get their handle back (D-192): an agent
+    /// pane an undo restores stays handle-less, and closing the shell
+    /// beside it invents no row.
+    @Test func anUndoRestoredAgentPaneIsNeverAdopted() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let undoManager = try freshUndo(fixture)
+        let agent = try attachAgent(fixture)
+        let split = try openSplit(fixture, beside: agent, isUndoable: false)
+        try undoManager.leoInOwnUndoGroup { try closePane(fixture, agent) }
+        try #require(await turns { fixture.events.events.contains(.closed(agent)) })
+        undoManager.leoUndoLastGroup()
+        try #require(Set(fixture.shown().map(\.id)) == [agent.surfaceID, split.surfaceID])
+        await nextTurn()
+
+        try closePane(fixture, split)
+
+        #expect(await turns { fixture.events.events.contains(.closed(split)) })
+        #expect(fixture.shown().map(\.id) == [agent.surfaceID])
+        #expect(!fixture.host.isOpen(agent), "no handle for the agent pane")
+        #expect(fixture.terminals.rows.isEmpty, "no row invented")
+        #expect(fixture.terminals.selection == nil)
+    }
+
     // MARK: Undo across a content swap (B-071)
 
     /// The undo manager -- the app's one -- with nothing ⌘Z could replay
@@ -1073,6 +1224,7 @@ import Testing
         undoManager.undo()
 
         #expect(fixture.shown().map(\.id) == [row.surfaceID, split.surfaceID])
+        #expect(await turns { fixture.host.isOpen(split) }, "its handle is back (B-108)")
     }
 
     // MARK: Selection
