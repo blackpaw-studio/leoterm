@@ -65,16 +65,18 @@ extension TerminalController {
     /// the swap was confirmed at ⌘W and would expire after `undo-timeout`
     /// anyway. Other windows' undo is untouched.
     ///
-    /// Known limit: all windows share one undo manager, and a cross-window
-    /// Move Split is one undo group holding two actions -- a "Close
-    /// Terminal" targeting the source window and a replace targeting the
-    /// destination. This drops only the swapped controller's half; the
-    /// partner half, targeting the other window, stays (D-141). What a
-    /// surface moved between windows means (its row and window ownership
-    /// after `splitDidDrop` / `ghosttySurfaceDragEndedNoTarget`, and its
-    /// undo) is parked as a separate follow-up.
+    /// All windows share one undo manager. A pane moved between Leo windows
+    /// (`splitDidDrop` / `ghosttySurfaceDragEndedNoTarget`, B-110) has one
+    /// guarded "Move Split" action for both windows, not upstream's one
+    /// half per window; this ends it too (`LeoCrossWindowMove`), whichever
+    /// of its two windows swapped. Left to upstream, the other window's
+    /// half would replay alone: taking the pane out of every tree (its
+    /// shell freed, unasked, once the redo expired) or pulling it back into
+    /// a window that moved on. Moves to or from a window with no Leo
+    /// session (the quick terminal) keep upstream's halves.
     func leoForgetContentUndo() {
         undoManager?.removeAllActions(withTarget: self)
+        LeoCrossWindowMove.end(involving: self)
     }
 
     /// File ▸ Choose Agent… (⌘O): the agent palette, whose choice shows
