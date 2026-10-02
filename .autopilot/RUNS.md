@@ -243,7 +243,7 @@ Shipped
 • B-106 Selected row highlight after last shell closes — didn't reproduce; regression test (6b08d7233 c1b36b866) (not visually verified: test-only) · light
 • B-107 Closed row hands on to upstream's next-focus pane, same turn (0ede659d9…) (verified: screenshot) · full
 • B-108 Undo-restored split panes get their Leo handle back (f8878eeca…) (verified: screenshot) · full
-• B-100 built before none; B-147 built before B-106 (shared build stale for every verify)
+• B-147 built before B-106 (shared build was stale for every verify)
 Calls I made — reply "veto D-0xx" to undo
 • D-262 New Terminal may hold only ⌘T (refines D-177)
 • D-268 disconnected Choose Agent… tooltip reads Reconnect's live shortcut
