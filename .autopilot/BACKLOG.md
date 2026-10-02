@@ -327,11 +327,13 @@ Question: couldn't reproduce — a test shows a closed pane's shell lives only f
 Answer: close
 Done: closed — not reproducible (Evan)
 
-## B-110 · Dragging a Leo surface between windows: rows, window ownership and undo   [ready]
+## B-110 · Dragging a Leo surface between windows: rows, window ownership and undo   [blocked]
 Issue: #114
 Why: B-083 (point 5, parked): the host keeps surface S under window A after splitDidDrop or drag-to-new-window; the Move Split undo halves misbehave after either window swaps, and ⌘Z can free S's shell without a confirm once the redo expires (P2: nothing dies without asking). Candidate fixes: (a) a swap-generation guard in upstream's cross-window branches, or (b) moving row ownership on drop
 Accept: failing tests reproduce the orphaned ownership and the unconfirmed shell free; after the fix a moved surface belongs to (and is reachable from) the window it's in, and no undo path frees a shell without asking
 Source: autopilot (B-083 dismissal)
+Question: runner timed out after 3h — last known step: build mode, fix round 2 of 3 in progress (review rounds 1–2 found races: pre-reconcile ordering and the focus a drop's undo resigns; both reproduced and mostly fixed); lane's last commit 1eee9b5b0 "test(B-110): the focus a drop's undo resigns, as a pure decision". Work kept on autopilot-shelved/B-110 (15 commits: handles follow surfaces across windows, the coordinator re-keys moved agents, a guarded Move Split undo). I'd pick: retry next run from that branch with the hard implementer.
+Answer:
 
 ## B-111 · Undo docs and test-name polish   [ready]
 Issue: #115

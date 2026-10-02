@@ -170,9 +170,11 @@ Lane: B-110
   Branch: autopilot-lane/B-110
   Base: f86dcbb5b4fd068d99b1c1e15fca1b39ea8f882f
   Tier: full
-  State: building
+  State: shelved
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-10-02T00:14:34Z
+Finished 11: B-110 blocked
+- 2026-10-02T04:06Z: B-110 runner timed out after 3h (3h52m); stopped; its last implementer was mid fix round 2 and may still be running against the shelved branch's worktree path (removed). Shelved on autopilot-shelved/B-110 (15 item commits + wip). Run deadline (04:01:52Z) passed: no new lanes.
