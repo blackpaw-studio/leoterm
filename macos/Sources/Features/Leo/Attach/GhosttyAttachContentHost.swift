@@ -883,8 +883,9 @@ import OSLog
     /// redo of a split's close or New Split -- gets its handle again, as a
     /// plain shell beside what is shown (not a row: a row it had was
     /// carried on beside it, D-190), so a later close can hand a row to
-    /// it. Only the window it left takes it back (B-110 parks moves
-    /// between windows). Run before reconciling, and before adopting, so a
+    /// it. Only the window it left takes it back; a pane that moved to
+    /// another Leo window never departed -- its handle moved with it
+    /// (`move`, B-110). Run before reconciling, and before adopting, so a
     /// close in the undo's own turn already finds it.
     ///
     /// Global: any window's drain or adoption restores every window's
