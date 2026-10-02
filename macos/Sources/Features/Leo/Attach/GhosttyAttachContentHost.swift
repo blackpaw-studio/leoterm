@@ -826,11 +826,19 @@ import OSLog
     /// it. Only the window it left takes it back (B-110 parks moves
     /// between windows). Run before reconciling, and before adopting, so a
     /// close in the undo's own turn already finds it.
+    ///
+    /// Global: any window's drain or adoption restores every window's
+    /// returned shells, each checked against the controller it left. Open
+    /// edge: a window holding no registered handle (reachable only through
+    /// D-192's handle-less agent panes) hears no tree change, so its
+    /// returned shell is restored lazily, on the next drain or adoption
+    /// anywhere -- noted for B-058.
     private func restoreReturnedShells() {
-        departed.removeAll { $0.surface == nil || $0.controller == nil }
-        let returned = departed.filter(\.hasReturned)
-        guard !returned.isEmpty else { return }
-        departed.removeAll { $0.hasReturned }
+        let (returned, waiting) = departed.reduce(into: ([DepartedShell](), [DepartedShell]())) { notes, shell in
+            guard shell.surface != nil, shell.controller != nil else { return }
+            if shell.hasReturned { notes.0.append(shell) } else { notes.1.append(shell) }
+        }
+        departed = waiting
         returned.forEach(restore)
     }
 
