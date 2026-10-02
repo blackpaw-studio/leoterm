@@ -934,10 +934,13 @@ import Testing
     /// A row, ⌘D a shell beside it, ⌘W the row's pane (the split carries
     /// the row on), then ⌘Z of that close: the row's own pane is back
     /// beside the split. Returns the row, its view, and the split.
+    /// `afterTurn: false` returns in the undo's own turn, before the host's
+    /// hop to reconcile the change.
     private func rowPaneClosedThenUndone(
         _ fixture: Fixture,
         _ undoManager: UndoManager,
-        isSplitUndoable: Bool
+        isSplitUndoable: Bool,
+        afterTurn: Bool = true
     ) async throws -> (row: AttachmentHandle, rowView: Ghostty.SurfaceView, split: AttachmentHandle) {
         let row = try newShell(fixture)
         let rowView = try #require(fixture.view(row))
@@ -950,7 +953,7 @@ import Testing
         undoManager.leoUndoLastGroup()
 
         try #require(Set(fixture.shown().map(\.id)) == [row.surfaceID, split.surfaceID], "upstream's undo of the close")
-        await nextTurn()
+        if afterTurn { await nextTurn() }
         return (row, rowView, split)
     }
 
@@ -1027,6 +1030,29 @@ import Testing
         #expect(fixture.terminals.selection == row.surfaceID)
         #expect(fixture.host.isOpen(row))
         #expect(fixture.host.isOpen(older))
+        #expect(!fixture.closes.windowClosed)
+    }
+
+    /// The same, with the carried-on row's ⌘W in the undo's own turn --
+    /// before the host's hop has given the restored pane its handle back:
+    /// handing the row on finds it all the same.
+    @Test func closingTheCarriedOnRowInTheUndosTurnHandsTheRowToTheRestoredPane() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let undoManager = try freshUndo(fixture)
+        let older = try newShell(fixture)
+        let (row, rowView, split) = try await rowPaneClosedThenUndone(
+            fixture, undoManager, isSplitUndoable: false, afterTurn: false
+        )
+
+        fixture.host.closeTerminal(split)
+
+        #expect(fixture.terminals.rows.map(\.id) == [older.surfaceID, row.surfaceID], "in the row's slot, at once")
+        #expect(fixture.shown().count == 1 && fixture.shown().first === rowView)
+        #expect(fixture.terminals.selection == row.surfaceID)
+        #expect(fixture.host.isOpen(row))
+        #expect(await turns { fixture.events.events.contains(.closed(split)) })
+        #expect(fixture.terminals.rows.map(\.id) == [older.surfaceID, row.surfaceID], "still, once the host's hop ran")
         #expect(!fixture.closes.windowClosed)
     }
 
@@ -1198,6 +1224,7 @@ import Testing
         undoManager.undo()
 
         #expect(fixture.shown().map(\.id) == [row.surfaceID, split.surfaceID])
+        #expect(await turns { fixture.host.isOpen(split) }, "its handle is back (B-108)")
     }
 
     // MARK: Selection
