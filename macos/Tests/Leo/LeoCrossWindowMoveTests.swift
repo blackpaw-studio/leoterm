@@ -56,14 +56,18 @@ import Testing
 
     private static var ghostty: Ghostty.App? { (NSApp.delegate as? AppDelegate)?.ghostty }
 
-    private func makeFixture() throws -> Fixture {
+    /// `logsEvents`: the fixture reads the host's lifecycle events (one
+    /// reader only); `false` leaves them to a coordinator a test makes.
+    private func makeFixture(logsEvents: Bool = true) throws -> Fixture {
         let ghostty = try #require(Self.ghostty, "these tests need the app's Ghostty.App")
         let registry = LeoWindowSessionRegistry()
         let configs = LeoRequestConfigStore()
         let host = GhosttyAttachContentHost(registry: registry, requestConfigStore: configs) { .init(isActive: false, keyWindow: nil) }
         let log = EventLog()
-        log.task = Task { [events = host.lifecycleEvents] in
-            for await event in events { log.events.append(event) }
+        if logsEvents {
+            log.task = Task { [events = host.lifecycleEvents] in
+                for await event in events { log.events.append(event) }
+            }
         }
         return Fixture(
             host: host, configs: configs, registry: registry,
@@ -269,13 +273,14 @@ import Testing
     /// it shows only it, so it is that window's row, selected.
     @Test func aShellDraggedToANewWindowIsThatWindowsRow() async throws {
         let fixture = try makeFixture()
+        var opened: TerminalController?
+        defer { close(fixture, opened) }
         let row = try newShell(fixture, in: fixture.a)
         let split = try openSplit(fixture, in: fixture.a, beside: row)
 
-        let newWindow = try dragToNewWindow(split, from: fixture.a)
-        defer { close(fixture, newWindow) }
+        opened = try dragToNewWindow(split, from: fixture.a)
 
-        let controller = try #require(newWindow, "upstream's drag opened a window for it")
+        let controller = try #require(opened, "upstream's drag opened a window for it")
         let session = try #require(controller.leoSession)
         let moved = AttachmentHandle(surfaceID: split.surfaceID, windowID: session.id)
         #expect(await turns { fixture.host.isOpen(moved) }, "its handle is the new window's")
@@ -302,6 +307,35 @@ import Testing
         #expect(fixture.host.isOpen(moved))
         #expect(!fixture.events.events.contains(.closed(agent)), "nothing closed")
         #expect(fixture.b.terminals.rows.map(\.id) == [q.surfaceID], "an agent is never a terminal row")
+    }
+
+    /// The move sets both trees at once; the host moves the handle on the
+    /// next turn. A Jump to the agent (or an attach) in between still finds
+    /// it, in B -- not forgotten as closed, so its next attach would start a
+    /// second tmux client. The real host: the fake has no turn in between.
+    @Test func anAgentAskedForInTheTurnItMovesIsFoundInItsNewWindow() async throws {
+        let fixture = try makeFixture(logsEvents: false)
+        defer { close(fixture) }
+        let coordinator = LeoAttachCoordinator(
+            host: fixture.host, executable: { Self.standIn }, remoteCommandBuilder: { _ in Self.standIn }, report: { _ in }
+        )
+        let identity = LeoAgentIdentity(host: .remote("box"), name: "worker")
+        let row = try newShell(fixture, in: fixture.a)
+        let request = LeoSurfaceRequest(origin: fixture.a.origin, disposition: .split(.right), splitSourceSurface: row.surfaceID)
+        let agent = try await coordinator.attach(identity: identity, request: request).get()
+        let q = try newShell(fixture, in: fixture.b)
+
+        try drop(agent, from: fixture.a, onto: q, in: fixture.b)
+        let found = coordinator.focusExisting(identity)
+
+        let moved = fixture.b.handle(agent.surfaceID)
+        #expect(found, "brought forward in B, nothing attached anew")
+        #expect(coordinator.identity(forSurface: agent.surfaceID) == identity, "still its agent")
+        #expect(coordinator.linkState.attachCounts[LeoAgentRow.ID(host: identity.host, name: identity.name)] == 1, "shown once")
+        #expect(await turns { fixture.host.isOpen(moved) })
+        await settle()
+        #expect(coordinator.identity(forSurface: agent.surfaceID) == identity, "still tracked once `.moved` arrives")
+        #expect(coordinator.reusableHandleCount == 1)
     }
 
     /// An exited agent's pane shows its rebirth placeholder (Restart): it
@@ -433,14 +467,15 @@ import Testing
     /// the undo closed the new window and S freed with its redo.
     @Test func undoingANewWindowMoveAfterTheSourceSwitchesKeepsTheNewWindow() async throws {
         let fixture = try makeFixture()
+        var opened: TerminalController?
+        defer { close(fixture, opened) }
         let undoManager = try freshUndo(fixture)
         let mark = try undoMark(undoManager)
         let row = try newShell(fixture, in: fixture.a)
         let split = try openSplit(fixture, in: fixture.a, beside: row)
         let view = Weak(fixture.a.view(split))
-        let newWindow = try undoManager.leoInOwnUndoGroup { try dragToNewWindow(split, from: fixture.a) }
-        defer { close(fixture, newWindow) }
-        let controller = try #require(newWindow, "upstream's drag opened a window for it")
+        opened = try undoManager.leoInOwnUndoGroup { try dragToNewWindow(split, from: fixture.a) }
+        let controller = try #require(opened, "upstream's drag opened a window for it")
         let moved = AttachmentHandle(surfaceID: split.surfaceID, windowID: try #require(controller.leoSession).id)
         await nextTurn()
 
@@ -559,14 +594,15 @@ import Testing
     /// stays, showing S back beside its row, and what A keeps hidden lives.
     @Test func undoingANewWindowMoveClosesOnlyItsTab() async throws {
         let fixture = try makeFixture()
+        var opened: TerminalController?
+        defer { close(fixture, opened) }
         let undoManager = try freshUndo(fixture)
         let hidden = try newShell(fixture, in: fixture.a, running: Self.standIn)
         let row = try newShell(fixture, in: fixture.a)
         let split = try openSplit(fixture, in: fixture.a, beside: row)
         let view = Weak(fixture.a.view(split))
-        let newWindow = try undoManager.leoInOwnUndoGroup { try dragToNewWindow(split, from: fixture.a) }
-        defer { close(fixture, newWindow) }
-        let controller = try #require(newWindow, "upstream's drag opened a window for it")
+        opened = try undoManager.leoInOwnUndoGroup { try dragToNewWindow(split, from: fixture.a) }
+        let controller = try #require(opened, "upstream's drag opened a window for it")
         let tabs = try [fixture.a.controller, controller].map { try #require($0.window) }
         tabs.forEach { $0.tabbingMode = .automatic }
         tabs[0].addTabbedWindow(tabs[1], ordered: .above)
@@ -587,17 +623,19 @@ import Testing
     @Test func undoingANewWindowMoveKeepsAWindowWithUnsavedEdits() async throws {
         try await withLeoFileSandbox(.local) { sandbox, _ in
             let fixture = try makeFixture()
+            var opened: TerminalController?
+            defer {
+                // Its edits dropped, or its close would keep it.
+                opened?.leoSession?.editor.abandon()
+                close(fixture, opened)
+            }
             let undoManager = try freshUndo(fixture)
             let row = try newShell(fixture, in: fixture.a)
             let split = try openSplit(fixture, in: fixture.a, beside: row)
             let view = Weak(fixture.a.view(split))
-            let newWindow = try undoManager.leoInOwnUndoGroup { try dragToNewWindow(split, from: fixture.a) }
-            let controller = try #require(newWindow, "upstream's drag opened a window for it")
+            opened = try undoManager.leoInOwnUndoGroup { try dragToNewWindow(split, from: fixture.a) }
+            let controller = try #require(opened, "upstream's drag opened a window for it")
             let editor = try #require(controller.leoSession).editor
-            defer {
-                editor.abandon()
-                close(fixture, controller)
-            }
             try await editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("notes.txt", "notes")))
             let document = try #require(editor.document)
             document.edit(document.text + "!")

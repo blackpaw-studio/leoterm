@@ -482,6 +482,28 @@ import Testing
         #expect(coordinator.reusableHandleCount == 1)
     }
 
+    /// The agent's process exited as it moved: `.processExited` names its
+    /// old handle. Whether or not the coordinator re-keyed it first (asked
+    /// for meanwhile), it is exited where it went, its placeholder there.
+    @Test(arguments: [false, true])
+    func anAgentThatExitedAsItMovedIsExitedWhereItWent(_ askedForMeanwhile: Bool) async {
+        let host = FakeAttachContentHost()
+        let coordinator = makeCoordinator(host: host)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        let before = host.handles[0]
+        let after = AttachmentHandle(surfaceID: before.surfaceID, windowID: LeoWindowID())
+        host.openHandles.remove(before)
+        host.openHandles.insert(after)
+        if askedForMeanwhile { coordinator.focusExisting(identity) }
+
+        await host.emitAndWait(.processExited(before))
+        await host.emitAndWait(.moved(from: before, to: after))
+
+        #expect(coordinator.inactiveHandleCount == 1, "exited")
+        #expect(coordinator.identity(forSurface: before.surfaceID) == nil)
+        #expect(host.reborn == [after], "its placeholder where it went")
+    }
+
     /// A moved handle that exited before it moved stays exited there.
     @Test func aMovedExitedAgentStaysExited() async {
         let host = FakeAttachContentHost()
