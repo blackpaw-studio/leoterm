@@ -621,7 +621,10 @@ import OSLog
     }
 
     func openHandle(ofSurface surfaceID: UUID) -> AttachmentHandle? {
-        attachments.keys.first { $0.surfaceID == surfaceID && isOpen($0) }
+        // A move's handle follows on the turn after its trees changed: run
+        // that reconcile now, as a swap does (D-277), so it is found there.
+        runPendingReconciles()
+        return attachments.keys.first { $0.surfaceID == surfaceID && isOpen($0) }
     }
 
     /// What `window` keeps hidden (tests and diagnostics).
