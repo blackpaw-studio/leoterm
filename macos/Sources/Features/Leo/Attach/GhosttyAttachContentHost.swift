@@ -620,6 +620,10 @@ import OSLog
         return controller.surfaceTree.contains(surface) || live.contains(surface, in: handle.windowID)
     }
 
+    func openHandle(ofSurface surfaceID: UUID) -> AttachmentHandle? {
+        attachments.keys.first { $0.surfaceID == surfaceID && isOpen($0) }
+    }
+
     /// What `window` keeps hidden (tests and diagnostics).
     func hiddenSurfaces(in window: LeoWindowID) -> [Ghostty.SurfaceView] { live.hiddenSurfaces(in: window) }
 

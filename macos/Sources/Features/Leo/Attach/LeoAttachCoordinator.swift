@@ -476,8 +476,17 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         handle.flatMap { inactive.contains($0) ? nil : identityByHandle[$0] }
     }
 
+    /// Forgets `identity`'s closed handles. One whose surface the host has
+    /// moved to another window (B-110), before its `.moved` arrived, is
+    /// re-keyed there instead; that `.moved` then finds nothing to do.
     private func discardDeadHandles(for identity: LeoAgentIdentity) {
-        for handle in handlesByIdentity[identity] ?? [] where !host.isOpen(handle) { remove(handle) }
+        for handle in handlesByIdentity[identity] ?? [] where !host.isOpen(handle) {
+            if let moved = host.openHandle(ofSurface: handle.surfaceID) {
+                rekey(handle, to: moved)
+            } else {
+                remove(handle)
+            }
+        }
     }
 
     private func remove(_ handle: AttachmentHandle) {
