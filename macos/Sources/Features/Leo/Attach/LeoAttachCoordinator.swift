@@ -381,14 +381,15 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         switch event {
         case .closed(let handle): remove(handle)
         case .moved(let from, let to): rekey(from, to: to)
-        case .processExited(let handle):
+        case .processExited(let reported):
             // Untracked handles (e.g. a plain shell, which has no identity
             // to key attach bookkeeping on) never enter `inactive` -- there
             // is nothing for `.closed` to clean up afterwards, since
             // `remove(_:)` is itself a no-op for handles with no identity.
-            guard identityByHandle[handle] != nil else { return }
+            guard let handle = trackedHandle(reported) else { return }
             inactive.insert(handle)
-            host.rebirthPlaceholder(for: handle)
+            // Moved meanwhile (B-110): its placeholder shows where it is now.
+            host.rebirthPlaceholder(for: host.openHandle(ofSurface: handle.surfaceID) ?? handle)
         case .focusSuspended:
             receivedFocusReport()
             viewedHandle = nil
@@ -494,6 +495,14 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         inactive.remove(handle)
         handlesByIdentity[identity]?.removeAll { $0 == handle }
         if handlesByIdentity[identity]?.isEmpty == true { handlesByIdentity.removeValue(forKey: identity) }
+    }
+
+    /// `handle` while tracked; else, when its surface moved to another
+    /// window and was re-keyed there before an event naming the old handle
+    /// arrived (`discardDeadHandles`, B-110), the handle it has there.
+    private func trackedHandle(_ handle: AttachmentHandle) -> AttachmentHandle? {
+        if identityByHandle[handle] != nil { return handle }
+        return host.openHandle(ofSurface: handle.surfaceID).flatMap { identityByHandle[$0] != nil ? $0 : nil }
     }
 
     /// B-110: an agent's surface moved to another window; its bookkeeping
