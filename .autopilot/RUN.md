@@ -1,7 +1,7 @@
 Status: running
 Started: 2026-10-01T16:01:52Z
 Budget: 20 items, until 2026-10-02T04:01:52Z
-Digested-through: 5
+Digested-through: 10
 Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 
 ## Progress
