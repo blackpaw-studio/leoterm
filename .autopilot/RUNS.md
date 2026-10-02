@@ -229,3 +229,36 @@ Interim updates: 2 posted, through item 10
 Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Board: https://github.com/orgs/blackpaw-studio/projects/5
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-10-01T16:01Z → 2026-10-02T04:10Z (deadline)
+🛠 leoterm autopilot — 10 shipped, 1 blocked
+Shipped
+• B-100 Hidden titlebar: side-pane headers take the sidebar's inset (7c9cb2d1f…) (verified: screenshot) · light
+• B-101 Launch-focus: Tab reaches search in real launch order (c640ac20b f09c93245) (not visually verified: test-only) · light
+• B-102 Menu shortcut guards catch bare O/T, cover every live item (1f32b5966) (not visually verified: test-only) · light
+• B-103 Calm-scroll tests park mid-list, assert identity (396984a56) (not visually verified: test-only) · light
+• B-104 Shortcut hints spell F-keys; disconnected tooltip reads Reconnect live (3612df84d 83224b8a9) (verified: screenshot) · light
+• B-105 Last-shell close lands only if Terminals was on screen; true top (5ce958ac9…) (verified: screenshot) · light→full
+• B-147 Shared libghostty rebuilt after B-098 (no code change) · light
+• B-106 Selected row highlight after last shell closes — didn't reproduce; regression test (6b08d7233 c1b36b866) (not visually verified: test-only) · light
+• B-107 Closed row hands on to upstream's next-focus pane, same turn (0ede659d9…) (verified: screenshot) · full
+• B-108 Undo-restored split panes get their Leo handle back (f8878eeca…) (verified: screenshot) · full
+• B-100 built before none; B-147 built before B-106 (shared build stale for every verify)
+Calls I made — reply "veto D-0xx" to undo
+• D-262 New Terminal may hold only ⌘T (refines D-177)
+• D-268 disconnected Choose Agent… tooltip reads Reconnect's live shortcut
+• D-270 last-shell close doesn't move a scrolled-off list (refines D-187)
+• D-276 closed row → upstream's next-focus pane (refines D-191)
+• D-280/281 restored panes come back as plain splits via Leo's own handle
+Needs you — reply "B-0xx: <answer>"
+• B-110 runner timed out (3h52m) mid fix round 2; 15 commits on autopilot-shelved/B-110. I'd pick: retry next run from that branch.
+• B-110's last implementer may have outlived the stop (its lane worktree is removed).
+• finish still can't remove dirty landed lanes (untracked profraw/scratchpad/zig-out).
+Ideas parked — "/feature B-0xx" to spec one
+• B-058 Splits inside the content area
+Next up: B-111, B-112 (+2 queued /feature items, 26 polish items for next run)
+Interim updates: 2 posted, through item 10
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Board sync: 1 failure kind (B-014 unknown status [deferred]) (see RUN.md)
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot

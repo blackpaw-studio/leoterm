@@ -571,126 +571,151 @@ Accept: loading test: assert rect(ofRow:).intersects(visibleRect) with a minY ==
 Source: autopilot polish (B-099)
 
 ## B-151 · B-100 pane layout test measures from the window top   [ready (next run)]
+Issue: #155
 Why: assert the side-pane close glyph's midY is within 1 pt of topInset + headerRowHeight/2 below the window top; the B-074 sidebar bound (gap 9–16 pt) ties the panes to the window edge only indirectly
 Accept: assert the side-pane close glyph's midY is within 1 pt of topInset + headerRowHeight/2 below the window top; the B-074 sidebar bound (gap 9–16 pt) ties the panes to the window edge only indirectly
 Source: autopilot polish (B-100)
 
 ## B-152 · headerRowHeight is a minimum, not a height   [ready (next run)]
+Issue: #156
 Why: LeoSidebarHeader uses .frame(minHeight: headerRowHeight), so the sidebar row can grow and move its centre while the side panes stay at 18 pt; use .frame(height:) or rename it headerRowMinHeight
 Accept: LeoSidebarHeader uses .frame(minHeight: headerRowHeight), so the sidebar row can grow and move its centre while the side panes stay at 18 pt; use .frame(height:) or rename it headerRowMinHeight
 Source: autopilot polish (B-100)
 
 ## B-153 · Header centres differ by 1–1.5 px in hidden style   [ready (next run)]
+Issue: #157
 Why: B-100 shot: browser close ≈17, editor ≈18, sidebar + ≈18.5 px; align them exactly
 Accept: B-100 shot: browser close ≈17, editor ≈18, sidebar + ≈18.5 px; align them exactly
 Source: autopilot polish (B-100)
 
 ## B-154 · Titled styles: browser header close glyph tight under the titlebar   [ready (next run)]
+Issue: #158
 Why: B-100 verify: in titled styles the workspace-browser header's close glyph sits about 3 pt under the titlebar
 Accept: B-100 verify: in titled styles the workspace-browser header's close glyph sits about 3 pt under the titlebar
 Source: autopilot polish (B-100)
 
 ## B-155 · LeoLaunchFocusTests #require message wording   [ready (next run)]
+Issue: #159
 Why: LeoLaunchFocusTests.swift:60 says "wasn't built when the loop was rebuilt" but the check runs one turn after the rebuild; reword to "doesn't exist after the rebuild turn"
 Accept: LeoLaunchFocusTests.swift:60 says "wasn't built when the loop was rebuilt" but the check runs one turn after the rebuild; reword to "doesn't exist after the rebuild turn"
 Source: autopilot polish (B-101)
 
 ## B-156 · waitForSearchField counts turns instead of sleeping   [ready (next run)]
+Issue: #160
 Why: LeoLaunchFocusTests.swift:110-117 still polls with Task.sleep(20ms); D-178/D-254 prefer nextMainTurn() turn counting
 Accept: LeoLaunchFocusTests.swift:110-117 still polls with Task.sleep(20ms); D-178/D-254 prefer nextMainTurn() turn counting
 Source: autopilot polish (B-101)
 
 ## B-157 · Rebuild the key view loop after a sidebar or pane toggle   [ready (next run)]
+Issue: #161
 Why: while the window stays key, Tab uses the old loop after a sidebar/pane toggle until the window becomes key again (documented in B-101's comment); rebuild it on toggle
 Accept: while the window stays key, Tab uses the old loop after a sidebar/pane toggle until the window becomes key again (documented in B-101's comment); rebuild it on toggle
 Source: autopilot polish (B-101)
 
 ## B-158 · Document LeoMenuXib's ignored modifier flags   [ready (next run)]
+Issue: #162
 Why: LeoMenuXib.swift:52-56: the live encoder ignores .function/.numericPad/.capsLock; the old exact-.command check was dropped silently — document it
 Accept: LeoMenuXib.swift:52-56: the live encoder ignores .function/.numericPad/.capsLock; the old exact-.command check was dropped silently — document it
 Source: autopilot polish (B-102)
 
 ## B-159 · liveShortcutsDecodeLikeTheXib compares against the xib decoder   [ready (next run)]
+Issue: #163
 Why: it compares hard-coded strings rather than the xib decoder's output; add a bare "T" (→ "⇧t") case so the name holds
 Accept: it compares hard-coded strings rather than the xib decoder's output; add a bare "T" (→ "⇧t") case so the name holds
 Source: autopilot polish (B-102)
 
 ## B-160 · Live ⌘O check can pass vacuously   [ready (next run)]
+Issue: #164
 Why: chooseAgentIsCommandO's live check passes if the live walk returns nothing; assert the walk finds Choose Agent… on "⌘o"
 Accept: chooseAgentIsCommandO's live check passes if the live walk returns nothing; assert the walk finds Choose Agent… on "⌘o"
 Source: autopilot polish (B-102)
 
 ## B-161 · Retitle signal: wait for a stable measurement   [ready (next run)]
+Issue: #165
 Why: the pixel-width retitle signal could pass on a half-laid-out first render; measure until two consecutive turns agree or require titleEnd past icon+gap; it also depends on "vim notes.md" drawing wider than "Terminal" (fragile if fonts or the fixture change)
 Accept: the pixel-width retitle signal could pass on a half-laid-out first render; measure until two consecutive turns agree or require titleEnd past icon+gap; it also depends on "vim notes.md" drawing wider than "Terminal" (fragile if fonts or the fixture change)
 Source: autopilot polish (B-103)
 
 ## B-162 · turns(limit:until:) stops when the condition holds and gets a clearer name   [ready (next run)]
+Issue: #166
 Why: it keeps evaluating condition() after it turns true (up to ~50 extra renders) — use a while loop; rename to e.g. turnsUntil(_:limit:) to avoid confusion with afterPendingUpdates' turns:
 Accept: it keeps evaluating condition() after it turns true (up to ~50 extra renders) — use a while loop; rename to e.g. turnsUntil(_:limit:) to avoid confusion with afterPendingUpdates' turns:
 Source: autopilot polish (B-103)
 
 ## B-163 · Drop remaining project-history comments in LeoSidebarTerminalScrollTests   [ready (next run)]
+Issue: #167
 Why: :256 ("before B-081"), :390 ("only wait on time (B-099)") and the retitle test's "B-078 (D-130)" opener: keep IDs as labels, drop the history
 Accept: :256 ("before B-081"), :390 ("only wait on time (B-099)") and the retitle test's "B-078 (D-130)" opener: keep IDs as labels, drop the history
 Source: autopilot polish (B-103)
 
 ## B-164 · F-key config rebinds reach menu items and hints   [ready (next run)]
+Issue: #168
 Why: map GHOSTTY_KEY_F1…F25 in Ghostty.keyToEquivalent / keyboardShortcut(for:) so a binding like super+f1=new_tab shows on the menu item and the start-screen hint (B-104 left it: upstream drops F-keys)
 Accept: map GHOSTTY_KEY_F1…F25 in Ghostty.keyToEquivalent / keyboardShortcut(for:) so a binding like super+f1=new_tab shows on the menu item and the start-screen hint (B-104 left it: upstream drops F-keys)
 Source: autopilot polish (B-104)
 
 ## B-165 · Shortcut hint test helper takes a reconnect: parameter   [ready (next run)]
+Issue: #169
 Why: LeoShortcutHintsTests.swift:351 passes the Reconnect item through the chooseAgent: parameter; give it its own parameter
 Accept: LeoShortcutHintsTests.swift:351 passes the Reconnect item through the chooseAgent: parameter; give it its own parameter
 Source: autopilot polish (B-104)
 
 ## B-166 · LEO_FORCE_DISCONNECTED sometimes doesn't arm on first launch   [ready (next run)]
+Issue: #170
 Why: B-104 verify: the DEBUG fixture didn't take effect on the first launch; a relaunch worked — possible arming race
 Accept: B-104 verify: the DEBUG fixture didn't take effect on the first launch; a relaunch worked — possible arming race
 Source: autopilot polish (B-104)
 
 ## B-167 · Pin the Terminals section as non-collapsible   [ready (next run)]
+Issue: #171
 Why: LeoSidebarView.swift:304's labels.count + 1 assumes the section is never natively collapsed; if a .sidebar List lets users hide it, last-N rows could include agent rows and land falsely — confirm or add .collapsible(false)
 Accept: LeoSidebarView.swift:304's labels.count + 1 assumes the section is never natively collapsed; if a .sidebar List lets users hide it, last-N rows could include agent rows and land falsely — confirm or add .collapsible(false)
 Source: autopilot polish (B-105)
 
 ## B-168 · Drop dead non-flipped branches in LeoTerminalsViewport   [ready (next run)]
+Issue: #172
 Why: scrollToTop/unobscuredBounds (LeoTerminalsViewport.swift:68,:78) have untested, unreachable non-flipped branches (NSTableView is flipped) — drop or test them
 Accept: scrollToTop/unobscuredBounds (LeoTerminalsViewport.swift:68,:78) have untested, unreachable non-flipped branches (NSTableView is flipped) — drop or test them
 Source: autopilot polish (B-105)
 
 ## B-169 · runtests.sh baseline message contradicts verify.md   [ready (next run)]
+Issue: #173
 Why: runtests.sh still labels ConfigTests/errorsEmptyForValidConfig "an expected baseline failure"; verify.md says to treat a failure of that test as real (see also B-137)
 Accept: runtests.sh still labels ConfigTests/errorsEmptyForValidConfig "an expected baseline failure"; verify.md says to treat a failure of that test as real (see also B-137)
 Source: autopilot polish (B-147)
 
 ## B-170 · isOffScreen fails loudly on a bad row index   [ready (next run)]
+Issue: #174
 Why: LeoSidebarTerminalScrollTests.swift:543 returns true for a row that doesn't exist, so a bad index would pass the off-screen precondition silently
 Accept: LeoSidebarTerminalScrollTests.swift:543 returns true for a row that doesn't exist, so a bad index would pass the off-screen precondition silently
 Source: autopilot polish (B-106)
 
 ## B-171 · A focus report after a shell closes could reselect another agent   [ready (next run)]
+Issue: #175
 Why: B-106 review (unconfirmed): after the last shell closes and the list lands, a late focus report could reselect a different agent a turn later; pin with a test through the real attach/focus path
 Accept: B-106 review (unconfirmed): after the last shell closes and the list lands, a late focus report could reselect a different agent a turn later; pin with a test through the real attach/focus path
 Source: autopilot polish (B-106)
 
 ## B-172 · Drain pending reconciles before a sidebar click selects   [ready (next run)]
+Issue: #176
 Why: a sidebar click queued just before the row's pane closes runs ahead of the drain hop, selects nil, and leaves the adopted row unselected; drain in showTerminal or isOpen/selectShownTerminal (B-107 concurrency review)
 Accept: a sidebar click queued just before the row's pane closes runs ahead of the drain hop, selects nil, and leaves the adopted row unselected; drain in showTerminal or isOpen/selectShownTerminal (B-107 concurrency review)
 Source: autopilot polish (B-107)
 
 ## B-173 · pendingFocusMovesLand polls instead of sleeping 1 s   [ready (next run)]
+Issue: #177
 Why: replace the fixed 1 s sleep with an eventually-poll on firstResponder/focusedSurface (moveFocus retries on asyncAfter timers); a disclosed D-178 exception that could flake under a main-thread stall
 Accept: replace the fixed 1 s sleep with an eventually-poll on firstResponder/focusedSurface (moveFocus retries on asyncAfter timers); a disclosed D-178 exception that could flake under a main-thread stall
 Source: autopilot polish (B-107)
 
 ## B-174 · Close Terminal undo window is only 5 s by default   [ready (next run)]
+Issue: #178
 Why: B-108 verify needed undo-timeout=300s to reach Edit ▸ Undo from the menu; with the default 5 s a human may barely use the restore path — consider a longer Leo default
 Accept: B-108 verify needed undo-timeout=300s to reach Edit ▸ Undo from the menu; with the default 5 s a human may barely use the restore path — consider a longer Leo default
 Source: autopilot polish (B-108)
 
 ## B-175 · Window renders inactive right after Undo New Split   [ready (next run)]
+Issue: #179
 Why: B-108-5: grey traffic lights after Edit ▸ Undo New Split; possible key-window blip
 Accept: B-108-5: grey traffic lights after Edit ▸ Undo New Split; possible key-window blip
 Source: autopilot polish (B-108)
