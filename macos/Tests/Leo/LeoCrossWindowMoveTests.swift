@@ -538,6 +538,24 @@ import Testing
         #expect(fixture.a.shown().map(\.id) == [row.surfaceID], "A as the move left it")
     }
 
+    /// Undoing a drop moves B's focus back, resigning what B focused --
+    /// except the moved pane when the move emptied its source: undo
+    /// focuses it there again, and resigning it after would leave it
+    /// reading unfocused.
+    @Test func undoingADropResignsWhatBFocusedUnlessItsEmptiedSourceRefocusesIt() {
+        let pane = NSObject()
+        let other = NSObject()
+        let resigning = { (focused: NSObject?, emptied: Bool) in
+            LeoCrossWindowMove.resigningOnUndo(focused: focused, moved: pane, sourceWasEmptied: emptied)
+        }
+
+        #expect(resigning(pane, true) == nil, "the emptied source focuses it again")
+        #expect(resigning(pane, false) === pane)
+        #expect(resigning(other, true) === other)
+        #expect(resigning(other, false) === other)
+        #expect(resigning(nil, true) == nil)
+    }
+
     // MARK: Undo and redo of an intact move
 
     /// ⌘Z of a move neither window changed since puts S back in A -- its

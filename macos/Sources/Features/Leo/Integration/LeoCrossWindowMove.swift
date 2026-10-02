@@ -214,9 +214,7 @@ import AppKit
             let previous = destination.focusedSurface
             if previous === pane { destination.focusedSurface = destinationFocus }
             destination.surfaceTree = trees.destinationBefore
-            // A source the move emptied focuses the pane again; resigning
-            // it here, a turn later, would leave it reading unfocused.
-            let resigning = previous === pane && trees.sourceAfter.isEmpty ? nil : previous
+            let resigning = Self.resigningOnUndo(focused: previous, moved: pane, sourceWasEmptied: trees.sourceAfter.isEmpty)
             if let focus = destinationFocus {
                 DispatchQueue.main.async { Ghostty.moveFocus(to: focus, from: resigning) }
             }
@@ -238,6 +236,14 @@ import AppKit
             destination.closeTabImmediately(registerRedo: false)
         }
         register { $0.redo() }
+    }
+
+    /// What the destination's focus, going back on a drop's undo, resigns:
+    /// what it focused -- unless that is the moved pane and the move had
+    /// emptied its source, which focuses the pane again; resigning it a
+    /// turn later would leave it reading unfocused there.
+    static func resigningOnUndo<Pane: AnyObject>(focused previous: Pane?, moved pane: Pane?, sourceWasEmptied: Bool) -> Pane? {
+        previous === pane && sourceWasEmptied ? nil : previous
     }
 
     private func restore(_ source: TerminalController, _ trees: Trees) {
