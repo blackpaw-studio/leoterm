@@ -821,13 +821,13 @@ import OSLog
         if attachment.isTerminalRow { removeTerminalRow(handle, of: attachment, handingOn: handOn) }
         let isRow = !attachment.isAgent && surface.leoAgentName == nil
             && !controller.surfaceTree.contains { $0 !== surface && (isTerminalRow($0) || isAgent($0)) }
+        let home = attachment.controller?.leoSession
+        let isPlaceholder = home?.placeholderSurfaceIDs.contains(handle.surfaceID) == true
+        if isPlaceholder { home?.fillPlaceholder(surfaceID: handle.surfaceID) }
         do {
             let moved = try register(controller, surface: surface, isAgent: attachment.isAgent, isTerminalRow: isRow)
             if isRow { selectShownTerminal(in: controller) }
-            if let home = attachment.controller?.leoSession, home.placeholderSurfaceIDs.contains(handle.surfaceID) {
-                home.fillPlaceholder(surfaceID: handle.surfaceID)
-                controller.leoSession?.rebirthPlaceholder(surfaceID: handle.surfaceID)
-            }
+            if isPlaceholder { controller.leoSession?.rebirthPlaceholder(surfaceID: handle.surfaceID) }
             continuation.yield(.moved(from: handle, to: moved))
             Self.logger.log("moved window=\(moved.windowID.rawValue.uuidString, privacy: .public) row=\(isRow)")
         } catch {
