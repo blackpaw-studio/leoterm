@@ -682,6 +682,16 @@ Why: replace the fixed 1 s sleep with an eventually-poll on firstResponder/focus
 Accept: replace the fixed 1 s sleep with an eventually-poll on firstResponder/focusedSurface (moveFocus retries on asyncAfter timers); a disclosed D-178 exception that could flake under a main-thread stall
 Source: autopilot polish (B-107)
 
+## B-174 · Close Terminal undo window is only 5 s by default   [ready (next run)]
+Why: B-108 verify needed undo-timeout=300s to reach Edit ▸ Undo from the menu; with the default 5 s a human may barely use the restore path — consider a longer Leo default
+Accept: B-108 verify needed undo-timeout=300s to reach Edit ▸ Undo from the menu; with the default 5 s a human may barely use the restore path — consider a longer Leo default
+Source: autopilot polish (B-108)
+
+## B-175 · Window renders inactive right after Undo New Split   [ready (next run)]
+Why: B-108-5: grey traffic lights after Edit ▸ Undo New Split; possible key-window blip
+Accept: B-108-5: grey traffic lights after Edit ▸ Undo New Split; possible key-window blip
+Source: autopilot polish (B-108)
+
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
 Why: with a remote host selected, creating an agent or changing its template shows no templates (principle 3, local = remote; principle 4, everything through Leo)

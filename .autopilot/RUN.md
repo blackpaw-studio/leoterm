@@ -154,9 +154,13 @@ Lane: B-108
   Branch: autopilot-lane/B-108
   Base: 8c3074906d1026f70604a57963e58c1edebfcc8f
   Tier: full
-  State: building
+  State: verifying
   Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 05160bf6234d48a378cf58bea94b127bb4b81430
   Dispatched: 2026-10-01T23:19:57Z
+  Call: An undo-restored pane comes back as a plain split with its handle, not as a row; the split carrying the row keeps it until that split closes — D-190, P6
+  Call: Restored panes become reachable by re-registering Leo's own handle, never by adopting handle-less surfaces — D-192, P6
+  Call: Plain splits brought back by any undo or redo also get their handles back through the same mechanism — AUTONOMY: bug fixes
+  Call: Only the window a pane left takes it back; moves between windows stay with B-110 — AUTONOMY: implementation approach
