@@ -176,10 +176,28 @@ import Testing
         var isUndone = false
     }
 
-    private func undoMark(_ undoManager: UndoManager) -> Mark {
+    /// Registered as the app's own actions are, holding the mark weakly
+    /// and expiring: one a failing test leaves behind does nothing when a
+    /// later test's ⌘Z reaches it. (Plain `registerUndo(withTarget:)`
+    /// doesn't retain its target, and replaying it once freed crashes the
+    /// test host.)
+    private func undoMark(_ undoManager: UndoManager) throws -> Mark {
+        let expiring = try #require(undoManager as? ExpiringUndoManager)
         let mark = Mark()
-        undoManager.leoInOwnUndoGroup { undoManager.registerUndo(withTarget: mark) { $0.isUndone = true } }
+        undoManager.leoInOwnUndoGroup {
+            expiring.registerUndo(withTarget: mark, expiresAfter: .seconds(60)) { $0.isUndone = true }
+        }
         return mark
+    }
+
+    /// Every undo and redo of `controllers` expiring, as `undo-timeout`
+    /// would: theirs, and any move between them. The rest of the app's one
+    /// undo manager -- other suites', which may run meanwhile -- is left be.
+    private func expireUndo(_ undoManager: UndoManager, of controllers: TerminalController...) {
+        controllers.forEach { controller in
+            LeoCrossWindowMove.end(involving: controller)
+            undoManager.removeAllActions(withTarget: controller)
+        }
     }
 
     /// Lets the main run loop turn until `condition` holds, at most
@@ -286,24 +304,64 @@ import Testing
         #expect(fixture.b.terminals.rows.map(\.id) == [q.surfaceID], "an agent is never a terminal row")
     }
 
+    /// An exited agent's pane shows its rebirth placeholder (Restart): it
+    /// moves with the pane, so B shows it there and A keeps no stale one.
+    @Test func anExitedAgentDroppedIntoAnotherWindowKeepsItsPlaceholder() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let row = try newShell(fixture, in: fixture.a)
+        let agent = try openSplit(fixture, in: fixture.a, beside: row, command: Self.standIn)
+        let q = try newShell(fixture, in: fixture.b)
+        // What the coordinator asks for when the agent's process exits.
+        fixture.host.rebirthPlaceholder(for: agent)
+        try #require(fixture.a.session.placeholderSurfaceIDs == [agent.surfaceID])
+
+        try drop(agent, from: fixture.a, onto: q, in: fixture.b)
+
+        #expect(await turns { fixture.host.isOpen(fixture.b.handle(agent.surfaceID)) }, "its handle is B's")
+        #expect(fixture.b.session.placeholderSurfaceIDs == [agent.surfaceID], "B shows its placeholder")
+        #expect(fixture.a.session.placeholderSurfaceIDs.isEmpty, "A keeps no stale one")
+    }
+
     /// A's only pane dropped into B: A stays, showing its start screen, and
     /// nothing it keeps hidden dies (P2); upstream closed the emptied
-    /// window, killing its hidden rows' shells without asking.
+    /// window, killing its hidden rows' shells without asking. ⌘Z refills
+    /// A with it, its row again and focused; B goes back as it was.
     @Test func aWindowsOnlyPaneDroppedElsewhereLeavesItsStartScreen() async throws {
         let fixture = try makeFixture()
         defer { close(fixture) }
+        let undoManager = try freshUndo(fixture)
         let hidden = try newShell(fixture, in: fixture.a, running: Self.standIn)
         let row = try newShell(fixture, in: fixture.a)
         let q = try newShell(fixture, in: fixture.b)
         try #require(!fixture.host.isShown(hidden) && fixture.host.isOpen(hidden), "kept hidden for its row")
+        let pane = Weak(fixture.a.view(row))
+        let qPane = Weak(fixture.b.view(q))
 
-        try drop(row, from: fixture.a, onto: q, in: fixture.b)
+        try undoManager.leoInOwnUndoGroup { try drop(row, from: fixture.a, onto: q, in: fixture.b) }
 
         #expect(!fixture.a.controller.leoWindowDidClose, "A stays")
         #expect(fixture.a.controller.surfaceTree.isEmpty, "showing its start screen")
         #expect(await turns { fixture.host.isOpen(fixture.b.handle(row.surfaceID)) }, "the pane is B's")
         #expect(fixture.host.isOpen(hidden), "the hidden row's shell lives")
         #expect(fixture.a.terminals.rows.map(\.id) == [hidden.surfaceID])
+        await settle()
+
+        undoManager.leoUndoLastGroup()
+
+        #expect(fixture.a.shown().map(\.id) == [row.surfaceID], "back in A")
+        #expect(!fixture.a.controller.leoIsUnfilledPlaceholder, "A is filled again")
+        #expect(fixture.b.shown().map(\.id) == [q.surfaceID], "B as it was")
+        #expect(await turns { fixture.host.isOpen(row) }, "its handle is A's again")
+        #expect(fixture.a.terminals.rows.map(\.id) == [hidden.surfaceID, row.surfaceID], "a row in A again")
+        #expect(fixture.a.terminals.selection == row.surfaceID)
+        #expect(!fixture.events.events.contains(.closed(row)) && !fixture.events.events.contains(.closed(fixture.b.handle(row.surfaceID))))
+        // Whether it reads focused can't be seen here: these windows are
+        // never key, so each focus change marks their panes unfocused.
+        let refocused = await turns {
+            fixture.a.controller.window?.firstResponder === pane.view && fixture.b.controller.window?.firstResponder === qPane.view
+        }
+        #expect(refocused, "focus back on it in A, and on Q in B")
     }
 
     // MARK: Undo after either window switched (P2)
@@ -332,7 +390,7 @@ import Testing
         let fixture = try makeFixture()
         defer { close(fixture) }
         let undoManager = try freshUndo(fixture)
-        let mark = undoMark(undoManager)
+        let mark = try undoMark(undoManager)
         let (_, _, split) = try splitDroppedIntoB(fixture, undoManager)
         await nextTurn()
 
@@ -344,7 +402,7 @@ import Testing
         #expect(!fixture.a.shows(split.view.view))
         #expect(await turns { fixture.host.isShown(fixture.b.handle(split.handle.surfaceID)) }, "reachable from B")
         // Every undo and redo expiring: only what shows S holds it now.
-        undoManager.removeAllActions()
+        expireUndo(undoManager, of: fixture.a.controller, fixture.b.controller)
         await settle()
         #expect(split.view.view != nil, "S never freed")
         #expect(split.view.view?.processExited == false, "its shell still runs")
@@ -356,7 +414,7 @@ import Testing
         let fixture = try makeFixture()
         defer { close(fixture) }
         let undoManager = try freshUndo(fixture)
-        let mark = undoMark(undoManager)
+        let mark = try undoMark(undoManager)
         let (row, _, split) = try splitDroppedIntoB(fixture, undoManager)
         await nextTurn()
 
@@ -376,7 +434,7 @@ import Testing
     @Test func undoingANewWindowMoveAfterTheSourceSwitchesKeepsTheNewWindow() async throws {
         let fixture = try makeFixture()
         let undoManager = try freshUndo(fixture)
-        let mark = undoMark(undoManager)
+        let mark = try undoMark(undoManager)
         let row = try newShell(fixture, in: fixture.a)
         let split = try openSplit(fixture, in: fixture.a, beside: row)
         let view = Weak(fixture.a.view(split))
@@ -393,7 +451,10 @@ import Testing
         #expect(!controller.leoWindowDidClose, "the new window stays")
         #expect(controller.surfaceTree.contains { $0 === view.view })
         #expect(await turns { fixture.host.isShown(moved) }, "reachable from its window")
-        undoManager.removeAllActions()
+        expireUndo(undoManager, of: fixture.a.controller, fixture.b.controller, controller)
+        // Upstream's "New Window" redo, reopening the window with S, targets
+        // the app's `Ghostty.App`, as `freshUndo` clears at every test's start.
+        undoManager.removeAllActions(withTarget: controller.ghostty)
         await settle()
         #expect(view.view != nil, "S never freed")
         #expect(view.view?.processExited == false, "its shell still runs")
@@ -407,7 +468,7 @@ import Testing
         let fixture = try makeFixture()
         defer { close(fixture) }
         let undoManager = try freshUndo(fixture)
-        let mark = undoMark(undoManager)
+        let mark = try undoMark(undoManager)
         let row = try newShell(fixture, in: fixture.a)
         let split = try openSplit(fixture, in: fixture.a, beside: row)
         let other = try openSplit(fixture, in: fixture.a, beside: row)
@@ -421,6 +482,25 @@ import Testing
 
         #expect(fixture.a.shown().map(\.id) == [row.surfaceID], "A as the move left it")
         #expect(mark.isUndone, "nothing of A's from before the move was left to undo")
+    }
+
+    /// Closing either window ends the move, as a switch does: ⌘Z goes past
+    /// it, and A stays as the move left it.
+    @Test func closingAMovesWindowEndsIt() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let undoManager = try freshUndo(fixture)
+        let mark = try undoMark(undoManager)
+        let (row, _, _) = try splitDroppedIntoB(fixture, undoManager)
+        await nextTurn()
+        undoManager.disableUndoRegistration()
+        fixture.b.controller.closeWindowImmediately()
+        undoManager.enableUndoRegistration()
+
+        undoManager.leoUndoLastGroup()
+
+        #expect(mark.isUndone, "B's close ended the move's undo: ⌘Z went past it")
+        #expect(fixture.a.shown().map(\.id) == [row.surfaceID], "A as the move left it")
     }
 
     // MARK: Undo and redo of an intact move
@@ -472,5 +552,62 @@ import Testing
         #expect(fixture.a.terminals.rows.map(\.id) == [row.surfaceID])
         #expect(!fixture.events.events.contains(.closed(row)) && !fixture.events.events.contains(.closed(q)))
         #expect(!fixture.events.events.contains(.closed(split)) && !fixture.events.events.contains(.closed(movedHandle)))
+    }
+
+    /// The window a drag opened, tabbed since into A's (Merge All Windows,
+    /// or Prefer Tabs): ⌘Z of the move closes only its own tab. A's tab
+    /// stays, showing S back beside its row, and what A keeps hidden lives.
+    @Test func undoingANewWindowMoveClosesOnlyItsTab() async throws {
+        let fixture = try makeFixture()
+        let undoManager = try freshUndo(fixture)
+        let hidden = try newShell(fixture, in: fixture.a, running: Self.standIn)
+        let row = try newShell(fixture, in: fixture.a)
+        let split = try openSplit(fixture, in: fixture.a, beside: row)
+        let view = Weak(fixture.a.view(split))
+        let newWindow = try undoManager.leoInOwnUndoGroup { try dragToNewWindow(split, from: fixture.a) }
+        defer { close(fixture, newWindow) }
+        let controller = try #require(newWindow, "upstream's drag opened a window for it")
+        let tabs = try [fixture.a.controller, controller].map { try #require($0.window) }
+        tabs.forEach { $0.tabbingMode = .automatic }
+        tabs[0].addTabbedWindow(tabs[1], ordered: .above)
+        try #require(tabs[0].tabGroup?.windows.count == 2, "AppKit grouped them")
+        await nextTurn()
+
+        undoManager.leoUndoLastGroup()
+
+        #expect(controller.leoWindowDidClose, "its own tab closes")
+        #expect(!fixture.a.controller.leoWindowDidClose, "A's stays")
+        #expect(fixture.a.shows(view.view) && fixture.a.shown().count == 2, "S back beside its row")
+        #expect(await turns { fixture.host.isOpen(split) }, "its handle is A's again")
+        #expect(fixture.host.isOpen(row) && fixture.host.isOpen(hidden), "nothing of A's closed")
+    }
+
+    /// ⌘Z would close the window a drag opened: with unsaved editor edits
+    /// there since, it does nothing -- the window stays, and S in it.
+    @Test func undoingANewWindowMoveKeepsAWindowWithUnsavedEdits() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let fixture = try makeFixture()
+            let undoManager = try freshUndo(fixture)
+            let row = try newShell(fixture, in: fixture.a)
+            let split = try openSplit(fixture, in: fixture.a, beside: row)
+            let view = Weak(fixture.a.view(split))
+            let newWindow = try undoManager.leoInOwnUndoGroup { try dragToNewWindow(split, from: fixture.a) }
+            let controller = try #require(newWindow, "upstream's drag opened a window for it")
+            let editor = try #require(controller.leoSession).editor
+            defer {
+                editor.abandon()
+                close(fixture, controller)
+            }
+            try await editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("notes.txt", "notes")))
+            let document = try #require(editor.document)
+            document.edit(document.text + "!")
+            try #require(controller.leoHasUnsavedEdits)
+
+            undoManager.leoUndoLastGroup()
+
+            #expect(!controller.leoWindowDidClose, "the window stays")
+            #expect(controller.surfaceTree.contains { $0 === view.view }, "S stays in it")
+            #expect(!fixture.a.shows(view.view))
+        }
     }
 }

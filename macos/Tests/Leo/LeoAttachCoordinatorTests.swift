@@ -459,6 +459,29 @@ import Testing
         #expect(coordinator.linkState.focused == LeoAgentRow.ID(host: identity.host, name: identity.name), "the link follows the moved handle")
     }
 
+    /// The host moves an agent's handle at once; `.moved` reaches the
+    /// coordinator later. Asked for in between, the agent is found where it
+    /// went -- not forgotten as closed, so the next attach would start a
+    /// second tmux client.
+    @Test func anAgentAskedForBeforeItsMoveArrivesIsFoundWhereItWent() async {
+        let host = FakeAttachContentHost()
+        let coordinator = makeCoordinator(host: host)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        let before = host.handles[0]
+        let after = AttachmentHandle(surfaceID: before.surfaceID, windowID: LeoWindowID())
+        host.openHandles.remove(before)
+        host.openHandles.insert(after)
+
+        #expect(coordinator.focusExisting(identity), "brought forward where it went")
+        #expect(host.focused == [after])
+        await host.emitAndWait(.moved(from: before, to: after))
+        await coordinator.attach(identity: identity, from: after.windowID, disposition: .content)
+
+        #expect(host.contentCalls.count == 1, "nothing attached anew")
+        #expect(coordinator.identity(forSurface: before.surfaceID) == identity)
+        #expect(coordinator.reusableHandleCount == 1)
+    }
+
     /// A moved handle that exited before it moved stays exited there.
     @Test func aMovedExitedAgentStaysExited() async {
         let host = FakeAttachContentHost()

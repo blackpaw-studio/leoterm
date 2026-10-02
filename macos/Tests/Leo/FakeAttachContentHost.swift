@@ -222,6 +222,7 @@ struct FakeOpenCall {
 
     func focus(_ handle: AttachmentHandle) { focused.append(handle) }
     func isOpen(_ handle: AttachmentHandle) -> Bool { openHandles.contains(handle) }
+    func openHandle(ofSurface surfaceID: UUID) -> AttachmentHandle? { openHandles.first { $0.surfaceID == surfaceID } }
     func setAgentName(_ handle: AttachmentHandle, name: String) { agentNames.append((handle, name)) }
     /// Yields `event` without waiting for the coordinator to receive it --
     /// an event still in flight.
