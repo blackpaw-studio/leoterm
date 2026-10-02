@@ -15,7 +15,7 @@ import Testing
 /// are built but never shown or made key; a window a drag opens is shown
 /// (upstream shows it at once) and closed when the test ends. An "agent"
 /// here runs `/bin/cat`, never a real agent.
-@MainActor @Suite(.serialized, LeoCascadePointRestoringTrait()) struct LeoCrossWindowMoveTests {
+@MainActor @Suite(.serialized, .timeLimit(.minutes(1)), LeoCascadePointRestoringTrait()) struct LeoCrossWindowMoveTests {
     private static let standIn = "/bin/cat"
 
     @MainActor private struct Window {
@@ -168,6 +168,20 @@ import Testing
         return undoManager
     }
 
+    /// An undo group of its own below a move, for ⌘Z to reach once the
+    /// move's own undo is gone: with nothing at all to undo in the event's
+    /// open group, the app's undo manager raises (Edit ▸ Undo, which ⌘Z
+    /// goes through, is disabled then).
+    @MainActor private final class Mark {
+        var isUndone = false
+    }
+
+    private func undoMark(_ undoManager: UndoManager) -> Mark {
+        let mark = Mark()
+        undoManager.leoInOwnUndoGroup { undoManager.registerUndo(withTarget: mark) { $0.isUndone = true } }
+        return mark
+    }
+
     /// Lets the main run loop turn until `condition` holds, at most
     /// `limit` times: counts turns, not time (D-178).
     private func turns(limit: Int = 50, until condition: () -> Bool) async -> Bool {
@@ -318,12 +332,14 @@ import Testing
         let fixture = try makeFixture()
         defer { close(fixture) }
         let undoManager = try freshUndo(fixture)
+        let mark = undoMark(undoManager)
         let (_, _, split) = try splitDroppedIntoB(fixture, undoManager)
         await nextTurn()
 
         _ = try newShell(fixture, in: fixture.a)
         undoManager.leoUndoLastGroup()
 
+        #expect(mark.isUndone, "the switch ended the move's undo: ⌘Z went past it")
         #expect(fixture.b.shows(split.view.view), "S stays in B")
         #expect(!fixture.a.shows(split.view.view))
         #expect(await turns { fixture.host.isShown(fixture.b.handle(split.handle.surfaceID)) }, "reachable from B")
@@ -340,12 +356,14 @@ import Testing
         let fixture = try makeFixture()
         defer { close(fixture) }
         let undoManager = try freshUndo(fixture)
+        let mark = undoMark(undoManager)
         let (row, _, split) = try splitDroppedIntoB(fixture, undoManager)
         await nextTurn()
 
         let switched = try newShell(fixture, in: fixture.b)
         undoManager.leoUndoLastGroup()
 
+        #expect(mark.isUndone, "the switch ended the move's undo: ⌘Z went past it")
         #expect(fixture.a.shown().map(\.id) == [row.surfaceID], "A as the move left it")
         #expect(!fixture.a.shows(split.view.view))
         #expect(fixture.b.shown().map(\.id) == [switched.surfaceID], "B as its switch left it")
@@ -358,6 +376,7 @@ import Testing
     @Test func undoingANewWindowMoveAfterTheSourceSwitchesKeepsTheNewWindow() async throws {
         let fixture = try makeFixture()
         let undoManager = try freshUndo(fixture)
+        let mark = undoMark(undoManager)
         let row = try newShell(fixture, in: fixture.a)
         let split = try openSplit(fixture, in: fixture.a, beside: row)
         let view = Weak(fixture.a.view(split))
@@ -370,6 +389,7 @@ import Testing
         _ = try newShell(fixture, in: fixture.a)
         undoManager.leoUndoLastGroup()
 
+        #expect(mark.isUndone, "the switch ended the move's undo: ⌘Z went past it")
         #expect(!controller.leoWindowDidClose, "the new window stays")
         #expect(controller.surfaceTree.contains { $0 === view.view })
         #expect(await turns { fixture.host.isShown(moved) }, "reachable from its window")
@@ -387,6 +407,7 @@ import Testing
         let fixture = try makeFixture()
         defer { close(fixture) }
         let undoManager = try freshUndo(fixture)
+        let mark = undoMark(undoManager)
         let row = try newShell(fixture, in: fixture.a)
         let split = try openSplit(fixture, in: fixture.a, beside: row)
         let other = try openSplit(fixture, in: fixture.a, beside: row)
@@ -397,9 +418,9 @@ import Testing
         _ = try newShell(fixture, in: fixture.b)
 
         undoManager.leoUndoLastGroup()
-        undoManager.leoUndoLastGroup()
 
         #expect(fixture.a.shown().map(\.id) == [row.surfaceID], "A as the move left it")
+        #expect(mark.isUndone, "nothing of A's from before the move was left to undo")
     }
 
     // MARK: Undo and redo of an intact move
