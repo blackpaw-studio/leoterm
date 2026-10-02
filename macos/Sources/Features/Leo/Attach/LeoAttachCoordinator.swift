@@ -380,7 +380,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         }
         switch event {
         case .closed(let handle): remove(handle)
-        case .moved: break
+        case .moved(let from, let to): rekey(from, to: to)
         case .processExited(let handle):
             // Untracked handles (e.g. a plain shell, which has no identity
             // to key attach bookkeeping on) never enter `inactive` -- there
@@ -485,6 +485,19 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         inactive.remove(handle)
         handlesByIdentity[identity]?.removeAll { $0 == handle }
         if handlesByIdentity[identity]?.isEmpty == true { handlesByIdentity.removeValue(forKey: identity) }
+    }
+
+    /// B-110: an agent's surface moved to another window; its bookkeeping
+    /// follows it -- the same tmux client, its place in the recency order,
+    /// exited or not, linked or viewed. A handle with no identity (a plain
+    /// shell) has none to move.
+    private func rekey(_ old: AttachmentHandle, to new: AttachmentHandle) {
+        guard let identity = identityByHandle.removeValue(forKey: old) else { return }
+        identityByHandle[new] = identity
+        handlesByIdentity[identity] = handlesByIdentity[identity]?.map { $0 == old ? new : $0 }
+        if inactive.remove(old) != nil { inactive.insert(new) }
+        if linkedHandle == old { linkedHandle = new }
+        if viewedHandle == old { viewedHandle = new }
     }
 
     private func moveToMostRecent(_ handle: AttachmentHandle, identity: LeoAgentIdentity) {
