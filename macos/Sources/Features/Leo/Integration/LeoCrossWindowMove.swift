@@ -162,8 +162,10 @@ import AppKit
         undoManager.setActionName(Self.actionName)
     }
 
-    /// The pane lands, then leaves its source -- so a source it empties
-    /// never closes on a pane no other window holds yet.
+    /// Onto a pane, it lands and then leaves its source; a source it
+    /// empties (only a drop can) shows its start screen. Into a new window
+    /// it leaves first, as upstream's drag does, and the window opens with
+    /// it.
     private func apply() {
         guard let source, let pane, let trees else { return }
         switch landing {
@@ -212,8 +214,11 @@ import AppKit
             let previous = destination.focusedSurface
             if previous === pane { destination.focusedSurface = destinationFocus }
             destination.surfaceTree = trees.destinationBefore
+            // A source the move emptied focuses the pane again; resigning
+            // it here, a turn later, would leave it reading unfocused.
+            let resigning = previous === pane && trees.sourceAfter.isEmpty ? nil : previous
             if let focus = destinationFocus {
-                DispatchQueue.main.async { Ghostty.moveFocus(to: focus, from: previous) }
+                DispatchQueue.main.async { Ghostty.moveFocus(to: focus, from: resigning) }
             }
             restore(source, trees)
         case .newWindow:
@@ -228,7 +233,9 @@ import AppKit
             observeCloses()
             undoManager?.disableUndoRegistration()
             defer { undoManager?.enableUndoRegistration() }
-            destination.closeWindowImmediately()
+            // Its own tab only: tabbed since into a group (A's, even),
+            // closing its window would close every tab in it, unasked.
+            destination.closeTabImmediately(registerRedo: false)
         }
         register { $0.redo() }
     }
