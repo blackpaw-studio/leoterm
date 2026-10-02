@@ -767,10 +767,62 @@ import OSLog
     /// upstream took it out -- a split's close (File ▸ Close, ⌘W, `exit`),
     /// or an undo. A row's pane closing so hands its row on (B-082), and a
     /// plain shell is noted, so an undo putting it back restores its
-    /// handle (B-108).
+    /// handle (B-108). Shown in another Leo window now -- dragged there, or
+    /// an undo or redo of that -- its handle moves there instead (B-110).
     private func reconcile(_ handle: AttachmentHandle, handOn: RowHandOn) {
         guard !isOpen(handle) else { return }
+        if let (surface, holder) = movedSurface(handle) { return move(handle, of: surface, to: holder, handingOnItsRow: handOn) }
         close(handle, handingOnItsRow: handOn)
+    }
+
+    /// `handle`'s surface and the other open Leo window whose tree holds
+    /// it, if one does.
+    private func movedSurface(_ handle: AttachmentHandle) -> (Ghostty.SurfaceView, TerminalController)? {
+        guard let attachment = attachments[handle], let surface = attachment.surface,
+              let holder = windowHolding(surface, besides: attachment.controller) else { return nil }
+        return (surface, holder)
+    }
+
+    /// B-110: the open Leo window, other than `controller`, whose tree
+    /// holds `surface`. Tree ownership -- not the view's window, which lags
+    /// a move -- and `controller` is left out: a window closing on an undo
+    /// still holds the surface it gave back.
+    private func windowHolding(_ surface: Ghostty.SurfaceView, besides controller: TerminalController?) -> TerminalController? {
+        let owner = BaseTerminalController.controller(owning: surface) as? TerminalController
+        return ([owner].compactMap { $0 } + TerminalController.all).first {
+            $0 !== controller && $0.leoSession != nil && $0.window != nil && !$0.leoWindowDidClose && $0.surfaceTree.contains(surface)
+        }
+    }
+
+    /// B-110: `handle`'s surface is shown in `controller`'s window now, and
+    /// its handle goes with it -- reported `.moved`, never `.closed`: an
+    /// agent's tmux client is the same one, and nothing about the shell
+    /// changed. The row it was is handed on at home (D-190), as its pane
+    /// closing there would; no departure is noted, since it didn't leave
+    /// Leo's windows. In its new window it is a terminal row when it is a
+    /// plain shell and what that window shows holds no row and no agent
+    /// (always so in a window a drag opened for it); otherwise a split
+    /// beside them, as an undo-restored pane is (D-280).
+    private func move(
+        _ handle: AttachmentHandle,
+        of surface: Ghostty.SurfaceView,
+        to controller: TerminalController,
+        handingOnItsRow handOn: RowHandOn?
+    ) {
+        guard let attachment = attachments.removeValue(forKey: handle) else { return }
+        if attachment.isTerminalRow { removeTerminalRow(handle, of: attachment, handingOn: handOn) }
+        let isRow = !attachment.isAgent && surface.leoAgentName == nil
+            && !controller.surfaceTree.contains { $0 !== surface && (isTerminalRow($0) || isAgent($0)) }
+        do {
+            let moved = try register(controller, surface: surface, isAgent: attachment.isAgent, isTerminalRow: isRow)
+            if isRow { selectShownTerminal(in: controller) }
+            continuation.yield(.moved(from: handle, to: moved))
+            Self.logger.log("moved window=\(moved.windowID.rawValue.uuidString, privacy: .public) row=\(isRow)")
+        } catch {
+            continuation.yield(.closed(handle))
+            Self.logger.log("move failed error=\(String(describing: error), privacy: .public)")
+        }
+        reportFocus()
     }
 
     /// One close hook per window, installed with its first handle.
@@ -783,12 +835,20 @@ import OSLog
 
     /// Every handle the window held closes, and its hidden trees go with
     /// it: no tmux client outlives its window. Keyed by window, so nothing
-    /// here depends on its (weakly held) surfaces still being alive.
+    /// here depends on its (weakly held) surfaces still being alive. A
+    /// surface another Leo window shows now -- the window a drag opened,
+    /// closing on the move's undo -- keeps its handle there (B-110).
     private func windowWillClose(_ windowID: LeoWindowID) {
         if let observer = windowCloseObservers.removeValue(forKey: windowID) {
             NotificationCenter.default.removeObserver(observer)
         }
-        attachments.keys.filter { $0.windowID == windowID }.forEach { close($0) }
+        for handle in attachments.keys.filter({ $0.windowID == windowID }) {
+            if let (surface, holder) = movedSurface(handle) {
+                move(handle, of: surface, to: holder, handingOnItsRow: nil)
+            } else {
+                close(handle)
+            }
+        }
         live.releaseAll(in: windowID)
         departed.removeAll { $0.windowID == windowID }
     }
