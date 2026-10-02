@@ -165,3 +165,14 @@ Lane: B-108
   Call: Plain splits brought back by any undo or redo also get their handles back through the same mechanism — AUTONOMY: bug fixes
   Call: Only the window a pane left takes it back; moves between windows stay with B-110 — AUTONOMY: implementation approach
 Finished 10: B-108 landed b020a5982 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-108-1.png
+
+Lane: B-110
+  Branch: autopilot-lane/B-110
+  Base: f86dcbb5b4fd068d99b1c1e15fca1b39ea8f882f
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-02T00:14:34Z
