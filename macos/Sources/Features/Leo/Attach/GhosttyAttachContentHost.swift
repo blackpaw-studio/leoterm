@@ -806,7 +806,8 @@ import OSLog
     /// Leo's windows. In its new window it is a terminal row when it is a
     /// plain shell and what that window shows holds no row and no agent
     /// (always so in a window a drag opened for it); otherwise a split
-    /// beside them, as an undo-restored pane is (D-280).
+    /// beside them, as an undo-restored pane is (D-280). An exited agent's
+    /// rebirth placeholder goes with it.
     private func move(
         _ handle: AttachmentHandle,
         of surface: Ghostty.SurfaceView,
@@ -820,6 +821,10 @@ import OSLog
         do {
             let moved = try register(controller, surface: surface, isAgent: attachment.isAgent, isTerminalRow: isRow)
             if isRow { selectShownTerminal(in: controller) }
+            if let home = attachment.controller?.leoSession, home.placeholderSurfaceIDs.contains(handle.surfaceID) {
+                home.fillPlaceholder(surfaceID: handle.surfaceID)
+                controller.leoSession?.rebirthPlaceholder(surfaceID: handle.surfaceID)
+            }
             continuation.yield(.moved(from: handle, to: moved))
             Self.logger.log("moved window=\(moved.windowID.rawValue.uuidString, privacy: .public) row=\(isRow)")
         } catch {
