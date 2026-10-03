@@ -335,6 +335,20 @@ Source: autopilot (B-083 dismissal)
 Question: runner timed out after 3h — last known step: build mode, fix round 2 of 3 in progress (review rounds 1–2 found races: pre-reconcile ordering and the focus a drop's undo resigns; both reproduced and mostly fixed); lane's last commit 1eee9b5b0 "test(B-110): the focus a drop's undo resigns, as a pure decision". Work kept on autopilot-shelved/B-110 (15 commits: handles follow surfaces across windows, the coordinator re-keys moved agents, a guarded Move Split undo). I'd pick: retry next run from that branch with the hard implementer.
 Answer:
 
+## B-177 · Context menu on Terminals rows   [ready]
+Why: plain-shell rows get the same right-click affordances agent rows have, so managing shells doesn't need the File menu (P1 every action has a menu item; P6 the sidebar is the navigation)
+Accept: right-clicking a Terminals row shows a menu with Rename…, Close (same confirm as File ▸ Close when a process is running), and the row's split/pane actions that already exist in menus (e.g. Split Right, Reveal in content); Rename sets a custom row title that sticks over the shell's own title changes until cleared (an empty name restores the live title); custom titles persist across an app restart wherever the shell row is restored (window restoration); tests for each action and the persistence, plus a debug-build screenshot of the menu and a renamed row
+Out: renaming agent rows (daemon-owned names); drag-to-reorder; new keyboard shortcuts
+Source: Evan (/feature, 2026-10-03)
+Inbox: 20261002T013226996464Z-7ea15972#1
+
+## B-176 · New Agent in Worktree from a sidebar row   [ready]
+Why: branch a parallel agent off an existing agent's repo without leaving the app (P4 everything through Leo; P1 every action has a menu item)
+Accept: an agent row's context menu has "New Agent in Worktree…", opening the New Agent sheet prefilled with that agent's template, host and owner/repo plus a required branch field; submitting runs the spawn with --worktree <branch> on the agent's host (local and remote, tested with a fake runner) and selects the new agent's row; the item is disabled for agents with no owner/repo; screenshot of the menu and the prefilled sheet
+Out: carrying the source agent's context or prompt over; basing on the source agent's branch (base stays origin HEAD); worktree cleanup/removal; a shortcut beyond the menu item
+Source: Evan (/feature, 2026-10-03)
+Inbox: 20261001T230248695398Z-abe4ea92#1
+
 ## B-111 · Undo docs and test-name polish   [ready]
 Issue: #115
 Why: B-083 review: leoForgetContentUndo's doc (TerminalController+Leo.swift:68-71) says "Close Terminal + replace", which fits only splitDidDrop (say "one action per window") and understates the cross-window effect (name the B-110 shell-free risk); redundant removeAllActions(withTarget:) before leoRemoveActionsTestsCanReplay at LeoTerminalControllerEditorCloseTests.swift:~99; rename removeAllActionsDropsExpiringUndosWithoutReentering to ...WithoutAnExclusivityViolation; the removeAllActions() comment doesn't mention the explicit expire() plus the idempotent second expire
