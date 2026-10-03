@@ -18,3 +18,14 @@ Lane: B-058
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-09-30T14:49:01Z
+
+Lane: B-177
+  Branch: autopilot-lane/B-177
+  Base: ae5d8371ee404c85fdf3aaa7f268c854a122d0ce
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-03T23:57:07Z
