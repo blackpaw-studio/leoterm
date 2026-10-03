@@ -6,6 +6,7 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 
 ## Progress
 - Preflight 2026-10-03: previous run finished cleanly; main already in autopilot. Inbox: B-176, B-177 added (/feature). 25 next-run items promoted. No vetoes.
+- Board sync: B-014: unknown status [deferred] (exit 1)
 
 Lane: B-058
   Branch: autopilot-lane/B-058
