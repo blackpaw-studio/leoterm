@@ -387,11 +387,12 @@ Why: B-090 review polish
 Accept: applyProgrammaticWidth's doc comment (LeoSplitViewRepresentable.swift) says a collapsed sidebar drops the pending width and gets it when shown
 Source: autopilot polish (B-090)
 
-## B-117 · verify.md: sidebar toggle menu path reads Hide/Show   [ready]
+## B-117 · verify.md: sidebar toggle menu path reads Hide/Show   [done]
 Issue: #121
 Why: B-090 verify couldn't find "Agents ▸ Show Agents Sidebar" while the sidebar was visible (the item reads "Hide Agents Sidebar" then)
 Accept: verify.md's GUI tips name the toggle as Show/Hide Agents Sidebar depending on state
 Source: autopilot polish (B-090)
+Done: no code change — verify.md (orchestrator) now names the toggle Show/Hide Agents Sidebar by state, in the peekaboo example and the Agents menu tip.
 
 ## B-118 · Single-instance: reject a marked pid that isn't this bundle   [ready]
 Issue: #122
@@ -507,11 +508,12 @@ Why: mouseDragDivider and LeoSidebarCommandClickTests.click share the app event 
 Accept: mouseDragDivider and LeoSidebarCommandClickTests.click share the app event queue in a parallelizable plan; serialize them
 Source: autopilot polish (B-089)
 
-## B-137 · runtests.sh baseline note for ConfigTests   [ready]
+## B-137 · runtests.sh baseline note for ConfigTests   [done]
 Issue: #141
 Why: runtests.sh labels ConfigTests/errorsEmptyForValidConfig an "expected baseline failure", contradicting verify.md; drop the label
 Accept: runtests.sh labels ConfigTests/errorsEmptyForValidConfig an "expected baseline failure", contradicting verify.md; drop the label
 Source: autopilot polish (B-089)
+Done: no code change — already satisfied by B-114 (a5e1b3de8): the tracked macos/scripts/leo-runtests.sh no longer labels ConfigTests/errorsEmptyForValidConfig a baseline failure (grep "baseline" → 0).
 
 ## B-138 · Start-screen button row adapts below 450 pt content   [ready]
 Issue: #142
@@ -700,11 +702,12 @@ Why: scrollToTop/unobscuredBounds (LeoTerminalsViewport.swift:68,:78) have untes
 Accept: scrollToTop/unobscuredBounds (LeoTerminalsViewport.swift:68,:78) have untested, unreachable non-flipped branches (NSTableView is flipped) — drop or test them
 Source: autopilot polish (B-105)
 
-## B-169 · runtests.sh baseline message contradicts verify.md   [ready]
+## B-169 · runtests.sh baseline message contradicts verify.md   [done]
 Issue: #173
 Why: runtests.sh still labels ConfigTests/errorsEmptyForValidConfig "an expected baseline failure"; verify.md says to treat a failure of that test as real (see also B-137)
 Accept: runtests.sh still labels ConfigTests/errorsEmptyForValidConfig "an expected baseline failure"; verify.md says to treat a failure of that test as real (see also B-137)
 Source: autopilot polish (B-147)
+Done: no code change — already satisfied by B-114 (a5e1b3de8), same as B-137.
 
 ## B-170 · isOffScreen fails loudly on a bad row index   [ready]
 Issue: #174

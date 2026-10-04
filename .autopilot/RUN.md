@@ -127,3 +127,6 @@ Lane: B-114
   Call: Tracked the runner at macos/scripts/leo-runtests.sh with its parse test macos/scripts/test_leo-runtests.sh beside it (outside scratchpad/) — AUTONOMY test infrastructure
   Call: Dropped the stale "ConfigTests/errorsEmptyForValidConfig is an expected baseline failure" note from the failures header (verify.md says treat it as real) — AUTONOMY test infrastructure
 Finished 6: B-114 landed 1306d0e4c · shot not visually verified
+Finished 7: B-117 done (no code change)
+Finished 8: B-137 done (no code change)
+Finished 9: B-169 done (no code change)
