@@ -6,10 +6,15 @@ import SwiftUI
 /// in the window's content area, like an agent row's; the arrow keys only
 /// select it. A title another row already shows carries a quiet
 /// secondary suffix, "(2)", that stays visible however the title
-/// truncates (B-068).
+/// truncates (B-068). Its context menu shows, splits, renames and closes
+/// it (B-177).
 struct LeoTerminalRowView: View {
     let label: LeoTerminalRowLabel
-    let activate: () -> Void
+    /// Its window's rows: what the menu acts through.
+    let terminals: LeoWindowTerminals
+    @State private var showingRename = false
+
+    private func activate() { terminals.activate(label.id) }
 
     var body: some View {
         HStack(spacing: 8) {
@@ -38,7 +43,8 @@ struct LeoTerminalRowView: View {
         }
         .contentShape(Rectangle())
         // Every click inside the row is a row click, read from the mouse
-        // events themselves (see `LeoRowClickCatcher`, B-048/B-049).
+        // events themselves (see `LeoRowClickCatcher`, B-048/B-049). A
+        // Control-click or right-click is the context menu's, not a click.
         .background(LeoRowClickCatcher(identity: label.id) { _, clickCount in
             guard clickCount == 1 else { return }
             activate()
@@ -47,5 +53,23 @@ struct LeoTerminalRowView: View {
         .accessibilityLabel("\(label.text), terminal")
         .accessibilityAction { activate() }
         .accessibilityAction(named: LeoRowAccessibility.pressName) { activate() }
+        .contextMenu { menu }
+        .sheet(isPresented: $showingRename) {
+            LeoTerminalRenameSheet(
+                currentTitle: label.title,
+                liveTitle: LeoTerminalRow.displayTitle(of: terminals.liveTitle(label.id) ?? "")
+            ) { terminals.rename(label.id, to: $0) }
+        }
+    }
+
+    /// Like Finder's or Mail's: what the row does first, the destructive
+    /// item last. Split Left and Up stay in the Window menu.
+    @ViewBuilder private var menu: some View {
+        Button("Show") { activate() }
+        Button("Split Right") { terminals.split(label.id, .right) }
+        Button("Split Down") { terminals.split(label.id, .down) }
+        Button("Rename\u{2026}") { showingRename = true }
+        Divider()
+        Button("Close") { terminals.closeFromMenu(label.id) }
     }
 }

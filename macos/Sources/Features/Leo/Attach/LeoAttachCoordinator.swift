@@ -302,6 +302,17 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         adoptHostFocus()
     }
 
+    /// B-177: Split Right / Split Down on a terminal row's menu. The row
+    /// shows first, as a click shows it (asking when that would close a
+    /// busy shell); then `route` is handed the split beside its shell --
+    /// the request ⌘D makes there. Nothing is asked for when the row isn't
+    /// shown after all (the confirm cancelled, its shell gone).
+    func splitTerminal(_ handle: AttachmentHandle, direction: LeoSplitDirection, route: (LeoSurfaceRequest) -> Void) async {
+        await showTerminal(handle)
+        guard host.isShown(handle) else { return }
+        route(LeoSurfaceRequest(origin: handle.windowID, disposition: .split(direction), splitSourceSurface: handle.surfaceID))
+    }
+
     /// B-057: the terminal row `handle` closed (⌘W once Ghostty's confirm
     /// is answered, or `exit`). Shown, the host shows its neighbour, or the
     /// start screen, in its place. Hidden -- a reveal got there first --

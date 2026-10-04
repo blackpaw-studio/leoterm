@@ -387,6 +387,28 @@ import OSLog
             attachCoordinator?.closeTerminal(AttachmentHandle(surfaceID: id, windowID: window))
         }
         terminals.hasBusyHiddenShell = { [weak attachHost] in attachHost?.hiddenTerminalsNeedConfirmQuit(in: window) ?? false }
+        wireTerminalMenu(terminals, window: window)
+    }
+
+    /// B-177: a terminal row's context menu. Split shows the row, then asks
+    /// for the split ⌘D would make beside its shell (inheriting its
+    /// working directory); Rename… and Close act on the shell, shown or
+    /// hidden.
+    private func wireTerminalMenu(_ terminals: LeoWindowTerminals, window: LeoWindowID) {
+        let handle: (UUID) -> AttachmentHandle = { AttachmentHandle(surfaceID: $0, windowID: window) }
+        terminals.renameRequested = { [weak attachHost] in attachHost?.renameTerminal(handle($0), to: $1) }
+        terminals.liveTitle = { [weak attachHost] in attachHost?.liveTitle(of: handle($0)) }
+        terminals.closeFromMenuRequested = { [weak attachHost] id in
+            Task { await attachHost?.closeTerminalFromMenu(handle(id)) }
+        }
+        terminals.splitRequested = { [weak self] id, direction in
+            Task { [weak self] in
+                guard let self else { return }
+                await attachCoordinator.splitTerminal(handle(id), direction: direction) { request in
+                    route(request, inheritedConfig: attachHost.splitConfiguration(for: handle(id)))
+                }
+            }
+        }
     }
 
     /// B-057: ⌘T and File ▸ New Terminal. A new shell row in `origin`,
@@ -437,8 +459,12 @@ import OSLog
         sourceSurface: UUID? = nil,
         inheritedConfig: Ghostty.SurfaceConfiguration? = nil
     ) {
-        let request = LeoSurfaceRequest(origin: origin, disposition: disposition, splitSourceSurface: sourceSurface)
-        Self.logger.log("routeNewSurface disposition=\(String(describing: disposition), privacy: .public) origin=\(origin.rawValue.uuidString, privacy: .public)")
+        route(LeoSurfaceRequest(origin: origin, disposition: disposition, splitSourceSurface: sourceSurface), inheritedConfig: inheritedConfig)
+    }
+
+    /// `routeNewSurface` for a request already made (B-177's row-menu split).
+    private func route(_ request: LeoSurfaceRequest, inheritedConfig: Ghostty.SurfaceConfiguration?) {
+        Self.logger.log("routeNewSurface disposition=\(String(describing: request.disposition), privacy: .public) origin=\(request.origin.rawValue.uuidString, privacy: .public)")
         requestConfigStore.set(inheritedConfig, for: request.id)
         newSurfaceRouter.begin(request)
         picker.present(request: request)
