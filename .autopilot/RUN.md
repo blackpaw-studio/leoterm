@@ -13,6 +13,7 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 - B-111 resumed runner: ready, general full, suite green on 3rd run (one new flake filed, one known).
 - B-112 runner: ready, general full, 2017/2017 on rerun (one load flake filed).
 - B-113 runner: ready, general+concurrency full, 2023/2023 green.
+- B-114 runner: ready, general full, 2023/2023 with the new tracked script.
 
 Lane: B-058
   Branch: autopilot-lane/B-058
@@ -116,10 +117,12 @@ Lane: B-114
   Branch: autopilot-lane/B-114
   Base: f0463bf5b2fb0f0a1d5e7a17c7bd44be872e4423
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: f551c48f18b04e3ec056d9ca6decab2a779d7e14
   Dispatched: 2026-10-04T05:22:06Z
   Call: runtests.sh moves into the repo as a tracked script outside scratchpad/ so lanes and checkouts share one copy — AUTONOMY test infrastructure
+  Call: Tracked the runner at macos/scripts/leo-runtests.sh with its parse test macos/scripts/test_leo-runtests.sh beside it (outside scratchpad/) — AUTONOMY test infrastructure
+  Call: Dropped the stale "ConfigTests/errorsEmptyForValidConfig is an expected baseline failure" note from the failures header (verify.md says treat it as real) — AUTONOMY test infrastructure
