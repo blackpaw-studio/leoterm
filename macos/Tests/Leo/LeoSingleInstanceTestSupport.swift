@@ -147,12 +147,37 @@ enum LeoTestProcess {
         return pid
     }
 
-    /// The pid of a process that has exited and been reaped.
-    static func gone() throws -> pid_t {
+    /// Fresh pids `gone` tries before giving up.
+    static let maxGoneAttempts = 5
+
+    enum GoneError: Error {
+        /// Every reaped pid had been reused by a live process.
+        case everyPidTakenOver
+    }
+
+    /// The pid of a process that has exited and been reaped, and that
+    /// nothing is running as when it's handed out (B-121): a reaped pid can
+    /// be reused, and a test handed a live process's pid would wait on it or
+    /// read its identity. A reused one is swapped for a fresh one.
+    static func gone(isGone: (pid_t) -> Bool = isGone) throws -> pid_t {
+        for _ in 0..<maxGoneAttempts {
+            let pid = try reaped()
+            if isGone(pid) { return pid }
+        }
+        throw GoneError.everyPidTakenOver
+    }
+
+    /// Runs `/usr/bin/true` and reaps it.
+    private static func reaped() throws -> pid_t {
         let pid = try spawn("/usr/bin/true")
         var status: Int32 = 0
-        _ = waitpid(pid, &status, 0)
+        while waitpid(pid, &status, 0) < 0, errno == EINTR {}
         return pid
+    }
+
+    /// No process has `pid`, not even a zombie: `kill` answers `ESRCH`.
+    static func isGone(_ pid: pid_t) -> Bool {
+        kill(pid, 0) == -1 && errno == ESRCH
     }
 }
 
