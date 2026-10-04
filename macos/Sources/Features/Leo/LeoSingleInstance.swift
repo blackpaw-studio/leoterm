@@ -373,6 +373,8 @@ struct LeoSingleInstance {
     let activateOther: (String) -> Void
     let alert: (LeoInstanceLockRefusal) -> Void
     let terminate: (Int32) -> Void
+    /// An error-level log line (live: this file's logger, public).
+    let logError: (String) -> Void
 
     /// A hosted XCTest run, three facts together: the injector library is
     /// loaded; the executable of one of this app's `.xctest` plug-ins is
@@ -460,7 +462,15 @@ struct LeoSingleInstance {
                 Self.logger.log("the copy of \(bundleIdentifier, privacy: .public) holding the lock (pid \(pid, privacy: .public)) is quitting; waiting for it to exit")
                 waitForExit(pid)
             } else {
-                guard pauses < Self.maxReleasePauses else { return attempt }
+                guard pauses < Self.maxReleasePauses else {
+                    // A live holder that never cleared its mark, or a mark stuck on a
+                    // copy that's gone: only this line tells the two apart in the field.
+                    logError(
+                        "the copy of \(bundleIdentifier) that marked the lock exiting (pid \(pid)) still holds it after "
+                            + "\(pauses) release pauses; yielding to it as a running copy"
+                    )
+                    return attempt
+                }
                 pauses += 1
                 pauseForRelease()
             }
@@ -530,7 +540,8 @@ extension LeoSingleInstance {
             pauseForRelease: { usleep(releasePauseMicroseconds) },
             activateOther: activateRunningCopy,
             alert: presentCannotStart,
-            terminate: { exit($0) }
+            terminate: { exit($0) },
+            logError: { logger.error("\($0, privacy: .public)") }
         )
     }
 
