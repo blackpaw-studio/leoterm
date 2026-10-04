@@ -23,6 +23,24 @@ struct LeoSocketDaemonClientTests {
         #expect(requests.map(\.path) == ["/agents/list", "/agents/spawn", "/agents/a%2Fb/start", "/agents/a/stop", "/agents/a/restart", "/agents/a/reset", "/agents/a/set-template?template=two%20words", "/agents/a/rename", "/agents/a", "/agents/a/delete-plan", "/agents/a/logs?lines=10"])
     }
 
+    /// B-176: a worktree spawn is the daemon's `branch` field (what
+    /// `leo agent spawn --worktree` sends), with no `base` so the branch
+    /// starts from origin HEAD.
+    @Test func branchEncodesAsWorktreeField() async throws {
+        let transport = RecordingTransport()
+        let client = LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport)
+        _ = try await client.spawn(LeoSpawnRequest(template: "claude", repo: "o/r", branch: "feat/x"))
+        let request = try #require(await transport.requests.first)
+        #expect(request.path == "/agents/spawn")
+        let body = try #require(request.body)
+        let json = try #require(try JSONSerialization.jsonObject(with: body) as? [String: Any])
+        #expect(json["branch"] as? String == "feat/x")
+        #expect(json["repo"] as? String == "o/r")
+        #expect(json["template"] as? String == "claude")
+        #expect(json["base"] == nil)
+        #expect(Set(json.keys) == ["template", "repo", "branch"])
+    }
+
     @Test func responseParserHandlesHTTPFraming() throws {
         let contentLength = try LeoHTTPResponse.parse(Data("HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\ntest".utf8))
         #expect(contentLength.body == Data("test".utf8))
