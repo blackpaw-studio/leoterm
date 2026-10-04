@@ -62,3 +62,14 @@ Lane: B-176
   Call: LeoAgentActions binds the daemon to its host; spawn refuses with "Not connected to <host> yet" on a mismatch, and the plain New Agent sheet gets the same guard — P3
   Call: A result dropped by a host change resets the sheet with "Host changed; the agent may have been created on <host>"; editing clears a stale error; control characters get their own branch message — AUTONOMY UX
 Finished 2: B-176 landed 937564be0 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-176-3.png
+
+Lane: B-111
+  Branch: autopilot-lane/B-111
+  Base: d9ec5b6bd7169aacf1d0565577d5a5a713c16b1a
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-04T02:28:03Z
