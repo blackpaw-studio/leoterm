@@ -278,3 +278,14 @@ Lane: B-126
   Call: The sequence also covers the initial config apply (reset → config → start), since applying config writes the same Sparkle keys the reset clears — AUTONOMY implementation approach
   Call: Named it UpdateLaunchSequence / UpdateLaunchSequenceTests, beside the other update files — AUTONOMY naming
 Finished 19: B-126 landed c045ce9c7 · shot not visually verified
+
+Lane: B-127
+  Branch: autopilot-lane/B-127
+  Base: b9ca0635c350fe1437d98dfdb63f8cf98f745af4
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-04T09:23:02Z
