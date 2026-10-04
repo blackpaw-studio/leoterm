@@ -1406,3 +1406,13 @@ Source: autopilot polish (B-126)
 Why: B-127 verify: the doc says to set newestVersion to the highest <sparkle:version> but gives no grep one-liner to find it
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-127)
+
+## B-213 · Check for Updates… while the permission question is pending: polish   [ready (next run)]
+Why: B-128 verify/review: with every terminal window minimized it opens a new window instead of restoring one; it opens the window but not the popover, so a second click on the pill is needed; docs/leo/ci.md's B-128 bullet should mention it opens a window
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-128)
+
+## B-214 · Permission popover says Ghostty, not Leo   [ready (next run)]
+Why: B-128 verify: the popover body says "Ghostty can automatically check…"; branding copy
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-128)

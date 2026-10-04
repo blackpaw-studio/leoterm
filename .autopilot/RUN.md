@@ -23,6 +23,7 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 - B-125 runner: ready, general full; UI tests compile-verified only (not run by leo-runtests.sh); 2039/2039 green.
 - B-126 runner: ready, general full, 2040/2040 green.
 - B-127 runner: ready, general full, 2040/2040 green.
+- B-128 runner: ready (1 fix round), general delta + round-1 general/concurrency full, 2044/2044 x3.
 
 Lane: B-058
   Branch: autopilot-lane/B-058
@@ -298,9 +299,14 @@ Lane: B-128
   Branch: autopilot-lane/B-128
   Base: 04a639e00868b596b112e462ee480621da1bf5fd
   Tier: full
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: d4f4f67a3e2b7888dd8efa2d1fedc397eb153232
   Dispatched: 2026-10-04T09:34:50Z
+  Call: The automatic-updates question shows only in the pill popover, never in Sparkle's standard alert, even before any window exists; it waits for the first window — P2, matches ci.md, keeps D-221 (Sparkle's own permission request and reply are unchanged)
+  Call: A pending permission request survives closing the last window instead of being dropped without a reply — bug fix, P2
+  Call: Check for Updates… while the question is pending and no window is visible opens a terminal window so the pill can be reached; it never falls back to Sparkle's alert — bug fix, P5
+  Call: UpdateDriverPermissionTests use an injected openUnobtrusiveTarget seam (default AppDelegate newWindow) beside hasUnobtrusiveTarget, so the test host never opens a live window (a narrow departure from D-326's no-seam approach, for a different test) — AUTONOMY test infrastructure
+  Call: Check for Updates… doesn't bring the pill popover forward when a window is already visible (popover state lives per window) — AUTONOMY UX
