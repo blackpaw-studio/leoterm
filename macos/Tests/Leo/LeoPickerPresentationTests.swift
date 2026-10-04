@@ -25,7 +25,7 @@ import Testing
     }
 
     private func makeActions(sidebar: LeoSidebarModel, hostSelection: LeoHostSelection) -> LeoAgentActions {
-        LeoAgentActions(daemon: StubDaemonClient(), cli: LeoCLI(), model: sidebar, hostSelection: hostSelection, refresh: {})
+        LeoAgentActions(daemon: StubDaemonClient(), cli: .recordingForTests(), model: sidebar, hostSelection: hostSelection, processRunner: LeoRecordingTemplateRunner(), refresh: {})
     }
 
     private struct Environment {

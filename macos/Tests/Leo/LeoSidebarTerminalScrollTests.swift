@@ -438,7 +438,7 @@ struct LeoSidebarTerminalScrollTests {
             snapshot: snapshot ?? LeoSidebarSnapshot(rows: Self.agents(count: Self.agentCount), connectivity: .connected, generation: 1)
         )
         let actions = LeoAgentActions(
-            daemon: ScrollTestDaemon(), cli: LeoCLI(), model: model, hostSelection: .isolatedForTesting(), refresh: {}
+            daemon: ScrollTestDaemon(), cli: .recordingForTests(), model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {}
         )
         let window = NSWindow(
             contentRect: NSRect(x: 120, y: 120, width: 320, height: 480),

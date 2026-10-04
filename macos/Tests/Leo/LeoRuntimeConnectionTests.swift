@@ -11,7 +11,7 @@ import Testing
         let daemon = RuntimeTestDaemon()
         let defaults = LeoInMemoryDefaults()
         let activitySource = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
-        let runtime = LeoRuntime(daemon: daemon, cli: LeoCLI(), activitySource: activitySource, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner())
+        let runtime = LeoRuntime(daemon: daemon, cli: .recordingForTests(), activitySource: activitySource, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner())
         _ = runtime.makeWindowSession()
 
         runtime.start()
@@ -38,7 +38,7 @@ import Testing
         let daemon = RuntimeTestDaemon()
         let defaults = LeoInMemoryDefaults()
         let activitySource = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
-        let runtime = LeoRuntime(daemon: daemon, cli: LeoCLI(), activitySource: activitySource, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner())
+        let runtime = LeoRuntime(daemon: daemon, cli: .recordingForTests(), activitySource: activitySource, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner())
 
         runtime.shutdown()
         let stateAfterShutdown = runtime.hostSelection.state
@@ -58,7 +58,7 @@ import Testing
         let templateRunner = LeoRecordingTemplateRunner()
         let activitySource = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
         let runtime = LeoRuntime(
-            daemon: RuntimeTestDaemon(), cli: LeoCLI(), activitySource: activitySource, defaults: defaults,
+            daemon: RuntimeTestDaemon(), cli: .recordingForTests(), activitySource: activitySource, defaults: defaults,
             templateFetchRunner: templateRunner,
             hostConnectionTransport: LeoAlwaysHealthyTransport(),
             hostSelectionSSHExecutable: LeoTunnelTestSupport.fixtureURL(),
@@ -121,7 +121,7 @@ import Testing
         let daemon = RuntimeTestDaemon()
         let activitySource = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
         let runtime = LeoRuntime(
-            daemon: daemon, cli: LeoCLI(), activitySource: activitySource, defaults: defaults,
+            daemon: daemon, cli: .recordingForTests(), activitySource: activitySource, defaults: defaults,
             templateFetchRunner: LeoRecordingTemplateRunner(),
             hostConnectionTransport: transport,
             hostSelectionSSHExecutable: LeoTunnelTestSupport.fixtureURL(),

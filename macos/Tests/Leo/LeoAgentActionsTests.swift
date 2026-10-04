@@ -8,7 +8,7 @@ import Testing
         let daemon = ActionDaemon()
         let model = LeoSidebarModel()
         var refreshes = 0
-        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: model, hostSelection: .isolatedForTesting(), refresh: { refreshes += 1 })
+        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: { refreshes += 1 })
         let row = testRow()
         actions.start(row)
         await awaitCondition { await daemon.calls == ["start:alpha"] }
@@ -32,13 +32,13 @@ import Testing
         let model = LeoSidebarModel()
         let row = testRow()
         var results: [Bool] = []
-        let accepting = LeoAgentActions(daemon: ActionDaemon(), cli: testCLI(), model: model, hostSelection: .isolatedForTesting(), refresh: {})
+        let accepting = LeoAgentActions(daemon: ActionDaemon(), cli: testCLI(), model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
         accepting.start(row) { results.append($0) }
         await awaitCondition { await MainActor.run { results == [true] } }
 
         let refusing = LeoAgentActions(
             daemon: ActionDaemon(error: .daemon(code: "bad", message: "nope", matches: [])), cli: testCLI(), model: model,
-            hostSelection: .isolatedForTesting(), refresh: {})
+            hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
         refusing.start(row) { results.append($0) }
         await awaitCondition { await MainActor.run { results == [true, false] } }
 
@@ -50,7 +50,7 @@ import Testing
         let daemon = ActionDaemon(error: .daemon(code: "bad", message: "nope", matches: []))
         let model = LeoSidebarModel()
         var refreshes = 0
-        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: model, hostSelection: .isolatedForTesting(), refresh: { refreshes += 1 })
+        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: { refreshes += 1 })
         let row = testRow()
         actions.restart(row)
         await awaitCondition { await MainActor.run { model.rowErrors[row.id] == "nope" } }
@@ -65,7 +65,7 @@ import Testing
 
     @Test func spawnAttachesNewRow() async {
         let daemon = ActionDaemon()
-        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), refresh: {})
+        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
         var attached: LeoAgentRow?
         actions.spawn(.init(template: "default", repo: "", name: nil, branch: nil, prompt: nil), on: .local, attach: { row, _ in attached = row }, dismiss: {}, failure: { _ in })
         await awaitCondition { await MainActor.run { attached != nil } }
@@ -75,7 +75,7 @@ import Testing
     @Test func spawnModelIgnoresReentrantSubmits() async {
         let daemon = ActionDaemon(suspendSpawn: true)
         let sidebar = LeoSidebarModel()
-        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: sidebar, hostSelection: .isolatedForTesting(), refresh: {})
+        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: sidebar, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
         let model = SpawnAgentModel(templateList: actions.$templateList.eraseToAnyPublisher())
         let request = LeoSpawnRequest(template: "default", repo: "", name: nil, branch: nil, prompt: nil)
 
@@ -91,7 +91,7 @@ import Testing
     @Test func successfulSpawnInvokesSidebarAttachRequest() async {
         let daemon = ActionDaemon()
         let sidebar = LeoSidebarModel()
-        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: sidebar, hostSelection: .isolatedForTesting(), refresh: {})
+        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: sidebar, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
         let model = SpawnAgentModel(templateList: actions.$templateList.eraseToAnyPublisher())
         var attached: LeoAgentRow?
         sidebar.attachRequested = { row, _, _ in attached = row }
@@ -106,7 +106,7 @@ import Testing
 
     @Test func duplicatePendingActionIsIgnored() async {
         let daemon = ActionDaemon(suspendStart: true)
-        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), refresh: {})
+        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
         let row = testRow()
         actions.start(row); actions.start(row)
         await awaitCondition { await daemon.calls == ["start:alpha"] }
@@ -117,7 +117,7 @@ import Testing
         let daemon = ActionDaemon()
         let cli = testCLI(templates: ["one"])
         let model = LeoSidebarModel()
-        let actions = LeoAgentActions(daemon: daemon, cli: cli, model: model, hostSelection: .isolatedForTesting(), refresh: {})
+        let actions = LeoAgentActions(daemon: daemon, cli: cli, model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
         #expect(try await actions.templates().map(\.name) == ["one"])
         #expect(try await actions.templates().map(\.name) == ["one"])
         let row = testRow()
@@ -137,7 +137,7 @@ import Testing
         if let data = try? JSONEncoder().encode([workConfiguration]) { suiteDefaults.set(data, forKey: LeoHostStore.key) }
         let selection = LeoHostSelection.isolatedForTesting(defaults: suiteDefaults)
         await selection.start(flavor: .socketEvents)
-        let runner = TemplateSSHRunner()
+        let runner = LeoRecordingTemplateRunner(templates: ["work-template"])
         let actions = LeoAgentActions(
             daemon: daemon, cli: testCLI(templates: ["local-template"]), model: LeoSidebarModel(),
             hostSelection: selection, processRunner: runner, refresh: {}
@@ -191,8 +191,8 @@ import Testing
         let selection = LeoHostSelection.isolatedForTesting(defaults: suiteDefaults)
         await selection.start(flavor: .socketEvents)
         let gatedRunner = GatedTemplateRunner()
-        let cli = LeoCLI(executableOverride: "/leo", runner: gatedRunner, isExecutable: { _ in true })
-        let remoteRunner = TemplateSSHRunner()
+        let cli = LeoCLI.recordingForTests(runner: gatedRunner)
+        let remoteRunner = LeoRecordingTemplateRunner(templates: ["work-template"])
         let actions = LeoAgentActions(
             daemon: daemon, cli: cli, model: LeoSidebarModel(),
             hostSelection: selection, processRunner: remoteRunner, refresh: {}
@@ -224,7 +224,7 @@ import Testing
         let selection = LeoHostSelection.isolatedForTesting(defaults: suiteDefaults)
         await selection.start(flavor: .socketEvents)
         var refreshes = 0
-        let actions = LeoAgentActions(daemon: daemonA, cli: testCLI(), model: LeoSidebarModel(), hostSelection: selection, refresh: { refreshes += 1 })
+        let actions = LeoAgentActions(daemon: daemonA, cli: testCLI(), model: LeoSidebarModel(), hostSelection: selection, processRunner: LeoRecordingTemplateRunner(), refresh: { refreshes += 1 })
         let row = testRow()
 
         actions.stop(row)
@@ -250,9 +250,7 @@ import Testing
     }
 
     private func testCLI(templates: [String] = []) -> LeoCLI {
-        let objects = templates.map { "{\"name\":\"\($0)\"}" }.joined(separator: ",")
-        let payload = Data("[\(objects)]".utf8)
-        return LeoCLI(executableOverride: "/leo", runner: ActionRunner(data: payload), isExecutable: { _ in true })
+        .recordingForTests(templates: templates)
     }
 }
 
@@ -314,14 +312,6 @@ private actor GatedActionDaemon: LeoDaemonClient {
     func logs(_ name: String, lines: Int?) async throws -> String { fatalError() }
 }
 
-private actor TemplateSSHRunner: LeoProcessRunning {
-    private(set) var calls: [(executable: String, arguments: [String])] = []
-    func run(executable: String, arguments: [String], timeout _: TimeInterval) async throws -> LeoProcessResult {
-        calls.append((executable, arguments))
-        return LeoProcessResult(stdout: Data(#"[{"name":"work-template"}]"#.utf8), stderr: Data(), status: 0)
-    }
-}
-
 /// A `LeoProcessRunning` for the local CLI's template fetch that suspends
 /// until `resume()` is called, so a test can hold a `templates()` fetch
 /// in flight while switching hosts out from under it.
@@ -344,13 +334,6 @@ private actor GatedTemplateRunner: LeoProcessRunning {
         suspended = false
         continuations.forEach { $0.resume() }
         continuations = []
-    }
-}
-
-private struct ActionRunner: LeoProcessRunning {
-    let data: Data
-    func run(executable: String, arguments: [String], timeout: TimeInterval) async throws -> LeoProcessResult {
-        LeoProcessResult(stdout: data, stderr: Data(), status: 0)
     }
 }
 
