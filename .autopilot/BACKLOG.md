@@ -423,11 +423,12 @@ Accept: gone() returns a reaped pid that can be reused; test where behaviour cha
 Source: autopilot polish (B-092)
 Done: 4dba68680 (2034 tests). LeoTestProcess.gone() checks the pid is still free at hand-out (injectable probe, 5 bounded retries, EINTR-safe waitpid) so a test never gets a pid a live process reused. Not visually verified: test support only. Decisions D-322–D-324.
 
-## B-122 · Test Return To Default Size menu enabled state   [ready]
+## B-122 · Test Return To Default Size menu enabled state   [done]
 Issue: #126
 Why: a test for the Return To Default Size menu item's enabled state (validateMenuItem/isChanged) on a filled start screen
 Accept: a test for the Return To Default Size menu item's enabled state (validateMenuItem/isChanged) on a filled start screen
 Source: autopilot polish (B-097)
+Done: e18cc1bac (2036 tests). Two tests pin the Reset Window Size (Return To Default Size) menu item enabled state on a filled start screen; shown able to fail by reverting the B-097 fix and by inverting validateMenuItem. Not visually verified: tests only. Decision D-325.
 
 ## B-123 · Updater mayPerform adapter test   [ready]
 Issue: #127

@@ -2353,3 +2353,10 @@ Chose: waitpid inside gone() retries on EINTR (otherwise a zombie reads as not g
 Why: AUTONOMY flake fixes
 Commit: 4dba68680
 Veto: [ ]
+
+## D-325 · 2026-10-03 · Reset Window Size tests share a configuredContentSize(of:) helper and…
+Context: B-122 (runner call).
+Chose: Reset Window Size tests share a configuredContentSize(of:) helper and a Fixture.isResetWindowSizeEnabled property
+Why: AUTONOMY test infrastructure
+Commit: e18cc1bac
+Veto: [ ]

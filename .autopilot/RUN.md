@@ -210,10 +210,11 @@ Lane: B-122
   Branch: autopilot-lane/B-122
   Base: 726e275904f2bdac17ba0eb6da6c20fb4cc69309
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: 6205d7b52171ac9b02ccc034c69b8b1a7593f59c
   Dispatched: 2026-10-04T07:51:15Z
   Call: Reset Window Size tests share a configuredContentSize(of:) helper and a Fixture.isResetWindowSizeEnabled property — AUTONOMY test infrastructure
+Finished 15: B-122 landed bc7de94db · shot not visually verified
