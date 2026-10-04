@@ -99,7 +99,7 @@ Lane: B-113
   Branch: autopilot-lane/B-113
   Base: f5997c8fd4fa50b729d82b435cc84ee295a3baaa
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -110,3 +110,4 @@ Lane: B-113
   Call: Start-screen Quick Terminal gets the live-shortcut tooltip, title only when unbound (D-208) — P2
   Call: No retain cycle existed in the start-screen closures; the self capture is removed anyway (weak delegate and app captures), guarded by weak-reference tests — AUTONOMY bug fixes/test infra
   Call: One LeoSidebarButtonActions value replaces the two loose closures; LeoPlaceholderNewTerminal is deleted, so newTab: and send are each defined once — AUTONOMY implementation approach
+Finished 5: B-113 landed 0a5a29f3c · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-113-1.png

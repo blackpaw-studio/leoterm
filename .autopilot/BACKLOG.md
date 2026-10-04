@@ -367,11 +367,12 @@ Accept: one shared template-runner fake; LeoRuntime tests inject a fake LeoCLI r
 Source: autopilot polish (B-061)
 Done: 6c370c99c 925854efc 05b50deec (2017 tests). One shared template-runner fake (LeoRecordingTemplateRunner(templates:)) and LeoCLI.recordingForTests; every template path in tests uses it; LeoAgentActions and LeoCLI have no real-runner default, so a test that forgets a fake fails to compile. Gated concurrency fakes kept separate. Verified: shots B-112-1..5 (New Agent template list still loads). Decisions D-303–D-305.
 
-## B-113 · Sidebar button bar polish   [ready]
+## B-113 · Sidebar button bar polish   [done]
 Issue: #117
 Why: B-065 review: LeoSidebarButton.send duplicates LeoPlaceholderNewTerminal.send and `newTab:` is defined twice (route the placeholder closures through LeoSidebarButton, TerminalView.swift:173-176, 200-203, 322-323); the start-screen placeholder closures still capture self in TerminalView (the capture that leaked displaced surfaces from the sidebar) — check for a leak; swapping the two closures in LeoSidebarView.perform passes every test (add a view-glue test with recording closures); parameterize the footer layout test over failed/loading states; the Quick Terminal glyph (rectangle.tophalf.inset.filled, also Split Up's) doesn't read as a drop-down terminal; the start screen says "Show Terminal Drawer" while the menu and button say "Quick Terminal"
 Accept: each fixed or explicitly dismissed; one naming for the quick terminal; tests for the closure wiring and footer states
 Source: autopilot polish (B-065)
+Done: ed647aea6 4dcfc5918 1e7158bb5 8cb00814a (2023 tests). "Quick Terminal" everywhere (start screen no longer says Show Terminal Drawer); Quick Terminal glyph menubar.arrow.down.rectangle; the start screen uses the sidebar footer's buttons via one LeoSidebarButtonActions value (LeoPlaceholderNewTerminal deleted, newTab:/send defined once); no leak found, self capture removed anyway with weak-reference tests; footer layout test parameterized over failed/loading. Verified: shots B-113-1..7. Decisions D-306–D-310.
 
 ## B-114 · runtests.sh misses parameterized test failures in its grep   [ready]
 Issue: #118

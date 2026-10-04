@@ -2220,3 +2220,38 @@ Chose: Kept GatedTemplateRunner and GatedTemplateProcess as separate fakes, beca
 Why: AUTONOMY test infrastructure
 Commit: 6c370c99c, 925854efc, 05b50deec
 Veto: [ ]
+
+## D-306 · 2026-10-03 · Name "Quick Terminal" everywhere: start screen, menu and button, keep…
+Context: B-113 (runner call).
+Chose: Name "Quick Terminal" everywhere: start screen, menu and button, keeping upstream's menu title
+Why: P1, AUTONOMY copy/naming
+Commit: ed647aea6, 4dcfc5918, 1e7158bb5, 8cb00814a
+Veto: [ ]
+
+## D-307 · 2026-10-03 · Quick Terminal glyph is now menubar.arrow.down.rectangle, refining D-…
+Context: B-113 (runner call).
+Chose: Quick Terminal glyph is now menubar.arrow.down.rectangle, refining D-207
+Why: P1 HIG, AUTONOMY polish
+Commit: ed647aea6, 4dcfc5918, 1e7158bb5, 8cb00814a
+Veto: [ ]
+
+## D-308 · 2026-10-03 · Start-screen Quick Terminal gets the live-shortcut tooltip, title onl…
+Context: B-113 (runner call).
+Chose: Start-screen Quick Terminal gets the live-shortcut tooltip, title only when unbound (D-208)
+Why: P2
+Commit: ed647aea6, 4dcfc5918, 1e7158bb5, 8cb00814a
+Veto: [ ]
+
+## D-309 · 2026-10-03 · No retain cycle existed in the start-screen closures; the self captur…
+Context: B-113 (runner call).
+Chose: No retain cycle existed in the start-screen closures; the self capture is removed anyway (weak delegate and app captures), guarded by weak-reference tests
+Why: AUTONOMY bug fixes/test infra
+Commit: ed647aea6, 4dcfc5918, 1e7158bb5, 8cb00814a
+Veto: [ ]
+
+## D-310 · 2026-10-03 · One LeoSidebarButtonActions value replaces the two loose closures; Le…
+Context: B-113 (runner call).
+Chose: One LeoSidebarButtonActions value replaces the two loose closures; LeoPlaceholderNewTerminal is deleted, so newTab: and send are each defined once
+Why: AUTONOMY implementation approach
+Commit: ed647aea6, 4dcfc5918, 1e7158bb5, 8cb00814a
+Veto: [ ]
