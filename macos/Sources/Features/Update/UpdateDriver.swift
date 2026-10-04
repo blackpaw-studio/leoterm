@@ -9,17 +9,20 @@ class UpdateDriver: NSObject, SPUUserDriver {
     /// is ever installed (see `UpdatePolicy`).
     let installsAllowed: Bool
     private let unobtrusiveTargetCheck: () -> Bool
+    private let unobtrusiveTargetOpener: () -> Void
 
     init(
         viewModel: UpdateViewModel,
         hostBundle: Bundle,
         installsAllowed: Bool = UpdatePolicy.installsAllowed,
-        hasUnobtrusiveTarget: @escaping () -> Bool = UpdateDriver.anyTerminalWindowIsVisible
+        hasUnobtrusiveTarget: @escaping () -> Bool = UpdateDriver.anyTerminalWindowIsVisible,
+        openUnobtrusiveTarget: @escaping () -> Void = UpdateDriver.openTerminalWindow
     ) {
         self.viewModel = viewModel
         self.standard = SPUStandardUserDriver(hostBundle: hostBundle, delegate: nil)
         self.installsAllowed = installsAllowed
         self.unobtrusiveTargetCheck = hasUnobtrusiveTarget
+        self.unobtrusiveTargetOpener = openUnobtrusiveTarget
         super.init()
 
         NotificationCenter.default.addObserver(
@@ -250,6 +253,12 @@ class UpdateDriver: NSObject, SPUUserDriver {
             (window is TerminalWindow || window is QuickTerminalWindow) &&
             window.isVisible
         }
+    }
+
+    /// Opens a terminal window (File > New Window), whose pill can then
+    /// show the current state.
+    static func openTerminalWindow() {
+        (NSApp.delegate as? AppDelegate)?.newWindow(nil)
     }
 
     // MARK: Install Gate
