@@ -22,6 +22,7 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 - B-124 runner: ready, general full, 2039/2039 green.
 - B-125 runner: ready, general full; UI tests compile-verified only (not run by leo-runtests.sh); 2039/2039 green.
 - B-126 runner: ready, general full, 2040/2040 green.
+- B-127 runner: ready, general full, 2040/2040 green.
 
 Lane: B-058
   Branch: autopilot-lane/B-058
@@ -283,9 +284,11 @@ Lane: B-127
   Branch: autopilot-lane/B-127
   Base: b9ca0635c350fe1437d98dfdb63f8cf98f745af4
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 7666e7e8b9997eee83f05c24b05c018d415b0312
   Dispatched: 2026-10-04T09:23:02Z
+  Call: Appcast fixture expected values named newestVersion / newestShortVersion as static lets on AppcastFixtureTests — AUTONOMY naming/test infrastructure
+  Call: Refresh recipe in the doc comment: curl the published appcast into macos/Tests/Update/Fixtures/appcast.xml verbatim (never hand-edit), then update both constants in the same commit — AUTONOMY copy/test infrastructure

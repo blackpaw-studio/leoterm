@@ -1400,3 +1400,8 @@ Source: autopilot polish (B-125)
 Why: B-126 review: AppDelegate.swift:324-326 says the order "is pinned by UpdateLaunchSequenceTests", but the test pins only the order inside the helper; reword to "The order inside UpdateLaunchSequence is pinned by UpdateLaunchSequenceTests; keep these steps routed through it."
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-126)
+
+## B-212 · Appcast refresh note: command for the highest sparkle:version   [ready (next run)]
+Why: B-127 verify: the doc says to set newestVersion to the highest <sparkle:version> but gives no grep one-liner to find it
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-127)
