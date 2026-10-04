@@ -262,3 +262,39 @@ Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Board: https://github.com/orgs/blackpaw-studio/projects/5
 Board sync: 1 failure kind (B-014 unknown status [deferred]) (see RUN.md)
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-10-03T23:55Z – 2026-10-04T11:25Z
+
+🛠 leoterm autopilot — 20 shipped, 0 blocked (+3 closed with no code change)
+Shipped
+• B-177 Terminals row context menu — Show, Split Right, Split Down, Rename…, Close; custom names stick over OSC titles (verified: screenshot) · full
+• B-176 New Agent in Worktree… on agent rows — prefilled sheet, required branch, spawns via the host's daemon (verified: screenshot; never submitted) · full
+• B-118 Single-instance only waits on a pid that is a copy of this bundle (verified: screenshot) · full
+• B-128 Update permission asked once, in the pill only (verified: screenshot) · full
+• B-129 Debug builds never offer auto-install updates (verified: screenshot) · light
+• B-130 App menu reads About Leo (verified: screenshot) · light
+• B-113 Sidebar button bar: one "Quick Terminal" name, new glyph, shared button actions (verified: screenshot) · full
+• B-112 Template-runner test isolation (verified: screenshot) · full
+• B-114 Test runner tracked at macos/scripts/leo-runtests.sh; lists parameterized failures (not visually verified) · light
+• B-111, B-116, B-119–B-127 docs, tests, logging and naming polish (not visually verified) · light
+• B-117, B-137, B-169 closed: verify.md fix / already satisfied by B-114
+Calls I made — reply "veto D-0xx" to undo (D-284–D-343)
+• D-293 Worktree mode reuses the New Agent sheet
+• D-307 Quick Terminal glyph menubar.arrow.down.rectangle (refines D-207)
+• D-311 runtests.sh moves into the repo (scratchpad copy retired)
+• D-336 Update question only in the pill, never Sparkle's alert
+Needs you
+• B-177: no shell row survives an app restart today (window restoration off), so title persistence is proven by a round-trip test only
+• B-176 verify repointed autopilot-scratch at nomad-openvpn-deploy-action (restored), briefly made+deleted leo-claude-autopilot-scratch, left clone ~/.leo/agents/nomad-openvpn-deploy-action
+• B-111's first runner handed back mid-build (harness); I re-dispatched instead of shelving
+• B-110 still blocked from last run; B-058 lane held
+• Your 2 /issue bugs (errored agents, ssh in terminals) apply at next preflight, first
+Ideas parked — "/feature B-0xx" to spec one
+• B-058 Splits inside the content area
+Next up: B-131, B-132, B-133 (+41 polish next run)
+Interim updates: 4 posted, through item 20
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Board sync: B-014 unknown status [deferred] every sync (see RUN.md)
+Landed lanes B-128/129/130/176/177 not removed (untracked build output)
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot

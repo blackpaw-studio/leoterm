@@ -1236,206 +1236,247 @@ Accept: After an attached agent restarts, its tab shows the "No Agent Attached" 
 Source: B-052 verification
 
 ## B-178 · Hidden Close checks every pane of the kept tree   [ready (next run)]
+Issue: #182
 Why: B-177 review: hidden-row Close could check needsConfirmQuit on every pane of the kept tree, not just the row's own (cheap guard; a cross-window Move Split via B-110 might yield an all-row tree); also fix the discardKept doc wording
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-177)
 
 ## B-179 · Tighten aRowWithABusySplitBesideItIsNeverKeptForCloseToKill   [ready (next run)]
+Issue: #183
 Why: B-177 review: its last two lines check nothing (the row is already gone); drop them or assert there's no sheet; add a LeoLiveSurfaces unit test pinning "a kept tree is only a lone row"
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-177)
 
 ## B-180 · Terminals row context menu shows key equivalents   [ready (next run)]
+Issue: #184
 Why: B-177 review: menu items show no ⌘D, ⇧⌘D, ⌘W hints (P1); add display-only ones if SwiftUI's contextMenu supports them
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-177)
 
 ## B-181 · Rename Terminal sheet hangs from the title bar   [ready (next run)]
+Issue: #185
 Why: B-177 verify: the Rename sheet appears centred in the window rather than attached as a sheet from the title bar (HIG)
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-177)
 
 ## B-182 · Clearing a custom name after restore restores the live title   [ready (next run)]
+Issue: #186
 Why: B-177 review: after a restore, clearing a custom name brings back the saved name, not the live title, until the shell sends a new OSC title (decode sets titleFromTerminal = title)
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-177)
 
 ## B-183 · Clearing a row name can drop a just-arrived OSC title   [ready (next run)]
+Issue: #187
 Why: B-177 review: clearing a name within 75 ms of an OSC title can drop that newer title (upstream race)
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-177)
 
 ## B-184 · Drive row-menu Split in GUI verification   [ready (next run)]
+Issue: #188
 Why: B-177 verify: menu Split wasn't driven in the GUI (it opens the palette with real agents listed); tests cover it — find a safe GUI path (e.g. filter to autopilot-scratch)
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-177)
 
 ## B-185 · Keep the "may have been created" warning across a same-host retry   [ready (next run)]
+Issue: #189
 Why: B-176 review: add .removeDuplicates() on the selectedHost stream — retry() re-selects the same host, which clears the warning
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-176)
 
 ## B-186 · Late spawn result message wording   [ready (next run)]
+Issue: #190
 Why: B-176 review: reword to "Connection changed; the agent was created on X" (a same-host retry also bumps the generation, and the daemon reported success); prefix late spawn errors with the host's name
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-176)
 
 ## B-187 · "Not connected to X yet" after a failed tunnel   [ready (next run)]
+Issue: #191
 Why: B-176 review: drop "yet" when the tunnel has failed for good; pass daemonHost: .local explicitly at LeoRuntime.swift:246
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-176)
 
 ## B-188 · LeoAgentActions.spawn enforces the expected host itself   [ready (next run)]
+Issue: #192
 Why: B-176 review: guard hostSelection.selected == expectedHost inside spawn, not only via the disabled Create button
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-176)
 
 ## B-189 · Stricter owner/repo and branch validation in the New Agent sheet   [ready (next run)]
+Issue: #193
 Why: B-176 review: ownerRepo per segment ([A-Za-z0-9._-], no leading "-", not "."/"..") — real fix belongs in leo's ValidateRepo (ask the leo agent); catch more invalid branch names inline ("feat/.x", "a.lock/b", bare "@")
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-176)
 
 ## B-190 · New Agent in Worktree sheet layout   [ready (next run)]
+Issue: #194
 Why: B-176 verify: Host and Repository rows are tight and the branch hint sits under the label column
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-176)
 
 ## B-191 · anEmptyNameRestoresTheLiveTitle flakes under load   [ready (next run)]
+Issue: #195
 Why: B-111 verify: LeoTerminalRowMenuIntegrationTests/anEmptyNameRestoresTheLiveTitle failed once under load (line 161 eventually-timeout on the "  " case); not in verify.md's known-flake list
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-111)
 
 ## B-192 · Template-list tests use the shared fakes throughout   [ready (next run)]
+Issue: #196
 Why: B-112 review: LeoTemplateListTests.swift:114 builds its LeoCLI fake by hand (use .recordingForTests(runner:)); GatedTemplateProcess(gated: false) at :110 doubles as a plain remote fake — give LeoRecordingTemplateRunner a status: parameter, or merge the two gated fakes (LeoAgentActionsTests.swift:318, LeoTemplateListTests.swift:136) into the shared support file
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-112)
 
 ## B-193 · verify.md: New Agent sheet driving tips   [ready (next run)]
+Issue: #197
 Why: B-112 verify: the Agents > New Agent… menu click never landed; the sidebar "+" button worked, and a sheet popup can be clicked with see --json + click --on <elem> --snapshot <id>
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-112)
 
 ## B-194 · Host-selection runner has no real-runner default   [ready (next run)]
+Issue: #198
 Why: B-112 note: LeoRuntime.hostSelectionRunner and LeoHostSelection.init still default to the real runner (host-selection ssh); inject it like the template runner
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-112)
 
 ## B-195 · closingAHiddenRowGivesNothingOnScreenItsSlot flakes under load   [ready (next run)]
+Issue: #199
 Why: B-112 verify: LeoTerminalRowsIntegrationTests/closingAHiddenRowGivesNothingOnScreenItsSlot hit its 5 s eventually timeout once at load 120
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-112)
 
 ## B-196 · Strengthen aDisplacedStartScreenSurfaceIsFreed   [ready (next run)]
+Issue: #200
 Why: B-113 review: its placeholderSurfaceIDs check is always true (inserted synchronously) and doesn't prove the overlay mounted; assert the start-screen button/hosting view is in the hierarchy, or reword the doc comment
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-113)
 
 ## B-197 · Test start-screen per-button wiring   [ready (next run)]
+Issue: #201
 Why: B-113 review: LeoPlaceholderView.swift:61-66 { buttonActions.perform(button) } could regress to a fixed button unnoticed; extract a tiny testable helper. Also fix the leftover "terminal drawer" in LeoStartScreenState.swift:10's doc comment
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-113)
 
 ## B-198 · openPicker closure holds the SurfaceView strongly   [ready (next run)]
+Issue: #202
 Why: B-113 review: TerminalView.swift:200 (pre-existing) captures the SurfaceView strongly; capture only its id, per the never-hold-the-surface rule
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-113)
 
 ## B-199 · Quick Terminal button re-opens the panel instead of closing it   [ready (next run)]
+Issue: #203
 Why: B-113 verify: clicking a Quick Terminal button while the panel is up re-opens it (resign-key autohide, then toggle); only View > Quick Terminal closes it. Predates B-113
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-113)
 
 ## B-200 · Single-instance test hardening (kqueue copy test, LeoTestChild reaping)   [ready (next run)]
+Issue: #204
 Why: B-118 review: waitForExitStillWaitsOnACopyOfThisBundle's asked == pid needs registration within 1 s of spawning /bin/sleep 1 — use sleep 60 + kill from the isCopy stub (QuittingHolderTests.swift:309); LeoTestChild.isRunning marks reaped on waitpid -1/EINTR, which can leak a sleep 60 child — set reaped only on result==pid or ECHILD (TestSupport.swift:174); dedupe the test realPath with LeoSingleInstance's (QuittingHolderTests.swift:491)
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-118)
 
 ## B-201 · Single-instance Info.plist open hardening   [ready (next run)]
+Issue: #205
 Why: B-118 review: add O_NOCTTY (and optionally O_NOFOLLOW) to the Info.plist open (LeoSingleInstance.swift:285); URL(fileURLWithPath:isDirectory: false) in isMainExecutable to skip a stat (:270)
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-118)
 
 ## B-202 · Single-instance: close the same-bundle pid-reuse case   [ready (next run)]
+Issue: #206
 Why: B-118 security review: a marked pid reused by another live Leo of this bundle is still waited on; compare pbi_start_tvsec with a timestamp written with the mark
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-118)
 
 ## B-203 · Release-retry log: comment wording and total wait   [ready (next run)]
+Issue: #207
 Why: B-119 review: LeoSingleInstance.swift:466-467 "only this line tells the two apart in the field" overstates — say it names the pid so the two can be told apart; optionally include the total wait (N × releasePauseMicroseconds) in the log line
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-119)
 
 ## B-204 · LeoTerminalRowsIntegrationTests focus flakes   [ready (next run)]
+Issue: #208
 Why: Recurring under load this run: closingARowsPaneHandsTheRowToTheNextFocusedPane (:748 focusMatchesSelection, B-119 verify), closingAHiddenRowGivesNothingOnScreenItsSlot (B-112 verify), 4 failures in B-118's implementer runs; each passed on rerun. Find the shared timing assumption and make them deterministic
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-119)
 
 ## B-205 · Rewrap LeoSingleInstance doc comment line 453   [ready (next run)]
+Issue: #209
 Why: B-120 review: the line is 82 chars where the rest of the block is 76 or fewer; cosmetic
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-120)
 
 ## B-206 · LeoTestProcessTests errno capture and gone() doc wording   [ready (next run)]
+Issue: #210
 Why: B-121 review: capture kill() result and errno into locals before #expect at LeoTestProcessTests.swift:29 so the macro can't clobber errno; gone() doc comment (LeoSingleInstanceTestSupport.swift:162) should say "checked at hand-out" (a check-to-use window remains)
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-121)
 
 ## B-207 · LeoFirstAttachWindowSizeTests tidy-up   [ready (next run)]
+Issue: #211
 Why: B-122 review: use configuredContentSize(of:) in the two existing B-097 tests (LeoFirstAttachWindowSizeTests.swift:176-178, :217-219); note in the suite doc that the contentIntrinsicSize tests assume the host config doesn't set window-maximize; add a disabled-state check after a real Reset Window Size (apply())
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-122)
 
 ## B-208 · UpdateDelegateTests StubUpdater downloads can be let   [ready (next run)]
+Issue: #212
 Why: B-123 review: the setter is never used; make it a let with a getter-only override (style)
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-123)
 
 ## B-209 · closingTheShownRowsPaneHandsTheRowToTheNextFocusedPane flakes   [ready (next run)]
+Issue: #213
 Why: B-123 implementer saw it fail once in a mutation run; passed elsewhere. Same family as the LeoTerminalRowsIntegrationTests focus flakes item
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-123)
 
 ## B-210 · testSelectionFocusChange uses a bare XCUIApplication()   [ready (next run)]
+Issue: #214
 Why: B-125 review: it misses -ApplePersistenceIgnoreState and the isolated config/defaults of ghosttyApplication(), and since it now calls launch() it can restore the debug bundle's saved windows (predates B-125); also document that launch() terminates any running debug Leo before relaunching
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-125)
 
 ## B-211 · AppDelegate update-order comment overstates the test   [ready (next run)]
+Issue: #215
 Why: B-126 review: AppDelegate.swift:324-326 says the order "is pinned by UpdateLaunchSequenceTests", but the test pins only the order inside the helper; reword to "The order inside UpdateLaunchSequence is pinned by UpdateLaunchSequenceTests; keep these steps routed through it."
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-126)
 
 ## B-212 · Appcast refresh note: command for the highest sparkle:version   [ready (next run)]
+Issue: #216
 Why: B-127 verify: the doc says to set newestVersion to the highest <sparkle:version> but gives no grep one-liner to find it
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-127)
 
 ## B-213 · Check for Updates… while the permission question is pending: polish   [ready (next run)]
+Issue: #217
 Why: B-128 verify/review: with every terminal window minimized it opens a new window instead of restoring one; it opens the window but not the popover, so a second click on the pill is needed; docs/leo/ci.md's B-128 bullet should mention it opens a window
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-128)
 
 ## B-214 · Permission popover says Ghostty, not Leo   [ready (next run)]
+Issue: #218
 Why: B-128 verify: the popover body says "Ghostty can automatically check…"; branding copy
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-128)
 
 ## B-215 · Release-side guard for SUAllowsAutomaticUpdates   [ready (next run)]
+Issue: #219
 Why: B-129 review: the new UpdatePolicyTests check returns early outside Debug, so nothing asserts SUAllowsAutomaticUpdates stays absent in Release (a leak would silently disable auto-install for shipping users); add the else branch expecting nil (UpdatePolicyTests.swift:109-115)
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-129)
 
 ## B-216 · Debug update-found alert shows a live-looking Install Update button   [ready (next run)]
+Issue: #220
 Why: B-129 verify: Sparkle's Debug update alert still shows Install Update (gated to dismiss by B-115); relabel or disable it in Debug
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-129)
 
 ## B-217 · About tests: real About-window check and shared menu walker   [ready (next run)]
+Issue: #221
 Why: B-130 review: theAboutWindowNamesLeo only checks AboutView.appName == "Leo" (would pass if the view went back to Text("Ghostty")) — scan or host the view; LeoAboutMenuTests duplicates LeoNoTabBarTests' menuItems walker — share it
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-130)
 
 ## B-218 · Leo branding sweep: remaining Ghostty strings   [ready (next run)]
+Issue: #222
 Why: B-130 review: MainMenu.xib Hide Ghostty / Quit Ghostty / Make Ghostty the Default Terminal / Ghostty Help; About window links (ghostty.org, ghostty-org/ghostty, commit link to the wrong repo), tagline and "Ghostty Application Icon" a11y label; AppDelegate.swift:1478/1514 "Quit Ghostty?", :625 "Allow Ghostty to execute…", UntrustedURLAlert.swift:39, UpdatePopoverView.swift:62, TerminalCommandPalette.swift:99 "Update Ghostty and Restart", ErrorView.swift:13, TerminalView.swift:267 debug banner, default "👻 Ghostty" titles in TitlebarTabs{Tahoe,Ventura}TerminalWindow. Decide which upstream strings to rename (keep upstream merges cheap)
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-130)
