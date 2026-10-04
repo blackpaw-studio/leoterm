@@ -148,7 +148,7 @@ Lane: B-118
   Branch: autopilot-lane/B-118
   Base: 2c64c6fb001a163a0e244d1a5a0001fd1ffadd25
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -160,3 +160,4 @@ Lane: B-118
   Call: Info.plist opened O_RDONLY|O_NONBLOCK|O_CLOEXEC, must be a regular file per fstat, capped at 1 MiB, so a FIFO can't hang a UI-less launch — D-216, P5
   Call: The marked pid's bundle folder must end in .app (case-sensitive) — AUTONOMY implementation approach
   Call: isCopy has no default; every caller passes an explicit check (no implicit Bundle.main global) — AUTONOMY implementation approach
+Finished 11: B-118 landed 40a664c7e · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-118-1.png

@@ -395,11 +395,12 @@ Accept: verify.md's GUI tips name the toggle as Show/Hide Agents Sidebar dependi
 Source: autopilot polish (B-090)
 Done: no code change — verify.md (orchestrator) now names the toggle Show/Hide Agents Sidebar by state, in the peekaboo example and the Agents menu tip.
 
-## B-118 · Single-instance: reject a marked pid that isn't this bundle   [ready]
+## B-118 · Single-instance: reject a marked pid that isn't this bundle   [done]
 Issue: #122
 Why: compare proc_pidpath or bundle ID as well as the uid before waiting on a marked pid; shrinks the same-user pid-reuse wait risk (security + concurrency)
 Accept: compare proc_pidpath or bundle ID as well as the uid before waiting on a marked pid; test where behaviour changes
 Source: autopilot polish (B-092)
+Done: 882b0040f (2029 tests). Before waiting on a marked pid, single-instance now checks it is a copy of this bundle (bundle ID + CFBundleExecutable from its Info.plist, read safely); unreadable identity takes the bounded ~5 s path. Verified: shots B-118-1..2 (still yields to a real copy; survives a quit race). The wait branch itself is covered by unit tests only. Decisions D-314–D-319.
 
 ## B-119 · Single-instance: log when the release retry runs out   [ready]
 Issue: #123

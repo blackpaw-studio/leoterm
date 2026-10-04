@@ -2276,3 +2276,45 @@ Chose: Dropped the stale "ConfigTests/errorsEmptyForValidConfig is an expected b
 Why: AUTONOMY test infrastructure
 Commit: e113fee0e, a5e1b3de8
 Veto: [ ]
+
+## D-314 · 2026-10-03 · If a marked pid's identity can't be read (proc_pidpath/Info.plist fai…
+Context: B-118 (runner call).
+Chose: If a marked pid's identity can't be read (proc_pidpath/Info.plist fails, non-UTF-8 path, wrong layout), it counts as not our copy and Leo takes the bounded ~5 s path, never an endless wait
+Why: P5 / AUTONOMY implementation approach
+Commit: 882b0040f
+Veto: [ ]
+
+## D-315 · 2026-10-03 · Match a marked pid on bundle ID plus CFBundleExecutable (not exact pa…
+Context: B-118 (runner call).
+Chose: Match a marked pid on bundle ID plus CFBundleExecutable (not exact path) so moved/translocated copies are still waited on
+Why: D-051 / AUTONOMY implementation approach
+Commit: 882b0040f
+Veto: [ ]
+
+## D-316 · 2026-10-03 · Read the marked pid's Info.plist directly, not via NSRunningApplicati…
+Context: B-118 (runner call).
+Chose: Read the marked pid's Info.plist directly, not via NSRunningApplication/LaunchServices
+Why: D-215 / AUTONOMY implementation approach
+Commit: 882b0040f
+Veto: [ ]
+
+## D-317 · 2026-10-03 · Info.plist opened O_RDONLY|O_NONBLOCK|O_CLOEXEC, must be a regular fi…
+Context: B-118 (runner call).
+Chose: Info.plist opened O_RDONLY|O_NONBLOCK|O_CLOEXEC, must be a regular file per fstat, capped at 1 MiB, so a FIFO can't hang a UI-less launch
+Why: D-216, P5
+Commit: 882b0040f
+Veto: [ ]
+
+## D-318 · 2026-10-03 · The marked pid's bundle folder must end in .app (case-sensitive)
+Context: B-118 (runner call).
+Chose: The marked pid's bundle folder must end in .app (case-sensitive)
+Why: AUTONOMY implementation approach
+Commit: 882b0040f
+Veto: [ ]
+
+## D-319 · 2026-10-03 · isCopy has no default; every caller passes an explicit check (no impl…
+Context: B-118 (runner call).
+Chose: isCopy has no default; every caller passes an explicit check (no implicit Bundle.main global)
+Why: AUTONOMY implementation approach
+Commit: 882b0040f
+Veto: [ ]
