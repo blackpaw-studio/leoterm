@@ -10,7 +10,7 @@ struct LeoCLI: Sendable {
 
     init(
         executableOverride: String? = nil,
-        runner: any LeoProcessRunning = LeoProcessRunner(),
+        runner: any LeoProcessRunning,
         candidatePaths: [String] = ["~/.local/bin/leo"],
         path: String? = ProcessInfo.processInfo.environment["PATH"],
         expandTilde: @escaping @Sendable (String) -> String = { NSString(string: $0).expandingTildeInPath },
