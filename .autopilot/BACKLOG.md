@@ -1370,3 +1370,8 @@ Source: autopilot polish (B-120)
 Why: B-121 review: capture kill() result and errno into locals before #expect at LeoTestProcessTests.swift:29 so the macro can't clobber errno; gone() doc comment (LeoSingleInstanceTestSupport.swift:162) should say "checked at hand-out" (a check-to-use window remains)
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-121)
+
+## B-207 · LeoFirstAttachWindowSizeTests tidy-up   [ready (next run)]
+Why: B-122 review: use configuredContentSize(of:) in the two existing B-097 tests (LeoFirstAttachWindowSizeTests.swift:176-178, :217-219); note in the suite doc that the contentIntrinsicSize tests assume the host config doesn't set window-maximize; add a disabled-state check after a real Reset Window Size (apply())
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-122)

@@ -17,6 +17,7 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 - B-118 runner: ready (hard implementer), general+security+concurrency full, 2029/2029 green.
 - B-119 runner: ready, general full, 2030/2030 on rerun.
 - B-121 runner: ready, general full, 2034/2034 green.
+- B-122 runner: ready, general full, 2036/2036 green; new tests shown able to fail.
 
 Lane: B-058
   Branch: autopilot-lane/B-058
@@ -209,9 +210,10 @@ Lane: B-122
   Branch: autopilot-lane/B-122
   Base: 726e275904f2bdac17ba0eb6da6c20fb4cc69309
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 6205d7b52171ac9b02ccc034c69b8b1a7593f59c
   Dispatched: 2026-10-04T07:51:15Z
+  Call: Reset Window Size tests share a configuredContentSize(of:) helper and a Fixture.isResetWindowSizeEnabled property — AUTONOMY test infrastructure
