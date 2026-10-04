@@ -8,6 +8,7 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 - Preflight 2026-10-03: previous run finished cleanly; main already in autopilot. Inbox: B-176, B-177 added (/feature). 25 next-run items promoted. No vetoes.
 - B-177 landed 5d32041f1 (1 fix round; 1996 tests green).
 - B-176 landed 937564be0 (1 fix round; 2015 tests green). Verifier temporarily repointed autopilot-scratch at evandcoleman/nomad-openvpn-deploy-action and restored it; briefly created+deleted a stray leo-claude-autopilot-scratch agent; left clone /Users/evan/.leo/agents/nomad-openvpn-deploy-action.
+- B-111: runner handed back "blocked" mid-build (told to hand back while its implementer was still running; not a real block). Not shelved: waiting for the orphaned implementer, then a fresh build runner on the same lane (wip b76844890 + uncommitted test edits).
 - Board sync: B-014: unknown status [deferred] (exit 1)
 
 Lane: B-058
