@@ -5,14 +5,32 @@ import Foundation
 /// (`https://github.com/blackpaw-studio/leoterm/releases/latest/download/appcast.xml`)
 /// the way Sparkle does: the newest item is the highest `sparkle:version`,
 /// and its enclosure carries the download URL, length and EdDSA signature.
+///
+/// Refreshing the fixture: `Fixtures/appcast.xml` is a snapshot, not a live
+/// fetch, so these tests never touch the network. The newest-item values
+/// below (`newestVersion`, `newestShortVersion`) are read off that snapshot,
+/// so the fixture and those constants must be refreshed together, in one
+/// commit. To refresh, from the repo root:
+///
+///     curl -fsSL -o macos/Tests/Update/Fixtures/appcast.xml \
+///       https://github.com/blackpaw-studio/leoterm/releases/latest/download/appcast.xml
+///
+/// then set `newestVersion` to the highest `<sparkle:version>` in the new file
+/// and `newestShortVersion` to that item's `<sparkle:shortVersionString>`.
+/// Copy the file verbatim; never hand-edit it.
 struct AppcastFixtureTests {
+    /// Highest `sparkle:version` in `Fixtures/appcast.xml`. Refresh with the fixture.
+    static let newestVersion = 18527
+    /// `sparkle:shortVersionString` of that item. Refresh with the fixture.
+    static let newestShortVersion = "0.5.0"
+
     @Test func newestItemIsRead() throws {
         let items = try AppcastFixture.load().items
         #expect(!items.isEmpty)
 
         let newest = try #require(items.max { $0.version < $1.version })
-        #expect(newest.version == 18527)
-        #expect(newest.shortVersion == "0.5.0")
+        #expect(newest.version == Self.newestVersion)
+        #expect(newest.shortVersion == Self.newestShortVersion)
 
         let url = try #require(newest.enclosureURL.flatMap(URL.init(string:)))
         #expect(url.scheme == "https")
