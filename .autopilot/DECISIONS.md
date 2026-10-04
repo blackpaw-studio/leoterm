@@ -2416,3 +2416,17 @@ Chose: Named it UpdateLaunchSequence / UpdateLaunchSequenceTests, beside the oth
 Why: AUTONOMY naming
 Commit: 7e46debf8
 Veto: [ ]
+
+## D-334 · 2026-10-03 · Appcast fixture expected values named newestVersion / newestShortVers…
+Context: B-127 (runner call).
+Chose: Appcast fixture expected values named newestVersion / newestShortVersion as static lets on AppcastFixtureTests
+Why: AUTONOMY naming/test infrastructure
+Commit: abe0f1962
+Veto: [ ]
+
+## D-335 · 2026-10-03 · Refresh recipe in the doc comment: curl the published appcast into ma…
+Context: B-127 (runner call).
+Chose: Refresh recipe in the doc comment: curl the published appcast into macos/Tests/Update/Fixtures/appcast.xml verbatim (never hand-edit), then update both constants in the same commit
+Why: AUTONOMY copy/test infrastructure
+Commit: abe0f1962
+Veto: [ ]

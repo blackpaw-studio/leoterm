@@ -458,11 +458,12 @@ Accept: the migration-before-startUpdater order (AppDelegate.swift:313) has no t
 Source: autopilot polish (B-115)
 Done: 7e46debf8 (2040 tests). Launch now runs reset defaults → apply config → start updater through UpdateLaunchSequence.run, and UpdateLaunchSequenceTests pins the order (shown failing with it reversed). Not visually verified: launch-code reorganisation only. Decisions D-331–D-333.
 
-## B-127 · Appcast fixture refresh note   [ready]
+## B-127 · Appcast fixture refresh note   [done]
 Issue: #131
 Why: AppcastFixtureTests hard-codes 18527/0.5.0 against a #filePath fixture; document refreshing both together
 Accept: AppcastFixtureTests hard-codes 18527/0.5.0 against a #filePath fixture; document refreshing both together
 Source: autopilot polish (B-115)
+Done: abe0f1962 (2040 tests). AppcastFixtureTests names its expected values (newestVersion/newestShortVersion) and documents refreshing the fixture and both constants together, verbatim, in one commit. Not visually verified: test docs only. Decisions D-334–D-335.
 
 ## B-128 · Update permission prompt shows twice at launch   [ready]
 Issue: #132
