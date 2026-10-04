@@ -257,6 +257,14 @@ final class LeoSplitViewController: NSSplitViewController {
     /// sidebar actually got (B-089): a window too narrow for `width`
     /// clamps it, and recording the width asked for would make widening
     /// the window afterwards look like a drag to the clamped width.
+    ///
+    /// A collapsed sidebar gets no width (B-090): `setPosition` would
+    /// un-collapse it. A width held in `pendingWidth` for a sidebar hidden
+    /// at launch is dropped once `viewDidLayout` hands it back here, and
+    /// nothing is recorded. The sidebar gets its width when it's shown:
+    /// `updateNSViewController` applies the session's `preferredWidth`
+    /// after un-collapsing it, and the terminal floor's restore applies
+    /// the width it collapsed at.
     func applyProgrammaticWidth(_ width: CGFloat) {
         guard isReadyToPositionDivider else {
             // The split view has no width of its own yet -- it isn't in a
