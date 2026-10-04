@@ -16,6 +16,7 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 - B-114 runner: ready, general full, 2023/2023 with the new tracked script.
 - B-118 runner: ready (hard implementer), general+security+concurrency full, 2029/2029 green.
 - B-119 runner: ready, general full, 2030/2030 on rerun.
+- B-121 runner: ready, general full, 2034/2034 green.
 
 Lane: B-058
   Branch: autopilot-lane/B-058
@@ -193,9 +194,12 @@ Lane: B-121
   Branch: autopilot-lane/B-121
   Base: 9a3101e1e5b67f4eef5d0edebe42fcc0c52ad41b
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: d48c28a5e1d5040da49a08d8aa02aae0aed7b7e2
   Dispatched: 2026-10-04T07:32:48Z
+  Call: gone()'s liveness probe is injectable (gone(isGone:)) rather than forcing real pid reuse in a test — AUTONOMY test infrastructure / flake fixes
+  Call: gone() checks at hand-out with a bounded retry (maxGoneAttempts = 5, then GoneError.everyPidTakenOver), not a re-check at every call site — AUTONOMY test infrastructure / flake fixes
+  Call: waitpid inside gone() retries on EINTR (otherwise a zombie reads as not gone) — AUTONOMY flake fixes

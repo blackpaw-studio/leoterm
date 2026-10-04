@@ -1364,3 +1364,8 @@ Source: autopilot polish (B-119)
 Why: B-120 review: the line is 82 chars where the rest of the block is 76 or fewer; cosmetic
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-120)
+
+## B-206 · LeoTestProcessTests errno capture and gone() doc wording   [ready (next run)]
+Why: B-121 review: capture kill() result and errno into locals before #expect at LeoTestProcessTests.swift:29 so the macro can't clobber errno; gone() doc comment (LeoSingleInstanceTestSupport.swift:162) should say "checked at hand-out" (a check-to-use window remains)
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-121)
