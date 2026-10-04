@@ -1212,3 +1212,37 @@ Issue: #58
 Accept: After an attached agent restarts, its tab shows the "No Agent Attached" placeholder but keeps the agent's name (D-095). A sidebar double-click, Return, or palette choice for that agent should refill that placeholder, and focus it, instead of opening a new tab beside it. Today you get two same-named tabs, one of them empty (seen in B-052 verification, shots B-052-4/-5). ⌘-click / ⌘↩ still force a new tab. Test the lookup (an exited placeholder carrying the agent's name counts as that agent's tab). Screenshot with autopilot-scratch only.
 Source: B-052 verification
 
+## B-178 · Hidden Close checks every pane of the kept tree   [ready (next run)]
+Why: B-177 review: hidden-row Close could check needsConfirmQuit on every pane of the kept tree, not just the row's own (cheap guard; a cross-window Move Split via B-110 might yield an all-row tree); also fix the discardKept doc wording
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-177)
+
+## B-179 · Tighten aRowWithABusySplitBesideItIsNeverKeptForCloseToKill   [ready (next run)]
+Why: B-177 review: its last two lines check nothing (the row is already gone); drop them or assert there's no sheet; add a LeoLiveSurfaces unit test pinning "a kept tree is only a lone row"
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-177)
+
+## B-180 · Terminals row context menu shows key equivalents   [ready (next run)]
+Why: B-177 review: menu items show no ⌘D, ⇧⌘D, ⌘W hints (P1); add display-only ones if SwiftUI's contextMenu supports them
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-177)
+
+## B-181 · Rename Terminal sheet hangs from the title bar   [ready (next run)]
+Why: B-177 verify: the Rename sheet appears centred in the window rather than attached as a sheet from the title bar (HIG)
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-177)
+
+## B-182 · Clearing a custom name after restore restores the live title   [ready (next run)]
+Why: B-177 review: after a restore, clearing a custom name brings back the saved name, not the live title, until the shell sends a new OSC title (decode sets titleFromTerminal = title)
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-177)
+
+## B-183 · Clearing a row name can drop a just-arrived OSC title   [ready (next run)]
+Why: B-177 review: clearing a name within 75 ms of an OSC title can drop that newer title (upstream race)
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-177)
+
+## B-184 · Drive row-menu Split in GUI verification   [ready (next run)]
+Why: B-177 verify: menu Split wasn't driven in the GUI (it opens the palette with real agents listed); tests cover it — find a safe GUI path (e.g. filter to autopilot-scratch)
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-177)
