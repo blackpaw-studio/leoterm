@@ -152,3 +152,92 @@ enum LeoTestProcess {
         return pid
     }
 }
+
+/// A running child the test stops (kills and reaps) when done -- `defer {
+/// child.stop() }` -- so none outlives its test. Until it's reaped its pid
+/// can't be reused, so `stop` never signals some other process.
+final class LeoTestChild: @unchecked Sendable {
+    let pid: pid_t
+    private let mutex = NSLock()
+    private var isReaped = false
+
+    init(_ path: String, _ arguments: [String] = []) throws {
+        pid = try LeoTestProcess.spawn(path, arguments)
+    }
+
+    /// Not exited yet (a zombie has, and is reaped here).
+    var isRunning: Bool {
+        mutex.withLock {
+            guard !isReaped else { return false }
+            var status: Int32 = 0
+            let result = waitpid(pid, &status, WNOHANG)
+            if result != 0 { isReaped = true }
+            return result == 0
+        }
+    }
+
+    /// Kills and reaps it; again is a no-op.
+    func stop() {
+        mutex.withLock {
+            guard !isReaped else { return }
+            kill(pid, SIGKILL)
+            var status: Int32 = 0
+            while waitpid(pid, &status, 0) < 0, errno == EINTR {}
+            isReaped = true
+        }
+    }
+}
+
+/// A fake `<name>` app bundle in a test directory -- `Contents/Info.plist`
+/// and empty executables in `Contents/MacOS` -- for what counts as a copy
+/// of a bundle (B-118).
+struct LeoTestBundle {
+    enum InfoPlist {
+        case declaring(identifier: String, executable: String)
+        case contents(Data)
+        /// A FIFO nothing writes to: reading it would block.
+        case fifo
+        case directory
+        case missing
+    }
+
+    let url: URL
+
+    init(in directory: LeoTestSocketDirectory, name: String = "Foo.app", infoPlist: InfoPlist, executables: [String] = ["foo"]) throws {
+        url = directory.url.appendingPathComponent(name, isDirectory: true)
+        let macOS = url.appendingPathComponent("Contents/MacOS", isDirectory: true)
+        try FileManager.default.createDirectory(at: macOS, withIntermediateDirectories: true)
+        for executable in executables {
+            let created = FileManager.default.createFile(
+                atPath: macOS.appendingPathComponent(executable).path, contents: Data(), attributes: [.posixPermissions: 0o755]
+            )
+            guard created else { throw POSIXError(.EIO) }
+        }
+        try Self.write(infoPlist, to: url.appendingPathComponent("Contents/Info.plist"))
+    }
+
+    func path(_ relativePath: String) -> String { url.appendingPathComponent(relativePath).path }
+
+    /// The path of `name` in `Contents/MacOS`.
+    func executable(_ name: String = "foo") -> String { path("Contents/MacOS/\(name)") }
+
+    static func plist(identifier: String, executable: String, extra: [String: String] = [:]) throws -> Data {
+        let info = extra.merging(["CFBundleIdentifier": identifier, "CFBundleExecutable": executable]) { _, declared in declared }
+        return try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
+    }
+
+    private static func write(_ infoPlist: InfoPlist, to file: URL) throws {
+        switch infoPlist {
+        case .declaring(let identifier, let executable):
+            try plist(identifier: identifier, executable: executable).write(to: file)
+        case .contents(let data):
+            try data.write(to: file)
+        case .fifo:
+            guard mkfifo(file.path, 0o600) == 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+        case .directory:
+            try FileManager.default.createDirectory(at: file, withIntermediateDirectories: false)
+        case .missing:
+            break
+        }
+    }
+}
