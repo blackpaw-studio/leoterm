@@ -2192,3 +2192,10 @@ Chose: A result dropped by a host change resets the sheet with "Host changed; th
 Why: AUTONOMY UX
 Commit: 7f3a25018, 233fae09f, 6d8f5f392, cc9a85fa0
 Veto: [ ]
+
+## D-302 · 2026-10-03 · LeoTerminalRowsIntegrationTests.freshUndo had the same redundant remo…
+Context: B-111 (runner call).
+Chose: LeoTerminalRowsIntegrationTests.freshUndo had the same redundant removeAllActions(withTarget:) next to leoRemoveActionsTestsCanReplay, so it was removed too
+Why: AUTONOMY polish / test infrastructure
+Commit: b76844890, 0203d466f
+Veto: [ ]

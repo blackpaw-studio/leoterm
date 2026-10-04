@@ -69,10 +69,11 @@ Lane: B-111
   Branch: autopilot-lane/B-111
   Base: d9ec5b6bd7169aacf1d0565577d5a5a713c16b1a
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: 6c8211537944153dfd95f104504e5a252fd63d7b
   Dispatched: 2026-10-04T02:54:04Z
   Call: LeoTerminalRowsIntegrationTests.freshUndo had the same redundant removeAllActions(withTarget:) next to leoRemoveActionsTestsCanReplay, so it was removed too — AUTONOMY polish / test infrastructure
+Finished 3: B-111 landed 148780b7f · shot not visually verified

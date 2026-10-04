@@ -353,11 +353,12 @@ Source: Evan (/feature, 2026-10-03)
 Inbox: 20261001T230248695398Z-abe4ea92#1
 Done: 7f3a25018 233fae09f 6d8f5f392 cc9a85fa0 (2015 tests). Agent rows get "New Agent in Worktree…" (after Open in New Window; disabled with no owner/repo), opening the New Agent sheet in a worktree mode: template prefilled, host and repo read-only, required branch. Create spawns through the host's daemon API with branch = worktree, and selects the new row; a host switch mid-sheet blocks Create. Decisions D-293–D-301. Verified: shots B-176-1..3 (menu, prefilled sheet; never submitted). Remote covered by fake-daemon tests only. 1 fix round (host/daemon race; a selectedHost guard that failed open).
 
-## B-111 · Undo docs and test-name polish   [ready]
+## B-111 · Undo docs and test-name polish   [done]
 Issue: #115
 Why: B-083 review: leoForgetContentUndo's doc (TerminalController+Leo.swift:68-71) says "Close Terminal + replace", which fits only splitDidDrop (say "one action per window") and understates the cross-window effect (name the B-110 shell-free risk); redundant removeAllActions(withTarget:) before leoRemoveActionsTestsCanReplay at LeoTerminalControllerEditorCloseTests.swift:~99; rename removeAllActionsDropsExpiringUndosWithoutReentering to ...WithoutAnExclusivityViolation; the removeAllActions() comment doesn't mention the explicit expire() plus the idempotent second expire
 Accept: each fixed or explicitly dismissed; suite green
 Source: autopilot polish (B-083)
+Done: b76844890 0203d466f (2015 tests). Docs: leoForgetContentUndo names the per-window Move Split halves and B-110's shell-free risk; removeAllActions() documents its explicit expire(). Renamed the exclusivity test; dropped two removeAllActions(withTarget:) calls the replay helper covers. Not visually verified: no UI change. Decision D-302.
 
 ## B-112 · Finish test isolation for LeoRuntime / LeoAgentActions   [ready]
 Issue: #116
