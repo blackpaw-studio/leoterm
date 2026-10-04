@@ -31,7 +31,7 @@ struct ExpiringUndoManagerTests {
         return undoManager
     }
 
-    @Test func removeAllActionsDropsExpiringUndosWithoutReentering() throws {
+    @Test func removeAllActionsDropsExpiringUndosWithoutAnExclusivityViolation() throws {
         let undoManager = makeUndoManager()
         let targets = [Target(), Target()]
         let calls = Calls()
