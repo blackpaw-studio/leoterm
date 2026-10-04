@@ -2066,3 +2066,66 @@ Chose: Only the window a pane left takes it back; moves between windows stay wit
 Why: AUTONOMY: implementation approach
 Commit: 4540801bc, dda028e02, f8878eeca, 8f0d20276, 05160bf62
 Veto: [ ]
+
+## D-284 · 2026-10-03 · Custom title lives on the surface (Ghostty user-title state, Codable)…
+Context: B-177 (runner call).
+Chose: Custom title lives on the surface (Ghostty user-title state, Codable), one source for row label, window title, pane name and close confirm
+Why: P1, P6
+Commit: fd55a3a90, d8d41b5da, 10651dd62
+Veto: [ ]
+
+## D-285 · 2026-10-03 · Menu order: Show, Split Right, Split Down, Rename…, divider, Close; "…
+Context: B-177 (runner call).
+Chose: Menu order: Show, Split Right, Split Down, Rename…, divider, Close; "Reveal in content" labelled Show; Split Left/Up stay in Window menu
+Why: P1
+Commit: fd55a3a90, d8d41b5da, 10651dd62
+Veto: [ ]
+
+## D-286 · 2026-10-03 · Close on a hidden busy row asks with ⌘W's "Close “name”?" text; Cance…
+Context: B-177 (runner call).
+Chose: Close on a hidden busy row asks with ⌘W's "Close “name”?" text; Cancel or another alert already up keeps the row
+Why: P2, D-111
+Commit: fd55a3a90, d8d41b5da, 10651dd62
+Veto: [ ]
+
+## D-287 · 2026-10-03 · Rename is a SwiftUI "Rename Terminal" sheet (prefilled, live-title pl…
+Context: B-177 (runner call).
+Chose: Rename is a SwiftUI "Rename Terminal" sheet (prefilled, live-title placeholder, "Leave blank to use the terminal’s own title."), not Ghostty's NSAlert
+Why: P1
+Commit: fd55a3a90, d8d41b5da, 10651dd62
+Veto: [ ]
+
+## D-288 · 2026-10-03 · Confirming the unchanged prefilled title is a no-op, so a live title …
+Context: B-177 (runner call).
+Chose: Confirming the unchanged prefilled title is a no-op, so a live title isn't frozen
+Why: P1, P2
+Commit: fd55a3a90, d8d41b5da, 10651dd62
+Veto: [ ]
+
+## D-289 · 2026-10-03 · leoSetUserTitle also changes Change Terminal Title…: second rename ke…
+Context: B-177 (runner call).
+Chose: leoSetUserTitle also changes Change Terminal Title…: second rename keeps the live title underneath, blank on an unrenamed surface is a no-op, whitespace-only = blank, control chars stripped
+Why: AUTONOMY UX
+Commit: fd55a3a90, d8d41b5da, 10651dd62
+Veto: [ ]
+
+## D-290 · 2026-10-03 · Menu Split inherits ⌘D's config (working directory)
+Context: B-177 (runner call).
+Chose: Menu Split inherits ⌘D's config (working directory)
+Why: P1
+Commit: fd55a3a90, d8d41b5da, 10651dd62
+Veto: [ ]
+
+## D-291 · 2026-10-03 · Agent surfaces ignored by rename/close/split
+Context: B-177 (runner call).
+Chose: Agent surfaces ignored by rename/close/split
+Why: Out (agent names are daemon-owned)
+Commit: fd55a3a90, d8d41b5da, 10651dd62
+Veto: [ ]
+
+## D-292 · 2026-10-03 · Title persistence is met through SurfaceView encode/decode only; no s…
+Context: B-177 (runner call).
+Chose: Title persistence is met through SurfaceView encode/decode only; no shell row is restored at launch today (window restoration off), restoring rows at launch would be a new item
+Why: P6, AUTONOMY
+Commit: fd55a3a90, d8d41b5da, 10651dd62
+Veto: [ ]

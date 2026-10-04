@@ -335,13 +335,14 @@ Source: autopilot (B-083 dismissal)
 Question: runner timed out after 3h — last known step: build mode, fix round 2 of 3 in progress (review rounds 1–2 found races: pre-reconcile ordering and the focus a drop's undo resigns; both reproduced and mostly fixed); lane's last commit 1eee9b5b0 "test(B-110): the focus a drop's undo resigns, as a pure decision". Work kept on autopilot-shelved/B-110 (15 commits: handles follow surfaces across windows, the coordinator re-keys moved agents, a guarded Move Split undo). I'd pick: retry next run from that branch with the hard implementer.
 Answer:
 
-## B-177 · Context menu on Terminals rows   [ready]
+## B-177 · Context menu on Terminals rows   [done]
 Issue: #180
 Why: plain-shell rows get the same right-click affordances agent rows have, so managing shells doesn't need the File menu (P1 every action has a menu item; P6 the sidebar is the navigation)
 Accept: right-clicking a Terminals row shows a menu with Rename…, Close (same confirm as File ▸ Close when a process is running), and the row's split/pane actions that already exist in menus (e.g. Split Right, Reveal in content); Rename sets a custom row title that sticks over the shell's own title changes until cleared (an empty name restores the live title); custom titles persist across an app restart wherever the shell row is restored (window restoration); tests for each action and the persistence, plus a debug-build screenshot of the menu and a renamed row
 Out: renaming agent rows (daemon-owned names); drag-to-reorder; new keyboard shortcuts
 Source: Evan (/feature, 2026-10-03)
 Inbox: 20261002T013226996464Z-7ea15972#1
+Done: fd55a3a90 d8d41b5da 10651dd62 (1996 tests). Terminals rows get a context menu: Show, Split Right, Split Down, Rename…, Close (asks like ⌘W when busy). Rename sets a custom title on the surface that sticks over OSC titles; blank restores the live title. Title persists via surface encode/decode (round-trip test only: no shell row is restored at launch today). Decisions D-284–D-292. Verified: shots B-177-0..7 (menu, Rename sheet, renamed row sticking after cd, cleared to live title, close). 1 fix round (pinned that no hidden row keeps a busy split for Close).
 
 ## B-176 · New Agent in Worktree from a sidebar row   [ready]
 Issue: #181

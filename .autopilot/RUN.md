@@ -6,6 +6,7 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 
 ## Progress
 - Preflight 2026-10-03: previous run finished cleanly; main already in autopilot. Inbox: B-176, B-177 added (/feature). 25 next-run items promoted. No vetoes.
+- B-177 landed 5d32041f1 (1 fix round; 1996 tests green).
 - Board sync: B-014: unknown status [deferred] (exit 1)
 
 Lane: B-058
@@ -23,7 +24,7 @@ Lane: B-177
   Branch: autopilot-lane/B-177
   Base: ae5d8371ee404c85fdf3aaa7f268c854a122d0ce
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
@@ -38,3 +39,4 @@ Lane: B-177
   Call: Menu Split inherits ⌘D's config (working directory) — P1
   Call: Agent surfaces ignored by rename/close/split — Out (agent names are daemon-owned)
   Call: Title persistence is met through SurfaceView encode/decode only; no shell row is restored at launch today (window restoration off), restoring rows at launch would be a new item — P6, AUTONOMY
+Finished 1: B-177 landed 5d32041f1 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-177-0.png
