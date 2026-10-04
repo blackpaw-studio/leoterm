@@ -225,6 +225,8 @@ extension Ghostty {
         @Published var leoAgentName: String?
         /// Whether `title` was set by the user (Change Terminal Title…).
         var leoTitleIsUserSet: Bool { titleFromTerminal != nil }
+        /// The terminal's own title, under a title the user set (B-177).
+        var leoLiveTitle: String { titleFromTerminal ?? title }
 
         // The cached contents of the screen.
         private(set) var cachedScreenContents: CachedValue<String>
@@ -603,20 +605,8 @@ extension Ghostty {
                 // Check if the user clicked "OK"
                 guard response == .alertFirstButtonReturn  else { return }
 
-                // Get the input text
-                let newTitle = textField.stringValue
-                if newTitle.isEmpty {
-                    // Empty means that user wants the title to be set automatically
-                    // We also need to reload the config for the "title" property to be
-                    // used again by this tab.
-                    let prevTitle = titleFromTerminal ?? "👻"
-                    titleFromTerminal = nil
-                    setTitle(prevTitle)
-                } else {
-                    // Set the title and prevent it from being changed automatically
-                    titleFromTerminal = title
-                    title = newTitle
-                }
+                // MARK: Leo -- shared with a terminal row's Rename… (B-177).
+                leoSetUserTitle(textField.stringValue)
             }
 
             // We prefer to run our alert in a sheet modal if we have a window.
@@ -628,6 +618,29 @@ extension Ghostty {
                 // noting this as something I noticed consistently.
                 completionHandler(alert.runModal())
             }
+        }
+
+        // MARK: Leo
+        /// Titles the terminal `name`, as Change Terminal Title… does: it
+        /// sticks over the terminal's own titles until cleared, and an empty
+        /// name restores the terminal's own (B-177). Control characters
+        /// are dropped and surrounding space trimmed, so a blank name is
+        /// empty. A second name keeps the terminal's own title underneath.
+        func leoSetUserTitle(_ name: String) {
+            let cleaned = String(String.UnicodeScalarView(name.unicodeScalars.filter {
+                !CharacterSet.controlCharacters.contains($0)
+            })).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !cleaned.isEmpty else {
+                // Empty means that user wants the title to be set automatically
+                // (already so when they never set one).
+                guard let prevTitle = titleFromTerminal else { return }
+                titleFromTerminal = nil
+                setTitle(prevTitle)
+                return
+            }
+            // Set the title and prevent it from being changed automatically
+            if titleFromTerminal == nil { titleFromTerminal = title }
+            title = cleaned
         }
 
         func setTitle(_ title: String) {

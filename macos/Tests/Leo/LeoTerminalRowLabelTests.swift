@@ -79,4 +79,14 @@ struct LeoTerminalRowLabelTests {
 
         #expect(texts(terminals.removing(terminals.rows[0].id)) == ["src", "~", "src (2)", "~ (2)"])
     }
+
+    /// B-177: a row renamed to a title an older row shows numbers after it,
+    /// as any retitle does; no row moves (D-132).
+    @Test func aRenamedRowJoinsDuplicateNumbering() {
+        let terminals = list("build", "~", "vim")
+        let renamed = terminals.retitling(terminals.rows[2].id, to: "build")
+
+        #expect(texts(renamed) == ["build", "~", "build (2)"])
+        #expect(renamed.rows.map(\.id) == terminals.rows.map(\.id), "rows never move")
+    }
 }

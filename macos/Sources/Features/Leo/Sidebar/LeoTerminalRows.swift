@@ -91,6 +91,16 @@ struct LeoTerminalList: Equatable, Sendable {
     /// Whether a shell this window keeps hidden has a running process, so
     /// closing the window asks first (wired by `LeoRuntime`).
     var hasBusyHiddenShell: () -> Bool = { false }
+    /// B-177: the row's context menu, wired by `LeoRuntime` as the rest.
+    /// Rename… titles the row's shell; an empty name restores its own title.
+    var renameRequested: (UUID, String) -> Void = { _, _ in }
+    /// Split Right / Split Down: the row shows, then splits beside its shell.
+    var splitRequested: (UUID, LeoSplitDirection) -> Void = { _, _ in }
+    /// Close, asking first as ⌘W does when a process is running.
+    var closeFromMenuRequested: (UUID) -> Void = { _ in }
+    /// The terminal's own title under any name given to the row (what
+    /// Rename… restores when left blank).
+    var liveTitle: (UUID) -> String? = { _ in nil }
 
     var rows: [LeoTerminalRow] { list.rows }
 
@@ -130,6 +140,24 @@ struct LeoTerminalList: Equatable, Sendable {
         guard contains(id) else { return }
         select(id)
         showRequested(id)
+    }
+
+    // MARK: The row's menu (B-177). Each acts only on a row this window
+    // lists, and none of them moves the selection by itself.
+
+    func rename(_ id: UUID, to name: String) {
+        guard contains(id) else { return }
+        renameRequested(id, name)
+    }
+
+    func split(_ id: UUID, _ direction: LeoSplitDirection) {
+        guard contains(id) else { return }
+        splitRequested(id, direction)
+    }
+
+    func closeFromMenu(_ id: UUID) {
+        guard contains(id) else { return }
+        closeFromMenuRequested(id)
     }
 
     /// Publishes only real changes: a title the terminal sets again

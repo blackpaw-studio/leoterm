@@ -628,6 +628,13 @@ import OSLog
         return controller.surfaceTree.contains(surface)
     }
 
+    /// `handle`'s terminal row shell, shown or hidden, and its window's
+    /// controller; `nil` for an agent or anything gone (B-177).
+    func terminalRowSurface(_ handle: AttachmentHandle) -> (TerminalController, Ghostty.SurfaceView)? {
+        guard attachments[handle]?.isTerminalRow == true else { return nil }
+        return liveSurface(handle)
+    }
+
     private func liveSurface(_ handle: AttachmentHandle) -> (TerminalController, Ghostty.SurfaceView)? {
         guard let attachment = attachments[handle], let controller = attachment.controller,
               let surface = attachment.surface, controller.window != nil else { return nil }
