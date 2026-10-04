@@ -19,6 +19,7 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 - B-121 runner: ready, general full, 2034/2034 green.
 - B-122 runner: ready, general full, 2036/2036 green; new tests shown able to fail.
 - B-123 runner: ready, general full, 2039/2039 green.
+- B-124 runner: ready, general full, 2039/2039 green.
 
 Lane: B-058
   Branch: autopilot-lane/B-058
@@ -237,9 +238,11 @@ Lane: B-124
   Branch: autopilot-lane/B-124
   Base: e02febbc9ad4603a5194590f52ded40b58f7154a
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: d12ba8107bff652d1960883d6a4714511bfc3572
   Dispatched: 2026-10-04T08:38:02Z
+  Call: Named the constants UpdateDriver.CheckRefusal.{domain,code}, nested on the SPUUpdaterDelegate extension next to their only user, not a global — AUTONOMY naming/implementation approach
+  Call: Left the refusal's localized description as a literal; the item covers only the code and domain — AUTONOMY implementation approach
