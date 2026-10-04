@@ -10,7 +10,7 @@ import XCTest
 final class GhosttyCommandPaletteTests: GhosttyCustomConfigCase {
     @MainActor func testDismissingCommandPalette() async throws {
         let app = try ghosttyApplication()
-        app.activate()
+        app.launch()
 
         XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 5), "New window should appear")
 
@@ -64,7 +64,7 @@ final class GhosttyCommandPaletteTests: GhosttyCustomConfigCase {
 
     @MainActor func testSelectCommandWithMouse() async throws {
         let app = try ghosttyApplication()
-        app.activate()
+        app.launch()
 
         XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 5), "New window should appear")
 

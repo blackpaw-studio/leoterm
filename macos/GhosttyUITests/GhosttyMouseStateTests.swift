@@ -12,7 +12,9 @@ final class GhosttyMouseStateTests: GhosttyCustomConfigCase {
     @MainActor func testSelectionFocusChange() async throws {
         let app = XCUIApplication()
         app.launchArguments.append(contentsOf: Self.noUpdateChecksArguments)
-        app.activate()
+        // launch(), not activate(): activate() attaches to an already-running
+        // instance, which never sees these arguments (B-125, D-224).
+        app.launch()
         // Write dummy text to a temp file, cat it into the terminal, then clean up
         let lines = (1...200).map { "Line \($0): The quick brown fox jumps over the lazy dog. Lorem ipsum dolor sit amet, consectetur adipiscing elit." }
         let text = lines.joined(separator: "\n") + "\n"
@@ -51,7 +53,7 @@ final class GhosttyMouseStateTests: GhosttyCustomConfigCase {
 
     @MainActor func testSearchFocusState() async throws {
         let app = try ghosttyApplication()
-        app.activate()
+        app.launch()
         XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 5), "New window should appear")
         app.typeKey("f", modifierFlags: .command)
 
