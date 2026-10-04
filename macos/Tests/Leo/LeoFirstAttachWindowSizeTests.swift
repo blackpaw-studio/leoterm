@@ -93,6 +93,13 @@ import Testing
 
         var contentSize: NSSize { window.contentRect(forFrameRect: window.frame).size }
 
+        /// Whether Window > Reset Window Size is enabled for this window.
+        var isResetWindowSizeEnabled: Bool {
+            let item = NSMenuItem(
+                title: "Reset Window Size", action: #selector(TerminalController.returnToDefaultSize(_:)), keyEquivalent: "")
+            return controller.validateMenuItem(item)
+        }
+
         func close() {
             window.close()
             if let savedPosition {
@@ -218,5 +225,49 @@ import Testing
         await Self.drainMainQueue()
 
         #expect(fixture.contentSize == expected, "Reset Window Size used the SwiftUI view's size")
+    }
+
+    /// B-122: Window > Reset Window Size is enabled on a filled start
+    /// screen whose window is not at the configured size.
+    @Test(.enabled("needs the app's Ghostty.App") { await MainActor.run { Self.hasGhostty } })
+    func resetWindowSizeIsEnabledOnAFilledStartScreenAwayFromTheConfiguredSize() async throws {
+        let fixture = try await Fixture.shown()
+        defer { fixture.close() }
+        let expected = try Self.configuredContentSize(of: fixture)
+
+        let surface = try fixture.fill().surface
+        fixture.applyFirstContentSize(to: surface)
+        await Self.drainMainQueue()
+        try #require(fixture.contentSize != expected, "the shown window already had the configured size")
+
+        #expect(fixture.isResetWindowSizeEnabled, "Reset Window Size was disabled away from the configured size")
+    }
+
+    /// B-122: once a filled start screen's window is at the configured
+    /// size -- the terminal's, plus the sidebar beside it -- Reset Window
+    /// Size is disabled. Its enabled state reads the configured size
+    /// (B-097), never the SwiftUI view's intrinsic size.
+    @Test(.enabled("needs the app's Ghostty.App") { await MainActor.run { Self.hasGhostty } })
+    func resetWindowSizeIsDisabledOnAFilledStartScreenAtTheConfiguredSize() async throws {
+        let fixture = try await Fixture.shown()
+        defer { fixture.close() }
+        let expected = try Self.configuredContentSize(of: fixture)
+
+        let surface = try fixture.fill().surface
+        fixture.applyFirstContentSize(to: surface)
+        await Self.drainMainQueue()
+        fixture.window.setContentSize(expected)
+        await Self.drainMainQueue()
+        try #require(fixture.contentSize == expected, "the window never took the configured size")
+
+        #expect(!fixture.isResetWindowSizeEnabled, "Reset Window Size was enabled at the configured size")
+    }
+
+    /// The window content size the configured terminal asks for: its
+    /// size, plus the sidebar beside it when it shows.
+    private static func configuredContentSize(of fixture: Fixture) throws -> NSSize {
+        let session = try #require(fixture.controller.leoSession)
+        let sidebar = session.isSidebarVisible ? session.displayedWidth + LeoSidebarSplitMetrics.dividerWidth : 0
+        return NSSize(width: configuredSize.width + sidebar, height: configuredSize.height)
     }
 }
