@@ -110,24 +110,42 @@ final class LeoInstanceLock {
     }
 
     /// Blocks until process `pid` has exited -- a kqueue `NOTE_EXIT`, no
-    /// timeout (principle 5: a quitting copy that hangs is ended by hand).
-    /// Returns at once when it's already gone, is this process, or isn't
-    /// `owner`'s: a reused pid, not a copy that could hold our 0600 lock.
-    /// "Gone" includes a process that is still exiting: the kernel reports
-    /// that before it releases the process's lock, which
+    /// timeout (principle 5: a quitting copy that hangs is ended by hand) --
+    /// when it's a copy that could be holding our lock: `owner`'s, and
+    /// `isCopy` (in the app, running this bundle's main executable, B-118).
+    /// Returns at once when it's already gone, is this process, or is
+    /// anything else: a reused pid, which could be any program and run for
+    /// any length of time. "Gone" includes a process that is still exiting:
+    /// the kernel reports that before it releases the process's lock, which
     /// `LeoSingleInstance.attempt` allows for.
-    static func waitForExit(of pid: pid_t, owner: uid_t = geteuid()) {
-        guard pid > 0, pid != getpid(), isProcess(pid, ownedBy: owner) else { return }
+    ///
+    /// The exit is watched before the checks, so a pid taken over in
+    /// between never leaves this waiting on the new process: either the
+    /// checks see the process being watched, or it has already ended and
+    /// the wait returns at once.
+    static func waitForExit(of pid: pid_t, owner: uid_t = geteuid(), isCopy: (pid_t) -> Bool) {
+        guard pid > 0, pid != getpid() else { return }
         let queue = kqueue()
         guard queue >= 0 else { return }
         defer { close(queue) }
+        guard watchExit(of: pid, on: queue), isProcess(pid, ownedBy: owner), isCopy(pid) else { return }
+        var event = Darwin.kevent()
+        while kevent(queue, nil, 0, &event, 1, nil) < 0, errno == EINTR {}
+    }
+
+    /// Registers a one-shot `NOTE_EXIT` for `pid` on `queue`. False when
+    /// there's nothing to watch: `ESRCH` (already gone, a zombie included)
+    /// or any other error, which is never waited on either.
+    private static func watchExit(of pid: pid_t, on queue: Int32) -> Bool {
         var change = Darwin.kevent(
             ident: UInt(pid), filter: Int16(EVFILT_PROC), flags: UInt16(EV_ADD | EV_ONESHOT),
             fflags: UInt32(NOTE_EXIT), data: 0, udata: nil
         )
-        var event = Darwin.kevent()
-        // A process that's already gone comes back at once, as an EV_ERROR event.
-        while kevent(queue, &change, 1, &event, 1, nil) < 0, errno == EINTR {}
+        // No event list, so an error comes back as -1 and errno, not as an EV_ERROR event.
+        while true {
+            if kevent(queue, &change, 1, nil, 0, nil) == 0 { return true }
+            guard errno == EINTR else { return false }
+        }
     }
 
     /// Same owner-only directory the tunnel sockets use, checked the same
@@ -219,6 +237,64 @@ final class LeoInstanceLock {
     }
 }
 
+/// Which bundle a process is running, so a marked pid is only waited on
+/// while it's still a copy of ours (B-118). Read from the executable's own
+/// bundle on disk -- no LaunchServices, which lags behind exits (D-215).
+extension LeoInstanceLock {
+    /// `PROC_PIDPATHINFO_MAXSIZE` (`4 * MAXPATHLEN`), which Swift can't import.
+    private static let maxExecutablePathBytes = 4 * Int(MAXPATHLEN)
+    /// Far more than any app's Info.plist; a bigger file isn't read.
+    static let maxInfoPlistBytes = 1 << 20
+
+    /// Whether process `pid` is running bundle `bundleIdentifier`'s main
+    /// executable -- from wherever that bundle is (moved, translocated).
+    /// False when that can't be read (the process is gone, or its bundle
+    /// was removed or replaced), so an unknown process is never waited on.
+    static func isCopy(_ pid: pid_t, of bundleIdentifier: String) -> Bool {
+        isMainExecutable(executablePath(of: pid), ofBundle: bundleIdentifier)
+    }
+
+    /// The path of the executable process `pid` is running (`proc_pidpath`);
+    /// nil when it's gone (a zombie included) or that fails.
+    static func executablePath(of pid: pid_t) -> String? {
+        var buffer = [UInt8](repeating: 0, count: maxExecutablePathBytes)
+        let length = proc_pidpath(pid, &buffer, UInt32(buffer.count))
+        guard length > 0 else { return nil }
+        return String(bytes: buffer.prefix(Int(length)).prefix { $0 != 0 }, encoding: .utf8)
+    }
+
+    /// Whether `path` is `<X>.app/Contents/MacOS/<exe>`, where `X.app`'s
+    /// Info.plist declares `bundleIdentifier` and `<exe>` as its
+    /// `CFBundleExecutable`: that bundle's main executable, not a helper or
+    /// a tool in it.
+    static func isMainExecutable(_ path: String?, ofBundle bundleIdentifier: String) -> Bool {
+        guard let path else { return false }
+        let executable = URL(fileURLWithPath: path)
+        let macOS = executable.deletingLastPathComponent()
+        let contents = macOS.deletingLastPathComponent()
+        guard macOS.lastPathComponent == "MacOS", contents.lastPathComponent == "Contents",
+              contents.deletingLastPathComponent().pathExtension == "app",
+              let info = infoDictionary(at: contents.appendingPathComponent("Info.plist").path) else { return false }
+        return info["CFBundleIdentifier"] as? String == bundleIdentifier
+            && info["CFBundleExecutable"] as? String == executable.lastPathComponent
+    }
+
+    /// The property list in the regular file at `path`, read fresh (not
+    /// through `Bundle`, which caches) and only up to `maxInfoPlistBytes`;
+    /// opened non-blocking, so a FIFO there can't hang the launch. Nil for
+    /// anything else.
+    private static func infoDictionary(at path: String) -> [String: Any]? {
+        let descriptor = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC)
+        guard descriptor >= 0 else { return nil }
+        defer { close(descriptor) }
+        var info = Darwin.stat()
+        guard fstat(descriptor, &info) == 0, info.st_mode & S_IFMT == S_IFREG, info.st_size <= maxInfoPlistBytes else { return nil }
+        let file = FileHandle(fileDescriptor: descriptor, closeOnDealloc: false)
+        guard let data = try? file.read(upToCount: maxInfoPlistBytes + 1), data.count <= maxInfoPlistBytes else { return nil }
+        return (try? PropertyListSerialization.propertyList(from: data, format: nil)) as? [String: Any]
+    }
+}
+
 /// Leo is single-instance per bundle ID (D-051). Copies of one bundle share
 /// its tunnel state -- the orphan record in its defaults and the sockets in
 /// `LeoControlSocketDirectory` -- and `LeoTunnel.removeStaleSocket` and
@@ -233,7 +309,9 @@ final class LeoInstanceLock {
 /// `applicationWillTerminate`), and a copy launched then waits for that
 /// process to exit and tries again, becoming the primary -- or yielding to
 /// whichever copy got there first. Yielding to the quitting copy itself
-/// would leave no Leo running.
+/// would leave no Leo running. It waits only while that pid is still a copy
+/// of this bundle (B-118): a reused pid running anything else is never
+/// waited on, only given the release moment `attempt` allows.
 ///
 /// Fails closed: when the lock can't be taken safely (an unsafe directory,
 /// a symlinked, foreign or hard-linked lock file), another copy could be
@@ -428,8 +506,9 @@ extension LeoSingleInstance {
     /// called from `main.swift` before `NSApplicationMain`, so a copy that
     /// yields or refuses never builds an app delegate, a window or a tunnel.
     static func live() -> LeoSingleInstance {
-        LeoSingleInstance(
-            bundleIdentifier: Bundle.main.bundleIdentifier,
+        let mainBundleIdentifier = Bundle.main.bundleIdentifier
+        return LeoSingleInstance(
+            bundleIdentifier: mainBundleIdentifier,
             isTestHost: isRunningAsTestHost(),
             acquireLock: { bundleIdentifier in
                 inLockDirectory { directory in
@@ -443,7 +522,11 @@ extension LeoSingleInstance {
                     return LeoInstanceLock.acquire(bundleIdentifier: bundleIdentifier, in: directory)
                 }
             },
-            waitForExit: { LeoInstanceLock.waitForExit(of: $0) },
+            waitForExit: { pid in
+                LeoInstanceLock.waitForExit(of: pid, isCopy: { candidate in
+                    mainBundleIdentifier.map { LeoInstanceLock.isCopy(candidate, of: $0) } ?? false
+                })
+            },
             pauseForRelease: { usleep(releasePauseMicroseconds) },
             activateOther: activateRunningCopy,
             alert: presentCannotStart,

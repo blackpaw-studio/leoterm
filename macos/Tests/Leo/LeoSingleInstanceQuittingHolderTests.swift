@@ -265,6 +265,9 @@ struct LeoSingleInstanceQuittingHolderTests {
         #expect(third.holds, "the copy that took the lock keeps it")
     }
 
+    /// What a mark can name that `waitForExit` turns down before asking
+    /// whether it's a copy of this bundle (that check is stood in for here;
+    /// see the B-118 tests below for a live program that isn't one).
     enum Leftover: CaseIterable {
         /// A copy that has exited.
         case gone
@@ -280,37 +283,30 @@ struct LeoSingleInstanceQuittingHolderTests {
     /// this copy yields: no blocking, no endless loop.
     @Test(arguments: Leftover.allCases)
     func aLeftoverMarkOnALiveHolderIsYieldedTo(_ leftover: Leftover) throws {
-        let directory = try LeoTestSocketDirectory()
-        defer { directory.remove() }
-        let named = try Self.pid(of: leftover)
-        let live = LeoHeld(try LeoInstanceLockTestFile.held(in: directory))
-        LeoInstanceLockTestFile.overwrite(in: directory, with: "exiting \(named)\n")
-        let spy = LeoGateSpy()
-        let gate = spy.gate(acquire: { _ in LeoInstanceLockTestFile.acquire(in: directory) }, onWait: { LeoInstanceLock.waitForExit(of: $0) })
-
-        let claim = ClaimRun.run({ gate.claim() }, unblock: live.drop)
-
-        guard case .yielded? = claim else { Issue.record("expected .yielded, got \(String(describing: claim))"); return }
-        #expect(spy.waits == [named])
-        #expect(spy.pauses == LeoSingleInstance.maxReleasePauses)
-        #expect(spy.exits == [0])
-        #expect(live.holds)
+        try Self.expectALeftoverMarkIsYieldedTo(naming: try Self.pid(of: leftover), isCopy: { _ in true })
     }
 
     // MARK: - Waiting for a process to exit
 
-    /// A real kqueue wait: it returns only once the process has exited.
-    @Test func waitForExitReturnsOnceTheProcessHasExited() throws {
+    /// A real kqueue wait on a copy of this bundle -- nothing a test can
+    /// spawn is one, so the check is stood in for: it's asked about that
+    /// process, and the wait returns only once the process has exited.
+    @Test func waitForExitStillWaitsOnACopyOfThisBundle() throws {
         let pid = try LeoTestProcess.spawn("/bin/sleep", ["1"])
         #expect(kill(pid, 0) == 0, "running before the wait")
+        let asked = LeoHeld<pid_t>()
 
-        let returned = LeoOffThread<Bool>.run({ LeoInstanceLock.waitForExit(of: pid); return true })
+        let returned = LeoOffThread<Bool>.run({
+            LeoInstanceLock.waitForExit(of: pid, isCopy: { asked.set($0); return true })
+            return true
+        })
 
         var status: Int32 = 0
         let reaped = waitpid(pid, &status, WNOHANG)
         let code = errno
         #expect(returned == true)
         #expect(reaped == pid || (reaped == -1 && code == ECHILD), "exited by the time the wait returned (waitpid=\(reaped))")
+        #expect(asked.read { $0 } == pid, "asked whether it's a copy")
         if reaped == 0 { _ = waitpid(pid, &status, 0) }
     }
 
@@ -319,9 +315,127 @@ struct LeoSingleInstanceQuittingHolderTests {
     func waitForExitReturnsAtOnceWhenThereIsNothingToWaitFor(_ leftover: Leftover) throws {
         let pid = try Self.pid(of: leftover)
 
-        let returned = LeoOffThread<Bool>.run({ LeoInstanceLock.waitForExit(of: pid); return true })
+        let returned = LeoOffThread<Bool>.run({ LeoInstanceLock.waitForExit(of: pid, isCopy: { _ in true }); return true })
 
         #expect(returned == true)
+    }
+
+    // MARK: - Only a copy of this bundle is waited on (B-118)
+
+    /// A mark's pid can have been reused by a live process of this user's
+    /// that isn't Leo at all and may run for hours: never waited on.
+    @Test func waitForExitDoesNotWaitOnALiveSameUserProcessThatIsNotThisBundle() throws {
+        let other = try LeoTestChild("/bin/sleep", ["60"])
+        defer { other.stop() }
+
+        let returned = LeoOffThread<Bool>.run({ LeoInstanceLock.waitForExit(of: other.pid, isCopy: Self.isACopy); return true }, unblock: other.stop)
+
+        #expect(returned == true)
+        #expect(other.isRunning, "returned while it was still running")
+    }
+
+    /// The real gate checks for a copy of this app's own bundle.
+    @Test func theLiveGateDoesNotWaitOnAnotherProgram() throws {
+        let other = try LeoTestChild("/bin/sleep", ["60"])
+        defer { other.stop() }
+        let gate = LeoSingleInstance.live()
+
+        let returned = LeoOffThread<Bool>.run({ gate.waitForExit(other.pid); return true }, unblock: other.stop)
+
+        #expect(returned == true)
+        #expect(other.isRunning, "returned while it was still running")
+    }
+
+    /// A live holder whose file names that other program is given the
+    /// release moment and yielded to (D-051), as for any leftover mark.
+    @Test func aMarkNamingAnotherLiveProgramIsYieldedToAfterTheReleaseMoment() throws {
+        let other = try LeoTestChild("/bin/sleep", ["60"])
+        defer { other.stop() }
+
+        try Self.expectALeftoverMarkIsYieldedTo(naming: other.pid, isCopy: Self.isACopy, unblock: other.stop)
+
+        #expect(other.isRunning, "never waited for it to end")
+    }
+
+    /// What `proc_pidpath` could name, against a fake bundle declaring the
+    /// tests' bundle ID with main executable `foo`.
+    enum Executable: CaseIterable {
+        case mainExecutable
+        case anotherBundlesExecutable
+        /// Not `CFBundleExecutable`: another executable in `Contents/MacOS`.
+        case helperExecutable
+        case noInfoPlist
+        case infoPlistNotAPlist
+        /// Must not block the launch.
+        case infoPlistIsAFIFO
+        case infoPlistIsADirectory
+        case oversizedInfoPlist
+        case notInContentsMacOS
+        case notInAnApp
+        case systemTool
+        /// `proc_pidpath` failed.
+        case unknown
+
+        var isMainExecutable: Bool { self == .mainExecutable }
+
+        func path(in directory: LeoTestSocketDirectory) throws -> String? {
+            let identifier = LeoGateSpy.bundleID
+            let declared = LeoTestBundle.InfoPlist.declaring(identifier: identifier, executable: "foo")
+            switch self {
+            case .mainExecutable: return try LeoTestBundle(in: directory, infoPlist: declared).executable()
+            case .anotherBundlesExecutable:
+                return try LeoTestBundle(in: directory, infoPlist: .declaring(identifier: "studio.blackpaw.other", executable: "foo")).executable()
+            case .helperExecutable: return try LeoTestBundle(in: directory, infoPlist: declared, executables: ["foo", "helper"]).executable("helper")
+            case .noInfoPlist: return try LeoTestBundle(in: directory, infoPlist: .missing).executable()
+            case .infoPlistNotAPlist: return try LeoTestBundle(in: directory, infoPlist: .contents(Data("not a plist".utf8))).executable()
+            case .infoPlistIsAFIFO: return try LeoTestBundle(in: directory, infoPlist: .fifo).executable()
+            case .infoPlistIsADirectory: return try LeoTestBundle(in: directory, infoPlist: .directory).executable()
+            case .oversizedInfoPlist:
+                let padding = ["LeoPadding": String(repeating: "x", count: LeoInstanceLock.maxInfoPlistBytes)]
+                let plist = try LeoTestBundle.plist(identifier: identifier, executable: "foo", extra: padding)
+                return try LeoTestBundle(in: directory, infoPlist: .contents(plist)).executable()
+            case .notInContentsMacOS: return try LeoTestBundle(in: directory, infoPlist: declared).path("Contents/Resources/foo")
+            case .notInAnApp: return try LeoTestBundle(in: directory, name: "Foo", infoPlist: declared).executable()
+            case .systemTool: return "/bin/sleep"
+            case .unknown: return nil
+            }
+        }
+    }
+
+    /// Only `<X>.app/Contents/MacOS/<exe>`, where `X.app` declares the bundle
+    /// ID and `<exe>` as its `CFBundleExecutable`, is a copy's executable.
+    @Test(arguments: Executable.allCases)
+    func isMainExecutableOfBundle(_ executable: Executable) throws {
+        let directory = try LeoTestSocketDirectory()
+        defer { directory.remove() }
+        let path = try executable.path(in: directory)
+
+        // Off this thread: a read that blocks is recorded, then ended by
+        // opening a FIFO's other end.
+        let isMain = LeoOffThread<Bool>.run(
+            { LeoInstanceLock.isMainExecutable(path, ofBundle: Self.bundleID) },
+            unblock: { Self.openOtherEnd(of: directory.path("Foo.app/Contents/Info.plist")) }
+        )
+
+        #expect(isMain == executable.isMainExecutable)
+    }
+
+    /// Real `proc_pidpath` on the test host, the debug Leo.app.
+    @Test func thisTestHostIsACopyOfItsOwnBundle() throws {
+        let identifier = try #require(Bundle.main.bundleIdentifier)
+        let executable = try #require(Bundle.main.executablePath.flatMap(Self.realPath))
+
+        #expect(LeoInstanceLock.executablePath(of: getpid()).flatMap(Self.realPath) == executable)
+        #expect(LeoInstanceLock.isCopy(getpid(), of: identifier))
+        #expect(!LeoInstanceLock.isCopy(getpid(), of: Self.bundleID))
+    }
+
+    @Test func isCopyIsFalseForAGonePid() throws {
+        let identifier = try #require(Bundle.main.bundleIdentifier)
+        let pid = try LeoTestProcess.gone()
+
+        #expect(LeoInstanceLock.executablePath(of: pid) == nil)
+        #expect(!LeoInstanceLock.isCopy(pid, of: identifier))
     }
 
     // MARK: - Helpers
@@ -332,6 +446,52 @@ struct LeoSingleInstanceQuittingHolderTests {
         let lock = try LeoInstanceLockTestFile.held(in: directory)
         try lock.markExiting()
         return LeoHeld(lock)
+    }
+
+    /// A live holder's file names `named`: with the real wait (asking
+    /// `isCopy`), this copy gives it the release moment and yields to it,
+    /// never blocking.
+    private static func expectALeftoverMarkIsYieldedTo(
+        naming named: pid_t, isCopy: @escaping (pid_t) -> Bool, unblock: () -> Void = {}
+    ) throws {
+        let directory = try LeoTestSocketDirectory()
+        defer { directory.remove() }
+        let live = LeoHeld(try LeoInstanceLockTestFile.held(in: directory))
+        LeoInstanceLockTestFile.overwrite(in: directory, with: "exiting \(named)\n")
+        let spy = LeoGateSpy()
+        let gate = spy.gate(
+            acquire: { _ in LeoInstanceLockTestFile.acquire(in: directory) },
+            onWait: { LeoInstanceLock.waitForExit(of: $0, isCopy: isCopy) }
+        )
+
+        let claim = ClaimRun.run({ gate.claim() }, unblock: {
+            live.drop()
+            unblock()
+        })
+
+        guard case .yielded? = claim else { Issue.record("expected .yielded, got \(String(describing: claim))"); return }
+        #expect(spy.waits == [named])
+        #expect(spy.pauses == LeoSingleInstance.maxReleasePauses)
+        #expect(spy.exits == [0])
+        #expect(live.holds)
+    }
+
+    /// The real check, for the tests' bundle ID: nothing running is a copy.
+    private static func isACopy(_ pid: pid_t) -> Bool {
+        LeoInstanceLock.isCopy(pid, of: bundleID)
+    }
+
+    /// Opens and closes the write end of the FIFO at `path`, if there is
+    /// one, so a reader blocked opening it carries on (and reads nothing).
+    private static func openOtherEnd(of path: String) {
+        let writer = open(path, O_WRONLY | O_NONBLOCK | O_CLOEXEC)
+        if writer >= 0 { close(writer) }
+    }
+
+    private static func realPath(_ path: String) -> String? {
+        guard let resolved = Darwin.realpath(path, nil) else { return nil }
+        defer { free(resolved) }
+        return String(cString: resolved)
     }
 
     private static func pid(of leftover: Leftover) throws -> pid_t {
