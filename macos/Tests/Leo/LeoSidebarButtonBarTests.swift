@@ -27,7 +27,7 @@ import Testing
 
         #expect(LeoSidebarButton.newTerminal.action == #selector(TerminalController.newTab(_:)))
         #expect(LeoSidebarButton.newTerminal.title == item.title)
-        #expect(LeoSidebarButton.newTerminal.action == LeoPlaceholderNewTerminal.action, "the same action as ⌘T and the start screen")
+        #expect(LeoSidebarButton.newTerminal.action == LeoShortcutHints.newTerminalAction, "the same action as ⌘T and its hint")
     }
 
     @Test func quickTerminalButtonIsTheQuickTerminalMenuItem() throws {

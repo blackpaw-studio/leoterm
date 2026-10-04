@@ -175,12 +175,7 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
             hostSelection: runtime.hostSelection,
             shortcutHints: runtime.shortcutHints,
             openPicker: { session.openPicker(surfaceID: nil) },
-            buttonActions: .init(
-                newTerminal: { LeoPlaceholderNewTerminal.send(to: delegate) },
-                toggleQuickTerminal: {
-                    guard let appDelegate = NSApp.delegate as? AppDelegate else { return }
-                    appDelegate.toggleQuickTerminal(appDelegate)
-                })
+            buttonActions: leoButtonActions
         )
     }
 
@@ -203,12 +198,7 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                                 hostSelection: runtime.hostSelection,
                                 shortcutHints: runtime.shortcutHints,
                                 openPicker: { leoSession.openPicker(surfaceID: surface.id) },
-                                buttonActions: .init(
-                                    newTerminal: { LeoPlaceholderNewTerminal.send(to: delegate) },
-                                    toggleQuickTerminal: {
-                                        guard let appDelegate = NSApp.delegate as? AppDelegate else { return }
-                                        appDelegate.toggleQuickTerminal(appDelegate)
-                                    })))
+                                buttonActions: leoButtonActions))
                         })
                         .environmentObject(ghostty)
                         .ghosttyLastFocusedSurface(lastFocusedSurface)

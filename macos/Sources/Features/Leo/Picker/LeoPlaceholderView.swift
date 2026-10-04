@@ -9,10 +9,15 @@ struct LeoPlaceholderView: View {
     /// The buttons' tooltips: the menu items' live shortcuts (B-080).
     @ObservedObject var shortcutHints: LeoShortcutHints
     let openPicker: () -> Void
-    /// File ▸ New Terminal for this window (B-069) and View ▸ Quick Terminal.
+    /// What the menu-item buttons do: this window's File ▸ New Terminal
+    /// (B-069) and View ▸ Quick Terminal -- the sidebar footer's own.
     let buttonActions: LeoSidebarButtonActions
 
-    static let menuButtons: [LeoSidebarButton] = []
+    /// The menu items offered beside Choose Agent…, in order: the sidebar
+    /// footer's buttons (B-065) in bordered form. Each is titled, wired and
+    /// hinted from its `LeoSidebarButton` alone, so the start screen names
+    /// them as the menu does (B-113).
+    static let menuButtons = LeoSidebarButton.allCases
 
     private var chooseAgent: LeoPlaceholderChooseAgent {
         LeoPlaceholderChooseAgent(host: hostSelection.selected, connectivity: model.snapshot.connectivity, shortcut: shortcutHints.chooseAgent, reconnectShortcut: shortcutHints.reconnect)
@@ -34,11 +39,12 @@ struct LeoPlaceholderView: View {
                 chooseAgentButton
                     .disabled(!chooseAgent.isEnabled)
                     .help(ifAny: chooseAgent.help)
-                Button(LeoPlaceholderNewTerminal.title) { buttonActions.newTerminal() }
-                    .buttonStyle(.bordered)
-                    .help(ifAny: shortcutHints.newTerminal)
-                Button("Show Terminal Drawer") { buttonActions.toggleQuickTerminal() }
-                    .buttonStyle(.bordered)
+                ForEach(Self.menuButtons) { button in
+                    Button(button.title) { buttonActions.perform(button) }
+                        .buttonStyle(.bordered)
+                        // The live shortcut alone; none when unbound (B-080).
+                        .help(ifAny: button.hint(in: shortcutHints))
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
