@@ -451,11 +451,12 @@ Accept: it uses activate(), not launch(); confirm -SUEnableAutomaticChecks NO ap
 Source: autopilot polish (B-115)
 Done: bb76eeb16 (2039 tests). GhosttyMouseStateTests and GhosttyCommandPaletteTests now launch() the app first, so -SUEnableAutomaticChecks NO (D-224) applies; activate() attached to an already running app without its arguments. UI tests aren't run by leo-runtests.sh: compile-verified only. Not visually verified: UI-test code only. Decisions D-329–D-330.
 
-## B-126 · Pin update defaults reset before startUpdater   [ready]
+## B-126 · Pin update defaults reset before startUpdater   [done]
 Issue: #130
 Why: the migration-before-startUpdater order (AppDelegate.swift:313) has no test or comment pinning it
 Accept: the migration-before-startUpdater order (AppDelegate.swift:313) has no test or comment pinning it
 Source: autopilot polish (B-115)
+Done: 7e46debf8 (2040 tests). Launch now runs reset defaults → apply config → start updater through UpdateLaunchSequence.run, and UpdateLaunchSequenceTests pins the order (shown failing with it reversed). Not visually verified: launch-code reorganisation only. Decisions D-331–D-333.
 
 ## B-127 · Appcast fixture refresh note   [ready]
 Issue: #131

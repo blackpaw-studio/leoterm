@@ -268,7 +268,7 @@ Lane: B-126
   Branch: autopilot-lane/B-126
   Base: 29d73a15d777b49730b0cb6bb8cfa4e4c694e331
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -277,3 +277,4 @@ Lane: B-126
   Call: Pinned the update launch order with a test via a small helper UpdateLaunchSequence.run(resetDefaults:applyConfig:startUpdater:) (non-escaping closures; no change to UpdateController, UpdateDefaultsMigration or Sparkle), not a comment only — AUTONOMY implementation approach/test infrastructure
   Call: The sequence also covers the initial config apply (reset → config → start), since applying config writes the same Sparkle keys the reset clears — AUTONOMY implementation approach
   Call: Named it UpdateLaunchSequence / UpdateLaunchSequenceTests, beside the other update files — AUTONOMY naming
+Finished 19: B-126 landed c045ce9c7 · shot not visually verified

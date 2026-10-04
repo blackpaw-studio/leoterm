@@ -2395,3 +2395,24 @@ Chose: Same activate()→launch() change in GhosttyCommandPaletteTests, so D-224
 Why: AUTONOMY test infrastructure
 Commit: bb76eeb16
 Veto: [ ]
+
+## D-331 · 2026-10-03 · Pinned the update launch order with a test via a small helper UpdateL…
+Context: B-126 (runner call).
+Chose: Pinned the update launch order with a test via a small helper UpdateLaunchSequence.run(resetDefaults:applyConfig:startUpdater:) (non-escaping closures; no change to UpdateController, UpdateDefaultsMigration or Sparkle), not a comment only
+Why: AUTONOMY implementation approach/test infrastructure
+Commit: 7e46debf8
+Veto: [ ]
+
+## D-332 · 2026-10-03 · The sequence also covers the initial config apply (reset → config → s…
+Context: B-126 (runner call).
+Chose: The sequence also covers the initial config apply (reset → config → start), since applying config writes the same Sparkle keys the reset clears
+Why: AUTONOMY implementation approach
+Commit: 7e46debf8
+Veto: [ ]
+
+## D-333 · 2026-10-03 · Named it UpdateLaunchSequence / UpdateLaunchSequenceTests, beside the…
+Context: B-126 (runner call).
+Chose: Named it UpdateLaunchSequence / UpdateLaunchSequenceTests, beside the other update files
+Why: AUTONOMY naming
+Commit: 7e46debf8
+Veto: [ ]
