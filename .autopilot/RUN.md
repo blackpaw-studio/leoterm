@@ -130,3 +130,14 @@ Finished 6: B-114 landed 1306d0e4c · shot not visually verified
 Finished 7: B-117 done (no code change)
 Finished 8: B-137 done (no code change)
 Finished 9: B-169 done (no code change)
+
+Lane: B-116
+  Branch: autopilot-lane/B-116
+  Base: 2e7653f1dc4b0f626a93367b077f2171aeb9fae6
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-04T05:44:39Z
