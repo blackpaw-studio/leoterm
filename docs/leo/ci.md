@@ -139,6 +139,10 @@ installs its own updates from GitHub Releases.
   - unset: Leo leaves both alone, so Sparkle asks once ("check automatically?")
     through the update pill's permission popover: on a fresh install's second
     launch, and on an existing install's first launch of a B-115 build.
+    The popover is the only prompt: Sparkle's standard alert never asks too,
+    even though Sparkle asks before the first window is on screen. The
+    request waits for the first terminal window's pill, and survives the
+    last window closing (B-128).
     Every earlier build stored `SUEnableAutomaticChecks = NO` in the user's
     defaults, which beats Info.plist, so `UpdateDefaultsMigration` clears it
     (and `SUAutomaticallyUpdate`) once, behind the `LeoAutoUpdateDefaultsReset`
