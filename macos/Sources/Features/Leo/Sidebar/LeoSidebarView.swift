@@ -75,8 +75,7 @@ struct LeoSidebarView: View {
     @ObservedObject private var shortcutHints: LeoShortcutHints
     /// What the footer's buttons do: this window's File ▸ New Terminal and
     /// View ▸ Quick Terminal.
-    private let newTerminal: () -> Void
-    private let toggleQuickTerminal: () -> Void
+    private let buttonActions: LeoSidebarButtonActions
     @ObservedObject private var hostSelection: LeoHostSelection
     @State private var showingSpawn = false
     /// The row a "New Agent in Worktree…" sheet branches from (B-176).
@@ -92,8 +91,7 @@ struct LeoSidebarView: View {
         terminals: LeoWindowTerminals,
         searchFocusRequest: Int = 0,
         shortcutHints: LeoShortcutHints? = nil,
-        newTerminal: @escaping () -> Void = {},
-        toggleQuickTerminal: @escaping () -> Void = {}
+        buttonActions: LeoSidebarButtonActions = .none
     ) {
         self.model = model
         self.windowID = windowID
@@ -101,8 +99,7 @@ struct LeoSidebarView: View {
         self.terminals = terminals
         self.searchFocusRequest = searchFocusRequest
         _shortcutHints = ObservedObject(wrappedValue: shortcutHints ?? LeoShortcutHints())
-        self.newTerminal = newTerminal
-        self.toggleQuickTerminal = toggleQuickTerminal
+        self.buttonActions = buttonActions
         _hostSelection = ObservedObject(wrappedValue: actions.hostSelection)
     }
 
@@ -161,7 +158,7 @@ struct LeoSidebarView: View {
             if let panelError {
                 Text(panelError).font(.caption).foregroundStyle(Color(nsColor: .systemRed))
             }
-            LeoSidebarButtonBar(hints: shortcutHints, perform: perform)
+            LeoSidebarButtonBar(hints: shortcutHints, perform: buttonActions.perform)
         }
         .padding(.top, LeoSidebarChromeMetrics.topInset)
         .padding(.horizontal, LeoSidebarChromeMetrics.horizontalInset)
@@ -187,13 +184,6 @@ struct LeoSidebarView: View {
     }
 
     private var panelError: String? { model.panelError }
-
-    private func perform(_ button: LeoSidebarButton) {
-        switch button {
-        case .newTerminal: newTerminal()
-        case .quickTerminal: toggleQuickTerminal()
-        }
-    }
 
     /// This window's "Start <name>?" prompt (B-049); the model holds one
     /// per window, so the sheet shows only where the click was.

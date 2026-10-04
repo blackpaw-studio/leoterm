@@ -34,7 +34,7 @@ import Testing
     @Test func theStartScreensButtonsFitTheContentMinimum() {
         let placeholder = LeoPlaceholderView(
             model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), shortcutHints: LeoShortcutHints(),
-            openPicker: {}, newTerminal: {}, toggleDrawer: {})
+            openPicker: {}, buttonActions: .none)
         let idealWidth = NSHostingView(rootView: placeholder).fittingSize.width
 
         #expect(idealWidth > 300, "measured the three buttons, not an empty view: \(idealWidth)")

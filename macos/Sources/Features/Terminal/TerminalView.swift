@@ -120,15 +120,10 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                         session: leoSession, model: runtime.model, actions: runtime.actions,
                         titlebarIgnoredEdges: leoSplitIgnoredEdges,
                         // B-065: the sidebar footer's buttons are the menu
-                        // items' own actions. New Terminal targets this
-                        // window's controller, as the start screen's does.
-                        // Capture the delegate alone, never `self`: the
-                        // sidebar keeps this closure, and a copy of this view
-                        // holds the focused surface (`@FocusedValue`), which
-                        // would keep a displaced surface and its pty alive.
+                        // items' own actions, the same ones the start
+                        // screen's buttons send.
                         shortcutHints: runtime.shortcutHints,
-                        newTerminal: { [weak delegate] in LeoSidebarButton.newTerminal.send(to: delegate) },
-                        toggleQuickTerminal: { LeoSidebarButton.quickTerminal.send(to: NSApp.delegate) },
+                        buttonActions: leoButtonActions,
                         terminal: {
                             ZStack {
                                 terminalContent
@@ -163,6 +158,16 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
         }
     }
 
+    /// This window's New Terminal and Quick Terminal buttons (B-065,
+    /// B-113), for the sidebar footer and the start screen alike. Built
+    /// from the delegate alone, held weakly, never `self`: the sidebar keeps
+    /// these closures for the window's life, and a copy of this view holds
+    /// the focused surface (`@FocusedValue`), which would keep a displaced
+    /// surface and its pty alive.
+    private var leoButtonActions: LeoSidebarButtonActions {
+        .forWindow(delegate)
+    }
+
     /// The Leo start screen, shown in place of an empty terminal column.
     private func leoPlaceholder(session: LeoWindowSession, runtime: LeoRuntime) -> some View {
         LeoPlaceholderView(
@@ -170,11 +175,7 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
             hostSelection: runtime.hostSelection,
             shortcutHints: runtime.shortcutHints,
             openPicker: { session.openPicker(surfaceID: nil) },
-            newTerminal: { LeoPlaceholderNewTerminal.send(to: delegate) },
-            toggleDrawer: {
-                guard let appDelegate = NSApp.delegate as? AppDelegate else { return }
-                appDelegate.toggleQuickTerminal(appDelegate)
-            }
+            buttonActions: leoButtonActions
         )
     }
 
@@ -197,11 +198,7 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                                 hostSelection: runtime.hostSelection,
                                 shortcutHints: runtime.shortcutHints,
                                 openPicker: { leoSession.openPicker(surfaceID: surface.id) },
-                                newTerminal: { LeoPlaceholderNewTerminal.send(to: delegate) },
-                                toggleDrawer: {
-                                    guard let appDelegate = NSApp.delegate as? AppDelegate else { return }
-                                    appDelegate.toggleQuickTerminal(appDelegate)
-                                }))
+                                buttonActions: leoButtonActions))
                         })
                         .environmentObject(ghostty)
                         .ghosttyLastFocusedSurface(lastFocusedSurface)

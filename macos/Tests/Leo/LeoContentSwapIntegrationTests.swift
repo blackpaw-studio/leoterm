@@ -29,6 +29,9 @@ import Testing
         var task: Task<Void, Never>?
     }
 
+    /// Run-loop turns for a published placeholder change to reach the view.
+    private static let overlayLayoutPasses = 10
+
     private static var ghostty: Ghostty.App? { (NSApp.delegate as? AppDelegate)?.ghostty }
 
     /// A hidden window already showing one plain surface (not a handle).
@@ -115,6 +118,30 @@ import Testing
         #expect(fixture.host.isOpen(second))
         #expect(await eventually { firstSurface == nil }, "the displaced surface (and its pty) is freed")
         #expect(!fixture.events.events.contains(.closed(second)))
+    }
+
+    /// B-113: as above, but the displaced surface was showing the start
+    /// screen (an exited pane's placeholder), so the start screen's button
+    /// closures were live. They must not keep the surface alive either.
+    @Test func aDisplacedStartScreenSurfaceIsFreed() async throws {
+        guard let fixture = makeFixture(), let session = fixture.controller.leoSession else { return }
+        defer { close(fixture) }
+        weak var firstSurface = fixture.controller.surfaceTree.first
+        let firstID = try #require(firstSurface?.id)
+        session.rebirthPlaceholder(surfaceID: firstID)
+        try #require(session.placeholderSurfaceIDs.contains(firstID), "the pane shows the start screen")
+        // Let the view mirror the published set and lay the overlay (and its
+        // buttons' closures) out over the pane.
+        let contentView = try #require(fixture.controller.window?.contentView)
+        for _ in 0 ..< Self.overlayLayoutPasses {
+            contentView.layoutSubtreeIfNeeded()
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+
+        let second = try show(fixture)
+
+        #expect(fixture.host.isOpen(second))
+        #expect(await eventually { firstSurface == nil }, "the displaced start-screen surface (and its pty) is freed")
     }
 
     @Test func switchingIsNotUndoable() throws {
