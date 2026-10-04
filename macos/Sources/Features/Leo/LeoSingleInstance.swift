@@ -447,10 +447,10 @@ struct LeoSingleInstance {
     ///
     /// The kernel reports a process gone a moment before it releases its
     /// lock, so a try can still find the mark of a copy already waited out.
-    /// That's retried after a short pause, up to `maxReleasePauses` times
-    /// (seconds; the release takes well under a millisecond): long before
-    /// that, the lock is free, or a new holder has emptied the file and is
-    /// yielded to. A mark still there after all of them was left on a live
+    /// That's retried after a short pause, up to `maxReleasePauses` pauses
+    /// (about 5 s in all; the release takes well under a millisecond): long
+    /// before that, the lock is free, or a new holder has emptied the file
+    /// and is yielded to. A mark still there after all of them was left on a live
     /// holder that never clears it (an older build): `settle` yields to it.
     private func attempt(_ bundleIdentifier: String) -> LeoInstanceLockAttempt {
         var waitedOut: Set<pid_t> = []
@@ -464,7 +464,8 @@ struct LeoSingleInstance {
             } else {
                 guard pauses < Self.maxReleasePauses else {
                     // A live holder that never cleared its mark, or a mark stuck on a
-                    // copy that's gone: only this line tells the two apart in the field.
+                    // copy that's gone: this line names the pid, so the two can be told
+                    // apart in the field.
                     logError(
                         "the copy of \(bundleIdentifier) that marked the lock exiting (pid \(pid)) still holds it after "
                             + "\(pauses) release pauses; yielding to it as a running copy"
