@@ -60,6 +60,10 @@ class ExpiringUndoManager: UndoManager {
         // Snapshot before clearing: freeing a target inside the setter runs
         // its deinit, which re-enters removeAllActions(withTarget:) and
         // touches expiringTargets mid-write (an exclusivity violation).
+        // Each target is then expired explicitly, so its timer stops now
+        // rather than whenever the snapshot is freed; the second expire()
+        // its deinit runs then is a no-op -- expire() is idempotent, and
+        // its re-entry finds the set already empty.
         let expired = expiringTargets
         expiringTargets = []
         expired.forEach { $0.expire() }
