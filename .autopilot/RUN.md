@@ -40,3 +40,13 @@ Lane: B-177
   Call: Agent surfaces ignored by rename/close/split — Out (agent names are daemon-owned)
   Call: Title persistence is met through SurfaceView encode/decode only; no shell row is restored at launch today (window restoration off), restoring rows at launch would be a new item — P6, AUTONOMY
 Finished 1: B-177 landed 5d32041f1 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-177-0.png
+
+Lane: B-176
+  Branch: autopilot-lane/B-176
+  Base: 7a54c7b70d786ccdec4d45a09cd01af1e8d187fe
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
