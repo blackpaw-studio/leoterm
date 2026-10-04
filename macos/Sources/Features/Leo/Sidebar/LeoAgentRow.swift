@@ -24,8 +24,12 @@ struct LeoRowActionAvailability {
     let delete: Bool
     let attach: Bool
     let logs: Bool
+    /// B-176: a worktree branch needs the agent's GitHub owner/repo; the
+    /// agent's own status doesn't matter.
+    let newWorktree: Bool
 
-    init(status: LeoAgentStatus, isPending: Bool) {
+    init(status: LeoAgentStatus, isPending: Bool, repo: String? = nil) {
+        newWorktree = SpawnValidation.ownerRepo(repo) != nil
         let editable = !isPending && (status == .stopped || status == .running)
         start = !isPending && status == .stopped
         stop = !isPending && status == .running
@@ -72,13 +76,17 @@ struct LeoAgentRowView: View {
     /// This row's unseen surfaced files, newest last, and the open (B-013).
     var pendingSurfacedFiles: [LeoSurfacedFile] = []
     var openSurfacedFile: (LeoSurfacedFile) -> Void = { _ in }
+    /// Opens the New Agent sheet in worktree mode for this row (B-176). The
+    /// sheet lives on the sidebar, so it outlives this row re-sorting or
+    /// being filtered out.
+    var newWorktreeAgent: () -> Void = {}
     @State private var showingRename = false
     @State private var showingDelete = false
     /// The room the subtitle text has, once measured (B-043).
     @State private var subtitleWidth: CGFloat?
 
     private var availability: LeoRowActionAvailability {
-        LeoRowActionAvailability(status: row.status, isPending: actions.pendingActions.contains(row.id))
+        LeoRowActionAvailability(status: row.status, isPending: actions.pendingActions.contains(row.id), repo: row.repo)
     }
 
     var body: some View {
@@ -304,6 +312,7 @@ struct LeoAgentRowView: View {
         }.disabled(!availability.attach)
         // D-104: ⌘-click's new window, for the mouse user who doesn't know it.
         Button("Open in New Window") { attach(row, .newWindow) }.disabled(!availability.attach)
+        Button("New Agent in Worktree…", action: newWorktreeAgent).disabled(!availability.newWorktree)
         Button("Start") { actions.start(row) }.disabled(!availability.start)
         Button("Stop") { actions.stop(row) }.disabled(!availability.stop)
         Button("Restart") { actions.restart(row) }.disabled(!availability.restart)
