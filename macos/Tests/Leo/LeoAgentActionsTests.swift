@@ -155,6 +155,30 @@ import Testing
         #expect(calls.first?.arguments == expectedArguments)
     }
 
+    /// B-112: the shared fake answers exactly the templates it was built
+    /// with (none by default) and records each exec it was handed.
+    @Test func recordingTemplateRunnerAnswersItsConfiguredTemplates() async throws {
+        let suiteDefaults = LeoInMemoryDefaults()
+        let configuration = LeoHostConfiguration(name: "work", sshTarget: "evan@work")
+        suiteDefaults.set(try JSONEncoder().encode([configuration]), forKey: LeoHostStore.key)
+        let selection = LeoHostSelection.isolatedForTesting(defaults: suiteDefaults)
+        await selection.start(flavor: .socketEvents)
+        selection.select(.remote("work"))
+        let runner = LeoRecordingTemplateRunner(templates: ["a", "b"])
+        let actions = LeoAgentActions(
+            daemon: ActionDaemon(), cli: .recordingForTests(), model: LeoSidebarModel(),
+            hostSelection: selection, processRunner: runner, refresh: {}
+        )
+
+        #expect(try await actions.templates().map(\.name) == ["a", "b"])
+        let calls = await runner.calls
+        #expect(calls.count == 1)
+        #expect(calls.first?.executable == "/usr/bin/ssh")
+
+        let empty = try await LeoRecordingTemplateRunner().run(executable: "/leo", arguments: [], timeout: 1)
+        #expect(try JSONDecoder().decode([LeoTemplate].self, from: empty.stdout).isEmpty)
+    }
+
     /// A `templates()` call for host A that's still mid-fetch when the
     /// selection moves to host B must never leave B's cache entry
     /// contaminated with A's (now-stale) result once A's fetch finally

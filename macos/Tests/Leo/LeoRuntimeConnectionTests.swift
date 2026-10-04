@@ -80,6 +80,28 @@ import Testing
         #expect(call.arguments == ["-o", "BatchMode=yes", "evan@work", "~/'.local/bin/leo' 'template' 'list' '--json'"])
     }
 
+    /// B-112: selecting localhost loads its templates through the `LeoCLI`
+    /// `LeoRuntime` was given -- the same `leo template list --json`
+    /// production runs, but no real local `leo` process is launched.
+    @Test func selectingTheLocalHostFetchesTemplatesThroughTheInjectedCLIRunner() async throws {
+        let recorder = LeoRecordingTemplateRunner(templates: ["local-template"])
+        let activitySource = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
+        let runtime = LeoRuntime(
+            daemon: RuntimeTestDaemon(), cli: .recordingForTests(runner: recorder), activitySource: activitySource,
+            defaults: LeoInMemoryDefaults(), templateFetchRunner: LeoRecordingTemplateRunner()
+        )
+        defer { runtime.shutdown() }
+
+        await runtime.hostSelection.start(flavor: .socketEvents)
+
+        #expect(runtime.hostSelection.selected == .local)
+        await awaitCondition(timeout: 5, message: "localhost's templates never loaded") {
+            await runtime.actions.templateList == .loaded([LeoTemplate(name: "local-template")])
+        }
+        let calls = await recorder.calls
+        #expect(calls == [.init(executable: "/leo", arguments: ["template", "list", "--json"])], "one CLI template fetch, got \(calls)")
+    }
+
     /// `applyConnected`'s flavor-detection `await` is the one place a stale
     /// async build could install over a newer state. Gates that SECOND
     /// `/health` call (the tunnel's own readiness probe is call #1, which
