@@ -1388,3 +1388,8 @@ Source: autopilot polish (B-123)
 Why: B-123 implementer saw it fail once in a mutation run; passed elsewhere. Same family as the LeoTerminalRowsIntegrationTests focus flakes item
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-123)
+
+## B-210 · testSelectionFocusChange uses a bare XCUIApplication()   [ready (next run)]
+Why: B-125 review: it misses -ApplePersistenceIgnoreState and the isolated config/defaults of ghosttyApplication(), and since it now calls launch() it can restore the debug bundle's saved windows (predates B-125); also document that launch() terminates any running debug Leo before relaunching
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-125)

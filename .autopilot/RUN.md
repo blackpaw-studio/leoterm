@@ -20,6 +20,7 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 - B-122 runner: ready, general full, 2036/2036 green; new tests shown able to fail.
 - B-123 runner: ready, general full, 2039/2039 green.
 - B-124 runner: ready, general full, 2039/2039 green.
+- B-125 runner: ready, general full; UI tests compile-verified only (not run by leo-runtests.sh); 2039/2039 green.
 
 Lane: B-058
   Branch: autopilot-lane/B-058
@@ -252,9 +253,11 @@ Lane: B-125
   Branch: autopilot-lane/B-125
   Base: c155176662f1e237367c0326c828801c564364b4
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 923b530237071df953ea9dd4f3d0d09f68a35b44
   Dispatched: 2026-10-04T08:51:47Z
+  Call: UI tests' first app start uses launch() instead of activate(), since XCUIApplication only promises launchArguments from an earlier launch — AUTONOMY test infrastructure
+  Call: Same activate()→launch() change in GhosttyCommandPaletteTests, so D-224 holds for every UI test — AUTONOMY test infrastructure
