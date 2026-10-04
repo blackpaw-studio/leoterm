@@ -93,3 +93,14 @@ Lane: B-112
   Call: Named the helpers LeoRecordingTemplateRunner(templates:) and LeoCLI.recordingForTests — AUTONOMY naming
   Call: Kept GatedTemplateRunner and GatedTemplateProcess as separate fakes, because they test concurrency rather than plain recording — AUTONOMY test infrastructure
 Finished 4: B-112 landed fc43c0acf · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-112-1.png
+
+Lane: B-113
+  Branch: autopilot-lane/B-113
+  Base: f5997c8fd4fa50b729d82b435cc84ee295a3baaa
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-04T04:29:32Z
