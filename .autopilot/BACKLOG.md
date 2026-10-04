@@ -1278,3 +1278,8 @@ Source: autopilot polish (B-176)
 Why: B-176 verify: Host and Repository rows are tight and the branch hint sits under the label column
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-176)
+
+## B-191 · anEmptyNameRestoresTheLiveTitle flakes under load   [ready (next run)]
+Why: B-111 verify: LeoTerminalRowMenuIntegrationTests/anEmptyNameRestoresTheLiveTitle failed once under load (line 161 eventually-timeout on the "  " case); not in verify.md's known-flake list
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-111)

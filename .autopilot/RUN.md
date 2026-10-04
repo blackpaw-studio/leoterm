@@ -10,6 +10,7 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 - B-176 landed 937564be0 (1 fix round; 2015 tests green). Verifier temporarily repointed autopilot-scratch at evandcoleman/nomad-openvpn-deploy-action and restored it; briefly created+deleted a stray leo-claude-autopilot-scratch agent; left clone /Users/evan/.leo/agents/nomad-openvpn-deploy-action.
 - B-111: runner handed back "blocked" mid-build (told to hand back while its implementer was still running; not a real block). Not shelved: waiting for the orphaned implementer, then a fresh build runner on the same lane (wip b76844890 + uncommitted test edits).
 - Board sync: B-014: unknown status [deferred] (exit 1)
+- B-111 resumed runner: ready, general full, suite green on 3rd run (one new flake filed, one known).
 
 Lane: B-058
   Branch: autopilot-lane/B-058
@@ -68,9 +69,10 @@ Lane: B-111
   Branch: autopilot-lane/B-111
   Base: d9ec5b6bd7169aacf1d0565577d5a5a713c16b1a
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 6c8211537944153dfd95f104504e5a252fd63d7b
   Dispatched: 2026-10-04T02:54:04Z
+  Call: LeoTerminalRowsIntegrationTests.freshUndo had the same redundant removeAllActions(withTarget:) next to leoRemoveActionsTestsCanReplay, so it was removed too — AUTONOMY polish / test infrastructure
