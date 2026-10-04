@@ -7,6 +7,7 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 ## Progress
 - Preflight 2026-10-03: previous run finished cleanly; main already in autopilot. Inbox: B-176, B-177 added (/feature). 25 next-run items promoted. No vetoes.
 - B-177 landed 5d32041f1 (1 fix round; 1996 tests green).
+- B-176 landed 937564be0 (1 fix round; 2015 tests green). Verifier temporarily repointed autopilot-scratch at evandcoleman/nomad-openvpn-deploy-action and restored it; briefly created+deleted a stray leo-claude-autopilot-scratch agent; left clone /Users/evan/.leo/agents/nomad-openvpn-deploy-action.
 - Board sync: B-014: unknown status [deferred] (exit 1)
 
 Lane: B-058
@@ -45,7 +46,7 @@ Lane: B-176
   Branch: autopilot-lane/B-176
   Base: 7a54c7b70d786ccdec4d45a09cd01af1e8d187fe
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
@@ -60,3 +61,4 @@ Lane: B-176
   Call: A host switch while the sheet is open blocks Create with "Host changed: switch back to <host> to create this agent" — D-103, P3
   Call: LeoAgentActions binds the daemon to its host; spawn refuses with "Not connected to <host> yet" on a mismatch, and the plain New Agent sheet gets the same guard — P3
   Call: A result dropped by a host change resets the sheet with "Host changed; the agent may have been created on <host>"; editing clears a stale error; control characters get their own branch message — AUTONOMY UX
+Finished 2: B-176 landed 937564be0 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-176-3.png

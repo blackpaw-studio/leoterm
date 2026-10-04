@@ -2129,3 +2129,66 @@ Chose: Title persistence is met through SurfaceView encode/decode only; no shell
 Why: P6, AUTONOMY
 Commit: fd55a3a90, d8d41b5da, 10651dd62
 Veto: [ ]
+
+## D-293 · 2026-10-03 · Reuse the New Agent sheet in a worktree mode instead of adding a seco…
+Context: B-176 (runner call).
+Chose: Reuse the New Agent sheet in a worktree mode instead of adding a second sheet
+Why: P1/P4
+Commit: 7f3a25018, 233fae09f, 6d8f5f392, cc9a85fa0
+Veto: [ ]
+
+## D-294 · 2026-10-03 · "New Agent in Worktree…" goes right after "Open in New Window"; branc…
+Context: B-176 (runner call).
+Chose: "New Agent in Worktree…" goes right after "Open in New Window"; branch placeholder "feature/my-change"; helper "New branch from origin's default branch"; header "New Agent in Worktree"
+Why: P1
+Commit: 7f3a25018, 233fae09f, 6d8f5f392, cc9a85fa0
+Veto: [ ]
+
+## D-295 · 2026-10-03 · Spawn goes through the selected host's daemon API (branch = --worktre…
+Context: B-176 (runner call).
+Chose: Spawn goes through the selected host's daemon API (branch = --worktree), not a CLI exec; the fake runner is a fake LeoDaemonClient
+Why: P3
+Commit: 7f3a25018, 233fae09f, 6d8f5f392, cc9a85fa0
+Veto: [ ]
+
+## D-296 · 2026-10-03 · Template prefilled and editable; Host and Repository read-only; Name …
+Context: B-176 (runner call).
+Chose: Template prefilled and editable; Host and Repository read-only; Name and Prompt optional and empty
+Why: Out (no context carried over)
+Commit: 7f3a25018, 233fae09f, 6d8f5f392, cc9a85fa0
+Veto: [ ]
+
+## D-297 · 2026-10-03 · Item is enabled for any agent status and disabled only when the agent…
+Context: B-176 (runner call).
+Chose: Item is enabled for any agent status and disabled only when the agent has no owner/repo
+Why: P1
+Commit: 7f3a25018, 233fae09f, 6d8f5f392, cc9a85fa0
+Veto: [ ]
+
+## D-298 · 2026-10-03 · Not added to the menu-bar Agents menu; no shortcut
+Context: B-176 (runner call).
+Chose: Not added to the menu-bar Agents menu; no shortcut
+Why: Out
+Commit: 7f3a25018, 233fae09f, 6d8f5f392, cc9a85fa0
+Veto: [ ]
+
+## D-299 · 2026-10-03 · A host switch while the sheet is open blocks Create with "Host change…
+Context: B-176 (runner call).
+Chose: A host switch while the sheet is open blocks Create with "Host changed: switch back to <host> to create this agent"
+Why: D-103, P3
+Commit: 7f3a25018, 233fae09f, 6d8f5f392, cc9a85fa0
+Veto: [ ]
+
+## D-300 · 2026-10-03 · LeoAgentActions binds the daemon to its host; spawn refuses with "Not…
+Context: B-176 (runner call).
+Chose: LeoAgentActions binds the daemon to its host; spawn refuses with "Not connected to <host> yet" on a mismatch, and the plain New Agent sheet gets the same guard
+Why: P3
+Commit: 7f3a25018, 233fae09f, 6d8f5f392, cc9a85fa0
+Veto: [ ]
+
+## D-301 · 2026-10-03 · A result dropped by a host change resets the sheet with "Host changed…
+Context: B-176 (runner call).
+Chose: A result dropped by a host change resets the sheet with "Host changed; the agent may have been created on <host>"; editing clears a stale error; control characters get their own branch message
+Why: AUTONOMY UX
+Commit: 7f3a25018, 233fae09f, 6d8f5f392, cc9a85fa0
+Veto: [ ]

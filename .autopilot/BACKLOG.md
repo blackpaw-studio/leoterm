@@ -344,13 +344,14 @@ Source: Evan (/feature, 2026-10-03)
 Inbox: 20261002T013226996464Z-7ea15972#1
 Done: fd55a3a90 d8d41b5da 10651dd62 (1996 tests). Terminals rows get a context menu: Show, Split Right, Split Down, Rename…, Close (asks like ⌘W when busy). Rename sets a custom title on the surface that sticks over OSC titles; blank restores the live title. Title persists via surface encode/decode (round-trip test only: no shell row is restored at launch today). Decisions D-284–D-292. Verified: shots B-177-0..7 (menu, Rename sheet, renamed row sticking after cd, cleared to live title, close). 1 fix round (pinned that no hidden row keeps a busy split for Close).
 
-## B-176 · New Agent in Worktree from a sidebar row   [ready]
+## B-176 · New Agent in Worktree from a sidebar row   [done]
 Issue: #181
 Why: branch a parallel agent off an existing agent's repo without leaving the app (P4 everything through Leo; P1 every action has a menu item)
 Accept: an agent row's context menu has "New Agent in Worktree…", opening the New Agent sheet prefilled with that agent's template, host and owner/repo plus a required branch field; submitting runs the spawn with --worktree <branch> on the agent's host (local and remote, tested with a fake runner) and selects the new agent's row; the item is disabled for agents with no owner/repo; screenshot of the menu and the prefilled sheet
 Out: carrying the source agent's context or prompt over; basing on the source agent's branch (base stays origin HEAD); worktree cleanup/removal; a shortcut beyond the menu item
 Source: Evan (/feature, 2026-10-03)
 Inbox: 20261001T230248695398Z-abe4ea92#1
+Done: 7f3a25018 233fae09f 6d8f5f392 cc9a85fa0 (2015 tests). Agent rows get "New Agent in Worktree…" (after Open in New Window; disabled with no owner/repo), opening the New Agent sheet in a worktree mode: template prefilled, host and repo read-only, required branch. Create spawns through the host's daemon API with branch = worktree, and selects the new row; a host switch mid-sheet blocks Create. Decisions D-293–D-301. Verified: shots B-176-1..3 (menu, prefilled sheet; never submitted). Remote covered by fake-daemon tests only. 1 fix round (host/daemon race; a selectedHost guard that failed open).
 
 ## B-111 · Undo docs and test-name polish   [ready]
 Issue: #115
