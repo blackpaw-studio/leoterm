@@ -402,11 +402,12 @@ Accept: compare proc_pidpath or bundle ID as well as the uid before waiting on a
 Source: autopilot polish (B-092)
 Done: 882b0040f (2029 tests). Before waiting on a marked pid, single-instance now checks it is a copy of this bundle (bundle ID + CFBundleExecutable from its Info.plist, read safely); unreadable identity takes the bounded ~5 s path. Verified: shots B-118-1..2 (still yields to a real copy; survives a quit race). The wait branch itself is covered by unit tests only. Decisions D-314–D-319.
 
-## B-119 · Single-instance: log when the release retry runs out   [ready]
+## B-119 · Single-instance: log when the release retry runs out   [done]
 Issue: #123
 Why: log an error naming the pid and pause count when the release retry is exhausted, so a stuck-mark yield is distinguishable in the field
 Accept: log an error naming the pid and pause count when the release retry is exhausted, so a stuck-mark yield is distinguishable in the field; test where behaviour changes
 Source: autopilot polish (B-092)
+Done: 819fa9299 (2030 tests). When the instance-lock release retry runs out, single-instance now logs an error naming the pid and pause count (existing leo logger, injected logError sink with a test). Not visually verified: log-only change. Decisions D-320–D-321.
 
 ## B-120 · Single-instance: fix maxReleasePauses doc comment   [ready]
 Issue: #124

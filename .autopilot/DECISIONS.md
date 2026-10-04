@@ -2318,3 +2318,17 @@ Chose: isCopy has no default; every caller passes an explicit check (no implicit
 Why: AUTONOMY implementation approach
 Commit: 882b0040f
 Veto: [ ]
+
+## D-320 · 2026-10-03 · Injected sink named logError: (String) -> Void (no default, beside al…
+Context: B-119 (runner call).
+Chose: Injected sink named logError: (String) -> Void (no default, beside alert/terminate); the refusal log in settle still calls the logger directly to keep the change small
+Why: AUTONOMY implementation approach/naming
+Commit: 819fa9299
+Veto: [ ]
+
+## D-321 · 2026-10-03 · Log copy "…still holds it after N release pauses; yielding to it as a…
+Context: B-119 (runner call).
+Chose: Log copy "…still holds it after N release pauses; yielding to it as a running copy" (log-only, .error, privacy .public, existing leo logger)
+Why: AUTONOMY copy
+Commit: 819fa9299
+Veto: [ ]
