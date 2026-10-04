@@ -330,7 +330,7 @@ struct LeoSidebarView: View {
     private var terminalSection: some View {
         Section(header: Text("Terminals")) {
             ForEach(terminals.list.labels) { label in
-                LeoTerminalRowView(label: label) { terminals.activate(label.id) }
+                LeoTerminalRowView(label: label, terminals: terminals)
                     .tag(Optional(LeoSidebarItemID.terminal(label.id)))
                     .id(LeoSidebarItemID.terminal(label.id))
             }

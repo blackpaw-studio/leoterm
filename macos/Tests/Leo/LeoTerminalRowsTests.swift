@@ -119,6 +119,44 @@ import Testing
         #expect(terminals.selection == a)
     }
 
+    // MARK: The row's menu (B-177)
+
+    /// Each menu action reaches only a row this window lists, and moves no
+    /// selection by itself.
+    @Test func menuActionsReachOnlyListedRows() {
+        let terminals = LeoWindowTerminals()
+        terminals.add(a, title: "")
+        terminals.add(b, title: "")
+        terminals.select(b)
+        var renamed: [(UUID, String)] = []
+        var split: [(UUID, LeoSplitDirection)] = []
+        var closed: [UUID] = []
+        terminals.renameRequested = { renamed.append(($0, $1)) }
+        terminals.splitRequested = { split.append(($0, $1)) }
+        terminals.closeFromMenuRequested = { closed.append($0) }
+
+        terminals.rename(a, to: "build")
+        terminals.split(a, .right)
+        terminals.split(a, .down)
+        terminals.closeFromMenu(a)
+        terminals.rename(c, to: "nope")
+        terminals.split(c, .right)
+        terminals.closeFromMenu(c)
+
+        #expect(renamed.map(\.0) == [a] && renamed.map(\.1) == ["build"])
+        #expect(split.map(\.0) == [a, a] && split.map(\.1) == [.right, .down])
+        #expect(closed == [a])
+        #expect(terminals.selection == b, "the menu acts on its row, not the selection")
+    }
+
+    /// Rename with the prefilled title left as it was changes nothing (no
+    /// title is pinned); anything else, blank included, is handed on.
+    @Test func theRenameSheetHandsOnOnlyAChangedName() {
+        #expect(LeoTerminalRenameSheet.submission(name: "~/src", currentTitle: "~/src") == nil)
+        #expect(LeoTerminalRenameSheet.submission(name: "build", currentTitle: "~/src") == "build")
+        #expect(LeoTerminalRenameSheet.submission(name: "", currentTitle: "~/src") == "", "blank restores the live title")
+    }
+
     // MARK: One window's rows
 
     @Test func removingTheSelectedRowClearsTheSelection() {
