@@ -2367,3 +2367,17 @@ Chose: Test the real UpdateDriver.updater(_:mayPerform:) through an unstarted SP
 Why: AUTONOMY test infrastructure
 Commit: 0d97ffa3c
 Veto: [ ]
+
+## D-327 · 2026-10-03 · Named the constants UpdateDriver.CheckRefusal.{domain,code}, nested o…
+Context: B-124 (runner call).
+Chose: Named the constants UpdateDriver.CheckRefusal.{domain,code}, nested on the SPUUpdaterDelegate extension next to their only user, not a global
+Why: AUTONOMY naming/implementation approach
+Commit: 9893742e4
+Veto: [ ]
+
+## D-328 · 2026-10-03 · Left the refusal's localized description as a literal; the item cover…
+Context: B-124 (runner call).
+Chose: Left the refusal's localized description as a literal; the item covers only the code and domain
+Why: AUTONOMY implementation approach
+Commit: 9893742e4
+Veto: [ ]

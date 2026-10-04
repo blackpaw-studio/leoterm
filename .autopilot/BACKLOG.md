@@ -437,11 +437,12 @@ Accept: test updater(_:mayPerform:) beyond the pure UpdatePolicy.mayCheck (both 
 Source: autopilot polish (B-115)
 Done: 0d97ffa3c (2039 tests). UpdateDelegateTests exercise the real updater(_:mayPerform:) adapter (allowed and refused paths, and the error it returns) through an unstarted SPUUpdater subclass; no product seam added; shown able to fail by mutation. Not visually verified: tests only. Decision D-326.
 
-## B-124 · Name UpdateDelegate error constants   [ready]
+## B-124 · Name UpdateDelegate error constants   [done]
 Issue: #128
 Why: inline error code 1 and domain string in UpdateDelegate.swift:119 should be named constants
 Accept: inline error code 1 and domain string in UpdateDelegate.swift:119 should be named constants
 Source: autopilot polish (B-115)
+Done: 9893742e4 (2039 tests). The update check-refusal error code and domain are named constants UpdateDriver.CheckRefusal.{domain,code}; UpdateDelegateTests use them. Not visually verified: refactor, no UI change. Decisions D-327–D-328.
 
 ## B-125 · GhosttyMouseStateTests launch arguments   [ready]
 Issue: #129
