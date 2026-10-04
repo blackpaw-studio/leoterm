@@ -194,7 +194,7 @@ Lane: B-121
   Branch: autopilot-lane/B-121
   Base: 9a3101e1e5b67f4eef5d0edebe42fcc0c52ad41b
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -203,3 +203,4 @@ Lane: B-121
   Call: gone()'s liveness probe is injectable (gone(isGone:)) rather than forcing real pid reuse in a test — AUTONOMY test infrastructure / flake fixes
   Call: gone() checks at hand-out with a bounded retry (maxGoneAttempts = 5, then GoneError.everyPidTakenOver), not a re-check at every call site — AUTONOMY test infrastructure / flake fixes
   Call: waitpid inside gone() retries on EINTR (otherwise a zombie reads as not gone) — AUTONOMY flake fixes
+Finished 14: B-121 landed 5fa22eae5 · shot not visually verified

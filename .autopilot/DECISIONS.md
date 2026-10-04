@@ -2332,3 +2332,24 @@ Chose: Log copy "…still holds it after N release pauses; yielding to it as a r
 Why: AUTONOMY copy
 Commit: 819fa9299
 Veto: [ ]
+
+## D-322 · 2026-10-03 · gone()'s liveness probe is injectable (gone(isGone:)) rather than for…
+Context: B-121 (runner call).
+Chose: gone()'s liveness probe is injectable (gone(isGone:)) rather than forcing real pid reuse in a test
+Why: AUTONOMY test infrastructure / flake fixes
+Commit: 4dba68680
+Veto: [ ]
+
+## D-323 · 2026-10-03 · gone() checks at hand-out with a bounded retry (maxGoneAttempts = 5, …
+Context: B-121 (runner call).
+Chose: gone() checks at hand-out with a bounded retry (maxGoneAttempts = 5, then GoneError.everyPidTakenOver), not a re-check at every call site
+Why: AUTONOMY test infrastructure / flake fixes
+Commit: 4dba68680
+Veto: [ ]
+
+## D-324 · 2026-10-03 · waitpid inside gone() retries on EINTR (otherwise a zombie reads as n…
+Context: B-121 (runner call).
+Chose: waitpid inside gone() retries on EINTR (otherwise a zombie reads as not gone)
+Why: AUTONOMY flake fixes
+Commit: 4dba68680
+Veto: [ ]

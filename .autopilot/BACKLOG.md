@@ -416,11 +416,12 @@ Accept: the attempt doc comment says "maxReleasePauses times (seconds; test wher
 Source: autopilot polish (B-092)
 Done: fdbdb1a36 (2030 tests). The attempt doc comment now describes maxReleasePauses as a pause count (2,500 × 2,000 µs ≈ 5 s); also reworded the B-119 pid-line comment. Not visually verified: comments only.
 
-## B-121 · LeoTestProcess.gone() pid reuse flake   [ready]
+## B-121 · LeoTestProcess.gone() pid reuse flake   [done]
 Issue: #125
 Why: gone() returns a reaped pid that can be reused; re-check ESRCH just before use
 Accept: gone() returns a reaped pid that can be reused; test where behaviour changes
 Source: autopilot polish (B-092)
+Done: 4dba68680 (2034 tests). LeoTestProcess.gone() checks the pid is still free at hand-out (injectable probe, 5 bounded retries, EINTR-safe waitpid) so a test never gets a pid a live process reused. Not visually verified: test support only. Decisions D-322–D-324.
 
 ## B-122 · Test Return To Default Size menu enabled state   [ready]
 Issue: #126
