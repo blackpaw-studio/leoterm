@@ -176,3 +176,14 @@ Lane: B-119
   Call: Injected sink named logError: (String) -> Void (no default, beside alert/terminate); the refusal log in settle still calls the logger directly to keep the change small — AUTONOMY implementation approach/naming
   Call: Log copy "…still holds it after N release pauses; yielding to it as a running copy" (log-only, .error, privacy .public, existing leo logger) — AUTONOMY copy
 Finished 12: B-119 landed fb202185a · shot not visually verified
+
+Lane: B-120
+  Branch: autopilot-lane/B-120
+  Base: bdb2a31b77404e2d6314f39d424084500b24460c
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-04T07:20:15Z
