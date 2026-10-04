@@ -26,8 +26,10 @@ enum LeoSidebarButton: CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .newTerminal: "terminal"
-        // The quick terminal drops down from the top of the screen.
-        case .quickTerminal: "rectangle.tophalf.inset.filled"
+        // The quick terminal is a panel dropping from the menu bar. Not
+        // Split Up's `rectangle.tophalf.inset.filled`, which read as a
+        // split (refines D-207, B-113).
+        case .quickTerminal: "menubar.arrow.down.rectangle"
         }
     }
 
