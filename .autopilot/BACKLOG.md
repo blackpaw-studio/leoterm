@@ -1376,3 +1376,13 @@ Source: autopilot polish (B-121)
 Why: B-122 review: use configuredContentSize(of:) in the two existing B-097 tests (LeoFirstAttachWindowSizeTests.swift:176-178, :217-219); note in the suite doc that the contentIntrinsicSize tests assume the host config doesn't set window-maximize; add a disabled-state check after a real Reset Window Size (apply())
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-122)
+
+## B-208 · UpdateDelegateTests StubUpdater downloads can be let   [ready (next run)]
+Why: B-123 review: the setter is never used; make it a let with a getter-only override (style)
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-123)
+
+## B-209 · closingTheShownRowsPaneHandsTheRowToTheNextFocusedPane flakes   [ready (next run)]
+Why: B-123 implementer saw it fail once in a mutation run; passed elsewhere. Same family as the LeoTerminalRowsIntegrationTests focus flakes item
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-123)

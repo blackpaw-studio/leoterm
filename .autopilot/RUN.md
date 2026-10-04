@@ -18,6 +18,7 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 - B-119 runner: ready, general full, 2030/2030 on rerun.
 - B-121 runner: ready, general full, 2034/2034 green.
 - B-122 runner: ready, general full, 2036/2036 green; new tests shown able to fail.
+- B-123 runner: ready, general full, 2039/2039 green.
 
 Lane: B-058
   Branch: autopilot-lane/B-058
@@ -223,9 +224,10 @@ Lane: B-123
   Branch: autopilot-lane/B-123
   Base: 252093da64d713e67a47c41a4ba8bb609957e6a8
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 6f5f51901a85898ca51eeaaa9c069606bc44c5a4
   Dispatched: 2026-10-04T08:12:37Z
+  Call: Test the real UpdateDriver.updater(_:mayPerform:) through an unstarted SPUUpdater subclass that overrides automaticallyDownloadsUpdates, with no seam added to product code — AUTONOMY test infrastructure
