@@ -134,7 +134,7 @@ import Testing
         let center = NotificationCenter()
         let defaults = LeoInMemoryDefaults()
         let runtime = LeoRuntime(
-            daemon: daemon, cli: LeoCLI(),
+            daemon: daemon, cli: .recordingForTests(),
             activitySource: .init(events: { AsyncStream { $0.finish() } }, fetchState: { [] }),
             defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner(), wakeNotifications: center
         )

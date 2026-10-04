@@ -71,7 +71,7 @@ import OSLog
         #endif
         let daemon = LeoRuntime.makeClient(socketPath: socketPath)
         self.init(
-            daemon: daemon, cli: LeoCLI(), activitySource: activity, defaults: defaults,
+            daemon: daemon, cli: LeoCLI(runner: LeoProcessRunner()), activitySource: activity, defaults: defaults,
             templateFetchRunner: LeoProcessRunner()
         )
     }

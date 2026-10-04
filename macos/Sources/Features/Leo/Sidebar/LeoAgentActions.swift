@@ -27,6 +27,10 @@ import Foundation
     private let cli: LeoCLI
     private let model: LeoSidebarModel
     private let refresh: () -> Void
+    /// Runs a remote host's one-off `ssh … leo template list --json`
+    /// (B-061). Deliberately no default (B-112): `LeoRuntime` passes its
+    /// `templateFetchRunner`, and a test that forgot a fake would ssh into a
+    /// real host on selecting it.
     private let processRunner: any LeoProcessRunning
     private let sshExecutable: String
     /// One cache instance for whichever host is currently selected --
@@ -49,7 +53,7 @@ import Foundation
 
     init(daemon: any LeoDaemonClient, daemonHost: LeoHostID = .local, cli: LeoCLI, model: LeoSidebarModel,
          hostSelection: LeoHostSelection,
-         processRunner: any LeoProcessRunning = LeoProcessRunner(),
+         processRunner: any LeoProcessRunning,
          sshExecutable: String = "/usr/bin/ssh",
          refresh: @escaping () -> Void) {
         self.daemon = daemon

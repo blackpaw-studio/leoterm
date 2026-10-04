@@ -69,7 +69,7 @@ import Testing
         let selection = LeoHostSelection.isolatedForTesting()
         await selection.start(flavor: .socketEvents)
         let sidebar = LeoSidebarModel()
-        let actions = LeoAgentActions(daemon: localDaemon, cli: worktreeCLI(), model: sidebar, hostSelection: selection, refresh: {})
+        let actions = LeoAgentActions(daemon: localDaemon, cli: worktreeCLI(), model: sidebar, hostSelection: selection, processRunner: LeoRecordingTemplateRunner(templates: ["claude"]), refresh: {})
         // No configuration for "work": the selection fails fast instead of
         // exec'ing a real ssh; LeoRuntime would hand actions the tunnel's
         // daemon, which the fake stands in for.
@@ -82,7 +82,7 @@ import Testing
     @Test func worktreeSpawnFailureKeepsSheetAndShowsError() async {
         let daemon = WorktreeDaemon(error: .daemon(code: "x", message: "branch exists", matches: []))
         let actions = LeoAgentActions(
-            daemon: daemon, cli: worktreeCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), refresh: {})
+            daemon: daemon, cli: worktreeCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(templates: ["claude"]), refresh: {})
         let model = worktreeModel(source: sourceRow(host: .local))
         model.branch = "feat/x"
         var dismissed = false
@@ -116,7 +116,7 @@ import Testing
         let selection = LeoHostSelection.isolatedForTesting()
         await selection.start(flavor: .socketEvents)
         let actions = LeoAgentActions(
-            daemon: localDaemon, cli: worktreeCLI(), model: LeoSidebarModel(), hostSelection: selection, refresh: {})
+            daemon: localDaemon, cli: worktreeCLI(), model: LeoSidebarModel(), hostSelection: selection, processRunner: LeoRecordingTemplateRunner(templates: ["claude"]), refresh: {})
         selection.select(.remote("work"))
         let model = worktreeModel(source: sourceRow(host: .remote("work")))
         model.branch = "feat/x"
@@ -142,7 +142,7 @@ import Testing
         let selection = LeoHostSelection.isolatedForTesting()
         await selection.start(flavor: .socketEvents)
         let actions = LeoAgentActions(
-            daemon: localDaemon, cli: worktreeCLI(), model: LeoSidebarModel(), hostSelection: selection, refresh: {})
+            daemon: localDaemon, cli: worktreeCLI(), model: LeoSidebarModel(), hostSelection: selection, processRunner: LeoRecordingTemplateRunner(templates: ["claude"]), refresh: {})
         selection.select(.remote("work"))
         let model = worktreeModel(source: nil)
         model.template = "claude"
@@ -162,7 +162,7 @@ import Testing
         let selection = LeoHostSelection.isolatedForTesting()
         await selection.start(flavor: .socketEvents)
         let actions = LeoAgentActions(
-            daemon: daemon, cli: worktreeCLI(), model: LeoSidebarModel(), hostSelection: selection, refresh: {})
+            daemon: daemon, cli: worktreeCLI(), model: LeoSidebarModel(), hostSelection: selection, processRunner: LeoRecordingTemplateRunner(templates: ["claude"]), refresh: {})
         let model = worktreeModel(source: sourceRow(host: .local))
         model.branch = "feat/x"
         var dismissed = false
@@ -196,7 +196,7 @@ import Testing
 
     private func spawnAndSelect(daemon: WorktreeDaemon, selection: LeoHostSelection, host: LeoHostID) async throws {
         let sidebar = LeoSidebarModel()
-        let actions = LeoAgentActions(daemon: daemon, cli: worktreeCLI(), model: sidebar, hostSelection: selection, refresh: {})
+        let actions = LeoAgentActions(daemon: daemon, cli: worktreeCLI(), model: sidebar, hostSelection: selection, processRunner: LeoRecordingTemplateRunner(templates: ["claude"]), refresh: {})
         try await spawnAndSelect(daemon: daemon, sidebar: sidebar, actions: actions, host: host)
     }
 
@@ -242,7 +242,7 @@ import Testing
     }
 
     private func worktreeCLI() -> LeoCLI {
-        LeoCLI(executableOverride: "/leo", runner: WorktreeRunner(), isExecutable: { _ in true })
+        .recordingForTests(templates: ["claude"])
     }
 }
 
@@ -280,10 +280,4 @@ private actor WorktreeDaemon: LeoDaemonClient {
     func delete(_ name: String, force: Bool?, deleteBranch: Bool?) async throws {}
     func deletePlan(_ name: String) async throws -> LeoDeletePlan { throw LeoDaemonError.transport("unused") }
     func logs(_ name: String, lines: Int?) async throws -> String { "" }
-}
-
-private struct WorktreeRunner: LeoProcessRunning {
-    func run(executable: String, arguments: [String], timeout: TimeInterval) async throws -> LeoProcessResult {
-        LeoProcessResult(stdout: Data(#"[{"name":"claude"}]"#.utf8), stderr: Data(), status: 0)
-    }
 }

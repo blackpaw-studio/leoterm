@@ -54,7 +54,7 @@ struct LeoOpenFileFixtureTests {
         try await withLeoFileSandbox(.local) { sandbox, _ in
             let defaults = LeoInMemoryDefaults()
             let activity = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
-            let runtime = LeoRuntime(daemon: QuitReviewDaemon(), cli: LeoCLI(), activitySource: activity, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner())
+            let runtime = LeoRuntime(daemon: QuitReviewDaemon(), cli: .recordingForTests(), activitySource: activity, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner())
             let session = runtime.registry.makeSession(defaults: defaults, makeFileAccess: { _ in
                 throw LeoFileAccessError.unavailable(reason: "Leo is connected to work, not localhost")
             })

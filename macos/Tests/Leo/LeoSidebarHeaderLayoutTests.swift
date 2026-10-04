@@ -84,7 +84,7 @@ struct LeoSidebarHeaderLayoutTests {
         }
         let model = LeoSidebarModel(snapshot: LeoSidebarSnapshot(rows: agents, connectivity: .connected, generation: 1))
         let actions = LeoAgentActions(
-            daemon: HeaderLayoutTestDaemon(), cli: LeoCLI(), model: model, hostSelection: .isolatedForTesting(), refresh: {}
+            daemon: HeaderLayoutTestDaemon(), cli: .recordingForTests(), model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {}
         )
         let frames = HeaderFrames(contentSize: CGSize(width: width, height: Self.height))
         let window = NSWindow(

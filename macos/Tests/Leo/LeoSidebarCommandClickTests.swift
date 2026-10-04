@@ -123,8 +123,8 @@ struct LeoSidebarCommandClickTests {
     init(row: LeoAgentRow) async throws {
         model = LeoSidebarModel(snapshot: LeoSidebarSnapshot(rows: [row], connectivity: .connected, generation: 1))
         let actions = LeoAgentActions(
-            daemon: CommandClickDaemon(), cli: LeoCLI(), model: model,
-            hostSelection: .isolatedForTesting(), refresh: {})
+            daemon: CommandClickDaemon(), cli: .recordingForTests(), model: model,
+            hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
         window = Self.makeWindow(at: NSPoint(x: 120, y: 120))
         keyWindow = Self.makeWindow(at: NSPoint(x: 480, y: 120))
         window.contentView = NSHostingView(rootView: LeoSidebarView(model: model, windowID: origin, actions: actions, terminals: LeoWindowTerminals()))
