@@ -96,7 +96,6 @@ struct LeoTerminalControllerEditorCloseTests {
             guard let tab = try await makeTab(in: sandbox, editing: true) else { return }
             let controller = tab.controller
             let undoManager = try #require(controller.undoManager)
-            undoManager.removeAllActions(withTarget: controller)
             undoManager.leoRemoveActionsTestsCanReplay(ghostty: controller.ghostty)
             let host = GhosttyAttachContentHost(
                 registry: try #require((NSApp.delegate as? AppDelegate)?.leoRuntime.registry), requestConfigStore: LeoRequestConfigStore())

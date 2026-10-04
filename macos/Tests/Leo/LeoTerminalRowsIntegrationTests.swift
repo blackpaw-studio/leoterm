@@ -1086,7 +1086,6 @@ import Testing
     /// from an earlier test, nor from this window.
     private func freshUndo(_ fixture: Fixture) throws -> UndoManager {
         let undoManager = try #require(fixture.controller.undoManager)
-        undoManager.removeAllActions(withTarget: fixture.controller)
         undoManager.leoRemoveActionsTestsCanReplay(ghostty: fixture.controller.ghostty)
         return undoManager
     }
