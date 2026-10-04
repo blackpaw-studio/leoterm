@@ -381,11 +381,12 @@ Accept: the failure list names parameterized failures; verify.md updated
 Source: autopilot polish (B-065)
 Done: e113fee0e a5e1b3de8 (2023 tests). The test runner is now tracked at macos/scripts/leo-runtests.sh (scratchpad/runtests.sh retired) and its failure list names parameterized failures (`foo(_:) with N test cases failed`); parse test macos/scripts/test_leo-runtests.sh (5/5). verify.md updated. Not visually verified: no UI change. Decisions D-311–D-313.
 
-## B-116 · Sidebar programmatic-width doc comment   [ready]
+## B-116 · Sidebar programmatic-width doc comment   [done]
 Issue: #120
 Why: B-090 review polish
 Accept: applyProgrammaticWidth's doc comment (LeoSplitViewRepresentable.swift) says a collapsed sidebar drops the pending width and gets it when shown
 Source: autopilot polish (B-090)
+Done: 8a83a617d (2023 tests). applyProgrammaticWidth doc comment now says a collapsed sidebar drops the pending width and gets it when shown; reviewer and verifier checked each claim against the code. Not visually verified: no UI change.
 
 ## B-117 · verify.md: sidebar toggle menu path reads Hide/Show   [done]
 Issue: #121

@@ -135,9 +135,10 @@ Lane: B-116
   Branch: autopilot-lane/B-116
   Base: 2e7653f1dc4b0f626a93367b077f2171aeb9fae6
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: 2dc1014bd8587751493844d9237281c8172bb877
   Dispatched: 2026-10-04T05:44:39Z
+Finished 10: B-116 landed 85d8668a8 · shot not visually verified
