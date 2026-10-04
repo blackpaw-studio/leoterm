@@ -444,11 +444,12 @@ Accept: inline error code 1 and domain string in UpdateDelegate.swift:119 should
 Source: autopilot polish (B-115)
 Done: 9893742e4 (2039 tests). The update check-refusal error code and domain are named constants UpdateDriver.CheckRefusal.{domain,code}; UpdateDelegateTests use them. Not visually verified: refactor, no UI change. Decisions D-327–D-328.
 
-## B-125 · GhosttyMouseStateTests launch arguments   [ready]
+## B-125 · GhosttyMouseStateTests launch arguments   [done]
 Issue: #129
 Why: it uses activate(), not launch(); confirm -SUEnableAutomaticChecks NO applies or switch to launch()
 Accept: it uses activate(), not launch(); confirm -SUEnableAutomaticChecks NO applies or switch to launch()
 Source: autopilot polish (B-115)
+Done: bb76eeb16 (2039 tests). GhosttyMouseStateTests and GhosttyCommandPaletteTests now launch() the app first, so -SUEnableAutomaticChecks NO (D-224) applies; activate() attached to an already running app without its arguments. UI tests aren't run by leo-runtests.sh: compile-verified only. Not visually verified: UI-test code only. Decisions D-329–D-330.
 
 ## B-126 · Pin update defaults reset before startUpdater   [ready]
 Issue: #130

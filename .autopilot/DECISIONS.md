@@ -2381,3 +2381,17 @@ Chose: Left the refusal's localized description as a literal; the item covers on
 Why: AUTONOMY implementation approach
 Commit: 9893742e4
 Veto: [ ]
+
+## D-329 · 2026-10-03 · UI tests' first app start uses launch() instead of activate(), since …
+Context: B-125 (runner call).
+Chose: UI tests' first app start uses launch() instead of activate(), since XCUIApplication only promises launchArguments from an earlier launch
+Why: AUTONOMY test infrastructure
+Commit: bb76eeb16
+Veto: [ ]
+
+## D-330 · 2026-10-03 · Same activate()→launch() change in GhosttyCommandPaletteTests, so D-2…
+Context: B-125 (runner call).
+Chose: Same activate()→launch() change in GhosttyCommandPaletteTests, so D-224 holds for every UI test
+Why: AUTONOMY test infrastructure
+Commit: bb76eeb16
+Veto: [ ]

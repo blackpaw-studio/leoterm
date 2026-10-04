@@ -253,7 +253,7 @@ Lane: B-125
   Branch: autopilot-lane/B-125
   Base: c155176662f1e237367c0326c828801c564364b4
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -261,3 +261,4 @@ Lane: B-125
   Dispatched: 2026-10-04T08:51:47Z
   Call: UI tests' first app start uses launch() instead of activate(), since XCUIApplication only promises launchArguments from an earlier launch — AUTONOMY test infrastructure
   Call: Same activate()→launch() change in GhosttyCommandPaletteTests, so D-224 holds for every UI test — AUTONOMY test infrastructure
+Finished 18: B-125 landed b72530934 · shot not visually verified
