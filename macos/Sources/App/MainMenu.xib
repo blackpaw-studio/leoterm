@@ -81,7 +81,7 @@
                     <modifierMask key="keyEquivalentModifierMask"/>
                     <menu key="submenu" title="Ghostty" systemMenu="apple" id="uQy-DD-JDr">
                         <items>
-                            <menuItem title="About Ghostty" id="5kV-Vb-QxS">
+                            <menuItem title="About Leo" id="5kV-Vb-QxS">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="showAbout:" target="-1" id="tGt-68-tLn"/>
