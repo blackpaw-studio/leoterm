@@ -465,11 +465,12 @@ Accept: AppcastFixtureTests hard-codes 18527/0.5.0 against a #filePath fixture; 
 Source: autopilot polish (B-115)
 Done: abe0f1962 (2040 tests). AppcastFixtureTests names its expected values (newestVersion/newestShortVersion) and documents refreshing the fixture and both constants together, verbatim, in one commit. Not visually verified: test docs only. Decisions D-334–D-335.
 
-## B-128 · Update permission prompt shows twice at launch   [ready]
+## B-128 · Update permission prompt shows twice at launch   [done]
 Issue: #132
 Why: B-115 verify: the pill and Sparkle's standard alert both asked "Check for updates automatically?" at launch (likely no terminal window visible yet); ci.md says pill popover only
 Accept: B-115 verify: the pill and Sparkle's standard alert both asked "Check for updates automatically?" at launch (likely no terminal window visible yet); ci.md says pill popover only
 Source: autopilot polish (B-115)
+Done: a135885de d5c5f68ee d0c990083 3ac5e5321 d4f4f67a3 (2044 tests). The automatic-updates question is asked once, in the pill popover, never in Sparkle's alert; with no window yet it waits for the first window, survives closing the last window, and Check for Updates… while it is pending opens a window for the pill. ci.md updated. Verified: shots B-128-1..6. 1 fix round (a manual check while asking overwrote the request; test window cleanup). Decisions D-336–D-340.
 
 ## B-129 · Debug update alert offers auto-install checkbox   [ready]
 Issue: #133

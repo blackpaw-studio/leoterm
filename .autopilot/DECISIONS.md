@@ -2430,3 +2430,38 @@ Chose: Refresh recipe in the doc comment: curl the published appcast into macos/
 Why: AUTONOMY copy/test infrastructure
 Commit: abe0f1962
 Veto: [ ]
+
+## D-336 · 2026-10-03 · The automatic-updates question shows only in the pill popover, never …
+Context: B-128 (runner call).
+Chose: The automatic-updates question shows only in the pill popover, never in Sparkle's standard alert, even before any window exists; it waits for the first window
+Why: P2, matches ci.md, keeps D-221 (Sparkle's own permission request and reply are unchanged)
+Commit: a135885de, d5c5f68ee, d0c990083, 3ac5e5321, d4f4f67a3
+Veto: [ ]
+
+## D-337 · 2026-10-03 · A pending permission request survives closing the last window instead…
+Context: B-128 (runner call).
+Chose: A pending permission request survives closing the last window instead of being dropped without a reply
+Why: bug fix, P2
+Commit: a135885de, d5c5f68ee, d0c990083, 3ac5e5321, d4f4f67a3
+Veto: [ ]
+
+## D-338 · 2026-10-03 · Check for Updates… while the question is pending and no window is vis…
+Context: B-128 (runner call).
+Chose: Check for Updates… while the question is pending and no window is visible opens a terminal window so the pill can be reached; it never falls back to Sparkle's alert
+Why: bug fix, P5
+Commit: a135885de, d5c5f68ee, d0c990083, 3ac5e5321, d4f4f67a3
+Veto: [ ]
+
+## D-339 · 2026-10-03 · UpdateDriverPermissionTests use an injected openUnobtrusiveTarget sea…
+Context: B-128 (runner call).
+Chose: UpdateDriverPermissionTests use an injected openUnobtrusiveTarget seam (default AppDelegate newWindow) beside hasUnobtrusiveTarget, so the test host never opens a live window (a narrow departure from D-326's no-seam approach, for a different test)
+Why: AUTONOMY test infrastructure
+Commit: a135885de, d5c5f68ee, d0c990083, 3ac5e5321, d4f4f67a3
+Veto: [ ]
+
+## D-340 · 2026-10-03 · Check for Updates… doesn't bring the pill popover forward when a wind…
+Context: B-128 (runner call).
+Chose: Check for Updates… doesn't bring the pill popover forward when a window is already visible (popover state lives per window)
+Why: AUTONOMY UX
+Commit: a135885de, d5c5f68ee, d0c990083, 3ac5e5321, d4f4f67a3
+Veto: [ ]

@@ -299,7 +299,7 @@ Lane: B-128
   Branch: autopilot-lane/B-128
   Base: 04a639e00868b596b112e462ee480621da1bf5fd
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
@@ -310,3 +310,4 @@ Lane: B-128
   Call: Check for Updates… while the question is pending and no window is visible opens a terminal window so the pill can be reached; it never falls back to Sparkle's alert — bug fix, P5
   Call: UpdateDriverPermissionTests use an injected openUnobtrusiveTarget seam (default AppDelegate newWindow) beside hasUnobtrusiveTarget, so the test host never opens a live window (a narrow departure from D-326's no-seam approach, for a different test) — AUTONOMY test infrastructure
   Call: Check for Updates… doesn't bring the pill popover forward when a window is already visible (popover state lives per window) — AUTONOMY UX
+Finished 21: B-128 landed 126104f90 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-128-1.png
