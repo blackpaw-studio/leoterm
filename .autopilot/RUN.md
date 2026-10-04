@@ -142,3 +142,14 @@ Lane: B-116
   Reviewed-tip: 2dc1014bd8587751493844d9237281c8172bb877
   Dispatched: 2026-10-04T05:44:39Z
 Finished 10: B-116 landed 85d8668a8 · shot not visually verified
+
+Lane: B-118
+  Branch: autopilot-lane/B-118
+  Base: 2c64c6fb001a163a0e244d1a5a0001fd1ffadd25
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-04T06:22:18Z
