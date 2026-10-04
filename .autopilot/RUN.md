@@ -232,3 +232,14 @@ Lane: B-123
   Dispatched: 2026-10-04T08:12:37Z
   Call: Test the real UpdateDriver.updater(_:mayPerform:) through an unstarted SPUUpdater subclass that overrides automaticallyDownloadsUpdates, with no seam added to product code — AUTONOMY test infrastructure
 Finished 16: B-123 landed 90053c9f5 · shot not visually verified
+
+Lane: B-124
+  Branch: autopilot-lane/B-124
+  Base: e02febbc9ad4603a5194590f52ded40b58f7154a
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-04T08:38:02Z
