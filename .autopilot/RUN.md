@@ -15,6 +15,7 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 - B-113 runner: ready, general+concurrency full, 2023/2023 green.
 - B-114 runner: ready, general full, 2023/2023 with the new tracked script.
 - B-118 runner: ready (hard implementer), general+security+concurrency full, 2029/2029 green.
+- B-119 runner: ready, general full, 2030/2030 on rerun.
 
 Lane: B-058
   Branch: autopilot-lane/B-058
@@ -166,9 +167,11 @@ Lane: B-119
   Branch: autopilot-lane/B-119
   Base: 7eacd06213e886fb09e9abce3615074a39fd03ae
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: e8a11fdd603c1e2cf5da9051a653120fd352097e
   Dispatched: 2026-10-04T06:58:50Z
+  Call: Injected sink named logError: (String) -> Void (no default, beside alert/terminate); the refusal log in settle still calls the logger directly to keep the change small — AUTONOMY implementation approach/naming
+  Call: Log copy "…still holds it after N release pauses; yielding to it as a running copy" (log-only, .error, privacy .public, existing leo logger) — AUTONOMY copy

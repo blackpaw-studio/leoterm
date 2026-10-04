@@ -1347,3 +1347,13 @@ Source: autopilot polish (B-118)
 Why: B-118 security review: a marked pid reused by another live Leo of this bundle is still waited on; compare pbi_start_tvsec with a timestamp written with the mark
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-118)
+
+## B-203 · Release-retry log: comment wording and total wait   [ready (next run)]
+Why: B-119 review: LeoSingleInstance.swift:466-467 "only this line tells the two apart in the field" overstates — say it names the pid so the two can be told apart; optionally include the total wait (N × releasePauseMicroseconds) in the log line
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-119)
+
+## B-204 · LeoTerminalRowsIntegrationTests focus flakes   [ready (next run)]
+Why: Recurring under load this run: closingARowsPaneHandsTheRowToTheNextFocusedPane (:748 focusMatchesSelection, B-119 verify), closingAHiddenRowGivesNothingOnScreenItsSlot (B-112 verify), 4 failures in B-118's implementer runs; each passed on rerun. Find the shared timing assumption and make them deterministic
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-119)
