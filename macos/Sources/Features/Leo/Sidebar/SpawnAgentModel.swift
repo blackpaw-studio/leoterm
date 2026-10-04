@@ -20,6 +20,7 @@ import Foundation
     /// B-176: the agent row a "New Agent in Worktree…" spawn branches from.
     /// Nil for a plain New Agent sheet.
     let source: LeoAgentRow?
+    private var editObservation: AnyCancellable?
 
     init(templateList: AnyPublisher<LeoTemplateListState, Never>, source: LeoAgentRow? = nil,
          selectedHost: AnyPublisher<LeoHostID, Never> = Empty().eraseToAnyPublisher()) {
@@ -30,6 +31,10 @@ import Foundation
         }
         templateList.assign(to: &$templateList)
         selectedHost.map(Optional.some).assign(to: &$selectedHost)
+        editObservation = Publishers.Merge4(
+            $template.dropFirst().map { _ in () }, $name.dropFirst().map { _ in () },
+            $branch.dropFirst().map { _ in () }, $selectedHost.dropFirst().map { _ in () }
+        ).sink { [weak self] in self?.error = nil }
     }
 
     var isWorktree: Bool { source != nil }
@@ -52,9 +57,12 @@ import Foundation
     }
 
     /// A worktree spawn runs on whichever host is selected, so it is only
-    /// valid while that is still the source agent's host.
+    /// valid while that is still the source agent's host. Fails closed: a
+    /// worktree model that was never told the selected host can't create.
     func hostMismatch(selected: LeoHostID?) -> String? {
-        guard let source, let selected, selected != source.host else { return nil }
+        guard let source else { return nil }
+        guard let selected else { return "Not connected to \(source.host.displayName)" }
+        guard selected != source.host else { return nil }
         return "Host changed: switch back to \(source.host.displayName) to create this agent"
     }
 
@@ -72,7 +80,7 @@ import Foundation
                dismiss: @escaping () -> Void) {
         guard !isSpawning else { return }
         isSpawning = true
-        actions.spawn(request, attach: attach, dismiss: {
+        actions.spawn(request, on: source?.host ?? actions.hostSelection.selected, attach: attach, dismiss: {
             self.isSpawning = false
             dismiss()
         }, failure: { error in

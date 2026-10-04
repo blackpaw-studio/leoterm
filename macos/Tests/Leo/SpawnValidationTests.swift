@@ -56,6 +56,11 @@ struct SpawnValidationTests {
         #expect(SpawnValidation.worktree(template: "claude", repo: "o/r", branch: "feat/a11y", name: "-x") == "Name cannot begin with -")
     }
 
+    @Test func branchControlCharactersHaveTheirOwnMessage() {
+        #expect(SpawnValidation.branch("a b") == "Branch cannot contain whitespace")
+        #expect(SpawnValidation.branch("a\u{7}b") == "Branch cannot contain control characters")
+    }
+
     @Test(arguments: [
         "-x", "a b", "a..b", "x.lock", "x/", "a~b", "a^b", "a:b", "a?b", "a*b", "a[b", "a\\b", "a\tb", "/x", "a//b", "a@{b", "x."
     ]) func worktreeValidationRejectsInvalidBranch(branch: String) {

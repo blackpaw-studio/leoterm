@@ -42,8 +42,9 @@ enum SpawnValidation {
     static func branch(_ value: String) -> String? {
         guard !value.isEmpty else { return "Branch is required" }
         guard !value.hasPrefix("-") else { return "Branch cannot begin with -" }
-        guard !value.contains(where: { $0.isWhitespace || $0.unicodeScalars.contains { CharacterSet.controlCharacters.contains($0) } }) else {
-            return "Branch cannot contain whitespace"
+        guard !value.contains(where: \.isWhitespace) else { return "Branch cannot contain whitespace" }
+        guard !value.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else {
+            return "Branch cannot contain control characters"
         }
         let isMalformed = invalidBranchFragments.contains { value.contains($0) }
             || value.contains { invalidBranchCharacters.contains($0) }

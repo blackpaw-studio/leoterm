@@ -524,7 +524,7 @@ import OSLog
                 : LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
         }
         guard sequence == connectionSequence else { return }
-        actions.updateDaemon(daemon)
+        actions.updateDaemon(daemon, host: host)
         await feed.updateConnection(host: host, generation: generation, phase: .connected(daemon: daemon, activitySource: activitySource))
     }
 
