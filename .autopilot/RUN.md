@@ -326,3 +326,14 @@ Lane: B-129
   Call: Hide Sparkle's auto-install checkbox in Debug with Sparkle's own Info.plist switch (SUAllowsAutomaticUpdates=NO, Debug only via INFOPLIST_PREPROCESSOR_DEFINITIONS), not by suppressing the alert or editing its view — AUTONOMY implementation approach, follows D-220
   Call: Preprocessor flag named LEO_UPDATES_CANNOT_INSTALL — AUTONOMY naming
 Finished 22: B-129 landed 0a291e192 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-129-1.png
+
+Lane: B-130
+  Branch: autopilot-lane/B-130
+  Base: 95734878268760050521472dc0f4811a095a5fd0
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-04T11:01:08Z
