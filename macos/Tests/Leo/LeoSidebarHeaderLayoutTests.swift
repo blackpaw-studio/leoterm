@@ -44,11 +44,18 @@ struct LeoSidebarHeaderLayoutTests {
         #expect(button.maxX <= width, "the button \(button) stays inside the \(width) pt sidebar")
     }
 
+    /// The daemon states the sidebar can be in. The footer needs none of
+    /// them, so it holds its place in every one (B-113).
+    private static let footerConnectivities: [LeoConnectivity] = [
+        .connected, .loading, .failed(message: "x"), .disconnected(reason: "x", isRetrying: false),
+    ]
+
     /// B-065: the footer button bar sits below the list, inside the
-    /// sidebar's margins, and doesn't move the header.
-    @Test(arguments: [defaultWidth, minimumSidebarWidth])
-    func buttonBarSitsBelowTheListInsideTheSidebar(_ width: CGFloat) async throws {
-        let (window, frames) = makeWindow(width: width)
+    /// sidebar's margins, and doesn't move the header -- whatever the
+    /// daemon's state (B-113).
+    @Test(arguments: [defaultWidth, minimumSidebarWidth], footerConnectivities)
+    func buttonBarSitsBelowTheListInsideTheSidebar(_ width: CGFloat, _ connectivity: LeoConnectivity) async throws {
+        let (window, frames) = makeWindow(width: width, connectivity: connectivity)
         defer { window.close() }
         let bar = try #require(await frames.settled(.buttonBar), "\(frames)")
         let search = try #require(await frames.settled(.searchField), "\(frames)")
@@ -78,11 +85,12 @@ struct LeoSidebarHeaderLayoutTests {
 
     // MARK: - Harness
 
-    private func makeWindow(width: CGFloat) -> (NSWindow, HeaderFrames) {
-        let agents = (0 ..< 2).map {
+    /// Two running agents when connected; no rows in any other state.
+    private func makeWindow(width: CGFloat, connectivity: LeoConnectivity = .connected) -> (NSWindow, HeaderFrames) {
+        let agents = connectivity == .connected ? (0 ..< 2).map {
             LeoAgentRow(host: .local, name: "agent-\($0)", template: nil, status: .running, activity: .idle, actionDetail: nil)
-        }
-        let model = LeoSidebarModel(snapshot: LeoSidebarSnapshot(rows: agents, connectivity: .connected, generation: 1))
+        } : []
+        let model = LeoSidebarModel(snapshot: LeoSidebarSnapshot(rows: agents, connectivity: connectivity, generation: 1))
         let actions = LeoAgentActions(
             daemon: HeaderLayoutTestDaemon(), cli: .recordingForTests(), model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {}
         )

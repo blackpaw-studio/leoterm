@@ -9,9 +9,10 @@ struct LeoPlaceholderView: View {
     /// The buttons' tooltips: the menu items' live shortcuts (B-080).
     @ObservedObject var shortcutHints: LeoShortcutHints
     let openPicker: () -> Void
-    /// File ▸ New Terminal for this window (B-069).
-    let newTerminal: () -> Void
-    let toggleDrawer: () -> Void
+    /// File ▸ New Terminal for this window (B-069) and View ▸ Quick Terminal.
+    let buttonActions: LeoSidebarButtonActions
+
+    static let menuButtons: [LeoSidebarButton] = []
 
     private var chooseAgent: LeoPlaceholderChooseAgent {
         LeoPlaceholderChooseAgent(host: hostSelection.selected, connectivity: model.snapshot.connectivity, shortcut: shortcutHints.chooseAgent, reconnectShortcut: shortcutHints.reconnect)
@@ -33,10 +34,10 @@ struct LeoPlaceholderView: View {
                 chooseAgentButton
                     .disabled(!chooseAgent.isEnabled)
                     .help(ifAny: chooseAgent.help)
-                Button(LeoPlaceholderNewTerminal.title, action: newTerminal)
+                Button(LeoPlaceholderNewTerminal.title) { buttonActions.newTerminal() }
                     .buttonStyle(.bordered)
                     .help(ifAny: shortcutHints.newTerminal)
-                Button("Show Terminal Drawer", action: toggleDrawer)
+                Button("Show Terminal Drawer") { buttonActions.toggleQuickTerminal() }
                     .buttonStyle(.bordered)
             }
         }

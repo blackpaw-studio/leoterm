@@ -170,11 +170,12 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
             hostSelection: runtime.hostSelection,
             shortcutHints: runtime.shortcutHints,
             openPicker: { session.openPicker(surfaceID: nil) },
-            newTerminal: { LeoPlaceholderNewTerminal.send(to: delegate) },
-            toggleDrawer: {
-                guard let appDelegate = NSApp.delegate as? AppDelegate else { return }
-                appDelegate.toggleQuickTerminal(appDelegate)
-            }
+            buttonActions: .init(
+                newTerminal: { LeoPlaceholderNewTerminal.send(to: delegate) },
+                toggleQuickTerminal: {
+                    guard let appDelegate = NSApp.delegate as? AppDelegate else { return }
+                    appDelegate.toggleQuickTerminal(appDelegate)
+                })
         )
     }
 
@@ -197,11 +198,12 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                                 hostSelection: runtime.hostSelection,
                                 shortcutHints: runtime.shortcutHints,
                                 openPicker: { leoSession.openPicker(surfaceID: surface.id) },
-                                newTerminal: { LeoPlaceholderNewTerminal.send(to: delegate) },
-                                toggleDrawer: {
-                                    guard let appDelegate = NSApp.delegate as? AppDelegate else { return }
-                                    appDelegate.toggleQuickTerminal(appDelegate)
-                                }))
+                                buttonActions: .init(
+                                    newTerminal: { LeoPlaceholderNewTerminal.send(to: delegate) },
+                                    toggleQuickTerminal: {
+                                        guard let appDelegate = NSApp.delegate as? AppDelegate else { return }
+                                        appDelegate.toggleQuickTerminal(appDelegate)
+                                    })))
                         })
                         .environmentObject(ghostty)
                         .ghosttyLastFocusedSurface(lastFocusedSurface)

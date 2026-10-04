@@ -87,4 +87,74 @@ import Testing
     @Test func newTerminalComesFirst() {
         #expect(LeoSidebarButton.allCases == [.newTerminal, .quickTerminal])
     }
+
+    /// The quick terminal drops down from the menu bar; its glyph must not
+    /// be Split Up's (a top-half split) or the menu item's generic one.
+    @Test func quickTerminalGlyphIsADropDownNotASplit() {
+        let glyph = LeoSidebarButton.quickTerminal.systemImage
+
+        #expect(NSImage(systemSymbolName: glyph, accessibilityDescription: nil) != nil, "\(glyph) exists")
+        #expect(glyph != "rectangle.tophalf.inset.filled", "not Split Up's glyph")
+        #expect(glyph != "apple.terminal", "not the Quick Terminal menu item's generic glyph")
+        #expect(glyph != LeoSidebarButton.newTerminal.systemImage)
+    }
+
+    // MARK: - B-113: the closures behind the buttons
+
+    @Test func performRunsOnlyThePressedButtonsClosure() {
+        var calls: [String] = []
+        let actions = LeoSidebarButtonActions(newTerminal: { calls.append("new") }, toggleQuickTerminal: { calls.append("quick") })
+
+        actions.perform(.newTerminal)
+        #expect(calls == ["new"])
+
+        calls = []
+        actions.perform(.quickTerminal)
+        #expect(calls == ["quick"])
+    }
+
+    @Test func forWindowSendsNewTerminalToTheWindowAndQuickTerminalToTheApp() {
+        let window = Recorder()
+        let app = Recorder()
+        let actions = LeoSidebarButtonActions.forWindow(window, app: app)
+
+        actions.newTerminal()
+        #expect(window.newTabs == 1, "New Terminal goes to the clicked window's controller")
+        #expect(app.newTabs == 0)
+
+        actions.toggleQuickTerminal()
+        #expect(app.quickTerminalToggles == 1, "Quick Terminal goes to the app delegate")
+        #expect(window.quickTerminalToggles == 0)
+        #expect(window.newTabs == 1 && app.newTabs == 0, "one press, one action")
+    }
+
+    /// The sidebar's hosting controller keeps these closures for the
+    /// window's life (B-065), so they must hold the window's delegate
+    /// weakly: a strong capture kept a displaced surface and its pty alive.
+    @Test func forWindowDoesNotRetainTheWindowsDelegate() {
+        let app = Recorder()
+        weak var weakWindow: Recorder?
+        let actions: LeoSidebarButtonActions = autoreleasepool {
+            let window = Recorder()
+            weakWindow = window
+            return .forWindow(window, app: app)
+        }
+
+        #expect(weakWindow == nil, "the actions don't keep the window's delegate alive")
+        withExtendedLifetime(actions) {}
+    }
+
+    @Test func forWindowDoesNotRetainTheApp() {
+        let window = Recorder()
+        weak var weakApp: Recorder?
+        let actions: LeoSidebarButtonActions = autoreleasepool {
+            let app = Recorder()
+            weakApp = app
+            return .forWindow(window, app: app)
+        }
+
+        #expect(weakApp == nil)
+        actions.toggleQuickTerminal()
+        #expect(window.quickTerminalToggles == 0, "a gone app delegate is a no-op, never another target")
+    }
 }

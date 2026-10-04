@@ -65,6 +65,23 @@ enum LeoSidebarButton: CaseIterable, Identifiable {
     }
 }
 
+/// B-113: what a window's buttons do, in one value so the two closures
+/// can't be swapped on their way from the window to the sidebar and the
+/// start screen.
+struct LeoSidebarButtonActions {
+    let newTerminal: @MainActor () -> Void
+    let toggleQuickTerminal: @MainActor () -> Void
+
+    @MainActor func perform(_ button: LeoSidebarButton) {}
+
+    /// Does nothing: a sidebar or start screen with no window behind it.
+    static var none: Self { Self(newTerminal: {}, toggleQuickTerminal: {}) }
+
+    @MainActor static func forWindow(_ delegate: AnyObject?, app: AnyObject? = NSApp.delegate) -> Self {
+        .none
+    }
+}
+
 /// The sidebar's footer: a quiet row of icon buttons pinned below the list
 /// (the Finder/Mail sidebar convention), so it stays put however long the
 /// list grows and whatever state the daemon is in -- neither button needs
