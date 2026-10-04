@@ -1358,3 +1358,8 @@ Source: autopilot polish (B-119)
 Why: Recurring under load this run: closingARowsPaneHandsTheRowToTheNextFocusedPane (:748 focusMatchesSelection, B-119 verify), closingAHiddenRowGivesNothingOnScreenItsSlot (B-112 verify), 4 failures in B-118's implementer runs; each passed on rerun. Find the shared timing assumption and make them deterministic
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-119)
+
+## B-205 · Rewrap LeoSingleInstance doc comment line 453   [ready (next run)]
+Why: B-120 review: the line is 82 chars where the rest of the block is 76 or fewer; cosmetic
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-120)
