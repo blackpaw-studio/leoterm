@@ -49,8 +49,8 @@ struct UpdateDelegateTests {
         let error = #expect(throws: NSError.self) {
             try mayPerform(.updatesInBackground, automaticallyDownloads: true, installsAllowed: false)
         }
-        #expect(error?.domain == "studio.blackpaw.leo.update")
-        #expect(error?.code == 1)
+        #expect(error?.domain == UpdateDriver.CheckRefusal.domain)
+        #expect(error?.code == UpdateDriver.CheckRefusal.code)
         #expect(error?.localizedDescription == "This build can't install updates automatically.")
     }
 
