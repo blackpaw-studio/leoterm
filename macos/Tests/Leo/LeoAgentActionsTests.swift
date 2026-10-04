@@ -67,7 +67,7 @@ import Testing
         let daemon = ActionDaemon()
         let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), refresh: {})
         var attached: LeoAgentRow?
-        actions.spawn(.init(template: "default", repo: "", name: nil, branch: nil, prompt: nil), attach: { row, _ in attached = row }, dismiss: {}, failure: { _ in })
+        actions.spawn(.init(template: "default", repo: "", name: nil, branch: nil, prompt: nil), on: .local, attach: { row, _ in attached = row }, dismiss: {}, failure: { _ in })
         await awaitCondition { await MainActor.run { attached != nil } }
         #expect(attached?.name == "alpha")
     }

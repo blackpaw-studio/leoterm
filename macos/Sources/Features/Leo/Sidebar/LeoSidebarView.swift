@@ -79,6 +79,8 @@ struct LeoSidebarView: View {
     private let toggleQuickTerminal: () -> Void
     @ObservedObject private var hostSelection: LeoHostSelection
     @State private var showingSpawn = false
+    /// The row a "New Agent in Worktree…" sheet branches from (B-176).
+    @State private var worktreeSource: LeoAgentRow?
     @State private var searchField = LeoSidebarSearchFieldHandle()
     @State private var hostsSheetModel: LeoHostsSheetModel?
 
@@ -170,6 +172,11 @@ struct LeoSidebarView: View {
         #endif
         .sheet(isPresented: $showingSpawn) {
             SpawnAgentSheet(model: model, actions: actions) { row, disposition in
+                model.requestAttach(row, from: windowID, disposition: disposition)
+            }
+        }
+        .sheet(item: $worktreeSource) { source in
+            SpawnAgentSheet(model: model, actions: actions, source: source) { row, disposition in
                 model.requestAttach(row, from: windowID, disposition: disposition)
             }
         }
@@ -359,7 +366,8 @@ struct LeoSidebarView: View {
                 isPinned: model.isPinned(row.id),
                 togglePin: { model.togglePin(row.id) },
                 pendingSurfacedFiles: model.pendingSurfacedFiles(for: row),
-                openSurfacedFile: { model.openSurfacedFile($0, for: row) }
+                openSurfacedFile: { model.openSurfacedFile($0, for: row) },
+                newWorktreeAgent: { worktreeSource = row }
             )
             .tag(Optional(LeoSidebarItemID.agent(row.id)))
             .id(LeoSidebarItemID.agent(row.id))

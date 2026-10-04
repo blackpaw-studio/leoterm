@@ -35,4 +35,35 @@ struct SpawnValidationTests {
     ]) func renameRules(value: String, expected: String?) {
         #expect(SpawnValidation.rename(value, current: "same") == expected)
     }
+
+    /// B-176: a worktree spawn needs the daemon's owner/repo form, never a path.
+    @Test(arguments: [
+        ("evandcoleman/chronicle", "evandcoleman/chronicle"), ("blackpaw-studio/website", "blackpaw-studio/website")
+    ]) func ownerRepoAcceptsOnlyOwnerSlashRepo(value: String, expected: String) {
+        #expect(SpawnValidation.ownerRepo(value) == expected)
+    }
+
+    @Test(arguments: [nil, "", "ancestry", "/x", "a/", "a/b/c", "a b/c", "a/b c", "/Users/evan/repo"] as [String?])
+    func ownerRepoRejectsEverythingElse(value: String?) {
+        #expect(SpawnValidation.ownerRepo(value) == nil)
+    }
+
+    @Test func worktreeValidationRequiresBranch() {
+        #expect(SpawnValidation.worktree(template: "claude", repo: "o/r", branch: "", name: nil) == "Branch is required")
+        #expect(SpawnValidation.worktree(template: "claude", repo: "o/r", branch: "feat/a11y", name: nil) == nil)
+        #expect(SpawnValidation.worktree(template: "", repo: "o/r", branch: "feat/a11y", name: nil) == "Template is required")
+        #expect(SpawnValidation.worktree(template: "claude", repo: "brand", branch: "feat/a11y", name: nil) != nil)
+        #expect(SpawnValidation.worktree(template: "claude", repo: "o/r", branch: "feat/a11y", name: "-x") == "Name cannot begin with -")
+    }
+
+    @Test func branchControlCharactersHaveTheirOwnMessage() {
+        #expect(SpawnValidation.branch("a b") == "Branch cannot contain whitespace")
+        #expect(SpawnValidation.branch("a\u{7}b") == "Branch cannot contain control characters")
+    }
+
+    @Test(arguments: [
+        "-x", "a b", "a..b", "x.lock", "x/", "a~b", "a^b", "a:b", "a?b", "a*b", "a[b", "a\\b", "a\tb", "/x", "a//b", "a@{b", "x."
+    ]) func worktreeValidationRejectsInvalidBranch(branch: String) {
+        #expect(SpawnValidation.worktree(template: "claude", repo: "o/r", branch: branch, name: nil) != nil)
+    }
 }

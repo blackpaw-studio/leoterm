@@ -15,6 +15,11 @@ import Foundation
     /// (no `host:` parameter): the daemon instance itself already
     /// represents "whichever host is currently connected".
     private var daemon: any LeoDaemonClient
+    /// The host `daemon` actually talks to. `LeoHostSelection.selected`
+    /// moves the moment a host is picked, but `daemon` only once that
+    /// host's tunnel is up (and never, if it fails), so a spawn checks this,
+    /// not the selection (B-176).
+    private var daemonHost: LeoHostID
     /// The one selection `LeoRuntime` owns, injected: only its tunnel may
     /// exist, so a second `LeoHostSelection` (and a second tunnel for the
     /// same host) is never built here (B-027).
@@ -42,12 +47,13 @@ import Foundation
     private var templateListToken = 0
     private var selectionObservation: AnyCancellable?
 
-    init(daemon: any LeoDaemonClient, cli: LeoCLI, model: LeoSidebarModel,
+    init(daemon: any LeoDaemonClient, daemonHost: LeoHostID = .local, cli: LeoCLI, model: LeoSidebarModel,
          hostSelection: LeoHostSelection,
          processRunner: any LeoProcessRunning = LeoProcessRunner(),
          sshExecutable: String = "/usr/bin/ssh",
          refresh: @escaping () -> Void) {
         self.daemon = daemon
+        self.daemonHost = daemonHost
         self.cli = cli
         self.model = model
         self.hostSelection = hostSelection
@@ -65,8 +71,9 @@ import Foundation
     /// Called by `LeoRuntime` whenever the selected connection's daemon
     /// changes (a new host's tunnel came up, or we switched back to
     /// localhost).
-    func updateDaemon(_ daemon: any LeoDaemonClient) {
+    func updateDaemon(_ daemon: any LeoDaemonClient, host: LeoHostID) {
         self.daemon = daemon
+        daemonHost = host
     }
 
     /// Called by `LeoRuntime` when the user explicitly asks the sidebar to
@@ -171,20 +178,32 @@ import Foundation
         }
     }
 
-    func spawn(_ request: LeoSpawnRequest, attach: @escaping (LeoAgentRow, AttachDisposition) -> Void,
+    /// Spawns on `expectedHost` only: refused, without a request, while the
+    /// daemon is still bound to another host (a tunnel still connecting, or
+    /// one that failed). A result that lands after the selection moved on
+    /// is not attached, but `failure` still tells the sheet, which would
+    /// otherwise stay spawning.
+    func spawn(_ request: LeoSpawnRequest, on expectedHost: LeoHostID,
+               attach: @escaping (LeoAgentRow, AttachDisposition) -> Void,
                dismiss: @escaping () -> Void, failure: @escaping (String) -> Void) {
+        guard daemonHost == expectedHost else {
+            failure("Not connected to \(expectedHost.displayName) yet")
+            return
+        }
         let capturedDaemon = daemon
-        let host = hostSelection.selected
+        let host = daemonHost
         let capturedGeneration = hostSelection.generationToken
         Task { [weak self] in
             guard let self else { return }
             do {
                 let agent = try await capturedDaemon.spawn(request)
-                guard self.hostSelection.generationToken == capturedGeneration else { return }
+                guard self.hostSelection.generationToken == capturedGeneration else {
+                    failure("Host changed; the agent may have been created on \(host.displayName)")
+                    return
+                }
                 dismiss(); refresh()
                 attach(LeoAgentRow(host: host, name: agent.name, template: agent.template, status: agent.status ?? .unknown("unknown"), activity: .unknown, actionDetail: nil), .content)
             } catch {
-                guard self.hostSelection.generationToken == capturedGeneration else { return }
                 failure(Self.message(error))
             }
         }
