@@ -18,4 +18,39 @@ enum SpawnValidation {
         guard repo.isEmpty || pathExists(repo) else { return "Choose an existing repository" }
         return name.flatMap { Self.name($0) }
     }
+
+    /// `repo` when it is the daemon's GitHub `owner/repo` form (exactly one
+    /// "/", both sides non-empty, no whitespace), which a worktree spawn
+    /// requires; nil for a path, a bare name, or nothing.
+    static func ownerRepo(_ repo: String?) -> String? {
+        guard let repo, !repo.contains(where: \.isWhitespace) else { return nil }
+        let parts = repo.split(separator: "/", omittingEmptySubsequences: false)
+        guard parts.count == 2, parts.allSatisfy({ !$0.isEmpty }) else { return nil }
+        return repo
+    }
+
+    /// B-176: a spawn into a new worktree branch of an owner/repo. No local
+    /// path check: the repository may live on a remote host.
+    static func worktree(template: String?, repo: String, branch: String, name: String?) -> String? {
+        guard let template, !template.isEmpty else { return "Template is required" }
+        guard ownerRepo(repo) != nil else { return "Repository must be owner/repo" }
+        if let error = self.branch(branch) { return error }
+        return name.flatMap { Self.name($0) }
+    }
+
+    /// The subset of `git check-ref-format` a typed branch name can trip.
+    static func branch(_ value: String) -> String? {
+        guard !value.isEmpty else { return "Branch is required" }
+        guard !value.hasPrefix("-") else { return "Branch cannot begin with -" }
+        guard !value.contains(where: { $0.isWhitespace || $0.unicodeScalars.contains { CharacterSet.controlCharacters.contains($0) } }) else {
+            return "Branch cannot contain whitespace"
+        }
+        let isMalformed = invalidBranchFragments.contains { value.contains($0) }
+            || value.contains { invalidBranchCharacters.contains($0) }
+            || value.hasPrefix("/") || value.hasSuffix("/") || value.hasSuffix(".") || value.hasSuffix(".lock")
+        return isMalformed ? "Branch is not a valid git branch name" : nil
+    }
+
+    private static let invalidBranchFragments = ["..", "//", "@{"]
+    private static let invalidBranchCharacters = Set("~^:?*[\\")
 }
