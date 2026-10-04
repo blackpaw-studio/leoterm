@@ -204,3 +204,14 @@ Lane: B-121
   Call: gone() checks at hand-out with a bounded retry (maxGoneAttempts = 5, then GoneError.everyPidTakenOver), not a re-check at every call site — AUTONOMY test infrastructure / flake fixes
   Call: waitpid inside gone() retries on EINTR (otherwise a zombie reads as not gone) — AUTONOMY flake fixes
 Finished 14: B-121 landed 5fa22eae5 · shot not visually verified
+
+Lane: B-122
+  Branch: autopilot-lane/B-122
+  Base: 726e275904f2bdac17ba0eb6da6c20fb4cc69309
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-04T07:51:15Z
