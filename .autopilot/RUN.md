@@ -21,6 +21,7 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 - B-123 runner: ready, general full, 2039/2039 green.
 - B-124 runner: ready, general full, 2039/2039 green.
 - B-125 runner: ready, general full; UI tests compile-verified only (not run by leo-runtests.sh); 2039/2039 green.
+- B-126 runner: ready, general full, 2040/2040 green.
 
 Lane: B-058
   Branch: autopilot-lane/B-058
@@ -267,9 +268,12 @@ Lane: B-126
   Branch: autopilot-lane/B-126
   Base: 29d73a15d777b49730b0cb6bb8cfa4e4c694e331
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 8a7701a5a366c3ecb18c3667d5232953de67fc87
   Dispatched: 2026-10-04T09:06:25Z
+  Call: Pinned the update launch order with a test via a small helper UpdateLaunchSequence.run(resetDefaults:applyConfig:startUpdater:) (non-escaping closures; no change to UpdateController, UpdateDefaultsMigration or Sparkle), not a comment only — AUTONOMY implementation approach/test infrastructure
+  Call: The sequence also covers the initial config apply (reset → config → start), since applying config writes the same Sparkle keys the reset clears — AUTONOMY implementation approach
+  Call: Named it UpdateLaunchSequence / UpdateLaunchSequenceTests, beside the other update files — AUTONOMY naming

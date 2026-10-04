@@ -1394,3 +1394,8 @@ Source: autopilot polish (B-123)
 Why: B-125 review: it misses -ApplePersistenceIgnoreState and the isolated config/defaults of ghosttyApplication(), and since it now calls launch() it can restore the debug bundle's saved windows (predates B-125); also document that launch() terminates any running debug Leo before relaunching
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-125)
+
+## B-211 · AppDelegate update-order comment overstates the test   [ready (next run)]
+Why: B-126 review: AppDelegate.swift:324-326 says the order "is pinned by UpdateLaunchSequenceTests", but the test pins only the order inside the helper; reword to "The order inside UpdateLaunchSequence is pinned by UpdateLaunchSequenceTests; keep these steps routed through it."
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-126)
