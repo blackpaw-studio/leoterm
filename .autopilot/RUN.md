@@ -311,3 +311,14 @@ Lane: B-128
   Call: UpdateDriverPermissionTests use an injected openUnobtrusiveTarget seam (default AppDelegate newWindow) beside hasUnobtrusiveTarget, so the test host never opens a live window (a narrow departure from D-326's no-seam approach, for a different test) — AUTONOMY test infrastructure
   Call: Check for Updates… doesn't bring the pill popover forward when a window is already visible (popover state lives per window) — AUTONOMY UX
 Finished 21: B-128 landed 126104f90 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-128-1.png
+
+Lane: B-129
+  Branch: autopilot-lane/B-129
+  Base: 6b8171ac152c6e56dff40ca1e19b6e8a7e1fab64
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-04T10:39:37Z
