@@ -39,7 +39,9 @@ class UpdateDriver: NSObject, SPUUserDriver {
     @objc private func handleTerminalWindowWillClose() {
         // If we lost the ability to show unobtrusive states, cancel whatever
         // update state we're in. This will allow the manual `check for updates`
-        // call to initialize the standard driver.
+        // call to initialize the standard driver. A pending permission
+        // request is the exception: it stays, and `showUpdateInFocus` opens
+        // a window for its pill instead.
         //
         // We have to do this after a short delay so that the window can fully
         // close.
@@ -230,10 +232,18 @@ class UpdateDriver: NSObject, SPUUserDriver {
         viewModel.state = .idle
     }
 
+    /// Sparkle calls this for Check for Updates… while it is still waiting
+    /// for an answer, instead of checking. A pending permission request
+    /// lives only in the pill (B-128), so with no window to show the pill,
+    /// open one; the standard driver has no prompt of its own to bring
+    /// forward.
     func showUpdateInFocus() {
-        if !hasUnobtrusiveTarget {
-            standard.showUpdateInFocus()
+        guard !hasUnobtrusiveTarget else { return }
+        if case .permissionRequest = viewModel.state {
+            unobtrusiveTargetOpener()
+            return
         }
+        standard.showUpdateInFocus()
     }
 
     func dismissUpdateInstallation() {
