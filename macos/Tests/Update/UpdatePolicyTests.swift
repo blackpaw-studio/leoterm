@@ -100,4 +100,17 @@ struct UpdatePolicyTests {
         #expect(info["SUEnableAutomaticChecks"] == nil)
         #expect((info["SUPublicEDKey"] as? String)?.isEmpty == false)
     }
+
+    /// Sparkle's standard alerts (the update-found alert, still used when no
+    /// terminal window can host the pill, and its permission prompt) show an
+    /// "Automatically download and install updates" checkbox unless the
+    /// host's `allowsAutomaticUpdates` is off. A build that can't install
+    /// must never offer it, so Debug's Info.plist turns it off (B-129).
+    @Test func buildsThatCantInstallNeverOfferAutomaticInstalls() {
+        guard !UpdatePolicy.installsAllowed else { return }
+        let settings = SPUUpdaterSettings(hostBundle: .main)
+        #expect(Bundle.main.object(forInfoDictionaryKey: "SUAllowsAutomaticUpdates") as? Bool == false)
+        #expect(!settings.allowsAutomaticUpdates)
+        #expect(!settings.automaticallyDownloadsUpdates)
+    }
 }

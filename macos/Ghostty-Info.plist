@@ -104,6 +104,10 @@
 			</array>
 		</dict>
 	</array>
+#ifdef LEO_UPDATES_CANNOT_INSTALL
+	<key>SUAllowsAutomaticUpdates</key>
+	<false/>
+#endif
 	<key>SUPublicEDKey</key>
 	<string>yQcDYO8rnAKiOrSW0D5dJNNXk/SWj09TmVLjScZb/d4=</string>
 	<key>UTExportedTypeDeclarations</key>
