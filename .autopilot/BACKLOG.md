@@ -479,11 +479,12 @@ Accept: B-115 verify: Sparkle's standard permission alert offers "Automatically 
 Source: autopilot polish (B-115)
 Done: d1cbb8942 (2045 tests). Debug builds set Sparkle's SUAllowsAutomaticUpdates=NO (Info.plist, Debug only), so no Sparkle alert offers Automatically download and install updates; a test pins the Debug plist. Verified: shots B-129-1..4 (update-found alert with no checkbox; nothing clicked). Decisions D-341–D-342.
 
-## B-130 · App menu says About Ghostty   [ready]
+## B-130 · App menu says About Ghostty   [done]
 Issue: #134
 Why: B-115 verify: the app menu still lists "About Ghostty" (pre-existing); should read About Leo
 Accept: B-115 verify: the app menu still lists "About Ghostty" (pre-existing); should read About Leo
 Source: autopilot polish (B-115)
+Done: 342cba7a4 (2048 tests). The app menu reads About Leo (also in Debug) and the About window names Leo; LeoAboutMenuTests pins the menu title. Verified: shots B-130-1 (app menu, screen) and -2 (About window). Remaining Ghostty strings filed as a branding sweep. Decision D-343.
 
 ## B-131 · B-087 focus test hardening   [ready]
 Issue: #135

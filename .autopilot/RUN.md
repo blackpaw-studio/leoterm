@@ -332,10 +332,11 @@ Lane: B-130
   Branch: autopilot-lane/B-130
   Base: 95734878268760050521472dc0f4811a095a5fd0
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: 4119e1ecd1833a5186b62aaee717a077fd7dea75
   Dispatched: 2026-10-04T11:01:08Z
   Call: Debug builds also read "About Leo", not "About Leo[DEBUG]": the suffix only marks the build in the menu bar and isn't the product name — AUTONOMY copy/UX details; P1
+Finished 23: B-130 landed 02a5ff546 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-130-2.png

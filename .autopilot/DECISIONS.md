@@ -2479,3 +2479,10 @@ Chose: Preprocessor flag named LEO_UPDATES_CANNOT_INSTALL
 Why: AUTONOMY naming
 Commit: d1cbb8942
 Veto: [ ]
+
+## D-343 · 2026-10-03 · Debug builds also read "About Leo", not "About Leo[DEBUG]": the suffi…
+Context: B-130 (runner call).
+Chose: Debug builds also read "About Leo", not "About Leo[DEBUG]": the suffix only marks the build in the menu bar and isn't the product name
+Why: AUTONOMY copy/UX details; P1
+Commit: 342cba7a4
+Veto: [ ]
