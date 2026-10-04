@@ -321,18 +321,18 @@ class AppDelegate: NSObject,
             toggleSecureInput(self)
         }
 
-        // Clear the auto-update answers pre-B-115 builds stored, before the
-        // initial config applies `auto-update`, so Sparkle can ask once.
-        UpdateDefaultsMigration.run(.standard)
-
-        // Initial config loading
-        ghosttyConfigDidChange(config: ghostty.config)
-
-        // Start our update checker. An XCTest host never does: it must not
-        // reach the network or show Sparkle's permission prompt mid-suite.
-        if !LeoSingleInstance.isRunningAsTestHost() {
-            updateController.startUpdater()
-        }
+        // Clear the auto-update answers pre-B-115 builds stored, then load the
+        // initial config, then start our update checker. The order matters
+        // and is pinned by UpdateLaunchSequenceTests (see UpdateLaunchSequence).
+        UpdateLaunchSequence.run(
+            resetDefaults: { UpdateDefaultsMigration.run(.standard) },
+            applyConfig: { ghosttyConfigDidChange(config: ghostty.config) },
+            startUpdater: {
+                // An XCTest host never starts it: it must not reach the
+                // network or show Sparkle's permission prompt mid-suite.
+                guard !LeoSingleInstance.isRunningAsTestHost() else { return }
+                updateController.startUpdater()
+            })
 
         // Register our service provider. This must happen after everything is initialized.
         NSApp.servicesProvider = ServiceProvider()
