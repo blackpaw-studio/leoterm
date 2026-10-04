@@ -2,6 +2,13 @@ import Sparkle
 import Cocoa
 
 extension UpdateDriver: SPUUpdaterDelegate {
+    /// The error `updater(_:mayPerform:)` throws to make Sparkle skip a
+    /// background check this build can't act on.
+    enum CheckRefusal {
+        static let domain = "studio.blackpaw.leo.update"
+        static let code = 1
+    }
+
     func feedURLString(for updater: SPUUpdater) -> String? {
         guard let appDelegate = NSApplication.shared.delegate as? AppDelegate else {
             return nil
@@ -20,7 +27,7 @@ extension UpdateDriver: SPUUpdaterDelegate {
             installsAllowed: installsAllowed
         ) else { return }
         AppDelegate.logger.info("skipping a background update check: this build can't install updates")
-        throw NSError(domain: "studio.blackpaw.leo.update", code: 1, userInfo: [
+        throw NSError(domain: CheckRefusal.domain, code: CheckRefusal.code, userInfo: [
             NSLocalizedDescriptionKey: "This build can't install updates automatically.",
         ])
     }
