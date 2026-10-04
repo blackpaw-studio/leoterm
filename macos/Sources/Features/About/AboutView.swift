@@ -1,6 +1,9 @@
 import SwiftUI
 
 struct AboutView: View {
+    /// The product name the window shows (B-130).
+    static let appName = "Leo"
+
     @Environment(\.openURL) var openURL
 
     private let githubURL = URL(string: "https://github.com/ghostty-org/ghostty")
@@ -78,7 +81,7 @@ struct AboutView: View {
 
             VStack(alignment: .center, spacing: 32) {
                 VStack(alignment: .center, spacing: 8) {
-                    Text("Ghostty")
+                    Text(Self.appName)
                         .bold()
                         .font(.title)
                     Text("Fast, native, feature-rich terminal \nemulator pushing modern features.")

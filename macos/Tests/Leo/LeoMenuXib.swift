@@ -10,12 +10,24 @@ enum LeoMenuXib {
         let shortcut: String
     }
 
-    /// Every menu item in MainMenu.xib with a key equivalent.
-    static func shortcuts() throws -> [MenuShortcut] {
-        let url = URL(fileURLWithPath: #filePath)
+    /// MainMenu.xib's source, next to the test sources.
+    private static var xibURL: URL {
+        URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("Sources/App/MainMenu.xib")
-        return try shortcuts(in: XMLDocument(contentsOf: url))
+    }
+
+    /// Every menu item in MainMenu.xib with a key equivalent.
+    static func shortcuts() throws -> [MenuShortcut] {
+        try shortcuts(in: XMLDocument(contentsOf: xibURL))
+    }
+
+    /// The titles of every MainMenu.xib item whose action is `selector`
+    /// (e.g. "showAbout:"), key equivalent or not.
+    static func titles(forAction selector: String) throws -> [String] {
+        try XMLDocument(contentsOf: xibURL)
+            .nodes(forXPath: "//menuItem[connections/action/@selector='\(selector)']")
+            .compactMap { ($0 as? XMLElement)?.attribute(forName: "title")?.stringValue }
     }
 
     /// Every menu item in `document` with a key equivalent, as "⌃⌥⇧⌘key"
