@@ -218,3 +218,14 @@ Lane: B-122
   Dispatched: 2026-10-04T07:51:15Z
   Call: Reset Window Size tests share a configuredContentSize(of:) helper and a Fixture.isResetWindowSizeEnabled property — AUTONOMY test infrastructure
 Finished 15: B-122 landed bc7de94db · shot not visually verified
+
+Lane: B-123
+  Branch: autopilot-lane/B-123
+  Base: 252093da64d713e67a47c41a4ba8bb609957e6a8
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-04T08:12:37Z
