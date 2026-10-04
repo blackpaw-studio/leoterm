@@ -12,6 +12,7 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 - Board sync: B-014: unknown status [deferred] (exit 1)
 - B-111 resumed runner: ready, general full, suite green on 3rd run (one new flake filed, one known).
 - B-112 runner: ready, general full, 2017/2017 on rerun (one load flake filed).
+- B-113 runner: ready, general+concurrency full, 2023/2023 green.
 
 Lane: B-058
   Branch: autopilot-lane/B-058
@@ -98,9 +99,14 @@ Lane: B-113
   Branch: autopilot-lane/B-113
   Base: f5997c8fd4fa50b729d82b435cc84ee295a3baaa
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 723b11250625b413f304f1d6044374d9ad6cae3a
   Dispatched: 2026-10-04T04:29:32Z
+  Call: Name "Quick Terminal" everywhere: start screen, menu and button, keeping upstream's menu title — P1, AUTONOMY copy/naming
+  Call: Quick Terminal glyph is now menubar.arrow.down.rectangle, refining D-207 — P1 HIG, AUTONOMY polish
+  Call: Start-screen Quick Terminal gets the live-shortcut tooltip, title only when unbound (D-208) — P2
+  Call: No retain cycle existed in the start-screen closures; the self capture is removed anyway (weak delegate and app captures), guarded by weak-reference tests — AUTONOMY bug fixes/test infra
+  Call: One LeoSidebarButtonActions value replaces the two loose closures; LeoPlaceholderNewTerminal is deleted, so newTab: and send are each defined once — AUTONOMY implementation approach

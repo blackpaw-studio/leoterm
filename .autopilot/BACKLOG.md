@@ -1305,3 +1305,23 @@ Source: autopilot polish (B-112)
 Why: B-112 verify: LeoTerminalRowsIntegrationTests/closingAHiddenRowGivesNothingOnScreenItsSlot hit its 5 s eventually timeout once at load 120
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-112)
+
+## B-196 · Strengthen aDisplacedStartScreenSurfaceIsFreed   [ready (next run)]
+Why: B-113 review: its placeholderSurfaceIDs check is always true (inserted synchronously) and doesn't prove the overlay mounted; assert the start-screen button/hosting view is in the hierarchy, or reword the doc comment
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-113)
+
+## B-197 · Test start-screen per-button wiring   [ready (next run)]
+Why: B-113 review: LeoPlaceholderView.swift:61-66 { buttonActions.perform(button) } could regress to a fixed button unnoticed; extract a tiny testable helper. Also fix the leftover "terminal drawer" in LeoStartScreenState.swift:10's doc comment
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-113)
+
+## B-198 · openPicker closure holds the SurfaceView strongly   [ready (next run)]
+Why: B-113 review: TerminalView.swift:200 (pre-existing) captures the SurfaceView strongly; capture only its id, per the never-hold-the-surface rule
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-113)
+
+## B-199 · Quick Terminal button re-opens the panel instead of closing it   [ready (next run)]
+Why: B-113 verify: clicking a Quick Terminal button while the panel is up re-opens it (resign-key autohide, then toggle); only View > Quick Terminal closes it. Predates B-113
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-113)
