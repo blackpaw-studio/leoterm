@@ -1428,3 +1428,13 @@ Source: autopilot polish (B-129)
 Why: B-129 verify: Sparkle's Debug update alert still shows Install Update (gated to dismiss by B-115); relabel or disable it in Debug
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-129)
+
+## B-217 · About tests: real About-window check and shared menu walker   [ready (next run)]
+Why: B-130 review: theAboutWindowNamesLeo only checks AboutView.appName == "Leo" (would pass if the view went back to Text("Ghostty")) — scan or host the view; LeoAboutMenuTests duplicates LeoNoTabBarTests' menuItems walker — share it
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-130)
+
+## B-218 · Leo branding sweep: remaining Ghostty strings   [ready (next run)]
+Why: B-130 review: MainMenu.xib Hide Ghostty / Quit Ghostty / Make Ghostty the Default Terminal / Ghostty Help; About window links (ghostty.org, ghostty-org/ghostty, commit link to the wrong repo), tagline and "Ghostty Application Icon" a11y label; AppDelegate.swift:1478/1514 "Quit Ghostty?", :625 "Allow Ghostty to execute…", UntrustedURLAlert.swift:39, UpdatePopoverView.swift:62, TerminalCommandPalette.swift:99 "Update Ghostty and Restart", ErrorView.swift:13, TerminalView.swift:267 debug banner, default "👻 Ghostty" titles in TitlebarTabs{Tahoe,Ventura}TerminalWindow. Decide which upstream strings to rename (keep upstream merges cheap)
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-130)

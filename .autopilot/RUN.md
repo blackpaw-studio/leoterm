@@ -25,6 +25,7 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 - B-127 runner: ready, general full, 2040/2040 green.
 - B-128 runner: ready (1 fix round), general delta + round-1 general/concurrency full, 2044/2044 x3.
 - B-129 runner: ready, general full, 2045/2045 green. B-128 hadn't mooted it: the no-window Check for Updates fallback showed Sparkle's update-found alert with the checkbox.
+- B-130 runner: ready, general full, 2048/2048 green.
 
 Lane: B-058
   Branch: autopilot-lane/B-058
@@ -331,9 +332,10 @@ Lane: B-130
   Branch: autopilot-lane/B-130
   Base: 95734878268760050521472dc0f4811a095a5fd0
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 4119e1ecd1833a5186b62aaee717a077fd7dea75
   Dispatched: 2026-10-04T11:01:08Z
+  Call: Debug builds also read "About Leo", not "About Leo[DEBUG]": the suffix only marks the build in the menu bar and isn't the product name — AUTONOMY copy/UX details; P1
