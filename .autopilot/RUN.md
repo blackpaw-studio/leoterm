@@ -11,6 +11,7 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 - B-111: runner handed back "blocked" mid-build (told to hand back while its implementer was still running; not a real block). Not shelved: waiting for the orphaned implementer, then a fresh build runner on the same lane (wip b76844890 + uncommitted test edits).
 - Board sync: B-014: unknown status [deferred] (exit 1)
 - B-111 resumed runner: ready, general full, suite green on 3rd run (one new flake filed, one known).
+- B-112 runner: ready, general full, 2017/2017 on rerun (one load flake filed).
 
 Lane: B-058
   Branch: autopilot-lane/B-058
@@ -82,9 +83,12 @@ Lane: B-112
   Branch: autopilot-lane/B-112
   Base: 6eee05ad3e0a85fa64e66ffb9f011b83717a7a65
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: f70a4d0d6e81957f0c4cfbeff02dd164967029fc
   Dispatched: 2026-10-04T03:24:15Z
+  Call: Removed LeoCLI.init's runner default too, so a test that forgets a fake fails to compile, matching D-200 — AUTONOMY test infrastructure/implementation approach
+  Call: Named the helpers LeoRecordingTemplateRunner(templates:) and LeoCLI.recordingForTests — AUTONOMY naming
+  Call: Kept GatedTemplateRunner and GatedTemplateProcess as separate fakes, because they test concurrency rather than plain recording — AUTONOMY test infrastructure

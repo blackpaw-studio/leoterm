@@ -1284,3 +1284,23 @@ Source: autopilot polish (B-176)
 Why: B-111 verify: LeoTerminalRowMenuIntegrationTests/anEmptyNameRestoresTheLiveTitle failed once under load (line 161 eventually-timeout on the "  " case); not in verify.md's known-flake list
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-111)
+
+## B-192 · Template-list tests use the shared fakes throughout   [ready (next run)]
+Why: B-112 review: LeoTemplateListTests.swift:114 builds its LeoCLI fake by hand (use .recordingForTests(runner:)); GatedTemplateProcess(gated: false) at :110 doubles as a plain remote fake — give LeoRecordingTemplateRunner a status: parameter, or merge the two gated fakes (LeoAgentActionsTests.swift:318, LeoTemplateListTests.swift:136) into the shared support file
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-112)
+
+## B-193 · verify.md: New Agent sheet driving tips   [ready (next run)]
+Why: B-112 verify: the Agents > New Agent… menu click never landed; the sidebar "+" button worked, and a sheet popup can be clicked with see --json + click --on <elem> --snapshot <id>
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-112)
+
+## B-194 · Host-selection runner has no real-runner default   [ready (next run)]
+Why: B-112 note: LeoRuntime.hostSelectionRunner and LeoHostSelection.init still default to the real runner (host-selection ssh); inject it like the template runner
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-112)
+
+## B-195 · closingAHiddenRowGivesNothingOnScreenItsSlot flakes under load   [ready (next run)]
+Why: B-112 verify: LeoTerminalRowsIntegrationTests/closingAHiddenRowGivesNothingOnScreenItsSlot hit its 5 s eventually timeout once at load 120
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-112)
