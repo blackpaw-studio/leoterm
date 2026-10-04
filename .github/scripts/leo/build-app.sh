@@ -51,6 +51,14 @@ pb() { /usr/libexec/PlistBuddy -c "$1" "$plist" >&2; }
 pb "Set :GhosttyCommit $COMMIT"
 pb "Set :CFBundleVersion $BUILD"
 pb "Set :CFBundleShortVersionString $SHORT_VERSION"
+# Ghostty-Info.plist takes SUAllowsAutomaticUpdates from the
+# LEO_ALLOWS_AUTOMATIC_UPDATES build setting; an unset setting expands to ""
+# and Sparkle reads that as NO, silently disabling auto-install in Release.
+allows="$(/usr/libexec/PlistBuddy -c 'Print :SUAllowsAutomaticUpdates' "$plist" 2>&1 || true)"
+[[ "$allows" == "YES" ]] || {
+  echo "::error::Release SUAllowsAutomaticUpdates must be YES, got '$allows' (check LEO_ALLOWS_AUTOMATIC_UPDATES)" >&2
+  exit 1
+}
 # Auto-update is on: Ghostty-Info.plist no longer sets SUEnableAutomaticChecks,
 # and this script leaves Sparkle's keys alone (the feed URL and SUPublicEDKey
 # stay as built). AppDelegate.ghosttyConfigDidChange applies the `auto-update`
