@@ -472,11 +472,12 @@ Accept: B-115 verify: the pill and Sparkle's standard alert both asked "Check fo
 Source: autopilot polish (B-115)
 Done: a135885de d5c5f68ee d0c990083 3ac5e5321 d4f4f67a3 (2044 tests). The automatic-updates question is asked once, in the pill popover, never in Sparkle's alert; with no window yet it waits for the first window, survives closing the last window, and Check for Updates… while it is pending opens a window for the pill. ci.md updated. Verified: shots B-128-1..6. 1 fix round (a manual check while asking overwrote the request; test window cleanup). Decisions D-336–D-340.
 
-## B-129 · Debug update alert offers auto-install checkbox   [ready]
+## B-129 · Debug update alert offers auto-install checkbox   [done]
 Issue: #133
 Why: B-115 verify: Sparkle's standard permission alert offers "Automatically download and install updates" in Debug builds; hide it or make it inert there
 Accept: B-115 verify: Sparkle's standard permission alert offers "Automatically download and install updates" in Debug builds; hide it or make it inert there
 Source: autopilot polish (B-115)
+Done: d1cbb8942 (2045 tests). Debug builds set Sparkle's SUAllowsAutomaticUpdates=NO (Info.plist, Debug only), so no Sparkle alert offers Automatically download and install updates; a test pins the Debug plist. Verified: shots B-129-1..4 (update-found alert with no checkbox; nothing clicked). Decisions D-341–D-342.
 
 ## B-130 · App menu says About Ghostty   [ready]
 Issue: #134

@@ -2465,3 +2465,17 @@ Chose: Check for Updates… doesn't bring the pill popover forward when a window
 Why: AUTONOMY UX
 Commit: a135885de, d5c5f68ee, d0c990083, 3ac5e5321, d4f4f67a3
 Veto: [ ]
+
+## D-341 · 2026-10-03 · Hide Sparkle's auto-install checkbox in Debug with Sparkle's own Info…
+Context: B-129 (runner call).
+Chose: Hide Sparkle's auto-install checkbox in Debug with Sparkle's own Info.plist switch (SUAllowsAutomaticUpdates=NO, Debug only via INFOPLIST_PREPROCESSOR_DEFINITIONS), not by suppressing the alert or editing its view
+Why: AUTONOMY implementation approach, follows D-220
+Commit: d1cbb8942
+Veto: [ ]
+
+## D-342 · 2026-10-03 · Preprocessor flag named LEO_UPDATES_CANNOT_INSTALL
+Context: B-129 (runner call).
+Chose: Preprocessor flag named LEO_UPDATES_CANNOT_INSTALL
+Why: AUTONOMY naming
+Commit: d1cbb8942
+Veto: [ ]
