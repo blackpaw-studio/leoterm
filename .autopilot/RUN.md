@@ -45,9 +45,18 @@ Lane: B-176
   Branch: autopilot-lane/B-176
   Base: 7a54c7b70d786ccdec4d45a09cd01af1e8d187fe
   Tier: full
-  State: building
+  State: verifying
   Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: cc9a85fa0303aa88ba5a3bc958a2729e96cf8bd8
   Dispatched: 2026-10-04T01:13:42Z
+  Call: Reuse the New Agent sheet in a worktree mode instead of adding a second sheet — P1/P4
+  Call: "New Agent in Worktree…" goes right after "Open in New Window"; branch placeholder "feature/my-change"; helper "New branch from origin's default branch"; header "New Agent in Worktree" — P1
+  Call: Spawn goes through the selected host's daemon API (branch = --worktree), not a CLI exec; the fake runner is a fake LeoDaemonClient — P3
+  Call: Template prefilled and editable; Host and Repository read-only; Name and Prompt optional and empty — Out (no context carried over)
+  Call: Item is enabled for any agent status and disabled only when the agent has no owner/repo — P1
+  Call: Not added to the menu-bar Agents menu; no shortcut — Out
+  Call: A host switch while the sheet is open blocks Create with "Host changed: switch back to <host> to create this agent" — D-103, P3
+  Call: LeoAgentActions binds the daemon to its host; spawn refuses with "Not connected to <host> yet" on a mismatch, and the plain New Agent sheet gets the same guard — P3
+  Call: A result dropped by a host change resets the sheet with "Host changed; the agent may have been created on <host>"; editing clears a stale error; control characters get their own branch message — AUTONOMY UX

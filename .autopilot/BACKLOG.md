@@ -1247,3 +1247,33 @@ Source: autopilot polish (B-177)
 Why: B-177 verify: menu Split wasn't driven in the GUI (it opens the palette with real agents listed); tests cover it — find a safe GUI path (e.g. filter to autopilot-scratch)
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-177)
+
+## B-185 · Keep the "may have been created" warning across a same-host retry   [ready (next run)]
+Why: B-176 review: add .removeDuplicates() on the selectedHost stream — retry() re-selects the same host, which clears the warning
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-176)
+
+## B-186 · Late spawn result message wording   [ready (next run)]
+Why: B-176 review: reword to "Connection changed; the agent was created on X" (a same-host retry also bumps the generation, and the daemon reported success); prefix late spawn errors with the host's name
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-176)
+
+## B-187 · "Not connected to X yet" after a failed tunnel   [ready (next run)]
+Why: B-176 review: drop "yet" when the tunnel has failed for good; pass daemonHost: .local explicitly at LeoRuntime.swift:246
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-176)
+
+## B-188 · LeoAgentActions.spawn enforces the expected host itself   [ready (next run)]
+Why: B-176 review: guard hostSelection.selected == expectedHost inside spawn, not only via the disabled Create button
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-176)
+
+## B-189 · Stricter owner/repo and branch validation in the New Agent sheet   [ready (next run)]
+Why: B-176 review: ownerRepo per segment ([A-Za-z0-9._-], no leading "-", not "."/"..") — real fix belongs in leo's ValidateRepo (ask the leo agent); catch more invalid branch names inline ("feat/.x", "a.lock/b", bare "@")
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-176)
+
+## B-190 · New Agent in Worktree sheet layout   [ready (next run)]
+Why: B-176 verify: Host and Repository rows are tight and the branch hint sits under the label column
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-176)
