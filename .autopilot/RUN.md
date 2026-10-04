@@ -293,3 +293,14 @@ Lane: B-127
   Call: Appcast fixture expected values named newestVersion / newestShortVersion as static lets on AppcastFixtureTests — AUTONOMY naming/test infrastructure
   Call: Refresh recipe in the doc comment: curl the published appcast into macos/Tests/Update/Fixtures/appcast.xml verbatim (never hand-edit), then update both constants in the same commit — AUTONOMY copy/test infrastructure
 Finished 20: B-127 landed aea8b411b · shot not visually verified
+
+Lane: B-128
+  Branch: autopilot-lane/B-128
+  Base: 04a639e00868b596b112e462ee480621da1bf5fd
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-04T09:34:50Z
