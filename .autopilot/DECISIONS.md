@@ -2255,3 +2255,24 @@ Chose: One LeoSidebarButtonActions value replaces the two loose closures; LeoPla
 Why: AUTONOMY implementation approach
 Commit: ed647aea6, 4dcfc5918, 1e7158bb5, 8cb00814a
 Veto: [ ]
+
+## D-311 · 2026-10-03 · runtests.sh moves into the repo as a tracked script outside scratchpa…
+Context: B-114 (runner call).
+Chose: runtests.sh moves into the repo as a tracked script outside scratchpad/ so lanes and checkouts share one copy
+Why: AUTONOMY test infrastructure
+Commit: e113fee0e, a5e1b3de8
+Veto: [ ]
+
+## D-312 · 2026-10-03 · Tracked the runner at macos/scripts/leo-runtests.sh with its parse te…
+Context: B-114 (runner call).
+Chose: Tracked the runner at macos/scripts/leo-runtests.sh with its parse test macos/scripts/test_leo-runtests.sh beside it (outside scratchpad/)
+Why: AUTONOMY test infrastructure
+Commit: e113fee0e, a5e1b3de8
+Veto: [ ]
+
+## D-313 · 2026-10-03 · Dropped the stale "ConfigTests/errorsEmptyForValidConfig is an expect…
+Context: B-114 (runner call).
+Chose: Dropped the stale "ConfigTests/errorsEmptyForValidConfig is an expected baseline failure" note from the failures header (verify.md says treat it as real)
+Why: AUTONOMY test infrastructure
+Commit: e113fee0e, a5e1b3de8
+Veto: [ ]

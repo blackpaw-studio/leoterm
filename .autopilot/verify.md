@@ -22,15 +22,15 @@ ln -s ~/.leo/agents/leoterm/.git/autopilot/shared/zig-out zig-out
 
 ## Build + test (one script)
 ```
-bash scratchpad/runtests.sh <label>     # scratchpad/ is untracked; copy from ~/.leo/agents/leoterm/.git/autopilot/worktree/scratchpad/runtests.sh
+bash macos/scripts/leo-runtests.sh <label>     # tracked in git since B-114; run from any checkout or lane root
 ```
-- **Test-host environ crash fixed (B-072, 2026-09-30):** plain `bash scratchpad/runtests.sh <label>` runs green with no env-var wrapper. libghostty's `syncEnviron()` now copies the environment instead of pointing into libc's `environ`, which a test's `setenv` could free under the next new surface. `LeoEnvironSnapshotTests` guards it. With a pre-B-072 xcframework the plain runner still crashes the host (the old `LANG=… __CF_USER_TEXT_ENCODING=… __LLVM_PROFILE_RT_INIT_ONCE=…` prefix is only a stopgap).
-- Copy `scratchpad/runtests.sh` from the autopilot worktree (`~/.leo/agents/leoterm/.git/autopilot/worktree/scratchpad/runtests.sh`), not Evan's checkout: only that copy has D-057's "RUN INCOMPLETE"/LEO_TEST_TIMEOUT check.
+- **Test-host environ crash fixed (B-072, 2026-09-30):** plain `bash macos/scripts/leo-runtests.sh <label>` runs green with no env-var wrapper. libghostty's `syncEnviron()` now copies the environment instead of pointing into libc's `environ`, which a test's `setenv` could free under the next new surface. `LeoEnvironSnapshotTests` guards it. With a pre-B-072 xcframework the plain runner still crashes the host (the old `LANG=… __CF_USER_TEXT_ENCODING=… __LLVM_PROFILE_RT_INIT_ONCE=…` prefix is only a stopgap).
+- The script is tracked (B-114), so lanes no longer need a hand copy; `scratchpad/runtests.sh` is retired. It keeps D-057's "RUN INCOMPLETE"/LEO_TEST_TIMEOUT check. Its "-- failures --" list names plain and parameterized failures (`foo(_:) with N test cases failed`); `macos/scripts/test_leo-runtests.sh` guards that parse (run by hand: `bash macos/scripts/test_leo-runtests.sh`).
 - GUI tip (B-057, corrected by B-067/B-077): the sidebar search filter hides the Terminals section by design. AX set-value on the search field changes its text but NOT the filter; to filter or clear it, use Agents ▸ Find Agent… (menu click), then `peekaboo type` / `peekaboo press delete` (debug app frontmost). Menu clicks (File ▸ New Terminal, File ▸ Close) need no key presses.
 - Runs `build-for-testing` (Debug, unsigned, `-derivedDataPath macos/build/DD`), then runs the XCTest bundle inside the app. This also works when the console is locked.
 - Then it runs `swiftlint lint --strict --quiet`.
 - Logs go to `/tmp/leo-build-<label>.log` and `/tmp/leo-tests-<label>.log`.
-- Test-host timeout (B-073): the autopilot worktree's `runtests.sh` defaults to 900 s (`LEO_TEST_TIMEOUT` overrides). A normal run takes ~95 s; at load 300+ a full run can exceed 400 s. A timeout prints "RUN INCOMPLETE … killed by the Ns timeout"; rerun with a larger `LEO_TEST_TIMEOUT` rather than reading it as a failure.
+- Test-host timeout (B-073): `macos/scripts/leo-runtests.sh` defaults to 900 s (`LEO_TEST_TIMEOUT` overrides). A normal run takes ~95 s; at load 300+ a full run can exceed 400 s. A timeout prints "RUN INCOMPLETE … killed by the Ns timeout"; rerun with a larger `LEO_TEST_TIMEOUT` rather than reading it as a failure.
 - Baseline (2026-09-22, after B-001): 726 tests. `ConfigTests/errorsEmptyForValidConfig` passed in every run on 2026-09-30; treat a failure as real.
 - Swiftlint is clean as of B-008 (2026-09-22). Any lint error is new.
 - The `editingAnUnrelatedHostDoesNotReselect` and Observe small-frame flakes were fixed in B-008. Treat a recurrence as real.

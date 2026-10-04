@@ -374,11 +374,12 @@ Accept: each fixed or explicitly dismissed; one naming for the quick terminal; t
 Source: autopilot polish (B-065)
 Done: ed647aea6 4dcfc5918 1e7158bb5 8cb00814a (2023 tests). "Quick Terminal" everywhere (start screen no longer says Show Terminal Drawer); Quick Terminal glyph menubar.arrow.down.rectangle; the start screen uses the sidebar footer's buttons via one LeoSidebarButtonActions value (LeoPlaceholderNewTerminal deleted, newTab:/send defined once); no leak found, self capture removed anyway with weak-reference tests; footer layout test parameterized over failed/loading. Verified: shots B-113-1..7. Decisions D-306–D-310.
 
-## B-114 · runtests.sh misses parameterized test failures in its grep   [ready]
+## B-114 · runtests.sh misses parameterized test failures in its grep   [done]
 Issue: #118
 Why: B-065 implementer: runtests.sh's failure grep misses parameterized tests (names with `(_:)`); only the summary count catches them
 Accept: the failure list names parameterized failures; verify.md updated
 Source: autopilot polish (B-065)
+Done: e113fee0e a5e1b3de8 (2023 tests). The test runner is now tracked at macos/scripts/leo-runtests.sh (scratchpad/runtests.sh retired) and its failure list names parameterized failures (`foo(_:) with N test cases failed`); parse test macos/scripts/test_leo-runtests.sh (5/5). verify.md updated. Not visually verified: no UI change. Decisions D-311–D-313.
 
 ## B-116 · Sidebar programmatic-width doc comment   [ready]
 Issue: #120

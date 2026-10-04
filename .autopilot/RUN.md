@@ -117,7 +117,7 @@ Lane: B-114
   Branch: autopilot-lane/B-114
   Base: f0463bf5b2fb0f0a1d5e7a17c7bd44be872e4423
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -126,3 +126,4 @@ Lane: B-114
   Call: runtests.sh moves into the repo as a tracked script outside scratchpad/ so lanes and checkouts share one copy — AUTONOMY test infrastructure
   Call: Tracked the runner at macos/scripts/leo-runtests.sh with its parse test macos/scripts/test_leo-runtests.sh beside it (outside scratchpad/) — AUTONOMY test infrastructure
   Call: Dropped the stale "ConfigTests/errorsEmptyForValidConfig is an expected baseline failure" note from the failures header (verify.md says treat it as real) — AUTONOMY test infrastructure
+Finished 6: B-114 landed 1306d0e4c · shot not visually verified
