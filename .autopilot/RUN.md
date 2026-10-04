@@ -111,3 +111,15 @@ Lane: B-113
   Call: No retain cycle existed in the start-screen closures; the self capture is removed anyway (weak delegate and app captures), guarded by weak-reference tests — AUTONOMY bug fixes/test infra
   Call: One LeoSidebarButtonActions value replaces the two loose closures; LeoPlaceholderNewTerminal is deleted, so newTab: and send are each defined once — AUTONOMY implementation approach
 Finished 5: B-113 landed 0a5a29f3c · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-113-1.png
+
+Lane: B-114
+  Branch: autopilot-lane/B-114
+  Base: f0463bf5b2fb0f0a1d5e7a17c7bd44be872e4423
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-04T05:22:06Z
+  Call: runtests.sh moves into the repo as a tracked script outside scratchpad/ so lanes and checkouts share one copy — AUTONOMY test infrastructure
