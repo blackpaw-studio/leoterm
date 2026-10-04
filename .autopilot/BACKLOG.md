@@ -1417,3 +1417,13 @@ Source: autopilot polish (B-128)
 Why: B-128 verify: the popover body says "Ghostty can automatically check…"; branding copy
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-128)
+
+## B-215 · Release-side guard for SUAllowsAutomaticUpdates   [ready (next run)]
+Why: B-129 review: the new UpdatePolicyTests check returns early outside Debug, so nothing asserts SUAllowsAutomaticUpdates stays absent in Release (a leak would silently disable auto-install for shipping users); add the else branch expecting nil (UpdatePolicyTests.swift:109-115)
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-129)
+
+## B-216 · Debug update-found alert shows a live-looking Install Update button   [ready (next run)]
+Why: B-129 verify: Sparkle's Debug update alert still shows Install Update (gated to dismiss by B-115); relabel or disable it in Debug
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-129)

@@ -24,6 +24,7 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 - B-126 runner: ready, general full, 2040/2040 green.
 - B-127 runner: ready, general full, 2040/2040 green.
 - B-128 runner: ready (1 fix round), general delta + round-1 general/concurrency full, 2044/2044 x3.
+- B-129 runner: ready, general full, 2045/2045 green. B-128 hadn't mooted it: the no-window Check for Updates fallback showed Sparkle's update-found alert with the checkbox.
 
 Lane: B-058
   Branch: autopilot-lane/B-058
@@ -316,9 +317,11 @@ Lane: B-129
   Branch: autopilot-lane/B-129
   Base: 6b8171ac152c6e56dff40ca1e19b6e8a7e1fab64
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 37b742c3a77b4e2b6deec0e86d1bed3592ea5e6b
   Dispatched: 2026-10-04T10:39:37Z
+  Call: Hide Sparkle's auto-install checkbox in Debug with Sparkle's own Info.plist switch (SUAllowsAutomaticUpdates=NO, Debug only via INFOPLIST_PREPROCESSOR_DEFINITIONS), not by suppressing the alert or editing its view — AUTONOMY implementation approach, follows D-220
+  Call: Preprocessor flag named LEO_UPDATES_CANNOT_INSTALL — AUTONOMY naming
