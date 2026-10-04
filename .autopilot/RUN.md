@@ -83,7 +83,7 @@ Lane: B-112
   Branch: autopilot-lane/B-112
   Base: 6eee05ad3e0a85fa64e66ffb9f011b83717a7a65
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -92,3 +92,4 @@ Lane: B-112
   Call: Removed LeoCLI.init's runner default too, so a test that forgets a fake fails to compile, matching D-200 — AUTONOMY test infrastructure/implementation approach
   Call: Named the helpers LeoRecordingTemplateRunner(templates:) and LeoCLI.recordingForTests — AUTONOMY naming
   Call: Kept GatedTemplateRunner and GatedTemplateProcess as separate fakes, because they test concurrency rather than plain recording — AUTONOMY test infrastructure
+Finished 4: B-112 landed fc43c0acf · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-112-1.png

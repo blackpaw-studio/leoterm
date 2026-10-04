@@ -2199,3 +2199,24 @@ Chose: LeoTerminalRowsIntegrationTests.freshUndo had the same redundant removeAl
 Why: AUTONOMY polish / test infrastructure
 Commit: b76844890, 0203d466f
 Veto: [ ]
+
+## D-303 · 2026-10-03 · Removed LeoCLI.init's runner default too, so a test that forgets a fa…
+Context: B-112 (runner call).
+Chose: Removed LeoCLI.init's runner default too, so a test that forgets a fake fails to compile, matching D-200
+Why: AUTONOMY test infrastructure/implementation approach
+Commit: 6c370c99c, 925854efc, 05b50deec
+Veto: [ ]
+
+## D-304 · 2026-10-03 · Named the helpers LeoRecordingTemplateRunner(templates:) and LeoCLI.r…
+Context: B-112 (runner call).
+Chose: Named the helpers LeoRecordingTemplateRunner(templates:) and LeoCLI.recordingForTests
+Why: AUTONOMY naming
+Commit: 6c370c99c, 925854efc, 05b50deec
+Veto: [ ]
+
+## D-305 · 2026-10-03 · Kept GatedTemplateRunner and GatedTemplateProcess as separate fakes, …
+Context: B-112 (runner call).
+Chose: Kept GatedTemplateRunner and GatedTemplateProcess as separate fakes, because they test concurrency rather than plain recording
+Why: AUTONOMY test infrastructure
+Commit: 6c370c99c, 925854efc, 05b50deec
+Veto: [ ]

@@ -360,11 +360,12 @@ Accept: each fixed or explicitly dismissed; suite green
 Source: autopilot polish (B-083)
 Done: b76844890 0203d466f (2015 tests). Docs: leoForgetContentUndo names the per-window Move Split halves and B-110's shell-free risk; removeAllActions() documents its explicit expire(). Renamed the exclusivity test; dropped two removeAllActions(withTarget:) calls the replay helper covers. Not visually verified: no UI change. Decision D-302.
 
-## B-112 · Finish test isolation for LeoRuntime / LeoAgentActions   [ready]
+## B-112 · Finish test isolation for LeoRuntime / LeoAgentActions   [done]
 Issue: #116
 Why: B-061 review: LeoRecordingTemplateRunner nearly duplicates the private TemplateSSHRunner (LeoAgentActionsTests.swift:293) — merge them with an injectable stdout; LeoRuntime tests still run the real local `leo template list` via LeoCLI(); LeoAgentActions.init still defaults processRunner to the real runner (about 10 tests rely on it)
 Accept: one shared template-runner fake; LeoRuntime tests inject a fake LeoCLI runner; LeoAgentActions.init has no real-runner default and no test spawns a real process for templates
 Source: autopilot polish (B-061)
+Done: 6c370c99c 925854efc 05b50deec (2017 tests). One shared template-runner fake (LeoRecordingTemplateRunner(templates:)) and LeoCLI.recordingForTests; every template path in tests uses it; LeoAgentActions and LeoCLI have no real-runner default, so a test that forgets a fake fails to compile. Gated concurrency fakes kept separate. Verified: shots B-112-1..5 (New Agent template list still loads). Decisions D-303–D-305.
 
 ## B-113 · Sidebar button bar polish   [ready]
 Issue: #117
