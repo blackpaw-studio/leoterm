@@ -14,6 +14,7 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 - B-112 runner: ready, general full, 2017/2017 on rerun (one load flake filed).
 - B-113 runner: ready, general+concurrency full, 2023/2023 green.
 - B-114 runner: ready, general full, 2023/2023 with the new tracked script.
+- B-118 runner: ready (hard implementer), general+security+concurrency full, 2029/2029 green.
 
 Lane: B-058
   Branch: autopilot-lane/B-058
@@ -147,9 +148,15 @@ Lane: B-118
   Branch: autopilot-lane/B-118
   Base: 2c64c6fb001a163a0e244d1a5a0001fd1ffadd25
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 14b12811259e96169db9b45ab4de131678f76cb3
   Dispatched: 2026-10-04T06:22:18Z
+  Call: If a marked pid's identity can't be read (proc_pidpath/Info.plist fails, non-UTF-8 path, wrong layout), it counts as not our copy and Leo takes the bounded ~5 s path, never an endless wait — P5 / AUTONOMY implementation approach
+  Call: Match a marked pid on bundle ID plus CFBundleExecutable (not exact path) so moved/translocated copies are still waited on — D-051 / AUTONOMY implementation approach
+  Call: Read the marked pid's Info.plist directly, not via NSRunningApplication/LaunchServices — D-215 / AUTONOMY implementation approach
+  Call: Info.plist opened O_RDONLY|O_NONBLOCK|O_CLOEXEC, must be a regular file per fstat, capped at 1 MiB, so a FIFO can't hang a UI-less launch — D-216, P5
+  Call: The marked pid's bundle folder must end in .app (case-sensitive) — AUTONOMY implementation approach
+  Call: isCopy has no default; every caller passes an explicit check (no implicit Bundle.main global) — AUTONOMY implementation approach

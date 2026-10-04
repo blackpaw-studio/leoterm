@@ -1331,3 +1331,18 @@ Source: autopilot polish (B-113)
 Why: B-113 verify: clicking a Quick Terminal button while the panel is up re-opens it (resign-key autohide, then toggle); only View > Quick Terminal closes it. Predates B-113
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-113)
+
+## B-200 · Single-instance test hardening (kqueue copy test, LeoTestChild reaping)   [ready (next run)]
+Why: B-118 review: waitForExitStillWaitsOnACopyOfThisBundle's asked == pid needs registration within 1 s of spawning /bin/sleep 1 — use sleep 60 + kill from the isCopy stub (QuittingHolderTests.swift:309); LeoTestChild.isRunning marks reaped on waitpid -1/EINTR, which can leak a sleep 60 child — set reaped only on result==pid or ECHILD (TestSupport.swift:174); dedupe the test realPath with LeoSingleInstance's (QuittingHolderTests.swift:491)
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-118)
+
+## B-201 · Single-instance Info.plist open hardening   [ready (next run)]
+Why: B-118 review: add O_NOCTTY (and optionally O_NOFOLLOW) to the Info.plist open (LeoSingleInstance.swift:285); URL(fileURLWithPath:isDirectory: false) in isMainExecutable to skip a stat (:270)
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-118)
+
+## B-202 · Single-instance: close the same-bundle pid-reuse case   [ready (next run)]
+Why: B-118 security review: a marked pid reused by another live Leo of this bundle is still waited on; compare pbi_start_tvsec with a timestamp written with the mark
+Accept: fixed or explicitly dismissed with a reason; suite green
+Source: autopilot polish (B-118)
