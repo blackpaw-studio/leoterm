@@ -181,9 +181,10 @@ Lane: B-120
   Branch: autopilot-lane/B-120
   Base: bdb2a31b77404e2d6314f39d424084500b24460c
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: d39d96b6b7b163f8169afb528a47768c88a856f2
   Dispatched: 2026-10-04T07:20:15Z
+Finished 13: B-120 landed 922439041 · shot not visually verified

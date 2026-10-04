@@ -409,11 +409,12 @@ Accept: log an error naming the pid and pause count when the release retry is ex
 Source: autopilot polish (B-092)
 Done: 819fa9299 (2030 tests). When the instance-lock release retry runs out, single-instance now logs an error naming the pid and pause count (existing leo logger, injected logError sink with a test). Not visually verified: log-only change. Decisions D-320–D-321.
 
-## B-120 · Single-instance: fix maxReleasePauses doc comment   [ready]
+## B-120 · Single-instance: fix maxReleasePauses doc comment   [done]
 Issue: #124
 Why: the attempt doc comment says "maxReleasePauses times (seconds; …)" but the constant is a count, ~5 s total
 Accept: the attempt doc comment says "maxReleasePauses times (seconds; test where behaviour changes
 Source: autopilot polish (B-092)
+Done: fdbdb1a36 (2030 tests). The attempt doc comment now describes maxReleasePauses as a pause count (2,500 × 2,000 µs ≈ 5 s); also reworded the B-119 pid-line comment. Not visually verified: comments only.
 
 ## B-121 · LeoTestProcess.gone() pid reuse flake   [ready]
 Issue: #125
