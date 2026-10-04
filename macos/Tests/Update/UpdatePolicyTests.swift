@@ -105,12 +105,21 @@ struct UpdatePolicyTests {
     /// terminal window can host the pill, and its permission prompt) show an
     /// "Automatically download and install updates" checkbox unless the
     /// host's `allowsAutomaticUpdates` is off. A build that can't install
-    /// must never offer it, so Debug's Info.plist turns it off (B-129).
-    @Test func buildsThatCantInstallNeverOfferAutomaticInstalls() {
-        guard !UpdatePolicy.installsAllowed else { return }
+    /// must never offer it, so Debug's Info.plist turns it off (B-129);
+    /// release builds allow it. The plist carries the value as the string
+    /// `$(LEO_ALLOWS_AUTOMATIC_UPDATES)` (NO/YES per configuration), so this
+    /// checks Sparkle's own reading of it, not just the raw value.
+    @Test func automaticInstallsAreOfferedOnlyByBuildsThatCanInstall() {
         let settings = SPUUpdaterSettings(hostBundle: .main)
-        #expect(Bundle.main.object(forInfoDictionaryKey: "SUAllowsAutomaticUpdates") as? Bool == false)
-        #expect(!settings.allowsAutomaticUpdates)
-        #expect(!settings.automaticallyDownloadsUpdates)
+        let raw = Bundle.main.object(forInfoDictionaryKey: "SUAllowsAutomaticUpdates") as? String
+        if UpdatePolicy.installsAllowed {
+            #expect(raw == "YES")
+            #expect(settings.allowsAutomaticUpdatesOption?.boolValue == true)
+        } else {
+            #expect(raw == "NO")
+            #expect(settings.allowsAutomaticUpdatesOption?.boolValue == false)
+            #expect(!settings.allowsAutomaticUpdates)
+            #expect(!settings.automaticallyDownloadsUpdates)
+        }
     }
 }
