@@ -247,3 +247,14 @@ Lane: B-124
   Call: Named the constants UpdateDriver.CheckRefusal.{domain,code}, nested on the SPUUpdaterDelegate extension next to their only user, not a global — AUTONOMY naming/implementation approach
   Call: Left the refusal's localized description as a literal; the item covers only the code and domain — AUTONOMY implementation approach
 Finished 17: B-124 landed d80220896 · shot not visually verified
+
+Lane: B-125
+  Branch: autopilot-lane/B-125
+  Base: c155176662f1e237367c0326c828801c564364b4
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-04T08:51:47Z
