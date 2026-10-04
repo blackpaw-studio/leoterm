@@ -2360,3 +2360,10 @@ Chose: Reset Window Size tests share a configuredContentSize(of:) helper and a F
 Why: AUTONOMY test infrastructure
 Commit: e18cc1bac
 Veto: [ ]
+
+## D-326 · 2026-10-03 · Test the real UpdateDriver.updater(_:mayPerform:) through an unstarte…
+Context: B-123 (runner call).
+Chose: Test the real UpdateDriver.updater(_:mayPerform:) through an unstarted SPUUpdater subclass that overrides automaticallyDownloadsUpdates, with no seam added to product code
+Why: AUTONOMY test infrastructure
+Commit: 0d97ffa3c
+Veto: [ ]

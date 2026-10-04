@@ -430,11 +430,12 @@ Accept: a test for the Return To Default Size menu item's enabled state (validat
 Source: autopilot polish (B-097)
 Done: e18cc1bac (2036 tests). Two tests pin the Reset Window Size (Return To Default Size) menu item enabled state on a filled start screen; shown able to fail by reverting the B-097 fix and by inverting validateMenuItem. Not visually verified: tests only. Decision D-325.
 
-## B-123 · Updater mayPerform adapter test   [ready]
+## B-123 · Updater mayPerform adapter test   [done]
 Issue: #127
 Why: test updater(_:mayPerform:) beyond the pure UpdatePolicy.mayCheck (both B-115 reviewers)
 Accept: test updater(_:mayPerform:) beyond the pure UpdatePolicy.mayCheck (both B-115 reviewers)
 Source: autopilot polish (B-115)
+Done: 0d97ffa3c (2039 tests). UpdateDelegateTests exercise the real updater(_:mayPerform:) adapter (allowed and refused paths, and the error it returns) through an unstarted SPUUpdater subclass; no product seam added; shown able to fail by mutation. Not visually verified: tests only. Decision D-326.
 
 ## B-124 · Name UpdateDelegate error constants   [ready]
 Issue: #128
