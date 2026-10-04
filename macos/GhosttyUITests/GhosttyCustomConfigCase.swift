@@ -42,7 +42,8 @@ class GhosttyCustomConfigCase: XCTestCase {
 
     /// Keeps Sparkle from checking or asking to ("check automatically?")
     /// while a UI test drives the app: the update pill would sit in the
-    /// titlebar the tests inspect.
+    /// titlebar the tests inspect. Start the app with `launch()`: an
+    /// `activate()` that attaches to a running instance never applies them.
     static let noUpdateChecksArguments = ["-SUEnableAutomaticChecks", "NO"]
 
     func ghosttyApplication(defaultsSuite: String = GhosttyCustomConfigCase.defaultsSuiteName) throws -> XCUIApplication {
