@@ -101,6 +101,7 @@ struct LeoSingleInstanceTests {
         #expect(spy.waits == [42])
         #expect(spy.pauses == 2)
         #expect(spy.exits.isEmpty)
+        #expect(spy.errors.isEmpty)
     }
 
     /// Still marked by a copy already waited out, long after it's gone: a
@@ -116,6 +117,20 @@ struct LeoSingleInstanceTests {
         #expect(spy.pauses == LeoSingleInstance.maxReleasePauses)
         #expect(spy.activated == [Self.bundleID])
         #expect(spy.exits == [0])
+    }
+
+    /// B-119: running out of release pauses is the one yield that may be a
+    /// stuck mark rather than a live copy, so it's logged as an error naming
+    /// the pid and how many pauses it got, to tell the two apart in the field.
+    @Test func anExhaustedReleaseRetryLogsThePidAndPauseCount() {
+        let spy = LeoGateSpy()
+
+        _ = spy.gate(acquire: Self.answering([.holderExiting(42)])).claim()
+
+        #expect(spy.errors.count == 1)
+        let message = spy.errors.first ?? ""
+        #expect(message.contains("pid 42"), "\(message)")
+        #expect(message.contains("\(LeoSingleInstance.maxReleasePauses) release pauses"), "\(message)")
     }
 
     @Test func aTestHostNeverTakesTheLockOrQuits() {
@@ -149,7 +164,7 @@ struct LeoSingleInstanceTests {
         let gate = LeoSingleInstance(
             bundleIdentifier: nil, isTestHost: false,
             acquireLock: { _ in Issue.record("must not lock"); return .busy }, waitForExit: spy.waitForExit, pauseForRelease: spy.pauseForRelease,
-            activateOther: spy.activate, alert: spy.alert, terminate: spy.exit
+            activateOther: spy.activate, alert: spy.alert, terminate: spy.exit, logError: spy.logError
         )
 
         guard case .skipped = gate.claim() else { Issue.record("expected .skipped"); return }
@@ -287,7 +302,8 @@ struct LeoSingleInstanceTests {
         let gate = LeoSingleInstance(
             bundleIdentifier: bundleID, isTestHost: false,
             acquireLock: { [directory, owner] in LeoInstanceLock.acquire(bundleIdentifier: $0, in: directory, owner: owner) },
-            waitForExit: spy.waitForExit, pauseForRelease: spy.pauseForRelease, activateOther: spy.activate, alert: spy.alert, terminate: spy.exit
+            waitForExit: spy.waitForExit, pauseForRelease: spy.pauseForRelease, activateOther: spy.activate, alert: spy.alert, terminate: spy.exit,
+            logError: spy.logError
         )
 
         let claim = gate.claim()

@@ -15,6 +15,8 @@ final class LeoGateSpy {
     /// The pids of quitting holders waited out, in order.
     private(set) var waits: [pid_t] = []
     private(set) var pauses = 0
+    /// Error-level log lines, in order.
+    private(set) var errors: [String] = []
 
     func activate(_ bundleID: String) { activated.append(bundleID) }
     func alert(_ refusal: LeoInstanceLockRefusal) { alerts.append(refusal) }
@@ -23,6 +25,7 @@ final class LeoGateSpy {
     func waitForExit(_ pid: pid_t) { waits.append(pid) }
     /// Records the pause and returns at once.
     func pauseForRelease() { pauses += 1 }
+    func logError(_ message: String) { errors.append(message) }
 
     /// A gate for `bundleID`. Every wait and pause is recorded; `onWait`
     /// stands in for the quitting holder's process ending, `onPause` for
@@ -44,7 +47,7 @@ final class LeoGateSpy {
                 pauseForRelease()
                 onPause?()
             },
-            activateOther: activate, alert: alert, terminate: exit
+            activateOther: activate, alert: alert, terminate: exit, logError: logError
         )
     }
 }
