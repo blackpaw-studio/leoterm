@@ -43,11 +43,21 @@ class UpdateDriver: NSObject, SPUUserDriver {
         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(50)) { [weak self] in
             guard let self else { return }
             guard !hasUnobtrusiveTarget else { return }
+            // A pending permission request has no cancel, and clearing it
+            // would drop Sparkle's question unanswered: keep it for the next
+            // window's pill (B-128).
+            if case .permissionRequest = viewModel.state { return }
             viewModel.state.cancel()
             viewModel.state = .idle
         }
     }
 
+    /// Sparkle's "check for updates automatically?" request. The pill's
+    /// popover is the only prompt, with no standard-alert fallback: Sparkle
+    /// asks right after launch, before the first terminal window is on
+    /// screen, so a fallback alert plus that window's pill asked twice
+    /// (B-128). Sparkle waits for the reply, so the request simply waits for
+    /// the first window.
     func show(_ request: SPUUpdatePermissionRequest,
               reply sparkleReply: @escaping @Sendable (SUUpdatePermissionResponse) -> Void) {
         // Debug builds never let an answer turn on automatic downloads.
@@ -59,9 +69,6 @@ class UpdateDriver: NSObject, SPUUserDriver {
             viewModel?.state = .idle
             reply(response)
         }))
-        if !hasUnobtrusiveTarget {
-            standard.show(request, reply: reply)
-        }
     }
 
     func showUserInitiatedUpdateCheck(cancellation: @escaping () -> Void) {
