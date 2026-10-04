@@ -72,13 +72,39 @@ struct LeoSidebarButtonActions {
     let newTerminal: @MainActor () -> Void
     let toggleQuickTerminal: @MainActor () -> Void
 
-    @MainActor func perform(_ button: LeoSidebarButton) {}
+    /// Runs the pressed button's closure, and only that one.
+    @MainActor func perform(_ button: LeoSidebarButton) {
+        switch button {
+        case .newTerminal: newTerminal()
+        case .quickTerminal: toggleQuickTerminal()
+        }
+    }
 
     /// Does nothing: a sidebar or start screen with no window behind it.
     static var none: Self { Self(newTerminal: {}, toggleQuickTerminal: {}) }
 
+    /// A window's buttons, each sending its menu item's action the way
+    /// the item would. New Terminal goes to `delegate` (the window's
+    /// controller), so the row lands in the window that was clicked even
+    /// if another is key (D-134); once the controller is gone it falls
+    /// back to the key window's responder chain. Quick Terminal goes to
+    /// `app`, the app delegate that owns the quick terminal; once that is
+    /// gone it does nothing.
+    ///
+    /// Both are held weakly: the sidebar's hosting controller keeps these
+    /// closures for the window's life (B-065), and the start screen's for
+    /// as long as a pane shows it, so a strong capture would outlive what
+    /// it points at. Never `self` of a view either: a copy of TerminalView
+    /// holds the focused surface, which kept a displaced surface and its
+    /// pty alive.
     @MainActor static func forWindow(_ delegate: AnyObject?, app: AnyObject? = NSApp.delegate) -> Self {
-        .none
+        Self(
+            newTerminal: { [weak delegate] in LeoSidebarButton.newTerminal.send(to: delegate) },
+            toggleQuickTerminal: { [weak app] in
+                guard let app else { return }
+                LeoSidebarButton.quickTerminal.send(to: app)
+            }
+        )
     }
 }
 
@@ -88,7 +114,7 @@ struct LeoSidebarButtonActions {
 /// it.
 struct LeoSidebarButtonBar: View {
     @ObservedObject var hints: LeoShortcutHints
-    let perform: (LeoSidebarButton) -> Void
+    let perform: @MainActor (LeoSidebarButton) -> Void
 
     /// Each button's clickable area: an SF Symbol alone is a small target.
     private static let hitSize: CGFloat = 22

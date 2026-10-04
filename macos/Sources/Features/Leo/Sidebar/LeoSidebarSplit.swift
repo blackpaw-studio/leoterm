@@ -182,15 +182,14 @@ struct LeoSidebarSplit<Terminal: View>: View {
     private let titlebarIgnoredEdges: Edge.Set
     /// The sidebar footer's buttons (B-065): see `LeoSidebarView`.
     private let shortcutHints: LeoShortcutHints
-    private let newTerminal: () -> Void
-    private let toggleQuickTerminal: () -> Void
+    /// One value, so its two closures can't be swapped in transit (B-113).
+    private let buttonActions: LeoSidebarButtonActions
 
     init(
         session: LeoWindowSession, model: LeoSidebarModel, actions: LeoAgentActions,
         titlebarIgnoredEdges: Edge.Set = [],
         shortcutHints: LeoShortcutHints,
-        newTerminal: @escaping () -> Void,
-        toggleQuickTerminal: @escaping () -> Void,
+        buttonActions: LeoSidebarButtonActions,
         @ViewBuilder terminal: () -> Terminal
     ) {
         self.session = session
@@ -198,8 +197,7 @@ struct LeoSidebarSplit<Terminal: View>: View {
         self.actions = actions
         self.titlebarIgnoredEdges = titlebarIgnoredEdges
         self.shortcutHints = shortcutHints
-        self.newTerminal = newTerminal
-        self.toggleQuickTerminal = toggleQuickTerminal
+        self.buttonActions = buttonActions
         self.terminal = terminal()
     }
 
@@ -220,7 +218,7 @@ struct LeoSidebarSplit<Terminal: View>: View {
             sidebar: LeoSidebarView(
                 model: model, windowID: session.id, actions: actions, terminals: session.terminals,
                 searchFocusRequest: session.searchFocusRequest,
-                shortcutHints: shortcutHints, newTerminal: newTerminal, toggleQuickTerminal: toggleQuickTerminal
+                shortcutHints: shortcutHints, buttonActions: buttonActions
             ).ignoresSafeArea(.container, edges: titlebarIgnoredEdges),
             detail: terminal,
             editor: session.editor,
