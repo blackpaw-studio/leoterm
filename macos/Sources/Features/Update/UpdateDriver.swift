@@ -9,17 +9,20 @@ class UpdateDriver: NSObject, SPUUserDriver {
     /// is ever installed (see `UpdatePolicy`).
     let installsAllowed: Bool
     private let unobtrusiveTargetCheck: () -> Bool
+    private let unobtrusiveTargetOpener: () -> Void
 
     init(
         viewModel: UpdateViewModel,
         hostBundle: Bundle,
         installsAllowed: Bool = UpdatePolicy.installsAllowed,
-        hasUnobtrusiveTarget: @escaping () -> Bool = UpdateDriver.anyTerminalWindowIsVisible
+        hasUnobtrusiveTarget: @escaping () -> Bool = UpdateDriver.anyTerminalWindowIsVisible,
+        openUnobtrusiveTarget: @escaping () -> Void = UpdateDriver.openTerminalWindow
     ) {
         self.viewModel = viewModel
         self.standard = SPUStandardUserDriver(hostBundle: hostBundle, delegate: nil)
         self.installsAllowed = installsAllowed
         self.unobtrusiveTargetCheck = hasUnobtrusiveTarget
+        self.unobtrusiveTargetOpener = openUnobtrusiveTarget
         super.init()
 
         NotificationCenter.default.addObserver(
@@ -36,18 +39,30 @@ class UpdateDriver: NSObject, SPUUserDriver {
     @objc private func handleTerminalWindowWillClose() {
         // If we lost the ability to show unobtrusive states, cancel whatever
         // update state we're in. This will allow the manual `check for updates`
-        // call to initialize the standard driver.
+        // call to initialize the standard driver. A pending permission
+        // request is the exception: it stays, and `showUpdateInFocus` opens
+        // a window for its pill instead.
         //
         // We have to do this after a short delay so that the window can fully
         // close.
         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(50)) { [weak self] in
             guard let self else { return }
             guard !hasUnobtrusiveTarget else { return }
+            // A pending permission request has no cancel, and clearing it
+            // would drop Sparkle's question unanswered: keep it for the next
+            // window's pill (B-128).
+            if case .permissionRequest = viewModel.state { return }
             viewModel.state.cancel()
             viewModel.state = .idle
         }
     }
 
+    /// Sparkle's "check for updates automatically?" request. The pill's
+    /// popover is the only prompt, with no standard-alert fallback: Sparkle
+    /// asks right after launch, before the first terminal window is on
+    /// screen, so a fallback alert plus that window's pill asked twice
+    /// (B-128). Sparkle waits for the reply, so the request simply waits for
+    /// the first window.
     func show(_ request: SPUUpdatePermissionRequest,
               reply sparkleReply: @escaping @Sendable (SUUpdatePermissionResponse) -> Void) {
         // Debug builds never let an answer turn on automatic downloads.
@@ -59,9 +74,6 @@ class UpdateDriver: NSObject, SPUUserDriver {
             viewModel?.state = .idle
             reply(response)
         }))
-        if !hasUnobtrusiveTarget {
-            standard.show(request, reply: reply)
-        }
     }
 
     func showUserInitiatedUpdateCheck(cancellation: @escaping () -> Void) {
@@ -220,10 +232,18 @@ class UpdateDriver: NSObject, SPUUserDriver {
         viewModel.state = .idle
     }
 
+    /// Sparkle calls this for Check for Updates… while it is still waiting
+    /// for an answer, instead of checking. A pending permission request
+    /// lives only in the pill (B-128), so with no window to show the pill,
+    /// open one; the standard driver has no prompt of its own to bring
+    /// forward.
     func showUpdateInFocus() {
-        if !hasUnobtrusiveTarget {
-            standard.showUpdateInFocus()
+        guard !hasUnobtrusiveTarget else { return }
+        if case .permissionRequest = viewModel.state {
+            unobtrusiveTargetOpener()
+            return
         }
+        standard.showUpdateInFocus()
     }
 
     func dismissUpdateInstallation() {
@@ -243,6 +263,12 @@ class UpdateDriver: NSObject, SPUUserDriver {
             (window is TerminalWindow || window is QuickTerminalWindow) &&
             window.isVisible
         }
+    }
+
+    /// Opens a terminal window (File > New Window), whose pill can then
+    /// show the current state.
+    static func openTerminalWindow() {
+        (NSApp.delegate as? AppDelegate)?.newWindow(nil)
     }
 
     // MARK: Install Gate
