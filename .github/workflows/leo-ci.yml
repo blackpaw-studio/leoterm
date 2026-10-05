@@ -31,6 +31,11 @@ jobs:
           clean: true
           persist-credentials: false
 
+      # Every .github/scripts/leo/tests/test_*.sh (CI/release script tests);
+      # fast, so it runs first and fails the job on any failure.
+      - name: CI script tests
+        run: .github/scripts/leo/run-tests.sh
+
       - name: SwiftLint
         working-directory: macos
         run: swiftlint lint --strict
