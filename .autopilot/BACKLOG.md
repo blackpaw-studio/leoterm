@@ -1552,3 +1552,13 @@ Source: autopilot polish (B-221)
 Why: B-222 review: sparkle-key-check.sh's missing-key detection matches PlistBuddy's English `":SUPublicEDKey", Does Not Exist` text; if macOS changes it the script falls back to the generic "could not read" error (accurate but less specific) — consider `plutil -extract` or an exit-code-based check
 Accept: B-222 review: sparkle-key-check.sh's missing-key detection matches PlistBuddy's English `":SUPublicEDKey", Does Not Exist` text; if macOS changes it the script falls back to the generic "could not read" error (accurate but less specific) — consider `plutil -extract` or an exit-code-based check
 Source: autopilot polish (B-222)
+
+## B-230 · Focus tests: tear down the palette presentation on failure   [ready (next run)]
+Why: B-131 review: in LeoContentFocusTests presentPaletteForRequest (and the older presentPalette), a failure between present and Escape never invalidates the presentation, so the panel stays a key child window until fixture.close(); a defer'd close/invalidate stops one failure leaking into the next test
+Accept: B-131 review: in LeoContentFocusTests presentPaletteForRequest (and the older presentPalette), a failure between present and Escape never invalidates the presentation, so the panel stays a key child window until fixture.close(); a defer'd close/invalidate stops one failure leaking into the next test
+Source: autopilot polish (B-131)
+
+## B-231 · Focus tests: rename the shadowing sidebar local   [ready (next run)]
+Why: B-131 review: `let sidebar = LeoSidebarModel()` in presentPaletteForRequest (~line 148) shadows the fixture's `sidebar: NSView`; rename it to sidebarModel
+Accept: B-131 review: `let sidebar = LeoSidebarModel()` in presentPaletteForRequest (~line 148) shadows the fixture's `sidebar: NSView`; rename it to sidebarModel
+Source: autopilot polish (B-131)

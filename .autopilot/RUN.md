@@ -84,9 +84,11 @@ Lane: B-131
   Branch: autopilot-lane/B-131
   Base: 5092ca6268b6a9ed096b6e3cc1d1cfaaec5b5b12
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: ac5ff61c0a393a1b922c33b97eb032a5f6a9b65f
   Dispatched: 2026-10-05T01:50:25Z
+  Call: requireKeyAgain (#require(eventually { window.isKeyWindow })) added to the Escape test as well as the split test, closing the same vacuous-pass gap — AUTONOMY (test infrastructure)
+  Call: Escape is sent as a keyCode-53 keyDown to panel.keyDown (ending in commit(.cancel)) rather than through the SwiftUI field's cancelOperation, so the test does not depend on SwiftUI focus timing — AUTONOMY (test infrastructure)
