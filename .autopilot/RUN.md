@@ -8,6 +8,7 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 - Preflight 2026-10-04: previous run finished cleanly; main (3 commits: B-129 plist follow-up + CI guard) merged into autopilot. Inbox: 4 bugs added (B-219..B-222). 41 next-run items promoted. No vetoes; no new answers. 69 landed lane worktrees still on disk from earlier runs (finish runs at digest).
 - B-219 runner: blocked at plan — root cause is in the leo daemon (attention hooks dropped after /clear changes session_id); shelved autopilot-shelved/B-219 (no commits).
 - B-220 runner: ready, general full, 2051 tests; 3 focus/key-window tests fail on this host every run regardless (environmental). Landed 9be165c87.
+- B-221 runner: ready, general full, 2051/2051 (the 3 focus tests passed this time). Landed 07a91d89a.
 
 Lane: B-058
   Branch: autopilot-lane/B-058
@@ -52,7 +53,7 @@ Lane: B-221
   Branch: autopilot-lane/B-221
   Base: 4090ccef37aebafc5f7496d2887523abea46e272
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -61,3 +62,4 @@ Lane: B-221
   Call: The run-tests step goes in leo-ci.yml, not leo-build.yml: it runs on every PR and push to main and needs no secrets — AUTONOMY (test infrastructure)
   Call: The guard parses the YAML with /usr/bin/ruby (Psych) and fails if ruby is missing — AUTONOMY (test infrastructure)
   Call: Updated the leo-ci row in docs/leo/ci.md — AUTONOMY (docs/test infrastructure)
+Finished 3: B-221 landed 07a91d89a · not visually verified

@@ -505,13 +505,14 @@ Source: Evan (/issue, 2026-10-04)
 Inbox: 20261004T004211350709Z-7fddc581#1
 Done: 29ebbb822 (2051 tests, lint clean). A build phase links Contents/MacOS/ghostty -> Leo (relative), so the shell-integration ssh wrapper finds the binary; 3 new tests failed before the fix. Verified: wrapper's exact `ghostty +ssh … -- -G localhost` line ran rc=0 in the debug app; shots B-220-1..3. Decisions D-344–D-345. Note: 3 focus/key-window tests fail on this host on every run, also without this change (environmental).
 
-## B-221 · CI never runs .github/scripts/leo/tests/test_*.sh   [ready]
+## B-221 · CI never runs .github/scripts/leo/tests/test_*.sh   [done]
 Issue: #225
 Type: bug
 Report: CI never runs .github/scripts/leo/tests/test_*.sh (incl. test_info-plist-valid.sh, test_sparkle-key-check.sh) — no leo-*.yml step loops over them, so a regression like the B-129 #ifdef in Ghostty-Info.plist only surfaces when a release fails. Add a step (leo-ci or leo-build) that runs every test_*.sh and fails the job on any failure.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: Evan (/issue, 2026-10-04)
 Inbox: 20261004T205201781706Z-77d0eac5#1
+Done: 3eac947b4 8e9147557 34fe5d427 (2051 tests, lint clean, actionlint clean). New `.github/scripts/leo/run-tests.sh` runs every test_*.sh (9/9 pass) and leo-ci.yml calls it; a guard test (red at base, green after) fails if no CI step runs it. Not visually verified: no UI change. Decisions D-346–D-348.
 
 ## B-222 · sparkle-key-check.sh hides PlistBuddy parse errors   [ready]
 Issue: #226

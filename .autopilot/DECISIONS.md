@@ -2500,3 +2500,24 @@ Chose: The link target is relative, so moved or translocated bundles still work
 Why: AUTONOMY implementation approach
 Commit: 29ebbb822
 Veto: [ ]
+
+## D-346 · 2026-10-04 · The CI script-tests step goes in leo-ci.yml, not leo-build.yml
+Context: B-221 (runner call).
+Chose: The run-tests step goes in leo-ci.yml: it runs on every PR and push to main and needs no secrets
+Why: AUTONOMY (test infrastructure)
+Commit: 3eac947b4 8e9147557 34fe5d427 
+Veto: [ ]
+
+## D-347 · 2026-10-04 · The CI guard parses the workflow YAML with /usr/bin/ruby
+Context: B-221 (runner call).
+Chose: The guard parses the YAML with /usr/bin/ruby (Psych) and fails if ruby is missing
+Why: AUTONOMY (test infrastructure)
+Commit: 3eac947b4 8e9147557 34fe5d427 
+Veto: [ ]
+
+## D-348 · 2026-10-04 · Updated the leo-ci row in docs/leo/ci.md
+Context: B-221 (runner call).
+Chose: Updated the leo-ci row in docs/leo/ci.md to list the script-tests step
+Why: AUTONOMY (docs/test infrastructure)
+Commit: 3eac947b4 8e9147557 34fe5d427 
+Veto: [ ]
