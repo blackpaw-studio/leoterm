@@ -79,3 +79,14 @@ Lane: B-222
   Call: Also covered the unreadable-plist case via an up-front -r check — AUTONOMY (bug fixes)
   Call: Missing-key detection matches PlistBuddy's "Does Not Exist" text, falling back to a generic error with PlistBuddy's raw stdout and stderr — AUTONOMY (bug fixes)
 Finished 4: B-222 landed 82ffd3309 · not visually verified
+
+Lane: B-131
+  Branch: autopilot-lane/B-131
+  Base: 5092ca6268b6a9ed096b6e3cc1d1cfaaec5b5b12
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-05T01:50:25Z
