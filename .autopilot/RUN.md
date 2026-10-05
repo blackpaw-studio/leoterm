@@ -32,3 +32,14 @@ Lane: B-219
   Call: Treat B-219 as a leo daemon bug and report it to the leo agent rather than add an app heuristic — Principle 2, D-027 precedent
   Call: Pin the app's supersede behaviour with tests only, no Swift behaviour change — AUTONOMY (bug fixes and test infra)
 Finished 1: B-219 blocked
+
+Lane: B-220
+  Branch: autopilot-lane/B-220
+  Base: ae549b79c3704d6b8998a26ec5d2445a89f7d4ae
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-05T00:55:40Z
