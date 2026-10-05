@@ -291,6 +291,7 @@
 				A5B3052E299BEAAA0047F10C /* Frameworks */,
 				A5B3052F299BEAAA0047F10C /* Resources */,
 				819324572F24E74E00A9ED8F /* Copy DockTilePlugin */,
+				B2200001A1B2C3D4E5F60001 /* Link ghostty CLI Name */,
 			);
 			buildRules = (
 			);
@@ -405,6 +406,26 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		B2200001A1B2C3D4E5F60001 /* Link ghostty CLI Name */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Link ghostty CLI Name";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(EXECUTABLE_FOLDER_PATH)/ghostty",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# B-220: Ghostty's shell integration runs \"$GHOSTTY_BIN_DIR/ghostty\" (the ssh\n# wrapper, among others) and GHOSTTY_BIN_DIR is this executable's folder.\n# Answer to that name with a relative link so a moved bundle still works.\n[ \"$EXECUTABLE_NAME\" = ghostty ] && exit 0\nln -sfh \"$EXECUTABLE_NAME\" \"$TARGET_BUILD_DIR/$EXECUTABLE_FOLDER_PATH/ghostty\"\n";
+			showEnvVarsInLog = 0;
+		};
 		FC501E0B2F46B410007AE49D /* Run SwiftLint */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
