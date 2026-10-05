@@ -486,13 +486,15 @@ Accept: B-115 verify: the app menu still lists "About Ghostty" (pre-existing); s
 Source: autopilot polish (B-115)
 Done: 342cba7a4 (2048 tests). The app menu reads About Leo (also in Debug) and the About window names Leo; LeoAboutMenuTests pins the menu title. Verified: shots B-130-1 (app menu, screen) and -2 (About window). Remaining Ghostty strings filed as a branding sweep. Decision D-343.
 
-## B-219 · Agents stuck in errored state in the sidebar while working fine   [ready]
+## B-219 · Agents stuck in errored state in the sidebar while working fine   [blocked]
 Issue: #223
 Type: bug
 Report: agents are stuck in errored state in the sidebar even though theyre working fine
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: Evan (/issue, 2026-10-04)
 Inbox: 20261004T000358126791Z-1ba543a9#1
+Question: Root cause is in the leo daemon, not the app: `isAgentHookSession` (leo internal/web/handlers_attention.go:80-105) drops every attention hook whose session_id differs from the stored record's, and /clear never updates the stored id (agentstore/store.go:119). After the 2026-10-03 11:39 tmux-server restart set everything to errored, the /cleared agents (leo, leoterm, blackpaw-games-site) have stayed running+errored for ~35 h; agents not /cleared recover normally. The app's reducer already supersedes errored on a newer revision. I'd pick: send the leo agent the bug report plus a failing Go test spec (TestAgentHookAfterClearStillTransitionsAttention), add three Swift pin tests here, and add no app-side "hide errored while running" rule (would break D-011 and principle 2); you then release+restart the daemon. Reply "B-219: yes" to go. Work kept on autopilot-shelved/B-219 (no commits).
+Answer:
 
 ## B-220 · ssh fails in in-app terminals: missing ghostty binary in Leo.app   [ready]
 Issue: #224
