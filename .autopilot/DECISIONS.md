@@ -2521,3 +2521,24 @@ Chose: Updated the leo-ci row in docs/leo/ci.md to list the script-tests step
 Why: AUTONOMY (docs/test infrastructure)
 Commit: 3eac947b4 8e9147557 34fe5d427 
 Veto: [ ]
+
+## D-349 · 2026-10-04 · Plist-error cases get their own network-free test file
+Context: B-222 (runner call).
+Chose: Put the new cases in test_sparkle-key-check-plist-errors.sh rather than the Sparkle-downloading test_sparkle-key-check.sh
+Why: AUTONOMY (test infrastructure)
+Commit: b8581509f 47482639c
+Veto: [ ]
+
+## D-350 · 2026-10-04 · sparkle-key-check also reports an unreadable plist
+Context: B-222 (runner call).
+Chose: Also covered the unreadable-plist case via an up-front -r check
+Why: AUTONOMY (bug fixes)
+Commit: b8581509f 47482639c
+Veto: [ ]
+
+## D-351 · 2026-10-04 · Missing-key detection matches PlistBuddy's "Does Not Exist" text
+Context: B-222 (runner call).
+Chose: Missing-key detection matches PlistBuddy's ":SUPublicEDKey", Does Not Exist text, falling back to a generic error that includes PlistBuddy's raw stdout and stderr
+Why: AUTONOMY (bug fixes)
+Commit: b8581509f 47482639c
+Veto: [ ]

@@ -514,13 +514,14 @@ Source: Evan (/issue, 2026-10-04)
 Inbox: 20261004T205201781706Z-77d0eac5#1
 Done: 3eac947b4 8e9147557 34fe5d427 (2051 tests, lint clean, actionlint clean). New `.github/scripts/leo/run-tests.sh` runs every test_*.sh (9/9 pass) and leo-ci.yml calls it; a guard test (red at base, green after) fails if no CI step runs it. Not visually verified: no UI change. Decisions D-346–D-348.
 
-## B-222 · sparkle-key-check.sh hides PlistBuddy parse errors   [ready]
+## B-222 · sparkle-key-check.sh hides PlistBuddy parse errors   [done]
 Issue: #226
 Type: bug
 Report: .github/scripts/leo/sparkle-key-check.sh drops PlistBuddy stderr (2>/dev/null), so an unreadable/invalid Info.plist is reported as a SUPublicEDKey mismatch/missing instead of a parse error (this misled the leo-v0.7.0 release diagnosis). Capture stderr and surface it in the ::error:: line; add a test with an invalid plist.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: Evan (/issue, 2026-10-04)
 Inbox: 20261004T205201781706Z-77d0eac5#2
+Done: b8581509f 47482639c (2051 tests, lint clean; run-tests.sh 10/10). Root cause was worse than reported: PlistBuddy prints "Error Reading File: …" to stdout, which the script used as the expected key. It now reports parse/unreadable/missing-key errors with PlistBuddy's output in the ::error:: line; new test failed 2/4 at base, 4/4 after under /bin/bash 3.2. Not visually verified: no UI change. Decisions D-349–D-351.
 
 ## B-131 · B-087 focus test hardening   [ready]
 Issue: #135

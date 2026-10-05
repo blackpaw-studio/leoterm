@@ -9,6 +9,7 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 - B-219 runner: blocked at plan — root cause is in the leo daemon (attention hooks dropped after /clear changes session_id); shelved autopilot-shelved/B-219 (no commits).
 - B-220 runner: ready, general full, 2051 tests; 3 focus/key-window tests fail on this host every run regardless (environmental). Landed 9be165c87.
 - B-221 runner: ready, general full, 2051/2051 (the 3 focus tests passed this time). Landed 07a91d89a.
+- B-222 runner: ready, general full, 2051/2051, run-tests.sh 10/10. Landed 82ffd3309.
 
 Lane: B-058
   Branch: autopilot-lane/B-058
@@ -68,7 +69,7 @@ Lane: B-222
   Branch: autopilot-lane/B-222
   Base: 7853310a96d0cafc7134a7eb79be149e88ce6994
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -77,3 +78,4 @@ Lane: B-222
   Call: Put the new cases in a separate, network-free test file (test_sparkle-key-check-plist-errors.sh) — AUTONOMY (test infrastructure)
   Call: Also covered the unreadable-plist case via an up-front -r check — AUTONOMY (bug fixes)
   Call: Missing-key detection matches PlistBuddy's "Does Not Exist" text, falling back to a generic error with PlistBuddy's raw stdout and stderr — AUTONOMY (bug fixes)
+Finished 4: B-222 landed 82ffd3309 · not visually verified
