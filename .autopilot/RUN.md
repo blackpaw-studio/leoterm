@@ -1,7 +1,7 @@
 Status: running
 Started: 2026-10-05T00:45:54Z
 Budget: 5 items, until 2026-10-05T12:45:54Z
-Digested-through: 0
+Digested-through: 5
 Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 
 ## Progress
@@ -10,6 +10,7 @@ Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 - B-220 runner: ready, general full, 2051 tests; 3 focus/key-window tests fail on this host every run regardless (environmental). Landed 9be165c87.
 - B-221 runner: ready, general full, 2051/2051 (the 3 focus tests passed this time). Landed 07a91d89a.
 - B-222 runner: ready, general full, 2051/2051, run-tests.sh 10/10. Landed 82ffd3309.
+- B-131 runner: ready, general full, 2051/2051. Landed 8242cd333. Item cap (5) reached; interim digest folded into the final one.
 
 Lane: B-058
   Branch: autopilot-lane/B-058
@@ -84,7 +85,7 @@ Lane: B-131
   Branch: autopilot-lane/B-131
   Base: 5092ca6268b6a9ed096b6e3cc1d1cfaaec5b5b12
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -92,3 +93,4 @@ Lane: B-131
   Dispatched: 2026-10-05T01:50:25Z
   Call: requireKeyAgain (#require(eventually { window.isKeyWindow })) added to the Escape test as well as the split test, closing the same vacuous-pass gap — AUTONOMY (test infrastructure)
   Call: Escape is sent as a keyCode-53 keyDown to panel.keyDown (ending in commit(.cancel)) rather than through the SwiftUI field's cancelOperation, so the test does not depend on SwiftUI focus timing — AUTONOMY (test infrastructure)
+Finished 5: B-131 landed 8242cd333 · not visually verified

@@ -523,11 +523,12 @@ Source: Evan (/issue, 2026-10-04)
 Inbox: 20261004T205201781706Z-77d0eac5#2
 Done: b8581509f 47482639c (2051 tests, lint clean; run-tests.sh 10/10). Root cause was worse than reported: PlistBuddy prints "Error Reading File: …" to stdout, which the script used as the expected key. It now reports parse/unreadable/missing-key errors with PlistBuddy's output in the ::error:: line; new test failed 2/4 at base, 4/4 after under /bin/bash 3.2. Not visually verified: no UI change. Decisions D-349–D-351.
 
-## B-131 · B-087 focus test hardening   [ready]
+## B-131 · B-087 focus test hardening   [done]
 Issue: #135
 Why: LeoContentFocusTests: drive Escape via LeoPickerPresentation.commit(.cancel) not panel.dismiss() (45-48); #require(window.isKeyWindow) after dismiss in the split test (154); row-switch guard doc says it covers the host step only (24-36)
 Accept: LeoContentFocusTests: drive Escape via LeoPickerPresentation.commit(.cancel) not panel.dismiss() (45-48); #require(window.isKeyWindow) after dismiss in the split test (154); row-switch guard doc says it covers the host step only (24-36)
 Source: autopilot polish (B-087)
+Done: 516c57d9e (2051 tests, lint clean). Escape now goes through the panel key path to LeoPickerPresentation.commit(.cancel); both palette tests #require the window to be key again (old file passed vacuously under a mutation that skipped orderOut); row-switch guard doc narrowed to the host step. Not visually verified: test-only. Decisions D-352–D-353.
 
 ## B-132 · Focused-surface report ordering on split open   [ready]
 Issue: #136
