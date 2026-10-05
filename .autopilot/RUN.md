@@ -28,3 +28,5 @@ Lane: B-219
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-10-05T00:48:31Z
+  Call: Treat B-219 as a leo daemon bug and report it to the leo agent rather than add an app heuristic — Principle 2, D-027 precedent
+  Call: Pin the app's supersede behaviour with tests only, no Swift behaviour change — AUTONOMY (bug fixes and test infra)
