@@ -52,9 +52,12 @@ Lane: B-221
   Branch: autopilot-lane/B-221
   Base: 4090ccef37aebafc5f7496d2887523abea46e272
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: dc9d2df4d44b1a242c548fd2e62938a1e71a7784
   Dispatched: 2026-10-05T01:28:18Z
+  Call: The run-tests step goes in leo-ci.yml, not leo-build.yml: it runs on every PR and push to main and needs no secrets — AUTONOMY (test infrastructure)
+  Call: The guard parses the YAML with /usr/bin/ruby (Psych) and fails if ruby is missing — AUTONOMY (test infrastructure)
+  Call: Updated the leo-ci row in docs/leo/ci.md — AUTONOMY (docs/test infrastructure)

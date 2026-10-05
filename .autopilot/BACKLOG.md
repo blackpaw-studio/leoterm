@@ -1530,3 +1530,18 @@ Source: autopilot polish (B-220)
 Why: B-220 verify: release signing and notarization with a symlink in Contents/MacOS are untested (ad-hoc codesign --deep --strict passes); watch the next CI release build or add a CI codesign --verify --strict check
 Accept: B-220 verify: release signing and notarization with a symlink in Contents/MacOS are untested (ad-hoc codesign --deep --strict passes); watch the next CI release build or add a CI codesign --verify --strict check
 Source: autopilot polish (B-220)
+
+## B-226 · CI script-tests guard: tighten the step match   [ready (next run)]
+Why: B-221 review: the guard is satisfied by `run-tests.sh --list` or a DIR argument and ignores job-level continue-on-error — require nothing after run-tests.sh on the matched line and reject job-level continue-on-error (test_ci-runs-script-tests.sh:96)
+Accept: B-221 review: the guard is satisfied by `run-tests.sh --list` or a DIR argument and ignores job-level continue-on-error — require nothing after run-tests.sh on the matched line and reject job-level continue-on-error (test_ci-runs-script-tests.sh:96)
+Source: autopilot polish (B-221)
+
+## B-227 · Release path runs the CI script tests   [ready (next run)]
+Why: B-221 review: leo-release.yml calls only leo-build, so a tag on a commit that skipped main (or while main's leo-ci was red) can release without the script tests — have leo-release call leo-ci (workflow_call) or have leo-build run run-tests.sh first
+Accept: B-221 review: leo-release.yml calls only leo-build, so a tag on a commit that skipped main (or while main's leo-ci was red) can release without the script tests — have leo-release call leo-ci (workflow_call) or have leo-build run run-tests.sh first
+Source: autopilot polish (B-221)
+
+## B-228 · run-tests.sh pins /bin/bash   [ready (next run)]
+Why: B-221 review: run-tests.sh:43 runs `bash "$t"` from PATH, so Homebrew bash 5 could hide bash 3.2 incompatibilities — pin it to /bin/bash
+Accept: B-221 review: run-tests.sh:43 runs `bash "$t"` from PATH, so Homebrew bash 5 could hide bash 3.2 incompatibilities — pin it to /bin/bash
+Source: autopilot polish (B-221)
