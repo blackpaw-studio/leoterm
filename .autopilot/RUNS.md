@@ -298,3 +298,28 @@ Board: https://github.com/orgs/blackpaw-studio/projects/5
 Board sync: B-014 unknown status [deferred] every sync (see RUN.md)
 Landed lanes B-128/129/130/176/177 not removed (untracked build output)
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-10-05 (cap 5)
+🛠 leoterm autopilot — 4 fixed, 1 shipped, 1 blocked
+Fixed
+• B-220 ssh in in-app terminals — Contents/MacOS/ghostty now links to the Leo executable, so the shell-integration ssh wrapper finds it (verified: screenshot) · light
+• B-221 CI never ran .github/scripts/leo tests — new run-tests.sh runs every test_*.sh from leo-ci.yml, with a guard test (not visually verified: CI only) · light
+• B-222 sparkle-key-check hid plist errors — parse/unreadable/missing-key errors now surface PlistBuddy's output (not visually verified: CI only) · light
+Shipped
+• B-131 Focus test hardening — Escape via commit(.cancel); both palette tests re-require key window (not visually verified: test-only) · light
+Calls I made — reply "veto D-0xx" to undo
+• D-344/345 relative ghostty→Leo symlink via build phase; CFBundleExecutable and upstream scripts untouched
+• D-346–348 script tests run in leo-ci.yml; YAML guard uses /usr/bin/ruby; docs/leo/ci.md updated
+• D-349–351 separate network-free plist-error test; unreadable check; "Does Not Exist" match with raw-output fallback
+• D-352/353 focus tests: key-window re-check; Escape through panel.keyDown
+Needs you — reply "B-0xx: <answer>"
+• B-219 sidebar "errored" is a leo daemon bug: attention hooks are dropped after /clear changes session_id (leo, leoterm, blackpaw-games-site stuck ~35h). Send the leo agent a bug + failing Go test, add Swift pins, no app-side hiding? I'd pick yes; you release/restart the daemon. Shelved: autopilot-shelved/B-219 (empty).
+• calls in shelved work, not logged: B-219 daemon-bug routing; tests-only pins
+• Lane cleanup: 73 lane worktrees on disk; landed ones aren't removed because each holds untracked zig-out/profraw leftovers. Want me to trash those leftovers so finish can prune them?
+Ideas parked — "/feature B-0xx" to spec one
+• B-058 Splits inside the content area
+Next up: B-132, B-133, B-134
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Board sync: 1 failure (B-014 unknown status [deferred])
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot

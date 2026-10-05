@@ -1520,46 +1520,55 @@ Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-130)
 
 ## B-223 · Bundled ghostty CLI test: isolate cwd and profile output   [ready (next run)]
+Issue: #227
 Why: B-220 review: LeoBundledGhosttyCLITests runs its child with LLVM_PROFILE_FILE stripped and an inherited cwd, so a coverage build can drop default.profraw into Contents/MacOS and break the bundle seal — set currentDirectoryURL to a temp dir and/or LLVM_PROFILE_FILE=/dev/null
 Accept: B-220 review: LeoBundledGhosttyCLITests runs its child with LLVM_PROFILE_FILE stripped and an inherited cwd, so a coverage build can drop default.profraw into Contents/MacOS and break the bundle seal — set currentDirectoryURL to a temp dir and/or LLVM_PROFILE_FILE=/dev/null
 Source: autopilot polish (B-220)
 
 ## B-224 · Bundled ghostty CLI test: deadline on the child process   [ready (next run)]
+Issue: #228
 Why: B-220 review: readDataToEndOfFile/waitUntilExit have no deadline, so a hung child hangs the run instead of failing — add a terminate deadline like LeoProcessRunnerTests.timeoutTerminatesProcess
 Accept: B-220 review: readDataToEndOfFile/waitUntilExit have no deadline, so a hung child hangs the run instead of failing — add a terminate deadline like LeoProcessRunnerTests.timeoutTerminatesProcess
 Source: autopilot polish (B-220)
 
 ## B-225 · Check release signing with the Contents/MacOS/ghostty symlink   [ready (next run)]
+Issue: #229
 Why: B-220 verify: release signing and notarization with a symlink in Contents/MacOS are untested (ad-hoc codesign --deep --strict passes); watch the next CI release build or add a CI codesign --verify --strict check
 Accept: B-220 verify: release signing and notarization with a symlink in Contents/MacOS are untested (ad-hoc codesign --deep --strict passes); watch the next CI release build or add a CI codesign --verify --strict check
 Source: autopilot polish (B-220)
 
 ## B-226 · CI script-tests guard: tighten the step match   [ready (next run)]
+Issue: #230
 Why: B-221 review: the guard is satisfied by `run-tests.sh --list` or a DIR argument and ignores job-level continue-on-error — require nothing after run-tests.sh on the matched line and reject job-level continue-on-error (test_ci-runs-script-tests.sh:96)
 Accept: B-221 review: the guard is satisfied by `run-tests.sh --list` or a DIR argument and ignores job-level continue-on-error — require nothing after run-tests.sh on the matched line and reject job-level continue-on-error (test_ci-runs-script-tests.sh:96)
 Source: autopilot polish (B-221)
 
 ## B-227 · Release path runs the CI script tests   [ready (next run)]
+Issue: #231
 Why: B-221 review: leo-release.yml calls only leo-build, so a tag on a commit that skipped main (or while main's leo-ci was red) can release without the script tests — have leo-release call leo-ci (workflow_call) or have leo-build run run-tests.sh first
 Accept: B-221 review: leo-release.yml calls only leo-build, so a tag on a commit that skipped main (or while main's leo-ci was red) can release without the script tests — have leo-release call leo-ci (workflow_call) or have leo-build run run-tests.sh first
 Source: autopilot polish (B-221)
 
 ## B-228 · run-tests.sh pins /bin/bash   [ready (next run)]
+Issue: #232
 Why: B-221 review: run-tests.sh:43 runs `bash "$t"` from PATH, so Homebrew bash 5 could hide bash 3.2 incompatibilities — pin it to /bin/bash
 Accept: B-221 review: run-tests.sh:43 runs `bash "$t"` from PATH, so Homebrew bash 5 could hide bash 3.2 incompatibilities — pin it to /bin/bash
 Source: autopilot polish (B-221)
 
 ## B-229 · sparkle-key-check: missing-key detection without PlistBuddy wording   [ready (next run)]
+Issue: #233
 Why: B-222 review: sparkle-key-check.sh's missing-key detection matches PlistBuddy's English `":SUPublicEDKey", Does Not Exist` text; if macOS changes it the script falls back to the generic "could not read" error (accurate but less specific) — consider `plutil -extract` or an exit-code-based check
 Accept: B-222 review: sparkle-key-check.sh's missing-key detection matches PlistBuddy's English `":SUPublicEDKey", Does Not Exist` text; if macOS changes it the script falls back to the generic "could not read" error (accurate but less specific) — consider `plutil -extract` or an exit-code-based check
 Source: autopilot polish (B-222)
 
 ## B-230 · Focus tests: tear down the palette presentation on failure   [ready (next run)]
+Issue: #234
 Why: B-131 review: in LeoContentFocusTests presentPaletteForRequest (and the older presentPalette), a failure between present and Escape never invalidates the presentation, so the panel stays a key child window until fixture.close(); a defer'd close/invalidate stops one failure leaking into the next test
 Accept: B-131 review: in LeoContentFocusTests presentPaletteForRequest (and the older presentPalette), a failure between present and Escape never invalidates the presentation, so the panel stays a key child window until fixture.close(); a defer'd close/invalidate stops one failure leaking into the next test
 Source: autopilot polish (B-131)
 
 ## B-231 · Focus tests: rename the shadowing sidebar local   [ready (next run)]
+Issue: #235
 Why: B-131 review: `let sidebar = LeoSidebarModel()` in presentPaletteForRequest (~line 148) shadows the fixture's `sidebar: NSView`; rename it to sidebarModel
 Accept: B-131 review: `let sidebar = LeoSidebarModel()` in presentPaletteForRequest (~line 148) shadows the fixture's `sidebar: NSView`; rename it to sidebarModel
 Source: autopilot polish (B-131)

@@ -1,4 +1,4 @@
-Status: running
+Status: finished
 Started: 2026-10-05T00:45:54Z
 Budget: 5 items, until 2026-10-05T12:45:54Z
 Digested-through: 5
@@ -94,3 +94,5 @@ Lane: B-131
   Call: requireKeyAgain (#require(eventually { window.isKeyWindow })) added to the Escape test as well as the split test, closing the same vacuous-pass gap — AUTONOMY (test infrastructure)
   Call: Escape is sent as a keyCode-53 keyDown to panel.keyDown (ending in commit(.cancel)) rather than through the SwiftUI field's cancelOperation, so the test does not depend on SwiftUI focus timing — AUTONOMY (test infrastructure)
 Finished 5: B-131 landed 8242cd333 · not visually verified
+- Board sync: B-014: unknown status [deferred] (exit 1)
+- autopilot-lane finish: landed lanes skipped as dirty (untracked zig-out/profraw leftovers); 73 lane dirs remain
