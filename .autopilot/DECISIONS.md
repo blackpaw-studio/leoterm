@@ -2542,3 +2542,17 @@ Chose: Missing-key detection matches PlistBuddy's ":SUPublicEDKey", Does Not Exi
 Why: AUTONOMY (bug fixes)
 Commit: b8581509f 47482639c
 Veto: [ ]
+
+## D-352 · 2026-10-04 · The Escape focus test also requires the window to be key again
+Context: B-131 (runner call).
+Chose: requireKeyAgain (#require(eventually { window.isKeyWindow })) added to the Escape test as well as the split test, closing the same vacuous-pass gap (mutation M2)
+Why: AUTONOMY (test infrastructure)
+Commit: 516c57d9e
+Veto: [ ]
+
+## D-353 · 2026-10-04 · Focus test sends Escape to the panel's key path
+Context: B-131 (runner call).
+Chose: Escape is sent as a keyCode-53 keyDown to panel.keyDown (ending in commit(.cancel)) rather than through the SwiftUI field's cancelOperation, so the test does not depend on SwiftUI focus timing
+Why: AUTONOMY (test infrastructure)
+Commit: 516c57d9e
+Veto: [ ]
