@@ -487,6 +487,7 @@ Source: autopilot polish (B-115)
 Done: 342cba7a4 (2048 tests). The app menu reads About Leo (also in Debug) and the About window names Leo; LeoAboutMenuTests pins the menu title. Verified: shots B-130-1 (app menu, screen) and -2 (About window). Remaining Ghostty strings filed as a branding sweep. Decision D-343.
 
 ## B-219 · Agents stuck in errored state in the sidebar while working fine   [ready]
+Issue: #223
 Type: bug
 Report: agents are stuck in errored state in the sidebar even though theyre working fine
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -494,6 +495,7 @@ Source: Evan (/issue, 2026-10-04)
 Inbox: 20261004T000358126791Z-1ba543a9#1
 
 ## B-220 · ssh fails in in-app terminals: missing ghostty binary in Leo.app   [ready]
+Issue: #224
 Type: bug
 Report: i cant use ssh in the in-app terminals ~ arm64 ❯ ssh evan@10.0.4.16                                                                                                                                          miniforge3-arm64 ssh:4: no such file or directory: /Applications/Leo.app/Contents/MacOS/ghostty
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -501,6 +503,7 @@ Source: Evan (/issue, 2026-10-04)
 Inbox: 20261004T004211350709Z-7fddc581#1
 
 ## B-221 · CI never runs .github/scripts/leo/tests/test_*.sh   [ready]
+Issue: #225
 Type: bug
 Report: CI never runs .github/scripts/leo/tests/test_*.sh (incl. test_info-plist-valid.sh, test_sparkle-key-check.sh) — no leo-*.yml step loops over them, so a regression like the B-129 #ifdef in Ghostty-Info.plist only surfaces when a release fails. Add a step (leo-ci or leo-build) that runs every test_*.sh and fails the job on any failure.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -508,6 +511,7 @@ Source: Evan (/issue, 2026-10-04)
 Inbox: 20261004T205201781706Z-77d0eac5#1
 
 ## B-222 · sparkle-key-check.sh hides PlistBuddy parse errors   [ready]
+Issue: #226
 Type: bug
 Report: .github/scripts/leo/sparkle-key-check.sh drops PlistBuddy stderr (2>/dev/null), so an unreadable/invalid Info.plist is reported as a SUPublicEDKey mismatch/missing instead of a parse error (this misled the leo-v0.7.0 release diagnosis). Capture stderr and surface it in the ::error:: line; add a test with an invalid plist.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
