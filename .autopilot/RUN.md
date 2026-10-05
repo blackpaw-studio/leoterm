@@ -17,3 +17,13 @@ Lane: B-058
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-09-30T14:49:01Z
+
+Lane: B-219
+  Branch: autopilot-lane/B-219
+  Base: fd44a23bfeb47c5af0cab79d41700399d37f41e3
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
