@@ -1514,3 +1514,18 @@ Issue: #222
 Why: B-130 review: MainMenu.xib Hide Ghostty / Quit Ghostty / Make Ghostty the Default Terminal / Ghostty Help; About window links (ghostty.org, ghostty-org/ghostty, commit link to the wrong repo), tagline and "Ghostty Application Icon" a11y label; AppDelegate.swift:1478/1514 "Quit Ghostty?", :625 "Allow Ghostty to execute…", UntrustedURLAlert.swift:39, UpdatePopoverView.swift:62, TerminalCommandPalette.swift:99 "Update Ghostty and Restart", ErrorView.swift:13, TerminalView.swift:267 debug banner, default "👻 Ghostty" titles in TitlebarTabs{Tahoe,Ventura}TerminalWindow. Decide which upstream strings to rename (keep upstream merges cheap)
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-130)
+
+## B-223 · Bundled ghostty CLI test: isolate cwd and profile output   [ready (next run)]
+Why: B-220 review: LeoBundledGhosttyCLITests runs its child with LLVM_PROFILE_FILE stripped and an inherited cwd, so a coverage build can drop default.profraw into Contents/MacOS and break the bundle seal — set currentDirectoryURL to a temp dir and/or LLVM_PROFILE_FILE=/dev/null
+Accept: B-220 review: LeoBundledGhosttyCLITests runs its child with LLVM_PROFILE_FILE stripped and an inherited cwd, so a coverage build can drop default.profraw into Contents/MacOS and break the bundle seal — set currentDirectoryURL to a temp dir and/or LLVM_PROFILE_FILE=/dev/null
+Source: autopilot polish (B-220)
+
+## B-224 · Bundled ghostty CLI test: deadline on the child process   [ready (next run)]
+Why: B-220 review: readDataToEndOfFile/waitUntilExit have no deadline, so a hung child hangs the run instead of failing — add a terminate deadline like LeoProcessRunnerTests.timeoutTerminatesProcess
+Accept: B-220 review: readDataToEndOfFile/waitUntilExit have no deadline, so a hung child hangs the run instead of failing — add a terminate deadline like LeoProcessRunnerTests.timeoutTerminatesProcess
+Source: autopilot polish (B-220)
+
+## B-225 · Check release signing with the Contents/MacOS/ghostty symlink   [ready (next run)]
+Why: B-220 verify: release signing and notarization with a symlink in Contents/MacOS are untested (ad-hoc codesign --deep --strict passes); watch the next CI release build or add a CI codesign --verify --strict check
+Accept: B-220 verify: release signing and notarization with a symlink in Contents/MacOS are untested (ad-hoc codesign --deep --strict passes); watch the next CI release build or add a CI codesign --verify --strict check
+Source: autopilot polish (B-220)

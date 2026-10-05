@@ -37,9 +37,11 @@ Lane: B-220
   Branch: autopilot-lane/B-220
   Base: ae549b79c3704d6b8998a26ec5d2445a89f7d4ae
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 844b291fcb4bc4157ef8eda4d4838ec2416d4dfa
   Dispatched: 2026-10-05T00:55:40Z
+  Call: A build phase symlinks Contents/MacOS/ghostty -> Leo; CFBundleExecutable, Zig and upstream shell scripts untouched — AUTONOMY (keep Zig minimal), D-306
+  Call: The link target is relative, so moved or translocated bundles still work — AUTONOMY implementation approach
