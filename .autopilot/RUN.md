@@ -63,3 +63,14 @@ Lane: B-221
   Call: The guard parses the YAML with /usr/bin/ruby (Psych) and fails if ruby is missing — AUTONOMY (test infrastructure)
   Call: Updated the leo-ci row in docs/leo/ci.md — AUTONOMY (docs/test infrastructure)
 Finished 3: B-221 landed 07a91d89a · not visually verified
+
+Lane: B-222
+  Branch: autopilot-lane/B-222
+  Base: 7853310a96d0cafc7134a7eb79be149e88ce6994
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-05T01:40:21Z
