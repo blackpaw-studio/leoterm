@@ -496,13 +496,14 @@ Inbox: 20261004T000358126791Z-1ba543a9#1
 Question: Root cause is in the leo daemon, not the app: `isAgentHookSession` (leo internal/web/handlers_attention.go:80-105) drops every attention hook whose session_id differs from the stored record's, and /clear never updates the stored id (agentstore/store.go:119). After the 2026-10-03 11:39 tmux-server restart set everything to errored, the /cleared agents (leo, leoterm, blackpaw-games-site) have stayed running+errored for ~35 h; agents not /cleared recover normally. The app's reducer already supersedes errored on a newer revision. I'd pick: send the leo agent the bug report plus a failing Go test spec (TestAgentHookAfterClearStillTransitionsAttention), add three Swift pin tests here, and add no app-side "hide errored while running" rule (would break D-011 and principle 2); you then release+restart the daemon. Reply "B-219: yes" to go. Work kept on autopilot-shelved/B-219 (no commits).
 Answer:
 
-## B-220 · ssh fails in in-app terminals: missing ghostty binary in Leo.app   [ready]
+## B-220 · ssh fails in in-app terminals: missing ghostty binary in Leo.app   [done]
 Issue: #224
 Type: bug
 Report: i cant use ssh in the in-app terminals ~ arm64 ❯ ssh evan@10.0.4.16                                                                                                                                          miniforge3-arm64 ssh:4: no such file or directory: /Applications/Leo.app/Contents/MacOS/ghostty
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: Evan (/issue, 2026-10-04)
 Inbox: 20261004T004211350709Z-7fddc581#1
+Done: 29ebbb822 (2051 tests, lint clean). A build phase links Contents/MacOS/ghostty -> Leo (relative), so the shell-integration ssh wrapper finds the binary; 3 new tests failed before the fix. Verified: wrapper's exact `ghostty +ssh … -- -G localhost` line ran rc=0 in the debug app; shots B-220-1..3. Decisions D-344–D-345. Note: 3 focus/key-window tests fail on this host on every run, also without this change (environmental).
 
 ## B-221 · CI never runs .github/scripts/leo/tests/test_*.sh   [ready]
 Issue: #225

@@ -2486,3 +2486,17 @@ Chose: Debug builds also read "About Leo", not "About Leo[DEBUG]": the suffix on
 Why: AUTONOMY copy/UX details; P1
 Commit: 342cba7a4
 Veto: [ ]
+
+## D-344 · 2026-10-04 · A build phase symlinks Contents/MacOS/ghostty to the Leo executable
+Context: B-220 (runner call).
+Chose: A build phase symlinks Contents/MacOS/ghostty -> Leo so shell-integration's ssh wrapper finds "$GHOSTTY_BIN_DIR/ghostty"; CFBundleExecutable, Zig and the upstream shell scripts are untouched
+Why: AUTONOMY (keep Zig minimal); D-306 (keep upstream names)
+Commit: 29ebbb822
+Veto: [ ]
+
+## D-345 · 2026-10-04 · The ghostty link target is relative
+Context: B-220 (runner call).
+Chose: The link target is relative, so moved or translocated bundles still work
+Why: AUTONOMY implementation approach
+Commit: 29ebbb822
+Veto: [ ]
