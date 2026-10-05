@@ -19,8 +19,10 @@ import Testing
 /// than passing silently.
 @MainActor @Suite(.serialized)
 struct LeoContentFocusTests {
-    /// A row's sidebar click moves the selection first; here a view in the
-    /// window stands in for the list holding keyboard focus.
+    /// Covers the host step only: `showInContent` / `reveal` called
+    /// directly, with a view in the window standing in for the sidebar
+    /// list holding keyboard focus. The click → selection → route path
+    /// that reaches the host is not driven here.
     @Test func aRowSwitchFocusesTheShownTerminal() async throws {
         let fixture = try await FocusFixture.make()
         defer { fixture.close() }
@@ -36,17 +38,19 @@ struct LeoContentFocusTests {
         try await fixture.expectSettled(on: first.surface, "the hidden row shown again")
     }
 
-    /// Escape closes the palette (`LeoPickerPresentation.commit(.cancel)`
-    /// dismisses its panel); the window becomes key again.
+    /// Escape closes the palette: the panel's Escape key reaches
+    /// `LeoPickerPresentation.commit(.cancel)`, which dismisses it; the
+    /// window becomes key again.
     @Test func dismissingThePaletteGivesFocusBackToTheTerminal() async throws {
         let fixture = try await FocusFixture.make()
         defer { fixture.close() }
         let shown = try fixture.fill().surface
         try await fixture.expectSettled(on: shown)
 
-        let panel = try await fixture.presentPalette()
-        panel.dismiss()
+        let palette = try await fixture.presentPaletteForRequest()
+        try palette.pressEscape()
 
+        try await fixture.requireKeyAgain("after Escape")
         try await fixture.expectSettled(on: shown, "after the palette closed")
     }
 
@@ -64,6 +68,7 @@ struct LeoContentFocusTests {
         let split = try fixture.split(from: source)
         DispatchQueue.main.async { panel.dismiss() }
 
+        try await fixture.requireKeyAgain("after the palette closed")
         try await fixture.expectSettled(on: split, "the new split, not the pane it was split from")
     }
 }
@@ -137,6 +142,38 @@ private struct FocusFixture {
         return panel
     }
 
+    /// The palette as ⌘O shows it: a real `LeoPickerPresentation` over
+    /// this window driving the real panel, for a request it has begun.
+    func presentPaletteForRequest() async throws -> PresentedPalette {
+        let sidebar = LeoSidebarModel()
+        let hostSelection = LeoHostSelection.isolatedForTesting()
+        let actions = LeoAgentActions(
+            daemon: UnusedDaemon(), cli: .recordingForTests(), model: sidebar, hostSelection: hostSelection,
+            processRunner: LeoRecordingTemplateRunner(), refresh: {}
+        )
+        let router = LeoNewSurfaceRouter(
+            attach: { _, _, _ in .success(()) },
+            openPlainShell: { _ in .success(()) },
+            presentSpawn: { _, complete in complete(nil) }
+        )
+        let panel = LeoAgentPalettePanel()
+        let presentation = LeoPickerPresentation(
+            window: window, router: router, sidebar: sidebar, hostSelection: hostSelection, actions: actions, panel: panel
+        )
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
+        router.begin(request)
+        presentation.present(request: request)
+        try #require(await eventually { panel.isKeyWindow }, "the palette never became key")
+        return PresentedPalette(presentation: presentation, panel: panel)
+    }
+
+    /// The window takes key status back once the palette is gone; without
+    /// it the cursor check in `expectSettled` (`focused == isKeyWindow`)
+    /// passes for any pane.
+    func requireKeyAgain(_ comment: Comment, sourceLocation: SourceLocation = #_sourceLocation) async throws {
+        try #require(await eventually { window.isKeyWindow }, "never key again: \(describe()) \(comment)", sourceLocation: sourceLocation)
+    }
+
     /// `expected` becomes the first responder and stays it once every
     /// focus move still pending has landed; then it alone draws focused
     /// (as long as the window is key).
@@ -178,6 +215,40 @@ private struct FocusFixture {
     }
 }
 
+/// A palette shown by its `LeoPickerPresentation`, which the panel holds
+/// only weakly (through its commit closure), so it is kept here.
+@MainActor
+private struct PresentedPalette {
+    let presentation: LeoPickerPresentation
+    let panel: LeoAgentPalettePanel
+
+    /// The key the user presses, through the panel's own key handling
+    /// rather than `panel.dismiss()`.
+    func pressEscape() throws {
+        let escape = try #require(NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+            windowNumber: panel.windowNumber, context: nil, characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}",
+            isARepeat: false, keyCode: 53
+        ))
+        panel.keyDown(with: escape)
+    }
+}
+
 private final class SidebarStandIn: NSView {
     override var acceptsFirstResponder: Bool { true }
+}
+
+/// The palette's actions need a daemon; nothing here reaches it.
+private struct UnusedDaemon: LeoDaemonClient {
+    func listAgents() async throws -> [LeoAgent] { [] }
+    func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent { throw LeoDaemonError.transport("unused") }
+    func start(_ name: String) async throws { throw LeoDaemonError.transport("unused") }
+    func stop(_ name: String, wakeOnMessage: Bool?) async throws { throw LeoDaemonError.transport("unused") }
+    func restart(_ name: String) async throws -> LeoAgent { throw LeoDaemonError.transport("unused") }
+    func reset(_ name: String) async throws { throw LeoDaemonError.transport("unused") }
+    func setTemplate(_ name: String, template: String) async throws { throw LeoDaemonError.transport("unused") }
+    func rename(_ name: String, newName: String) async throws -> LeoAgent { throw LeoDaemonError.transport("unused") }
+    func delete(_ name: String, force: Bool?, deleteBranch: Bool?) async throws { throw LeoDaemonError.transport("unused") }
+    func deletePlan(_ name: String) async throws -> LeoDeletePlan { throw LeoDaemonError.transport("unused") }
+    func logs(_ name: String, lines: Int?) async throws -> String { throw LeoDaemonError.transport("unused") }
 }
