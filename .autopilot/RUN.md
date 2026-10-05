@@ -68,9 +68,12 @@ Lane: B-222
   Branch: autopilot-lane/B-222
   Base: 7853310a96d0cafc7134a7eb79be149e88ce6994
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 936f870a23f7b7980fbccc4c55c475cc50d3fee2
   Dispatched: 2026-10-05T01:40:21Z
+  Call: Put the new cases in a separate, network-free test file (test_sparkle-key-check-plist-errors.sh) — AUTONOMY (test infrastructure)
+  Call: Also covered the unreadable-plist case via an up-front -r check — AUTONOMY (bug fixes)
+  Call: Missing-key detection matches PlistBuddy's "Does Not Exist" text, falling back to a generic error with PlistBuddy's raw stdout and stderr — AUTONOMY (bug fixes)
