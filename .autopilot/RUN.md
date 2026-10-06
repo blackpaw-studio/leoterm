@@ -40,6 +40,17 @@ Lane: B-140
   Call: A hidden or floor-collapsed sidebar is left alone on reset — AUTONOMY UX/layout
   Call: With a side pane open, the restore is capped so the terminal keeps its 300 pt floor (sidebar grows as far as room allows) rather than skipped — P1, D-361, D-036/D-058
 
+Lane: B-141
+  Branch: autopilot-lane/B-141
+  Base: ae3ca762e4286c2c9d5b31d7084bef1861f89e21
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-06T21:16:10Z
+
 ## Progress
 - Board sync re-enabled at Evan's request (2026-10-06); full sync run.
 - Lane B-233 is unlanded with no RUN.md block (left in place, not a pick).
