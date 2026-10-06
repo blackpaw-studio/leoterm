@@ -22,11 +22,11 @@ Lane: B-233
   Branch: autopilot-lane/B-233
   Base: d121269b17498bda9c576a804ce15f0c7f78e0a3
   Tier: full
-  State: building
+  State: verifying
   Fixes: 3
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: a5fa98d8da33c829615f6fca7e41c4251f13288f
   Dispatched: 2026-10-06T00:44:57Z
 
 - Board sync: B-014: unknown status [deferred] (exit 1). Further board writes skipped under current no-issues instruction.
@@ -37,3 +37,4 @@ Lane: B-233
 - Evan changed B-014 deferred → blocked; old answer cleared to retain the block on future preflight. B-234 inbox-generated title corrected to describe surfaced files.
 
 - Evan explicitly approved supported B-233 final Xcode/SwiftPM build/test filesystem access and isolated debug test host after auto-review rejected delegated authorization. Final verifier may retry that exact scope.
+  Call: D-023 permits fixed SFTP-server bootstrap over existing ControlMaster after proven subsystem rejection — principle 3 and AUTONOMY implementation approach
