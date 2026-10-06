@@ -44,7 +44,7 @@ Lane: B-141
   Branch: autopilot-lane/B-141
   Base: ae3ca762e4286c2c9d5b31d7084bef1861f89e21
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -61,3 +61,5 @@ Lane: B-141
 Finished 1: B-139 landed acf95b2b9cd3b48dc5aae28a19c6c7ff2471c036 · not visually verified
 - B-140 landed 4bdcbc709: Reset/Return To Default Size restores the stored sidebar width (349→420 in GUI); 1 fix round (terminal floor with side pane); suite 2076 green. Polish B-243–B-245 filed.
 Finished 2: B-140 landed 4bdcbc70940e9d9cfb22a97f702d02bdebae5f17 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-140-1.png
+- B-141 landed d3bf3d087: isLeoWindowShown takes an injected leoAppIsHidden seam; 3 new tests; suite 2079 green; no UI change. Polish B-246 filed.
+Finished 3: B-141 landed d3bf3d0873d63972cda0d199a35766fde7de28f4 · not visually verified

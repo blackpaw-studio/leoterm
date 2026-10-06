@@ -628,11 +628,12 @@ Accept: Return To Default Size leaves a launch-clamped sidebar at ~349 pt instea
 Source: autopilot polish (B-091)
 Done: 8a96bd527eb8cbbd49393a605c6dd899e92b1544, 01b5b5bc0e14068e6131fd52dfad4988acfaec7b
 
-## B-141 · Inject NSApp.isHidden into isLeoWindowShown   [ready]
+## B-141 · Inject NSApp.isHidden into isLeoWindowShown   [done]
 Issue: #145
 Why: the hidden branch of TerminalController.isLeoWindowShown reads a global and its real wiring is untested; inject it (DI preference)
 Accept: the hidden branch of TerminalController.isLeoWindowShown reads a global and its real wiring is untested; inject it (DI preference)
 Source: autopilot polish (B-093)
+Done: 8016b94b4fdf5389f14e6cb9c4f9ae921c65494d
 
 ## B-142 · Off-screen 500x500 window on folder-open   [ready]
 Issue: #146
@@ -1688,6 +1689,7 @@ Accept: decide and implement how Reset sizes a window whose default plus sidebar
 Source: autopilot polish (B-140)
 
 ## B-246 · Non-vacuous final check in aWindowNotYetPresentedReadsNotShownWhileTheAppIsHidden   [ready (next run)]
+Issue: #251
 Why: its last `#expect(requested.isLeoWindowShown)` passes whatever the hidden state is, because the settled window is on screen
 Accept: the final check orders the window out first (so only the hidden-state branch can make it pass), or is documented as a sanity check
 Source: autopilot polish (B-141)

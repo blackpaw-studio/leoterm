@@ -2642,3 +2642,24 @@ Chose: With a side pane open, the restore is capped so the terminal keeps its 30
 Why: P1, D-361, D-036/D-058
 Commit: 8a96bd527eb8cbbd49393a605c6dd899e92b1544, 01b5b5bc0e14068e6131fd52dfad4988acfaec7b
 Veto: [ ]
+
+## D-366 · 2026-10-06 · Property injection (`var leoAppIsHidden: @MainActor () -> Bool = { NS…
+Context: B-141 (runner call).
+Chose: Property injection (`var leoAppIsHidden: @MainActor () -> Bool = { NSApp.isHidden }`) instead of an init parameter, because many factories build controllers
+Why: AUTONOMY implementation approach
+Commit: 8016b94b4fdf5389f14e6cb9c4f9ae921c65494d
+Veto: [ ]
+
+## D-367 · 2026-10-06 · The name `leoAppIsHidden`, following the controller's leo* prefix
+Context: B-141 (runner call).
+Chose: The name `leoAppIsHidden`, following the controller's leo* prefix
+Why: AUTONOMY naming
+Commit: 8016b94b4fdf5389f14e6cb9c4f9ae921c65494d
+Veto: [ ]
+
+## D-368 · 2026-10-06 · The tests go in the existing LeoLaunchPlaceholderIntegrationTests, on…
+Context: B-141 (runner call).
+Chose: The tests go in the existing LeoLaunchPlaceholderIntegrationTests, on the real Ghostty.App
+Why: AUTONOMY test infrastructure
+Commit: 8016b94b4fdf5389f14e6cb9c4f9ae921c65494d
+Veto: [ ]
