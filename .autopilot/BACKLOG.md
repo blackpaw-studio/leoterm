@@ -561,11 +561,14 @@ Question: Final fix limit reached. Remaining blockers: reject NUL anywhere in so
 Answer:
 
 
-## B-132 · Focused-surface report ordering on split open   [ready]
+## B-132 · Focused-surface report ordering on split open   [blocked]
 Issue: #136
 Why: focusedSurface didSet posts .leoFocusedSurfaceDidChange before register(), so a brief nil focus report is possible (GhosttyAttachContentHost.swift:470, same in fillPlaceholder); move the assignment after register
 Accept: focusedSurface didSet posts .leoFocusedSurfaceDidChange before register(), so a brief nil focus report is possible (GhosttyAttachContentHost.swift:470, same in fillPlaceholder); move the assignment after register
 Source: autopilot polish (B-087)
+Question: Shared focus/palette verification failures predate B-132: same three failures on older default-main 3dadd1e42, fixtureless lane, and full lane; new ordering tests pass, both reviews clean. Work kept on autopilot-shelved/B-132 (815c1719d). I’d pick diagnosing shared AppKit focus scheduling first, using B-136/B-230 as related leads, then re-verifying this lane.
+Answer:
+
 
 ## B-133 · Close-confirm polish   [ready]
 Issue: #137
@@ -590,6 +593,8 @@ Issue: #140
 Why: mouseDragDivider and LeoSidebarCommandClickTests.click share the app event queue in a parallelizable plan; serialize them
 Accept: mouseDragDivider and LeoSidebarCommandClickTests.click share the app event queue in a parallelizable plan; serialize them
 Source: autopilot polish (B-089)
+Note: 2026-10-06 run stopped on three pre-existing focus/palette failures; B-132 baseline comparisons exclude its changes. Shared AppKit scheduling is the suspected mechanism, not yet an isolated cause. Inspect alongside B-230 before broadening this item.
+
 
 ## B-137 · runtests.sh baseline note for ConfigTests   [done]
 Issue: #141
