@@ -28,13 +28,19 @@ import Testing
 ///   open's (the test never yields the main actor then). It must be the
 ///   folder's window, its own palette panel, a child or sheet of the
 ///   folder's window, or the system's text-input cursor window.
-/// - A window that appeared later is another suite's when it is, or hangs
-///   off, another terminal controller's window or that controller's
-///   palette panel, or hangs off a bare `NSWindow` (only tests build those
-///   here). Any other one counts as the open's.
+/// - A window that appeared later and hangs off the folder's window or a
+///   window the test itself opened first (a running window, a launch
+///   window) is the open's too.
+/// - Any other later window is another suite's when it is, or hangs off,
+///   another terminal controller's window or that controller's palette
+///   panel; when it is any other agent palette panel (a folder-open adds
+///   a palette only through its own window's session, so one a test built
+///   directly is that test's); or when it hangs off a bare `NSWindow` (only
+///   tests build those here) and isn't 500x500. Any other one counts as
+///   the open's.
 /// - Of the open's windows, any 500x500 one, and any invisible one at the
 ///   screen origin other than the folder window's own palette panel, is
-///   a stray even as a child or sheet of the folder's window.
+///   a stray even as a child or sheet of a window it hangs off.
 ///
 /// Folders only: opening a file asks first, with a modal alert a test must
 /// never run. The window runs the default shell, never an agent; each test
@@ -147,14 +153,18 @@ struct LeoFolderOpenStrayWindowTests {
         let serverWindowsBefore: [ServerWindow]
         let windowsAddedDuringCall: [NSWindow]
         let opened: [TerminalController]
+        /// The windows the test opened before the folder (a running window,
+        /// a launch window), whose new children and sheets are the open's.
+        let testControllers: [TerminalController]
         let windowsAfter: [NSWindow]
         let serverWindowsAfter: [ServerWindow]
     }
 
     /// Opens a fresh folder as Finder or the Dock would and waits until it
-    /// and `watching` (a launch window it may replace) settle.
+    /// and the windows the test opened before it (`testControllers`: a
+    /// running window, a launch window it may replace) settle.
     private func openFolder(
-        _ app: AppDelegate, _ folder: URL, watching: [TerminalController] = []
+        _ app: AppDelegate, _ folder: URL, testControllers: [TerminalController] = []
     ) async throws -> FolderOpen {
         let windowsBefore = NSApp.windows
         let serverWindowsBefore = ServerWindow.ownedByThisProcess()
@@ -165,7 +175,7 @@ struct LeoFolderOpenStrayWindowTests {
         let windowsAddedDuringCall = added(to: windowsBefore, in: NSApp.windows)
         let opened = TerminalController.all.filter { !existing.contains(ObjectIdentifier($0)) }
         #expect(isHandled)
-        let isSettled = await settle(opened + watching)
+        let isSettled = await settle(opened + testControllers)
         if !isSettled { close(opened) }
         try #require(isSettled, "the folder's window never settled")
         return FolderOpen(
@@ -173,6 +183,7 @@ struct LeoFolderOpenStrayWindowTests {
             serverWindowsBefore: serverWindowsBefore,
             windowsAddedDuringCall: windowsAddedDuringCall,
             opened: opened,
+            testControllers: testControllers,
             windowsAfter: NSApp.windows,
             serverWindowsAfter: ServerWindow.ownedByThisProcess()
         )
@@ -205,25 +216,35 @@ struct LeoFolderOpenStrayWindowTests {
     /// The AppKit windows the open added that it can't account for (see the
     /// suite's comment).
     private func strayWindows(_ open: FolderOpen) -> [NSWindow] {
-        let openedWindows = Set(open.opened.compactMap(\.window).map(ObjectIdentifier.init))
+        let openedWindows = identifiers(open.opened.compactMap(\.window))
+        let testWindows = identifiers(open.testControllers.compactMap(\.window))
         let ownPalettes = paletteWindows(of: open.opened)
-        let addedDuringCall = Set(open.windowsAddedDuringCall.map(ObjectIdentifier.init))
-        let foreignControllers = TerminalController.all.filter { controller in !open.opened.contains { $0 === controller } }
-        let foreignWindows = Set(foreignControllers.compactMap(\.window).map(ObjectIdentifier.init))
-            .union(paletteWindows(of: foreignControllers))
+        let addedDuringCall = identifiers(open.windowsAddedDuringCall)
+        let ownControllers = open.opened + open.testControllers
+        let foreignControllers = TerminalController.all.filter { controller in !ownControllers.contains { $0 === controller } }
+        let foreignWindows = identifiers(foreignControllers.compactMap(\.window)).union(paletteWindows(of: foreignControllers))
+        func hangsOff(_ windows: Set<ObjectIdentifier>, _ window: NSWindow) -> Bool {
+            ancestry(window).contains { windows.contains(ObjectIdentifier($0)) }
+        }
         func isForeign(_ window: NSWindow) -> Bool {
-            ancestry(window).contains { foreignWindows.contains(ObjectIdentifier($0)) || type(of: $0) == NSWindow.self }
+            let hangsOffBareWindow = ancestry(window).contains { type(of: $0) == NSWindow.self }
+            return hangsOff(foreignWindows, window) || window is LeoAgentPalettePanel
+                || (hangsOffBareWindow && window.frame.size != Self.reportedStraySize)
         }
         return added(to: open.windowsBefore, in: open.windowsAfter).filter { window in
             let id = ObjectIdentifier(window)
             if Self.isSystemTextInputCursorWindow(window) || ownPalettes.contains(id) || openedWindows.contains(id) {
                 return false
             }
-            if ancestry(window).contains(where: { openedWindows.contains(ObjectIdentifier($0)) }) {
-                return hasStrayShape(window)
-            }
-            return addedDuringCall.contains(id) || !isForeign(window)
+            if hangsOff(openedWindows, window) { return hasStrayShape(window) }
+            if addedDuringCall.contains(id) { return true }
+            if hangsOff(testWindows, window) { return hasStrayShape(window) }
+            return !isForeign(window)
         }
+    }
+
+    private func identifiers(_ windows: [NSWindow]) -> Set<ObjectIdentifier> {
+        Set(windows.map(ObjectIdentifier.init))
     }
 
     /// The window-server windows the open added that AppKit doesn't list.
@@ -301,7 +322,7 @@ struct LeoFolderOpenStrayWindowTests {
         let folder = makeFolder()
         defer { folder.removeIfReserved() }
 
-        let open = try await openFolder(app, folder.reserve())
+        let open = try await openFolder(app, folder.reserve(), testControllers: [existing])
         defer { close(open.opened) }
 
         let strays = strayWindows(open)
@@ -321,7 +342,7 @@ struct LeoFolderOpenStrayWindowTests {
         let folder = makeFolder()
         defer { folder.removeIfReserved() }
 
-        let open = try await openFolder(app, folder.reserve(), watching: [launch])
+        let open = try await openFolder(app, folder.reserve(), testControllers: [launch])
         defer { close(open.opened) }
 
         let strays = strayWindows(open)
