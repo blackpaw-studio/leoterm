@@ -431,6 +431,12 @@ import OSLog
         registry.makeSession(defaults: defaults)
     }
 
+    /// The agent palette's window for the window session `windowID`: built
+    /// with the session, hidden until ⌘O (B-142).
+    func paletteWindow(for windowID: LeoWindowID) -> NSWindow? {
+        picker.paletteWindow(for: windowID)
+    }
+
     /// Tears down everything scoped to `windowID`: any pending new-surface
     /// request, that window's palette presentation (panel, model,
     /// subscriptions) and its attach bookkeeping. Idempotent -- safe to call from both

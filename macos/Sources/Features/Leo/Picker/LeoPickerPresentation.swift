@@ -129,6 +129,11 @@ import SwiftUI
         observeLiveState()
     }
 
+    /// The palette's own window, built with the presentation and ordered
+    /// out until the palette opens, so it can be told from a stray window
+    /// (B-142). Nil for a test's fake panel.
+    var paletteWindow: NSWindow? { panel as? NSWindow }
+
     /// Shows (or, if already open for this window, reuses) the palette for
     /// `request`. The router's `begin(_:)` has already run by the time this
     /// is called (see `LeoRuntime.routeNewSurface`), so a second gesture for
@@ -340,6 +345,11 @@ import SwiftUI
 
     func unregister(origin: LeoWindowID) {
         presentations.removeValue(forKey: origin)?.invalidate()
+    }
+
+    /// The palette window of `origin`'s presentation, if it has one.
+    func paletteWindow(for origin: LeoWindowID) -> NSWindow? {
+        presentations[origin]?.paletteWindow
     }
 
     func present(request: LeoSurfaceRequest) {

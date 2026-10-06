@@ -10,22 +10,36 @@ import Testing
 ///
 /// B-093's verify found an untitled 500x500 window with no accessibility
 /// element at the screen's bottom-left after every folder-open. It is
-/// macOS's text-input cursor window (`TUINSWindow`), not Leo's: the first
-/// time any text input is active in the key window -- the folder's
-/// terminal, File ▸ New Terminal's, a search field -- AppKit's
-/// `NSTextInputContext.activate` makes it, once per process, through
-/// `TUINSCursorUIController.sharedInstance`. It stays ordered out until the
-/// system shows its caps-lock or input-source indicator at the insertion
-/// point, and every Mac app that takes text has one. A plain launch shows
-/// the start screen, which takes no text, so only a terminal brought it.
+/// macOS's text-input cursor window, TextInputUIMacHelper's `TUINSWindow`,
+/// not Leo's: `TUINSCursorUIController.sharedInstance` makes it once per
+/// process, the first time an input context activates
+/// (`NSTextInputContext.activate`, from `NSApplication.updateWindows`) --
+/// here the folder's terminal; File ▸ New Terminal's or a search field's
+/// would do the same. It stays ordered out, hosting the system's caps-lock
+/// and input-source indicator. A plain launch shows the start screen,
+/// which activates no input context, so it has none.
 ///
 /// Each test diffs the app's windows -- AppKit's list and the window
-/// server's, which also holds windows AppKit doesn't list -- across one
-/// folder-open and names every window it can't account for: its class,
-/// frame, controller and content. Folders only: opening a file asks first,
-/// with a modal alert a test must never run. The window runs the default
-/// shell, never an agent; each test closes the windows it opened, with undo
-/// registration off while they open.
+/// server's -- across one folder-open and names every window it can't
+/// account for. Suites share this app, so other suites may open windows
+/// while a test waits for the folder's window to present. The diff
+/// attributes by cause:
+/// - A window that appeared while `application(_:openFile:)` ran is the
+///   open's (the test never yields the main actor then). It must be the
+///   folder's window, its own palette panel, a child or sheet of the
+///   folder's window, or the system's text-input cursor window.
+/// - A window that appeared later is another suite's when it is, or hangs
+///   off, another terminal controller's window or that controller's
+///   palette panel, or hangs off a bare `NSWindow` (only tests build those
+///   here). Any other one counts as the open's.
+/// - Of the open's windows, any 500x500 one, and any invisible one at the
+///   screen origin other than the folder window's own palette panel, is
+///   a stray even as a child or sheet of the folder's window.
+///
+/// Folders only: opening a file asks first, with a modal alert a test must
+/// never run. The window runs the default shell, never an agent; each test
+/// closes the windows it opened, with undo registration off while they
+/// open.
 @MainActor @Suite(
     .serialized,
     .enabled("needs the app's Ghostty.App") { await MainActor.run { hasLiveGhosttyApp } },
@@ -37,15 +51,13 @@ struct LeoFolderOpenStrayWindowTests {
     /// How long a step may take to settle on a loaded host.
     private static let settleTimeout: Duration = .seconds(30)
 
-    /// Once the windows settle, how long a window something opens later (on
-    /// a timer, say) has to turn up before the diff.
-    private static let lateWindowGrace: Duration = .seconds(1)
-
     /// The size of the window B-093's verify found.
     private static let reportedStraySize = CGSize(width: 500, height: 500)
 
-    /// Where the system's private text-input UI frameworks live.
-    private static let textInputUIFrameworkPrefix = "/System/Library/PrivateFrameworks/TextInputUI"
+    /// The system's text-input cursor window: its class, and the private
+    /// framework that class comes from.
+    private static let textInputCursorWindowClass = "TUINSWindow"
+    private static let textInputCursorFramework = "/System/Library/PrivateFrameworks/TextInputUIMacHelper.framework"
 
     private func liveApp() throws -> AppDelegate {
         try #require(Self.app)
@@ -62,23 +74,20 @@ struct LeoFolderOpenStrayWindowTests {
     }
 
     /// Waits until no presentation `controllers` queued is still pending and
-    /// a whole main-queue turn after that changed none of their windows,
-    /// then gives a late window `lateWindowGrace` to appear. False if they
-    /// never settle within the timeout.
-    private func settle(_ controllers: [TerminalController]) async throws -> Bool {
+    /// a whole main-queue turn after that changed none of their windows. By
+    /// then what those presentations queued (the cascade, a replaced launch
+    /// window's close) has run too. False if that never happens within the
+    /// timeout.
+    private func settle(_ controllers: [TerminalController]) async -> Bool {
         let deadline = ContinuousClock.now + Self.settleTimeout
         var previous: [NSRect?]?
-        var isSettled = false
-        while !isSettled, ContinuousClock.now < deadline {
+        while ContinuousClock.now < deadline {
             await nextMainQueueTurn()
             let current = controllers.map { $0.window.map { $0.isVisible ? $0.frame : .zero } }
-            isSettled = !controllers.contains(where: \.leoIsAwaitingPresentation) && current == previous
+            if !controllers.contains(where: \.leoIsAwaitingPresentation), current == previous { return true }
             previous = current
         }
-        guard isSettled else { return false }
-        try await Task.sleep(for: Self.lateWindowGrace)
-        await nextMainQueueTurn()
-        return true
+        return false
     }
 
     /// Closes each controller's window, shown or not, unless it closed.
@@ -89,26 +98,16 @@ struct LeoFolderOpenStrayWindowTests {
     /// A Leo start-screen window, shown and settled, as a running app has.
     private func openStartScreenWindow(_ app: AppDelegate) async throws -> TerminalController {
         let window = withoutUndo(app) { TerminalController.leoNewPlaceholderWindow(app.ghostty) }
-        let isSettled = try await settle([window])
+        let isSettled = await settle([window])
         if !isSettled { close([window]) }
         try #require(isSettled, "the start-screen window's presentation never settled")
         return window
     }
 
-    /// The system's text-input cursor window (see the suite's comment): its
-    /// class comes from a private TextInputUI framework, never from Leo.
     private static func isSystemTextInputCursorWindow(_ window: NSWindow) -> Bool {
-        Bundle(for: type(of: window)).bundlePath.hasPrefix(textInputUIFrameworkPrefix)
-    }
-
-    /// The app's windows, AppKit's and the window server's, at one moment.
-    private struct Inventory {
-        let windows: [NSWindow]
-        let serverWindows: [ServerWindow]
-
-        @MainActor static func now() -> Inventory {
-            Inventory(windows: NSApp.windows, serverWindows: ServerWindow.ownedByThisProcess())
-        }
+        let windowClass: AnyClass = type(of: window)
+        return NSStringFromClass(windowClass) == textInputCursorWindowClass
+            && Bundle(for: windowClass).bundlePath == textInputCursorFramework
     }
 
     /// One window-server window this process owns.
@@ -116,13 +115,10 @@ struct LeoFolderOpenStrayWindowTests {
         let number: Int
         let bounds: CGRect
         let layer: Int
-        let name: String?
         let isOnScreen: Bool
-        let alpha: Double
 
         var description: String {
-            "server window #\(number) bounds=\(bounds) layer=\(layer) onScreen=\(isOnScreen) "
-                + "alpha=\(alpha) name=\(name.map { "\"\($0)\"" } ?? "nil")"
+            "server window #\(number) bounds=\(bounds) layer=\(layer) onScreen=\(isOnScreen)"
         }
 
         static func ownedByThisProcess() -> [ServerWindow] {
@@ -137,78 +133,111 @@ struct LeoFolderOpenStrayWindowTests {
                     number: number,
                     bounds: bounds,
                     layer: info[kCGWindowLayer as String] as? Int ?? 0,
-                    name: info[kCGWindowName as String] as? String,
-                    isOnScreen: info[kCGWindowIsOnscreen as String] as? Bool ?? false,
-                    alpha: info[kCGWindowAlpha as String] as? Double ?? 1
+                    isOnScreen: info[kCGWindowIsOnscreen as String] as? Bool ?? false
                 )
             }
         }
     }
 
-    /// One folder-open: the windows before it, the terminal windows it
-    /// made, and the windows once those settled.
+    /// One folder-open: the app's windows before it, the windows it added
+    /// while it ran (its own, whatever they are), the terminal windows it
+    /// made, and the app's windows once those settled.
     private struct FolderOpen {
-        let before: Inventory
+        let windowsBefore: [NSWindow]
+        let serverWindowsBefore: [ServerWindow]
+        let windowsAddedDuringCall: [NSWindow]
         let opened: [TerminalController]
-        let after: Inventory
+        let windowsAfter: [NSWindow]
+        let serverWindowsAfter: [ServerWindow]
     }
 
-    /// Opens a fresh folder as Finder or the Dock would and waits for what
-    /// it opened to settle.
-    private func openFolder(_ app: AppDelegate, _ folder: URL) async throws -> FolderOpen {
-        let before = Inventory.now()
+    /// Opens a fresh folder as Finder or the Dock would and waits until it
+    /// and `watching` (a launch window it may replace) settle.
+    private func openFolder(
+        _ app: AppDelegate, _ folder: URL, watching: [TerminalController] = []
+    ) async throws -> FolderOpen {
+        let windowsBefore = NSApp.windows
+        let serverWindowsBefore = ServerWindow.ownedByThisProcess()
         let existing = Set(TerminalController.all.map(ObjectIdentifier.init))
+        // No suspension from here to `windowsAddedDuringCall`: no other
+        // suite can add a window in between.
         let isHandled = withoutUndo(app) { app.application(NSApp, openFile: folder.path) }
+        let windowsAddedDuringCall = added(to: windowsBefore, in: NSApp.windows)
         let opened = TerminalController.all.filter { !existing.contains(ObjectIdentifier($0)) }
         #expect(isHandled)
-        let isSettled = try await settle(opened)
+        let isSettled = await settle(opened + watching)
         if !isSettled { close(opened) }
         try #require(isSettled, "the folder's window never settled")
-        return FolderOpen(before: before, opened: opened, after: Inventory.now())
+        return FolderOpen(
+            windowsBefore: windowsBefore,
+            serverWindowsBefore: serverWindowsBefore,
+            windowsAddedDuringCall: windowsAddedDuringCall,
+            opened: opened,
+            windowsAfter: NSApp.windows,
+            serverWindowsAfter: ServerWindow.ownedByThisProcess()
+        )
     }
 
-    /// `window` is one of `opened`'s, or hangs off one (a child window or a
-    /// sheet).
-    private func belongs(_ window: NSWindow, to opened: [TerminalController]) -> Bool {
-        let ownWindows = Set(opened.compactMap(\.window).map(ObjectIdentifier.init))
-        let ancestry = sequence(first: window) { $0.parent ?? $0.sheetParent }
-        return ancestry.contains { ownWindows.contains(ObjectIdentifier($0)) }
+    private func added(to before: [NSWindow], in after: [NSWindow]) -> [NSWindow] {
+        let known = Set(before.map(ObjectIdentifier.init))
+        return after.filter { !known.contains(ObjectIdentifier($0)) }
     }
 
-    /// The AppKit windows the open added that it can't account for. It
-    /// accounts for the folder's terminal window and what hangs off it, the
-    /// agent palette panel each Leo window builds up front (ordered out
-    /// until the palette opens, when it becomes the window's child), one
-    /// per window opened, and the system's text-input cursor window.
+    /// `window` and the windows it hangs off (as a child window or a sheet).
+    private func ancestry(_ window: NSWindow) -> some Sequence<NSWindow> {
+        sequence(first: window) { $0.parent ?? $0.sheetParent }
+    }
+
+    /// The palette windows of `controllers`, which each window session
+    /// builds up front and keeps ordered out until ⌘O.
+    private func paletteWindows(of controllers: [TerminalController]) -> Set<ObjectIdentifier> {
+        guard let runtime = Self.app?.leoRuntime else { return [] }
+        return Set(controllers.compactMap { $0.leoSession.flatMap { runtime.paletteWindow(for: $0.id) } }.map(ObjectIdentifier.init))
+    }
+
+    /// Of the open's windows, the shapes B-142 is about: the reported
+    /// stray's size, or a window never placed or shown (at the screen
+    /// origin, invisible).
+    private func hasStrayShape(_ window: NSWindow) -> Bool {
+        window.frame.size == Self.reportedStraySize || (!window.isVisible && window.frame.origin == .zero)
+    }
+
+    /// The AppKit windows the open added that it can't account for (see the
+    /// suite's comment).
     private func strayWindows(_ open: FolderOpen) -> [NSWindow] {
-        let before = Set(open.before.windows.map(ObjectIdentifier.init))
-        let unaccounted = open.after.windows
-            .filter { !before.contains(ObjectIdentifier($0)) }
-            .filter { !belongs($0, to: open.opened) && !Self.isSystemTextInputCursorWindow($0) }
-        let palettePanels = unaccounted.filter { $0 is LeoAgentPalettePanel }
-        return unaccounted.filter { !($0 is LeoAgentPalettePanel) } + palettePanels.dropFirst(open.opened.count)
+        let openedWindows = Set(open.opened.compactMap(\.window).map(ObjectIdentifier.init))
+        let ownPalettes = paletteWindows(of: open.opened)
+        let addedDuringCall = Set(open.windowsAddedDuringCall.map(ObjectIdentifier.init))
+        let foreignControllers = TerminalController.all.filter { controller in !open.opened.contains { $0 === controller } }
+        let foreignWindows = Set(foreignControllers.compactMap(\.window).map(ObjectIdentifier.init))
+            .union(paletteWindows(of: foreignControllers))
+        func isForeign(_ window: NSWindow) -> Bool {
+            ancestry(window).contains { foreignWindows.contains(ObjectIdentifier($0)) || type(of: $0) == NSWindow.self }
+        }
+        return added(to: open.windowsBefore, in: open.windowsAfter).filter { window in
+            let id = ObjectIdentifier(window)
+            if Self.isSystemTextInputCursorWindow(window) || ownPalettes.contains(id) || openedWindows.contains(id) {
+                return false
+            }
+            if ancestry(window).contains(where: { openedWindows.contains(ObjectIdentifier($0)) }) {
+                return hasStrayShape(window)
+            }
+            return addedDuringCall.contains(id) || !isForeign(window)
+        }
     }
 
-    /// The window-server windows the open added that no AppKit window
-    /// accounts for, or that are the reported stray's size and not the
-    /// system's text-input cursor window (nor the folder's own).
-    private func strayServerWindows(_ open: FolderOpen) -> [ServerWindow] {
-        let before = Set(open.before.serverWindows.map(\.number))
-        let appKitWindows = Dictionary(open.after.windows.map { ($0.windowNumber, $0) }) { first, _ in first }
-        return open.after.serverWindows
-            .filter { !before.contains($0.number) }
-            .filter { server in
-                guard let window = appKitWindows[server.number] else { return true }
-                return server.bounds.size == Self.reportedStraySize
-                    && !Self.isSystemTextInputCursorWindow(window) && !belongs(window, to: open.opened)
-            }
+    /// The window-server windows the open added that AppKit doesn't list.
+    private func unlistedServerWindows(_ open: FolderOpen) -> [ServerWindow] {
+        let before = Set(open.serverWindowsBefore.map(\.number))
+        let listed = Set(open.windowsAfter.map(\.windowNumber))
+        return open.serverWindowsAfter.filter { !before.contains($0.number) && !listed.contains($0.number) }
     }
 
     /// Everything a failure needs to name a window and what made it.
     private func describe(_ window: NSWindow) -> String {
         let controller = window.windowController.map { String(describing: type(of: $0)) } ?? "nil"
         let content = window.contentView.map { String(describing: type(of: $0)) } ?? "nil"
-        let parent = window.parent.map { "#\($0.windowNumber) \(type(of: $0))" } ?? "nil"
+        let parent = (window.parent ?? window.sheetParent).map { "#\($0.windowNumber) \(type(of: $0))" } ?? "nil"
         return "\(type(of: window)) #\(window.windowNumber) frame=\(window.frame) visible=\(window.isVisible) "
             + "level=\(window.level.rawValue) title=\"\(window.title)\" controller=\(controller) "
             + "content=\(content) parent=\(parent) bundle=\(Bundle(for: type(of: window)).bundlePath)"
@@ -219,11 +248,23 @@ struct LeoFolderOpenStrayWindowTests {
     }
 
     private func report(_ windows: [ServerWindow]) -> Comment {
-        Comment(rawValue: "unaccounted server windows:\n" + windows.map(\.description).joined(separator: "\n"))
+        Comment(rawValue: "server windows AppKit doesn't list:\n" + windows.map(\.description).joined(separator: "\n"))
     }
 
     private func makeFolder() -> LeoReservedTestDirectory {
         LeoReservedTestDirectory(template: NSTemporaryDirectory() + "leo-b142-XXXXXX")
+    }
+
+    /// The allow-list names the real system class: `TUINSWindow`, from
+    /// TextInputUIMacHelper. Fails if macOS moves or renames it, which is
+    /// when the allow-list needs another look.
+    @Test func theAllowedTextInputCursorWindowIsTheSystemsOwn() throws {
+        let framework = try #require(Bundle(path: Self.textInputCursorFramework), "no TextInputUIMacHelper")
+        try framework.loadAndReturnError()
+        let windowClass: AnyClass = try #require(NSClassFromString(Self.textInputCursorWindowClass))
+
+        #expect(windowClass is NSWindow.Type)
+        #expect(Bundle(for: windowClass).bundlePath == Self.textInputCursorFramework)
     }
 
     @Test func openingAFolderCreatesNoWindowButItsTerminalWindow() async throws {
@@ -239,7 +280,7 @@ struct LeoFolderOpenStrayWindowTests {
         #expect(strays.isEmpty, report(strays))
     }
 
-    @Test func openingAFolderAddsNoUnaccountedServerWindow() async throws {
+    @Test func openingAFolderAddsNoWindowAppKitDoesNotList() async throws {
         let app = try liveApp()
         let folder = makeFolder()
         defer { folder.removeIfReserved() }
@@ -247,8 +288,8 @@ struct LeoFolderOpenStrayWindowTests {
         let open = try await openFolder(app, folder.reserve())
         defer { close(open.opened) }
 
-        let strays = strayServerWindows(open)
-        #expect(strays.isEmpty, report(strays))
+        let unlisted = unlistedServerWindows(open)
+        #expect(unlisted.isEmpty, report(unlisted))
     }
 
     /// The running app's path: a Leo window is already open, so the folder's
@@ -264,9 +305,9 @@ struct LeoFolderOpenStrayWindowTests {
         defer { close(open.opened) }
 
         let strays = strayWindows(open)
-        let serverStrays = strayServerWindows(open)
+        let unlisted = unlistedServerWindows(open)
         #expect(strays.isEmpty, report(strays))
-        #expect(serverStrays.isEmpty, report(serverStrays))
+        #expect(unlisted.isEmpty, report(unlisted))
     }
 
     /// The cold launch's path: the folder's window replaces an untouched
@@ -280,13 +321,13 @@ struct LeoFolderOpenStrayWindowTests {
         let folder = makeFolder()
         defer { folder.removeIfReserved() }
 
-        let open = try await openFolder(app, folder.reserve())
+        let open = try await openFolder(app, folder.reserve(), watching: [launch])
         defer { close(open.opened) }
 
         let strays = strayWindows(open)
-        let serverStrays = strayServerWindows(open)
+        let unlisted = unlistedServerWindows(open)
         #expect(strays.isEmpty, report(strays))
-        #expect(serverStrays.isEmpty, report(serverStrays))
+        #expect(unlisted.isEmpty, report(unlisted))
         #expect(launch.leoWindowDidClose, "the launch window gave way to the folder's")
     }
 }
