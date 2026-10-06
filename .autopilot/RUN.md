@@ -23,11 +23,11 @@ Lane: B-238
   Branch: autopilot-lane/B-238
   Base: c4fcd067f6f876da12bed203a14c18b01a6ed714
   Tier: full
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 2
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 07703d6af22e6093e907349e5018514d8d60e276
   Dispatched: 2026-10-06T18:08:31Z
 
 - B-238 serial authoritative suite passed 2,072/223. Operational corrections: use escalated bridge socket calls and proven own-debug PID; sandbox IPC denial is not bridge outage. Documented in verify.md. GUI capture still pending.
