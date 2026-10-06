@@ -1636,12 +1636,14 @@ Requires: B-232 done (do not build before the feature lands).
 Source: autopilot polish (B-232)
 
 ## B-238 · Verify close-confirmation hints in isolated GUI   [done]
+Issue: #243
 Done: no code change — existing B-133 source, independent serial suite 2,072/223 + SwiftLint; actual Right/Left dialog window screenshots B-238-3.png/B-238-4.png, freshly inspected by verifier and root. Earlier parent-window B-238-1/2 captures invalidated.
 Why: B-133 verifier found two debug instances and could not safely uniquely target the changed confirmation flow.
 Accept: When safe unique debug targeting is available, capture the actual duplicate-name left/right confirmation alert; never drive production or unrelated debug sessions.
 Source: autopilot polish (B-133)
 
 ## B-239 · Verify adaptive start-screen buttons in isolated GUI   [done]
+Issue: #244
 Done: no code change — B-138 implementation already satisfied; fresh independent exact-lane suite 2,072/223 + SwiftLint; readable horizontal actions at 800pt and vertical fallback at 420pt, screenshots B-239-1.png/B-239-2.png.
 Why: B-138 exact-lane tests passed, but the isolated Debug app bundle could not launch (missing executable); narrow/wide layout lacks visual verification.
 Accept: Restore a safe isolated debug build and capture readable horizontal buttons at wide width and vertical fallback below 450 pt; preserve all actions/tooltips; never drive production or real agents.

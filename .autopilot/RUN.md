@@ -14,6 +14,17 @@ Lane: B-058
   Reverifies: 0
   Reviewed-tip: none
 
+Lane: B-139
+  Branch: autopilot-lane/B-139
+  Base: de0da78fbb3a64e313ad9ebc92af87b37b2146b8
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-06T19:43:15Z
+
 ## Progress
-- Board sync skipped this run (repo rule: never create GitHub issues; matches previous run).
+- Board sync re-enabled at Evan's request (2026-10-06); full sync run.
 - Lane B-233 is unlanded with no RUN.md block (left in place, not a pick).
