@@ -118,6 +118,66 @@ struct LeoSFTPTransportTests {
         await access.close()
     }
 
+    @Test(arguments: [
+        "fatal: subsystem request failed during initialization",
+        "subsystem request failed on channel 0 during initialization"
+    ])
+    func exit255NoncanonicalDiagnosticsDoNotRunTheFallback(_ diagnostic: String) async throws {
+        let sandbox = try LeoFileSandbox()
+        defer { sandbox.cleanUp() }
+        let fakeSSH = try sandbox.file("ssh", """
+            #!/bin/sh
+            for argument in "$@"; do
+              if [ "$argument" = "-s" ]; then
+                echo '\(diagnostic)' >&2
+                exit 255
+              fi
+            done
+            exec /usr/libexec/sftp-server -d %d
+            """, permissions: 0o755)
+        let launcher = LeoCountingSFTPLauncher(
+            LeoSFTPProcessLauncher(
+                executable: URL(fileURLWithPath: fakeSSH),
+                arguments: ["-s", "host", "sftp"],
+                fallbackArguments: ["host", LeoSSHCommand.sftpServerBootstrapCommand]
+            )
+        )
+        let access = LeoFileAccessor.sftp(launcher: launcher)
+
+        await #expect(throws: LeoFileAccessError.disconnected) { try await access.stat("/") }
+        #expect(launcher.launches == 1)
+        await access.close()
+    }
+
+    @Test func aCanonicalPrefixTruncatedAtTheCaptureLimitDoesNotRunTheFallback() async throws {
+        let sandbox = try LeoFileSandbox()
+        defer { sandbox.cleanUp() }
+        let canonical = "subsystem request failed on channel 0"
+        let padding = String(repeating: "x", count: 4 * 1024 - canonical.utf8.count - 1)
+        let fakeSSH = try sandbox.file("ssh", """
+            #!/bin/sh
+            for argument in "$@"; do
+              if [ "$argument" = "-s" ]; then
+                printf '\(padding)\\n\(canonical) during initialization\\n' >&2
+                exit 255
+              fi
+            done
+            exec /usr/libexec/sftp-server -d %d
+            """, permissions: 0o755)
+        let launcher = LeoCountingSFTPLauncher(
+            LeoSFTPProcessLauncher(
+                executable: URL(fileURLWithPath: fakeSSH),
+                arguments: ["-s", "host", "sftp"],
+                fallbackArguments: ["host", LeoSSHCommand.sftpServerBootstrapCommand]
+            )
+        )
+        let access = LeoFileAccessor.sftp(launcher: launcher)
+
+        await #expect(throws: LeoFileAccessError.disconnected) { try await access.stat("/") }
+        #expect(launcher.launches == 1)
+        await access.close()
+    }
+
     @Test func anUnavailableSFTPServerIsActionableAndLaunchesOnlyOnce() async throws {
         let launcher = LeoCountingSFTPLauncher(LeoSFTPTestServer.script("echo 'leo: no supported sftp-server found' >&2; exit 127"))
         let access = LeoFileAccessor.sftp(launcher: launcher)
@@ -309,6 +369,22 @@ struct LeoSFTPTransportTests {
         #expect(sizes.count == 12)
         #expect(launcher.launches == 2, "one stale handshake, then one shared replacement")
         await access.close()
+    }
+
+    @Test func everyVersionThenEOFAttemptIsBoundedPerExplicitOperation() async throws {
+        let server = LeoSFTPTestServer.script(
+            "head -c 9 >/dev/null; \(LeoSFTPTestServer.versionReply)"
+        )
+        let launcher = LeoLimitedSFTPLauncher(server, limit: 2)
+        let session = LeoSFTPSession(launcher: launcher) { client in
+            while !client.transport.isClosed { await Task.yield() }
+        }
+
+        await #expect(throws: LeoFileAccessError.disconnected) { try await session.client() }
+        #expect(launcher.attempts == 1)
+        await #expect(throws: LeoFileAccessError.disconnected) { try await session.client() }
+        #expect(launcher.attempts == 2, "the next explicit operation gets one fresh attempt")
+        await session.close()
     }
 
     @Test func publicSessionEndLogOmitsRemoteFailureDetail() {

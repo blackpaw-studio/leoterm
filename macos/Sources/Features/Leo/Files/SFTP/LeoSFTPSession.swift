@@ -8,14 +8,22 @@ import Foundation
 /// in flight as `.closed`, and nothing launches again.
 actor LeoSFTPSession {
     nonisolated let launcher: any LeoSFTPLaunching
+    /// No-op in production; lets process tests hold a completed handshake
+    /// until its EOF is observed, making the generation race deterministic.
+    private let beforeAcceptingClient: @Sendable (LeoSFTPClient) async -> Void
     private var connecting: Task<LeoSFTPClient, Error>?
     /// Owns whichever of the subsystem/fallback transports is current, so
     /// close wins even while child-exit classification is in flight.
     private var attempt: LeoSFTPConnectionAttempt?
+    private var connectionGeneration: UInt64 = 0
     private var isClosed = false
 
-    init(launcher: any LeoSFTPLaunching) {
+    init(
+        launcher: any LeoSFTPLaunching,
+        beforeAcceptingClient: @escaping @Sendable (LeoSFTPClient) async -> Void = { _ in }
+    ) {
         self.launcher = launcher
+        self.beforeAcceptingClient = beforeAcceptingClient
     }
 
     deinit {
@@ -23,19 +31,28 @@ actor LeoSFTPSession {
     }
 
     func client() async throws -> LeoSFTPClient {
+        let startingGeneration = connectionGeneration
+        let maximumGeneration = startingGeneration &+ 1
         while true {
             guard !isClosed else { throw LeoFileAccessError.closed }
             if let current = connecting {
                 do {
                     let client = try await current.value
+                    await beforeAcceptingClient(client)
                     guard !isClosed else { throw LeoFileAccessError.closed }
                     if !client.transport.isClosed { return client }
                     if connecting == current {
                         connecting = nil
                         attempt = nil
+                    } else if connecting != nil {
+                        // A peer already installed the one replacement this
+                        // operation may join.
+                        continue
                     }
-                    // Another waiter may already own the replacement. Join
-                    // it instead of overwriting its task and transport.
+                    guard connectionGeneration < maximumGeneration else {
+                        throw LeoFileAccessError.disconnected
+                    }
+                    // This operation has not launched its one fresh attempt.
                     continue
                 } catch {
                     if connecting == current {
@@ -52,14 +69,21 @@ actor LeoSFTPSession {
             let attempt = LeoSFTPConnectionAttempt(launcher: launcher)
             self.attempt = attempt
             let task = Task { try await attempt.connect() }
+            connectionGeneration &+= 1
             connecting = task
             do {
                 let client = try await task.value
+                await beforeAcceptingClient(client)
                 guard !isClosed else { throw LeoFileAccessError.closed }
                 if !client.transport.isClosed { return client }
                 if connecting == task {
                     connecting = nil
                     self.attempt = nil
+                } else if connecting != nil {
+                    continue
+                }
+                guard connectionGeneration < maximumGeneration else {
+                    throw LeoFileAccessError.disconnected
                 }
                 continue
             } catch {

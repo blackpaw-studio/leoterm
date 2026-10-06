@@ -142,16 +142,13 @@ private final class LeoSFTPProcessMonitor: @unchecked Sendable {
         let status: Int32
         let reason: Process.TerminationReason
         let detail: String
-
-        var isSubsystemRejection: Bool {
-            reason == .exit && status == 255
-                && detail.localizedCaseInsensitiveContains("subsystem request failed")
-        }
+        let isSubsystemRejection: Bool
     }
 
     private let handle: FileHandle
     private let condition = NSCondition()
     private var data = Data()
+    private var isTruncated = false
     private var isStderrFinished = false
     private var outcome: (status: Int32, reason: Process.TerminationReason)?
 
@@ -164,6 +161,7 @@ private final class LeoSFTPProcessMonitor: @unchecked Sendable {
             while let chunk = try? handle.read(upToCount: 4 * 1024), !chunk.isEmpty {
                 condition.withLock {
                     let remaining = max(0, Self.byteLimit - data.count)
+                    if chunk.count > remaining { isTruncated = true }
                     data.append(chunk.prefix(remaining))
                 }
             }
@@ -184,19 +182,53 @@ private final class LeoSFTPProcessMonitor: @unchecked Sendable {
     }
 
     func observe() -> Observation? {
-        let result: ((status: Int32, reason: Process.TerminationReason), Data)? = condition.withLock {
+        let result: (
+            outcome: (status: Int32, reason: Process.TerminationReason),
+            data: Data,
+            isTruncated: Bool
+        )? = condition.withLock {
             let deadline = Date().addingTimeInterval(1)
             while outcome == nil, condition.wait(until: deadline) {}
             guard let outcome else { return nil }
             while !isStderrFinished, condition.wait(until: deadline) {}
-            return (outcome, data)
+            return (outcome, data, isTruncated)
         }
         guard let result else { return nil }
-        let text = String(data: result.1, encoding: .utf8) ?? "<\(result.1.count) bytes>"
+        let rawText = String(data: result.data, encoding: .utf8)
+        let text = rawText ?? "<\(result.data.count) bytes>"
         let detail = LeoSFTPServerText.sanitized(text)
         if !detail.isEmpty {
             Self.logger.log("sftp stderr: \(detail, privacy: .private)")
         }
-        return Observation(status: result.0.status, reason: result.0.reason, detail: detail)
+        let isSubsystemRejection = result.outcome.reason == .exit
+            && result.outcome.status == 255
+            && rawText.map {
+                Self.containsCanonicalSubsystemRejection($0, isTruncated: result.isTruncated)
+            } == true
+        return Observation(
+            status: result.outcome.status,
+            reason: result.outcome.reason,
+            detail: detail,
+            isSubsystemRejection: isSubsystemRejection
+        )
+    }
+
+    /// OpenSSH emits this exact line when sshd rejects `-s ... sftp`.
+    /// Match raw bounded stderr before display sanitization joins lines; a
+    /// subsystem's own longer message must never authorize shell bootstrap.
+    private static func containsCanonicalSubsystemRejection(_ text: String, isTruncated: Bool) -> Bool {
+        let prefix = "subsystem request failed on channel "
+        let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+        return lines.enumerated().contains { index, rawLine in
+            // The captured suffix may only look complete because bytes past
+            // the limit were discarded. A preceding newline proves a line
+            // ended even when later stderr was truncated.
+            if isTruncated, index == lines.count - 1 { return false }
+            var line = rawLine
+            if line.last == "\r" { line = line.dropLast() }
+            guard line.hasPrefix(prefix) else { return false }
+            let channel = line.dropFirst(prefix.count)
+            return !channel.isEmpty && channel.utf8.allSatisfy { $0 >= 48 && $0 <= 57 }
+        }
     }
 }

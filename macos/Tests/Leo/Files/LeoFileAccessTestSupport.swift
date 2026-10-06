@@ -108,6 +108,32 @@ final class LeoSequenceSFTPLauncher: LeoSFTPLaunching, @unchecked Sendable {
     }
 }
 
+/// A guard for regressions that would otherwise launch children forever.
+final class LeoLimitedSFTPLauncher: LeoSFTPLaunching, @unchecked Sendable {
+    private let base: any LeoSFTPLaunching
+    private let limit: Int
+    private let lock = NSLock()
+    private var count = 0
+
+    var attempts: Int { lock.withLock { count } }
+
+    init(_ base: any LeoSFTPLaunching, limit: Int) {
+        self.base = base
+        self.limit = limit
+    }
+
+    func launch() throws -> LeoSFTPChannel {
+        let attempt = lock.withLock {
+            count += 1
+            return count
+        }
+        guard attempt <= limit else {
+            throw LeoFileAccessError.unavailable(reason: "test launch limit reached")
+        }
+        return try base.launch()
+    }
+}
+
 /// A throwaway directory for one test. `cleanUp()` restores permissions a
 /// test may have removed before deleting it.
 struct LeoFileSandbox {
