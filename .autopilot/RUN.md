@@ -42,3 +42,14 @@ Lane: B-233
 Finished 1: B-233 landed 055d5eebd33de99d65a1bf3494f02fe9247860a3 · not visually verified
 Finished 2: B-234 done (covered by B-233 shared-path regression)
 - B-233 landed after 3 fix rounds; full fresh general/security/concurrency reviews and independent 2,067-test suite passed. B-234 duplicate resolved by explicit shared-path coverage. Remote GUI unverified; no safe fixture.
+
+Lane: B-232
+  Branch: autopilot-lane/B-232
+  Base: 4dbb4af9a2e7079703ab032c6df8978d7ea7f80c
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-06T02:34:35Z
