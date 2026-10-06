@@ -2579,3 +2579,10 @@ Call: Run B-136 first to investigate the previous run’s shared focus/palette v
 Principle: AUTONOMY permits backlog ordering and test infrastructure fixes; verified flows serve vision’s done criteria.
 Veto: [ ]
 Commit: de79492d7d8eb453aca41fdb26f739cc21339db6
+
+## D-357 · 2026-10-06 · Close-confirmation clarification
+Item: B-133
+Call: Scoped stale-pane guard and title cleanup; left/right hints clarify duplicate horizontal pane names.
+Principle: AUTONOMY bug fixes; keyboard-first, Mac-native clarity.
+Veto: [ ]
+Commit: 8e6eda39d, 97ce0fef34

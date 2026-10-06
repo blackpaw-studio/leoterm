@@ -46,3 +46,6 @@ Lane: B-133
   Dispatched: 2026-10-06T13:39:16Z
 
   Call: scoped bug fixes and Mac-native clarification for duplicate horizontal panes — AUTONOMY
+
+Finished 2: B-133 landed 22c843322e2147627f4363649c59491fa348f74e · not visually verified
+- B-133: 1 fix round for left-pane coverage; fresh general full/delta reviews clear; independent suite/lint passed. Ambiguous debug instances prevented GUI verification; B-238 queued next run. Artifacts preserved under ../preserved/B-133-20261006T141350Z.

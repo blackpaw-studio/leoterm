@@ -570,11 +570,12 @@ Question: Shared focus/palette verification failures predate B-132: same three f
 Answer:
 
 
-## B-133 · Close-confirm polish   [ready]
+## B-133 · Close-confirm polish   [done]
 Issue: #137
 Why: guard surfaceTree.contains(node) before leoConfirmClosingPane (TerminalController.swift:950-955); narrow title cleaning in LeoCloseConfirmation.swift:43-49 so ZWJ emoji survive and spacing matches the sidebar; add a left/right hint when two panes share a name
 Accept: guard surfaceTree.contains(node) before leoConfirmClosingPane (TerminalController.swift:950-955); narrow title cleaning in LeoCloseConfirmation.swift:43-49 so ZWJ emoji survive and spacing matches the sidebar; add a left/right hint when two panes share a name
 Source: autopilot polish (B-088)
+Done: 8e6eda39d, 97ce0fef34
 
 ## B-134 · Clamped sidebar regrows to its stored width on widen   [ready]
 Issue: #138
@@ -1630,3 +1631,8 @@ Why: B-232 final review: terminal failure overlay truncates longer error batches
 Accept: Once B-232 is landed, improve this upload-error presentation with verification.
 Requires: B-232 done (do not build before the feature lands).
 Source: autopilot polish (B-232)
+
+## B-238 · Verify close-confirmation hints in isolated GUI   [ready (next run)]
+Why: B-133 verifier found two debug instances and could not safely uniquely target the changed confirmation flow.
+Accept: When safe unique debug targeting is available, capture the actual duplicate-name left/right confirmation alert; never drive production or unrelated debug sessions.
+Source: autopilot polish (B-133)
