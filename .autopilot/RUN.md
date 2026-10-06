@@ -48,8 +48,9 @@ Lane: B-232
   Base: 4dbb4af9a2e7079703ab032c6df8978d7ea7f80c
   Tier: full
   State: building
-  Fixes: 2
+  Fixes: 3
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
-  Dispatched: 2026-10-06T02:34:35Z
+  Dispatched: 2026-10-06T04:07:15Z
+  Call: D-355 trusted-server/private-staging SFTP semantics; no-overwrite preserved, disconnect retention and rename uncertainty explicit — AUTONOMY implementation authority
