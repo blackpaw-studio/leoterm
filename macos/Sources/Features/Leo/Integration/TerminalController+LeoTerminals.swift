@@ -36,12 +36,31 @@ extension TerminalController {
     /// Closing `node`, one of a split's panes, after a busy-process confirm
     /// that names it (B-088); `remove` closes it once confirmed.
     func leoConfirmClosingPane(_ node: SplitTree<Ghostty.SurfaceView>.Node, remove: @escaping () -> Void) {
-        let names = node.leaves().map(\.leoPaneName)
+        let names = leoCloseConfirmationNames(for: node)
         confirmClose(
             messageText: LeoCloseConfirmation.messageText(closing: names),
             informativeText: LeoCloseConfirmation.paneInformativeText,
             completion: remove
         )
+    }
+
+    /// A horizontal pair with identical titles needs a spatial label in the
+    /// alert; a title alone gives no indication which pane will close.
+    private func leoCloseConfirmationNames(for node: SplitTree<Ghostty.SurfaceView>.Node) -> [String] {
+        let names = node.leaves().map(\.leoPaneName)
+        guard names.count == 1,
+              let root = surfaceTree.root,
+              case let .split(split) = root,
+              case .horizontal = split.direction,
+              split.left.leaves().count == 1,
+              split.right.leaves().count == 1,
+              root.leaves().allSatisfy({ $0.leoPaneName == names[0] }),
+              let closing = node.leaves().first else {
+            return names
+        }
+
+        let side = split.left.leftmostLeaf() === closing ? "Left" : "Right"
+        return ["\(names[0]) (\(side) pane)"]
     }
 
     /// Whether closing this window would kill a running process: one it

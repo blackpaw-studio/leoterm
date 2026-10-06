@@ -970,6 +970,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
                 super.closeSurface(node, withConfirmation: false)
                 return
             }
+            guard surfaceTree.contains(node) else { return }
             leoConfirmClosingPane(node) { [weak self] in self?.leoCloseConfirmedPane(node) }
             return
         }

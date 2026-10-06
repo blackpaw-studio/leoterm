@@ -127,6 +127,38 @@ import Testing
         #expect(fixture.shown().map(\.id) == [row.surfaceID, split.surfaceID], "Cancel keeps both panes")
     }
 
+    @Test func closingOneOfTwoEquallyNamedHorizontalPanesSaysWhichSide() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let row = try newRow(fixture)
+        let split = try newSplit(fixture, beside: row)
+        let rowView = try #require(fixture.view(row))
+        let splitView = try #require(fixture.view(split))
+        #expect(await title(rowView, "build"))
+        #expect(await title(splitView, "build"))
+
+        fixture.controller.closeSurface(try #require(fixture.controller.surfaceTree.root?.node(view: splitView)), withConfirmation: true)
+
+        #expect(await eventually { !fixture.controller.asked.isEmpty })
+        #expect(fixture.controller.asked.map(\.messageText) == ["Close “build (Right pane)”?"])
+    }
+
+    @Test func closingTheLeftOfTwoEquallyNamedHorizontalPanesSaysWhichSide() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let row = try newRow(fixture)
+        let split = try newSplit(fixture, beside: row)
+        let rowView = try #require(fixture.view(row))
+        let splitView = try #require(fixture.view(split))
+        #expect(await title(rowView, "build"))
+        #expect(await title(splitView, "build"))
+
+        fixture.controller.closeSurface(try #require(fixture.controller.surfaceTree.root?.node(view: rowView)), withConfirmation: true)
+
+        #expect(await eventually { !fixture.controller.asked.isEmpty })
+        #expect(fixture.controller.asked.map(\.messageText) == ["Close “build (Left pane)”?"])
+    }
+
     @Test func confirmingASplitPaneClosesOnlyThatPane() async throws {
         let fixture = try makeFixture()
         defer { close(fixture) }
@@ -138,6 +170,22 @@ import Testing
         fixture.controller.closeSurface(try #require(fixture.controller.surfaceTree.root?.node(view: splitView)), withConfirmation: true)
 
         #expect(await eventually { fixture.shown().map(\.id) == [row.surfaceID] })
+    }
+
+    @Test func closingAnAlreadyRemovedPaneDoesNotAskAgain() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let row = try newRow(fixture)
+        let split = try newSplit(fixture, beside: row)
+        let splitView = try #require(fixture.view(split))
+        let staleNode = try #require(fixture.controller.surfaceTree.root?.node(view: splitView))
+
+        fixture.controller.closeSurface(staleNode, withConfirmation: false)
+        #expect(await eventually { fixture.shown().map(\.id) == [row.surfaceID] })
+
+        fixture.controller.closeSurface(staleNode, withConfirmation: true)
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(fixture.controller.asked.isEmpty)
     }
 
     // MARK: ⌘W on a row with no split
