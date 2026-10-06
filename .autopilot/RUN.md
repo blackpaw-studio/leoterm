@@ -69,6 +69,17 @@ Lane: B-142
   Call: Read-only paletteWindow accessors on LeoRuntime and LeoPickerPresentation so the test can tie each panel to its window — AUTONOMY test infrastructure
   Call: Folder-open window attribution: windows made synchronously during openFile are checked strictly; late windows from other suites' controllers/palettes or non-500x500 bare NSWindows count as foreign — AUTONOMY test infrastructure
 
+Lane: B-143
+  Branch: autopilot-lane/B-143
+  Base: e23c0aa4232d0c0a670565289661884195ffae3e
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-06T23:01:21Z
+
 ## Progress
 - Board sync re-enabled at Evan's request (2026-10-06); full sync run.
 - Lane B-233 is unlanded with no RUN.md block (left in place, not a pick).
