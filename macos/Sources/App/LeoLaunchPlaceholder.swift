@@ -142,7 +142,7 @@ extension TerminalController: LeoLaunchPlaceholderWindow {
             presented: leoInitialPresentationRan,
             closed: leoWindowDidClose,
             isVisible: window.isVisible,
-            appIsHidden: NSApp.isHidden
+            appIsHidden: leoAppIsHidden()
         )
     }
 

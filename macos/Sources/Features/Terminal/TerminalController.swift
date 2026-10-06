@@ -26,6 +26,10 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     /// windows all read `isVisible == false`.
     private(set) var leoInitialPresentationRan = false
     private(set) var leoWindowDidClose = false
+    /// B-141: whether the app is hidden, which `isLeoWindowShown` reads.
+    /// Injected so tests drive the hidden branch through this controller;
+    /// production reads `NSApp.isHidden`.
+    var leoAppIsHidden: @MainActor () -> Bool = { NSApp.isHidden }
     /// B-070: the title a new window loads with -- the config's `title`,
     /// else the nib's "👻 Ghostty" -- which a start screen reads.
     ///
