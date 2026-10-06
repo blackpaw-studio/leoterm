@@ -1,7 +1,7 @@
 Status: running
 Started: 2026-10-06T13:06:02Z
 Budget: 5 items, until 2026-10-07T01:06:02Z
-Digested-through: 0
+Digested-through: 5
 Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 
 Lane: B-058
