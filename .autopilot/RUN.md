@@ -44,10 +44,10 @@ Finished 2: B-234 done (covered by B-233 shared-path regression)
 - B-233 landed after 3 fix rounds; full fresh general/security/concurrency reviews and independent 2,067-test suite passed. B-234 duplicate resolved by explicit shared-path coverage. Remote GUI unverified; no safe fixture.
 
 Lane: B-232
-  Branch: autopilot-lane/B-232
+  Branch: autopilot-shelved/B-232
   Base: 4dbb4af9a2e7079703ab032c6df8978d7ea7f80c
   Tier: full
-  State: held
+  State: shelved
   Fixes: 3
   Wip: none
   Reverifies: 0
@@ -70,3 +70,5 @@ Lane: B-132
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-10-06T04:35:39Z
+
+- B-232 recovered from held to shelved: generated regular profiling file and verified shared zig-out symlink moved recoverably to /Users/evan/.leo/agents/leoterm/.git/autopilot/preserved/B-232-20261006T045235Z-51a55b9c; helper shelve succeeded as autopilot-shelved/B-232. No source or user data discarded.

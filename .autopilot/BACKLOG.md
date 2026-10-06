@@ -557,7 +557,7 @@ Accept: Dropping one or more Finder files on a workspace-browser folder writes t
 Out: folder/recursive drops; drag-out from Leo to Finder; progress UI beyond a simple in-flight indicator; clipboard-paste upload; drops on plain-shell rows with no agent workspace
 Source: Evan (/feature, 2026-10-05)
 Inbox: 20261005T223808026251Z-abc8b354#1
-Question: Final fix limit reached. Remaining blockers: reject NUL anywhere in source URLs; bound or stream source buffering; add transport-level lost-RENAME coverage; resolve independent focus/palette suite failures. Work kept on autopilot-lane/B-232 (held because generated profiling file and zig-out are untracked). I'd pick finishing these scoped fixes in a later run; D-355 already settles SFTP semantics.
+Question: Final fix limit reached. Remaining blockers: reject NUL anywhere in source URLs; bound or stream source buffering; add transport-level lost-RENAME coverage; resolve independent focus/palette suite failures. Work kept on autopilot-shelved/B-232. Generated artifacts were preserved separately. I'd pick finishing these scoped fixes in a later run; D-355 already settles SFTP semantics.
 Answer:
 
 

@@ -2570,5 +2570,5 @@ Context: B-232 re-plan; ordinary SFTP v3 RENAME/REMOVE are pathname operations
 Chose: Trust the selected authenticated SFTP server and uploader-owned private staging namespace. Preserve exclusive no-overwrite publication and plain failure reporting. If a disconnect prevents safe cleanup, retain uncertain staging; if a RENAME response is lost, report an indeterminate result and never claim success or retry blindly. Hostile same-account staging substitution is outside this client guarantee; preserve descriptor-safe local source reading.
 Why: AUTONOMY permits reversible implementation choices; this meets approved B-232 collision/failure criteria without a remote helper, paid dependency, or destructive pathname cleanup. Standard SFTP cannot promise atomic identity-conditioned publication/cleanup.
 Alternatives: Add a server-side helper/extension (outside current scope); claim impossible identity-safe cleanup; delete a pathname despite uncertain ownership
-Commit: none — B-232 held unlanded on autopilot-lane/B-232; architecture call applies to future completion
+Commit: none — B-232 shelved unlanded on autopilot-shelved/B-232; architecture call applies to future completion
 Veto: [ ]
