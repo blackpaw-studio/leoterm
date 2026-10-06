@@ -17,3 +17,17 @@ Lane: B-058
 
 ## Progress
 - Preflight: main synced; 3 inbox entries applied (B-232–B-234); 9 next-run items promoted. Existing untracked build artifacts left in place.
+
+Lane: B-233
+  Branch: autopilot-lane/B-233
+  Base: d121269b17498bda9c576a804ce15f0c7f78e0a3
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-06T00:44:57Z
+
+- Board sync: B-014: unknown status [deferred] (exit 1). Further board writes skipped under current no-issues instruction.
+- Work queue: B-233 browser connection bug → B-234 surfaced-file connection bug → B-232 local/SSH file drop → remaining ready queue, capped at 20 dispatched items. Each item follows plan, test-first implementation, fresh review, verify, land, checkpoint.
