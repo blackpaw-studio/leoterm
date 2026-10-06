@@ -23,7 +23,7 @@ Lane: B-233
   Base: d121269b17498bda9c576a804ce15f0c7f78e0a3
   Tier: full
   State: building
-  Fixes: 0
+  Fixes: 3
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
