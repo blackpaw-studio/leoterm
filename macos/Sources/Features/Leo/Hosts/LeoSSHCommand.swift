@@ -42,23 +42,33 @@ struct LeoSSHCommand: Sendable {
         return arguments
     }
 
-    /// Starts a fixed `sftp-server` command as a mux client of the tunnel's
-    /// master at `controlPath`. Asking sshd for its `sftp` subsystem would
-    /// make file access depend on an optional sshd_config entry even when
-    /// the host has the server installed. The command checks the standard
-    /// macOS, BSD, and Linux paths without interpolating configuration or
-    /// other user-controlled shell text.
-    ///
-    /// ssh tries the ControlPath before dialling; with the
+    /// `ssh -s <target> sftp` as a mux client of the tunnel's master at
+    /// `controlPath`. ssh tries the ControlPath before dialling; with the
     /// master gone it would open a fresh connection, which
     /// `ProxyCommand=/usr/bin/false` turns into an immediate failure
     /// instead. `-T`: a pty would corrupt the binary protocol.
     /// The rest are the overrides OpenSSH's own `sftp(1)` passes, so a user
     /// config can't break or widen the session: `ClearAllForwardings` (its
     /// forwards -- including the tunnel's -- are not re-requested per
-    /// session), `RemoteCommand=none` (it would replace this command),
+    /// session), `RemoteCommand=none` (it would replace the subsystem),
     /// no agent or X11 forwarding, and no `LocalCommand`.
     func sftpArguments(controlPath: String) throws -> [String] {
+        var arguments = try sftpClientArguments(controlPath: controlPath)
+        arguments += ["-s", target, "sftp"]
+        return arguments
+    }
+
+    /// Fallback when sshd explicitly rejects its SFTP subsystem: starts a
+    /// fixed server command through the same ControlMaster. The command
+    /// checks standard macOS, BSD, and Linux paths without interpolating
+    /// configuration or other user-controlled shell text.
+    func sftpBootstrapArguments(controlPath: String) throws -> [String] {
+        var arguments = try sftpClientArguments(controlPath: controlPath)
+        arguments += [target, Self.sftpServerBootstrapCommand]
+        return arguments
+    }
+
+    private func sftpClientArguments(controlPath: String) throws -> [String] {
         try validateConfiguration()
         try validateControlPath(controlPath)
         var arguments = [
@@ -74,7 +84,6 @@ struct LeoSSHCommand: Sendable {
             "-o", "PermitLocalCommand=no"
         ]
         appendIdentityAndPort(to: &arguments)
-        arguments += [target, Self.sftpServerBootstrapCommand]
         return arguments
     }
 

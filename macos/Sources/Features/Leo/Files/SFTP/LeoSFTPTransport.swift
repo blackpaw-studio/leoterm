@@ -84,7 +84,7 @@ final class LeoSFTPTransport: @unchecked Sendable {
         writeQueue.async { [self] in
             guard !isClosed else { return }
             if !Self.writeAll(packet, to: channel.toServer.fileDescriptor) {
-                end(with: .disconnected)
+                end(with: channel.failure(beforeHandshake: !hasReceivedVersion))
             }
         }
     }
@@ -110,7 +110,7 @@ final class LeoSFTPTransport: @unchecked Sendable {
         let descriptor = channel.fromServer.fileDescriptor
         var framer = LeoSFTPFramer()
         var buffer = [UInt8](repeating: 0, count: Self.readBufferSize)
-        var failure = LeoFileAccessError.disconnected
+        var failure: LeoFileAccessError?
         reading: while true {
             let count = Darwin.read(descriptor, &buffer, buffer.count)
             if count < 0, errno == EINTR { continue }
@@ -125,9 +125,11 @@ final class LeoSFTPTransport: @unchecked Sendable {
                 break reading
             }
         }
-        end(with: failure)
+        end(with: failure ?? channel.failure(beforeHandshake: !hasReceivedVersion))
         try? channel.fromServer.close()
     }
+
+    private var hasReceivedVersion: Bool { lock.withLock { hasVersion } }
 
     private func deliver(_ payload: Data) throws {
         guard lock.withLock({ hasVersion }) else {

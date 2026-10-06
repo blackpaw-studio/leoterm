@@ -12,7 +12,7 @@ struct LeoSFTPTransportTests {
     /// no sshd `Subsystem sftp` entry. The fake rejects subsystem requests,
     /// just like those hosts, while serving SFTP v3 for a fixed remote
     /// command.
-    @Test func workspaceListingAndSurfacedReadsDoNotRequireTheSSHSubsystem() async throws {
+    @Test func aWorkingSubsystemUsesOneProcessForListingAndSurfacedReads() async throws {
         let sandbox = try LeoFileSandbox()
         defer { sandbox.cleanUp() }
         try sandbox.directory("workspace")
@@ -21,17 +21,18 @@ struct LeoSFTPTransportTests {
             #!/bin/sh
             for argument in "$@"; do
               if [ "$argument" = "-s" ]; then
-                echo 'subsystem request failed on channel 0' >&2
-                exit 1
+                exec /usr/libexec/sftp-server -d %d
               fi
             done
-            exec /usr/libexec/sftp-server -d %d
+            echo 'expected the sftp subsystem' >&2
+            exit 42
             """, permissions: 0o755)
         let command = LeoSSHCommand(configuration: .init(name: "work", sshTarget: "evan@work.example:2222", identityFile: "/keys/work"))
         let launcher = LeoCountingSFTPLauncher(
             LeoSFTPProcessLauncher(
                 executable: URL(fileURLWithPath: fakeSSH),
-                arguments: try command.sftpArguments(controlPath: "/tmp/leo-b233-control")
+                arguments: try command.sftpArguments(controlPath: "/tmp/leo-b233-control"),
+                fallbackArguments: try command.sftpBootstrapArguments(controlPath: "/tmp/leo-b233-control")
             )
         )
         let access = LeoFileAccessor.sftp(launcher: launcher)
@@ -41,7 +42,47 @@ struct LeoSFTPTransportTests {
 
         #expect(entries.map(\.name) == ["result.txt"])
         #expect(String(data: contents.data, encoding: .utf8) == "done")
-        #expect(launcher.launches == 1, "the listing and surfaced-file read share one user-triggered SFTP session")
+        #expect(launcher.launches == 1, "a working subsystem needs one child for the shared session")
+        await access.close()
+    }
+
+    @Test func rejectedSubsystemFallsBackOnceOnTheSameMuxSocket() async throws {
+        let sandbox = try LeoFileSandbox()
+        defer { sandbox.cleanUp() }
+        try sandbox.directory("workspace")
+        try sandbox.file("workspace/result.txt", "done")
+        let invocations = sandbox.path("invocations")
+        let fakeSSH = try sandbox.file("ssh", """
+            #!/bin/sh
+            printf '%s\\n' "$*" >> '\(invocations)'
+            for argument in "$@"; do
+              if [ "$argument" = "-s" ]; then
+                echo 'subsystem request failed on channel 0' >&2
+                exit 255
+              fi
+            done
+            exec /usr/libexec/sftp-server -d %d
+            """, permissions: 0o755)
+        let command = LeoSSHCommand(configuration: .init(name: "work", sshTarget: "evan@work.example:2222", identityFile: "/keys/work"))
+        let launcher = LeoCountingSFTPLauncher(
+            LeoSFTPProcessLauncher(
+                executable: URL(fileURLWithPath: fakeSSH),
+                arguments: try command.sftpArguments(controlPath: "/tmp/leo-b233-control"),
+                fallbackArguments: try command.sftpBootstrapArguments(controlPath: "/tmp/leo-b233-control")
+            )
+        )
+        let access = LeoFileAccessor.sftp(launcher: launcher)
+
+        let entries = try await access.list(sandbox.path("workspace"))
+
+        #expect(entries.map(\.name) == ["result.txt"])
+        #expect(launcher.launches == 2, "one rejected subsystem child, then one fixed-command child")
+        let arguments = try String(contentsOfFile: invocations, encoding: .utf8).split(separator: "\n")
+        #expect(arguments.count == 2)
+        #expect(arguments[0].contains(" -s "))
+        #expect(arguments[1].contains(LeoSSHCommand.sftpServerBootstrapCommand))
+        #expect(arguments.allSatisfy { $0.contains("ControlPath=/tmp/leo-b233-control") })
+        #expect(arguments.allSatisfy { $0.contains("ProxyCommand=/usr/bin/false") })
         await access.close()
     }
 
@@ -110,12 +151,13 @@ struct LeoSFTPTransportTests {
         #expect(sizes == Dictionary(uniqueKeysWithValues: (0..<40).map { ($0, UInt64($0)) }))
     }
 
-    @Test func aServerThatExitsBeforeReplyingIsDisconnected() async throws {
+    @Test func aServerThatExitsZeroBeforeVersionIsUnavailable() async throws {
         let transport = LeoSFTPTransport(channel: try LeoSFTPTestServer.script("exit 0").launch())
         defer { transport.close() }
 
-        await #expect(throws: LeoFileAccessError.disconnected) { try await transport.handshake() }
-        await #expect(throws: LeoFileAccessError.disconnected) { try await transport.send(.stat(path: "/")) }
+        let expected = LeoFileAccessError.unavailable(reason: "the SFTP service exited before starting (status 0)")
+        await #expect(throws: expected) { try await transport.handshake() }
+        await #expect(throws: expected) { try await transport.send(.stat(path: "/")) }
     }
 
     @Test func aServerThatExitsWithARequestInFlightIsDisconnected() async throws {
@@ -128,6 +170,18 @@ struct LeoSFTPTransportTests {
 
         await #expect(throws: LeoFileAccessError.disconnected) { try await transport.send(.stat(path: "/")) }
         #expect(transport.isClosed)
+    }
+
+    @Test func aServerFailureAfterVersionIsUnavailable() async throws {
+        let script = "head -c 9 >/dev/null; \(LeoSFTPTestServer.versionReply); head -c 1 >/dev/null; echo 'request service failed' >&2; exit 42"
+        let transport = LeoSFTPTransport(channel: try LeoSFTPTestServer.script(script).launch())
+        defer { transport.close() }
+        _ = try await transport.handshake()
+
+        let expected = LeoFileAccessError.unavailable(
+            reason: "the SFTP service stopped (status 42): " + .untrusted("request service failed")
+        )
+        await #expect(throws: expected) { try await transport.send(.stat(path: "/")) }
     }
 
     @Test func malformedServerOutputIsAProtocolError() async throws {
@@ -166,13 +220,56 @@ struct LeoSFTPTransportTests {
     }
 
     @Test func eachOperationAfterADisconnectMakesExactlyOneFreshAttempt() async throws {
-        let launcher = LeoCountingSFTPLauncher(LeoSFTPTestServer.script("exit 0"))
+        let launcher = LeoCountingSFTPLauncher(LeoSFTPTestServer.script("exit 255"))
         let access = LeoFileAccessor.sftp(launcher: launcher)
 
         await #expect(throws: LeoFileAccessError.disconnected) { try await access.stat("/") }
         #expect(launcher.launches == 1)
         await #expect(throws: LeoFileAccessError.disconnected) { try await access.stat("/") }
         #expect(launcher.launches == 2)
+    }
+
+    @Test func concurrentOperationsShareOneFailedHandshakeWithoutSerialRetries() async throws {
+        let launcher = LeoCountingSFTPLauncher(LeoSFTPTestServer.script("sleep 0.1; exit 0"))
+        let access = LeoFileAccessor.sftp(launcher: launcher)
+
+        let errors = await withTaskGroup(of: LeoFileAccessError?.self) { group in
+            for _ in 0..<12 {
+                group.addTask {
+                    do {
+                        _ = try await access.stat("/")
+                        return nil
+                    } catch let error as LeoFileAccessError {
+                        return error
+                    } catch {
+                        return nil
+                    }
+                }
+            }
+            return await group.reduce(into: []) { $0.append($1) }
+        }
+
+        let expected = LeoFileAccessError.unavailable(reason: "the SFTP service exited before starting (status 0)")
+        #expect(errors.count == 12)
+        #expect(errors.allSatisfy { $0 == expected })
+        #expect(launcher.launches == 1)
+        await #expect(throws: expected) { try await access.stat("/") }
+        #expect(launcher.launches == 2, "a later explicit operation gets one fresh attempt")
+        await access.close()
+    }
+
+    @Test func closeWinsOverStartupFailureClassification() async throws {
+        let script = "exec 1>&-; echo 'late service failure' >&2; sleep 0.2; exit 42"
+        let launcher = LeoCountingSFTPLauncher(LeoSFTPTestServer.script(script))
+        let access = LeoFileAccessor.sftp(launcher: launcher)
+        let request = Task { try await access.stat("/") }
+        while launcher.launches == 0 { try await Task.sleep(for: .milliseconds(5)) }
+        try await Task.sleep(for: .milliseconds(25))
+
+        await access.close()
+
+        await #expect(throws: LeoFileAccessError.closed) { try await request.value }
+        #expect(launcher.launches == 1)
     }
 
     /// Closing is final: a later call fails as closed and never

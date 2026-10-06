@@ -130,7 +130,10 @@ final class LeoSSHEndToEndConnection: @unchecked Sendable {
 
     func makeAccess() throws -> any LeoFileAccess {
         let arguments = try command.sftpArguments(controlPath: controlPath)
-        return LeoFileAccessor.sftp(launcher: LeoSFTPProcessLauncher(executable: Self.ssh, arguments: arguments))
+        let fallback = try command.sftpBootstrapArguments(controlPath: controlPath)
+        return LeoFileAccessor.sftp(
+            launcher: LeoSFTPProcessLauncher(executable: Self.ssh, arguments: arguments, fallbackArguments: fallback)
+        )
     }
 
     /// One SFTP round trip before any contract test runs, so a host without

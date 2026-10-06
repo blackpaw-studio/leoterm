@@ -7,8 +7,18 @@ import Testing
 struct LeoSSHCommandSFTPTests {
     private let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "evan@build.example:2222", identityFile: "/keys/build"))
 
-    @Test func buildsExactSFTPBootstrapArguments() throws {
+    @Test func buildsExactSFTPSubsystemArguments() throws {
         #expect(try command.sftpArguments(controlPath: "/tmp/cm-build") == [
+            "-T", "-o", "BatchMode=yes",
+            "-o", "ControlMaster=no", "-o", "ControlPath=/tmp/cm-build",
+            "-o", "ProxyCommand=/usr/bin/false", "-o", "ClearAllForwardings=yes",
+            "-o", "RemoteCommand=none", "-o", "ForwardAgent=no", "-o", "ForwardX11=no", "-o", "PermitLocalCommand=no",
+            "-i", "/keys/build", "-p", "2222", "-s", "evan@build.example", "sftp"
+        ])
+    }
+
+    @Test func buildsExactFixedBootstrapArguments() throws {
+        #expect(try command.sftpBootstrapArguments(controlPath: "/tmp/cm-build") == [
             "-T", "-o", "BatchMode=yes",
             "-o", "ControlMaster=no", "-o", "ControlPath=/tmp/cm-build",
             "-o", "ProxyCommand=/usr/bin/false", "-o", "ClearAllForwardings=yes",
@@ -29,9 +39,9 @@ struct LeoSSHCommandSFTPTests {
         #expect(Self.option("ForwardX11", in: sftp) == "no")
         #expect(Self.option("PermitLocalCommand", in: sftp) == "no")
         #expect(Self.option("ClearAllForwardings", in: sftp) == "yes")
-        let target = try #require(sftp.firstIndex(of: "evan@build.example"))
+        let subsystem = try #require(sftp.firstIndex(of: "-s"))
         let lastOverride = try #require(sftp.firstIndex(of: "PermitLocalCommand=no"))
-        #expect(lastOverride < target, "options precede the target")
+        #expect(lastOverride < subsystem, "options precede the target")
     }
 
     /// A control path ssh can't use (spaces, non-ASCII, too long) must not
@@ -58,6 +68,7 @@ struct LeoSSHCommandSFTPTests {
     @Test func sftpReusesTheTunnelsControlPathIdentityPortAndTarget() throws {
         let tunnel = try command.tunnelArguments(localSocketPath: "/tmp/b.sock", remoteSocketPath: "/r/leo.sock", controlPath: "/tmp/cm-build")
         let sftp = try command.sftpArguments(controlPath: "/tmp/cm-build")
+        let fallback = try command.sftpBootstrapArguments(controlPath: "/tmp/cm-build")
 
         #expect(Self.option("ControlPath", in: tunnel) == "/tmp/cm-build")
         #expect(Self.option("ControlPath", in: sftp) == Self.option("ControlPath", in: tunnel))
@@ -65,20 +76,14 @@ struct LeoSSHCommandSFTPTests {
         #expect(Self.option("ControlMaster", in: sftp) == "no", "SFTP is only ever a mux client")
         #expect(Self.value(after: "-i", in: sftp) == Self.value(after: "-i", in: tunnel))
         #expect(Self.value(after: "-p", in: sftp) == Self.value(after: "-p", in: tunnel))
-        #expect(sftp.dropLast().last == tunnel.last, "same ssh target")
-        #expect(sftp.last == LeoSSHCommand.sftpServerBootstrapCommand)
-    }
-
-    @Test func sftpUsesOnlyAFixedServerBootstrap() throws {
-        let sftp = try command.sftpArguments(controlPath: "/tmp/cm-build")
-        let bootstrap = try #require(sftp.last)
-
-        #expect(!sftp.contains("-s"), "file access does not depend on an sshd subsystem entry")
-        #expect(bootstrap == LeoSSHCommand.sftpServerBootstrapCommand)
-        #expect(bootstrap.contains(LeoSSHCommand.missingSFTPServerMarker))
-        #expect(!bootstrap.contains("build.example"))
-        #expect(!bootstrap.contains("/keys/build"))
-        #expect(!bootstrap.contains("/tmp/cm-build"))
+        #expect(sftp.suffix(2).first == tunnel.last, "same ssh target")
+        #expect(Self.option("ControlPath", in: fallback) == Self.option("ControlPath", in: tunnel))
+        #expect(Self.value(after: "-i", in: fallback) == Self.value(after: "-i", in: tunnel))
+        #expect(Self.value(after: "-p", in: fallback) == Self.value(after: "-p", in: tunnel))
+        #expect(fallback.dropLast().last == tunnel.last)
+        let bootstrap = try #require(fallback.last)
+        #expect(!bootstrap.contains("build.example"), "no host configuration enters the fixed shell command")
+        #expect(!bootstrap.contains("/keys/build"), "no identity path enters the fixed shell command")
     }
 
     /// If the master is gone, ssh would silently dial a fresh connection;
@@ -87,10 +92,15 @@ struct LeoSSHCommandSFTPTests {
     /// any password prompt either way.
     @Test func sftpCannotFallBackToADirectOrInteractiveConnection() throws {
         let sftp = try command.sftpArguments(controlPath: "/tmp/cm-build")
+        let fallback = try command.sftpBootstrapArguments(controlPath: "/tmp/cm-build")
         #expect(Self.option("ProxyCommand", in: sftp) == "/usr/bin/false")
         #expect(Self.option("BatchMode", in: sftp) == "yes")
         #expect(sftp.first == "-T", "a pty would corrupt the binary protocol")
         #expect(!sftp.contains("-t"))
+        #expect(Self.option("ProxyCommand", in: fallback) == "/usr/bin/false")
+        #expect(Self.option("BatchMode", in: fallback) == "yes")
+        #expect(fallback.first == "-T")
+        #expect(!fallback.contains("-t"))
     }
 
     @Test func theTunnelKeepsItsMultiplexerInTheForeground() throws {

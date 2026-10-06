@@ -7,18 +7,21 @@ final class LeoSFTPChannel: @unchecked Sendable {
     let fromServer: FileHandle
     let toServer: FileHandle
     private let stop: () -> Void
-    private let processFailure: () -> LeoFileAccessError?
+    private let classifyFailure: (Bool) -> LeoFileAccessError
+    private let subsystemRejected: () -> Bool
 
     init(
         fromServer: FileHandle,
         toServer: FileHandle,
         stop: @escaping () -> Void,
-        processFailure: @escaping () -> LeoFileAccessError? = { nil }
+        classifyFailure: @escaping (Bool) -> LeoFileAccessError = { _ in .disconnected },
+        subsystemRejected: @escaping () -> Bool = { false }
     ) {
         self.fromServer = fromServer
         self.toServer = toServer
         self.stop = stop
-        self.processFailure = processFailure
+        self.classifyFailure = classifyFailure
+        self.subsystemRejected = subsystemRejected
     }
 
     /// Idempotent.
@@ -26,12 +29,13 @@ final class LeoSFTPChannel: @unchecked Sendable {
         stop()
     }
 
-    /// Waits for a child that ended before the SFTP handshake and returns a
-    /// more precise cause when it was the service, rather than the SSH
-    /// connection, that failed. Direct/in-memory channels return nil.
-    func startupFailure() -> LeoFileAccessError? {
-        processFailure()
+    /// Direct/in-memory channels have no child context and stay
+    /// `.disconnected`; process channels use bounded exit/stderr context.
+    func failure(beforeHandshake: Bool) -> LeoFileAccessError {
+        classifyFailure(beforeHandshake)
     }
+
+    var wasSubsystemRejected: Bool { subsystemRejected() }
 }
 
 /// Starts an SFTP server process. Injected so tests can run macOS's own
@@ -39,6 +43,13 @@ final class LeoSFTPChannel: @unchecked Sendable {
 protocol LeoSFTPLaunching: Sendable {
     /// Throws `.unavailable` if the local process cannot start.
     func launch() throws -> LeoSFTPChannel
+    /// A second mux channel only when the first child proves sshd rejected
+    /// the SFTP subsystem. Never a direct SSH connection.
+    func launchFallback(after channel: LeoSFTPChannel) throws -> LeoSFTPChannel?
+}
+
+extension LeoSFTPLaunching {
+    func launchFallback(after channel: LeoSFTPChannel) throws -> LeoSFTPChannel? { nil }
 }
 
 /// Launches `executable arguments` with piped stdin/stdout. Production runs
@@ -49,8 +60,24 @@ struct LeoSFTPProcessLauncher: LeoSFTPLaunching {
 
     let executable: URL
     let arguments: [String]
+    let fallbackArguments: [String]?
+
+    init(executable: URL, arguments: [String], fallbackArguments: [String]? = nil) {
+        self.executable = executable
+        self.arguments = arguments
+        self.fallbackArguments = fallbackArguments
+    }
 
     func launch() throws -> LeoSFTPChannel {
+        try launch(arguments: arguments)
+    }
+
+    func launchFallback(after channel: LeoSFTPChannel) throws -> LeoSFTPChannel? {
+        guard channel.wasSubsystemRejected, let fallbackArguments else { return nil }
+        return try launch(arguments: fallbackArguments)
+    }
+
+    private func launch(arguments: [String]) throws -> LeoSFTPChannel {
         let process = Process()
         let input = Pipe()
         let output = Pipe()
@@ -61,10 +88,10 @@ struct LeoSFTPProcessLauncher: LeoSFTPLaunching {
         process.standardOutput = output
         process.standardError = errors
         let executablePath = executable.path
-        let state = LeoSFTPProcessState()
+        let monitor = LeoSFTPProcessMonitor(handle: errors.fileHandleForReading)
         process.terminationHandler = { finished in
             Self.logger.log("sftp exited status=\(finished.terminationStatus) executable=\(executablePath, privacy: .public)")
-            state.didTerminate(finished)
+            monitor.didTerminate(finished)
         }
         do {
             try process.run()
@@ -72,35 +99,34 @@ struct LeoSFTPProcessLauncher: LeoSFTPLaunching {
             Self.logger.error("sftp launch failed executable=\(executablePath, privacy: .public) error=\(error.localizedDescription, privacy: .public)")
             throw LeoFileAccessError.unavailable(reason: "the SFTP process couldn’t start")
         }
-        let diagnostics = LeoSFTPProcessDiagnostics(handle: errors.fileHandleForReading)
-        diagnostics.start()
+        monitor.start()
         return LeoSFTPChannel(
             fromServer: output.fileHandleForReading,
             toServer: input.fileHandleForWriting,
             stop: { if process.isRunning { process.terminate() } },
-            processFailure: {
-                guard let outcome = state.waitForExit() else { return nil }
-                let detail = diagnostics.waitForText()
-                if !detail.isEmpty {
-                    Self.logger.log("sftp stderr: \(detail, privacy: .private)")
-                }
-                guard outcome.status != 0 else { return nil }
-                // OpenSSH itself reserves 255 for connection/setup errors.
-                // Those mean the master or session was actually lost.
-                guard outcome.reason != .uncaughtSignal, outcome.status != 255 else {
+            classifyFailure: { beforeHandshake in
+                guard let observation = monitor.observe() else { return .disconnected }
+                guard observation.reason != .uncaughtSignal, observation.status != 255 else { return .disconnected }
+                // A server may cleanly close an established session without
+                // a service failure. Before VERSION, even status 0 means the
+                // advertised SFTP service never became available.
+                if !beforeHandshake, observation.status == 0, observation.detail.isEmpty {
                     return .disconnected
                 }
-                if outcome.status == 127, detail.contains(LeoSSHCommand.missingSFTPServerMarker) {
+                if beforeHandshake, observation.status == 127,
+                   observation.detail.contains(LeoSSHCommand.missingSFTPServerMarker) {
                     return .unavailable(
                         reason: "no supported SFTP server was found on the host (status 127). Install the host’s OpenSSH server package, then try again"
                     )
                 }
-                var reason: LeoFileAccessReason = "the SFTP service could not start (status \(outcome.status))"
-                if !detail.isEmpty {
-                    reason = reason + ": " + .untrusted(detail)
+                let phase = beforeHandshake ? "exited before starting" : "stopped"
+                var reason: LeoFileAccessReason = "the SFTP service \(verbatim: phase) (status \(observation.status))"
+                if !observation.detail.isEmpty {
+                    reason = reason + ": " + .untrusted(observation.detail)
                 }
                 return .unavailable(reason: reason)
-            }
+            },
+            subsystemRejected: { monitor.observe()?.isSubsystemRejection == true }
         )
     }
 }
@@ -108,13 +134,25 @@ struct LeoSFTPProcessLauncher: LeoSFTPLaunching {
 /// Drains a child's stderr so it can never fill the pipe and deadlock the
 /// handshake, while retaining only a small prefix. The prefix is cleaned
 /// before it reaches logs or UI; arguments and environment are never added.
-private final class LeoSFTPProcessDiagnostics: @unchecked Sendable {
+private final class LeoSFTPProcessMonitor: @unchecked Sendable {
     private static let byteLimit = 4 * 1024
+    private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
+
+    struct Observation {
+        let status: Int32
+        let reason: Process.TerminationReason
+        let detail: String
+
+        var isSubsystemRejection: Bool {
+            reason == .exit && detail.localizedCaseInsensitiveContains("subsystem request failed")
+        }
+    }
 
     private let handle: FileHandle
     private let condition = NSCondition()
     private var data = Data()
-    private var isFinished = false
+    private var isStderrFinished = false
+    private var outcome: (status: Int32, reason: Process.TerminationReason)?
 
     init(handle: FileHandle) {
         self.handle = handle
@@ -129,7 +167,7 @@ private final class LeoSFTPProcessDiagnostics: @unchecked Sendable {
                 }
             }
             condition.withLock {
-                isFinished = true
+                isStderrFinished = true
                 condition.broadcast()
             }
         }
@@ -137,41 +175,27 @@ private final class LeoSFTPProcessDiagnostics: @unchecked Sendable {
         reader.start()
     }
 
-    func waitForText() -> String {
-        let captured = condition.withLock {
-            let deadline = Date().addingTimeInterval(1)
-            while !isFinished, condition.wait(until: deadline) {}
-            return data
-        }
-        let text = String(data: captured, encoding: .utf8) ?? "<\(captured.count) bytes>"
-        return LeoSFTPServerText.sanitized(text)
-    }
-}
-
-private final class LeoSFTPProcessState: @unchecked Sendable {
-    struct Outcome {
-        let status: Int32
-        let reason: Process.TerminationReason
-    }
-
-    private let condition = NSCondition()
-    private var outcome: Outcome?
-
     func didTerminate(_ process: Process) {
         condition.withLock {
-            outcome = Outcome(status: process.terminationStatus, reason: process.terminationReason)
+            outcome = (process.terminationStatus, process.terminationReason)
             condition.broadcast()
         }
     }
 
-    /// EOF normally arrives alongside process exit. Bound the exceptional
-    /// case where a child closes stdout but keeps running, so one user action
-    /// can never wait forever for diagnostic context.
-    func waitForExit() -> Outcome? {
-        condition.withLock {
+    func observe() -> Observation? {
+        let result: ((status: Int32, reason: Process.TerminationReason), Data)? = condition.withLock {
             let deadline = Date().addingTimeInterval(1)
             while outcome == nil, condition.wait(until: deadline) {}
-            return outcome
+            guard let outcome else { return nil }
+            while !isStderrFinished, condition.wait(until: deadline) {}
+            return (outcome, data)
         }
+        guard let result else { return nil }
+        let text = String(data: result.1, encoding: .utf8) ?? "<\(result.1.count) bytes>"
+        let detail = LeoSFTPServerText.sanitized(text)
+        if !detail.isEmpty {
+            Self.logger.log("sftp stderr: \(detail, privacy: .private)")
+        }
+        return Observation(status: result.0.status, reason: result.0.reason, detail: detail)
     }
 }

@@ -76,6 +76,12 @@ final class LeoCountingSFTPLauncher: LeoSFTPLaunching, @unchecked Sendable {
         lock.withLock { count += 1 }
         return try base.launch()
     }
+
+    func launchFallback(after channel: LeoSFTPChannel) throws -> LeoSFTPChannel? {
+        guard let fallback = try base.launchFallback(after: channel) else { return nil }
+        lock.withLock { count += 1 }
+        return fallback
+    }
 }
 
 /// A throwaway directory for one test. `cleanUp()` restores permissions a
