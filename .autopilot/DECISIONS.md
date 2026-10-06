@@ -2593,3 +2593,10 @@ Call: Retain existing D-237 clamp/regrowth behavior, independently verified; no 
 Principle: AUTONOMY implementation approach; preserve stored user resize preferences.
 Veto: [ ]
 Commit: none — already satisfied
+
+## D-359 · 2026-10-06 · Stack start-screen actions at narrow width
+Item: B-138
+Call: Use ViewThatFits with existing horizontal row first and vertical fallback; preserve action labels, callbacks, and tooltips.
+Principle: AUTONOMY UX/layout; Mac-native functionality at constrained content width.
+Veto: [ ]
+Commit: a7f3215aebe6041ae270f2dcc32f39e3f45521b9

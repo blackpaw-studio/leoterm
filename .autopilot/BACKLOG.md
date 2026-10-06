@@ -607,11 +607,12 @@ Accept: runtests.sh labels ConfigTests/errorsEmptyForValidConfig an "expected ba
 Source: autopilot polish (B-089)
 Done: no code change — already satisfied by B-114 (a5e1b3de8): the tracked macos/scripts/leo-runtests.sh no longer labels ConfigTests/errorsEmptyForValidConfig a baseline failure (grep "baseline" → 0).
 
-## B-138 · Start-screen button row adapts below 450 pt content   [ready]
+## B-138 · Start-screen button row adapts below 450 pt content   [done]
 Issue: #142
 Why: content can still fall under 450 pt (window < ~651 pt, hidden sidebar in a < 450 pt window, a narrow split leaf, a side pane open) and the start-screen buttons truncate; let the row adapt (e.g. ViewThatFits)
 Accept: content can still fall under 450 pt (window < ~651 pt, hidden sidebar in a < 450 pt window, a narrow split leaf, a side pane open) and the start-screen buttons truncate; let the row adapt (e.g. ViewThatFits)
 Source: autopilot polish (B-091)
+Done: a7f3215aebe6041ae270f2dcc32f39e3f45521b9
 
 ## B-139 · B-091 resize test hardening   [ready]
 Issue: #143
@@ -1638,3 +1639,8 @@ Source: autopilot polish (B-232)
 Why: B-133 verifier found two debug instances and could not safely uniquely target the changed confirmation flow.
 Accept: When safe unique debug targeting is available, capture the actual duplicate-name left/right confirmation alert; never drive production or unrelated debug sessions.
 Source: autopilot polish (B-133)
+
+## B-239 · Verify adaptive start-screen buttons in isolated GUI   [ready (next run)]
+Why: B-138 exact-lane tests passed, but the isolated Debug app bundle could not launch (missing executable); narrow/wide layout lacks visual verification.
+Accept: Restore a safe isolated debug build and capture readable horizontal buttons at wide width and vertical fallback below 450 pt; preserve all actions/tooltips; never drive production or real agents.
+Source: autopilot polish (B-138)
