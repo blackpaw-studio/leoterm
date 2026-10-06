@@ -30,8 +30,13 @@ extension LeoHostSelection {
         case .absent where isConnected: throw LeoFileAccessError.unavailable(reason: Self.missingControlSocket)
         case .absent, .live, .stale, .unknown: break
         }
-        let arguments = try LeoSSHCommand(configuration: configuration).sftpArguments(controlPath: path)
-        return LeoFileAccessor.sftp(launcher: LeoSFTPProcessLauncher(executable: sshExecutable, arguments: arguments))
+        let command = LeoSSHCommand(configuration: configuration)
+        let launcher = LeoSFTPProcessLauncher(
+            executable: sshExecutable,
+            arguments: try command.sftpArguments(controlPath: path),
+            fallbackArguments: try command.sftpBootstrapArguments(controlPath: path)
+        )
+        return LeoFileAccessor.sftp(launcher: launcher)
     }
 
     /// File access for `host`, which must be the selected host: only it has

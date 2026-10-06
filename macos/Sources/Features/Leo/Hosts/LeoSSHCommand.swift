@@ -53,6 +53,22 @@ struct LeoSSHCommand: Sendable {
     /// session), `RemoteCommand=none` (it would replace the subsystem),
     /// no agent or X11 forwarding, and no `LocalCommand`.
     func sftpArguments(controlPath: String) throws -> [String] {
+        var arguments = try sftpClientArguments(controlPath: controlPath)
+        arguments += ["-s", target, "sftp"]
+        return arguments
+    }
+
+    /// Fallback when sshd explicitly rejects its SFTP subsystem: starts a
+    /// fixed server command through the same ControlMaster. The command
+    /// checks standard macOS, BSD, and Linux paths without interpolating
+    /// configuration or other user-controlled shell text.
+    func sftpBootstrapArguments(controlPath: String) throws -> [String] {
+        var arguments = try sftpClientArguments(controlPath: controlPath)
+        arguments += [target, Self.sftpServerBootstrapCommand]
+        return arguments
+    }
+
+    private func sftpClientArguments(controlPath: String) throws -> [String] {
         try validateConfiguration()
         try validateControlPath(controlPath)
         var arguments = [
@@ -68,9 +84,15 @@ struct LeoSSHCommand: Sendable {
             "-o", "PermitLocalCommand=no"
         ]
         appendIdentityAndPort(to: &arguments)
-        arguments += ["-s", target, "sftp"]
         return arguments
     }
+
+    /// The marker lets the local process boundary distinguish a missing
+    /// server from an ssh failure (which exits 255). Keep both strings
+    /// fixed: remote shell input must never contain host configuration,
+    /// paths supplied by the user, or file names.
+    static let missingSFTPServerMarker = "leo: no supported sftp-server found"
+    static let sftpServerBootstrapCommand = "exec /bin/sh -c 'if [ -x /usr/libexec/sftp-server ]; then exec /usr/libexec/sftp-server; elif [ -x /usr/lib/openssh/sftp-server ]; then exec /usr/lib/openssh/sftp-server; elif [ -x /usr/libexec/openssh/sftp-server ]; then exec /usr/libexec/openssh/sftp-server; elif [ -x /usr/lib/ssh/sftp-server ]; then exec /usr/lib/ssh/sftp-server; elif [ -x /usr/local/libexec/sftp-server ]; then exec /usr/local/libexec/sftp-server; else printf \"%s\\n\" \"leo: no supported sftp-server found\" >&2; exit 127; fi'"
 
     func execArguments(remoteCommand: [String]) throws -> [String] {
         try validateConfiguration()

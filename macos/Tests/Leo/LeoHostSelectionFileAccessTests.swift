@@ -28,6 +28,9 @@ import Testing
         #expect(launcher.arguments == (try LeoSSHCommand(configuration: configuration).sftpArguments(
             controlPath: LeoHostSelectionTestSupport.expectedControlPath(configuration)
         )))
+        #expect(launcher.fallbackArguments == (try LeoSSHCommand(configuration: configuration).sftpBootstrapArguments(
+            controlPath: LeoHostSelectionTestSupport.expectedControlPath(configuration)
+        )))
         selection.shutdown()
     }
 
