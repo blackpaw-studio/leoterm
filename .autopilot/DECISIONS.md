@@ -2578,4 +2578,4 @@ Item: B-136
 Call: Run B-136 first to investigate the previous run’s shared focus/palette verification blocker, then resume ready order.
 Principle: AUTONOMY permits backlog ordering and test infrastructure fixes; verified flows serve vision’s done criteria.
 Veto: [ ]
-Commit:
+Commit: de79492d7d8eb453aca41fdb26f739cc21339db6

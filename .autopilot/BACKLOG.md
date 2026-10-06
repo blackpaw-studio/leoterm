@@ -588,11 +588,12 @@ Why: LeoSplitViewRepresentable :240 and clearProgrammaticWidthFlagSoon still say
 Accept: LeoSplitViewRepresentable :240 and clearProgrammaticWidthFlagSoon still say the resize notification "arrives on a later layout pass"; class doc :195-198 should say "when the user moves the sidebar's divider"
 Source: autopilot polish (B-089)
 
-## B-136 · Serialize event-posting test suites   [ready]
+## B-136 · Serialize event-posting test suites   [done]
 Issue: #140
 Why: mouseDragDivider and LeoSidebarCommandClickTests.click share the app event queue in a parallelizable plan; serialize them
 Accept: mouseDragDivider and LeoSidebarCommandClickTests.click share the app event queue in a parallelizable plan; serialize them
 Source: autopilot polish (B-089)
+Done: de79492d7d8eb453aca41fdb26f739cc21339db6
 Note: 2026-10-06 run stopped on three pre-existing focus/palette failures; B-132 baseline comparisons exclude its changes. Shared AppKit scheduling is the suspected mechanism, not yet an isolated cause. Inspect alongside B-230 before broadening this item.
 
 
