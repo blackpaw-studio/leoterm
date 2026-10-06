@@ -2600,3 +2600,10 @@ Call: Use ViewThatFits with existing horizontal row first and vertical fallback;
 Principle: AUTONOMY UX/layout; Mac-native functionality at constrained content width.
 Veto: [ ]
 Commit: a7f3215aebe6041ae270f2dcc32f39e3f45521b9
+
+## D-360 · 2026-10-06 · Reuse existing build artifacts for visual verification
+Item: B-239
+Call: Reuse documented shared xcframework/zig-out for visual-only verification with no Zig/source changes; preserve generated artifacts before clearing the empty lane.
+Principle: AUTONOMY implementation latitude; verify actual isolated debug app.
+Veto: [ ]
+Commit: none — verification-only item, already implemented by B-138
