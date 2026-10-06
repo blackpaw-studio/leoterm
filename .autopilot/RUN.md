@@ -39,9 +39,11 @@ Lane: B-239
   Branch: autopilot-lane/B-239
   Base: e3a7e909b80f4c0e011f105619b1696fa7de8e44
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 9822980e7ea11bd1fff567a843ec49a2f9b00784
   Dispatched: 2026-10-06T18:41:45Z
+  Call: horizontal-first / vertical fallback — existing D-359, AUTONOMY UX/layout
+  Call: shared build artifacts — AUTONOMY implementation latitude
