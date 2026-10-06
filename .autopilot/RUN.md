@@ -54,9 +54,11 @@ Lane: B-134
   Branch: autopilot-lane/B-134
   Base: a36469cd3fed802ed13850de91f6096d00020e7b
   Tier: light
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: c7d61a7c1e21129862b4aea3e5005713d176366a
   Dispatched: 2026-10-06T14:14:29Z
+
+  Call: retain existing D-237 clamp/regrowth behavior — AUTONOMY
