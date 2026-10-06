@@ -85,8 +85,10 @@ Lane: B-138
   Base: 560ad21830b796c8e7e5ce9a44b3c65bc62bb124
   Tier: light
   State: building
-  Fixes: 0
+  Fixes: 2
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-10-06T14:47:11Z
+
+- B-138 report held: final verifier reported 2,067 tests/222 suites versus lane baseline 2,072/223 and no lane artifact; requested exact cwd/HEAD/command/log evidence before accepting. No code change requested.
