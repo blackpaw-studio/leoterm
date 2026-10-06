@@ -51,10 +51,10 @@ Finished 2: B-133 landed 22c843322e2147627f4363649c59491fa348f74e · not visuall
 - B-133: 1 fix round for left-pane coverage; fresh general full/delta reviews clear; independent suite/lint passed. Ambiguous debug instances prevented GUI verification; B-238 queued next run. Artifacts preserved under ../preserved/B-133-20261006T141350Z.
 
 Lane: B-134
-  Branch: autopilot-lane/B-134
+  Branch: autopilot-shelved/B-134
   Base: a36469cd3fed802ed13850de91f6096d00020e7b
   Tier: light
-  State: verifying
+  State: shelved
   Fixes: 1
   Wip: none
   Reverifies: 0
