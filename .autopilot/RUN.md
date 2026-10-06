@@ -25,6 +25,17 @@ Lane: B-139
   Reviewed-tip: 80777b07fcc0a4d302dfc74a65dc8d3b99f75836
   Dispatched: 2026-10-06T19:43:15Z
 
+Lane: B-140
+  Branch: autopilot-lane/B-140
+  Base: c7f9dadd149c4c4074434be919621a4c2753f57c
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-06T20:10:47Z
+
 ## Progress
 - Board sync re-enabled at Evan's request (2026-10-06); full sync run.
 - Lane B-233 is unlanded with no RUN.md block (left in place, not a pick).
