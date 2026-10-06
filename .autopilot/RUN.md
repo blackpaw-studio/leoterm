@@ -24,9 +24,9 @@ Lane: B-136
   Branch: autopilot-lane/B-136
   Base: bcb8a12164ba40e9621c1bd954597f9d8fb85c45
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 0ed753ecbfcde34739d48143c888f1edc4d83aa8
   Dispatched: 2026-10-06T13:06:25Z
