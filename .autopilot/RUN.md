@@ -18,7 +18,7 @@ Lane: B-139
   Branch: autopilot-lane/B-139
   Base: de0da78fbb3a64e313ad9ebc92af87b37b2146b8
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -28,3 +28,5 @@ Lane: B-139
 ## Progress
 - Board sync re-enabled at Evan's request (2026-10-06); full sync run.
 - Lane B-233 is unlanded with no RUN.md block (left in place, not a pick).
+- B-139 landed acf95b2b9: per-step clamp check + 1 pt tolerance; suite 2072/223 green, lint clean; no UI change. 3 polish items filed (B-240–B-242).
+Finished 1: B-139 landed acf95b2b9cd3b48dc5aae28a19c6c7ff2471c036 · not visually verified

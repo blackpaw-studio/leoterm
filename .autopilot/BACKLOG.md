@@ -614,11 +614,12 @@ Accept: content can still fall under 450 pt (window < ~651 pt, hidden sidebar in
 Source: autopilot polish (B-091)
 Done: a7f3215aebe6041ae270f2dcc32f39e3f45521b9
 
-## B-139 · B-091 resize test hardening   [ready]
+## B-139 · B-091 resize test hardening   [done]
 Issue: #143
 Why: add a per-step "clamp never shows" frame check in the live narrowing test; use a 1 pt tolerance in LeoFirstAttachWindowSizeTests.swift:193
 Accept: add a per-step "clamp never shows" frame check in the live narrowing test; use a 1 pt tolerance in LeoFirstAttachWindowSizeTests.swift:193
 Source: autopilot polish (B-091)
+Done: 91b448d74520b0b7f7bc4a8ff68eea98d5a5f0a9
 
 ## B-140 · Return To Default Size restores a launch-clamped sidebar   [ready]
 Issue: #144
@@ -1650,16 +1651,19 @@ Accept: Restore a safe isolated debug build and capture readable horizontal butt
 Source: autopilot polish (B-138)
 
 ## B-240 · Vacuous-pass guard on the regrow check   [ready (next run)]
+Issue: #245
 Why: in LeoSidebarContentMinimumTests.swift (~:99-101) `regrowShown.isEmpty` can pass vacuously; add the `!widening.isEmpty` guard the narrowing check already has
 Accept: the widening/regrow per-step check fails when no widening steps were captured
 Source: autopilot polish (B-139)
 
 ## B-241 · Absolute per-step content-width floor in the live resize test   [ready (next run)]
+Issue: #246
 Why: the per-step expected width derives from `sidebarMaximumWidth`, the same function production uses, so both could share an error; add an absolute floor `contentWidth >= contentMinimumWidth - 1` when the window is ≥ 651 pt (LeoSidebarContentMinimumTests.swift ~:123-128)
 Accept: each captured step asserts content width against the absolute 450 pt minimum (1 pt tolerance), independent of sidebarMaximumWidth
 Source: autopilot polish (B-139)
 
 ## B-242 · `resize` doc comment wording in LeoSidebarContentMinimumTests   [ready (next run)]
+Issue: #247
 Why: the comment (~:183-185) overstates the capture as what "the display cycle runs before it draws" (it is the earliest layout pass) and uses `--` instead of the file's em dash
 Accept: the comment describes the earliest layout pass accurately and uses an em dash
 Source: autopilot polish (B-139)
