@@ -77,6 +77,10 @@ import Testing
     /// Narrowing: the content absorbs until its minimum, then the sidebar
     /// gives way. Widening back gives the sidebar its width back, as with
     /// the terminal's minimum (B-089), and stores nothing (D-233).
+    ///
+    /// B-139: every step is checked as the window would draw it, not only
+    /// where the resize ends, so a clamp a layout late (content squeezed
+    /// under its minimum for a frame) or a sidebar giving way early fails.
     @Test(arguments: [true, false])
     func narrowingTheWindowNarrowsAWideSidebarBeforeTheContent(isLive: Bool) async {
         let defaults = LeoInMemoryDefaults()
@@ -85,10 +89,15 @@ import Testing
         defer { harness.close() }
         #expect(abs(harness.sidebarWidth - LeoSidebarSplitMetrics.maximumWidth) <= 1)
 
-        await harness.resize(to: Self.reportedWindowWidth, isLive: isLive)
+        let narrowing = await harness.resize(to: Self.reportedWindowWidth, isLive: isLive)
         #expect(abs(harness.contentWidth - Self.contentMinimum) <= 1, "content \(harness.contentWidth)")
+        let clampShown = narrowing.filter { !Self.showsSidebarGivingWayFirst($0, stored: LeoSidebarSplitMetrics.maximumWidth) }
+        #expect(!narrowing.isEmpty)
+        #expect(clampShown.isEmpty, "steps drawn off the clamp: \(clampShown)")
 
-        await harness.resize(to: Self.wideWindowWidth, isLive: isLive)
+        let widening = await harness.resize(to: Self.wideWindowWidth, isLive: isLive)
+        let regrowShown = widening.filter { !Self.showsSidebarGivingWayFirst($0, stored: LeoSidebarSplitMetrics.maximumWidth) }
+        #expect(regrowShown.isEmpty, "steps drawn off the clamp: \(regrowShown)")
         #expect(abs(harness.sidebarWidth - LeoSidebarSplitMetrics.maximumWidth) <= 1)
         #expect(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) == Double(LeoSidebarSplitMetrics.maximumWidth))
     }
@@ -104,6 +113,18 @@ import Testing
 
         #expect(abs(harness.sidebarWidth - LeoSidebarSplitMetrics.minimumWidth) <= 1)
         #expect(harness.sidebarItem?.isCollapsed == false)
+    }
+
+    /// Whether a step's frames are the ones D-236 asks for, to 1 pt: the
+    /// sidebar at its stored width until the content is down to its
+    /// minimum, then giving way (to its own minimum), and the panes
+    /// tiling the window with no overlap or gap. Ground truth is the
+    /// window's width at that step, not the split's own maximum.
+    private static func showsSidebarGivingWayFirst(_ step: Harness.Step, stored: CGFloat) -> Bool {
+        let divider = LeoSidebarSplitMetrics.dividerWidth
+        let sidebar = min(stored, LeoSidebarSplitMetrics.sidebarMaximumWidth(splitWidth: step.windowWidth, dividerThickness: divider))
+        return abs(step.sidebarWidth - sidebar) <= 1
+            && abs(step.sidebarWidth + divider + step.contentWidth - step.windowWidth) <= 1
     }
 
     /// The split the app builds, in a real window, persisting through a
@@ -149,17 +170,34 @@ import Testing
             layout()
         }
 
+        /// One resize step's frames, as laid out for drawing.
+        struct Step: CustomStringConvertible {
+            let windowWidth: CGFloat
+            let sidebarWidth: CGFloat
+            let contentWidth: CGFloat
+
+            var description: String { "window \(windowWidth): sidebar \(sidebarWidth), content \(contentWidth)" }
+        }
+
         /// Live: 10 pt at a time, settling after each; otherwise one jump.
-        func resize(to width: CGFloat, isLive: Bool) async {
+        /// Returns each step's frames right after the window's own layout
+        /// pass -- what its display cycle runs before it draws -- and
+        /// before the harness lays out again or the main queue turns.
+        @discardableResult
+        func resize(to width: CGFloat, isLive: Bool) async -> [Step] {
             var current = window.contentLayoutRect.width
+            var steps: [Step] = []
             let step: CGFloat = isLive ? 10 : .greatestFiniteMagnitude
             while abs(width - current) > 0.5 {
                 current += max(-step, min(step, width - current))
                 window.setContentSize(NSSize(width: current, height: LeoSidebarContentMinimumTests.height))
+                window.layoutIfNeeded()
+                steps.append(Step(windowWidth: window.contentLayoutRect.width, sidebarWidth: sidebarWidth, contentWidth: contentWidth))
                 layout()
                 await settle()
             }
             for _ in 0..<3 { await settle() }
+            return steps
         }
 
         private func layout() {

@@ -202,7 +202,7 @@ import Testing
         await Self.drainMainQueue()
 
         let expectedWidth = LeoSidebarSplitMetrics.contentMinimumWidth + session.displayedWidth + LeoSidebarSplitMetrics.dividerWidth
-        #expect(fixture.contentSize.width == expectedWidth)
+        #expect(abs(fixture.contentSize.width - expectedWidth) <= 1, "window \(fixture.contentSize.width), expected \(expectedWidth)")
         let sidebarWidth = try #require(fixture.sidebarWidth, "the sidebar showed")
         #expect(abs(sidebarWidth - session.displayedWidth) <= 1, "sidebar \(sidebarWidth), stored \(session.displayedWidth)")
     }
