@@ -31,3 +31,7 @@ Lane: B-233
 
 - Board sync: B-014: unknown status [deferred] (exit 1). Further board writes skipped under current no-issues instruction.
 - Work queue: B-233 browser connection bug → B-234 surfaced-file connection bug → B-232 local/SSH file drop → remaining ready queue, capped at 20 dispatched items. Each item follows plan, test-first implementation, fresh review, verify, land, checkpoint.
+
+- Evan explicitly authorized updating the board during this run; checkpoint board sync resumed. Live B-233 moved to In progress. Full sync still reports legacy B-014 [deferred].
+
+- Evan changed B-014 deferred → blocked; old answer cleared to retain the block on future preflight. B-234 inbox-generated title corrected to describe surfaced files.
