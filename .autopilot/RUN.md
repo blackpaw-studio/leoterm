@@ -70,9 +70,9 @@ Lane: B-135
   Branch: autopilot-lane/B-135
   Base: 19320e8c06d16a4a2d930b8587b41becd83590e2
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 2c4bd37871734bed436cba5d58199e8b632b7d64
   Dispatched: 2026-10-06T14:36:12Z
