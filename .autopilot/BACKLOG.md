@@ -1667,3 +1667,18 @@ Issue: #247
 Why: the comment (~:183-185) overstates the capture as what "the display cycle runs before it draws" (it is the earliest layout pass) and uses `--` instead of the file's em dash
 Accept: the comment describes the earliest layout pass accurately and uses an em dash
 Source: autopilot polish (B-139)
+
+## B-243 · One terminal-room formula for the sidebar restore cap   [ready (next run)]
+Why: restoreSidebarWidth's floor cap uses the terminal frame width while sidebarSqueezesTerminal/makeRoom use LeoSidebarSplitMetrics.terminalWidth; they agree after layout, but D-058 now has two formulas
+Accept: the restore cap and sidebarSqueezesTerminal/makeRoom share one terminal-room computation; behaviour unchanged, tests still green
+Source: autopilot polish (B-140)
+
+## B-244 · Reset with a narrow default and a side pane shouldn't look like it hides the sidebar   [ready (next run)]
+Why: when the default size is narrow and a side pane is open, Reset Window Size triggers the transient floor-collapse (D-059), which reads as the command hiding the sidebar
+Accept: Reset Window Size with a narrow default and a side pane open leaves the sidebar visible (or the collapse is clearly the floor rule, not the command); covered by a test
+Source: autopilot polish (B-140)
+
+## B-245 · Reset Window Size fills the screen with a wide default   [ready (next run)]
+Why: a 160-col default plus the 420 pt sidebar caps at the 1680 pt screen width, which looks less like a "default" size
+Accept: decide and implement how Reset sizes a window whose default plus sidebar exceeds the screen (e.g. leave a margin); covered by a test
+Source: autopilot polish (B-140)

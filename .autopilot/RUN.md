@@ -29,12 +29,16 @@ Lane: B-140
   Branch: autopilot-lane/B-140
   Base: c7f9dadd149c4c4074434be919621a4c2753f57c
   Tier: full
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 8a96bd527eb8cbbd49393a605c6dd899e92b1544
   Dispatched: 2026-10-06T20:10:47Z
+  Call: Reset Window Size also puts a sidebar the user dragged in this window back to the stored shared width — P1, AUTONOMY UX/layout
+  Call: Passive window widening keeps the launch clamp (D-237 unchanged; D-361 exception only for explicit reset) — AUTONOMY bug fixes
+  Call: A hidden or floor-collapsed sidebar is left alone on reset — AUTONOMY UX/layout
+  Call: With a side pane open, the restore is capped so the terminal keeps its 300 pt floor (sidebar grows as far as room allows) rather than skipped — P1, D-361, D-036/D-058
 
 ## Progress
 - Board sync re-enabled at Evan's request (2026-10-06); full sync run.
