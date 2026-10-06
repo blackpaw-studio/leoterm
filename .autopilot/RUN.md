@@ -1,7 +1,7 @@
-Status: finished
-Started: 2026-10-06T13:06:02Z
-Budget: 5 items, until 2026-10-07T01:06:02Z
-Digested-through: 5
+Status: running
+Started: 2026-10-06T17:43:14Z
+Budget: 2 items, until 2026-10-07T05:43:14Z
+Digested-through: 0
 Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 
 Lane: B-058
@@ -15,87 +15,8 @@ Lane: B-058
   Reviewed-tip: none
 
 ## Progress
-- Preflight complete: synced main; inbox empty; 3 next-run items promoted; existing build artifacts preserved; no orphan lanes or verify lock.
-- Plan: dispatch and complete up to 5 items serially, fresh review and independent full verification per item, then record digest and release run lock.
-- Board sync skipped: current explicit repo instruction forbids issue creation; board helper can create issues.
-- Prioritize B-136 test scheduling ahead of B-133 to investigate the shared verification blocker before other implementation; then resume ready order if green.
-
-Lane: B-136
-  Branch: autopilot-lane/B-136
-  Base: bcb8a12164ba40e9621c1bd954597f9d8fb85c45
-  Tier: full
-  State: landed
-  Fixes: 0
-  Wip: none
-  Reverifies: 0
-  Reviewed-tip: 0ed753ecbfcde34739d48143c888f1edc4d83aa8
-  Dispatched: 2026-10-06T13:06:25Z
-
-Finished 1: B-136 landed 3923014989ed48ca9b664712b0929aa55b6bcb71 · not visually verified
-- B-136: fresh general/concurrency reviews clear; independent full suite green; no UI flow changed. Generated lane artifacts preserved under ../preserved/B-136-20261006T133842Z.
-
-Lane: B-133
-  Branch: autopilot-lane/B-133
-  Base: 96097f2225b3056f875674dc717d9fcc3f6b5b52
-  Tier: light
-  State: landed
-  Fixes: 1
-  Wip: none
-  Reverifies: 0
-  Reviewed-tip: 97ce0fef34ebfb674afe4115e025ec279b89053a
-  Dispatched: 2026-10-06T13:39:16Z
-
-  Call: scoped bug fixes and Mac-native clarification for duplicate horizontal panes — AUTONOMY
-
-Finished 2: B-133 landed 22c843322e2147627f4363649c59491fa348f74e · not visually verified
-- B-133: 1 fix round for left-pane coverage; fresh general full/delta reviews clear; independent suite/lint passed. Ambiguous debug instances prevented GUI verification; B-238 queued next run. Artifacts preserved under ../preserved/B-133-20261006T141350Z.
-
-Lane: B-134
-  Branch: autopilot-shelved/B-134
-  Base: a36469cd3fed802ed13850de91f6096d00020e7b
-  Tier: light
-  State: shelved
-  Fixes: 1
-  Wip: none
-  Reverifies: 0
-  Reviewed-tip: c7d61a7c1e21129862b4aea3e5005713d176366a
-  Dispatched: 2026-10-06T14:14:29Z
-
-  Call: retain existing D-237 clamp/regrowth behavior — AUTONOMY
-
-Finished 3: B-134 done (no code change)
-- B-134: existing D-237 behavior meets acceptance; fresh general full/delta reviews clear; independent 2,072 tests/223 suites pass. Build prerequisites repaired, no UI/source changes. Empty lane cleared to autopilot-shelved/B-134; not blocked. Generated files preserved under ../preserved/B-134-20261006T143532Z.
-
-Lane: B-135
-  Branch: autopilot-lane/B-135
-  Base: 19320e8c06d16a4a2d930b8587b41becd83590e2
-  Tier: light
-  State: landed
-  Fixes: 0
-  Wip: none
-  Reverifies: 0
-  Reviewed-tip: 2c4bd37871734bed436cba5d58199e8b632b7d64
-  Dispatched: 2026-10-06T14:36:12Z
-
-Finished 4: B-135 landed e453afd569c0d0d917f2cb7fe10c67a5f678f861 · not visually verified
-- B-135: comments-only diff; fresh general review clear; independent 2,072 tests/223 suites and SwiftLint pass. No UI change. Generated files preserved under ../preserved/B-135-20261006T144632Z.
-
-Lane: B-138
-  Branch: autopilot-lane/B-138
-  Base: 560ad21830b796c8e7e5ce9a44b3c65bc62bb124
-  Tier: light
-  State: landed
-  Fixes: 2
-  Wip: none
-  Reverifies: 0
-  Reviewed-tip: 9fe99edae1c784424680ff5da42f21d150cd182f
-  Dispatched: 2026-10-06T14:47:11Z
-
-- B-138 report held: final verifier reported 2,067 tests/222 suites versus lane baseline 2,072/223 and no lane artifact; requested exact cwd/HEAD/command/log evidence before accepting. No code change requested.
-
-  Call: vertical fallback — AUTONOMY UX/layout
-
-Finished 5: B-138 landed c95a37d71c68d621b0cf55feba5752543768ead0 · not visually verified
-- B-138: 2 fix rounds; fresh reviews clear. Rejected wrong-checkout verifier pass; corrected exact-lane HEAD 9fe99edae1c784424680ff5da42f21d150cd182f full suite 2,072/223 and SwiftLint pass. Earlier async focus flake remains tracked in B-204/B-209/B-230; no unrelated focus patch. GUI unavailable (debug bundle missing executable), B-239 queued. Artifacts preserved under ../preserved/B-138-20261006T152153Z.
-
-- Finish: item cap 5 reached; 4 landed, 1 already satisfied, 0 newly blocked. Board writes skipped under explicit no-issues instruction. No verify lock remains. Helper removed current landed B-135/B-136/B-138; retained dirty B-133 and historical dirty lanes plus B-058/B-233 unlanded; no files discarded. Existing main untracked artifacts retained as recorded. Wrong-checkout verification lesson added to verify.md.
+- Scope: only Next Run snapshot B-238 and B-239; do not pick other ready items.
+- Plan: verify B-238, record checkpoint; verify B-239, record checkpoint; finish run; merge and push main; watch CI; cut and verify release.
+- Preflight: lock confirmed; main synced with origin; inbox empty; no unfinished building/verifying blocks; retained historical lanes and artifacts.
+- Upstream fetch rejected existing tip tag; no tag forced or replaced. Origin fetch and main pull succeeded.
+- Board sync skipped: explicit repository instruction forbids creating issues or PRs.
