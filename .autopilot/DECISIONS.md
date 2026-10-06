@@ -2607,3 +2607,10 @@ Call: Reuse documented shared xcframework/zig-out for visual-only verification w
 Principle: AUTONOMY implementation latitude; verify actual isolated debug app.
 Veto: [ ]
 Commit: none — verification-only item, already implemented by B-138
+
+## D-361 · 2026-10-06 · Return To Default Size restores the stored sidebar width, even after a launch clamp
+Context: B-140 (orchestrator call at Decide).
+Chose: Return To Default Size is an explicit reset, so it restores the stored sidebar width (e.g. 420 pt) even when the sidebar was clamped at launch; D-237's "launch clamp keeps its width" still governs passive window widening only
+Why: P1 (an explicit reset should fully reset, like a first-party Mac app), D-237 scope
+Commit:
+Veto: [ ]
