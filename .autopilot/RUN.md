@@ -1,4 +1,4 @@
-Status: running
+Status: finished
 Started: 2026-10-06T17:43:14Z
 Budget: 2 items, until 2026-10-07T05:43:14Z
 Digested-through: 0
@@ -37,3 +37,5 @@ Lane: B-238
 Finished 1: B-238 blocked
 - B-238 shelving refused: lane worktree is dirty (2 changes); retained all build artifacts on autopilot-lane/B-238.
 - B-239 not dispatched: same unique-targeting blocker; returned to Next Run. Merge/push/release pending user process-cleanup authorization and release version.
+
+- Early stop: shared isolated-GUI targeting blocker. Finish helper retained historical dirty lanes and B-058/B-233/B-238; no user files discarded. Board sync skipped under explicit no-issues rule.
