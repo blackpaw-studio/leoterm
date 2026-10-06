@@ -17,3 +17,14 @@ Lane: B-058
 
 ## Progress
 - Preflight: main synced; 3 inbox entries applied (B-232–B-234); 9 next-run items promoted. Existing untracked build artifacts left in place.
+
+Lane: B-233
+  Branch: autopilot-lane/B-233
+  Base: d121269b17498bda9c576a804ce15f0c7f78e0a3
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-06T00:44:57Z
