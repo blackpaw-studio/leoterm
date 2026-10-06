@@ -1635,7 +1635,8 @@ Accept: Once B-232 is landed, improve this upload-error presentation with verifi
 Requires: B-232 done (do not build before the feature lands).
 Source: autopilot polish (B-232)
 
-## B-238 · Verify close-confirmation hints in isolated GUI   [ready]
+## B-238 · Verify close-confirmation hints in isolated GUI   [done]
+Done: no code change — existing B-133 source, independent serial suite 2,072/223 + SwiftLint; actual Right/Left dialog window screenshots B-238-3.png/B-238-4.png, freshly inspected by verifier and root. Earlier parent-window B-238-1/2 captures invalidated.
 Why: B-133 verifier found two debug instances and could not safely uniquely target the changed confirmation flow.
 Accept: When safe unique debug targeting is available, capture the actual duplicate-name left/right confirmation alert; never drive production or unrelated debug sessions.
 Source: autopilot polish (B-133)

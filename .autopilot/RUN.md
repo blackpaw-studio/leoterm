@@ -1,4 +1,4 @@
-Status: running
+Status: finished
 Started: 2026-10-06T18:08:31Z
 Budget: 2 items, until 2026-10-07T06:08:31Z
 Digested-through: 0
@@ -23,16 +23,16 @@ Lane: B-238
   Branch: autopilot-lane/B-238
   Base: c4fcd067f6f876da12bed203a14c18b01a6ed714
   Tier: full
-  State: verifying
+  State: shelved
   Fixes: 3
   Wip: none
   Reverifies: 1
-  Reviewed-tip: 07703d6af22e6093e907349e5018514d8d60e276
+  Reviewed-tip: e7fd9d84dc5142dd7a1791c5f346a033767313da
   Dispatched: 2026-10-06T18:08:31Z
 
 - B-238 serial authoritative suite passed 2,072/223. Operational corrections: use escalated bridge socket calls and proven own-debug PID; sandbox IPC denial is not bridge outage. Documented in verify.md. GUI capture still pending.
 
-Finished 1: B-238 pending corrected dialog-window capture
+Finished 1: B-238 done (no code change) · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-238-3.png
 - INVALIDATED B-238 provisional pass: earlier verifier inspected/captured parent window 332043, not actual alerts. Source/test pass remains valid; visual acceptance reopened. Generated artifacts/empty lane had been preserved/shelved; lane is now restored for exact dialog capture.
 
 - Final root image inspection INVALIDATED B-238 visual pass: shots capture dimmed parent, not actual dialog. Corrective fresh verifier must capture exact alert window; no source change and previous serial suite stands.
@@ -53,3 +53,5 @@ Finished 2: B-239 done (no code change) · shot /Users/evan/.leo/agents/leoterm/
 - B-239 complete: suite 2,072/223 + SwiftLint, fresh review clear; 800pt horizontal and 420pt vertical action layouts captured/inspected, actions/help intact; own PID/lock cleaned. D-359 retained; shared artifact reuse logged D-360. Generated artifacts preserved; empty lane cleared as autopilot-shelved/B-239.
 
 - Prior finish invalidated by root image review: B-239 remains fully complete; B-238 visual acceptance pending corrected alert captures. Merge/push/release has not begun.
+
+- FINAL CORRECTION COMPLETE: root directly inspected actual-dialog B-238-3/4 (260x170), readable exact Right/Left prompts, process warning, Cancel/Close. Both requested items genuinely done. Prior invalid parent screenshots remain for audit; source suite/lint evidence remains valid. Empty corrective lane shelved as autopilot-shelved/B-238-2, generated symlink preserved. No own GUI process or verify lock remains. Merge/push/release now authorized to proceed.
