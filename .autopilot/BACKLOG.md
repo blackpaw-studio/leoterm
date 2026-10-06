@@ -1693,3 +1693,23 @@ Issue: #251
 Why: its last `#expect(requested.isLeoWindowShown)` passes whatever the hidden state is, because the settled window is on screen
 Accept: the final check orders the window out first (so only the hidden-state branch can make it pass), or is documented as a sanity check
 Source: autopilot polish (B-141)
+
+## B-247 · Size-guard late LeoAgentPalettePanels in the stray-window test   [ready (next run)]
+Why: LeoFolderOpenStrayWindowTests exempts a late LeoAgentPalettePanel by type alone
+Accept: late palettes are also checked against 500x500, and a doc line says unregistered late palettes go unchecked
+Source: autopilot polish (B-142)
+
+## B-248 · Split the long line in LeoFolderOpenStrayWindowTests   [ready (next run)]
+Why: LeoFolderOpenStrayWindowTests.swift:224 is ~130 chars
+Accept: the line is split to the file's usual width; swiftlint clean
+Source: autopilot polish (B-142)
+
+## B-249 · Build LeoAgentPalettePanel lazily   [ready (next run)]
+Why: the palette panel is built up front (defer:false), so every window carries a hidden 640x140 window-server window at the origin
+Accept: the palette panel's window-server window is created only when the palette first opens; palette behaviour and tests unchanged
+Source: autopilot polish (B-142)
+
+## B-250 · verify.md note: the 500x500 window at (0,550) is macOS's TUINSWindow   [ready (next run)]
+Why: an untitled off-screen 500x500 window at (0,550) is the system caps-lock/input-source indicator (TextInputUIMacHelper), not Leo's; verifiers keep rediscovering it
+Accept: verify.md has a one-line note so window listings ignore it
+Source: autopilot polish (B-142)
