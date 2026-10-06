@@ -4,6 +4,9 @@ import Testing
 
 @testable import Ghostty
 
+/// Suites that post to or consume from the process-wide AppKit event queue.
+@Suite(.serialized)
+struct LeoAppEventQueueTests {
 /// B-048: clicks on a sidebar row, through the real list. The clicks are
 /// posted to the app's event queue, so they reach the list the way the
 /// window server delivers them. The sidebar's window is never key here:
@@ -14,7 +17,7 @@ import Testing
 /// ⌘-click opens a new window (D-104) and the clicked
 /// row stays selected -- the table's own ⌘-click (toggle the row off)
 /// must not win.
-@MainActor @Suite(.serialized)
+@MainActor @Suite
 struct LeoSidebarCommandClickTests {
     private let worker = LeoAgentRow(
         host: .local, name: "worker", template: nil, status: .running, activity: .idle, actionDetail: nil
@@ -104,6 +107,7 @@ struct LeoSidebarCommandClickTests {
         #expect(harness.attaches.count == attachesBefore, "empty space is not a row click")
         #expect(harness.focusRequests.isEmpty)
     }
+}
 }
 
 // MARK: - Harness

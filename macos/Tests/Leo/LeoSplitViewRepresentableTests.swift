@@ -4,13 +4,15 @@ import Testing
 
 @testable import Ghostty
 
+extension LeoAppEventQueueTests {
 /// Layout invariants for the agents-sidebar split view.
 ///
 /// These drive the real `NSSplitViewController` the app builds, in a real
 /// window, because the bug they guard against (a sidebar frozen at its
 /// minimum width, with a divider that shows a resize cursor but will not
 /// move) is invisible to anything that only checks the configuration values.
-@MainActor struct LeoSplitViewRepresentableTests {
+@MainActor @Suite
+struct LeoSplitViewRepresentableTests {
     private static let windowWidth: CGFloat = 1_200
     private static let windowHeight: CGFloat = 600
     private static let draggedWidth: CGFloat = 320
@@ -964,4 +966,5 @@ import Testing
             AnyView(Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity))
         }
     }
+}
 }
