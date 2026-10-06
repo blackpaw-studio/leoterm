@@ -143,6 +143,22 @@ import Testing
         #expect(fixture.controller.asked.map(\.messageText) == ["Close “build (Right pane)”?"])
     }
 
+    @Test func closingTheLeftOfTwoEquallyNamedHorizontalPanesSaysWhichSide() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let row = try newRow(fixture)
+        let split = try newSplit(fixture, beside: row)
+        let rowView = try #require(fixture.view(row))
+        let splitView = try #require(fixture.view(split))
+        #expect(await title(rowView, "build"))
+        #expect(await title(splitView, "build"))
+
+        fixture.controller.closeSurface(try #require(fixture.controller.surfaceTree.root?.node(view: rowView)), withConfirmation: true)
+
+        #expect(await eventually { !fixture.controller.asked.isEmpty })
+        #expect(fixture.controller.asked.map(\.messageText) == ["Close “build (Left pane)”?"])
+    }
+
     @Test func confirmingASplitPaneClosesOnlyThatPane() async throws {
         let fixture = try makeFixture()
         defer { close(fixture) }
