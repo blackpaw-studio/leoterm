@@ -33,3 +33,14 @@ Lane: B-136
 
 Finished 1: B-136 landed 3923014989ed48ca9b664712b0929aa55b6bcb71 · not visually verified
 - B-136: fresh general/concurrency reviews clear; independent full suite green; no UI flow changed. Generated lane artifacts preserved under ../preserved/B-136-20261006T133842Z.
+
+Lane: B-133
+  Branch: autopilot-lane/B-133
+  Base: 96097f2225b3056f875674dc717d9fcc3f6b5b52
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-06T13:39:16Z
