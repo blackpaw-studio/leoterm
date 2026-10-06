@@ -19,3 +19,14 @@ Lane: B-058
 - Plan: dispatch and complete up to 5 items serially, fresh review and independent full verification per item, then record digest and release run lock.
 - Board sync skipped: current explicit repo instruction forbids issue creation; board helper can create issues.
 - Prioritize B-136 test scheduling ahead of B-133 to investigate the shared verification blocker before other implementation; then resume ready order if green.
+
+Lane: B-136
+  Branch: autopilot-lane/B-136
+  Base: bcb8a12164ba40e9621c1bd954597f9d8fb85c45
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-06T13:06:25Z
