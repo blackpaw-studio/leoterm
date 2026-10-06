@@ -26,5 +26,5 @@ Lane: B-139
   Dispatched: 2026-10-06T19:43:15Z
 
 ## Progress
-- Board sync skipped this run (repo rule: never create GitHub issues; matches previous run).
+- Board sync re-enabled at Evan's request (2026-10-06); full sync run.
 - Lane B-233 is unlanded with no RUN.md block (left in place, not a pick).
