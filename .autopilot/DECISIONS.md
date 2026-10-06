@@ -2586,3 +2586,10 @@ Call: Scoped stale-pane guard and title cleanup; left/right hints clarify duplic
 Principle: AUTONOMY bug fixes; keyboard-first, Mac-native clarity.
 Veto: [ ]
 Commit: 8e6eda39d, 97ce0fef34
+
+## D-358 · 2026-10-06 · Keep existing sidebar regrowth
+Item: B-134
+Call: Retain existing D-237 clamp/regrowth behavior, independently verified; no implementation change required.
+Principle: AUTONOMY implementation approach; preserve stored user resize preferences.
+Veto: [ ]
+Commit: none — already satisfied

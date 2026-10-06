@@ -577,11 +577,12 @@ Accept: guard surfaceTree.contains(node) before leoConfirmClosingPane (TerminalC
 Source: autopilot polish (B-088)
 Done: 8e6eda39d, 97ce0fef34
 
-## B-134 · Clamped sidebar regrows to its stored width on widen   [ready]
+## B-134 · Clamped sidebar regrows to its stored width on widen   [done]
 Issue: #138
 Why: B-089 verify: after a window narrows and widens again, the sidebar stays ~195 pt until relaunch; regrow it toward the stored width
 Accept: B-089 verify: after a window narrows and widens again, the sidebar stays ~195 pt until relaunch; regrow it toward the stored width
 Source: autopilot polish (B-089)
+Done: no code change — existing D-237 implementation and resize tests; fresh independent 2,072-test suite passes.
 
 ## B-135 · Sidebar width comment refresh   [ready]
 Issue: #139
