@@ -38,7 +38,7 @@ Lane: B-133
   Branch: autopilot-lane/B-133
   Base: 96097f2225b3056f875674dc717d9fcc3f6b5b52
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
