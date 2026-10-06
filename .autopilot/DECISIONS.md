@@ -2572,3 +2572,10 @@ Why: AUTONOMY permits reversible implementation choices; this meets approved B-2
 Alternatives: Add a server-side helper/extension (outside current scope); claim impossible identity-safe cleanup; delete a pathname despite uncertain ownership
 Commit: none — B-232 shelved unlanded on autopilot-shelved/B-232; architecture call applies to future completion
 Veto: [ ]
+
+## D-356 · 2026-10-06 · Test scheduling before UI polish
+Item: B-136
+Call: Run B-136 first to investigate the previous run’s shared focus/palette verification blocker, then resume ready order.
+Principle: AUTONOMY permits backlog ordering and test infrastructure fixes; verified flows serve vision’s done criteria.
+Veto: [ ]
+Commit:

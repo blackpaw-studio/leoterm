@@ -1610,20 +1610,20 @@ Why: B-131 review: `let sidebar = LeoSidebarModel()` in presentPaletteForRequest
 Accept: B-131 review: `let sidebar = LeoSidebarModel()` in presentPaletteForRequest (~line 148) shadows the fixture's `sidebar: NSView`; rename it to sidebarModel
 Source: autopilot polish (B-131)
 
-## B-235 · SFTP rejection diagnostic with invalid UTF-8 suffix   [ready (next run)]
+## B-235 · SFTP rejection diagnostic with invalid UTF-8 suffix   [ready]
 Issue: #240
 Why: Final B-233 security review: invalid or truncated UTF-8 suffix can suppress an earlier complete canonical rejection line; safe failure but fallback may be missed.
 Accept: A complete canonical rejection line is recognized despite invalid UTF-8 in a later suffix; truncated noncanonical lines still never trigger fallback; regression tests.
 Source: autopilot polish (B-233)
 
-## B-236 · Upload error filenames in right-to-left text   [ready (next run)]
+## B-236 · Upload error filenames in right-to-left text   [ready]
 Issue: #241
 Why: B-232 final review: isolate RTL filenames in the upload error message.
 Accept: Once B-232 is landed, improve this upload-error presentation with verification.
 Requires: B-232 done (do not build before the feature lands).
 Source: autopilot polish (B-232)
 
-## B-237 · Terminal upload errors truncate after four lines   [ready (next run)]
+## B-237 · Terminal upload errors truncate after four lines   [ready]
 Issue: #242
 Why: B-232 final review: terminal failure overlay truncates longer error batches.
 Accept: Once B-232 is landed, improve this upload-error presentation with verification.
