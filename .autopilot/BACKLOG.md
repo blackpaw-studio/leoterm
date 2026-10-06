@@ -584,11 +584,12 @@ Accept: B-089 verify: after a window narrows and widens again, the sidebar stays
 Source: autopilot polish (B-089)
 Done: no code change — existing D-237 implementation and resize tests; fresh independent 2,072-test suite passes.
 
-## B-135 · Sidebar width comment refresh   [ready]
+## B-135 · Sidebar width comment refresh   [done]
 Issue: #139
 Why: LeoSplitViewRepresentable :240 and clearProgrammaticWidthFlagSoon still say the resize notification "arrives on a later layout pass"; class doc :195-198 should say "when the user moves the sidebar's divider"
 Accept: LeoSplitViewRepresentable :240 and clearProgrammaticWidthFlagSoon still say the resize notification "arrives on a later layout pass"; class doc :195-198 should say "when the user moves the sidebar's divider"
 Source: autopilot polish (B-089)
+Done: 59f98e25d
 
 ## B-136 · Serialize event-posting test suites   [done]
 Issue: #140
