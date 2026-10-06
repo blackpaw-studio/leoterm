@@ -44,12 +44,15 @@ Lane: B-141
   Branch: autopilot-lane/B-141
   Base: ae3ca762e4286c2c9d5b31d7084bef1861f89e21
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 44de87461ba44d65f1df0f363563a4e5bcc4a024
   Dispatched: 2026-10-06T21:16:10Z
+  Call: Property injection (`var leoAppIsHidden: @MainActor () -> Bool = { NSApp.isHidden }`) instead of an init parameter, because many factories build controllers — AUTONOMY implementation approach
+  Call: The name `leoAppIsHidden`, following the controller's leo* prefix — AUTONOMY naming
+  Call: The tests go in the existing LeoLaunchPlaceholderIntegrationTests, on the real Ghostty.App — AUTONOMY test infrastructure
 
 ## Progress
 - Board sync re-enabled at Evan's request (2026-10-06); full sync run.

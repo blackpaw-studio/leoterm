@@ -1686,3 +1686,8 @@ Issue: #250
 Why: a 160-col default plus the 420 pt sidebar caps at the 1680 pt screen width, which looks less like a "default" size
 Accept: decide and implement how Reset sizes a window whose default plus sidebar exceeds the screen (e.g. leave a margin); covered by a test
 Source: autopilot polish (B-140)
+
+## B-246 · Non-vacuous final check in aWindowNotYetPresentedReadsNotShownWhileTheAppIsHidden   [ready (next run)]
+Why: its last `#expect(requested.isLeoWindowShown)` passes whatever the hidden state is, because the settled window is on screen
+Accept: the final check orders the window out first (so only the hidden-state branch can make it pass), or is documented as a sanity check
+Source: autopilot polish (B-141)
