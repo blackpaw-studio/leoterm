@@ -2564,3 +2564,11 @@ Why: principle 3 and AUTONOMY implementation approach; no second connection or a
 Alternatives: require host sshd reconfiguration; replace SFTP with arbitrary shell file commands
 Commit: 8a23dede5 b3a182a55 f3913f58c 13d7da667
 Veto: [ ]
+
+## D-355 · 2026-10-06 · Attainable SFTP upload guarantees
+Context: B-232 re-plan; ordinary SFTP v3 RENAME/REMOVE are pathname operations
+Chose: Trust the selected authenticated SFTP server and uploader-owned private staging namespace. Preserve exclusive no-overwrite publication and plain failure reporting. If a disconnect prevents safe cleanup, retain uncertain staging; if a RENAME response is lost, report an indeterminate result and never claim success or retry blindly. Hostile same-account staging substitution is outside this client guarantee; preserve descriptor-safe local source reading.
+Why: AUTONOMY permits reversible implementation choices; this meets approved B-232 collision/failure criteria without a remote helper, paid dependency, or destructive pathname cleanup. Standard SFTP cannot promise atomic identity-conditioned publication/cleanup.
+Alternatives: Add a server-side helper/extension (outside current scope); claim impossible identity-safe cleanup; delete a pathname despite uncertain ownership
+Commit: pending B-232
+Veto: [ ]

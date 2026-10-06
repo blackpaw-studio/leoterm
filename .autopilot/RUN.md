@@ -48,7 +48,7 @@ Lane: B-232
   Base: 4dbb4af9a2e7079703ab032c6df8978d7ea7f80c
   Tier: full
   State: building
-  Fixes: 0
+  Fixes: 2
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
