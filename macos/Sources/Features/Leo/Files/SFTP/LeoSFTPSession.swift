@@ -23,43 +23,53 @@ actor LeoSFTPSession {
     }
 
     func client() async throws -> LeoSFTPClient {
-        guard !isClosed else { throw LeoFileAccessError.closed }
-        if let current = connecting {
+        while true {
+            guard !isClosed else { throw LeoFileAccessError.closed }
+            if let current = connecting {
+                do {
+                    let client = try await current.value
+                    guard !isClosed else { throw LeoFileAccessError.closed }
+                    if !client.transport.isClosed { return client }
+                    if connecting == current {
+                        connecting = nil
+                        attempt = nil
+                    }
+                    // Another waiter may already own the replacement. Join
+                    // it instead of overwriting its task and transport.
+                    continue
+                } catch {
+                    if connecting == current {
+                        connecting = nil
+                        attempt = nil
+                    }
+                    guard !isClosed else { throw LeoFileAccessError.closed }
+                    // Every caller already waiting on this attempt observes
+                    // the same failure. Only a later operation starts anew.
+                    throw error
+                }
+            }
+            guard !isClosed else { throw LeoFileAccessError.closed }
+            let attempt = LeoSFTPConnectionAttempt(launcher: launcher)
+            self.attempt = attempt
+            let task = Task { try await attempt.connect() }
+            connecting = task
             do {
-                let client = try await current.value
+                let client = try await task.value
                 guard !isClosed else { throw LeoFileAccessError.closed }
                 if !client.transport.isClosed { return client }
-                if connecting == current {
+                if connecting == task {
                     connecting = nil
-                    attempt = nil
+                    self.attempt = nil
                 }
+                continue
             } catch {
-                if connecting == current {
+                if connecting == task {
                     connecting = nil
-                    attempt = nil
+                    self.attempt = nil
                 }
                 guard !isClosed else { throw LeoFileAccessError.closed }
-                // Every caller already waiting on this attempt observes the
-                // same failure. Only a later operation starts a new one.
                 throw error
             }
-        }
-        guard !isClosed else { throw LeoFileAccessError.closed }
-        let attempt = LeoSFTPConnectionAttempt(launcher: launcher)
-        self.attempt = attempt
-        let task = Task { try await attempt.connect() }
-        connecting = task
-        do {
-            let client = try await task.value
-            guard !isClosed else { throw LeoFileAccessError.closed }
-            return client
-        } catch {
-            if connecting == task {
-                connecting = nil
-                self.attempt = nil
-            }
-            guard !isClosed else { throw LeoFileAccessError.closed }
-            throw error
         }
     }
 

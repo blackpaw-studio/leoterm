@@ -84,6 +84,30 @@ final class LeoCountingSFTPLauncher: LeoSFTPLaunching, @unchecked Sendable {
     }
 }
 
+/// Uses one launcher for the first child and another for every later child.
+/// This makes the handoff from a stale successful handshake deterministic.
+final class LeoSequenceSFTPLauncher: LeoSFTPLaunching, @unchecked Sendable {
+    private let first: any LeoSFTPLaunching
+    private let later: any LeoSFTPLaunching
+    private let lock = NSLock()
+    private var count = 0
+
+    var launches: Int { lock.withLock { count } }
+
+    init(first: any LeoSFTPLaunching, later: any LeoSFTPLaunching) {
+        self.first = first
+        self.later = later
+    }
+
+    func launch() throws -> LeoSFTPChannel {
+        let index = lock.withLock {
+            defer { count += 1 }
+            return count
+        }
+        return try (index == 0 ? first : later).launch()
+    }
+}
+
 /// A throwaway directory for one test. `cleanUp()` restores permissions a
 /// test may have removed before deleting it.
 struct LeoFileSandbox {

@@ -144,7 +144,8 @@ private final class LeoSFTPProcessMonitor: @unchecked Sendable {
         let detail: String
 
         var isSubsystemRejection: Bool {
-            reason == .exit && detail.localizedCaseInsensitiveContains("subsystem request failed")
+            reason == .exit && status == 255
+                && detail.localizedCaseInsensitiveContains("subsystem request failed")
         }
     }
 
