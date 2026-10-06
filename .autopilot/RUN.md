@@ -58,12 +58,16 @@ Lane: B-142
   Branch: autopilot-lane/B-142
   Base: 4c9407f6d67e563afbab8a6eca9f90139ef8dedc
   Tier: full
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 2
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: be6f60ff7d5c34ca89f927f91585f89c986bb979
   Dispatched: 2026-10-06T21:34:03Z
+  Call: The untitled 500x500 window on folder-open is kept, not removed: it is macOS's own TUINSWindow (TextInputUIMacHelper caps-lock/input-source indicator) made once per process by -[NSTextInputContext activate]; removing it would break IME/dead keys or disable a macOS feature — P1, stop list (removing a user-facing feature)
+  Call: The stray-window guard allows only that exact system class plus each window's own palette panel — AUTONOMY test infrastructure
+  Call: Read-only paletteWindow accessors on LeoRuntime and LeoPickerPresentation so the test can tie each panel to its window — AUTONOMY test infrastructure
+  Call: Folder-open window attribution: windows made synchronously during openFile are checked strictly; late windows from other suites' controllers/palettes or non-500x500 bare NSWindows count as foreign — AUTONOMY test infrastructure
 
 ## Progress
 - Board sync re-enabled at Evan's request (2026-10-06); full sync run.
