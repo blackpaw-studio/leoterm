@@ -58,7 +58,7 @@ Lane: B-142
   Branch: autopilot-lane/B-142
   Base: 4c9407f6d67e563afbab8a6eca9f90139ef8dedc
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 2
   Wip: none
   Reverifies: 0
@@ -78,3 +78,5 @@ Finished 1: B-139 landed acf95b2b9cd3b48dc5aae28a19c6c7ff2471c036 · not visuall
 Finished 2: B-140 landed 4bdcbc70940e9d9cfb22a97f702d02bdebae5f17 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-140-1.png
 - B-141 landed d3bf3d087: isLeoWindowShown takes an injected leoAppIsHidden seam; 3 new tests; suite 2079 green; no UI change. Polish B-246 filed.
 Finished 3: B-141 landed d3bf3d0873d63972cda0d199a35766fde7de28f4 · not visually verified
+- B-142 landed cf35ba894: the 500x500 window is macOS's TUINSWindow (not Leo's, lldb-confirmed); kept, with a regression guard against any real stray window on folder-open; tests only, no production change; 2 fix rounds (hard implementer); suite 2084 green. Polish B-247–B-250 filed.
+Finished 4: B-142 landed cf35ba894d21b6fee722ad240f68ed6d975b0391 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-142-1.png

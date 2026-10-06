@@ -2663,3 +2663,31 @@ Chose: The tests go in the existing LeoLaunchPlaceholderIntegrationTests, on the
 Why: AUTONOMY test infrastructure
 Commit: 8016b94b4fdf5389f14e6cb9c4f9ae921c65494d
 Veto: [ ]
+
+## D-369 · 2026-10-06 · The untitled 500x500 window on folder-open is kept, not removed: it i…
+Context: B-142 (runner call).
+Chose: The untitled 500x500 window on folder-open is kept, not removed: it is macOS's own TUINSWindow (TextInputUIMacHelper caps-lock/input-source indicator) made once per process by -[NSTextInputContext activate]; removing it would break IME/dead keys or disable a macOS feature
+Why: P1, stop list (removing a user-facing feature)
+Commit: be6f60ff7d5c34ca89f927f91585f89c986bb979, ff8302d491aacba3152dffafb175ecbd6980e231, 16f07b69226415cdf1cbd0746277600f51cd50d3
+Veto: [ ]
+
+## D-370 · 2026-10-06 · The stray-window guard allows only that exact system class plus each …
+Context: B-142 (runner call).
+Chose: The stray-window guard allows only that exact system class plus each window's own palette panel
+Why: AUTONOMY test infrastructure
+Commit: be6f60ff7d5c34ca89f927f91585f89c986bb979, ff8302d491aacba3152dffafb175ecbd6980e231, 16f07b69226415cdf1cbd0746277600f51cd50d3
+Veto: [ ]
+
+## D-371 · 2026-10-06 · Read-only paletteWindow accessors on LeoRuntime and LeoPickerPresenta…
+Context: B-142 (runner call).
+Chose: Read-only paletteWindow accessors on LeoRuntime and LeoPickerPresentation so the test can tie each panel to its window
+Why: AUTONOMY test infrastructure
+Commit: be6f60ff7d5c34ca89f927f91585f89c986bb979, ff8302d491aacba3152dffafb175ecbd6980e231, 16f07b69226415cdf1cbd0746277600f51cd50d3
+Veto: [ ]
+
+## D-372 · 2026-10-06 · Folder-open window attribution: windows made synchronously during ope…
+Context: B-142 (runner call).
+Chose: Folder-open window attribution: windows made synchronously during openFile are checked strictly; late windows from other suites' controllers/palettes or non-500x500 bare NSWindows count as foreign
+Why: AUTONOMY test infrastructure
+Commit: be6f60ff7d5c34ca89f927f91585f89c986bb979, ff8302d491aacba3152dffafb175ecbd6980e231, 16f07b69226415cdf1cbd0746277600f51cd50d3
+Veto: [ ]

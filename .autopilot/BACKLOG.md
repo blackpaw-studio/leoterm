@@ -635,11 +635,12 @@ Accept: the hidden branch of TerminalController.isLeoWindowShown reads a global 
 Source: autopilot polish (B-093)
 Done: 8016b94b4fdf5389f14e6cb9c4f9ae921c65494d
 
-## B-142 · Off-screen 500x500 window on folder-open   [ready]
+## B-142 · Off-screen 500x500 window on folder-open   [done]
 Issue: #146
 Why: B-093 verify: an untitled 500x500 pixels-only window at (0,550) appears on every folder-open path (cold or running); likely pre-existing — find and remove it
 Accept: B-093 verify: an untitled 500x500 pixels-only window at (0,550) appears on every folder-open path (cold or running); likely pre-existing — find and remove it
 Source: autopilot polish (B-093)
+Done: be6f60ff7d5c34ca89f927f91585f89c986bb979, ff8302d491aacba3152dffafb175ecbd6980e231, 16f07b69226415cdf1cbd0746277600f51cd50d3
 
 ## B-143 · Replaced launch window lingers in the window list   [ready]
 Issue: #147
@@ -1695,21 +1696,25 @@ Accept: the final check orders the window out first (so only the hidden-state br
 Source: autopilot polish (B-141)
 
 ## B-247 · Size-guard late LeoAgentPalettePanels in the stray-window test   [ready (next run)]
+Issue: #252
 Why: LeoFolderOpenStrayWindowTests exempts a late LeoAgentPalettePanel by type alone
 Accept: late palettes are also checked against 500x500, and a doc line says unregistered late palettes go unchecked
 Source: autopilot polish (B-142)
 
 ## B-248 · Split the long line in LeoFolderOpenStrayWindowTests   [ready (next run)]
+Issue: #253
 Why: LeoFolderOpenStrayWindowTests.swift:224 is ~130 chars
 Accept: the line is split to the file's usual width; swiftlint clean
 Source: autopilot polish (B-142)
 
 ## B-249 · Build LeoAgentPalettePanel lazily   [ready (next run)]
+Issue: #254
 Why: the palette panel is built up front (defer:false), so every window carries a hidden 640x140 window-server window at the origin
 Accept: the palette panel's window-server window is created only when the palette first opens; palette behaviour and tests unchanged
 Source: autopilot polish (B-142)
 
 ## B-250 · verify.md note: the 500x500 window at (0,550) is macOS's TUINSWindow   [ready (next run)]
+Issue: #255
 Why: an untitled off-screen 500x500 window at (0,550) is the system caps-lock/input-source indicator (TextInputUIMacHelper), not Leo's; verifiers keep rediscovering it
 Accept: verify.md has a one-line note so window listings ignore it
 Source: autopilot polish (B-142)
