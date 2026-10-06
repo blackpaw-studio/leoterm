@@ -23,7 +23,7 @@ Lane: B-238
   Branch: autopilot-lane/B-238
   Base: c4fcd067f6f876da12bed203a14c18b01a6ed714
   Tier: full
-  State: verifying
+  State: shelved
   Fixes: 2
   Wip: none
   Reverifies: 0
@@ -31,3 +31,6 @@ Lane: B-238
   Dispatched: 2026-10-06T18:08:31Z
 
 - B-238 serial authoritative suite passed 2,072/223. Operational corrections: use escalated bridge socket calls and proven own-debug PID; sandbox IPC denial is not bridge outage. Documented in verify.md. GUI capture still pending.
+
+Finished 1: B-238 done (no code change) · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-238-1.png
+- B-238 completed: actual Right/Left duplicate-title confirmations captured and cancelled; suite 2,072/223, fresh reviews clear after serial rerun; own debug PID cleaned, verify lock released. Preserved profraw/zig-out under ../preserved/B-238-20261006T184121Z; empty lane cleared as autopilot-shelved/B-238.
