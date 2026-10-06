@@ -39,11 +39,25 @@ enum LeoCloseConfirmation {
     private static func quoted(_ name: String) -> String { "“\(name)”" }
 
     private static func singleLine(_ title: String) -> String {
-        title.unicodeScalars
-            .map { CharacterSet.controlCharacters.contains($0) || CharacterSet.newlines.contains($0) ? " " : String($0) }
-            .joined()
-            .split(separator: " ", omittingEmptySubsequences: true)
-            .joined(separator: " ")
+        title.unicodeScalars.reduce(into: "") { line, scalar in
+            guard isLineBreakingControl(scalar) else {
+                line.unicodeScalars.append(scalar)
+                return
+            }
+            if line.last != " " { line.append(" ") }
+        }
+    }
+
+    /// Keep visible formatting such as an emoji ZWJ sequence. Terminal OSC
+    /// titles can still contain C0/C1 controls and Unicode line separators,
+    /// which do not belong in a single-line alert.
+    private static func isLineBreakingControl(_ scalar: Unicode.Scalar) -> Bool {
+        switch scalar.value {
+        case 0 ... 0x1F, 0x7F ... 0x9F, 0x2028, 0x2029:
+            true
+        default:
+            false
+        }
     }
 
     private static func shortened(_ name: String) -> String {

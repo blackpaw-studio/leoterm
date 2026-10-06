@@ -41,6 +41,17 @@ struct LeoCloseConfirmationTests {
         #expect(LeoCloseConfirmation.name(title: "make\u{1B}\ttest\r\nall", isUserSet: false, agentName: nil) == "make test all")
     }
 
+    /// Emoji ZWJ sequences are visible title content, rather than a control
+    /// character to clean from an alert.
+    @Test func anEmojiZWJSequenceSurvivesTitleCleaning() {
+        #expect(LeoCloseConfirmation.name(title: "\u{1F469}\u{200D}\u{1F4BB}", isUserSet: false, agentName: nil) == "\u{1F469}\u{200D}\u{1F4BB}")
+    }
+
+    /// The confirm keeps interior spacing, as the sidebar row does.
+    @Test func titleCleaningKeepsTheSidebarsInteriorSpacing() {
+        #expect(LeoCloseConfirmation.name(title: "  build  tests  ", isUserSet: false, agentName: nil) == "build  tests")
+    }
+
     /// A long title keeps both ends -- a path's last directory included.
     @Test func aLongTitleIsShortenedInTheMiddle() {
         let title = "evan@dionysus: ~/" + String(repeating: "x", count: 100) + "/lanes/B-088"
