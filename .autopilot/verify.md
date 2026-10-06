@@ -21,6 +21,9 @@ ln -s ~/.leo/agents/leoterm/.git/autopilot/shared/zig-out zig-out
 - A stale xcframework causes Swift errors like `ghostty_clipboard_content_s has no member len`. To fix it, delete `macos/GhosttyKit.xcframework zig-out .zig-cache` and rebuild.
 
 ## Build + test (one script)
+
+**Verification provenance (learned 2026-10-06):** Every verifier must set each shell tool call's `workdir` explicitly to the item lane. Before running the suite, report `pwd` and `git rev-parse HEAD`, matching the reviewed lane tip; include the exact log label, artifact path and complete suite count. A passing suite from the main checkout is invalid evidence for a lane. A count lower than the current lane baseline requires investigation before accepting the report.
+
 ```
 bash macos/scripts/leo-runtests.sh <label>     # tracked in git since B-114; run from any checkout or lane root
 ```

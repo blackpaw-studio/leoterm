@@ -1,4 +1,4 @@
-Status: running
+Status: finished
 Started: 2026-10-06T13:06:02Z
 Budget: 5 items, until 2026-10-07T01:06:02Z
 Digested-through: 5
@@ -97,3 +97,5 @@ Lane: B-138
 
 Finished 5: B-138 landed c95a37d71c68d621b0cf55feba5752543768ead0 · not visually verified
 - B-138: 2 fix rounds; fresh reviews clear. Rejected wrong-checkout verifier pass; corrected exact-lane HEAD 9fe99edae1c784424680ff5da42f21d150cd182f full suite 2,072/223 and SwiftLint pass. Earlier async focus flake remains tracked in B-204/B-209/B-230; no unrelated focus patch. GUI unavailable (debug bundle missing executable), B-239 queued. Artifacts preserved under ../preserved/B-138-20261006T152153Z.
+
+- Finish: item cap 5 reached; 4 landed, 1 already satisfied, 0 newly blocked. Board writes skipped under explicit no-issues instruction. No verify lock remains. Helper removed current landed B-135/B-136/B-138; retained dirty B-133 and historical dirty lanes plus B-058/B-233 unlanded; no files discarded. Existing main untracked artifacts retained as recorded. Wrong-checkout verification lesson added to verify.md.

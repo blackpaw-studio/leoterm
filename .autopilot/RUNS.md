@@ -341,3 +341,25 @@ Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leot
 - Next: diagnose shared focus-test setup (B-136/B-230 are related leads); re-verify B-132, finish B-232 blockers, then B-133/B-134.
 - Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree. Board: https://github.com/orgs/blackpaw-studio/projects/5.
 - Merge when happy from default branch: git -C /Users/evan/.leo/agents/leoterm merge autopilot.
+
+## 2026-10-06T15:23:20Z · five-item run
+
+🛠 leoterm autopilot — 5 items resolved: 4 shipped, 1 already satisfied, 0 blocked
+
+Shipped
+- B-136 Serialize event-posting suites · de79492d7 · full
+- B-133 Close-confirmation guard, titles and pane hints · 8e6eda39d, 97ce0fef34 · light
+- B-135 Sidebar resize comment refresh · 59f98e25d · light
+- B-138 Adaptive start-screen buttons · a7f3215ae · light
+Already satisfied: B-134 sidebar regrowth (D-237), independently verified.
+
+Fresh reviews and final independent suites passed; latest exact-lane suite 2,072 tests / 223 suites plus strict lint. No visual verification: scheduling/comments have no changed UI; B-133/B-138 isolated GUI launch/targeting unavailable. Checks queued as B-238/B-239. Existing asynchronous focus flake remains in B-204/B-209/B-230. Rejected a verifier pass from the wrong checkout and reran the exact lane; provenance rule persisted in verify.md.
+
+Calls: D-356 ordering; D-357 close clarity; D-358 retain existing regrowth; D-359 vertical fallback. Reply veto D-0xx to undo a reversible call.
+Next: B-139, B-140.
+Interim updates: 1, through item 5.
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5 (sync skipped: current no-issues rule).
+Cleanup retained dirty historical lanes and B-133, held B-058 and unlanded historical B-233, plus recorded build artifacts; empty no-code B-134 cleared to autopilot-shelved/B-134.
+Merge when happy, from main: git merge autopilot
+
