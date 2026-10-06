@@ -1648,3 +1648,18 @@ Done: no code change — B-138 implementation already satisfied; fresh independe
 Why: B-138 exact-lane tests passed, but the isolated Debug app bundle could not launch (missing executable); narrow/wide layout lacks visual verification.
 Accept: Restore a safe isolated debug build and capture readable horizontal buttons at wide width and vertical fallback below 450 pt; preserve all actions/tooltips; never drive production or real agents.
 Source: autopilot polish (B-138)
+
+## B-240 · Vacuous-pass guard on the regrow check   [ready (next run)]
+Why: in LeoSidebarContentMinimumTests.swift (~:99-101) `regrowShown.isEmpty` can pass vacuously; add the `!widening.isEmpty` guard the narrowing check already has
+Accept: the widening/regrow per-step check fails when no widening steps were captured
+Source: autopilot polish (B-139)
+
+## B-241 · Absolute per-step content-width floor in the live resize test   [ready (next run)]
+Why: the per-step expected width derives from `sidebarMaximumWidth`, the same function production uses, so both could share an error; add an absolute floor `contentWidth >= contentMinimumWidth - 1` when the window is ≥ 651 pt (LeoSidebarContentMinimumTests.swift ~:123-128)
+Accept: each captured step asserts content width against the absolute 450 pt minimum (1 pt tolerance), independent of sidebarMaximumWidth
+Source: autopilot polish (B-139)
+
+## B-242 · `resize` doc comment wording in LeoSidebarContentMinimumTests   [ready (next run)]
+Why: the comment (~:183-185) overstates the capture as what "the display cycle runs before it draws" (it is the earliest layout pass) and uses `--` instead of the file's em dash
+Accept: the comment describes the earliest layout pass accurately and uses an em dash
+Source: autopilot polish (B-139)

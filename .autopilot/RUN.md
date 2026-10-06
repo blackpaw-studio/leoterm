@@ -18,11 +18,11 @@ Lane: B-139
   Branch: autopilot-lane/B-139
   Base: de0da78fbb3a64e313ad9ebc92af87b37b2146b8
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 80777b07fcc0a4d302dfc74a65dc8d3b99f75836
   Dispatched: 2026-10-06T19:43:15Z
 
 ## Progress
