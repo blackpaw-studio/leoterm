@@ -118,6 +118,15 @@ struct LeoLaunchPlaceholderIntegrationTests {
         }
     }
 
+    /// The app's hidden state a test hands a controller.
+    @MainActor private final class HiddenAppState {
+        var isHidden: Bool
+
+        init(isHidden: Bool) {
+            self.isHidden = isHidden
+        }
+    }
+
     /// Of `launch` and `requested`, the ones on screen.
     private func shown(_ controllers: TerminalController...) -> [ObjectIdentifier] {
         controllers.filter { $0.window?.isVisible == true }.map(ObjectIdentifier.init)
@@ -239,6 +248,73 @@ struct LeoLaunchPlaceholderIntegrationTests {
 
         #expect(shownOnceOpen)
         #expect(!launch.isLeoWindowShown)
+    }
+
+    /// Closes an off-screen window `close(_:)` skips, unless it already closed.
+    private func closeOffScreen(_ controller: TerminalController) {
+        guard !controller.leoWindowDidClose else { return }
+        controller.window?.close()
+    }
+
+    /// B-141 (D-239): a hidden app's windows all read `isVisible == false`.
+    /// The controller asks the app's hidden state it was given: off screen,
+    /// a presented launch window reads shown only while the app is hidden,
+    /// and not once it has closed.
+    @Test func anOffScreenLaunchWindowReadsShownOnlyWhileTheAppIsHidden() async throws {
+        let app = try liveApp()
+        let launch = try await makeLaunchWindow(app)
+        defer { closeOffScreen(launch) }
+        let window = try #require(launch.window)
+        let appState = HiddenAppState(isHidden: true)
+        launch.leoAppIsHidden = { appState.isHidden }
+
+        window.orderOut(nil)
+        let shownWhileHidden = launch.isLeoWindowShown
+        appState.isHidden = false
+        let shownWhileNotHidden = launch.isLeoWindowShown
+        appState.isHidden = true
+        window.close()
+
+        #expect(shownWhileHidden)
+        #expect(!shownWhileNotHidden)
+        #expect(!launch.isLeoWindowShown)
+    }
+
+    /// B-141: a window whose presentation hasn't run never reads shown,
+    /// even while the app is hidden.
+    @Test func aWindowNotYetPresentedReadsNotShownWhileTheAppIsHidden() async throws {
+        let app = try liveApp()
+        let requested = withoutUndo(app) { TerminalController.newWindow(app.ghostty) }
+        defer { close(requested) }
+        requested.leoAppIsHidden = { true }
+
+        let shownBeforePresentation = requested.isLeoWindowShown
+        try #require(await settle(app, requested), "the window never settled")
+
+        #expect(!shownBeforePresentation)
+        #expect(requested.isLeoWindowShown)
+    }
+
+    /// B-141 end to end (D-239): Leo launched hidden, so the launch window
+    /// is off screen yet presented; a requested window still replaces it.
+    /// Not hidden, the same off-screen launch window never counted as shown
+    /// and stays.
+    @Test(arguments: [true, false])
+    func anOffScreenLaunchWindowGivesWayOnlyWhileTheAppIsHidden(appIsHidden: Bool) async throws {
+        let app = try liveApp()
+        let launch = try await makeLaunchWindow(app)
+        defer { closeOffScreen(launch) }
+        let closed = CloseFlag(launch.window)
+        defer { closed.stop() }
+        launch.leoAppIsHidden = { appIsHidden }
+        launch.window?.orderOut(nil)
+
+        let requested = withoutUndo(app) { TerminalController.newWindow(app.ghostty) }
+        defer { close(requested) }
+        try #require(await settle(app, launch, requested), "the windows never settled")
+
+        #expect(closed.isClosed == appIsHidden)
+        #expect(requested.window?.isVisible == true)
     }
 
     /// Closed without a key or mouse press (a script's `close window 1`):
