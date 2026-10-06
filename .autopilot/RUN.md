@@ -38,9 +38,11 @@ Lane: B-133
   Branch: autopilot-lane/B-133
   Base: 96097f2225b3056f875674dc717d9fcc3f6b5b52
   Tier: light
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 97ce0fef34ebfb674afe4115e025ec279b89053a
   Dispatched: 2026-10-06T13:39:16Z
+
+  Call: scoped bug fixes and Mac-native clarification for duplicate horizontal panes — AUTONOMY
