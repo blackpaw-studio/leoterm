@@ -67,6 +67,13 @@ struct LeoWindowVisibilityState: Equatable {
         return split?.sidebarSqueezesTerminal(atWidth: displayedWidth) ?? false
     }
 
+    /// Return To Default Size gives a shown sidebar its stored width back,
+    /// even one the launch clamped (D-361). Nothing is persisted.
+    func restoreStoredSidebarWidth() {
+        guard isSidebarVisible, let split = (browserPane?.parent ?? editorPane?.parent) as? LeoSplitViewController else { return }
+        split.restoreSidebarWidth(displayedWidth)
+    }
+
     private let defaults: UserDefaults
     private let onPollabilityChanged: () -> Void
     private(set) weak var window: NSWindow?

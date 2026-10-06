@@ -62,6 +62,44 @@ import Testing
         #expect(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) == Double(LeoSidebarSplitMetrics.maximumWidth))
     }
 
+    /// B-140: Return To Default Size is an explicit reset (D-361), so it
+    /// gives a launch-clamped sidebar its stored width back, where a
+    /// passive widen keeps the clamp (D-237, above). The restore runs
+    /// straight after the window resize, with no layout between, as Return
+    /// To Default Size calls it.
+    @Test func restoringTheStoredWidthUndoesALaunchClamp() async {
+        let defaults = LeoInMemoryDefaults()
+        defaults.set(Double(LeoSidebarSplitMetrics.maximumWidth), forKey: LeoWindowSession.sidebarWidthKey)
+        let harness = await Harness(defaults: defaults, windowWidth: Self.reportedWindowWidth)
+        defer { harness.close() }
+        let clamped = harness.sidebarWidth
+        #expect(clamped < LeoSidebarSplitMetrics.maximumWidth - 1, "clamped at launch: \(clamped)")
+
+        harness.window.setContentSize(NSSize(width: Self.wideWindowWidth, height: Self.height))
+        harness.components.controller.restoreSidebarWidth(LeoSidebarSplitMetrics.maximumWidth)
+        for _ in 0..<3 { await harness.settle() }
+
+        #expect(abs(harness.sidebarWidth - LeoSidebarSplitMetrics.maximumWidth) <= 1, "sidebar \(harness.sidebarWidth)")
+        let rest = Self.wideWindowWidth - LeoSidebarSplitMetrics.dividerWidth - LeoSidebarSplitMetrics.maximumWidth
+        #expect(abs(harness.contentWidth - rest) <= 1, "content \(harness.contentWidth)")
+        #expect(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) == Double(LeoSidebarSplitMetrics.maximumWidth))
+    }
+
+    /// B-140: in a window still too narrow for it, restoring the stored
+    /// width leaves the content its minimum, and stores nothing (D-233).
+    @Test func restoringTheStoredWidthInANarrowWindowStillLeavesTheContentItsMinimum() async {
+        let defaults = LeoInMemoryDefaults()
+        defaults.set(Double(LeoSidebarSplitMetrics.maximumWidth), forKey: LeoWindowSession.sidebarWidthKey)
+        let harness = await Harness(defaults: defaults, windowWidth: Self.reportedWindowWidth)
+        defer { harness.close() }
+
+        harness.components.controller.restoreSidebarWidth(LeoSidebarSplitMetrics.maximumWidth)
+        for _ in 0..<3 { await harness.settle() }
+
+        #expect(abs(harness.contentWidth - Self.contentMinimum) <= 1, "content \(harness.contentWidth)")
+        #expect(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) == Double(LeoSidebarSplitMetrics.maximumWidth))
+    }
+
     @Test func draggingTheSidebarWideStopsAtTheContentMinimum() async {
         let defaults = LeoInMemoryDefaults()
         let harness = await Harness(defaults: defaults, windowWidth: Self.reportedWindowWidth)

@@ -297,6 +297,21 @@ final class LeoSplitViewController: NSSplitViewController {
         clearProgrammaticWidthFlagSoon(recordingAppliedWidth: true)
     }
 
+    /// Gives a shown sidebar `width` again after an explicit window reset
+    /// (Return To Default Size, D-361), even where the launch clamped it:
+    /// a passive widen keeps a launch clamp (D-237). Lays out first, so
+    /// the sidebar's maximum already follows a window resized this same
+    /// turn when `setPosition` runs, rather than relying on AppKit to
+    /// settle the split before it positions the divider. Goes
+    /// through `applyProgrammaticWidth`, so nothing is persisted (D-233)
+    /// and it lands before the window draws (D-145). Not inside a layout
+    /// pass. A hidden or floor-collapsed sidebar is left alone.
+    func restoreSidebarWidth(_ width: CGFloat) {
+        guard isReadyToPositionDivider, let sidebarItem, !sidebarItem.isCollapsed else { return }
+        view.layoutSubtreeIfNeeded()
+        applyProgrammaticWidth(width)
+    }
+
     /// Before `item` (the browser or the editor) is shown: if the terminal
     /// would end up under `LeoSidebarSplitMetrics.terminalFloor`, collapses
     /// the agents sidebar first (D-036). If that still isn't enough, the
