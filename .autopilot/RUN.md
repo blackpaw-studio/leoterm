@@ -20,3 +20,14 @@ Lane: B-058
 - Preflight: lock confirmed; main synced with origin; inbox empty; no unfinished building/verifying blocks; retained historical lanes and artifacts.
 - Upstream fetch rejected existing tip tag; no tag forced or replaced. Origin fetch and main pull succeeded.
 - Board sync skipped: explicit repository instruction forbids creating issues or PRs.
+
+Lane: B-238
+  Branch: autopilot-lane/B-238
+  Base: f2183e0e16fbe990d30dcbc4ab27138cbf41b839
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-06T17:43:38Z
