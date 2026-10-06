@@ -84,7 +84,7 @@ Lane: B-138
   Branch: autopilot-lane/B-138
   Base: 560ad21830b796c8e7e5ce9a44b3c65bc62bb124
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 2
   Wip: none
   Reverifies: 0
