@@ -54,6 +54,17 @@ Lane: B-141
   Call: The name `leoAppIsHidden`, following the controller's leo* prefix — AUTONOMY naming
   Call: The tests go in the existing LeoLaunchPlaceholderIntegrationTests, on the real Ghostty.App — AUTONOMY test infrastructure
 
+Lane: B-142
+  Branch: autopilot-lane/B-142
+  Base: 4c9407f6d67e563afbab8a6eca9f90139ef8dedc
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-06T21:34:03Z
+
 ## Progress
 - Board sync re-enabled at Evan's request (2026-10-06); full sync run.
 - Lane B-233 is unlanded with no RUN.md block (left in place, not a pick).
