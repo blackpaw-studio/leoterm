@@ -35,16 +35,13 @@ struct LeoPlaceholderView: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
-            HStack(spacing: 12) {
-                chooseAgentButton
-                    .disabled(!chooseAgent.isEnabled)
-                    .help(ifAny: chooseAgent.help)
-                ForEach(Self.menuButtons) { button in
-                    Button(button.title) { buttonActions.perform(button) }
-                        .buttonStyle(.bordered)
-                        // The live shortcut alone; none when unbound (B-080).
-                        .help(ifAny: button.hint(in: shortcutHints))
-                }
+            ViewThatFits(in: .horizontal) {
+                actionButtons(.horizontal)
+                    // A row that can compress still "fits" and truncates its
+                    // labels. Keep its intrinsic width so the vertical form is
+                    // chosen before that happens.
+                    .fixedSize(horizontal: true, vertical: false)
+                actionButtons(.vertical)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -61,6 +58,23 @@ struct LeoPlaceholderView: View {
             button.buttonStyle(.borderedProminent)
         } else {
             button.buttonStyle(.bordered)
+        }
+    }
+
+    @ViewBuilder private func actionButtons(_ axis: Axis) -> some View {
+        let layout = axis == .horizontal
+            ? AnyLayout(HStackLayout(spacing: 12))
+            : AnyLayout(VStackLayout(spacing: 8))
+        layout {
+            chooseAgentButton
+                .disabled(!chooseAgent.isEnabled)
+                .help(ifAny: chooseAgent.help)
+            ForEach(Self.menuButtons) { button in
+                Button(button.title) { buttonActions.perform(button) }
+                    .buttonStyle(.bordered)
+                    // The live shortcut alone; none when unbound (B-080).
+                    .help(ifAny: button.hint(in: shortcutHints))
+            }
         }
     }
 }
