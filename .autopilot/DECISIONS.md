@@ -2556,3 +2556,11 @@ Chose: Escape is sent as a keyCode-53 keyDown to panel.keyDown (ending in commit
 Why: AUTONOMY (test infrastructure)
 Commit: 516c57d9e
 Veto: [ ]
+
+## D-354 · 2026-10-05 · SFTP startup without a configured host subsystem
+Context: B-233; shared surfaced-file report B-234; D-023/D-024
+Chose: Keep configured SFTP subsystem first; after exact proven rejection allow one fixed SFTP-server bootstrap on the existing ControlMaster. Bound session replacement per explicit operation and keep raw remote stderr out of publicly logged errors.
+Why: principle 3 and AUTONOMY implementation approach; no second connection or automatic retry loop
+Alternatives: require host sshd reconfiguration; replace SFTP with arbitrary shell file commands
+Commit: 8a23dede5 b3a182a55 f3913f58c 13d7da667
+Veto: [ ]

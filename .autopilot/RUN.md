@@ -38,3 +38,7 @@ Lane: B-233
 
 - Evan explicitly approved supported B-233 final Xcode/SwiftPM build/test filesystem access and isolated debug test host after auto-review rejected delegated authorization. Final verifier may retry that exact scope.
   Call: D-023 permits fixed SFTP-server bootstrap over existing ControlMaster after proven subsystem rejection — principle 3 and AUTONOMY implementation approach
+
+Finished 1: B-233 landed 055d5eebd33de99d65a1bf3494f02fe9247860a3 · not visually verified
+Finished 2: B-234 done (covered by B-233 shared-path regression)
+- B-233 landed after 3 fix rounds; full fresh general/security/concurrency reviews and independent 2,067-test suite passed. B-234 duplicate resolved by explicit shared-path coverage. Remote GUI unverified; no safe fixture.

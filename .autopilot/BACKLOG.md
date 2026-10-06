@@ -530,21 +530,25 @@ Accept: LeoContentFocusTests: drive Escape via LeoPickerPresentation.commit(.can
 Source: autopilot polish (B-087)
 Done: 516c57d9e (2051 tests, lint clean). Escape now goes through the panel key path to LeoPickerPresentation.commit(.cancel); both palette tests #require the window to be key again (old file passed vacuously under a mutation that skipped orderOut); row-switch guard doc narrowed to the host step. Not visually verified: test-only. Decisions D-352–D-353.
 
-## B-233 · Workspace browser reports lost host connection   [ready]
+## B-233 · Workspace browser reports lost host connection   [done]
 Issue: #236
 Type: bug
 Report: browsing files doesnt even work says it lost connection to the host
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: Evan (/issue, 2026-10-05)
 Inbox: 20261005T223845014618Z-e87d3338#1
+Done: 8a23dede5 b3a182a55 f3913f58c 13d7da667. Workspace browsing retains the host subsystem path and falls back safely when rejected. Independent full review and 2,067 tests/222 suites + strict SwiftLint passed. Remote GUI not visually verified (no safe remote fixture). Decision D-354.
 
-## B-234 · Surfaced files report lost host connection   [ready]
+
+## B-234 · Surfaced files report lost host connection   [done]
 Issue: #237
 Type: bug
 Report: same issue with surfacing files, same error (says it lost connection to the host) — likely same root cause as the file-browsing bug logged just before this
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: Evan (/issue, 2026-10-05)
 Inbox: 20261005T224249855758Z-b473c7f0#1
+Done: 8a23dede5 b3a182a55 f3913f58c 13d7da667. Covered by B-233: shared regression lists an absolute workspace and reads an absolute surfaced-file path through the same SFTP accessor. Independent full review and 2,067 tests/222 suites + strict SwiftLint passed. Remote GUI not visually verified (no safe remote fixture). Decision D-354.
+
 
 ## B-232 · Drop files into an agent's workspace (local + SSH)   [ready]
 Issue: #238
@@ -1597,3 +1601,9 @@ Issue: #235
 Why: B-131 review: `let sidebar = LeoSidebarModel()` in presentPaletteForRequest (~line 148) shadows the fixture's `sidebar: NSView`; rename it to sidebarModel
 Accept: B-131 review: `let sidebar = LeoSidebarModel()` in presentPaletteForRequest (~line 148) shadows the fixture's `sidebar: NSView`; rename it to sidebarModel
 Source: autopilot polish (B-131)
+
+## B-235 · SFTP rejection diagnostic with invalid UTF-8 suffix   [ready (next run)]
+Issue: #240
+Why: Final B-233 security review: invalid or truncated UTF-8 suffix can suppress an earlier complete canonical rejection line; safe failure but fallback may be missed.
+Accept: A complete canonical rejection line is recognized despite invalid UTF-8 in a later suffix; truncated noncanonical lines still never trigger fallback; regression tests.
+Source: autopilot polish (B-233)
