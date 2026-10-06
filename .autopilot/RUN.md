@@ -26,8 +26,10 @@ Lane: B-238
   Base: f2183e0e16fbe990d30dcbc4ab27138cbf41b839
   Tier: light
   State: building
-  Fixes: 0
+  Fixes: 1
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-10-06T17:43:38Z
+
+- B-238 verification blocked: 2,072 tests / 223 suites; closingARowsPaneHandsTheRowToTheNextFocusedPane failed, matching B-204. Orphaned B-136 Debug Leo PID 99553 (PPID 1, launched 09:35) owns debug targeting. No GUI actions; awaiting authorization to close exactly that unrelated debug process. No code changes.
