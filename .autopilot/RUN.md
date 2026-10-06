@@ -47,10 +47,15 @@ Lane: B-232
   Branch: autopilot-lane/B-232
   Base: 4dbb4af9a2e7079703ab032c6df8978d7ea7f80c
   Tier: full
-  State: building
+  State: held
   Fixes: 3
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: e197ba03ba77cde2732b3f9f6ebf311feb729993
   Dispatched: 2026-10-06T04:07:15Z
   Call: D-355 trusted-server/private-staging SFTP semantics; no-overwrite preserved, disconnect retention and rename uncertainty explicit — AUTONOMY implementation authority
+
+Finished 3: B-232 blocked
+- B-232 final fix limit reached: source NUL-path substitution, unbounded whole-file buffering, missing transport-level lost-RENAME coverage; independent full suite still fails 3 focus/palette tests.
+- B-232 shelve refused: dirty lane (macos/default.profraw and zig-out); preserving all files on autopilot-lane/B-232 in held state. No build artifacts committed or removed.
+- B-232 scratch files retained: /Users/evan/.leo/agents/autopilot-scratch/B-232-drop.txt and B-232-browser.txt. All debug/test processes stopped; verify lock released.
