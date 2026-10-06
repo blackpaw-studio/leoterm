@@ -1228,6 +1228,7 @@ Answer: yes — drop auto-open; surfaced files are badge-only, opened with ⌥�
 Done: 70a2b21e8 eed22646d 813d4f335 263040196 (1459 tests). Re-applied f3e8d36b3's revert minus all auto-open (D-088): badge only; opens via row ▸ Surfaced Files ▸ or Agents ▸ Open Surfaced File (⌥⌘O, needs a selected row). Pane re-checks the incarnation after the read and after the unsaved prompt; identity and seen ledger keyed by agent + started_at + id; live events ordered by `at` (D-091). Verified: shots B-013-1 (row badge 2), B-013-2-screen (Surfaced Files submenu, screen capture), B-013-3 (menu open → notes.md at line 3, badge 1), B-013-4 (⌥⌘O → plan.py, badge cleared), with a DEBUG `LEO_SURFACE_FIXTURE` on a temporary autopilot-scratch (deleted). Daemon side not released, so fixture only; remote not visually verified. 2 fix rounds (review.concurrency: open-queue identity HIGH, id-only identity, baseline ordering ×3); 2 round-3 P2s dismissed → B-046.
 
 ## B-014 · All hosts at once as sidebar sections   [blocked]
+Issue: #239
 Question: Blocked per D-008 until several remotes are in daily use. Tell me when that's true. I'd pick keeping it blocked.
 Note: Previous answer accepted keeping this out of the ready queue; Evan changed the status to blocked on 2026-10-05.
 Answer:
