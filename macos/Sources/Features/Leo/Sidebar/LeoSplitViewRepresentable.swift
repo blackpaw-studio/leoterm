@@ -305,11 +305,23 @@ final class LeoSplitViewController: NSSplitViewController {
     /// settle the split before it positions the divider. Goes
     /// through `applyProgrammaticWidth`, so nothing is persisted (D-233)
     /// and it lands before the window draws (D-145). Not inside a layout
-    /// pass. A hidden or floor-collapsed sidebar is left alone.
+    /// pass. A hidden or floor-collapsed sidebar is left alone, and
+    /// beside a side pane it grows only as far as the terminal keeps its
+    /// floor (D-058).
     func restoreSidebarWidth(_ width: CGFloat) {
         guard isReadyToPositionDivider, let sidebarItem, !sidebarItem.isCollapsed else { return }
         view.layoutSubtreeIfNeeded()
-        applyProgrammaticWidth(width)
+        applyProgrammaticWidth(min(width, widestSidebarKeepingTerminalFloor(sidebarItem)))
+    }
+
+    /// Beside a shown side pane, the sidebar's current width plus the room
+    /// the terminal has above its floor: `setPosition` on the sidebar's
+    /// divider takes only from the terminal, whose own minimum is far
+    /// under the floor. Without a side pane there's no floor to keep.
+    private func widestSidebarKeepingTerminalFloor(_ sidebarItem: NSSplitViewItem) -> CGFloat {
+        guard let detailItem, sidePaneItems.contains(where: { !$0.isCollapsed }) else { return .greatestFiniteMagnitude }
+        let room = detailItem.viewController.view.frame.width - LeoSidebarSplitMetrics.terminalFloor
+        return sidebarItem.viewController.view.frame.width + max(0, room)
     }
 
     /// Before `item` (the browser or the editor) is shown: if the terminal
