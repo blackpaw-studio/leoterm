@@ -200,8 +200,8 @@ enum LeoSplitViewControllerFactory {
     }
 }
 
-/// `NSSplitViewController` subclass that persists the sidebar's width
-/// whenever the split view genuinely resizes it, via the inherited
+/// `NSSplitViewController` subclass that persists the sidebar's width when
+/// the user moves the sidebar divider, via the inherited
 /// `NSSplitViewDelegate` conformance rather than a separate notification
 /// observer.
 ///
@@ -243,15 +243,13 @@ final class LeoSplitViewController: NSSplitViewController {
     /// `splitViewDidResizeSubviews` from re-persisting this as if it were
     /// user intent.
     ///
-    /// The flag is cleared on the next main-queue turn rather than
-    /// synchronously after `setPosition`: the resulting
-    /// `splitViewDidResizeSubviews` notification arrives on a later layout
-    /// pass, not within this call, so clearing it immediately would leave
-    /// the guard covering nothing and let this programmatic move get
-    /// persisted as if the user had dragged there. A width that has to
-    /// wait for the split view is held in `pendingWidth`; this path doesn't
-    /// raise the flag, and `pendingWidth != nil` is what keeps the layouts
-    /// before it's applied from being persisted.
+    /// The flag stays set until the next main-queue turn, covering both any
+    /// resize callback `setPosition` delivers now and the layout settled on
+    /// that later turn. Clearing it synchronously would let a deferred
+    /// programmatic resize get persisted as if the user had dragged there.
+    /// A width that has to wait for the split view is held in `pendingWidth`;
+    /// this path doesn't raise the flag, and `pendingWidth != nil` is what
+    /// keeps the layouts before it's applied from being persisted.
     ///
     /// On that same turn, `lastPersistedWidth` becomes the width the
     /// sidebar actually got (B-089): a window too narrow for `width`
@@ -543,11 +541,10 @@ final class LeoSplitViewController: NSSplitViewController {
         view.window != nil && splitView.bounds.width > 0
     }
 
-    /// Clears the guard on the next main-queue turn rather than synchronously:
-    /// the resulting `splitViewDidResizeSubviews` notification arrives on a
-    /// later layout pass, so clearing it immediately would leave the guard
-    /// covering nothing. `recordingAppliedWidth` first records the width
-    /// the sidebar got, while the guard still covers the layout that takes.
+    /// Clears the guard on the next main-queue turn. When
+    /// `recordingAppliedWidth` is true, that turn first settles the pending
+    /// layout and records the width the sidebar got while the guard still
+    /// covers any resize callback it delivers.
     private func clearProgrammaticWidthFlagSoon(recordingAppliedWidth: Bool = false) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
@@ -603,11 +600,11 @@ final class LeoSplitViewController: NSSplitViewController {
     }
 
     /// `NSSplitView.didResizeSubviewsNotification`'s user info. AppKit
-    /// documents `NSSplitViewDividerIndex`, but also posts it for layouts
-    /// (one per divider). `NSSplitViewUserResizeKey` is undocumented; AppKit
-    /// adds it only when a divider's position was set -- 1 for a mouse drag,
-    /// 0 for `setPosition(_:ofDividerAt:)` -- and never for the layouts a
-    /// window resize causes. `aMouseDragOnTheDividerIsStored` and
+    /// documents `NSSplitViewDividerIndex`, but posts it for each divider on
+    /// ordinary layouts too. `NSSplitViewUserResizeKey` is undocumented;
+    /// AppKit adds it when a divider's position was set -- 1 for a mouse
+    /// drag, 0 for `setPosition(_:ofDividerAt:)` -- and omits it from
+    /// window-resize layouts. `aMouseDragOnTheDividerIsStored` and
     /// `aWindowResizeThatClampsTheSidebarStoresNothing` fail if that
     /// changes.
     private enum ResizeInfoKey {
