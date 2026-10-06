@@ -2612,5 +2612,33 @@ Commit: none — verification-only item, already implemented by B-138
 Context: B-140 (orchestrator call at Decide).
 Chose: Return To Default Size is an explicit reset, so it restores the stored sidebar width (e.g. 420 pt) even when the sidebar was clamped at launch; D-237's "launch clamp keeps its width" still governs passive window widening only
 Why: P1 (an explicit reset should fully reset, like a first-party Mac app), D-237 scope
-Commit:
+Commit: 8a96bd527eb8cbbd49393a605c6dd899e92b1544, 01b5b5bc0e14068e6131fd52dfad4988acfaec7b
+Veto: [ ]
+
+## D-362 · 2026-10-06 · Reset Window Size also puts a sidebar the user dragged in this window…
+Context: B-140 (runner call).
+Chose: Reset Window Size also puts a sidebar the user dragged in this window back to the stored shared width
+Why: P1, AUTONOMY UX/layout
+Commit: 8a96bd527eb8cbbd49393a605c6dd899e92b1544, 01b5b5bc0e14068e6131fd52dfad4988acfaec7b
+Veto: [ ]
+
+## D-363 · 2026-10-06 · Passive window widening keeps the launch clamp (D-237 unchanged; D-36…
+Context: B-140 (runner call).
+Chose: Passive window widening keeps the launch clamp (D-237 unchanged; D-361 exception only for explicit reset)
+Why: AUTONOMY bug fixes
+Commit: 8a96bd527eb8cbbd49393a605c6dd899e92b1544, 01b5b5bc0e14068e6131fd52dfad4988acfaec7b
+Veto: [ ]
+
+## D-364 · 2026-10-06 · A hidden or floor-collapsed sidebar is left alone on reset
+Context: B-140 (runner call).
+Chose: A hidden or floor-collapsed sidebar is left alone on reset
+Why: AUTONOMY UX/layout
+Commit: 8a96bd527eb8cbbd49393a605c6dd899e92b1544, 01b5b5bc0e14068e6131fd52dfad4988acfaec7b
+Veto: [ ]
+
+## D-365 · 2026-10-06 · With a side pane open, the restore is capped so the terminal keeps it…
+Context: B-140 (runner call).
+Chose: With a side pane open, the restore is capped so the terminal keeps its 300 pt floor (sidebar grows as far as room allows) rather than skipped
+Why: P1, D-361, D-036/D-058
+Commit: 8a96bd527eb8cbbd49393a605c6dd899e92b1544, 01b5b5bc0e14068e6131fd52dfad4988acfaec7b
 Veto: [ ]

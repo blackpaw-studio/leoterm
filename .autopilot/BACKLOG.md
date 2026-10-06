@@ -621,11 +621,12 @@ Accept: add a per-step "clamp never shows" frame check in the live narrowing tes
 Source: autopilot polish (B-091)
 Done: 91b448d74520b0b7f7bc4a8ff68eea98d5a5f0a9
 
-## B-140 · Return To Default Size restores a launch-clamped sidebar   [ready]
+## B-140 · Return To Default Size restores a launch-clamped sidebar   [done]
 Issue: #144
 Why: Return To Default Size leaves a launch-clamped sidebar at ~349 pt instead of the stored 420 until relaunch; settle together with the regrow item
 Accept: Return To Default Size leaves a launch-clamped sidebar at ~349 pt instead of the stored 420 until relaunch; settle together with the regrow item
 Source: autopilot polish (B-091)
+Done: 8a96bd527eb8cbbd49393a605c6dd899e92b1544, 01b5b5bc0e14068e6131fd52dfad4988acfaec7b
 
 ## B-141 · Inject NSApp.isHidden into isLeoWindowShown   [ready]
 Issue: #145
@@ -1669,16 +1670,19 @@ Accept: the comment describes the earliest layout pass accurately and uses an em
 Source: autopilot polish (B-139)
 
 ## B-243 · One terminal-room formula for the sidebar restore cap   [ready (next run)]
+Issue: #248
 Why: restoreSidebarWidth's floor cap uses the terminal frame width while sidebarSqueezesTerminal/makeRoom use LeoSidebarSplitMetrics.terminalWidth; they agree after layout, but D-058 now has two formulas
 Accept: the restore cap and sidebarSqueezesTerminal/makeRoom share one terminal-room computation; behaviour unchanged, tests still green
 Source: autopilot polish (B-140)
 
 ## B-244 · Reset with a narrow default and a side pane shouldn't look like it hides the sidebar   [ready (next run)]
+Issue: #249
 Why: when the default size is narrow and a side pane is open, Reset Window Size triggers the transient floor-collapse (D-059), which reads as the command hiding the sidebar
 Accept: Reset Window Size with a narrow default and a side pane open leaves the sidebar visible (or the collapse is clearly the floor rule, not the command); covered by a test
 Source: autopilot polish (B-140)
 
 ## B-245 · Reset Window Size fills the screen with a wide default   [ready (next run)]
+Issue: #250
 Why: a 160-col default plus the 420 pt sidebar caps at the 1680 pt screen width, which looks less like a "default" size
 Accept: decide and implement how Reset sizes a window whose default plus sidebar exceeds the screen (e.g. leave a margin); covered by a test
 Source: autopilot polish (B-140)

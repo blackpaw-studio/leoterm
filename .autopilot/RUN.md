@@ -29,7 +29,7 @@ Lane: B-140
   Branch: autopilot-lane/B-140
   Base: c7f9dadd149c4c4074434be919621a4c2753f57c
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
@@ -45,3 +45,5 @@ Lane: B-140
 - Lane B-233 is unlanded with no RUN.md block (left in place, not a pick).
 - B-139 landed acf95b2b9: per-step clamp check + 1 pt tolerance; suite 2072/223 green, lint clean; no UI change. 3 polish items filed (B-240–B-242).
 Finished 1: B-139 landed acf95b2b9cd3b48dc5aae28a19c6c7ff2471c036 · not visually verified
+- B-140 landed 4bdcbc709: Reset/Return To Default Size restores the stored sidebar width (349→420 in GUI); 1 fix round (terminal floor with side pane); suite 2076 green. Polish B-243–B-245 filed.
+Finished 2: B-140 landed 4bdcbc70940e9d9cfb22a97f702d02bdebae5f17 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-140-1.png
