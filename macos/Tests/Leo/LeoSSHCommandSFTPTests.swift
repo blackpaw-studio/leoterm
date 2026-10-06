@@ -2,18 +2,18 @@ import Testing
 
 @testable import Ghostty
 
-/// The SFTP subsystem argv must ride the tunnel's ControlMaster and never
+/// The SFTP server argv must ride the tunnel's ControlMaster and never
 /// open a connection of its own. Pure argv checks -- nothing runs ssh.
 struct LeoSSHCommandSFTPTests {
     private let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "evan@build.example:2222", identityFile: "/keys/build"))
 
-    @Test func buildsExactSFTPSubsystemArguments() throws {
+    @Test func buildsExactSFTPBootstrapArguments() throws {
         #expect(try command.sftpArguments(controlPath: "/tmp/cm-build") == [
             "-T", "-o", "BatchMode=yes",
             "-o", "ControlMaster=no", "-o", "ControlPath=/tmp/cm-build",
             "-o", "ProxyCommand=/usr/bin/false", "-o", "ClearAllForwardings=yes",
             "-o", "RemoteCommand=none", "-o", "ForwardAgent=no", "-o", "ForwardX11=no", "-o", "PermitLocalCommand=no",
-            "-i", "/keys/build", "-p", "2222", "-s", "evan@build.example", "sftp"
+            "-i", "/keys/build", "-p", "2222", "evan@build.example", LeoSSHCommand.sftpServerBootstrapCommand
         ])
     }
 
@@ -29,9 +29,9 @@ struct LeoSSHCommandSFTPTests {
         #expect(Self.option("ForwardX11", in: sftp) == "no")
         #expect(Self.option("PermitLocalCommand", in: sftp) == "no")
         #expect(Self.option("ClearAllForwardings", in: sftp) == "yes")
-        let subsystem = try #require(sftp.firstIndex(of: "-s"))
+        let target = try #require(sftp.firstIndex(of: "evan@build.example"))
         let lastOverride = try #require(sftp.firstIndex(of: "PermitLocalCommand=no"))
-        #expect(lastOverride < subsystem, "options precede the target")
+        #expect(lastOverride < target, "options precede the target")
     }
 
     /// A control path ssh can't use (spaces, non-ASCII, too long) must not
@@ -65,7 +65,20 @@ struct LeoSSHCommandSFTPTests {
         #expect(Self.option("ControlMaster", in: sftp) == "no", "SFTP is only ever a mux client")
         #expect(Self.value(after: "-i", in: sftp) == Self.value(after: "-i", in: tunnel))
         #expect(Self.value(after: "-p", in: sftp) == Self.value(after: "-p", in: tunnel))
-        #expect(sftp.suffix(2).first == tunnel.last, "same ssh target")
+        #expect(sftp.dropLast().last == tunnel.last, "same ssh target")
+        #expect(sftp.last == LeoSSHCommand.sftpServerBootstrapCommand)
+    }
+
+    @Test func sftpUsesOnlyAFixedServerBootstrap() throws {
+        let sftp = try command.sftpArguments(controlPath: "/tmp/cm-build")
+        let bootstrap = try #require(sftp.last)
+
+        #expect(!sftp.contains("-s"), "file access does not depend on an sshd subsystem entry")
+        #expect(bootstrap == LeoSSHCommand.sftpServerBootstrapCommand)
+        #expect(bootstrap.contains(LeoSSHCommand.missingSFTPServerMarker))
+        #expect(!bootstrap.contains("build.example"))
+        #expect(!bootstrap.contains("/keys/build"))
+        #expect(!bootstrap.contains("/tmp/cm-build"))
     }
 
     /// If the master is gone, ssh would silently dial a fresh connection;

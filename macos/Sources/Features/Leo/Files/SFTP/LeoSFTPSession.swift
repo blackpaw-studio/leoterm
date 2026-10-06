@@ -31,9 +31,9 @@ actor LeoSFTPSession {
                 // the session) while this one was suspended.
                 guard connecting == current else { continue }
             }
-            let transport = try Self.launch(using: launcher)
+            let (transport, channel) = try Self.launch(using: launcher)
             self.transport = transport
-            let task = Task { try await Self.handshake(on: transport) }
+            let task = Task { try await Self.handshake(on: transport, channel: channel) }
             connecting = task
             let client = try await task.value
             guard !isClosed else { throw LeoFileAccessError.closed }
@@ -48,21 +48,28 @@ actor LeoSFTPSession {
         transport = nil
     }
 
-    private static func launch(using launcher: any LeoSFTPLaunching) throws -> LeoSFTPTransport {
+    private static func launch(using launcher: any LeoSFTPLaunching) throws -> (LeoSFTPTransport, LeoSFTPChannel) {
         do {
-            return LeoSFTPTransport(channel: try launcher.launch())
+            let channel = try launcher.launch()
+            return (LeoSFTPTransport(channel: channel), channel)
+        } catch let error as LeoFileAccessError {
+            throw error
         } catch {
             throw LeoFileAccessError.disconnected
         }
     }
 
-    private static func handshake(on transport: LeoSFTPTransport) async throws -> LeoSFTPClient {
+    private static func handshake(on transport: LeoSFTPTransport, channel: LeoSFTPChannel) async throws -> LeoSFTPClient {
         do {
             let server = try await transport.handshake()
             guard server.version == LeoSFTPCodec.protocolVersion else {
                 throw LeoFileAccessError.protocolError("server speaks SFTP v\(server.version), not v\(LeoSFTPCodec.protocolVersion)")
             }
             return LeoSFTPClient(transport: transport, server: server)
+        } catch LeoFileAccessError.disconnected {
+            let startupFailure = channel.startupFailure()
+            transport.close()
+            throw startupFailure ?? LeoFileAccessError.disconnected
         } catch {
             transport.close()
             throw error

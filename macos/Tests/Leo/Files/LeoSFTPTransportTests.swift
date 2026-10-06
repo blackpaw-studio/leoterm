@@ -6,6 +6,83 @@ import Testing
 /// The SFTP session layer against the real macOS `sftp-server` and against
 /// scripted fake servers that misbehave on cue.
 struct LeoSFTPTransportTests {
+    /// Production crosses an extra boundary the ordinary SFTP tests do not:
+    /// `ssh` has to start the server on the other side of the existing
+    /// ControlMaster. Some hosts expose `sftp-server` but intentionally have
+    /// no sshd `Subsystem sftp` entry. The fake rejects subsystem requests,
+    /// just like those hosts, while serving SFTP v3 for a fixed remote
+    /// command.
+    @Test func workspaceListingAndSurfacedReadsDoNotRequireTheSSHSubsystem() async throws {
+        let sandbox = try LeoFileSandbox()
+        defer { sandbox.cleanUp() }
+        try sandbox.directory("workspace")
+        let surfaced = try sandbox.file("workspace/result.txt", "done")
+        let fakeSSH = try sandbox.file("ssh", """
+            #!/bin/sh
+            for argument in "$@"; do
+              if [ "$argument" = "-s" ]; then
+                echo 'subsystem request failed on channel 0' >&2
+                exit 1
+              fi
+            done
+            exec /usr/libexec/sftp-server -d %d
+            """, permissions: 0o755)
+        let command = LeoSSHCommand(configuration: .init(name: "work", sshTarget: "evan@work.example:2222", identityFile: "/keys/work"))
+        let launcher = LeoCountingSFTPLauncher(
+            LeoSFTPProcessLauncher(
+                executable: URL(fileURLWithPath: fakeSSH),
+                arguments: try command.sftpArguments(controlPath: "/tmp/leo-b233-control")
+            )
+        )
+        let access = LeoFileAccessor.sftp(launcher: launcher)
+
+        let entries = try await access.list(sandbox.path("workspace"))
+        let contents = try await access.read(surfaced, maxBytes: 1024)
+
+        #expect(entries.map(\.name) == ["result.txt"])
+        #expect(String(data: contents.data, encoding: .utf8) == "done")
+        #expect(launcher.launches == 1, "the listing and surfaced-file read share one user-triggered SFTP session")
+        await access.close()
+    }
+
+    @Test func anUnavailableSFTPServerIsActionableAndLaunchesOnlyOnce() async throws {
+        let launcher = LeoCountingSFTPLauncher(LeoSFTPTestServer.script("echo 'leo: no supported sftp-server found' >&2; exit 127"))
+        let access = LeoFileAccessor.sftp(launcher: launcher)
+
+        let expected = LeoFileAccessError.unavailable(
+            reason: "no supported SFTP server was found on the host (status 127). Install the host’s OpenSSH server package, then try again"
+        )
+        await #expect(throws: expected) { try await access.list("/") }
+        #expect(launcher.launches == 1)
+        await access.close()
+    }
+
+    @Test func anSSHSetupFailureIsStillDisconnected() async throws {
+        let launcher = LeoCountingSFTPLauncher(LeoSFTPTestServer.script("echo 'control master is gone' >&2; exit 255"))
+        let access = LeoFileAccessor.sftp(launcher: launcher)
+
+        await #expect(throws: LeoFileAccessError.disconnected) { try await access.stat("/") }
+        #expect(launcher.launches == 1)
+        await access.close()
+    }
+
+    @Test func aServiceStartupFailureKeepsBoundedSanitizedContext() async throws {
+        let detail = "first line\\n" + String(repeating: "x", count: 500)
+        let launcher = LeoSFTPTestServer.script("printf '\(detail)' >&2; exit 42")
+        let access = LeoFileAccessor.sftp(launcher: launcher)
+
+        do {
+            _ = try await access.stat("/")
+            Issue.record("the failed service unexpectedly completed an SFTP handshake")
+        } catch let error as LeoFileAccessError {
+            #expect(error.localizedDescription.contains("status 42"))
+            #expect(!error.localizedDescription.contains("\n"))
+            #expect(error.localizedDescription.contains("…"))
+            #expect(error.localizedDescription.count < 350)
+        }
+        await access.close()
+    }
+
     @Test func handshakeNegotiatesVersionThreeAndSeesPosixRename() async throws {
         let transport = LeoSFTPTransport(channel: try LeoSFTPTestServer.launcher().launch())
         defer { transport.close() }
@@ -79,11 +156,13 @@ struct LeoSFTPTransportTests {
         #expect(transport.isClosed)
     }
 
-    @Test func aLaunchFailureIsDisconnected() async throws {
+    @Test func aLocalLaunchFailureIsUnavailable() async throws {
         let launcher = LeoSFTPProcessLauncher(executable: URL(fileURLWithPath: "/nonexistent/sftp-server"), arguments: [])
         let access = LeoFileAccessor.sftp(launcher: launcher)
 
-        await #expect(throws: LeoFileAccessError.disconnected) { try await access.stat("/") }
+        await #expect(throws: LeoFileAccessError.unavailable(reason: "the SFTP process couldn’t start")) {
+            try await access.stat("/")
+        }
     }
 
     @Test func eachOperationAfterADisconnectMakesExactlyOneFreshAttempt() async throws {

@@ -133,9 +133,9 @@ final class LeoSSHEndToEndConnection: @unchecked Sendable {
         return LeoFileAccessor.sftp(launcher: LeoSFTPProcessLauncher(executable: Self.ssh, arguments: arguments))
     }
 
-    /// One SFTP round trip before any contract test runs, so a host whose
-    /// sshd has no `sftp` subsystem fails the suite once, clearly, instead
-    /// of every case reporting `.disconnected`.
+    /// One SFTP round trip before any contract test runs, so a host without
+    /// an installed SFTP server fails the suite once, clearly, instead of
+    /// every case repeating the same error.
     private func checkSFTP() async throws {
         let access = try makeAccess()
         do {
@@ -144,7 +144,7 @@ final class LeoSSHEndToEndConnection: @unchecked Sendable {
         } catch {
             await access.close()
             throw LeoSSHEndToEndError.connectionFailed(
-                "SFTP over the master failed (\(error)); check that \(host)'s sshd_config has a `Subsystem sftp` line"
+                "SFTP over the master failed (\(error)); check that \(host) has an OpenSSH sftp-server installed"
             )
         }
     }

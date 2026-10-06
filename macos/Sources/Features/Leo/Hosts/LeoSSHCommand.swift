@@ -42,15 +42,21 @@ struct LeoSSHCommand: Sendable {
         return arguments
     }
 
-    /// `ssh -s <target> sftp` as a mux client of the tunnel's master at
-    /// `controlPath`. ssh tries the ControlPath before dialling; with the
+    /// Starts a fixed `sftp-server` command as a mux client of the tunnel's
+    /// master at `controlPath`. Asking sshd for its `sftp` subsystem would
+    /// make file access depend on an optional sshd_config entry even when
+    /// the host has the server installed. The command checks the standard
+    /// macOS, BSD, and Linux paths without interpolating configuration or
+    /// other user-controlled shell text.
+    ///
+    /// ssh tries the ControlPath before dialling; with the
     /// master gone it would open a fresh connection, which
     /// `ProxyCommand=/usr/bin/false` turns into an immediate failure
     /// instead. `-T`: a pty would corrupt the binary protocol.
     /// The rest are the overrides OpenSSH's own `sftp(1)` passes, so a user
     /// config can't break or widen the session: `ClearAllForwardings` (its
     /// forwards -- including the tunnel's -- are not re-requested per
-    /// session), `RemoteCommand=none` (it would replace the subsystem),
+    /// session), `RemoteCommand=none` (it would replace this command),
     /// no agent or X11 forwarding, and no `LocalCommand`.
     func sftpArguments(controlPath: String) throws -> [String] {
         try validateConfiguration()
@@ -68,9 +74,16 @@ struct LeoSSHCommand: Sendable {
             "-o", "PermitLocalCommand=no"
         ]
         appendIdentityAndPort(to: &arguments)
-        arguments += ["-s", target, "sftp"]
+        arguments += [target, Self.sftpServerBootstrapCommand]
         return arguments
     }
+
+    /// The marker lets the local process boundary distinguish a missing
+    /// server from an ssh failure (which exits 255). Keep both strings
+    /// fixed: remote shell input must never contain host configuration,
+    /// paths supplied by the user, or file names.
+    static let missingSFTPServerMarker = "leo: no supported sftp-server found"
+    static let sftpServerBootstrapCommand = "exec /bin/sh -c 'if [ -x /usr/libexec/sftp-server ]; then exec /usr/libexec/sftp-server; elif [ -x /usr/lib/openssh/sftp-server ]; then exec /usr/lib/openssh/sftp-server; elif [ -x /usr/libexec/openssh/sftp-server ]; then exec /usr/libexec/openssh/sftp-server; elif [ -x /usr/lib/ssh/sftp-server ]; then exec /usr/lib/ssh/sftp-server; elif [ -x /usr/local/libexec/sftp-server ]; then exec /usr/local/libexec/sftp-server; else printf \"%s\\n\" \"leo: no supported sftp-server found\" >&2; exit 127; fi'"
 
     func execArguments(remoteCommand: [String]) throws -> [String] {
         try validateConfiguration()

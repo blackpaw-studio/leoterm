@@ -14,8 +14,8 @@ enum LeoFileAccessError: Error, Equatable, Sendable {
     case isADirectory(path: String)
     /// Not an absolute path (or contains a NUL byte).
     case invalidPath(String)
-    /// The SFTP session ended (or could not start): the tunnel is down or
-    /// the server exited.
+    /// The SFTP session ended because the tunnel or multiplexed SSH session
+    /// was lost. A service that cannot start is `.unavailable` instead.
     case disconnected
     /// The access was closed (`LeoFileAccess.close()`): final, it never
     /// reconnects.
