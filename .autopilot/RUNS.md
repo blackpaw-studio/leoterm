@@ -368,6 +368,9 @@ Merge when happy, from main: git merge autopilot
 
 0 shipped, 1 blocked, 1 deferred. B-238 restored its isolated build and ran 2,072 tests / 223 suites; one known B-204 focus failure. No screenshots: orphaned B-136 Debug Leo PID 99553 owns the shared debug bundle ID and cannot be safely distinguished. Awaiting approval to close that exact debug process. B-238 held on autopilot-lane/B-238 because shelving refused two build-artifact changes; B-239 returned to Next Run. No code changes, merge, push or release. Existing main CI green at 9a1a60778. Recommended release leo-v0.7.3, version question pending. Historical dirty lanes retained; board writes skipped.
 
-## 2026-10-06T18:56:20Z — Next Run verification complete
+## 2026-10-06T18:56:20Z — Next Run verification provisional report (B-238 invalidated)
 
+Correction from root final image inspection: B-238 screenshots B-238-1/B-238-2 OMIT the dialogs and cannot establish visual acceptance. The provisional B-238 completion assertion in the report below is invalid; only B-239 is visually complete. B-238 reopened for actual dialog captures; no merge/push/release yet. Source review and serial test/lint passes remain valid.
+
+Original provisional report (superseded for B-238):
 Completed B-238 (Left/Right duplicate-name close confirmations) and B-239 (wide horizontal/narrow vertical start-screen actions) with actual isolated debug screenshots. Both exact-lane authoritative serial suites passed 2,072 tests / 223 suites plus strict SwiftLint; fresh reviews clear. No code changes were needed; B-133/B-138 already implemented the behavior. D-359 retained, D-360 shared-artifact reuse. Sandboxed bridge/PID-targeting lessons saved in verify.md; all own debug instances/verify locks cleaned. Generated artifacts preserved under ../preserved/B-238-20261006T184121Z and ../preserved/B-239-20261006T185542Z; empty no-code lanes shelved, historical dirty lanes retained. Board writes skipped under no-issues rule. Evan authorized merge/push main and release leo-v0.7.3 next.
