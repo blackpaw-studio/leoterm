@@ -65,10 +65,12 @@ Lane: B-132
   Base: 451a67602dc7ca9c1fb48666548fb0bdf7f253c4
   Tier: full
   State: building
-  Fixes: 0
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: d595505fa09974511c8bc9f25569dbaba5a138b8
   Dispatched: 2026-10-06T04:35:39Z
 
 - B-232 recovered from held to shelved: generated regular profiling file and verified shared zig-out symlink moved recoverably to /Users/evan/.leo/agents/leoterm/.git/autopilot/preserved/B-232-20261006T045235Z-51a55b9c; helper shelve succeeded as autopilot-shelved/B-232. No source or user data discarded.
+
+- Early stop: shared focus/palette verification failures reproduce on older default-main 3dadd1e42 (2,051 tests), fixtureless B-132 (2,067), and full B-132 (2,070). B-132 regression tests pass; no speculative harness changes. Final report identifies shared AppKit focus scheduling as a run-level verification blocker; exact root-cause fix remains follow-up.
