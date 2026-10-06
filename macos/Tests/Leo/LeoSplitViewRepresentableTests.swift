@@ -456,6 +456,27 @@ struct LeoSplitViewRepresentableTests {
         }
     }
 
+    /// B-140: Return To Default Size's restore of the stored width
+    /// (D-361) beside a side pane grows the sidebar only as far as the
+    /// terminal keeps its floor (D-058).
+    @Test func restoringTheStoredWidthBesideASidePaneKeepsTheTerminalFloor() async throws {
+        try await withBothPanes { harness, _, _, counts in
+            let controller = harness.components.controller
+            let sidebarWidth = harness.sidebarWidth
+            let room = harness.terminalWidth - LeoSidebarSplitMetrics.terminalFloor
+            try #require(room > 1, "the terminal starts above its floor: \(harness.terminalWidth)")
+            try #require(controller.sidebarSqueezesTerminal(atWidth: LeoSidebarSplitMetrics.maximumWidth))
+
+            controller.restoreSidebarWidth(LeoSidebarSplitMetrics.maximumWidth)
+            for _ in 0..<3 { await harness.settle() }
+
+            #expect(harness.terminalWidth >= LeoSidebarSplitMetrics.terminalFloor - 1, "terminal \(harness.terminalWidth)")
+            #expect(abs(harness.sidebarWidth - (sidebarWidth + room)) <= 1, "sidebar \(harness.sidebarWidth)")
+            #expect(harness.sidebarItem?.isCollapsed == false)
+            #expect(counts.collapses == 0)
+        }
+    }
+
     // MARK: Widening again (D-059)
 
     /// A sidebar collapsed by the floor is transient: widening back gives

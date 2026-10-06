@@ -29,6 +29,8 @@ import Testing
         let host: GhosttyAttachContentHost
         let origin: LeoWindowID
         let savedPosition: Any?
+        /// The window session's defaults.
+        let defaults: UserDefaults
 
         /// A start screen as the launch opens one, before it is presented.
         static func make() throws -> Fixture {
@@ -37,11 +39,14 @@ import Testing
             let controller = withoutUndo(app) { TerminalController.leoNewPlaceholderWindow(app.ghostty) }
             let window = try #require(controller.window)
             let registry = LeoWindowSessionRegistry()
-            let origin = registry.makeSession(window: window, controller: controller, defaults: LeoInMemoryDefaults()).id
+            let defaults = LeoInMemoryDefaults()
+            let origin = registry.makeSession(window: window, controller: controller, defaults: defaults).id
             let host = GhosttyAttachContentHost(registry: registry, requestConfigStore: LeoRequestConfigStore()) {
                 .init(isActive: false, keyWindow: nil)
             }
-            return Fixture(app: app, controller: controller, window: window, host: host, origin: origin, savedPosition: savedPosition)
+            return Fixture(
+                app: app, controller: controller, window: window, host: host, origin: origin, savedPosition: savedPosition,
+                defaults: defaults)
         }
 
         /// Shows the start screen, then gives it a known frame on screen.
@@ -80,10 +85,13 @@ import Testing
 
         /// The sidebar's width in the window's split, nil while collapsed.
         var sidebarWidth: CGFloat? {
-            guard let contentView = window.contentView,
-                  let split = Self.splitController(in: contentView),
-                  let item = split.sidebarItem, !item.isCollapsed else { return nil }
+            guard let split, let item = split.sidebarItem, !item.isCollapsed else { return nil }
             return item.viewController.view.frame.width
+        }
+
+        /// The window's split, once its content has built one.
+        var split: LeoSplitViewController? {
+            window.contentView.flatMap { Self.splitController(in: $0) }
         }
 
         private static func splitController(in view: NSView) -> LeoSplitViewController? {
@@ -225,6 +233,47 @@ import Testing
         await Self.drainMainQueue()
 
         #expect(fixture.contentSize == expected, "Reset Window Size used the SwiftUI view's size")
+    }
+
+    /// B-140: a sidebar clamped as the launch restored it in a narrow
+    /// window keeps that clamp as the window widens (D-237), but Window >
+    /// Reset Window Size is an explicit reset (D-361): the window takes
+    /// the configured size and the sidebar its stored width, which stays
+    /// stored as it was.
+    @Test(.enabled("needs the app's Ghostty.App") { await MainActor.run { Self.hasGhostty } })
+    func resetWindowSizeRestoresALaunchClampedSidebar() async throws {
+        let fixture = try await Fixture.shown()
+        defer { fixture.close() }
+        let session = try #require(fixture.controller.leoSession)
+        let surface = try fixture.fill().surface
+        fixture.applyFirstContentSize(to: surface)
+        await Self.drainMainQueue()
+        try #require(session.isSidebarVisible)
+        let stored = session.preferredWidth
+        let storedDefault = fixture.defaults.object(forKey: LeoWindowSession.sidebarWidthKey) as? NSNumber
+        let split = try #require(fixture.split)
+
+        let divider = LeoSidebarSplitMetrics.dividerWidth
+        let narrowWidth = LeoSidebarSplitMetrics.contentMinimumWidth + divider + session.displayedWidth - 60
+        fixture.window.setContentSize(NSSize(width: narrowWidth, height: fixture.contentSize.height))
+        split.applyProgrammaticWidth(session.displayedWidth)
+        await Self.drainMainQueue()
+        let clamped = try #require(fixture.sidebarWidth, "the sidebar showed")
+        try #require(clamped < session.displayedWidth - 1, "the launch restore wasn't clamped: \(clamped)")
+        // A launch clamp, not a resize one: a passive widen keeps it (D-237).
+        fixture.window.setContentSize(NSSize(width: narrowWidth + 200, height: fixture.contentSize.height))
+        await Self.drainMainQueue()
+        let widened = try #require(fixture.sidebarWidth, "the sidebar showed")
+        try #require(abs(widened - clamped) <= 1, "a passive widen regrew the sidebar: \(widened)")
+
+        fixture.controller.returnToDefaultSize(nil)
+        await Self.drainMainQueue()
+
+        #expect(fixture.contentSize == (try Self.configuredContentSize(of: fixture)))
+        let sidebarWidth = try #require(fixture.sidebarWidth, "the sidebar showed")
+        #expect(abs(sidebarWidth - session.displayedWidth) <= 1, "sidebar \(sidebarWidth), stored \(session.displayedWidth)")
+        #expect(session.preferredWidth == stored)
+        #expect(fixture.defaults.object(forKey: LeoWindowSession.sidebarWidthKey) as? NSNumber == storedDefault)
     }
 
     /// B-122: Window > Reset Window Size is enabled on a filled start

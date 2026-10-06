@@ -63,8 +63,19 @@ struct LeoWindowVisibilityState: Equatable {
     /// Whether showing the sidebar now would take the terminal under its
     /// floor beside a side pane (D-058, D-059).
     var showingSidebarSqueezesTerminal: Bool {
-        let split = (browserPane?.parent ?? editorPane?.parent) as? LeoSplitViewController
-        return split?.sidebarSqueezesTerminal(atWidth: displayedWidth) ?? false
+        split?.sidebarSqueezesTerminal(atWidth: displayedWidth) ?? false
+    }
+
+    /// Return To Default Size gives a shown sidebar its stored width back,
+    /// even one the launch clamped (D-361). Nothing is persisted.
+    func restoreStoredSidebarWidth() {
+        guard isSidebarVisible else { return }
+        split?.restoreSidebarWidth(displayedWidth)
+    }
+
+    /// The window's split, found through the panes it built.
+    private var split: LeoSplitViewController? {
+        (browserPane?.parent ?? editorPane?.parent) as? LeoSplitViewController
     }
 
     private let defaults: UserDefaults

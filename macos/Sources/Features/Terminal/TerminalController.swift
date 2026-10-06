@@ -1736,6 +1736,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     @IBAction func returnToDefaultSize(_ sender: Any?) {
         guard let window, let defaultSize else { return }
         defaultSize.apply(to: window)
+        // MARK: Leo -- the sidebar takes its stored width back (B-140, D-361).
+        leoSession?.restoreStoredSidebarWidth()
     }
 
     @IBAction override func closeWindow(_ sender: Any?) {
