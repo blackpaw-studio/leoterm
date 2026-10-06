@@ -1,4 +1,4 @@
-Status: running
+Status: finished
 Started: 2026-10-06T00:44:24Z
 Budget: 20 items, until 2026-10-06T12:44:24Z
 Digested-through: 0
@@ -77,3 +77,5 @@ Lane: B-132
 
 Finished 4: B-132 blocked
 - B-132 preserved on autopilot-shelved/B-132 (815c1719d); generated artifacts moved recoverably to /Users/evan/.leo/agents/leoterm/.git/autopilot/preserved/B-132-20261006T051552Z-2e1bfefc. All temporary baseline edits restored; verify lock released.
+
+- Finish: full board sync succeeded. Historical B-014 status sync errors resolved by Evan’s blocked-status change. No verify lock remains. Helper retained 73 dirty landed lanes (including B-233), plus parked held B-058; no orphan directories reported. Main untracked files remain as recorded.

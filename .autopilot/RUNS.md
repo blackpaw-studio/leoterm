@@ -323,3 +323,21 @@ Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Board: https://github.com/orgs/blackpaw-studio/projects/5
 Board sync: 1 failure (B-014 unknown status [deferred])
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-10-06 — 2 bug reports fixed, 0 features shipped, 2 blocked (early stop)
+
+- B-233 workspace browser and B-234 surfaced-file connection reports fixed by shared SFTP startup fallback, bounded to exact subsystem rejection and existing ControlMaster. Commits: 8a23dede5 b3a182a55 f3913f58c 13d7da667. Landed merge: 055d5eebd33de99d65a1bf3494f02fe9247860a3. Full general/security/concurrency review; independent 2,067 tests/222 suites and strict SwiftLint passed. Full tier. Remote GUI not visually verified: no safe remote fixture.
+- B-232 file drops shelved on autopilot-shelved/B-232, commits c50ba9cf6 9a6f22541 fb28f92c2, after 3 fix rounds. Remaining source NUL-path substitution, unbounded buffering, transport-level lost-RENAME coverage and full-suite focus failures. Would finish scoped blockers after repairing shared harness. No feature code landed.
+- B-132 ordering fix shelved on autopilot-shelved/B-132, commit 815c1719d; general/concurrency reviews clean, three test-first regressions pass. Independent 2,070-test suite fails the same three shared focus/palette tests. Fixtureless lane (2,067) and older default-main 3dadd1e42 (2,051; not current integrated autopilot) reproduce them. One fix round investigated; no speculative patch committed. Shared AppKit scheduling suspected; exact isolated cause still needs diagnosis. Run-level verification blocker; no new lanes dispatched.
+- Calls for veto: D-354 configured subsystem first, fixed SFTP bootstrap only after exact proven rejection; D-355 trusted-server/private staging with retained uncertain stages and indeterminate lost-rename results, no silent overwrite. D-355 applies to future completion; feature remains unlanded. Shelved call is also retained on B-232 RUN block.
+- Board updated by Evan’s explicit authorization; B-014 deferred changed to blocked. Final full sync succeeded. Earlier B-014 sync errors resolved.
+- GUI access: isolated debug app metadata omitted by Peekaboo in original and unchanged /private/tmp bundle; no safeguards bypassed or changed-flow screenshots certified. No shots attached.
+- All temporary baseline edits restored. Verify lock released; no ownerless lock. No push, default-branch merge, release, real app/agent control.
+- Preserved B-232 generated artifacts: /Users/evan/.leo/agents/leoterm/.git/autopilot/preserved/B-232-20261006T045235Z-51a55b9c.
+- Preserved B-132 generated artifacts: /Users/evan/.leo/agents/leoterm/.git/autopilot/preserved/B-132-20261006T051552Z-2e1bfefc. Worker also retained /private/tmp/B-132-default.profraw.
+- Scratch retained: /Users/evan/.leo/agents/autopilot-scratch/B-232-drop.txt and B-232-browser.txt.
+- Cleanup helper retained 73 dirty landed lane worktrees including B-233; no orphan directories. Parked held autopilot-lane/B-058 remains as Evan requested (prior shelve refused untracked output). Main Untracked-left: default.profraw, macos/default.profraw, scratchpad/, zig-out.
+- Idea parked: B-058 splits inside content area; /feature B-058 to revive.
+- Next: diagnose shared focus-test setup (B-136/B-230 are related leads); re-verify B-132, finish B-232 blockers, then B-133/B-134.
+- Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree. Board: https://github.com/orgs/blackpaw-studio/projects/5.
+- Merge when happy from default branch: git -C /Users/evan/.leo/agents/leoterm merge autopilot.

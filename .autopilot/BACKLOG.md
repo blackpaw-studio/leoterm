@@ -1617,12 +1617,14 @@ Accept: A complete canonical rejection line is recognized despite invalid UTF-8 
 Source: autopilot polish (B-233)
 
 ## B-236 · Upload error filenames in right-to-left text   [ready (next run)]
+Issue: #241
 Why: B-232 final review: isolate RTL filenames in the upload error message.
 Accept: Once B-232 is landed, improve this upload-error presentation with verification.
 Requires: B-232 done (do not build before the feature lands).
 Source: autopilot polish (B-232)
 
 ## B-237 · Terminal upload errors truncate after four lines   [ready (next run)]
+Issue: #242
 Why: B-232 final review: terminal failure overlay truncates longer error batches.
 Accept: Once B-232 is landed, improve this upload-error presentation with verification.
 Requires: B-232 done (do not build before the feature lands).
