@@ -84,7 +84,7 @@ final class LeoSFTPTransport: @unchecked Sendable {
         writeQueue.async { [self] in
             guard !isClosed else { return }
             if !Self.writeAll(packet, to: channel.toServer.fileDescriptor) {
-                end(with: .disconnected)
+                end(with: channel.failure(beforeHandshake: !hasReceivedVersion))
             }
         }
     }
@@ -110,7 +110,7 @@ final class LeoSFTPTransport: @unchecked Sendable {
         let descriptor = channel.fromServer.fileDescriptor
         var framer = LeoSFTPFramer()
         var buffer = [UInt8](repeating: 0, count: Self.readBufferSize)
-        var failure = LeoFileAccessError.disconnected
+        var failure: LeoFileAccessError?
         reading: while true {
             let count = Darwin.read(descriptor, &buffer, buffer.count)
             if count < 0, errno == EINTR { continue }
@@ -125,9 +125,11 @@ final class LeoSFTPTransport: @unchecked Sendable {
                 break reading
             }
         }
-        end(with: failure)
+        end(with: failure ?? channel.failure(beforeHandshake: !hasReceivedVersion))
         try? channel.fromServer.close()
     }
+
+    private var hasReceivedVersion: Bool { lock.withLock { hasVersion } }
 
     private func deliver(_ payload: Data) throws {
         guard lock.withLock({ hasVersion }) else {
@@ -162,7 +164,7 @@ final class LeoSFTPTransport: @unchecked Sendable {
             return (Array(pending.values), versionWaiter)
         }
         guard let waiters else { return }
-        Self.logger.log("sftp session ended error=\(String(describing: error), privacy: .public)")
+        Self.logger.log("sftp session ended error=\(Self.publicLogDescription(for: error), privacy: .public)")
         waiters.requests.forEach { $0.resume(throwing: error) }
         waiters.version?.resume(throwing: error)
         writeQueue.async { [channel] in try? channel.toServer.close() }
@@ -177,6 +179,25 @@ final class LeoSFTPTransport: @unchecked Sendable {
         case let LeoSFTPCodecError.badLength(length): "bad packet length \(length)"
         case LeoSFTPCodecError.truncated: "truncated packet"
         default: .untrusted(String(describing: error))
+        }
+    }
+
+    /// This value is emitted publicly to the unified log. Kept separate so
+    /// tests can prove it never includes remote-provided text.
+    static func publicLogDescription(for error: LeoFileAccessError) -> String {
+        switch error {
+        case .notFound: "not-found"
+        case .permissionDenied: "permission-denied"
+        case .conflict: "conflict"
+        case .tooLarge: "too-large"
+        case .notADirectory: "not-a-directory"
+        case .isADirectory: "is-a-directory"
+        case .invalidPath: "invalid-path"
+        case .disconnected: "disconnected"
+        case .closed: "closed"
+        case .protocolError: "protocol-error"
+        case .failed: "failed"
+        case .unavailable: "unavailable"
         }
     }
 }

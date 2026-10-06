@@ -1,16 +1,8 @@
 Status: finished
-Started: 2026-10-05T00:45:54Z
-Budget: 5 items, until 2026-10-05T12:45:54Z
-Digested-through: 5
+Started: 2026-10-06T00:44:24Z
+Budget: 20 items, until 2026-10-06T12:44:24Z
+Digested-through: 0
 Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
-
-## Progress
-- Preflight 2026-10-04: previous run finished cleanly; main (3 commits: B-129 plist follow-up + CI guard) merged into autopilot. Inbox: 4 bugs added (B-219..B-222). 41 next-run items promoted. No vetoes; no new answers. 69 landed lane worktrees still on disk from earlier runs (finish runs at digest).
-- B-219 runner: blocked at plan — root cause is in the leo daemon (attention hooks dropped after /clear changes session_id); shelved autopilot-shelved/B-219 (no commits).
-- B-220 runner: ready, general full, 2051 tests; 3 focus/key-window tests fail on this host every run regardless (environmental). Landed 9be165c87.
-- B-221 runner: ready, general full, 2051/2051 (the 3 focus tests passed this time). Landed 07a91d89a.
-- B-222 runner: ready, general full, 2051/2051, run-tests.sh 10/10. Landed 82ffd3309.
-- B-131 runner: ready, general full, 2051/2051. Landed 8242cd333. Item cap (5) reached; interim digest folded into the final one.
 
 Lane: B-058
   Branch: autopilot-lane/B-058
@@ -23,76 +15,67 @@ Lane: B-058
   Reviewed-tip: none
   Dispatched: 2026-09-30T14:49:01Z
 
-Lane: B-219
-  Branch: autopilot-shelved/B-219
-  Base: fd44a23bfeb47c5af0cab79d41700399d37f41e3
+## Progress
+- Preflight: main synced; 3 inbox entries applied (B-232–B-234); 9 next-run items promoted. Existing untracked build artifacts left in place.
+
+Lane: B-233
+  Branch: autopilot-lane/B-233
+  Base: d121269b17498bda9c576a804ce15f0c7f78e0a3
+  Tier: full
+  State: landed
+  Fixes: 3
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: a5fa98d8da33c829615f6fca7e41c4251f13288f
+  Dispatched: 2026-10-06T00:44:57Z
+
+- Board sync: B-014: unknown status [deferred] (exit 1). Further board writes skipped under current no-issues instruction.
+- Work queue: B-233 browser connection bug → B-234 surfaced-file connection bug → B-232 local/SSH file drop → remaining ready queue, capped at 20 dispatched items. Each item follows plan, test-first implementation, fresh review, verify, land, checkpoint.
+
+- Evan explicitly authorized updating the board during this run; checkpoint board sync resumed. Live B-233 moved to In progress. Full sync still reports legacy B-014 [deferred].
+
+- Evan changed B-014 deferred → blocked; old answer cleared to retain the block on future preflight. B-234 inbox-generated title corrected to describe surfaced files.
+
+- Evan explicitly approved supported B-233 final Xcode/SwiftPM build/test filesystem access and isolated debug test host after auto-review rejected delegated authorization. Final verifier may retry that exact scope.
+  Call: D-023 permits fixed SFTP-server bootstrap over existing ControlMaster after proven subsystem rejection — principle 3 and AUTONOMY implementation approach
+
+Finished 1: B-233 landed 055d5eebd33de99d65a1bf3494f02fe9247860a3 · not visually verified
+Finished 2: B-234 done (covered by B-233 shared-path regression)
+- B-233 landed after 3 fix rounds; full fresh general/security/concurrency reviews and independent 2,067-test suite passed. B-234 duplicate resolved by explicit shared-path coverage. Remote GUI unverified; no safe fixture.
+
+Lane: B-232
+  Branch: autopilot-shelved/B-232
+  Base: 4dbb4af9a2e7079703ab032c6df8978d7ea7f80c
   Tier: full
   State: shelved
-  Fixes: 0
+  Fixes: 3
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
-  Dispatched: 2026-10-05T00:48:31Z
-  Call: Treat B-219 as a leo daemon bug and report it to the leo agent rather than add an app heuristic — Principle 2, D-027 precedent
-  Call: Pin the app's supersede behaviour with tests only, no Swift behaviour change — AUTONOMY (bug fixes and test infra)
-Finished 1: B-219 blocked
+  Reviewed-tip: e197ba03ba77cde2732b3f9f6ebf311feb729993
+  Dispatched: 2026-10-06T04:07:15Z
+  Call: D-355 trusted-server/private-staging SFTP semantics; no-overwrite preserved, disconnect retention and rename uncertainty explicit — AUTONOMY implementation authority
 
-Lane: B-220
-  Branch: autopilot-lane/B-220
-  Base: ae549b79c3704d6b8998a26ec5d2445a89f7d4ae
-  Tier: light
-  State: landed
-  Fixes: 0
-  Wip: none
-  Reverifies: 0
-  Reviewed-tip: 844b291fcb4bc4157ef8eda4d4838ec2416d4dfa
-  Dispatched: 2026-10-05T00:55:40Z
-  Call: A build phase symlinks Contents/MacOS/ghostty -> Leo; CFBundleExecutable, Zig and upstream shell scripts untouched — AUTONOMY (keep Zig minimal), D-306
-  Call: The link target is relative, so moved or translocated bundles still work — AUTONOMY implementation approach
-Finished 2: B-220 landed 9be165c87 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-220-1.png
+Finished 3: B-232 blocked
+- B-232 final fix limit reached: source NUL-path substitution, unbounded whole-file buffering, missing transport-level lost-RENAME coverage; independent full suite still fails 3 focus/palette tests.
+- B-232 shelve refused: dirty lane (macos/default.profraw and zig-out); preserving all files on autopilot-lane/B-232 in held state. No build artifacts committed or removed.
+- B-232 scratch files retained: /Users/evan/.leo/agents/autopilot-scratch/B-232-drop.txt and B-232-browser.txt. All debug/test processes stopped; verify lock released.
 
-Lane: B-221
-  Branch: autopilot-lane/B-221
-  Base: 4090ccef37aebafc5f7496d2887523abea46e272
-  Tier: light
-  State: landed
-  Fixes: 0
+Lane: B-132
+  Branch: autopilot-shelved/B-132
+  Base: 451a67602dc7ca9c1fb48666548fb0bdf7f253c4
+  Tier: full
+  State: shelved
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: dc9d2df4d44b1a242c548fd2e62938a1e71a7784
-  Dispatched: 2026-10-05T01:28:18Z
-  Call: The run-tests step goes in leo-ci.yml, not leo-build.yml: it runs on every PR and push to main and needs no secrets — AUTONOMY (test infrastructure)
-  Call: The guard parses the YAML with /usr/bin/ruby (Psych) and fails if ruby is missing — AUTONOMY (test infrastructure)
-  Call: Updated the leo-ci row in docs/leo/ci.md — AUTONOMY (docs/test infrastructure)
-Finished 3: B-221 landed 07a91d89a · not visually verified
+  Reviewed-tip: d595505fa09974511c8bc9f25569dbaba5a138b8
+  Dispatched: 2026-10-06T04:35:39Z
 
-Lane: B-222
-  Branch: autopilot-lane/B-222
-  Base: 7853310a96d0cafc7134a7eb79be149e88ce6994
-  Tier: light
-  State: landed
-  Fixes: 0
-  Wip: none
-  Reverifies: 0
-  Reviewed-tip: 936f870a23f7b7980fbccc4c55c475cc50d3fee2
-  Dispatched: 2026-10-05T01:40:21Z
-  Call: Put the new cases in a separate, network-free test file (test_sparkle-key-check-plist-errors.sh) — AUTONOMY (test infrastructure)
-  Call: Also covered the unreadable-plist case via an up-front -r check — AUTONOMY (bug fixes)
-  Call: Missing-key detection matches PlistBuddy's "Does Not Exist" text, falling back to a generic error with PlistBuddy's raw stdout and stderr — AUTONOMY (bug fixes)
-Finished 4: B-222 landed 82ffd3309 · not visually verified
+- B-232 recovered from held to shelved: generated regular profiling file and verified shared zig-out symlink moved recoverably to /Users/evan/.leo/agents/leoterm/.git/autopilot/preserved/B-232-20261006T045235Z-51a55b9c; helper shelve succeeded as autopilot-shelved/B-232. No source or user data discarded.
 
-Lane: B-131
-  Branch: autopilot-lane/B-131
-  Base: 5092ca6268b6a9ed096b6e3cc1d1cfaaec5b5b12
-  Tier: light
-  State: landed
-  Fixes: 0
-  Wip: none
-  Reverifies: 0
-  Reviewed-tip: ac5ff61c0a393a1b922c33b97eb032a5f6a9b65f
-  Dispatched: 2026-10-05T01:50:25Z
-  Call: requireKeyAgain (#require(eventually { window.isKeyWindow })) added to the Escape test as well as the split test, closing the same vacuous-pass gap — AUTONOMY (test infrastructure)
-  Call: Escape is sent as a keyCode-53 keyDown to panel.keyDown (ending in commit(.cancel)) rather than through the SwiftUI field's cancelOperation, so the test does not depend on SwiftUI focus timing — AUTONOMY (test infrastructure)
-Finished 5: B-131 landed 8242cd333 · not visually verified
-- Board sync: B-014: unknown status [deferred] (exit 1)
-- autopilot-lane finish: landed lanes skipped as dirty (untracked zig-out/profraw leftovers); 73 lane dirs remain
+- Early stop: shared focus/palette verification failures reproduce on older default-main 3dadd1e42 (2,051 tests), fixtureless B-132 (2,067), and full B-132 (2,070). B-132 regression tests pass; no speculative harness changes. Final report identifies shared AppKit focus scheduling as a run-level verification blocker; exact root-cause fix remains follow-up.
+
+Finished 4: B-132 blocked
+- B-132 preserved on autopilot-shelved/B-132 (815c1719d); generated artifacts moved recoverably to /Users/evan/.leo/agents/leoterm/.git/autopilot/preserved/B-132-20261006T051552Z-2e1bfefc. All temporary baseline edits restored; verify lock released.
+
+- Finish: full board sync succeeded. Historical B-014 status sync errors resolved by Evan’s blocked-status change. No verify lock remains. Helper retained 73 dirty landed lanes (including B-233), plus parked held B-058; no orphan directories reported. Main untracked files remain as recorded.

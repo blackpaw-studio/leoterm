@@ -530,11 +530,45 @@ Accept: LeoContentFocusTests: drive Escape via LeoPickerPresentation.commit(.can
 Source: autopilot polish (B-087)
 Done: 516c57d9e (2051 tests, lint clean). Escape now goes through the panel key path to LeoPickerPresentation.commit(.cancel); both palette tests #require the window to be key again (old file passed vacuously under a mutation that skipped orderOut); row-switch guard doc narrowed to the host step. Not visually verified: test-only. Decisions D-352–D-353.
 
-## B-132 · Focused-surface report ordering on split open   [ready]
+## B-233 · Workspace browser reports lost host connection   [done]
+Issue: #236
+Type: bug
+Report: browsing files doesnt even work says it lost connection to the host
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: Evan (/issue, 2026-10-05)
+Inbox: 20261005T223845014618Z-e87d3338#1
+Done: 8a23dede5 b3a182a55 f3913f58c 13d7da667. Workspace browsing retains the host subsystem path and falls back safely when rejected. Independent full review and 2,067 tests/222 suites + strict SwiftLint passed. Remote GUI not visually verified (no safe remote fixture). Decision D-354.
+
+
+## B-234 · Surfaced files report lost host connection   [done]
+Issue: #237
+Type: bug
+Report: same issue with surfacing files, same error (says it lost connection to the host) — likely same root cause as the file-browsing bug logged just before this
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: Evan (/issue, 2026-10-05)
+Inbox: 20261005T224249855758Z-b473c7f0#1
+Done: 8a23dede5 b3a182a55 f3913f58c 13d7da667. Covered by B-233: shared regression lists an absolute workspace and reads an absolute surfaced-file path through the same SFTP accessor. Independent full review and 2,067 tests/222 suites + strict SwiftLint passed. Remote GUI not visually verified (no safe remote fixture). Decision D-354.
+
+
+## B-232 · Drop files into an agent's workspace (local + SSH)   [blocked]
+Issue: #238
+Why: Drag files from Finder onto an agent and they land in its workspace through the same file backend locally and over SFTP — principles 3 (Local = remote) and 4 (Everything through Leo). Two drop targets: the workspace browser (into the dropped-on folder, or root) and the agent terminal (upload into the workspace, then type the workspace path at the prompt instead of the local Mac path a remote agent can't read).
+Accept: Dropping one or more Finder files on a workspace-browser folder writes them there via both local and SFTP backends (tested) and the browser lists them; dropping files on an agent terminal uploads them into the workspace and inserts the shell-escaped workspace paths, not local paths (tested for a remote daemon); a name clash or failed upload is shown plainly and never silently overwrites (tested); a screenshot of each drop target taking a drop from the isolated debug build
+Out: folder/recursive drops; drag-out from Leo to Finder; progress UI beyond a simple in-flight indicator; clipboard-paste upload; drops on plain-shell rows with no agent workspace
+Source: Evan (/feature, 2026-10-05)
+Inbox: 20261005T223808026251Z-abc8b354#1
+Question: Final fix limit reached. Remaining blockers: reject NUL anywhere in source URLs; bound or stream source buffering; add transport-level lost-RENAME coverage; resolve independent focus/palette suite failures. Work kept on autopilot-shelved/B-232. Generated artifacts were preserved separately. I'd pick finishing these scoped fixes in a later run; D-355 already settles SFTP semantics.
+Answer:
+
+
+## B-132 · Focused-surface report ordering on split open   [blocked]
 Issue: #136
 Why: focusedSurface didSet posts .leoFocusedSurfaceDidChange before register(), so a brief nil focus report is possible (GhosttyAttachContentHost.swift:470, same in fillPlaceholder); move the assignment after register
 Accept: focusedSurface didSet posts .leoFocusedSurfaceDidChange before register(), so a brief nil focus report is possible (GhosttyAttachContentHost.swift:470, same in fillPlaceholder); move the assignment after register
 Source: autopilot polish (B-087)
+Question: Shared focus/palette verification failures predate B-132: same three failures on older default-main 3dadd1e42, fixtureless lane, and full lane; new ordering tests pass, both reviews clean. Work kept on autopilot-shelved/B-132 (815c1719d). I’d pick diagnosing shared AppKit focus scheduling first, using B-136/B-230 as related leads, then re-verifying this lane.
+Answer:
+
 
 ## B-133 · Close-confirm polish   [ready]
 Issue: #137
@@ -559,6 +593,8 @@ Issue: #140
 Why: mouseDragDivider and LeoSidebarCommandClickTests.click share the app event queue in a parallelizable plan; serialize them
 Accept: mouseDragDivider and LeoSidebarCommandClickTests.click share the app event queue in a parallelizable plan; serialize them
 Source: autopilot polish (B-089)
+Note: 2026-10-06 run stopped on three pre-existing focus/palette failures; B-132 baseline comparisons exclude its changes. Shared AppKit scheduling is the suspected mechanism, not yet an isolated cause. Inspect alongside B-230 before broadening this item.
+
 
 ## B-137 · runtests.sh baseline note for ConfigTests   [done]
 Issue: #141
@@ -1203,10 +1239,11 @@ Question: architecture may be wrong — decode, incarnation-keyed badge, Surface
 Answer: yes — drop auto-open; surfaced files are badge-only, opened with ⌥⌘O / the row Surfaced Files menu; re-apply the rest from 30fe234bf..69b736464
 Done: 70a2b21e8 eed22646d 813d4f335 263040196 (1459 tests). Re-applied f3e8d36b3's revert minus all auto-open (D-088): badge only; opens via row ▸ Surfaced Files ▸ or Agents ▸ Open Surfaced File (⌥⌘O, needs a selected row). Pane re-checks the incarnation after the read and after the unsaved prompt; identity and seen ledger keyed by agent + started_at + id; live events ordered by `at` (D-091). Verified: shots B-013-1 (row badge 2), B-013-2-screen (Surfaced Files submenu, screen capture), B-013-3 (menu open → notes.md at line 3, badge 1), B-013-4 (⌥⌘O → plan.py, badge cleared), with a DEBUG `LEO_SURFACE_FIXTURE` on a temporary autopilot-scratch (deleted). Daemon side not released, so fixture only; remote not visually verified. 2 fix rounds (review.concurrency: open-queue identity HIGH, id-only identity, baseline ordering ×3); 2 round-3 P2s dismissed → B-046.
 
-## B-014 · All hosts at once as sidebar sections   [deferred]
-Question: deferred by D-008 until several remotes are in daily use. Tell me
-when that's true. — I'd pick keeping it deferred.
-Answer: accept your recommendation (keeping it deferred)
+## B-014 · All hosts at once as sidebar sections   [blocked]
+Issue: #239
+Question: Blocked per D-008 until several remotes are in daily use. Tell me when that's true. I'd pick keeping it blocked.
+Note: Previous answer accepted keeping this out of the ready queue; Evan changed the status to blocked on 2026-10-05.
+Answer:
 
 ## B-046 · Surfaced files: keep `at` order through a partial /state merge   [done]
 Issue: #51
@@ -1519,56 +1556,76 @@ Why: B-130 review: MainMenu.xib Hide Ghostty / Quit Ghostty / Make Ghostty the D
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-130)
 
-## B-223 · Bundled ghostty CLI test: isolate cwd and profile output   [ready (next run)]
+## B-223 · Bundled ghostty CLI test: isolate cwd and profile output   [ready]
 Issue: #227
 Why: B-220 review: LeoBundledGhosttyCLITests runs its child with LLVM_PROFILE_FILE stripped and an inherited cwd, so a coverage build can drop default.profraw into Contents/MacOS and break the bundle seal — set currentDirectoryURL to a temp dir and/or LLVM_PROFILE_FILE=/dev/null
 Accept: B-220 review: LeoBundledGhosttyCLITests runs its child with LLVM_PROFILE_FILE stripped and an inherited cwd, so a coverage build can drop default.profraw into Contents/MacOS and break the bundle seal — set currentDirectoryURL to a temp dir and/or LLVM_PROFILE_FILE=/dev/null
 Source: autopilot polish (B-220)
 
-## B-224 · Bundled ghostty CLI test: deadline on the child process   [ready (next run)]
+## B-224 · Bundled ghostty CLI test: deadline on the child process   [ready]
 Issue: #228
 Why: B-220 review: readDataToEndOfFile/waitUntilExit have no deadline, so a hung child hangs the run instead of failing — add a terminate deadline like LeoProcessRunnerTests.timeoutTerminatesProcess
 Accept: B-220 review: readDataToEndOfFile/waitUntilExit have no deadline, so a hung child hangs the run instead of failing — add a terminate deadline like LeoProcessRunnerTests.timeoutTerminatesProcess
 Source: autopilot polish (B-220)
 
-## B-225 · Check release signing with the Contents/MacOS/ghostty symlink   [ready (next run)]
+## B-225 · Check release signing with the Contents/MacOS/ghostty symlink   [ready]
 Issue: #229
 Why: B-220 verify: release signing and notarization with a symlink in Contents/MacOS are untested (ad-hoc codesign --deep --strict passes); watch the next CI release build or add a CI codesign --verify --strict check
 Accept: B-220 verify: release signing and notarization with a symlink in Contents/MacOS are untested (ad-hoc codesign --deep --strict passes); watch the next CI release build or add a CI codesign --verify --strict check
 Source: autopilot polish (B-220)
 
-## B-226 · CI script-tests guard: tighten the step match   [ready (next run)]
+## B-226 · CI script-tests guard: tighten the step match   [ready]
 Issue: #230
 Why: B-221 review: the guard is satisfied by `run-tests.sh --list` or a DIR argument and ignores job-level continue-on-error — require nothing after run-tests.sh on the matched line and reject job-level continue-on-error (test_ci-runs-script-tests.sh:96)
 Accept: B-221 review: the guard is satisfied by `run-tests.sh --list` or a DIR argument and ignores job-level continue-on-error — require nothing after run-tests.sh on the matched line and reject job-level continue-on-error (test_ci-runs-script-tests.sh:96)
 Source: autopilot polish (B-221)
 
-## B-227 · Release path runs the CI script tests   [ready (next run)]
+## B-227 · Release path runs the CI script tests   [ready]
 Issue: #231
 Why: B-221 review: leo-release.yml calls only leo-build, so a tag on a commit that skipped main (or while main's leo-ci was red) can release without the script tests — have leo-release call leo-ci (workflow_call) or have leo-build run run-tests.sh first
 Accept: B-221 review: leo-release.yml calls only leo-build, so a tag on a commit that skipped main (or while main's leo-ci was red) can release without the script tests — have leo-release call leo-ci (workflow_call) or have leo-build run run-tests.sh first
 Source: autopilot polish (B-221)
 
-## B-228 · run-tests.sh pins /bin/bash   [ready (next run)]
+## B-228 · run-tests.sh pins /bin/bash   [ready]
 Issue: #232
 Why: B-221 review: run-tests.sh:43 runs `bash "$t"` from PATH, so Homebrew bash 5 could hide bash 3.2 incompatibilities — pin it to /bin/bash
 Accept: B-221 review: run-tests.sh:43 runs `bash "$t"` from PATH, so Homebrew bash 5 could hide bash 3.2 incompatibilities — pin it to /bin/bash
 Source: autopilot polish (B-221)
 
-## B-229 · sparkle-key-check: missing-key detection without PlistBuddy wording   [ready (next run)]
+## B-229 · sparkle-key-check: missing-key detection without PlistBuddy wording   [ready]
 Issue: #233
 Why: B-222 review: sparkle-key-check.sh's missing-key detection matches PlistBuddy's English `":SUPublicEDKey", Does Not Exist` text; if macOS changes it the script falls back to the generic "could not read" error (accurate but less specific) — consider `plutil -extract` or an exit-code-based check
 Accept: B-222 review: sparkle-key-check.sh's missing-key detection matches PlistBuddy's English `":SUPublicEDKey", Does Not Exist` text; if macOS changes it the script falls back to the generic "could not read" error (accurate but less specific) — consider `plutil -extract` or an exit-code-based check
 Source: autopilot polish (B-222)
 
-## B-230 · Focus tests: tear down the palette presentation on failure   [ready (next run)]
+## B-230 · Focus tests: tear down the palette presentation on failure   [ready]
 Issue: #234
 Why: B-131 review: in LeoContentFocusTests presentPaletteForRequest (and the older presentPalette), a failure between present and Escape never invalidates the presentation, so the panel stays a key child window until fixture.close(); a defer'd close/invalidate stops one failure leaking into the next test
 Accept: B-131 review: in LeoContentFocusTests presentPaletteForRequest (and the older presentPalette), a failure between present and Escape never invalidates the presentation, so the panel stays a key child window until fixture.close(); a defer'd close/invalidate stops one failure leaking into the next test
 Source: autopilot polish (B-131)
 
-## B-231 · Focus tests: rename the shadowing sidebar local   [ready (next run)]
+## B-231 · Focus tests: rename the shadowing sidebar local   [ready]
 Issue: #235
 Why: B-131 review: `let sidebar = LeoSidebarModel()` in presentPaletteForRequest (~line 148) shadows the fixture's `sidebar: NSView`; rename it to sidebarModel
 Accept: B-131 review: `let sidebar = LeoSidebarModel()` in presentPaletteForRequest (~line 148) shadows the fixture's `sidebar: NSView`; rename it to sidebarModel
 Source: autopilot polish (B-131)
+
+## B-235 · SFTP rejection diagnostic with invalid UTF-8 suffix   [ready (next run)]
+Issue: #240
+Why: Final B-233 security review: invalid or truncated UTF-8 suffix can suppress an earlier complete canonical rejection line; safe failure but fallback may be missed.
+Accept: A complete canonical rejection line is recognized despite invalid UTF-8 in a later suffix; truncated noncanonical lines still never trigger fallback; regression tests.
+Source: autopilot polish (B-233)
+
+## B-236 · Upload error filenames in right-to-left text   [ready (next run)]
+Issue: #241
+Why: B-232 final review: isolate RTL filenames in the upload error message.
+Accept: Once B-232 is landed, improve this upload-error presentation with verification.
+Requires: B-232 done (do not build before the feature lands).
+Source: autopilot polish (B-232)
+
+## B-237 · Terminal upload errors truncate after four lines   [ready (next run)]
+Issue: #242
+Why: B-232 final review: terminal failure overlay truncates longer error batches.
+Accept: Once B-232 is landed, improve this upload-error presentation with verification.
+Requires: B-232 done (do not build before the feature lands).
+Source: autopilot polish (B-232)
