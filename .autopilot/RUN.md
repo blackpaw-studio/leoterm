@@ -29,3 +29,5 @@ Lane: B-238
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-10-06T18:08:31Z
+
+- B-238 serial authoritative suite passed 2,072/223. Operational corrections: use escalated bridge socket calls and proven own-debug PID; sandbox IPC denial is not bridge outage. Documented in verify.md. GUI capture still pending.

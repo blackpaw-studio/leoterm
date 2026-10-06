@@ -101,3 +101,11 @@ peekaboo see --no-elements --mode window --app $APPID \
 - Modifier clicks need a snapshot and GLOBAL coordinates: `peekaboo see --mode window ... --json` → `snapshot_id`, then `peekaboo click --snapshot <id> --at <globalX,globalY> --modifiers cmd --foreground`. Delivery is unreliable (a "cursor restoration" warning, and sometimes the click never lands), so treat a ⌘-click result as inconclusive and rely on `LeoSidebarCommandClickTests`.
 - CGEvents posted from this shell don't reach the app (no Accessibility permission).
 - Count attaches with `tmux -L leo list-clients | grep scratch`. Before quitting, detach the scratch clients.
+
+
+## Codex sandbox and Peekaboo targeting (2026-10-06)
+- Under workspace-write, every process inspection and Peekaboo bridge/GUI call must use `sandbox_permissions: require_escalated`. A bridge handshake with `NSPOSIXErrorDomain Code=1 Operation not permitted` from a sandboxed call is not evidence of a bridge outage; retry the read-only bridge status with escalation before declaring a blocker.
+- Always pass `--bridge-socket "$HOME/Library/Application Support/Peekaboo/bridge.sock"`. Without it, the CLI may lack Accessibility even though the GUI bridge has it.
+- Bundle-ID discovery may refuse because an unrelated process has incomplete metadata. When this happens, target `--app PID:<own-debug-pid>` only after proving its exact lane executable, `studio.blackpaw.leo.macos.debug` bundle ID, process generation and unique identity. Verify frontmost before input; preserve unrelated processes.
+- Keep approved isolated launch, lock, process inspection and GUI actions in separate commands. For an auto-review rejection, quote it and retry only with authorization evidence or a safer scope; never bypass it.
+- Implementers must wait for all commands/test hosts they start before reporting. Verifiers must prove no other XCTest host is active before the serial authoritative suite. Do not repeat a passing independent suite when subsequent work is GUI-only and source is unchanged.
