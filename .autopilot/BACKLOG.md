@@ -531,6 +531,7 @@ Source: autopilot polish (B-087)
 Done: 516c57d9e (2051 tests, lint clean). Escape now goes through the panel key path to LeoPickerPresentation.commit(.cancel); both palette tests #require the window to be key again (old file passed vacuously under a mutation that skipped orderOut); row-switch guard doc narrowed to the host step. Not visually verified: test-only. Decisions D-352–D-353.
 
 ## B-233 · Workspace browser reports lost host connection   [ready]
+Issue: #236
 Type: bug
 Report: browsing files doesnt even work says it lost connection to the host
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -538,6 +539,7 @@ Source: Evan (/issue, 2026-10-05)
 Inbox: 20261005T223845014618Z-e87d3338#1
 
 ## B-234 · Workspace browser reports lost host connection   [ready]
+Issue: #237
 Type: bug
 Report: same issue with surfacing files, same error (says it lost connection to the host) — likely same root cause as the file-browsing bug logged just before this
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -545,6 +547,7 @@ Source: Evan (/issue, 2026-10-05)
 Inbox: 20261005T224249855758Z-b473c7f0#1
 
 ## B-232 · Drop files into an agent's workspace (local + SSH)   [ready]
+Issue: #238
 Why: Drag files from Finder onto an agent and they land in its workspace through the same file backend locally and over SFTP — principles 3 (Local = remote) and 4 (Everything through Leo). Two drop targets: the workspace browser (into the dropped-on folder, or root) and the agent terminal (upload into the workspace, then type the workspace path at the prompt instead of the local Mac path a remote agent can't read).
 Accept: Dropping one or more Finder files on a workspace-browser folder writes them there via both local and SFTP backends (tested) and the browser lists them; dropping files on an agent terminal uploads them into the workspace and inserts the shell-escaped workspace paths, not local paths (tested for a remote daemon); a name clash or failed upload is shown plainly and never silently overwrites (tested); a screenshot of each drop target taking a drop from the isolated debug build
 Out: folder/recursive drops; drag-out from Leo to Finder; progress UI beyond a simple in-flight indicator; clipboard-paste upload; drops on plain-shell rows with no agent workspace

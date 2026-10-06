@@ -28,3 +28,6 @@ Lane: B-233
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-10-06T00:44:57Z
+
+- Board sync: B-014: unknown status [deferred] (exit 1). Further board writes skipped under current no-issues instruction.
+- Work queue: B-233 browser connection bug → B-234 surfaced-file connection bug → B-232 local/SSH file drop → remaining ready queue, capped at 20 dispatched items. Each item follows plan, test-first implementation, fresh review, verify, land, checkpoint.
