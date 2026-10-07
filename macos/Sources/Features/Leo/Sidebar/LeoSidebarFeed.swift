@@ -98,6 +98,8 @@ actor LeoSidebarFeed {
     let onAttentionTransitions: @MainActor @Sendable ([LeoAttentionTransition]) -> Void
     /// Files surfaced on the selected host (B-013), by incarnation.
     var surfacedFiles = LeoSurfacedFileIndex.empty
+    /// The selected host's live dispatches (B-257) -- see `LeoSidebarFeed+Dispatches.swift`.
+    var dispatchTree = LeoDispatchTree()
     var running = false
     var needsState = true
     var recovering = false
@@ -157,6 +159,7 @@ actor LeoSidebarFeed {
         attentionTask?.cancel()
         cancelLivenessCheck()
         resetMetadata()
+        resetDispatches()
         attentionTask = nil
         eventTask = nil
         refreshTask = nil
@@ -229,10 +232,16 @@ actor LeoSidebarFeed {
 
     func receive(_ event: LeoObserveEvent) {
         guard running else { return }
-        // Sequence-only events never touch the activity coalescer or the
-        // attention reducer: a turn event must not flush the window early.
+        // Sequence-only and dispatch events never touch the activity
+        // coalescer or the attention reducer: a turn event or a dispatch
+        // tick must not flush the window early.
         switch event {
-        case .other, .dispatchChanged: return
+        case .other: return
+        case .dispatchChanged(_, let dispatch):
+            receiveDispatch(dispatch)
+            return
+        case .hello(_, _, _, _, let bootID, let features):
+            receiveDispatchHello(bootID: bootID, features: features)
         default: break
         }
         // Every non-activity event either emits directly (`.disconnected`)
@@ -367,7 +376,7 @@ actor LeoSidebarFeed {
     }
 
     func emit() {
-        let value = displayedSnapshot.overlayingAttention(attention)
+        let value = displayedSnapshot.overlayingAttention(attention).overlayingDispatches(dispatchTree)
         let previous = emissionTask
         emissionTask = Task { [weak self, sink] in
             await previous?.value

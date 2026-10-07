@@ -104,7 +104,8 @@ extension LeoSidebarSnapshot {
             connectivity: connectivity,
             generation: generation,
             listRefreshSucceeded: listRefreshSucceeded,
-            attentionCount: isLive ? reducer.dockCount(among: Set(rows.map(\.name))) : 0
+            attentionCount: isLive ? reducer.dockCount(among: Set(rows.map(\.name))) : 0,
+            dispatchChildren: dispatchChildren
         )
     }
 }

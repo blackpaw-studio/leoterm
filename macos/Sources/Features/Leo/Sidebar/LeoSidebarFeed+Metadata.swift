@@ -53,6 +53,7 @@ extension LeoSidebarFeed {
         metadataRefreshPending = false
         let request = nextMetadataRequest()
         let generation = snapshot.generation
+        let dispatchMark = dispatchTree.mark
         metadataInFlight = request
         metadataTask = Task { [weak self, activitySource] in
             let state: LeoObservedState?
@@ -65,19 +66,20 @@ extension LeoSidebarFeed {
                 Self.logger.error("Leo sidebar metadata fetch failed: \(String(describing: error), privacy: .public)")
                 state = nil
             }
-            await self?.metadataFetchFinished(state, request: request, generation: generation)
+            await self?.metadataFetchFinished(state, request: request, generation: generation, dispatchMark: dispatchMark)
         }
     }
 
-    private func metadataFetchFinished(_ observed: LeoObservedState?, request: Int, generation: Int) {
+    private func metadataFetchFinished(_ observed: LeoObservedState?, request: Int, generation: Int, dispatchMark: Int) {
         // A reset retired this fetch, and a newer one may own the slot.
         guard metadataInFlight == request else { return }
         metadataInFlight = nil
         metadataTask = nil
         let shown = displayedSnapshot
-        if let state = observed?.agents, generation == snapshot.generation {
-            mergeSurfacedFiles(from: state)
-            applyMetadata(state, request: request, generation: generation)
+        if let observed, generation == snapshot.generation {
+            mergeSurfacedFiles(from: observed.agents)
+            applyMetadata(observed.agents, request: request, generation: generation)
+            mergeDispatchSnapshot(observed.dispatches, since: dispatchMark)
         }
         if displayedSnapshot != shown { emit() }
         if metadataRefreshPending { requestMetadataRefresh() }
@@ -91,7 +93,7 @@ extension LeoSidebarSnapshot {
         let rows = connectivity.isDisconnected ? rows.map { $0.withMetadata(nil) } : index.attach(to: rows)
         return LeoSidebarSnapshot(
             rows: rows, connectivity: connectivity, generation: generation,
-            listRefreshSucceeded: listRefreshSucceeded, attentionCount: attentionCount
+            listRefreshSucceeded: listRefreshSucceeded, attentionCount: attentionCount, dispatchChildren: dispatchChildren
         )
     }
 }

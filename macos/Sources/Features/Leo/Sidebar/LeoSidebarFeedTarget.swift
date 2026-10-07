@@ -80,6 +80,7 @@ extension LeoSidebarFeed {
             } else {
                 attention.switchHost(host)
                 surfacedFiles = .empty
+                resetDispatches()
                 wasLive = false
                 snapshot = .init(rows: [], connectivity: .loading, generation: snapshot.generation + 1)
             }

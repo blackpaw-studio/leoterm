@@ -25,6 +25,7 @@ extension LeoSidebarFeed {
         activityCoalescer = LeoActivityCoalescer()
         activityByName = [:]
         resetMetadata()
+        clearDispatchRecords()
         bufferedActivity = []
         attention.disconnect()
         scheduleAttentionTick()

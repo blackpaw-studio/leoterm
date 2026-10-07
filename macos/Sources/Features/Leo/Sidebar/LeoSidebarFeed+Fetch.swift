@@ -7,6 +7,7 @@ extension LeoSidebarFeed {
     func fetchActivityState(generation: Int) {
         activityTask?.cancel()
         let metadataRequest = nextMetadataRequest()
+        let dispatchMark = dispatchTree.mark
         // This baseline covers whatever was owed until now; only activity
         // drained after it starts needs a snapshot of its own.
         metadataRefreshPending = false
@@ -14,7 +15,7 @@ extension LeoSidebarFeed {
             do {
                 let state = try await Self.fetchState(from: activitySource)
                 guard let self else { return }
-                await self.applyActivityState(state, generation: generation, metadataRequest: metadataRequest)
+                await self.applyActivityState(state, generation: generation, metadataRequest: metadataRequest, dispatchMark: dispatchMark)
             } catch is CancellationError {
                 return
             } catch {
@@ -60,9 +61,10 @@ extension LeoSidebarFeed {
         return try result.get()
     }
 
-    func applyActivityState(_ observed: LeoObservedState, generation: Int, metadataRequest: Int) {
+    func applyActivityState(_ observed: LeoObservedState, generation: Int, metadataRequest: Int, dispatchMark: Int) {
         guard running, generation == snapshot.generation else { return }
         let state = observed.agents
+        applyDispatchBaseline(observed.dispatches, since: dispatchMark)
         applyMetadata(state, request: metadataRequest, generation: generation)
         mergeSurfacedFiles(from: state)
         // `state` is the authoritative baseline as of when the fetch
