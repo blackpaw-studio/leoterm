@@ -43,6 +43,16 @@ Lane: B-257
   Call: Disconnect clears records but keeps same-boot ended ids, a boot change clears all, a host switch resets, and a Retry baseline repairs anything missed — principle 5
   Call: Caps that only bound a misbehaving daemon: 256 ended ids, 1024 live records, nesting depth 16, indent clamped at depth 4; only nesting changes emit — principle 2
 
+Lane: B-258
+  Branch: autopilot-lane/B-258
+  Base: 2877d486c4ba732de773a91b2ddbaed3ad6be4a7
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 ## Progress
 Finished 1: B-257 landed 8a28dfb7bd072c049000f75f71a3fd3c976b8a83 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-257-2.png
 - B-257 landed 8a28dfb7b: nested dispatch rows under the parent via parent_dispatch_id, gated on hello dispatch_tree; SSE-trace replay test; 1 fix round (baseline ordering); suite 2126 green. Polish filed (5).
