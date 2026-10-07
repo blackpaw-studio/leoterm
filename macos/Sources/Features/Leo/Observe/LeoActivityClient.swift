@@ -381,7 +381,7 @@ extension LeoObserveEvent {
         case .hello(let seq, _, _, _, _, _), .agentSpawned(let seq, _, _, _),
              .agentStateChanged(let seq, _, _, _, _, _), .agentActivity(let seq, _, _, _, _, _),
              .agentStopped(let seq, _, _, _), .dispatchChanged(let seq, _), .other(let seq, _),
-             .agentTurnCompleted(let seq, _), .agentUsage(let seq, _, _): return seq
+             .agentTurnCompleted(let seq, _), .agentUsage(let seq, _, _), .agentCompaction(let seq, _): return seq
         case .fileSurfaced(let seq, _): return seq ?? -1
         case .connected, .disconnected, .gap, .snapshot: return -1
         }
