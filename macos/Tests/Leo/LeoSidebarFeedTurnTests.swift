@@ -161,7 +161,8 @@ struct LeoSidebarFeedTurnTests {
     }
 }
 
-private struct TurnHarness {
+/// Shared with the other feed suites that drive one `alpha` agent (B-261).
+struct TurnHarness {
     let clock = TurnClock()
     let activity: TurnActivity
     let recorder = TurnRecorder()
@@ -204,10 +205,10 @@ private struct TurnHarness {
     }
 }
 
-private actor TurnActivity {
+actor TurnActivity {
     private let stream: AsyncStream<LeoObserveEvent>
     private let continuation: AsyncStream<LeoObserveEvent>.Continuation
-    private let usage: LeoAgentUsage?
+    private var usage: LeoAgentUsage?
     private(set) var fetchCount = 0
 
     init(usage: LeoAgentUsage?) {
@@ -217,6 +218,7 @@ private actor TurnActivity {
 
     func events() -> AsyncStream<LeoObserveEvent> { stream }
     func send(_ event: LeoObserveEvent) { continuation.yield(event) }
+    func setUsage(_ usage: LeoAgentUsage?) { self.usage = usage }
 
     func fetchState() -> LeoObservedState {
         fetchCount += 1
@@ -226,7 +228,7 @@ private actor TurnActivity {
     }
 }
 
-private actor TurnDaemon: LeoDaemonClient {
+actor TurnDaemon: LeoDaemonClient {
     func listAgents() async throws -> [LeoAgent] {
         [LeoAgent(name: "alpha", template: nil, repo: nil, workspace: nil, branch: nil, canonicalPath: nil, status: .running, startedAt: "t1", restarts: nil, stoppedReason: nil, wakeOnMessage: nil)]
     }
@@ -242,13 +244,13 @@ private actor TurnDaemon: LeoDaemonClient {
     func logs(_ name: String, lines: Int?) async throws -> String { fatalError() }
 }
 
-private actor TurnRecorder {
+actor TurnRecorder {
     private(set) var values: [LeoSidebarSnapshot] = []
     var last: LeoSidebarSnapshot? { values.last }
     func append(_ value: LeoSidebarSnapshot) { values.append(value) }
 }
 
-private actor TurnClock {
+actor TurnClock {
     private var waiters: [Int: CheckedContinuation<Void, Error>] = [:]
     private var nextID = 0
     func sleep(_ nanoseconds: UInt64) async throws {

@@ -45,12 +45,15 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
     /// The agent's last turn, overlaid by `LeoSidebarFeed` at emission time
     /// (B-259); nil unless the daemon advertised `bridge_turns`.
     let lastTurn: LeoTurnPreview?
+    /// A compaction in progress, overlaid at emission time from the
+    /// `agent_compaction` events (B-261); nil otherwise.
+    let compaction: LeoRowCompaction?
 
     init(
         host: LeoHostID, name: String, template: String?, status: LeoAgentStatus, activity: Activity, actionDetail: String?,
         workspace: String? = nil, repo: String? = nil, attention: LeoAttentionBadge? = nil, attentionReason: LeoAttentionReason? = nil,
         startedAt: String? = nil, metadata: LeoAgentMetadata? = nil, surfacedFiles: [LeoSurfacedFile] = [],
-        lastTurn: LeoTurnPreview? = nil
+        lastTurn: LeoTurnPreview? = nil, compaction: LeoRowCompaction? = nil
     ) {
         self.host = host
         self.name = name
@@ -66,13 +69,14 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         self.metadata = metadata
         self.surfacedFiles = surfacedFiles
         self.lastTurn = lastTurn
+        self.compaction = compaction
     }
 
     func withAttention(_ attention: LeoAttentionBadge?, reason: LeoAttentionReason? = nil) -> LeoAgentRow {
         LeoAgentRow(
             host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, attention: attention, attentionReason: reason, startedAt: startedAt,
-            metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn
+            metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn, compaction: compaction
         )
     }
 
@@ -80,7 +84,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         LeoAgentRow(
             host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
-            startedAt: startedAt, metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn
+            startedAt: startedAt, metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn, compaction: compaction
         )
     }
 
@@ -88,7 +92,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         LeoAgentRow(
             host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
-            startedAt: startedAt, metadata: metadata, surfacedFiles: files, lastTurn: lastTurn
+            startedAt: startedAt, metadata: metadata, surfacedFiles: files, lastTurn: lastTurn, compaction: compaction
         )
     }
 
@@ -96,7 +100,15 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         LeoAgentRow(
             host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
-            startedAt: startedAt, metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn
+            startedAt: startedAt, metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn, compaction: compaction
+        )
+    }
+
+    func withCompaction(_ compaction: LeoRowCompaction?) -> LeoAgentRow {
+        LeoAgentRow(
+            host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
+            workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
+            startedAt: startedAt, metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn, compaction: compaction
         )
     }
 

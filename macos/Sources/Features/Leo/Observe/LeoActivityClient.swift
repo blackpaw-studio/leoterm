@@ -129,8 +129,10 @@ enum LeoObserveEvent: Equatable, Sendable {
     case agentTurnCompleted(seq: Int, turn: LeoTurnCompletion)
     /// An agent's usage changed outside a turn completion (`agent_usage`).
     case agentUsage(seq: Int, agent: String, usage: LeoAgentUsage)
+    /// A bridged agent's context compaction began or ended (`agent_compaction`).
+    case agentCompaction(seq: Int, compaction: LeoCompactionEvent)
     /// An event the app recognizes as carrying a seq but doesn't consume
-    /// (compaction, anything newer, or a malformed dispatch, turn or usage).
+    /// (anything newer, or a malformed dispatch, turn, usage or compaction).
     /// It only advances the sequence, so skipping it never reads as a gap.
     case other(seq: Int, type: String)
 }
@@ -319,6 +321,13 @@ actor LeoActivityClient {
             if let p = try? decoder.decode(Payload.self, from: data) { return .agentUsage(seq: p.seq, agent: p.agent, usage: p.usage) }
             leoActivityClientLogger.debug("activityClient: malformed agent_usage kept as a sequence-only event")
             return sequence(in: data).map { .other(seq: $0, type: name) }
+        case "agent_compaction":
+            struct Payload: Decodable { let seq: Int }
+            if let p = try? decoder.decode(Payload.self, from: data), let compaction = try? decoder.decode(LeoCompactionEvent.self, from: data) {
+                return .agentCompaction(seq: p.seq, compaction: compaction)
+            }
+            leoActivityClientLogger.debug("activityClient: malformed agent_compaction kept as a sequence-only event")
+            return sequence(in: data).map { .other(seq: $0, type: name) }
         default:
             // Recognized as an event (it has a seq) but not consumed here.
             return sequence(in: data).map { .other(seq: $0, type: name) }
@@ -372,7 +381,7 @@ extension LeoObserveEvent {
         case .hello(let seq, _, _, _, _, _), .agentSpawned(let seq, _, _, _),
              .agentStateChanged(let seq, _, _, _, _, _), .agentActivity(let seq, _, _, _, _, _),
              .agentStopped(let seq, _, _, _), .dispatchChanged(let seq, _), .other(let seq, _),
-             .agentTurnCompleted(let seq, _), .agentUsage(let seq, _, _): return seq
+             .agentTurnCompleted(let seq, _), .agentUsage(let seq, _, _), .agentCompaction(let seq, _): return seq
         case .fileSurfaced(let seq, _): return seq ?? -1
         case .connected, .disconnected, .gap, .snapshot: return -1
         }

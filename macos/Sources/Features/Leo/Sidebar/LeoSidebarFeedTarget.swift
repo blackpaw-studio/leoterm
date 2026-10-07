@@ -82,6 +82,7 @@ extension LeoSidebarFeed {
                 surfacedFiles = .empty
                 resetDispatches()
                 resetTurns()
+                resetCompactions()
                 wasLive = false
                 snapshot = .init(rows: [], connectivity: .loading, generation: snapshot.generation + 1)
             }

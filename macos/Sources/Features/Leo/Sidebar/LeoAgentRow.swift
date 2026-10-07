@@ -138,7 +138,19 @@ struct LeoAgentRowView: View {
             // The current task as the daemon's last snapshot reported it
             // (already sanitized); the tooltip holds what the line cuts.
             let details = presentation()
-            if let task = details.task {
+            if let compacting = details.compacting {
+                // B-261: quiet and static -- it explains a pause, it doesn't
+                // ask for anything. Fixed copy only.
+                Label {
+                    Text(compacting)
+                } icon: {
+                    Image(systemName: "arrow.down.right.and.arrow.up.left").foregroundStyle(.secondary)
+                }
+                .font(.caption).foregroundStyle(.secondary)
+                    .lineLimit(1).truncationMode(.tail)
+                    .help(details.compactingHelp ?? compacting)
+                    .accessibilityLabel(details.compactingHelp ?? compacting)
+            } else if let task = details.task {
                 Text(task).font(.caption).foregroundStyle(.secondary)
                     .lineLimit(1).truncationMode(.tail)
                     .help(task)

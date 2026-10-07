@@ -78,6 +78,17 @@ struct LeoAttentionFixtureTests {
         #expect(malformed.actions.isEmpty)
     }
 
+    @Test func fixtureCompactionsKeyDecodesLeniently() throws {
+        let json = #"{"compactions":{"alpha":[{"phase":"started","trigger":"auto"},{"phase":"sideways"},{"phase":"completed"}],"beta":3}}"#
+        let file = try JSONDecoder().decode(LeoAttentionFixture.File.self, from: Data(json.utf8))
+        #expect(file.compactions == ["alpha": [
+            LeoCompactionEvent(agent: "alpha", phase: .started, trigger: .auto, contextPercent: nil),
+            LeoCompactionEvent(agent: "alpha", phase: .completed, trigger: nil, contextPercent: nil)
+        ]])
+        let malformed = try JSONDecoder().decode(LeoAttentionFixture.File.self, from: Data(#"{"compactions":3}"#.utf8))
+        #expect(malformed.compactions.isEmpty)
+    }
+
     @Test func helloAdvertisesTheFixturesFeatures() async throws {
         let (stream, continuation) = AsyncStream<LeoObserveEvent>.makeStream()
         continuation.yield(.hello(seq: 1, at: nil, version: "1", serverTime: nil, bootID: "b", features: ["dispatch_tree"]))
