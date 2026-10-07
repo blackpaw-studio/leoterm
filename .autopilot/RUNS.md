@@ -378,3 +378,10 @@ Completed B-238 (Left/Right duplicate-name close confirmations) and B-239 (wide 
 ## 2026-10-06T19:14:26Z — Corrected Next Run verification accepted
 
 B-238 now genuinely complete: actual Right dialog window333046 and Left dialog333081 captured as B-238-3/4; fresh verifier and root directly inspected both readable 260x170 PNGs. Earlier B-238-1/2 parent-only images were invalid and remain audit evidence. B-239 wide/narrow captures also inspected by root and accepted. Existing source unchanged, independent serial 2,072/223 suite and strict lint passes remain valid. Both items done without code changes; fresh review clear. Only own debug instances terminated and verify locks released. Proceeding with explicitly authorized merge/push main and leo-v0.7.3 release.
+
+## 2026-10-07T02:10Z — leoterm autopilot: 4 shipped, 1 blocked (budget 5)
+Shipped: B-139 per-step clamp check + 1 pt tolerance (91b448d74) · light; B-140 Reset/Return To Default Size restores the stored sidebar width (01b5b5bc0, 8a96bd527) · full; B-141 leoAppIsHidden injection seam for isLeoWindowShown (8016b94b4) · light; B-142 folder-open stray-window guard — the 500x500 window is macOS's TUINSWindow, kept (16f07b692, ff8302d49, be6f60ff7) · full.
+Blocked: B-143 runner timed out at 3h mid fix round 2; held on autopilot-lane/B-143 (shelve refused: untracked profraw + zig-out symlink).
+Escalated: none (B-142 planned hard from the start).
+Calls: D-361–D-372. Polish filed for next run: B-240–B-250.
+Board sync re-enabled mid-run at Evan's request. autopilot-lane finish skipped 77 landed lanes as dirty (untracked default.profraw / zig-out symlinks), incl. B-139–B-142.
