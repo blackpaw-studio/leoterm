@@ -13,6 +13,7 @@ Self-filed: B-258 → dropped (over cap) — Bidi-isolate attention tool and det
 Self-filed: B-259 → dropped (over cap) — Usage-only subtitle can overflow on a very narrow row
 Self-filed: B-259 → dropped (over cap) — Thousands separator for cost
 Self-filed: B-259 → dropped (over cap) — Drop cost before context % on narrow rows
+Self-filed: B-260 → dropped (over cap) — Friendlier display for MCP tool names
 Focus: leo PR #226 bridge features (B-257–B-262, then B-051)
 Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 
@@ -97,12 +98,19 @@ Lane: B-260
   Branch: autopilot-lane/B-260
   Base: c45f2efbddc07721068059590875af0d9e3e3038
   Tier: full
-  State: building
+  State: verifying
   Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: aed36d0e44d55bcac463277c2bd05722830372a3
   Dispatched: 2026-10-07T20:49:14Z
+  Call: Show only the tool name (first token of sanitized detail), never summary/arguments — item Out + principle 2
+  Call: Tool line = static secondary-grey hammer + name in the task line's place, hides the B-259 turn preview while a tool runs; no badge/motion — principle 2, AUTONOMY UX details
+  Call: No feature gating: kind "tool" names itself; pane/nil/unknown kinds keep today's full-detail task line — principle 2 (never invent state)
+  Call: Tool name with a space shows only its first word (detail never shown for "tool") — principle 2
+  Call: CSI/OSC escape stripping scoped to toolName(fromDetail:); task-line sanitizer unchanged — principle 2
+  Call: "Running X" tooltip/VoiceOver label bidi-isolated like B-259's turn line — principle 1
+  Call: DEBUG fixture key "actions" (agent → {kind, detail}) overrides current_action for verification — AUTONOMY test infra
 
 ## Progress
 Finished 1: B-257 landed 8a28dfb7bd072c049000f75f71a3fd3c976b8a83 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-257-2.png
