@@ -97,6 +97,9 @@ struct LeoAgentRowPresentation: Equatable {
     let subtitle: Subtitle?
     /// The agent's current task (already sanitized), for its own line.
     let task: String?
+    /// B-260: the tool the agent is running now (name only); it takes the
+    /// task line's place and hides the turn preview.
+    let tool: String?
     /// B-259: the last turn's preview as one line, only while the row has
     /// no task line (the task is what the agent is doing now, the preview
     /// what it just did). An aborted turn is labelled so.
@@ -110,7 +113,8 @@ struct LeoAgentRowPresentation: Equatable {
     ) {
         let template = row.template.flatMap { $0.isEmpty ? nil : $0 }
         task = row.metadata?.task
-        turnPreview = task == nil ? row.lastTurn.map(Self.turnLine) : nil
+        tool = row.metadata?.tool
+        turnPreview = task == nil && tool == nil ? row.lastTurn.map(Self.turnLine) : nil
         let attention = row.attention.map(LeoStatusPresentation.attention)
         // On a selected row the state drops to the primary color for contrast.
         let tint = { (presentation: LeoStatusPresentation.Presentation) in isSelected ? Color.primary : presentation.color }
@@ -129,6 +133,13 @@ struct LeoAgentRowPresentation: Equatable {
                 usageSpoken: usage.map(LeoUsageFormat.spoken)
             )
     }
+
+    /// "Running Bash", the name isolated so a right-to-left name can't
+    /// reorder the sentence; the hover and VoiceOver both say it.
+    var toolHelp: String? { tool.map { "Running \(LeoSFTPServerText.isolated($0))" } }
+
+    /// `tool` as VoiceOver says it.
+    var toolSpoken: String? { toolHelp }
 
     private static func turnLine(_ turn: LeoTurnPreview) -> String {
         let text = LeoSFTPServerText.isolated(turn.text)

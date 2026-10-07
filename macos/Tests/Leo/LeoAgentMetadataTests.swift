@@ -47,6 +47,43 @@ struct LeoAgentMetadataTests {
         #expect(!task.unicodeScalars.contains("\u{202E}"))
     }
 
+    // B-260: kind "tool" shows the tool's name, never its arguments.
+    @Test func toolActionYieldsToolNameWithoutArguments() throws {
+        let entries = LeoAgentMetadataIndex(state: [observed("alpha", startedAt: "s1", kind: "tool", detail: "Read ~/a.go")])
+        let metadata = try #require(entries.metadata(name: "alpha", startedAt: "s1"))
+        #expect(metadata.tool == "Read")
+        #expect(metadata.task == nil)
+    }
+
+    @Test(arguments: [("Bash", "Bash"), ("mcp__srv__do x y", "mcp__srv__do"), ("  Edit   a b ", "Edit")])
+    func toolNameIsTheFirstToken(detail: String, expected: String) {
+        #expect(LeoAgentMetadata.toolName(fromDetail: detail) == expected)
+    }
+
+    @Test func blankToolDetailYieldsNothing() {
+        #expect(LeoAgentMetadata.toolName(fromDetail: "") == nil)
+        #expect(LeoAgentMetadata.toolName(fromDetail: " \t ") == nil)
+        let entries = LeoAgentMetadataIndex(state: [observed("alpha", startedAt: "s1", kind: "tool", detail: "   ")])
+        #expect(entries.metadata(name: "alpha", startedAt: "s1") == nil)
+    }
+
+    @Test func toolNameIsSanitized() {
+        #expect(LeoAgentMetadata.toolName(fromDetail: "\u{1B}[31mBash\u{1B}[0m make") == "Bash", "CSI escapes are stripped")
+        #expect(LeoAgentMetadata.toolName(fromDetail: "\u{1B}]0;title\u{07}Read x") == "Read", "OSC escapes are stripped")
+        #expect(LeoAgentMetadata.toolName(fromDetail: "\u{1B}]8;;http://x\u{1B}\\Edit\u{1B}]8;;\u{1B}\\ y") == "Edit")
+        #expect(LeoAgentMetadata.toolName(fromDetail: "Ba\u{202E}sh\nmake") == "Bash", "bidi controls are dropped")
+        #expect(LeoAgentMetadata.toolName(fromDetail: "Gr\u{0}ep\u{7} x") == "Grep", "control characters are dropped")
+        #expect(LeoAgentMetadata.toolName(fromDetail: "\u{1B}[31m\u{1B}[0m") == nil)
+    }
+
+    @Test(arguments: ["pane", nil, "future"] as [String?])
+    func otherKindsKeepTheTaskLine(kind: String?) throws {
+        let entries = LeoAgentMetadataIndex(state: [observed("alpha", startedAt: "s1", kind: kind, detail: "Reading files now")])
+        let metadata = try #require(entries.metadata(name: "alpha", startedAt: "s1"))
+        #expect(metadata.task == "Reading files now")
+        #expect(metadata.tool == nil)
+    }
+
     @Test func anEntryAttachesOnlyToTheIncarnationThatReportedIt() {
         let entries = LeoAgentMetadataIndex(state: [observed("alpha", startedAt: "s1", detail: "Reading")])
         #expect(entries.metadata(name: "alpha", startedAt: "s1")?.task == "Reading")
@@ -183,10 +220,11 @@ struct LeoAgentMetadataTests {
     }
 
     private func observed(
-        _ name: String, startedAt: String?, lastActivityAt: String? = nil, detail: String? = nil, usage: LeoAgentUsage? = nil
+        _ name: String, startedAt: String?, lastActivityAt: String? = nil, kind: String? = "pane",
+        detail: String? = nil, usage: LeoAgentUsage? = nil
     ) -> LeoObservedAgent {
         LeoObservedAgent(
-            name: name, status: .running, activity: .idle, currentAction: detail.map { .init(kind: "pane", detail: $0) },
+            name: name, status: .running, activity: .idle, currentAction: detail.map { .init(kind: kind, detail: $0) },
             lastActivityAt: lastActivityAt, startedAt: startedAt, usage: usage
         )
     }

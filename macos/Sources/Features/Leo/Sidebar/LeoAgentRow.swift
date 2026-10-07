@@ -142,6 +142,20 @@ struct LeoAgentRowView: View {
                 Text(task).font(.caption).foregroundStyle(.secondary)
                     .lineLimit(1).truncationMode(.tail)
                     .help(task)
+            } else if let tool = details.tool {
+                // B-260: the running tool's name, calm and static; the
+                // arguments are never shown.
+                // The icon is tinted explicitly: a Label's icon otherwise
+                // takes the accent color.
+                Label {
+                    Text(tool)
+                } icon: {
+                    Image(systemName: "hammer").foregroundStyle(.secondary)
+                }
+                .font(.caption).foregroundStyle(.secondary)
+                    .lineLimit(1).truncationMode(.tail)
+                    .help(details.toolHelp ?? "")
+                    .accessibilityLabel(details.toolSpoken ?? tool)
             } else if let preview = details.turnPreview {
                 // B-259: what the agent just did, only while it isn't doing
                 // anything else; the tooltip holds what the line cuts.

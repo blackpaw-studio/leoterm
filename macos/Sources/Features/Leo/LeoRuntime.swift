@@ -68,7 +68,7 @@ import OSLog
         var activity = LeoRuntime.makeSocketOrLegacyActivitySource(socketPath: socketPath)
         #if DEBUG
         if let fixture = LeoAttentionFixture.loadFile() {
-            activity = LeoAttentionFixture.wrap(activity, overlay: fixture.attention, dispatches: fixture.dispatches, usage: fixture.usage, turns: fixture.turns)
+            activity = LeoAttentionFixture.wrap(activity, overlay: fixture.attention, dispatches: fixture.dispatches, usage: fixture.usage, turns: fixture.turns, actions: fixture.actions)
         }
         #endif
         let daemon = LeoRuntime.makeClient(socketPath: socketPath)
