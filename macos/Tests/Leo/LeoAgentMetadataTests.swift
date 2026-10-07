@@ -47,6 +47,40 @@ struct LeoAgentMetadataTests {
         #expect(!task.unicodeScalars.contains("\u{202E}"))
     }
 
+    // B-260: kind "tool" shows the tool's name, never its arguments.
+    @Test func toolActionYieldsToolNameWithoutArguments() throws {
+        let entries = LeoAgentMetadataIndex(state: [observed("alpha", startedAt: "s1", kind: "tool", detail: "Read ~/a.go")])
+        let metadata = try #require(entries.metadata(name: "alpha", startedAt: "s1"))
+        #expect(metadata.tool == "Read")
+        #expect(metadata.task == nil)
+    }
+
+    @Test(arguments: [("Bash", "Bash"), ("mcp__srv__do x y", "mcp__srv__do"), ("  Edit   a b ", "Edit")])
+    func toolNameIsTheFirstToken(detail: String, expected: String) {
+        #expect(LeoAgentMetadata.toolName(fromDetail: detail) == expected)
+    }
+
+    @Test func blankToolDetailYieldsNothing() {
+        #expect(LeoAgentMetadata.toolName(fromDetail: "") == nil)
+        #expect(LeoAgentMetadata.toolName(fromDetail: " \t ") == nil)
+        let entries = LeoAgentMetadataIndex(state: [observed("alpha", startedAt: "s1", kind: "tool", detail: "   ")])
+        #expect(entries.metadata(name: "alpha", startedAt: "s1") == nil)
+    }
+
+    @Test func toolNameIsSanitized() {
+        #expect(LeoAgentMetadata.toolName(fromDetail: "\u{1B}[31mBash\u{1B}[0m make") == LeoSFTPServerText.sanitized("\u{1B}[31mBash\u{1B}[0m make").split(separator: " ").first.map(String.init))
+        #expect(LeoAgentMetadata.toolName(fromDetail: "Ba\u{202E}sh\nmake")?.contains("\u{202E}") == false)
+        #expect(LeoAgentMetadata.toolName(fromDetail: "Ba\u{202E}sh\nmake")?.contains("\n") == false)
+    }
+
+    @Test(arguments: ["pane", nil, "future"] as [String?])
+    func otherKindsKeepTheTaskLine(kind: String?) throws {
+        let entries = LeoAgentMetadataIndex(state: [observed("alpha", startedAt: "s1", kind: kind, detail: "Reading files now")])
+        let metadata = try #require(entries.metadata(name: "alpha", startedAt: "s1"))
+        #expect(metadata.task == "Reading files now")
+        #expect(metadata.tool == nil)
+    }
+
     @Test func anEntryAttachesOnlyToTheIncarnationThatReportedIt() {
         let entries = LeoAgentMetadataIndex(state: [observed("alpha", startedAt: "s1", detail: "Reading")])
         #expect(entries.metadata(name: "alpha", startedAt: "s1")?.task == "Reading")
@@ -183,10 +217,11 @@ struct LeoAgentMetadataTests {
     }
 
     private func observed(
-        _ name: String, startedAt: String?, lastActivityAt: String? = nil, detail: String? = nil, usage: LeoAgentUsage? = nil
+        _ name: String, startedAt: String?, lastActivityAt: String? = nil, kind: String? = "pane",
+        detail: String? = nil, usage: LeoAgentUsage? = nil
     ) -> LeoObservedAgent {
         LeoObservedAgent(
-            name: name, status: .running, activity: .idle, currentAction: detail.map { .init(kind: "pane", detail: $0) },
+            name: name, status: .running, activity: .idle, currentAction: detail.map { .init(kind: kind, detail: $0) },
             lastActivityAt: lastActivityAt, startedAt: startedAt, usage: usage
         )
     }
