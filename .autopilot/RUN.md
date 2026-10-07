@@ -14,6 +14,8 @@ Self-filed: B-259 → dropped (over cap) — Usage-only subtitle can overflow on
 Self-filed: B-259 → dropped (over cap) — Thousands separator for cost
 Self-filed: B-259 → dropped (over cap) — Drop cost before context % on narrow rows
 Self-filed: B-260 → dropped (over cap) — Friendlier display for MCP tool names
+Self-filed: B-261 → dropped (over cap) — Compaction started between spawn and post-spawn /state never shows
+Self-filed: B-261 → dropped (over cap) — Turn completion mid-compaction clears the indicator early
 Focus: leo PR #226 bridge features (B-257–B-262, then B-051)
 Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 
@@ -116,12 +118,19 @@ Lane: B-261
   Branch: autopilot-lane/B-261
   Base: b44801a88984d027cdebafa69657665642d0922d
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 764ca502eb326d00089a9961d98dd12c4308ebb8
   Dispatched: 2026-10-07T21:52:25Z
+  Call: No hello feature gate for compaction; the event's existence is the proof (as D-399); hidden while disconnected (D-392) — principle 2
+  Call: Compaction phase is event-sourced because /state has none; context % stays /state-only, refreshed on the end event (D-082/D-393); the event's context_percent is decoded but never shown (pre-compaction value) — principle 2
+  Call: Static grey arrow.down.right.and.arrow.up.left + "Compacting context" in the task-line slot above tool/task/preview; trigger only in the tooltip ("(automatic)"/"(requested)"); no badge/motion/notification — principle 2, AUTONOMY UX details
+  Call: `failed` clears quietly — principle 2
+  Call: Clears on gap/reconnect/disconnect/host switch/boot change/stop/spawn/turn completion, never a timer — principles 2, 5
+  Call: DEBUG fixture key "compactions" (agent → [{phase, trigger}], replayed after hello 1.5 s apart) — AUTONOMY test infra (D-018/D-403)
+  Call: TurnHarness test helpers made non-private (+ setUsage) for reuse — AUTONOMY test infra
 
 ## Progress
 Finished 1: B-257 landed 8a28dfb7bd072c049000f75f71a3fd3c976b8a83 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-257-2.png
