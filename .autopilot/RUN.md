@@ -1,7 +1,7 @@
 Status: running
 Started: 2026-10-07T16:40:34Z
 Budget: 20 items, until 2026-10-08T04:40:34Z
-Digested-through: 0
+Digested-through: 5
 Filed: 1/3 bugs, 5/5 ideas
 Self-filed: B-257 → B-263 idea — Index dispatch children once per tree projection
 Self-filed: B-257 → B-264 idea — Dispatch tombstone cap survives heavy churn
