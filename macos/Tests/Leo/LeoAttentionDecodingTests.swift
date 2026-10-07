@@ -76,6 +76,37 @@ struct LeoAttentionDecodingTests {
         #expect(events.allSatisfy { $0.attention == nil })
     }
 
+    // MARK: attention.reason (B-258)
+
+    private func signal(_ json: String) throws -> LeoAttentionSignal {
+        try JSONDecoder().decode(LeoAttentionSignal.self, from: Data(json.utf8))
+    }
+
+    @Test func activityEventDecodesPermissionReasonWithTool() throws {
+        var parser = LeoSSEParser()
+        let raw = "event: agent_activity\ndata: {\"seq\":9,\"agent\":\"a\",\"activity\":\"idle\",\"attention\":{\"state\":\"needs_input\",\"revision\":3,\"reason\":{\"kind\":\"permission\",\"tool\":\"Bash\",\"detail\":\"rm\"}}}\n\n"
+        let event = try #require(parser.feed(Data(raw.utf8)).compactMap(LeoActivityClient.decode).first)
+        #expect(event.attention?.reason == LeoAttentionReason(kind: .permission, tool: "Bash", detail: "rm"))
+        #expect(event.attention?.state == .needsInput)
+    }
+
+    @Test(arguments: [#""x""#, #"{"kind":"telepathy"}"#, "{}", #"{"kind":"permission","tool":5}"#])
+    func malformedOrUnknownReasonKeepsSignal(reason: String) throws {
+        let decoded = try signal(#"{"state":"needs_input","revision":4,"reason":\#(reason)}"#)
+        #expect(decoded == LeoAttentionSignal(state: .needsInput, revision: 4))
+    }
+
+    @Test func reasonSanitizedAndClamped() throws {
+        let long = String(repeating: "a", count: 300)
+        let decoded = try signal(
+            #"{"state":"needs_input","revision":1,"reason":{"kind":"permission","tool":"\u001b[31mBa\nsh","detail":"\#(long)"}}"#
+        )
+        let reason = try #require(decoded.reason)
+        #expect(reason.tool?.contains("\u{1b}") == false)
+        #expect(reason.tool?.contains("\n") == false)
+        #expect(try #require(reason.detail).count <= LeoAttentionReason.textLimit)
+    }
+
     private func decodedEvents() throws -> [LeoObserveEvent] {
         var parser = LeoSSEParser()
         let events = parser.feed(try fixture("attention_events.sse")).compactMap(LeoActivityClient.decode)

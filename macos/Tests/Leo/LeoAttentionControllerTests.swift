@@ -122,12 +122,24 @@ import Testing
         #expect(!controller.isEnabled, "reads through to defaults")
     }
 
+    @Test func notificationBodyNamesTheReasonKindAndToolButNeverDetail() throws {
+        let permission = LeoAttentionReason(kind: .permission, tool: "Bash", detail: "rm -rf /secret")
+        let body = try #require(LeoAttentionNotification(transition(.needsInput, revision: 1, reason: permission))).body
+        #expect(body == "Needs permission to use Bash")
+        let question = LeoAttentionReason(kind: .question)
+        #expect(LeoAttentionNotification(transition(.needsInput, revision: 2, reason: question))?.body == "Has a question for you")
+        let elicitation = LeoAttentionReason(kind: .elicitation)
+        #expect(LeoAttentionNotification(transition(.needsInput, revision: 3, reason: elicitation))?.body == "Requesting input")
+        #expect(LeoAttentionNotification(transition(.needsInput, revision: 4))?.body == "Needs your input")
+        #expect(LeoAttentionNotification(transition(.finished, revision: 5, reason: permission))?.body == "Finished")
+    }
+
     private func transition(
         _ state: LeoAttentionState, revision: Int, notify: Bool = true, id: LeoAgentRow.ID = alpha,
-        bootID: String? = nil
+        bootID: String? = nil, reason: LeoAttentionReason? = nil
     ) -> LeoAttentionTransition {
         LeoAttentionTransition(
-            id: id, from: .working, to: state, revision: revision, shouldNotify: notify, bootID: bootID
+            id: id, from: .working, to: state, revision: revision, shouldNotify: notify, bootID: bootID, reason: reason
         )
     }
 

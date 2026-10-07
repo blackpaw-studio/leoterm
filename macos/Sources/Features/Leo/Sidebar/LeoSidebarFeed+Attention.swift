@@ -100,7 +100,12 @@ extension LeoSidebarSnapshot {
     func overlayingAttention(_ reducer: LeoAttentionReducer) -> LeoSidebarSnapshot {
         let isLive = !connectivity.isDisconnected
         return LeoSidebarSnapshot(
-            rows: rows.map { $0.withAttention(isLive ? reducer.badge(for: $0.name, legacyActivity: $0.activity) : nil) },
+            rows: rows.map { row in
+                row.withAttention(
+                    isLive ? reducer.badge(for: row.name, legacyActivity: row.activity) : nil,
+                    reason: isLive ? reducer.reason(for: row.name) : nil
+                )
+            },
             connectivity: connectivity,
             generation: generation,
             listRefreshSucceeded: listRefreshSucceeded,

@@ -31,6 +31,9 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
     /// The attention badge, overlaid by `LeoSidebarFeed` at emission time
     /// from `LeoAttentionReducer` (never stored on the feed's own rows).
     let attention: LeoAttentionBadge?
+    /// Why the agent needs input, overlaid with `attention` (B-258). Nil
+    /// unless the badge is needs_input and the daemon gave a reason.
+    let attentionReason: LeoAttentionReason?
     /// The list's `started_at`: which incarnation this row is (D-074).
     let startedAt: String?
     /// Last-active time and task from a `/state` snapshot of this very
@@ -42,8 +45,8 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
 
     init(
         host: LeoHostID, name: String, template: String?, status: LeoAgentStatus, activity: Activity, actionDetail: String?,
-        workspace: String? = nil, repo: String? = nil, attention: LeoAttentionBadge? = nil, startedAt: String? = nil,
-        metadata: LeoAgentMetadata? = nil, surfacedFiles: [LeoSurfacedFile] = []
+        workspace: String? = nil, repo: String? = nil, attention: LeoAttentionBadge? = nil, attentionReason: LeoAttentionReason? = nil,
+        startedAt: String? = nil, metadata: LeoAgentMetadata? = nil, surfacedFiles: [LeoSurfacedFile] = []
     ) {
         self.host = host
         self.name = name
@@ -54,32 +57,33 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         self.workspace = workspace
         self.repo = repo
         self.attention = attention
+        self.attentionReason = attentionReason
         self.startedAt = startedAt
         self.metadata = metadata
         self.surfacedFiles = surfacedFiles
     }
 
-    func withAttention(_ attention: LeoAttentionBadge?) -> LeoAgentRow {
+    func withAttention(_ attention: LeoAttentionBadge?, reason: LeoAttentionReason? = nil) -> LeoAgentRow {
         LeoAgentRow(
             host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
-            workspace: workspace, repo: repo, attention: attention, startedAt: startedAt, metadata: metadata,
-            surfacedFiles: surfacedFiles
+            workspace: workspace, repo: repo, attention: attention, attentionReason: reason, startedAt: startedAt,
+            metadata: metadata, surfacedFiles: surfacedFiles
         )
     }
 
     func withMetadata(_ metadata: LeoAgentMetadata?) -> LeoAgentRow {
         LeoAgentRow(
             host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
-            workspace: workspace, repo: repo, attention: attention, startedAt: startedAt, metadata: metadata,
-            surfacedFiles: surfacedFiles
+            workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
+            startedAt: startedAt, metadata: metadata, surfacedFiles: surfacedFiles
         )
     }
 
     func withSurfacedFiles(_ files: [LeoSurfacedFile]) -> LeoAgentRow {
         LeoAgentRow(
             host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
-            workspace: workspace, repo: repo, attention: attention, startedAt: startedAt, metadata: metadata,
-            surfacedFiles: files
+            workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
+            startedAt: startedAt, metadata: metadata, surfacedFiles: files
         )
     }
 

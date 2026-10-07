@@ -4,7 +4,7 @@ import OSLog
 
 /// DEBUG builds only: overlays attention states onto the local daemon's
 /// `/state` from a JSON file named by `LEO_ATTENTION_FIXTURE`
-/// (`{"alpha": {"state": "needs_input", "revision": 1}, ...}`), so the
+/// (`{"alpha": {"state": "needs_input", "revision": 1, "reason": {"kind": "permission", "tool": "Bash"}}, ...}`), so the
 /// badges can be seen and screenshotted before the daemon emits
 /// `attention` itself. A reserved `"dispatches"` key holds an array of
 /// dispatch records added to `/state` (B-257), so nested dispatch rows can

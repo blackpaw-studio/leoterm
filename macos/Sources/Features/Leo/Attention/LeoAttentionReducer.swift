@@ -191,15 +191,22 @@ struct LeoAttentionReducer: Equatable, Sendable {
         guard var entry = entries[agent], let candidate = entry.candidate else { return nil }
         let isFocused = focusedAgent == agent
         let signal = candidate.signal
-        let from = entry.committed?.state
+        let previous = entry.committed
+        let from = previous?.state
         entry.committed = signal
         entry.candidate = nil
         if isFocused && signal.state.needsAttention { acknowledged[agent] = signal.revision }
         entries[agent] = entry
-        let notifies = !isFocused && (signal.state == .needsInput || signal.state == .finished)
+        // A reason arriving for an already-committed reasonless needs_input
+        // (the hook's signal, then the bridge's) refines the badge; it is the
+        // same prompt, so it never notifies again. A new prompt goes through
+        // working first.
+        let isRefinement = previous?.state == .needsInput && previous?.reason == nil
+            && signal.state == .needsInput && signal.reason != nil
+        let notifies = !isFocused && !isRefinement && (signal.state == .needsInput || signal.state == .finished)
         return LeoAttentionTransition(
             id: LeoAgentRow.ID(host: host, name: agent), from: from, to: signal.state,
-            revision: signal.revision, shouldNotify: notifies, bootID: bootID
+            revision: signal.revision, shouldNotify: notifies, bootID: bootID, reason: signal.reason
         )
     }
 
@@ -256,6 +263,14 @@ struct LeoAttentionReducer: Equatable, Sendable {
     func needsAttention(_ agent: String) -> Bool {
         guard let entry = entries[agent], !entry.isStale else { return false }
         return entry.committed?.state.needsAttention ?? false
+    }
+
+    /// Why `agent` needs input: only for a committed, live (non-stale)
+    /// needs_input that the daemon gave a reason for. Nil otherwise.
+    func reason(for agent: String) -> LeoAttentionReason? {
+        guard let entry = entries[agent], !entry.isStale, let committed = entry.committed,
+              committed.state == .needsInput else { return nil }
+        return committed.reason
     }
 
     /// The row badge. Without committed semantic attention (legacy daemon,

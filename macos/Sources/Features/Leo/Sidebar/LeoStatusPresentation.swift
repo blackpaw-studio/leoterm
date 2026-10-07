@@ -90,10 +90,63 @@ enum LeoStatusPresentation {
         }
     }
 
+    /// What a needs_input badge says when the daemon gave a reason (B-258).
+    /// Every string derives from the kind and the (sanitized) tool; `detail`
+    /// appears only in the tooltip, never in the notification.
+    struct ReasonPresentation: Equatable {
+        let symbolName: String
+        /// The subtitle's state word ("Permission: Bash").
+        let stateWord: String
+        let tooltip: String
+        /// VoiceOver text ("Needs Permission, Bash").
+        let accessibilityLabel: String
+        /// The notification body.
+        let notificationBody: String
+    }
+
+    static func attentionReason(_ reason: LeoAttentionReason) -> ReasonPresentation {
+        let tool = reason.tool
+        switch reason.kind {
+        case .permission:
+            return ReasonPresentation(
+                symbolName: "hand.raised",
+                stateWord: tool.map { "Permission: \($0)" } ?? "Permission",
+                tooltip: [tool.map { "Needs permission to use \($0)" } ?? "Needs permission", reason.detail].compactMap { $0 }.joined(separator: ": "),
+                accessibilityLabel: ["Needs Permission", tool].compactMap { $0 }.joined(separator: ", "),
+                notificationBody: tool.map { "Needs permission to use \($0)" } ?? "Needs permission"
+            )
+        case .question:
+            return ReasonPresentation(
+                symbolName: "questionmark.bubble",
+                stateWord: "Question",
+                tooltip: ["Asking you a question", reason.detail].compactMap { $0 }.joined(separator: ": "),
+                accessibilityLabel: "Asking a Question",
+                notificationBody: "Has a question for you"
+            )
+        case .elicitation:
+            let request = tool.map { "Requesting input from \($0)" } ?? "Requesting input"
+            return ReasonPresentation(
+                symbolName: "list.bullet.rectangle",
+                stateWord: "Input Request",
+                tooltip: [request, reason.detail].compactMap { $0 }.joined(separator: ": "),
+                accessibilityLabel: ["Requesting Input", tool].compactMap { $0 }.joined(separator: ", "),
+                notificationBody: "Requesting input"
+            )
+        }
+    }
+
+    /// The reason for a row's badge, only while the badge is needs_input.
+    private static func reasonPresentation(_ row: LeoAgentRow) -> ReasonPresentation? {
+        guard row.attention == .needsInput else { return nil }
+        return row.attentionReason.map(attentionReason)
+    }
+
     /// VoiceOver text for a row: "alpha, Needs Input" when the agent has an
-    /// attention badge, else its lifecycle status ("alpha, Running").
+    /// attention badge ("alpha, Needs Permission, Bash" with a reason), else
+    /// its lifecycle status ("alpha, Running").
     static func rowAccessibilityLabel(_ row: LeoAgentRow) -> String {
-        let state = row.attention.map { attention($0).accessibilityLabel } ?? agentStatus(row.status).accessibilityLabel
+        let state = reasonPresentation(row)?.accessibilityLabel
+            ?? row.attention.map { attention($0).accessibilityLabel } ?? agentStatus(row.status).accessibilityLabel
         return "\(row.name), \(state)"
     }
 

@@ -10,6 +10,8 @@ struct LeoAgentRowPresentation: Equatable {
     struct Badge: Equatable {
         let symbolName: String
         let tint: Color
+        /// Hover text naming why the agent needs input; nil without a reason.
+        var tooltip: String?
     }
 
     struct State: Equatable {
@@ -93,8 +95,9 @@ struct LeoAgentRowPresentation: Equatable {
         let attention = row.attention.map(LeoStatusPresentation.attention)
         // On a selected row the state drops to the primary color for contrast.
         let tint = { (presentation: LeoStatusPresentation.Presentation) in isSelected ? Color.primary : presentation.color }
-        badge = attention.map { Badge(symbolName: $0.symbolName, tint: tint($0)) }
-        let state = attention.map { State(label: $0.accessibilityLabel, tint: tint($0)) }
+        let reason = row.attention == .needsInput ? row.attentionReason.map(LeoStatusPresentation.attentionReason) : nil
+        badge = attention.map { Badge(symbolName: reason?.symbolName ?? $0.symbolName, tint: tint($0), tooltip: reason?.tooltip) }
+        let state = attention.map { State(label: reason?.stateWord ?? $0.accessibilityLabel, tint: tint($0)) }
         let active = Self.lastActive(row.metadata, now: now)
         let lastActive = active.map { LeoRelativeTime.label(since: $0.date, now: $0.now, timeZone: timeZone, locale: locale) }
         let spoken = active.map { LeoRelativeTime.spokenLabel(since: $0.date, now: $0.now, timeZone: timeZone, locale: locale) }
