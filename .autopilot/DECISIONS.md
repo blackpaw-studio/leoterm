@@ -2740,3 +2740,59 @@ Chose: Caps that only bound a misbehaving daemon: 256 ended ids, 1024 live recor
 Why: principle 2
 Commit: f3371acc7, b044b90ba, 3eb5b6f96, cb1d27825, 9cc9e591c, f9471c174, b7578c893, bdee9f0c6
 Veto: [ ]
+
+## D-380 · 2026-10-07 · Badge stays icon-only (D-012); the reason shows as a per-kind symbo…
+Context: B-258 (runner call).
+Chose: Badge stays icon-only (D-012); the reason shows as a per-kind symbol (hand.raised / questionmark.bubble / list.bullet.rectangle), a badge tooltip, the subtitle word ("Permission: Bash" / "Question" / "Input Request") and the VoiceOver label
+Why: principles 1, 2
+Commit: d5234d8c6
+Veto: [ ]
+
+## D-381 · 2026-10-07 · Detail appears only in the badge tooltip; notifications carry kind …
+Context: B-258 (runner call).
+Chose: Detail appears only in the badge tooltip; notifications carry kind and tool only
+Why: principle 2, D-013
+Commit: d5234d8c6
+Veto: [ ]
+
+## D-382 · 2026-10-07 · No hello `attention_reason` gate; an absent field means no reason
+Context: B-258 (runner call).
+Chose: No hello `attention_reason` gate; an absent field means no reason
+Why: principle 2
+Commit: d5234d8c6
+Veto: [ ]
+
+## D-383 · 2026-10-07 · An unknown or malformed reason kind reads as no reason (falls back …
+Context: B-258 (runner call).
+Chose: An unknown or malformed reason kind reads as no reason (falls back to today's behaviour)
+Why: principle 2
+Commit: d5234d8c6
+Veto: [ ]
+
+## D-384 · 2026-10-07 · A reason refining an already-committed reasonless needs_input updat…
+Context: B-258 (runner call).
+Chose: A reason refining an already-committed reasonless needs_input updates the badge without re-notifying (check lives in reducer commit())
+Why: principle 2
+Commit: d5234d8c6
+Veto: [ ]
+
+## D-385 · 2026-10-07 · A reason on a row whose badge isn't needsInput is ignored
+Context: B-258 (runner call).
+Chose: A reason on a row whose badge isn't needsInput is ignored
+Why: principle 2
+Commit: d5234d8c6
+Veto: [ ]
+
+## D-386 · 2026-10-07 · Tool and detail are sanitized and clamped in LeoAttentionReason.ini…
+Context: B-258 (runner call).
+Chose: Tool and detail are sanitized and clamped in LeoAttentionReason.init, so every construction path is clean
+Why: principle 2
+Commit: d5234d8c6
+Veto: [ ]
+
+## D-387 · 2026-10-07 · Labels, symbols and wording per the plan; Badge.tooltip is optional…
+Context: B-258 (runner call).
+Chose: Labels, symbols and wording per the plan; Badge.tooltip is optional (default nil); `.help("")` when there is no reason
+Why: AUTONOMY copy/UX
+Commit: d5234d8c6
+Veto: [ ]

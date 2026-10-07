@@ -659,13 +659,14 @@ Source: Evan (/feature, 2026-10-07)
 Inbox: 20261007T144804725046Z-b671a71b#1
 Done: 2026-10-07 · f3371acc7, b044b90ba, 3eb5b6f96, cb1d27825, 9cc9e591c, f9471c174, b7578c893, bdee9f0c6 · D-374, D-375, D-376, D-377, D-378, D-379
 
-## B-258 · Attention badge and notification show the reason   [ready]
+## B-258 · Attention badge and notification show the reason   [done]
 Issue: #257
 Why: "Needs you" is only actionable when it says what for (attention.reason from leo PR #226). Serves "never invent a state"
 Accept: a scripted permission prompt shows a "permission" reason with the tool name on the badge and in the notification; question and elicitation each show their own reason; when no reason field is present, current behaviour is unchanged
 Out: answering the prompt from leoterm
 Source: Evan (/feature, 2026-10-07)
 Inbox: 20261007T144804818307Z-97aae0e0#1
+Done: 2026-10-07 · d5234d8c6 · D-380, D-381, D-382, D-383, D-384, D-385, D-386, D-387
 
 ## B-259 · Agent row shows last-turn preview and usage   [ready]
 Issue: #258
