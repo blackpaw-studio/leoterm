@@ -104,6 +104,8 @@ actor LeoSidebarFeed {
     /// the last-turn previews it gated (B-259) -- see `LeoSidebarFeed+Turns.swift`.
     var daemonFeatures = LeoDaemonFeatures.none
     var turnPreviews = LeoTurnPreviews.empty
+    /// Agents compacting now (B-261) -- see `LeoSidebarFeed+Compaction.swift`.
+    var compactions = LeoCompactions.empty
     var running = false
     var needsState = true
     var recovering = false
@@ -165,6 +167,7 @@ actor LeoSidebarFeed {
         resetMetadata()
         resetDispatches()
         resetTurns()
+        resetCompactions()
         attentionTask = nil
         eventTask = nil
         refreshTask = nil
@@ -246,13 +249,19 @@ actor LeoSidebarFeed {
             receiveDispatch(dispatch)
             return
         case .agentTurnCompleted(_, let turn):
+            // A finished turn means the compaction (if any) is over.
+            endCompaction(turn.agent)
             receiveTurn(turn)
+            return
+        case .agentCompaction(_, let compaction):
+            receiveCompaction(compaction)
             return
         case .agentUsage:
             receiveUsageEvent()
             return
         case .hello(_, _, _, _, let bootID, let features):
             receiveFeatures(bootID: bootID, features: features)
+            observeCompactionBoot(bootID)
             receiveDispatchHello(bootID: bootID, features: features)
         default: break
         }
@@ -288,8 +297,8 @@ actor LeoSidebarFeed {
             prepareRecovery()
             process(scheduler.reduce(.sseEvent(event)))
         case .agentSpawned, .agentStateChanged, .agentStopped:
-            if case .agentSpawned(_, _, let agent, _) = event { forgetTurn(agent.name) }
-            if case .agentStopped(_, _, let name, _) = event { forgetTurn(name) }
+            if case .agentSpawned(_, _, let agent, _) = event { forgetTurn(agent.name); endCompaction(agent.name) }
+            if case .agentStopped(_, _, let name, _) = event { forgetTurn(name); endCompaction(name) }
             process(scheduler.reduce(.sseEvent(event)))
             requestMetadataRefresh()
         case .agentActivity:
@@ -300,7 +309,7 @@ actor LeoSidebarFeed {
             }
         case .fileSurfaced(_, let file):
             receiveSurfacedFile(file)
-        case .other, .dispatchChanged, .agentTurnCompleted, .agentUsage:
+        case .other, .dispatchChanged, .agentTurnCompleted, .agentUsage, .agentCompaction:
             return
         case .disconnected(let reason):
             Self.logger.log("receive: .disconnected reason=\(reason, privacy: .public)")
@@ -313,6 +322,7 @@ actor LeoSidebarFeed {
         snapshot = LeoSidebarSnapshot(rows: snapshot.rows, connectivity: snapshot.connectivity, generation: snapshot.generation + 1)
         activityByName = [:]
         resetMetadata()
+        resetCompactions()
         recovering = true
         needsState = true
         attention.beginRecovery()
@@ -391,7 +401,7 @@ actor LeoSidebarFeed {
 
     func emit() {
         let value = displayedSnapshot.overlayingAttention(attention).overlayingDispatches(dispatchTree)
-            .overlayingTurns(turnPreviews, features: daemonFeatures)
+            .overlayingTurns(turnPreviews, features: daemonFeatures).overlayingCompactions(compactions)
         let previous = emissionTask
         emissionTask = Task { [weak self, sink] in
             await previous?.value
