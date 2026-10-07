@@ -98,7 +98,7 @@ Lane: B-260
   Branch: autopilot-lane/B-260
   Base: c45f2efbddc07721068059590875af0d9e3e3038
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
