@@ -99,3 +99,5 @@ Finished 1: B-257 landed 8a28dfb7bd072c049000f75f71a3fd3c976b8a83 · shot /Users
 Finished 2: B-258 landed 1af002341338cf3e434cc9cc68aed00599127b89 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-258-3.png
 - B-258 landed 1af002341: attention reason as per-kind badge symbol, tooltip, subtitle word, VoiceOver label and notification text; suite 2142 green; 0 fix rounds. Self-filed bug B-268 (re-notify on revision bump).
 - Session interrupted at ~20:25Z; lock taken over by the new session (pid 79355); B-259 runner resumed from its transcript (lane clean at 9ac97cddb, mid fix round).
+Finished 3: B-259 landed ed7558b973dafbadc1db205fb0085d0e8ea12ffa · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-259-1.png
+- B-259 landed ed7558b97: last-turn preview line and usage subtitle segment (tokens/cost/context %), gated on hello bridge_turns/agent_usage; verified live against leo 0.37.0; 1 fix round. 3 polish dropped (idea cap).

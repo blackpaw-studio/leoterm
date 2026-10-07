@@ -668,13 +668,14 @@ Source: Evan (/feature, 2026-10-07)
 Inbox: 20261007T144804818307Z-97aae0e0#1
 Done: 2026-10-07 · d5234d8c6 · D-380, D-381, D-382, D-383, D-384, D-385, D-386, D-387
 
-## B-259 · Agent row shows last-turn preview and usage   [ready]
+## B-259 · Agent row shows last-turn preview and usage   [done]
 Issue: #258
 Why: See what an agent just did and what it cost without attaching (agent_turn_completed + Agent.usage, leo PR #226). Serves "Calm, attention-driven"
 Accept: after a scripted turn completes on autopilot-scratch the row shows a one-line preview of that turn; tokens, cost, and context % from Agent.usage appear on the row or inspector; against a daemon whose SSE hello lacks these features nothing new renders and nothing errors
 Out: turn history or transcript browsing; usage charts
 Source: Evan (/feature, 2026-10-07)
 Inbox: 20261007T144804912652Z-653eac6a#1
+Done: 2026-10-07 · 9ac97cddb, d8b86348b, 805485afe, 0e1281871, 289cf6751 · D-388, D-389, D-390, D-391, D-392, D-393, D-394, D-395, D-396
 
 ## B-260 · Show the tool an agent is running right now   [ready]
 Issue: #259

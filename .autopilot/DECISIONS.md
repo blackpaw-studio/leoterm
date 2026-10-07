@@ -2796,3 +2796,66 @@ Chose: Labels, symbols and wording per the plan; Badge.tooltip is optional (defa
 Why: AUTONOMY copy/UX
 Commit: d5234d8c6
 Veto: [ ]
+
+## D-388 · 2026-10-07 · The preview replaces the task line and shows only when there is no …
+Context: B-259 (runner call).
+Chose: The preview replaces the task line and shows only when there is no current task. It is not hidden while the agent is working
+Why: P2 calm, P6
+Commit: 9ac97cddb, d8b86348b, 805485afe, 0e1281871, 289cf6751
+Veto: [ ]
+
+## D-389 · 2026-10-07 · Usage is the session's tokens, cost and context %, shown as a subti…
+Context: B-259 (runner call).
+Chose: Usage is the session's tokens, cost and context %, shown as a subtitle segment that drops whole components when space runs out, never part of a number. The full session and since-start numbers go in the tooltip and VoiceOver. There is no inspector because none exists
+Why: P2, AUTONOMY UX
+Commit: 9ac97cddb, d8b86348b, 805485afe, 0e1281871, 289cf6751
+Veto: [ ]
+
+## D-390 · 2026-10-07 · An aborted turn reads "Interrupted: <preview>". An empty preview cl…
+Context: B-259 (runner call).
+Chose: An aborted turn reads "Interrupted: <preview>". An empty preview clears the line, and usage that is all zero shows nothing
+Why: P2 never invent
+Commit: 9ac97cddb, d8b86348b, 805485afe, 0e1281871, 289cf6751
+Veto: [ ]
+
+## D-391 · 2026-10-07 · Cost below half a cent reads "<$0.01"
+Context: B-259 (runner call).
+Chose: Cost below half a cent reads "<$0.01"
+Why: AUTONOMY UX
+Commit: 9ac97cddb, d8b86348b, 805485afe, 0e1281871, 289cf6751
+Veto: [ ]
+
+## D-392 · 2026-10-07 · Preview and usage are gated on the hello's `bridge_turns`/`agent_us…
+Context: B-259 (runner call).
+Chose: Preview and usage are gated on the hello's `bridge_turns`/`agent_usage` features. Nothing renders while disconnected
+Why: P2, D-377
+Commit: 9ac97cddb, d8b86348b, 805485afe, 0e1281871, 289cf6751
+Veto: [ ]
+
+## D-393 · 2026-10-07 · Turn and usage events only trigger a /state refresh. The preview te…
+Context: B-259 (runner call).
+Chose: Turn and usage events only trigger a /state refresh. The preview text is the only value taken from an event
+Why: D-082
+Commit: 9ac97cddb, d8b86348b, 805485afe, 0e1281871, 289cf6751
+Veto: [ ]
+
+## D-394 · 2026-10-07 · No badge, motion or notification on turn completion
+Context: B-259 (runner call).
+Chose: No badge, motion or notification on turn completion
+Why: P2
+Commit: 9ac97cddb, d8b86348b, 805485afe, 0e1281871, 289cf6751
+Veto: [ ]
+
+## D-395 · 2026-10-07 · Preview is clamped to 200 chars (reuses LeoSFTPServerText) and bidi…
+Context: B-259 (runner call).
+Chose: Preview is clamped to 200 chars (reuses LeoSFTPServerText) and bidi-isolated at display
+Why: AUTONOMY implementation
+Commit: 9ac97cddb, d8b86348b, 805485afe, 0e1281871, 289cf6751
+Veto: [ ]
+
+## D-396 · 2026-10-07 · The DEBUG fixture's `usage`/`turns` keys advertise the features and…
+Context: B-259 (runner call).
+Chose: The DEBUG fixture's `usage`/`turns` keys advertise the features and replay the turns after each hello
+Why: D-018, AUTONOMY test infra
+Commit: 9ac97cddb, d8b86348b, 805485afe, 0e1281871, 289cf6751
+Veto: [ ]
