@@ -132,6 +132,17 @@ Lane: B-261
   Call: DEBUG fixture key "compactions" (agent → [{phase, trigger}], replayed after hello 1.5 s apart) — AUTONOMY test infra (D-018/D-403)
   Call: TurnHarness test helpers made non-private (+ setUsage) for reuse — AUTONOMY test infra
 
+Lane: B-262
+  Branch: autopilot-lane/B-262
+  Base: 25896e3f350ee6aeb20d9aa65e9f165661958933
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-07T22:20:09Z
+
 ## Progress
 Finished 1: B-257 landed 8a28dfb7bd072c049000f75f71a3fd3c976b8a83 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-257-2.png
 - B-257 landed 8a28dfb7b: nested dispatch rows under the parent via parent_dispatch_id, gated on hello dispatch_tree; SSE-trace replay test; 1 fix round (baseline ordering); suite 2126 green. Polish filed (5).
