@@ -26,4 +26,15 @@ Lane: B-143
   Reviewed-tip: none
   Dispatched: 2026-10-06T23:01:21Z
 
+Lane: B-257
+  Branch: autopilot-lane/B-257
+  Base: 77e6c369d45f811c845c452353e322f0b82df0a1
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-07T16:43:28Z
+
 ## Progress
