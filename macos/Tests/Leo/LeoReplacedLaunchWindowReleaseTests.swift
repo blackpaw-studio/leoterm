@@ -231,7 +231,8 @@ struct LeoReplacedLaunchWindowReleaseTests {
     /// redo opens the tab from the launch window again. The action must not
     /// keep the closed launch window: it is let go of while the action
     /// lasts, not when the action expires (undo timeout), from a timer,
-    /// mid-wait -- and not at all, while idle, past the wake limit.
+    /// mid-wait -- which, with an undo timeout past the wake limit, would
+    /// leave it to the user's next event.
     @Test func aReplacedLaunchWindowIsReleasedWhileItsReplacementsUndoActionLasts() async throws {
         let app = try liveApp()
 

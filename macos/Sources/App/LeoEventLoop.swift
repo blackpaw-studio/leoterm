@@ -34,15 +34,17 @@ enum LeoEventLoop {
     static let closedWindowWakeLimit: TimeInterval = 10
 
     /// Wakes the event loop every `interval` while `window`, closed, or its
-    /// window-server window lives, for at most `limit`: the wait after the
-    /// last owner of either let go ends and is drained, freeing it.
+    /// window-server window `windowNumber` lives, for at most `limit`: the
+    /// wait after the last owner of either let go ends and is drained,
+    /// freeing it. Stops early if `window` is shown again. `windowNumber` is
+    /// read before the close, which may give up a one-shot window's number.
     @MainActor static func wakeUntilFreed(
         _ window: NSWindow,
+        number windowNumber: Int,
         every interval: TimeInterval = closedWindowWakeInterval,
         for limit: TimeInterval = closedWindowWakeLimit
     ) {
         let deadline = Date(timeIntervalSinceNow: limit)
-        let windowNumber = window.windowNumber
         let timer = Timer(timeInterval: interval, repeats: true) { [weak window] timer in
             MainActor.assumeIsolated {
                 let isShown = window?.isVisible ?? false

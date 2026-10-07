@@ -117,6 +117,26 @@ import AppKit
         return outcome.isDone ?? false
     }
 
+    /// Waits as an idle app does for `duration`, each application-defined
+    /// event ending a wait of its own, and returns how long after the start
+    /// each `LeoEventLoop` wake posted for window `windowNumber` arrived.
+    /// Other application-defined events are dropped.
+    func wakes(for windowNumber: Int, during duration: Duration) -> [Duration] {
+        let start = ContinuousClock.now
+        let deadline = start + duration
+        var arrivals: [Duration] = []
+        while ContinuousClock.now < deadline {
+            autoreleasepool {
+                let until = Date(timeIntervalSinceNow: Self.seconds(deadline - .now))
+                guard let event = NSApp.nextEvent(
+                    matching: .applicationDefined, until: until, inMode: .default, dequeue: true
+                ), isWake(event, for: windowNumber) else { return }
+                arrivals.append(.now - start)
+            }
+        }
+        return arrivals
+    }
+
     private static func seconds(_ duration: Duration) -> TimeInterval {
         let (seconds, attoseconds) = duration.components
         return TimeInterval(seconds) + TimeInterval(attoseconds) / 1e18
