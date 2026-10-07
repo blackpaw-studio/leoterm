@@ -14,7 +14,10 @@ import OSLog
 /// hello) show the B-259 row details; with either, hello also advertises
 /// the matching feature. Reserved `"actions"` (agent name ->
 /// `{"kind": ..., "detail": ...}`) overrides `current_action` on `/state`
-/// (B-260), e.g. `{"kind": "tool", "detail": "Bash make"}`. Only named
+/// (B-260), e.g. `{"kind": "tool", "detail": "Bash make"}`. Reserved
+/// `"compactions"` (agent name -> `[{"phase": "started", "trigger": "auto"},
+/// {"phase": "completed"}]`) replays those `agent_compaction` events after
+/// each hello, 1.5 s apart (B-261). Only named
 /// agents change; nothing is sent anywhere.
 enum LeoAttentionFixture {
     static let environmentKey = "LEO_ATTENTION_FIXTURE"
@@ -26,12 +29,25 @@ enum LeoAttentionFixture {
         static let usageKey = "usage"
         static let turnsKey = "turns"
         static let actionsKey = "actions"
+        static let compactionsKey = "compactions"
 
         let attention: [String: LeoAttentionSignal]
         let dispatches: [LeoDispatch]
         let usage: [String: LeoAgentUsage]
         let turns: [String: LeoTurnCompletion]
         let actions: [String: LeoCurrentAction]
+        let compactions: [String: [LeoCompactionEvent]]
+
+        private struct FixtureCompaction: Decodable, Sendable {
+            let phase: LeoCompactionPhase?
+            let trigger: LeoCompactionTrigger?
+
+            init(from decoder: any Decoder) throws {
+                let container = try decoder.container(keyedBy: Key.self)
+                phase = (try? container.decode(String.self, forKey: Key(stringValue: "phase"))).flatMap(LeoCompactionPhase.init(rawValue:))
+                trigger = (try? container.decode(String.self, forKey: Key(stringValue: "trigger"))).flatMap(LeoCompactionTrigger.init(rawValue:))
+            }
+        }
 
         private struct FixtureTurn: Decodable, Sendable {
             let preview: String?
@@ -52,6 +68,7 @@ enum LeoAttentionFixture {
             var usage: [String: LeoAgentUsage] = [:]
             var turns: [String: LeoTurnCompletion] = [:]
             var actions: [String: LeoCurrentAction] = [:]
+            var compactions: [String: [LeoCompactionEvent]] = [:]
             for key in container.allKeys {
                 if key.stringValue == Self.dispatchesKey {
                     // A malformed value degrades to none, never breaks the fixture.
@@ -60,6 +77,14 @@ enum LeoAttentionFixture {
                     usage = LeoAttentionFixture.lenientEntries(container, key, as: LeoAgentUsage.self)
                 } else if key.stringValue == Self.actionsKey {
                     actions = LeoAttentionFixture.lenientEntries(container, key, as: LeoCurrentAction.self)
+                } else if key.stringValue == Self.compactionsKey {
+                    let steps = LeoAttentionFixture.lenientEntries(container, key, as: [LeoLenient<FixtureCompaction>].self)
+                    // A step with no usable phase is dropped.
+                    compactions = steps.reduce(into: [:]) { result, entry in
+                        result[entry.key] = entry.value.compactMap(\.value).compactMap { step in
+                            step.phase.map { LeoCompactionEvent(agent: entry.key, phase: $0, trigger: step.trigger, contextPercent: nil) }
+                        }
+                    }
                 } else if key.stringValue == Self.turnsKey {
                     turns = LeoAttentionFixture.lenientEntries(container, key, as: FixtureTurn.self).reduce(into: [:]) { result, entry in
                         result[entry.key] = LeoTurnCompletion(
@@ -75,6 +100,7 @@ enum LeoAttentionFixture {
             self.usage = usage
             self.turns = turns
             self.actions = actions
+            self.compactions = compactions
             self.dispatches = dispatches.sorted { ($0.startedAt ?? "", $0.id) < ($1.startedAt ?? "", $1.id) }
         }
     }
@@ -104,9 +130,11 @@ enum LeoAttentionFixture {
     static func wrap(
         _ source: LeoSidebarActivitySource, overlay: [String: LeoAttentionSignal], dispatches: [LeoDispatch] = [],
         usage: [String: LeoAgentUsage] = [:], turns: [String: LeoTurnCompletion] = [:],
-        actions: [String: LeoCurrentAction] = [:]
+        actions: [String: LeoCurrentAction] = [:], compactions: [String: [LeoCompactionEvent]] = [:]
     ) -> LeoSidebarActivitySource {
-        LeoSidebarActivitySource(events: { await advertising(await source.events(), usage: !usage.isEmpty, turns: turns) }, observedState: {
+        LeoSidebarActivitySource(events: {
+            await advertising(await source.events(), usage: !usage.isEmpty, turns: turns, compactions: compactions)
+        }, observedState: {
             let state = try await source.fetchState()
             let agents = state.agents.map { agent in
                 guard overlay[agent.name] != nil || usage[agent.name] != nil || actions[agent.name] != nil else { return agent }
@@ -128,9 +156,10 @@ enum LeoAttentionFixture {
     private static let turnReplayDelay: UInt64 = 1_500_000_000
 
     static func advertising(
-        _ events: AsyncStream<LeoObserveEvent>, usage: Bool, turns: [String: LeoTurnCompletion]
+        _ events: AsyncStream<LeoObserveEvent>, usage: Bool, turns: [String: LeoTurnCompletion],
+        compactions: [String: [LeoCompactionEvent]] = [:]
     ) -> AsyncStream<LeoObserveEvent> {
-        guard usage || !turns.isEmpty else { return events }
+        guard usage || !turns.isEmpty || !compactions.isEmpty else { return events }
         let extra = (usage ? ["agent_usage"] : []) + (turns.isEmpty ? [] : ["bridge_turns"])
         return AsyncStream { continuation in
             let task = Task {
@@ -150,6 +179,13 @@ enum LeoAttentionFixture {
                         try? await Task.sleep(nanoseconds: turnReplayDelay)
                         for turn in turns.values.sorted(by: { $0.agent < $1.agent }) where !Task.isCancelled {
                             continuation.yield(.agentTurnCompleted(seq: -1, turn: turn))
+                        }
+                        // Each agent's steps run in order, one interval apart.
+                        for step in 0..<(compactions.values.map(\.count).max() ?? 0) {
+                            for steps in compactions.sorted(by: { $0.key < $1.key }).map(\.value) where step < steps.count && !Task.isCancelled {
+                                continuation.yield(.agentCompaction(seq: -1, compaction: steps[step]))
+                            }
+                            try? await Task.sleep(nanoseconds: turnReplayDelay)
                         }
                     })
                 }
