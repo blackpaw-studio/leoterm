@@ -41,7 +41,8 @@ struct LeoTurnPreviews: Equatable, Sendable {
     }
 
     /// Everything recorded under another daemon boot is dropped; the first
-    /// boot seen (or none advertised) keeps what's there.
+    /// boot seen (or none advertised) keeps what's there. Only fires on a
+    /// second hello on the same stream: a disconnect already resets the store.
     func observingBoot(_ boot: String?) -> LeoTurnPreviews {
         guard let boot else { return self }
         return LeoTurnPreviews(entries: boot == bootID || bootID == nil ? entries : [:], bootID: boot)

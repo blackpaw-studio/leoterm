@@ -4,6 +4,11 @@ import Foundation
 struct LeoUsageTotals: Codable, Equatable, Sendable {
     let tokens: Int64
     let costUSD: Double
+
+    /// Past this a cost is not a real spend; a payload that says so is malformed.
+    static let maximumCostUSD = 1e7
+
+    static func isPlausibleCost(_ usd: Double) -> Bool { usd.isFinite && (0...maximumCostUSD).contains(usd) }
 }
 
 /// How full the model's context window is (`ContextUsage`).
@@ -27,13 +32,12 @@ struct LeoContextUsage: Codable, Equatable, Sendable {
     init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let percent = try container.decode(Double.self, forKey: .percent)
-        guard percent.isFinite, (0...Self.maximumPercent).contains(percent) else {
-            throw DecodingError.dataCorruptedError(forKey: .percent, in: container, debugDescription: "invalid percent")
+        let tokens = try container.decode(Int64.self, forKey: .tokens)
+        let window = try container.decode(Int64.self, forKey: .window)
+        guard percent.isFinite, (0...Self.maximumPercent).contains(percent), tokens >= 0, window > 0 else {
+            throw DecodingError.dataCorruptedError(forKey: .percent, in: container, debugDescription: "implausible context")
         }
-        self.init(
-            tokens: try container.decode(Int64.self, forKey: .tokens), window: try container.decode(Int64.self, forKey: .window),
-            percent: percent
-        )
+        self.init(tokens: tokens, window: window, percent: percent)
     }
 }
 
@@ -86,8 +90,8 @@ struct LeoAgentUsage: Codable, Equatable, Sendable {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             let tokens = try container.decode(Int64.self, forKey: .tokens)
             let cost = (try? container.decodeIfPresent(Double.self, forKey: .costUSD)) ?? nil
-            guard tokens >= 0, cost.map({ $0.isFinite && $0 >= 0 }) ?? true else {
-                throw DecodingError.dataCorruptedError(forKey: .tokens, in: container, debugDescription: "negative or non-finite usage")
+            guard tokens >= 0, cost.map(LeoUsageTotals.isPlausibleCost) ?? true else {
+                throw DecodingError.dataCorruptedError(forKey: .tokens, in: container, debugDescription: "implausible usage")
             }
             value = LeoUsageTotals(tokens: tokens, costUSD: cost ?? 0)
         }
@@ -157,6 +161,9 @@ struct LeoTurnCompletion: Decodable, Equatable, Sendable {
             case cacheRead = "cache_read"
             case cacheCreation = "cache_creation"
         }
+
+        /// Counts are never negative; one that is makes the whole group untrustworthy.
+        var isPlausible: Bool { [input, output, cacheRead, cacheCreation].allSatisfy { ($0 ?? 0) >= 0 } }
     }
 
     init(from decoder: any Decoder) throws {
@@ -167,10 +174,10 @@ struct LeoTurnCompletion: Decodable, Equatable, Sendable {
         let rawPreview = (try? container.decodeIfPresent(String.self, forKey: .preview)) ?? nil
         preview = rawPreview.map(LeoSFTPServerText.sanitized) ?? ""
         let rawTokens = (try? container.decodeIfPresent(Tokens.self, forKey: .tokens)) ?? nil
-        tokens = rawTokens.map {
+        tokens = rawTokens.flatMap { $0.isPlausible ? $0 : nil }.map {
             LeoTurnTokens(input: $0.input ?? 0, output: $0.output ?? 0, cacheRead: $0.cacheRead ?? 0, cacheCreation: $0.cacheCreation ?? 0)
         }
-        costUSD = (try? container.decodeIfPresent(Double.self, forKey: .costUSD)) ?? nil
+        costUSD = ((try? container.decodeIfPresent(Double.self, forKey: .costUSD)) ?? nil).flatMap { LeoUsageTotals.isPlausibleCost($0) ? $0 : nil }
         context = ((try? container.decodeIfPresent(LeoLenient<LeoContextUsage>.self, forKey: .context)) ?? nil)?.value
     }
 }

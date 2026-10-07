@@ -56,6 +56,22 @@ struct LeoSidebarFeedTurnTests {
         await harness.stop()
     }
 
+    /// The baseline can land before the first hello (which then only clears
+    /// awaitingHello): the hello's features must repaint on their own.
+    @Test func aFirstHelloAdvertisingOnlyUsageRevealsUsageWithoutAnyOtherEvent() async throws {
+        let harness = TurnHarness(usage: Self.usage)
+        await harness.start()
+        await harness.activity.send(.connected)
+        try await harness.pump { $0.rows.first?.startedAt == "t1" }
+        await harness.settle()
+        #expect(await harness.recorder.values.allSatisfy { $0.rows.allSatisfy { $0.metadata?.usage == nil } })
+
+        // No clock advance: a poll tick would repaint on its own and hide the bug.
+        await harness.activity.send(Self.hello(["agent_usage"]))
+        try await until { await harness.recorder.last?.rows.first?.metadata?.usage == Self.usage }
+        await harness.stop()
+    }
+
     @Test func turnEventRequestsMetadataRefresh() async throws {
         let harness = TurnHarness()
         await harness.start()

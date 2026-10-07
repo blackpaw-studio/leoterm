@@ -134,6 +134,8 @@ enum LeoAttentionFixture {
                         seq: seq, at: at, version: version, serverTime: serverTime, bootID: bootID,
                         features: features + extra.filter { !features.contains($0) }
                     ))
+                    // Replaying after every hello is intentional (DEBUG): a
+                    // disconnect clears previews, so a Retry should show them again.
                     replays.append(Task {
                         try? await Task.sleep(nanoseconds: turnReplayDelay)
                         for turn in turns.values.sorted(by: { $0.agent < $1.agent }) where !Task.isCancelled {

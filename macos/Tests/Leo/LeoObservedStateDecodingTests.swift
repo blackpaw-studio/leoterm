@@ -51,6 +51,41 @@ struct LeoObservedStateDecodingTests {
         #expect(state.agents[0].usage?.session.tokens == 1)
     }
 
+    @Test func implausibleUsageReadsAsNilAndTheAgentSurvives() throws {
+        let bad = [
+            #"{"session":{"tokens":-5,"cost_usd":0.1}}"#,
+            #"{"session":{"tokens":1e30,"cost_usd":0.1}}"#,
+            #"{"session":{"tokens":5,"cost_usd":1e12}}"#,
+            #"{"session":{"tokens":5,"cost_usd":-1}}"#
+        ]
+        for usage in bad {
+            let state = try decode(#"{"ok":true,"data":{"agents":[{"name":"a","usage":"# + usage + #"}]}}"#)
+            #expect(state.agents.map(\.name) == ["a"])
+            #expect(state.agents[0].usage == nil, "\(usage) must not render")
+        }
+        for context in [#"{"tokens":1,"window":0,"percent":5}"#, #"{"tokens":1,"window":-3,"percent":5}"#, #"{"tokens":-1,"window":9,"percent":5}"#] {
+            let state = try decode(#"{"ok":true,"data":{"agents":[{"name":"a","usage":{"session":{"tokens":5},"context":"# + context + #"}}]}}"#)
+            #expect(state.agents[0].usage?.session.tokens == 5)
+            #expect(state.agents[0].usage?.context == nil, "\(context) is a bad context")
+        }
+    }
+
+    @Test func implausibleTurnNumbersAreDroppedNotTrusted() {
+        let json = #"{"seq":1,"agent":"a","outcome":"completed","preview":"x","tokens":{"input":-1,"output":2},"cost_usd":-3}"#
+        guard case .agentTurnCompleted(_, let turn) = LeoActivityClient.decode(LeoSSEEvent(name: "agent_turn_completed", data: json, id: nil)) else {
+            Issue.record("not a turn")
+            return
+        }
+        #expect(turn.tokens == nil && turn.costUSD == nil)
+        #expect(turn.preview == "x", "the preview survives bad numbers")
+        let huge = #"{"seq":2,"agent":"a","preview":"x","cost_usd":1e12}"#
+        guard case .agentTurnCompleted(_, let capped) = LeoActivityClient.decode(LeoSSEEvent(name: "agent_turn_completed", data: huge, id: nil)) else {
+            Issue.record("not a turn")
+            return
+        }
+        #expect(capped.costUSD == nil)
+    }
+
     @Test func liveMeansNoEndAndANonTerminalStatus() {
         #expect(LeoDispatch(id: "a", status: "running").isLive)
         #expect(LeoDispatch(id: "a", status: "idle").isLive)

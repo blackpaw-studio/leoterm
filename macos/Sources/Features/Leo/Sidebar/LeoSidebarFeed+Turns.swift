@@ -9,11 +9,20 @@ import Foundation
 /// whose `usage` is what rows show.
 extension LeoSidebarFeed {
     func receiveFeatures(bootID: String?, features: [String]) {
-        daemonFeatures = LeoDaemonFeatures(features)
-        updatingTurns { $0.observingBoot(bootID) }
+        let advertised = LeoDaemonFeatures(features)
+        let featuresChanged = advertised != daemonFeatures
+        daemonFeatures = advertised
+        // The /state baseline can land before the first hello; the features
+        // alone decide what the rows already hold may show, so repaint.
+        let before = turnPreviews
+        turnPreviews = before.observingBoot(bootID)
+        if featuresChanged || turnPreviews != before { emit() }
     }
 
-    /// Records the preview for the row's current incarnation. A turn for an
+    /// Records the preview for the row's current incarnation. Accepted loss:
+    /// a turn arriving between `agent_spawned` and the `/state` refresh is
+    /// stamped with the old `started_at`, stops matching once the new one
+    /// lands, and drops -- it fails safe, never painting a namesake. A turn for an
     /// agent with no row (or none identified by `started_at`) is dropped:
     /// never paint a namesake, never invent a row.
     func receiveTurn(_ turn: LeoTurnCompletion) {
