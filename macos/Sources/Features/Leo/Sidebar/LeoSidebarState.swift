@@ -48,12 +48,15 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
     /// A compaction in progress, overlaid at emission time from the
     /// `agent_compaction` events (B-261); nil otherwise.
     let compaction: LeoRowCompaction?
+    /// From the list: whether a message wakes this agent while it is
+    /// stopped (B-262 allows Send for such a row).
+    let wakeOnMessage: Bool?
 
     init(
         host: LeoHostID, name: String, template: String?, status: LeoAgentStatus, activity: Activity, actionDetail: String?,
         workspace: String? = nil, repo: String? = nil, attention: LeoAttentionBadge? = nil, attentionReason: LeoAttentionReason? = nil,
         startedAt: String? = nil, metadata: LeoAgentMetadata? = nil, surfacedFiles: [LeoSurfacedFile] = [],
-        lastTurn: LeoTurnPreview? = nil, compaction: LeoRowCompaction? = nil
+        lastTurn: LeoTurnPreview? = nil, compaction: LeoRowCompaction? = nil, wakeOnMessage: Bool? = nil
     ) {
         self.host = host
         self.name = name
@@ -70,13 +73,14 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         self.surfacedFiles = surfacedFiles
         self.lastTurn = lastTurn
         self.compaction = compaction
+        self.wakeOnMessage = wakeOnMessage
     }
 
     func withAttention(_ attention: LeoAttentionBadge?, reason: LeoAttentionReason? = nil) -> LeoAgentRow {
         LeoAgentRow(
             host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, attention: attention, attentionReason: reason, startedAt: startedAt,
-            metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn, compaction: compaction
+            metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage
         )
     }
 
@@ -84,7 +88,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         LeoAgentRow(
             host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
-            startedAt: startedAt, metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn, compaction: compaction
+            startedAt: startedAt, metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage
         )
     }
 
@@ -92,7 +96,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         LeoAgentRow(
             host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
-            startedAt: startedAt, metadata: metadata, surfacedFiles: files, lastTurn: lastTurn, compaction: compaction
+            startedAt: startedAt, metadata: metadata, surfacedFiles: files, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage
         )
     }
 
@@ -100,7 +104,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         LeoAgentRow(
             host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
-            startedAt: startedAt, metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn, compaction: compaction
+            startedAt: startedAt, metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage
         )
     }
 
@@ -108,7 +112,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         LeoAgentRow(
             host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
-            startedAt: startedAt, metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn, compaction: compaction
+            startedAt: startedAt, metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage
         )
     }
 
@@ -161,6 +165,14 @@ struct LeoSidebarSnapshot: Equatable, Sendable {
         self.dispatchChildren = dispatchChildren
     }
 
+    /// A copy carrying what the connected daemon advertised (none while disconnected).
+    func advertising(_ features: LeoDaemonFeatures) -> LeoSidebarSnapshot {
+        LeoSidebarSnapshot(
+            rows: rows, connectivity: connectivity, generation: generation, listRefreshSucceeded: listRefreshSucceeded,
+            attentionCount: attentionCount, dispatchChildren: dispatchChildren, features: connectivity.isDisconnected ? .none : features
+        )
+    }
+
     /// Returns a copy with `rows` replaced and `connectivity`/`generation`
     /// carried over from `self` explicitly. `listRefreshSucceeded` has no
     /// default here on purpose -- every reconstruction site (list refresh,
@@ -169,13 +181,6 @@ struct LeoSidebarSnapshot: Equatable, Sendable {
     /// defaulting it to `false` is exactly what caused a list refresh's
     /// `true` to be lost by a later same-refresh reconstruction. Forcing
     /// callers to state it keeps that from recurring.
-    func advertising(_ features: LeoDaemonFeatures) -> LeoSidebarSnapshot {
-        LeoSidebarSnapshot(
-            rows: rows, connectivity: connectivity, generation: generation, listRefreshSucceeded: listRefreshSucceeded,
-            attentionCount: attentionCount, dispatchChildren: dispatchChildren, features: connectivity.isDisconnected ? .none : features
-        )
-    }
-
     func replacingRows(_ rows: [LeoAgentRow], listRefreshSucceeded: Bool) -> LeoSidebarSnapshot {
         LeoSidebarSnapshot(
             rows: rows, connectivity: connectivity, generation: generation, listRefreshSucceeded: listRefreshSucceeded,

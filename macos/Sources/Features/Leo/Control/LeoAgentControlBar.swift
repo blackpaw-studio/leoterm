@@ -20,7 +20,7 @@ struct LeoAgentControlBar: View {
             LeoControlPromptField(
                 text: Binding(get: { control.draft(for: row.id) }, set: { control.setDraft($0, for: row.id) }),
                 placeholder: availability.reason ?? "Message \(row.name)",
-                isEnabled: availability.canSend,
+                isEnabled: availability.canCompose,
                 handle: handle,
                 onSubmit: send
             )
@@ -70,12 +70,19 @@ struct LeoAgentControlBar: View {
 
     @ViewBuilder private var feedbackBanner: some View {
         let isDenied = control.deniedHosts.contains(row.host)
-        if let line = control.feedback[row.id] ?? (isDenied ? .error(LeoAgentControlAvailability.deniedReason) : nil) {
+        if let line = control.feedback[row.id] ?? (isDenied ? .error(LeoAgentControlAvailability.deniedMessage) : nil) {
             HStack(spacing: 8) {
                 Image(systemName: symbol(for: line)).foregroundStyle(.secondary)
-                Text(message(of: line)).font(.callout).lineLimit(2)
+                Text(message(of: line)).font(.callout).lineLimit(2).help(message(of: line))
                 Spacer(minLength: 8)
-                if isDenied { Button("Retry") { control.retryAfterDenial(host: row.host) }.controlSize(.small) }
+                if isDenied {
+                    Button("Retry") { control.retryAfterDenial(host: row.host) }.controlSize(.small)
+                } else {
+                    Button { control.dismissFeedback(for: row.id) } label: { Image(systemName: "xmark") }
+                        .buttonStyle(.borderless)
+                        .help("Dismiss")
+                        .accessibilityLabel("Dismiss")
+                }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
@@ -118,7 +125,7 @@ struct LeoAgentControlBarHost: View {
         if let row, availability.isOffered {
             LeoAgentControlBar(
                 row: row, availability: availability, control: control, focusRequest: session.controlFocusRequest, handle: handle,
-                clear: { Task { await control.clear(row) } }
+                clear: { Task { await control.clear(row, in: handle.window) } }
             )
         }
     }

@@ -1,3 +1,4 @@
+import AppKit
 import Combine
 import Foundation
 
@@ -29,31 +30,35 @@ enum LeoControlFeedback: Equatable, Sendable {
     /// switch writes nothing.
     private var bindingToken = 0
     private var confirmingClear: Set<LeoAgentRow.ID> = []
-    private let confirmClear: @MainActor (LeoAgentRow) async -> Bool
+    private let confirmClear: @MainActor (LeoAgentRow, NSWindow?) async -> Bool
 
-    init(daemon: any LeoDaemonClient, daemonHost: LeoHostID = .local, confirmClear: @escaping @MainActor (LeoAgentRow) async -> Bool) {
+    init(daemon: any LeoDaemonClient, daemonHost: LeoHostID = .local, confirmClear: @escaping @MainActor (LeoAgentRow, NSWindow?) async -> Bool) {
         self.daemon = daemon
         self.daemonHost = daemonHost
         self.confirmClear = confirmClear
     }
 
     /// Called whenever the selected connection's daemon changes. A different
-    /// host drops in-flight state and inline feedback; drafts stay.
+    /// host drops inline feedback; drafts stay, and so does in-flight state
+    /// (row ids include the host, and the request clears its own entry), so
+    /// switching A to B and back can't double-post to A.
     func updateDaemon(_ daemon: any LeoDaemonClient, host: LeoHostID) {
         self.daemon = daemon
         guard host != daemonHost else { return }
         daemonHost = host
         bindingToken += 1
-        inFlight = [:]
         feedback = [:]
     }
 
     func draft(for id: LeoAgentRow.ID) -> String { drafts[id] ?? "" }
 
     func setDraft(_ text: String, for id: LeoAgentRow.ID) {
-        if drafts[id] != text { drafts[id] = text.isEmpty ? nil : text }
-        if case .error? = feedback[id] { feedback[id] = nil }
+        guard draft(for: id) != text else { return }
+        drafts[id] = text.isEmpty ? nil : text
+        feedback[id] = nil
     }
+
+    func dismissFeedback(for id: LeoAgentRow.ID) { feedback[id] = nil }
 
     func canSendDraft(for id: LeoAgentRow.ID) -> Bool {
         !draft(for: id).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -65,14 +70,16 @@ enum LeoControlFeedback: Equatable, Sendable {
     }
 
     func send(_ row: LeoAgentRow) async {
-        let text = draft(for: row.id).trimmingCharacters(in: .whitespacesAndNewlines)
+        let sentDraft = draft(for: row.id)
+        let text = sentDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         guard text.utf8.count <= Self.maxMessageBytes else {
             feedback[row.id] = .error("That message is too long (the limit is 256 KiB).")
             return
         }
         guard let delivery = await perform(.message, row, { try await $0.message(row.name, text: text) }) else { return }
-        drafts[row.id] = nil
+        // Only the draft that was sent: anything typed meanwhile stays.
+        if draft(for: row.id) == sentDraft { drafts[row.id] = nil }
         if delivery == .queued { feedback[row.id] = .notice("Queued. \(row.name) will get it when it can.") }
     }
 
@@ -80,11 +87,19 @@ enum LeoControlFeedback: Equatable, Sendable {
 
     func compact(_ row: LeoAgentRow) async { _ = await perform(.compact, row) { try await $0.compact(row.name, instructions: nil) } }
 
-    func clear(_ row: LeoAgentRow) async {
+    func clear(_ row: LeoAgentRow, in window: NSWindow? = nil) async {
         guard inFlight[row.id] == nil, !deniedHosts.contains(row.host), confirmingClear.insert(row.id).inserted else { return }
-        let confirmed = await confirmClear(row)
-        confirmingClear.remove(row.id)
-        guard confirmed else { return }
+        defer { confirmingClear.remove(row.id) }
+        guard await confirmClear(row, window) else { return }
+        // The sheet was up a while: re-check, and say so rather than drop a confirmed Clear.
+        if deniedHosts.contains(row.host) {
+            feedback[row.id] = .error(LeoAgentControlAvailability.deniedMessage)
+            return
+        }
+        guard inFlight[row.id] == nil else {
+            feedback[row.id] = .error("Another action is running. Try Clear again when it finishes.")
+            return
+        }
         _ = await perform(.clear, row) { try await $0.clear(row.name) }
     }
 
@@ -101,10 +116,10 @@ enum LeoControlFeedback: Equatable, Sendable {
         let token = bindingToken
         inFlight[row.id] = verb
         feedback[row.id] = nil
-        defer { if token == bindingToken { inFlight[row.id] = nil } }
+        defer { inFlight[row.id] = nil }
         do {
-            let value = try await operation(daemon)
-            return token == bindingToken ? value : nil
+            // A success belongs to its own row (ids include the host), so it counts after a switch.
+            return try await operation(daemon)
         } catch {
             if token == bindingToken { fail(error, row) }
             return nil

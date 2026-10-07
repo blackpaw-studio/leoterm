@@ -14,7 +14,8 @@ struct LeoAgentControlModelTests {
         _ transport: ControlModelTransport, confirm: @escaping (LeoAgentRow) async -> Bool = { _ in true }
     ) -> LeoAgentControlModel {
         LeoAgentControlModel(
-            daemon: LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport), daemonHost: .local, confirmClear: confirm
+            daemon: LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport), daemonHost: .local,
+            confirmClear: { row, _ in await confirm(row) }
         )
     }
 
@@ -150,12 +151,119 @@ struct LeoAgentControlModelTests {
         #expect(await transport.paths == ["/agents/alpha/clear"])
     }
 
+    @Test func typingDuringAnInFlightSendSurvivesSuccess() async throws {
+        let transport = ControlModelTransport(status: 200, body: Self.ok, isGated: true)
+        let model = make(transport)
+        model.setDraft("hi", for: Self.row.id)
+        let first = Task { await model.send(Self.row) }
+        try await until { await transport.paths.count == 1 }
+        model.setDraft("hi there", for: Self.row.id)
+        await transport.release()
+        await first.value
+        #expect(model.draft(for: Self.row.id) == "hi there")
+    }
+
+    @Test func queuedNoticeClearsOnTheNextEdit() async {
+        let model = make(ControlModelTransport(status: 202, body: #"{"ok":true,"data":{"queued":true}}"#))
+        model.setDraft("hello", for: Self.row.id)
+        await model.send(Self.row)
+        #expect(model.feedback[Self.row.id] != nil)
+        model.setDraft("next", for: Self.row.id)
+        #expect(model.feedback[Self.row.id] == nil)
+    }
+
+    @Test func dismissingFeedbackClearsIt() async {
+        let model = make(ControlModelTransport(status: 503, body: #"{"ok":false,"error":"down"}"#))
+        await model.interrupt(Self.row)
+        #expect(model.feedback[Self.row.id] != nil)
+        model.dismissFeedback(for: Self.row.id)
+        #expect(model.feedback[Self.row.id] == nil)
+    }
+
+    @Test func clearTwiceWhileTheSheetIsOpenAsksOnceAndPostsOnce() async throws {
+        let transport = ControlModelTransport(status: 200, body: Self.ok)
+        let gate = ConfirmGate()
+        let model = make(transport, confirm: { _ in await gate.wait() })
+        let first = Task { await model.clear(Self.row) }
+        try await until { await gate.calls == 1 }
+        await model.clear(Self.row)
+        #expect(await gate.calls == 1)
+        await gate.release(true)
+        await first.value
+        #expect(await transport.paths == ["/agents/alpha/clear"])
+    }
+
+    @Test func confirmedClearAfterAnotherVerbStartedShowsAnErrorAndDoesNotPost() async throws {
+        let transport = ControlModelTransport(status: 200, body: Self.ok, isGated: true)
+        let gate = ConfirmGate()
+        let model = make(transport, confirm: { _ in await gate.wait() })
+        let clear = Task { await model.clear(Self.row) }
+        try await until { await gate.calls == 1 }
+        let interrupt = Task { await model.interrupt(Self.row) }
+        try await until { await transport.paths.count == 1 }
+        await gate.release(true)
+        await clear.value
+        guard case .error? = model.feedback[Self.row.id] else {
+            Issue.record("expected an inline error")
+            return
+        }
+        #expect(await transport.paths == ["/agents/alpha/interrupt"])
+        await transport.release()
+        await interrupt.value
+    }
+
+    @Test func confirmedClearAfterDenialShowsAnErrorAndDoesNotPost() async throws {
+        let transport = ControlModelTransport(status: 403, body: #"{"ok":false,"error":"operator token required"}"#)
+        let gate = ConfirmGate()
+        let model = make(transport, confirm: { _ in await gate.wait() })
+        let clear = Task { await model.clear(Self.row) }
+        try await until { await gate.calls == 1 }
+        await model.interrupt(Self.row)
+        await gate.release(true)
+        await clear.value
+        #expect(model.feedback[Self.row.id] == .error(LeoAgentControlAvailability.deniedMessage))
+        #expect(await transport.paths == ["/agents/alpha/interrupt"])
+    }
+
+    @Test func hostSwitchRoundTripDoesNotAllowADuplicatePost() async throws {
+        let transport = ControlModelTransport(status: 200, body: Self.ok, isGated: true)
+        let local = LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport)
+        let model = LeoAgentControlModel(daemon: local, daemonHost: .local, confirmClear: { _, _ in true })
+        let first = Task { await model.interrupt(Self.row) }
+        try await until { await transport.paths.count == 1 }
+        model.updateDaemon(
+            LeoSocketDaemonClient(socketPath: "/tmp/other.sock", transport: ControlModelTransport(status: 200, body: Self.ok)),
+            host: .remote("work")
+        )
+        model.updateDaemon(local, host: .local)
+        await model.interrupt(Self.row)
+        #expect(await transport.paths.count == 1)
+        await transport.release()
+        await first.value
+        #expect(model.inFlight[Self.row.id] == nil)
+    }
+
     @Test func interruptAndCompactHitTheirRoutesImmediately() async {
         let transport = ControlModelTransport(status: 200, body: Self.ok)
         let model = make(transport, confirm: { _ in false })
         await model.interrupt(Self.row)
         await model.compact(Self.row)
         #expect(await transport.paths == ["/agents/alpha/interrupt", "/agents/alpha/compact"])
+    }
+}
+
+private actor ConfirmGate {
+    private(set) var calls = 0
+    private var continuation: CheckedContinuation<Bool, Never>?
+
+    func wait() async -> Bool {
+        calls += 1
+        return await withCheckedContinuation { continuation = $0 }
+    }
+
+    func release(_ answer: Bool) {
+        continuation?.resume(returning: answer)
+        continuation = nil
     }
 }
 

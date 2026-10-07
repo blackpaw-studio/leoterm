@@ -8,6 +8,8 @@ import SwiftUI
 @MainActor final class LeoControlPromptFieldHandle {
     fileprivate weak var field: NSTextField?
 
+    var window: NSWindow? { field?.window }
+
     func focus() {
         DispatchQueue.main.async { [weak self] in
             guard let field = self?.field, let window = field.window else { return }

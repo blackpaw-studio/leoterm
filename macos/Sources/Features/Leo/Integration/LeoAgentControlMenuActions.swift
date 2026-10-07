@@ -21,7 +21,7 @@ extension TerminalController {
 
     @IBAction func clearSelectedLeoAgent(_ sender: Any?) {
         guard let control = leoRuntime?.control, let row = selectedLeoRow else { return }
-        Task { await control.clear(row) }
+        Task { await control.clear(row, in: window) }
     }
 
     func validateLeoControlMenuItem(_ allowed: KeyPath<LeoAgentControlAvailability, Bool>) -> Bool {

@@ -256,8 +256,8 @@ import OSLog
             Task { await feed?.refresh() }
         }
         actionsBox.actions = actions
-        control = LeoAgentControlModel(daemon: daemon, confirmClear: { row in
-            await LeoClearConfirmation.confirm(agent: row.name, in: NSApp.keyWindow)
+        control = LeoAgentControlModel(daemon: daemon, confirmClear: { row, window in
+            await LeoClearConfirmation.confirm(agent: row.name, in: window)
         })
         model.startRequested = { [weak actions] row, completion in actions?.start(row, completion: completion) }
         model.retryRequested = { [hostSelection] in hostSelection.retry() }
