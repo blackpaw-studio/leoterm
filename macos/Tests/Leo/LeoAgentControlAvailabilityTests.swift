@@ -64,6 +64,7 @@ struct LeoAgentControlAvailabilityTests {
         let denied: Set<LeoHostID> = [.remote("work")]
         let onWork = LeoAgentControlAvailability(row: Self.row(.running, host: .remote("work")), features: Self.control, deniedHosts: denied, inFlight: nil)
         #expect(Self.all(onWork) == [false, false, false, false])
+        #expect(!onWork.canCompose)
         #expect(onWork.reason == LeoAgentControlAvailability.deniedReason)
         let onLocal = LeoAgentControlAvailability(row: Self.row(.running), features: Self.control, deniedHosts: denied, inFlight: nil)
         #expect(Self.all(onLocal) == [true, true, true, true])

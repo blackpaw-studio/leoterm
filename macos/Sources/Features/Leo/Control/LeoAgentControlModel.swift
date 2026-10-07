@@ -26,9 +26,6 @@ enum LeoControlFeedback: Equatable, Sendable {
 
     private var daemon: any LeoDaemonClient
     private var daemonHost: LeoHostID
-    /// Bumped when the bound host changes, so a reply that lands after a
-    /// switch writes nothing.
-    private var bindingToken = 0
     private var confirmingClear: Set<LeoAgentRow.ID> = []
     private let confirmClear: @MainActor (LeoAgentRow, NSWindow?) async -> Bool
 
@@ -46,7 +43,6 @@ enum LeoControlFeedback: Equatable, Sendable {
         self.daemon = daemon
         guard host != daemonHost else { return }
         daemonHost = host
-        bindingToken += 1
         feedback = [:]
     }
 
@@ -113,7 +109,6 @@ enum LeoControlFeedback: Equatable, Sendable {
             feedback[row.id] = .error("\(row.host.displayName) isn't connected.")
             return nil
         }
-        let token = bindingToken
         inFlight[row.id] = verb
         feedback[row.id] = nil
         defer { inFlight[row.id] = nil }
@@ -121,7 +116,8 @@ enum LeoControlFeedback: Equatable, Sendable {
             // A success belongs to its own row (ids include the host), so it counts after a switch.
             return try await operation(daemon)
         } catch {
-            if token == bindingToken { fail(error, row) }
+            // Keyed by row and host, so a late failure lands on its own row even after a switch.
+            fail(error, row)
             return nil
         }
     }

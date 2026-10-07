@@ -73,7 +73,7 @@ struct LeoAgentControlBar: View {
         if let line = control.feedback[row.id] ?? (isDenied ? .error(LeoAgentControlAvailability.deniedMessage) : nil) {
             HStack(spacing: 8) {
                 Image(systemName: symbol(for: line)).foregroundStyle(.secondary)
-                Text(message(of: line)).font(.callout).lineLimit(2).help(message(of: line))
+                Text(message(of: line)).font(.callout).lineLimit(2).fixedSize(horizontal: false, vertical: true).help(message(of: line))
                 Spacer(minLength: 8)
                 if isDenied {
                     Button("Retry") { control.retryAfterDenial(host: row.host) }.controlSize(.small)
@@ -89,7 +89,7 @@ struct LeoAgentControlBar: View {
             .frame(maxWidth: .infinity)
             .background(.bar)
             .overlay(alignment: .top) { Divider() }
-            .accessibilityElement(children: .combine)
+            .accessibilityElement(children: .contain)
         }
     }
 

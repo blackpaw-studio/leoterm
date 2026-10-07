@@ -126,21 +126,6 @@ struct LeoAgentControlModelTests {
         #expect(model.inFlight[Self.row.id] == nil)
     }
 
-    @Test func replyAfterHostSwitchIsDropped() async throws {
-        let transport = ControlModelTransport(status: 403, body: #"{"ok":false,"error":"operator token required"}"#, isGated: true)
-        let model = make(transport)
-        let first = Task { await model.interrupt(Self.row) }
-        try await until { await transport.paths.count == 1 }
-        model.updateDaemon(
-            LeoSocketDaemonClient(socketPath: "/tmp/other.sock", transport: ControlModelTransport(status: 200, body: Self.ok)),
-            host: .remote("work")
-        )
-        await transport.release()
-        await first.value
-        #expect(model.deniedHosts.isEmpty)
-        #expect(model.feedback.isEmpty)
-    }
-
     @Test func clearRequiresConfirmation() async {
         let transport = ControlModelTransport(status: 200, body: Self.ok)
         let declined = make(transport, confirm: { _ in false })
@@ -243,12 +228,50 @@ struct LeoAgentControlModelTests {
         #expect(model.inFlight[Self.row.id] == nil)
     }
 
+    @Test func lateFailureAfterAHostRoundTripStillDeniesAndShowsTheError() async throws {
+        let transport = ControlModelTransport(status: 403, body: #"{"ok":false,"error":"operator token required"}"#, isGated: true)
+        let local = LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport)
+        let model = LeoAgentControlModel(daemon: local, daemonHost: .local, confirmClear: { _, _ in true })
+        model.setDraft("hi", for: Self.row.id)
+        let first = Task { await model.send(Self.row) }
+        try await until { await transport.paths.count == 1 }
+        model.updateDaemon(
+            LeoSocketDaemonClient(socketPath: "/tmp/other.sock", transport: ControlModelTransport(status: 200, body: Self.ok)),
+            host: .remote("work")
+        )
+        model.updateDaemon(local, host: .local)
+        await transport.release()
+        await first.value
+        #expect(model.deniedHosts == [.local])
+        #expect(model.feedback[Self.row.id] == .error("operator token required"))
+        #expect(model.draft(for: Self.row.id) == "hi")
+    }
+
+    @Test func clearAsksAgainAfterACancelledConfirmation() async {
+        let transport = ControlModelTransport(status: 200, body: Self.ok)
+        let counter = ConfirmCounter()
+        let model = make(transport, confirm: { _ in await counter.decline() })
+        await model.clear(Self.row)
+        await model.clear(Self.row)
+        #expect(await counter.calls == 2)
+        #expect(await transport.paths.isEmpty)
+    }
+
     @Test func interruptAndCompactHitTheirRoutesImmediately() async {
         let transport = ControlModelTransport(status: 200, body: Self.ok)
         let model = make(transport, confirm: { _ in false })
         await model.interrupt(Self.row)
         await model.compact(Self.row)
         #expect(await transport.paths == ["/agents/alpha/interrupt", "/agents/alpha/compact"])
+    }
+}
+
+private actor ConfirmCounter {
+    private(set) var calls = 0
+
+    func decline() -> Bool {
+        calls += 1
+        return false
     }
 }
 
