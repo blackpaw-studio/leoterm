@@ -686,13 +686,14 @@ Source: Evan (/feature, 2026-10-07)
 Inbox: 20261007T144805010219Z-54b3b801#1
 Done: 2026-10-07 · aed36d0e4, 3918fe77b, 42ec95252, 53588d623 · D-397, D-398, D-399, D-400, D-401, D-402, D-403
 
-## B-261 · Compaction indicator   [ready]
+## B-261 · Compaction indicator   [done]
 Issue: #260
 Why: Explains a pause and a context reset (agent_compaction events, leo PR #226)
 Accept: an agent_compaction start event shows a compacting state on the row that clears on the end event; context % updates afterwards
 Out: triggering compaction (covered by the prompt box and controls item)
 Source: Evan (/feature, 2026-10-07)
 Inbox: 20261007T144805108862Z-f2956aed#1
+Done: 2026-10-07 · 764ca502e, 65f17bdd6, 3bd472715, 45a514047, 22974d826, 2ba42eec2, c00970de9 · D-404, D-405, D-406, D-407, D-408, D-409, D-410
 
 ## B-262 · Prompt box and interrupt, compact, and clear controls   [ready]
 Issue: #261

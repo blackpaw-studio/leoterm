@@ -2908,3 +2908,52 @@ Chose: DEBUG fixture key "actions" (agent → {kind, detail}) overrides current_
 Why: AUTONOMY test infra
 Commit: aed36d0e4, 3918fe77b, 42ec95252, 53588d623
 Veto: [ ]
+
+## D-404 · 2026-10-07 · No hello feature gate for compaction; the event's existence is the …
+Context: B-261 (runner call).
+Chose: No hello feature gate for compaction; the event's existence is the proof (as D-399); hidden while disconnected (D-392)
+Why: principle 2
+Commit: 764ca502e, 65f17bdd6, 3bd472715, 45a514047, 22974d826, 2ba42eec2, c00970de9
+Veto: [ ]
+
+## D-405 · 2026-10-07 · Compaction phase is event-sourced because /state has none; context …
+Context: B-261 (runner call).
+Chose: Compaction phase is event-sourced because /state has none; context % stays /state-only, refreshed on the end event (D-082/D-393); the event's context_percent is decoded but never shown (pre-compaction value)
+Why: principle 2
+Commit: 764ca502e, 65f17bdd6, 3bd472715, 45a514047, 22974d826, 2ba42eec2, c00970de9
+Veto: [ ]
+
+## D-406 · 2026-10-07 · Static grey arrow.down.right.and.arrow.up.left + "Compacting contex…
+Context: B-261 (runner call).
+Chose: Static grey arrow.down.right.and.arrow.up.left + "Compacting context" in the task-line slot above tool/task/preview; trigger only in the tooltip ("(automatic)"/"(requested)"); no badge/motion/notification
+Why: principle 2, AUTONOMY UX details
+Commit: 764ca502e, 65f17bdd6, 3bd472715, 45a514047, 22974d826, 2ba42eec2, c00970de9
+Veto: [ ]
+
+## D-407 · 2026-10-07 · `failed` clears quietly
+Context: B-261 (runner call).
+Chose: `failed` clears quietly
+Why: principle 2
+Commit: 764ca502e, 65f17bdd6, 3bd472715, 45a514047, 22974d826, 2ba42eec2, c00970de9
+Veto: [ ]
+
+## D-408 · 2026-10-07 · Clears on gap/reconnect/disconnect/host switch/boot change/stop/spa…
+Context: B-261 (runner call).
+Chose: Clears on gap/reconnect/disconnect/host switch/boot change/stop/spawn/turn completion, never a timer
+Why: principles 2, 5
+Commit: 764ca502e, 65f17bdd6, 3bd472715, 45a514047, 22974d826, 2ba42eec2, c00970de9
+Veto: [ ]
+
+## D-409 · 2026-10-07 · DEBUG fixture key "compactions" (agent → [{phase, trigger}], replay…
+Context: B-261 (runner call).
+Chose: DEBUG fixture key "compactions" (agent → [{phase, trigger}], replayed after hello 1.5 s apart)
+Why: AUTONOMY test infra (D-018/D-403)
+Commit: 764ca502e, 65f17bdd6, 3bd472715, 45a514047, 22974d826, 2ba42eec2, c00970de9
+Veto: [ ]
+
+## D-410 · 2026-10-07 · TurnHarness test helpers made non-private (+ setUsage) for reuse
+Context: B-261 (runner call).
+Chose: TurnHarness test helpers made non-private (+ setUsage) for reuse
+Why: AUTONOMY test infra
+Commit: 764ca502e, 65f17bdd6, 3bd472715, 45a514047, 22974d826, 2ba42eec2, c00970de9
+Veto: [ ]

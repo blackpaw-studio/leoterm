@@ -142,3 +142,5 @@ Finished 3: B-259 landed ed7558b973dafbadc1db205fb0085d0e8ea12ffa · shot /Users
 - B-259 landed ed7558b97: last-turn preview line and usage subtitle segment (tokens/cost/context %), gated on hello bridge_turns/agent_usage; verified live against leo 0.37.0; 1 fix round. 3 polish dropped (idea cap).
 Finished 4: B-260 landed 928f15569c87bc05240f32796cc00e7fa7ee31a8 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-260-1.png
 - B-260 landed 928f15569: running tool shown as grey hammer + tool name in the task line while current_action kind is tool; clears when the call ends; suite 2183 green; 1 fix round.
+Finished 5: B-261 landed bf8e5b9f40a6fec1162a3db210f4d8c06cfcecdf · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-261-1.png
+- B-261 landed bf8e5b9f4: 'Compacting context' line from agent_compaction events, cleared on end/failed/gap/stop; context % refreshed from /state; suite 2207 green; 0 fix rounds. Note: lane history carries a 2.2 MB macos/default.profraw blob (added 65f17bdd6, untracked 764ca502e); not rewritten (Never list).
