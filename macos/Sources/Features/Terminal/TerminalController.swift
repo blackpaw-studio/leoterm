@@ -2091,6 +2091,18 @@ extension TerminalController {
         case #selector(deleteSelectedLeoAgent(_:)):
             return validateLeoDeleteMenuItem(item)
 
+        case #selector(messageSelectedLeoAgent(_:)):
+            return validateLeoControlMenuItem(\.canSend)
+
+        case #selector(interruptSelectedLeoAgent(_:)):
+            return validateLeoControlMenuItem(\.canInterrupt)
+
+        case #selector(compactSelectedLeoAgent(_:)):
+            return validateLeoControlMenuItem(\.canCompact)
+
+        case #selector(clearSelectedLeoAgent(_:)):
+            return validateLeoControlMenuItem(\.canClear)
+
         case #selector(manageLeoHosts(_:)):
             return validateLeoManageHostsMenuItem(item)
 

@@ -499,6 +499,31 @@
                                     <action selector="viewLogsForSelectedLeoAgent:" target="-1" id="Leo-Agents-ViewLogs-Action"/>
                                 </connections>
                             </menuItem>
+                            <menuItem isSeparatorItem="YES" id="Leo-Agents-Separator-Control"/>
+                            <menuItem title="Message Agent" keyEquivalent="m" id="Leo-Agents-Message">
+                                <modifierMask key="keyEquivalentModifierMask" control="YES" command="YES"/>
+                                <connections>
+                                    <action selector="messageSelectedLeoAgent:" target="-1" id="Leo-Agents-Message-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Interrupt" keyEquivalent="." id="Leo-Agents-Interrupt">
+                                <modifierMask key="keyEquivalentModifierMask" control="YES" command="YES"/>
+                                <connections>
+                                    <action selector="interruptSelectedLeoAgent:" target="-1" id="Leo-Agents-Interrupt-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Compact Context" keyEquivalent="k" id="Leo-Agents-Compact">
+                                <modifierMask key="keyEquivalentModifierMask" control="YES" command="YES"/>
+                                <connections>
+                                    <action selector="compactSelectedLeoAgent:" target="-1" id="Leo-Agents-Compact-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Clear Conversation…" keyEquivalent="K" id="Leo-Agents-Clear">
+                                <modifierMask key="keyEquivalentModifierMask" control="YES" shift="YES" command="YES"/>
+                                <connections>
+                                    <action selector="clearSelectedLeoAgent:" target="-1" id="Leo-Agents-Clear-Action"/>
+                                </connections>
+                            </menuItem>
                             <menuItem isSeparatorItem="YES" id="Leo-Agents-Separator-3"/>
                             <menuItem title="Delete" id="Leo-Agents-Delete">
                                 <modifierMask key="keyEquivalentModifierMask"/>
