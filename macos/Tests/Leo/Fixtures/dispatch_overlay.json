@@ -1,0 +1,8 @@
+{
+  "autopilot-scratch": {"state": "working", "revision": 1},
+  "dispatches": [
+    {"id": "fx-1", "name": "fixer", "role": "implement", "status": "running", "stalled": false, "caller_agent": "autopilot-scratch", "started_at": "2026-10-06T12:00:01Z"},
+    {"id": "fx-2", "name": "scout", "role": "explore", "status": "idle", "stalled": false, "caller_agent": "fixer", "parent_dispatch_id": "fx-1", "started_at": "2026-10-06T12:00:02Z"},
+    {"id": "fx-3", "role": "review", "status": "running", "stalled": true, "caller_agent": "autopilot-scratch", "started_at": "2026-10-06T12:00:03Z"}
+  ]
+}

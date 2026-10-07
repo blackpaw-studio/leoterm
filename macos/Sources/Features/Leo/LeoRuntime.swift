@@ -67,7 +67,9 @@ import OSLog
         let socketPath = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath
         var activity = LeoRuntime.makeSocketOrLegacyActivitySource(socketPath: socketPath)
         #if DEBUG
-        if let overlay = LeoAttentionFixture.load() { activity = LeoAttentionFixture.wrap(activity, overlay: overlay) }
+        if let fixture = LeoAttentionFixture.loadFile() {
+            activity = LeoAttentionFixture.wrap(activity, overlay: fixture.attention, dispatches: fixture.dispatches)
+        }
         #endif
         let daemon = LeoRuntime.makeClient(socketPath: socketPath)
         self.init(
