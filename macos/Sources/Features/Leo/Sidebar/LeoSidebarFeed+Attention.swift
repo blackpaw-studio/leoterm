@@ -12,7 +12,7 @@ extension LeoSidebarFeed {
         case .agentSpawned(_, _, let agent, let signal):
             attention.resetAgent(agent.name)
             if let signal { attention.receive(agent: agent.name, signal: signal, now: now()) }
-        case .hello(_, _, _, _, let bootID):
+        case .hello(_, _, _, _, let bootID, _):
             guard attention.observeBoot(bootID) else { return }
             daemonRestarted(event)
         default:

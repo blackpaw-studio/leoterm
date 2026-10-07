@@ -224,6 +224,12 @@ actor LeoSidebarFeed {
 
     func receive(_ event: LeoObserveEvent) {
         guard running else { return }
+        // Sequence-only events never touch the activity coalescer or the
+        // attention reducer: a turn event must not flush the window early.
+        switch event {
+        case .other, .dispatchChanged: return
+        default: break
+        }
         // Every non-activity event either emits directly (`.disconnected`)
         // or triggers a refresh that will (lifecycle/recovery events, via
         // `performRefresh`/`applyActivityState`) -- flush whatever's
@@ -242,7 +248,7 @@ actor LeoSidebarFeed {
             sseRefreshTask?.cancel()
             sseRefreshTask = nil
             process(scheduler.reduce(.sseEvent(event)))
-        case .hello(let seq, _, let version, _, _):
+        case .hello(let seq, _, let version, _, _, _):
             Self.logger.log("receive: .hello seq=\(seq) version=\(version ?? "nil", privacy: .public) awaitingHello=\(self.awaitingHello)")
             if awaitingHello {
                 awaitingHello = false
@@ -266,6 +272,8 @@ actor LeoSidebarFeed {
             }
         case .fileSurfaced(_, let file):
             receiveSurfacedFile(file)
+        case .other, .dispatchChanged:
+            return
         case .disconnected(let reason):
             Self.logger.log("receive: .disconnected reason=\(reason, privacy: .public)")
             // The stream is gone and nothing reconnects it but Retry (D-061).

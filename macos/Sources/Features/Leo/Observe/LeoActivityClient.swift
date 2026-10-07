@@ -102,7 +102,9 @@ struct LeoLenientVersion: Decodable, Equatable, Sendable {
 enum LeoObserveEvent: Equatable, Sendable {
     case connected
     case disconnected(reason: String)
-    case hello(seq: Int, at: String?, version: String?, serverTime: String?, bootID: String? = nil)
+    /// `features`: the optional capabilities the daemon advertised (leo
+    /// >= 0.35); empty for an older daemon. See `LeoDaemonFeatures`.
+    case hello(seq: Int, at: String?, version: String?, serverTime: String?, bootID: String? = nil, features: [String] = [])
     case agentSpawned(seq: Int, at: String?, agent: LeoAgent, attention: LeoAttentionSignal? = nil)
     case agentStateChanged(seq: Int, at: String?, agent: String, status: LeoAgentStatus?, restarts: Int?, wakeOnMessage: Bool?)
     case agentActivity(
@@ -115,6 +117,12 @@ enum LeoObserveEvent: Equatable, Sendable {
     /// B-013: the agent asked the user to look at a file. `seq` is
     /// optional: a seq-less event never takes part in gap detection.
     case fileSurfaced(seq: Int?, file: LeoSurfacedFile)
+    /// A dispatch's whole current record (leo >= 0.35, `dispatch_tree`).
+    case dispatchChanged(seq: Int, dispatch: LeoDispatch)
+    /// An event the app recognizes as carrying a seq but doesn't consume
+    /// (turns, usage, compaction, anything newer, or a malformed dispatch).
+    /// It only advances the sequence, so skipping it never reads as a gap.
+    case other(seq: Int, type: String)
 }
 
 protocol LeoActivityTransport: Sendable {
@@ -208,7 +216,7 @@ actor LeoActivityClient {
                             }
                         }
                         if sequence >= 0 { lastSequence = sequence }
-                        if case .hello(let seq, let at, let version, let serverTime, _) = event {
+                        if case .hello(let seq, let at, let version, let serverTime, _, _) = event {
                             backoff = initialBackoff
                             leoActivityClientLogger.log("activityClient: hello seq=\(seq) version=\(version ?? "nil", privacy: .public) serverTime=\(serverTime ?? "nil", privacy: .public) at=\(at ?? "nil", privacy: .public)")
                             continuation.yield(.connected)
@@ -251,7 +259,7 @@ actor LeoActivityClient {
         case "hello":
             struct Payload: Decodable { let seq: Int; let at: String?; let version: LeoLenientVersion?; let serverTime: String?; let bootID: LeoLenientVersion?; enum CodingKeys: String, CodingKey { case seq, at, version; case serverTime = "server_time"; case bootID = "boot_id" } }
             guard let p = try? decoder.decode(Payload.self, from: data) else { return nil }
-            return .hello(seq: p.seq, at: p.at, version: p.version?.stringValue, serverTime: p.serverTime, bootID: p.bootID?.stringValue)
+            return .hello(seq: p.seq, at: p.at, version: p.version?.stringValue, serverTime: p.serverTime, bootID: p.bootID?.stringValue, features: features(in: data))
         case "agent_spawned":
             struct Nested: Decodable { let attention: LeoLenientAttention? }
             struct Payload: Decodable { let seq: Int; let at: String?; let agent: LeoAgent; let attention: LeoLenientAttention?; let nested: Nested
@@ -283,8 +291,42 @@ actor LeoActivityClient {
             struct Payload: Decodable { let seq: Int? }
             guard let file = try? decoder.decode(LeoSurfacedFile.self, from: data) else { return nil }
             return .fileSurfaced(seq: (try? decoder.decode(Payload.self, from: data))?.seq, file: file)
-        default: return nil
+        case "dispatch_changed":
+            struct Payload: Decodable { let seq: Int; let dispatch: LeoDispatch }
+            if let p = try? decoder.decode(Payload.self, from: data) { return .dispatchChanged(seq: p.seq, dispatch: p.dispatch) }
+            return sequence(in: data).map { .other(seq: $0, type: name) }
+        default:
+            // Recognized as an event (it has a seq) but not consumed here.
+            return sequence(in: data).map { .other(seq: $0, type: name) }
         }
+    }
+
+    /// The payload's `seq`, if it has one.
+    private static func sequence(in data: Data) -> Int? {
+        struct Sequenced: Decodable { let seq: Int }
+        return (try? JSONDecoder().decode(Sequenced.self, from: data))?.seq
+    }
+
+    /// hello's `features`; a missing or malformed list reads as none, and
+    /// a non-string entry is dropped.
+    private static func features(in data: Data) -> [String] {
+        struct Lenient: Decodable {
+            let names: [String]
+            init(from decoder: any Decoder) throws {
+                var container = try decoder.unkeyedContainer()
+                var names: [String] = []
+                while !container.isAtEnd {
+                    if let name = try? container.decode(String.self) {
+                        names.append(name)
+                    } else if (try? container.decode(LeoLenientVersion.self)) == nil {
+                        break
+                    }
+                }
+                self.names = names
+            }
+        }
+        struct Payload: Decodable { let features: Lenient? }
+        return ((try? JSONDecoder().decode(Payload.self, from: data))?.features?.names) ?? []
     }
 
     /// The payload's own `type`, for an event sent without an SSE `event:` name.
@@ -303,9 +345,9 @@ actor LeoActivityClient {
 extension LeoObserveEvent {
     var sequence: Int {
         switch self {
-        case .hello(let seq, _, _, _, _), .agentSpawned(let seq, _, _, _),
+        case .hello(let seq, _, _, _, _, _), .agentSpawned(let seq, _, _, _),
              .agentStateChanged(let seq, _, _, _, _, _), .agentActivity(let seq, _, _, _, _, _),
-             .agentStopped(let seq, _, _, _): return seq
+             .agentStopped(let seq, _, _, _), .dispatchChanged(let seq, _), .other(let seq, _): return seq
         case .fileSurfaced(let seq, _): return seq ?? -1
         case .connected, .disconnected, .gap, .snapshot: return -1
         }

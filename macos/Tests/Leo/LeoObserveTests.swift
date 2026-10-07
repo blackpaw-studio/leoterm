@@ -74,6 +74,83 @@ struct LeoObserveTests {
         #expect(await transport.counter.stateFetches == 1)
     }
 
+    @Test func decodesHelloFeatures() {
+        let withFeatures = LeoActivityClient.decode(LeoSSEEvent(
+            name: "hello", data: #"{"seq":1,"version":1,"boot_id":"b","features":["bridge_turns","dispatch_tree","from_the_future"]}"#, id: nil
+        ))
+        #expect(withFeatures == .hello(
+            seq: 1, at: nil, version: "1", serverTime: nil, bootID: "b",
+            features: ["bridge_turns", "dispatch_tree", "from_the_future"]
+        ))
+        let without = LeoActivityClient.decode(LeoSSEEvent(name: "hello", data: #"{"seq":1,"version":1}"#, id: nil))
+        #expect(without == .hello(seq: 1, at: nil, version: "1", serverTime: nil, features: []))
+    }
+
+    @Test func decodesDispatchChanged() throws {
+        let json = #"{"seq":7,"at":"2026-10-06T12:00:00Z","dispatch":{"id":"d-2","name":"fixer","role":"implement","#
+            + #""template":"claude","model":"opus","status":"done","stalled":true,"caller_agent":"alpha","#
+            + #""parent_dispatch_id":"d-1","started_at":"2026-10-06T11:59:00Z","ended_at":"2026-10-06T12:00:00Z","#
+            + #""tokens_in":10,"tokens_out":20,"cost_usd":0.5}}"#
+        let event = LeoActivityClient.decode(LeoSSEEvent(name: "dispatch_changed", data: json, id: nil))
+        let expected = LeoDispatch(
+            id: "d-2", name: "fixer", role: "implement", template: "claude", model: "opus", status: "done",
+            stalled: true, callerAgent: "alpha", parentDispatchID: "d-1",
+            startedAt: "2026-10-06T11:59:00Z", endedAt: "2026-10-06T12:00:00Z"
+        )
+        #expect(event == .dispatchChanged(seq: 7, dispatch: expected))
+        #expect(event?.sequence == 7)
+
+        let malformed = LeoActivityClient.decode(LeoSSEEvent(name: "dispatch_changed", data: #"{"seq":8,"dispatch":{"name":"no id"}}"#, id: nil))
+        #expect(malformed == .other(seq: 8, type: "dispatch_changed"), "a malformed dispatch still advances the sequence")
+        #expect(malformed?.sequence == 8)
+    }
+
+    /// Unconsumed events (turns, dispatches, anything newer) still carry
+    /// the daemon's seq: skipping them made the next known event look like
+    /// a gap and forced a recovery refetch on every 1 s dispatch tick.
+    @Test func unconsumedSeqEventsDoNotOpenGap() async throws {
+        let frames = """
+        event: hello
+        data: {"seq":1,"version":1}
+
+        event: agent_turn_completed
+        data: {"seq":2,"agent":"alpha","session_id":"s1","outcome":"completed","preview":"done"}
+
+        event: dispatch_changed
+        data: {"seq":3,"dispatch":{"id":"d-1","status":"running","stalled":false,"caller_agent":"alpha","started_at":"2026-10-06T12:00:00Z"}}
+
+        event: agent_activity
+        data: {"seq":4,"agent":"alpha","activity":"idle"}
+
+        """ + "\n"
+        let httpTransport = OpenFrameTransport(frames: frames)
+        let config = LeoObserveConfig(baseURL: URL(string: "http://127.0.0.1:8370")!, token: "token")
+        let httpEvents = try await eventsThroughActivity(from: await LeoActivityClient(config: config, transport: httpTransport).events())
+        let socketTransport = OpenFrameSocketTransport(frames: frames)
+        let socketEvents = try await eventsThroughActivity(from: await LeoSocketActivityClient(transport: socketTransport).events())
+
+        for events in [httpEvents, socketEvents] {
+            #expect(!events.contains { if case .gap = $0 { true } else { false } }, "no gap: \(events)")
+            #expect(!events.contains { if case .snapshot = $0 { true } else { false } })
+            #expect(events.contains(.other(seq: 2, type: "agent_turn_completed")))
+            #expect(events.contains { if case .dispatchChanged(3, let dispatch) = $0 { dispatch.id == "d-1" } else { false } })
+        }
+        #expect(await httpTransport.counter.stateFetches == 0)
+        #expect(socketTransport.stateFetchCount == 0)
+    }
+
+    /// Collects events until seq 4's `agent_activity` arrives (the
+    /// transports keep the stream open, so it never ends by itself).
+    private func eventsThroughActivity(from stream: AsyncStream<LeoObserveEvent>) async throws -> [LeoObserveEvent] {
+        let collector = ObservedEvents()
+        let task = Task { for await event in stream { await collector.append(event) } }
+        defer { task.cancel() }
+        await awaitCondition(message: "seq 4 never arrived") {
+            await collector.events.contains { if case .agentActivity(4, _, _, _, _, _) = $0 { true } else { false } }
+        }
+        return await collector.events
+    }
+
     private func fixture(_ name: String) throws -> Data {
         try Data(contentsOf: URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/\(name)"))
     }
@@ -179,4 +256,46 @@ private actor NextEvent {
 private actor EventCounter {
     private(set) var stateFetches = 0
     func increment() { stateFetches += 1 }
+}
+
+private actor ObservedEvents {
+    private(set) var events: [LeoObserveEvent] = []
+    func append(_ event: LeoObserveEvent) { events.append(event) }
+}
+
+/// Yields `frames` once and keeps the stream open; counts `/state` fetches.
+private struct OpenFrameTransport: LeoActivityTransport {
+    let frames: String
+    let counter = EventCounter()
+
+    func fetch(_ request: URLRequest) async throws -> (Data, Int) {
+        await counter.increment()
+        return (Data(#"{"ok":true,"data":{"agents":[]}}"#.utf8), 200)
+    }
+
+    func stream(_ request: URLRequest) -> AsyncThrowingStream<Data, Error> {
+        let frames = frames
+        return AsyncThrowingStream { continuation in continuation.yield(Data(frames.utf8)) }
+    }
+}
+
+/// The socket client's equivalent of `OpenFrameTransport`.
+private final class OpenFrameSocketTransport: LeoSocketActivityTransport, @unchecked Sendable {
+    private let lock = NSLock()
+    private var fetches = 0
+    private let frames: String
+
+    init(frames: String) { self.frames = frames }
+
+    var stateFetchCount: Int { lock.withLock { fetches } }
+
+    func send(_ request: LeoHTTPRequest, socketPath _: String, timeout _: TimeInterval) async throws -> LeoHTTPResponse {
+        lock.withLock { fetches += 1 }
+        return .init(status: 200, body: Data(#"{"ok":true,"data":{"agents":[]}}"#.utf8))
+    }
+
+    func stream(path _: String, socketPath _: String, idleTimeout _: TimeInterval) -> AsyncThrowingStream<Data, Error> {
+        let frames = frames
+        return AsyncThrowingStream { continuation in continuation.yield(Data(frames.utf8)) }
+    }
 }
