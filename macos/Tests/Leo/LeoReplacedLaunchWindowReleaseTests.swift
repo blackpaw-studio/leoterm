@@ -149,7 +149,9 @@ struct LeoReplacedLaunchWindowReleaseTests {
             guard let launch = openLaunchWindow(app, in: loop) else { return (nil, Outcome(isReleasedWhileIdle: false, others: [])) }
             var requested: TerminalController?
             loop.turn { requested = withoutUndo(app) { request(launch) } }
-            let isReleased = loop.idle(until: { launch.isFreed }, timeout: Self.releaseTimeout)
+            let isReleased = loop.idle(
+                until: { launch.isFreed }, wakingFor: launch.windowNumber, timeout: Self.releaseTimeout
+            )
             return (launch, Outcome(isReleasedWhileIdle: isReleased, others: requested.map { [$0] } ?? []))
         }
         let launch = try #require(trace, "the launch window never presented")
@@ -223,7 +225,9 @@ struct LeoReplacedLaunchWindowReleaseTests {
             afterDelay(Self.undoExpiry) {
                 replacement.map { app.undoManager.removeAllActions(withTarget: $0) }
             }
-            let isReleased = loop.idle(until: { launch.isFreed }, timeout: Self.releaseTimeout)
+            let isReleased = loop.idle(
+                until: { launch.isFreed }, wakingFor: launch.windowNumber, timeout: Self.releaseTimeout
+            )
             return (launch, isUndoable, Outcome(isReleasedWhileIdle: isReleased, others: replacement.map { [$0] } ?? []))
         }
         let launch = try #require(trace, "the launch window never presented")
@@ -245,7 +249,10 @@ struct LeoReplacedLaunchWindowReleaseTests {
         let (trace, isReleased) = await LeoIdleEventLoop.run { loop -> (Trace?, Bool) in
             guard let start = openStartScreenWindow(app, in: loop) else { return (nil, false) }
             loop.turn { start.window?.close() }
-            return (start, loop.idle(until: { start.isFreed }, timeout: Self.releaseTimeout))
+            let isReleased = loop.idle(
+                until: { start.isFreed }, wakingFor: start.windowNumber, timeout: Self.releaseTimeout
+            )
+            return (start, isReleased)
         }
         let start = try #require(trace, "the start-screen window never presented")
         defer { start.closeIfOpen() }

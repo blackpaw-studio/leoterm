@@ -1,5 +1,7 @@
 import AppKit
 
+@testable import Ghostty
+
 /// AppKit's event loop as `-[NSApplication run]` runs it, for tests of what
 /// an idle app keeps alive (B-143). Each wait for an event happens inside an
 /// autorelease pool of its own, drained once that event has been handled --
@@ -18,8 +20,10 @@ import AppKit
 /// The loop runs from a run-loop block, not a main-queue turn, so the
 /// main-queue work its steps queue (a window's presentation, the launch
 /// tracker's close) runs inside its waits. Only application-defined events
-/// end a wait; the app's other events stay queued until the loop returns,
-/// so no unrelated event drains a pool early. Other suites' main-actor work
+/// end a wait -- in `idle`, only the loop's own and the wakes posted for the
+/// window it waits on -- and the app's other events stay queued until the
+/// loop returns, so no unrelated event, such as a wake for a window an
+/// earlier test closed, drains a pool early. Other suites' main-actor work
 /// runs inside it while it runs.
 @MainActor final class LeoIdleEventLoop {
     /// The longest a `turn` waits for an event.
@@ -71,11 +75,15 @@ import AppKit
     }
 
     /// Waits as an idle app does, each wait ending only when an event
-    /// arrives: true once `isDone` holds -- after a wait was drained, or
-    /// during one, with nothing left for a drain to let go of. False if it
-    /// still doesn't hold when `timeout` passes, judged before the wait
-    /// then ended is drained.
-    func idle(until isDone: @escaping @MainActor () -> Bool, timeout: Duration) -> Bool {
+    /// arrives -- here, a `LeoEventLoop` wake posted for window
+    /// `windowNumber`; any other application-defined event is dropped
+    /// within the same wait. True once `isDone` holds -- after a wait was
+    /// drained, or during one, with nothing left for a drain to let go of.
+    /// False if it still doesn't hold when `timeout` passes, judged before
+    /// the wait then ended is drained.
+    func idle(
+        until isDone: @escaping @MainActor () -> Bool, wakingFor windowNumber: Int, timeout: Duration
+    ) -> Bool {
         let outcome = IdleOutcome()
         let check = Timer(timeInterval: Self.idleCheckInterval, repeats: true) { _ in
             MainActor.assumeIsolated {
@@ -97,10 +105,13 @@ import AppKit
         while outcome.isDone == nil {
             if autoreleasepool(invoking: isDone) { return true }
             autoreleasepool {
-                guard let event = NSApp.nextEvent(
+                while let event = NSApp.nextEvent(
                     matching: .applicationDefined, until: .distantFuture, inMode: .default, dequeue: true
-                ), !isStopEvent(event) else { return }
-                NSApp.sendEvent(event)
+                ), !isStopEvent(event) {
+                    guard isWake(event, for: windowNumber) else { continue }
+                    NSApp.sendEvent(event)
+                    return
+                }
             }
         }
         return outcome.isDone ?? false
@@ -117,6 +128,11 @@ import AppKit
 
     private func isStopEvent(_ event: NSEvent) -> Bool {
         event.type == .applicationDefined && event.subtype.rawValue == Self.stopSubtype
+    }
+
+    private func isWake(_ event: NSEvent, for windowNumber: Int) -> Bool {
+        event.type == .applicationDefined && event.subtype.rawValue == LeoEventLoop.wakeEventSubtype
+            && event.data1 == windowNumber
     }
 
     private static func postStopEvent() {

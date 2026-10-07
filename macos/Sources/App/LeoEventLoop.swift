@@ -16,7 +16,8 @@ import AppKit
 /// window opened from it (redo opens the tab from it again) until that
 /// action expires. So a closed window has the loop woken until it is freed.
 enum LeoEventLoop {
-    /// The `subtype` of the event `wake()` posts.
+    /// The `subtype` of the event `wake(for:)` posts. Its `data1` is the
+    /// number of the window it was posted for.
     static let wakeEventSubtype: Int16 = 0x4C57
 
     /// How often a closed window's loop is woken: how long after its last
@@ -38,13 +39,14 @@ enum LeoEventLoop {
         for limit: TimeInterval = closedWindowWakeLimit
     ) {
         let deadline = Date(timeIntervalSinceNow: limit)
+        let windowNumber = window.windowNumber
         let timer = Timer(timeInterval: interval, repeats: true) { [weak window] timer in
             MainActor.assumeIsolated {
                 guard window != nil, Date() < deadline else {
                     timer.invalidate()
                     return
                 }
-                wake()
+                wake(for: windowNumber)
             }
         }
         timer.tolerance = interval / 2
@@ -54,10 +56,11 @@ enum LeoEventLoop {
 
     /// Ends the event loop's current wait with an application-defined event
     /// nothing handles, so whatever that wait's pool holds goes now.
-    @MainActor static func wake() {
+    /// `windowNumber` is the window it is posted for.
+    @MainActor static func wake(for windowNumber: Int) {
         guard let event = NSEvent.otherEvent(
             with: .applicationDefined, location: .zero, modifierFlags: [], timestamp: 0,
-            windowNumber: 0, context: nil, subtype: wakeEventSubtype, data1: 0, data2: 0
+            windowNumber: 0, context: nil, subtype: wakeEventSubtype, data1: windowNumber, data2: 0
         ) else { return }
         NSApp.postEvent(event, atStart: false)
     }
