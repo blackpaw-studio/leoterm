@@ -22,8 +22,9 @@ enum LeoAttentionFixture {
     }
 
     static func wrap(_ source: LeoSidebarActivitySource, overlay: [String: LeoAttentionSignal]) -> LeoSidebarActivitySource {
-        LeoSidebarActivitySource(events: source.events, fetchState: {
-            try await source.fetchState().map { agent in
+        LeoSidebarActivitySource(events: source.events, observedState: {
+            let state = try await source.fetchState()
+            let agents = state.agents.map { agent in
                 guard let signal = overlay[agent.name] else { return agent }
                 return LeoObservedAgent(
                     name: agent.name, host: agent.host, status: agent.status, activity: agent.activity,
@@ -31,6 +32,7 @@ enum LeoAttentionFixture {
                     startedAt: agent.startedAt, surfacedFiles: agent.surfacedFiles, surfacedFilesSent: agent.surfacedFilesSent
                 )
             }
+            return LeoObservedState(agents: agents, dispatches: state.dispatches)
         })
     }
 }

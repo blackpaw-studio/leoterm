@@ -3,11 +3,16 @@ import OSLog
 
 struct LeoSidebarActivitySource: Sendable {
     let events: @Sendable () async -> AsyncStream<LeoObserveEvent>
-    let fetchState: @Sendable () async throws -> [LeoObservedAgent]
+    let fetchState: @Sendable () async throws -> LeoObservedState
 
-    init(events: @escaping @Sendable () async -> AsyncStream<LeoObserveEvent>, fetchState: @escaping @Sendable () async throws -> [LeoObservedAgent]) {
+    init(events: @escaping @Sendable () async -> AsyncStream<LeoObserveEvent>, observedState: @escaping @Sendable () async throws -> LeoObservedState) {
         self.events = events
-        self.fetchState = fetchState
+        fetchState = observedState
+    }
+
+    /// For a source that only knows agents (no dispatches).
+    init(events: @escaping @Sendable () async -> AsyncStream<LeoObserveEvent>, fetchState: @escaping @Sendable () async throws -> [LeoObservedAgent]) {
+        self.init(events: events, observedState: { LeoObservedState(agents: try await fetchState()) })
     }
 
     init(client: LeoActivityClient) {

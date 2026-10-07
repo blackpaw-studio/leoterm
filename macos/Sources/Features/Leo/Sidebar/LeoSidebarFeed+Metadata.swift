@@ -55,7 +55,7 @@ extension LeoSidebarFeed {
         let generation = snapshot.generation
         metadataInFlight = request
         metadataTask = Task { [weak self, activitySource] in
-            let state: [LeoObservedAgent]?
+            let state: LeoObservedState?
             do {
                 state = try await Self.fetchState(from: activitySource)
             } catch is CancellationError {
@@ -69,13 +69,13 @@ extension LeoSidebarFeed {
         }
     }
 
-    private func metadataFetchFinished(_ state: [LeoObservedAgent]?, request: Int, generation: Int) {
+    private func metadataFetchFinished(_ observed: LeoObservedState?, request: Int, generation: Int) {
         // A reset retired this fetch, and a newer one may own the slot.
         guard metadataInFlight == request else { return }
         metadataInFlight = nil
         metadataTask = nil
         let shown = displayedSnapshot
-        if let state, generation == snapshot.generation {
+        if let state = observed?.agents, generation == snapshot.generation {
             mergeSurfacedFiles(from: state)
             applyMetadata(state, request: request, generation: generation)
         }

@@ -60,8 +60,9 @@ extension LeoSidebarFeed {
         return try result.get()
     }
 
-    func applyActivityState(_ state: [LeoObservedAgent], generation: Int, metadataRequest: Int) {
+    func applyActivityState(_ observed: LeoObservedState, generation: Int, metadataRequest: Int) {
         guard running, generation == snapshot.generation else { return }
+        let state = observed.agents
         applyMetadata(state, request: metadataRequest, generation: generation)
         mergeSurfacedFiles(from: state)
         // `state` is the authoritative baseline as of when the fetch
@@ -81,15 +82,15 @@ extension LeoSidebarFeed {
         if metadataRefreshPending { requestMetadataRefresh() }
     }
 
-    static func fetchState(from source: LeoSidebarActivitySource) async throws -> [LeoObservedAgent] {
-        try await withThrowingTaskGroup(of: [LeoObservedAgent].self) { group in
+    static func fetchState(from source: LeoSidebarActivitySource) async throws -> LeoObservedState {
+        try await withThrowingTaskGroup(of: LeoObservedState.self) { group in
             group.addTask { try await source.fetchState() }
             group.addTask {
                 try await Task.sleep(nanoseconds: 5_000_000_000)
                 throw LeoSidebarFeedError.activityStateTimedOut
             }
             defer { group.cancelAll() }
-            guard let state = try await group.next() else { return [] }
+            guard let state = try await group.next() else { return LeoObservedState(agents: []) }
             return state
         }
     }

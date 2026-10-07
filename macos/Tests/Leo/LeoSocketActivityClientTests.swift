@@ -9,8 +9,16 @@ import Testing
 struct LeoSocketActivityClientTests {
     @Test func stateReturnsAgentsFromEnvelopedResponse() async throws {
         let transport = RecordingTransport(stateBody: Data(#"{"ok":true,"data":{"agents":[{"name":"wrapped"}]}}"#.utf8))
-        #expect(try await LeoSocketActivityClient(transport: transport).fetchState().map(\.name) == ["wrapped"])
+        #expect(try await LeoSocketActivityClient(transport: transport).fetchState().agents.map(\.name) == ["wrapped"])
         #expect(transport.paths == ["/state"])
+    }
+
+    @Test func stateCarriesDispatches() async throws {
+        let transport = RecordingTransport(stateBody: Data(
+            #"{"ok":true,"data":{"agents":[{"name":"alpha"}],"dispatches":[{"id":"d-1","status":"running","caller_agent":"alpha"}]}}"#.utf8
+        ))
+        let state = try await LeoSocketActivityClient(transport: transport).fetchState()
+        #expect(state.dispatches == [LeoDispatch(id: "d-1", status: "running", callerAgent: "alpha")])
     }
 
     @Test func stateRejectsABareUnenvelopedResponse() async throws {

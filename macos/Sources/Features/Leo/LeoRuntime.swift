@@ -525,7 +525,7 @@ import OSLog
             activitySource = remoteFlavor == .socketEvents
                 ? LeoSidebarActivitySource(
                     events: { await LeoSocketActivityClient(socketPath: socketPath, transport: tunnelTransport).events() },
-                    fetchState: { try await LeoSocketActivityClient(socketPath: socketPath, transport: tunnelTransport).fetchState() }
+                    observedState: { try await LeoSocketActivityClient(socketPath: socketPath, transport: tunnelTransport).fetchState() }
                   )
                 : LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
         }
@@ -569,12 +569,12 @@ import OSLog
                     continuation.onTermination = { _ in task.cancel() }
                 }
             },
-            fetchState: {
+            observedState: {
                 if await LeoSocketDaemonClient.detectFlavor(socketPath: socketPath) == .socketEvents {
                     return try await LeoSocketActivityClient(socketPath: socketPath).fetchState()
                 }
                 let config = await Task.detached { LeoObserveConfigLoader.load() }.value
-                guard let config else { return [] }
+                guard let config else { return LeoObservedState(agents: []) }
                 return try await LeoActivityClient(config: config).fetchState()
             }
         )

@@ -183,11 +183,10 @@ actor LeoActivityClient {
         sleeper = sleep
     }
 
-    func fetchState() async throws -> [LeoObservedAgent] {
+    func fetchState() async throws -> LeoObservedState {
         let (data, status) = try await transport.fetch(request("/api/v1/state", accept: nil))
         guard (200..<300).contains(status) else { throw LeoDaemonError.transport("State endpoint returned HTTP \(status)") }
-        struct State: Decodable, Sendable { let agents: [LeoObservedAgent] }
-        return try LeoDaemonEnvelope<State>.decode(data).value().agents
+        return try LeoDaemonEnvelope<LeoObservedState>.decode(data).value()
     }
 
     func events() -> AsyncStream<LeoObserveEvent> {
@@ -211,8 +210,8 @@ actor LeoActivityClient {
                         let sequence = event.sequence
                         if sequence >= 0, let lastSequence, sequence > lastSequence + 1 {
                             continuation.yield(.gap(expected: lastSequence + 1, received: sequence))
-                            if let agents = try? await fetchState() {
-                                continuation.yield(.snapshot(agents))
+                            if let state = try? await fetchState() {
+                                continuation.yield(.snapshot(state.agents))
                             }
                         }
                         if sequence >= 0 { lastSequence = sequence }

@@ -31,7 +31,7 @@ struct LeoAttentionFixtureTests {
         })
         let wrapped = LeoAttentionFixture.wrap(base, overlay: ["alpha": .init(state: .finished, revision: 3)])
 
-        let agents = try await wrapped.fetchState()
+        let agents = try await wrapped.fetchState().agents
 
         #expect(agents.map(\.attention) == [.init(state: .finished, revision: 3), nil])
         #expect(agents.map(\.activity) == [.idle, .working])
