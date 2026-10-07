@@ -143,11 +143,16 @@ struct LeoSidebarSnapshot: Equatable, Sendable {
     /// Overlaid at emission time from `LeoDispatchTree`; empty unless the
     /// daemon advertised `dispatch_tree` and the connection is live.
     let dispatchChildren: [String: [LeoDispatchNode]]
+    /// What the connected daemon advertised on its hello (B-262 reads
+    /// `agent_control`); `.none` while disconnected. Set last, at emission
+    /// time, by `advertising(_:)`.
+    let features: LeoDaemonFeatures
 
     init(
         rows: [LeoAgentRow], connectivity: LeoConnectivity, generation: Int, listRefreshSucceeded: Bool = false, attentionCount: Int = 0,
-        dispatchChildren: [String: [LeoDispatchNode]] = [:]
+        dispatchChildren: [String: [LeoDispatchNode]] = [:], features: LeoDaemonFeatures = .none
     ) {
+        self.features = features
         self.rows = rows
         self.connectivity = connectivity
         self.generation = generation
@@ -164,6 +169,13 @@ struct LeoSidebarSnapshot: Equatable, Sendable {
     /// defaulting it to `false` is exactly what caused a list refresh's
     /// `true` to be lost by a later same-refresh reconstruction. Forcing
     /// callers to state it keeps that from recurring.
+    func advertising(_ features: LeoDaemonFeatures) -> LeoSidebarSnapshot {
+        LeoSidebarSnapshot(
+            rows: rows, connectivity: connectivity, generation: generation, listRefreshSucceeded: listRefreshSucceeded,
+            attentionCount: attentionCount, dispatchChildren: dispatchChildren, features: connectivity.isDisconnected ? .none : features
+        )
+    }
+
     func replacingRows(_ rows: [LeoAgentRow], listRefreshSucceeded: Bool) -> LeoSidebarSnapshot {
         LeoSidebarSnapshot(
             rows: rows, connectivity: connectivity, generation: generation, listRefreshSucceeded: listRefreshSucceeded,

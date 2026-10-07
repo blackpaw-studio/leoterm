@@ -56,6 +56,16 @@ struct LeoSidebarFeedTurnTests {
         await harness.stop()
     }
 
+    @Test func snapshotCarriesAdvertisedFeaturesAndDropsThemWhenDisconnected() async throws {
+        let harness = TurnHarness()
+        await harness.start()
+        await harness.activity.send(Self.hello(["agent_control"]))
+        try await harness.pump { $0.features.contains(.agentControl) }
+        await harness.activity.send(.disconnected(reason: "gone"))
+        try await harness.pump { $0.connectivity.isDisconnected && $0.features == .none }
+        await harness.stop()
+    }
+
     /// The baseline can land before the first hello (which then only clears
     /// awaitingHello): the hello's features must repaint on their own.
     @Test func aFirstHelloAdvertisingOnlyUsageRevealsUsageWithoutAnyOtherEvent() async throws {

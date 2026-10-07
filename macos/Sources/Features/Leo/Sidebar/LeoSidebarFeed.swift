@@ -402,6 +402,7 @@ actor LeoSidebarFeed {
     func emit() {
         let value = displayedSnapshot.overlayingAttention(attention).overlayingDispatches(dispatchTree)
             .overlayingTurns(turnPreviews, features: daemonFeatures).overlayingCompactions(compactions)
+            .advertising(daemonFeatures)
         let previous = emissionTask
         emissionTask = Task { [weak self, sink] in
             await previous?.value
