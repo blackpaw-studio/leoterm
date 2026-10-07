@@ -104,6 +104,11 @@ struct LeoAgentRowPresentation: Equatable {
     /// no task line (the task is what the agent is doing now, the preview
     /// what it just did). An aborted turn is labelled so.
     let turnPreview: String?
+    /// B-261: "Compacting context" while the agent compacts; it takes the
+    /// task line's place and hides the task, tool and preview.
+    let compacting: String?
+    /// The hover for `compacting`, naming who asked when the daemon said.
+    let compactingHelp: String?
 
     /// `now` dates the "last active" label; without it (no clock yet) the
     /// subtitle has no time. Metadata the daemon didn't report adds nothing.
@@ -112,9 +117,12 @@ struct LeoAgentRowPresentation: Equatable {
         timeZone: TimeZone = .current, locale: Locale = .current
     ) {
         let template = row.template.flatMap { $0.isEmpty ? nil : $0 }
-        task = row.metadata?.task
-        tool = row.metadata?.tool
-        turnPreview = task == nil && tool == nil ? row.lastTurn.map(Self.turnLine) : nil
+        let compacting = row.compaction
+        self.compacting = compacting == nil ? nil : Self.compactingLine
+        compactingHelp = compacting.map(Self.compactingHelp)
+        task = compacting == nil ? row.metadata?.task : nil
+        tool = compacting == nil ? row.metadata?.tool : nil
+        turnPreview = compacting == nil && task == nil && tool == nil ? row.lastTurn.map(Self.turnLine) : nil
         let attention = row.attention.map(LeoStatusPresentation.attention)
         // On a selected row the state drops to the primary color for contrast.
         let tint = { (presentation: LeoStatusPresentation.Presentation) in isSelected ? Color.primary : presentation.color }
@@ -140,6 +148,16 @@ struct LeoAgentRowPresentation: Equatable {
 
     /// `tool` as VoiceOver says it.
     var toolSpoken: String? { toolHelp }
+
+    private static let compactingLine = "Compacting context"
+
+    private static func compactingHelp(_ compaction: LeoRowCompaction) -> String {
+        switch compaction.trigger {
+        case .auto: "\(compactingLine) (automatic)"
+        case .manual: "\(compactingLine) (requested)"
+        case nil: compactingLine
+        }
+    }
 
     private static func turnLine(_ turn: LeoTurnPreview) -> String {
         let text = LeoSFTPServerText.isolated(turn.text)
