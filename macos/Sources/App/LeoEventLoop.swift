@@ -11,10 +11,12 @@ import AppKit
 /// next key press or click (B-143).
 ///
 /// Who lets go last isn't Leo's to decide. A closed terminal window is held
-/// by its controller for a run-loop pass, by AppKit's close animation, by
-/// AppKit's handling of an opened file, and by the New Tab undo action of a
-/// window opened from it (redo opens the tab from it again) until that
-/// action expires. So a closed window has the loop woken until it is freed.
+/// by its controller for a run-loop pass, by AppKit's close animation, and
+/// by AppKit's handling of an opened file, whose blocks keep the app's
+/// windows until a timer lets them go about 5 s on. (Leo's own longer hold,
+/// the New Tab undo action of a window opened from it, is weak.) So a closed
+/// window has the loop woken until it is freed, for at most
+/// `closedWindowWakeLimit`.
 enum LeoEventLoop {
     /// The `subtype` of the event `wake(for:)` posts. Its `data1` is the
     /// number of the window it was posted for.
@@ -25,9 +27,8 @@ enum LeoEventLoop {
     static let closedWindowWakeInterval: TimeInterval = 0.5
 
     /// How long a closed window's loop is woken for: the longest of the
-    /// holds above, the default undo timeout (5 s), with as much again to
-    /// spare. A window held longer (a longer `undo-timeout`) is left to the
-    /// next event.
+    /// holds above (about 5 s), with as much again to spare. A window held
+    /// longer is left to the next event.
     static let closedWindowWakeLimit: TimeInterval = 10
 
     /// Wakes the event loop every `interval` while `window`, closed, lives,
@@ -42,7 +43,8 @@ enum LeoEventLoop {
         let windowNumber = window.windowNumber
         let timer = Timer(timeInterval: interval, repeats: true) { [weak window] timer in
             MainActor.assumeIsolated {
-                guard window != nil, Date() < deadline else {
+                // Gone, shown again, or held past the limit: stop.
+                guard let window, !window.isVisible, Date() < deadline else {
                     timer.invalidate()
                     return
                 }
@@ -56,7 +58,8 @@ enum LeoEventLoop {
 
     /// Ends the event loop's current wait with an application-defined event
     /// nothing handles, so whatever that wait's pool holds goes now.
-    /// `windowNumber` is the window it is posted for.
+    /// `windowNumber` is the window it is posted for. While it is handled,
+    /// `NSApp.currentEvent` is this event.
     @MainActor static func wake(for windowNumber: Int) {
         guard let event = NSEvent.otherEvent(
             with: .applicationDefined, location: .zero, modifierFlags: [], timestamp: 0,

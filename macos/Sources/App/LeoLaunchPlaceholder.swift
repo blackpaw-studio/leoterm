@@ -13,7 +13,8 @@ protocol LeoLaunchPlaceholderWindow: LeoRequestedWindow {
     /// Closes it for good (no confirmation, nothing to undo), still holding
     /// its spot for the window replacing it. The window and what owns it
     /// are then let go of, gone from `NSApp.windows` and the window
-    /// server's list even while Leo sits idle (B-143).
+    /// server's list even while Leo sits idle, unless AppKit holds it past
+    /// `LeoEventLoop.closedWindowWakeLimit` (B-143).
     func closeReplacedLeoPlaceholder()
     /// Calls `onClose` when the window closes, until the returned function
     /// is called.
@@ -53,9 +54,10 @@ enum LeoWindowPresence {
 /// A replaced launch window is released, not just closed: its controller
 /// and window are freed and leave `NSApp.windows` and the window server's
 /// list without waiting for the user's next key press or click, though
-/// the close runs from a main-queue turn rather than an event and a New
-/// Tab replacing it holds it in its undo action until that expires (B-143;
-/// see `LeoEventLoop`).
+/// the close runs from a main-queue turn rather than an event and AppKit
+/// holds a closed window a while longer -- for up to
+/// `LeoEventLoop.closedWindowWakeLimit`; past it, until the next event
+/// (B-143). A New Tab replacing it holds it only weakly, for its redo.
 @MainActor
 final class LeoLaunchPlaceholder {
     /// The input that counts as the user touching Leo.
