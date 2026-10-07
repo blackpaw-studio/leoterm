@@ -650,6 +650,54 @@ Source: autopilot polish (B-093)
 Question: runner timed out after 3h — it was in fix round 2 (the lane's last commit is da8d504d4 "keep waking until the window-server window is gone too", plus wip a3fe1df0d). Root cause: a closed window's controller is freed only when the event loop next wakes, so it lingers while Leo is idle; the fixes so far wake the loop until it is freed and make New Tab's undo hold the window weakly. Work kept on autopilot-lane/B-143 (held: shelve refused over untracked generated files). I'd pick: resume next run from this lane on the hard implementer.
 Answer:
 
+## B-257 · Agent stays Working while child dispatches run, plus a dispatch tree   [ready]
+Why: Unblocks B-051 via the attention.outstanding + Snapshot.dispatches[] contract shipped in leo v0.35.0 (PR #226, spec leo docs/specs/2026-10-06-bridge-observe.md). Serves "never invent a state"
+Accept: a scripted turn that starts a dispatch keeps the parent row Working until the child finishes, guarded by a regression test that replays the SSE trace; child dispatches render nested under their parent row via parent_dispatch_id; child rows appear and disappear live
+Out: app-side heuristics overriding daemon state; codex/opencode subagent detection
+Source: Evan (/feature, 2026-10-07)
+Inbox: 20261007T144804725046Z-b671a71b#1
+
+## B-258 · Attention badge and notification show the reason   [ready]
+Why: "Needs you" is only actionable when it says what for (attention.reason from leo PR #226). Serves "never invent a state"
+Accept: a scripted permission prompt shows a "permission" reason with the tool name on the badge and in the notification; question and elicitation each show their own reason; when no reason field is present, current behaviour is unchanged
+Out: answering the prompt from leoterm
+Source: Evan (/feature, 2026-10-07)
+Inbox: 20261007T144804818307Z-97aae0e0#1
+
+## B-259 · Agent row shows last-turn preview and usage   [ready]
+Why: See what an agent just did and what it cost without attaching (agent_turn_completed + Agent.usage, leo PR #226). Serves "Calm, attention-driven"
+Accept: after a scripted turn completes on autopilot-scratch the row shows a one-line preview of that turn; tokens, cost, and context % from Agent.usage appear on the row or inspector; against a daemon whose SSE hello lacks these features nothing new renders and nothing errors
+Out: turn history or transcript browsing; usage charts
+Source: Evan (/feature, 2026-10-07)
+Inbox: 20261007T144804912652Z-653eac6a#1
+
+## B-260 · Show the tool an agent is running right now   [ready]
+Why: Glanceable answer to what a working agent is busy with (current_action kind "tool", leo PR #226)
+Accept: during a scripted tool call the row shows the tool name; it clears when the call ends; other action kinds keep today's display
+Out: tool arguments or output
+Source: Evan (/feature, 2026-10-07)
+Inbox: 20261007T144805010219Z-54b3b801#1
+
+## B-261 · Compaction indicator   [ready]
+Why: Explains a pause and a context reset (agent_compaction events, leo PR #226)
+Accept: an agent_compaction start event shows a compacting state on the row that clears on the end event; context % updates afterwards
+Out: triggering compaction (covered by the prompt box and controls item)
+Source: Evan (/feature, 2026-10-07)
+Inbox: 20261007T144805108862Z-f2956aed#1
+
+## B-262 · Prompt box and interrupt, compact, and clear controls   [ready]
+Why: Drive an agent without attaching or typing into tmux (operator-only POST /api/v1/agents/{name}/{message,interrupt,compact,clear}, leo PR #226)
+Accept: sending from the box POSTs .../message and the turn appears on the agent; interrupt, compact, and clear buttons hit their endpoints, with clear behind a confirmation; a 401/403 for a non-operator token shows an inline error and disables the controls
+Out: attachments; rich multi-line editing; offline message queueing
+Source: Evan (/feature, 2026-10-07)
+Inbox: 20261007T144805204560Z-7cda212b#1
+
+## B-235 · SFTP rejection diagnostic with invalid UTF-8 suffix   [ready]
+Issue: #240
+Why: Final B-233 security review: invalid or truncated UTF-8 suffix can suppress an earlier complete canonical rejection line; safe failure but fallback may be missed.
+Accept: A complete canonical rejection line is recognized despite invalid UTF-8 in a later suffix; truncated noncanonical lines still never trigger fallback; regression tests.
+Source: autopilot polish (B-233)
+
 ## B-144 · Launch-placeholder test cleanup closes pending windows   [ready]
 Issue: #148
 Why: LeoLaunchPlaceholderIntegrationTests close() (:90,100-101) only closes visible windows; also close windows whose controller has leoIsAwaitingPresentation, and fold the trait's duplicated MainActor.run restore into one helper
@@ -662,18 +710,18 @@ Why: File ▸ New Window while a start-screen window is key, and ⌘N (ghosttyNe
 Accept: File ▸ New Window while a start-screen window is key, and ⌘N (ghosttyNewWindow) from a terminal with content, still route through leoRouteNewWindow and the palette (TerminalController.swift:1638-1642); swap to the bare start screen like B-095, and document the Dock right-click New Window in AppDelegate.newWindow's doc comment
 Source: autopilot polish (B-095)
 
-## B-146 · Environ comment wording   [ready]
-Issue: #150
-Why: src/global.zig:309: say "environ_initialized stays set" only matters if the I/O side scanned before the sync; macos/Sources/App/main.swift:34-38: the probe runs after ghostty_cli_try_action too ("after init, before NSApplicationMain")
-Accept: src/global.zig:309: say "environ_initialized stays set" only matters if the I/O side scanned before the sync; macos/Sources/App/main.swift:34-38: the probe runs after ghostty_cli_try_action too ("after init, before NSApplicationMain")
-Source: autopilot polish (B-098)
-
 ## B-147 · Rebuild the shared autopilot xcframework after B-098   [done]
 Issue: #151
 Why: B-098 changed src/global.zig; .git/autopilot/shared/GhosttyKit.xcframework + zig-out were built at B-072, so lanes that symlink them per verify.md run a stale libghostty; rebuild and update verify.md's note
 Accept: B-098 changed src/global.zig; .git/autopilot/shared/GhosttyKit.xcframework + zig-out were built at B-072, so lanes that symlink them per verify.md run a stale libghostty; rebuild and update verify.md's note
 Source: autopilot polish (B-098)
 Done: no code change — shared GhosttyKit.xcframework + zig-out rebuilt 2026-10-01 17:45 from 708717ded (ghostty-internal.a newer than last src/ commit 6b44c1a22); old copies moved to ~/.Trash; suite 1962 green through the symlinks (implementer and verifier); verify.md note updated. Lane cleared on autopilot-shelved/B-147 (untracked scratch only).
+
+## B-146 · Environ comment wording   [ready]
+Issue: #150
+Why: src/global.zig:309: say "environ_initialized stays set" only matters if the I/O side scanned before the sync; macos/Sources/App/main.swift:34-38: the probe runs after ghostty_cli_try_action too ("after init, before NSApplicationMain")
+Accept: src/global.zig:309: say "environ_initialized stays set" only matters if the I/O side scanned before the sync; macos/Sources/App/main.swift:34-38: the probe runs after ghostty_cli_try_action too ("after init, before NSApplicationMain")
+Source: autopilot polish (B-098)
 
 ## B-148 · Sidebar list stays mounted in No Agents/Loading/Failed with terminals   [ready]
 Issue: #152
@@ -795,18 +843,18 @@ Why: LeoSidebarView.swift:304's labels.count + 1 assumes the section is never na
 Accept: LeoSidebarView.swift:304's labels.count + 1 assumes the section is never natively collapsed; if a .sidebar List lets users hide it, last-N rows could include agent rows and land falsely — confirm or add .collapsible(false)
 Source: autopilot polish (B-105)
 
-## B-168 · Drop dead non-flipped branches in LeoTerminalsViewport   [ready]
-Issue: #172
-Why: scrollToTop/unobscuredBounds (LeoTerminalsViewport.swift:68,:78) have untested, unreachable non-flipped branches (NSTableView is flipped) — drop or test them
-Accept: scrollToTop/unobscuredBounds (LeoTerminalsViewport.swift:68,:78) have untested, unreachable non-flipped branches (NSTableView is flipped) — drop or test them
-Source: autopilot polish (B-105)
-
 ## B-169 · runtests.sh baseline message contradicts verify.md   [done]
 Issue: #173
 Why: runtests.sh still labels ConfigTests/errorsEmptyForValidConfig "an expected baseline failure"; verify.md says to treat a failure of that test as real (see also B-137)
 Accept: runtests.sh still labels ConfigTests/errorsEmptyForValidConfig "an expected baseline failure"; verify.md says to treat a failure of that test as real (see also B-137)
 Source: autopilot polish (B-147)
 Done: no code change — already satisfied by B-114 (a5e1b3de8), same as B-137.
+
+## B-168 · Drop dead non-flipped branches in LeoTerminalsViewport   [ready]
+Issue: #172
+Why: scrollToTop/unobscuredBounds (LeoTerminalsViewport.swift:68,:78) have untested, unreachable non-flipped branches (NSTableView is flipped) — drop or test them
+Accept: scrollToTop/unobscuredBounds (LeoTerminalsViewport.swift:68,:78) have untested, unreachable non-flipped branches (NSTableView is flipped) — drop or test them
+Source: autopilot polish (B-105)
 
 ## B-170 · isOffScreen fails loudly on a bad row index   [ready]
 Issue: #174
@@ -836,12 +884,6 @@ Source: autopilot polish (B-107)
 Issue: #178
 Why: B-108 verify needed undo-timeout=300s to reach Edit ▸ Undo from the menu; with the default 5 s a human may barely use the restore path — consider a longer Leo default
 Accept: B-108 verify needed undo-timeout=300s to reach Edit ▸ Undo from the menu; with the default 5 s a human may barely use the restore path — consider a longer Leo default
-Source: autopilot polish (B-108)
-
-## B-175 · Window renders inactive right after Undo New Split   [ready]
-Issue: #179
-Why: B-108-5: grey traffic lights after Edit ▸ Undo New Split; possible key-window blip
-Accept: B-108-5: grey traffic lights after Edit ▸ Undo New Split; possible key-window blip
 Source: autopilot polish (B-108)
 
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
@@ -941,12 +983,11 @@ Question: runner timed out after 3h — build mode, mid fix round: two delta rev
 Answer: punt — not sure we need it; don't resume. Keep the held lane/branch autopilot-lane/B-058 as-is; park the item.
 Parked: Evan, 2026-09-30 (D-212). Held lane autopilot-lane/B-058 kept as-is. "/feature B-058" to revive.
 
-## B-059 · Keyboard switching between rows   [ready]
-Issue: #64
-Why: principle 1 (keyboard-first; every action has a shortcut and a menu item)
-Accept: the old tab shortcuts are remapped to rows (⌘1–⌘9 select the Nth visible row, ⌃Tab/⌃⇧Tab or ⌘⇧]/[ go to the next/previous row, ⌃⌥⌘J still jumps to the next agent that needs you); each has a Window-menu item; the shortcuts skip collapsed sections; tests cover each shortcut
-Out: user-configurable bindings beyond Ghostty's keybind config
-Source: Evan (/vision revision, 2026-09-28)
+## B-175 · Window renders inactive right after Undo New Split   [ready]
+Issue: #179
+Why: B-108-5: grey traffic lights after Edit ▸ Undo New Split; possible key-window blip
+Accept: B-108-5: grey traffic lights after Edit ▸ Undo New Split; possible key-window blip
+Source: autopilot polish (B-108)
 
 ## B-060 · One sidebar per window, shared by all its tabs   [dropped]
 Dropped: superseded before it was built, since tabs are removed (D-098, D-101). Recorded so the queued inbox line is skipped.
@@ -1286,8 +1327,7 @@ Out: Adding app-side heuristics that override daemon state; Codex/opencode subag
 Source: Evan (/feature, 2026-09-28)
 Inbox: 20260928T193703549149Z-2d2188b3#1
 Question: Needs Evan to do: send the daemon contract change to the leo agent, and time the leo release/restart. Reply "B-051: done" once it's done.
-Answer:
-
+Answer: done
 ## B-052 · Attach tabs are titled with the agent's name   [done]
 Issue: #55
 Why: Tabs should tell you which agent is inside at a glance, so you don't have to click through them. Serves "Everything through Leo" (no hunting for an agent's tab).
@@ -1320,6 +1360,13 @@ Dropped: superseded by the tab-bar removal (D-098, D-101); in-place reattach aft
 Issue: #58
 Accept: After an attached agent restarts, its tab shows the "No Agent Attached" placeholder but keeps the agent's name (D-095). A sidebar double-click, Return, or palette choice for that agent should refill that placeholder, and focus it, instead of opening a new tab beside it. Today you get two same-named tabs, one of them empty (seen in B-052 verification, shots B-052-4/-5). ⌘-click / ⌘↩ still force a new tab. Test the lookup (an exited placeholder carrying the agent's name counts as that agent's tab). Screenshot with autopilot-scratch only.
 Source: B-052 verification
+
+## B-059 · Keyboard switching between rows   [ready]
+Issue: #64
+Why: principle 1 (keyboard-first; every action has a shortcut and a menu item)
+Accept: the old tab shortcuts are remapped to rows (⌘1–⌘9 select the Nth visible row, ⌃Tab/⌃⇧Tab or ⌘⇧]/[ go to the next/previous row, ⌃⌥⌘J still jumps to the next agent that needs you); each has a Window-menu item; the shortcuts skip collapsed sections; tests cover each shortcut
+Out: user-configurable bindings beyond Ghostty's keybind config
+Source: Evan (/vision revision, 2026-09-28)
 
 ## B-178 · Hidden Close checks every pane of the kept tree   [ready]
 Issue: #182
@@ -1621,12 +1668,6 @@ Why: B-131 review: `let sidebar = LeoSidebarModel()` in presentPaletteForRequest
 Accept: B-131 review: `let sidebar = LeoSidebarModel()` in presentPaletteForRequest (~line 148) shadows the fixture's `sidebar: NSView`; rename it to sidebarModel
 Source: autopilot polish (B-131)
 
-## B-235 · SFTP rejection diagnostic with invalid UTF-8 suffix   [ready]
-Issue: #240
-Why: Final B-233 security review: invalid or truncated UTF-8 suffix can suppress an earlier complete canonical rejection line; safe failure but fallback may be missed.
-Accept: A complete canonical rejection line is recognized despite invalid UTF-8 in a later suffix; truncated noncanonical lines still never trigger fallback; regression tests.
-Source: autopilot polish (B-233)
-
 ## B-236 · Upload error filenames in right-to-left text   [ready]
 Issue: #241
 Why: B-232 final review: isolate RTL filenames in the upload error message.
@@ -1720,3 +1761,30 @@ Issue: #255
 Why: an untitled off-screen 500x500 window at (0,550) is the system caps-lock/input-source indicator (TextInputUIMacHelper), not Leo's; verifiers keep rediscovering it
 Accept: verify.md has a one-line note so window listings ignore it
 Source: autopilot polish (B-142)
+
+## B-251 · Per-agent turn preview + usage (leo PR #226)   [idea]
+Source: Evan (/idea, 2026-10-07)
+Note: Show per-agent turn preview + usage (tokens/cost/context %) from Leo /api/v1 agent_turn_completed + Agent.usage (leo PR #226, spec leo docs/specs/2026-10-06-bridge-observe.md; gate on SSE hello features)
+Inbox: 20261007T131748905880Z-2eef5846#1
+
+## B-252 · Show attention.reason (permission/question/elicitation + tool detail) in badges and notifications (leo PR #226)   [idea]
+Source: Evan (/idea, 2026-10-07)
+Inbox: 20261007T131749012401Z-0896fd7f#1
+
+## B-253 · Use attention.outstanding + dispatch tree (leo PR #226)   [idea]
+Source: Evan (/idea, 2026-10-07)
+Note: Use attention.outstanding + Snapshot.dispatches[] (parent_dispatch_id tree) from leo PR #226 — daemon contract that unblocks B-051 (agent stays working while children run); show dispatch tree
+Inbox: 20261007T131749105290Z-fd83296d#1
+
+## B-254 · Live current tool display from current_action kind "tool" (leo PR #226)   [idea]
+Source: Evan (/idea, 2026-10-07)
+Inbox: 20261007T131749201355Z-00f58ead#1
+
+## B-255 · Compaction indicator from agent_compaction events + context % (leo PR #226)   [idea]
+Source: Evan (/idea, 2026-10-07)
+Inbox: 20261007T131749300167Z-ace5895b#1
+
+## B-256 · Send-prompt box + interrupt/compact/clear buttons (leo PR #226)   [idea]
+Source: Evan (/idea, 2026-10-07)
+Note: Send-prompt box + interrupt/compact/clear buttons via operator-only POST /api/v1/agents/{name}/{message,interrupt,compact,clear} (leo PR #226), no tmux typing
+Inbox: 20261007T131749391262Z-60e7c4eb#1
