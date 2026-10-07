@@ -1,5 +1,4 @@
 import AppKit
-import CoreGraphics
 import Testing
 
 @testable import Ghostty
@@ -13,22 +12,29 @@ import Testing
 /// Nothing of Leo's kept it for good. AppKit's event loop keeps every
 /// window in the autorelease pool of the wait in progress, drained only
 /// when the next event arrives (see `LeoIdleEventLoop`), and a closed
-/// window's last owner, its controller, went during such a wait: a
+/// window's last owner went during such a wait. Its controller goes a
 /// run-loop pass after the close (AppKit's delayed constraint pass holds
 /// the sidebar split's hosting views, whose SwiftUI graph holds the
-/// controller), and for a replaced launch window after a close that itself
-/// ran mid-wait, from the tracker's main-queue turn. Idle, the window
-/// stayed until the user's next key press or click. The control shows the
-/// same held for any start-screen window the user closed.
+/// controller); a replaced launch window closes mid-wait, from the
+/// tracker's main-queue turn; and a New Tab opened from it holds it in its
+/// undo action (redo opens the tab from it again) until that expires, from
+/// a timer. Idle, the window stayed until the user's next key press or
+/// click. The control shows the same held for any start-screen window the
+/// user closed.
 ///
 /// Each test runs inside `LeoIdleEventLoop`, which waits as the idle app
 /// does, and keeps only weak references to the window and its controller
 /// and the window's number (which outlives both), so nothing of the test's
-/// keeps them alive. A replacement test adopts its own launch window (the
+/// keeps them alive. The window server's list isn't checked here: the test
+/// host keeps the window-server window of some windows it freed (with or
+/// without AppKit's close animation, whoever let go of them last) where
+/// the app drops it with the window, so B-143's verify checks it in the
+/// app. A replacement test adopts its own launch window (the
 /// test host's is never adopted). Each test opens windows with undo
-/// registration off, closes every window it opened, and leaves the
-/// cascade point where it found it. Requested windows run the default
-/// shell, never an agent.
+/// registration off -- but for the undo test, which expires its own action
+/// within a second and drops it whatever happens -- closes every window it
+/// opened, and leaves the cascade point where it found it. Requested
+/// windows run the default shell, never an agent.
 /// Needs the app's real `Ghostty.App`, so the suite is skipped (and says
 /// so) without it.
 @MainActor @Suite(
@@ -45,8 +51,9 @@ struct LeoReplacedLaunchWindowReleaseTests {
     /// How long a closed window may take to be let go of on a loaded host.
     private static let releaseTimeout: Duration = .seconds(30)
 
-    /// How long the window server may take to drop a freed window's own.
-    private static let serverReleaseTimeout: Duration = .seconds(5)
+    /// When a test's undo action expires: well after the window it holds
+    /// closed and that window's controller went.
+    private static let undoExpiry: TimeInterval = 1
 
     private func liveApp() throws -> AppDelegate {
         try #require(Self.app)
@@ -59,7 +66,7 @@ struct LeoReplacedLaunchWindowReleaseTests {
     }
 
     /// A window the test lets go of: weak references to it and its
-    /// controller, and its window-server number.
+    /// controller, and its window number.
     @MainActor private final class Trace {
         weak var controller: TerminalController?
         weak var window: NSWindow?
@@ -119,36 +126,15 @@ struct LeoReplacedLaunchWindowReleaseTests {
         return trace
     }
 
-    /// The window-server windows this process owns, on screen or not.
-    private static func serverWindowNumbers() -> Set<Int> {
-        let pid = Int(getpid())
-        let infos = (CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]]) ?? []
-        return Set(infos.compactMap { info in
-            guard (info[kCGWindowOwnerPID as String] as? Int) == pid else { return nil }
-            return info[kCGWindowNumber as String] as? Int
-        })
-    }
-
-    /// What is left of `trace`'s window: empty once it is all gone. The
-    /// window server may drop its window a moment after the window is
-    /// freed, so that part is polled.
-    private func remains(of trace: Trace) async -> [String] {
-        var left = autoreleasepool {
+    /// What is left of `trace`'s window: empty once it is all gone.
+    private func remains(of trace: Trace) -> [String] {
+        autoreleasepool {
             [
                 trace.controller != nil ? "its controller" : nil,
                 trace.window != nil ? "its window" : nil,
                 NSApp.windows.contains { $0.windowNumber == trace.windowNumber } ? "an NSApp.windows entry" : nil,
             ].compactMap { $0 }
         }
-        let deadline = ContinuousClock.now + Self.serverReleaseTimeout
-        while Self.serverWindowNumbers().contains(trace.windowNumber) {
-            guard ContinuousClock.now < deadline else {
-                left.append("a window-server window")
-                break
-            }
-            try? await Task.sleep(for: .milliseconds(20))
-        }
-        return left
     }
 
     /// Opens a launch window inside the idle loop, has `request` open a
@@ -170,12 +156,22 @@ struct LeoReplacedLaunchWindowReleaseTests {
         return (launch, outcome)
     }
 
-    /// Closes what a test opened.
+    /// Closes what a test opened, and drops any undo action it left.
     private func close(_ trace: Trace, _ outcome: Outcome) {
         trace.closeIfOpen()
         autoreleasepool {
+            outcome.others.forEach { Self.app?.undoManager.removeAllActions(withTarget: $0) }
             outcome.others.filter { !$0.leoWindowDidClose }.compactMap(\.window).forEach { $0.close() }
         }
+    }
+
+    /// Runs `body` once, from a timer `delay` into the waits that follow --
+    /// mid-wait, as an undo action's expiry does.
+    private func afterDelay(_ delay: TimeInterval, _ body: @escaping @MainActor () -> Void) {
+        let timer = Timer(timeInterval: delay, repeats: false) { _ in
+            MainActor.assumeIsolated { autoreleasepool(invoking: body) }
+        }
+        RunLoop.main.add(timer, forMode: .common)
     }
 
     @Test func aReplacedLaunchWindowIsReleased() async throws {
@@ -188,7 +184,7 @@ struct LeoReplacedLaunchWindowReleaseTests {
 
         #expect(outcome.others.count == 1)
         #expect(outcome.isReleasedWhileIdle, "the replaced launch window #\(launch.windowNumber) waited for the next event")
-        let left = await remains(of: launch)
+        let left = remains(of: launch)
         #expect(left.isEmpty, "the replaced launch window #\(launch.windowNumber) lingers: \(left)")
     }
 
@@ -202,7 +198,41 @@ struct LeoReplacedLaunchWindowReleaseTests {
 
         #expect(outcome.others.count == 1)
         #expect(outcome.isReleasedWhileIdle, "the replaced launch window #\(launch.windowNumber) waited for the next event")
-        let left = await remains(of: launch)
+        let left = remains(of: launch)
+        #expect(left.isEmpty, "the replaced launch window #\(launch.windowNumber) lingers: \(left)")
+    }
+
+    /// The release B-093's verify missed, through an opened folder: the
+    /// window replacing the launch window is undoable, and its New Tab
+    /// action holds the launch window it was opened from (redo opens the
+    /// tab from it again) until the action expires -- from a timer, mid-wait,
+    /// long after the launch window's controller went.
+    @Test func aReplacedLaunchWindowAnUndoActionHeldIsReleasedWhenTheActionExpires() async throws {
+        let app = try liveApp()
+
+        let (trace, isUndoable, outcome) = await LeoIdleEventLoop.run { loop -> (Trace?, Bool, Outcome) in
+            guard let launch = openLaunchWindow(app, in: loop) else {
+                return (nil, false, Outcome(isReleasedWhileIdle: false, others: []))
+            }
+            var requested: TerminalController?
+            loop.turn { requested = TerminalController.newTab(app.ghostty, from: launch.window) }
+            let replacement = requested
+            let isUndoable = autoreleasepool { app.undoManager.undoActionName == "New Tab" }
+            // Expires the action as its own timer would, sooner than the
+            // configured undo timeout.
+            afterDelay(Self.undoExpiry) {
+                replacement.map { app.undoManager.removeAllActions(withTarget: $0) }
+            }
+            let isReleased = loop.idle(until: { launch.isFreed }, timeout: Self.releaseTimeout)
+            return (launch, isUndoable, Outcome(isReleasedWhileIdle: isReleased, others: replacement.map { [$0] } ?? []))
+        }
+        let launch = try #require(trace, "the launch window never presented")
+        defer { close(launch, outcome) }
+
+        try #require(isUndoable, "the New Tab replacing the launch window registered no undo action")
+        #expect(outcome.others.count == 1)
+        #expect(outcome.isReleasedWhileIdle, "the replaced launch window #\(launch.windowNumber) waited for the next event")
+        let left = remains(of: launch)
         #expect(left.isEmpty, "the replaced launch window #\(launch.windowNumber) lingers: \(left)")
     }
 
@@ -221,7 +251,7 @@ struct LeoReplacedLaunchWindowReleaseTests {
         defer { start.closeIfOpen() }
 
         #expect(isReleased, "the closed start-screen window #\(start.windowNumber) waited for the next event")
-        let left = await remains(of: start)
+        let left = remains(of: start)
         #expect(left.isEmpty, "the closed start-screen window #\(start.windowNumber) lingers: \(left)")
     }
 }

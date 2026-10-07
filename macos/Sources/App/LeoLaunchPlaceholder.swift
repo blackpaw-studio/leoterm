@@ -53,8 +53,9 @@ enum LeoWindowPresence {
 /// A replaced launch window is released, not just closed: its controller
 /// and window are freed and leave `NSApp.windows` and the window server's
 /// list without waiting for the user's next key press or click, though
-/// the close runs from a main-queue turn rather than an event (B-143; see
-/// `LeoEventLoop`).
+/// the close runs from a main-queue turn rather than an event and a New
+/// Tab replacing it holds it in its undo action until that expires (B-143;
+/// see `LeoEventLoop`).
 @MainActor
 final class LeoLaunchPlaceholder {
     /// The input that counts as the user touching Leo.

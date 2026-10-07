@@ -379,18 +379,6 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         // Remove all of our notificationcenter subscriptions
         let center = NotificationCenter.default
         center.removeObserver(self)
-
-        // MARK: Leo -- the window this controller owned goes with it, even
-        // while the app is idle (B-143). A closed window's controller is let
-        // go a run-loop pass after the close (AppKit's delayed constraint
-        // pass holds the sidebar split's hosting views, whose SwiftUI graph
-        // holds the terminal view and so this controller), inside an event
-        // loop wait that has already autoreleased the window; and the launch
-        // tracker closes a replaced launch window from a main-queue turn,
-        // mid-wait. Without an event to end that wait, the closed window
-        // stayed in `NSApp.windows` and the window server's list until the
-        // user next pressed a key or clicked.
-        LeoEventLoop.wakeSoon()
     }
 
     private func cancelPendingInitialPresentation() {
@@ -495,9 +483,10 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     /// point to the key window) for a `newWindow` window, which cascades a
     /// turn later. That cascade only reads it with other windows still
     /// open; alone, the window keeps the frame it restored, which is this
-    /// window's too. Its controller is let go a run-loop pass later and
-    /// wakes the event loop as it goes (`deinit`), so the window is freed
-    /// even while Leo sits idle (B-143).
+    /// window's too. Like any closed terminal window it is freed once its
+    /// last owner lets go -- here the New Tab undo action of a window opened
+    /// from it, when that expires -- even while Leo sits idle
+    /// (`LeoEventLoop.wakeUntilFreed`, B-143).
     func closeReplacedLeoPlaceholder() {
         guard let window else { return }
         let frame = window.frame
