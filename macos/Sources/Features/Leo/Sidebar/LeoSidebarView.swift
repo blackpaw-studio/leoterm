@@ -361,6 +361,11 @@ struct LeoSidebarView: View {
             )
             .tag(Optional(LeoSidebarItemID.agent(row.id)))
             .id(LeoSidebarItemID.agent(row.id))
+            // Its live dispatches (B-257), right under it: untagged, so
+            // never selected; they follow the row's filter and collapse.
+            ForEach(model.dispatchChildren(for: row)) { node in
+                LeoDispatchRowView(node: node)
+            }
         }
     }
 

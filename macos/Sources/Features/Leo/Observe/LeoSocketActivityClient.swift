@@ -35,13 +35,12 @@ actor LeoSocketActivityClient {
         self.transport = transport
     }
 
-    func fetchState() async throws -> [LeoObservedAgent] {
-        struct State: Decodable, Sendable { let agents: [LeoObservedAgent] }
+    func fetchState() async throws -> LeoObservedState {
         let response = try await transport.send(.init(method: "GET", path: "/state"), socketPath: socketPath, timeout: 5)
         guard (200..<300).contains(response.status) else {
             throw LeoDaemonError.transport("State endpoint returned HTTP \(response.status)")
         }
-        return try LeoDaemonEnvelope<State>.decode(response.body).value().agents
+        return try LeoDaemonEnvelope<LeoObservedState>.decode(response.body).value()
     }
 
     func events() -> AsyncStream<LeoObserveEvent> {
@@ -64,10 +63,10 @@ actor LeoSocketActivityClient {
                     let sequence = event.sequence
                     if sequence >= 0, let lastSequence, sequence > lastSequence + 1 {
                         continuation.yield(.gap(expected: lastSequence + 1, received: sequence))
-                        if let agents = try? await fetchState() { continuation.yield(.snapshot(agents)) }
+                        if let state = try? await fetchState() { continuation.yield(.snapshot(state.agents)) }
                     }
                     if sequence >= 0 { lastSequence = sequence }
-                    if case .hello(let seq, let at, let version, let serverTime, _) = event {
+                    if case .hello(let seq, let at, let version, let serverTime, _, _) = event {
                         leoSocketActivityLogger.log("socketActivity: hello seq=\(seq) version=\(version ?? "nil", privacy: .public) serverTime=\(serverTime ?? "nil", privacy: .public) at=\(at ?? "nil", privacy: .public)")
                     }
                     continuation.yield(event)

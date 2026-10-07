@@ -110,13 +110,21 @@ struct LeoSidebarSnapshot: Equatable, Sendable {
     /// Agents on this host needing attention that focus hasn't acknowledged
     /// -- the Dock badge count. Overlaid at emission time, like row badges.
     let attentionCount: Int
+    /// Live dispatches nested under each agent row, by agent name (B-257).
+    /// Overlaid at emission time from `LeoDispatchTree`; empty unless the
+    /// daemon advertised `dispatch_tree` and the connection is live.
+    let dispatchChildren: [String: [LeoDispatchNode]]
 
-    init(rows: [LeoAgentRow], connectivity: LeoConnectivity, generation: Int, listRefreshSucceeded: Bool = false, attentionCount: Int = 0) {
+    init(
+        rows: [LeoAgentRow], connectivity: LeoConnectivity, generation: Int, listRefreshSucceeded: Bool = false, attentionCount: Int = 0,
+        dispatchChildren: [String: [LeoDispatchNode]] = [:]
+    ) {
         self.rows = rows
         self.connectivity = connectivity
         self.generation = generation
         self.listRefreshSucceeded = listRefreshSucceeded
         self.attentionCount = attentionCount
+        self.dispatchChildren = dispatchChildren
     }
 
     /// Returns a copy with `rows` replaced and `connectivity`/`generation`
@@ -128,7 +136,10 @@ struct LeoSidebarSnapshot: Equatable, Sendable {
     /// `true` to be lost by a later same-refresh reconstruction. Forcing
     /// callers to state it keeps that from recurring.
     func replacingRows(_ rows: [LeoAgentRow], listRefreshSucceeded: Bool) -> LeoSidebarSnapshot {
-        LeoSidebarSnapshot(rows: rows, connectivity: connectivity, generation: generation, listRefreshSucceeded: listRefreshSucceeded)
+        LeoSidebarSnapshot(
+            rows: rows, connectivity: connectivity, generation: generation, listRefreshSucceeded: listRefreshSucceeded,
+            dispatchChildren: dispatchChildren
+        )
     }
 }
 

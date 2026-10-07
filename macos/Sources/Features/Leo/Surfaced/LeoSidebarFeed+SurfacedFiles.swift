@@ -31,7 +31,7 @@ extension LeoSidebarSnapshot {
         let rows = connectivity.isDisconnected ? rows.map { $0.withSurfacedFiles([]) } : index.attach(to: rows)
         return LeoSidebarSnapshot(
             rows: rows, connectivity: connectivity, generation: generation,
-            listRefreshSucceeded: listRefreshSucceeded, attentionCount: attentionCount
+            listRefreshSucceeded: listRefreshSucceeded, attentionCount: attentionCount, dispatchChildren: dispatchChildren
         )
     }
 }

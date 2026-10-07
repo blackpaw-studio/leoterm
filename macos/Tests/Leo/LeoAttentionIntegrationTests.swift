@@ -25,7 +25,7 @@ import Testing
         await controller.enable()
         let snapshots = SnapshotBox()
         let daemon = ListOnlyDaemon(names: ["alpha", "beta"])
-        let source = LeoSidebarActivitySource(events: { await client.events() }, fetchState: { try await client.fetchState() })
+        let source = LeoSidebarActivitySource(events: { await client.events() }, observedState: { try await client.fetchState() })
         let feed = LeoSidebarFeed(
             daemon: daemon,
             activity: source,

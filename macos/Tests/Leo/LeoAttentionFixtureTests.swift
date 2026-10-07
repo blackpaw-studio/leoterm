@@ -17,6 +17,22 @@ struct LeoAttentionFixtureTests {
         #expect(overlay.count == 4)
     }
 
+    /// B-257: a reserved `dispatches` key adds dispatches to `/state`, so
+    /// nested rows can be screenshotted; the other keys stay attention.
+    @Test func aDispatchesKeyOverlaysDispatchesOnState() async throws {
+        let path = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/dispatch_overlay.json").path
+        let file = try #require(LeoAttentionFixture.loadFile(environment: [LeoAttentionFixture.environmentKey: path]))
+        #expect(file.attention == ["autopilot-scratch": LeoAttentionSignal(state: .working, revision: 1)])
+        #expect(file.dispatches.map(\.id) == ["fx-1", "fx-2", "fx-3"])
+
+        let base = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, observedState: {
+            LeoObservedState(agents: [], dispatches: [LeoDispatch(id: "real", status: "running"), LeoDispatch(id: "fx-1", status: "queued")])
+        })
+        let state = try await LeoAttentionFixture.wrap(base, overlay: file.attention, dispatches: file.dispatches).fetchState()
+        #expect(state.dispatches.map(\.id) == ["real", "fx-1", "fx-2", "fx-3"])
+        #expect(state.dispatches.first { $0.id == "fx-1" }?.status == "running", "the fixture's record wins")
+    }
+
     @Test func noEnvironmentOrUnreadableFileMeansNoOverlay() {
         #expect(LeoAttentionFixture.load(environment: [:]) == nil)
         #expect(LeoAttentionFixture.load(environment: [LeoAttentionFixture.environmentKey: "/nonexistent.json"]) == nil)
@@ -31,7 +47,7 @@ struct LeoAttentionFixtureTests {
         })
         let wrapped = LeoAttentionFixture.wrap(base, overlay: ["alpha": .init(state: .finished, revision: 3)])
 
-        let agents = try await wrapped.fetchState()
+        let agents = try await wrapped.fetchState().agents
 
         #expect(agents.map(\.attention) == [.init(state: .finished, revision: 3), nil])
         #expect(agents.map(\.activity) == [.idle, .working])

@@ -67,7 +67,9 @@ import OSLog
         let socketPath = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath
         var activity = LeoRuntime.makeSocketOrLegacyActivitySource(socketPath: socketPath)
         #if DEBUG
-        if let overlay = LeoAttentionFixture.load() { activity = LeoAttentionFixture.wrap(activity, overlay: overlay) }
+        if let fixture = LeoAttentionFixture.loadFile() {
+            activity = LeoAttentionFixture.wrap(activity, overlay: fixture.attention, dispatches: fixture.dispatches)
+        }
         #endif
         let daemon = LeoRuntime.makeClient(socketPath: socketPath)
         self.init(
@@ -525,7 +527,7 @@ import OSLog
             activitySource = remoteFlavor == .socketEvents
                 ? LeoSidebarActivitySource(
                     events: { await LeoSocketActivityClient(socketPath: socketPath, transport: tunnelTransport).events() },
-                    fetchState: { try await LeoSocketActivityClient(socketPath: socketPath, transport: tunnelTransport).fetchState() }
+                    observedState: { try await LeoSocketActivityClient(socketPath: socketPath, transport: tunnelTransport).fetchState() }
                   )
                 : LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
         }
@@ -569,12 +571,12 @@ import OSLog
                     continuation.onTermination = { _ in task.cancel() }
                 }
             },
-            fetchState: {
+            observedState: {
                 if await LeoSocketDaemonClient.detectFlavor(socketPath: socketPath) == .socketEvents {
                     return try await LeoSocketActivityClient(socketPath: socketPath).fetchState()
                 }
                 let config = await Task.detached { LeoObserveConfigLoader.load() }.value
-                guard let config else { return [] }
+                guard let config else { return LeoObservedState(agents: []) }
                 return try await LeoActivityClient(config: config).fetchState()
             }
         )

@@ -3,11 +3,16 @@ import OSLog
 
 struct LeoSidebarActivitySource: Sendable {
     let events: @Sendable () async -> AsyncStream<LeoObserveEvent>
-    let fetchState: @Sendable () async throws -> [LeoObservedAgent]
+    let fetchState: @Sendable () async throws -> LeoObservedState
 
-    init(events: @escaping @Sendable () async -> AsyncStream<LeoObserveEvent>, fetchState: @escaping @Sendable () async throws -> [LeoObservedAgent]) {
+    init(events: @escaping @Sendable () async -> AsyncStream<LeoObserveEvent>, observedState: @escaping @Sendable () async throws -> LeoObservedState) {
         self.events = events
-        self.fetchState = fetchState
+        fetchState = observedState
+    }
+
+    /// For a source that only knows agents (no dispatches).
+    init(events: @escaping @Sendable () async -> AsyncStream<LeoObserveEvent>, fetchState: @escaping @Sendable () async throws -> [LeoObservedAgent]) {
+        self.init(events: events, observedState: { LeoObservedState(agents: try await fetchState()) })
     }
 
     init(client: LeoActivityClient) {
@@ -93,6 +98,8 @@ actor LeoSidebarFeed {
     let onAttentionTransitions: @MainActor @Sendable ([LeoAttentionTransition]) -> Void
     /// Files surfaced on the selected host (B-013), by incarnation.
     var surfacedFiles = LeoSurfacedFileIndex.empty
+    /// The selected host's live dispatches (B-257) -- see `LeoSidebarFeed+Dispatches.swift`.
+    var dispatchTree = LeoDispatchTree()
     var running = false
     var needsState = true
     var recovering = false
@@ -152,6 +159,7 @@ actor LeoSidebarFeed {
         attentionTask?.cancel()
         cancelLivenessCheck()
         resetMetadata()
+        resetDispatches()
         attentionTask = nil
         eventTask = nil
         refreshTask = nil
@@ -224,6 +232,18 @@ actor LeoSidebarFeed {
 
     func receive(_ event: LeoObserveEvent) {
         guard running else { return }
+        // Sequence-only and dispatch events never touch the activity
+        // coalescer or the attention reducer: a turn event or a dispatch
+        // tick must not flush the window early.
+        switch event {
+        case .other: return
+        case .dispatchChanged(_, let dispatch):
+            receiveDispatch(dispatch)
+            return
+        case .hello(_, _, _, _, let bootID, let features):
+            receiveDispatchHello(bootID: bootID, features: features)
+        default: break
+        }
         // Every non-activity event either emits directly (`.disconnected`)
         // or triggers a refresh that will (lifecycle/recovery events, via
         // `performRefresh`/`applyActivityState`) -- flush whatever's
@@ -242,7 +262,7 @@ actor LeoSidebarFeed {
             sseRefreshTask?.cancel()
             sseRefreshTask = nil
             process(scheduler.reduce(.sseEvent(event)))
-        case .hello(let seq, _, let version, _, _):
+        case .hello(let seq, _, let version, _, _, _):
             Self.logger.log("receive: .hello seq=\(seq) version=\(version ?? "nil", privacy: .public) awaitingHello=\(self.awaitingHello)")
             if awaitingHello {
                 awaitingHello = false
@@ -266,6 +286,8 @@ actor LeoSidebarFeed {
             }
         case .fileSurfaced(_, let file):
             receiveSurfacedFile(file)
+        case .other, .dispatchChanged:
+            return
         case .disconnected(let reason):
             Self.logger.log("receive: .disconnected reason=\(reason, privacy: .public)")
             // The stream is gone and nothing reconnects it but Retry (D-061).
@@ -354,7 +376,7 @@ actor LeoSidebarFeed {
     }
 
     func emit() {
-        let value = displayedSnapshot.overlayingAttention(attention)
+        let value = displayedSnapshot.overlayingAttention(attention).overlayingDispatches(dispatchTree)
         let previous = emissionTask
         emissionTask = Task { [weak self, sink] in
             await previous?.value

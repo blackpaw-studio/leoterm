@@ -129,6 +129,11 @@ import Foundation
     /// Rows are shown but inert while disconnected (D-061).
     var isDisconnected: Bool { snapshot.connectivity.isDisconnected }
 
+    /// The live dispatches nested under `row` (B-257), depth first.
+    func dispatchChildren(for row: LeoAgentRow) -> [LeoDispatchNode] {
+        snapshot.dispatchChildren[row.name] ?? []
+    }
+
     var selectedRow: LeoAgentRow? { selection.flatMap { id in snapshot.rows.first { $0.id == id } } }
 
     /// The selected row, when agent commands may act on it: never while

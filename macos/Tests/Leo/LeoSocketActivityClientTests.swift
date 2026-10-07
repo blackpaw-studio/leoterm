@@ -9,8 +9,16 @@ import Testing
 struct LeoSocketActivityClientTests {
     @Test func stateReturnsAgentsFromEnvelopedResponse() async throws {
         let transport = RecordingTransport(stateBody: Data(#"{"ok":true,"data":{"agents":[{"name":"wrapped"}]}}"#.utf8))
-        #expect(try await LeoSocketActivityClient(transport: transport).fetchState().map(\.name) == ["wrapped"])
+        #expect(try await LeoSocketActivityClient(transport: transport).fetchState().agents.map(\.name) == ["wrapped"])
         #expect(transport.paths == ["/state"])
+    }
+
+    @Test func stateCarriesDispatches() async throws {
+        let transport = RecordingTransport(stateBody: Data(
+            #"{"ok":true,"data":{"agents":[{"name":"alpha"}],"dispatches":[{"id":"d-1","status":"running","caller_agent":"alpha"}]}}"#.utf8
+        ))
+        let state = try await LeoSocketActivityClient(transport: transport).fetchState()
+        #expect(state.dispatches == [LeoDispatch(id: "d-1", status: "running", callerAgent: "alpha")])
     }
 
     @Test func stateRejectsABareUnenvelopedResponse() async throws {
@@ -73,7 +81,7 @@ struct LeoSocketActivityClientTests {
         let events = parser.feed(try fixture("events-real-daemon.sse"))
             .compactMap { LeoActivityClient.decode($0) }
 
-        guard case .hello(let seq, _, let version, let serverTime, _) = events.first else {
+        guard case .hello(let seq, _, let version, let serverTime, _, _) = events.first else {
             Issue.record("expected hello first, got \(events.first as Any)")
             return
         }

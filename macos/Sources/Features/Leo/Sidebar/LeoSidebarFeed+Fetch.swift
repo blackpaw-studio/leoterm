@@ -7,6 +7,7 @@ extension LeoSidebarFeed {
     func fetchActivityState(generation: Int) {
         activityTask?.cancel()
         let metadataRequest = nextMetadataRequest()
+        let dispatchMark = dispatchTree.mark
         // This baseline covers whatever was owed until now; only activity
         // drained after it starts needs a snapshot of its own.
         metadataRefreshPending = false
@@ -14,7 +15,7 @@ extension LeoSidebarFeed {
             do {
                 let state = try await Self.fetchState(from: activitySource)
                 guard let self else { return }
-                await self.applyActivityState(state, generation: generation, metadataRequest: metadataRequest)
+                await self.applyActivityState(state, generation: generation, metadataRequest: metadataRequest, dispatchMark: dispatchMark)
             } catch is CancellationError {
                 return
             } catch {
@@ -60,9 +61,14 @@ extension LeoSidebarFeed {
         return try result.get()
     }
 
-    func applyActivityState(_ state: [LeoObservedAgent], generation: Int, metadataRequest: Int) {
+    func applyActivityState(_ observed: LeoObservedState, generation: Int, metadataRequest: Int, dispatchMark: Int) {
         guard running, generation == snapshot.generation else { return }
-        applyMetadata(state, request: metadataRequest, generation: generation)
+        let state = observed.agents
+        // Dispatches follow the same request order as metadata: a baseline
+        // older than a snapshot already applied must not touch them.
+        if applyMetadata(state, request: metadataRequest, generation: generation) {
+            applyDispatchBaseline(observed.dispatches, since: dispatchMark)
+        }
         mergeSurfacedFiles(from: state)
         // `state` is the authoritative baseline as of when the fetch
         // started; anything coalesced since then is newer, so it's merged
@@ -81,15 +87,15 @@ extension LeoSidebarFeed {
         if metadataRefreshPending { requestMetadataRefresh() }
     }
 
-    static func fetchState(from source: LeoSidebarActivitySource) async throws -> [LeoObservedAgent] {
-        try await withThrowingTaskGroup(of: [LeoObservedAgent].self) { group in
+    static func fetchState(from source: LeoSidebarActivitySource) async throws -> LeoObservedState {
+        try await withThrowingTaskGroup(of: LeoObservedState.self) { group in
             group.addTask { try await source.fetchState() }
             group.addTask {
                 try await Task.sleep(nanoseconds: 5_000_000_000)
                 throw LeoSidebarFeedError.activityStateTimedOut
             }
             defer { group.cancelAll() }
-            guard let state = try await group.next() else { return [] }
+            guard let state = try await group.next() else { return LeoObservedState(agents: []) }
             return state
         }
     }
