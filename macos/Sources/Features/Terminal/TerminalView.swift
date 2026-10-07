@@ -125,12 +125,20 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                         shortcutHints: runtime.shortcutHints,
                         buttonActions: leoButtonActions,
                         terminal: {
-                            ZStack {
-                                terminalContent
+                            VStack(spacing: 0) {
+                                ZStack {
+                                    terminalContent
 
-                                if viewModel.surfaceTree.isEmpty {
-                                    leoPlaceholder(session: leoSession, runtime: runtime)
+                                    if viewModel.surfaceTree.isEmpty {
+                                        leoPlaceholder(session: leoSession, runtime: runtime)
+                                    }
                                 }
+
+                                // B-262: the prompt box and its verbs.
+                                LeoAgentControlBarHost(
+                                    model: runtime.model, control: runtime.control, terminals: leoSession.terminals,
+                                    session: leoSession, handle: leoSession.controlPrompt
+                                )
                             }
                         }
                     )

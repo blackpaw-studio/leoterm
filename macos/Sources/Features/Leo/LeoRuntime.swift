@@ -9,6 +9,9 @@ import OSLog
     let model: LeoSidebarModel
     let registry: LeoWindowSessionRegistry
     let actions: LeoAgentActions
+    /// The prompt box and Interrupt / Compact / Clear (B-262), bound to the
+    /// selected host's daemon like `actions`.
+    let control: LeoAgentControlModel
     let hostSelection: LeoHostSelection
     /// Agents ▸ Agent Notifications… policy for background transitions.
     let attentionNotifications: LeoAttentionController
@@ -251,6 +254,9 @@ import OSLog
             Task { await feed?.refresh() }
         }
         actionsBox.actions = actions
+        control = LeoAgentControlModel(daemon: daemon, confirmClear: { row in
+            await LeoClearConfirmation.confirm(agent: row.name, in: NSApp.keyWindow)
+        })
         model.startRequested = { [weak actions] row, completion in actions?.start(row, completion: completion) }
         model.retryRequested = { [hostSelection] in hostSelection.retry() }
         registry.pollabilityChanged = { [feed] pollable in Task { await feed.setPolling(pollable) } }
@@ -533,6 +539,7 @@ import OSLog
         }
         guard sequence == connectionSequence else { return }
         actions.updateDaemon(daemon, host: host)
+        control.updateDaemon(daemon, host: host)
         await feed.updateConnection(host: host, generation: generation, phase: .connected(daemon: daemon, activitySource: activitySource))
     }
 
