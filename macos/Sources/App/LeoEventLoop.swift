@@ -21,12 +21,13 @@ enum LeoEventLoop {
 
     /// How often a closed window's loop is woken: how long after its last
     /// owner lets go it may linger.
-    static let closedWindowWakeInterval: TimeInterval = 0.25
+    static let closedWindowWakeInterval: TimeInterval = 0.5
 
-    /// How long a closed window's loop is woken for, covering the default
-    /// undo timeout (5 s) several times over. A window held longer (a longer
-    /// `undo-timeout`) is left to the next event.
-    static let closedWindowWakeLimit: TimeInterval = 30
+    /// How long a closed window's loop is woken for: the longest of the
+    /// holds above, the default undo timeout (5 s), with as much again to
+    /// spare. A window held longer (a longer `undo-timeout`) is left to the
+    /// next event.
+    static let closedWindowWakeLimit: TimeInterval = 10
 
     /// Wakes the event loop every `interval` while `window`, closed, lives,
     /// for at most `limit`: the wait after its last owner let go of it ends
