@@ -1,4 +1,5 @@
 import AppKit
+import CoreGraphics
 import Testing
 
 @testable import Ghostty
@@ -25,16 +26,16 @@ import Testing
 /// Each test runs inside `LeoIdleEventLoop`, which waits as the idle app
 /// does, and keeps only weak references to the window and its controller
 /// and the window's number (which outlives both), so nothing of the test's
-/// keeps them alive. The window server's list isn't checked here: the test
-/// host keeps the window-server window of some windows it freed (with or
-/// without AppKit's close animation, whoever let go of them last) where
-/// the app drops it with the window, so B-143's verify checks it in the
-/// app. A replacement test adopts its own launch window (the test host's
-/// is never adopted). Each test opens windows with undo registration off
-/// -- but for the undo test, which drops the action it registered whatever
-/// happens -- closes every window it opened, and leaves the cascade point
-/// where it found it. Requested windows run the default shell, never an
-/// agent.
+/// keeps them alive. A window counts as let go of once it, its controller
+/// and its window-server window are all gone: AppKit hands a freed
+/// window's window-server window to the wait in progress too, and a test
+/// that stopped waiting at the window would leave that to the test host's
+/// loop, which never drains. A replacement test adopts its own launch
+/// window (the test host's is never adopted). Each test opens windows with
+/// undo registration off -- but for the undo test, which drops the action
+/// it registered whatever happens -- closes every window it opened, and
+/// leaves the cascade point where it found it. Requested windows run the
+/// default shell, never an agent.
 /// Needs the app's real `Ghostty.App`, so the suite is skipped (and says
 /// so) without it.
 @MainActor @Suite(
@@ -84,7 +85,11 @@ struct LeoReplacedLaunchWindowReleaseTests {
             windowNumber = window.windowNumber
         }
 
-        var isFreed: Bool { controller == nil && window == nil }
+        /// It, its controller and its window-server window are all gone.
+        var isFreed: Bool {
+            controller == nil && window == nil
+                && !LeoReplacedLaunchWindowReleaseTests.serverWindowNumbers().contains(windowNumber)
+        }
 
         /// Closes the window if it is still open (a test that failed early).
         func closeIfOpen() {
@@ -141,6 +146,16 @@ struct LeoReplacedLaunchWindowReleaseTests {
         return trace
     }
 
+    /// The window-server windows this process owns, on screen or not.
+    private static func serverWindowNumbers() -> Set<Int> {
+        let pid = Int(getpid())
+        let infos = (CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]]) ?? []
+        return Set(infos.compactMap { info in
+            guard (info[kCGWindowOwnerPID as String] as? Int) == pid else { return nil }
+            return info[kCGWindowNumber as String] as? Int
+        })
+    }
+
     /// What is left of `trace`'s window: empty once it is all gone.
     private func remains(of trace: Trace) -> [String] {
         autoreleasepool {
@@ -148,6 +163,7 @@ struct LeoReplacedLaunchWindowReleaseTests {
                 trace.controller != nil ? "its controller" : nil,
                 trace.window != nil ? "its window" : nil,
                 NSApp.windows.contains { $0.windowNumber == trace.windowNumber } ? "an NSApp.windows entry" : nil,
+                Self.serverWindowNumbers().contains(trace.windowNumber) ? "a window-server window" : nil,
             ].compactMap { $0 }
         }
     }

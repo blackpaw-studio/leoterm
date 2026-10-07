@@ -14,9 +14,11 @@ import AppKit
 /// by its controller for a run-loop pass, by AppKit's close animation, and
 /// by AppKit's handling of an opened file, whose blocks keep the app's
 /// windows until a timer lets them go about 5 s on. (Leo's own longer hold,
-/// the New Tab undo action of a window opened from it, is weak.) So a closed
-/// window has the loop woken until it is freed, for at most
-/// `closedWindowWakeLimit`.
+/// the New Tab undo action of a window opened from it, is weak.) Once the
+/// window is freed, AppKit can hand its window-server window to a later
+/// wait's pool the same way, from the window manager's own callouts. So a
+/// closed window has the loop woken until it and its window-server window
+/// are gone, for at most `closedWindowWakeLimit`.
 enum LeoEventLoop {
     /// The `subtype` of the event `wake(for:)` posts. Its `data1` is the
     /// number of the window it was posted for.
@@ -31,9 +33,9 @@ enum LeoEventLoop {
     /// longer is left to the next event.
     static let closedWindowWakeLimit: TimeInterval = 10
 
-    /// Wakes the event loop every `interval` while `window`, closed, lives,
-    /// for at most `limit`: the wait after its last owner let go of it ends
-    /// and is drained, freeing it.
+    /// Wakes the event loop every `interval` while `window`, closed, or its
+    /// window-server window lives, for at most `limit`: the wait after the
+    /// last owner of either let go ends and is drained, freeing it.
     @MainActor static func wakeUntilFreed(
         _ window: NSWindow,
         every interval: TimeInterval = closedWindowWakeInterval,
@@ -43,8 +45,9 @@ enum LeoEventLoop {
         let windowNumber = window.windowNumber
         let timer = Timer(timeInterval: interval, repeats: true) { [weak window] timer in
             MainActor.assumeIsolated {
-                // Gone, shown again, or held past the limit: stop.
-                guard let window, !window.isVisible, Date() < deadline else {
+                let isShown = window?.isVisible ?? false
+                let isGone = window == nil && !windowServerLists(windowNumber)
+                guard !isShown, !isGone, Date() < deadline else {
                     timer.invalidate()
                     return
                 }
@@ -54,6 +57,18 @@ enum LeoEventLoop {
         timer.tolerance = interval / 2
         // The mode `-[NSApplication run]` waits in.
         RunLoop.main.add(timer, forMode: .default)
+    }
+
+    /// Whether the window server still has window `windowNumber`, on screen
+    /// or not.
+    static func windowServerLists(_ windowNumber: Int) -> Bool {
+        guard windowNumber > 0, let id = UnsafeRawPointer(bitPattern: UInt(windowNumber)) else { return false }
+        var ids: [UnsafeRawPointer?] = [id]
+        let array = ids.withUnsafeMutableBufferPointer { CFArrayCreate(nil, $0.baseAddress, $0.count, nil) }
+        guard let array, let infos = CGWindowListCreateDescriptionFromArray(array) as? [[String: Any]] else {
+            return false
+        }
+        return !infos.isEmpty
     }
 
     /// Ends the event loop's current wait with an application-defined event
