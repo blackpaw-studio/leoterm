@@ -118,7 +118,7 @@ Lane: B-261
   Branch: autopilot-lane/B-261
   Base: b44801a88984d027cdebafa69657665642d0922d
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
