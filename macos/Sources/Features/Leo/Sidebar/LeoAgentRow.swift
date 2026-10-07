@@ -141,6 +141,12 @@ struct LeoAgentRowView: View {
                 Text(task).font(.caption).foregroundStyle(.secondary)
                     .lineLimit(1).truncationMode(.tail)
                     .help(task)
+            } else if let preview = presentation().turnPreview {
+                // B-259: what the agent just did, only while it isn't doing
+                // anything else; the tooltip holds what the line cuts.
+                Text(preview).font(.caption).foregroundStyle(.secondary)
+                    .lineLimit(1).truncationMode(.tail)
+                    .help(preview)
             }
             if let error, !error.isEmpty {
                 Text(error).font(.caption).foregroundStyle(Color(nsColor: .systemRed)).lineLimit(2)
@@ -189,7 +195,7 @@ struct LeoAgentRowView: View {
                     // full ones, like the tooltip, even when the line drops the
                     // template for width.
                     subtitleText(fitted(subtitle)).font(.caption)
-                        .help(subtitle.text)
+                        .help(subtitle.help)
                         .accessibilityElement(children: .ignore)
                         .accessibilityLabel(subtitle.accessibilityLabel)
                         .accessibilityHidden(subtitle.accessibilityLabel.isEmpty)

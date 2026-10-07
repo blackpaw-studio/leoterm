@@ -12,8 +12,12 @@ extension LeoAgentRowPresentation.Subtitle {
     /// a string's drawn width.
     func fitting(width: CGFloat, measure: (String) -> CGFloat) -> Self {
         guard let template, state != nil || lastActive != nil else { return self }
-        let rest = Self(template: nil, state: state, lastActive: lastActive, lastActiveSpoken: lastActiveSpoken)
-        let restWidth = measure(rest.text)
+        let rest = Self(
+            template: nil, state: state, lastActive: lastActive, lastActiveSpoken: lastActiveSpoken,
+            usage: usage, usageTooltip: usageTooltip, usageSpoken: usageSpoken
+        )
+        // The usage truncates before the template does, so it takes no room here.
+        let restWidth = measure(Self(template: nil, state: state, lastActive: lastActive).text)
         // The whole template first: a narrow one can be slimmer than its
         // own five-character truncation.
         if width >= measure(template + Self.separator) + restWidth { return self }

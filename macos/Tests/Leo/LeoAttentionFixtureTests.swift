@@ -33,6 +33,38 @@ struct LeoAttentionFixtureTests {
         #expect(state.dispatches.first { $0.id == "fx-1" }?.status == "running", "the fixture's record wins")
     }
 
+    /// B-259: reserved `usage` and `turns` keys overlay usage on `/state`
+    /// and replay turns; a malformed key degrades to none.
+    @Test func usageAndTurnsKeysDecodeAndOverlay() async throws {
+        let json = #"{"alpha":{"state":"working","revision":1},"#
+            + #""usage":{"alpha":{"session":{"tokens":1200,"cost_usd":0.42}},"beta":{"session":"bad"}},"#
+            + #""turns":{"alpha":{"preview":"All done","outcome":"aborted"}}}"#
+        let file = try JSONDecoder().decode(LeoAttentionFixture.File.self, from: Data(json.utf8))
+        #expect(file.attention.keys.sorted() == ["alpha"])
+        #expect(file.usage.keys.sorted() == ["alpha"], "a malformed entry is dropped")
+        #expect(file.turns["alpha"]?.preview == "All done" && file.turns["alpha"]?.outcome == .aborted)
+
+        let base = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: {
+            [LeoObservedAgent(name: "alpha", status: .running, activity: .idle, currentAction: nil, lastActivityAt: nil)]
+        })
+        let state = try await LeoAttentionFixture.wrap(base, overlay: file.attention, usage: file.usage, turns: file.turns).fetchState()
+        #expect(state.agents.first?.usage?.session.tokens == 1200)
+
+        let malformed = try JSONDecoder().decode(LeoAttentionFixture.File.self, from: Data(#"{"usage":3,"turns":"x"}"#.utf8))
+        #expect(malformed.usage.isEmpty && malformed.turns.isEmpty)
+    }
+
+    @Test func helloAdvertisesTheFixturesFeatures() async throws {
+        let (stream, continuation) = AsyncStream<LeoObserveEvent>.makeStream()
+        continuation.yield(.hello(seq: 1, at: nil, version: "1", serverTime: nil, bootID: "b", features: ["dispatch_tree"]))
+        continuation.finish()
+        let turn = LeoTurnCompletion(agent: "alpha", outcome: .completed, preview: "Hi")
+        var seen: [LeoObserveEvent] = []
+        for await event in LeoAttentionFixture.advertising(stream, usage: true, turns: ["alpha": turn]) { seen.append(event) }
+        guard case .hello(_, _, _, _, _, let features) = seen.first else { Issue.record("no hello"); return }
+        #expect(features == ["dispatch_tree", "agent_usage", "bridge_turns"])
+    }
+
     @Test func fixtureEntryDecodesItsReason() async throws {
         let json = #"{"alpha":{"state":"needs_input","revision":1,"reason":{"kind":"permission","tool":"Bash"}},"beta":{"state":"needs_input","revision":1}}"#
         let file = try JSONDecoder().decode(LeoAttentionFixture.File.self, from: Data(json.utf8))
