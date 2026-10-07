@@ -2,12 +2,14 @@ Status: running
 Started: 2026-10-07T16:40:34Z
 Budget: 20 items, until 2026-10-08T04:40:34Z
 Digested-through: 0
-Filed: 0/3 bugs, 5/5 ideas
+Filed: 1/3 bugs, 5/5 ideas
 Self-filed: B-257 → B-263 idea — Index dispatch children once per tree projection
 Self-filed: B-257 → B-264 idea — Dispatch tombstone cap survives heavy churn
 Self-filed: B-257 → B-265 idea — Tighten fetchCount bound in dispatchAndSeqOnlyEventsLeaveThePendingActivityWindowAlone
 Self-filed: B-257 → B-266 idea — Clicking a dispatch row reveals or jumps to the dispatch
 Self-filed: B-257 → B-267 idea — Clearer depth indent for dispatch rows
+Self-filed: B-258 → B-268 bug — Same-state needs_input with a newer revision re-notifies
+Self-filed: B-258 → dropped (over cap) — Bidi-isolate attention tool and detail text
 Focus: leo PR #226 bridge features (B-257–B-262, then B-051)
 Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 
@@ -53,12 +55,20 @@ Lane: B-258
   Branch: autopilot-lane/B-258
   Base: 2877d486c4ba732de773a91b2ddbaed3ad6be4a7
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 5ea1d7a4ae06bdb0ab115a8996e362cc3a7a5f9b
   Dispatched: 2026-10-07T19:07:44Z
+  Call: Badge stays icon-only (D-012); the reason shows as a per-kind symbol (hand.raised / questionmark.bubble / list.bullet.rectangle), a badge tooltip, the subtitle word ("Permission: Bash" / "Question" / "Input Request") and the VoiceOver label — principles 1, 2
+  Call: Detail appears only in the badge tooltip; notifications carry kind and tool only — principle 2, D-013
+  Call: No hello `attention_reason` gate; an absent field means no reason — principle 2
+  Call: An unknown or malformed reason kind reads as no reason (falls back to today's behaviour) — principle 2
+  Call: A reason refining an already-committed reasonless needs_input updates the badge without re-notifying (check lives in reducer commit()) — principle 2
+  Call: A reason on a row whose badge isn't needsInput is ignored — principle 2
+  Call: Tool and detail are sanitized and clamped in LeoAttentionReason.init, so every construction path is clean — principle 2
+  Call: Labels, symbols and wording per the plan; Badge.tooltip is optional (default nil); `.help("")` when there is no reason — AUTONOMY copy/UX
 
 ## Progress
 Finished 1: B-257 landed 8a28dfb7bd072c049000f75f71a3fd3c976b8a83 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-257-2.png
