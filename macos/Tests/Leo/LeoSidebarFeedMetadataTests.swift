@@ -178,6 +178,27 @@ struct LeoSidebarFeedMetadataTests {
         await harness.stop()
     }
 
+    /// B-260: a tool shows as its name, and the row clears when a later
+    /// snapshot (triggered by the trailing activity event) drops the action.
+    @Test func toolClearsWhenSnapshotDropsAction() async throws {
+        let running = LeoObservedAgent(
+            name: "alpha", status: .running, activity: .working, currentAction: .init(kind: "tool", detail: "Bash make test"),
+            lastActivityAt: "2026-09-24T15:00:00Z", startedAt: "s1"
+        )
+        let harness = MetadataHarness(agents: [("alpha", "s1")], state: [running])
+        await harness.start()
+        try await harness.pump { $0.rows.first?.metadata?.tool == "Bash" }
+        #expect(await harness.recorder.last?.rows.first?.metadata?.task == nil)
+        await harness.settle()
+
+        await harness.activity.setState([observed("alpha", "s1", task: nil)])
+        await harness.activity.send(.agentActivity(seq: 2, at: nil, agent: "alpha", activity: .idle, currentAction: nil))
+        try await harness.pump { $0.rows.first?.metadata?.tool == nil }
+        let row = await harness.recorder.last?.rows.first
+        #expect(row?.metadata?.task == nil)
+        await harness.stop()
+    }
+
     /// An event coalesced while the baseline `/state` is in flight, drained
     /// by that baseline before its flush timer fires: the baseline may
     /// predate it, so a trailing snapshot must follow -- without any poll
