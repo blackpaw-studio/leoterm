@@ -481,4 +481,63 @@ struct LeoAttentionReducerTests {
         #expect(reducer.nextDeadline == nil)
         #expect(reducer.state(of: "alpha") == .finished)
     }
+
+    // MARK: attention.reason (B-258)
+
+    private func reasoned(_ revision: Int, kind: LeoAttentionReason.Kind = .permission) -> LeoAttentionSignal {
+        LeoAttentionSignal(state: .needsInput, revision: revision, reason: LeoAttentionReason(kind: kind, tool: "Bash"))
+    }
+
+    @Test func stateBaselineCarriesReason() {
+        let reducer = live(["alpha": reasoned(3)])
+        #expect(reducer.reason(for: "alpha") == LeoAttentionReason(kind: .permission, tool: "Bash"))
+    }
+
+    @Test func reasonOnlyForCommittedNeedsInput() {
+        var reducer = live(["alpha": reasoned(1), "beta": signal(.working, 1)])
+        #expect(reducer.reason(for: "beta") == nil)
+        // A candidate is not committed yet.
+        reducer.receive(agent: "beta", signal: reasoned(2), now: 10)
+        #expect(reducer.reason(for: "beta") == nil)
+        _ = reducer.tick(now: 10.3)
+        #expect(reducer.reason(for: "beta") != nil)
+        reducer.receive(agent: "beta", signal: signal(.finished, 3), now: 11)
+        _ = reducer.tick(now: 11.3)
+        #expect(reducer.reason(for: "beta") == nil)
+        reducer.disconnect()
+        #expect(reducer.reason(for: "alpha") == nil, "stale")
+    }
+
+    @Test func sameStateRepeatAdoptsNewestReason() {
+        var reducer = live()
+        reducer.receive(agent: "alpha", signal: signal(.needsInput, 1), now: 10)
+        reducer.receive(agent: "alpha", signal: reasoned(2), now: 10.1)
+        let transitions = reducer.tick(now: 10.3)
+        #expect(transitions.count == 1)
+        #expect(transitions.first?.revision == 2)
+        #expect(transitions.first?.reason?.kind == .permission)
+        #expect(transitions.first?.shouldNotify == true)
+    }
+
+    @Test func reasonRefinementAfterCommitDoesNotRenotify() {
+        var reducer = live()
+        reducer.receive(agent: "alpha", signal: signal(.needsInput, 1), now: 10)
+        #expect(reducer.tick(now: 10.3).first?.shouldNotify == true)
+        reducer.receive(agent: "alpha", signal: reasoned(2), now: 12)
+        let refinement = reducer.tick(now: 12.3)
+        #expect(refinement.first?.shouldNotify == false)
+        #expect(reducer.reason(for: "alpha")?.kind == .permission)
+    }
+
+    @Test func newPromptAfterWorkingStillNotifies() {
+        var reducer = live()
+        reducer.receive(agent: "alpha", signal: reasoned(1), now: 10)
+        _ = reducer.tick(now: 10.3)
+        reducer.receive(agent: "alpha", signal: signal(.working, 2), now: 11)
+        _ = reducer.tick(now: 11.3)
+        reducer.receive(agent: "alpha", signal: reasoned(3, kind: .question), now: 12)
+        let again = reducer.tick(now: 12.3)
+        #expect(again.first?.shouldNotify == true)
+        #expect(again.first?.reason?.kind == .question)
+    }
 }

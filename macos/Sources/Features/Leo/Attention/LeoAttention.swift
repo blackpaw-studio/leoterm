@@ -29,12 +29,76 @@ enum LeoAttentionState: String, Equatable, Sendable, Codable {
     }
 }
 
-/// `attention: {state, revision}`. `revision` increases per agent name per
-/// daemon boot, across delete/recreate and rename; a signal at or below one
-/// already seen for that name is a duplicate/reorder.
+/// Why an agent needs input (`attention.reason`, daemon contract v0.35.0):
+/// a permission prompt, a question, or an MCP elicitation. Informational
+/// only -- the app never answers the prompt. `tool` and `detail` are
+/// agent-controlled text: sanitized and clamped on decode.
+struct LeoAttentionReason: Equatable, Sendable, Codable {
+    enum Kind: String, Equatable, Sendable, Codable {
+        case permission, question, elicitation
+    }
+
+    /// The most characters kept of `tool` or `detail`.
+    static let textLimit = 120
+
+    let kind: Kind
+    let tool: String?
+    let detail: String?
+
+    init(kind: Kind, tool: String? = nil, detail: String? = nil) {
+        self.kind = kind
+        self.tool = Self.clean(tool)
+        self.detail = Self.clean(detail)
+    }
+
+    private enum CodingKeys: String, CodingKey { case kind, tool, detail }
+
+    /// An unknown kind or a wrong-typed field throws; `LeoAttentionSignal`
+    /// turns that into "no reason" so the signal itself still decodes.
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            kind: try container.decode(Kind.self, forKey: .kind),
+            tool: try container.decodeIfPresent(String.self, forKey: .tool),
+            detail: try container.decodeIfPresent(String.self, forKey: .detail)
+        )
+    }
+
+    private static func clean(_ text: String?) -> String? {
+        guard let text else { return nil }
+        let sanitized = LeoSFTPServerText.sanitized(text)
+        guard !sanitized.isEmpty else { return nil }
+        guard sanitized.count > textLimit else { return sanitized }
+        return String(sanitized.prefix(textLimit - 1)) + "…"
+    }
+}
+
+/// `attention: {state, revision, reason?}`. `revision` increases per agent
+/// name per daemon boot, across delete/recreate and rename; a signal at or
+/// below one already seen for that name is a duplicate/reorder.
 struct LeoAttentionSignal: Equatable, Sendable, Codable {
     let state: LeoAttentionState
     let revision: Int
+    let reason: LeoAttentionReason?
+
+    init(state: LeoAttentionState, revision: Int, reason: LeoAttentionReason? = nil) {
+        self.state = state
+        self.revision = revision
+        self.reason = reason
+    }
+
+    private enum CodingKeys: String, CodingKey { case state, revision, reason }
+
+    /// A malformed or unknown-kind reason reads as absent: behaviour falls
+    /// back to the reasonless one and nothing is invented.
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            state: try container.decode(LeoAttentionState.self, forKey: .state),
+            revision: try container.decode(Int.self, forKey: .revision),
+            reason: try? container.decodeIfPresent(LeoAttentionReason.self, forKey: .reason)
+        )
+    }
 }
 
 /// What an agent row shows. `unknown` has no badge, so it isn't a case.
@@ -66,11 +130,14 @@ struct LeoAttentionTransition: Equatable, Sendable {
     /// deferred.
     let shouldNotify: Bool
     let bootID: String?
+    /// Why the agent needs input, when the daemon said (`to == .needsInput`).
+    let reason: LeoAttentionReason?
 
     init(
         id: LeoAgentRow.ID, from: LeoAttentionState?, to: LeoAttentionState, revision: Int, shouldNotify: Bool,
-        bootID: String? = nil
+        bootID: String? = nil, reason: LeoAttentionReason? = nil
     ) {
+        self.reason = reason
         self.id = id
         self.from = from
         self.to = to

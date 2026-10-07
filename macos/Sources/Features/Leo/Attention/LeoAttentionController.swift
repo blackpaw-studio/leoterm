@@ -3,7 +3,7 @@ import OSLog
 import UserNotifications
 
 /// The content of one background-agent notification: agent + host title,
-/// a fixed body, never terminal text. Only transitions the reducer marked
+/// a body from the state (and reason kind/tool), never terminal text. Only transitions the reducer marked
 /// `shouldNotify` (live, into needs_input/finished, not focused) qualify.
 struct LeoAttentionNotification: Equatable, Sendable {
     static let identifierPrefix = "studio.blackpaw.leo.attention."
@@ -18,7 +18,9 @@ struct LeoAttentionNotification: Equatable, Sendable {
     init?(_ transition: LeoAttentionTransition) {
         guard transition.shouldNotify else { return nil }
         switch transition.to {
-        case .needsInput: body = "Needs your input"
+        case .needsInput:
+            // Kind and tool only; `detail` (a path, a command) never leaves the app.
+            body = transition.reason.map { LeoStatusPresentation.attentionReason($0).notificationBody } ?? "Needs your input"
         case .finished: body = "Finished"
         case .working, .errored, .unknown: return nil
         }

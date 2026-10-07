@@ -134,7 +134,68 @@ struct LeoAttentionPresentationTests {
 
     private func id(_ name: String) -> LeoAgentRow.ID { .init(host: Self.host, name: name) }
     private func ids(_ names: String...) -> [LeoAgentRow.ID] { names.map(id) }
-    private func row(_ name: String, template: String? = nil, attention: LeoAttentionBadge? = nil) -> LeoAgentRow {
-        LeoAgentRow(host: Self.host, name: name, template: template, status: .running, activity: .idle, actionDetail: nil, attention: attention)
+    private func row(
+        _ name: String, template: String? = nil, attention: LeoAttentionBadge? = nil, reason: LeoAttentionReason? = nil
+    ) -> LeoAgentRow {
+        LeoAgentRow(
+            host: Self.host, name: name, template: template, status: .running, activity: .idle, actionDetail: nil,
+            attention: attention, attentionReason: reason
+        )
+    }
+
+    // MARK: attention.reason (B-258)
+
+    @Test func permissionReasonPresentation() {
+        let reason = LeoAttentionReason(kind: .permission, tool: "Bash", detail: "rm")
+        let presentation = LeoStatusPresentation.attentionReason(reason)
+        #expect(presentation.symbolName == "hand.raised")
+        #expect(presentation.stateWord == "Permission: Bash")
+        #expect(presentation.tooltip == "Needs permission to use Bash: rm")
+        #expect(presentation.notificationBody == "Needs permission to use Bash")
+        let needsPermission = row("alpha", template: "claude", attention: .needsInput, reason: reason)
+        #expect(LeoStatusPresentation.rowAccessibilityLabel(needsPermission) == "alpha, Needs Permission, Bash")
+        let rowPresentation = LeoAgentRowPresentation(row: needsPermission, isSelected: false)
+        #expect(rowPresentation.badge?.symbolName == "hand.raised")
+        #expect(rowPresentation.badge?.tooltip == "Needs permission to use Bash: rm")
+        #expect(rowPresentation.subtitle?.text == "claude · Permission: Bash")
+    }
+
+    @Test func questionReasonPresentation() {
+        let presentation = LeoStatusPresentation.attentionReason(LeoAttentionReason(kind: .question))
+        #expect(presentation.symbolName == "questionmark.bubble")
+        #expect(presentation.stateWord == "Question")
+        #expect(presentation.tooltip == "Asking you a question")
+        #expect(presentation.notificationBody == "Has a question for you")
+    }
+
+    @Test func elicitationReasonPresentation() {
+        let bare = LeoStatusPresentation.attentionReason(LeoAttentionReason(kind: .elicitation))
+        #expect(bare.symbolName == "list.bullet.rectangle")
+        #expect(bare.stateWord == "Input Request")
+        #expect(bare.tooltip == "Requesting input")
+        let tooled = LeoStatusPresentation.attentionReason(LeoAttentionReason(kind: .elicitation, tool: "github"))
+        #expect(tooled.tooltip == "Requesting input from github")
+        #expect(tooled.notificationBody == "Requesting input")
+    }
+
+    @Test func noReasonPresentationUnchanged() {
+        let plain = row("alpha", template: "claude", attention: .needsInput)
+        let presentation = LeoAgentRowPresentation(row: plain, isSelected: false)
+        #expect(presentation.badge?.symbolName == "questionmark.circle")
+        #expect(presentation.badge?.tooltip == nil)
+        #expect(presentation.subtitle?.text == "claude · Needs Input")
+    }
+
+    @Test func reasonIsIgnoredUnlessTheBadgeIsNeedsInput() {
+        let stray = row("alpha", attention: .finished, reason: LeoAttentionReason(kind: .question))
+        #expect(LeoAgentRowPresentation(row: stray, isSelected: false).badge?.symbolName == "checkmark.circle")
+        #expect(LeoStatusPresentation.rowAccessibilityLabel(stray) == "alpha, Finished")
+    }
+
+    @Test func withMetadataAndSurfacedFilesKeepTheReason() {
+        let reasoned = row("alpha", attention: .needsInput, reason: LeoAttentionReason(kind: .question))
+        #expect(reasoned.withMetadata(nil).attentionReason?.kind == .question)
+        #expect(reasoned.withSurfacedFiles([]).attentionReason?.kind == .question)
+        #expect(reasoned.withAttention(.needsInput).attentionReason == nil)
     }
 }

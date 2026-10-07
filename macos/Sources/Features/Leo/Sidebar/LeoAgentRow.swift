@@ -254,6 +254,7 @@ struct LeoAgentRowView: View {
                 .foregroundStyle(badge.tint)
                 .fixedSize()
                 .layoutPriority(1)
+                .help(badge.tooltip ?? "")
                 .accessibilityHidden(true)
         }
     }

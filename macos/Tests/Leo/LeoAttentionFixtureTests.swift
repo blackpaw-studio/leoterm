@@ -33,6 +33,18 @@ struct LeoAttentionFixtureTests {
         #expect(state.dispatches.first { $0.id == "fx-1" }?.status == "running", "the fixture's record wins")
     }
 
+    @Test func fixtureEntryDecodesItsReason() async throws {
+        let json = #"{"alpha":{"state":"needs_input","revision":1,"reason":{"kind":"permission","tool":"Bash"}},"beta":{"state":"needs_input","revision":1}}"#
+        let file = try JSONDecoder().decode(LeoAttentionFixture.File.self, from: Data(json.utf8))
+        #expect(file.attention["alpha"]?.reason == LeoAttentionReason(kind: .permission, tool: "Bash"))
+        #expect(file.attention["beta"]?.reason == nil)
+        let base = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, observedState: {
+            LeoObservedState(agents: [LeoObservedAgent(name: "alpha", status: nil, activity: nil, currentAction: nil, lastActivityAt: nil, attention: nil)], dispatches: [])
+        })
+        let state = try await LeoAttentionFixture.wrap(base, overlay: file.attention).fetchState()
+        #expect(state.agents.first?.attention?.reason?.tool == "Bash")
+    }
+
     @Test func noEnvironmentOrUnreadableFileMeansNoOverlay() {
         #expect(LeoAttentionFixture.load(environment: [:]) == nil)
         #expect(LeoAttentionFixture.load(environment: [LeoAttentionFixture.environmentKey: "/nonexistent.json"]) == nil)
