@@ -14,7 +14,8 @@ import OSLog
 /// hello) show the B-259 row details; with either, hello also advertises
 /// the matching feature. Reserved `"actions"` (agent name ->
 /// `{"kind": ..., "detail": ...}`) overrides `current_action` on `/state`
-/// (B-260), e.g. `{"kind": "tool", "detail": "Bash make"}`. Only named agents change; nothing is sent anywhere.
+/// (B-260), e.g. `{"kind": "tool", "detail": "Bash make"}`. Only named
+/// agents change; nothing is sent anywhere.
 enum LeoAttentionFixture {
     static let environmentKey = "LEO_ATTENTION_FIXTURE"
     private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")

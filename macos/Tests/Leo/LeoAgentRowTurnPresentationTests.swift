@@ -70,12 +70,14 @@ struct LeoAgentRowTurnPresentationTests {
         let running = row(metadata: LeoAgentMetadata(lastActiveAt: nil, isWorking: true, task: nil, tool: "Bash"), lastTurn: turn)
         let presentation = LeoAgentRowPresentation(row: running, isSelected: false)
         #expect(presentation.tool == "Bash")
-        #expect(presentation.toolSpoken == "Running Bash")
+        let runningBash = "Running " + LeoSFTPServerText.isolated("Bash")
+        #expect(presentation.toolSpoken == runningBash)
+        #expect(presentation.toolHelp == runningBash)
         #expect(presentation.task == nil)
         #expect(presentation.turnPreview == nil, "the tool wins over the preview")
         let idle = LeoAgentRowPresentation(row: row(lastTurn: turn), isSelected: false)
         #expect(idle.tool == nil)
-        #expect(idle.toolSpoken == nil)
+        #expect(idle.toolSpoken == nil && idle.toolHelp == nil)
         #expect(idle.turnPreview != nil, "the preview returns once the tool is gone")
     }
 

@@ -68,9 +68,12 @@ struct LeoAgentMetadataTests {
     }
 
     @Test func toolNameIsSanitized() {
-        #expect(LeoAgentMetadata.toolName(fromDetail: "\u{1B}[31mBash\u{1B}[0m make") == LeoSFTPServerText.sanitized("\u{1B}[31mBash\u{1B}[0m make").split(separator: " ").first.map(String.init))
-        #expect(LeoAgentMetadata.toolName(fromDetail: "Ba\u{202E}sh\nmake")?.contains("\u{202E}") == false)
-        #expect(LeoAgentMetadata.toolName(fromDetail: "Ba\u{202E}sh\nmake")?.contains("\n") == false)
+        #expect(LeoAgentMetadata.toolName(fromDetail: "\u{1B}[31mBash\u{1B}[0m make") == "Bash", "CSI escapes are stripped")
+        #expect(LeoAgentMetadata.toolName(fromDetail: "\u{1B}]0;title\u{07}Read x") == "Read", "OSC escapes are stripped")
+        #expect(LeoAgentMetadata.toolName(fromDetail: "\u{1B}]8;;http://x\u{1B}\\Edit\u{1B}]8;;\u{1B}\\ y") == "Edit")
+        #expect(LeoAgentMetadata.toolName(fromDetail: "Ba\u{202E}sh\nmake") == "Bash", "bidi controls are dropped")
+        #expect(LeoAgentMetadata.toolName(fromDetail: "Gr\u{0}ep\u{7} x") == "Grep", "control characters are dropped")
+        #expect(LeoAgentMetadata.toolName(fromDetail: "\u{1B}[31m\u{1B}[0m") == nil)
     }
 
     @Test(arguments: ["pane", nil, "future"] as [String?])

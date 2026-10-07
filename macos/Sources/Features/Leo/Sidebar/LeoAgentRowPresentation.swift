@@ -134,8 +134,12 @@ struct LeoAgentRowPresentation: Equatable {
             )
     }
 
+    /// "Running Bash", the name isolated so a right-to-left name can't
+    /// reorder the sentence; the hover and VoiceOver both say it.
+    var toolHelp: String? { tool.map { "Running \(LeoSFTPServerText.isolated($0))" } }
+
     /// `tool` as VoiceOver says it.
-    var toolSpoken: String? { tool.map { "Running \($0)" } }
+    var toolSpoken: String? { toolHelp }
 
     private static func turnLine(_ turn: LeoTurnPreview) -> String {
         let text = LeoSFTPServerText.isolated(turn.text)

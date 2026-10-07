@@ -193,7 +193,7 @@ struct LeoSidebarFeedMetadataTests {
 
         await harness.activity.setState([observed("alpha", "s1", task: nil)])
         await harness.activity.send(.agentActivity(seq: 2, at: nil, agent: "alpha", activity: .idle, currentAction: nil))
-        try await harness.pump { $0.rows.first?.metadata?.tool == nil }
+        try await harness.pump { $0.rows.first?.metadata != nil && $0.rows.first?.metadata?.tool == nil }
         let row = await harness.recorder.last?.rows.first
         #expect(row?.metadata?.task == nil)
         await harness.stop()

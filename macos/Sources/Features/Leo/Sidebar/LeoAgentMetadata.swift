@@ -46,10 +46,14 @@ struct LeoAgentMetadata: Equatable, Sendable {
     /// The `current_action.kind` that names a running tool.
     static let toolKind = "tool"
 
+    /// ANSI CSI (`ESC [ ... final`) and OSC (`ESC ] ... BEL | ESC \`)
+    /// sequences; the text sanitizer drops only the ESC byte itself.
+    private static let ansiEscape = "\u{1B}\\[[0-?]*[ -/]*[@-~]|\u{1B}\\][^\u{07}\u{1B}]*(\u{07}|\u{1B}\\\\)"
+
     /// The first whitespace-delimited token of a sanitized tool detail
     /// ("Read ~/a.go" -> "Read"); nil when nothing is left.
     static func toolName(fromDetail detail: String) -> String? {
-        LeoSFTPServerText.sanitized(detail)
+        LeoSFTPServerText.sanitized(detail.replacingOccurrences(of: Self.ansiEscape, with: "", options: .regularExpression))
             .split(whereSeparator: \.isWhitespace).first.map(String.init)
     }
 }
