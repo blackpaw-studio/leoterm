@@ -54,6 +54,30 @@ struct LeoAttentionFixtureTests {
         #expect(malformed.usage.isEmpty && malformed.turns.isEmpty)
     }
 
+    /// B-260: a reserved `actions` key overlays `current_action` for named
+    /// agents only; a malformed entry is dropped and the fixture still loads.
+    @Test func actionsKeyOverlaysCurrentAction() async throws {
+        let json = #"{"alpha":{"state":"working","revision":1},"#
+            + #""actions":{"alpha":{"kind":"tool","detail":"Bash make"},"beta":"bad"}}"#
+        let file = try JSONDecoder().decode(LeoAttentionFixture.File.self, from: Data(json.utf8))
+        #expect(file.attention.keys.sorted() == ["alpha"])
+        #expect(file.actions.keys.sorted() == ["alpha"])
+
+        let pane = LeoCurrentAction(kind: "pane", detail: "Reading")
+        let base = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: {
+            [
+                LeoObservedAgent(name: "alpha", status: .running, activity: .idle, currentAction: pane, lastActivityAt: nil),
+                LeoObservedAgent(name: "beta", status: .running, activity: .idle, currentAction: pane, lastActivityAt: nil)
+            ]
+        })
+        let state = try await LeoAttentionFixture.wrap(base, overlay: file.attention, actions: file.actions).fetchState()
+        #expect(state.agents.first { $0.name == "alpha" }?.currentAction == LeoCurrentAction(kind: "tool", detail: "Bash make"))
+        #expect(state.agents.first { $0.name == "beta" }?.currentAction == pane)
+
+        let malformed = try JSONDecoder().decode(LeoAttentionFixture.File.self, from: Data(#"{"actions":3}"#.utf8))
+        #expect(malformed.actions.isEmpty)
+    }
+
     @Test func helloAdvertisesTheFixturesFeatures() async throws {
         let (stream, continuation) = AsyncStream<LeoObserveEvent>.makeStream()
         continuation.yield(.hello(seq: 1, at: nil, version: "1", serverTime: nil, bootID: "b", features: ["dispatch_tree"]))

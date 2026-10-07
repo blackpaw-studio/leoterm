@@ -12,7 +12,9 @@ import OSLog
 /// overlaid on `/state`) and `"turns"` (agent name -> `{"preview": ...,
 /// "outcome": ...}`, replayed as `agent_turn_completed` shortly after each
 /// hello) show the B-259 row details; with either, hello also advertises
-/// the matching feature. Only named agents change; nothing is sent anywhere.
+/// the matching feature. Reserved `"actions"` (agent name ->
+/// `{"kind": ..., "detail": ...}`) overrides `current_action` on `/state`
+/// (B-260), e.g. `{"kind": "tool", "detail": "Bash make"}`. Only named agents change; nothing is sent anywhere.
 enum LeoAttentionFixture {
     static let environmentKey = "LEO_ATTENTION_FIXTURE"
     private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
@@ -22,11 +24,13 @@ enum LeoAttentionFixture {
         static let dispatchesKey = "dispatches"
         static let usageKey = "usage"
         static let turnsKey = "turns"
+        static let actionsKey = "actions"
 
         let attention: [String: LeoAttentionSignal]
         let dispatches: [LeoDispatch]
         let usage: [String: LeoAgentUsage]
         let turns: [String: LeoTurnCompletion]
+        let actions: [String: LeoCurrentAction]
 
         private struct FixtureTurn: Decodable, Sendable {
             let preview: String?
@@ -46,12 +50,15 @@ enum LeoAttentionFixture {
             var dispatches: [LeoDispatch] = []
             var usage: [String: LeoAgentUsage] = [:]
             var turns: [String: LeoTurnCompletion] = [:]
+            var actions: [String: LeoCurrentAction] = [:]
             for key in container.allKeys {
                 if key.stringValue == Self.dispatchesKey {
                     // A malformed value degrades to none, never breaks the fixture.
                     dispatches = (try? container.decode(LeoLenientDispatches.self, forKey: key))?.dispatches ?? []
                 } else if key.stringValue == Self.usageKey {
                     usage = LeoAttentionFixture.lenientEntries(container, key, as: LeoAgentUsage.self)
+                } else if key.stringValue == Self.actionsKey {
+                    actions = LeoAttentionFixture.lenientEntries(container, key, as: LeoCurrentAction.self)
                 } else if key.stringValue == Self.turnsKey {
                     turns = LeoAttentionFixture.lenientEntries(container, key, as: FixtureTurn.self).reduce(into: [:]) { result, entry in
                         result[entry.key] = LeoTurnCompletion(
@@ -66,6 +73,7 @@ enum LeoAttentionFixture {
             self.attention = attention
             self.usage = usage
             self.turns = turns
+            self.actions = actions
             self.dispatches = dispatches.sorted { ($0.startedAt ?? "", $0.id) < ($1.startedAt ?? "", $1.id) }
         }
     }
@@ -94,15 +102,16 @@ enum LeoAttentionFixture {
 
     static func wrap(
         _ source: LeoSidebarActivitySource, overlay: [String: LeoAttentionSignal], dispatches: [LeoDispatch] = [],
-        usage: [String: LeoAgentUsage] = [:], turns: [String: LeoTurnCompletion] = [:]
+        usage: [String: LeoAgentUsage] = [:], turns: [String: LeoTurnCompletion] = [:],
+        actions: [String: LeoCurrentAction] = [:]
     ) -> LeoSidebarActivitySource {
         LeoSidebarActivitySource(events: { await advertising(await source.events(), usage: !usage.isEmpty, turns: turns) }, observedState: {
             let state = try await source.fetchState()
             let agents = state.agents.map { agent in
-                guard overlay[agent.name] != nil || usage[agent.name] != nil else { return agent }
+                guard overlay[agent.name] != nil || usage[agent.name] != nil || actions[agent.name] != nil else { return agent }
                 return LeoObservedAgent(
                     name: agent.name, host: agent.host, status: agent.status, activity: agent.activity,
-                    currentAction: agent.currentAction, lastActivityAt: agent.lastActivityAt, attention: overlay[agent.name] ?? agent.attention,
+                    currentAction: actions[agent.name] ?? agent.currentAction, lastActivityAt: agent.lastActivityAt, attention: overlay[agent.name] ?? agent.attention,
                     startedAt: agent.startedAt, surfacedFiles: agent.surfacedFiles, surfacedFilesSent: agent.surfacedFilesSent,
                     usage: usage[agent.name] ?? agent.usage
                 )
