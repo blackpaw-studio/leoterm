@@ -31,6 +31,20 @@ struct LeoObservedStateDecodingTests {
         #expect(state.dispatches.isEmpty)
     }
 
+    @Test func decodesAgentUsage() throws {
+        let usage = #"{"session_id":"s1","session":{"tokens":1200,"cost_usd":0.42},"incarnation":{"tokens":5000,"cost_usd":1.5},"#
+            + #""context":{"tokens":74000,"window":200000,"percent":37}}"#
+        let state = try decode(#"{"ok":true,"data":{"agents":[{"name":"a","usage":"# + usage + #"},{"name":"b"},"#
+            + #"{"name":"c","usage":{"session":"nope"}},{"name":"d","usage":{"session":{"tokens":1},"context":{"percent":"x"}}}]}}"#)
+        #expect(state.agents[0].usage == LeoAgentUsage(
+            sessionID: "s1", session: LeoUsageTotals(tokens: 1200, costUSD: 0.42), incarnation: LeoUsageTotals(tokens: 5000, costUSD: 1.5),
+            context: LeoContextUsage(tokens: 74000, window: 200_000, percent: 37)))
+        #expect(state.agents[1].usage == nil, "missing usage is nil")
+        #expect(state.agents[2].usage == nil, "malformed usage is nil and the agent still decodes")
+        #expect(state.agents[3].usage?.context == nil, "a malformed context drops only the context")
+        #expect(state.agents.map(\.name) == ["a", "b", "c", "d"])
+    }
+
     @Test func liveMeansNoEndAndANonTerminalStatus() {
         #expect(LeoDispatch(id: "a", status: "running").isLive)
         #expect(LeoDispatch(id: "a", status: "idle").isLive)

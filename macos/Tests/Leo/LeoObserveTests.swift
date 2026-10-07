@@ -105,6 +105,44 @@ struct LeoObserveTests {
         #expect(malformed?.sequence == 8)
     }
 
+    @Test func decodesAgentTurnCompleted() throws {
+        let json = #"{"seq":9,"agent":"alpha","session_id":"s1","outcome":"completed","preview":"All \u001b[31mdone\nnow","#
+            + #""tokens":{"input":10,"output":20,"cache_read":30,"cache_creation":40},"cost_usd":0.25,"#
+            + #""context":{"tokens":1000,"window":200000,"percent":0.5}}"#
+        let event = LeoActivityClient.decode(LeoSSEEvent(name: "agent_turn_completed", data: json, id: nil))
+        guard case .agentTurnCompleted(let seq, let turn) = event else { Issue.record("not a turn: \(String(describing: event))"); return }
+        #expect(seq == 9)
+        #expect(turn.agent == "alpha" && turn.sessionID == "s1" && turn.outcome == .completed)
+        #expect(!turn.preview.contains("\u{1b}") && !turn.preview.contains("\n"), "agent text is sanitized")
+        #expect(turn.tokens == LeoTurnTokens(input: 10, output: 20, cacheRead: 30, cacheCreation: 40))
+        #expect(turn.costUSD == 0.25)
+        #expect(turn.context == LeoContextUsage(tokens: 1000, window: 200_000, percent: 0.5))
+
+        let bare = LeoActivityClient.decode(LeoSSEEvent(
+            name: "agent_turn_completed", data: #"{"seq":10,"agent":"alpha","outcome":"exploded","preview":"x"}"#, id: nil))
+        guard case .agentTurnCompleted(_, let minimal) = bare else { Issue.record("not a turn"); return }
+        #expect(minimal.outcome == .unknown, "an outcome from the future reads as unknown")
+        #expect(minimal.costUSD == nil && minimal.context == nil && minimal.tokens == nil)
+    }
+
+    @Test func malformedTurnCompletedIsSequenceOnly() {
+        let event = LeoActivityClient.decode(LeoSSEEvent(name: "agent_turn_completed", data: #"{"seq":11,"outcome":"completed"}"#, id: nil))
+        #expect(event == .other(seq: 11, type: "agent_turn_completed"))
+    }
+
+    @Test func decodesAgentUsageEvent() {
+        let json = #"{"seq":12,"agent":"alpha","usage":{"session_id":"s1","session":{"tokens":5,"cost_usd":0.1},"#
+            + #""incarnation":{"tokens":9,"cost_usd":0.3},"context":{"tokens":10,"window":100,"percent":10}}}"#
+        let event = LeoActivityClient.decode(LeoSSEEvent(name: "agent_usage", data: json, id: nil))
+        let expected = LeoAgentUsage(
+            sessionID: "s1", session: LeoUsageTotals(tokens: 5, costUSD: 0.1), incarnation: LeoUsageTotals(tokens: 9, costUSD: 0.3),
+            context: LeoContextUsage(tokens: 10, window: 100, percent: 10)
+        )
+        #expect(event == .agentUsage(seq: 12, agent: "alpha", usage: expected))
+        let malformed = LeoActivityClient.decode(LeoSSEEvent(name: "agent_usage", data: #"{"seq":13,"agent":"alpha","usage":{"session":"x"}}"#, id: nil))
+        #expect(malformed == .other(seq: 13, type: "agent_usage"))
+    }
+
     /// Unconsumed events (turns, dispatches, anything newer) still carry
     /// the daemon's seq: skipping them made the next known event look like
     /// a gap and forced a recovery refetch on every 1 s dispatch tick.
@@ -132,7 +170,7 @@ struct LeoObserveTests {
         for events in [httpEvents, socketEvents] {
             #expect(!events.contains { if case .gap = $0 { true } else { false } }, "no gap: \(events)")
             #expect(!events.contains { if case .snapshot = $0 { true } else { false } })
-            #expect(events.contains(.other(seq: 2, type: "agent_turn_completed")))
+            #expect(events.contains { if case .agentTurnCompleted(2, let turn) = $0 { turn.preview == "done" } else { false } })
             #expect(events.contains { if case .dispatchChanged(3, let dispatch) = $0 { dispatch.id == "d-1" } else { false } })
         }
         #expect(await httpTransport.counter.stateFetches == 0)

@@ -55,6 +55,14 @@ struct LeoAgentMetadataTests {
         #expect(entries.metadata(name: "beta", startedAt: "s1") == nil)
     }
 
+    @Test func usageAttachesOnlyToSameIncarnation() {
+        let usage = LeoAgentUsage(session: LeoUsageTotals(tokens: 10, costUSD: 0.1))
+        let entries = LeoAgentMetadataIndex(state: [observed("alpha", startedAt: "s1", usage: usage)])
+        #expect(entries.metadata(name: "alpha", startedAt: "s1")?.usage == usage, "usage alone earns an entry")
+        #expect(entries.metadata(name: "alpha", startedAt: "s2")?.usage == nil, "a different started_at gets no usage")
+        #expect(LeoAgentMetadataIndex(state: [observed("alpha", startedAt: nil, usage: usage)]).metadata(name: "alpha", startedAt: nil) == nil)
+    }
+
     @Test func anEntryWithoutIdentityNeverAttaches() {
         let entries = LeoAgentMetadataIndex(state: [observed("alpha", startedAt: nil, detail: "Reading")])
         #expect(entries.metadata(name: "alpha", startedAt: nil) == nil)
@@ -174,10 +182,12 @@ struct LeoAgentMetadataTests {
         ISO8601DateFormatter().date(from: text)!
     }
 
-    private func observed(_ name: String, startedAt: String?, lastActivityAt: String? = nil, detail: String? = nil) -> LeoObservedAgent {
+    private func observed(
+        _ name: String, startedAt: String?, lastActivityAt: String? = nil, detail: String? = nil, usage: LeoAgentUsage? = nil
+    ) -> LeoObservedAgent {
         LeoObservedAgent(
             name: name, status: .running, activity: .idle, currentAction: detail.map { .init(kind: "pane", detail: $0) },
-            lastActivityAt: lastActivityAt, startedAt: startedAt
+            lastActivityAt: lastActivityAt, startedAt: startedAt, usage: usage
         )
     }
 
