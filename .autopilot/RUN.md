@@ -2,6 +2,12 @@ Status: running
 Started: 2026-10-07T16:40:34Z
 Budget: 20 items, until 2026-10-08T04:40:34Z
 Digested-through: 0
+Filed: 0/3 bugs, 5/5 ideas
+Self-filed: B-257 → B-263 idea — Index dispatch children once per tree projection
+Self-filed: B-257 → B-264 idea — Dispatch tombstone cap survives heavy churn
+Self-filed: B-257 → B-265 idea — Tighten fetchCount bound in dispatchAndSeqOnlyEventsLeaveThePendingActivityWindowAlone
+Self-filed: B-257 → B-266 idea — Clicking a dispatch row reveals or jumps to the dispatch
+Self-filed: B-257 → B-267 idea — Clearer depth indent for dispatch rows
 Focus: leo PR #226 bridge features (B-257–B-262, then B-051)
 Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 
