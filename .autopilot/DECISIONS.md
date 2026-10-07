@@ -2691,3 +2691,10 @@ Chose: Folder-open window attribution: windows made synchronously during openFil
 Why: AUTONOMY test infrastructure
 Commit: be6f60ff7d5c34ca89f927f91585f89c986bb979, ff8302d491aacba3152dffafb175ecbd6980e231, 16f07b69226415cdf1cbd0746277600f51cd50d3
 Veto: [ ]
+
+## D-373 · 2026-10-07 · B-051 daemon contract shipped
+Context: B-051 (working agents show "Finished" while subagents run) was blocked on Evan sending the daemon contract change to leo; Evan answered.
+Chose: done — the contract shipped in leo v0.35.0 (PR #226: attention.outstanding + Snapshot.dispatches[]); B-051 is ready again and builds after B-257, which consumes that contract.
+Why: Evan's answer
+Commit:
+Veto: n/a (Evan)

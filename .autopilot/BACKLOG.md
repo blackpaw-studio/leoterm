@@ -1319,7 +1319,7 @@ Accept: in the isolated debug build, the agent palette's ⌘↩ opens a new tab 
 Source: B-047 implementer report (unverified in the GUI)
 Done: e13738b88 0604cc27f 5bd615a31 (1497 tests). Palette ⌘↩ was already correct: it opens a new tab, also when the agent has one, and never toggles full screen (shots B-048-2, -3). The sidebar ⌘-click was broken: it deselected the row and opened no tab, because the List toggled the selection and SwiftUI tap gestures don't fire in non-key windows. Fixed with a required selection and `LeoRowClickCatcher`; double-click and the Attach button now act exactly once; decisions D-094. Verified: the double-click attaches once (B-048-1), the row stays selected after a ⌘-click (checked in this run), and the palette ⌘↩ forces a new tab (B-048-3). The ⌘-click attach itself was not visually verified, because peekaboo's synthetic ⌘-clicks don't reliably reach the app; end-to-end tests post real mouse events to a non-key window instead. 2 review fix rounds.
 
-## B-051 · Bug — working agents show "Finished" (suspected subagents)   [blocked]
+## B-051 · Bug — working agents show "Finished" (suspected subagents)   [ready]
 Issue: #54
 Why: The status badge has to be trustworthy or the attention model means nothing. Serves "Calm, attention-driven: never invent a state".
 Accept: Reproduce on autopilot-scratch with a scripted turn that starts a background subagent, then record the SSE attention events and the row's state over time; name the root cause (app mapping vs daemon hook semantics) with that trace as evidence; if it's app-side, fix it test-first with a failing test that replays the trace; if it's daemon-side, write the contract change (e.g. keep `working` until SubagentStop / background tasks finish) as a spec and block on Evan.
@@ -1696,67 +1696,67 @@ Why: B-138 exact-lane tests passed, but the isolated Debug app bundle could not 
 Accept: Restore a safe isolated debug build and capture readable horizontal buttons at wide width and vertical fallback below 450 pt; preserve all actions/tooltips; never drive production or real agents.
 Source: autopilot polish (B-138)
 
-## B-240 · Vacuous-pass guard on the regrow check   [ready (next run)]
+## B-240 · Vacuous-pass guard on the regrow check   [ready]
 Issue: #245
 Why: in LeoSidebarContentMinimumTests.swift (~:99-101) `regrowShown.isEmpty` can pass vacuously; add the `!widening.isEmpty` guard the narrowing check already has
 Accept: the widening/regrow per-step check fails when no widening steps were captured
 Source: autopilot polish (B-139)
 
-## B-241 · Absolute per-step content-width floor in the live resize test   [ready (next run)]
+## B-241 · Absolute per-step content-width floor in the live resize test   [ready]
 Issue: #246
 Why: the per-step expected width derives from `sidebarMaximumWidth`, the same function production uses, so both could share an error; add an absolute floor `contentWidth >= contentMinimumWidth - 1` when the window is ≥ 651 pt (LeoSidebarContentMinimumTests.swift ~:123-128)
 Accept: each captured step asserts content width against the absolute 450 pt minimum (1 pt tolerance), independent of sidebarMaximumWidth
 Source: autopilot polish (B-139)
 
-## B-242 · `resize` doc comment wording in LeoSidebarContentMinimumTests   [ready (next run)]
+## B-242 · `resize` doc comment wording in LeoSidebarContentMinimumTests   [ready]
 Issue: #247
 Why: the comment (~:183-185) overstates the capture as what "the display cycle runs before it draws" (it is the earliest layout pass) and uses `--` instead of the file's em dash
 Accept: the comment describes the earliest layout pass accurately and uses an em dash
 Source: autopilot polish (B-139)
 
-## B-243 · One terminal-room formula for the sidebar restore cap   [ready (next run)]
+## B-243 · One terminal-room formula for the sidebar restore cap   [ready]
 Issue: #248
 Why: restoreSidebarWidth's floor cap uses the terminal frame width while sidebarSqueezesTerminal/makeRoom use LeoSidebarSplitMetrics.terminalWidth; they agree after layout, but D-058 now has two formulas
 Accept: the restore cap and sidebarSqueezesTerminal/makeRoom share one terminal-room computation; behaviour unchanged, tests still green
 Source: autopilot polish (B-140)
 
-## B-244 · Reset with a narrow default and a side pane shouldn't look like it hides the sidebar   [ready (next run)]
+## B-244 · Reset with a narrow default and a side pane shouldn't look like it hides the sidebar   [ready]
 Issue: #249
 Why: when the default size is narrow and a side pane is open, Reset Window Size triggers the transient floor-collapse (D-059), which reads as the command hiding the sidebar
 Accept: Reset Window Size with a narrow default and a side pane open leaves the sidebar visible (or the collapse is clearly the floor rule, not the command); covered by a test
 Source: autopilot polish (B-140)
 
-## B-245 · Reset Window Size fills the screen with a wide default   [ready (next run)]
+## B-245 · Reset Window Size fills the screen with a wide default   [ready]
 Issue: #250
 Why: a 160-col default plus the 420 pt sidebar caps at the 1680 pt screen width, which looks less like a "default" size
 Accept: decide and implement how Reset sizes a window whose default plus sidebar exceeds the screen (e.g. leave a margin); covered by a test
 Source: autopilot polish (B-140)
 
-## B-246 · Non-vacuous final check in aWindowNotYetPresentedReadsNotShownWhileTheAppIsHidden   [ready (next run)]
+## B-246 · Non-vacuous final check in aWindowNotYetPresentedReadsNotShownWhileTheAppIsHidden   [ready]
 Issue: #251
 Why: its last `#expect(requested.isLeoWindowShown)` passes whatever the hidden state is, because the settled window is on screen
 Accept: the final check orders the window out first (so only the hidden-state branch can make it pass), or is documented as a sanity check
 Source: autopilot polish (B-141)
 
-## B-247 · Size-guard late LeoAgentPalettePanels in the stray-window test   [ready (next run)]
+## B-247 · Size-guard late LeoAgentPalettePanels in the stray-window test   [ready]
 Issue: #252
 Why: LeoFolderOpenStrayWindowTests exempts a late LeoAgentPalettePanel by type alone
 Accept: late palettes are also checked against 500x500, and a doc line says unregistered late palettes go unchecked
 Source: autopilot polish (B-142)
 
-## B-248 · Split the long line in LeoFolderOpenStrayWindowTests   [ready (next run)]
+## B-248 · Split the long line in LeoFolderOpenStrayWindowTests   [ready]
 Issue: #253
 Why: LeoFolderOpenStrayWindowTests.swift:224 is ~130 chars
 Accept: the line is split to the file's usual width; swiftlint clean
 Source: autopilot polish (B-142)
 
-## B-249 · Build LeoAgentPalettePanel lazily   [ready (next run)]
+## B-249 · Build LeoAgentPalettePanel lazily   [ready]
 Issue: #254
 Why: the palette panel is built up front (defer:false), so every window carries a hidden 640x140 window-server window at the origin
 Accept: the palette panel's window-server window is created only when the palette first opens; palette behaviour and tests unchanged
 Source: autopilot polish (B-142)
 
-## B-250 · verify.md note: the 500x500 window at (0,550) is macOS's TUINSWindow   [ready (next run)]
+## B-250 · verify.md note: the 500x500 window at (0,550) is macOS's TUINSWindow   [ready]
 Issue: #255
 Why: an untitled off-screen 500x500 window at (0,550) is the system caps-lock/input-source indicator (TextInputUIMacHelper), not Leo's; verifiers keep rediscovering it
 Accept: verify.md has a one-line note so window listings ignore it
