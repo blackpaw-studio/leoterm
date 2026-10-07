@@ -42,11 +42,15 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
     /// Files this very incarnation surfaced (B-013), newest last, overlaid
     /// by `LeoSidebarFeed` at emission time. Seen or not is the model's.
     let surfacedFiles: [LeoSurfacedFile]
+    /// The agent's last turn, overlaid by `LeoSidebarFeed` at emission time
+    /// (B-259); nil unless the daemon advertised `bridge_turns`.
+    let lastTurn: LeoTurnPreview?
 
     init(
         host: LeoHostID, name: String, template: String?, status: LeoAgentStatus, activity: Activity, actionDetail: String?,
         workspace: String? = nil, repo: String? = nil, attention: LeoAttentionBadge? = nil, attentionReason: LeoAttentionReason? = nil,
-        startedAt: String? = nil, metadata: LeoAgentMetadata? = nil, surfacedFiles: [LeoSurfacedFile] = []
+        startedAt: String? = nil, metadata: LeoAgentMetadata? = nil, surfacedFiles: [LeoSurfacedFile] = [],
+        lastTurn: LeoTurnPreview? = nil
     ) {
         self.host = host
         self.name = name
@@ -61,13 +65,14 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         self.startedAt = startedAt
         self.metadata = metadata
         self.surfacedFiles = surfacedFiles
+        self.lastTurn = lastTurn
     }
 
     func withAttention(_ attention: LeoAttentionBadge?, reason: LeoAttentionReason? = nil) -> LeoAgentRow {
         LeoAgentRow(
             host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, attention: attention, attentionReason: reason, startedAt: startedAt,
-            metadata: metadata, surfacedFiles: surfacedFiles
+            metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn
         )
     }
 
@@ -75,7 +80,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         LeoAgentRow(
             host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
-            startedAt: startedAt, metadata: metadata, surfacedFiles: surfacedFiles
+            startedAt: startedAt, metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn
         )
     }
 
@@ -83,7 +88,15 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         LeoAgentRow(
             host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
-            startedAt: startedAt, metadata: metadata, surfacedFiles: files
+            startedAt: startedAt, metadata: metadata, surfacedFiles: files, lastTurn: lastTurn
+        )
+    }
+
+    func withLastTurn(_ lastTurn: LeoTurnPreview?) -> LeoAgentRow {
+        LeoAgentRow(
+            host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
+            workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
+            startedAt: startedAt, metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn
         )
     }
 

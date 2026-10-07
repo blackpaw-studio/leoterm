@@ -67,4 +67,44 @@ struct LeoSubtitleFitTests {
         #expect(full.text == "claude · Needs Input · 13h")
         #expect(full.fitting(width: 10, measure: measure).text == "Needs Input · 13h")
     }
+
+    // MARK: B-259 usage
+
+    private func usageSubtitle() -> Subtitle {
+        Subtitle(template: "claude", state: nil, lastActive: "now", usage: "12.3k tok · $0.42 · 37% ctx")
+    }
+
+    @Test func usageIsWholeWhenTheLineFits() {
+        // "claude · 12.3k tok · $0.42 · 37% ctx · now" = 42
+        #expect(usageSubtitle().fitting(width: 42, measure: measure) == usageSubtitle())
+    }
+
+    @Test func usageDropsWholeComponentsFromTheRightNeverAPartialNumber() {
+        #expect(usageSubtitle().fitting(width: 41, measure: measure).usage == "12.3k tok · $0.42")
+        #expect(usageSubtitle().fitting(width: 32, measure: measure).usage == "12.3k tok · $0.42")
+        #expect(usageSubtitle().fitting(width: 31, measure: measure).usage == "12.3k tok")
+        #expect(usageSubtitle().fitting(width: 24, measure: measure).usage == "12.3k tok")
+    }
+
+    @Test func usageDropsEntirelyBeforeTheTemplateIsTouched() {
+        let fitted = usageSubtitle().fitting(width: 23, measure: measure)
+        #expect(fitted.usage == nil)
+        #expect(fitted.template == "claude")
+        #expect(fitted.segments.map(\.text) == ["claude", "now"])
+    }
+
+    @Test func aUsageOnlyLineKeepsItsFirstComponent() {
+        let only = Subtitle(template: nil, state: nil, lastActive: nil, usage: "12.3k tok · $0.42")
+        #expect(only.fitting(width: 3, measure: measure).usage == "12.3k tok")
+    }
+
+    @Test func droppedUsageKeepsItsHoverAndSpokenText() {
+        var line = usageSubtitle()
+        line.usageTooltip = "Session: 12,345 tokens"
+        line.usageSpoken = "used 12,345 tokens"
+        let fitted = line.fitting(width: 23, measure: measure)
+        #expect(fitted.usage == nil)
+        #expect(fitted.help.contains("Session: 12,345 tokens"))
+        #expect(fitted.accessibilityLabel.contains("used 12,345 tokens"))
+    }
 }

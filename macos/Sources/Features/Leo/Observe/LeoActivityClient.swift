@@ -27,10 +27,13 @@ struct LeoObservedAgent: Codable, Equatable, Sendable {
     /// How many `surfaced_files` entries the daemon sent, counted before
     /// malformed or excess ones were dropped (whether its list was full).
     let surfacedFilesSent: Int
+    /// B-259: the agent's usage (leo >= 0.35, `agent_usage`); nil when the
+    /// daemon sent none or a malformed one.
+    let usage: LeoAgentUsage?
 
     init(name: String, host: String? = nil, status: LeoAgentStatus?, activity: LeoActivity?,
          currentAction: LeoCurrentAction?, lastActivityAt: String?, attention: LeoAttentionSignal? = nil,
-         startedAt: String? = nil, surfacedFiles: [LeoSurfacedFile] = [], surfacedFilesSent: Int? = nil) {
+         startedAt: String? = nil, surfacedFiles: [LeoSurfacedFile] = [], surfacedFilesSent: Int? = nil, usage: LeoAgentUsage? = nil) {
         self.name = name
         self.host = host
         self.status = status
@@ -41,6 +44,7 @@ struct LeoObservedAgent: Codable, Equatable, Sendable {
         self.startedAt = startedAt
         self.surfacedFiles = surfacedFiles
         self.surfacedFilesSent = surfacedFilesSent ?? surfacedFiles.count
+        self.usage = usage
     }
 
     enum CodingKeys: String, CodingKey {
@@ -49,6 +53,7 @@ struct LeoObservedAgent: Codable, Equatable, Sendable {
         case lastActivityAt = "last_activity_at"
         case startedAt = "started_at"
         case surfacedFiles = "surfaced_files"
+        case usage
     }
 
     /// Hand-written only so a malformed optional `attention` degrades to
@@ -66,6 +71,7 @@ struct LeoObservedAgent: Codable, Equatable, Sendable {
         let lenientFiles = (try? container.decodeIfPresent(LeoLenientSurfacedFiles.self, forKey: .surfacedFiles)) ?? nil
         surfacedFiles = lenientFiles?.files ?? []
         surfacedFilesSent = lenientFiles?.sentCount ?? 0
+        usage = ((try? container.decodeIfPresent(LeoLenient<LeoAgentUsage>.self, forKey: .usage)) ?? nil)?.value
     }
 }
 
@@ -119,8 +125,12 @@ enum LeoObserveEvent: Equatable, Sendable {
     case fileSurfaced(seq: Int?, file: LeoSurfacedFile)
     /// A dispatch's whole current record (leo >= 0.35, `dispatch_tree`).
     case dispatchChanged(seq: Int, dispatch: LeoDispatch)
+    /// A bridged agent's turn ended (leo >= 0.35, `bridge_turns`).
+    case agentTurnCompleted(seq: Int, turn: LeoTurnCompletion)
+    /// An agent's usage changed outside a turn completion (`agent_usage`).
+    case agentUsage(seq: Int, agent: String, usage: LeoAgentUsage)
     /// An event the app recognizes as carrying a seq but doesn't consume
-    /// (turns, usage, compaction, anything newer, or a malformed dispatch).
+    /// (compaction, anything newer, or a malformed dispatch, turn or usage).
     /// It only advances the sequence, so skipping it never reads as a gap.
     case other(seq: Int, type: String)
 }
@@ -297,6 +307,18 @@ actor LeoActivityClient {
             if let p = try? decoder.decode(Payload.self, from: data) { return .dispatchChanged(seq: p.seq, dispatch: p.dispatch) }
             leoActivityClientLogger.debug("activityClient: malformed dispatch_changed kept as a sequence-only event")
             return sequence(in: data).map { .other(seq: $0, type: name) }
+        case "agent_turn_completed":
+            struct Payload: Decodable { let seq: Int }
+            if let p = try? decoder.decode(Payload.self, from: data), let turn = try? decoder.decode(LeoTurnCompletion.self, from: data) {
+                return .agentTurnCompleted(seq: p.seq, turn: turn)
+            }
+            leoActivityClientLogger.debug("activityClient: malformed agent_turn_completed kept as a sequence-only event")
+            return sequence(in: data).map { .other(seq: $0, type: name) }
+        case "agent_usage":
+            struct Payload: Decodable { let seq: Int; let agent: String; let usage: LeoAgentUsage }
+            if let p = try? decoder.decode(Payload.self, from: data) { return .agentUsage(seq: p.seq, agent: p.agent, usage: p.usage) }
+            leoActivityClientLogger.debug("activityClient: malformed agent_usage kept as a sequence-only event")
+            return sequence(in: data).map { .other(seq: $0, type: name) }
         default:
             // Recognized as an event (it has a seq) but not consumed here.
             return sequence(in: data).map { .other(seq: $0, type: name) }
@@ -349,7 +371,8 @@ extension LeoObserveEvent {
         switch self {
         case .hello(let seq, _, _, _, _, _), .agentSpawned(let seq, _, _, _),
              .agentStateChanged(let seq, _, _, _, _, _), .agentActivity(let seq, _, _, _, _, _),
-             .agentStopped(let seq, _, _, _), .dispatchChanged(let seq, _), .other(let seq, _): return seq
+             .agentStopped(let seq, _, _, _), .dispatchChanged(let seq, _), .other(let seq, _),
+             .agentTurnCompleted(let seq, _), .agentUsage(let seq, _, _): return seq
         case .fileSurfaced(let seq, _): return seq ?? -1
         case .connected, .disconnected, .gap, .snapshot: return -1
         }

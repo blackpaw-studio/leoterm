@@ -137,10 +137,17 @@ struct LeoAgentRowView: View {
             subtitleLine
             // The current task as the daemon's last snapshot reported it
             // (already sanitized); the tooltip holds what the line cuts.
-            if let task = presentation().task {
+            let details = presentation()
+            if let task = details.task {
                 Text(task).font(.caption).foregroundStyle(.secondary)
                     .lineLimit(1).truncationMode(.tail)
                     .help(task)
+            } else if let preview = details.turnPreview {
+                // B-259: what the agent just did, only while it isn't doing
+                // anything else; the tooltip holds what the line cuts.
+                Text(preview).font(.caption).foregroundStyle(.secondary)
+                    .lineLimit(1).truncationMode(.tail)
+                    .help(preview)
             }
             if let error, !error.isEmpty {
                 Text(error).font(.caption).foregroundStyle(Color(nsColor: .systemRed)).lineLimit(2)
@@ -189,7 +196,7 @@ struct LeoAgentRowView: View {
                     // full ones, like the tooltip, even when the line drops the
                     // template for width.
                     subtitleText(fitted(subtitle)).font(.caption)
-                        .help(subtitle.text)
+                        .help(subtitle.help)
                         .accessibilityElement(children: .ignore)
                         .accessibilityLabel(subtitle.accessibilityLabel)
                         .accessibilityHidden(subtitle.accessibilityLabel.isEmpty)
@@ -232,7 +239,7 @@ struct LeoAgentRowView: View {
         case .state(let tint): Text(segment.text).foregroundColor(tint)
         }
         let text = (separator + body).lineLimit(1).truncationMode(.tail).layoutPriority(segment.truncation.layoutPriority)
-        if segment.truncation == .never {
+        if segment.truncation == .never || segment.truncation == .usage {
             text.fixedSize()
         } else {
             text

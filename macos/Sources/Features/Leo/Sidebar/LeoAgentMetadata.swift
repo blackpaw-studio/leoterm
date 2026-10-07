@@ -17,12 +17,20 @@ struct LeoAgentMetadata: Equatable, Sendable {
     /// when it isn't. The Last Activity sort ranks by it, so busy agents
     /// hold their places instead of leapfrogging on every snapshot.
     let activeSince: Date?
+    /// B-259: `usage` from the snapshot (leo >= 0.35). The feed hides it
+    /// unless the daemon advertised `agent_usage`.
+    let usage: LeoAgentUsage?
 
-    init(lastActiveAt: Date?, isWorking: Bool, task: String?, activeSince: Date? = nil) {
+    init(lastActiveAt: Date?, isWorking: Bool, task: String?, activeSince: Date? = nil, usage: LeoAgentUsage? = nil) {
         self.lastActiveAt = lastActiveAt
         self.isWorking = isWorking
         self.task = task
         self.activeSince = activeSince
+        self.usage = usage
+    }
+
+    func withUsage(_ usage: LeoAgentUsage?) -> LeoAgentMetadata {
+        LeoAgentMetadata(lastActiveAt: lastActiveAt, isWorking: isWorking, task: task, activeSince: activeSince, usage: usage)
     }
 }
 
@@ -82,7 +90,7 @@ struct LeoAgentMetadataIndex: Equatable, Sendable {
             let isActive = Self.isActive(time, newest: newest)
             let metadata = LeoAgentMetadata(
                 lastActiveAt: time, isWorking: report.metadata.isWorking, task: report.metadata.task,
-                activeSince: isActive ? streakStart : nil
+                activeSince: isActive ? streakStart : nil, usage: report.metadata.usage
             )
             return (report.name, Entry(startedAt: report.startedAt, metadata: metadata, streakStart: streakStart))
         }
@@ -118,8 +126,8 @@ struct LeoAgentMetadataIndex: Equatable, Sendable {
     private static func metadata(_ agent: LeoObservedAgent) -> LeoAgentMetadata? {
         let lastActiveAt = agent.lastActivityAt.flatMap(LeoTimestamp.parse)
         let task = agent.currentAction?.detail.map(LeoSFTPServerText.sanitized).flatMap { $0.isEmpty ? nil : $0 }
-        guard lastActiveAt != nil || task != nil else { return nil }
-        return LeoAgentMetadata(lastActiveAt: lastActiveAt, isWorking: agent.activity == .working, task: task)
+        guard lastActiveAt != nil || task != nil || agent.usage != nil else { return nil }
+        return LeoAgentMetadata(lastActiveAt: lastActiveAt, isWorking: agent.activity == .working, task: task, usage: agent.usage)
     }
 }
 
