@@ -45,6 +45,12 @@ struct LeoObservedStateDecodingTests {
         #expect(state.agents.map(\.name) == ["a", "b", "c", "d"])
     }
 
+    @Test func absurdContextPercentIsMalformedNotFatal() throws {
+        let state = try decode(#"{"ok":true,"data":{"agents":[{"name":"a","usage":{"session":{"tokens":1},"context":{"tokens":1,"window":2,"percent":1e30}}}]}}"#)
+        #expect(state.agents[0].usage?.context == nil)
+        #expect(state.agents[0].usage?.session.tokens == 1)
+    }
+
     @Test func liveMeansNoEndAndANonTerminalStatus() {
         #expect(LeoDispatch(id: "a", status: "running").isLive)
         #expect(LeoDispatch(id: "a", status: "idle").isLive)

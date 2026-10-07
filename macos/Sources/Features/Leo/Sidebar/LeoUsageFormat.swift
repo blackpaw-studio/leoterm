@@ -20,7 +20,7 @@ enum LeoUsageFormat {
 
     /// "37% ctx", rounded to a whole percent.
     static func context(_ context: LeoContextUsage) -> String {
-        "\(Int(context.percent.rounded()))% ctx"
+        "\(wholePercent(context))% ctx"
     }
 
     /// "12.3k tok · $0.42 · 37% ctx" -- the session's, the part worth a glance.
@@ -41,7 +41,7 @@ enum LeoUsageFormat {
             lines.append("Since start: \(grouped(incarnation.tokens)) tokens, \(cost(incarnation.costUSD))")
         }
         if let context = usage.context {
-            lines.append("Context: \(grouped(context.tokens)) of \(grouped(context.window)) tokens (\(Int(context.percent.rounded()))%)")
+            lines.append("Context: \(grouped(context.tokens)) of \(grouped(context.window)) tokens (\(wholePercent(context))%)")
         }
         return lines.joined(separator: "\n")
     }
@@ -49,8 +49,13 @@ enum LeoUsageFormat {
     /// How VoiceOver says the summary.
     static func spoken(_ usage: LeoAgentUsage) -> String {
         var parts = ["used \(grouped(usage.session.tokens)) tokens", "\(cost(usage.session.costUSD).replacingOccurrences(of: "<", with: "under "))"]
-        if let context = usage.context { parts.append("context \(Int(context.percent.rounded())) percent full") }
+        if let context = usage.context { parts.append("context \(wholePercent(context)) percent full") }
         return parts.joined(separator: ", ")
+    }
+
+    /// Whole percent, clamped so no value can overflow the conversion.
+    private static func wholePercent(_ context: LeoContextUsage) -> Int {
+        Int(min(max(context.percent, 0), LeoContextUsage.maximumPercent).rounded())
     }
 
     private static func scaled(_ value: Double, suffix: String) -> String {

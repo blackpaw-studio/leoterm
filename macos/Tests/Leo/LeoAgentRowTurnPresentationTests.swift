@@ -59,7 +59,7 @@ struct LeoAgentRowTurnPresentationTests {
 
     @Test func previewShowsOnlyWithoutATask() {
         let turn = LeoTurnPreview(text: "Fixed the bug", outcome: .completed)
-        #expect(LeoAgentRowPresentation(row: row(lastTurn: turn), isSelected: false).turnPreview == "Fixed the bug")
+        #expect(LeoAgentRowPresentation(row: row(lastTurn: turn), isSelected: false).turnPreview == LeoSFTPServerText.isolated("Fixed the bug"))
         let busy = row(metadata: LeoAgentMetadata(lastActiveAt: nil, isWorking: true, task: "Reading files"), lastTurn: turn)
         #expect(LeoAgentRowPresentation(row: busy, isSelected: false).turnPreview == nil, "the task line wins")
         #expect(LeoAgentRowPresentation(row: row(), isSelected: false).turnPreview == nil)
@@ -67,7 +67,7 @@ struct LeoAgentRowTurnPresentationTests {
 
     @Test func anAbortedTurnIsLabelled() {
         let aborted = row(lastTurn: LeoTurnPreview(text: "Half done", outcome: .aborted))
-        #expect(LeoAgentRowPresentation(row: aborted, isSelected: false).turnPreview == "Interrupted: Half done")
+        #expect(LeoAgentRowPresentation(row: aborted, isSelected: false).turnPreview == "Interrupted: " + LeoSFTPServerText.isolated("Half done"))
     }
 
     @Test func recordedPreviewIsSanitizedAndClamped() throws {

@@ -131,7 +131,8 @@ struct LeoAgentRowPresentation: Equatable {
     }
 
     private static func turnLine(_ turn: LeoTurnPreview) -> String {
-        turn.outcome == .aborted ? "Interrupted: \(turn.text)" : turn.text
+        let text = LeoSFTPServerText.isolated(turn.text)
+        return turn.outcome == .aborted ? "Interrupted: \(text)" : text
     }
 
     /// A working agent is active now, whatever its last reported time.

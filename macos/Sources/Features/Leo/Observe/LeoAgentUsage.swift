@@ -13,6 +13,9 @@ struct LeoContextUsage: Codable, Equatable, Sendable {
     /// 0...100 as the daemon reports it.
     let percent: Double
 
+    /// Anything past this is not a context percentage; a payload that says so is malformed.
+    static let maximumPercent = 1000.0
+
     init(tokens: Int64, window: Int64, percent: Double) {
         self.tokens = tokens
         self.window = window
@@ -24,7 +27,7 @@ struct LeoContextUsage: Codable, Equatable, Sendable {
     init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let percent = try container.decode(Double.self, forKey: .percent)
-        guard percent.isFinite, percent >= 0 else {
+        guard percent.isFinite, (0...Self.maximumPercent).contains(percent) else {
             throw DecodingError.dataCorruptedError(forKey: .percent, in: container, debugDescription: "invalid percent")
         }
         self.init(
