@@ -40,11 +40,4 @@ extension LeoCompactionEvent: Decodable {
             contextPercent: try? container.decode(Double.self, forKey: .contextPercent)
         )
     }
-
-    init(agent: String, phase: LeoCompactionPhase, trigger: LeoCompactionTrigger?, contextPercent: Double?) {
-        self.agent = agent
-        self.phase = phase
-        self.trigger = trigger
-        self.contextPercent = contextPercent
-    }
 }
