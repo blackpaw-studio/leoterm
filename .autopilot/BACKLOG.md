@@ -642,11 +642,13 @@ Accept: B-093 verify: an untitled 500x500 pixels-only window at (0,550) appears 
 Source: autopilot polish (B-093)
 Done: be6f60ff7d5c34ca89f927f91585f89c986bb979, ff8302d491aacba3152dffafb175ecbd6980e231, 16f07b69226415cdf1cbd0746277600f51cd50d3
 
-## B-143 · Replaced launch window lingers in the window list   [ready]
+## B-143 · Replaced launch window lingers in the window list   [blocked]
 Issue: #147
 Why: B-093 verify: a replaced launch window stays off-screen in the CG window list; check whether its controller is ever freed
 Accept: B-093 verify: a replaced launch window stays off-screen in the CG window list; check whether its controller is ever freed
 Source: autopilot polish (B-093)
+Question: runner timed out after 3h — it was in fix round 2 (the lane's last commit is da8d504d4 "keep waking until the window-server window is gone too", plus wip a3fe1df0d). Root cause: a closed window's controller is freed only when the event loop next wakes, so it lingers while Leo is idle; the fixes so far wake the loop until it is freed and make New Tab's undo hold the window weakly. Work kept on autopilot-lane/B-143 (held: shelve refused over untracked generated files). I'd pick: resume next run from this lane on the hard implementer.
+Answer:
 
 ## B-144 · Launch-placeholder test cleanup closes pending windows   [ready]
 Issue: #148

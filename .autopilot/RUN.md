@@ -73,9 +73,9 @@ Lane: B-143
   Branch: autopilot-lane/B-143
   Base: e23c0aa4232d0c0a670565289661884195ffae3e
   Tier: full
-  State: building
+  State: held
   Fixes: 0
-  Wip: none
+  Wip: a3fe1df0d
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-10-06T23:01:21Z
@@ -91,3 +91,5 @@ Finished 2: B-140 landed 4bdcbc70940e9d9cfb22a97f702d02bdebae5f17 · shot /Users
 Finished 3: B-141 landed d3bf3d0873d63972cda0d199a35766fde7de28f4 · not visually verified
 - B-142 landed cf35ba894: the 500x500 window is macOS's TUINSWindow (not Leo's, lldb-confirmed); kept, with a regression guard against any real stray window on folder-open; tests only, no production change; 2 fix rounds (hard implementer); suite 2084 green. Polish B-247–B-250 filed.
 Finished 4: B-142 landed cf35ba894d21b6fee722ad240f68ed6d975b0391 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-142-1.png
+- B-143 runner timed out after 3h (stopped 22:03 EDT, mid fix round 2 with the implementer). Verify lock released. Leftover edits committed as wip a3fe1df0d. Shelve refused (untracked macos/default.profraw + zig-out symlink in the lane; removing them was denied), so the lane is held on autopilot-lane/B-143. Its implementer may still be running in the lane.
+Finished 5: B-143 blocked
