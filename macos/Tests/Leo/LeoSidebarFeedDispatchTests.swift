@@ -86,6 +86,141 @@ struct LeoSidebarFeedDispatchTests {
         await harness.stop()
     }
 
+    /// Dispatch and seq-only events must leave a pending activity window,
+    /// attention candidates and recovery alone: the window flushes at its
+    /// own time, the candidate commits as usual, and nothing refetches.
+    @Test func dispatchAndSeqOnlyEventsLeaveThePendingActivityWindowAlone() async throws {
+        let harness = DispatchHarness(dispatches: [LeoDispatch(id: "d1", status: "running", callerAgent: "alpha")])
+        await harness.start()
+        await harness.activity.send(Self.treeHello)
+        try await harness.pump { Self.ids($0) == ["d1:0"] }
+        await harness.settle()
+        try await Task.sleep(nanoseconds: 50_000_000)
+        let fetches = await harness.activity.fetchCount
+
+        await harness.activity.send(.agentActivity(
+            seq: 2, at: nil, agent: "alpha", activity: .working, currentAction: nil, attention: .init(state: .needsInput, revision: 5)
+        ))
+        await harness.activity.send(.other(seq: 3, type: "agent_turn_completed"))
+        await harness.activity.send(.dispatchChanged(seq: 4, dispatch: LeoDispatch(id: "d2", status: "running", callerAgent: "alpha")))
+        try await until { Self.ids(await harness.recorder.last!) == ["d1:0", "d2:0"] }
+        try await Task.sleep(nanoseconds: 50_000_000)
+        let feed = harness.feed
+        #expect(await feed.activityCoalesceTask != nil, "the window's flush is still armed")
+        #expect(await !feed.activityCoalescer.isEmpty, "the activity is still buffered, not drained")
+        #expect(await feed.attention.nextDeadline != nil, "the attention candidate is still pending")
+        #expect(await !feed.recovering)
+        let early = await harness.recorder.last?.rows.first
+        #expect(early?.activity == .idle, "the dispatch emission must not flush the activity window early")
+        #expect(early?.attention == nil, "nor commit the attention candidate before its window")
+
+        try await harness.pump { $0.rows.first?.activity == .working }
+        try await harness.pump { $0.rows.first?.attention == .needsInput }
+        #expect(await harness.activity.fetchCount <= fetches + 1, "no recovery refetch (at most the flush's own metadata snapshot)")
+        await harness.stop()
+    }
+
+    /// An activity baseline older than an applied one must not touch the
+    /// dispatches (it could drop a child or bring back an ended one).
+    @Test func anOlderActivityBaselineLeavesDispatchesAlone() async throws {
+        let harness = DispatchHarness(dispatches: [])
+        await harness.start()
+        await harness.activity.send(Self.treeHello)
+        try await harness.pump { $0.rows.first?.name == "alpha" }
+        await harness.settle()
+        let feed = harness.feed
+        let older = await feed.nextMetadataRequest()
+        let newer = await feed.nextMetadataRequest()
+        let generation = await feed.snapshot.generation
+        let agents = await harness.activity.fetchState().agents
+        await feed.applyActivityState(
+            LeoObservedState(agents: agents, dispatches: [LeoDispatch(id: "d2", status: "running", callerAgent: "alpha")]),
+            generation: generation, metadataRequest: newer, dispatchMark: await feed.dispatchTree.mark
+        )
+        await feed.applyActivityState(
+            LeoObservedState(agents: agents, dispatches: [LeoDispatch(id: "d1", status: "running", callerAgent: "alpha")]),
+            generation: generation, metadataRequest: older, dispatchMark: await feed.dispatchTree.mark
+        )
+        try await harness.pump { Self.ids($0) == ["d2:0"] }
+        #expect(await feed.dispatchTree.children(of: "alpha").map(\.id) == ["d2"])
+        await harness.stop()
+    }
+
+    /// A metadata snapshot that lands after a newer baseline is rejected
+    /// whole: its dispatches too.
+    @Test func aMetadataSnapshotLandingAfterANewerBaselineLeavesDispatchesAlone() async throws {
+        let harness = DispatchHarness(dispatches: [LeoDispatch(id: "d1", status: "running", callerAgent: "alpha")])
+        await harness.start()
+        await harness.activity.send(Self.treeHello)
+        try await harness.pump { Self.ids($0) == ["d1:0"] }
+        await harness.settle()
+
+        // A metadata fetch starts and is held with a stale answer.
+        await harness.activity.setDispatches([
+            LeoDispatch(id: "d1", status: "running", callerAgent: "alpha"), LeoDispatch(id: "stale", status: "running", callerAgent: "alpha")
+        ])
+        await harness.activity.holdNext()
+        await harness.activity.send(.agentActivity(seq: 2, at: nil, agent: "alpha", activity: .working, currentAction: nil))
+        try await until {
+            await harness.clock.advanceAll()
+            return await harness.activity.heldCount == 1
+        }
+
+        // A newer baseline applies meanwhile.
+        let feed = harness.feed
+        let agents = await harness.activity.fetchState().agents
+        await feed.applyActivityState(
+            LeoObservedState(agents: agents, dispatches: [LeoDispatch(id: "d1", status: "running", callerAgent: "alpha"), LeoDispatch(id: "d3", status: "running", callerAgent: "alpha")]),
+            generation: await feed.snapshot.generation, metadataRequest: await feed.nextMetadataRequest(), dispatchMark: await feed.dispatchTree.mark
+        )
+        try await harness.pump { Self.ids($0) == ["d1:0", "d3:0"] }
+
+        await harness.activity.releaseHeld()
+        await harness.settle()
+        #expect(await feed.dispatchTree.children(of: "alpha").map(\.id) == ["d1", "d3"])
+        #expect(Self.ids(await harness.recorder.last!) == ["d1:0", "d3:0"])
+        await harness.stop()
+    }
+
+    /// The mark is read when the baseline fetch starts: a child that
+    /// arrives live while `/state` is in flight survives it.
+    @Test func aChildUpsertedWhileTheBaselineIsInFlightSurvivesIt() async throws {
+        let harness = DispatchHarness(dispatches: [])
+        await harness.start()
+        try await harness.pump { $0.rows.first?.name == "alpha" }
+        await harness.settle()
+        await harness.activity.holdNext()
+        await harness.activity.send(Self.treeHello)
+        try await until {
+            await harness.clock.advanceAll()
+            return await harness.activity.heldCount == 1
+        }
+        await harness.activity.send(.dispatchChanged(seq: 2, dispatch: LeoDispatch(id: "d2", status: "running", callerAgent: "alpha")))
+        try await harness.pump { Self.ids($0) == ["d2:0"] }
+        await harness.activity.releaseHeld()
+        await harness.settle()
+        #expect(Self.ids(await harness.recorder.last!) == ["d2:0"])
+        await harness.stop()
+    }
+
+    /// A restarted daemon (new boot id) drops the old records and the ids
+    /// that ended under it.
+    @Test func aNewBootClearsRecordsAndEndedIDs() async throws {
+        let harness = DispatchHarness(dispatches: [])
+        await harness.start()
+        await harness.activity.send(Self.treeHello)
+        try await harness.pump { $0.rows.first?.name == "alpha" }
+        await harness.activity.send(.dispatchChanged(seq: 2, dispatch: LeoDispatch(id: "d1", status: "running", callerAgent: "alpha")))
+        await harness.activity.send(.dispatchChanged(seq: 3, dispatch: LeoDispatch(id: "d1", status: "done", callerAgent: "alpha")))
+        await harness.activity.send(.dispatchChanged(seq: 4, dispatch: LeoDispatch(id: "d2", status: "running", callerAgent: "alpha")))
+        try await harness.pump { Self.ids($0) == ["d2:0"] }
+
+        await harness.activity.setDispatches([LeoDispatch(id: "d1", status: "running", callerAgent: "alpha")])
+        await harness.activity.send(.hello(seq: 1, at: nil, version: "1", serverTime: nil, bootID: "boot-b", features: ["dispatch_tree"]))
+        try await harness.pump { Self.ids($0) == ["d1:0"] }
+        await harness.stop()
+    }
+
     private static func ids(_ snapshot: LeoSidebarSnapshot) -> [String] {
         (snapshot.dispatchChildren["alpha"] ?? []).map { "\($0.id):\($0.depth)" }
     }
@@ -137,7 +272,11 @@ private struct DispatchHarness {
 private actor DispatchActivity {
     private let stream: AsyncStream<LeoObserveEvent>
     private let continuation: AsyncStream<LeoObserveEvent>.Continuation
-    private let dispatches: [LeoDispatch]
+    private var dispatches: [LeoDispatch]
+    private(set) var fetchCount = 0
+    private var holdsNext = false
+    private var held: [CheckedContinuation<Void, Never>] = []
+    var heldCount: Int { held.count }
 
     init(dispatches: [LeoDispatch]) {
         self.dispatches = dispatches
@@ -146,11 +285,26 @@ private actor DispatchActivity {
 
     func events() -> AsyncStream<LeoObserveEvent> { stream }
     func send(_ event: LeoObserveEvent) { continuation.yield(event) }
-    func fetchState() -> LeoObservedState {
-        LeoObservedState(
+    func setDispatches(_ dispatches: [LeoDispatch]) { self.dispatches = dispatches }
+    /// The next `/state` answers with what's set now but waits for `releaseHeld`.
+    func holdNext() { holdsNext = true }
+    func releaseHeld() {
+        let pending = held
+        held = []
+        pending.forEach { $0.resume() }
+    }
+
+    func fetchState() async -> LeoObservedState {
+        fetchCount += 1
+        let answer = LeoObservedState(
             agents: [LeoObservedAgent(name: "alpha", status: .running, activity: .idle, currentAction: nil, lastActivityAt: nil)],
             dispatches: dispatches
         )
+        if holdsNext {
+            holdsNext = false
+            await withCheckedContinuation { held.append($0) }
+        }
+        return answer
     }
 }
 

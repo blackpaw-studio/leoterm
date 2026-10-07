@@ -78,8 +78,10 @@ extension LeoSidebarFeed {
         let shown = displayedSnapshot
         if let observed, generation == snapshot.generation {
             mergeSurfacedFiles(from: observed.agents)
-            applyMetadata(observed.agents, request: request, generation: generation)
-            mergeDispatchSnapshot(observed.dispatches, since: dispatchMark)
+            // An older snapshot is rejected whole, dispatches included.
+            if applyMetadata(observed.agents, request: request, generation: generation) {
+                mergeDispatchSnapshot(observed.dispatches, since: dispatchMark)
+            }
         }
         if displayedSnapshot != shown { emit() }
         if metadataRefreshPending { requestMetadataRefresh() }

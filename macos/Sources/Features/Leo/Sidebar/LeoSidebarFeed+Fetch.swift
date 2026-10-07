@@ -64,8 +64,11 @@ extension LeoSidebarFeed {
     func applyActivityState(_ observed: LeoObservedState, generation: Int, metadataRequest: Int, dispatchMark: Int) {
         guard running, generation == snapshot.generation else { return }
         let state = observed.agents
-        applyDispatchBaseline(observed.dispatches, since: dispatchMark)
-        applyMetadata(state, request: metadataRequest, generation: generation)
+        // Dispatches follow the same request order as metadata: a baseline
+        // older than a snapshot already applied must not touch them.
+        if applyMetadata(state, request: metadataRequest, generation: generation) {
+            applyDispatchBaseline(observed.dispatches, since: dispatchMark)
+        }
         mergeSurfacedFiles(from: state)
         // `state` is the authoritative baseline as of when the fetch
         // started; anything coalesced since then is newer, so it's merged
