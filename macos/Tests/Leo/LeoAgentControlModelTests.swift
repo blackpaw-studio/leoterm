@@ -182,7 +182,7 @@ private actor ControlModelTransport: LeoDaemonTransport {
 
     func send(_ request: LeoHTTPRequest, socketPath _: String, timeout _: TimeInterval) async throws -> LeoHTTPResponse {
         paths.append(request.path)
-        if let data = request.body { bodies.append(String(decoding: data, as: UTF8.self)) }
+        if let data = request.body { bodies.append(String(bytes: data, encoding: .utf8) ?? "") }
         if isGated, !isReleased { await withCheckedContinuation { gate = $0 } }
         return LeoHTTPResponse(status: status, body: body)
     }
