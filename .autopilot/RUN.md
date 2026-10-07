@@ -79,10 +79,11 @@ Lane: B-259
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
-  Dispatched: 2026-10-07T19:39:39Z
+  Dispatched: 2026-10-07T20:36:39Z
 
 ## Progress
 Finished 1: B-257 landed 8a28dfb7bd072c049000f75f71a3fd3c976b8a83 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-257-2.png
 - B-257 landed 8a28dfb7b: nested dispatch rows under the parent via parent_dispatch_id, gated on hello dispatch_tree; SSE-trace replay test; 1 fix round (baseline ordering); suite 2126 green. Polish filed (5).
 Finished 2: B-258 landed 1af002341338cf3e434cc9cc68aed00599127b89 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-258-3.png
 - B-258 landed 1af002341: attention reason as per-kind badge symbol, tooltip, subtitle word, VoiceOver label and notification text; suite 2142 green; 0 fix rounds. Self-filed bug B-268 (re-notify on revision bump).
+- Session interrupted at ~20:25Z; lock taken over by the new session (pid 79355); B-259 runner resumed from its transcript (lane clean at 9ac97cddb, mid fix round).
