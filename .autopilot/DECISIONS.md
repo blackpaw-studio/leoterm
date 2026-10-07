@@ -2698,3 +2698,45 @@ Chose: done — the contract shipped in leo v0.35.0 (PR #226: attention.outstand
 Why: Evan's answer
 Commit:
 Veto: n/a (Evan)
+
+## D-374 · 2026-10-07 · Children disappear as soon as the daemon reports a terminal status …
+Context: B-257 (runner call).
+Chose: Children disappear as soon as the daemon reports a terminal status or ended_at, with no 60 s linger
+Why: principle 2
+Commit: f3371acc7, b044b90ba, 3eb5b6f96, cb1d27825, 9cc9e591c, f9471c174, b7578c893, bdee9f0c6
+Veto: [ ]
+
+## D-375 · 2026-10-07 · A child row shows name (falling back to role, then "Dispatch") plus…
+Context: B-257 (runner call).
+Chose: A child row shows name (falling back to role, then "Dispatch") plus a status word; Stalled is plain secondary text with no badge
+Why: principle 2
+Commit: f3371acc7, b044b90ba, 3eb5b6f96, cb1d27825, 9cc9e591c, f9471c174, b7578c893, bdee9f0c6
+Veto: [ ]
+
+## D-376 · 2026-10-07 · Child rows can't be selected (no tag, plus selectionDisabled on mac…
+Context: B-257 (runner call).
+Chose: Child rows can't be selected (no tag, plus selectionDisabled on macOS 14+), and there are no new shortcuts
+Why: principles 1 and 6
+Commit: f3371acc7, b044b90ba, 3eb5b6f96, cb1d27825, 9cc9e591c, f9471c174, b7578c893, bdee9f0c6
+Veto: [ ]
+
+## D-377 · 2026-10-07 · Nothing renders without the hello `dispatch_tree` feature or while …
+Context: B-257 (runner call).
+Chose: Nothing renders without the hello `dispatch_tree` feature or while disconnected; the parent badge stays purely the daemon's attention.state, and `outstanding` isn't decoded
+Why: principle 2
+Commit: f3371acc7, b044b90ba, 3eb5b6f96, cb1d27825, 9cc9e591c, f9471c174, b7578c893, bdee9f0c6
+Veto: [ ]
+
+## D-378 · 2026-10-07 · Disconnect clears records but keeps same-boot ended ids, a boot cha…
+Context: B-257 (runner call).
+Chose: Disconnect clears records but keeps same-boot ended ids, a boot change clears all, a host switch resets, and a Retry baseline repairs anything missed
+Why: principle 5
+Commit: f3371acc7, b044b90ba, 3eb5b6f96, cb1d27825, 9cc9e591c, f9471c174, b7578c893, bdee9f0c6
+Veto: [ ]
+
+## D-379 · 2026-10-07 · Caps that only bound a misbehaving daemon: 256 ended ids, 1024 live…
+Context: B-257 (runner call).
+Chose: Caps that only bound a misbehaving daemon: 256 ended ids, 1024 live records, nesting depth 16, indent clamped at depth 4; only nesting changes emit
+Why: principle 2
+Commit: f3371acc7, b044b90ba, 3eb5b6f96, cb1d27825, 9cc9e591c, f9471c174, b7578c893, bdee9f0c6
+Veto: [ ]

@@ -650,13 +650,14 @@ Source: autopilot polish (B-093)
 Question: runner timed out after 3h — it was in fix round 2 (the lane's last commit is da8d504d4 "keep waking until the window-server window is gone too", plus wip a3fe1df0d). Root cause: a closed window's controller is freed only when the event loop next wakes, so it lingers while Leo is idle; the fixes so far wake the loop until it is freed and make New Tab's undo hold the window weakly. Work kept on autopilot-lane/B-143 (held: shelve refused over untracked generated files). I'd pick: resume next run from this lane on the hard implementer.
 Answer:
 
-## B-257 · Agent stays Working while child dispatches run, plus a dispatch tree   [ready]
+## B-257 · Agent stays Working while child dispatches run, plus a dispatch tree   [done]
 Issue: #256
 Why: Unblocks B-051 via the attention.outstanding + Snapshot.dispatches[] contract shipped in leo v0.35.0 (PR #226, spec leo docs/specs/2026-10-06-bridge-observe.md). Serves "never invent a state"
 Accept: a scripted turn that starts a dispatch keeps the parent row Working until the child finishes, guarded by a regression test that replays the SSE trace; child dispatches render nested under their parent row via parent_dispatch_id; child rows appear and disappear live
 Out: app-side heuristics overriding daemon state; codex/opencode subagent detection
 Source: Evan (/feature, 2026-10-07)
 Inbox: 20261007T144804725046Z-b671a71b#1
+Done: 2026-10-07 · f3371acc7, b044b90ba, 3eb5b6f96, cb1d27825, 9cc9e591c, f9471c174, b7578c893, bdee9f0c6 · D-374, D-375, D-376, D-377, D-378, D-379
 
 ## B-258 · Attention badge and notification show the reason   [ready]
 Issue: #257
