@@ -1794,3 +1794,28 @@ Inbox: 20261007T131749300167Z-ace5895b#1
 Source: Evan (/idea, 2026-10-07)
 Note: Send-prompt box + interrupt/compact/clear buttons via operator-only POST /api/v1/agents/{name}/{message,interrupt,compact,clear} (leo PR #226), no tmux typing
 Inbox: 20261007T131749391262Z-60e7c4eb#1
+
+## B-263 · Index dispatch children once per tree projection   [ready (next run)]
+Why: Tree projection is O(n^2) per agent; use a parent→children index built once per projection
+Accept: Tree projection is O(n^2) per agent; use a parent→children index built once per projection
+Source: autopilot polish (B-257)
+
+## B-264 · Dispatch tombstone cap survives heavy churn   [ready (next run)]
+Why: the 256 ended-id cap can be evicted by heavy churn, so a stale baseline could briefly bring back an ended id
+Accept: the 256 ended-id cap can be evicted by heavy churn, so a stale baseline could briefly bring back an ended id
+Source: autopilot polish (B-257)
+
+## B-265 · Tighten fetchCount bound in dispatchAndSeqOnlyEventsLeaveThePendingActivityWindowAlone   [ready (next run)]
+Why: assert == +1 so a lost metadata refresh is caught
+Accept: assert == +1 so a lost metadata refresh is caught
+Source: autopilot polish (B-257)
+
+## B-266 · Clicking a dispatch row reveals or jumps to the dispatch   [ready (next run)]
+Why: clicking a dispatch row currently does nothing
+Accept: clicking a dispatch row currently does nothing
+Source: autopilot polish (B-257)
+
+## B-267 · Clearer depth indent for dispatch rows   [ready (next run)]
+Why: the depth indent and ↳ glyph are low-contrast and subtle; a larger step or guide line would read better
+Accept: the depth indent and ↳ glyph are low-contrast and subtle; a larger step or guide line would read better
+Source: autopilot polish (B-257)
