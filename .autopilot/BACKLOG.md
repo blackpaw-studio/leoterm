@@ -651,6 +651,7 @@ Question: runner timed out after 3h — it was in fix round 2 (the lane's last c
 Answer:
 
 ## B-257 · Agent stays Working while child dispatches run, plus a dispatch tree   [ready]
+Issue: #256
 Why: Unblocks B-051 via the attention.outstanding + Snapshot.dispatches[] contract shipped in leo v0.35.0 (PR #226, spec leo docs/specs/2026-10-06-bridge-observe.md). Serves "never invent a state"
 Accept: a scripted turn that starts a dispatch keeps the parent row Working until the child finishes, guarded by a regression test that replays the SSE trace; child dispatches render nested under their parent row via parent_dispatch_id; child rows appear and disappear live
 Out: app-side heuristics overriding daemon state; codex/opencode subagent detection
@@ -658,6 +659,7 @@ Source: Evan (/feature, 2026-10-07)
 Inbox: 20261007T144804725046Z-b671a71b#1
 
 ## B-258 · Attention badge and notification show the reason   [ready]
+Issue: #257
 Why: "Needs you" is only actionable when it says what for (attention.reason from leo PR #226). Serves "never invent a state"
 Accept: a scripted permission prompt shows a "permission" reason with the tool name on the badge and in the notification; question and elicitation each show their own reason; when no reason field is present, current behaviour is unchanged
 Out: answering the prompt from leoterm
@@ -665,6 +667,7 @@ Source: Evan (/feature, 2026-10-07)
 Inbox: 20261007T144804818307Z-97aae0e0#1
 
 ## B-259 · Agent row shows last-turn preview and usage   [ready]
+Issue: #258
 Why: See what an agent just did and what it cost without attaching (agent_turn_completed + Agent.usage, leo PR #226). Serves "Calm, attention-driven"
 Accept: after a scripted turn completes on autopilot-scratch the row shows a one-line preview of that turn; tokens, cost, and context % from Agent.usage appear on the row or inspector; against a daemon whose SSE hello lacks these features nothing new renders and nothing errors
 Out: turn history or transcript browsing; usage charts
@@ -672,6 +675,7 @@ Source: Evan (/feature, 2026-10-07)
 Inbox: 20261007T144804912652Z-653eac6a#1
 
 ## B-260 · Show the tool an agent is running right now   [ready]
+Issue: #259
 Why: Glanceable answer to what a working agent is busy with (current_action kind "tool", leo PR #226)
 Accept: during a scripted tool call the row shows the tool name; it clears when the call ends; other action kinds keep today's display
 Out: tool arguments or output
@@ -679,6 +683,7 @@ Source: Evan (/feature, 2026-10-07)
 Inbox: 20261007T144805010219Z-54b3b801#1
 
 ## B-261 · Compaction indicator   [ready]
+Issue: #260
 Why: Explains a pause and a context reset (agent_compaction events, leo PR #226)
 Accept: an agent_compaction start event shows a compacting state on the row that clears on the end event; context % updates afterwards
 Out: triggering compaction (covered by the prompt box and controls item)
@@ -686,6 +691,7 @@ Source: Evan (/feature, 2026-10-07)
 Inbox: 20261007T144805108862Z-f2956aed#1
 
 ## B-262 · Prompt box and interrupt, compact, and clear controls   [ready]
+Issue: #261
 Why: Drive an agent without attaching or typing into tmux (operator-only POST /api/v1/agents/{name}/{message,interrupt,compact,clear}, leo PR #226)
 Accept: sending from the box POSTs .../message and the turn appears on the agent; interrupt, compact, and clear buttons hit their endpoints, with clear behind a confirmation; a 401/403 for a non-operator token shows an inline error and disables the controls
 Out: attachments; rich multi-line editing; offline message queueing
