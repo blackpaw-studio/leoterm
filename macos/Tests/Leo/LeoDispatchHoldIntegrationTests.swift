@@ -25,46 +25,46 @@ import Testing
         let feed = LeoSidebarFeed(
             daemon: HoldListDaemon(),
             activity: source,
-            onAttentionTransitions: { transitions in Task { await recorder.record(transitions) } },
-            sink: { snapshot in Task { await recorder.record(snapshot) } }
+            onAttentionTransitions: { transitions in recorder.record(transitions) },
+            sink: { snapshot in recorder.record(snapshot) }
         )
         await feed.start()
         await feed.setPolling(true)
 
         // 1: hello + alpha working r1; the baseline lands silently.
         await script.open(step: 1)
-        await awaitCondition(timeout: 5, message: "alpha never showed Working") { await recorder.alpha?.attention == .working }
+        await awaitCondition(timeout: 5, message: "alpha never showed Working") { recorder.alpha?.attention == .working }
 
         // 2: d1 starts under alpha.
         await script.open(step: 2)
-        await awaitCondition(timeout: 5, message: "d1 never nested under alpha") { await recorder.alphaChildren == ["d1:0"] }
+        await awaitCondition(timeout: 5, message: "d1 never nested under alpha") { recorder.alphaChildren == ["d1:0"] }
 
         // 3: d1's own dispatch d2 nests under d1.
         await script.open(step: 3)
-        await awaitCondition(timeout: 5, message: "d2 never nested under d1") { await recorder.alphaChildren == ["d1:0", "d2:1"] }
+        await awaitCondition(timeout: 5, message: "d2 never nested under d1") { recorder.alphaChildren == ["d1:0", "d2:1"] }
 
         // 4: alpha's turn ends; the daemon holds it at working r2.
         await script.open(step: 4)
-        await awaitCondition(timeout: 5, message: "the turn-end activity never landed") { await recorder.alpha?.activity == .idle }
+        await awaitCondition(timeout: 5, message: "the turn-end activity never landed") { recorder.alpha?.activity == .idle }
         try await Task.sleep(nanoseconds: Self.pastCommitWindow)
-        #expect(await recorder.alpha?.attention == .working, "outstanding children hold alpha at Working")
-        #expect(await recorder.alphaChildren == ["d1:0", "d2:1"])
+        #expect(recorder.alpha?.attention == .working, "outstanding children hold alpha at Working")
+        #expect(recorder.alphaChildren == ["d1:0", "d2:1"])
 
         // 5: d2 ends; d1 still runs, so alpha is still working.
         await script.open(step: 5)
-        await awaitCondition(timeout: 5, message: "d2 never went away") { await recorder.alphaChildren == ["d1:0"] }
+        await awaitCondition(timeout: 5, message: "d2 never went away") { recorder.alphaChildren == ["d1:0"] }
         try await Task.sleep(nanoseconds: Self.pastCommitWindow)
-        #expect(await recorder.alpha?.attention == .working)
+        #expect(recorder.alpha?.attention == .working)
 
         // 6: d1 ends, then alpha finishes.
         await script.open(step: 6)
-        await awaitCondition(timeout: 5, message: "alpha never finished") { await recorder.alpha?.attention == .finished }
-        #expect(await recorder.alphaChildren.isEmpty)
+        await awaitCondition(timeout: 5, message: "alpha never finished") { recorder.alpha?.attention == .finished }
+        #expect(recorder.alphaChildren.isEmpty)
         try await Task.sleep(nanoseconds: Self.pastCommitWindow)
-        #expect(await recorder.notifyingTransitions.map(\.to) == [.finished], "exactly one transition notifies")
+        #expect(recorder.notifyingTransitions.map(\.to) == [.finished], "exactly one transition notifies")
 
         // Every recorded snapshot: a live child means Working, never Finished.
-        for snapshot in await recorder.snapshots {
+        for snapshot in recorder.snapshots {
             guard let alpha = snapshot.rows.first(where: { $0.name == "alpha" }) else { continue }
             if !(snapshot.dispatchChildren["alpha"] ?? []).isEmpty {
                 #expect(alpha.attention == .working, "a live child shows \(String(describing: alpha.attention))")
@@ -81,17 +81,21 @@ import Testing
     }
 }
 
-private actor DispatchHoldRecorder {
-    private(set) var snapshots: [LeoSidebarSnapshot] = []
-    private(set) var transitions: [LeoAttentionTransition] = []
+/// Records on the sink's own call, under a lock, so snapshots keep the
+/// feed's emission order (no hop through an unstructured Task).
+private final class DispatchHoldRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedSnapshots: [LeoSidebarSnapshot] = []
+    private var storedTransitions: [LeoAttentionTransition] = []
 
-    func record(_ snapshot: LeoSidebarSnapshot) { snapshots.append(snapshot) }
-    func record(_ transitions: [LeoAttentionTransition]) { self.transitions += transitions }
+    func record(_ snapshot: LeoSidebarSnapshot) { lock.withLock { storedSnapshots.append(snapshot) } }
+    func record(_ transitions: [LeoAttentionTransition]) { lock.withLock { storedTransitions += transitions } }
 
+    var snapshots: [LeoSidebarSnapshot] { lock.withLock { storedSnapshots } }
     var alpha: LeoAgentRow? { snapshots.last?.rows.first { $0.name == "alpha" } }
     /// `id:depth` for each child under alpha in the latest snapshot.
     var alphaChildren: [String] { (snapshots.last?.dispatchChildren["alpha"] ?? []).map { "\($0.id):\($0.depth)" } }
-    var notifyingTransitions: [LeoAttentionTransition] { transitions.filter(\.shouldNotify) }
+    var notifyingTransitions: [LeoAttentionTransition] { lock.withLock { storedTransitions.filter(\.shouldNotify) } }
 }
 
 /// Serves `GET /state` and one `GET /events` stream like a leo 0.35

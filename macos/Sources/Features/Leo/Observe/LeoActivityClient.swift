@@ -210,6 +210,8 @@ actor LeoActivityClient {
                         let sequence = event.sequence
                         if sequence >= 0, let lastSequence, sequence > lastSequence + 1 {
                             continuation.yield(.gap(expected: lastSequence + 1, received: sequence))
+                            // `.snapshot` carries agents only; the feed's
+                            // recovery baseline applies the dispatches.
                             if let state = try? await fetchState() {
                                 continuation.yield(.snapshot(state.agents))
                             }
@@ -293,6 +295,7 @@ actor LeoActivityClient {
         case "dispatch_changed":
             struct Payload: Decodable { let seq: Int; let dispatch: LeoDispatch }
             if let p = try? decoder.decode(Payload.self, from: data) { return .dispatchChanged(seq: p.seq, dispatch: p.dispatch) }
+            leoActivityClientLogger.debug("activityClient: malformed dispatch_changed kept as a sequence-only event")
             return sequence(in: data).map { .other(seq: $0, type: name) }
         default:
             // Recognized as an event (it has a seq) but not consumed here.

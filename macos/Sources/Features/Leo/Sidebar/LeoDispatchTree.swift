@@ -19,6 +19,11 @@ struct LeoDispatchNode: Equatable, Sendable, Identifiable {
 struct LeoDispatchTree: Equatable, Sendable {
     /// How many ended ids are remembered; the oldest falls out first.
     static let endedCap = 256
+    /// How many live records are kept; a new id past it is ignored (a
+    /// daemon never runs this many, so it only bounds a broken one).
+    static let recordCap = 1024
+    /// Nesting deeper than this is not shown.
+    static let maxDepth = 16
 
     private(set) var isEnabled = false
     private var records: [String: LeoDispatch] = [:]
@@ -29,15 +34,23 @@ struct LeoDispatchTree: Equatable, Sendable {
     private(set) var mark = 0
     private var upsertMarks: [String: Int] = [:]
 
-    mutating func setEnabled(_ enabled: Bool) { isEnabled = enabled }
+    /// Returns whether it changed.
+    @discardableResult
+    mutating func setEnabled(_ enabled: Bool) -> Bool {
+        defer { isEnabled = enabled }
+        return isEnabled != enabled
+    }
 
     /// Replaces every record with `dispatches`' live ones, minus any id
     /// that already ended. `mark` is `self.mark` read when the fetch
     /// started: a record upserted live after it is newer than the
     /// baseline, so it stays as it is.
-    mutating func applyBaseline(_ dispatches: [LeoDispatch], since mark: Int? = nil) {
+    /// Returns whether the records changed.
+    @discardableResult
+    mutating func applyBaseline(_ dispatches: [LeoDispatch], since mark: Int? = nil) -> Bool {
+        let previous = records
         var updated = Dictionary(
-            dispatches.filter { $0.isLive && !endedSet.contains($0.id) }.map { ($0.id, $0) },
+            dispatches.filter { $0.isLive && !endedSet.contains($0.id) }.prefix(Self.recordCap).map { ($0.id, $0) },
             uniquingKeysWith: { _, latest in latest }
         )
         if let mark {
@@ -45,6 +58,7 @@ struct LeoDispatchTree: Equatable, Sendable {
         }
         records = updated
         upsertMarks = upsertMarks.filter { updated[$0.key] != nil }
+        return records != previous
     }
 
     /// Applies one live record. Returns whether the records changed.
@@ -57,6 +71,7 @@ struct LeoDispatchTree: Equatable, Sendable {
             return records.removeValue(forKey: dispatch.id) != nil
         }
         guard records[dispatch.id] != dispatch else { return false }
+        guard records[dispatch.id] != nil || records.count < Self.recordCap else { return false }
         mark += 1
         records[dispatch.id] = dispatch
         upsertMarks[dispatch.id] = mark
@@ -109,7 +124,7 @@ struct LeoDispatchTree: Equatable, Sendable {
     }
 
     private func appendSubtree(_ dispatch: LeoDispatch, depth: Int, into nodes: inout [LeoDispatchNode], visited: inout Set<String>) {
-        guard visited.insert(dispatch.id).inserted else { return }
+        guard depth <= Self.maxDepth, visited.insert(dispatch.id).inserted else { return }
         nodes.append(LeoDispatchNode(dispatch: dispatch, depth: depth))
         let kids = sorted(records.values.filter { $0.parentDispatchID == dispatch.id })
         for kid in kids { appendSubtree(kid, depth: depth + 1, into: &nodes, visited: &visited) }

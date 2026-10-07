@@ -148,6 +148,22 @@ struct LeoDispatchTreeTests {
         #expect(ids(tree.children(of: "alpha")) == ["d0"], "the oldest ended id fell out of the cap")
     }
 
+    @Test func nestingDeeperThanTheLimitIsNotShown() {
+        let chain = (0...LeoDispatchTree.maxDepth + 2).map { index in
+            dispatch("c\(index)", parent: index == 0 ? nil : "c\(index - 1)", startedAt: "2026-10-06T12:00:\(String(format: "%02d", index))Z")
+        }
+        let nodes = enabledTree(chain).children(of: "alpha")
+        #expect(nodes.count == LeoDispatchTree.maxDepth + 1)
+        #expect(nodes.last?.depth == LeoDispatchTree.maxDepth)
+    }
+
+    @Test func liveRecordsAreCapped() {
+        var tree = enabledTree((0..<LeoDispatchTree.recordCap + 5).map { dispatch("r\($0)") })
+        #expect(tree.children(of: "alpha").count == LeoDispatchTree.recordCap)
+        let added = tree.upsert(dispatch("one-more"))
+        #expect(!added, "a new id past the cap is ignored")
+    }
+
     @Test func withTheFeatureOffNothingShows() {
         var tree = LeoDispatchTree()
         tree.applyBaseline([dispatch("d1")])

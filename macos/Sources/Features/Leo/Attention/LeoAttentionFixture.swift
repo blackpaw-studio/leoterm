@@ -33,7 +33,8 @@ enum LeoAttentionFixture {
             var dispatches: [LeoDispatch] = []
             for key in container.allKeys {
                 if key.stringValue == Self.dispatchesKey {
-                    dispatches = try container.decode(LeoLenientDispatches.self, forKey: key).dispatches
+                    // A malformed value degrades to none, never breaks the fixture.
+                    dispatches = (try? container.decode(LeoLenientDispatches.self, forKey: key))?.dispatches ?? []
                 } else {
                     attention[key.stringValue] = try container.decode(LeoAttentionSignal.self, forKey: key)
                 }

@@ -7,6 +7,8 @@ struct LeoDispatchRowPresentation: Equatable {
     /// Leading inset of a depth-0 child, inside its agent row.
     static let baseIndent: CGFloat = 12
     static let indentPerLevel: CGFloat = 12
+    /// Deeper levels share the last indent, so the name keeps its room.
+    static let maxIndentDepth = 4
 
     let title: String
     let statusText: String
@@ -18,7 +20,7 @@ struct LeoDispatchRowPresentation: Equatable {
         title = dispatch.name ?? dispatch.role ?? "Dispatch"
         let status = Self.statusWord(dispatch.status)
         statusText = dispatch.stalled ? "\(status) · Stalled" : status
-        indent = Self.baseIndent + CGFloat(node.depth) * Self.indentPerLevel
+        indent = Self.baseIndent + CGFloat(min(node.depth, Self.maxIndentDepth)) * Self.indentPerLevel
         accessibilityLabel = "\(title), \(node.depth == 0 ? "dispatch" : "nested dispatch"), \(statusText)"
     }
 
@@ -46,11 +48,13 @@ struct LeoDispatchRowView: View {
                 .font(.callout)
                 .lineLimit(1)
                 .truncationMode(.tail)
+                .layoutPriority(1)
             Spacer(minLength: 4)
             Text(presentation.statusText)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+                .truncationMode(.tail)
         }
         .padding(.leading, presentation.indent)
         .help(presentation.title)

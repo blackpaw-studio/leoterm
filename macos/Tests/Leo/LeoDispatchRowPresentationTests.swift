@@ -34,6 +34,11 @@ struct LeoDispatchRowPresentationTests {
         #expect(nested == top + 2 * LeoDispatchRowPresentation.indentPerLevel)
     }
 
+    @Test func indentStopsGrowingPastTheClamp() {
+        let clamped = LeoDispatchRowPresentation(node(depth: LeoDispatchRowPresentation.maxIndentDepth)).indent
+        #expect(LeoDispatchRowPresentation(node(depth: 12)).indent == clamped)
+    }
+
     @Test func voiceOverReadsTitleKindAndStatus() {
         #expect(LeoDispatchRowPresentation(node()).accessibilityLabel == "fixer, dispatch, Running")
         #expect(LeoDispatchRowPresentation(node(stalled: true, depth: 1)).accessibilityLabel == "fixer, nested dispatch, Running · Stalled")

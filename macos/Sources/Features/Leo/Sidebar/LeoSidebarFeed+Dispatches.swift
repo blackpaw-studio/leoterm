@@ -9,8 +9,9 @@ import Foundation
 extension LeoSidebarFeed {
     func receiveDispatchHello(bootID: String?, features: [String]) {
         updatingDispatches {
-            $0.observeBoot(bootID)
-            $0.setEnabled(LeoDaemonFeatures(features).contains(.dispatchTree))
+            let rebooted = $0.observeBoot(bootID)
+            let toggled = $0.setEnabled(LeoDaemonFeatures(features).contains(.dispatchTree))
+            return rebooted || toggled
         }
     }
 
@@ -41,14 +42,16 @@ extension LeoSidebarFeed {
         dispatchTree.reset()
     }
 
-    private func updatingDispatches(_ change: (inout LeoDispatchTree) -> Void) {
-        let shown = shownDispatches
-        change(&dispatchTree)
-        if shownDispatches != shown { emit() }
+    /// `change` reports whether the tree changed; only then are the shown
+    /// nestings compared (the dispatch ticker makes this a hot path).
+    private func updatingDispatches(_ change: (inout LeoDispatchTree) -> Bool) {
+        let before = dispatchTree
+        guard change(&dispatchTree) else { return }
+        if shownDispatches(dispatchTree) != shownDispatches(before) { emit() }
     }
 
-    private var shownDispatches: [String: [LeoDispatchNode]] {
-        snapshot.overlayingDispatches(dispatchTree).dispatchChildren
+    private func shownDispatches(_ tree: LeoDispatchTree) -> [String: [LeoDispatchNode]] {
+        snapshot.overlayingDispatches(tree).dispatchChildren
     }
 }
 
