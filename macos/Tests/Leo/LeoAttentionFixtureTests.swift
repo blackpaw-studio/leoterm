@@ -89,6 +89,39 @@ struct LeoAttentionFixtureTests {
         #expect(malformed.compactions.isEmpty)
     }
 
+    @Test func controlKeyDecodesLeniently() throws {
+        let deny = try JSONDecoder().decode(LeoAttentionFixture.File.self, from: Data(#"{"control":"deny"}"#.utf8))
+        #expect(deny.control == .deny)
+        let bad = try JSONDecoder().decode(LeoAttentionFixture.File.self, from: Data(#"{"control":"sideways"}"#.utf8))
+        #expect(bad.control == nil)
+        let malformed = try JSONDecoder().decode(LeoAttentionFixture.File.self, from: Data(#"{"control":3}"#.utf8))
+        #expect(malformed.control == nil)
+    }
+
+    @Test(arguments: [(LeoControlFixtureMode.deny, "forbidden"), (.unavailable, "unavailable")])
+    func controlFixtureAnswersControlRoutesLocallyAndPassesTheRest(mode: LeoControlFixtureMode, code: String) async throws {
+        let base = ControlFixtureRecordingTransport()
+        let client = LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: LeoControlFixtureTransport(base: base, mode: mode))
+        do {
+            try await client.interrupt("alpha")
+            Issue.record("the control route should have been refused")
+        } catch let LeoDaemonError.daemon(actual, _, _) {
+            #expect(actual == code)
+        }
+        _ = try await client.listAgents()
+        #expect(await base.paths == ["/agents/list"])
+    }
+
+    @Test func helloAdvertisesAgentControlForTheControlFixture() async throws {
+        let (stream, continuation) = AsyncStream<LeoObserveEvent>.makeStream()
+        continuation.yield(.hello(seq: 1, at: nil, version: "1", serverTime: nil, bootID: "b", features: []))
+        continuation.finish()
+        var seen: [LeoObserveEvent] = []
+        for await event in LeoAttentionFixture.advertising(stream, usage: false, turns: [:], control: true) { seen.append(event) }
+        guard case .hello(_, _, _, _, _, let features) = seen.first else { Issue.record("no hello"); return }
+        #expect(features == ["agent_control"])
+    }
+
     @Test func helloAdvertisesTheFixturesFeatures() async throws {
         let (stream, continuation) = AsyncStream<LeoObserveEvent>.makeStream()
         continuation.yield(.hello(seq: 1, at: nil, version: "1", serverTime: nil, bootID: "b", features: ["dispatch_tree"]))
@@ -130,6 +163,15 @@ struct LeoAttentionFixtureTests {
 
         #expect(agents.map(\.attention) == [.init(state: .finished, revision: 3), nil])
         #expect(agents.map(\.activity) == [.idle, .working])
+    }
+}
+
+private actor ControlFixtureRecordingTransport: LeoDaemonTransport {
+    private(set) var paths: [String] = []
+
+    func send(_ request: LeoHTTPRequest, socketPath _: String, timeout _: TimeInterval) async throws -> LeoHTTPResponse {
+        paths.append(request.path)
+        return LeoHTTPResponse(status: 200, body: Data(#"{"ok":true,"data":[]}"#.utf8))
     }
 }
 #endif

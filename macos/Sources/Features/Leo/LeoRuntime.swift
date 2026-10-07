@@ -69,12 +69,14 @@ import OSLog
     convenience init(defaults: UserDefaults = .ghostty) {
         let socketPath = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath
         var activity = LeoRuntime.makeSocketOrLegacyActivitySource(socketPath: socketPath)
+        var transport: any LeoDaemonTransport = LeoUnixSocketTransport()
         #if DEBUG
         if let fixture = LeoAttentionFixture.loadFile() {
-            activity = LeoAttentionFixture.wrap(activity, overlay: fixture.attention, dispatches: fixture.dispatches, usage: fixture.usage, turns: fixture.turns, actions: fixture.actions, compactions: fixture.compactions)
+            activity = LeoAttentionFixture.wrap(activity, overlay: fixture.attention, dispatches: fixture.dispatches, usage: fixture.usage, turns: fixture.turns, actions: fixture.actions, compactions: fixture.compactions, control: fixture.control)
+            if let mode = fixture.control { transport = LeoControlFixtureTransport(base: transport, mode: mode) }
         }
         #endif
-        let daemon = LeoRuntime.makeClient(socketPath: socketPath)
+        let daemon = LeoRuntime.makeClient(socketPath: socketPath, transport: transport)
         self.init(
             daemon: daemon, cli: LeoCLI(runner: LeoProcessRunner()), activitySource: activity, defaults: defaults,
             templateFetchRunner: LeoProcessRunner()

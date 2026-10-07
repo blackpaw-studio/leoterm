@@ -17,7 +17,9 @@ import OSLog
 /// (B-260), e.g. `{"kind": "tool", "detail": "Bash make"}`. Reserved
 /// `"compactions"` (agent name -> `[{"phase": "started", "trigger": "auto"},
 /// {"phase": "completed"}]`) replays those `agent_compaction` events after
-/// each hello, 1.5 s apart (B-261). Only named
+/// each hello, 1.5 s apart (B-261). Reserved `"control"` (`"deny"` or
+/// `"unavailable"`) makes the control routes answer 403 or 503 locally
+/// (B-262, see `LeoControlFixture.swift`) and advertises `agent_control`. Only named
 /// agents change; nothing is sent anywhere.
 enum LeoAttentionFixture {
     static let environmentKey = "LEO_ATTENTION_FIXTURE"
@@ -30,6 +32,7 @@ enum LeoAttentionFixture {
         static let turnsKey = "turns"
         static let actionsKey = "actions"
         static let compactionsKey = "compactions"
+        static let controlKey = "control"
 
         let attention: [String: LeoAttentionSignal]
         let dispatches: [LeoDispatch]
@@ -37,6 +40,7 @@ enum LeoAttentionFixture {
         let turns: [String: LeoTurnCompletion]
         let actions: [String: LeoCurrentAction]
         let compactions: [String: [LeoCompactionEvent]]
+        let control: LeoControlFixtureMode?
 
         private struct FixtureCompaction: Decodable, Sendable {
             let phase: LeoCompactionPhase?
@@ -69,6 +73,7 @@ enum LeoAttentionFixture {
             var turns: [String: LeoTurnCompletion] = [:]
             var actions: [String: LeoCurrentAction] = [:]
             var compactions: [String: [LeoCompactionEvent]] = [:]
+            var control: LeoControlFixtureMode?
             for key in container.allKeys {
                 if key.stringValue == Self.dispatchesKey {
                     // A malformed value degrades to none, never breaks the fixture.
@@ -77,6 +82,8 @@ enum LeoAttentionFixture {
                     usage = LeoAttentionFixture.lenientEntries(container, key, as: LeoAgentUsage.self)
                 } else if key.stringValue == Self.actionsKey {
                     actions = LeoAttentionFixture.lenientEntries(container, key, as: LeoCurrentAction.self)
+                } else if key.stringValue == Self.controlKey {
+                    control = (try? container.decode(String.self, forKey: key)).flatMap(LeoControlFixtureMode.init(rawValue:))
                 } else if key.stringValue == Self.compactionsKey {
                     let steps = LeoAttentionFixture.lenientEntries(container, key, as: [LeoLenient<FixtureCompaction>].self)
                     // A step with no usable phase is dropped.
@@ -101,6 +108,7 @@ enum LeoAttentionFixture {
             self.turns = turns
             self.actions = actions
             self.compactions = compactions
+            self.control = control
             self.dispatches = dispatches.sorted { ($0.startedAt ?? "", $0.id) < ($1.startedAt ?? "", $1.id) }
         }
     }
@@ -130,10 +138,11 @@ enum LeoAttentionFixture {
     static func wrap(
         _ source: LeoSidebarActivitySource, overlay: [String: LeoAttentionSignal], dispatches: [LeoDispatch] = [],
         usage: [String: LeoAgentUsage] = [:], turns: [String: LeoTurnCompletion] = [:],
-        actions: [String: LeoCurrentAction] = [:], compactions: [String: [LeoCompactionEvent]] = [:]
+        actions: [String: LeoCurrentAction] = [:], compactions: [String: [LeoCompactionEvent]] = [:],
+        control: LeoControlFixtureMode? = nil
     ) -> LeoSidebarActivitySource {
         LeoSidebarActivitySource(events: {
-            await advertising(await source.events(), usage: !usage.isEmpty, turns: turns, compactions: compactions)
+            await advertising(await source.events(), usage: !usage.isEmpty, turns: turns, compactions: compactions, control: control != nil)
         }, observedState: {
             let state = try await source.fetchState()
             let agents = state.agents.map { agent in
@@ -157,10 +166,10 @@ enum LeoAttentionFixture {
 
     static func advertising(
         _ events: AsyncStream<LeoObserveEvent>, usage: Bool, turns: [String: LeoTurnCompletion],
-        compactions: [String: [LeoCompactionEvent]] = [:]
+        compactions: [String: [LeoCompactionEvent]] = [:], control: Bool = false
     ) -> AsyncStream<LeoObserveEvent> {
-        guard usage || !turns.isEmpty || !compactions.isEmpty else { return events }
-        let extra = (usage ? ["agent_usage"] : []) + (turns.isEmpty ? [] : ["bridge_turns"])
+        guard usage || !turns.isEmpty || !compactions.isEmpty || control else { return events }
+        let extra = (usage ? ["agent_usage"] : []) + (turns.isEmpty ? [] : ["bridge_turns"]) + (control ? ["agent_control"] : [])
         return AsyncStream { continuation in
             let task = Task {
                 var replays: [Task<Void, Never>] = []
