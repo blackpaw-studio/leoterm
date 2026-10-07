@@ -55,7 +55,7 @@ Lane: B-258
   Branch: autopilot-lane/B-258
   Base: 2877d486c4ba732de773a91b2ddbaed3ad6be4a7
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
