@@ -121,6 +121,7 @@ Lane: B-261
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-10-07T21:52:25Z
 
 ## Progress
 Finished 1: B-257 landed 8a28dfb7bd072c049000f75f71a3fd3c976b8a83 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-257-2.png
