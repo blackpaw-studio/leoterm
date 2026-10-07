@@ -100,6 +100,10 @@ actor LeoSidebarFeed {
     var surfacedFiles = LeoSurfacedFileIndex.empty
     /// The selected host's live dispatches (B-257) -- see `LeoSidebarFeed+Dispatches.swift`.
     var dispatchTree = LeoDispatchTree()
+    /// What the selected host's daemon advertised on its latest hello, and
+    /// the last-turn previews it gated (B-259) -- see `LeoSidebarFeed+Turns.swift`.
+    var daemonFeatures = LeoDaemonFeatures.none
+    var turnPreviews = LeoTurnPreviews.empty
     var running = false
     var needsState = true
     var recovering = false
@@ -160,6 +164,7 @@ actor LeoSidebarFeed {
         cancelLivenessCheck()
         resetMetadata()
         resetDispatches()
+        resetTurns()
         attentionTask = nil
         eventTask = nil
         refreshTask = nil
@@ -240,7 +245,14 @@ actor LeoSidebarFeed {
         case .dispatchChanged(_, let dispatch):
             receiveDispatch(dispatch)
             return
+        case .agentTurnCompleted(_, let turn):
+            receiveTurn(turn)
+            return
+        case .agentUsage:
+            receiveUsageEvent()
+            return
         case .hello(_, _, _, _, let bootID, let features):
+            receiveFeatures(bootID: bootID, features: features)
             receiveDispatchHello(bootID: bootID, features: features)
         default: break
         }
@@ -276,6 +288,8 @@ actor LeoSidebarFeed {
             prepareRecovery()
             process(scheduler.reduce(.sseEvent(event)))
         case .agentSpawned, .agentStateChanged, .agentStopped:
+            if case .agentSpawned(_, _, let agent, _) = event { forgetTurn(agent.name) }
+            if case .agentStopped(_, _, let name, _) = event { forgetTurn(name) }
             process(scheduler.reduce(.sseEvent(event)))
             requestMetadataRefresh()
         case .agentActivity:
@@ -286,7 +300,7 @@ actor LeoSidebarFeed {
             }
         case .fileSurfaced(_, let file):
             receiveSurfacedFile(file)
-        case .other, .dispatchChanged:
+        case .other, .dispatchChanged, .agentTurnCompleted, .agentUsage:
             return
         case .disconnected(let reason):
             Self.logger.log("receive: .disconnected reason=\(reason, privacy: .public)")
@@ -377,6 +391,7 @@ actor LeoSidebarFeed {
 
     func emit() {
         let value = displayedSnapshot.overlayingAttention(attention).overlayingDispatches(dispatchTree)
+            .overlayingTurns(turnPreviews, features: daemonFeatures)
         let previous = emissionTask
         emissionTask = Task { [weak self, sink] in
             await previous?.value

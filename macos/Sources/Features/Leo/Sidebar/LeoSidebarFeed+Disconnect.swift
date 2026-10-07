@@ -26,6 +26,7 @@ extension LeoSidebarFeed {
         activityByName = [:]
         resetMetadata()
         clearDispatchRecords()
+        resetTurns()
         bufferedActivity = []
         attention.disconnect()
         scheduleAttentionTick()
