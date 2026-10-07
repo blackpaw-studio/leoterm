@@ -120,3 +120,5 @@ Finished 2: B-258 landed 1af002341338cf3e434cc9cc68aed00599127b89 · shot /Users
 - Session interrupted at ~20:25Z; lock taken over by the new session (pid 79355); B-259 runner resumed from its transcript (lane clean at 9ac97cddb, mid fix round).
 Finished 3: B-259 landed ed7558b973dafbadc1db205fb0085d0e8ea12ffa · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-259-1.png
 - B-259 landed ed7558b97: last-turn preview line and usage subtitle segment (tokens/cost/context %), gated on hello bridge_turns/agent_usage; verified live against leo 0.37.0; 1 fix round. 3 polish dropped (idea cap).
+Finished 4: B-260 landed 928f15569c87bc05240f32796cc00e7fa7ee31a8 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-260-1.png
+- B-260 landed 928f15569: running tool shown as grey hammer + tool name in the task line while current_action kind is tool; clears when the call ends; suite 2183 green; 1 fix round.

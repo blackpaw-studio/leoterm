@@ -2859,3 +2859,52 @@ Chose: The DEBUG fixture's `usage`/`turns` keys advertise the features and repla
 Why: D-018, AUTONOMY test infra
 Commit: 9ac97cddb, d8b86348b, 805485afe, 0e1281871, 289cf6751
 Veto: [ ]
+
+## D-397 · 2026-10-07 · Show only the tool name (first token of sanitized detail), never su…
+Context: B-260 (runner call).
+Chose: Show only the tool name (first token of sanitized detail), never summary/arguments
+Why: item Out + principle 2
+Commit: aed36d0e4, 3918fe77b, 42ec95252, 53588d623
+Veto: [ ]
+
+## D-398 · 2026-10-07 · Tool line = static secondary-grey hammer + name in the task line's …
+Context: B-260 (runner call).
+Chose: Tool line = static secondary-grey hammer + name in the task line's place, hides the B-259 turn preview while a tool runs; no badge/motion
+Why: principle 2, AUTONOMY UX details
+Commit: aed36d0e4, 3918fe77b, 42ec95252, 53588d623
+Veto: [ ]
+
+## D-399 · 2026-10-07 · No feature gating: kind "tool" names itself; pane/nil/unknown kinds…
+Context: B-260 (runner call).
+Chose: No feature gating: kind "tool" names itself; pane/nil/unknown kinds keep today's full-detail task line
+Why: principle 2 (never invent state)
+Commit: aed36d0e4, 3918fe77b, 42ec95252, 53588d623
+Veto: [ ]
+
+## D-400 · 2026-10-07 · Tool name with a space shows only its first word (detail never show…
+Context: B-260 (runner call).
+Chose: Tool name with a space shows only its first word (detail never shown for "tool")
+Why: principle 2
+Commit: aed36d0e4, 3918fe77b, 42ec95252, 53588d623
+Veto: [ ]
+
+## D-401 · 2026-10-07 · CSI/OSC escape stripping scoped to toolName(fromDetail:); task-line…
+Context: B-260 (runner call).
+Chose: CSI/OSC escape stripping scoped to toolName(fromDetail:); task-line sanitizer unchanged
+Why: principle 2
+Commit: aed36d0e4, 3918fe77b, 42ec95252, 53588d623
+Veto: [ ]
+
+## D-402 · 2026-10-07 · "Running X" tooltip/VoiceOver label bidi-isolated like B-259's turn…
+Context: B-260 (runner call).
+Chose: "Running X" tooltip/VoiceOver label bidi-isolated like B-259's turn line
+Why: principle 1
+Commit: aed36d0e4, 3918fe77b, 42ec95252, 53588d623
+Veto: [ ]
+
+## D-403 · 2026-10-07 · DEBUG fixture key "actions" (agent → {kind, detail}) overrides curr…
+Context: B-260 (runner call).
+Chose: DEBUG fixture key "actions" (agent → {kind, detail}) overrides current_action for verification
+Why: AUTONOMY test infra
+Commit: aed36d0e4, 3918fe77b, 42ec95252, 53588d623
+Veto: [ ]

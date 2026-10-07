@@ -677,13 +677,14 @@ Source: Evan (/feature, 2026-10-07)
 Inbox: 20261007T144804912652Z-653eac6a#1
 Done: 2026-10-07 · 9ac97cddb, d8b86348b, 805485afe, 0e1281871, 289cf6751 · D-388, D-389, D-390, D-391, D-392, D-393, D-394, D-395, D-396
 
-## B-260 · Show the tool an agent is running right now   [ready]
+## B-260 · Show the tool an agent is running right now   [done]
 Issue: #259
 Why: Glanceable answer to what a working agent is busy with (current_action kind "tool", leo PR #226)
 Accept: during a scripted tool call the row shows the tool name; it clears when the call ends; other action kinds keep today's display
 Out: tool arguments or output
 Source: Evan (/feature, 2026-10-07)
 Inbox: 20261007T144805010219Z-54b3b801#1
+Done: 2026-10-07 · aed36d0e4, 3918fe77b, 42ec95252, 53588d623 · D-397, D-398, D-399, D-400, D-401, D-402, D-403
 
 ## B-261 · Compaction indicator   [ready]
 Issue: #260
