@@ -10,6 +10,9 @@ Self-filed: B-257 → B-266 idea — Clicking a dispatch row reveals or jumps to
 Self-filed: B-257 → B-267 idea — Clearer depth indent for dispatch rows
 Self-filed: B-258 → B-268 bug — Same-state needs_input with a newer revision re-notifies
 Self-filed: B-258 → dropped (over cap) — Bidi-isolate attention tool and detail text
+Self-filed: B-259 → dropped (over cap) — Usage-only subtitle can overflow on a very narrow row
+Self-filed: B-259 → dropped (over cap) — Thousands separator for cost
+Self-filed: B-259 → dropped (over cap) — Drop cost before context % on narrow rows
 Focus: leo PR #226 bridge features (B-257–B-262, then B-051)
 Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 
@@ -74,12 +77,21 @@ Lane: B-259
   Branch: autopilot-lane/B-259
   Base: 581402230961f47a750152bd3e62b7421b6eec52
   Tier: full
-  State: building
+  State: verifying
   Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 4a2300cac698ccff17b2cf2fe67292a11ffc11cd
   Dispatched: 2026-10-07T20:36:39Z
+  Call: The preview replaces the task line and shows only when there is no current task. It is not hidden while the agent is working — P2 calm, P6
+  Call: Usage is the session's tokens, cost and context %, shown as a subtitle segment that drops whole components when space runs out, never part of a number. The full session and since-start numbers go in the tooltip and VoiceOver. There is no inspector because none exists — P2, AUTONOMY UX
+  Call: An aborted turn reads "Interrupted: <preview>". An empty preview clears the line, and usage that is all zero shows nothing — P2 never invent
+  Call: Cost below half a cent reads "<$0.01" — AUTONOMY UX
+  Call: Preview and usage are gated on the hello's `bridge_turns`/`agent_usage` features. Nothing renders while disconnected — P2, D-377
+  Call: Turn and usage events only trigger a /state refresh. The preview text is the only value taken from an event — D-082
+  Call: No badge, motion or notification on turn completion — P2
+  Call: Preview is clamped to 200 chars (reuses LeoSFTPServerText) and bidi-isolated at display — AUTONOMY implementation
+  Call: The DEBUG fixture's `usage`/`turns` keys advertise the features and replay the turns after each hello — D-018, AUTONOMY test infra
 
 ## Progress
 Finished 1: B-257 landed 8a28dfb7bd072c049000f75f71a3fd3c976b8a83 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-257-2.png
