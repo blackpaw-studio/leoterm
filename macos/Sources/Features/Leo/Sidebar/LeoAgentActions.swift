@@ -206,7 +206,7 @@ import Foundation
                     return
                 }
                 dismiss(); refresh()
-                attach(LeoAgentRow(host: host, name: agent.name, template: agent.template, status: agent.status ?? .unknown("unknown"), activity: .unknown, actionDetail: nil), .content)
+                attach(LeoAgentRow(host: host, name: agent.name, template: agent.template, status: agent.status ?? .unknown("unknown"), activity: .unknown, actionDetail: nil, wakeOnMessage: agent.wakeOnMessage), .content)
             } catch {
                 failure(Self.message(error))
             }

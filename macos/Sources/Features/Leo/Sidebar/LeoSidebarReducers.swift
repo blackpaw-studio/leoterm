@@ -21,7 +21,7 @@ enum LeoSidebarReducers {
     static func mergeActivity(_ rows: [LeoAgentRow], activityByName: [String: LeoSidebarActivity]) -> [LeoAgentRow] {
         rows.map { row in
             guard row.status != .stopped, let overlay = activityByName[row.name] else { return row }
-            return LeoAgentRow(host: row.host, name: row.name, template: row.template, status: row.status, activity: overlay.activity, actionDetail: overlay.detail, workspace: row.workspace, repo: row.repo, startedAt: row.startedAt)
+            return LeoAgentRow(host: row.host, name: row.name, template: row.template, status: row.status, activity: overlay.activity, actionDetail: overlay.detail, workspace: row.workspace, repo: row.repo, startedAt: row.startedAt, wakeOnMessage: row.wakeOnMessage)
         }
     }
 

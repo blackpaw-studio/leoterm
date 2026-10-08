@@ -58,6 +58,9 @@ import Foundation
         surfacedSeen = surfacedSeenStore.load()
     }
 
+    /// What the selected host's daemon advertised (B-262: `agent_control`).
+    var daemonFeatures: LeoDaemonFeatures { snapshot.features }
+
     /// The host whose collapsed sections apply: the feed's rows are all
     /// from the selected host.
     private var rowsHost: LeoHostID { snapshot.rows.first?.host ?? .local }

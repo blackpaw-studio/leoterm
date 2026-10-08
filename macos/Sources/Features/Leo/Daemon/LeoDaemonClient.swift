@@ -26,6 +26,11 @@ protocol LeoDaemonClient: Sendable {
     func delete(_ name: String, host: LeoHostID, force: Bool?, deleteBranch: Bool?) async throws
     func deletePlan(_ name: String, host: LeoHostID) async throws -> LeoDeletePlan
     func logs(_ name: String, host: LeoHostID, lines: Int?) async throws -> String
+    /// Operator control routes (B-262); socket-served from leo 0.35.
+    func message(_ name: String, text: String) async throws -> LeoMessageDelivery
+    func interrupt(_ name: String) async throws
+    func compact(_ name: String, instructions: String?) async throws
+    func clear(_ name: String) async throws
 }
 
 /// Default host-scoped implementations: every daemon socket now represents
@@ -40,6 +45,10 @@ extension LeoDaemonClient {
         return try await templates()
     }
     func version() async throws -> String { throw LeoDaemonError.transport("Daemon version is unavailable") }
+    func message(_ name: String, text: String) async throws -> LeoMessageDelivery { throw LeoDaemonError.transport("Agent control is unavailable") }
+    func interrupt(_ name: String) async throws { throw LeoDaemonError.transport("Agent control is unavailable") }
+    func compact(_ name: String, instructions: String?) async throws { throw LeoDaemonError.transport("Agent control is unavailable") }
+    func clear(_ name: String) async throws { throw LeoDaemonError.transport("Agent control is unavailable") }
 
     private func requireLocal(_ host: LeoHostID) throws {
         guard host == .local else { throw LeoDaemonError.hostUnavailable("Remote hosts are unavailable") }
@@ -107,6 +116,20 @@ struct LeoSocketDaemonClient: LeoDaemonClient {
         return try await value("GET", try route(name, "logs") + suffix, as: Logs.self).output
     }
 
+    func message(_ name: String, text: String) async throws -> LeoMessageDelivery {
+        struct Reply: Decodable, Sendable { let transport: String?; let queued: Bool? }
+        let response = try await control(name, .message, body: try JSONEncoder().encode(["text": text]))
+        if response.status == 202 { return .queued }
+        let reply = try LeoDaemonEnvelope<Reply>.decode(response.body).value()
+        return reply.queued == true ? .queued : .delivered(transport: reply.transport)
+    }
+    func interrupt(_ name: String) async throws { _ = try await control(name, .interrupt) }
+    func compact(_ name: String, instructions: String?) async throws {
+        let body = try instructions.map { try JSONEncoder().encode(["instructions": $0]) }
+        _ = try await control(name, .compact, body: body)
+    }
+    func clear(_ name: String) async throws { _ = try await control(name, .clear) }
+
     func templates() async throws -> [LeoTemplate] { try await value("GET", "/templates") }
     func version() async throws -> String {
         struct Version: Decodable, Sendable { let version: String }
@@ -150,6 +173,39 @@ struct LeoSocketDaemonClient: LeoDaemonClient {
     private func okay(_ method: String, _ path: String, body: Data? = nil, timeout: TimeInterval? = nil) async throws {
         let response = try await transport.send(LeoHTTPRequest(method: method, path: path, body: body), socketPath: socketPath, timeout: timeout ?? defaultTimeout)
         do { try LeoDaemonEnvelope<LeoEmpty>.decode(response.body).expectOK() } catch let error as LeoDaemonError { throw Self.map(error) }
+    }
+
+    /// A control POST. The control routes' errors carry no envelope `code`,
+    /// so a non-2xx is named by its HTTP status (`Self.controlCode`); the
+    /// daemon's own message is kept. Returns the 2xx response.
+    private func control(_ name: String, _ verb: LeoControlVerb, body: Data? = nil) async throws -> LeoHTTPResponse {
+        let response = try await transport.send(
+            LeoHTTPRequest(method: "POST", path: try route(name, verb.rawValue), body: body),
+            socketPath: socketPath, timeout: mutationTimeout
+        )
+        guard (200..<300).contains(response.status) else { throw Self.controlError(response) }
+        do { try LeoDaemonEnvelope<LeoEmpty>.decode(response.body).expectOK() } catch let error as LeoDaemonError { throw Self.map(error) }
+        return response
+    }
+
+    private static func controlError(_ response: LeoHTTPResponse) -> LeoDaemonError {
+        let envelope = try? LeoDaemonEnvelope<LeoEmpty>.decode(response.body)
+        return map(.daemon(
+            code: envelope?.code ?? controlCode(forStatus: response.status),
+            message: envelope?.error ?? "HTTP \(response.status)",
+            matches: envelope?.matches ?? []
+        ))
+    }
+
+    static func controlCode(forStatus status: Int) -> String {
+        switch status {
+        case 401: "unauthorized"
+        case 403: "forbidden"
+        case 404: "not_found"
+        case 413: "too_large"
+        case 503: "unavailable"
+        default: "http_\(status)"
+        }
     }
 
     private static func map(_ error: LeoDaemonError) -> LeoDaemonError {

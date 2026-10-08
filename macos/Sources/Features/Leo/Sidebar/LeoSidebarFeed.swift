@@ -402,6 +402,7 @@ actor LeoSidebarFeed {
     func emit() {
         let value = displayedSnapshot.overlayingAttention(attention).overlayingDispatches(dispatchTree)
             .overlayingTurns(turnPreviews, features: daemonFeatures).overlayingCompactions(compactions)
+            .advertising(daemonFeatures)
         let previous = emissionTask
         emissionTask = Task { [weak self, sink] in
             await previous?.value
@@ -459,7 +460,7 @@ actor LeoSidebarFeed {
 
     private static func row(_ agent: LeoAgent, host: LeoHostID) -> LeoAgentRow {
         LeoAgentRow(host: host, name: agent.name, template: agent.template, status: agent.status ?? .unknown("missing"), activity: .unknown, actionDetail: nil, workspace: agent.workspace, repo: agent.repo,
-                    startedAt: agent.startedAt)
+                    startedAt: agent.startedAt, wakeOnMessage: agent.wakeOnMessage)
     }
 }
 

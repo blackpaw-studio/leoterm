@@ -35,6 +35,11 @@ struct LeoWindowVisibilityState: Equatable {
     /// Bumped by Agents ▸ Find Agent… (B-009); the sidebar's search field
     /// takes focus whenever it changes.
     @Published private(set) var searchFocusRequest = 0
+    /// Bumped by Agents ▸ Message Agent (B-262); the control bar's prompt
+    /// field takes focus whenever it changes.
+    @Published private(set) var controlFocusRequest = 0
+    /// The control bar's prompt field, for focus in and back out.
+    let controlPrompt = LeoControlPromptFieldHandle()
     @Published var windowIsOccluded = false { didSet { changed() } }
     @Published var windowIsMiniaturized = false { didSet { changed() } }
     var displayedWidth: CGFloat { min(max(preferredWidth, 200), 420) }
@@ -124,6 +129,9 @@ struct LeoWindowVisibilityState: Equatable {
         if !isSidebarVisible { setSidebarVisible(true) }
         searchFocusRequest += 1
     }
+
+    /// Agents ▸ Message Agent: focus the control bar's prompt field.
+    func requestControlFocus() { controlFocusRequest += 1 }
 
     /// Called by `LeoPickerPresentation` when its panel is shown/dismissed.
     /// Not persisted -- unlike sidebar visibility, this reflects transient

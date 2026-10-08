@@ -111,4 +111,18 @@ struct LeoMenuCommandsTests {
         #expect(LeoMenuCommands.canAttach(context) == testCase.attach)
         #expect(LeoMenuCommands.canViewLogs(context) == testCase.logs)
     }
+
+    /// B-262: the control verbs each have one Agents menu item on a ⌃⌘
+    /// combination nothing else in the xib uses.
+    @Test func controlShortcutsAreBoundOnceAndUnique() throws {
+        let xib = try LeoMenuXib.shortcuts()
+        let expected = [
+            ("messageSelectedLeoAgent:", "⌃⌘m"), ("interruptSelectedLeoAgent:", "⌃⌘."),
+            ("compactSelectedLeoAgent:", "⌃⌘k"), ("clearSelectedLeoAgent:", "⌃⇧⌘k"),
+        ]
+        for (action, shortcut) in expected {
+            #expect(xib.filter { $0.shortcut == shortcut }.map(\.action) == [action], "\(shortcut) belongs to \(action) alone")
+            #expect(xib.filter { $0.action == action }.count == 1)
+        }
+    }
 }

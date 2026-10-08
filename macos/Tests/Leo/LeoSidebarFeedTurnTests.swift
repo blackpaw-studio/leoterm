@@ -56,6 +56,26 @@ struct LeoSidebarFeedTurnTests {
         await harness.stop()
     }
 
+    @Test func rowPicksUpWakeOnMessageFromTheListAndRefreshesOnEvents() async throws {
+        let harness = TurnHarness(wakeOnMessage: true)
+        await harness.start()
+        try await harness.pump { $0.rows.first?.wakeOnMessage == true }
+        await harness.daemon.setWake(false)
+        await harness.activity.send(.agentStopped(seq: 2, at: nil, agent: "alpha", wakeOnMessage: false))
+        try await harness.pump { $0.rows.first?.wakeOnMessage == false }
+        await harness.stop()
+    }
+
+    @Test func snapshotCarriesAdvertisedFeaturesAndDropsThemWhenDisconnected() async throws {
+        let harness = TurnHarness()
+        await harness.start()
+        await harness.activity.send(Self.hello(["agent_control"]))
+        try await harness.pump { $0.features.contains(.agentControl) }
+        await harness.activity.send(.disconnected(reason: "gone"))
+        try await harness.pump { $0.connectivity.isDisconnected && $0.features == .none }
+        await harness.stop()
+    }
+
     /// The baseline can land before the first hello (which then only clears
     /// awaitingHello): the hello's features must repaint on their own.
     @Test func aFirstHelloAdvertisingOnlyUsageRevealsUsageWithoutAnyOtherEvent() async throws {
@@ -168,13 +188,17 @@ struct TurnHarness {
     let recorder = TurnRecorder()
     let feed: LeoSidebarFeed
 
-    init(usage: LeoAgentUsage? = nil) {
+    let daemon: TurnDaemon
+
+    init(usage: LeoAgentUsage? = nil, wakeOnMessage: Bool? = nil) {
+        daemon = TurnDaemon(wakeOnMessage: wakeOnMessage)
+        let daemon = daemon
         let activity = TurnActivity(usage: usage)
         self.activity = activity
         let clock = clock
         let recorder = recorder
         feed = LeoSidebarFeed(
-            daemon: TurnDaemon(),
+            daemon: daemon,
             activity: .init(events: { await activity.events() }, observedState: { await activity.fetchState() }),
             sleep: { try await clock.sleep($0) },
             now: { 0 },
@@ -229,8 +253,14 @@ actor TurnActivity {
 }
 
 actor TurnDaemon: LeoDaemonClient {
+    private var wakeOnMessage: Bool?
+
+    init(wakeOnMessage: Bool? = nil) { self.wakeOnMessage = wakeOnMessage }
+
+    func setWake(_ value: Bool?) { wakeOnMessage = value }
+
     func listAgents() async throws -> [LeoAgent] {
-        [LeoAgent(name: "alpha", template: nil, repo: nil, workspace: nil, branch: nil, canonicalPath: nil, status: .running, startedAt: "t1", restarts: nil, stoppedReason: nil, wakeOnMessage: nil)]
+        [LeoAgent(name: "alpha", template: nil, repo: nil, workspace: nil, branch: nil, canonicalPath: nil, status: .running, startedAt: "t1", restarts: nil, stoppedReason: nil, wakeOnMessage: wakeOnMessage)]
     }
     func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent { fatalError() }
     func start(_ name: String) async throws { fatalError() }
