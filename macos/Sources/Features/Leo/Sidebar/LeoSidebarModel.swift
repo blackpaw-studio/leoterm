@@ -14,6 +14,8 @@ import Foundation
     }
     /// The dispatch row the user selected (B-266); see `+Dispatches`.
     @Published var dispatchSelection: LeoDispatchSelection?
+    /// Dispatch rows whose children the user collapsed, by id (B-266).
+    @Published var collapsedDispatches: Set<LeoDispatchRef> = []
     @Published private(set) var rowErrors: [LeoAgentRow.ID: String] = [:]
     @Published private(set) var rowErrorCodes: [LeoAgentRow.ID: String] = [:]
     @Published private(set) var panelError: String?
@@ -134,7 +136,8 @@ import Foundation
             rowErrorCodes = [:]
         }
         resolveStartPrompts()
-        clearDispatchSelectionIfInvalid()
+        reconcileDispatchSelection()
+        pruneCollapsedDispatches()
         guard let selection, !value.rows.contains(where: { $0.id == selection }) else { return }
         self.selection = nil
     }

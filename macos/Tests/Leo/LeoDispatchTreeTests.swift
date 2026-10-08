@@ -213,6 +213,49 @@ struct LeoDispatchTreeTests {
         #expect(tree.children(of: "alpha").isEmpty)
     }
 
+    // MARK: nested dispatches (caller_agent is the root agent at every depth)
+
+    /// A chain d1 > d2 > d3, all called by `alpha`.
+    private func chain() -> [LeoDispatch] {
+        [
+            dispatch("d1", startedAt: "2026-10-07T12:00:01Z"),
+            dispatch("d2", parent: "d1", startedAt: "2026-10-07T12:00:02Z"),
+            dispatch("d3", parent: "d2", startedAt: "2026-10-07T12:00:03Z")
+        ]
+    }
+
+    private func shape(_ tree: LeoDispatchTree) -> [String] {
+        tree.children(of: "alpha").map { "\($0.id):\($0.depth)" }
+    }
+
+    @Test func aChildOfAnEndedDispatchMovesUnderTheNearestSurvivingAncestor() {
+        var tree = enabledTree(chain())
+        tree.upsert(dispatch("d2", parent: "d1", status: "done"))
+        #expect(shape(tree) == ["d1:0", "d3:1"])
+    }
+
+    @Test func anOrphanWithNoSurvivingAncestorFallsBackToTheAgentAndNeverVanishes() {
+        var tree = enabledTree(chain())
+        tree.upsert(dispatch("d2", parent: "d1", status: "done"))
+        tree.upsert(dispatch("d1", status: "done"))
+        #expect(shape(tree) == ["d3:0"])
+    }
+
+    @Test func reparentingAlsoFollowsARemovalOrAStaleBaseline() {
+        var removed = enabledTree(chain())
+        removed.remove("d2")
+        #expect(shape(removed) == ["d1:0", "d3:1"])
+
+        var stale = enabledTree(chain())
+        stale.applyBaseline([dispatch("d1"), dispatch("d3", parent: "d2")])
+        #expect(shape(stale) == ["d1:0", "d3:1"])
+    }
+
+    @Test func aDispatchFollowsItsImmediateParentNotItsCaller() {
+        let tree = enabledTree([dispatch("d1"), dispatch("d4", parent: "d1")])
+        #expect(shape(tree) == ["d1:0", "d4:1"])
+    }
+
     @Test func anOrphanShowsUnderItsCallersRowOrNowhere() {
         let tree = enabledTree([
             dispatch("d2", caller: "dispatch.d9", parent: "d9"),

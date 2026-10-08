@@ -282,6 +282,76 @@ struct LeoDispatchAttachCommandTests {
         #expect(model.selectedDispatch == ref("d2"))
     }
 
+    // MARK: nested dispatches
+
+    private func nested(_ entries: [(String, Int, Bool)], generation: Int = 1) -> LeoSidebarSnapshot {
+        LeoSidebarSnapshot(
+            rows: [alpha], connectivity: .connected, generation: generation,
+            dispatchChildren: ["alpha": entries.map { LeoDispatchNode(dispatch: dispatch($0.0, attachable: $0.2), depth: $0.1) }],
+            features: LeoDaemonFeatures(["dispatch_tree", "dispatch_attach"])
+        )
+    }
+
+    private let chain = [("d1", 0, true), ("d2", 1, true), ("d3", 2, true)]
+
+    @Test func aNestedDispatchIsSelectableAtAnyDepth() {
+        let model = model(nested(chain))
+        model.userSelectedDispatch(ref("d3"))
+        #expect(model.selectedDispatch == ref("d3"))
+    }
+
+    @Test func whenASelectedNestedDispatchEndsSelectionFallsBackToTheNearestSurvivingAncestor() {
+        let model = model(nested(chain))
+        model.userSelectedDispatch(ref("d3"))
+        model.receive(nested([("d1", 0, true), ("d2", 1, true)], generation: 2))
+        #expect(model.selectedDispatch == ref("d2"))
+
+        model.receive(nested([("d1", 0, true)], generation: 3))
+        #expect(model.selectedDispatch == ref("d1"))
+
+        model.receive(nested([], generation: 4))
+        #expect(model.selectedDispatch == nil)
+        #expect(LeoSidebarSelection.current(model: model, terminals: LeoWindowTerminals()) == .agent(alpha.id))
+    }
+
+    @Test func theFallbackSkipsAnAncestorThatIsNoLongerOrNotAttachable() {
+        let model = model(nested(chain))
+        model.userSelectedDispatch(ref("d3"))
+        model.receive(nested([("d1", 0, true), ("d2", 1, false)], generation: 2))
+        #expect(model.selectedDispatch == ref("d1"))
+    }
+
+    @Test func theFallbackSurvivesAnAncestorEndingFirst() {
+        let model = model(nested(chain))
+        model.userSelectedDispatch(ref("d3"))
+        // d2 ends first: d3 re-parents under d1 and stays selected ...
+        model.receive(nested([("d1", 0, true), ("d3", 1, true)], generation: 2))
+        #expect(model.selectedDispatch == ref("d3"))
+        // ... then d3 ends: the nearest surviving ancestor is d1.
+        model.receive(nested([("d1", 0, true)], generation: 3))
+        #expect(model.selectedDispatch == ref("d1"))
+    }
+
+    @Test func collapsingADispatchHidesItsDescendantsAndTheStateIsPerID() {
+        let model = model(nested([("d1", 0, true), ("d2", 1, true), ("d3", 2, true), ("d4", 0, true)]))
+        func shown() -> [String] { model.visibleDispatchRows(for: alpha).map(\.id) }
+        #expect(model.visibleDispatchRows(for: alpha).map(\.hasChildren) == [true, true, false, false])
+        #expect(shown() == ["d1", "d2", "d3", "d4"])
+
+        model.toggleDispatchCollapsed(ref("d2"))
+        #expect(shown() == ["d1", "d2", "d4"])
+        #expect(model.visibleDispatchRows(for: alpha).map(\.isCollapsed) == [false, true, false])
+
+        model.toggleDispatchCollapsed(ref("d1"))
+        #expect(shown() == ["d1", "d4"])
+
+        model.toggleDispatchCollapsed(ref("d1"))
+        #expect(shown() == ["d1", "d2", "d4"], "d2 is still collapsed on its own")
+
+        model.toggleDispatchCollapsed(ref("d2"))
+        #expect(shown() == ["d1", "d2", "d3", "d4"])
+    }
+
     @Test func aDisconnectMakesTheSelectedDispatchInertAgain() {
         let model = model(snapshot([dispatch("d1", attachable: true)]))
         model.userSelectedDispatch(ref("d1"))

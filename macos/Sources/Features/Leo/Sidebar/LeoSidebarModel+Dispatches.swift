@@ -4,6 +4,9 @@ import AppKit
 struct LeoDispatchSelection: Equatable, Sendable {
     let ref: LeoDispatchRef
     let parent: LeoAgentRow.ID
+    /// The dispatches above it, nearest first, as of the last snapshot:
+    /// where selection falls back to when it ends.
+    let ancestors: [LeoDispatchRef]
 }
 
 /// B-266: dispatch rows the daemon can attach to are selectable, and open
@@ -27,12 +30,43 @@ extension LeoSidebarModel {
         return selected.ref
     }
 
-    /// A dispatch selection that is no longer valid (it ended, went
-    /// inert or the connection dropped) falls back to its agent and is
-    /// forgotten, so it can't come back with the dispatch.
-    func clearDispatchSelectionIfInvalid() {
-        guard dispatchSelection != nil, selectedDispatch == nil else { return }
-        dispatchSelection = nil
+    /// After each snapshot. A valid dispatch selection refreshes the
+    /// ancestors it would fall back to. One that is no longer valid (it
+    /// ended, went inert, or the connection dropped) falls back to its
+    /// nearest surviving, attachable ancestor dispatch, else to its agent,
+    /// and is forgotten there, so it can't come back with the dispatch.
+    func reconcileDispatchSelection() {
+        guard let selected = dispatchSelection else { return }
+        if selectedDispatch != nil {
+            guard let target = dispatchTarget(selected.ref) else { return }
+            dispatchSelection = makeSelection(selected.ref, under: target.row)
+            return
+        }
+        guard selected.parent == selection,
+              let heir = selected.ancestors.compactMap({ ref in dispatchTarget(ref).map { (ref, $0.row) } }).first else {
+            dispatchSelection = nil
+            return
+        }
+        dispatchSelection = makeSelection(heir.0, under: heir.1)
+    }
+
+    private func makeSelection(_ ref: LeoDispatchRef, under row: LeoAgentRow) -> LeoDispatchSelection {
+        LeoDispatchSelection(ref: ref, parent: row.id, ancestors: ancestors(of: ref, under: row))
+    }
+
+    /// The dispatches above `ref` in `row`'s nesting, nearest first. The
+    /// nodes are depth first, so walking back and taking each shallower
+    /// node finds them.
+    private func ancestors(of ref: LeoDispatchRef, under row: LeoAgentRow) -> [LeoDispatchRef] {
+        let nodes = dispatchChildren(for: row)
+        guard let index = nodes.firstIndex(where: { $0.id == ref.id }) else { return [] }
+        var depth = nodes[index].depth
+        var found: [LeoDispatchRef] = []
+        for node in nodes[..<index].reversed() where node.depth < depth {
+            found.append(LeoDispatchRef(host: ref.host, id: node.id))
+            depth = node.depth
+        }
+        return found
     }
 
     /// Selects an agent row and drops any dispatch selection under it.
@@ -46,7 +80,7 @@ extension LeoSidebarModel {
     func userSelectedDispatch(_ ref: LeoDispatchRef) {
         guard let target = dispatchTarget(ref) else { return }
         selection = target.row.id
-        dispatchSelection = LeoDispatchSelection(ref: ref, parent: target.row.id)
+        dispatchSelection = makeSelection(ref, under: target.row)
         fenceInFlightFocusReports()
     }
 
@@ -56,7 +90,7 @@ extension LeoSidebarModel {
     func selectFocusedDispatch(_ ref: LeoDispatchRef) {
         guard let target = dispatchTarget(ref) else { return }
         selection = target.row.id
-        dispatchSelection = LeoDispatchSelection(ref: ref, parent: target.row.id)
+        dispatchSelection = makeSelection(ref, under: target.row)
     }
 
     /// A click on a dispatch row: it selects, and a click opens it where
@@ -89,7 +123,7 @@ extension LeoSidebarModel {
         )
     }
 
-    private func dispatchTarget(_ ref: LeoDispatchRef) -> (row: LeoAgentRow, node: LeoDispatchNode)? {
+    func dispatchTarget(_ ref: LeoDispatchRef) -> (row: LeoAgentRow, node: LeoDispatchNode)? {
         for row in snapshot.rows where row.host == ref.host {
             if let node = dispatchChildren(for: row).first(where: { $0.id == ref.id }), isDispatchSelectable(node.dispatch) {
                 return (row, node)
