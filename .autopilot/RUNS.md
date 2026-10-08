@@ -385,3 +385,6 @@ Blocked: B-143 runner timed out at 3h mid fix round 2; held on autopilot-lane/B-
 Escalated: none (B-142 planned hard from the start).
 Calls: D-361–D-372. Polish filed for next run: B-240–B-250.
 Board sync re-enabled mid-run at Evan's request. autopilot-lane finish skipped 77 landed lanes as dirty (untracked default.profraw / zig-out symlinks), incl. B-139–B-142.
+
+## Run 2026-10-07 (focus: leo PR #226 bridge features) — paused by Evan
+6 shipped, 0 blocked. B-257 8a28dfb7b (dispatch tree, full), B-258 1af002341 (attention reason, full), B-259 ed7558b97 (turn preview + usage, full), B-260 928f15569 (current tool, full), B-261 bf8e5b9f4 (compaction indicator, full), B-262 2a1ccd4e5 (control bar + prompt box, full). Calls D-374–D-421. Self-filed: B-268 bug; ideas B-263–B-267; 8 polish dropped over cap. B-051 paused mid-reproduction, lane left unlanded for next run. B-261 lane history carries a 2.2 MB default.profraw blob (removed before landing). Landed lanes B-260–B-262 not removed by finish (dirty: profraw/zig-out).

@@ -1822,6 +1822,7 @@ Note: the depth indent and ↳ glyph are low-contrast and subtle; a larger step 
 Source: autopilot polish (B-257)
 
 ## B-268 · Same-state needs_input with a newer revision re-notifies   [ready (next run)]
+Issue: #262
 Type: bug
 Report: Same-state needs_input with a newer revision re-notifies — leo 01be9b40 bumps the attention revision when outstanding subagent/dispatch counts change, so one prompt can notify again and bring back an acknowledged Dock count (acknowledged[agent] keeps the old revision, so a hook→bridge reason refinement can also restore it); violates principle 2 (calm)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.

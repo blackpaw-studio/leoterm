@@ -1,4 +1,4 @@
-Status: running
+Status: finished
 Started: 2026-10-07T16:40:34Z
 Budget: 20 items, until 2026-10-08T04:40:34Z
 Digested-through: 5
@@ -180,3 +180,4 @@ Finished 5: B-261 landed bf8e5b9f40a6fec1162a3db210f4d8c06cfcecdf · shot /Users
 - B-261 landed bf8e5b9f4: 'Compacting context' line from agent_compaction events, cleared on end/failed/gap/stop; context % refreshed from /state; suite 2207 green; 0 fix rounds. Note: lane history carries a 2.2 MB macos/default.profraw blob (added 65f17bdd6, untracked 764ca502e); not rewritten (Never list).
 Finished 6: B-262 landed 2a1ccd4e5f3d3efd9bfc750c0e50e70b410f4959 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-262-8.png
 - B-262 landed 2a1ccd4e5: bottom control bar (prompt field + Interrupt/Compact/Clear…), Agents menu items + shortcuts, gated on hello agent_control; 401/403 latches a denial with Retry; live send verified on autopilot-scratch only; suite 2253 green; 2 fix rounds.
+- Paused by Evan at 00:19Z: B-051 runner stopped during reproduction (no commits; lane clean); verify lock released; autopilot-scratch stopped. Lane left unlanded (State: building) for the next run.
