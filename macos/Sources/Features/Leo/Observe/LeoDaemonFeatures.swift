@@ -26,18 +26,28 @@ struct LeoDaemonFeatures: Equatable, Sendable {
 
     func contains(_ feature: Feature) -> Bool { features.contains(feature) }
 
-    /// These features as they apply to a command aimed at `host`. They were
-    /// advertised by one daemon (`advertisedBy`, the connected host), so a
-    /// command for any other host, whose leo may be older, gets none.
-    func applying(to host: LeoHostID, advertisedBy knownHost: LeoHostID?) -> LeoDaemonFeatures {
-        host == knownHost ? self : .none
-    }
-
     /// The `agent attach` arguments that ask the daemon to put this viewer's
     /// dispatch subagents in the background (leo >= 0.41), since the sidebar
     /// shows them as rows. Empty on a daemon that doesn't advertise it, so
     /// the command stays as it was.
     var attachPlacementArguments: [String] {
         contains(.attachDispatchPlacement) ? ["--dispatch-placement", "background"] : []
+    }
+}
+
+/// Features stamped with the host whose daemon advertised them. The stamp
+/// travels with the features from the feed connection that received the
+/// hello, so a consumer never has to guess which host they came from (the
+/// selection can change before the feed's reset lands).
+struct LeoHostFeatures: Equatable, Sendable {
+    static let none = LeoHostFeatures(host: nil, features: .none)
+
+    let host: LeoHostID?
+    let features: LeoDaemonFeatures
+
+    /// These features as they apply to a command aimed at `target`. Another
+    /// host's leo may be older, so it gets none.
+    func applying(to target: LeoHostID) -> LeoDaemonFeatures {
+        target == host ? features : .none
     }
 }

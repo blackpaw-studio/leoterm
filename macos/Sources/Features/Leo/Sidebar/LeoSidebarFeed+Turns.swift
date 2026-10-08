@@ -9,9 +9,11 @@ import Foundation
 /// whose `usage` is what rows show.
 extension LeoSidebarFeed {
     func receiveFeatures(bootID: String?, features: [String]) {
-        let advertised = LeoDaemonFeatures(features)
-        let featuresChanged = advertised != daemonFeatures
-        daemonFeatures = advertised
+        // Only the current connection's events reach here (`receive(_:generation:)`
+        // drops the rest), so `connectionHost` is the host that sent this hello.
+        let advertised = LeoHostFeatures(host: connectionHost, features: LeoDaemonFeatures(features))
+        let featuresChanged = advertised != hostFeatures
+        hostFeatures = advertised
         // The /state baseline can land before the first hello; the features
         // alone decide what the rows already hold may show, so repaint.
         let before = turnPreviews
@@ -46,7 +48,7 @@ extension LeoSidebarFeed {
     /// the next hello restates them.
     func resetTurns() {
         turnPreviews = .empty
-        daemonFeatures = .none
+        hostFeatures = .none
     }
 
     private func updatingTurns(_ change: (LeoTurnPreviews) -> LeoTurnPreviews) {
