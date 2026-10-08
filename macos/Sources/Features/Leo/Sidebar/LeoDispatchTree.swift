@@ -10,7 +10,7 @@ struct LeoDispatchNode: Equatable, Sendable, Identifiable {
 }
 
 /// The selected host's live dispatches, nested for the sidebar (B-257).
-/// Pure value: the `/state` baseline replaces it, `dispatch_changed`
+/// Pure value: the `/state` baseline reconciles it, `dispatch_changed`
 /// upserts into it, and a terminal status or `ended_at` removes a record
 /// at once (no lingering). Ids that ended live are remembered for the
 /// daemon's lifetime (capped), so a baseline taken before the end can't
@@ -43,8 +43,11 @@ struct LeoDispatchTree: Equatable, Sendable {
 
     /// Replaces every record with `dispatches`' live ones, minus any id
     /// that already ended. `mark` is `self.mark` read when the fetch
-    /// started: a record upserted live after it is newer than the
-    /// baseline, so it stays as it is.
+    /// started: a record the daemon reported live after it is newer than
+    /// the baseline, so it stays as it is. A record the fetch began after
+    /// the last report of is confirmed stale and goes if the baseline
+    /// omits it. A dropped connection never calls this: the last-known
+    /// records stay until the reconnect's baseline reconciles them.
     /// Returns whether the records changed.
     @discardableResult
     mutating func applyBaseline(_ dispatches: [LeoDispatch], since mark: Int? = nil) -> Bool {
@@ -70,11 +73,15 @@ struct LeoDispatchTree: Equatable, Sendable {
             upsertMarks[dispatch.id] = nil
             return records.removeValue(forKey: dispatch.id) != nil
         }
-        guard records[dispatch.id] != dispatch else { return false }
         guard records[dispatch.id] != nil || records.count < Self.recordCap else { return false }
+        // Every live report counts, changed or not: an identical republish
+        // that lands while a `/state` fetch is in flight proves the record
+        // is live after that fetch began, so a baseline omitting it is the
+        // stale one.
         mark += 1
-        records[dispatch.id] = dispatch
         upsertMarks[dispatch.id] = mark
+        guard records[dispatch.id] != dispatch else { return false }
+        records[dispatch.id] = dispatch
         return true
     }
 

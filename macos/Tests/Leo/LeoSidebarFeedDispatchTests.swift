@@ -57,14 +57,16 @@ struct LeoSidebarFeedDispatchTests {
         await harness.stop()
     }
 
-    @Test func disconnectingHidesChildren() async throws {
+    /// A drop must not blank the nested rows: the last-known ones stay
+    /// until a reconnect's baseline reconciles them.
+    @Test func disconnectingKeepsTheLastKnownChildren() async throws {
         let harness = DispatchHarness(dispatches: [LeoDispatch(id: "d1", status: "running", callerAgent: "alpha")])
         await harness.start()
         await harness.activity.send(Self.treeHello)
         try await harness.pump { Self.ids($0) == ["d1:0"] }
         await harness.activity.send(.disconnected(reason: "gone"))
         try await harness.pump { $0.connectivity.isDisconnected }
-        #expect(await harness.recorder.last?.dispatchChildren.isEmpty == true)
+        #expect(Self.ids(await harness.recorder.last!) == ["d1:0"])
         await harness.stop()
     }
 

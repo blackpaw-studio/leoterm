@@ -103,6 +103,41 @@ struct LeoDispatchTreeTests {
         #expect(ids(tree.children(of: "alpha")) == ["d3"], "nothing changed since this one started")
     }
 
+    /// The daemon republishes a live record every second. One that lands
+    /// while `/state` is in flight proves the record is live as of after the
+    /// fetch started, so a baseline that omits it must not drop it (it would
+    /// come back on the next republish: a flicker).
+    @Test func aBaselineRacingARepublishOfAnUnchangedRecordKeepsIt() {
+        var tree = enabledTree([dispatch("d1")])
+        let mark = tree.mark
+        let changed = tree.upsert(dispatch("d1"))
+        #expect(!changed, "an identical republish is not a visible change")
+        tree.applyBaseline([], since: mark)
+        #expect(ids(tree.children(of: "alpha")) == ["d1"])
+        tree.applyBaseline([], since: tree.mark)
+        #expect(tree.children(of: "alpha").isEmpty, "a fetch that began after the last confirmation does drop it")
+    }
+
+    /// A drop (no baseline at all) must not blank the tree: the next
+    /// baseline, fetched after the reconnect, reconciles the stale rows.
+    @Test func aReconnectBaselineReconcilesTheLastKnownRows() {
+        var tree = enabledTree([dispatch("d1"), dispatch("d2")])
+        let mark = tree.mark
+        #expect(ids(tree.children(of: "alpha")) == ["d1", "d2"], "last-known rows survive the drop")
+        tree.applyBaseline([dispatch("d2"), dispatch("d3")], since: mark)
+        #expect(ids(tree.children(of: "alpha")) == ["d2", "d3"])
+    }
+
+    @Test func anEndedIDStaysGoneThroughAReconnectBaselineAndLateRepublish() {
+        var tree = enabledTree([dispatch("d1")])
+        tree.upsert(dispatch("d1", status: "done"))
+        let mark = tree.mark
+        tree.applyBaseline([dispatch("d1")], since: mark)
+        let changed = tree.upsert(dispatch("d1"))
+        #expect(!changed)
+        #expect(tree.children(of: "alpha").isEmpty)
+    }
+
     @Test func anOrphanShowsUnderItsCallersRowOrNowhere() {
         let tree = enabledTree([
             dispatch("d2", caller: "dispatch.d9", parent: "d9"),

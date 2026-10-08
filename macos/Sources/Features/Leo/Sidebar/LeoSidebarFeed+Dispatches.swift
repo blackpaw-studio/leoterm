@@ -31,12 +31,6 @@ extension LeoSidebarFeed {
         updatingDispatches { $0.applyBaseline(dispatches, since: mark) }
     }
 
-    /// The connection dropped: its records are stale, but ids that ended
-    /// stay remembered for the same daemon (a Retry's baseline follows).
-    func clearDispatchRecords() {
-        dispatchTree.applyBaseline([])
-    }
-
     /// Host switch or stop: nothing carries over.
     func resetDispatches() {
         dispatchTree.reset()
@@ -56,13 +50,14 @@ extension LeoSidebarFeed {
 }
 
 extension LeoSidebarSnapshot {
-    /// Each row's nested dispatches from `tree`. None while disconnected:
-    /// the rows are stale, so is what they were running.
+    /// Each row's nested dispatches from `tree`. While disconnected they
+    /// are the last-known ones (a drop must not blank them); the Retry's
+    /// baseline reconciles them.
     func overlayingDispatches(_ tree: LeoDispatchTree) -> LeoSidebarSnapshot {
         LeoSidebarSnapshot(
             rows: rows, connectivity: connectivity, generation: generation,
             listRefreshSucceeded: listRefreshSucceeded, attentionCount: attentionCount,
-            dispatchChildren: connectivity.isDisconnected ? [:] : tree.projection(for: rows.map(\.name))
+            dispatchChildren: tree.projection(for: rows.map(\.name))
         )
     }
 }
