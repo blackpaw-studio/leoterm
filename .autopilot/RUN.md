@@ -61,3 +61,5 @@ Lane: B-235
 - B-051 runner dispatched (leo implement d-33d34a2ad44e, pane ap-B-051) at 2026-10-08T21:30:07Z.
 - B-051 blocked: root cause daemon-side (turn.complete ignores pending.tasks; ~89 s Finished while a background Bash ran). Spec + trace in .autopilot/bugs/B-051/. Shelved on autopilot-shelved/B-051 (no commits).
 Finished 1: B-051 blocked
+- B-235 landed 12530adbb: SFTP subsystem-rejection matched on raw stderr bytes per line (exact ASCII, one trailing CR stripped); regression test with invalid UTF-8 suffix; suite 2341 green (1 unrelated focus flake on first run); not visually verified (needs a remote host). Self-filed bug B-269.
+Finished 2: B-235 landed 12530adbba7841dc125adc556417297c532f7899 · not visually verified
