@@ -430,8 +430,8 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
 
     private func closeEndedDispatch(_ handle: AttachmentHandle, of identity: LeoAgentIdentity) {
         // A failed attach says why in a brief error, not on a lingering
-        // surface; a clean exit (the dispatch closed) or a signalled
-        // client says nothing.
+        // surface; a clean exit (the dispatch closed) or a client told to
+        // terminate (SIGHUP/SIGINT/SIGPIPE/SIGTERM) says nothing.
         if let exit = host.exitReport(for: handle), exit.isFailure {
             report(LeoAttachError(identity: identity, kind: .dispatchAttachFailed(code: exit.code, detail: exit.detail)))
         }
