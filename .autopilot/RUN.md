@@ -37,6 +37,9 @@ Lane: B-051
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-10-08T21:30:07Z
+  Call: Don't decode `outstanding` or add a subtitle count — D-377, VISION 2 "never invent a state"
+  Call: No app commits on the daemon-side branch (existing LeoDispatchHoldIntegrationTests already guard that the app mirrors a held `working`) — AUTONOMY test infra
+  Call: Used existing `autopilot-scratch` (not deleted, stopped afterwards) — AUTONOMY real-agent rule
 
 ## Progress
 - B-051 runner dispatched (leo implement d-33d34a2ad44e, pane ap-B-051) at 2026-10-08T21:30:07Z.
