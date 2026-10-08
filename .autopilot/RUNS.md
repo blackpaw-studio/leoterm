@@ -388,3 +388,30 @@ Board sync re-enabled mid-run at Evan's request. autopilot-lane finish skipped 7
 
 ## Run 2026-10-07 (focus: leo PR #226 bridge features) — paused by Evan
 6 shipped, 0 blocked. B-257 8a28dfb7b (dispatch tree, full), B-258 1af002341 (attention reason, full), B-259 ed7558b97 (turn preview + usage, full), B-260 928f15569 (current tool, full), B-261 bf8e5b9f4 (compaction indicator, full), B-262 2a1ccd4e5 (control bar + prompt box, full). Calls D-374–D-421. Self-filed: B-268 bug; ideas B-263–B-267; 8 polish dropped over cap. B-051 paused mid-reproduction, lane left unlanded for next run. B-261 lane history carries a 2.2 MB default.profraw blob (removed before landing). Landed lanes B-260–B-262 not removed by finish (dirty: profraw/zig-out).
+
+## Run 2026-10-08T21:26:35Z
+🛠 leoterm autopilot — 3 shipped, 1 blocked (ended early by Evan after B-204)
+Shipped
+• B-235 SFTP subsystem-rejection line matched on raw stderr bytes, so invalid UTF-8 later in the output no longer hides the fallback (not visually verified: needs a remote host) · full
+• B-144 Launch-placeholder test cleanup closes windows awaiting presentation; restore folded into one helper (not visually verified: test-only) · light
+• B-204 Rows-focus flakes fixed in the tests: waits follow moveFocus's 50 ms retry and use turns instead of wall-clock deadlines; 21/110 → 0/400 failures (not visually verified: test-only) · full
+• B-204 built before B-145 (D-426: the flake hit both earlier verifies)
+Calls I made — reply "veto D-0xx" to undo
+• D-422–D-425 B-235: per-line byte-level match, exact ASCII, one trailing CR stripped; detail and status-127 paths untouched
+• D-426 B-204 pulled ahead of the polish queue
+• D-427–D-429 B-204: flakes are test infra, app unchanged; B-171/B-172 not causes; `eventually` vs `turns` doc comment
+Needs you — reply "B-0xx: <answer>"
+• B-051 shelved on autopilot-shelved/B-051 — daemon-side: turn.complete ignores pending.tasks (~89 s "Finished" while a background Bash ran). Approve sending the contract change to leo? I'd pick: hold `working` on non-empty pending.tasks, including dev servers and watchers. Also: unlock a live background-subagent repro on autopilot-scratch? Spec + trace in .autopilot/bugs/B-051/
+• B-204 integrate was refused by the auto-mode classifier; the orchestrator ran it (Evan approved)
+• 53 landed lanes not removed: untracked scratchpad/ (54), default.profraw (7), .build/ (1). Delete them, or gitignore scratchpad/ and *.profraw so finish can clean up
+• Unlanded lanes left: B-233 (item done, no lane block), B-058 and B-143 held
+• Calls in shelved work, not logged (B-051): don't decode `outstanding`; no app commits on the daemon-side branch; used autopilot-scratch
+Ideas parked — "/feature B-0xx" to spec one
+• B-058 Splits inside the content area · B-180 Terminals row context menu shows key equivalents · B-181 Rename Terminal sheet hangs from the title bar · B-182 Clearing a custom name after restore restores the live title · B-184 Drive row-menu Split in GUI verification · +28 more
+Self-filed
+• B-269 bug (from B-235) — invalid UTF-8 SFTP stderr hides the missing-server message
+Queued for next run: dispatch placement not applied to rows attached before hello; dispatch rows unclickable when the viewer sits in the parent's session; live dispatch placement (leo v0.42.0 `dispatch_placement_live`)
+Next up: B-145, B-146, B-148
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: see .autopilot/BOARD.md
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot

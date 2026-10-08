@@ -1891,6 +1891,7 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: autopilot bug (B-258)
 
 ## B-269 · Invalid UTF-8 SFTP stderr hides the missing-server message   [ready (next run)]
+Issue: #263
 Type: bug
 Report: Invalid UTF-8 SFTP stderr hides the missing-server message — when server stderr isn't valid UTF-8, the displayed detail reads "<N bytes>" and the status-127 missing-server marker match is hidden, so the "no supported SFTP server" message is missed (VISION 5: failures shown plainly).
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
