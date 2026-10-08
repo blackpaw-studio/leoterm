@@ -80,7 +80,7 @@ extension LeoSidebarFeed {
             mergeSurfacedFiles(from: observed.agents)
             // An older snapshot is rejected whole, dispatches included.
             if applyMetadata(observed.agents, request: request, generation: generation) {
-                mergeDispatchSnapshot(observed.dispatches, since: dispatchMark)
+                mergeDispatchSnapshot(observed.dispatches, since: dispatchMark, atSeq: observed.seq)
             }
         }
         if displayedSnapshot != shown { emit() }

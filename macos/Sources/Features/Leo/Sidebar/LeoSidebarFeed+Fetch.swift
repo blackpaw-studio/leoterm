@@ -67,7 +67,7 @@ extension LeoSidebarFeed {
         // Dispatches follow the same request order as metadata: a baseline
         // older than a snapshot already applied must not touch them.
         if applyMetadata(state, request: metadataRequest, generation: generation) {
-            applyDispatchBaseline(observed.dispatches, since: dispatchMark)
+            applyDispatchBaseline(observed.dispatches, since: dispatchMark, atSeq: observed.seq)
         }
         mergeSurfacedFiles(from: state)
         // `state` is the authoritative baseline as of when the fetch

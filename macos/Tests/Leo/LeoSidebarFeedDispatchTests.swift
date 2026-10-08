@@ -223,6 +223,59 @@ struct LeoSidebarFeedDispatchTests {
         await harness.stop()
     }
 
+    private static let seqHello = LeoObserveEvent.hello(
+        seq: 1, at: nil, version: "1", serverTime: nil, bootID: "boot-a", features: ["dispatch_tree", "state_seq"]
+    )
+
+    /// `state_seq`: a hello re-fetches `/state` even on a connect, closing
+    /// the create-between-GET-and-subscribe gap.
+    @Test func aHelloAdvertisingStateSeqRefetchesState() async throws {
+        let harness = DispatchHarness(dispatches: [])
+        await harness.start()
+        await harness.activity.send(.connected)
+        try await harness.pump { $0.rows.first?.name == "alpha" }
+        await harness.settle()
+        let before = await harness.activity.fetchCount
+        await harness.activity.send(Self.seqHello)
+        try await until {
+            await harness.clock.advanceAll()
+            return await harness.activity.fetchCount > before
+        }
+        await harness.stop()
+    }
+
+    @Test func aHelloWithoutStateSeqDoesNotRefetchOnConnect() async throws {
+        let harness = DispatchHarness(dispatches: [])
+        await harness.start()
+        await harness.activity.send(.connected)
+        try await harness.pump { $0.rows.first?.name == "alpha" }
+        await harness.settle()
+        let before = await harness.activity.fetchCount
+        await harness.activity.send(Self.treeHello)
+        await harness.settle()
+        #expect(await harness.activity.fetchCount == before)
+        await harness.stop()
+    }
+
+    @Test func aBaselineOlderThanALiveEventKeepsTheRecord() async throws {
+        let harness = DispatchHarness(dispatches: [])
+        await harness.start()
+        await harness.activity.send(Self.seqHello)
+        try await harness.pump { $0.rows.first?.name == "alpha" }
+        await harness.activity.send(.dispatchChanged(seq: 10, dispatch: LeoDispatch(id: "d1", status: "running", callerAgent: "alpha")))
+        try await harness.pump { Self.ids($0) == ["d1:0"] }
+        await harness.settle()
+
+        let feed = harness.feed
+        let agents = await harness.activity.fetchState().agents
+        await feed.applyActivityState(
+            LeoObservedState(agents: agents, dispatches: [], seq: 5),
+            generation: await feed.snapshot.generation, metadataRequest: await feed.nextMetadataRequest(), dispatchMark: await feed.dispatchTree.mark
+        )
+        #expect(await feed.dispatchTree.children(of: "alpha").map(\.id) == ["d1"])
+        await harness.stop()
+    }
+
     private static func ids(_ snapshot: LeoSidebarSnapshot) -> [String] {
         (snapshot.dispatchChildren["alpha"] ?? []).map { "\($0.id):\($0.depth)" }
     }

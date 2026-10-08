@@ -10,25 +10,37 @@ extension LeoSidebarFeed {
     func receiveDispatchHello(bootID: String?, features: [String]) {
         updatingDispatches {
             let rebooted = $0.observeBoot(bootID)
-            let toggled = $0.setEnabled(LeoDaemonFeatures(features).contains(.dispatchTree))
+            let advertised = LeoDaemonFeatures(features)
+            let toggled = $0.setEnabled(advertised.contains(.dispatchTree))
+            $0.setStateSeq(advertised.contains(.stateSeq))
             return rebooted || toggled
         }
     }
 
-    func receiveDispatch(_ dispatch: LeoDispatch) {
-        updatingDispatches { $0.upsert(dispatch) }
+    func receiveDispatch(_ dispatch: LeoDispatch, seq: Int? = nil) {
+        updatingDispatches { $0.upsert(dispatch, seq: seq) }
+    }
+
+    /// `state_seq`: a hello is the moment the stream is subscribed, so a
+    /// `/state` taken now covers everything created before it -- the
+    /// create-between-GET-and-subscribe gap. Baselines apply in seq order,
+    /// so an extra one is never wrong. (A hello that isn't a connect's
+    /// already recovers with a full refetch.)
+    func refetchStateAfterHello() {
+        guard daemonFeatures.contains(.stateSeq) else { return }
+        requestMetadataRefresh()
     }
 
     /// A `/state` baseline; the caller emits. `mark` is `dispatchTree.mark`
     /// read when its fetch started.
-    func applyDispatchBaseline(_ dispatches: [LeoDispatch], since mark: Int) {
-        dispatchTree.applyBaseline(dispatches, since: mark)
+    func applyDispatchBaseline(_ dispatches: [LeoDispatch], since mark: Int, atSeq seq: Int? = nil) {
+        dispatchTree.applyBaseline(dispatches, since: mark, atSeq: seq)
     }
 
     /// A `/state` that isn't the activity baseline (a metadata snapshot):
     /// applied the same way, emitting only if what's shown changed.
-    func mergeDispatchSnapshot(_ dispatches: [LeoDispatch], since mark: Int) {
-        updatingDispatches { $0.applyBaseline(dispatches, since: mark) }
+    func mergeDispatchSnapshot(_ dispatches: [LeoDispatch], since mark: Int, atSeq seq: Int? = nil) {
+        updatingDispatches { $0.applyBaseline(dispatches, since: mark, atSeq: seq) }
     }
 
     /// Host switch or stop: nothing carries over.

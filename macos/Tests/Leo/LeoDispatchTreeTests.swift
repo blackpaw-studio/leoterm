@@ -138,6 +138,59 @@ struct LeoDispatchTreeTests {
         #expect(tree.children(of: "alpha").isEmpty)
     }
 
+    // MARK: state_seq
+
+    private func seqTree(_ enabled: Bool = true) -> LeoDispatchTree {
+        var tree = LeoDispatchTree()
+        tree.setEnabled(true)
+        tree.setStateSeq(enabled)
+        return tree
+    }
+
+    /// The snapshot reflects only events up to its seq: a record whose last
+    /// event is newer is not stale just because the snapshot omits it.
+    @Test func aBaselineOlderThanARecordsLastEventKeepsIt() {
+        var tree = seqTree()
+        tree.upsert(dispatch("d1"), seq: 10)
+        tree.applyBaseline([], since: tree.mark, atSeq: 5)
+        #expect(ids(tree.children(of: "alpha")) == ["d1"])
+        tree.applyBaseline([], since: tree.mark, atSeq: 10)
+        #expect(tree.children(of: "alpha").isEmpty, "a snapshot that covers its last event is authoritative")
+    }
+
+    @Test func anEventTheBaselineAlreadyReflectsIsIgnored() {
+        var tree = seqTree()
+        tree.applyBaseline([dispatch("d1")], atSeq: 20)
+        let stale = tree.upsert(dispatch("d1", status: "idle"), seq: 15)
+        #expect(!stale)
+        #expect(tree.children(of: "alpha").first?.dispatch.status == "running")
+        let fresh = tree.upsert(dispatch("d1", status: "idle"), seq: 21)
+        #expect(fresh)
+        #expect(tree.children(of: "alpha").first?.dispatch.status == "idle")
+    }
+
+    @Test func anOlderEventCannotCreateARecordTheBaselineLacks() {
+        var tree = seqTree()
+        tree.applyBaseline([], atSeq: 20)
+        let created = tree.upsert(dispatch("d9"), seq: 15)
+        #expect(!created)
+        #expect(tree.children(of: "alpha").isEmpty)
+    }
+
+    @Test func aNewerRecordSurvivesAnOlderBaselineThatHasItDifferently() {
+        var tree = seqTree()
+        tree.upsert(dispatch("d1", status: "idle"), seq: 30)
+        tree.applyBaseline([dispatch("d1")], atSeq: 25)
+        #expect(tree.children(of: "alpha").first?.dispatch.status == "idle")
+    }
+
+    @Test func withoutTheFeatureSeqsAreIgnoredAndMarksDecide() {
+        var tree = seqTree(false)
+        tree.upsert(dispatch("d1"), seq: 10)
+        tree.applyBaseline([], since: tree.mark, atSeq: 5)
+        #expect(tree.children(of: "alpha").isEmpty)
+    }
+
     @Test func anOrphanShowsUnderItsCallersRowOrNowhere() {
         let tree = enabledTree([
             dispatch("d2", caller: "dispatch.d9", parent: "d9"),

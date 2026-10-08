@@ -33,6 +33,11 @@ struct LeoDispatchTree: Equatable, Sendable {
     /// Bumped by every live upsert; `upsertMarks` holds each record's.
     private(set) var mark = 0
     private var upsertMarks: [String: Int] = [:]
+    /// `state_seq`: the daemon event seq each record last reflects (a live
+    /// event's, or the baseline's `meta.seq`), and the newest baseline seq
+    /// applied.
+    private var recordSeqs: [String: Int] = [:]
+    private var baselineSeq: Int?
 
     /// Returns whether it changed.
     @discardableResult
@@ -50,39 +55,73 @@ struct LeoDispatchTree: Equatable, Sendable {
     /// records stay until the reconnect's baseline reconciles them.
     /// Returns whether the records changed.
     @discardableResult
-    mutating func applyBaseline(_ dispatches: [LeoDispatch], since mark: Int? = nil) -> Bool {
+    mutating func applyBaseline(_ dispatches: [LeoDispatch], since mark: Int? = nil, atSeq seq: Int? = nil) -> Bool {
         let previous = records
         var updated = Dictionary(
             dispatches.filter { $0.isLive && !endedSet.contains($0.id) }.prefix(Self.recordCap).map { ($0.id, $0) },
             uniquingKeysWith: { _, latest in latest }
         )
-        if let mark {
-            for (id, record) in records where (upsertMarks[id] ?? 0) > mark { updated[id] = record }
+        var kept: Set<String> = []
+        if usesStateSeq, let seq {
+            // The snapshot reflects every event up to `seq` (and maybe
+            // later ones): a record whose last event is newer stays.
+            if let baselineSeq, seq < baselineSeq { return false }
+            for (id, record) in records where (recordSeqs[id] ?? 0) > seq {
+                updated[id] = record
+                kept.insert(id)
+            }
+            baselineSeq = seq
+        } else if let mark {
+            for (id, record) in records where (upsertMarks[id] ?? 0) > mark {
+                updated[id] = record
+                kept.insert(id)
+            }
         }
         records = updated
         upsertMarks = upsertMarks.filter { updated[$0.key] != nil }
+        if usesStateSeq, let seq {
+            recordSeqs = updated.keys.reduce(into: [:]) { $0[$1] = kept.contains($1) ? recordSeqs[$1] : seq }
+        } else {
+            recordSeqs = recordSeqs.filter { updated[$0.key] != nil }
+        }
         return records != previous
     }
 
+    private(set) var usesStateSeq = false
+
+    /// Whether `/state`'s `meta.seq` orders baselines (`state_seq`).
+    mutating func setStateSeq(_ enabled: Bool) { usesStateSeq = enabled }
+
     /// Applies one live record. Returns whether the records changed.
     @discardableResult
-    mutating func upsert(_ dispatch: LeoDispatch) -> Bool {
+    mutating func upsert(_ dispatch: LeoDispatch, seq: Int? = nil) -> Bool {
         guard !endedSet.contains(dispatch.id) else { return false }
         guard dispatch.isLive else {
             rememberEnded(dispatch.id)
             upsertMarks[dispatch.id] = nil
+            recordSeqs[dispatch.id] = nil
             return records.removeValue(forKey: dispatch.id) != nil
         }
         guard records[dispatch.id] != nil || records.count < Self.recordCap else { return false }
+        if usesStateSeq, let seq, isReflectedInState(dispatch.id, bySeq: seq) { return false }
         // Every live report counts, changed or not: an identical republish
         // that lands while a `/state` fetch is in flight proves the record
         // is live after that fetch began, so a baseline omitting it is the
         // stale one.
         mark += 1
         upsertMarks[dispatch.id] = mark
+        if usesStateSeq, let seq { recordSeqs[dispatch.id] = seq }
         guard records[dispatch.id] != dispatch else { return false }
         records[dispatch.id] = dispatch
         return true
+    }
+
+    /// Whether an event at `seq` is already in what the record (or, for an
+    /// unknown record, the last baseline) reflects.
+    private func isReflectedInState(_ id: String, bySeq seq: Int) -> Bool {
+        if let recorded = recordSeqs[id] { return seq <= recorded }
+        guard records[id] == nil, let baselineSeq else { return false }
+        return seq <= baselineSeq
     }
 
     /// Notes the daemon's boot id. A different daemon restarts its ids'
@@ -95,6 +134,8 @@ struct LeoDispatchTree: Equatable, Sendable {
         guard let bootID, bootID != id else { return false }
         records = [:]
         upsertMarks = [:]
+        recordSeqs = [:]
+        baselineSeq = nil
         endedIDs = []
         endedSet = []
         return true
