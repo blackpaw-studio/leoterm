@@ -137,7 +137,7 @@ Lane: B-262
   Branch: autopilot-lane/B-262
   Base: 25896e3f350ee6aeb20d9aa65e9f165661958933
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 2
   Wip: none
   Reverifies: 0
