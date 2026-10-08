@@ -1,6 +1,6 @@
 Status: running
 Started: 2026-10-08T21:26:35Z
-Budget: 20 items, until 2026-10-09T09:26:35Z
+Budget: 4 items, until 2026-10-09T09:26:35Z
 Digested-through: 0
 Filed: 1/3 bugs, 0/5 ideas
 Self-filed: B-235 → B-269 bug — Invalid UTF-8 SFTP stderr hides the missing-server message
@@ -68,6 +68,17 @@ Lane: B-144
   Reviewed-tip: 395ef988e1689c2d8709d06ffda96ebd6c7b52c4
   Dispatched: 2026-10-08T22:10:41Z
 
+Lane: B-204
+  Branch: autopilot-lane/B-204
+  Base: 22f7b625939769057b893d108ca3820148a3d3c9
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-08T22:36:40Z
+
 ## Progress
 - B-051 runner dispatched (leo implement d-33d34a2ad44e, pane ap-B-051) at 2026-10-08T21:30:07Z.
 - B-051 blocked: root cause daemon-side (turn.complete ignores pending.tasks; ~89 s Finished while a background Bash ran). Spec + trace in .autopilot/bugs/B-051/. Shelved on autopilot-shelved/B-051 (no commits).
@@ -76,3 +87,5 @@ Finished 1: B-051 blocked
 Finished 2: B-235 landed 12530adbba7841dc125adc556417297c532f7899 · not visually verified
 - B-144 landed 8b7625f4d: launch-placeholder test cleanup also closes windows awaiting presentation; restore folded into one helper; suite 2342 green; light, 0 fix rounds. Rows-focus flake seen again (covered by B-204).
 Finished 3: B-144 landed 8b7625f4d350c028e1abeafae4e705d8eb310a28 · not visually verified
+- B-204 built before B-145 (D-426: flake hit both verifies this run).
+- Evan (22:48Z): end this run after the current item (B-204); budget cut to 4 items. Queued bug: dispatch placement not applied to rows attached before hello (next run).
