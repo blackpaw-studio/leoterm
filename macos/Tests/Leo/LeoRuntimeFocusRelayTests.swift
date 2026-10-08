@@ -36,7 +36,7 @@ private actor Delivered {
     func append(_ value: LeoAgentRow.ID?) { values.append(value) }
 }
 
-private struct EmptyDaemon: LeoDaemonClient {
+struct EmptyDaemon: LeoDaemonClient {
     func listAgents() async throws -> [LeoAgent] { [] }
     func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent { throw LeoDaemonError.transport("unused") }
     func start(_ name: String) async throws { throw LeoDaemonError.transport("unused") }

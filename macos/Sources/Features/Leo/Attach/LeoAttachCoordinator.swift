@@ -183,7 +183,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         }
     }
 
-    private func attachCommand(for identity: LeoAgentIdentity) -> Result<String, LeoAttachError> {
+    func attachCommand(for identity: LeoAgentIdentity) -> Result<String, LeoAttachError> {
         do {
             return .success(identity.host == .local
                 ? try LeoAttachCommand.build(executable: try executable(), identity: identity, features: daemonFeatures(identity.host))
