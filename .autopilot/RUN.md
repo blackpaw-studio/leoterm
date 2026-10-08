@@ -72,12 +72,15 @@ Lane: B-204
   Branch: autopilot-lane/B-204
   Base: 22f7b625939769057b893d108ca3820148a3d3c9
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 3d3a7e19b5b371dafb83965f2e355c356b1e687b
   Dispatched: 2026-10-08T22:36:40Z
+  Call: Classify the rows-focus and close-event flakes as test-infra flakes; app unchanged — AUTONOMY flake fixes/test infra
+  Call: B-171/B-172 are not causes and stay untouched — AUTONOMY ordering within the backlog
+  Call: Doc comment on when to use `eventually` vs `turns` — AUTONOMY test infra
 
 ## Progress
 - B-051 runner dispatched (leo implement d-33d34a2ad44e, pane ap-B-051) at 2026-10-08T21:30:07Z.

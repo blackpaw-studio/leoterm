@@ -893,6 +893,7 @@ Issue: #177
 Why: replace the fixed 1 s sleep with an eventually-poll on firstResponder/focusedSurface (moveFocus retries on asyncAfter timers); a disclosed D-178 exception that could flake under a main-thread stall
 Accept: replace the fixed 1 s sleep with an eventually-poll on firstResponder/focusedSurface (moveFocus retries on asyncAfter timers); a disclosed D-178 exception that could flake under a main-thread stall
 Source: autopilot polish (B-107)
+Note: B-204 (2026-10-08) removed the 1 s pendingFocusMovesLand wait from LeoTerminalRowsIntegrationTests; the same sleep remains at LeoContentFocusTests.swift:88,187 — scope this item to those.
 
 ## B-174 · Close Terminal undo window is only 5 s by default   [ready]
 Issue: #178
