@@ -11,10 +11,16 @@ struct LeoAttachLinkState: Equatable, Sendable {
     /// reflects, so the sidebar can tell a report that was already in
     /// flight when the user selected a row from a newer one.
     let focusReport: Int
+    /// The dispatch whose surface has focus, when one does (B-266).
+    let focusedDispatch: LeoDispatchRef?
 
     static let empty = LeoAttachLinkState(focused: nil, attachCounts: [:])
 
-    init(focused: LeoAgentRow.ID?, attachCounts: [LeoAgentRow.ID: Int], focusReport: Int = 0) {
+    init(
+        focused: LeoAgentRow.ID?, attachCounts: [LeoAgentRow.ID: Int], focusReport: Int = 0,
+        focusedDispatch: LeoDispatchRef? = nil
+    ) {
+        self.focusedDispatch = focusedDispatch
         self.focused = focused
         self.attachCounts = attachCounts
         self.focusReport = focusReport
@@ -28,9 +34,12 @@ struct LeoAttachLinkState: Equatable, Sendable {
         inactive: Set<AttachmentHandle>,
         focusReport: Int
     ) {
-        self.focused = focused.map(Self.rowID)
+        // A dispatch surface maps to its dispatch row, never an agent row.
+        self.focused = focused.flatMap { $0.dispatchID == nil ? Self.rowID($0) : nil }
+        focusedDispatch = focused.flatMap { identity in identity.dispatchID.map { LeoDispatchRef(host: identity.host, id: $0) } }
         self.focusReport = focusReport
         attachCounts = handlesByIdentity.reduce(into: [:]) { counts, entry in
+            guard entry.key.dispatchID == nil else { return }
             let live = entry.value.filter { !inactive.contains($0) }.count
             if live > 0 { counts[Self.rowID(entry.key)] = live }
         }

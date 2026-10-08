@@ -12,9 +12,14 @@ extension LeoSidebarModel {
     /// yields) updates the link state but never the selection.
     func receiveAttachLinks(_ links: LeoAttachLinkState) {
         let previousFocus = attachLinks.focused
+        let previousDispatch = attachLinks.focusedDispatch
         attachLinks = links
-        guard links.focused != previousFocus, !isFencedByUserSelection(links) else { return }
-        selectFocusedRow()
+        guard !isFencedByUserSelection(links) else { return }
+        if links.focusedDispatch != previousDispatch, let dispatch = links.focusedDispatch {
+            selectFocusedDispatch(dispatch)
+        } else if links.focused != previousFocus {
+            selectFocusedRow()
+        }
     }
 
     /// Called after a snapshot lands: a focused row that just came into

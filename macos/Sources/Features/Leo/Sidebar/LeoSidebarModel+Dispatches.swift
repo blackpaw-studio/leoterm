@@ -27,6 +27,14 @@ extension LeoSidebarModel {
         return selected.ref
     }
 
+    /// A dispatch selection that is no longer valid (it ended, went
+    /// inert or the connection dropped) falls back to its agent and is
+    /// forgotten, so it can't come back with the dispatch.
+    func clearDispatchSelectionIfInvalid() {
+        guard dispatchSelection != nil, selectedDispatch == nil else { return }
+        dispatchSelection = nil
+    }
+
     /// Selects an agent row and drops any dispatch selection under it.
     func selectAgentRow(_ id: LeoAgentRow.ID) {
         selection = id
@@ -40,6 +48,15 @@ extension LeoSidebarModel {
         selection = target.row.id
         dispatchSelection = LeoDispatchSelection(ref: ref, parent: target.row.id)
         fenceInFlightFocusReports()
+    }
+
+    /// Focus moved onto an open dispatch's surface: its row is selected,
+    /// when it still can be (the focus report is not a user choice, so no
+    /// fence).
+    func selectFocusedDispatch(_ ref: LeoDispatchRef) {
+        guard let target = dispatchTarget(ref) else { return }
+        selection = target.row.id
+        dispatchSelection = LeoDispatchSelection(ref: ref, parent: target.row.id)
     }
 
     /// A click on a dispatch row: it selects, and a click opens it where

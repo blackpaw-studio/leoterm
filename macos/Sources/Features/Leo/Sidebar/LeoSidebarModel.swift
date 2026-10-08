@@ -4,7 +4,14 @@ import Foundation
 @MainActor final class LeoSidebarModel: ObservableObject {
     @Published private(set) var snapshot: LeoSidebarSnapshot
     @Published var query = ""
-    @Published var selection: LeoAgentRow.ID?
+    @Published var selection: LeoAgentRow.ID? {
+        // A dispatch selection rides on its parent agent: any other
+        // selection ends it for good, so it can't revive later.
+        didSet {
+            guard let dispatch = dispatchSelection, dispatch.parent != selection else { return }
+            dispatchSelection = nil
+        }
+    }
     /// The dispatch row the user selected (B-266); see `+Dispatches`.
     @Published var dispatchSelection: LeoDispatchSelection?
     @Published private(set) var rowErrors: [LeoAgentRow.ID: String] = [:]
@@ -127,6 +134,7 @@ import Foundation
             rowErrorCodes = [:]
         }
         resolveStartPrompts()
+        clearDispatchSelectionIfInvalid()
         guard let selection, !value.rows.contains(where: { $0.id == selection }) else { return }
         self.selection = nil
     }

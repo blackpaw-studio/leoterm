@@ -426,6 +426,15 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     private func closeEndedDispatch(_ handle: AttachmentHandle) {
         let wasShown = host.isShown(handle)
         host.closeTerminal(handle)
+        // `closeTerminal` leaves a surface hidden in a live pool: let that
+        // go too, so no exited dispatch lingers in a pooled split.
+        if host.isOpen(handle) { host.release(handle) }
+        if host.isOpen(handle) {
+            // Still there: keep its identity (not live) until the host's
+            // `.closed` removes it, rather than strand an unknown surface.
+            inactive.insert(handle)
+            return
+        }
         remove(handle)
         guard wasShown else { return }
         contentReplaced(in: handle.windowID)

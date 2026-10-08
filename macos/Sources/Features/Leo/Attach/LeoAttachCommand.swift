@@ -5,9 +5,10 @@ struct LeoAgentIdentity: Hashable, Sendable {
     let name: String
     let workspace: String?
     let repo: String?
-    /// Set for a dispatch subagent (B-266): `name` is then the reserved
-    /// `dispatch.<id>` form, so it can never equal a real agent's name
-    /// (identity stays host + name), and `title` is what its tab shows.
+    /// Set for a dispatch subagent (B-266): part of its identity, so no
+    /// agent equals it however it is named. `name` is then `dispatch.<id>`
+    /// (for display paths that only know names), and `title` is what its
+    /// tab shows.
     let dispatchID: String?
     let title: String?
 
@@ -28,8 +29,11 @@ struct LeoAgentIdentity: Hashable, Sendable {
         LeoAgentIdentity(host: host, name: "dispatch.\(id)", dispatchID: id, title: title)
     }
 
-    static func == (lhs: Self, rhs: Self) -> Bool { lhs.host == rhs.host && lhs.name == rhs.name }
-    func hash(into hasher: inout Hasher) { hasher.combine(host); hasher.combine(name) }
+    /// A dispatch is never an agent, whatever either is named.
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.host == rhs.host && lhs.name == rhs.name && lhs.dispatchID == rhs.dispatchID
+    }
+    func hash(into hasher: inout Hasher) { hasher.combine(host); hasher.combine(name); hasher.combine(dispatchID) }
 }
 
 enum LeoAttachCommandError: Error, Equatable, Sendable {

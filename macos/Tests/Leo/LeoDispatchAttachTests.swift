@@ -46,6 +46,14 @@ struct LeoDispatchAttachCommandTests {
     @Test func aDispatchNeverSharesAnAgentRowsIdentity() {
         #expect(LeoAgentIdentity.dispatch(host: .local, id: "d-1", title: "x") != LeoAgentIdentity(host: .local, name: "d-1"))
     }
+
+    /// Uniqueness must not lean on the reserved `dispatch.` name form.
+    @Test func anAgentNamedLikeADispatchIsNotThatDispatch() {
+        let dispatch = LeoAgentIdentity.dispatch(host: .local, id: "d1", title: nil)
+        let lookalike = LeoAgentIdentity(host: .local, name: "dispatch.d1")
+        #expect(dispatch != lookalike)
+        #expect(Set([dispatch, lookalike]).count == 2)
+    }
 }
 
 @MainActor struct LeoDispatchAttachCoordinatorTests {
@@ -101,6 +109,23 @@ struct LeoDispatchAttachCommandTests {
         #expect(host.reborn.isEmpty)
         #expect(coordinator.inactiveHandleCount == 0)
         #expect(coordinator.identity(forSurface: handle.surfaceID) == nil)
+    }
+
+    /// `closeTerminal` leaves a surface hidden in the live pool: the exit
+    /// cleanup must still let it go, not drop its identity and strand it.
+    @Test func aPooledDispatchSurfaceIsLetGoWhenItsProcessExits() async {
+        let host = FakeAttachContentHost()
+        host.closeTerminalLeavesPooledSurfaces = true
+        let coordinator = makeCoordinator(host: host)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        let dispatchHandle = host.handles[0]
+        await coordinator.attach(identity: .init(host: .local, name: "worker"), from: origin, disposition: .content)
+        #expect(host.isHidden(dispatchHandle), "precondition: pooled")
+
+        await host.emitAndWait(.processExited(dispatchHandle))
+
+        #expect(!host.isOpen(dispatchHandle), "no exited dispatch lingers in a pooled split")
+        #expect(host.reborn.isEmpty)
     }
 
     @Test func anAgentsExitStillLeavesItsPlaceholder() async {
@@ -215,6 +240,46 @@ struct LeoDispatchAttachCommandTests {
         #expect(model.selectedDispatch == nil)
         // ... and it stays dropped if the agent is selected again later.
         #expect(model.dispatchSelection == nil)
+    }
+
+    /// A selection that fell back stays fallen back: the dispatch coming
+    /// back on a reconnect must not pull the selection onto it again.
+    @Test func aDispatchSelectionThatFellBackStaysClearedAcrossAReconnect() {
+        let live = dispatch("d1", attachable: true)
+        let model = model(snapshot([live]))
+        model.userSelectedDispatch(ref("d1"))
+        model.receive(snapshot([live], features: [], connectivity: .disconnected(reason: "gone", isRetrying: false), generation: 2))
+        model.receive(snapshot([live], generation: 3))
+        #expect(model.selectedDispatch == nil)
+        #expect(LeoSidebarSelection.current(model: model, terminals: LeoWindowTerminals()) == .agent(alpha.id))
+    }
+
+    @Test func focusingAnotherAgentThenTheParentDoesNotReviveTheDispatch() {
+        let beta = LeoAgentRow(host: .local, name: "beta", template: nil, status: .running, activity: .idle, actionDetail: nil)
+        let live = LeoDispatchNode(dispatch: dispatch("d1", attachable: true), depth: 0)
+        let model = model(LeoSidebarSnapshot(
+            rows: [alpha, beta], connectivity: .connected, generation: 1,
+            dispatchChildren: ["alpha": [live]], features: LeoDaemonFeatures(["dispatch_tree", "dispatch_attach"])
+        ))
+        model.userSelectedDispatch(ref("d1"))
+        model.selection = beta.id
+        model.selection = alpha.id
+        #expect(model.selectedDispatch == nil)
+    }
+
+    /// Focus moving to another open dispatch's surface selects that row.
+    @Test func focusingAnotherDispatchSurfaceMovesTheSelectionToIt() {
+        let model = model(snapshot([dispatch("d1", attachable: true), dispatch("d2", attachable: true)]))
+        model.userSelectedDispatch(ref("d1"))
+        let d2 = LeoAgentIdentity.dispatch(host: .local, id: "d2", title: nil)
+        let links = LeoAttachLinkState(
+            focused: d2, handlesByIdentity: [d2: [AttachmentHandle(surfaceID: UUID(), windowID: LeoWindowID())]], inactive: [], focusReport: 5
+        )
+        #expect(links.focused == nil, "a dispatch surface is no agent row")
+        #expect(links.focusedDispatch == ref("d2"))
+        #expect(links.attachCounts.isEmpty)
+        model.receiveAttachLinks(links)
+        #expect(model.selectedDispatch == ref("d2"))
     }
 
     @Test func aDisconnectMakesTheSelectedDispatchInertAgain() {

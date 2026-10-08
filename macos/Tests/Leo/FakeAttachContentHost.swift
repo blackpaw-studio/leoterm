@@ -118,8 +118,12 @@ struct FakeOpenCall {
     /// hidden row's shell is let go (the window then shows nothing here,
     /// rather than a neighbour) and reported closed; a gone one is left be.
     var closedTerminals: [AttachmentHandle] = []
+    /// As the real host does: a surface hidden in the live pool is the
+    /// pool's, so `closeTerminal` leaves it (only `release` lets it go).
+    var closeTerminalLeavesPooledSurfaces = false
     func closeTerminal(_ handle: AttachmentHandle) {
         closedTerminals.append(handle)
+        if closeTerminalLeavesPooledSurfaces, pools[handle.windowID]?.entries.contains(handle) == true { return }
         keptShells[handle.windowID]?.removeAll { $0 == handle }
         if shownInContent[handle.windowID] == handle { shownInContent[handle.windowID] = nil }
         terminalRows.remove(handle)
