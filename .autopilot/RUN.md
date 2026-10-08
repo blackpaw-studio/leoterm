@@ -16,6 +16,7 @@ Self-filed: B-259 → dropped (over cap) — Drop cost before context % on narro
 Self-filed: B-260 → dropped (over cap) — Friendlier display for MCP tool names
 Self-filed: B-261 → dropped (over cap) — Compaction started between spawn and post-spawn /state never shows
 Self-filed: B-261 → dropped (over cap) — Turn completion mid-compaction clears the indicator early
+Self-filed: B-262 → dropped (over cap) — Control feedback banner covers the terminal bottom row
 Focus: leo PR #226 bridge features (B-257–B-262, then B-051)
 Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 
@@ -136,12 +137,23 @@ Lane: B-262
   Branch: autopilot-lane/B-262
   Base: 25896e3f350ee6aeb20d9aa65e9f165661958933
   Tier: full
-  State: building
+  State: verifying
   Fixes: 2
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 35d7d0d0982c73509ad6c970e9de9fb42888c4f7
   Dispatched: 2026-10-07T22:20:09Z
+  Call: Bottom control bar in the content area, not an inspector/popover — P1, P4
+  Call: Shortcuts Message ⌃⌘M / Interrupt ⌃⌘. / Compact ⌃⌘K / Clear… ⌃⇧⌘K, with Agents menu items — P1
+  Call: Gate on hello `agent_control`; bar hidden for shell rows and older daemons — P2
+  Call: 401/403 latches a per-host denial with manual Retry, no re-probe; 503/other errors inline per row, no latch — P5
+  Call: Clear behind an NSAlert sheet on the owning window, Cancel default; Interrupt/Compact immediate — P1
+  Call: Compact sends no instructions; single-line field — Out
+  Call: Feedback banner floats over the terminal (bar height fixed, no tmux reflow), xmark dismiss, clears on next edit; denied banner keeps Retry, no dismiss — P2, P6
+  Call: Drafts kept per row in memory only (not a queue) — P6, Out
+  Call: Send allowed for running agents and stopped agents with wakeOnMessage (list-sourced); other verbs need running — P2
+  Call: Late replies land on their own row/host (row ids include the host); in-flight survives host switches — P3
+  Call: Client maps envelope-less non-2xx to .daemon(code: unauthorized|forbidden|not_found|too_large|unavailable|http_<n>) — P2
 
 ## Progress
 Finished 1: B-257 landed 8a28dfb7bd072c049000f75f71a3fd3c976b8a83 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-257-2.png
