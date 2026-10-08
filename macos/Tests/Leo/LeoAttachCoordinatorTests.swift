@@ -163,6 +163,19 @@ import Testing
         #expect(model.rowErrors[.init(host: second.host, name: second.name)] == nil)
     }
 
+    @Test func localAttachReadsAdvertisedFeaturesWhenTheCommandIsBuilt() async throws {
+        let host = FakeAttachContentHost()
+        var features = LeoDaemonFeatures.none
+        let coordinator = makeCoordinator(host: host, daemonFeatures: { _ in features })
+
+        await coordinator.attach(identity: LeoAgentIdentity(host: .local, name: "worker"), from: origin, disposition: .content)
+        features = LeoDaemonFeatures(["attach_dispatch_placement"])
+        await coordinator.attach(identity: LeoAgentIdentity(host: .local, name: "other"), from: origin, disposition: .content)
+
+        #expect(host.contentCalls.first?.command == "env -u TMUX -u TMUX_PANE '/leo' agent attach -- 'worker'")
+        #expect(host.contentCalls.last?.command == "env -u TMUX -u TMUX_PANE '/leo' agent attach --dispatch-placement background -- 'other'")
+    }
+
     @Test func remoteIdentityUsesTheRemoteCommandBuilderNotTheLocalExecutable() async throws {
         let host = FakeAttachContentHost()
         let remoteIdentity = LeoAgentIdentity(host: .remote("work"), name: "worker")
@@ -481,12 +494,14 @@ import Testing
         remoteCommandBuilder: @escaping (LeoAgentIdentity) throws -> String = { _ in
             throw LeoDaemonError.hostUnavailable("Remote attach is not configured")
         },
-        focusedIdentityChanged: @escaping (LeoAgentIdentity?) -> Void = { _ in }
+        focusedIdentityChanged: @escaping (LeoAgentIdentity?) -> Void = { _ in },
+        daemonFeatures: @escaping (LeoHostID) -> LeoDaemonFeatures = { _ in .none }
     ) -> LeoAttachCoordinator {
         LeoAttachCoordinator(
             host: host,
             executable: { "/leo" },
             remoteCommandBuilder: remoteCommandBuilder,
+            daemonFeatures: daemonFeatures,
             report: report,
             lifecycleEventHandled: { host.acknowledge($0) },
             focusedIdentityChanged: focusedIdentityChanged

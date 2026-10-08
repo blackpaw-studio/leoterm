@@ -102,7 +102,8 @@ actor LeoSidebarFeed {
     var dispatchTree = LeoDispatchTree()
     /// What the selected host's daemon advertised on its latest hello, and
     /// the last-turn previews it gated (B-259) -- see `LeoSidebarFeed+Turns.swift`.
-    var daemonFeatures = LeoDaemonFeatures.none
+    var hostFeatures = LeoHostFeatures.none
+    var daemonFeatures: LeoDaemonFeatures { hostFeatures.features }
     var turnPreviews = LeoTurnPreviews.empty
     /// Agents compacting now (B-261) -- see `LeoSidebarFeed+Compaction.swift`.
     var compactions = LeoCompactions.empty
@@ -406,7 +407,7 @@ actor LeoSidebarFeed {
     func emit() {
         let value = displayedSnapshot.overlayingAttention(attention).overlayingDispatches(dispatchTree)
             .overlayingTurns(turnPreviews, features: daemonFeatures).overlayingCompactions(compactions)
-            .advertising(daemonFeatures)
+            .advertising(hostFeatures)
         let previous = emissionTask
         emissionTask = Task { [weak self, sink] in
             await previous?.value

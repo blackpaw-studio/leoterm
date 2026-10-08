@@ -150,13 +150,14 @@ struct LeoSidebarSnapshot: Equatable, Sendable {
     /// What the connected daemon advertised on its hello (B-262 reads
     /// `agent_control`); `.none` while disconnected. Set last, at emission
     /// time, by `advertising(_:)`.
-    let features: LeoDaemonFeatures
+    let advertised: LeoHostFeatures
+    var features: LeoDaemonFeatures { advertised.features }
 
     init(
         rows: [LeoAgentRow], connectivity: LeoConnectivity, generation: Int, listRefreshSucceeded: Bool = false, attentionCount: Int = 0,
-        dispatchChildren: [String: [LeoDispatchNode]] = [:], features: LeoDaemonFeatures = .none
+        dispatchChildren: [String: [LeoDispatchNode]] = [:], features: LeoDaemonFeatures = .none, featuresHost: LeoHostID? = nil
     ) {
-        self.features = features
+        advertised = LeoHostFeatures(host: featuresHost, features: features)
         self.rows = rows
         self.connectivity = connectivity
         self.generation = generation
@@ -166,10 +167,11 @@ struct LeoSidebarSnapshot: Equatable, Sendable {
     }
 
     /// A copy carrying what the connected daemon advertised (none while disconnected).
-    func advertising(_ features: LeoDaemonFeatures) -> LeoSidebarSnapshot {
-        LeoSidebarSnapshot(
+    func advertising(_ advertised: LeoHostFeatures) -> LeoSidebarSnapshot {
+        let shown = connectivity.isDisconnected ? LeoHostFeatures.none : advertised
+        return LeoSidebarSnapshot(
             rows: rows, connectivity: connectivity, generation: generation, listRefreshSucceeded: listRefreshSucceeded,
-            attentionCount: attentionCount, dispatchChildren: dispatchChildren, features: connectivity.isDisconnected ? .none : features
+            attentionCount: attentionCount, dispatchChildren: dispatchChildren, features: shown.features, featuresHost: shown.host
         )
     }
 

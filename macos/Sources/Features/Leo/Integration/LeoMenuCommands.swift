@@ -14,11 +14,6 @@ enum LeoMenuCommands {
     struct AgentContext {
         let hasLeoSession: Bool
         let availability: LeoRowActionAvailability?
-
-        init(hasLeoSession: Bool, availability: LeoRowActionAvailability?) {
-            self.hasLeoSession = hasLeoSession
-            self.availability = availability
-        }
     }
 
     /// HIG: a Show/Hide title pair, not a checkmark, is the convention for

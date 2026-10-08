@@ -106,6 +106,12 @@ struct LeoObservedStateDecodingTests {
         #expect(!LeoDispatch(id: "a", status: "running", endedAt: "2026-10-06T12:00:00Z").isLive)
     }
 
+    @Test func decodesAttachDispatchPlacement() {
+        let features = LeoDaemonFeatures(["attach_dispatch_placement", "from_the_future"])
+        #expect(features.contains(.attachDispatchPlacement))
+        #expect(!LeoDaemonFeatures.none.contains(.attachDispatchPlacement))
+    }
+
     @Test func unknownFeatureNamesAreIgnored() {
         let features = LeoDaemonFeatures(["dispatch_tree", "from_the_future", "agent_usage"])
         #expect(features.features == [.dispatchTree, .agentUsage])

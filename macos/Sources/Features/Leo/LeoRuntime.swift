@@ -152,14 +152,17 @@ import OSLog
                 let override = defaults.string(forKey: "leo.executablePath")
                 return try LeoCLI(executableOverride: override, runner: cli.runner).resolveExecutable()
             },
-            remoteCommandBuilder: { [weak hostSelection] identity in
+            remoteCommandBuilder: { [weak hostSelection, weak model] identity in
                 guard case .remote(let name) = identity.host,
                       let configuration = hostSelection?.hosts.first(where: { $0.name == name }) else {
                     throw LeoDaemonError.hostUnavailable("Remote host \(identity.host.displayName) is not configured")
                 }
                 let command = LeoSSHCommand(configuration: configuration)
                 if let dispatchID = identity.dispatchID { return try command.attachShellCommand(dispatchID: dispatchID) }
-                return try command.attachShellCommand(agent: identity.name)
+                return try command.attachShellCommand(agent: identity.name, features: (model?.hostFeatures ?? .none).applying(to: identity.host))
+            },
+            daemonFeatures: { [weak model] host in
+                (model?.hostFeatures ?? .none).applying(to: host)
             },
             report: { [weak model] error in
                 // A dispatch has no row of its own to carry the error.
