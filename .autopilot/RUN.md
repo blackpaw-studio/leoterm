@@ -41,6 +41,17 @@ Lane: B-051
   Call: No app commits on the daemon-side branch (existing LeoDispatchHoldIntegrationTests already guard that the app mirrors a held `working`) — AUTONOMY test infra
   Call: Used existing `autopilot-scratch` (not deleted, stopped afterwards) — AUTONOMY real-agent rule
 
+Lane: B-235
+  Branch: autopilot-lane/B-235
+  Base: 65980700657bc5474aa0c3ccaba981d2f185e956
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-08T21:43:23Z
+
 ## Progress
 - B-051 runner dispatched (leo implement d-33d34a2ad44e, pane ap-B-051) at 2026-10-08T21:30:07Z.
 - B-051 blocked: root cause daemon-side (turn.complete ignores pending.tasks; ~89 s Finished while a background Bash ran). Spec + trace in .autopilot/bugs/B-051/. Shelved on autopilot-shelved/B-051 (no commits).
