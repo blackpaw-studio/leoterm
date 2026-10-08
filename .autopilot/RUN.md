@@ -167,3 +167,5 @@ Finished 4: B-260 landed 928f15569c87bc05240f32796cc00e7fa7ee31a8 · shot /Users
 - B-260 landed 928f15569: running tool shown as grey hammer + tool name in the task line while current_action kind is tool; clears when the call ends; suite 2183 green; 1 fix round.
 Finished 5: B-261 landed bf8e5b9f40a6fec1162a3db210f4d8c06cfcecdf · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-261-1.png
 - B-261 landed bf8e5b9f4: 'Compacting context' line from agent_compaction events, cleared on end/failed/gap/stop; context % refreshed from /state; suite 2207 green; 0 fix rounds. Note: lane history carries a 2.2 MB macos/default.profraw blob (added 65f17bdd6, untracked 764ca502e); not rewritten (Never list).
+Finished 6: B-262 landed 2a1ccd4e5f3d3efd9bfc750c0e50e70b410f4959 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-262-8.png
+- B-262 landed 2a1ccd4e5: bottom control bar (prompt field + Interrupt/Compact/Clear…), Agents menu items + shortcuts, gated on hello agent_control; 401/403 latches a denial with Retry; live send verified on autopilot-scratch only; suite 2253 green; 2 fix rounds.

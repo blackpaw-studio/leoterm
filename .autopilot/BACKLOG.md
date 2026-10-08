@@ -695,13 +695,14 @@ Source: Evan (/feature, 2026-10-07)
 Inbox: 20261007T144805108862Z-f2956aed#1
 Done: 2026-10-07 · 764ca502e, 65f17bdd6, 3bd472715, 45a514047, 22974d826, 2ba42eec2, c00970de9 · D-404, D-405, D-406, D-407, D-408, D-409, D-410
 
-## B-262 · Prompt box and interrupt, compact, and clear controls   [ready]
+## B-262 · Prompt box and interrupt, compact, and clear controls   [done]
 Issue: #261
 Why: Drive an agent without attaching or typing into tmux (operator-only POST /api/v1/agents/{name}/{message,interrupt,compact,clear}, leo PR #226)
 Accept: sending from the box POSTs .../message and the turn appears on the agent; interrupt, compact, and clear buttons hit their endpoints, with clear behind a confirmation; a 401/403 for a non-operator token shows an inline error and disables the controls
 Out: attachments; rich multi-line editing; offline message queueing
 Source: Evan (/feature, 2026-10-07)
 Inbox: 20261007T144805204560Z-7cda212b#1
+Done: 2026-10-07 · 35d7d0d09, 376d64bda, d468aab19, 7d407fbc9, 9a842321d, d4c20098f, a2e437d3f, 0993d3fe2, e2af1370d · D-411, D-412, D-413, D-414, D-415, D-416, D-417, D-418, D-419, D-420, D-421
 
 ## B-235 · SFTP rejection diagnostic with invalid UTF-8 suffix   [ready]
 Issue: #240

@@ -2957,3 +2957,80 @@ Chose: TurnHarness test helpers made non-private (+ setUsage) for reuse
 Why: AUTONOMY test infra
 Commit: 764ca502e, 65f17bdd6, 3bd472715, 45a514047, 22974d826, 2ba42eec2, c00970de9
 Veto: [ ]
+
+## D-411 · 2026-10-07 · Bottom control bar in the content area, not an inspector/popover
+Context: B-262 (runner call).
+Chose: Bottom control bar in the content area, not an inspector/popover
+Why: P1, P4
+Commit: 35d7d0d09, 376d64bda, d468aab19, 7d407fbc9, 9a842321d, d4c20098f, a2e437d3f, 0993d3fe2, e2af1370d
+Veto: [ ]
+
+## D-412 · 2026-10-07 · Shortcuts Message ⌃⌘M / Interrupt ⌃⌘. / Compact ⌃⌘K / Clear… ⌃⇧⌘K, …
+Context: B-262 (runner call).
+Chose: Shortcuts Message ⌃⌘M / Interrupt ⌃⌘. / Compact ⌃⌘K / Clear… ⌃⇧⌘K, with Agents menu items
+Why: P1
+Commit: 35d7d0d09, 376d64bda, d468aab19, 7d407fbc9, 9a842321d, d4c20098f, a2e437d3f, 0993d3fe2, e2af1370d
+Veto: [ ]
+
+## D-413 · 2026-10-07 · Gate on hello `agent_control`; bar hidden for shell rows and older …
+Context: B-262 (runner call).
+Chose: Gate on hello `agent_control`; bar hidden for shell rows and older daemons
+Why: P2
+Commit: 35d7d0d09, 376d64bda, d468aab19, 7d407fbc9, 9a842321d, d4c20098f, a2e437d3f, 0993d3fe2, e2af1370d
+Veto: [ ]
+
+## D-414 · 2026-10-07 · 401/403 latches a per-host denial with manual Retry, no re-probe; 5…
+Context: B-262 (runner call).
+Chose: 401/403 latches a per-host denial with manual Retry, no re-probe; 503/other errors inline per row, no latch
+Why: P5
+Commit: 35d7d0d09, 376d64bda, d468aab19, 7d407fbc9, 9a842321d, d4c20098f, a2e437d3f, 0993d3fe2, e2af1370d
+Veto: [ ]
+
+## D-415 · 2026-10-07 · Clear behind an NSAlert sheet on the owning window, Cancel default;…
+Context: B-262 (runner call).
+Chose: Clear behind an NSAlert sheet on the owning window, Cancel default; Interrupt/Compact immediate
+Why: P1
+Commit: 35d7d0d09, 376d64bda, d468aab19, 7d407fbc9, 9a842321d, d4c20098f, a2e437d3f, 0993d3fe2, e2af1370d
+Veto: [ ]
+
+## D-416 · 2026-10-07 · Compact sends no instructions; single-line field
+Context: B-262 (runner call).
+Chose: Compact sends no instructions; single-line field
+Why: Out
+Commit: 35d7d0d09, 376d64bda, d468aab19, 7d407fbc9, 9a842321d, d4c20098f, a2e437d3f, 0993d3fe2, e2af1370d
+Veto: [ ]
+
+## D-417 · 2026-10-07 · Feedback banner floats over the terminal (bar height fixed, no tmux…
+Context: B-262 (runner call).
+Chose: Feedback banner floats over the terminal (bar height fixed, no tmux reflow), xmark dismiss, clears on next edit; denied banner keeps Retry, no dismiss
+Why: P2, P6
+Commit: 35d7d0d09, 376d64bda, d468aab19, 7d407fbc9, 9a842321d, d4c20098f, a2e437d3f, 0993d3fe2, e2af1370d
+Veto: [ ]
+
+## D-418 · 2026-10-07 · Drafts kept per row in memory only (not a queue)
+Context: B-262 (runner call).
+Chose: Drafts kept per row in memory only (not a queue)
+Why: P6, Out
+Commit: 35d7d0d09, 376d64bda, d468aab19, 7d407fbc9, 9a842321d, d4c20098f, a2e437d3f, 0993d3fe2, e2af1370d
+Veto: [ ]
+
+## D-419 · 2026-10-07 · Send allowed for running agents and stopped agents with wakeOnMessa…
+Context: B-262 (runner call).
+Chose: Send allowed for running agents and stopped agents with wakeOnMessage (list-sourced); other verbs need running
+Why: P2
+Commit: 35d7d0d09, 376d64bda, d468aab19, 7d407fbc9, 9a842321d, d4c20098f, a2e437d3f, 0993d3fe2, e2af1370d
+Veto: [ ]
+
+## D-420 · 2026-10-07 · Late replies land on their own row/host (row ids include the host);…
+Context: B-262 (runner call).
+Chose: Late replies land on their own row/host (row ids include the host); in-flight survives host switches
+Why: P3
+Commit: 35d7d0d09, 376d64bda, d468aab19, 7d407fbc9, 9a842321d, d4c20098f, a2e437d3f, 0993d3fe2, e2af1370d
+Veto: [ ]
+
+## D-421 · 2026-10-07 · Client maps envelope-less non-2xx to .daemon(code: unauthorized|for…
+Context: B-262 (runner call).
+Chose: Client maps envelope-less non-2xx to .daemon(code: unauthorized|forbidden|not_found|too_large|unavailable|http_<n>)
+Why: P2
+Commit: 35d7d0d09, 376d64bda, d468aab19, 7d407fbc9, 9a842321d, d4c20098f, a2e437d3f, 0993d3fe2, e2af1370d
+Veto: [ ]
