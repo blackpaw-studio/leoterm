@@ -191,6 +191,28 @@ struct LeoDispatchTreeTests {
         #expect(tree.children(of: "alpha").isEmpty)
     }
 
+    // MARK: dispatch_removed
+
+    @Test func removingAnIDDropsItsRowAndAStaleBaselineCannotBringItBack() {
+        var tree = enabledTree([dispatch("d1"), dispatch("d2")])
+        let changed = tree.remove("d1")
+        #expect(changed)
+        #expect(ids(tree.children(of: "alpha")) == ["d2"])
+        tree.applyBaseline([dispatch("d1"), dispatch("d2")])
+        #expect(ids(tree.children(of: "alpha")) == ["d2"])
+        let again = tree.remove("d1")
+        #expect(!again)
+        let unknown = tree.remove("nope")
+        #expect(!unknown)
+    }
+
+    @Test func aTerminalRecordOmittedFromABaselineIsExpected() {
+        var tree = enabledTree([dispatch("d1")])
+        tree.upsert(dispatch("d1", status: "done"))
+        tree.applyBaseline([])
+        #expect(tree.children(of: "alpha").isEmpty)
+    }
+
     @Test func anOrphanShowsUnderItsCallersRowOrNowhere() {
         let tree = enabledTree([
             dispatch("d2", caller: "dispatch.d9", parent: "d9"),

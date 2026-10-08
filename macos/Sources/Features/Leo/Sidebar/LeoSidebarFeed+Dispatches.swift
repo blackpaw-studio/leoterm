@@ -21,6 +21,12 @@ extension LeoSidebarFeed {
         updatingDispatches { $0.upsert(dispatch, seq: seq) }
     }
 
+    /// `dispatch_removed`: the daemon dropped a finished run.
+    func receiveDispatchRemoved(_ id: String) {
+        guard daemonFeatures.contains(.dispatchRemoved) else { return }
+        updatingDispatches { $0.remove(id) }
+    }
+
     /// `state_seq`: a hello is the moment the stream is subscribed, so a
     /// `/state` taken now covers everything created before it -- the
     /// create-between-GET-and-subscribe gap. Baselines apply in seq order,

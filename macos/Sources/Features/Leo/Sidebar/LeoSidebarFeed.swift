@@ -248,6 +248,9 @@ actor LeoSidebarFeed {
         case .dispatchChanged(let seq, let dispatch):
             receiveDispatch(dispatch, seq: seq)
             return
+        case .dispatchRemoved(_, let id):
+            receiveDispatchRemoved(id)
+            return
         case .agentTurnCompleted(_, let turn):
             // A finished turn means the compaction (if any) is over.
             endCompaction(turn.agent)
@@ -310,7 +313,7 @@ actor LeoSidebarFeed {
             }
         case .fileSurfaced(_, let file):
             receiveSurfacedFile(file)
-        case .other, .dispatchChanged, .agentTurnCompleted, .agentUsage, .agentCompaction:
+        case .other, .dispatchChanged, .dispatchRemoved, .agentTurnCompleted, .agentUsage, .agentCompaction:
             return
         case .disconnected(let reason):
             Self.logger.log("receive: .disconnected reason=\(reason, privacy: .public)")

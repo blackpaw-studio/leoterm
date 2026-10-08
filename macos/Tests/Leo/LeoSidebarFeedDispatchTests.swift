@@ -223,6 +223,31 @@ struct LeoSidebarFeedDispatchTests {
         await harness.stop()
     }
 
+    private static let removedHello = LeoObserveEvent.hello(
+        seq: 1, at: nil, version: "1", serverTime: nil, bootID: "boot-a", features: ["dispatch_tree", "dispatch_removed"]
+    )
+
+    @Test func aDispatchRemovedEventDropsTheRow() async throws {
+        let harness = DispatchHarness(dispatches: [LeoDispatch(id: "d1", status: "running", callerAgent: "alpha")])
+        await harness.start()
+        await harness.activity.send(Self.removedHello)
+        try await harness.pump { Self.ids($0) == ["d1:0"] }
+        await harness.activity.send(.dispatchRemoved(seq: 5, id: "d1"))
+        try await harness.pump { Self.ids($0).isEmpty }
+        await harness.stop()
+    }
+
+    @Test func withoutTheFeatureADispatchRemovedEventChangesNothing() async throws {
+        let harness = DispatchHarness(dispatches: [LeoDispatch(id: "d1", status: "running", callerAgent: "alpha")])
+        await harness.start()
+        await harness.activity.send(Self.treeHello)
+        try await harness.pump { Self.ids($0) == ["d1:0"] }
+        await harness.activity.send(.dispatchRemoved(seq: 5, id: "d1"))
+        await harness.settle()
+        #expect(Self.ids(await harness.recorder.last!) == ["d1:0"])
+        await harness.stop()
+    }
+
     private static let seqHello = LeoObserveEvent.hello(
         seq: 1, at: nil, version: "1", serverTime: nil, bootID: "boot-a", features: ["dispatch_tree", "state_seq"]
     )

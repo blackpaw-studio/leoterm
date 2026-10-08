@@ -116,6 +116,15 @@ struct LeoDispatchTree: Equatable, Sendable {
         return true
     }
 
+    /// A finished run the daemon dropped. Returns whether the records changed.
+    @discardableResult
+    mutating func remove(_ id: String) -> Bool {
+        rememberEnded(id)
+        upsertMarks[id] = nil
+        recordSeqs[id] = nil
+        return records.removeValue(forKey: id) != nil
+    }
+
     /// Whether an event at `seq` is already in what the record (or, for an
     /// unknown record, the last baseline) reflects.
     private func isReflectedInState(_ id: String, bySeq seq: Int) -> Bool {
