@@ -186,7 +186,7 @@ struct AttachExitReportTests {
 
         await host.emitAndWait(.processExited(handle))
 
-        #expect(errors.map(\.message) == ["leo: dispatch d-1 is not attachable"])
+        #expect(errors.map(\.message) == ["leo: dispatch d-1 is not attachable (exit 1)"])
         #expect(errors.first?.identity == identity)
         #expect(host.closedTerminals == [handle], "no zombie surface")
         #expect(host.reborn.isEmpty)
@@ -215,6 +215,35 @@ struct AttachExitReportTests {
         await host.emitAndWait(.processExited(host.handles[0]))
         #expect(errors.isEmpty)
         #expect(host.closedTerminals == [host.handles[0]])
+    }
+
+    /// 128+N is the attach client killed by signal N (the window closing
+    /// under it, a ^C): the end of the watching, not a failed attach.
+    @Test(arguments: [129, 130, 143, 192])
+    func aSignalledAttachClientIsACloseNotAFailure(_ code: Int) async {
+        let host = FakeAttachContentHost()
+        var errors: [LeoAttachError] = []
+        let coordinator = LeoAttachCoordinator(
+            host: host, executable: { "/leo" }, report: { errors.append($0) }, lifecycleEventHandled: { host.acknowledge($0) }
+        )
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        host.exitReports[host.handles[0]] = AttachExitReport(code: code, detail: "Terminated: 15")
+        await host.emitAndWait(.processExited(host.handles[0]))
+        #expect(errors.isEmpty)
+        #expect(host.closedTerminals == [host.handles[0]])
+    }
+
+    @Test(arguments: [127, 193, 255])
+    func anExitJustOutsideTheSignalRangeStillFails(_ code: Int) async {
+        let host = FakeAttachContentHost()
+        var errors: [LeoAttachError] = []
+        let coordinator = LeoAttachCoordinator(
+            host: host, executable: { "/leo" }, report: { errors.append($0) }, lifecycleEventHandled: { host.acknowledge($0) }
+        )
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        host.exitReports[host.handles[0]] = AttachExitReport(code: code, detail: "boom")
+        await host.emitAndWait(.processExited(host.handles[0]))
+        #expect(errors.map(\.message) == ["boom (exit \(code))"])
     }
 
     @Test func anAgentsExitStillLeavesItsPlaceholder() async {
@@ -354,6 +383,18 @@ struct AttachExitReportTests {
         model.selection = beta.id
         model.selection = alpha.id
         #expect(model.selectedDispatch == nil)
+    }
+
+    /// Focus moving to the parent agent's own terminal leaves the agent
+    /// selected already, so nothing reselects it: the dispatch selection
+    /// has to drop on that transition.
+    @Test func focusingTheParentAgentsTerminalDropsTheDispatchSelection() {
+        let model = model(snapshot([dispatch("d1", attachable: true)]))
+        model.userSelectedDispatch(ref("d1"))
+        model.receiveAttachLinks(LeoAttachLinkState(focused: alpha.id, attachCounts: [alpha.id: 1], focusReport: 5))
+        #expect(model.selectedDispatch == nil)
+        #expect(model.selection == alpha.id)
+        #expect(model.dispatchSelection == nil)
     }
 
     /// Focus moving to another open dispatch's surface selects that row.

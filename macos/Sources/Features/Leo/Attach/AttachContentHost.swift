@@ -44,6 +44,12 @@ extension Notification.Name {
     static let leoWindowlessChildExited = Notification.Name("studio.blackpaw.leo.windowlessChildExited")
 }
 
+/// The `userInfo` of `.leoWindowlessChildExited`.
+enum LeoWindowlessChildExit {
+    /// The process's exit code (`Int`).
+    static let exitCodeKey = "exit_code"
+}
+
 /// How an attach surface's process ended, for a dispatch attach (B-266):
 /// the exit code, and the last line it left on screen (a failed `leo
 /// dispatch attach` prints its reason there).
@@ -51,8 +57,17 @@ struct AttachExitReport: Equatable, Sendable {
     /// The longest `detail` kept.
     static let maxDetailLength = 160
 
+    /// `leo dispatch attach` exits 128+N when its client was killed by
+    /// signal N (the window closed under it, ^C): the watching ended, the
+    /// attach did not fail.
+    private static let signalledCodes = 129...192
+
     let code: Int
     let detail: String?
+
+    /// Whether the process ended in error: not a clean exit, and not a
+    /// signalled client.
+    var isFailure: Bool { code != 0 && !Self.signalledCodes.contains(code) }
 
     init(code: Int, detail: String?) {
         self.code = code
@@ -161,6 +176,8 @@ struct AttachExitReport: Equatable, Sendable {
     /// "watching · read-only" indicator.
     func markWatchingDispatch(_ handle: AttachmentHandle)
     /// B-266: how `handle`'s process ended, once its exit was reported.
-    /// `nil` when the host never saw an exit status for it.
+    /// `nil` when the host never saw an exit status for it. A hidden
+    /// surface's exit (no window, so no Ghostty exit message) is taken
+    /// from the host's record of it, which this read clears.
     func exitReport(for handle: AttachmentHandle) -> AttachExitReport?
 }

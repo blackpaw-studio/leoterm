@@ -22,7 +22,7 @@ struct LeoAttachError: Error, Equatable, Sendable {
         case .executable(let message), .openFailed(let message): message
         case .invalidName: "Agent names cannot contain NUL or newline characters"
         case .invalidDispatchID: "This dispatch has an id that can't be attached"
-        case .dispatchAttachFailed(let code, let detail): detail ?? "Dispatch attach exited with code \(code)"
+        case .dispatchAttachFailed(let code, let detail): detail.map { "\($0) (exit \(code))" } ?? "Dispatch attach exited with code \(code)"
         case .cancelled: "Cancelled"
         }
     }
@@ -430,8 +430,9 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
 
     private func closeEndedDispatch(_ handle: AttachmentHandle, of identity: LeoAgentIdentity) {
         // A failed attach says why in a brief error, not on a lingering
-        // surface; a clean exit (the dispatch closed) says nothing.
-        if let exit = host.exitReport(for: handle), exit.code != 0 {
+        // surface; a clean exit (the dispatch closed) or a signalled
+        // client says nothing.
+        if let exit = host.exitReport(for: handle), exit.isFailure {
             report(LeoAttachError(identity: identity, kind: .dispatchAttachFailed(code: exit.code, detail: exit.detail)))
         }
         let wasShown = host.isShown(handle)

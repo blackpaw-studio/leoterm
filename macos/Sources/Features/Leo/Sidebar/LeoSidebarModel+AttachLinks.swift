@@ -18,6 +18,7 @@ extension LeoSidebarModel {
         if links.focusedDispatch != previousDispatch, let dispatch = links.focusedDispatch {
             selectFocusedDispatch(dispatch)
         } else if links.focused != previousFocus {
+            dropDispatchSelectionIfAgentFocused()
             selectFocusedRow()
         }
     }
@@ -94,6 +95,14 @@ extension LeoSidebarModel {
     private func isFencedByUserSelection(_ links: LeoAttachLinkState) -> Bool {
         guard let userSelectionFence else { return false }
         return links.focusReport <= userSelectionFence
+    }
+
+    /// Focus landing on the agent a dispatch is selected under: the agent
+    /// is already the selection, so `selectFocusedRow` would stop short and
+    /// leave the dispatch selected.
+    private func dropDispatchSelectionIfAgentFocused() {
+        guard let focused = attachLinks.focused, focused == selection, dispatchSelection != nil else { return }
+        dispatchSelection = nil
     }
 
     private func selectFocusedRow() {
