@@ -125,6 +125,9 @@ enum LeoObserveEvent: Equatable, Sendable {
     case fileSurfaced(seq: Int?, file: LeoSurfacedFile)
     /// A dispatch's whole current record (leo >= 0.35, `dispatch_tree`).
     case dispatchChanged(seq: Int, dispatch: LeoDispatch)
+    /// A terminal run's linger expired and the daemon dropped it
+    /// (`dispatch_removed`): its row goes.
+    case dispatchRemoved(seq: Int, id: String)
     /// A bridged agent's turn ended (leo >= 0.35, `bridge_turns`).
     case agentTurnCompleted(seq: Int, turn: LeoTurnCompletion)
     /// An agent's usage changed outside a turn completion (`agent_usage`).
@@ -309,6 +312,11 @@ actor LeoActivityClient {
             if let p = try? decoder.decode(Payload.self, from: data) { return .dispatchChanged(seq: p.seq, dispatch: p.dispatch) }
             leoActivityClientLogger.debug("activityClient: malformed dispatch_changed kept as a sequence-only event")
             return sequence(in: data).map { .other(seq: $0, type: name) }
+        case "dispatch_removed":
+            struct Payload: Decodable { let seq: Int; let id: String }
+            if let p = try? decoder.decode(Payload.self, from: data), !p.id.isEmpty { return .dispatchRemoved(seq: p.seq, id: p.id) }
+            leoActivityClientLogger.debug("activityClient: malformed dispatch_removed kept as a sequence-only event")
+            return sequence(in: data).map { .other(seq: $0, type: name) }
         case "agent_turn_completed":
             struct Payload: Decodable { let seq: Int }
             if let p = try? decoder.decode(Payload.self, from: data), let turn = try? decoder.decode(LeoTurnCompletion.self, from: data) {
@@ -380,7 +388,7 @@ extension LeoObserveEvent {
         switch self {
         case .hello(let seq, _, _, _, _, _), .agentSpawned(let seq, _, _, _),
              .agentStateChanged(let seq, _, _, _, _, _), .agentActivity(let seq, _, _, _, _, _),
-             .agentStopped(let seq, _, _, _), .dispatchChanged(let seq, _), .other(let seq, _),
+             .agentStopped(let seq, _, _, _), .dispatchChanged(let seq, _), .dispatchRemoved(let seq, _), .other(let seq, _),
              .agentTurnCompleted(let seq, _), .agentUsage(let seq, _, _), .agentCompaction(let seq, _): return seq
         case .fileSurfaced(let seq, _): return seq ?? -1
         case .connected, .disconnected, .gap, .snapshot: return -1

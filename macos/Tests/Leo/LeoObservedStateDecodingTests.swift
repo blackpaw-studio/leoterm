@@ -8,6 +8,15 @@ struct LeoObservedStateDecodingTests {
         try LeoDaemonEnvelope<LeoObservedState>.decode(Data(json.utf8)).value()
     }
 
+    @Test func metaSeqDecodesWhenPresentAndIsNilOtherwise() throws {
+        let with = try decode(#"{"ok":true,"data":{"agents":[],"meta":{"seq":42}}}"#)
+        #expect(with.seq == 42)
+        let without = try decode(#"{"ok":true,"data":{"agents":[]}}"#)
+        #expect(without.seq == nil)
+        let malformed = try decode(#"{"ok":true,"data":{"agents":[],"meta":{"seq":"x"}}}"#)
+        #expect(malformed.seq == nil)
+    }
+
     @Test func absentDispatchesReadAsNone() throws {
         let state = try decode(#"{"ok":true,"data":{"agents":[{"name":"alpha"}]}}"#)
         #expect(state.agents.map(\.name) == ["alpha"])

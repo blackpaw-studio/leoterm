@@ -40,7 +40,7 @@ extension LeoRuntime {
         Task { [weak self] in
             guard let self else { return }
             if case .success = await self.attachCoordinator.attach(identity: row.identity, request: request) {
-                self.model.selection = row.id
+                self.model.selectAgentRow(row.id)
             }
         }
     }
@@ -65,7 +65,7 @@ extension LeoRuntime {
         Task { [weak self] in
             guard let self else { return }
             if case .success = await self.attachCoordinator.attach(identity: identity, request: request) {
-                self.model.selection = id
+                self.model.selectAgentRow(id)
             }
         }
         return true

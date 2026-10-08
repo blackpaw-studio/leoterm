@@ -4,7 +4,18 @@ import Foundation
 @MainActor final class LeoSidebarModel: ObservableObject {
     @Published private(set) var snapshot: LeoSidebarSnapshot
     @Published var query = ""
-    @Published var selection: LeoAgentRow.ID?
+    @Published var selection: LeoAgentRow.ID? {
+        // A dispatch selection rides on its parent agent: any other
+        // selection ends it for good, so it can't revive later.
+        didSet {
+            guard let dispatch = dispatchSelection, dispatch.parent != selection else { return }
+            dispatchSelection = nil
+        }
+    }
+    /// The dispatch row the user selected (B-266); see `+Dispatches`.
+    @Published var dispatchSelection: LeoDispatchSelection?
+    /// Dispatch rows whose children the user collapsed, by id (B-266).
+    @Published var collapsedDispatches: Set<LeoDispatchRef> = []
     @Published private(set) var rowErrors: [LeoAgentRow.ID: String] = [:]
     @Published private(set) var rowErrorCodes: [LeoAgentRow.ID: String] = [:]
     @Published private(set) var panelError: String?
@@ -17,6 +28,8 @@ import Foundation
     /// last selected a row, so they never move the selection.
     var userSelectionFence: Int?
     var attachRequested: (LeoAgentRow, LeoWindowID, AttachDisposition) -> Void = { _, _, _ in }
+    /// Opens an attachable dispatch in a window (B-266).
+    var dispatchAttachRequested: (LeoAgentIdentity, LeoWindowID, AttachDisposition) -> Void = { _, _, _ in }
     /// Brings forward the window already showing the row's agent (no new
     /// attach). The window clicked in, if known, closes when it is an
     /// untouched start screen (B-050).
@@ -123,6 +136,8 @@ import Foundation
             rowErrorCodes = [:]
         }
         resolveStartPrompts()
+        reconcileDispatchSelection()
+        pruneCollapsedDispatches()
         guard let selection, !value.rows.contains(where: { $0.id == selection }) else { return }
         self.selection = nil
     }

@@ -67,6 +67,7 @@ extension LeoSidebarModel {
 
     /// Return on the list: the same as a single click on the selected row.
     func activateSelection(from origin: LeoWindowID) {
+        if let dispatch = selectedDispatch { return requestDispatchAttach(dispatch, from: origin, disposition: .content) }
         guard let selected = actionableSelection?.id,
               let row = visibleRows.first(where: { $0.id == selected }) else { return }
         rowClicked(row, from: origin)

@@ -44,6 +44,53 @@ extension Notification.Name {
     static let leoWindowlessChildExited = Notification.Name("studio.blackpaw.leo.windowlessChildExited")
 }
 
+/// The `userInfo` of `.leoWindowlessChildExited`.
+enum LeoWindowlessChildExit {
+    /// The process's exit code (`Int`).
+    static let exitCodeKey = "exit_code"
+}
+
+/// How an attach surface's process ended, for a dispatch attach (B-266):
+/// the exit code, and the last line it left on screen (a failed `leo
+/// dispatch attach` prints its reason there).
+struct AttachExitReport: Equatable, Sendable {
+    /// The longest `detail` kept.
+    static let maxDetailLength = 160
+
+    /// `leo dispatch attach` exits 128+N when its client was killed by
+    /// signal N. Only a termination request (SIGHUP, SIGINT, SIGPIPE,
+    /// SIGTERM: the window closed under it, ^C) ends the watching without
+    /// failing; any other signal (SIGSEGV, SIGABRT, SIGKILL, ...) is a
+    /// crash and is reported.
+    private static let terminationRequestCodes: Set<Int> = [129, 130, 141, 143]
+
+    let code: Int
+    let detail: String?
+
+    /// Whether the process ended in error: not a clean exit, and not a
+    /// client told to terminate.
+    var isFailure: Bool { code != 0 && !Self.terminationRequestCodes.contains(code) }
+
+    init(code: Int, detail: String?) {
+        self.code = code
+        self.detail = detail
+    }
+
+    /// `screenText`'s last non-blank line, with control characters dropped
+    /// and long lines cut, as `detail`.
+    init(code: Int, screenText: String) {
+        let line = screenText.split(whereSeparator: \.isNewline)
+            .map { Self.clean($0) }
+            .last { !$0.isEmpty }
+        self.init(code: code, detail: line.map { String($0.prefix(Self.maxDetailLength)) })
+    }
+
+    private static func clean<S: StringProtocol>(_ line: S) -> String {
+        String(String.UnicodeScalarView(line.unicodeScalars.filter { $0.properties.generalCategory != .control }))
+            .trimmingCharacters(in: .whitespaces)
+    }
+}
+
 @MainActor protocol AttachContentHost: AnyObject {
     var lifecycleEvents: AsyncStream<AttachLifecycleEvent> { get }
     /// The attachment that has keyboard focus in the key window of the
@@ -105,6 +152,11 @@ extension Notification.Name {
     /// clients detach and its handles close. Content on screen is left
     /// alone.
     func release(_ handle: AttachmentHandle)
+    /// Lets go of `handle`'s surface alone when it is hidden in a pooled
+    /// split: the surfaces beside it stay attached (an agent or a shell
+    /// there is not its to end). A pooled tree left with no live attach
+    /// goes with it, as when any pooled surface ends.
+    func releasePooledSurface(_ handle: AttachmentHandle)
     /// B-057: closes the terminal row `handle` (its shell went: ⌘W, or
     /// `exit`), shown or hidden. Shown alone, its window shows the
     /// neighbouring terminal row instead -- the same hidden surface -- or,
@@ -121,4 +173,13 @@ extension Notification.Name {
     /// after the agent attached in it (B-052), in place of whatever title
     /// the terminal sets.
     func setAgentName(_ handle: AttachmentHandle, name: String)
+    /// B-266: `handle`'s surface shows a dispatch the user is only
+    /// watching (the daemon attaches read-only): it carries a small
+    /// "watching · read-only" indicator.
+    func markWatchingDispatch(_ handle: AttachmentHandle)
+    /// B-266: how `handle`'s process ended, once its exit was reported.
+    /// `nil` when the host never saw an exit status for it. A hidden
+    /// surface's exit (no window, so no Ghostty exit message) is taken
+    /// from the host's record of it, which this read clears.
+    func exitReport(for handle: AttachmentHandle) -> AttachExitReport?
 }

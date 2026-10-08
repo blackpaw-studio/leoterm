@@ -1,9 +1,17 @@
 import Foundation
 
-/// A row in a window's sidebar list: an agent (app-wide) or one of this
-/// window's terminals (B-057).
+/// A dispatch subagent row, on the host whose daemon reported it.
+struct LeoDispatchRef: Hashable, Sendable {
+    let host: LeoHostID
+    let id: String
+}
+
+/// A row in a window's sidebar list: an agent (app-wide), one of its
+/// attachable dispatches (B-266), or one of this window's terminals
+/// (B-057).
 enum LeoSidebarItemID: Hashable, Sendable {
     case agent(LeoAgentRow.ID)
+    case dispatch(LeoDispatchRef)
     case terminal(UUID)
 }
 
@@ -11,11 +19,15 @@ enum LeoSidebarItemID: Hashable, Sendable {
 /// selection (`LeoSidebarModel.selection`, shared by every window) and the
 /// window's own terminal selection (`LeoWindowTerminals.selection`). A
 /// selected terminal wins in its window; selecting an agent there clears
-/// it. Neither side's storage changes shape, so the shared agent list
+/// it. A selected dispatch rides on its parent agent's selection
+/// (`LeoSidebarModel.selectedDispatch`), so when it ends the agent is
+/// what stays selected. Neither side's storage changes shape, so the shared agent list
 /// behaves as before in every window.
 @MainActor enum LeoSidebarSelection {
     static func current(model: LeoSidebarModel, terminals: LeoWindowTerminals) -> LeoSidebarItemID? {
-        terminals.selection.map(LeoSidebarItemID.terminal) ?? model.selection.map(LeoSidebarItemID.agent)
+        terminals.selection.map(LeoSidebarItemID.terminal)
+            ?? model.selectedDispatch.map(LeoSidebarItemID.dispatch)
+            ?? model.selection.map(LeoSidebarItemID.agent)
     }
 
     /// The list's own selection change (click, arrow keys): selects only,
@@ -27,6 +39,9 @@ enum LeoSidebarItemID: Hashable, Sendable {
         case .agent(let id):
             terminals.select(nil)
             model.userSelected(id)
+        case .dispatch(let ref):
+            terminals.select(nil)
+            model.userSelectedDispatch(ref)
         case nil:
             terminals.select(nil)
             model.userSelected(nil)

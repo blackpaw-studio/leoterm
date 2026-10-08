@@ -157,9 +157,16 @@ import OSLog
                       let configuration = hostSelection?.hosts.first(where: { $0.name == name }) else {
                     throw LeoDaemonError.hostUnavailable("Remote host \(identity.host.displayName) is not configured")
                 }
-                return try LeoSSHCommand(configuration: configuration).attachShellCommand(agent: identity.name)
+                let command = LeoSSHCommand(configuration: configuration)
+                if let dispatchID = identity.dispatchID { return try command.attachShellCommand(dispatchID: dispatchID) }
+                return try command.attachShellCommand(agent: identity.name)
             },
             report: { [weak model] error in
+                // A dispatch has no row of its own to carry the error.
+                if error.identity.dispatchID != nil {
+                    model?.setPanelError(error.message)
+                    return
+                }
                 let id = LeoAgentRow.ID(host: error.identity.host, name: error.identity.name)
                 model?.setRowError(error.message, for: id)
             },
@@ -276,8 +283,11 @@ import OSLog
             } catch { self.model.setPanelError(error.localizedDescription) }
         }
         model.attachRequested = { [weak attachCoordinator, weak model] row, origin, disposition in
-            model?.selection = row.id
+            model?.selectAgentRow(row.id)
             Task { await attachCoordinator?.attach(identity: row.identity, from: origin, disposition: disposition) }
+        }
+        model.dispatchAttachRequested = { [weak attachCoordinator] identity, origin, disposition in
+            Task { await attachCoordinator?.attach(identity: identity, from: origin, disposition: disposition) }
         }
         model.focusExistingRequested = { [weak attachCoordinator] row, origin in
             attachCoordinator?.focusExisting(row.identity, from: origin)

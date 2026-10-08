@@ -105,6 +105,14 @@ struct LeoObserveTests {
         #expect(malformed?.sequence == 8)
     }
 
+    @Test func decodesDispatchRemoved() {
+        let event = LeoActivityClient.decode(LeoSSEEvent(name: "dispatch_removed", data: #"{"seq":11,"at":"2026-10-07T12:00:00Z","id":"d-3"}"#, id: nil))
+        #expect(event == .dispatchRemoved(seq: 11, id: "d-3"))
+        #expect(event?.sequence == 11)
+        let malformed = LeoActivityClient.decode(LeoSSEEvent(name: "dispatch_removed", data: #"{"seq":12}"#, id: nil))
+        #expect(malformed == .other(seq: 12, type: "dispatch_removed"), "a removal without an id still advances the sequence")
+    }
+
     @Test func decodesAgentTurnCompleted() throws {
         let json = #"{"seq":9,"agent":"alpha","session_id":"s1","outcome":"completed","preview":"All \u001b[31mdone\nnow","#
             + #""tokens":{"input":10,"output":20,"cache_read":30,"cache_creation":40},"cost_usd":0.25,"#

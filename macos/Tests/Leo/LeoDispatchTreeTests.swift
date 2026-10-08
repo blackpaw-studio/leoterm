@@ -103,6 +103,159 @@ struct LeoDispatchTreeTests {
         #expect(ids(tree.children(of: "alpha")) == ["d3"], "nothing changed since this one started")
     }
 
+    /// The daemon republishes a live record every second. One that lands
+    /// while `/state` is in flight proves the record is live as of after the
+    /// fetch started, so a baseline that omits it must not drop it (it would
+    /// come back on the next republish: a flicker).
+    @Test func aBaselineRacingARepublishOfAnUnchangedRecordKeepsIt() {
+        var tree = enabledTree([dispatch("d1")])
+        let mark = tree.mark
+        let changed = tree.upsert(dispatch("d1"))
+        #expect(!changed, "an identical republish is not a visible change")
+        tree.applyBaseline([], since: mark)
+        #expect(ids(tree.children(of: "alpha")) == ["d1"])
+        tree.applyBaseline([], since: tree.mark)
+        #expect(tree.children(of: "alpha").isEmpty, "a fetch that began after the last confirmation does drop it")
+    }
+
+    /// A drop (no baseline at all) must not blank the tree: the next
+    /// baseline, fetched after the reconnect, reconciles the stale rows.
+    @Test func aReconnectBaselineReconcilesTheLastKnownRows() {
+        var tree = enabledTree([dispatch("d1"), dispatch("d2")])
+        let mark = tree.mark
+        #expect(ids(tree.children(of: "alpha")) == ["d1", "d2"], "last-known rows survive the drop")
+        tree.applyBaseline([dispatch("d2"), dispatch("d3")], since: mark)
+        #expect(ids(tree.children(of: "alpha")) == ["d2", "d3"])
+    }
+
+    @Test func anEndedIDStaysGoneThroughAReconnectBaselineAndLateRepublish() {
+        var tree = enabledTree([dispatch("d1")])
+        tree.upsert(dispatch("d1", status: "done"))
+        let mark = tree.mark
+        tree.applyBaseline([dispatch("d1")], since: mark)
+        let changed = tree.upsert(dispatch("d1"))
+        #expect(!changed)
+        #expect(tree.children(of: "alpha").isEmpty)
+    }
+
+    // MARK: state_seq
+
+    private func seqTree(_ enabled: Bool = true) -> LeoDispatchTree {
+        var tree = LeoDispatchTree()
+        tree.setEnabled(true)
+        tree.setStateSeq(enabled)
+        return tree
+    }
+
+    /// The snapshot reflects only events up to its seq: a record whose last
+    /// event is newer is not stale just because the snapshot omits it.
+    @Test func aBaselineOlderThanARecordsLastEventKeepsIt() {
+        var tree = seqTree()
+        tree.upsert(dispatch("d1"), seq: 10)
+        tree.applyBaseline([], since: tree.mark, atSeq: 5)
+        #expect(ids(tree.children(of: "alpha")) == ["d1"])
+        tree.applyBaseline([], since: tree.mark, atSeq: 10)
+        #expect(tree.children(of: "alpha").isEmpty, "a snapshot that covers its last event is authoritative")
+    }
+
+    @Test func anEventTheBaselineAlreadyReflectsIsIgnored() {
+        var tree = seqTree()
+        tree.applyBaseline([dispatch("d1")], atSeq: 20)
+        let stale = tree.upsert(dispatch("d1", status: "idle"), seq: 15)
+        #expect(!stale)
+        #expect(tree.children(of: "alpha").first?.dispatch.status == "running")
+        let fresh = tree.upsert(dispatch("d1", status: "idle"), seq: 21)
+        #expect(fresh)
+        #expect(tree.children(of: "alpha").first?.dispatch.status == "idle")
+    }
+
+    @Test func anOlderEventCannotCreateARecordTheBaselineLacks() {
+        var tree = seqTree()
+        tree.applyBaseline([], atSeq: 20)
+        let created = tree.upsert(dispatch("d9"), seq: 15)
+        #expect(!created)
+        #expect(tree.children(of: "alpha").isEmpty)
+    }
+
+    @Test func aNewerRecordSurvivesAnOlderBaselineThatHasItDifferently() {
+        var tree = seqTree()
+        tree.upsert(dispatch("d1", status: "idle"), seq: 30)
+        tree.applyBaseline([dispatch("d1")], atSeq: 25)
+        #expect(tree.children(of: "alpha").first?.dispatch.status == "idle")
+    }
+
+    @Test func withoutTheFeatureSeqsAreIgnoredAndMarksDecide() {
+        var tree = seqTree(false)
+        tree.upsert(dispatch("d1"), seq: 10)
+        tree.applyBaseline([], since: tree.mark, atSeq: 5)
+        #expect(tree.children(of: "alpha").isEmpty)
+    }
+
+    // MARK: dispatch_removed
+
+    @Test func removingAnIDDropsItsRowAndAStaleBaselineCannotBringItBack() {
+        var tree = enabledTree([dispatch("d1"), dispatch("d2")])
+        let changed = tree.remove("d1")
+        #expect(changed)
+        #expect(ids(tree.children(of: "alpha")) == ["d2"])
+        tree.applyBaseline([dispatch("d1"), dispatch("d2")])
+        #expect(ids(tree.children(of: "alpha")) == ["d2"])
+        let again = tree.remove("d1")
+        #expect(!again)
+        let unknown = tree.remove("nope")
+        #expect(!unknown)
+    }
+
+    @Test func aTerminalRecordOmittedFromABaselineIsExpected() {
+        var tree = enabledTree([dispatch("d1")])
+        tree.upsert(dispatch("d1", status: "done"))
+        tree.applyBaseline([])
+        #expect(tree.children(of: "alpha").isEmpty)
+    }
+
+    // MARK: nested dispatches (caller_agent is the root agent at every depth)
+
+    /// A chain d1 > d2 > d3, all called by `alpha`.
+    private func chain() -> [LeoDispatch] {
+        [
+            dispatch("d1", startedAt: "2026-10-07T12:00:01Z"),
+            dispatch("d2", parent: "d1", startedAt: "2026-10-07T12:00:02Z"),
+            dispatch("d3", parent: "d2", startedAt: "2026-10-07T12:00:03Z")
+        ]
+    }
+
+    private func shape(_ tree: LeoDispatchTree) -> [String] {
+        tree.children(of: "alpha").map { "\($0.id):\($0.depth)" }
+    }
+
+    @Test func aChildOfAnEndedDispatchMovesUnderTheNearestSurvivingAncestor() {
+        var tree = enabledTree(chain())
+        tree.upsert(dispatch("d2", parent: "d1", status: "done"))
+        #expect(shape(tree) == ["d1:0", "d3:1"])
+    }
+
+    @Test func anOrphanWithNoSurvivingAncestorFallsBackToTheAgentAndNeverVanishes() {
+        var tree = enabledTree(chain())
+        tree.upsert(dispatch("d2", parent: "d1", status: "done"))
+        tree.upsert(dispatch("d1", status: "done"))
+        #expect(shape(tree) == ["d3:0"])
+    }
+
+    @Test func reparentingAlsoFollowsARemovalOrAStaleBaseline() {
+        var removed = enabledTree(chain())
+        removed.remove("d2")
+        #expect(shape(removed) == ["d1:0", "d3:1"])
+
+        var stale = enabledTree(chain())
+        stale.applyBaseline([dispatch("d1"), dispatch("d3", parent: "d2")])
+        #expect(shape(stale) == ["d1:0", "d3:1"])
+    }
+
+    @Test func aDispatchFollowsItsImmediateParentNotItsCaller() {
+        let tree = enabledTree([dispatch("d1"), dispatch("d4", parent: "d1")])
+        #expect(shape(tree) == ["d1:0", "d4:1"])
+    }
+
     @Test func anOrphanShowsUnderItsCallersRowOrNowhere() {
         let tree = enabledTree([
             dispatch("d2", caller: "dispatch.d9", parent: "d9"),

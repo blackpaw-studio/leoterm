@@ -107,7 +107,23 @@ struct FakeOpenCall {
         return true
     }
 
+    /// Handles that share a pooled split tree with a given hidden handle
+    /// (set by a test): `release` lets go of the whole tree, as the real
+    /// host does, `releasePooledSurface` of one surface only.
+    var pooledSplitMates: [AttachmentHandle: [AttachmentHandle]] = [:]
+
     func release(_ handle: AttachmentHandle) {
+        guard let pool = pools[handle.windowID] else { return }
+        let (remaining, removed) = pool.removing { $0 == handle }
+        pools[handle.windowID] = remaining
+        removed.forEach(drop)
+        guard !removed.isEmpty else { return }
+        (pooledSplitMates[handle] ?? []).forEach(drop)
+    }
+
+    private(set) var releasedPooledSurfaces: [AttachmentHandle] = []
+    func releasePooledSurface(_ handle: AttachmentHandle) {
+        releasedPooledSurfaces.append(handle)
         guard let pool = pools[handle.windowID] else { return }
         let (remaining, removed) = pool.removing { $0 == handle }
         pools[handle.windowID] = remaining
@@ -118,8 +134,12 @@ struct FakeOpenCall {
     /// hidden row's shell is let go (the window then shows nothing here,
     /// rather than a neighbour) and reported closed; a gone one is left be.
     var closedTerminals: [AttachmentHandle] = []
+    /// As the real host does: a surface hidden in the live pool is the
+    /// pool's, so `closeTerminal` leaves it (only `release` lets it go).
+    var closeTerminalLeavesPooledSurfaces = false
     func closeTerminal(_ handle: AttachmentHandle) {
         closedTerminals.append(handle)
+        if closeTerminalLeavesPooledSurfaces, pools[handle.windowID]?.entries.contains(handle) == true { return }
         keptShells[handle.windowID]?.removeAll { $0 == handle }
         if shownInContent[handle.windowID] == handle { shownInContent[handle.windowID] = nil }
         terminalRows.remove(handle)
@@ -223,6 +243,10 @@ struct FakeOpenCall {
     func focus(_ handle: AttachmentHandle) { focused.append(handle) }
     func isOpen(_ handle: AttachmentHandle) -> Bool { openHandles.contains(handle) }
     func setAgentName(_ handle: AttachmentHandle, name: String) { agentNames.append((handle, name)) }
+    var watching: [AttachmentHandle] = []
+    func markWatchingDispatch(_ handle: AttachmentHandle) { watching.append(handle) }
+    var exitReports: [AttachmentHandle: AttachExitReport] = [:]
+    func exitReport(for handle: AttachmentHandle) -> AttachExitReport? { exitReports[handle] }
     /// Yields `event` without waiting for the coordinator to receive it --
     /// an event still in flight.
     func emit(_ event: AttachLifecycleEvent) {

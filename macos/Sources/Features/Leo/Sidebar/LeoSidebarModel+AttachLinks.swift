@@ -12,9 +12,15 @@ extension LeoSidebarModel {
     /// yields) updates the link state but never the selection.
     func receiveAttachLinks(_ links: LeoAttachLinkState) {
         let previousFocus = attachLinks.focused
+        let previousDispatch = attachLinks.focusedDispatch
         attachLinks = links
-        guard links.focused != previousFocus, !isFencedByUserSelection(links) else { return }
-        selectFocusedRow()
+        guard !isFencedByUserSelection(links) else { return }
+        if links.focusedDispatch != previousDispatch, let dispatch = links.focusedDispatch {
+            selectFocusedDispatch(dispatch)
+        } else if links.focused != previousFocus {
+            dropDispatchSelectionIfAgentFocused()
+            selectFocusedRow()
+        }
     }
 
     /// Called after a snapshot lands: a focused row that just came into
@@ -28,6 +34,7 @@ extension LeoSidebarModel {
     /// The list's own selection change (click, arrow keys).
     func userSelected(_ id: LeoAgentRow.ID?) {
         selection = id
+        dispatchSelection = nil
         fenceInFlightFocusReports()
     }
 
@@ -42,7 +49,7 @@ extension LeoSidebarModel {
         clickCount: Int = 1,
         from origin: LeoWindowID? = nil
     ) {
-        selection = row.id
+        selectAgentRow(row.id)
         fenceInFlightFocusReports()
         switch clickCount {
         case 1: singleClicked(row, modifierFlags: modifierFlags, from: origin)
@@ -81,13 +88,21 @@ extension LeoSidebarModel {
         }
     }
 
-    private func fenceInFlightFocusReports() {
+    func fenceInFlightFocusReports() {
         userSelectionFence = latestFocusReport()
     }
 
     private func isFencedByUserSelection(_ links: LeoAttachLinkState) -> Bool {
         guard let userSelectionFence else { return false }
         return links.focusReport <= userSelectionFence
+    }
+
+    /// Focus landing on the agent a dispatch is selected under: the agent
+    /// is already the selection, so `selectFocusedRow` would stop short and
+    /// leave the dispatch selected.
+    private func dropDispatchSelectionIfAgentFocused() {
+        guard let focused = attachLinks.focused, focused == selection, dispatchSelection != nil else { return }
+        dispatchSelection = nil
     }
 
     private func selectFocusedRow() {

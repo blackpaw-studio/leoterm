@@ -361,11 +361,30 @@ struct LeoSidebarView: View {
             )
             .tag(Optional(LeoSidebarItemID.agent(row.id)))
             .id(LeoSidebarItemID.agent(row.id))
-            // Its live dispatches (B-257), right under it: untagged, so
-            // never selected; they follow the row's filter and collapse.
-            ForEach(model.dispatchChildren(for: row)) { node in
-                LeoDispatchRowView(node: node)
+            // Its live dispatches (B-257), right under it; they follow the
+            // row's filter and collapse. Untagged (never selected) unless
+            // the daemon can attach to one (B-266).
+            ForEach(model.visibleDispatchRows(for: row)) { item in
+                dispatchRow(item, under: row)
             }
+        }
+    }
+
+    @ViewBuilder private func dispatchRow(_ item: LeoDispatchRowItem, under row: LeoAgentRow) -> some View {
+        let ref = LeoDispatchRef(host: row.host, id: item.id)
+        let disclosure = item.hasChildren
+            ? LeoDispatchRowView.Disclosure(isCollapsed: item.isCollapsed) { model.toggleDispatchCollapsed(ref) }
+            : nil
+        if model.isDispatchSelectable(item.node.dispatch) {
+            LeoDispatchRowView(
+                node: item.node,
+                click: { model.dispatchClicked(ref, modifierFlags: $0, clickCount: $1, from: windowID) },
+                disclosure: disclosure
+            )
+            .tag(Optional(LeoSidebarItemID.dispatch(ref)))
+            .id(LeoSidebarItemID.dispatch(ref))
+        } else {
+            LeoDispatchRowView(node: item.node, disclosure: disclosure)
         }
     }
 

@@ -245,8 +245,11 @@ actor LeoSidebarFeed {
         // tick must not flush the window early.
         switch event {
         case .other: return
-        case .dispatchChanged(_, let dispatch):
-            receiveDispatch(dispatch)
+        case .dispatchChanged(let seq, let dispatch):
+            receiveDispatch(dispatch, seq: seq)
+            return
+        case .dispatchRemoved(_, let id):
+            receiveDispatchRemoved(id)
             return
         case .agentTurnCompleted(_, let turn):
             // A finished turn means the compaction (if any) is over.
@@ -287,6 +290,7 @@ actor LeoSidebarFeed {
             Self.logger.log("receive: .hello seq=\(seq) version=\(version ?? "nil", privacy: .public) awaitingHello=\(self.awaitingHello)")
             if awaitingHello {
                 awaitingHello = false
+                refetchStateAfterHello(seq: seq)
                 return
             }
             guard !recovering else { return }
@@ -309,7 +313,7 @@ actor LeoSidebarFeed {
             }
         case .fileSurfaced(_, let file):
             receiveSurfacedFile(file)
-        case .other, .dispatchChanged, .agentTurnCompleted, .agentUsage, .agentCompaction:
+        case .other, .dispatchChanged, .dispatchRemoved, .agentTurnCompleted, .agentUsage, .agentCompaction:
             return
         case .disconnected(let reason):
             Self.logger.log("receive: .disconnected reason=\(reason, privacy: .public)")

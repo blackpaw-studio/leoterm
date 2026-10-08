@@ -10,31 +10,46 @@ extension LeoSidebarFeed {
     func receiveDispatchHello(bootID: String?, features: [String]) {
         updatingDispatches {
             let rebooted = $0.observeBoot(bootID)
-            let toggled = $0.setEnabled(LeoDaemonFeatures(features).contains(.dispatchTree))
+            let advertised = LeoDaemonFeatures(features)
+            let toggled = $0.setEnabled(advertised.contains(.dispatchTree))
+            $0.setStateSeq(advertised.contains(.stateSeq))
             return rebooted || toggled
         }
     }
 
-    func receiveDispatch(_ dispatch: LeoDispatch) {
-        updatingDispatches { $0.upsert(dispatch) }
+    func receiveDispatch(_ dispatch: LeoDispatch, seq: Int? = nil) {
+        updatingDispatches { $0.upsert(dispatch, seq: seq) }
+    }
+
+    /// `dispatch_removed`: the daemon dropped a finished run.
+    func receiveDispatchRemoved(_ id: String) {
+        guard daemonFeatures.contains(.dispatchRemoved) else { return }
+        updatingDispatches { $0.remove(id) }
+    }
+
+    /// `state_seq`: a hello is the moment the stream is subscribed (the
+    /// bus replays nothing before it), and its `seq` is how far the daemon
+    /// had got. A baseline older than that missed events nobody will
+    /// replay -- the create-between-GET-and-subscribe gap -- so `/state` is
+    /// fetched again; one at or past it already covers them. Baselines
+    /// apply in seq order, so an extra one is never wrong. (A hello that
+    /// isn't a connect's already recovers with a full refetch.)
+    func refetchStateAfterHello(seq helloSeq: Int) {
+        guard daemonFeatures.contains(.stateSeq) else { return }
+        if let baselineSeq = dispatchTree.newestBaselineSeq, baselineSeq >= helloSeq { return }
+        requestMetadataRefresh()
     }
 
     /// A `/state` baseline; the caller emits. `mark` is `dispatchTree.mark`
     /// read when its fetch started.
-    func applyDispatchBaseline(_ dispatches: [LeoDispatch], since mark: Int) {
-        dispatchTree.applyBaseline(dispatches, since: mark)
+    func applyDispatchBaseline(_ dispatches: [LeoDispatch], since mark: Int, atSeq seq: Int? = nil) {
+        dispatchTree.applyBaseline(dispatches, since: mark, atSeq: seq)
     }
 
     /// A `/state` that isn't the activity baseline (a metadata snapshot):
     /// applied the same way, emitting only if what's shown changed.
-    func mergeDispatchSnapshot(_ dispatches: [LeoDispatch], since mark: Int) {
-        updatingDispatches { $0.applyBaseline(dispatches, since: mark) }
-    }
-
-    /// The connection dropped: its records are stale, but ids that ended
-    /// stay remembered for the same daemon (a Retry's baseline follows).
-    func clearDispatchRecords() {
-        dispatchTree.applyBaseline([])
+    func mergeDispatchSnapshot(_ dispatches: [LeoDispatch], since mark: Int, atSeq seq: Int? = nil) {
+        updatingDispatches { $0.applyBaseline(dispatches, since: mark, atSeq: seq) }
     }
 
     /// Host switch or stop: nothing carries over.
@@ -56,13 +71,14 @@ extension LeoSidebarFeed {
 }
 
 extension LeoSidebarSnapshot {
-    /// Each row's nested dispatches from `tree`. None while disconnected:
-    /// the rows are stale, so is what they were running.
+    /// Each row's nested dispatches from `tree`. While disconnected they
+    /// are the last-known ones (a drop must not blank them); the Retry's
+    /// baseline reconciles them.
     func overlayingDispatches(_ tree: LeoDispatchTree) -> LeoSidebarSnapshot {
         LeoSidebarSnapshot(
             rows: rows, connectivity: connectivity, generation: generation,
             listRefreshSucceeded: listRefreshSucceeded, attentionCount: attentionCount,
-            dispatchChildren: connectivity.isDisconnected ? [:] : tree.projection(for: rows.map(\.name))
+            dispatchChildren: tree.projection(for: rows.map(\.name))
         )
     }
 }

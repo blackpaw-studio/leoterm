@@ -1866,7 +1866,11 @@ extension Ghostty {
                 // MARK: Leo -- a surface hidden in a live pool (B-056) has no
                 // window to show this in, and gets no close either: tell its pool.
                 guard surfaceView.window != nil else {
-                    NotificationCenter.default.post(name: .leoWindowlessChildExited, object: surfaceView)
+                    NotificationCenter.default.post(
+                        name: .leoWindowlessChildExited,
+                        object: surfaceView,
+                        userInfo: [LeoWindowlessChildExit.exitCodeKey: Int(v.exit_code)]
+                    )
                     return false
                 }
                 // We handle this when the window is visible and timetime_ms is greater than 0,

@@ -111,6 +111,13 @@ extension Ghostty {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
 
+                // MARK: Leo -- a dispatch the user is only watching (B-266).
+                if surfaceView.leoWatchingDispatch {
+                    LeoDispatchWatchBadge()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                        .allowsHitTesting(false)
+                }
+
                 // If we have secure input enabled and we're the focused surface and window
                 // then we want to show the secure input overlay.
                 if ghostty.config.secureInputIndication &&

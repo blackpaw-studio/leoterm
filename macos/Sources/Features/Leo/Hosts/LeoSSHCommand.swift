@@ -118,6 +118,25 @@ struct LeoSSHCommand: Sendable {
         return parts.joined(separator: " ")
     }
 
+    /// `attachShellCommand` for a dispatch subagent (B-266). The remote leo
+    /// is local to that host, so no `--host`.
+    func attachShellCommand(dispatchID: String) throws -> String {
+        try validateConfiguration()
+        guard !dispatchID.isEmpty, !dispatchID.hasPrefix("-"),
+              !dispatchID.contains(where: { $0 == "\0" || $0 == "\n" || $0 == "\r" }) else {
+            throw LeoAttachCommandError.invalidDispatchID
+        }
+        var parts = ["env", "-u", "TMUX", "-u", "TMUX_PANE", "ssh", "-t"]
+        if let identityFile = configuration.identityFile {
+            parts += ["-i", try leoShellQuote(identityFile)]
+        }
+        if let port = configuration.port {
+            parts += ["-p", try leoShellQuote(String(port))]
+        }
+        parts += [try leoShellQuote(target), try leoShellQuote("\(try remoteLeoCommand()) dispatch attach \(try leoShellQuote(dispatchID))")]
+        return parts.joined(separator: " ")
+    }
+
     func remoteAttachCommand(agent: String) throws -> String {
         try validateConfiguration()
         return "\(try remoteLeoCommand()) agent attach -- \(try leoShellQuote(agent))"

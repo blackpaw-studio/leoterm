@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// What a nested dispatch row shows (B-257): its name (else its role), and
@@ -32,14 +33,50 @@ struct LeoDispatchRowPresentation: Equatable {
     }
 }
 
-/// One live dispatch under its agent row: indented by depth, never
-/// selectable (no tag), dimmed and inert with its agent rows when
-/// disconnected.
+/// One live dispatch under its agent row: indented by depth, dimmed and
+/// inert with its agent rows when disconnected. Informational (no tag,
+/// never selected) unless the daemon can attach to it (B-266): then
+/// `click` is set, the list tags it, and a click opens it.
 struct LeoDispatchRowView: View {
     let node: LeoDispatchNode
+    /// Set only for a selectable row: the click's modifiers and count.
+    var click: ((NSEvent.ModifierFlags, Int) -> Void)?
+    /// Set only when the dispatch has children: shows a disclosure control
+    /// (outside the row's click area) that calls `toggle`.
+    var disclosure: Disclosure?
+
+    struct Disclosure {
+        let isCollapsed: Bool
+        let toggle: () -> Void
+    }
 
     var body: some View {
         let presentation = LeoDispatchRowPresentation(node)
+        HStack(spacing: 2) {
+            content(presentation)
+                .help(presentation.title)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(presentation.accessibilityLabel)
+                .modifier(Interaction(click: click, id: node.id))
+            if let disclosure { disclosureButton(disclosure) }
+        }
+        .padding(.leading, presentation.indent)
+    }
+
+    private func disclosureButton(_ disclosure: Disclosure) -> some View {
+        Button(action: disclosure.toggle) {
+            Image(systemName: disclosure.isCollapsed ? "chevron.right" : "chevron.down")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 16, height: 16)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(disclosure.isCollapsed ? "Show nested dispatches" : "Hide nested dispatches")
+        .leoSelectionDisabled()
+    }
+
+    private func content(_ presentation: LeoDispatchRowPresentation) -> some View {
         HStack(spacing: 5) {
             Image(systemName: "arrow.turn.down.right")
                 .font(.caption2)
@@ -56,11 +93,24 @@ struct LeoDispatchRowView: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
         }
-        .padding(.leading, presentation.indent)
-        .help(presentation.title)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(presentation.accessibilityLabel)
-        .leoSelectionDisabled()
+    }
+
+    /// A selectable row takes the same whole-row click catcher as an
+    /// agent row; the rest stay out of selection.
+    private struct Interaction: ViewModifier {
+        let click: ((NSEvent.ModifierFlags, Int) -> Void)?
+        let id: String
+
+        func body(content: Content) -> some View {
+            if let click {
+                content
+                    .contentShape(Rectangle())
+                    .background(LeoRowClickCatcher(identity: id, onClick: click).accessibilityHidden(true))
+                    .accessibilityAddTraits(.isButton)
+            } else {
+                content.leoSelectionDisabled()
+            }
+        }
     }
 }
 

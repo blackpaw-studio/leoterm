@@ -10,7 +10,7 @@ struct LeoDispatchNode: Equatable, Sendable, Identifiable {
 }
 
 /// The selected host's live dispatches, nested for the sidebar (B-257).
-/// Pure value: the `/state` baseline replaces it, `dispatch_changed`
+/// Pure value: the `/state` baseline reconciles it, `dispatch_changed`
 /// upserts into it, and a terminal status or `ended_at` removes a record
 /// at once (no lingering). Ids that ended live are remembered for the
 /// daemon's lifetime (capped), so a baseline taken before the end can't
@@ -24,6 +24,8 @@ struct LeoDispatchTree: Equatable, Sendable {
     static let recordCap = 1024
     /// Nesting deeper than this is not shown.
     static let maxDepth = 16
+    /// How many gone ancestors are followed to find a surviving one.
+    static let maxAncestryHops = 64
 
     private(set) var isEnabled = false
     private var records: [String: LeoDispatch] = [:]
@@ -33,6 +35,21 @@ struct LeoDispatchTree: Equatable, Sendable {
     /// Bumped by every live upsert; `upsertMarks` holds each record's.
     private(set) var mark = 0
     private var upsertMarks: [String: Int] = [:]
+    /// `state_seq`: the daemon event seq each record last reflects (a live
+    /// event's, or the baseline's `meta.seq`), and the newest baseline seq
+    /// applied.
+    private var recordSeqs: [String: Int] = [:]
+    private var baselineSeq: Int?
+    /// The newest `meta.seq` any baseline carried, whether or not the
+    /// daemon had advertised `state_seq` when it landed (the first one
+    /// can land before the hello says so). Decides whether a hello is
+    /// ahead of what was fetched.
+    private(set) var newestBaselineSeq: Int?
+    /// The parent of each record that has gone (ended, removed, or found
+    /// stale), so its children re-parent under the nearest surviving
+    /// ancestor and not straight to the agent. Capped like `endedIDs`.
+    private var ancestry: [String: String] = [:]
+    private var ancestryOrder: [String] = []
 
     /// Returns whether it changed.
     @discardableResult
@@ -43,39 +60,93 @@ struct LeoDispatchTree: Equatable, Sendable {
 
     /// Replaces every record with `dispatches`' live ones, minus any id
     /// that already ended. `mark` is `self.mark` read when the fetch
-    /// started: a record upserted live after it is newer than the
-    /// baseline, so it stays as it is.
+    /// started: a record the daemon reported live after it is newer than
+    /// the baseline, so it stays as it is. A record the fetch began after
+    /// the last report of is confirmed stale and goes if the baseline
+    /// omits it. A dropped connection never calls this: the last-known
+    /// records stay until the reconnect's baseline reconciles them.
     /// Returns whether the records changed.
     @discardableResult
-    mutating func applyBaseline(_ dispatches: [LeoDispatch], since mark: Int? = nil) -> Bool {
+    mutating func applyBaseline(_ dispatches: [LeoDispatch], since mark: Int? = nil, atSeq seq: Int? = nil) -> Bool {
         let previous = records
+        if let seq { newestBaselineSeq = max(newestBaselineSeq ?? seq, seq) }
         var updated = Dictionary(
             dispatches.filter { $0.isLive && !endedSet.contains($0.id) }.prefix(Self.recordCap).map { ($0.id, $0) },
             uniquingKeysWith: { _, latest in latest }
         )
-        if let mark {
-            for (id, record) in records where (upsertMarks[id] ?? 0) > mark { updated[id] = record }
+        var kept: Set<String> = []
+        if usesStateSeq, let seq {
+            // The snapshot reflects every event up to `seq` (and maybe
+            // later ones): a record whose last event is newer stays.
+            if let baselineSeq, seq < baselineSeq { return false }
+            for (id, record) in records where (recordSeqs[id] ?? 0) > seq {
+                updated[id] = record
+                kept.insert(id)
+            }
+            baselineSeq = seq
+        } else if let mark {
+            for (id, record) in records where (upsertMarks[id] ?? 0) > mark {
+                updated[id] = record
+                kept.insert(id)
+            }
         }
+        for (id, record) in previous where updated[id] == nil { rememberAncestry(of: record) }
         records = updated
         upsertMarks = upsertMarks.filter { updated[$0.key] != nil }
+        if usesStateSeq, let seq {
+            recordSeqs = updated.keys.reduce(into: [:]) { $0[$1] = kept.contains($1) ? recordSeqs[$1] : seq }
+        } else {
+            recordSeqs = recordSeqs.filter { updated[$0.key] != nil }
+        }
         return records != previous
     }
 
+    private(set) var usesStateSeq = false
+
+    /// Whether `/state`'s `meta.seq` orders baselines (`state_seq`).
+    mutating func setStateSeq(_ enabled: Bool) { usesStateSeq = enabled }
+
     /// Applies one live record. Returns whether the records changed.
     @discardableResult
-    mutating func upsert(_ dispatch: LeoDispatch) -> Bool {
+    mutating func upsert(_ dispatch: LeoDispatch, seq: Int? = nil) -> Bool {
         guard !endedSet.contains(dispatch.id) else { return false }
         guard dispatch.isLive else {
+            rememberAncestry(of: records[dispatch.id] ?? dispatch)
             rememberEnded(dispatch.id)
             upsertMarks[dispatch.id] = nil
+            recordSeqs[dispatch.id] = nil
             return records.removeValue(forKey: dispatch.id) != nil
         }
-        guard records[dispatch.id] != dispatch else { return false }
         guard records[dispatch.id] != nil || records.count < Self.recordCap else { return false }
+        if usesStateSeq, let seq, isReflectedInState(dispatch.id, bySeq: seq) { return false }
+        // Every live report counts, changed or not: an identical republish
+        // that lands while a `/state` fetch is in flight proves the record
+        // is live after that fetch began, so a baseline omitting it is the
+        // stale one.
         mark += 1
-        records[dispatch.id] = dispatch
         upsertMarks[dispatch.id] = mark
+        if usesStateSeq, let seq { recordSeqs[dispatch.id] = seq }
+        guard records[dispatch.id] != dispatch else { return false }
+        records[dispatch.id] = dispatch
         return true
+    }
+
+    /// A finished run the daemon dropped. Returns whether the records changed.
+    @discardableResult
+    mutating func remove(_ id: String) -> Bool {
+        if let record = records[id] { rememberAncestry(of: record) }
+        rememberEnded(id)
+        upsertMarks[id] = nil
+        recordSeqs[id] = nil
+        return records.removeValue(forKey: id) != nil
+    }
+
+    /// Whether an event at `seq` is already in what the record (or, for an
+    /// unknown record, the last baseline) reflects.
+    private func isReflectedInState(_ id: String, bySeq seq: Int) -> Bool {
+        if let recorded = recordSeqs[id] { return seq <= recorded }
+        guard records[id] == nil, let baselineSeq else { return false }
+        return seq <= baselineSeq
     }
 
     /// Notes the daemon's boot id. A different daemon restarts its ids'
@@ -88,6 +159,11 @@ struct LeoDispatchTree: Equatable, Sendable {
         guard let bootID, bootID != id else { return false }
         records = [:]
         upsertMarks = [:]
+        recordSeqs = [:]
+        baselineSeq = nil
+        newestBaselineSeq = nil
+        ancestry = [:]
+        ancestryOrder = []
         endedIDs = []
         endedSet = []
         return true
@@ -97,42 +173,72 @@ struct LeoDispatchTree: Equatable, Sendable {
     mutating func reset() { self = LeoDispatchTree() }
 
     /// The dispatches under `agent`'s row, depth first. A root is a
-    /// dispatch with no parent, or whose parent is no longer live; it sits
-    /// under the row its `caller_agent` names (so an orphan whose caller
-    /// has no row shows nowhere).
+    /// dispatch with no surviving ancestor; it sits under the row its
+    /// `caller_agent` names (the root agent at every depth, so a dispatch
+    /// whose ancestors all ended re-parents to the agent and never
+    /// vanishes; one whose caller has no row shows nowhere).
     func children(of agent: String) -> [LeoDispatchNode] {
         guard isEnabled else { return [] }
-        let roots = sorted(records.values.filter { isRoot($0) && $0.callerAgent == agent })
-        var nodes: [LeoDispatchNode] = []
-        var visited: Set<String> = []
-        for root in roots { appendSubtree(root, depth: 0, into: &nodes, visited: &visited) }
-        return nodes
+        return children(of: agent, groupedBy: groupedByParent())
     }
 
     /// `children(of:)` for each of `agents`, leaving out the empty ones.
     func projection(for agents: [String]) -> [String: [LeoDispatchNode]] {
         guard isEnabled, !records.isEmpty else { return [:] }
+        let groups = groupedByParent()
         return agents.reduce(into: [:]) { result, agent in
-            let nodes = children(of: agent)
+            let nodes = children(of: agent, groupedBy: groups)
             if !nodes.isEmpty { result[agent] = nodes }
         }
     }
 
-    private func isRoot(_ dispatch: LeoDispatch) -> Bool {
-        guard let parent = dispatch.parentDispatchID else { return true }
-        return records[parent] == nil
+    private func children(of agent: String, groupedBy groups: [String?: [LeoDispatch]]) -> [LeoDispatchNode] {
+        let roots = sorted((groups[nil] ?? []).filter { $0.callerAgent == agent })
+        var nodes: [LeoDispatchNode] = []
+        var visited: Set<String> = []
+        for root in roots { appendSubtree(root, depth: 0, groups: groups, into: &nodes, visited: &visited) }
+        return nodes
     }
 
-    private func appendSubtree(_ dispatch: LeoDispatch, depth: Int, into nodes: inout [LeoDispatchNode], visited: inout Set<String>) {
+    /// Records by their nearest surviving ancestor (nil: none).
+    private func groupedByParent() -> [String?: [LeoDispatch]] {
+        Dictionary(grouping: records.values, by: { survivingParent(of: $0) })
+    }
+
+    /// The nearest ancestor still live: the immediate parent, else (when
+    /// it is gone) its remembered parent, and so on.
+    private func survivingParent(of dispatch: LeoDispatch) -> String? {
+        var parent = dispatch.parentDispatchID
+        var hops = 0
+        while let candidate = parent, records[candidate] == nil {
+            hops += 1
+            guard hops <= Self.maxAncestryHops else { return nil }
+            parent = ancestry[candidate]
+        }
+        return parent
+    }
+
+    private func appendSubtree(
+        _ dispatch: LeoDispatch, depth: Int, groups: [String?: [LeoDispatch]],
+        into nodes: inout [LeoDispatchNode], visited: inout Set<String>
+    ) {
         guard depth <= Self.maxDepth, visited.insert(dispatch.id).inserted else { return }
         nodes.append(LeoDispatchNode(dispatch: dispatch, depth: depth))
-        let kids = sorted(records.values.filter { $0.parentDispatchID == dispatch.id })
-        for kid in kids { appendSubtree(kid, depth: depth + 1, into: &nodes, visited: &visited) }
+        for kid in sorted(groups[dispatch.id] ?? []) {
+            appendSubtree(kid, depth: depth + 1, groups: groups, into: &nodes, visited: &visited)
+        }
     }
 
     /// Oldest first, then by id, so siblings keep a stable order.
     private func sorted(_ dispatches: [LeoDispatch]) -> [LeoDispatch] {
         dispatches.sorted { ($0.startedAt ?? "", $0.id) < ($1.startedAt ?? "", $1.id) }
+    }
+
+    private mutating func rememberAncestry(of record: LeoDispatch) {
+        guard let parent = record.parentDispatchID else { return }
+        if ancestry.updateValue(parent, forKey: record.id) == nil { ancestryOrder.append(record.id) }
+        guard ancestryOrder.count > Self.endedCap else { return }
+        ancestry.removeValue(forKey: ancestryOrder.removeFirst())
     }
 
     private mutating func rememberEnded(_ id: String) {

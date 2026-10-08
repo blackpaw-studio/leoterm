@@ -369,6 +369,28 @@ import Testing
         }
     }
 
+    /// A dispatch attach that fails while hidden gets no exit message from
+    /// Ghostty (no window to show it in) and is then let go by the pool:
+    /// its exit must still reach the coordinator, with its code.
+    @Test func aHiddenDispatchThatExitsStillReportsItsExit() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let tracker = Tracker()
+        let dispatch = try attach(fixture, tracker)
+        fixture.host.markWatchingDispatch(dispatch)
+        _ = try attach(fixture, tracker)
+        let surface = try #require(tracker.view(dispatch))
+        try #require(surface.window == nil, "precondition: hidden")
+
+        NotificationCenter.default.post(
+            name: .leoWindowlessChildExited, object: surface, userInfo: [LeoWindowlessChildExit.exitCodeKey: 3]
+        )
+
+        #expect(await eventually { fixture.events.events.contains(.processExited(dispatch)) })
+        #expect(fixture.host.exitReport(for: dispatch)?.code == 3)
+        #expect(fixture.host.exitReport(for: dispatch) == nil, "read once")
+    }
+
     @Test func aHiddenSurfaceWhoseProcessEndsIsLetGo() async throws {
         let fixture = try makeFixture()
         defer { close(fixture) }

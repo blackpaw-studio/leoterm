@@ -26,6 +26,9 @@ import OSLog
         letGo: { [weak self] in self?.closeHandles(in: $0) }
     )
     private var hiddenExitObservers: [NSObjectProtocol] = []
+    /// How dispatch attaches that exited while hidden ended, until the
+    /// coordinator reads it (`exitReport(for:)`).
+    private var windowlessExits: [AttachmentHandle: AttachExitReport] = [:]
     private var windowCloseObservers: [LeoWindowID: NSObjectProtocol] = [:]
     /// B-107: handles whose window's surface tree changed since they were
     /// last reconciled, oldest first (`runPendingReconciles`).
@@ -187,6 +190,13 @@ import OSLog
     func release(_ handle: AttachmentHandle) {
         guard let surface = attachments[handle]?.surface else { return }
         live.release(treeHolding: surface, in: handle.windowID)
+    }
+
+    /// A dispatch attach that ended while hidden in a pooled split: only
+    /// its own surface goes, not the whole tree it shares with live panes.
+    func releasePooledSurface(_ handle: AttachmentHandle) {
+        guard let surface = attachments[handle]?.surface else { return }
+        live.surfaceClosed(surface)
     }
 
     /// B-057: a terminal row's shell closed (⌘W, `exit`) -- whether it is
@@ -366,6 +376,18 @@ import OSLog
     /// both -- on the next turn: both arrive from inside libghostty's
     /// handling of that very surface, which must not be freed under it.
     ///
+    /// A dispatch attach exiting while hidden: Ghostty gave it no exit
+    /// message, and the pool is about to let it go (`.closed`, which says
+    /// nothing of how it ended). Keep what it said and code now, while its
+    /// screen is still readable, and report the exit ahead of the close, so
+    /// a failed attach is reported however it got hidden.
+    private func recordWindowlessExit(of surface: Ghostty.SurfaceView?, exitCode: Int?) {
+        guard let surface, surface.leoWatchingDispatch, let exitCode,
+              let handle = attachments.first(where: { $0.value.surface === surface })?.key else { return }
+        windowlessExits[handle] = AttachExitReport(code: exitCode, screenText: surface.cachedVisibleContents.get())
+        continuation.yield(.processExited(handle))
+    }
+
     /// Whose a close request is, is decided when it arrives: a terminal
     /// row's shell hidden then gets no controller's close, so -- its
     /// process having ended -- its row closes the way ⌘W's does
@@ -386,7 +408,10 @@ import OSLog
                     }
                 }
             },
-            center.addObserver(forName: .leoWindowlessChildExited, object: nil, queue: .main) { [weak self] _ in
+            center.addObserver(forName: .leoWindowlessChildExited, object: nil, queue: .main) { [weak self] notification in
+                let surface = notification.object as? Ghostty.SurfaceView
+                let exitCode = notification.userInfo?[LeoWindowlessChildExit.exitCodeKey] as? Int
+                MainActor.assumeIsolated { self?.recordWindowlessExit(of: surface, exitCode: exitCode) }
                 DispatchQueue.main.async { self?.live.dropDead() }
             },
         ]
@@ -646,6 +671,19 @@ import OSLog
     /// refilled with a new surface.
     func setAgentName(_ handle: AttachmentHandle, name: String) {
         attachments[handle]?.surface?.leoAgentName = name
+    }
+
+    func markWatchingDispatch(_ handle: AttachmentHandle) {
+        attachments[handle]?.surface?.leoWatchingDispatch = true
+    }
+
+    /// The exit code Ghostty reported, with the last line the process left
+    /// on screen (a failed `leo dispatch attach` prints why there).
+    func exitReport(for handle: AttachmentHandle) -> AttachExitReport? {
+        if let surface = attachments[handle]?.surface, let exited = surface.childExitedMessage {
+            return AttachExitReport(code: exited.exitCode, screenText: surface.cachedVisibleContents.get())
+        }
+        return windowlessExits.removeValue(forKey: handle)
     }
 
     /// Starts from the inherited config stashed for this request (if any --

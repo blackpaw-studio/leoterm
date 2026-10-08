@@ -4,6 +4,10 @@ struct LeoAttachError: Error, Equatable, Sendable {
     enum Kind: Equatable, Sendable {
         case executable(String)
         case invalidName
+        case invalidDispatchID
+        /// A dispatch attach ended with a failure: the exit code, and the
+        /// line it printed.
+        case dispatchAttachFailed(code: Int, detail: String?)
         case openFailed(String)
         /// The user kept what the content area showed (B-055). Nothing
         /// failed, so nothing is reported.
@@ -17,6 +21,8 @@ struct LeoAttachError: Error, Equatable, Sendable {
         switch kind {
         case .executable(let message), .openFailed(let message): message
         case .invalidName: "Agent names cannot contain NUL or newline characters"
+        case .invalidDispatchID: "This dispatch has an id that can't be attached"
+        case .dispatchAttachFailed(let code, let detail): detail.map { "\($0) (exit \(code))" } ?? "Dispatch attach exited with code \(code)"
         case .cancelled: "Cancelled"
         }
     }
@@ -181,6 +187,10 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             let attachError = LeoAttachError(identity: identity, kind: .invalidName)
             report(attachError)
             return .failure(attachError)
+        } catch LeoAttachCommandError.invalidDispatchID {
+            let attachError = LeoAttachError(identity: identity, kind: .invalidDispatchID)
+            report(attachError)
+            return .failure(attachError)
         } catch {
             let attachError = LeoAttachError(identity: identity, kind: .executable(error.localizedDescription))
             report(attachError)
@@ -201,7 +211,8 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             handlesByIdentity[identity, default: []].append(handle)
             identityByHandle[handle] = identity
             adoptHostFocus()
-            host.setAgentName(handle, name: identity.name)
+            host.setAgentName(handle, name: identity.title ?? identity.name)
+            if identity.dispatchID != nil { host.markWatchingDispatch(handle) }
             return .success(handle)
         } catch {
             let attachError = LeoAttachError(identity: identity, kind: .openFailed(error.localizedDescription))
@@ -396,7 +407,10 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             // to key attach bookkeeping on) never enter `inactive` -- there
             // is nothing for `.closed` to clean up afterwards, since
             // `remove(_:)` is itself a no-op for handles with no identity.
-            guard identityByHandle[handle] != nil else { return }
+            guard let identity = identityByHandle[handle] else { return }
+            // A dispatch's attach ends with the dispatch: nothing to
+            // restart, so no placeholder; the surface closes (B-266).
+            guard identity.dispatchID == nil else { return closeEndedDispatch(handle, of: identity) }
             inactive.insert(handle)
             host.rebirthPlaceholder(for: handle)
         case .focusSuspended:
@@ -412,6 +426,31 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             // leaving for the sidebar doesn't mean it no longer is.
             if let handle { view(handle) }
         }
+    }
+
+    private func closeEndedDispatch(_ handle: AttachmentHandle, of identity: LeoAgentIdentity) {
+        // A failed attach says why in a brief error, not on a lingering
+        // surface; a clean exit (the dispatch closed) or a client told to
+        // terminate (SIGHUP/SIGINT/SIGPIPE/SIGTERM) says nothing.
+        if let exit = host.exitReport(for: handle), exit.isFailure {
+            report(LeoAttachError(identity: identity, kind: .dispatchAttachFailed(code: exit.code, detail: exit.detail)))
+        }
+        let wasShown = host.isShown(handle)
+        host.closeTerminal(handle)
+        // `closeTerminal` leaves a surface hidden in a live pool: let that
+        // surface (not the split tree it shares) go too, so no exited
+        // dispatch lingers in a pooled split.
+        if host.isOpen(handle) { host.releasePooledSurface(handle) }
+        if host.isOpen(handle) {
+            // Still there: keep its identity (not live) until the host's
+            // `.closed` removes it, rather than strand an unknown surface.
+            inactive.insert(handle)
+            return
+        }
+        remove(handle)
+        guard wasShown else { return }
+        contentReplaced(in: handle.windowID)
+        adoptHostFocus()
     }
 
     private func receivedFocusReport() {
