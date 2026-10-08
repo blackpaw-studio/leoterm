@@ -31,7 +31,7 @@ Lane: B-051
   Branch: autopilot-lane/B-051
   Base: 383cbe02a346fc0067fa8e8e3bd3525c9e70cd95
   Tier: full
-  State: building
+  State: shelved
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -43,3 +43,5 @@ Lane: B-051
 
 ## Progress
 - B-051 runner dispatched (leo implement d-33d34a2ad44e, pane ap-B-051) at 2026-10-08T21:30:07Z.
+- B-051 blocked: root cause daemon-side (turn.complete ignores pending.tasks; ~89 s Finished while a background Bash ran). Spec + trace in .autopilot/bugs/B-051/. Shelved on autopilot-shelved/B-051 (no commits).
+Finished 1: B-051 blocked

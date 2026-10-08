@@ -1331,15 +1331,16 @@ Accept: in the isolated debug build, the agent palette's ⌘↩ opens a new tab 
 Source: B-047 implementer report (unverified in the GUI)
 Done: e13738b88 0604cc27f 5bd615a31 (1497 tests). Palette ⌘↩ was already correct: it opens a new tab, also when the agent has one, and never toggles full screen (shots B-048-2, -3). The sidebar ⌘-click was broken: it deselected the row and opened no tab, because the List toggled the selection and SwiftUI tap gestures don't fire in non-key windows. Fixed with a required selection and `LeoRowClickCatcher`; double-click and the Attach button now act exactly once; decisions D-094. Verified: the double-click attaches once (B-048-1), the row stays selected after a ⌘-click (checked in this run), and the palette ⌘↩ forces a new tab (B-048-3). The ⌘-click attach itself was not visually verified, because peekaboo's synthetic ⌘-clicks don't reliably reach the app; end-to-end tests post real mouse events to a non-key window instead. 2 review fix rounds.
 
-## B-051 · Bug — working agents show "Finished" (suspected subagents)   [ready]
+## B-051 · Bug — working agents show "Finished" (suspected subagents)   [blocked]
 Issue: #54
 Why: The status badge has to be trustworthy or the attention model means nothing. Serves "Calm, attention-driven: never invent a state".
 Accept: Reproduce on autopilot-scratch with a scripted turn that starts a background subagent, then record the SSE attention events and the row's state over time; name the root cause (app mapping vs daemon hook semantics) with that trace as evidence; if it's app-side, fix it test-first with a failing test that replays the trace; if it's daemon-side, write the contract change (e.g. keep `working` until SubagentStop / background tasks finish) as a spec and block on Evan.
 Out: Adding app-side heuristics that override daemon state; Codex/opencode subagent detection.
 Source: Evan (/feature, 2026-09-28)
 Inbox: 20260928T193703549149Z-2d2188b3#1
-Question: Needs Evan to do: send the daemon contract change to the leo agent, and time the leo release/restart. Reply "B-051: done" once it's done.
-Answer: done
+Question: Approve this daemon contract change and send it to the `leo` agent? I'd pick: hold `working` on non-empty `pending.tasks` (incl. dev servers/watchers) — "A supervised claude `turn.complete` with non-empty `pending.tasks` holds `working` like the subagent/dispatch hold, with additive `outstanding.tasks = Σ pending.tasks`. The hold drops at the next `turn.start`, session.end, interrupt or stop; that turn's own completion decides again. `pending.wakeups` never hold. `pending` is per turn.complete, never carried over." Alternative: exclude never-ending task types (e.g. `monitor`). App needs no change (badge mirrors attention.state). Evidence (daemon 0.41.0, autopilot-scratch): background `sleep 90` → SSE finished at 17:37:47 while the process lived; working/finished only when it exited at 17:39:16 (~89 s wrong). Cause: daemon internal/observe/bridgefeed.go ~L294 calls AdvanceBridge(finished) without reading ev.Pending. Background *subagent* not reproduced live (native Agent gated on scratch); also say whether to unlock that live scenario. Spec + trace: .autopilot/bugs/B-051/. Work kept on autopilot-shelved/B-051.
+Answer:
+
 ## B-052 · Attach tabs are titled with the agent's name   [done]
 Issue: #55
 Why: Tabs should tell you which agent is inside at a glance, so you don't have to click through them. Serves "Everything through Leo" (no hunting for an agent's tab).
