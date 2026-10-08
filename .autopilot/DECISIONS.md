@@ -3062,3 +3062,10 @@ Chose: Lane-local GhosttyKit.xcframework and zig-out symlinks added to `info/exc
 Why: AUTONOMY: test infra
 Commit: 82c63cac9, 8f35fa1e1
 Veto: [ ]
+
+## D-426 · 2026-10-08 · Build B-204 (rows-focus flakes) ahead of the polish queue
+Context: B-204; LeoTerminalRowsIntegrationTests focus tests failed once in each of B-235's and B-144's verifies this run (passed on rerun).
+Chose: Pick B-204 next, ahead of B-145–B-199, since the flake costs a suite rerun on every item.
+Why: AUTONOMY "ordering within the backlog", "flake fixes"
+Commit:
+Veto: [ ]
