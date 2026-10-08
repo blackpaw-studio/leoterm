@@ -217,9 +217,10 @@ struct AttachExitReportTests {
         #expect(host.closedTerminals == [host.handles[0]])
     }
 
-    /// 128+N is the attach client killed by signal N (the window closing
-    /// under it, a ^C): the end of the watching, not a failed attach.
-    @Test(arguments: [129, 130, 143, 192])
+    /// 128+N is the attach client killed by signal N. A termination
+    /// request (SIGHUP, SIGINT, SIGPIPE, SIGTERM: the window closing under
+    /// it, a ^C) is the end of the watching, not a failed attach.
+    @Test(arguments: [129, 130, 141, 143])
     func aSignalledAttachClientIsACloseNotAFailure(_ code: Int) async {
         let host = FakeAttachContentHost()
         var errors: [LeoAttachError] = []
@@ -233,8 +234,11 @@ struct AttachExitReportTests {
         #expect(host.closedTerminals == [host.handles[0]])
     }
 
-    @Test(arguments: [127, 193, 255])
-    func anExitJustOutsideTheSignalRangeStillFails(_ code: Int) async {
+    /// Any other signal (SIGABRT 134, SIGKILL 137, SIGBUS 138, SIGSEGV 139,
+    /// ...) is the client crashing or being killed: that is reported, as is
+    /// an exit code outside 129...192.
+    @Test(arguments: [127, 134, 137, 138, 139, 193, 255])
+    func aCrashedOrOrdinaryFailingExitStillFails(_ code: Int) async {
         let host = FakeAttachContentHost()
         var errors: [LeoAttachError] = []
         let coordinator = LeoAttachCoordinator(

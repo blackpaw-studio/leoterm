@@ -58,16 +58,18 @@ struct AttachExitReport: Equatable, Sendable {
     static let maxDetailLength = 160
 
     /// `leo dispatch attach` exits 128+N when its client was killed by
-    /// signal N (the window closed under it, ^C): the watching ended, the
-    /// attach did not fail.
-    private static let signalledCodes = 129...192
+    /// signal N. Only a termination request (SIGHUP, SIGINT, SIGPIPE,
+    /// SIGTERM: the window closed under it, ^C) ends the watching without
+    /// failing; any other signal (SIGSEGV, SIGABRT, SIGKILL, ...) is a
+    /// crash and is reported.
+    private static let terminationRequestCodes: Set<Int> = [129, 130, 141, 143]
 
     let code: Int
     let detail: String?
 
     /// Whether the process ended in error: not a clean exit, and not a
-    /// signalled client.
-    var isFailure: Bool { code != 0 && !Self.signalledCodes.contains(code) }
+    /// client told to terminate.
+    var isFailure: Bool { code != 0 && !Self.terminationRequestCodes.contains(code) }
 
     init(code: Int, detail: String?) {
         self.code = code
