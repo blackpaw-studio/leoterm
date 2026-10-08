@@ -437,8 +437,9 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         let wasShown = host.isShown(handle)
         host.closeTerminal(handle)
         // `closeTerminal` leaves a surface hidden in a live pool: let that
-        // go too, so no exited dispatch lingers in a pooled split.
-        if host.isOpen(handle) { host.release(handle) }
+        // surface (not the split tree it shares) go too, so no exited
+        // dispatch lingers in a pooled split.
+        if host.isOpen(handle) { host.releasePooledSurface(handle) }
         if host.isOpen(handle) {
             // Still there: keep its identity (not live) until the host's
             // `.closed` removes it, rather than strand an unknown surface.

@@ -189,6 +189,13 @@ import OSLog
         live.release(treeHolding: surface, in: handle.windowID)
     }
 
+    /// A dispatch attach that ended while hidden in a pooled split: only
+    /// its own surface goes, not the whole tree it shares with live panes.
+    func releasePooledSurface(_ handle: AttachmentHandle) {
+        guard let surface = attachments[handle]?.surface else { return }
+        live.surfaceClosed(surface)
+    }
+
     /// B-057: a terminal row's shell closed (⌘W, `exit`) -- whether it is
     /// still on screen or not: its close lands a turn late, or once a
     /// confirm is answered, so a reveal may have hidden it meanwhile.

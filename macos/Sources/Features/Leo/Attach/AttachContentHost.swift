@@ -135,6 +135,11 @@ struct AttachExitReport: Equatable, Sendable {
     /// clients detach and its handles close. Content on screen is left
     /// alone.
     func release(_ handle: AttachmentHandle)
+    /// Lets go of `handle`'s surface alone when it is hidden in a pooled
+    /// split: the surfaces beside it stay attached (an agent or a shell
+    /// there is not its to end). A pooled tree left with no live attach
+    /// goes with it, as when any pooled surface ends.
+    func releasePooledSurface(_ handle: AttachmentHandle)
     /// B-057: closes the terminal row `handle` (its shell went: ⌘W, or
     /// `exit`), shown or hidden. Shown alone, its window shows the
     /// neighbouring terminal row instead -- the same hidden surface -- or,

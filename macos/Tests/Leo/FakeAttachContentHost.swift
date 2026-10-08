@@ -107,7 +107,23 @@ struct FakeOpenCall {
         return true
     }
 
+    /// Handles that share a pooled split tree with a given hidden handle
+    /// (set by a test): `release` lets go of the whole tree, as the real
+    /// host does, `releasePooledSurface` of one surface only.
+    var pooledSplitMates: [AttachmentHandle: [AttachmentHandle]] = [:]
+
     func release(_ handle: AttachmentHandle) {
+        guard let pool = pools[handle.windowID] else { return }
+        let (remaining, removed) = pool.removing { $0 == handle }
+        pools[handle.windowID] = remaining
+        removed.forEach(drop)
+        guard !removed.isEmpty else { return }
+        (pooledSplitMates[handle] ?? []).forEach(drop)
+    }
+
+    private(set) var releasedPooledSurfaces: [AttachmentHandle] = []
+    func releasePooledSurface(_ handle: AttachmentHandle) {
+        releasedPooledSurfaces.append(handle)
         guard let pool = pools[handle.windowID] else { return }
         let (remaining, removed) = pool.removing { $0 == handle }
         pools[handle.windowID] = remaining

@@ -145,6 +145,26 @@ struct AttachExitReportTests {
         #expect(host.reborn.isEmpty)
     }
 
+    /// A pooled split keeps its whole tree hidden: the exited dispatch
+    /// leaves it alone, not taking a live agent (or shell) beside it along.
+    @Test func aPooledDispatchExitLeavesTheLiveAgentBesideItInItsSplit() async {
+        let host = FakeAttachContentHost()
+        host.closeTerminalLeavesPooledSurfaces = true
+        let coordinator = makeCoordinator(host: host)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        let dispatchHandle = host.handles[0]
+        await coordinator.attach(identity: .init(host: .local, name: "worker"), from: origin, disposition: .content)
+        let sibling = AttachmentHandle(surfaceID: UUID(), windowID: dispatchHandle.windowID)
+        host.openHandles.insert(sibling)
+        host.pooledSplitMates[dispatchHandle] = [sibling]
+        #expect(host.isHidden(dispatchHandle), "precondition: pooled")
+
+        await host.emitAndWait(.processExited(dispatchHandle))
+
+        #expect(!host.isOpen(dispatchHandle))
+        #expect(host.isOpen(sibling), "the live surface beside it survives")
+    }
+
     @Test func aDispatchSurfaceIsMarkedAsWatchedButAnAgentsIsNot() async {
         let host = FakeAttachContentHost()
         let coordinator = makeCoordinator(host: host)
