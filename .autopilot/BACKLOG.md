@@ -711,11 +711,12 @@ Accept: A complete canonical rejection line is recognized despite invalid UTF-8 
 Source: autopilot polish (B-233)
 Done: 82c63cac9, 8f35fa1e1 (merge 12530adbb)
 
-## B-144 · Launch-placeholder test cleanup closes pending windows   [ready]
+## B-144 · Launch-placeholder test cleanup closes pending windows   [done]
 Issue: #148
 Why: LeoLaunchPlaceholderIntegrationTests close() (:90,100-101) only closes visible windows; also close windows whose controller has leoIsAwaitingPresentation, and fold the trait's duplicated MainActor.run restore into one helper
 Accept: LeoLaunchPlaceholderIntegrationTests close() (:90,100-101) only closes visible windows; also close windows whose controller has leoIsAwaitingPresentation, and fold the trait's duplicated MainActor.run restore into one helper
 Source: autopilot polish (B-094)
+Done: 87bc874aa (merge 8b7625f4d)
 
 ## B-145 · File ▸ New Window and ⌘N skip the palette flash   [ready]
 Issue: #149

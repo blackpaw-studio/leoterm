@@ -61,7 +61,7 @@ Lane: B-144
   Branch: autopilot-lane/B-144
   Base: fad147d932670221a586cefc53bf3fea7381ef11
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -74,3 +74,5 @@ Lane: B-144
 Finished 1: B-051 blocked
 - B-235 landed 12530adbb: SFTP subsystem-rejection matched on raw stderr bytes per line (exact ASCII, one trailing CR stripped); regression test with invalid UTF-8 suffix; suite 2341 green (1 unrelated focus flake on first run); not visually verified (needs a remote host). Self-filed bug B-269.
 Finished 2: B-235 landed 12530adbba7841dc125adc556417297c532f7899 · not visually verified
+- B-144 landed 8b7625f4d: launch-placeholder test cleanup also closes windows awaiting presentation; restore folded into one helper; suite 2342 green; light, 0 fix rounds. Rows-focus flake seen again (covered by B-204).
+Finished 3: B-144 landed 8b7625f4d350c028e1abeafae4e705d8eb310a28 · not visually verified
