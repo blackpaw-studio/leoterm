@@ -28,6 +28,7 @@ extension LeoSidebarModel {
     /// The list's own selection change (click, arrow keys).
     func userSelected(_ id: LeoAgentRow.ID?) {
         selection = id
+        dispatchSelection = nil
         fenceInFlightFocusReports()
     }
 
@@ -42,7 +43,7 @@ extension LeoSidebarModel {
         clickCount: Int = 1,
         from origin: LeoWindowID? = nil
     ) {
-        selection = row.id
+        selectAgentRow(row.id)
         fenceInFlightFocusReports()
         switch clickCount {
         case 1: singleClicked(row, modifierFlags: modifierFlags, from: origin)
@@ -81,7 +82,7 @@ extension LeoSidebarModel {
         }
     }
 
-    private func fenceInFlightFocusReports() {
+    func fenceInFlightFocusReports() {
         userSelectionFence = latestFocusReport()
     }
 

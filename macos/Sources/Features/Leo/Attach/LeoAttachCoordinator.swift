@@ -4,6 +4,7 @@ struct LeoAttachError: Error, Equatable, Sendable {
     enum Kind: Equatable, Sendable {
         case executable(String)
         case invalidName
+        case invalidDispatchID
         case openFailed(String)
         /// The user kept what the content area showed (B-055). Nothing
         /// failed, so nothing is reported.
@@ -17,6 +18,7 @@ struct LeoAttachError: Error, Equatable, Sendable {
         switch kind {
         case .executable(let message), .openFailed(let message): message
         case .invalidName: "Agent names cannot contain NUL or newline characters"
+        case .invalidDispatchID: "This dispatch has an id that can't be attached"
         case .cancelled: "Cancelled"
         }
     }
@@ -181,6 +183,10 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             let attachError = LeoAttachError(identity: identity, kind: .invalidName)
             report(attachError)
             return .failure(attachError)
+        } catch LeoAttachCommandError.invalidDispatchID {
+            let attachError = LeoAttachError(identity: identity, kind: .invalidDispatchID)
+            report(attachError)
+            return .failure(attachError)
         } catch {
             let attachError = LeoAttachError(identity: identity, kind: .executable(error.localizedDescription))
             report(attachError)
@@ -201,7 +207,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             handlesByIdentity[identity, default: []].append(handle)
             identityByHandle[handle] = identity
             adoptHostFocus()
-            host.setAgentName(handle, name: identity.name)
+            host.setAgentName(handle, name: identity.title ?? identity.name)
             return .success(handle)
         } catch {
             let attachError = LeoAttachError(identity: identity, kind: .openFailed(error.localizedDescription))
@@ -396,7 +402,10 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             // to key attach bookkeeping on) never enter `inactive` -- there
             // is nothing for `.closed` to clean up afterwards, since
             // `remove(_:)` is itself a no-op for handles with no identity.
-            guard identityByHandle[handle] != nil else { return }
+            guard let identity = identityByHandle[handle] else { return }
+            // A dispatch's attach ends with the dispatch: nothing to
+            // restart, so no placeholder; the surface closes (B-266).
+            guard identity.dispatchID == nil else { return closeEndedDispatch(handle) }
             inactive.insert(handle)
             host.rebirthPlaceholder(for: handle)
         case .focusSuspended:
@@ -412,6 +421,15 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             // leaving for the sidebar doesn't mean it no longer is.
             if let handle { view(handle) }
         }
+    }
+
+    private func closeEndedDispatch(_ handle: AttachmentHandle) {
+        let wasShown = host.isShown(handle)
+        host.closeTerminal(handle)
+        remove(handle)
+        guard wasShown else { return }
+        contentReplaced(in: handle.windowID)
+        adoptHostFocus()
     }
 
     private func receivedFocusReport() {

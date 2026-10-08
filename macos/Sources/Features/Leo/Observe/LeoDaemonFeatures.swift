@@ -10,6 +10,7 @@ struct LeoDaemonFeatures: Equatable, Sendable {
         case dispatchTree = "dispatch_tree"
         case agentUsage = "agent_usage"
         case agentControl = "agent_control"
+        case dispatchAttach = "dispatch_attach"
     }
 
     static let none = LeoDaemonFeatures([])

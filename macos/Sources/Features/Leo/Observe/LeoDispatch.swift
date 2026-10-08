@@ -20,11 +20,14 @@ struct LeoDispatch: Decodable, Equatable, Sendable {
     let parentDispatchID: String?
     let startedAt: String?
     let endedAt: String?
+    /// The daemon can attach a terminal to this dispatch (leo >= the
+    /// `dispatch_attach` feature). Absent on older daemons: false.
+    let attachable: Bool
 
     init(
         id: String, name: String? = nil, role: String? = nil, template: String? = nil, model: String? = nil,
         status: String, stalled: Bool = false, callerAgent: String? = nil, parentDispatchID: String? = nil,
-        startedAt: String? = nil, endedAt: String? = nil
+        startedAt: String? = nil, endedAt: String? = nil, attachable: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -37,10 +40,11 @@ struct LeoDispatch: Decodable, Equatable, Sendable {
         self.parentDispatchID = parentDispatchID
         self.startedAt = startedAt
         self.endedAt = endedAt
+        self.attachable = attachable
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, role, template, model, status, stalled
+        case id, name, role, template, model, status, stalled, attachable
         case callerAgent = "caller_agent"
         case parentDispatchID = "parent_dispatch_id"
         case startedAt = "started_at"
@@ -66,6 +70,7 @@ struct LeoDispatch: Decodable, Equatable, Sendable {
         template = optional(.template)
         model = optional(.model)
         stalled = ((try? container.decodeIfPresent(Bool.self, forKey: .stalled)) ?? nil) ?? false
+        attachable = ((try? container.decodeIfPresent(Bool.self, forKey: .attachable)) ?? nil) ?? false
         callerAgent = optional(.callerAgent)
         parentDispatchID = optional(.parentDispatchID)
         startedAt = optional(.startedAt)
