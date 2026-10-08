@@ -42,7 +42,9 @@ enum LeoAttachCommandError: Error, Equatable, Sendable {
 }
 
 enum LeoAttachCommand {
-    static func build(executable: String, identity: LeoAgentIdentity) throws -> String {
+    static func build(
+        executable: String, identity: LeoAgentIdentity, features: LeoDaemonFeatures = .none
+    ) throws -> String {
         if let dispatchID = identity.dispatchID {
             return try buildDispatch(executable: executable, host: identity.host, dispatchID: dispatchID)
         }
@@ -54,6 +56,7 @@ enum LeoAttachCommand {
         if case .remote(let host) = identity.host {
             parts += ["--host", try leoShellQuote(host)]
         }
+        parts += features.attachPlacementArguments
         parts += ["--", try leoShellQuote(identity.name)]
         return parts.joined(separator: " ")
     }

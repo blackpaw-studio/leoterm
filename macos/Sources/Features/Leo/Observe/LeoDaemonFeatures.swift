@@ -13,6 +13,7 @@ struct LeoDaemonFeatures: Equatable, Sendable {
         case dispatchAttach = "dispatch_attach"
         case stateSeq = "state_seq"
         case dispatchRemoved = "dispatch_removed"
+        case attachDispatchPlacement = "attach_dispatch_placement"
     }
 
     static let none = LeoDaemonFeatures([])
@@ -24,4 +25,12 @@ struct LeoDaemonFeatures: Equatable, Sendable {
     }
 
     func contains(_ feature: Feature) -> Bool { features.contains(feature) }
+
+    /// The `agent attach` arguments that ask the daemon to put this viewer's
+    /// dispatch subagents in the background (leo >= 0.41), since the sidebar
+    /// shows them as rows. Empty on a daemon that doesn't advertise it, so
+    /// the command stays as it was.
+    var attachPlacementArguments: [String] {
+        contains(.attachDispatchPlacement) ? ["--dispatch-placement", "background"] : []
+    }
 }

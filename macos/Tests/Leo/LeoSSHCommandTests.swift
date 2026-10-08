@@ -34,6 +34,27 @@ struct LeoSSHCommandTests {
         #expect(try command.attachShellCommand(agent: "-it's $(bad)") == #"env -u TMUX -u TMUX_PANE ssh -t -i '/keys/it'\'' s' -p '2200' 'evan@build.example' ''\''/opt/leo $(bad)'\'' agent attach -- '\''-it'\''\'\'''\''s $(bad)'\'''"#)
     }
 
+    @Test func remoteAttachPlacesDispatchInBackgroundWhenAdvertised() throws {
+        let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "build", remoteLeoPath: "/opt/leo"))
+        let placement = LeoDaemonFeatures(["attach_dispatch_placement"])
+        let remote = "'/opt/leo' agent attach --dispatch-placement background -- 'worker'"
+        #expect(try command.remoteAttachCommand(agent: "worker", features: placement) == remote)
+        #expect(try command.attachShellCommand(agent: "worker", features: placement)
+            == "env -u TMUX -u TMUX_PANE ssh -t 'build' " + (try leoShellQuote(remote)))
+        #expect(try command.remoteAttachCommand(agent: "worker", features: LeoDaemonFeatures(["dispatch_attach"]))
+            == "'/opt/leo' agent attach -- 'worker'")
+    }
+
+    @Test func remoteAttachWithPlacementQuotesHostileAgentNamesAtBothShellLayers() throws {
+        let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "build", remoteLeoPath: "/opt/leo"))
+        let placement = LeoDaemonFeatures(["attach_dispatch_placement"])
+        let agent = "--cc'; $(id) `id`\n"
+        let remote = try command.remoteAttachCommand(agent: agent, features: placement)
+        #expect(remote == "'/opt/leo' agent attach --dispatch-placement background -- " + #"'--cc'\''; $(id) `id`"# + "\n'")
+        #expect(try command.attachShellCommand(agent: agent, features: placement)
+            == "env -u TMUX -u TMUX_PANE ssh -t 'build' " + (try leoShellQuote(remote)))
+    }
+
     @Test func tildeLeoPathIsExpandedOnlyByTheRemoteShell() throws {
         let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "build", remoteLeoPath: "~/.local/bin/leo"))
         #expect(try command.remoteAttachCommand(agent: "name") == "~/'.local/bin/leo' agent attach -- 'name'")

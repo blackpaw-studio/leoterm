@@ -47,6 +47,9 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     /// attach via `LeoSSHCommand.attachShellCommand`). Local identities
     /// always go through `LeoAttachCommand.build(executable:identity:)`.
     private let remoteCommandBuilder: (LeoAgentIdentity) throws -> String
+    /// What the daemon advertised; read when an attach command is built, so
+    /// an attach before the hello arrives gets the unchanged command.
+    private let daemonFeatures: () -> LeoDaemonFeatures
     private let report: (LeoAttachError) -> Void
     private let lifecycleEventHandled: (AttachLifecycleEvent) -> Void
     private let focusedIdentityChanged: (LeoAgentIdentity?) -> Void
@@ -85,6 +88,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         remoteCommandBuilder: @escaping (LeoAgentIdentity) throws -> String = { _ in
             throw LeoDaemonError.hostUnavailable("Remote attach is not configured")
         },
+        daemonFeatures: @escaping () -> LeoDaemonFeatures = { .none },
         report: @escaping (LeoAttachError) -> Void,
         lifecycleEventHandled: @escaping (AttachLifecycleEvent) -> Void = { _ in },
         focusedIdentityChanged: @escaping (LeoAgentIdentity?) -> Void = { _ in },
@@ -93,6 +97,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         self.host = host
         self.executable = executable
         self.remoteCommandBuilder = remoteCommandBuilder
+        self.daemonFeatures = daemonFeatures
         self.report = report
         self.lifecycleEventHandled = lifecycleEventHandled
         self.focusedIdentityChanged = focusedIdentityChanged
@@ -181,7 +186,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     private func attachCommand(for identity: LeoAgentIdentity) -> Result<String, LeoAttachError> {
         do {
             return .success(identity.host == .local
-                ? try LeoAttachCommand.build(executable: try executable(), identity: identity)
+                ? try LeoAttachCommand.build(executable: try executable(), identity: identity, features: daemonFeatures())
                 : try remoteCommandBuilder(identity))
         } catch LeoAttachCommandError.invalidAgentName {
             let attachError = LeoAttachError(identity: identity, kind: .invalidName)

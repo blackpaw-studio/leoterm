@@ -19,6 +19,35 @@ struct LeoAttachCommandTests {
         #expect(try LeoAttachCommand.build(executable: "/leo", identity: identity) == "env -u TMUX -u TMUX_PANE '/leo' agent attach --host 'build host' -- 'worker'")
     }
 
+    @Test func placesDispatchInBackgroundWhenAdvertised() throws {
+        let command = try LeoAttachCommand.build(
+            executable: "/leo", identity: .init(host: .local, name: "worker"), features: Self.placement
+        )
+        #expect(command == "env -u TMUX -u TMUX_PANE '/leo' agent attach --dispatch-placement background -- 'worker'")
+    }
+
+    @Test func placementFlagFollowsHostAndPrecedesDelimiter() throws {
+        let command = try LeoAttachCommand.build(
+            executable: "/leo", identity: .init(host: .remote("box"), name: "--cc"), features: Self.placement
+        )
+        #expect(command == "env -u TMUX -u TMUX_PANE '/leo' agent attach --host 'box' --dispatch-placement background -- '--cc'")
+    }
+
+    @Test func otherFeaturesLeaveTheCommandUnchanged() throws {
+        let command = try LeoAttachCommand.build(
+            executable: "/leo", identity: .init(host: .local, name: "worker"), features: LeoDaemonFeatures(["dispatch_attach"])
+        )
+        #expect(command == "env -u TMUX -u TMUX_PANE '/leo' agent attach -- 'worker'")
+    }
+
+    @Test func dispatchAttachIgnoresPlacement() throws {
+        let identity = LeoAgentIdentity.dispatch(host: .local, id: "d-1", title: nil)
+        let command = try LeoAttachCommand.build(executable: "/leo", identity: identity, features: Self.placement)
+        #expect(command == "env -u TMUX -u TMUX_PANE '/leo' dispatch attach 'd-1'")
+    }
+
+    private static let placement = LeoDaemonFeatures(["attach_dispatch_placement"])
+
     @Test(arguments: ["--help", "-x", "--cc"])
     func namesStartingWithFlagsFollowDelimiter(_ name: String) throws {
         let command = try LeoAttachCommand.build(executable: "/leo", identity: .init(host: .local, name: name))

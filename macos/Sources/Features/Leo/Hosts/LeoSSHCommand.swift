@@ -105,7 +105,7 @@ struct LeoSSHCommand: Sendable {
     /// `env -u TMUX -u TMUX_PANE` prefix matches the local attach command
     /// (`LeoAttachCommand.build`): the new tab must not inherit the
     /// surrounding tmux session's `TMUX`/`TMUX_PANE`.
-    func attachShellCommand(agent: String) throws -> String {
+    func attachShellCommand(agent: String, features: LeoDaemonFeatures = .none) throws -> String {
         try validateConfiguration()
         var parts = ["env", "-u", "TMUX", "-u", "TMUX_PANE", "ssh", "-t"]
         if let identityFile = configuration.identityFile {
@@ -114,7 +114,7 @@ struct LeoSSHCommand: Sendable {
         if let port = configuration.port {
             parts += ["-p", try leoShellQuote(String(port))]
         }
-        parts += [try leoShellQuote(target), try leoShellQuote(remoteAttachCommand(agent: agent))]
+        parts += [try leoShellQuote(target), try leoShellQuote(remoteAttachCommand(agent: agent, features: features))]
         return parts.joined(separator: " ")
     }
 
@@ -137,9 +137,10 @@ struct LeoSSHCommand: Sendable {
         return parts.joined(separator: " ")
     }
 
-    func remoteAttachCommand(agent: String) throws -> String {
+    func remoteAttachCommand(agent: String, features: LeoDaemonFeatures = .none) throws -> String {
         try validateConfiguration()
-        return "\(try remoteLeoCommand()) agent attach -- \(try leoShellQuote(agent))"
+        let arguments = ["agent", "attach"] + features.attachPlacementArguments + ["--", try leoShellQuote(agent)]
+        return "\(try remoteLeoCommand()) \(arguments.joined(separator: " "))"
     }
 
     /// No `env -u TMUX ...` prefix, matching the local logs command
