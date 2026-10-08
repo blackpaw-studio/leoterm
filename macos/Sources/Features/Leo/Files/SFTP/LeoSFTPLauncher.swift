@@ -194,41 +194,19 @@ private final class LeoSFTPProcessMonitor: @unchecked Sendable {
             return (outcome, data, isTruncated)
         }
         guard let result else { return nil }
-        let rawText = String(data: result.data, encoding: .utf8)
-        let text = rawText ?? "<\(result.data.count) bytes>"
+        let text = String(data: result.data, encoding: .utf8) ?? "<\(result.data.count) bytes>"
         let detail = LeoSFTPServerText.sanitized(text)
         if !detail.isEmpty {
             Self.logger.log("sftp stderr: \(detail, privacy: .private)")
         }
         let isSubsystemRejection = result.outcome.reason == .exit
             && result.outcome.status == 255
-            && rawText.map {
-                Self.containsCanonicalSubsystemRejection($0, isTruncated: result.isTruncated)
-            } == true
+            && LeoSFTPSubsystemRejection.isCanonical(in: result.data, isTruncated: result.isTruncated)
         return Observation(
             status: result.outcome.status,
             reason: result.outcome.reason,
             detail: detail,
             isSubsystemRejection: isSubsystemRejection
         )
-    }
-
-    /// OpenSSH emits this exact line when sshd rejects `-s ... sftp`.
-    /// Match raw bounded stderr before display sanitization joins lines; a
-    /// subsystem's own longer message must never authorize shell bootstrap.
-    private static func containsCanonicalSubsystemRejection(_ text: String, isTruncated: Bool) -> Bool {
-        let prefix = "subsystem request failed on channel "
-        let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
-        return lines.enumerated().contains { index, rawLine in
-            // The captured suffix may only look complete because bytes past
-            // the limit were discarded. A preceding newline proves a line
-            // ended even when later stderr was truncated.
-            if isTruncated, index == lines.count - 1 { return false }
-            var line = rawLine
-            if line.last == "\r" { line = line.dropLast() }
-            guard line.hasPrefix(prefix) else { return false }
-            let channel = line.dropFirst(prefix.count)
-            return !channel.isEmpty && channel.utf8.allSatisfy { $0 >= 48 && $0 <= 57 }
-        }
     }
 }
