@@ -700,29 +700,44 @@ import Testing
         #expect(splits.allSatisfy(fixture.host.isOpen))
     }
 
-    /// Past the longest `Ghostty.moveFocus` retry chain (50 + 100 + 200 +
-    /// 400 ms; timed, not turn-based): a split's focus move still pending
-    /// by then never lands.
-    private static let pendingFocusMovesLand: Duration = .seconds(1)
-
     /// B-107: [s2, s1, row] -- a shell split to the row's left, then one
     /// to that shell's left; the row holds keyboard focus. Once the row's
     /// pane closes upstream focuses s1, the pane before it (the row isn't
     /// the leftmost); tree order would pick s2, the last split made.
     /// Returns the row and the pane upstream focuses next.
+    ///
+    /// Every focus move is waited on until it lands (B-204): a split's
+    /// retries on timers until SwiftUI has put it in the window
+    /// (`Ghostty.moveFocus`), in no fixed order, so a move left pending
+    /// could steal focus from the row after the close.
     private func rowRightOfTwoSplits(_ fixture: Fixture) async throws -> (AttachmentHandle, Ghostty.SurfaceView) {
         let row = try newShell(fixture)
         let first = try openSplit(fixture, beside: row, direction: .left)
-        _ = try openSplit(fixture, beside: first, direction: .left)
+        try #require(await focusLands(on: fixture.view(first), in: fixture), "the first split takes focus")
+        let second = try openSplit(fixture, beside: first, direction: .left)
+        try #require(await focusLands(on: fixture.view(second), in: fixture), "the second split takes focus")
         let rowView = try #require(fixture.view(row))
         let panes = fixture.shown()
         try #require(panes.count == 3 && panes[1].id == first.surfaceID && panes[2] === rowView)
-        // The splits' own focus moves land first; then File ▸ Close acts
-        // on the focused row.
-        try? await Task.sleep(for: Self.pendingFocusMovesLand)
-        fixture.controller.focusedSurface = rowView
-        fixture.controller.window?.makeFirstResponder(rowView)
+        // The row takes focus as a click on it does; File ▸ Close then
+        // acts on it. `openSplit` left `focusedSurface` on the second
+        // split, so only SwiftUI naming the row focused can make it so.
+        Ghostty.moveFocus(to: rowView)
+        try #require(
+            await eventually(.seconds(10)) {
+                fixture.controller.window?.firstResponder === rowView && fixture.controller.focusedSurface === rowView
+            },
+            "SwiftUI names the row focused"
+        )
         return (row, panes[1])
+    }
+
+    /// `view` has become its window's first responder. Polled, not
+    /// counted in turns: `Ghostty.moveFocus` waits on timers (50 ms and
+    /// doubling) while the view isn't in the window yet.
+    private func focusLands(on view: Ghostty.SurfaceView?, in fixture: Fixture) async -> Bool {
+        guard let view else { return false }
+        return await eventually(.seconds(10)) { fixture.controller.window?.firstResponder === view }
     }
 
     /// Keyboard focus -- the window's first responder, and the pane the
@@ -745,7 +760,9 @@ import Testing
         #expect(await turns { !fixture.terminals.contains(row.surfaceID) })
         #expect(fixture.terminals.rows.map(\.id) == [heir.id], "the pane focused next, not the first")
         #expect(fixture.terminals.selection == heir.id)
-        #expect(await turns { focusMatchesSelection(fixture) }, "the selection is what has keyboard focus")
+        // The heir's focus move retries on a timer while the close
+        // re-hosts it (`window == nil`), so this is polled, not counted.
+        #expect(await eventually(.seconds(10)) { focusMatchesSelection(fixture) }, "the selection is what has keyboard focus")
     }
 
     /// The same through the row's own close (its ⌘W, `closeShownPane`).
@@ -758,7 +775,9 @@ import Testing
 
         #expect(fixture.terminals.rows.map(\.id) == [heir.id], "the pane focused next, not the first")
         #expect(fixture.terminals.selection == heir.id)
-        #expect(await turns { focusMatchesSelection(fixture) }, "the selection is what has keyboard focus")
+        // The heir's focus move retries on a timer while the close
+        // re-hosts it (`window == nil`), so this is polled, not counted.
+        #expect(await eventually(.seconds(10)) { focusMatchesSelection(fixture) }, "the selection is what has keyboard focus")
     }
 
     /// B-107: a switch in the very turn the row's pane closed -- before
