@@ -57,6 +57,17 @@ Lane: B-235
   Call: Leave the stderr `detail` decoding (`<N bytes>`) and the status-127 marker path unchanged — AUTONOMY: scope
   Call: Lane-local GhosttyKit.xcframework and zig-out symlinks added to `info/exclude` — AUTONOMY: test infra
 
+Lane: B-144
+  Branch: autopilot-lane/B-144
+  Base: fad147d932670221a586cefc53bf3fea7381ef11
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-08T22:10:41Z
+
 ## Progress
 - B-051 runner dispatched (leo implement d-33d34a2ad44e, pane ap-B-051) at 2026-10-08T21:30:07Z.
 - B-051 blocked: root cause daemon-side (turn.complete ignores pending.tasks; ~89 s Finished while a background Bash ran). Spec + trace in .autopilot/bugs/B-051/. Shelved on autopilot-shelved/B-051 (no commits).
