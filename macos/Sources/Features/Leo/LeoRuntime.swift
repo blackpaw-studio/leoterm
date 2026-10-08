@@ -159,9 +159,11 @@ import OSLog
                 }
                 let command = LeoSSHCommand(configuration: configuration)
                 if let dispatchID = identity.dispatchID { return try command.attachShellCommand(dispatchID: dispatchID) }
-                return try command.attachShellCommand(agent: identity.name, features: model?.daemonFeatures ?? .none)
+                return try command.attachShellCommand(agent: identity.name, features: (model?.daemonFeatures ?? .none).applying(to: identity.host, advertisedBy: hostSelection?.selected))
             },
-            daemonFeatures: { [weak model] in model?.daemonFeatures ?? .none },
+            daemonFeatures: { [weak model, weak hostSelection] host in
+                (model?.daemonFeatures ?? .none).applying(to: host, advertisedBy: hostSelection?.selected)
+            },
             report: { [weak model] error in
                 // A dispatch has no row of its own to carry the error.
                 if error.identity.dispatchID != nil {

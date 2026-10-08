@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import Ghostty
@@ -53,6 +54,48 @@ struct LeoSSHCommandTests {
         #expect(remote == "'/opt/leo' agent attach --dispatch-placement background -- " + #"'--cc'\''; $(id) `id`"# + "\n'")
         #expect(try command.attachShellCommand(agent: agent, features: placement)
             == "env -u TMUX -u TMUX_PANE ssh -t 'build' " + (try leoShellQuote(remote)))
+    }
+
+    @Test func hostileAgentNameArrivesAsOneInertArgvElementThroughBothShells() throws {
+        let work = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: work) }
+        let marker = work.appending(path: "pwned").path
+        // Stands in for `ssh` (prints its argv, one per line) and for the leo binary.
+        let ssh = work.appending(path: "ssh")
+        try "#!/bin/sh\nfor a in \"$@\"; do printf '%s\\0' \"$a\"; done\n".write(to: ssh, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: ssh.path)
+
+        let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "build", remoteLeoPath: "/opt/leo"))
+        let agent = "-x'; touch \(marker); $(touch \(marker)) `touch \(marker)` \"q\" \\"
+        let local = try command.attachShellCommand(agent: agent, features: LeoDaemonFeatures(["attach_dispatch_placement"]))
+            .replacingOccurrences(of: "ssh -t", with: "'\(ssh.path)' -t")
+
+        // Local shell layer runs the ssh stand-in; its single remote-command argv element
+        // is then run through a second shell, as sshd would.
+        let sshArgv = try Self.runShell(local).split(separator: "\0", omittingEmptySubsequences: false).dropLast()
+        let remote = try #require(sshArgv.last)
+        #expect(sshArgv.dropLast().map(String.init) == ["-t", "build"])
+        let leo = work.appending(path: "leo")
+        try "#!/bin/sh\nfor a in \"$@\"; do printf '%s\\0' \"$a\"; done\n".write(to: leo, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: leo.path)
+        let leoArgv = try Self.runShell(remote.replacingOccurrences(of: "'/opt/leo'", with: "'\(leo.path)'"))
+            .split(separator: "\0", omittingEmptySubsequences: false).dropLast().map(String.init)
+
+        #expect(leoArgv == ["agent", "attach", "--dispatch-placement", "background", "--", agent])
+        #expect(!FileManager.default.fileExists(atPath: marker))
+    }
+
+    private static func runShell(_ command: String) throws -> String {
+        let process = Process()
+        process.executableURL = URL(filePath: "/bin/sh")
+        process.arguments = ["-c", command]
+        let out = Pipe()
+        process.standardOutput = out
+        try process.run()
+        let data = out.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        return try #require(String(bytes: data, encoding: .utf8))
     }
 
     @Test func tildeLeoPathIsExpandedOnlyByTheRemoteShell() throws {

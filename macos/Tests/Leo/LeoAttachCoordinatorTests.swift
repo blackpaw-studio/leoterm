@@ -166,7 +166,7 @@ import Testing
     @Test func localAttachReadsAdvertisedFeaturesWhenTheCommandIsBuilt() async throws {
         let host = FakeAttachContentHost()
         var features = LeoDaemonFeatures.none
-        let coordinator = makeCoordinator(host: host, daemonFeatures: { features })
+        let coordinator = makeCoordinator(host: host, daemonFeatures: { _ in features })
 
         await coordinator.attach(identity: LeoAgentIdentity(host: .local, name: "worker"), from: origin, disposition: .content)
         features = LeoDaemonFeatures(["attach_dispatch_placement"])
@@ -495,7 +495,7 @@ import Testing
             throw LeoDaemonError.hostUnavailable("Remote attach is not configured")
         },
         focusedIdentityChanged: @escaping (LeoAgentIdentity?) -> Void = { _ in },
-        daemonFeatures: @escaping () -> LeoDaemonFeatures = { .none }
+        daemonFeatures: @escaping (LeoHostID) -> LeoDaemonFeatures = { _ in .none }
     ) -> LeoAttachCoordinator {
         LeoAttachCoordinator(
             host: host,

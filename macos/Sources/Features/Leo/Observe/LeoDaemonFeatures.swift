@@ -26,6 +26,13 @@ struct LeoDaemonFeatures: Equatable, Sendable {
 
     func contains(_ feature: Feature) -> Bool { features.contains(feature) }
 
+    /// These features as they apply to a command aimed at `host`. They were
+    /// advertised by one daemon (`advertisedBy`, the connected host), so a
+    /// command for any other host, whose leo may be older, gets none.
+    func applying(to host: LeoHostID, advertisedBy knownHost: LeoHostID?) -> LeoDaemonFeatures {
+        host == knownHost ? self : .none
+    }
+
     /// The `agent attach` arguments that ask the daemon to put this viewer's
     /// dispatch subagents in the background (leo >= 0.41), since the sidebar
     /// shows them as rows. Empty on a daemon that doesn't advertise it, so
