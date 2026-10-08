@@ -72,7 +72,7 @@ Lane: B-204
   Branch: autopilot-lane/B-204
   Base: 22f7b625939769057b893d108ca3820148a3d3c9
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -92,3 +92,5 @@ Finished 2: B-235 landed 12530adbba7841dc125adc556417297c532f7899 · not visuall
 Finished 3: B-144 landed 8b7625f4d350c028e1abeafae4e705d8eb310a28 · not visually verified
 - B-204 built before B-145 (D-426: flake hit both verifies this run).
 - Evan (22:48Z): end this run after the current item (B-204); budget cut to 4 items. Queued bug: dispatch placement not applied to rows attached before hello (next run).
+- B-204 landed d4728028b: rows-focus flakes made deterministic (test-only): post-close focus polls, setup waits on landed focus, hop-only waits use turns; root cause = moveFocus 50 ms retry vs ~20 ms wait, and wall-clock deadlines under 3 s+ stalls; 21/110 → 0/400; suite 2342 green; 0 fix rounds. Integrate run by orchestrator after classifier refusal (Evan approved). B-173 kept ready, scoped to LeoContentFocusTests.
+Finished 4: B-204 landed d4728028b6543eb49f631dcbd44e2934467f570d · not visually verified

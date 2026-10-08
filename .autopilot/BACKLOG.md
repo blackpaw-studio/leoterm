@@ -1562,11 +1562,12 @@ Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-119)
 Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-204 · LeoTerminalRowsIntegrationTests focus flakes   [ready]
+## B-204 · LeoTerminalRowsIntegrationTests focus flakes   [done]
 Issue: #208
 Why: Recurring under load this run: closingARowsPaneHandsTheRowToTheNextFocusedPane (:748 focusMatchesSelection, B-119 verify), closingAHiddenRowGivesNothingOnScreenItsSlot (B-112 verify), 4 failures in B-118's implementer runs; each passed on rerun. Find the shared timing assumption and make them deterministic
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-119)
+Done: 27cb8ef72, d0e14f330 (merge d4728028b)
 
 ## B-205 · Rewrap LeoSingleInstance doc comment line 453   [dropped]
 Issue: #209

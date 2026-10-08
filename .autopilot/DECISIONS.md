@@ -3067,5 +3067,26 @@ Veto: [ ]
 Context: B-204; LeoTerminalRowsIntegrationTests focus tests failed once in each of B-235's and B-144's verifies this run (passed on rerun).
 Chose: Pick B-204 next, ahead of B-145–B-199, since the flake costs a suite rerun on every item.
 Why: AUTONOMY "ordering within the backlog", "flake fixes"
-Commit:
+Commit: 27cb8ef72, d0e14f330
+Veto: [ ]
+
+## D-427 · 2026-10-08 · Classify the rows-focus and close-event flakes as test-infra flakes;…
+Context: B-204 (runner call).
+Chose: Classify the rows-focus and close-event flakes as test-infra flakes; app unchanged
+Why: AUTONOMY flake fixes/test infra
+Commit: 27cb8ef72, d0e14f330
+Veto: [ ]
+
+## D-428 · 2026-10-08 · B-171/B-172 are not causes and stay untouched
+Context: B-204 (runner call).
+Chose: B-171/B-172 are not causes and stay untouched
+Why: AUTONOMY ordering within the backlog
+Commit: 27cb8ef72, d0e14f330
+Veto: [ ]
+
+## D-429 · 2026-10-08 · Doc comment on when to use `eventually` vs `turns`
+Context: B-204 (runner call).
+Chose: Doc comment on when to use `eventually` vs `turns`
+Why: AUTONOMY test infra
+Commit: 27cb8ef72, d0e14f330
 Veto: [ ]
