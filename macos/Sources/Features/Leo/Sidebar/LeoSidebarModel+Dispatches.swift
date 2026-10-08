@@ -50,6 +50,20 @@ extension LeoSidebarModel {
         dispatchSelection = makeSelection(heir.0, under: heir.1)
     }
 
+    /// Collapsing a dispatch whose descendant is selected hides the
+    /// selection, so (as in Finder or Xcode) the collapsed node takes it --
+    /// or, if that one can't be selected, the nearest selectable dispatch
+    /// above it, else the agent. Selection only: nothing is opened.
+    func moveSelectionOutOfCollapsed(_ collapsed: LeoDispatchRef) {
+        guard let selected = dispatchSelection, selected.ancestors.contains(collapsed) else { return }
+        let above = selected.ancestors.drop { $0 != collapsed }
+        guard let heir = above.compactMap({ ref in dispatchTarget(ref).map { (ref, $0.row) } }).first else {
+            dispatchSelection = nil
+            return
+        }
+        dispatchSelection = makeSelection(heir.0, under: heir.1)
+    }
+
     private func makeSelection(_ ref: LeoDispatchRef, under row: LeoAgentRow) -> LeoDispatchSelection {
         LeoDispatchSelection(ref: ref, parent: row.id, ancestors: ancestors(of: ref, under: row))
     }

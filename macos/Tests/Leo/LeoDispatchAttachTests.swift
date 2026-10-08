@@ -482,6 +482,33 @@ struct AttachExitReportTests {
         #expect(shown() == ["d1", "d2", "d3", "d4"])
     }
 
+    // MARK: collapsing under a selection
+
+    @Test func collapsingAnAncestorOfTheSelectedDispatchSelectsTheCollapsedNode() {
+        let model = model(nested(chain))
+        model.userSelectedDispatch(ref("d3"))
+        model.toggleDispatchCollapsed(ref("d1"))
+        #expect(model.selectedDispatch == ref("d1"))
+        model.toggleDispatchCollapsed(ref("d1"))
+        #expect(model.selectedDispatch == ref("d1"), "expanding again leaves the selection where it is")
+    }
+
+    @Test func collapsingTheSelectedDispatchItselfOrAnUnrelatedOneKeepsTheSelection() {
+        let model = model(nested([("d1", 0, true), ("d2", 1, true), ("d3", 0, true), ("d4", 1, true)]))
+        model.userSelectedDispatch(ref("d2"))
+        model.toggleDispatchCollapsed(ref("d3"))
+        #expect(model.selectedDispatch == ref("d2"))
+        model.toggleDispatchCollapsed(ref("d2"))
+        #expect(model.selectedDispatch == ref("d2"))
+    }
+
+    @Test func collapsingAnInertAncestorSelectsTheNearestSelectableOneAbove() {
+        let model = model(nested([("d1", 0, true), ("d2", 1, false), ("d3", 2, true)]))
+        model.userSelectedDispatch(ref("d3"))
+        model.toggleDispatchCollapsed(ref("d2"))
+        #expect(model.selectedDispatch == ref("d1"))
+    }
+
     @Test func aDisconnectMakesTheSelectedDispatchInertAgain() {
         let model = model(snapshot([dispatch("d1", attachable: true)]))
         model.userSelectedDispatch(ref("d1"))

@@ -35,7 +35,10 @@ extension LeoSidebarModel {
     }
 
     func toggleDispatchCollapsed(_ ref: LeoDispatchRef) {
-        if collapsedDispatches.remove(ref) == nil { collapsedDispatches.insert(ref) }
+        if collapsedDispatches.remove(ref) == nil {
+            collapsedDispatches.insert(ref)
+            moveSelectionOutOfCollapsed(ref)
+        }
     }
 
     /// Forgets collapse state for dispatches that are gone.
