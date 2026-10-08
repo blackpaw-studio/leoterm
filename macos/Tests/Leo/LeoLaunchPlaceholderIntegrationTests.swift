@@ -97,8 +97,13 @@ struct LeoLaunchPlaceholderIntegrationTests {
         controller.window.map { NSPoint(x: $0.frame.minX, y: $0.frame.maxY) }
     }
 
+    /// Closes the windows on screen and the ones still waiting to be (their
+    /// close cancels the queued presentation).
     private func close(_ controllers: TerminalController?...) {
-        controllers.compactMap { $0?.window }.filter(\.isVisible).forEach { $0.close() }
+        controllers.compactMap { $0 }
+            .filter { $0.window?.isVisible == true || $0.leoIsAwaitingPresentation }
+            .compactMap(\.window)
+            .forEach { $0.close() }
     }
 
     /// Records the window's `willClose`.
@@ -250,6 +255,22 @@ struct LeoLaunchPlaceholderIntegrationTests {
         #expect(!launch.isLeoWindowShown)
     }
 
+    /// B-144: a window whose presentation is still queued is not on screen
+    /// yet, but the cleanup must close it all the same: closing cancels the
+    /// queued presentation, so nothing shows after the test ends.
+    @Test func closingAWindowStillAwaitingPresentationCancelsIt() throws {
+        let app = try liveApp()
+        let pending = withoutUndo(app) { TerminalController.newWindow(app.ghostty) }
+        defer { closeOffScreen(pending) }
+        try #require(pending.leoIsAwaitingPresentation, "the window's presentation was not queued")
+        try #require(pending.window?.isVisible != true, "the window was already on screen")
+
+        close(pending)
+
+        #expect(pending.leoWindowDidClose)
+        #expect(!pending.leoIsAwaitingPresentation)
+    }
+
     /// Closes an off-screen window `close(_:)` skips, unless it already closed.
     private func closeOffScreen(_ controller: TerminalController) {
         guard !controller.leoWindowDidClose else { return }
@@ -389,12 +410,13 @@ struct LeoCascadePointRestoringTrait: TestTrait, SuiteTrait, TestScoping {
         for test: Test, testCase: Test.Case?, performing function: @Sendable @concurrent () async throws -> Void
     ) async throws {
         let saved = await MainActor.run { TerminalController.leoCascadePoint }
+        let restore = { await MainActor.run { TerminalController.leoCascadePoint = saved } }
         do {
             try await function()
         } catch {
-            await MainActor.run { TerminalController.leoCascadePoint = saved }
+            await restore()
             throw error
         }
-        await MainActor.run { TerminalController.leoCascadePoint = saved }
+        await restore()
     }
 }
