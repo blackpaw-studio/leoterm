@@ -61,11 +61,11 @@ Lane: B-144
   Branch: autopilot-lane/B-144
   Base: fad147d932670221a586cefc53bf3fea7381ef11
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 395ef988e1689c2d8709d06ffda96ebd6c7b52c4
   Dispatched: 2026-10-08T22:10:41Z
 
 ## Progress
