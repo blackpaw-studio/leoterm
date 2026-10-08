@@ -46,7 +46,7 @@ Lane: B-235
   Branch: autopilot-lane/B-235
   Base: 65980700657bc5474aa0c3ccaba981d2f185e956
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0

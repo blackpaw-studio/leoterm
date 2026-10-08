@@ -3034,3 +3034,31 @@ Chose: Client maps envelope-less non-2xx to .daemon(code: unauthorized|forbidden
 Why: P2
 Commit: 35d7d0d09, 376d64bda, d468aab19, 7d407fbc9, 9a842321d, d4c20098f, a2e437d3f, 0993d3fe2, e2af1370d
 Veto: [ ]
+
+## D-422 · 2026-10-08 · Each stderr line is judged independently at byte level, and the cano…
+Context: B-235 (runner call).
+Chose: Each stderr line is judged independently at byte level, and the canonical line must be exact ASCII
+Why: AUTONOMY: bug fix, parse untrusted server stderr conservatively
+Commit: 82c63cac9, 8f35fa1e1
+Veto: [ ]
+
+## D-423 · 2026-10-08 · Strip exactly one trailing CR, so a CRLF-terminated canonical line n…
+Context: B-235 (runner call).
+Chose: Strip exactly one trailing CR, so a CRLF-terminated canonical line now matches
+Why: AUTONOMY: bug fix
+Commit: 82c63cac9, 8f35fa1e1
+Veto: [ ]
+
+## D-424 · 2026-10-08 · Leave the stderr `detail` decoding (`<N bytes>`) and the status-127 …
+Context: B-235 (runner call).
+Chose: Leave the stderr `detail` decoding (`<N bytes>`) and the status-127 marker path unchanged
+Why: AUTONOMY: scope
+Commit: 82c63cac9, 8f35fa1e1
+Veto: [ ]
+
+## D-425 · 2026-10-08 · Lane-local GhosttyKit.xcframework and zig-out symlinks added to `inf…
+Context: B-235 (runner call).
+Chose: Lane-local GhosttyKit.xcframework and zig-out symlinks added to `info/exclude`
+Why: AUTONOMY: test infra
+Commit: 82c63cac9, 8f35fa1e1
+Veto: [ ]

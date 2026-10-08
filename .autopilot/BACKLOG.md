@@ -704,11 +704,12 @@ Source: Evan (/feature, 2026-10-07)
 Inbox: 20261007T144805204560Z-7cda212b#1
 Done: 2026-10-07 · 35d7d0d09, 376d64bda, d468aab19, 7d407fbc9, 9a842321d, d4c20098f, a2e437d3f, 0993d3fe2, e2af1370d · D-411, D-412, D-413, D-414, D-415, D-416, D-417, D-418, D-419, D-420, D-421
 
-## B-235 · SFTP rejection diagnostic with invalid UTF-8 suffix   [ready]
+## B-235 · SFTP rejection diagnostic with invalid UTF-8 suffix   [done]
 Issue: #240
 Why: Final B-233 security review: invalid or truncated UTF-8 suffix can suppress an earlier complete canonical rejection line; safe failure but fallback may be missed.
 Accept: A complete canonical rejection line is recognized despite invalid UTF-8 in a later suffix; truncated noncanonical lines still never trigger fallback; regression tests.
 Source: autopilot polish (B-233)
+Done: 82c63cac9, 8f35fa1e1 (merge 12530adbb)
 
 ## B-144 · Launch-placeholder test cleanup closes pending windows   [ready]
 Issue: #148
