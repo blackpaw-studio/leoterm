@@ -2,7 +2,8 @@ Status: running
 Started: 2026-10-08T21:26:35Z
 Budget: 20 items, until 2026-10-09T09:26:35Z
 Digested-through: 0
-Filed: 0/3 bugs, 0/5 ideas
+Filed: 1/3 bugs, 0/5 ideas
+Self-filed: B-235 → B-269 bug — Invalid UTF-8 SFTP stderr hides the missing-server message
 Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 
 
@@ -45,12 +46,16 @@ Lane: B-235
   Branch: autopilot-lane/B-235
   Base: 65980700657bc5474aa0c3ccaba981d2f185e956
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 34f10e0eeb952ad3d8332959c3a13ec94baf0885
   Dispatched: 2026-10-08T21:43:23Z
+  Call: Each stderr line is judged independently at byte level, and the canonical line must be exact ASCII — AUTONOMY: bug fix, parse untrusted server stderr conservatively
+  Call: Strip exactly one trailing CR, so a CRLF-terminated canonical line now matches — AUTONOMY: bug fix
+  Call: Leave the stderr `detail` decoding (`<N bytes>`) and the status-127 marker path unchanged — AUTONOMY: scope
+  Call: Lane-local GhosttyKit.xcframework and zig-out symlinks added to `info/exclude` — AUTONOMY: test infra
 
 ## Progress
 - B-051 runner dispatched (leo implement d-33d34a2ad44e, pane ap-B-051) at 2026-10-08T21:30:07Z.

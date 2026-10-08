@@ -1885,3 +1885,9 @@ Type: bug
 Report: Same-state needs_input with a newer revision re-notifies — leo 01be9b40 bumps the attention revision when outstanding subagent/dispatch counts change, so one prompt can notify again and bring back an acknowledged Dock count (acknowledged[agent] keeps the old revision, so a hook→bridge reason refinement can also restore it); violates principle 2 (calm)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-258)
+
+## B-269 · Invalid UTF-8 SFTP stderr hides the missing-server message   [ready (next run)]
+Type: bug
+Report: Invalid UTF-8 SFTP stderr hides the missing-server message — when server stderr isn't valid UTF-8, the displayed detail reads "<N bytes>" and the status-127 missing-server marker match is hidden, so the "no supported SFTP server" message is missed (VISION 5: failures shown plainly).
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-235)
