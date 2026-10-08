@@ -1,6 +1,6 @@
 Status: running
 Started: 2026-10-08T21:26:35Z
-Budget: 20 items, until 2026-10-09T09:26:35Z
+Budget: 4 items, until 2026-10-09T09:26:35Z
 Digested-through: 0
 Filed: 1/3 bugs, 0/5 ideas
 Self-filed: B-235 → B-269 bug — Invalid UTF-8 SFTP stderr hides the missing-server message
@@ -88,3 +88,4 @@ Finished 2: B-235 landed 12530adbba7841dc125adc556417297c532f7899 · not visuall
 - B-144 landed 8b7625f4d: launch-placeholder test cleanup also closes windows awaiting presentation; restore folded into one helper; suite 2342 green; light, 0 fix rounds. Rows-focus flake seen again (covered by B-204).
 Finished 3: B-144 landed 8b7625f4d350c028e1abeafae4e705d8eb310a28 · not visually verified
 - B-204 built before B-145 (D-426: flake hit both verifies this run).
+- Evan (22:48Z): end this run after the current item (B-204); budget cut to 4 items. Queued bug: dispatch placement not applied to rows attached before hello (next run).
