@@ -56,6 +56,23 @@ struct LeoDispatchAttachCommandTests {
     }
 }
 
+struct AttachExitReportTests {
+    @Test func theDetailIsTheLastNonBlankLine() {
+        let report = AttachExitReport(code: 1, screenText: "\n  starting\nleo: no such dispatch \u{1B}[31mx\u{7}\n\n   \n")
+        #expect(report.detail == "leo: no such dispatch [31mx")
+    }
+
+    @Test func aBlankScreenHasNoDetail() {
+        #expect(AttachExitReport(code: 1, screenText: " \n\n").detail == nil)
+        #expect(AttachExitReport(code: 1, screenText: "").detail == nil)
+    }
+
+    @Test func aLongLineIsCut() {
+        let report = AttachExitReport(code: 1, screenText: String(repeating: "x", count: 500))
+        #expect(report.detail?.count == AttachExitReport.maxDetailLength)
+    }
+}
+
 @MainActor struct LeoDispatchAttachCoordinatorTests {
     private let origin = LeoWindowID()
     private let identity = LeoAgentIdentity.dispatch(host: .local, id: "d-1", title: "Reviewer")
@@ -126,6 +143,58 @@ struct LeoDispatchAttachCommandTests {
 
         #expect(!host.isOpen(dispatchHandle), "no exited dispatch lingers in a pooled split")
         #expect(host.reborn.isEmpty)
+    }
+
+    @Test func aDispatchSurfaceIsMarkedAsWatchedButAnAgentsIsNot() async {
+        let host = FakeAttachContentHost()
+        let coordinator = makeCoordinator(host: host)
+        await coordinator.attach(identity: .init(host: .local, name: "worker"), from: origin, disposition: .content)
+        #expect(host.watching.isEmpty)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        #expect(host.watching == [host.handles[1]])
+    }
+
+    @Test func aFailedAttachShowsABriefErrorAndLeavesNoSurface() async {
+        let host = FakeAttachContentHost()
+        var errors: [LeoAttachError] = []
+        let coordinator = LeoAttachCoordinator(
+            host: host, executable: { "/leo" }, report: { errors.append($0) }, lifecycleEventHandled: { host.acknowledge($0) }
+        )
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        let handle = host.handles[0]
+        host.exitReports[handle] = AttachExitReport(code: 1, detail: "leo: dispatch d-1 is not attachable")
+
+        await host.emitAndWait(.processExited(handle))
+
+        #expect(errors.map(\.message) == ["leo: dispatch d-1 is not attachable"])
+        #expect(errors.first?.identity == identity)
+        #expect(host.closedTerminals == [handle], "no zombie surface")
+        #expect(host.reborn.isEmpty)
+    }
+
+    @Test func aFailureWithNoLineSaysItsExitCode() async {
+        let host = FakeAttachContentHost()
+        var errors: [LeoAttachError] = []
+        let coordinator = LeoAttachCoordinator(
+            host: host, executable: { "/leo" }, report: { errors.append($0) }, lifecycleEventHandled: { host.acknowledge($0) }
+        )
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        host.exitReports[host.handles[0]] = AttachExitReport(code: 3, detail: nil)
+        await host.emitAndWait(.processExited(host.handles[0]))
+        #expect(errors.map(\.message) == ["Dispatch attach exited with code 3"])
+    }
+
+    @Test func aCleanExitReportsNothing() async {
+        let host = FakeAttachContentHost()
+        var errors: [LeoAttachError] = []
+        let coordinator = LeoAttachCoordinator(
+            host: host, executable: { "/leo" }, report: { errors.append($0) }, lifecycleEventHandled: { host.acknowledge($0) }
+        )
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        host.exitReports[host.handles[0]] = AttachExitReport(code: 0, detail: "Detached")
+        await host.emitAndWait(.processExited(host.handles[0]))
+        #expect(errors.isEmpty)
+        #expect(host.closedTerminals == [host.handles[0]])
     }
 
     @Test func anAgentsExitStillLeavesItsPlaceholder() async {

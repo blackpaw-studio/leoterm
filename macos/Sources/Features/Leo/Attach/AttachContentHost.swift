@@ -44,6 +44,36 @@ extension Notification.Name {
     static let leoWindowlessChildExited = Notification.Name("studio.blackpaw.leo.windowlessChildExited")
 }
 
+/// How an attach surface's process ended, for a dispatch attach (B-266):
+/// the exit code, and the last line it left on screen (a failed `leo
+/// dispatch attach` prints its reason there).
+struct AttachExitReport: Equatable, Sendable {
+    /// The longest `detail` kept.
+    static let maxDetailLength = 160
+
+    let code: Int
+    let detail: String?
+
+    init(code: Int, detail: String?) {
+        self.code = code
+        self.detail = detail
+    }
+
+    /// `screenText`'s last non-blank line, with control characters dropped
+    /// and long lines cut, as `detail`.
+    init(code: Int, screenText: String) {
+        let line = screenText.split(whereSeparator: \.isNewline)
+            .map { Self.clean($0) }
+            .last { !$0.isEmpty }
+        self.init(code: code, detail: line.map { String($0.prefix(Self.maxDetailLength)) })
+    }
+
+    private static func clean<S: StringProtocol>(_ line: S) -> String {
+        String(String.UnicodeScalarView(line.unicodeScalars.filter { $0.properties.generalCategory != .control }))
+            .trimmingCharacters(in: .whitespaces)
+    }
+}
+
 @MainActor protocol AttachContentHost: AnyObject {
     var lifecycleEvents: AsyncStream<AttachLifecycleEvent> { get }
     /// The attachment that has keyboard focus in the key window of the
@@ -121,4 +151,11 @@ extension Notification.Name {
     /// after the agent attached in it (B-052), in place of whatever title
     /// the terminal sets.
     func setAgentName(_ handle: AttachmentHandle, name: String)
+    /// B-266: `handle`'s surface shows a dispatch the user is only
+    /// watching (the daemon attaches read-only): it carries a small
+    /// "watching · read-only" indicator.
+    func markWatchingDispatch(_ handle: AttachmentHandle)
+    /// B-266: how `handle`'s process ended, once its exit was reported.
+    /// `nil` when the host never saw an exit status for it.
+    func exitReport(for handle: AttachmentHandle) -> AttachExitReport?
 }

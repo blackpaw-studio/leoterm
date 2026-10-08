@@ -648,6 +648,17 @@ import OSLog
         attachments[handle]?.surface?.leoAgentName = name
     }
 
+    func markWatchingDispatch(_ handle: AttachmentHandle) {
+        attachments[handle]?.surface?.leoWatchingDispatch = true
+    }
+
+    /// The exit code Ghostty reported, with the last line the process left
+    /// on screen (a failed `leo dispatch attach` prints why there).
+    func exitReport(for handle: AttachmentHandle) -> AttachExitReport? {
+        guard let surface = attachments[handle]?.surface, let exited = surface.childExitedMessage else { return nil }
+        return AttachExitReport(code: exited.exitCode, screenText: surface.cachedVisibleContents.get())
+    }
+
     /// Starts from the inherited config stashed for this request (if any --
     /// see `LeoRequestConfigStore`), then overlays `command`/`workingDirectory`
     /// /a cleared `environmentVariables` on top exactly as before, but only

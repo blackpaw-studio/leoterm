@@ -5,6 +5,9 @@ struct LeoAttachError: Error, Equatable, Sendable {
         case executable(String)
         case invalidName
         case invalidDispatchID
+        /// A dispatch attach ended with a failure: the exit code, and the
+        /// line it printed.
+        case dispatchAttachFailed(code: Int, detail: String?)
         case openFailed(String)
         /// The user kept what the content area showed (B-055). Nothing
         /// failed, so nothing is reported.
@@ -19,6 +22,7 @@ struct LeoAttachError: Error, Equatable, Sendable {
         case .executable(let message), .openFailed(let message): message
         case .invalidName: "Agent names cannot contain NUL or newline characters"
         case .invalidDispatchID: "This dispatch has an id that can't be attached"
+        case .dispatchAttachFailed(let code, let detail): detail ?? "Dispatch attach exited with code \(code)"
         case .cancelled: "Cancelled"
         }
     }
@@ -208,6 +212,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             identityByHandle[handle] = identity
             adoptHostFocus()
             host.setAgentName(handle, name: identity.title ?? identity.name)
+            if identity.dispatchID != nil { host.markWatchingDispatch(handle) }
             return .success(handle)
         } catch {
             let attachError = LeoAttachError(identity: identity, kind: .openFailed(error.localizedDescription))
@@ -405,7 +410,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             guard let identity = identityByHandle[handle] else { return }
             // A dispatch's attach ends with the dispatch: nothing to
             // restart, so no placeholder; the surface closes (B-266).
-            guard identity.dispatchID == nil else { return closeEndedDispatch(handle) }
+            guard identity.dispatchID == nil else { return closeEndedDispatch(handle, of: identity) }
             inactive.insert(handle)
             host.rebirthPlaceholder(for: handle)
         case .focusSuspended:
@@ -423,7 +428,12 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         }
     }
 
-    private func closeEndedDispatch(_ handle: AttachmentHandle) {
+    private func closeEndedDispatch(_ handle: AttachmentHandle, of identity: LeoAgentIdentity) {
+        // A failed attach says why in a brief error, not on a lingering
+        // surface; a clean exit (the dispatch closed) says nothing.
+        if let exit = host.exitReport(for: handle), exit.code != 0 {
+            report(LeoAttachError(identity: identity, kind: .dispatchAttachFailed(code: exit.code, detail: exit.detail)))
+        }
         let wasShown = host.isShown(handle)
         host.closeTerminal(handle)
         // `closeTerminal` leaves a surface hidden in a live pool: let that

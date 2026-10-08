@@ -9,9 +9,13 @@ extension Ghostty {
         }
         let text: String
         let level: Level
+        /// The process's exit code (Leo reads it to report a failed
+        /// dispatch attach).
+        let exitCode: Int
 
         init(_ message: ghostty_surface_message_childexited_s, threshold abnormalCommandExitRuntime: Duration) {
             var level: Level
+            exitCode = Int(message.exit_code)
             switch Int(message.exit_code) {
             case Int(EXIT_SUCCESS):
                 level = .success
