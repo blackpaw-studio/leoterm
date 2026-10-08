@@ -282,6 +282,71 @@ struct LeoSidebarFeedDispatchTests {
         await harness.stop()
     }
 
+    /// `state_seq` step 4: a hello no newer than the baseline already
+    /// applied has nothing to recover; one newer than it does.
+    @Test func aHelloNoNewerThanTheBaselineDoesNotRefetch() async throws {
+        let harness = DispatchHarness(dispatches: [])
+        await harness.activity.setSeq(20)
+        await harness.start()
+        await harness.activity.send(.connected)
+        try await harness.pump { $0.rows.first?.name == "alpha" }
+        await harness.settle()
+        let before = await harness.activity.fetchCount
+        await harness.activity.send(.hello(seq: 7, at: nil, version: "1", serverTime: nil, bootID: "boot-a", features: ["dispatch_tree", "state_seq"]))
+        await harness.settle()
+        #expect(await harness.activity.fetchCount == before)
+        await harness.stop()
+    }
+
+    @Test func aHelloNewerThanTheBaselineRefetches() async throws {
+        let harness = DispatchHarness(dispatches: [])
+        await harness.activity.setSeq(5)
+        await harness.start()
+        await harness.activity.send(.connected)
+        try await harness.pump { $0.rows.first?.name == "alpha" }
+        await harness.settle()
+        let before = await harness.activity.fetchCount
+        await harness.activity.send(.hello(seq: 7, at: nil, version: "1", serverTime: nil, bootID: "boot-a", features: ["dispatch_tree", "state_seq"]))
+        try await until {
+            await harness.clock.advanceAll()
+            return await harness.activity.fetchCount > before
+        }
+        await harness.stop()
+    }
+
+    /// Between the subscription and the baseline's answer, events are
+    /// applied as they come; the baseline then keeps what is newer than its
+    /// `meta.seq` and takes its own word for what it already reflects --
+    /// each dispatch ends up once, in the newest form.
+    @Test func eventsArrivingBeforeTheBaselineAreAppliedExactlyOnce() async throws {
+        let harness = DispatchHarness(dispatches: [])
+        await harness.activity.setSeq(5)
+        await harness.start()
+        try await harness.pump { $0.rows.first?.name == "alpha" }
+        await harness.settle()
+        // The baseline answers {d3 idle} at seq 5, but stays in flight.
+        await harness.activity.setDispatches([LeoDispatch(id: "d3", status: "idle", callerAgent: "alpha")])
+        await harness.activity.holdNext()
+        await harness.activity.send(Self.seqHello)
+        try await until {
+            await harness.clock.advanceAll()
+            return await harness.activity.heldCount == 1
+        }
+
+        // d2 is born after the baseline (seq 7); d3's older event (seq 3)
+        // is already in the baseline.
+        await harness.activity.send(.dispatchChanged(seq: 7, dispatch: LeoDispatch(id: "d2", status: "running", callerAgent: "alpha")))
+        await harness.activity.send(.dispatchChanged(seq: 3, dispatch: LeoDispatch(id: "d3", status: "running", callerAgent: "alpha")))
+        try await harness.pump { Self.ids($0) == ["d2:0", "d3:0"] }
+        await harness.activity.releaseHeld()
+        await harness.settle()
+
+        let shown = await harness.feed.dispatchTree.children(of: "alpha")
+        #expect(shown.map(\.id) == ["d2", "d3"], "each exactly once")
+        #expect(shown.map(\.dispatch.status) == ["running", "idle"], "d2 survives the older baseline; d3 takes the baseline's newer word")
+        await harness.stop()
+    }
+
     @Test func aBaselineOlderThanALiveEventKeepsTheRecord() async throws {
         let harness = DispatchHarness(dispatches: [])
         await harness.start()
@@ -366,6 +431,9 @@ private actor DispatchActivity {
     func events() -> AsyncStream<LeoObserveEvent> { stream }
     func send(_ event: LeoObserveEvent) { continuation.yield(event) }
     func setDispatches(_ dispatches: [LeoDispatch]) { self.dispatches = dispatches }
+    /// The `meta.seq` every `/state` answer carries (none by default).
+    private var seq: Int?
+    func setSeq(_ seq: Int?) { self.seq = seq }
     /// The next `/state` answers with what's set now but waits for `releaseHeld`.
     func holdNext() { holdsNext = true }
     func releaseHeld() {
@@ -378,7 +446,8 @@ private actor DispatchActivity {
         fetchCount += 1
         let answer = LeoObservedState(
             agents: [LeoObservedAgent(name: "alpha", status: .running, activity: .idle, currentAction: nil, lastActivityAt: nil)],
-            dispatches: dispatches
+            dispatches: dispatches,
+            seq: seq
         )
         if holdsNext {
             holdsNext = false

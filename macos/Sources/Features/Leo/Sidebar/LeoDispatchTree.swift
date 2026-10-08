@@ -40,6 +40,11 @@ struct LeoDispatchTree: Equatable, Sendable {
     /// applied.
     private var recordSeqs: [String: Int] = [:]
     private var baselineSeq: Int?
+    /// The newest `meta.seq` any baseline carried, whether or not the
+    /// daemon had advertised `state_seq` when it landed (the first one
+    /// can land before the hello says so). Decides whether a hello is
+    /// ahead of what was fetched.
+    private(set) var newestBaselineSeq: Int?
     /// The parent of each record that has gone (ended, removed, or found
     /// stale), so its children re-parent under the nearest surviving
     /// ancestor and not straight to the agent. Capped like `endedIDs`.
@@ -64,6 +69,7 @@ struct LeoDispatchTree: Equatable, Sendable {
     @discardableResult
     mutating func applyBaseline(_ dispatches: [LeoDispatch], since mark: Int? = nil, atSeq seq: Int? = nil) -> Bool {
         let previous = records
+        if let seq { newestBaselineSeq = max(newestBaselineSeq ?? seq, seq) }
         var updated = Dictionary(
             dispatches.filter { $0.isLive && !endedSet.contains($0.id) }.prefix(Self.recordCap).map { ($0.id, $0) },
             uniquingKeysWith: { _, latest in latest }
@@ -155,6 +161,7 @@ struct LeoDispatchTree: Equatable, Sendable {
         upsertMarks = [:]
         recordSeqs = [:]
         baselineSeq = nil
+        newestBaselineSeq = nil
         ancestry = [:]
         ancestryOrder = []
         endedIDs = []

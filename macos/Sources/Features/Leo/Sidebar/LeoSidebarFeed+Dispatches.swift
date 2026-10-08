@@ -27,13 +27,16 @@ extension LeoSidebarFeed {
         updatingDispatches { $0.remove(id) }
     }
 
-    /// `state_seq`: a hello is the moment the stream is subscribed, so a
-    /// `/state` taken now covers everything created before it -- the
-    /// create-between-GET-and-subscribe gap. Baselines apply in seq order,
-    /// so an extra one is never wrong. (A hello that isn't a connect's
-    /// already recovers with a full refetch.)
-    func refetchStateAfterHello() {
+    /// `state_seq`: a hello is the moment the stream is subscribed (the
+    /// bus replays nothing before it), and its `seq` is how far the daemon
+    /// had got. A baseline older than that missed events nobody will
+    /// replay -- the create-between-GET-and-subscribe gap -- so `/state` is
+    /// fetched again; one at or past it already covers them. Baselines
+    /// apply in seq order, so an extra one is never wrong. (A hello that
+    /// isn't a connect's already recovers with a full refetch.)
+    func refetchStateAfterHello(seq helloSeq: Int) {
         guard daemonFeatures.contains(.stateSeq) else { return }
+        if let baselineSeq = dispatchTree.newestBaselineSeq, baselineSeq >= helloSeq { return }
         requestMetadataRefresh()
     }
 

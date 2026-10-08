@@ -290,7 +290,7 @@ actor LeoSidebarFeed {
             Self.logger.log("receive: .hello seq=\(seq) version=\(version ?? "nil", privacy: .public) awaitingHello=\(self.awaitingHello)")
             if awaitingHello {
                 awaitingHello = false
-                refetchStateAfterHello()
+                refetchStateAfterHello(seq: seq)
                 return
             }
             guard !recovering else { return }
