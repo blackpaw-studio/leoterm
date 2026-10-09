@@ -138,62 +138,12 @@ struct LeoAgentRowView: View {
             // The current task as the daemon's last snapshot reported it
             // (already sanitized); the tooltip holds what the line cuts.
             let details = presentation()
-            detailLine(details)
+            LeoAgentRowDetailLine(details: details)
             if let error, !error.isEmpty {
                 Text(error).font(.caption).foregroundStyle(Color(nsColor: .systemRed)).lineLimit(2)
             }
             if actions.pendingActions.contains(row.id) { ProgressView().controlSize(.small) }
         }
-    }
-
-    /// The third line is always one caption line: each variant is
-    /// single-line, and `.empty` reserves the same height invisibly.
-    @ViewBuilder private func detailLine(_ details: LeoAgentRowPresentation) -> some View {
-        switch details.detail {
-        case .compacting(let compacting):
-            // B-261: quiet and static -- it explains a pause, it doesn't
-            // ask for anything. Fixed copy only.
-            Label {
-                Text(compacting)
-            } icon: {
-                Image(systemName: "arrow.down.right.and.arrow.up.left").foregroundStyle(.secondary)
-            }
-            .font(.caption).foregroundStyle(.secondary)
-                .lineLimit(1).truncationMode(.tail)
-                .help(details.compactingHelp ?? compacting)
-                .accessibilityLabel(details.compactingHelp ?? compacting)
-        case .task(let task):
-            Text(task).font(.caption).foregroundStyle(.secondary)
-                .lineLimit(1).truncationMode(.tail)
-                .help(task)
-        case .tool(let tool):
-            // B-260: the running tool's name, calm and static; the
-            // arguments are never shown.
-            // The icon is tinted explicitly: a Label's icon otherwise
-            // takes the accent color.
-            Label {
-                Text(tool)
-            } icon: {
-                Image(systemName: "hammer").foregroundStyle(.secondary)
-            }
-            .font(.caption).foregroundStyle(.secondary)
-                .lineLimit(1).truncationMode(.tail)
-                .help(details.toolHelp ?? "")
-                .accessibilityLabel(details.toolSpoken ?? tool)
-        case .turnPreview(let preview):
-            // B-259: what the agent just did, only while it isn't doing
-            // anything else; the tooltip holds what the line cuts.
-            Text(preview).font(.caption).foregroundStyle(.secondary)
-                .lineLimit(1).truncationMode(.tail)
-                .help(preview)
-        case .empty:
-            reservedCaptionLine
-        }
-    }
-
-    /// One caption line of height with nothing to show or announce.
-    private var reservedCaptionLine: some View {
-        Text(" ").font(.caption).lineLimit(1).hidden().accessibilityHidden(true)
     }
 
     @ViewBuilder private var activityDot: some View {
@@ -250,7 +200,7 @@ struct LeoAgentRowView: View {
                 surfacedFilesGlyph
             }
         } else {
-            reservedCaptionLine
+            LeoReservedCaptionLine()
         }
     }
 
