@@ -108,6 +108,24 @@ struct LeoAgentRowTurnPresentationTests {
         #expect(cleared.preview(name: "alpha", startedAt: "t1") == nil, "an empty preview clears the line")
     }
 
+    /// A row's height must not depend on tool, task, or preview state: the
+    /// third line is always a slot, `.empty` when nothing fills it.
+    @Test func thirdLineSlotIsAlwaysPresentAndTracksTheToolOnAndOff() {
+        let quiet = LeoAgentRowPresentation(row: row(), isSelected: false)
+        #expect(quiet.detail == .empty, "no task, tool, preview or compaction still reserves the slot")
+        let running = row(metadata: LeoAgentMetadata(lastActiveAt: nil, isWorking: true, task: nil, tool: "Bash"))
+        #expect(LeoAgentRowPresentation(row: running, isSelected: false).detail == .tool("Bash"))
+        #expect(LeoAgentRowPresentation(row: row(metadata: LeoAgentMetadata(lastActiveAt: nil, isWorking: false, task: nil)), isSelected: false).detail == .empty, "the slot remains once the tool is gone")
+    }
+
+    @Test func thirdLineSlotKeepsTheVariantOrder() {
+        let turn = LeoTurnPreview(text: "Done", outcome: .completed)
+        let all = row(metadata: LeoAgentMetadata(lastActiveAt: nil, isWorking: true, task: "Reading", tool: "Bash"), lastTurn: turn)
+        #expect(LeoAgentRowPresentation(row: all, isSelected: false).detail == .task("Reading"))
+        let previewOnly = LeoAgentRowPresentation(row: row(lastTurn: turn), isSelected: false)
+        #expect(previewOnly.detail == .turnPreview(LeoSFTPServerText.isolated("Done")))
+    }
+
     private func metadata(usage: LeoAgentUsage) -> LeoAgentMetadata {
         LeoAgentMetadata(lastActiveAt: nil, isWorking: false, task: nil, usage: usage)
     }

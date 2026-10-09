@@ -138,43 +138,7 @@ struct LeoAgentRowView: View {
             // The current task as the daemon's last snapshot reported it
             // (already sanitized); the tooltip holds what the line cuts.
             let details = presentation()
-            if let compacting = details.compacting {
-                // B-261: quiet and static -- it explains a pause, it doesn't
-                // ask for anything. Fixed copy only.
-                Label {
-                    Text(compacting)
-                } icon: {
-                    Image(systemName: "arrow.down.right.and.arrow.up.left").foregroundStyle(.secondary)
-                }
-                .font(.caption).foregroundStyle(.secondary)
-                    .lineLimit(1).truncationMode(.tail)
-                    .help(details.compactingHelp ?? compacting)
-                    .accessibilityLabel(details.compactingHelp ?? compacting)
-            } else if let task = details.task {
-                Text(task).font(.caption).foregroundStyle(.secondary)
-                    .lineLimit(1).truncationMode(.tail)
-                    .help(task)
-            } else if let tool = details.tool {
-                // B-260: the running tool's name, calm and static; the
-                // arguments are never shown.
-                // The icon is tinted explicitly: a Label's icon otherwise
-                // takes the accent color.
-                Label {
-                    Text(tool)
-                } icon: {
-                    Image(systemName: "hammer").foregroundStyle(.secondary)
-                }
-                .font(.caption).foregroundStyle(.secondary)
-                    .lineLimit(1).truncationMode(.tail)
-                    .help(details.toolHelp ?? "")
-                    .accessibilityLabel(details.toolSpoken ?? tool)
-            } else if let preview = details.turnPreview {
-                // B-259: what the agent just did, only while it isn't doing
-                // anything else; the tooltip holds what the line cuts.
-                Text(preview).font(.caption).foregroundStyle(.secondary)
-                    .lineLimit(1).truncationMode(.tail)
-                    .help(preview)
-            }
+            LeoAgentRowDetailLine(details: details)
             if let error, !error.isEmpty {
                 Text(error).font(.caption).foregroundStyle(Color(nsColor: .systemRed)).lineLimit(2)
             }
@@ -235,6 +199,8 @@ struct LeoAgentRowView: View {
                 }
                 surfacedFilesGlyph
             }
+        } else {
+            LeoReservedCaptionLine()
         }
     }
 

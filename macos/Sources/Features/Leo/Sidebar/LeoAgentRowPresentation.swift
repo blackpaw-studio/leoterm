@@ -110,6 +110,25 @@ struct LeoAgentRowPresentation: Equatable {
     /// The hover for `compacting`, naming who asked when the daemon said.
     let compactingHelp: String?
 
+    /// The row's third line. Always one slot, so the row's height never
+    /// depends on whether there is a task, tool or preview: `.empty` is a
+    /// hidden placeholder, not an omitted line. The order is the precedence.
+    enum Detail: Equatable {
+        case compacting(String)
+        case task(String)
+        case tool(String)
+        case turnPreview(String)
+        case empty
+    }
+
+    var detail: Detail {
+        if let compacting { return .compacting(compacting) }
+        if let task { return .task(task) }
+        if let tool { return .tool(tool) }
+        if let turnPreview { return .turnPreview(turnPreview) }
+        return .empty
+    }
+
     /// `now` dates the "last active" label; without it (no clock yet) the
     /// subtitle has no time. Metadata the daemon didn't report adds nothing.
     init(
