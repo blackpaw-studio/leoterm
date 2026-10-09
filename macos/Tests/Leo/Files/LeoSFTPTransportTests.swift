@@ -86,6 +86,41 @@ struct LeoSFTPTransportTests {
         await access.close()
     }
 
+    /// A mux client never sees the rejection line: the ControlMaster logs
+    /// `mux request: subsystem` and closes the session, so a real
+    /// `ssh -s ... sftp` over the master exits 255 with no stderr at all
+    /// (OpenSSH 10.3, verified against a host with no `Subsystem sftp`).
+    @Test func aSilentExit255FromTheMuxClientFallsBackOnce() async throws {
+        let sandbox = try LeoFileSandbox()
+        defer { sandbox.cleanUp() }
+        try sandbox.directory("workspace")
+        try sandbox.file("workspace/result.txt", "done")
+        let fakeSSH = try sandbox.file("ssh", """
+            #!/bin/sh
+            for argument in "$@"; do
+              if [ "$argument" = "-s" ]; then
+                exit 255
+              fi
+            done
+            exec /usr/libexec/sftp-server -d %d
+            """, permissions: 0o755)
+        let command = LeoSSHCommand(configuration: .init(name: "work", sshTarget: "evan@work.example"))
+        let launcher = LeoCountingSFTPLauncher(
+            LeoSFTPProcessLauncher(
+                executable: URL(fileURLWithPath: fakeSSH),
+                arguments: try command.sftpArguments(controlPath: "/tmp/leo-mux-control"),
+                fallbackArguments: try command.sftpBootstrapArguments(controlPath: "/tmp/leo-mux-control")
+            )
+        )
+        let access = LeoFileAccessor.sftp(launcher: launcher)
+
+        let entries = try await access.list(sandbox.path("workspace"))
+
+        #expect(entries.map(\.name) == ["result.txt"])
+        #expect(launcher.launches == 2, "one silently rejected subsystem child, then one fixed-command child")
+        await access.close()
+    }
+
     @Test(arguments: [Int32(0), Int32(42)])
     func rejectionLookalikesDoNotRunTheFallback(_ status: Int32) async throws {
         let sandbox = try LeoFileSandbox()
