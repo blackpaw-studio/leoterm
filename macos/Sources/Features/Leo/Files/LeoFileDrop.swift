@@ -1,4 +1,3 @@
-import Darwin
 import Foundation
 
 /// One ordered Finder drop into an agent workspace. Source bytes are read
@@ -43,37 +42,31 @@ enum LeoFileDrop {
         var failures: [Failure] = []
         for source in sources {
             if Task.isCancelled { break }
-            let name = displayName(for: source)
             do {
-                let item = try await read(source, beforeOpen: beforeSourceOpen, beforeRead: beforeSourceRead)
-                try Task.checkCancellation()
-                let destination = append(item.name, to: directory)
-                try await access.create(item.data, at: destination)
-                uploaded.append(Uploaded(name: item.name, path: destination))
+                uploaded.append(try await upload(source, to: directory, access: access, beforeOpen: beforeSourceOpen, beforeRead: beforeSourceRead))
             } catch is CancellationError {
                 break
             } catch {
-                failures.append(Failure(name: name, message: message(for: error)))
+                failures.append(Failure(name: displayName(for: source), message: message(for: error)))
             }
         }
         return Result(uploaded: uploaded, failures: failures)
     }
 
-    private struct Source: Sendable {
-        let name: String
-        let data: Data
-    }
-
-    /// Open exactly once without following a final symlink, then validate
-    /// and read that descriptor. A Finder path may be replaced after it is
-    /// dropped; pathname metadata followed by `Data(contentsOf:)` would let
-    /// that replacement choose the bytes uploaded (or block on a FIFO).
-    private static func read(
+    /// Opens the source exactly once without following a final symlink and
+    /// streams that descriptor into an exclusive create. A Finder path may
+    /// be replaced after it is dropped; reading by pathname would let that
+    /// replacement choose the bytes uploaded (or block on a FIFO). Runs in a
+    /// task-group child so the blocking open and reads never run on the
+    /// caller's actor (the main actor for a drop).
+    private static func upload(
         _ url: URL,
+        to directory: String,
+        access: any LeoFileAccess,
         beforeOpen: @escaping @Sendable (URL) throws -> Void,
         beforeRead: @escaping @Sendable (URL) async throws -> Void
-    ) async throws -> Source {
-        try await withThrowingTaskGroup(of: Source.self) { group in
+    ) async throws -> Uploaded {
+        try await withThrowingTaskGroup(of: Uploaded.self) { group in
             group.addTask(priority: .userInitiated) {
                 try Task.checkCancellation()
                 guard url.isFileURL else { throw SourceError.invalid }
@@ -85,31 +78,12 @@ enum LeoFileDrop {
                 let path = url.path(percentEncoded: false)
                 guard isSingleComponent(name), !path.contains("\0") else { throw SourceError.invalid }
                 try beforeOpen(url)
-                let descriptor = Darwin.open(path, O_RDONLY | O_CLOEXEC | O_NONBLOCK | O_NOFOLLOW)
-                guard descriptor >= 0 else {
-                    if errno == ELOOP { throw SourceError.notRegularFile }
-                    throw SourceError.unreadable(String(cString: strerror(errno)))
-                }
-                defer { Darwin.close(descriptor) }
-                var status = Darwin.stat()
-                guard fstat(descriptor, &status) == 0 else {
-                    throw SourceError.unreadable(String(cString: strerror(errno)))
-                }
-                guard status.st_mode & S_IFMT == S_IFREG else { throw SourceError.notRegularFile }
+                let source = try LeoFileDescriptorSource(path: path)
                 try await beforeRead(url)
-                var data = Data()
-                var buffer = [UInt8](repeating: 0, count: 64 * 1024)
-                while true {
-                    try Task.checkCancellation()
-                    let count = Darwin.read(descriptor, &buffer, buffer.count)
-                    if count == 0 { break }
-                    if count < 0 {
-                        if errno == EINTR { continue }
-                        throw SourceError.unreadable(String(cString: strerror(errno)))
-                    }
-                    data.append(buffer, count: count)
-                }
-                return Source(name: name, data: data)
+                try Task.checkCancellation()
+                let destination = append(name, to: directory)
+                try await access.create(at: destination, from: source)
+                return Uploaded(name: name, path: destination)
             }
             return try await group.next()!
         }
@@ -117,16 +91,8 @@ enum LeoFileDrop {
 
     private enum SourceError: LocalizedError {
         case invalid
-        case notRegularFile
-        case unreadable(String)
 
-        var errorDescription: String? {
-            switch self {
-            case .invalid: "This item doesn’t have a valid file name."
-            case .notRegularFile: "Only files can be uploaded."
-            case .unreadable(let reason): "This file couldn’t be read: \(LeoSFTPServerText.sanitized(reason))."
-            }
-        }
+        var errorDescription: String? { "This item doesn’t have a valid file name." }
     }
 
     private static func append(_ name: String, to directory: String) -> String {

@@ -87,6 +87,41 @@ struct LeoFileDropTests {
         #expect(try destination.names().isEmpty)
     }
 
+    @Test
+    func dropsStreamFromTheOpenedDescriptorInBoundedReads() async throws {
+        let source = try LeoFileSandbox()
+        defer { source.cleanUp() }
+        let chunk = 4096
+        let payload = leoPatternData(count: 3 * chunk + 1)
+        let path = source.path("big.bin")
+        try payload.write(to: URL(fileURLWithPath: path))
+        let access = LeoFileDropStreamRecorder(chunk: chunk)
+
+        let result = await LeoFileDrop.upload([URL(fileURLWithPath: path)], to: "/workspace", access: access)
+
+        #expect(result.uploaded.map(\.path) == ["/workspace/big.bin"])
+        #expect(access.received == payload)
+        #expect(access.sourceWasStreamed, "the file is read from its descriptor during the create, never buffered whole")
+    }
+
+    @MainActor
+    @Test
+    func perFileUploadRunsOffTheMainActor() async throws {
+        let source = try LeoFileSandbox()
+        defer { source.cleanUp() }
+        let path = try source.file("a.txt", "a")
+        let access = LeoFileDropStreamRecorder(chunk: 16)
+        let openedOnMain = LeoLockedFlag()
+
+        _ = await LeoFileDrop.upload(
+            [URL(fileURLWithPath: path)], to: "/workspace", access: access,
+            beforeSourceOpen: { _ in openedOnMain.set(pthread_main_np() != 0) }
+        )
+
+        #expect(openedOnMain.value == false, "the blocking open runs off the main thread")
+        #expect(access.createRanOnMainThread == false)
+    }
+
     /// A NUL in any component would truncate the C path at `open`, so
     /// `…/secret%00/x/innocent.txt` must never read `secret`.
     @Test
@@ -187,4 +222,54 @@ private actor LeoFileDropCreateRecorder: LeoFileAccess {
         return LeoFileStat(kind: .file, size: 0, modified: .now, permissions: 0o644)
     }
     func close() async {}
+}
+
+/// Reads each create's source in `chunk`-sized pieces, recording what it
+/// received and where it ran.
+private final class LeoFileDropStreamRecorder: LeoFileAccess, @unchecked Sendable {
+    private let chunk: Int
+    private let lock = NSLock()
+    private var bytes = Data()
+    private var streamed = false
+    private var onMain: Bool?
+
+    init(chunk: Int) {
+        self.chunk = chunk
+    }
+
+    var received: Data { lock.withLock { bytes } }
+    var sourceWasStreamed: Bool { lock.withLock { streamed } }
+    var createRanOnMainThread: Bool? { lock.withLock { onMain } }
+
+    func list(_ path: String) async throws -> [LeoFileEntry] { [] }
+    func stat(_ path: String) async throws -> LeoFileStat { fatalError() }
+    func homeDirectory() async throws -> String { "/" }
+    func read(_ path: String, maxBytes: UInt64) async throws -> LeoFileContents { fatalError() }
+    func write(_ data: Data, to path: String, expecting expected: LeoFileVersion?) async throws -> LeoFileStat { fatalError() }
+    /// Runs on its caller's executor, like the app's own backends under
+    /// approachable concurrency, so it sees where the drop calls it from.
+    nonisolated(nonsending) func create(at path: String, from source: any LeoFileByteSource) async throws -> LeoFileStat {
+        let isMain = pthread_main_np() != 0
+        var data = Data()
+        while true {
+            let piece = try source.read(at: UInt64(data.count), upTo: chunk)
+            if piece.isEmpty { break }
+            data.append(piece)
+        }
+        lock.withLock {
+            onMain = isMain
+            bytes = data
+            streamed = source is LeoFileDescriptorSource
+        }
+        return LeoFileStat(kind: .file, size: UInt64(data.count), modified: .now, permissions: 0o600)
+    }
+    func close() async {}
+}
+
+private final class LeoLockedFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: Bool?
+
+    var value: Bool? { lock.withLock { stored } }
+    func set(_ value: Bool) { lock.withLock { stored = value } }
 }
