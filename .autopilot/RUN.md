@@ -72,7 +72,7 @@ Lane: B-275
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
-  Dispatched: 2026-10-10T04:19:01Z
+  Dispatched: 2026-10-10T06:36:00Z
 
 Finished 1: B-270 landed 28ade697f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-270-1.png
 Finished 2: B-271 landed 16b35ad0b · not visually verified
@@ -82,3 +82,4 @@ Finished 2: B-271 landed 16b35ad0b · not visually verified
 - Lane autopilot-lane/B-233 still unlanded with no block (item done); left in place.
 - B-270 landed 28ade697f (full, hard; concurrency review clean; verifier saw one load-flaky LeoTerminalRowMenuIntegrationTests rename failure per full run, passes isolated; implementer run green).
 - B-271 landed 16b35ad0b (not visually verified). Verifier ran `peekaboo type` without a frontmost-app check; debug search field stayed empty, so the text may have gone to another app. Flagged for digest.
+- B-275 runner d-4d3e1d99e1b9 ended its turn to await its implementer and was idle-closed at 1h; implementer d-681b670617a2 finished 4 commits (report lost to the dead runner). Re-dispatched a fresh build runner from Integrate; briefs now require blocking leo_wait.
