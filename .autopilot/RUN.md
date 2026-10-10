@@ -78,6 +78,17 @@ Lane: B-275
   Call: Last visible dispatch per agent is taller (40pt, top-aligned) instead of a spacer row, because the row floor makes spacers impossible — P1/P2
   Call: DEBUG fixture advertises dispatch_tree when it lists dispatches — D-396
 
+Lane: B-274
+  Branch: autopilot-lane/B-274
+  Base: 34e35b0b11ffdd1df23fd42ad82148a9934ff996
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-10T07:09:54Z
+
 Finished 1: B-270 landed 28ade697f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-270-1.png
 Finished 2: B-271 landed 16b35ad0b · not visually verified
 Finished 3: B-275 landed e902d0ef1 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-275-6.png
