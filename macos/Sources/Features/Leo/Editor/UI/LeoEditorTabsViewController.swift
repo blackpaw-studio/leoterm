@@ -150,6 +150,12 @@ final class LeoEditorTabsViewController: NSViewController {
 
     // MARK: - Actions
 
+    /// Close Editor Tab: the selected tab, as its close button does.
+    func closeSelectedTab() {
+        guard let selected = tabs.selected else { return }
+        close(selected)
+    }
+
     private func selectTab(at index: Int) {
         guard tabs.tabs.indices.contains(index) else { return }
         tabs.select(tabs.tabs[index])
