@@ -99,6 +99,17 @@ Lane: B-274
   Call: Delete Agent asks about its dirty panes in every window — P2
   Call: Snapshot prune only on a connected, known-host list, never the shown row — P5
 
+Lane: B-273
+  Branch: autopilot-lane/B-273
+  Base: e1fb9d11065b2acf6cb7cbae26caa632c4882075
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-10T09:20:52Z
+
 Finished 1: B-270 landed 28ade697f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-270-1.png
 Finished 2: B-271 landed 16b35ad0b · not visually verified
 Finished 3: B-275 landed e902d0ef1 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-275-6.png
