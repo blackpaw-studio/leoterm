@@ -23,6 +23,13 @@ protocol LeoFileAccess: Sendable {
     /// conflict rather than silently clobbering it).
     func read(_ path: String, maxBytes: UInt64) async throws -> LeoFileContents
 
+    /// Pushes the regular file's bytes into `sink` in bounded pieces (a
+    /// chunk locally, a read window over SFTP) and returns the `stat` taken
+    /// *before* reading. Anything but a regular file fails before a byte is
+    /// pushed. An error from `sink` ends the read and is rethrown.
+    @discardableResult
+    func read(_ path: String, into sink: any LeoFileByteSink) async throws -> LeoFileStat
+
     /// Atomically replaces `path` (temp file in the same directory, then
     /// rename over it), keeping the existing file's permission bits. Writing
     /// through a symlink replaces the link's target, not the link. With a
@@ -58,6 +65,10 @@ extension LeoFileAccess {
     /// `LeoFileAccessor`'s exclusive implementation.
     func create(at path: String, from source: any LeoFileByteSource) async throws -> LeoFileStat {
         throw LeoFileAccessError.unavailable(reason: "This file connection doesn’t support creating files")
+    }
+
+    func read(_ path: String, into sink: any LeoFileByteSink) async throws -> LeoFileStat {
+        throw LeoFileAccessError.unavailable(reason: "This file connection doesn’t support downloading files")
     }
 
     @discardableResult
