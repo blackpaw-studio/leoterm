@@ -4,7 +4,8 @@ import Combine
 /// The window's editor pane (the trailing split item beside the terminal):
 /// header, inline banner, and text view, bound to a `LeoEditorPaneModel`.
 /// It collapses its own split item while no file is open, checks the disk
-/// whenever its window becomes key, and closes on ⌘W while it has focus.
+/// whenever its window becomes key (or its row is shown again), and closes
+/// on ⌘W while it has focus. One per row (B-274).
 final class LeoEditorPaneViewController: NSViewController {
     static let minimumWidth: CGFloat = 320
 
@@ -35,9 +36,6 @@ final class LeoEditorPaneViewController: NSViewController {
         header.onSelectRecent = { [weak self] fileID in self?.openRecent(fileID) }
         header.onClose = { [weak self] in self?.closePane() }
         banner.onAction = { [weak self] action in self?.perform(action) }
-        model.confirmUnsaved = { [weak self] document in
-            await self?.confirmUnsavedChanges(document) ?? .cancel
-        }
         bindModel()
         observeKeyWindow()
     }
@@ -240,10 +238,15 @@ final class LeoEditorPaneViewController: NSViewController {
             }
         }
     }
+}
 
-    private func confirmUnsavedChanges(_ document: LeoEditorDocument) async -> LeoUnsavedChangesChoice {
-        guard let window = view.window else { return .cancel }
-        return await LeoEditorAlerts.confirmUnsavedChanges(to: document.displayName, on: window)
+extension LeoEditorPaneViewController: LeoRowPaneChild {
+    var isPaneOpen: Bool { model.isOpen }
+
+    /// Back on screen (B-274): its file may have changed meanwhile.
+    func onShown() {
+        guard let document = model.document else { return }
+        Task { await document.checkDisk() }
     }
 }
 

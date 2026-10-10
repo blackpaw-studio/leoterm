@@ -27,7 +27,7 @@ import Testing
                 detail: Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity),
                 editor: editor,
                 browser: browser,
-                onBrowserPane: { [state] in state.split = $0.parent as? LeoSplitViewController },
+                onPaneContainer: { [state] in state.split = $0.parent as? LeoSplitViewController },
                 onSidebarAutoCollapse: { [state] in state.isVisible = false },
                 onSidebarAutoRestore: { [state] in state.isVisible = true })
         }

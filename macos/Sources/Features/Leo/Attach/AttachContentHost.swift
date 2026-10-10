@@ -176,6 +176,10 @@ struct AttachExitReport: Equatable, Sendable {
     /// agent's selection shows. A row selected to be shown that wasn't
     /// (its confirm cancelled, its shell let go) gives its selection back.
     func selectShownTerminal(in window: LeoWindowID)
+    /// B-274: what `window`'s content area shows, as a row: the terminal
+    /// row's shell there, else the first attachment; `nil` for the start
+    /// screen.
+    func shownHandle(in window: LeoWindowID) -> AttachmentHandle?
     /// Titles `handle`'s surface -- and so its window, while focused --
     /// after the agent attached in it (B-052), in place of whatever title
     /// the terminal sets.

@@ -54,14 +54,27 @@ struct LeoWindowVisibilityState: Equatable {
     /// opportunistic reconciliation (`report()`, only triggered by some
     /// *other* session's state change or a new `makeSession` call).
     var onWindowWillClose: () -> Void = {}
-    /// The window's editor pane (B-004): one per window, beside the terminal.
-    let editor: LeoEditorPaneModel
+    /// Each row's editor and browser in this window (B-274); the one on
+    /// screen belongs to the row the window shows.
+    let panes: LeoRowPanes
+    /// The editor pane on screen (B-004), beside the terminal.
+    var editor: LeoEditorPaneModel { panes.active.editor }
     /// Its view, once the window's split view has built it (focus moves).
-    weak var editorPane: LeoEditorPaneViewController?
-    /// The window's workspace browser (B-005), on the editor's leading
-    /// edge; it opens files in `editor`.
-    let browser: LeoWorkspaceBrowserModel
-    weak var browserPane: LeoWorkspaceBrowserViewController?
+    var editorPane: LeoEditorPaneViewController? { editorContainer?.activeChild as? LeoEditorPaneViewController }
+    /// The workspace browser on screen (B-005), on the editor's leading
+    /// edge; it opens files in its own row's editor.
+    var browser: LeoWorkspaceBrowserModel { panes.active.browser }
+    var browserPane: LeoWorkspaceBrowserViewController? { browserContainer?.activeChild as? LeoWorkspaceBrowserViewController }
+    /// The split items holding them, once the window's split view is built.
+    weak var editorContainer: LeoRowPaneContainerViewController?
+    weak var browserContainer: LeoRowPaneContainerViewController?
+
+    func adopt(_ container: LeoRowPaneContainerViewController) {
+        switch container.role {
+        case .editor: editorContainer = container
+        case .browser: browserContainer = container
+        }
+    }
     /// The window's plain shells, its sidebar's Terminals section (B-057).
     let terminals = LeoWindowTerminals()
 
@@ -80,7 +93,7 @@ struct LeoWindowVisibilityState: Equatable {
 
     /// The window's split, found through the panes it built.
     private var split: LeoSplitViewController? {
-        (browserPane?.parent ?? editorPane?.parent) as? LeoSplitViewController
+        (browserContainer?.parent ?? editorContainer?.parent) as? LeoSplitViewController
     }
 
     private let defaults: UserDefaults
@@ -98,15 +111,26 @@ struct LeoWindowVisibilityState: Equatable {
     ) {
         self.id = id
         self.defaults = defaults
-        let editor = LeoEditorPaneModel(makeAccess: makeFileAccess)
-        self.editor = editor
-        browser = LeoWorkspaceBrowserModel(makeAccess: makeFileAccess, openFile: { try await editor.open($0) })
+        let windowBox = LeoWeakWindow(window)
+        panes = LeoRowPanes(makeAccess: makeFileAccess) { document, row in
+            guard let window = windowBox.window else { return .cancel }
+            return await LeoEditorAlerts.confirmUnsavedChanges(to: document.displayName, in: row, on: window)
+        }
         self.onPollabilityChanged = onPollabilityChanged
         self.window = window
         // Fresh installs start with the sidebar hidden -- a persisted user
         // choice (the key is present, either true or false) always wins.
         isSidebarVisible = defaults.object(forKey: "leo.sidebarVisible") as? Bool ?? false
         preferredWidth = (defaults.object(forKey: Self.sidebarWidthKey) as? NSNumber).map { CGFloat($0.doubleValue) } ?? 260
+        terminals.rowRemoved = { [weak panes] id in panes?.rowRemoved(.terminal(id)) }
+        terminals.rowReplaced = { [weak panes] old, new in panes?.rekey(.terminal(old), to: .terminal(new)) }
+        panes.rowName = { [weak terminals] key in
+            switch key {
+            case .agent(_, let name, _): name
+            case .terminal(let id): terminals?.rows.first { $0.id == id }?.displayTitle
+            case .startScreen: nil
+            }
+        }
         observeWindow()
     }
 
@@ -174,10 +198,8 @@ struct LeoWindowVisibilityState: Equatable {
 
     private func windowWillClose() {
         onWindowWillClose()
-        let editor = editor
-        let browser = browser
-        Task { await editor.release() }
-        Task { await browser.close() }
+        let panes = panes
+        Task { await panes.releaseAll() }
     }
 
     private func apply(_ event: LeoWindowVisibilityState.Event) {
@@ -187,6 +209,12 @@ struct LeoWindowVisibilityState: Equatable {
     }
 
     private func changed() { onPollabilityChanged() }
+}
+
+/// The session's window, held weakly for the panes' prompts.
+@MainActor private final class LeoWeakWindow {
+    weak var window: NSWindow?
+    init(_ window: NSWindow?) { self.window = window }
 }
 
 @MainActor final class LeoWindowSessionRegistry {
@@ -221,6 +249,8 @@ struct LeoWindowVisibilityState: Equatable {
     }
 
     func controller(for id: LeoWindowID) -> TerminalController? { entries[id]?.controller }
+
+    func session(for id: LeoWindowID) -> LeoWindowSession? { entries[id]?.session }
 
     var sessions: [LeoWindowSession] { entries.values.compactMap(\.session) }
 

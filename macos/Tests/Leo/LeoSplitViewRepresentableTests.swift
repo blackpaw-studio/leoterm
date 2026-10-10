@@ -207,8 +207,8 @@ struct LeoSplitViewRepresentableTests {
 
         let items = harness.components.controller.splitViewItems
         #expect(items.count == 4)
-        #expect(items[2].viewController is LeoWorkspaceBrowserViewController)
-        #expect(items[3].viewController is LeoEditorPaneViewController)
+        #expect(items[2].leoPaneRole == .browser)
+        #expect(items[3].leoPaneRole == .editor)
         #expect(harness.browserItem?.isCollapsed == true)
         #expect(abs(harness.sidebarWidth - Self.storedWidth) <= 1)
     }
@@ -237,7 +237,7 @@ struct LeoSplitViewRepresentableTests {
             window.layoutIfNeeded()
             await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
             window.layoutIfNeeded()
-            let item = component.controller.splitViewItems.first { $0.viewController is LeoWorkspaceBrowserViewController }
+            let item = component.controller.splitViewItems.first { $0.leoPaneRole == .browser }
             #expect(item?.isCollapsed == (index == 1))
             window.close()
         }
@@ -901,13 +901,13 @@ struct LeoSplitViewRepresentableTests {
         var terminalWidth: CGFloat { components.detailHosting.view.frame.width }
 
         var editorItem: NSSplitViewItem? {
-            components.controller.splitViewItems.first { $0.viewController is LeoEditorPaneViewController }
+            components.controller.splitViewItems.first { $0.leoPaneRole == .editor }
         }
 
         var editorWidth: CGFloat { editorItem?.viewController.view.frame.width ?? 0 }
 
         var browserItem: NSSplitViewItem? {
-            components.controller.splitViewItems.first { $0.viewController is LeoWorkspaceBrowserViewController }
+            components.controller.splitViewItems.first { $0.leoPaneRole == .browser }
         }
 
         var browserWidth: CGFloat { browserItem?.viewController.view.frame.width ?? 0 }
