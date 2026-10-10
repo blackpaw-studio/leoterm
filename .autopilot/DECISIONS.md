@@ -3139,3 +3139,66 @@ Chose: Command rebuilt after confirm only when placement changed, since a full r
 Why: AUTONOMY bug fixes
 Commit: 68b0e2647, 1e270c780, b6a403d47, eb8a4d622, 697e2e580, bb34cabbf
 Veto: [ ]
+
+## D-437 · 2026-10-10 · Rows viewed in the caller's session become clickable; a clic…
+Context: B-271 (runner call).
+Chose: Rows viewed in the caller's session become clickable; a click focuses that pane and shows the parent agent
+Why: P6
+Commit: c13b9cca0, b106a7255, cf288ce6e
+Veto: [ ]
+
+## D-438 · 2026-10-10 · Fallback uses only the reported `attachable` and `tmux_targe…
+Context: B-271 (runner call).
+Chose: Fallback uses only the reported `attachable` and `tmux_target`
+Why: P2
+Commit: c13b9cca0, b106a7255, cf288ce6e
+Veto: [ ]
+
+## D-439 · 2026-10-10 · Fallback gated on connected + dispatch_attach + live run; ol…
+Context: B-271 (runner call).
+Chose: Fallback gated on connected + dispatch_attach + live run; older daemons keep inert rows
+Why: P2, D-433
+Commit: c13b9cca0, b106a7255, cf288ce6e
+Veto: [ ]
+
+## D-440 · 2026-10-10 · Headless dispatches (no pane) stay informational
+Context: B-271 (runner call).
+Chose: Headless dispatches (no pane) stay informational
+Why: P2
+Commit: c13b9cca0, b106a7255, cf288ce6e
+Veto: [ ]
+
+## D-441 · 2026-10-10 · Same behaviour on remote hosts over ssh
+Context: B-271 (runner call).
+Chose: Same behaviour on remote hosts over ssh
+Why: P3
+Commit: c13b9cca0, b106a7255, cf288ce6e
+Veto: [ ]
+
+## D-442 · 2026-10-10 · A failed focus is reported on the parent row, and the agent …
+Context: B-271 (runner call).
+Chose: A failed focus is reported on the parent row, and the agent is still shown
+Why: P6
+Commit: c13b9cca0, b106a7255, cf288ce6e
+Veto: [ ]
+
+## D-443 · 2026-10-10 · Focus runs through the injected hostSelectionRunner with a 1…
+Context: B-271 (runner call).
+Chose: Focus runs through the injected hostSelectionRunner with a 10 s timeout
+Why: AUTONOMY implementation approach
+Commit: c13b9cca0, b106a7255, cf288ce6e
+Veto: [ ]
+
+## D-444 · 2026-10-10 · Remote focus opens a new ssh connection with BatchMode=yes (…
+Context: B-271 (runner call).
+Chose: Remote focus opens a new ssh connection with BatchMode=yes (no ControlMaster reuse)
+Why: AUTONOMY implementation approach
+Commit: c13b9cca0, b106a7255, cf288ce6e
+Veto: [ ]
+
+## D-445 · 2026-10-10 · Every click on such a row re-sends the pane focus (idempoten…
+Context: B-271 (runner call).
+Chose: Every click on such a row re-sends the pane focus (idempotent)
+Why: P6
+Commit: c13b9cca0, b106a7255, cf288ce6e
+Veto: [ ]

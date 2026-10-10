@@ -47,7 +47,7 @@ Lane: B-271
   Branch: autopilot-lane/B-271
   Base: 4692ca633a9ac62d2bb7d3bdcb3feb03d6a2ebe8
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -64,8 +64,10 @@ Lane: B-271
   Call: Every click on such a row re-sends the pane focus (idempotent) — P6
 
 Finished 1: B-270 landed 28ade697f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-270-1.png
+Finished 2: B-271 landed 16b35ad0b · not visually verified
 
 ## Progress
 - Preflight: B-270 lane recovered (Wip: none, empty lane) as first pick; merged main into autopilot (8af0dcea0, sidebar pill rows); inbox → B-275.
 - Lane autopilot-lane/B-233 still unlanded with no block (item done); left in place.
 - B-270 landed 28ade697f (full, hard; concurrency review clean; verifier saw one load-flaky LeoTerminalRowMenuIntegrationTests rename failure per full run, passes isolated; implementer run green).
+- B-271 landed 16b35ad0b (not visually verified). Verifier ran `peekaboo type` without a frontmost-app check; debug search field stayed empty, so the text may have gone to another app. Flagged for digest.

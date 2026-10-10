@@ -727,13 +727,14 @@ Source: Evan (/issue, 2026-10-08)
 Inbox: 20261008T224810716919Z-9e7de099#1
 Done: 68b0e2647 1e270c780 b6a403d47 eb8a4d622 697e2e580 bb34cabbf. Pre-hello attaches re-attach once hello advertises attach_dispatch_placement; hidden unflagged surfaces are released. Repro test failed red before the fix; concurrency review clean; GUI: one tmux client, stable across row switches (the race itself isn't hand-reproducible). Decisions D-430–D-436.
 
-## B-271 · Dispatch rows whose viewer sits in the parent's tmux session can't be clicked   [ready]
+## B-271 · Dispatch rows whose viewer sits in the parent's tmux session can't be clicked   [done]
 Issue: #265
 Type: bug
 Report: Top-level dispatch rows whose viewer opened inside the parent agent's own tmux session (e.g. ap-B-204 at leo-leoterm:2, placed there because no attached client registered background placement) can't be clicked, while nested dispatches that opened in the leo-dispatch session (B-204-impl) can. Observed 2026-10-08 alongside the dispatch-placement-before-hello bug. Confirm these rows become clickable once that placement fix lands; if a dispatch viewer can still end up in the parent's session, clicking its row should focus that window instead of doing nothing.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: Evan (/issue, 2026-10-08)
 Inbox: 20261008T225539342143Z-d97ea80f#1
+Done: c13b9cca0 b106a7255 cf288ce6e. Dispatch rows viewed in the caller's tmux session are clickable: a click focuses that pane (local or over ssh) and shows the parent; older daemons and headless runs stay inert. Repro tests failed red first; security review clean; 2373 tests green. Not visually verified (needs a scratch dispatch viewed in its caller's session). Decisions D-437–D-445.
 
 ## B-275 · Tighten sidebar row spacing and grouping   [ready]
 Issue: #269
