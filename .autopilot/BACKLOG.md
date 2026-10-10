@@ -718,13 +718,14 @@ Accept: LeoLaunchPlaceholderIntegrationTests close() (:90,100-101) only closes v
 Source: autopilot polish (B-094)
 Done: 87bc874aa (merge 8b7625f4d)
 
-## B-270 · Dispatch placement never applied to rows attached before hello   [ready]
+## B-270 · Dispatch placement never applied to rows attached before hello   [done]
 Issue: #264
 Type: bug
 Report: Dispatch placement never takes effect for rows attached before the daemon hello. The app adds `--dispatch-placement background` to `leo agent attach` only when hostFeatures already has `attach_dispatch_placement` (LeoDaemonFeatures.swift:34, read at build time in LeoRuntime.swift:162), but launch-restored rows attach before hello arrives (race noted at LeoAttachCoordinator.swift:50, pinned by LeoDaemonFeaturesScopeTests.swift:30), and the attach command is fixed for the surface's lifetime — live-pool reveal and close/reopen reuse the surface, so the flag is never applied. The daemon counts an unregistered client as the default `pane`, which outranks background, so every leo_dispatch from that agent opens a tmux pane/window. Observed 2026-10-08 on leo-v0.10.0 + daemon 0.41.0 over SSH to Dionysus: after closing/reopening the leoterm row the only tmux client on leo-leoterm still predated the reopen, and a probe dispatch opened a window. Fix: when hello first advertises `attach_dispatch_placement` for a host, re-attach that host's surfaces that were attached without the flag (preserving selection/scroll), rather than delaying the first attach.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: Evan (/issue, 2026-10-08)
 Inbox: 20261008T224810716919Z-9e7de099#1
+Done: 68b0e2647 1e270c780 b6a403d47 eb8a4d622 697e2e580 bb34cabbf. Pre-hello attaches re-attach once hello advertises attach_dispatch_placement; hidden unflagged surfaces are released. Repro test failed red before the fix; concurrency review clean; GUI: one tmux client, stable across row switches (the race itself isn't hand-reproducible). Decisions D-430–D-436.
 
 ## B-271 · Dispatch rows whose viewer sits in the parent's tmux session can't be clicked   [ready]
 Issue: #265

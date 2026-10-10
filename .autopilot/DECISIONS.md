@@ -3090,3 +3090,52 @@ Chose: Doc comment on when to use `eventually` vs `turns`
 Why: AUTONOMY test infra
 Commit: 27cb8ef72, d0e14f330
 Veto: [ ]
+
+## D-430 · 2026-10-09 · Re-attach after hello rather than delay the first attach
+Context: B-270 (runner call).
+Chose: Re-attach after hello rather than delay the first attach
+Why: P6
+Commit: 68b0e2647, 1e270c780, b6a403d47, eb8a4d622, 697e2e580, bb34cabbf
+Veto: [ ]
+
+## D-431 · 2026-10-09 · Hidden unflagged surfaces are released, not re-attached whil…
+Context: B-270 (runner call).
+Chose: Hidden unflagged surfaces are released, not re-attached while hidden
+Why: P6, D-109
+Commit: 68b0e2647, 1e270c780, b6a403d47, eb8a4d622, 697e2e580, bb34cabbf
+Veto: [ ]
+
+## D-432 · 2026-10-09 · Shown swap loses Ghostty-local scrollback/selection (slot, f…
+Context: B-270 (runner call).
+Chose: Shown swap loses Ghostty-local scrollback/selection (slot, focus and row selection kept; tmux history survives)
+Why: P6
+Commit: 68b0e2647, 1e270c780, b6a403d47, eb8a4d622, 697e2e580, bb34cabbf
+Veto: [ ]
+
+## D-433 · 2026-10-09 · Disconnected gating unchanged
+Context: B-270 (runner call).
+Chose: Disconnected gating unchanged
+Why: P2
+Commit: 68b0e2647, 1e270c780, b6a403d47, eb8a4d622, 697e2e580, bb34cabbf
+Veto: [ ]
+
+## D-434 · 2026-10-09 · Failed re-attach reported to the row as openFailed; closing-…
+Context: B-270 (runner call).
+Chose: Failed re-attach reported to the row as openFailed; closing-window handle forgotten silently; no contentVersion bump
+Why: D-110
+Commit: 68b0e2647, 1e270c780, b6a403d47, eb8a4d622, 697e2e580, bb34cabbf
+Veto: [ ]
+
+## D-435 · 2026-10-09 · reattachInPlace inherits the old surface's config (deviation…
+Context: B-270 (runner call).
+Chose: reattachInPlace inherits the old surface's config (deviation, behaviour-neutral)
+Why: AUTONOMY bug fixes
+Commit: 68b0e2647, 1e270c780, b6a403d47, eb8a4d622, 697e2e580, bb34cabbf
+Veto: [ ]
+
+## D-436 · 2026-10-09 · Command rebuilt after confirm only when placement changed, s…
+Context: B-270 (runner call).
+Chose: Command rebuilt after confirm only when placement changed, since a full rebuild broke aRemoteDispatchGoesThroughTheRemoteBuilder (deviation)
+Why: AUTONOMY bug fixes
+Commit: 68b0e2647, 1e270c780, b6a403d47, eb8a4d622, 697e2e580, bb34cabbf
+Veto: [ ]
