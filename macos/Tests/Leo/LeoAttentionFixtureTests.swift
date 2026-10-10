@@ -89,6 +89,51 @@ struct LeoAttentionFixtureTests {
         #expect(malformed.compactions.isEmpty)
     }
 
+    /// B-272: the steps of a viewer moving between background and visible.
+    @Test func dispatchMovesKeyDecodesLeniently() throws {
+        let json = #"{"dispatch_moves":[{"id":"d1","status":"running","attachable":true,"viewer_kind":"background"},"#
+            + #"{"status":"running"},{"id":"d1","status":"running","tmux_target":"%999999","viewer_kind":"floating"}]}"#
+        let file = try JSONDecoder().decode(LeoAttentionFixture.File.self, from: Data(json.utf8))
+        #expect(file.dispatchMoves.map(\.viewerKind) == [.background, nil], "a record without an id is dropped, an unknown kind is nil")
+        #expect(file.dispatchMoves.map(\.tmuxTarget) == [nil, "%999999"])
+        #expect(file.dispatches.isEmpty, "moves are not part of /state")
+        let malformed = try JSONDecoder().decode(LeoAttentionFixture.File.self, from: Data(#"{"dispatch_moves":3}"#.utf8))
+        #expect(malformed.dispatchMoves.isEmpty)
+        let absent = try JSONDecoder().decode(LeoAttentionFixture.File.self, from: Data(#"{}"#.utf8))
+        #expect(absent.dispatchMoves.isEmpty)
+    }
+
+    @Test func dispatchMovesReplayAfterHelloAndAdvertiseTheirFeatures() async throws {
+        let (stream, continuation) = AsyncStream<LeoObserveEvent>.makeStream()
+        continuation.yield(.hello(seq: 1, at: nil, version: "1", serverTime: nil, bootID: "b", features: ["dispatch_tree"]))
+        let moves = [
+            LeoDispatch(id: "d1", status: "running", callerAgent: "alpha", attachable: true, tmuxTarget: "%999999", viewerKind: .background),
+            LeoDispatch(id: "d1", status: "running", callerAgent: "alpha", attachable: false, tmuxTarget: "%999999", viewerKind: .split)
+        ]
+        var seen: [LeoObserveEvent] = []
+        for await event in LeoAttentionFixture.advertising(
+            stream, usage: false, turns: [:], dispatchMoves: moves, replayDelay: 1_000, firstMoveSeq: { 1_000 }
+        ) {
+            seen.append(event)
+            if seen.count == 3 { break }
+        }
+        continuation.finish()
+        guard case .hello(_, _, _, _, _, let features) = seen.first else { Issue.record("no hello"); return }
+        #expect(features == ["dispatch_tree", "dispatch_attach", "dispatch_placement_live"])
+        #expect(seen.dropFirst() == [.dispatchChanged(seq: 1_000, dispatch: moves[0]), .dispatchChanged(seq: 1_001, dispatch: moves[1])],
+                "in order, each with a higher seq than the last")
+    }
+
+    @Test func dispatchMovesAddNothingWhenAbsent() async throws {
+        let (stream, continuation) = AsyncStream<LeoObserveEvent>.makeStream()
+        continuation.yield(.hello(seq: 1, at: nil, version: "1", serverTime: nil, bootID: "b", features: []))
+        continuation.finish()
+        var seen: [LeoObserveEvent] = []
+        for await event in LeoAttentionFixture.advertising(stream, usage: false, turns: [:], dispatchMoves: []) { seen.append(event) }
+        guard case .hello(_, _, _, _, _, let features) = seen.first else { Issue.record("no hello"); return }
+        #expect(features.isEmpty)
+    }
+
     @Test func controlKeyDecodesLeniently() throws {
         let deny = try JSONDecoder().decode(LeoAttentionFixture.File.self, from: Data(#"{"control":"deny"}"#.utf8))
         #expect(deny.control == .deny)

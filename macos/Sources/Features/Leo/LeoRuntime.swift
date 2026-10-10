@@ -72,7 +72,7 @@ import OSLog
         var transport: any LeoDaemonTransport = LeoUnixSocketTransport()
         #if DEBUG
         if let fixture = LeoAttentionFixture.loadFile() {
-            activity = LeoAttentionFixture.wrap(activity, overlay: fixture.attention, dispatches: fixture.dispatches, usage: fixture.usage, turns: fixture.turns, actions: fixture.actions, compactions: fixture.compactions, control: fixture.control)
+            activity = LeoAttentionFixture.wrap(activity, overlay: fixture.attention, dispatches: fixture.dispatches, usage: fixture.usage, turns: fixture.turns, actions: fixture.actions, compactions: fixture.compactions, control: fixture.control, dispatchMoves: fixture.dispatchMoves)
             if let mode = fixture.control { transport = LeoControlFixtureTransport(base: transport, mode: mode) }
         }
         #endif

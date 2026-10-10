@@ -33,6 +33,28 @@ struct LeoDispatchAttachDecodingTests {
         #expect(LeoDaemonFeatures(["dispatch_attach"]).contains(.dispatchAttach))
         #expect(!LeoDaemonFeatures(["dispatch_tree"]).contains(.dispatchAttach))
     }
+
+    /// B-272 (leo >= 0.42).
+    @Test func theLivePlacementFeatureIsKnownByName() {
+        #expect(LeoDaemonFeatures(["dispatch_placement_live"]).contains(.dispatchPlacementLive))
+        #expect(!LeoDaemonFeatures(["dispatch_attach"]).contains(.dispatchPlacementLive))
+    }
+
+    @Test(arguments: [
+        ("split", LeoDispatchViewerKind.split), ("hidden", .hidden), ("window", .window), ("background", .background),
+    ])
+    func viewerKindDecodesBackgroundAndKnownKinds(_ raw: String, _ kind: LeoDispatchViewerKind) throws {
+        #expect(try decode(#"{"id":"d1","status":"running","viewer_kind":"\#(raw)"}"#).viewerKind == kind)
+    }
+
+    @Test func anUnknownOrMalformedViewerKindDegradesToNil() throws {
+        for bad in [#""floating""#, #""""#, "42", "null", "true", #"["background"]"#] {
+            let dispatch = try decode(#"{"id":"d1","status":"running","attachable":true,"tmux_target":"%41","viewer_kind":"# + bad + "}")
+            #expect(dispatch.viewerKind == nil, "\(bad) is no known kind")
+            #expect(dispatch.attachable && dispatch.tmuxTarget == "%41", "the rest still decodes")
+        }
+        #expect(try decode(#"{"id":"d1","status":"running"}"#).viewerKind == nil, "an older daemon sends none")
+    }
 }
 
 struct LeoDispatchAttachCommandTests {

@@ -31,10 +31,14 @@ extension LeoSidebarModel {
 
     /// The reported viewer pane of a live dispatch the daemon can't attach
     /// to, under the same gate as attaching (connected, `dispatch_attach`).
+    /// B-272: a daemon with live placement that says the viewer sits in the
+    /// background reports a pane in `leo-dispatch`, not the caller's
+    /// session, so there is nothing here to bring forward.
     private func viewerPane(_ dispatch: LeoDispatch) -> String? {
         guard !isDisconnected, daemonFeatures.contains(.dispatchAttach), !dispatch.attachable, dispatch.isLive else {
             return nil
         }
+        if daemonFeatures.contains(.dispatchPlacementLive), dispatch.viewerKind == .background { return nil }
         return dispatch.tmuxTarget
     }
 
