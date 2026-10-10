@@ -6,6 +6,15 @@ struct LeoTerminalFileDropContext: Equatable {
     /// Changes for every attachment lifetime, even when the same agent is
     /// attached again in the same surface with the same workspace.
     let attachmentGeneration: UInt64
+
+    /// The drop target for an attachment, or nil when only Ghostty's own
+    /// drop applies: a dispatch pane, which is a read-only watch (B-266),
+    /// or no absolute, printable workspace.
+    static func resolve(identity: LeoAgentIdentity, workspace: String?, generation: UInt64) -> Self? {
+        guard identity.dispatchID == nil, let workspace, workspace.hasPrefix("/"), !workspace.contains("\0"),
+              !workspace.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else { return nil }
+        return Self(identity: identity, workspace: workspace, attachmentGeneration: generation)
+    }
 }
 
 struct LeoTerminalFileDropDependencies {
@@ -195,14 +204,11 @@ extension LeoRuntime {
 
     func fileDropContext(for surface: Ghostty.SurfaceView) -> LeoTerminalFileDropContext? {
         if let dependency = terminalFileDropDependencies { return dependency.context(surface) }
-        guard let identity = attachCoordinator.identity(forSurface: surface.id),
-              let workspace = editorContext(for: identity).workspace,
-              workspace.hasPrefix("/"), !workspace.contains("\0"),
-              !workspace.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else { return nil }
-        return LeoTerminalFileDropContext(
+        guard let identity = attachCoordinator.identity(forSurface: surface.id) else { return nil }
+        return LeoTerminalFileDropContext.resolve(
             identity: identity,
-            workspace: workspace,
-            attachmentGeneration: attachCoordinator.generation(forSurface: surface.id) ?? 0
+            workspace: editorContext(for: identity).workspace,
+            generation: attachCoordinator.generation(forSurface: surface.id) ?? 0
         )
     }
 

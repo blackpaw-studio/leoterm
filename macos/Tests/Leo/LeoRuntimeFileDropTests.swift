@@ -61,7 +61,8 @@ struct LeoRuntimeFileDropTests {
             let localPath = try source.file("two words.txt", "payload")
             let state = State()
             state.context = context(host: host, workspace: destination.root)
-            state.accesses = [LeoFileAccessor.local()]
+            // A remote host gets real SFTP (macOS's sftp-server over pipes).
+            state.accesses = [host == .local ? LeoFileAccessor.local() : LeoFileAccessor.sftp(launcher: LeoSFTPTestServer.launcher())]
             let runtime = makeRuntime(state)
             let surface = try makeSurface()
             let board = pasteboard([URL(fileURLWithPath: localPath)])
@@ -76,6 +77,22 @@ struct LeoRuntimeFileDropTests {
             #expect(try destination.contents("two words.txt") == "payload")
             runtime.shutdown()
         }
+    }
+
+    /// A dispatch pane is a read-only watch (B-266): a drop there keeps
+    /// Ghostty's own behavior instead of typing paths into it.
+    @Test func dispatchWatchAttachmentsNeverResolveAFileDropContext() {
+        let agent = LeoAgentIdentity(host: .remote("work"), name: "scratch")
+        let dispatch = LeoAgentIdentity(host: .remote("work"), name: "dispatch.d-1", workspace: "/work", dispatchID: "d-1", title: "watch")
+
+        #expect(LeoTerminalFileDropContext.resolve(identity: dispatch, workspace: "/work", generation: 1) == nil)
+        for workspace in [nil, "", "work", "/wo\0rk", "/wo\nrk", "/wo\u{7}rk"] {
+            #expect(LeoTerminalFileDropContext.resolve(identity: agent, workspace: workspace, generation: 1) == nil, "\(String(reflecting: workspace))")
+        }
+        #expect(
+            LeoTerminalFileDropContext.resolve(identity: agent, workspace: "/work", generation: 3)
+                == LeoTerminalFileDropContext(identity: agent, workspace: "/work", attachmentGeneration: 3)
+        )
     }
 
     @Test func partialFailureInsertsOnlySuccessAndKeepsTheErrorVisible() async throws {
