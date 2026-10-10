@@ -19,7 +19,13 @@ import OSLog
 /// {"phase": "completed"}]`) replays those `agent_compaction` events after
 /// each hello, 1.5 s apart (B-261). Reserved `"control"` (`"deny"` or
 /// `"unavailable"`) makes the control routes answer 403 or 503 locally
-/// (B-262, see `LeoControlFixture.swift`) and advertises `agent_control`. Only named
+/// (B-262, see `LeoControlFixture.swift`) and advertises `agent_control`.
+/// Reserved `"dispatch_moves"` (an array of dispatch records for one
+/// dispatch, e.g. `attachable` and `viewer_kind` flipping) replays those as
+/// `dispatch_changed` after each hello, 1.5 s apart, and advertises
+/// `dispatch_tree`, `dispatch_attach` and `dispatch_placement_live`, so a
+/// viewer moving between background and visible can be watched (B-272).
+/// Only named
 /// agents change; nothing is sent anywhere.
 enum LeoAttentionFixture {
     static let environmentKey = "LEO_ATTENTION_FIXTURE"
@@ -33,6 +39,7 @@ enum LeoAttentionFixture {
         static let actionsKey = "actions"
         static let compactionsKey = "compactions"
         static let controlKey = "control"
+        static let dispatchMovesKey = "dispatch_moves"
 
         let attention: [String: LeoAttentionSignal]
         let dispatches: [LeoDispatch]
@@ -41,6 +48,8 @@ enum LeoAttentionFixture {
         let actions: [String: LeoCurrentAction]
         let compactions: [String: [LeoCompactionEvent]]
         let control: LeoControlFixtureMode?
+        /// Replayed in file order, not sorted.
+        let dispatchMoves: [LeoDispatch]
 
         private struct FixtureCompaction: Decodable, Sendable {
             let phase: LeoCompactionPhase?
@@ -74,10 +83,13 @@ enum LeoAttentionFixture {
             var actions: [String: LeoCurrentAction] = [:]
             var compactions: [String: [LeoCompactionEvent]] = [:]
             var control: LeoControlFixtureMode?
+            var dispatchMoves: [LeoDispatch] = []
             for key in container.allKeys {
                 if key.stringValue == Self.dispatchesKey {
                     // A malformed value degrades to none, never breaks the fixture.
                     dispatches = (try? container.decode(LeoLenientDispatches.self, forKey: key))?.dispatches ?? []
+                } else if key.stringValue == Self.dispatchMovesKey {
+                    dispatchMoves = (try? container.decode(LeoLenientDispatches.self, forKey: key))?.dispatches ?? []
                 } else if key.stringValue == Self.usageKey {
                     usage = LeoAttentionFixture.lenientEntries(container, key, as: LeoAgentUsage.self)
                 } else if key.stringValue == Self.actionsKey {
@@ -109,6 +121,7 @@ enum LeoAttentionFixture {
             self.actions = actions
             self.compactions = compactions
             self.control = control
+            self.dispatchMoves = dispatchMoves
             self.dispatches = dispatches.sorted { ($0.startedAt ?? "", $0.id) < ($1.startedAt ?? "", $1.id) }
         }
     }
@@ -139,12 +152,12 @@ enum LeoAttentionFixture {
         _ source: LeoSidebarActivitySource, overlay: [String: LeoAttentionSignal], dispatches: [LeoDispatch] = [],
         usage: [String: LeoAgentUsage] = [:], turns: [String: LeoTurnCompletion] = [:],
         actions: [String: LeoCurrentAction] = [:], compactions: [String: [LeoCompactionEvent]] = [:],
-        control: LeoControlFixtureMode? = nil
+        control: LeoControlFixtureMode? = nil, dispatchMoves: [LeoDispatch] = []
     ) -> LeoSidebarActivitySource {
         LeoSidebarActivitySource(events: {
             await advertising(
                 await source.events(), usage: !usage.isEmpty, turns: turns, compactions: compactions, control: control != nil,
-                dispatchTree: !dispatches.isEmpty
+                dispatchTree: !dispatches.isEmpty, dispatchMoves: dispatchMoves
             )
         }, observedState: {
             let state = try await source.fetchState()
@@ -166,14 +179,22 @@ enum LeoAttentionFixture {
     /// when it lists dispatches, D-396), and the turns
     /// follow it after the rows have had time to load (a turn for an agent
     /// with no row yet is dropped). Without either, the stream is untouched.
-    private static let turnReplayDelay: UInt64 = 1_500_000_000
+    static let turnReplayDelay: UInt64 = 1_500_000_000
+
+    /// Moves are replayed with seqs far above any real daemon's, so the
+    /// dispatch tree's `state_seq` bookkeeping never calls them stale, and
+    /// above an earlier replay's after a reconnect.
+    static func currentMoveSeq() -> Int { Int(Date().timeIntervalSince1970 * 1000) }
 
     static func advertising(
         _ events: AsyncStream<LeoObserveEvent>, usage: Bool, turns: [String: LeoTurnCompletion],
-        compactions: [String: [LeoCompactionEvent]] = [:], control: Bool = false, dispatchTree: Bool = false
+        compactions: [String: [LeoCompactionEvent]] = [:], control: Bool = false, dispatchTree: Bool = false,
+        dispatchMoves: [LeoDispatch] = [], replayDelay: UInt64 = turnReplayDelay, firstMoveSeq: @escaping @Sendable () -> Int = currentMoveSeq
     ) -> AsyncStream<LeoObserveEvent> {
-        guard usage || !turns.isEmpty || !compactions.isEmpty || control || dispatchTree else { return events }
-        let extra = (dispatchTree ? ["dispatch_tree"] : []) + (usage ? ["agent_usage"] : []) + (turns.isEmpty ? [] : ["bridge_turns"]) + (control ? ["agent_control"] : [])
+        let moving = !dispatchMoves.isEmpty
+        guard usage || !turns.isEmpty || !compactions.isEmpty || control || dispatchTree || moving else { return events }
+        let extra = (dispatchTree || moving ? ["dispatch_tree"] : []) + (usage ? ["agent_usage"] : []) + (turns.isEmpty ? [] : ["bridge_turns"])
+            + (control ? ["agent_control"] : []) + (moving ? ["dispatch_attach", "dispatch_placement_live"] : [])
         return AsyncStream { continuation in
             let task = Task {
                 var replays: [Task<Void, Never>] = []
@@ -188,8 +209,16 @@ enum LeoAttentionFixture {
                     ))
                     // Replaying after every hello is intentional (DEBUG): a
                     // disconnect clears previews, so a Retry should show them again.
+                    let moveSeq = firstMoveSeq()
                     replays.append(Task {
-                        try? await Task.sleep(nanoseconds: turnReplayDelay)
+                        try? await Task.sleep(nanoseconds: replayDelay)
+                        for (step, move) in dispatchMoves.enumerated() where !Task.isCancelled {
+                            continuation.yield(.dispatchChanged(seq: moveSeq + step, dispatch: move))
+                            try? await Task.sleep(nanoseconds: replayDelay)
+                        }
+                    })
+                    replays.append(Task {
+                        try? await Task.sleep(nanoseconds: replayDelay)
                         for turn in turns.values.sorted(by: { $0.agent < $1.agent }) where !Task.isCancelled {
                             continuation.yield(.agentTurnCompleted(seq: -1, turn: turn))
                         }
@@ -198,7 +227,7 @@ enum LeoAttentionFixture {
                             for steps in compactions.sorted(by: { $0.key < $1.key }).map(\.value) where step < steps.count && !Task.isCancelled {
                                 continuation.yield(.agentCompaction(seq: -1, compaction: steps[step]))
                             }
-                            try? await Task.sleep(nanoseconds: turnReplayDelay)
+                            try? await Task.sleep(nanoseconds: replayDelay)
                         }
                     })
                 }
