@@ -62,6 +62,9 @@ import Foundation
     /// Opens a surfaced file the user asked for in the editor; the
     /// closure re-checks the file's incarnation (`surfacedOpenGuard`).
     var surfacedFileOpenRequested: (LeoSurfacedFile, LeoAgentRow, @escaping @MainActor () -> Bool) -> Void = { _, _, _ in }
+    /// B-273: opens a newly surfaced file in its agent's pane in the
+    /// background; the closure re-checks the file's incarnation.
+    var surfacedFileAutoOpenRequested: (LeoSurfacedFile, LeoAgentRow, @escaping @MainActor () -> Bool) -> Void = { _, _, _ in }
 
     init(
         snapshot: LeoSidebarSnapshot = .init(rows: [], connectivity: .loading, generation: 0),

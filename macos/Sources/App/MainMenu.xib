@@ -441,6 +441,24 @@
                                     <action selector="toggleLeoEditorFocus:" target="-1" id="Leo-Agents-FocusEditor-Action"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Show Next Editor Tab" keyEquivalent="]" id="Leo-Agents-NextEditorTab">
+                                <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
+                                <connections>
+                                    <action selector="showNextLeoEditorTab:" target="-1" id="Leo-Agents-NextEditorTab-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Show Previous Editor Tab" keyEquivalent="[" id="Leo-Agents-PreviousEditorTab">
+                                <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
+                                <connections>
+                                    <action selector="showPreviousLeoEditorTab:" target="-1" id="Leo-Agents-PreviousEditorTab-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Close Editor Tab" id="Leo-Agents-CloseEditorTab">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="closeLeoEditorTab:" target="-1" id="Leo-Agents-CloseEditorTab-Action"/>
+                                </connections>
+                            </menuItem>
                             <menuItem title="Browse Agent Files" keyEquivalent="b" id="Leo-Agents-BrowseFiles">
                                 <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                 <connections>

@@ -80,7 +80,7 @@ struct LeoSplitViewRepresentableTests {
         harness.resizeWindow(toWidth: Self.windowWidth + 200)
         #expect(abs(harness.editorWidth - editorWidth) <= 1)
 
-        await editor.close()
+        await editor.closeAll()
         await harness.settle()
         #expect(harness.editorItem?.isCollapsed == true)
     }
@@ -114,7 +114,7 @@ struct LeoSplitViewRepresentableTests {
         await harness.settle()
         await harness.settle()
         #expect(abs(harness.editorWidth - editorWidth) <= 1)
-        await editor.close()
+        await editor.closeAll()
     }
 
     /// A file opened before the split is in a window: the pane opens at
@@ -147,7 +147,7 @@ struct LeoSplitViewRepresentableTests {
         #expect(panes.last.map { $0.frame.width > LeoEditorPaneViewController.minimumWidth + 100 } == true)
         #expect(abs((panes.last?.frame.width ?? 0) - panes[1].frame.width) <= 1)
         window.orderOut(nil)
-        await editor.close()
+        await editor.closeAll()
     }
 
     /// Beside the browser, the half is of what the terminal and the editor
@@ -170,7 +170,7 @@ struct LeoSplitViewRepresentableTests {
         #expect(abs(harness.browserWidth - browserWidth) <= 1)
         #expect(abs(harness.editorWidth - harness.terminalWidth) <= 1)
         #expect(harness.editorWidth > LeoEditorPaneViewController.minimumWidth)
-        await editor.close()
+        await editor.closeAll()
         await browser.close()
     }
 
@@ -271,7 +271,7 @@ struct LeoSplitViewRepresentableTests {
         #expect(harness.sidebarItem?.isCollapsed == true)
         #expect(autoCollapses == 1)
         #expect(harness.terminalWidth >= LeoSidebarSplitMetrics.terminalFloor)
-        await editor.close()
+        await editor.closeAll()
         await browser.close()
     }
 
@@ -298,7 +298,7 @@ struct LeoSplitViewRepresentableTests {
         #expect(harness.browserWidth >= LeoWorkspaceBrowserViewController.minimumWidth - 1)
         #expect(harness.terminalWidth >= LeoSidebarSplitMetrics.minimumTerminalWidth)
         #expect(harness.terminalWidth > 200, "only the sidebar gave way, not the terminal down to its minimum")
-        await editor.close()
+        await editor.closeAll()
         await browser.close()
     }
 
@@ -320,7 +320,7 @@ struct LeoSplitViewRepresentableTests {
         #expect(harness.sidebarItem?.isCollapsed == false)
         #expect(autoCollapses == 0)
         #expect(harness.terminalWidth >= LeoSidebarSplitMetrics.terminalFloor)
-        await editor.close()
+        await editor.closeAll()
         await browser.close()
     }
 
@@ -336,7 +336,7 @@ struct LeoSplitViewRepresentableTests {
     /// unless `sidebarVisible` is false) at its minimum beside them.
     private func withBothPanes(
         sidebarVisible: Bool = true, opensBrowser: Bool = true,
-        _ body: (Harness, LeoWorkspaceBrowserModel, LeoEditorPaneModel, FloorCounts) async throws -> Void
+        _ body: (Harness, LeoWorkspaceBrowserModel, LeoEditorTabs, FloorCounts) async throws -> Void
     ) async throws {
         let sandbox = try LeoFileSandbox()
         defer { sandbox.cleanUp() }
@@ -360,7 +360,7 @@ struct LeoSplitViewRepresentableTests {
         }
         try #require(harness.sidebarItem?.isCollapsed == !sidebarVisible)
         try await body(harness, browser, editor, counts)
-        await editor.close()
+        await editor.closeAll()
         await browser.close()
     }
 
@@ -449,7 +449,7 @@ struct LeoSplitViewRepresentableTests {
             try #require(harness.sidebarItem?.isCollapsed == true)
             #expect(controller.sidebarSqueezesTerminal(atWidth: LeoSidebarSplitMetrics.minimumWidth))
 
-            await editor.close()
+            await editor.closeAll()
             await browser.close()
             await harness.settle()
             #expect(!controller.sidebarSqueezesTerminal(atWidth: LeoSidebarSplitMetrics.maximumWidth))
@@ -614,7 +614,7 @@ struct LeoSplitViewRepresentableTests {
     /// reading `defaults`, persisting divider moves back through it.
     private static func launch(
         _ defaults: UserDefaults, attachesAfterAMainQueueTurn: Bool = false, isSidebarVisible: Bool = true,
-        windowWidth: CGFloat = LeoSplitViewRepresentableTests.windowWidth, editor: LeoEditorPaneModel? = nil
+        windowWidth: CGFloat = LeoSplitViewRepresentableTests.windowWidth, editor: LeoEditorTabs? = nil
     ) async -> Harness {
         let session = LeoWindowSession(defaults: defaults)
         let harness = Harness(
@@ -764,7 +764,7 @@ struct LeoSplitViewRepresentableTests {
         #expect(abs(harness.sidebarWidth - (storedWidth - push)) <= 1)
         #expect(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) == Double(storedWidth))
         #expect(abs(harness.components.controller.lastPersistedWidth - storedWidth) <= 1)
-        await editor.close()
+        await editor.closeAll()
     }
 
     /// Narrow enough that the terminal reaches its minimum and the sidebar
@@ -832,8 +832,8 @@ struct LeoSplitViewRepresentableTests {
         #expect(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) == Double(Self.relaunchedWidth))
     }
 
-    private static func makeEditor() -> LeoEditorPaneModel {
-        LeoEditorPaneModel(makeAccess: { _ in LeoFileAccessor.local() })
+    private static func makeEditor() -> LeoEditorTabs {
+        LeoEditorTabs(makeAccess: { _ in LeoFileAccessor.local() })
     }
 
     private static func makeBrowser() -> LeoWorkspaceBrowserModel {
@@ -854,7 +854,7 @@ struct LeoSplitViewRepresentableTests {
         /// main-queue turn after building it.
         init(
             preferredWidth: CGFloat = 240, windowWidth: CGFloat = LeoSplitViewRepresentableTests.windowWidth,
-            isSidebarVisible: Bool = true, editor: LeoEditorPaneModel? = nil, browser: LeoWorkspaceBrowserModel? = nil,
+            isSidebarVisible: Bool = true, editor: LeoEditorTabs? = nil, browser: LeoWorkspaceBrowserModel? = nil,
             onSidebarAutoCollapse: @escaping () -> Void = {}, onSidebarAutoRestore: @escaping () -> Void = {},
             onDividerWidthChange: @escaping (CGFloat) -> Void = { _ in }, attachesWindow: Bool = true
         ) {

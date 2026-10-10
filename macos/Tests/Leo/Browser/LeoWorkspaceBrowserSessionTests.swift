@@ -39,7 +39,7 @@ struct LeoWorkspaceBrowserSessionTests {
     }
 
     @Test
-    func unsavedEditsAreAskedAboutFirstAndCancelKeepsThem() async throws {
+    func aSecondFileOpensInItsOwnTabKeepingTheFirstsEdits() async throws {
         try await withLeoFileSandbox(.local) { sandbox, _ in
             let first = try sandbox.file("a.txt", "a")
             let second = try sandbox.file("b.txt", "b")
@@ -55,10 +55,11 @@ struct LeoWorkspaceBrowserSessionTests {
 
                 await session.browser.openFile(second)
 
-                #expect(asked == ["a.txt"])
-                #expect(session.editor.document?.fileID.path == first)
-                #expect(session.editor.document?.text == "a, edited")
-                #expect(session.browser.openError == nil, "cancelling isn't an error")
+                #expect(asked.isEmpty, "B-273: nothing is replaced, so nothing asks")
+                #expect(session.editor.document?.fileID.path == second)
+                #expect(session.editor.tabs.first?.document?.text == "a, edited")
+                #expect(session.browser.openError == nil)
+                session.editor.tabs.first?.document?.edit("a")
             }
         }
     }

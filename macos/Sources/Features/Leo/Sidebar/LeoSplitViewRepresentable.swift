@@ -33,7 +33,7 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
     let detail: Detail
     /// The window's editor pane, a trailing item that collapses while no
     /// file is open (B-004).
-    var editor: LeoEditorPaneModel?
+    var editor: LeoEditorTabs?
     /// The window's workspace browser, an item on the editor's leading
     /// edge that collapses while it's closed (B-005).
     var browser: LeoWorkspaceBrowserModel?
@@ -148,7 +148,7 @@ enum LeoSplitViewControllerFactory {
         onDividerWidthChange: @escaping (CGFloat) -> Void,
         sidebar: AnyView,
         detail: AnyView,
-        editor: LeoEditorPaneModel? = nil,
+        editor: LeoEditorTabs? = nil,
         browser: LeoWorkspaceBrowserModel? = nil,
         panes: LeoRowPanes? = nil,
         sidePaneHeaderTopInset: CGFloat? = nil,
@@ -186,10 +186,10 @@ enum LeoSplitViewControllerFactory {
         }
         if let panes = sidePanes.panes, sidePanes.hasEditor {
             let editorItem = NSSplitViewItem(viewController: LeoRowPaneContainerViewController(role: .editor, panes: panes) {
-                LeoEditorPaneViewController(model: $0.editor, headerTopInset: sidePaneHeaderTopInset)
+                LeoEditorTabsViewController(tabs: $0.tabs, headerTopInset: sidePaneHeaderTopInset)
             })
             editorItem.canCollapse = true
-            editorItem.isCollapsed = !panes.active.editor.isOpen
+            editorItem.isCollapsed = !panes.active.tabs.isOpen
             editorItem.holdingPriority = LeoSidebarSplitMetrics.editorHoldingPriority
             editorItem.minimumThickness = LeoEditorPaneViewController.minimumWidth
             controller.addSplitViewItem(editorItem)
@@ -679,7 +679,7 @@ extension NSViewController {
     let hasEditor: Bool
     let hasBrowser: Bool
 
-    init(editor: LeoEditorPaneModel?, browser: LeoWorkspaceBrowserModel?, panes: LeoRowPanes?) {
+    init(editor: LeoEditorTabs?, browser: LeoWorkspaceBrowserModel?, panes: LeoRowPanes?) {
         hasEditor = panes != nil || editor != nil
         hasBrowser = panes != nil || browser != nil
         guard panes == nil, editor != nil || browser != nil else {
@@ -687,8 +687,8 @@ extension NSViewController {
             return
         }
         let makeAccess = LeoWindowSession.noFileAccess
-        let editor = editor ?? LeoEditorPaneModel(makeAccess: makeAccess)
-        let pane = LeoRowPane(editor: editor, browser: browser ?? LeoWorkspaceBrowserModel(makeAccess: makeAccess) { try await editor.open($0) })
+        let editor = editor ?? LeoEditorTabs(makeAccess: makeAccess)
+        let pane = LeoRowPane(tabs: editor, browser: browser ?? LeoWorkspaceBrowserModel(makeAccess: makeAccess) { try await editor.open($0) })
         self.panes = LeoRowPanes(startScreen: pane)
     }
 }

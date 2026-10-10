@@ -16,7 +16,7 @@ struct LeoTerminalControllerEditorCloseTests {
     @MainActor private struct Tab {
         let controller: TerminalController
         let session: LeoWindowSession
-        var editor: LeoEditorPaneModel { session.editor }
+        var editor: LeoEditorTabs { session.editor }
     }
 
     private func makeTab(in sandbox: LeoFileSandbox, editing: Bool) async throws -> Tab? {
@@ -38,7 +38,7 @@ struct LeoTerminalControllerEditorCloseTests {
 
     private func tearDown(_ tab: Tab) async {
         tab.editor.confirmUnsaved = { _ in .discard }
-        await tab.editor.close()
+        await tab.editor.closeAll()
         tab.controller.window?.close()
     }
 

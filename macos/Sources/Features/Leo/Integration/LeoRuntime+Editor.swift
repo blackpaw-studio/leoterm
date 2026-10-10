@@ -67,10 +67,10 @@ extension LeoRuntime {
         return await unsavedEditors.resolve(sessions.flatMap(editorEntries(for:)))
     }
 
-    /// `session`'s editors for the gate, one per row's pane (B-274), the
-    /// one on screen first: its window, for sheets about them, brought
-    /// forward (and its tab selected) before one. A pane off screen names
-    /// its row in its prompt.
+    /// `session`'s editors for the gate, one per tab of each row's pane
+    /// (B-274, B-273), the pane on screen first: its window, for sheets
+    /// about them, brought forward (its window tab and editor tab selected)
+    /// before one. A pane off screen names its row in its prompt.
     func editorEntries(for session: LeoWindowSession) -> [LeoUnsavedEditorsGate.Entry] {
         let id = session.id
         let bringForward: @MainActor () -> Void = { [weak self] in
@@ -79,8 +79,18 @@ extension LeoRuntime {
             if window.isMiniaturized { window.deminiaturize(nil) }
             window.makeKeyAndOrderFront(nil)
         }
-        return session.panes.allEditors.map { editor in
-            LeoUnsavedEditorsGate.Entry(editor: editor, window: { [weak session] in session?.window }, bringForward: bringForward)
+        return session.panes.all.flatMap { pane in
+            pane.tabs.tabs.map { [weak pane] editor in
+                LeoUnsavedEditorsGate.Entry(
+                    editor: editor, window: { [weak session] in session?.window },
+                    bringForward: { [weak editor] in
+                        bringForward()
+                        // B-273: its tab is the one shown while it's asked about.
+                        guard let editor, let tabs = pane?.tabs, tabs.tabs.contains(where: { $0 === editor }) else { return }
+                        tabs.select(editor, focusing: false)
+                    }
+                )
+            }
         }
     }
 

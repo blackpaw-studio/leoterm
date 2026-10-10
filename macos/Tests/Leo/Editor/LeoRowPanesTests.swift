@@ -39,18 +39,18 @@ struct LeoRowPanesTests {
             let path = try sandbox.file("a.txt", "a")
             let panes = makePanes()
             panes.activate(Self.agentA)
-            try await panes.active.editor.open(LeoEditorFileID(host: .local, path: path))
-            let document = try #require(panes.active.editor.document)
+            try await panes.active.tabs.open(LeoEditorFileID(host: .local, path: path))
+            let document = try #require(panes.active.tabs.document)
             document.edit("a, edited")
 
             panes.activate(Self.agentB)
-            #expect(panes.active.editor.document == nil)
+            #expect(panes.active.tabs.document == nil)
 
             panes.activate(Self.agentA)
-            #expect(panes.active.editor.document === document)
+            #expect(panes.active.tabs.document === document)
             #expect(document.isDirty)
             #expect(document.text == "a, edited")
-            panes.active.editor.document?.edit("a")
+            panes.active.tabs.document?.edit("a")
             await panes.releaseAll()
         }
     }
@@ -89,9 +89,73 @@ struct LeoRowPanesTests {
 
             await paneA.browser.openFile(path)
 
-            #expect(paneA.editor.document?.fileID.path == path)
-            #expect(paneB.editor.document == nil)
+            #expect(paneA.tabs.document?.fileID.path == path)
+            #expect(paneB.tabs.document == nil)
             await panes.releaseAll()
+        }
+    }
+
+    /// `names` opened as tabs in `pane`, from files in `sandbox`.
+    private func open(_ names: [String], in pane: LeoRowPane, _ sandbox: LeoFileSandbox) async throws {
+        for name in names {
+            try await pane.tabs.open(LeoEditorFileID(host: .local, path: try sandbox.file(name, name)))
+        }
+    }
+
+    @Test
+    func rowRemovedKeepsPaneWithAnyDirtyTab() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let panes = makePanes()
+            panes.activate(Self.agentB)
+            let paneA = panes.pane(for: Self.agentA)
+            try await open(["a.txt", "b.txt"], in: paneA, sandbox)
+            paneA.tabs.tabs[1].document?.edit("edited")
+
+            panes.rowRemoved(Self.agentA)
+
+            #expect(panes.existingPane(for: Self.agentA) == nil)
+            #expect(panes.hasUnsavedEdits)
+            #expect(paneA.tabs.tabs.allSatisfy { tab in panes.allEditors.contains { $0 === tab } })
+            paneA.tabs.tabs[1].document?.edit("b.txt")
+            await panes.releaseAll()
+        }
+    }
+
+    @Test
+    func allEditorsListsEveryTab() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let panes = makePanes()
+            try await open(["a.txt", "b.txt"], in: panes.pane(for: Self.agentA), sandbox)
+            panes.activate(Self.agentB)
+            try await open(["c.txt"], in: panes.active, sandbox)
+
+            let names = panes.allEditors.compactMap { $0.document?.displayName }
+
+            #expect(names.count == 3)
+            #expect(names.first == "c.txt", "the pane on screen first")
+            #expect(Set(names) == ["a.txt", "b.txt", "c.txt"])
+            await panes.releaseAll()
+        }
+    }
+
+    @Test
+    func rowCloseAsksEveryDirtyTab() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let prompts = Prompts()
+            prompts.answer = .discard
+            let panes = makePanes(prompts)
+            panes.activate(Self.agentB)
+            let paneA = panes.pane(for: Self.agentA)
+            try await open(["a.txt", "b.txt", "c.txt"], in: paneA, sandbox)
+            paneA.tabs.tabs[0].document?.edit("edited")
+            paneA.tabs.tabs[2].document?.edit("edited")
+
+            #expect(await panes.close(Self.agentA))
+
+            #expect(prompts.asked.map(\.file) == ["a.txt", "c.txt"])
+            #expect(prompts.asked.map(\.row) == ["alpha", "alpha"])
+            #expect(panes.existingPane(for: Self.agentA) == nil)
+            #expect(!paneA.tabs.isOpen)
         }
     }
 
@@ -101,7 +165,7 @@ struct LeoRowPanesTests {
             let path = try sandbox.file("a.txt", "a")
             let closes = LeoCloseCounter()
             let panes = makePanes(access: { _ in LeoCloseCountingAccess(base: LeoFileAccessor.local(), counter: closes) })
-            try await panes.pane(for: Self.agentA).editor.open(LeoEditorFileID(host: .local, path: path))
+            try await panes.pane(for: Self.agentA).tabs.open(LeoEditorFileID(host: .local, path: path))
 
             panes.rowRemoved(Self.agentA)
 
@@ -118,8 +182,8 @@ struct LeoRowPanesTests {
             let panes = makePanes(prompts)
             panes.activate(Self.agentB)
             let paneA = panes.pane(for: Self.agentA)
-            try await paneA.editor.open(LeoEditorFileID(host: .local, path: path))
-            paneA.editor.document?.edit("edited")
+            try await paneA.tabs.open(LeoEditorFileID(host: .local, path: path))
+            paneA.tabs.document?.edit("edited")
 
             #expect(await panes.close(Self.agentA) == false)
             #expect(panes.existingPane(for: Self.agentA) === paneA)
@@ -138,18 +202,18 @@ struct LeoRowPanesTests {
             let prompts = Prompts()
             let panes = makePanes(prompts)
             let hidden = panes.pane(for: Self.agentB)
-            try await hidden.editor.open(LeoEditorFileID(host: .local, path: path))
-            hidden.editor.document?.edit("hidden edit")
+            try await hidden.tabs.open(LeoEditorFileID(host: .local, path: path))
+            hidden.tabs.document?.edit("hidden edit")
             let shownKey = LeoRowKey.terminal(UUID())
             panes.activate(shownKey)
-            try await panes.active.editor.open(LeoEditorFileID(host: .local, path: path))
+            try await panes.active.tabs.open(LeoEditorFileID(host: .local, path: path))
             let shown = panes.active
-            shown.editor.document?.edit("shown edit")
+            shown.tabs.document?.edit("shown edit")
 
             // A hidden row's shell exits: its pane is kept, unreachable.
             panes.rowRemoved(Self.agentB)
             #expect(panes.existingPane(for: Self.agentB) == nil)
-            #expect(panes.allEditors.contains { $0 === hidden.editor })
+            #expect(hidden.tabs.tabs.allSatisfy { tab in panes.allEditors.contains { $0 === tab } })
             #expect(panes.hasUnsavedEdits)
 
             // The shown row's shell exits: the start screen keeps its pane.
@@ -164,7 +228,7 @@ struct LeoRowPanesTests {
             #expect(await panes.leaveOrphanedStartScreen())
             #expect(panes.existingPane(for: .startScreen) == nil)
             #expect(!panes.isStartScreenOrphan)
-            hidden.editor.document?.edit("a")
+            hidden.tabs.document?.edit("a")
             await panes.releaseAll()
         }
     }
@@ -178,7 +242,7 @@ struct LeoRowPanesTests {
             let new = LeoRowKey.terminal(UUID())
             panes.activate(old)
             let pane = panes.active
-            try await pane.editor.open(LeoEditorFileID(host: .local, path: path))
+            try await pane.tabs.open(LeoEditorFileID(host: .local, path: path))
 
             panes.rekey(old, to: new)
 
@@ -222,14 +286,15 @@ struct LeoRowPanesTests {
             let panes = makePanes(prompts)
             let pane = panes.pane(for: Self.agentA)
             // Built and never on screen: its view has no window.
-            _ = LeoEditorPaneViewController(model: pane.editor)
-            try await pane.editor.open(LeoEditorFileID(host: .local, path: path))
-            pane.editor.document?.edit("edited")
+            _ = LeoEditorTabsViewController(tabs: pane.tabs)
+            try await pane.tabs.open(LeoEditorFileID(host: .local, path: path))
+            try await pane.tabs.open(LeoEditorFileID(host: .local, path: other))
+            pane.tabs.tabs[0].document?.edit("edited")
 
-            try await pane.editor.open(LeoEditorFileID(host: .local, path: other))
+            #expect(await pane.tabs.closeAll())
 
             #expect(prompts.asked.map(\.file) == ["a.txt"])
-            #expect(pane.editor.document?.fileID.path == other)
+            #expect(!pane.tabs.isOpen)
             await panes.releaseAll()
         }
     }

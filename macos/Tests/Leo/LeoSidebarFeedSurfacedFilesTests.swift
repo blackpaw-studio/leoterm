@@ -24,6 +24,43 @@ struct LeoSidebarFeedSurfacedFilesTests {
         await harness.stop()
     }
 
+    /// B-273: a live event new to the feed is reported (to auto-open it),
+    /// with its host, once.
+    @Test func aLiveNewEventIsReportedOnceWithItsHost() async throws {
+        let harness = SurfacedHarness(agents: [("alpha", "s1")], state: [observed("alpha", "s1")])
+        await harness.start()
+        try await harness.pump { $0.rows.first?.name == "alpha" }
+        await harness.settle()
+
+        let file = surfaced("u-1", agent: "alpha", startedAt: "s1")
+        await harness.activity.send(.fileSurfaced(seq: 2, file: file))
+        await harness.activity.send(.fileSurfaced(seq: 3, file: file))
+        try await harness.pump { $0.rows.first?.surfacedFiles == [file] }
+        await harness.settle()
+
+        let reported = await harness.reported.values
+        #expect(reported.map(\.file) == [file])
+        #expect(reported.map(\.host) == [.local])
+        await harness.stop()
+    }
+
+    /// B-273: files a `/state` fetch recovers (history, a reconnect) never
+    /// auto-open, and nothing does while disconnected.
+    @Test func stateFilesAndEventsWhileDisconnectedAreNeverReported() async throws {
+        let recovered = surfaced("u-1", agent: "alpha", startedAt: "s1")
+        let harness = SurfacedHarness(agents: [("alpha", "s1")], state: [observed("alpha", "s1", files: [recovered])])
+        await harness.start()
+        try await harness.pump { $0.rows.first?.surfacedFiles == [recovered] }
+        await harness.activity.send(.disconnected(reason: "gone"))
+        try await harness.pump { $0.connectivity.isDisconnected }
+
+        await harness.activity.send(.fileSurfaced(seq: 2, file: surfaced("u-2", agent: "alpha", startedAt: "s1")))
+        await harness.settle()
+
+        #expect(await harness.reported.values.isEmpty)
+        await harness.stop()
+    }
+
     @Test func anEventForAnotherIncarnationNeverPaintsTheRow() async throws {
         let harness = SurfacedHarness(agents: [("alpha", "s2")], state: [observed("alpha", "s2")])
         await harness.start()
@@ -96,6 +133,7 @@ private struct SurfacedHarness {
     let activity: SurfacedActivity
     let daemon: SurfacedDaemon
     let recorder = SurfacedRecorder<LeoSidebarSnapshot>()
+    let reported = SurfacedRecorder<SurfacedReport>()
     let feed: LeoSidebarFeed
 
     init(agents: [(String, String)], state: [LeoObservedAgent]) {
@@ -105,11 +143,13 @@ private struct SurfacedHarness {
         self.daemon = daemon
         let clock = clock
         let recorder = recorder
+        let reported = reported
         feed = LeoSidebarFeed(
             daemon: daemon,
             activity: .init(events: { await activity.events() }, fetchState: { await activity.fetchState() }),
             sleep: { try await clock.sleep($0) },
             now: { 0 },
+            onFileSurfaced: { host, file in Task { await reported.append(SurfacedReport(host: host, file: file)) } },
             sink: { snapshot in Task { await recorder.append(snapshot) } }
         )
     }
@@ -135,6 +175,11 @@ private struct SurfacedHarness {
             try? await Task.sleep(nanoseconds: 10_000_000)
         }
     }
+}
+
+private struct SurfacedReport: Sendable {
+    let host: LeoHostID
+    let file: LeoSurfacedFile
 }
 
 private actor SurfacedActivity {

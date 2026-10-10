@@ -40,8 +40,8 @@ struct LeoWindowVisibilityState: Equatable {
     @Published private(set) var controlFocusRequest = 0
     /// The control bar's prompt field, for focus in and back out.
     let controlPrompt = LeoControlPromptFieldHandle()
-    @Published var windowIsOccluded = false { didSet { changed() } }
-    @Published var windowIsMiniaturized = false { didSet { changed() } }
+    @Published var windowIsOccluded = false { didSet { changed(); markShownIfVisible() } }
+    @Published var windowIsMiniaturized = false { didSet { changed(); markShownIfVisible() } }
     var displayedWidth: CGFloat { min(max(preferredWidth, 200), 420) }
     /// Opens the agent picker for this window's placeholder. Wired by
     /// `LeoRuntime.makeWindowSession(for:)`; a no-op until then (e.g. in
@@ -57,10 +57,10 @@ struct LeoWindowVisibilityState: Equatable {
     /// Each row's editor and browser in this window (B-274); the one on
     /// screen belongs to the row the window shows.
     let panes: LeoRowPanes
-    /// The editor pane on screen (B-004), beside the terminal.
-    var editor: LeoEditorPaneModel { panes.active.editor }
+    /// The editor pane on screen (B-004), beside the terminal: its tabs (B-273).
+    var editor: LeoEditorTabs { panes.active.tabs }
     /// Its view, once the window's split view has built it (focus moves).
-    var editorPane: LeoEditorPaneViewController? { editorContainer?.activeChild as? LeoEditorPaneViewController }
+    var editorPane: LeoEditorTabsViewController? { editorContainer?.activeChild as? LeoEditorTabsViewController }
     /// The workspace browser on screen (B-005), on the editor's leading
     /// edge; it opens files in its own row's editor.
     var browser: LeoWorkspaceBrowserModel { panes.active.browser }
@@ -101,6 +101,7 @@ struct LeoWindowVisibilityState: Equatable {
     private(set) weak var window: NSWindow?
     private var observers: [NSObjectProtocol] = []
     private var visibility = LeoWindowVisibilityState()
+    private var activePaneSubscription: AnyCancellable?
 
     init(
         id: LeoWindowID = LeoWindowID(),
@@ -132,6 +133,13 @@ struct LeoWindowVisibilityState: Equatable {
             }
         }
         observeWindow()
+        // `@Published` sends before it stores: the pane is the new value.
+        activePaneSubscription = panes.$active.sink { [weak self] pane in
+            MainActor.assumeIsolated {
+                guard let self, self.isWindowVisible else { return }
+                pane.tabs.markShown()
+            }
+        }
     }
 
     deinit { observers.forEach(NotificationCenter.default.removeObserver) }
@@ -209,6 +217,17 @@ struct LeoWindowVisibilityState: Equatable {
     }
 
     private func changed() { onPollabilityChanged() }
+
+    /// The window is on screen: neither miniaturized nor fully covered.
+    var isWindowVisible: Bool { !windowIsOccluded && !windowIsMiniaturized }
+
+    /// B-273: the row on screen, in a visible window, is viewed -- what
+    /// its pane waits on (`LeoEditorTabs.whenShown`) runs, e.g. marking a
+    /// background-opened surfaced file seen.
+    func markShownIfVisible() {
+        guard isWindowVisible else { return }
+        panes.active.tabs.markShown()
+    }
 }
 
 /// The session's window, held weakly for the panes' prompts.

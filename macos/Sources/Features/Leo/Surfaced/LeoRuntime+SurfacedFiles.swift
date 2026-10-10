@@ -1,7 +1,7 @@
 import AppKit
 
-/// B-013 on the runtime: a surfaced file the user asked for opens in the
-/// agent row's own editor pane (B-004, B-274), in the window that shows
+/// B-013 on the runtime: a surfaced file the user asked for opens as a tab
+/// in the agent row's own editor pane (B-004, B-274, B-273), in the window that shows
 /// the row once it's shown from the one the user is in (`LeoRowPaneRouter`);
 /// on the agent's host
 /// through that window's file access (local FS or SFTP), at its line if it
@@ -17,7 +17,7 @@ extension LeoRuntime {
         let router = rowPaneRouter
         Task { [weak self] in
             guard let self, let (destination, pane) = await router.pane(for: row, from: session) else { return }
-            let editor = pane.editor
+            let editor = pane.tabs
             let target = LeoSurfacedFileOpener.Target(
                 stat: { try await editor.stat($0) },
                 open: { fileID, line, isStillWanted in
@@ -28,6 +28,23 @@ extension LeoRuntime {
             )
             await surfacedFileOpener.open(file, host: row.host, in: target)
         }
+    }
+
+    /// B-273: a file an agent just surfaced opens in that agent's own pane
+    /// in the background (see `LeoSurfacedAutoOpen`): no focus, no
+    /// navigation, no error sheet.
+    func autoOpenSurfacedFile(_ file: LeoSurfacedFile, for row: LeoAgentRow, stillWanted: @escaping @MainActor () -> Bool) {
+        let autoOpen = LeoSurfacedAutoOpen(
+            sessions: { [weak self] in
+                guard let self else { return [] }
+                let key = (NSApp.keyWindow?.windowController as? TerminalController)?.leoSession
+                return (key.map { [$0] } ?? []) + registry.sessions.filter { $0 !== key }
+            },
+            fallback: { ((NSApp.keyWindow?.windowController as? TerminalController) ?? TerminalController.preferredParent)?.leoSession },
+            liveWindow: { [weak self] in self?.attachCoordinator.liveWindow(of: $0) },
+            opener: surfacedFileOpener
+        )
+        Task { await autoOpen.open(file, for: row, stillWanted: stillWanted) }
     }
 
     /// The selected row's newest pending (else newest) surfaced file:

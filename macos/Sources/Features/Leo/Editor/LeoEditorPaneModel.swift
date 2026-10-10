@@ -24,10 +24,13 @@ struct LeoEditorReveal: Equatable, Sendable {
     let column: Int?
 }
 
-/// A window's editor pane: at most one open document, replaced by the next
-/// file opened. Replacing or closing a document with unsaved edits asks
-/// first (`confirmUnsaved`: Save / Don't Save / Cancel); a Save that fails
-/// or conflicts keeps the document. Operations run one at a time.
+/// One editor tab (B-273): at most one open document. `LeoEditorTabs`
+/// opens each file in a tab of its own, so a tab's document is never
+/// replaced there; the replace path (asking first when the document has
+/// unsaved edits) remains for a model used on its own. Closing a document
+/// with unsaved edits asks first (`confirmUnsaved`: Save / Don't Save /
+/// Cancel); a Save that fails or conflicts keeps the document. Operations
+/// run one at a time.
 @MainActor final class LeoEditorPaneModel: ObservableObject {
     static let recentsLimit = 10
 
@@ -143,33 +146,6 @@ struct LeoEditorReveal: Equatable, Sendable {
         guard !isCommittedToClose else { return false }
         document?.edit(text, revision: revision)
         return true
-    }
-
-    /// What `~` means on `host`.
-    func homeDirectory(on host: LeoHostID) async throws -> String {
-        let access = try makeAccess(host)
-        do {
-            let home = try await access.homeDirectory()
-            await access.close()
-            return home
-        } catch {
-            await access.close()
-            throw error
-        }
-    }
-
-    /// `fileID`'s stat on its host (following symlinks), through the
-    /// pane's own file access.
-    func stat(_ fileID: LeoEditorFileID) async throws -> LeoFileStat {
-        let access = try makeAccess(fileID.host)
-        do {
-            let stat = try await access.stat(fileID.path)
-            await access.close()
-            return stat
-        } catch {
-            await access.close()
-            throw error
-        }
     }
 
     // MARK: - Operations (serialized)

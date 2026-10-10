@@ -625,6 +625,8 @@ extension Ghostty {
                 return moveTabToNewWindow(app, target: target)
 
             case GHOSTTY_ACTION_GOTO_TAB:
+                // Leo: with no window tabs (D-098), next/previous switch editor tabs.
+                if leoGotoEditorTab(target: target, action.action.goto_tab) { return true }
                 return gotoTab(app, target: target, tab: action.action.goto_tab)
 
             case GHOSTTY_ACTION_GOTO_SPLIT:
