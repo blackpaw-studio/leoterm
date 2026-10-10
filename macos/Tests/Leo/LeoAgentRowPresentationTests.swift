@@ -120,6 +120,18 @@ struct LeoAgentRowPresentationTests {
         #expect(!presentation(status: .running).isNameDimmed)
     }
 
+    @Test func onlyThePlaceholderFallbackIsTertiary() {
+        let usage = LeoAgentUsage(session: LeoUsageTotals(tokens: 5, costUSD: 0.42))
+        let withCost = presentation(attention: .finished, metadata: metadata(usage: usage))
+        #expect(withCost.detail == .fallback("claude · $0.42"))
+        #expect(withCost.detailInk == .secondary)
+        #expect(presentation(attention: .working).detailInk == .secondary)
+        let placeholder = presentation(template: nil, attention: .finished)
+        #expect(placeholder.detail == .fallback(LeoAgentRowPresentation.emptyFallback))
+        #expect(placeholder.detailInk == .tertiary)
+        #expect(presentation(template: nil, attention: .needsInput).detailInk == .tint(.orange))
+    }
+
     @Test func theWorkingSectionFlagReachesTheState() {
         let working = presentation(attention: .working, inWorkingSection: true)
         #expect(!working.state.hasSecondLine)

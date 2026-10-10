@@ -14,7 +14,7 @@ struct LeoAgentStateSymbolView: View {
         Image(systemName: state.symbolName)
             .symbolRenderingMode(.hierarchical)
             .font(.body)
-            .foregroundStyle(state.symbolInk.style(isSelected: isSelected))
+            .foregroundStyle(state.symbolInk.forSymbol(isSelected: isSelected).style(isSelected: isSelected))
             .rotationEffect(.degrees(angle))
             .task(id: shouldRotate) { setRotating(shouldRotate) }
             .frame(width: LeoAgentRowMetrics.symbolColumnWidth, height: LeoAgentRowMetrics.nameLineHeight)

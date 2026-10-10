@@ -59,6 +59,13 @@ struct LeoAgentRowPresentation: Equatable {
         help = [template, environments.map { "Environments: \($0)" }, usage.map(LeoUsageFormat.tooltip)].compactMap { $0 }.joined(separator: "\n")
     }
 
+    /// The detail line's ink: the state's, except that the "No activity yet"
+    /// placeholder stays a step quieter.
+    var detailInk: LeoInk {
+        if case .fallback(Self.emptyFallback) = detail, state.detailInk == .secondary { return .tertiary }
+        return state.detailInk
+    }
+
     /// A stopped agent's name reads secondary.
     var isNameDimmed: Bool { state.isNameDimmed }
 

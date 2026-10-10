@@ -26,11 +26,16 @@ enum LeoInk: Equatable, Sendable {
     case tint(LeoTint)
     case secondary
     case tertiary
+    case white
 
-    /// A selected row keeps contrast by going white; a grey keeps its
-    /// semantic level, which the selection already adapts.
+    /// A row's leading symbol is white on any selected row, grey or tinted.
+    func forSymbol(isSelected: Bool) -> LeoInk { isSelected ? .white : self }
+
+    /// A selected row keeps contrast by turning a tint white; a grey keeps
+    /// its semantic level, which the selection already adapts.
     func style(isSelected: Bool) -> AnyShapeStyle {
         switch self {
+        case .white: AnyShapeStyle(Color.white)
         case .tint(let tint): AnyShapeStyle(isSelected ? Color.white : tint.color)
         case .secondary: AnyShapeStyle(.secondary)
         case .tertiary: AnyShapeStyle(.tertiary)

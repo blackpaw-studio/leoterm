@@ -136,6 +136,17 @@ struct LeoAgentRowStateTests {
         #expect(Set(all.map(\.symbolName)).count == all.count, "colour is never the only cue")
     }
 
+    @Test func theSymbolIsWhiteOnAnySelectedRowWhateverItsInk() {
+        let inks: [LeoInk] = [.tint(.orange), .tint(.blue), .secondary, .tertiary]
+        for ink in inks {
+            #expect(ink.forSymbol(isSelected: true) == .white)
+            #expect(ink.forSymbol(isSelected: false) == ink)
+        }
+        for resolved in [resolve(status: .starting), resolve(), resolve(status: .stopped), resolve(status: .unknown("x"))] {
+            #expect(resolved.symbolInk.forSymbol(isSelected: true) == .white, "\(resolved.state)")
+        }
+    }
+
     // MARK: Working section (grouped by attention)
 
     @Test func inTheWorkingSectionWorkingIsOneLineWithTheWordTrailing() {

@@ -86,18 +86,11 @@ struct LeoAgentRowContent: View {
     private func detailLine(_ presentation: LeoAgentRowPresentation) -> some View {
         Text(presentation.detail.text)
             .font(.caption)
-            .foregroundStyle(detailInk(presentation).style(isSelected: isSelected))
+            .foregroundStyle(presentation.detailInk.style(isSelected: isSelected))
             .lineLimit(1)
             .truncationMode(.tail)
             .help(presentation.detail.text)
             .frame(height: LeoAgentRowMetrics.detailLineHeight, alignment: .leading)
-    }
-
-    /// The state's ink; the placeholder when there is nothing to say stays
-    /// a step quieter.
-    private func detailInk(_ presentation: LeoAgentRowPresentation) -> LeoInk {
-        if case .fallback = presentation.detail, presentation.state.detailInk == .secondary { return .tertiary }
-        return presentation.state.detailInk
     }
 
     /// Static, secondary-colored: files the agent surfaced that haven't
