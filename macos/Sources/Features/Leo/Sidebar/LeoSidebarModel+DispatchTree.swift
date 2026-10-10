@@ -6,6 +6,8 @@ struct LeoDispatchRowItem: Equatable, Identifiable {
     let node: LeoDispatchNode
     let hasChildren: Bool
     let isCollapsed: Bool
+    /// The tree-guide flags per level (see `LeoDispatchGuides`).
+    var guides: [Bool] = []
 
     var id: String { node.id }
 }
@@ -19,6 +21,7 @@ extension LeoSidebarModel {
     /// after it up to the next one at its own depth or shallower.
     func visibleDispatchRows(for row: LeoAgentRow) -> [LeoDispatchRowItem] {
         let nodes = dispatchChildren(for: row)
+        let guides = LeoDispatchGuides.continuing(depths: nodes.map(\.depth))
         var hiddenBelow: Int?
         var items: [LeoDispatchRowItem] = []
         for (index, node) in nodes.enumerated() {
@@ -28,7 +31,7 @@ extension LeoSidebarModel {
             }
             let hasChildren = index + 1 < nodes.count && nodes[index + 1].depth > node.depth
             let isCollapsed = hasChildren && collapsedDispatches.contains(LeoDispatchRef(host: row.host, id: node.id))
-            items.append(LeoDispatchRowItem(node: node, hasChildren: hasChildren, isCollapsed: isCollapsed))
+            items.append(LeoDispatchRowItem(node: node, hasChildren: hasChildren, isCollapsed: isCollapsed, guides: guides[index]))
             if isCollapsed { hiddenBelow = node.depth }
         }
         return items
