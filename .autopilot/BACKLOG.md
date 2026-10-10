@@ -719,6 +719,7 @@ Source: autopilot polish (B-094)
 Done: 87bc874aa (merge 8b7625f4d)
 
 ## B-270 · Dispatch placement never applied to rows attached before hello   [ready]
+Issue: #264
 Type: bug
 Report: Dispatch placement never takes effect for rows attached before the daemon hello. The app adds `--dispatch-placement background` to `leo agent attach` only when hostFeatures already has `attach_dispatch_placement` (LeoDaemonFeatures.swift:34, read at build time in LeoRuntime.swift:162), but launch-restored rows attach before hello arrives (race noted at LeoAttachCoordinator.swift:50, pinned by LeoDaemonFeaturesScopeTests.swift:30), and the attach command is fixed for the surface's lifetime — live-pool reveal and close/reopen reuse the surface, so the flag is never applied. The daemon counts an unregistered client as the default `pane`, which outranks background, so every leo_dispatch from that agent opens a tmux pane/window. Observed 2026-10-08 on leo-v0.10.0 + daemon 0.41.0 over SSH to Dionysus: after closing/reopening the leoterm row the only tmux client on leo-leoterm still predated the reopen, and a probe dispatch opened a window. Fix: when hello first advertises `attach_dispatch_placement` for a host, re-attach that host's surfaces that were attached without the flag (preserving selection/scroll), rather than delaying the first attach.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -726,6 +727,7 @@ Source: Evan (/issue, 2026-10-08)
 Inbox: 20261008T224810716919Z-9e7de099#1
 
 ## B-271 · Dispatch rows whose viewer sits in the parent's tmux session can't be clicked   [ready]
+Issue: #265
 Type: bug
 Report: Top-level dispatch rows whose viewer opened inside the parent agent's own tmux session (e.g. ap-B-204 at leo-leoterm:2, placed there because no attached client registered background placement) can't be clicked, while nested dispatches that opened in the leo-dispatch session (B-204-impl) can. Observed 2026-10-08 alongside the dispatch-placement-before-hello bug. Confirm these rows become clickable once that placement fix lands; if a dispatch viewer can still end up in the parent's session, clicking its row should focus that window instead of doing nothing.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -733,6 +735,7 @@ Source: Evan (/issue, 2026-10-08)
 Inbox: 20261008T225539342143Z-d97ea80f#1
 
 ## B-274 · Files pane and browser belong to the sidebar row   [ready]
+Issue: #266
 Why: P6 the sidebar is the navigation; each row is a self-contained workspace, so switching rows switches its files too. Prerequisite for "Surfaced files open automatically as editor tabs".
 Accept: open a file in agent A's row, switch to B, and B shows its own pane state, not A's file; switch back to A and the file is still open with scroll, selection and unsaved edits; each row's file browser is rooted at its agent's workspace and keeps its own folder expansion; closing or removing a row closes its pane, asking first if there are unsaved changes
 Out: persisting pane state across app relaunch; sharing one open file between rows
@@ -740,6 +743,7 @@ Source: Evan (/feature, 2026-10-09)
 Inbox: 20261010T010641885678Z-74116747#1
 
 ## B-273 · Surfaced files open automatically as editor tabs   [ready]
+Issue: #267
 Why: P4 everything through Leo; per-row file panes make auto-open safe (it never takes over the row on screen). Supersedes D-088. Builds after "Files pane and browser belong to the sidebar row".
 Accept: a file surfaced by agent A opens as a tab in A's editor pane (pane created if needed) without moving keyboard focus out of the terminal; several surfaced files give one tab each, newest selected, and re-surfacing an open file selects its tab; if A isn't the row on screen the file opens in A's pane in the background and the row badge stays until A is viewed; tabs switch and close by keyboard and menu, and closing a tab with unsaved changes asks first
 Out: tabs for terminals; dragging tabs between rows
@@ -747,6 +751,7 @@ Source: Evan (/feature, 2026-10-09)
 Inbox: 20261010T010641687863Z-75c4bfe3#1
 
 ## B-272 · Live dispatch placement (leo v0.42.0 `dispatch_placement_live`)   [ready]
+Issue: #268
 Why: Leo v0.42.0 moves dispatch viewers between background and visible when the session's effective placement flips, so dispatches started while Leo Term was closed stop cluttering the agent's terminal. The app must understand the new viewer state so dispatch rows stay correct and clickable. Serves "Everything through Leo" and "Calm, attention-driven".
 Accept: Decode the new `viewer_kind: "background"` (unknown kinds still degrade safely); dispatch rows update when a viewer moves (no stale "pane"/"window" target, no duplicate rows), and clicking a row attaches to wherever the viewer now lives; gated on hello `dispatch_placement_live` with today's behaviour otherwise; fixture-driven tests that replay a viewer moving background→visible→background; screenshot from the isolated debug build. Contract (leo, 2026-10-08): moves only on a background↔visible flip held for two 1 s polls; pane↔window changes don't move; nothing moves with no attached clients; pane ids preserved; viewers the user moved elsewhere are pinned and left alone; headless watch-viewer windows aren't moved in this release.
 Out: Moving viewers from the app side; changing the leo daemon; Codex/opencode-specific handling.
