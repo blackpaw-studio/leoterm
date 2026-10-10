@@ -26,6 +26,16 @@ Lane: B-143
   Reviewed-tip: none
   Dispatched: 2026-10-06T23:01:21Z
 
+Lane: B-270
+  Branch: autopilot-lane/B-270
+  Base: 272c473f02b1fa278607e381ef5f2553cd55cc23
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 ## Progress
 - Preflight: merged main into autopilot (2d6dd35f4); LeoSFTPLauncher conflict resolved keeping main's empty-stderr mux fallback on B-235's byte matcher (Evan: favor main); suite 2346 green.
 - Lane autopilot-lane/B-233 is unlanded with no RUN.md block (its commits are already on main); left in place.
