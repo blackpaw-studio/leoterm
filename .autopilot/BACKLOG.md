@@ -1953,3 +1953,7 @@ Source: autopilot bug (B-235)
 ## B-276 · Terminals section needs a manual scroll on a long sidebar   [idea]
 Note: the Terminals section sits at the very bottom of a long sidebar and needs a manual scroll to reach — navigation friction for plain-shell rows (P6)
 Source: autopilot polish (B-274)
+
+## B-277 · Show where a dispatch viewer lives on its row   [idea]
+Note: a dispatch row looks the same whether its viewer is in the background or visible, so a user can't see where it lives; needs Evan's call on a new indicator (P6, P2)
+Source: autopilot polish (B-272)

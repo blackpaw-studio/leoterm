@@ -2,8 +2,9 @@ Status: running
 Started: 2026-10-10T02:01:17Z
 Budget: 20 items, until 2026-10-10T14:01:17Z
 Digested-through: 5
-Filed: 0/3 bugs, 1/5 ideas
+Filed: 0/3 bugs, 2/5 ideas
 Self-filed: B-274 → B-276 idea — Terminals section needs a manual scroll on a long sidebar
+Self-filed: B-272 → B-277 idea — Show where a dispatch viewer lives on its row
 Self-filed: B-273 → dropped (dup of B-244) — sidebar vanishes at the default 800px width when the editor pane opens
 Self-filed: B-274 → dropped (dup of B-244) — Sidebar Show disabled at the default 800px width with a side pane
 Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
@@ -125,12 +126,16 @@ Lane: B-272
   Branch: autopilot-lane/B-272
   Base: d11511c428c9f8c296581bc1c4ff051946b04575
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 0a78f4a5bb9599a0ee67aeb5108a262ed201edbe
   Dispatched: 2026-10-10T10:53:28Z
+  Call: Placement comes from the daemon's `attachable` and `tmux_target`; `viewer_kind` is decoded leniently (unknown or wrong-type becomes nil) and used only when `dispatch_placement_live` is advertised — P2
+  Call: A non-attachable dispatch reported as `viewer_kind: background` under the feature is informational, not pane-focusable (narrows D-438) — P2, P6
+  Call: A selected dispatch that moves into the caller's session falls back to its agent and is not re-selected when it moves back — P2
+  Call: DEBUG fixture key `dispatch_moves` extends D-396; it also advertises `dispatch_tree`, `dispatch_attach` and `dispatch_placement_live`, and replay seqs are time-based — P6
 
 Finished 1: B-270 landed 28ade697f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-270-1.png
 Finished 2: B-271 landed 16b35ad0b · not visually verified
