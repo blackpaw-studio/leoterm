@@ -33,6 +33,28 @@ extension TerminalController {
         return Self.leoDeferClose(of: [window], retry: retry)
     }
 
+    /// B-274: before `node` closes -- the root or one of a split's panes --
+    /// the pane of each terminal row whose shell it holds is asked about,
+    /// when it has unsaved edits. Asked even where a shell beside it could
+    /// carry the row on (B-082): nothing is lost by asking. `true` when it
+    /// took the close over: `retry` once those panes closed, nothing on
+    /// Cancel.
+    func leoDeferCloseOfRows(in node: SplitTree<Ghostty.SurfaceView>.Node, retry: @escaping @MainActor () -> Void) -> Bool {
+        guard let session = leoSession else { return false }
+        let panes = session.panes
+        let dirty = node.leaves().filter { session.terminals.contains($0.id) }.map { LeoRowKey.terminal($0.id) }.filter {
+            panes.existingPane(for: $0)?.hasUnsavedEdits == true
+        }
+        guard !dirty.isEmpty else { return false }
+        Task {
+            for key in dirty {
+                guard await panes.close(key) else { return }
+            }
+            retry()
+        }
+        return true
+    }
+
     /// B-274: before `key`'s row closes, its pane's unsaved edits are asked
     /// about (Save / Don't Save / Cancel). `true` when it took the close
     /// over: `retry` once the pane closed, nothing on Cancel.

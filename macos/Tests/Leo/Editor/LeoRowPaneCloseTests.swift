@@ -116,6 +116,37 @@ import Testing
         }
     }
 
+    /// ⌘W on the row's shell with an agent split beside it: no plain shell
+    /// carries the row on, so the row goes -- its pane is asked about first.
+    @Test func closingARowsPaneBesideASplitAsksAboutItsPane() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let fixture = try makeFixture()
+            let shell = try newShell(fixture)
+            _ = try fixture.host.openSplit(
+                command: "/bin/cat", workingDirectory: nil, origin: fixture.origin,
+                sourceSurface: shell.surfaceID, direction: .right, requestID: UUID())
+            let prompts = Prompts()
+            let pane = try await editInPane(of: shell, fixture, sandbox, prompts)
+            let view = try #require(fixture.controller.surfaceTree.first { $0.id == shell.surfaceID })
+            let node = try #require(fixture.controller.surfaceTree.root?.node(view: view))
+
+            fixture.controller.closeSurface(node, withConfirmation: true)
+            #expect(await turns { prompts.asked.count == 1 })
+
+            #expect(prompts.asked == ["a.txt"])
+            #expect(fixture.controller.surfaceTree.contains(view), "Cancel keeps the row's shell")
+            #expect(fixture.terminals.contains(shell.surfaceID))
+            #expect(fixture.panes.existingPane(for: .terminal(shell.surfaceID)) === pane)
+
+            prompts.answer = .discard
+            fixture.controller.closeSurface(node, withConfirmation: true)
+            #expect(await turns { fixture.panes.existingPane(for: .terminal(shell.surfaceID)) == nil })
+            #expect(pane.editor.document == nil, "closed through its prompt, not kept as an orphan")
+            if let window = fixture.controller.window, let sheet = window.attachedSheet { window.endSheet(sheet) }
+            await tearDown(fixture)
+        }
+    }
+
     @Test func aDirtyHiddenRowKeepsTheWindowAndCloseAsksAboutIt() async throws {
         try await withLeoFileSandbox(.local) { sandbox, _ in
             let fixture = try makeFixture()

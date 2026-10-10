@@ -967,6 +967,13 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         _ node: SplitTree<Ghostty.SurfaceView>.Node,
         withConfirmation: Bool = true
     ) {
+        // MARK: Leo -- a terminal row's shell closing asks about its row's
+        // unsaved editor edits first, split or not (B-274).
+        if withConfirmation, leoDeferCloseOfRows(in: node, retry: { [weak self] in
+            guard let self, surfaceTree.contains(node) else { return }
+            closeSurface(node, withConfirmation: true)
+        }) { return }
+
         // If this isn't the root then we're dealing with a split closure.
         if surfaceTree.root != node {
             // MARK: Leo -- the confirm names the pane it closes (B-088).
