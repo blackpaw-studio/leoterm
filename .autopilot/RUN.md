@@ -4,6 +4,7 @@ Budget: 20 items, until 2026-10-10T14:01:17Z
 Digested-through: 0
 Filed: 0/3 bugs, 1/5 ideas
 Self-filed: B-274 → B-276 idea — Terminals section needs a manual scroll on a long sidebar
+Self-filed: B-273 → dropped (dup of B-244) — sidebar vanishes at the default 800px width when the editor pane opens
 Self-filed: B-274 → dropped (dup of B-244) — Sidebar Show disabled at the default 800px width with a side pane
 Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 
@@ -103,7 +104,7 @@ Lane: B-273
   Branch: autopilot-lane/B-273
   Base: e1fb9d11065b2acf6cb7cbae26caa632c4882075
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
@@ -124,6 +125,7 @@ Finished 1: B-270 landed 28ade697f · shot /Users/evan/.leo/agents/leoterm/.git/
 Finished 2: B-271 landed 16b35ad0b · not visually verified
 Finished 3: B-275 landed e902d0ef1 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-275-6.png
 Finished 4: B-274 landed fab510f17 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-274-5.png
+Finished 5: B-273 landed 1c99121ce · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-273-5.png
 
 ## Progress
 - Preflight: B-270 lane recovered (Wip: none, empty lane) as first pick; merged main into autopilot (8af0dcea0, sidebar pill rows); inbox → B-275.
@@ -133,3 +135,4 @@ Finished 4: B-274 landed fab510f17 · shot /Users/evan/.leo/agents/leoterm/.git/
 - B-275 runner d-4d3e1d99e1b9 ended its turn to await its implementer and was idle-closed at 1h; implementer d-681b670617a2 finished 4 commits (report lost to the dead runner). Re-dispatched a fresh build runner from Integrate; briefs now require blocking leo_wait.
 - B-275 landed e902d0ef1 (1 fix round: group gap 8→16pt after the first verify failed contrast).
 - B-274 landed fab510f17 (1 fix round). Verify near-miss: stale-coordinate clicks selected real stopped agents whatshoveringoverme (a Start prompt appeared, cancelled) and widgeon; nothing started. Flag for digest.
+- B-273 landed 1c99121ce (1 fix round). Runner polish 'peekaboo type reports failure even when text lands' not filed: verification tooling, not leoterm. Flake seen once: anEmptyNameRestoresTheLiveTitle.

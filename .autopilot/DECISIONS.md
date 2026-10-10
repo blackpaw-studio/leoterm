@@ -3286,3 +3286,73 @@ Chose: Snapshot prune only on a connected, known-host list, never the shown row
 Why: P5
 Commit: 6088d65ac, d39e7be52, 1696c2884, 2424c1399, 110e9cc1a, 09556f8c2, 03be4a524, c802f0961, 6a52d680b
 Veto: [ ]
+
+## D-458 · 2026-10-10 · Every open adds a tab or selects the file's existing one, an…
+Context: B-273 (runner call).
+Chose: Every open adds a tab or selects the file's existing one, and nothing replaces a document (D-033's replace prompt no longer fires)
+Why: P1, P2
+Commit: 6889ede49, 5fe5700d3, cf7c6da40, ca2134002, 43fe062d4, d2503608d
+Veto: [ ]
+
+## D-459 · 2026-10-10 · Tab strip is inside the pane, appears at 2+ tabs, custom App…
+Context: B-273 (runner call).
+Chose: Tab strip is inside the pane, appears at 2+ tabs, custom AppKit (NSTabView has no close buttons or overflow); no window tab bar
+Why: P1, P6
+Commit: 6889ede49, 5fe5700d3, cf7c6da40, ca2134002, 43fe062d4, d2503608d
+Veto: [ ]
+
+## D-460 · 2026-10-10 · ⌘W with editor focus closes the selected tab; Show Next/Prev…
+Context: B-273 (runner call).
+Chose: ⌘W with editor focus closes the selected tab; Show Next/Previous Editor Tab ⇧⌘]/⇧⌘[; Close Editor Tab has no shortcut; Ghostty next/previous_tab switches editor tabs from the terminal
+Why: P1
+Commit: 6889ede49, 5fe5700d3, cf7c6da40, ca2134002, 43fe062d4, d2503608d
+Veto: [ ]
+
+## D-461 · 2026-10-10 · A background open never moves focus or navigates, and doesn'…
+Context: B-273 (runner call).
+Chose: A background open never moves focus or navigates, and doesn't override a tab the user picked after the request
+Why: P2
+Commit: 6889ede49, 5fe5700d3, cf7c6da40, ca2134002, 43fe062d4, d2503608d
+Veto: [ ]
+
+## D-462 · 2026-10-10 · Auto-open window choice: A on screen, then A's pooled surfac…
+Context: B-273 (runner call).
+Chose: Auto-open window choice: A on screen, then A's pooled surface, then an existing pane for A, then the key window (ties go to the key window); it never attaches
+Why: P2
+Commit: 6889ede49, 5fe5700d3, cf7c6da40, ca2134002, 43fe062d4, d2503608d
+Veto: [ ]
+
+## D-463 · 2026-10-10 · "Viewed" means A is on screen in a visible, non-miniaturized…
+Context: B-273 (runner call).
+Chose: "Viewed" means A is on screen in a visible, non-miniaturized, non-occluded window; the badge stays until then
+Why: P2
+Commit: 6889ede49, 5fe5700d3, cf7c6da40, ca2134002, 43fe062d4, d2503608d
+Veto: [ ]
+
+## D-464 · 2026-10-10 · Only live, new events auto-open; auto-open failures are sile…
+Context: B-273 (runner call).
+Chose: Only live, new events auto-open; auto-open failures are silent and keep the badge; ⌥⌘O still shows errors
+Why: P2
+Commit: 6889ede49, 5fe5700d3, cf7c6da40, ca2134002, 43fe062d4, d2503608d
+Veto: [ ]
+
+## D-465 · 2026-10-10 · Cap of 10 tabs per pane; the least-recently-selected clean t…
+Context: B-273 (runner call).
+Chose: Cap of 10 tabs per pane; the least-recently-selected clean tab is evicted, dirty tabs never
+Why: P2, P3
+Commit: 6889ede49, 5fe5700d3, cf7c6da40, ca2134002, 43fe062d4, d2503608d
+Veto: [ ]
+
+## D-466 · 2026-10-10 · Remote files go through the same per-window file access (SFT…
+Context: B-273 (runner call).
+Chose: Remote files go through the same per-window file access (SFTP)
+Why: P3
+Commit: 6889ede49, 5fe5700d3, cf7c6da40, ca2134002, 43fe062d4, d2503608d
+Veto: [ ]
+
+## D-467 · 2026-10-10 · Tab strip sits under the pane header with a dirty dot and a …
+Context: B-273 (runner call).
+Chose: Tab strip sits under the pane header with a dirty dot and a hover/selected close button; the header close tooltip stays "Close Editor (⌘W)"
+Why: P1
+Commit: 6889ede49, 5fe5700d3, cf7c6da40, ca2134002, 43fe062d4, d2503608d
+Veto: [ ]

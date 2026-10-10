@@ -754,13 +754,14 @@ Source: Evan (/feature, 2026-10-09)
 Inbox: 20261010T010641885678Z-74116747#1
 Done: 6088d65ac d39e7be52 1696c2884 2424c1399 110e9cc1a 09556f8c2 03be4a524 c802f0961 6a52d680b. Editor and browser panes are per row (per window): switching rows swaps the pane, switching back restores file, selection and unsaved edits; pool eviction never closes a pane; closing/deleting a row asks about dirty panes. 2411 tests green; general review full + fix delta clean. Not visually verified: Agents ▸ Browse Agent Files menu path, per-row browser roots across two agents, scroll position, row-exit and Delete Agent prompts (tests only). Decisions D-450–D-457.
 
-## B-273 · Surfaced files open automatically as editor tabs   [ready]
+## B-273 · Surfaced files open automatically as editor tabs   [done]
 Issue: #267
 Why: P4 everything through Leo; per-row file panes make auto-open safe (it never takes over the row on screen). Supersedes D-088. Builds after "Files pane and browser belong to the sidebar row".
 Accept: a file surfaced by agent A opens as a tab in A's editor pane (pane created if needed) without moving keyboard focus out of the terminal; several surfaced files give one tab each, newest selected, and re-surfacing an open file selects its tab; if A isn't the row on screen the file opens in A's pane in the background and the row badge stays until A is viewed; tabs switch and close by keyboard and menu, and closing a tab with unsaved changes asks first
 Out: tabs for terminals; dragging tabs between rows
 Source: Evan (/feature, 2026-10-09)
 Inbox: 20261010T010641687863Z-75c4bfe3#1
+Done: 6889ede49 5fe5700d3 cf7c6da40 ca2134002 43fe062d4 d2503608d. Surfaced files auto-open as tabs in the agent's row pane, in the background without taking focus; newest selected, re-surface selects the existing tab; badge stays until the agent is viewed; tabs switch/close by keyboard (⇧⌘]/⇧⌘[, ⌘W) and menu; dirty close asks. Supersedes D-088. 2448 tests green; concurrency review full + fix delta clean. GUI at final tip partial: surfaced-path tab opening seen only at the previous tip 04c73c6c3. Decisions D-458–D-467.
 
 ## B-272 · Live dispatch placement (leo v0.42.0 `dispatch_placement_live`)   [ready]
 Issue: #268
