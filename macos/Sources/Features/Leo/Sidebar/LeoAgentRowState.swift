@@ -91,12 +91,21 @@ struct LeoAgentRowState: Equatable {
     /// problem (B-283) that must not hide on a one-line row. A state that
     /// already tints its detail (needs you, error) keeps its own ink.
     func showingWarning() -> Self {
-        Self(
-            state: state, symbolName: symbolName, symbolInk: symbolInk,
-            detailInk: detailInk == .secondary ? .tint(.orange) : detailInk, hasSecondLine: true,
-            trailingWord: trailingWord, trailingInk: trailingInk, rotates: rotates,
-            isNameDimmed: isNameDimmed, help: help, accessibilityLabel: accessibilityLabel
-        )
+        Self(copying: self, detailInk: detailInk == .secondary ? .tint(.orange) : detailInk, hasSecondLine: true)
+    }
+
+    private init(copying other: Self, detailInk: LeoInk, hasSecondLine: Bool) {
+        state = other.state
+        symbolName = other.symbolName
+        symbolInk = other.symbolInk
+        self.detailInk = detailInk
+        self.hasSecondLine = hasSecondLine
+        trailingWord = other.trailingWord
+        trailingInk = other.trailingInk
+        rotates = other.rotates
+        isNameDimmed = other.isNameDimmed
+        help = other.help
+        accessibilityLabel = other.accessibilityLabel
     }
 
     static let needsYouSymbol = "questionmark.circle.fill"

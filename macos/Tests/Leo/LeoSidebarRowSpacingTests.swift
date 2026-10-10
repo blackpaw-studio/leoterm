@@ -23,13 +23,15 @@ struct LeoSidebarRowSpacingTests {
         }
     }
 
-    @Test func agentRowsKeepTheirHeight() async throws {
+    /// The harness agents are idle, so one line: the name line, the row's
+    /// padding and the list's inset come to the sidebar default's 32pt.
+    @Test func oneLineAgentRowsKeepTheirHeight() async throws {
         let harness = try await SpacingHarness()
         defer { harness.close() }
         let content = 2 * LeoAgentRowMetrics.verticalPadding + LeoAgentRowMetrics.nameLineHeight
-            + LeoAgentRowMetrics.lineSpacing + LeoAgentRowMetrics.detailLineHeight
         let expected = content + 2 * LeoDispatchRowMetrics.listVerticalInset
 
+        #expect(abs(expected - 32) < 0.5, "the spec's 32pt one-line row, got \(expected)")
         #expect(abs(harness.table.rect(ofRow: 1).height - expected) < 0.5)
         #expect(abs(harness.table.rect(ofRow: harness.table.numberOfRows - 1).height - expected) < 0.5)
     }
@@ -78,11 +80,14 @@ struct LeoSidebarRowSpacingTests {
         let harness = try await SpacingHarness()
         defer { harness.close() }
 
-        // The role chip is the first catcher at each dispatch's own depth.
-        let leadingEdges = harness.catcherFrames().filter { $0.height < 20 && $0.width > 100 }.map(\.minX)
+        // The role glyph starts each dispatch's label: the agent's name
+        // column at depth 0, 16pt further in per level.
+        let leadingEdges = harness.contentFrames().dispatches.map(\.minX)
+        let step = LeoDispatchRowPresentation.indentPerLevel
 
-        // Measured before the change: depth 0 at 28pt, depth 1 at 40pt.
-        #expect(leadingEdges == [28, 40, 28])
+        #expect(leadingEdges[1] - leadingEdges[0] == step)
+        #expect(leadingEdges[2] == leadingEdges[0])
+        #expect(leadingEdges[0] == harness.contentFrames().agents[0].minX + LeoAgentRowMetrics.nameColumnInset)
     }
 }
 
@@ -121,12 +126,15 @@ struct LeoSidebarRowSpacingTests {
 
     /// The rendered content of the agent rows (their catcher without its
     /// vertical padding) and of the dispatch rows (their label's catcher),
-    /// top to bottom, in the table's coordinates.
+    /// top to bottom, in the table's coordinates. A catcher belongs to the
+    /// row it sits in: the first and last rows are the agents.
     func contentFrames() -> (agents: [NSRect], dispatches: [NSRect]) {
         let frames = catcherFrames().sorted { $0.minY < $1.minY }
         let padding = LeoAgentRowMetrics.verticalPadding
-        let agents = frames.filter { $0.height >= 40 }.map { $0.insetBy(dx: 0, dy: padding) }
-        let dispatches = frames.filter { $0.height < 40 && $0.width > 100 }
+        let agentRows = [1, table.numberOfRows - 1]
+        let isAgent = { (frame: NSRect) in agentRows.contains(self.table.row(at: NSPoint(x: frame.midX, y: frame.midY))) }
+        let agents = frames.filter(isAgent).map { $0.insetBy(dx: 0, dy: padding) }
+        let dispatches = frames.filter { !isAgent($0) && $0.width > 100 }
         return (agents, dispatches)
     }
 

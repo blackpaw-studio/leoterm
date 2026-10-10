@@ -37,6 +37,12 @@ The order for resolving the state is the same as today (first match wins).
 **Line 2:** shown only where the table says yes. The detail string follows the
 same precedence as today. It aligns with the name, not with the symbol.
 
+**Environments (B-283):** an override stays quiet: its names sit in the row's
+tooltip and in the placeholder detail ("claude · env: aws, prod"), and never
+change the symbol or the number of lines. A config problem
+(`environment_error`) is a detail line in orange that gives a one-line state
+a second line, and yields to needs-you and error, which keep their own ink.
+
 **Row height** depends on state: one line or two. Within a state it is
 constant, so tool calls never make a row jump. The vertical padding is 4pt, so a one-line row is 32pt and matches the list's estimated row height; at 5pt the list left a 2pt gap at the bottom after a terminal closed.
 
@@ -46,7 +52,9 @@ the reason. The symbol stays hidden from VoiceOver, as the pill was.
 
 ## Dispatch row (`LeoDispatchRowView`)
 
-One line, 22pt high:
+One line, 22pt high, centred in the list's 24pt row floor (main's B-275
+`.small` row size), so the pitch is 24pt. The last dispatch of a group carries
+a further 16pt below its content, so a group reads as one block:
 - The indent puts the glyph on the parent's name column, plus 16pt for each level of depth (still capped at 4).
 - Role glyph, 12pt, replacing the chip:
   - explore: `magnifyingglass`

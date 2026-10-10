@@ -16,8 +16,8 @@ struct LeoDispatchRowSpacingTests {
     }
 
     @Test func theGapsAddUpFromTheRowGeometry() {
-        #expect(LeoDispatchRowMetrics.agentToFirstGap == 12)
+        #expect(LeoDispatchRowMetrics.agentToFirstGap == 9)
         #expect(LeoDispatchRowMetrics.siblingGap == 2)
-        #expect(LeoDispatchRowMetrics.groupToNextAgentGap == 28)
+        #expect(LeoDispatchRowMetrics.groupToNextAgentGap == 25)
     }
 }
