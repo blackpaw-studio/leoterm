@@ -69,6 +69,8 @@ struct LeoEnvironmentList: Equatable, Sendable {
 enum LeoEnvironmentMenuEntry: Equatable, Sendable {
     case placeholder(String)
     case toggle(name: String, isOn: Bool)
+    /// Switch to ▸ item: replaces the whole list with just `name`.
+    case switchTo(name: String, isCurrent: Bool)
     case separator
     case editOrder(isEnabled: Bool)
     case reset(isEnabled: Bool)
@@ -97,6 +99,25 @@ enum LeoEnvironmentMenu {
             let names = catalog.names + missing
             guard !names.isEmpty else { return [.placeholder("No Environments")] + tail }
             return names.map { .toggle(name: $0, isOn: effective.contains($0)) } + tail
+        }
+    }
+}
+
+/// The Switch to submenu next to Set Environments: one item per configured
+/// environment, checked only when it is the agent's sole one, so changing
+/// from A to B is one pick and one restart instead of two toggles.
+enum LeoEnvironmentSwitchMenu {
+    static let title = "Switch to"
+
+    static func entries(catalog: LeoEnvironmentCatalogState, current: LeoAgentEnvironments?) -> [LeoEnvironmentMenuEntry] {
+        switch catalog {
+        case .loading:
+            return [.placeholder("Loading…")]
+        case .failed(let message):
+            return [.placeholder("Environments Unavailable: \(message)")]
+        case .loaded(let catalog):
+            guard !catalog.names.isEmpty else { return [.placeholder("No Environments")] }
+            return catalog.names.map { .switchTo(name: $0, isCurrent: current?.names == [$0]) }
         }
     }
 }

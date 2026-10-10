@@ -142,6 +142,9 @@ extension TerminalController {
     /// B-283: "Set Environments", right after Set Template; hidden unless
     /// the selected row's host advertises `agent_environments`.
     static let setEnvironmentsItemIdentifier = NSUserInterfaceItemIdentifier("leo.agents.setEnvironments")
+    /// "Switch to", right after Set Environments: one pick sets a sole
+    /// environment. Shown and hidden with Set Environments.
+    static let switchEnvironmentItemIdentifier = NSUserInterfaceItemIdentifier("leo.agents.switchEnvironment")
 
     /// Bumped on every `menuNeedsUpdate` call and captured before the async
     /// template fetch; a fetch whose generation no longer matches the
@@ -199,26 +202,38 @@ extension TerminalController {
     }
 
     /// Built from the same entries as the row's context menu. The catalog
-    /// is prefetched on each daemon bind; while it loads, the submenu shows
-    /// "Loading…" and fills in when it lands, unless the menu was rebuilt.
+    /// is prefetched on each daemon bind; while it loads, the submenus show
+    /// "Loading…" and fill in when it lands, unless the menu was rebuilt.
     private func updateEnvironmentsItem(in menu: NSMenu) {
-        guard let item = menu.items.first(where: { $0.identifier == Self.setEnvironmentsItemIdentifier }),
-              let submenu = item.submenu else { return }
+        let builders: [(NSUserInterfaceItemIdentifier, (LeoEnvironmentCatalogState, LeoAgentEnvironments?) -> [LeoEnvironmentMenuEntry])] = [
+            (Self.setEnvironmentsItemIdentifier, { LeoEnvironmentMenu.entries(catalog: $0, current: $1) }),
+            (Self.switchEnvironmentItemIdentifier, { LeoEnvironmentSwitchMenu.entries(catalog: $0, current: $1) }),
+        ]
+        let targets = builders.compactMap { identifier, entries in
+            menu.items.first(where: { $0.identifier == identifier }).flatMap { item in item.submenu.map { (item, $0, entries) } }
+        }
+        guard !targets.isEmpty else { return }
         let generation = updateGeneration
         guard let controller = NSApp.keyWindow?.windowController as? TerminalController,
               let row = controller.selectedLeoRow, let runtime = controller.leoRuntime,
               runtime.model.hostFeatures.applying(to: row.host).contains(.agentEnvironments) else {
-            item.isHidden = true
-            submenu.items = [Self.placeholderItem(title: "No Agent Selected")]
+            for (item, submenu, _) in targets {
+                item.isHidden = true
+                submenu.items = [Self.placeholderItem(title: "No Agent Selected")]
+            }
             return
         }
-        item.isHidden = false
-        item.isEnabled = LeoMenuCommands.canSetTemplate(controller.selectedLeoAgentContext)
         let actions = runtime.actions
+        for (item, _, _) in targets {
+            item.isHidden = false
+            item.isEnabled = LeoMenuCommands.canSetTemplate(controller.selectedLeoAgentContext)
+        }
         let fill = { [weak self, weak controller] (catalog: LeoEnvironmentCatalogState) in
             guard let self else { return }
-            submenu.items = LeoEnvironmentMenu.entries(catalog: catalog, current: row.environments).map {
-                self.environmentMenuItem(for: $0, row: row, actions: actions, window: controller?.window)
+            for (_, submenu, entries) in targets {
+                submenu.items = entries(catalog, row.environments).map {
+                    self.environmentMenuItem(for: $0, row: row, actions: actions, window: controller?.window)
+                }
             }
         }
         fill(actions.environmentCatalog)
@@ -241,13 +256,18 @@ extension TerminalController {
         case .separator: return .separator()
         case .placeholder(let text): return Self.placeholderItem(title: text)
         case .toggle(let name, _): (title, isEnabled) = (name, true)
+        case .switchTo(let name, let isCurrent): (title, isEnabled) = (name, !isCurrent)
         case .editOrder(let enabled): (title, isEnabled) = (LeoEnvironmentMenu.editOrderTitle, enabled)
         case .reset(let enabled): (title, isEnabled) = (LeoEnvironmentMenu.resetTitle, enabled)
         }
         let item = NSMenuItem(title: title, action: isEnabled ? #selector(selectEnvironmentEntry(_:)) : nil, keyEquivalent: "")
         item.target = self
         item.isEnabled = isEnabled
-        if case .toggle(_, let isOn) = entry { item.state = isOn ? .on : .off }
+        switch entry {
+        case .toggle(_, let isOn): item.state = isOn ? .on : .off
+        case .switchTo(_, let isCurrent): item.state = isCurrent ? .on : .off
+        default: break
+        }
         item.representedObject = LeoEnvironmentSelection(entry: entry, row: row, actions: actions, window: window)
         return item
     }

@@ -519,6 +519,14 @@
                                     </items>
                                 </menu>
                             </menuItem>
+                            <menuItem title="Switch to" hidden="YES" identifier="leo.agents.switchEnvironment" id="Leo-Agents-SwitchEnvironment">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <menu key="submenu" title="Switch to" id="Leo-Agents-SwitchEnvironment-Menu">
+                                    <items>
+                                        <menuItem title="No Agent Selected" enabled="NO" id="Leo-Agents-SwitchEnvironment-Placeholder"/>
+                                    </items>
+                                </menu>
+                            </menuItem>
                             <menuItem title="View Logs" id="Leo-Agents-ViewLogs">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>

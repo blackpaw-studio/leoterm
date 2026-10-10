@@ -69,3 +69,68 @@ struct LeoEnvironmentConfirmationTests {
         #expect(reset.message == "alpha restarts and resumes its session with its template’s default environments.")
     }
 }
+
+struct LeoEnvironmentSwitchMenuTests {
+    private let catalog = LeoEnvironmentCatalog(names: ["aws", "dev", "prod"])
+
+    private func entries(_ current: [String]?, source: LeoAgentEnvironments.Source = .override) -> [LeoEnvironmentMenuEntry] {
+        LeoEnvironmentSwitchMenu.entries(
+            catalog: .loaded(catalog), current: current.map { LeoAgentEnvironments(names: $0, source: source, error: nil) }
+        )
+    }
+
+    @Test func listsEveryConfiguredEnvironmentUnchecked() {
+        #expect(entries(["aws", "prod"]) == [
+            .switchTo(name: "aws", isCurrent: false), .switchTo(name: "dev", isCurrent: false), .switchTo(name: "prod", isCurrent: false),
+        ])
+    }
+
+    @Test func checksOnlyAnExactlySoleEnvironment() {
+        #expect(entries(["dev"]).map(\.isCurrentSwitch) == [false, true, false])
+        #expect(entries(["dev", "prod"]).allSatisfy { !$0.isCurrentSwitch })
+        #expect(entries([]).allSatisfy { !$0.isCurrentSwitch })
+        #expect(entries(nil).allSatisfy { !$0.isCurrentSwitch })
+    }
+
+    @Test func templateDefaultSoleEnvironmentCountsAsCurrent() {
+        #expect(entries(["prod"], source: .default).map(\.isCurrentSwitch) == [false, false, true])
+    }
+
+    @Test func placeholdersMatchTheToggleSubmenu() {
+        #expect(LeoEnvironmentSwitchMenu.entries(catalog: .loading, current: nil) == [.placeholder("Loading…")])
+        #expect(LeoEnvironmentSwitchMenu.entries(catalog: .failed("HTTP 404"), current: nil) == [.placeholder("Environments Unavailable: HTTP 404")])
+        #expect(LeoEnvironmentSwitchMenu.entries(catalog: .loaded(LeoEnvironmentCatalog(names: [])), current: nil) == [.placeholder("No Environments")])
+    }
+}
+
+@MainActor struct LeoEnvironmentChangeTargetTests {
+    private func row(_ names: [String]?) -> LeoAgentRow {
+        LeoAgentRow(host: .local, name: "alpha", template: "claude", status: .running, activity: .unknown, actionDetail: nil)
+            .withEnvironments(names.map { LeoAgentEnvironments(names: $0, source: .override, error: nil) })
+    }
+
+    @Test func switchReplacesTheWholeListWithTheOneName() {
+        #expect(LeoEnvironmentChange.targetNames(for: .switchTo(name: "dev", isCurrent: false), row: row(["aws", "prod"])) == ["dev"])
+    }
+
+    @Test func switchToTheSoleEnvironmentIsANoOp() {
+        #expect(LeoEnvironmentChange.targetNames(for: .switchTo(name: "dev", isCurrent: true), row: row(["dev"])) == nil)
+    }
+
+    @Test func switchIgnoresAStaleCurrentFlag() {
+        #expect(LeoEnvironmentChange.targetNames(for: .switchTo(name: "dev", isCurrent: false), row: row(["dev"])) == nil)
+    }
+
+    @Test func toggleAndResetKeepTheirTargets() {
+        #expect(LeoEnvironmentChange.targetNames(for: .toggle(name: "prod", isOn: false), row: row(["aws"])) == ["aws", "prod"])
+        #expect(LeoEnvironmentChange.targetNames(for: .reset(isEnabled: true), row: row(["aws"])) == [])
+        #expect(LeoEnvironmentChange.targetNames(for: .separator, row: row(["aws"])) == nil)
+    }
+}
+
+private extension LeoEnvironmentMenuEntry {
+    var isCurrentSwitch: Bool {
+        if case .switchTo(_, let isCurrent) = self { return isCurrent }
+        return false
+    }
+}
