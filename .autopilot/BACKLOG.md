@@ -786,11 +786,12 @@ Accept: B-098 changed src/global.zig; .git/autopilot/shared/GhosttyKit.xcframewo
 Source: autopilot polish (B-098)
 Done: no code change — shared GhosttyKit.xcframework + zig-out rebuilt 2026-10-01 17:45 from 708717ded (ghostty-internal.a newer than last src/ commit 6b44c1a22); old copies moved to ~/.Trash; suite 1962 green through the symlinks (implementer and verifier); verify.md note updated. Lane cleared on autopilot-shelved/B-147 (untracked scratch only).
 
-## B-146 · Environ comment wording   [ready]
+## B-146 · Environ comment wording   [done]
 Issue: #150
 Why: src/global.zig:309: say "environ_initialized stays set" only matters if the I/O side scanned before the sync; macos/Sources/App/main.swift:34-38: the probe runs after ghostty_cli_try_action too ("after init, before NSApplicationMain")
 Accept: src/global.zig:309: say "environ_initialized stays set" only matters if the I/O side scanned before the sync; macos/Sources/App/main.swift:34-38: the probe runs after ghostty_cli_try_action too ("after init, before NSApplicationMain")
 Source: autopilot polish (B-098)
+Done: e8703c447 c3bfaf7de. Clarified the environ_initialized comment in src/global.zig and the startup-probe timing comment in main.swift.
 
 ## B-148 · Sidebar list stays mounted in No Agents/Loading/Failed with terminals   [ready]
 Issue: #152
