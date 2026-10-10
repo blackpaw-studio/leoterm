@@ -421,3 +421,28 @@ Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leot
 Stopped by Evan right after dispatching B-270; nothing built.
 Preflight: merged main (2d6dd35f4, LeoSFTPLauncher conflict resolved favouring main's mux fallback); inbox applied → B-270–B-274; B-269 promoted.
 Left for next run: lane autopilot-lane/B-270 (empty, first pick); stale unlanded lane autopilot-lane/B-233 (no block).
+
+## Run 2026-10-10T01:59Z
+🛠 leoterm autopilot: 8 shipped, 0 blocked (12h budget, 9:59pm–9:59am EDT)
+Shipped
+• B-270 Dispatch placement re-applied to rows attached before hello · full
+• B-271 Dispatch rows clickable when the viewer sits in the caller's session (not visually verified) · full
+• B-275 24pt dispatch rows, fixed-width role-chip column · full
+• B-274 Editor/browser panes per sidebar row · full
+• B-273 Surfaced files auto-open as background tabs (supersedes D-088) · full
+• B-272 Live dispatch placement (`dispatch_placement_live`) · full
+• B-145 ⌘N / New Window open the bare start screen, no palette flash · light
+• B-146 environ comment wording (not visually verified: comments only) · light
+Calls I made (reply "veto D-0xx")
+• D-430–D-473. Worth a look: D-432 (Ghostty scrollback lost on the one-time re-attach), D-469 (a background dispatch that isn't attachable is display-only; narrows D-438)
+Needs you
+• leo /api/v1 doesn't send `viewer_kind` yet. Ask the leo agent to ship it?
+• GUI verifiers twice clicked real stopped agents. A "Start whatshoveringoverme?" prompt was cancelled and widgeon was selected. B-271 may have typed stray text into another app. Briefs are tightened.
+• The B-275 runner idle-closed at 1h. Recovered; briefs now force blocking waits.
+• Unlanded lanes: B-233 (no block); B-058 and B-143 held
+• B-270 follow-up: a daemon restart unregisters clients again
+Flakes: row-menu rename tests, anEmptyNameRestoresTheLiveTitle
+Self-filed: ideas B-276 and B-277
+Next up: B-148, B-149, B-150
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Merge when happy: git -C /Users/evan/.leo/agents/leoterm merge autopilot
