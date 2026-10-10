@@ -5,8 +5,9 @@ import Testing
 @testable import Ghostty
 
 /// B-013 on the main actor: which surfaced files are pending (unseen), that
-/// none ever opens by itself (D-088), what the menus open, and that seen
-/// ids persist per host, bounded.
+/// a snapshot, focus or row click never opens one (only a live event does,
+/// in the background: B-273, `LeoSurfacedAutoOpenTests`), what the menus
+/// open, and that seen ids persist per host, bounded.
 @MainActor
 struct LeoSurfacedFileRoutingTests {
     // MARK: Seen ledger
@@ -63,11 +64,12 @@ struct LeoSurfacedFileRoutingTests {
         #expect(relaunched.pendingSurfacedFiles(for: relaunched.snapshot.rows[0]).isEmpty)
     }
 
-    // MARK: No auto-open (D-088)
+    // MARK: No routed open without the user
 
-    /// A surfaced file never opens by itself: not on arrival while its
-    /// agent's tab is focused, not on focusing that tab later, not on a
-    /// row click. Only ⌥⌘O or a Surfaced Files ▸ item opens it.
+    /// A surfaced file is never shown through the router by itself: not on
+    /// arrival in a snapshot while its agent's tab is focused, not on
+    /// focusing that tab later, not on a row click. Only ⌥⌘O or a Surfaced
+    /// Files ▸ item does (B-273's background open is the feed's live event).
     @Test func nothingOpensASurfacedFileWithoutAUserAction() {
         let file = surfaced("u-1", agent: "alpha", startedAt: "s1", line: 3)
         let model = makeModel([row("alpha", "s1"), row("beta", "s1")])

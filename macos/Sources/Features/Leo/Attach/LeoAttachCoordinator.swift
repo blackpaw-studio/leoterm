@@ -576,6 +576,14 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         host.discardEmptyPlaceholder(origin: origin)
     }
 
+    /// B-273: the window holding `identity`'s live surface -- the one on
+    /// screen if any, else one hidden in a live pool -- or nil. Read-only:
+    /// nothing is shown, focused or reordered.
+    func liveWindow(of identity: LeoAgentIdentity) -> LeoWindowID? {
+        let live = (handlesByIdentity[identity] ?? []).filter { !inactive.contains($0) }
+        return (live.last { host.isShown($0) } ?? live.last)?.windowID
+    }
+
     private func focusOnScreen(_ identity: LeoAgentIdentity) -> AttachmentHandle? {
         defer { publishLinkState() }
         guard let handle = handlesByIdentity[identity]?.last(where: { !inactive.contains($0) && host.isShown($0) }) else { return nil }

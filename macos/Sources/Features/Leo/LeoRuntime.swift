@@ -254,6 +254,7 @@ import OSLog
             daemon: daemon, activity: activitySource,
             onManualRefresh: { [actionsBox] in actionsBox.actions?.invalidateTemplateCache() },
             onAttentionTransitions: { transitions in weakSelf?.attentionTransitionsCommitted(transitions) },
+            onFileSurfaced: { [weak model] host, file in model?.fileSurfaced(file, host: host) },
             sink: { [weak model] snapshot in
                 model?.receive(snapshot)
                 // B-270: a hello advertising dispatch placement re-attaches
@@ -313,6 +314,9 @@ import OSLog
             }
         }
         model.surfacedFileOpenRequested = { file, row, stillWanted in weakSelf?.openSurfacedFile(file, for: row, stillWanted: stillWanted) }
+        model.surfacedFileAutoOpenRequested = { file, row, stillWanted in
+            weakSelf?.autoOpenSurfacedFile(file, for: row, stillWanted: stillWanted)
+        }
         model.latestFocusReport = { [weak attachCoordinator] in attachCoordinator?.latestFocusReport ?? 0 }
 
         // `hostSelection`'s `connectionTarget` (wired above) closes over

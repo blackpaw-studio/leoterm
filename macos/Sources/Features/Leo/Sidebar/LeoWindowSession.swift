@@ -40,8 +40,8 @@ struct LeoWindowVisibilityState: Equatable {
     @Published private(set) var controlFocusRequest = 0
     /// The control bar's prompt field, for focus in and back out.
     let controlPrompt = LeoControlPromptFieldHandle()
-    @Published var windowIsOccluded = false { didSet { changed() } }
-    @Published var windowIsMiniaturized = false { didSet { changed() } }
+    @Published var windowIsOccluded = false { didSet { changed(); markShownIfVisible() } }
+    @Published var windowIsMiniaturized = false { didSet { changed(); markShownIfVisible() } }
     var displayedWidth: CGFloat { min(max(preferredWidth, 200), 420) }
     /// Opens the agent picker for this window's placeholder. Wired by
     /// `LeoRuntime.makeWindowSession(for:)`; a no-op until then (e.g. in
@@ -101,6 +101,7 @@ struct LeoWindowVisibilityState: Equatable {
     private(set) weak var window: NSWindow?
     private var observers: [NSObjectProtocol] = []
     private var visibility = LeoWindowVisibilityState()
+    private var activePaneSubscription: AnyCancellable?
 
     init(
         id: LeoWindowID = LeoWindowID(),
@@ -132,6 +133,13 @@ struct LeoWindowVisibilityState: Equatable {
             }
         }
         observeWindow()
+        // `@Published` sends before it stores: the pane is the new value.
+        activePaneSubscription = panes.$active.sink { [weak self] pane in
+            MainActor.assumeIsolated {
+                guard let self, self.isWindowVisible else { return }
+                pane.tabs.markShown()
+            }
+        }
     }
 
     deinit { observers.forEach(NotificationCenter.default.removeObserver) }
@@ -209,6 +217,17 @@ struct LeoWindowVisibilityState: Equatable {
     }
 
     private func changed() { onPollabilityChanged() }
+
+    /// The window is on screen: neither miniaturized nor fully covered.
+    var isWindowVisible: Bool { !windowIsOccluded && !windowIsMiniaturized }
+
+    /// B-273: the row on screen, in a visible window, is viewed -- what
+    /// its pane waits on (`LeoEditorTabs.whenShown`) runs, e.g. marking a
+    /// background-opened surfaced file seen.
+    func markShownIfVisible() {
+        guard isWindowVisible else { return }
+        panes.active.tabs.markShown()
+    }
 }
 
 /// The session's window, held weakly for the panes' prompts.

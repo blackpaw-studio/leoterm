@@ -98,6 +98,9 @@ actor LeoSidebarFeed {
     let onAttentionTransitions: @MainActor @Sendable ([LeoAttentionTransition]) -> Void
     /// Files surfaced on the selected host (B-013), by incarnation.
     var surfacedFiles = LeoSurfacedFileIndex.empty
+    /// B-273: a live `file_surfaced` new to the feed, while connected,
+    /// with its host -- never a `/state` recovery's files.
+    let onFileSurfaced: @MainActor @Sendable (LeoHostID, LeoSurfacedFile) -> Void
     /// The selected host's live dispatches (B-257) -- see `LeoSidebarFeed+Dispatches.swift`.
     var dispatchTree = LeoDispatchTree()
     /// What the selected host's daemon advertised on its latest hello, and
@@ -137,6 +140,7 @@ actor LeoSidebarFeed {
         now: @escaping @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
         onManualRefresh: @escaping @MainActor @Sendable () -> Void = {},
         onAttentionTransitions: @escaping @MainActor @Sendable ([LeoAttentionTransition]) -> Void = { _ in },
+        onFileSurfaced: @escaping @MainActor @Sendable (LeoHostID, LeoSurfacedFile) -> Void = { _, _ in },
         sink: @escaping Sink
     ) {
         self.daemon = daemon
@@ -144,6 +148,7 @@ actor LeoSidebarFeed {
         sleeper = sleep
         self.now = now
         self.onAttentionTransitions = onAttentionTransitions
+        self.onFileSurfaced = onFileSurfaced
         self.onManualRefresh = onManualRefresh
         self.sink = sink
     }
