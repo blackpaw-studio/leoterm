@@ -850,9 +850,12 @@ class AppDelegate: NSObject,
     }
 
     @MainActor @objc private func ghosttyNewWindow(_ notification: Notification) {
-        // MARK: Leo -- the start screen alone, no palette (B-145); an
-        // inherited config has no surface to apply to until an agent is chosen.
-        leoOpenStartScreenWindow()
+        // MARK: Leo -- the start screen alone, no palette (B-145); what it
+        // inherited (a changed font size) waits for the first surface chosen.
+        let controller = leoOpenStartScreenWindow()
+        guard let leoSession = controller.leoSession else { return }
+        let config = notification.userInfo?[Ghostty.Notification.NewSurfaceConfigKey] as? Ghostty.SurfaceConfiguration
+        leoRuntime.holdStartScreenConfig(config, for: leoSession.id)
     }
 
     @MainActor @objc private func ghosttyNewTab(_ notification: Notification) {

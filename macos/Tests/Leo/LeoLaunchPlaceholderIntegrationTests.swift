@@ -1,4 +1,5 @@
 import AppKit
+import GhosttyKit
 import Testing
 
 @testable import Ghostty
@@ -433,6 +434,37 @@ struct LeoLaunchPlaceholderIntegrationTests {
         try #require(await settle(app, window), "the window never settled")
         #expect(!session.isPickerPresented)
         #expect(window.window?.isVisible == true)
+    }
+
+    /// B-145: the new window's start screen holds what ⌘N inherited (a
+    /// changed font size) for the first terminal opened from it -- the
+    /// palette it skips used to carry it to the chosen agent's surface.
+    @Test func theNewWindowActionHandsItsInheritedFontSizeToTheFirstTerminal() async throws {
+        let app = try liveApp()
+        let before = Set(TerminalController.all.map(ObjectIdentifier.init))
+        var inherited = Ghostty.SurfaceConfiguration()
+        inherited.fontSize = 31
+
+        withoutUndo(app) {
+            NotificationCenter.default.post(
+                name: Ghostty.Notification.ghosttyNewWindow,
+                object: nil,
+                userInfo: [Ghostty.Notification.NewSurfaceConfigKey: inherited]
+            )
+        }
+        let opened = TerminalController.all.filter { !before.contains(ObjectIdentifier($0)) }
+        defer { opened.forEach { close($0) } }
+        let window = try #require(opened.first)
+        let session = try #require(window.leoSession)
+        try #require(await settle(app, window), "the window never settled")
+        withoutUndo(app) { app.leoRuntime.newTerminal(origin: session.id) }
+        let deadline = ContinuousClock.now + Self.settleTimeout
+        while window.surfaceTree.isEmpty, ContinuousClock.now < deadline { await nextMainQueueTurn() }
+        let surface = try #require(window.surfaceTree.first { _ in true }?.surface, "no terminal opened")
+        let font = Ghostty.SurfaceConfiguration(from: ghostty_surface_inherited_config(surface, GHOSTTY_SURFACE_CONTEXT_WINDOW)).fontSize
+
+        #expect(font == 31)
+        #expect(!session.isPickerPresented)
     }
 }
 

@@ -36,6 +36,10 @@ import OSLog
     let newSurfaceRouter: LeoNewSurfaceRouter
     private let picker: LeoWindowPickerRouter
     private let requestConfigStore: LeoRequestConfigStore
+    /// B-145: what a window opened as a bare start screen inherited (⌘N's
+    /// font size, say), for requests made from it with nothing of their own
+    /// to inherit; released with the window.
+    private var startScreenConfigs: [LeoWindowID: Ghostty.SurfaceConfiguration] = [:]
     private let orphanStore: LeoTunnelOrphanStore
     private let localDaemon: any LeoDaemonClient
     private let localActivitySource: LeoSidebarActivitySource
@@ -489,7 +493,7 @@ import OSLog
     /// surface (see `routeNewSurface`).
     func newTerminal(origin: LeoWindowID, inheritedConfig: Ghostty.SurfaceConfiguration? = nil) {
         let request = LeoSurfaceRequest(origin: origin, disposition: .content)
-        requestConfigStore.set(inheritedConfig, for: request.id)
+        requestConfigStore.set(inheritedConfig ?? startScreenConfigs[origin], for: request.id)
         Self.logger.log("newTerminal origin=\(origin.rawValue.uuidString, privacy: .public)")
         Task { [weak self] in
             guard let self else { return }
@@ -516,9 +520,17 @@ import OSLog
     /// `registry.onUnregistered` (fallback reconciliation), which may both
     /// fire for the same window.
     private func teardownWindow(_ windowID: LeoWindowID) {
+        startScreenConfigs.removeValue(forKey: windowID)
         newSurfaceRouter.invalidate(origin: windowID)
         picker.unregister(origin: windowID)
         attachCoordinator.windowClosed(windowID)
+    }
+
+    /// B-145: `window` opened as a bare start screen, with no palette to
+    /// carry `config` (whatever ⌘N inherited) to the first surface chosen
+    /// from it. A `nil` config holds nothing.
+    func holdStartScreenConfig(_ config: Ghostty.SurfaceConfiguration?, for window: LeoWindowID) {
+        startScreenConfigs[window] = config
     }
 
     /// Begins a new-surface gesture (Cmd+T, Cmd+D, Cmd+N, launch, or the
@@ -543,7 +555,7 @@ import OSLog
     /// `routeNewSurface` for a request already made (B-177's row-menu split).
     private func route(_ request: LeoSurfaceRequest, inheritedConfig: Ghostty.SurfaceConfiguration?) {
         Self.logger.log("routeNewSurface disposition=\(String(describing: request.disposition), privacy: .public) origin=\(request.origin.rawValue.uuidString, privacy: .public)")
-        requestConfigStore.set(inheritedConfig, for: request.id)
+        requestConfigStore.set(inheritedConfig ?? startScreenConfigs[request.origin], for: request.id)
         newSurfaceRouter.begin(request)
         picker.present(request: request)
     }
