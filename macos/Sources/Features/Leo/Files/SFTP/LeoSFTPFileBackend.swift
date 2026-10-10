@@ -72,6 +72,22 @@ struct LeoSFTPFileBackend: LeoFileAccessBackend {
         }
     }
 
+    /// One read window (`maxRequestsInFlight` chunks) is pushed at a time.
+    func stream(_ path: String, into sink: any LeoFileByteSink) async throws {
+        let client = try await client()
+        let handle = try await client.open(path, flags: [.read])
+        try await closing(handle, path: path, client: client) {
+            var offset: UInt64 = 0
+            while true {
+                try Task.checkCancellation()
+                let window = try await readWindow(handle, from: offset, path: path, client: client)
+                if !window.data.isEmpty { try await sink.write(window.data, at: offset) }
+                offset += UInt64(window.data.count)
+                if window.reachedEnd { return }
+            }
+        }
+    }
+
     /// Opened `0600` when `permissions` will be applied (never briefly more
     /// open than the original); FSETSTAT then sets them exactly, since the
     /// mode passed to OPEN is filtered by the server's umask.

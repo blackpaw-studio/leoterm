@@ -116,11 +116,15 @@ final class LeoWorkspaceBrowserViewController: NSViewController {
 
     private func showModel() {
         titleLabel.stringValue = headerTitle
-        footer.stringValue = model.uploadError ?? model.openError ?? ""
-        footerBox.isHidden = model.uploadError == nil && model.openError == nil
-        uploadProgress.isHidden = model.uploadDestination == nil || model.uploadDestination != model.root?.path
+        let messages = [model.uploadError, model.downloadError, model.openError].compactMap { $0 }
+        footer.stringValue = messages.joined(separator: "\n")
+        footerBox.isHidden = messages.isEmpty
+        let isUploadingToRoot = model.uploadDestination != nil && model.uploadDestination == model.root?.path
+        uploadProgress.isHidden = !isUploadingToRoot && model.downloadsInFlight == 0
+        uploadProgress.setAccessibilityLabel(isUploadingToRoot ? "Uploading files" : "Downloading files")
         guard isViewLoaded else { return }
-        let selectedPath = entry(atRow: outlineView.selectedRow)?.path
+        let selectedPaths = outlineView.selectedRowIndexes.compactMap { entry(atRow: $0)?.path }
+        let focusedPath = entry(atRow: outlineView.selectedRow)?.path
         isSyncing = true
         defer { isSyncing = false }
         childCache = [:]
@@ -129,7 +133,7 @@ final class LeoWorkspaceBrowserViewController: NSViewController {
         outlineView.reloadData()
         expandShown(in: nil)
         reusable = [:]
-        restoreSelection(selectedPath)
+        restoreSelection(selectedPaths, focused: focusedPath)
     }
 
     /// The workspace folder's name.
@@ -140,7 +144,9 @@ final class LeoWorkspaceBrowserViewController: NSViewController {
     }
 
     var footerMessage: String? { footerBox.isHidden ? nil : footer.stringValue }
-    var isRootUploadProgressVisible: Bool { !uploadProgress.isHidden }
+    /// The header spinner: an upload to the workspace folder itself, or
+    /// any download, is running.
+    var isHeaderProgressVisible: Bool { !uploadProgress.isHidden }
 
     func isFolderUploadProgressVisible(atRow row: Int) -> Bool {
         guard row >= 0 else { return false }
@@ -196,6 +202,10 @@ final class LeoWorkspaceBrowserViewController: NSViewController {
         outlineView.onEscape = { [weak self] in self?.onEscape() }
         outlineView.setAccessibilityLabel("Workspace files")
         outlineView.registerForDraggedTypes([.fileURL])
+        // B-279: files drag out to Finder as copies (file promises), several
+        // at once.
+        outlineView.allowsMultipleSelection = true
+        outlineView.setDraggingSourceOperationMask(.copy, forLocal: false)
     }
 
     /// The header row, and its close button.
@@ -269,15 +279,20 @@ final class LeoWorkspaceBrowserViewController: NSViewController {
         }
     }
 
-    private func restoreSelection(_ path: String?) {
-        let row = path.flatMap { path in
-            items.first { key, _ in if case let .entry(entry) = key { entry.path == path } else { false } }
-        }.map { outlineView.row(forItem: $0.value) } ?? -1
-        if row >= 0 {
-            outlineView.selectRowIndexes([row], byExtendingSelection: false)
-        } else {
-            outlineView.deselectAll(nil)
+    /// Selects the rows still showing `paths`, the `focused` one selected
+    /// last so it stays the row the keyboard acts on.
+    private func restoreSelection(_ paths: [String], focused: String?) {
+        let shown = items.reduce(into: [String: LeoWorkspaceOutlineItem]()) { shown, pair in
+            if case let .entry(entry) = pair.key { shown[entry.path] = pair.value }
         }
+        let row: (String) -> Int? = { path in
+            shown[path].map { self.outlineView.row(forItem: $0) }.flatMap { $0 >= 0 ? $0 : nil }
+        }
+        let rows = IndexSet(paths.compactMap(row))
+        guard !rows.isEmpty else { return outlineView.deselectAll(nil) }
+        let focusedRow = focused.flatMap(row)
+        outlineView.selectRowIndexes(focusedRow.map { rows.subtracting([$0]) } ?? rows, byExtendingSelection: false)
+        if let focusedRow { outlineView.selectRowIndexes([focusedRow], byExtendingSelection: true) }
     }
 
     private func entry(atRow row: Int) -> LeoWorkspaceEntry? {
@@ -316,6 +331,7 @@ final class LeoWorkspaceBrowserViewController: NSViewController {
     @objc private func dismissClicked(_ sender: Any?) {
         model.dismissOpenError()
         model.dismissUploadError()
+        model.dismissDownloadError()
     }
 
     private func closeBrowser() {
@@ -369,6 +385,13 @@ extension LeoWorkspaceBrowserViewController: NSOutlineViewDataSource, NSOutlineV
 
     func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
         (item as? LeoWorkspaceOutlineItem)?.folderPath != nil
+    }
+
+    /// A file row drags out as a file promise; folders (out of scope) and
+    /// placeholder rows don't drag.
+    func outlineView(_ outlineView: NSOutlineView, pasteboardWriterForItem item: Any) -> (any NSPasteboardWriting)? {
+        guard let item = item as? LeoWorkspaceOutlineItem, case let .entry(entry) = item.item, !entry.isFolder else { return nil }
+        return LeoWorkspaceFilePromise(entry: entry, model: model)
     }
 
     func outlineView(_ outlineView: NSOutlineView, shouldSelectItem item: Any) -> Bool {

@@ -7,6 +7,8 @@ import AppKit
 final class LeoWorkspaceOutlineView: NSOutlineView {
     var onActivate: () -> Void = {}
     var onEscape: () -> Void = {}
+    /// What a drag to another app (Finder) may do, as last set.
+    private(set) var outsideDragOperation: NSDragOperation = []
 
     private enum KeyCode {
         static let `return`: UInt16 = 36
@@ -26,6 +28,11 @@ final class LeoWorkspaceOutlineView: NSOutlineView {
         case KeyCode.left: stepOut()
         default: super.keyDown(with: event)
         }
+    }
+
+    override func setDraggingSourceOperationMask(_ mask: NSDragOperation, forLocal isLocal: Bool) {
+        super.setDraggingSourceOperationMask(mask, forLocal: isLocal)
+        if !isLocal { outsideDragOperation = mask }
     }
 
     override func cancelOperation(_ sender: Any?) {

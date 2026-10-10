@@ -17,6 +17,9 @@ protocol LeoFileAccessBackend: Sendable {
     func entries(of directory: String) async throws -> [LeoFileEntry]
     /// The file's bytes, stopping once more than `limit` have been read.
     func contents(of path: String, limit: UInt64) async throws -> Data
+    /// Pushes the bytes of the regular file at `path` into `sink`, at most
+    /// one read window at a time.
+    func stream(_ path: String, into sink: any LeoFileByteSink) async throws
     /// Creates `path` exclusively (failing if it exists), writes `source`
     /// (pulled one bounded chunk at a time), and sets exactly `permissions`
     /// when non-nil (otherwise the host's default for a new file). After an exclusive OPEN succeeds, an ordinary write
@@ -36,6 +39,10 @@ protocol LeoFileAccessBackend: Sendable {
 
 extension LeoFileAccessBackend {
     func close() async {}
+
+    func stream(_ path: String, into sink: any LeoFileByteSink) async throws {
+        throw LeoFileAccessError.unavailable(reason: "This file connection doesn’t support downloading files")
+    }
 
     func publishExclusive(_ destination: String, with source: String) async throws {
         throw LeoFileAccessError.unavailable(reason: "This file connection doesn’t support exclusive publication")
@@ -91,6 +98,19 @@ struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
             throw LeoFileAccessError.tooLarge(path: path, size: UInt64(data.count), limit: maxBytes)
         }
         return LeoFileContents(data: data, stat: stat)
+    }
+
+    /// The `stat` comes first: a folder, FIFO or device never reaches the
+    /// backend's open. Once `close()` is called, the next push fails as
+    /// `.closed` for every backend alike.
+    @discardableResult
+    func read(_ path: String, into sink: any LeoFileByteSink) async throws -> LeoFileStat {
+        try closed.check()
+        try Self.validate(path)
+        let stat = try await backend.stat(path)
+        try Self.requireRegularFile(stat, path: path)
+        try await backend.stream(path, into: LeoClosableSink(base: sink, closed: closed))
+        return stat
     }
 
     /// Checks the version twice: up front, so a stale save fails before any
@@ -252,6 +272,17 @@ struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
 extension LeoFileAccessor where Backend == LeoLocalFileBackend {
     static func local() -> LeoFileAccessor<LeoLocalFileBackend> {
         LeoFileAccessor(backend: LeoLocalFileBackend())
+    }
+}
+
+/// Stops a streaming read at its next push once the accessor is closed.
+private struct LeoClosableSink: LeoFileByteSink {
+    let base: any LeoFileByteSink
+    let closed: LeoFileAccessClosedFlag
+
+    func write(_ data: Data, at offset: UInt64) async throws {
+        try closed.check()
+        try await base.write(data, at: offset)
     }
 }
 

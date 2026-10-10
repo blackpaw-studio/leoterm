@@ -31,24 +31,29 @@ struct LeoSFTPReadReplyTests {
 struct LeoFakeSFTPLauncher: LeoSFTPLaunching {
     let fileSize: Int
     let extraBytesPerRead: Int
+    var dropAfterReads: Int?
 
     func launch() throws -> LeoSFTPChannel {
-        LeoFakeSFTPServer(fileSize: fileSize, extraBytesPerRead: extraBytesPerRead).start()
+        LeoFakeSFTPServer(fileSize: fileSize, extraBytesPerRead: extraBytesPerRead, dropAfterReads: dropAfterReads).start()
     }
 }
 
 /// Just enough SFTP v3 to serve one file of `fileSize` bytes: INIT, STAT,
 /// OPEN, READ, CLOSE. Each READ is answered with up to `length +
 /// extraBytesPerRead` bytes -- a misbehaving server when that is nonzero.
+/// With `dropAfterReads`, the connection is cut off (as a dropped
+/// ControlMaster would) once that many DATA replies have been sent.
 final class LeoFakeSFTPServer: @unchecked Sendable {
     private let fileSize: Int
     private let extraBytesPerRead: Int
+    private let dropAfterReads: Int?
     private let requests = Pipe()
     private let replies = Pipe()
 
-    init(fileSize: Int, extraBytesPerRead: Int) {
+    init(fileSize: Int, extraBytesPerRead: Int, dropAfterReads: Int? = nil) {
         self.fileSize = fileSize
         self.extraBytesPerRead = extraBytesPerRead
+        self.dropAfterReads = dropAfterReads
     }
 
     static func content(count: Int) -> Data {
@@ -68,12 +73,17 @@ final class LeoFakeSFTPServer: @unchecked Sendable {
         var framer = LeoSFTPFramer()
         let input = requests.fileHandleForReading
         defer { try? replies.fileHandleForWriting.close() }
+        var dataReplies = 0
         while true {
             let chunk = input.availableData
             guard !chunk.isEmpty else { return }
             framer.append(chunk)
             while let packet = try? framer.nextPacket() {
                 guard let reply = try? reply(to: packet) else { return }
+                if reply.first == LeoSFTPPacketType.data.rawValue {
+                    if let dropAfterReads, dataReplies == dropAfterReads { return }
+                    dataReplies += 1
+                }
                 var framed = LeoSFTPWriter()
                 framed.string(reply)
                 replies.fileHandleForWriting.write(framed.data)

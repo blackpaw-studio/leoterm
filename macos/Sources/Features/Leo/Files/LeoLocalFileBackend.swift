@@ -6,7 +6,8 @@ import Foundation
 /// (`O_EXCL` temp creation, `fchmod`, `fsync`, atomic `rename(2)`,
 /// nanosecond `stat` times).
 struct LeoLocalFileBackend: LeoFileAccessBackend {
-    private static let readChunkSize = 64 * 1024
+    /// Bytes read per `read(2)`, and pushed per streaming read.
+    static let readChunkSize = 64 * 1024
     /// Bytes pulled from a create's source per read.
     static let writeChunkSize = 64 * 1024
 
@@ -50,14 +51,8 @@ struct LeoLocalFileBackend: LeoFileAccessBackend {
     /// read: a FIFO or device swapped in after the caller's `stat` fails
     /// instead of hanging the open or the read.
     func contents(of path: String, limit: UInt64) async throws -> Data {
-        let descriptor = open(path, O_RDONLY | O_CLOEXEC | O_NONBLOCK)
-        guard descriptor >= 0 else { throw Self.error(errno, path: path) }
+        let descriptor = try Self.openRegularFile(path)
         defer { Darwin.close(descriptor) }
-        var info = Darwin.stat()
-        guard fstat(descriptor, &info) == 0 else { throw Self.error(errno, path: path) }
-        guard info.st_mode & S_IFMT == S_IFREG else {
-            throw LeoFileAccessError.failed(path: path, reason: "it isn’t a regular file")
-        }
         var data = Data()
         var buffer = [UInt8](repeating: 0, count: Self.readChunkSize)
         while UInt64(data.count) <= limit {
@@ -70,6 +65,26 @@ struct LeoLocalFileBackend: LeoFileAccessBackend {
             data.append(buffer, count: count)
         }
         return data
+    }
+
+    /// Opened like `contents(of:limit:)`; one `readChunkSize` read is
+    /// pushed at a time.
+    func stream(_ path: String, into sink: any LeoFileByteSink) async throws {
+        let descriptor = try Self.openRegularFile(path)
+        defer { Darwin.close(descriptor) }
+        var buffer = [UInt8](repeating: 0, count: Self.readChunkSize)
+        var offset: UInt64 = 0
+        while true {
+            try Task.checkCancellation()
+            let count = Darwin.read(descriptor, &buffer, buffer.count)
+            if count == 0 { return }
+            if count < 0 {
+                if errno == EINTR { continue }
+                throw Self.error(errno, path: path)
+            }
+            try await sink.write(Data(buffer[0..<count]), at: offset)
+            offset += UInt64(count)
+        }
     }
 
     /// Opened `0600` when `permissions` will be applied afterwards (so the
@@ -116,6 +131,23 @@ struct LeoLocalFileBackend: LeoFileAccessBackend {
     }
 
     // MARK: - POSIX helpers
+
+    /// A read-only descriptor, after checking it is a regular file.
+    private static func openRegularFile(_ path: String) throws -> Int32 {
+        let descriptor = open(path, O_RDONLY | O_CLOEXEC | O_NONBLOCK)
+        guard descriptor >= 0 else { throw error(errno, path: path) }
+        var info = Darwin.stat()
+        guard fstat(descriptor, &info) == 0 else {
+            let failure = error(errno, path: path)
+            Darwin.close(descriptor)
+            throw failure
+        }
+        guard info.st_mode & S_IFMT == S_IFREG else {
+            Darwin.close(descriptor)
+            throw LeoFileAccessError.failed(path: path, reason: "it isn’t a regular file")
+        }
+        return descriptor
+    }
 
     private static func status(of path: String, followingLinks: Bool) throws -> LeoFileStat {
         var info = Darwin.stat()

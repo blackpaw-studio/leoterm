@@ -76,7 +76,7 @@ enum LeoFileDrop {
                 // A NUL anywhere would truncate the C path at `open` and read
                 // a different file than the one dropped.
                 let path = url.path(percentEncoded: false)
-                guard isSingleComponent(name), !path.contains("\0") else { throw SourceError.invalid }
+                guard LeoFileName.isSafeComponent(name), !path.contains("\0") else { throw SourceError.invalid }
                 try beforeOpen(url)
                 let source = try LeoFileDescriptorSource(path: path)
                 try await beforeRead(url)
@@ -97,11 +97,6 @@ enum LeoFileDrop {
 
     private static func append(_ name: String, to directory: String) -> String {
         directory == "/" ? "/" + name : directory + "/" + name
-    }
-
-    private static func isSingleComponent(_ name: String) -> Bool {
-        !name.isEmpty && name != "." && name != ".." && !name.contains("/") && !name.contains("\0") &&
-            !name.unicodeScalars.contains { CharacterSet.controlCharacters.contains($0) }
     }
 
     private static func displayName(for url: URL) -> String {
