@@ -452,11 +452,12 @@ import OSLog
         workingDirectory: String?,
         requestID: UUID
     ) throws -> Ghostty.SurfaceView {
+        try makeSurface(in: controller, configuration: configuration(command: command, workingDirectory: workingDirectory, requestID: requestID))
+    }
+
+    private func makeSurface(in controller: TerminalController, configuration: Ghostty.SurfaceConfiguration) throws -> Ghostty.SurfaceView {
         guard let ghosttyApp = controller.ghostty.app else { throw GhosttyAttachContentHostError.noTerminalWindow }
-        let view = Ghostty.SurfaceView(
-            ghosttyApp,
-            baseConfig: configuration(command: command, workingDirectory: workingDirectory, requestID: requestID)
-        )
+        let view = Ghostty.SurfaceView(ghosttyApp, baseConfig: configuration)
         guard view.surface != nil else { throw GhosttyAttachContentHostError.surfaceUnavailable }
         return view
     }
@@ -527,18 +528,14 @@ import OSLog
             let newView = try makeSurface(in: controller, command: command, workingDirectory: workingDirectory, requestID: requestID)
 
             if let surfaceID {
-                guard let oldView = controller.surfaceTree.first(where: { $0.id == surfaceID }),
-                      let oldNode = controller.surfaceTree.root?.node(view: oldView) else {
+                guard let oldView = controller.surfaceTree.first(where: { $0.id == surfaceID }) else {
                     throw GhosttyAttachContentHostError.placeholderUnavailable
                 }
-                let newTree = try controller.surfaceTree.replacing(node: oldNode, with: .leaf(view: newView))
-                // Assigned directly (not via `replaceSurfaceTree`, which always
-                // registers an undo action -- even with a nil `undoAction` --
-                // and would let "undo" restore the old tree, resurrecting the
-                // dead `oldView` (the surface that just exited) into a live
-                // split). Focus is moved the same way `replaceSurfaceTree`
-                // does it for its `newView` argument.
-                controller.surfaceTree = newTree
+                // No undo: it would resurrect the dead `oldView` (the
+                // surface that just exited) into a live split. Focus is
+                // moved the same way `replaceSurfaceTree` does it for its
+                // `newView` argument.
+                try swapInPlace(oldView, for: newView, in: controller, unavailable: .placeholderUnavailable)
                 controller.focusedSurface = newView
                 DispatchQueue.main.async {
                     Ghostty.moveFocus(to: newView, from: oldView)
@@ -594,8 +591,47 @@ import OSLog
         }
     }
 
+    /// B-270: the new surface starts from the old one's configuration (as
+    /// a split off it would: font size and the like), with the attach's
+    /// command over it. The old surface leaves the tree with no undo, and
+    /// nothing else holds it, so it frees and its tmux client ends. Its
+    /// Ghostty-side scrollback and selection go with it; tmux's history
+    /// is redrawn by the new client.
     func reattachInPlace(_ handle: AttachmentHandle, command: String, workingDirectory: String?) throws -> AttachmentHandle {
-        throw GhosttyAttachContentHostError.surfaceUnavailable
+        runPendingReconciles()
+        guard let (controller, oldView) = liveSurface(handle), controller.surfaceTree.contains(oldView) else {
+            throw GhosttyAttachContentHostError.attachNotShown
+        }
+        let inherited = oldView.surface.map {
+            Ghostty.SurfaceConfiguration(from: ghostty_surface_inherited_config($0, GHOSTTY_SURFACE_CONTEXT_SPLIT))
+        }
+        let newView = try makeSurface(
+            in: controller,
+            configuration: attachConfiguration(inherited ?? Ghostty.SurfaceConfiguration(), command: command, workingDirectory: workingDirectory)
+        )
+        let wasFocused = controller.focusedSurface === oldView
+        let hadKeyboard = oldView.isFirstResponder
+        try swapInPlace(oldView, for: newView, in: controller, unavailable: .attachNotShown)
+        if wasFocused { controller.focusedSurface = newView }
+        if hadKeyboard { Ghostty.moveFocus(to: newView) }
+        let replacement = try register(controller, surface: newView, isAgent: true)
+        close(handle)
+        Self.logger.log("reattachInPlace window=\(handle.windowID.rawValue.uuidString, privacy: .public)")
+        return replacement
+    }
+
+    /// Puts `newView` in `oldView`'s slot of what `controller` shows; the
+    /// rest of a split stays. Assigned directly, not via
+    /// `replaceSurfaceTree`, which always registers an undo action -- even
+    /// with a nil `undoAction` -- that would put `oldView` back.
+    private func swapInPlace(
+        _ oldView: Ghostty.SurfaceView,
+        for newView: Ghostty.SurfaceView,
+        in controller: TerminalController,
+        unavailable: GhosttyAttachContentHostError
+    ) throws {
+        guard let oldNode = controller.surfaceTree.root?.node(view: oldView) else { throw unavailable }
+        controller.surfaceTree = try controller.surfaceTree.replacing(node: oldNode, with: .leaf(view: newView))
     }
 
     func focus(_ handle: AttachmentHandle) {
@@ -699,7 +735,17 @@ import OSLog
     /// its `workingDirectory`/`environmentVariables` unconditionally would
     /// have silently dropped the very thing this is meant to preserve.
     private func configuration(command: String, workingDirectory: String?, requestID: UUID) -> Ghostty.SurfaceConfiguration {
-        var configuration = requestConfigStore.consume(for: requestID) ?? Ghostty.SurfaceConfiguration()
+        attachConfiguration(requestConfigStore.consume(for: requestID) ?? Ghostty.SurfaceConfiguration(), command: command, workingDirectory: workingDirectory)
+    }
+
+    /// `base` with an attach's `command` over it; a plain shell's
+    /// (`command == ""`) is `base` as it is.
+    private func attachConfiguration(
+        _ base: Ghostty.SurfaceConfiguration,
+        command: String,
+        workingDirectory: String?
+    ) -> Ghostty.SurfaceConfiguration {
+        var configuration = base
         guard !command.isEmpty else { return configuration }
         configuration.command = command
         configuration.workingDirectory = workingDirectory
@@ -971,7 +1017,7 @@ import OSLog
 
 private enum GhosttyAttachContentHostError: Error, LocalizedError {
     case originWindowClosed, noTerminalWindow, surfaceUnavailable
-    case splitSourceUnavailable, cannotOpenSplit, placeholderNotEmpty, placeholderUnavailable
+    case splitSourceUnavailable, cannotOpenSplit, placeholderNotEmpty, placeholderUnavailable, attachNotShown
 
     var errorDescription: String? {
         switch self {
@@ -982,6 +1028,7 @@ private enum GhosttyAttachContentHostError: Error, LocalizedError {
         case .cannotOpenSplit: "Ghostty could not open a new split"
         case .placeholderNotEmpty: "The window is not an empty placeholder"
         case .placeholderUnavailable: "The placeholder surface is unavailable"
+        case .attachNotShown: "The agent's terminal is no longer on screen"
         }
     }
 }
