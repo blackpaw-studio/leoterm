@@ -111,7 +111,7 @@ extension LeoRuntime {
 
     /// The daemon's current row for the agent (its workspace may have been
     /// reported after the attach), falling back to what the attach knew.
-    private func editorContext(for identity: LeoAgentIdentity) -> LeoEditorAgentContext {
+    func editorContext(for identity: LeoAgentIdentity) -> LeoEditorAgentContext {
         let row = model.snapshot.rows.first { $0.host == identity.host && $0.name == identity.name }
         return LeoEditorAgentContext(host: identity.host, name: identity.name, workspace: row?.workspace ?? identity.workspace)
     }

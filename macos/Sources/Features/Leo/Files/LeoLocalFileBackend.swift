@@ -83,6 +83,8 @@ struct LeoLocalFileBackend: LeoFileAccessBackend {
             if fsync(descriptor) != 0 { throw Self.error(errno, path: path) }
         } catch {
             Darwin.close(descriptor)
+            // D-355: OPEN with O_EXCL established ownership of this private
+            // staging name; ordinary local failures are therefore cleanable.
             unlink(path)
             throw error
         }
@@ -90,6 +92,12 @@ struct LeoLocalFileBackend: LeoFileAccessBackend {
             let failure = Self.error(errno, path: path)
             unlink(path)
             throw failure
+        }
+    }
+
+    func publishExclusive(_ destination: String, with source: String) async throws {
+        guard renameatx_np(AT_FDCWD, source, AT_FDCWD, destination, UInt32(RENAME_EXCL)) == 0 else {
+            throw Self.error(errno, path: destination)
         }
     }
 

@@ -152,6 +152,125 @@ struct LeoWorkspaceBrowserModelTests {
     }
 
     @Test(arguments: kinds)
+    func dropsReloadTheTargetFolderAndKeepUploadErrorsUntilDismissed(_ kind: LeoFileBackendKind) async throws {
+        try await withLeoFileSandbox(kind) { sandbox, _ in
+            let source = try LeoFileSandbox()
+            defer { source.cleanUp() }
+            try sandbox.directory("target")
+            let fresh = try source.file("fresh.txt", "fresh")
+            let clash = try source.file("clash.txt", "new")
+            try sandbox.file("target/clash.txt", "old")
+            let (browser, _) = makeBrowser(kind)
+            await browser.open(agent(sandbox.root))
+            await browser.expand(sandbox.path("target"))
+
+            await browser.upload(
+                [URL(fileURLWithPath: fresh), URL(fileURLWithPath: clash)],
+                to: sandbox.path("target")
+            )
+
+            #expect(names(browser.items(in: sandbox.path("target"))) == ["clash.txt", "fresh.txt"])
+            #expect(browser.uploadDestination == nil)
+            #expect(browser.uploadError?.contains("clash.txt") == true)
+            browser.dismissUploadError()
+            #expect(browser.uploadError == nil)
+            await browser.close()
+        }
+    }
+
+    @Test
+    func overlappingDropsAreSerializedAndRetainEveryFailureUntilDismissed() async throws {
+        let source = try LeoFileSandbox()
+        let destination = try LeoFileSandbox()
+        defer {
+            source.cleanUp()
+            destination.cleanUp()
+        }
+        let first = try source.file("first.txt", "new first")
+        let second = try source.file("second.txt", "new second")
+        try destination.file("first.txt", "old first")
+        try destination.file("second.txt", "old second")
+        let gate = BrowserUploadGate()
+        let access = BrowserGatedUploadAccess(base: LeoFileAccessor.local(), gate: gate)
+        let browser = LeoWorkspaceBrowserModel(makeAccess: { _ in access }, openFile: { _ in .opened })
+        await browser.open(agent(destination.root))
+
+        let firstDrop = Task { await browser.upload([URL(fileURLWithPath: first)], to: destination.root) }
+        await gate.waitUntilEntered()
+        let secondDrop = Task { await browser.upload([URL(fileURLWithPath: second)], to: destination.root) }
+        try await Task.sleep(for: .milliseconds(50))
+
+        #expect(await gate.paths == [destination.path("first.txt")], "the second browser drop must remain queued")
+        await gate.release()
+        await firstDrop.value
+        await secondDrop.value
+
+        #expect(await gate.paths == [destination.path("first.txt"), destination.path("second.txt")])
+        #expect(browser.uploadError?.contains("first.txt") == true)
+        #expect(browser.uploadError?.contains("second.txt") == true)
+        browser.dismissUploadError()
+        #expect(browser.uploadError == nil)
+        await browser.close()
+    }
+
+    @Test
+    func closingTheBrowserCancelsTheUploadAndClosesItsAccess() async throws {
+        let source = try LeoFileSandbox()
+        let destination = try LeoFileSandbox()
+        defer {
+            source.cleanUp()
+            destination.cleanUp()
+        }
+        let file = try source.file("cancelled.txt", "payload")
+        let gate = BrowserUploadGate()
+        let access = BrowserGatedUploadAccess(base: LeoFileAccessor.local(), gate: gate)
+        let browser = LeoWorkspaceBrowserModel(makeAccess: { _ in access }, openFile: { _ in .opened })
+        await browser.open(agent(destination.root))
+        let upload = Task { await browser.upload([URL(fileURLWithPath: file)], to: destination.root) }
+        await gate.waitUntilEntered()
+
+        await browser.close()
+        await upload.value
+
+        #expect(await gate.isClosed)
+        #expect(!FileManager.default.fileExists(atPath: destination.path("cancelled.txt")))
+        #expect(browser.uploadDestination == nil)
+    }
+
+    @Test
+    func rerootingTheBrowserCancelsTheOldGenerationUpload() async throws {
+        let source = try LeoFileSandbox()
+        let firstRoot = try LeoFileSandbox()
+        let secondRoot = try LeoFileSandbox()
+        defer {
+            source.cleanUp()
+            firstRoot.cleanUp()
+            secondRoot.cleanUp()
+        }
+        let file = try source.file("stale.txt", "payload")
+        let gate = BrowserUploadGate()
+        var accesses: [any LeoFileAccess] = [
+            BrowserGatedUploadAccess(base: LeoFileAccessor.local(), gate: gate),
+            LeoFileAccessor.local(),
+        ]
+        let browser = LeoWorkspaceBrowserModel(
+            makeAccess: { _ in accesses.removeFirst() }, openFile: { _ in .opened }
+        )
+        await browser.open(agent(firstRoot.root))
+        let upload = Task { await browser.upload([URL(fileURLWithPath: file)], to: firstRoot.root) }
+        await gate.waitUntilEntered()
+
+        await browser.open(agent(secondRoot.root))
+        await upload.value
+
+        #expect(await gate.isClosed)
+        #expect(browser.root?.path == secondRoot.root)
+        #expect(!FileManager.default.fileExists(atPath: firstRoot.path("stale.txt")))
+        #expect(browser.uploadDestination == nil)
+        await browser.close()
+    }
+
+    @Test(arguments: kinds)
     func aFolderThatFailsToListShowsItsErrorInline(_ kind: LeoFileBackendKind) async throws {
         try await withLeoFileSandbox(kind) { sandbox, _ in
             try sandbox.directory("locked")
@@ -300,4 +419,56 @@ struct LeoListRecordingAccess: LeoFileAccess {
         try await base.write(data, to: path, expecting: expected)
     }
     func close() async { await base.close() }
+}
+
+private actor BrowserUploadGate {
+    private(set) var paths: [String] = []
+    private(set) var isClosed = false
+    private var blocker: CheckedContinuation<Void, Error>?
+    private var enteredWaiters: [CheckedContinuation<Void, Never>] = []
+
+    func enter(_ path: String) async throws {
+        paths.append(path)
+        guard paths.count == 1 else { return }
+        enteredWaiters.forEach { $0.resume() }
+        enteredWaiters = []
+        try await withCheckedThrowingContinuation { blocker = $0 }
+    }
+
+    func waitUntilEntered() async {
+        if !paths.isEmpty { return }
+        await withCheckedContinuation { enteredWaiters.append($0) }
+    }
+
+    func release() {
+        blocker?.resume()
+        blocker = nil
+    }
+
+    func close() {
+        isClosed = true
+        blocker?.resume(throwing: LeoFileAccessError.closed)
+        blocker = nil
+    }
+}
+
+private struct BrowserGatedUploadAccess: LeoFileAccess {
+    let base: any LeoFileAccess
+    let gate: BrowserUploadGate
+
+    func list(_ path: String) async throws -> [LeoFileEntry] { try await base.list(path) }
+    func stat(_ path: String) async throws -> LeoFileStat { try await base.stat(path) }
+    func homeDirectory() async throws -> String { try await base.homeDirectory() }
+    func read(_ path: String, maxBytes: UInt64) async throws -> LeoFileContents { try await base.read(path, maxBytes: maxBytes) }
+    func write(_ data: Data, to path: String, expecting expected: LeoFileVersion?) async throws -> LeoFileStat {
+        try await base.write(data, to: path, expecting: expected)
+    }
+    func create(_ data: Data, at path: String) async throws -> LeoFileStat {
+        try await gate.enter(path)
+        return try await base.create(data, at: path)
+    }
+    func close() async {
+        await gate.close()
+        await base.close()
+    }
 }

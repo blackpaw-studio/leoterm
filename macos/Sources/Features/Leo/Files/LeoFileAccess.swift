@@ -39,11 +39,25 @@ protocol LeoFileAccess: Sendable {
     @discardableResult
     func write(_ data: Data, to path: String, expecting expected: LeoFileVersion?) async throws -> LeoFileStat
 
+    /// Creates a new regular file without ever replacing an existing path.
+    /// A collision is `.conflict`; a failed create leaves no destination.
+    @discardableResult
+    func create(_ data: Data, at path: String) async throws -> LeoFileStat
+
     /// Releases any connection the accessor holds (the SFTP session) at
     /// once, without waiting for what's in flight, which fails. Final: every
     /// later call fails with `.closed` and nothing reconnects. Safe to call
     /// more than once.
     func close() async
+}
+
+extension LeoFileAccess {
+    /// Test doubles and specialized read-only accessors remain source
+    /// compatible. Production local and SFTP access use
+    /// `LeoFileAccessor`'s exclusive implementation below.
+    func create(_ data: Data, at path: String) async throws -> LeoFileStat {
+        throw LeoFileAccessError.unavailable(reason: "This file connection doesn’t support creating files")
+    }
 }
 
 enum LeoFileKind: Equatable, Sendable {

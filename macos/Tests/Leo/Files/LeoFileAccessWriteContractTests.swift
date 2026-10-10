@@ -9,6 +9,24 @@ import Testing
 @Suite(LeoSSHEndToEnd.trait)
 struct LeoFileAccessWriteContractTests {
     @Test(arguments: LeoFileBackendKind.allCases)
+    func createsExclusivelyWithoutReplacingAClash(_ kind: LeoFileBackendKind) async throws {
+        try await withLeoFileSandbox(kind) { sandbox, access in
+            let newPath = sandbox.path("new.txt")
+            let existingPath = try sandbox.file("existing.txt", "keep me")
+
+            let stat = try await access.create(Data("new".utf8), at: newPath)
+
+            #expect(stat.kind == .file)
+            #expect(try sandbox.contents("new.txt") == "new")
+            await #expect(throws: LeoFileAccessError.conflict(path: existingPath)) {
+                try await access.create(Data("replacement".utf8), at: existingPath)
+            }
+            #expect(try sandbox.contents("existing.txt") == "keep me")
+            #expect(try sandbox.names() == ["existing.txt", "new.txt"])
+        }
+    }
+
+    @Test(arguments: LeoFileBackendKind.allCases)
     func createsANewFileAndReturnsItsStat(_ kind: LeoFileBackendKind) async throws {
         try await withLeoFileSandbox(kind) { sandbox, access in
             let path = sandbox.path("new.txt")

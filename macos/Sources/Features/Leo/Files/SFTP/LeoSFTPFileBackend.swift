@@ -87,9 +87,19 @@ struct LeoSFTPFileBackend: LeoFileAccessBackend {
             try await client.close(handle, path: path)
         } catch {
             try? await client.close(handle, path: path)
-            try? await client.remove(path)
+            // D-355: after exclusive OPEN, this authenticated session owns
+            // the private staging name. Clean ordinary failures; a lost
+            // connection leaves server state uncertain, so retain it.
+            if !Self.isUncertain(error) { try? await client.remove(path) }
             throw error
         }
+    }
+
+    /// SFTP v3's standard RENAME is no-replace on OpenSSH, unlike the
+    /// advertised POSIX extension used by editor saves. `source` is already
+    /// complete and closed before this request is sent.
+    func publishExclusive(_ destination: String, with source: String) async throws {
+        try await client().rename(source, to: destination)
     }
 
     func remove(_ path: String) async throws {
@@ -201,6 +211,13 @@ struct LeoSFTPFileBackend: LeoFileAccessBackend {
             modified: Date(timeIntervalSince1970: TimeInterval(attributes.times?.modified ?? 0)),
             permissions: UInt16(truncatingIfNeeded: (attributes.permissions ?? 0) & 0o7777)
         )
+    }
+
+    private static func isUncertain(_ error: Error) -> Bool {
+        switch error as? LeoFileAccessError {
+        case .disconnected, .closed: true
+        default: false
+        }
     }
 }
 
