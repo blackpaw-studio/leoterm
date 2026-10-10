@@ -121,6 +121,17 @@ Lane: B-273
   Call: Remote files go through the same per-window file access (SFTP) — P3
   Call: Tab strip sits under the pane header with a dirty dot and a hover/selected close button; the header close tooltip stays "Close Editor (⌘W)" — P1
 
+Lane: B-272
+  Branch: autopilot-lane/B-272
+  Base: d11511c428c9f8c296581bc1c4ff051946b04575
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-10T10:53:28Z
+
 Finished 1: B-270 landed 28ade697f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-270-1.png
 Finished 2: B-271 landed 16b35ad0b · not visually verified
 Finished 3: B-275 landed e902d0ef1 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-275-6.png
