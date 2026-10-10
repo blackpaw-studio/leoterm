@@ -3510,3 +3510,80 @@ Chose: Accepted risks: no quarantine xattr on remote downloads; a file being wri
 Why: P2
 Commit: 1a4fe1dfb, 99a83cb7d, f56135c2f, 0d2466208, f5169647b, 0a900346a, de3d4b257
 Veto: [ ]
+
+## D-490 · 2026-10-10 · Spawn sends `environments` only when the user edited the list
+Context: B-283 (runner call).
+Chose: Spawn sends `environments` only when the user edited the list
+Why: P2
+Commit: 4b00e6f6d, dd546ac5d, bc5915c15, dcd9e72e3, 1f2d010f2, b21332672
+Veto: [ ]
+
+## D-491 · 2026-10-10 · Catalog (names plus template defaults) comes from the bound daemon's socket, n…
+Context: B-283 (runner call).
+Chose: Catalog (names plus template defaults) comes from the bound daemon's socket, not the CLI
+Why: P3/P4
+Commit: 4b00e6f6d, dd546ac5d, bc5915c15, dcd9e72e3, 1f2d010f2, b21332672
+Veto: [ ]
+
+## D-492 · 2026-10-10 · Toggle and Reset confirm with an NSAlert; Edit Order's own "Restart and Resume…
+Context: B-283 (runner call).
+Chose: Toggle and Reset confirm with an NSAlert; Edit Order's own "Restart and Resume" button is the confirmation
+Why: P1, HIG
+Commit: 4b00e6f6d, dd546ac5d, bc5915c15, dcd9e72e3, 1f2d010f2, b21332672
+Veto: [ ]
+
+## D-493 · 2026-10-10 · An override's names show in the subtitle (`claude · env: prod, aws`) and the t…
+Context: B-283 (runner call).
+Chose: An override's names show in the subtitle (`claude · env: prod, aws`) and the tooltip; `environment_error` is a plain orange line
+Why: P2
+Commit: 4b00e6f6d, dd546ac5d, bc5915c15, dcd9e72e3, 1f2d010f2, b21332672
+Veto: [ ]
+
+## D-494 · 2026-10-10 · Reset to Template Default is disabled unless the source is override
+Context: B-283 (runner call).
+Chose: Reset to Template Default is disabled unless the source is override
+Why: P1
+Commit: 4b00e6f6d, dd546ac5d, bc5915c15, dcd9e72e3, 1f2d010f2, b21332672
+Veto: [ ]
+
+## D-495 · 2026-10-10 · Editor keys: ⌫ removes, ⌥⌘↑/↓ moves, "+" menu adds
+Context: B-283 (runner call).
+Chose: Editor keys: ⌫ removes, ⌥⌘↑/↓ moves, "+" menu adds
+Why: P1
+Commit: 4b00e6f6d, dd546ac5d, bc5915c15, dcd9e72e3, 1f2d010f2, b21332672
+Veto: [ ]
+
+## D-496 · 2026-10-10 · Socket routes drop `/api/v1`, like every existing route
+Context: B-283 (runner call).
+Chose: Socket routes drop `/api/v1`, like every existing route
+Why: P4
+Commit: 4b00e6f6d, dd546ac5d, bc5915c15, dcd9e72e3, 1f2d010f2, b21332672
+Veto: [ ]
+
+## D-497 · 2026-10-10 · The submenu also lists effective names no longer in config, checked, so they c…
+Context: B-283 (runner call).
+Chose: The submenu also lists effective names no longer in config, checked, so they can be turned off
+Why: P2
+Commit: 4b00e6f6d, dd546ac5d, bc5915c15, dcd9e72e3, 1f2d010f2, b21332672
+Veto: [ ]
+
+## D-498 · 2026-10-10 · Changing the template in the spawn sheet resets the list to that template's de…
+Context: B-283 (runner call).
+Chose: Changing the template in the spawn sheet resets the list to that template's defaults
+Why: P2
+Commit: 4b00e6f6d, dd546ac5d, bc5915c15, dcd9e72e3, 1f2d010f2, b21332672
+Veto: [ ]
+
+## D-499 · 2026-10-10 · DEBUG fixture key `environments` advertises `agent_environments` and answers i…
+Context: B-283 (runner call).
+Chose: DEBUG fixture key `environments` advertises `agent_environments` and answers its routes locally; spawn is refused locally
+Why: D-396/D-449/D-471
+Commit: 4b00e6f6d, dd546ac5d, bc5915c15, dcd9e72e3, 1f2d010f2, b21332672
+Veto: [ ]
+
+## D-500 · 2026-10-10 · Edit Order sheet is an NSWindow sheet owned by `LeoEnvironmentsSheetSession`
+Context: B-283 (runner call).
+Chose: Edit Order sheet is an NSWindow sheet owned by `LeoEnvironmentsSheetSession`
+Why: P1
+Commit: 4b00e6f6d, dd546ac5d, bc5915c15, dcd9e72e3, 1f2d010f2, b21332672
+Veto: [ ]

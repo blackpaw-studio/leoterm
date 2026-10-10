@@ -72,7 +72,7 @@ Lane: B-283
   Branch: autopilot-lane/B-283
   Base: 393610ff8ccbf90d8cf08dff9cf108bb09e7feef
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 2
   Wip: none
   Reverifies: 0
@@ -92,6 +92,7 @@ Lane: B-283
 
 Finished 1: B-232 landed e2fd6c40a · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-232-1.png
 Finished 2: B-279 landed 15f779df4 · screen capture, not attached
+Finished 3: B-283 landed b82e17565 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-283-3-edit-order-sheet.png
 
 ## Progress
 - Preflight: merged main into autopilot (fast-forward to 0b83ccd7c); applied 2 inbox entries (B-278, B-279 added; B-232 answered → ready, D-474).
@@ -105,3 +106,4 @@ Finished 2: B-279 landed 15f779df4 · screen capture, not attached
 - B-279 landed 15f779df4 (full, hard; suite 2522; GUI screen captures only; SFTP + lost-connection covered by tests, not live).
 - B-283 runner dispatched: d-c022041f424d.
 - B-283 runner reported ready (2 fix rounds). Runner dismissed a round-3 blocking finding (LeoEnvironmentListEditor.swift:183 parent-loss cleanup leaves session live; only programmatic close/teardown reaches it) as accepted risk — flag in digest. Planner's plan ran over 80 lines; used as-is.
+- B-283 landed b82e17565 (full, hard; suite 2567; fixture-verified, leo PR #251 unmerged). No new lane: deadline 18:30 EDT too close.
