@@ -3,63 +3,10 @@ import Testing
 
 @testable import Ghostty
 
-/// Row badges, VoiceOver text, Jump to Next Needing Attention and the Dock
+/// Attention reasons, VoiceOver text, Jump to Next Needing Attention and the Dock
 /// label -- the pure decisions behind the attention UI.
 struct LeoAttentionPresentationTests {
     private static let host = LeoHostID.local
-
-    private struct ExpectedBadge {
-        let badge: LeoAttentionBadge
-        let symbol: String
-        let color: NSColor
-        let label: String
-    }
-
-    @Test func badgesUseTheSpecSymbolsColorsAndLabels() {
-        let expected = [
-            ExpectedBadge(badge: .working, symbol: "gearshape", color: .systemBlue, label: "Working"),
-            ExpectedBadge(badge: .needsInput, symbol: "questionmark.circle", color: .systemOrange, label: "Needs Input"),
-            ExpectedBadge(badge: .finished, symbol: "checkmark.circle", color: .systemGreen, label: "Finished"),
-            ExpectedBadge(badge: .errored, symbol: "exclamationmark.triangle", color: .systemRed, label: "Errored")
-        ]
-        for item in expected {
-            let presentation = LeoStatusPresentation.attention(item.badge)
-            #expect(presentation.symbolName == item.symbol)
-            #expect(presentation.color == Color(nsColor: item.color))
-            #expect(presentation.accessibilityLabel == item.label)
-        }
-    }
-
-    @Test func rowAccessibilityLabelNamesTheAttentionState() {
-        #expect(LeoStatusPresentation.rowAccessibilityLabel(row("alpha", attention: .needsInput)) == "alpha, Needs Input")
-        #expect(LeoStatusPresentation.rowAccessibilityLabel(row("alpha")) == "alpha, Running")
-    }
-
-    // MARK: Row layout
-
-    @Test func attentionRowShowsAnIconOnlyBadgeAndTheStateInTheSubtitle() {
-        let presentation = LeoAgentRowPresentation(row: row("alpha", template: "claude", attention: .needsInput), isSelected: false)
-        let orange = Color(nsColor: .systemOrange)
-        #expect(presentation.badge == .init(symbolName: "questionmark.circle", tint: orange))
-        #expect(presentation.subtitle?.text == "claude · Needs Input")
-        #expect(presentation.subtitle?.state == .init(label: "Needs Input", tint: orange))
-    }
-
-    @Test func selectedAttentionRowUsesThePrimaryColor() {
-        let presentation = LeoAgentRowPresentation(row: row("alpha", template: "claude", attention: .errored), isSelected: true)
-        #expect(presentation.badge == .init(symbolName: "exclamationmark.triangle", tint: .primary))
-        #expect(presentation.subtitle?.state == .init(label: "Errored", tint: .primary))
-    }
-
-    @Test func subtitleOmitsWhateverIsMissing() {
-        let noTemplate = LeoAgentRowPresentation(row: row("alpha", template: "", attention: .finished), isSelected: false)
-        #expect(noTemplate.subtitle?.text == "Finished")
-        let noAttention = LeoAgentRowPresentation(row: row("alpha", template: "claude"), isSelected: false)
-        #expect(noAttention.badge == nil)
-        #expect(noAttention.subtitle?.text == "claude")
-        #expect(noAttention.subtitle?.state == nil)
-        #expect(LeoAgentRowPresentation(row: row("alpha"), isSelected: false).subtitle == nil)
-    }
 
     // MARK: Jump to Next Needing Attention
 
@@ -149,21 +96,19 @@ struct LeoAttentionPresentationTests {
         let reason = LeoAttentionReason(kind: .permission, tool: "Bash", detail: "rm")
         let presentation = LeoStatusPresentation.attentionReason(reason)
         #expect(presentation.symbolName == "hand.raised")
-        #expect(presentation.stateWord == "Permission: Bash")
         #expect(presentation.tooltip == "Needs permission to use Bash: rm")
         #expect(presentation.notificationBody == "Needs permission to use Bash")
         let needsPermission = row("alpha", template: "claude", attention: .needsInput, reason: reason)
-        #expect(LeoStatusPresentation.rowAccessibilityLabel(needsPermission) == "alpha, Needs Permission, Bash")
-        let rowPresentation = LeoAgentRowPresentation(row: needsPermission, isSelected: false)
-        #expect(rowPresentation.badge?.symbolName == "hand.raised")
-        #expect(rowPresentation.badge?.tooltip == "Needs permission to use Bash: rm")
-        #expect(rowPresentation.subtitle?.text == "claude · Permission: Bash")
+        let rowPresentation = LeoAgentRowPresentation(row: needsPermission, error: nil)
+        #expect(rowPresentation.accessibilityLabel(name: "alpha") == "alpha, Needs Permission, Bash")
+        #expect(rowPresentation.pill.symbolName == "hand.raised")
+        #expect(rowPresentation.pill.help == "Needs permission to use Bash: rm")
+        #expect(rowPresentation.detail == .attention("Bash: rm"))
     }
 
     @Test func questionReasonPresentation() {
         let presentation = LeoStatusPresentation.attentionReason(LeoAttentionReason(kind: .question))
         #expect(presentation.symbolName == "questionmark.bubble")
-        #expect(presentation.stateWord == "Question")
         #expect(presentation.tooltip == "Asking you a question")
         #expect(presentation.notificationBody == "Has a question for you")
     }
@@ -171,7 +116,6 @@ struct LeoAttentionPresentationTests {
     @Test func elicitationReasonPresentation() {
         let bare = LeoStatusPresentation.attentionReason(LeoAttentionReason(kind: .elicitation))
         #expect(bare.symbolName == "list.bullet.rectangle")
-        #expect(bare.stateWord == "Input Request")
         #expect(bare.tooltip == "Requesting input")
         let tooled = LeoStatusPresentation.attentionReason(LeoAttentionReason(kind: .elicitation, tool: "github"))
         #expect(tooled.tooltip == "Requesting input from github")
@@ -180,16 +124,17 @@ struct LeoAttentionPresentationTests {
 
     @Test func noReasonPresentationUnchanged() {
         let plain = row("alpha", template: "claude", attention: .needsInput)
-        let presentation = LeoAgentRowPresentation(row: plain, isSelected: false)
-        #expect(presentation.badge?.symbolName == "questionmark.circle")
-        #expect(presentation.badge?.tooltip == nil)
-        #expect(presentation.subtitle?.text == "claude · Needs Input")
+        let presentation = LeoAgentRowPresentation(row: plain, error: nil)
+        #expect(presentation.pill.symbolName == "questionmark.circle")
+        #expect(presentation.pill.help == nil)
+        #expect(presentation.detail == .fallback("claude"))
     }
 
     @Test func reasonIsIgnoredUnlessTheBadgeIsNeedsInput() {
         let stray = row("alpha", attention: .finished, reason: LeoAttentionReason(kind: .question))
-        #expect(LeoAgentRowPresentation(row: stray, isSelected: false).badge?.symbolName == "checkmark.circle")
-        #expect(LeoStatusPresentation.rowAccessibilityLabel(stray) == "alpha, Finished")
+        let presentation = LeoAgentRowPresentation(row: stray, error: nil)
+        #expect(presentation.pill.symbolName == "checkmark")
+        #expect(presentation.accessibilityLabel(name: "alpha") == "alpha, Done")
     }
 
     @Test func withMetadataAndSurfacedFilesKeepTheReason() {

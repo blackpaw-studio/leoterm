@@ -19,16 +19,6 @@ struct LeoStatusPresentationTests {
         #expect(working.symbolName != idle.symbolName)
     }
 
-    @Test func agentStatusMapsEveryCaseIncludingUnknown() {
-        #expect(LeoStatusPresentation.agentStatus(.running).accessibilityLabel == "Running")
-        #expect(LeoStatusPresentation.agentStatus(.starting).accessibilityLabel == "Starting")
-        #expect(LeoStatusPresentation.agentStatus(.stopped).accessibilityLabel == "Stopped")
-
-        let unknown = LeoStatusPresentation.agentStatus(.unknown("weird"))
-        #expect(unknown.accessibilityLabel == "Status: weird")
-        #expect(unknown.symbolName == "questionmark.circle")
-    }
-
     @Test func hostConnectionIsNeutralWhenNotSelectedRegardlessOfState() {
         let neutral = LeoStatusPresentation.hostConnection(isSelected: false, state: .connected(socketPath: "/tmp/s"))
         #expect(neutral.accessibilityLabel == "Not connected")

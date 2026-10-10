@@ -145,72 +145,11 @@ struct LeoAgentMetadataTests {
 
     // MARK: Row presentation
 
-    @Test func subtitleAppendsTheRelativeTime() {
-        let metadata = LeoAgentMetadata(lastActiveAt: Self.now.addingTimeInterval(-300), isWorking: false, task: nil)
-        let presentation = LeoAgentRowPresentation(
-            row: row("alpha", template: "claude", attention: .needsInput, metadata: metadata), isSelected: false,
-            now: Self.now, timeZone: Self.utc, locale: .init(identifier: "en_US")
-        )
-        #expect(presentation.subtitle?.text == "claude · Needs Input · 5m")
-        #expect(presentation.subtitle?.lastActive == "5m")
-    }
-
-    @Test func theTimeNeverTruncatesAndTheTemplateGivesWayFirst() throws {
-        let metadata = LeoAgentMetadata(lastActiveAt: Self.now.addingTimeInterval(-300), isWorking: false, task: nil)
-        let presentation = LeoAgentRowPresentation(
-            row: row("alpha", template: "claude", attention: .needsInput, metadata: metadata), isSelected: false, now: Self.now
-        )
-        let segments = try #require(presentation.subtitle?.segments)
-        #expect(segments.map(\.text) == ["claude", "Needs Input", "5m"])
-        #expect(segments.map(\.hasSeparator) == [false, true, true])
-        #expect(segments.map(\.truncation) == [.first, .second, .never])
-        #expect(LeoAgentRowPresentation.Subtitle.Truncation.first.layoutPriority
-            < LeoAgentRowPresentation.Subtitle.Truncation.second.layoutPriority)
-        #expect(presentation.subtitle?.accessibilityLabel == "claude, last active 5 minutes ago")
-    }
-
-    @Test func segmentsOmitWhateverIsMissing() throws {
-        let metadata = LeoAgentMetadata(lastActiveAt: Self.now.addingTimeInterval(-7200), isWorking: false, task: nil)
-        let timeOnly = try #require(LeoAgentRowPresentation(row: row("alpha", template: nil, metadata: metadata), isSelected: false, now: Self.now).subtitle)
-        #expect(timeOnly.segments.map(\.text) == ["2h"])
-        #expect(timeOnly.segments.map(\.hasSeparator) == [false])
-        let noTime = try #require(LeoAgentRowPresentation(row: row("alpha", template: "claude", attention: .finished), isSelected: false).subtitle)
-        #expect(noTime.segments.map(\.truncation) == [.first, .second])
-    }
-
-    @Test func aWorkingAgentIsActiveNow() {
-        let metadata = LeoAgentMetadata(lastActiveAt: Self.now.addingTimeInterval(-3 * 3600), isWorking: true, task: nil)
-        let presentation = LeoAgentRowPresentation(row: row("alpha", template: "claude", metadata: metadata), isSelected: false, now: Self.now)
-        #expect(presentation.subtitle?.text == "claude · now")
-    }
-
-    @Test func timeAloneMakesASubtitle() {
-        let metadata = LeoAgentMetadata(lastActiveAt: Self.now.addingTimeInterval(-7200), isWorking: false, task: nil)
-        let presentation = LeoAgentRowPresentation(row: row("alpha", template: nil, metadata: metadata), isSelected: false, now: Self.now)
-        #expect(presentation.subtitle?.text == "2h")
-    }
-
-    @Test func missingMetadataAddsNothing() {
-        let presentation = LeoAgentRowPresentation(row: row("alpha", template: "claude"), isSelected: false, now: Self.now)
-        #expect(presentation.subtitle?.text == "claude")
-        #expect(presentation.subtitle?.lastActive == nil)
-        #expect(presentation.task == nil)
-        let bare = LeoAgentRowPresentation(row: row("alpha", template: nil), isSelected: false, now: Self.now)
-        #expect(bare.subtitle == nil, "no placeholder")
-    }
-
-    @Test func noClockNoTime() {
-        let metadata = LeoAgentMetadata(lastActiveAt: Self.now, isWorking: false, task: "Reading")
-        let presentation = LeoAgentRowPresentation(row: row("alpha", template: "claude", metadata: metadata), isSelected: false)
-        #expect(presentation.subtitle?.text == "claude")
-        #expect(presentation.task == "Reading")
-    }
-
     @Test func taskComesFromMetadataNotTheEventDrivenDetail() {
         let fromEvents = LeoAgentRow(host: .local, name: "alpha", template: nil, status: .running, activity: .working, actionDetail: "event detail")
-        #expect(LeoAgentRowPresentation(row: fromEvents, isSelected: false, now: Self.now).task == nil)
+        #expect(LeoAgentRowPresentation(row: fromEvents, error: nil, now: Self.now).detail == .fallback(LeoAgentRowPresentation.emptyFallback))
         let metadata = LeoAgentMetadata(lastActiveAt: nil, isWorking: false, task: "snapshot task")
-        #expect(LeoAgentRowPresentation(row: row("alpha", template: nil, metadata: metadata), isSelected: false, now: Self.now).task == "snapshot task")
+        #expect(LeoAgentRowPresentation(row: row("alpha", template: nil, metadata: metadata), error: nil, now: Self.now).detail == .task("snapshot task"))
     }
 
     // MARK: Helpers
