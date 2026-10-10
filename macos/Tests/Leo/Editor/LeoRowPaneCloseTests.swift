@@ -49,9 +49,9 @@ import Testing
     /// `shell`'s pane, open on `a.txt` and edited, its prompt answered from `prompts`.
     private func editInPane(of shell: AttachmentHandle, _ fixture: Fixture, _ sandbox: LeoFileSandbox, _ prompts: Prompts) async throws -> LeoRowPane {
         let pane = fixture.panes.pane(for: .terminal(shell.surfaceID))
-        try await pane.editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
-        pane.editor.document?.edit("edited")
-        pane.editor.confirmUnsaved = { document in
+        try await pane.tabs.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
+        pane.tabs.document?.edit("edited")
+        pane.tabs.confirmUnsaved = { document in
             prompts.asked.append(document.displayName)
             return prompts.answer
         }
@@ -86,7 +86,7 @@ import Testing
             #expect(fixture.terminals.rows.map(\.id) == [neighbour.surfaceID])
             #expect(fixture.panes.active === pane)
             #expect(fixture.panes.isStartScreenOrphan)
-            #expect(pane.editor.document?.isDirty == true)
+            #expect(pane.tabs.document?.isDirty == true)
             await tearDown(fixture)
         }
     }
@@ -141,7 +141,7 @@ import Testing
             prompts.answer = .discard
             fixture.controller.closeSurface(node, withConfirmation: true)
             #expect(await turns { fixture.panes.existingPane(for: .terminal(shell.surfaceID)) == nil })
-            #expect(pane.editor.document == nil, "closed through its prompt, not kept as an orphan")
+            #expect(pane.tabs.document == nil, "closed through its prompt, not kept as an orphan")
             if let window = fixture.controller.window, let sheet = window.attachedSheet { window.endSheet(sheet) }
             await tearDown(fixture)
         }

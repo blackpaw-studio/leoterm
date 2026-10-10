@@ -33,7 +33,7 @@ struct LeoRowPaneContainerTests {
 
         var editorItem: NSSplitViewItem { split.splitViewItems[3] }
         var editorPane: LeoEditorPaneViewController? {
-            (editorItem.viewController as? LeoRowPaneContainerViewController)?.activeChild as? LeoEditorPaneViewController
+            ((editorItem.viewController as? LeoRowPaneContainerViewController)?.activeChild as? LeoEditorTabsViewController)?.shown
         }
 
         func layout() {
@@ -42,7 +42,7 @@ struct LeoRowPaneContainerTests {
 
         func open(_ path: String, in key: LeoRowKey) async throws {
             panes.activate(key)
-            try await panes.active.editor.open(LeoEditorFileID(host: .local, path: path))
+            try await panes.active.tabs.open(LeoEditorFileID(host: .local, path: path))
             #expect(await eventually { !self.editorItem.isCollapsed })
             layout()
         }
@@ -80,7 +80,7 @@ struct LeoRowPaneContainerTests {
             #expect(paneA.textView.selectedRange() == selection)
             #expect(abs(paneA.textView.visibleRect.origin.y - scroll) <= 1)
             #expect(paneA.textView.undoManager?.canUndo == true)
-            #expect(harness.panes.active.editor.document?.isDirty == true)
+            #expect(harness.panes.active.tabs.document?.isDirty == true)
             await harness.close()
         }
     }
@@ -124,7 +124,7 @@ struct LeoRowPaneContainerTests {
             let path = try sandbox.file("a.txt", "a")
             let harness = Harness()
             try await harness.open(path, in: Self.agentA)
-            let document = try #require(harness.panes.active.editor.document)
+            let document = try #require(harness.panes.active.tabs.document)
             harness.panes.activate(Self.agentB)
             try sandbox.file("a.txt", "changed elsewhere")
 

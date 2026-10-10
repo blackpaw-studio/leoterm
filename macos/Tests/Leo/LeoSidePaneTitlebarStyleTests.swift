@@ -83,6 +83,12 @@ private struct SidePaneHeaders: CustomStringConvertible {
         let items = fixture.split.splitViewItems
         let browserItem = try #require(items.first { $0.leoPaneRole == .browser }, "no browser item")
         let editorItem = try #require(items.first { $0.leoPaneRole == .editor }, "no editor item")
+        // B-273: the editor shows a tab's header once a file is open.
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("leo-side-pane-\(UUID().uuidString).txt")
+        try Data("a".utf8).write(to: file)
+        defer { try? FileManager.default.removeItem(at: file) }
+        let tabs = try #require(fixture.controller.leoSession?.editor, "no editor tabs")
+        try await tabs.open(LeoEditorFileID(host: .local, path: file.path), access: { _ in LeoFileAccessor.local() })
         browserItem.isCollapsed = false
         editorItem.isCollapsed = false
         for _ in 0 ..< 5 {
@@ -92,8 +98,9 @@ private struct SidePaneHeaders: CustomStringConvertible {
         try #require(!browserItem.isCollapsed && !editorItem.isCollapsed, "a pane collapsed again")
 
         let browserClose = try #require(firstButton(in: browserItem.viewController.view, toolTip: "Close Files"), "no browser close button")
-        // The editor item holds the pane of the row on screen (B-274).
-        let editorView = try #require(editorItem.viewController.view.subviews.first, "no editor pane")
+        // The editor item holds the pane of the row on screen (B-274), and
+        // that its selected tab's (B-273).
+        let editorView = try #require(editorItem.viewController.view.subviews.first?.subviews.first, "no editor pane")
         let editorRow = try #require(editorView.subviews.first { $0 is LeoEditorHeaderView }, "no editor header")
         let editorClose = try #require(firstButton(in: editorRow, toolTip: "Close Editor (⌘W)"), "no editor close button")
         return SidePaneHeaders(

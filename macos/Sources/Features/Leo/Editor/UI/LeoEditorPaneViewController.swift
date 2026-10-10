@@ -1,11 +1,13 @@
 import AppKit
 import Combine
 
-/// The window's editor pane (the trailing split item beside the terminal):
-/// header, inline banner, and text view, bound to a `LeoEditorPaneModel`.
-/// It collapses its own split item while no file is open, checks the disk
-/// whenever its window becomes key (or its row is shown again), and closes
-/// on ⌘W while it has focus. One per row (B-274).
+/// One editor tab's view (B-273): header, inline banner, and text view,
+/// bound to a `LeoEditorPaneModel`. It checks the disk whenever its window
+/// becomes key (or it's shown again), and closes on ⌘W while it has
+/// focus. It never takes focus by itself -- not on a new document, not on
+/// a reveal -- so a file opened in the background leaves focus where it
+/// is; `LeoEditorTabsViewController` focuses it when the user asks. One
+/// per tab, so undo, scroll and selection survive switching tabs.
 final class LeoEditorPaneViewController: NSViewController {
     static let minimumWidth: CGFloat = 320
 
@@ -15,6 +17,7 @@ final class LeoEditorPaneViewController: NSViewController {
     /// `LeoTitlebarInsets.sidePaneHeaderTopInset`.
     private let headerTopInset: CGFloat?
     private let header = LeoEditorHeaderView()
+    private let separator = NSBox()
     let banner = LeoEditorBannerView()
     private let scrollView: NSScrollView
     let textView: LeoEditorTextView
@@ -24,6 +27,12 @@ final class LeoEditorPaneViewController: NSViewController {
     private weak var shownDocument: LeoEditorDocument?
     private var shownRevision = 0
     private var appliedReveal: UUID?
+    /// The files the header's pop-up offers; the model's own by default.
+    var recents: () -> [LeoEditorFileID]
+    /// Opens a file the header's pop-up offers.
+    var onSelectRecent: ((LeoEditorFileID) -> Void)?
+    /// Closes this tab (the header's button, ⌘W); closes the document by default.
+    var onCloseRequest: (() -> Void)?
 
     /// Binds to the model right away: a collapsed split item's view isn't
     /// loaded until it is shown, so binding in `loadView` would never show it.
@@ -31,6 +40,7 @@ final class LeoEditorPaneViewController: NSViewController {
         self.model = model
         self.headerTopInset = headerTopInset
         (scrollView, textView) = LeoEditorTextView.make()
+        recents = { [weak model] in model?.recents ?? [] }
         super.init(nibName: nil, bundle: nil)
         textView.delegate = self
         header.onSelectRecent = { [weak self] fileID in self?.openRecent(fileID) }
@@ -47,7 +57,6 @@ final class LeoEditorPaneViewController: NSViewController {
     }
 
     override func loadView() {
-        let separator = NSBox()
         separator.boxType = .separator
         let rows = [header, separator, banner, scrollView]
         let stack = NSStackView(views: rows)
@@ -67,9 +76,19 @@ final class LeoEditorPaneViewController: NSViewController {
         view.widthAnchor.constraint(greaterThanOrEqualToConstant: Self.minimumWidth).isActive = true
     }
 
+    /// Puts the pane's tab strip (B-273) under this tab's header. One strip
+    /// serves every tab: it moves to the tab on screen.
+    func install(tabBar: NSView) {
+        guard let stack = view as? NSStackView, tabBar.superview !== stack,
+              let index = stack.arrangedSubviews.firstIndex(of: separator) else { return }
+        tabBar.removeFromSuperview()
+        stack.insertArrangedSubview(tabBar, at: index + 1)
+        tabBar.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+    }
+
     // MARK: - Actions (responder chain, while focus is in the pane)
 
-    /// ⌘W with focus in the pane closes the editor, not the terminal.
+    /// ⌘W with focus in the pane closes the tab, not the terminal.
     @objc func close(_ sender: Any?) {
         closePane()
     }
@@ -119,7 +138,6 @@ final class LeoEditorPaneViewController: NSViewController {
     }
 
     private func show(_ document: LeoEditorDocument?) {
-        setLeoSplitItemCollapsed(document == nil, openingAtHalfWidth: true)
         documentSubscriptions.removeAll()
         guard let document else {
             shownDocument = nil
@@ -135,7 +153,6 @@ final class LeoEditorPaneViewController: NSViewController {
             textView.load(document.text, keepingSelection: false)
             appliedReveal = nil
             apply(model.reveal)
-            focusText()
         }
         // Chrome follows every published change (the next run-loop turn,
         // after the value has landed).
@@ -157,8 +174,8 @@ final class LeoEditorPaneViewController: NSViewController {
         refreshChrome()
     }
 
-    private func refreshChrome() {
-        header.update(document: model.document, recents: model.recents)
+    func refreshChrome() {
+        header.update(document: model.document, recents: recents())
         banner.show(shownBanner)
         if let document = shownDocument { textView.isEditable = isEditable(document) }
     }
@@ -183,7 +200,6 @@ final class LeoEditorPaneViewController: NSViewController {
         guard let reveal, reveal.id != appliedReveal, reveal.fileID == shownDocument?.fileID else { return }
         appliedReveal = reveal.id
         textView.reveal(line: reveal.line, column: reveal.column)
-        focusText()
     }
 
     // MARK: - Disk checks
@@ -216,6 +232,7 @@ final class LeoEditorPaneViewController: NSViewController {
     }
 
     private func openRecent(_ fileID: LeoEditorFileID) {
+        if let onSelectRecent { return onSelectRecent(fileID) }
         Task { [weak self] in
             guard let self else { return }
             do {
@@ -229,6 +246,7 @@ final class LeoEditorPaneViewController: NSViewController {
     }
 
     private func closePane() {
+        if let onCloseRequest { return onCloseRequest() }
         let window = view.window
         Task { [weak self] in
             guard let self, await model.close() else { return }

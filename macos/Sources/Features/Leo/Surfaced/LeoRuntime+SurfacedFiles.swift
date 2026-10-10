@@ -17,7 +17,7 @@ extension LeoRuntime {
         let router = rowPaneRouter
         Task { [weak self] in
             guard let self, let (destination, pane) = await router.pane(for: row, from: session) else { return }
-            let editor = pane.editor
+            let editor = pane.tabs
             let target = LeoSurfacedFileOpener.Target(
                 stat: { try await editor.stat($0) },
                 open: { fileID, line, isStillWanted in

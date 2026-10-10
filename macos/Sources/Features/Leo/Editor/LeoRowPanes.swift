@@ -19,30 +19,31 @@ enum LeoRowKey: Hashable, Sendable {
     }
 }
 
-/// One row's editor pane and workspace browser. The browser opens files in
+/// One row's editor tabs and workspace browser. The browser opens files in
 /// this row's editor, never another's.
 @MainActor final class LeoRowPane {
-    let editor: LeoEditorPaneModel
+    let tabs: LeoEditorTabs
     let browser: LeoWorkspaceBrowserModel
 
-    init(editor: LeoEditorPaneModel, browser: LeoWorkspaceBrowserModel) {
-        self.editor = editor
+    init(tabs: LeoEditorTabs, browser: LeoWorkspaceBrowserModel) {
+        self.tabs = tabs
         self.browser = browser
     }
 
     convenience init(makeAccess: @escaping @MainActor (LeoHostID) throws -> any LeoFileAccess) {
-        let editor = LeoEditorPaneModel(makeAccess: makeAccess)
-        self.init(editor: editor, browser: LeoWorkspaceBrowserModel(makeAccess: makeAccess, openFile: { try await editor.open($0) }))
+        let tabs = LeoEditorTabs(makeAccess: makeAccess)
+        self.init(tabs: tabs, browser: LeoWorkspaceBrowserModel(makeAccess: makeAccess, openFile: { try await tabs.open($0) }))
     }
 
-    var isOpen: Bool { editor.isOpen || browser.isOpen }
-    var hasUnsavedEdits: Bool { LeoUnsavedEditorsGate.hasUnsavedEdits(editor) }
+    var isOpen: Bool { tabs.isOpen || browser.isOpen }
+    /// Any of its tabs has unsaved edits.
+    var hasUnsavedEdits: Bool { tabs.hasUnsavedEdits }
 
-    /// Drops the document without asking and closes the browser, releasing
-    /// both file accesses (for a remote host, their `sftp` processes).
+    /// Drops every tab's document without asking and closes the browser,
+    /// releasing their file accesses (for a remote host, `sftp` processes).
     func release() async {
         await browser.close()
-        await editor.release()
+        await tabs.release()
     }
 }
 
@@ -102,7 +103,8 @@ enum LeoRowKey: Hashable, Sendable {
         return [active] + (keyed + orphans).filter { $0 !== active }
     }
 
-    var allEditors: [LeoEditorPaneModel] { all.map(\.editor) }
+    /// Every tab of every pane, for the gate.
+    var allEditors: [LeoEditorPaneModel] { all.flatMap(\.tabs.tabs) }
     var hasUnsavedEdits: Bool { all.contains(where: \.hasUnsavedEdits) }
     var keys: [LeoRowKey] { order }
 
@@ -123,11 +125,12 @@ enum LeoRowKey: Hashable, Sendable {
         if active !== pane { active = pane }
     }
 
-    /// Closes `key`'s pane, asking first when it has unsaved edits. `false`
-    /// when the user cancelled (or Save failed): the pane stays.
+    /// Closes `key`'s pane, asking first about each tab with unsaved
+    /// edits. `false` when the user cancelled (or Save failed): the pane
+    /// stays, with the tabs not yet closed.
     func close(_ key: LeoRowKey) async -> Bool {
         guard let pane = panes[key] else { return true }
-        guard await pane.editor.close() else { return false }
+        guard await pane.tabs.closeAll() else { return false }
         // Its row went (or was carried on) meanwhile: nothing left to do.
         guard panes[key] === pane else { return true }
         remove(key)
@@ -200,7 +203,7 @@ enum LeoRowKey: Hashable, Sendable {
         panes[key] = pane
         order.append(key)
         guard installingPrompt else { return }
-        pane.editor.confirmUnsaved = { [weak self, weak pane] document in
+        pane.tabs.confirmUnsaved = { [weak self, weak pane] document in
             guard let self else { return .cancel }
             let isOnScreen = pane === active
             return await confirm(document, isOnScreen ? nil : rowName(self.key(holding: pane) ?? .startScreen))

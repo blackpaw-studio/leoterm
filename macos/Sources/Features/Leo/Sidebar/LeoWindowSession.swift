@@ -57,10 +57,10 @@ struct LeoWindowVisibilityState: Equatable {
     /// Each row's editor and browser in this window (B-274); the one on
     /// screen belongs to the row the window shows.
     let panes: LeoRowPanes
-    /// The editor pane on screen (B-004), beside the terminal.
-    var editor: LeoEditorPaneModel { panes.active.editor }
+    /// The editor pane on screen (B-004), beside the terminal: its tabs (B-273).
+    var editor: LeoEditorTabs { panes.active.tabs }
     /// Its view, once the window's split view has built it (focus moves).
-    var editorPane: LeoEditorPaneViewController? { editorContainer?.activeChild as? LeoEditorPaneViewController }
+    var editorPane: LeoEditorTabsViewController? { editorContainer?.activeChild as? LeoEditorTabsViewController }
     /// The workspace browser on screen (B-005), on the editor's leading
     /// edge; it opens files in its own row's editor.
     var browser: LeoWorkspaceBrowserModel { panes.active.browser }

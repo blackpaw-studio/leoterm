@@ -521,8 +521,8 @@ import Testing
             coordinator.onRowShown = { _, key in panes.activate(key) }
             await coordinator.attach(identity: identity, from: origin, disposition: .content)
             let first = try #require(host.handles.last)
-            try await panes.active.editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
-            let document = try #require(panes.active.editor.document)
+            try await panes.active.tabs.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
+            let document = try #require(panes.active.tabs.document)
 
             for index in 0 ..< LeoLivePoolCapacity.perWindow + 1 {
                 await coordinator.attach(identity: LeoAgentIdentity(host: .local, name: "agent\(index)"), from: origin, disposition: .content)
@@ -531,7 +531,7 @@ import Testing
             await coordinator.attach(identity: identity, from: origin, disposition: .content)
 
             #expect(panes.activeKey == .agent(identity))
-            #expect(panes.active.editor.document === document)
+            #expect(panes.active.tabs.document === document)
             await panes.releaseAll()
         }
     }

@@ -681,7 +681,7 @@ import OSLog
             // A start screen the window's last terminal row left isn't new.
             isUnfilledPlaceholder: controller.leoIsUnfilledPlaceholder && !controller.leoHasShownContent,
             hasTerminal: !controller.surfaceTree.isEmpty,
-            isEditorOpen: session.panes.all.contains { $0.editor.isOpen },
+            isEditorOpen: session.panes.all.contains { $0.tabs.isOpen },
             isBrowserOpen: session.panes.all.contains { $0.browser.isOpen }
         )
     }

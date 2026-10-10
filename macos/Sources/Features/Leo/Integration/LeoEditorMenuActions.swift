@@ -5,7 +5,7 @@ import AppKit
 /// is in the window; ⌘W closes the pane only while it has focus (see
 /// `LeoEditorPaneViewController.close(_:)`).
 extension TerminalController {
-    private var leoEditor: LeoEditorPaneModel? { leoSession?.editor }
+    private var leoEditor: LeoEditorTabs? { leoSession?.editor }
 
     /// Agents ▸ Open File in Editor… (⇧⌘O): a path relative to the focused
     /// agent's workspace.
