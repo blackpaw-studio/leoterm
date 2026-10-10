@@ -170,14 +170,14 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         let request = refillingExitedPane(of: identity, placed)
         let isHidden = request.disposition == .content && hiddenHandle(of: identity, in: request.origin) != nil
         // Showing a hidden surface needs no command; attaching anew builds
-        // it before asking, so a bad executable never asks first.
-        let built = isHidden ? nil : attachCommand(for: identity)
-        if case .failure(let error) = built { return .failure(error) }
+        // it before asking, so a bad executable never asks first -- and
+        // again after, since a hello may have landed meanwhile (B-270).
+        if !isHidden, case .failure(let error) = attachCommand(for: identity) { return .failure(error) }
         guard await confirmReplacingContent(for: request) else {
             return .failure(.init(identity: identity, kind: .cancelled))
         }
         if isHidden, let handle = revealHidden(identity, in: request.origin) { return .success(handle) }
-        switch built ?? attachCommand(for: identity) {
+        switch attachCommand(for: identity) {
         case .success(let command): return attachAnew(identity: identity, command: command, request: request)
         case .failure(let error): return .failure(error)
         }
