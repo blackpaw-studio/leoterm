@@ -18,8 +18,12 @@ import Foundation
     /// The template default `environments` was last prefilled with: an
     /// untouched prefill isn't sent, so the agent isn't marked an override.
     private var environmentPrefill: [String] = []
-    /// The selected host's daemon advertised `agent_environments`.
-    let showsEnvironments: Bool
+    /// The spawn host's daemon advertises `agent_environments` now: follows
+    /// hello live, so the section comes and goes with the connection.
+    @Published private(set) var showsEnvironments = false
+    /// The template and host `environmentPrefill` was taken for: only a
+    /// change of either resets the list; a catalog republish keeps edits.
+    private var prefillKey: (template: String, host: LeoHostID?)?
     private var prefillObservation: AnyCancellable?
     @Published private(set) var error: String?
     @Published private(set) var isSpawning = false
@@ -35,9 +39,9 @@ import Foundation
     init(templateList: AnyPublisher<LeoTemplateListState, Never>, source: LeoAgentRow? = nil,
          selectedHost: AnyPublisher<LeoHostID, Never> = Empty().eraseToAnyPublisher(),
          environmentCatalog: AnyPublisher<LeoEnvironmentCatalogState, Never> = Empty().eraseToAnyPublisher(),
-         environmentsSupported: Bool = false) {
+         environmentsSupported: AnyPublisher<Bool, Never> = Just(false).eraseToAnyPublisher()) {
         self.source = source
-        showsEnvironments = environmentsSupported
+        environmentsSupported.removeDuplicates().assign(to: &$showsEnvironments)
         if let source {
             template = source.template ?? ""
             repo = source.repo ?? ""
@@ -49,14 +53,21 @@ import Foundation
             $branch.dropFirst().map { _ in () }, $selectedHost.dropFirst().map { _ in () }
         ).sink { [weak self] in self?.error = nil }
         environmentCatalog.assign(to: &$environmentCatalog)
-        prefillObservation = $template.combineLatest($environmentCatalog).sink { [weak self] template, catalog in
-            self?.prefillEnvironments(template: template, catalog: catalog)
+        prefillObservation = Publishers.CombineLatest3($template, $environmentCatalog, $selectedHost).sink { [weak self] template, catalog, host in
+            self?.prefillEnvironments(template: template, catalog: catalog, host: host)
         }
     }
 
-    private func prefillEnvironments(template: String, catalog: LeoEnvironmentCatalogState) {
+    /// A template or host change resets the list to the template's
+    /// default. A catalog republish for the same pair (reconnect, refresh)
+    /// only refreshes the default, and the list follows it unless edited.
+    private func prefillEnvironments(template: String, catalog: LeoEnvironmentCatalogState, host: LeoHostID?) {
+        let keyChanged = prefillKey.map { $0.template != template || $0.host != host } ?? true
+        guard keyChanged || catalog.catalog != nil else { return }
+        let isEdited = environments.names != environmentPrefill
+        prefillKey = (template, host)
         environmentPrefill = catalog.catalog?.defaults(for: template) ?? []
-        environments = LeoEnvironmentList(environmentPrefill)
+        if keyChanged || !isEdited { environments = LeoEnvironmentList(environmentPrefill) }
     }
 
     /// What the spawn sends: nothing unless the list differs from the prefill.

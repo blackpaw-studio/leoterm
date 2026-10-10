@@ -146,13 +146,30 @@ enum LeoEnvironmentsWire {
     }
 
     /// `GET /templates`: each template's `environments`; missing reads as `[]`.
-    static func templateDefaults(_ data: Data) throws -> [String: [String]] {
+    /// `namesKey` is a parameter only so a test can prove it is the one read.
+    static func templateDefaults(_ data: Data, namesKey: String = namesKey) throws -> [String: [String]] {
         struct Entry: Decodable, Sendable {
+            static let namesKeyInfo = CodingUserInfoKey(rawValue: "leo.environments.namesKey")!
             let name: String
-            let environments: [String]?
+            let environments: [String]
+            init(from decoder: any Decoder) throws {
+                let container = try decoder.container(keyedBy: Key.self)
+                name = try container.decode(String.self, forKey: Key(stringValue: "name"))
+                let namesKey = decoder.userInfo[Self.namesKeyInfo] as? String ?? LeoEnvironmentsWire.namesKey
+                environments = (try? container.decodeIfPresent([String].self, forKey: Key(stringValue: namesKey))) ?? []
+            }
         }
-        let entries = try LeoDaemonEnvelope<[Entry]>.decode(data).value()
-        return Dictionary(entries.map { ($0.name, $0.environments ?? []) }, uniquingKeysWith: { first, _ in first })
+        let decoder = JSONDecoder()
+        decoder.userInfo[Entry.namesKeyInfo] = namesKey
+        let entries: [Entry]
+        do {
+            entries = try decoder.decode(LeoDaemonEnvelope<[Entry]>.self, from: data).value()
+        } catch let error as LeoDaemonError {
+            throw error
+        } catch {
+            throw LeoDaemonError.decoding(String(describing: error))
+        }
+        return Dictionary(entries.map { ($0.name, $0.environments) }, uniquingKeysWith: { first, _ in first })
     }
 
     static func setBody(_ names: [String]) throws -> Data {

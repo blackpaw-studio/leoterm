@@ -49,7 +49,7 @@ import Testing
     private func spawnModel(supported: Bool = true) -> SpawnAgentModel {
         let model = SpawnAgentModel(
             templateList: Just(.loaded([LeoTemplate(name: "claude"), LeoTemplate(name: "bare")])).eraseToAnyPublisher(),
-            environmentCatalog: Just(.loaded(Self.catalog)).eraseToAnyPublisher(), environmentsSupported: supported
+            environmentCatalog: Just(.loaded(Self.catalog)).eraseToAnyPublisher(), environmentsSupported: Just(supported).eraseToAnyPublisher()
         )
         model.template = "claude"
         return model

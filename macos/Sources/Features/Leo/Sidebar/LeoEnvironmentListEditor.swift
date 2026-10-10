@@ -121,6 +121,20 @@ struct LeoEnvironmentsSheet: View {
     }
 }
 
+/// What a sheet is presented from on `window`. Terminal windows set
+/// `contentView` directly and have no `contentViewController` (see
+/// `LeoSpawnAgentSheetPresenter`), so an anchor controller whose view IS
+/// the content view stands in, and `presentAsSheet` attaches to the window.
+@MainActor enum LeoSheetHost {
+    static func viewController(for window: NSWindow?) -> NSViewController? {
+        if let controller = window?.contentViewController { return controller }
+        guard let contentView = window?.contentView else { return nil }
+        let anchor = NSViewController()
+        anchor.view = contentView
+        return anchor
+    }
+}
+
 /// Presents the environment change UI for both entry points (the row's
 /// context menu and the Agent menu), so they can't drift apart.
 @MainActor enum LeoEnvironmentChange {
@@ -151,7 +165,7 @@ struct LeoEnvironmentsSheet: View {
             confirm(row, names: [], actions: actions, window: window)
         case .editOrder:
             let sheet = NSHostingController(rootView: LeoEnvironmentsSheet(row: row, actions: actions))
-            window?.contentViewController?.presentAsSheet(sheet)
+            LeoSheetHost.viewController(for: window)?.presentAsSheet(sheet)
         case .placeholder, .separator:
             break
         }

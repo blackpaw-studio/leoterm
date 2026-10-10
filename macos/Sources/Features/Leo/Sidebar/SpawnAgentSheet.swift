@@ -17,12 +17,15 @@ struct SpawnAgentSheet: View {
          attach: @escaping (LeoAgentRow, AttachDisposition) -> Void,
          chooseDirectory: @escaping () -> String? = SpawnAgentSheet.openPanel) {
         sidebar = model; self.actions = actions; self.attach = attach
-        let host = source?.host ?? actions.hostSelection.selected
         _model = StateObject(wrappedValue: SpawnAgentModel(
             templateList: actions.$templateList.eraseToAnyPublisher(), source: source,
             selectedHost: actions.hostSelection.$selected.eraseToAnyPublisher(),
             environmentCatalog: actions.$environmentCatalog.eraseToAnyPublisher(),
-            environmentsSupported: model.hostFeatures.applying(to: host).contains(.agentEnvironments)
+            environmentsSupported: model.$snapshot.combineLatest(actions.hostSelection.$selected)
+                .map { snapshot, selected in
+                    snapshot.advertised.applying(to: source?.host ?? selected).contains(.agentEnvironments)
+                }
+                .eraseToAnyPublisher()
         ))
         self.chooseDirectory = chooseDirectory
     }
