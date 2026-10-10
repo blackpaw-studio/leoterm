@@ -38,7 +38,7 @@ import OSLog
     private let requestConfigStore: LeoRequestConfigStore
     /// B-145: what a window opened as a bare start screen inherited (⌘N's
     /// font size, say), for requests made from it with nothing of their own
-    /// to inherit; released with the window.
+    /// to inherit; released once a surface opens from the window, or with it.
     private var startScreenConfigs: [LeoWindowID: Ghostty.SurfaceConfiguration] = [:]
     private let orphanStore: LeoTunnelOrphanStore
     private let localDaemon: any LeoDaemonClient
@@ -186,7 +186,9 @@ import OSLog
                 guard let attachCoordinator else {
                     return .failure(.init(identity: identity, kind: .openFailed("Leo runtime is unavailable")))
                 }
-                return await attachCoordinator.attach(identity: identity, request: request, placement: placement).map { _ in () }
+                let result = await attachCoordinator.attach(identity: identity, request: request, placement: placement)
+                if case .success = result { weakSelf?.startScreenConfigs.removeValue(forKey: request.origin) }
+                return result.map { _ in () }
             },
             openPlainShell: { [weak attachCoordinator] request in
                 guard let attachCoordinator else {
@@ -195,7 +197,9 @@ import OSLog
                         kind: .openFailed("Leo runtime is unavailable")
                     ))
                 }
-                return await attachCoordinator.openPlainShell(request: request).map { _ in () }
+                let result = await attachCoordinator.openPlainShell(request: request)
+                if case .success = result { weakSelf?.startScreenConfigs.removeValue(forKey: request.origin) }
+                return result.map { _ in () }
             },
             presentSpawn: { [weak pickerRouter] request, complete in
                 guard let pickerRouter else {
@@ -499,6 +503,7 @@ import OSLog
             guard let self else { return }
             let result = await attachCoordinator.openPlainShell(request: request)
             requestConfigStore.drop(for: request.id)
+            if case .success = result { startScreenConfigs.removeValue(forKey: origin) }
             if case .failure(let error) = result, !error.isCancellation { model.setPanelError(error.message) }
         }
     }

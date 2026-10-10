@@ -466,6 +466,54 @@ struct LeoLaunchPlaceholderIntegrationTests {
         #expect(font == 31)
         #expect(!session.isPickerPresented)
     }
+
+    /// B-145: the held config is the first terminal's alone. A request
+    /// cancelled before it (Esc on the palette) leaves it held; once a
+    /// terminal has opened from the start screen, a later configless
+    /// request starts from the defaults, not the original font size.
+    @Test func theHeldFontSizeSurvivesACancelAndEndsWithTheFirstTerminal() async throws {
+        let app = try liveApp()
+        let before = Set(TerminalController.all.map(ObjectIdentifier.init))
+        var inherited = Ghostty.SurfaceConfiguration()
+        inherited.fontSize = 31
+        withoutUndo(app) {
+            NotificationCenter.default.post(
+                name: Ghostty.Notification.ghosttyNewWindow,
+                object: nil,
+                userInfo: [Ghostty.Notification.NewSurfaceConfigKey: inherited]
+            )
+        }
+        let opened = TerminalController.all.filter { !before.contains(ObjectIdentifier($0)) }
+        defer { opened.forEach { close($0) } }
+        let window = try #require(opened.first)
+        let session = try #require(window.leoSession)
+        try #require(await settle(app, window), "the window never settled")
+
+        app.leoRuntime.routeNewSurface(.placeholder, origin: session.id)
+        app.leoRuntime.newSurfaceRouter.invalidate(origin: session.id)
+        let first = try await openTerminal(app, in: window, replacing: nil)
+        let second = try await openTerminal(app, in: window, replacing: first)
+
+        #expect(fontSize(of: first) == 31)
+        #expect(fontSize(of: second) != 31)
+    }
+
+    /// A terminal opened from `window` by New Terminal, once it shows in
+    /// place of `old` (or at all).
+    private func openTerminal(_ app: AppDelegate, in window: TerminalController, replacing old: Ghostty.SurfaceView?) async throws -> Ghostty.SurfaceView {
+        let session = try #require(window.leoSession)
+        withoutUndo(app) { app.leoRuntime.newTerminal(origin: session.id) }
+        let deadline = ContinuousClock.now + Self.settleTimeout
+        while window.surfaceTree.first(where: { _ in true }).map({ $0 === old }) ?? true, ContinuousClock.now < deadline {
+            await nextMainQueueTurn()
+        }
+        return try #require(window.surfaceTree.first { _ in true }.flatMap { $0 === old ? nil : $0 }, "no terminal opened")
+    }
+
+    private func fontSize(of view: Ghostty.SurfaceView) -> Float32? {
+        guard let surface = view.surface else { return nil }
+        return Ghostty.SurfaceConfiguration(from: ghostty_surface_inherited_config(surface, GHOSTTY_SURFACE_CONTEXT_WINDOW)).fontSize
+    }
 }
 
 /// The app has a real `Ghostty.App` to make surfaces with. Outside the
