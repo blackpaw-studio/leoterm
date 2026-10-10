@@ -69,6 +69,8 @@ enum LeoWorkspaceItem: Hashable, Sendable {
     @Published private(set) var openError: String?
     @Published private(set) var uploadDestination: String?
     @Published private(set) var uploadError: String?
+    @Published private(set) var downloadsInFlight = 0
+    @Published private(set) var downloadError: String?
 
     private let makeAccess: @MainActor (LeoHostID) throws -> any LeoFileAccess
     private let openInEditor: @MainActor (LeoEditorFileID) async throws -> LeoEditorOpenOutcome
@@ -239,6 +241,34 @@ enum LeoWorkspaceItem: Hashable, Sendable {
         }
     }
 
+    /// Downloads a file the browser shows (a drag out to Finder) to
+    /// `destination` on this Mac, or a numbered name beside it when that is
+    /// taken, returning where it was written. Only a file listed under the
+    /// current root can be downloaded. While it runs, `downloadsInFlight`
+    /// counts it; a failure is added to `downloadError` -- both only while
+    /// the root it started under is still shown -- and rethrown for Finder.
+    @discardableResult
+    func download(_ path: String, to destination: URL) async throws -> URL {
+        guard let access else { throw LeoFileAccessError.closed }
+        guard let entry = shownFile(at: path) else { throw LeoFileAccessError.notFound(path: path) }
+        let generation = self.generation
+        downloadsInFlight += 1
+        defer { if generation == self.generation { downloadsInFlight -= 1 } }
+        do {
+            return try await Self.export(path, to: destination, access: access)
+        } catch {
+            if generation == self.generation, !(error is CancellationError) {
+                let line = "\(entry.displayName): \(LeoFileExport.message(for: error))"
+                downloadError = [downloadError, line].compactMap { $0 }.joined(separator: "\n")
+            }
+            throw error
+        }
+    }
+
+    func dismissDownloadError() {
+        downloadError = nil
+    }
+
     func dismissUploadError() {
         uploadError = nil
     }
@@ -280,6 +310,8 @@ enum LeoWorkspaceItem: Hashable, Sendable {
         openError = nil
         uploadDestination = nil
         uploadError = nil
+        downloadsInFlight = 0
+        downloadError = nil
         return previous
     }
 
@@ -384,6 +416,28 @@ enum LeoWorkspaceItem: Hashable, Sendable {
 
     private static func isSingleComponent(_ name: String) -> Bool {
         !name.isEmpty && name != "." && name != ".." && !name.contains("/") && !name.contains("\0")
+    }
+
+    /// A task-group child, so the local file's blocking writes never run
+    /// on the main actor.
+    private static func export(_ path: String, to destination: URL, access: any LeoFileAccess) async throws -> URL {
+        try await withThrowingTaskGroup(of: URL.self) { group in
+            group.addTask(priority: .userInitiated) {
+                try await LeoFileExport.download(remotePath: path, to: destination, access: access)
+            }
+            return try await group.next()!
+        }
+    }
+
+    /// The file row at `path`, if the browser shows one under its root.
+    private func shownFile(at path: String) -> LeoWorkspaceEntry? {
+        guard root?.path != nil else { return nil }
+        for folder in shownFolders(in: rootKey) {
+            for case let .entry(entry) in items(in: folder) where !entry.isFolder && entry.path == path {
+                return entry
+            }
+        }
+        return nil
     }
 
     private func isUploadDestination(_ directory: String) -> Bool {
