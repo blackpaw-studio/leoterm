@@ -594,6 +594,10 @@ import OSLog
         }
     }
 
+    func reattachInPlace(_ handle: AttachmentHandle, command: String, workingDirectory: String?) throws -> AttachmentHandle {
+        throw GhosttyAttachContentHostError.surfaceUnavailable
+    }
+
     func focus(_ handle: AttachmentHandle) {
         guard let attachment = attachments[handle], let controller = attachment.controller, let surface = attachment.surface,
               controller.surfaceTree.contains(surface), let window = controller.window else { return }

@@ -283,6 +283,10 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         return LeoSurfaceRequest(id: request.id, origin: request.origin, disposition: .placeholder(surfaceID: exited.surfaceID))
     }
 
+    /// B-270: re-attaches agents attached before their host advertised
+    /// dispatch placement. Called after every snapshot.
+    func daemonFeaturesChanged() {}
+
     /// `request`'s disposition with the default (no attach command) surface
     /// configuration -- the picker's "Plain shell" row. No identity, so no
     /// reuse and no attach bookkeeping; always creates.

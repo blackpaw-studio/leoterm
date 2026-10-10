@@ -132,6 +132,13 @@ struct AttachExitReport: Equatable, Sendable {
     /// Replaces the origin window's empty placeholder surface tree with the
     /// attach surface. Always creates -- there is nothing to reuse.
     func fillPlaceholder(command: String, workingDirectory: String?, origin: LeoWindowID, surfaceID: UUID?, requestID: UUID) throws -> AttachmentHandle
+    /// B-270: attaches a new surface running `command` in the slot of the
+    /// shown `handle` -- the rest of a split stays as it is -- and lets the
+    /// old surface go, so its tmux client ends and `handle` closes. Keyboard
+    /// focus moves to the new surface only if the old one had it. No undo
+    /// is registered: nothing brings the old client back. Throws, changing
+    /// nothing, when `handle` isn't shown or the surface can't be made.
+    func reattachInPlace(_ handle: AttachmentHandle, command: String, workingDirectory: String?) throws -> AttachmentHandle
     func rebirthPlaceholder(for handle: AttachmentHandle)
     /// Closes `origin`'s window when it is still an untouched start screen
     /// (`LeoStartScreenState.isUntouched`): its request went to an agent

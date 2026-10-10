@@ -234,6 +234,27 @@ struct FakeOpenCall {
         return try opened(in: origin)
     }
 
+    /// Every `reattachInPlace` call: the handle it replaced and the command.
+    private(set) var reattachCalls: [(handle: AttachmentHandle, command: String)] = []
+    /// Makes `reattachInPlace` throw (after recording the call), changing
+    /// nothing, as the real host does when it can't make the surface.
+    var reattachError: Error?
+    /// As the real host does: a new surface in the shown handle's slot,
+    /// focused if the old one was, and the old one let go (`.closed`).
+    func reattachInPlace(_ handle: AttachmentHandle, command: String, workingDirectory: String?) throws -> AttachmentHandle {
+        reattachCalls.append((handle, command))
+        if let reattachError { throw reattachError }
+        guard isShown(handle) else { throw FakeReattachError.notShown }
+        let new = AttachmentHandle(surfaceID: UUID(), windowID: handle.windowID)
+        handles.append(new)
+        openHandles.insert(new)
+        if shownInContent[handle.windowID] == handle { shownInContent[handle.windowID] = new }
+        if focusedHandle == handle { focusedHandle = new }
+        openHandles.remove(handle)
+        emit(.closed(handle))
+        return new
+    }
+
     var reborn: [AttachmentHandle] = []
     func rebirthPlaceholder(for handle: AttachmentHandle) { reborn.append(handle) }
 
@@ -288,6 +309,8 @@ struct FakeOpenCall {
         return handle
     }
 }
+
+enum FakeReattachError: Error { case notShown, failed }
 
 extension AttachLifecycleEvent {
     enum Kind: CaseIterable {
