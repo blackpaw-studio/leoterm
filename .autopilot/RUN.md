@@ -155,11 +155,11 @@ Lane: B-146
   Branch: autopilot-lane/B-146
   Base: 29b7b355a8a7724b6244afb3e4ff20059989f739
   Tier: light
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: c3bfaf7dea2c6eeeb5031b2c4dfb1cf9001c9f49
   Dispatched: 2026-10-10T13:38:46Z
 
 Finished 1: B-270 landed 28ade697f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-270-1.png
