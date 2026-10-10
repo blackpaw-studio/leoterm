@@ -3202,3 +3202,31 @@ Chose: Every click on such a row re-sends the pane focus (idempotent)
 Why: P6
 Commit: c13b9cca0, b106a7255, cf288ce6e
 Veto: [ ]
+
+## D-446 · 2026-10-10 · 24pt dispatch pitch via List-level sidebarRowSize=.small, te…
+Context: B-275 (runner call).
+Chose: 24pt dispatch pitch via List-level sidebarRowSize=.small, terminal rows pinned to 32
+Why: P1
+Commit: 88e7542ca, aad8fc01a, 925d739dc, 7568259cd, 78b1d8c62
+Veto: [ ]
+
+## D-447 · 2026-10-10 · Role chip shows the family only in a fixed column, full role…
+Context: B-275 (runner call).
+Chose: Role chip shows the family only in a fixed column, full role in tooltip and VoiceOver, sub-role shown as the title when a dispatch has no name
+Why: P1 (criteria allow shortening)
+Commit: 88e7542ca, aad8fc01a, 925d739dc, 7568259cd, 78b1d8c62
+Veto: [ ]
+
+## D-448 · 2026-10-10 · Last visible dispatch per agent is taller (40pt, top-aligned…
+Context: B-275 (runner call).
+Chose: Last visible dispatch per agent is taller (40pt, top-aligned) instead of a spacer row, because the row floor makes spacers impossible
+Why: P1/P2
+Commit: 88e7542ca, aad8fc01a, 925d739dc, 7568259cd, 78b1d8c62
+Veto: [ ]
+
+## D-449 · 2026-10-10 · DEBUG fixture advertises dispatch_tree when it lists dispatc…
+Context: B-275 (runner call).
+Chose: DEBUG fixture advertises dispatch_tree when it lists dispatches
+Why: D-396
+Commit: 88e7542ca, aad8fc01a, 925d739dc, 7568259cd, 78b1d8c62
+Veto: [ ]

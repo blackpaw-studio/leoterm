@@ -736,13 +736,14 @@ Source: Evan (/issue, 2026-10-08)
 Inbox: 20261008T225539342143Z-d97ea80f#1
 Done: c13b9cca0 b106a7255 cf288ce6e. Dispatch rows viewed in the caller's tmux session are clickable: a click focuses that pane (local or over ssh) and shows the parent; older daemons and headless runs stay inert. Repro tests failed red first; security review clean; 2373 tests green. Not visually verified (needs a scratch dispatch viewed in its caller's session). Decisions D-437–D-445.
 
-## B-275 · Tighten sidebar row spacing and grouping   [ready]
+## B-275 · Tighten sidebar row spacing and grouping   [done]
 Issue: #269
 Why: P1 Mac-native polish; since leo-v0.11.0 the List's default row insets put 22pt dispatch rows about 32pt apart, the same rhythm as agent rows, so an agent's dispatch tree doesn't read as one group and the sidebar looks loose
 Accept: dispatch rows sit no more than 24pt apart; an agent and its dispatches read as one block (agent to first dispatch and dispatch to dispatch gaps clearly smaller than last dispatch to next agent); dispatch names line up in one column per depth, so a long chip like "implement.hard" no longer pushes its name right (fixed-width chip or shortened role is fine); agent rows keep their current height and the tree guides still connect at the new spacing; verified by a native-pixel screenshot of a real sidebar with nested dispatches
 Out: colour changes; any change to the pill or the content of line 2
 Source: Evan (/feature, 2026-10-09)
 Inbox: 20261010T015729666059Z-4957c43e#1
+Done: 88e7542ca aad8fc01a 925d739dc 7568259cd 78b1d8c62. Dispatch rows on a 24pt pitch; agent→first dispatch 16pt, last dispatch→next agent 34pt; names aligned per depth (x=109/121/133) via a fixed-width role-family chip column; guides continuous. Measured at native pixels on the debug app with an autopilot-scratch fixture; 2388 tests green. Not checked on screen: single-dispatch group, selected taller last-dispatch highlight, Terminals row pitch. Decisions D-446–D-449.
 
 ## B-274 · Files pane and browser belong to the sidebar row   [ready]
 Issue: #266
