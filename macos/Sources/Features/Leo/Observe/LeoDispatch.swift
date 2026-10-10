@@ -23,11 +23,15 @@ struct LeoDispatch: Decodable, Equatable, Sendable {
     /// The daemon can attach a terminal to this dispatch (leo >= the
     /// `dispatch_attach` feature). Absent on older daemons: false.
     let attachable: Bool
+    /// The tmux pane (`%N`) the daemon placed this dispatch's viewer in,
+    /// attachable or not. Absent when headless, on older daemons, or when
+    /// the value isn't a pane id.
+    let tmuxTarget: String?
 
     init(
         id: String, name: String? = nil, role: String? = nil, template: String? = nil, model: String? = nil,
         status: String, stalled: Bool = false, callerAgent: String? = nil, parentDispatchID: String? = nil,
-        startedAt: String? = nil, endedAt: String? = nil, attachable: Bool = false
+        startedAt: String? = nil, endedAt: String? = nil, attachable: Bool = false, tmuxTarget: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -41,10 +45,12 @@ struct LeoDispatch: Decodable, Equatable, Sendable {
         self.startedAt = startedAt
         self.endedAt = endedAt
         self.attachable = attachable
+        self.tmuxTarget = tmuxTarget
     }
 
     enum CodingKeys: String, CodingKey {
         case id, name, role, template, model, status, stalled, attachable
+        case tmuxTarget = "tmux_target"
         case callerAgent = "caller_agent"
         case parentDispatchID = "parent_dispatch_id"
         case startedAt = "started_at"
@@ -75,6 +81,12 @@ struct LeoDispatch: Decodable, Equatable, Sendable {
         parentDispatchID = optional(.parentDispatchID)
         startedAt = optional(.startedAt)
         endedAt = optional(.endedAt)
+        tmuxTarget = optional(.tmuxTarget).flatMap { Self.isPaneID($0) ? $0 : nil }
+    }
+
+    /// A tmux pane id, `%` and digits only: safe as one tmux target.
+    static func isPaneID(_ value: String) -> Bool {
+        value.count > 1 && value.hasPrefix("%") && value.dropFirst().allSatisfy { $0.isASCII && $0.isNumber }
     }
 
     /// Still running as far as the daemon said: no `ended_at` and a
