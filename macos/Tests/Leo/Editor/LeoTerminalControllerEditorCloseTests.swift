@@ -25,7 +25,6 @@ struct LeoTerminalControllerEditorCloseTests {
         let session = try #require(controller.leoSession)
         try await session.editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
         if editing { session.editor.document?.edit("edited") }
-        // The pane's view installs its own prompt when it's built.
         await nextTurn()
         return Tab(controller: controller, session: session)
     }

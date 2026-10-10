@@ -4,9 +4,10 @@ import AppKit
 /// path in `TerminalController` comes through here: one that can ask goes
 /// through `LeoUnsavedEditorsGate` first; one that can't keeps the tab.
 extension TerminalController {
-    /// Whether this tab's editor has unsaved edits.
+    /// Whether any of this window's rows' editors has unsaved edits
+    /// (B-274), on screen or not.
     var leoHasUnsavedEdits: Bool {
-        leoSession.map { LeoUnsavedEditorsGate.hasUnsavedEdits($0.editor) } ?? false
+        leoSession?.panes.hasUnsavedEdits ?? false
     }
 
     /// Leo: a close of `windows` (tabs) that can ask. `true` when the gate
@@ -15,17 +16,30 @@ extension TerminalController {
     static func leoDeferClose(of windows: [NSWindow], retry: @escaping @MainActor () -> Void) -> Bool {
         guard let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime else { return false }
         let sessions = windows.compactMap { ($0.windowController as? TerminalController)?.leoSession }
-        return runtime.unsavedEditors.deferClose(of: sessions.map(runtime.editorEntry(for:))) { if $0 { retry() } }
+        return runtime.unsavedEditors.deferClose(of: sessions.flatMap(runtime.editorEntries(for:))) { if $0 { retry() } }
     }
 
     /// Leo: ⌘W with focus in the terminal. When it would close the tab
     /// (it's the only split), unsaved editor edits are asked about first:
     /// `true` when the gate took it over.
-    /// A terminal row's shell closes only its row (B-057), so nothing asks.
+    /// A terminal row's shell closes only its row (B-057), so only that
+    /// row's pane is asked about (B-274).
     func leoDeferCloseOfLastSplit(retry: @escaping @MainActor () -> Void) -> Bool {
         guard !surfaceTree.isSplit, let window else { return false }
-        if let root = surfaceTree.root, leoIsTerminalRow(root) { return false }
+        if let root = surfaceTree.root, leoIsTerminalRow(root) {
+            guard case .leaf(let view) = root else { return false }
+            return leoDeferCloseOfRow(.terminal(view.id), retry: retry)
+        }
         return Self.leoDeferClose(of: [window], retry: retry)
+    }
+
+    /// B-274: before `key`'s row closes, its pane's unsaved edits are asked
+    /// about (Save / Don't Save / Cancel). `true` when it took the close
+    /// over: `retry` once the pane closed, nothing on Cancel.
+    func leoDeferCloseOfRow(_ key: LeoRowKey, retry: @escaping @MainActor () -> Void) -> Bool {
+        guard let panes = leoSession?.panes, panes.existingPane(for: key)?.hasUnsavedEdits == true else { return false }
+        Task { if await panes.close(key) { retry() } }
+        return true
     }
 
     /// Leo: a close that can't ask first -- the terminal's process exited,

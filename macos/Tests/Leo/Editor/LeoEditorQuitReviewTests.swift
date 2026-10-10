@@ -107,7 +107,7 @@ struct LeoEditorEntryWindowTests {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: [.titled], backing: .buffered, defer: true)
         let session = runtime.registry.makeSession(window: window, defaults: defaults)
 
-        #expect(runtime.editorEntry(for: session).window() === window)
+        #expect(runtime.editorEntries(for: session).map { $0.window() === window } == [true])
         #expect(LeoUnsavedEditorsGate.Entry(editor: session.editor) {}.window() == nil)
     }
 }

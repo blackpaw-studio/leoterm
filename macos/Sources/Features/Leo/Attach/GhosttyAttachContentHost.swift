@@ -217,7 +217,8 @@ import OSLog
     /// The shown row's shell closed. Alone in the window: the nearest
     /// neighbouring row with a live hidden shell takes its place -- the
     /// same surface -- or, with none, the start screen does; the window
-    /// stays. (A neighbour whose shell ended is let go on the way.) What
+    /// stays. A row whose pane has unsaved edits (it closed without asking:
+    /// its shell exited) leaves the start screen, with that pane (B-274). (A neighbour whose shell ended is let go on the way.) What
     /// closed is let go at once: its surfaces free their ptys, and its
     /// handles (so its row) close. With a split beside it, only its own
     /// pane closes (`closeShownPane`).
@@ -225,9 +226,11 @@ import OSLog
         guard case .leaf(let root)? = controller.surfaceTree.root, root === surface else {
             return closeShownPane(handle, surface: surface, in: controller)
         }
-        guard let terminals = controller.leoSession?.terminals else { return }
+        guard let session = controller.leoSession else { return }
+        let terminals = session.terminals
         let closing = controller.surfaceTree
-        if let (tree, focus) = neighbourTree(of: handle, in: terminals) {
+        let keepsPane = session.panes.existingPane(for: .terminal(handle.surfaceID))?.hasUnsavedEdits == true
+        if !keepsPane, let (tree, focus) = neighbourTree(of: handle, in: terminals) {
             controller.leoReplaceContent(with: tree, focusing: focus)
             reportExitedPanes(in: tree)
         } else {
@@ -290,6 +293,11 @@ import OSLog
     func confirmReplacingContent(origin: LeoWindowID) async -> Bool {
         runPendingReconciles()
         guard let controller = registry.controller(for: origin) else { return true }
+        // B-274: a pane a closed row left on the start screen is closed
+        // first, asking about its unsaved edits.
+        if let panes = controller.leoSession?.panes, panes.activeKey == .startScreen {
+            guard await panes.leaveOrphanedStartScreen() else { return false }
+        }
         let shown = controller.surfaceTree.map {
             LeoContentReplacement.Shown(
                 name: $0.leoPaneName, isAgent: isAgent($0), isTerminalRow: isTerminalRow($0), needsConfirmQuit: $0.needsConfirmQuit
@@ -664,17 +672,17 @@ import OSLog
     }
 
     /// `nil` for a window with no Leo session (no start screen at all).
-    /// The editor and browser count by what they show: their pane views
-    /// (`editorPane`, `browserPane`) exist in every window once its split
-    /// view is built, open or not.
+    /// The editor and browser count by what they show, in any row's pane
+    /// (B-274): their views exist in every window once its split view is
+    /// built, open or not.
     private static func startScreenState(of controller: TerminalController) -> LeoStartScreenState? {
         guard let session = controller.leoSession else { return nil }
         return LeoStartScreenState(
             // A start screen the window's last terminal row left isn't new.
             isUnfilledPlaceholder: controller.leoIsUnfilledPlaceholder && !controller.leoHasShownContent,
             hasTerminal: !controller.surfaceTree.isEmpty,
-            isEditorOpen: session.editor.isOpen,
-            isBrowserOpen: session.browser.isOpen
+            isEditorOpen: session.panes.all.contains { $0.editor.isOpen },
+            isBrowserOpen: session.panes.all.contains { $0.browser.isOpen }
         )
     }
 
