@@ -17,6 +17,9 @@ enum LeoFileAccessError: Error, Equatable, Sendable {
     /// The SFTP session ended because the tunnel or multiplexed SSH session
     /// was lost. A service that cannot start is `.unavailable` instead.
     case disconnected
+    /// Publication may have completed before the connection was lost. The
+    /// caller must inspect the workspace rather than retrying blindly.
+    case indeterminate(path: String)
     /// The access was closed (`LeoFileAccess.close()`): final, it never
     /// reconnects.
     case closed
@@ -39,6 +42,7 @@ enum LeoFileAccessError: Error, Equatable, Sendable {
         case let .tooLarge(_, size, limit): .tooLarge(path: path, size: size, limit: limit)
         case .notADirectory: .notADirectory(path: path)
         case .isADirectory: .isADirectory(path: path)
+        case .indeterminate: .indeterminate(path: path)
         case let .failed(_, reason): .failed(path: path, reason: reason)
         case .invalidPath, .disconnected, .closed, .protocolError, .unavailable: self
         }
@@ -62,6 +66,8 @@ extension LeoFileAccessError: LocalizedError {
         case let .isADirectory(path): "“\(Self.displayName(path))” is a folder."
         case let .invalidPath(path): "“\(LeoSFTPServerText.isolated(path))” isn’t an absolute path."
         case .disconnected: "The connection to the host was lost."
+        case let .indeterminate(path):
+            "It’s unknown whether “\(Self.displayName(path))” was uploaded because the connection was lost while publishing it."
         case .closed: "The file connection was closed."
         case let .protocolError(detail): "The file server sent an unexpected response (\(detail.rendered))."
         case let .failed(path, reason): "Couldn’t access “\(Self.displayName(path))”: \(reason.rendered)."
@@ -73,6 +79,7 @@ extension LeoFileAccessError: LocalizedError {
         switch self {
         case .conflict: "Reload to see the current version, or save again to replace it."
         case .disconnected: "Reconnect to the host, then try again."
+        case .indeterminate: "Reconnect and check the workspace before trying again."
         case .unavailable: "The host’s agents still work; only browsing and editing its files is affected."
         default: nil
         }

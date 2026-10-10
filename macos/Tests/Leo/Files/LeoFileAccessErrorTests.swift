@@ -9,7 +9,8 @@ struct LeoFileAccessErrorTests {
         let cases: [LeoFileAccessError] = [
             .notFound(path: path), .permissionDenied(path: path), .conflict(path: path),
             .tooLarge(path: path, size: 20_000_000, limit: 10_000_000), .notADirectory(path: path),
-            .isADirectory(path: path), .failed(path: path, reason: "No space left on device")
+            .isADirectory(path: path), .indeterminate(path: path),
+            .failed(path: path, reason: "No space left on device")
         ]
         for error in cases {
             let description = error.localizedDescription
@@ -33,12 +34,14 @@ struct LeoFileAccessErrorTests {
     @Test func conflictAndDisconnectOfferARecovery() {
         #expect(LeoFileAccessError.conflict(path: "/a").recoverySuggestion != nil)
         #expect(LeoFileAccessError.disconnected.recoverySuggestion != nil)
+        #expect(LeoFileAccessError.indeterminate(path: "/a").recoverySuggestion?.contains("check") == true)
     }
 
     @Test func retargetingRewritesOnlyPathBearingCases() {
         #expect(LeoFileAccessError.permissionDenied(path: "/d/.f.leo-1.tmp").retargeted(to: "/d/f") == .permissionDenied(path: "/d/f"))
         #expect(LeoFileAccessError.failed(path: "/d/.t", reason: "r").retargeted(to: "/d/f") == .failed(path: "/d/f", reason: "r"))
         #expect(LeoFileAccessError.disconnected.retargeted(to: "/d/f") == .disconnected)
+        #expect(LeoFileAccessError.indeterminate(path: "/d/.t").retargeted(to: "/d/f") == .indeterminate(path: "/d/f"))
         #expect(LeoFileAccessError.closed.retargeted(to: "/d/f") == .closed)
     }
 

@@ -194,6 +194,7 @@ final class LeoSFTPTransport: @unchecked Sendable {
         case .isADirectory: "is-a-directory"
         case .invalidPath: "invalid-path"
         case .disconnected: "disconnected"
+        case .indeterminate: "indeterminate"
         case .closed: "closed"
         case .protocolError: "protocol-error"
         case .failed: "failed"

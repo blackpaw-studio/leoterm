@@ -52,6 +52,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     private let daemonFeatures: (LeoHostID) -> LeoDaemonFeatures
     private let report: (LeoAttachError) -> Void
     private let lifecycleEventHandled: (AttachLifecycleEvent) -> Void
+    private let attachmentChanged: () -> Void
     private let focusedIdentityChanged: (LeoAgentIdentity?) -> Void
     private let linkStateChanged: (LeoAttachLinkState) -> Void
     private(set) var focusedIdentity: LeoAgentIdentity?
@@ -62,6 +63,8 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     /// hidden in a window's live pool (B-056): attached until evicted.
     private var handlesByIdentity: [LeoAgentIdentity: [AttachmentHandle]] = [:]
     private var identityByHandle: [AttachmentHandle: LeoAgentIdentity] = [:]
+    private var generationByHandle: [AttachmentHandle: UInt64] = [:]
+    private var nextAttachmentGeneration: UInt64 = 0
     private var inactive: Set<AttachmentHandle> = []
     private var attachInProgress: Set<LeoAgentIdentity> = []
     /// B-270: agent attaches built before their host advertised dispatch
@@ -99,6 +102,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         daemonFeatures: @escaping (LeoHostID) -> LeoDaemonFeatures = { _ in .none },
         report: @escaping (LeoAttachError) -> Void,
         lifecycleEventHandled: @escaping (AttachLifecycleEvent) -> Void = { _ in },
+        attachmentChanged: @escaping () -> Void = {},
         focusedIdentityChanged: @escaping (LeoAgentIdentity?) -> Void = { _ in },
         linkStateChanged: @escaping (LeoAttachLinkState) -> Void = { _ in }
     ) {
@@ -108,6 +112,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         self.daemonFeatures = daemonFeatures
         self.report = report
         self.lifecycleEventHandled = lifecycleEventHandled
+        self.attachmentChanged = attachmentChanged
         self.focusedIdentityChanged = focusedIdentityChanged
         self.linkStateChanged = linkStateChanged
         lifecycleTask = Task { [weak self, events = host.lifecycleEvents] in
@@ -232,6 +237,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             identityByHandle[handle] = identity
             // `command` was built from placement as it is now (see `attach`).
             if identity.dispatchID == nil, !placesDispatches(identity.host) { unplaced.insert(handle) }
+            beginGeneration(of: handle)
             adoptHostFocus()
             host.setAgentName(handle, name: identity.title ?? identity.name)
             if identity.dispatchID != nil { host.markWatchingDispatch(handle) }
@@ -337,8 +343,10 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             let workingDirectory = LeoAttachCommand.workingDirectory(identity: identity)
             let replacement = try host.reattachInPlace(handle, command: command, workingDirectory: workingDirectory)
             identityByHandle.removeValue(forKey: handle)
+            generationByHandle.removeValue(forKey: handle)
             identityByHandle[replacement] = identity
             handlesByIdentity[identity] = handlesByIdentity[identity]?.map { $0 == handle ? replacement : $0 }
+            beginGeneration(of: replacement)
             host.setAgentName(replacement, name: identity.title ?? identity.name)
         } catch {
             report(LeoAttachError(identity: identity, kind: .openFailed(error.localizedDescription)))
@@ -557,6 +565,11 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         identityByHandle.first { $0.key.surfaceID == surfaceID && !inactive.contains($0.key) }?.value
     }
 
+    func generation(forSurface surfaceID: UUID) -> UInt64? {
+        guard let handle = identityByHandle.keys.first(where: { $0.surfaceID == surfaceID && !inactive.contains($0) }) else { return nil }
+        return generationByHandle[handle]
+    }
+
     /// Brings `identity`'s most recently focused attachment on screen
     /// forward instead of opening a duplicate. `false` when none is on
     /// screen (one hidden in a live pool isn't: `attach` shows it). An
@@ -624,8 +637,17 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         for handle in handlesByIdentity[identity] ?? [] where !host.isOpen(handle) { remove(handle) }
     }
 
+    /// Every attachment lifetime gets a fresh generation, so work begun for
+    /// one (a file drop) never completes into its successor (B-232).
+    private func beginGeneration(of handle: AttachmentHandle) {
+        nextAttachmentGeneration &+= 1
+        generationByHandle[handle] = nextAttachmentGeneration
+        attachmentChanged()
+    }
+
     private func remove(_ handle: AttachmentHandle) {
         guard let identity = identityByHandle.removeValue(forKey: handle) else { return }
+        generationByHandle.removeValue(forKey: handle)
         inactive.remove(handle)
         unplaced.remove(handle)
         handlesByIdentity[identity]?.removeAll { $0 == handle }

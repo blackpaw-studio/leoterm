@@ -20,6 +20,7 @@ final class LeoWorkspaceBrowserViewController: NSViewController {
     private let titleLabel = NSTextField(labelWithString: "")
     private let footer = NSTextField(wrappingLabelWithString: "")
     private let footerBox = NSStackView()
+    private let uploadProgress = NSProgressIndicator()
     /// The outline's items for what it shows now; during a sync, the ones
     /// shown before, reused so expansion and selection stick.
     private var items: [LeoWorkspaceItem: LeoWorkspaceOutlineItem] = [:]
@@ -115,8 +116,9 @@ final class LeoWorkspaceBrowserViewController: NSViewController {
 
     private func showModel() {
         titleLabel.stringValue = headerTitle
-        footer.stringValue = model.openError ?? ""
-        footerBox.isHidden = model.openError == nil
+        footer.stringValue = model.uploadError ?? model.openError ?? ""
+        footerBox.isHidden = model.uploadError == nil && model.openError == nil
+        uploadProgress.isHidden = model.uploadDestination == nil || model.uploadDestination != model.root?.path
         guard isViewLoaded else { return }
         let selectedPath = entry(atRow: outlineView.selectedRow)?.path
         isSyncing = true
@@ -138,6 +140,30 @@ final class LeoWorkspaceBrowserViewController: NSViewController {
     }
 
     var footerMessage: String? { footerBox.isHidden ? nil : footer.stringValue }
+    var isRootUploadProgressVisible: Bool { !uploadProgress.isHidden }
+
+    func isFolderUploadProgressVisible(atRow row: Int) -> Bool {
+        guard row >= 0 else { return false }
+        return (outlineView.view(atColumn: 0, row: row, makeIfNecessary: true) as? LeoWorkspaceCellView)?.isUploading == true
+    }
+
+    func dropItem(atRow row: Int) -> LeoWorkspaceOutlineItem? {
+        guard row >= 0 else { return nil }
+        return outlineView.item(atRow: row) as? LeoWorkspaceOutlineItem
+    }
+
+    func validateFileDrop(_ pasteboard: NSPasteboard, proposedItem item: LeoWorkspaceOutlineItem?) -> NSDragOperation {
+        guard !pasteboard.ghosttyFileURLs.isEmpty, model.root?.path != nil else { return [] }
+        return .copy
+    }
+
+    @discardableResult
+    func acceptFileDrop(_ pasteboard: NSPasteboard, proposedItem item: LeoWorkspaceOutlineItem?) -> Bool {
+        let urls = pasteboard.ghosttyFileURLs
+        guard !urls.isEmpty, let directory = item?.folderPath ?? model.root?.path else { return false }
+        Task { await model.upload(urls, to: directory) }
+        return true
+    }
 
     /// What row `row` shows (for tests and accessibility).
     func title(ofRow row: Int) -> String? {
@@ -169,6 +195,7 @@ final class LeoWorkspaceBrowserViewController: NSViewController {
         outlineView.onActivate = { [weak self] in self?.activateSelection() }
         outlineView.onEscape = { [weak self] in self?.onEscape() }
         outlineView.setAccessibilityLabel("Workspace files")
+        outlineView.registerForDraggedTypes([.fileURL])
     }
 
     /// The header row, and its close button.
@@ -176,9 +203,14 @@ final class LeoWorkspaceBrowserViewController: NSViewController {
         titleLabel.font = .systemFont(ofSize: NSFont.smallSystemFontSize, weight: .semibold)
         titleLabel.lineBreakMode = .byTruncatingMiddle
         titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        uploadProgress.style = .spinning
+        uploadProgress.controlSize = .small
+        uploadProgress.startAnimation(nil)
+        uploadProgress.isHidden = true
+        uploadProgress.setAccessibilityLabel("Uploading files")
         let reload = Self.button(symbol: "arrow.clockwise", label: "Reload Files", action: #selector(reloadClicked(_:)), target: self)
         let close = Self.button(symbol: "xmark", label: "Close Files", action: #selector(close(_:)), target: self)
-        let header = NSStackView(views: [titleLabel, NSView(), reload, close])
+        let header = NSStackView(views: [titleLabel, NSView(), uploadProgress, reload, close])
         header.orientation = .horizontal
         header.spacing = 6
         header.edgeInsets = NSEdgeInsets(top: 6, left: 10, bottom: 6, right: 8)
@@ -283,6 +315,7 @@ final class LeoWorkspaceBrowserViewController: NSViewController {
 
     @objc private func dismissClicked(_ sender: Any?) {
         model.dismissOpenError()
+        model.dismissUploadError()
     }
 
     private func closeBrowser() {
@@ -347,8 +380,30 @@ extension LeoWorkspaceBrowserViewController: NSOutlineViewDataSource, NSOutlineV
         guard let item = item as? LeoWorkspaceOutlineItem else { return nil }
         let identifier = NSUserInterfaceItemIdentifier("LeoWorkspaceCell")
         let cell = outlineView.makeView(withIdentifier: identifier, owner: self) as? LeoWorkspaceCellView ?? LeoWorkspaceCellView(identifier: identifier)
-        cell.show(item)
+        cell.show(item, isUploading: model.uploadDestination.map { item.folderPath == $0 } ?? false)
         return cell
+    }
+
+    func outlineView(
+        _ outlineView: NSOutlineView,
+        validateDrop info: any NSDraggingInfo,
+        proposedItem item: Any?,
+        proposedChildIndex index: Int
+    ) -> NSDragOperation {
+        let proposed = item as? LeoWorkspaceOutlineItem
+        guard validateFileDrop(info.draggingPasteboard, proposedItem: proposed) == .copy else { return [] }
+        let folder = proposed?.folderPath
+        outlineView.setDropItem(folder == nil ? nil : item, dropChildIndex: NSOutlineViewDropOnItemIndex)
+        return .copy
+    }
+
+    func outlineView(
+        _ outlineView: NSOutlineView,
+        acceptDrop info: any NSDraggingInfo,
+        item: Any?,
+        childIndex index: Int
+    ) -> Bool {
+        acceptFileDrop(info.draggingPasteboard, proposedItem: item as? LeoWorkspaceOutlineItem)
     }
 
     func outlineViewItemDidExpand(_ notification: Notification) {
@@ -393,9 +448,11 @@ final class LeoWorkspaceOutlineItem: NSObject {
 }
 
 /// A row: icon and name, or a quiet placeholder or message.
-private final class LeoWorkspaceCellView: NSTableCellView {
+final class LeoWorkspaceCellView: NSTableCellView {
     /// A hidden entry's icon, faded like its name.
     private static let dimmedIconAlpha: CGFloat = 0.5
+    private let progress = NSProgressIndicator()
+    private(set) var isUploading = false
 
     init(identifier: NSUserInterfaceItemIdentifier) {
         super.init(frame: .zero)
@@ -404,7 +461,10 @@ private final class LeoWorkspaceCellView: NSTableCellView {
         let text = NSTextField(labelWithString: "")
         text.lineBreakMode = .byTruncatingMiddle
         text.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        for view in [image, text] {
+        progress.style = .spinning
+        progress.controlSize = .small
+        progress.isDisplayedWhenStopped = false
+        for view in [image, progress, text] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
         }
@@ -412,6 +472,10 @@ private final class LeoWorkspaceCellView: NSTableCellView {
             image.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
             image.centerYAnchor.constraint(equalTo: centerYAnchor),
             image.widthAnchor.constraint(equalToConstant: 16),
+            progress.centerXAnchor.constraint(equalTo: image.centerXAnchor),
+            progress.centerYAnchor.constraint(equalTo: image.centerYAnchor),
+            progress.widthAnchor.constraint(equalToConstant: 16),
+            progress.heightAnchor.constraint(equalToConstant: 16),
             text.leadingAnchor.constraint(equalTo: image.trailingAnchor, constant: 5),
             text.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -2),
             text.centerYAnchor.constraint(equalTo: centerYAnchor),
@@ -422,15 +486,21 @@ private final class LeoWorkspaceCellView: NSTableCellView {
 
     required init?(coder: NSCoder) { nil }
 
-    func show(_ item: LeoWorkspaceOutlineItem) {
+    func show(_ item: LeoWorkspaceOutlineItem, isUploading: Bool) {
+        self.isUploading = isUploading
         textField?.stringValue = item.title
         let symbol: String?
         switch item.item {
-        case let .entry(entry): symbol = entry.isFolder ? "folder" : "doc"
+        case let .entry(entry): symbol = isUploading ? nil : (entry.isFolder ? "folder" : "doc")
         case .loading: symbol = nil
         case .message: symbol = "exclamationmark.triangle"
         }
         imageView?.image = symbol.flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: nil) }
+        if isUploading {
+            progress.startAnimation(nil)
+        } else {
+            progress.stopAnimation(nil)
+        }
         imageView?.contentTintColor = item.folderPath != nil ? .controlAccentColor : .secondaryLabelColor
         imageView?.alphaValue = item.isDimmed ? Self.dimmedIconAlpha : 1
         if case .entry = item.item {

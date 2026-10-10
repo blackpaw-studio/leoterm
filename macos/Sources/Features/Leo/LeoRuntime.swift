@@ -40,6 +40,10 @@ import OSLog
     private let localDaemon: any LeoDaemonClient
     private let localActivitySource: LeoSidebarActivitySource
     private let hostConnectionTransport: any LeoDaemonTransport
+    /// Test boundary for direct file-drop routing tests. Production resolves
+    /// attachment context and host access from the runtime itself.
+    let terminalFileDropDependencies: LeoTerminalFileDropDependencies?
+    var terminalFileDropQueues: [UUID: LeoTerminalFileDropQueue] = [:]
     /// Bumped on EVERY `connectionTarget` transition (connecting/connected/
     /// failed) AND on `shutdown()` -- never just when `generation` changes.
     /// `LeoHostSelection.generation` alone is not enough to guard
@@ -107,13 +111,15 @@ import OSLog
         hostSelectionControlSocketDirectory: URL? = LeoControlSocketDirectory.default,
         notificationCenter: any LeoNotificationPosting = LeoUserNotificationCenter(),
         focusedAgentSink: (@Sendable (LeoAgentRow.ID?) async -> Void)? = nil,
-        wakeNotifications: NotificationCenter = NSWorkspace.shared.notificationCenter
+        wakeNotifications: NotificationCenter = NSWorkspace.shared.notificationCenter,
+        terminalFileDropDependencies: LeoTerminalFileDropDependencies? = nil
     ) {
         self.cli = cli
         self.defaults = defaults
         localDaemon = daemon
         localActivitySource = activitySource
         self.hostConnectionTransport = hostConnectionTransport
+        self.terminalFileDropDependencies = terminalFileDropDependencies
         let orphanStore = LeoTunnelOrphanStore(defaults: defaults, legacySocketDirectory: hostSelectionLegacySocketDirectory)
         self.orphanStore = orphanStore
         let model = LeoSidebarModel(
@@ -173,6 +179,8 @@ import OSLog
                 let id = LeoAgentRow.ID(host: error.identity.host, name: error.identity.name)
                 model?.setRowError(error.message, for: id)
             },
+            lifecycleEventHandled: { _ in weakSelf?.terminalFileDropContextDidChange() },
+            attachmentChanged: { weakSelf?.terminalFileDropContextDidChange() },
             focusedIdentityChanged: { identity in weakSelf?.focusedAgentChanged(identity) },
             linkStateChanged: { [weak model] links in model?.receiveAttachLinks(links) }
         )
@@ -400,6 +408,7 @@ import OSLog
     }
     func shutdown() {
         connectionSequence += 1
+        cancelTerminalFileDrops()
         hostSelection.shutdown()
         Task { await feed.stop() }
     }

@@ -179,6 +179,10 @@ extension Ghostty {
         /// Note: eventually, all surface access will be through this, but presently its in a transition
         /// state so we're mixing this with direct surface access.
         private(set) var surfaceModel: Ghostty.Surface?
+        /// Agent-workspace Finder drops. Plain shells leave both unset and
+        /// retain Ghostty's normal local-path drop behavior.
+        @Published var leoFileDropStatus: LeoTerminalFileDropStatus?
+        @Published var leoFileDropTargeted = false
 
         /// Returns the underlying C value for the surface. See "note" on surfaceModel.
         override var surface: ghostty_surface_t? {
@@ -2306,6 +2310,7 @@ extension Ghostty.SurfaceView {
     ]
 
     override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        leoFileDropTargeted = false
         guard let types = sender.draggingPasteboard.types else { return [] }
 
         // If the dragging object contains none of our types then we return none.
@@ -2315,14 +2320,42 @@ extension Ghostty.SurfaceView {
             return []
         }
 
+        if types.contains(.fileURL),
+           let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime,
+           runtime.acceptsFileDrop(sender.draggingPasteboard, from: self) {
+            leoFileDropTargeted = true
+            return .copy
+        }
+
         // We use copy to get the proper icon
         return .copy
+    }
+
+    override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        guard sender.draggingPasteboard.types?.contains(.fileURL) == true,
+              let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime else {
+            leoFileDropTargeted = false
+            return .copy
+        }
+        leoFileDropTargeted = runtime.acceptsFileDrop(sender.draggingPasteboard, from: self)
+        return .copy
+    }
+
+    override func draggingExited(_ sender: (any NSDraggingInfo)?) {
+        leoFileDropTargeted = false
     }
 
     override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
         let pb = sender.draggingPasteboard
 
+        if let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime,
+           runtime.performFileDrop(pb, from: self) {
+            leoFileDropTargeted = false
+            return true
+        }
+
         let content = pb.getOpinionatedStringContents()
+        leoFileDropTargeted = false
 
         if let content {
             DispatchQueue.main.async {

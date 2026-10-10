@@ -3,6 +3,11 @@ import UserNotifications
 import GhosttyKit
 import System
 
+enum LeoTerminalFileDropStatus: Equatable {
+    case uploading(Int)
+    case failed(String)
+}
+
 extension Ghostty {
     struct SurfaceWrapper: View {
         // The surface to create a view for. This must be created upstream. As long as this
@@ -96,6 +101,31 @@ extension Ghostty {
                     keySequence: surfaceView.keySequence
                 )
                 .zIndex(1)
+
+                if surfaceView.leoFileDropTargeted {
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.accentColor, lineWidth: 3)
+                        .padding(5)
+                        .allowsHitTesting(false)
+                        .overlay(alignment: .topTrailing) {
+                            Text("Upload to agent workspace")
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 5)
+                                .background(.regularMaterial, in: Capsule())
+                                .padding(10)
+                        }
+                }
+
+                if let status = surfaceView.leoFileDropStatus {
+                    LeoTerminalFileDropOverlay(status: status) {
+                        if let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime {
+                            runtime.dismissTerminalFileDropError(from: surfaceView)
+                        } else {
+                            surfaceView.leoFileDropStatus = nil
+                        }
+                    }
+                }
 
                 VStack(spacing: 0) {
                     // If we have a URL from hovering a link, we show that.
@@ -197,6 +227,36 @@ extension Ghostty {
                 }
             }
             .padding()
+        }
+    }
+
+    private struct LeoTerminalFileDropOverlay: View {
+        let status: LeoTerminalFileDropStatus
+        let dismiss: () -> Void
+
+        var body: some View {
+            HStack(alignment: .top, spacing: 8) {
+                switch status {
+                case .uploading(let count):
+                    ProgressView().controlSize(.small)
+                    Text(count == 1 ? "Uploading file…" : "Uploading \(count) files…")
+                        .font(.callout)
+                case .failed(let message):
+                    Image(systemName: "exclamationmark.triangle")
+                    Text(message)
+                        .font(.callout)
+                        .lineLimit(4)
+                    Button(action: dismiss) { Image(systemName: "xmark.circle.fill") }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Dismiss upload error")
+                }
+            }
+            .padding(10)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+            .shadow(radius: 3, y: 1)
+            .frame(maxWidth: 420)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            .padding(10)
         }
     }
 

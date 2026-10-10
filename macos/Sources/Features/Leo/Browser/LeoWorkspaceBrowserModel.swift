@@ -67,6 +67,8 @@ enum LeoWorkspaceItem: Hashable, Sendable {
     @Published private(set) var expanded: Set<String> = []
     @Published private(set) var showsHiddenFiles = false
     @Published private(set) var openError: String?
+    @Published private(set) var uploadDestination: String?
+    @Published private(set) var uploadError: String?
 
     private let makeAccess: @MainActor (LeoHostID) throws -> any LeoFileAccess
     private let openInEditor: @MainActor (LeoEditorFileID) async throws -> LeoEditorOpenOutcome
@@ -78,6 +80,15 @@ enum LeoWorkspaceItem: Hashable, Sendable {
     private var generation = 0
     /// The listings running on `access`, cancelled when it's retired.
     private var listings: [UUID: Task<[LeoWorkspaceEntry], Error>] = [:]
+    private struct UploadJob {
+        let id: UUID
+        let generation: Int
+        let sources: [URL]
+        let directory: String
+        let completion: CheckedContinuation<Void, Never>
+    }
+    private var uploadJobs: [UploadJob] = []
+    private var uploadTask: Task<Void, Never>?
 
     /// `makeAccess` gives file access for a host (one per root, released
     /// when the browser closes or moves to another agent); `openFile` opens
@@ -213,6 +224,25 @@ enum LeoWorkspaceItem: Hashable, Sendable {
         openError = nil
     }
 
+    /// Uploads Finder files to the root or a shown folder. The root/access
+    /// generation is checked after every suspension so a re-rooted browser
+    /// never shows stale progress, errors, or listings.
+    func upload(_ sourceURLs: [URL], to directory: String) async {
+        guard let access, isUploadDestination(directory) else { return }
+        _ = access // The queued job resolves the generation's current access when it starts.
+        await withCheckedContinuation { completion in
+            uploadJobs.append(UploadJob(
+                id: UUID(), generation: generation, sources: sourceURLs,
+                directory: directory, completion: completion
+            ))
+            startNextUpload()
+        }
+    }
+
+    func dismissUploadError() {
+        uploadError = nil
+    }
+
     /// Hides the browser and releases its file access (for a remote host,
     /// its `sftp` process).
     func close() async {
@@ -236,6 +266,10 @@ enum LeoWorkspaceItem: Hashable, Sendable {
     /// returned.
     private func detach() -> Detached {
         let previous = Detached(access: access, listings: Array(listings.values))
+        uploadTask?.cancel()
+        uploadTask = nil
+        uploadJobs.forEach { $0.completion.resume() }
+        uploadJobs = []
         listings = [:]
         generation += 1
         access = nil
@@ -244,7 +278,37 @@ enum LeoWorkspaceItem: Hashable, Sendable {
         expanded = []
         pending = [:]
         openError = nil
+        uploadDestination = nil
+        uploadError = nil
         return previous
+    }
+
+    private func startNextUpload() {
+        guard uploadTask == nil, let job = uploadJobs.first,
+              job.generation == generation, let access,
+              isUploadDestination(job.directory) else {
+            if uploadTask == nil, !uploadJobs.isEmpty {
+                let stale = uploadJobs.removeFirst()
+                stale.completion.resume()
+                startNextUpload()
+            }
+            return
+        }
+        uploadDestination = job.directory
+        uploadTask = Task { [weak self] in
+            let result = await LeoFileDrop.upload(job.sources, to: job.directory, access: access)
+            guard let self, !Task.isCancelled, job.generation == generation,
+                  uploadJobs.first?.id == job.id else { return }
+            if !result.failures.isEmpty {
+                uploadError = [uploadError, result.errorMessage].compactMap { $0 }.joined(separator: "\n")
+            }
+            if !result.uploaded.isEmpty { await load(job.directory) }
+            guard job.generation == generation, uploadJobs.first?.id == job.id else { return }
+            uploadDestination = nil
+            uploadJobs.removeFirst().completion.resume()
+            uploadTask = nil
+            startNextUpload()
+        }
     }
 
     /// Cancels the old root's listings and closes its access at once --
@@ -320,6 +384,15 @@ enum LeoWorkspaceItem: Hashable, Sendable {
 
     private static func isSingleComponent(_ name: String) -> Bool {
         !name.isEmpty && name != "." && name != ".." && !name.contains("/") && !name.contains("\0")
+    }
+
+    private func isUploadDestination(_ directory: String) -> Bool {
+        guard let workspace = root?.path else { return false }
+        guard directory != workspace else { return true }
+        return folders.values.contains { folder in
+            guard case let .loaded(entries) = folder else { return false }
+            return entries.contains { $0.isFolder && $0.path == directory }
+        }
     }
 
     /// Which of `links` resolve to a folder, stat-ing at most

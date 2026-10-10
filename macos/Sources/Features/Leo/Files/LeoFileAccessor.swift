@@ -17,10 +17,15 @@ protocol LeoFileAccessBackend: Sendable {
     func entries(of directory: String) async throws -> [LeoFileEntry]
     /// The file's bytes, stopping once more than `limit` have been read.
     func contents(of path: String, limit: UInt64) async throws -> Data
-    /// Creates `path` exclusively (failing if it exists), writes `data`, and
-    /// sets exactly `permissions` when non-nil (otherwise the host's default
-    /// for a new file). Removes the file again if anything after creation fails.
-    func create(_ path: String, data: Data, permissions: UInt16?) async throws
+    /// Creates `path` exclusively (failing if it exists), writes `source`
+    /// (pulled one bounded chunk at a time), and sets exactly `permissions`
+    /// when non-nil (otherwise the host's default for a new file). After an exclusive OPEN succeeds, an ordinary write
+    /// failure removes this uploader-owned private path. A disconnect may
+    /// retain it because the server's last completed operation is uncertain.
+    func create(_ path: String, from source: any LeoFileByteSource, permissions: UInt16?) async throws
+    /// Atomically moves a fully written `source` into an absent
+    /// `destination`, failing rather than replacing anything there.
+    func publishExclusive(_ destination: String, with source: String) async throws
     func remove(_ path: String) async throws
     /// Moves `source` over `destination`, replacing it. On failure, removes
     /// `source` unless that could lose the only copy of the data.
@@ -31,6 +36,10 @@ protocol LeoFileAccessBackend: Sendable {
 
 extension LeoFileAccessBackend {
     func close() async {}
+
+    func publishExclusive(_ destination: String, with source: String) async throws {
+        throw LeoFileAccessError.unavailable(reason: "This file connection doesn’t support exclusive publication")
+    }
 }
 
 /// `LeoFileAccess` over any `LeoFileAccessBackend`: the single place the
@@ -101,7 +110,7 @@ struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
 
         let temporary = Self.temporarySibling(of: target)
         do {
-            try await backend.create(temporary, data: data, permissions: existing?.permissions)
+            try await backend.create(temporary, from: data, permissions: existing?.permissions)
         } catch {
             throw LeoFileAccessError.wrapping(error, path: temporary).retargeted(to: path)
         }
@@ -119,6 +128,54 @@ struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
             throw LeoFileAccessError.wrapping(error, path: target).retargeted(to: path)
         }
         return written
+    }
+
+    /// A complete hidden sibling is atomically published with no-replace
+    /// semantics. The destination therefore never contains partial bytes,
+    /// including when an SFTP connection disappears during a chunked write.
+    /// Failure cleanup never names the destination: an attacker replacing a
+    /// path after publication cannot have that replacement unlinked here.
+    @discardableResult
+    func create(at path: String, from source: any LeoFileByteSource) async throws -> LeoFileStat {
+        try closed.check()
+        try Self.validate(path)
+        if try await statIfPresent(path, followingLinks: false) != nil {
+            throw LeoFileAccessError.conflict(path: path)
+        }
+        let staged = Self.temporarySibling(of: path)
+        do {
+            // D-355: staging bytes stay private until exclusive publication.
+            try await backend.create(staged, from: source, permissions: 0o600)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            throw LeoFileAccessError.wrapping(error, path: staged).retargeted(to: path)
+        }
+        let result: LeoFileStat
+        do {
+            result = try await backend.stat(staged)
+            try Self.requireRegularFile(result, path: path)
+        } catch {
+            if !Self.isUncertain(error) { try? await backend.remove(staged) }
+            throw LeoFileAccessError.wrapping(error, path: staged).retargeted(to: path)
+        }
+        do {
+            try Task.checkCancellation()
+            try await backend.publishExclusive(path, with: staged)
+        } catch is CancellationError {
+            try? await backend.remove(staged)
+            throw CancellationError()
+        } catch {
+            if Self.isUncertain(error) {
+                // The RENAME request may have committed before its reply was
+                // lost. Never retry or remove either pathname blindly.
+                throw LeoFileAccessError.indeterminate(path: path)
+            }
+            try? await backend.remove(staged)
+            if (try? await backend.lstat(path)) != nil { throw LeoFileAccessError.conflict(path: path) }
+            throw LeoFileAccessError.wrapping(error, path: path)
+        }
+        return result
     }
 
     func close() async {
@@ -168,6 +225,13 @@ struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
         guard path.hasPrefix("/"), !path.contains("\0") else { throw LeoFileAccessError.invalidPath(path) }
     }
 
+    private static func isUncertain(_ error: Error) -> Bool {
+        switch error as? LeoFileAccessError {
+        case .disconnected, .closed: true
+        default: false
+        }
+    }
+
     /// `.<name>.leo-<random>.tmp` beside the target, so the final rename
     /// never crosses a filesystem boundary. The name part is capped so the
     /// temp name stays within NAME_MAX (255 bytes) for any target name.
@@ -176,13 +240,13 @@ struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
         let name = (path as NSString).lastPathComponent
         // swiftlint:disable:next optional_data_string_conversion
         let stem = name.utf8.count <= temporaryStemLimit ? name : String(decoding: name.utf8.prefix(temporaryStemLimit), as: UTF8.self)
-        let token = UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(12).lowercased()
+        let token = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
         return (directory as NSString).appendingPathComponent(".\(stem).leo-\(token).tmp")
     }
 
-    /// 255 - 22 bytes of `.` + `.leo-<12>.tmp`, less 3 in case truncating
+    /// 255 - 42 bytes of `.` + `.leo-<32>.tmp`, less 3 in case truncating
     /// mid-character leaves a replacement character (3 bytes in UTF-8).
-    private static var temporaryStemLimit: Int { 230 }
+    private static var temporaryStemLimit: Int { 210 }
 }
 
 extension LeoFileAccessor where Backend == LeoLocalFileBackend {

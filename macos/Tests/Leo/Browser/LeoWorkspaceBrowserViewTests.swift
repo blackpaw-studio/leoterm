@@ -55,10 +55,12 @@ struct LeoWorkspaceBrowserViewTests {
         }
     }
 
-    private func makeHarness(_ kind: LeoFileBackendKind, root: String) async -> Harness {
+    private func makeHarness(
+        _ kind: LeoFileBackendKind, root: String, access suppliedAccess: (any LeoFileAccess)? = nil
+    ) async -> Harness {
         let log = Log()
         let model = LeoWorkspaceBrowserModel(
-            makeAccess: { _ in kind.makeAccess() },
+            makeAccess: { _ in suppliedAccess ?? kind.makeAccess() },
             openFile: { fileID in
                 log.opened.append(fileID.path)
                 return .opened
@@ -72,6 +74,13 @@ struct LeoWorkspaceBrowserViewTests {
         await model.open(LeoEditorAgentContext(host: .local, name: "scratch", workspace: root))
         browser.sync()
         return Harness(model: model, browser: browser, window: window, log: log)
+    }
+
+    private func pasteboard(_ url: URL) -> NSPasteboard {
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("leo-browser-drop-\(UUID().uuidString)"))
+        pasteboard.clearContents()
+        pasteboard.writeObjects([url as NSURL])
+        return pasteboard
     }
 
     private func sandbox(_ sandbox: LeoFileSandbox) throws {
@@ -269,6 +278,174 @@ struct LeoWorkspaceBrowserViewTests {
             #expect(harness.selectedTitle == "README.md")
             await harness.tearDown()
         }
+    }
+
+    @Test
+    func controllerRoutesRootAndFolderDropsAndShowsTheMatchingProgressTarget() async throws {
+        let source = try LeoFileSandbox()
+        defer { source.cleanUp() }
+        let rootSource = try source.file("root.txt", "root")
+        let folderSource = try source.file("folder.txt", "folder")
+
+        try await withLeoFileSandbox(.local) { files, _ in
+            try files.directory("target")
+            let rootGate = BrowserViewUploadGate()
+            let rootHarness = await makeHarness(
+                .local, root: files.root,
+                access: BrowserViewGatedAccess(base: LeoFileAccessor.local(), gate: rootGate)
+            )
+            let rootBoard = pasteboard(URL(fileURLWithPath: rootSource))
+
+            let rootDrag = BrowserViewDraggingInfo(rootBoard)
+            #expect(rootHarness.browser.outlineView(
+                rootHarness.outline, validateDrop: rootDrag, proposedItem: nil,
+                proposedChildIndex: NSOutlineViewDropOnItemIndex
+            ) == .copy)
+            #expect(rootHarness.browser.outlineView(
+                rootHarness.outline, acceptDrop: rootDrag, item: nil,
+                childIndex: NSOutlineViewDropOnItemIndex
+            ))
+            await rootGate.waitUntilEntered()
+            rootHarness.browser.sync()
+            #expect(rootHarness.browser.isRootUploadProgressVisible)
+            await rootGate.release()
+            await awaitCondition { FileManager.default.fileExists(atPath: files.path("root.txt")) }
+            await awaitCondition { await MainActor.run { rootHarness.model.uploadDestination == nil } }
+            rootHarness.browser.sync()
+            #expect(!rootHarness.browser.isRootUploadProgressVisible)
+            await rootHarness.tearDown()
+
+            let folderGate = BrowserViewUploadGate()
+            let folderHarness = await makeHarness(
+                .local, root: files.root,
+                access: BrowserViewGatedAccess(base: LeoFileAccessor.local(), gate: folderGate)
+            )
+            let row = try #require(folderHarness.rows.firstIndex(of: "target"))
+            let item = try #require(folderHarness.browser.dropItem(atRow: row))
+            let folderBoard = pasteboard(URL(fileURLWithPath: folderSource))
+
+            let folderDrag = BrowserViewDraggingInfo(folderBoard)
+            #expect(folderHarness.browser.outlineView(
+                folderHarness.outline, validateDrop: folderDrag, proposedItem: item,
+                proposedChildIndex: NSOutlineViewDropOnItemIndex
+            ) == .copy)
+            #expect(folderHarness.browser.outlineView(
+                folderHarness.outline, acceptDrop: folderDrag, item: item,
+                childIndex: NSOutlineViewDropOnItemIndex
+            ))
+            await folderGate.waitUntilEntered()
+            folderHarness.browser.sync()
+            #expect(!folderHarness.browser.isRootUploadProgressVisible)
+            #expect(folderHarness.browser.isFolderUploadProgressVisible(atRow: row))
+            await folderGate.release()
+            await awaitCondition { FileManager.default.fileExists(atPath: files.path("target/folder.txt")) }
+            await folderHarness.tearDown()
+        }
+    }
+
+    @Test
+    func idleAndNoWorkspaceRowsNeverShowUploadProgress() async throws {
+        try await withLeoFileSandbox(.local) { files, _ in
+            try files.file("idle.txt", "")
+            let harness = await makeHarness(.local, root: files.root)
+            harness.browser.sync()
+
+            #expect(!harness.browser.isRootUploadProgressVisible)
+            #expect(!harness.browser.isFolderUploadProgressVisible(atRow: 0))
+            await harness.tearDown()
+        }
+
+        let model = LeoWorkspaceBrowserModel(makeAccess: { _ in LeoFileAccessor.local() }, openFile: { _ in .opened })
+        let browser = LeoWorkspaceBrowserViewController(model: model)
+        let window = NSWindow(contentViewController: browser)
+        await model.open(LeoEditorAgentContext(host: .local, name: "scratch", workspace: nil))
+        browser.sync()
+
+        #expect(!browser.isRootUploadProgressVisible)
+        #expect(!browser.isFolderUploadProgressVisible(atRow: 0))
+        window.close()
+        await model.close()
+    }
+}
+
+@MainActor
+private final class BrowserViewDraggingInfo: NSObject, NSDraggingInfo {
+    let draggingPasteboard: NSPasteboard
+
+    init(_ pasteboard: NSPasteboard) {
+        draggingPasteboard = pasteboard
+    }
+
+    var draggingDestinationWindow: NSWindow? { nil }
+    var draggingSourceOperationMask: NSDragOperation { .copy }
+    var draggingLocation: NSPoint { .zero }
+    var draggedImageLocation: NSPoint { .zero }
+    var draggedImage: NSImage? { nil }
+    var draggingSource: Any? { nil }
+    var draggingSequenceNumber: Int { 0 }
+    var draggingFormation: NSDraggingFormation = .none
+    var animatesToDestination = false
+    var numberOfValidItemsForDrop = 1
+    var springLoadingHighlight: NSSpringLoadingHighlight { .none }
+
+    func slideDraggedImage(to screenPoint: NSPoint) {}
+    override func namesOfPromisedFilesDropped(atDestination dropDestination: URL) -> [String]? { nil }
+    func enumerateDraggingItems(
+        options enumOpts: NSDraggingItemEnumerationOptions,
+        for view: NSView?,
+        classes classArray: [AnyClass],
+        searchOptions: [NSPasteboard.ReadingOptionKey: Any],
+        using block: (NSDraggingItem, Int, UnsafeMutablePointer<ObjCBool>) -> Void
+    ) {}
+    func resetSpringLoading() {}
+}
+
+private actor BrowserViewUploadGate {
+    private var blocker: CheckedContinuation<Void, Error>?
+    private var enteredWaiters: [CheckedContinuation<Void, Never>] = []
+    private var entered = false
+
+    func enter() async throws {
+        entered = true
+        enteredWaiters.forEach { $0.resume() }
+        enteredWaiters = []
+        try await withCheckedThrowingContinuation { blocker = $0 }
+    }
+
+    func waitUntilEntered() async {
+        if entered { return }
+        await withCheckedContinuation { enteredWaiters.append($0) }
+    }
+
+    func release() {
+        blocker?.resume()
+        blocker = nil
+    }
+
+    func close() {
+        blocker?.resume(throwing: LeoFileAccessError.closed)
+        blocker = nil
+    }
+}
+
+private struct BrowserViewGatedAccess: LeoFileAccess {
+    let base: any LeoFileAccess
+    let gate: BrowserViewUploadGate
+
+    func list(_ path: String) async throws -> [LeoFileEntry] { try await base.list(path) }
+    func stat(_ path: String) async throws -> LeoFileStat { try await base.stat(path) }
+    func homeDirectory() async throws -> String { try await base.homeDirectory() }
+    func read(_ path: String, maxBytes: UInt64) async throws -> LeoFileContents { try await base.read(path, maxBytes: maxBytes) }
+    func write(_ data: Data, to path: String, expecting expected: LeoFileVersion?) async throws -> LeoFileStat {
+        try await base.write(data, to: path, expecting: expected)
+    }
+    func create(at path: String, from source: any LeoFileByteSource) async throws -> LeoFileStat {
+        try await gate.enter()
+        return try await base.create(at: path, from: source)
+    }
+    func close() async {
+        await gate.close()
+        await base.close()
     }
 }
 

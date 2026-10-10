@@ -25,6 +25,15 @@ enum LeoFileBackendKind: String, CaseIterable, CustomTestStringConvertible, Send
 
     var testDescription: String { rawValue }
 
+    /// The most a create may pull from its source in one read.
+    var writeChunkSize: Int {
+        switch self {
+        case .local: LeoLocalFileBackend.writeChunkSize
+        case .sftpSmallChunks: 1000
+        case .sftp, .sftpWithoutPosixRename, .sshEndToEnd: LeoSFTPOptions().chunkSize
+        }
+    }
+
     func makeAccess() -> any LeoFileAccess {
         switch self {
         case .local: LeoFileAccessor.local()
@@ -242,4 +251,149 @@ func leoPatternData(count: Int) -> Data {
         state ^= state << 5
         return UInt8(truncatingIfNeeded: state)
     })
+}
+
+/// A `Data` source that records every read's requested size.
+final class LeoRecordingByteSource: LeoFileByteSource, @unchecked Sendable {
+    private let data: Data
+    private let lock = NSLock()
+    private var requests: [Int] = []
+
+    init(_ data: Data) {
+        self.data = data
+    }
+
+    var requestedCounts: [Int] { lock.withLock { requests } }
+
+    func read(at offset: UInt64, upTo count: Int) throws -> Data {
+        lock.withLock { requests.append(count) }
+        return try data.read(at: offset, upTo: count)
+    }
+}
+
+/// The real `/usr/libexec/sftp-server` behind a frame relay that loses the
+/// first RENAME (type 18) at a chosen point, then cuts the client off as a
+/// dropped ControlMaster would. Frame-driven, so no timing is involved.
+final class LeoSFTPRenameLossRelay: LeoSFTPLaunching, @unchecked Sendable {
+    enum Loss {
+        /// The server performs the RENAME; its reply never arrives.
+        case reply
+        /// The connection drops before the server sees the RENAME.
+        case request
+    }
+
+    private static let renameType: UInt8 = 18
+    private static let removeType: UInt8 = 13
+
+    private let loss: Loss
+    private let base = LeoSFTPTestServer.launcher()
+    private let lock = NSLock()
+    private var launchCount = 0
+    private var renameCount = 0
+    private var removesAfterRenameCount = 0
+    private var lostReplyID: UInt32?
+
+    init(losing loss: Loss) {
+        self.loss = loss
+    }
+
+    var launches: Int { lock.withLock { launchCount } }
+    var renames: Int { lock.withLock { renameCount } }
+    var removesAfterRename: Int { lock.withLock { removesAfterRenameCount } }
+
+    func launch() throws -> LeoSFTPChannel {
+        lock.withLock { launchCount += 1 }
+        let server = try base.launch()
+        var ends: [Int32] = [0, 0]
+        guard socketpair(AF_UNIX, SOCK_STREAM, 0, &ends) == 0 else {
+            server.terminate()
+            throw LeoFileAccessError.unavailable(reason: "socketpair failed")
+        }
+        let (client, relay) = (ends[0], ends[1])
+        _ = fcntl(relay, F_SETNOSIGPIPE, 1)
+        let group = DispatchGroup()
+        Self.spawn(group) { [self] in relayRequests(from: relay, to: server.toServer.fileDescriptor) }
+        Self.spawn(group) { [self] in relayReplies(from: server.fromServer.fileDescriptor, to: relay) }
+        group.notify(queue: .global()) { Darwin.close(relay) }
+        return LeoSFTPChannel(
+            fromServer: FileHandle(fileDescriptor: client, closeOnDealloc: true),
+            toServer: FileHandle(fileDescriptor: dup(client), closeOnDealloc: true),
+            stop: {
+                shutdown(relay, SHUT_RDWR)
+                server.terminate()
+            }
+        )
+    }
+
+    private func relayRequests(from relay: Int32, to server: Int32) {
+        while let frame = Self.readFrame(relay) {
+            let type = frame[4]
+            if type == Self.renameType {
+                lock.withLock { renameCount += 1 }
+                if loss == .request {
+                    shutdown(relay, SHUT_RDWR)
+                    return
+                }
+                lock.withLock { lostReplyID = Self.requestID(frame) }
+            } else if type == Self.removeType {
+                lock.withLock { if renameCount > 0 { removesAfterRenameCount += 1 } }
+            }
+            guard Self.writeAll(frame, to: server) else { return }
+        }
+    }
+
+    private func relayReplies(from server: Int32, to relay: Int32) {
+        while let frame = Self.readFrame(server) {
+            // VERSION (type 2) carries no request id.
+            if frame[4] != 2, let lost = lock.withLock({ lostReplyID }), Self.requestID(frame) == lost {
+                shutdown(relay, SHUT_RDWR)
+                return
+            }
+            guard Self.writeAll(frame, to: relay) else { return }
+        }
+        shutdown(relay, SHUT_RDWR)
+    }
+
+    private static func spawn(_ group: DispatchGroup, _ body: @escaping @Sendable () -> Void) {
+        group.enter()
+        Thread {
+            body()
+            group.leave()
+        }.start()
+    }
+
+    /// One whole frame (length prefix included), or nil at EOF.
+    private static func readFrame(_ descriptor: Int32) -> [UInt8]? {
+        guard let header = readExactly(4, from: descriptor) else { return nil }
+        let length = header.reduce(0) { $0 << 8 | Int($1) }
+        guard length > 0, let body = readExactly(length, from: descriptor) else { return nil }
+        return header + body
+    }
+
+    private static func requestID(_ frame: [UInt8]) -> UInt32 {
+        frame[5..<9].reduce(0) { $0 << 8 | UInt32($1) }
+    }
+
+    private static func readExactly(_ count: Int, from descriptor: Int32) -> [UInt8]? {
+        var bytes = [UInt8](repeating: 0, count: count)
+        var offset = 0
+        while offset < count {
+            let read = bytes.withUnsafeMutableBytes { Darwin.read(descriptor, $0.baseAddress! + offset, count - offset) }
+            if read < 0, errno == EINTR { continue }
+            guard read > 0 else { return nil }
+            offset += read
+        }
+        return bytes
+    }
+
+    private static func writeAll(_ bytes: [UInt8], to descriptor: Int32) -> Bool {
+        var offset = 0
+        while offset < bytes.count {
+            let written = bytes.withUnsafeBytes { Darwin.write(descriptor, $0.baseAddress! + offset, bytes.count - offset) }
+            if written < 0, errno == EINTR { continue }
+            guard written > 0 else { return false }
+            offset += written
+        }
+        return true
+    }
 }
