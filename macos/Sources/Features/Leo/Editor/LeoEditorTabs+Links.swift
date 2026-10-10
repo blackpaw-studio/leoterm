@@ -10,10 +10,10 @@ struct LeoEditorAgentContext: Equatable, Sendable {
     let workspace: String?
 }
 
-extension LeoEditorPaneModel {
+extension LeoEditorTabs {
     /// Resolves a surfaced link (a ⌘-clicked path or `file://` URL, or a
     /// typed path) for `agent` and opens it on the agent's host, at its
-    /// `:line:column` if it has one.
+    /// `:line:column` if it has one, in its own tab.
     @discardableResult
     func open(link text: String, for agent: LeoEditorAgentContext) async throws -> LeoEditorOpenOutcome {
         let link = try LeoEditorLink.parse(text)

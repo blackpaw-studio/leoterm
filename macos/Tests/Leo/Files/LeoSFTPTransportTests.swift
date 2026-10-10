@@ -213,6 +213,88 @@ struct LeoSFTPTransportTests {
         await access.close()
     }
 
+    @Test func aCanonicalRejectionBeforeInvalidUTF8StderrStillFallsBack() async throws {
+        let sandbox = try LeoFileSandbox()
+        defer { sandbox.cleanUp() }
+        try sandbox.directory("workspace")
+        try sandbox.file("workspace/result.txt", "done")
+        let launcher = try rejectingLauncher(
+            in: sandbox,
+            stderrPrintf: "subsystem request failed on channel 0\\n\\377\\376 junk\\n"
+        )
+        let access = LeoFileAccessor.sftp(launcher: launcher)
+
+        let entries = try await access.list(sandbox.path("workspace"))
+
+        #expect(entries.map(\.name) == ["result.txt"])
+        #expect(launcher.launches == 2, "one rejected subsystem child, then one fixed-command child")
+        await access.close()
+    }
+
+    @Test func aCanonicalRejectionBeforeAUTF8SequenceCutAtTheCaptureLimitStillFallsBack() async throws {
+        let sandbox = try LeoFileSandbox()
+        defer { sandbox.cleanUp() }
+        try sandbox.directory("workspace")
+        try sandbox.file("workspace/result.txt", "done")
+        let canonical = "subsystem request failed on channel 0"
+        // 4095 bytes captured, then "é" (0xC3 0xA9) straddles the 4096-byte
+        // limit: the kept stderr ends in a lone 0xC3.
+        let limit = 4 * 1024
+        let filler = String(repeating: "x", count: limit - 1 - canonical.utf8.count - 1)
+        #expect(canonical.utf8.count + 1 + filler.utf8.count == limit - 1)
+        let launcher = try rejectingLauncher(
+            in: sandbox,
+            stderrPrintf: "\(canonical)\\n\(filler)\\303\\251yyyy\\n"
+        )
+        let access = LeoFileAccessor.sftp(launcher: launcher)
+
+        let entries = try await access.list(sandbox.path("workspace"))
+
+        #expect(entries.map(\.name) == ["result.txt"])
+        #expect(launcher.launches == 2, "one rejected subsystem child, then one fixed-command child")
+        await access.close()
+    }
+
+    @Test func aCanonicalLineCarryingInvalidUTF8DoesNotRunTheFallback() async throws {
+        let sandbox = try LeoFileSandbox()
+        defer { sandbox.cleanUp() }
+        let launcher = try rejectingLauncher(
+            in: sandbox,
+            stderrPrintf: "subsystem request failed on channel 0\\377\\n"
+        )
+        let access = LeoFileAccessor.sftp(launcher: launcher)
+
+        await #expect(throws: LeoFileAccessError.disconnected) { try await access.stat("/") }
+        #expect(launcher.launches == 1)
+        await access.close()
+    }
+
+    /// A fake `ssh` whose `-s` (subsystem) attempt writes `stderrPrintf`
+    /// (a `printf` format, so `\\377` is a raw byte) and exits 255, while
+    /// the fixed-command fallback serves SFTP.
+    private func rejectingLauncher(
+        in sandbox: LeoFileSandbox,
+        stderrPrintf: String
+    ) throws -> LeoCountingSFTPLauncher {
+        let fakeSSH = try sandbox.file("ssh", """
+            #!/bin/sh
+            for argument in "$@"; do
+              if [ "$argument" = "-s" ]; then
+                printf '\(stderrPrintf)' >&2
+                exit 255
+              fi
+            done
+            exec /usr/libexec/sftp-server -d %d
+            """, permissions: 0o755)
+        return LeoCountingSFTPLauncher(
+            LeoSFTPProcessLauncher(
+                executable: URL(fileURLWithPath: fakeSSH),
+                arguments: ["-s", "host", "sftp"],
+                fallbackArguments: ["host", LeoSSHCommand.sftpServerBootstrapCommand]
+            )
+        )
+    }
+
     @Test func anUnavailableSFTPServerIsActionableAndLaunchesOnlyOnce() async throws {
         let launcher = LeoCountingSFTPLauncher(LeoSFTPTestServer.script("echo 'leo: no supported sftp-server found' >&2; exit 127"))
         let access = LeoFileAccessor.sftp(launcher: launcher)

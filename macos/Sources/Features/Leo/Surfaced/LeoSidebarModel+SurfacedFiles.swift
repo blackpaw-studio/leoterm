@@ -1,11 +1,13 @@
 import Foundation
 
-/// B-013 routing: a surfaced file is *pending* (badged) until the user
-/// opens it with Agents ▸ Open Surfaced File (⌥⌘O) or a row's Surfaced
-/// Files ▸ item. Nothing opens by itself -- not on arrival, focus or a row
-/// click (D-088). Opening marks seen once the pane shows it
-/// (`LeoSurfacedFileOpener`). Rows only ever carry files of their own
-/// incarnation (`LeoSurfacedFileIndex`).
+/// B-013 routing: a surfaced file is *pending* (badged) until it's seen.
+/// B-273 (superseding D-088's no-auto-open): a live file opens by itself
+/// as a tab in its agent's own pane, in the background, and is seen once
+/// that agent's row is on screen in a visible window. Agents ▸ Open
+/// Surfaced File (⌥⌘O) or a row's Surfaced Files ▸ item still opens one by
+/// hand, showing the row, and marks it seen once the pane shows it
+/// (`LeoSurfacedFileOpener`). Focus or a row click never opens one. Rows
+/// only ever carry files of their own incarnation (`LeoSurfacedFileIndex`).
 extension LeoSidebarModel {
     /// This row's unseen surfaced files, newest last.
     func pendingSurfacedFiles(for row: LeoAgentRow) -> [LeoSurfacedFile] {
@@ -28,6 +30,16 @@ extension LeoSidebarModel {
             guard let self, !isDisconnected else { return false }
             return snapshot.rows.first { $0.id == row.id }?.startedAt == file.startedAt
         }
+    }
+
+    /// B-273: a live file just surfaced on `host` (the feed's report): it
+    /// opens in the background when connected, not yet seen, and a row on
+    /// `host` shows its incarnation.
+    func fileSurfaced(_ file: LeoSurfacedFile, host: LeoHostID) {
+        guard !isDisconnected, !surfacedSeen.isSeen(file, host: host),
+              let row = snapshot.rows.first(where: { $0.host == host && $0.name == file.agent && $0.startedAt == file.startedAt })
+        else { return }
+        surfacedFileAutoOpenRequested(file, row, surfacedOpenGuard(for: file, row: row))
     }
 
     /// Called by the opener once the pane shows `file`; until then it

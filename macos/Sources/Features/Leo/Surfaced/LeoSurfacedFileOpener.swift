@@ -1,13 +1,13 @@
 import Foundation
 
-/// Opens a surfaced file the user asked for (B-013; never on its own,
-/// D-088). It first stats the file on its host (following symlinks, so the
+/// Opens a surfaced file: one the user asked for (B-013), or one opening in
+/// the background (B-273). It first stats the file on its host (following symlinks, so the
 /// target is what's checked) and goes ahead only for a regular file: a
 /// directory, FIFO, device or socket -- which could hang the read -- gets
 /// an error sheet instead. The open re-checks `isStillWanted` after the
 /// stat (the agent may have restarted meanwhile), and its first read is
 /// bounded (`LeoReadDeadline`); the editor's own read cap bounds its size.
-/// The file is marked seen only once the pane shows it.
+/// The file is marked seen only once the pane shows it (`whenSeen`).
 @MainActor final class LeoSurfacedFileOpener {
     /// One window's editor: how to stat and open on a host, and where
     /// errors go.
@@ -17,6 +17,9 @@ import Foundation
         let reportError: @MainActor (Error) -> Void
         /// Re-checked after the stat, and by the pane before it commits.
         var isStillWanted: @MainActor () -> Bool = { true }
+        /// When the opened file counts as seen: given the marking, it runs
+        /// it then or later. nil: at once.
+        var whenSeen: (@MainActor (@escaping @MainActor () -> Void) -> Void)?
     }
 
     private let markSeen: (LeoSurfacedFile, LeoHostID) -> Void
@@ -40,7 +43,9 @@ import Foundation
             // Not seen when the user cancelled its unsaved-changes prompt,
             // or the agent restarted meanwhile.
             guard outcome != .cancelled else { return }
-            markSeen(file, host)
+            let markSeen = markSeen
+            let mark: @MainActor () -> Void = { markSeen(file, host) }
+            if let whenSeen = target.whenSeen { whenSeen(mark) } else { mark() }
         } catch {
             target.reportError(error)
         }

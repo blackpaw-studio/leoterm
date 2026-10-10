@@ -483,6 +483,59 @@ import Testing
         #expect(host.contentCalls.count == 2, "not dropped as superseded")
     }
 
+    /// B-274: every navigation reports the row its window now shows, so
+    /// the window's editor and browser follow it. A split shows no new row.
+    @Test func navigationReportsTheShownRow() async throws {
+        let host = FakeAttachContentHost()
+        let coordinator = makeCoordinator(host: host)
+        var shown: [(LeoWindowID, LeoRowKey)] = []
+        coordinator.onRowShown = { shown.append(($0, $1)) }
+        let other = LeoAgentIdentity(host: .local, name: "other")
+
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        let agent = try #require(host.handles.last)
+        let shell = try #require(try? await coordinator.openPlainShell(request: LeoSurfaceRequest(origin: origin, disposition: .content)).get())
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        await coordinator.showTerminal(shell)
+        await coordinator.attach(identity: other, from: origin, disposition: .content)
+        await coordinator.showTerminal(shell)
+        coordinator.closeTerminal(shell)
+        _ = await coordinator.attach(
+            identity: other, request: LeoSurfaceRequest(origin: origin, disposition: .split(.right), splitSourceSurface: agent.surfaceID))
+
+        #expect(shown.map(\.0).allSatisfy { $0 == origin })
+        #expect(shown.map(\.1) == [
+            .agent(identity), .terminal(shell.surfaceID), .agent(identity), .agent(identity),
+            .terminal(shell.surfaceID), .agent(other), .terminal(shell.surfaceID), .startScreen,
+        ])
+    }
+
+    /// B-274: the live pool letting an agent's surface go leaves its pane:
+    /// the pane is the row's, not the surface's.
+    @Test func poolEvictionLeavesThePaneIntact() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let host = FakeAttachContentHost()
+            let coordinator = makeCoordinator(host: host)
+            let panes = LeoRowPanes(makeAccess: { _ in LeoFileAccessor.local() }, confirm: { _, _ in .cancel })
+            coordinator.onRowShown = { _, key in panes.activate(key) }
+            await coordinator.attach(identity: identity, from: origin, disposition: .content)
+            let first = try #require(host.handles.last)
+            try await panes.active.tabs.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
+            let document = try #require(panes.active.tabs.document)
+
+            for index in 0 ..< LeoLivePoolCapacity.perWindow + 1 {
+                await coordinator.attach(identity: LeoAgentIdentity(host: .local, name: "agent\(index)"), from: origin, disposition: .content)
+            }
+            #expect(host.letGo.contains(first))
+            await coordinator.attach(identity: identity, from: origin, disposition: .content)
+
+            #expect(panes.activeKey == .agent(identity))
+            #expect(panes.active.tabs.document === document)
+            await panes.releaseAll()
+        }
+    }
+
     private func waitUntil(_ condition: () -> Bool) async {
         let deadline = ContinuousClock.now + .seconds(2)
         while !condition(), ContinuousClock.now < deadline { await Task.yield() }

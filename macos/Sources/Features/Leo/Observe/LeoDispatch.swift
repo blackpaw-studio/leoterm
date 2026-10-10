@@ -1,5 +1,19 @@
 import Foundation
 
+/// Where a dispatch's viewer sits, when the daemon says so (`viewer_kind`,
+/// leo >= 0.42 `dispatch_placement_live`). A name this app doesn't know is
+/// not decoded at all, so a newer daemon's kinds degrade to "not reported".
+enum LeoDispatchViewerKind: String, Equatable, Sendable {
+    /// A pane split into the caller's window.
+    case split
+    /// Parked out of sight.
+    case hidden
+    /// Alone in its own window.
+    case window
+    /// Left in Leo's own `leo-dispatch` session, away from the caller's.
+    case background
+}
+
 /// One leo dispatch as the daemon reports it (`Snapshot.dispatches[]` and
 /// `dispatch_changed.dispatch`, leo >= 0.35, `dispatch_tree` feature).
 /// Token and cost fields are left out on purpose: nothing here shows them,
@@ -23,11 +37,19 @@ struct LeoDispatch: Decodable, Equatable, Sendable {
     /// The daemon can attach a terminal to this dispatch (leo >= the
     /// `dispatch_attach` feature). Absent on older daemons: false.
     let attachable: Bool
+    /// The tmux pane (`%N`) the daemon placed this dispatch's viewer in,
+    /// attachable or not. Absent when headless, on older daemons, or when
+    /// the value isn't a pane id.
+    let tmuxTarget: String?
+    /// Where the viewer sits, when the daemon reports it. Absent on older
+    /// daemons, and for a kind this app doesn't know.
+    let viewerKind: LeoDispatchViewerKind?
 
     init(
         id: String, name: String? = nil, role: String? = nil, template: String? = nil, model: String? = nil,
         status: String, stalled: Bool = false, callerAgent: String? = nil, parentDispatchID: String? = nil,
-        startedAt: String? = nil, endedAt: String? = nil, attachable: Bool = false
+        startedAt: String? = nil, endedAt: String? = nil, attachable: Bool = false, tmuxTarget: String? = nil,
+        viewerKind: LeoDispatchViewerKind? = nil
     ) {
         self.id = id
         self.name = name
@@ -41,10 +63,14 @@ struct LeoDispatch: Decodable, Equatable, Sendable {
         self.startedAt = startedAt
         self.endedAt = endedAt
         self.attachable = attachable
+        self.tmuxTarget = tmuxTarget
+        self.viewerKind = viewerKind
     }
 
     enum CodingKeys: String, CodingKey {
         case id, name, role, template, model, status, stalled, attachable
+        case tmuxTarget = "tmux_target"
+        case viewerKind = "viewer_kind"
         case callerAgent = "caller_agent"
         case parentDispatchID = "parent_dispatch_id"
         case startedAt = "started_at"
@@ -75,6 +101,13 @@ struct LeoDispatch: Decodable, Equatable, Sendable {
         parentDispatchID = optional(.parentDispatchID)
         startedAt = optional(.startedAt)
         endedAt = optional(.endedAt)
+        tmuxTarget = optional(.tmuxTarget).flatMap { Self.isPaneID($0) ? $0 : nil }
+        viewerKind = optional(.viewerKind).flatMap(LeoDispatchViewerKind.init(rawValue:))
+    }
+
+    /// A tmux pane id, `%` and digits only: safe as one tmux target.
+    static func isPaneID(_ value: String) -> Bool {
+        value.count > 1 && value.hasPrefix("%") && value.dropFirst().allSatisfy { $0.isASCII && $0.isNumber }
     }
 
     /// Still running as far as the daemon said: no `ended_at` and a

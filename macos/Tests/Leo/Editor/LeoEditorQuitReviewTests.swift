@@ -100,15 +100,23 @@ struct LeoEditorQuitReviewTests {
 /// not whichever window is key.
 @MainActor
 struct LeoEditorEntryWindowTests {
-    @Test func anEditorsEntryNamesItsWindow() throws {
-        let defaults = LeoInMemoryDefaults()
-        let activity = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
-        let runtime = LeoRuntime(daemon: QuitReviewDaemon(), cli: .recordingForTests(), activitySource: activity, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner())
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: [.titled], backing: .buffered, defer: true)
-        let session = runtime.registry.makeSession(window: window, defaults: defaults)
+    @Test func anEditorsEntryNamesItsWindow() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let defaults = LeoInMemoryDefaults()
+            let activity = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
+            let runtime = LeoRuntime(
+                daemon: QuitReviewDaemon(), cli: .recordingForTests(), activitySource: activity, defaults: defaults,
+                templateFetchRunner: LeoRecordingTemplateRunner()
+            )
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: [.titled], backing: .buffered, defer: true)
+            let session = runtime.registry.makeSession(window: window, defaults: defaults, makeFileAccess: { _ in LeoFileAccessor.local() })
+            try await session.editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
 
-        #expect(runtime.editorEntry(for: session).window() === window)
-        #expect(LeoUnsavedEditorsGate.Entry(editor: session.editor) {}.window() == nil)
+            #expect(runtime.editorEntries(for: session).map { $0.window() === window } == [true])
+            let tab = try #require(session.editor.selected)
+            #expect(LeoUnsavedEditorsGate.Entry(editor: tab) {}.window() == nil)
+            await session.editor.release()
+        }
     }
 }
 

@@ -64,6 +64,11 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     private var identityByHandle: [AttachmentHandle: LeoAgentIdentity] = [:]
     private var inactive: Set<AttachmentHandle> = []
     private var attachInProgress: Set<LeoAgentIdentity> = []
+    /// B-270: agent attaches built before their host advertised dispatch
+    /// placement, so without `--dispatch-placement background`: the daemon
+    /// counts such a client as the default `pane` placement.
+    /// `daemonFeaturesChanged` re-attaches them once it does.
+    private var unplaced: Set<AttachmentHandle> = []
     /// Bumped each time a window's content area is replaced, so a request
     /// that waited on a confirmation can tell it was superseded.
     private var contentVersion: [LeoWindowID: Int] = [:]
@@ -81,6 +86,9 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     private var focusReport = 0
     private var focusReportsReceived = 0
     private var lifecycleTask: Task<Void, Never>?
+    /// B-274: the window now shows this row (a navigation, never a split):
+    /// its editor and browser follow. Wired by `LeoRuntime`.
+    var onRowShown: (LeoWindowID, LeoRowKey) -> Void = { _, _ in }
 
     init(
         host: any AttachContentHost,
@@ -170,15 +178,20 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         let request = refillingExitedPane(of: identity, placed)
         let isHidden = request.disposition == .content && hiddenHandle(of: identity, in: request.origin) != nil
         // Showing a hidden surface needs no command; attaching anew builds
-        // it before asking, so a bad executable never asks first.
+        // it before asking, so a bad executable never asks first -- and
+        // again after when a hello changed placement meanwhile (B-270).
         let built = isHidden ? nil : attachCommand(for: identity)
         if case .failure(let error) = built { return .failure(error) }
+        let placedWhenBuilt = placesDispatches(identity.host)
         guard await confirmReplacingContent(for: request) else {
             return .failure(.init(identity: identity, kind: .cancelled))
         }
         if isHidden, let handle = revealHidden(identity, in: request.origin) { return .success(handle) }
-        switch built ?? attachCommand(for: identity) {
-        case .success(let command): return attachAnew(identity: identity, command: command, request: request)
+        let isCurrent = placesDispatches(identity.host) == placedWhenBuilt
+        switch (isCurrent ? built : nil) ?? attachCommand(for: identity) {
+        // A row click refilling an exited pane still shows that row (B-274).
+        case .success(let command):
+            return attachAnew(identity: identity, command: command, request: request, showsRow: placed.disposition.focusesAgentOnScreen)
         case .failure(let error): return .failure(error)
         }
     }
@@ -206,15 +219,19 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     private func attachAnew(
         identity: LeoAgentIdentity,
         command: String,
-        request: LeoSurfaceRequest
+        request: LeoSurfaceRequest,
+        showsRow: Bool
     ) -> Result<AttachmentHandle, LeoAttachError> {
         releaseHidden(identity)
         do {
             let workingDirectory = LeoAttachCommand.workingDirectory(identity: identity)
             let handle = try createHandle(command: command, workingDirectory: workingDirectory, request: request)
             if request.disposition == .content { contentReplaced(in: request.origin) }
+            if showsRow { onRowShown(handle.windowID, .agent(identity)) }
             handlesByIdentity[identity, default: []].append(handle)
             identityByHandle[handle] = identity
+            // `command` was built from placement as it is now (see `attach`).
+            if identity.dispatchID == nil, !placesDispatches(identity.host) { unplaced.insert(handle) }
             adoptHostFocus()
             host.setAgentName(handle, name: identity.title ?? identity.name)
             if identity.dispatchID != nil { host.markWatchingDispatch(handle) }
@@ -252,6 +269,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         }
         contentReplaced(in: window)
         moveToMostRecent(hidden, identity: identity)
+        onRowShown(window, .agent(identity))
         adoptHostFocus()
         return hidden
     }
@@ -283,6 +301,50 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         return LeoSurfaceRequest(id: request.id, origin: request.origin, disposition: .placeholder(surfaceID: exited.surfaceID))
     }
 
+    /// B-270: an agent attached before its host's hello advertised
+    /// dispatch placement -- a launch-restored row races the hello -- has
+    /// a client the daemon places dispatches beside as panes. Once the
+    /// host advertises it, each such live attach is re-attached with the
+    /// flag: one hidden in a live pool is let go, so its next show
+    /// attaches anew (never a second client, D-109); one shown gets a
+    /// fresh surface in its slot. Each is tried once, so a failure is
+    /// reported once and leaves the old attach working. Called after every
+    /// snapshot: nothing to do costs a set check.
+    func daemonFeaturesChanged() {
+        let due = unplaced.filter { identityByHandle[$0].map { placesDispatches($0.host) } ?? true }
+        guard !due.isEmpty else { return }
+        unplaced.subtract(due)
+        let live = due.filter { !inactive.contains($0) && host.isOpen($0) }
+        let (shown, hidden) = (live.filter(host.isShown), live.filter { !host.isShown($0) })
+        for handle in hidden {
+            host.releasePooledSurface(handle)
+            remove(handle)
+        }
+        for handle in shown { reattachInPlace(handle) }
+        adoptHostFocus()
+    }
+
+    private func placesDispatches(_ host: LeoHostID) -> Bool {
+        daemonFeatures(host).contains(.attachDispatchPlacement)
+    }
+
+    /// The new surface takes the old one's place in the recency order; the
+    /// host's `.closed` for the old one then finds nothing to remove.
+    private func reattachInPlace(_ handle: AttachmentHandle) {
+        guard let identity = identityByHandle[handle],
+              case .success(let command) = attachCommand(for: identity) else { return }
+        do {
+            let workingDirectory = LeoAttachCommand.workingDirectory(identity: identity)
+            let replacement = try host.reattachInPlace(handle, command: command, workingDirectory: workingDirectory)
+            identityByHandle.removeValue(forKey: handle)
+            identityByHandle[replacement] = identity
+            handlesByIdentity[identity] = handlesByIdentity[identity]?.map { $0 == handle ? replacement : $0 }
+            host.setAgentName(replacement, name: identity.title ?? identity.name)
+        } catch {
+            report(LeoAttachError(identity: identity, kind: .openFailed(error.localizedDescription)))
+        }
+    }
+
     /// `request`'s disposition with the default (no attach command) surface
     /// configuration -- the picker's "Plain shell" row. No identity, so no
     /// reuse and no attach bookkeeping; always creates.
@@ -292,7 +354,10 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         }
         do {
             let handle = try createHandle(command: "", workingDirectory: nil, request: request)
-            if request.disposition == .content { contentReplaced(in: request.origin) }
+            if request.disposition == .content {
+                contentReplaced(in: request.origin)
+                onRowShown(request.origin, .terminal(handle.surfaceID))
+            }
             return .success(handle)
         } catch {
             let attachError = LeoAttachError(identity: Self.plainShellIdentity, kind: .openFailed(error.localizedDescription))
@@ -311,10 +376,14 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     /// sidebar selects what the window does show again.
     func showTerminal(_ handle: AttachmentHandle) async {
         guard host.isOpen(handle) else { return host.selectShownTerminal(in: handle.windowID) }
-        if host.isShown(handle) { return host.focus(handle) }
+        if host.isShown(handle) {
+            onRowShown(handle.windowID, .terminal(handle.surfaceID))
+            return host.focus(handle)
+        }
         guard await confirmReplacingContent(for: LeoSurfaceRequest(origin: handle.windowID, disposition: .content)),
               host.reveal(handle) else { return host.selectShownTerminal(in: handle.windowID) }
         contentReplaced(in: handle.windowID)
+        onRowShown(handle.windowID, .terminal(handle.surfaceID))
         adoptHostFocus()
     }
 
@@ -340,7 +409,18 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         host.closeTerminal(handle)
         guard wasShown else { return }
         contentReplaced(in: handle.windowID)
+        reportShownRow(in: handle.windowID)
         adoptHostFocus()
+    }
+
+    /// What `window` shows now that something on screen closed: its row,
+    /// or the start screen.
+    private func reportShownRow(in window: LeoWindowID) {
+        onRowShown(window, host.shownHandle(in: window).map(rowKey(of:)) ?? .startScreen)
+    }
+
+    private func rowKey(of handle: AttachmentHandle) -> LeoRowKey {
+        identityByHandle[handle].map(LeoRowKey.agent) ?? .terminal(handle.surfaceID)
     }
 
     /// Sentinel identity attached to plain-shell errors. Plain shells carry
@@ -455,6 +535,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         remove(handle)
         guard wasShown else { return }
         contentReplaced(in: handle.windowID)
+        reportShownRow(in: handle.windowID)
         adoptHostFocus()
     }
 
@@ -495,9 +576,18 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         host.discardEmptyPlaceholder(origin: origin)
     }
 
+    /// B-273: the window holding `identity`'s live surface -- the one on
+    /// screen if any, else one hidden in a live pool -- or nil. Read-only:
+    /// nothing is shown, focused or reordered.
+    func liveWindow(of identity: LeoAgentIdentity) -> LeoWindowID? {
+        let live = (handlesByIdentity[identity] ?? []).filter { !inactive.contains($0) }
+        return (live.last { host.isShown($0) } ?? live.last)?.windowID
+    }
+
     private func focusOnScreen(_ identity: LeoAgentIdentity) -> AttachmentHandle? {
         defer { publishLinkState() }
         guard let handle = handlesByIdentity[identity]?.last(where: { !inactive.contains($0) && host.isShown($0) }) else { return nil }
+        onRowShown(handle.windowID, .agent(identity))
         host.focus(handle)
         moveToMostRecent(handle, identity: identity)
         return handle
@@ -537,6 +627,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     private func remove(_ handle: AttachmentHandle) {
         guard let identity = identityByHandle.removeValue(forKey: handle) else { return }
         inactive.remove(handle)
+        unplaced.remove(handle)
         handlesByIdentity[identity]?.removeAll { $0 == handle }
         if handlesByIdentity[identity]?.isEmpty == true { handlesByIdentity.removeValue(forKey: identity) }
     }

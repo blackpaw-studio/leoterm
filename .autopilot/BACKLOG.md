@@ -704,23 +704,80 @@ Source: Evan (/feature, 2026-10-07)
 Inbox: 20261007T144805204560Z-7cda212b#1
 Done: 2026-10-07 · 35d7d0d09, 376d64bda, d468aab19, 7d407fbc9, 9a842321d, d4c20098f, a2e437d3f, 0993d3fe2, e2af1370d · D-411, D-412, D-413, D-414, D-415, D-416, D-417, D-418, D-419, D-420, D-421
 
-## B-235 · SFTP rejection diagnostic with invalid UTF-8 suffix   [ready]
+## B-235 · SFTP rejection diagnostic with invalid UTF-8 suffix   [done]
 Issue: #240
 Why: Final B-233 security review: invalid or truncated UTF-8 suffix can suppress an earlier complete canonical rejection line; safe failure but fallback may be missed.
 Accept: A complete canonical rejection line is recognized despite invalid UTF-8 in a later suffix; truncated noncanonical lines still never trigger fallback; regression tests.
 Source: autopilot polish (B-233)
+Done: 82c63cac9, 8f35fa1e1 (merge 12530adbb)
 
-## B-144 · Launch-placeholder test cleanup closes pending windows   [ready]
+## B-144 · Launch-placeholder test cleanup closes pending windows   [done]
 Issue: #148
 Why: LeoLaunchPlaceholderIntegrationTests close() (:90,100-101) only closes visible windows; also close windows whose controller has leoIsAwaitingPresentation, and fold the trait's duplicated MainActor.run restore into one helper
 Accept: LeoLaunchPlaceholderIntegrationTests close() (:90,100-101) only closes visible windows; also close windows whose controller has leoIsAwaitingPresentation, and fold the trait's duplicated MainActor.run restore into one helper
 Source: autopilot polish (B-094)
+Done: 87bc874aa (merge 8b7625f4d)
 
-## B-145 · File ▸ New Window and ⌘N skip the palette flash   [ready]
+## B-270 · Dispatch placement never applied to rows attached before hello   [done]
+Issue: #264
+Type: bug
+Report: Dispatch placement never takes effect for rows attached before the daemon hello. The app adds `--dispatch-placement background` to `leo agent attach` only when hostFeatures already has `attach_dispatch_placement` (LeoDaemonFeatures.swift:34, read at build time in LeoRuntime.swift:162), but launch-restored rows attach before hello arrives (race noted at LeoAttachCoordinator.swift:50, pinned by LeoDaemonFeaturesScopeTests.swift:30), and the attach command is fixed for the surface's lifetime — live-pool reveal and close/reopen reuse the surface, so the flag is never applied. The daemon counts an unregistered client as the default `pane`, which outranks background, so every leo_dispatch from that agent opens a tmux pane/window. Observed 2026-10-08 on leo-v0.10.0 + daemon 0.41.0 over SSH to Dionysus: after closing/reopening the leoterm row the only tmux client on leo-leoterm still predated the reopen, and a probe dispatch opened a window. Fix: when hello first advertises `attach_dispatch_placement` for a host, re-attach that host's surfaces that were attached without the flag (preserving selection/scroll), rather than delaying the first attach.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: Evan (/issue, 2026-10-08)
+Inbox: 20261008T224810716919Z-9e7de099#1
+Done: 68b0e2647 1e270c780 b6a403d47 eb8a4d622 697e2e580 bb34cabbf. Pre-hello attaches re-attach once hello advertises attach_dispatch_placement; hidden unflagged surfaces are released. Repro test failed red before the fix; concurrency review clean; GUI: one tmux client, stable across row switches (the race itself isn't hand-reproducible). Decisions D-430–D-436.
+
+## B-271 · Dispatch rows whose viewer sits in the parent's tmux session can't be clicked   [done]
+Issue: #265
+Type: bug
+Report: Top-level dispatch rows whose viewer opened inside the parent agent's own tmux session (e.g. ap-B-204 at leo-leoterm:2, placed there because no attached client registered background placement) can't be clicked, while nested dispatches that opened in the leo-dispatch session (B-204-impl) can. Observed 2026-10-08 alongside the dispatch-placement-before-hello bug. Confirm these rows become clickable once that placement fix lands; if a dispatch viewer can still end up in the parent's session, clicking its row should focus that window instead of doing nothing.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: Evan (/issue, 2026-10-08)
+Inbox: 20261008T225539342143Z-d97ea80f#1
+Done: c13b9cca0 b106a7255 cf288ce6e. Dispatch rows viewed in the caller's tmux session are clickable: a click focuses that pane (local or over ssh) and shows the parent; older daemons and headless runs stay inert. Repro tests failed red first; security review clean; 2373 tests green. Not visually verified (needs a scratch dispatch viewed in its caller's session). Decisions D-437–D-445.
+
+## B-275 · Tighten sidebar row spacing and grouping   [done]
+Issue: #269
+Why: P1 Mac-native polish; since leo-v0.11.0 the List's default row insets put 22pt dispatch rows about 32pt apart, the same rhythm as agent rows, so an agent's dispatch tree doesn't read as one group and the sidebar looks loose
+Accept: dispatch rows sit no more than 24pt apart; an agent and its dispatches read as one block (agent to first dispatch and dispatch to dispatch gaps clearly smaller than last dispatch to next agent); dispatch names line up in one column per depth, so a long chip like "implement.hard" no longer pushes its name right (fixed-width chip or shortened role is fine); agent rows keep their current height and the tree guides still connect at the new spacing; verified by a native-pixel screenshot of a real sidebar with nested dispatches
+Out: colour changes; any change to the pill or the content of line 2
+Source: Evan (/feature, 2026-10-09)
+Inbox: 20261010T015729666059Z-4957c43e#1
+Done: 88e7542ca aad8fc01a 925d739dc 7568259cd 78b1d8c62. Dispatch rows on a 24pt pitch; agent→first dispatch 16pt, last dispatch→next agent 34pt; names aligned per depth (x=109/121/133) via a fixed-width role-family chip column; guides continuous. Measured at native pixels on the debug app with an autopilot-scratch fixture; 2388 tests green. Not checked on screen: single-dispatch group, selected taller last-dispatch highlight, Terminals row pitch. Decisions D-446–D-449.
+
+## B-274 · Files pane and browser belong to the sidebar row   [done]
+Issue: #266
+Why: P6 the sidebar is the navigation; each row is a self-contained workspace, so switching rows switches its files too. Prerequisite for "Surfaced files open automatically as editor tabs".
+Accept: open a file in agent A's row, switch to B, and B shows its own pane state, not A's file; switch back to A and the file is still open with scroll, selection and unsaved edits; each row's file browser is rooted at its agent's workspace and keeps its own folder expansion; closing or removing a row closes its pane, asking first if there are unsaved changes
+Out: persisting pane state across app relaunch; sharing one open file between rows
+Source: Evan (/feature, 2026-10-09)
+Inbox: 20261010T010641885678Z-74116747#1
+Done: 6088d65ac d39e7be52 1696c2884 2424c1399 110e9cc1a 09556f8c2 03be4a524 c802f0961 6a52d680b. Editor and browser panes are per row (per window): switching rows swaps the pane, switching back restores file, selection and unsaved edits; pool eviction never closes a pane; closing/deleting a row asks about dirty panes. 2411 tests green; general review full + fix delta clean. Not visually verified: Agents ▸ Browse Agent Files menu path, per-row browser roots across two agents, scroll position, row-exit and Delete Agent prompts (tests only). Decisions D-450–D-457.
+
+## B-273 · Surfaced files open automatically as editor tabs   [done]
+Issue: #267
+Why: P4 everything through Leo; per-row file panes make auto-open safe (it never takes over the row on screen). Supersedes D-088. Builds after "Files pane and browser belong to the sidebar row".
+Accept: a file surfaced by agent A opens as a tab in A's editor pane (pane created if needed) without moving keyboard focus out of the terminal; several surfaced files give one tab each, newest selected, and re-surfacing an open file selects its tab; if A isn't the row on screen the file opens in A's pane in the background and the row badge stays until A is viewed; tabs switch and close by keyboard and menu, and closing a tab with unsaved changes asks first
+Out: tabs for terminals; dragging tabs between rows
+Source: Evan (/feature, 2026-10-09)
+Inbox: 20261010T010641687863Z-75c4bfe3#1
+Done: 6889ede49 5fe5700d3 cf7c6da40 ca2134002 43fe062d4 d2503608d. Surfaced files auto-open as tabs in the agent's row pane, in the background without taking focus; newest selected, re-surface selects the existing tab; badge stays until the agent is viewed; tabs switch/close by keyboard (⇧⌘]/⇧⌘[, ⌘W) and menu; dirty close asks. Supersedes D-088. 2448 tests green; concurrency review full + fix delta clean. GUI at final tip partial: surfaced-path tab opening seen only at the previous tip 04c73c6c3. Decisions D-458–D-467.
+
+## B-272 · Live dispatch placement (leo v0.42.0 `dispatch_placement_live`)   [done]
+Issue: #268
+Why: Leo v0.42.0 moves dispatch viewers between background and visible when the session's effective placement flips, so dispatches started while Leo Term was closed stop cluttering the agent's terminal. The app must understand the new viewer state so dispatch rows stay correct and clickable. Serves "Everything through Leo" and "Calm, attention-driven".
+Accept: Decode the new `viewer_kind: "background"` (unknown kinds still degrade safely); dispatch rows update when a viewer moves (no stale "pane"/"window" target, no duplicate rows), and clicking a row attaches to wherever the viewer now lives; gated on hello `dispatch_placement_live` with today's behaviour otherwise; fixture-driven tests that replay a viewer moving background→visible→background; screenshot from the isolated debug build. Contract (leo, 2026-10-08): moves only on a background↔visible flip held for two 1 s polls; pane↔window changes don't move; nothing moves with no attached clients; pane ids preserved; viewers the user moved elsewhere are pinned and left alone; headless watch-viewer windows aren't moved in this release.
+Out: Moving viewers from the app side; changing the leo daemon; Codex/opencode-specific handling.
+Source: Evan (/feature, 2026-10-08)
+Inbox: 20261008T230654542333Z-65d6632f#1
+Done: 369d46814 24a726eb2 17ca28cda 1d830b041 1044f57a3. Decodes hello dispatch_placement_live and a lenient viewer_kind; under the feature a viewer moving background↔visible updates its row in place (no stale target, no duplicate) and clicks follow attachable/tmux_target; replay tests through socket, feed and model; DEBUG fixture dispatch_moves. 2460 tests green; general review clean. Note: leo /api/v1 doesn't carry viewer_kind today (moves arrive as attachable flips), so the decode is forward-compatible. Decisions D-468–D-471.
+
+## B-145 · File ▸ New Window and ⌘N skip the palette flash   [done]
 Issue: #149
 Why: File ▸ New Window while a start-screen window is key, and ⌘N (ghosttyNewWindow) from a terminal with content, still route through leoRouteNewWindow and the palette (TerminalController.swift:1638-1642); swap to the bare start screen like B-095, and document the Dock right-click New Window in AppDelegate.newWindow's doc comment
 Accept: File ▸ New Window while a start-screen window is key, and ⌘N (ghosttyNewWindow) from a terminal with content, still route through leoRouteNewWindow and the palette (TerminalController.swift:1638-1642); swap to the bare start screen like B-095, and document the Dock right-click New Window in AppDelegate.newWindow's doc comment
 Source: autopilot polish (B-095)
+Done: d7526727d 2ba5a4095 10846c005 f54dc54a7 3fec568ca. File ▸ New Window and ⌘N open the bare start screen with no palette flash; inherited font size is held for the first terminal opened from it. Decisions D-472–D-473.
 
 ## B-147 · Rebuild the shared autopilot xcframework after B-098   [done]
 Issue: #151
@@ -729,11 +786,12 @@ Accept: B-098 changed src/global.zig; .git/autopilot/shared/GhosttyKit.xcframewo
 Source: autopilot polish (B-098)
 Done: no code change — shared GhosttyKit.xcframework + zig-out rebuilt 2026-10-01 17:45 from 708717ded (ghostty-internal.a newer than last src/ commit 6b44c1a22); old copies moved to ~/.Trash; suite 1962 green through the symlinks (implementer and verifier); verify.md note updated. Lane cleared on autopilot-shelved/B-147 (untracked scratch only).
 
-## B-146 · Environ comment wording   [ready]
+## B-146 · Environ comment wording   [done]
 Issue: #150
 Why: src/global.zig:309: say "environ_initialized stays set" only matters if the I/O side scanned before the sync; macos/Sources/App/main.swift:34-38: the probe runs after ghostty_cli_try_action too ("after init, before NSApplicationMain")
 Accept: src/global.zig:309: say "environ_initialized stays set" only matters if the I/O side scanned before the sync; macos/Sources/App/main.swift:34-38: the probe runs after ghostty_cli_try_action too ("after init, before NSApplicationMain")
 Source: autopilot polish (B-098)
+Done: e8703c447 c3bfaf7de. Clarified the environ_initialized comment in src/global.zig and the startup-probe timing comment in main.swift.
 
 ## B-148 · Sidebar list stays mounted in No Agents/Loading/Failed with terminals   [ready]
 Issue: #152
@@ -891,6 +949,7 @@ Issue: #177
 Why: replace the fixed 1 s sleep with an eventually-poll on firstResponder/focusedSurface (moveFocus retries on asyncAfter timers); a disclosed D-178 exception that could flake under a main-thread stall
 Accept: replace the fixed 1 s sleep with an eventually-poll on firstResponder/focusedSurface (moveFocus retries on asyncAfter timers); a disclosed D-178 exception that could flake under a main-thread stall
 Source: autopilot polish (B-107)
+Note: B-204 (2026-10-08) removed the 1 s pendingFocusMovesLand wait from LeoTerminalRowsIntegrationTests; the same sleep remains at LeoContentFocusTests.swift:88,187 — scope this item to those.
 
 ## B-174 · Close Terminal undo window is only 5 s by default   [ready]
 Issue: #178
@@ -1331,15 +1390,16 @@ Accept: in the isolated debug build, the agent palette's ⌘↩ opens a new tab 
 Source: B-047 implementer report (unverified in the GUI)
 Done: e13738b88 0604cc27f 5bd615a31 (1497 tests). Palette ⌘↩ was already correct: it opens a new tab, also when the agent has one, and never toggles full screen (shots B-048-2, -3). The sidebar ⌘-click was broken: it deselected the row and opened no tab, because the List toggled the selection and SwiftUI tap gestures don't fire in non-key windows. Fixed with a required selection and `LeoRowClickCatcher`; double-click and the Attach button now act exactly once; decisions D-094. Verified: the double-click attaches once (B-048-1), the row stays selected after a ⌘-click (checked in this run), and the palette ⌘↩ forces a new tab (B-048-3). The ⌘-click attach itself was not visually verified, because peekaboo's synthetic ⌘-clicks don't reliably reach the app; end-to-end tests post real mouse events to a non-key window instead. 2 review fix rounds.
 
-## B-051 · Bug — working agents show "Finished" (suspected subagents)   [ready]
+## B-051 · Bug — working agents show "Finished" (suspected subagents)   [blocked]
 Issue: #54
 Why: The status badge has to be trustworthy or the attention model means nothing. Serves "Calm, attention-driven: never invent a state".
 Accept: Reproduce on autopilot-scratch with a scripted turn that starts a background subagent, then record the SSE attention events and the row's state over time; name the root cause (app mapping vs daemon hook semantics) with that trace as evidence; if it's app-side, fix it test-first with a failing test that replays the trace; if it's daemon-side, write the contract change (e.g. keep `working` until SubagentStop / background tasks finish) as a spec and block on Evan.
 Out: Adding app-side heuristics that override daemon state; Codex/opencode subagent detection.
 Source: Evan (/feature, 2026-09-28)
 Inbox: 20260928T193703549149Z-2d2188b3#1
-Question: Needs Evan to do: send the daemon contract change to the leo agent, and time the leo release/restart. Reply "B-051: done" once it's done.
-Answer: done
+Question: Approve this daemon contract change and send it to the `leo` agent? I'd pick: hold `working` on non-empty `pending.tasks` (incl. dev servers/watchers) — "A supervised claude `turn.complete` with non-empty `pending.tasks` holds `working` like the subagent/dispatch hold, with additive `outstanding.tasks = Σ pending.tasks`. The hold drops at the next `turn.start`, session.end, interrupt or stop; that turn's own completion decides again. `pending.wakeups` never hold. `pending` is per turn.complete, never carried over." Alternative: exclude never-ending task types (e.g. `monitor`). App needs no change (badge mirrors attention.state). Evidence (daemon 0.41.0, autopilot-scratch): background `sleep 90` → SSE finished at 17:37:47 while the process lived; working/finished only when it exited at 17:39:16 (~89 s wrong). Cause: daemon internal/observe/bridgefeed.go ~L294 calls AdvanceBridge(finished) without reading ev.Pending. Background *subagent* not reproduced live (native Agent gated on scratch); also say whether to unlock that live scenario. Spec + trace: .autopilot/bugs/B-051/. Work kept on autopilot-shelved/B-051.
+Answer:
+
 ## B-052 · Attach tabs are titled with the agent's name   [done]
 Issue: #55
 Why: Tabs should tell you which agent is inside at a glance, so you don't have to click through them. Serves "Everything through Leo" (no hunting for an agent's tab).
@@ -1380,35 +1440,40 @@ Accept: the old tab shortcuts are remapped to rows (⌘1–⌘9 select the Nth v
 Out: user-configurable bindings beyond Ghostty's keybind config
 Source: Evan (/vision revision, 2026-09-28)
 
-## B-178 · Hidden Close checks every pane of the kept tree   [ready]
+## B-178 · Hidden Close checks every pane of the kept tree   [dropped]
 Issue: #182
 Why: B-177 review: hidden-row Close could check needsConfirmQuit on every pane of the kept tree, not just the row's own (cheap guard; a cross-window Move Split via B-110 might yield an all-row tree); also fix the discardKept doc wording
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-177)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-179 · Tighten aRowWithABusySplitBesideItIsNeverKeptForCloseToKill   [ready]
+## B-179 · Tighten aRowWithABusySplitBesideItIsNeverKeptForCloseToKill   [dropped]
 Issue: #183
 Why: B-177 review: its last two lines check nothing (the row is already gone); drop them or assert there's no sheet; add a LeoLiveSurfaces unit test pinning "a kept tree is only a lone row"
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-177)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-180 · Terminals row context menu shows key equivalents   [ready]
+## B-180 · Terminals row context menu shows key equivalents   [idea]
 Issue: #184
 Why: B-177 review: menu items show no ⌘D, ⇧⌘D, ⌘W hints (P1); add display-only ones if SwiftUI's contextMenu supports them
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-177)
+Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 
-## B-181 · Rename Terminal sheet hangs from the title bar   [ready]
+## B-181 · Rename Terminal sheet hangs from the title bar   [idea]
 Issue: #185
 Why: B-177 verify: the Rename sheet appears centred in the window rather than attached as a sheet from the title bar (HIG)
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-177)
+Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 
-## B-182 · Clearing a custom name after restore restores the live title   [ready]
+## B-182 · Clearing a custom name after restore restores the live title   [idea]
 Issue: #186
 Why: B-177 review: after a restore, clearing a custom name brings back the saved name, not the live title, until the shell sends a new OSC title (decode sets titleFromTerminal = title)
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-177)
+Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 
 ## B-183 · Clearing a row name can drop a just-arrived OSC title   [ready]
 Issue: #187
@@ -1416,29 +1481,33 @@ Why: B-177 review: clearing a name within 75 ms of an OSC title can drop that ne
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-177)
 
-## B-184 · Drive row-menu Split in GUI verification   [ready]
+## B-184 · Drive row-menu Split in GUI verification   [idea]
 Issue: #188
 Why: B-177 verify: menu Split wasn't driven in the GUI (it opens the palette with real agents listed); tests cover it — find a safe GUI path (e.g. filter to autopilot-scratch)
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-177)
+Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 
-## B-185 · Keep the "may have been created" warning across a same-host retry   [ready]
+## B-185 · Keep the "may have been created" warning across a same-host retry   [idea]
 Issue: #189
 Why: B-176 review: add .removeDuplicates() on the selectedHost stream — retry() re-selects the same host, which clears the warning
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-176)
+Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 
-## B-186 · Late spawn result message wording   [ready]
+## B-186 · Late spawn result message wording   [idea]
 Issue: #190
 Why: B-176 review: reword to "Connection changed; the agent was created on X" (a same-host retry also bumps the generation, and the daemon reported success); prefix late spawn errors with the host's name
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-176)
+Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 
-## B-187 · "Not connected to X yet" after a failed tunnel   [ready]
+## B-187 · "Not connected to X yet" after a failed tunnel   [idea]
 Issue: #191
 Why: B-176 review: drop "yet" when the tunnel has failed for good; pass daemonHost: .local explicitly at LeoRuntime.swift:246
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-176)
+Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 
 ## B-188 · LeoAgentActions.spawn enforces the expected host itself   [ready]
 Issue: #192
@@ -1446,35 +1515,40 @@ Why: B-176 review: guard hostSelection.selected == expectedHost inside spawn, no
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-176)
 
-## B-189 · Stricter owner/repo and branch validation in the New Agent sheet   [ready]
+## B-189 · Stricter owner/repo and branch validation in the New Agent sheet   [idea]
 Issue: #193
 Why: B-176 review: ownerRepo per segment ([A-Za-z0-9._-], no leading "-", not "."/"..") — real fix belongs in leo's ValidateRepo (ask the leo agent); catch more invalid branch names inline ("feat/.x", "a.lock/b", bare "@")
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-176)
+Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 
-## B-190 · New Agent in Worktree sheet layout   [ready]
+## B-190 · New Agent in Worktree sheet layout   [idea]
 Issue: #194
 Why: B-176 verify: Host and Repository rows are tight and the branch hint sits under the label column
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-176)
+Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 
-## B-191 · anEmptyNameRestoresTheLiveTitle flakes under load   [ready]
+## B-191 · anEmptyNameRestoresTheLiveTitle flakes under load   [dropped]
 Issue: #195
 Why: B-111 verify: LeoTerminalRowMenuIntegrationTests/anEmptyNameRestoresTheLiveTitle failed once under load (line 161 eventually-timeout on the "  " case); not in verify.md's known-flake list
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-111)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-192 · Template-list tests use the shared fakes throughout   [ready]
+## B-192 · Template-list tests use the shared fakes throughout   [dropped]
 Issue: #196
 Why: B-112 review: LeoTemplateListTests.swift:114 builds its LeoCLI fake by hand (use .recordingForTests(runner:)); GatedTemplateProcess(gated: false) at :110 doubles as a plain remote fake — give LeoRecordingTemplateRunner a status: parameter, or merge the two gated fakes (LeoAgentActionsTests.swift:318, LeoTemplateListTests.swift:136) into the shared support file
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-112)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-193 · verify.md: New Agent sheet driving tips   [ready]
+## B-193 · verify.md: New Agent sheet driving tips   [dropped]
 Issue: #197
 Why: B-112 verify: the Agents > New Agent… menu click never landed; the sidebar "+" button worked, and a sheet popup can be clicked with see --json + click --on <elem> --snapshot <id>
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-112)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
 ## B-194 · Host-selection runner has no real-runner default   [ready]
 Issue: #198
@@ -1482,29 +1556,33 @@ Why: B-112 note: LeoRuntime.hostSelectionRunner and LeoHostSelection.init still 
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-112)
 
-## B-195 · closingAHiddenRowGivesNothingOnScreenItsSlot flakes under load   [ready]
+## B-195 · closingAHiddenRowGivesNothingOnScreenItsSlot flakes under load   [dropped]
 Issue: #199
 Why: B-112 verify: LeoTerminalRowsIntegrationTests/closingAHiddenRowGivesNothingOnScreenItsSlot hit its 5 s eventually timeout once at load 120
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-112)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-196 · Strengthen aDisplacedStartScreenSurfaceIsFreed   [ready]
+## B-196 · Strengthen aDisplacedStartScreenSurfaceIsFreed   [dropped]
 Issue: #200
 Why: B-113 review: its placeholderSurfaceIDs check is always true (inserted synchronously) and doesn't prove the overlay mounted; assert the start-screen button/hosting view is in the hierarchy, or reword the doc comment
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-113)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-197 · Test start-screen per-button wiring   [ready]
+## B-197 · Test start-screen per-button wiring   [dropped]
 Issue: #201
 Why: B-113 review: LeoPlaceholderView.swift:61-66 { buttonActions.perform(button) } could regress to a fixed button unnoticed; extract a tiny testable helper. Also fix the leftover "terminal drawer" in LeoStartScreenState.swift:10's doc comment
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-113)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-198 · openPicker closure holds the SurfaceView strongly   [ready]
+## B-198 · openPicker closure holds the SurfaceView strongly   [dropped]
 Issue: #202
 Why: B-113 review: TerminalView.swift:200 (pre-existing) captures the SurfaceView strongly; capture only its id, per the never-hold-the-surface rule
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-113)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
 ## B-199 · Quick Terminal button re-opens the panel instead of closing it   [ready]
 Issue: #203
@@ -1512,143 +1590,166 @@ Why: B-113 verify: clicking a Quick Terminal button while the panel is up re-ope
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-113)
 
-## B-200 · Single-instance test hardening (kqueue copy test, LeoTestChild reaping)   [ready]
+## B-200 · Single-instance test hardening (kqueue copy test, LeoTestChild reaping)   [dropped]
 Issue: #204
 Why: B-118 review: waitForExitStillWaitsOnACopyOfThisBundle's asked == pid needs registration within 1 s of spawning /bin/sleep 1 — use sleep 60 + kill from the isCopy stub (QuittingHolderTests.swift:309); LeoTestChild.isRunning marks reaped on waitpid -1/EINTR, which can leak a sleep 60 child — set reaped only on result==pid or ECHILD (TestSupport.swift:174); dedupe the test realPath with LeoSingleInstance's (QuittingHolderTests.swift:491)
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-118)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-201 · Single-instance Info.plist open hardening   [ready]
+## B-201 · Single-instance Info.plist open hardening   [dropped]
 Issue: #205
 Why: B-118 review: add O_NOCTTY (and optionally O_NOFOLLOW) to the Info.plist open (LeoSingleInstance.swift:285); URL(fileURLWithPath:isDirectory: false) in isMainExecutable to skip a stat (:270)
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-118)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-202 · Single-instance: close the same-bundle pid-reuse case   [ready]
+## B-202 · Single-instance: close the same-bundle pid-reuse case   [dropped]
 Issue: #206
 Why: B-118 security review: a marked pid reused by another live Leo of this bundle is still waited on; compare pbi_start_tvsec with a timestamp written with the mark
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-118)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-203 · Release-retry log: comment wording and total wait   [ready]
+## B-203 · Release-retry log: comment wording and total wait   [dropped]
 Issue: #207
 Why: B-119 review: LeoSingleInstance.swift:466-467 "only this line tells the two apart in the field" overstates — say it names the pid so the two can be told apart; optionally include the total wait (N × releasePauseMicroseconds) in the log line
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-119)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-204 · LeoTerminalRowsIntegrationTests focus flakes   [ready]
+## B-204 · LeoTerminalRowsIntegrationTests focus flakes   [done]
 Issue: #208
 Why: Recurring under load this run: closingARowsPaneHandsTheRowToTheNextFocusedPane (:748 focusMatchesSelection, B-119 verify), closingAHiddenRowGivesNothingOnScreenItsSlot (B-112 verify), 4 failures in B-118's implementer runs; each passed on rerun. Find the shared timing assumption and make them deterministic
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-119)
+Done: 27cb8ef72, d0e14f330 (merge d4728028b)
 
-## B-205 · Rewrap LeoSingleInstance doc comment line 453   [ready]
+## B-205 · Rewrap LeoSingleInstance doc comment line 453   [dropped]
 Issue: #209
 Why: B-120 review: the line is 82 chars where the rest of the block is 76 or fewer; cosmetic
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-120)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-206 · LeoTestProcessTests errno capture and gone() doc wording   [ready]
+## B-206 · LeoTestProcessTests errno capture and gone() doc wording   [dropped]
 Issue: #210
 Why: B-121 review: capture kill() result and errno into locals before #expect at LeoTestProcessTests.swift:29 so the macro can't clobber errno; gone() doc comment (LeoSingleInstanceTestSupport.swift:162) should say "checked at hand-out" (a check-to-use window remains)
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-121)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-207 · LeoFirstAttachWindowSizeTests tidy-up   [ready]
+## B-207 · LeoFirstAttachWindowSizeTests tidy-up   [dropped]
 Issue: #211
 Why: B-122 review: use configuredContentSize(of:) in the two existing B-097 tests (LeoFirstAttachWindowSizeTests.swift:176-178, :217-219); note in the suite doc that the contentIntrinsicSize tests assume the host config doesn't set window-maximize; add a disabled-state check after a real Reset Window Size (apply())
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-122)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-208 · UpdateDelegateTests StubUpdater downloads can be let   [ready]
+## B-208 · UpdateDelegateTests StubUpdater downloads can be let   [dropped]
 Issue: #212
 Why: B-123 review: the setter is never used; make it a let with a getter-only override (style)
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-123)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-209 · closingTheShownRowsPaneHandsTheRowToTheNextFocusedPane flakes   [ready]
+## B-209 · closingTheShownRowsPaneHandsTheRowToTheNextFocusedPane flakes   [dropped]
 Issue: #213
 Why: B-123 implementer saw it fail once in a mutation run; passed elsewhere. Same family as the LeoTerminalRowsIntegrationTests focus flakes item
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-123)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-210 · testSelectionFocusChange uses a bare XCUIApplication()   [ready]
+## B-210 · testSelectionFocusChange uses a bare XCUIApplication()   [dropped]
 Issue: #214
 Why: B-125 review: it misses -ApplePersistenceIgnoreState and the isolated config/defaults of ghosttyApplication(), and since it now calls launch() it can restore the debug bundle's saved windows (predates B-125); also document that launch() terminates any running debug Leo before relaunching
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-125)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-211 · AppDelegate update-order comment overstates the test   [ready]
+## B-211 · AppDelegate update-order comment overstates the test   [dropped]
 Issue: #215
 Why: B-126 review: AppDelegate.swift:324-326 says the order "is pinned by UpdateLaunchSequenceTests", but the test pins only the order inside the helper; reword to "The order inside UpdateLaunchSequence is pinned by UpdateLaunchSequenceTests; keep these steps routed through it."
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-126)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-212 · Appcast refresh note: command for the highest sparkle:version   [ready]
+## B-212 · Appcast refresh note: command for the highest sparkle:version   [dropped]
 Issue: #216
 Why: B-127 verify: the doc says to set newestVersion to the highest <sparkle:version> but gives no grep one-liner to find it
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-127)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-213 · Check for Updates… while the permission question is pending: polish   [ready]
+## B-213 · Check for Updates… while the permission question is pending: polish   [idea]
 Issue: #217
 Why: B-128 verify/review: with every terminal window minimized it opens a new window instead of restoring one; it opens the window but not the popover, so a second click on the pill is needed; docs/leo/ci.md's B-128 bullet should mention it opens a window
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-128)
+Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 
-## B-214 · Permission popover says Ghostty, not Leo   [ready]
+## B-214 · Permission popover says Ghostty, not Leo   [idea]
 Issue: #218
 Why: B-128 verify: the popover body says "Ghostty can automatically check…"; branding copy
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-128)
+Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 
-## B-215 · Release-side guard for SUAllowsAutomaticUpdates   [ready]
+## B-215 · Release-side guard for SUAllowsAutomaticUpdates   [dropped]
 Issue: #219
 Why: B-129 review: the new UpdatePolicyTests check returns early outside Debug, so nothing asserts SUAllowsAutomaticUpdates stays absent in Release (a leak would silently disable auto-install for shipping users); add the else branch expecting nil (UpdatePolicyTests.swift:109-115)
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-129)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-216 · Debug update-found alert shows a live-looking Install Update button   [ready]
+## B-216 · Debug update-found alert shows a live-looking Install Update button   [idea]
 Issue: #220
 Why: B-129 verify: Sparkle's Debug update alert still shows Install Update (gated to dismiss by B-115); relabel or disable it in Debug
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-129)
+Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 
-## B-217 · About tests: real About-window check and shared menu walker   [ready]
+## B-217 · About tests: real About-window check and shared menu walker   [dropped]
 Issue: #221
 Why: B-130 review: theAboutWindowNamesLeo only checks AboutView.appName == "Leo" (would pass if the view went back to Text("Ghostty")) — scan or host the view; LeoAboutMenuTests duplicates LeoNoTabBarTests' menuItems walker — share it
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-130)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-218 · Leo branding sweep: remaining Ghostty strings   [ready]
+## B-218 · Leo branding sweep: remaining Ghostty strings   [idea]
 Issue: #222
 Why: B-130 review: MainMenu.xib Hide Ghostty / Quit Ghostty / Make Ghostty the Default Terminal / Ghostty Help; About window links (ghostty.org, ghostty-org/ghostty, commit link to the wrong repo), tagline and "Ghostty Application Icon" a11y label; AppDelegate.swift:1478/1514 "Quit Ghostty?", :625 "Allow Ghostty to execute…", UntrustedURLAlert.swift:39, UpdatePopoverView.swift:62, TerminalCommandPalette.swift:99 "Update Ghostty and Restart", ErrorView.swift:13, TerminalView.swift:267 debug banner, default "👻 Ghostty" titles in TitlebarTabs{Tahoe,Ventura}TerminalWindow. Decide which upstream strings to rename (keep upstream merges cheap)
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-130)
+Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 
-## B-223 · Bundled ghostty CLI test: isolate cwd and profile output   [ready]
+## B-223 · Bundled ghostty CLI test: isolate cwd and profile output   [dropped]
 Issue: #227
 Why: B-220 review: LeoBundledGhosttyCLITests runs its child with LLVM_PROFILE_FILE stripped and an inherited cwd, so a coverage build can drop default.profraw into Contents/MacOS and break the bundle seal — set currentDirectoryURL to a temp dir and/or LLVM_PROFILE_FILE=/dev/null
 Accept: B-220 review: LeoBundledGhosttyCLITests runs its child with LLVM_PROFILE_FILE stripped and an inherited cwd, so a coverage build can drop default.profraw into Contents/MacOS and break the bundle seal — set currentDirectoryURL to a temp dir and/or LLVM_PROFILE_FILE=/dev/null
 Source: autopilot polish (B-220)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-224 · Bundled ghostty CLI test: deadline on the child process   [ready]
+## B-224 · Bundled ghostty CLI test: deadline on the child process   [dropped]
 Issue: #228
 Why: B-220 review: readDataToEndOfFile/waitUntilExit have no deadline, so a hung child hangs the run instead of failing — add a terminate deadline like LeoProcessRunnerTests.timeoutTerminatesProcess
 Accept: B-220 review: readDataToEndOfFile/waitUntilExit have no deadline, so a hung child hangs the run instead of failing — add a terminate deadline like LeoProcessRunnerTests.timeoutTerminatesProcess
 Source: autopilot polish (B-220)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-225 · Check release signing with the Contents/MacOS/ghostty symlink   [ready]
+## B-225 · Check release signing with the Contents/MacOS/ghostty symlink   [idea]
 Issue: #229
 Why: B-220 verify: release signing and notarization with a symlink in Contents/MacOS are untested (ad-hoc codesign --deep --strict passes); watch the next CI release build or add a CI codesign --verify --strict check
 Accept: B-220 verify: release signing and notarization with a symlink in Contents/MacOS are untested (ad-hoc codesign --deep --strict passes); watch the next CI release build or add a CI codesign --verify --strict check
 Source: autopilot polish (B-220)
+Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 
-## B-226 · CI script-tests guard: tighten the step match   [ready]
+## B-226 · CI script-tests guard: tighten the step match   [dropped]
 Issue: #230
 Why: B-221 review: the guard is satisfied by `run-tests.sh --list` or a DIR argument and ignores job-level continue-on-error — require nothing after run-tests.sh on the matched line and reject job-level continue-on-error (test_ci-runs-script-tests.sh:96)
 Accept: B-221 review: the guard is satisfied by `run-tests.sh --list` or a DIR argument and ignores job-level continue-on-error — require nothing after run-tests.sh on the matched line and reject job-level continue-on-error (test_ci-runs-script-tests.sh:96)
 Source: autopilot polish (B-221)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
 ## B-227 · Release path runs the CI script tests   [ready]
 Issue: #231
@@ -1656,43 +1757,49 @@ Why: B-221 review: leo-release.yml calls only leo-build, so a tag on a commit th
 Accept: B-221 review: leo-release.yml calls only leo-build, so a tag on a commit that skipped main (or while main's leo-ci was red) can release without the script tests — have leo-release call leo-ci (workflow_call) or have leo-build run run-tests.sh first
 Source: autopilot polish (B-221)
 
-## B-228 · run-tests.sh pins /bin/bash   [ready]
+## B-228 · run-tests.sh pins /bin/bash   [dropped]
 Issue: #232
 Why: B-221 review: run-tests.sh:43 runs `bash "$t"` from PATH, so Homebrew bash 5 could hide bash 3.2 incompatibilities — pin it to /bin/bash
 Accept: B-221 review: run-tests.sh:43 runs `bash "$t"` from PATH, so Homebrew bash 5 could hide bash 3.2 incompatibilities — pin it to /bin/bash
 Source: autopilot polish (B-221)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-229 · sparkle-key-check: missing-key detection without PlistBuddy wording   [ready]
+## B-229 · sparkle-key-check: missing-key detection without PlistBuddy wording   [idea]
 Issue: #233
 Why: B-222 review: sparkle-key-check.sh's missing-key detection matches PlistBuddy's English `":SUPublicEDKey", Does Not Exist` text; if macOS changes it the script falls back to the generic "could not read" error (accurate but less specific) — consider `plutil -extract` or an exit-code-based check
 Accept: B-222 review: sparkle-key-check.sh's missing-key detection matches PlistBuddy's English `":SUPublicEDKey", Does Not Exist` text; if macOS changes it the script falls back to the generic "could not read" error (accurate but less specific) — consider `plutil -extract` or an exit-code-based check
 Source: autopilot polish (B-222)
+Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 
-## B-230 · Focus tests: tear down the palette presentation on failure   [ready]
+## B-230 · Focus tests: tear down the palette presentation on failure   [dropped]
 Issue: #234
 Why: B-131 review: in LeoContentFocusTests presentPaletteForRequest (and the older presentPalette), a failure between present and Escape never invalidates the presentation, so the panel stays a key child window until fixture.close(); a defer'd close/invalidate stops one failure leaking into the next test
 Accept: B-131 review: in LeoContentFocusTests presentPaletteForRequest (and the older presentPalette), a failure between present and Escape never invalidates the presentation, so the panel stays a key child window until fixture.close(); a defer'd close/invalidate stops one failure leaking into the next test
 Source: autopilot polish (B-131)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-231 · Focus tests: rename the shadowing sidebar local   [ready]
+## B-231 · Focus tests: rename the shadowing sidebar local   [dropped]
 Issue: #235
 Why: B-131 review: `let sidebar = LeoSidebarModel()` in presentPaletteForRequest (~line 148) shadows the fixture's `sidebar: NSView`; rename it to sidebarModel
 Accept: B-131 review: `let sidebar = LeoSidebarModel()` in presentPaletteForRequest (~line 148) shadows the fixture's `sidebar: NSView`; rename it to sidebarModel
 Source: autopilot polish (B-131)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-236 · Upload error filenames in right-to-left text   [ready]
+## B-236 · Upload error filenames in right-to-left text   [idea]
 Issue: #241
 Why: B-232 final review: isolate RTL filenames in the upload error message.
 Accept: Once B-232 is landed, improve this upload-error presentation with verification.
 Requires: B-232 done (do not build before the feature lands).
 Source: autopilot polish (B-232)
+Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 
-## B-237 · Terminal upload errors truncate after four lines   [ready]
+## B-237 · Terminal upload errors truncate after four lines   [idea]
 Issue: #242
 Why: B-232 final review: terminal failure overlay truncates longer error batches.
 Accept: Once B-232 is landed, improve this upload-error presentation with verification.
 Requires: B-232 done (do not build before the feature lands).
 Source: autopilot polish (B-232)
+Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 
 ## B-238 · Verify close-confirmation hints in isolated GUI   [done]
 Issue: #243
@@ -1708,71 +1815,82 @@ Why: B-138 exact-lane tests passed, but the isolated Debug app bundle could not 
 Accept: Restore a safe isolated debug build and capture readable horizontal buttons at wide width and vertical fallback below 450 pt; preserve all actions/tooltips; never drive production or real agents.
 Source: autopilot polish (B-138)
 
-## B-240 · Vacuous-pass guard on the regrow check   [ready]
+## B-240 · Vacuous-pass guard on the regrow check   [dropped]
 Issue: #245
 Why: in LeoSidebarContentMinimumTests.swift (~:99-101) `regrowShown.isEmpty` can pass vacuously; add the `!widening.isEmpty` guard the narrowing check already has
 Accept: the widening/regrow per-step check fails when no widening steps were captured
 Source: autopilot polish (B-139)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-241 · Absolute per-step content-width floor in the live resize test   [ready]
+## B-241 · Absolute per-step content-width floor in the live resize test   [dropped]
 Issue: #246
 Why: the per-step expected width derives from `sidebarMaximumWidth`, the same function production uses, so both could share an error; add an absolute floor `contentWidth >= contentMinimumWidth - 1` when the window is ≥ 651 pt (LeoSidebarContentMinimumTests.swift ~:123-128)
 Accept: each captured step asserts content width against the absolute 450 pt minimum (1 pt tolerance), independent of sidebarMaximumWidth
 Source: autopilot polish (B-139)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-242 · `resize` doc comment wording in LeoSidebarContentMinimumTests   [ready]
+## B-242 · `resize` doc comment wording in LeoSidebarContentMinimumTests   [dropped]
 Issue: #247
 Why: the comment (~:183-185) overstates the capture as what "the display cycle runs before it draws" (it is the earliest layout pass) and uses `--` instead of the file's em dash
 Accept: the comment describes the earliest layout pass accurately and uses an em dash
 Source: autopilot polish (B-139)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-243 · One terminal-room formula for the sidebar restore cap   [ready]
+## B-243 · One terminal-room formula for the sidebar restore cap   [idea]
 Issue: #248
 Why: restoreSidebarWidth's floor cap uses the terminal frame width while sidebarSqueezesTerminal/makeRoom use LeoSidebarSplitMetrics.terminalWidth; they agree after layout, but D-058 now has two formulas
 Accept: the restore cap and sidebarSqueezesTerminal/makeRoom share one terminal-room computation; behaviour unchanged, tests still green
 Source: autopilot polish (B-140)
+Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 
-## B-244 · Reset with a narrow default and a side pane shouldn't look like it hides the sidebar   [ready]
+## B-244 · Reset with a narrow default and a side pane shouldn't look like it hides the sidebar   [idea]
 Issue: #249
 Why: when the default size is narrow and a side pane is open, Reset Window Size triggers the transient floor-collapse (D-059), which reads as the command hiding the sidebar
 Accept: Reset Window Size with a narrow default and a side pane open leaves the sidebar visible (or the collapse is clearly the floor rule, not the command); covered by a test
 Source: autopilot polish (B-140)
+Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 
-## B-245 · Reset Window Size fills the screen with a wide default   [ready]
+## B-245 · Reset Window Size fills the screen with a wide default   [idea]
 Issue: #250
 Why: a 160-col default plus the 420 pt sidebar caps at the 1680 pt screen width, which looks less like a "default" size
 Accept: decide and implement how Reset sizes a window whose default plus sidebar exceeds the screen (e.g. leave a margin); covered by a test
 Source: autopilot polish (B-140)
+Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 
-## B-246 · Non-vacuous final check in aWindowNotYetPresentedReadsNotShownWhileTheAppIsHidden   [ready]
+## B-246 · Non-vacuous final check in aWindowNotYetPresentedReadsNotShownWhileTheAppIsHidden   [dropped]
 Issue: #251
 Why: its last `#expect(requested.isLeoWindowShown)` passes whatever the hidden state is, because the settled window is on screen
 Accept: the final check orders the window out first (so only the hidden-state branch can make it pass), or is documented as a sanity check
 Source: autopilot polish (B-141)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-247 · Size-guard late LeoAgentPalettePanels in the stray-window test   [ready]
+## B-247 · Size-guard late LeoAgentPalettePanels in the stray-window test   [dropped]
 Issue: #252
 Why: LeoFolderOpenStrayWindowTests exempts a late LeoAgentPalettePanel by type alone
 Accept: late palettes are also checked against 500x500, and a doc line says unregistered late palettes go unchecked
 Source: autopilot polish (B-142)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-248 · Split the long line in LeoFolderOpenStrayWindowTests   [ready]
+## B-248 · Split the long line in LeoFolderOpenStrayWindowTests   [dropped]
 Issue: #253
 Why: LeoFolderOpenStrayWindowTests.swift:224 is ~130 chars
 Accept: the line is split to the file's usual width; swiftlint clean
 Source: autopilot polish (B-142)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-249 · Build LeoAgentPalettePanel lazily   [ready]
+## B-249 · Build LeoAgentPalettePanel lazily   [idea]
 Issue: #254
 Why: the palette panel is built up front (defer:false), so every window carries a hidden 640x140 window-server window at the origin
 Accept: the palette panel's window-server window is created only when the palette first opens; palette behaviour and tests unchanged
 Source: autopilot polish (B-142)
+Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 
-## B-250 · verify.md note: the 500x500 window at (0,550) is macOS's TUINSWindow   [ready]
+## B-250 · verify.md note: the 500x500 window at (0,550) is macOS's TUINSWindow   [dropped]
 Issue: #255
 Why: an untitled off-screen 500x500 window at (0,550) is the system caps-lock/input-source indicator (TextInputUIMacHelper), not Leo's; verifiers keep rediscovering it
 Accept: verify.md has a one-line note so window listings ignore it
 Source: autopilot polish (B-142)
+Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
 ## B-251 · Per-agent turn preview + usage (leo PR #226)   [idea]
 Source: Evan (/idea, 2026-10-07)
@@ -1821,9 +1939,24 @@ Source: autopilot polish (B-257)
 Note: the depth indent and ↳ glyph are low-contrast and subtle; a larger step or guide line would read better
 Source: autopilot polish (B-257)
 
-## B-268 · Same-state needs_input with a newer revision re-notifies   [ready (next run)]
+## B-268 · Same-state needs_input with a newer revision re-notifies   [ready]
 Issue: #262
 Type: bug
 Report: Same-state needs_input with a newer revision re-notifies — leo 01be9b40 bumps the attention revision when outstanding subagent/dispatch counts change, so one prompt can notify again and bring back an acknowledged Dock count (acknowledged[agent] keeps the old revision, so a hook→bridge reason refinement can also restore it); violates principle 2 (calm)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-258)
+
+## B-269 · Invalid UTF-8 SFTP stderr hides the missing-server message   [ready]
+Issue: #263
+Type: bug
+Report: Invalid UTF-8 SFTP stderr hides the missing-server message — when server stderr isn't valid UTF-8, the displayed detail reads "<N bytes>" and the status-127 missing-server marker match is hidden, so the "no supported SFTP server" message is missed (VISION 5: failures shown plainly).
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-235)
+
+## B-276 · Terminals section needs a manual scroll on a long sidebar   [idea]
+Note: the Terminals section sits at the very bottom of a long sidebar and needs a manual scroll to reach — navigation friction for plain-shell rows (P6)
+Source: autopilot polish (B-274)
+
+## B-277 · Show where a dispatch viewer lives on its row   [idea]
+Note: a dispatch row looks the same whether its viewer is in the background or visible, so a user can't see where it lives; needs Evan's call on a new indicator (P6, P2)
+Source: autopilot polish (B-272)

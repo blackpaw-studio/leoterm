@@ -967,6 +967,13 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         _ node: SplitTree<Ghostty.SurfaceView>.Node,
         withConfirmation: Bool = true
     ) {
+        // MARK: Leo -- a terminal row's shell closing asks about its row's
+        // unsaved editor edits first, split or not (B-274).
+        if withConfirmation, leoDeferCloseOfRows(in: node, retry: { [weak self] in
+            guard let self, surfaceTree.contains(node) else { return }
+            closeSurface(node, withConfirmation: true)
+        }) { return }
+
         // If this isn't the root then we're dealing with a split closure.
         if surfaceTree.root != node {
             // MARK: Leo -- the confirm names the pane it closes (B-088).
@@ -1642,8 +1649,10 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 
     @IBAction func newWindow(_ sender: Any?) {
         // MARK: Leo
-        if let leoSession, surfaceTree.isEmpty {
-            (NSApp.delegate as? AppDelegate)?.leoRuntime.routeNewSurface(.placeholder, origin: leoSession.id)
+        // The start screen asks for a window of its own: the bare start
+        // screen, not the palette (B-145).
+        if leoSession != nil, surfaceTree.isEmpty {
+            (NSApp.delegate as? AppDelegate)?.leoOpenStartScreenWindow()
             return
         }
         guard let surface = focusedSurface?.surface else { return }
@@ -2049,6 +2058,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 extension TerminalController {
     override func validateMenuItem(_ item: NSMenuItem) -> Bool {
         if let enabled = validateLeoEditorMenuItem(item) { return enabled }
+        if let enabled = validateLeoEditorTabMenuItem(item) { return enabled }
         if let enabled = validateLeoBrowserMenuItem(item) { return enabled }
         switch item.action {
         // MARK: Leo

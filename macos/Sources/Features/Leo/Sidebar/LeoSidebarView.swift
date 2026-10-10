@@ -295,6 +295,7 @@ struct LeoSidebarView: View {
                 if showsTerminals { terminalSection }
             }
             .listStyle(.sidebar)
+            .environment(\.sidebarRowSize, LeoDispatchRowMetrics.sidebarRowSize)
             .leoRevealsTerminalRow(terminals.selection, isListed: showsTerminals, listsAgents: listsAgents, proxy: proxy)
             .leoLandsWhenTerminalsClose(
                 // Its header's row and each terminal row `terminalSection` lists.
@@ -328,6 +329,8 @@ struct LeoSidebarView: View {
         Section(header: Text("Terminals")) {
             ForEach(terminals.list.labels) { label in
                 LeoTerminalRowView(label: label, terminals: terminals)
+                    .frame(minHeight: LeoDispatchRowMetrics.terminalRowHeight)
+                    .listRowInsets(EdgeInsets())
                     .tag(Optional(LeoSidebarItemID.terminal(label.id)))
                     .id(LeoSidebarItemID.terminal(label.id))
             }
@@ -364,13 +367,15 @@ struct LeoSidebarView: View {
             // Its live dispatches (B-257), right under it; they follow the
             // row's filter and collapse. Untagged (never selected) unless
             // the daemon can attach to one (B-266).
-            ForEach(model.visibleDispatchRows(for: row)) { item in
-                dispatchRow(item, under: row)
+            let dispatches = model.visibleDispatchRows(for: row)
+            ForEach(dispatches) { item in
+                dispatchRow(item, under: row, endsGroup: item.id == dispatches.last?.id)
+                    .listRowInsets(LeoDispatchRowMetrics.listRowInsets)
             }
         }
     }
 
-    @ViewBuilder private func dispatchRow(_ item: LeoDispatchRowItem, under row: LeoAgentRow) -> some View {
+    @ViewBuilder private func dispatchRow(_ item: LeoDispatchRowItem, under row: LeoAgentRow, endsGroup: Bool) -> some View {
         let ref = LeoDispatchRef(host: row.host, id: item.id)
         let disclosure = item.hasChildren
             ? LeoDispatchRowView.Disclosure(isCollapsed: item.isCollapsed) { model.toggleDispatchCollapsed(ref) }
@@ -382,12 +387,26 @@ struct LeoSidebarView: View {
                 disclosure: disclosure,
                 guides: item.guides,
                 parentLink: item.parent,
+                endsGroup: endsGroup,
                 isSelected: LeoSidebarSelection.current(model: model, terminals: terminals) == .dispatch(ref)
             )
             .tag(Optional(LeoSidebarItemID.dispatch(ref)))
             .id(LeoSidebarItemID.dispatch(ref))
+        } else if model.isDispatchClickable(item.node.dispatch) {
+            // Viewed in its caller's own tmux session (B-271): a click
+            // brings that window forward and goes to the caller; untagged,
+            // so never selected.
+            LeoDispatchRowView(
+                node: item.node,
+                click: { model.dispatchClicked(ref, modifierFlags: $0, clickCount: $1, from: windowID) },
+                isSelectable: false,
+                disclosure: disclosure,
+                guides: item.guides,
+                parentLink: item.parent,
+                endsGroup: endsGroup
+            )
         } else {
-            LeoDispatchRowView(node: item.node, disclosure: disclosure, guides: item.guides, parentLink: item.parent)
+            LeoDispatchRowView(node: item.node, disclosure: disclosure, guides: item.guides, parentLink: item.parent, endsGroup: endsGroup)
         }
     }
 

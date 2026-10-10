@@ -51,7 +51,7 @@ extension LeoRuntime {
     /// instance lock first on a yes).
     func deferQuitForUnsavedEditors(isSystemQuit: Bool, reply: @escaping @MainActor (Bool) -> Void) -> NSApplication.TerminateReply? {
         unsavedEditors.deferQuit(
-            of: registry.sessions.map(editorEntry(for:)), isSystemQuit: isSystemQuit,
+            of: registry.sessions.flatMap(editorEntries(for:)), isSystemQuit: isSystemQuit,
             reply: reply, retry: { NSApp.terminate(nil) }
         )
     }
@@ -64,12 +64,14 @@ extension LeoRuntime {
         let sessions = registry.sessions.filter { session in
             windows?.contains { $0 === session.window } ?? true
         }
-        return await unsavedEditors.resolve(sessions.map(editorEntry(for:)))
+        return await unsavedEditors.resolve(sessions.flatMap(editorEntries(for:)))
     }
 
-    /// `session`'s editor for the gate: its window, for sheets about it,
-    /// brought forward (and its tab selected) before one.
-    func editorEntry(for session: LeoWindowSession) -> LeoUnsavedEditorsGate.Entry {
+    /// `session`'s editors for the gate, one per tab of each row's pane
+    /// (B-274, B-273), the pane on screen first: its window, for sheets
+    /// about them, brought forward (its window tab and editor tab selected)
+    /// before one. A pane off screen names its row in its prompt.
+    func editorEntries(for session: LeoWindowSession) -> [LeoUnsavedEditorsGate.Entry] {
         let id = session.id
         let bringForward: @MainActor () -> Void = { [weak self] in
             guard let window = self?.registry.controller(for: id)?.window else { return }
@@ -77,7 +79,34 @@ extension LeoRuntime {
             if window.isMiniaturized { window.deminiaturize(nil) }
             window.makeKeyAndOrderFront(nil)
         }
-        return LeoUnsavedEditorsGate.Entry(editor: session.editor, window: { [weak session] in session?.window }, bringForward: bringForward)
+        return session.panes.all.flatMap { pane in
+            pane.tabs.tabs.map { [weak pane] editor in
+                LeoUnsavedEditorsGate.Entry(
+                    editor: editor, window: { [weak session] in session?.window },
+                    bringForward: { [weak editor] in
+                        bringForward()
+                        // B-273: its tab is the one shown while it's asked about.
+                        guard let editor, let tabs = pane?.tabs, tabs.tabs.contains(where: { $0 === editor }) else { return }
+                        tabs.select(editor, focusing: false)
+                    }
+                )
+            }
+        }
+    }
+
+    /// B-274: where Browse Files and Open Surfaced File on an agent row
+    /// land (see `LeoRowPaneRouter`): shown as a click shows it, then in
+    /// the pane of the window showing it.
+    var rowPaneRouter: LeoRowPaneRouter {
+        LeoRowPaneRouter(
+            show: { [weak self] identity, origin in
+                guard let self else { return nil }
+                let request = LeoSurfaceRequest(origin: origin, disposition: .content)
+                guard case .success(let handle) = await attachCoordinator.attach(identity: identity, request: request) else { return nil }
+                return handle.windowID
+            },
+            session: { [weak self] in self?.registry.session(for: $0) }
+        )
     }
 
     /// The daemon's current row for the agent (its workspace may have been

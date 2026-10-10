@@ -16,7 +16,7 @@ struct LeoTerminalControllerEditorCloseTests {
     @MainActor private struct Tab {
         let controller: TerminalController
         let session: LeoWindowSession
-        var editor: LeoEditorPaneModel { session.editor }
+        var editor: LeoEditorTabs { session.editor }
     }
 
     private func makeTab(in sandbox: LeoFileSandbox, editing: Bool) async throws -> Tab? {
@@ -25,7 +25,6 @@ struct LeoTerminalControllerEditorCloseTests {
         let session = try #require(controller.leoSession)
         try await session.editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
         if editing { session.editor.document?.edit("edited") }
-        // The pane's view installs its own prompt when it's built.
         await nextTurn()
         return Tab(controller: controller, session: session)
     }
@@ -39,7 +38,7 @@ struct LeoTerminalControllerEditorCloseTests {
 
     private func tearDown(_ tab: Tab) async {
         tab.editor.confirmUnsaved = { _ in .discard }
-        await tab.editor.close()
+        await tab.editor.closeAll()
         tab.controller.window?.close()
     }
 

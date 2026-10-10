@@ -72,7 +72,7 @@ import OSLog
         var transport: any LeoDaemonTransport = LeoUnixSocketTransport()
         #if DEBUG
         if let fixture = LeoAttentionFixture.loadFile() {
-            activity = LeoAttentionFixture.wrap(activity, overlay: fixture.attention, dispatches: fixture.dispatches, usage: fixture.usage, turns: fixture.turns, actions: fixture.actions, compactions: fixture.compactions, control: fixture.control)
+            activity = LeoAttentionFixture.wrap(activity, overlay: fixture.attention, dispatches: fixture.dispatches, usage: fixture.usage, turns: fixture.turns, actions: fixture.actions, compactions: fixture.compactions, control: fixture.control, dispatchMoves: fixture.dispatchMoves)
             if let mode = fixture.control { transport = LeoControlFixtureTransport(base: transport, mode: mode) }
         }
         #endif
@@ -233,7 +233,8 @@ import OSLog
         // Both call `router.invalidate`/`pickerRouter.unregister`/
         // `attachCoordinator.windowClosed`, which are idempotent, so running
         // it twice for the same window is harmless.
-        registry.onUnregistered = { [weak router, weak pickerRouter, weak attachCoordinator] windowID in
+        registry.onUnregistered = { [weak router, weak pickerRouter, weak attachCoordinator, weak requestConfigStore] windowID in
+            requestConfigStore?.releaseStartScreen(windowID)
             router?.invalidate(origin: windowID)
             pickerRouter?.unregister(origin: windowID)
             attachCoordinator?.windowClosed(windowID)
@@ -254,8 +255,12 @@ import OSLog
             daemon: daemon, activity: activitySource,
             onManualRefresh: { [actionsBox] in actionsBox.actions?.invalidateTemplateCache() },
             onAttentionTransitions: { transitions in weakSelf?.attentionTransitionsCommitted(transitions) },
+            onFileSurfaced: { [weak model] host, file in model?.fileSurfaced(file, host: host) },
             sink: { [weak model] snapshot in
                 model?.receive(snapshot)
+                // B-270: a hello advertising dispatch placement re-attaches
+                // what attached before it.
+                weakSelf?.attachCoordinator.daemonFeaturesChanged()
                 weakSelf?.snapshotLanded(snapshot)
             }
         )
@@ -295,7 +300,24 @@ import OSLog
         model.focusExistingRequested = { [weak attachCoordinator] row, origin in
             attachCoordinator?.focusExisting(row.identity, from: origin)
         }
+        let paneFocuser = LeoDispatchPaneFocuser(runner: hostSelectionRunner)
+        model.dispatchPaneFocusRequested = { [weak hostSelection, weak model] host, pane, rowID in
+            let hosts = hostSelection?.hosts ?? []
+            Task { @MainActor in
+                do {
+                    let command = try LeoDispatchPaneFocus.command(
+                        host: host, pane: pane, hosts: hosts, sshExecutable: hostSelectionSSHExecutable.path
+                    )
+                    try await paneFocuser.focus(command)
+                } catch {
+                    model?.setRowError(LeoDispatchPaneFocusError.message(for: error), for: rowID)
+                }
+            }
+        }
         model.surfacedFileOpenRequested = { file, row, stillWanted in weakSelf?.openSurfacedFile(file, for: row, stillWanted: stillWanted) }
+        model.surfacedFileAutoOpenRequested = { file, row, stillWanted in
+            weakSelf?.autoOpenSurfacedFile(file, for: row, stillWanted: stillWanted)
+        }
         model.latestFocusReport = { [weak attachCoordinator] in attachCoordinator?.latestFocusReport ?? 0 }
 
         // `hostSelection`'s `connectionTarget` (wired above) closes over
@@ -305,6 +327,16 @@ import OSLog
         // belongs to, drives which connection the feed and agent actions
         // are bound to.
         weakSelf = self
+        // B-274: a window's editor and browser follow the row it shows.
+        attachCoordinator.onRowShown = { [weak registry] windowID, key in
+            registry?.session(for: windowID)?.panes.activate(key)
+        }
+        actions.closePanes = { [weak registry] row in
+            for session in registry?.sessions ?? [] {
+                guard await session.panes.close(.agent(row.identity)) else { return false }
+            }
+            return true
+        }
         surfacedFileOpener = LeoSurfacedFileOpener { [weak model] file, host in model?.markSurfacedFileSeen(file, host: host) }
 
         // One immediate liveness check per wake, never repeated: a tunnel
@@ -323,11 +355,29 @@ import OSLog
 
     /// Every snapshot the model receives; DEBUG fixtures hook in here.
     private func snapshotLanded(_ snapshot: LeoSidebarSnapshot) {
+        prunePanes(for: snapshot)
         #if DEBUG
         surfaceFixture.snapshotLanded(snapshot) { [feed] files in
             Task { for file in files { await feed.receive(.fileSurfaced(seq: nil, file: file)) } }
         }
         #endif
+    }
+
+    /// B-274: agents (and dispatches) a connected host no longer lists lose
+    /// their panes. Only a list fetched while connected counts -- a failed
+    /// fetch or a dropped connection says nothing about who's gone -- and
+    /// dispatches only once the host advertises its dispatch tree.
+    private func prunePanes(for snapshot: LeoSidebarSnapshot) {
+        guard snapshot.connectivity == .connected, snapshot.listRefreshSucceeded, let host = snapshot.advertised.host else { return }
+        let names = Set(snapshot.rows.map(\.name))
+        let dispatches = Set(snapshot.dispatchChildren.values.flatMap { $0.map(\.id) })
+        let knowsDispatches = snapshot.features.contains(.dispatchTree)
+        for session in registry.sessions {
+            session.panes.pruneAgents(on: host) { name, dispatchID in
+                guard let dispatchID else { return names.contains(name) }
+                return !knowsDispatches || dispatches.contains(dispatchID)
+            }
+        }
     }
 
     func start() {
@@ -467,9 +517,17 @@ import OSLog
     /// `registry.onUnregistered` (fallback reconciliation), which may both
     /// fire for the same window.
     private func teardownWindow(_ windowID: LeoWindowID) {
+        requestConfigStore.releaseStartScreen(windowID)
         newSurfaceRouter.invalidate(origin: windowID)
         picker.unregister(origin: windowID)
         attachCoordinator.windowClosed(windowID)
+    }
+
+    /// B-145: `window` opened as a bare start screen, with no palette to
+    /// carry `config` (whatever ⌘N inherited) to the first surface that
+    /// fills it -- see `LeoRequestConfigStore.hold(_:forStartScreen:)`.
+    func holdStartScreenConfig(_ config: Ghostty.SurfaceConfiguration?, for window: LeoWindowID) {
+        requestConfigStore.hold(config, forStartScreen: window)
     }
 
     /// Begins a new-surface gesture (Cmd+T, Cmd+D, Cmd+N, launch, or the

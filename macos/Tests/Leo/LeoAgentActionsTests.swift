@@ -26,6 +26,31 @@ import Testing
         #expect(refreshes == 6)
     }
 
+    /// B-274: Delete asks about the agent's unsaved panes first; Cancel
+    /// leaves the agent alone.
+    @Test func deleteAsksAboutTheAgentsPanesFirst() async {
+        let daemon = ActionDaemon()
+        let actions = LeoAgentActions(
+            daemon: daemon, cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(),
+            processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let row = testRow()
+        var asked: [String] = []
+        actions.closePanes = { row in
+            asked.append(row.name)
+            return asked.count > 1
+        }
+
+        actions.delete(row, force: false, deleteBranch: false)
+        await awaitCondition { await MainActor.run { asked.count == 1 } }
+        actions.restart(row)
+        await awaitCondition { await daemon.calls.contains("restart:alpha") }
+        #expect(await !daemon.calls.contains { $0.hasPrefix("delete") }, "Cancel stops the delete")
+
+        actions.delete(row, force: false, deleteBranch: false)
+        await awaitCondition { await daemon.calls.contains("delete:alpha:false:false") }
+        #expect(asked == ["alpha", "alpha"])
+    }
+
     /// B-049: the start prompt attaches only after the daemon accepted the
     /// start; a refusal shows on the row as before.
     @Test func startReportsWhetherTheDaemonAcceptedIt() async {

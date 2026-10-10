@@ -3,8 +3,10 @@ import Foundation
 /// B-013 in the feed: live `file_surfaced` events and every `/state`
 /// fetch's `surfaced_files` feed one `LeoSurfacedFileIndex` for the
 /// selected host (a host switch empties it). Rows get their own
-/// incarnation's files at emission time. Files are only ever shown
-/// (badged); nothing here opens one (D-088).
+/// incarnation's files at emission time. A live event new to the feed,
+/// while connected, is also reported (`onFileSurfaced`) so its file can
+/// open in the background (B-273, superseding D-088); a `/state` fetch's
+/// files -- history, a reconnect's recovery -- are only badged.
 extension LeoSidebarFeed {
     /// What the rows show: metadata and surfaced files overlaid (attention
     /// goes on top in `emit`).
@@ -17,6 +19,9 @@ extension LeoSidebarFeed {
         guard isNew else { return }
         surfacedFiles = index
         emit()
+        guard !isDisconnected else { return }
+        let (onFileSurfaced, host) = (onFileSurfaced, selectedHost)
+        Task { await onFileSurfaced(host, file) }
     }
 
     func mergeSurfacedFiles(from state: [LeoObservedAgent]) {

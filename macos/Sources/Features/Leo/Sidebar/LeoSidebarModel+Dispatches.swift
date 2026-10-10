@@ -21,6 +21,38 @@ extension LeoSidebarModel {
         !isDisconnected && daemonFeatures.contains(.dispatchAttach) && dispatch.attachable
     }
 
+    /// Whether a click on `dispatch`'s row does anything: it is
+    /// selectable, or (B-271) the daemon can't attach to it but reported
+    /// the pane its viewer sits in, in its caller's own tmux session.
+    /// Such a row is clicked, never selected.
+    func isDispatchClickable(_ dispatch: LeoDispatch) -> Bool {
+        isDispatchSelectable(dispatch) || viewerPane(dispatch) != nil
+    }
+
+    /// The reported viewer pane of a live dispatch the daemon can't attach
+    /// to, under the same gate as attaching (connected, `dispatch_attach`).
+    /// B-272: a daemon with live placement that says the viewer sits in the
+    /// background reports a pane in `leo-dispatch`, not the caller's
+    /// session, so there is nothing here to bring forward.
+    private func viewerPane(_ dispatch: LeoDispatch) -> String? {
+        guard !isDisconnected, daemonFeatures.contains(.dispatchAttach), !dispatch.attachable, dispatch.isLive else {
+            return nil
+        }
+        if daemonFeatures.contains(.dispatchPlacementLive), dispatch.viewerKind == .background { return nil }
+        return dispatch.tmuxTarget
+    }
+
+    /// The agent row a non-attachable dispatch sits under, with the pane
+    /// its viewer was reported in.
+    func callerPaneTarget(_ ref: LeoDispatchRef) -> (row: LeoAgentRow, pane: String)? {
+        for row in snapshot.rows where row.host == ref.host {
+            if let node = dispatchChildren(for: row).first(where: { $0.id == ref.id }), let pane = viewerPane(node.dispatch) {
+                return (row, pane)
+            }
+        }
+        return nil
+    }
+
     /// The selected dispatch, while it still lives under its parent row
     /// and is still attachable and that parent is still the selection.
     /// Once it ends, this is nil and the parent agent is what is selected.
@@ -109,12 +141,19 @@ extension LeoSidebarModel {
 
     /// A click on a dispatch row: it selects, and a click opens it where
     /// an agent row's would (⌘ in a new window, ⌥-double-click likewise).
+    /// A dispatch viewed in its caller's session (B-271) instead brings
+    /// that pane's window forward, then clicks through to the caller.
     func dispatchClicked(
         _ ref: LeoDispatchRef,
         modifierFlags: NSEvent.ModifierFlags = [],
         clickCount: Int = 1,
         from origin: LeoWindowID? = nil
     ) {
+        if let viewed = callerPaneTarget(ref) {
+            dispatchPaneFocusRequested(ref.host, viewed.pane, viewed.row.id)
+            rowClicked(viewed.row, modifierFlags: modifierFlags, clickCount: clickCount, from: origin)
+            return
+        }
         userSelectedDispatch(ref)
         guard let origin, selectedDispatch == ref else { return }
         switch (clickCount, modifierFlags.contains(.command), modifierFlags.contains(.option)) {

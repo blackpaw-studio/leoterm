@@ -27,8 +27,12 @@ extension GhosttyAttachContentHost {
     /// same "Close …?" confirm is put up here; with nothing running it
     /// closes straight away. Cancelled, or another alert already up on the
     /// window, it stays.
+    /// Its pane's unsaved edits are asked about first (B-274).
     func closeTerminalFromMenu(_ handle: AttachmentHandle) async {
         guard let (controller, surface) = terminalRowSurface(handle) else { return }
+        if let panes = controller.leoSession?.panes, panes.existingPane(for: .terminal(handle.surfaceID))?.hasUnsavedEdits == true {
+            guard await panes.close(.terminal(handle.surfaceID)), terminalRowSurface(handle) != nil else { return }
+        }
         if controller.surfaceTree.contains(surface) {
             guard let ghosttySurface = surface.surface else { return }
             return controller.ghostty.requestClose(surface: ghosttySurface)

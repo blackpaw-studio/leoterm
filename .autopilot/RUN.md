@@ -1,23 +1,12 @@
 Status: finished
-Started: 2026-10-07T16:40:34Z
-Budget: 20 items, until 2026-10-08T04:40:34Z
+Started: 2026-10-10T02:01:17Z
+Budget: 20 items, until 2026-10-10T14:01:17Z
 Digested-through: 5
-Filed: 1/3 bugs, 5/5 ideas
-Self-filed: B-257 → B-263 idea — Index dispatch children once per tree projection
-Self-filed: B-257 → B-264 idea — Dispatch tombstone cap survives heavy churn
-Self-filed: B-257 → B-265 idea — Tighten fetchCount bound in dispatchAndSeqOnlyEventsLeaveThePendingActivityWindowAlone
-Self-filed: B-257 → B-266 idea — Clicking a dispatch row reveals or jumps to the dispatch
-Self-filed: B-257 → B-267 idea — Clearer depth indent for dispatch rows
-Self-filed: B-258 → B-268 bug — Same-state needs_input with a newer revision re-notifies
-Self-filed: B-258 → dropped (over cap) — Bidi-isolate attention tool and detail text
-Self-filed: B-259 → dropped (over cap) — Usage-only subtitle can overflow on a very narrow row
-Self-filed: B-259 → dropped (over cap) — Thousands separator for cost
-Self-filed: B-259 → dropped (over cap) — Drop cost before context % on narrow rows
-Self-filed: B-260 → dropped (over cap) — Friendlier display for MCP tool names
-Self-filed: B-261 → dropped (over cap) — Compaction started between spawn and post-spawn /state never shows
-Self-filed: B-261 → dropped (over cap) — Turn completion mid-compaction clears the indicator early
-Self-filed: B-262 → dropped (over cap) — Control feedback banner covers the terminal bottom row
-Focus: leo PR #226 bridge features (B-257–B-262, then B-051)
+Filed: 0/3 bugs, 2/5 ideas
+Self-filed: B-274 → B-276 idea — Terminals section needs a manual scroll on a long sidebar
+Self-filed: B-272 → B-277 idea — Show where a dispatch viewer lives on its row
+Self-filed: B-273 → dropped (dup of B-244) — sidebar vanishes at the default 800px width when the editor pane opens
+Self-filed: B-274 → dropped (dup of B-244) — Sidebar Show disabled at the default 800px width with a side pane
 Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 
 Lane: B-058
@@ -41,143 +30,154 @@ Lane: B-143
   Reviewed-tip: none
   Dispatched: 2026-10-06T23:01:21Z
 
-Lane: B-257
-  Branch: autopilot-lane/B-257
-  Base: 77e6c369d45f811c845c452353e322f0b82df0a1
-  Tier: full
-  State: landed
-  Fixes: 1
-  Wip: none
-  Reverifies: 0
-  Reviewed-tip: f3371acc7fa8456db63f9ae389c063b41127380c
-  Dispatched: 2026-10-07T16:43:28Z
-  Call: Children disappear as soon as the daemon reports a terminal status or ended_at, with no 60 s linger — principle 2
-  Call: A child row shows name (falling back to role, then "Dispatch") plus a status word; Stalled is plain secondary text with no badge — principle 2
-  Call: Child rows can't be selected (no tag, plus selectionDisabled on macOS 14+), and there are no new shortcuts — principles 1 and 6
-  Call: Nothing renders without the hello `dispatch_tree` feature or while disconnected; the parent badge stays purely the daemon's attention.state, and `outstanding` isn't decoded — principle 2
-  Call: Disconnect clears records but keeps same-boot ended ids, a boot change clears all, a host switch resets, and a Retry baseline repairs anything missed — principle 5
-  Call: Caps that only bound a misbehaving daemon: 256 ended ids, 1024 live records, nesting depth 16, indent clamped at depth 4; only nesting changes emit — principle 2
-
-Lane: B-258
-  Branch: autopilot-lane/B-258
-  Base: 2877d486c4ba732de773a91b2ddbaed3ad6be4a7
+Lane: B-270
+  Branch: autopilot-lane/B-270
+  Base: 272c473f02b1fa278607e381ef5f2553cd55cc23
   Tier: full
   State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: 5ea1d7a4ae06bdb0ab115a8996e362cc3a7a5f9b
-  Dispatched: 2026-10-07T19:07:44Z
-  Call: Badge stays icon-only (D-012); the reason shows as a per-kind symbol (hand.raised / questionmark.bubble / list.bullet.rectangle), a badge tooltip, the subtitle word ("Permission: Bash" / "Question" / "Input Request") and the VoiceOver label — principles 1, 2
-  Call: Detail appears only in the badge tooltip; notifications carry kind and tool only — principle 2, D-013
-  Call: No hello `attention_reason` gate; an absent field means no reason — principle 2
-  Call: An unknown or malformed reason kind reads as no reason (falls back to today's behaviour) — principle 2
-  Call: A reason refining an already-committed reasonless needs_input updates the badge without re-notifying (check lives in reducer commit()) — principle 2
-  Call: A reason on a row whose badge isn't needsInput is ignored — principle 2
-  Call: Tool and detail are sanitized and clamped in LeoAttentionReason.init, so every construction path is clean — principle 2
-  Call: Labels, symbols and wording per the plan; Badge.tooltip is optional (default nil); `.help("")` when there is no reason — AUTONOMY copy/UX
-
-Lane: B-259
-  Branch: autopilot-lane/B-259
-  Base: 581402230961f47a750152bd3e62b7421b6eec52
-  Tier: full
-  State: landed
-  Fixes: 1
-  Wip: none
-  Reverifies: 0
-  Reviewed-tip: 4a2300cac698ccff17b2cf2fe67292a11ffc11cd
-  Dispatched: 2026-10-07T20:36:39Z
-  Call: The preview replaces the task line and shows only when there is no current task. It is not hidden while the agent is working — P2 calm, P6
-  Call: Usage is the session's tokens, cost and context %, shown as a subtitle segment that drops whole components when space runs out, never part of a number. The full session and since-start numbers go in the tooltip and VoiceOver. There is no inspector because none exists — P2, AUTONOMY UX
-  Call: An aborted turn reads "Interrupted: <preview>". An empty preview clears the line, and usage that is all zero shows nothing — P2 never invent
-  Call: Cost below half a cent reads "<$0.01" — AUTONOMY UX
-  Call: Preview and usage are gated on the hello's `bridge_turns`/`agent_usage` features. Nothing renders while disconnected — P2, D-377
-  Call: Turn and usage events only trigger a /state refresh. The preview text is the only value taken from an event — D-082
-  Call: No badge, motion or notification on turn completion — P2
-  Call: Preview is clamped to 200 chars (reuses LeoSFTPServerText) and bidi-isolated at display — AUTONOMY implementation
-  Call: The DEBUG fixture's `usage`/`turns` keys advertise the features and replay the turns after each hello — D-018, AUTONOMY test infra
-
-Lane: B-260
-  Branch: autopilot-lane/B-260
-  Base: c45f2efbddc07721068059590875af0d9e3e3038
-  Tier: full
-  State: landed
-  Fixes: 1
-  Wip: none
-  Reverifies: 0
-  Reviewed-tip: aed36d0e44d55bcac463277c2bd05722830372a3
-  Dispatched: 2026-10-07T20:49:14Z
-  Call: Show only the tool name (first token of sanitized detail), never summary/arguments — item Out + principle 2
-  Call: Tool line = static secondary-grey hammer + name in the task line's place, hides the B-259 turn preview while a tool runs; no badge/motion — principle 2, AUTONOMY UX details
-  Call: No feature gating: kind "tool" names itself; pane/nil/unknown kinds keep today's full-detail task line — principle 2 (never invent state)
-  Call: Tool name with a space shows only its first word (detail never shown for "tool") — principle 2
-  Call: CSI/OSC escape stripping scoped to toolName(fromDetail:); task-line sanitizer unchanged — principle 2
-  Call: "Running X" tooltip/VoiceOver label bidi-isolated like B-259's turn line — principle 1
-  Call: DEBUG fixture key "actions" (agent → {kind, detail}) overrides current_action for verification — AUTONOMY test infra
-
-Lane: B-261
-  Branch: autopilot-lane/B-261
-  Base: b44801a88984d027cdebafa69657665642d0922d
+  Reviewed-tip: bb34cabbf40660d86f40640e3ea760dd2e6651c2
+  Dispatched: 2026-10-10T02:03:57Z
+  Call: Re-attach after hello rather than delay the first attach — P6
+  Call: Hidden unflagged surfaces are released, not re-attached while hidden — P6, D-109
+  Call: Shown swap loses Ghostty-local scrollback/selection (slot, focus and row selection kept; tmux history survives) — P6
+  Call: Disconnected gating unchanged — P2
+  Call: Failed re-attach reported to the row as openFailed; closing-window handle forgotten silently; no contentVersion bump — D-110
+  Call: reattachInPlace inherits the old surface's config (deviation, behaviour-neutral)
+  Call: Command rebuilt after confirm only when placement changed, since a full rebuild broke aRemoteDispatchGoesThroughTheRemoteBuilder (deviation)
+Lane: B-271
+  Branch: autopilot-lane/B-271
+  Base: 4692ca633a9ac62d2bb7d3bdcb3feb03d6a2ebe8
   Tier: full
   State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: 764ca502eb326d00089a9961d98dd12c4308ebb8
-  Dispatched: 2026-10-07T21:52:25Z
-  Call: No hello feature gate for compaction; the event's existence is the proof (as D-399); hidden while disconnected (D-392) — principle 2
-  Call: Compaction phase is event-sourced because /state has none; context % stays /state-only, refreshed on the end event (D-082/D-393); the event's context_percent is decoded but never shown (pre-compaction value) — principle 2
-  Call: Static grey arrow.down.right.and.arrow.up.left + "Compacting context" in the task-line slot above tool/task/preview; trigger only in the tooltip ("(automatic)"/"(requested)"); no badge/motion/notification — principle 2, AUTONOMY UX details
-  Call: `failed` clears quietly — principle 2
-  Call: Clears on gap/reconnect/disconnect/host switch/boot change/stop/spawn/turn completion, never a timer — principles 2, 5
-  Call: DEBUG fixture key "compactions" (agent → [{phase, trigger}], replayed after hello 1.5 s apart) — AUTONOMY test infra (D-018/D-403)
-  Call: TurnHarness test helpers made non-private (+ setUsage) for reuse — AUTONOMY test infra
+  Reviewed-tip: 77859dd9c8ba670d04152a56908804edc7c43742
+  Dispatched: 2026-10-10T03:28:43Z
+  Call: Rows viewed in the caller's session become clickable; a click focuses that pane and shows the parent agent — P6
+  Call: Fallback uses only the reported `attachable` and `tmux_target` — P2
+  Call: Fallback gated on connected + dispatch_attach + live run; older daemons keep inert rows — P2, D-433
+  Call: Headless dispatches (no pane) stay informational — P2
+  Call: Same behaviour on remote hosts over ssh — P3
+  Call: A failed focus is reported on the parent row, and the agent is still shown — P6
+  Call: Focus runs through the injected hostSelectionRunner with a 10 s timeout — AUTONOMY implementation approach
+  Call: Remote focus opens a new ssh connection with BatchMode=yes (no ControlMaster reuse) — AUTONOMY implementation approach
+  Call: Every click on such a row re-sends the pane focus (idempotent) — P6
 
-Lane: B-262
-  Branch: autopilot-lane/B-262
-  Base: 25896e3f350ee6aeb20d9aa65e9f165661958933
+Lane: B-275
+  Branch: autopilot-lane/B-275
+  Base: ae5df8a554fd84f25835402c499cf98247bf618e
   Tier: full
   State: landed
-  Fixes: 2
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: 35d7d0d0982c73509ad6c970e9de9fb42888c4f7
-  Dispatched: 2026-10-07T22:20:09Z
-  Call: Bottom control bar in the content area, not an inspector/popover — P1, P4
-  Call: Shortcuts Message ⌃⌘M / Interrupt ⌃⌘. / Compact ⌃⌘K / Clear… ⌃⇧⌘K, with Agents menu items — P1
-  Call: Gate on hello `agent_control`; bar hidden for shell rows and older daemons — P2
-  Call: 401/403 latches a per-host denial with manual Retry, no re-probe; 503/other errors inline per row, no latch — P5
-  Call: Clear behind an NSAlert sheet on the owning window, Cancel default; Interrupt/Compact immediate — P1
-  Call: Compact sends no instructions; single-line field — Out
-  Call: Feedback banner floats over the terminal (bar height fixed, no tmux reflow), xmark dismiss, clears on next edit; denied banner keeps Retry, no dismiss — P2, P6
-  Call: Drafts kept per row in memory only (not a queue) — P6, Out
-  Call: Send allowed for running agents and stopped agents with wakeOnMessage (list-sourced); other verbs need running — P2
-  Call: Late replies land on their own row/host (row ids include the host); in-flight survives host switches — P3
-  Call: Client maps envelope-less non-2xx to .daemon(code: unauthorized|forbidden|not_found|too_large|unavailable|http_<n>) — P2
+  Reviewed-tip: 78b1d8c62741ae9cddd03489a2fc1a9e901cbff1
+  Dispatched: 2026-10-10T06:36:00Z
+  Call: 24pt dispatch pitch via List-level sidebarRowSize=.small, terminal rows pinned to 32 — P1
+  Call: Role chip shows the family only in a fixed column, full role in tooltip and VoiceOver, sub-role shown as the title when a dispatch has no name — P1 (criteria allow shortening)
+  Call: Last visible dispatch per agent is taller (40pt, top-aligned) instead of a spacer row, because the row floor makes spacers impossible — P1/P2
+  Call: DEBUG fixture advertises dispatch_tree when it lists dispatches — D-396
 
-Lane: B-051
-  Branch: autopilot-lane/B-051
-  Base: 383cbe02a346fc0067fa8e8e3bd3525c9e70cd95
+Lane: B-274
+  Branch: autopilot-lane/B-274
+  Base: 34e35b0b11ffdd1df23fd42ad82148a9934ff996
   Tier: full
-  State: building
+  State: landed
+  Fixes: 1
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: 6a52d680baa9e483028033cfc369f2728330b662
+  Dispatched: 2026-10-10T07:09:54Z
+  Call: Pane follows the row the window navigates to; panes are per window — P6/P1
+  Call: Pool eviction never closes a pane — P6
+  Call: A stopped agent's action fills that agent's own pane, never the on-screen row's — P6
+  Call: Destination window resolved before the pane is filled; a show that didn't happen fills nothing — P6
+  Call: Clean pane closes silently; dirty pane asks Save/Don't Save/Cancel; closes that can't ask (exit, undo, drag) keep the dirty pane as an orphan — D-033
+  Call: A shown shell exiting with unsaved edits leaves the start screen holding the pane — D-140
+  Call: Delete Agent asks about its dirty panes in every window — P2
+  Call: Snapshot prune only on a connected, known-host list, never the shown row — P5
+
+Lane: B-273
+  Branch: autopilot-lane/B-273
+  Base: e1fb9d11065b2acf6cb7cbae26caa632c4882075
+  Tier: full
+  State: landed
+  Fixes: 1
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: d2503608d0a3f90cae078fb3485b28cf09ca2a1d
+  Dispatched: 2026-10-10T09:20:52Z
+  Call: Every open adds a tab or selects the file's existing one, and nothing replaces a document (D-033's replace prompt no longer fires) — P1, P2
+  Call: Tab strip is inside the pane, appears at 2+ tabs, custom AppKit (NSTabView has no close buttons or overflow); no window tab bar — P1, P6
+  Call: ⌘W with editor focus closes the selected tab; Show Next/Previous Editor Tab ⇧⌘]/⇧⌘[; Close Editor Tab has no shortcut; Ghostty next/previous_tab switches editor tabs from the terminal — P1
+  Call: A background open never moves focus or navigates, and doesn't override a tab the user picked after the request — P2
+  Call: Auto-open window choice: A on screen, then A's pooled surface, then an existing pane for A, then the key window (ties go to the key window); it never attaches — P2
+  Call: "Viewed" means A is on screen in a visible, non-miniaturized, non-occluded window; the badge stays until then — P2
+  Call: Only live, new events auto-open; auto-open failures are silent and keep the badge; ⌥⌘O still shows errors — P2
+  Call: Cap of 10 tabs per pane; the least-recently-selected clean tab is evicted, dirty tabs never — P2, P3
+  Call: Remote files go through the same per-window file access (SFTP) — P3
+  Call: Tab strip sits under the pane header with a dirty dot and a hover/selected close button; the header close tooltip stays "Close Editor (⌘W)" — P1
+
+Lane: B-272
+  Branch: autopilot-lane/B-272
+  Base: d11511c428c9f8c296581bc1c4ff051946b04575
+  Tier: full
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
-  Dispatched: 2026-10-08T00:08:52Z
+  Reviewed-tip: 0a78f4a5bb9599a0ee67aeb5108a262ed201edbe
+  Dispatched: 2026-10-10T10:53:28Z
+  Call: Placement comes from the daemon's `attachable` and `tmux_target`; `viewer_kind` is decoded leniently (unknown or wrong-type becomes nil) and used only when `dispatch_placement_live` is advertised — P2
+  Call: A non-attachable dispatch reported as `viewer_kind: background` under the feature is informational, not pane-focusable (narrows D-438) — P2, P6
+  Call: A selected dispatch that moves into the caller's session falls back to its agent and is not re-selected when it moves back — P2
+  Call: DEBUG fixture key `dispatch_moves` extends D-396; it also advertises `dispatch_tree`, `dispatch_attach` and `dispatch_placement_live`, and replay seqs are time-based — P6
+
+Lane: B-145
+  Branch: autopilot-lane/B-145
+  Base: 91a4e462a0b5d125ac84994a8313734206d3f4d9
+  Tier: light
+  State: landed
+  Fixes: 3
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: 3fec568cae8b324b6124d60ccacaafce88b1d14c
+  Dispatched: 2026-10-10T11:38:22Z
+  Escalated: implementer/sonnet (first build, fix rounds 1 and 2) → implementer-hard/opus (escalated at fix round 3)
+  Call: ⌘N's inherited surface config (font size) is held per start-screen window and given to the first surface that fills it, by any path — P1 / D-151 (the bare start screen has no surface to apply it to)
+  Call: ⌘↩ from a ⌘N start-screen palette into a new window no longer carries the held config (dismissed, untested) — held config belongs to that one window; rare sequence, costs only inherited font size/cwd
+
+Lane: B-146
+  Branch: autopilot-lane/B-146
+  Base: 29b7b355a8a7724b6244afb3e4ff20059989f739
+  Tier: light
+  State: landed
+  Fixes: 1
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: c3bfaf7dea2c6eeeb5031b2c4dfb1cf9001c9f49
+  Dispatched: 2026-10-10T13:38:46Z
+
+Finished 1: B-270 landed 28ade697f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-270-1.png
+Finished 2: B-271 landed 16b35ad0b · not visually verified
+Finished 3: B-275 landed e902d0ef1 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-275-6.png
+Finished 4: B-274 landed fab510f17 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-274-5.png
+Finished 5: B-273 landed 1c99121ce · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-273-5.png
+Finished 6: B-272 landed 243ad0021 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-272-1.png
+Finished 7: B-145 landed 0ea5adc9d · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-145-2.png
+Finished 8: B-146 landed f1b2715db · not visually verified
 
 ## Progress
-Finished 1: B-257 landed 8a28dfb7bd072c049000f75f71a3fd3c976b8a83 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-257-2.png
-- B-257 landed 8a28dfb7b: nested dispatch rows under the parent via parent_dispatch_id, gated on hello dispatch_tree; SSE-trace replay test; 1 fix round (baseline ordering); suite 2126 green. Polish filed (5).
-Finished 2: B-258 landed 1af002341338cf3e434cc9cc68aed00599127b89 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-258-3.png
-- B-258 landed 1af002341: attention reason as per-kind badge symbol, tooltip, subtitle word, VoiceOver label and notification text; suite 2142 green; 0 fix rounds. Self-filed bug B-268 (re-notify on revision bump).
-- Session interrupted at ~20:25Z; lock taken over by the new session (pid 79355); B-259 runner resumed from its transcript (lane clean at 9ac97cddb, mid fix round).
-Finished 3: B-259 landed ed7558b973dafbadc1db205fb0085d0e8ea12ffa · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-259-1.png
-- B-259 landed ed7558b97: last-turn preview line and usage subtitle segment (tokens/cost/context %), gated on hello bridge_turns/agent_usage; verified live against leo 0.37.0; 1 fix round. 3 polish dropped (idea cap).
-Finished 4: B-260 landed 928f15569c87bc05240f32796cc00e7fa7ee31a8 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-260-1.png
-- B-260 landed 928f15569: running tool shown as grey hammer + tool name in the task line while current_action kind is tool; clears when the call ends; suite 2183 green; 1 fix round.
-Finished 5: B-261 landed bf8e5b9f40a6fec1162a3db210f4d8c06cfcecdf · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-261-1.png
-- B-261 landed bf8e5b9f4: 'Compacting context' line from agent_compaction events, cleared on end/failed/gap/stop; context % refreshed from /state; suite 2207 green; 0 fix rounds. Note: lane history carries a 2.2 MB macos/default.profraw blob (added 65f17bdd6, untracked 764ca502e); not rewritten (Never list).
-Finished 6: B-262 landed 2a1ccd4e5f3d3efd9bfc750c0e50e70b410f4959 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-262-8.png
-- B-262 landed 2a1ccd4e5: bottom control bar (prompt field + Interrupt/Compact/Clear…), Agents menu items + shortcuts, gated on hello agent_control; 401/403 latches a denial with Retry; live send verified on autopilot-scratch only; suite 2253 green; 2 fix rounds.
-- Paused by Evan at 00:19Z: B-051 runner stopped during reproduction (no commits; lane clean); verify lock released; autopilot-scratch stopped. Lane left unlanded (State: building) for the next run.
+- Preflight: B-270 lane recovered (Wip: none, empty lane) as first pick; merged main into autopilot (8af0dcea0, sidebar pill rows); inbox → B-275.
+- Lane autopilot-lane/B-233 still unlanded with no block (item done); left in place.
+- B-270 landed 28ade697f (full, hard; concurrency review clean; verifier saw one load-flaky LeoTerminalRowMenuIntegrationTests rename failure per full run, passes isolated; implementer run green).
+- B-271 landed 16b35ad0b (not visually verified). Verifier ran `peekaboo type` without a frontmost-app check; debug search field stayed empty, so the text may have gone to another app. Flagged for digest.
+- B-275 runner d-4d3e1d99e1b9 ended its turn to await its implementer and was idle-closed at 1h; implementer d-681b670617a2 finished 4 commits (report lost to the dead runner). Re-dispatched a fresh build runner from Integrate; briefs now require blocking leo_wait.
+- B-275 landed e902d0ef1 (1 fix round: group gap 8→16pt after the first verify failed contrast).
+- B-274 landed fab510f17 (1 fix round). Verify near-miss: stale-coordinate clicks selected real stopped agents whatshoveringoverme (a Start prompt appeared, cancelled) and widgeon; nothing started. Flag for digest.
+- B-273 landed 1c99121ce (1 fix round). Runner polish 'peekaboo type reports failure even when text lands' not filed: verification tooling, not leoterm. Flake seen once: anEmptyNameRestoresTheLiveTitle.
+- B-272 landed 243ad0021. Runner skipped asking leo whether viewer_kind will reach /api/v1; flag for digest.

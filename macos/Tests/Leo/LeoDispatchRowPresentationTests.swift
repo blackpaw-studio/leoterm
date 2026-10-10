@@ -43,6 +43,29 @@ struct LeoDispatchRowPresentationTests {
         #expect(bare.showsTitle)
     }
 
+    /// B-275: the chip shows the family so every chip fits one column; the
+    /// full role stays in the tooltip and the VoiceOver label.
+    @Test func theChipShowsTheRoleFamily() {
+        let hard = presentation(node(role: "implement.hard"))
+        #expect(hard.roleChip?.text == "implement")
+        #expect(hard.roleChip?.tint == .purple)
+        #expect(hard.accessibilityLabel == "implement.hard dispatch fixer, Running")
+        #expect(presentation(node(role: "review.security")).roleChip?.text == "review")
+        #expect(presentation(node(role: "custom")).roleChip?.text == "custom")
+    }
+
+    @Test func aNamelessSubRoleStillShowsItsFullRole() {
+        let nameless = presentation(node(name: nil, role: "implement.hard"))
+        #expect(nameless.showsTitle, "the chip only says the family")
+        #expect(nameless.title == "implement.hard")
+    }
+
+    @Test func theTooltipNamesTheDispatchAndItsFullRole() {
+        #expect(presentation(node(name: "fixer", role: "implement.hard")).help == "fixer · implement.hard")
+        #expect(presentation(node(name: nil, role: "plan")).help == "plan")
+        #expect(presentation(node(name: "fixer", role: nil)).help == "fixer")
+    }
+
     @Test func roleTintMapping() {
         let expected: [(String, LeoTint)] = [
             ("explore", .cyan), ("plan", .brown), ("plan.hard", .brown), ("implement", .purple), ("implement.hard", .purple),

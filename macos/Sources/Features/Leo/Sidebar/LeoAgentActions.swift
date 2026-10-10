@@ -138,11 +138,21 @@ import Foundation
     func restart(_ row: LeoAgentRow) { run(row) { daemon in _ = try await daemon.restart(row.name) } }
     func setTemplate(_ row: LeoAgentRow, template: String) { run(row) { daemon in try await daemon.setTemplate(row.name, template: template) } }
     func rename(_ row: LeoAgentRow, newName: String) { run(row) { daemon in _ = try await daemon.rename(row.name, newName: newName) } }
+    /// B-274: closes `row`'s editor panes in every window before it's
+    /// deleted, asking about unsaved edits; `false` on Cancel. Wired by
+    /// `LeoRuntime`.
+    var closePanes: @MainActor (LeoAgentRow) async -> Bool = { _ in true }
+
+    /// Asks about the agent's unsaved panes first (`closePanes`): Cancel
+    /// leaves the agent alone.
     func delete(_ row: LeoAgentRow, force: Bool, deleteBranch: Bool, success: @escaping () -> Void = {}) {
-        run(
-            row, onSuccess: { (_: Void) in success() },
-            operation: { daemon in try await daemon.delete(row.name, force: force, deleteBranch: deleteBranch) }
-        )
+        Task { [weak self] in
+            guard let self, await closePanes(row) else { return }
+            run(
+                row, onSuccess: { (_: Void) in success() },
+                operation: { daemon in try await daemon.delete(row.name, force: force, deleteBranch: deleteBranch) }
+            )
+        }
     }
     func deletePlan(_ row: LeoAgentRow, receive: @escaping (LeoDeletePlan) -> Void) {
         run(row, refreshOnSuccess: false, onSuccess: receive) { daemon in try await daemon.deletePlan(row.name) }

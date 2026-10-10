@@ -30,6 +30,10 @@ import Foundation
     var attachRequested: (LeoAgentRow, LeoWindowID, AttachDisposition) -> Void = { _, _, _ in }
     /// Opens an attachable dispatch in a window (B-266).
     var dispatchAttachRequested: (LeoAgentIdentity, LeoWindowID, AttachDisposition) -> Void = { _, _, _ in }
+    /// Brings forward the tmux window holding a dispatch's viewer pane on
+    /// Leo's tmux server for that host (B-271); failures are reported on
+    /// the parent agent's row.
+    var dispatchPaneFocusRequested: (LeoHostID, String, LeoAgentRow.ID) -> Void = { _, _, _ in }
     /// Brings forward the window already showing the row's agent (no new
     /// attach). The window clicked in, if known, closes when it is an
     /// untouched start screen (B-050).
@@ -58,6 +62,9 @@ import Foundation
     /// Opens a surfaced file the user asked for in the editor; the
     /// closure re-checks the file's incarnation (`surfacedOpenGuard`).
     var surfacedFileOpenRequested: (LeoSurfacedFile, LeoAgentRow, @escaping @MainActor () -> Bool) -> Void = { _, _, _ in }
+    /// B-273: opens a newly surfaced file in its agent's pane in the
+    /// background; the closure re-checks the file's incarnation.
+    var surfacedFileAutoOpenRequested: (LeoSurfacedFile, LeoAgentRow, @escaping @MainActor () -> Bool) -> Void = { _, _, _ in }
 
     init(
         snapshot: LeoSidebarSnapshot = .init(rows: [], connectivity: .loading, generation: 0),

@@ -217,7 +217,8 @@ import OSLog
     /// The shown row's shell closed. Alone in the window: the nearest
     /// neighbouring row with a live hidden shell takes its place -- the
     /// same surface -- or, with none, the start screen does; the window
-    /// stays. (A neighbour whose shell ended is let go on the way.) What
+    /// stays. A row whose pane has unsaved edits (it closed without asking:
+    /// its shell exited) leaves the start screen, with that pane (B-274). (A neighbour whose shell ended is let go on the way.) What
     /// closed is let go at once: its surfaces free their ptys, and its
     /// handles (so its row) close. With a split beside it, only its own
     /// pane closes (`closeShownPane`).
@@ -225,9 +226,11 @@ import OSLog
         guard case .leaf(let root)? = controller.surfaceTree.root, root === surface else {
             return closeShownPane(handle, surface: surface, in: controller)
         }
-        guard let terminals = controller.leoSession?.terminals else { return }
+        guard let session = controller.leoSession else { return }
+        let terminals = session.terminals
         let closing = controller.surfaceTree
-        if let (tree, focus) = neighbourTree(of: handle, in: terminals) {
+        let keepsPane = session.panes.existingPane(for: .terminal(handle.surfaceID))?.hasUnsavedEdits == true
+        if !keepsPane, let (tree, focus) = neighbourTree(of: handle, in: terminals) {
             controller.leoReplaceContent(with: tree, focusing: focus)
             reportExitedPanes(in: tree)
         } else {
@@ -290,6 +293,11 @@ import OSLog
     func confirmReplacingContent(origin: LeoWindowID) async -> Bool {
         runPendingReconciles()
         guard let controller = registry.controller(for: origin) else { return true }
+        // B-274: a pane a closed row left on the start screen is closed
+        // first, asking about its unsaved edits.
+        if let panes = controller.leoSession?.panes, panes.activeKey == .startScreen {
+            guard await panes.leaveOrphanedStartScreen() else { return false }
+        }
         let shown = controller.surfaceTree.map {
             LeoContentReplacement.Shown(
                 name: $0.leoPaneName, isAgent: isAgent($0), isTerminalRow: isTerminalRow($0), needsConfirmQuit: $0.needsConfirmQuit
@@ -452,11 +460,12 @@ import OSLog
         workingDirectory: String?,
         requestID: UUID
     ) throws -> Ghostty.SurfaceView {
+        try makeSurface(in: controller, configuration: configuration(command: command, workingDirectory: workingDirectory, requestID: requestID))
+    }
+
+    private func makeSurface(in controller: TerminalController, configuration: Ghostty.SurfaceConfiguration) throws -> Ghostty.SurfaceView {
         guard let ghosttyApp = controller.ghostty.app else { throw GhosttyAttachContentHostError.noTerminalWindow }
-        let view = Ghostty.SurfaceView(
-            ghosttyApp,
-            baseConfig: configuration(command: command, workingDirectory: workingDirectory, requestID: requestID)
-        )
+        let view = Ghostty.SurfaceView(ghosttyApp, baseConfig: configuration)
         guard view.surface != nil else { throw GhosttyAttachContentHostError.surfaceUnavailable }
         return view
     }
@@ -524,21 +533,22 @@ import OSLog
         do {
             guard let controller = registry.controller(for: origin) else { throw GhosttyAttachContentHostError.originWindowClosed }
             if surfaceID == nil { guard controller.surfaceTree.isEmpty else { throw GhosttyAttachContentHostError.placeholderNotEmpty } }
-            let newView = try makeSurface(in: controller, command: command, workingDirectory: workingDirectory, requestID: requestID)
+            // B-145: the empty start screen's first surface takes what it
+            // held, if its request brought nothing of its own.
+            let newView = try makeSurface(in: controller, configuration: configuration(
+                command: command, workingDirectory: workingDirectory, requestID: requestID,
+                fillingStartScreenOf: surfaceID == nil ? origin : nil
+            ))
 
             if let surfaceID {
-                guard let oldView = controller.surfaceTree.first(where: { $0.id == surfaceID }),
-                      let oldNode = controller.surfaceTree.root?.node(view: oldView) else {
+                guard let oldView = controller.surfaceTree.first(where: { $0.id == surfaceID }) else {
                     throw GhosttyAttachContentHostError.placeholderUnavailable
                 }
-                let newTree = try controller.surfaceTree.replacing(node: oldNode, with: .leaf(view: newView))
-                // Assigned directly (not via `replaceSurfaceTree`, which always
-                // registers an undo action -- even with a nil `undoAction` --
-                // and would let "undo" restore the old tree, resurrecting the
-                // dead `oldView` (the surface that just exited) into a live
-                // split). Focus is moved the same way `replaceSurfaceTree`
-                // does it for its `newView` argument.
-                controller.surfaceTree = newTree
+                // No undo: it would resurrect the dead `oldView` (the
+                // surface that just exited) into a live split. Focus is
+                // moved the same way `replaceSurfaceTree` does it for its
+                // `newView` argument.
+                try swapInPlace(oldView, for: newView, in: controller, unavailable: .placeholderUnavailable)
                 controller.focusedSurface = newView
                 DispatchQueue.main.async {
                     Ghostty.moveFocus(to: newView, from: oldView)
@@ -565,6 +575,7 @@ import OSLog
             // window guard doesn't fire here (this transition is empty -> non-empty).
             let isFirstContent = !controller.leoHasShownContent
             controller.surfaceTree = SplitTree(view: newView)
+            requestConfigStore.releaseStartScreen(origin)
             controller.focusedSurface = newView
             controller.focusSurface(newView)
             if isFirstContent {
@@ -592,6 +603,49 @@ import OSLog
             Self.logger.log("fillPlaceholder requestID=\(requestID.uuidString, privacy: .public) result=failure error=\(String(describing: error), privacy: .public)")
             throw error
         }
+    }
+
+    /// B-270: the new surface starts from the old one's configuration (as
+    /// a split off it would: font size and the like), with the attach's
+    /// command over it. The old surface leaves the tree with no undo, and
+    /// nothing else holds it, so it frees and its tmux client ends. Its
+    /// Ghostty-side scrollback and selection go with it; tmux's history
+    /// is redrawn by the new client.
+    func reattachInPlace(_ handle: AttachmentHandle, command: String, workingDirectory: String?) throws -> AttachmentHandle {
+        runPendingReconciles()
+        guard let (controller, oldView) = liveSurface(handle), controller.surfaceTree.contains(oldView) else {
+            throw GhosttyAttachContentHostError.attachNotShown
+        }
+        let inherited = oldView.surface.map {
+            Ghostty.SurfaceConfiguration(from: ghostty_surface_inherited_config($0, GHOSTTY_SURFACE_CONTEXT_SPLIT))
+        }
+        let newView = try makeSurface(
+            in: controller,
+            configuration: attachConfiguration(inherited ?? Ghostty.SurfaceConfiguration(), command: command, workingDirectory: workingDirectory)
+        )
+        let wasFocused = controller.focusedSurface === oldView
+        let hadKeyboard = oldView.isFirstResponder
+        try swapInPlace(oldView, for: newView, in: controller, unavailable: .attachNotShown)
+        if wasFocused { controller.focusedSurface = newView }
+        if hadKeyboard { Ghostty.moveFocus(to: newView) }
+        let replacement = try register(controller, surface: newView, isAgent: true)
+        close(handle)
+        Self.logger.log("reattachInPlace window=\(handle.windowID.rawValue.uuidString, privacy: .public)")
+        return replacement
+    }
+
+    /// Puts `newView` in `oldView`'s slot of what `controller` shows; the
+    /// rest of a split stays. Assigned directly, not via
+    /// `replaceSurfaceTree`, which always registers an undo action -- even
+    /// with a nil `undoAction` -- that would put `oldView` back.
+    private func swapInPlace(
+        _ oldView: Ghostty.SurfaceView,
+        for newView: Ghostty.SurfaceView,
+        in controller: TerminalController,
+        unavailable: GhosttyAttachContentHostError
+    ) throws {
+        guard let oldNode = controller.surfaceTree.root?.node(view: oldView) else { throw unavailable }
+        controller.surfaceTree = try controller.surfaceTree.replacing(node: oldNode, with: .leaf(view: newView))
     }
 
     func focus(_ handle: AttachmentHandle) {
@@ -624,17 +678,17 @@ import OSLog
     }
 
     /// `nil` for a window with no Leo session (no start screen at all).
-    /// The editor and browser count by what they show: their pane views
-    /// (`editorPane`, `browserPane`) exist in every window once its split
-    /// view is built, open or not.
+    /// The editor and browser count by what they show, in any row's pane
+    /// (B-274): their views exist in every window once its split view is
+    /// built, open or not.
     private static func startScreenState(of controller: TerminalController) -> LeoStartScreenState? {
         guard let session = controller.leoSession else { return nil }
         return LeoStartScreenState(
             // A start screen the window's last terminal row left isn't new.
             isUnfilledPlaceholder: controller.leoIsUnfilledPlaceholder && !controller.leoHasShownContent,
             hasTerminal: !controller.surfaceTree.isEmpty,
-            isEditorOpen: session.editor.isOpen,
-            isBrowserOpen: session.browser.isOpen
+            isEditorOpen: session.panes.all.contains { $0.tabs.isOpen },
+            isBrowserOpen: session.panes.all.contains { $0.browser.isOpen }
         )
     }
 
@@ -651,6 +705,14 @@ import OSLog
     func isShown(_ handle: AttachmentHandle) -> Bool {
         guard let (controller, surface) = liveSurface(handle) else { return false }
         return controller.surfaceTree.contains(surface)
+    }
+
+    func shownHandle(in window: LeoWindowID) -> AttachmentHandle? {
+        guard let controller = registry.controller(for: window) else { return nil }
+        let shown = controller.surfaceTree.compactMap { surface in
+            attachments.first { $0.key.windowID == window && $0.value.surface === surface }
+        }
+        return (shown.first { $0.value.isTerminalRow } ?? shown.first)?.key
     }
 
     /// `handle`'s terminal row shell, shown or hidden, and its window's
@@ -694,8 +756,23 @@ import OSLog
     /// (or a fresh default if there wasn't one) is used as-is -- clearing
     /// its `workingDirectory`/`environmentVariables` unconditionally would
     /// have silently dropped the very thing this is meant to preserve.
-    private func configuration(command: String, workingDirectory: String?, requestID: UUID) -> Ghostty.SurfaceConfiguration {
-        var configuration = requestConfigStore.consume(for: requestID) ?? Ghostty.SurfaceConfiguration()
+    /// A surface filling `startScreen`'s empty start screen falls back to
+    /// what it holds (B-145).
+    private func configuration(
+        command: String, workingDirectory: String?, requestID: UUID, fillingStartScreenOf startScreen: LeoWindowID? = nil
+    ) -> Ghostty.SurfaceConfiguration {
+        let inherited = requestConfigStore.consume(for: requestID) ?? startScreen.flatMap(requestConfigStore.heldConfig(forStartScreen:))
+        return attachConfiguration(inherited ?? Ghostty.SurfaceConfiguration(), command: command, workingDirectory: workingDirectory)
+    }
+
+    /// `base` with an attach's `command` over it; a plain shell's
+    /// (`command == ""`) is `base` as it is.
+    private func attachConfiguration(
+        _ base: Ghostty.SurfaceConfiguration,
+        command: String,
+        workingDirectory: String?
+    ) -> Ghostty.SurfaceConfiguration {
+        var configuration = base
         guard !command.isEmpty else { return configuration }
         configuration.command = command
         configuration.workingDirectory = workingDirectory
@@ -967,7 +1044,7 @@ import OSLog
 
 private enum GhosttyAttachContentHostError: Error, LocalizedError {
     case originWindowClosed, noTerminalWindow, surfaceUnavailable
-    case splitSourceUnavailable, cannotOpenSplit, placeholderNotEmpty, placeholderUnavailable
+    case splitSourceUnavailable, cannotOpenSplit, placeholderNotEmpty, placeholderUnavailable, attachNotShown
 
     var errorDescription: String? {
         switch self {
@@ -978,6 +1055,7 @@ private enum GhosttyAttachContentHostError: Error, LocalizedError {
         case .cannotOpenSplit: "Ghostty could not open a new split"
         case .placeholderNotEmpty: "The window is not an empty placeholder"
         case .placeholderUnavailable: "The placeholder surface is unavailable"
+        case .attachNotShown: "The agent's terminal is no longer on screen"
         }
     }
 }

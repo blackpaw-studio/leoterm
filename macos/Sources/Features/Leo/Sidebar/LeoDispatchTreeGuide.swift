@@ -41,14 +41,13 @@ enum LeoDispatchGuides {
     }
 }
 
-/// Where a dispatch row's guide is drawn relative to its row. The List
-/// leaves a gap between rows and clips nothing, so each guide bleeds past
-/// its row by enough that a row's line and the next row's meet; a first
-/// child's reaches up to its parent. The gap was measured in the running
-/// sidebar (rows ~31.5pt apart for 22pt rows, less the 3pt bleed that
-/// previously left a 5pt break).
+/// Where a dispatch row's guide is drawn relative to its row. A row's content
+/// is centred in its list row, leaving `LeoDispatchRowMetrics.siblingGap`
+/// between neighbours' content, and the List clips nothing, so each guide
+/// bleeds past its row by enough that a row's line and the next row's meet;
+/// a first child's reaches up to its parent (a dispatch's content bottom, an
+/// agent's line 2 including its bottom padding).
 struct LeoDispatchGuideGeometry: Equatable {
-    static let listRowGap: CGFloat = 11
     /// Lines overlap by this much so no hairline shows between rows.
     static let overlap: CGFloat = 1
 
@@ -58,13 +57,14 @@ struct LeoDispatchGuideGeometry: Equatable {
 
     init(rowHeight: CGFloat, parent: LeoDispatchParentLink) {
         self.rowHeight = rowHeight
-        let halfGap = (Self.listRowGap / 2).rounded(.up) + Self.overlap
+        let gap = LeoDispatchRowMetrics.siblingGap
+        let halfGap = (gap / 2).rounded(.up) + Self.overlap
         bottomBleed = halfGap
         topBleed = switch parent {
         case .sibling: halfGap
-        case .dispatch: Self.listRowGap + Self.overlap
+        case .dispatch: gap + Self.overlap
         // The agent row keeps its own bottom padding below its pill.
-        case .agent: Self.listRowGap + LeoAgentRowMetrics.verticalPadding + Self.overlap
+        case .agent: LeoDispatchRowMetrics.agentToFirstGap + Self.overlap
         }
     }
 

@@ -3034,3 +3034,367 @@ Chose: Client maps envelope-less non-2xx to .daemon(code: unauthorized|forbidden
 Why: P2
 Commit: 35d7d0d09, 376d64bda, d468aab19, 7d407fbc9, 9a842321d, d4c20098f, a2e437d3f, 0993d3fe2, e2af1370d
 Veto: [ ]
+
+## D-422 · 2026-10-08 · Each stderr line is judged independently at byte level, and the cano…
+Context: B-235 (runner call).
+Chose: Each stderr line is judged independently at byte level, and the canonical line must be exact ASCII
+Why: AUTONOMY: bug fix, parse untrusted server stderr conservatively
+Commit: 82c63cac9, 8f35fa1e1
+Veto: [ ]
+
+## D-423 · 2026-10-08 · Strip exactly one trailing CR, so a CRLF-terminated canonical line n…
+Context: B-235 (runner call).
+Chose: Strip exactly one trailing CR, so a CRLF-terminated canonical line now matches
+Why: AUTONOMY: bug fix
+Commit: 82c63cac9, 8f35fa1e1
+Veto: [ ]
+
+## D-424 · 2026-10-08 · Leave the stderr `detail` decoding (`<N bytes>`) and the status-127 …
+Context: B-235 (runner call).
+Chose: Leave the stderr `detail` decoding (`<N bytes>`) and the status-127 marker path unchanged
+Why: AUTONOMY: scope
+Commit: 82c63cac9, 8f35fa1e1
+Veto: [ ]
+
+## D-425 · 2026-10-08 · Lane-local GhosttyKit.xcframework and zig-out symlinks added to `inf…
+Context: B-235 (runner call).
+Chose: Lane-local GhosttyKit.xcframework and zig-out symlinks added to `info/exclude`
+Why: AUTONOMY: test infra
+Commit: 82c63cac9, 8f35fa1e1
+Veto: [ ]
+
+## D-426 · 2026-10-08 · Build B-204 (rows-focus flakes) ahead of the polish queue
+Context: B-204; LeoTerminalRowsIntegrationTests focus tests failed once in each of B-235's and B-144's verifies this run (passed on rerun).
+Chose: Pick B-204 next, ahead of B-145–B-199, since the flake costs a suite rerun on every item.
+Why: AUTONOMY "ordering within the backlog", "flake fixes"
+Commit: 27cb8ef72, d0e14f330
+Veto: [ ]
+
+## D-427 · 2026-10-08 · Classify the rows-focus and close-event flakes as test-infra flakes;…
+Context: B-204 (runner call).
+Chose: Classify the rows-focus and close-event flakes as test-infra flakes; app unchanged
+Why: AUTONOMY flake fixes/test infra
+Commit: 27cb8ef72, d0e14f330
+Veto: [ ]
+
+## D-428 · 2026-10-08 · B-171/B-172 are not causes and stay untouched
+Context: B-204 (runner call).
+Chose: B-171/B-172 are not causes and stay untouched
+Why: AUTONOMY ordering within the backlog
+Commit: 27cb8ef72, d0e14f330
+Veto: [ ]
+
+## D-429 · 2026-10-08 · Doc comment on when to use `eventually` vs `turns`
+Context: B-204 (runner call).
+Chose: Doc comment on when to use `eventually` vs `turns`
+Why: AUTONOMY test infra
+Commit: 27cb8ef72, d0e14f330
+Veto: [ ]
+
+## D-430 · 2026-10-09 · Re-attach after hello rather than delay the first attach
+Context: B-270 (runner call).
+Chose: Re-attach after hello rather than delay the first attach
+Why: P6
+Commit: 68b0e2647, 1e270c780, b6a403d47, eb8a4d622, 697e2e580, bb34cabbf
+Veto: [ ]
+
+## D-431 · 2026-10-09 · Hidden unflagged surfaces are released, not re-attached whil…
+Context: B-270 (runner call).
+Chose: Hidden unflagged surfaces are released, not re-attached while hidden
+Why: P6, D-109
+Commit: 68b0e2647, 1e270c780, b6a403d47, eb8a4d622, 697e2e580, bb34cabbf
+Veto: [ ]
+
+## D-432 · 2026-10-09 · Shown swap loses Ghostty-local scrollback/selection (slot, f…
+Context: B-270 (runner call).
+Chose: Shown swap loses Ghostty-local scrollback/selection (slot, focus and row selection kept; tmux history survives)
+Why: P6
+Commit: 68b0e2647, 1e270c780, b6a403d47, eb8a4d622, 697e2e580, bb34cabbf
+Veto: [ ]
+
+## D-433 · 2026-10-09 · Disconnected gating unchanged
+Context: B-270 (runner call).
+Chose: Disconnected gating unchanged
+Why: P2
+Commit: 68b0e2647, 1e270c780, b6a403d47, eb8a4d622, 697e2e580, bb34cabbf
+Veto: [ ]
+
+## D-434 · 2026-10-09 · Failed re-attach reported to the row as openFailed; closing-…
+Context: B-270 (runner call).
+Chose: Failed re-attach reported to the row as openFailed; closing-window handle forgotten silently; no contentVersion bump
+Why: D-110
+Commit: 68b0e2647, 1e270c780, b6a403d47, eb8a4d622, 697e2e580, bb34cabbf
+Veto: [ ]
+
+## D-435 · 2026-10-09 · reattachInPlace inherits the old surface's config (deviation…
+Context: B-270 (runner call).
+Chose: reattachInPlace inherits the old surface's config (deviation, behaviour-neutral)
+Why: AUTONOMY bug fixes
+Commit: 68b0e2647, 1e270c780, b6a403d47, eb8a4d622, 697e2e580, bb34cabbf
+Veto: [ ]
+
+## D-436 · 2026-10-09 · Command rebuilt after confirm only when placement changed, s…
+Context: B-270 (runner call).
+Chose: Command rebuilt after confirm only when placement changed, since a full rebuild broke aRemoteDispatchGoesThroughTheRemoteBuilder (deviation)
+Why: AUTONOMY bug fixes
+Commit: 68b0e2647, 1e270c780, b6a403d47, eb8a4d622, 697e2e580, bb34cabbf
+Veto: [ ]
+
+## D-437 · 2026-10-10 · Rows viewed in the caller's session become clickable; a clic…
+Context: B-271 (runner call).
+Chose: Rows viewed in the caller's session become clickable; a click focuses that pane and shows the parent agent
+Why: P6
+Commit: c13b9cca0, b106a7255, cf288ce6e
+Veto: [ ]
+
+## D-438 · 2026-10-10 · Fallback uses only the reported `attachable` and `tmux_targe…
+Context: B-271 (runner call).
+Chose: Fallback uses only the reported `attachable` and `tmux_target`
+Why: P2
+Commit: c13b9cca0, b106a7255, cf288ce6e
+Veto: [ ]
+
+## D-439 · 2026-10-10 · Fallback gated on connected + dispatch_attach + live run; ol…
+Context: B-271 (runner call).
+Chose: Fallback gated on connected + dispatch_attach + live run; older daemons keep inert rows
+Why: P2, D-433
+Commit: c13b9cca0, b106a7255, cf288ce6e
+Veto: [ ]
+
+## D-440 · 2026-10-10 · Headless dispatches (no pane) stay informational
+Context: B-271 (runner call).
+Chose: Headless dispatches (no pane) stay informational
+Why: P2
+Commit: c13b9cca0, b106a7255, cf288ce6e
+Veto: [ ]
+
+## D-441 · 2026-10-10 · Same behaviour on remote hosts over ssh
+Context: B-271 (runner call).
+Chose: Same behaviour on remote hosts over ssh
+Why: P3
+Commit: c13b9cca0, b106a7255, cf288ce6e
+Veto: [ ]
+
+## D-442 · 2026-10-10 · A failed focus is reported on the parent row, and the agent …
+Context: B-271 (runner call).
+Chose: A failed focus is reported on the parent row, and the agent is still shown
+Why: P6
+Commit: c13b9cca0, b106a7255, cf288ce6e
+Veto: [ ]
+
+## D-443 · 2026-10-10 · Focus runs through the injected hostSelectionRunner with a 1…
+Context: B-271 (runner call).
+Chose: Focus runs through the injected hostSelectionRunner with a 10 s timeout
+Why: AUTONOMY implementation approach
+Commit: c13b9cca0, b106a7255, cf288ce6e
+Veto: [ ]
+
+## D-444 · 2026-10-10 · Remote focus opens a new ssh connection with BatchMode=yes (…
+Context: B-271 (runner call).
+Chose: Remote focus opens a new ssh connection with BatchMode=yes (no ControlMaster reuse)
+Why: AUTONOMY implementation approach
+Commit: c13b9cca0, b106a7255, cf288ce6e
+Veto: [ ]
+
+## D-445 · 2026-10-10 · Every click on such a row re-sends the pane focus (idempoten…
+Context: B-271 (runner call).
+Chose: Every click on such a row re-sends the pane focus (idempotent)
+Why: P6
+Commit: c13b9cca0, b106a7255, cf288ce6e
+Veto: [ ]
+
+## D-446 · 2026-10-10 · 24pt dispatch pitch via List-level sidebarRowSize=.small, te…
+Context: B-275 (runner call).
+Chose: 24pt dispatch pitch via List-level sidebarRowSize=.small, terminal rows pinned to 32
+Why: P1
+Commit: 88e7542ca, aad8fc01a, 925d739dc, 7568259cd, 78b1d8c62
+Veto: [ ]
+
+## D-447 · 2026-10-10 · Role chip shows the family only in a fixed column, full role…
+Context: B-275 (runner call).
+Chose: Role chip shows the family only in a fixed column, full role in tooltip and VoiceOver, sub-role shown as the title when a dispatch has no name
+Why: P1 (criteria allow shortening)
+Commit: 88e7542ca, aad8fc01a, 925d739dc, 7568259cd, 78b1d8c62
+Veto: [ ]
+
+## D-448 · 2026-10-10 · Last visible dispatch per agent is taller (40pt, top-aligned…
+Context: B-275 (runner call).
+Chose: Last visible dispatch per agent is taller (40pt, top-aligned) instead of a spacer row, because the row floor makes spacers impossible
+Why: P1/P2
+Commit: 88e7542ca, aad8fc01a, 925d739dc, 7568259cd, 78b1d8c62
+Veto: [ ]
+
+## D-449 · 2026-10-10 · DEBUG fixture advertises dispatch_tree when it lists dispatc…
+Context: B-275 (runner call).
+Chose: DEBUG fixture advertises dispatch_tree when it lists dispatches
+Why: D-396
+Commit: 88e7542ca, aad8fc01a, 925d739dc, 7568259cd, 78b1d8c62
+Veto: [ ]
+
+## D-450 · 2026-10-10 · Pane follows the row the window navigates to; panes are per …
+Context: B-274 (runner call).
+Chose: Pane follows the row the window navigates to; panes are per window
+Why: P6/P1
+Commit: 6088d65ac, d39e7be52, 1696c2884, 2424c1399, 110e9cc1a, 09556f8c2, 03be4a524, c802f0961, 6a52d680b
+Veto: [ ]
+
+## D-451 · 2026-10-10 · Pool eviction never closes a pane
+Context: B-274 (runner call).
+Chose: Pool eviction never closes a pane
+Why: P6
+Commit: 6088d65ac, d39e7be52, 1696c2884, 2424c1399, 110e9cc1a, 09556f8c2, 03be4a524, c802f0961, 6a52d680b
+Veto: [ ]
+
+## D-452 · 2026-10-10 · A stopped agent's action fills that agent's own pane, never …
+Context: B-274 (runner call).
+Chose: A stopped agent's action fills that agent's own pane, never the on-screen row's
+Why: P6
+Commit: 6088d65ac, d39e7be52, 1696c2884, 2424c1399, 110e9cc1a, 09556f8c2, 03be4a524, c802f0961, 6a52d680b
+Veto: [ ]
+
+## D-453 · 2026-10-10 · Destination window resolved before the pane is filled; a sho…
+Context: B-274 (runner call).
+Chose: Destination window resolved before the pane is filled; a show that didn't happen fills nothing
+Why: P6
+Commit: 6088d65ac, d39e7be52, 1696c2884, 2424c1399, 110e9cc1a, 09556f8c2, 03be4a524, c802f0961, 6a52d680b
+Veto: [ ]
+
+## D-454 · 2026-10-10 · Clean pane closes silently; dirty pane asks Save/Don't Save/…
+Context: B-274 (runner call).
+Chose: Clean pane closes silently; dirty pane asks Save/Don't Save/Cancel; closes that can't ask (exit, undo, drag) keep the dirty pane as an orphan
+Why: D-033
+Commit: 6088d65ac, d39e7be52, 1696c2884, 2424c1399, 110e9cc1a, 09556f8c2, 03be4a524, c802f0961, 6a52d680b
+Veto: [ ]
+
+## D-455 · 2026-10-10 · A shown shell exiting with unsaved edits leaves the start sc…
+Context: B-274 (runner call).
+Chose: A shown shell exiting with unsaved edits leaves the start screen holding the pane
+Why: D-140
+Commit: 6088d65ac, d39e7be52, 1696c2884, 2424c1399, 110e9cc1a, 09556f8c2, 03be4a524, c802f0961, 6a52d680b
+Veto: [ ]
+
+## D-456 · 2026-10-10 · Delete Agent asks about its dirty panes in every window
+Context: B-274 (runner call).
+Chose: Delete Agent asks about its dirty panes in every window
+Why: P2
+Commit: 6088d65ac, d39e7be52, 1696c2884, 2424c1399, 110e9cc1a, 09556f8c2, 03be4a524, c802f0961, 6a52d680b
+Veto: [ ]
+
+## D-457 · 2026-10-10 · Snapshot prune only on a connected, known-host list, never t…
+Context: B-274 (runner call).
+Chose: Snapshot prune only on a connected, known-host list, never the shown row
+Why: P5
+Commit: 6088d65ac, d39e7be52, 1696c2884, 2424c1399, 110e9cc1a, 09556f8c2, 03be4a524, c802f0961, 6a52d680b
+Veto: [ ]
+
+## D-458 · 2026-10-10 · Every open adds a tab or selects the file's existing one, an…
+Context: B-273 (runner call).
+Chose: Every open adds a tab or selects the file's existing one, and nothing replaces a document (D-033's replace prompt no longer fires)
+Why: P1, P2
+Commit: 6889ede49, 5fe5700d3, cf7c6da40, ca2134002, 43fe062d4, d2503608d
+Veto: [ ]
+
+## D-459 · 2026-10-10 · Tab strip is inside the pane, appears at 2+ tabs, custom App…
+Context: B-273 (runner call).
+Chose: Tab strip is inside the pane, appears at 2+ tabs, custom AppKit (NSTabView has no close buttons or overflow); no window tab bar
+Why: P1, P6
+Commit: 6889ede49, 5fe5700d3, cf7c6da40, ca2134002, 43fe062d4, d2503608d
+Veto: [ ]
+
+## D-460 · 2026-10-10 · ⌘W with editor focus closes the selected tab; Show Next/Prev…
+Context: B-273 (runner call).
+Chose: ⌘W with editor focus closes the selected tab; Show Next/Previous Editor Tab ⇧⌘]/⇧⌘[; Close Editor Tab has no shortcut; Ghostty next/previous_tab switches editor tabs from the terminal
+Why: P1
+Commit: 6889ede49, 5fe5700d3, cf7c6da40, ca2134002, 43fe062d4, d2503608d
+Veto: [ ]
+
+## D-461 · 2026-10-10 · A background open never moves focus or navigates, and doesn'…
+Context: B-273 (runner call).
+Chose: A background open never moves focus or navigates, and doesn't override a tab the user picked after the request
+Why: P2
+Commit: 6889ede49, 5fe5700d3, cf7c6da40, ca2134002, 43fe062d4, d2503608d
+Veto: [ ]
+
+## D-462 · 2026-10-10 · Auto-open window choice: A on screen, then A's pooled surfac…
+Context: B-273 (runner call).
+Chose: Auto-open window choice: A on screen, then A's pooled surface, then an existing pane for A, then the key window (ties go to the key window); it never attaches
+Why: P2
+Commit: 6889ede49, 5fe5700d3, cf7c6da40, ca2134002, 43fe062d4, d2503608d
+Veto: [ ]
+
+## D-463 · 2026-10-10 · "Viewed" means A is on screen in a visible, non-miniaturized…
+Context: B-273 (runner call).
+Chose: "Viewed" means A is on screen in a visible, non-miniaturized, non-occluded window; the badge stays until then
+Why: P2
+Commit: 6889ede49, 5fe5700d3, cf7c6da40, ca2134002, 43fe062d4, d2503608d
+Veto: [ ]
+
+## D-464 · 2026-10-10 · Only live, new events auto-open; auto-open failures are sile…
+Context: B-273 (runner call).
+Chose: Only live, new events auto-open; auto-open failures are silent and keep the badge; ⌥⌘O still shows errors
+Why: P2
+Commit: 6889ede49, 5fe5700d3, cf7c6da40, ca2134002, 43fe062d4, d2503608d
+Veto: [ ]
+
+## D-465 · 2026-10-10 · Cap of 10 tabs per pane; the least-recently-selected clean t…
+Context: B-273 (runner call).
+Chose: Cap of 10 tabs per pane; the least-recently-selected clean tab is evicted, dirty tabs never
+Why: P2, P3
+Commit: 6889ede49, 5fe5700d3, cf7c6da40, ca2134002, 43fe062d4, d2503608d
+Veto: [ ]
+
+## D-466 · 2026-10-10 · Remote files go through the same per-window file access (SFT…
+Context: B-273 (runner call).
+Chose: Remote files go through the same per-window file access (SFTP)
+Why: P3
+Commit: 6889ede49, 5fe5700d3, cf7c6da40, ca2134002, 43fe062d4, d2503608d
+Veto: [ ]
+
+## D-467 · 2026-10-10 · Tab strip sits under the pane header with a dirty dot and a …
+Context: B-273 (runner call).
+Chose: Tab strip sits under the pane header with a dirty dot and a hover/selected close button; the header close tooltip stays "Close Editor (⌘W)"
+Why: P1
+Commit: 6889ede49, 5fe5700d3, cf7c6da40, ca2134002, 43fe062d4, d2503608d
+Veto: [ ]
+
+## D-468 · 2026-10-10 · Placement comes from the daemon's `attachable` and `tmux_tar…
+Context: B-272 (runner call).
+Chose: Placement comes from the daemon's `attachable` and `tmux_target`; `viewer_kind` is decoded leniently (unknown or wrong-type becomes nil) and used only when `dispatch_placement_live` is advertised
+Why: P2
+Commit: 369d46814, 24a726eb2, 17ca28cda, 1d830b041, 1044f57a3
+Veto: [ ]
+
+## D-469 · 2026-10-10 · A non-attachable dispatch reported as `viewer_kind: backgrou…
+Context: B-272 (runner call).
+Chose: A non-attachable dispatch reported as `viewer_kind: background` under the feature is informational, not pane-focusable (narrows D-438)
+Why: P2, P6
+Commit: 369d46814, 24a726eb2, 17ca28cda, 1d830b041, 1044f57a3
+Veto: [ ]
+
+## D-470 · 2026-10-10 · A selected dispatch that moves into the caller's session fal…
+Context: B-272 (runner call).
+Chose: A selected dispatch that moves into the caller's session falls back to its agent and is not re-selected when it moves back
+Why: P2
+Commit: 369d46814, 24a726eb2, 17ca28cda, 1d830b041, 1044f57a3
+Veto: [ ]
+
+## D-471 · 2026-10-10 · DEBUG fixture key `dispatch_moves` extends D-396; it also ad…
+Context: B-272 (runner call).
+Chose: DEBUG fixture key `dispatch_moves` extends D-396; it also advertises `dispatch_tree`, `dispatch_attach` and `dispatch_placement_live`, and replay seqs are time-based
+Why: P6
+Commit: 369d46814, 24a726eb2, 17ca28cda, 1d830b041, 1044f57a3
+Veto: [ ]
+
+## D-472 · 2026-10-10 · ⌘N's inherited surface config (font size) is held per start-…
+Context: B-145 (runner call).
+Chose: ⌘N's inherited surface config (font size) is held per start-screen window and given to the first surface that fills it, by any path
+Why: P1 / D-151 (the bare start screen has no surface to apply it to)
+Commit: d7526727d, 2ba5a4095, 10846c005, f54dc54a7, 3fec568ca
+Veto: [ ]
+
+## D-473 · 2026-10-10 · ⌘↩ from a ⌘N start-screen palette into a new window no longe…
+Context: B-145 (runner call).
+Chose: ⌘↩ from a ⌘N start-screen palette into a new window no longer carries the held config (dismissed, untested)
+Why: held config belongs to that one window; rare sequence, costs only inherited font size/cwd
+Commit: d7526727d, 2ba5a4095, 10846c005, f54dc54a7, 3fec568ca
+Veto: [ ]

@@ -33,7 +33,7 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
     let detail: Detail
     /// The window's editor pane, a trailing item that collapses while no
     /// file is open (B-004).
-    var editor: LeoEditorPaneModel?
+    var editor: LeoEditorTabs?
     /// The window's workspace browser, an item on the editor's leading
     /// edge that collapses while it's closed (B-005).
     var browser: LeoWorkspaceBrowserModel?
@@ -41,8 +41,11 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
     /// nil keeps their own rows. Fixed when the panes are built, as
     /// the window's titlebar style is (D-170).
     var sidePaneHeaderTopInset: CGFloat?
-    var onEditorPane: (LeoEditorPaneViewController) -> Void = { _ in }
-    var onBrowserPane: (LeoWorkspaceBrowserViewController) -> Void = { _ in }
+    /// The window's rows' panes (B-274): the editor and browser items show
+    /// the pane of the row on screen. Takes the place of `editor` and
+    /// `browser`.
+    var panes: LeoRowPanes?
+    var onPaneContainer: (LeoRowPaneContainerViewController) -> Void = { _ in }
     /// The sidebar collapsed, or stayed collapsed, to keep the terminal at
     /// its floor (D-036, D-058).
     var onSidebarAutoCollapse: () -> Void = {}
@@ -62,6 +65,7 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
             detail: AnyView(detail),
             editor: editor,
             browser: browser,
+            panes: panes,
             sidePaneHeaderTopInset: sidePaneHeaderTopInset,
             onSidebarAutoCollapse: onSidebarAutoCollapse,
             onSidebarAutoRestore: onSidebarAutoRestore)
@@ -69,8 +73,7 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
         context.coordinator.sidebarHosting = components.sidebarHosting
         context.coordinator.detailHosting = components.detailHosting
         for item in components.controller.splitViewItems {
-            if let pane = item.viewController as? LeoEditorPaneViewController { onEditorPane(pane) }
-            if let pane = item.viewController as? LeoWorkspaceBrowserViewController { onBrowserPane(pane) }
+            if let container = item.viewController as? LeoRowPaneContainerViewController { onPaneContainer(container) }
         }
 
         return components.controller
@@ -145,8 +148,9 @@ enum LeoSplitViewControllerFactory {
         onDividerWidthChange: @escaping (CGFloat) -> Void,
         sidebar: AnyView,
         detail: AnyView,
-        editor: LeoEditorPaneModel? = nil,
+        editor: LeoEditorTabs? = nil,
         browser: LeoWorkspaceBrowserModel? = nil,
+        panes: LeoRowPanes? = nil,
         sidePaneHeaderTopInset: CGFloat? = nil,
         onSidebarAutoCollapse: @escaping () -> Void = {},
         onSidebarAutoRestore: @escaping () -> Void = {}
@@ -169,20 +173,23 @@ enum LeoSplitViewControllerFactory {
 
         controller.addSplitViewItem(sidebarItem)
         controller.addSplitViewItem(detailItem)
-        if let browser {
-            let browserItem = NSSplitViewItem(
-                viewController: LeoWorkspaceBrowserViewController(model: browser, headerTopInset: sidePaneHeaderTopInset))
+        let sidePanes = LeoSidePanes(editor: editor, browser: browser, panes: panes)
+        if let panes = sidePanes.panes, sidePanes.hasBrowser {
+            let browserItem = NSSplitViewItem(viewController: LeoRowPaneContainerViewController(role: .browser, panes: panes) {
+                LeoWorkspaceBrowserViewController(model: $0.browser, headerTopInset: sidePaneHeaderTopInset)
+            })
             browserItem.canCollapse = true
-            browserItem.isCollapsed = !browser.isOpen
+            browserItem.isCollapsed = !panes.active.browser.isOpen
             browserItem.holdingPriority = LeoSidebarSplitMetrics.browserHoldingPriority
             browserItem.minimumThickness = LeoWorkspaceBrowserViewController.minimumWidth
             controller.addSplitViewItem(browserItem)
         }
-        if let editor {
-            let editorItem = NSSplitViewItem(
-                viewController: LeoEditorPaneViewController(model: editor, headerTopInset: sidePaneHeaderTopInset))
+        if let panes = sidePanes.panes, sidePanes.hasEditor {
+            let editorItem = NSSplitViewItem(viewController: LeoRowPaneContainerViewController(role: .editor, panes: panes) {
+                LeoEditorTabsViewController(tabs: $0.tabs, headerTopInset: sidePaneHeaderTopInset)
+            })
             editorItem.canCollapse = true
-            editorItem.isCollapsed = !editor.isOpen
+            editorItem.isCollapsed = !panes.active.tabs.isOpen
             editorItem.holdingPriority = LeoSidebarSplitMetrics.editorHoldingPriority
             editorItem.minimumThickness = LeoEditorPaneViewController.minimumWidth
             controller.addSplitViewItem(editorItem)
@@ -651,12 +658,37 @@ extension NSViewController {
     /// Collapses or shows this controller's own split item (the browser's
     /// or the editor's). Showing it makes room for it first, and with
     /// `openingAtHalfWidth` then widens it to half of what it shares with
-    /// the terminal.
+    /// the terminal. A row's pane inside a container (B-274) asks the
+    /// container, which acts only for the row on screen.
     func setLeoSplitItemCollapsed(_ collapsed: Bool, openingAtHalfWidth: Bool = false) {
+        if let container = parent as? LeoRowPaneContainerViewController {
+            return container.childRequestsCollapsed(self, collapsed, openingAtHalfWidth: openingAtHalfWidth)
+        }
         guard let split = parent as? NSSplitViewController, let item = split.splitViewItem(for: self), item.isCollapsed != collapsed else { return }
         let leoSplit = split as? LeoSplitViewController
         if !collapsed { leoSplit?.makeRoom(forShowing: item) }
         item.isCollapsed = collapsed
         if !collapsed, openingAtHalfWidth { leoSplit?.openAtHalfWidth(item) }
+    }
+}
+
+/// Which side panes the split builds, and from what: a window's rows'
+/// panes, or (tests) one editor and browser standing in for them.
+@MainActor private struct LeoSidePanes {
+    let panes: LeoRowPanes?
+    let hasEditor: Bool
+    let hasBrowser: Bool
+
+    init(editor: LeoEditorTabs?, browser: LeoWorkspaceBrowserModel?, panes: LeoRowPanes?) {
+        hasEditor = panes != nil || editor != nil
+        hasBrowser = panes != nil || browser != nil
+        guard panes == nil, editor != nil || browser != nil else {
+            self.panes = panes
+            return
+        }
+        let makeAccess = LeoWindowSession.noFileAccess
+        let editor = editor ?? LeoEditorTabs(makeAccess: makeAccess)
+        let pane = LeoRowPane(tabs: editor, browser: browser ?? LeoWorkspaceBrowserModel(makeAccess: makeAccess) { try await editor.open($0) })
+        self.panes = LeoRowPanes(startScreen: pane)
     }
 }

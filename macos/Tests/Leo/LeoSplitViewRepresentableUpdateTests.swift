@@ -15,7 +15,7 @@ import Testing
 
     private struct Host: View {
         @ObservedObject var state: SidebarState
-        let editor: LeoEditorPaneModel
+        let editor: LeoEditorTabs
         let browser: LeoWorkspaceBrowserModel
 
         var body: some View {
@@ -27,7 +27,7 @@ import Testing
                 detail: Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity),
                 editor: editor,
                 browser: browser,
-                onBrowserPane: { [state] in state.split = $0.parent as? LeoSplitViewController },
+                onPaneContainer: { [state] in state.split = $0.parent as? LeoSplitViewController },
                 onSidebarAutoCollapse: { [state] in state.isVisible = false },
                 onSidebarAutoRestore: { [state] in state.isVisible = true })
         }
@@ -52,7 +52,7 @@ import Testing
         let sandbox = try LeoFileSandbox()
         defer { sandbox.cleanUp() }
         let state = SidebarState()
-        let editor = LeoEditorPaneModel(makeAccess: { _ in LeoFileAccessor.local() })
+        let editor = LeoEditorTabs(makeAccess: { _ in LeoFileAccessor.local() })
         let browser = LeoWorkspaceBrowserModel(makeAccess: { _ in LeoFileAccessor.local() }, openFile: { _ in .opened })
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1_000, height: 600), styleMask: [.titled], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
@@ -74,7 +74,7 @@ import Testing
 
         #expect(sidebarItem.isCollapsed)
         #expect(!state.isVisible)
-        await editor.close()
+        await editor.closeAll()
         await browser.close()
     }
 }
