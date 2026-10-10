@@ -67,12 +67,16 @@ Lane: B-275
   Branch: autopilot-lane/B-275
   Base: ae5df8a554fd84f25835402c499cf98247bf618e
   Tier: full
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 78b1d8c62741ae9cddd03489a2fc1a9e901cbff1
   Dispatched: 2026-10-10T06:36:00Z
+  Call: 24pt dispatch pitch via List-level sidebarRowSize=.small, terminal rows pinned to 32 — P1
+  Call: Role chip shows the family only in a fixed column, full role in tooltip and VoiceOver, sub-role shown as the title when a dispatch has no name — P1 (criteria allow shortening)
+  Call: Last visible dispatch per agent is taller (40pt, top-aligned) instead of a spacer row, because the row floor makes spacers impossible — P1/P2
+  Call: DEBUG fixture advertises dispatch_tree when it lists dispatches — D-396
 
 Finished 1: B-270 landed 28ade697f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-270-1.png
 Finished 2: B-271 landed 16b35ad0b · not visually verified
