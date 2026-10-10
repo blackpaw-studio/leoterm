@@ -1,13 +1,9 @@
-Status: finished
-Started: 2026-10-10T02:01:17Z
-Budget: 20 items, until 2026-10-10T14:01:17Z
-Digested-through: 5
-Filed: 0/3 bugs, 2/5 ideas
-Self-filed: B-274 → B-276 idea — Terminals section needs a manual scroll on a long sidebar
-Self-filed: B-272 → B-277 idea — Show where a dispatch viewer lives on its row
-Self-filed: B-273 → dropped (dup of B-244) — sidebar vanishes at the default 800px width when the editor pane opens
-Self-filed: B-274 → dropped (dup of B-244) — Sidebar Show disabled at the default 800px width with a side pane
-Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
+Status: running
+Started: 2026-10-10T16:31:47Z
+Budget: 20 items, until 2026-10-11T04:31:47Z
+Digested-through: 0
+Filed: 0/3 bugs, 0/5 ideas
+Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
   Branch: autopilot-lane/B-058
@@ -147,7 +143,6 @@ Lane: B-145
   Reverifies: 0
   Reviewed-tip: 3fec568cae8b324b6124d60ccacaafce88b1d14c
   Dispatched: 2026-10-10T11:38:22Z
-  Escalated: implementer/sonnet (first build, fix rounds 1 and 2) → implementer-hard/opus (escalated at fix round 3)
   Call: ⌘N's inherited surface config (font size) is held per start-screen window and given to the first surface that fills it, by any path — P1 / D-151 (the bare start screen has no surface to apply it to)
   Call: ⌘↩ from a ⌘N start-screen palette into a new window no longer carries the held config (dismissed, untested) — held config belongs to that one window; rare sequence, costs only inherited font size/cwd
 
@@ -181,3 +176,7 @@ Finished 8: B-146 landed f1b2715db · not visually verified
 - B-274 landed fab510f17 (1 fix round). Verify near-miss: stale-coordinate clicks selected real stopped agents whatshoveringoverme (a Start prompt appeared, cancelled) and widgeon; nothing started. Flag for digest.
 - B-273 landed 1c99121ce (1 fix round). Runner polish 'peekaboo type reports failure even when text lands' not filed: verification tooling, not leoterm. Flake seen once: anEmptyNameRestoresTheLiveTitle.
 - B-272 landed 243ad0021. Runner skipped asking leo whether viewer_kind will reach /api/v1; flag for digest.
+
+## Progress
+- Preflight: merged main into autopilot (fast-forward to 0b83ccd7c); applied 2 inbox entries (B-278, B-279 added; B-232 answered → ready, D-474).
+- Lane autopilot-lane/B-233 still unlanded with no block (item done); left in place.

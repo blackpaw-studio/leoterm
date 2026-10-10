@@ -3398,3 +3398,10 @@ Chose: ⌘↩ from a ⌘N start-screen palette into a new window no longer carri
 Why: held config belongs to that one window; rare sequence, costs only inherited font size/cwd
 Commit: d7526727d, 2ba5a4095, 10846c005, f54dc54a7, 3fec568ca
 Veto: [ ]
+
+## D-474 · 2026-10-10 · B-232: finish from the shelved branch
+Context: B-232 answer (Evan).
+Chose: finish from autopilot-shelved/B-232 (reject NUL in source URLs, bound/stream source buffering, transport-level lost-RENAME coverage; triage the focus/palette suite failures separately if they're unrelated)
+Why: Evan's answer
+Commit:
+Veto: n/a (Evan)

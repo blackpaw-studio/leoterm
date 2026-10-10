@@ -550,7 +550,7 @@ Inbox: 20261005T224249855758Z-b473c7f0#1
 Done: 8a23dede5 b3a182a55 f3913f58c 13d7da667. Covered by B-233: shared regression lists an absolute workspace and reads an absolute surfaced-file path through the same SFTP accessor. Independent full review and 2,067 tests/222 suites + strict SwiftLint passed. Remote GUI not visually verified (no safe remote fixture). Decision D-354.
 
 
-## B-232 · Drop files into an agent's workspace (local + SSH)   [blocked]
+## B-232 · Drop files into an agent's workspace (local + SSH)   [ready]
 Issue: #238
 Why: Drag files from Finder onto an agent and they land in its workspace through the same file backend locally and over SFTP — principles 3 (Local = remote) and 4 (Everything through Leo). Two drop targets: the workspace browser (into the dropped-on folder, or root) and the agent terminal (upload into the workspace, then type the workspace path at the prompt instead of the local Mac path a remote agent can't read).
 Accept: Dropping one or more Finder files on a workspace-browser folder writes them there via both local and SFTP backends (tested) and the browser lists them; dropping files on an agent terminal uploads them into the workspace and inserts the shell-escaped workspace paths, not local paths (tested for a remote daemon); a name clash or failed upload is shown plainly and never silently overwrites (tested); a screenshot of each drop target taking a drop from the isolated debug build
