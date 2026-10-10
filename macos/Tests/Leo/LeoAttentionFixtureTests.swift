@@ -122,6 +122,19 @@ struct LeoAttentionFixtureTests {
         #expect(features == ["agent_control"])
     }
 
+    /// B-275: fixture dispatches only show with `dispatch_tree`, so a fixture
+    /// that lists them advertises it (D-396).
+    @Test(arguments: [(true, ["dispatch_tree"]), (false, [])])
+    func aDispatchesKeyAdvertisesDispatchTree(hasDispatches: Bool, expected: [String]) async throws {
+        let (stream, continuation) = AsyncStream<LeoObserveEvent>.makeStream()
+        continuation.yield(.hello(seq: 1, at: nil, version: "1", serverTime: nil, bootID: "b", features: []))
+        continuation.finish()
+        var seen: [LeoObserveEvent] = []
+        for await event in LeoAttentionFixture.advertising(stream, usage: false, turns: [:], dispatchTree: hasDispatches) { seen.append(event) }
+        guard case .hello(_, _, _, _, _, let features) = seen.first else { Issue.record("no hello"); return }
+        #expect(features == expected)
+    }
+
     @Test func helloAdvertisesTheFixturesFeatures() async throws {
         let (stream, continuation) = AsyncStream<LeoObserveEvent>.makeStream()
         continuation.yield(.hello(seq: 1, at: nil, version: "1", serverTime: nil, bootID: "b", features: ["dispatch_tree"]))
