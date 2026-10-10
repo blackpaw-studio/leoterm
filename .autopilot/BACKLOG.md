@@ -1976,3 +1976,15 @@ Source: autopilot polish (B-274)
 ## B-277 · Show where a dispatch viewer lives on its row   [idea]
 Note: a dispatch row looks the same whether its viewer is in the background or visible, so a user can't see where it lives; needs Evan's call on a new indicator (P6, P2)
 Source: autopilot polish (B-272)
+
+## B-280 · Dropped files keep their source file mode   [idea]
+Note: Dropped files land as mode 0600 where the sources were 0644 — a local drop doesn't keep the usual file mode
+Source: autopilot polish (B-232)
+
+## B-281 · Name-clash toast covers terminal text until dismissed   [idea]
+Note: Name-clash toast sits over terminal text and persists until dismissed — covers prompt text after a clash
+Source: autopilot polish (B-232)
+
+## B-282 · Workspace browser middle-truncates long file names   [idea]
+Note: Workspace browser truncates long names in the middle ("b232-v…ma.txt") — hard to tell similar dropped files apart
+Source: autopilot polish (B-232)
