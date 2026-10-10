@@ -45,7 +45,7 @@ struct LeoAttentionDecodingTests {
         #expect(events[5].attention == LeoAttentionSignal(state: .working, revision: 1))
         #expect(events[6].attention == LeoAttentionSignal(state: .finished, revision: 2))
         #expect(events[7].attention == nil)
-        guard case .agentSpawned(_, _, let agent, _) = events[7] else {
+        guard case .agentSpawned(_, _, let agent, _, _) = events[7] else {
             Issue.record("expected agent_spawned")
             return
         }

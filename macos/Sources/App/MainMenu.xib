@@ -511,6 +511,14 @@
                                     </items>
                                 </menu>
                             </menuItem>
+                            <menuItem title="Set Environments" hidden="YES" identifier="leo.agents.setEnvironments" id="Leo-Agents-SetEnvironments">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <menu key="submenu" title="Set Environments" id="Leo-Agents-SetEnvironments-Menu">
+                                    <items>
+                                        <menuItem title="No Agent Selected" enabled="NO" id="Leo-Agents-SetEnvironments-Placeholder"/>
+                                    </items>
+                                </menu>
+                            </menuItem>
                             <menuItem title="View Logs" id="Leo-Agents-ViewLogs">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>

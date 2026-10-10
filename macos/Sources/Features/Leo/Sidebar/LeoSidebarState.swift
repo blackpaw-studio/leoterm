@@ -51,12 +51,16 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
     /// From the list: whether a message wakes this agent while it is
     /// stopped (B-262 allows Send for such a row).
     let wakeOnMessage: Bool?
+    /// The effective named environments (B-283), overlaid at emission time;
+    /// nil unless the daemon advertised `agent_environments`.
+    let environments: LeoAgentEnvironments?
 
     init(
         host: LeoHostID, name: String, template: String?, status: LeoAgentStatus, activity: Activity, actionDetail: String?,
         workspace: String? = nil, repo: String? = nil, attention: LeoAttentionBadge? = nil, attentionReason: LeoAttentionReason? = nil,
         startedAt: String? = nil, metadata: LeoAgentMetadata? = nil, surfacedFiles: [LeoSurfacedFile] = [],
-        lastTurn: LeoTurnPreview? = nil, compaction: LeoRowCompaction? = nil, wakeOnMessage: Bool? = nil
+        lastTurn: LeoTurnPreview? = nil, compaction: LeoRowCompaction? = nil, wakeOnMessage: Bool? = nil,
+        environments: LeoAgentEnvironments? = nil
     ) {
         self.host = host
         self.name = name
@@ -74,13 +78,15 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         self.lastTurn = lastTurn
         self.compaction = compaction
         self.wakeOnMessage = wakeOnMessage
+        self.environments = environments
     }
 
     func withAttention(_ attention: LeoAttentionBadge?, reason: LeoAttentionReason? = nil) -> LeoAgentRow {
         LeoAgentRow(
             host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, attention: attention, attentionReason: reason, startedAt: startedAt,
-            metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage
+            metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage,
+            environments: environments
         )
     }
 
@@ -88,7 +94,8 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         LeoAgentRow(
             host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
-            startedAt: startedAt, metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage
+            startedAt: startedAt, metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage,
+            environments: environments
         )
     }
 
@@ -96,7 +103,8 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         LeoAgentRow(
             host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
-            startedAt: startedAt, metadata: metadata, surfacedFiles: files, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage
+            startedAt: startedAt, metadata: metadata, surfacedFiles: files, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage,
+            environments: environments
         )
     }
 
@@ -104,7 +112,8 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         LeoAgentRow(
             host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
-            startedAt: startedAt, metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage
+            startedAt: startedAt, metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage,
+            environments: environments
         )
     }
 
@@ -112,7 +121,17 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         LeoAgentRow(
             host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
-            startedAt: startedAt, metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage
+            startedAt: startedAt, metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage,
+            environments: environments
+        )
+    }
+
+    func withEnvironments(_ environments: LeoAgentEnvironments?) -> LeoAgentRow {
+        LeoAgentRow(
+            host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
+            workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
+            startedAt: startedAt, metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn, compaction: compaction,
+            wakeOnMessage: wakeOnMessage, environments: environments
         )
     }
 

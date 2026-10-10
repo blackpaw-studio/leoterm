@@ -19,7 +19,13 @@ struct SpawnAgentSheet: View {
         sidebar = model; self.actions = actions; self.attach = attach
         _model = StateObject(wrappedValue: SpawnAgentModel(
             templateList: actions.$templateList.eraseToAnyPublisher(), source: source,
-            selectedHost: actions.hostSelection.$selected.eraseToAnyPublisher()
+            selectedHost: actions.hostSelection.$selected.eraseToAnyPublisher(),
+            environmentCatalog: actions.$environmentCatalog.eraseToAnyPublisher(),
+            environmentsSupported: model.$snapshot.combineLatest(actions.hostSelection.$selected)
+                .map { snapshot, selected in
+                    snapshot.advertised.applying(to: source?.host ?? selected).contains(.agentEnvironments)
+                }
+                .eraseToAnyPublisher()
         ))
         self.chooseDirectory = chooseDirectory
     }
@@ -39,6 +45,7 @@ struct SpawnAgentSheet: View {
             }
             TextField("Name", text: $model.name)
             if !model.isWorktree { TextField("Branch", text: $model.branch) }
+            if model.showsEnvironments { environmentsField }
             TextEditor(text: $model.prompt).frame(minHeight: 80)
             if let error = model.error ?? model.templateError ?? model.validationError { Text(error).foregroundStyle(.red) }
         }
@@ -48,6 +55,18 @@ struct SpawnAgentSheet: View {
             ToolbarItem(placement: .confirmationAction) { Button("Create") { spawn() }.disabled(model.validationError != nil || model.isSpawning) }
         }
     }
+    /// B-283: prefilled from the template's default; sent only when edited.
+    private var environmentsField: some View {
+        LabeledContent("Environments") {
+            VStack(alignment: .leading, spacing: 2) {
+                LeoEnvironmentListEditor(list: Binding(get: { model.environments }, set: { model.editEnvironments($0) }), available: model.environmentCatalog.catalog?.names ?? [])
+                if case .failed(let message) = model.environmentCatalog {
+                    Text("Environments unavailable: \(message)").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
     private func worktreeHeader(_ source: LeoAgentRow) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("New Agent in Worktree").font(.headline)

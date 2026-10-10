@@ -31,6 +31,10 @@ protocol LeoDaemonClient: Sendable {
     func interrupt(_ name: String) async throws
     func compact(_ name: String, instructions: String?) async throws
     func clear(_ name: String) async throws
+    /// B-283 (`agent_environments`): the configured names and template
+    /// defaults, and an agent's override (empty clears it; the agent restarts).
+    func environmentCatalog() async throws -> LeoEnvironmentCatalog
+    func setEnvironments(_ name: String, names: [String]) async throws
 }
 
 /// Default host-scoped implementations: every daemon socket now represents
@@ -49,6 +53,8 @@ extension LeoDaemonClient {
     func interrupt(_ name: String) async throws { throw LeoDaemonError.transport("Agent control is unavailable") }
     func compact(_ name: String, instructions: String?) async throws { throw LeoDaemonError.transport("Agent control is unavailable") }
     func clear(_ name: String) async throws { throw LeoDaemonError.transport("Agent control is unavailable") }
+    func environmentCatalog() async throws -> LeoEnvironmentCatalog { throw LeoDaemonError.transport("Environments are unavailable") }
+    func setEnvironments(_ name: String, names: [String]) async throws { throw LeoDaemonError.transport("Environments are unavailable") }
 
     private func requireLocal(_ host: LeoHostID) throws {
         guard host == .local else { throw LeoDaemonError.hostUnavailable("Remote hosts are unavailable") }
@@ -90,7 +96,10 @@ struct LeoSocketDaemonClient: LeoDaemonClient {
     }
 
     func listAgents() async throws -> [LeoAgent] { try await value("GET", "/agents/list") }
-    func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent { try await value("POST", "/agents/spawn", body: try JSONEncoder().encode(request), timeout: mutationTimeout) }
+    func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent {
+        let response = try await checked("POST", "/agents/spawn", body: try LeoEnvironmentsWire.spawnBody(request), timeout: mutationTimeout)
+        do { return try LeoDaemonEnvelope<LeoAgent>.decode(response.body).value() } catch let error as LeoDaemonError { throw Self.map(error) }
+    }
     func start(_ name: String) async throws { try await okay("POST", try route(name, "start")) }
     func stop(_ name: String, wakeOnMessage: Bool? = nil) async throws {
         let body = try wakeOnMessage.map { try JSONEncoder().encode(["wake_on_message": $0]) }
@@ -131,6 +140,22 @@ struct LeoSocketDaemonClient: LeoDaemonClient {
     func clear(_ name: String) async throws { _ = try await control(name, .clear) }
 
     func templates() async throws -> [LeoTemplate] { try await value("GET", "/templates") }
+
+    func environmentCatalog() async throws -> LeoEnvironmentCatalog {
+        let names = try await checked("GET", LeoEnvironmentsWire.catalogRoute)
+        let templates = try await checked("GET", LeoEnvironmentsWire.templatesRoute)
+        return LeoEnvironmentCatalog(
+            names: try LeoEnvironmentsWire.catalogNames(names.body),
+            templateDefaults: try LeoEnvironmentsWire.templateDefaults(templates.body)
+        )
+    }
+
+    func setEnvironments(_ name: String, names: [String]) async throws {
+        let response = try await checked(
+            "POST", try route(name, LeoEnvironmentsWire.agentAction), body: try LeoEnvironmentsWire.setBody(names), timeout: mutationTimeout
+        )
+        do { try LeoDaemonEnvelope<LeoEmpty>.decode(response.body).expectOK() } catch let error as LeoDaemonError { throw Self.map(error) }
+    }
     func version() async throws -> String {
         struct Version: Decodable, Sendable { let version: String }
         return try await value("GET", "/version", as: Version.self).version
@@ -185,6 +210,16 @@ struct LeoSocketDaemonClient: LeoDaemonClient {
         )
         guard (200..<300).contains(response.status) else { throw Self.controlError(response) }
         do { try LeoDaemonEnvelope<LeoEmpty>.decode(response.body).expectOK() } catch let error as LeoDaemonError { throw Self.map(error) }
+        return response
+    }
+
+    /// A request whose non-2xx is reported by the daemon's own message
+    /// (else "HTTP n"), whatever the code. Returns the 2xx response.
+    private func checked(_ method: String, _ path: String, body: Data? = nil, timeout: TimeInterval? = nil) async throws -> LeoHTTPResponse {
+        let response = try await transport.send(
+            LeoHTTPRequest(method: method, path: path, body: body), socketPath: socketPath, timeout: timeout ?? defaultTimeout
+        )
+        guard (200..<300).contains(response.status) else { throw Self.controlError(response) }
         return response
     }
 

@@ -88,6 +88,7 @@ struct LeoAgentRowContent: View {
     private func detailStyle(_ detail: LeoAgentRowPresentation.Detail) -> AnyShapeStyle {
         switch detail {
         case .error: AnyShapeStyle(LeoTint.red.color)
+        case .warning: AnyShapeStyle(LeoTint.orange.color)
         case .fallback: AnyShapeStyle(.tertiary)
         default: AnyShapeStyle(.secondary)
         }

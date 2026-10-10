@@ -80,6 +80,8 @@ struct LeoAgentRowView: View {
     /// sheet lives on the sidebar, so it outlives this row re-sorting or
     /// being filtered out.
     var newWorktreeAgent: () -> Void = {}
+    /// B-283: the row's host advertised `agent_environments`.
+    var environmentsSupported = false
     @State private var showingRename = false
     @State private var showingDelete = false
 
@@ -129,6 +131,10 @@ struct LeoAgentRowView: View {
         // land after the menu was already built, so the first open was empty.
         Menu("Set Template") { templateItems }
             .disabled(!availability.setTemplate)
+        if environmentsSupported {
+            Menu(LeoEnvironmentMenu.title) { environmentItems }
+                .disabled(!availability.setTemplate)
+        }
         Button("Rename…") { showingRename = true }.disabled(!availability.rename)
         Button("View Logs") { viewLogs() }.disabled(!availability.logs)
         Button("Browse Files") { browseFiles() }
@@ -160,6 +166,27 @@ struct LeoAgentRowView: View {
                         if template.name == row.template { Image(systemName: "checkmark") }
                     }
                 }
+            }
+        }
+    }
+
+    /// B-283: built from the same entries as the Agent menu's submenu.
+    @ViewBuilder private var environmentItems: some View {
+        let entries = LeoEnvironmentMenu.entries(catalog: actions.environmentCatalog, current: row.environments)
+        ForEach(Array(entries.enumerated()), id: \.offset) { _, entry in
+            switch entry {
+            case .placeholder(let title):
+                Text(title)
+            case .toggle(let name, let isOn):
+                Toggle(name, isOn: Binding(get: { isOn }, set: { _ in LeoEnvironmentChange.perform(entry, row: row, actions: actions) }))
+            case .separator:
+                Divider()
+            case .editOrder(let isEnabled):
+                Button(LeoEnvironmentMenu.editOrderTitle) { LeoEnvironmentChange.perform(entry, row: row, actions: actions) }
+                    .disabled(!isEnabled)
+            case .reset(let isEnabled):
+                Button(LeoEnvironmentMenu.resetTitle) { LeoEnvironmentChange.perform(entry, row: row, actions: actions) }
+                    .disabled(!isEnabled)
             }
         }
     }

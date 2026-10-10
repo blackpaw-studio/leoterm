@@ -4,6 +4,13 @@ import Testing
 @testable import Ghostty
 
 struct LeoMenuCommandsTests {
+    /// B-283: Set Environments sits right after Set Template in the Agent menu.
+    @Test func setEnvironmentsFollowsSetTemplate() throws {
+        let identifiers = try LeoMenuXib.siblingIdentifiers(of: LeoAgentsMenuController.setTemplateItemIdentifier.rawValue)
+        let index = try #require(identifiers.firstIndex(of: LeoAgentsMenuController.setTemplateItemIdentifier.rawValue))
+        #expect(identifiers.dropFirst(index + 1).first == LeoAgentsMenuController.setEnvironmentsItemIdentifier.rawValue)
+    }
+
     @Test @MainActor func setTemplateItemIsFoundByIdentifierNotTitle() {
         let item = NSMenuItem(title: "Set Template", action: nil, keyEquivalent: "")
         item.identifier = LeoAgentsMenuController.setTemplateItemIdentifier

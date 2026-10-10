@@ -34,6 +34,7 @@ extension LeoSidebarFeed {
         guard running, generation == snapshot.generation, request > metadataAppliedSeq else { return false }
         metadataAppliedSeq = request
         metadata = LeoAgentMetadataIndex(state: state, previous: metadata)
+        environments = LeoAgentEnvironmentsIndex(state: state)
         return true
     }
 
@@ -47,6 +48,7 @@ extension LeoSidebarFeed {
         metadataRefreshPending = false
         metadataAppliedSeq = metadataRequestSeq
         metadata = .empty
+        environments = .empty
     }
 
     private func startMetadataFetch() {

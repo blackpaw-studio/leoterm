@@ -9,6 +9,12 @@ import Foundation
     /// moment the host changes so the old host's list is never shown for
     /// the new one (B-054).
     @Published private(set) var templateList: LeoTemplateListState = .loading
+    /// B-283: the bound daemon's environment names and template defaults,
+    /// reloaded whenever the daemon is rebound (so it describes the host
+    /// it talks to, tunnel included) and on a manual refresh. An older
+    /// daemon fails quietly: every reader is gated on `agent_environments`.
+    @Published private(set) var environmentCatalog: LeoEnvironmentCatalogState = .loading
+    private var environmentCatalogToken = 0
     /// Bound to whatever connection is currently selected -- updated by
     /// `LeoRuntime` (via `updateDaemon`) each time `LeoHostSelection`
     /// reports a new connected socket. Every call below is unscoped
@@ -76,8 +82,28 @@ import Foundation
     /// changes (a new host's tunnel came up, or we switched back to
     /// localhost).
     func updateDaemon(_ daemon: any LeoDaemonClient, host: LeoHostID) {
+        if host != daemonHost { environmentCatalog = .loading }
         self.daemon = daemon
         daemonHost = host
+        reloadEnvironmentCatalog()
+    }
+
+    /// Fetches the catalog from the daemon bound now; a load that lands
+    /// after a newer one started is dropped.
+    func reloadEnvironmentCatalog() {
+        environmentCatalogToken += 1
+        let token = environmentCatalogToken
+        let daemon = daemon
+        Task { [weak self] in
+            let state: LeoEnvironmentCatalogState
+            do {
+                state = .loaded(try await daemon.environmentCatalog())
+            } catch {
+                state = .failed(Self.message(error))
+            }
+            guard let self, token == self.environmentCatalogToken else { return }
+            self.environmentCatalog = state
+        }
     }
 
     /// Called by `LeoRuntime` when the user explicitly asks the sidebar to
@@ -91,6 +117,7 @@ import Foundation
             await templateCache.invalidate()
             await self?.reloadTemplateList(token: token)
         }
+        reloadEnvironmentCatalog()
     }
 
     /// `$selected` publishes before the new value is stored, so the
@@ -137,6 +164,11 @@ import Foundation
     func stop(_ row: LeoAgentRow) { run(row) { daemon in try await daemon.stop(row.name, wakeOnMessage: nil) } }
     func restart(_ row: LeoAgentRow) { run(row) { daemon in _ = try await daemon.restart(row.name) } }
     func setTemplate(_ row: LeoAgentRow, template: String) { run(row) { daemon in try await daemon.setTemplate(row.name, template: template) } }
+    /// B-283: replaces the agent's environment override (empty clears it);
+    /// the daemon restarts and resumes it. A refusal shows on the row.
+    func setEnvironments(_ row: LeoAgentRow, names: [String]) {
+        run(row) { daemon in try await daemon.setEnvironments(row.name, names: names) }
+    }
     func rename(_ row: LeoAgentRow, newName: String) { run(row) { daemon in _ = try await daemon.rename(row.name, newName: newName) } }
     /// B-274: closes `row`'s editor panes in every window before it's
     /// deleted, asking about unsaved edits; `false` on Cancel. Wired by

@@ -139,6 +139,9 @@ extension TerminalController {
     /// renaming or localizing the title can never silently break the
     /// submenu population.
     static let setTemplateItemIdentifier = NSUserInterfaceItemIdentifier("leo.agents.setTemplate")
+    /// B-283: "Set Environments", right after Set Template; hidden unless
+    /// the selected row's host advertises `agent_environments`.
+    static let setEnvironmentsItemIdentifier = NSUserInterfaceItemIdentifier("leo.agents.setEnvironments")
 
     /// Bumped on every `menuNeedsUpdate` call and captured before the async
     /// template fetch; a fetch whose generation no longer matches the
@@ -153,6 +156,11 @@ extension TerminalController {
     private override init() {}
 
     func menuNeedsUpdate(_ menu: NSMenu) {
+        updateTemplateItem(in: menu)
+        updateEnvironmentsItem(in: menu)
+    }
+
+    private func updateTemplateItem(in menu: NSMenu) {
         guard let setTemplateItem = menu.items.first(where: { $0.identifier == Self.setTemplateItemIdentifier }),
               let submenu = setTemplateItem.submenu else { return }
 
@@ -190,6 +198,65 @@ extension TerminalController {
         }
     }
 
+    /// Built from the same entries as the row's context menu. The catalog
+    /// is prefetched on each daemon bind; while it loads, the submenu shows
+    /// "Loading…" and fills in when it lands, unless the menu was rebuilt.
+    private func updateEnvironmentsItem(in menu: NSMenu) {
+        guard let item = menu.items.first(where: { $0.identifier == Self.setEnvironmentsItemIdentifier }),
+              let submenu = item.submenu else { return }
+        let generation = updateGeneration
+        guard let controller = NSApp.keyWindow?.windowController as? TerminalController,
+              let row = controller.selectedLeoRow, let runtime = controller.leoRuntime,
+              runtime.model.hostFeatures.applying(to: row.host).contains(.agentEnvironments) else {
+            item.isHidden = true
+            submenu.items = [Self.placeholderItem(title: "No Agent Selected")]
+            return
+        }
+        item.isHidden = false
+        item.isEnabled = LeoMenuCommands.canSetTemplate(controller.selectedLeoAgentContext)
+        let actions = runtime.actions
+        let fill = { [weak self, weak controller] (catalog: LeoEnvironmentCatalogState) in
+            guard let self else { return }
+            submenu.items = LeoEnvironmentMenu.entries(catalog: catalog, current: row.environments).map {
+                self.environmentMenuItem(for: $0, row: row, actions: actions, window: controller?.window)
+            }
+        }
+        fill(actions.environmentCatalog)
+        guard actions.environmentCatalog == .loading else { return }
+        Task { @MainActor [weak self] in
+            for await state in actions.$environmentCatalog.values where state != .loading {
+                guard let self, self.updateGeneration == generation else { return }
+                fill(state)
+                return
+            }
+        }
+    }
+
+    private func environmentMenuItem(
+        for entry: LeoEnvironmentMenuEntry, row: LeoAgentRow, actions: LeoAgentActions, window: NSWindow?
+    ) -> NSMenuItem {
+        let title: String
+        let isEnabled: Bool
+        switch entry {
+        case .separator: return .separator()
+        case .placeholder(let text): return Self.placeholderItem(title: text)
+        case .toggle(let name, _): (title, isEnabled) = (name, true)
+        case .editOrder(let enabled): (title, isEnabled) = (LeoEnvironmentMenu.editOrderTitle, enabled)
+        case .reset(let enabled): (title, isEnabled) = (LeoEnvironmentMenu.resetTitle, enabled)
+        }
+        let item = NSMenuItem(title: title, action: isEnabled ? #selector(selectEnvironmentEntry(_:)) : nil, keyEquivalent: "")
+        item.target = self
+        item.isEnabled = isEnabled
+        if case .toggle(_, let isOn) = entry { item.state = isOn ? .on : .off }
+        item.representedObject = LeoEnvironmentSelection(entry: entry, row: row, actions: actions, window: window)
+        return item
+    }
+
+    @objc private func selectEnvironmentEntry(_ sender: NSMenuItem) {
+        guard let selection = sender.representedObject as? LeoEnvironmentSelection else { return }
+        LeoEnvironmentChange.perform(selection.entry, row: selection.row, actions: selection.actions, window: selection.window ?? NSApp.keyWindow)
+    }
+
     private func templateMenuItem(for template: LeoTemplate, row: LeoAgentRow, runtime: LeoRuntime) -> NSMenuItem {
         let item = NSMenuItem(title: template.name, action: #selector(selectTemplate(_:)), keyEquivalent: "")
         item.target = self
@@ -208,6 +275,13 @@ extension TerminalController {
         item.isEnabled = false
         return item
     }
+}
+
+private struct LeoEnvironmentSelection {
+    let entry: LeoEnvironmentMenuEntry
+    let row: LeoAgentRow
+    let actions: LeoAgentActions
+    weak var window: NSWindow?
 }
 
 private struct LeoTemplateSelection {

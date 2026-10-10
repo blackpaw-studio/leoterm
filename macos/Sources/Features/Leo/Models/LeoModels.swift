@@ -159,11 +159,15 @@ struct LeoSpawnRequest: Codable, Equatable, Sendable {
     let prompt: String?
     let environment: [String: String]?
     let idleSuspend: Bool?
+    /// B-283: the ordered named environments; nil sends none. Left out of
+    /// `CodingKeys`: `LeoEnvironmentsWire.spawnBody` adds it (a `var` only
+    /// so decoding can default it).
+    private(set) var environments: [String]?
 
     init(template: String? = nil, fromAgent: String? = nil, repo: String? = nil,
          name: String? = nil, branch: String? = nil, base: String? = nil,
          prompt: String? = nil, environment: [String: String]? = nil,
-         idleSuspend: Bool? = nil) {
+         idleSuspend: Bool? = nil, environments: [String]? = nil) {
         self.template = template
         self.fromAgent = fromAgent
         self.repo = repo
@@ -173,6 +177,7 @@ struct LeoSpawnRequest: Codable, Equatable, Sendable {
         self.prompt = prompt
         self.environment = environment
         self.idleSuspend = idleSuspend
+        self.environments = environments
     }
 
     enum CodingKeys: String, CodingKey {

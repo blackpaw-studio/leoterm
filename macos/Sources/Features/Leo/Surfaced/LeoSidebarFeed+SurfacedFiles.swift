@@ -12,6 +12,7 @@ extension LeoSidebarFeed {
     /// goes on top in `emit`).
     var displayedSnapshot: LeoSidebarSnapshot {
         snapshot.overlayingMetadata(metadata).overlayingSurfacedFiles(surfacedFiles)
+            .overlayingEnvironments(environments, features: daemonFeatures)
     }
 
     func receiveSurfacedFile(_ file: LeoSurfacedFile) {

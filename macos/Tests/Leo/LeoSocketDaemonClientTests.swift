@@ -41,6 +41,61 @@ struct LeoSocketDaemonClientTests {
         #expect(Set(json.keys) == ["template", "repo", "branch"])
     }
 
+    /// B-283: the set route takes the ordered names; an empty list clears.
+    @Test func setEnvironmentsPostsOrderedNames() async throws {
+        let transport = RecordingTransport()
+        let client = LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport)
+        try await client.setEnvironments("a b", names: ["zeta", "alpha"])
+        let request = try #require(await transport.requests.first)
+        #expect(request.method == "POST")
+        #expect(request.path == "/agents/a%20b/environments")
+        let json = try Self.object(request)
+        #expect(json["environments"] as? [String] == ["zeta", "alpha"])
+    }
+
+    @Test(arguments: [
+        (400, #"{"ok":false,"error":"unknown environment \"nope\"","code":"unknown_environment"}"#, #"unknown environment "nope""#),
+        (409, #"{"ok":false,"error":"agent runs a persistent task","code":"persistent_task"}"#, "agent runs a persistent task"),
+        (409, #"{"ok":false,"error":"environment aws is for codex","code":"harness_mismatch"}"#, "environment aws is for codex"),
+        (403, #"{"ok":false,"error":"operator token required"}"#, "operator token required"),
+        (500, #"{"ok":false,"error":"template not found"}"#, "template not found"),
+        (500, "Internal Server Error", "HTTP 500"),
+    ])
+    func environmentErrorsShowDaemonMessage(status: Int, body: String, message: String) async throws {
+        let transport = RecordingTransport(reply: LeoHTTPResponse(status: status, body: Data(body.utf8)))
+        let client = LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport)
+        await #expect { try await client.setEnvironments("a", names: ["x"]) } throws: { error in
+            (error as? LeoDaemonError)?.errorDescription == message
+        }
+        await #expect { _ = try await client.spawn(LeoSpawnRequest(template: "t", environments: ["x"])) } throws: { error in
+            (error as? LeoDaemonError)?.errorDescription == message
+        }
+    }
+
+    @Test func spawnOmitsEnvironmentsWhenNil() async throws {
+        let transport = RecordingTransport()
+        let client = LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport)
+        _ = try await client.spawn(LeoSpawnRequest(template: "claude"))
+        _ = try await client.spawn(LeoSpawnRequest(template: "claude", environments: ["b", "a"]))
+        let bodies = try await transport.requests.map(Self.object)
+        #expect(bodies[0]["environments"] == nil)
+        #expect(bodies[1]["environments"] as? [String] == ["b", "a"])
+        #expect(bodies[1]["template"] as? String == "claude")
+    }
+
+    private static func object(_ request: LeoHTTPRequest) throws -> [String: Any] {
+        let body = try #require(request.body)
+        return try #require(try JSONSerialization.jsonObject(with: body) as? [String: Any])
+    }
+
+    @Test func environmentCatalogReadsNamesAndTemplateDefaults() async throws {
+        let transport = RecordingTransport()
+        let client = LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport)
+        let catalog = try await client.environmentCatalog()
+        #expect(catalog == LeoEnvironmentCatalog(names: ["aws", "prod"], templateDefaults: ["claude": ["prod"]]))
+        #expect(await transport.requests.map(\.path) == ["/environments", "/templates"])
+    }
+
     @Test func responseParserHandlesHTTPFraming() throws {
         let contentLength = try LeoHTTPResponse.parse(Data("HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\ntest".utf8))
         #expect(contentLength.body == Data("test".utf8))
@@ -61,11 +116,19 @@ struct LeoSocketDaemonClientTests {
 
 private actor RecordingTransport: LeoDaemonTransport {
     var requests: [LeoHTTPRequest] = []
+    private let reply: LeoHTTPResponse?
+
+    init(reply: LeoHTTPResponse? = nil) { self.reply = reply }
 
     func send(_ request: LeoHTTPRequest, socketPath _: String, timeout _: TimeInterval) async throws -> LeoHTTPResponse {
         requests.append(request)
+        if let reply { return reply }
         let body: String
-        if request.path == "/agents/list" {
+        if request.path == "/environments" {
+            body = #"{"ok":true,"data":[{"name":"prod"},{"name":"aws"}]}"#
+        } else if request.path == "/templates" {
+            body = #"{"ok":true,"data":[{"name":"claude","environments":["prod"]}]}"#
+        } else if request.path == "/agents/list" {
             body = #"{"ok":true,"data":[]}"#
         } else if request.path == "/agents/spawn" || request.path.hasSuffix("/restart") || request.path.hasSuffix("/rename") {
             body = #"{"ok":true,"data":{"name":"a"}}"#

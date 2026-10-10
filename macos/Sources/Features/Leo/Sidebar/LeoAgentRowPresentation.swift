@@ -11,6 +11,8 @@ struct LeoAgentRowPresentation: Equatable {
         case attention(String)
         /// The row's last failed-action message (drawn red).
         case error(String)
+        /// A named-environment config problem (B-283), drawn plain orange.
+        case warning(String)
         case task(String)
         /// The running tool's name only.
         case tool(String)
@@ -21,7 +23,7 @@ struct LeoAgentRowPresentation: Equatable {
 
         var text: String {
             switch self {
-            case .attention(let text), .error(let text), .task(let text), .tool(let text), .turnPreview(let text), .fallback(let text):
+            case .attention(let text), .error(let text), .warning(let text), .task(let text), .tool(let text), .turnPreview(let text), .fallback(let text):
                 text
             }
         }
@@ -54,7 +56,8 @@ struct LeoAgentRowPresentation: Equatable {
         let active = Self.lastActive(row.metadata, now: now)
         lastActive = active.map { LeoRelativeTime.label(since: $0.date, now: $0.now, timeZone: timeZone, locale: locale) }
         lastActiveSpoken = active.map { LeoRelativeTime.spokenLabel(since: $0.date, now: $0.now, timeZone: timeZone, locale: locale) }
-        help = [template, usage.map(LeoUsageFormat.tooltip)].compactMap { $0 }.joined(separator: "\n")
+        let environments = Self.overrideNames(row.environments)
+        help = [template, environments.map { "Environments: \($0)" }, usage.map(LeoUsageFormat.tooltip)].compactMap { $0 }.joined(separator: "\n")
         isNameDimmed = row.status == .stopped
     }
 
@@ -68,11 +71,19 @@ struct LeoAgentRowPresentation: Equatable {
         let attention = reason.flatMap { [$0.tool, $0.detail].compactMap { $0 }.nonEmptyJoined(": ") }
         if let attention { return .attention(attention) }
         if let error, !error.isEmpty { return .error(error) }
+        if let warning = row.environments?.error, !warning.isEmpty { return .warning(warning) }
         if let task = metadata?.task { return .task(task) }
         if let tool = metadata?.tool { return .tool(tool) }
         if let turn = row.lastTurn { return .turnPreview(turnLine(turn)) }
-        let fallback = [template, usage.map { LeoUsageFormat.cost($0.session.costUSD) }].compactMap { $0 }.nonEmptyJoined(" · ")
+        let environments = overrideNames(row.environments).map { "env: \($0)" }
+        let fallback = [template, environments, usage.map { LeoUsageFormat.cost($0.session.costUSD) }].compactMap { $0 }.nonEmptyJoined(" · ")
         return .fallback(fallback ?? emptyFallback)
+    }
+
+    /// "aws, prod": an override's names, in order; nil for the default.
+    private static func overrideNames(_ environments: LeoAgentEnvironments?) -> String? {
+        guard let environments, environments.isOverride else { return nil }
+        return environments.names.nonEmptyJoined(", ")
     }
 
     private static func turnLine(_ turn: LeoTurnPreview) -> String {
