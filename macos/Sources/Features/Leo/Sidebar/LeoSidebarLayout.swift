@@ -1,8 +1,10 @@
 import Foundation
 
-/// B-010: how the sidebar arranges rows -- a Pinned section on top, then
-/// one section per status (Running, Starting, Stopped, others), each in
-/// the chosen sort order, with collapsed sections reduced to their header.
+/// B-010: how the sidebar arranges rows -- Needs You on top (agents asking
+/// for input or errored), a Pinned section, then one section per status
+/// (Running, Starting, Stopped, others) or, grouped by attention, Working /
+/// Finished / Idle & Stopped; each in the chosen sort order, with collapsed
+/// sections reduced to their header. Every agent is in exactly one section.
 ///
 /// While the search filter is non-empty the arrangement is B-009's
 /// instead: fuzzy-ranked matches grouped by status in rank order, nothing
@@ -10,6 +12,12 @@ import Foundation
 /// best match that Return picks.
 enum LeoSidebarLayout {
     static let pinnedSectionID = "pinned"
+    static let needsYouSectionID = "needs-you"
+    static let workingSectionID = "working"
+    static let finishedSectionID = "finished"
+    static let idleStoppedSectionID = "idle-stopped"
+    /// Sections that start collapsed until opened (see `LeoSidebarPreferences`).
+    static let defaultCollapsedSectionIDs: Set<String> = [idleStoppedSectionID]
 
     /// Last Activity: active rows first, newest streak first (B-063: busy
     /// agents hold their places rather than leapfrogging on each snapshot's
@@ -46,18 +54,26 @@ enum LeoSidebarLayout {
 
     static func sections(rows: [LeoAgentRow], query: String, preferences: LeoSidebarPreferences, host: LeoHostID) -> [LeoSidebarSection] {
         if isFiltering(query) { return LeoSidebarSectioning.sections(for: filtered(rows, query: query, order: preferences.sortOrder)) }
-        let pinned = sorted(rows.filter { preferences.pinned.contains($0.id) }, by: preferences.sortOrder)
-        let pinnedSection = pinned.isEmpty ? [] : [LeoSidebarSection(
-            id: pinnedSectionID, title: "Pinned", rows: pinned,
-            isCollapsed: preferences.isCollapsed(pinnedSectionID, host: host)
-        )]
-        let statusSections = statusGroups(rows.filter { !preferences.pinned.contains($0.id) }, order: preferences.sortOrder).map { key, rows in
-            LeoSidebarSection(
-                id: key, title: LeoSidebarSectioning.title(for: key), rows: rows,
-                isCollapsed: preferences.isCollapsed(key, host: host)
-            )
-        }
-        return pinnedSection + statusSections
+        return Dictionary(grouping: rows) { sectionID(of: $0, preferences: preferences) }
+            .sorted { lhs, rhs in
+                let lhsRank = sectionRank(lhs.key)
+                let rhsRank = sectionRank(rhs.key)
+                return lhsRank != rhsRank ? lhsRank < rhsRank : lhs.key < rhs.key
+            }
+            .map { key, rows in
+                section(id: key, rows: sorted(rows, by: preferences.sortOrder), preferences: preferences, host: host)
+            }
+    }
+
+    private static func section(id: String, rows: [LeoAgentRow], preferences: LeoSidebarPreferences, host: LeoHostID) -> LeoSidebarSection {
+        let isNeedsYou = id == needsYouSectionID
+        return LeoSidebarSection(
+            id: id, title: title(forSection: id), rows: rows,
+            isCollapsed: !isNeedsYou && preferences.isCollapsed(id, host: host),
+            isCollapsible: !isNeedsYou,
+            showsCount: isNeedsYou || preferences.groupBy == .attention,
+            isAlert: isNeedsYou
+        )
     }
 
     /// Rows a person can see, top to bottom: with a filter, the ranked
@@ -74,9 +90,37 @@ enum LeoSidebarLayout {
         sections(rows: rows, query: "", preferences: preferences, host: .local).flatMap(\.rows)
     }
 
-    /// The section a row is shown in when nothing is filtered.
+    /// The section a row is shown in when nothing is filtered: Needs You
+    /// first, then Pinned, then the mode's own grouping.
     static func sectionID(of row: LeoAgentRow, preferences: LeoSidebarPreferences) -> String {
-        preferences.pinned.contains(row.id) ? pinnedSectionID : LeoSidebarSectioning.sectionKey(for: row.status)
+        if row.attention == .needsInput || row.attention == .errored { return needsYouSectionID }
+        if preferences.pinned.contains(row.id) { return pinnedSectionID }
+        switch preferences.groupBy {
+        case .status: return LeoSidebarSectioning.sectionKey(for: row.status)
+        case .attention: return attentionSectionID(of: row)
+        }
+    }
+
+    /// Finished by attention; working and compacting rows by their resolved
+    /// state (a stopped agent's stale activity is not work); the rest are
+    /// idle or stopped.
+    private static func attentionSectionID(of row: LeoAgentRow) -> String {
+        if row.attention == .finished { return finishedSectionID }
+        switch LeoAgentPill(row: row, error: nil).state {
+        case .working, .compacting: return workingSectionID
+        default: return idleStoppedSectionID
+        }
+    }
+
+    static func title(forSection id: String) -> String {
+        switch id {
+        case needsYouSectionID: "Needs You"
+        case pinnedSectionID: "Pinned"
+        case workingSectionID: "Working"
+        case finishedSectionID: "Finished"
+        case idleStoppedSectionID: "Idle & Stopped"
+        default: LeoSidebarSectioning.title(for: id)
+        }
     }
 
     static func isFiltering(_ query: String) -> Bool {
@@ -97,6 +141,19 @@ enum LeoSidebarLayout {
                 let rhsRank = statusRank(rhs.key)
                 return lhsRank != rhsRank ? lhsRank < rhsRank : lhs.key < rhs.key
             }
+    }
+
+    /// Needs You, Pinned, the attention sections, then the status sections
+    /// (unrecognised statuses last, by key).
+    private static func sectionRank(_ id: String) -> Int {
+        switch id {
+        case needsYouSectionID: 0
+        case pinnedSectionID: 1
+        case workingSectionID: 2
+        case finishedSectionID: 3
+        case idleStoppedSectionID: 4
+        default: 5 + statusRank(id)
+        }
     }
 
     private static func statusRank(_ key: String) -> Int {

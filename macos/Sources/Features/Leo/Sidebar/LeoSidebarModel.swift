@@ -105,6 +105,8 @@ import Foundation
 
     func setSortOrder(_ order: LeoSidebarSortOrder) { update(preferences.with(sortOrder: order)) }
 
+    func setGroupBy(_ groupBy: LeoSidebarGroupBy) { update(preferences.with(groupBy: groupBy)) }
+
     func isPinned(_ id: LeoAgentRow.ID) -> Bool { preferences.pinned.contains(id) }
 
     func togglePin(_ id: LeoAgentRow.ID) { update(preferences.togglingPin(id)) }
@@ -112,6 +114,7 @@ import Foundation
     func isCollapsed(_ sectionID: String) -> Bool { preferences.isCollapsed(sectionID, host: rowsHost) }
 
     func toggleCollapsed(_ sectionID: String) {
+        guard sectionID != LeoSidebarLayout.needsYouSectionID else { return }
         update(preferences.setting(sectionID, collapsed: !isCollapsed(sectionID), host: rowsHost))
     }
 

@@ -12,12 +12,24 @@ struct LeoSidebarSection: Identifiable, Equatable {
     let rows: [LeoAgentRow]
     /// Header only; the rows stay listed here but aren't shown (B-010).
     let isCollapsed: Bool
+    /// False for Needs You: always open, so its header has no chevron.
+    let isCollapsible: Bool
+    /// The header carries the row count.
+    let showsCount: Bool
+    /// The count reads in orange (Needs You).
+    let isAlert: Bool
 
-    init(id: String, title: String, rows: [LeoAgentRow], isCollapsed: Bool = false) {
+    init(
+        id: String, title: String, rows: [LeoAgentRow], isCollapsed: Bool = false,
+        isCollapsible: Bool = true, showsCount: Bool = false, isAlert: Bool = false
+    ) {
         self.id = id
         self.title = title
         self.rows = rows
         self.isCollapsed = isCollapsed
+        self.isCollapsible = isCollapsible
+        self.showsCount = showsCount
+        self.isAlert = isAlert
     }
 }
 
@@ -417,9 +429,7 @@ struct LeoSidebarView: View {
         if LeoSidebarLayout.isFiltering(model.query) {
             Text(section.title)
         } else {
-            LeoSidebarSectionHeader(title: section.title, isCollapsed: section.isCollapsed) {
-                model.toggleCollapsed(section.id)
-            }
+            LeoSidebarSectionHeader(section: section) { model.toggleCollapsed(section.id) }
         }
     }
 

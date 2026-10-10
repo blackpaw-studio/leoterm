@@ -61,3 +61,21 @@ struct LeoTintedStyle: Equatable {
 
     var fillColor: Color { fill.color.opacity(fillOpacity) }
 }
+
+/// What a symbol or line of text is drawn in: a system hue, or one of the
+/// calm greys. A value so presentation types stay `Equatable`.
+enum LeoInk: Equatable, Sendable {
+    case tint(LeoTint)
+    case secondary
+    case tertiary
+
+    /// A selected row keeps contrast by going white; a grey keeps its
+    /// semantic level, which the selection already adapts.
+    func style(isSelected: Bool) -> AnyShapeStyle {
+        switch self {
+        case .tint(let tint): isSelected ? AnyShapeStyle(Color.white) : AnyShapeStyle(tint.color)
+        case .secondary: AnyShapeStyle(.secondary)
+        case .tertiary: AnyShapeStyle(.tertiary)
+        }
+    }
+}

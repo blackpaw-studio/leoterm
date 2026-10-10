@@ -622,6 +622,25 @@
                                     </items>
                                 </menu>
                             </menuItem>
+                            <menuItem title="Group By" id="Leo-Agents-GroupBy">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <menu key="submenu" title="Group By" id="Leo-Agents-GroupBy-Menu">
+                                    <items>
+                                        <menuItem title="Status" id="Leo-Agents-GroupBy-Status">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="groupLeoAgentsByStatus:" target="-1" id="Leo-Agents-GroupBy-Status-Action"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Attention" id="Leo-Agents-GroupBy-Attention">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="groupLeoAgentsByAttention:" target="-1" id="Leo-Agents-GroupBy-Attention-Action"/>
+                                            </connections>
+                                        </menuItem>
+                                    </items>
+                                </menu>
+                            </menuItem>
                         </items>
                     </menu>
                 </menuItem>
