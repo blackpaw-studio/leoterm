@@ -72,7 +72,7 @@ struct LeoRuntimeFileDropTests {
             await awaitCondition { !state.inserted.isEmpty }
 
             #expect(state.requestedHosts == [host])
-            #expect(state.inserted == [Ghostty.Shell.escape(destination.path("two words.txt"))])
+            #expect(state.inserted == [Ghostty.Shell.escape(destination.path("two words.txt")) + " "])
             #expect(!state.inserted[0].contains(source.root))
             #expect(try destination.contents("two words.txt") == "payload")
             runtime.shutdown()
@@ -114,7 +114,7 @@ struct LeoRuntimeFileDropTests {
         #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: clash), URL(fileURLWithPath: good)]), from: surface))
         await awaitCondition { await MainActor.run { surface.leoFileDropStatus != .uploading(2) } }
 
-        #expect(state.inserted == [destination.path("good.txt")])
+        #expect(state.inserted == [destination.path("good.txt") + " "])
         guard case .failed(let message) = surface.leoFileDropStatus else {
             Issue.record("expected persistent failure status")
             runtime.shutdown()
@@ -223,7 +223,7 @@ struct LeoRuntimeFileDropTests {
         await gate.release()
         await awaitCondition { state.inserted.count == 2 }
 
-        #expect(state.inserted == [destination.path("first.txt"), destination.path("second.txt")])
+        #expect(state.inserted.joined() == destination.path("first.txt") + " " + destination.path("second.txt") + " ")
         guard case .failed(let message) = surface.leoFileDropStatus else {
             Issue.record("expected both queued failures to remain visible")
             runtime.shutdown()
@@ -233,6 +233,34 @@ struct LeoRuntimeFileDropTests {
         #expect(message.contains("second-clash.txt"))
         runtime.dismissTerminalFileDropError(from: surface)
         #expect(surface.leoFileDropStatus == nil)
+        runtime.shutdown()
+    }
+
+    /// What the terminal receives across two queued drops must parse as
+    /// separate shell words, like the paths inside one multi-file drop.
+    @Test func queuedDropsReachTheTerminalAsSeparateShellWords() async throws {
+        let source = try LeoFileSandbox()
+        let destination = try LeoFileSandbox()
+        defer {
+            source.cleanUp()
+            destination.cleanUp()
+        }
+        let first = try source.file("first one.txt", "first")
+        let second = try source.file("second.txt", "second")
+        let gate = FileDropAccessGate()
+        let state = State()
+        state.context = context(workspace: destination.root)
+        state.accesses = [FileDropGatedAccess(base: LeoFileAccessor.local(), gate: gate), LeoFileAccessor.local()]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: first)]), from: surface))
+        await gate.waitUntilEntered()
+        #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: second)]), from: surface))
+        await gate.release()
+        await awaitCondition { state.inserted.count == 2 }
+
+        #expect(state.inserted.joined() == Ghostty.Shell.escape(destination.path("first one.txt")) + " " + destination.path("second.txt") + " ")
         runtime.shutdown()
     }
 
@@ -282,7 +310,7 @@ struct LeoRuntimeFileDropTests {
         await newGate.release()
         await awaitCondition { !state.inserted.isEmpty }
 
-        #expect(state.inserted == [newDestination.path("new.txt")])
+        #expect(state.inserted == [newDestination.path("new.txt") + " "])
         #expect(try newDestination.contents("new.txt") == "new")
         runtime.shutdown()
     }
@@ -315,7 +343,7 @@ struct LeoRuntimeFileDropTests {
 
         #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: newPath)]), from: surface))
         await awaitCondition { !state.inserted.isEmpty }
-        #expect(state.inserted == [newDestination.path("new.txt")])
+        #expect(state.inserted == [newDestination.path("new.txt") + " "])
         runtime.shutdown()
     }
 
@@ -349,7 +377,7 @@ struct LeoRuntimeFileDropTests {
         await awaitCondition { !state.inserted.isEmpty }
 
         #expect(surface.leoFileDropStatus == nil)
-        #expect(state.inserted == [newDestination.path("good.txt")])
+        #expect(state.inserted == [newDestination.path("good.txt") + " "])
         runtime.shutdown()
     }
 }

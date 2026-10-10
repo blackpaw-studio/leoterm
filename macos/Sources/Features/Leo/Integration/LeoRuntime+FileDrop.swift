@@ -148,7 +148,9 @@ struct LeoTerminalFileDropDependencies {
             surface?.leoFileDropStatus = nil
             return
         }
-        if !result.shellText.isEmpty { runtime.insertFileDropText(result.shellText, into: surface) }
+        // Each insertion ends with a word separator, so a later drop (queued
+        // or not) never runs its first path into this one's last.
+        if !result.shellText.isEmpty { runtime.insertFileDropText(result.shellText + " ", into: surface) }
         if !result.failures.isEmpty {
             failures.append(result.errorMessage)
             failureContext = operation.job.context
