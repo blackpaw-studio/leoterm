@@ -306,10 +306,12 @@ pub fn environMap() !std.process.Environ.Map {
 /// older one stays valid. If the copy cannot be allocated, the error is logged
 /// and the previous Environ is kept. If the I/O implementation had already
 /// scanned the environment, its memoized values (PATH, HOME, ...) are dropped
-/// rather than rebuilt from the new copy. `std.Io.Threaded.environ_initialized`
-/// stays set, so the I/O side never rescans and uses its defaults instead
-/// (e.g. `default_PATH` when it searches PATH); the block it hands to child
-/// processes is still the new copy.
+/// rather than rebuilt from the new copy. That only matters if the scan came
+/// before this sync: `std.Io.Threaded.environ_initialized` is then left set, so
+/// the I/O side never rescans and uses its defaults instead (e.g.
+/// `default_PATH` when it searches PATH); the block it hands to child
+/// processes is still the new copy. If nothing has scanned yet, the flag is
+/// clear and the first scan reads the new copy.
 ///
 /// It is not valid to run this within any code that needs to be run through
 /// tests. For any of these, re-factor the code to take an environment map
