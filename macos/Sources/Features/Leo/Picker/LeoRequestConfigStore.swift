@@ -9,7 +9,7 @@ import GhosttyKit
 /// created, not to routing identity.
 ///
 /// Entries are set by `LeoRuntime.routeNewSurface` (the intercept points:
-/// `TerminalController.newSplit`, `AppDelegate.ghosttyNewWindow`/
+/// `TerminalController.newSplit`, `AppDelegate.leoRouteNewWindow`/
 /// `ghosttyNewTab`) and consumed by `GhosttyAttachContentHost` when it builds
 /// the destination's configuration. `LeoNewSurfaceRouter`'s
 /// `onRequestEnded` hook drops an entry once its request retires or is
