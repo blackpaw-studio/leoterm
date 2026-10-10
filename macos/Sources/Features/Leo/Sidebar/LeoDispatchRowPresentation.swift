@@ -10,7 +10,9 @@ struct LeoDispatchRowPresentation: Equatable {
     /// Deeper levels share the last indent, so the name keeps its room.
     static let maxIndentDepth = 4
 
-    /// The role, drawn as a small tinted chip.
+    /// The role's family, drawn as a small tinted chip ("implement.hard"
+    /// shows "implement"); the full role is in the tooltip and the
+    /// VoiceOver label.
     struct RoleChip: Equatable {
         let text: String
         let tint: LeoTint
@@ -43,6 +45,8 @@ struct LeoDispatchRowPresentation: Equatable {
     let title: String
     /// False when the chip already says the role and there is no name.
     let showsTitle: Bool
+    /// The row's tooltip: the name, then the full role when it adds to it.
+    let help: String
     let roleChip: RoleChip?
     let status: Status
     let indent: CGFloat
@@ -52,8 +56,9 @@ struct LeoDispatchRowPresentation: Equatable {
     init(_ node: LeoDispatchNode, now: Date = Date()) {
         let dispatch = node.dispatch
         title = dispatch.name ?? dispatch.role ?? "Dispatch"
-        showsTitle = dispatch.name != nil || dispatch.role == nil
-        roleChip = dispatch.role.map { RoleChip(text: $0, tint: Self.roleTint($0)) }
+        roleChip = dispatch.role.map { RoleChip(text: Self.family(of: $0), tint: Self.roleTint($0)) }
+        showsTitle = dispatch.name != nil || dispatch.role == nil || roleChip?.text != dispatch.role
+        help = dispatch.name.flatMap { name in dispatch.role.map { "\(name) · \($0)" } } ?? title
         let word = Self.statusWord(dispatch.status)
         status = Self.status(dispatch, word: word, now: now)
         indent = Self.baseIndent + CGFloat(min(node.depth, Self.maxIndentDepth)) * Self.indentPerLevel
@@ -61,10 +66,15 @@ struct LeoDispatchRowPresentation: Equatable {
         accessibilityLabel = "\(kind), \(word)\(dispatch.stalled ? ", stalled" : "")"
     }
 
+    /// The part of a role before the first ".": "implement.hard" is "implement".
+    static func family(of role: String) -> String {
+        role.split(separator: ".").first.map(String.init) ?? role
+    }
+
     /// explore = cyan, plan = brown, implement* = purple, review* = mint,
-    /// anything else gray. The family is the part before the first ".".
+    /// anything else gray.
     static func roleTint(_ role: String) -> LeoTint {
-        switch role.split(separator: ".").first.map(String.init) {
+        switch family(of: role) {
         case "explore": .cyan
         case "plan": .brown
         case "implement": .purple

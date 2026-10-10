@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// The vertical rhythm of a dispatch group in the sidebar list (B-275).
@@ -50,4 +51,16 @@ enum LeoDispatchRowMetrics {
     static var groupToNextAgentGap: CGFloat {
         rowMargin + groupGap + listVerticalInset + LeoAgentRowMetrics.verticalPadding
     }
+
+    /// The roles' families the chip is sized for (see `LeoTint` role mapping).
+    static let knownFamilies = ["explore", "plan", "implement", "review"]
+    /// The chip column: the widest known family in the chip's font, plus the
+    /// chip's padding, rounded up. Longer custom roles truncate inside it.
+    static let chipColumnWidth: CGFloat = {
+        let font = NSFont.systemFont(ofSize: NSFont.preferredFont(forTextStyle: .caption2).pointSize, weight: .semibold)
+        let widest = knownFamilies.map { ($0 as NSString).size(withAttributes: [.font: font]).width }.max() ?? 0
+        return ceil(widest) + 2 * LeoRoleChipView.horizontalPadding + chipColumnSlack
+    }()
+    /// Absorbs the gap between AppKit's and SwiftUI's text measurement.
+    private static let chipColumnSlack: CGFloat = 2
 }

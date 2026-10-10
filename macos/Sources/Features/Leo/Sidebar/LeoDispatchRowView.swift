@@ -57,7 +57,7 @@ struct LeoDispatchRowView: View {
         }
         .frame(height: Self.rowHeight)
         .modifier(GroupEnd(endsGroup: endsGroup))
-        .help(presentation.title)
+        .help(presentation.help)
     }
 
     /// The content stays where the other rows hold theirs (centred in the
@@ -78,7 +78,7 @@ struct LeoDispatchRowView: View {
 
     private func label(_ presentation: LeoDispatchRowPresentation) -> some View {
         HStack(spacing: 6) {
-            if let chip = presentation.roleChip { LeoRoleChipView(chip: chip, isSelected: isSelected) }
+            LeoRoleChipSlot(chip: presentation.roleChip, isSelected: isSelected)
             if presentation.showsTitle {
                 Text(presentation.title)
                     .font(.callout)
