@@ -33,7 +33,7 @@ Lane: B-232
   Branch: autopilot-lane/B-232
   Base: a45efac49a794674b45c44152143b245338df282
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
@@ -46,8 +46,10 @@ Lane: B-232
   Call: Open errors come from LeoFileDescriptorSource.OpenError with the same user-facing text — P2
   Call: CancellationError passes through the staging write unchanged — P2
   Call: Every terminal drop insertion ends with a trailing space, so a single drop now ends with one too (unlike Ghostty's plain-shell drop) — P2, reversible
+Finished 1: B-232 landed e2fd6c40a · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-232-1.png
 
 ## Progress
 - Preflight: merged main into autopilot (fast-forward to 0b83ccd7c); applied 2 inbox entries (B-278, B-279 added; B-232 answered → ready, D-474).
 - Lane autopilot-lane/B-233 still unlanded with no block (item done); left in place.
 - B-232 runner dispatched: d-2d7711f49f9c.
+- B-232 landed e2fd6c40a (full, hard; 1 fix round: queued terminal drops lacked a separator; concurrency review clean on delta; suite 2500/2500; remote SFTP covered by tests, not visually). No focus/palette failures reproduced. Verify left scratch files in autopilot-scratch workspace (b232-vf-*, b232-v2-*) and /tmp/b232v2-src/.

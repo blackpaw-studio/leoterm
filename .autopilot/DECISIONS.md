@@ -2570,7 +2570,7 @@ Context: B-232 re-plan; ordinary SFTP v3 RENAME/REMOVE are pathname operations
 Chose: Trust the selected authenticated SFTP server and uploader-owned private staging namespace. Preserve exclusive no-overwrite publication and plain failure reporting. If a disconnect prevents safe cleanup, retain uncertain staging; if a RENAME response is lost, report an indeterminate result and never claim success or retry blindly. Hostile same-account staging substitution is outside this client guarantee; preserve descriptor-safe local source reading.
 Why: AUTONOMY permits reversible implementation choices; this meets approved B-232 collision/failure criteria without a remote helper, paid dependency, or destructive pathname cleanup. Standard SFTP cannot promise atomic identity-conditioned publication/cleanup.
 Alternatives: Add a server-side helper/extension (outside current scope); claim impossible identity-safe cleanup; delete a pathname despite uncertain ownership
-Commit: none — B-232 shelved unlanded on autopilot-shelved/B-232; architecture call applies to future completion
+Commit: e1b8cf49f, d4dae18b5, 2727c952a, 965ef9196, ed680acb4, 38bc36047, 77e21483f
 Veto: [ ]
 
 ## D-356 · 2026-10-06 · Test scheduling before UI polish
@@ -3403,5 +3403,54 @@ Veto: [ ]
 Context: B-232 answer (Evan).
 Chose: finish from autopilot-shelved/B-232 (reject NUL in source URLs, bound/stream source buffering, transport-level lost-RENAME coverage; triage the focus/palette suite failures separately if they're unrelated)
 Why: Evan's answer
-Commit:
+Commit: e1b8cf49f, d4dae18b5, 2727c952a, 965ef9196, ed680acb4, 38bc36047, 77e21483f
 Veto: n/a (Evan)
+
+## D-475 · 2026-10-10 · Port the shelved work as one squash commit instead of cherry-picks, so drift i…
+Context: B-232 (runner call).
+Chose: Port the shelved work as one squash commit instead of cherry-picks, so drift is resolved once
+Why: reversible implementation choice
+Commit: e1b8cf49f, d4dae18b5, 2727c952a, 965ef9196, ed680acb4, 38bc36047, 77e21483f
+Veto: [ ]
+
+## D-476 · 2026-10-10 · Dispatch-watch panes keep Ghostty's default drop and get no upload
+Context: B-232 (runner call).
+Chose: Dispatch-watch panes keep Ghostty's default drop and get no upload
+Why: P2
+Commit: e1b8cf49f, d4dae18b5, 2727c952a, 965ef9196, ed680acb4, 38bc36047, 77e21483f
+Veto: [ ]
+
+## D-477 · 2026-10-10 · No upload size cap; streaming bounds memory instead
+Context: B-232 (runner call).
+Chose: No upload size cap; streaming bounds memory instead
+Why: P3
+Commit: e1b8cf49f, d4dae18b5, 2727c952a, 965ef9196, ed680acb4, 38bc36047, 77e21483f
+Veto: [ ]
+
+## D-478 · 2026-10-10 · Shared beginGeneration(of:) bump for attachAnew and reattachInPlace
+Context: B-232 (runner call).
+Chose: Shared beginGeneration(of:) bump for attachAnew and reattachInPlace
+Why: P2
+Commit: e1b8cf49f, d4dae18b5, 2727c952a, 965ef9196, ed680acb4, 38bc36047, 77e21483f
+Veto: [ ]
+
+## D-479 · 2026-10-10 · Open errors come from LeoFileDescriptorSource.OpenError with the same user-fac…
+Context: B-232 (runner call).
+Chose: Open errors come from LeoFileDescriptorSource.OpenError with the same user-facing text
+Why: P2
+Commit: e1b8cf49f, d4dae18b5, 2727c952a, 965ef9196, ed680acb4, 38bc36047, 77e21483f
+Veto: [ ]
+
+## D-480 · 2026-10-10 · CancellationError passes through the staging write unchanged
+Context: B-232 (runner call).
+Chose: CancellationError passes through the staging write unchanged
+Why: P2
+Commit: e1b8cf49f, d4dae18b5, 2727c952a, 965ef9196, ed680acb4, 38bc36047, 77e21483f
+Veto: [ ]
+
+## D-481 · 2026-10-10 · Every terminal drop insertion ends with a trailing space, so a single drop now…
+Context: B-232 (runner call).
+Chose: Every terminal drop insertion ends with a trailing space, so a single drop now ends with one too (unlike Ghostty's plain-shell drop)
+Why: P2, reversible
+Commit: e1b8cf49f, d4dae18b5, 2727c952a, 965ef9196, ed680acb4, 38bc36047, 77e21483f
+Veto: [ ]
