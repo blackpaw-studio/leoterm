@@ -8,19 +8,21 @@ struct LeoRoleChipView: View {
     static let verticalPadding: CGFloat = 1
 
     let chip: LeoDispatchRowPresentation.RoleChip
+    let isSelected: Bool
     @Environment(\.colorScheme) private var colorScheme
+
+    private var style: LeoTintedStyle {
+        LeoTintedStyle(tint: chip.tint, isSelected: isSelected, isDark: colorScheme == .dark)
+    }
 
     var body: some View {
         Text(chip.text)
             .font(.caption2.weight(.semibold))
-            .foregroundStyle(chip.tint.color)
+            .foregroundStyle(style.content.color)
             .lineLimit(1)
             .padding(.horizontal, Self.horizontalPadding)
             .padding(.vertical, Self.verticalPadding)
-            .background(
-                chip.tint.color.opacity(LeoTint.fillOpacity(isDark: colorScheme == .dark)),
-                in: RoundedRectangle(cornerRadius: Self.cornerRadius)
-            )
+            .background(style.fillColor, in: RoundedRectangle(cornerRadius: Self.cornerRadius))
             .fixedSize()
             .accessibilityHidden(true)
     }
@@ -30,6 +32,8 @@ struct LeoRoleChipView: View {
 /// running dot pulses unless Reduce Motion is on.
 struct LeoDispatchStatusView: View {
     let status: LeoDispatchRowPresentation.Status
+    let isSelected: Bool
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isDimmed = false
 
@@ -39,7 +43,7 @@ struct LeoDispatchStatusView: View {
             Text(status.text)
                 .font(.caption2)
                 .monospacedDigit()
-                .foregroundStyle(status.textTint.map { AnyShapeStyle($0.color) } ?? AnyShapeStyle(.tertiary))
+                .foregroundStyle(textStyle)
                 .lineLimit(1)
                 .fixedSize()
         }
@@ -47,7 +51,7 @@ struct LeoDispatchStatusView: View {
     }
 
     private var dot: some View {
-        let tint = status.dot.tint.color
+        let tint = style(for: status.dot.tint).content.color
         return ZStack {
             if status.dot.isHollow {
                 Circle().strokeBorder(tint, lineWidth: 1)
@@ -58,6 +62,15 @@ struct LeoDispatchStatusView: View {
         .frame(width: LeoDispatchRowView.dotSize, height: LeoDispatchRowView.dotSize)
         .opacity(isDimmed ? LeoDispatchRowView.pulseDimmedOpacity : 1)
         .task(id: shouldPulse) { setPulsing(shouldPulse) }
+    }
+
+    private func style(for tint: LeoTint) -> LeoTintedStyle {
+        LeoTintedStyle(tint: tint, isSelected: isSelected, isDark: colorScheme == .dark)
+    }
+
+    /// Elapsed time is tertiary; the stalled copy takes its tint (white when selected).
+    private var textStyle: AnyShapeStyle {
+        status.textTint.map { AnyShapeStyle(style(for: $0).content.color) } ?? AnyShapeStyle(.tertiary)
     }
 
     private var shouldPulse: Bool { status.dot.pulses && !reduceMotion }

@@ -61,13 +61,13 @@ struct LeoDispatchRowPresentation: Equatable {
         accessibilityLabel = "\(kind), \(word)\(dispatch.stalled ? ", stalled" : "")"
     }
 
-    /// explore = cyan, plan = purple, implement* = pink, review* = mint,
+    /// explore = cyan, plan = brown, implement* = purple, review* = mint,
     /// anything else gray. The family is the part before the first ".".
     static func roleTint(_ role: String) -> LeoTint {
         switch role.split(separator: ".").first.map(String.init) {
         case "explore": .cyan
-        case "plan": .purple
-        case "implement": .pink
+        case "plan": .brown
+        case "implement": .purple
         case "review": .mint
         default: .gray
         }

@@ -108,9 +108,4 @@ struct LeoAgentPillTests {
         #expect(pill(attention: .needsInput).accessibilityLabel == "Needs you")
         #expect(pill(status: .stopped).accessibilityLabel == "Stopped")
     }
-
-    @Test func fillIsStrongerInDarkMode() {
-        #expect(LeoAgentPill.fillOpacity(isDark: false) == 0.15)
-        #expect(LeoAgentPill.fillOpacity(isDark: true) == 0.20)
-    }
 }

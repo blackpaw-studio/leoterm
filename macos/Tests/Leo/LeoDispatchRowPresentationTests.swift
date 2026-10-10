@@ -45,13 +45,13 @@ struct LeoDispatchRowPresentationTests {
 
     @Test func roleTintMapping() {
         let expected: [(String, LeoTint)] = [
-            ("explore", .cyan), ("plan", .purple), ("implement", .pink), ("implement.hard", .pink),
+            ("explore", .cyan), ("plan", .brown), ("plan.hard", .brown), ("implement", .purple), ("implement.hard", .purple),
             ("review", .mint), ("review.security", .mint), ("review.concurrency", .mint), ("custom", .gray)
         ]
         for (role, tint) in expected {
             #expect(LeoDispatchRowPresentation.roleTint(role) == tint, "\(role)")
         }
-        #expect(presentation(node(role: "plan")).roleChip?.tint == .purple)
+        #expect(presentation(node(role: "plan")).roleChip?.tint == .brown)
     }
 
     // MARK: Elapsed

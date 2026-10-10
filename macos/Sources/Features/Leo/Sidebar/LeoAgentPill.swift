@@ -62,11 +62,6 @@ struct LeoAgentPill: Equatable {
 
     static let needsYouSymbol = "questionmark.circle"
     static let compactionSymbol = "arrow.down.right.and.arrow.up.left"
-    /// A pill on a selected row: the fill is white at this opacity.
-    static let selectedFillOpacity = 0.22
-
-    static func fillOpacity(isDark: Bool) -> Double { LeoTint.fillOpacity(isDark: isDark) }
-
     private static let compactingLine = "Compacting context"
 
     private static func compactingHelp(_ compaction: LeoRowCompaction) -> String {

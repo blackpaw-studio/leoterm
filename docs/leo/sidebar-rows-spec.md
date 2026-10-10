@@ -64,9 +64,10 @@ Content: role chip · name (`.callout`, tail-truncated) · nested-tree
 chevron (unchanged behaviour) · trailing status.
 
 - **Role chip:** role text, `.caption2` semibold, 4pt corner radius, tint at
-  15%/20%. explore = cyan, plan = purple, implement* = pink, review* = mint,
-  anything else or no role = gray. No role → chip omitted, name falls back as
-  today.
+  15%/20%. explore = cyan, plan = brown, implement* = purple, review* = mint,
+  anything else or no role = gray. Role families match on the part before the
+  first "." (`review.security` is a review). Pink is avoided: it reads as the
+  Error red. No role → chip omitted, name falls back as today.
 - **Trailing status:** 6pt dot + elapsed since `startedAt` in minutes
   (`<1m`, `4m`, `1h 12m`; `.caption2`, tertiary, monospaced digits).
   Running = blue dot that pulses (static under Reduce Motion); queued =

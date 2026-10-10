@@ -5,7 +5,7 @@ import SwiftUI
 /// A value (not a `Color`) so presentation types stay `Equatable` and tests
 /// can name a tint without comparing colors.
 enum LeoTint: Equatable, Sendable {
-    case orange, red, green, gray, indigo, blue, cyan, purple, pink, mint
+    case orange, red, green, gray, indigo, blue, cyan, purple, brown, mint
 
     var nsColor: NSColor {
         switch self {
@@ -17,14 +17,47 @@ enum LeoTint: Equatable, Sendable {
         case .blue: .systemBlue
         case .cyan: .systemCyan
         case .purple: .systemPurple
-        case .pink: .systemPink
+        case .brown: .systemBrown
         case .mint: .systemMint
         }
     }
 
     var color: Color { Color(nsColor: nsColor) }
+}
 
-    /// A tinted fill's opacity: a little stronger on a dark background,
-    /// where the same alpha reads fainter.
-    static func fillOpacity(isDark: Bool) -> Double { isDark ? 0.20 : 0.15 }
+/// How a tinted pill, chip or dot paints itself: the tint at a low-opacity
+/// fill with the tint as content, or -- on a selected row, where a system
+/// tint would lose contrast against the selection -- white on a white wash.
+struct LeoTintedStyle: Equatable {
+    enum Paint: Equatable {
+        case tint(LeoTint)
+        case white
+
+        var color: Color {
+            switch self {
+            case .tint(let tint): tint.color
+            case .white: .white
+            }
+        }
+    }
+
+    /// A tinted fill's opacity, a little stronger on a dark background where
+    /// the same alpha reads fainter; and a selected row's white wash.
+    static let lightFillOpacity = 0.15
+    static let darkFillOpacity = 0.20
+    static let selectedFillOpacity = 0.22
+
+    /// Text, symbol, dot or outline.
+    let content: Paint
+    let fill: Paint
+    let fillOpacity: Double
+
+    init(tint: LeoTint, isSelected: Bool, isDark: Bool) {
+        let paint: Paint = isSelected ? .white : .tint(tint)
+        content = paint
+        fill = paint
+        fillOpacity = isSelected ? Self.selectedFillOpacity : (isDark ? Self.darkFillOpacity : Self.lightFillOpacity)
+    }
+
+    var fillColor: Color { fill.color.opacity(fillOpacity) }
 }

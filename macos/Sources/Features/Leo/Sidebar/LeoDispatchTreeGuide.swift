@@ -1,5 +1,15 @@
 import SwiftUI
 
+/// What a dispatch row's guide has to reach upward to.
+enum LeoDispatchParentLink: Equatable {
+    /// The agent row above the first dispatch.
+    case agent
+    /// The parent dispatch row above its first child.
+    case dispatch
+    /// The previous row of a sibling's subtree.
+    case sibling
+}
+
 /// Which tree-guide verticals a dispatch row draws.
 enum LeoDispatchGuides {
     /// For each node (given by its depth, depth first), one flag per level
@@ -19,11 +29,56 @@ enum LeoDispatchGuides {
             }
         }
     }
+
+    /// For each node (by depth, depth first), what sits directly above it in
+    /// the tree: the agent row (the first node), its parent dispatch (a node
+    /// deeper than the one before it), or a sibling's subtree (otherwise).
+    static func parentLinks(depths: [Int]) -> [LeoDispatchParentLink] {
+        depths.enumerated().map { index, depth in
+            guard index > 0 else { return .agent }
+            return depth > depths[index - 1] ? .dispatch : .sibling
+        }
+    }
+}
+
+/// Where a dispatch row's guide is drawn relative to its row. The List
+/// leaves a gap between rows and clips nothing, so each guide bleeds past
+/// its row by enough that a row's line and the next row's meet; a first
+/// child's reaches up to its parent. The gap was measured in the running
+/// sidebar (rows ~31.5pt apart for 22pt rows, less the 3pt bleed that
+/// previously left a 5pt break).
+struct LeoDispatchGuideGeometry: Equatable {
+    static let listRowGap: CGFloat = 11
+    /// Lines overlap by this much so no hairline shows between rows.
+    static let overlap: CGFloat = 1
+
+    let rowHeight: CGFloat
+    let topBleed: CGFloat
+    let bottomBleed: CGFloat
+
+    init(rowHeight: CGFloat, parent: LeoDispatchParentLink) {
+        self.rowHeight = rowHeight
+        let halfGap = (Self.listRowGap / 2).rounded(.up) + Self.overlap
+        bottomBleed = halfGap
+        topBleed = switch parent {
+        case .sibling: halfGap
+        case .dispatch: Self.listRowGap + Self.overlap
+        // The agent row keeps its own bottom padding below its pill.
+        case .agent: Self.listRowGap + LeoAgentRowMetrics.verticalPadding + Self.overlap
+        }
+    }
+
+    var canvasHeight: CGFloat { topBleed + rowHeight + bottomBleed }
+    /// The row's vertical centre in canvas coordinates, where the elbow turns.
+    var midY: CGFloat { topBleed + rowHeight / 2 }
+    /// A line that carries on through the row: the whole canvas.
+    var throughLine: ClosedRange<CGFloat> { 0...canvasHeight }
+    /// The row's own elbow: from the top down to the centre.
+    var elbowLine: ClosedRange<CGFloat> { 0...midY }
 }
 
 /// The guide drawn in a dispatch row's leading inset: rounded elbow into the
-/// row, a through-line where siblings continue. Rows are drawn edge to edge
-/// vertically so the lines of neighbouring rows meet.
+/// row, a through-line where siblings continue.
 struct LeoDispatchTreeGuide: View {
     static let lineWidth: CGFloat = 1.5
     static let elbowRadius: CGFloat = 4
@@ -34,23 +89,24 @@ struct LeoDispatchTreeGuide: View {
     /// Per level `0...depth` (see `LeoDispatchGuides.continuing`), already
     /// clamped to the indent's deepest level.
     let continuing: [Bool]
+    let geometry: LeoDispatchGuideGeometry
 
     var body: some View {
-        Canvas { context, size in
+        Canvas { context, _ in
             let style = StrokeStyle(lineWidth: Self.lineWidth, lineCap: .round, lineJoin: .round)
             let shading = GraphicsContext.Shading.color(Color(nsColor: .separatorColor))
-            let midY = size.height / 2
+            let midY = geometry.midY
             for (level, carries) in continuing.enumerated() {
                 let x = Self.columnCenter(level)
                 if carries {
                     var line = Path()
-                    line.move(to: CGPoint(x: x, y: 0))
-                    line.addLine(to: CGPoint(x: x, y: size.height))
+                    line.move(to: CGPoint(x: x, y: geometry.throughLine.lowerBound))
+                    line.addLine(to: CGPoint(x: x, y: geometry.throughLine.upperBound))
                     context.stroke(line, with: shading, style: style)
                 }
                 if level == continuing.count - 1 {
                     var elbow = Path()
-                    elbow.move(to: CGPoint(x: x, y: 0))
+                    elbow.move(to: CGPoint(x: x, y: geometry.elbowLine.lowerBound))
                     elbow.addLine(to: CGPoint(x: x, y: midY - Self.elbowRadius))
                     elbow.addQuadCurve(to: CGPoint(x: x + Self.elbowRadius, y: midY), control: CGPoint(x: x, y: midY))
                     elbow.addLine(to: CGPoint(x: x + Self.elbowRun, y: midY))

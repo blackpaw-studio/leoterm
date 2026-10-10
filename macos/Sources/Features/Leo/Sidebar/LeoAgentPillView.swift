@@ -6,6 +6,7 @@ import SwiftUI
 struct LeoAgentPillView: View {
     let pill: LeoAgentPill
     let isSelected: Bool
+    static let outlineOpacity = 0.6
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -18,7 +19,7 @@ struct LeoAgentPillView: View {
         .fixedSize()
         .padding(.horizontal, LeoAgentRowMetrics.pillHorizontalPadding)
         .frame(height: LeoAgentRowMetrics.pillHeight)
-        .foregroundStyle(isSelected ? Color.white : pill.tint.color)
+        .foregroundStyle(style.content.color)
         .background(fill)
         .overlay { outline }
         .layoutPriority(1)
@@ -27,17 +28,17 @@ struct LeoAgentPillView: View {
         .accessibilityHidden(true)
     }
 
+    private var style: LeoTintedStyle {
+        LeoTintedStyle(tint: pill.tint, isSelected: isSelected, isDark: colorScheme == .dark)
+    }
+
     @ViewBuilder private var fill: some View {
-        if isSelected {
-            Capsule().fill(Color.white.opacity(LeoAgentPill.selectedFillOpacity))
-        } else if !pill.isOutlined {
-            Capsule().fill(pill.tint.color.opacity(LeoAgentPill.fillOpacity(isDark: colorScheme == .dark)))
-        }
+        if !pill.isOutlined { Capsule().fill(style.fillColor) }
     }
 
     @ViewBuilder private var outline: some View {
         if pill.isOutlined {
-            Capsule().strokeBorder(isSelected ? Color.white.opacity(0.6) : pill.tint.color.opacity(0.6), lineWidth: 1)
+            Capsule().strokeBorder(style.content.color.opacity(Self.outlineOpacity), lineWidth: 1)
         }
     }
 }

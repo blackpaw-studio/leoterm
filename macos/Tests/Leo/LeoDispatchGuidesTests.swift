@@ -23,4 +23,15 @@ struct LeoDispatchGuidesTests {
         // a, a/b, a/b/c, then nothing: every line ends.
         #expect(LeoDispatchGuides.continuing(depths: [0, 1, 2]) == [[false], [false, false], [false, false, false]])
     }
+
+    @Test func parentLinksMarkEachFirstChild() {
+        // agent -> a, a/b, a/b/c, a/d, e
+        let links = LeoDispatchGuides.parentLinks(depths: [0, 1, 2, 1, 0])
+        #expect(links == [.agent, .dispatch, .dispatch, .sibling, .sibling])
+    }
+
+    @Test func aRowAfterAShallowerOneIsASibling() {
+        #expect(LeoDispatchGuides.parentLinks(depths: [0, 1, 0]) == [.agent, .dispatch, .sibling])
+        #expect(LeoDispatchGuides.parentLinks(depths: []) == [])
+    }
 }

@@ -8,9 +8,6 @@ import SwiftUI
 struct LeoDispatchRowView: View {
     /// Fixed so every dispatch row is the same height whatever its content.
     static let rowHeight: CGFloat = 22
-    /// How far a row's guide reaches past the list's own row padding, so
-    /// the through-lines of neighbouring rows meet.
-    static let guideBleed: CGFloat = 3
     static let dotSize: CGFloat = 6
     static let pulseDuration: Double = 0.9
     static let pulseDimmedOpacity: Double = 0.35
@@ -23,6 +20,10 @@ struct LeoDispatchRowView: View {
     var disclosure: Disclosure?
     /// The tree-guide flags per level (see `LeoDispatchGuides`).
     var guides: [Bool] = []
+    /// What the guide reaches up to (see `LeoDispatchGuideGeometry`).
+    var parentLink: LeoDispatchParentLink = .sibling
+    /// Whether this row is the list's selection: its tinted parts go white.
+    var isSelected = false
 
     struct Disclosure {
         let isCollapsed: Bool
@@ -32,9 +33,14 @@ struct LeoDispatchRowView: View {
     var body: some View {
         let presentation = LeoDispatchRowPresentation(node)
         HStack(spacing: 0) {
-            LeoDispatchTreeGuide(continuing: Array(guides.prefix(LeoDispatchRowPresentation.maxIndentDepth + 1)))
-                .frame(width: presentation.indent)
-                .padding(.vertical, -Self.guideBleed)
+            let geometry = LeoDispatchGuideGeometry(rowHeight: Self.rowHeight, parent: parentLink)
+            LeoDispatchTreeGuide(
+                continuing: Array(guides.prefix(LeoDispatchRowPresentation.maxIndentDepth + 1)), geometry: geometry
+            )
+            .frame(width: presentation.indent)
+            // Bleeds past the row (never resizes it) so neighbouring lines meet.
+            .padding(.top, -geometry.topBleed)
+            .padding(.bottom, -geometry.bottomBleed)
             HStack(spacing: 6) {
                 label(presentation)
                     .accessibilityElement(children: .ignore)
@@ -51,7 +57,7 @@ struct LeoDispatchRowView: View {
 
     private func label(_ presentation: LeoDispatchRowPresentation) -> some View {
         HStack(spacing: 6) {
-            if let chip = presentation.roleChip { LeoRoleChipView(chip: chip) }
+            if let chip = presentation.roleChip { LeoRoleChipView(chip: chip, isSelected: isSelected) }
             if presentation.showsTitle {
                 Text(presentation.title)
                     .font(.callout)
@@ -66,7 +72,7 @@ struct LeoDispatchRowView: View {
     /// Re-read once a minute, the resolution the text has.
     private var trailingStatus: some View {
         TimelineView(.everyMinute) { context in
-            LeoDispatchStatusView(status: LeoDispatchRowPresentation(node, now: context.date).status)
+            LeoDispatchStatusView(status: LeoDispatchRowPresentation(node, now: context.date).status, isSelected: isSelected)
         }
     }
 
