@@ -50,7 +50,7 @@ Lane: B-279
   Branch: autopilot-lane/B-279
   Base: 2cf579fa49d3ea30ffa24ae7d9c5d0bcce64a6f9
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
@@ -66,6 +66,7 @@ Lane: B-279
   Call: Accepted risks: no quarantine xattr on remote downloads; a file being written during the download can arrive torn; a numbered name over 255 bytes fails plainly; Finder may add its own alert — P2
 
 Finished 1: B-232 landed e2fd6c40a · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-232-1.png
+Finished 2: B-279 landed 15f779df4 · screen capture, not attached
 
 ## Progress
 - Preflight: merged main into autopilot (fast-forward to 0b83ccd7c); applied 2 inbox entries (B-278, B-279 added; B-232 answered → ready, D-474).
@@ -76,3 +77,4 @@ Finished 1: B-232 landed e2fd6c40a · shot /Users/evan/.leo/agents/leoterm/.git/
 - Evan (14:51 EDT): run must end by 18:30 EDT; then merge autopilot to main and cut a release (approved). Budget deadline moved to 22:30Z; no new lane after ~17:00 EDT unless it can finish by 18:30.
 - Evan (14:55 EDT): build named environments (B-283) this run, next after B-279. End of run: merge autopilot to main, NO release (Evan will update Leo manually first).
 - B-279 runner reported ready (1 fix round). Runner left a stray headless explore d-8a9c4160c622 (cancel timed out). Verifier left fixtures in autopilot-scratch b279v/ b279v2/.
+- B-279 landed 15f779df4 (full, hard; suite 2522; GUI screen captures only; SFTP + lost-connection covered by tests, not live).

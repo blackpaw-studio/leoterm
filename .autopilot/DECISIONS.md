@@ -3454,3 +3454,59 @@ Chose: Every terminal drop insertion ends with a trailing space, so a single dro
 Why: P2, reversible
 Commit: e1b8cf49f, d4dae18b5, 2727c952a, 965ef9196, ed680acb4, 38bc36047, 77e21483f
 Veto: [ ]
+
+## D-482 · 2026-10-10 · Name clash keeps both files, Finder-style "a 2.txt" (up to 100 tries), and nev…
+Context: B-279 (runner call).
+Chose: Name clash keeps both files, Finder-style "a 2.txt" (up to 100 tries), and never overwrites
+Why: P1, P2
+Commit: 1a4fe1dfb, 99a83cb7d, f56135c2f, 0d2466208, f5169647b, 0a900346a, de3d4b257
+Veto: [ ]
+
+## D-483 · 2026-10-10 · Local backend also uses file promises, same path as SFTP
+Context: B-279 (runner call).
+Chose: Local backend also uses file promises, same path as SFTP
+Why: P3
+Commit: 1a4fe1dfb, 99a83cb7d, f56135c2f, 0d2466208, f5169647b, 0a900346a, de3d4b257
+Veto: [ ]
+
+## D-484 · 2026-10-10 · Downloaded files get mode 0644 on both backends
+Context: B-279 (runner call).
+Chose: Downloaded files get mode 0644 on both backends
+Why: P3
+Commit: 1a4fe1dfb, 99a83cb7d, f56135c2f, 0d2466208, f5169647b, 0a900346a, de3d4b257
+Veto: [ ]
+
+## D-485 · 2026-10-10 · In-flight indicator is the existing header spinner; errors go in the existing …
+Context: B-279 (runner call).
+Chose: In-flight indicator is the existing header spinner; errors go in the existing footer, cleared only by Dismiss; no auto-retry on a lost connection
+Why: P2, P5
+Commit: 1a4fe1dfb, 99a83cb7d, f56135c2f, 0d2466208, f5169647b, 0a900346a, de3d4b257
+Veto: [ ]
+
+## D-486 · 2026-10-10 · Outline view gains multiple selection (⇧/⌘-click, ⇧↑↓); Return opens only the …
+Context: B-279 (runner call).
+Chose: Outline view gains multiple selection (⇧/⌘-click, ⇧↑↓); Return opens only the focused row
+Why: P1
+Commit: 1a4fe1dfb, 99a83cb7d, f56135c2f, 0d2466208, f5169647b, 0a900346a, de3d4b257
+Veto: [ ]
+
+## D-487 · 2026-10-10 · Footer shows upload, download and open errors together, one per line; isRootUp…
+Context: B-279 (runner call).
+Chose: Footer shows upload, download and open errors together, one per line; isRootUploadProgressVisible renamed isHeaderProgressVisible
+Why: implementation approach
+Commit: 1a4fe1dfb, 99a83cb7d, f56135c2f, 0d2466208, f5169647b, 0a900346a, de3d4b257
+Veto: [ ]
+
+## D-488 · 2026-10-10 · A promise that outlives a re-root is refused with .workspaceChanged and the fo…
+Context: B-279 (runner call).
+Chose: A promise that outlives a re-root is refused with .workspaceChanged and the footer says so
+Why: P2
+Commit: 1a4fe1dfb, 99a83cb7d, f56135c2f, 0d2466208, f5169647b, 0a900346a, de3d4b257
+Veto: [ ]
+
+## D-489 · 2026-10-10 · Accepted risks: no quarantine xattr on remote downloads; a file being written …
+Context: B-279 (runner call).
+Chose: Accepted risks: no quarantine xattr on remote downloads; a file being written during the download can arrive torn; a numbered name over 255 bytes fails plainly; Finder may add its own alert
+Why: P2
+Commit: 1a4fe1dfb, 99a83cb7d, f56135c2f, 0d2466208, f5169647b, 0a900346a, de3d4b257
+Veto: [ ]

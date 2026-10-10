@@ -793,13 +793,14 @@ Accept: src/global.zig:309: say "environ_initialized stays set" only matters if 
 Source: autopilot polish (B-098)
 Done: e8703c447 c3bfaf7de. Clarified the environ_initialized comment in src/global.zig and the startup-probe timing comment in main.swift.
 
-## B-279 · Drag files out of the workspace browser to Finder   [ready]
+## B-279 · Drag files out of the workspace browser to Finder   [done]
 Issue: #270
 Why: Copy an agent's files to the Mac by dragging them out of the browser, locally and over SFTP — P4 Everything through Leo, P3 Local = remote. Companion to B-232 (drop-in).
 Accept: dragging one or more files from the workspace browser to Finder/Desktop copies them there via both local and SFTP backends (tested, using file promises so remote files download on drop); a name clash at the destination never silently overwrites; a failed or lost-connection download is shown plainly and leaves no partial file (tested); screenshot of a drag-out from the isolated debug build
 Out: folder/recursive drags; dragging from the editor pane or terminal; progress UI beyond a simple in-flight indicator; drag between two agents' browsers
 Source: Evan (/feature, 2026-10-10)
 Inbox: 20261010T162941688152Z-3972108f#2
+Done: 1a4fe1dfb 99a83cb7d f56135c2f 0d2466208 f5169647b 0a900346a de3d4b257
 
 ## B-283 · Named environments: pick at spawn, change on a live agent, show on the row   [ready]
 Why: leo PR #251 adds named, composable environments (e.g. a second Claude or Codex account) — P4 Everything through Leo, P3 Local = remote. Order matters (later names win), values can hold secrets.
