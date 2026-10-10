@@ -2,7 +2,9 @@ Status: running
 Started: 2026-10-10T02:01:17Z
 Budget: 20 items, until 2026-10-10T14:01:17Z
 Digested-through: 0
-Filed: 0/3 bugs, 0/5 ideas
+Filed: 0/3 bugs, 1/5 ideas
+Self-filed: B-274 → B-276 idea — Terminals section needs a manual scroll on a long sidebar
+Self-filed: B-274 → dropped (dup of B-244) — Sidebar Show disabled at the default 800px width with a side pane
 Untracked-left: default.profraw macos/default.profraw scratchpad/ zig-out
 
 Lane: B-058
@@ -82,12 +84,20 @@ Lane: B-274
   Branch: autopilot-lane/B-274
   Base: 34e35b0b11ffdd1df23fd42ad82148a9934ff996
   Tier: full
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 6a52d680baa9e483028033cfc369f2728330b662
   Dispatched: 2026-10-10T07:09:54Z
+  Call: Pane follows the row the window navigates to; panes are per window — P6/P1
+  Call: Pool eviction never closes a pane — P6
+  Call: A stopped agent's action fills that agent's own pane, never the on-screen row's — P6
+  Call: Destination window resolved before the pane is filled; a show that didn't happen fills nothing — P6
+  Call: Clean pane closes silently; dirty pane asks Save/Don't Save/Cancel; closes that can't ask (exit, undo, drag) keep the dirty pane as an orphan — D-033
+  Call: A shown shell exiting with unsaved edits leaves the start screen holding the pane — D-140
+  Call: Delete Agent asks about its dirty panes in every window — P2
+  Call: Snapshot prune only on a connected, known-host list, never the shown row — P5
 
 Finished 1: B-270 landed 28ade697f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-270-1.png
 Finished 2: B-271 landed 16b35ad0b · not visually verified
