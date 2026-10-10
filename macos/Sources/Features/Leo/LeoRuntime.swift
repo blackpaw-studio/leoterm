@@ -36,10 +36,6 @@ import OSLog
     let newSurfaceRouter: LeoNewSurfaceRouter
     private let picker: LeoWindowPickerRouter
     private let requestConfigStore: LeoRequestConfigStore
-    /// B-145: what a window opened as a bare start screen inherited (⌘N's
-    /// font size, say), for requests made from it with nothing of their own
-    /// to inherit; released once a surface opens from the window, or with it.
-    private var startScreenConfigs: [LeoWindowID: Ghostty.SurfaceConfiguration] = [:]
     private let orphanStore: LeoTunnelOrphanStore
     private let localDaemon: any LeoDaemonClient
     private let localActivitySource: LeoSidebarActivitySource
@@ -186,9 +182,7 @@ import OSLog
                 guard let attachCoordinator else {
                     return .failure(.init(identity: identity, kind: .openFailed("Leo runtime is unavailable")))
                 }
-                let result = await attachCoordinator.attach(identity: identity, request: request, placement: placement)
-                if case .success = result { weakSelf?.startScreenConfigs.removeValue(forKey: request.origin) }
-                return result.map { _ in () }
+                return await attachCoordinator.attach(identity: identity, request: request, placement: placement).map { _ in () }
             },
             openPlainShell: { [weak attachCoordinator] request in
                 guard let attachCoordinator else {
@@ -197,9 +191,7 @@ import OSLog
                         kind: .openFailed("Leo runtime is unavailable")
                     ))
                 }
-                let result = await attachCoordinator.openPlainShell(request: request)
-                if case .success = result { weakSelf?.startScreenConfigs.removeValue(forKey: request.origin) }
-                return result.map { _ in () }
+                return await attachCoordinator.openPlainShell(request: request).map { _ in () }
             },
             presentSpawn: { [weak pickerRouter] request, complete in
                 guard let pickerRouter else {
@@ -241,7 +233,8 @@ import OSLog
         // Both call `router.invalidate`/`pickerRouter.unregister`/
         // `attachCoordinator.windowClosed`, which are idempotent, so running
         // it twice for the same window is harmless.
-        registry.onUnregistered = { [weak router, weak pickerRouter, weak attachCoordinator] windowID in
+        registry.onUnregistered = { [weak router, weak pickerRouter, weak attachCoordinator, weak requestConfigStore] windowID in
+            requestConfigStore?.releaseStartScreen(windowID)
             router?.invalidate(origin: windowID)
             pickerRouter?.unregister(origin: windowID)
             attachCoordinator?.windowClosed(windowID)
@@ -497,13 +490,12 @@ import OSLog
     /// surface (see `routeNewSurface`).
     func newTerminal(origin: LeoWindowID, inheritedConfig: Ghostty.SurfaceConfiguration? = nil) {
         let request = LeoSurfaceRequest(origin: origin, disposition: .content)
-        requestConfigStore.set(inheritedConfig ?? startScreenConfigs[origin], for: request.id)
+        requestConfigStore.set(inheritedConfig, for: request.id)
         Self.logger.log("newTerminal origin=\(origin.rawValue.uuidString, privacy: .public)")
         Task { [weak self] in
             guard let self else { return }
             let result = await attachCoordinator.openPlainShell(request: request)
             requestConfigStore.drop(for: request.id)
-            if case .success = result { startScreenConfigs.removeValue(forKey: origin) }
             if case .failure(let error) = result, !error.isCancellation { model.setPanelError(error.message) }
         }
     }
@@ -525,17 +517,17 @@ import OSLog
     /// `registry.onUnregistered` (fallback reconciliation), which may both
     /// fire for the same window.
     private func teardownWindow(_ windowID: LeoWindowID) {
-        startScreenConfigs.removeValue(forKey: windowID)
+        requestConfigStore.releaseStartScreen(windowID)
         newSurfaceRouter.invalidate(origin: windowID)
         picker.unregister(origin: windowID)
         attachCoordinator.windowClosed(windowID)
     }
 
     /// B-145: `window` opened as a bare start screen, with no palette to
-    /// carry `config` (whatever ⌘N inherited) to the first surface chosen
-    /// from it. A `nil` config holds nothing.
+    /// carry `config` (whatever ⌘N inherited) to the first surface that
+    /// fills it -- see `LeoRequestConfigStore.hold(_:forStartScreen:)`.
     func holdStartScreenConfig(_ config: Ghostty.SurfaceConfiguration?, for window: LeoWindowID) {
-        startScreenConfigs[window] = config
+        requestConfigStore.hold(config, forStartScreen: window)
     }
 
     /// Begins a new-surface gesture (Cmd+T, Cmd+D, Cmd+N, launch, or the
@@ -560,7 +552,7 @@ import OSLog
     /// `routeNewSurface` for a request already made (B-177's row-menu split).
     private func route(_ request: LeoSurfaceRequest, inheritedConfig: Ghostty.SurfaceConfiguration?) {
         Self.logger.log("routeNewSurface disposition=\(String(describing: request.disposition), privacy: .public) origin=\(request.origin.rawValue.uuidString, privacy: .public)")
-        requestConfigStore.set(inheritedConfig ?? startScreenConfigs[request.origin], for: request.id)
+        requestConfigStore.set(inheritedConfig, for: request.id)
         newSurfaceRouter.begin(request)
         picker.present(request: request)
     }

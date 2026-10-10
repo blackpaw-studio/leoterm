@@ -17,7 +17,8 @@ import Testing
 /// opened even when a requirement fails, and leaves the tracker holding
 /// nothing and the cascade point where it found it; undo registration is
 /// off while windows open, so the app's undo stack is left alone.
-/// Requested windows run the default shell, never an agent.
+/// Requested windows run the default shell, never an agent; the agents
+/// B-145 attaches run a stub `leo` (`StubLeoExecutable`).
 @MainActor @Suite(
     .serialized,
     .enabled("needs the app's Ghostty.App") { await MainActor.run { hasLiveGhosttyApp } },
@@ -441,29 +442,13 @@ struct LeoLaunchPlaceholderIntegrationTests {
     /// palette it skips used to carry it to the chosen agent's surface.
     @Test func theNewWindowActionHandsItsInheritedFontSizeToTheFirstTerminal() async throws {
         let app = try liveApp()
-        let before = Set(TerminalController.all.map(ObjectIdentifier.init))
-        var inherited = Ghostty.SurfaceConfiguration()
-        inherited.fontSize = 31
-
-        withoutUndo(app) {
-            NotificationCenter.default.post(
-                name: Ghostty.Notification.ghosttyNewWindow,
-                object: nil,
-                userInfo: [Ghostty.Notification.NewSurfaceConfigKey: inherited]
-            )
-        }
-        let opened = TerminalController.all.filter { !before.contains(ObjectIdentifier($0)) }
-        defer { opened.forEach { close($0) } }
-        let window = try #require(opened.first)
+        let window = try await openNewWindow(app, inheritingFontSize: 31)
+        defer { close(window) }
         let session = try #require(window.leoSession)
-        try #require(await settle(app, window), "the window never settled")
-        withoutUndo(app) { app.leoRuntime.newTerminal(origin: session.id) }
-        let deadline = ContinuousClock.now + Self.settleTimeout
-        while window.surfaceTree.isEmpty, ContinuousClock.now < deadline { await nextMainQueueTurn() }
-        let surface = try #require(window.surfaceTree.first { _ in true }?.surface, "no terminal opened")
-        let font = Ghostty.SurfaceConfiguration(from: ghostty_surface_inherited_config(surface, GHOSTTY_SURFACE_CONTEXT_WINDOW)).fontSize
 
-        #expect(font == 31)
+        let terminal = try await openTerminal(app, in: window, replacing: nil)
+
+        #expect(fontSize(of: terminal) == 31)
         #expect(!session.isPickerPresented)
     }
 
@@ -473,21 +458,9 @@ struct LeoLaunchPlaceholderIntegrationTests {
     /// request starts from the defaults, not the original font size.
     @Test func theHeldFontSizeSurvivesACancelAndEndsWithTheFirstTerminal() async throws {
         let app = try liveApp()
-        let before = Set(TerminalController.all.map(ObjectIdentifier.init))
-        var inherited = Ghostty.SurfaceConfiguration()
-        inherited.fontSize = 31
-        withoutUndo(app) {
-            NotificationCenter.default.post(
-                name: Ghostty.Notification.ghosttyNewWindow,
-                object: nil,
-                userInfo: [Ghostty.Notification.NewSurfaceConfigKey: inherited]
-            )
-        }
-        let opened = TerminalController.all.filter { !before.contains(ObjectIdentifier($0)) }
-        defer { opened.forEach { close($0) } }
-        let window = try #require(opened.first)
+        let window = try await openNewWindow(app, inheritingFontSize: 31)
+        defer { close(window) }
         let session = try #require(window.leoSession)
-        try #require(await settle(app, window), "the window never settled")
 
         app.leoRuntime.routeNewSurface(.placeholder, origin: session.id)
         app.leoRuntime.newSurfaceRouter.invalidate(origin: session.id)
@@ -496,6 +469,52 @@ struct LeoLaunchPlaceholderIntegrationTests {
 
         #expect(fontSize(of: first) == 31)
         #expect(fontSize(of: second) != 31)
+    }
+
+    /// B-145: an agent clicked in the sidebar, or a dispatch attached, into
+    /// the start screen is its first surface whatever path it took: it
+    /// takes the held font size, and a later configless New Terminal
+    /// starts from the defaults. The agent runs a stub `leo` that only
+    /// waits, so nothing real is attached.
+    @Test(arguments: [
+        LeoAgentIdentity(host: .local, name: "autopilot-scratch"),
+        .dispatch(host: .local, id: "autopilot-scratch", title: nil),
+    ])
+    func theHeldFontSizeEndsWithTheFirstAgentAttached(_ identity: LeoAgentIdentity) async throws {
+        let app = try liveApp()
+        let stub = try StubLeoExecutable()
+        defer { stub.remove() }
+        let window = try await openNewWindow(app, inheritingFontSize: 31)
+        defer { close(window) }
+        let session = try #require(window.leoSession)
+
+        await app.leoRuntime.attachCoordinator.attach(identity: identity, from: session.id, disposition: .content)
+        let agent = try #require(window.surfaceTree.first { _ in true }, "the agent never attached")
+        let terminal = try await openTerminal(app, in: window, replacing: agent)
+
+        #expect(fontSize(of: agent) == 31)
+        #expect(fontSize(of: terminal) != 31)
+    }
+
+    /// The start screen ⌘N opens from a terminal whose font size is
+    /// `fontSize`, once it settled.
+    private func openNewWindow(_ app: AppDelegate, inheritingFontSize fontSize: Float32) async throws -> TerminalController {
+        let before = Set(TerminalController.all.map(ObjectIdentifier.init))
+        var inherited = Ghostty.SurfaceConfiguration()
+        inherited.fontSize = fontSize
+        withoutUndo(app) {
+            NotificationCenter.default.post(
+                name: Ghostty.Notification.ghosttyNewWindow,
+                object: nil,
+                userInfo: [Ghostty.Notification.NewSurfaceConfigKey: inherited]
+            )
+        }
+        let opened = TerminalController.all.filter { !before.contains(ObjectIdentifier($0)) }
+        let window = try #require(opened.first)
+        let isSettled = await settle(app, window)
+        if !isSettled { close(window) }
+        try #require(isSettled, "the window never settled")
+        return window
     }
 
     /// A terminal opened from `window` by New Terminal, once it shows in
@@ -513,6 +532,30 @@ struct LeoLaunchPlaceholderIntegrationTests {
     private func fontSize(of view: Ghostty.SurfaceView) -> Float32? {
         guard let surface = view.surface else { return nil }
         return Ghostty.SurfaceConfiguration(from: ghostty_surface_inherited_config(surface, GHOSTTY_SURFACE_CONTEXT_WINDOW)).fontSize
+    }
+}
+
+/// A stand-in `leo` that ignores its arguments and waits on its terminal,
+/// set as the app's `leo.executablePath` until `remove()` puts back what
+/// was there: an agent "attached" with it touches no real agent.
+@MainActor private struct StubLeoExecutable {
+    private static let key = "leo.executablePath"
+    private let directory: URL
+    private let previous: Any?
+
+    init() throws {
+        directory = FileManager.default.temporaryDirectory.appendingPathComponent("leo-stub-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let executable = directory.appendingPathComponent("leo")
+        try "#!/bin/sh\nexec /bin/cat\n".write(to: executable, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
+        previous = UserDefaults.ghostty.object(forKey: Self.key)
+        UserDefaults.ghostty.set(executable.path, forKey: Self.key)
+    }
+
+    func remove() {
+        UserDefaults.ghostty.set(previous, forKey: Self.key)
+        try? FileManager.default.removeItem(at: directory)
     }
 }
 
