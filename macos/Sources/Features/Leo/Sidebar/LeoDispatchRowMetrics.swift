@@ -34,10 +34,10 @@ enum LeoDispatchRowMetrics {
     static let listVerticalInset: CGFloat = 4
     /// Extra height of a group's last dispatch row, below its content, so the
     /// group reads as one block apart from the next agent.
-    static let groupGap: CGFloat = 8
+    static let groupGap: CGFloat = 16
     /// How much larger the last-dispatch to next-agent gap must be than any
     /// gap inside a group.
-    static let minimumGroupContrast: CGFloat = 6
+    static let minimumGroupContrast: CGFloat = 8
 
     /// The blank space around a 22pt row centred in its `pitch`.
     static var rowMargin: CGFloat { (pitch - rowHeight) / 2 }

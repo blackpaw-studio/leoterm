@@ -45,6 +45,24 @@ struct LeoSidebarRowSpacingTests {
         #expect(abs(table.rect(ofRow: 5).minY - last.maxY) < 0.5, "beta follows directly")
     }
 
+    /// Where the content sits, not where the row's bounds are: an enlarged last
+    /// row whose content drifted to the middle would keep its height and lose
+    /// the contrast.
+    @Test func theGroupGapIsClearlyLargerThanTheGapsInsideTheGroup() async throws {
+        let harness = try await SpacingHarness()
+        defer { harness.close() }
+        let content = harness.contentFrames()
+
+        try #require(content.agents.count == 2 && content.dispatches.count == 3, "alpha, its three dispatches, beta: \(content)")
+        let agentToFirst = content.dispatches[0].minY - content.agents[0].maxY
+        let siblings = zip(content.dispatches, content.dispatches.dropFirst()).map { $1.minY - $0.maxY }
+        let lastToNext = content.agents[1].minY - content.dispatches[2].maxY
+
+        for inside in [agentToFirst] + siblings {
+            #expect(lastToNext - inside >= LeoDispatchRowMetrics.minimumGroupContrast, "last to next agent \(lastToNext) vs a gap inside the group \(inside)")
+        }
+    }
+
     @Test func terminalRowsKeepTheirHeight() async throws {
         let terminals = LeoWindowTerminals()
         terminals.add(UUID(), title: "Terminal")
@@ -101,6 +119,17 @@ struct LeoSidebarRowSpacingTests {
 
     func close() { window.close() }
 
+    /// The rendered content of the agent rows (their catcher without its
+    /// vertical padding) and of the dispatch rows (their label's catcher),
+    /// top to bottom, in the table's coordinates.
+    func contentFrames() -> (agents: [NSRect], dispatches: [NSRect]) {
+        let frames = catcherFrames().sorted { $0.minY < $1.minY }
+        let padding = LeoAgentRowMetrics.verticalPadding
+        let agents = frames.filter { $0.height >= 40 }.map { $0.insetBy(dx: 0, dy: padding) }
+        let dispatches = frames.filter { $0.height < 40 && $0.width > 100 }
+        return (agents, dispatches)
+    }
+
     func catcherFrames() -> [NSRect] {
         Self.views(LeoRowClickCatcherView.self, in: window.contentView).map { $0.convert($0.bounds, to: table) }
     }
@@ -115,13 +144,24 @@ struct LeoSidebarRowSpacingTests {
     }
 
     private static func settledTable(in window: NSWindow) async throws -> NSTableView {
-        let deadline = ContinuousClock.now + .seconds(3)
-        func ready() -> Bool { views(NSTableView.self, in: window.contentView).first.map { $0.numberOfRows >= 6 } ?? false }
-        while !ready(), ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(20)) }
-        let table = try #require(views(NSTableView.self, in: window.contentView).first)
-        // Let the row views lay out.
-        try await Task.sleep(for: .milliseconds(200))
-        return table
+        let deadline = ContinuousClock.now + .seconds(5)
+        var previous: [NSRect]?
+        while ContinuousClock.now < deadline {
+            let measured = layout(of: window)
+            // Settled: every row and its content measured twice, unchanged.
+            if let measured, measured == previous { break }
+            previous = measured
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        return try #require(views(NSTableView.self, in: window.contentView).first)
+    }
+
+    /// Every row's frame followed by every click catcher's, or nil until the
+    /// table has its rows and their content has been laid out.
+    private static func layout(of window: NSWindow) -> [NSRect]? {
+        guard let table = views(NSTableView.self, in: window.contentView).first, table.numberOfRows >= 6 else { return nil }
+        let catchers = views(LeoRowClickCatcherView.self, in: window.contentView).map { $0.convert($0.bounds, to: table) }
+        return catchers.count >= 5 ? (0..<table.numberOfRows).map { table.rect(ofRow: $0) } + catchers : nil
     }
 
     static func views<View: NSView>(_ type: View.Type, in view: NSView?) -> [View] {
