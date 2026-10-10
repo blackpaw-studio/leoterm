@@ -30,10 +30,14 @@ struct LeoObservedAgent: Codable, Equatable, Sendable {
     /// B-259: the agent's usage (leo >= 0.35, `agent_usage`); nil when the
     /// daemon sent none or a malformed one.
     let usage: LeoAgentUsage?
+    /// B-283: the effective named environments (`agent_environments`); nil
+    /// when the daemon sent none. Decoded by `LeoEnvironmentsWire`.
+    let environments: LeoAgentEnvironments?
 
     init(name: String, host: String? = nil, status: LeoAgentStatus?, activity: LeoActivity?,
          currentAction: LeoCurrentAction?, lastActivityAt: String?, attention: LeoAttentionSignal? = nil,
-         startedAt: String? = nil, surfacedFiles: [LeoSurfacedFile] = [], surfacedFilesSent: Int? = nil, usage: LeoAgentUsage? = nil) {
+         startedAt: String? = nil, surfacedFiles: [LeoSurfacedFile] = [], surfacedFilesSent: Int? = nil, usage: LeoAgentUsage? = nil,
+         environments: LeoAgentEnvironments? = nil) {
         self.name = name
         self.host = host
         self.status = status
@@ -45,6 +49,7 @@ struct LeoObservedAgent: Codable, Equatable, Sendable {
         self.surfacedFiles = surfacedFiles
         self.surfacedFilesSent = surfacedFilesSent ?? surfacedFiles.count
         self.usage = usage
+        self.environments = environments
     }
 
     enum CodingKeys: String, CodingKey {
@@ -72,7 +77,9 @@ struct LeoObservedAgent: Codable, Equatable, Sendable {
         surfacedFiles = lenientFiles?.files ?? []
         surfacedFilesSent = lenientFiles?.sentCount ?? 0
         usage = ((try? container.decodeIfPresent(LeoLenient<LeoAgentUsage>.self, forKey: .usage)) ?? nil)?.value
+        environments = LeoEnvironmentsWire.agent(from: decoder)
     }
+
 }
 
 /// Decodes an optional `attention` object without ever failing its parent:
@@ -111,8 +118,12 @@ enum LeoObserveEvent: Equatable, Sendable {
     /// `features`: the optional capabilities the daemon advertised (leo
     /// >= 0.35); empty for an older daemon. See `LeoDaemonFeatures`.
     case hello(seq: Int, at: String?, version: String?, serverTime: String?, bootID: String? = nil, features: [String] = [])
-    case agentSpawned(seq: Int, at: String?, agent: LeoAgent, attention: LeoAttentionSignal? = nil)
-    case agentStateChanged(seq: Int, at: String?, agent: String, status: LeoAgentStatus?, restarts: Int?, wakeOnMessage: Bool?)
+    /// `environments`: the B-283 fields the event carried, nil when none.
+    case agentSpawned(seq: Int, at: String?, agent: LeoAgent, attention: LeoAttentionSignal? = nil, environments: LeoAgentEnvironmentsPatch? = nil)
+    case agentStateChanged(
+        seq: Int, at: String?, agent: String, status: LeoAgentStatus?, restarts: Int?, wakeOnMessage: Bool?,
+        environments: LeoAgentEnvironmentsPatch? = nil
+    )
     case agentActivity(
         seq: Int, at: String?, agent: String, activity: LeoActivity?, currentAction: LeoCurrentAction?,
         attention: LeoAttentionSignal? = nil
@@ -290,11 +301,17 @@ actor LeoActivityClient {
                 }
             }
             guard let p = try? decoder.decode(Payload.self, from: data) else { return nil }
-            return .agentSpawned(seq: p.seq, at: p.at, agent: p.agent, attention: p.attention?.value ?? p.nested.attention?.value)
+            return .agentSpawned(
+                seq: p.seq, at: p.at, agent: p.agent, attention: p.attention?.value ?? p.nested.attention?.value,
+                environments: LeoEnvironmentsWire.patch(in: data, nested: "agent")
+            )
         case "agent_state_changed":
             struct Payload: Decodable { let seq: Int; let at: String?; let agent: String; let status: LeoAgentStatus?; let restarts: Int?; let wakeOnMessage: Bool?; enum CodingKeys: String, CodingKey { case seq, at, agent, status, restarts; case wakeOnMessage = "wake_on_message" } }
             guard let p = try? decoder.decode(Payload.self, from: data) else { return nil }
-            return .agentStateChanged(seq: p.seq, at: p.at, agent: p.agent, status: p.status, restarts: p.restarts, wakeOnMessage: p.wakeOnMessage)
+            return .agentStateChanged(
+                seq: p.seq, at: p.at, agent: p.agent, status: p.status, restarts: p.restarts, wakeOnMessage: p.wakeOnMessage,
+                environments: LeoEnvironmentsWire.patch(in: data)
+            )
         case "agent_activity":
             struct Payload: Decodable { let seq: Int; let at: String?; let agent: String; let activity: LeoActivity?; let currentAction: LeoCurrentAction?; let attention: LeoLenientAttention?; enum CodingKeys: String, CodingKey { case seq, at, agent, activity, attention; case currentAction = "current_action" } }
             guard let p = try? decoder.decode(Payload.self, from: data) else { return nil }
@@ -386,8 +403,8 @@ actor LeoActivityClient {
 extension LeoObserveEvent {
     var sequence: Int {
         switch self {
-        case .hello(let seq, _, _, _, _, _), .agentSpawned(let seq, _, _, _),
-             .agentStateChanged(let seq, _, _, _, _, _), .agentActivity(let seq, _, _, _, _, _),
+        case .hello(let seq, _, _, _, _, _), .agentSpawned(let seq, _, _, _, _),
+             .agentStateChanged(let seq, _, _, _, _, _, _), .agentActivity(let seq, _, _, _, _, _),
              .agentStopped(let seq, _, _, _), .dispatchChanged(let seq, _), .dispatchRemoved(let seq, _), .other(let seq, _),
              .agentTurnCompleted(let seq, _), .agentUsage(let seq, _, _), .agentCompaction(let seq, _): return seq
         case .fileSurfaced(let seq, _): return seq ?? -1
@@ -399,7 +416,7 @@ extension LeoObserveEvent {
     /// legacy daemon and for every event kind that never carries one.
     var attention: LeoAttentionSignal? {
         switch self {
-        case .agentActivity(_, _, _, _, _, let attention), .agentSpawned(_, _, _, let attention): attention
+        case .agentActivity(_, _, _, _, _, let attention), .agentSpawned(_, _, _, let attention, _): attention
         default: nil
         }
     }

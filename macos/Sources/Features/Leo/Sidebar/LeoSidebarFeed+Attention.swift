@@ -9,7 +9,7 @@ extension LeoSidebarFeed {
         switch event {
         case .agentActivity(_, _, let agent, _, _, let signal?):
             attention.receive(agent: agent, signal: signal, now: now())
-        case .agentSpawned(_, _, let agent, let signal):
+        case .agentSpawned(_, _, let agent, let signal, _):
             attention.resetAgent(agent.name)
             if let signal { attention.receive(agent: agent.name, signal: signal, now: now()) }
         case .hello(_, _, _, _, let bootID, _):
