@@ -142,7 +142,10 @@ enum LeoAttentionFixture {
         control: LeoControlFixtureMode? = nil
     ) -> LeoSidebarActivitySource {
         LeoSidebarActivitySource(events: {
-            await advertising(await source.events(), usage: !usage.isEmpty, turns: turns, compactions: compactions, control: control != nil)
+            await advertising(
+                await source.events(), usage: !usage.isEmpty, turns: turns, compactions: compactions, control: control != nil,
+                dispatchTree: !dispatches.isEmpty
+            )
         }, observedState: {
             let state = try await source.fetchState()
             let agents = state.agents.map { agent in
@@ -159,17 +162,18 @@ enum LeoAttentionFixture {
         })
     }
 
-    /// Each hello also names the features the fixture needs, and the turns
+    /// Each hello also names the features the fixture needs (`dispatch_tree`
+    /// when it lists dispatches, D-396), and the turns
     /// follow it after the rows have had time to load (a turn for an agent
     /// with no row yet is dropped). Without either, the stream is untouched.
     private static let turnReplayDelay: UInt64 = 1_500_000_000
 
     static func advertising(
         _ events: AsyncStream<LeoObserveEvent>, usage: Bool, turns: [String: LeoTurnCompletion],
-        compactions: [String: [LeoCompactionEvent]] = [:], control: Bool = false
+        compactions: [String: [LeoCompactionEvent]] = [:], control: Bool = false, dispatchTree: Bool = false
     ) -> AsyncStream<LeoObserveEvent> {
-        guard usage || !turns.isEmpty || !compactions.isEmpty || control else { return events }
-        let extra = (usage ? ["agent_usage"] : []) + (turns.isEmpty ? [] : ["bridge_turns"]) + (control ? ["agent_control"] : [])
+        guard usage || !turns.isEmpty || !compactions.isEmpty || control || dispatchTree else { return events }
+        let extra = (dispatchTree ? ["dispatch_tree"] : []) + (usage ? ["agent_usage"] : []) + (turns.isEmpty ? [] : ["bridge_turns"]) + (control ? ["agent_control"] : [])
         return AsyncStream { continuation in
             let task = Task {
                 var replays: [Task<Void, Never>] = []

@@ -6,8 +6,7 @@ import SwiftUI
 /// never selected) unless the daemon can attach to it (B-266): then
 /// `click` is set, the list tags it, and a click opens it.
 struct LeoDispatchRowView: View {
-    /// Fixed so every dispatch row is the same height whatever its content.
-    static let rowHeight: CGFloat = 22
+    static let rowHeight = LeoDispatchRowMetrics.rowHeight
     static let dotSize: CGFloat = 6
     static let pulseDuration: Double = 0.9
     static let pulseDimmedOpacity: Double = 0.35
@@ -24,6 +23,9 @@ struct LeoDispatchRowView: View {
     var guides: [Bool] = []
     /// What the guide reaches up to (see `LeoDispatchGuideGeometry`).
     var parentLink: LeoDispatchParentLink = .sibling
+    /// Whether this is the last visible row of its agent's dispatches: it
+    /// grows by `LeoDispatchRowMetrics.groupGap`, below its content.
+    var endsGroup = false
     /// Whether this row is the list's selection: its tinted parts go white.
     var isSelected = false
 
@@ -54,12 +56,29 @@ struct LeoDispatchRowView: View {
             }
         }
         .frame(height: Self.rowHeight)
-        .help(presentation.title)
+        .modifier(GroupEnd(endsGroup: endsGroup))
+        .help(presentation.help)
+    }
+
+    /// The content stays where the other rows hold theirs (centred in the
+    /// 24pt floor); the extra height goes below it.
+    private struct GroupEnd: ViewModifier {
+        let endsGroup: Bool
+
+        @ViewBuilder func body(content: Content) -> some View {
+            if endsGroup {
+                content
+                    .padding(.top, (LeoDispatchRowMetrics.pitch - LeoDispatchRowMetrics.rowHeight) / 2)
+                    .frame(height: LeoDispatchRowMetrics.pitch + LeoDispatchRowMetrics.groupGap, alignment: .top)
+            } else {
+                content
+            }
+        }
     }
 
     private func label(_ presentation: LeoDispatchRowPresentation) -> some View {
         HStack(spacing: 6) {
-            if let chip = presentation.roleChip { LeoRoleChipView(chip: chip, isSelected: isSelected) }
+            LeoRoleChipSlot(chip: presentation.roleChip, isSelected: isSelected)
             if presentation.showsTitle {
                 Text(presentation.title)
                     .font(.callout)
@@ -117,7 +136,7 @@ struct LeoDispatchRowView: View {
     }
 }
 
-private extension View {
+extension View {
     /// Keeps arrow keys and clicks off the row where the OS supports it;
     /// on macOS 13 the missing tag alone keeps it unselectable.
     @ViewBuilder func leoSelectionDisabled() -> some View {

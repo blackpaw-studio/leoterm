@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The role as a small tinted chip: the tint at a low-opacity fill, the text
-/// in the tint.
+/// in the tint. It truncates its tail rather than push its neighbours.
 struct LeoRoleChipView: View {
     static let cornerRadius: CGFloat = 4
     static let horizontalPadding: CGFloat = 5
@@ -23,8 +23,22 @@ struct LeoRoleChipView: View {
             .padding(.horizontal, Self.horizontalPadding)
             .padding(.vertical, Self.verticalPadding)
             .background(style.fillColor, in: RoundedRectangle(cornerRadius: Self.cornerRadius))
-            .fixedSize()
             .accessibilityHidden(true)
+    }
+}
+
+/// The chip's column: one width on every dispatch row, even one with no role,
+/// so names line up whatever the role is.
+struct LeoRoleChipSlot: View {
+    let chip: LeoDispatchRowPresentation.RoleChip?
+    let isSelected: Bool
+
+    var body: some View {
+        HStack(spacing: 0) {
+            if let chip { LeoRoleChipView(chip: chip, isSelected: isSelected) }
+            Spacer(minLength: 0)
+        }
+        .frame(width: LeoDispatchRowMetrics.chipColumnWidth, alignment: .leading)
     }
 }
 
