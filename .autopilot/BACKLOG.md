@@ -1997,3 +1997,19 @@ Source: autopilot polish (B-232)
 ## B-282 · Workspace browser middle-truncates long file names   [idea]
 Note: Workspace browser truncates long names in the middle ("b232-v…ma.txt") — hard to tell similar dropped files apart
 Source: autopilot polish (B-232)
+
+## B-284 · Agents ▸ New Agent… menu item opens no sheet   [ready (next run)]
+Type: bug
+Report: Agents ▸ New Agent… opens no sheet (same `contentViewController` pattern at `TerminalController+Leo.swift:134`) — the menu path to New Agent does nothing (sidebar "+" works); P1
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-283)
+
+## B-285 · Rename, Delete and Manage Hosts menu items may no-op on terminal windows   [ready (next run)]
+Type: bug
+Report: Rename, Delete and Manage Hosts in `LeoAgentMenuActions.swift` lines 39, 68, 74 use the same `contentViewController` pattern — likely silent no-ops on terminal windows (not checked in the app); P1
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-283)
+
+## B-286 · Row-level action error clears after ~2 s   [idea]
+Note: a row-level `set` error clears after about 2 s (seen on the fixture; pre-existing action-error lifetime or fixture refresh, unconfirmed) — the daemon's message can vanish before it's read; P2
+Source: autopilot polish (B-283)

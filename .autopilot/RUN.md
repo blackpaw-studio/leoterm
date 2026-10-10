@@ -2,10 +2,13 @@ Status: running
 Started: 2026-10-10T16:31:47Z
 Budget: 20 items, until 2026-10-10T22:30:00Z
 Digested-through: 0
-Filed: 0/3 bugs, 3/5 ideas
+Filed: 2/3 bugs, 4/5 ideas
 Self-filed: B-232 → B-280 idea — Dropped files keep their source file mode
 Self-filed: B-232 → B-281 idea — Name-clash toast covers terminal text until dismissed
 Self-filed: B-232 → B-282 idea — Workspace browser middle-truncates long file names
+Self-filed: B-283 → B-284 bug — Agents ▸ New Agent… menu item opens no sheet
+Self-filed: B-283 → B-285 bug — Rename, Delete and Manage Hosts menu items may no-op on terminal windows
+Self-filed: B-283 → B-286 idea — Row-level action error clears after ~2 s
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -69,12 +72,23 @@ Lane: B-283
   Branch: autopilot-lane/B-283
   Base: 393610ff8ccbf90d8cf08dff9cf108bb09e7feef
   Tier: full
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 2
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 4b00e6f6da8f4516409a7454a9db91d4ca08607b
   Dispatched: 2026-10-10T19:52:34Z
+  Call: Spawn sends `environments` only when the user edited the list — P2
+  Call: Catalog (names plus template defaults) comes from the bound daemon's socket, not the CLI — P3/P4
+  Call: Toggle and Reset confirm with an NSAlert; Edit Order's own "Restart and Resume" button is the confirmation — P1, HIG
+  Call: An override's names show in the subtitle (`claude · env: prod, aws`) and the tooltip; `environment_error` is a plain orange line — P2
+  Call: Reset to Template Default is disabled unless the source is override — P1
+  Call: Editor keys: ⌫ removes, ⌥⌘↑/↓ moves, "+" menu adds — P1
+  Call: Socket routes drop `/api/v1`, like every existing route — P4
+  Call: The submenu also lists effective names no longer in config, checked, so they can be turned off — P2
+  Call: Changing the template in the spawn sheet resets the list to that template's defaults — P2
+  Call: DEBUG fixture key `environments` advertises `agent_environments` and answers its routes locally; spawn is refused locally — D-396/D-449/D-471
+  Call: Edit Order sheet is an NSWindow sheet owned by `LeoEnvironmentsSheetSession` — P1
 
 Finished 1: B-232 landed e2fd6c40a · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-232-1.png
 Finished 2: B-279 landed 15f779df4 · screen capture, not attached
@@ -90,3 +104,4 @@ Finished 2: B-279 landed 15f779df4 · screen capture, not attached
 - B-279 runner reported ready (1 fix round). Runner left a stray headless explore d-8a9c4160c622 (cancel timed out). Verifier left fixtures in autopilot-scratch b279v/ b279v2/.
 - B-279 landed 15f779df4 (full, hard; suite 2522; GUI screen captures only; SFTP + lost-connection covered by tests, not live).
 - B-283 runner dispatched: d-c022041f424d.
+- B-283 runner reported ready (2 fix rounds). Runner dismissed a round-3 blocking finding (LeoEnvironmentListEditor.swift:183 parent-loss cleanup leaves session live; only programmatic close/teardown reaches it) as accepted risk — flag in digest. Planner's plan ran over 80 lines; used as-is.
