@@ -1,99 +1,22 @@
 import SwiftUI
 
-/// The role as a small tinted chip: the tint at a low-opacity fill, the text
-/// in the tint. It truncates its tail rather than push its neighbours.
-struct LeoRoleChipView: View {
-    static let cornerRadius: CGFloat = 4
-    static let horizontalPadding: CGFloat = 5
-    static let verticalPadding: CGFloat = 1
-
-    let chip: LeoDispatchRowPresentation.RoleChip
-    let isSelected: Bool
-    @Environment(\.colorScheme) private var colorScheme
-
-    private var style: LeoTintedStyle {
-        LeoTintedStyle(tint: chip.tint, isSelected: isSelected, isDark: colorScheme == .dark)
-    }
-
-    var body: some View {
-        Text(chip.text)
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle(style.content.color)
-            .lineLimit(1)
-            .padding(.horizontal, Self.horizontalPadding)
-            .padding(.vertical, Self.verticalPadding)
-            .background(style.fillColor, in: RoundedRectangle(cornerRadius: Self.cornerRadius))
-            .accessibilityHidden(true)
-    }
-}
-
-/// The chip's column: one width on every dispatch row, even one with no role,
-/// so names line up whatever the role is.
-struct LeoRoleChipSlot: View {
-    let chip: LeoDispatchRowPresentation.RoleChip?
-    let isSelected: Bool
-
-    var body: some View {
-        HStack(spacing: 0) {
-            if let chip { LeoRoleChipView(chip: chip, isSelected: isSelected) }
-            Spacer(minLength: 0)
-        }
-        .frame(width: LeoDispatchRowMetrics.chipColumnWidth, alignment: .leading)
-    }
-}
-
-/// The dispatch row's trailing dot and elapsed time (or status word). A
-/// running dot pulses unless Reduce Motion is on.
+/// The dispatch row's trailing elapsed time (or status word): tertiary, or
+/// orange for the stalled copy (white on a selected row).
 struct LeoDispatchStatusView: View {
     let status: LeoDispatchRowPresentation.Status
     let isSelected: Bool
-    @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var isDimmed = false
 
     var body: some View {
-        HStack(spacing: 5) {
-            dot
-            Text(status.text)
-                .font(.caption2)
-                .monospacedDigit()
-                .foregroundStyle(textStyle)
-                .lineLimit(1)
-                .fixedSize()
-        }
-        .accessibilityHidden(true)
+        Text(status.text)
+            .font(.caption2)
+            .monospacedDigit()
+            .foregroundStyle(ink.style(isSelected: isSelected))
+            .lineLimit(1)
+            .fixedSize()
+            .accessibilityHidden(true)
     }
 
-    private var dot: some View {
-        let tint = style(for: status.dot.tint).content.color
-        return ZStack {
-            if status.dot.isHollow {
-                Circle().strokeBorder(tint, lineWidth: 1)
-            } else {
-                Circle().fill(tint)
-            }
-        }
-        .frame(width: LeoDispatchRowView.dotSize, height: LeoDispatchRowView.dotSize)
-        .opacity(isDimmed ? LeoDispatchRowView.pulseDimmedOpacity : 1)
-        .task(id: shouldPulse) { setPulsing(shouldPulse) }
-    }
-
-    private func style(for tint: LeoTint) -> LeoTintedStyle {
-        LeoTintedStyle(tint: tint, isSelected: isSelected, isDark: colorScheme == .dark)
-    }
-
-    /// Elapsed time is tertiary; the stalled copy takes its tint (white when selected).
-    private var textStyle: AnyShapeStyle {
-        status.textTint.map { AnyShapeStyle(style(for: $0).content.color) } ?? AnyShapeStyle(.tertiary)
-    }
-
-    private var shouldPulse: Bool { status.dot.pulses && !reduceMotion }
-
-    /// A zero-length animation is what ends a repeating one.
-    private func setPulsing(_ pulsing: Bool) {
-        let animation: Animation = pulsing
-            ? .easeInOut(duration: LeoDispatchRowView.pulseDuration).repeatForever(autoreverses: true)
-            : .linear(duration: 0)
-        withAnimation(animation) { isDimmed = pulsing }
+    private var ink: LeoInk {
+        status.textTint.map(LeoInk.tint) ?? .tertiary
     }
 }

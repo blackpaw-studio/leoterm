@@ -12,13 +12,16 @@ struct LeoAgentRowPresentationTests {
     private func presentation(
         template: String? = "claude", attention: LeoAttentionBadge? = nil, reason: LeoAttentionReason? = nil,
         metadata: LeoAgentMetadata? = nil, lastTurn: LeoTurnPreview? = nil, compaction: LeoRowCompaction? = nil,
-        status: LeoAgentStatus = .running, error: String? = nil, now: Date? = nil
+        status: LeoAgentStatus = .running, error: String? = nil, now: Date? = nil, inWorkingSection: Bool = false
     ) -> LeoAgentRowPresentation {
         let row = LeoAgentRow(
             host: .local, name: "alpha", template: template, status: status, activity: .idle, actionDetail: nil,
             attention: attention, attentionReason: reason, metadata: metadata, lastTurn: lastTurn, compaction: compaction
         )
-        return LeoAgentRowPresentation(row: row, error: error, now: now, timeZone: TimeZone(identifier: "UTC")!, locale: Self.locale)
+        return LeoAgentRowPresentation(
+            row: row, error: error, now: now, timeZone: TimeZone(identifier: "UTC")!, locale: Self.locale,
+            inWorkingSection: inWorkingSection
+        )
     }
 
     private func metadata(task: String? = nil, tool: String? = nil, usage: LeoAgentUsage? = nil, lastActiveAt: Date? = nil, isWorking: Bool = false) -> LeoAgentMetadata {
@@ -115,6 +118,13 @@ struct LeoAgentRowPresentationTests {
     @Test func stoppedRowsDimTheirName() {
         #expect(presentation(status: .stopped).isNameDimmed)
         #expect(!presentation(status: .running).isNameDimmed)
+    }
+
+    @Test func theWorkingSectionFlagReachesTheState() {
+        let working = presentation(attention: .working, inWorkingSection: true)
+        #expect(!working.state.hasSecondLine)
+        #expect(working.state.trailingWord == "Working")
+        #expect(presentation(attention: .working).state.hasSecondLine)
     }
 
     @Test func nameLabelCarriesTheStateForVoiceOver() {

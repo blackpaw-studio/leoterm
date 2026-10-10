@@ -4,9 +4,10 @@ import Testing
 
 @testable import Ghostty
 
-/// A row's height must not depend on its pill state, which detail it shows,
-/// a pending action, selection, or what the name line carries: a tool
-/// starting or an agent finishing must not move the rows below it.
+/// A row's height is one line or two by state and otherwise constant: it
+/// must not depend on which detail it shows, a pending action, selection, or
+/// what the name line carries, so a tool starting must not move the rows
+/// below it.
 @MainActor
 struct LeoAgentRowHeightTests {
     private static let width: CGFloat = 200
@@ -30,7 +31,7 @@ struct LeoAgentRowHeightTests {
             )
         }
         return [
-            // Every pill state.
+            // Every state.
             ("needsYou+reason", row(attention: .needsInput, reason: reason), nil),
             ("needsYou", row(attention: .needsInput), nil),
             ("error attention", row(attention: .errored), nil),
@@ -51,15 +52,22 @@ struct LeoAgentRowHeightTests {
         ]
     }
 
-    @Test func everyPillStateAndDetailVariantRendersAtTheSameHeight() {
-        let all = variants().map { name, row, error in (name, height(row: row, error: error)) }
-        let baseline = all[0].1
-        let expected = 2 * LeoAgentRowMetrics.verticalPadding + LeoAgentRowMetrics.nameLineHeight
-            + LeoAgentRowMetrics.lineSpacing + LeoAgentRowMetrics.detailLineHeight
-        #expect(abs(baseline - expected) <= Self.tolerance, "row is \(baseline)pt, its pinned lines add up to \(expected)pt")
-        for (name, height) in all {
-            #expect(abs(height - baseline) <= Self.tolerance, "\(name) is \(height)pt, baseline is \(baseline)pt")
+    @Test func everyRowIsOneLineOrTwoByStateAndConstantWithinThat() {
+        let oneLine = 2 * LeoAgentRowMetrics.verticalPadding + LeoAgentRowMetrics.nameLineHeight
+        let twoLines = oneLine + LeoAgentRowMetrics.lineSpacing + LeoAgentRowMetrics.detailLineHeight
+        for (name, row, error) in variants() {
+            let hasSecondLine = LeoAgentRowPresentation(row: row, error: error).state.hasSecondLine
+            let expected = hasSecondLine ? twoLines : oneLine
+            let actual = height(row: row, error: error)
+            #expect(abs(actual - expected) <= Self.tolerance, "\(name) is \(actual)pt, expected \(expected)pt")
         }
+    }
+
+    @Test func theWorkingSectionRendersWorkingRowsAsOneLine() {
+        let (_, row, _) = variants().first { $0.0 == "working" }!
+        let oneLine = 2 * LeoAgentRowMetrics.verticalPadding + LeoAgentRowMetrics.nameLineHeight
+        let actual = height(row: row, error: nil, inWorkingSection: true)
+        #expect(abs(actual - oneLine) <= Self.tolerance, "working section row is \(actual)pt, expected \(oneLine)pt")
     }
 
     @Test func selectionAndPendingActionsDoNotChangeTheHeight() {
@@ -74,10 +82,12 @@ struct LeoAgentRowHeightTests {
     }
 
     private func height(
-        row: LeoAgentRow, error: String?, isSelected: Bool = false, isPending: Bool = false, files: [LeoSurfacedFile] = []
+        row: LeoAgentRow, error: String?, isSelected: Bool = false, isPending: Bool = false, files: [LeoSurfacedFile] = [],
+        inWorkingSection: Bool = false
     ) -> CGFloat {
         let content = LeoAgentRowContent(
-            row: row, error: error, isSelected: isSelected, isPending: isPending, nameHighlights: [], pendingSurfacedFiles: files
+            row: row, error: error, isSelected: isSelected, isPending: isPending, nameHighlights: [], pendingSurfacedFiles: files,
+            inWorkingSection: inWorkingSection
         )
         return NSHostingView(rootView: content.frame(width: Self.width)).fittingSize.height
     }

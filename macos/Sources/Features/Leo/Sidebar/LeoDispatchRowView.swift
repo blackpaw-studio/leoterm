@@ -1,15 +1,14 @@
 import AppKit
 import SwiftUI
 
-/// One live dispatch under its agent row: indented by depth, dimmed and
+/// One live dispatch under its agent row: indented by depth (no tree
+/// guides; the indent alone shows the hierarchy), dimmed and
 /// inert with its agent rows when disconnected. Informational (no tag,
 /// never selected) unless the daemon can attach to it (B-266): then
 /// `click` is set, the list tags it, and a click opens it.
 struct LeoDispatchRowView: View {
     static let rowHeight = LeoDispatchRowMetrics.rowHeight
-    static let dotSize: CGFloat = 6
-    static let pulseDuration: Double = 0.9
-    static let pulseDimmedOpacity: Double = 0.35
+    static let glyphSize: CGFloat = 12
 
     let node: LeoDispatchNode
     /// Set only for a clickable row: the click's modifiers and count.
@@ -19,10 +18,6 @@ struct LeoDispatchRowView: View {
     /// Set only when the dispatch has children: shows a disclosure control
     /// (outside the row's click area) that calls `toggle`.
     var disclosure: Disclosure?
-    /// The tree-guide flags per level (see `LeoDispatchGuides`).
-    var guides: [Bool] = []
-    /// What the guide reaches up to (see `LeoDispatchGuideGeometry`).
-    var parentLink: LeoDispatchParentLink = .sibling
     /// Whether this is the last visible row of its agent's dispatches: it
     /// grows by `LeoDispatchRowMetrics.groupGap`, below its content.
     var endsGroup = false
@@ -36,25 +31,16 @@ struct LeoDispatchRowView: View {
 
     var body: some View {
         let presentation = LeoDispatchRowPresentation(node)
-        HStack(spacing: 0) {
-            let geometry = LeoDispatchGuideGeometry(rowHeight: Self.rowHeight, parent: parentLink)
-            LeoDispatchTreeGuide(
-                continuing: Array(guides.prefix(LeoDispatchRowPresentation.maxIndentDepth + 1)), geometry: geometry
-            )
-            .frame(width: presentation.indent)
-            // Bleeds past the row (never resizes it) so neighbouring lines meet.
-            .padding(.top, -geometry.topBleed)
-            .padding(.bottom, -geometry.bottomBleed)
-            HStack(spacing: 6) {
-                label(presentation)
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(presentation.accessibilityLabel)
-                    .modifier(Interaction(click: click, isSelectable: isSelectable, id: node.id))
-                if let disclosure { disclosureButton(disclosure) }
-                trailingStatus
-                    .modifier(Interaction(click: click, isSelectable: isSelectable, id: node.id))
-            }
+        HStack(spacing: 6) {
+            label(presentation)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(presentation.accessibilityLabel)
+                .modifier(Interaction(click: click, isSelectable: isSelectable, id: node.id))
+            if let disclosure { disclosureButton(disclosure) }
+            trailingStatus
+                .modifier(Interaction(click: click, isSelectable: isSelectable, id: node.id))
         }
+        .padding(.leading, presentation.indent)
         .frame(height: Self.rowHeight)
         .modifier(GroupEnd(endsGroup: endsGroup))
         .help(presentation.help)
@@ -78,14 +64,16 @@ struct LeoDispatchRowView: View {
 
     private func label(_ presentation: LeoDispatchRowPresentation) -> some View {
         HStack(spacing: 6) {
-            LeoRoleChipSlot(chip: presentation.roleChip, isSelected: isSelected)
-            if presentation.showsTitle {
-                Text(presentation.title)
-                    .font(.callout)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .layoutPriority(1)
-            }
+            Image(systemName: presentation.roleGlyph)
+                .font(.system(size: Self.glyphSize))
+                .foregroundStyle(presentation.glyphInk.style(isSelected: isSelected))
+                .frame(width: Self.glyphSize + 2)
+            Text(presentation.title)
+                .font(.callout)
+                .foregroundStyle(presentation.titleInk.style(isSelected: isSelected))
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .layoutPriority(1)
             Spacer(minLength: 4)
         }
     }

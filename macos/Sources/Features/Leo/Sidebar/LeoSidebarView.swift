@@ -373,7 +373,8 @@ struct LeoSidebarView: View {
                 pendingSurfacedFiles: model.pendingSurfacedFiles(for: row),
                 openSurfacedFile: { model.openSurfacedFile($0, for: row) },
                 newWorktreeAgent: { worktreeSource = row },
-                environmentsSupported: model.hostFeatures.applying(to: row.host).contains(.agentEnvironments)
+                environmentsSupported: model.hostFeatures.applying(to: row.host).contains(.agentEnvironments),
+                inWorkingSection: section.id == LeoSidebarLayout.workingSectionID
             )
             .tag(Optional(LeoSidebarItemID.agent(row.id)))
             .id(LeoSidebarItemID.agent(row.id))
@@ -398,8 +399,6 @@ struct LeoSidebarView: View {
                 node: item.node,
                 click: { model.dispatchClicked(ref, modifierFlags: $0, clickCount: $1, from: windowID) },
                 disclosure: disclosure,
-                guides: item.guides,
-                parentLink: item.parent,
                 endsGroup: endsGroup,
                 isSelected: LeoSidebarSelection.current(model: model, terminals: terminals) == .dispatch(ref)
             )
@@ -414,12 +413,10 @@ struct LeoSidebarView: View {
                 click: { model.dispatchClicked(ref, modifierFlags: $0, clickCount: $1, from: windowID) },
                 isSelectable: false,
                 disclosure: disclosure,
-                guides: item.guides,
-                parentLink: item.parent,
                 endsGroup: endsGroup
             )
         } else {
-            LeoDispatchRowView(node: item.node, disclosure: disclosure, guides: item.guides, parentLink: item.parent, endsGroup: endsGroup)
+            LeoDispatchRowView(node: item.node, disclosure: disclosure, endsGroup: endsGroup)
         }
     }
 

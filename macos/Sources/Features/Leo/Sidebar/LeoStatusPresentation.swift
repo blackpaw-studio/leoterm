@@ -8,7 +8,7 @@ import SwiftUI
 /// This is the single source of truth for that mapping -- the agent palette,
 /// the host picker (`LeoSidebarView.swift`) and the attention reasons read
 /// from here instead of each encoding status with hard-coded colors or typed
-/// glyph characters. The agent row's own state pill lives in `LeoAgentPill`.
+/// glyph characters. The agent row's own state symbol lives in `LeoAgentRowState`.
 enum LeoStatusPresentation {
     struct Presentation: Equatable {
         let symbolName: String

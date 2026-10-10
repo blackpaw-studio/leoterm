@@ -1,85 +1,73 @@
 import Foundation
 
-/// What a live dispatch row shows (B-257): a tinted role chip, its name,
-/// and a trailing dot with the minutes it has run. Informational only: no
-/// fill, no badge -- only the parent agent's pill asks for attention.
+/// What a live dispatch row shows (B-257): a role glyph whose colour is the
+/// status, its name, and the minutes it has run. Informational only: no
+/// fill, no badge -- only the parent agent's row asks for attention.
 struct LeoDispatchRowPresentation: Equatable {
-    /// Leading inset of a depth-0 child, inside its agent row.
-    static let baseIndent: CGFloat = 12
-    static let indentPerLevel: CGFloat = 12
+    /// The glyph sits on the parent agent's name column, plus this much per
+    /// level of depth.
+    static let indentPerLevel: CGFloat = 16
     /// Deeper levels share the last indent, so the name keeps its room.
     static let maxIndentDepth = 4
 
-    /// The role's family, drawn as a small tinted chip ("implement.hard"
-    /// shows "implement"); the full role is in the tooltip and the
-    /// VoiceOver label.
-    struct RoleChip: Equatable {
-        let text: String
-        let tint: LeoTint
+    /// Where a dispatch is in its life, as the glyph's colour tells it.
+    enum Phase: Equatable {
+        case running, queued, idle, stalled
+
+        var ink: LeoInk {
+            switch self {
+            case .running: .tint(.blue)
+            case .stalled: .tint(.orange)
+            case .queued, .idle: .tertiary
+            }
+        }
     }
 
-    /// The trailing status: a dot, and the elapsed minutes (or a word).
+    /// The trailing elapsed time (or a word).
     struct Status: Equatable {
-        enum Dot: Equatable {
-            case running, queued, idle, stalled
-
-            var tint: LeoTint {
-                switch self {
-                case .running: .blue
-                case .stalled: .orange
-                case .queued, .idle: .gray
-                }
-            }
-
-            /// Only a running dispatch pulses (and not under Reduce Motion).
-            var pulses: Bool { self == .running }
-            var isHollow: Bool { self == .queued }
-        }
-
-        let dot: Dot
         let text: String
         /// nil draws the text tertiary.
         let textTint: LeoTint?
     }
 
     let title: String
-    /// False when the chip already says the role and there is no name.
-    let showsTitle: Bool
     /// The row's tooltip: the name, then the full role when it adds to it.
     let help: String
-    let roleChip: RoleChip?
+    /// The role's SF Symbol.
+    let roleGlyph: String
+    let phase: Phase
     let status: Status
     let indent: CGFloat
     let accessibilityLabel: String
+
+    var glyphInk: LeoInk { phase.ink }
+    /// Secondary; a queued dispatch's title waits a step quieter.
+    var titleInk: LeoInk { phase == .queued ? .tertiary : .secondary }
 
     /// `now` dates the elapsed time.
     init(_ node: LeoDispatchNode, now: Date = Date()) {
         let dispatch = node.dispatch
         title = dispatch.name ?? dispatch.role ?? "Dispatch"
-        roleChip = dispatch.role.map { RoleChip(text: Self.family(of: $0), tint: Self.roleTint($0)) }
-        showsTitle = dispatch.name != nil || dispatch.role == nil || roleChip?.text != dispatch.role
         help = dispatch.name.flatMap { name in dispatch.role.map { "\(name) · \($0)" } } ?? title
+        roleGlyph = Self.roleGlyph(dispatch.role)
         let word = Self.statusWord(dispatch.status)
+        phase = Self.phase(dispatch)
         status = Self.status(dispatch, word: word, now: now)
-        indent = Self.baseIndent + CGFloat(min(node.depth, Self.maxIndentDepth)) * Self.indentPerLevel
+        indent = LeoAgentRowMetrics.nameColumnInset + CGFloat(min(node.depth, Self.maxIndentDepth)) * Self.indentPerLevel
         let kind = [node.depth == 0 ? nil : "nested", dispatch.role, "dispatch", dispatch.name].compactMap { $0 }.joined(separator: " ")
         accessibilityLabel = "\(kind), \(word)\(dispatch.stalled ? ", stalled" : "")"
     }
 
-    /// The part of a role before the first ".": "implement.hard" is "implement".
-    static func family(of role: String) -> String {
-        role.split(separator: ".").first.map(String.init) ?? role
-    }
-
-    /// explore = cyan, plan = brown, implement* = purple, review* = mint,
-    /// anything else gray.
-    static func roleTint(_ role: String) -> LeoTint {
-        switch family(of: role) {
-        case "explore": .cyan
-        case "plan": .brown
-        case "implement": .purple
-        case "review": .mint
-        default: .gray
+    /// explore = magnifier, plan = list, implement* = code, review* = eye,
+    /// anything else a dashed circle. The family is the part before the
+    /// first ".".
+    static func roleGlyph(_ role: String?) -> String {
+        switch role?.split(separator: ".").first.map(String.init) {
+        case "explore": "magnifyingglass"
+        case "plan": "list.bullet"
+        case "implement": "chevron.left.forwardslash.chevron.right"
+        case "review": "eye"
+        default: "circle.dashed"
         }
     }
 
@@ -96,17 +84,21 @@ struct LeoDispatchRowPresentation: Equatable {
     private static let secondsPerMinute: TimeInterval = 60
     private static let minutesPerHour = 60
 
+    private static func phase(_ dispatch: LeoDispatch) -> Phase {
+        if dispatch.stalled { return .stalled }
+        switch dispatch.status {
+        case "running": return .running
+        case "queued": return .queued
+        default: return .idle
+        }
+    }
+
     private static func status(_ dispatch: LeoDispatch, word: String, now: Date) -> Status {
         let sinceStart = dispatch.startedAt.flatMap(LeoTimestamp.parse).map { Self.elapsed(now.timeIntervalSince($0)) }
         if dispatch.stalled {
-            return Status(dot: .stalled, text: ["Stalled", sinceStart].compactMap { $0 }.joined(separator: " "), textTint: .orange)
+            return Status(text: ["Stalled", sinceStart].compactMap { $0 }.joined(separator: " "), textTint: .orange)
         }
-        let dot: Status.Dot = switch dispatch.status {
-        case "running": .running
-        case "queued": .queued
-        default: .idle
-        }
-        return Status(dot: dot, text: sinceStart ?? word, textTint: nil)
+        return Status(text: sinceStart ?? word, textTint: nil)
     }
 
     /// "queued" → "Queued"; an unknown status still reads ("brand_new" →

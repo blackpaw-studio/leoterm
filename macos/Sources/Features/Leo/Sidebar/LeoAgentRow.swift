@@ -82,6 +82,8 @@ struct LeoAgentRowView: View {
     var newWorktreeAgent: () -> Void = {}
     /// B-283: the row's host advertised `agent_environments`.
     var environmentsSupported = false
+    /// Whether the row sits in the Working section (grouped by attention).
+    var inWorkingSection = false
     @State private var showingRename = false
     @State private var showingDelete = false
 
@@ -92,7 +94,7 @@ struct LeoAgentRowView: View {
     var body: some View {
         LeoAgentRowContent(
             row: row, error: error, isSelected: isSelected, isPending: actions.pendingActions.contains(row.id),
-            nameHighlights: nameHighlights, pendingSurfacedFiles: pendingSurfacedFiles
+            nameHighlights: nameHighlights, pendingSurfacedFiles: pendingSurfacedFiles, inWorkingSection: inWorkingSection
         )
         .contentShape(Rectangle())
         // The whole row is the target, like Finder or Mail (B-049);

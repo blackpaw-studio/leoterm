@@ -106,7 +106,7 @@ enum LeoSidebarLayout {
     /// idle or stopped.
     private static func attentionSectionID(of row: LeoAgentRow) -> String {
         if row.attention == .finished { return finishedSectionID }
-        switch LeoAgentPill(row: row, error: nil).state {
+        switch LeoAgentRowState(row: row, error: nil).state {
         case .working, .compacting: return workingSectionID
         default: return idleStoppedSectionID
         }

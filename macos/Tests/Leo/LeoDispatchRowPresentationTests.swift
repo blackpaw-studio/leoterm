@@ -23,7 +23,7 @@ struct LeoDispatchRowPresentationTests {
         LeoDispatchRowPresentation(node, now: Self.now)
     }
 
-    // MARK: Title and chip
+    // MARK: Title and glyph
 
     @Test func titleIsTheNameThenTheRoleThenAGenericWord() {
         #expect(presentation(node()).title == "fixer")
@@ -31,33 +31,16 @@ struct LeoDispatchRowPresentationTests {
         #expect(presentation(node(name: nil, role: nil)).title == "Dispatch")
     }
 
-    @Test func theChipShowsTheRoleAndNamelessRowsDropTheDuplicateTitle() {
-        let named = presentation(node())
-        #expect(named.roleChip?.text == "implement")
-        #expect(named.showsTitle)
-        let nameless = presentation(node(name: nil))
-        #expect(nameless.roleChip?.text == "implement")
-        #expect(!nameless.showsTitle, "the chip already says the role")
-        let bare = presentation(node(role: nil))
-        #expect(bare.roleChip == nil)
-        #expect(bare.showsTitle)
-    }
-
-    /// B-275: the chip shows the family so every chip fits one column; the
-    /// full role stays in the tooltip and the VoiceOver label.
-    @Test func theChipShowsTheRoleFamily() {
-        let hard = presentation(node(role: "implement.hard"))
-        #expect(hard.roleChip?.text == "implement")
-        #expect(hard.roleChip?.tint == .purple)
-        #expect(hard.accessibilityLabel == "implement.hard dispatch fixer, Running")
-        #expect(presentation(node(role: "review.security")).roleChip?.text == "review")
-        #expect(presentation(node(role: "custom")).roleChip?.text == "custom")
-    }
-
-    @Test func aNamelessSubRoleStillShowsItsFullRole() {
-        let nameless = presentation(node(name: nil, role: "implement.hard"))
-        #expect(nameless.showsTitle, "the chip only says the family")
-        #expect(nameless.title == "implement.hard")
+    @Test func roleGlyphMapping() {
+        let expected: [(String?, String)] = [
+            ("explore", "magnifyingglass"), ("plan", "list.bullet"), ("plan.hard", "list.bullet"),
+            ("implement", "chevron.left.forwardslash.chevron.right"), ("implement.hard", "chevron.left.forwardslash.chevron.right"),
+            ("review", "eye"), ("review.security", "eye"), ("review.concurrency", "eye"),
+            ("custom", "circle.dashed"), (nil, "circle.dashed")
+        ]
+        for (role, glyph) in expected {
+            #expect(presentation(node(role: role)).roleGlyph == glyph, "\(role ?? "nil")")
+        }
     }
 
     @Test func theTooltipNamesTheDispatchAndItsFullRole() {
@@ -66,15 +49,26 @@ struct LeoDispatchRowPresentationTests {
         #expect(presentation(node(name: "fixer", role: nil)).help == "fixer")
     }
 
-    @Test func roleTintMapping() {
-        let expected: [(String, LeoTint)] = [
-            ("explore", .cyan), ("plan", .brown), ("plan.hard", .brown), ("implement", .purple), ("implement.hard", .purple),
-            ("review", .mint), ("review.security", .mint), ("review.concurrency", .mint), ("custom", .gray)
-        ]
-        for (role, tint) in expected {
-            #expect(LeoDispatchRowPresentation.roleTint(role) == tint, "\(role)")
+    @Test func aNamelessSubRoleTitlesTheRowWithItsFullRole() {
+        #expect(presentation(node(name: nil, role: "implement.hard")).title == "implement.hard")
+    }
+
+    @Test func aNamelessRowStillShowsItsTitleBesideTheGlyph() {
+        #expect(presentation(node(name: nil)).title == "implement")
+    }
+
+    @Test func glyphInkShowsTheStatus() {
+        #expect(presentation(node()).glyphInk == .tint(.blue))
+        #expect(presentation(node(stalled: true)).glyphInk == .tint(.orange))
+        for word in ["queued", "idle", "settling", "brand_new"] {
+            #expect(presentation(node(status: word)).glyphInk == .tertiary, "\(word)")
         }
-        #expect(presentation(node(role: "plan")).roleChip?.tint == .brown)
+    }
+
+    @Test func theTitleIsSecondaryAndATertiaryWhenQueued() {
+        #expect(presentation(node()).titleInk == .secondary)
+        #expect(presentation(node(stalled: true)).titleInk == .secondary)
+        #expect(presentation(node(status: "queued")).titleInk == .tertiary)
     }
 
     // MARK: Elapsed
@@ -93,34 +87,19 @@ struct LeoDispatchRowPresentationTests {
 
     // MARK: Trailing status
 
-    @Test func runningIsABluePulsingDotWithElapsed() {
+    @Test func runningShowsElapsedInTertiaryText() {
         let status = presentation(node(startedAt: iso(minutesAgo: 4))).status
-        #expect(status.dot == .running)
-        #expect(status.dot.tint == .blue)
-        #expect(status.dot.pulses)
         #expect(status.text == "4m")
         #expect(status.textTint == nil)
     }
 
-    @Test func queuedIsHollowGrayAndIdleSettlingAreGray() {
-        let queued = presentation(node(status: "queued", startedAt: iso(minutesAgo: 0.2))).status
-        #expect(queued.dot == .queued)
-        #expect(queued.dot.isHollow)
-        #expect(queued.dot.tint == .gray)
-        #expect(queued.text == "<1m")
-        for word in ["idle", "settling", "brand_new"] {
-            let status = presentation(node(status: word, startedAt: iso(minutesAgo: 2))).status
-            #expect(status.dot == .idle, "\(word)")
-            #expect(!status.dot.pulses && !status.dot.isHollow)
-            #expect(status.dot.tint == .gray)
-        }
+    @Test func queuedAndOtherStatusesShowElapsedToo() {
+        #expect(presentation(node(status: "queued", startedAt: iso(minutesAgo: 0.2))).status.text == "<1m")
+        #expect(presentation(node(status: "idle", startedAt: iso(minutesAgo: 2))).status.text == "2m")
     }
 
     @Test func stalledIsOrangeWithElapsedInTheCopy() {
         let status = presentation(node(stalled: true, startedAt: iso(minutesAgo: 31))).status
-        #expect(status.dot == .stalled)
-        #expect(status.dot.tint == .orange)
-        #expect(!status.dot.pulses)
         #expect(status.text == "Stalled 31m")
         #expect(status.textTint == .orange)
     }
@@ -138,11 +117,11 @@ struct LeoDispatchRowPresentationTests {
 
     // MARK: Layout and accessibility
 
-    @Test func indentGrowsWithDepth() {
+    @Test func theGlyphSitsOnTheParentsNameColumnPlusSixteenPerLevel() {
         let top = presentation(node(depth: 0)).indent
-        let nested = presentation(node(depth: 2)).indent
-        #expect(top > 0, "a child sits inside its agent row")
-        #expect(nested == top + 2 * LeoDispatchRowPresentation.indentPerLevel)
+        #expect(top == LeoAgentRowMetrics.nameColumnInset, "a depth-0 child lines up with its agent's name")
+        #expect(presentation(node(depth: 2)).indent == top + 2 * 16)
+        #expect(LeoDispatchRowPresentation.indentPerLevel == 16)
     }
 
     @Test func indentStopsGrowingPastTheClamp() {

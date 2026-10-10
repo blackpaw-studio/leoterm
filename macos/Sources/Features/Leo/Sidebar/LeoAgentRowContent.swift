@@ -1,9 +1,11 @@
 import SwiftUI
 
-/// An agent row's two lines. Line 1 is the name, the surfaced-files glyph
-/// and the last-active time (or a spinner while an action is pending);
-/// line 2 is the state pill and one detail string. Both lines are pinned to
-/// a fixed height, so the row never resizes as its content changes.
+/// An agent row: a leading state symbol, then the name line (the name, the
+/// surfaced-files glyph, and the last-active time, a state word, or a
+/// spinner while an action is pending) and, for states that have one, a
+/// detail line aligned with the name. Each line is pinned to a fixed height
+/// and whether there is a second line is fixed per state, so the row never
+/// resizes as its content changes.
 struct LeoAgentRowContent: View {
     let row: LeoAgentRow
     let error: String?
@@ -13,12 +15,18 @@ struct LeoAgentRowContent: View {
     let nameHighlights: [Int]
     /// This row's unseen surfaced files, newest last.
     let pendingSurfacedFiles: [LeoSurfacedFile]
+    /// Whether the row sits in the Working section (grouped by attention):
+    /// one line, with the word trailing.
+    var inWorkingSection = false
 
     var body: some View {
-        let presentation = LeoAgentRowPresentation(row: row, error: error)
-        VStack(alignment: .leading, spacing: LeoAgentRowMetrics.lineSpacing) {
-            nameLine(presentation)
-            detailLine(presentation)
+        let presentation = LeoAgentRowPresentation(row: row, error: error, inWorkingSection: inWorkingSection)
+        HStack(alignment: .top, spacing: LeoAgentRowMetrics.symbolSpacing) {
+            LeoAgentStateSymbolView(state: presentation.state, isSelected: isSelected)
+            VStack(alignment: .leading, spacing: LeoAgentRowMetrics.lineSpacing) {
+                nameLine(presentation)
+                if presentation.state.hasSecondLine { detailLine(presentation) }
+            }
         }
         .padding(.vertical, LeoAgentRowMetrics.verticalPadding)
         .help(presentation.help)
@@ -33,7 +41,7 @@ struct LeoAgentRowContent: View {
                 .accessibilityLabel(presentation.accessibilityLabel(name: row.name))
             Spacer(minLength: 4)
             surfacedFilesGlyph
-            trailing
+            trailing(presentation.state)
         }
         .frame(height: LeoAgentRowMetrics.nameLineHeight)
     }
@@ -44,14 +52,21 @@ struct LeoAgentRowContent: View {
         }
     }
 
-    /// A pending action replaces the time. Only a row with a "last active"
-    /// time re-renders it, once a minute -- never per event.
-    @ViewBuilder private var trailing: some View {
+    /// A pending action replaces the time; a state word (Compacting) does
+    /// too. Only a row with a "last active" time re-renders it, once a
+    /// minute -- never per event.
+    @ViewBuilder private func trailing(_ state: LeoAgentRowState) -> some View {
         if isPending {
             ProgressView().controlSize(.small)
+        } else if let word = state.trailingWord, let ink = state.trailingInk {
+            Text(word)
+                .font(.caption)
+                .foregroundStyle(ink.style(isSelected: isSelected))
+                .lineLimit(1)
+                .fixedSize()
         } else if row.metadata?.lastActiveAt != nil || row.metadata?.isWorking == true {
             TimelineView(.everyMinute) { context in
-                timeText(LeoAgentRowPresentation(row: row, error: error, now: context.date))
+                timeText(LeoAgentRowPresentation(row: row, error: error, now: context.date, inWorkingSection: inWorkingSection))
             }
         }
     }
@@ -69,29 +84,20 @@ struct LeoAgentRowContent: View {
     }
 
     private func detailLine(_ presentation: LeoAgentRowPresentation) -> some View {
-        HStack(spacing: 6) {
-            LeoAgentPillView(pill: presentation.pill, isSelected: isSelected)
-            detailText(presentation.detail)
-        }
-        .frame(height: LeoAgentRowMetrics.detailLineHeight, alignment: .leading)
-    }
-
-    private func detailText(_ detail: LeoAgentRowPresentation.Detail) -> some View {
-        Text(detail.text)
+        Text(presentation.detail.text)
             .font(.caption)
-            .foregroundStyle(detailStyle(detail))
+            .foregroundStyle(detailInk(presentation).style(isSelected: isSelected))
             .lineLimit(1)
             .truncationMode(.tail)
-            .help(detail.text)
+            .help(presentation.detail.text)
+            .frame(height: LeoAgentRowMetrics.detailLineHeight, alignment: .leading)
     }
 
-    private func detailStyle(_ detail: LeoAgentRowPresentation.Detail) -> AnyShapeStyle {
-        switch detail {
-        case .error: AnyShapeStyle(LeoTint.red.color)
-        case .warning: AnyShapeStyle(LeoTint.orange.color)
-        case .fallback: AnyShapeStyle(.tertiary)
-        default: AnyShapeStyle(.secondary)
-        }
+    /// The state's ink; the placeholder when there is nothing to say stays
+    /// a step quieter.
+    private func detailInk(_ presentation: LeoAgentRowPresentation) -> LeoInk {
+        if case .fallback = presentation.detail, presentation.state.detailInk == .secondary { return .tertiary }
+        return presentation.state.detailInk
     }
 
     /// Static, secondary-colored: files the agent surfaced that haven't
