@@ -50,8 +50,6 @@ enum LeoStatusPresentation {
     /// appears only in the tooltip, never in the notification.
     struct ReasonPresentation: Equatable {
         let symbolName: String
-        /// The state word ("Permission: Bash").
-        let stateWord: String
         let tooltip: String
         /// VoiceOver text ("Needs Permission, Bash").
         let accessibilityLabel: String
@@ -65,7 +63,6 @@ enum LeoStatusPresentation {
         case .permission:
             return ReasonPresentation(
                 symbolName: "hand.raised",
-                stateWord: tool.map { "Permission: \($0)" } ?? "Permission",
                 tooltip: [tool.map { "Needs permission to use \($0)" } ?? "Needs permission", reason.detail].compactMap { $0 }.joined(separator: ": "),
                 accessibilityLabel: ["Needs Permission", tool].compactMap { $0 }.joined(separator: ", "),
                 notificationBody: tool.map { "Needs permission to use \($0)" } ?? "Needs permission"
@@ -73,7 +70,6 @@ enum LeoStatusPresentation {
         case .question:
             return ReasonPresentation(
                 symbolName: "questionmark.bubble",
-                stateWord: "Question",
                 tooltip: ["Asking you a question", reason.detail].compactMap { $0 }.joined(separator: ": "),
                 accessibilityLabel: "Asking a Question",
                 notificationBody: "Has a question for you"
@@ -82,7 +78,6 @@ enum LeoStatusPresentation {
             let request = tool.map { "Requesting input from \($0)" } ?? "Requesting input"
             return ReasonPresentation(
                 symbolName: "list.bullet.rectangle",
-                stateWord: "Input Request",
                 tooltip: [request, reason.detail].compactMap { $0 }.joined(separator: ": "),
                 accessibilityLabel: ["Requesting Input", tool].compactMap { $0 }.joined(separator: ", "),
                 notificationBody: "Requesting input"

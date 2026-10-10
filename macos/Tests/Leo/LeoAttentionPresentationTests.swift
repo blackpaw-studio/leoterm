@@ -96,7 +96,6 @@ struct LeoAttentionPresentationTests {
         let reason = LeoAttentionReason(kind: .permission, tool: "Bash", detail: "rm")
         let presentation = LeoStatusPresentation.attentionReason(reason)
         #expect(presentation.symbolName == "hand.raised")
-        #expect(presentation.stateWord == "Permission: Bash")
         #expect(presentation.tooltip == "Needs permission to use Bash: rm")
         #expect(presentation.notificationBody == "Needs permission to use Bash")
         let needsPermission = row("alpha", template: "claude", attention: .needsInput, reason: reason)
@@ -110,7 +109,6 @@ struct LeoAttentionPresentationTests {
     @Test func questionReasonPresentation() {
         let presentation = LeoStatusPresentation.attentionReason(LeoAttentionReason(kind: .question))
         #expect(presentation.symbolName == "questionmark.bubble")
-        #expect(presentation.stateWord == "Question")
         #expect(presentation.tooltip == "Asking you a question")
         #expect(presentation.notificationBody == "Has a question for you")
     }
@@ -118,7 +116,6 @@ struct LeoAttentionPresentationTests {
     @Test func elicitationReasonPresentation() {
         let bare = LeoStatusPresentation.attentionReason(LeoAttentionReason(kind: .elicitation))
         #expect(bare.symbolName == "list.bullet.rectangle")
-        #expect(bare.stateWord == "Input Request")
         #expect(bare.tooltip == "Requesting input")
         let tooled = LeoStatusPresentation.attentionReason(LeoAttentionReason(kind: .elicitation, tool: "github"))
         #expect(tooled.tooltip == "Requesting input from github")
