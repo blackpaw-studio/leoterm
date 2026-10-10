@@ -189,6 +189,29 @@ struct LeoRowPanesTests {
         }
     }
 
+    /// A connected host's list no longer has an agent: its pane goes as a
+    /// removed row's does. The row on screen keeps its pane until it's left.
+    @Test
+    func pruningDropsThePanesOfAgentsTheHostNoLongerLists() async {
+        let panes = makePanes()
+        let gone = LeoRowKey.agent(LeoAgentIdentity(host: .local, name: "gone"))
+        let remote = LeoRowKey.agent(LeoAgentIdentity(host: .remote("box"), name: "gone"))
+        let dispatch = LeoRowKey.agent(LeoAgentIdentity.dispatch(host: .local, id: "d-1", title: nil))
+        for key in [Self.agentA, gone, remote, dispatch] { _ = panes.pane(for: key) }
+        panes.activate(Self.agentB)
+
+        panes.pruneAgents(on: .local) { name, dispatchID in name == "alpha" || name == "beta" || dispatchID == "d-1" }
+
+        #expect(panes.existingPane(for: Self.agentA) != nil)
+        #expect(panes.existingPane(for: gone) == nil)
+        #expect(panes.existingPane(for: remote) != nil, "another host's agents stay")
+        #expect(panes.existingPane(for: dispatch) != nil)
+
+        panes.pruneAgents(on: .local) { _, _ in false }
+        #expect(panes.existingPane(for: Self.agentB) != nil, "the row on screen keeps its pane")
+        await panes.releaseAll()
+    }
+
     @Test
     func hiddenPaneConfirmPresentsOnTheSessionWindow() async throws {
         try await withLeoFileSandbox(.local) { sandbox, _ in

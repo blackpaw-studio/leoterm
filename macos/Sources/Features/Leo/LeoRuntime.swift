@@ -326,6 +326,12 @@ import OSLog
         attachCoordinator.onRowShown = { [weak registry] windowID, key in
             registry?.session(for: windowID)?.panes.activate(key)
         }
+        actions.closePanes = { [weak registry] row in
+            for session in registry?.sessions ?? [] {
+                guard await session.panes.close(.agent(row.identity)) else { return false }
+            }
+            return true
+        }
         surfacedFileOpener = LeoSurfacedFileOpener { [weak model] file, host in model?.markSurfacedFileSeen(file, host: host) }
 
         // One immediate liveness check per wake, never repeated: a tunnel
@@ -344,11 +350,29 @@ import OSLog
 
     /// Every snapshot the model receives; DEBUG fixtures hook in here.
     private func snapshotLanded(_ snapshot: LeoSidebarSnapshot) {
+        prunePanes(for: snapshot)
         #if DEBUG
         surfaceFixture.snapshotLanded(snapshot) { [feed] files in
             Task { for file in files { await feed.receive(.fileSurfaced(seq: nil, file: file)) } }
         }
         #endif
+    }
+
+    /// B-274: agents (and dispatches) a connected host no longer lists lose
+    /// their panes. Only a list fetched while connected counts -- a failed
+    /// fetch or a dropped connection says nothing about who's gone -- and
+    /// dispatches only once the host advertises its dispatch tree.
+    private func prunePanes(for snapshot: LeoSidebarSnapshot) {
+        guard snapshot.connectivity == .connected, snapshot.listRefreshSucceeded, let host = snapshot.advertised.host else { return }
+        let names = Set(snapshot.rows.map(\.name))
+        let dispatches = Set(snapshot.dispatchChildren.values.flatMap { $0.map(\.id) })
+        let knowsDispatches = snapshot.features.contains(.dispatchTree)
+        for session in registry.sessions {
+            session.panes.pruneAgents(on: host) { name, dispatchID in
+                guard let dispatchID else { return names.contains(name) }
+                return !knowsDispatches || dispatches.contains(dispatchID)
+            }
+        }
     }
 
     func start() {

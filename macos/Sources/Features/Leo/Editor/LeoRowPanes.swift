@@ -165,6 +165,17 @@ enum LeoRowKey: Hashable, Sendable {
         if activeKey == old { activeKey = new }
     }
 
+    /// `host`'s list, fetched while connected, no longer has these agents
+    /// or dispatches (`isListed` says which it has): their panes go as a
+    /// removed row's do. The row on screen keeps its pane until it's left.
+    func pruneAgents(on host: LeoHostID, keeping isListed: (_ name: String, _ dispatchID: String?) -> Bool) {
+        let gone = order.filter { key in
+            guard case .agent(let keyHost, let name, let dispatchID) = key, keyHost == host, key != activeKey else { return false }
+            return !isListed(name, dispatchID)
+        }
+        gone.forEach(rowRemoved)
+    }
+
     /// Before the start screen is replaced: a pane its row left there with
     /// unsaved edits is closed, asking first. `false` on Cancel.
     func leaveOrphanedStartScreen() async -> Bool {
