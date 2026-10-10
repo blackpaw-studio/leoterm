@@ -1,4 +1,4 @@
-Status: running
+Status: finished
 Started: 2026-10-10T01:32:36Z
 Budget: 2 items, until 2026-10-10T13:32:36Z
 Digested-through: 0
@@ -40,3 +40,4 @@ Lane: B-270
 ## Progress
 - Preflight: merged main into autopilot (2d6dd35f4); LeoSFTPLauncher conflict resolved keeping main's empty-stderr mux fallback on B-235's byte matcher (Evan: favor main); suite 2346 green.
 - Lane autopilot-lane/B-233 is unlanded with no RUN.md block (its commits are already on main); left in place.
+- Evan (01:35Z): stop. B-270 runner cancelled ~1 min in (no commits, no plan); lane left unlanded at building for next run's preflight.

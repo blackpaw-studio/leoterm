@@ -415,3 +415,9 @@ Next up: B-145, B-146, B-148
 Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Board: see .autopilot/BOARD.md
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-10-10T01:32Z (stopped by Evan)
+🛠 leoterm autopilot — 0 shipped, 0 blocked
+Stopped by Evan right after dispatching B-270; nothing built.
+Preflight: merged main (2d6dd35f4, LeoSFTPLauncher conflict resolved favouring main's mux fallback); inbox applied → B-270–B-274; B-269 promoted.
+Left for next run: lane autopilot-lane/B-270 (empty, first pick); stale unlanded lane autopilot-lane/B-233 (no block).
