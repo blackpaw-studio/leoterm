@@ -41,10 +41,13 @@ enum LeoSurfacedAutoOpenDestination {
     func open(_ file: LeoSurfacedFile, for row: LeoAgentRow, stillWanted: @escaping @MainActor () -> Bool) async {
         guard stillWanted(), let session = destination(for: row) else { return }
         let tabs = session.panes.pane(for: .agent(row.identity)).tabs
+        // Its place in line is taken now, before the stat: a file surfaced
+        // later, or a tab the user picks meanwhile, keeps the selection.
+        let request = tabs.request(.background)
         let target = LeoSurfacedFileOpener.Target(
             stat: { try await tabs.stat($0) },
             open: { fileID, line, isStillWanted in
-                try await tabs.open(fileID, line: line, mode: .background, readDeadline: .surfacedOpen, isStillWanted: isStillWanted)
+                try await tabs.open(fileID, line: line, request: request, readDeadline: .surfacedOpen, isStillWanted: isStillWanted)
             },
             reportError: { _ in },
             isStillWanted: stillWanted,
