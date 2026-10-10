@@ -64,6 +64,11 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     private var identityByHandle: [AttachmentHandle: LeoAgentIdentity] = [:]
     private var inactive: Set<AttachmentHandle> = []
     private var attachInProgress: Set<LeoAgentIdentity> = []
+    /// B-270: agent attaches built before their host advertised dispatch
+    /// placement, so without `--dispatch-placement background`: the daemon
+    /// counts such a client as the default `pane` placement.
+    /// `daemonFeaturesChanged` re-attaches them once it does.
+    private var unplaced: Set<AttachmentHandle> = []
     /// Bumped each time a window's content area is replaced, so a request
     /// that waited on a confirmation can tell it was superseded.
     private var contentVersion: [LeoWindowID: Int] = [:]
@@ -215,6 +220,8 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             if request.disposition == .content { contentReplaced(in: request.origin) }
             handlesByIdentity[identity, default: []].append(handle)
             identityByHandle[handle] = identity
+            // `command` was built in this same turn, from the same features.
+            if identity.dispatchID == nil, !placesDispatches(identity.host) { unplaced.insert(handle) }
             adoptHostFocus()
             host.setAgentName(handle, name: identity.title ?? identity.name)
             if identity.dispatchID != nil { host.markWatchingDispatch(handle) }
@@ -283,9 +290,49 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         return LeoSurfaceRequest(id: request.id, origin: request.origin, disposition: .placeholder(surfaceID: exited.surfaceID))
     }
 
-    /// B-270: re-attaches agents attached before their host advertised
-    /// dispatch placement. Called after every snapshot.
-    func daemonFeaturesChanged() {}
+    /// B-270: an agent attached before its host's hello advertised
+    /// dispatch placement -- a launch-restored row races the hello -- has
+    /// a client the daemon places dispatches beside as panes. Once the
+    /// host advertises it, each such live attach is re-attached with the
+    /// flag: one hidden in a live pool is let go, so its next show
+    /// attaches anew (never a second client, D-109); one shown gets a
+    /// fresh surface in its slot. Each is tried once, so a failure is
+    /// reported once and leaves the old attach working. Called after every
+    /// snapshot: nothing to do costs a set check.
+    func daemonFeaturesChanged() {
+        let due = unplaced.filter { identityByHandle[$0].map { placesDispatches($0.host) } ?? true }
+        guard !due.isEmpty else { return }
+        unplaced.subtract(due)
+        let live = due.filter { !inactive.contains($0) && host.isOpen($0) }
+        let (shown, hidden) = (live.filter(host.isShown), live.filter { !host.isShown($0) })
+        for handle in hidden {
+            host.releasePooledSurface(handle)
+            remove(handle)
+        }
+        for handle in shown { reattachInPlace(handle) }
+        adoptHostFocus()
+    }
+
+    private func placesDispatches(_ host: LeoHostID) -> Bool {
+        daemonFeatures(host).contains(.attachDispatchPlacement)
+    }
+
+    /// The new surface takes the old one's place in the recency order; the
+    /// host's `.closed` for the old one then finds nothing to remove.
+    private func reattachInPlace(_ handle: AttachmentHandle) {
+        guard let identity = identityByHandle[handle],
+              case .success(let command) = attachCommand(for: identity) else { return }
+        do {
+            let workingDirectory = LeoAttachCommand.workingDirectory(identity: identity)
+            let replacement = try host.reattachInPlace(handle, command: command, workingDirectory: workingDirectory)
+            identityByHandle.removeValue(forKey: handle)
+            identityByHandle[replacement] = identity
+            handlesByIdentity[identity] = handlesByIdentity[identity]?.map { $0 == handle ? replacement : $0 }
+            host.setAgentName(replacement, name: identity.title ?? identity.name)
+        } catch {
+            report(LeoAttachError(identity: identity, kind: .openFailed(error.localizedDescription)))
+        }
+    }
 
     /// `request`'s disposition with the default (no attach command) surface
     /// configuration -- the picker's "Plain shell" row. No identity, so no
@@ -541,6 +588,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     private func remove(_ handle: AttachmentHandle) {
         guard let identity = identityByHandle.removeValue(forKey: handle) else { return }
         inactive.remove(handle)
+        unplaced.remove(handle)
         handlesByIdentity[identity]?.removeAll { $0 == handle }
         if handlesByIdentity[identity]?.isEmpty == true { handlesByIdentity.removeValue(forKey: identity) }
     }
