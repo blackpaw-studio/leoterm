@@ -75,15 +75,15 @@ struct LeoWorkspaceBrowserDragOutTests {
 
     /// Returns once `download` waits on `gate`; a download that ends
     /// first (never reaching it) fails the test instead of hanging it.
-    private func untilGated(_ gate: LeoCloseGate, _ download: Task<URL, Error>) async throws {
+    private func untilGated<T: Sendable, F: Error>(_ gate: LeoCloseGate, _ task: Task<T, F>) async throws {
         let ended = LeoEndedFlag()
         let watcher = Task {
-            _ = await download.result
+            _ = await task.result
             ended.set()
         }
         defer { watcher.cancel() }
         while await gate.waiting == 0, !ended.isSet { await Task.yield() }
-        try #require(await gate.waiting == 1, "the download ended before reaching its read")
+        try #require(await gate.waiting == 1, "the task ended before reaching the gate")
     }
 
     @Test func onlyFileRowsOfferAFilePromise() async throws {
@@ -167,6 +167,67 @@ struct LeoWorkspaceBrowserDragOutTests {
         harness.model.dismissDownloadError()
         harness.browser.sync()
         #expect(harness.browser.footerMessage == nil)
+        await harness.tearDown()
+    }
+
+    /// A promise belongs to the root it was dragged from: if the browser
+    /// moved to another agent (on any host) with the same workspace path
+    /// before Finder asks for the file, the other host's file is never
+    /// downloaded in its place.
+    @Test func aPromiseFromAReplacedRootDownloadsNothing() async throws {
+        let sandbox = try LeoFileSandbox()
+        let drop = try LeoFileSandbox()
+        defer {
+            sandbox.cleanUp()
+            drop.cleanUp()
+        }
+        try sandbox.file("a.txt", "other host")
+        let harness = await makeHarness(.local, root: sandbox.root)
+        let promise = try harness.promise("a.txt")
+        await harness.model.open(LeoEditorAgentContext(host: .local, name: "other", workspace: sandbox.root))
+        harness.browser.sync()
+
+        let error = await write(promise, to: URL(fileURLWithPath: drop.path("a.txt")))
+        harness.browser.sync()
+
+        #expect(error as? LeoWorkspaceBrowserModel.DownloadError == .workspaceChanged)
+        #expect(try drop.names().isEmpty)
+        #expect(harness.browser.footerMessage == "a.txt: " + LeoWorkspaceBrowserModel.DownloadError.workspaceChanged.localizedDescription)
+        await harness.tearDown()
+    }
+
+    /// Finder may ask for the file while its folder is being listed again;
+    /// the refusal shows in the footer like any other failure.
+    @Test func aPromiseWhoseFolderIsBeingListedFailsInTheFooter() async throws {
+        let sandbox = try LeoFileSandbox()
+        let drop = try LeoFileSandbox()
+        defer {
+            sandbox.cleanUp()
+            drop.cleanUp()
+        }
+        let source = try sandbox.directory("src")
+        let path = try sandbox.file("src/a.txt", "a")
+        let gate = LeoCloseGate()
+        let access = LeoGatedListAccess(gate: gate, gating: source)
+        let harness = await makeHarness(.local, root: sandbox.root, accesses: [access])
+        await harness.model.expand(source)
+        harness.browser.sync()
+        let promise = try harness.promise("a.txt")
+        harness.model.collapse(source)
+        await harness.model.reload()
+        access.arm()
+        let expanding = Task { await harness.model.expand(source) }
+        try await untilGated(gate, expanding)
+        #expect(harness.model.items(in: source) == [.loading(parent: source)])
+
+        let error = await write(promise, to: URL(fileURLWithPath: drop.path("a.txt")))
+        harness.browser.sync()
+
+        #expect(error as? LeoFileAccessError == .notFound(path: path))
+        #expect(harness.browser.footerMessage == "a.txt: " + LeoFileAccessError.notFound(path: path).localizedDescription)
+        #expect(try drop.names().isEmpty)
+        await gate.open()
+        await expanding.value
         await harness.tearDown()
     }
 
@@ -256,6 +317,39 @@ private final class LeoEndedFlag: @unchecked Sendable {
     func set() {
         lock.withLock { value = true }
     }
+}
+
+/// Local file access whose listings of one folder wait on a gate once armed.
+final class LeoGatedListAccess: LeoFileAccess, @unchecked Sendable {
+    private let base = LeoFileAccessor.local()
+    private let gate: LeoCloseGate
+    private let gated: String
+    private let lock = NSLock()
+    private var isArmed = false
+
+    init(gate: LeoCloseGate, gating folder: String) {
+        self.gate = gate
+        gated = folder
+    }
+
+    func arm() {
+        lock.withLock { isArmed = true }
+    }
+
+    func list(_ path: String) async throws -> [LeoFileEntry] {
+        if path == gated, lock.withLock({ isArmed }) { await gate.wait() }
+        return try await base.list(path)
+    }
+
+    func stat(_ path: String) async throws -> LeoFileStat { try await base.stat(path) }
+    func homeDirectory() async throws -> String { try await base.homeDirectory() }
+    func read(_ path: String, maxBytes: UInt64) async throws -> LeoFileContents { try await base.read(path, maxBytes: maxBytes) }
+    func read(_ path: String, into sink: any LeoFileByteSink) async throws -> LeoFileStat { try await base.read(path, into: sink) }
+    func write(_ data: Data, to path: String, expecting expected: LeoFileVersion?) async throws -> LeoFileStat {
+        try await base.write(data, to: path, expecting: expected)
+    }
+
+    func close() async { await base.close() }
 }
 
 /// Local file access whose streaming reads wait on a gate.

@@ -57,6 +57,17 @@ enum LeoWorkspaceItem: Hashable, Sendable {
         case failed(String)
     }
 
+    enum DownloadError: LocalizedError, Equatable {
+        /// The browser moved to another root after the file was dragged.
+        case workspaceChanged
+
+        var errorDescription: String? {
+            switch self {
+            case .workspaceChanged: "The browser moved to another workspace after this file was dragged, so it wasn’t downloaded."
+            }
+        }
+    }
+
     static let noWorkspaceMessage = "This agent hasn’t reported a workspace."
     static let emptyMessage = "This folder is empty."
     /// Symlinks in one folder resolved at once, at most.
@@ -241,26 +252,40 @@ enum LeoWorkspaceItem: Hashable, Sendable {
         }
     }
 
+    /// Identifies the current root and its access; changes whenever the
+    /// browser is re-rooted or closed. A drag captures it at its start.
+    var rootGeneration: Int { generation }
+
     /// Downloads a file the browser shows (a drag out to Finder) to
     /// `destination` on this Mac, or a numbered name beside it when that is
     /// taken, returning where it was written. Only a file listed under the
-    /// current root can be downloaded. While it runs, `downloadsInFlight`
-    /// counts it; a failure is added to `downloadError` -- both only while
-    /// the root it started under is still shown -- and rethrown for Finder.
+    /// current root can be downloaded, and only from the root a drag started
+    /// in (`rootGeneration`, when given). While it runs, `downloadsInFlight`
+    /// counts it. Any failure, a refusal included, is added to
+    /// `downloadError` while the root current when it failed is still shown
+    /// -- an in-flight download outlived by its root shows nothing -- and
+    /// rethrown for Finder.
     @discardableResult
-    func download(_ path: String, to destination: URL) async throws -> URL {
-        guard let access else { throw LeoFileAccessError.closed }
-        guard let entry = shownFile(at: path) else { throw LeoFileAccessError.notFound(path: path) }
+    func download(_ path: String, to destination: URL, fromRootGeneration expected: Int? = nil) async throws -> URL {
         let generation = self.generation
+        let entry: LeoWorkspaceEntry
+        let access: any LeoFileAccess
+        do {
+            if let expected, expected != generation { throw DownloadError.workspaceChanged }
+            guard let current = self.access else { throw LeoFileAccessError.closed }
+            guard let shown = shownFile(at: path) else { throw LeoFileAccessError.notFound(path: path) }
+            (entry, access) = (shown, current)
+        } catch {
+            let name = LeoWorkspaceEntry(name: (path as NSString).lastPathComponent, path: path, isFolder: false).displayName
+            reportDownloadFailure(error, name: name, generation: generation)
+            throw error
+        }
         downloadsInFlight += 1
         defer { if generation == self.generation { downloadsInFlight -= 1 } }
         do {
             return try await Self.export(path, to: destination, access: access)
         } catch {
-            if generation == self.generation, !(error is CancellationError) {
-                let line = "\(entry.displayName): \(LeoFileExport.message(for: error))"
-                downloadError = [downloadError, line].compactMap { $0 }.joined(separator: "\n")
-            }
+            reportDownloadFailure(error, name: entry.displayName, generation: generation)
             throw error
         }
     }
@@ -416,6 +441,12 @@ enum LeoWorkspaceItem: Hashable, Sendable {
 
     private static func isSingleComponent(_ name: String) -> Bool {
         !name.isEmpty && name != "." && name != ".." && !name.contains("/") && !name.contains("\0")
+    }
+
+    private func reportDownloadFailure(_ error: Error, name: String, generation: Int) {
+        guard isOpen, generation == self.generation, !(error is CancellationError) else { return }
+        let message = error is DownloadError ? error.localizedDescription : LeoFileExport.message(for: error)
+        downloadError = [downloadError, "\(name): \(message)"].compactMap { $0 }.joined(separator: "\n")
     }
 
     /// A task-group child, so the local file's blocking writes never run

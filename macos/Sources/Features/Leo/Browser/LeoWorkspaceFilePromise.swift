@@ -19,10 +19,15 @@ final class LeoWorkspaceFilePromise: NSFilePromiseProvider, NSFilePromiseProvide
 
     let entry: LeoWorkspaceEntry
     private weak var model: LeoWorkspaceBrowserModel?
+    /// The root the file was dragged from: Finder may ask for the file
+    /// only after the browser moved on, even to another host with the same
+    /// workspace path, whose file must never be downloaded in its place.
+    private let rootGeneration: Int
 
-    init(entry: LeoWorkspaceEntry, model: LeoWorkspaceBrowserModel) {
+    @MainActor init(entry: LeoWorkspaceEntry, model: LeoWorkspaceBrowserModel) {
         self.entry = entry
         self.model = model
+        rootGeneration = model.rootGeneration
         super.init()
         let pathExtension = (entry.name as NSString).pathExtension
         fileType = (pathExtension.isEmpty ? nil : UTType(filenameExtension: pathExtension, conformingTo: .data))?.identifier
@@ -44,10 +49,11 @@ final class LeoWorkspaceFilePromise: NSFilePromiseProvider, NSFilePromiseProvide
         completionHandler: @escaping (Error?) -> Void
     ) {
         let path = entry.path
+        let rootGeneration = rootGeneration
         Task { @MainActor [weak model] in
             guard let model else { return completionHandler(LeoFileAccessError.closed) }
             do {
-                try await model.download(path, to: url)
+                try await model.download(path, to: url, fromRootGeneration: rootGeneration)
                 completionHandler(nil)
             } catch {
                 completionHandler(error)
