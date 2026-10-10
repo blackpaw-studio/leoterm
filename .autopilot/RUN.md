@@ -1,6 +1,6 @@
 Status: running
 Started: 2026-10-10T16:31:47Z
-Budget: 20 items, until 2026-10-11T04:31:47Z
+Budget: 20 items, until 2026-10-10T22:30:00Z
 Digested-through: 0
 Filed: 0/3 bugs, 3/5 ideas
 Self-filed: B-232 → B-280 idea — Dropped files keep their source file mode
@@ -65,3 +65,5 @@ Finished 1: B-232 landed e2fd6c40a · shot /Users/evan/.leo/agents/leoterm/.git/
 - B-232 runner dispatched: d-2d7711f49f9c.
 - B-232 landed e2fd6c40a (full, hard; 1 fix round: queued terminal drops lacked a separator; concurrency review clean on delta; suite 2500/2500; remote SFTP covered by tests, not visually). No focus/palette failures reproduced. Verify left scratch files in autopilot-scratch workspace (b232-vf-*, b232-v2-*) and /tmp/b232v2-src/.
 - B-279 runner dispatched: d-b3464360863a.
+- Evan (14:51 EDT): run must end by 18:30 EDT; then merge autopilot to main and cut a release (approved). Budget deadline moved to 22:30Z; no new lane after ~17:00 EDT unless it can finish by 18:30.
+- Evan (14:55 EDT): build named environments (B-283) this run, next after B-279. End of run: merge autopilot to main, NO release (Evan will update Leo manually first).
