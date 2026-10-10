@@ -35,7 +35,9 @@ Lane: B-232
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-10-10T16:36:00Z
 
 ## Progress
 - Preflight: merged main into autopilot (fast-forward to 0b83ccd7c); applied 2 inbox entries (B-278, B-279 added; B-232 answered → ready, D-474).
 - Lane autopilot-lane/B-233 still unlanded with no block (item done); left in place.
+- B-232 runner dispatched: d-2d7711f49f9c.
