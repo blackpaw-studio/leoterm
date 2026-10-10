@@ -141,12 +141,15 @@ Lane: B-145
   Branch: autopilot-lane/B-145
   Base: 91a4e462a0b5d125ac84994a8313734206d3f4d9
   Tier: light
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 3
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 3fec568cae8b324b6124d60ccacaafce88b1d14c
   Dispatched: 2026-10-10T11:38:22Z
+  Escalated: implementer/sonnet (first build, fix rounds 1 and 2) → implementer-hard/opus (escalated at fix round 3)
+  Call: ⌘N's inherited surface config (font size) is held per start-screen window and given to the first surface that fills it, by any path — P1 / D-151 (the bare start screen has no surface to apply it to)
+  Call: ⌘↩ from a ⌘N start-screen palette into a new window no longer carries the held config (dismissed, untested) — held config belongs to that one window; rare sequence, costs only inherited font size/cwd
 
 Finished 1: B-270 landed 28ade697f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-270-1.png
 Finished 2: B-271 landed 16b35ad0b · not visually verified
