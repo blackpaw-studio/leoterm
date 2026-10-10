@@ -13,8 +13,10 @@ struct LeoDispatchRowView: View {
     static let pulseDimmedOpacity: Double = 0.35
 
     let node: LeoDispatchNode
-    /// Set only for a selectable row: the click's modifiers and count.
+    /// Set only for a clickable row: the click's modifiers and count.
     var click: ((NSEvent.ModifierFlags, Int) -> Void)?
+    /// False for a row that is clicked but never selected (B-271).
+    var isSelectable = true
     /// Set only when the dispatch has children: shows a disclosure control
     /// (outside the row's click area) that calls `toggle`.
     var disclosure: Disclosure?
@@ -45,10 +47,10 @@ struct LeoDispatchRowView: View {
                 label(presentation)
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(presentation.accessibilityLabel)
-                    .modifier(Interaction(click: click, id: node.id))
+                    .modifier(Interaction(click: click, isSelectable: isSelectable, id: node.id))
                 if let disclosure { disclosureButton(disclosure) }
                 trailingStatus
-                    .modifier(Interaction(click: click, id: node.id))
+                    .modifier(Interaction(click: click, isSelectable: isSelectable, id: node.id))
             }
         }
         .frame(height: Self.rowHeight)
@@ -93,17 +95,24 @@ struct LeoDispatchRowView: View {
     /// agent row; the rest stay out of selection.
     private struct Interaction: ViewModifier {
         let click: ((NSEvent.ModifierFlags, Int) -> Void)?
+        let isSelectable: Bool
         let id: String
 
         func body(content: Content) -> some View {
-            if let click {
-                content
-                    .contentShape(Rectangle())
-                    .background(LeoRowClickCatcher(identity: id, onClick: click).accessibilityHidden(true))
-                    .accessibilityAddTraits(.isButton)
+            if let click, isSelectable {
+                clickable(content, click)
+            } else if let click {
+                clickable(content, click).leoSelectionDisabled()
             } else {
                 content.leoSelectionDisabled()
             }
+        }
+
+        private func clickable(_ content: Content, _ click: @escaping (NSEvent.ModifierFlags, Int) -> Void) -> some View {
+            content
+                .contentShape(Rectangle())
+                .background(LeoRowClickCatcher(identity: id, onClick: click).accessibilityHidden(true))
+                .accessibilityAddTraits(.isButton)
         }
     }
 }

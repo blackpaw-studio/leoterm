@@ -298,6 +298,20 @@ import OSLog
         model.focusExistingRequested = { [weak attachCoordinator] row, origin in
             attachCoordinator?.focusExisting(row.identity, from: origin)
         }
+        let paneFocuser = LeoDispatchPaneFocuser(runner: hostSelectionRunner)
+        model.dispatchPaneFocusRequested = { [weak hostSelection, weak model] host, pane, rowID in
+            let hosts = hostSelection?.hosts ?? []
+            Task { @MainActor in
+                do {
+                    let command = try LeoDispatchPaneFocus.command(
+                        host: host, pane: pane, hosts: hosts, sshExecutable: hostSelectionSSHExecutable.path
+                    )
+                    try await paneFocuser.focus(command)
+                } catch {
+                    model?.setRowError(LeoDispatchPaneFocusError.message(for: error), for: rowID)
+                }
+            }
+        }
         model.surfacedFileOpenRequested = { file, row, stillWanted in weakSelf?.openSurfacedFile(file, for: row, stillWanted: stillWanted) }
         model.latestFocusReport = { [weak attachCoordinator] in attachCoordinator?.latestFocusReport ?? 0 }
 
