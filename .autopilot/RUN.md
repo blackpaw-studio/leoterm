@@ -43,6 +43,17 @@ Lane: B-270
   Call: Failed re-attach reported to the row as openFailed; closing-window handle forgotten silently; no contentVersion bump — D-110
   Call: reattachInPlace inherits the old surface's config (deviation, behaviour-neutral)
   Call: Command rebuilt after confirm only when placement changed, since a full rebuild broke aRemoteDispatchGoesThroughTheRemoteBuilder (deviation)
+Lane: B-271
+  Branch: autopilot-lane/B-271
+  Base: 4692ca633a9ac62d2bb7d3bdcb3feb03d6a2ebe8
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-10T03:28:43Z
+
 Finished 1: B-270 landed 28ade697f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-270-1.png
 
 ## Progress
