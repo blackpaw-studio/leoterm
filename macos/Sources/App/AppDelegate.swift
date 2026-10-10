@@ -112,8 +112,9 @@ class AppDelegate: NSObject,
     }
 
     /// A new window showing the start screen alone, with no agent palette
-    /// (B-095): the launch window, Dock reopen and the fallback New Window.
-    /// The palette those last two presented closed again the moment the
+    /// (B-095, B-145): the launch window, Dock reopen, and every New Window
+    /// -- File ▸ New Window from any window, ⌘N (`new_window`) and the Dock
+    /// menu's. The palette those presented closed again the moment the
     /// window showed and took key status from it.
     @discardableResult
     @MainActor func leoOpenStartScreenWindow() -> TerminalController {
@@ -154,10 +155,10 @@ class AppDelegate: NSObject,
     /// mirrors the upstream `newWindow(_:withBaseConfig:withParent:)`'s
     /// fullscreen/opacity/cascade handling for an empty tree -- see its
     /// doc) and routes a `.placeholder` request to the agent picker for it.
-    /// Shared by the "no existing window to attach a tab/split into" paths
-    /// that still ask for an agent: `new_window` and Choose Agent… with no
-    /// window (launch, reopen and the fallback New Window open the bare
-    /// start screen instead: `leoOpenStartScreenWindow`). `baseConfig` is
+    /// Used by the "no existing window to attach a tab/split into" path that
+    /// still asks for an agent: Choose Agent… with no window (launch,
+    /// reopen, every New Window and `new_window` open the bare start
+    /// screen instead: `leoOpenStartScreenWindow`). `baseConfig` is
     /// the inherited `SurfaceConfiguration` (if any) from whatever
     /// triggered this -- see `LeoRuntime.routeNewSurface`.
     @MainActor private func leoRouteNewWindow(baseConfig: Ghostty.SurfaceConfiguration? = nil) {
@@ -849,9 +850,9 @@ class AppDelegate: NSObject,
     }
 
     @MainActor @objc private func ghosttyNewWindow(_ notification: Notification) {
-        // MARK: Leo
-        let configAny = notification.userInfo?[Ghostty.Notification.NewSurfaceConfigKey]
-        leoRouteNewWindow(baseConfig: configAny as? Ghostty.SurfaceConfiguration)
+        // MARK: Leo -- the start screen alone, no palette (B-145); an
+        // inherited config has no surface to apply to until an agent is chosen.
+        leoOpenStartScreenWindow()
     }
 
     @MainActor @objc private func ghosttyNewTab(_ notification: Notification) {
@@ -1095,8 +1096,12 @@ class AppDelegate: NSObject,
         // UpdateSimulator.happyPath.simulate(with: updateViewModel)
     }
 
+    /// File ▸ New Window with no terminal window to ask, and the Dock menu's
+    /// New Window (right-click the Dock icon): the start screen alone, as
+    /// launch opens it (B-095, B-145). With a terminal window key the
+    /// responder chain reaches `TerminalController.newWindow` first.
     @IBAction func newWindow(_ sender: Any?) {
-        // MARK: Leo -- the start screen alone, as launch opens (B-095).
+        // MARK: Leo
         leoOpenStartScreenWindow()
     }
 

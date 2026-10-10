@@ -389,6 +389,51 @@ struct LeoLaunchPlaceholderIntegrationTests {
         #expect(window.window?.isVisible == true)
         #expect(!session.isPickerPresented)
     }
+
+    /// B-145: File ▸ New Window while a start-screen window is key opens a
+    /// second start screen alone: routed through the palette it flashed
+    /// there, then closed as the new window took key status from it.
+    @Test func newWindowFromAStartScreenOpensTheStartScreenWithoutThePalette() async throws {
+        let app = try liveApp()
+        let origin = withoutUndo(app) { app.leoOpenStartScreenWindow() }
+        defer { close(origin) }
+        try #require(await settle(app, origin), "the origin never settled")
+        let before = Set(TerminalController.all.map(ObjectIdentifier.init))
+
+        withoutUndo(app) { origin.newWindow(nil) }
+        let opened = TerminalController.all.filter { !before.contains(ObjectIdentifier($0)) }
+        defer { opened.forEach { close($0) } }
+        let window = try #require(opened.first)
+        let session = try #require(window.leoSession)
+
+        #expect(opened.count == 1)
+        #expect(!origin.leoSession!.isPickerPresented)
+        #expect(!session.isPickerPresented)
+        try #require(await settle(app, window), "the window never settled")
+        #expect(!origin.leoSession!.isPickerPresented)
+        #expect(!session.isPickerPresented)
+    }
+
+    /// B-145: Ghostty's `new_window` action (⌘N from a terminal with
+    /// content) opens the start screen alone, with no palette.
+    @Test func theNewWindowActionOpensTheStartScreenWithoutThePalette() async throws {
+        let app = try liveApp()
+        let before = Set(TerminalController.all.map(ObjectIdentifier.init))
+
+        withoutUndo(app) {
+            NotificationCenter.default.post(name: Ghostty.Notification.ghosttyNewWindow, object: nil, userInfo: [:])
+        }
+        let opened = TerminalController.all.filter { !before.contains(ObjectIdentifier($0)) }
+        defer { opened.forEach { close($0) } }
+        let window = try #require(opened.first)
+        let session = try #require(window.leoSession)
+
+        #expect(opened.count == 1)
+        #expect(!session.isPickerPresented)
+        try #require(await settle(app, window), "the window never settled")
+        #expect(!session.isPickerPresented)
+        #expect(window.window?.isVisible == true)
+    }
 }
 
 /// The app has a real `Ghostty.App` to make surfaces with. Outside the
