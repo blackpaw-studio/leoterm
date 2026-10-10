@@ -80,9 +80,12 @@ enum LeoFileDrop {
                 let scoped = url.startAccessingSecurityScopedResource()
                 defer { if scoped { url.stopAccessingSecurityScopedResource() } }
                 let name = url.lastPathComponent
-                guard isSingleComponent(name) else { throw SourceError.invalid }
+                // A NUL anywhere would truncate the C path at `open` and read
+                // a different file than the one dropped.
+                let path = url.path(percentEncoded: false)
+                guard isSingleComponent(name), !path.contains("\0") else { throw SourceError.invalid }
                 try beforeOpen(url)
-                let descriptor = Darwin.open(url.path, O_RDONLY | O_CLOEXEC | O_NONBLOCK | O_NOFOLLOW)
+                let descriptor = Darwin.open(path, O_RDONLY | O_CLOEXEC | O_NONBLOCK | O_NOFOLLOW)
                 guard descriptor >= 0 else {
                     if errno == ELOOP { throw SourceError.notRegularFile }
                     throw SourceError.unreadable(String(cString: strerror(errno)))

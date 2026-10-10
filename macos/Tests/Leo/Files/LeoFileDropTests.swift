@@ -87,6 +87,27 @@ struct LeoFileDropTests {
         #expect(try destination.names().isEmpty)
     }
 
+    /// A NUL in any component would truncate the C path at `open`, so
+    /// `…/secret%00/x/innocent.txt` must never read `secret`.
+    @Test
+    func aNULInAParentComponentNeverOpensATruncatedPath() async throws {
+        let source = try LeoFileSandbox()
+        let destination = try LeoFileSandbox()
+        defer {
+            source.cleanUp()
+            destination.cleanUp()
+        }
+        let secret = try source.file("secret", "must not upload")
+        let url = try #require(URL(string: URL(fileURLWithPath: secret).absoluteString + "%00/x/innocent.txt"))
+        #expect(url.path(percentEncoded: false).contains("\0"))
+
+        let result = await LeoFileDrop.upload([url], to: destination.root, access: LeoFileAccessor.local())
+
+        #expect(result.uploaded.isEmpty)
+        #expect(result.failures == [LeoFileDrop.Failure(name: "innocent.txt", message: "This item doesn’t have a valid file name.")])
+        #expect(try destination.names().isEmpty)
+    }
+
     @Test
     func aFIFOIsRejectedWithoutOpeningItForABlockingRead() async throws {
         let source = try LeoFileSandbox()
