@@ -176,13 +176,16 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         let isHidden = request.disposition == .content && hiddenHandle(of: identity, in: request.origin) != nil
         // Showing a hidden surface needs no command; attaching anew builds
         // it before asking, so a bad executable never asks first -- and
-        // again after, since a hello may have landed meanwhile (B-270).
-        if !isHidden, case .failure(let error) = attachCommand(for: identity) { return .failure(error) }
+        // again after when a hello changed placement meanwhile (B-270).
+        let built = isHidden ? nil : attachCommand(for: identity)
+        if case .failure(let error) = built { return .failure(error) }
+        let placedWhenBuilt = placesDispatches(identity.host)
         guard await confirmReplacingContent(for: request) else {
             return .failure(.init(identity: identity, kind: .cancelled))
         }
         if isHidden, let handle = revealHidden(identity, in: request.origin) { return .success(handle) }
-        switch attachCommand(for: identity) {
+        let isCurrent = placesDispatches(identity.host) == placedWhenBuilt
+        switch (isCurrent ? built : nil) ?? attachCommand(for: identity) {
         case .success(let command): return attachAnew(identity: identity, command: command, request: request)
         case .failure(let error): return .failure(error)
         }
@@ -220,7 +223,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             if request.disposition == .content { contentReplaced(in: request.origin) }
             handlesByIdentity[identity, default: []].append(handle)
             identityByHandle[handle] = identity
-            // `command` was built in this same turn, from the same features.
+            // `command` was built from placement as it is now (see `attach`).
             if identity.dispatchID == nil, !placesDispatches(identity.host) { unplaced.insert(handle) }
             adoptHostFocus()
             host.setAgentName(handle, name: identity.title ?? identity.name)
