@@ -141,7 +141,7 @@ Lane: B-145
   Branch: autopilot-lane/B-145
   Base: 91a4e462a0b5d125ac84994a8313734206d3f4d9
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 3
   Wip: none
   Reverifies: 0
@@ -157,6 +157,7 @@ Finished 3: B-275 landed e902d0ef1 · shot /Users/evan/.leo/agents/leoterm/.git/
 Finished 4: B-274 landed fab510f17 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-274-5.png
 Finished 5: B-273 landed 1c99121ce · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-273-5.png
 Finished 6: B-272 landed 243ad0021 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-272-1.png
+Finished 7: B-145 landed 0ea5adc9d · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-145-2.png
 
 ## Progress
 - Preflight: B-270 lane recovered (Wip: none, empty lane) as first pick; merged main into autopilot (8af0dcea0, sidebar pill rows); inbox → B-275.

@@ -772,11 +772,12 @@ Source: Evan (/feature, 2026-10-08)
 Inbox: 20261008T230654542333Z-65d6632f#1
 Done: 369d46814 24a726eb2 17ca28cda 1d830b041 1044f57a3. Decodes hello dispatch_placement_live and a lenient viewer_kind; under the feature a viewer moving background↔visible updates its row in place (no stale target, no duplicate) and clicks follow attachable/tmux_target; replay tests through socket, feed and model; DEBUG fixture dispatch_moves. 2460 tests green; general review clean. Note: leo /api/v1 doesn't carry viewer_kind today (moves arrive as attachable flips), so the decode is forward-compatible. Decisions D-468–D-471.
 
-## B-145 · File ▸ New Window and ⌘N skip the palette flash   [ready]
+## B-145 · File ▸ New Window and ⌘N skip the palette flash   [done]
 Issue: #149
 Why: File ▸ New Window while a start-screen window is key, and ⌘N (ghosttyNewWindow) from a terminal with content, still route through leoRouteNewWindow and the palette (TerminalController.swift:1638-1642); swap to the bare start screen like B-095, and document the Dock right-click New Window in AppDelegate.newWindow's doc comment
 Accept: File ▸ New Window while a start-screen window is key, and ⌘N (ghosttyNewWindow) from a terminal with content, still route through leoRouteNewWindow and the palette (TerminalController.swift:1638-1642); swap to the bare start screen like B-095, and document the Dock right-click New Window in AppDelegate.newWindow's doc comment
 Source: autopilot polish (B-095)
+Done: d7526727d 2ba5a4095 10846c005 f54dc54a7 3fec568ca. File ▸ New Window and ⌘N open the bare start screen with no palette flash; inherited font size is held for the first terminal opened from it. Decisions D-472–D-473.
 
 ## B-147 · Rebuild the shared autopilot xcframework after B-098   [done]
 Issue: #151

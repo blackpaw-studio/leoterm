@@ -3384,3 +3384,17 @@ Chose: DEBUG fixture key `dispatch_moves` extends D-396; it also advertises `dis
 Why: P6
 Commit: 369d46814, 24a726eb2, 17ca28cda, 1d830b041, 1044f57a3
 Veto: [ ]
+
+## D-472 · 2026-10-10 · ⌘N's inherited surface config (font size) is held per start-…
+Context: B-145 (runner call).
+Chose: ⌘N's inherited surface config (font size) is held per start-screen window and given to the first surface that fills it, by any path
+Why: P1 / D-151 (the bare start screen has no surface to apply it to)
+Commit: d7526727d, 2ba5a4095, 10846c005, f54dc54a7, 3fec568ca
+Veto: [ ]
+
+## D-473 · 2026-10-10 · ⌘↩ from a ⌘N start-screen palette into a new window no longe…
+Context: B-145 (runner call).
+Chose: ⌘↩ from a ⌘N start-screen palette into a new window no longer carries the held config (dismissed, untested)
+Why: held config belongs to that one window; rare sequence, costs only inherited font size/cwd
+Commit: d7526727d, 2ba5a4095, 10846c005, f54dc54a7, 3fec568ca
+Veto: [ ]
