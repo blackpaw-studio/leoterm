@@ -256,6 +256,9 @@ import OSLog
             onAttentionTransitions: { transitions in weakSelf?.attentionTransitionsCommitted(transitions) },
             sink: { [weak model] snapshot in
                 model?.receive(snapshot)
+                // B-270: a hello advertising dispatch placement re-attaches
+                // what attached before it.
+                weakSelf?.attachCoordinator.daemonFeaturesChanged()
                 weakSelf?.snapshotLanded(snapshot)
             }
         )
