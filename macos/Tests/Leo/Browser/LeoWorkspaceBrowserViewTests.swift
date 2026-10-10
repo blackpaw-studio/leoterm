@@ -307,12 +307,12 @@ struct LeoWorkspaceBrowserViewTests {
             ))
             await rootGate.waitUntilEntered()
             rootHarness.browser.sync()
-            #expect(rootHarness.browser.isRootUploadProgressVisible)
+            #expect(rootHarness.browser.isHeaderProgressVisible)
             await rootGate.release()
             await awaitCondition { FileManager.default.fileExists(atPath: files.path("root.txt")) }
             await awaitCondition { await MainActor.run { rootHarness.model.uploadDestination == nil } }
             rootHarness.browser.sync()
-            #expect(!rootHarness.browser.isRootUploadProgressVisible)
+            #expect(!rootHarness.browser.isHeaderProgressVisible)
             await rootHarness.tearDown()
 
             let folderGate = BrowserViewUploadGate()
@@ -335,7 +335,7 @@ struct LeoWorkspaceBrowserViewTests {
             ))
             await folderGate.waitUntilEntered()
             folderHarness.browser.sync()
-            #expect(!folderHarness.browser.isRootUploadProgressVisible)
+            #expect(!folderHarness.browser.isHeaderProgressVisible)
             #expect(folderHarness.browser.isFolderUploadProgressVisible(atRow: row))
             await folderGate.release()
             await awaitCondition { FileManager.default.fileExists(atPath: files.path("target/folder.txt")) }
@@ -350,7 +350,7 @@ struct LeoWorkspaceBrowserViewTests {
             let harness = await makeHarness(.local, root: files.root)
             harness.browser.sync()
 
-            #expect(!harness.browser.isRootUploadProgressVisible)
+            #expect(!harness.browser.isHeaderProgressVisible)
             #expect(!harness.browser.isFolderUploadProgressVisible(atRow: 0))
             await harness.tearDown()
         }
@@ -361,7 +361,7 @@ struct LeoWorkspaceBrowserViewTests {
         await model.open(LeoEditorAgentContext(host: .local, name: "scratch", workspace: nil))
         browser.sync()
 
-        #expect(!browser.isRootUploadProgressVisible)
+        #expect(!browser.isHeaderProgressVisible)
         #expect(!browser.isFolderUploadProgressVisible(atRow: 0))
         window.close()
         await model.close()
