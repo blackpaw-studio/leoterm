@@ -42,8 +42,9 @@ enum LeoRowKey: Hashable, Sendable {
     /// Drops every tab's document without asking and closes the browser,
     /// releasing their file accesses (for a remote host, `sftp` processes).
     func release() async {
-        await browser.close()
+        // The tabs first: from here no open in flight adds one.
         await tabs.release()
+        await browser.close()
     }
 }
 

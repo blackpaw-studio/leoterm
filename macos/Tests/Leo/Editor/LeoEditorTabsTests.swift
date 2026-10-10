@@ -176,6 +176,63 @@ struct LeoEditorTabsTests {
         }
     }
 
+    /// Review fix 1: a tab added (and edited) while closeAll waits on a
+    /// slow Save is asked about too, never dropped with its edits.
+    @Test
+    func closeAllAsksAboutATabAddedWhileItWaited() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let a = try sandbox.file("a.txt", "a")
+            let writes = LeoGatedReads([], writes: [a])
+            let (tabs, prompts) = makeTabs(answering: [.save, .cancel], access: writes.makeAccess)
+            try await tabs.open(file(a))
+            tabs.document?.edit("a, edited")
+            let closing = Task { await tabs.closeAll() }
+            await writes.waitUntil(.write, a)
+
+            try await tabs.open(file(try sandbox.file("b.txt", "b")), mode: .background)
+            let b = try #require(tabs.tab(for: file(sandbox.path("b.txt"))))
+            b.document?.edit("b, edited")
+            writes.release(.write, a)
+
+            #expect(await closing.value == false)
+            #expect(prompts.asked == ["a.txt", "b.txt"])
+            #expect(names(tabs) == ["b.txt"])
+            #expect(b.document?.text == "b, edited")
+            b.document?.edit("b")
+            await tabs.release()
+        }
+    }
+
+    /// Review fix 3: re-opening a file whose tab is mid-close (a slow Save)
+    /// ends with a tab for it that the pane tracks, never an untracked
+    /// editor reported as opened.
+    @Test
+    func reopeningAFileWhileItsTabClosesLeavesATrackedTab() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let a = try sandbox.file("a.txt", "a")
+            let writes = LeoGatedReads([], writes: [a])
+            let (tabs, _) = makeTabs(answering: [.save], access: writes.makeAccess)
+            try await tabs.open(file(a))
+            let closingTab = try #require(tabs.selected)
+            closingTab.document?.edit("a, saved")
+            let closing = Task { await tabs.closeTab(closingTab) }
+            await writes.waitUntil(.write, a)
+
+            let reopening = Task { try await tabs.open(file(a), mode: .background) }
+            // It queues behind the close on the tab's own queue.
+            for _ in 0 ..< 3 { await Task.yield() }
+            writes.release(.write, a)
+
+            #expect(await closing.value)
+            #expect(try await reopening.value == .opened)
+            let tab = try #require(tabs.tab(for: file(a)), "a tab the pane tracks")
+            #expect(tabs.tabs.count == 1)
+            #expect(tab.document?.text == "a, saved")
+            #expect(closingTab.document == nil)
+            await tabs.release()
+        }
+    }
+
     @Test
     func tabDropsWhenGateClosesOrAbandonsItsEditor() async throws {
         try await withLeoFileSandbox(.local) { sandbox, _ in

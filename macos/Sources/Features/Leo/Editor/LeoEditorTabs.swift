@@ -1,6 +1,15 @@
 import Combine
 import Foundation
 
+/// An open's place in line (B-273), taken when it's asked for -- before any
+/// stat or read -- so a background open asked for earlier never takes the
+/// selection from a newer one or from the user's choice since.
+struct LeoEditorOpenRequest {
+    fileprivate let serial: Int
+    fileprivate let epoch: Int
+    let mode: LeoEditorOpenMode
+}
+
 /// Who an open is for (B-273): the user's own action, or a file an agent
 /// surfaced, which opens behind whatever the user is doing.
 enum LeoEditorOpenMode: Sendable {
@@ -67,23 +76,34 @@ enum LeoEditorOpenMode: Sendable {
     /// Opens `fileID` in a new tab, or selects (and reveals in) the tab
     /// that has it already (`.alreadyOpen`, its edits kept). The file is
     /// read before a tab is added, so one that can't open (the error is
-    /// thrown) adds nothing. See `LeoEditorPaneModel.open` for `access`,
-    /// `readDeadline` and `isStillWanted`.
+    /// thrown) adds nothing. `request` is the open's place in line, from
+    /// `request(_:)` when the caller has work to do first (a stat);
+    /// otherwise it's taken now, for `mode`. See `LeoEditorPaneModel.open`
+    /// for `access`, `readDeadline` and `isStillWanted`.
     @discardableResult
     func open(
         _ fileID: LeoEditorFileID, line: Int? = nil, column: Int? = nil, mode: LeoEditorOpenMode = .user,
+        request: LeoEditorOpenRequest? = nil,
         access: (@MainActor (LeoHostID) throws -> any LeoFileAccess)? = nil,
         readDeadline: LeoReadDeadline? = nil,
         isStillWanted: @escaping @MainActor () -> Bool = { true }
     ) async throws -> LeoEditorOpenOutcome {
-        requestSerial += 1
-        let request = Request(serial: requestSerial, epoch: userSelectionEpoch, mode: mode)
+        let request = request ?? self.request(mode)
         let wanted: @MainActor () -> Bool = { [weak self] in self?.isReleased == false && isStillWanted() }
         if let existing = tab(for: fileID) {
             let outcome = try await existing.open(fileID, line: line, column: column, isStillWanted: wanted)
-            guard outcome == .alreadyOpen, contains(existing) else { return outcome }
-            commitSelection(of: existing, for: request, fileID: fileID)
-            return .alreadyOpen
+            if contains(existing) {
+                guard outcome == .alreadyOpen else { return outcome }
+                commitSelection(of: existing, for: request, fileID: fileID)
+                return .alreadyOpen
+            }
+            // Its tab closed while this waited behind the close: whatever it
+            // opened there is untracked, so it goes, and the open starts over.
+            if existing.document != nil { await existing.release() }
+            guard outcome != .cancelled else { return .cancelled }
+            return try await open(
+                fileID, line: line, column: column, request: request, access: access, readDeadline: readDeadline, isStillWanted: isStillWanted
+            )
         }
         let tab = LeoEditorPaneModel(makeAccess: makeAccess, policy: policy)
         let outcome = try await tab.open(
@@ -105,6 +125,12 @@ enum LeoEditorOpenMode: Sendable {
         commitSelection(of: tab, for: request, fileID: fileID)
         await closeOverLimit()
         return .opened
+    }
+
+    /// Takes an open's place in line now (see `LeoEditorOpenRequest`).
+    func request(_ mode: LeoEditorOpenMode) -> LeoEditorOpenRequest {
+        requestSerial += 1
+        return LeoEditorOpenRequest(serial: requestSerial, epoch: userSelectionEpoch, mode: mode)
     }
 
     /// What `~` means on `host`.
@@ -153,12 +179,15 @@ enum LeoEditorOpenMode: Sendable {
     }
 
     /// Closes every tab in order, asking about each one with unsaved edits
-    /// (selected in turn). The first Cancel stops: the tabs already closed
-    /// stay closed, the rest stay open.
+    /// (selected in turn) -- tabs added or edited while it waited on a
+    /// prompt or a Save included: it ends only once none is left. The first
+    /// Cancel stops: the tabs already closed stay closed, the rest stay open.
     @discardableResult
     func closeAll() async -> Bool {
-        for tab in tabs where contains(tab) {
+        while let tab = tabs.first {
             guard await tab.close() else { return false }
+            // Closed, but still listed: nothing more this pass can do.
+            guard !contains(tab) else { return false }
         }
         return true
     }
@@ -190,17 +219,11 @@ enum LeoEditorOpenMode: Sendable {
 
     // MARK: - Helpers
 
-    private struct Request {
-        let serial: Int
-        let epoch: Int
-        let mode: LeoEditorOpenMode
-    }
-
     private func contains(_ tab: LeoEditorPaneModel) -> Bool {
         tabs.contains { $0 === tab }
     }
 
-    private func commitSelection(of tab: LeoEditorPaneModel, for request: Request, fileID: LeoEditorFileID) {
+    private func commitSelection(of tab: LeoEditorPaneModel, for request: LeoEditorOpenRequest, fileID: LeoEditorFileID) {
         remember(fileID)
         switch request.mode {
         case .user:
