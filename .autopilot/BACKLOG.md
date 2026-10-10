@@ -2000,12 +2000,14 @@ Note: Workspace browser truncates long names in the middle ("b232-v…ma.txt") �
 Source: autopilot polish (B-232)
 
 ## B-284 · Agents ▸ New Agent… menu item opens no sheet   [ready (next run)]
+Issue: #273
 Type: bug
 Report: Agents ▸ New Agent… opens no sheet (same `contentViewController` pattern at `TerminalController+Leo.swift:134`) — the menu path to New Agent does nothing (sidebar "+" works); P1
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-283)
 
 ## B-285 · Rename, Delete and Manage Hosts menu items may no-op on terminal windows   [ready (next run)]
+Issue: #274
 Type: bug
 Report: Rename, Delete and Manage Hosts in `LeoAgentMenuActions.swift` lines 39, 68, 74 use the same `contentViewController` pattern — likely silent no-ops on terminal windows (not checked in the app); P1
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.

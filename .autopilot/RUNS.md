@@ -446,3 +446,11 @@ Self-filed: ideas B-276 and B-277
 Next up: B-148, B-149, B-150
 Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Merge when happy: git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-10-10 (16:31Z–21:45Z) — 3 shipped, 0 blocked
+- B-232 Drop files into an agent's workspace (local + SSH) — finished from the shelved branch; NUL rejection, streamed bounded buffering, lost-RENAME transport test. Merge e2fd6c40a. Full/hard, 1 fix round. Verified: screenshot (SFTP by tests).
+- B-279 Drag files out of the workspace browser to Finder — file promises on both backends, keep-both name clashes. Merge 15f779df4. Full/hard, 1 fix round. Screen captures only.
+- B-283 Named environments (Evan, in-session) — spawn picker, Set Environments submenu, quiet row override/env-error; fixture-built against leo PR #251 (unmerged). Merge b82e17565. Full/hard, 2 fix rounds. Verified: screenshot.
+- Calls D-475–D-500. Runner dismissed one round-3 blocking finding on B-283 (Edit Order session left live on programmatic parent close) as accepted risk.
+- Self-filed: B-280, B-281, B-282, B-286 ideas; B-284, B-285 bugs (ready next run).
+- Ended early at Evan's 18:30 EDT deadline; merge to main approved, no release.
