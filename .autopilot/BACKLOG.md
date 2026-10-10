@@ -763,13 +763,14 @@ Source: Evan (/feature, 2026-10-09)
 Inbox: 20261010T010641687863Z-75c4bfe3#1
 Done: 6889ede49 5fe5700d3 cf7c6da40 ca2134002 43fe062d4 d2503608d. Surfaced files auto-open as tabs in the agent's row pane, in the background without taking focus; newest selected, re-surface selects the existing tab; badge stays until the agent is viewed; tabs switch/close by keyboard (⇧⌘]/⇧⌘[, ⌘W) and menu; dirty close asks. Supersedes D-088. 2448 tests green; concurrency review full + fix delta clean. GUI at final tip partial: surfaced-path tab opening seen only at the previous tip 04c73c6c3. Decisions D-458–D-467.
 
-## B-272 · Live dispatch placement (leo v0.42.0 `dispatch_placement_live`)   [ready]
+## B-272 · Live dispatch placement (leo v0.42.0 `dispatch_placement_live`)   [done]
 Issue: #268
 Why: Leo v0.42.0 moves dispatch viewers between background and visible when the session's effective placement flips, so dispatches started while Leo Term was closed stop cluttering the agent's terminal. The app must understand the new viewer state so dispatch rows stay correct and clickable. Serves "Everything through Leo" and "Calm, attention-driven".
 Accept: Decode the new `viewer_kind: "background"` (unknown kinds still degrade safely); dispatch rows update when a viewer moves (no stale "pane"/"window" target, no duplicate rows), and clicking a row attaches to wherever the viewer now lives; gated on hello `dispatch_placement_live` with today's behaviour otherwise; fixture-driven tests that replay a viewer moving background→visible→background; screenshot from the isolated debug build. Contract (leo, 2026-10-08): moves only on a background↔visible flip held for two 1 s polls; pane↔window changes don't move; nothing moves with no attached clients; pane ids preserved; viewers the user moved elsewhere are pinned and left alone; headless watch-viewer windows aren't moved in this release.
 Out: Moving viewers from the app side; changing the leo daemon; Codex/opencode-specific handling.
 Source: Evan (/feature, 2026-10-08)
 Inbox: 20261008T230654542333Z-65d6632f#1
+Done: 369d46814 24a726eb2 17ca28cda 1d830b041 1044f57a3. Decodes hello dispatch_placement_live and a lenient viewer_kind; under the feature a viewer moving background↔visible updates its row in place (no stale target, no duplicate) and clicks follow attachable/tmux_target; replay tests through socket, feed and model; DEBUG fixture dispatch_moves. 2460 tests green; general review clean. Note: leo /api/v1 doesn't carry viewer_kind today (moves arrive as attachable flips), so the decode is forward-compatible. Decisions D-468–D-471.
 
 ## B-145 · File ▸ New Window and ⌘N skip the palette flash   [ready]
 Issue: #149

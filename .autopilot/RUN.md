@@ -126,7 +126,7 @@ Lane: B-272
   Branch: autopilot-lane/B-272
   Base: d11511c428c9f8c296581bc1c4ff051946b04575
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -142,6 +142,7 @@ Finished 2: B-271 landed 16b35ad0b · not visually verified
 Finished 3: B-275 landed e902d0ef1 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-275-6.png
 Finished 4: B-274 landed fab510f17 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-274-5.png
 Finished 5: B-273 landed 1c99121ce · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-273-5.png
+Finished 6: B-272 landed 243ad0021 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-272-1.png
 
 ## Progress
 - Preflight: B-270 lane recovered (Wip: none, empty lane) as first pick; merged main into autopilot (8af0dcea0, sidebar pill rows); inbox → B-275.
@@ -152,3 +153,4 @@ Finished 5: B-273 landed 1c99121ce · shot /Users/evan/.leo/agents/leoterm/.git/
 - B-275 landed e902d0ef1 (1 fix round: group gap 8→16pt after the first verify failed contrast).
 - B-274 landed fab510f17 (1 fix round). Verify near-miss: stale-coordinate clicks selected real stopped agents whatshoveringoverme (a Start prompt appeared, cancelled) and widgeon; nothing started. Flag for digest.
 - B-273 landed 1c99121ce (1 fix round). Runner polish 'peekaboo type reports failure even when text lands' not filed: verification tooling, not leoterm. Flake seen once: anEmptyNameRestoresTheLiveTitle.
+- B-272 landed 243ad0021. Runner skipped asking leo whether viewer_kind will reach /api/v1; flag for digest.

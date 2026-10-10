@@ -3356,3 +3356,31 @@ Chose: Tab strip sits under the pane header with a dirty dot and a hover/selecte
 Why: P1
 Commit: 6889ede49, 5fe5700d3, cf7c6da40, ca2134002, 43fe062d4, d2503608d
 Veto: [ ]
+
+## D-468 · 2026-10-10 · Placement comes from the daemon's `attachable` and `tmux_tar…
+Context: B-272 (runner call).
+Chose: Placement comes from the daemon's `attachable` and `tmux_target`; `viewer_kind` is decoded leniently (unknown or wrong-type becomes nil) and used only when `dispatch_placement_live` is advertised
+Why: P2
+Commit: 369d46814, 24a726eb2, 17ca28cda, 1d830b041, 1044f57a3
+Veto: [ ]
+
+## D-469 · 2026-10-10 · A non-attachable dispatch reported as `viewer_kind: backgrou…
+Context: B-272 (runner call).
+Chose: A non-attachable dispatch reported as `viewer_kind: background` under the feature is informational, not pane-focusable (narrows D-438)
+Why: P2, P6
+Commit: 369d46814, 24a726eb2, 17ca28cda, 1d830b041, 1044f57a3
+Veto: [ ]
+
+## D-470 · 2026-10-10 · A selected dispatch that moves into the caller's session fal…
+Context: B-272 (runner call).
+Chose: A selected dispatch that moves into the caller's session falls back to its agent and is not re-selected when it moves back
+Why: P2
+Commit: 369d46814, 24a726eb2, 17ca28cda, 1d830b041, 1044f57a3
+Veto: [ ]
+
+## D-471 · 2026-10-10 · DEBUG fixture key `dispatch_moves` extends D-396; it also ad…
+Context: B-272 (runner call).
+Chose: DEBUG fixture key `dispatch_moves` extends D-396; it also advertises `dispatch_tree`, `dispatch_attach` and `dispatch_placement_live`, and replay seqs are time-based
+Why: P6
+Commit: 369d46814, 24a726eb2, 17ca28cda, 1d830b041, 1044f57a3
+Veto: [ ]
