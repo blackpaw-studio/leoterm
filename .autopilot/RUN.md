@@ -47,12 +47,21 @@ Lane: B-271
   Branch: autopilot-lane/B-271
   Base: 4692ca633a9ac62d2bb7d3bdcb3feb03d6a2ebe8
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 77859dd9c8ba670d04152a56908804edc7c43742
   Dispatched: 2026-10-10T03:28:43Z
+  Call: Rows viewed in the caller's session become clickable; a click focuses that pane and shows the parent agent — P6
+  Call: Fallback uses only the reported `attachable` and `tmux_target` — P2
+  Call: Fallback gated on connected + dispatch_attach + live run; older daemons keep inert rows — P2, D-433
+  Call: Headless dispatches (no pane) stay informational — P2
+  Call: Same behaviour on remote hosts over ssh — P3
+  Call: A failed focus is reported on the parent row, and the agent is still shown — P6
+  Call: Focus runs through the injected hostSelectionRunner with a 10 s timeout — AUTONOMY implementation approach
+  Call: Remote focus opens a new ssh connection with BatchMode=yes (no ControlMaster reuse) — AUTONOMY implementation approach
+  Call: Every click on such a row re-sends the pane focus (idempotent) — P6
 
 Finished 1: B-270 landed 28ade697f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-270-1.png
 
