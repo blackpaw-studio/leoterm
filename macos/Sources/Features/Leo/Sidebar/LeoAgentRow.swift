@@ -134,6 +134,8 @@ struct LeoAgentRowView: View {
         if environmentsSupported {
             Menu(LeoEnvironmentMenu.title) { environmentItems }
                 .disabled(!availability.setTemplate)
+            Menu(LeoEnvironmentSwitchMenu.title) { switchItems }
+                .disabled(!availability.setTemplate)
         }
         Button("Rename…") { showingRename = true }.disabled(!availability.rename)
         Button("View Logs") { viewLogs() }.disabled(!availability.logs)
@@ -179,6 +181,8 @@ struct LeoAgentRowView: View {
                 Text(title)
             case .toggle(let name, let isOn):
                 Toggle(name, isOn: Binding(get: { isOn }, set: { _ in LeoEnvironmentChange.perform(entry, row: row, actions: actions) }))
+            case .switchTo:
+                EmptyView()
             case .separator:
                 Divider()
             case .editOrder(let isEnabled):
@@ -187,6 +191,24 @@ struct LeoAgentRowView: View {
             case .reset(let isEnabled):
                 Button(LeoEnvironmentMenu.resetTitle) { LeoEnvironmentChange.perform(entry, row: row, actions: actions) }
                     .disabled(!isEnabled)
+            }
+        }
+    }
+
+    /// Switch to ▸: replaces the whole list with one environment, through
+    /// the same confirm as the toggles. The agent's sole environment is
+    /// checked and can't be picked again.
+    @ViewBuilder private var switchItems: some View {
+        let entries = LeoEnvironmentSwitchMenu.entries(catalog: actions.environmentCatalog, current: row.environments)
+        ForEach(Array(entries.enumerated()), id: \.offset) { _, entry in
+            switch entry {
+            case .placeholder(let title):
+                Text(title)
+            case .switchTo(let name, let isCurrent):
+                Toggle(name, isOn: Binding(get: { isCurrent }, set: { _ in LeoEnvironmentChange.perform(entry, row: row, actions: actions) }))
+                    .disabled(isCurrent)
+            case .toggle, .separator, .editOrder, .reset:
+                EmptyView()
             }
         }
     }

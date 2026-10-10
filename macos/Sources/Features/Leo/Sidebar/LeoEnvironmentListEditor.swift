@@ -205,18 +205,25 @@ final class LeoSheetWindow: NSWindow {
         }
     }
 
+    /// The list a submenu item would set, or nil when it sets nothing.
+    static func targetNames(for entry: LeoEnvironmentMenuEntry, row: LeoAgentRow) -> [String]? {
+        let current = row.environments?.names ?? []
+        switch entry {
+        case .toggle(let name, _): return LeoEnvironmentList(current).toggling(name).names
+        case .switchTo(let name, _): return current == [name] ? nil : [name]
+        case .reset: return []
+        case .editOrder, .placeholder, .separator: return nil
+        }
+    }
+
     /// One submenu item's action.
     static func perform(_ entry: LeoEnvironmentMenuEntry, row: LeoAgentRow, actions: LeoAgentActions, window: NSWindow? = NSApp.keyWindow) {
-        switch entry {
-        case .toggle(let name, _):
-            confirm(row, names: LeoEnvironmentList(row.environments?.names ?? []).toggling(name).names, actions: actions, window: window)
-        case .reset:
-            confirm(row, names: [], actions: actions, window: window)
-        case .editOrder:
+        if case .editOrder = entry {
             guard let window else { return }
             LeoEnvironmentsSheetSession.present(row, actions: actions, on: window)
-        case .placeholder, .separator:
-            break
+            return
         }
+        guard let names = targetNames(for: entry, row: row) else { return }
+        confirm(row, names: names, actions: actions, window: window)
     }
 }
