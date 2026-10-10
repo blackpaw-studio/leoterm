@@ -379,12 +379,15 @@ struct LeoSidebarView: View {
             LeoDispatchRowView(
                 node: item.node,
                 click: { model.dispatchClicked(ref, modifierFlags: $0, clickCount: $1, from: windowID) },
-                disclosure: disclosure
+                disclosure: disclosure,
+                guides: item.guides,
+                parentLink: item.parent,
+                isSelected: LeoSidebarSelection.current(model: model, terminals: terminals) == .dispatch(ref)
             )
             .tag(Optional(LeoSidebarItemID.dispatch(ref)))
             .id(LeoSidebarItemID.dispatch(ref))
         } else {
-            LeoDispatchRowView(node: item.node, disclosure: disclosure)
+            LeoDispatchRowView(node: item.node, disclosure: disclosure, guides: item.guides, parentLink: item.parent)
         }
     }
 

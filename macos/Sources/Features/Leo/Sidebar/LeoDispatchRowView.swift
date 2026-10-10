@@ -1,49 +1,29 @@
 import AppKit
 import SwiftUI
 
-/// What a nested dispatch row shows (B-257): its name (else its role), and
-/// its status word as secondary text. Informational only: no badge, no
-/// motion, no selection -- only "needs you" earns attention (principle 2).
-struct LeoDispatchRowPresentation: Equatable {
-    /// Leading inset of a depth-0 child, inside its agent row.
-    static let baseIndent: CGFloat = 12
-    static let indentPerLevel: CGFloat = 12
-    /// Deeper levels share the last indent, so the name keeps its room.
-    static let maxIndentDepth = 4
-
-    let title: String
-    let statusText: String
-    let indent: CGFloat
-    let accessibilityLabel: String
-
-    init(_ node: LeoDispatchNode) {
-        let dispatch = node.dispatch
-        title = dispatch.name ?? dispatch.role ?? "Dispatch"
-        let status = Self.statusWord(dispatch.status)
-        statusText = dispatch.stalled ? "\(status) · Stalled" : status
-        indent = Self.baseIndent + CGFloat(min(node.depth, Self.maxIndentDepth)) * Self.indentPerLevel
-        accessibilityLabel = "\(title), \(node.depth == 0 ? "dispatch" : "nested dispatch"), \(statusText)"
-    }
-
-    /// "queued" → "Queued"; an unknown status still reads ("brand_new" →
-    /// "Brand new").
-    private static func statusWord(_ status: String) -> String {
-        let words = status.replacingOccurrences(of: "_", with: " ")
-        return words.prefix(1).uppercased() + words.dropFirst()
-    }
-}
-
 /// One live dispatch under its agent row: indented by depth, dimmed and
 /// inert with its agent rows when disconnected. Informational (no tag,
 /// never selected) unless the daemon can attach to it (B-266): then
 /// `click` is set, the list tags it, and a click opens it.
 struct LeoDispatchRowView: View {
+    /// Fixed so every dispatch row is the same height whatever its content.
+    static let rowHeight: CGFloat = 22
+    static let dotSize: CGFloat = 6
+    static let pulseDuration: Double = 0.9
+    static let pulseDimmedOpacity: Double = 0.35
+
     let node: LeoDispatchNode
     /// Set only for a selectable row: the click's modifiers and count.
     var click: ((NSEvent.ModifierFlags, Int) -> Void)?
     /// Set only when the dispatch has children: shows a disclosure control
     /// (outside the row's click area) that calls `toggle`.
     var disclosure: Disclosure?
+    /// The tree-guide flags per level (see `LeoDispatchGuides`).
+    var guides: [Bool] = []
+    /// What the guide reaches up to (see `LeoDispatchGuideGeometry`).
+    var parentLink: LeoDispatchParentLink = .sibling
+    /// Whether this row is the list's selection: its tinted parts go white.
+    var isSelected = false
 
     struct Disclosure {
         let isCollapsed: Bool
@@ -52,15 +32,48 @@ struct LeoDispatchRowView: View {
 
     var body: some View {
         let presentation = LeoDispatchRowPresentation(node)
-        HStack(spacing: 2) {
-            content(presentation)
-                .help(presentation.title)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(presentation.accessibilityLabel)
-                .modifier(Interaction(click: click, id: node.id))
-            if let disclosure { disclosureButton(disclosure) }
+        HStack(spacing: 0) {
+            let geometry = LeoDispatchGuideGeometry(rowHeight: Self.rowHeight, parent: parentLink)
+            LeoDispatchTreeGuide(
+                continuing: Array(guides.prefix(LeoDispatchRowPresentation.maxIndentDepth + 1)), geometry: geometry
+            )
+            .frame(width: presentation.indent)
+            // Bleeds past the row (never resizes it) so neighbouring lines meet.
+            .padding(.top, -geometry.topBleed)
+            .padding(.bottom, -geometry.bottomBleed)
+            HStack(spacing: 6) {
+                label(presentation)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(presentation.accessibilityLabel)
+                    .modifier(Interaction(click: click, id: node.id))
+                if let disclosure { disclosureButton(disclosure) }
+                trailingStatus
+                    .modifier(Interaction(click: click, id: node.id))
+            }
         }
-        .padding(.leading, presentation.indent)
+        .frame(height: Self.rowHeight)
+        .help(presentation.title)
+    }
+
+    private func label(_ presentation: LeoDispatchRowPresentation) -> some View {
+        HStack(spacing: 6) {
+            if let chip = presentation.roleChip { LeoRoleChipView(chip: chip, isSelected: isSelected) }
+            if presentation.showsTitle {
+                Text(presentation.title)
+                    .font(.callout)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .layoutPriority(1)
+            }
+            Spacer(minLength: 4)
+        }
+    }
+
+    /// Re-read once a minute, the resolution the text has.
+    private var trailingStatus: some View {
+        TimelineView(.everyMinute) { context in
+            LeoDispatchStatusView(status: LeoDispatchRowPresentation(node, now: context.date).status, isSelected: isSelected)
+        }
     }
 
     private func disclosureButton(_ disclosure: Disclosure) -> some View {
@@ -74,25 +87,6 @@ struct LeoDispatchRowView: View {
         .buttonStyle(.plain)
         .accessibilityLabel(disclosure.isCollapsed ? "Show nested dispatches" : "Hide nested dispatches")
         .leoSelectionDisabled()
-    }
-
-    private func content(_ presentation: LeoDispatchRowPresentation) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: "arrow.turn.down.right")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-            Text(presentation.title)
-                .font(.callout)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .layoutPriority(1)
-            Spacer(minLength: 4)
-            Text(presentation.statusText)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.tail)
-        }
     }
 
     /// A selectable row takes the same whole-row click catcher as an
