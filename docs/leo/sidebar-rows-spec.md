@@ -38,7 +38,7 @@ The order for resolving the state is the same as today (first match wins).
 same precedence as today. It aligns with the name, not with the symbol.
 
 **Row height** depends on state: one line or two. Within a state it is
-constant, so tool calls never make a row jump. The vertical padding is 5pt.
+constant, so tool calls never make a row jump. The vertical padding is 4pt, so a one-line row is 32pt and matches the list's estimated row height; at 5pt the list left a 2pt gap at the bottom after a terminal closed.
 
 **Accessibility:** colour is never the only cue, because every state has its
 own symbol shape. The VoiceOver label on the name keeps carrying the state and
