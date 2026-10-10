@@ -3230,3 +3230,59 @@ Chose: DEBUG fixture advertises dispatch_tree when it lists dispatches
 Why: D-396
 Commit: 88e7542ca, aad8fc01a, 925d739dc, 7568259cd, 78b1d8c62
 Veto: [ ]
+
+## D-450 · 2026-10-10 · Pane follows the row the window navigates to; panes are per …
+Context: B-274 (runner call).
+Chose: Pane follows the row the window navigates to; panes are per window
+Why: P6/P1
+Commit: 6088d65ac, d39e7be52, 1696c2884, 2424c1399, 110e9cc1a, 09556f8c2, 03be4a524, c802f0961, 6a52d680b
+Veto: [ ]
+
+## D-451 · 2026-10-10 · Pool eviction never closes a pane
+Context: B-274 (runner call).
+Chose: Pool eviction never closes a pane
+Why: P6
+Commit: 6088d65ac, d39e7be52, 1696c2884, 2424c1399, 110e9cc1a, 09556f8c2, 03be4a524, c802f0961, 6a52d680b
+Veto: [ ]
+
+## D-452 · 2026-10-10 · A stopped agent's action fills that agent's own pane, never …
+Context: B-274 (runner call).
+Chose: A stopped agent's action fills that agent's own pane, never the on-screen row's
+Why: P6
+Commit: 6088d65ac, d39e7be52, 1696c2884, 2424c1399, 110e9cc1a, 09556f8c2, 03be4a524, c802f0961, 6a52d680b
+Veto: [ ]
+
+## D-453 · 2026-10-10 · Destination window resolved before the pane is filled; a sho…
+Context: B-274 (runner call).
+Chose: Destination window resolved before the pane is filled; a show that didn't happen fills nothing
+Why: P6
+Commit: 6088d65ac, d39e7be52, 1696c2884, 2424c1399, 110e9cc1a, 09556f8c2, 03be4a524, c802f0961, 6a52d680b
+Veto: [ ]
+
+## D-454 · 2026-10-10 · Clean pane closes silently; dirty pane asks Save/Don't Save/…
+Context: B-274 (runner call).
+Chose: Clean pane closes silently; dirty pane asks Save/Don't Save/Cancel; closes that can't ask (exit, undo, drag) keep the dirty pane as an orphan
+Why: D-033
+Commit: 6088d65ac, d39e7be52, 1696c2884, 2424c1399, 110e9cc1a, 09556f8c2, 03be4a524, c802f0961, 6a52d680b
+Veto: [ ]
+
+## D-455 · 2026-10-10 · A shown shell exiting with unsaved edits leaves the start sc…
+Context: B-274 (runner call).
+Chose: A shown shell exiting with unsaved edits leaves the start screen holding the pane
+Why: D-140
+Commit: 6088d65ac, d39e7be52, 1696c2884, 2424c1399, 110e9cc1a, 09556f8c2, 03be4a524, c802f0961, 6a52d680b
+Veto: [ ]
+
+## D-456 · 2026-10-10 · Delete Agent asks about its dirty panes in every window
+Context: B-274 (runner call).
+Chose: Delete Agent asks about its dirty panes in every window
+Why: P2
+Commit: 6088d65ac, d39e7be52, 1696c2884, 2424c1399, 110e9cc1a, 09556f8c2, 03be4a524, c802f0961, 6a52d680b
+Veto: [ ]
+
+## D-457 · 2026-10-10 · Snapshot prune only on a connected, known-host list, never t…
+Context: B-274 (runner call).
+Chose: Snapshot prune only on a connected, known-host list, never the shown row
+Why: P5
+Commit: 6088d65ac, d39e7be52, 1696c2884, 2424c1399, 110e9cc1a, 09556f8c2, 03be4a524, c802f0961, 6a52d680b
+Veto: [ ]

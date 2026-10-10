@@ -84,7 +84,7 @@ Lane: B-274
   Branch: autopilot-lane/B-274
   Base: 34e35b0b11ffdd1df23fd42ad82148a9934ff996
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
@@ -102,6 +102,7 @@ Lane: B-274
 Finished 1: B-270 landed 28ade697f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-270-1.png
 Finished 2: B-271 landed 16b35ad0b · not visually verified
 Finished 3: B-275 landed e902d0ef1 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-275-6.png
+Finished 4: B-274 landed fab510f17 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-274-5.png
 
 ## Progress
 - Preflight: B-270 lane recovered (Wip: none, empty lane) as first pick; merged main into autopilot (8af0dcea0, sidebar pill rows); inbox → B-275.
@@ -110,3 +111,4 @@ Finished 3: B-275 landed e902d0ef1 · shot /Users/evan/.leo/agents/leoterm/.git/
 - B-271 landed 16b35ad0b (not visually verified). Verifier ran `peekaboo type` without a frontmost-app check; debug search field stayed empty, so the text may have gone to another app. Flagged for digest.
 - B-275 runner d-4d3e1d99e1b9 ended its turn to await its implementer and was idle-closed at 1h; implementer d-681b670617a2 finished 4 commits (report lost to the dead runner). Re-dispatched a fresh build runner from Integrate; briefs now require blocking leo_wait.
 - B-275 landed e902d0ef1 (1 fix round: group gap 8→16pt after the first verify failed contrast).
+- B-274 landed fab510f17 (1 fix round). Verify near-miss: stale-coordinate clicks selected real stopped agents whatshoveringoverme (a Start prompt appeared, cancelled) and widgeon; nothing started. Flag for digest.

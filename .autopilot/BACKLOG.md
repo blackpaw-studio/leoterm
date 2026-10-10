@@ -745,13 +745,14 @@ Source: Evan (/feature, 2026-10-09)
 Inbox: 20261010T015729666059Z-4957c43e#1
 Done: 88e7542ca aad8fc01a 925d739dc 7568259cd 78b1d8c62. Dispatch rows on a 24pt pitch; agent→first dispatch 16pt, last dispatch→next agent 34pt; names aligned per depth (x=109/121/133) via a fixed-width role-family chip column; guides continuous. Measured at native pixels on the debug app with an autopilot-scratch fixture; 2388 tests green. Not checked on screen: single-dispatch group, selected taller last-dispatch highlight, Terminals row pitch. Decisions D-446–D-449.
 
-## B-274 · Files pane and browser belong to the sidebar row   [ready]
+## B-274 · Files pane and browser belong to the sidebar row   [done]
 Issue: #266
 Why: P6 the sidebar is the navigation; each row is a self-contained workspace, so switching rows switches its files too. Prerequisite for "Surfaced files open automatically as editor tabs".
 Accept: open a file in agent A's row, switch to B, and B shows its own pane state, not A's file; switch back to A and the file is still open with scroll, selection and unsaved edits; each row's file browser is rooted at its agent's workspace and keeps its own folder expansion; closing or removing a row closes its pane, asking first if there are unsaved changes
 Out: persisting pane state across app relaunch; sharing one open file between rows
 Source: Evan (/feature, 2026-10-09)
 Inbox: 20261010T010641885678Z-74116747#1
+Done: 6088d65ac d39e7be52 1696c2884 2424c1399 110e9cc1a 09556f8c2 03be4a524 c802f0961 6a52d680b. Editor and browser panes are per row (per window): switching rows swaps the pane, switching back restores file, selection and unsaved edits; pool eviction never closes a pane; closing/deleting a row asks about dirty panes. 2411 tests green; general review full + fix delta clean. Not visually verified: Agents ▸ Browse Agent Files menu path, per-row browser roots across two agents, scroll position, row-exit and Delete Agent prompts (tests only). Decisions D-450–D-457.
 
 ## B-273 · Surfaced files open automatically as editor tabs   [ready]
 Issue: #267
