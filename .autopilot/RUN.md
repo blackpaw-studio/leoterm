@@ -50,12 +50,20 @@ Lane: B-279
   Branch: autopilot-lane/B-279
   Base: 2cf579fa49d3ea30ffa24ae7d9c5d0bcce64a6f9
   Tier: full
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 1fc3eeac7eeb9f11b0757b83c244f39d9567edd8
   Dispatched: 2026-10-10T17:52:15Z
+  Call: Name clash keeps both files, Finder-style "a 2.txt" (up to 100 tries), and never overwrites — P1, P2
+  Call: Local backend also uses file promises, same path as SFTP — P3
+  Call: Downloaded files get mode 0644 on both backends — P3
+  Call: In-flight indicator is the existing header spinner; errors go in the existing footer, cleared only by Dismiss; no auto-retry on a lost connection — P2, P5
+  Call: Outline view gains multiple selection (⇧/⌘-click, ⇧↑↓); Return opens only the focused row — P1
+  Call: Footer shows upload, download and open errors together, one per line; isRootUploadProgressVisible renamed isHeaderProgressVisible — implementation approach
+  Call: A promise that outlives a re-root is refused with .workspaceChanged and the footer says so — P2
+  Call: Accepted risks: no quarantine xattr on remote downloads; a file being written during the download can arrive torn; a numbered name over 255 bytes fails plainly; Finder may add its own alert — P2
 
 Finished 1: B-232 landed e2fd6c40a · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-232-1.png
 
@@ -67,3 +75,4 @@ Finished 1: B-232 landed e2fd6c40a · shot /Users/evan/.leo/agents/leoterm/.git/
 - B-279 runner dispatched: d-b3464360863a.
 - Evan (14:51 EDT): run must end by 18:30 EDT; then merge autopilot to main and cut a release (approved). Budget deadline moved to 22:30Z; no new lane after ~17:00 EDT unless it can finish by 18:30.
 - Evan (14:55 EDT): build named environments (B-283) this run, next after B-279. End of run: merge autopilot to main, NO release (Evan will update Leo manually first).
+- B-279 runner reported ready (1 fix round). Runner left a stray headless explore d-8a9c4160c622 (cancel timed out). Verifier left fixtures in autopilot-scratch b279v/ b279v2/.
