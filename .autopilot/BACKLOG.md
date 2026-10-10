@@ -735,6 +735,7 @@ Source: Evan (/issue, 2026-10-08)
 Inbox: 20261008T225539342143Z-d97ea80f#1
 
 ## B-275 · Tighten sidebar row spacing and grouping   [ready]
+Issue: #269
 Why: P1 Mac-native polish; since leo-v0.11.0 the List's default row insets put 22pt dispatch rows about 32pt apart, the same rhythm as agent rows, so an agent's dispatch tree doesn't read as one group and the sidebar looks loose
 Accept: dispatch rows sit no more than 24pt apart; an agent and its dispatches read as one block (agent to first dispatch and dispatch to dispatch gaps clearly smaller than last dispatch to next agent); dispatch names line up in one column per depth, so a long chip like "implement.hard" no longer pushes its name right (fixed-width chip or shortened role is fine); agent rows keep their current height and the tree guides still connect at the new spacing; verified by a native-pixel screenshot of a real sidebar with nested dispatches
 Out: colour changes; any change to the pill or the content of line 2
