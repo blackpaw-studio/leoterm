@@ -386,6 +386,18 @@ struct LeoSidebarView: View {
             )
             .tag(Optional(LeoSidebarItemID.dispatch(ref)))
             .id(LeoSidebarItemID.dispatch(ref))
+        } else if model.isDispatchClickable(item.node.dispatch) {
+            // Viewed in its caller's own tmux session (B-271): a click
+            // brings that window forward and goes to the caller; untagged,
+            // so never selected.
+            LeoDispatchRowView(
+                node: item.node,
+                click: { model.dispatchClicked(ref, modifierFlags: $0, clickCount: $1, from: windowID) },
+                isSelectable: false,
+                disclosure: disclosure,
+                guides: item.guides,
+                parentLink: item.parent
+            )
         } else {
             LeoDispatchRowView(node: item.node, disclosure: disclosure, guides: item.guides, parentLink: item.parent)
         }

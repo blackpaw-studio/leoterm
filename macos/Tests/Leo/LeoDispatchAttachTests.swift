@@ -19,6 +19,16 @@ struct LeoDispatchAttachDecodingTests {
         #expect(try !decode(#"{"id":"d1","status":"running","attachable":"yes"}"#).attachable, "a wrong type degrades, not drops")
     }
 
+    @Test func decodesTheReportedTmuxTarget() throws {
+        #expect(try decode(#"{"id":"d1","status":"running","tmux_target":"%1509"}"#).tmuxTarget == "%1509")
+        #expect(try decode(#"{"id":"d1","status":"running"}"#).tmuxTarget == nil, "headless or an older daemon")
+        for bad in [#""""#, #""1509""#, #""%1;x""#, #""%""#, #""%-1""#, #""leo:2""#, "1509"] {
+            let dispatch = try decode(#"{"id":"d1","status":"running","name":"n","tmux_target":"# + bad + "}")
+            #expect(dispatch.tmuxTarget == nil, "\(bad) is not a pane id")
+            #expect(dispatch.name == "n", "the rest still decodes")
+        }
+    }
+
     @Test func theFeatureIsKnownByName() {
         #expect(LeoDaemonFeatures(["dispatch_attach"]).contains(.dispatchAttach))
         #expect(!LeoDaemonFeatures(["dispatch_tree"]).contains(.dispatchAttach))
@@ -263,8 +273,8 @@ struct AttachExitReportTests {
 @MainActor struct LeoDispatchSelectionTests {
     private let alpha = LeoAgentRow(host: .local, name: "alpha", template: nil, status: .running, activity: .idle, actionDetail: nil)
 
-    private func dispatch(_ id: String, attachable: Bool) -> LeoDispatch {
-        LeoDispatch(id: id, name: "n-\(id)", status: "running", callerAgent: "alpha", attachable: attachable)
+    private func dispatch(_ id: String, attachable: Bool, tmuxTarget: String? = nil, status: String = "running") -> LeoDispatch {
+        LeoDispatch(id: id, name: "n-\(id)", status: status, callerAgent: "alpha", attachable: attachable, tmuxTarget: tmuxTarget)
     }
 
     private func snapshot(
@@ -342,8 +352,89 @@ struct AttachExitReportTests {
         let model = model(snapshot([dispatch("d1", attachable: false)]))
         var opens = 0
         model.dispatchAttachRequested = { _, _, _ in opens += 1 }
+        model.dispatchPaneFocusRequested = { _, _, _ in opens += 1 }
+        model.attachRequested = { _, _, _ in opens += 1 }
         model.dispatchClicked(ref("d1"), from: LeoWindowID())
         #expect(opens == 0)
+        #expect(!model.isDispatchClickable(dispatch("d1", attachable: false)))
+    }
+
+    /// B-270's background placement: an attachable dispatch attaches as
+    /// before, even though the daemon reports its pane too.
+    @Test func anAttachableDispatchStillAttachesRatherThanFocusingAPane() {
+        let model = model(snapshot([dispatch("d1", attachable: true, tmuxTarget: "%7")]))
+        var attaches: [String?] = []
+        var focuses = 0
+        model.dispatchAttachRequested = { identity, _, _ in attaches.append(identity.dispatchID) }
+        model.dispatchPaneFocusRequested = { _, _, _ in focuses += 1 }
+        model.dispatchClicked(ref("d1"), from: LeoWindowID())
+        #expect(attaches == ["d1"])
+        #expect(focuses == 0)
+        #expect(model.selectedDispatch == ref("d1"))
+    }
+
+    @Test func paneFocusNeedsAConnectedDispatchAttachDaemonALiveRunAndAPane() {
+        let viewed = dispatch("d1", attachable: false, tmuxTarget: "%7")
+        let cases: [(String, LeoSidebarSnapshot)] = [
+            ("disconnected", snapshot([viewed], connectivity: .disconnected(reason: "gone", isRetrying: false))),
+            ("no dispatch_attach", snapshot([viewed], features: ["dispatch_tree"])),
+            ("ended", snapshot([dispatch("d1", attachable: false, tmuxTarget: "%7", status: "done")])),
+            ("headless", snapshot([dispatch("d1", attachable: false)])),
+        ]
+        for (label, snapshot) in cases {
+            let model = model(snapshot)
+            var requests = 0
+            model.dispatchPaneFocusRequested = { _, _, _ in requests += 1 }
+            model.attachRequested = { _, _, _ in requests += 1 }
+            model.dispatchClicked(ref("d1"), from: LeoWindowID())
+            #expect(requests == 0, "\(label)")
+            let node = snapshot.dispatchChildren["alpha"]?.first?.dispatch
+            #expect(node.map(model.isDispatchClickable) == false, "\(label)")
+        }
+    }
+
+    /// B-271: a viewer the daemon left in its caller's own tmux session is
+    /// not attachable, but a click still goes somewhere: it brings that
+    /// pane's window forward and shows the parent agent.
+    @Test func aClickOnADispatchViewedInItsCallersSessionFocusesThatWindow() {
+        let model = model(snapshot([dispatch("d1", attachable: false, tmuxTarget: "%7")]))
+        var focuses: [(LeoHostID, String, LeoAgentRow.ID)] = []
+        var attaches: [(LeoAgentRow.ID, AttachDisposition)] = []
+        model.dispatchPaneFocusRequested = { focuses.append(($0, $1, $2)) }
+        model.attachRequested = { row, _, disposition in attaches.append((row.id, disposition)) }
+
+        model.dispatchClicked(ref("d1"), from: LeoWindowID())
+
+        #expect(focuses.map(\.0) == [.local])
+        #expect(focuses.map(\.1) == ["%7"])
+        #expect(focuses.map(\.2) == [alpha.id])
+        #expect(attaches.map(\.0) == [alpha.id])
+        #expect(attaches.map(\.1) == [.content])
+        #expect(model.selection == alpha.id)
+        #expect(model.selectedDispatch == nil)
+    }
+
+    @Test func aCommandClickOnSuchADispatchOpensItsAgentInANewWindow() {
+        let model = model(snapshot([dispatch("d1", attachable: false, tmuxTarget: "%7")]))
+        var focuses: [String] = []
+        var dispositions: [AttachDisposition] = []
+        model.dispatchPaneFocusRequested = { _, pane, _ in focuses.append(pane) }
+        model.attachRequested = { _, _, disposition in dispositions.append(disposition) }
+
+        model.dispatchClicked(ref("d1"), modifierFlags: .command, from: LeoWindowID())
+
+        #expect(focuses == ["%7"])
+        #expect(dispositions == [.newWindow])
+    }
+
+    @Test func aDispatchViewedInItsCallersSessionIsClickableButNotSelectable() {
+        let viewed = dispatch("d1", attachable: false, tmuxTarget: "%7")
+        let model = model(snapshot([viewed]))
+        #expect(model.isDispatchClickable(viewed))
+        #expect(!model.isDispatchSelectable(viewed))
+        let terminals = LeoWindowTerminals()
+        LeoSidebarSelection.select(.dispatch(ref("d1")), model: model, terminals: terminals)
+        #expect(model.selectedDispatch == nil)
     }
 
     @Test func whenTheDispatchEndsSelectionFallsBackToItsAgent() {
