@@ -199,9 +199,14 @@ private final class LeoSFTPProcessMonitor: @unchecked Sendable {
         if !detail.isEmpty {
             Self.logger.log("sftp stderr: \(detail, privacy: .private)")
         }
+        // A mux client never receives the rejection line: the ControlMaster
+        // logs it and closes the session, so the client exits 255 with no
+        // stderr at all. Every other mux failure (master gone, refused
+        // session) explains itself on stderr.
         let isSubsystemRejection = result.outcome.reason == .exit
             && result.outcome.status == 255
-            && LeoSFTPSubsystemRejection.isCanonical(in: result.data, isTruncated: result.isTruncated)
+            && (result.data.isEmpty
+                || LeoSFTPSubsystemRejection.isCanonical(in: result.data, isTruncated: result.isTruncated))
         return Observation(
             status: result.outcome.status,
             reason: result.outcome.reason,
