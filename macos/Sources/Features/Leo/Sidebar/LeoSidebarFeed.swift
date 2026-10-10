@@ -110,6 +110,8 @@ actor LeoSidebarFeed {
     var turnPreviews = LeoTurnPreviews.empty
     /// Agents compacting now (B-261) -- see `LeoSidebarFeed+Compaction.swift`.
     var compactions = LeoCompactions.empty
+    /// Effective environment names (B-283) -- see `LeoSidebarFeed+Environments.swift`.
+    var environments = LeoAgentEnvironmentsIndex.empty
     var running = false
     var needsState = true
     var recovering = false
@@ -307,8 +309,9 @@ actor LeoSidebarFeed {
             prepareRecovery()
             process(scheduler.reduce(.sseEvent(event)))
         case .agentSpawned, .agentStateChanged, .agentStopped:
-            if case .agentSpawned(_, _, let agent, _) = event { forgetTurn(agent.name); endCompaction(agent.name) }
+            if case .agentSpawned(_, _, let agent, _, _) = event { forgetTurn(agent.name); endCompaction(agent.name) }
             if case .agentStopped(_, _, let name, _) = event { forgetTurn(name); endCompaction(name) }
+            receiveEnvironments(event)
             process(scheduler.reduce(.sseEvent(event)))
             requestMetadataRefresh()
         case .agentActivity:
