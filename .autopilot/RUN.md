@@ -26,6 +26,16 @@ Lane: B-143
   Reviewed-tip: none
   Dispatched: 2026-10-06T23:01:21Z
 
+Lane: B-232
+  Branch: autopilot-lane/B-232
+  Base: a45efac49a794674b45c44152143b245338df282
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 ## Progress
 - Preflight: merged main into autopilot (fast-forward to 0b83ccd7c); applied 2 inbox entries (B-278, B-279 added; B-232 answered → ready, D-474).
 - Lane autopilot-lane/B-233 still unlanded with no block (item done); left in place.
