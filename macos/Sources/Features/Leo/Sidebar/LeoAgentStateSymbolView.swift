@@ -27,6 +27,7 @@ struct LeoAgentStateSymbolView: View {
 
     /// A zero-length animation is what ends a repeating one.
     private func setRotating(_ rotating: Bool) {
+        guard rotating || angle != 0 else { return }
         let animation: Animation = rotating
             ? .linear(duration: Self.rotationDuration).repeatForever(autoreverses: false)
             : .linear(duration: 0)
