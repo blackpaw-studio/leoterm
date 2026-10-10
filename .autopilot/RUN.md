@@ -1,7 +1,7 @@
 Status: running
 Started: 2026-10-10T02:01:17Z
 Budget: 20 items, until 2026-10-10T14:01:17Z
-Digested-through: 0
+Digested-through: 5
 Filed: 0/3 bugs, 1/5 ideas
 Self-filed: B-274 → B-276 idea — Terminals section needs a manual scroll on a long sidebar
 Self-filed: B-273 → dropped (dup of B-244) — sidebar vanishes at the default 800px width when the editor pane opens
