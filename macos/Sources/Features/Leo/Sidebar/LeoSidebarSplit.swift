@@ -221,11 +221,9 @@ struct LeoSidebarSplit<Terminal: View>: View {
                 shortcutHints: shortcutHints, buttonActions: buttonActions
             ).ignoresSafeArea(.container, edges: titlebarIgnoredEdges),
             detail: terminal,
-            editor: session.editor,
-            browser: session.browser,
             sidePaneHeaderTopInset: LeoTitlebarInsets.sidePaneHeaderTopInset(splitIgnoring: titlebarIgnoredEdges),
-            onEditorPane: { session.editorPane = $0 },
-            onBrowserPane: { session.browserPane = $0 },
+            panes: session.panes,
+            onPaneContainer: { session.adopt($0) },
             // Not `setSidebarVisible`: an automatic collapse isn't the
             // user's preference for new windows.
             onSidebarAutoCollapse: { session.isSidebarVisible = false },

@@ -81,8 +81,8 @@ private struct SidePaneHeaders: CustomStringConvertible {
     static func measure(in fixture: StyledWindowFixture, size: CGSize) async throws -> SidePaneHeaders {
         fixture.window.setContentSize(size)
         let items = fixture.split.splitViewItems
-        let browserItem = try #require(items.first { $0.viewController is LeoWorkspaceBrowserViewController }, "no browser item")
-        let editorItem = try #require(items.first { $0.viewController is LeoEditorPaneViewController }, "no editor item")
+        let browserItem = try #require(items.first { $0.leoPaneRole == .browser }, "no browser item")
+        let editorItem = try #require(items.first { $0.leoPaneRole == .editor }, "no editor item")
         browserItem.isCollapsed = false
         editorItem.isCollapsed = false
         for _ in 0 ..< 5 {
@@ -92,7 +92,8 @@ private struct SidePaneHeaders: CustomStringConvertible {
         try #require(!browserItem.isCollapsed && !editorItem.isCollapsed, "a pane collapsed again")
 
         let browserClose = try #require(firstButton(in: browserItem.viewController.view, toolTip: "Close Files"), "no browser close button")
-        let editorView = editorItem.viewController.view
+        // The editor item holds the pane of the row on screen (B-274).
+        let editorView = try #require(editorItem.viewController.view.subviews.first, "no editor pane")
         let editorRow = try #require(editorView.subviews.first { $0 is LeoEditorHeaderView }, "no editor header")
         let editorClose = try #require(firstButton(in: editorRow, toolTip: "Close Editor (⌘W)"), "no editor close button")
         return SidePaneHeaders(

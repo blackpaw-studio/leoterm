@@ -86,6 +86,15 @@ enum LeoRowKey: Hashable, Sendable {
         insert(startScreen, for: .startScreen)
     }
 
+    /// One pane standing in for a window's (a split built around a given
+    /// editor and browser): it keeps its own prompt.
+    init(startScreen pane: LeoRowPane) {
+        makeAccess = LeoWindowSession.noFileAccess
+        confirm = { _, _ in .cancel }
+        active = pane
+        insert(pane, for: .startScreen, installingPrompt: false)
+    }
+
     /// Every pane, the one on screen first, then the rest as made, then
     /// those whose rows went.
     var all: [LeoRowPane] {
@@ -176,9 +185,10 @@ enum LeoRowKey: Hashable, Sendable {
 
     // MARK: - Helpers
 
-    private func insert(_ pane: LeoRowPane, for key: LeoRowKey) {
+    private func insert(_ pane: LeoRowPane, for key: LeoRowKey, installingPrompt: Bool = true) {
         panes[key] = pane
         order.append(key)
+        guard installingPrompt else { return }
         pane.editor.confirmUnsaved = { [weak self, weak pane] document in
             guard let self else { return .cancel }
             let isOnScreen = pane === active

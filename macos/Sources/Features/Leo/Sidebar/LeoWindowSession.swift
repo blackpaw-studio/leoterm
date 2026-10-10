@@ -60,11 +60,21 @@ struct LeoWindowVisibilityState: Equatable {
     /// The editor pane on screen (B-004), beside the terminal.
     var editor: LeoEditorPaneModel { panes.active.editor }
     /// Its view, once the window's split view has built it (focus moves).
-    weak var editorPane: LeoEditorPaneViewController?
+    var editorPane: LeoEditorPaneViewController? { editorContainer?.activeChild as? LeoEditorPaneViewController }
     /// The workspace browser on screen (B-005), on the editor's leading
     /// edge; it opens files in its own row's editor.
     var browser: LeoWorkspaceBrowserModel { panes.active.browser }
-    weak var browserPane: LeoWorkspaceBrowserViewController?
+    var browserPane: LeoWorkspaceBrowserViewController? { browserContainer?.activeChild as? LeoWorkspaceBrowserViewController }
+    /// The split items holding them, once the window's split view is built.
+    weak var editorContainer: LeoRowPaneContainerViewController?
+    weak var browserContainer: LeoRowPaneContainerViewController?
+
+    func adopt(_ container: LeoRowPaneContainerViewController) {
+        switch container.role {
+        case .editor: editorContainer = container
+        case .browser: browserContainer = container
+        }
+    }
     /// The window's plain shells, its sidebar's Terminals section (B-057).
     let terminals = LeoWindowTerminals()
 
@@ -83,7 +93,7 @@ struct LeoWindowVisibilityState: Equatable {
 
     /// The window's split, found through the panes it built.
     private var split: LeoSplitViewController? {
-        (browserPane?.parent ?? editorPane?.parent) as? LeoSplitViewController
+        (browserContainer?.parent ?? editorContainer?.parent) as? LeoSplitViewController
     }
 
     private let defaults: UserDefaults

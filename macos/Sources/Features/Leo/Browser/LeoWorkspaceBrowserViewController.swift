@@ -313,6 +313,16 @@ final class LeoWorkspaceBrowserViewController: NSViewController {
     }
 }
 
+extension LeoWorkspaceBrowserViewController: LeoRowPaneChild {
+    var isPaneOpen: Bool { model.isOpen }
+
+    /// Back on screen (B-274): listed again, as becoming key does.
+    func onShown() {
+        guard model.isOpen else { return }
+        Task { await model.reload() }
+    }
+}
+
 // MARK: - NSOutlineViewDataSource, NSOutlineViewDelegate
 
 extension LeoWorkspaceBrowserViewController: NSOutlineViewDataSource, NSOutlineViewDelegate {
