@@ -693,6 +693,14 @@ import OSLog
         return controller.surfaceTree.contains(surface)
     }
 
+    func shownHandle(in window: LeoWindowID) -> AttachmentHandle? {
+        guard let controller = registry.controller(for: window) else { return nil }
+        let shown = controller.surfaceTree.compactMap { surface in
+            attachments.first { $0.key.windowID == window && $0.value.surface === surface }
+        }
+        return (shown.first { $0.value.isTerminalRow } ?? shown.first)?.key
+    }
+
     /// `handle`'s terminal row shell, shown or hidden, and its window's
     /// controller; `nil` for an agent or anything gone (B-177).
     func terminalRowSurface(_ handle: AttachmentHandle) -> (TerminalController, Ghostty.SurfaceView)? {

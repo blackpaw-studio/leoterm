@@ -322,6 +322,10 @@ import OSLog
         // belongs to, drives which connection the feed and agent actions
         // are bound to.
         weakSelf = self
+        // B-274: a window's editor and browser follow the row it shows.
+        attachCoordinator.onRowShown = { [weak registry] windowID, key in
+            registry?.session(for: windowID)?.panes.activate(key)
+        }
         surfacedFileOpener = LeoSurfacedFileOpener { [weak model] file, host in model?.markSurfacedFileSeen(file, host: host) }
 
         // One immediate liveness check per wake, never repeated: a tunnel

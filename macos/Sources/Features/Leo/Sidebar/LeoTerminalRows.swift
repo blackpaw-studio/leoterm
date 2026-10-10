@@ -101,6 +101,10 @@ struct LeoTerminalList: Equatable, Sendable {
     /// The terminal's own title under any name given to the row (what
     /// Rename… restores when left blank).
     var liveTitle: (UUID) -> String? = { _ in nil }
+    /// B-274: a row went (its shell closed), or carried on as another
+    /// shell (B-082); its editor and browser pane go, or go along.
+    var rowRemoved: (UUID) -> Void = { _ in }
+    var rowReplaced: (_ old: UUID, _ new: UUID) -> Void = { _, _ in }
 
     var rows: [LeoTerminalRow] { list.rows }
 
@@ -120,12 +124,15 @@ struct LeoTerminalList: Equatable, Sendable {
         guard contains(id) else { return }
         update(list.replacing(id, with: LeoTerminalRow(id: newID, title: title)))
         if selection == id { selection = newID }
+        rowReplaced(id, newID)
     }
 
     /// The row is gone (its shell closed); so is its selection.
     func remove(_ id: UUID) {
+        guard contains(id) else { return }
         update(list.removing(id))
         if selection == id { selection = nil }
+        rowRemoved(id)
     }
 
     /// Selects a row this window holds, or none.

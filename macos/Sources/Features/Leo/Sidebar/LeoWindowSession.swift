@@ -122,6 +122,8 @@ struct LeoWindowVisibilityState: Equatable {
         // choice (the key is present, either true or false) always wins.
         isSidebarVisible = defaults.object(forKey: "leo.sidebarVisible") as? Bool ?? false
         preferredWidth = (defaults.object(forKey: Self.sidebarWidthKey) as? NSNumber).map { CGFloat($0.doubleValue) } ?? 260
+        terminals.rowRemoved = { [weak panes] id in panes?.rowRemoved(.terminal(id)) }
+        terminals.rowReplaced = { [weak panes] old, new in panes?.rekey(.terminal(old), to: .terminal(new)) }
         panes.rowName = { [weak terminals] key in
             switch key {
             case .agent(_, let name, _): name
@@ -247,6 +249,8 @@ struct LeoWindowVisibilityState: Equatable {
     }
 
     func controller(for id: LeoWindowID) -> TerminalController? { entries[id]?.controller }
+
+    func session(for id: LeoWindowID) -> LeoWindowSession? { entries[id]?.session }
 
     var sessions: [LeoWindowSession] { entries.values.compactMap(\.session) }
 

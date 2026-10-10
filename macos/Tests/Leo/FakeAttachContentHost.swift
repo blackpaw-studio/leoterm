@@ -89,6 +89,8 @@ struct FakeOpenCall {
 
     func isShown(_ handle: AttachmentHandle) -> Bool { openHandles.contains(handle) && !isHidden(handle) }
 
+    func shownHandle(in window: LeoWindowID) -> AttachmentHandle? { shownInContent[window] }
+
     /// Makes `reveal` answer `false`, as the real host does when it let
     /// the hidden surface go meanwhile.
     var refusesReveal = false
