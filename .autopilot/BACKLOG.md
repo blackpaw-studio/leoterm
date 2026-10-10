@@ -794,6 +794,7 @@ Source: autopilot polish (B-098)
 Done: e8703c447 c3bfaf7de. Clarified the environ_initialized comment in src/global.zig and the startup-probe timing comment in main.swift.
 
 ## B-279 · Drag files out of the workspace browser to Finder   [ready]
+Issue: #270
 Why: Copy an agent's files to the Mac by dragging them out of the browser, locally and over SFTP — P4 Everything through Leo, P3 Local = remote. Companion to B-232 (drop-in).
 Accept: dragging one or more files from the workspace browser to Finder/Desktop copies them there via both local and SFTP backends (tested, using file promises so remote files download on drop); a name clash at the destination never silently overwrites; a failed or lost-connection download is shown plainly and leaves no partial file (tested); screenshot of a drag-out from the isolated debug build
 Out: folder/recursive drags; dragging from the editor pane or terminal; progress UI beyond a simple in-flight indicator; drag between two agents' browsers
@@ -801,6 +802,7 @@ Source: Evan (/feature, 2026-10-10)
 Inbox: 20261010T162941688152Z-3972108f#2
 
 ## B-278 · File pane previews images, GIFs, video, Markdown and PDFs   [ready]
+Issue: #271
 Why: Surfaced or browsed media and docs render properly in the pane instead of as text or an error — P4 Everything through Leo, P3 Local = remote. Markdown renders natively (AttributedString + custom block layout); a sandboxed, non-networked WKWebView is allowed only as a logged fallback if native can't do tables/code blocks (P1).
 Accept: PNG/JPEG/HEIC/WebP/SVG render fit-to-pane with zoom to actual size and animated GIFs animate, local and over SFTP (tested); MP4/MOV/M4V play with native AVKit controls local and over SFTP (remote fetched to a temp cache first); Markdown opens rendered with a Rendered/Raw toggle (shortcut + menu item), Raw is the existing editable text view and edits show when switching back; PDFs and unknown binaries get a Quick Look preview or a plain "Can't preview <type>" state with Reveal/Download, never garbled text — screenshot of each from the isolated debug build
 Out: Image/video editing; a Markdown editor beyond today's raw text editor (no WYSIWYG or live side-by-side preview); audio; Office docs beyond Quick Look; streaming video over SFTP without downloading it first; raising the 20 MB text cap
