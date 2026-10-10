@@ -84,20 +84,19 @@ extension LeoRuntime {
         }
     }
 
-    /// B-274: the pane a request about `row` acts on in `session`: the
-    /// row's own while it's running (it is then shown, `showRow`), else --
-    /// a stopped agent can't be shown without asking to start it -- the
-    /// pane on screen.
-    func pane(for row: LeoAgentRow, in session: LeoWindowSession) -> LeoRowPane {
-        row.status == .running ? session.panes.pane(for: .agent(row.identity)) : session.panes.active
-    }
-
-    /// B-274: shows `row` in `session`'s window, as a click on it does,
-    /// once its pane has what was asked for. Nothing for a stopped agent
-    /// (see `pane(for:in:)`).
-    func showRow(_ row: LeoAgentRow, in session: LeoWindowSession) async {
-        guard row.status == .running else { return }
-        await attachCoordinator.attach(identity: row.identity, from: session.id, disposition: .content)
+    /// B-274: where Browse Files and Open Surfaced File on an agent row
+    /// land (see `LeoRowPaneRouter`): shown as a click shows it, then in
+    /// the pane of the window showing it.
+    var rowPaneRouter: LeoRowPaneRouter {
+        LeoRowPaneRouter(
+            show: { [weak self] identity, origin in
+                guard let self else { return nil }
+                let request = LeoSurfaceRequest(origin: origin, disposition: .content)
+                guard case .success(let handle) = await attachCoordinator.attach(identity: identity, request: request) else { return nil }
+                return handle.windowID
+            },
+            session: { [weak self] in self?.registry.session(for: $0) }
+        )
     }
 
     /// The daemon's current row for the agent (its workspace may have been

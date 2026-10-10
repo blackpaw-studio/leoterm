@@ -18,18 +18,18 @@ extension TerminalController {
         }
     }
 
-    /// The sidebar row's Browse Files (B-274): roots that row's own browser
-    /// at its workspace, shows the row, and focuses the browser.
+    /// The sidebar row's Browse Files (B-274): shows the row, then roots
+    /// its own browser -- in the window showing it -- at its workspace and
+    /// focuses it (`LeoRowPaneRouter`).
     func browseLeoFiles(forRow row: LeoAgentRow) {
-        guard let leoSession, let runtime = leoRuntime else { return }
+        guard let leoSession, let router = leoRuntime?.rowPaneRouter else { return }
         let agent = LeoEditorAgentContext(host: row.host, name: row.name, workspace: row.workspace)
-        let pane = runtime.pane(for: row, in: leoSession)
         Task {
+            guard let (destination, pane) = await router.pane(for: row, from: leoSession) else { return }
             await pane.browser.open(agent)
-            await runtime.showRow(row, in: leoSession)
-            guard leoSession.panes.active === pane else { return }
-            leoSession.browserPane?.sync()
-            leoSession.browserPane?.focusList()
+            guard destination.panes.active === pane else { return }
+            destination.browserPane?.sync()
+            destination.browserPane?.focusList()
         }
     }
 
