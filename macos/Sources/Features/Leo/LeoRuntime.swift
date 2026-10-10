@@ -233,7 +233,8 @@ import OSLog
         // Both call `router.invalidate`/`pickerRouter.unregister`/
         // `attachCoordinator.windowClosed`, which are idempotent, so running
         // it twice for the same window is harmless.
-        registry.onUnregistered = { [weak router, weak pickerRouter, weak attachCoordinator] windowID in
+        registry.onUnregistered = { [weak router, weak pickerRouter, weak attachCoordinator, weak requestConfigStore] windowID in
+            requestConfigStore?.releaseStartScreen(windowID)
             router?.invalidate(origin: windowID)
             pickerRouter?.unregister(origin: windowID)
             attachCoordinator?.windowClosed(windowID)
@@ -516,9 +517,17 @@ import OSLog
     /// `registry.onUnregistered` (fallback reconciliation), which may both
     /// fire for the same window.
     private func teardownWindow(_ windowID: LeoWindowID) {
+        requestConfigStore.releaseStartScreen(windowID)
         newSurfaceRouter.invalidate(origin: windowID)
         picker.unregister(origin: windowID)
         attachCoordinator.windowClosed(windowID)
+    }
+
+    /// B-145: `window` opened as a bare start screen, with no palette to
+    /// carry `config` (whatever ⌘N inherited) to the first surface that
+    /// fills it -- see `LeoRequestConfigStore.hold(_:forStartScreen:)`.
+    func holdStartScreenConfig(_ config: Ghostty.SurfaceConfiguration?, for window: LeoWindowID) {
+        requestConfigStore.hold(config, forStartScreen: window)
     }
 
     /// Begins a new-surface gesture (Cmd+T, Cmd+D, Cmd+N, launch, or the

@@ -1649,8 +1649,10 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 
     @IBAction func newWindow(_ sender: Any?) {
         // MARK: Leo
-        if let leoSession, surfaceTree.isEmpty {
-            (NSApp.delegate as? AppDelegate)?.leoRuntime.routeNewSurface(.placeholder, origin: leoSession.id)
+        // The start screen asks for a window of its own: the bare start
+        // screen, not the palette (B-145).
+        if leoSession != nil, surfaceTree.isEmpty {
+            (NSApp.delegate as? AppDelegate)?.leoOpenStartScreenWindow()
             return
         }
         guard let surface = focusedSurface?.surface else { return }

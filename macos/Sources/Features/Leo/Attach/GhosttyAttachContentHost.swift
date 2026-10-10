@@ -533,7 +533,12 @@ import OSLog
         do {
             guard let controller = registry.controller(for: origin) else { throw GhosttyAttachContentHostError.originWindowClosed }
             if surfaceID == nil { guard controller.surfaceTree.isEmpty else { throw GhosttyAttachContentHostError.placeholderNotEmpty } }
-            let newView = try makeSurface(in: controller, command: command, workingDirectory: workingDirectory, requestID: requestID)
+            // B-145: the empty start screen's first surface takes what it
+            // held, if its request brought nothing of its own.
+            let newView = try makeSurface(in: controller, configuration: configuration(
+                command: command, workingDirectory: workingDirectory, requestID: requestID,
+                fillingStartScreenOf: surfaceID == nil ? origin : nil
+            ))
 
             if let surfaceID {
                 guard let oldView = controller.surfaceTree.first(where: { $0.id == surfaceID }) else {
@@ -570,6 +575,7 @@ import OSLog
             // window guard doesn't fire here (this transition is empty -> non-empty).
             let isFirstContent = !controller.leoHasShownContent
             controller.surfaceTree = SplitTree(view: newView)
+            requestConfigStore.releaseStartScreen(origin)
             controller.focusedSurface = newView
             controller.focusSurface(newView)
             if isFirstContent {
@@ -750,8 +756,13 @@ import OSLog
     /// (or a fresh default if there wasn't one) is used as-is -- clearing
     /// its `workingDirectory`/`environmentVariables` unconditionally would
     /// have silently dropped the very thing this is meant to preserve.
-    private func configuration(command: String, workingDirectory: String?, requestID: UUID) -> Ghostty.SurfaceConfiguration {
-        attachConfiguration(requestConfigStore.consume(for: requestID) ?? Ghostty.SurfaceConfiguration(), command: command, workingDirectory: workingDirectory)
+    /// A surface filling `startScreen`'s empty start screen falls back to
+    /// what it holds (B-145).
+    private func configuration(
+        command: String, workingDirectory: String?, requestID: UUID, fillingStartScreenOf startScreen: LeoWindowID? = nil
+    ) -> Ghostty.SurfaceConfiguration {
+        let inherited = requestConfigStore.consume(for: requestID) ?? startScreen.flatMap(requestConfigStore.heldConfig(forStartScreen:))
+        return attachConfiguration(inherited ?? Ghostty.SurfaceConfiguration(), command: command, workingDirectory: workingDirectory)
     }
 
     /// `base` with an attach's `command` over it; a plain shell's
