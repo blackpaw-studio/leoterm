@@ -7,6 +7,8 @@ import Foundation
 /// nanosecond `stat` times).
 struct LeoLocalFileBackend: LeoFileAccessBackend {
     private static let readChunkSize = 64 * 1024
+    /// Bytes pulled from a create's source per read.
+    static let writeChunkSize = 64 * 1024
 
     func stat(_ path: String) async throws -> LeoFileStat {
         try Self.status(of: path, followingLinks: true)
@@ -73,12 +75,12 @@ struct LeoLocalFileBackend: LeoFileAccessBackend {
     /// Opened `0600` when `permissions` will be applied afterwards (so the
     /// file is never briefly more open than the original), otherwise `0666`
     /// filtered by the umask like any new file.
-    func create(_ path: String, data: Data, permissions: UInt16?) async throws {
+    func create(_ path: String, from source: any LeoFileByteSource, permissions: UInt16?) async throws {
         let initialMode: mode_t = permissions == nil ? 0o666 : 0o600
         let descriptor = open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, initialMode)
         guard descriptor >= 0 else { throw Self.error(errno, path: path) }
         do {
-            try Self.writeAll(data, to: descriptor, path: path)
+            try Self.writeAll(from: source, to: descriptor, path: path)
             if let permissions, fchmod(descriptor, mode_t(permissions)) != 0 { throw Self.error(errno, path: path) }
             if fsync(descriptor) != 0 { throw Self.error(errno, path: path) }
         } catch {
@@ -127,6 +129,19 @@ struct LeoLocalFileBackend: LeoFileAccessBackend {
             modified: Date(timeIntervalSince1970: modified),
             permissions: UInt16(info.st_mode & 0o7777)
         )
+    }
+
+    /// One `writeChunkSize` read from `source` at a time, so memory stays at
+    /// a chunk however large the file.
+    private static func writeAll(from source: any LeoFileByteSource, to descriptor: Int32, path: String) throws {
+        var offset: UInt64 = 0
+        while true {
+            if Task.isCancelled { throw CancellationError() }
+            let chunk = try source.read(at: offset, upTo: writeChunkSize)
+            if chunk.isEmpty { return }
+            try writeAll(chunk, to: descriptor, path: path)
+            offset += UInt64(chunk.count)
+        }
     }
 
     private static func writeAll(_ data: Data, to descriptor: Int32, path: String) throws {

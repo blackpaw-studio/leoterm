@@ -67,8 +67,8 @@ enum LeoSlowSaveFixture {
             return try await base.write(data, to: path, expecting: expected)
         }
 
-        func create(_ data: Data, at path: String) async throws -> LeoFileStat {
-            try await base.create(data, at: path)
+        func create(at path: String, from source: any LeoFileByteSource) async throws -> LeoFileStat {
+            try await base.create(at: path, from: source)
         }
 
         func close() async {

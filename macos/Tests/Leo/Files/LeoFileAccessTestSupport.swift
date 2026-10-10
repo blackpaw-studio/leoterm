@@ -25,6 +25,15 @@ enum LeoFileBackendKind: String, CaseIterable, CustomTestStringConvertible, Send
 
     var testDescription: String { rawValue }
 
+    /// The most a create may pull from its source in one read.
+    var writeChunkSize: Int {
+        switch self {
+        case .local: LeoLocalFileBackend.writeChunkSize
+        case .sftpSmallChunks: 1000
+        case .sftp, .sftpWithoutPosixRename, .sshEndToEnd: LeoSFTPOptions().chunkSize
+        }
+    }
+
     func makeAccess() -> any LeoFileAccess {
         switch self {
         case .local: LeoFileAccessor.local()
@@ -242,4 +251,22 @@ func leoPatternData(count: Int) -> Data {
         state ^= state << 5
         return UInt8(truncatingIfNeeded: state)
     })
+}
+
+/// A `Data` source that records every read's requested size.
+final class LeoRecordingByteSource: LeoFileByteSource, @unchecked Sendable {
+    private let data: Data
+    private let lock = NSLock()
+    private var requests: [Int] = []
+
+    init(_ data: Data) {
+        self.data = data
+    }
+
+    var requestedCounts: [Int] { lock.withLock { requests } }
+
+    func read(at offset: UInt64, upTo count: Int) throws -> Data {
+        lock.withLock { requests.append(count) }
+        return try data.read(at: offset, upTo: count)
+    }
 }

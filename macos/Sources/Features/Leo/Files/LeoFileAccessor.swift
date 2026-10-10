@@ -17,12 +17,12 @@ protocol LeoFileAccessBackend: Sendable {
     func entries(of directory: String) async throws -> [LeoFileEntry]
     /// The file's bytes, stopping once more than `limit` have been read.
     func contents(of path: String, limit: UInt64) async throws -> Data
-    /// Creates `path` exclusively (failing if it exists), writes `data`, and
-    /// sets exactly `permissions` when non-nil (otherwise the host's default
-    /// for a new file). After an exclusive OPEN succeeds, an ordinary write
+    /// Creates `path` exclusively (failing if it exists), writes `source`
+    /// (pulled one bounded chunk at a time), and sets exactly `permissions`
+    /// when non-nil (otherwise the host's default for a new file). After an exclusive OPEN succeeds, an ordinary write
     /// failure removes this uploader-owned private path. A disconnect may
     /// retain it because the server's last completed operation is uncertain.
-    func create(_ path: String, data: Data, permissions: UInt16?) async throws
+    func create(_ path: String, from source: any LeoFileByteSource, permissions: UInt16?) async throws
     /// Atomically moves a fully written `source` into an absent
     /// `destination`, failing rather than replacing anything there.
     func publishExclusive(_ destination: String, with source: String) async throws
@@ -110,7 +110,7 @@ struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
 
         let temporary = Self.temporarySibling(of: target)
         do {
-            try await backend.create(temporary, data: data, permissions: existing?.permissions)
+            try await backend.create(temporary, from: data, permissions: existing?.permissions)
         } catch {
             throw LeoFileAccessError.wrapping(error, path: temporary).retargeted(to: path)
         }
@@ -136,7 +136,7 @@ struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
     /// Failure cleanup never names the destination: an attacker replacing a
     /// path after publication cannot have that replacement unlinked here.
     @discardableResult
-    func create(_ data: Data, at path: String) async throws -> LeoFileStat {
+    func create(at path: String, from source: any LeoFileByteSource) async throws -> LeoFileStat {
         try closed.check()
         try Self.validate(path)
         if try await statIfPresent(path, followingLinks: false) != nil {
@@ -145,7 +145,9 @@ struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
         let staged = Self.temporarySibling(of: path)
         do {
             // D-355: staging bytes stay private until exclusive publication.
-            try await backend.create(staged, data: data, permissions: 0o600)
+            try await backend.create(staged, from: source, permissions: 0o600)
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
             throw LeoFileAccessError.wrapping(error, path: staged).retargeted(to: path)
         }

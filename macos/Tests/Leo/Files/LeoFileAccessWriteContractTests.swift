@@ -27,6 +27,28 @@ struct LeoFileAccessWriteContractTests {
     }
 
     @Test(arguments: LeoFileBackendKind.allCases)
+    func createStreamsAMultiChunkSourceExactly(_ kind: LeoFileBackendKind) async throws {
+        try await withLeoFileSandbox(kind) { sandbox, access in
+            let payload = leoPatternData(count: 3 * kind.writeChunkSize + 1)
+            let source = LeoRecordingByteSource(payload)
+
+            let stat = try await access.create(at: sandbox.path("big.bin"), from: source)
+
+            #expect(try Data(contentsOf: URL(fileURLWithPath: sandbox.path("big.bin"))) == payload)
+            #expect(stat.size == UInt64(payload.count))
+            #expect(source.requestedCounts.allSatisfy { $0 <= kind.writeChunkSize })
+        }
+    }
+
+    @Test(arguments: LeoFileBackendKind.allCases)
+    func createsAnEmptyFileFromAnEmptySource(_ kind: LeoFileBackendKind) async throws {
+        try await withLeoFileSandbox(kind) { sandbox, access in
+            try await access.create(at: sandbox.path("empty"), from: Data())
+            #expect(try sandbox.contents("empty").isEmpty)
+        }
+    }
+
+    @Test(arguments: LeoFileBackendKind.allCases)
     func createsANewFileAndReturnsItsStat(_ kind: LeoFileBackendKind) async throws {
         try await withLeoFileSandbox(kind) { sandbox, access in
             let path = sandbox.path("new.txt")

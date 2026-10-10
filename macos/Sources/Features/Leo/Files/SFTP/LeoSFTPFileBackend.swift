@@ -75,12 +75,12 @@ struct LeoSFTPFileBackend: LeoFileAccessBackend {
     /// Opened `0600` when `permissions` will be applied (never briefly more
     /// open than the original); FSETSTAT then sets them exactly, since the
     /// mode passed to OPEN is filtered by the server's umask.
-    func create(_ path: String, data: Data, permissions: UInt16?) async throws {
+    func create(_ path: String, from source: any LeoFileByteSource, permissions: UInt16?) async throws {
         let client = try await client()
         let initial = permissions == nil ? LeoSFTPAttributes() : LeoSFTPAttributes(permissions: 0o600)
         let handle = try await client.open(path, flags: [.write, .create, .exclusive], attributes: initial)
         do {
-            try await writeChunks(of: data, to: handle, path: path, client: client)
+            try await writeChunks(from: source, to: handle, path: path, client: client)
             if let permissions {
                 try await client.setAttributes(handle, LeoSFTPAttributes(permissions: UInt32(permissions)), path: path)
             }
@@ -172,20 +172,26 @@ struct LeoSFTPFileBackend: LeoFileAccessBackend {
         return (data, false)
     }
 
-    private func writeChunks(of data: Data, to handle: Data, path: String, client: LeoSFTPClient) async throws {
+    /// Each chunk is pulled from `source` only once a request slot is free,
+    /// so at most `maxRequestsInFlight` chunks are held at once.
+    private func writeChunks(from source: any LeoFileByteSource, to handle: Data, path: String, client: LeoSFTPClient) async throws {
         let chunkSize = options.chunkSize
         let limit = options.maxRequestsInFlight
         try await withThrowingTaskGroup(of: Void.self) { group in
             var inFlight = 0
-            for offset in stride(from: 0, to: data.count, by: chunkSize) {
+            var offset: UInt64 = 0
+            while true {
                 if inFlight == limit {
                     try await group.next()
                     inFlight -= 1
                 }
-                let lower = data.startIndex + offset
-                let chunk = data.subdata(in: lower..<min(lower + chunkSize, data.endIndex))
-                group.addTask { try await client.write(handle, offset: UInt64(offset), data: chunk, path: path) }
+                try Task.checkCancellation()
+                let chunk = try source.read(at: offset, upTo: chunkSize)
+                if chunk.isEmpty { break }
+                let chunkOffset = offset
+                group.addTask { try await client.write(handle, offset: chunkOffset, data: chunk, path: path) }
                 inFlight += 1
+                offset += UInt64(chunk.count)
             }
             try await group.waitForAll()
         }

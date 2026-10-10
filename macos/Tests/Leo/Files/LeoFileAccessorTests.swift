@@ -97,8 +97,8 @@ private struct LeoOrdinaryPartialFailureBackend: LeoFileAccessBackend {
     func homeDirectory() async throws -> String { try await base.homeDirectory() }
     func entries(of directory: String) async throws -> [LeoFileEntry] { try await base.entries(of: directory) }
     func contents(of path: String, limit: UInt64) async throws -> Data { try await base.contents(of: path, limit: limit) }
-    func create(_ path: String, data: Data, permissions: UInt16?) async throws {
-        try await base.create(path, data: Data(data.prefix(4)), permissions: permissions)
+    func create(_ path: String, from source: any LeoFileByteSource, permissions: UInt16?) async throws {
+        try await base.create(path, from: try source.read(at: 0, upTo: 4), permissions: permissions)
         try await base.remove(path)
         throw LeoFileAccessError.failed(path: path, reason: "simulated write failure")
     }
@@ -119,8 +119,8 @@ private struct LeoPartialCreateThenDisconnectBackend: LeoFileAccessBackend {
     func homeDirectory() async throws -> String { try await base.homeDirectory() }
     func entries(of directory: String) async throws -> [LeoFileEntry] { try await base.entries(of: directory) }
     func contents(of path: String, limit: UInt64) async throws -> Data { try await base.contents(of: path, limit: limit) }
-    func create(_ path: String, data: Data, permissions: UInt16?) async throws {
-        try await base.create(path, data: Data(data.prefix(4)), permissions: permissions)
+    func create(_ path: String, from source: any LeoFileByteSource, permissions: UInt16?) async throws {
+        try await base.create(path, from: try source.read(at: 0, upTo: 4), permissions: permissions)
         throw LeoFileAccessError.disconnected
     }
     func remove(_ path: String) async throws { try await base.remove(path) }
@@ -141,11 +141,11 @@ private final class LeoReplacementWinsPublishRaceBackend: LeoFileAccessBackend, 
     func homeDirectory() async throws -> String { try await base.homeDirectory() }
     func entries(of directory: String) async throws -> [LeoFileEntry] { try await base.entries(of: directory) }
     func contents(of path: String, limit: UInt64) async throws -> Data { try await base.contents(of: path, limit: limit) }
-    func create(_ path: String, data: Data, permissions: UInt16?) async throws {
-        try await base.create(path, data: data, permissions: permissions)
+    func create(_ path: String, from source: any LeoFileByteSource, permissions: UInt16?) async throws {
+        try await base.create(path, from: source, permissions: permissions)
     }
     func publishExclusive(_ destination: String, with source: String) async throws {
-        try await base.create(destination, data: Data("rival".utf8), permissions: nil)
+        try await base.create(destination, from: Data("rival".utf8), permissions: nil)
         throw LeoFileAccessError.failed(path: destination, reason: "destination exists")
     }
     func remove(_ path: String) async throws {
@@ -169,8 +169,8 @@ private final class LeoRenameCompletesThenDisconnectsBackend: LeoFileAccessBacke
     func homeDirectory() async throws -> String { try await base.homeDirectory() }
     func entries(of directory: String) async throws -> [LeoFileEntry] { try await base.entries(of: directory) }
     func contents(of path: String, limit: UInt64) async throws -> Data { try await base.contents(of: path, limit: limit) }
-    func create(_ path: String, data: Data, permissions: UInt16?) async throws {
-        try await base.create(path, data: data, permissions: permissions)
+    func create(_ path: String, from source: any LeoFileByteSource, permissions: UInt16?) async throws {
+        try await base.create(path, from: source, permissions: permissions)
     }
     func publishExclusive(_ destination: String, with source: String) async throws {
         lock.withLock { publishes += 1 }
@@ -200,8 +200,8 @@ private final class LeoStatFailsAfterReplaceBackend: LeoFileAccessBackend, @unch
     func homeDirectory() async throws -> String { try await base.homeDirectory() }
     func entries(of directory: String) async throws -> [LeoFileEntry] { try await base.entries(of: directory) }
     func contents(of path: String, limit: UInt64) async throws -> Data { try await base.contents(of: path, limit: limit) }
-    func create(_ path: String, data: Data, permissions: UInt16?) async throws {
-        try await base.create(path, data: data, permissions: permissions)
+    func create(_ path: String, from source: any LeoFileByteSource, permissions: UInt16?) async throws {
+        try await base.create(path, from: source, permissions: permissions)
     }
     func remove(_ path: String) async throws { try await base.remove(path) }
 

@@ -439,9 +439,9 @@ private struct BrowserViewGatedAccess: LeoFileAccess {
     func write(_ data: Data, to path: String, expecting expected: LeoFileVersion?) async throws -> LeoFileStat {
         try await base.write(data, to: path, expecting: expected)
     }
-    func create(_ data: Data, at path: String) async throws -> LeoFileStat {
+    func create(at path: String, from source: any LeoFileByteSource) async throws -> LeoFileStat {
         try await gate.enter()
-        return try await base.create(data, at: path)
+        return try await base.create(at: path, from: source)
     }
     func close() async {
         await gate.close()

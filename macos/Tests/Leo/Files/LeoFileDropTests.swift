@@ -182,9 +182,9 @@ private actor LeoFileDropCreateRecorder: LeoFileAccess {
     func homeDirectory() async throws -> String { "/" }
     func read(_ path: String, maxBytes: UInt64) async throws -> LeoFileContents { fatalError() }
     func write(_ data: Data, to path: String, expecting expected: LeoFileVersion?) async throws -> LeoFileStat { fatalError() }
-    func create(_ data: Data, at path: String) async throws -> LeoFileStat {
+    func create(at path: String, from source: any LeoFileByteSource) async throws -> LeoFileStat {
         createdPaths.append(path)
-        return LeoFileStat(kind: .file, size: UInt64(data.count), modified: .now, permissions: 0o644)
+        return LeoFileStat(kind: .file, size: 0, modified: .now, permissions: 0o644)
     }
     func close() async {}
 }
