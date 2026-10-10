@@ -103,12 +103,22 @@ Lane: B-273
   Branch: autopilot-lane/B-273
   Base: e1fb9d11065b2acf6cb7cbae26caa632c4882075
   Tier: full
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: d2503608d0a3f90cae078fb3485b28cf09ca2a1d
   Dispatched: 2026-10-10T09:20:52Z
+  Call: Every open adds a tab or selects the file's existing one, and nothing replaces a document (D-033's replace prompt no longer fires) — P1, P2
+  Call: Tab strip is inside the pane, appears at 2+ tabs, custom AppKit (NSTabView has no close buttons or overflow); no window tab bar — P1, P6
+  Call: ⌘W with editor focus closes the selected tab; Show Next/Previous Editor Tab ⇧⌘]/⇧⌘[; Close Editor Tab has no shortcut; Ghostty next/previous_tab switches editor tabs from the terminal — P1
+  Call: A background open never moves focus or navigates, and doesn't override a tab the user picked after the request — P2
+  Call: Auto-open window choice: A on screen, then A's pooled surface, then an existing pane for A, then the key window (ties go to the key window); it never attaches — P2
+  Call: "Viewed" means A is on screen in a visible, non-miniaturized, non-occluded window; the badge stays until then — P2
+  Call: Only live, new events auto-open; auto-open failures are silent and keep the badge; ⌥⌘O still shows errors — P2
+  Call: Cap of 10 tabs per pane; the least-recently-selected clean tab is evicted, dirty tabs never — P2, P3
+  Call: Remote files go through the same per-window file access (SFTP) — P3
+  Call: Tab strip sits under the pane header with a dirty dot and a hover/selected close button; the header close tooltip stays "Close Editor (⌘W)" — P1
 
 Finished 1: B-270 landed 28ade697f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-270-1.png
 Finished 2: B-271 landed 16b35ad0b · not visually verified
