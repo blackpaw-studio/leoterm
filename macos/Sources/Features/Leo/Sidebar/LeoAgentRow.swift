@@ -171,7 +171,7 @@ struct LeoAgentRowView: View {
             actions.setRowError("No terminal window available", for: row)
             return
         }
-        controller.browseLeoFiles(for: LeoEditorAgentContext(host: row.host, name: row.name, workspace: row.workspace))
+        controller.browseLeoFiles(forRow: row)
     }
 
     private func viewLogs() {
