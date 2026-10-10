@@ -65,6 +65,17 @@ Lane: B-279
   Call: A promise that outlives a re-root is refused with .workspaceChanged and the footer says so — P2
   Call: Accepted risks: no quarantine xattr on remote downloads; a file being written during the download can arrive torn; a numbered name over 255 bytes fails plainly; Finder may add its own alert — P2
 
+Lane: B-283
+  Branch: autopilot-lane/B-283
+  Base: 393610ff8ccbf90d8cf08dff9cf108bb09e7feef
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-10T19:52:34Z
+
 Finished 1: B-232 landed e2fd6c40a · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-232-1.png
 Finished 2: B-279 landed 15f779df4 · screen capture, not attached
 
@@ -78,3 +89,4 @@ Finished 2: B-279 landed 15f779df4 · screen capture, not attached
 - Evan (14:55 EDT): build named environments (B-283) this run, next after B-279. End of run: merge autopilot to main, NO release (Evan will update Leo manually first).
 - B-279 runner reported ready (1 fix round). Runner left a stray headless explore d-8a9c4160c622 (cancel timed out). Verifier left fixtures in autopilot-scratch b279v/ b279v2/.
 - B-279 landed 15f779df4 (full, hard; suite 2522; GUI screen captures only; SFTP + lost-connection covered by tests, not live).
+- B-283 runner dispatched: d-c022041f424d.
