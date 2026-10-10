@@ -83,16 +83,20 @@ struct LeoEnvironmentListEditor: View {
 
 /// Edit Order… for a live agent: the same editor, prefilled with the
 /// effective names. Its "Restart and Resume" button is the confirmation.
+/// It never dismisses itself: `LeoEnvironmentsSheetSession` owns the sheet.
 struct LeoEnvironmentsSheet: View {
     let row: LeoAgentRow
     @ObservedObject var actions: LeoAgentActions
+    let onCancel: () -> Void
+    let onConfirm: ([String]) -> Void
     private let initial: LeoEnvironmentList
     @State private var list: LeoEnvironmentList
-    @Environment(\.dismiss) private var dismiss
 
-    init(row: LeoAgentRow, actions: LeoAgentActions) {
+    init(row: LeoAgentRow, actions: LeoAgentActions, onCancel: @escaping () -> Void, onConfirm: @escaping ([String]) -> Void) {
         self.row = row
         self.actions = actions
+        self.onCancel = onCancel
+        self.onConfirm = onConfirm
         initial = LeoEnvironmentList(row.environments?.names ?? [])
         _list = State(initialValue: initial)
     }
@@ -107,13 +111,10 @@ struct LeoEnvironmentsSheet: View {
             LeoEnvironmentListEditor(list: $list, available: actions.environmentCatalog.catalog?.names ?? [])
             HStack {
                 Spacer()
-                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button(LeoEnvironmentConfirmation(agent: row.name, names: list.names).confirmTitle) {
-                    actions.setEnvironments(row, names: list.names)
-                    dismiss()
-                }
-                .keyboardShortcut(.defaultAction)
-                .disabled(list == initial)
+                Button("Cancel", action: onCancel).keyboardShortcut(.cancelAction)
+                Button(LeoEnvironmentConfirmation(agent: row.name, names: list.names).confirmTitle) { onConfirm(list.names) }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(list == initial)
             }
         }
         .padding(20)
@@ -121,17 +122,65 @@ struct LeoEnvironmentsSheet: View {
     }
 }
 
-/// What a sheet is presented from on `window`. Terminal windows set
-/// `contentView` directly and have no `contentViewController` (see
-/// `LeoSpawnAgentSheetPresenter`), so an anchor controller whose view IS
-/// the content view stands in, and `presentAsSheet` attaches to the window.
-@MainActor enum LeoSheetHost {
-    static func viewController(for window: NSWindow?) -> NSViewController? {
-        if let controller = window?.contentViewController { return controller }
-        guard let contentView = window?.contentView else { return nil }
-        let anchor = NSViewController()
-        anchor.view = contentView
-        return anchor
+/// A sheet window whose Escape (`cancelOperation`) goes to its owner.
+final class LeoSheetWindow: NSWindow {
+    var onCancel: (() -> Void)?
+
+    override func cancelOperation(_ sender: Any?) { onCancel?() }
+}
+
+/// One Edit Order… sheet, owned for its whole life: begun on the parent
+/// window with `beginSheet` (no content view controller needed, so it works
+/// on terminal windows), kept alive in `live` until AppKit's completion
+/// handler, and ended by Cancel, Escape or Restart and Resume alike.
+@MainActor final class LeoEnvironmentsSheetSession {
+    private static var live: [ObjectIdentifier: LeoEnvironmentsSheetSession] = [:]
+
+    let sheetWindow: LeoSheetWindow
+    private weak var parent: NSWindow?
+    private let row: LeoAgentRow
+    private let actions: LeoAgentActions
+    private var isFinished = false
+
+    private init(row: LeoAgentRow, actions: LeoAgentActions, parent: NSWindow) {
+        self.row = row
+        self.actions = actions
+        self.parent = parent
+        sheetWindow = LeoSheetWindow(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: true)
+        sheetWindow.isReleasedWhenClosed = false
+        let hosting = NSHostingController(rootView: LeoEnvironmentsSheet(
+            row: row, actions: actions,
+            onCancel: { [weak self] in self?.cancel() },
+            onConfirm: { [weak self] in self?.confirm($0) }
+        ))
+        sheetWindow.contentViewController = hosting
+        sheetWindow.setContentSize(hosting.view.fittingSize)
+        sheetWindow.onCancel = { [weak self] in self?.cancel() }
+    }
+
+    /// Nil when `window` already has a sheet up.
+    @discardableResult
+    static func present(_ row: LeoAgentRow, actions: LeoAgentActions, on window: NSWindow) -> LeoEnvironmentsSheetSession? {
+        guard window.attachedSheet == nil else { return nil }
+        let session = LeoEnvironmentsSheetSession(row: row, actions: actions, parent: window)
+        let key = ObjectIdentifier(session)
+        live[key] = session
+        window.beginSheet(session.sheetWindow) { _ in live[key] = nil }
+        return session
+    }
+
+    func cancel() { finish() }
+
+    func confirm(_ names: [String]) {
+        guard !isFinished else { return }
+        actions.setEnvironments(row, names: names)
+        finish()
+    }
+
+    private func finish() {
+        guard !isFinished else { return }
+        isFinished = true
+        if let parent { parent.endSheet(sheetWindow) } else { sheetWindow.close() }
     }
 }
 
@@ -164,8 +213,8 @@ struct LeoEnvironmentsSheet: View {
         case .reset:
             confirm(row, names: [], actions: actions, window: window)
         case .editOrder:
-            let sheet = NSHostingController(rootView: LeoEnvironmentsSheet(row: row, actions: actions))
-            LeoSheetHost.viewController(for: window)?.presentAsSheet(sheet)
+            guard let window else { return }
+            LeoEnvironmentsSheetSession.present(row, actions: actions, on: window)
         case .placeholder, .separator:
             break
         }

@@ -13,10 +13,14 @@ import Foundation
     @Published private(set) var templateList: LeoTemplateListState = .loading
     /// B-283: the ordered environments to spawn with, prefilled from the
     /// template's default whenever the template (or the catalog) changes.
-    @Published var environments = LeoEnvironmentList([])
+    /// Changed by the user only through `editEnvironments`.
+    @Published private(set) var environments = LeoEnvironmentList([])
+    /// Set by any user edit; cleared only when the template or host changes,
+    /// so a catalog republish never overwrites an edited list.
+    private(set) var hasUserEdited = false
     @Published private(set) var environmentCatalog: LeoEnvironmentCatalogState = .loading
-    /// The template default `environments` was last prefilled with: an
-    /// untouched prefill isn't sent, so the agent isn't marked an override.
+    /// The template default the list follows until the user edits it; an
+    /// unedited list isn't sent, so the agent isn't marked an override.
     private var environmentPrefill: [String] = []
     /// The spawn host's daemon advertises `agent_environments` now: follows
     /// hello live, so the section comes and goes with the connection.
@@ -64,15 +68,21 @@ import Foundation
     private func prefillEnvironments(template: String, catalog: LeoEnvironmentCatalogState, host: LeoHostID?) {
         let keyChanged = prefillKey.map { $0.template != template || $0.host != host } ?? true
         guard keyChanged || catalog.catalog != nil else { return }
-        let isEdited = environments.names != environmentPrefill
+        if keyChanged { hasUserEdited = false }
         prefillKey = (template, host)
         environmentPrefill = catalog.catalog?.defaults(for: template) ?? []
-        if keyChanged || !isEdited { environments = LeoEnvironmentList(environmentPrefill) }
+        if !hasUserEdited { environments = LeoEnvironmentList(environmentPrefill) }
     }
 
-    /// What the spawn sends: nothing unless the list differs from the prefill.
+    /// The editor's add, remove and reorder.
+    func editEnvironments(_ list: LeoEnvironmentList) {
+        hasUserEdited = true
+        environments = list
+    }
+
+    /// What the spawn sends: only a list the user edited.
     var requestedEnvironments: [String]? {
-        guard showsEnvironments, environments.names != environmentPrefill else { return nil }
+        guard showsEnvironments, hasUserEdited else { return nil }
         return environments.names
     }
 

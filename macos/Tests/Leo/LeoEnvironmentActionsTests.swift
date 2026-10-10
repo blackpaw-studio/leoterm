@@ -1,3 +1,4 @@
+import AppKit
 import Combine
 import Foundation
 import Testing
@@ -44,6 +45,67 @@ import Testing
         #expect(model.rowErrors.isEmpty)
     }
 
+    // MARK: Edit Order sheet (fix round 2): the presenter owns the sheet
+
+    private func terminalLikeWindow() -> NSWindow {
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 320), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = NSView() // like TerminalController: no content view controller
+        window.makeKeyAndOrderFront(nil)
+        return window
+    }
+
+    private func overrideRow() -> LeoAgentRow {
+        row.withEnvironments(LeoAgentEnvironments(names: ["aws", "prod"], source: .override, error: nil))
+    }
+
+    @Test func editOrderCancelClosesTheSheetWithoutPosting() async throws {
+        let window = terminalLikeWindow()
+        defer { window.close() }
+        #expect(window.contentViewController == nil)
+        let daemon = EnvironmentDaemon()
+        let session = try #require(LeoEnvironmentsSheetSession.present(overrideRow(), actions: actions(daemon), on: window))
+        #expect(window.attachedSheet === session.sheetWindow)
+        session.cancel()
+        await awaitCondition { await MainActor.run { window.attachedSheet == nil } }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        #expect(await daemon.calls.isEmpty)
+    }
+
+    @Test func editOrderConfirmPostsAndClosesTheSheet() async throws {
+        let window = terminalLikeWindow()
+        defer { window.close() }
+        let daemon = EnvironmentDaemon()
+        let session = try #require(LeoEnvironmentsSheetSession.present(overrideRow(), actions: actions(daemon), on: window))
+        #expect(window.attachedSheet != nil)
+        session.confirm(["prod", "aws"])
+        await awaitCondition { await MainActor.run { window.attachedSheet == nil } }
+        await awaitCondition { await daemon.calls == ["set:alpha:prod,aws"] }
+    }
+
+    @Test func escapeClosesTheEditOrderSheet() async throws {
+        let window = terminalLikeWindow()
+        defer { window.close() }
+        let daemon = EnvironmentDaemon()
+        let session = try #require(LeoEnvironmentsSheetSession.present(overrideRow(), actions: actions(daemon), on: window))
+        session.sheetWindow.cancelOperation(nil)
+        await awaitCondition { await MainActor.run { window.attachedSheet == nil } }
+        #expect(await daemon.calls.isEmpty)
+    }
+
+    @Test func editsSurviveDefaultsThatMatchThenDiffer() {
+        let catalog = CurrentValueSubject<LeoEnvironmentCatalogState, Never>(.loaded(Self.catalog))
+        let model = SpawnAgentModel(
+            templateList: Just(.loaded([LeoTemplate(name: "claude")])).eraseToAnyPublisher(),
+            environmentCatalog: catalog.eraseToAnyPublisher(), environmentsSupported: Just(true).eraseToAnyPublisher()
+        )
+        model.template = "claude"
+        model.editEnvironments(LeoEnvironmentList(["dev"]))
+        catalog.send(.loaded(LeoEnvironmentCatalog(names: Self.catalog.names, templateDefaults: ["claude": ["dev"]])))
+        catalog.send(.loaded(LeoEnvironmentCatalog(names: Self.catalog.names, templateDefaults: ["claude": ["prod"]])))
+        #expect(model.environments.names == ["dev"])
+        #expect(model.request().environments == ["dev"])
+    }
+
     // MARK: Spawn sheet
 
     private func spawnModel(supported: Bool = true) -> SpawnAgentModel {
@@ -68,14 +130,14 @@ import Testing
 
     @Test func editedListSentInOrder() {
         let model = spawnModel()
-        model.environments = model.environments.adding("dev").moving("aws", by: 1)
+        model.editEnvironments(model.environments.adding("dev").moving("aws", by: 1))
         #expect(model.request().environments == ["prod", "aws", "dev"])
     }
 
     @Test func hiddenAndUnsentWithoutFeature() {
         let model = spawnModel(supported: false)
         #expect(!model.showsEnvironments)
-        model.environments = LeoEnvironmentList(["dev"])
+        model.editEnvironments(LeoEnvironmentList(["dev"]))
         #expect(model.request().environments == nil)
     }
 

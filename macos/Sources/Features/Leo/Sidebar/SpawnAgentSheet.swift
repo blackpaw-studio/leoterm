@@ -59,7 +59,7 @@ struct SpawnAgentSheet: View {
     private var environmentsField: some View {
         LabeledContent("Environments") {
             VStack(alignment: .leading, spacing: 2) {
-                LeoEnvironmentListEditor(list: $model.environments, available: model.environmentCatalog.catalog?.names ?? [])
+                LeoEnvironmentListEditor(list: Binding(get: { model.environments }, set: { model.editEnvironments($0) }), available: model.environmentCatalog.catalog?.names ?? [])
                 if case .failed(let message) = model.environmentCatalog {
                     Text("Environments unavailable: \(message)").font(.caption).foregroundStyle(.secondary)
                 }
