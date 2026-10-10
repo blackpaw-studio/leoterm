@@ -35,9 +35,6 @@ final class LeoEditorPaneViewController: NSViewController {
         header.onSelectRecent = { [weak self] fileID in self?.openRecent(fileID) }
         header.onClose = { [weak self] in self?.closePane() }
         banner.onAction = { [weak self] action in self?.perform(action) }
-        model.confirmUnsaved = { [weak self] document in
-            await self?.confirmUnsavedChanges(document) ?? .cancel
-        }
         bindModel()
         observeKeyWindow()
     }
@@ -239,11 +236,6 @@ final class LeoEditorPaneViewController: NSViewController {
                 Ghostty.moveFocus(to: surface)
             }
         }
-    }
-
-    private func confirmUnsavedChanges(_ document: LeoEditorDocument) async -> LeoUnsavedChangesChoice {
-        guard let window = view.window else { return .cancel }
-        return await LeoEditorAlerts.confirmUnsavedChanges(to: document.displayName, on: window)
     }
 }
 

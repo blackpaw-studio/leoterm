@@ -3,11 +3,12 @@ import AppKit
 /// The editor's standard Mac sheets.
 @MainActor enum LeoEditorAlerts {
     /// The standard "Do you want to save the changes…?" sheet: Save (default,
-    /// Return), Cancel (Escape), Don't Save (⌘D).
-    static func confirmUnsavedChanges(to name: String, on window: NSWindow) async -> LeoUnsavedChangesChoice {
+    /// Return), Cancel (Escape), Don't Save (⌘D). `row` names the sidebar
+    /// row whose pane it is, when that pane isn't the one on screen (B-274).
+    static func confirmUnsavedChanges(to name: String, in row: String? = nil, on window: NSWindow) async -> LeoUnsavedChangesChoice {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "Do you want to save the changes you made to “\(LeoSFTPServerText.isolated(name))”?"
+        alert.messageText = unsavedChangesMessage(file: name, row: row)
         alert.informativeText = "Your changes will be lost if you don’t save them."
         alert.addButton(withTitle: "Save")
         alert.addButton(withTitle: "Cancel")
@@ -19,6 +20,12 @@ import AppKit
         case .alertThirdButtonReturn: return .discard
         default: return .cancel
         }
+    }
+
+    static func unsavedChangesMessage(file name: String, row: String?) -> String {
+        let file = "“\(LeoSFTPServerText.isolated(name))”"
+        guard let row else { return "Do you want to save the changes you made to \(file)?" }
+        return "Do you want to save the changes you made to \(file) in “\(LeoSFTPServerText.isolated(row))”?"
     }
 
     /// Asks for a path to open. Relative paths resolve against `agent`'s
