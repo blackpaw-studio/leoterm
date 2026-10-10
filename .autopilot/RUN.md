@@ -63,6 +63,17 @@ Lane: B-271
   Call: Remote focus opens a new ssh connection with BatchMode=yes (no ControlMaster reuse) — AUTONOMY implementation approach
   Call: Every click on such a row re-sends the pane focus (idempotent) — P6
 
+Lane: B-275
+  Branch: autopilot-lane/B-275
+  Base: ae5df8a554fd84f25835402c499cf98247bf618e
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-10T04:19:01Z
+
 Finished 1: B-270 landed 28ade697f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-270-1.png
 Finished 2: B-271 landed 16b35ad0b · not visually verified
 
