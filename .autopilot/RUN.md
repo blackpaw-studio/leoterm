@@ -35,6 +35,7 @@ Lane: B-270
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-10-10T01:34:10Z
 
 ## Progress
 - Preflight: merged main into autopilot (2d6dd35f4); LeoSFTPLauncher conflict resolved keeping main's empty-stderr mux fallback on B-235's byte matcher (Evan: favor main); suite 2346 green.
