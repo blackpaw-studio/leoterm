@@ -11,6 +11,16 @@ import Foundation
     /// .templateList` (B-054): never fetched here, so the sheet offers
     /// exactly what a row's Set Template submenu does, for the same host.
     @Published private(set) var templateList: LeoTemplateListState = .loading
+    /// B-283: the ordered environments to spawn with, prefilled from the
+    /// template's default whenever the template (or the catalog) changes.
+    @Published var environments = LeoEnvironmentList([])
+    @Published private(set) var environmentCatalog: LeoEnvironmentCatalogState = .loading
+    /// The template default `environments` was last prefilled with: an
+    /// untouched prefill isn't sent, so the agent isn't marked an override.
+    private var environmentPrefill: [String] = []
+    /// The selected host's daemon advertised `agent_environments`.
+    let showsEnvironments: Bool
+    private var prefillObservation: AnyCancellable?
     @Published private(set) var error: String?
     @Published private(set) var isSpawning = false
 
@@ -23,8 +33,11 @@ import Foundation
     private var editObservation: AnyCancellable?
 
     init(templateList: AnyPublisher<LeoTemplateListState, Never>, source: LeoAgentRow? = nil,
-         selectedHost: AnyPublisher<LeoHostID, Never> = Empty().eraseToAnyPublisher()) {
+         selectedHost: AnyPublisher<LeoHostID, Never> = Empty().eraseToAnyPublisher(),
+         environmentCatalog: AnyPublisher<LeoEnvironmentCatalogState, Never> = Empty().eraseToAnyPublisher(),
+         environmentsSupported: Bool = false) {
         self.source = source
+        showsEnvironments = environmentsSupported
         if let source {
             template = source.template ?? ""
             repo = source.repo ?? ""
@@ -35,6 +48,21 @@ import Foundation
             $template.dropFirst().map { _ in () }, $name.dropFirst().map { _ in () },
             $branch.dropFirst().map { _ in () }, $selectedHost.dropFirst().map { _ in () }
         ).sink { [weak self] in self?.error = nil }
+        environmentCatalog.assign(to: &$environmentCatalog)
+        prefillObservation = $template.combineLatest($environmentCatalog).sink { [weak self] template, catalog in
+            self?.prefillEnvironments(template: template, catalog: catalog)
+        }
+    }
+
+    private func prefillEnvironments(template: String, catalog: LeoEnvironmentCatalogState) {
+        environmentPrefill = catalog.catalog?.defaults(for: template) ?? []
+        environments = LeoEnvironmentList(environmentPrefill)
+    }
+
+    /// What the spawn sends: nothing unless the list differs from the prefill.
+    var requestedEnvironments: [String]? {
+        guard showsEnvironments, environments.names != environmentPrefill else { return nil }
+        return environments.names
     }
 
     var isWorktree: Bool { source != nil }
@@ -69,7 +97,8 @@ import Foundation
     /// No `base`: a worktree branch starts from origin's default branch.
     func request() -> LeoSpawnRequest {
         LeoSpawnRequest(
-            template: template, repo: repo, name: name.nilIfEmpty, branch: branch.nilIfEmpty, prompt: prompt.nilIfEmpty
+            template: template, repo: repo, name: name.nilIfEmpty, branch: branch.nilIfEmpty, prompt: prompt.nilIfEmpty,
+            environments: requestedEnvironments
         )
     }
 

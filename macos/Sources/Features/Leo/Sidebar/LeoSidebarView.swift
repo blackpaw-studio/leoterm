@@ -360,7 +360,8 @@ struct LeoSidebarView: View {
                 togglePin: { model.togglePin(row.id) },
                 pendingSurfacedFiles: model.pendingSurfacedFiles(for: row),
                 openSurfacedFile: { model.openSurfacedFile($0, for: row) },
-                newWorktreeAgent: { worktreeSource = row }
+                newWorktreeAgent: { worktreeSource = row },
+                environmentsSupported: model.hostFeatures.applying(to: row.host).contains(.agentEnvironments)
             )
             .tag(Optional(LeoSidebarItemID.agent(row.id)))
             .id(LeoSidebarItemID.agent(row.id))

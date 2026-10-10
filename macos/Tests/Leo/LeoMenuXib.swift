@@ -30,6 +30,14 @@ enum LeoMenuXib {
             .compactMap { ($0 as? XMLElement)?.attribute(forName: "title")?.stringValue }
     }
 
+    /// The `identifier`s of the items in the menu holding the item with
+    /// `identifier`, in order ("" for an item without one).
+    static func siblingIdentifiers(of identifier: String) throws -> [String] {
+        try XMLDocument(contentsOf: xibURL)
+            .nodes(forXPath: "//items[menuItem/@identifier='\(identifier)']/menuItem")
+            .map { ($0 as? XMLElement)?.attribute(forName: "identifier")?.stringValue ?? "" }
+    }
+
     /// Every menu item in `document` with a key equivalent, as "⌃⌥⇧⌘key"
     /// (an uppercase key implies Shift). Masks decode as a compiled nib
     /// loads them (checked with ibtool + NSNib, B-076): no modifierMask
