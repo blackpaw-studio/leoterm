@@ -134,6 +134,17 @@ Lane: B-150
   Call: The agents-going direction needs no new test: B-149's aRowRevealedAtTheBottomStaysWhollyOnScreenWhenTheAgentsGo already covers listsAgents true→false (loading, failed, no agents) — P6, test infra agent-decided.
   Call: The first-population signal is run-loop turn counting with a layout pass per turn, not a product hook; no seam added — B-099 turn-counting decision.
 
+Lane: B-151
+  Branch: autopilot-lane/B-151
+  Base: 2ef7f863fc3ce2224eb05f8ad7bc0a22e6b8aaab
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-11T23:14:00Z
+
 Finished 1: B-284 landed 1c1f5aa66 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-284-w515414.png
 Finished 2: B-285 landed d34e7d42f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-285-1.png
 Finished 3: B-288 landed 492d7d37f · not visually verified
@@ -176,3 +187,4 @@ Finished 8: B-150 landed 7f9da972e · not visually verified
 - B-150 picked (tier light: test hardening; runner d-00ab00580600).
 - B-150 landed 7f9da972e (fixes 0).
 - B-150 landed. Filed B-296 from the runner's Notes (leftover Task.sleep polls outside the scroll tests).
+- B-151 picked (tier light: test hardening; runner d-983382f93c62).
