@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// One dispatch placed under an agent row: `depth` 0 is a direct child of
 /// the row, 1 a dispatch of that dispatch, and so on.

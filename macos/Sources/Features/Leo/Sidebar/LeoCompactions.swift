@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// What a row shows of a running compaction (B-261): only that one is in
 /// progress, and who asked for it. Fixed copy is drawn from this; no

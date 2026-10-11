@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 struct LeoAttachError: Error, Equatable, Sendable {
     enum Kind: Equatable, Sendable {

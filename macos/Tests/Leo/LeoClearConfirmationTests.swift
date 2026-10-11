@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-262: Clear asks first, and Cancel is the safe default.
 @MainActor struct LeoClearConfirmationTests {

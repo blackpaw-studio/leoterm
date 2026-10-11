@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 enum LeoSSHCommandError: Error, Equatable, Sendable {
     case invalidConfiguration([LeoHostValidationError])

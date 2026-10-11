@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// A file or folder in the workspace browser. A symlink is whatever it
 /// points at: a link to a folder is a folder, anything else a file.

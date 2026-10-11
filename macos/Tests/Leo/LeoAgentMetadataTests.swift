@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Row metadata (B-011, D-074): what `/state` reports per agent, when an
 /// entry may attach to a row, and how the row draws it.

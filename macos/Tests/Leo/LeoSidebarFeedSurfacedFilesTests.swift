@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-013 through the feed: `file_surfaced` events and `/state`'s
 /// `surfaced_files` reach rows of the matching incarnation only, an id is

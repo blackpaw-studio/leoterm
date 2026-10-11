@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-010: sort by last activity or name, pinned agents, collapsed sections.
 /// The activity time is only the identity-checked `/state` snapshot's

@@ -1,6 +1,7 @@
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-081: where the sidebar list lands once the window's last terminal row
 /// closes -- the selected agent's row if it's listed, else the top.

@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// `LEO_SURFACE_FIXTURE` (DEBUG): event objects from a file, handed over
 /// once, after the first successful list.

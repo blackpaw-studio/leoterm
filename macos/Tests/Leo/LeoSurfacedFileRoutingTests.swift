@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-013 on the main actor: which surfaced files are pending (unseen), that
 /// a snapshot, focus or row click never opens one (only a live event does,

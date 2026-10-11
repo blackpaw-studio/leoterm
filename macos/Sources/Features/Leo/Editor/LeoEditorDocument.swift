@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import LeoKit
 
 /// A file on a host: what the editor pane opens, and what its recents list.
 struct LeoEditorFileID: Hashable, Sendable {

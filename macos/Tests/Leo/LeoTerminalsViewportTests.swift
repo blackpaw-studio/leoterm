@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-105: whether the Terminals section -- the list's last rows -- shows in
 /// what the list doesn't cover with a bar.

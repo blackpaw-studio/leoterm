@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// Drives sidebar list refreshes. While the SSE `/events` stream is
 /// connected, list refreshes are pushed by SSE state events (coalesced

@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Ghostty's quit review closes windows itself (no close path runs), and
 /// its sheets leave other windows editable. So before it closes a window,

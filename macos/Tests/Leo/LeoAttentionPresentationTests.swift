@@ -2,6 +2,7 @@ import SwiftUI
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Attention reasons, VoiceOver text, Jump to Next Needing Attention and the Dock
 /// label -- the pure decisions behind the attention UI.

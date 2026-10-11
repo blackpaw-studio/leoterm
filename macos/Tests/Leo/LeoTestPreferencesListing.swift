@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import LeoKit
 
 /// The preference plists a test run leaves in the user's real
 /// `~/Library/Preferences` when a test backs its defaults with a

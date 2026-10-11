@@ -1,6 +1,7 @@
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-085: every launch opens Leo's first window, whether or not the app
 /// ever becomes active (`open -g`, a login item, or the user clicking

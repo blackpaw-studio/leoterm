@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// B-261 in the feed: which agents are compacting. `/state` has no such
 /// field, so the `agent_compaction` events are the only source (the same

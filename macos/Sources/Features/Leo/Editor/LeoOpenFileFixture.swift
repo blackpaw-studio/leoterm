@@ -1,6 +1,7 @@
 #if DEBUG
 import Foundation
 import OSLog
+import LeoKit
 
 /// DEBUG builds only: opens the local file named by `LEO_OPEN_FILE` (an
 /// absolute path) in the first window's editor pane once that window is up,

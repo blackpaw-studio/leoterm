@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-052 against a real `TerminalController`: an attach surface's window
 /// title is its agent's name, following the focused split; Change Tab

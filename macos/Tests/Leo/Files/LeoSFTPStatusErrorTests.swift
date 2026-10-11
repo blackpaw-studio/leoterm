@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// How an SFTP v3 STATUS becomes a `LeoFileAccessError`: as specific as
 /// the code allows, with the server's own message when it says more than

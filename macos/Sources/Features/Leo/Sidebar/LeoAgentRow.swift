@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import LeoKit
 
 enum LeoAttachActivation {
     static func disposition(for modifierFlags: NSEvent.ModifierFlags) -> AttachDisposition {

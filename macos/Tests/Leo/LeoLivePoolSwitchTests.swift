@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-056: switching rows keeps the most recently viewed agents attached but
 /// hidden (D-108: four tmux clients per window, shown one included), shows

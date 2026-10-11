@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// The selected host's environment catalog as `LeoAgentActions` publishes
 /// it (B-283): reset to `.loading` on a host switch, like `templateList`.

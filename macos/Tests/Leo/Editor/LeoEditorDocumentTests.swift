@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The editor's document model against every file-access backend: dirty
 /// tracking, save, and the external-change state machine (clean reload,

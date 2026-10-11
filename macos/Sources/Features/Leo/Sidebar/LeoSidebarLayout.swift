@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// B-010: how the sidebar arranges rows -- Needs You on top (agents asking
 /// for input or errored), a Pinned section, then one section per status

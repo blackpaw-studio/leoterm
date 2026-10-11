@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-016: the host's focused attachment is the surface that really has
 /// keyboard focus (the key window's first responder), not merely the

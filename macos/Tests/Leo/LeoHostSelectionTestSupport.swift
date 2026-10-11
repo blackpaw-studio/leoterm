@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Shared helpers for `LeoHostSelectionTests`/`LeoHostSelectionRaceTests`.
 enum LeoHostSelectionTestSupport {

@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// Coalescing of `agentActivity` SSE events -- see `LeoActivityCoalescer`
 /// for the pure buffering logic and `LeoSidebarFeed`'s `activityCoalescer`/

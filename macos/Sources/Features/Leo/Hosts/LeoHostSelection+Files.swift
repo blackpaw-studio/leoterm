@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 extension LeoHostSelection {
     /// File access for the selected host: the local filesystem for

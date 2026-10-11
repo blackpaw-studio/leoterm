@@ -3,6 +3,7 @@ import SwiftUI
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// A row's height is one line or two by state and otherwise constant: it
 /// must not depend on which detail it shows, a pending action, selection, or

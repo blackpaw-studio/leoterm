@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The DEBUG-only `LEO_OPEN_FILE` hook that opens a local file in the
 /// first window's editor at launch, for GUI checks past the Open File panel.

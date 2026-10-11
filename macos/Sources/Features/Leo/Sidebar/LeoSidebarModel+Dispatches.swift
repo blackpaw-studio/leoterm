@@ -1,4 +1,5 @@
 import AppKit
+import LeoKit
 
 /// The dispatch a selection names, with the agent row it sits under.
 struct LeoDispatchSelection: Equatable, Sendable {

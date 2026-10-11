@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// Wiring of `LeoAttentionReducer` into `LeoSidebarFeed`: every decoded
 /// event/baseline/focus change goes through the reducer, a single deadline

@@ -3,6 +3,7 @@ import GhosttyKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-057 (D-111) against a real `TerminalController`: a plain shell shown
 /// in a window's content area is a row in that window's Terminals section,

@@ -4,6 +4,7 @@ import SwiftUI
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 struct LeoSidebarChromeTests {
     @Test func attachActivationMapsOptionModifierAndInvokesSinkOnce() {

@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// A file whose name tries to pass for the app's own words -- ending its
 /// quote, adding a line, reordering the sentence -- sent through every

@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-272 end to end over a real unix socket: a fake leo 0.42 daemon replays
 /// `dispatch_placement_live_events.sse` one gate at a time through the

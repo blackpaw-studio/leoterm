@@ -1,5 +1,6 @@
 import Foundation
 import OSLog
+import LeoKit
 
 struct LeoSidebarActivitySource: Sendable {
     let events: @Sendable () async -> AsyncStream<LeoObserveEvent>

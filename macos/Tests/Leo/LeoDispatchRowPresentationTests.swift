@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 struct LeoDispatchRowPresentationTests {
     private static let now = Date(timeIntervalSince1970: 1_800_000_000)

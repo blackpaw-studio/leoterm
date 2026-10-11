@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The shared write contract for `LeoFileAccess`: atomic replace, permission
 /// preservation, symlinks, conflict detection and large files. Runs once per

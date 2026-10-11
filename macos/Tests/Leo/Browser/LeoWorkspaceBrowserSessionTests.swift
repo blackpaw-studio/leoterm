@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Each window's browser opens files in that window's editor pane, through
 /// the pane's unsaved-edits prompt, and lets go of its file access when the

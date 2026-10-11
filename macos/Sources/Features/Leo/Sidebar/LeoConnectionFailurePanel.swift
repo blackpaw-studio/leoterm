@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// The words of the sidebar's full-panel connection failure. The message
 /// is often a remote ssh's stderr and the hint names the configured

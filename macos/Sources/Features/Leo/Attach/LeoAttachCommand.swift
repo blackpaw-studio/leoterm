@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 struct LeoAgentIdentity: Hashable, Sendable {
     let host: LeoHostID

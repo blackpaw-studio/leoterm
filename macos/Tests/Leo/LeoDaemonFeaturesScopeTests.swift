@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// A daemon's features apply only to the host that advertised them, judged by
 /// the stamp the feed put on them -- never by the live host selection, which

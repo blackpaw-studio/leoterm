@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-055: one content area per window; the sidebar selects what's shown.
 /// A row click, Return or a palette choice shows the agent in the window's

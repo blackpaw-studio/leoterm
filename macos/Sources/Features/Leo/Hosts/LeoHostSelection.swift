@@ -1,6 +1,7 @@
 import Combine
 import Foundation
 import OSLog
+import LeoKit
 
 /// The connection state of the currently *selected* host. Localhost is
 /// always `.connected` to the local daemon socket; a remote host's state

@@ -1,6 +1,7 @@
 #if DEBUG
 import Foundation
 import OSLog
+import LeoKit
 
 /// DEBUG builds only: overlays attention states onto the local daemon's
 /// `/state` from a JSON file named by `LEO_ATTENTION_FIXTURE`

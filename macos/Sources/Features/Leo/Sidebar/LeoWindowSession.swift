@@ -1,6 +1,7 @@
 import Combine
 import AppKit
 import Foundation
+import LeoKit
 
 struct LeoWindowVisibilityState: Equatable {
     enum Event {

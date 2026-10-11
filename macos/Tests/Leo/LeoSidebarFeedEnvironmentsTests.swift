@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-283 through the feed: the effective environment names come from
 /// `/state`, `agent_spawned` and a set-environment `agent_state_changed`.

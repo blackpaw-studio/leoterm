@@ -1,4 +1,5 @@
 import SwiftUI
+import LeoKit
 
 /// An agent row: a leading state symbol, then the name line (the name, the
 /// surfaced-files glyph, and the last-active time, a state word, or a

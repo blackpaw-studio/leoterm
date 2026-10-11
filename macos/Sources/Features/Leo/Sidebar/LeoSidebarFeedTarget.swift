@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 enum LeoSidebarConnectionPhase: Sendable {
     case connecting

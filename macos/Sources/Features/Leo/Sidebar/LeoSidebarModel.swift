@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import LeoKit
 
 @MainActor final class LeoSidebarModel: ObservableObject {
     @Published private(set) var snapshot: LeoSidebarSnapshot

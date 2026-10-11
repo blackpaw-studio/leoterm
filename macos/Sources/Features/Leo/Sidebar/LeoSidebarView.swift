@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import LeoKit
 
 /// A named group of rows for the sidebar's `List`, keyed by status. Rows
 /// arrive already sorted (`LeoSidebarLayout`), so grouping by first

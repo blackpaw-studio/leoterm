@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Byte-level fixtures for the SFTP v3 codec (draft-ietf-secsh-filexfer-02).
 /// Every expected packet below is written out by hand from the draft, not

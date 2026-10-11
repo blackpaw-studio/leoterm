@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-057: a window's Terminals rows -- the list, its neighbour pick on
 /// close, and how its selection composes with the app-wide agent list.

@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-266: dispatch rows the daemon can attach to open in the content area.
 /// Everything is gated on the `dispatch_attach` feature AND the dispatch's

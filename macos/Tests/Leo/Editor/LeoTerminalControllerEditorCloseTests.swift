@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// `TerminalController`'s close paths with unsaved editor edits (B-004,
 /// B-022): a close that can't ask keeps the tab, and ⌘W in the terminal

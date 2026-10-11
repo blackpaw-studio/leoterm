@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// A server's DATA reply may be shorter than the READ asked for, never
 /// longer: extra bytes would be stitched into the file at the wrong offset.

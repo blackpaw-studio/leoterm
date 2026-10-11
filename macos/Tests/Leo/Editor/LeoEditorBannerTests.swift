@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Which inline banner the pane shows: a disk conflict first, then a
 /// failed save, then the read-only notice.

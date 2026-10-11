@@ -1,4 +1,5 @@
 import AppKit
+import LeoKit
 
 /// B-013 on the runtime: a surfaced file the user asked for opens as a tab
 /// in the agent row's own editor pane (B-004, B-274, B-273), in the window that shows

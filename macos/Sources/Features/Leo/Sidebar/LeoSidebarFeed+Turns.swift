@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// B-259 in the feed: the last-turn preview and usage on agent rows.
 /// hello records which optional features the daemon has (shared plumbing

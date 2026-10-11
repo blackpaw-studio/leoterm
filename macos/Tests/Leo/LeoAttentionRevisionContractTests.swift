@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The daemon's revision contract: the counter is per agent name per boot,
 /// survives delete and recreate, and a rename bumps it past both names'

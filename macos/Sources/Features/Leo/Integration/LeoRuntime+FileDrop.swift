@@ -1,4 +1,5 @@
 import AppKit
+import LeoKit
 
 struct LeoTerminalFileDropContext: Equatable {
     let identity: LeoAgentIdentity

@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 struct LeoUnixSocketTransport: LeoDaemonTransport {
     private let clock: any LeoDaemonClock
@@ -219,3 +220,5 @@ private final class LeoIdleWatchdog: @unchecked Sendable {
         task?.cancel()
     }
 }
+
+extension LeoUnixSocketTransport: LeoSocketActivityTransport {}

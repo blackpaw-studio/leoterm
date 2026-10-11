@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-009: Agents ▸ Find Agent… and the sidebar filter's Escape/Return,
 /// at the model/session level.

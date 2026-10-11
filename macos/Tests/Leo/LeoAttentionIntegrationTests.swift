@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// End to end over a real unix socket: a scripted fake daemon serves
 /// `/events` + `/state` with `attention`, through `LeoSocketActivityClient`,

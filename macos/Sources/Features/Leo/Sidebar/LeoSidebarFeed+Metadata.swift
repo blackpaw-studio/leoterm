@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// Row metadata (B-011, D-074): last-active time and current task, taken
 /// only from whole `/state` snapshots -- never merged from `agent_activity`

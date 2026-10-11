@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 @MainActor struct LeoAgentPaletteModelTests {
     private func row(_ name: String, host: LeoHostID = .local, status: LeoAgentStatus = .running, repo: String? = nil) -> LeoAgentRow {

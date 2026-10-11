@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-100: the side panes' header rows (the workspace browser's and the
 /// editor's) against the window's top edge. In the hidden titlebar style

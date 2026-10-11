@@ -1,6 +1,7 @@
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-275: an agent and its dispatches read as one block.
 struct LeoDispatchRowSpacingTests {

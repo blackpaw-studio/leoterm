@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Snapshots of the built-in highlighter: each sample's spans, in order,
 /// as `token text` lines.

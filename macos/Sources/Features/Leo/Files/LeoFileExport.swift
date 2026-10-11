@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import LeoKit
 
 /// Downloads one workspace file into a local folder (a drag out to Finder).
 /// The bytes stream through `LeoFileAccess` into a private staging file

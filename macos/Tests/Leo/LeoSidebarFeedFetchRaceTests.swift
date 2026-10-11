@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 struct LeoSidebarFeedFetchRaceTests {
     /// `cancel()` landing before `install(_:)` (e.g. the surrounding Task

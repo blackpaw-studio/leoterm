@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// `LeoAttentionReducer` wired into `LeoSidebarFeed`: baselines from
 /// `/state`, live commits through the injected sleeper, disconnect, focus,

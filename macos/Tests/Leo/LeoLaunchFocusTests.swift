@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-075: the sidebar's search field took keyboard focus when a window was
 /// first shown. AppKit makes the first view of the key view loop first

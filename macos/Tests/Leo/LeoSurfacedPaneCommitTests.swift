@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-013 review #1: a surfaced file's identity check happens where the
 /// pane commits the new document -- after the read and after the

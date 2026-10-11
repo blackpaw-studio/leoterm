@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// One recorded `AttachContentHost` open call; fields a given entry point
 /// doesn't take stay `nil`.

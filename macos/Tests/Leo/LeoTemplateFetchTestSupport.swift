@@ -1,6 +1,7 @@
 import Foundation
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-061/B-112: the one template-fetch fake every test injects, as
 /// `LeoRuntime`'s `templateFetchRunner`, as `LeoAgentActions`'

@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Background-agent notifications: opt-in via Agents ▸ Agent Notifications…,
 /// `.alert` requested only on explicit enable, one notification per

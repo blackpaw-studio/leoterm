@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// A download that loses its connection or access part way (B-279) fails
 /// plainly and leaves nothing in the drop folder -- never a partial file.

@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The SFTP session layer against the real macOS `sftp-server` and against
 /// scripted fake servers that misbehave on cue.

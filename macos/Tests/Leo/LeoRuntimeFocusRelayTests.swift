@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-019: `LeoRuntime.focusedAgentChanged` reaches the feed only through
 /// `focusedAgentRelay` (B-016), so a burst of focus changes lands in order.

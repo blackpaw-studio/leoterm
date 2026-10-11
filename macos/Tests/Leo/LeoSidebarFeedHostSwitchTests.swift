@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// `updateConnection(host:generation:phase:)` is the single chokepoint that
 /// swaps which daemon/activity source a `LeoSidebarFeed` talks to. These

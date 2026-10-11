@@ -3,6 +3,7 @@ import SwiftUI
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-274: the window's editor and browser split items show the pane of the
 /// row on screen. Each row keeps its own views, so a switch back finds the

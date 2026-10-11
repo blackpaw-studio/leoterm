@@ -1,5 +1,6 @@
 import AppKit
 import GhosttyKit
+import LeoKit
 
 extension LeoRuntime {
     /// Ghostty's open-URL action (a ⌘-clicked link or OSC 8 hyperlink).

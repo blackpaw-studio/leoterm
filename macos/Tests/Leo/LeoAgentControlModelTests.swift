@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-262: drafts, in-flight, inline feedback and per-host denial behind the
 /// control bar, against a stub transport (never a real agent).

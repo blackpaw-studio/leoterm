@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 struct LeoMenuCommandsTests {
     /// B-283: Set Environments sits right after Set Template in the Agent menu.

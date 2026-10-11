@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The streaming read contract (B-279): `read(_:into:)` pushes a file into a
 /// sink in bounded pieces, identically for local and remote, and refuses

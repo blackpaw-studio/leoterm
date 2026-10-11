@@ -3,6 +3,7 @@ import SwiftUI
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-074: the sidebar header against the window's buttons, for every
 /// `macos-titlebar-style`. Each test builds a window the way the app does:

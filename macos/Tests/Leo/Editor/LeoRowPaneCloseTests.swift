@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-274: closing a row closes its editor pane, asking first when it has
 /// unsaved edits; a close that can't ask keeps the pane. Drives a real

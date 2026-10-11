@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// B-283 in the feed: the rows' effective environment names. Every applied
 /// `/state` replaces them (see `applyMetadata`), and an event carrying the

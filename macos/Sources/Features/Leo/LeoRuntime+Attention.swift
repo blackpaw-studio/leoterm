@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import LeoKit
 
 /// Attention-model hooks on the runtime: focus identity into the feed's
 /// reducer, and Agents ▸ Jump to Next Needing Attention.

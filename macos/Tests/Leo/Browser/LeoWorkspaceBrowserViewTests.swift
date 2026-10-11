@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The browser's outline, driven by the keyboard: arrows move, → / ←
 /// expand and collapse (then step in and out), Return opens a file or

@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-086: a window's first content sizes it only while it has never been
 /// on screen, and then from the configured size, never the SwiftUI view's.

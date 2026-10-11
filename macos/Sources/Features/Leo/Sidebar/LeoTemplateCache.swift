@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// Single-flight cache for one host connection's template list. Rows and
 /// the Agents-menu submenu both read through this instead of issuing their

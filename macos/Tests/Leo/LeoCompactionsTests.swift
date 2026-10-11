@@ -1,6 +1,7 @@
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-261: the per-incarnation "compacting" store.
 struct LeoCompactionsTests {

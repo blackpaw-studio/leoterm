@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Generation-race / teardown-serialization coverage for `LeoHostSelection`:
 /// launch, probe, and termination are gated independently (`fake_ssh.py` env

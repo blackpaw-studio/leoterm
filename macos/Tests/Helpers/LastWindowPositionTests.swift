@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-085: a window frame too small to use is never saved and never
 /// restored, so a window that once shrank (B-086) doesn't come back tiny

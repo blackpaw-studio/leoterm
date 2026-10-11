@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-069, B-113: the start screen's New Terminal and Quick Terminal buttons
 /// are the sidebar footer's buttons in bordered form: the same menu items,

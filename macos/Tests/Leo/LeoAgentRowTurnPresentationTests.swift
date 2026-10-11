@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-259: how usage is formatted, and how the last turn's preview is recorded.
 struct LeoAgentRowTurnPresentationTests {

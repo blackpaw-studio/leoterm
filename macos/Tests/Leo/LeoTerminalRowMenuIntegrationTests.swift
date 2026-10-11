@@ -3,6 +3,7 @@ import GhosttyKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-177 against a real `TerminalController`: a terminal row's context
 /// menu renames its shell (the one title the row, the window and a close

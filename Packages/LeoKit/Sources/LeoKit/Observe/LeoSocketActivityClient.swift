@@ -1,0 +1,87 @@
+import Foundation
+import OSLog
+
+private let leoSocketActivityLogger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
+
+/// Streaming transport for a `.socketEvents`-flavor daemon (leo >= 0.29):
+/// `GET /events` (unix-socket SSE) and `GET /state`, both unprefixed since a
+/// socket now always addresses exactly one host.
+public protocol LeoSocketActivityTransport: LeoDaemonTransport {
+    func stream(path: String, socketPath: String, idleTimeout: TimeInterval) -> AsyncThrowingStream<Data, Error>
+}
+
+/// Reads agent activity from a single daemon socket via `GET /events`
+/// (SSE: `hello`, `agent_*` events, `: ping` keep-alives -- ignored by
+/// `LeoSSEParser`) and `GET /state` (enveloped or bare JSON). Reuses
+/// `LeoActivityClient.decode` for wire decoding since the event payloads are
+/// identical to the legacy TCP observability API; the only difference is
+/// transport (unix socket, unprefixed paths, no bearer token).
+///
+/// One stream per `events()` call and no reconnect of its own (principle 5,
+/// D-061): when the stream ends it yields `.disconnected` and finishes, and
+/// the sidebar waits for the user's Retry, which asks for a fresh stream.
+public actor LeoSocketActivityClient {
+    /// The reason reported when the daemon ends the stream cleanly.
+    public static let closedReason = "Connection closed"
+
+    private let socketPath: String
+    private let transport: any LeoSocketActivityTransport
+
+    public init(socketPath: String, transport: any LeoSocketActivityTransport) {
+        self.socketPath = socketPath
+        self.transport = transport
+    }
+
+    public func fetchState() async throws -> LeoObservedState {
+        let response = try await transport.send(.init(method: "GET", path: "/state"), socketPath: socketPath, timeout: 5)
+        guard (200..<300).contains(response.status) else {
+            throw LeoDaemonError.transport("State endpoint returned HTTP \(response.status)")
+        }
+        return try LeoDaemonEnvelope<LeoObservedState>.decode(response.body).value()
+    }
+
+    public func events() -> AsyncStream<LeoObserveEvent> {
+        AsyncStream { continuation in
+            let task = Task { await self.run(continuation) }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    private func run(_ continuation: AsyncStream<LeoObserveEvent>.Continuation) async {
+        defer { continuation.finish() }
+        var lastSequence: Int?
+        var parser = LeoSSEParser()
+        var reason = Self.closedReason
+        leoSocketActivityLogger.log("socketActivity: connecting socketPath=\(self.socketPath, privacy: .public)")
+        do {
+            for try await bytes in transport.stream(path: "/events", socketPath: socketPath, idleTimeout: 60) {
+                for raw in parser.feed(bytes) {
+                    guard let event = LeoActivityClient.decode(raw) else { continue }
+                    let sequence = event.sequence
+                    if sequence >= 0, let lastSequence, sequence > lastSequence + 1 {
+                        continuation.yield(.gap(expected: lastSequence + 1, received: sequence))
+                        if let state = try? await fetchState() { continuation.yield(.snapshot(state.agents)) }
+                    }
+                    if sequence >= 0 { lastSequence = sequence }
+                    if case .hello(let seq, let at, let version, let serverTime, _, _) = event {
+                        leoSocketActivityLogger.log("socketActivity: hello seq=\(seq) version=\(version ?? "nil", privacy: .public) serverTime=\(serverTime ?? "nil", privacy: .public) at=\(at ?? "nil", privacy: .public)")
+                    }
+                    continuation.yield(event)
+                }
+            }
+        } catch is CancellationError {
+            return
+        } catch {
+            reason = Self.reason(for: error)
+        }
+        guard !Task.isCancelled else { return }
+        leoSocketActivityLogger.log("socketActivity: disconnected reason=\(reason, privacy: .public); waiting for Retry")
+        continuation.yield(.disconnected(reason: reason))
+    }
+
+    private static func reason(for error: Error) -> String {
+        guard let error = error as? LeoDaemonError else { return String(describing: error) }
+        if case .transport(let reason) = error { return reason }
+        return String(describing: error)
+    }
+}

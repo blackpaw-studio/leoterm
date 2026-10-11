@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// Whether the placeholder's "Choose Agent…" can be pressed, and its
 /// tooltip. While the feed is disconnected the palette could only show the

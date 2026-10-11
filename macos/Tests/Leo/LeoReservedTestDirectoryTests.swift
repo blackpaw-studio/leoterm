@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// `LeoReservedTestDirectory` backs the socket directory tests share: it
 /// must never adopt a directory another process already has, and must

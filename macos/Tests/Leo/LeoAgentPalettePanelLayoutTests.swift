@@ -1,6 +1,7 @@
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The palette panel's height formula (header + row-height * row count,
 /// clamped to [minHeight, maxHeight]) is pulled out into a pure enum so it

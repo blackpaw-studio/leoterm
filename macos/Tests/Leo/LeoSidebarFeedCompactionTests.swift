@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-261 through the feed: a compaction shows on its row from `started`
 /// until the end event (or any reset), and the end asks for a fresh

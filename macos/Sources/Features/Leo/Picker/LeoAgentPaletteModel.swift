@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// Pure view-model for the agent picker palette. Consumes the sidebar's
 /// snapshot + host connection state and exposes a flat, keyboard-navigable

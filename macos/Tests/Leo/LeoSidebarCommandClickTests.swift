@@ -3,6 +3,7 @@ import SwiftUI
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Suites that post to or consume from the process-wide AppKit event queue.
 @Suite(.serialized)

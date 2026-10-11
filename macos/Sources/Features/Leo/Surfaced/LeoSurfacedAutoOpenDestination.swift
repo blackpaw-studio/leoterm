@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// B-273: which window a file an agent surfaced opens in, chosen without
 /// attaching or navigating anything: the window showing the agent, else

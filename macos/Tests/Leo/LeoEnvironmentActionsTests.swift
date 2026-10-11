@@ -3,6 +3,7 @@ import Combine
 import Foundation
 import Testing
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-283: the catalog comes from the bound daemon (so it is the same over
 /// the SSH tunnel); a set goes through the row's action path, so its error

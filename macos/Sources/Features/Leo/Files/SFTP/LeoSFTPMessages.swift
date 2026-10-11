@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// SFTP v3 message types (draft-ietf-secsh-filexfer-02 §3) this client speaks.
 enum LeoSFTPPacketType: UInt8 {

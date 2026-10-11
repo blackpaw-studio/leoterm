@@ -3,6 +3,7 @@ import SwiftUI
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-057: the Terminals section sits below every agent, so a terminal row
 /// the window selects -- a new one ⌘T just added, or one it switched to --

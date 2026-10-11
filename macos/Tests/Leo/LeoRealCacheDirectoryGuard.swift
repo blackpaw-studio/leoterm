@@ -3,6 +3,7 @@ import Foundation
 import XCTest
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The test bundle's principal class (`INFOPLIST_KEY_NSPrincipalClass`):
 /// XCTest creates it before any test runs. It lists the app's real socket

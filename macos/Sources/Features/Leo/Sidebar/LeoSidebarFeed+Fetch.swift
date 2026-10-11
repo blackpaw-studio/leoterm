@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// List/activity-state fetch machinery for `LeoSidebarFeed`: racing the
 /// agent-list fetch against a deadline, and fetching+applying a fresh

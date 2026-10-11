@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The shared behavioural contract for `LeoFileAccess`: listing, stat,
 /// reading and error mapping. Every test runs once per backend

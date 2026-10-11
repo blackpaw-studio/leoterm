@@ -14,6 +14,7 @@
 		819324642F24FF2100A9ED8F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A5B30538299BEAAB0047F10C /* Assets.xcassets */; };
 		8F3A9B4C2FA6B88000A18D13 /* Ghostty.sdef in Resources */ = {isa = PBXBuildFile; fileRef = 8F3A9B4B2FA6B88000A18D13 /* Ghostty.sdef */; };
 		9351BE8E3D22937F003B3499 /* nvim in Resources */ = {isa = PBXBuildFile; fileRef = 9351BE8E2D22937F003B3499 /* nvim */; };
+		1E0C17A12EA0000000000001 /* LeoKit in Frameworks */ = {isa = PBXBuildFile; productRef = 1E0C17A12EA0000000000002 /* LeoKit */; };
 		A51BFC272B30F1B800E92F16 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = A51BFC262B30F1B800E92F16 /* Sparkle */; };
 		A546F1142D7B68D7003B11A0 /* locale in Resources */ = {isa = PBXBuildFile; fileRef = A546F1132D7B68D7003B11A0 /* locale */; };
 		A553F4142E06EB1600257779 /* Ghostty.icon in Resources */ = {isa = PBXBuildFile; fileRef = A553F4122E06EB1600257779 /* Ghostty.icon */; };
@@ -150,6 +151,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A51BFC272B30F1B800E92F16 /* Sparkle in Frameworks */,
+				1E0C17A12EA0000000000001 /* LeoKit in Frameworks */,
 				A56B880B2A840447007A0E29 /* Carbon.framework in Frameworks */,
 				A571AB1D2A206FCF00248498 /* GhosttyKit.xcframework in Frameworks */,
 			);
@@ -304,6 +306,7 @@
 			name = Ghostty;
 			packageProductDependencies = (
 				A51BFC262B30F1B800E92F16 /* Sparkle */,
+				1E0C17A12EA0000000000002 /* LeoKit */,
 			);
 			productName = Ghostty;
 			productReference = A5B30531299BEAAA0047F10C /* Ghostty.app */;
@@ -347,6 +350,7 @@
 			mainGroup = A5B30528299BEAAA0047F10C;
 			packageReferences = (
 				A51BFC252B30F1B700E92F16 /* XCRemoteSwiftPackageReference "Sparkle" */,
+				1E0C17A12EA0000000000003 /* XCLocalSwiftPackageReference "../Packages/LeoKit" */,
 			);
 			productRefGroup = A5B30532299BEAAA0047F10C /* Products */;
 			projectDirPath = "";
@@ -1126,6 +1130,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		1E0C17A12EA0000000000003 /* XCLocalSwiftPackageReference "../Packages/LeoKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Packages/LeoKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		A51BFC252B30F1B700E92F16 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -1138,6 +1149,10 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		1E0C17A12EA0000000000002 /* LeoKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LeoKit;
+		};
 		A51BFC262B30F1B800E92F16 /* Sparkle */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A51BFC252B30F1B700E92F16 /* XCRemoteSwiftPackageReference "Sparkle" */;

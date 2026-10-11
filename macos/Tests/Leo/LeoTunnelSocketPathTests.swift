@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The forwarded daemon socket used to live in `~/.leo/state/leoterm/`,
 /// where a long home directory pushed it past the AF_UNIX path limit and

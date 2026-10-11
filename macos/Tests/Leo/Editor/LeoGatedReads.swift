@@ -1,6 +1,7 @@
 import Foundation
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Reads (and, when asked, stats and writes) of the gated paths wait until
 /// the test lets them through, so a test can finish operations in any

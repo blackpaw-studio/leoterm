@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Regression coverage for a launch bug: `routeNewSurface` and
 /// `LeoNewSurfaceRouter.begin` both logged, but `LeoWindowPickerRouter`

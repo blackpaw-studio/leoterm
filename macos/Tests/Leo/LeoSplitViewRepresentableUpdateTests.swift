@@ -4,6 +4,7 @@ import SwiftUI
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The sidebar toggled through SwiftUI, as ⌘⇧L does: the representable's
 /// `updateNSViewController` is what shows it, so that's what's driven.

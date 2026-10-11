@@ -5,6 +5,7 @@ import Darwin
 #endif
 
 @testable import Ghostty
+@testable import LeoKit
 
 struct LeoFileDropTests {
     static let kinds: [LeoFileBackendKind] = [.local, .sftp]
