@@ -36,6 +36,14 @@ jobs:
       - name: CI script tests
         run: .github/scripts/leo/run-tests.sh
 
+      # The shared LeoKit package (models, daemon client, observe, files);
+      # plain SwiftPM, so it runs before the app build.
+      - name: LeoKit tests
+        working-directory: Packages/LeoKit
+        run: |
+          swiftlint lint --strict
+          swift test
+
       - name: SwiftLint
         working-directory: macos
         run: swiftlint lint --strict
