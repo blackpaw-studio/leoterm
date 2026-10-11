@@ -33,10 +33,15 @@ import Testing
         let defaults: UserDefaults
 
         /// A start screen as the launch opens one, before it is presented.
-        static func make() throws -> Fixture {
+        /// The window's session reads the sidebar's shown state from the
+        /// test host's real defaults, which anything running the debug app
+        /// rewrites; `sidebarVisible` stands in for the stored choice a
+        /// test needs (nil takes whatever is stored).
+        static func make(sidebarVisible: Bool? = nil) throws -> Fixture {
             let app = try #require(LeoFirstAttachWindowSizeTests.app)
             let savedPosition = UserDefaults.ghostty.object(forKey: LastWindowPosition.positionKey)
             let controller = withoutUndo(app) { TerminalController.leoNewPlaceholderWindow(app.ghostty) }
+            if let sidebarVisible { controller.leoSession?.isSidebarVisible = sidebarVisible }
             let window = try #require(controller.window)
             let registry = LeoWindowSessionRegistry()
             let defaults = LeoInMemoryDefaults()
@@ -50,8 +55,8 @@ import Testing
         }
 
         /// Shows the start screen, then gives it a known frame on screen.
-        static func shown() async throws -> Fixture {
-            let fixture = try make()
+        static func shown(sidebarVisible: Bool? = nil) async throws -> Fixture {
+            let fixture = try make(sidebarVisible: sidebarVisible)
             await drainMainQueue(turns: 4)
             try #require(fixture.window.isVisible, "the start screen never showed")
             let screen = try #require(fixture.window.screen ?? NSScreen.main)
@@ -199,7 +204,7 @@ import Testing
     /// stored width rather than being clamped to make room (D-145).
     @Test(.enabled("needs the app's Ghostty.App") { await MainActor.run { Self.hasGhostty } })
     func aNarrowConfiguredTerminalOpensWideEnoughForTheStoredSidebar() async throws {
-        let fixture = try Fixture.make()
+        let fixture = try Fixture.make(sidebarVisible: true)
         defer { fixture.close() }
         let session = try #require(fixture.controller.leoSession)
         try #require(session.isSidebarVisible)
@@ -242,7 +247,7 @@ import Testing
     /// stored as it was.
     @Test(.enabled("needs the app's Ghostty.App") { await MainActor.run { Self.hasGhostty } })
     func resetWindowSizeRestoresALaunchClampedSidebar() async throws {
-        let fixture = try await Fixture.shown()
+        let fixture = try await Fixture.shown(sidebarVisible: true)
         defer { fixture.close() }
         let session = try #require(fixture.controller.leoSession)
         let surface = try fixture.fill().surface

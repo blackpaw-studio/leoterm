@@ -322,17 +322,16 @@ struct LeoSidebarView: View {
             // A key equivalent, so it sees Return before the search
             // field does; there Return means the top match instead.
             // Both are a click on a row (B-049): the top match, or the
-            // selection. Arrow keys only move the selection.
-            Button("") {
+            // selection. Arrow keys only move the selection. Matched
+            // by key, so ⌃C stays the terminal's (B-287).
+            LeoSidebarReturnKey(isEnabled: LeoSidebarSelection.canActivate(model: model, terminals: terminals)) {
                 if searchField.hasFocus {
                     model.searchSubmit(from: windowID)
                 } else {
                     LeoSidebarSelection.activate(model: model, terminals: terminals, from: windowID)
                 }
             }
-            .keyboardShortcut(.return, modifiers: [])
-            .opacity(0)
-            .disabled(!LeoSidebarSelection.canActivate(model: model, terminals: terminals))
+            .frame(width: 0, height: 0)
             .accessibilityHidden(true)
         }
     }
