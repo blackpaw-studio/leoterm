@@ -26,6 +26,17 @@ Lane: B-143
   Reviewed-tip: none
   Dispatched: 2026-10-06T23:01:21Z
 
+Lane: B-284
+  Branch: autopilot-lane/B-284
+  Base: d4520371097a0592f7340c0599bfea8055219bbf
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 ## Progress
 - Preflight: autopilot already at main (60e80df75); applied 1 inbox entry (B-288 answer → D-518; stays blocked until leo ships `--rw`; leo 0.45.0 has none).
 - Lane autopilot-lane/B-233 exists unlanded with no RUN.md block (left from an earlier run); left in place.
+- B-284 picked (tier light): the four ready bugs go before the B-148… test-polish items (bugs-first ordering; B-284 built before B-148).
