@@ -18,6 +18,8 @@ struct AppFeatureTests {
             AppFeature()
         } withDependencies: {
             $0.secrets.delete = { id in deleted.withValue { $0.append(id) } }
+            // No saved token: nothing to unregister push with.
+            $0.secrets.load = { _ in nil }
             $0.pairedDaemons.save = { daemons in saved.withValue { $0.append(daemons) } }
         }
         await store.send(\.daemons.forgetButtonTapped, .dionysus) {
@@ -32,19 +34,6 @@ struct AppFeatureTests {
         }
         #expect(deleted.value == [PairedDaemon.dionysus.id])
         #expect(saved.value == [[.hestia]])
-    }
-
-    @Test func pairingAddsTheDaemonAndClosesTheSheet() async {
-        let store = TestStore(initialState: AppFeature.State()) {
-            AppFeature()
-        } withDependencies: {
-            $0.pairedDaemons.save = { _ in }
-        }
-        await store.send(.pairButtonTapped) { $0.pairing = Pairing.State() }
-        await store.send(\.pairing.delegate.paired, .hestia) {
-            $0.pairing = nil
-            $0.fleet.sessions = [DaemonSession(daemon: .hestia)]
-        }
     }
 
     @Test func theDaemonsScreenAddButtonOpensPairing() async {

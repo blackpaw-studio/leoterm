@@ -21,6 +21,10 @@ public struct DaemonClient: Sendable {
     public var events: @Sendable (_ connection: DaemonConnection) -> AsyncThrowingStream<LeoObserveEvent, any Error> = { _ in .finished() }
     public var perform: @Sendable (_ connection: DaemonConnection, _ agent: String, _ command: AgentCommand) async throws -> Void
     public var environmentNames: @Sendable (_ connection: DaemonConnection) async throws -> [String]
+    /// `PUT /api/v1/devices/{id}/push`: how the daemon pushes to this device.
+    public var setPush: @Sendable (_ connection: DaemonConnection, _ deviceID: String, _ registration: LeoPushRegistration) async throws -> Void
+    /// `DELETE /api/v1/devices/{id}/push`.
+    public var deletePush: @Sendable (_ connection: DaemonConnection, _ deviceID: String) async throws -> Void
 }
 
 extension DaemonClient: DependencyKey {
@@ -48,7 +52,9 @@ extension DaemonClient: DependencyKey {
                 case .stop: try await client.stop(agent)
                 }
             },
-            environmentNames: { try await client($0).environmentNames() }
+            environmentNames: { try await client($0).environmentNames() },
+            setPush: { connection, deviceID, registration in try await client(connection).registerPush(deviceID: deviceID, registration) },
+            deletePush: { connection, deviceID in try await client(connection).unregisterPush(deviceID: deviceID) }
         )
     }
 }
