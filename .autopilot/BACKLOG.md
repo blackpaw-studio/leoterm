@@ -842,11 +842,13 @@ Inbox: 20261010T162821667038Z-51a07466#1
 Done: 2d3e3bd9a 391fa318f 6d8271036 4f94b0f49 c37656a84 809539964 73742165a 9c0b258b6 4990c5ddb 9db0be99d 7d40b7cd1 3a8b6eef3 a08d5579d
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-278-1.png
 
-## B-148 · Sidebar list stays mounted in No Agents/Loading/Failed with terminals   [ready]
+## B-148 · Sidebar list stays mounted in No Agents/Loading/Failed with terminals   [done]
 Issue: #152
 Why: the onAppear remount race is still reachable in those states with terminals and a filter (LeoSidebarView.swift:216); keep the list mounted when terminal rows exist; fix the doc comments that say only the first list uses onAppear (LeoSidebarView.swift:214, LeoTerminalRowReveal.swift:12)
 Accept: the onAppear remount race is still reachable in those states with terminals and a filter (LeoSidebarView.swift:216); keep the list mounted when terminal rows exist; fix the doc comments that say only the first list uses onAppear (LeoSidebarView.swift:214, LeoTerminalRowReveal.swift:12)
 Source: autopilot polish (B-099)
+Done: fe8fafa9e
+Verified: not visually verified — GUI skipped: state only reachable via the real daemon; suite 2693 green
 
 ## B-149 · Reveal the selected row after AppKit layout   [ready]
 Issue: #153
