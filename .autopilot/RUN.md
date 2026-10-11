@@ -102,6 +102,17 @@ Lane: B-148
   Reviewed-tip: 1f91cc260248fe8b7b6639195e8ac7a4dc196da7
   Dispatched: 2026-10-11T20:15:00Z
 
+Lane: B-149
+  Branch: autopilot-lane/B-149
+  Base: e376ef063618831dfb7b0f38b626598ecf1316af
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-11T21:08:00Z
+
 Finished 1: B-284 landed 1c1f5aa66 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-284-w515414.png
 Finished 2: B-285 landed d34e7d42f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-285-1.png
 Finished 3: B-288 landed 492d7d37f · not visually verified
@@ -135,3 +146,5 @@ Finished 6: B-148 landed aab4e56d0 · not visually verified
 - B-148 runner dispatched: d-a7489852d58a (implement → claude/sonnet, tier light).
 - 16:16 EDT: B-148 runner ended its turn early ("waiting on implementer"); sent follow-up #2 telling it to block on leo_wait for d-9665567f2291. Dispatched time unchanged.
 - B-148 landed aab4e56d0 (fixes 0).
+- B-149 picked (tier light: order one reveal after layout).
+- B-149 runner dispatched: d-28e147c6b7a4 (implement → claude/sonnet, tier light).
