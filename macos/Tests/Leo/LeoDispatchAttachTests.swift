@@ -68,6 +68,15 @@ struct LeoDispatchAttachCommandTests {
         #expect(command == "env -u TMUX -u TMUX_PANE '/leo' --host 'build host' dispatch attach 'd-1'")
     }
 
+    @Test func readWriteAddsTheFlagLocallyAndWithHost() throws {
+        let local = try LeoAttachCommand.build(
+            executable: "/leo", identity: .dispatch(host: .local, id: "d-1", title: nil), dispatchAccess: .readWrite)
+        #expect(local == "env -u TMUX -u TMUX_PANE '/leo' dispatch attach --rw 'd-1'")
+        let remote = try LeoAttachCommand.buildDispatch(
+            executable: "/leo", host: .remote("box"), dispatchID: "d-1", access: .readWrite)
+        #expect(remote == "env -u TMUX -u TMUX_PANE '/leo' --host 'box' dispatch attach --rw 'd-1'")
+    }
+
     @Test(arguments: ["", "-x", "--help", "bad\0id", "bad\nid", "bad\rid"])
     func refusesAnIDThatCouldBeAFlagOrBreakTheLine(_ id: String) {
         #expect(throws: LeoAttachCommandError.invalidDispatchID) {
