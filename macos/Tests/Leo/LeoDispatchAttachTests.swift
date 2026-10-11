@@ -121,11 +121,12 @@ struct AttachExitReportTests {
     private func makeCoordinator(
         host: FakeAttachContentHost,
         access: LeoDispatchAccess = .readOnly,
+        dispatchAccess: ((LeoHostID) async -> LeoDispatchAccess)? = nil,
         remoteCommandBuilder: @escaping (LeoAgentIdentity, LeoDispatchAccess) throws -> String = { _, _ in "remote" }
     ) -> LeoAttachCoordinator {
         LeoAttachCoordinator(
             host: host, executable: { "/leo" }, remoteCommandBuilder: remoteCommandBuilder,
-            dispatchAccess: { _ in access }, report: { _ in },
+            dispatchAccess: dispatchAccess ?? { _ in access }, report: { _ in },
             lifecycleEventHandled: { host.acknowledge($0) }
         )
     }
@@ -241,6 +242,33 @@ struct AttachExitReportTests {
         #expect(built.map(\.0) == [remote])
         #expect(built.map(\.1) == [.readWrite])
         #expect(host.dispatchMarks.map(\.readOnly) == [false])
+    }
+
+    /// B-288 review: the probe can take seconds over ssh. A newer request
+    /// that took the window meanwhile wins, exactly as it does over a
+    /// confirmation: the slow dispatch attach is dropped, not run over it.
+    @Test func aSlowProbeDoesNotReplaceANewerSelectionInTheSameWindow() async throws {
+        let host = FakeAttachContentHost()
+        var release: CheckedContinuation<LeoDispatchAccess, Never>?
+        var probing = false
+        let coordinator = makeCoordinator(host: host, dispatchAccess: { _ in
+            probing = true
+            return await withCheckedContinuation { release = $0 }
+        })
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
+        let slow = Task { await coordinator.attach(identity: identity, request: request) }
+        for _ in 0..<1000 where !probing { await Task.yield() }
+        try #require(probing, "the dispatch attach is suspended in its probe")
+
+        let newer = LeoAgentIdentity(host: .local, name: "worker")
+        let newerHandle = try await coordinator.attach(identity: newer, request: request).get()
+        release?.resume(returning: .readWrite)
+        let result = await slow.value
+
+        #expect(result == .failure(.init(identity: identity, kind: .cancelled)), "superseded, quietly")
+        #expect(host.contentCalls.map(\.command) == ["env -u TMUX -u TMUX_PANE '/leo' agent attach -- 'worker'"])
+        #expect(host.isOpen(newerHandle), "the newer selection is kept")
+        #expect(host.dispatchMarks.isEmpty)
     }
 
     /// An agent attach never asks, so a slow probe delays nothing else.

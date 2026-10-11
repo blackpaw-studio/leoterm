@@ -191,11 +191,17 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         // Showing a hidden surface needs no command; attaching anew builds
         // it before asking, so a bad executable never asks first -- and
         // again after when a hello changed placement meanwhile (B-270).
+        // What the window showed when this asked: the probe below and the
+        // confirmation after it can both outlast a newer request.
+        let shownVersion = contentVersion[request.origin, default: 0]
         let access = await accessForAttach(identity, isHidden: isHidden)
+        guard isStillCurrent(request, shownVersion) else {
+            return .failure(.init(identity: identity, kind: .cancelled))
+        }
         let built = isHidden ? nil : attachCommand(for: identity, access: access)
         if case .failure(let error) = built { return .failure(error) }
         let placedWhenBuilt = placesDispatches(identity.host)
-        guard await confirmReplacingContent(for: request) else {
+        guard await confirmReplacingContent(for: request, shownVersion: shownVersion) else {
             return .failure(.init(identity: identity, kind: .cancelled))
         }
         if isHidden, let handle = revealHidden(identity, in: request.origin) { return .success(handle) }
@@ -455,19 +461,28 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     private static let plainShellIdentity = LeoAgentIdentity(host: .local, name: "")
 
     /// Only a content-area request replaces anything. The answer is about
-    /// what the window showed when it asked: if another request replaced
-    /// that content while this one waited, this one is dropped (a quiet
-    /// cancel) -- the newer request wins, and nothing replaces content
-    /// nobody confirmed replacing.
+    /// what the window showed when it asked (`shownVersion`, taken before
+    /// any wait): if another request replaced that content while this one
+    /// waited, this one is dropped (a quiet cancel) -- the newer request
+    /// wins, and nothing replaces content nobody confirmed replacing.
     private func confirmReplacingContent(for request: LeoSurfaceRequest) async -> Bool {
+        await confirmReplacingContent(for: request, shownVersion: contentVersion[request.origin, default: 0])
+    }
+
+    private func confirmReplacingContent(for request: LeoSurfaceRequest, shownVersion: Int) async -> Bool {
         guard request.disposition == .content else { return true }
-        let version = contentVersion[request.origin, default: 0]
         guard await host.confirmReplacingContent(origin: request.origin) else { return false }
-        // Its window closed meanwhile (`windowClosed`): the request goes on
-        // to the host as it did before the version was pruned (which
-        // reports a closed origin once the registry no longer resolves it).
-        guard let now = contentVersion[request.origin] else { return true }
-        return now == version
+        return isStillCurrent(request, shownVersion)
+    }
+
+    /// Whether `request`'s window still shows what it showed at
+    /// `shownVersion`. A window that closed meanwhile (`windowClosed`)
+    /// counts as current: the request goes on to the host as it did before
+    /// the version was pruned (which reports a closed origin once the
+    /// registry no longer resolves it).
+    private func isStillCurrent(_ request: LeoSurfaceRequest, _ shownVersion: Int) -> Bool {
+        guard request.disposition == .content, let now = contentVersion[request.origin] else { return true }
+        return now == shownVersion
     }
 
     /// `window`'s content area now shows something else.
