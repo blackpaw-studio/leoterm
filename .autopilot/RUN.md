@@ -106,7 +106,7 @@ Lane: B-149
   Branch: autopilot-lane/B-149
   Base: e376ef063618831dfb7b0f38b626598ecf1316af
   Tier: light→full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
@@ -124,6 +124,7 @@ Finished 3: B-288 landed 492d7d37f · not visually verified
 Finished 4: B-268 landed faa9f0140 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-268-1.png
 Finished 5: B-269 landed c4be21582 · not visually verified
 Finished 6: B-148 landed aab4e56d0 · not visually verified
+Finished 7: B-149 landed 039ec8dad · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-149-2.png
 
 ## Progress
 - Preflight: autopilot already at main (60e80df75); applied 1 inbox entry (B-288 answer → D-518; stays blocked until leo ships `--rw`; leo 0.45.0 has none).
@@ -153,3 +154,4 @@ Finished 6: B-148 landed aab4e56d0 · not visually verified
 - B-148 landed aab4e56d0 (fixes 0).
 - B-149 picked (tier light: order one reveal after layout).
 - B-149 runner dispatched: d-28e147c6b7a4 (implement → claude/sonnet, tier light).
+- B-149 landed 039ec8dad (fixes 1).

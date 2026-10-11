@@ -850,11 +850,13 @@ Source: autopilot polish (B-099)
 Done: fe8fafa9e
 Verified: not visually verified — GUI skipped: state only reachable via the real daemon; suite 2693 green
 
-## B-149 · Reveal the selected row after AppKit layout   [ready]
+## B-149 · Reveal the selected row after AppKit layout   [done]
 Issue: #153
 Why: Loading→connected leaves the row partly cut off ~7/60 (pre-existing); order the reveal after layout
 Accept: Loading→connected leaves the row partly cut off ~7/60 (pre-existing); order the reveal after layout
 Source: autopilot polish (B-099)
+Done: 72b2ac2ec f82fb40a3 66c0bd071
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-149-2.png (test aRowRevealedAtTheBottomStaysWhollyOnScreenWhenTheAgentsGo + window shots (section collapse); suite 2694/0 on b45451b9e)
 
 ## B-150 · B-099 scroll test hardening   [ready]
 Issue: #154

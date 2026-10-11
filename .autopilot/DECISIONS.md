@@ -3776,3 +3776,31 @@ Chose: Missing-server marker is matched as an exact ASCII line on raw stderr byt
 Why: D-422 / P5
 Commit: 3c0134fac
 Veto: [ ]
+
+## D-528 · 2026-10-11 · The selected-terminal reveal now runs after AppKit layout (new LeoListLayoutAnchor), in b…
+Context: B-149 (runner call).
+Chose: The selected-terminal reveal now runs after AppKit layout (new LeoListLayoutAnchor), in both directions; still one-shot, so refreshes never scroll (D-130)
+Why: P6.
+Commit: 72b2ac2ec, f82fb40a3, 66c0bd071
+Veto: [ ]
+
+## D-529 · 2026-10-11 · LeoRevealScheduler (.nextTurn default, .immediate for tests) is kept as a test seam throu…
+Context: B-149 (runner call).
+Chose: LeoRevealScheduler (.nextTurn default, .immediate for tests) is kept as a test seam through LeoSidebarView's init; only .immediate gives a 30/30 red
+Why: AUTONOMY test infrastructure.
+Commit: 72b2ac2ec, f82fb40a3, 66c0bd071
+Veto: [ ]
+
+## D-530 · 2026-10-11 · The reproduced cut-off is the list shrinking when agents go (connected→Loading/Failed/No …
+Context: B-149 (runner call).
+Chose: The reproduced cut-off is the list shrinking when agents go (connected→Loading/Failed/No Agents); Loading→connected can't cut the row off in current code, so the criterion is met by the shrink direction instead
+Why: P6, AUTONOMY bug fixes.
+Commit: 72b2ac2ec, f82fb40a3, 66c0bd071
+Veto: [ ]
+
+## D-531 · 2026-10-11 · `request` also schedules window.layoutIfNeeded() for the next turn; needsLayout alone lef…
+Context: B-149 (runner call).
+Chose: `request` also schedules window.layoutIfNeeded() for the next turn; needsLayout alone left the reveal waiting for a display pass that run-loop turns never reach
+Why: plan Risk 4.
+Commit: 72b2ac2ec, f82fb40a3, 66c0bd071
+Veto: [ ]
