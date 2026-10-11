@@ -82,12 +82,13 @@ Lane: B-269
   Branch: autopilot-lane/B-269
   Base: a31f97f9569f7c7229c0e25ebf76b3681078b86e
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 83fc576c6ed9ee57d1e9b5d17850a337608fb2fa
   Dispatched: 2026-10-11T19:42:00Z
+  Call: Missing-server marker is matched as an exact ASCII line on raw stderr bytes (optional single CR, truncated final segment never counts), where it was a substring match on the decoded text — D-422 / P5
 
 Finished 1: B-284 landed 1c1f5aa66 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-284-w515414.png
 Finished 2: B-285 landed d34e7d42f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-285-1.png
