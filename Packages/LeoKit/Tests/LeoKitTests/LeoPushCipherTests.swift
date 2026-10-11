@@ -80,7 +80,7 @@ struct LeoPushNotificationTests {
             "c": LeoPushCipherTests.vectorCiphertext,
         ]
 
-        let alert = try #require(LeoPushNotification.alert(userInfo: userInfo, key: key))
+        let alert = try #require(LeoPushNotification.alert(userInfo: userInfo, key: key, pairedDaemonIDs: ["d-olympus"]))
         #expect(alert.title == "apollo")
         #expect(alert.body == "Approve the migration?")
         #expect(alert.userInfo == ["daemon_id": "d-olympus", "agent": "apollo"])
@@ -88,9 +88,18 @@ struct LeoPushNotificationTests {
 
     @Test func noAlertWithoutCiphertextOrWithTheWrongKey() throws {
         let key = try #require(LeoPushKey(base64: LeoPushCipherTests.vectorKey))
-        #expect(LeoPushNotification.alert(userInfo: ["aps": [:]], key: key) == nil)
-        #expect(LeoPushNotification.alert(userInfo: ["c": 42], key: key) == nil)
-        #expect(LeoPushNotification.alert(userInfo: ["c": LeoPushCipherTests.vectorCiphertext], key: .generate()) == nil)
+        #expect(LeoPushNotification.alert(userInfo: ["aps": [:]], key: key, pairedDaemonIDs: ["d-olympus"]) == nil)
+        #expect(LeoPushNotification.alert(userInfo: ["c": 42], key: key, pairedDaemonIDs: ["d-olympus"]) == nil)
+        #expect(LeoPushNotification.alert(userInfo: ["c": LeoPushCipherTests.vectorCiphertext], key: .generate(), pairedDaemonIDs: ["d-olympus"]) == nil)
+    }
+
+    /// A daemon this phone forgot (or never paired) keeps pushing until its
+    /// registration is cleaned up; its pushes stay generic.
+    @Test func noAlertForADaemonThatIsntPaired() throws {
+        let key = try #require(LeoPushKey(base64: LeoPushCipherTests.vectorKey))
+        let userInfo: [AnyHashable: Any] = ["c": LeoPushCipherTests.vectorCiphertext]
+        #expect(LeoPushNotification.alert(userInfo: userInfo, key: key, pairedDaemonIDs: ["d-other"]) == nil)
+        #expect(LeoPushNotification.alert(userInfo: userInfo, key: key, pairedDaemonIDs: []) == nil)
     }
 
     @Test func targetComesFromTheDecryptedUserInfo() {

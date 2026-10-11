@@ -32,11 +32,13 @@ public enum LeoPushNotification {
     public static let agentKey = "agent"
 
     /// The decrypted alert, or nil when anything is off (the caller then
-    /// leaves the generic alert alone).
-    public static func alert(userInfo: [AnyHashable: Any], key: LeoPushKey) -> LeoPushAlert? {
+    /// leaves the generic alert alone), including a push from a daemon not
+    /// in `pairedDaemonIDs`: one this phone forgot keeps pushing until its
+    /// registration is cleaned up, and stays generic meanwhile.
+    public static func alert(userInfo: [AnyHashable: Any], key: LeoPushKey, pairedDaemonIDs: Set<String>) -> LeoPushAlert? {
         guard let ciphertext = userInfo[ciphertextKey] as? String,
               let payload = try? LeoPushCipher.open(ciphertext, key: key),
-              !payload.daemonID.isEmpty, !payload.agent.isEmpty else { return nil }
+              pairedDaemonIDs.contains(payload.daemonID), !payload.agent.isEmpty else { return nil }
         return LeoPushAlert(
             title: payload.agent, body: payload.title, target: LeoPushTarget(daemonID: payload.daemonID, agent: payload.agent)
         )
