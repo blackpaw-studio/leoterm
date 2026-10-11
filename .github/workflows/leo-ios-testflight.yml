@@ -62,12 +62,17 @@ jobs:
             fi
           done
 
+      # ruby/setup-ruby's prebuilt Rubies only work under the GitHub-hosted
+      # /Users/runner tool cache, which this self-hosted runner can't write.
+      # Use the host's rbenv Ruby and keep gems in the runner tool cache.
       - name: Set up Ruby
-        uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
-        with:
-          ruby-version: "3.3"
-          bundler-cache: true
-          working-directory: ios
+        working-directory: ios
+        run: |
+          ruby_bin="$HOME/.rbenv/versions/3.3.4/bin"
+          test -x "$ruby_bin/ruby" || { echo "::error::Ruby 3.3.4 missing at $ruby_bin (rbenv install 3.3.4)"; exit 1; }
+          echo "$ruby_bin" >> "$GITHUB_PATH"
+          echo "BUNDLE_PATH=$RUNNER_TOOL_CACHE/leo-ios-gems" >> "$GITHUB_ENV"
+          BUNDLE_PATH="$RUNNER_TOOL_CACHE/leo-ios-gems" "$ruby_bin/bundle" install --jobs 4
 
       # fastlane match imports the certificate and installs profiles; confine
       # both to a per-job keychain and profile snapshot (removed in the
