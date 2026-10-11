@@ -36,7 +36,7 @@ extension TerminalController {
     @IBAction func renameSelectedLeoAgent(_ sender: Any?) {
         guard let runtime = leoRuntime, let row = selectedLeoRow else { return }
         let sheet = NSHostingController(rootView: LeoRenameAgentSheet(row: row, actions: runtime.actions))
-        window?.contentViewController?.presentAsSheet(sheet)
+        window?.presentLeoSheet(sheet)
     }
 
     @IBAction func viewLogsForSelectedLeoAgent(_ sender: Any?) {
@@ -65,13 +65,13 @@ extension TerminalController {
         let sheet = NSHostingController(
             rootView: LeoDeleteAgentSheetContainer(row: row, model: runtime.model, actions: runtime.actions)
         )
-        window?.contentViewController?.presentAsSheet(sheet)
+        window?.presentLeoSheet(sheet)
     }
 
     @IBAction func manageLeoHosts(_ sender: Any?) {
         guard let runtime = leoRuntime else { return }
         let sheet = NSHostingController(rootView: LeoHostsSheetContainer(model: runtime.hostSelection.makeHostsSheetModel()))
-        window?.contentViewController?.presentAsSheet(sheet)
+        window?.presentLeoSheet(sheet)
     }
 
     @IBAction func jumpToNextLeoAgentNeedingAttention(_ sender: Any?) {
