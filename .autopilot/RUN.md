@@ -78,6 +78,17 @@ Lane: B-268
   Call: A same-state needs_input revision bump never re-notifies and keeps an existing acknowledgement, whatever the reason change — P2 calm
   Call: finished→finished at a newer revision keeps its current "new event" behaviour (out of scope) — P2
 
+Lane: B-269
+  Branch: autopilot-lane/B-269
+  Base: a31f97f9569f7c7229c0e25ebf76b3681078b86e
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-11T19:42:00Z
+
 Finished 1: B-284 landed 1c1f5aa66 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-284-w515414.png
 Finished 2: B-285 landed d34e7d42f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-285-1.png
 Finished 3: B-288 landed 492d7d37f · not visually verified
@@ -102,3 +113,5 @@ Finished 4: B-268 landed faa9f0140 · shot /Users/evan/.leo/agents/leoterm/.git/
 - B-268 picked (tier light: one narrow attention/ack comparison).
 - B-268 runner dispatched: d-331c0899af6d (implement → claude/sonnet, tier light).
 - B-268 landed faa9f0140 (fixes 1).
+- B-269 picked (tier light: one stderr-decoding path).
+- B-269 runner dispatched: d-e2dee81f388d (implement → claude/sonnet, tier light).
