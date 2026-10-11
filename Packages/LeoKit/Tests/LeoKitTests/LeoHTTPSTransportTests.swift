@@ -72,6 +72,37 @@ struct LeoHTTPSTransportTests {
         }
     }
 
+    @Test(arguments: ["https://evil.example.net/steal", "http://leo.example.com/api/v1/state", "https://leo.example.com:8443/api/v1/state"])
+    func refusesToFollowARedirectToAnotherOrigin(target: String) async throws {
+        let recorder = StubURLProtocol.install { request in
+            request.url?.path == "/api/v1/state" && request.url?.host == "leo.example.com" && request.url?.port == nil && request.url?.scheme == "https"
+                ? (302, Data(), ["Location": target])
+                : (200, Data(#"{"ok":true}"#.utf8), [:])
+        }
+        let transport = Self.transport(cfAccess: LeoCFAccessCredentials(clientID: "id.access", clientSecret: "s3cret"))
+
+        await #expect(throws: LeoDaemonError.crossOriginRedirect(target)) {
+            _ = try await transport.send(LeoHTTPRequest(method: "GET", path: "/api/v1/state"), timeout: 5)
+        }
+        await #expect(throws: LeoDaemonError.crossOriginRedirect(target)) {
+            for try await _ in transport.events(path: "/api/v1/state") {}
+        }
+        #expect(recorder.requests.map { $0.url?.absoluteString } == Array(repeating: "https://leo.example.com/api/v1/state", count: 2))
+    }
+
+    @Test func followsASameOriginRedirectWithItsCredentials() async throws {
+        let recorder = StubURLProtocol.install { request in
+            request.url?.path == "/old" ? (302, Data(), ["Location": "/api/v1/state"]) : (200, Data(#"{"ok":true}"#.utf8), [:])
+        }
+        let transport = Self.transport(cfAccess: LeoCFAccessCredentials(clientID: "id.access", clientSecret: "s3cret"))
+        let response = try await transport.send(LeoHTTPRequest(method: "GET", path: "/old"), timeout: 5)
+
+        #expect(response.status == 200)
+        let followed = try #require(recorder.requests.last)
+        #expect(followed.url?.absoluteString == "https://leo.example.com/api/v1/state")
+        #expect(followed.value(forHTTPHeaderField: "CF-Access-Client-Secret") == "s3cret")
+    }
+
     private static func transport(cfAccess: LeoCFAccessCredentials? = nil) -> LeoHTTPSTransport {
         LeoHTTPSTransport(
             endpoint: LeoRemoteEndpoint(baseURL: URL(string: "https://leo.example.com")!, token: "tok", cfAccess: cfAccess),
@@ -118,6 +149,18 @@ final class StubURLProtocol: URLProtocol, @unchecked Sendable {
         do {
             guard let handler else { throw URLError(.unknown) }
             let (status, body, headers) = try handler(request)
+            if (300..<400).contains(status), let location = headers["Location"], let target = URL(string: location, relativeTo: request.url) {
+                // Follow the way URLSession does: every header but
+                // Authorization rides along to the new URL.
+                var redirected = request
+                redirected.url = target.absoluteURL
+                redirected.setValue(nil, forHTTPHeaderField: "Authorization")
+                let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: "HTTP/1.1", headerFields: headers)!
+                client?.urlProtocol(self, wasRedirectedTo: redirected, redirectResponse: response)
+                client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+                client?.urlProtocolDidFinishLoading(self)
+                return
+            }
             let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: "HTTP/1.1", headerFields: headers)!
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
             client?.urlProtocol(self, didLoad: body)

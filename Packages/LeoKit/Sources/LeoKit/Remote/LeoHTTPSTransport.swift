@@ -73,8 +73,10 @@ public struct LeoHTTPSTransport: LeoWebTransport {
 
     public func send(_ request: LeoHTTPRequest, timeout: TimeInterval) async throws -> LeoHTTPResponse {
         let urlRequest = try urlRequest(for: request, timeout: timeout)
+        let redirects = SameOriginRedirects(origin: endpoint.baseURL)
         do {
-            let (data, response) = try await session.data(for: urlRequest)
+            let (data, response) = try await session.data(for: urlRequest, delegate: redirects)
+            try redirects.checkNoneRefused()
             return LeoHTTPResponse(status: (response as? HTTPURLResponse)?.statusCode ?? 0, body: data)
         } catch let error as URLError {
             throw Self.transportError(error)
@@ -90,11 +92,13 @@ public struct LeoHTTPSTransport: LeoWebTransport {
         } catch {
             return AsyncThrowingStream { $0.finish(throwing: error) }
         }
-        let session = session
+        let (session, origin) = (session, endpoint.baseURL)
         return AsyncThrowingStream { continuation in
             let task = Task {
                 do {
-                    let (bytes, response) = try await session.bytes(for: request)
+                    let redirects = SameOriginRedirects(origin: origin)
+                    let (bytes, response) = try await session.bytes(for: request, delegate: redirects)
+                    try redirects.checkNoneRefused()
                     let status = (response as? HTTPURLResponse)?.statusCode ?? 0
                     guard (200..<300).contains(status) else {
                         throw LeoDaemonError.daemon(
@@ -125,5 +129,47 @@ public struct LeoHTTPSTransport: LeoWebTransport {
         if error.code == .cancelled { return CancellationError() }
         if error.code == .timedOut { return LeoDaemonError.timeout }
         return LeoDaemonError.transport(error.localizedDescription)
+    }
+}
+
+/// Per-task redirect policy: follows redirects within the daemon's origin
+/// (scheme, host and port) and refuses any other. URLSession strips only
+/// `Authorization` on a redirect; the CF Access headers would follow.
+final class SameOriginRedirects: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    private let origin: URL
+    private let lock = NSLock()
+    private var refused: URL?
+
+    init(origin: URL) {
+        self.origin = origin
+    }
+
+    // The completion-handler form: the async one crashes SILGen (Swift 6.2/6.3).
+    func urlSession(
+        _ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest, completionHandler: @escaping @Sendable (URLRequest?) -> Void
+    ) {
+        guard let target = request.url, !Self.isSameOrigin(target, origin) else {
+            completionHandler(request.url == nil ? nil : request)
+            return
+        }
+        lock.withLock { refused = target }
+        completionHandler(nil)
+    }
+
+    /// Throws when a redirect was refused (the response is then the 3xx).
+    func checkNoneRefused() throws {
+        if let target = lock.withLock({ refused }) {
+            throw LeoDaemonError.crossOriginRedirect(target.absoluteString)
+        }
+    }
+
+    static func isSameOrigin(_ lhs: URL, _ rhs: URL) -> Bool {
+        func key(_ url: URL) -> (String?, String?, Int?) {
+            let scheme = url.scheme?.lowercased()
+            let port = url.port ?? (scheme == "https" ? 443 : scheme == "http" ? 80 : nil)
+            return (scheme, url.host?.lowercased(), port)
+        }
+        return key(lhs) == key(rhs)
     }
 }

@@ -151,6 +151,9 @@ public enum LeoDaemonError: Error, Equatable, Sendable {
     case socketMissing(path: String)
     case hostUnavailable(String)
     case hostUnknown(String)
+    /// The daemon redirected to another origin; refused so the device token
+    /// and Access credentials never leave the paired origin.
+    case crossOriginRedirect(String)
 }
 
 extension LeoDaemonError: LocalizedError {
@@ -163,6 +166,7 @@ extension LeoDaemonError: LocalizedError {
         case .socketMissing(let path): return "The Leo daemon socket is missing at \(path)"
         case .hostUnavailable(let message): return "The remote host is unavailable: \(message)"
         case .hostUnknown(let message): return "The remote host is unknown: \(message)"
+        case .crossOriginRedirect(let target): return "The Leo daemon redirected to \(target), a different origin. Leo doesn't follow it, so your credentials stay with the paired daemon."
         }
     }
 }
