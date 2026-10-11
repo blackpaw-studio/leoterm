@@ -51,6 +51,17 @@ Lane: B-288
   Reviewed-tip: none
   Dispatched: 2026-10-11T03:37:00Z
 
+Lane: B-278
+  Branch: autopilot-lane/B-278
+  Base: 5ff4d4767bde0456b49793d817f71f4e8c320c12
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-11T03:39:00Z
+
 Finished 1: B-287 landed 2cacc795d · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-287-1.png
 Finished 2: B-288 blocked
 
@@ -64,3 +75,4 @@ Finished 2: B-288 blocked
 - B-288 picked, tier light (Evan: small bugs shouldn't take full-tier time).
 - B-288 runner dispatched: d-9f481ddd4ac0 (tier light).
 - B-288 shelved (blocked): read-only is daemon-side (`leo dispatch attach` hardcodes tmux attach -r); needs a leo change + owner policy call on two writers. Not a fix-attempt shelve.
+- B-278 picked (top ready; tier full — new feature across image/video/Markdown/PDF, local + SFTP). Item 3 of 3.
