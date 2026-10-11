@@ -53,6 +53,12 @@ jobs:
 
       # The key lives only in $RUNNER_TEMP for the job; xcodebuild reads it
       # by path for both the archive and the upload.
+      # Automatic signing writes a certificate, private key and profiles;
+      # confine them to a per-job keychain and profile snapshot (removed in
+      # the always() cleanup below).
+      - name: Create signing keychain
+        run: .github/scripts/leo/ios-signing.sh create
+
       - name: Write App Store Connect key
         env:
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
@@ -74,6 +80,7 @@ jobs:
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             DEVELOPMENT_TEAM="$TEAM_ID" \
+            OTHER_CODE_SIGN_FLAGS="--keychain $LEO_IOS_KEYCHAIN" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
 
       # destination=upload sends the build straight to App Store Connect.
@@ -102,6 +109,10 @@ jobs:
             -authenticationKeyPath "$ASC_KEY_PATH" \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+
+      - name: Destroy signing keychain
+        if: always()
+        run: .github/scripts/leo/ios-signing.sh cleanup
 
       - name: Clean up
         if: always()

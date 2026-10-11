@@ -9,7 +9,7 @@ Xcode 27 crashes on this code.
 
 ## CI
 
-- `.github/workflows/leo-ios.yml` (paths `ios/**`, `Packages/LeoKit/**`): LeoKit
+- `.github/workflows/leo-ios.yml` (paths `ios/**`, `Packages/LeoKit/**`, `images/Ghostty.icon/**`): LeoKit
   and LeoFeatures tests, XcodeGen drift check, unsigned simulator build, app tests.
 - `.github/workflows/leo-relay.yml` (paths `relay/**`): `npm ci`, `npm test`, `tsc --noEmit`.
 - The Mac `leo-ci` workflow has no path filter, so it already runs on
@@ -45,8 +45,10 @@ key; team `52M9C6892K`. No certificates are stored in the repo or secrets.
    the capabilities match `Leo.entitlements`).
 3. App Store Connect → Apps → New App: bundle ID `studio.blackpaw.leo.ios`,
    name "Leo". The first upload fails until this record exists.
-4. No keychain setup is needed on the runner: the key is read by path and
-   Xcode manages the distribution certificate in Apple's cloud.
-5. After the first upload, add internal testers in TestFlight. Each build asks
-   for export compliance until `ITSAppUsesNonExemptEncryption` is set in
-   `Leo/Support/Info.plist`.
+4. No keychain setup is needed on the runner: the key is read by path, and
+   `.github/scripts/leo/ios-signing.sh` gives each run a throwaway keychain
+   (first in the search list, and the default) plus a profile-directory
+   snapshot. The `always()` cleanup step deletes the keychain, restores the
+   search list and default, and removes profiles downloaded during the run.
+5. After the first upload, add internal testers in TestFlight.
+   (`ITSAppUsesNonExemptEncryption` is already `NO` in `Leo/Support/Info.plist`.)

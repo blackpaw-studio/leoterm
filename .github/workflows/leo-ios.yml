@@ -6,11 +6,13 @@ on:
     paths:
       - "ios/**"
       - "Packages/LeoKit/**"
+      - "images/Ghostty.icon/**"
       - ".github/workflows/leo-ios.yml"
   pull_request:
     paths:
       - "ios/**"
       - "Packages/LeoKit/**"
+      - "images/Ghostty.icon/**"
       - ".github/workflows/leo-ios.yml"
 
 concurrency:
