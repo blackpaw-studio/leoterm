@@ -55,12 +55,26 @@ Lane: B-278
   Branch: autopilot-lane/B-278
   Base: 5ff4d4767bde0456b49793d817f71f4e8c320c12
   Tier: full
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 2
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: a08d5579df88e1f130fe140ab5dbcebebc77792a
   Dispatched: 2026-10-11T03:39:00Z
+  Call: One fetch path for local and SFTP into a private temp cache — P3
+  Call: Preview kind decided by an extension allowlist, not UTType — P1
+  Call: Native Markdown rendering, no WKWebView; only http/https/mailto links open; images show alt text only — P1
+  Call: SVG gets the Rendered/Raw toggle — P1
+  Call: Markdown opens Rendered, remembered per tab; a `:line` open goes Raw — P1
+  Call: No video autoplay; video pauses when hidden — P2
+  Call: Fit-to-pane only shrinks, never scales past 100% — P1
+  Call: Shortcuts ⌥⌘U (Show Raw), ⌥⌘0 (Actual Size), ⌥⇧⌘R — P1
+  Call: 2 GB preview cap enforced on streamed bytes; 20 MB text cap unchanged — P3
+  Call: Sniffed binaries show Can't Preview; Quick Look only for pdf/Office/iWork — P1
+  Call: Download goes to ~/Downloads (D-482/D-484) — P4
+  Call: 5 s first-chunk deadline on surfaced streaming opens; no Try Again after a timeout or closed access — P5
+  Call: Markdown over 5 MB opens Raw only — P1
+  Call: Fixture script macos/scripts/leo-preview-fixtures.sh added for verification — test infrastructure
 
 Finished 1: B-287 landed 2cacc795d · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-287-1.png
 Finished 2: B-288 blocked
@@ -78,3 +92,4 @@ Finished 2: B-288 blocked
 - B-278 picked (top ready; tier full — new feature across image/video/Markdown/PDF, local + SFTP). Item 3 of 3.
 - B-278 runner dispatched: d-4af07fd107be (tier full).
 - 02:44 EDT: B-278 runner passed 3h (dispatched 03:39Z) but is visibly active (fix commits 44 min ago, verify shots 8 min ago). Not treated as hung — deviation from the 3h rule; will cancel if no lane/shot activity by the next wake.
+- B-278 runner reported ready (2 fix rounds: 6 concurrency blockers fixed, then GUI fixes). Runner briefs pointed at the plan file instead of pasting (deviation noted by runner).
