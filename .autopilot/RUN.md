@@ -41,3 +41,4 @@ Lane: B-287
 - Preflight: main fast-forwarded into autopilot (fdc2619ad); applied 2 inbox entries (B-287, B-288 bugs added); B-284, B-285 promoted to ready.
 - Evan (20:42 EDT): budget raised to 3 items.
 - B-287 runner dispatched: d-655c97ca88ac (tier full).
+- leoterm-ios (22:28 EDT): its LeoKit run shared the debug defaults domain and ran `defaults delete` ~21:30–22:25 EDT; B-287 window-size/sidebar test failures in that window may be interference — re-run before treating as signal.
