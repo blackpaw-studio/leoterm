@@ -34,7 +34,7 @@ Lane: B-284
   Fixes: 0
   Wip: none
   Reverifies: 1
-  Reviewed-tip: 1f4dfba544c6ffebd893a72ba24374cb4a65ef3b
+  Reviewed-tip: 855c271bdfe6b7292bbab21cc2be1c08ab5f3716
   Dispatched: 2026-10-11T17:02:00Z
 
 ## Progress
