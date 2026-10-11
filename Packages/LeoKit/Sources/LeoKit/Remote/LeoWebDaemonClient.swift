@@ -77,6 +77,21 @@ public struct LeoWebDaemonClient: Sendable {
         try await expectOK("POST", path, body: try LeoEnvironmentsWire.setBody(names))
     }
 
+    /// Tells the daemon how to push to this device, replacing any earlier
+    /// registration. Any 2xx is success, whatever its body.
+    public func registerPush(deviceID: String, _ registration: LeoPushRegistration) async throws {
+        _ = try await request("PUT", try Self.pushPath(deviceID), body: try JSONEncoder().encode(registration))
+    }
+
+    /// Stops the daemon pushing to this device.
+    public func unregisterPush(deviceID: String) async throws {
+        _ = try await request("DELETE", try Self.pushPath(deviceID))
+    }
+
+    private static func pushPath(_ deviceID: String) throws -> String {
+        "/api/v1/devices/\(try LeoSocketDaemonClient.pathSegment(deviceID))/push"
+    }
+
     private func request(_ method: String, _ path: String, body: Data? = nil) async throws -> LeoHTTPResponse {
         let timeout = method == "GET" ? defaultTimeout : mutationTimeout
         return try Self.checked(try await transport.send(LeoHTTPRequest(method: method, path: path, body: body), timeout: timeout))
