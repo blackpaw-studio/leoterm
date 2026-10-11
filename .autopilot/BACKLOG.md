@@ -812,6 +812,7 @@ Note: FINAL contract (leo, PR #251, 2026-10-10; unmerged — fixture-first). All
 Done: 4b00e6f6d dd546ac5d bc5915c15 dcd9e72e3 1f2d010f2 b21332672
 
 ## B-287 · Ctrl+C doesn't stop the running process in terminals   [ready]
+Issue: #275
 Type: bug
 Report: ctrl+c to stop the process in terminals doesnt work
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -819,6 +820,7 @@ Source: owner (/issue, 2026-10-10)
 Inbox: 20261010T223045852685Z-29c67160#1
 
 ## B-288 · Subagent panes disable text and mouse/touch input   [ready]
+Issue: #276
 Type: bug
 Report: we shouldnt disable text and mouse/touch input in subagents
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
