@@ -31,9 +31,11 @@ public struct AgentDetail {
 
     public enum Action {
         case alert(PresentationAction<Never>)
-        case commandFinished(AgentCommand, Result<Void, any Error>)
+        /// Responses carry the agent they were for: the parent swaps the
+        /// selection in place, and a late reply must not land on the next.
+        case commandFinished(AgentRef, AgentCommand, Result<Void, any Error>)
         case confirmation(PresentationAction<Confirmation>)
-        case environmentsLoaded(Result<[String], any Error>)
+        case environmentsLoaded(AgentRef, Result<[String], any Error>)
         case interruptButtonTapped
         case openInClaudeButtonTapped
         case restartButtonTapped
@@ -61,29 +63,14 @@ public struct AgentDetail {
             case .alert:
                 return .none
 
-            case .commandFinished(let command, .success):
-                if state.inFlight == command { state.inFlight = nil }
-                return .none
-
-            case .commandFinished(let command, .failure(let error)):
-                if state.inFlight == command { state.inFlight = nil }
-                state.alert = Self.failureAlert("Couldn't \(command.verb) \(state.agentName)", error)
-                return .none
+            case .commandFinished(let ref, _, _), .environmentsLoaded(let ref, _):
+                guard ref == state.ref else { return .none }
+                return respond(to: action, state: &state)
 
             case .confirmation(.presented(.perform(let command))):
                 return perform(command, state: &state)
 
             case .confirmation:
-                return .none
-
-            case .environmentsLoaded(.success(let names)):
-                state.isLoadingEnvironments = false
-                state.confirmation = Self.environmentPicker(names: names, current: state.agent?.environments, agent: state.agentName)
-                return .none
-
-            case .environmentsLoaded(.failure(let error)):
-                state.isLoadingEnvironments = false
-                state.alert = Self.failureAlert("Couldn't Load Environments", error)
                 return .none
 
             case .interruptButtonTapped:
@@ -108,9 +95,9 @@ public struct AgentDetail {
             case .switchEnvironmentButtonTapped:
                 guard !state.isBusy else { return .none }
                 state.isLoadingEnvironments = true
-                let (daemon, daemonClient, secrets) = (state.daemon, daemonClient, secrets)
+                let (ref, daemon, daemonClient, secrets) = (state.ref, state.daemon, daemonClient, secrets)
                 return .run { send in
-                    await send(.environmentsLoaded(Result {
+                    await send(.environmentsLoaded(ref, Result {
                         try await daemonClient.environmentNames(try Self.connection(daemon, secrets: secrets))
                     }))
                 }
@@ -120,12 +107,31 @@ public struct AgentDetail {
         .ifLet(\.$confirmation, action: \.confirmation)
     }
 
+    private func respond(to action: Action, state: inout State) -> Effect<Action> {
+        switch action {
+        case .commandFinished(_, let command, let result):
+            if state.inFlight == command { state.inFlight = nil }
+            if case .failure(let error) = result {
+                state.alert = Self.failureAlert("Couldn't \(command.verb) \(state.agentName)", error)
+            }
+        case .environmentsLoaded(_, .success(let names)):
+            state.isLoadingEnvironments = false
+            state.confirmation = Self.environmentPicker(names: names, current: state.agent?.environments, agent: state.agentName)
+        case .environmentsLoaded(_, .failure(let error)):
+            state.isLoadingEnvironments = false
+            state.alert = Self.failureAlert("Couldn't Load Environments", error)
+        default:
+            break
+        }
+        return .none
+    }
+
     private func perform(_ command: AgentCommand, state: inout State) -> Effect<Action> {
         guard state.inFlight == nil else { return .none }
         state.inFlight = command
-        let (daemon, name, daemonClient, secrets) = (state.daemon, state.agentName, daemonClient, secrets)
+        let (ref, daemon, name, daemonClient, secrets) = (state.ref, state.daemon, state.agentName, daemonClient, secrets)
         return .run { send in
-            await send(.commandFinished(command, Result {
+            await send(.commandFinished(ref, command, Result {
                 try await daemonClient.perform(try Self.connection(daemon, secrets: secrets), name, command)
             }))
         }

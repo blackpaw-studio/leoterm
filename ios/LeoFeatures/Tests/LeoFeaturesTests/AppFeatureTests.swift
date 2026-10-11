@@ -72,6 +72,36 @@ struct AppFeatureTests {
         }
     }
 
+    @Test func aResponseForThePreviousAgentDoesNotReachTheNewSelection() async {
+        let clock = TestClock()
+        var initial = AppFeature.State()
+        initial.fleet = Fleet.State(daemons: [.dionysus])
+        initial.fleet.sessions[0].agents = [Agent(.make("zeus")), Agent(.make("hera"))]
+        initial.fleet.sessions[0].connection = .connected
+        let store = TestStore(initialState: initial) {
+            AppFeature()
+        } withDependencies: {
+            $0.secrets.load = { _ in DaemonSecrets(token: "t") }
+            $0.daemonClient.environmentNames = { _ in
+                try await clock.sleep(for: .seconds(1))
+                return ["work"]
+            }
+        }
+        let id = PairedDaemon.dionysus.id
+
+        await store.send(.agentTapped(AgentRef(daemonID: id, name: "zeus"))) {
+            $0.detail = AgentDetail.State(daemon: .dionysus, agent: Agent(.make("zeus")), connection: .connected)
+        }
+        await store.send(\.detail.switchEnvironmentButtonTapped) { $0.detail?.isLoadingEnvironments = true }
+        await store.send(.agentTapped(AgentRef(daemonID: id, name: "hera"))) {
+            $0.detail = AgentDetail.State(daemon: .dionysus, agent: Agent(.make("hera")), connection: .connected)
+        }
+        await clock.advance(by: .seconds(1))
+        // zeus's catalog must not open a picker that would restart hera.
+        await store.receive(\.detail.environmentsLoaded)
+        #expect(store.state.detail?.confirmation == nil)
+    }
+
     @Test func tappingAnUnknownAgentDoesNothing() async {
         let store = TestStore(initialState: AppFeature.State()) { AppFeature() }
         await store.send(.agentTapped(AgentRef(daemonID: "nope", name: "zeus")))

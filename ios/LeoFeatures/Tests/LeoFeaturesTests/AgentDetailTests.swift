@@ -105,7 +105,7 @@ struct AgentDetailTests {
             $0.daemonClient.perform = { _, _, command in performed.withValue { $0.append(command) } }
         }
         await store.send(.switchEnvironmentButtonTapped) { $0.isLoadingEnvironments = true }
-        await store.receive(\.environmentsLoaded.success) {
+        await store.receive(\.environmentsLoaded) {
             $0.isLoadingEnvironments = false
             $0.confirmation = AgentDetail.environmentPicker(names: ["aws", "work"], current: agent.environments, agent: "zeus")
         }
@@ -133,7 +133,7 @@ struct AgentDetailTests {
             $0.daemonClient.environmentNames = { _ in throw LeoDaemonError.daemon(code: nil, message: "config unavailable", matches: []) }
         }
         await store.send(.switchEnvironmentButtonTapped) { $0.isLoadingEnvironments = true }
-        await store.receive(\.environmentsLoaded.failure) {
+        await store.receive(\.environmentsLoaded) {
             $0.isLoadingEnvironments = false
             $0.alert = AlertState {
                 TextState("Couldn't Load Environments")
