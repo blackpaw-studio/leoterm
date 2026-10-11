@@ -1,7 +1,7 @@
 Status: running
 Started: 2026-10-11T15:41:34Z
 Budget: 20 items, until 2026-10-12T03:41:34Z
-Digested-through: 0
+Digested-through: 5
 Filed: 0/3 bugs, 0/5 ideas
 Untracked-left: default.profraw scratchpad/
 
