@@ -1,12 +1,8 @@
-Status: finished
-Started: 2026-10-11T00:41:25Z
-Budget: 3 items, until 2026-10-11T12:41:25Z
+Status: running
+Started: 2026-10-11T15:41:34Z
+Budget: 20 items, until 2026-10-12T03:41:34Z
 Digested-through: 0
-Filed: 0/3 bugs, 4/5 ideas
-Self-filed: B-278 → B-289 idea — Rendered/Raw toggle crowds the file pane header at ~800 px
-Self-filed: B-278 → B-290 idea — Rendered Markdown spacing around tables and nested lists
-Self-filed: B-278 → B-291 idea — Can't Preview offers Download for remote files but it is untested live
-Self-filed: B-278 → B-292 idea — Rendered Markdown hard line breaks show as a space
+Filed: 0/3 bugs, 0/5 ideas
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -30,72 +26,6 @@ Lane: B-143
   Reviewed-tip: none
   Dispatched: 2026-10-06T23:01:21Z
 
-Lane: B-287
-  Branch: autopilot-lane/B-287
-  Base: fdfa10d09c651135354ed96fc4633794e7af1ec8
-  Tier: full
-  State: landed
-  Fixes: 1
-  Wip: none
-  Reverifies: 0
-  Reviewed-tip: db524cb881ed7c1b26ee95d40cfe7b81db5867f3
-  Dispatched: 2026-10-11T00:45:00Z
-  Call: Sidebar Return is matched by key code (36/76, no modifiers) in a new AppKit view, not in Ghostty's SurfaceView — P1
-  Call: Test harness activates the app and waits up to 5 s for key status — P1
-  Call: First-attach sizing tests set sidebarVisible explicitly instead of reading the real debug-bundle defaults — hermetic tests, no user-visible change
-
-Lane: B-288
-  Branch: autopilot-lane/B-288
-  Base: 91bb68eb2a6b6ddea558a081ffc985b1cd1599a8
-  Tier: light
-  State: shelved
-  Fixes: 0
-  Wip: none
-  Reverifies: 0
-  Reviewed-tip: none
-  Dispatched: 2026-10-11T03:37:00Z
-
-Lane: B-278
-  Branch: autopilot-lane/B-278
-  Base: 5ff4d4767bde0456b49793d817f71f4e8c320c12
-  Tier: full
-  State: landed
-  Fixes: 2
-  Wip: none
-  Reverifies: 0
-  Reviewed-tip: a08d5579df88e1f130fe140ab5dbcebebc77792a
-  Dispatched: 2026-10-11T03:39:00Z
-  Call: One fetch path for local and SFTP into a private temp cache — P3
-  Call: Preview kind decided by an extension allowlist, not UTType — P1
-  Call: Native Markdown rendering, no WKWebView; only http/https/mailto links open; images show alt text only — P1
-  Call: SVG gets the Rendered/Raw toggle — P1
-  Call: Markdown opens Rendered, remembered per tab; a `:line` open goes Raw — P1
-  Call: No video autoplay; video pauses when hidden — P2
-  Call: Fit-to-pane only shrinks, never scales past 100% — P1
-  Call: Shortcuts ⌥⌘U (Show Raw), ⌥⌘0 (Actual Size), ⌥⇧⌘R — P1
-  Call: 2 GB preview cap enforced on streamed bytes; 20 MB text cap unchanged — P3
-  Call: Sniffed binaries show Can't Preview; Quick Look only for pdf/Office/iWork — P1
-  Call: Download goes to ~/Downloads (D-482/D-484) — P4
-  Call: 5 s first-chunk deadline on surfaced streaming opens; no Try Again after a timeout or closed access — P5
-  Call: Markdown over 5 MB opens Raw only — P1
-  Call: Fixture script macos/scripts/leo-preview-fixtures.sh added for verification — test infrastructure
-
-Finished 1: B-287 landed 2cacc795d · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-287-1.png
-Finished 2: B-288 blocked
-Finished 3: B-278 landed 5c36772fc · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-278-1.png
-
 ## Progress
-- Preflight: main fast-forwarded into autopilot (fdc2619ad); applied 2 inbox entries (B-287, B-288 bugs added); B-284, B-285 promoted to ready.
-- Evan (20:42 EDT): budget raised to 3 items.
-- B-287 runner dispatched: d-655c97ca88ac (tier full).
-- leoterm-ios (22:28 EDT): its LeoKit run shared the debug defaults domain and ran `defaults delete` ~21:30–22:25 EDT; B-287 window-size/sidebar test failures in that window may be interference — re-run before treating as signal.
-- B-287 runner reported ready (1 fix round: pre-existing LeoFirstAttachWindowSizeTests flake from real debug defaults, fixed hermetically). Runner's first implement.hard d-5d1830a7959d lost its turn; retried once with d-12c0844d948c, which finished — treated as recovered, not a failed dispatch. Agent-pane ⌃C covered by tests only.
-- B-287 landed 2cacc795d (full, hard; suite 2599/2599).
-- B-288 picked, tier light (Evan: small bugs shouldn't take full-tier time).
-- B-288 runner dispatched: d-9f481ddd4ac0 (tier light).
-- B-288 shelved (blocked): read-only is daemon-side (`leo dispatch attach` hardcodes tmux attach -r); needs a leo change + owner policy call on two writers. Not a fix-attempt shelve.
-- B-278 picked (top ready; tier full — new feature across image/video/Markdown/PDF, local + SFTP). Item 3 of 3.
-- B-278 runner dispatched: d-4af07fd107be (tier full).
-- 02:44 EDT: B-278 runner passed 3h (dispatched 03:39Z) but is visibly active (fix commits 44 min ago, verify shots 8 min ago). Not treated as hung — deviation from the 3h rule; will cancel if no lane/shot activity by the next wake.
-- B-278 runner reported ready (2 fix rounds: 6 concurrency blockers fixed, then GUI fixes). Runner briefs pointed at the plan file instead of pasting (deviation noted by runner).
-- B-278 landed 5c36772fc (full, hard; suite 2661; 16 window shots; SFTP by tests only). Budget spent (3 items).
+- Preflight: autopilot already at main (60e80df75); applied 1 inbox entry (B-288 answer → D-518; stays blocked until leo ships `--rw`; leo 0.45.0 has none).
+- Lane autopilot-lane/B-233 exists unlanded with no RUN.md block (left from an earlier run); left in place.
