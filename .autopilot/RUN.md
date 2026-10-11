@@ -2,7 +2,8 @@ Status: running
 Started: 2026-10-11T15:41:34Z
 Budget: 20 items, until 2026-10-12T03:41:34Z
 Digested-through: 5
-Filed: 0/3 bugs, 0/5 ideas
+Filed: 0/3 bugs, 1/5 ideas
+Self-filed: B-148 → B-293 idea — Empty sidebar list under the state view may shift its layout
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058

@@ -2065,3 +2065,7 @@ Source: autopilot polish (B-278)
 ## B-292 · Rendered Markdown hard line breaks show as a space   [idea]
 Note: fidelity: two-space/backslash line breaks render as a space
 Source: autopilot polish (B-278)
+
+## B-293 · Check the state view's layout when an empty sidebar list sits under it   [idea]
+Note: In Loading/Failed/No Agents with a filter hiding terminals, B-148 keeps an empty list mounted under the state view; nobody checked whether it shifts the state view's layout (P6: sidebar renders predictably).
+Source: autopilot polish (B-148)
