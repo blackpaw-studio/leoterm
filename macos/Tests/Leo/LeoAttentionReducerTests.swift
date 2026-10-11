@@ -91,7 +91,32 @@ struct LeoAttentionReducerTests {
         #expect(reducer.tick(now: 0.3) == [.init(id: Self.alpha, from: .finished, to: .finished, revision: 5, shouldNotify: true)])
     }
 
-    @Test func repeatReArmsAnAcknowledgedDockContribution() {
+    @Test func finishedRepeatReArmsAnAcknowledgedDockContribution() {
+        var reducer = live(["alpha": signal(.finished, 1)])
+        reducer.focus(Self.alpha)
+        reducer.focus(nil)
+        #expect(reducer.dockCount(among: ["alpha"]) == 0)
+
+        reducer.receive(agent: "alpha", signal: signal(.finished, 2), now: 0)
+        _ = reducer.tick(now: 0.3)
+
+        #expect(reducer.dockCount(among: ["alpha"]) == 1)
+    }
+
+    // MARK: needs_input -> needs_input at a newer revision (B-268: the same prompt)
+
+    @Test func needsInputRevisionBumpDoesNotRenotify() {
+        var reducer = live()
+        reducer.receive(agent: "alpha", signal: signal(.needsInput, 1), now: 0)
+        #expect(reducer.tick(now: 0.3).first?.shouldNotify == true)
+
+        reducer.receive(agent: "alpha", signal: signal(.needsInput, 2), now: 5)
+        let bump = reducer.tick(now: 5.3)
+
+        #expect(bump == [.init(id: Self.alpha, from: .needsInput, to: .needsInput, revision: 2, shouldNotify: false)])
+    }
+
+    @Test func needsInputRevisionBumpKeepsTheDockAcknowledgement() {
         var reducer = live(["alpha": signal(.needsInput, 1)])
         reducer.focus(Self.alpha)
         reducer.focus(nil)
@@ -100,7 +125,57 @@ struct LeoAttentionReducerTests {
         reducer.receive(agent: "alpha", signal: signal(.needsInput, 2), now: 0)
         _ = reducer.tick(now: 0.3)
 
+        #expect(reducer.dockCount(among: ["alpha"]) == 0)
+        #expect(reducer.needsAttention("alpha"), "the badge stays")
+    }
+
+    @Test func reasonRefinementKeepsTheDockAcknowledgement() {
+        var reducer = live(["alpha": signal(.needsInput, 1)])
+        reducer.focus(Self.alpha)
+        reducer.focus(nil)
+
+        reducer.receive(agent: "alpha", signal: reasoned(2), now: 0)
+        _ = reducer.tick(now: 0.3)
+
+        #expect(reducer.dockCount(among: ["alpha"]) == 0)
+        #expect(reducer.reason(for: "alpha")?.kind == .permission)
+    }
+
+    @Test func quickTurnThroughWorkingBackToNeedsInputIsANewPrompt() {
+        var reducer = live(["alpha": signal(.needsInput, 1)])
+        reducer.focus(Self.alpha)
+        reducer.focus(nil)
+        reducer.receive(agent: "alpha", signal: signal(.working, 2), now: 0)
+        reducer.receive(agent: "alpha", signal: signal(.needsInput, 3), now: 0.1)
+
+        #expect(reducer.tick(now: 0.4) == [.init(id: Self.alpha, from: .needsInput, to: .needsInput, revision: 3, shouldNotify: true)])
         #expect(reducer.dockCount(among: ["alpha"]) == 1)
+    }
+
+    @Test func recoveryForgetsAnInterruptionSoALaterBumpIsStillTheSamePrompt() {
+        var reducer = live(["alpha": signal(.needsInput, 1)])
+        reducer.focus(Self.alpha)
+        reducer.focus(nil)
+        reducer.receive(agent: "alpha", signal: signal(.working, 2), now: 0)
+        reducer.beginRecovery()
+        reducer.applyBaseline(["alpha": signal(.needsInput, 2)])
+        reducer.receive(agent: "alpha", signal: signal(.needsInput, 3), now: 1)
+
+        #expect(reducer.tick(now: 1.3).map(\.shouldNotify) == [false])
+    }
+
+    @Test func needsInputBumpAfterANewPromptRevisionStillCountsOnce() {
+        var reducer = live(["alpha": signal(.needsInput, 1)])
+        reducer.focus(Self.alpha)
+        reducer.focus(nil)
+        reducer.receive(agent: "alpha", signal: signal(.working, 2), now: 0)
+        _ = reducer.tick(now: 0.3)
+        reducer.receive(agent: "alpha", signal: signal(.needsInput, 3), now: 1)
+        #expect(reducer.tick(now: 1.3).first?.shouldNotify == true)
+        reducer.receive(agent: "alpha", signal: signal(.needsInput, 4), now: 2)
+        _ = reducer.tick(now: 2.3)
+
+        #expect(reducer.dockCount(among: ["alpha"]) == 1, "a real new prompt is unacknowledged and stays counted")
     }
 
     @Test func repeatWhileFocusedIsSuppressedAndStaysAcknowledged() {
