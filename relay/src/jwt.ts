@@ -1,9 +1,8 @@
 // Hand-rolled APNs provider-token (ES256 JWT) signing with WebCrypto. No deps.
 
-const encoder = new TextEncoder();
+import { bytesToB64url } from "./encoding";
 
-export const bytesToB64url = (bytes: Uint8Array): string =>
-  btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const encoder = new TextEncoder();
 
 const jsonToB64url = (value: unknown): string => bytesToB64url(encoder.encode(JSON.stringify(value)));
 
@@ -62,4 +61,55 @@ export const signApnsJwt = async ({ p8, keyId, teamId, now }: JwtInput): Promise
   // WebCrypto already returns raw r||s (64 bytes); only convert if a DER signature appears.
   const raw = sig.length === 64 ? sig : derToRawEs256(sig);
   return `${signingInput}.${bytesToB64url(raw)}`;
+};
+
+/** APNs wants a provider token refreshed no more than every 20 min and no older than 60 min. */
+export const JWT_MAX_AGE_SECONDS = 40 * 60;
+
+export interface JwtCredentials {
+  p8: string;
+  keyId: string;
+  teamId: string;
+}
+
+export interface JwtProviderOptions {
+  /** milliseconds since epoch */
+  now: () => number;
+  sign?: (input: JwtInput) => Promise<string>;
+}
+
+export interface JwtProvider {
+  get(creds: JwtCredentials): Promise<string>;
+  /** Forget the cached token (call when Apple rejects it). */
+  invalidate(): void;
+}
+
+interface CacheEntry {
+  fingerprint: string;
+  signedAtMs: number;
+  token: Promise<string>;
+}
+
+/** Caches one signed token (as a promise, so concurrent callers share a single signing). */
+export const createJwtProvider = ({ now, sign = signApnsJwt }: JwtProviderOptions): JwtProvider => {
+  let entry: CacheEntry | null = null;
+  return {
+    get(creds) {
+      const nowMs = now();
+      const fingerprint = `${creds.keyId}|${creds.teamId}|${creds.p8}`;
+      if (entry && entry.fingerprint === fingerprint && nowMs - entry.signedAtMs < JWT_MAX_AGE_SECONDS * 1000) {
+        return entry.token;
+      }
+      const token = sign({ ...creds, now: Math.floor(nowMs / 1000) });
+      const created = { fingerprint, signedAtMs: nowMs, token };
+      entry = created;
+      token.catch(() => {
+        if (entry === created) entry = null;
+      });
+      return token;
+    },
+    invalidate() {
+      entry = null;
+    },
+  };
 };
