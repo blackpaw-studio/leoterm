@@ -1,9 +1,28 @@
-name = "leo-relay-poc"
+name = "leo-relay"
 main = "src/index.ts"
 compatibility_date = "2025-10-01"
 workers_dev = true
 
+# Rate limits (Workers rate limiting binding, wrangler >= 4.36). Limits are per
+# Cloudflare location and eventually consistent; they bound abuse, not meter it.
+[[ratelimits]]
+name = "REGISTER_LIMITER"   # keyed by client IP
+namespace_id = "7001"
+
+  [ratelimits.simple]
+  limit = 10
+  period = 60
+
+[[ratelimits]]
+name = "PUSH_LIMITER"       # keyed by grant
+namespace_id = "7002"
+
+  [ratelimits.simple]
+  limit = 30
+  period = 60
+
 # Secrets (wrangler secret put / .dev.vars, never committed):
-#   APNS_KEY_P8   contents of the AuthKey_XXXX.p8 file
-#   APNS_KEY_ID   10-char key id
-#   APNS_TEAM_ID  10-char Apple team id
+#   APNS_P8        contents of the AuthKey_XXXX.p8 file
+#   APNS_KEY_ID    10-char key id
+#   APNS_TEAM_ID   10-char Apple team id
+#   GRANT_SECRET   HMAC key for grants; rotating it revokes every grant
