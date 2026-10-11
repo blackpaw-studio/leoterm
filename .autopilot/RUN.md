@@ -94,11 +94,11 @@ Lane: B-148
   Branch: autopilot-lane/B-148
   Base: 762dccd13aceb49e275f9b778584e1452c40c6df
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 1f91cc260248fe8b7b6639195e8ac7a4dc196da7
   Dispatched: 2026-10-11T20:15:00Z
 
 Finished 1: B-284 landed 1c1f5aa66 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-284-w515414.png
