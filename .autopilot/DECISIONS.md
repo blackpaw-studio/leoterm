@@ -3755,3 +3755,17 @@ Chose: `leoWatchingDispatch` is no longer `@Published` (nothing observed it); `l
 Why: simplification
 Commit: a3124af94, f49851a6b, e761f7315, e6a268490
 Veto: [ ]
+
+## D-525 · 2026-10-11 · A same-state needs_input revision bump never re-notifies and keeps an existing acknowledg…
+Context: B-268 (runner call).
+Chose: A same-state needs_input revision bump never re-notifies and keeps an existing acknowledgement, whatever the reason change
+Why: P2 calm
+Commit: a65a3d650, 67741f432
+Veto: [ ]
+
+## D-526 · 2026-10-11 · finished→finished at a newer revision keeps its current "new event" behaviour (out of sco…
+Context: B-268 (runner call).
+Chose: finished→finished at a newer revision keeps its current "new event" behaviour (out of scope)
+Why: P2
+Commit: a65a3d650, 67741f432
+Veto: [ ]

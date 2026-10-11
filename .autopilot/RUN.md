@@ -69,7 +69,7 @@ Lane: B-268
   Branch: autopilot-lane/B-268
   Base: 58d0598f692feaa157d1986d9613ba379d89ea26
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
@@ -81,6 +81,7 @@ Lane: B-268
 Finished 1: B-284 landed 1c1f5aa66 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-284-w515414.png
 Finished 2: B-285 landed d34e7d42f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-285-1.png
 Finished 3: B-288 landed 492d7d37f · not visually verified
+Finished 4: B-268 landed faa9f0140 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-268-1.png
 
 ## Progress
 - Preflight: autopilot already at main (60e80df75); applied 1 inbox entry (B-288 answer → D-518; stays blocked until leo ships `--rw`; leo 0.45.0 has none).
@@ -100,3 +101,4 @@ Finished 3: B-288 landed 492d7d37f · not visually verified
 - B-288 landed 492d7d37f (full, 1 fix round: probe race; suite 2683 green; not visually verified).
 - B-268 picked (tier light: one narrow attention/ack comparison).
 - B-268 runner dispatched: d-331c0899af6d (implement → claude/sonnet, tier light).
+- B-268 landed faa9f0140 (fixes 1).
