@@ -51,7 +51,7 @@ targets:
         # The push relay (relay/, Cloudflare Worker) this build registers
         # with. Replace the placeholder with the deployed Worker's URL; until
         # then the app skips push registration.
-        LEO_PUSH_RELAY_URL: "https://leo-relay.<placeholder>.workers.dev"
+        LEO_PUSH_RELAY_URL: "https://leo-relay.e-c0f.workers.dev"
         TARGETED_DEVICE_FAMILY: "1,2"
         ASSETCATALOG_COMPILER_APPICON_NAME: Ghostty
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor

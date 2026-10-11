@@ -580,7 +580,7 @@
 					"@executable_path/Frameworks",
 				);
 				LEO_APNS_ENVIRONMENT = production;
-				LEO_PUSH_RELAY_URL = "https://leo-relay.<placeholder>.workers.dev";
+				LEO_PUSH_RELAY_URL = "https://leo-relay.e-c0f.workers.dev";
 				PRODUCT_BUNDLE_IDENTIFIER = studio.blackpaw.leo.ios;
 				PRODUCT_NAME = Leo;
 				SDKROOT = iphoneos;
@@ -626,7 +626,7 @@
 					"@executable_path/Frameworks",
 				);
 				LEO_APNS_ENVIRONMENT = sandbox;
-				LEO_PUSH_RELAY_URL = "https://leo-relay.<placeholder>.workers.dev";
+				LEO_PUSH_RELAY_URL = "https://leo-relay.e-c0f.workers.dev";
 				PRODUCT_BUNDLE_IDENTIFIER = studio.blackpaw.leo.ios;
 				PRODUCT_NAME = Leo;
 				SDKROOT = iphoneos;
