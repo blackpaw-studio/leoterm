@@ -23,17 +23,29 @@ struct LeoSidebarRowSpacingTests {
         }
     }
 
-    /// The harness agents are idle, so one line: the name line, the row's
-    /// padding and the list's inset come to the sidebar default's 32pt.
+    /// The harness agents are idle, so one line: the name line and the row's
+    /// padding, with no list inset, come to the `.small` row's 24pt.
     @Test func oneLineAgentRowsKeepTheirHeight() async throws {
         let harness = try await SpacingHarness()
         defer { harness.close() }
         let content = 2 * LeoAgentRowMetrics.verticalPadding + LeoAgentRowMetrics.nameLineHeight
         let expected = content + 2 * LeoDispatchRowMetrics.listVerticalInset
 
-        #expect(abs(expected - 32) < 0.5, "the spec's 32pt one-line row, got \(expected)")
+        #expect(abs(expected - 24) < 0.5, "the spec's 24pt one-line row, got \(expected)")
         #expect(abs(harness.table.rect(ofRow: 1).height - expected) < 0.5)
         #expect(abs(harness.table.rect(ofRow: harness.table.numberOfRows - 1).height - expected) < 0.5)
+    }
+
+    /// The list sizes rows it hasn't drawn at the table's `rowHeight`. A
+    /// one-line row that renders taller grows when first drawn, after the
+    /// list has clamped its scroll offset to the old end, and leaves the
+    /// bottom short (seen after the last terminal closed).
+    @Test func theTablesEstimatedRowHeightIsTheOneLineAgentRowHeight() async throws {
+        let harness = try await SpacingHarness()
+        defer { harness.close() }
+        let rendered = harness.table.rect(ofRow: 1).height
+
+        #expect(abs(harness.table.rowHeight - rendered) < 0.5, "estimated \(harness.table.rowHeight), rendered \(rendered)")
     }
 
     @Test func theLastDispatchCarriesTheGapBelowItsGroup() async throws {

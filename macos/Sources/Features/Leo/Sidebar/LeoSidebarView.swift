@@ -376,6 +376,7 @@ struct LeoSidebarView: View {
                 environmentsSupported: model.hostFeatures.applying(to: row.host).contains(.agentEnvironments),
                 inWorkingSection: section.id == LeoSidebarLayout.workingSectionID
             )
+            .listRowInsets(LeoDispatchRowMetrics.agentRowInsets)
             .tag(Optional(LeoSidebarItemID.agent(row.id)))
             .id(LeoSidebarItemID.agent(row.id))
             // Its live dispatches (B-257), right under it; they follow the

@@ -5,13 +5,12 @@ import AppKit
 /// them, and a tool starting or a pending action must not move the rows
 /// below.
 enum LeoAgentRowMetrics {
-    /// Chosen so a one-line row (this plus the list's own 4pt row inset, on
-    /// both sides, around the name line) measures exactly 32pt, the sidebar
-    /// list's default row height. The list sizes rows it hasn't drawn yet at
-    /// that height, so a quiet row of any other height grows when it is
-    /// first drawn -- after the list has already clamped its scroll offset to
-    /// the old end, leaving it short of the bottom (5pt measured 34pt and
-    /// did exactly that after the last terminal closed).
+    /// Chosen so a one-line row (this around the name line, with no list row
+    /// inset: see `LeoDispatchRowMetrics.listVerticalInset`) measures exactly
+    /// 24pt, the `.small` row height the list estimates rows it hasn't drawn
+    /// at. A quiet row of any other height grows when it is first drawn --
+    /// after the list has already clamped its scroll offset to the old end,
+    /// leaving it short of the bottom.
     static let verticalPadding: CGFloat = 4
     static let lineSpacing: CGFloat = 2
     /// The leading symbol's column, and the gap between it and the name.

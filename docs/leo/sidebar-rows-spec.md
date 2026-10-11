@@ -44,7 +44,7 @@ change the symbol or the number of lines. A config problem
 a second line, and yields to needs-you and error, which keep their own ink.
 
 **Row height** depends on state: one line or two. Within a state it is
-constant, so tool calls never make a row jump. The vertical padding is 4pt, so a one-line row is 32pt and matches the list's estimated row height; at 5pt the list left a 2pt gap at the bottom after a terminal closed.
+constant, so tool calls never make a row jump. The vertical padding is 4pt and agent rows drop the list's own 4pt row inset, so a one-line row is 24pt (the name line plus 4pt each side) and matches the `.small` list's estimated row height. A taller row grows when first drawn, after the list has clamped its scroll offset, and leaves the list short of its bottom (seen after the last terminal closed). A two-line row is 39pt (24pt, the 2pt line spacing and the 13pt detail line), constant per state.
 
 **Accessibility:** colour is never the only cue, because every state has its
 own symbol shape. The VoiceOver label on the name keeps carrying the state and
