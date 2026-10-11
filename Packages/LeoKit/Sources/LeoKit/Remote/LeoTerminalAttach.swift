@@ -72,31 +72,54 @@ public enum LeoTerminalAttach {
     }
 
     /// One attach over `socket`. Finishes by throwing how it ended; ending
-    /// the stream early cancels the socket.
+    /// the stream early cancels the socket. Nothing is buffered: the socket
+    /// is read only as the consumer asks, so a slow consumer pushes back on
+    /// the daemon instead of queueing output in memory.
     public static func events(
         socket: any LeoWebSocket, idleTimeout: Duration = Self.idleTimeout, clock: any Clock<Duration> = ContinuousClock()
     ) -> AsyncThrowingStream<LeoTerminalEvent, any Error> {
-        AsyncThrowingStream { continuation in
-            let task = Task {
-                do {
+        let connection = Connection(socket: socket, idleTimeout: idleTimeout, clock: clock)
+        return AsyncThrowingStream { try await connection.next() }
+    }
+
+    /// The attach's progress, advanced one event per `next`. Released with
+    /// the stream, it closes the socket.
+    private final class Connection: @unchecked Sendable {
+        private let socket: any LeoWebSocket
+        private let idleTimeout: Duration
+        private let clock: any Clock<Duration>
+        // Touched only by `next`, which the stream calls serially.
+        private var isOpen = false
+        private var isFinished = false
+
+        init(socket: any LeoWebSocket, idleTimeout: Duration, clock: any Clock<Duration>) {
+            self.socket = socket
+            self.idleTimeout = idleTimeout
+            self.clock = clock
+        }
+
+        deinit { socket.cancel() }
+
+        func next() async throws -> LeoTerminalEvent? {
+            guard !isFinished else { return nil }
+            do {
+                guard isOpen else {
                     try await socket.open()
-                    continuation.yield(.opened)
-                    while true {
-                        switch try await receive(socket, idleTimeout: idleTimeout, clock: clock) {
-                        case .binary(let data):
-                            continuation.yield(.output(data))
-                        case .text(let text):
-                            if Control.type(of: text) == "ping" { try await socket.send(text: Control.pong) }
-                        }
-                    }
-                } catch {
-                    socket.cancel()
-                    continuation.finish(throwing: error)
+                    isOpen = true
+                    return .opened
                 }
-            }
-            continuation.onTermination = { _ in
-                task.cancel()
+                while true {
+                    switch try await receive(socket, idleTimeout: idleTimeout, clock: clock) {
+                    case .binary(let data):
+                        return .output(data)
+                    case .text(let text):
+                        if Control.type(of: text) == "ping" { try await socket.send(text: Control.pong) }
+                    }
+                }
+            } catch {
+                isFinished = true
                 socket.cancel()
+                throw error
             }
         }
     }

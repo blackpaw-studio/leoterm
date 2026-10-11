@@ -56,6 +56,17 @@ struct LeoTerminalAttachTests {
         try await waitUntil { socket.isCancelled }
     }
 
+    @Test func readsTheSocketOnlyAsFastAsTheConsumer() async throws {
+        let socket = FakeWebSocket(script: Array(repeating: .message(.binary(Data("x".utf8))), count: 50) + [.hang])
+        let events = LeoTerminalAttach.events(socket: socket, clock: SuspendingTestClock())
+        var iterator = events.makeAsyncIterator()
+        #expect(try await iterator.next() == .opened)
+        #expect(try await iterator.next() == .output(Data("x".utf8)))
+        for _ in 0..<1_000 { await Task.yield() }
+
+        #expect(socket.receives <= 2)
+    }
+
     @Test func buildsTheUpgradeRequestOnThePairedOriginWithCredentials() throws {
         let endpoint = LeoRemoteEndpoint(
             baseURL: URL(string: "https://leo.example.com/")!, token: "tok",
@@ -121,6 +132,7 @@ final class FakeWebSocket: LeoWebSocket, @unchecked Sendable {
     private var script: [Step]
     private var sentTexts: [String] = []
     private var cancelled = false
+    private var receiveCount = 0
     private var hanging: CheckedContinuation<LeoWebSocketMessage, any Error>?
 
     init(openError: (any Error)? = nil, script: [Step]) {
@@ -130,13 +142,17 @@ final class FakeWebSocket: LeoWebSocket, @unchecked Sendable {
 
     var sent: [String] { lock.withLock { sentTexts } }
     var isCancelled: Bool { lock.withLock { cancelled } }
+    var receives: Int { lock.withLock { receiveCount } }
 
     func open() async throws {
         if let openError { throw openError }
     }
 
     func receive() async throws -> LeoWebSocketMessage {
-        let step: Step? = lock.withLock { script.isEmpty ? nil : script.removeFirst() }
+        let step: Step? = lock.withLock {
+            receiveCount += 1
+            return script.isEmpty ? nil : script.removeFirst()
+        }
         switch step {
         case .message(let message): return message
         case .fail(let error): throw error
