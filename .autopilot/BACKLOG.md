@@ -821,7 +821,7 @@ Inbox: 20261010T223045852685Z-29c67160#1
 Done: a7af5783e fcca77097 db524cb88
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-287-1.png
 
-## B-288 · Subagent panes disable text and mouse/touch input   [ready]
+## B-288 · Subagent panes disable text and mouse/touch input   [done]
 Issue: #276
 Type: bug
 Report: we shouldnt disable text and mouse/touch input in subagents
@@ -829,6 +829,8 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: owner (/issue, 2026-10-10)
 Inbox: 20261010T224938538316Z-fae1243d#1
 Update (2026-10-11): leo v0.47.0 ships `leo dispatch attach --rw` (PR #264), meeting the condition in the owner's D-518 answer. Evan dropped the feature-flag gate: the flag itself is the opt-in and the default stays read-only. Older leo builds, and `--host` remotes older than 0.47.0, reject `--rw`, so the app must fall back to read-only cleanly. Typed input marks the run `steered`. The local leo on Dionysus is still 0.45.0: never upgrade, restart or update it during verification; prove the behaviour with tests against a fake CLI, and say plainly if it isn't visually verified.
+Done: a3124af94 f49851a6b e761f7315 e6a268490
+Verified: not visually verified — no safe scratch dispatch target (the debug app uses the real daemon); read-write proven by fake-CLI tests; local leo 0.45.0 untouched
 
 ## B-278 · File pane previews images, GIFs, video, Markdown and PDFs   [done]
 Issue: #271

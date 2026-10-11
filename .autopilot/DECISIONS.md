@@ -3711,5 +3711,47 @@ Veto: [ ]
 Context: B-288 (owner answer, inbox 20261011T153805078481Z-191630ab).
 Chose: yes — add a leo `--rw` attach flag (default stays read-only) behind a feature flag; accept that two clients can type into one subagent. Unblock once the leo daemon ships it.
 Why: owner's call
-Commit:
+Commit: a3124af94, f49851a6b, e761f7315, e6a268490
 Veto: n/a (owner)
+
+## D-519 · 2026-10-11 · Detect `--rw` by probing `dispatch attach --help` for an indented flag line under "Flags:…
+Context: B-288 (runner call).
+Chose: Detect `--rw` by probing `dispatch attach --help` for an indented flag line under "Flags:"; any doubt (no line, non-zero exit, throw, timeout) means read-only
+Why: P2/P3
+Commit: a3124af94, f49851a6b, e761f7315, e6a268490
+Veto: [ ]
+
+## D-520 · 2026-10-11 · A read-write pane shows no badge; the fallback keeps today's read-only badge and copy
+Context: B-288 (runner call).
+Chose: A read-write pane shows no badge; the fallback keeps today's read-only badge and copy
+Why: P1/P2
+Commit: a3124af94, f49851a6b, e761f7315, e6a268490
+Veto: [ ]
+
+## D-521 · 2026-10-11 · Both definite probe answers are cached per host (local key = path + mtime, remote key = h…
+Context: B-288 (runner call).
+Chose: Both definite probe answers are cached per host (local key = path + mtime, remote key = host config); failed probes are never cached
+Why: P2
+Commit: a3124af94, f49851a6b, e761f7315, e6a268490
+Veto: [ ]
+
+## D-522 · 2026-10-11 · Workspace file-drop upload stays off for dispatches
+Context: B-288 (runner call).
+Chose: Workspace file-drop upload stays off for dispatches
+Why: P4
+Commit: a3124af94, f49851a6b, e761f7315, e6a268490
+Veto: [ ]
+
+## D-523 · 2026-10-11 · A dispatch attach waiting on the probe is dropped as superseded if a newer request replac…
+Context: B-288 (runner call).
+Chose: A dispatch attach waiting on the probe is dropped as superseded if a newer request replaced the window's content
+Why: review fix
+Commit: a3124af94, f49851a6b, e761f7315, e6a268490
+Veto: [ ]
+
+## D-524 · 2026-10-11 · `leoWatchingDispatch` is no longer `@Published` (nothing observed it); `leoDispatchReadOn…
+Context: B-288 (runner call).
+Chose: `leoWatchingDispatch` is no longer `@Published` (nothing observed it); `leoDispatchReadOnly` is the badge flag
+Why: simplification
+Commit: a3124af94, f49851a6b, e761f7315, e6a268490
+Veto: [ ]
