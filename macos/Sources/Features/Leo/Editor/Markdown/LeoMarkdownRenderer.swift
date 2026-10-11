@@ -261,6 +261,7 @@ extension LeoMarkdownRenderer {
             let block = NSTextBlock()
             block.backgroundColor = NSColor.quaternaryLabelColor.withAlphaComponent(0.12)
             block.setWidth(8, type: .absoluteValueType, for: .padding)
+            block.setWidth(6, type: .absoluteValueType, for: .margin, edge: .minY)
             block.setWidth(6, type: .absoluteValueType, for: .margin, edge: .maxY)
             block.setContentWidth(100, type: .percentageValueType)
             return block

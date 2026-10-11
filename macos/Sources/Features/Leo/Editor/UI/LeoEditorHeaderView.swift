@@ -58,7 +58,14 @@ final class LeoEditorHeaderView: NSView {
         recentsButton.setAccessibilityLabel(Self.accessibilityLabel(forOpen: document?.fileID))
         stateLabel.stringValue = document?.isDirty == true ? "Edited" : ""
         lockImage.isHidden = document.map { !$0.isReadOnly || $0.isPreview } ?? true
-        languageLabel.stringValue = document.map { $0.isPreview ? ($0.preview?.typeName ?? "") : $0.language.displayName } ?? ""
+        languageLabel.stringValue = document.map(Self.typeLabel) ?? ""
+    }
+
+    /// A preview's file type; SVG source (plain text to the highlighter)
+    /// says SVG; anything else its language.
+    @MainActor static func typeLabel(for document: LeoEditorDocument) -> String {
+        if document.isPreview { return document.preview?.typeName ?? "" }
+        return document.kind == .rendered(.svg) ? "SVG" : document.language.displayName
     }
 
     func update(presentation: Presentation) {

@@ -38,6 +38,8 @@ struct LeoMarkdownRendererTests {
         let second = try #require(style(of: "let y", in: rendered)?.textBlocks.first)
         #expect(first === second)
         #expect(first.backgroundColor != nil)
+        // Clear of whatever is above it (a table, B-278 verifier).
+        #expect(first.width(for: .margin, edge: .minY) > 0)
         #expect(style(of: "text", in: rendered)?.textBlocks.isEmpty == true)
     }
 
