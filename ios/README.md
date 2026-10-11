@@ -7,6 +7,25 @@ daemon client in `Packages/LeoKit`. `Leo.xcodeproj` is generated from
 Build with Xcode 26.5 (`DEVELOPER_DIR=/Applications/Xcode-26.5.0.app/Contents/Developer`);
 Xcode 27 crashes on this code.
 
+## Real-push E2E (simulator, real APNs)
+
+`LeoPushE2ETests` also runs against a real daemon and the deployed relay; the
+simulator (Apple silicon) receives sandbox APNs pushes for Debug builds.
+
+1. Run an isolated daemon (built from leo `main`) with a fake `claude` first in
+   its `PATH` that stays resident and, on cue, pipes
+   `{"hook_event_name":"Notification","notification_type":"permission_prompt","session_id":<its --session-id>}`
+   into `leo dispatch report` (the hook command leo passes in `--settings`).
+   Spawn the agent and let it reach `working` (a `UserPromptSubmit` hook).
+2. `TEST_RUNNER_LEO_PUSH_PHASE=pair` with a fresh `leo pair` payload. The
+   daemon's `devices.json` then holds a `push` registration (grant, key, relay URL).
+3. `TEST_RUNNER_LEO_PUSH_PHASE=tap TEST_RUNNER_LEO_PUSH_BODY="Waiting for your input"`
+   (`TEST_RUNNER_LEO_PUSH_LAUNCH=warm` or cold): when `push-ready` appears,
+   fire the hook instead of `simctl push`. The daemon pushes through the relay;
+   the banner reads `<agent>` / `Waiting for your input` once the NSE decrypts it.
+
+Screenshots from the 2026-10-11 run: `docs/screenshots/push-real-*.png`.
+
 ## CI
 
 - `.github/workflows/leo-ios.yml` (paths `ios/**`, `Packages/LeoKit/**`, `images/Ghostty.icon/**`): LeoKit
