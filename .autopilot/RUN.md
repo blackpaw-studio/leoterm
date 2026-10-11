@@ -120,6 +120,17 @@ Lane: B-149
   Call: The reproduced cut-off is the list shrinking when agents go (connected→Loading/Failed/No Agents); Loading→connected can't cut the row off in current code, so the criterion is met by the shrink direction instead — P6, AUTONOMY bug fixes.
   Call: `request` also schedules window.layoutIfNeeded() for the next turn; needsLayout alone left the reveal waiting for a display pass that run-loop turns never reach — plan Risk 4.
 
+Lane: B-150
+  Branch: autopilot-lane/B-150
+  Base: 3a46e54f24e05f657ef9622fbb6517a54a829e8e
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-11T22:47:00Z
+
 Finished 1: B-284 landed 1c1f5aa66 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-284-w515414.png
 Finished 2: B-285 landed d34e7d42f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-285-1.png
 Finished 3: B-288 landed 492d7d37f · not visually verified
@@ -158,3 +169,4 @@ Finished 7: B-149 landed 039ec8dad · shot /Users/evan/.leo/agents/leoterm/.git/
 - B-149 runner dispatched: d-28e147c6b7a4 (implement → claude/sonnet, tier light).
 - B-149 landed 039ec8dad (fixes 1).
 - B-149 landed (light→full: the light build and first plan couldn't go red; the re-plan reproduced the shrink direction). Filed B-294/B-295; the third polish line (pre-layout geometry in resize tests) goes to B-150 as a lane note.
+- B-150 picked (tier light: test hardening; runner d-00ab00580600).
