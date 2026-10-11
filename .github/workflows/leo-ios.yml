@@ -1,0 +1,103 @@
+name: Leo iOS CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ios/**"
+      - "Packages/LeoKit/**"
+      - "images/Ghostty.icon/**"
+      - ".github/workflows/leo-ios.yml"
+  pull_request:
+    paths:
+      - "ios/**"
+      - "Packages/LeoKit/**"
+      - "images/Ghostty.icon/**"
+      - ".github/workflows/leo-ios.yml"
+
+concurrency:
+  group: leo-ios-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Xcode 27 crashes on this code; the Mac app's Xcode 26.3 pin is separate.
+  DEVELOPER_DIR: /Applications/Xcode-26.5.0.app/Contents/Developer
+
+jobs:
+  leo-ios:
+    # Never run fork PRs on the self-hosted runner.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, macOS, leo]
+    timeout-minutes: 60
+    env:
+      SIMULATOR: iPhone 17 Pro
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          clean: true
+          persist-credentials: false
+
+      - name: Set paths
+        run: |
+          echo "DERIVED_DATA=$RUNNER_TEMP/DerivedData-leo-ios" >> "$GITHUB_ENV"
+
+      - name: LeoKit tests
+        working-directory: Packages/LeoKit
+        run: swift test
+
+      - name: LeoFeatures tests
+        working-directory: ios/LeoFeatures
+        run: swift test
+
+      # The generated project is committed; any drift means someone edited
+      # project.yml (or the project) without regenerating.
+      - name: XcodeGen project is up to date
+        working-directory: ios
+        run: |
+          xcodegen generate
+          if ! git diff --exit-code -- Leo.xcodeproj; then
+            echo "::error::ios/Leo.xcodeproj differs from 'cd ios && xcodegen generate'. Regenerate and commit."
+            exit 1
+          fi
+          untracked=$(git ls-files --others --exclude-standard -- Leo.xcodeproj)
+          if [ -n "$untracked" ]; then
+            echo "::error::XcodeGen produced uncommitted files: $untracked"
+            exit 1
+          fi
+
+      - name: Build for simulator
+        working-directory: ios
+        run: |
+          xcodebuild build-for-testing \
+            -project Leo.xcodeproj -scheme Leo \
+            -destination "platform=iOS Simulator,name=${SIMULATOR}" \
+            -derivedDataPath "$DERIVED_DATA" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+
+      - name: App tests
+        working-directory: ios
+        run: |
+          xcodebuild test-without-building \
+            -project Leo.xcodeproj -scheme Leo \
+            -destination "platform=iOS Simulator,name=${SIMULATOR}" \
+            -derivedDataPath "$DERIVED_DATA" \
+            -resultBundlePath "$RUNNER_TEMP/leo-ios.xcresult"
+
+      - name: Upload result bundle
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: leo-ios-xcresult
+          retention-days: 14
+          path: ${{ runner.temp }}/leo-ios.xcresult
+          if-no-files-found: ignore
+
+      - name: Clean up
+        if: always()
+        run: rm -rf "$DERIVED_DATA" "$RUNNER_TEMP/leo-ios.xcresult"

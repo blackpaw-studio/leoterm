@@ -10,6 +10,7 @@
 		15A91201486195EC72F38990 /* TerminalViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C736E4B042BE982C20D63C /* TerminalViewController.swift */; };
 		2753B4A7B4AC3C2FE126635B /* PairingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28DF61BF22507AC7C45D4DB /* PairingViewController.swift */; };
 		28C6AFEF6CDE3099461FFD31 /* TextFileViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A074786444DAE80D6F189B6C /* TextFileViewController.swift */; };
+		2F613DE6FE36BEADFC273BAE /* Ghostty.icon in Resources */ = {isa = PBXBuildFile; fileRef = AEAD0E0F3907256BB0BB8DAD /* Ghostty.icon */; };
 		305D9929E92C5618B695D49A /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 7713A78E3FC5DD25A956D7F7 /* SwiftTerm */; };
 		34C79FDA57FA7D0AE74E69AF /* FilesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 806CB3A307290DFC916BE9AC /* FilesViewController.swift */; };
 		35B2BA0207DD6269898734F2 /* LeoPushE2ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F8B9632E4FB5665D708DF0E /* LeoPushE2ETests.swift */; };
@@ -20,7 +21,6 @@
 		5B17D4836F510CA07BB3683D /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1449AF007C779C9BAE7CC9 /* SceneDelegate.swift */; };
 		5E33999748F7BFB74748A8B0 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0798F4619AB2A887324F77 /* AppDelegate.swift */; };
 		61C7847BB0226FB17CDD61F7 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB62374CAF4B0AB162EB0A3C /* NotificationService.swift */; };
-		65847255B3CFBCD17049CC5F /* Ghostty.icon in Resources */ = {isa = PBXBuildFile; fileRef = 56AC8572B63B75E4ADC91B73 /* Ghostty.icon */; };
 		6BBEF92458BB21F5A206EE07 /* AgentDetailViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C90AC43D9476285D3D1C5BF5 /* AgentDetailViewController.swift */; };
 		787BACE232F874CDD0EACDE4 /* RootSplitViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14E6AC1C3305D1FE41B9863F /* RootSplitViewController.swift */; };
 		7BB11F057E27FF2F99C7B4D0 /* LeoE2ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 249F5BD758358963B9AE6F8B /* LeoE2ETests.swift */; };
@@ -80,7 +80,6 @@
 		4C9E7687201F50B6862AC453 /* LeoNotificationService.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = LeoNotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		52FA9E8BDF7050B6CF40A1EF /* QuickLookPreviewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickLookPreviewController.swift; sourceTree = "<group>"; };
 		54D9136C96055AB2811BE750 /* LeoNotificationService.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LeoNotificationService.entitlements; sourceTree = "<group>"; };
-		56AC8572B63B75E4ADC91B73 /* Ghostty.icon */ = {isa = PBXFileReference; path = Ghostty.icon; sourceTree = "<group>"; };
 		57636A050F83D8C255CD37DB /* PushClientLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushClientLive.swift; sourceTree = "<group>"; };
 		806CB3A307290DFC916BE9AC /* FilesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesViewController.swift; sourceTree = "<group>"; };
 		A074786444DAE80D6F189B6C /* TextFileViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextFileViewController.swift; sourceTree = "<group>"; };
@@ -91,6 +90,7 @@
 		A8E63E6655627C04C85C7442 /* Leo.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Leo.entitlements; sourceTree = "<group>"; };
 		A95C0A9333F680281BFCE98A /* MarkdownRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownRenderer.swift; sourceTree = "<group>"; };
 		AB62374CAF4B0AB162EB0A3C /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+		AEAD0E0F3907256BB0BB8DAD /* Ghostty.icon */ = {isa = PBXFileReference; name = Ghostty.icon; path = ../../../images/Ghostty.icon; sourceTree = "<group>"; };
 		C90AC43D9476285D3D1C5BF5 /* AgentDetailViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentDetailViewController.swift; sourceTree = "<group>"; };
 		CB1449AF007C779C9BAE7CC9 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		D1A1F7D0633E46F1B7A239E2 /* Leo.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Leo.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -133,6 +133,7 @@
 			isa = PBXGroup;
 			children = (
 				A4590A54B9047670434E5737 /* Assets.xcassets */,
+				AEAD0E0F3907256BB0BB8DAD /* Ghostty.icon */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -228,7 +229,6 @@
 		A53F5A9B862010D618686362 = {
 			isa = PBXGroup;
 			children = (
-				A864C4FCF907C7EA55CC654A /* d-b35d18e2043d */,
 				A7DC75B903E2C1744431D78B /* Leo */,
 				A9BA909F4A8ECFB0F4593D1C /* LeoNotificationService */,
 				96691FF04776212D622BD454 /* LeoUITests */,
@@ -253,15 +253,6 @@
 				90C3B4069CE6286F9B1FAFAA /* Terminal */,
 			);
 			path = Leo;
-			sourceTree = "<group>";
-		};
-		A864C4FCF907C7EA55CC654A /* d-b35d18e2043d */ = {
-			isa = PBXGroup;
-			children = (
-				F314214D38ED8ACBED70E2B4 /* images */,
-			);
-			name = "d-b35d18e2043d";
-			path = ..;
 			sourceTree = "<group>";
 		};
 		A9BA909F4A8ECFB0F4593D1C /* LeoNotificationService */ = {
@@ -293,14 +284,6 @@
 				A074786444DAE80D6F189B6C /* TextFileViewController.swift */,
 			);
 			path = Files;
-			sourceTree = "<group>";
-		};
-		F314214D38ED8ACBED70E2B4 /* images */ = {
-			isa = PBXGroup;
-			children = (
-				56AC8572B63B75E4ADC91B73 /* Ghostty.icon */,
-			);
-			path = images;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -418,7 +401,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C9D7F5EB7A3C2C3EE88255BE /* Assets.xcassets in Resources */,
-				65847255B3CFBCD17049CC5F /* Ghostty.icon in Resources */,
+				2F613DE6FE36BEADFC273BAE /* Ghostty.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
