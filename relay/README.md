@@ -10,19 +10,19 @@ wire contract (step 5)".
 | Route | Body | Result |
 |---|---|---|
 | `POST /register` | `{"apns_token": "<hex>", "env": "sandbox"\|"production"}` | `200 {"grant"}`; 10/min per client IP |
-| `POST /push` | `{"grant", "ciphertext", "collapse_id"}` | `202 {}`; 30/min per grant |
+| `POST /push` | `{"grant", "ciphertext", "collapse_id"}` | `202 {}`; 30/min per verified `{token, env}` (hashed bucket key, so one grant is one bucket however it is spelled) |
 
 `grant = b64url(JSON{t,e}) + "." + b64url(HMAC-SHA256(GRANT_SECRET, first part))`, verified in
-constant time. `ciphertext` is base64, at most 2048 characters. Errors are `{"error": "<code>"}`
+constant time. Grants must be canonical base64url (nonzero trailing bits are rejected). `ciphertext` is base64, at most 2048 characters. Errors are `{"error": "<code>"}`
 and never echo input:
 
 | Status | `error` | Meaning |
 |---|---|---|
-| 400 | `bad_request` | invalid JSON, unknown or missing field, bad token/env/ciphertext/collapse_id |
+| 400 | `bad_request` | invalid JSON, unknown or missing field, bad token/env/ciphertext/collapse_id, or APNs `BadDeviceToken` (also a sandbox/production mismatch; keep the registration) |
 | 401 | `unauthorized` | grant forged, malformed, or signed under another secret |
 | 404 | `not_found` | anything but `POST /register` and `POST /push` |
-| 410 | `gone` | APNs `BadDeviceToken` / `Unregistered` / 410: drop the registration |
-| 413 | `payload_too_large` | body or ciphertext over the cap |
+| 410 | `gone` | APNs `Unregistered` / HTTP 410: the only answer that means drop the registration |
+| 413 | `payload_too_large` | body over 4 KiB (rejected from `Content-Length`, or the stream is cancelled once the cap is crossed; never fully buffered) or ciphertext over 2048 chars |
 | 429 | `rate_limited` | |
 | 502 | `upstream_error` | APNs refused or was unreachable |
 | 500 | `internal` | misconfiguration (missing secret) or an unexpected error |
@@ -77,7 +77,7 @@ ENV
 npx wrangler dev --remote        # real APNs; needs Cloudflare credentials
 ```
 
-Smoke test against a real device token (a dummy 64-hex token yields `410`, which proves HTTP/2
+Smoke test against a real device token (a dummy 64-hex token yields `400`, which proves HTTP/2
 and the JWT were accepted; a bad JWT would be `502`):
 
 ```sh

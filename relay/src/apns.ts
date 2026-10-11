@@ -7,8 +7,6 @@ const HOSTS: Record<ApnsEnv, string> = {
   sandbox: "api.sandbox.push.apple.com",
   production: "api.push.apple.com",
 };
-/** Apple reasons that mean "this device token is dead". */
-const DEAD_TOKEN_REASONS = new Set(["BadDeviceToken", "Unregistered"]);
 /** Apple reasons that mean our provider token is no good. */
 const BAD_PROVIDER_REASONS = new Set(["ExpiredProviderToken", "InvalidProviderToken"]);
 
@@ -19,7 +17,12 @@ export interface ApnsPush {
   ciphertext: string;
 }
 
-export type ApnsOutcome = "delivered" | "gone" | "rejected";
+/**
+ * "gone": Apple says the device unregistered (410 / `Unregistered`), the only outcome that tells a
+ * daemon to drop a registration. "bad_token": `BadDeviceToken`, which also means a sandbox/production
+ * mismatch, so the registration may still be good.
+ */
+export type ApnsOutcome = "delivered" | "gone" | "bad_token" | "rejected";
 
 export interface ApnsClient {
   send(push: ApnsPush, creds: JwtCredentials): Promise<ApnsOutcome>;
@@ -69,7 +72,8 @@ export const createApnsClient = ({ fetch, jwt }: { fetch: typeof globalThis.fetc
     }
     if (res.ok) return "delivered";
     const reason = await reasonOf(res);
-    if (res.status === 410 || (reason !== null && DEAD_TOKEN_REASONS.has(reason))) return "gone";
+    if (res.status === 410 || reason === "Unregistered") return "gone";
+    if (reason === "BadDeviceToken") return "bad_token";
     if (reason !== null && BAD_PROVIDER_REASONS.has(reason)) jwt.invalidate();
     return "rejected";
   },

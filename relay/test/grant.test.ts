@@ -33,6 +33,17 @@ describe("grant", () => {
     expect(await verifyGrant(SECRET, `${payload}.${flipped}`)).toBeNull();
   });
 
+  it("rejects noncanonical base64url encodings of an authentic mac (unused trailing bits)", async () => {
+    const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    const [payload, mac] = (await issueGrant(SECRET, claims)).split(".");
+    const last = ALPHABET.indexOf(mac.at(-1)!);
+    expect(last % 4).toBe(0); // 43 chars carry 258 bits for a 256-bit mac
+    for (const spare of [1, 2, 3]) {
+      const variant = `${payload}.${mac.slice(0, -1)}${ALPHABET[last + spare]}`;
+      expect(await verifyGrant(SECRET, variant)).toBeNull();
+    }
+  });
+
   it.each([
     ["empty", ""],
     ["no separator", "abcdef"],

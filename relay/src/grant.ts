@@ -49,3 +49,9 @@ export const verifyGrant = async (secret: string, grant: string): Promise<GrantC
   const authentic = await crypto.subtle.verify("HMAC", await hmacKey(secret, "verify"), macBytes, encoder.encode(payload));
   return authentic ? parseClaims(payloadBytes) : null;
 };
+
+/** Stable, opaque rate-limit bucket for a verified grant; independent of how the grant string was spelled. */
+export const grantBucketKey = async ({ t, e }: GrantClaims): Promise<string> => {
+  const digest = await crypto.subtle.digest("SHA-256", encoder.encode(`${e}:${t}`));
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+};

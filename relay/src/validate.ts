@@ -2,7 +2,6 @@ import { APNS_TOKEN, type ApnsEnv, isApnsEnv } from "./grant";
 
 /** Base64 text, i.e. a 1.5 KiB blob; Apple's payload ceiling is 4 KiB. */
 export const MAX_CIPHERTEXT_CHARS = 2048;
-export const MAX_BODY_BYTES = 4096;
 const MAX_GRANT_CHARS = 1024;
 
 const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
@@ -41,7 +40,6 @@ const parseObject = (text: string, keys: readonly string[]): Record<string, unkn
 };
 
 export const parseRegister = (text: string): Parsed<RegisterInput> => {
-  if (text.length > MAX_BODY_BYTES) return tooLarge;
   const obj = parseObject(text, ["apns_token", "env"]);
   if (!obj) return bad;
   const token = typeof obj.apns_token === "string" ? obj.apns_token.toLowerCase() : "";
@@ -50,7 +48,6 @@ export const parseRegister = (text: string): Parsed<RegisterInput> => {
 };
 
 export const parsePush = (text: string): Parsed<PushInput> => {
-  if (text.length > MAX_BODY_BYTES + MAX_CIPHERTEXT_CHARS) return tooLarge;
   const obj = parseObject(text, ["grant", "ciphertext", "collapse_id"]);
   if (!obj) return bad;
   const { grant, ciphertext, collapse_id: collapseId } = obj;

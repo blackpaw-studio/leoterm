@@ -212,13 +212,91 @@ describe("POST /push — validation", () => {
   });
 });
 
+describe("request body cap", () => {
+  const withPath = (req: Request, path: string): Request =>
+    new Request(`https://relay.test${path}`, { method: "POST", headers: req.headers, body: req.body, duplex: "half" } as RequestInit);
+
+  const streamed = (chunks: number, chunkBytes: number, headers: Record<string, string> = {}) => {
+    const state = { pulls: 0, cancelled: false };
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        state.pulls += 1;
+        if (state.pulls > chunks) return controller.close();
+        controller.enqueue(new Uint8Array(chunkBytes).fill(0x20));
+      },
+      cancel() {
+        state.cancelled = true;
+      },
+    });
+    const req = new Request("https://relay.test/push", {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body,
+      duplex: "half",
+    } as RequestInit);
+    return { req, state };
+  };
+
+  it.each(["/push", "/register"])("%s: rejects a declared Content-Length over the cap without reading the body", async (path) => {
+    const { call } = setup();
+    const { req, state } = streamed(1, 16, { "content-length": "1000000" });
+    const res = await call(withPath(req, path));
+    expect(res.status).toBe(413);
+    expect(state.cancelled).toBe(true);
+    expect(state.pulls).toBeLessThanOrEqual(1); // the stream's own priming pull; the relay never reads
+  });
+
+  it.each(["/push", "/register"])("%s: cancels a chunked stream as soon as the cap is crossed", async (path) => {
+    const { call } = setup();
+    const { req, state } = streamed(10_000, 1024);
+    const res = await call(withPath(req, path));
+    expect(res.status).toBe(413);
+    expect(state.cancelled).toBe(true);
+    expect(state.pulls).toBeLessThan(20); // 4 KiB cap, 1 KiB chunks (plus read-ahead), never the 10 MB offered
+  });
+
+  it("counts bytes, not characters: 4 KiB of multibyte text is over the cap", async () => {
+    const { call } = setup();
+    const res = await call(post("/push", JSON.stringify({ pad: "é".repeat(2500) })));
+    expect(res.status).toBe(413);
+  });
+});
+
 describe("POST /push — rate limit", () => {
-  it("keys the limiter by grant and answers 429 when refused", async () => {
+  it("keys the limiter by the verified {token, env}, not by the raw grant string or the token itself", async () => {
     const limiter = fakeLimiter();
     const ok = setup(fakeApns(), { PUSH_LIMITER: limiter });
     const body = await pushBody();
     await ok.call(post("/push", body));
-    expect(limiter.keys).toEqual([body.grant]);
+    await ok.call(post("/push", await pushBody({ grant: await grantFor("sandbox") })));
+    await ok.call(post("/push", await pushBody({ grant: await grantFor("production") })));
+    await ok.call(post("/push", await pushBody({ grant: await grantFor("sandbox", "cd".repeat(32)) })));
+
+    const [a, b, prod, other] = limiter.keys;
+    expect(a).toBe(b);
+    expect(new Set([a, prod, other]).size).toBe(3);
+    for (const k of limiter.keys) {
+      expect(k).not.toContain(TOKEN);
+      expect(k).not.toBe(body.grant);
+    }
+  });
+
+  it("gives every noncanonical spelling of one grant the same bucket or a 401 (no extra buckets)", async () => {
+    const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    const limiter = fakeLimiter();
+    const { call, apns } = setup(fakeApns(), { PUSH_LIMITER: limiter });
+    const [payload, mac] = (await grantFor()).split(".");
+    const last = ALPHABET.indexOf(mac.at(-1)!);
+    for (const spare of [0, 1, 2, 3]) {
+      const grant = `${payload}.${mac.slice(0, -1)}${ALPHABET[last + spare]}`;
+      await call(post("/push", await pushBody({ grant })));
+    }
+    expect(new Set(limiter.keys).size).toBe(1);
+    expect(apns.calls).toHaveLength(1);
+  });
+
+  it("answers 429 when refused", async () => {
+    const body = await pushBody();
 
     const refused = setup(fakeApns(), { PUSH_LIMITER: fakeLimiter(false) });
     const res = await refused.call(post("/push", body));
@@ -296,10 +374,17 @@ describe("POST /push — APNs request", () => {
 });
 
 describe("POST /push — APNs failures", () => {
+  it("maps 400 BadDeviceToken (incl. env mismatch) to 400, so a daemon keeps the registration", async () => {
+    const { call } = setup(fakeApns(() => apnsError(400, "BadDeviceToken")));
+    const res = await call(post("/push", await pushBody()));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "bad_request" });
+  });
+
   it.each([
     ["410 Unregistered", () => apnsError(410, "Unregistered")],
     ["410 with empty body", () => new Response(null, { status: 410 })],
-    ["400 BadDeviceToken", () => apnsError(400, "BadDeviceToken")],
+    ["400 Unregistered", () => apnsError(400, "Unregistered")],
   ])("maps %s to 410", async (_n, respond) => {
     const { call } = setup(fakeApns(respond));
     const res = await call(post("/push", await pushBody()));

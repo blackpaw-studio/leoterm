@@ -1,5 +1,6 @@
 import { type ApnsClient, createApnsClient } from "./apns";
-import { issueGrant, verifyGrant } from "./grant";
+import { readBodyCapped } from "./body";
+import { grantBucketKey, issueGrant, verifyGrant } from "./grant";
 import { type JwtProvider, createJwtProvider } from "./jwt";
 import { parsePush, parseRegister } from "./validate";
 
@@ -49,27 +50,32 @@ const hasSecrets = (env: Env): boolean => REQUIRED_SECRETS.every((k) => typeof e
 const register = async (req: Request, env: Env): Promise<Response> => {
   const ip = req.headers.get("cf-connecting-ip") ?? "unknown";
   if (!(await env.REGISTER_LIMITER.limit({ key: ip })).success) return fail("rate_limited");
-  const parsed = parseRegister(await req.text());
+  const text = await readBodyCapped(req);
+  if (text === null) return fail("payload_too_large");
+  const parsed = parseRegister(text);
   if (!parsed.ok) return fail(parsed.error);
   const grant = await issueGrant(env.GRANT_SECRET, { t: parsed.value.apnsToken, e: parsed.value.env });
   return respond(200, { grant });
 };
 
 const push = async (req: Request, env: Env, apns: ApnsClient): Promise<Response> => {
-  const parsed = parsePush(await req.text());
+  const text = await readBodyCapped(req);
+  if (text === null) return fail("payload_too_large");
+  const parsed = parsePush(text);
   if (!parsed.ok) return fail(parsed.error);
   const { grant, ciphertext, collapseId } = parsed.value;
 
   const claims = await verifyGrant(env.GRANT_SECRET, grant);
   if (!claims) return fail("unauthorized");
-  if (!(await env.PUSH_LIMITER.limit({ key: grant })).success) return fail("rate_limited");
+  if (!(await env.PUSH_LIMITER.limit({ key: await grantBucketKey(claims) })).success) return fail("rate_limited");
 
   const outcome = await apns.send(
     { token: claims.t, env: claims.e, collapseId, ciphertext },
     { p8: env.APNS_P8, keyId: env.APNS_KEY_ID, teamId: env.APNS_TEAM_ID },
   );
   if (outcome === "delivered") return respond(202, {});
-  return fail(outcome === "gone" ? "gone" : "upstream_error");
+  if (outcome === "gone") return fail("gone");
+  return fail(outcome === "bad_token" ? "bad_request" : "upstream_error");
 };
 
 /** Builds the Worker's fetch handler. The JWT cache lives as long as the returned handler. */
