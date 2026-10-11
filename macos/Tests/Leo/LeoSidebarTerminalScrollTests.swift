@@ -119,6 +119,36 @@ struct LeoSidebarTerminalScrollTests {
         #expect((tables(in: window.contentView).first?.numberOfRows ?? 0) > Self.agentCount, "it lists the agents again")
     }
 
+    /// B-148: with no agents listed (Loading, Failed, No Agents) and a
+    /// terminal row, the filter hides the Terminals section but not the
+    /// list, so the same list is there when the filter clears rather than
+    /// a new one whose first appearance can come before AppKit has built
+    /// its table.
+    @Test(arguments: [
+        LeoConnectivity.loading, .failed(message: "no daemon"), .connected,
+    ])
+    func aFilterKeepsTheListMountedWhileTerminalsAreTheOnlyRows(_ connectivity: LeoConnectivity) async throws {
+        let terminals = LeoWindowTerminals()
+        terminals.add(UUID(), title: "Terminal")
+        let (window, model) = try makeWindowAndModel(
+            terminals: terminals, snapshot: LeoSidebarSnapshot(rows: [], connectivity: connectivity, generation: 1)
+        )
+        defer { window.close() }
+        // The Terminals header and its row.
+        let table = try await settledTable(in: window, moreThan: 1)
+
+        model.query = "no-such-agent"
+        await afterPendingUpdates()
+
+        #expect(tables(in: window.contentView).first === table, "the list stays while the filter hides the Terminals section")
+
+        model.query = ""
+        await afterPendingUpdates()
+
+        #expect(tables(in: window.contentView).first === table, "the same list is back")
+        #expect(table.numberOfRows > 1, "it lists the Terminals section again")
+    }
+
     /// D-129, the list reappearing: a terminal row selected while the
     /// agents are still loading is revealed once they list above it and
     /// push it down, in the same list. Only the scroll down to it is
