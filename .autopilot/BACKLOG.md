@@ -821,15 +821,14 @@ Inbox: 20261010T223045852685Z-29c67160#1
 Done: a7af5783e fcca77097 db524cb88
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-287-1.png
 
-## B-288 · Subagent panes disable text and mouse/touch input   [blocked]
+## B-288 · Subagent panes disable text and mouse/touch input   [ready]
 Issue: #276
 Type: bug
 Report: we shouldnt disable text and mouse/touch input in subagents
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-10-10)
 Inbox: 20261010T224938538316Z-fae1243d#1
-Question: Waiting on the leo release: `leo dispatch attach --rw` is in leo PR #264 (review approved; CI and merge pending, no version yet). Evan dropped the feature-flag gate from D-518: the CLI flag is the opt-in, the default stays read-only, and a `--host` attach needs the remote leo to have it too (otherwise it rejects `--rw`); typed input marks the run `steered`. The app side must handle older leo rejecting `--rw`. Reply "B-288: done" once a leo release ships it. Work kept on autopilot-shelved/B-288.
-Answer:
+Update (2026-10-11): leo v0.47.0 ships `leo dispatch attach --rw` (PR #264), meeting the condition in the owner's D-518 answer. Evan dropped the feature-flag gate: the flag itself is the opt-in and the default stays read-only. Older leo builds, and `--host` remotes older than 0.47.0, reject `--rw`, so the app must fall back to read-only cleanly. Typed input marks the run `steered`. The local leo on Dionysus is still 0.45.0: never upgrade, restart or update it during verification; prove the behaviour with tests against a fake CLI, and say plainly if it isn't visually verified.
 
 ## B-278 · File pane previews images, GIFs, video, Markdown and PDFs   [done]
 Issue: #271
