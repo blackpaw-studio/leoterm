@@ -290,7 +290,7 @@ import Testing
         let coordinator = LeoAttachCoordinator(
             host: host,
             executable: { "/leo" },
-            remoteCommandBuilder: { "ssh box leo attach \($0.name)" },
+            remoteCommandBuilder: { identity, _ in "ssh box leo attach \(identity.name)" },
             report: { _ in },
             lifecycleEventHandled: { host.acknowledge($0) }
         )

@@ -160,7 +160,7 @@ import Testing
         LeoAttachCoordinator(
             host: host,
             executable: { "/leo" },
-            remoteCommandBuilder: { identity in
+            remoteCommandBuilder: { identity, _ in
                 guard case .remote(let name) = identity.host else { throw FakeReattachError.failed }
                 let flags = features.features(for: identity.host).attachPlacementArguments
                 return (["ssh", name, "leo", "agent", "attach"] + flags + ["--", identity.name]).joined(separator: " ")

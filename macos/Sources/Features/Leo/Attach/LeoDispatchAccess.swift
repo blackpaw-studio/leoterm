@@ -83,7 +83,7 @@ extension LeoDispatchAccess {
                 Self.logger.info("dispatch access probe for \(host.displayName, privacy: .public) exited \(result.status): read-only")
                 return .readOnly
             }
-            let access = LeoDispatchAccess(fromHelp: String(decoding: result.stdout, as: UTF8.self))
+            let access = LeoDispatchAccess(fromHelp: String(bytes: result.stdout, encoding: .utf8) ?? "")
             Self.logger.info("dispatch access probe for \(host.displayName, privacy: .public): \(String(describing: access), privacy: .public)")
             known[key] = access
             return access

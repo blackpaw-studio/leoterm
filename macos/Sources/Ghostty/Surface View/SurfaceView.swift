@@ -141,8 +141,8 @@ extension Ghostty {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
 
-                // MARK: Leo -- a dispatch the user is only watching (B-266).
-                if surfaceView.leoWatchingDispatch {
+                // MARK: Leo -- a dispatch the user can only watch (B-266, B-288).
+                if surfaceView.leoDispatchReadOnly {
                     LeoDispatchWatchBadge()
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                         .allowsHitTesting(false)

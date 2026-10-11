@@ -377,7 +377,7 @@ import Testing
         defer { close(fixture) }
         let tracker = Tracker()
         let dispatch = try attach(fixture, tracker)
-        fixture.host.markWatchingDispatch(dispatch)
+        fixture.host.markDispatch(dispatch, readOnly: true)
         _ = try attach(fixture, tracker)
         let surface = try #require(tracker.view(dispatch))
         try #require(surface.window == nil, "precondition: hidden")

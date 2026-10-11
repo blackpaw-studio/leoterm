@@ -8,8 +8,9 @@ struct LeoTerminalFileDropContext: Equatable {
     let attachmentGeneration: UInt64
 
     /// The drop target for an attachment, or nil when only Ghostty's own
-    /// drop applies: a dispatch pane, which is a read-only watch (B-266),
-    /// or no absolute, printable workspace.
+    /// drop applies: a dispatch pane, which has no workspace of its own to
+    /// upload into (B-266; typing there is writable since B-288), or no
+    /// absolute, printable workspace.
     static func resolve(identity: LeoAgentIdentity, workspace: String?, generation: UInt64) -> Self? {
         guard identity.dispatchID == nil, let workspace, workspace.hasPrefix("/"), !workspace.contains("\0"),
               !workspace.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else { return nil }

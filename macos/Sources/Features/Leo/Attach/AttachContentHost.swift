@@ -184,10 +184,11 @@ struct AttachExitReport: Equatable, Sendable {
     /// after the agent attached in it (B-052), in place of whatever title
     /// the terminal sets.
     func setAgentName(_ handle: AttachmentHandle, name: String)
-    /// B-266: `handle`'s surface shows a dispatch the user is only
-    /// watching (the daemon attaches read-only): it carries a small
-    /// "watching · read-only" indicator.
-    func markWatchingDispatch(_ handle: AttachmentHandle)
+    /// B-266: `handle`'s surface shows a dispatch subagent, not an agent.
+    /// B-288: `readOnly` when the leo that attached it only knows the
+    /// read-only attach (an older leo): its surface then carries a small
+    /// "watching · read-only" indicator; a writable one carries none.
+    func markDispatch(_ handle: AttachmentHandle, readOnly: Bool)
     /// B-266: how `handle`'s process ended, once its exit was reported.
     /// `nil` when the host never saw an exit status for it. A hidden
     /// surface's exit (no window, so no Ghostty exit message) is taken
