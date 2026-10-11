@@ -8,7 +8,7 @@ import Foundation
 /// document closes its own).
 final class LeoGatedReads: @unchecked Sendable {
     enum Operation: Sendable {
-        case read, stat, write
+        case read, stat, write, stream
     }
 
     private struct Key: Hashable {
@@ -23,9 +23,9 @@ final class LeoGatedReads: @unchecked Sendable {
 
     private let gates: [Key: Gate]
 
-    init(_ reads: [String], stats: [String] = [], writes: [String] = []) {
+    init(_ reads: [String], stats: [String] = [], writes: [String] = [], streams: [String] = []) {
         let keys = reads.map { Key(operation: .read, path: $0) } + stats.map { Key(operation: .stat, path: $0) }
-            + writes.map { Key(operation: .write, path: $0) }
+            + writes.map { Key(operation: .write, path: $0) } + streams.map { Key(operation: .stream, path: $0) }
         gates = Dictionary(uniqueKeysWithValues: keys.map { ($0, Gate()) })
     }
 
@@ -69,6 +69,11 @@ final class LeoGatedReads: @unchecked Sendable {
         func read(_ path: String, maxBytes: UInt64) async throws -> LeoFileContents {
             await gates.pass(.read, path)
             return try await base.read(path, maxBytes: maxBytes)
+        }
+
+        func read(_ path: String, into sink: any LeoFileByteSink) async throws -> LeoFileStat {
+            await gates.pass(.stream, path)
+            return try await base.read(path, into: sink)
         }
 
         func write(_ data: Data, to path: String, expecting expected: LeoFileVersion?) async throws -> LeoFileStat {

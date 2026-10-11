@@ -395,15 +395,45 @@ struct LeoEditorBannerTests {
 
     @Test func aReadOnlyFileShowsItsNotice() async throws {
         try await withLeoFileSandbox(.local) { sandbox, _ in
-            let path = sandbox.path("blob.bin")
-            try Data([0x00, 0x01]).write(to: URL(fileURLWithPath: path))
+            let path = sandbox.path("latin1.txt")
+            try Data([0x63, 0x61, 0x66, 0xE9]).write(to: URL(fileURLWithPath: path))
             let document = try await LeoEditorDocument.open(
                 LeoEditorFileID(host: .local, path: path), access: LeoFileAccessor.local(), policy: .default
             )
 
             #expect(LeoEditorBanner.current(for: document) == LeoEditorBanner(
-                symbol: "lock", message: LeoEditorReadOnlyReason.binary.notice, actions: []
+                symbol: "lock", message: LeoEditorReadOnlyReason.notUTF8.notice, actions: []
             ))
+        }
+    }
+
+    /// B-278: a preview is read-only by nature, so says nothing about it;
+    /// deleted on disk, it has no version of its own to keep.
+    @Test func deletedPreviewHasNoKeepMine() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let temp = try LeoFileSandbox()
+            defer { temp.cleanUp() }
+            let path = try sandbox.file("a.png", "png")
+            let binary = sandbox.path("blob.bin")
+            try Data([0x00, 0x01]).write(to: URL(fileURLWithPath: binary))
+            let cache = LeoFilePreviewCache(root: URL(fileURLWithPath: temp.path("previews")))
+            let document = try await LeoEditorDocument.open(
+                LeoEditorFileID(host: .local, path: path), access: LeoFileAccessor.local(), policy: .default, cache: cache
+            )
+            let unsupported = try await LeoEditorDocument.open(
+                LeoEditorFileID(host: .local, path: binary), access: LeoFileAccessor.local(), policy: .default, cache: cache
+            )
+            await document.settlePreview()
+            #expect(LeoEditorBanner.current(for: document) == nil)
+            #expect(LeoEditorBanner.current(for: unsupported) == nil)
+
+            try FileManager.default.removeItem(atPath: path)
+            await document.checkDisk()
+
+            #expect(LeoEditorBanner.current(for: document) == LeoEditorBanner(
+                symbol: "trash", message: "“\(LeoSFTPServerText.isolated("a.png"))” was deleted on disk.", actions: []
+            ))
+            await document.close()
         }
     }
 }

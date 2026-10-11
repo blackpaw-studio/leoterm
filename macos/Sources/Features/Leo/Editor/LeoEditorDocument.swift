@@ -74,6 +74,7 @@ enum LeoEditorSaveOutcome: Equatable, Sendable {
     private let access: any LeoFileAccess
     private let policy: LeoEditorContentPolicy
     private let evaluate: Evaluate
+    private let cache: LeoFilePreviewCache
     private let queue = LeoEditorSerialQueue()
     /// The on-disk text the buffer matches when clean; nil after Keep Mine,
     /// when nothing on disk matches it.
@@ -84,14 +85,22 @@ enum LeoEditorSaveOutcome: Equatable, Sendable {
     /// What the disk showed when the banner went up.
     private var observed: DiskVersion?
 
+    /// How the pane shows it (B-278).
+    let kind: LeoFilePreviewKind
+    /// Set for a file shown as a preview rather than text: an image, movie
+    /// or document fetched into the cache, or a binary that can't be shown.
+    @Published private(set) var preview: LeoFilePreview?
+
     var displayName: String { fileID.name }
-    var isReadOnly: Bool { readOnlyReason != nil }
+    var isPreview: Bool { preview != nil }
+    var isReadOnly: Bool { readOnlyReason != nil || isPreview }
 
     private init(
         fileID: LeoEditorFileID,
         access: any LeoFileAccess,
         policy: LeoEditorContentPolicy,
         evaluate: @escaping Evaluate,
+        cache: LeoFilePreviewCache,
         content: LeoEditorContent,
         version: LeoFileVersion
     ) {
@@ -99,26 +108,43 @@ enum LeoEditorSaveOutcome: Equatable, Sendable {
         self.access = access
         self.policy = policy
         self.evaluate = evaluate
+        self.cache = cache
+        kind = LeoFilePreviewKind(path: fileID.path)
         language = LeoEditorLanguage(path: fileID.path)
-        text = content.text
-        savedText = content.text
-        readOnlyReason = content.readOnlyReason
+        text = ""
+        readOnlyReason = nil
         base = .version(version)
+        show(content)
     }
 
     /// Reads the file (failing for folders, missing files and files over
-    /// `policy.readLimit`). The caller hands over `access`: `close()`
-    /// releases it.
+    /// `policy.readLimit`). An image, movie or document (B-278) is only
+    /// stat'd: the document comes back at once, its preview loading into
+    /// `cache` (never through the text read or its limit). The caller
+    /// hands over `access`: `close()` releases it.
     static func open(
         _ fileID: LeoEditorFileID,
         access: any LeoFileAccess,
         policy: LeoEditorContentPolicy,
-        evaluate: Evaluate? = nil
+        evaluate: Evaluate? = nil,
+        cache: LeoFilePreviewCache = .shared
     ) async throws -> LeoEditorDocument {
         let evaluate = evaluate ?? { policy.evaluate($0) }
+        guard !LeoFilePreviewKind(path: fileID.path).isFetched else {
+            let stat = try await access.stat(fileID.path)
+            try LeoFileExport.requireRegularFile(stat, path: fileID.path)
+            let document = LeoEditorDocument(
+                fileID: fileID, access: access, policy: policy, evaluate: evaluate, cache: cache,
+                content: LeoEditorContent(text: "", readOnlyReason: nil), version: stat.version
+            )
+            document.startPreview(size: stat.size)
+            return document
+        }
         let contents = try await access.read(fileID.path, maxBytes: policy.readLimit)
         let content = await decode(contents.data, with: evaluate)
-        return LeoEditorDocument(fileID: fileID, access: access, policy: policy, evaluate: evaluate, content: content, version: contents.stat.version)
+        return LeoEditorDocument(
+            fileID: fileID, access: access, policy: policy, evaluate: evaluate, cache: cache, content: content, version: contents.stat.version
+        )
     }
 
     /// The view's buffer changed. `revision` is the `contentRevision` the
@@ -154,7 +180,7 @@ enum LeoEditorSaveOutcome: Equatable, Sendable {
     /// the version on disk now (or recreates a deleted file), while a
     /// further external change still raises the banner again.
     func keepMine() {
-        guard diskState != .inSync, let observed else { return }
+        guard !isPreview, diskState != .inSync, let observed else { return }
         base = observed
         self.observed = nil
         savedText = nil
@@ -175,15 +201,33 @@ enum LeoEditorSaveOutcome: Equatable, Sendable {
     }
 
     /// Waits for any operation in flight, then releases the file access.
+    /// A preview's fetch is cancelled first, never waited for, and its
+    /// folder is deleted once the fetch has stopped.
     func close() async {
+        preview?.cancel()
         await queue.drain()
         await access.close()
+        await preview?.close()
     }
 
     /// Releases the file access without waiting for what's in flight (which
     /// then fails): the user chose to leave while it wasn't coming back.
     func abandon() async {
+        preview?.cancel()
         await access.close()
+        await preview?.close()
+    }
+
+    /// Waits for the preview's fetch in flight, if any.
+    func settlePreview() async {
+        await preview?.settle()
+    }
+
+    /// Downloads the file into `folder` (keeping both on a name clash) and
+    /// returns where it landed.
+    func download(into folder: URL) async throws -> URL {
+        let name = LeoFilePreviewCache.storedName(for: fileID.path)
+        return try await LeoFileExport.download(remotePath: fileID.path, to: folder.appendingPathComponent(name, isDirectory: false), access: access)
     }
 
     // MARK: - Operations (serialized)
@@ -204,6 +248,10 @@ enum LeoEditorSaveOutcome: Equatable, Sendable {
             return .unchanged
         }
         if diskState != .inSync, current == observed { return diskState == .deleted ? .deleted : .conflict }
+        if case .version(let version) = current, preview?.isFetched == true {
+            refetch(at: version)
+            return .reloaded
+        }
         if current != .absent, !isDirty {
             switch await performReload(keepingEdits: true) {
             case .reloaded: return .reloaded
@@ -261,6 +309,7 @@ enum LeoEditorSaveOutcome: Equatable, Sendable {
     /// Otherwise the user chose to take the file on disk.
     @discardableResult
     private func performReload(keepingEdits: Bool) async -> ReloadOutcome {
+        if preview?.isFetched == true { return await reloadPreview() }
         let before = text
         do {
             let contents = try await access.read(fileID.path, maxBytes: policy.readLimit)
@@ -269,9 +318,7 @@ enum LeoEditorSaveOutcome: Equatable, Sendable {
                 flag(.version(contents.stat.version))
                 return .keptEdits
             }
-            text = content.text
-            savedText = content.text
-            readOnlyReason = content.readOnlyReason
+            show(content)
             base = .version(contents.stat.version)
             observed = nil
             isDirty = false
@@ -283,6 +330,61 @@ enum LeoEditorSaveOutcome: Equatable, Sendable {
             flag(.absent)
             return .failed
         } catch {
+            errorMessage = error.localizedDescription
+            return .failed
+        }
+    }
+
+    // MARK: - Previews
+
+    /// Shows `content` as text, or -- binary by sniff -- as Can't Preview
+    /// (B-278), never as garbled text.
+    private func show(_ content: LeoEditorContent) {
+        let isBinary = content.readOnlyReason == .binary
+        text = isBinary ? "" : content.text
+        savedText = text
+        readOnlyReason = content.readOnlyReason
+        if !isBinary {
+            if preview != nil { preview = nil }
+        } else if preview == nil {
+            preview = LeoFilePreview(unsupported: LeoFilePreviewKind.typeName(forPath: fileID.path))
+        }
+    }
+
+    private func startPreview(size: UInt64) {
+        let path = fileID.path
+        let access = access
+        let cache = cache
+        preview = LeoFilePreview(
+            typeName: LeoFilePreviewKind.typeName(forPath: path),
+            fetch: { progress in try await cache.fetch(path, access: access, progress: progress) },
+            discard: { cache.discard($0) }
+        )
+        refetch(at: nil, size: size)
+    }
+
+    /// Fetches the preview again for the disk's `version` (nil: the one
+    /// opened), which becomes the base; the fetch's own pre-read stat
+    /// replaces it when the bytes land.
+    private func refetch(at version: LeoFileVersion?, size: UInt64? = nil) {
+        if let version { base = .version(version) }
+        observed = nil
+        diskState = .inSync
+        preview?.refresh(size: size ?? version?.size ?? 0) { [weak self] stat in
+            self?.base = .version(stat.version)
+        }
+    }
+
+    private func reloadPreview() async -> ReloadOutcome {
+        switch await currentDiskVersion() {
+        case .success(.version(let version)):
+            errorMessage = nil
+            refetch(at: version)
+            return .reloaded
+        case .success(.absent):
+            flag(.absent)
+            return .failed
+        case .failure(let error):
             errorMessage = error.localizedDescription
             return .failed
         }

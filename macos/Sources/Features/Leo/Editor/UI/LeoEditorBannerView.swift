@@ -2,7 +2,8 @@ import AppKit
 
 /// What the pane's inline banner says, most important first: a quit
 /// waiting on the editor, a close waiting on it, a conflict with the disk,
-/// then a failed save or reload, then a read-only notice.
+/// then a failed save or reload, then a read-only notice (never on a
+/// preview).
 struct LeoEditorBanner: Equatable {
     enum Action: Equatable {
         case quitAnyway
@@ -44,6 +45,8 @@ struct LeoEditorBanner: Equatable {
                 message: "\(name) changed on disk. Reload to see it, or keep your version and save over it.",
                 actions: [.reload, .keepMine]
             )
+        case .deleted where document.isPreview:
+            return LeoEditorBanner(symbol: "trash", message: "\(name) was deleted on disk.", actions: [])
         case .deleted:
             return LeoEditorBanner(
                 symbol: "trash",
@@ -56,7 +59,8 @@ struct LeoEditorBanner: Equatable {
         if let error = document.errorMessage {
             return LeoEditorBanner(symbol: "xmark.octagon", message: error, actions: [.dismissError])
         }
-        if let reason = document.readOnlyReason {
+        // A preview is read-only by nature: nothing to say (B-278).
+        if let reason = document.readOnlyReason, !document.isPreview {
             return LeoEditorBanner(symbol: "lock", message: reason.notice, actions: [])
         }
         return nil
