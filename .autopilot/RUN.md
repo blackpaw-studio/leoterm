@@ -35,8 +35,10 @@ Lane: B-284
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-10-11T15:46:00Z
 
 ## Progress
 - Preflight: autopilot already at main (60e80df75); applied 1 inbox entry (B-288 answer → D-518; stays blocked until leo ships `--rw`; leo 0.45.0 has none).
 - Lane autopilot-lane/B-233 exists unlanded with no RUN.md block (left from an earlier run); left in place.
 - B-284 picked (tier light): the four ready bugs go before the B-148… test-polish items (bugs-first ordering; B-284 built before B-148).
+- B-284 runner dispatched: d-c2a6fef36c6a (implement → claude/sonnet, tier light). Brief passed as a file path (scratchpad brief-B-284.md) to keep the orchestrator prompt small.
