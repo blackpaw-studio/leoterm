@@ -1,0 +1,9 @@
+name = "leo-relay-poc"
+main = "src/index.ts"
+compatibility_date = "2025-10-01"
+workers_dev = true
+
+# Secrets (wrangler secret put / .dev.vars, never committed):
+#   APNS_KEY_P8   contents of the AuthKey_XXXX.p8 file
+#   APNS_KEY_ID   10-char key id
+#   APNS_TEAM_ID  10-char Apple team id
