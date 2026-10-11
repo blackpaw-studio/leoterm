@@ -2081,3 +2081,7 @@ Source: autopilot polish (B-149)
 ## B-295 · Disconnected banner and panel error can clip the selected bottom row   [idea]
 Note: the disconnected banner and panelError shrink the sidebar list with no reveal trigger, so a selected bottom row can end up partly clipped (P6).
 Source: autopilot polish (B-149)
+
+## B-296 · Two sidebar test suites still poll first population with Task.sleep   [idea]
+Note: settledTable in LeoSidebarRowSpacingTests and LeoSidebarCommandClickTests still polls with Task.sleep; B-150 replaced the same poll in the scroll tests with run-loop turn counting (B-099 turn-counting decision).
+Source: autopilot polish (B-150)
