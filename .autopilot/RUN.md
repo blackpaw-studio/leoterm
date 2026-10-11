@@ -44,7 +44,7 @@ Lane: B-288
   Branch: autopilot-lane/B-288
   Base: 91bb68eb2a6b6ddea558a081ffc985b1cd1599a8
   Tier: light
-  State: building
+  State: shelved
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -52,6 +52,7 @@ Lane: B-288
   Dispatched: 2026-10-11T03:37:00Z
 
 Finished 1: B-287 landed 2cacc795d · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-287-1.png
+Finished 2: B-288 blocked
 
 ## Progress
 - Preflight: main fast-forwarded into autopilot (fdc2619ad); applied 2 inbox entries (B-287, B-288 bugs added); B-284, B-285 promoted to ready.
@@ -62,3 +63,4 @@ Finished 1: B-287 landed 2cacc795d · shot /Users/evan/.leo/agents/leoterm/.git/
 - B-287 landed 2cacc795d (full, hard; suite 2599/2599).
 - B-288 picked, tier light (Evan: small bugs shouldn't take full-tier time).
 - B-288 runner dispatched: d-9f481ddd4ac0 (tier light).
+- B-288 shelved (blocked): read-only is daemon-side (`leo dispatch attach` hardcodes tmux attach -r); needs a leo change + owner policy call on two writers. Not a fix-attempt shelve.

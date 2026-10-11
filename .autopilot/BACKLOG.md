@@ -821,13 +821,15 @@ Inbox: 20261010T223045852685Z-29c67160#1
 Done: a7af5783e fcca77097 db524cb88
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-287-1.png
 
-## B-288 · Subagent panes disable text and mouse/touch input   [ready]
+## B-288 · Subagent panes disable text and mouse/touch input   [blocked]
 Issue: #276
 Type: bug
 Report: we shouldnt disable text and mouse/touch input in subagents
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-10-10)
 Inbox: 20261010T224938538316Z-fae1243d#1
+Question: The block is in the leo daemon, not the app: `leo dispatch attach` hardcodes read-only (internal/cli/dispatch_attach.go:188 → `tmux attach -r`, tmux.go:222) and has no flag to turn it off. Making subagent panes writable means (a) a leo change — a `--rw` flag (or writable by default) plus a hello feature so older daemons stay read-only, via a PR the leo agent reviews and merges — and (b) accepting that two clients can then type into one dispatch TUI (the caller's pane and Leo Term). I'd pick: yes — ask the leo agent for `--rw` + a feature flag; the app passes it when advertised and drops the "read-only" badge copy. Work kept on autopilot-shelved/B-288.
+Answer:
 
 ## B-278 · File pane previews images, GIFs, video, Markdown and PDFs   [ready]
 Issue: #271
