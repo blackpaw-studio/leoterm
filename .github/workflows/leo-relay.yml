@@ -1,0 +1,43 @@
+name: Leo Relay CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "relay/**"
+      - ".github/workflows/leo-relay.yml"
+  pull_request:
+    paths:
+      - "relay/**"
+      - ".github/workflows/leo-relay.yml"
+
+concurrency:
+  group: leo-relay-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  relay:
+    # Never run fork PRs on the self-hosted runner.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, macOS, leo]
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          clean: true
+          persist-credentials: false
+      - name: Install
+        working-directory: relay
+        run: npm ci
+      - name: Test
+        working-directory: relay
+        run: npm test
+      - name: Typecheck
+        working-directory: relay
+        run: npx tsc --noEmit
