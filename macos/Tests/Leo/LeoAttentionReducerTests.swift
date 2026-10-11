@@ -141,6 +141,29 @@ struct LeoAttentionReducerTests {
         #expect(reducer.reason(for: "alpha")?.kind == .permission)
     }
 
+    @Test func quickTurnThroughWorkingBackToNeedsInputIsANewPrompt() {
+        var reducer = live(["alpha": signal(.needsInput, 1)])
+        reducer.focus(Self.alpha)
+        reducer.focus(nil)
+        reducer.receive(agent: "alpha", signal: signal(.working, 2), now: 0)
+        reducer.receive(agent: "alpha", signal: signal(.needsInput, 3), now: 0.1)
+
+        #expect(reducer.tick(now: 0.4) == [.init(id: Self.alpha, from: .needsInput, to: .needsInput, revision: 3, shouldNotify: true)])
+        #expect(reducer.dockCount(among: ["alpha"]) == 1)
+    }
+
+    @Test func recoveryForgetsAnInterruptionSoALaterBumpIsStillTheSamePrompt() {
+        var reducer = live(["alpha": signal(.needsInput, 1)])
+        reducer.focus(Self.alpha)
+        reducer.focus(nil)
+        reducer.receive(agent: "alpha", signal: signal(.working, 2), now: 0)
+        reducer.beginRecovery()
+        reducer.applyBaseline(["alpha": signal(.needsInput, 2)])
+        reducer.receive(agent: "alpha", signal: signal(.needsInput, 3), now: 1)
+
+        #expect(reducer.tick(now: 1.3).map(\.shouldNotify) == [false])
+    }
+
     @Test func needsInputBumpAfterANewPromptRevisionStillCountsOnce() {
         var reducer = live(["alpha": signal(.needsInput, 1)])
         reducer.focus(Self.alpha)

@@ -34,6 +34,9 @@ struct LeoAttentionReducer: Equatable, Sendable {
         var committed: LeoAttentionSignal?
         var candidate: Candidate?
         var isStale = false
+        /// A signal differing from `committed` arrived since it committed, so
+        /// a later signal for the same state is a new event, not a bump.
+        var sawOtherState = false
 
         var deadline: TimeInterval? { candidate.map { $0.since + LeoAttentionReducer.stabilityInterval } }
     }
@@ -109,6 +112,7 @@ struct LeoAttentionReducer: Equatable, Sendable {
         entries = entries.mapValues { entry in
             var entry = entry
             entry.candidate = nil
+            entry.sawOtherState = false
             return entry
         }
         buffered = [:]
@@ -167,6 +171,7 @@ struct LeoAttentionReducer: Equatable, Sendable {
         }
         floors[agent] = signal.revision
         var entry = entries[agent] ?? Entry()
+        if signal.state != entry.committed?.state { entry.sawOtherState = true }
         if entry.candidate?.signal.state == signal.state {
             // Same-state repeat: newest revision, original window.
             entry.candidate?.signal = signal
@@ -197,12 +202,15 @@ struct LeoAttentionReducer: Equatable, Sendable {
         let from = previous?.state
         entry.committed = signal
         entry.candidate = nil
+        let sawOtherState = entry.sawOtherState
+        entry.sawOtherState = false
         // A newer revision of an already-committed needs_input (the daemon
         // bumps it when subagent/dispatch counts change, or the hook's signal
         // is followed by the bridge's reason) is the same prompt: it never
         // notifies again and keeps an acknowledged Dock count acknowledged.
-        // A new prompt goes through working first.
-        let isSamePrompt = previous?.state == .needsInput && signal.state == .needsInput
+        // A new prompt goes through working first, even if that lasted less
+        // than the stability window (`sawOtherState`).
+        let isSamePrompt = previous?.state == .needsInput && signal.state == .needsInput && !sawOtherState
         let keepsAcknowledgement = isSamePrompt && previous.map { acknowledged[agent] == $0.revision } == true
         if (isFocused && signal.state.needsAttention) || keepsAcknowledgement {
             acknowledged[agent] = signal.revision
