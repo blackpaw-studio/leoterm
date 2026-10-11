@@ -46,7 +46,11 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     /// Builds the shell command for a *remote* identity (an app-owned SSH
     /// attach via `LeoSSHCommand.attachShellCommand`). Local identities
     /// always go through `LeoAttachCommand.build(executable:identity:)`.
-    private let remoteCommandBuilder: (LeoAgentIdentity) throws -> String
+    private let remoteCommandBuilder: (LeoAgentIdentity, LeoDispatchAccess) throws -> String
+    /// B-288: whether `host`'s leo can attach a dispatch writable (`--rw`).
+    /// Awaited when a dispatch attach is built; `.readOnly` is the answer
+    /// for any leo that can't.
+    private let dispatchAccess: (LeoHostID) async -> LeoDispatchAccess
     /// What the daemon advertised; read when an attach command is built, so
     /// an attach before the hello arrives gets the unchanged command.
     private let daemonFeatures: (LeoHostID) -> LeoDaemonFeatures
@@ -96,9 +100,10 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     init(
         host: any AttachContentHost,
         executable: @escaping () throws -> String,
-        remoteCommandBuilder: @escaping (LeoAgentIdentity) throws -> String = { _ in
+        remoteCommandBuilder: @escaping (LeoAgentIdentity, LeoDispatchAccess) throws -> String = { _, _ in
             throw LeoDaemonError.hostUnavailable("Remote attach is not configured")
         },
+        dispatchAccess: @escaping (LeoHostID) async -> LeoDispatchAccess = { _ in .readOnly },
         daemonFeatures: @escaping (LeoHostID) -> LeoDaemonFeatures = { _ in .none },
         report: @escaping (LeoAttachError) -> Void,
         lifecycleEventHandled: @escaping (AttachLifecycleEvent) -> Void = { _ in },
@@ -109,6 +114,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         self.host = host
         self.executable = executable
         self.remoteCommandBuilder = remoteCommandBuilder
+        self.dispatchAccess = dispatchAccess
         self.daemonFeatures = daemonFeatures
         self.report = report
         self.lifecycleEventHandled = lifecycleEventHandled
@@ -185,27 +191,45 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         // Showing a hidden surface needs no command; attaching anew builds
         // it before asking, so a bad executable never asks first -- and
         // again after when a hello changed placement meanwhile (B-270).
-        let built = isHidden ? nil : attachCommand(for: identity)
+        // What the window showed when this asked: the probe below and the
+        // confirmation after it can both outlast a newer request.
+        let shownVersion = contentVersion[request.origin, default: 0]
+        let access = await accessForAttach(identity, isHidden: isHidden)
+        guard isStillCurrent(request, shownVersion) else {
+            return .failure(.init(identity: identity, kind: .cancelled))
+        }
+        let built = isHidden ? nil : attachCommand(for: identity, access: access)
         if case .failure(let error) = built { return .failure(error) }
         let placedWhenBuilt = placesDispatches(identity.host)
-        guard await confirmReplacingContent(for: request) else {
+        guard await confirmReplacingContent(for: request, shownVersion: shownVersion) else {
             return .failure(.init(identity: identity, kind: .cancelled))
         }
         if isHidden, let handle = revealHidden(identity, in: request.origin) { return .success(handle) }
         let isCurrent = placesDispatches(identity.host) == placedWhenBuilt
-        switch (isCurrent ? built : nil) ?? attachCommand(for: identity) {
+        switch (isCurrent ? built : nil) ?? attachCommand(for: identity, access: access) {
         // A row click refilling an exited pane still shows that row (B-274).
         case .success(let command):
-            return attachAnew(identity: identity, command: command, request: request, showsRow: placed.disposition.focusesAgentOnScreen)
+            return attachAnew(
+                identity: identity, command: command, access: access, request: request,
+                showsRow: placed.disposition.focusesAgentOnScreen)
         case .failure(let error): return .failure(error)
         }
     }
 
-    func attachCommand(for identity: LeoAgentIdentity) -> Result<String, LeoAttachError> {
+    /// Only a dispatch has a writable form, and only a surface built anew
+    /// needs the answer (a hidden one keeps how it was attached).
+    private func accessForAttach(_ identity: LeoAgentIdentity, isHidden: Bool) async -> LeoDispatchAccess {
+        guard identity.dispatchID != nil, !isHidden else { return .readOnly }
+        return await dispatchAccess(identity.host)
+    }
+
+    func attachCommand(for identity: LeoAgentIdentity, access: LeoDispatchAccess = .readOnly) -> Result<String, LeoAttachError> {
         do {
             return .success(identity.host == .local
-                ? try LeoAttachCommand.build(executable: try executable(), identity: identity, features: daemonFeatures(identity.host))
-                : try remoteCommandBuilder(identity))
+                ? try LeoAttachCommand.build(
+                    executable: try executable(), identity: identity, features: daemonFeatures(identity.host),
+                    dispatchAccess: access)
+                : try remoteCommandBuilder(identity, access))
         } catch LeoAttachCommandError.invalidAgentName {
             let attachError = LeoAttachError(identity: identity, kind: .invalidName)
             report(attachError)
@@ -224,6 +248,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     private func attachAnew(
         identity: LeoAgentIdentity,
         command: String,
+        access: LeoDispatchAccess,
         request: LeoSurfaceRequest,
         showsRow: Bool
     ) -> Result<AttachmentHandle, LeoAttachError> {
@@ -240,7 +265,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             beginGeneration(of: handle)
             adoptHostFocus()
             host.setAgentName(handle, name: identity.title ?? identity.name)
-            if identity.dispatchID != nil { host.markWatchingDispatch(handle) }
+            if identity.dispatchID != nil { host.markDispatch(handle, readOnly: access == .readOnly) }
             return .success(handle)
         } catch {
             let attachError = LeoAttachError(identity: identity, kind: .openFailed(error.localizedDescription))
@@ -436,19 +461,28 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     private static let plainShellIdentity = LeoAgentIdentity(host: .local, name: "")
 
     /// Only a content-area request replaces anything. The answer is about
-    /// what the window showed when it asked: if another request replaced
-    /// that content while this one waited, this one is dropped (a quiet
-    /// cancel) -- the newer request wins, and nothing replaces content
-    /// nobody confirmed replacing.
+    /// what the window showed when it asked (`shownVersion`, taken before
+    /// any wait): if another request replaced that content while this one
+    /// waited, this one is dropped (a quiet cancel) -- the newer request
+    /// wins, and nothing replaces content nobody confirmed replacing.
     private func confirmReplacingContent(for request: LeoSurfaceRequest) async -> Bool {
+        await confirmReplacingContent(for: request, shownVersion: contentVersion[request.origin, default: 0])
+    }
+
+    private func confirmReplacingContent(for request: LeoSurfaceRequest, shownVersion: Int) async -> Bool {
         guard request.disposition == .content else { return true }
-        let version = contentVersion[request.origin, default: 0]
         guard await host.confirmReplacingContent(origin: request.origin) else { return false }
-        // Its window closed meanwhile (`windowClosed`): the request goes on
-        // to the host as it did before the version was pruned (which
-        // reports a closed origin once the registry no longer resolves it).
-        guard let now = contentVersion[request.origin] else { return true }
-        return now == version
+        return isStillCurrent(request, shownVersion)
+    }
+
+    /// Whether `request`'s window still shows what it showed at
+    /// `shownVersion`. A window that closed meanwhile (`windowClosed`)
+    /// counts as current: the request goes on to the host as it did before
+    /// the version was pruned (which reports a closed origin once the
+    /// registry no longer resolves it).
+    private func isStillCurrent(_ request: LeoSurfaceRequest, _ shownVersion: Int) -> Bool {
+        guard request.disposition == .content, let now = contentVersion[request.origin] else { return true }
+        return now == shownVersion
     }
 
     /// `window`'s content area now shows something else.

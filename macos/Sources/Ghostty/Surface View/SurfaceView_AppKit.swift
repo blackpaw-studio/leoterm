@@ -227,9 +227,13 @@ extension Ghostty {
         /// The Leo agent attached in this surface, shown as its window title in
         /// place of the terminal's own (B-052, `LeoTitleSource`).
         @Published var leoAgentName: String?
-        /// Leo (B-266): a dispatch attached read-only shows the
-        /// "watching · read-only" indicator.
-        @Published var leoWatchingDispatch = false
+        /// Leo (B-266): this surface shows a dispatch subagent, whose failed
+        /// attach is reported by `GhosttyAttachContentHost`.
+        var leoWatchingDispatch = false
+        /// Leo (B-288): the dispatch was attached read-only (an older leo),
+        /// so the "watching · read-only" indicator says why typing does
+        /// nothing. A writable attach shows none.
+        @Published var leoDispatchReadOnly = false
         /// Whether `title` was set by the user (Change Terminal Title…).
         var leoTitleIsUserSet: Bool { titleFromTerminal != nil }
         /// The terminal's own title, under a title the user set (B-177).
