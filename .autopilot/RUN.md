@@ -130,3 +130,4 @@ Finished 5: B-269 landed c4be21582 · not visually verified
 - B-269 runner dispatched: d-e2dee81f388d (implement → claude/sonnet, tier light).
 - B-269 landed c4be21582 (fixes 0).
 - B-148 picked (top ready; tier light: keep one sidebar list mounted + doc comments).
+- B-148 runner dispatched: d-a7489852d58a (implement → claude/sonnet, tier light).
