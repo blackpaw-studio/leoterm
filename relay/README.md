@@ -38,3 +38,7 @@ curl -s localhost:8787/push -d '{"apns_token":"'$(printf 'a%.0s' {1..64})'","san
 
 Expected result: `400 {"reason":"BadDeviceToken"}` = success (HTTP/2 + JWT accepted);
 `403 InvalidProviderToken` = JWT bug; a fetch error / protocol rejection = Workers cannot reach APNs.
+
+## Before production
+
+Cache the APNs JWT (reuse for 20–50 min); Apple throttles frequent token refresh.
