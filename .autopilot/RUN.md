@@ -114,3 +114,4 @@ Finished 4: B-268 landed faa9f0140 · shot /Users/evan/.leo/agents/leoterm/.git/
 - B-268 runner dispatched: d-331c0899af6d (implement → claude/sonnet, tier light).
 - B-268 landed faa9f0140 (fixes 1).
 - B-269 picked (tier light: one stderr-decoding path).
+- B-269 runner dispatched: d-e2dee81f388d (implement → claude/sonnet, tier light).
