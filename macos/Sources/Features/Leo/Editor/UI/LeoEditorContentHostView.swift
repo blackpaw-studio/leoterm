@@ -112,7 +112,8 @@ final class LeoEditorContentHostView: NSView {
         case .quickLook(let url):
             return LeoQuickLookPreviewView(url: url, name: name)
         case let .unavailable(typeName, message, canRetry):
-            return unavailable(LeoUnavailablePreviewView.title(typeName: typeName), message, revealTitle, canRetry: canRetry)
+            // A fetch failure Try Again can't get past needs a fresh connection.
+            return unavailable(LeoUnavailablePreviewView.title(typeName: typeName), message, revealTitle, canRetry: canRetry, suggestsReopen: !canRetry)
         case .empty:
             return NSView()
         }
@@ -124,8 +125,8 @@ final class LeoEditorContentHostView: NSView {
         return view
     }
 
-    private func unavailable(_ title: String, _ message: String?, _ revealTitle: String, canRetry: Bool = false) -> NSView {
-        let view = LeoUnavailablePreviewView(title: title, message: message, revealTitle: revealTitle, canRetry: canRetry)
+    private func unavailable(_ title: String, _ message: String?, _ revealTitle: String, canRetry: Bool = false, suggestsReopen: Bool = false) -> NSView {
+        let view = LeoUnavailablePreviewView(title: title, message: message, revealTitle: revealTitle, canRetry: canRetry, suggestsReopen: suggestsReopen)
         view.onAction = { [weak self] action in self?.onUnavailableAction(action) }
         return view
     }

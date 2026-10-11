@@ -66,6 +66,25 @@ struct LeoEditorContentHostTests {
         #expect(host.fittingSize.width < LeoEditorPaneViewController.minimumWidth)
     }
 
+    /// Only a failure behind a closed connection says to reopen; an SVG
+    /// that won't draw points to its source instead.
+    @Test func reopenAdviceOnlyForAClosedConnection() throws {
+        let host = makeHost()
+        host.show(.svg, source: { "<svg" }, name: "a.svg", revealTitle: "Show in Finder")
+        let svg = try #require(host.subviews.first as? LeoUnavailablePreviewView)
+        let svgLabel = try #require(svg.accessibilityLabel())
+        #expect(svgLabel.contains("Show Raw (⌥⌘U)"))
+        #expect(!svgLabel.contains(LeoUnavailablePreviewView.reopenHint))
+
+        host.show(.unavailable(typeName: "MPEG-4 movie", message: "It didn’t answer.", canRetry: false), source: { "" }, name: "a.mp4", revealTitle: "Download")
+        let closed = try #require(host.subviews.first as? LeoUnavailablePreviewView)
+        #expect(closed.accessibilityLabel()?.contains(LeoUnavailablePreviewView.reopenHint) == true)
+
+        host.show(.unavailable(typeName: "MPEG-4 movie", message: "Permission denied.", canRetry: true), source: { "" }, name: "a.mp4", revealTitle: "Download")
+        let retry = try #require(host.subviews.first as? LeoUnavailablePreviewView)
+        #expect(retry.accessibilityLabel()?.contains(LeoUnavailablePreviewView.reopenHint) == false)
+    }
+
     @Test func clearingLetsGoOfAQuickLookPreview() throws {
         let host = makeHost()
         host.show(.quickLook(URL(fileURLWithPath: "/tmp/none.pdf")), source: { "" }, name: "a.pdf", revealTitle: "Download")
