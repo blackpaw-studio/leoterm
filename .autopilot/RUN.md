@@ -131,3 +131,4 @@ Finished 5: B-269 landed c4be21582 · not visually verified
 - B-269 landed c4be21582 (fixes 0).
 - B-148 picked (top ready; tier light: keep one sidebar list mounted + doc comments).
 - B-148 runner dispatched: d-a7489852d58a (implement → claude/sonnet, tier light).
+- 16:16 EDT: B-148 runner ended its turn early ("waiting on implementer"); sent follow-up #2 telling it to block on leo_wait for d-9665567f2291. Dispatched time unchanged.
