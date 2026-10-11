@@ -23,6 +23,7 @@ struct LeoTerminalRowReveal: ViewModifier {
     /// state (Loading, No Agents) standing in for them: their arriving or
     /// going moves the section, as the list reappearing did (B-099).
     let listsAgents: Bool
+    let scheduler: LeoRevealScheduler
     let proxy: ScrollViewProxy
 
     /// What a reveal follows: a change to any part. A refresh of agents
@@ -50,12 +51,14 @@ struct LeoTerminalRowReveal: ViewModifier {
     /// be revealed against the old size and leave the row cut off.
     private func reveal(_ trigger: Trigger) {
         guard trigger.isListed, let selection = trigger.selection else { return }
-        DispatchQueue.main.async { [proxy] in proxy.scrollTo(LeoSidebarItemID.terminal(selection)) }
+        scheduler.schedule { [proxy] in proxy.scrollTo(LeoSidebarItemID.terminal(selection)) }
     }
 }
 
 extension View {
-    func leoRevealsTerminalRow(_ selection: UUID?, isListed: Bool, listsAgents: Bool, proxy: ScrollViewProxy) -> some View {
-        modifier(LeoTerminalRowReveal(selection: selection, isListed: isListed, listsAgents: listsAgents, proxy: proxy))
+    func leoRevealsTerminalRow(
+        _ selection: UUID?, isListed: Bool, listsAgents: Bool, scheduler: LeoRevealScheduler, proxy: ScrollViewProxy
+    ) -> some View {
+        modifier(LeoTerminalRowReveal(selection: selection, isListed: isListed, listsAgents: listsAgents, scheduler: scheduler, proxy: proxy))
     }
 }
