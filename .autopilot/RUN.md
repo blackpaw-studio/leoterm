@@ -105,13 +105,18 @@ Lane: B-148
 Lane: B-149
   Branch: autopilot-lane/B-149
   Base: e376ef063618831dfb7b0f38b626598ecf1316af
-  Tier: light
-  State: building
-  Fixes: 0
+  Tier: light→full
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: b45451b9e6c2ae85abee9a39ecb7303e3666146c
   Dispatched: 2026-10-11T21:08:00Z
+  Escalated: implement/sonnet (light build, no repro; reported Promote) → implement.hard/opus (full plan; followed the re-plan after a first plan couldn't produce a failing test)
+  Call: The selected-terminal reveal now runs after AppKit layout (new LeoListLayoutAnchor), in both directions; still one-shot, so refreshes never scroll (D-130) — P6.
+  Call: LeoRevealScheduler (.nextTurn default, .immediate for tests) is kept as a test seam through LeoSidebarView's init; only .immediate gives a 30/30 red — AUTONOMY test infrastructure.
+  Call: The reproduced cut-off is the list shrinking when agents go (connected→Loading/Failed/No Agents); Loading→connected can't cut the row off in current code, so the criterion is met by the shrink direction instead — P6, AUTONOMY bug fixes.
+  Call: `request` also schedules window.layoutIfNeeded() for the next turn; needsLayout alone left the reveal waiting for a display pass that run-loop turns never reach — plan Risk 4.
 
 Finished 1: B-284 landed 1c1f5aa66 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-284-w515414.png
 Finished 2: B-285 landed d34e7d42f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-285-1.png
