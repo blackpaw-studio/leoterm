@@ -35,8 +35,7 @@ extension TerminalController {
 
     @IBAction func renameSelectedLeoAgent(_ sender: Any?) {
         guard let runtime = leoRuntime, let row = selectedLeoRow else { return }
-        let sheet = NSHostingController(rootView: LeoRenameAgentSheet(row: row, actions: runtime.actions))
-        window?.presentLeoSheet(sheet)
+        LeoAgentMenuSheets(runtime: runtime).presentRename(row, in: window)
     }
 
     @IBAction func viewLogsForSelectedLeoAgent(_ sender: Any?) {
@@ -62,16 +61,12 @@ extension TerminalController {
 
     @IBAction func deleteSelectedLeoAgent(_ sender: Any?) {
         guard let runtime = leoRuntime, let row = selectedLeoRow else { return }
-        let sheet = NSHostingController(
-            rootView: LeoDeleteAgentSheetContainer(row: row, model: runtime.model, actions: runtime.actions)
-        )
-        window?.presentLeoSheet(sheet)
+        LeoAgentMenuSheets(runtime: runtime).presentDelete(row, in: window)
     }
 
     @IBAction func manageLeoHosts(_ sender: Any?) {
         guard let runtime = leoRuntime else { return }
-        let sheet = NSHostingController(rootView: LeoHostsSheetContainer(model: runtime.hostSelection.makeHostsSheetModel()))
-        window?.presentLeoSheet(sheet)
+        LeoAgentMenuSheets(runtime: runtime).presentManageHosts(in: window)
     }
 
     @IBAction func jumpToNextLeoAgentNeedingAttention(_ sender: Any?) {
@@ -319,6 +314,39 @@ private struct LeoTemplateSelection {
 // `NSHostingController` sheet (which isn't part of any reactive SwiftUI
 // tree that would re-supply them) needs this thin wrapper to keep the
 // error banner live while the sheet is open.
+
+/// Presents those sheets on a window. Built from explicit dependencies so a
+/// test can hand it a fake daemon's actions instead of the app runtime's
+/// (B-285); the menu actions pass the runtime's own.
+@MainActor struct LeoAgentMenuSheets {
+    let model: LeoSidebarModel
+    let actions: LeoAgentActions
+    let hostSelection: LeoHostSelection
+
+    init(model: LeoSidebarModel, actions: LeoAgentActions, hostSelection: LeoHostSelection) {
+        self.model = model
+        self.actions = actions
+        self.hostSelection = hostSelection
+    }
+
+    init(runtime: LeoRuntime) {
+        self.init(model: runtime.model, actions: runtime.actions, hostSelection: runtime.hostSelection)
+    }
+
+    func presentRename(_ row: LeoAgentRow, in window: NSWindow?) {
+        window?.presentLeoSheet(NSHostingController(rootView: LeoRenameAgentSheet(row: row, actions: actions)))
+    }
+
+    func presentDelete(_ row: LeoAgentRow, in window: NSWindow?) {
+        window?.presentLeoSheet(NSHostingController(
+            rootView: LeoDeleteAgentSheetContainer(row: row, model: model, actions: actions)
+        ))
+    }
+
+    func presentManageHosts(in window: NSWindow?) {
+        window?.presentLeoSheet(NSHostingController(rootView: LeoHostsSheetContainer(model: hostSelection.makeHostsSheetModel())))
+    }
+}
 
 private struct LeoDeleteAgentSheetContainer: View {
     let row: LeoAgentRow
