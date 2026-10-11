@@ -90,6 +90,17 @@ Lane: B-269
   Dispatched: 2026-10-11T19:42:00Z
   Call: Missing-server marker is matched as an exact ASCII line on raw stderr bytes (optional single CR, truncated final segment never counts), where it was a substring match on the decoded text — D-422 / P5
 
+Lane: B-148
+  Branch: autopilot-lane/B-148
+  Base: 762dccd13aceb49e275f9b778584e1452c40c6df
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-11T20:15:00Z
+
 Finished 1: B-284 landed 1c1f5aa66 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-284-w515414.png
 Finished 2: B-285 landed d34e7d42f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-285-1.png
 Finished 3: B-288 landed 492d7d37f · not visually verified
@@ -118,3 +129,6 @@ Finished 5: B-269 landed c4be21582 · not visually verified
 - B-269 picked (tier light: one stderr-decoding path).
 - B-269 runner dispatched: d-e2dee81f388d (implement → claude/sonnet, tier light).
 - B-269 landed c4be21582 (fixes 0).
+- B-148 picked (top ready; tier light: keep one sidebar list mounted + doc comments).
+- B-148 runner dispatched: d-a7489852d58a (implement → claude/sonnet, tier light).
+- 16:16 EDT: B-148 runner ended its turn early ("waiting on implementer"); sent follow-up #2 telling it to block on leo_wait for d-9665567f2291. Dispatched time unchanged.
