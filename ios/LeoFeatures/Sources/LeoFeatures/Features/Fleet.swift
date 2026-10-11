@@ -7,6 +7,8 @@ public struct DaemonSession: Equatable, Identifiable, Sendable {
     public var daemon: PairedDaemon
     public var connection: ConnectionStatus = .offline
     public var agents: IdentifiedArrayOf<Agent> = []
+    /// The daemon boot the agents' attention revisions belong to.
+    public var bootID: String?
     /// Consecutive failed connection attempts; drives the backoff.
     public var failures = 0
 
@@ -73,7 +75,7 @@ public struct Fleet {
 
     public enum Action {
         case connect(DaemonSession.ID)
-        case connected(DaemonSession.ID)
+        case connected(DaemonSession.ID, bootID: String?, LeoObservedState)
         case daemonAdded(PairedDaemon)
         case daemonRemoved(DaemonSession.ID)
         case daemonsLoaded([PairedDaemon])
@@ -100,9 +102,10 @@ public struct Fleet {
             case .connect(let id):
                 return connect(id, state: &state)
 
-            case .connected(let id):
+            case .connected(let id, let bootID, let snapshot):
                 state.sessions[id: id]?.failures = 0
                 state.sessions[id: id]?.connection = .connected
+                state.sessions[id: id]?.applySnapshot(snapshot, bootID: bootID)
                 return .none
 
             case .daemonAdded(let daemon):
@@ -196,7 +199,8 @@ public struct Fleet {
 
     /// Opens the daemon's event stream. On `hello` (and on a sequence gap
     /// or a spawn) it fetches `/state` inline, so events that arrive while
-    /// the snapshot loads queue up and apply after it.
+    /// the snapshot loads queue up and apply after it. The session counts
+    /// as connected only once the `hello` snapshot has loaded.
     private func connect(_ id: DaemonSession.ID, state: inout State) -> Effect<Action> {
         guard state.isActive, let session = state.sessions[id: id] else { return .none }
         if session.failures == 0 { state.sessions[id: id]?.connection = .connecting }
@@ -211,9 +215,8 @@ public struct Fleet {
             var lastSequence: Int?
             for try await event in daemonClient.events(connection) {
                 let sequence = event.sequence
-                if case .hello = event {
-                    await send(.connected(id))
-                    await send(.snapshotLoaded(id, try await daemonClient.fetchState(connection)))
+                if case .hello(_, _, _, _, let bootID, _) = event {
+                    await send(.connected(id, bootID: bootID, try await daemonClient.fetchState(connection)))
                     lastSequence = sequence
                     continue
                 }
@@ -260,7 +263,13 @@ extension StreamEnd {
 extension DaemonSession {
     /// Replaces the agents with the snapshot's, keeping any attention
     /// already seen at a newer revision (an event that raced the fetch).
-    mutating func applySnapshot(_ snapshot: LeoObservedState) {
+    /// Revisions restart with the daemon, so a new `bootID` discards the
+    /// attention seen before it.
+    mutating func applySnapshot(_ snapshot: LeoObservedState, bootID: String? = nil) {
+        if let bootID, bootID != self.bootID {
+            self.bootID = bootID
+            agents = []
+        }
         let previous = agents
         agents = IdentifiedArray(
             snapshot.agents.map { observed in

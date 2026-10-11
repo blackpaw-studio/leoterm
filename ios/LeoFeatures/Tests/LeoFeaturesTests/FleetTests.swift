@@ -33,8 +33,8 @@ struct FleetTests {
         }
         for daemon in [PairedDaemon.dionysus, .hestia] {
             streams[daemon.id]![0].yield(.hello(seq: 1, at: nil, version: "0.36.0", serverTime: nil))
-            await store.receive(\.connected) { $0.sessions[id: daemon.id]?.connection = .connected }
-            await store.receive(\.snapshotLoaded) {
+            await store.receive(\.connected) {
+                $0.sessions[id: daemon.id]?.connection = .connected
                 $0.sessions[id: daemon.id]?.agents = IdentifiedArray(uniqueElements: snapshots[daemon.id]!.agents.map(Agent.init))
             }
         }
@@ -72,8 +72,8 @@ struct FleetTests {
             $0.sessions[id: id]?.connection = .connecting
         }
         streams[0].yield(.hello(seq: 1, at: nil, version: nil, serverTime: nil))
-        await store.receive(\.connected) { $0.sessions[id: id]?.connection = .connected }
-        await store.receive(\.snapshotLoaded) {
+        await store.receive(\.connected) {
+            $0.sessions[id: id]?.connection = .connected
             $0.sessions[id: id]?.agents = [Agent(.make("zeus", attention: .state(.working, 5)))]
         }
 
@@ -139,7 +139,6 @@ struct FleetTests {
         }
         streams[0].yield(.hello(seq: 10, at: nil, version: nil, serverTime: nil))
         await store.receive(\.connected) { $0.sessions[id: id]?.connection = .connected }
-        await store.receive(\.snapshotLoaded)
         streams[0].yield(.other(seq: 13, type: "task_run_started"))
         await store.receive(\.snapshotLoaded) {
             $0.sessions[id: id]?.agents = [Agent(.make("zeus"))]
@@ -196,7 +195,6 @@ struct FleetTests {
             $0.sessions[id: id]?.failures = 0
             $0.sessions[id: id]?.connection = .connected
         }
-        await store.receive(\.snapshotLoaded)
         streams[2].finish()
         await store.receive(\.streamEnded) {
             $0.sessions[id: id]?.failures = 1
@@ -204,6 +202,94 @@ struct FleetTests {
         }
         await clock.advance(by: .seconds(1))
         await store.receive(\.connect)
+
+        await store.send(.scenePhaseChanged(isActive: false)) {
+            $0.isActive = false
+            $0.sessions[id: id]?.failures = 0
+            $0.sessions[id: id]?.connection = .offline
+        }
+    }
+
+    @Test func aDaemonRestartDropsAttentionFromThePreviousBoot() async {
+        let clock = TestClock()
+        let streams = StreamQueue(count: 2)
+        let fetches = LockIsolated(0)
+        let store = TestStore(initialState: Fleet.State(daemons: [.dionysus])) {
+            Fleet()
+        } withDependencies: {
+            $0.continuousClock = clock
+            $0.secrets.load = { _ in DaemonSecrets(token: "t") }
+            $0.daemonClient.events = { streams.next($0) }
+            $0.daemonClient.fetchState = { _ in
+                fetches.withValue { $0 += 1 }
+                return LeoObservedState(agents: [
+                    .make("zeus", attention: fetches.value == 1 ? .state(.working, 100) : .state(.needsInput, 2)),
+                ])
+            }
+        }
+        let id = PairedDaemon.dionysus.id
+        await store.send(.scenePhaseChanged(isActive: true)) {
+            $0.isActive = true
+            $0.sessions[id: id]?.connection = .connecting
+        }
+        streams[0].yield(.hello(seq: 1, at: nil, version: nil, serverTime: nil, bootID: "boot-1"))
+        await store.receive(\.connected) {
+            $0.sessions[id: id]?.bootID = "boot-1"
+            $0.sessions[id: id]?.connection = .connected
+            $0.sessions[id: id]?.agents = [Agent(.make("zeus", attention: .state(.working, 100)))]
+        }
+        streams[0].finish()
+        await store.receive(\.streamEnded) {
+            $0.sessions[id: id]?.failures = 1
+            $0.sessions[id: id]?.connection = .reconnecting(attempt: 1, reason: "Connection closed")
+        }
+        await clock.advance(by: .seconds(1))
+        await store.receive(\.connect)
+
+        // Revisions restart with the daemon, so the new boot's revision 2
+        // wins over the old boot's 100.
+        streams[1].yield(.hello(seq: 1, at: nil, version: nil, serverTime: nil, bootID: "boot-2"))
+        await store.receive(\.connected) {
+            $0.sessions[id: id]?.bootID = "boot-2"
+            $0.sessions[id: id]?.failures = 0
+            $0.sessions[id: id]?.connection = .connected
+            $0.sessions[id: id]?.agents = [Agent(.make("zeus", attention: .state(.needsInput, 2)))]
+        }
+
+        await store.send(.scenePhaseChanged(isActive: false)) {
+            $0.isActive = false
+            $0.sessions[id: id]?.connection = .offline
+        }
+    }
+
+    @Test func aHelloWithoutASnapshotKeepsBackingOff() async {
+        let clock = TestClock()
+        let streams = StreamQueue(count: 2)
+        let store = TestStore(initialState: Fleet.State(daemons: [.dionysus])) {
+            Fleet()
+        } withDependencies: {
+            $0.continuousClock = clock
+            $0.secrets.load = { _ in DaemonSecrets(token: "t") }
+            $0.daemonClient.events = { streams.next($0) }
+            $0.daemonClient.fetchState = { _ in throw LeoDaemonError.timeout }
+        }
+        let id = PairedDaemon.dionysus.id
+        await store.send(.scenePhaseChanged(isActive: true)) {
+            $0.isActive = true
+            $0.sessions[id: id]?.connection = .connecting
+        }
+        streams[0].yield(.hello(seq: 1, at: nil, version: nil, serverTime: nil))
+        await store.receive(\.streamEnded) {
+            $0.sessions[id: id]?.failures = 1
+            $0.sessions[id: id]?.connection = .reconnecting(attempt: 1, reason: "The daemon stopped responding")
+        }
+        await clock.advance(by: .seconds(1))
+        await store.receive(\.connect)
+        streams[1].yield(.hello(seq: 1, at: nil, version: nil, serverTime: nil))
+        await store.receive(\.streamEnded) {
+            $0.sessions[id: id]?.failures = 2
+            $0.sessions[id: id]?.connection = .reconnecting(attempt: 2, reason: "The daemon stopped responding")
+        }
 
         await store.send(.scenePhaseChanged(isActive: false)) {
             $0.isActive = false
