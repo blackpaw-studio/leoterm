@@ -1,8 +1,9 @@
 import AppKit
 import Combine
 
-/// One editor tab's view (B-273): header, inline banner, and text view,
-/// bound to a `LeoEditorPaneModel`. It checks the disk whenever its window
+/// One editor tab's view (B-273): header, inline banner, and content --
+/// the text view, or (B-278) rendered Markdown or a media/document preview
+/// (`LeoEditorContentHostView`) -- bound to a `LeoEditorPaneModel`. It checks the disk whenever its window
 /// becomes key (or it's shown again), and closes on ⌘W while it has
 /// focus. It never takes focus by itself -- not on a new document, not on
 /// a reveal -- so a file opened in the background leaves focus where it
@@ -19,8 +20,15 @@ final class LeoEditorPaneViewController: NSViewController {
     private let header = LeoEditorHeaderView()
     private let separator = NSBox()
     let banner = LeoEditorBannerView()
-    private let scrollView: NSScrollView
+    let contentHost: LeoEditorContentHostView
     let textView: LeoEditorTextView
+    /// This tab's Rendered/Raw choice (B-278); never saved.
+    var presentation = LeoEditorPresentation()
+    private var previewSubscription: AnyCancellable?
+    private weak var shownPreview: LeoFilePreview?
+    /// The preview state as last published (`@Published` sends it before
+    /// the property changes).
+    private var previewState: LeoFilePreview.State?
     private var modelSubscriptions: Set<AnyCancellable> = []
     private var documentSubscriptions: Set<AnyCancellable> = []
     private var keyWindowObserver: NSObjectProtocol?
@@ -39,12 +47,18 @@ final class LeoEditorPaneViewController: NSViewController {
     init(model: LeoEditorPaneModel, headerTopInset: CGFloat? = nil) {
         self.model = model
         self.headerTopInset = headerTopInset
-        (scrollView, textView) = LeoEditorTextView.make()
+        let (scrollView, textView) = LeoEditorTextView.make()
+        self.textView = textView
+        contentHost = LeoEditorContentHostView(textScrollView: scrollView, textView: textView)
         recents = { [weak model] in model?.recents ?? [] }
         super.init(nibName: nil, bundle: nil)
         textView.delegate = self
         header.onSelectRecent = { [weak self] fileID in self?.openRecent(fileID) }
         header.onClose = { [weak self] in self?.closePane() }
+        header.onToggleRaw = { [weak self] in self?.toggleRawPresentation() }
+        header.onToggleZoom = { [weak self] in self?.toggleImageZoom() }
+        contentHost.onZoomChange = { [weak self] in self?.refreshChrome() }
+        contentHost.onUnavailableAction = { [weak self] action in self?.perform(action) }
         banner.onAction = { [weak self] action in self?.perform(action) }
         bindModel()
         observeKeyWindow()
@@ -58,7 +72,7 @@ final class LeoEditorPaneViewController: NSViewController {
 
     override func loadView() {
         separator.boxType = .separator
-        let rows = [header, separator, banner, scrollView]
+        let rows = [header, separator, banner, contentHost]
         let stack = NSStackView(views: rows)
         stack.orientation = .vertical
         stack.spacing = 0
@@ -96,10 +110,10 @@ final class LeoEditorPaneViewController: NSViewController {
     /// A pane just shown may join its window only on the next layout, so
     /// a focus request that can't land yet is retried once, next turn.
     func focusText() {
-        if let window = view.window, window.makeFirstResponder(textView) { return }
+        if let window = view.window, window.makeFirstResponder(contentHost.focusTarget) { return }
         DispatchQueue.main.async { [weak self] in
             guard let self, let window = view.window else { return }
-            window.makeFirstResponder(textView)
+            window.makeFirstResponder(contentHost.focusTarget)
         }
     }
 
@@ -141,6 +155,7 @@ final class LeoEditorPaneViewController: NSViewController {
         documentSubscriptions.removeAll()
         guard let document else {
             shownDocument = nil
+            observePreview(of: nil)
             refreshChrome()
             return
         }
@@ -151,8 +166,11 @@ final class LeoEditorPaneViewController: NSViewController {
             textView.language = document.language
             textView.isEditable = isEditable(document)
             textView.load(document.text, keepingSelection: false)
+            presentation = LeoEditorPresentation()
+            observePreview(of: document)
             appliedReveal = nil
             apply(model.reveal)
+            refreshContent(rerender: true)
         }
         // Chrome follows every published change (the next run-loop turn,
         // after the value has landed).
@@ -165,17 +183,23 @@ final class LeoEditorPaneViewController: NSViewController {
 
     private func documentChanged() {
         guard let document = shownDocument else { return }
+        if document.preview !== shownPreview {
+            observePreview(of: document)
+            refreshContent()
+        }
         if document.contentRevision != shownRevision {
             shownRevision = document.contentRevision
             textView.documentUndoManager.removeAllActions()
             textView.isEditable = isEditable(document)
             textView.load(document.text, keepingSelection: true)
+            refreshContent(rerender: true)
         }
         refreshChrome()
     }
 
     func refreshChrome() {
         header.update(document: model.document, recents: recents())
+        header.update(presentation: headerPresentation)
         banner.show(shownBanner)
         if let document = shownDocument { textView.isEditable = isEditable(document) }
     }
@@ -199,7 +223,38 @@ final class LeoEditorPaneViewController: NSViewController {
     private func apply(_ reveal: LeoEditorReveal?) {
         guard let reveal, reveal.id != appliedReveal, reveal.fileID == shownDocument?.fileID else { return }
         appliedReveal = reveal.id
+        // The line is in the source (B-278).
+        if !presentation.isRaw {
+            presentation = presentation.revealing()
+            refreshContent()
+        }
         textView.reveal(line: reveal.line, column: reveal.column)
+    }
+
+    /// Follows the document's preview state as it's published -- at once,
+    /// so a Quick Look view or movie lets go of its file before the
+    /// preview deletes its folder.
+    private func observePreview(of document: LeoEditorDocument?) {
+        shownPreview = document?.preview
+        previewState = document?.preview?.state
+        previewSubscription = document?.preview?.$state.dropFirst().sink { [weak self] state in
+            self?.previewState = state
+            self?.refreshContent()
+            self?.refreshChrome()
+        }
+    }
+
+    /// Shows the content row for the document and presentation as they
+    /// are now; `rerender` redraws Markdown/SVG from the buffer.
+    func refreshContent(rerender: Bool = false) {
+        guard let document = shownDocument else { return }
+        let content = presentation.content(
+            kind: document.kind, preview: previewState, typeName: document.preview?.typeName ?? "This File", textLength: textView.string.utf16.count
+        )
+        contentHost.show(
+            content, source: { textView.string }, name: LeoSFTPServerText.sanitized(document.displayName),
+            revealTitle: LeoEditorPresentation.revealTitle(for: document.fileID.host), rerender: rerender
+        )
     }
 
     // MARK: - Disk checks
