@@ -52,12 +52,18 @@ Lane: B-288
   Branch: autopilot-lane/B-288
   Base: b3546376b5636711819a43e7bf3b86098df0d965
   Tier: full
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: a3124af94b23d43cee6da0c3365ac9aca7e2ccbb
   Dispatched: 2026-10-11T17:55:00Z
+  Call: Detect `--rw` by probing `dispatch attach --help` for an indented flag line under "Flags:"; any doubt (no line, non-zero exit, throw, timeout) means read-only — P2/P3
+  Call: A read-write pane shows no badge; the fallback keeps today's read-only badge and copy — P1/P2
+  Call: Both definite probe answers are cached per host (local key = path + mtime, remote key = host config); failed probes are never cached — P2
+  Call: Workspace file-drop upload stays off for dispatches — P4
+  Call: A dispatch attach waiting on the probe is dropped as superseded if a newer request replaced the window's content — review fix
+  Call: `leoWatchingDispatch` is no longer `@Published` (nothing observed it); `leoDispatchReadOnly` is the badge flag — simplification
 
 Finished 1: B-284 landed 1c1f5aa66 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-284-w515414.png
 Finished 2: B-285 landed d34e7d42f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-285-1.png
