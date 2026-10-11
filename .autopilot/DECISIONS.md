@@ -3706,3 +3706,10 @@ Chose: Fixture script macos/scripts/leo-preview-fixtures.sh added for verificati
 Why: test infrastructure
 Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
 Veto: [ ]
+
+## D-518 · 2026-10-11 · B-288: writable subagent panes via a leo `--rw` attach flag
+Context: B-288 (owner answer, inbox 20261011T153805078481Z-191630ab).
+Chose: yes — add a leo `--rw` attach flag (default stays read-only) behind a feature flag; accept that two clients can type into one subagent. Unblock once the leo daemon ships it.
+Why: owner's call
+Commit:
+Veto: n/a (owner)
