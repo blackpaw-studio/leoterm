@@ -831,13 +831,15 @@ Inbox: 20261010T224938538316Z-fae1243d#1
 Question: The block is in the leo daemon, not the app: `leo dispatch attach` hardcodes read-only (internal/cli/dispatch_attach.go:188 → `tmux attach -r`, tmux.go:222) and has no flag to turn it off. Making subagent panes writable means (a) a leo change — a `--rw` flag (or writable by default) plus a hello feature so older daemons stay read-only, via a PR the leo agent reviews and merges — and (b) accepting that two clients can then type into one dispatch TUI (the caller's pane and Leo Term). I'd pick: yes — ask the leo agent for `--rw` + a feature flag; the app passes it when advertised and drops the "read-only" badge copy. Work kept on autopilot-shelved/B-288.
 Answer:
 
-## B-278 · File pane previews images, GIFs, video, Markdown and PDFs   [ready]
+## B-278 · File pane previews images, GIFs, video, Markdown and PDFs   [done]
 Issue: #271
 Why: Surfaced or browsed media and docs render properly in the pane instead of as text or an error — P4 Everything through Leo, P3 Local = remote. Markdown renders natively (AttributedString + custom block layout); a sandboxed, non-networked WKWebView is allowed only as a logged fallback if native can't do tables/code blocks (P1).
 Accept: PNG/JPEG/HEIC/WebP/SVG render fit-to-pane with zoom to actual size and animated GIFs animate, local and over SFTP (tested); MP4/MOV/M4V play with native AVKit controls local and over SFTP (remote fetched to a temp cache first); Markdown opens rendered with a Rendered/Raw toggle (shortcut + menu item), Raw is the existing editable text view and edits show when switching back; PDFs and unknown binaries get a Quick Look preview or a plain "Can't preview <type>" state with Reveal/Download, never garbled text — screenshot of each from the isolated debug build
 Out: Image/video editing; a Markdown editor beyond today's raw text editor (no WYSIWYG or live side-by-side preview); audio; Office docs beyond Quick Look; streaming video over SFTP without downloading it first; raising the 20 MB text cap
 Source: Evan (/feature, 2026-10-10)
 Inbox: 20261010T162821667038Z-51a07466#1
+Done: 2d3e3bd9a 391fa318f 6d8271036 4f94b0f49 c37656a84 809539964 73742165a 9c0b258b6 4990c5ddb 9db0be99d 7d40b7cd1 3a8b6eef3 a08d5579d
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-278-1.png
 
 ## B-148 · Sidebar list stays mounted in No Agents/Loading/Failed with terminals   [ready]
 Issue: #152
@@ -2036,3 +2038,19 @@ Source: autopilot bug (B-283)
 ## B-286 · Row-level action error clears after ~2 s   [idea]
 Note: a row-level `set` error clears after about 2 s (seen on the fixture; pre-existing action-error lifetime or fixture refresh, unconfirmed) — the daemon's message can vanish before it's read; P2
 Source: autopilot polish (B-283)
+
+## B-289 · Rendered/Raw toggle crowds the file pane header at ~800 px   [idea]
+Note: the header path/name truncates to "…" at narrower widths
+Source: autopilot polish (B-278)
+
+## B-290 · Rendered Markdown spacing around tables and nested lists   [idea]
+Note: no visible gap between a table and a following code block, or before a nested list/table
+Source: autopilot polish (B-278)
+
+## B-291 · Can't Preview offers Download for remote files but it is untested live   [idea]
+Note: only Show in Finder was exercised in the GUI; remote Download path is test-only (P3)
+Source: autopilot polish (B-278)
+
+## B-292 · Rendered Markdown hard line breaks show as a space   [idea]
+Note: fidelity: two-space/backslash line breaks render as a space
+Source: autopilot polish (B-278)

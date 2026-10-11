@@ -2,7 +2,11 @@ Status: running
 Started: 2026-10-11T00:41:25Z
 Budget: 3 items, until 2026-10-11T12:41:25Z
 Digested-through: 0
-Filed: 0/3 bugs, 0/5 ideas
+Filed: 0/3 bugs, 4/5 ideas
+Self-filed: B-278 → B-289 idea — Rendered/Raw toggle crowds the file pane header at ~800 px
+Self-filed: B-278 → B-290 idea — Rendered Markdown spacing around tables and nested lists
+Self-filed: B-278 → B-291 idea — Can't Preview offers Download for remote files but it is untested live
+Self-filed: B-278 → B-292 idea — Rendered Markdown hard line breaks show as a space
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -55,7 +59,7 @@ Lane: B-278
   Branch: autopilot-lane/B-278
   Base: 5ff4d4767bde0456b49793d817f71f4e8c320c12
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 2
   Wip: none
   Reverifies: 0
@@ -78,6 +82,7 @@ Lane: B-278
 
 Finished 1: B-287 landed 2cacc795d · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-287-1.png
 Finished 2: B-288 blocked
+Finished 3: B-278 landed 5c36772fc · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-278-1.png
 
 ## Progress
 - Preflight: main fast-forwarded into autopilot (fdc2619ad); applied 2 inbox entries (B-287, B-288 bugs added); B-284, B-285 promoted to ready.
@@ -93,3 +98,4 @@ Finished 2: B-288 blocked
 - B-278 runner dispatched: d-4af07fd107be (tier full).
 - 02:44 EDT: B-278 runner passed 3h (dispatched 03:39Z) but is visibly active (fix commits 44 min ago, verify shots 8 min ago). Not treated as hung — deviation from the 3h rule; will cancel if no lane/shot activity by the next wake.
 - B-278 runner reported ready (2 fix rounds: 6 concurrency blockers fixed, then GUI fixes). Runner briefs pointed at the plan file instead of pasting (deviation noted by runner).
+- B-278 landed 5c36772fc (full, hard; suite 2661; 16 window shots; SFTP by tests only). Budget spent (3 items).

@@ -3608,3 +3608,101 @@ Chose: First-attach sizing tests set sidebarVisible explicitly instead of readin
 Why: hermetic tests, no user-visible change
 Commit: a7af5783e, fcca77097, db524cb88
 Veto: [ ]
+
+## D-504 · 2026-10-11 · One fetch path for local and SFTP into a private temp cache
+Context: B-278 (runner call).
+Chose: One fetch path for local and SFTP into a private temp cache
+Why: P3
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-505 · 2026-10-11 · Preview kind decided by an extension allowlist, not UTType
+Context: B-278 (runner call).
+Chose: Preview kind decided by an extension allowlist, not UTType
+Why: P1
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-506 · 2026-10-11 · Native Markdown rendering, no WKWebView; only http/https/mailto links open; images show a…
+Context: B-278 (runner call).
+Chose: Native Markdown rendering, no WKWebView; only http/https/mailto links open; images show alt text only
+Why: P1
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-507 · 2026-10-11 · SVG gets the Rendered/Raw toggle
+Context: B-278 (runner call).
+Chose: SVG gets the Rendered/Raw toggle
+Why: P1
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-508 · 2026-10-11 · Markdown opens Rendered, remembered per tab; a `:line` open goes Raw
+Context: B-278 (runner call).
+Chose: Markdown opens Rendered, remembered per tab; a `:line` open goes Raw
+Why: P1
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-509 · 2026-10-11 · No video autoplay; video pauses when hidden
+Context: B-278 (runner call).
+Chose: No video autoplay; video pauses when hidden
+Why: P2
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-510 · 2026-10-11 · Fit-to-pane only shrinks, never scales past 100%
+Context: B-278 (runner call).
+Chose: Fit-to-pane only shrinks, never scales past 100%
+Why: P1
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-511 · 2026-10-11 · Shortcuts ⌥⌘U (Show Raw), ⌥⌘0 (Actual Size), ⌥⇧⌘R
+Context: B-278 (runner call).
+Chose: Shortcuts ⌥⌘U (Show Raw), ⌥⌘0 (Actual Size), ⌥⇧⌘R
+Why: P1
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-512 · 2026-10-11 · 2 GB preview cap enforced on streamed bytes; 20 MB text cap unchanged
+Context: B-278 (runner call).
+Chose: 2 GB preview cap enforced on streamed bytes; 20 MB text cap unchanged
+Why: P3
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-513 · 2026-10-11 · Sniffed binaries show Can't Preview; Quick Look only for pdf/Office/iWork
+Context: B-278 (runner call).
+Chose: Sniffed binaries show Can't Preview; Quick Look only for pdf/Office/iWork
+Why: P1
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-514 · 2026-10-11 · Download goes to ~/Downloads (D-482/D-484)
+Context: B-278 (runner call).
+Chose: Download goes to ~/Downloads (D-482/D-484)
+Why: P4
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-515 · 2026-10-11 · 5 s first-chunk deadline on surfaced streaming opens; no Try Again after a timeout or clo…
+Context: B-278 (runner call).
+Chose: 5 s first-chunk deadline on surfaced streaming opens; no Try Again after a timeout or closed access
+Why: P5
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-516 · 2026-10-11 · Markdown over 5 MB opens Raw only
+Context: B-278 (runner call).
+Chose: Markdown over 5 MB opens Raw only
+Why: P1
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-517 · 2026-10-11 · Fixture script macos/scripts/leo-preview-fixtures.sh added for verification
+Context: B-278 (runner call).
+Chose: Fixture script macos/scripts/leo-preview-fixtures.sh added for verification
+Why: test infrastructure
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
