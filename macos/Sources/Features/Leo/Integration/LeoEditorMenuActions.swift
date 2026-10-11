@@ -51,6 +51,25 @@ extension TerminalController {
         leoEditor?.document?.keepMine()
     }
 
+    private var leoEditorShownPane: LeoEditorPaneViewController? {
+        leoEditor?.isOpen == true ? leoSession?.editorPane?.shown : nil
+    }
+
+    /// View ▸ Show Raw / Show Rendered (⌥⌘U), for Markdown and SVG (B-278).
+    @IBAction func toggleLeoEditorRawPresentation(_ sender: Any?) {
+        leoEditorShownPane?.toggleRawPresentation()
+    }
+
+    /// View ▸ Actual Size / Zoom to Fit (⌥⌘0), for a previewed image.
+    @IBAction func toggleLeoEditorImageZoom(_ sender: Any?) {
+        leoEditorShownPane?.toggleImageZoom()
+    }
+
+    /// File ▸ Show in Finder (a local file) / Download (a remote one) (⌥⇧⌘R).
+    @IBAction func revealLeoEditorFile(_ sender: Any?) {
+        leoEditorShownPane?.revealOrDownload()
+    }
+
     /// Returns nil for items that aren't the editor's.
     func validateLeoEditorMenuItem(_ item: NSMenuItem) -> Bool? {
         let document = leoEditor?.document
@@ -65,7 +84,18 @@ extension TerminalController {
         case #selector(reloadLeoEditorFromDisk(_:)):
             return document?.diskState == .changed
         case #selector(keepLeoEditorVersion(_:)):
-            return document.map { $0.diskState != .inSync } ?? false
+            return document.map { $0.diskState != .inSync && !$0.isPreview } ?? false
+        case #selector(toggleLeoEditorRawPresentation(_:)):
+            let pane = leoEditorShownPane
+            item.title = pane?.presentation.isRaw == true ? "Show Rendered" : "Show Raw"
+            return pane?.canToggleRaw ?? false
+        case #selector(toggleLeoEditorImageZoom(_:)):
+            let pane = leoEditorShownPane
+            item.title = pane?.canZoom == true && pane?.isFitted == false ? "Zoom to Fit" : "Actual Size"
+            return pane?.canZoom ?? false
+        case #selector(revealLeoEditorFile(_:)):
+            item.title = LeoEditorPresentation.revealTitle(for: document?.fileID.host ?? .local)
+            return document != nil
         default:
             return nil
         }
