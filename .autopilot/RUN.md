@@ -42,3 +42,4 @@ Lane: B-284
 - Lane autopilot-lane/B-233 exists unlanded with no RUN.md block (left from an earlier run); left in place.
 - B-284 picked (tier light): the four ready bugs go before the B-148… test-polish items (bugs-first ordering; B-284 built before B-148).
 - B-284 runner dispatched: d-c2a6fef36c6a (implement → claude/sonnet, tier light). Brief passed as a file path (scratchpad brief-B-284.md) to keep the orchestrator prompt small.
+- 12:29 EDT: leo agent reports `--rw` in leo PR #264 (no feature-flag gate per Evan; no release yet). B-288's Question updated; it stays blocked until a leo release ships it.

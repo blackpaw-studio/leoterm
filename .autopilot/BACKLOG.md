@@ -828,7 +828,7 @@ Report: we shouldnt disable text and mouse/touch input in subagents
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-10-10)
 Inbox: 20261010T224938538316Z-fae1243d#1
-Question: Waiting on the leo daemon: D-518 (owner) wants a `leo dispatch attach --rw` flag behind a hello feature flag; the contract request went to the leo agent 2026-10-11 and leo 0.45.0 has no `--rw` yet. Reply "B-288: done" once leo ships it. Work kept on autopilot-shelved/B-288.
+Question: Waiting on the leo release: `leo dispatch attach --rw` is in leo PR #264 (review approved; CI and merge pending, no version yet). Evan dropped the feature-flag gate from D-518: the CLI flag is the opt-in, the default stays read-only, and a `--host` attach needs the remote leo to have it too (otherwise it rejects `--rw`); typed input marks the run `steered`. The app side must handle older leo rejecting `--rw`. Reply "B-288: done" once a leo release ships it. Work kept on autopilot-shelved/B-288.
 Answer:
 
 ## B-278 · File pane previews images, GIFs, video, Markdown and PDFs   [done]
