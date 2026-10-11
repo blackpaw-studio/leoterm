@@ -15,6 +15,9 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         if ProcessInfo.processInfo.arguments.contains("-resetForUITests") { Self.resetForUITests() }
+        // Previews are temporary; anything left from a previous run goes.
+        @Dependency(\.surfacedFiles) var surfacedFiles
+        surfacedFiles.discardAll()
         Self.store.send(.task)
         return true
     }
