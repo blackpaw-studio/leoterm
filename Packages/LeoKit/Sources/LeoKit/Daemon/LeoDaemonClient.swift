@@ -237,6 +237,7 @@ public struct LeoSocketDaemonClient: LeoDaemonClient {
         case 403: "forbidden"
         case 404: "not_found"
         case 413: "too_large"
+        case 429: "rate_limited"
         case 503: "unavailable"
         default: "http_\(status)"
         }

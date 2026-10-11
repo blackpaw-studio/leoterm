@@ -44,6 +44,24 @@ public struct LeoAgent: Codable, Equatable, Identifiable, Sendable {
 
     public var id: String { name }
 
+    public init(
+        name: String, template: String? = nil, repo: String? = nil, workspace: String? = nil, branch: String? = nil,
+        canonicalPath: String? = nil, status: LeoAgentStatus? = nil, startedAt: String? = nil, restarts: Int? = nil,
+        stoppedReason: String? = nil, wakeOnMessage: Bool? = nil
+    ) {
+        self.name = name
+        self.template = template
+        self.repo = repo
+        self.workspace = workspace
+        self.branch = branch
+        self.canonicalPath = canonicalPath
+        self.status = status
+        self.startedAt = startedAt
+        self.restarts = restarts
+        self.stoppedReason = stoppedReason
+        self.wakeOnMessage = wakeOnMessage
+    }
+
     enum CodingKeys: String, CodingKey {
         case name, template, repo, workspace, branch, status, restarts
         case canonicalPath = "canonical_path"
@@ -133,6 +151,9 @@ public enum LeoDaemonError: Error, Equatable, Sendable {
     case socketMissing(path: String)
     case hostUnavailable(String)
     case hostUnknown(String)
+    /// The daemon redirected to another origin; refused so the device token
+    /// and Access credentials never leave the paired origin.
+    case crossOriginRedirect(String)
 }
 
 extension LeoDaemonError: LocalizedError {
@@ -145,6 +166,7 @@ extension LeoDaemonError: LocalizedError {
         case .socketMissing(let path): return "The Leo daemon socket is missing at \(path)"
         case .hostUnavailable(let message): return "The remote host is unavailable: \(message)"
         case .hostUnknown(let message): return "The remote host is unknown: \(message)"
+        case .crossOriginRedirect(let target): return "The Leo daemon redirected to \(target), a different origin. Leo doesn't follow it, so your credentials stay with the paired daemon."
         }
     }
 }

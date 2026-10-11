@@ -1,0 +1,70 @@
+# Source of truth for Leo.xcodeproj. Regenerate after editing:
+#   cd ios && xcodegen generate
+# The generated project is committed so a plain `xcodebuild` works without
+# XcodeGen installed.
+name: Leo
+options:
+  bundleIdPrefix: studio.blackpaw.leo
+  deploymentTarget:
+    iOS: "26.0"
+  developmentLanguage: en
+  createIntermediateGroups: true
+  generateEmptyDirectories: false
+settings:
+  base:
+    DEVELOPMENT_TEAM: 52M9C6892K
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    SWIFT_EMIT_LOC_STRINGS: YES
+packages:
+  LeoFeatures:
+    path: LeoFeatures
+targets:
+  Leo:
+    type: application
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: Leo
+      - path: ../images/Ghostty.icon
+        buildPhase: resources
+    dependencies:
+      - package: LeoFeatures
+        product: LeoFeatures
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: studio.blackpaw.leo.ios
+        PRODUCT_NAME: Leo
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: Ghostty
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        INFOPLIST_FILE: Leo/Support/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+        SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
+  LeoUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: LeoUITests
+    dependencies:
+      - target: Leo
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: studio.blackpaw.leo.ios.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Leo
+schemes:
+  Leo:
+    build:
+      targets:
+        Leo: all
+        LeoUITests: [test]
+    test:
+      targets:
+        - LeoUITests

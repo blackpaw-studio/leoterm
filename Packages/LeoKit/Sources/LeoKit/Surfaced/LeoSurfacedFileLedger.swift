@@ -57,7 +57,7 @@ public protocol LeoSurfacedFileSeenStore {
 /// incarnation + id (the id-only v1 key is ignored).
 public final class LeoUserDefaultsSurfacedFileSeenStore: LeoSurfacedFileSeenStore {
     public static let key = "leo.surfacedFiles.seen.v2"
-    private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
+    private static var logger: Logger { LeoLog.logger() }
     private let defaults: UserDefaults
 
     public init(defaults: UserDefaults) { self.defaults = defaults }
