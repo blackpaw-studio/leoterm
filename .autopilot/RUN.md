@@ -61,3 +61,4 @@ Finished 1: B-284 landed 1c1f5aa66 · shot /Users/evan/.leo/agents/leoterm/.git/
 - B-284 landed 1c1f5aa66 (light; re-verify suite 2662/2662 green). Runner note: a second SecurityAgent (pid 69473, user heracles, non-console session, ~10 days) is harmless unless that user becomes console.
 - B-285 picked (tier light): same contentViewController pattern; reuse B-284's NSWindow.presentLeoSheet helper.
 - B-285 runner dispatched: d-9fd59b2bcca2 (implement → claude/sonnet, tier light).
+- 13:10 EDT: leo agent reports `--rw` shipped in leo v0.47.0. That meets D-518's condition, so B-288 is set to ready (Update line added). Local leo is still 0.45.0, so the item is built with a fallback and fake-CLI tests.
