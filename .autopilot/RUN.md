@@ -69,12 +69,14 @@ Lane: B-268
   Branch: autopilot-lane/B-268
   Base: 58d0598f692feaa157d1986d9613ba379d89ea26
   Tier: light
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: a65a3d650c40203d8220bdfdcb49ba4403928a51
   Dispatched: 2026-10-11T18:53:00Z
+  Call: A same-state needs_input revision bump never re-notifies and keeps an existing acknowledgement, whatever the reason change — P2 calm
+  Call: finished→finished at a newer revision keeps its current "new event" behaviour (out of scope) — P2
 
 Finished 1: B-284 landed 1c1f5aa66 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-284-w515414.png
 Finished 2: B-285 landed d34e7d42f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-285-1.png
