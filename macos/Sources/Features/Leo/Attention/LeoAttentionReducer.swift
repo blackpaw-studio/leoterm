@@ -10,7 +10,9 @@ import Foundation
 /// Rules (see docs/superpowers/specs/2026-09-21-leo-attention-model.md):
 /// - A live signal commits only after `stabilityInterval` without a
 ///   different candidate; a same-state repeat does not extend the window.
-/// - A newer-revision repeat of needs_input/finished/errored is a new event.
+/// - A newer-revision repeat of finished/errored is a new event; of an
+///   already-committed needs_input it is the same prompt (no notification,
+///   acknowledgement kept).
 /// - A changed `hello.boot_id` (daemon restart) discards stored revisions.
 /// - Signals at or below an agent name's last-seen revision this boot are
 ///   duplicates: revisions never repeat per (boot, name), even across a
@@ -195,15 +197,18 @@ struct LeoAttentionReducer: Equatable, Sendable {
         let from = previous?.state
         entry.committed = signal
         entry.candidate = nil
-        if isFocused && signal.state.needsAttention { acknowledged[agent] = signal.revision }
+        // A newer revision of an already-committed needs_input (the daemon
+        // bumps it when subagent/dispatch counts change, or the hook's signal
+        // is followed by the bridge's reason) is the same prompt: it never
+        // notifies again and keeps an acknowledged Dock count acknowledged.
+        // A new prompt goes through working first.
+        let isSamePrompt = previous?.state == .needsInput && signal.state == .needsInput
+        let keepsAcknowledgement = isSamePrompt && previous.map { acknowledged[agent] == $0.revision } == true
+        if (isFocused && signal.state.needsAttention) || keepsAcknowledgement {
+            acknowledged[agent] = signal.revision
+        }
         entries[agent] = entry
-        // A reason arriving for an already-committed reasonless needs_input
-        // (the hook's signal, then the bridge's) refines the badge; it is the
-        // same prompt, so it never notifies again. A new prompt goes through
-        // working first.
-        let isRefinement = previous?.state == .needsInput && previous?.reason == nil
-            && signal.state == .needsInput && signal.reason != nil
-        let notifies = !isFocused && !isRefinement && (signal.state == .needsInput || signal.state == .finished)
+        let notifies = !isFocused && !isSamePrompt && (signal.state == .needsInput || signal.state == .finished)
         return LeoAttentionTransition(
             id: LeoAgentRow.ID(host: host, name: agent), from: from, to: signal.state,
             revision: signal.revision, shouldNotify: notifies, bootID: bootID, reason: signal.reason
