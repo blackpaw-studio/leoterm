@@ -40,11 +40,14 @@ enum LeoFileExport {
     }
 
     /// `download`, also returning the `stat` taken before reading: the
-    /// version of the bytes written (B-278's preview conflict base).
+    /// version of the bytes written (B-278's preview conflict base). More
+    /// than `maxBytes` streamed -- the file grew after its stat -- fails
+    /// with `.tooLarge`, leaving nothing.
     static func fetch(
         remotePath: String,
         to destination: URL,
         access: any LeoFileAccess,
+        maxBytes: UInt64 = .max,
         beforeWrite: @escaping @Sendable (UInt64) async throws -> Void = { _ in }
     ) async throws -> (url: URL, stat: LeoFileStat) {
         let name = destination.lastPathComponent
@@ -59,7 +62,8 @@ enum LeoFileExport {
         let staging = try folder.createStaging(for: name)
         do {
             let sink = LeoFileDescriptorSink(descriptor: staging.descriptor, path: shownPath)
-            let stat = try await access.read(remotePath, into: HookedSink(base: sink, beforeWrite: beforeWrite))
+            let hooked = HookedSink(base: sink, path: remotePath, maxBytes: maxBytes, beforeWrite: beforeWrite)
+            let stat = try await access.read(remotePath, into: hooked)
             try sink.finish(permissions: permissions)
             try Task.checkCancellation()
             let published = try folder.publish(staging.name, as: name)
@@ -98,9 +102,13 @@ enum LeoFileExport {
 
     private struct HookedSink: LeoFileByteSink {
         let base: any LeoFileByteSink
+        let path: String
+        let maxBytes: UInt64
         let beforeWrite: @Sendable (UInt64) async throws -> Void
 
         func write(_ data: Data, at offset: UInt64) async throws {
+            let (end, overflow) = offset.addingReportingOverflow(UInt64(data.count))
+            guard !overflow, end <= maxBytes else { throw LeoFileAccessError.tooLarge(path: path, size: end, limit: maxBytes) }
             try await beforeWrite(offset)
             try await base.write(data, at: offset)
         }

@@ -91,6 +91,20 @@ struct LeoFilePreviewCacheTests {
         }
     }
 
+    /// The cap holds for the bytes streamed, not just the stat: a file
+    /// that grew past it after the stat is cut off and leaves nothing.
+    @Test(arguments: kinds)
+    func refusesAFileThatGrowsPastTheLimit(_ kind: LeoFileBackendKind) async throws {
+        try await withCache(kind, fetchLimit: 1000) { workspace, access, cache in
+            let path = workspace.path("grows.mov")
+            try leoPatternData(count: 3 * kind.readWindowSize + 5000).write(to: URL(fileURLWithPath: path))
+            let shrunk = LeoUnderstatedAccess(base: access, size: 10)
+
+            await #expect(throws: LeoFileAccessError.self) { try await cache.fetch(path, access: shrunk) }
+            #expect(entries(cache).isEmpty)
+        }
+    }
+
     @Test func anUnsafeNameIsStoredUnderAFixedOne() async throws {
         try await withCache(.local) { workspace, access, cache in
             let path = try workspace.file("a\nb.png", "x")
@@ -99,6 +113,27 @@ struct LeoFilePreviewCacheTests {
             cache.discard(fetch)
         }
     }
+}
+
+/// Reports every file as `size` bytes, streaming the real ones: a file
+/// that grew after its stat.
+struct LeoUnderstatedAccess: LeoFileAccess {
+    let base: any LeoFileAccess
+    let size: UInt64
+
+    private func understated(_ stat: LeoFileStat) -> LeoFileStat {
+        LeoFileStat(kind: stat.kind, size: size, modified: stat.modified, permissions: stat.permissions)
+    }
+
+    func list(_ path: String) async throws -> [LeoFileEntry] { try await base.list(path) }
+    func stat(_ path: String) async throws -> LeoFileStat { understated(try await base.stat(path)) }
+    func homeDirectory() async throws -> String { try await base.homeDirectory() }
+    func read(_ path: String, maxBytes: UInt64) async throws -> LeoFileContents { try await base.read(path, maxBytes: maxBytes) }
+    func read(_ path: String, into sink: any LeoFileByteSink) async throws -> LeoFileStat { understated(try await base.read(path, into: sink)) }
+    func write(_ data: Data, to path: String, expecting expected: LeoFileVersion?) async throws -> LeoFileStat {
+        try await base.write(data, to: path, expecting: expected)
+    }
+    func close() async { await base.close() }
 }
 
 /// A thread-safe counter for `@Sendable` hooks.

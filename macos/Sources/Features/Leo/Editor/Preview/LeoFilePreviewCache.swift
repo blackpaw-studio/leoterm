@@ -35,7 +35,8 @@ struct LeoFilePreviewCache: Sendable {
     /// Streams the regular file at `path` into a fresh folder. `progress`
     /// runs before each chunk is written, with its offset; cancellation
     /// ends the fetch (`CancellationError`). Files over `fetchLimit` fail
-    /// with `.tooLarge` before a byte is read.
+    /// with `.tooLarge` before a byte is read, and one that grows past it
+    /// meanwhile as soon as it does.
     func fetch(
         _ path: String,
         access: any LeoFileAccess,
@@ -46,7 +47,7 @@ struct LeoFilePreviewCache: Sendable {
         let folder = try makeFolder()
         do {
             let destination = folder.appendingPathComponent(Self.storedName(for: path), isDirectory: false)
-            let fetched = try await LeoFileExport.fetch(remotePath: path, to: destination, access: access) { offset in
+            let fetched = try await LeoFileExport.fetch(remotePath: path, to: destination, access: access, maxBytes: fetchLimit) { offset in
                 try Task.checkCancellation()
                 try await progress(offset)
             }
