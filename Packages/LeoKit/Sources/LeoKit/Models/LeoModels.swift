@@ -44,6 +44,24 @@ public struct LeoAgent: Codable, Equatable, Identifiable, Sendable {
 
     public var id: String { name }
 
+    public init(
+        name: String, template: String? = nil, repo: String? = nil, workspace: String? = nil, branch: String? = nil,
+        canonicalPath: String? = nil, status: LeoAgentStatus? = nil, startedAt: String? = nil, restarts: Int? = nil,
+        stoppedReason: String? = nil, wakeOnMessage: Bool? = nil
+    ) {
+        self.name = name
+        self.template = template
+        self.repo = repo
+        self.workspace = workspace
+        self.branch = branch
+        self.canonicalPath = canonicalPath
+        self.status = status
+        self.startedAt = startedAt
+        self.restarts = restarts
+        self.stoppedReason = stoppedReason
+        self.wakeOnMessage = wakeOnMessage
+    }
+
     enum CodingKeys: String, CodingKey {
         case name, template, repo, workspace, branch, status, restarts
         case canonicalPath = "canonical_path"

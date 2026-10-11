@@ -16,6 +16,12 @@ public struct LeoAgentEnvironments: Equatable, Sendable {
     /// e.g. a name deleted from config; nil when there is none.
     public let error: String?
 
+    public init(names: [String], source: Source?, error: String?) {
+        self.names = names
+        self.source = source
+        self.error = error
+    }
+
     public static let empty = LeoAgentEnvironments(names: [], source: nil, error: nil)
 
     public var isOverride: Bool { source == .override }
