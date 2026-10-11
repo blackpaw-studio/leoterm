@@ -138,11 +138,11 @@ Lane: B-151
   Branch: autopilot-lane/B-151
   Base: 2ef7f863fc3ce2224eb05f8ad7bc0a22e6b8aaab
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 3f782fe923d3f4baccada8d84b3aa2ba06fd5c2a
   Dispatched: 2026-10-11T23:14:00Z
 
 Finished 1: B-284 landed 1c1f5aa66 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-284-w515414.png
