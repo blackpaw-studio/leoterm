@@ -43,6 +43,7 @@ enum LeoSlowSaveFixture {
         func stat(_ path: String) async throws -> LeoFileStat { try await base.stat(path) }
         func homeDirectory() async throws -> String { try await base.homeDirectory() }
         func read(_ path: String, maxBytes: UInt64) async throws -> LeoFileContents { try await base.read(path, maxBytes: maxBytes) }
+        func read(_ path: String, into sink: any LeoFileByteSink) async throws -> LeoFileStat { try await base.read(path, into: sink) }
 
         /// Holds for `delay` (or until closed), then writes unless closed
         /// meanwhile: a save left anyway never lands.
