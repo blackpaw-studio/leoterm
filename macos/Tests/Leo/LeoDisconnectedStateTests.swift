@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-007 / D-061 around the feed: the banner's words, the Reconnect menu
 /// item, the palette, the sidebar model's inert rows, the wake check and

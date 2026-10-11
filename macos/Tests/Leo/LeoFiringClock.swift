@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import LeoKit
 
 /// An injected `sleep` that holds every sleep until the test fires it, by
 /// length -- so firing, say, a coalescing window never also fires a fetch

@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 @Suite(.serialized)
 struct LeoTunnelReadinessTests {

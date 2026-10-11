@@ -3,6 +3,7 @@ import GhosttyKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-088 against a real `TerminalController`: every "Close …?" confirm a
 /// window shows for a busy terminal names the pane or row it closes.

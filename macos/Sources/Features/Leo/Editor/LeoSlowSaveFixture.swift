@@ -1,5 +1,6 @@
 #if DEBUG
 import Foundation
+import LeoKit
 
 /// DEBUG builds only: holds every editor save for the seconds named by
 /// `LEO_SLOW_SAVE_SECONDS`, so a close or quit waiting on a save that

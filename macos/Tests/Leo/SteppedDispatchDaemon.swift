@@ -2,6 +2,7 @@ import Darwin
 import Foundation
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Serves `GET /state` and one `GET /events` stream like a leo 0.35
 /// daemon. The trace's `: step N` comments split it into gates; `open`

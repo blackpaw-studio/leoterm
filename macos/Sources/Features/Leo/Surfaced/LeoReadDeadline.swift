@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// Bounds a surfaced-file open's first read (B-013). SFTP requests
 /// have no timeout of their own -- the transport fails them only when the

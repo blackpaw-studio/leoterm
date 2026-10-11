@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-271: a dispatch viewer left in its caller's own tmux session is
 /// brought forward on Leo's tmux server (`tmux -L leo`), over ssh for a

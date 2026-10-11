@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// B-013 in the feed: live `file_surfaced` events and every `/state`
 /// fetch's `surfaced_files` feed one `LeoSurfacedFileIndex` for the

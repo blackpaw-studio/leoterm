@@ -1,6 +1,7 @@
 #if DEBUG
 import Foundation
 import OSLog
+import LeoKit
 
 /// DEBUG builds only: `LEO_SURFACE_FIXTURE=<json file>` holds an array of
 /// `file_surfaced` event objects (the daemon's shape, `type` optional),

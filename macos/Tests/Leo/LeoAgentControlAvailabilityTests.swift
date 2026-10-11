@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-262: which control verbs a selected row may use.
 struct LeoAgentControlAvailabilityTests {

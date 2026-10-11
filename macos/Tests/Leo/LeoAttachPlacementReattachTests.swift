@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-270: an agent attached before its daemon's hello advertised
 /// `attach_dispatch_placement` gets no `--dispatch-placement background`,

@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-048: the row click catcher reports a click from the mouse events
 /// themselves -- their own modifiers and click count -- and only a click

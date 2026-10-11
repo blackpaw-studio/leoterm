@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Attention recovery through failures and host switches: a failed list or
 /// `/state` fetch leaves the baseline pending for the next refresh (never a

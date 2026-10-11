@@ -1,4 +1,5 @@
 import AppKit
+import LeoKit
 
 /// What the pane's inline banner says, most important first: a quit
 /// waiting on the editor, a close waiting on it, a conflict with the disk,

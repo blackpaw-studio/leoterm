@@ -3,6 +3,7 @@ import SwiftUI
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-275: the sidebar's row rhythm, measured on the real list in a window.
 @MainActor @Suite(.serialized)

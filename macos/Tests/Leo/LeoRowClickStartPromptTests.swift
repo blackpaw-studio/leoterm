@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-049: one click on a row takes you into its agent. A running agent is
 /// attached (or its live attach focused); an agent that isn't running asks

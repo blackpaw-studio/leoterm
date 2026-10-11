@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Opt-in end-to-end run of the shared file-access contract suites through
 /// real `ssh`: with `LEO_SSH_E2E_HOST=localhost` set, both contract suites

@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Line 2 of an agent row: the detail precedence, its fallback, and the
 /// tooltip / time that ride beside it.

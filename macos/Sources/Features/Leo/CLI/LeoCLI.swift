@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 struct LeoCLI: Sendable {
     let executableOverride: String?

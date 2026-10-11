@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Exercises `GhosttyAttachContentHost.fillPlaceholder`'s per-leaf (non-nil
 /// `surfaceID`) branch against a real `TerminalController` -- there is no

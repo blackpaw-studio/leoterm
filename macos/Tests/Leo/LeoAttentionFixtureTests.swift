@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The DEBUG-only `LEO_ATTENTION_FIXTURE` overlay used to screenshot
 /// attention badges before the daemon emits `attention`.

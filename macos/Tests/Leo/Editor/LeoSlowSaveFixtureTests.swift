@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The DEBUG-only `LEO_SLOW_SAVE_SECONDS` hold on editor saves, used to
 /// screenshot a close waiting on a save.

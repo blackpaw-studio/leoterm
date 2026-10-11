@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-038: the disconnected banner's reason stays on one line with the full
 /// reason as its tooltip, and the placeholder's "Choose Agent…" is

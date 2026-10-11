@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 struct LeoSidebarTests {
     @Test func reducersRankFilterMergeAndRejectStaleResults() {

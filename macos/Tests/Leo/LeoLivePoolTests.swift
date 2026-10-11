@@ -1,6 +1,7 @@
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-056: the pure live-pool policy (D-108). Entries are strings here; the
 /// host's are whole surface trees.

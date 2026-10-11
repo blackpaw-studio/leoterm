@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-262: the four operator control routes on the daemon socket
 /// (`POST /agents/{name}/{message,interrupt,compact,clear}`), through a stub

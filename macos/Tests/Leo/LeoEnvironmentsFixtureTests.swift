@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-283: the fixture file's `environments` key advertises the feature,
 /// overlays rows' fields, and answers every environment route (and spawn)

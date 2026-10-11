@@ -3,6 +3,7 @@ import CoreGraphics
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-142: opening a folder -- Finder, the Dock, `open -a Leo <dir>`, all of
 /// which reach `application(_:openFile:)` -- opens the folder's terminal

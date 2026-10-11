@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import LeoKit
 
 /// The sidebar row a window's editor and browser belong to (B-274): an
 /// agent (by host, name and dispatch, not by what it last reported), a

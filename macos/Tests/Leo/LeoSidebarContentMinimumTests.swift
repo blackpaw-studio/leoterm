@@ -3,6 +3,7 @@ import SwiftUI
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-091: a wide sidebar never squeezes the content beside it under
 /// `LeoSidebarSplitMetrics.contentMinimumWidth`, the width the start

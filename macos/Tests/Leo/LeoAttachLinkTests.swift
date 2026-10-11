@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-006: attach surfaces linked to sidebar rows -- focus -> highlight, live attach
 /// counts, and click routing (focus the existing attach vs attach new).

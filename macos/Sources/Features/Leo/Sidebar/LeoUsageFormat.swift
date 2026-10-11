@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// How a row writes an agent's usage (B-259): a compact line for the
 /// subtitle, and the whole numbers for the tooltip and VoiceOver.

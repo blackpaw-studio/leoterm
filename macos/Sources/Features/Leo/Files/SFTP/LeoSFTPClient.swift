@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// Typed SFTP v3 operations over a handshaken `LeoSFTPTransport`. Each call
 /// is one request/reply; a failure status becomes a `LeoFileAccessError`

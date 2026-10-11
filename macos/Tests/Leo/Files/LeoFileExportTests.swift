@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Downloading a workspace file to a Finder folder (B-279): streamed into
 /// a private staging file, published without ever replacing anything, and

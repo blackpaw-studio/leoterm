@@ -1,24 +1,9 @@
 import Foundation
-
-enum LeoHostID: Hashable, Sendable, Codable {
-    case local
-    case remote(String)
-
-    var displayName: String {
-        switch self {
-        case .local: "localhost"
-        case .remote(let name): name
-        }
-    }
-}
+import LeoKit
 
 struct LeoAgentRow: Identifiable, Equatable, Sendable {
-    enum Activity: String, Equatable, Sendable { case working, idle, unknown }
-
-    struct ID: Hashable, Sendable, Codable {
-        let host: LeoHostID
-        let name: String
-    }
+    typealias Activity = LeoActivity
+    typealias ID = LeoAgentID
 
     let host: LeoHostID
     let name: String

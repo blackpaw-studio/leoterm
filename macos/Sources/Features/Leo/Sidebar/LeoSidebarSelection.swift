@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// A dispatch subagent row, on the host whose daemon reported it.
 struct LeoDispatchRef: Hashable, Sendable {

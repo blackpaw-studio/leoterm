@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// `LeoFileAccessor` semantics that need a backend misbehaving on cue.
 struct LeoFileAccessorTests {

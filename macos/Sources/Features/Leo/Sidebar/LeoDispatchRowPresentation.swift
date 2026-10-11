@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// What a live dispatch row shows (B-257): a role glyph whose colour is the
 /// status, its name, and the minutes it has run. Informational only: no

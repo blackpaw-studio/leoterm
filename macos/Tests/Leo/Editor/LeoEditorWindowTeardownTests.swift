@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// A window's editor holds file access (for a remote host, an `sftp`
 /// process): closing the window releases it.

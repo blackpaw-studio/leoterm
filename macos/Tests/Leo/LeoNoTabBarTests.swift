@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-055 (D-098, D-104): no window ever gets a tab bar, and the menu items
 /// that only made sense with tabs are remapped or hidden. Runs against the

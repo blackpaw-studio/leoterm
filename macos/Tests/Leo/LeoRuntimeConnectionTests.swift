@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Per-connection wiring: `LeoRuntime` binds the feed and agent actions to
 /// whichever daemon `LeoHostSelection`'s current connection resolves to.

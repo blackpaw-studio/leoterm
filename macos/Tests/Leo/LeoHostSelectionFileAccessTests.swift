@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// `LeoHostSelection` hands out file access for the selected host: local
 /// for localhost, SFTP over the tunnel's own ControlMaster for a remote.

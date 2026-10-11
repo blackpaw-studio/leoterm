@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Server stderr is untrusted: the canonical rejection line is matched on raw
 /// bytes, one line at a time, so bytes elsewhere in the capture can neither

@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Needs You on top of the status layout, and the opt-in grouping by
 /// attention (Agents ▸ Group By).

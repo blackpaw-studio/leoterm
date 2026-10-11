@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The workspace browser's model: rooted at the agent's workspace, folders
 /// listed lazily through `LeoFileAccess`, folders first then Finder order,

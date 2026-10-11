@@ -1,0 +1,145 @@
+event: hello
+data: {"seq":254,"at":"2026-09-15T20:34:36.607586-04:00","version":1,"server_time":"2026-09-15T20:34:36.607586-04:00"}
+
+event: agent_activity
+data: {"seq":255,"at":"2026-09-15T20:34:44.262959-04:00","agent":"leo","activity":"idle","current_action":null}
+
+event: agent_activity
+data: {"seq":256,"at":"2026-09-15T20:34:46.246058-04:00","agent":"leo","activity":"working","current_action":{"kind":"pane","detail":"⏵⏵ auto mode on (shift+tab to cycle) · ← 6 agents"}}
+
+: ping
+
+event: agent_activity
+data: {"seq":257,"at":"2026-09-15T20:35:00.232055-04:00","agent":"leo","activity":"idle","current_action":null}
+
+: ping
+
+: ping
+
+event: agent_activity
+data: {"seq":258,"at":"2026-09-15T20:35:54.242076-04:00","agent":"leo","activity":"working","current_action":{"kind":"pane","detail":"⏵⏵ auto mode on (shift+tab to cycle)"}}
+
+: ping
+
+event: agent_activity
+data: {"seq":259,"at":"2026-09-15T20:36:04.238148-04:00","agent":"leo","activity":"working","current_action":{"kind":"pane","detail":"⏵⏵ auto mode on (shift+tab to cycle) · ← 6 agents"}}
+
+: ping
+
+event: agent_activity
+data: {"seq":260,"at":"2026-09-15T20:36:18.24635-04:00","agent":"leo","activity":"idle","current_action":null}
+
+event: agent_activity
+data: {"seq":261,"at":"2026-09-15T20:36:30.309309-04:00","agent":"leo","activity":"working","current_action":{"kind":"pane","detail":"⏵⏵ auto mode on (shift+tab to cycle) · ← 6 agents"}}
+
+event: agent_activity
+data: {"seq":262,"at":"2026-09-15T20:36:30.309319-04:00","agent":"chroma-shift","activity":"working","current_action":{"kind":"pane","detail":"⏵⏵ auto mode on (shift+tab to cycle) · ← 6 agents"}}
+
+: ping
+
+event: agent_activity
+data: {"seq":263,"at":"2026-09-15T20:36:46.261105-04:00","agent":"leo-vitals","activity":"working","current_action":{"kind":"pane","detail":"⏵⏵ auto mode on (shift+tab to cycle) · ← 6 agents"}}
+
+event: agent_activity
+data: {"seq":264,"at":"2026-09-15T20:36:50.265699-04:00","agent":"mountain-town","activity":"working","current_action":{"kind":"pane","detail":"is green (7/7)."}}
+
+event: agent_activity
+data: {"seq":265,"at":"2026-09-15T20:36:52.237497-04:00","agent":"mountain-town","activity":"working","current_action":{"kind":"pane","detail":"⏵⏵ auto mode on · 1 MCP task · ← 6 agents"}}
+
+: ping
+
+event: agent_activity
+data: {"seq":266,"at":"2026-09-15T20:36:58.232607-04:00","agent":"chroma-shift","activity":"idle","current_action":null}
+
+event: agent_activity
+data: {"seq":267,"at":"2026-09-15T20:37:00.23351-04:00","agent":"leo","activity":"idle","current_action":null}
+
+event: agent_activity
+data: {"seq":268,"at":"2026-09-15T20:37:04.232103-04:00","agent":"leo-vitals","activity":"idle","current_action":null}
+
+event: agent_activity
+data: {"seq":269,"at":"2026-09-15T20:37:06.244129-04:00","agent":"mountain-town","activity":"idle","current_action":null}
+
+event: agent_activity
+data: {"seq":270,"at":"2026-09-15T20:37:16.239208-04:00","agent":"mountain-town","activity":"working","current_action":{"kind":"pane","detail":"⏵⏵ auto mode on · 1 MCP task · ← 6 agents"}}
+
+: ping
+
+: ping
+
+event: agent_activity
+data: {"seq":271,"at":"2026-09-15T20:37:40.233736-04:00","agent":"mountain-town","activity":"idle","current_action":null}
+
+: ping
+
+event: agent_activity
+data: {"seq":272,"at":"2026-09-15T20:38:00.24518-04:00","agent":"mountain-town","activity":"working","current_action":{"kind":"pane","detail":"⏵⏵ auto mode on · 1 MCP task · ← 6 agents"}}
+
+event: agent_activity
+data: {"seq":273,"at":"2026-09-15T20:38:02.274732-04:00","agent":"leo-vitals","activity":"working","current_action":{"kind":"pane","detail":"⏵⏵ auto mode on · 1 MCP task · ← 6 agents"}}
+
+event: agent_activity
+data: {"seq":274,"at":"2026-09-15T20:38:16.242364-04:00","agent":"leo-vitals","activity":"idle","current_action":null}
+
+event: agent_activity
+data: {"seq":275,"at":"2026-09-15T20:38:16.242369-04:00","agent":"mountain-town","activity":"idle","current_action":null}
+
+: ping
+
+event: agent_activity
+data: {"seq":276,"at":"2026-09-15T20:38:18.24077-04:00","agent":"leo-vitals","activity":"working","current_action":{"kind":"pane","detail":"⏵⏵ auto mode on · 1 MCP task · ← 6 agents"}}
+
+event: agent_activity
+data: {"seq":277,"at":"2026-09-15T20:38:24.274749-04:00","agent":"mountain-town","activity":"working","current_action":{"kind":"pane","detail":"⏵⏵ auto mode on · 1 MCP task · ← 6 agents"}}
+
+event: agent_activity
+data: {"seq":278,"at":"2026-09-15T20:38:28.278627-04:00","agent":"chroma-shift","activity":"working","current_action":{"kind":"pane","detail":"⏵⏵ auto mode on (shift+tab to cycle) · ← 6 agents"}}
+
+event: agent_activity
+data: {"seq":279,"at":"2026-09-15T20:38:30.292925-04:00","agent":"leoterm","activity":"working","current_action":{"kind":"pane","detail":"⏵⏵ auto mode on · 1 MCP task · ← 6 agents"}}
+
+event: agent_activity
+data: {"seq":280,"at":"2026-09-15T20:38:34.297908-04:00","agent":"leo","activity":"working","current_action":{"kind":"pane","detail":"Enter to select · ↑/↓ to navigate · Esc to cancel"}}
+
+: ping
+
+event: agent_activity
+data: {"seq":281,"at":"2026-09-15T20:38:38.246194-04:00","agent":"leo-vitals","activity":"idle","current_action":null}
+
+event: agent_activity
+data: {"seq":282,"at":"2026-09-15T20:38:42.310151-04:00","agent":"mountain-town","activity":"idle","current_action":null}
+
+event: agent_activity
+data: {"seq":283,"at":"2026-09-15T20:38:44.261987-04:00","agent":"leoterm","activity":"idle","current_action":null}
+
+event: agent_activity
+data: {"seq":284,"at":"2026-09-15T20:38:46.243588-04:00","agent":"chroma-shift","activity":"idle","current_action":null}
+
+event: agent_activity
+data: {"seq":285,"at":"2026-09-15T20:38:54.230832-04:00","agent":"leo","activity":"idle","current_action":null}
+
+event: agent_activity
+data: {"seq":286,"at":"2026-09-15T20:38:56.28606-04:00","agent":"leo","activity":"working","current_action":{"kind":"pane","detail":"Enter to select · ↑/↓ to navigate · Esc to cancel"}}
+
+: ping
+
+: ping
+
+event: agent_activity
+data: {"seq":287,"at":"2026-09-15T20:39:24.295489-04:00","agent":"leo","activity":"working","current_action":{"kind":"pane","detail":"⏵⏵ auto mode on (shift+tab to cycle) · ← 6 agents"}}
+
+: ping
+
+event: agent_activity
+data: {"seq":288,"at":"2026-09-15T20:39:38.230957-04:00","agent":"leo","activity":"idle","current_action":null}
+
+event: agent_activity
+data: {"seq":289,"at":"2026-09-15T20:39:56.25068-04:00","agent":"leo","activity":"working","current_action":{"kind":"pane","detail":"⏵⏵ auto mode on (shift+tab to cycle) · ← 6 agents"}}
+
+: ping
+
+event: agent_activity
+data: {"seq":290,"at":"2026-09-15T20:40:12.235491-04:00","agent":"leo","activity":"idle","current_action":null}
+
+: ping
+

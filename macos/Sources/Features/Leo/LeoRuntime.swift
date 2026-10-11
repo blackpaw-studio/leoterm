@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import GhosttyKit
 import OSLog
+import LeoKit
 
 @MainActor final class LeoRuntime {
     private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")

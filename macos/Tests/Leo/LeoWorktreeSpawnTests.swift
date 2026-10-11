@@ -2,6 +2,7 @@ import Combine
 import Foundation
 import Testing
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-176: "New Agent in Worktree…" from an agent row. The sheet prefills the
 /// row's template, host and owner/repo, requires a branch, and spawns with

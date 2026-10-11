@@ -1,6 +1,7 @@
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Turning what an agent's terminal surfaces (a ⌘-clicked path or OSC 8
 /// link, or text typed into Open File in Editor…) into an absolute path on

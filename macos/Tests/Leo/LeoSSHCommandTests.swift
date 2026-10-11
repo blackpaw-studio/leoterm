@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 struct LeoSSHCommandTests {
     @Test func buildsExactTunnelArguments() throws {

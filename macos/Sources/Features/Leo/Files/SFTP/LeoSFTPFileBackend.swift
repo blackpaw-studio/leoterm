@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 struct LeoSFTPOptions: Sendable {
     /// Bytes per READ/WRITE request. 32 KiB is the size every SFTP server

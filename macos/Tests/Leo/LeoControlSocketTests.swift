@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// What sits at a ControlMaster path decides whether it may be removed:
 /// only a socket nobody is listening on. Everything else -- a live master

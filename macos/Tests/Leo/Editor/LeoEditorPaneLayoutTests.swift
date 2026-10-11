@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Where the pane's rows land in a real window (B-045): a close waiting on
 /// a save shows its banner as its own leading-aligned row under the

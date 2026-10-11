@@ -1,4 +1,5 @@
 import AppKit
+import LeoKit
 
 /// The pane's header: a pop-up of recently opened files (the open one
 /// selected; choosing another switches to it), the Edited / read-only

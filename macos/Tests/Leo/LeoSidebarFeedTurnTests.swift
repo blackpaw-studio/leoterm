@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-259 through the feed: a turn's preview and the snapshot's usage show
 /// on the row only when the daemon advertised `bridge_turns` / `agent_usage`,

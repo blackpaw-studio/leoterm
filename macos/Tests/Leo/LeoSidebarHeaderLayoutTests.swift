@@ -3,6 +3,7 @@ import SwiftUI
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-064: the sidebar's "Agents" title and its New Agent button sat flush
 /// against the window's titlebar. These host the real `LeoSidebarView` as

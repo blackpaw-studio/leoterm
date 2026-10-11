@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Review finding: `TerminalController` sets `window.contentView` directly
 /// and never populates `window.contentViewController` -- so gating the

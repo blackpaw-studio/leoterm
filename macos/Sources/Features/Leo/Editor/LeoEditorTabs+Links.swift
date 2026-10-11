@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// The agent a surfaced path belongs to: its host, and its workspace for
 /// relative paths. `name` is nil when no agent is in play (Open File in

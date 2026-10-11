@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-257 through the feed: `/state` dispatches and live `dispatch_changed`
 /// records nest under their caller's row, only when the daemon advertised

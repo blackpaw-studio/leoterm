@@ -1,5 +1,6 @@
 import Foundation
 import OSLog
+import LeoKit
 
 /// A running SFTP server's stdio: its stdout (`fromServer`) and stdin
 /// (`toServer`), plus a way to stop it. The transport owns both handles.

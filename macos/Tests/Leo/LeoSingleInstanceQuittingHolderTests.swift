@@ -4,6 +4,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-092: a copy launched while the previous copy quit found the lock still
 /// held, yielded to the dying copy and exited, leaving no Leo. A quitting

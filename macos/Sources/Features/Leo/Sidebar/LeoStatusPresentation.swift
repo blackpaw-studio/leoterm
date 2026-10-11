@@ -1,4 +1,5 @@
 import SwiftUI
+import LeoKit
 
 /// Maps every agent/host status value the sidebar shows into a presentation
 /// triple: an SF Symbol name (so the *shape*, not just the color, conveys the

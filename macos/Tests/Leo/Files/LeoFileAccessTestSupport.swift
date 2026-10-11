@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Every backend the shared contract suite runs against. A contract test
 /// takes one of these as its argument, so each behaviour is asserted

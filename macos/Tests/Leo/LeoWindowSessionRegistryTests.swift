@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 @MainActor struct LeoWindowSessionRegistryTests {
     private func makeDefaults() -> UserDefaults {

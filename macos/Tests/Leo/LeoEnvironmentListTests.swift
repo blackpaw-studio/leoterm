@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-283: the one ordered-list value behind the spawn sheet, the Set
 /// Environments submenu and the Edit Order sheet.

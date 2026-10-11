@@ -3,6 +3,7 @@ import GhosttyKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-056 against a real `TerminalController`: a row switched away from is
 /// hidden with its very `Ghostty.SurfaceView` (so its tmux client, scrollback

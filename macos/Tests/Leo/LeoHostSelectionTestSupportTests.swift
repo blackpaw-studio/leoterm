@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The directory `LeoHostSelectionTestSupport` shares between tests must
 /// belong to one test process: a fixed path is shared by every run and

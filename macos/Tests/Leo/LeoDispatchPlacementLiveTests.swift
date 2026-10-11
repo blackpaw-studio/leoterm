@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-272: leo >= 0.42 (`dispatch_placement_live`) moves a dispatch viewer
 /// between the caller's session and `leo-dispatch` while it runs. The

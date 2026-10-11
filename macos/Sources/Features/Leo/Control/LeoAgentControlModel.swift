@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import Foundation
+import LeoKit
 
 /// What the control bar says under a row's field: a refused action, or a
 /// quiet note that a message was queued.

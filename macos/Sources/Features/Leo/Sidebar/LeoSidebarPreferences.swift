@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// Agents ▸ Sort By (B-010).
 enum LeoSidebarSortOrder: String, Codable, CaseIterable, Sendable {

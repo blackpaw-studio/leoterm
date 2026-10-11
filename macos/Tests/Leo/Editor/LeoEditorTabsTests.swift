@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-273: a row's editor pane holds one tab per open file. Opening adds a
 /// tab or selects the file's own; a background open (a surfaced file)

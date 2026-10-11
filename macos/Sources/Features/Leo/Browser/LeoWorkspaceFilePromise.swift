@@ -1,5 +1,6 @@
 import AppKit
 import UniformTypeIdentifiers
+import LeoKit
 
 /// A workspace file dragged out of the browser (B-279). Finder gets a file
 /// promise, so a remote file is downloaded only once it is dropped, and a

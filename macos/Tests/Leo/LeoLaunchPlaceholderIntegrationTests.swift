@@ -3,6 +3,7 @@ import GhosttyKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-085 against real windows: `TerminalController.newWindow` (a script's
 /// `make new window`, the New Terminal intent, New Window Here) and

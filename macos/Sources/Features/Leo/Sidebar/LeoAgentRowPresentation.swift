@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// What an agent row says: the state's symbol column, the name, an optional
 /// detail line, and the last-active time (or a state word) trailing the

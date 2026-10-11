@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-081: a start screen reads the title a new window loads with -- with a
 /// config `title` set, that title. The controller runs on a `Ghostty.App`

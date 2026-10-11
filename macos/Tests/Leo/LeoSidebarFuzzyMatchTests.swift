@@ -1,6 +1,7 @@
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-009: the sidebar filter's pure fuzzy matcher and ranker.
 struct LeoSidebarFuzzyMatchTests {

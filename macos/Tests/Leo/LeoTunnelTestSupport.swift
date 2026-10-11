@@ -1,6 +1,7 @@
 import Foundation
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Shared helpers for `LeoTunnel`/`LeoTunnelOrphanStore` tests. Fixture lookup
 /// mirrors `LeoModelsTests`/`LeoObserveTests`: fixtures under `Tests/Leo/Fixtures`

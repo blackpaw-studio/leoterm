@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 struct LeoUnixSocketTransportTests {
     @Test func deadlineExpiresWhenServerNeverReplies() async throws {

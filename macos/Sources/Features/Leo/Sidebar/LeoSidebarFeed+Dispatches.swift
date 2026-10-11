@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// B-257 in the feed: `LeoDispatchTree` for the selected host. hello says
 /// whether the daemon has a dispatch source (`dispatch_tree`) and which

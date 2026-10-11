@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-057: showing and closing a terminal row through the coordinator,
 /// against the fake host (the real one is `LeoTerminalRowsIntegrationTests`).

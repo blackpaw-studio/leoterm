@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 @MainActor struct LeoHostsSheetModelTests {
     /// Another error's text is untrusted: one line, isolated so implicit

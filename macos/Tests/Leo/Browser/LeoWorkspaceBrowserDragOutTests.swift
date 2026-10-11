@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Dragging files out of the workspace browser to Finder (B-279): each file
 /// row offers a file promise that downloads on drop, through the same

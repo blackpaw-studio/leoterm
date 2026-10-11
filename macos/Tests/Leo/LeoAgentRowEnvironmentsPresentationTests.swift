@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-283 on the row: an override's names show quietly (the fallback line
 /// and the tooltip); the default source shows nothing; a config problem is

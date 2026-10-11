@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// Opens a surfaced file: one the user asked for (B-013), or one opening in
 /// the background (B-273). It first stats the file on its host (following symlinks, so the

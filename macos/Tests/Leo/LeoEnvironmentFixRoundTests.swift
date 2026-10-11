@@ -3,6 +3,7 @@ import Combine
 import Foundation
 import Testing
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-283 fix round 1: the spawn sheet's Environments section follows
 /// the host's features live and keeps the user's edits across a catalog

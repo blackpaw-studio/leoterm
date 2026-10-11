@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Coverage for coalescing `agentActivity` SSE events: a chatty agent must
 /// not trigger one main-actor emission per event. See `LeoActivityCoalescer`

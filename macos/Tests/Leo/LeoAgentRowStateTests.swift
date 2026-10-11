@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// An agent row's state resolution (first match wins) and what each state
 /// draws: its leading symbol and ink, whether it has a second line, and

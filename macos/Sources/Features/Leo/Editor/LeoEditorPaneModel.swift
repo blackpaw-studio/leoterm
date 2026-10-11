@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import LeoKit
 
 enum LeoUnsavedChangesChoice: Sendable {
     case save

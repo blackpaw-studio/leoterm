@@ -3,6 +3,7 @@ import GhosttyKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-273: editor tabs switch and close by menu and keyboard. Agents ▸
 /// Show Next/Previous Editor Tab (⇧⌘] / ⇧⌘[) and Close Editor Tab; from

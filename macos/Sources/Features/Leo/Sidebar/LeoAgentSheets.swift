@@ -1,4 +1,5 @@
 import SwiftUI
+import LeoKit
 
 /// Rename sheet shared by the sidebar row's context menu and the menu-bar
 /// "Agents" menu -- both act on the same `LeoAgentActions.rename`, so a

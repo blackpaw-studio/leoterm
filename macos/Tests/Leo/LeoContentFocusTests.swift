@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-087: once a row switch or the agent palette is done, the terminal
 /// the window shows is its first responder, and its cursor is drawn

@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// What a row shows of its agent's last turn (B-259): the final message's
 /// preview and how the turn ended. Display text only.

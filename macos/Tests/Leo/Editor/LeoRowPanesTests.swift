@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-274: each sidebar row keeps its own editor and browser in its window.
 /// Switching rows switches panes; a row's pane lives until the row goes or

@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// What a `/state` snapshot reported about one agent incarnation, beyond
 /// its status (B-011, D-074). Every field is only what the daemon said:

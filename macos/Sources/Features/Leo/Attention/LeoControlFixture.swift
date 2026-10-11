@@ -1,5 +1,6 @@
 #if DEBUG
 import Foundation
+import LeoKit
 
 /// DEBUG builds only: the `"control"` key of the `LEO_ATTENTION_FIXTURE`
 /// file (B-262) makes the four control routes answer as a daemon that

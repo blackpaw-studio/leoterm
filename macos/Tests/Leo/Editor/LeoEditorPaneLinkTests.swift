@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Opening a surfaced link for an agent: relative paths resolve against
 /// its workspace, `~` against its host's home, and the file opens on the

@@ -1,6 +1,7 @@
 import Darwin
 import Foundation
 import OSLog
+import LeoKit
 
 /// One SFTP session over a `LeoSFTPChannel`: frames requests onto the
 /// server's stdin and matches replies from its stdout back to the waiting

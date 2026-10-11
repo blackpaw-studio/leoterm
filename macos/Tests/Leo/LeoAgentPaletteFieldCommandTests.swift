@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Pure `Selector -> LeoAgentPaletteFieldCommand` mapping used by
 /// `LeoAgentPaletteSearchField.Coordinator.control(_:textView:doCommandBy:)`

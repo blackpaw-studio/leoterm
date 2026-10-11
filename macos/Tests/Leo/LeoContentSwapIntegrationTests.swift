@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-055 against a real `TerminalController`: showing a row replaces the
 /// window's whole surface tree in place -- same window, same sidebar --

@@ -1,4 +1,5 @@
 import AppKit
+import LeoKit
 
 /// The main menu's key equivalents, read from the xib source
 /// (instantiating MainMenu would also build its AppDelegate) or from a

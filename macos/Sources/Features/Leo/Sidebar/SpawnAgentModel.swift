@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import LeoKit
 
 @MainActor final class SpawnAgentModel: ObservableObject {
     @Published var template = ""

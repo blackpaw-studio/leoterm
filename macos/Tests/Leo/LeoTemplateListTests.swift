@@ -2,6 +2,7 @@ import Combine
 import Foundation
 import Testing
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-054: one published, host-aware template list on `LeoAgentActions`,
 /// prefetched on every host selection and read by both the New Agent sheet

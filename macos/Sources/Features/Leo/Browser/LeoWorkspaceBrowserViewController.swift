@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import LeoKit
 
 /// The window's workspace browser (B-005): a split item on the leading
 /// edge of the editor pane, showing `LeoWorkspaceBrowserModel` as an

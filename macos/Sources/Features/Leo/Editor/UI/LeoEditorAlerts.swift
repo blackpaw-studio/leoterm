@@ -1,4 +1,5 @@
 import AppKit
+import LeoKit
 
 /// The editor's standard Mac sheets.
 @MainActor enum LeoEditorAlerts {

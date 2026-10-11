@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// A user-initiated surfaced-file open (D-088: there is no other kind)
 /// first stats the file on its host, following symlinks, and opens only a

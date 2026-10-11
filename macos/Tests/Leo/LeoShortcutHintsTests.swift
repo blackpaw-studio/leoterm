@@ -3,6 +3,7 @@ import Combine
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-080: the start screen's shortcut hints are read off the live menu
 /// items, which AppDelegate syncs from the Ghostty config's keybinds, so a

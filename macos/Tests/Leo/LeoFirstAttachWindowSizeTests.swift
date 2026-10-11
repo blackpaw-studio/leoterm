@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-086: the first agent attached into a start screen after launch shrank
 /// the window. With `window-width`/`window-height` configured, a window's

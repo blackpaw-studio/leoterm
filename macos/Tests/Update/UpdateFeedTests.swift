@@ -1,6 +1,7 @@
 import Testing
 import Foundation
 @testable import Ghostty
+@testable import LeoKit
 
 struct UpdateFeedTests {
     static let leoFeed = "https://github.com/blackpaw-studio/leoterm/releases/latest/download/appcast.xml"

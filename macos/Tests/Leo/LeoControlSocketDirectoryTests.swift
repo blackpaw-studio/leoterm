@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The ControlMaster socket needs a path ssh can bind (86 bytes, see
 /// `LeoSSHCommand.isValidControlPath`) whatever the home directory is,

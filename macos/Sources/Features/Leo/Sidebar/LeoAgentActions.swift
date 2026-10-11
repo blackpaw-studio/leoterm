@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import LeoKit
 
 @MainActor final class LeoAgentActions: ObservableObject {
     @Published private(set) var pendingActions: Set<LeoAgentRow.ID> = []

@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// `LeoHostSelection` owns exactly one app-owned SSH tunnel for the
 /// currently selected remote host. Uses the real `fake_ssh.py` fixture

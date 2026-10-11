@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Security re-review #3: SFTP requests have no timeout of their own (the
 /// transport fails them only when it closes), so a remote file swapped to

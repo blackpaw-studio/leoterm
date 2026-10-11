@@ -3,6 +3,7 @@ import SwiftUI
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 extension LeoAppEventQueueTests {
 /// Layout invariants for the agents-sidebar split view.

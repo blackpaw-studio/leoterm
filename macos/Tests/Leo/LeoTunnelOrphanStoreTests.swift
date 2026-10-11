@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 struct LeoTunnelOrphanStoreTests {
     @Test func matchingPidIsSignalledAndSocketAndRecordAreCleared() throws {

@@ -2,6 +2,7 @@ import Combine
 import Foundation
 import Testing
 @testable import Ghostty
+@testable import LeoKit
 
 @MainActor struct LeoAgentActionsTests {
     @Test func actionsRefreshOnceAndForwardArguments() async {

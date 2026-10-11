@@ -3,6 +3,7 @@ import Foundation
 import SwiftUI
 import Sparkle
 @testable import Ghostty
+@testable import LeoKit
 
 struct UpdateViewModelTests {
     // MARK: - Text Formatting Tests

@@ -1,5 +1,6 @@
 #if DEBUG
 import Foundation
+import LeoKit
 
 /// DEBUG builds only: the `"environments"` key of the `LEO_ATTENTION_FIXTURE`
 /// file (B-283), so named environments can be seen before leo PR #251 ships:

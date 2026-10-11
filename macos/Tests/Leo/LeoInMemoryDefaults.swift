@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// A `UserDefaults` that lives only in memory, for tests to inject wherever
 /// production takes a `UserDefaults`. A `UserDefaults(suiteName:)` suite

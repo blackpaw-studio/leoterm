@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-130: the app menu's About item and the About window name Leo, not
 /// Ghostty. Debug builds read "About Leo" too: the "[DEBUG]" suffix marks

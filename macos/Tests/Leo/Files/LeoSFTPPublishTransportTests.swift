@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// D-355 at the transport level: a lost RENAME is never reported as a
 /// success or a plain failure, never retried, and never cleaned up by name.

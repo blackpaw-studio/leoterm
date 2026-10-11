@@ -1,6 +1,7 @@
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-016: focus updates reach the attention feed in the order they were
 /// sent, so a burst like "nil then A" never lands as "A then nil".

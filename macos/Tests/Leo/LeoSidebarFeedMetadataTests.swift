@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Row metadata comes only from whole `/state` snapshots, and an entry
 /// paints a row only when its `started_at` matches that row's (D-074).

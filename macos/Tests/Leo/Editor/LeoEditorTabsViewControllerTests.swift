@@ -3,6 +3,7 @@ import SwiftUI
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-273: the editor pane's tabs on screen. A background open shows the
 /// pane without taking focus from the terminal; focus in the pane follows
