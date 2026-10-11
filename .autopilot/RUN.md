@@ -149,7 +149,7 @@ Lane: B-152
   Branch: autopilot-lane/B-152
   Base: f2747b820f741baa7f6ab48ece92405b9afa8b57
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -167,6 +167,7 @@ Finished 6: B-148 landed aab4e56d0 · not visually verified
 Finished 7: B-149 landed 039ec8dad · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-149-2.png
 Finished 8: B-150 landed 7f9da972e · not visually verified
 Finished 9: B-151 landed 6bf3484f7 · not visually verified
+Finished 10: B-152 landed db6b9a7a9 · not visually verified
 
 ## Progress
 - Preflight: autopilot already at main (60e80df75); applied 1 inbox entry (B-288 answer → D-518; stays blocked until leo ships `--rw`; leo 0.45.0 has none).
@@ -204,3 +205,4 @@ Finished 9: B-151 landed 6bf3484f7 · not visually verified
 - B-151 picked (tier light: test hardening; runner d-983382f93c62).
 - B-151 landed 6bf3484f7 (fixes 0).
 - B-151 landed (runner ended its turn early once; nudged with a follow-up). B-152 picked (tier light; runner d-d7ed24ea6734).
+- B-152 landed db6b9a7a9 (fixes 0).

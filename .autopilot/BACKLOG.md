@@ -874,11 +874,13 @@ Source: autopilot polish (B-100)
 Done: 25683e703
 Verified: not visually verified — test-only (+9 lines LeoSidePaneTitlebarStyleTests); perturbing the expected centre by 3 pt made both panes fail; suite 2694/0, swiftlint clean
 
-## B-152 · headerRowHeight is a minimum, not a height   [ready]
+## B-152 · headerRowHeight is a minimum, not a height   [done]
 Issue: #156
 Why: LeoSidebarHeader uses .frame(minHeight: headerRowHeight), so the sidebar row can grow and move its centre while the side panes stay at 18 pt; use .frame(height:) or rename it headerRowMinHeight
 Accept: LeoSidebarHeader uses .frame(minHeight: headerRowHeight), so the sidebar row can grow and move its centre while the side panes stay at 18 pt; use .frame(height:) or rename it headerRowMinHeight
 Source: autopilot polish (B-100)
+Done: 90ce52cf3
+Verified: not visually verified — headerRowHoldsItsHeightAroundATallAccessory red before, green after; suite 2696/0, swiftlint clean; no visual change expected
 
 ## B-153 · Header centres differ by 1–1.5 px in hidden style   [ready]
 Issue: #157

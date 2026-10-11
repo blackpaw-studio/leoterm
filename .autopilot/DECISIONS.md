@@ -3818,3 +3818,17 @@ Chose: The first-population signal is run-loop turn counting with a layout pass 
 Why: B-099 turn-counting decision.
 Commit: d9613e1e5
 Veto: [ ]
+
+## D-534 · 2026-10-11 · LeoSidebarHeader is pinned with .frame(height: headerRowHeight) rather than renaming it t…
+Context: B-152 (runner call).
+Chose: LeoSidebarHeader is pinned with .frame(height: headerRowHeight) rather than renaming it to a minimum, keeping the header and side panes on one centre line; the .headline title is fixed-size on macOS, so 16 pt can't clip it
+Why: P1.
+Commit: 90ce52cf3
+Veto: [ ]
+
+## D-535 · 2026-10-11 · LeoSidebarHeaderPart gains a test-only `.row` probe case, in the style of the existing pa…
+Context: B-152 (runner call).
+Chose: LeoSidebarHeaderPart gains a test-only `.row` probe case, in the style of the existing parts
+Why: P1 / suite discipline.
+Commit: 90ce52cf3
+Veto: [ ]
