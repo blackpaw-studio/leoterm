@@ -52,12 +52,6 @@ import SwiftUI
         actions: LeoAgentActions,
         completion: @escaping (LeoAgentIdentity?) -> Void
     ) {
-        guard let contentView = window.contentView else {
-            completion(nil)
-            return
-        }
-        let anchor = NSViewController()
-        anchor.view = contentView
         var resolved = false
         let resolve: (LeoAgentIdentity?) -> Void = { identity in
             guard !resolved else { return }
@@ -69,7 +63,7 @@ import SwiftUI
         }
         let hosting = LeoSpawnSheetHostingController(rootView: sheetView)
         hosting.onDisappear = { resolve(nil) }
-        anchor.presentAsSheet(hosting)
+        if !window.presentLeoSheet(hosting) { resolve(nil) }
     }
 }
 

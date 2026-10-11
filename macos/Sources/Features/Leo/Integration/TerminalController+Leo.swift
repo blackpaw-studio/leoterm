@@ -131,7 +131,7 @@ extension TerminalController {
             guard let id = self.leoSession?.id else { return }
             runtime.model.attachRequested(row, id, disposition)
         })
-        window?.contentViewController?.presentAsSheet(sheet)
+        window?.presentLeoSheet(sheet)
     }
 
     func validateLeoSidebarMenuItem(_ item: NSMenuItem) -> Bool {
