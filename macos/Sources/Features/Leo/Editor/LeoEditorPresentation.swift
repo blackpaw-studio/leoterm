@@ -11,8 +11,9 @@ enum LeoEditorPaneContent: Equatable {
     case image(URL)
     case movie(URL)
     case quickLook(URL)
-    /// "Can’t Preview …", with `message` when the fetch failed.
-    case unavailable(typeName: String, message: String?)
+    /// "Can’t Preview …", with `message` when the fetch failed, and Try
+    /// Again when `canRetry`.
+    case unavailable(typeName: String, message: String?, canRetry: Bool = false)
     /// Nothing: the document is closing.
     case empty
 }
@@ -54,7 +55,7 @@ struct LeoEditorPresentation: Equatable {
         switch preview {
         case .loading(let fraction): return .loading(fraction: fraction)
         case .unsupported(let name): return .unavailable(typeName: name, message: nil)
-        case .failed(let message): return .unavailable(typeName: typeName, message: message)
+        case let .failed(message, canRetry): return .unavailable(typeName: typeName, message: message, canRetry: canRetry)
         case .closed: return .empty
         case .ready(let url):
             switch kind {

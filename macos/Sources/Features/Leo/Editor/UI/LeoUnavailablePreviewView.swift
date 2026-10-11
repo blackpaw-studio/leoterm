@@ -3,7 +3,7 @@ import AppKit
 /// "Can’t Preview <Type>" (B-278): a calm, centred state for a binary file,
 /// one over the preview limit, or a fetch that failed -- never garbled
 /// text. Offers Show in Finder (a local file) or Download (a remote one),
-/// and Try Again after a failure.
+/// and Try Again after a failure that a retry can get past.
 final class LeoUnavailablePreviewView: NSView {
     enum Action {
         case reveal
@@ -12,10 +12,13 @@ final class LeoUnavailablePreviewView: NSView {
 
     var onAction: (Action) -> Void = { _ in }
 
-    init(title: String, message: String?, revealTitle: String) {
+    init(title: String, message: String?, revealTitle: String, canRetry: Bool = false) {
         super.init(frame: .zero)
-        build(title: title, message: message, revealTitle: revealTitle)
+        build(title: title, message: message, revealTitle: revealTitle, canRetry: canRetry)
     }
+
+    /// What a failure that can't be retried here adds.
+    static let reopenHint = "Close this tab and open the file again to retry."
 
     required init?(coder: NSCoder) { nil }
 
@@ -23,7 +26,8 @@ final class LeoUnavailablePreviewView: NSView {
 
     static func title(typeName: String) -> String { "Can’t Preview \(typeName)" }
 
-    private func build(title: String, message: String?, revealTitle: String) {
+    private func build(title: String, message: String?, revealTitle: String, canRetry: Bool) {
+        let message = message.map { canRetry ? $0 : "\($0) \(Self.reopenHint)" }
         let icon = NSImageView(image: NSImage(systemSymbolName: message == nil ? "doc.questionmark" : "exclamationmark.triangle", accessibilityDescription: nil) ?? NSImage())
         icon.symbolConfiguration = .init(pointSize: 40, weight: .light)
         icon.contentTintColor = .tertiaryLabelColor
@@ -41,7 +45,7 @@ final class LeoUnavailablePreviewView: NSView {
             label.preferredMaxLayoutWidth = 320
             rows.append(label)
         }
-        let buttons = NSStackView(views: [button(revealTitle, .reveal)] + (message == nil ? [] : [button("Try Again", .retry)]))
+        let buttons = NSStackView(views: [button(revealTitle, .reveal)] + (canRetry ? [button("Try Again", .retry)] : []))
         buttons.orientation = .horizontal
         buttons.spacing = 8
         rows.append(buttons)

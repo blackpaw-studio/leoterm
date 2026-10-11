@@ -46,7 +46,8 @@ struct LeoEditorPresentationTests {
         (.image, .unsupported(typeName: "PNG image"), .unavailable(typeName: "PNG image", message: nil)),
         (.text, .unsupported(typeName: "ZIP archive"), .unavailable(typeName: "ZIP archive", message: nil)),
         (.rendered(.markdown), .unsupported(typeName: "Markdown"), .unavailable(typeName: "Markdown", message: nil)),
-        (.movie, .failed("gone"), .unavailable(typeName: "MPEG-4 movie", message: "gone")),
+        (.movie, .failed("gone", canRetry: true), .unavailable(typeName: "MPEG-4 movie", message: "gone", canRetry: true)),
+        (.movie, .failed("closed", canRetry: false), .unavailable(typeName: "MPEG-4 movie", message: "closed", canRetry: false)),
         (.movie, .closed, .empty),
     ])
     func eachPreviewStateMapsToItsView(_ kind: LeoFilePreviewKind, _ state: LeoFilePreview.State, _ expected: LeoEditorPaneContent) {

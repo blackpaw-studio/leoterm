@@ -131,6 +131,61 @@ struct LeoEditorDocumentPreviewTests {
         }
     }
 
+    /// macOS clears $TMPDIR files left untouched: a preview whose cached
+    /// file went is fetched again on the next disk check.
+    @Test func aMissingCacheFileRefetches() async throws {
+        try await withPreviews(.local) { workspace, access, cache in
+            let path = try workspace.file("a.png", "png")
+            let document = try await open(path, access, cache)
+            let first = try await readyURL(document)
+            try FileManager.default.removeItem(at: first.deletingLastPathComponent())
+
+            #expect(await document.checkDisk() == .reloaded)
+            let second = try await readyURL(document)
+
+            #expect(try String(contentsOf: second, encoding: .utf8) == "png")
+            #expect(await document.checkDisk() == .unchanged)
+            await document.close()
+        }
+    }
+
+    /// A first fetch cut off by the surfaced-open deadline closed the
+    /// access for good: Try Again can't work, so it isn't offered.
+    @Test func aTimedOutFetchOffersNoRetry() async throws {
+        try await withPreviews(.local) { _, _, cache in
+            let path = "/w/a.mov"
+            let access = LeoReadDeadline(seconds: 5, sleep: { _ in }).wrap(HangingAccess(hanging: [path]))
+            let document = try await open(path, access, cache)
+
+            await document.settlePreview()
+
+            guard case .failed(_, let canRetry) = document.preview?.state else {
+                Issue.record("not failed: \(String(describing: document.preview?.state))")
+                return
+            }
+            #expect(!canRetry)
+            #expect(entries(cache).isEmpty)
+            await document.close()
+        }
+    }
+
+    @Test func anOrdinaryFailureOffersRetry() async throws {
+        try await withPreviews(.local) { workspace, access, cache in
+            let path = try workspace.file("a.mov", "movie")
+            try workspace.chmod("a.mov", 0o000)
+            let document = try await open(path, access, cache)
+
+            await document.settlePreview()
+
+            guard case .failed(_, let canRetry) = document.preview?.state else {
+                Issue.record("not failed: \(String(describing: document.preview?.state))")
+                return
+            }
+            #expect(canRetry)
+            await document.close()
+        }
+    }
+
     @Test func aDeletedPreviewIsBanneredWithoutKeepMine() async throws {
         try await withPreviews(.local) { workspace, access, cache in
             let path = try workspace.file("a.png", "png")

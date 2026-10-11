@@ -243,6 +243,11 @@ enum LeoEditorSaveOutcome: Equatable, Sendable {
             return .failed
         }
         if current == base {
+            // macOS clears $TMPDIR files left untouched: fetch it again.
+            if case .version(let version) = current, preview?.isMissingFile == true {
+                refetch(at: version)
+                return .reloaded
+            }
             diskState = .inSync
             observed = nil
             return .unchanged

@@ -13,8 +13,16 @@ struct LeoReadDeadline: Sendable {
     /// The daemon client's default request timeout.
     static let surfacedOpen = LeoReadDeadline(seconds: 5)
 
+    static let timeoutReason: LeoFileAccessReason = "it didn’t answer in time"
+
     let seconds: TimeInterval
     var sleep: @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) }
+
+    /// The deadline passed: the access it bounded is closed for good.
+    static func isTimeout(_ error: Error) -> Bool {
+        guard case LeoFileAccessError.failed(_, let reason) = error else { return false }
+        return reason == timeoutReason
+    }
 
     func wrap(_ access: any LeoFileAccess) -> any LeoFileAccess {
         LeoDeadlineFileAccess(base: access, deadline: self)
@@ -50,7 +58,7 @@ private final class LeoDeadlineFileAccess: LeoFileAccess, @unchecked Sendable {
     }
 
     private static func timeout(_ path: String) -> LeoFileAccessError {
-        .failed(path: path, reason: "it didn’t answer in time")
+        .failed(path: path, reason: LeoReadDeadline.timeoutReason)
     }
 
     func read(_ path: String, into sink: any LeoFileByteSink) async throws -> LeoFileStat {

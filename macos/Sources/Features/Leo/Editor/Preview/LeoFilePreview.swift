@@ -16,7 +16,9 @@ import Foundation
         case ready(URL)
         /// Binary by sniff, or over the fetch limit.
         case unsupported(typeName: String)
-        case failed(String)
+        /// `canRetry`: false once the file access is closed for good (a
+        /// surfaced open's deadline passed), when Try Again can't work.
+        case failed(String, canRetry: Bool)
         /// The document closed: nothing is shown any more.
         case closed
     }
@@ -48,6 +50,12 @@ import Foundation
         state = .loading(fraction: nil)
         self.fetch = fetch
         self.discard = discard
+    }
+
+    /// The file shown is gone from the cache (cleared from $TMPDIR).
+    var isMissingFile: Bool {
+        guard case .ready(let url) = state else { return false }
+        return !FileManager.default.fileExists(atPath: url.path)
     }
 
     /// Whether this preview streams its file (as opposed to a fixed state).
@@ -133,6 +141,7 @@ import Foundation
 
     private static func state(for error: Error, typeName: String) -> State {
         if case LeoFileAccessError.tooLarge = error { return .unsupported(typeName: typeName) }
-        return .failed(LeoFileExport.message(for: error))
+        let isFinal = LeoReadDeadline.isTimeout(error) || error as? LeoFileAccessError == .closed
+        return .failed(LeoFileExport.message(for: error), canRetry: !isFinal)
     }
 }
