@@ -97,3 +97,4 @@ Finished 3: B-288 landed 492d7d37f · not visually verified
 - B-288 runner dispatched: d-5bacc1a48ca0 (implement → claude/sonnet, tier full).
 - B-288 landed 492d7d37f (full, 1 fix round: probe race; suite 2683 green; not visually verified).
 - B-268 picked (tier light: one narrow attention/ack comparison).
+- B-268 runner dispatched: d-331c0899af6d (implement → claude/sonnet, tier light).
