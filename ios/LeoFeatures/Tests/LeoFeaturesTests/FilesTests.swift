@@ -43,20 +43,18 @@ struct FilesTests {
         }
     }
 
-    @Test func openingMarkdownReadsItsTextAtTheLineAndCleansUpOnClose() async {
+    @Test func openingMarkdownReadsItsTextAtTheLine() async {
         let requests = LockIsolated<[(Int64, Bool)]>([])
-        let discarded = LockIsolated<[URL]>([])
         let store = makeStore()
         store.dependencies.surfacedFiles.download = { [tempURL] _, file, maxBytes, truncating in
             requests.withValue { $0.append((maxBytes, truncating)) }
             return LeoDownloadedFile(url: tempURL, totalBytes: 20, byteCount: 20)
         }
         store.dependencies.surfacedFiles.readText = { _ in "# Notes\n" }
-        store.dependencies.surfacedFiles.discard = { url in discarded.withValue { $0.append(url) } }
 
         await store.send(.fileTapped(notes.id)) { $0.opening = self.notes.id }
         let preview = FilePreview.State(
-            file: notes, localURL: tempURL, kind: .markdown, text: "# Notes\n", totalBytes: 20, isTruncated: false
+            daemon: .dionysus, file: notes, localURL: tempURL, kind: .markdown, text: "# Notes\n", totalBytes: 20, isTruncated: false
         )
         await store.receive(\.downloaded) {
             $0.opening = nil
@@ -66,9 +64,6 @@ struct FilesTests {
         #expect(store.state.preview?.line == 12)
         #expect(requests.value.map(\.0) == [FilePreviewKind.textPreviewCap])
         #expect(requests.value.map(\.1) == [true])
-
-        await store.send(\.preview.dismiss) { $0.preview = nil }
-        #expect(discarded.value == [tempURL])
     }
 
     @Test func imagesGoToQuickLookWholeOrNotAtAll() async {
@@ -83,7 +78,7 @@ struct FilesTests {
         await store.send(.fileTapped(shot.id)) { $0.opening = self.shot.id }
         await store.receive(\.downloaded) {
             $0.opening = nil
-            $0.preview = FilePreview.State(file: self.shot, localURL: pngURL, kind: .quickLook, text: nil, totalBytes: 2048, isTruncated: false)
+            $0.preview = FilePreview.State(daemon: .dionysus, file: self.shot, localURL: pngURL, kind: .quickLook, text: nil, totalBytes: 2048, isTruncated: false)
         }
         await store.receive(\.delegate.opened)
         #expect(requests.value.map(\.0) == [FilePreviewKind.quickLookCap])
@@ -100,7 +95,7 @@ struct FilesTests {
         await store.send(.fileTapped(blob.id)) { $0.opening = blob.id }
         await store.receive(\.downloaded) {
             $0.opening = nil
-            $0.preview = FilePreview.State(file: blob, localURL: url, kind: .quickLook, text: nil, totalBytes: 4, isTruncated: false)
+            $0.preview = FilePreview.State(daemon: .dionysus, file: blob, localURL: url, kind: .quickLook, text: nil, totalBytes: 4, isTruncated: false)
         }
         await store.receive(\.delegate.opened)
     }
@@ -118,9 +113,93 @@ struct FilesTests {
         gate.continuation.finish()
         await store.receive(\.downloaded) {
             $0.opening = nil
-            $0.preview = FilePreview.State(file: self.notes, localURL: self.tempURL, kind: .markdown, text: "x", totalBytes: 1, isTruncated: false)
+            $0.preview = FilePreview.State(daemon: .dionysus, file: self.notes, localURL: self.tempURL, kind: .markdown, text: "x", totalBytes: 1, isTruncated: false)
         }
         await store.receive(\.delegate.opened)
+    }
+}
+
+extension FilesTests {
+    @Test func aDownloadThatOutlivesItsFileStillFreesTheList() async {
+        let discarded = LockIsolated<[URL]>([])
+        var initial = Files.State(daemon: .dionysus, agentName: "zeus", files: [shot], unseenIDs: [])
+        initial.opening = "evicted"
+        let gone = LeoSurfacedFile.make("evicted", path: "old.md")
+        let store = TestStore(initialState: initial) { Files() } withDependencies: {
+            $0.secrets.load = { _ in DaemonSecrets(token: "t") }
+            $0.surfacedFiles.discard = { url in discarded.withValue { $0.append(url) } }
+            $0.surfacedFiles.download = { _, _, _, _ in throw LeoDaemonError.transport("offline") }
+        }
+        let late = FilePreview.State(daemon: .dionysus, file: gone, localURL: tempURL, kind: .markdown, text: "x", totalBytes: 1, isTruncated: false)
+
+        await store.send(.downloaded("evicted", .success(late))) { $0.opening = nil }
+        await store.finish()
+        #expect(discarded.value == [tempURL])
+
+        await store.send(.fileTapped(shot.id)) { $0.opening = self.shot.id }
+        await store.receive(\.downloaded) {
+            $0.opening = nil
+            $0.alert = Files.failureAlert(self.shot, LeoDaemonError.transport("offline"))
+        }
+    }
+}
+
+@MainActor
+struct FilePreviewTests {
+    let notes = LeoSurfacedFile.make("f-md", path: "docs/notes.md", minute: 1, line: 12)
+    let excerpt = URL(fileURLWithPath: "/tmp/leo-previews/x/notes.md")
+    let full = URL(fileURLWithPath: "/tmp/leo-previews/y/notes.md")
+
+    func makeStore(isTruncated: Bool) -> TestStoreOf<FilePreview> {
+        TestStore(initialState: FilePreview.State(
+            daemon: .dionysus, file: notes, localURL: excerpt, kind: .markdown, text: "# Notes", totalBytes: 5 << 20, isTruncated: isTruncated
+        )) {
+            FilePreview()
+        } withDependencies: {
+            $0.secrets.load = { _ in DaemonSecrets(token: "t") }
+        }
+    }
+
+    @Test func sharingAWholePreviewSharesItsFile() async {
+        let store = makeStore(isTruncated: false)
+        await store.send(.shareButtonTapped) { $0.isSharing = true }
+        #expect(store.state.shareURL == excerpt)
+    }
+
+    @Test func sharingATruncatedPreviewFetchesTheWholeFileFirst() async {
+        let requests = LockIsolated<[(Int64, Bool)]>([])
+        let store = makeStore(isTruncated: true)
+        store.dependencies.surfacedFiles.download = { [full] _, _, maxBytes, truncating in
+            requests.withValue { $0.append((maxBytes, truncating)) }
+            return LeoDownloadedFile(url: full, totalBytes: 5 << 20, byteCount: 5 << 20)
+        }
+
+        await store.send(.shareButtonTapped) { $0.isPreparingShare = true }
+        await store.receive(\.fullFileDownloaded) {
+            $0.isPreparingShare = false
+            $0.fullFileURL = self.full
+            $0.isSharing = true
+        }
+        #expect(store.state.shareURL == full)
+        #expect(store.state.temporaryFiles == [excerpt, full])
+        #expect(requests.value.map(\.0) == [FilePreviewKind.quickLookCap])
+        #expect(requests.value.map(\.1) == [false])
+
+        await store.send(\.binding.isSharing, false) { $0.isSharing = false }
+        await store.send(.shareButtonTapped) { $0.isSharing = true }
+        #expect(requests.value.count == 1)
+    }
+
+    @Test func aFileTooLargeToShareSaysSo() async {
+        let store = makeStore(isTruncated: true)
+        store.dependencies.surfacedFiles.download = { _, _, _, _ in throw LeoFileDownloadError.tooLarge(200 << 20) }
+
+        await store.send(.shareButtonTapped) { $0.isPreparingShare = true }
+        await store.receive(\.fullFileDownloaded) {
+            $0.isPreparingShare = false
+            $0.alert = FilePreview.shareFailedAlert(LeoFileDownloadError.tooLarge(200 << 20))
+        }
+        #expect(store.state.shareURL == nil)
     }
 }
 

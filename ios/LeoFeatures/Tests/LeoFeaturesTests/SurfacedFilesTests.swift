@@ -155,4 +155,93 @@ struct SurfacedFilesTests {
             $0.detail?.destination?.modify(\.terminal) { $0.isSceneActive = false }
         }
     }
+
+    // MARK: Replacing or removing the selected agent
+
+    func twoAgentsWithZeusOpen(_ destination: AgentDetail.Destination.State) -> AppFeature.State {
+        var initial = AppFeature.State()
+        initial.fleet = Fleet.State(daemons: [.dionysus])
+        initial.fleet.sessions[0].agents = [Agent(.make("zeus", startedAt: "s1")), Agent(.make("hera", startedAt: "s1"))]
+        initial.detail = AgentDetail.State(daemon: .dionysus, agent: initial.fleet.sessions[0].agents[0], connection: .offline)
+        initial.detail?.destination = destination
+        return initial
+    }
+
+    var hera: AgentRef { AgentRef(daemonID: PairedDaemon.dionysus.id, name: "hera") }
+
+    @Test func switchingAgentsClosesThePreviousAgentsTerminal() async {
+        let streams = Streams<LeoTerminalEvent>(count: 1)
+        let initial = twoAgentsWithZeusOpen(.terminal(Terminal.State(daemon: .dionysus, agentName: "zeus", isAgentRunning: true)))
+        let store = TestStore(initialState: initial) { AppFeature() } withDependencies: {
+            $0.secrets.load = { _ in DaemonSecrets(token: "t") }
+            $0.terminalClient.attach = { _, _, _ in streams.next() }
+        }
+
+        await store.send(\.detail.destination.terminal.appeared) {
+            $0.detail?.destination?.modify(\.terminal) {
+                $0.isVisible = true
+                $0.phase = .connecting
+            }
+        }
+        await store.send(.agentTapped(hera)) {
+            $0.detail = AgentDetail.State(daemon: .dionysus, agent: $0.fleet.agent(self.hera)!, connection: .offline)
+        }
+        await store.finish()
+        #expect(streams.terminated.value == 1)
+    }
+
+    func filesWithPreview(_ preview: FilePreview.State) -> AgentDetail.Destination.State {
+        var files = Files.State(daemon: .dionysus, agentName: "zeus", files: [], unseenIDs: [])
+        files.preview = preview
+        return .files(files)
+    }
+
+    var openPreview: FilePreview.State {
+        var preview = FilePreview.State(
+            daemon: .dionysus, file: a, localURL: URL(fileURLWithPath: "/tmp/leo-previews/1/a.md"), kind: .markdown, text: "x",
+            totalBytes: 9, isTruncated: true
+        )
+        preview.fullFileURL = URL(fileURLWithPath: "/tmp/leo-previews/2/a.md")
+        return preview
+    }
+
+    @Test func switchingAgentsDeletesTheOpenPreview() async {
+        let discarded = LockIsolated<[URL]>([])
+        let store = TestStore(initialState: twoAgentsWithZeusOpen(filesWithPreview(openPreview))) { AppFeature() } withDependencies: {
+            $0.surfacedFiles.discard = { url in discarded.withValue { $0.append(url) } }
+        }
+        await store.send(.agentTapped(hera)) {
+            $0.detail = AgentDetail.State(daemon: .dionysus, agent: $0.fleet.agent(self.hera)!, connection: .offline)
+        }
+        await store.finish()
+        #expect(Set(discarded.value) == Set(openPreview.temporaryFiles))
+        #expect(discarded.value.count == 2)
+    }
+
+    @Test func forgettingTheDaemonDeletesTheOpenPreview() async {
+        let discarded = LockIsolated<[URL]>([])
+        let store = TestStore(initialState: twoAgentsWithZeusOpen(filesWithPreview(openPreview))) { AppFeature() } withDependencies: {
+            $0.surfacedFiles.discard = { url in discarded.withValue { $0.append(url) } }
+            $0.secrets.delete = { _ in }
+            $0.pairedDaemons.save = { _ in }
+        }
+        await store.send(\.daemons.delegate.forget, PairedDaemon.dionysus.id) {
+            $0.fleet.sessions.remove(id: PairedDaemon.dionysus.id)
+            $0.detail = nil
+        }
+        await store.finish()
+        #expect(Set(discarded.value) == Set(openPreview.temporaryFiles))
+    }
+
+    @Test func closingThePreviewDeletesEachOfItsFilesOnce() async {
+        let discarded = LockIsolated<[URL]>([])
+        let store = TestStore(initialState: twoAgentsWithZeusOpen(filesWithPreview(openPreview))) { AppFeature() } withDependencies: {
+            $0.surfacedFiles.discard = { url in discarded.withValue { $0.append(url) } }
+        }
+        await store.send(\.detail.destination.files.preview.dismiss) {
+            $0.detail?.destination?.modify(\.files) { $0.preview = nil }
+        }
+        await store.finish()
+        #expect(discarded.value.sorted { $0.path() < $1.path() } == openPreview.temporaryFiles.sorted { $0.path() < $1.path() })
+    }
 }

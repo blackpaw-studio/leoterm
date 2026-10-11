@@ -13,8 +13,10 @@ public struct AgentDetail {
         case terminal(Terminal)
     }
 
+    /// Identified by agent, so replacing the selection with another agent
+    /// cancels everything the previous one was running (its terminal).
     @ObservableState
-    public struct State: Equatable {
+    public struct State: Equatable, Identifiable {
         public var daemon: PairedDaemon
         public let agentName: String
         /// Kept live by the parent from `Fleet`; nil once the agent is gone.
@@ -38,6 +40,7 @@ public struct AgentDetail {
         }
 
         public var ref: AgentRef { AgentRef(daemonID: daemon.id, name: agentName) }
+        public var id: AgentRef { ref }
         public var isBusy: Bool { inFlight != nil || isLoadingEnvironments }
 
         /// Pushes the parent's view of files into an open Files screen.

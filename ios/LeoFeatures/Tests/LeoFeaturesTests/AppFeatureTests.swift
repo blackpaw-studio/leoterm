@@ -96,9 +96,10 @@ struct AppFeatureTests {
         await store.send(.agentTapped(AgentRef(daemonID: id, name: "hera"))) {
             $0.detail = AgentDetail.State(daemon: .dionysus, agent: Agent(.make("hera")), connection: .connected)
         }
+        // Replacing the selection cancels zeus's request: its catalog must
+        // not open a picker that would restart hera.
         await clock.advance(by: .seconds(1))
-        // zeus's catalog must not open a picker that would restart hera.
-        await store.receive(\.detail.environmentsLoaded)
+        await store.finish()
         #expect(store.state.detail?.confirmation == nil)
     }
 

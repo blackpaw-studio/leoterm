@@ -5,12 +5,19 @@ import UIKitNavigation
 
 /// A surfaced text or Markdown file, scrolled to the agent's `line` with
 /// that line (or the Markdown block holding it) highlighted. Text shows
-/// line numbers; Markdown renders. Shares the downloaded file.
+/// line numbers; Markdown renders. Shares the whole file, fetching it first
+/// when the preview holds only its start.
 final class TextFileViewController: UIViewController {
     @UIBindable private var store: StoreOf<FilePreview>
     private let textView = UITextView(usingTextLayoutManager: false)
     private let highlightView = UIView()
     private let truncationLabel = UILabel()
+    private let shareSpinner = UIActivityIndicatorView(style: .medium)
+    private lazy var shareItem: UIBarButtonItem = {
+        let item = UIBarButtonItem(systemItem: .action, primaryAction: UIAction { [weak self] _ in self?.store.send(.shareButtonTapped) })
+        item.accessibilityIdentifier = "file.share"
+        return item
+    }()
     private var highlightRange: NSRange?
     private var hasScrolledToLine = false
 
@@ -29,9 +36,6 @@ final class TextFileViewController: UIViewController {
         navigationItem.largeTitleDisplayMode = .never
         view.backgroundColor = .systemBackground
 
-        let share = UIBarButtonItem(systemItem: .action, primaryAction: UIAction { [weak self] _ in self?.store.send(.shareButtonTapped) })
-        share.accessibilityIdentifier = "file.share"
-        navigationItem.rightBarButtonItem = share
 
         textView.isEditable = false
         textView.alwaysBounceVertical = true
@@ -75,9 +79,23 @@ final class TextFileViewController: UIViewController {
         highlightRange = rendered.highlight
 
         present(isPresented: $store.isSharing) { [weak self] in
-            let controller = UIActivityViewController(activityItems: [self?.store.localURL as Any], applicationActivities: nil)
-            controller.popoverPresentationController?.barButtonItem = self?.navigationItem.rightBarButtonItem
+            let controller = UIActivityViewController(activityItems: [self?.store.shareURL as Any], applicationActivities: nil)
+            controller.popoverPresentationController?.barButtonItem = self?.shareItem
             return controller
+        }
+        present(item: $store.scope(state: \.alert, action: \.alert)) { store in
+            UIAlertController(store: store)
+        }
+
+        observe { [weak self] in
+            guard let self else { return }
+            // Fetching the whole file to share: a spinner where the button was.
+            if store.isPreparingShare {
+                shareSpinner.startAnimating()
+                navigationItem.rightBarButtonItem = UIBarButtonItem(customView: shareSpinner)
+            } else {
+                navigationItem.rightBarButtonItem = shareItem
+            }
         }
     }
 
