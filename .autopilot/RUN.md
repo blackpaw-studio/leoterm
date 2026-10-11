@@ -30,7 +30,7 @@ Lane: B-287
   Branch: autopilot-lane/B-287
   Base: fdfa10d09c651135354ed96fc4633794e7af1ec8
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
@@ -40,9 +40,12 @@ Lane: B-287
   Call: Test harness activates the app and waits up to 5 s for key status — P1
   Call: First-attach sizing tests set sidebarVisible explicitly instead of reading the real debug-bundle defaults — hermetic tests, no user-visible change
 
+Finished 1: B-287 landed 2cacc795d · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-287-1.png
+
 ## Progress
 - Preflight: main fast-forwarded into autopilot (fdc2619ad); applied 2 inbox entries (B-287, B-288 bugs added); B-284, B-285 promoted to ready.
 - Evan (20:42 EDT): budget raised to 3 items.
 - B-287 runner dispatched: d-655c97ca88ac (tier full).
 - leoterm-ios (22:28 EDT): its LeoKit run shared the debug defaults domain and ran `defaults delete` ~21:30–22:25 EDT; B-287 window-size/sidebar test failures in that window may be interference — re-run before treating as signal.
 - B-287 runner reported ready (1 fix round: pre-existing LeoFirstAttachWindowSizeTests flake from real debug defaults, fixed hermetically). Runner's first implement.hard d-5d1830a7959d lost its turn; retried once with d-12c0844d948c, which finished — treated as recovered, not a failed dispatch. Agent-pane ⌃C covered by tests only.
+- B-287 landed 2cacc795d (full, hard; suite 2599/2599).

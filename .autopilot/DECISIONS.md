@@ -3587,3 +3587,24 @@ Chose: Edit Order sheet is an NSWindow sheet owned by `LeoEnvironmentsSheetSessi
 Why: P1
 Commit: 4b00e6f6d, dd546ac5d, bc5915c15, dcd9e72e3, 1f2d010f2, b21332672
 Veto: [ ]
+
+## D-501 · 2026-10-10 · Sidebar Return is matched by key code (36/76, no modifiers) in a new AppKit view, not in …
+Context: B-287 (runner call).
+Chose: Sidebar Return is matched by key code (36/76, no modifiers) in a new AppKit view, not in Ghostty's SurfaceView
+Why: P1
+Commit: a7af5783e, fcca77097, db524cb88
+Veto: [ ]
+
+## D-502 · 2026-10-10 · Test harness activates the app and waits up to 5 s for key status
+Context: B-287 (runner call).
+Chose: Test harness activates the app and waits up to 5 s for key status
+Why: P1
+Commit: a7af5783e, fcca77097, db524cb88
+Veto: [ ]
+
+## D-503 · 2026-10-10 · First-attach sizing tests set sidebarVisible explicitly instead of reading the real debug…
+Context: B-287 (runner call).
+Chose: First-attach sizing tests set sidebarVisible explicitly instead of reading the real debug-bundle defaults
+Why: hermetic tests, no user-visible change
+Commit: a7af5783e, fcca77097, db524cb88
+Veto: [ ]
