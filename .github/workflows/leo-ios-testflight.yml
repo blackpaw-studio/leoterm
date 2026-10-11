@@ -18,7 +18,12 @@ permissions:
 
 env:
   DEVELOPER_DIR: /Applications/Xcode-26.5.0.app/Contents/Developer
-  TEAM_ID: 52M9C6892K
+  # The runner is a launchd service with no locale; without UTF-8 fastlane's
+  # xcodebuild/pty handling crashes.
+  LANG: en_US.UTF-8
+  LC_ALL: en_US.UTF-8
+  FASTLANE_SKIP_UPDATE_CHECK: "1"
+  FASTLANE_HIDE_CHANGELOG: "1"
 
 jobs:
   testflight:
@@ -37,35 +42,67 @@ jobs:
 
       - name: Set paths
         run: |
-          echo "ARCHIVE=$RUNNER_TEMP/Leo.xcarchive" >> "$GITHUB_ENV"
-          echo "EXPORT_DIR=$RUNNER_TEMP/leo-export" >> "$GITHUB_ENV"
+          {
+            echo "ARCHIVE=$RUNNER_TEMP/Leo.xcarchive"
+            echo "EXPORT_DIR=$RUNNER_TEMP/leo-export"
+            echo "MATCH_DEPLOY_KEY_PATH=$RUNNER_TEMP/leo-match-deploy-key"
+            echo "MATCH_KNOWN_HOSTS=$RUNNER_TEMP/leo-match-known-hosts"
+          } >> "$GITHUB_ENV"
 
       - name: Check secrets
         env:
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_DEPLOY_KEY: ${{ secrets.MATCH_DEPLOY_KEY }}
         run: |
-          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8; do
+          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8 MATCH_PASSWORD MATCH_DEPLOY_KEY; do
             if [ -z "${!name}" ]; then
               echo "::error::Missing secret $name (see ios/README.md)"
               exit 1
             fi
           done
 
-      # The key lives only in $RUNNER_TEMP for the job; xcodebuild reads it
-      # by path for both the archive and the upload.
-      # Automatic signing writes a certificate, private key and profiles;
-      # confine them to a per-job keychain and profile snapshot (removed in
-      # the always() cleanup below).
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: ios
+
+      # fastlane match imports the certificate and installs profiles; confine
+      # both to a per-job keychain and profile snapshot (removed in the
+      # always() cleanup below).
       - name: Create signing keychain
         run: .github/scripts/leo/ios-signing.sh create
+
+      # Read-only deploy key for the match repo, written for this step only
+      # and deleted on exit (and again in the always() cleanup).
+      - name: Fetch signing assets (match)
+        working-directory: ios
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_DEPLOY_KEY: ${{ secrets.MATCH_DEPLOY_KEY }}
+        run: |
+          umask 077
+          trap 'rm -f "$MATCH_DEPLOY_KEY_PATH" "$MATCH_KNOWN_HOSTS"' EXIT
+          printf '%s\n' "$MATCH_DEPLOY_KEY" > "$MATCH_DEPLOY_KEY_PATH"
+          # GitHub's published ed25519 host key (docs.github.com, "GitHub's SSH key fingerprints").
+          echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" > "$MATCH_KNOWN_HOSTS"
+          export GIT_SSH_COMMAND="ssh -i $MATCH_DEPLOY_KEY_PATH -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$MATCH_KNOWN_HOSTS"
+          export MATCH_KEYCHAIN_NAME="$LEO_IOS_KEYCHAIN"
+          export MATCH_KEYCHAIN_PASSWORD="$LEO_IOS_KEYCHAIN_PASSWORD"
+          bundle exec fastlane match appstore --readonly
 
       - name: Write App Store Connect key
         env:
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
         run: |
           umask 077
-          printf '%s\n' "$ASC_KEY_P8" > "$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
-          echo "ASC_KEY_PATH=$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8" >> "$GITHUB_ENV"
+          # pilot reads the key from a JSON file; the p8 itself never leaves the job.
+          jq -n --arg key_id "$ASC_KEY_ID" --arg issuer_id "$ASC_ISSUER_ID" --arg key "$ASC_KEY_P8" \
+            '{key_id: $key_id, issuer_id: $issuer_id, key: $key, in_house: false}' \
+            > "$RUNNER_TEMP/asc-api-key.json"
+          echo "ASC_API_KEY_JSON=$RUNNER_TEMP/asc-api-key.json" >> "$GITHUB_ENV"
 
       - name: Archive
         working-directory: ios
@@ -75,40 +112,27 @@ jobs:
             -project Leo.xcodeproj -scheme Leo -configuration Release \
             -destination "generic/platform=iOS" \
             -archivePath "$ARCHIVE" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$ASC_KEY_PATH" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
-            DEVELOPMENT_TEAM="$TEAM_ID" \
             OTHER_CODE_SIGN_FLAGS="--keychain $LEO_IOS_KEYCHAIN" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
 
-      # destination=upload sends the build straight to App Store Connect.
-      - name: Export and upload to TestFlight
+      - name: Export
         working-directory: ios
         run: |
-          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key><string>app-store-connect</string>
-            <key>destination</key><string>upload</string>
-            <key>teamID</key><string>${TEAM_ID}</string>
-            <key>signingStyle</key><string>automatic</string>
-            <key>manageAppVersionAndBuildNumber</key><false/>
-            <key>uploadSymbols</key><true/>
-          </dict>
-          </plist>
-          PLIST
+          rm -rf "$EXPORT_DIR"
           xcodebuild -exportArchive \
             -archivePath "$ARCHIVE" \
             -exportPath "$EXPORT_DIR" \
-            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$ASC_KEY_PATH" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+            -exportOptionsPlist ExportOptions.plist
+
+      # Returns once the upload is accepted; App Store Connect processes the
+      # build afterwards and it shows up in TestFlight.
+      - name: Upload to TestFlight
+        working-directory: ios
+        run: |
+          bundle exec fastlane pilot upload \
+            --ipa "$EXPORT_DIR/Leo.ipa" \
+            --api_key_path "$ASC_API_KEY_JSON" \
+            --skip_waiting_for_build_processing true
 
       - name: Destroy signing keychain
         if: always()
@@ -116,4 +140,5 @@ jobs:
 
       - name: Clean up
         if: always()
-        run: rm -rf "$ARCHIVE" "$EXPORT_DIR" "$RUNNER_TEMP"/AuthKey_*.p8 "$RUNNER_TEMP/ExportOptions.plist"
+        run: |
+          rm -rf "$ARCHIVE" "$EXPORT_DIR" "$MATCH_DEPLOY_KEY_PATH" "$MATCH_KNOWN_HOSTS" "$RUNNER_TEMP/asc-api-key.json"

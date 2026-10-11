@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
-# Confine Xcode's automatic signing for the iOS TestFlight job to this job.
-# Automatic provisioning (-allowProvisioningUpdates) writes the signing
-# certificate and its private key to the default keychain and downloads
-# provisioning profiles into the user's profile directories. On the shared
-# runner both would otherwise outlive the job.
+# Confine fastlane match's signing assets for the iOS TestFlight job to this
+# job. `fastlane match` imports the distribution certificate and its private
+# key into a keychain and installs provisioning profiles into the user's
+# profile directories. On the shared runner both would otherwise outlive the
+# job.
 #
 #   ios-signing.sh create   make a throwaway keychain with a random password,
 #                            put it first in the search list and make it the
 #                            default, and snapshot the profile directories.
-#                            Exports LEO_IOS_KEYCHAIN (GITHUB_ENV).
+#                            Exports LEO_IOS_KEYCHAIN and a masked
+#                            LEO_IOS_KEYCHAIN_PASSWORD (GITHUB_ENV), which
+#                            match reads as MATCH_KEYCHAIN_NAME/PASSWORD.
 #   ios-signing.sh cleanup  restore the search list and default keychain,
 #                            delete the keychain, remove profiles added since
 #                            the snapshot, remove the per-job temp dir.
@@ -83,6 +85,10 @@ create() {
   write_atomic "$workdir/profiles-before" "$profiles"
 
   password="$(openssl rand -hex 24)"
+  if [[ -n "${GITHUB_ENV:-}" ]]; then
+    echo "::add-mask::$password"
+    echo "LEO_IOS_KEYCHAIN_PASSWORD=$password" >> "$GITHUB_ENV"
+  fi
   security create-keychain -p "$password" "$keychain"
   security set-keychain-settings "$keychain"
   security unlock-keychain -p "$password" "$keychain"

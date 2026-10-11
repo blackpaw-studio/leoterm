@@ -358,7 +358,6 @@
 				TargetAttributes = {
 					4AF55EDA76E8B94828BB07C3 = {
 						DevelopmentTeam = 52M9C6892K;
-						ProvisioningStyle = Automatic;
 					};
 					5779400518906C88E18166B0 = {
 						DevelopmentTeam = 52M9C6892K;
@@ -367,7 +366,6 @@
 					};
 					F1508DE32DA9238026314843 = {
 						DevelopmentTeam = 52M9C6892K;
-						ProvisioningStyle = Automatic;
 					};
 				};
 			};
@@ -470,6 +468,8 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = LeoNotificationService/LeoNotificationService.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Distribution";
+				CODE_SIGN_STYLE = Manual;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = LeoNotificationService/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
@@ -480,6 +480,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "studio.blackpaw.leo.ios.notification-service";
 				PRODUCT_NAME = LeoNotificationService;
+				PROVISIONING_PROFILE_SPECIFIER = "match AppStore studio.blackpaw.leo.ios.notification-service";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -571,7 +572,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = Ghostty;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Leo/Support/Leo.entitlements;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_IDENTITY = "Apple Distribution";
+				CODE_SIGN_STYLE = Manual;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Leo/Support/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
@@ -583,6 +585,7 @@
 				LEO_PUSH_RELAY_URL = "https://leo-relay.e-c0f.workers.dev";
 				PRODUCT_BUNDLE_IDENTIFIER = studio.blackpaw.leo.ios;
 				PRODUCT_NAME = Leo;
+				PROVISIONING_PROFILE_SPECIFIER = "match AppStore studio.blackpaw.leo.ios";
 				SDKROOT = iphoneos;
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;

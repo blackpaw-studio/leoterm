@@ -64,8 +64,13 @@ targets:
         # Which APNs gateway the relay uses for this build's tokens.
         Debug:
           LEO_APNS_ENVIRONMENT: sandbox
+        # Release signs manually with the fastlane match App Store profiles
+        # (see README); Debug stays on automatic signing for local work.
         Release:
           LEO_APNS_ENVIRONMENT: production
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: Apple Distribution
+          PROVISIONING_PROFILE_SPECIFIER: match AppStore studio.blackpaw.leo.ios
   LeoNotificationService:
     type: app-extension
     platform: iOS
@@ -84,6 +89,11 @@ targets:
         CODE_SIGN_ENTITLEMENTS: LeoNotificationService/LeoNotificationService.entitlements
         TARGETED_DEVICE_FAMILY: "1,2"
         APPLICATION_EXTENSION_API_ONLY: YES
+      configs:
+        Release:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: Apple Distribution
+          PROVISIONING_PROFILE_SPECIFIER: match AppStore studio.blackpaw.leo.ios.notification-service
   LeoUITests:
     type: bundle.ui-testing
     platform: iOS
