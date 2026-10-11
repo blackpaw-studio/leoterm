@@ -42,7 +42,7 @@ public struct LeoHTTPSTransport: LeoWebTransport {
     public static let streamIdleTimeout: TimeInterval = 90
 
     public let endpoint: LeoRemoteEndpoint
-    private let session: URLSession
+    let session: URLSession
 
     public init(endpoint: LeoRemoteEndpoint, session: URLSession = .shared) {
         self.endpoint = endpoint
@@ -125,7 +125,7 @@ public struct LeoHTTPSTransport: LeoWebTransport {
         }
     }
 
-    private static func transportError(_ error: URLError) -> Error {
+    static func transportError(_ error: URLError) -> Error {
         if error.code == .cancelled { return CancellationError() }
         if error.code == .timedOut { return LeoDaemonError.timeout }
         return LeoDaemonError.transport(error.localizedDescription)
@@ -164,9 +164,10 @@ final class SameOriginRedirects: NSObject, URLSessionTaskDelegate, @unchecked Se
         }
     }
 
+    /// A WebSocket URL shares its HTTP twin's origin (ws ↔ http, wss ↔ https).
     static func isSameOrigin(_ lhs: URL, _ rhs: URL) -> Bool {
         func key(_ url: URL) -> (String?, String?, Int?) {
-            let scheme = url.scheme?.lowercased()
+            let scheme = url.scheme?.lowercased() == "wss" ? "https" : url.scheme?.lowercased() == "ws" ? "http" : url.scheme?.lowercased()
             let port = url.port ?? (scheme == "https" ? 443 : scheme == "http" ? 80 : nil)
             return (scheme, url.host?.lowercased(), port)
         }

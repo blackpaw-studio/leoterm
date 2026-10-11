@@ -15,6 +15,9 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         if ProcessInfo.processInfo.arguments.contains("-resetForUITests") { Self.resetForUITests() }
+        // Previews are temporary; anything left from a previous run goes.
+        @Dependency(\.surfacedFiles) var surfacedFiles
+        surfacedFiles.discardAll()
         Self.store.send(.task)
         return true
     }
@@ -23,11 +26,13 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
     }
 
-    /// UI tests start from no paired daemons.
+    /// UI tests start from no paired daemons and no opened files.
     private static func resetForUITests() {
         @Dependency(\.pairedDaemons) var pairedDaemons
         @Dependency(\.secrets) var secrets
         for daemon in (try? pairedDaemons.load()) ?? [] { try? secrets.delete(daemon.id) }
         try? pairedDaemons.save([])
+        @Dependency(\.seenFiles) var seenFiles
+        seenFiles.save(LeoSurfacedFileLedger())
     }
 }

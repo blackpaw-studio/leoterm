@@ -3,11 +3,20 @@ import Foundation
 import LeoKit
 
 /// One agent: its live state, and the control actions. Stop, restart,
-/// interrupt and environment switches are confirmed first.
+/// interrupt and environment switches are confirmed first. Pushes the
+/// agent's terminal and surfaced files.
 @Reducer
 public struct AgentDetail {
+    @Reducer
+    public enum Destination {
+        case files(Files)
+        case terminal(Terminal)
+    }
+
+    /// Identified by agent, so replacing the selection with another agent
+    /// cancels everything the previous one was running (its terminal).
     @ObservableState
-    public struct State: Equatable {
+    public struct State: Equatable, Identifiable {
         public var daemon: PairedDaemon
         public let agentName: String
         /// Kept live by the parent from `Fleet`; nil once the agent is gone.
@@ -15,8 +24,13 @@ public struct AgentDetail {
         public var connection: ConnectionStatus
         public var inFlight: AgentCommand?
         public var isLoadingEnvironments = false
+        /// The agent's surfaced files, newest first, and the unopened ones;
+        /// kept in step by the parent from `Fleet`.
+        public var files: [LeoSurfacedFile] = []
+        public var unseenFileIDs: Set<String> = []
         @Presents public var alert: AlertState<Never>?
         @Presents public var confirmation: ConfirmationDialogState<Action.Confirmation>?
+        @Presents public var destination: Destination.State?
 
         public init(daemon: PairedDaemon, agent: Agent, connection: ConnectionStatus) {
             self.daemon = daemon
@@ -26,7 +40,19 @@ public struct AgentDetail {
         }
 
         public var ref: AgentRef { AgentRef(daemonID: daemon.id, name: agentName) }
+        public var id: AgentRef { ref }
         public var isBusy: Bool { inFlight != nil || isLoadingEnvironments }
+
+        /// Pushes the parent's view of files into an open Files screen.
+        mutating func syncFiles(_ files: [LeoSurfacedFile], unseen: Set<String>) {
+            if self.files != files { self.files = files }
+            if unseenFileIDs != unseen { unseenFileIDs = unseen }
+            guard case .files(var list) = destination else { return }
+            if list.files != files { list.files = files }
+            if list.unseenIDs != unseen { list.unseenIDs = unseen }
+            if list.daemon != daemon { list.daemon = daemon }
+            if destination != .files(list) { destination = .files(list) }
+        }
     }
 
     public enum Action {
@@ -35,13 +61,16 @@ public struct AgentDetail {
         /// selection in place, and a late reply must not land on the next.
         case commandFinished(AgentRef, AgentCommand, Result<Void, any Error>)
         case confirmation(PresentationAction<Confirmation>)
+        case destination(PresentationAction<Destination.Action>)
         case environmentsLoaded(AgentRef, Result<[String], any Error>)
+        case filesButtonTapped
         case interruptButtonTapped
         case openInClaudeButtonTapped
         case restartButtonTapped
         case startButtonTapped
         case stopButtonTapped
         case switchEnvironmentButtonTapped
+        case terminalButtonTapped
 
         @CasePathable
         public enum Confirmation: Equatable {
@@ -70,7 +99,16 @@ public struct AgentDetail {
             case .confirmation(.presented(.perform(let command))):
                 return perform(command, state: &state)
 
-            case .confirmation:
+            case .confirmation, .destination:
+                return .none
+
+            case .filesButtonTapped:
+                state.destination = .files(Files.State(daemon: state.daemon, agentName: state.agentName, files: state.files, unseenIDs: state.unseenFileIDs))
+                return .none
+
+            case .terminalButtonTapped:
+                let isRunning = state.agent.map { !$0.isStopped } ?? false
+                state.destination = .terminal(Terminal.State(daemon: state.daemon, agentName: state.agentName, isAgentRunning: isRunning))
                 return .none
 
             case .interruptButtonTapped:
@@ -105,6 +143,7 @@ public struct AgentDetail {
         }
         .ifLet(\.$alert, action: \.alert)
         .ifLet(\.$confirmation, action: \.confirmation)
+        .ifLet(\.$destination, action: \.destination)
     }
 
     private func respond(to action: Action, state: inout State) -> Effect<Action> {
@@ -206,3 +245,5 @@ extension AgentCommand {
         }
     }
 }
+
+extension AgentDetail.Destination.State: Equatable {}

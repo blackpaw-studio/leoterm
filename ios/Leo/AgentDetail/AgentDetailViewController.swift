@@ -6,7 +6,7 @@ import UIKitNavigation
 /// One agent: live state, environment, actions, and what's coming next.
 final class AgentDetailViewController: UIViewController, UICollectionViewDelegate {
     private enum Section: Int, CaseIterable {
-        case header, claude, status, environment, actions, upcoming
+        case header, claude, live, status, environment, actions
     }
 
     private enum Row: Hashable {
@@ -73,6 +73,13 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
             return controller
         }
 
+        navigationDestination(item: $store.scope(state: \.destination?.terminal, action: \.destination.terminal)) { store in
+            TerminalViewController(store: store)
+        }
+        navigationDestination(item: $store.scope(state: \.destination?.files, action: \.destination.files)) { store in
+            FilesViewController(store: store)
+        }
+
         observe { [weak self] in
             guard let self else { return }
             render()
@@ -83,9 +90,8 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         UICollectionViewCompositionalLayout { index, environment in
             var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
             let section = Section(rawValue: index)
-            let titled: Set<Section> = [.status, .environment, .actions, .upcoming]
+            let titled: Set<Section> = [.status, .environment, .actions]
             configuration.headerMode = section.map(titled.contains) == true ? .supplementary : .none
-            configuration.footerMode = section == .upcoming ? .supplementary : .none
             let layout = NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: environment)
             if section == .header {
                 // The identity block sits on the background, not in a card.
@@ -110,24 +116,16 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
             case .status: String(localized: "Status")
             case .environment: String(localized: "Environment")
             case .actions: String(localized: "Actions")
-            case .upcoming: String(localized: "Coming Next")
             default: nil
             }
-            view.contentConfiguration = content
-        }
-        let sectionFooter = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(elementKind: UICollectionView.elementKindSectionFooter) { view, _, _ in
-            var content = UIListContentConfiguration.footer()
-            content.text = String(localized: "A read-only terminal and the agent's surfaced files arrive in the next update.")
             view.contentConfiguration = content
         }
         dataSource = UICollectionViewDiffableDataSource(collectionView: collectionView) { collectionView, indexPath, item in
             if case .header = item { return collectionView.dequeueConfiguredReusableCell(using: header, for: indexPath, item: item) }
             return collectionView.dequeueConfiguredReusableCell(using: row, for: indexPath, item: item)
         }
-        dataSource.supplementaryViewProvider = { collectionView, kind, indexPath in
-            kind == UICollectionView.elementKindSectionFooter
-                ? collectionView.dequeueConfiguredReusableSupplementary(using: sectionFooter, for: indexPath)
-                : collectionView.dequeueConfiguredReusableSupplementary(using: sectionHeader, for: indexPath)
+        dataSource.supplementaryViewProvider = { collectionView, _, indexPath in
+            collectionView.dequeueConfiguredReusableSupplementary(using: sectionHeader, for: indexPath)
         }
     }
 
@@ -181,15 +179,37 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
             cell.contentConfiguration = content
             if store.inFlight == command.agentCommand { cell.accessories = [.spinner] }
             cell.accessibilityIdentifier = "agent.command.\(title.lowercased())"
-        case .terminal, .files:
+        case .terminal:
             var content = UIListContentConfiguration.subtitleCell()
-            content.text = row == .terminal ? String(localized: "Terminal") : String(localized: "Files")
-            content.secondaryText = String(localized: "Coming soon")
-            content.image = UIImage(systemName: row == .terminal ? "apple.terminal" : "folder")
-            content.textProperties.color = .secondaryLabel
-            content.imageProperties.tintColor = .tertiaryLabel
-            content.secondaryTextProperties.color = .tertiaryLabel
+            content.text = String(localized: "Terminal")
+            content.secondaryText = store.agent?.isStopped == true
+                ? String(localized: "Stopped — start the agent to watch it")
+                : String(localized: "Watch its tmux session live, read-only")
+            content.image = UIImage(systemName: "apple.terminal")
+            content.secondaryTextProperties.color = .secondaryLabel
             cell.contentConfiguration = content
+            cell.accessories = [.disclosureIndicator()]
+            cell.accessibilityIdentifier = "agent.terminal"
+        case .files:
+            var content = UIListContentConfiguration.subtitleCell()
+            content.text = String(localized: "Files")
+            let count = store.files.count
+            let unseen = store.unseenFileIDs.count
+            content.secondaryText = switch (count, unseen) {
+            case (0, _): String(localized: "Nothing surfaced yet")
+            case (_, 0): String(localized: "\(count) surfaced")
+            default: String(localized: "\(count) surfaced · \(unseen) new")
+            }
+            content.image = UIImage(systemName: "doc.on.doc")
+            content.secondaryTextProperties.color = .secondaryLabel
+            cell.contentConfiguration = content
+            var accessories: [UICellAccessory] = [.disclosureIndicator()]
+            if unseen > 0 {
+                let badge = BadgeView(text: "\(unseen)", tint: .tintColor)
+                accessories.insert(.customView(configuration: .init(customView: badge, placement: .trailing())), at: 0)
+            }
+            cell.accessories = accessories
+            cell.accessibilityIdentifier = "agent.files"
         }
     }
 
@@ -226,18 +246,18 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         snapshot.appendSections(Section.allCases)
         snapshot.appendItems([.header], toSection: .header)
         if agent.opensInClaude { snapshot.appendItems([.openInClaude], toSection: .claude) }
+        snapshot.appendItems([.terminal, .files], toSection: .live)
         snapshot.appendItems(rows.map { .value($0.key) }, toSection: .status)
         snapshot.appendItems(environmentRows.map { .value($0.key) } + [.switchEnvironment], toSection: .environment)
         let commands: [Command] = agent.isStopped ? [.start] : [.interrupt, .restart, .stop]
         snapshot.appendItems(commands.map(Row.command), toSection: .actions)
-        snapshot.appendItems([.terminal, .files], toSection: .upcoming)
         snapshot.reconfigureItems(snapshot.itemIdentifiers)
         dataSource.apply(snapshot, animatingDifferences: false)
     }
 
     func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
         switch dataSource.itemIdentifier(for: indexPath) {
-        case .openInClaude: true
+        case .openInClaude, .terminal, .files: true
         case .switchEnvironment, .command: !store.isBusy
         default: false
         }
@@ -253,6 +273,8 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         case .command(.restart): store.send(.restartButtonTapped)
         case .command(.start): store.send(.startButtonTapped)
         case .command(.stop): store.send(.stopButtonTapped)
+        case .terminal: store.send(.terminalButtonTapped)
+        case .files: store.send(.filesButtonTapped)
         default: break
         }
     }
