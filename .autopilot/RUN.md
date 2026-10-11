@@ -76,3 +76,4 @@ Finished 2: B-285 landed d34e7d42f · shot /Users/evan/.leo/agents/leoterm/.git/
 - 13:10 EDT: leo agent reports `--rw` shipped in leo v0.47.0. That meets D-518's condition, so B-288 is set to ready (Update line added). Local leo is still 0.45.0, so the item is built with a fallback and fake-CLI tests.
 - B-285 landed d34e7d42f (light, 1 fix round: test isolation; suite 2665 green; Rename/Delete by tests only).
 - B-288 picked (tier full: earlier attempt on autopilot-shelved/B-288; owner's report, unblocked by leo v0.47.0). B-288 built before B-268/B-269 (owner-sourced bug first).
+- B-288 runner dispatched: d-5bacc1a48ca0 (implement → claude/sonnet, tier full).
