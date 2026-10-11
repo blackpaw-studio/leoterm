@@ -61,3 +61,4 @@ Finished 1: B-287 landed 2cacc795d · shot /Users/evan/.leo/agents/leoterm/.git/
 - B-287 runner reported ready (1 fix round: pre-existing LeoFirstAttachWindowSizeTests flake from real debug defaults, fixed hermetically). Runner's first implement.hard d-5d1830a7959d lost its turn; retried once with d-12c0844d948c, which finished — treated as recovered, not a failed dispatch. Agent-pane ⌃C covered by tests only.
 - B-287 landed 2cacc795d (full, hard; suite 2599/2599).
 - B-288 picked, tier light (Evan: small bugs shouldn't take full-tier time).
+- B-288 runner dispatched: d-9f481ddd4ac0 (tier light).
