@@ -2,16 +2,30 @@ import AppKit
 
 /// The pane's header: a pop-up of recently opened files (the open one
 /// selected; choosing another switches to it), the Edited / read-only
-/// state, the language, and a close button. Names and folders come from
+/// state, the language (a preview's file type), the Rendered|Raw switch
+/// and zoom button where they apply (B-278), and a close button. Names and folders come from
 /// terminal output or a remote host, so they're shown sanitized.
 final class LeoEditorHeaderView: NSView {
     var onSelectRecent: (LeoEditorFileID) -> Void = { _ in }
     var onClose: () -> Void = {}
+    var onToggleRaw: () -> Void = {}
+    var onToggleZoom: () -> Void = {}
+
+    /// The presentation controls' state (B-278).
+    struct Presentation: Equatable {
+        var showsRawToggle = false
+        var isRaw = false
+        var showsZoom = false
+        /// The image is fitted, so the button offers Actual Size.
+        var isFitted = true
+    }
 
     private let recentsButton = NSPopUpButton(frame: .zero, pullsDown: false)
     private let stateLabel = NSTextField(labelWithString: "")
     private let lockImage = NSImageView()
     private let languageLabel = NSTextField(labelWithString: "")
+    private let rawControl = NSSegmentedControl(labels: ["Rendered", "Raw"], trackingMode: .selectOne, target: nil, action: nil)
+    private let zoomButton = NSButton()
     private let closeButton = NSButton()
     private var recents: [LeoEditorFileID] = []
 
@@ -43,8 +57,27 @@ final class LeoEditorHeaderView: NSView {
         }
         recentsButton.setAccessibilityLabel(Self.accessibilityLabel(forOpen: document?.fileID))
         stateLabel.stringValue = document?.isDirty == true ? "Edited" : ""
-        lockImage.isHidden = document?.isReadOnly != true
-        languageLabel.stringValue = document?.language.displayName ?? ""
+        lockImage.isHidden = document.map { !$0.isReadOnly || $0.isPreview } ?? true
+        languageLabel.stringValue = document.map(Self.typeLabel) ?? ""
+    }
+
+    /// A preview's file type; SVG source (plain text to the highlighter)
+    /// says SVG; anything else its language.
+    @MainActor static func typeLabel(for document: LeoEditorDocument) -> String {
+        if document.isPreview { return document.preview?.typeName ?? "" }
+        return document.kind == .rendered(.svg) ? "SVG" : document.language.displayName
+    }
+
+    func update(presentation: Presentation) {
+        rawControl.isHidden = !presentation.showsRawToggle
+        rawControl.selectedSegment = presentation.isRaw ? 1 : 0
+        rawControl.toolTip = presentation.isRaw ? "Show Rendered (⌥⌘U)" : "Show Raw (⌥⌘U)"
+        zoomButton.isHidden = !presentation.showsZoom
+        let title = presentation.isFitted ? "Actual Size" : "Zoom to Fit"
+        zoomButton.image = NSImage(
+            systemSymbolName: presentation.isFitted ? "1.magnifyingglass" : "arrow.down.right.and.arrow.up.left", accessibilityDescription: title
+        )
+        zoomButton.toolTip = "\(title) (⌥⌘0)"
     }
 
     private func build() {
@@ -67,6 +100,22 @@ final class LeoEditorHeaderView: NSView {
         lockImage.toolTip = "Read-only"
         lockImage.isHidden = true
 
+        rawControl.controlSize = .small
+        rawControl.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        rawControl.target = self
+        rawControl.action = #selector(toggleRaw(_:))
+        rawControl.setAccessibilityLabel("Presentation")
+        rawControl.isHidden = true
+        rawControl.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        zoomButton.symbolConfiguration = .init(pointSize: NSFont.smallSystemFontSize, weight: .medium)
+        zoomButton.isBordered = false
+        zoomButton.bezelStyle = .accessoryBarAction
+        zoomButton.contentTintColor = .secondaryLabelColor
+        zoomButton.target = self
+        zoomButton.action = #selector(toggleZoom(_:))
+        zoomButton.isHidden = true
+
         closeButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: "Close Editor")
         closeButton.symbolConfiguration = .init(pointSize: NSFont.smallSystemFontSize, weight: .medium)
         closeButton.isBordered = false
@@ -76,7 +125,7 @@ final class LeoEditorHeaderView: NSView {
         closeButton.target = self
         closeButton.action = #selector(close(_:))
 
-        let stack = NSStackView(views: [recentsButton, stateLabel, lockImage, NSView(), languageLabel, closeButton])
+        let stack = NSStackView(views: [recentsButton, stateLabel, lockImage, NSView(), rawControl, zoomButton, languageLabel, closeButton])
         stack.orientation = .horizontal
         stack.spacing = 6
         stack.edgeInsets = NSEdgeInsets(top: 0, left: 6, bottom: 0, right: 8)
@@ -98,6 +147,14 @@ final class LeoEditorHeaderView: NSView {
 
     @objc private func close(_ sender: Any?) {
         onClose()
+    }
+
+    @objc private func toggleRaw(_ sender: NSSegmentedControl) {
+        onToggleRaw()
+    }
+
+    @objc private func toggleZoom(_ sender: Any?) {
+        onToggleZoom()
     }
 
     /// `name  ~/dir` (the folder in secondary colour), plus the host when
