@@ -20,12 +20,12 @@
 		5B17D4836F510CA07BB3683D /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1449AF007C779C9BAE7CC9 /* SceneDelegate.swift */; };
 		5E33999748F7BFB74748A8B0 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0798F4619AB2A887324F77 /* AppDelegate.swift */; };
 		61C7847BB0226FB17CDD61F7 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB62374CAF4B0AB162EB0A3C /* NotificationService.swift */; };
-		65847255B3CFBCD17049CC5F /* Ghostty.icon in Resources */ = {isa = PBXBuildFile; fileRef = 56AC8572B63B75E4ADC91B73 /* Ghostty.icon */; };
 		6BBEF92458BB21F5A206EE07 /* AgentDetailViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C90AC43D9476285D3D1C5BF5 /* AgentDetailViewController.swift */; };
 		787BACE232F874CDD0EACDE4 /* RootSplitViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14E6AC1C3305D1FE41B9863F /* RootSplitViewController.swift */; };
 		7BB11F057E27FF2F99C7B4D0 /* LeoE2ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 249F5BD758358963B9AE6F8B /* LeoE2ETests.swift */; };
 		853C84CD4D7A533FCB9755A1 /* DaemonsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E30B7AA5EE2B1BCEA80F489 /* DaemonsViewController.swift */; };
 		929ACF5783DFA6EEC13FB3CF /* LeoFeatures in Frameworks */ = {isa = PBXBuildFile; productRef = D76C56FEE239FEB25E23F15F /* LeoFeatures */; };
+		92A1EE30E17F1968901C0331 /* Ghostty.icon in Resources */ = {isa = PBXBuildFile; fileRef = A17B38B39E8CC963C7FABBFC /* Ghostty.icon */; };
 		9D9F47A3C6410164E2BF82D4 /* AgentPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A3E500114C72A2CED014F5E /* AgentPresentation.swift */; };
 		B25470C3706218FBCA5C7DA1 /* LeoUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4259E396F6B6491459936938 /* LeoUITests.swift */; };
 		C9D7F5EB7A3C2C3EE88255BE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A4590A54B9047670434E5737 /* Assets.xcassets */; };
@@ -80,10 +80,10 @@
 		4C9E7687201F50B6862AC453 /* LeoNotificationService.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = LeoNotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		52FA9E8BDF7050B6CF40A1EF /* QuickLookPreviewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickLookPreviewController.swift; sourceTree = "<group>"; };
 		54D9136C96055AB2811BE750 /* LeoNotificationService.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LeoNotificationService.entitlements; sourceTree = "<group>"; };
-		56AC8572B63B75E4ADC91B73 /* Ghostty.icon */ = {isa = PBXFileReference; path = Ghostty.icon; sourceTree = "<group>"; };
 		57636A050F83D8C255CD37DB /* PushClientLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushClientLive.swift; sourceTree = "<group>"; };
 		806CB3A307290DFC916BE9AC /* FilesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesViewController.swift; sourceTree = "<group>"; };
 		A074786444DAE80D6F189B6C /* TextFileViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextFileViewController.swift; sourceTree = "<group>"; };
+		A17B38B39E8CC963C7FABBFC /* Ghostty.icon */ = {isa = PBXFileReference; path = Ghostty.icon; sourceTree = "<group>"; };
 		A1C736E4B042BE982C20D63C /* TerminalViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalViewController.swift; sourceTree = "<group>"; };
 		A28DF61BF22507AC7C45D4DB /* PairingViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingViewController.swift; sourceTree = "<group>"; };
 		A2CC89792C60C356D74344CD /* LeoUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = LeoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -153,6 +153,14 @@
 			path = Daemons;
 			sourceTree = "<group>";
 		};
+		25EBB60E377CB56F4CA98D9A /* images */ = {
+			isa = PBXGroup;
+			children = (
+				A17B38B39E8CC963C7FABBFC /* Ghostty.icon */,
+			);
+			path = images;
+			sourceTree = "<group>";
+		};
 		2ABCEEC6F64C4FBC952ABDDB /* Pairing */ = {
 			isa = PBXGroup;
 			children = (
@@ -170,6 +178,15 @@
 				CB1449AF007C779C9BAE7CC9 /* SceneDelegate.swift */,
 			);
 			path = App;
+			sourceTree = "<group>";
+		};
+		466D1EA9B98C3225BCABF914 /* d-bfae9bf4c45f */ = {
+			isa = PBXGroup;
+			children = (
+				25EBB60E377CB56F4CA98D9A /* images */,
+			);
+			name = "d-bfae9bf4c45f";
+			path = ..;
 			sourceTree = "<group>";
 		};
 		60C67101129AC071D0C61A57 /* Packages */ = {
@@ -228,7 +245,7 @@
 		A53F5A9B862010D618686362 = {
 			isa = PBXGroup;
 			children = (
-				A864C4FCF907C7EA55CC654A /* d-b35d18e2043d */,
+				466D1EA9B98C3225BCABF914 /* d-bfae9bf4c45f */,
 				A7DC75B903E2C1744431D78B /* Leo */,
 				A9BA909F4A8ECFB0F4593D1C /* LeoNotificationService */,
 				96691FF04776212D622BD454 /* LeoUITests */,
@@ -253,15 +270,6 @@
 				90C3B4069CE6286F9B1FAFAA /* Terminal */,
 			);
 			path = Leo;
-			sourceTree = "<group>";
-		};
-		A864C4FCF907C7EA55CC654A /* d-b35d18e2043d */ = {
-			isa = PBXGroup;
-			children = (
-				F314214D38ED8ACBED70E2B4 /* images */,
-			);
-			name = "d-b35d18e2043d";
-			path = ..;
 			sourceTree = "<group>";
 		};
 		A9BA909F4A8ECFB0F4593D1C /* LeoNotificationService */ = {
@@ -293,14 +301,6 @@
 				A074786444DAE80D6F189B6C /* TextFileViewController.swift */,
 			);
 			path = Files;
-			sourceTree = "<group>";
-		};
-		F314214D38ED8ACBED70E2B4 /* images */ = {
-			isa = PBXGroup;
-			children = (
-				56AC8572B63B75E4ADC91B73 /* Ghostty.icon */,
-			);
-			path = images;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -418,7 +418,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C9D7F5EB7A3C2C3EE88255BE /* Assets.xcassets in Resources */,
-				65847255B3CFBCD17049CC5F /* Ghostty.icon in Resources */,
+				92A1EE30E17F1968901C0331 /* Ghostty.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
