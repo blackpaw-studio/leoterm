@@ -124,7 +124,7 @@ Lane: B-150
   Branch: autopilot-lane/B-150
   Base: 3a46e54f24e05f657ef9622fbb6517a54a829e8e
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -140,6 +140,7 @@ Finished 4: B-268 landed faa9f0140 · shot /Users/evan/.leo/agents/leoterm/.git/
 Finished 5: B-269 landed c4be21582 · not visually verified
 Finished 6: B-148 landed aab4e56d0 · not visually verified
 Finished 7: B-149 landed 039ec8dad · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-149-2.png
+Finished 8: B-150 landed 7f9da972e · not visually verified
 
 ## Progress
 - Preflight: autopilot already at main (60e80df75); applied 1 inbox entry (B-288 answer → D-518; stays blocked until leo ships `--rw`; leo 0.45.0 has none).
@@ -172,3 +173,4 @@ Finished 7: B-149 landed 039ec8dad · shot /Users/evan/.leo/agents/leoterm/.git/
 - B-149 landed 039ec8dad (fixes 1).
 - B-149 landed (light→full: the light build and first plan couldn't go red; the re-plan reproduced the shrink direction). Filed B-294/B-295; the third polish line (pre-layout geometry in resize tests) goes to B-150 as a lane note.
 - B-150 picked (tier light: test hardening; runner d-00ab00580600).
+- B-150 landed 7f9da972e (fixes 0).

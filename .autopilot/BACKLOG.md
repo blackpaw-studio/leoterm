@@ -858,11 +858,13 @@ Source: autopilot polish (B-099)
 Done: 72b2ac2ec f82fb40a3 66c0bd071
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-149-2.png (test aRowRevealedAtTheBottomStaysWhollyOnScreenWhenTheAgentsGo + window shots (section collapse); suite 2694/0 on b45451b9e)
 
-## B-150 · B-099 scroll test hardening   [ready]
+## B-150 · B-099 scroll test hardening   [done]
 Issue: #154
 Why: loading test: assert rect(ofRow:).intersects(visibleRect) with a minY == 0 precondition; test the agents-going listsAgents direction; replace settledTable's 3 s first-population poll with a signal
 Accept: loading test: assert rect(ofRow:).intersects(visibleRect) with a minY == 0 precondition; test the agents-going listsAgents direction; replace settledTable's 3 s first-population poll with a signal
 Source: autopilot polish (B-099)
+Done: d9613e1e5
+Verified: not visually verified — test-only diff (LeoSidebarTerminalScrollTests); suite 2694/0 on b7a0a923d, swiftlint clean
 
 ## B-151 · B-100 pane layout test measures from the window top   [ready]
 Issue: #155

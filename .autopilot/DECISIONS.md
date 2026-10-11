@@ -3804,3 +3804,17 @@ Chose: `request` also schedules window.layoutIfNeeded() for the next turn; needs
 Why: plan Risk 4.
 Commit: 72b2ac2ec, f82fb40a3, 66c0bd071
 Veto: [ ]
+
+## D-532 · 2026-10-11 · The agents-going direction needs no new test: B-149's aRowRevealedAtTheBottomStaysWhollyO…
+Context: B-150 (runner call).
+Chose: The agents-going direction needs no new test: B-149's aRowRevealedAtTheBottomStaysWhollyOnScreenWhenTheAgentsGo already covers listsAgents true→false (loading, failed, no agents)
+Why: P6, test infra agent-decided.
+Commit: d9613e1e5
+Veto: [ ]
+
+## D-533 · 2026-10-11 · The first-population signal is run-loop turn counting with a layout pass per turn, not a …
+Context: B-150 (runner call).
+Chose: The first-population signal is run-loop turn counting with a layout pass per turn, not a product hook; no seam added
+Why: B-099 turn-counting decision.
+Commit: d9613e1e5
+Veto: [ ]
