@@ -811,6 +811,20 @@ Source: Evan (in-session, 2026-10-10)
 Note: FINAL contract (leo, PR #251, 2026-10-10; unmerged — fixture-first). All responses use the {ok, data} envelope; errors {"ok":false,"error":"...","code":"..."}. Capability `agent_environments`. GET /api/v1/environments → data: [{"name":...}] sorted alphabetically (names only). GET /api/v1/templates → data: [{name, harness, model, environments:[...]}]; `environments` is [] when the template sets none (defaults.environments then applies — the effective list for a spawned agent comes from the daemon). Agents in GET /api/v1/state and `agent_spawned` events carry `environments` (effective ordered names), `environments_source` ("override"|"default"), `environment_error` (string|null, also on live agents; only checks for names deleted from config). POST /api/v1/agents/spawn (plural `agents`) takes `environments: [...]`. POST /api/v1/agents/{name}/environments with {"environments":[...]}; empty clears the override; restarts + resumes. Both POSTs are operator-token only (agent token → 403; show plainly). Errors 400: unknown_environment, invalid_environments, unknown_template, invalid_name, config_unavailable; 409: persistent_task, harness_mismatch; known gap: worktree spawn with unknown template returns 500 — show the message for any code. Events: set-environment emits `agent_state_changed` with environments (always, [] when cleared), environments_source, environment_error (always, explicit null when resolved); ordinary lifecycle `agent_state_changed` during the restart omits them — absent means UNCHANGED, never cleared (tested).
 Done: 4b00e6f6d dd546ac5d bc5915c15 dcd9e72e3 1f2d010f2 b21332672
 
+## B-287 · Ctrl+C doesn't stop the running process in terminals   [ready]
+Type: bug
+Report: ctrl+c to stop the process in terminals doesnt work
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-10-10)
+Inbox: 20261010T223045852685Z-29c67160#1
+
+## B-288 · Subagent panes disable text and mouse/touch input   [ready]
+Type: bug
+Report: we shouldnt disable text and mouse/touch input in subagents
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-10-10)
+Inbox: 20261010T224938538316Z-fae1243d#1
+
 ## B-278 · File pane previews images, GIFs, video, Markdown and PDFs   [ready]
 Issue: #271
 Why: Surfaced or browsed media and docs render properly in the pane instead of as text or an error — P4 Everything through Leo, P3 Local = remote. Markdown renders natively (AttributedString + custom block layout); a sandboxed, non-networked WKWebView is allowed only as a logged fallback if native can't do tables/code blocks (P1).
@@ -1999,14 +2013,14 @@ Source: autopilot polish (B-232)
 Note: Workspace browser truncates long names in the middle ("b232-v…ma.txt") — hard to tell similar dropped files apart
 Source: autopilot polish (B-232)
 
-## B-284 · Agents ▸ New Agent… menu item opens no sheet   [ready (next run)]
+## B-284 · Agents ▸ New Agent… menu item opens no sheet   [ready]
 Issue: #273
 Type: bug
 Report: Agents ▸ New Agent… opens no sheet (same `contentViewController` pattern at `TerminalController+Leo.swift:134`) — the menu path to New Agent does nothing (sidebar "+" works); P1
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-283)
 
-## B-285 · Rename, Delete and Manage Hosts menu items may no-op on terminal windows   [ready (next run)]
+## B-285 · Rename, Delete and Manage Hosts menu items may no-op on terminal windows   [ready]
 Issue: #274
 Type: bug
 Report: Rename, Delete and Manage Hosts in `LeoAgentMenuActions.swift` lines 39, 68, 74 use the same `contentViewController` pattern — likely silent no-ops on terminal windows (not checked in the app); P1
