@@ -83,6 +83,7 @@ struct AppFeaturePushTests {
         var initial = AppFeature.State()
         initial.fleet = Fleet.State(daemons: [.dionysus])
         initial.push.daemons = [.dionysus]
+        initial.push.hasLoadedDaemons = true
         initial.push.$isEnabled.withLock { $0 = false }
         initial.push.$pendingUnregister.withLock { $0 = ["d-dionysus"] }
         let store = TestStore(initialState: initial) {
@@ -128,6 +129,7 @@ struct AppFeaturePushTests {
             $0.fleet.sessions = [DaemonSession(daemon: .dionysus)]
             $0.hasLoadedDaemons = true
             $0.push.daemons = [.dionysus]
+            $0.push.hasLoadedDaemons = true
         }
         await store.receive(\.push.authorizationChanged, .authorized) { $0.push.authorization = .authorized }
         await store.send(\.fleet.connected, (id, bootID: "b1", LeoObservedState(agents: [.make("zeus")]))) {

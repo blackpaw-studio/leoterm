@@ -85,7 +85,10 @@ struct PushNotificationsTests {
         let recorder = PushRecorder()
         let store = Self.store(authorization: .notDetermined, recorder: recorder)
 
-        await store.send(.daemonsLoaded([.dionysus])) { $0.daemons = [.dionysus] }
+        await store.send(.daemonsLoaded([.dionysus])) {
+            $0.daemons = [.dionysus]
+            $0.hasLoadedDaemons = true
+        }
         await store.receive(\.authorizationChanged, .authorized) { $0.authorization = .authorized }
 
         #expect(recorder.prompts.value == 1)
@@ -96,7 +99,7 @@ struct PushNotificationsTests {
         let recorder = PushRecorder()
         let store = Self.store(authorization: .notDetermined, recorder: recorder)
 
-        await store.send(.daemonsLoaded([]))
+        await store.send(.daemonsLoaded([])) { $0.hasLoadedDaemons = true }
         await store.receive(\.authorizationChanged, .notDetermined) { $0.authorization = .notDetermined }
 
         #expect(recorder.prompts.value == 0)
@@ -305,8 +308,33 @@ struct PushNotificationsTests {
 
         await store.send(.daemonsLoaded([.dionysus])) {
             $0.daemons = [.dionysus]
+            $0.hasLoadedDaemons = true
             // A daemon no longer paired has nothing left to unregister here.
             $0.$pendingUnregister.withLock { $0 = ["d-dionysus"] }
+        }
+        await store.receive(\.unregistered) { $0.$pendingUnregister.withLock { $0 = [] } }
+        #expect(recorder.deletes.value == ["dev-1"])
+    }
+
+    /// A cold launch can come to the foreground before the pairings load:
+    /// an empty list then means "not read yet", not "nothing paired".
+    @Test func aForegroundBeforeThePairingsLoadKeepsPendingTurnOffs() async {
+        let recorder = PushRecorder()
+        let state = PushNotifications.State()
+        state.$isEnabled.withLock { $0 = false }
+        state.$pendingUnregister.withLock { $0 = ["d-dionysus"] }
+        let store = Self.store(state, recorder: recorder)
+
+        await store.send(.becameActive)
+        await store.receive(\.authorizationRefreshed) { $0.authorization = .authorized }
+        await store.send(.daemonReconnected("d-dionysus"))
+        await store.send(.toggled(false))
+        #expect(store.state.pendingUnregister == ["d-dionysus"])
+        #expect(recorder.deletes.value.isEmpty)
+
+        await store.send(.daemonsLoaded([.dionysus])) {
+            $0.daemons = [.dionysus]
+            $0.hasLoadedDaemons = true
         }
         await store.receive(\.unregistered) { $0.$pendingUnregister.withLock { $0 = [] } }
         #expect(recorder.deletes.value == ["dev-1"])

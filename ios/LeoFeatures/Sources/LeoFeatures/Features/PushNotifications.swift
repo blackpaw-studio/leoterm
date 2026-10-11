@@ -29,6 +29,9 @@ public struct PushNotifications {
         public var authorization: PushAuthorization?
         /// Every paired daemon, kept in step by the parent.
         public var daemons: IdentifiedArrayOf<PairedDaemon>
+        /// Whether `daemons` has been read from disk. Until then an empty
+        /// list means "not loaded", never "nothing paired".
+        public var hasLoadedDaemons: Bool
         public var apnsToken: Data?
         /// The relay's grant for `apnsToken`.
         public var grant: String?
@@ -36,8 +39,10 @@ public struct PushNotifications {
         /// Why registering with (or unregistering from) a daemon last failed.
         public var daemonErrors: [PairedDaemon.ID: String] = [:]
 
-        public init(daemons: IdentifiedArrayOf<PairedDaemon> = []) {
-            self.daemons = daemons
+        /// `daemons` nil: the pairings haven't been loaded yet.
+        public init(daemons: IdentifiedArrayOf<PairedDaemon>? = nil) {
+            self.daemons = daemons ?? []
+            hasLoadedDaemons = daemons != nil
         }
 
         /// What Settings lists. With notifications off, only daemons that
@@ -139,6 +144,7 @@ public struct PushNotifications {
 
             case .daemonsLoaded(let daemons):
                 state.daemons = IdentifiedArray(daemons, uniquingIDsWith: { $1 })
+                state.hasLoadedDaemons = true
                 let launch: Effect<Action> = state.isEnabled ? authorize(prompting: !daemons.isEmpty) : .none
                 return .merge(share(state), launch, reconcile(state: &state))
 
@@ -176,7 +182,9 @@ public struct PushNotifications {
 
             case .toggled(false):
                 state.$isEnabled.withLock { $0 = false }
-                state.$pendingUnregister.withLock { $0 = Set(state.daemons.ids) }
+                // A union: before the pairings load, the list is empty but
+                // earlier pending daemons still count.
+                state.$pendingUnregister.withLock { $0.formUnion(state.daemons.ids) }
                 state.daemonErrors = [:]
                 return .merge(.cancel(id: CancelID.relay), unregisterPending(only: nil, state: &state))
 
@@ -218,7 +226,10 @@ public struct PushNotifications {
 
     /// DELETEs push from pending daemons (all, or just `only`). Pending IDs
     /// no longer paired are dropped: a forget took over their cleanup.
+    /// Does nothing before the pairings load.
     private func unregisterPending(only ids: Set<PairedDaemon.ID>?, state: inout State) -> Effect<Action> {
+        // Which daemons are paired isn't known yet; the load reconciles.
+        guard state.hasLoadedDaemons else { return .none }
         let paired = Set(state.daemons.ids)
         if !state.pendingUnregister.isSubset(of: paired) {
             state.$pendingUnregister.withLock { $0.formIntersection(paired) }
