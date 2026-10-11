@@ -8,13 +8,20 @@ Throwaway Worker proving a Cloudflare Worker can send APNs over HTTP/2 with toke
 `apns-topic: studio.blackpaw.leo.ios`, `apns-push-type: alert`. The response returns APNs status,
 `apns-id`, body, or the raw fetch error.
 
-## Status: NOT YET PROVEN against Apple
+## Result: PROVEN (2026-10-10, `wrangler dev --remote`, Cloudflare edge)
 
-Unit tests pass (`npm test`). The remote run is **blocked on credentials**: no APNs auth key
-(`.p8` + Key ID) exists in any 1Password vault reachable by the service account
-(Olympus, Blackpaw Studio, Artist Connect). The only Apple items are App Store Connect API keys,
-which APNs does not accept. Needed: an Apple Developer *Keys* entry with "Apple Push
-Notifications service (APNs)" enabled, its Key ID, and the Team ID.
+Dummy 64-hex token, sandbox:
+
+```
+HTTP 200 (Worker) {"host":"api.sandbox.push.apple.com","apns_status":400,
+ "apns_id":"5992011E-1521-28EA-AB96-6D039C320749","apns_body":"{\"reason\":\"BadDeviceToken\"}"}
+```
+
+Apple accepted the HTTP/2 request and the ES256 provider token (a bad JWT would be 403);
+it rejected only the fake device token. Workers can reach APNs; no workaround needed.
+
+Credentials come from 1Password Olympus: "APNs Auth Key - Blackpaw" (p8, key_id, team_id) and
+"Cloudflare API Token - leo push relay" (Workers Scripts Write; account id in the item).
 
 ## Rerun
 
@@ -29,7 +36,5 @@ npx wrangler dev --remote        # needs CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOU
 curl -s localhost:8787/push -d '{"apns_token":"'$(printf 'a%.0s' {1..64})'","sandbox":true}'
 ```
 
-Interpretation: `400 {"reason":"BadDeviceToken"}` = success (HTTP/2 + JWT accepted);
+Expected result: `400 {"reason":"BadDeviceToken"}` = success (HTTP/2 + JWT accepted);
 `403 InvalidProviderToken` = JWT bug; a fetch error / protocol rejection = Workers cannot reach APNs.
-
-No result captured yet.
