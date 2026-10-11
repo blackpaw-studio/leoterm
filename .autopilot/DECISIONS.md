@@ -3769,3 +3769,10 @@ Chose: finished→finished at a newer revision keeps its current "new event" beh
 Why: P2
 Commit: a65a3d650, 67741f432
 Veto: [ ]
+
+## D-527 · 2026-10-11 · Missing-server marker is matched as an exact ASCII line on raw stderr bytes (optional sin…
+Context: B-269 (runner call).
+Chose: Missing-server marker is matched as an exact ASCII line on raw stderr bytes (optional single CR, truncated final segment never counts), where it was a substring match on the decoded text
+Why: D-422 / P5
+Commit: 3c0134fac
+Veto: [ ]

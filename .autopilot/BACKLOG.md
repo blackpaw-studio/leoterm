@@ -1997,12 +1997,14 @@ Source: autopilot bug (B-258)
 Done: a65a3d650 67741f432
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-268-1.png (fixture shot; bump/Dock/re-notify by tests only)
 
-## B-269 · Invalid UTF-8 SFTP stderr hides the missing-server message   [ready]
+## B-269 · Invalid UTF-8 SFTP stderr hides the missing-server message   [done]
 Issue: #263
 Type: bug
 Report: Invalid UTF-8 SFTP stderr hides the missing-server message — when server stderr isn't valid UTF-8, the displayed detail reads "<N bytes>" and the status-127 missing-server marker match is hidden, so the "no supported SFTP server" message is missed (VISION 5: failures shown plainly).
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-235)
+Done: 3c0134fac
+Verified: not visually verified — no autopilot-owned remote host; real-subprocess transport test + unit tests
 
 ## B-276 · Terminals section needs a manual scroll on a long sidebar   [idea]
 Note: the Terminals section sits at the very bottom of a long sidebar and needs a manual scroll to reach — navigation friction for plain-shell rows (P6)

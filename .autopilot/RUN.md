@@ -82,7 +82,7 @@ Lane: B-269
   Branch: autopilot-lane/B-269
   Base: a31f97f9569f7c7229c0e25ebf76b3681078b86e
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -94,6 +94,7 @@ Finished 1: B-284 landed 1c1f5aa66 · shot /Users/evan/.leo/agents/leoterm/.git/
 Finished 2: B-285 landed d34e7d42f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-285-1.png
 Finished 3: B-288 landed 492d7d37f · not visually verified
 Finished 4: B-268 landed faa9f0140 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-268-1.png
+Finished 5: B-269 landed c4be21582 · not visually verified
 
 ## Progress
 - Preflight: autopilot already at main (60e80df75); applied 1 inbox entry (B-288 answer → D-518; stays blocked until leo ships `--rw`; leo 0.45.0 has none).
@@ -116,3 +117,4 @@ Finished 4: B-268 landed faa9f0140 · shot /Users/evan/.leo/agents/leoterm/.git/
 - B-268 landed faa9f0140 (fixes 1).
 - B-269 picked (tier light: one stderr-decoding path).
 - B-269 runner dispatched: d-e2dee81f388d (implement → claude/sonnet, tier light).
+- B-269 landed c4be21582 (fixes 0).
