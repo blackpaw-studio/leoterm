@@ -22,6 +22,8 @@ settings:
 packages:
   LeoFeatures:
     path: LeoFeatures
+  LeoKit:
+    path: ../Packages/LeoKit
   SwiftTerm:
     url: https://github.com/migueldeicaza/SwiftTerm
     exactVersion: 1.19.0
@@ -39,10 +41,16 @@ targets:
         product: LeoFeatures
       - package: SwiftTerm
         product: SwiftTerm
+      - target: LeoNotificationService
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: studio.blackpaw.leo.ios
         PRODUCT_NAME: Leo
+        CODE_SIGN_ENTITLEMENTS: Leo/Support/Leo.entitlements
+        # The push relay (relay/, Cloudflare Worker) this build registers
+        # with. Replace the placeholder with the deployed Worker's URL; until
+        # then the app skips push registration.
+        LEO_PUSH_RELAY_URL: "https://leo-relay.<placeholder>.workers.dev"
         TARGETED_DEVICE_FAMILY: "1,2"
         ASSETCATALOG_COMPILER_APPICON_NAME: Ghostty
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
@@ -51,6 +59,30 @@ targets:
         SUPPORTS_MACCATALYST: NO
         SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
         SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
+      configs:
+        # Which APNs gateway the relay uses for this build's tokens.
+        Debug:
+          LEO_APNS_ENVIRONMENT: sandbox
+        Release:
+          LEO_APNS_ENVIRONMENT: production
+  LeoNotificationService:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: LeoNotificationService
+    dependencies:
+      - package: LeoKit
+        product: LeoKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: studio.blackpaw.leo.ios.notification-service
+        PRODUCT_NAME: LeoNotificationService
+        INFOPLIST_FILE: LeoNotificationService/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: LeoNotificationService/LeoNotificationService.entitlements
+        TARGETED_DEVICE_FAMILY: "1,2"
+        APPLICATION_EXTENSION_API_ONLY: YES
   LeoUITests:
     type: bundle.ui-testing
     platform: iOS

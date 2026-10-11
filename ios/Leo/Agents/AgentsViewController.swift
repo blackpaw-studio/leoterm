@@ -29,6 +29,12 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
         )
         daemonsButton.accessibilityLabel = String(localized: "Daemons")
         navigationItem.rightBarButtonItem = daemonsButton
+        let settingsButton = UIBarButtonItem(
+            image: UIImage(systemName: "gearshape"),
+            primaryAction: UIAction { [weak self] _ in self?.store.send(.settingsButtonTapped) }
+        )
+        settingsButton.accessibilityLabel = String(localized: "Settings")
+        navigationItem.leftBarButtonItem = settingsButton
 
         collectionView.delegate = self
         collectionView.accessibilityIdentifier = "agents.list"
@@ -44,6 +50,9 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
 
         navigationDestination(isPresented: $store.isShowingDaemons) { [store] in
             DaemonsViewController(store: store.scope(state: \.daemons, action: \.daemons), fleet: store.scope(state: \.fleet, action: \.fleet))
+        }
+        navigationDestination(isPresented: $store.isShowingSettings) { [store] in
+            SettingsViewController(store: store.scope(state: \.push, action: \.push))
         }
 
         observe { [weak self] in

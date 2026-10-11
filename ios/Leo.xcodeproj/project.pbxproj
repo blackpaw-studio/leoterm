@@ -7,16 +7,20 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		04E1430D6F5A695CCADD1464 /* Ghostty.icon in Resources */ = {isa = PBXBuildFile; fileRef = D82DE05B39FB9395EAA1C84B /* Ghostty.icon */; };
 		15A91201486195EC72F38990 /* TerminalViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C736E4B042BE982C20D63C /* TerminalViewController.swift */; };
 		2753B4A7B4AC3C2FE126635B /* PairingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28DF61BF22507AC7C45D4DB /* PairingViewController.swift */; };
 		28C6AFEF6CDE3099461FFD31 /* TextFileViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A074786444DAE80D6F189B6C /* TextFileViewController.swift */; };
 		305D9929E92C5618B695D49A /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 7713A78E3FC5DD25A956D7F7 /* SwiftTerm */; };
 		34C79FDA57FA7D0AE74E69AF /* FilesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 806CB3A307290DFC916BE9AC /* FilesViewController.swift */; };
+		35B2BA0207DD6269898734F2 /* LeoPushE2ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F8B9632E4FB5665D708DF0E /* LeoPushE2ETests.swift */; };
+		47162225220BCD9DBE4CD6B6 /* SettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA2E0BF7EE43AC6DBA252554 /* SettingsViewController.swift */; };
+		494127E980DF78B990F8CD76 /* LeoKit in Frameworks */ = {isa = PBXBuildFile; productRef = 7C4CB7ED94C7DDF2894E56F5 /* LeoKit */; };
 		547C76579FE92ED64C7950DE /* QuickLookPreviewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52FA9E8BDF7050B6CF40A1EF /* QuickLookPreviewController.swift */; };
 		5909DD8147792D202DDC08A4 /* MarkdownRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A95C0A9333F680281BFCE98A /* MarkdownRenderer.swift */; };
 		5B17D4836F510CA07BB3683D /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1449AF007C779C9BAE7CC9 /* SceneDelegate.swift */; };
 		5E33999748F7BFB74748A8B0 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0798F4619AB2A887324F77 /* AppDelegate.swift */; };
+		61C7847BB0226FB17CDD61F7 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB62374CAF4B0AB162EB0A3C /* NotificationService.swift */; };
+		65847255B3CFBCD17049CC5F /* Ghostty.icon in Resources */ = {isa = PBXBuildFile; fileRef = 56AC8572B63B75E4ADC91B73 /* Ghostty.icon */; };
 		6BBEF92458BB21F5A206EE07 /* AgentDetailViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C90AC43D9476285D3D1C5BF5 /* AgentDetailViewController.swift */; };
 		787BACE232F874CDD0EACDE4 /* RootSplitViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14E6AC1C3305D1FE41B9863F /* RootSplitViewController.swift */; };
 		7BB11F057E27FF2F99C7B4D0 /* LeoE2ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 249F5BD758358963B9AE6F8B /* LeoE2ETests.swift */; };
@@ -25,6 +29,8 @@
 		9D9F47A3C6410164E2BF82D4 /* AgentPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A3E500114C72A2CED014F5E /* AgentPresentation.swift */; };
 		B25470C3706218FBCA5C7DA1 /* LeoUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4259E396F6B6491459936938 /* LeoUITests.swift */; };
 		C9D7F5EB7A3C2C3EE88255BE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A4590A54B9047670434E5737 /* Assets.xcassets */; };
+		DBA634BDA3B7C6688C6216F3 /* PushClientLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57636A050F83D8C255CD37DB /* PushClientLive.swift */; };
+		DF6972AB8409A39BF38BF683 /* LeoNotificationService.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4C9E7687201F50B6862AC453 /* LeoNotificationService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E774071B30CF8DA71EB13833 /* QRScannerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38482350857C026362E8F7EE /* QRScannerViewController.swift */; };
 		F0277EE768ABDF3A4910CCB3 /* AgentsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FE39999ECDA1982AB15718A /* AgentsViewController.swift */; };
 /* End PBXBuildFile section */
@@ -37,9 +43,31 @@
 			remoteGlobalIDString = F1508DE32DA9238026314843;
 			remoteInfo = Leo;
 		};
+		FA17E57595444650019CFD25 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2468BBBB006AD3FECCD49385 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4AF55EDA76E8B94828BB07C3;
+			remoteInfo = LeoNotificationService;
+		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		9FBA31D548E53F914371739D /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				DF6972AB8409A39BF38BF683 /* LeoNotificationService.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		0F8B9632E4FB5665D708DF0E /* LeoPushE2ETests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoPushE2ETests.swift; sourceTree = "<group>"; };
 		0FE39999ECDA1982AB15718A /* AgentsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentsViewController.swift; sourceTree = "<group>"; };
 		14E6AC1C3305D1FE41B9863F /* RootSplitViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootSplitViewController.swift; sourceTree = "<group>"; };
 		1D628695BAD22845C3CE51C1 /* LeoFeatures */ = {isa = PBXFileReference; lastKnownFileType = folder; name = LeoFeatures; path = LeoFeatures; sourceTree = SOURCE_ROOT; };
@@ -49,22 +77,38 @@
 		38482350857C026362E8F7EE /* QRScannerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerViewController.swift; sourceTree = "<group>"; };
 		3E30B7AA5EE2B1BCEA80F489 /* DaemonsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonsViewController.swift; sourceTree = "<group>"; };
 		4259E396F6B6491459936938 /* LeoUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoUITests.swift; sourceTree = "<group>"; };
+		4C9E7687201F50B6862AC453 /* LeoNotificationService.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = LeoNotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		52FA9E8BDF7050B6CF40A1EF /* QuickLookPreviewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickLookPreviewController.swift; sourceTree = "<group>"; };
+		54D9136C96055AB2811BE750 /* LeoNotificationService.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LeoNotificationService.entitlements; sourceTree = "<group>"; };
+		56AC8572B63B75E4ADC91B73 /* Ghostty.icon */ = {isa = PBXFileReference; path = Ghostty.icon; sourceTree = "<group>"; };
+		57636A050F83D8C255CD37DB /* PushClientLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushClientLive.swift; sourceTree = "<group>"; };
 		806CB3A307290DFC916BE9AC /* FilesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesViewController.swift; sourceTree = "<group>"; };
 		A074786444DAE80D6F189B6C /* TextFileViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextFileViewController.swift; sourceTree = "<group>"; };
 		A1C736E4B042BE982C20D63C /* TerminalViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalViewController.swift; sourceTree = "<group>"; };
 		A28DF61BF22507AC7C45D4DB /* PairingViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingViewController.swift; sourceTree = "<group>"; };
 		A2CC89792C60C356D74344CD /* LeoUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = LeoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A4590A54B9047670434E5737 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A8E63E6655627C04C85C7442 /* Leo.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Leo.entitlements; sourceTree = "<group>"; };
 		A95C0A9333F680281BFCE98A /* MarkdownRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownRenderer.swift; sourceTree = "<group>"; };
+		AB62374CAF4B0AB162EB0A3C /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		C90AC43D9476285D3D1C5BF5 /* AgentDetailViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentDetailViewController.swift; sourceTree = "<group>"; };
 		CB1449AF007C779C9BAE7CC9 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		D1A1F7D0633E46F1B7A239E2 /* Leo.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Leo.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		D82DE05B39FB9395EAA1C84B /* Ghostty.icon */ = {isa = PBXFileReference; path = Ghostty.icon; sourceTree = "<group>"; };
+		E901E6A2806E9B56B41BE780 /* LeoKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = LeoKit; path = ../Packages/LeoKit; sourceTree = SOURCE_ROOT; };
+		F6C700243A7DF9C889D0C17F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		FA2E0BF7EE43AC6DBA252554 /* SettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewController.swift; sourceTree = "<group>"; };
 		FD0798F4619AB2A887324F77 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		1E8BBDBBD6A8C8C3E2C9AFA3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				494127E980DF78B990F8CD76 /* LeoKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		95BC16C6CBC3815D92CC9825 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -77,15 +121,6 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		007B439F5F3EF0B229088A16 /* d-2f32a9ff9b85 */ = {
-			isa = PBXGroup;
-			children = (
-				20BDB47863EAC2E20D142180 /* images */,
-			);
-			name = "d-2f32a9ff9b85";
-			path = ..;
-			sourceTree = "<group>";
-		};
 		05FEB3F3A7170B9822E1B8E0 /* AgentDetail */ = {
 			isa = PBXGroup;
 			children = (
@@ -102,20 +137,20 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
+		14C381D3274C04652F43B67D /* Push */ = {
+			isa = PBXGroup;
+			children = (
+				57636A050F83D8C255CD37DB /* PushClientLive.swift */,
+			);
+			path = Push;
+			sourceTree = "<group>";
+		};
 		157F64B91C5E8A82854120AC /* Daemons */ = {
 			isa = PBXGroup;
 			children = (
 				3E30B7AA5EE2B1BCEA80F489 /* DaemonsViewController.swift */,
 			);
 			path = Daemons;
-			sourceTree = "<group>";
-		};
-		20BDB47863EAC2E20D142180 /* images */ = {
-			isa = PBXGroup;
-			children = (
-				D82DE05B39FB9395EAA1C84B /* Ghostty.icon */,
-			);
-			path = images;
 			sourceTree = "<group>";
 		};
 		2ABCEEC6F64C4FBC952ABDDB /* Pairing */ = {
@@ -141,6 +176,7 @@
 			isa = PBXGroup;
 			children = (
 				1D628695BAD22845C3CE51C1 /* LeoFeatures */,
+				E901E6A2806E9B56B41BE780 /* LeoKit */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -151,6 +187,14 @@
 				0FE39999ECDA1982AB15718A /* AgentsViewController.swift */,
 			);
 			path = Agents;
+			sourceTree = "<group>";
+		};
+		78F7EE9F77363ED1130CCC48 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				FA2E0BF7EE43AC6DBA252554 /* SettingsViewController.swift */,
+			);
+			path = Settings;
 			sourceTree = "<group>";
 		};
 		90C3B4069CE6286F9B1FAFAA /* Terminal */ = {
@@ -165,6 +209,7 @@
 			isa = PBXGroup;
 			children = (
 				249F5BD758358963B9AE6F8B /* LeoE2ETests.swift */,
+				0F8B9632E4FB5665D708DF0E /* LeoPushE2ETests.swift */,
 				4259E396F6B6491459936938 /* LeoUITests.swift */,
 			);
 			path = LeoUITests;
@@ -175,6 +220,7 @@
 			children = (
 				2A3E500114C72A2CED014F5E /* AgentPresentation.swift */,
 				238A0EF95E58F7CF1A40AB89 /* Info.plist */,
+				A8E63E6655627C04C85C7442 /* Leo.entitlements */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -182,8 +228,9 @@
 		A53F5A9B862010D618686362 = {
 			isa = PBXGroup;
 			children = (
-				007B439F5F3EF0B229088A16 /* d-2f32a9ff9b85 */,
+				A864C4FCF907C7EA55CC654A /* d-b35d18e2043d */,
 				A7DC75B903E2C1744431D78B /* Leo */,
+				A9BA909F4A8ECFB0F4593D1C /* LeoNotificationService */,
 				96691FF04776212D622BD454 /* LeoUITests */,
 				60C67101129AC071D0C61A57 /* Packages */,
 				B2CCE2026F7650F130A59805 /* Products */,
@@ -199,17 +246,39 @@
 				157F64B91C5E8A82854120AC /* Daemons */,
 				D25C5DA007B4057DA7C9E8DE /* Files */,
 				2ABCEEC6F64C4FBC952ABDDB /* Pairing */,
+				14C381D3274C04652F43B67D /* Push */,
 				0D591BF396F0772DE863766E /* Resources */,
+				78F7EE9F77363ED1130CCC48 /* Settings */,
 				A3C1D14FC1F5221C14272245 /* Support */,
 				90C3B4069CE6286F9B1FAFAA /* Terminal */,
 			);
 			path = Leo;
 			sourceTree = "<group>";
 		};
+		A864C4FCF907C7EA55CC654A /* d-b35d18e2043d */ = {
+			isa = PBXGroup;
+			children = (
+				F314214D38ED8ACBED70E2B4 /* images */,
+			);
+			name = "d-b35d18e2043d";
+			path = ..;
+			sourceTree = "<group>";
+		};
+		A9BA909F4A8ECFB0F4593D1C /* LeoNotificationService */ = {
+			isa = PBXGroup;
+			children = (
+				F6C700243A7DF9C889D0C17F /* Info.plist */,
+				54D9136C96055AB2811BE750 /* LeoNotificationService.entitlements */,
+				AB62374CAF4B0AB162EB0A3C /* NotificationService.swift */,
+			);
+			path = LeoNotificationService;
+			sourceTree = "<group>";
+		};
 		B2CCE2026F7650F130A59805 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				D1A1F7D0633E46F1B7A239E2 /* Leo.app */,
+				4C9E7687201F50B6862AC453 /* LeoNotificationService.appex */,
 				A2CC89792C60C356D74344CD /* LeoUITests.xctest */,
 			);
 			name = Products;
@@ -226,9 +295,36 @@
 			path = Files;
 			sourceTree = "<group>";
 		};
+		F314214D38ED8ACBED70E2B4 /* images */ = {
+			isa = PBXGroup;
+			children = (
+				56AC8572B63B75E4ADC91B73 /* Ghostty.icon */,
+			);
+			path = images;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		4AF55EDA76E8B94828BB07C3 /* LeoNotificationService */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 81121E5D800C198584255953 /* Build configuration list for PBXNativeTarget "LeoNotificationService" */;
+			buildPhases = (
+				30CEB40C0380750375D2447C /* Sources */,
+				1E8BBDBBD6A8C8C3E2C9AFA3 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = LeoNotificationService;
+			packageProductDependencies = (
+				7C4CB7ED94C7DDF2894E56F5 /* LeoKit */,
+			);
+			productName = LeoNotificationService;
+			productReference = 4C9E7687201F50B6862AC453 /* LeoNotificationService.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		5779400518906C88E18166B0 /* LeoUITests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = E3EC6F114BCB297A8C469783 /* Build configuration list for PBXNativeTarget "LeoUITests" */;
@@ -252,10 +348,12 @@
 				F6B201CF8ED31582BE499261 /* Sources */,
 				BF783401B862D399C72FA6A3 /* Resources */,
 				95BC16C6CBC3815D92CC9825 /* Frameworks */,
+				9FBA31D548E53F914371739D /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				688A1D31AB9CC5D28DFF2C6C /* PBXTargetDependency */,
 			);
 			name = Leo;
 			packageProductDependencies = (
@@ -275,6 +373,10 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					4AF55EDA76E8B94828BB07C3 = {
+						DevelopmentTeam = 52M9C6892K;
+						ProvisioningStyle = Automatic;
+					};
 					5779400518906C88E18166B0 = {
 						DevelopmentTeam = 52M9C6892K;
 						ProvisioningStyle = Automatic;
@@ -298,11 +400,13 @@
 			packageReferences = (
 				3552D749335C19D4996A5815 /* XCRemoteSwiftPackageReference "SwiftTerm" */,
 				FF9AEE0B99B83692F1AD4865 /* XCLocalSwiftPackageReference "LeoFeatures" */,
+				E4131F4A7E9424321DBF30D3 /* XCLocalSwiftPackageReference "../Packages/LeoKit" */,
 			);
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				F1508DE32DA9238026314843 /* Leo */,
+				4AF55EDA76E8B94828BB07C3 /* LeoNotificationService */,
 				5779400518906C88E18166B0 /* LeoUITests */,
 			);
 		};
@@ -314,18 +418,27 @@
 			buildActionMask = 2147483647;
 			files = (
 				C9D7F5EB7A3C2C3EE88255BE /* Assets.xcassets in Resources */,
-				04E1430D6F5A695CCADD1464 /* Ghostty.icon in Resources */,
+				65847255B3CFBCD17049CC5F /* Ghostty.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		30CEB40C0380750375D2447C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				61C7847BB0226FB17CDD61F7 /* NotificationService.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		995ECF6F0B1F47717FB37146 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				7BB11F057E27FF2F99C7B4D0 /* LeoE2ETests.swift in Sources */,
+				35B2BA0207DD6269898734F2 /* LeoPushE2ETests.swift in Sources */,
 				B25470C3706218FBCA5C7DA1 /* LeoUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -342,10 +455,12 @@
 				34C79FDA57FA7D0AE74E69AF /* FilesViewController.swift in Sources */,
 				5909DD8147792D202DDC08A4 /* MarkdownRenderer.swift in Sources */,
 				2753B4A7B4AC3C2FE126635B /* PairingViewController.swift in Sources */,
+				DBA634BDA3B7C6688C6216F3 /* PushClientLive.swift in Sources */,
 				E774071B30CF8DA71EB13833 /* QRScannerViewController.swift in Sources */,
 				547C76579FE92ED64C7950DE /* QuickLookPreviewController.swift in Sources */,
 				787BACE232F874CDD0EACDE4 /* RootSplitViewController.swift in Sources */,
 				5B17D4836F510CA07BB3683D /* SceneDelegate.swift in Sources */,
+				47162225220BCD9DBE4CD6B6 /* SettingsViewController.swift in Sources */,
 				15A91201486195EC72F38990 /* TerminalViewController.swift in Sources */,
 				28C6AFEF6CDE3099461FFD31 /* TextFileViewController.swift in Sources */,
 			);
@@ -354,6 +469,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		688A1D31AB9CC5D28DFF2C6C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4AF55EDA76E8B94828BB07C3 /* LeoNotificationService */;
+			targetProxy = FA17E57595444650019CFD25 /* PBXContainerItemProxy */;
+		};
 		F3951974DB14C4254B477574 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = F1508DE32DA9238026314843 /* Leo */;
@@ -362,6 +482,26 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		050B76066D0F884E5025C119 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = LeoNotificationService/LeoNotificationService.entitlements;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = LeoNotificationService/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "studio.blackpaw.leo.ios.notification-service";
+				PRODUCT_NAME = LeoNotificationService;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		0C381AC236B94A2BB53A7659 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -447,6 +587,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Ghostty;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Leo/Support/Leo.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Leo/Support/Info.plist;
@@ -455,6 +596,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				LEO_APNS_ENVIRONMENT = production;
+				LEO_PUSH_RELAY_URL = "https://leo-relay.<placeholder>.workers.dev";
 				PRODUCT_BUNDLE_IDENTIFIER = studio.blackpaw.leo.ios;
 				PRODUCT_NAME = Leo;
 				SDKROOT = iphoneos;
@@ -465,11 +608,32 @@
 			};
 			name = Release;
 		};
+		79624551BDF942098DF1A676 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = LeoNotificationService/LeoNotificationService.entitlements;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = LeoNotificationService/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "studio.blackpaw.leo.ios.notification-service";
+				PRODUCT_NAME = LeoNotificationService;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		90121B9C1C728DC8DEB64EAC /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Ghostty;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Leo/Support/Leo.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Leo/Support/Info.plist;
@@ -478,6 +642,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				LEO_APNS_ENVIRONMENT = sandbox;
+				LEO_PUSH_RELAY_URL = "https://leo-relay.<placeholder>.workers.dev";
 				PRODUCT_BUNDLE_IDENTIFIER = studio.blackpaw.leo.ios;
 				PRODUCT_NAME = Leo;
 				SDKROOT = iphoneos;
@@ -596,6 +762,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		81121E5D800C198584255953 /* Build configuration list for PBXNativeTarget "LeoNotificationService" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				79624551BDF942098DF1A676 /* Debug */,
+				050B76066D0F884E5025C119 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		E3EC6F114BCB297A8C469783 /* Build configuration list for PBXNativeTarget "LeoUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -619,6 +794,10 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCLocalSwiftPackageReference section */
+		E4131F4A7E9424321DBF30D3 /* XCLocalSwiftPackageReference "../Packages/LeoKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Packages/LeoKit;
+		};
 		FF9AEE0B99B83692F1AD4865 /* XCLocalSwiftPackageReference "LeoFeatures" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = LeoFeatures;
@@ -630,6 +809,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 3552D749335C19D4996A5815 /* XCRemoteSwiftPackageReference "SwiftTerm" */;
 			productName = SwiftTerm;
+		};
+		7C4CB7ED94C7DDF2894E56F5 /* LeoKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LeoKit;
 		};
 		D76C56FEE239FEB25E23F15F /* LeoFeatures */ = {
 			isa = XCSwiftPackageProductDependency;
