@@ -28,6 +28,9 @@ struct LeoSidePaneTitlebarStyleTests {
         let sidebarTop = fixture.windowTop - fixture.header.maxY
         let sidebarCentre = fixture.windowTop - fixture.header.midY
         let panes = try await SidePaneHeaders.measure(in: fixture, size: Self.windowSize)
+        // Absolute: the sidebar bound above ties the panes to the window's
+        // top edge only through the sidebar header (B-151).
+        let expectedCentre = LeoSidebarChromeMetrics.topInset + LeoSidebarChromeMetrics.headerRowHeight / 2
 
         for pane in panes.all {
             let top = fixture.windowTop - pane.glyph.maxY
@@ -35,6 +38,10 @@ struct LeoSidePaneTitlebarStyleTests {
             #expect(
                 abs(centre - sidebarCentre) <= 1,
                 "the \(pane.name) header centres \(centre) pt under the window's top edge, the sidebar's \(sidebarCentre); \(panes)"
+            )
+            #expect(
+                abs(centre - expectedCentre) <= 1,
+                "the \(pane.name) close glyph centres \(centre) pt under the window's top edge, not the inset + half a header row, \(expectedCentre); \(panes)"
             )
             #expect(
                 top >= sidebarTop - 1,
@@ -95,6 +102,8 @@ private struct SidePaneHeaders: CustomStringConvertible {
             fixture.window.contentView?.layoutSubtreeIfNeeded()
             try await Task.sleep(for: .milliseconds(20))
         }
+        // B-149: geometry read after run-loop turns may still be pre-layout.
+        fixture.window.layoutIfNeeded()
         try #require(!browserItem.isCollapsed && !editorItem.isCollapsed, "a pane collapsed again")
 
         let browserClose = try #require(firstButton(in: browserItem.viewController.view, toolTip: "Close Files"), "no browser close button")
