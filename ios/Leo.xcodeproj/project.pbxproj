@@ -10,6 +10,7 @@
 		15A91201486195EC72F38990 /* TerminalViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C736E4B042BE982C20D63C /* TerminalViewController.swift */; };
 		2753B4A7B4AC3C2FE126635B /* PairingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28DF61BF22507AC7C45D4DB /* PairingViewController.swift */; };
 		28C6AFEF6CDE3099461FFD31 /* TextFileViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A074786444DAE80D6F189B6C /* TextFileViewController.swift */; };
+		2F613DE6FE36BEADFC273BAE /* Ghostty.icon in Resources */ = {isa = PBXBuildFile; fileRef = AEAD0E0F3907256BB0BB8DAD /* Ghostty.icon */; };
 		305D9929E92C5618B695D49A /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 7713A78E3FC5DD25A956D7F7 /* SwiftTerm */; };
 		34C79FDA57FA7D0AE74E69AF /* FilesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 806CB3A307290DFC916BE9AC /* FilesViewController.swift */; };
 		35B2BA0207DD6269898734F2 /* LeoPushE2ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F8B9632E4FB5665D708DF0E /* LeoPushE2ETests.swift */; };
@@ -25,7 +26,6 @@
 		7BB11F057E27FF2F99C7B4D0 /* LeoE2ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 249F5BD758358963B9AE6F8B /* LeoE2ETests.swift */; };
 		853C84CD4D7A533FCB9755A1 /* DaemonsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E30B7AA5EE2B1BCEA80F489 /* DaemonsViewController.swift */; };
 		929ACF5783DFA6EEC13FB3CF /* LeoFeatures in Frameworks */ = {isa = PBXBuildFile; productRef = D76C56FEE239FEB25E23F15F /* LeoFeatures */; };
-		92A1EE30E17F1968901C0331 /* Ghostty.icon in Resources */ = {isa = PBXBuildFile; fileRef = A17B38B39E8CC963C7FABBFC /* Ghostty.icon */; };
 		9D9F47A3C6410164E2BF82D4 /* AgentPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A3E500114C72A2CED014F5E /* AgentPresentation.swift */; };
 		B25470C3706218FBCA5C7DA1 /* LeoUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4259E396F6B6491459936938 /* LeoUITests.swift */; };
 		C9D7F5EB7A3C2C3EE88255BE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A4590A54B9047670434E5737 /* Assets.xcassets */; };
@@ -83,7 +83,6 @@
 		57636A050F83D8C255CD37DB /* PushClientLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushClientLive.swift; sourceTree = "<group>"; };
 		806CB3A307290DFC916BE9AC /* FilesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesViewController.swift; sourceTree = "<group>"; };
 		A074786444DAE80D6F189B6C /* TextFileViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextFileViewController.swift; sourceTree = "<group>"; };
-		A17B38B39E8CC963C7FABBFC /* Ghostty.icon */ = {isa = PBXFileReference; path = Ghostty.icon; sourceTree = "<group>"; };
 		A1C736E4B042BE982C20D63C /* TerminalViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalViewController.swift; sourceTree = "<group>"; };
 		A28DF61BF22507AC7C45D4DB /* PairingViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingViewController.swift; sourceTree = "<group>"; };
 		A2CC89792C60C356D74344CD /* LeoUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = LeoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -91,6 +90,7 @@
 		A8E63E6655627C04C85C7442 /* Leo.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Leo.entitlements; sourceTree = "<group>"; };
 		A95C0A9333F680281BFCE98A /* MarkdownRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownRenderer.swift; sourceTree = "<group>"; };
 		AB62374CAF4B0AB162EB0A3C /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+		AEAD0E0F3907256BB0BB8DAD /* Ghostty.icon */ = {isa = PBXFileReference; name = Ghostty.icon; path = ../../../images/Ghostty.icon; sourceTree = "<group>"; };
 		C90AC43D9476285D3D1C5BF5 /* AgentDetailViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentDetailViewController.swift; sourceTree = "<group>"; };
 		CB1449AF007C779C9BAE7CC9 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		D1A1F7D0633E46F1B7A239E2 /* Leo.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Leo.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -133,6 +133,7 @@
 			isa = PBXGroup;
 			children = (
 				A4590A54B9047670434E5737 /* Assets.xcassets */,
+				AEAD0E0F3907256BB0BB8DAD /* Ghostty.icon */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -153,14 +154,6 @@
 			path = Daemons;
 			sourceTree = "<group>";
 		};
-		25EBB60E377CB56F4CA98D9A /* images */ = {
-			isa = PBXGroup;
-			children = (
-				A17B38B39E8CC963C7FABBFC /* Ghostty.icon */,
-			);
-			path = images;
-			sourceTree = "<group>";
-		};
 		2ABCEEC6F64C4FBC952ABDDB /* Pairing */ = {
 			isa = PBXGroup;
 			children = (
@@ -178,15 +171,6 @@
 				CB1449AF007C779C9BAE7CC9 /* SceneDelegate.swift */,
 			);
 			path = App;
-			sourceTree = "<group>";
-		};
-		466D1EA9B98C3225BCABF914 /* d-bfae9bf4c45f */ = {
-			isa = PBXGroup;
-			children = (
-				25EBB60E377CB56F4CA98D9A /* images */,
-			);
-			name = "d-bfae9bf4c45f";
-			path = ..;
 			sourceTree = "<group>";
 		};
 		60C67101129AC071D0C61A57 /* Packages */ = {
@@ -245,7 +229,6 @@
 		A53F5A9B862010D618686362 = {
 			isa = PBXGroup;
 			children = (
-				466D1EA9B98C3225BCABF914 /* d-bfae9bf4c45f */,
 				A7DC75B903E2C1744431D78B /* Leo */,
 				A9BA909F4A8ECFB0F4593D1C /* LeoNotificationService */,
 				96691FF04776212D622BD454 /* LeoUITests */,
@@ -418,7 +401,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C9D7F5EB7A3C2C3EE88255BE /* Assets.xcassets in Resources */,
-				92A1EE30E17F1968901C0331 /* Ghostty.icon in Resources */,
+				2F613DE6FE36BEADFC273BAE /* Ghostty.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -35,6 +35,7 @@ targets:
     sources:
       - path: Leo
       - path: ../images/Ghostty.icon
+        group: Leo/Resources
         buildPhase: resources
     dependencies:
       - package: LeoFeatures
