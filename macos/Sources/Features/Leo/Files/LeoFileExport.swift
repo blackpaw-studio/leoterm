@@ -36,6 +36,17 @@ enum LeoFileExport {
         access: any LeoFileAccess,
         beforeWrite: @escaping @Sendable (UInt64) async throws -> Void = { _ in }
     ) async throws -> URL {
+        try await fetch(remotePath: remotePath, to: destination, access: access, beforeWrite: beforeWrite).url
+    }
+
+    /// `download`, also returning the `stat` taken before reading: the
+    /// version of the bytes written (B-278's preview conflict base).
+    static func fetch(
+        remotePath: String,
+        to destination: URL,
+        access: any LeoFileAccess,
+        beforeWrite: @escaping @Sendable (UInt64) async throws -> Void = { _ in }
+    ) async throws -> (url: URL, stat: LeoFileStat) {
         let name = destination.lastPathComponent
         let folderURL = destination.deletingLastPathComponent()
         let folderPath = folderURL.path(percentEncoded: false)
@@ -48,11 +59,11 @@ enum LeoFileExport {
         let staging = try folder.createStaging(for: name)
         do {
             let sink = LeoFileDescriptorSink(descriptor: staging.descriptor, path: shownPath)
-            try await access.read(remotePath, into: HookedSink(base: sink, beforeWrite: beforeWrite))
+            let stat = try await access.read(remotePath, into: HookedSink(base: sink, beforeWrite: beforeWrite))
             try sink.finish(permissions: permissions)
             try Task.checkCancellation()
             let published = try folder.publish(staging.name, as: name)
-            return folderURL.appendingPathComponent(published, isDirectory: false)
+            return (folderURL.appendingPathComponent(published, isDirectory: false), stat)
         } catch {
             folder.remove(staging.name)
             throw error
@@ -77,7 +88,7 @@ enum LeoFileExport {
         return "\((name as NSString).deletingPathExtension) \(number).\(pathExtension)"
     }
 
-    private static func requireRegularFile(_ stat: LeoFileStat, path: String) throws {
+    static func requireRegularFile(_ stat: LeoFileStat, path: String) throws {
         switch stat.kind {
         case .file: return
         case .directory: throw LeoFileAccessError.isADirectory(path: path)
