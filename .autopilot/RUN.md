@@ -76,3 +76,4 @@ Finished 2: B-288 blocked
 - B-288 runner dispatched: d-9f481ddd4ac0 (tier light).
 - B-288 shelved (blocked): read-only is daemon-side (`leo dispatch attach` hardcodes tmux attach -r); needs a leo change + owner policy call on two writers. Not a fix-attempt shelve.
 - B-278 picked (top ready; tier full — new feature across image/video/Markdown/PDF, local + SFTP). Item 3 of 3.
+- B-278 runner dispatched: d-4af07fd107be (tier full).
