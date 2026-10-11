@@ -3,6 +3,7 @@ import LeoFeatures
 import LeoKit
 import UIKit
 import UIKitNavigation
+import UniformTypeIdentifiers
 
 /// An agent's surfaced files, newest first: name, reason, path and age,
 /// with a dot on the ones not yet opened.
@@ -90,7 +91,7 @@ final class FilesViewController: UIViewController, UICollectionViewDelegate {
         let isUnseen = store.unseenIDs.contains(file.id)
         let isUnavailable = store.unavailableIDs.contains(file.id)
         var content = UIListContentConfiguration.subtitleCell()
-        content.image = UIImage(systemName: FilePreviewKind(fileName: file.path).symbolName)
+        content.image = UIImage(systemName: Self.symbolName(for: file.path))
         content.imageProperties.tintColor = isUnavailable ? .tertiaryLabel : .tintColor
         content.text = file.displayName
         content.textProperties.font = .preferredFont(forTextStyle: .body).withWeight(isUnseen ? .semibold : .regular)
@@ -142,6 +143,9 @@ final class FilesViewController: UIViewController, UICollectionViewDelegate {
     }
 
     private func render() {
+        // Cells read these while configuring, outside this observation;
+        // touch them here so a change to any of them re-renders.
+        _ = (store.unseenIDs, store.unavailableIDs, store.opening)
         if store.files.isEmpty {
             var configuration = UIContentUnavailableConfiguration.empty()
             configuration.image = UIImage(systemName: "doc.on.doc")
@@ -185,13 +189,22 @@ private final class UnreadDot: UIView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 }
 
-extension FilePreviewKind {
-    var symbolName: String {
-        switch self {
-        case .markdown: "doc.richtext"
-        case .text: "doc.plaintext"
-        case .quickLook: "doc.viewfinder"
-        case .unknown: "doc"
+extension FilesViewController {
+    /// A glyph for the file's type.
+    static func symbolName(for path: String) -> String {
+        let ext = (path as NSString).pathExtension.lowercased()
+        let type = UTType(filenameExtension: ext)
+        switch FilePreviewKind(fileName: path) {
+        case .markdown: return "doc.richtext"
+        case .text: return type?.conforms(to: .sourceCode) == true ? "chevron.left.forwardslash.chevron.right" : "doc.plaintext"
+        case .unknown: return "doc"
+        case .quickLook:
+            if type?.conforms(to: .image) == true { return "photo" }
+            if type?.conforms(to: .audiovisualContent) == true { return "play.rectangle" }
+            if type?.conforms(to: .pdf) == true { return "doc.text.image" }
+            if type?.conforms(to: .spreadsheet) == true { return "tablecells" }
+            if type?.conforms(to: .presentation) == true { return "rectangle.on.rectangle" }
+            return "doc.text"
         }
     }
 }

@@ -26,10 +26,11 @@ public struct TerminalSize: Hashable, Sendable, RawRepresentable {
 
     public static let compact = TerminalSize(cols: 80, rows: 24)
     public static let medium = TerminalSize(cols: 120, rows: 36)
-    public static let standard = TerminalSize(cols: 160, rows: 48)
-    public static let wide = TerminalSize(cols: 200, rows: 56)
-    public static let extraWide = TerminalSize(cols: 240, rows: 64)
-    public static let presets: [TerminalSize] = [.compact, .medium, .standard, .wide, .extraWide]
+    public static let large = TerminalSize(cols: 160, rows: 48)
+    /// The size leo creates agent sessions at (`tmux new-session -x 200 -y 50`).
+    public static let standard = TerminalSize(cols: 200, rows: 50)
+    public static let wide = TerminalSize(cols: 240, rows: 64)
+    public static let presets: [TerminalSize] = [.compact, .medium, .large, .standard, .wide]
 }
 
 extension SharedKey where Self == AppStorageKey<TerminalSize>.Default {

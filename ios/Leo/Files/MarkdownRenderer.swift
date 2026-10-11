@@ -14,7 +14,9 @@ enum MarkdownRenderer {
         let result = NSMutableAttributedString()
         var highlight: NSRange?
         for (index, block) in document.blocks.enumerated() {
-            if index > 0 { result.append(NSAttributedString(string: "\n", attributes: [.font: Style.body, .paragraphStyle: Style.blockGap])) }
+            // The newline ends the previous block's last paragraph, whose own
+            // paragraph spacing makes the gap.
+            if index > 0 { result.append(NSAttributedString(string: "\n", attributes: [.font: Style.body])) }
             let start = result.length
             switch block.kind {
             case .code:
@@ -39,7 +41,8 @@ enum MarkdownRenderer {
             let start = result.length
             let isLast = offset == lines.count - 1
             result.append(NSAttributedString(string: (line.isEmpty ? " " : line) + (isLast ? "" : "\n"), attributes: [
-                .font: Style.code, .foregroundColor: UIColor.label, .backgroundColor: UIColor.secondarySystemFill, .paragraphStyle: Style.codeBlock,
+                .font: Style.code, .foregroundColor: UIColor.label, .backgroundColor: UIColor.secondarySystemFill,
+                .paragraphStyle: isLast ? Style.lastCodeLine : Style.codeBlock,
             ]))
             if let highlightLine, highlightLine == block.firstContentLine + offset {
                 highlight = NSRange(location: start, length: result.length - start)
@@ -136,7 +139,7 @@ enum MarkdownRenderer {
 
     private static func paragraphStyle(_ components: [PresentationIntent.IntentType]) -> NSParagraphStyle {
         let style = NSMutableParagraphStyle()
-        style.paragraphSpacing = 4
+        style.paragraphSpacing = 8
         let lists = components.filter { $0.kind == .orderedList || $0.kind == .unorderedList }.count
         let quotes = components.filter { $0.kind == .blockQuote }.count
         let indent = CGFloat(lists) * 22 + CGFloat(quotes) * 14
@@ -149,7 +152,7 @@ enum MarkdownRenderer {
             style.headIndent = indent
         }
         if components.contains(where: { if case .header = $0.kind { true } else { false } }) {
-            style.paragraphSpacingBefore = 6
+            style.paragraphSpacingBefore = 10
         }
         if components.contains(where: { if case .tableRow = $0.kind { true } else if case .tableHeaderRow = $0.kind { true } else { false } }) {
             style.tabStops = (1...6).map { NSTextTab(textAlignment: .left, location: CGFloat($0) * 110) }
@@ -175,9 +178,10 @@ enum MarkdownRenderer {
             return UIFont.preferredFont(forTextStyle: style).withWeight(.bold)
         }
 
-        static var blockGap: NSParagraphStyle {
-            let style = NSMutableParagraphStyle()
-            style.paragraphSpacing = 6
+        /// The block gap after code (a paragraph's spacing follows it).
+        static var lastCodeLine: NSParagraphStyle {
+            let style = codeBlock.mutableCopy() as! NSMutableParagraphStyle
+            style.paragraphSpacing = 12
             return style
         }
 
