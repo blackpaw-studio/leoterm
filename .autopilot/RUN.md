@@ -149,12 +149,14 @@ Lane: B-152
   Branch: autopilot-lane/B-152
   Base: f2747b820f741baa7f6ab48ece92405b9afa8b57
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: d12ea1a5186a545fdd8c69425a81f831852703f0
   Dispatched: 2026-10-11T23:33:00Z
+  Call: LeoSidebarHeader is pinned with .frame(height: headerRowHeight) rather than renaming it to a minimum, keeping the header and side panes on one centre line; the .headline title is fixed-size on macOS, so 16 pt can't clip it — P1.
+  Call: LeoSidebarHeaderPart gains a test-only `.row` probe case, in the style of the existing parts — P1 / suite discipline.
 
 Finished 1: B-284 landed 1c1f5aa66 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-284-w515414.png
 Finished 2: B-285 landed d34e7d42f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-285-1.png
