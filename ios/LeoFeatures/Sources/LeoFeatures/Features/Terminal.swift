@@ -6,7 +6,8 @@ import LeoKit
 /// machine. Output bypasses state and goes to the view through
 /// `TerminalOutputBus`. The socket is open only while the screen is
 /// visible, the app is in the foreground and the agent is running; a drop
-/// reconnects with backoff, a revoked device never retries.
+/// reconnects with backoff, output the view fell behind on reconnects at
+/// once (tmux redraws), and a revoked device never retries.
 @Reducer
 public struct Terminal {
     @ObservableState
@@ -69,6 +70,9 @@ public struct Terminal {
 
     public var body: some ReducerOf<Self> {
         Reduce { state, action in
+            // Revoked is final for this screen: only pairing again (a new
+            // token, so a new screen) reconnects.
+            if state.phase == .revoked { return Self.noteWhileRevoked(action, state: &state) }
             switch action {
             case .agentRunningChanged(let isRunning):
                 state.isAgentRunning = isRunning
@@ -129,8 +133,23 @@ public struct Terminal {
         }
     }
 
+    /// Keeps the screen's facts current without reconnecting.
+    private static func noteWhileRevoked(_ action: Action, state: inout State) -> Effect<Action> {
+        switch action {
+        case .agentRunningChanged(let isRunning): state.isAgentRunning = isRunning
+        case .appeared: state.isVisible = true
+        case .disappeared: state.isVisible = false
+        case .scenePhaseChanged(let isActive): state.isSceneActive = isActive
+        case .sizeSelected(let size): if size != state.size { state.$size.withLock { $0 = size } }
+        case .connect, .ended, .opened, .retryButtonTapped: break
+        }
+        return .none
+    }
+
     private func ended(_ end: TerminalEnd, state: inout State) -> Effect<Action> {
         switch end {
+        case .overflowed:
+            return start(&state)
         case .revoked:
             state.phase = .revoked
             return .none
@@ -174,7 +193,10 @@ public struct Terminal {
                     output.send(.reset, to: ref)
                     await send(.opened)
                 case .output(let data):
-                    output.send(.bytes(data), to: ref)
+                    guard output.send(.bytes(data), to: ref) else {
+                        await send(.ended(.overflowed))
+                        return
+                    }
                 }
             }
             await send(.ended(.dropped("Connection closed")))
@@ -193,6 +215,9 @@ public enum TerminalEnd: Equatable, Sendable {
     /// while the agent still reports running.
     case sessionEnded
     case dropped(String)
+    /// The view fell behind and output was dropped: reattach so tmux
+    /// redraws the screen.
+    case overflowed
 
     init(_ error: any Error) {
         switch error {
@@ -212,7 +237,7 @@ public enum TerminalEnd: Equatable, Sendable {
         switch self {
         case .sessionEnded: "The agent's session ended."
         case .dropped(let reason): reason
-        case .revoked, .notRunning: ""
+        case .revoked, .notRunning, .overflowed: ""
         }
     }
 }

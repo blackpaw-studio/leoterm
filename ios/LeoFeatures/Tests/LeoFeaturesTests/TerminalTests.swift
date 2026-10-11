@@ -105,6 +105,49 @@ struct TerminalTests {
         #expect(streams.opened.value == 1)
     }
 
+    @Test func aRevokedDeviceStaysRevokedUntilItIsPairedAgain() async {
+        let store = makeStore()
+        await store.send(.appeared) {
+            $0.isVisible = true
+            $0.phase = .connecting
+        }
+        streams[0].finish(throwing: LeoTerminalAttachError.closed(code: 1008, reason: "device revoked"))
+        await store.receive(\.ended) { $0.phase = .revoked }
+
+        await store.send(.scenePhaseChanged(isActive: false)) { $0.isSceneActive = false }
+        await store.send(.scenePhaseChanged(isActive: true)) { $0.isSceneActive = true }
+        await store.send(.agentRunningChanged(false)) { $0.isAgentRunning = false }
+        await store.send(.agentRunningChanged(true)) { $0.isAgentRunning = true }
+        await store.send(.disappeared) { $0.isVisible = false }
+        await store.send(.appeared) { $0.isVisible = true }
+        await store.send(.retryButtonTapped)
+        #expect(streams.opened.value == 1)
+    }
+
+    @Test func outputTheViewFellBehindOnIsDroppedAndTheTerminalResyncs() async {
+        let bus = TerminalOutputBus(cap: 4)
+        let held = bus.output(for: ref)
+        let store = makeStore()
+        store.dependencies.terminalOutput = bus
+
+        await store.send(.appeared) {
+            $0.isVisible = true
+            $0.phase = .connecting
+        }
+        streams[0].yield(.opened)
+        await store.receive(\.opened) { $0.phase = .live }
+        streams[0].yield(.output(Data("too much".utf8)))
+        await store.receive(\.ended) { $0.phase = .connecting }
+        #expect(streams.opened.value == 2)
+        #expect(streams.terminated.value == 1)
+
+        await store.send(.disappeared) {
+            $0.isVisible = false
+            $0.phase = .idle
+        }
+        _ = held
+    }
+
     @Test func backgroundingClosesTheSocketAndForegroundingReconnects() async {
         let store = makeStore()
         await store.send(.appeared) {
@@ -221,5 +264,36 @@ struct TerminalTests {
         }
         await store.receive(\.ended) { $0.phase = .revoked }
         #expect(streams.opened.value == 0)
+    }
+}
+
+struct TerminalOutputBusTests {
+    let ref = AgentRef(daemonID: PairedDaemon.dionysus.id, name: "zeus")
+
+    @Test func coalescesOutputTheViewHasNotTakenYet() async {
+        let bus = TerminalOutputBus()
+        var output = bus.output(for: ref).makeAsyncIterator()
+        bus.send(.bytes(Data("ab".utf8)), to: ref)
+        bus.send(.bytes(Data("cd".utf8)), to: ref)
+        #expect(await output.next() == .bytes(Data("abcd".utf8)))
+    }
+
+    @Test func aResetDiscardsOutputNotYetShown() async {
+        let bus = TerminalOutputBus()
+        var output = bus.output(for: ref).makeAsyncIterator()
+        bus.send(.bytes(Data("stale".utf8)), to: ref)
+        bus.send(.reset, to: ref)
+        bus.send(.bytes(Data("new".utf8)), to: ref)
+        #expect(await output.next() == .reset)
+        #expect(await output.next() == .bytes(Data("new".utf8)))
+    }
+
+    @Test func fallingBehindPastTheCapDropsTheBacklogAndAsksForAResync() async {
+        let bus = TerminalOutputBus(cap: 4)
+        var output = bus.output(for: ref).makeAsyncIterator()
+        #expect(bus.send(.bytes(Data("abc".utf8)), to: ref))
+        #expect(!bus.send(.bytes(Data("de".utf8)), to: ref))
+        bus.send(.reset, to: ref)
+        #expect(await output.next() == .reset)
     }
 }

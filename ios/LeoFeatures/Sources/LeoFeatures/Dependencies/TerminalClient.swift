@@ -67,33 +67,115 @@ public enum TerminalOutput: Equatable, Sendable {
 /// Carries terminal output from the `Terminal` feature's connection to the
 /// view that renders it, outside reducer state (output is a byte stream,
 /// not state). One subscriber per agent; a new one replaces the old.
+/// Output the view hasn't taken yet coalesces, up to `cap` bytes; past
+/// that the backlog is dropped and the sender told to resync, since a
+/// terminal missing bytes would show corrupt state.
 public final class TerminalOutputBus: Sendable {
-    private struct Subscriber {
-        let token: UUID
-        let continuation: AsyncStream<TerminalOutput>.Continuation
+    /// Output a subscriber may fall behind by before it must resync.
+    public static let defaultCap = 1 << 20
+
+    private let subscribers = LockIsolated<[AgentRef: TerminalOutputBuffer]>([:])
+    private let cap: Int
+
+    public init(cap: Int = TerminalOutputBus.defaultCap) {
+        self.cap = cap
     }
-
-    private let subscribers = LockIsolated<[AgentRef: Subscriber]>([:])
-
-    public init() {}
 
     public func output(for ref: AgentRef) -> AsyncStream<TerminalOutput> {
-        let (stream, continuation) = AsyncStream<TerminalOutput>.makeStream()
-        let token = UUID()
+        let buffer = TerminalOutputBuffer(cap: cap)
         let previous = subscribers.withValue { subscribers in
-            defer { subscribers[ref] = Subscriber(token: token, continuation: continuation) }
+            defer { subscribers[ref] = buffer }
             return subscribers[ref]
         }
-        previous?.continuation.finish()
-        continuation.onTermination = { [subscribers] _ in
-            subscribers.withValue { if $0[ref]?.token == token { $0[ref] = nil } }
+        previous?.finish()
+        return AsyncStream { [subscribers] in
+            guard let output = await buffer.next() else {
+                subscribers.withValue { if $0[ref] === buffer { $0[ref] = nil } }
+                return nil
+            }
+            return output
         }
-        return stream
     }
 
-    /// Dropped when nobody is watching.
-    public func send(_ output: TerminalOutput, to ref: AgentRef) {
-        subscribers.value[ref]?.continuation.yield(output)
+    /// Dropped when nobody is watching. False when the subscriber fell
+    /// behind and its backlog was dropped: the sender must resync.
+    @discardableResult
+    public func send(_ output: TerminalOutput, to ref: AgentRef) -> Bool {
+        subscribers.value[ref]?.append(output) ?? true
+    }
+}
+
+/// One subscriber's pending output: a reset flag and coalesced bytes.
+final class TerminalOutputBuffer: Sendable {
+    private struct Pending {
+        var needsReset = false
+        var bytes = Data()
+        var isFinished = false
+        var waiter: CheckedContinuation<TerminalOutput?, Never>?
+
+        /// Takes what is pending, or nil when nothing is.
+        mutating func take() -> TerminalOutput? {
+            if needsReset {
+                needsReset = false
+                return .reset
+            }
+            guard !bytes.isEmpty else { return nil }
+            defer { bytes = Data() }
+            return .bytes(bytes)
+        }
+    }
+
+    private let cap: Int
+    private let state = LockIsolated(Pending())
+
+    init(cap: Int) { self.cap = cap }
+
+    func append(_ output: TerminalOutput) -> Bool {
+        let (waiter, isKept): (CheckedContinuation<TerminalOutput?, Never>?, Bool) = state.withValue { pending in
+            guard !pending.isFinished else { return (nil, true) }
+            switch output {
+            case .reset:
+                pending.needsReset = true
+                pending.bytes = Data()
+            case .bytes(let data):
+                guard pending.bytes.count + data.count <= cap else {
+                    pending.bytes = Data()
+                    return (nil, false)
+                }
+                pending.bytes.append(data)
+            }
+            guard let waiter = pending.waiter else { return (nil, true) }
+            pending.waiter = nil
+            return (waiter, true)
+        }
+        waiter?.resume(returning: state.withValue { $0.take() })
+        return isKept
+    }
+
+    func finish() {
+        let waiter = state.withValue { pending in
+            pending.isFinished = true
+            defer { pending.waiter = nil }
+            return pending.waiter
+        }
+        waiter?.resume(returning: nil)
+    }
+
+    /// The pending output, waiting for some; nil once finished or cancelled.
+    func next() async -> TerminalOutput? {
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                let ready: TerminalOutput?? = state.withValue { pending in
+                    if let output = pending.take() { return .some(output) }
+                    if pending.isFinished || Task.isCancelled { return .some(nil) }
+                    pending.waiter = continuation
+                    return nil
+                }
+                if let ready { continuation.resume(returning: ready) }
+            }
+        } onCancel: {
+            finish()
+        }
     }
 }
 
