@@ -2,8 +2,10 @@ Status: running
 Started: 2026-10-11T15:41:34Z
 Budget: 20 items, until 2026-10-12T03:41:34Z
 Digested-through: 5
-Filed: 0/3 bugs, 1/5 ideas
+Filed: 0/3 bugs, 3/5 ideas
 Self-filed: B-148 → B-293 idea — Empty sidebar list under the state view may shift its layout
+Self-filed: B-149 → B-294 idea — Terminals-section exit may cut the selected row off the same way
+Self-filed: B-149 → B-295 idea — Disconnected banner and panel error can clip the selected bottom row
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -155,3 +157,4 @@ Finished 7: B-149 landed 039ec8dad · shot /Users/evan/.leo/agents/leoterm/.git/
 - B-149 picked (tier light: order one reveal after layout).
 - B-149 runner dispatched: d-28e147c6b7a4 (implement → claude/sonnet, tier light).
 - B-149 landed 039ec8dad (fixes 1).
+- B-149 landed (light→full: the light build and first plan couldn't go red; the re-plan reproduced the shrink direction). Filed B-294/B-295; the third polish line (pre-layout geometry in resize tests) goes to B-150 as a lane note.

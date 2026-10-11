@@ -2071,3 +2071,11 @@ Source: autopilot polish (B-278)
 ## B-293 · Check the state view's layout when an empty sidebar list sits under it   [idea]
 Note: In Loading/Failed/No Agents with a filter hiding terminals, B-148 keeps an empty list mounted under the state view; nobody checked whether it shifts the state view's layout (P6: sidebar renders predictably).
 Source: autopilot polish (B-148)
+
+## B-294 · Terminals-section exit may cut the selected row off the same way   [idea]
+Note: LeoTerminalsSectionExit.settle reveals on a next-turn hop rather than after AppKit layout, the pattern B-149 fixed; the B-081 landing could leave the selected row clipped (P6).
+Source: autopilot polish (B-149)
+
+## B-295 · Disconnected banner and panel error can clip the selected bottom row   [idea]
+Note: the disconnected banner and panelError shrink the sidebar list with no reveal trigger, so a selected bottom row can end up partly clipped (P6).
+Source: autopilot polish (B-149)
