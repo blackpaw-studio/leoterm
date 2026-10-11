@@ -9,8 +9,10 @@ import SwiftUI
 /// without animation; a row already on screen doesn't move, and nothing
 /// else (a retitle, an agent refresh) scrolls.
 ///
-/// The sidebar keeps one list through filtering and loading (B-099), so
-/// only the window's first list goes through `onAppear`; every later
+/// The sidebar keeps one list through filtering and loading while the
+/// window has agents or terminals (B-099, B-148), so `onAppear` runs for
+/// a list's first appearance only -- the window's first, or one remounted
+/// after the last terminal closed with no agents listed; every other
 /// reveal follows a change to the list it's in.
 struct LeoTerminalRowReveal: ViewModifier {
     /// The window's selected terminal row, if any.
