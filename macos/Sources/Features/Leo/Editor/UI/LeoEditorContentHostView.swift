@@ -9,7 +9,12 @@ import AppKit
 /// leave, so its folder can be deleted right after.
 final class LeoEditorContentHostView: NSView {
     /// Markdown longer than this (UTF-16 units) renders off the main actor.
-    static let syncRenderLimit = 200_000
+    static let defaultSyncRenderLimit = 200_000
+
+    /// Renders Markdown off the main actor (tests gate it).
+    typealias Render = @Sendable (String) async -> LeoRenderedMarkdown
+
+    static let render: Render = { source in LeoRenderedMarkdown(LeoMarkdownRenderer().render(source)) }
 
     let textScrollView: NSScrollView
     let textView: LeoEditorTextView
@@ -18,14 +23,23 @@ final class LeoEditorContentHostView: NSView {
     private(set) var content = LeoEditorPaneContent.text
     private var current: NSView
     private var renderGeneration = 0
+    private let renderOffMain: Render
+    private let syncRenderLimit: Int
+    /// Off-main renders thrown away because a newer one superseded them.
+    private(set) var discardedRenders = 0
     /// Can't Preview's buttons.
     var onUnavailableAction: (LeoUnavailablePreviewView.Action) -> Void = { _ in }
     /// The image's zoom changed.
     var onZoomChange: () -> Void = {}
 
-    init(textScrollView: NSScrollView, textView: LeoEditorTextView) {
+    init(
+        textScrollView: NSScrollView, textView: LeoEditorTextView,
+        render: @escaping Render = LeoEditorContentHostView.render, syncRenderLimit: Int = LeoEditorContentHostView.defaultSyncRenderLimit
+    ) {
         self.textScrollView = textScrollView
         self.textView = textView
+        renderOffMain = render
+        self.syncRenderLimit = syncRenderLimit
         (renderedScrollView, renderedTextView) = LeoRenderedTextView.make()
         current = textScrollView
         super.init(frame: .zero)
@@ -61,6 +75,14 @@ final class LeoEditorContentHostView: NSView {
         swap(to: makeView(for: content, source: source, name: name, revealTitle: revealTitle))
     }
 
+    /// Shows nothing, letting go of any previewed file now: the document
+    /// is gone, and its preview folder may be deleted at any moment.
+    func clear() {
+        guard content != .empty else { return }
+        content = .empty
+        swap(to: NSView())
+    }
+
     private static func drawsSource(_ content: LeoEditorPaneContent) -> Bool {
         content == .markdown || content == .svg
     }
@@ -88,8 +110,8 @@ final class LeoEditorContentHostView: NSView {
             return LeoMoviePreviewView(url: url, name: name)
         case .quickLook(let url):
             return LeoQuickLookPreviewView(url: url, name: name)
-        case let .unavailable(typeName, message):
-            return unavailable(LeoUnavailablePreviewView.title(typeName: typeName), message, revealTitle)
+        case let .unavailable(typeName, message, canRetry):
+            return unavailable(LeoUnavailablePreviewView.title(typeName: typeName), message, revealTitle, canRetry: canRetry)
         case .empty:
             return NSView()
         }
@@ -101,8 +123,8 @@ final class LeoEditorContentHostView: NSView {
         return view
     }
 
-    private func unavailable(_ title: String, _ message: String?, _ revealTitle: String) -> NSView {
-        let view = LeoUnavailablePreviewView(title: title, message: message, revealTitle: revealTitle)
+    private func unavailable(_ title: String, _ message: String?, _ revealTitle: String, canRetry: Bool = false) -> NSView {
+        let view = LeoUnavailablePreviewView(title: title, message: message, revealTitle: revealTitle, canRetry: canRetry)
         view.onAction = { [weak self] action in self?.onUnavailableAction(action) }
         return view
     }
@@ -120,8 +142,14 @@ final class LeoEditorContentHostView: NSView {
         if hadFocus { window?.makeFirstResponder(focusTarget) }
     }
 
+    /// The row fills whatever the pane gives it: a view's own size (a
+    /// movie's frame size) never pushes the split's panes around.
     private func embed(_ view: NSView) {
         view.translatesAutoresizingMaskIntoConstraints = false
+        for orientation in [NSLayoutConstraint.Orientation.horizontal, .vertical] {
+            view.setContentCompressionResistancePriority(.init(1), for: orientation)
+            view.setContentHuggingPriority(.init(1), for: orientation)
+        }
         addSubview(view)
         NSLayoutConstraint.activate([
             view.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -137,22 +165,28 @@ final class LeoEditorContentHostView: NSView {
         renderGeneration += 1
         let generation = renderGeneration
         let renderer = LeoMarkdownRenderer()
-        guard source.utf16.count > Self.syncRenderLimit else { return renderedTextView.show(renderer.render(source)) }
+        guard source.utf16.count > syncRenderLimit else { return renderedTextView.show(renderer.render(source)) }
         renderedTextView.show(NSAttributedString(string: "Rendering…", attributes: [
             .font: renderer.bodyFont, .foregroundColor: NSColor.secondaryLabelColor,
         ]))
+        let render = renderOffMain
         Task.detached(priority: .userInitiated) { [weak self] in
-            let rendered = LeoRendered(renderer.render(source))
-            await MainActor.run {
-                guard let self, generation == self.renderGeneration else { return }
-                self.renderedTextView.show(rendered.value)
-            }
+            let rendered = await render(source)
+            await self?.land(rendered, generation: generation)
         }
+    }
+
+    private func land(_ rendered: LeoRenderedMarkdown, generation: Int) {
+        guard generation == renderGeneration else {
+            discardedRenders += 1
+            return
+        }
+        renderedTextView.show(rendered.value)
     }
 }
 
 /// A finished render, handed back to the main actor (never mutated).
-private struct LeoRendered: @unchecked Sendable {
+struct LeoRenderedMarkdown: @unchecked Sendable {
     let value: NSAttributedString
 
     init(_ value: NSAttributedString) { self.value = value }

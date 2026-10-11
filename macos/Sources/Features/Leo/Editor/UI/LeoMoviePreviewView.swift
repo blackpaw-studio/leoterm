@@ -16,6 +16,12 @@ final class LeoMoviePreviewView: AVPlayerView {
 
     override var acceptsFirstResponder: Bool { true }
 
+    /// None: the movie's frame size must never size the pane (it squeezed
+    /// the sidebar).
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: NSView.noIntrinsicMetric, height: NSView.noIntrinsicMetric)
+    }
+
     func stop() {
         player?.pause()
         player?.replaceCurrentItem(with: nil)

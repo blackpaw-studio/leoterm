@@ -28,7 +28,11 @@ final class LeoQuickLookPreviewView: NSView {
 
     override var acceptsFirstResponder: Bool { true }
 
+    private(set) var isClosed = false
+
     func close() {
+        guard !isClosed else { return }
+        isClosed = true
         preview.close()
     }
 }

@@ -34,6 +34,26 @@ struct LeoEditorPaneMarkdownToggleTests {
         }
     }
 
+    /// The document going (left anyway, its tab closed) clears the row at
+    /// once, so Quick Look has let go of the file before its folder goes --
+    /// even when the preview's own close lands after the pane stops
+    /// listening.
+    @Test func droppingThePreviewDocumentClearsTheRow() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let model = LeoEditorPaneModel(makeAccess: { _ in LeoFileAccessor.local() })
+            let pane = LeoEditorPaneViewController(model: model)
+            _ = pane.view
+            try await model.open(LeoEditorFileID(host: .local, path: try sandbox.file("doc.pdf", "%PDF-1.4")))
+            await model.document?.settlePreview()
+            #expect(await eventually { if case .quickLook = pane.contentHost.content { true } else { false } })
+
+            model.abandon()
+
+            #expect(await eventually { pane.contentHost.content == .empty })
+            #expect(!pane.contentHost.subviews.contains { $0 is LeoQuickLookPreviewView })
+        }
+    }
+
     @Test func aPlainTextFileHasNoToggle() async throws {
         try await withLeoFileSandbox(.local) { sandbox, _ in
             let model = LeoEditorPaneModel(makeAccess: { _ in LeoFileAccessor.local() })

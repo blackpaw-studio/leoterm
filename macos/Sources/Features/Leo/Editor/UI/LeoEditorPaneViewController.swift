@@ -156,6 +156,8 @@ final class LeoEditorPaneViewController: NSViewController {
         guard let document else {
             shownDocument = nil
             observePreview(of: nil)
+            // Its preview may delete its folder any moment now.
+            contentHost.clear()
             refreshChrome()
             return
         }
