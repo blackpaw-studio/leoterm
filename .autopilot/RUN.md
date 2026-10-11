@@ -41,7 +41,7 @@ Lane: B-285
   Branch: autopilot-lane/B-285
   Base: d3382717920cfd6220dfbcf6b83413e5eacb92ce
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
@@ -49,6 +49,7 @@ Lane: B-285
   Dispatched: 2026-10-11T17:11:00Z
 
 Finished 1: B-284 landed 1c1f5aa66 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-284-w515414.png
+Finished 2: B-285 landed d34e7d42f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-285-1.png
 
 ## Progress
 - Preflight: autopilot already at main (60e80df75); applied 1 inbox entry (B-288 answer → D-518; stays blocked until leo ships `--rw`; leo 0.45.0 has none).
@@ -62,3 +63,4 @@ Finished 1: B-284 landed 1c1f5aa66 · shot /Users/evan/.leo/agents/leoterm/.git/
 - B-285 picked (tier light): same contentViewController pattern; reuse B-284's NSWindow.presentLeoSheet helper.
 - B-285 runner dispatched: d-9fd59b2bcca2 (implement → claude/sonnet, tier light).
 - 13:10 EDT: leo agent reports `--rw` shipped in leo v0.47.0. That meets D-518's condition, so B-288 is set to ready (Update line added). Local leo is still 0.45.0, so the item is built with a fallback and fake-CLI tests.
+- B-285 landed d34e7d42f (light, 1 fix round: test isolation; suite 2665 green; Rename/Delete by tests only).

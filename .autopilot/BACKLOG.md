@@ -2029,12 +2029,14 @@ Source: autopilot bug (B-283)
 Done: a4f586bde
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-284-w515414.png
 
-## B-285 · Rename, Delete and Manage Hosts menu items may no-op on terminal windows   [ready]
+## B-285 · Rename, Delete and Manage Hosts menu items may no-op on terminal windows   [done]
 Issue: #274
 Type: bug
 Report: Rename, Delete and Manage Hosts in `LeoAgentMenuActions.swift` lines 39, 68, 74 use the same `contentViewController` pattern — likely silent no-ops on terminal windows (not checked in the app); P1
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-283)
+Done: d373c51d2 2c78afaa4
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-285-1.png (Manage Hosts; Rename/Delete by tests only)
 
 ## B-286 · Row-level action error clears after ~2 s   [idea]
 Note: a row-level `set` error clears after about 2 s (seen on the fixture; pre-existing action-error lifetime or fixture refresh, unconfirmed) — the daemon's message can vanish before it's read; P2
