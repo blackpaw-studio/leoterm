@@ -269,6 +269,9 @@ extension LeoMarkdownRenderer {
 
         private static func quoteBlock() -> NSTextBlock {
             let block = NSTextBlock()
+            // Without a content width the block shrinks to its widest
+            // glyph and a quote breaks after every character.
+            block.setContentWidth(100, type: .percentageValueType)
             block.setWidth(3, type: .absoluteValueType, for: .border, edge: .minX)
             block.setBorderColor(.tertiaryLabelColor, for: .minX)
             block.setWidth(10, type: .absoluteValueType, for: .padding, edge: .minX)

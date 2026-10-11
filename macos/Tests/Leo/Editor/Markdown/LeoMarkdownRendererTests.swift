@@ -85,6 +85,28 @@ struct LeoMarkdownRendererTests {
         #expect(first.width(for: .border, edge: .minX) > 0)
     }
 
+    /// B-278 verifier: a quote laid out one character per line. Laid out
+    /// for real (TextKit 1, as the pane shows it) at a pane's width, its
+    /// sentence fits on a line or two.
+    @Test func aQuoteLaysOutAtThePanesWidth() throws {
+        let (scrollView, textView) = LeoRenderedTextView.make()
+        scrollView.frame = NSRect(x: 0, y: 0, width: 400, height: 600)
+        textView.frame = NSRect(x: 0, y: 0, width: 400, height: 600)
+        textView.show(renderer.render("Intro.\n\n> A quote, drawn with a bar beside it.\n\nAfter."))
+        let layoutManager = try #require(textView.layoutManager)
+        let container = try #require(textView.textContainer)
+        layoutManager.ensureLayout(for: container)
+
+        let quote = (textView.string as NSString).range(of: "A quote, drawn with a bar beside it.")
+        let glyphs = layoutManager.glyphRange(forCharacterRange: quote, actualCharacterRange: nil)
+        var lines = 0
+        layoutManager.enumerateLineFragments(forGlyphRange: glyphs) { _, used, _, _, _ in
+            lines += 1
+            #expect(used.width > 100 || lines > 1)
+        }
+        #expect(lines <= 2, "the quote took \(lines) lines")
+    }
+
     @Test func onlyWebLinksKept() {
         let rendered = renderer.render("[web](https://example.com) [mail](mailto:a@b.c) [js](javascript:alert(1)) [file](file:///etc/passwd)")
         let web: URL? = attribute(.link, of: "web", in: rendered)
