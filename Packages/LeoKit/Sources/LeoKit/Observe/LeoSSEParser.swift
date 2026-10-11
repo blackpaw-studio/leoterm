@@ -4,9 +4,17 @@ public struct LeoSSEEvent: Equatable, Sendable {
     public let name: String?
     public let data: String
     public let id: String?
+
+    public init(name: String?, data: String, id: String? = nil) {
+        self.name = name
+        self.data = data
+        self.id = id
+    }
 }
 
 public struct LeoSSEParser: Sendable {
+    public init() {}
+
     private var buffer = Data()
     private var name: String?
     private var dataLines: [String] = []

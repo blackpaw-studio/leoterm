@@ -1,7 +1,7 @@
 import Foundation
 import OSLog
 
-private let leoActivityClientLogger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
+private var leoActivityClientLogger: Logger { LeoLog.logger() }
 
 public enum LeoActivity: String, Codable, Equatable, Sendable { case working, idle, unknown }
 
@@ -33,11 +33,17 @@ public struct LeoObservedAgent: Codable, Equatable, Sendable {
     /// B-283: the effective named environments (`agent_environments`); nil
     /// when the daemon sent none. Decoded by `LeoEnvironmentsWire`.
     public let environments: LeoAgentEnvironments?
+    /// The template the agent was spawned from and the harness that runs it
+    /// (`claude`, `codex`, ...); nil when the daemon omits them.
+    public let template: String?
+    public let harness: String?
 
     public init(name: String, host: String? = nil, status: LeoAgentStatus?, activity: LeoActivity?,
                 currentAction: LeoCurrentAction?, lastActivityAt: String?, attention: LeoAttentionSignal? = nil,
                 startedAt: String? = nil, surfacedFiles: [LeoSurfacedFile] = [], surfacedFilesSent: Int? = nil, usage: LeoAgentUsage? = nil,
-                environments: LeoAgentEnvironments? = nil) {
+                environments: LeoAgentEnvironments? = nil, template: String? = nil, harness: String? = nil) {
+        self.template = template
+        self.harness = harness
         self.name = name
         self.host = host
         self.status = status
@@ -58,7 +64,7 @@ public struct LeoObservedAgent: Codable, Equatable, Sendable {
         case lastActivityAt = "last_activity_at"
         case startedAt = "started_at"
         case surfacedFiles = "surfaced_files"
-        case usage
+        case usage, template, harness
     }
 
     /// Hand-written only so a malformed optional `attention` degrades to
@@ -78,6 +84,8 @@ public struct LeoObservedAgent: Codable, Equatable, Sendable {
         surfacedFilesSent = lenientFiles?.sentCount ?? 0
         usage = ((try? container.decodeIfPresent(LeoLenient<LeoAgentUsage>.self, forKey: .usage)) ?? nil)?.value
         environments = LeoEnvironmentsWire.agent(from: decoder)
+        template = (try? container.decodeIfPresent(String.self, forKey: .template)) ?? nil
+        harness = (try? container.decodeIfPresent(String.self, forKey: .harness)) ?? nil
     }
 
 }

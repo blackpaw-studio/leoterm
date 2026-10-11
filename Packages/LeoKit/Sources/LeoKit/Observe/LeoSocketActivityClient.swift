@@ -1,7 +1,7 @@
 import Foundation
 import OSLog
 
-private let leoSocketActivityLogger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
+private var leoSocketActivityLogger: Logger { LeoLog.logger() }
 
 /// Streaming transport for a `.socketEvents`-flavor daemon (leo >= 0.29):
 /// `GET /events` (unix-socket SSE) and `GET /state`, both unprefixed since a
