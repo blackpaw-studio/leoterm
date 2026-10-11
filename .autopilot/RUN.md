@@ -60,3 +60,4 @@ Finished 1: B-284 landed 1c1f5aa66 · shot /Users/evan/.leo/agents/leoterm/.git/
 - 13:00 EDT: Evan approved killing the stale keychain prompt; SIGKILLed SecurityAgent 13373 (SIGTERM ignored). Deviation: instead of shelving the blocked B-284 report, a re-verify round re-runs the suite on the unchanged, already-reviewed Lane-tip. My screen check triggered a 'leo would like to record screen' TCC prompt; Evan asked to Deny it.
 - B-284 landed 1c1f5aa66 (light; re-verify suite 2662/2662 green). Runner note: a second SecurityAgent (pid 69473, user heracles, non-console session, ~10 days) is harmless unless that user becomes console.
 - B-285 picked (tier light): same contentViewController pattern; reuse B-284's NSWindow.presentLeoSheet helper.
+- B-285 runner dispatched: d-9fd59b2bcca2 (implement → claude/sonnet, tier light).
