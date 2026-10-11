@@ -44,6 +44,48 @@ struct LeoSidebarHeaderLayoutTests {
         #expect(button.maxX <= width, "the button \(button) stays inside the \(width) pt sidebar")
     }
 
+    /// B-152: `headerRowHeight` is the row's height, not a minimum: the
+    /// side panes' headers centre on `topInset + headerRowHeight / 2`
+    /// (B-100), so a row that grew would move the sidebar's own line off it.
+    @Test(arguments: [defaultWidth, minimumSidebarWidth])
+    func headerRowIsExactlyHeaderRowHeightTallAndCentredOnItsLine(_ width: CGFloat) async throws {
+        let (window, frames) = makeWindow(width: width)
+        defer { window.close() }
+        let row = try #require(await frames.settled(.row), "\(frames)")
+        let title = try #require(await frames.settled(.title), "\(frames)")
+        let button = try #require(await frames.settled(.accessory), "\(frames)")
+        let height = LeoSidebarChromeMetrics.headerRowHeight
+        let line = LeoSidebarChromeMetrics.topInset + height / 2
+
+        #expect(row.height == height, "the header row \(row) is not \(height) pt tall")
+        #expect(abs(row.midY - line) <= 0.5, "the header row \(row) centres off the \(line) pt line")
+        #expect(abs(title.midY - line) <= 1, "the title \(title) centres off the \(line) pt line")
+        #expect(abs(button.midY - line) <= 1, "the button \(button) centres off the \(line) pt line")
+    }
+
+    /// B-152: the row holds its height even when its accessory is taller,
+    /// instead of growing and moving the line the side panes centre on.
+    @Test func headerRowHoldsItsHeightAroundATallAccessory() async throws {
+        let frames = HeaderFrames(contentSize: CGSize(width: Self.defaultWidth, height: Self.height))
+        let window = NSWindow(
+            contentRect: NSRect(x: 120, y: 120, width: Self.defaultWidth, height: Self.height),
+            styleMask: [.titled], backing: .buffered, defer: false
+        )
+        window.isReleasedWhenClosed = false
+        defer { window.close() }
+        window.contentView = NSHostingView(
+            rootView: LeoSidebarHeader("Agents") { Color.clear.frame(width: 20, height: 40) }
+                .padding(.top, LeoSidebarChromeMetrics.topInset)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .environment(\.leoSidebarHeaderFrameSink) { part, frame in frames.record(part, frame) }
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frames.recordSidebar($0) }
+        )
+        window.orderFront(nil)
+        let row = try #require(await frames.settled(.row), "\(frames)")
+
+        #expect(row.height == LeoSidebarChromeMetrics.headerRowHeight, "the header row \(row) grew around its accessory")
+    }
+
     /// The daemon states the sidebar can be in. The footer needs none of
     /// them, so it holds its place in every one (B-113).
     private static let footerConnectivities: [LeoConnectivity] = [
