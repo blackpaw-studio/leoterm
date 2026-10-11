@@ -147,3 +147,4 @@ Finished 6: B-148 landed aab4e56d0 · not visually verified
 - 16:16 EDT: B-148 runner ended its turn early ("waiting on implementer"); sent follow-up #2 telling it to block on leo_wait for d-9665567f2291. Dispatched time unchanged.
 - B-148 landed aab4e56d0 (fixes 0).
 - B-149 picked (tier light: order one reveal after layout).
+- B-149 runner dispatched: d-28e147c6b7a4 (implement → claude/sonnet, tier light).
