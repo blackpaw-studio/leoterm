@@ -43,3 +43,4 @@ Lane: B-284
 - B-284 picked (tier light): the four ready bugs go before the B-148… test-polish items (bugs-first ordering; B-284 built before B-148).
 - B-284 runner dispatched: d-c2a6fef36c6a (implement → claude/sonnet, tier light). Brief passed as a file path (scratchpad brief-B-284.md) to keep the orchestrator prompt small.
 - 12:29 EDT: leo agent reports `--rw` in leo PR #264 (no feature-flag gate per Evan; no release yet). B-288's Question updated; it stays blocked until a leo release ships it.
+- 12:37 EDT: B-284 runner reported blocked: fix a4f586bde built, general review clean, GUI pass (shot B-284-w515414.png), but 8 focus/key-window tests fail (also on baseline 5f97da7) because an orphaned codesign keychain prompt (SecurityAgent pid 13373, no codesign alive) holds Secure Input. Lane-tip 1f4dfba54, Integrated-at 5f97da7f3. Killing the prompt and shelving were both denied by the permission classifier; waiting on Evan.
