@@ -25,6 +25,7 @@ struct LeoTerminalRowReveal: ViewModifier {
     let listsAgents: Bool
     let scheduler: LeoRevealScheduler
     let proxy: ScrollViewProxy
+    @State private var anchor = LeoListLayoutAnchor()
 
     /// What a reveal follows: a change to any part. A refresh of agents
     /// already listed isn't one (D-130).
@@ -36,6 +37,7 @@ struct LeoTerminalRowReveal: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            .background(LeoListLayoutAnchorBackdrop(anchor: anchor).accessibilityHidden(true))
             .onAppear { reveal(trigger) }
             // The action's captures date from the update before; only
             // its argument is current.
@@ -51,7 +53,9 @@ struct LeoTerminalRowReveal: ViewModifier {
     /// be revealed against the old size and leave the row cut off.
     private func reveal(_ trigger: Trigger) {
         guard trigger.isListed, let selection = trigger.selection else { return }
-        scheduler.schedule { [proxy] in proxy.scrollTo(LeoSidebarItemID.terminal(selection)) }
+        scheduler.schedule { [anchor, proxy] in
+            anchor.request { proxy.scrollTo(LeoSidebarItemID.terminal(selection)) }
+        }
     }
 }
 
