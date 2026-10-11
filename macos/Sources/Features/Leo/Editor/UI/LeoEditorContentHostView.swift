@@ -56,6 +56,7 @@ final class LeoEditorContentHostView: NSView {
         switch current {
         case textScrollView: textView
         case renderedScrollView: renderedTextView
+        case let movie as LeoMoviePreviewView: movie.focusTarget
         default: current
         }
     }
