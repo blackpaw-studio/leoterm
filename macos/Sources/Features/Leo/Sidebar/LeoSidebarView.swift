@@ -88,6 +88,8 @@ struct LeoSidebarView: View {
     /// What the footer's buttons do: this window's File ▸ New Terminal and
     /// View ▸ Quick Terminal.
     private let buttonActions: LeoSidebarButtonActions
+    /// When the selected terminal row's reveal is armed (B-149).
+    private let revealScheduler: LeoRevealScheduler
     @ObservedObject private var hostSelection: LeoHostSelection
     @State private var showingSpawn = false
     /// The row a "New Agent in Worktree…" sheet branches from (B-176).
@@ -103,7 +105,8 @@ struct LeoSidebarView: View {
         terminals: LeoWindowTerminals,
         searchFocusRequest: Int = 0,
         shortcutHints: LeoShortcutHints? = nil,
-        buttonActions: LeoSidebarButtonActions = .none
+        buttonActions: LeoSidebarButtonActions = .none,
+        revealScheduler: LeoRevealScheduler = .nextTurn
     ) {
         self.model = model
         self.windowID = windowID
@@ -112,6 +115,7 @@ struct LeoSidebarView: View {
         self.searchFocusRequest = searchFocusRequest
         _shortcutHints = ObservedObject(wrappedValue: shortcutHints ?? LeoShortcutHints())
         self.buttonActions = buttonActions
+        self.revealScheduler = revealScheduler
         _hostSelection = ObservedObject(wrappedValue: actions.hostSelection)
     }
 
@@ -314,7 +318,9 @@ struct LeoSidebarView: View {
             }
             .listStyle(.sidebar)
             .environment(\.sidebarRowSize, LeoDispatchRowMetrics.sidebarRowSize)
-            .leoRevealsTerminalRow(terminals.selection, isListed: showsTerminals, listsAgents: listsAgents, proxy: proxy)
+            .leoRevealsTerminalRow(
+                terminals.selection, isListed: showsTerminals, listsAgents: listsAgents, scheduler: revealScheduler, proxy: proxy
+            )
             .leoLandsWhenTerminalsClose(
                 // Its header's row and each terminal row `terminalSection` lists.
                 sectionRows: showsTerminals ? terminals.list.labels.count + 1 : 0,

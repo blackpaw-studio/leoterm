@@ -23,7 +23,9 @@ struct LeoTerminalRowReveal: ViewModifier {
     /// state (Loading, No Agents) standing in for them: their arriving or
     /// going moves the section, as the list reappearing did (B-099).
     let listsAgents: Bool
+    let scheduler: LeoRevealScheduler
     let proxy: ScrollViewProxy
+    @State private var anchor = LeoListLayoutAnchor()
 
     /// What a reveal follows: a change to any part. A refresh of agents
     /// already listed isn't one (D-130).
@@ -35,6 +37,7 @@ struct LeoTerminalRowReveal: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            .background(LeoListLayoutAnchorBackdrop(anchor: anchor).accessibilityHidden(true))
             .onAppear { reveal(trigger) }
             // The action's captures date from the update before; only
             // its argument is current.
@@ -43,19 +46,24 @@ struct LeoTerminalRowReveal: ViewModifier {
 
     private var trigger: Trigger { Trigger(selection: selection, isListed: isListed, listsAgents: listsAgents) }
 
-    /// Runs a turn later: the change that prompted it may be inserting the
-    /// row, and the list only knows where it is once that lands. That turn
-    /// isn't ordered after AppKit's layout pass, so a change that also
-    /// resizes the list -- the agents arriving where Loading stood -- can
-    /// be revealed against the old size and leave the row cut off.
+    /// Scrolls once the list is laid out (B-149): the change that prompted
+    /// it may be inserting the row, and may resize the list too. The agents
+    /// going shrink it, with its top fixed, as a state view takes their
+    /// place above; a reveal against the old, taller list sees the row
+    /// whole and leaves it below the edge once the list shrinks. The list
+    /// growing (the agents arriving where Loading stood) can't cut it off.
     private func reveal(_ trigger: Trigger) {
         guard trigger.isListed, let selection = trigger.selection else { return }
-        DispatchQueue.main.async { [proxy] in proxy.scrollTo(LeoSidebarItemID.terminal(selection)) }
+        scheduler.schedule { [anchor, proxy] in
+            anchor.request { proxy.scrollTo(LeoSidebarItemID.terminal(selection)) }
+        }
     }
 }
 
 extension View {
-    func leoRevealsTerminalRow(_ selection: UUID?, isListed: Bool, listsAgents: Bool, proxy: ScrollViewProxy) -> some View {
-        modifier(LeoTerminalRowReveal(selection: selection, isListed: isListed, listsAgents: listsAgents, proxy: proxy))
+    func leoRevealsTerminalRow(
+        _ selection: UUID?, isListed: Bool, listsAgents: Bool, scheduler: LeoRevealScheduler, proxy: ScrollViewProxy
+    ) -> some View {
+        modifier(LeoTerminalRowReveal(selection: selection, isListed: isListed, listsAgents: listsAgents, scheduler: scheduler, proxy: proxy))
     }
 }
