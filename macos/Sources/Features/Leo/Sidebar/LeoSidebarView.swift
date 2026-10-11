@@ -12,12 +12,24 @@ struct LeoSidebarSection: Identifiable, Equatable {
     let rows: [LeoAgentRow]
     /// Header only; the rows stay listed here but aren't shown (B-010).
     let isCollapsed: Bool
+    /// False for Needs You: always open, so its header has no chevron.
+    let isCollapsible: Bool
+    /// The header carries the row count.
+    let showsCount: Bool
+    /// The count reads in orange (Needs You).
+    let isAlert: Bool
 
-    init(id: String, title: String, rows: [LeoAgentRow], isCollapsed: Bool = false) {
+    init(
+        id: String, title: String, rows: [LeoAgentRow], isCollapsed: Bool = false,
+        isCollapsible: Bool = true, showsCount: Bool = false, isAlert: Bool = false
+    ) {
         self.id = id
         self.title = title
         self.rows = rows
         self.isCollapsed = isCollapsed
+        self.isCollapsible = isCollapsible
+        self.showsCount = showsCount
+        self.isAlert = isAlert
     }
 }
 
@@ -361,8 +373,10 @@ struct LeoSidebarView: View {
                 pendingSurfacedFiles: model.pendingSurfacedFiles(for: row),
                 openSurfacedFile: { model.openSurfacedFile($0, for: row) },
                 newWorktreeAgent: { worktreeSource = row },
-                environmentsSupported: model.hostFeatures.applying(to: row.host).contains(.agentEnvironments)
+                environmentsSupported: model.hostFeatures.applying(to: row.host).contains(.agentEnvironments),
+                inWorkingSection: section.id == LeoSidebarLayout.workingSectionID
             )
+            .listRowInsets(LeoDispatchRowMetrics.agentRowInsets)
             .tag(Optional(LeoSidebarItemID.agent(row.id)))
             .id(LeoSidebarItemID.agent(row.id))
             // Its live dispatches (B-257), right under it; they follow the
@@ -386,8 +400,6 @@ struct LeoSidebarView: View {
                 node: item.node,
                 click: { model.dispatchClicked(ref, modifierFlags: $0, clickCount: $1, from: windowID) },
                 disclosure: disclosure,
-                guides: item.guides,
-                parentLink: item.parent,
                 endsGroup: endsGroup,
                 isSelected: LeoSidebarSelection.current(model: model, terminals: terminals) == .dispatch(ref)
             )
@@ -402,12 +414,10 @@ struct LeoSidebarView: View {
                 click: { model.dispatchClicked(ref, modifierFlags: $0, clickCount: $1, from: windowID) },
                 isSelectable: false,
                 disclosure: disclosure,
-                guides: item.guides,
-                parentLink: item.parent,
                 endsGroup: endsGroup
             )
         } else {
-            LeoDispatchRowView(node: item.node, disclosure: disclosure, guides: item.guides, parentLink: item.parent, endsGroup: endsGroup)
+            LeoDispatchRowView(node: item.node, disclosure: disclosure, endsGroup: endsGroup)
         }
     }
 
@@ -417,9 +427,7 @@ struct LeoSidebarView: View {
         if LeoSidebarLayout.isFiltering(model.query) {
             Text(section.title)
         } else {
-            LeoSidebarSectionHeader(title: section.title, isCollapsed: section.isCollapsed) {
-                model.toggleCollapsed(section.id)
-            }
+            LeoSidebarSectionHeader(section: section) { model.toggleCollapsed(section.id) }
         }
     }
 

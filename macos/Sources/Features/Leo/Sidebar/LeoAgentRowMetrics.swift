@@ -1,24 +1,31 @@
 import AppKit
 
-/// The fixed heights an agent row's lines are pinned to, taken from the
-/// fonts rather than constants: SF Symbols and spinners are taller than the
-/// text beside them, and a tool starting or a pending action must not move
-/// the rows below.
+/// The fixed sizes an agent row is pinned to, taken from the fonts rather
+/// than constants: SF Symbols and spinners are taller than the text beside
+/// them, and a tool starting or a pending action must not move the rows
+/// below.
 enum LeoAgentRowMetrics {
-    static let verticalPadding: CGFloat = 7
-    static let lineSpacing: CGFloat = 4
-    static let pillHorizontalPadding: CGFloat = 6
-    static let pillVerticalPadding: CGFloat = 2
-    static let pillSymbolSpacing: CGFloat = 3
+    /// Chosen so a one-line row (this around the name line, with no list row
+    /// inset: see `LeoDispatchRowMetrics.listVerticalInset`) measures exactly
+    /// 24pt, the `.small` row height the list estimates rows it hasn't drawn
+    /// at. A quiet row of any other height grows when it is first drawn --
+    /// after the list has already clamped its scroll offset to the old end,
+    /// leaving it short of the bottom.
+    static let verticalPadding: CGFloat = 4
+    static let lineSpacing: CGFloat = 2
+    /// The leading symbol's column, and the gap between it and the name.
+    static let symbolColumnWidth: CGFloat = 16
+    static let symbolSpacing: CGFloat = 6
+
+    /// Where the name starts, from the row's leading edge. A dispatch row's
+    /// glyph sits on this column.
+    static var nameColumnInset: CGFloat { symbolColumnWidth + symbolSpacing }
 
     /// The name's line (`.body`).
     static var nameLineHeight: CGFloat { lineHeight(.body) }
 
-    /// A pill: its text's line plus the padding above and below.
-    static var pillHeight: CGFloat { lineHeight(.caption2) + 2 * pillVerticalPadding }
-
-    /// Line 2: the taller of the pill and the `.caption` detail text.
-    static var detailLineHeight: CGFloat { max(pillHeight, lineHeight(.caption1)) }
+    /// Line 2 (`.caption`).
+    static var detailLineHeight: CGFloat { lineHeight(.caption1) }
 
     static func lineHeight(_ style: NSFont.TextStyle) -> CGFloat {
         let font = NSFont.preferredFont(forTextStyle: style)

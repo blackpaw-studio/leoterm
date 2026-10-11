@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 
 /// The vertical rhythm of a dispatch group in the sidebar list (B-275).
@@ -30,8 +29,15 @@ enum LeoDispatchRowMetrics {
     /// cell's own 16pt side padding (measured: 16 here moved content 16pt
     /// right), and vertical ones didn't change a row's height at all.
     static let listRowInsets = EdgeInsets()
-    /// The List's default top and bottom row inset, which agent rows keep.
-    static let listVerticalInset: CGFloat = 4
+    /// The top and bottom `listRowInsets` of an agent row: none, down from the
+    /// List's default 4pt. A one-line row is then its name line plus the
+    /// row's own padding, 24pt, the `.small` estimate the list gives rows it
+    /// hasn't drawn; at 32pt each such row grew when first drawn, after the
+    /// list had clamped its scroll offset, and left the list short of its
+    /// bottom.
+    static let listVerticalInset: CGFloat = 0
+    /// The `listRowInsets` of an agent row.
+    static let agentRowInsets = EdgeInsets(top: listVerticalInset, leading: 0, bottom: listVerticalInset, trailing: 0)
     /// Extra height of a group's last dispatch row, below its content, so the
     /// group reads as one block apart from the next agent.
     static let groupGap: CGFloat = 16
@@ -51,16 +57,4 @@ enum LeoDispatchRowMetrics {
     static var groupToNextAgentGap: CGFloat {
         rowMargin + groupGap + listVerticalInset + LeoAgentRowMetrics.verticalPadding
     }
-
-    /// The roles' families the chip is sized for (see `LeoTint` role mapping).
-    static let knownFamilies = ["explore", "plan", "implement", "review"]
-    /// The chip column: the widest known family in the chip's font, plus the
-    /// chip's padding, rounded up. Longer custom roles truncate inside it.
-    static let chipColumnWidth: CGFloat = {
-        let font = NSFont.systemFont(ofSize: NSFont.preferredFont(forTextStyle: .caption2).pointSize, weight: .semibold)
-        let widest = knownFamilies.map { ($0 as NSString).size(withAttributes: [.font: font]).width }.max() ?? 0
-        return ceil(widest) + 2 * LeoRoleChipView.horizontalPadding + chipColumnSlack
-    }()
-    /// Absorbs the gap between AppKit's and SwiftUI's text measurement.
-    private static let chipColumnSlack: CGFloat = 2
 }

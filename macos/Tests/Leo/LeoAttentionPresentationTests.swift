@@ -101,8 +101,8 @@ struct LeoAttentionPresentationTests {
         let needsPermission = row("alpha", template: "claude", attention: .needsInput, reason: reason)
         let rowPresentation = LeoAgentRowPresentation(row: needsPermission, error: nil)
         #expect(rowPresentation.accessibilityLabel(name: "alpha") == "alpha, Needs Permission, Bash")
-        #expect(rowPresentation.pill.symbolName == "hand.raised")
-        #expect(rowPresentation.pill.help == "Needs permission to use Bash: rm")
+        #expect(rowPresentation.state.symbolName == "hand.raised.fill")
+        #expect(rowPresentation.state.help == "Needs permission to use Bash: rm")
         #expect(rowPresentation.detail == .attention("Bash: rm"))
     }
 
@@ -125,15 +125,15 @@ struct LeoAttentionPresentationTests {
     @Test func noReasonPresentationUnchanged() {
         let plain = row("alpha", template: "claude", attention: .needsInput)
         let presentation = LeoAgentRowPresentation(row: plain, error: nil)
-        #expect(presentation.pill.symbolName == "questionmark.circle")
-        #expect(presentation.pill.help == nil)
+        #expect(presentation.state.symbolName == "questionmark.circle.fill")
+        #expect(presentation.state.help == nil)
         #expect(presentation.detail == .fallback("claude"))
     }
 
     @Test func reasonIsIgnoredUnlessTheBadgeIsNeedsInput() {
         let stray = row("alpha", attention: .finished, reason: LeoAttentionReason(kind: .question))
         let presentation = LeoAgentRowPresentation(row: stray, error: nil)
-        #expect(presentation.pill.symbolName == "checkmark")
+        #expect(presentation.state.symbolName == "checkmark.circle")
         #expect(presentation.accessibilityLabel(name: "alpha") == "alpha, Done")
     }
 

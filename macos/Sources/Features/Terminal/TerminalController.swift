@@ -2077,6 +2077,12 @@ extension TerminalController {
         case #selector(sortLeoAgentsByName(_:)):
             return validateLeoSortMenuItem(item, order: .name)
 
+        case #selector(groupLeoAgentsByStatus(_:)):
+            return validateLeoGroupMenuItem(item, groupBy: .status)
+
+        case #selector(groupLeoAgentsByAttention(_:)):
+            return validateLeoGroupMenuItem(item, groupBy: .attention)
+
         case #selector(newLeoAgent(_:)):
             return validateNewLeoAgentMenuItem(item)
 

@@ -1,8 +1,8 @@
 import Foundation
 
-/// What an agent row's two lines say: the state pill, then one detail
-/// string, with the last-active time trailing the name. Pure value; the
-/// views only draw it.
+/// What an agent row says: the state's symbol column, the name, an optional
+/// detail line, and the last-active time (or a state word) trailing the
+/// name. Pure value; the views only draw it.
 struct LeoAgentRowPresentation: Equatable {
     /// The one string on line 2, in precedence order (first present wins).
     /// The last case always has text, so the line is never blank.
@@ -29,7 +29,7 @@ struct LeoAgentRowPresentation: Equatable {
         }
     }
 
-    let pill: LeoAgentPill
+    let state: LeoAgentRowState
     let detail: Detail
     /// "5m": when the agent was last active; nil without a clock or a time.
     let lastActive: String?
@@ -37,8 +37,6 @@ struct LeoAgentRowPresentation: Equatable {
     let lastActiveSpoken: String?
     /// The row's hover: the template, then the usage numbers. May be empty.
     let help: String
-    /// A stopped agent's name reads secondary.
-    let isNameDimmed: Bool
 
     /// What the fallback says when there is neither a template nor any spend.
     static let emptyFallback = "No activity yet"
@@ -47,23 +45,33 @@ struct LeoAgentRowPresentation: Equatable {
     /// row has no time. Metadata the daemon didn't report adds nothing.
     init(
         row: LeoAgentRow, error: String?, now: Date? = nil,
-        timeZone: TimeZone = .current, locale: Locale = .current
+        timeZone: TimeZone = .current, locale: Locale = .current, inWorkingSection: Bool = false
     ) {
-        pill = LeoAgentPill(row: row, error: error)
+        let resolved = LeoAgentRowState(row: row, error: error, inWorkingSection: inWorkingSection)
         let template = row.template.flatMap { $0.isEmpty ? nil : $0 }
         let usage = row.metadata?.usage.flatMap { LeoUsageFormat.isEmpty($0) ? nil : $0 }
         detail = Self.detail(row: row, error: error, template: template, usage: usage)
+        if case .warning = detail { state = resolved.showingWarning() } else { state = resolved }
         let active = Self.lastActive(row.metadata, now: now)
         lastActive = active.map { LeoRelativeTime.label(since: $0.date, now: $0.now, timeZone: timeZone, locale: locale) }
         lastActiveSpoken = active.map { LeoRelativeTime.spokenLabel(since: $0.date, now: $0.now, timeZone: timeZone, locale: locale) }
         let environments = Self.overrideNames(row.environments)
         help = [template, environments.map { "Environments: \($0)" }, usage.map(LeoUsageFormat.tooltip)].compactMap { $0 }.joined(separator: "\n")
-        isNameDimmed = row.status == .stopped
     }
 
+    /// The detail line's ink: the state's, except that the "No activity yet"
+    /// placeholder stays a step quieter.
+    var detailInk: LeoInk {
+        if case .fallback(Self.emptyFallback) = detail, state.detailInk == .secondary { return .tertiary }
+        return state.detailInk
+    }
+
+    /// A stopped agent's name reads secondary.
+    var isNameDimmed: Bool { state.isNameDimmed }
+
     /// "alpha, Needs Permission, Bash": the name's label, which carries the
-    /// state the (hidden) pill draws.
-    func accessibilityLabel(name: String) -> String { "\(name), \(pill.accessibilityLabel)" }
+    /// state the (hidden) symbol draws.
+    func accessibilityLabel(name: String) -> String { "\(name), \(state.accessibilityLabel)" }
 
     private static func detail(row: LeoAgentRow, error: String?, template: String?, usage: LeoAgentUsage?) -> Detail {
         let metadata = row.metadata
