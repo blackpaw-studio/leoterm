@@ -132,3 +132,32 @@ actor FakeWebTransport: LeoWebTransport {
         return streamed
     }
 }
+
+struct LeoWebDaemonClientPushTests {
+    @Test func registersAndUnregistersThisDevicesPush() async throws {
+        let transport = FakeWebTransport(responses: [200: #"{"ok":true}"#])
+        let client = LeoWebDaemonClient(transport: transport)
+        let registration = LeoPushRegistration(grant: "g.h", key: "a2V5", relayURL: URL(string: "https://relay.example.dev")!)
+        try await client.registerPush(deviceID: "dev/1", registration)
+        try await client.unregisterPush(deviceID: "dev/1")
+
+        let requests = await transport.requests
+        #expect(requests.map(\.method) == ["PUT", "DELETE"])
+        #expect(requests.map(\.path) == ["/api/v1/devices/dev%2F1/push", "/api/v1/devices/dev%2F1/push"])
+        let body = try #require(requests[0].body.flatMap { try JSONSerialization.jsonObject(with: $0) as? [String: String] })
+        #expect(body == ["grant": "g.h", "key": "a2V5", "relay_url": "https://relay.example.dev"])
+        #expect(requests[1].body == nil)
+    }
+
+    @Test func anEmptySuccessBodyIsFine() async throws {
+        let transport = FakeWebTransport(responses: [204: ""])
+        try await LeoWebDaemonClient(transport: transport).unregisterPush(deviceID: "d")
+    }
+
+    @Test func pushRouteFailuresCarryTheDaemonsReason() async {
+        let transport = FakeWebTransport(responses: [403: #"{"ok":false,"error":"not your device"}"#])
+        await #expect(throws: LeoDaemonError.daemon(code: "forbidden", message: "not your device", matches: [])) {
+            try await LeoWebDaemonClient(transport: transport).unregisterPush(deviceID: "d")
+        }
+    }
+}

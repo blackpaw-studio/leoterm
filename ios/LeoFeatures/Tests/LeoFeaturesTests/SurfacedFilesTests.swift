@@ -223,6 +223,8 @@ struct SurfacedFilesTests {
         let store = TestStore(initialState: twoAgentsWithZeusOpen(filesWithPreview(openPreview))) { AppFeature() } withDependencies: {
             $0.surfacedFiles.discard = { url in discarded.withValue { $0.append(url) } }
             $0.secrets.delete = { _ in }
+            $0.secrets.load = { _ in nil }
+            $0.pushClient.sharePairedDaemons = { _ in }
             $0.pairedDaemons.save = { _ in }
         }
         await store.send(\.daemons.delegate.forget, PairedDaemon.dionysus.id) {

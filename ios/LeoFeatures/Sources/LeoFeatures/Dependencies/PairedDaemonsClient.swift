@@ -11,15 +11,18 @@ public struct PairedDaemonsClient: Sendable {
 extension PairedDaemonsClient: DependencyKey {
     public static let testValue = PairedDaemonsClient()
 
-    public static var liveValue: PairedDaemonsClient {
-        let url = URL.applicationSupportDirectory.appending(path: "paired-daemons.json")
+    public static var liveValue: PairedDaemonsClient { live(directory: .applicationSupportDirectory) }
+
+    /// `paired-daemons.json` in `directory`.
+    static func live(directory: URL) -> PairedDaemonsClient {
+        let url = directory.appending(path: "paired-daemons.json")
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return PairedDaemonsClient(
             load: {
-                guard FileManager.default.fileExists(atPath: url.path()) else { return [] }
+                guard FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) else { return [] }
                 return try decoder.decode([PairedDaemon].self, from: Data(contentsOf: url))
             },
             save: { daemons in
