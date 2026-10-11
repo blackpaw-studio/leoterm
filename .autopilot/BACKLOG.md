@@ -2021,12 +2021,14 @@ Source: autopilot polish (B-232)
 Note: Workspace browser truncates long names in the middle ("b232-v…ma.txt") — hard to tell similar dropped files apart
 Source: autopilot polish (B-232)
 
-## B-284 · Agents ▸ New Agent… menu item opens no sheet   [ready]
+## B-284 · Agents ▸ New Agent… menu item opens no sheet   [done]
 Issue: #273
 Type: bug
 Report: Agents ▸ New Agent… opens no sheet (same `contentViewController` pattern at `TerminalController+Leo.swift:134`) — the menu path to New Agent does nothing (sidebar "+" works); P1
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-283)
+Done: a4f586bde
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-284-w515414.png
 
 ## B-285 · Rename, Delete and Manage Hosts menu items may no-op on terminal windows   [ready]
 Issue: #274
