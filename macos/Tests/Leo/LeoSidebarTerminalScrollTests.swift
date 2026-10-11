@@ -154,10 +154,9 @@ struct LeoSidebarTerminalScrollTests {
 
     /// D-129, the list reappearing: a terminal row selected while the
     /// agents are still loading is revealed once they list above it and
-    /// push it down, in the same list. Only the scroll down to it is
-    /// required, not the row wholly on screen: here the list also grows
-    /// into the space Loading had, and the reveal can land before AppKit
-    /// lays that out (see `LeoTerminalRowReveal.reveal`).
+    /// push it down, in the same list. The list also grows into the space
+    /// Loading had, which can't cut the row off, so this guards the scroll
+    /// itself; the shrink the other way is the test below (B-149).
     @Test func aRowSelectedWhileLoadingIsRevealedWhenTheAgentsList() async throws {
         let terminals = LeoWindowTerminals()
         let id = UUID()

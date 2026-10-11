@@ -46,11 +46,12 @@ struct LeoTerminalRowReveal: ViewModifier {
 
     private var trigger: Trigger { Trigger(selection: selection, isListed: isListed, listsAgents: listsAgents) }
 
-    /// Runs a turn later: the change that prompted it may be inserting the
-    /// row, and the list only knows where it is once that lands. That turn
-    /// isn't ordered after AppKit's layout pass, so a change that also
-    /// resizes the list -- the agents arriving where Loading stood -- can
-    /// be revealed against the old size and leave the row cut off.
+    /// Scrolls once the list is laid out (B-149): the change that prompted
+    /// it may be inserting the row, and may resize the list too. The agents
+    /// going shrink it, with its top fixed, as a state view takes their
+    /// place above; a reveal against the old, taller list sees the row
+    /// whole and leaves it below the edge once the list shrinks. The list
+    /// growing (the agents arriving where Loading stood) can't cut it off.
     private func reveal(_ trigger: Trigger) {
         guard trigger.isListed, let selection = trigger.selection else { return }
         scheduler.schedule { [anchor, proxy] in
