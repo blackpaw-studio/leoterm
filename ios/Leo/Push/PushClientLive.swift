@@ -6,7 +6,7 @@ import UserNotifications
 
 extension PushClient: @retroactive DependencyKey {
     public static var liveValue: PushClient {
-        let keyStore = LeoPushKeyStore()
+        let store = LeoPushSharedStore()
         return PushClient(
             authorization: {
                 switch await UNUserNotificationCenter.current().notificationSettings().authorizationStatus {
@@ -22,7 +22,8 @@ extension PushClient: @retroactive DependencyKey {
             registerForRemoteNotifications: {
                 await MainActor.run { UIApplication.shared.registerForRemoteNotifications() }
             },
-            key: { try keyStore.loadOrCreate() }
+            key: { try store.loadOrCreateKey() },
+            sharePairedDaemons: { try store.savePairedDaemonIDs($0) }
         )
     }
 }

@@ -1,6 +1,7 @@
 import ComposableArchitecture
 import Foundation
 import LeoKit
+import Security
 
 /// Whether the user lets Leo show notifications.
 public enum PushAuthorization: Equatable, Sendable {
@@ -22,6 +23,9 @@ public struct PushClient: Sendable {
     public var registerForRemoteNotifications: @Sendable () async -> Void
     /// The phone's push key, generated and stored on first use.
     public var key: @Sendable () throws -> LeoPushKey
+    /// Tells the Notification Service Extension which daemons are paired;
+    /// it leaves pushes from any other daemon generic.
+    public var sharePairedDaemons: @Sendable (_ ids: Set<String>) throws -> Void
 }
 
 extension PushClient: TestDependencyKey {
@@ -83,6 +87,79 @@ extension PushConfiguration: DependencyKey {
     public static let testValue = PushConfiguration(relayURL: URL(string: "https://leo-relay.test.workers.dev"), environment: .sandbox)
 }
 
+/// A forgotten daemon whose push registration hasn't been deleted yet: its
+/// pairing and this device's token, kept (in the Keychain) only until the
+/// daemon confirms the DELETE or shows the device is already revoked.
+public struct ForgottenDaemon: Codable, Equatable, Identifiable, Sendable {
+    public let daemon: PairedDaemon
+    public let secrets: DaemonSecrets
+
+    /// The device ID: unique per pairing, so a re-pair never overwrites it.
+    public var id: String { daemon.deviceID }
+
+    public init(daemon: PairedDaemon, secrets: DaemonSecrets) {
+        self.daemon = daemon
+        self.secrets = secrets
+    }
+}
+
+/// Forgotten daemons still to unregister push from.
+@DependencyClient
+public struct PushCleanupClient: Sendable {
+    public var load: @Sendable () throws -> [ForgottenDaemon]
+    public var save: @Sendable (_ record: ForgottenDaemon) throws -> Void
+    public var remove: @Sendable (_ id: ForgottenDaemon.ID) throws -> Void
+}
+
+extension PushCleanupClient: DependencyKey {
+    public static let testValue = PushCleanupClient()
+
+    /// One generic password per record, this device only, after first unlock.
+    public static var liveValue: PushCleanupClient {
+        let service = "studio.blackpaw.leo.ios.push-cleanup"
+        @Sendable func query(_ id: String? = nil) -> [String: Any] {
+            var query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service]
+            if let id { query[kSecAttrAccount as String] = id }
+            return query
+        }
+        return PushCleanupClient(
+            load: {
+                var lookup = query()
+                lookup[kSecReturnData as String] = true
+                lookup[kSecMatchLimit as String] = kSecMatchLimitAll
+                var result: AnyObject?
+                let status = SecItemCopyMatching(lookup as CFDictionary, &result)
+                if status == errSecItemNotFound { return [] }
+                guard status == errSecSuccess, let items = result as? [Data] else { throw KeychainError(status: status) }
+                return items.compactMap { try? JSONDecoder().decode(ForgottenDaemon.self, from: $0) }
+            },
+            save: { record in
+                let attributes: [String: Any] = [
+                    kSecValueData as String: try JSONEncoder().encode(record),
+                    kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+                ]
+                var status = SecItemUpdate(query(record.id) as CFDictionary, attributes as CFDictionary)
+                if status == errSecItemNotFound {
+                    status = SecItemAdd(query(record.id).merging(attributes) { $1 } as CFDictionary, nil)
+                }
+                guard status == errSecSuccess else { throw KeychainError(status: status) }
+            },
+            remove: { id in
+                let status = SecItemDelete(query(id) as CFDictionary)
+                guard status == errSecSuccess || status == errSecItemNotFound else { throw KeychainError(status: status) }
+            }
+        )
+    }
+}
+
+extension SharedKey where Self == FileStorageKey<Set<String>>.Default {
+    /// Paired daemons still to unregister after notifications were turned
+    /// off (IDs only; their tokens are in the Keychain with the pairing).
+    public static var pushPendingUnregister: Self {
+        Self[.fileStorage(.applicationSupportDirectory.appending(path: "push-pending-unregister.json")), default: []]
+    }
+}
+
 extension SharedKey where Self == AppStorageKey<Bool>.Default {
     /// The Settings switch; on until the user turns it off.
     public static var notificationsEnabled: Self { Self[.appStorage("notificationsEnabled"), default: true] }
@@ -97,6 +174,11 @@ extension DependencyValues {
     public var pushRelay: PushRelayClient {
         get { self[PushRelayClient.self] }
         set { self[PushRelayClient.self] = newValue }
+    }
+
+    public var pushCleanup: PushCleanupClient {
+        get { self[PushCleanupClient.self] }
+        set { self[PushCleanupClient.self] = newValue }
     }
 
     public var pushConfiguration: PushConfiguration {

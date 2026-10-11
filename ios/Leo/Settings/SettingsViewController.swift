@@ -9,7 +9,8 @@ final class SettingsViewController: UIViewController {
     private enum Item: Hashable {
         case notifications
         case openSystemSettings
-        case problem(String)
+        /// Identified by `PushProblem.id` (a daemon ID), never its text.
+        case problem(PushProblem)
     }
 
     private let store: StoreOf<PushNotifications>
@@ -42,10 +43,7 @@ final class SettingsViewController: UIViewController {
 
         observe { [weak self] in
             guard let self else { return }
-            render(
-                isEnabled: store.isEnabled, authorization: store.authorization,
-                problems: Self.problems(relayError: store.relayError, daemonErrors: store.daemonErrors, daemons: Array(store.daemons))
-            )
+            render(isEnabled: store.isEnabled, authorization: store.authorization, problems: store.problems)
         }
     }
 
@@ -77,8 +75,8 @@ final class SettingsViewController: UIViewController {
                 content.text = String(localized: "Open iOS Settings")
                 content.textProperties.color = .tintColor
                 cell.accessories = []
-            case .problem(let message):
-                content.text = message
+            case .problem(let problem):
+                content.text = problem.message
                 content.textProperties.color = .secondaryLabel
                 content.textProperties.font = .preferredFont(forTextStyle: .footnote)
                 content.image = UIImage(systemName: "exclamationmark.triangle.fill")
@@ -103,13 +101,14 @@ final class SettingsViewController: UIViewController {
         collectionView.delegate = self
     }
 
-    private func render(isEnabled: Bool, authorization: PushAuthorization?, problems: [String]) {
+    private func render(isEnabled: Bool, authorization: PushAuthorization?, problems: [PushProblem]) {
         footer = Self.footer(isEnabled: isEnabled, authorization: authorization)
         var snapshot = NSDiffableDataSourceSnapshot<Int, Item>()
         snapshot.appendSections([0])
         snapshot.appendItems([.notifications])
         if isEnabled, authorization == .denied { snapshot.appendItems([.openSystemSettings]) }
-        if isEnabled, !problems.isEmpty {
+        // Off, these are daemons that haven't confirmed they stopped pushing.
+        if !problems.isEmpty {
             snapshot.appendSections([1])
             snapshot.appendItems(problems.map(Item.problem))
         }
@@ -126,10 +125,6 @@ final class SettingsViewController: UIViewController {
         return String(localized: "Get a notification when an agent needs you. Its name and what it needs are encrypted on your daemon; only this device can read them.")
     }
 
-    private static func problems(relayError: String?, daemonErrors: [String: String], daemons: [PairedDaemon]) -> [String] {
-        let perDaemon = daemons.compactMap { daemon in daemonErrors[daemon.id].map { "\(daemon.name): \($0)" } }
-        return [relayError].compactMap { $0 } + perDaemon
-    }
 }
 
 extension SettingsViewController: UICollectionViewDelegate {

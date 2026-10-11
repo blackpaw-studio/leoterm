@@ -20,6 +20,7 @@ struct AppFeatureTests {
             $0.secrets.delete = { id in deleted.withValue { $0.append(id) } }
             // No saved token: nothing to unregister push with.
             $0.secrets.load = { _ in nil }
+            $0.pushClient.sharePairedDaemons = { _ in }
             $0.pairedDaemons.save = { daemons in saved.withValue { $0.append(daemons) } }
         }
         await store.send(\.daemons.forgetButtonTapped, .dionysus) {
@@ -98,8 +99,14 @@ struct AppFeatureTests {
     }
 
     @Test func scenePhaseDrivesTheConnections() async {
-        let store = TestStore(initialState: AppFeature.State()) { AppFeature() }
+        let store = TestStore(initialState: AppFeature.State()) {
+            AppFeature()
+        } withDependencies: {
+            $0.pushClient = .granted
+            $0.pushCleanup = .inMemory(LockIsolated([:]))
+        }
         await store.send(.scenePhaseChanged(isActive: true)) { $0.fleet.isActive = true }
+        await store.receive(\.push.authorizationRefreshed) { $0.push.authorization = .authorized }
         await store.send(.scenePhaseChanged(isActive: false)) { $0.fleet.isActive = false }
     }
 }

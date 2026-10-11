@@ -77,6 +77,9 @@ public struct AppFeature {
                     state.isShowingDaemons = true
                     return .none
 
+                case .fleet(.connected(let id, _, _)):
+                    return push(.daemonReconnected(id), state: &state)
+
                 case .fleet(.daemonsLoaded(let daemons, _)):
                     state.hasLoadedDaemons = true
                     return push(.daemonsLoaded(daemons), state: &state)
@@ -101,7 +104,8 @@ public struct AppFeature {
                     let terminal: Effect<Action> = state.detail?.destination?.terminal == nil
                         ? .none
                         : .send(.detail(.destination(.presented(.terminal(.scenePhaseChanged(isActive: isActive))))))
-                    return .merge(fleet(.scenePhaseChanged(isActive: isActive), state: &state), terminal)
+                    let pushCheck: Effect<Action> = isActive ? push(.becameActive, state: &state) : .none
+                    return .merge(fleet(.scenePhaseChanged(isActive: isActive), state: &state), terminal, pushCheck)
 
                 case .settingsButtonTapped:
                     state.isShowingSettings = true
