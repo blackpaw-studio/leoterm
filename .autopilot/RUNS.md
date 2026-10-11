@@ -454,3 +454,28 @@ Merge when happy: git -C /Users/evan/.leo/agents/leoterm merge autopilot
 - Calls D-475–D-500. Runner dismissed one round-3 blocking finding on B-283 (Edit Order session left live on programmatic parent close) as accepted risk.
 - Self-filed: B-280, B-281, B-282, B-286 ideas; B-284, B-285 bugs (ready next run).
 - Ended early at Evan's 18:30 EDT deadline; merge to main approved, no release.
+
+## Run 2026-10-11T00:41:25Z
+
+🛠 leoterm autopilot — 1 fixed, 1 shipped, 1 blocked
+Fixed
+• B-287 Ctrl+C doesn't stop the process in terminals — the sidebar's hidden Return shortcut matched ⌃C (same char as keypad Enter); now matched by key code (verified: screenshot) · full
+Shipped
+• B-278 File pane previews — images/GIF/HEIC/WebP/SVG, AVKit video, native Markdown with Rendered/Raw, PDF Quick Look, Can't Preview + Reveal/Download; local + SFTP (verified: screenshot; SFTP by tests) · full
+Calls I made — reply "veto D-0xx" to undo
+• D-501–503 (B-287) key-code Return matching; hermetic first-attach tests
+• D-504–517 (B-278) native Markdown, no WKWebView; extension allowlist; ⌥⌘U / ⌥⌘0 / ⌥⇧⌘R; no autoplay; 2 GB cap; >5 MB Markdown Raw only
+Needs you — reply "B-0xx: <answer>", or "accept picks leoterm"
+• B-288 shelved on autopilot-shelved/B-288 — subagent read-only is in the daemon (`leo dispatch attach` → `tmux attach -r`). Make it writable via a leo `--rw` flag + feature flag (two writers on one TUI)? I'd pick yes.
+• B-278 runner ran 3h07m, past the 3h hung limit; kept alive because it was visibly active (deviation, noted in RUN.md)
+• B-287 runner's first implementer lost its turn; one retry finished — treated as recovered, not a failed dispatch
+Ideas parked — "/feature B-0xx" to spec one
+• B-058 Splits inside the content area · B-180 · B-181 · B-182 · B-184 (+38 more)
+Self-filed
+• B-289–B-292 ideas (from B-278) — header crowding at ~800 px, Markdown table/list spacing, remote Download untested live, hard line breaks
+Next up: B-148, B-149
+Spend (estimated, lower bound · prices 2026-10-09): ≈$40.20 est. — B-287 ≈$14.24, B-288 ≈$0.61, B-278 ≈$25.35
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
