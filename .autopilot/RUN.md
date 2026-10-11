@@ -145,6 +145,17 @@ Lane: B-151
   Reviewed-tip: 3f782fe923d3f4baccada8d84b3aa2ba06fd5c2a
   Dispatched: 2026-10-11T23:14:00Z
 
+Lane: B-152
+  Branch: autopilot-lane/B-152
+  Base: f2747b820f741baa7f6ab48ece92405b9afa8b57
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-11T23:33:00Z
+
 Finished 1: B-284 landed 1c1f5aa66 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-284-w515414.png
 Finished 2: B-285 landed d34e7d42f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-285-1.png
 Finished 3: B-288 landed 492d7d37f · not visually verified
@@ -190,3 +201,4 @@ Finished 9: B-151 landed 6bf3484f7 · not visually verified
 - B-150 landed. Filed B-296 from the runner's Notes (leftover Task.sleep polls outside the scroll tests).
 - B-151 picked (tier light: test hardening; runner d-983382f93c62).
 - B-151 landed 6bf3484f7 (fixes 0).
+- B-151 landed (runner ended its turn early once; nudged with a follow-up). B-152 picked (tier light; runner d-d7ed24ea6734).
