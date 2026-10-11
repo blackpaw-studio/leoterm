@@ -138,7 +138,7 @@ Lane: B-151
   Branch: autopilot-lane/B-151
   Base: 2ef7f863fc3ce2224eb05f8ad7bc0a22e6b8aaab
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -153,6 +153,7 @@ Finished 5: B-269 landed c4be21582 · not visually verified
 Finished 6: B-148 landed aab4e56d0 · not visually verified
 Finished 7: B-149 landed 039ec8dad · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-149-2.png
 Finished 8: B-150 landed 7f9da972e · not visually verified
+Finished 9: B-151 landed 6bf3484f7 · not visually verified
 
 ## Progress
 - Preflight: autopilot already at main (60e80df75); applied 1 inbox entry (B-288 answer → D-518; stays blocked until leo ships `--rw`; leo 0.45.0 has none).
@@ -188,3 +189,4 @@ Finished 8: B-150 landed 7f9da972e · not visually verified
 - B-150 landed 7f9da972e (fixes 0).
 - B-150 landed. Filed B-296 from the runner's Notes (leftover Task.sleep polls outside the scroll tests).
 - B-151 picked (tier light: test hardening; runner d-983382f93c62).
+- B-151 landed 6bf3484f7 (fixes 0).

@@ -866,11 +866,13 @@ Source: autopilot polish (B-099)
 Done: d9613e1e5
 Verified: not visually verified — test-only diff (LeoSidebarTerminalScrollTests); suite 2694/0 on b7a0a923d, swiftlint clean
 
-## B-151 · B-100 pane layout test measures from the window top   [ready]
+## B-151 · B-100 pane layout test measures from the window top   [done]
 Issue: #155
 Why: assert the side-pane close glyph's midY is within 1 pt of topInset + headerRowHeight/2 below the window top; the B-074 sidebar bound (gap 9–16 pt) ties the panes to the window edge only indirectly
 Accept: assert the side-pane close glyph's midY is within 1 pt of topInset + headerRowHeight/2 below the window top; the B-074 sidebar bound (gap 9–16 pt) ties the panes to the window edge only indirectly
 Source: autopilot polish (B-100)
+Done: 25683e703
+Verified: not visually verified — test-only (+9 lines LeoSidePaneTitlebarStyleTests); perturbing the expected centre by 3 pt made both panes fail; suite 2694/0, swiftlint clean
 
 ## B-152 · headerRowHeight is a minimum, not a height   [ready]
 Issue: #156
