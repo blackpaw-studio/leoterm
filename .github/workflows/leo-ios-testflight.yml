@@ -113,9 +113,10 @@ jobs:
         working-directory: ios
         run: |
           rm -rf "$ARCHIVE"
-          # Pin the identity match installed by SHA-1: the team has more than
-          # one "Apple Distribution" cert with the same name, and the login
-          # keychain may hold one the match profiles don't include.
+          # Export pins the identity match installed by SHA-1, in case another
+          # same-named "Apple Distribution" cert is in a searched keychain.
+          # (Not passed to archive: a command-line CODE_SIGN_IDENTITY also
+          # applies to SwiftPM targets, which then demand a team.)
           sign_id=$(security find-identity -v -p codesigning "$LEO_IOS_KEYCHAIN" | awk '/Apple Distribution/ {print $2; exit}')
           test -n "$sign_id" || { echo "::error::No Apple Distribution identity in the job keychain"; exit 1; }
           echo "LEO_IOS_SIGN_ID=$sign_id" >> "$GITHUB_ENV"
@@ -123,7 +124,6 @@ jobs:
             -project Leo.xcodeproj -scheme Leo -configuration Release \
             -destination "generic/platform=iOS" \
             -archivePath "$ARCHIVE" \
-            CODE_SIGN_IDENTITY="$sign_id" \
             OTHER_CODE_SIGN_FLAGS="--keychain $LEO_IOS_KEYCHAIN" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
 
