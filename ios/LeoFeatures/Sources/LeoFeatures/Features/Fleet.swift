@@ -11,6 +11,8 @@ public struct DaemonSession: Equatable, Identifiable, Sendable {
     public var bootID: String?
     /// Consecutive failed connection attempts; drives the backoff.
     public var failures = 0
+    /// Files the agents surfaced, by incarnation, from `/state` and events.
+    public var surfaced = LeoSurfacedFileIndex.empty
 
     public var id: String { daemon.id }
 
@@ -44,6 +46,8 @@ public struct Fleet {
     public struct State: Equatable {
         public var isActive = false
         public var sessions: IdentifiedArrayOf<DaemonSession> = []
+        /// Which surfaced files the user has opened, across daemons.
+        public var seen = LeoSurfacedFileLedger()
 
         public init(daemons: [PairedDaemon] = []) {
             sessions = IdentifiedArray(uniqueElements: daemons.map(DaemonSession.init))
@@ -71,6 +75,16 @@ public struct Fleet {
         }
 
         public func agent(_ ref: AgentRef) -> Agent? { sessions[id: ref.daemonID]?.agents[id: ref.name] }
+
+        /// The agent's current incarnation's surfaced files, newest first.
+        public func surfacedFiles(for ref: AgentRef) -> [LeoSurfacedFile] {
+            guard let session = sessions[id: ref.daemonID], let agent = session.agents[id: ref.name] else { return [] }
+            return session.surfaced.files(name: ref.name, startedAt: agent.startedAt).reversed()
+        }
+
+        public func unseenFileIDs(for ref: AgentRef) -> Set<String> {
+            Set(surfacedFiles(for: ref).filter { !seen.isSeen($0, host: .remote(ref.daemonID)) }.map(\.id))
+        }
     }
 
     public enum Action {
@@ -78,8 +92,9 @@ public struct Fleet {
         case connected(DaemonSession.ID, bootID: String?, LeoObservedState)
         case daemonAdded(PairedDaemon)
         case daemonRemoved(DaemonSession.ID)
-        case daemonsLoaded([PairedDaemon])
+        case daemonsLoaded([PairedDaemon], seen: LeoSurfacedFileLedger)
         case eventReceived(DaemonSession.ID, LeoObserveEvent)
+        case fileOpened(DaemonSession.ID, LeoSurfacedFile)
         case retryButtonTapped(DaemonSession.ID)
         case scenePhaseChanged(isActive: Bool)
         case snapshotLoaded(DaemonSession.ID, LeoObservedState)
@@ -93,6 +108,7 @@ public struct Fleet {
     @Dependency(\.daemonClient) var daemonClient
     @Dependency(\.pairedDaemons) var pairedDaemons
     @Dependency(\.secrets) var secrets
+    @Dependency(\.seenFiles) var seenFiles
 
     public init() {}
 
@@ -125,13 +141,21 @@ public struct Fleet {
                     .run { _ in try secrets.delete(id) }
                 )
 
-            case .daemonsLoaded(let daemons):
+            case .daemonsLoaded(let daemons, let seen):
+                state.seen = seen
                 state.sessions = IdentifiedArray(daemons.map(DaemonSession.init), uniquingIDsWith: { $1 })
                 return connectAll(state: &state)
 
             case .eventReceived(let id, let event):
                 state.sessions[id: id]?.apply(event)
                 return .none
+
+            case .fileOpened(let id, let file):
+                let seen = state.seen.markingSeen(file, host: .remote(id))
+                guard seen != state.seen else { return .none }
+                state.seen = seen
+                let seenFiles = seenFiles
+                return .run { _ in seenFiles.save(seen) }
 
             case .retryButtonTapped(let id):
                 state.sessions[id: id]?.failures = 0
@@ -174,9 +198,9 @@ public struct Fleet {
                 }
 
             case .task:
-                let pairedDaemons = pairedDaemons
+                let (pairedDaemons, seenFiles) = (pairedDaemons, seenFiles)
                 return .run { send in
-                    await send(.daemonsLoaded((try? pairedDaemons.load()) ?? []))
+                    await send(.daemonsLoaded((try? pairedDaemons.load()) ?? [], seen: seenFiles.load()))
                 }
             }
         }
@@ -269,7 +293,10 @@ extension DaemonSession {
         if let bootID, bootID != self.bootID {
             self.bootID = bootID
             agents = []
+            // The daemon's file store is in memory: a new boot has none.
+            surfaced = .empty
         }
+        surfaced = surfaced.merging(state: snapshot.agents)
         let previous = agents
         agents = IdentifiedArray(
             snapshot.agents.map { observed in
@@ -318,7 +345,10 @@ extension DaemonSession {
         case .snapshot(let observed):
             applySnapshot(LeoObservedState(agents: observed))
 
-        case .connected, .disconnected, .hello, .gap, .fileSurfaced, .dispatchChanged, .dispatchRemoved,
+        case .fileSurfaced(_, let file):
+            surfaced = surfaced.inserting(file).index
+
+        case .connected, .disconnected, .hello, .gap, .dispatchChanged, .dispatchRemoved,
              .agentTurnCompleted, .agentUsage, .agentCompaction, .other:
             return
         }

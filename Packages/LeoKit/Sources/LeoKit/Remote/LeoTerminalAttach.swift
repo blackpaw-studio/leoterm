@@ -21,6 +21,16 @@ public enum LeoTerminalAttachError: Error, Equatable, Sendable {
     public static let policyViolation = 1008
 }
 
+extension LeoTerminalAttachError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .closed(let code, let reason): reason.isEmpty ? "The daemon closed the terminal (\(code))." : "The daemon closed the terminal: \(reason)."
+        case .rejected(let status): "The daemon refused the terminal (HTTP \(status))."
+        case .idleTimeout: "The terminal stopped responding."
+        }
+    }
+}
+
 public enum LeoWebSocketMessage: Equatable, Sendable {
     case text(String)
     case binary(Data)

@@ -70,8 +70,15 @@ public struct AppFeature {
                 state.pairing = nil
                 return .none
 
+            case .detail(.destination(.presented(.files(.delegate(.opened(let file)))))):
+                guard let id = state.detail?.daemon.id else { return .none }
+                return fleet(.fileOpened(id, file), state: &state)
+
             case .scenePhaseChanged(let isActive):
-                return fleet(.scenePhaseChanged(isActive: isActive), state: &state)
+                let terminal: Effect<Action> = state.detail?.destination?.terminal == nil
+                    ? .none
+                    : .send(.detail(.destination(.presented(.terminal(.scenePhaseChanged(isActive: isActive))))))
+                return .merge(fleet(.scenePhaseChanged(isActive: isActive), state: &state), terminal)
 
             case .task:
                 return fleet(.task, state: &state)
@@ -84,7 +91,11 @@ public struct AppFeature {
         .ifLet(\.detail, action: \.detail) { AgentDetail() }
         Reduce { state, _ in
             state.syncDetail()
-            return .none
+            // The terminal opens and closes its socket as the agent starts
+            // and stops, so that change is an action, not a state edit.
+            guard let terminal = state.detail?.destination?.terminal, let agent = state.detail?.agent,
+                  terminal.isAgentRunning == agent.isStopped else { return .none }
+            return .send(.detail(.destination(.presented(.terminal(.agentRunningChanged(!agent.isStopped))))))
         }
     }
 
@@ -101,5 +112,7 @@ extension AppFeature.State {
         if detail?.agent != agent { detail?.agent = agent }
         if detail?.connection != session.connection { detail?.connection = session.connection }
         if detail?.daemon != session.daemon { detail?.daemon = session.daemon }
+        let (files, unseen) = (fleet.surfacedFiles(for: ref), fleet.unseenFileIDs(for: ref))
+        detail?.syncFiles(files, unseen: unseen)
     }
 }

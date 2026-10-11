@@ -55,6 +55,16 @@ struct LeoSurfacedFileDownloaderTests {
         #expect(transport.requests.last == LeoFileRequest(method: "GET", path: "/api/v1/files/f1", range: 0...5))
     }
 
+    @Test func aFileTooLargeToPreviewWholeIsRefusedBeforeAnyBody() async throws {
+        let transport = FakeFileTransport(content: Data(repeating: 0, count: 10))
+        let destination = directory.appending(path: "huge.mov")
+        await #expect(throws: LeoFileDownloadError.tooLarge(10)) {
+            _ = try await LeoSurfacedFileDownloader(transport: transport).download(id: "f1", to: destination, maxBytes: 6, truncating: false)
+        }
+        #expect(transport.requests.map(\.method) == ["HEAD"])
+        #expect(!FileManager.default.fileExists(atPath: destination.path()))
+    }
+
     @Test func aSmallWholeFileIsOnePlainGet() async throws {
         let transport = FakeFileTransport(content: Data("# Hi\n".utf8))
         let destination = directory.appending(path: "a.md")

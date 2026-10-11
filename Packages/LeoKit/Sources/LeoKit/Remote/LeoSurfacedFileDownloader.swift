@@ -39,6 +39,8 @@ public enum LeoFileDownloadError: Error, Equatable, Sendable {
     /// 403: not a regular file, or not readable by the daemon.
     case unreadable
     case unauthorized
+    /// Larger than the cap for a preview that can't be cut short.
+    case tooLarge(Int64)
     case http(Int)
     case malformed(String)
 }
@@ -49,6 +51,7 @@ extension LeoFileDownloadError: LocalizedError {
         case .noLongerAvailable: "No longer available"
         case .unreadable: "The daemon can't read this file."
         case .unauthorized: "This device's token was rejected. Pair it again."
+        case .tooLarge(let bytes): "At \(ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)), it's too large to preview on this device."
         case .http(let status): "The daemon answered HTTP \(status)."
         case .malformed(let reason): "The daemon's response was malformed: \(reason)"
         }
@@ -88,12 +91,15 @@ public struct LeoSurfacedFileDownloader: Sendable {
         self.chunkSize = max(1, chunkSize)
     }
 
-    public func download(id: String, to url: URL, maxBytes: Int64) async throws -> LeoDownloadedFile {
+    /// With `truncating` false, a file over `maxBytes` throws `tooLarge`
+    /// (after the `HEAD`) instead of saving its first `maxBytes`.
+    public func download(id: String, to url: URL, maxBytes: Int64, truncating: Bool = true) async throws -> LeoDownloadedFile {
         let path = "/api/v1/files/\(try LeoSocketDaemonClient.pathSegment(id))"
         let head = try Self.checked(try await transport.fetch(LeoFileRequest(method: "HEAD", path: path), timeout: Self.timeout))
         guard let total = head.headers["content-length"].flatMap(Int64.init), total >= 0 else {
             throw LeoFileDownloadError.malformed("no Content-Length")
         }
+        if !truncating, total > maxBytes { throw LeoFileDownloadError.tooLarge(total) }
         let wanted = min(total, max(0, maxBytes))
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         guard FileManager.default.createFile(atPath: url.path(), contents: nil) else {
