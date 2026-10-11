@@ -14,16 +14,49 @@ public struct LeoFileRequest: Equatable, Sendable {
     }
 }
 
-/// Status, headers (keys lowercased) and body.
-public struct LeoFileResponse: Equatable, Sendable {
+/// Status, headers (keys lowercased), and the body read on demand, so a
+/// reader can stop at a byte limit without the rest ever being buffered.
+public struct LeoFileResponse: Sendable {
     public let status: Int
     public let headers: [String: String]
-    public let body: Data
+    private let next: @Sendable () async throws -> Data?
+    private let stop: @Sendable () -> Void
 
-    public init(status: Int, headers: [String: String], body: Data) {
+    public init(
+        status: Int, headers: [String: String],
+        next: @escaping @Sendable () async throws -> Data?, cancel: @escaping @Sendable () -> Void
+    ) {
         self.status = status
         self.headers = headers
-        self.body = body
+        self.next = next
+        stop = cancel
+    }
+
+    /// A body already in memory, as one chunk.
+    public init(status: Int, headers: [String: String], body: Data) {
+        let remaining = LockedValue<Data>(body.isEmpty ? nil : body)
+        self.init(status: status, headers: headers, next: { remaining.take() }, cancel: {})
+    }
+
+    /// The next part of the body, or nil at its end.
+    public func nextChunk() async throws -> Data? { try await next() }
+
+    /// Stops the transfer; the rest of the body is never read.
+    public func cancel() { stop() }
+}
+
+/// A value behind a lock that is read once.
+final class LockedValue<Value: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: Value?
+
+    init(_ value: Value?) { self.value = value }
+
+    func take() -> Value? {
+        lock.withLock {
+            defer { value = nil }
+            return value
+        }
     }
 }
 
@@ -92,59 +125,104 @@ public struct LeoSurfacedFileDownloader: Sendable {
     }
 
     /// With `truncating` false, a file over `maxBytes` throws `tooLarge`
-    /// (after the `HEAD`) instead of saving its first `maxBytes`.
+    /// (after the `HEAD`, or once a body runs past it) instead of saving its
+    /// first `maxBytes`. No more than `maxBytes` is kept, and reading stops
+    /// there, whatever the server sends.
     public func download(id: String, to url: URL, maxBytes: Int64, truncating: Bool = true) async throws -> LeoDownloadedFile {
         let path = "/api/v1/files/\(try LeoSocketDaemonClient.pathSegment(id))"
         let head = try Self.checked(try await transport.fetch(LeoFileRequest(method: "HEAD", path: path), timeout: Self.timeout))
+        head.cancel()
         guard let total = head.headers["content-length"].flatMap(Int64.init), total >= 0 else {
             throw LeoFileDownloadError.malformed("no Content-Length")
         }
         if !truncating, total > maxBytes { throw LeoFileDownloadError.tooLarge(total) }
-        let wanted = min(total, max(0, maxBytes))
+        let limit = Limit(wanted: min(total, max(0, maxBytes)), maxBytes: max(0, maxBytes), truncating: truncating)
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         guard FileManager.default.createFile(atPath: url.path(), contents: nil) else {
             throw LeoFileDownloadError.malformed("can't create \(url.lastPathComponent)")
         }
         do {
-            let written = try await fetchBody(path: path, total: total, wanted: wanted, into: url)
-            return LeoDownloadedFile(url: url, totalBytes: total, byteCount: written, contentType: head.headers["content-type"])
+            let handle = try FileHandle(forWritingTo: url)
+            defer { try? handle.close() }
+            let written = try await fetchBody(path: path, total: total, limit: limit, into: handle)
+            return LeoDownloadedFile(url: url, totalBytes: max(total, written), byteCount: written, contentType: head.headers["content-type"])
         } catch {
             try? FileManager.default.removeItem(at: url)
             throw error
         }
     }
 
-    /// Writes the first `wanted` bytes; returns how many it wrote (fewer if
-    /// the file shrank since the `HEAD`).
-    private func fetchBody(path: String, total: Int64, wanted: Int64, into url: URL) async throws -> Int64 {
-        let handle = try FileHandle(forWritingTo: url)
-        defer { try? handle.close() }
-        if wanted == total, total <= chunkSize {
-            let body = try Self.checked(try await transport.fetch(LeoFileRequest(method: "GET", path: path), timeout: Self.timeout)).body
-            let data = body.prefix(Int(wanted))
-            try handle.write(contentsOf: data)
-            return Int64(data.count)
+    /// How much of the body to keep: the first `wanted` bytes (all of it,
+    /// as the `HEAD` sized it, when it fits). A whole-file download also
+    /// takes a file that grew since, up to `maxBytes`.
+    private struct Limit {
+        let wanted: Int64
+        let maxBytes: Int64
+        let truncating: Bool
+
+        /// The most a body answering for the whole file may write.
+        var whole: Int64 { truncating ? wanted : maxBytes }
+    }
+
+    /// Writes the body; returns how many bytes it wrote (fewer if the file
+    /// shrank since the `HEAD`).
+    private func fetchBody(path: String, total: Int64, limit: Limit, into handle: FileHandle) async throws -> Int64 {
+        if limit.wanted == total, total <= chunkSize {
+            let response = try Self.checked(try await transport.fetch(LeoFileRequest(method: "GET", path: path), timeout: Self.timeout))
+            return try await whole(response, limit: limit, into: handle)
         }
         var offset: Int64 = 0
-        while offset < wanted {
+        while offset < limit.wanted {
             try Task.checkCancellation()
-            let range = offset...min(offset + chunkSize, wanted) - 1
+            let range = offset...min(offset + chunkSize, limit.wanted) - 1
             let response = try await transport.fetch(LeoFileRequest(method: "GET", path: path, range: range), timeout: Self.timeout)
-            if response.status == 416 { break }
+            if response.status == 416 {
+                response.cancel()
+                break
+            }
             let checked = try Self.checked(response)
             // A server that ignores Range sends the whole file from byte 0.
-            let isWhole = checked.status == 200
-            if !isWhole, Self.rangeStart(checked.headers["content-range"]) != offset {
+            if checked.status == 200 { return try await whole(checked, limit: limit, into: handle) }
+            guard Self.rangeStart(checked.headers["content-range"]) == offset else {
+                checked.cancel()
                 throw LeoFileDownloadError.malformed("unexpected Content-Range")
             }
-            let body = isWhole ? checked.body.dropFirst(Int(offset)) : checked.body
-            let data = body.prefix(Int(wanted - offset))
-            guard !data.isEmpty else { break }
-            try handle.write(contentsOf: data)
-            offset += Int64(data.count)
-            if isWhole { break }
+            let (written, _) = try await Self.copy(checked, into: handle, upTo: Int64(range.count))
+            guard written > 0 else { break }
+            offset += written
         }
         return offset
+    }
+
+    /// A body answering for the whole file from byte 0: starts the file
+    /// over, and refuses one that runs past what a whole download allows.
+    private func whole(_ response: LeoFileResponse, limit: Limit, into handle: FileHandle) async throws -> Int64 {
+        try handle.truncate(atOffset: 0)
+        let (written, isCut) = try await Self.copy(response, into: handle, upTo: limit.whole)
+        if isCut, !limit.truncating { throw LeoFileDownloadError.tooLarge(written + 1) }
+        return written
+    }
+
+    /// Appends `response`'s body up to `limit` bytes, then stops the
+    /// transfer; `isCut` says the body went on past it.
+    private static func copy(_ response: LeoFileResponse, into handle: FileHandle, upTo limit: Int64) async throws -> (written: Int64, isCut: Bool) {
+        var written: Int64 = 0
+        do {
+            while let chunk = try await response.nextChunk() {
+                try Task.checkCancellation()
+                let kept = min(limit - written, Int64(chunk.count))
+                try handle.write(contentsOf: chunk.prefix(Int(kept)))
+                written += kept
+                if kept < Int64(chunk.count) {
+                    response.cancel()
+                    return (written, true)
+                }
+            }
+            return (written, false)
+        } catch {
+            response.cancel()
+            throw error
+        }
     }
 
     /// The first offset of `bytes A-B/T`.
@@ -177,15 +255,37 @@ extension LeoHTTPSTransport: LeoFileTransport {
         let urlRequest = try urlRequest(for: request, timeout: timeout)
         let redirects = SameOriginRedirects(origin: endpoint.baseURL)
         do {
-            let (data, response) = try await session.data(for: urlRequest, delegate: redirects)
+            let (bytes, response) = try await session.bytes(for: urlRequest, delegate: redirects)
             try redirects.checkNoneRefused()
             let http = response as? HTTPURLResponse
             let headers = (http?.allHeaderFields ?? [:]).reduce(into: [String: String]()) { result, field in
                 if let key = field.key as? String, let value = field.value as? String { result[key.lowercased()] = value }
             }
-            return LeoFileResponse(status: http?.statusCode ?? 0, headers: headers, body: data)
+            let reader = ChunkReader(bytes)
+            return LeoFileResponse(status: http?.statusCode ?? 0, headers: headers, next: { try await reader.next() }, cancel: { bytes.task.cancel() })
         } catch let error as URLError {
             throw Self.transportError(error)
         }
+    }
+}
+
+/// Groups a streamed body into chunks as the reader asks for them, so
+/// nothing past what has been asked for is held in memory.
+private final class ChunkReader: @unchecked Sendable {
+    static let chunkSize = 64 << 10
+
+    private var iterator: URLSession.AsyncBytes.AsyncIterator
+
+    init(_ bytes: URLSession.AsyncBytes) { iterator = bytes.makeAsyncIterator() }
+
+    /// Called serially by one reader.
+    func next() async throws -> Data? {
+        var chunk = Data(capacity: Self.chunkSize)
+        do {
+            while chunk.count < Self.chunkSize, let byte = try await iterator.next() { chunk.append(byte) }
+        } catch let error as URLError {
+            throw LeoHTTPSTransport.transportError(error)
+        }
+        return chunk.isEmpty ? nil : chunk
     }
 }
