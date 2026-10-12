@@ -7,7 +7,7 @@ struct LeoChatClientTests {
     static let message = #"{"id":"01JA","agent":"zeus","direction":"in","kind":"text","text":"hi","state":"pending","ts":0}"#
 
     @Test func buildsEveryChatRoute() async throws {
-        let transport = FakeWebTransport(responses: [200: #"{"ok":true,"data":[]}"#])
+        let transport = FakeWebTransport(responses: [200: #"{"ok":true,"data":{"threads":[],"messages":[]}}"#])
         let client = LeoChatHTTPClient(transport: transport)
         _ = try await client.threads()
         _ = try await client.messages(agent: "zeus", query: LeoChatPageQuery(before: "01J9", limit: 50, task: "wharf report"))

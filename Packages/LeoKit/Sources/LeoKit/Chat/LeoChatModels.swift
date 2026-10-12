@@ -221,6 +221,21 @@ public struct LeoChatThread: Decodable, Equatable, Identifiable, Sendable {
     }
 }
 
+/// `GET /api/v1/chat/threads`: `{threads: [Thread]}` (a bare array also
+/// decodes). Malformed threads are dropped.
+public struct LeoChatThreadList: Decodable, Equatable, Sendable {
+    public let threads: [LeoChatThread]
+
+    public init(from decoder: any Decoder) throws {
+        if let bare = try? LeoLenientArray<LeoChatThread>(from: decoder) {
+            threads = bare.elements
+            return
+        }
+        enum Keys: String, CodingKey { case threads }
+        threads = try decoder.container(keyedBy: Keys.self).decode(LeoLenientArray<LeoChatThread>.self, forKey: .threads).elements
+    }
+}
+
 /// One page of a thread, newest first. Decodes `{messages, has_more}` or a
 /// bare array (then `hasMore` is false).
 public struct LeoChatPage: Decodable, Equatable, Sendable {

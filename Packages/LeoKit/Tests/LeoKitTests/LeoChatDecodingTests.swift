@@ -79,8 +79,8 @@ struct LeoChatDecodingTests {
     }
 
     @Test func decodesThreads() throws {
-        let json = #"{"ok":true,"data":[{"agent":"assistant","pinned":true,"unread":3,"last_message":\#(Self.askJSON)},{"agent":"zeus","unread_count":1}]}"#
-        let threads = try LeoDaemonEnvelope<[LeoChatThread]>.decode(Data(json.utf8)).value()
+        let json = #"{"ok":true,"data":{"threads":[{"agent":"assistant","pinned":true,"unread":3,"last_message":\#(Self.askJSON)},{"agent":"zeus","unread_count":1},{"bad":1}]}}"#
+        let threads = try LeoDaemonEnvelope<LeoChatThreadList>.decode(Data(json.utf8)).value().threads
 
         #expect(threads.map(\.agent) == ["assistant", "zeus"])
         #expect(threads[0].isPinned)
@@ -89,6 +89,11 @@ struct LeoChatDecodingTests {
         #expect(threads[1].unread == 1)
         #expect(!threads[1].isPinned)
         #expect(threads[1].lastMessage == nil)
+    }
+
+    @Test func aBareThreadArrayAlsoDecodes() throws {
+        let json = #"{"ok":true,"data":[{"agent":"zeus","unread":1}]}"#
+        #expect(try LeoDaemonEnvelope<LeoChatThreadList>.decode(Data(json.utf8)).value().threads.map(\.agent) == ["zeus"])
     }
 
     @Test func decodesChatEventsFromTheObserveStream() throws {

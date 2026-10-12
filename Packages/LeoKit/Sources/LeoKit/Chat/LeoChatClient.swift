@@ -87,7 +87,8 @@ public struct LeoChatHTTPClient: LeoChatClient {
     }
 
     public func threads() async throws -> [LeoChatThread] {
-        try value(try await request("GET", "\(Self.root)/threads"))
+        let list: LeoChatThreadList = try value(try await request("GET", "\(Self.root)/threads"))
+        return list.threads
     }
 
     public func messages(agent: String, query: LeoChatPageQuery) async throws -> LeoChatPage {
