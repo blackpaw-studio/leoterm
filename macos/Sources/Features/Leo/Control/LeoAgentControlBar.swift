@@ -15,19 +15,26 @@ struct LeoAgentControlBar: View {
     let clear: () -> Void
     let layout: LeoChatLayout
     let choose: (LeoAgentViewChoice) -> Void
+    /// Agents ▸ Message Agent while the prompt field is hidden.
+    let focusChat: () -> Void
 
     static let height: CGFloat = 40
 
     var body: some View {
         HStack(spacing: 8) {
-            LeoControlPromptField(
-                text: Binding(get: { control.draft(for: row.id) }, set: { control.setDraft($0, for: row.id) }),
-                placeholder: availability.reason ?? "Message \(row.name)",
-                isEnabled: availability.canCompose,
-                handle: handle,
-                onSubmit: send
-            )
-            sendButton
+            // Chat in the terminal's place: its composer is the only input.
+            if layout.isTerminalVisible {
+                LeoControlPromptField(
+                    text: Binding(get: { control.draft(for: row.id) }, set: { control.setDraft($0, for: row.id) }),
+                    placeholder: availability.reason ?? "Message \(row.name)",
+                    isEnabled: availability.canCompose,
+                    handle: handle,
+                    onSubmit: send
+                )
+                sendButton
+            } else {
+                Spacer(minLength: 0)
+            }
             symbolButton("stop.circle", "Interrupt", "Interrupt \(row.name) (⌃⌘.)", availability.canInterrupt) {
                 Task { await control.interrupt(row) }
             }
@@ -43,7 +50,7 @@ struct LeoAgentControlBar: View {
         .background(.bar)
         .overlay(alignment: .top) { Divider() }
         .overlay(alignment: .top) { feedbackBanner.alignmentGuide(.top) { $0[.bottom] } }
-        .onChange(of: focusRequest) { _ in handle.focus() }
+        .onChange(of: focusRequest) { _ in layout.isTerminalVisible ? handle.focus() : focusChat() }
     }
 
     private var sendButton: some View {
@@ -156,9 +163,10 @@ struct LeoAgentControlBarHost: View {
     private func fullBar(_ row: LeoAgentRow, _ availability: LeoAgentControlAvailability, _ layout: LeoChatLayout) -> some View {
         LeoAgentControlBar(
             row: row, availability: availability, control: control, focusRequest: session.controlFocusRequest, handle: handle,
-            clear: { Task { await control.clear(row, in: handle.window) } },
+            clear: { Task { await control.clear(row, in: handle.window ?? session.window) } },
             layout: layout,
-            choose: { session.choose($0, for: row.id) }
+            choose: { session.choose($0, for: row.id) },
+            focusChat: session.requestChatFocus
         )
     }
 }
