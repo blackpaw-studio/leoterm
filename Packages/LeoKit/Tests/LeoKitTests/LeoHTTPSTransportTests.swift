@@ -8,7 +8,7 @@ import Testing
 @Suite(.serialized)
 struct LeoHTTPSTransportTests {
     @Test func sendsBearerAndCloudflareAccessHeaders() async throws {
-        let recorder = StubURLProtocol.install { request in
+        let recorder = StubURLProtocol.install { _ in
             (200, Data(#"{"ok":true}"#.utf8), [:])
         }
         let transport = Self.transport(cfAccess: LeoCFAccessCredentials(clientID: "id.access", clientSecret: "s3cret"))
@@ -43,7 +43,7 @@ struct LeoHTTPSTransportTests {
         _ = StubURLProtocol.install { _ in (401, Data(#"{"ok":false,"error":"invalid"}"#.utf8), [:]) }
         let response = try await Self.transport().send(LeoHTTPRequest(method: "GET", path: "/x"), timeout: 5)
         #expect(response.status == 401)
-        #expect(String(decoding: response.body, as: UTF8.self).contains("invalid"))
+        #expect(String(bytes: response.body, encoding: .utf8)?.contains("invalid") == true)
     }
 
     @Test func mapsURLErrorsToTransportErrors() async {
@@ -140,8 +140,8 @@ final class StubURLProtocol: URLProtocol, @unchecked Sendable {
         }
     }
 
-    override class func canInit(with request: URLRequest) -> Bool { true }
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override static func canInit(with request: URLRequest) -> Bool { true }
+    override static func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override func startLoading() {
         let (handler, recorder) = Self.lock.withLock { (Self.handler, Self.recorder) }

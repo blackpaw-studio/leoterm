@@ -75,7 +75,7 @@ public final class LeoURLSessionWebSocket: NSObject, LeoWebSocket, URLSessionWeb
         do { try redirects.checkNoneRefused() } catch { return error }
         if let closed = lock.withLock({ closed }) { return LeoTerminalAttachError.closed(code: closed.code, reason: closed.reason) }
         if task.closeCode != .invalid {
-            return LeoTerminalAttachError.closed(code: task.closeCode.rawValue, reason: task.closeReason.map { String(decoding: $0, as: UTF8.self) } ?? "")
+            return LeoTerminalAttachError.closed(code: task.closeCode.rawValue, reason: task.closeReason.flatMap { String(bytes: $0, encoding: .utf8) } ?? "")
         }
         if let status = (task.response as? HTTPURLResponse)?.statusCode, status != 101 {
             return LeoTerminalAttachError.rejected(status: status)
@@ -105,7 +105,7 @@ public final class LeoURLSessionWebSocket: NSObject, LeoWebSocket, URLSessionWeb
     public func urlSession(
         _ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?
     ) {
-        lock.withLock { closed = (closeCode.rawValue, reason.map { String(decoding: $0, as: UTF8.self) } ?? "") }
+        lock.withLock { closed = (closeCode.rawValue, reason.flatMap { String(bytes: $0, encoding: .utf8) } ?? "") }
     }
 
     public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: (any Error)?) {

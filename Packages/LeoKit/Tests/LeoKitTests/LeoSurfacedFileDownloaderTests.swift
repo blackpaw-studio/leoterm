@@ -73,7 +73,7 @@ struct LeoSurfacedFileDownloaderTests {
         let file = try await LeoSurfacedFileDownloader(transport: transport).download(id: "f1", to: destination, maxBytes: 1 << 20)
 
         #expect(!file.isTruncated)
-        #expect(String(decoding: try Data(contentsOf: destination), as: UTF8.self) == "# Hi\n")
+        #expect(String(bytes: try Data(contentsOf: destination), encoding: .utf8) == "# Hi\n")
         #expect(transport.requests.last == LeoFileRequest(method: "GET", path: "/api/v1/files/f1"))
     }
 
