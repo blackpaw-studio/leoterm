@@ -1,4 +1,4 @@
-Status: running
+Status: finished
 Started: 2026-10-11T15:41:34Z
 Budget: 20 items, until 2026-10-12T03:41:34Z
 Stop: requested 2026-10-12T01:17:04Z (in session)
@@ -172,10 +172,10 @@ Lane: B-153
   Call: In hidden style only, the side-pane close button gets an explicit header-row height (browser header row 21→26 pt) so its glyph centres on the sidebar header's line; the 10 pt inset and headerRowHeight 16 are unchanged — D-258, P1.
 
 Lane: B-154
-  Branch: autopilot-lane/B-154
+  Branch: autopilot-shelved/B-154
   Base: fac2ff2193b7552f7d52b017cbf4f1786b23d7fc
   Tier: light
-  State: building
+  State: shelved
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -235,3 +235,4 @@ Finished 11: B-153 landed 53bedb546 · shot /Users/evan/.leo/agents/leoterm/.git
 - B-153 landed 53bedb546 (fixes 0).
 - B-153 landed (verify re-run in-runner because round 1 never opened the browser pane; not a fix). B-154 picked (tier light; runner d-4ceff45580fb).
 - Owner asked to pause (in session) at 21:17 EDT: no new lanes; B-154 finishes, then the final digest.
+- Owner said stop right now (21:18 EDT): B-154 runner cancelled mid-build, its implementer and test run killed, lane shelved on autopilot-shelved/B-154 with one unreviewed, unverified commit (719b7b14d). Run finished at 11 of 20 items.

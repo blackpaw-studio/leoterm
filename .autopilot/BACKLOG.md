@@ -894,6 +894,7 @@ Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/sho
 Issue: #158
 Why: B-100 verify: in titled styles the workspace-browser header's close glyph sits about 3 pt under the titlebar
 Accept: B-100 verify: in titled styles the workspace-browser header's close glyph sits about 3 pt under the titlebar
+Update (2026-10-11): run stopped mid-build; one unreviewed, unverified commit 719b7b14d is on autopilot-shelved/B-154 for reference. Next run starts it fresh.
 Source: autopilot polish (B-100)
 
 ## B-155 · LeoLaunchFocusTests #require message wording   [ready]

@@ -479,3 +479,35 @@ Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Board: https://github.com/orgs/blackpaw-studio/projects/5
 Review: /autopilot-review leoterm
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-10-11T15:41:34Z
+
+🛠 leoterm autopilot — 6 fixed, 5 tightened, 1 shelved (stopped by Evan at 21:18 EDT)
+Fixed
+• B-284 Agents ▸ New Agent… opened no sheet on terminal windows (verified: screenshot) · full
+• B-285 Rename / Delete / Manage Hosts no-ops on terminal windows (verified: screenshot) · full
+• B-288 Subagent panes now take keyboard and mouse input via leo `--rw` (≥0.47.0), read-only fallback (verified: tests) · full
+• B-268 Same-state needs_input with a newer revision re-notifies (verified: screenshot) · light
+• B-269 Invalid UTF-8 SFTP stderr no longer hides the missing-server message (verified: tests) · light
+• B-149 Selected row cut off when the sidebar list shrinks; reveal now runs after AppKit layout (verified: test + screenshot) · light→full
+Tightened (tests / layout polish)
+• B-148 Sidebar list stays mounted with terminals in every state (tests) · light
+• B-150 Sidebar scroll tests: real geometry, turn-counted first population (tests) · light
+• B-151 Side-pane test measures from the window top (tests) · light
+• B-152 Sidebar header row pinned to headerRowHeight (tests) · light
+• B-153 Hidden style: + and both close glyphs on one centre line within 0.5 pt (test + screenshot) · light
+Calls I made — reply "veto D-0xx" to undo
+• D-518 Evan's B-288 answer; D-519–524 (B-288) `--help` probe for `--rw`, read-only on any doubt, per-host probe cache, file drop off for dispatches
+• D-525–527 (B-268, B-269); D-528–531 (B-149) reveal after layout, scheduler test seam; D-532–533 (B-150); D-534–535 (B-152) .frame(height:); D-536 (B-153) hidden-style close button gets header-row height (browser header 21→26 pt)
+Needs you
+• B-154 shelved on autopilot-shelved/B-154 (stopped mid-build; one unreviewed commit) — next run starts it fresh
+• Deviation: B-284 got a re-verify round after the stale SecurityAgent prompt (killed with your OK) instead of being shelved
+• Held lanes B-058, B-143 still on autopilot-lane/*; B-233 lane has no RUN block
+Self-filed
+• B-293–B-296 ideas (B-148/B-149/B-150 polish)
+Next up: B-154, B-155
+Spend (estimated, lower bound · prices 2026-10-09): ≈$35.40 est. (B-154 not counted)
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
