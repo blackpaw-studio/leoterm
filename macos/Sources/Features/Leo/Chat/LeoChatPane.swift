@@ -3,33 +3,54 @@ import LeoKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Observes what decides whether the chat pane shows and which agent it
-/// follows, then hosts it beside the terminal column. Nothing here when the
-/// window hasn't opened chat, or no agent row is selected.
-struct LeoChatPaneHost: View {
+/// Lays out the terminal column and the selected agent's chat by the
+/// Terminal | Chat switch and the content area's width (`LeoChatLayout`).
+/// The terminal is never removed: replaced, it keeps its full width under
+/// the chat, so the same surface comes back with tmux unchanged. The chat
+/// pane keeps one identity across replace and side-by-side, so resizing
+/// across the threshold keeps its scroll position and the draft.
+struct LeoChatLayoutHost<Terminal: View>: View {
     @ObservedObject var model: LeoSidebarModel
     @ObservedObject var chat: LeoChatPaneModel
     @ObservedObject var terminals: LeoWindowTerminals
     @ObservedObject var session: LeoWindowSession
+    let contentWidth: CGFloat
+    @ViewBuilder let terminal: () -> Terminal
 
     var body: some View {
         let row = terminals.selection == nil ? model.actionableSelection : nil
-        if session.isChatVisible, let row {
-            HStack(spacing: 0) {
-                Divider()
-                LeoChatPane(row: row, chat: chat, close: { session.setChatVisible(false) })
-                    .frame(width: LeoChatPane.width)
+        let layout = session.chatLayout(for: row, contentWidth: contentWidth)
+        ZStack(alignment: .topLeading) {
+            terminal()
+                .frame(width: layout.terminalWidth(in: contentWidth))
+                .frame(maxHeight: .infinity)
+                .accessibilityHidden(!layout.isTerminalVisible)
+            if layout.showsChat, let row {
+                HStack(spacing: 0) {
+                    if layout == .sideBySide { Divider() }
+                    LeoChatPane(row: row, chat: chat, session: session, close: { session.choose(.terminal, for: row.id) })
+                }
+                .frame(width: layout.chatWidth(in: contentWidth))
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
             }
         }
+        .onChange(of: layout) { _ in handBackHiddenTerminalFocus(layout) }
+        .onChange(of: row?.id) { _ in handBackHiddenTerminalFocus(layout) }
+    }
+
+    /// A terminal hidden behind the chat must not keep the keyboard: a
+    /// keystroke would land in an agent nobody can see.
+    private func handBackHiddenTerminalFocus(_ layout: LeoChatLayout) {
+        guard !layout.isTerminalVisible, session.window?.firstResponder is Ghostty.SurfaceView else { return }
+        session.requestChatFocus()
     }
 }
 
 /// One agent's Leo Chat thread and composer.
 struct LeoChatPane: View {
-    static let width: CGFloat = 380
-
     let row: LeoAgentRow
     @ObservedObject var chat: LeoChatPaneModel
+    @ObservedObject var session: LeoWindowSession
     let close: () -> Void
     @State private var isDropTargeted = false
 
@@ -40,7 +61,10 @@ struct LeoChatPane: View {
             if let notice = chat.notice { noticeBanner(notice) }
             LeoChatThreadView(chat: chat)
             Divider()
-            LeoChatComposer(chat: chat, agent: row.id, agentName: row.name)
+            LeoChatComposer(
+                chat: chat, agent: row.id, agentName: row.name,
+                focusRequest: session.chatFocusRequest, takeFocusRequest: session.takeChatFocusRequest
+            )
         }
         .background(Color(nsColor: .textBackgroundColor))
         .overlay {

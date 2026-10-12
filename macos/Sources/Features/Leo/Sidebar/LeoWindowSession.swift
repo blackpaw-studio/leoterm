@@ -41,8 +41,12 @@ struct LeoWindowVisibilityState: Equatable {
     @Published private(set) var controlFocusRequest = 0
     /// The control bar's prompt field, for focus in and back out.
     let controlPrompt = LeoControlPromptFieldHandle()
-    /// Whether this window shows the Leo Chat pane beside the terminal.
-    @Published private(set) var isChatVisible = false
+    /// Each agent's Terminal | Chat switch in this window.
+    @Published private(set) var viewChoices = LeoAgentViewChoices()
+    /// Bumped when the switch asks for the chat composer to take focus; the
+    /// pending flag covers a composer that only appears with the request.
+    @Published private(set) var chatFocusRequest = 0
+    private var isChatFocusPending = false
     @Published var windowIsOccluded = false { didSet { changed(); markShownIfVisible() } }
     @Published var windowIsMiniaturized = false { didSet { changed(); markShownIfVisible() } }
     var displayedWidth: CGFloat { min(max(preferredWidth, 200), 420) }
@@ -168,7 +172,37 @@ struct LeoWindowVisibilityState: Equatable {
     /// Agents ▸ Message Agent: focus the control bar's prompt field.
     func requestControlFocus() { controlFocusRequest += 1 }
 
-    func setChatVisible(_ visible: Bool) { isChatVisible = visible }
+    /// How the selected agent's terminal and chat share `contentWidth`.
+    func chatLayout(for row: LeoAgentRow?, contentWidth: CGFloat) -> LeoChatLayout {
+        LeoChatLayout(contentWidth: contentWidth, choice: row.map { viewChoices[$0.id] } ?? .terminal)
+    }
+
+    /// The switch was clicked: show `choice` and move focus to it.
+    func choose(_ choice: LeoAgentViewChoice, for agent: LeoAgentID) {
+        viewChoices = viewChoices.setting(choice, for: agent)
+        switch choice {
+        case .chat: requestChatFocus()
+        case .terminal: DispatchQueue.main.async { [weak self] in Self.focusTerminal(in: self?.window) }
+        }
+    }
+
+    func requestChatFocus() {
+        isChatFocusPending = true
+        chatFocusRequest += 1
+    }
+
+    /// The composer takes a pending focus request once.
+    func takeChatFocusRequest() -> Bool {
+        defer { isChatFocusPending = false }
+        return isChatFocusPending
+    }
+
+    /// Hands focus back to the window's focused terminal surface.
+    static func focusTerminal(in window: NSWindow?) {
+        guard let controller = window?.windowController as? BaseTerminalController,
+              let surface = controller.focusedSurface else { return }
+        Ghostty.moveFocus(to: surface)
+    }
 
     /// Called by `LeoPickerPresentation` when its panel is shown/dismissed.
     /// Not persisted -- unlike sidebar visibility, this reflects transient

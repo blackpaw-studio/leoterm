@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// The prompt box and its verbs (B-262), under the terminal splits. Shown
@@ -12,8 +13,8 @@ struct LeoAgentControlBar: View {
     let focusRequest: Int
     let handle: LeoControlPromptFieldHandle
     let clear: () -> Void
-    let isChatVisible: Bool
-    let toggleChat: () -> Void
+    let layout: LeoChatLayout
+    let choose: (LeoAgentViewChoice) -> Void
 
     static let height: CGFloat = 40
 
@@ -35,7 +36,7 @@ struct LeoAgentControlBar: View {
             }
             symbolButton("eraser", "Clear", "Clear \(row.name)’s conversation… (⌃⇧⌘K)", availability.canClear, action: clear)
             Divider().frame(height: 18)
-            LeoChatToggleButton(agentName: row.name, isChatVisible: isChatVisible, toggle: toggleChat)
+            LeoAgentViewSwitch(agentName: row.name, active: layout.activeSegments, choose: choose)
         }
         .padding(.horizontal, 10)
         .frame(height: Self.height)
@@ -113,16 +114,20 @@ struct LeoAgentControlBar: View {
 
 /// Observes what decides whether the bar shows and which row it targets,
 /// then hosts it. Nothing here when a shell row is selected or nothing is
-/// selected; just the chat toggle when the daemon doesn't advertise control.
+/// selected; just the Terminal | Chat switch when the daemon doesn't
+/// advertise control.
 struct LeoAgentControlBarHost: View {
     @ObservedObject var model: LeoSidebarModel
     @ObservedObject var control: LeoAgentControlModel
     @ObservedObject var terminals: LeoWindowTerminals
     @ObservedObject var session: LeoWindowSession
     let handle: LeoControlPromptFieldHandle
+    /// The content area's width, which decides how chat is laid out.
+    let contentWidth: CGFloat
 
     var body: some View {
         let row = terminals.selection == nil ? model.actionableSelection : nil
+        let layout = session.chatLayout(for: row, contentWidth: contentWidth)
         let availability = LeoAgentControlAvailability(
             row: row, features: model.daemonFeatures, deniedHosts: control.deniedHosts, inFlight: row.flatMap { control.inFlight[$0.id] }
         )
@@ -134,9 +139,8 @@ struct LeoAgentControlBarHost: View {
             if let row {
                 HStack {
                     Spacer()
-                    LeoChatToggleButton(
-                        agentName: row.name, isChatVisible: session.isChatVisible,
-                        toggle: { session.setChatVisible(!session.isChatVisible) }
+                    LeoAgentViewSwitch(
+                        agentName: row.name, active: layout.activeSegments, choose: { session.choose($0, for: row.id) }
                     )
                 }
                 .padding(.horizontal, 10)
@@ -145,32 +149,68 @@ struct LeoAgentControlBarHost: View {
                 .overlay(alignment: .top) { Divider() }
             }
         case .full:
-            if let row { fullBar(row, availability) }
+            if let row { fullBar(row, availability, layout) }
         }
     }
 
-    private func fullBar(_ row: LeoAgentRow, _ availability: LeoAgentControlAvailability) -> some View {
+    private func fullBar(_ row: LeoAgentRow, _ availability: LeoAgentControlAvailability, _ layout: LeoChatLayout) -> some View {
         LeoAgentControlBar(
             row: row, availability: availability, control: control, focusRequest: session.controlFocusRequest, handle: handle,
             clear: { Task { await control.clear(row, in: handle.window) } },
-            isChatVisible: session.isChatVisible,
-            toggleChat: { session.setChatVisible(!session.isChatVisible) }
+            layout: layout,
+            choose: { session.choose($0, for: row.id) }
         )
     }
 }
 
-/// Shows or hides the chat pane for the selected agent.
-struct LeoChatToggleButton: View {
+/// The Terminal | Chat switch. Side by side, both segments are lit;
+/// clicking one shows that alone (Chat alone still sits beside the terminal
+/// when the window is wide enough).
+struct LeoAgentViewSwitch: NSViewRepresentable {
     let agentName: String
-    let isChatVisible: Bool
-    let toggle: () -> Void
+    let active: Set<LeoAgentViewChoice>
+    let choose: (LeoAgentViewChoice) -> Void
 
-    var body: some View {
-        Button(action: toggle) {
-            Image(systemName: isChatVisible ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right").imageScale(.large)
+    private static let segments: [(choice: LeoAgentViewChoice, label: String)] = [(.terminal, "Terminal"), (.chat, "Chat")]
+
+    func makeNSView(context: Context) -> NSSegmentedControl {
+        let control = NSSegmentedControl(
+            labels: Self.segments.map(\.label), trackingMode: .selectAny,
+            target: context.coordinator, action: #selector(Coordinator.clicked(_:))
+        )
+        control.segmentStyle = .rounded
+        control.setContentHuggingPriority(.required, for: .horizontal)
+        control.setContentCompressionResistancePriority(.required, for: .horizontal)
+        control.setAccessibilityLabel("View")
+        return control
+    }
+
+    func updateNSView(_ control: NSSegmentedControl, context: Context) {
+        context.coordinator.parent = self
+        for (index, segment) in Self.segments.enumerated() {
+            control.setSelected(active.contains(segment.choice), forSegment: index)
         }
-        .buttonStyle(.borderless)
-        .help(isChatVisible ? "Hide Chat" : "Show Chat with \(agentName)")
-        .accessibilityLabel(isChatVisible ? "Hide Chat" : "Show Chat")
+        control.setToolTip("Show \(agentName)’s terminal", forSegment: 0)
+        control.setToolTip("Chat with \(agentName)", forSegment: 1)
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
+
+    @MainActor final class Coordinator: NSObject {
+        var parent: LeoAgentViewSwitch
+
+        init(parent: LeoAgentViewSwitch) { self.parent = parent }
+
+        /// With `.selectAny` a click flips its segment, so the clicked one is
+        /// the segment whose state no longer matches what was shown.
+        @objc func clicked(_ control: NSSegmentedControl) {
+            let segments = LeoAgentViewSwitch.segments
+            let clicked = segments.indices.first { control.isSelected(forSegment: $0) != parent.active.contains(segments[$0].choice) }
+            for (index, segment) in segments.enumerated() {
+                control.setSelected(parent.active.contains(segment.choice), forSegment: index)
+            }
+            guard let clicked else { return }
+            parent.choose(segments[clicked].choice)
+        }
     }
 }

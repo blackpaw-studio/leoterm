@@ -125,27 +125,31 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                         shortcutHints: runtime.shortcutHints,
                         buttonActions: leoButtonActions,
                         terminal: {
-                            HStack(spacing: 0) {
+                            // The content area right of the sidebar; its
+                            // width decides whether chat replaces the
+                            // terminal or sits beside it.
+                            GeometryReader { geometry in
                                 VStack(spacing: 0) {
-                                    ZStack {
-                                        terminalContent
+                                    LeoChatLayoutHost(
+                                        model: runtime.model, chat: runtime.chat, terminals: leoSession.terminals,
+                                        session: leoSession, contentWidth: geometry.size.width
+                                    ) {
+                                        ZStack {
+                                            terminalContent
 
-                                        if viewModel.surfaceTree.isEmpty {
-                                            leoPlaceholder(session: leoSession, runtime: runtime)
+                                            if viewModel.surfaceTree.isEmpty {
+                                                leoPlaceholder(session: leoSession, runtime: runtime)
+                                            }
                                         }
                                     }
 
-                                    // B-262: the prompt box and its verbs.
+                                    // B-262: the prompt box, its verbs and
+                                    // the Terminal | Chat switch.
                                     LeoAgentControlBarHost(
                                         model: runtime.model, control: runtime.control, terminals: leoSession.terminals,
-                                        session: leoSession, handle: leoSession.controlPrompt
+                                        session: leoSession, handle: leoSession.controlPrompt, contentWidth: geometry.size.width
                                     )
                                 }
-
-                                // Leo Chat for the selected agent, when opened.
-                                LeoChatPaneHost(
-                                    model: runtime.model, chat: runtime.chat, terminals: leoSession.terminals, session: leoSession
-                                )
                             }
                         }
                     )

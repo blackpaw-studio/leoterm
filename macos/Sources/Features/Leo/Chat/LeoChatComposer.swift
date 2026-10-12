@@ -8,6 +8,11 @@ struct LeoChatComposer: View {
     @ObservedObject var chat: LeoChatPaneModel
     let agent: LeoAgentID
     let agentName: String
+    /// Bumped when something asks for the text field's focus.
+    let focusRequest: Int
+    /// Consumes a pending focus request (true once per request).
+    let takeFocusRequest: () -> Bool
+    @FocusState private var isTextFocused: Bool
 
     private var draft: LeoChatComposerDraft { chat.draft(for: agent) }
     private var isSending: Bool { chat.isSending(agent) }
@@ -24,6 +29,15 @@ struct LeoChatComposer: View {
         }
         .padding(10)
         .background(.bar)
+        .onAppear(perform: takeFocus)
+        .onChange(of: focusRequest) { _ in takeFocus() }
+    }
+
+    private func takeFocus() {
+        guard takeFocusRequest() else { return }
+        // On the next pass: a field that appeared with the request isn't
+        // in the window yet.
+        DispatchQueue.main.async { isTextFocused = true }
     }
 
     private var inputRow: some View {
@@ -35,6 +49,7 @@ struct LeoChatComposer: View {
             TextField("Message \(agentName)", text: Binding(get: { draft.text }, set: { chat.setText($0) }), axis: .vertical)
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(1...6)
+                .focused($isTextFocused)
                 .onSubmit(send)
             Button { Task { await chat.toggleRecording() } } label: { Image(systemName: "mic").imageScale(.large) }
                 .buttonStyle(.borderless)

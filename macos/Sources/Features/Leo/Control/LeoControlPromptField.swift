@@ -18,11 +18,7 @@ import SwiftUI
     }
 
     /// Hands focus back to the window's focused terminal surface.
-    func focusTerminal() {
-        guard let controller = field?.window?.windowController as? BaseTerminalController,
-              let surface = controller.focusedSurface else { return }
-        Ghostty.moveFocus(to: surface)
-    }
+    func focusTerminal() { LeoWindowSession.focusTerminal(in: field?.window) }
 }
 
 struct LeoControlPromptField: NSViewRepresentable {
