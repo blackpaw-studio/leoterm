@@ -144,8 +144,8 @@ public struct LeoSurfacedFileDownloader: Sendable {
         do {
             let handle = try FileHandle(forWritingTo: url)
             defer { try? handle.close() }
-            let written = try await fetchBody(path: path, total: total, limit: limit, into: handle)
-            return LeoDownloadedFile(url: url, totalBytes: max(total, written), byteCount: written, contentType: head.headers["content-type"])
+            let (written, size) = try await fetchBody(path: path, total: total, limit: limit, into: handle)
+            return LeoDownloadedFile(url: url, totalBytes: size, byteCount: written, contentType: head.headers["content-type"])
         } catch {
             try? FileManager.default.removeItem(at: url)
             throw error
@@ -153,28 +153,28 @@ public struct LeoSurfacedFileDownloader: Sendable {
     }
 
     /// How much of the body to keep: the first `wanted` bytes (all of it,
-    /// as the `HEAD` sized it, when it fits). A whole-file download also
-    /// takes a file that grew since, up to `maxBytes`.
+    /// as the `HEAD` sized it, when it fits). A file that grew since is read
+    /// on, up to `maxBytes`.
     private struct Limit {
         let wanted: Int64
         let maxBytes: Int64
         let truncating: Bool
-
-        /// The most a body answering for the whole file may write.
-        var whole: Int64 { truncating ? wanted : maxBytes }
     }
 
     /// Writes the body; returns how many bytes it wrote (fewer if the file
-    /// shrank since the `HEAD`).
-    private func fetchBody(path: String, total: Int64, limit: Limit, into handle: FileHandle) async throws -> Int64 {
+    /// shrank since the `HEAD`) and the file's size as the last response
+    /// saw it: at least `total`, more if the file grew since the `HEAD`.
+    private func fetchBody(path: String, total: Int64, limit: Limit, into handle: FileHandle) async throws -> (written: Int64, size: Int64) {
         if limit.wanted == total, total <= chunkSize {
             let response = try Self.checked(try await transport.fetch(LeoFileRequest(method: "GET", path: path), timeout: Self.timeout))
-            return try await whole(response, limit: limit, into: handle)
+            return try await whole(response, size: total, limit: limit, into: handle)
         }
+        var size = total
+        var wanted = limit.wanted
         var offset: Int64 = 0
-        while offset < limit.wanted {
+        while offset < wanted {
             try Task.checkCancellation()
-            let range = offset...min(offset + chunkSize, limit.wanted) - 1
+            let range = offset...min(offset + chunkSize, wanted) - 1
             let response = try await transport.fetch(LeoFileRequest(method: "GET", path: path, range: range), timeout: Self.timeout)
             if response.status == 416 {
                 response.cancel()
@@ -182,25 +182,37 @@ public struct LeoSurfacedFileDownloader: Sendable {
             }
             let checked = try Self.checked(response)
             // A server that ignores Range sends the whole file from byte 0.
-            if checked.status == 200 { return try await whole(checked, limit: limit, into: handle) }
+            if checked.status == 200 { return try await whole(checked, size: size, limit: limit, into: handle) }
             guard Self.rangeStart(checked.headers["content-range"]) == offset else {
                 checked.cancel()
                 throw LeoFileDownloadError.malformed("unexpected Content-Range")
+            }
+            // The file grew since the `HEAD`: read on to its new end.
+            if let current = Self.rangeTotal(checked.headers["content-range"]), current > size {
+                size = current
+                if !limit.truncating, size > limit.maxBytes {
+                    checked.cancel()
+                    throw LeoFileDownloadError.tooLarge(size)
+                }
+                wanted = min(size, limit.maxBytes)
             }
             let (written, _) = try await Self.copy(checked, into: handle, upTo: Int64(range.count))
             guard written > 0 else { break }
             offset += written
         }
-        return offset
+        return (offset, size)
     }
 
     /// A body answering for the whole file from byte 0: starts the file
-    /// over, and refuses one that runs past what a whole download allows.
-    private func whole(_ response: LeoFileResponse, limit: Limit, into handle: FileHandle) async throws -> Int64 {
+    /// over, and keeps at most `maxBytes` of it. One that runs past that is
+    /// refused unless the download may be cut short, in which case the file
+    /// is reported larger than what was kept.
+    private func whole(_ response: LeoFileResponse, size: Int64, limit: Limit, into handle: FileHandle) async throws -> (written: Int64, size: Int64) {
+        let declared = response.headers["content-length"].flatMap(Int64.init) ?? 0
         try handle.truncate(atOffset: 0)
-        let (written, isCut) = try await Self.copy(response, into: handle, upTo: limit.whole)
+        let (written, isCut) = try await Self.copy(response, into: handle, upTo: limit.maxBytes)
         if isCut, !limit.truncating { throw LeoFileDownloadError.tooLarge(written + 1) }
-        return written
+        return (written, max(size, declared, written, isCut ? written + 1 : 0))
     }
 
     /// Appends `response`'s body up to `limit` bytes, then stops the
@@ -229,6 +241,12 @@ public struct LeoSurfacedFileDownloader: Sendable {
     private static func rangeStart(_ header: String?) -> Int64? {
         guard let header, header.hasPrefix("bytes ") else { return nil }
         return header.dropFirst("bytes ".count).split(separator: "-").first.flatMap { Int64($0) }
+    }
+
+    /// The `T` of `bytes A-B/T`; nil when the size is unknown (`*`).
+    private static func rangeTotal(_ header: String?) -> Int64? {
+        guard let header, header.hasPrefix("bytes ") else { return nil }
+        return header.split(separator: "/").last.flatMap { Int64($0) }
     }
 
     private static func checked(_ response: LeoFileResponse) throws -> LeoFileResponse {

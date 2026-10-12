@@ -125,6 +125,65 @@ struct LeoSurfacedFileDownloaderTests {
         #expect(!FileManager.default.fileExists(atPath: destination.path()))
     }
 
+    // MARK: A file that grows between the HEAD and the GET
+
+    @Test func aSmallFileThatGrewIsReadWholeWhenItStillFits() async throws {
+        let transport = FakeFileTransport(content: Data(repeating: 0x41, count: 5), growsAfterHead: 3)
+        let destination = directory.appending(path: "grew.log")
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let file = try await LeoSurfacedFileDownloader(transport: transport).download(id: "f1", to: destination, maxBytes: 50)
+
+        #expect(try Data(contentsOf: destination).count == 8)
+        #expect(file.byteCount == 8)
+        #expect(!file.isTruncated)
+    }
+
+    @Test func aSmallFileThatGrewPastTheCapIsReportedTruncated() async throws {
+        let transport = FakeFileTransport(content: Data(repeating: 0x41, count: 5), growsAfterHead: 20)
+        let destination = directory.appending(path: "grew.log")
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let file = try await LeoSurfacedFileDownloader(transport: transport).download(id: "f1", to: destination, maxBytes: 10)
+
+        #expect(file.byteCount == 10)
+        #expect(file.totalBytes == 25)
+        #expect(file.isTruncated)
+    }
+
+    @Test func aChunkedFileThatGrewIsReadToItsNewEnd() async throws {
+        let transport = FakeFileTransport(content: Data(repeating: 0x41, count: 10), growsAfterHead: 4)
+        let destination = directory.appending(path: "grew.bin")
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let file = try await LeoSurfacedFileDownloader(transport: transport, chunkSize: 4).download(id: "f1", to: destination, maxBytes: 100)
+
+        #expect(try Data(contentsOf: destination).count == 14)
+        #expect(file.byteCount == 14)
+        #expect(!file.isTruncated)
+    }
+
+    @Test func aChunkedFileThatGrewPastTheCapIsReportedTruncated() async throws {
+        let transport = FakeFileTransport(content: Data(repeating: 0x41, count: 10), growsAfterHead: 4)
+        let destination = directory.appending(path: "grew.bin")
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let file = try await LeoSurfacedFileDownloader(transport: transport, chunkSize: 4).download(id: "f1", to: destination, maxBytes: 12)
+
+        #expect(file.byteCount == 12)
+        #expect(file.totalBytes == 14)
+        #expect(file.isTruncated)
+    }
+
+    @Test func aChunkedFileThatGrewPastTheCapIsRefusedWhenItCannotBeCutShort() async throws {
+        let transport = FakeFileTransport(content: Data(repeating: 0x41, count: 10), growsAfterHead: 10)
+        let destination = directory.appending(path: "grew.bin")
+        await #expect(throws: LeoFileDownloadError.tooLarge(20)) {
+            _ = try await LeoSurfacedFileDownloader(transport: transport, chunkSize: 4).download(id: "f1", to: destination, maxBytes: 15, truncating: false)
+        }
+        #expect(!FileManager.default.fileExists(atPath: destination.path()))
+    }
+
     @Test func anIdThatIsNotAPathSegmentIsRefused() async throws {
         let transport = FakeFileTransport(content: Data())
         await #expect(throws: LeoDaemonError.self) {
@@ -146,7 +205,8 @@ struct LeoSurfacedFileDownloaderTests {
 /// 206 with Content-Range), or 404 once evicted. Bodies stream in
 /// `chunk`-byte parts. `ignoresRangeAfter` honours that many ranged GETs,
 /// then answers 200 with the whole body; `endlessBody` keeps streaming
-/// filler past the content (a file growing after the HEAD).
+/// filler past the content (a file growing after the HEAD); `growsAfterHead`
+/// answers every GET with that many more bytes than the HEAD sized.
 final class FakeFileTransport: LeoFileTransport, @unchecked Sendable {
     /// A body read this far was never capped.
     static let unboundedRead = 10_000
@@ -158,6 +218,7 @@ final class FakeFileTransport: LeoFileTransport, @unchecked Sendable {
     private let evictAfterRequests: Int?
     private let ignoresRangeAfter: Int?
     private let endlessBody: Bool
+    private let growsAfterHead: Int
     private let chunk = 10
     private var recorded: [LeoFileRequest] = []
     private var reads = 0
@@ -165,7 +226,7 @@ final class FakeFileTransport: LeoFileTransport, @unchecked Sendable {
 
     init(
         content: Data?, status: Int? = nil, contentType: String? = nil, evictAfterRequests: Int? = nil,
-        ignoresRangeAfter: Int? = nil, endlessBody: Bool = false
+        ignoresRangeAfter: Int? = nil, endlessBody: Bool = false, growsAfterHead: Int = 0
     ) {
         self.content = content
         self.status = status
@@ -173,6 +234,7 @@ final class FakeFileTransport: LeoFileTransport, @unchecked Sendable {
         self.evictAfterRequests = evictAfterRequests
         self.ignoresRangeAfter = ignoresRangeAfter
         self.endlessBody = endlessBody
+        self.growsAfterHead = growsAfterHead
     }
 
     var requests: [LeoFileRequest] { lock.withLock { recorded } }
@@ -191,13 +253,15 @@ final class FakeFileTransport: LeoFileTransport, @unchecked Sendable {
         var headers = ["content-length": "\(content.count)", "accept-ranges": "bytes"]
         if let contentType { headers["content-type"] = contentType }
         if request.method == "HEAD" { return LeoFileResponse(status: 200, headers: headers, body: Data()) }
+        let served = content + Data(repeating: 0x59, count: growsAfterHead)
+        headers["content-length"] = "\(served.count)"
         guard let range = request.range, ranged <= (ignoresRangeAfter ?? .max) else {
-            return streamed(status: 200, headers: headers, body: content, isEndless: endlessBody)
+            return streamed(status: 200, headers: headers, body: served, isEndless: endlessBody)
         }
-        let upper = min(Int(range.upperBound), content.count - 1)
-        let slice = content[Int(range.lowerBound)...upper]
+        let upper = min(Int(range.upperBound), served.count - 1)
+        let slice = served[Int(range.lowerBound)...upper]
         headers["content-length"] = "\(slice.count)"
-        headers["content-range"] = "bytes \(range.lowerBound)-\(upper)/\(content.count)"
+        headers["content-range"] = "bytes \(range.lowerBound)-\(upper)/\(served.count)"
         return streamed(status: 206, headers: headers, body: Data(slice), isEndless: false)
     }
 
