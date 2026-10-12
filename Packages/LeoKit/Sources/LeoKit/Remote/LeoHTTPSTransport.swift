@@ -27,7 +27,7 @@ public struct LeoRemoteEndpoint: Equatable, Sendable {
 }
 
 /// Request/response plus SSE against one daemon's web listener.
-public protocol LeoWebTransport: Sendable {
+public protocol LeoWebTransport: LeoChatTransport {
     /// Any HTTP status is a response; only a failure to get one throws.
     func send(_ request: LeoHTTPRequest, timeout: TimeInterval) async throws -> LeoHTTPResponse
     /// One SSE connection. Finishes when the server closes it; throws on a
@@ -66,7 +66,7 @@ public struct LeoHTTPSTransport: LeoWebTransport {
         }
         if let body = request.body {
             urlRequest.httpBody = body
-            urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            urlRequest.setValue(request.contentType ?? "application/json", forHTTPHeaderField: "Content-Type")
         }
         return urlRequest
     }

@@ -17,18 +17,32 @@ public struct LeoPushPayload: Codable, Equatable, Sendable {
     public let body: String
     /// Unix seconds.
     public let ts: Int
+    /// Leo Chat: the message a `chat` push (or a permission attention
+    /// push) is about, its kind (`ask`, `permission`, ...) and an `ask`'s
+    /// choices. All optional; older daemons send none.
+    public let messageID: String?
+    public let messageKind: String?
+    public let options: [LeoChatOption]
 
-    public init(daemonID: String, agent: String, kind: String, title: String, body: String = "", ts: Int) {
+    public init(
+        daemonID: String, agent: String, kind: String, title: String, body: String = "", ts: Int,
+        messageID: String? = nil, messageKind: String? = nil, options: [LeoChatOption] = []
+    ) {
         self.daemonID = daemonID
         self.agent = agent
         self.kind = kind
         self.title = title
         self.body = body
         self.ts = ts
+        self.messageID = messageID
+        self.messageKind = messageKind
+        self.options = options
     }
 
     enum CodingKeys: String, CodingKey {
-        case v, daemonID = "daemon_id", agent, kind, title, body, ts
+        case v, daemonID = "daemon_id", agent, kind, title, body, ts, options
+        case messageID = "message_id"
+        case messageKind = "message_kind"
     }
 
     public init(from decoder: any Decoder) throws {
@@ -41,6 +55,9 @@ public struct LeoPushPayload: Codable, Equatable, Sendable {
         title = try container.decode(String.self, forKey: .title)
         body = try container.decodeIfPresent(String.self, forKey: .body) ?? ""
         ts = try container.decode(Int.self, forKey: .ts)
+        messageID = ((try? container.decodeIfPresent(String.self, forKey: .messageID)) ?? nil).flatMap { $0.isEmpty ? nil : $0 }
+        messageKind = ((try? container.decodeIfPresent(String.self, forKey: .messageKind)) ?? nil).flatMap { $0.isEmpty ? nil : $0 }
+        options = ((try? container.decodeIfPresent(LeoLenientArray<LeoChatOption>.self, forKey: .options)) ?? nil)?.elements ?? []
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -52,6 +69,9 @@ public struct LeoPushPayload: Codable, Equatable, Sendable {
         try container.encode(title, forKey: .title)
         if !body.isEmpty { try container.encode(body, forKey: .body) }
         try container.encode(ts, forKey: .ts)
+        try container.encodeIfPresent(messageID, forKey: .messageID)
+        try container.encodeIfPresent(messageKind, forKey: .messageKind)
+        if !options.isEmpty { try container.encode(options, forKey: .options) }
     }
 }
 

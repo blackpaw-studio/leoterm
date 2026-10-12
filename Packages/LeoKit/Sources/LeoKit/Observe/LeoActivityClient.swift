@@ -153,6 +153,9 @@ public enum LeoObserveEvent: Equatable, Sendable {
     case agentUsage(seq: Int, agent: String, usage: LeoAgentUsage)
     /// A bridged agent's context compaction began or ended (`agent_compaction`).
     case agentCompaction(seq: Int, compaction: LeoCompactionEvent)
+    /// A Leo Chat message was posted or changed (`chat.message`,
+    /// `chat.updated`).
+    case chat(seq: Int, LeoChatEvent)
     /// An event the app recognizes as carrying a seq but doesn't consume
     /// (anything newer, or a malformed dispatch, turn, usage or compaction).
     /// It only advances the sequence, so skipping it never reads as a gap.
@@ -361,10 +364,24 @@ public actor LeoActivityClient {
             }
             leoActivityClientLogger.debug("activityClient: malformed agent_compaction kept as a sequence-only event")
             return sequence(in: data).map { .other(seq: $0, type: name) }
+        case "chat.message", "chat.updated":
+            struct Payload: Decodable { let seq: Int }
+            if let p = try? decoder.decode(Payload.self, from: data), let message = chatMessage(in: data) {
+                return .chat(seq: p.seq, name == "chat.message" ? .message(message) : .updated(message))
+            }
+            leoActivityClientLogger.debug("activityClient: malformed \(name, privacy: .public) kept as a sequence-only event")
+            return sequence(in: data).map { .other(seq: $0, type: name) }
         default:
             // Recognized as an event (it has a seq) but not consumed here.
             return sequence(in: data).map { .other(seq: $0, type: name) }
         }
+    }
+
+    /// A chat event's `message`, or the payload itself when it is flat.
+    private static func chatMessage(in data: Data) -> LeoChatMessage? {
+        struct Nested: Decodable { let message: LeoChatMessage }
+        let decoder = JSONDecoder()
+        return (try? decoder.decode(Nested.self, from: data))?.message ?? (try? decoder.decode(LeoChatMessage.self, from: data))
     }
 
     /// The payload's `seq`, if it has one.
@@ -414,7 +431,8 @@ extension LeoObserveEvent {
         case .hello(let seq, _, _, _, _, _), .agentSpawned(let seq, _, _, _, _),
              .agentStateChanged(let seq, _, _, _, _, _, _), .agentActivity(let seq, _, _, _, _, _),
              .agentStopped(let seq, _, _, _), .dispatchChanged(let seq, _), .dispatchRemoved(let seq, _), .other(let seq, _),
-             .agentTurnCompleted(let seq, _), .agentUsage(let seq, _, _), .agentCompaction(let seq, _): return seq
+             .agentTurnCompleted(let seq, _), .agentUsage(let seq, _, _), .agentCompaction(let seq, _),
+             .chat(let seq, _): return seq
         case .fileSurfaced(let seq, _): return seq ?? -1
         case .connected, .disconnected, .gap, .snapshot: return -1
         }

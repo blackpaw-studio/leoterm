@@ -4,17 +4,20 @@ public struct LeoHTTPRequest: Equatable, Sendable {
     public let method: String
     public let path: String
     public let body: Data?
+    /// The body's media type; nil means JSON.
+    public let contentType: String?
 
-    public init(method: String, path: String, body: Data? = nil) {
+    public init(method: String, path: String, body: Data? = nil, contentType: String? = nil) {
         self.method = method
         self.path = path
         self.body = body
+        self.contentType = contentType
     }
 
     public func serialized() -> Data {
         var headers = "\(method) \(path) HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n"
         if let body {
-            headers += "Content-Type: application/json\r\nContent-Length: \(body.count)\r\n"
+            headers += "Content-Type: \(contentType ?? "application/json")\r\nContent-Length: \(body.count)\r\n"
         }
         var result = Data((headers + "\r\n").utf8)
         if let body { result.append(body) }

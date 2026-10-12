@@ -83,7 +83,8 @@ struct LeoPushNotificationTests {
         let alert = try #require(LeoPushNotification.alert(userInfo: userInfo, key: key, pairedDaemonIDs: ["d-olympus"]))
         #expect(alert.title == "apollo")
         #expect(alert.body == "Approve the migration?")
-        #expect(alert.userInfo == ["daemon_id": "d-olympus", "agent": "apollo"])
+        #expect(alert.userInfo["daemon_id"] == "d-olympus")
+        #expect(alert.userInfo["agent"] == "apollo")
     }
 
     private static func alert(plaintext: String) throws -> LeoPushAlert {

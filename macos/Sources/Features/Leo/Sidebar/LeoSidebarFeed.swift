@@ -323,7 +323,7 @@ actor LeoSidebarFeed {
             }
         case .fileSurfaced(_, let file):
             receiveSurfacedFile(file)
-        case .other, .dispatchChanged, .dispatchRemoved, .agentTurnCompleted, .agentUsage, .agentCompaction:
+        case .other, .dispatchChanged, .dispatchRemoved, .agentTurnCompleted, .agentUsage, .agentCompaction, .chat:
             return
         case .disconnected(let reason):
             Self.logger.log("receive: .disconnected reason=\(reason, privacy: .public)")

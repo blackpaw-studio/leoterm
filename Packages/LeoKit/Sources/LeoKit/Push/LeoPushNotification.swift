@@ -21,10 +21,36 @@ public struct LeoPushAlert: Equatable, Sendable {
     public let subtitle: String
     public let body: String
     public let target: LeoPushTarget
+    /// The daemon's push kind: an attention state, or `chat`.
+    public var kind: String = ""
+    /// The chat message the push is about, if any.
+    public var chat: LeoPushChat?
 
-    /// The notification's `userInfo` after decryption: just the target.
+    /// The notification's `userInfo` after decryption: the target, the
+    /// kind and any chat message id.
     public var userInfo: [String: String] {
-        [LeoPushNotification.daemonIDKey: target.daemonID, LeoPushNotification.agentKey: target.agent]
+        var info = [
+            LeoPushNotification.daemonIDKey: target.daemonID, LeoPushNotification.agentKey: target.agent,
+            LeoPushNotification.kindKey: kind,
+        ]
+        if let messageID = chat?.messageID { info[LeoPushNotification.messageIDKey] = messageID }
+        return info
+    }
+
+    /// Groups an agent's notifications into one thread.
+    public var threadIdentifier: String { "\(target.daemonID)/\(target.agent)" }
+}
+
+/// What a push says about a Leo Chat message.
+public struct LeoPushChat: Equatable, Sendable {
+    public let messageID: String?
+    public let messageKind: String?
+    public let options: [LeoChatOption]
+
+    public init(messageID: String?, messageKind: String?, options: [LeoChatOption]) {
+        self.messageID = messageID
+        self.messageKind = messageKind
+        self.options = options
     }
 }
 
@@ -34,6 +60,9 @@ public enum LeoPushNotification {
     public static let ciphertextKey = "c"
     public static let daemonIDKey = "daemon_id"
     public static let agentKey = "agent"
+    public static let kindKey = "kind"
+    public static let messageIDKey = "message_id"
+    public static let chatKind = "chat"
 
     /// The decrypted alert, or nil when anything is off (the caller then
     /// leaves the generic alert alone), including a push from a daemon not
@@ -44,12 +73,21 @@ public enum LeoPushNotification {
               let payload = try? LeoPushCipher.open(ciphertext, key: key),
               pairedDaemonIDs.contains(payload.daemonID), !payload.agent.isEmpty else { return nil }
         let hasDetail = !payload.body.isEmpty
+        let isChat = payload.kind == chatKind || payload.messageID != nil
         return LeoPushAlert(
             title: payload.agent,
             subtitle: hasDetail ? payload.title : "",
             body: hasDetail ? payload.body : payload.title,
-            target: LeoPushTarget(daemonID: payload.daemonID, agent: payload.agent)
+            target: LeoPushTarget(daemonID: payload.daemonID, agent: payload.agent),
+            kind: payload.kind,
+            chat: isChat ? LeoPushChat(messageID: payload.messageID, messageKind: payload.messageKind, options: payload.options) : nil
         )
+    }
+
+    /// Whether a delivered notification is about a chat thread (a `chat`
+    /// push, or an attention push carrying a chat message).
+    public static func isChat(userInfo: [AnyHashable: Any]) -> Bool {
+        userInfo[kindKey] as? String == chatKind || (userInfo[messageIDKey] as? String).map { !$0.isEmpty } == true
     }
 
     /// The agent a tapped notification opens; nil for one the extension

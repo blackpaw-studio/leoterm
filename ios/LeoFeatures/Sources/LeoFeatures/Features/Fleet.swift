@@ -349,7 +349,7 @@ extension DaemonSession {
             surfaced = surfaced.inserting(file).index
 
         case .connected, .disconnected, .hello, .gap, .dispatchChanged, .dispatchRemoved,
-             .agentTurnCompleted, .agentUsage, .agentCompaction, .other:
+             .agentTurnCompleted, .agentUsage, .agentCompaction, .chat, .other:
             return
         }
     }
