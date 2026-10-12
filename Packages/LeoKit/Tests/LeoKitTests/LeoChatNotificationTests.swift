@@ -50,12 +50,10 @@ struct LeoChatNotificationTests {
 
         #expect(category.identifier.hasPrefix(Actions.askCategoryPrefix))
         #expect(category.actions.count == 5)
-        #expect(category.actions.prefix(4) == [
-            .button(id: Actions.answerPrefix + "v1", title: "Option 1", isDestructive: false),
-            .button(id: Actions.answerPrefix + "v2", title: "Option 2", isDestructive: false),
-            .button(id: Actions.answerPrefix + "v3", title: "Option 3", isDestructive: false),
-            .button(id: Actions.answerPrefix + "v4", title: "Option 4", isDestructive: false),
-        ])
+        let buttons: [LeoChatNotificationCategory.Action] = (1...4).map {
+            .button(id: Actions.answerPrefix + "v\($0)", title: "Option \($0)", isDestructive: false)
+        }
+        #expect(Array(category.actions.prefix(4)) == buttons)
         #expect(category.actions.last?.id == Actions.replyActionID)
         // The same options give the same category; others give another.
         #expect(Actions.category(for: alert)?.identifier == category.identifier)
