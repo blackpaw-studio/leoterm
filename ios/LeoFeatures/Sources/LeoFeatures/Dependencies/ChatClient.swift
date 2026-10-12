@@ -27,7 +27,8 @@ public struct ChatClient: Sendable {
     public var threads: @Sendable (_ connection: DaemonConnection) async throws -> [LeoChatThread]
     public var messages: @Sendable (_ connection: DaemonConnection, _ agent: String, _ query: LeoChatPageQuery) async throws -> LeoChatPage
     public var send: @Sendable (_ connection: DaemonConnection, _ agent: String, _ draft: LeoChatDraft) async throws -> LeoChatMessage
-    /// Uploads on the background session; returns the stored attachment.
+    /// Uploads in the foreground (same-origin redirects only); returns the
+    /// stored attachment. Callers keep the app alive with `BackgroundTaskClient`.
     public var upload: @Sendable (_ connection: DaemonConnection, _ file: ChatFile) async throws -> LeoChatAttachment
     /// The attachment as a local file (cached per attachment id).
     public var download: @Sendable (_ connection: DaemonConnection, _ attachment: LeoChatAttachment) async throws -> URL
@@ -50,8 +51,7 @@ extension ChatClient: DependencyKey {
             send: { connection, agent, draft in try await client(connection).send(agent: agent, draft) },
             upload: { connection, file in
                 let data = try Data(contentsOf: file.url, options: .mappedIfSafe)
-                let uploader = LeoChatHTTPClient(transport: LeoBackgroundUploadTransport(endpoint: connection.endpoint))
-                return try await uploader.upload(LeoChatUpload(filename: file.filename, mime: file.mime, data: data))
+                return try await client(connection).upload(LeoChatUpload(filename: file.filename, mime: file.mime, data: data))
             },
             download: { connection, attachment in
                 let folder = cache
@@ -86,6 +86,34 @@ extension AudioRecorderClient: TestDependencyKey {
     public static let testValue = AudioRecorderClient()
 }
 
+/// Keeps the app running long enough to finish work the user started (a
+/// send and its uploads) after it leaves the foreground. The app provides
+/// the live value (`UIApplication` background tasks).
+@DependencyClient
+public struct BackgroundTaskClient: Sendable {
+    /// Asks the system for time to finish `name`; returns a token for `end`.
+    public var begin: @Sendable (_ name: String) async -> Int = { _ in 0 }
+    public var end: @Sendable (_ token: Int) async -> Void
+}
+
+extension BackgroundTaskClient: TestDependencyKey {
+    public static let testValue = BackgroundTaskClient()
+
+    /// Runs `operation` inside one background task, ending it however
+    /// `operation` finishes.
+    public func run<T: Sendable>(_ name: String, _ operation: @Sendable () async throws -> T) async throws -> T {
+        let token = await begin(name)
+        do {
+            let value = try await operation()
+            await end(token)
+            return value
+        } catch {
+            await end(token)
+            throw error
+        }
+    }
+}
+
 /// Tells the user, out of band, that a notification action failed (the
 /// app may be in the background). The app provides the live value.
 @DependencyClient
@@ -106,6 +134,11 @@ extension DependencyValues {
     public var audioRecorder: AudioRecorderClient {
         get { self[AudioRecorderClient.self] }
         set { self[AudioRecorderClient.self] = newValue }
+    }
+
+    public var backgroundTask: BackgroundTaskClient {
+        get { self[BackgroundTaskClient.self] }
+        set { self[BackgroundTaskClient.self] = newValue }
     }
 
     public var chatNotifier: ChatNotifierClient {

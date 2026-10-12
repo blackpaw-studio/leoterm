@@ -1,6 +1,7 @@
 import AVFoundation
 import ComposableArchitecture
 import LeoFeatures
+import UIKit
 import UserNotifications
 
 extension AudioRecorderClient: @retroactive DependencyKey {
@@ -77,5 +78,38 @@ extension ChatNotifierClient: @retroactive DependencyKey {
             let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
             try? await UNUserNotificationCenter.current().add(request)
         })
+    }
+}
+
+extension BackgroundTaskClient: @retroactive DependencyKey {
+    /// `UIApplication` background tasks. Ending is idempotent: the
+    /// expiration handler and the caller may both end the same task.
+    public static var liveValue: BackgroundTaskClient {
+        let tasks = BackgroundTasks()
+        return BackgroundTaskClient(
+            begin: { name in await tasks.begin(name) },
+            end: { token in await tasks.end(token) }
+        )
+    }
+}
+
+@MainActor
+private final class BackgroundTasks {
+    private var live: Set<Int> = []
+
+    func begin(_ name: String) -> Int {
+        var identifier = UIBackgroundTaskIdentifier.invalid
+        identifier = UIApplication.shared.beginBackgroundTask(withName: name) { [weak self] in
+            // Out of time: the in-flight request fails when the app is
+            // suspended, and the draft stays for a retry.
+            self?.end(identifier.rawValue)
+        }
+        if identifier != .invalid { live.insert(identifier.rawValue) }
+        return identifier.rawValue
+    }
+
+    func end(_ token: Int) {
+        guard live.remove(token) != nil else { return }
+        UIApplication.shared.endBackgroundTask(UIBackgroundTaskIdentifier(rawValue: token))
     }
 }

@@ -29,6 +29,15 @@ struct ChatThreadTests {
         values.secrets.load = { _ in DaemonSecrets(token: "t") }
     }
 
+    /// Records `begin <name>` / `end <token>` into `log`.
+    static func withBackgroundTask(_ values: inout DependencyValues, log: LockIsolated<[String]>) {
+        values.backgroundTask.begin = { name in
+            log.withValue { $0.append("begin \(name)") }
+            return 7
+        }
+        values.backgroundTask.end = { token in log.withValue { $0.append("end \(token)") } }
+    }
+
     @Test func openingLoadsTheNewestPageOldestFirstAndMarksItRead() async {
         let queries = LockIsolated<[LeoChatPageQuery]>([])
         let reads = LockIsolated<[String]>([])
@@ -243,13 +252,19 @@ struct ChatThreadTests {
         state.composer.text = "nice"
         state.composer.attachments = [photo]
         let drafts = LockIsolated<[LeoChatDraft]>([])
+        let log = LockIsolated<[String]>([])
         let sent = LeoChatMessage.make("02", "nice", direction: .inbound, second: 2, state: "pending")
         let store = TestStore(initialState: state) {
             ChatThread()
         } withDependencies: {
             Self.withSecrets(&$0)
-            $0.chatClient.upload = { _, file in LeoChatAttachment(id: "att-\(file.filename)", filename: file.filename, mime: file.mime, bytes: 1) }
+            Self.withBackgroundTask(&$0, log: log)
+            $0.chatClient.upload = { _, file in
+                log.withValue { $0.append("upload \(file.filename)") }
+                return LeoChatAttachment(id: "att-\(file.filename)", filename: file.filename, mime: file.mime, bytes: 1)
+            }
             $0.chatClient.send = { _, _, draft in
+                log.withValue { $0.append("send") }
                 drafts.withValue { $0.append(draft) }
                 return sent
             }
@@ -263,16 +278,20 @@ struct ChatThreadTests {
             $0.messages = [.make("01", task: "wharf", second: 1), sent]
         }
         #expect(drafts.value == [LeoChatDraft(text: "nice", replyTo: "01", attachmentIDs: ["att-a.jpg"])])
+        // The uploads and the send finish even if the app leaves the foreground.
+        #expect(log.value == ["begin \(ChatThread.sendTaskName)", "upload a.jpg", "send", "end 7"])
     }
 
     @Test func aFailedSendKeepsTheDraftAndSaysWhy() async {
         struct Refused: Error, LocalizedError { var errorDescription: String? { "too large" } }
         var state = Self.state()
         state.composer.text = "hello"
+        let log = LockIsolated<[String]>([])
         let store = TestStore(initialState: state) {
             ChatThread()
         } withDependencies: {
             Self.withSecrets(&$0)
+            Self.withBackgroundTask(&$0, log: log)
             $0.chatClient.send = { _, _, _ in throw Refused() }
         }
         await store.send(.composer(.sendButtonTapped)) { $0.composer.isSending = true }
@@ -281,6 +300,7 @@ struct ChatThreadTests {
             $0.composer.isSending = false
             $0.alert = ChatThread.failureAlert(title: String(localized: "Couldn't Send"), message: "too large")
         }
+        #expect(log.value == ["begin \(ChatThread.sendTaskName)", "end 7"])
     }
 
     @Test func aSentMessageThatAlreadyArrivedLiveIsNotDuplicated() async {

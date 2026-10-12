@@ -33,17 +33,6 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
     }
 
-    /// Chat uploads continue on a background session; the system relaunches
-    /// the app to deliver their events.
-    func application(_ application: UIApplication, handleEventsForBackgroundURLSession identifier: String, completionHandler: @escaping () -> Void) {
-        guard identifier == LeoBackgroundUploadSession.identifier else {
-            completionHandler()
-            return
-        }
-        nonisolated(unsafe) let handler = completionHandler
-        LeoBackgroundUploadSession.shared.setFinishEventsHandler { handler() }
-    }
-
     /// The reply and permission categories. `ask` categories are per choice
     /// set; the notification extension adds those as pushes arrive.
     private static func registerChatCategories() {

@@ -8,6 +8,8 @@ import LeoKit
 @Reducer
 public struct ChatThread {
     public static let pageSize = 50
+    /// The background task a send (uploads, then the message) runs in.
+    public static let sendTaskName = "Leo Chat send"
 
     public enum AttachmentFile: Equatable, Sendable {
         case failed(String)
@@ -89,6 +91,7 @@ public struct ChatThread {
 
     enum CancelID { case page }
 
+    @Dependency(\.backgroundTask) var backgroundTask
     @Dependency(\.chatClient) var chatClient
     @Dependency(\.secrets) var secrets
 
@@ -158,12 +161,14 @@ public struct ChatThread {
 
             case .composer(.delegate(.send(let outgoing))):
                 let (daemon, agent, replyTo) = (state.daemon, state.agentName, state.replyTo)
-                return .run { [chatClient, secrets] send in
+                return .run { [backgroundTask, chatClient, secrets] send in
                     await send(.sendResponse(Result {
-                        let connection = try secrets.connection(for: daemon)
-                        var ids: [String] = []
-                        for file in outgoing.files { ids.append(try await chatClient.upload(connection, file).id) }
-                        return try await chatClient.send(connection, agent, LeoChatDraft(text: outgoing.text, replyTo: replyTo, attachmentIDs: ids))
+                        try await backgroundTask.run(Self.sendTaskName) {
+                            let connection = try secrets.connection(for: daemon)
+                            var ids: [String] = []
+                            for file in outgoing.files { ids.append(try await chatClient.upload(connection, file).id) }
+                            return try await chatClient.send(connection, agent, LeoChatDraft(text: outgoing.text, replyTo: replyTo, attachmentIDs: ids))
+                        }
                     }))
                 }
 
