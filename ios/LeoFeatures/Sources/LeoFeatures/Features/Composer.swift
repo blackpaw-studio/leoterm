@@ -2,8 +2,9 @@ import ComposableArchitecture
 import Foundation
 
 /// A chat thread's composer: text, picked attachments, and hold-to-record
-/// voice notes (sent as soon as the button is released, capped at ten
-/// minutes). The thread does the sending and resets the composer.
+/// voice notes (capped at ten minutes; a finished note joins the draft and
+/// is sent at once unless a send is already in flight). The thread does the
+/// sending, then clears what was sent.
 @Reducer
 public struct Composer {
     /// The longest voice note.
@@ -35,8 +36,9 @@ public struct Composer {
     public struct State: Equatable {
         public var attachments: IdentifiedArrayOf<ChatFile> = []
         public var hint: Hint?
-        public var isSending = false
         public var recording: Recording = .idle
+        /// The draft in flight; nil when nothing is sending.
+        public var sending: Outgoing?
         public var text = ""
 
         public init() {}
@@ -49,14 +51,26 @@ public struct Composer {
         }
 
         public var canSend: Bool { outgoing != nil && !isSending }
+        public var isSending: Bool { sending != nil }
         public var isRecording: Bool { recording != .idle }
 
-        /// After a successful send.
-        mutating func reset() {
-            attachments = []
+        /// Starts sending the draft; nil when there is nothing to send or
+        /// a send is already in flight.
+        mutating func beginSend() -> Outgoing? {
+            guard !isSending, let outgoing else { return nil }
+            sending = outgoing
+            return outgoing
+        }
+
+        /// After a successful send: clears what was sent, keeping text
+        /// edited and files attached while it was in flight.
+        mutating func finishSend() {
+            guard let sent = sending else { return }
+            let sentFiles = Set(sent.files.map(\.id))
+            attachments.removeAll { sentFiles.contains($0.id) }
+            if text.trimmingCharacters(in: .whitespacesAndNewlines) == sent.text { text = "" }
             hint = nil
-            isSending = false
-            text = ""
+            sending = nil
         }
     }
 
@@ -171,7 +185,10 @@ public struct Composer {
                     return .run { _ in try? FileManager.default.removeItem(at: url) }
                 }
                 let voice = ChatFile(id: uuid(), url: url, filename: String(localized: "Voice note.m4a"), mime: "audio/mp4", kind: .voice)
-                return .send(.delegate(.send(Outgoing(text: "", files: [voice]))))
+                state.attachments.append(voice)
+                state.hint = nil
+                guard let outgoing = state.beginSend() else { return .none }
+                return .send(.delegate(.send(outgoing)))
 
             case .recordingPermissionDenied:
                 state.recording = .idle
@@ -189,8 +206,7 @@ public struct Composer {
                 return .none
 
             case .sendButtonTapped:
-                guard !state.isSending, let outgoing = state.outgoing else { return .none }
-                state.isSending = true
+                guard let outgoing = state.beginSend() else { return .none }
                 return .send(.delegate(.send(outgoing)))
             }
         }

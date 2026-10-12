@@ -270,10 +270,12 @@ struct ChatThreadTests {
             }
         }
 
-        await store.send(.composer(.sendButtonTapped)) { $0.composer.isSending = true }
+        await store.send(.composer(.sendButtonTapped)) { $0.composer.sending = Composer.Outgoing(text: "nice", files: [photo]) }
         await store.receive(\.composer.delegate.send)
         await store.receive(\.sendResponse.success) {
-            $0.composer.reset()
+            $0.composer.sending = nil
+            $0.composer.text = ""
+            $0.composer.attachments = []
             $0.replyTo = nil
             $0.messages = [.make("01", task: "wharf", second: 1), sent]
         }
@@ -294,10 +296,10 @@ struct ChatThreadTests {
             Self.withBackgroundTask(&$0, log: log)
             $0.chatClient.send = { _, _, _ in throw Refused() }
         }
-        await store.send(.composer(.sendButtonTapped)) { $0.composer.isSending = true }
+        await store.send(.composer(.sendButtonTapped)) { $0.composer.sending = Composer.Outgoing(text: "hello", files: []) }
         await store.receive(\.composer.delegate.send)
         await store.receive(\.sendResponse.failure) {
-            $0.composer.isSending = false
+            $0.composer.sending = nil
             $0.alert = ChatThread.failureAlert(title: String(localized: "Couldn't Send"), message: "too large")
         }
         #expect(log.value == ["begin \(ChatThread.sendTaskName)", "end 7"])
@@ -307,11 +309,54 @@ struct ChatThreadTests {
         var state = Self.state()
         let sent = LeoChatMessage.make("02", "hi", direction: .inbound, second: 2, state: "delivered")
         state.messages = [sent]
-        state.composer.isSending = true
+        state.composer.sending = Composer.Outgoing(text: "hi", files: [])
         let store = TestStore(initialState: state) { ChatThread() }
         await store.send(.sendResponse(.success(.make("02", "hi", direction: .inbound, second: 2, state: "pending")))) {
-            $0.composer.isSending = false
+            $0.composer.sending = nil
         }
+    }
+
+    @Test func aSendClearsOnlyWhatItSent() async {
+        let voice = ChatFile(id: UUID(1), url: URL(filePath: "/tmp/v.m4a"), filename: "Voice note.m4a", mime: "audio/mp4", kind: .voice)
+        let photo = ChatFile(id: UUID(2), url: URL(filePath: "/tmp/a.jpg"), filename: "a.jpg", mime: "image/jpeg", kind: .photo)
+        var state = Self.state()
+        state.composer.sending = Composer.Outgoing(text: "first", files: [voice])
+        // Typed and attached while the send was in flight.
+        state.composer.text = "second thought"
+        state.composer.attachments = [voice, photo]
+        let store = TestStore(initialState: state) { ChatThread() }
+        await store.send(.sendResponse(.success(.make("02", "first", direction: .inbound, second: 2)))) {
+            $0.composer.sending = nil
+            $0.composer.attachments = [photo]
+            $0.messages = [.make("02", "first", direction: .inbound, second: 2)]
+        }
+    }
+
+    @Test func aSendClearsTheTextItSentEvenWithTrailingSpace() async {
+        var state = Self.state()
+        state.composer.sending = Composer.Outgoing(text: "first", files: [])
+        state.composer.text = "first \n"
+        let store = TestStore(initialState: state) { ChatThread() }
+        await store.send(.sendResponse(.success(.make("02", "first", direction: .inbound, second: 2)))) {
+            $0.composer.sending = nil
+            $0.composer.text = ""
+            $0.messages = [.make("02", "first", direction: .inbound, second: 2)]
+        }
+    }
+
+    @Test func aFailedVoiceSendLeavesTheNoteToRetry() async {
+        struct Offline: Error, LocalizedError { var errorDescription: String? { "offline" } }
+        let voice = ChatFile(id: UUID(1), url: URL(filePath: "/tmp/v.m4a"), filename: "Voice note.m4a", mime: "audio/mp4", kind: .voice)
+        var state = Self.state()
+        state.composer.sending = Composer.Outgoing(text: "", files: [voice])
+        state.composer.attachments = [voice]
+        let store = TestStore(initialState: state) { ChatThread() }
+        await store.send(.sendResponse(.failure(Offline()))) {
+            $0.composer.sending = nil
+            $0.alert = ChatThread.failureAlert(title: String(localized: "Couldn't Send"), message: "offline")
+        }
+        #expect(store.state.composer.outgoing == Composer.Outgoing(text: "", files: [voice]))
+        #expect(store.state.composer.canSend)
     }
 
     @Test func showMoreAndTaskCardsToggleExpansion() async {

@@ -15,7 +15,7 @@ struct ComposerTests {
         state.attachments = [Self.photo]
         let store = TestStore(initialState: state) { Composer() }
 
-        await store.send(.sendButtonTapped) { $0.isSending = true }
+        await store.send(.sendButtonTapped) { $0.sending = Composer.Outgoing(text: "ship it", files: [Self.photo]) }
         await store.receive(\.delegate.send)
     }
 
@@ -29,7 +29,7 @@ struct ComposerTests {
     @Test func aSendInFlightBlocksAnother() async {
         var state = Composer.State()
         state.text = "x"
-        state.isSending = true
+        state.sending = Composer.Outgoing(text: "x", files: [])
         let store = TestStore(initialState: state) { Composer() }
         await store.send(.sendButtonTapped)
     }
@@ -67,9 +67,31 @@ struct ComposerTests {
         await store.receive(\.recordingStarted) { $0.recording = .recording(url: url, startedAt: Date(timeIntervalSince1970: 100)) }
         #expect(started.value == [url])
         await store.send(.recordButtonReleased) { $0.recording = .finishing }
-        await store.receive(\.recordingFinished) { $0.recording = .idle }
         let voice = ChatFile(id: UUID(1), url: url, filename: "Voice note.m4a", mime: "audio/mp4", kind: .voice)
+        // The note joins the draft and goes out through the guarded send,
+        // so a failure leaves it there to retry.
+        await store.receive(\.recordingFinished) {
+            $0.recording = .idle
+            $0.attachments = [voice]
+            $0.sending = Composer.Outgoing(text: "", files: [voice])
+        }
         await store.receive(\.delegate.send, Composer.Outgoing(text: "", files: [voice]))
+    }
+
+    @Test func aVoiceNoteFinishedDuringASendWaitsInTheDraft() async {
+        var state = Composer.State()
+        state.recording = .finishing
+        state.sending = Composer.Outgoing(text: "x", files: [])
+        let store = TestStore(initialState: state) {
+            Composer()
+        } withDependencies: {
+            $0.uuid = .incrementing
+        }
+        let url = Composer.voiceNoteURL(UUID(9))
+        await store.send(.recordingFinished(url: url, duration: 3)) {
+            $0.recording = .idle
+            $0.attachments = [ChatFile(id: UUID(0), url: url, filename: "Voice note.m4a", mime: "audio/mp4", kind: .voice)]
+        }
     }
 
     @Test func aTapTooShortToRecordIsDiscardedWithAHint() async {
@@ -110,7 +132,12 @@ struct ComposerTests {
         await clock.advance(by: .seconds(599))
         await clock.advance(by: .seconds(1))
         await store.receive(\.recordingCapReached) { $0.recording = .finishing }
-        await store.receive(\.recordingFinished) { $0.recording = .idle }
+        await store.receive(\.recordingFinished) {
+            let voice = ChatFile(id: UUID(1), url: url, filename: "Voice note.m4a", mime: "audio/mp4", kind: .voice)
+            $0.recording = .idle
+            $0.attachments = [voice]
+            $0.sending = Composer.Outgoing(text: "", files: [voice])
+        }
         await store.receive(\.delegate.send)
         // Releasing after the cap does nothing more.
         await store.send(.recordButtonReleased)

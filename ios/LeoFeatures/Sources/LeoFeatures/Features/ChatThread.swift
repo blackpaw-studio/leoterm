@@ -227,14 +227,14 @@ public struct ChatThread {
                 return loadNewest(state: &state)
 
             case .sendResponse(.success(let message)):
-                state.composer.reset()
+                state.composer.finishSend()
                 state.replyTo = nil
                 // The live event may have brought it (newer) already.
                 if state.messages[id: message.id] == nil, state.belongs(message) { state.merge([message]) }
                 return .none
 
             case .sendResponse(.failure(let error)):
-                state.composer.isSending = false
+                state.composer.sending = nil
                 state.alert = Self.failureAlert(title: String(localized: "Couldn't Send"), message: error.localizedDescription)
                 return .none
 
