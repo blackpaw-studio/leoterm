@@ -176,6 +176,11 @@ struct ComposerTests {
         }
     }
 
+    @Test func tappingTheMicExplainsHolding() async {
+        let store = TestStore(initialState: Composer.State()) { Composer() }
+        await store.send(.micTapped) { $0.hint = .holdToRecord }
+    }
+
     @Test func typingClearsAHint() async {
         var state = Composer.State()
         state.hint = .holdToRecord

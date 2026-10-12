@@ -34,7 +34,11 @@
 		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Leo uses the camera to scan the pairing QR code that `leo pair` shows.</string>
+	<string>Leo uses the camera to scan the pairing QR code that `leo pair` shows, and to take photos you send to an agent.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Leo records the voice notes you send to an agent.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Leo sends the photos you pick to an agent.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Leo connects to Leo daemons on your local network.</string>
 	<key>UIApplicationSceneManifest</key>

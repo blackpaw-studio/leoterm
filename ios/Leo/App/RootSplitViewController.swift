@@ -3,12 +3,19 @@ import LeoFeatures
 import UIKit
 import UIKitNavigation
 
-/// Agents list beside the selected agent. On iPhone (compact width) the
-/// split view collapses the two into one navigation stack.
+/// Agents list beside the selected agent or chat thread. On iPhone
+/// (compact width) the split view collapses the two into one navigation
+/// stack.
 final class RootSplitViewController: UISplitViewController, UISplitViewControllerDelegate {
+    /// What the secondary column shows.
+    private enum Secondary: Equatable {
+        case chat(AgentRef)
+        case detail(AgentRef)
+    }
+
     @UIBindable private var store: StoreOf<AppFeature>
     private let agentsNavigation: UINavigationController
-    private var shownDetail: AgentRef?
+    private var shownDetail: Secondary?
 
     init(store: StoreOf<AppFeature>) {
         self.store = store
@@ -36,10 +43,13 @@ final class RootSplitViewController: UISplitViewController, UISplitViewControlle
 
         observe { [weak self] in
             guard let self else { return }
-            let ref = store.detail?.ref
-            guard ref != shownDetail else { return }
-            shownDetail = ref
-            if let detailStore = store.scope(state: \.detail, action: \.detail) {
+            let secondary: Secondary? = store.chat.map { .chat($0.ref) } ?? store.detail.map { .detail($0.ref) }
+            guard secondary != shownDetail else { return }
+            shownDetail = secondary
+            if case .chat = secondary, let chatStore = store.scope(state: \.chat, action: \.chat) {
+                setViewController(UINavigationController(rootViewController: ChatThreadViewController(store: chatStore)), for: .secondary)
+                show(.secondary)
+            } else if let detailStore = store.scope(state: \.detail, action: \.detail) {
                 let navigation = UINavigationController(rootViewController: AgentDetailViewController(store: detailStore))
                 setViewController(navigation, for: .secondary)
                 show(.secondary)

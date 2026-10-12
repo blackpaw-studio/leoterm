@@ -15,7 +15,7 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         case value(String)
         case switchEnvironment
         case command(Command)
-        case terminal, files
+        case chat, terminal, files
     }
 
     private enum Command: Hashable {
@@ -179,6 +179,16 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
             cell.contentConfiguration = content
             if store.inFlight == command.agentCommand { cell.accessories = [.spinner] }
             cell.accessibilityIdentifier = "agent.command.\(title.lowercased())"
+        case .chat:
+            var content = UIListContentConfiguration.subtitleCell()
+            content.text = String(localized: "Chat")
+            content.secondaryText = String(localized: "Message \(store.agentName)")
+            content.image = UIImage(systemName: "bubble.left.and.text.bubble.right")
+            content.secondaryTextProperties.color = .secondaryLabel
+            cell.contentConfiguration = content
+            cell.accessories = [.disclosureIndicator()]
+            cell.accessibilityIdentifier = "agent.chat"
+
         case .terminal:
             var content = UIListContentConfiguration.subtitleCell()
             content.text = String(localized: "Terminal")
@@ -246,7 +256,7 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         snapshot.appendSections(Section.allCases)
         snapshot.appendItems([.header], toSection: .header)
         if agent.opensInClaude { snapshot.appendItems([.openInClaude], toSection: .claude) }
-        snapshot.appendItems([.terminal, .files], toSection: .live)
+        snapshot.appendItems([.chat, .terminal, .files], toSection: .live)
         snapshot.appendItems(rows.map { .value($0.key) }, toSection: .status)
         snapshot.appendItems(environmentRows.map { .value($0.key) } + [.switchEnvironment], toSection: .environment)
         let commands: [Command] = agent.isStopped ? [.start] : [.interrupt, .restart, .stop]
@@ -257,7 +267,7 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
 
     func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
         switch dataSource.itemIdentifier(for: indexPath) {
-        case .openInClaude, .terminal, .files: true
+        case .openInClaude, .chat, .terminal, .files: true
         case .switchEnvironment, .command: !store.isBusy
         default: false
         }
@@ -273,6 +283,7 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         case .command(.restart): store.send(.restartButtonTapped)
         case .command(.start): store.send(.startButtonTapped)
         case .command(.stop): store.send(.stopButtonTapped)
+        case .chat: store.send(.chatButtonTapped)
         case .terminal: store.send(.terminalButtonTapped)
         case .files: store.send(.filesButtonTapped)
         default: break

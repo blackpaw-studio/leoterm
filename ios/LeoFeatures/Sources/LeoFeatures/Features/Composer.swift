@@ -64,6 +64,8 @@ public struct Composer {
         case attachmentPicked(ChatFile)
         case binding(BindingAction<State>)
         case delegate(Delegate)
+        /// A tap (not a hold) on the mic.
+        case micTapped
         case recordButtonCancelled
         case recordButtonPressed
         case recordButtonReleased
@@ -104,6 +106,10 @@ public struct Composer {
                 return .none
 
             case .binding, .delegate:
+                return .none
+
+            case .micTapped:
+                state.hint = .holdToRecord
                 return .none
 
             case .recordButtonCancelled:

@@ -21,6 +21,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         #endif
         // Before returning, so a tap that launched the app is delivered.
         UNUserNotificationCenter.current().delegate = self
+        Self.registerChatCategories()
         // Previews are temporary; anything left from a previous run goes.
         @Dependency(\.surfacedFiles) var surfacedFiles
         surfacedFiles.discardAll()
@@ -30,6 +31,27 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
         UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
+    }
+
+    /// Chat uploads continue on a background session; the system relaunches
+    /// the app to deliver their events.
+    func application(_ application: UIApplication, handleEventsForBackgroundURLSession identifier: String, completionHandler: @escaping () -> Void) {
+        guard identifier == LeoBackgroundUploadSession.identifier else {
+            completionHandler()
+            return
+        }
+        nonisolated(unsafe) let handler = completionHandler
+        LeoBackgroundUploadSession.shared.setFinishEventsHandler { handler() }
+    }
+
+    /// The reply and permission categories. `ask` categories are per choice
+    /// set; the notification extension adds those as pushes arrive.
+    private static func registerChatCategories() {
+        UNUserNotificationCenter.current().getNotificationCategories { existing in
+            let fixed = LeoChatNotificationActions.staticCategories.map(\.notificationCategory)
+            let asks = existing.filter { $0.identifier.hasPrefix(LeoChatNotificationActions.askCategoryPrefix) }
+            UNUserNotificationCenter.current().setNotificationCategories(Set(fixed).union(asks))
+        }
     }
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
@@ -63,12 +85,19 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
 }
 
 extension AppDelegate: @preconcurrency UNUserNotificationCenterDelegate {
-    /// In the foreground the banner still shows: the agent may be on
-    /// another daemon than the one on screen.
+    /// In the foreground the banner still shows (the agent may be on
+    /// another daemon than the one on screen), except a chat push for the
+    /// thread that is on screen: the message is already there.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter, willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
+        let userInfo = notification.request.content.userInfo
+        if LeoPushNotification.isChat(userInfo: userInfo), let target = LeoPushNotification.target(userInfo: userInfo),
+           Self.store.state.isChatOnScreen(AgentRef(daemonID: target.daemonID, name: target.agent)) {
+            completionHandler([])
+            return
+        }
         completionHandler([.banner, .list, .sound])
     }
 
@@ -76,10 +105,27 @@ extension AppDelegate: @preconcurrency UNUserNotificationCenterDelegate {
         _ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
+        let userInfo = response.notification.request.content.userInfo
+        if let action = LeoChatNotificationActions.response(
+            actionIdentifier: response.actionIdentifier, userText: (response as? UNTextInputNotificationResponse)?.userText, userInfo: userInfo
+        ) {
+            // Background actions: hold the completion until the daemon has it.
+            nonisolated(unsafe) let completion = completionHandler
+            Task { @MainActor in
+                await Self.store.send(.chatNotificationAction(action)).finish()
+                completion()
+            }
+            return
+        }
         defer { completionHandler() }
         guard response.actionIdentifier == UNNotificationDefaultActionIdentifier,
-              let target = LeoPushNotification.target(userInfo: response.notification.request.content.userInfo) else { return }
+              let target = LeoPushNotification.target(userInfo: userInfo) else { return }
         let ref = AgentRef(daemonID: target.daemonID, name: target.agent)
+        if LeoPushNotification.isChat(userInfo: userInfo) {
+            Self.store.send(.chatNotificationOpened(ref))
+            if Self.store.chat?.ref == ref { Self.rootViewController?.showSelectedAgent() }
+            return
+        }
         Self.store.send(.notificationOpened(ref))
         // Already the selection: on iPhone, bring it back on screen.
         if Self.store.detail?.ref == ref { Self.rootViewController?.showSelectedAgent() }

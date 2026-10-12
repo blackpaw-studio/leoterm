@@ -28,7 +28,13 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
             primaryAction: UIAction { [weak self] _ in self?.store.send(.daemonsButtonTapped) }
         )
         daemonsButton.accessibilityLabel = String(localized: "Daemons")
-        navigationItem.rightBarButtonItem = daemonsButton
+        let chatsButton = UIBarButtonItem(
+            image: UIImage(systemName: "bubble.left.and.bubble.right"),
+            primaryAction: UIAction { [weak self] _ in self?.store.send(.chatsButtonTapped) }
+        )
+        chatsButton.accessibilityLabel = String(localized: "Chats")
+        chatsButton.accessibilityIdentifier = "agents.chats"
+        navigationItem.rightBarButtonItems = [daemonsButton, chatsButton]
         let settingsButton = UIBarButtonItem(
             image: UIImage(systemName: "gearshape"),
             primaryAction: UIAction { [weak self] _ in self?.store.send(.settingsButtonTapped) }
@@ -51,6 +57,9 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
         navigationDestination(isPresented: $store.isShowingDaemons) { [store] in
             DaemonsViewController(store: store.scope(state: \.daemons, action: \.daemons), fleet: store.scope(state: \.fleet, action: \.fleet))
         }
+        navigationDestination(isPresented: $store.isShowingChats) { [store] in
+            ChatsViewController(store: store)
+        }
         navigationDestination(isPresented: $store.isShowingSettings) { [store] in
             SettingsViewController(store: store.scope(state: \.push, action: \.push))
         }
@@ -59,6 +68,13 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
             guard let self else { return }
             render(sections: store.fleet.sections, selection: store.detail?.ref)
         }
+        observe { [weak self] in
+            guard let self else { return }
+            let unread = store.chats.unreadTotal
+            chatsButton.badge = unread > 0 ? .count(unread) : nil
+            chatsButton.accessibilityValue = unread > 0 ? String(localized: "\(unread) unread") : nil
+        }
+        store.send(.chatsEntryAppeared)
     }
 
     override func viewWillAppear(_ animated: Bool) {
