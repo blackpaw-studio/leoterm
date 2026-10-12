@@ -2089,5 +2089,5 @@ Note: the disconnected banner and panelError shrink the sidebar list with no rev
 Source: autopilot polish (B-149)
 
 ## B-296 · Two sidebar test suites still poll first population with Task.sleep   [idea]
-Note: settledTable in LeoSidebarRowSpacingTests and LeoSidebarCommandClickTests still polls with Task.sleep; B-150 replaced the same poll in the scroll tests with run-loop turn counting (B-099 turn-counting decision).
+Note: settledTable in LeoSidebarRowSpacingTests and LeoSidebarCommandClickTests, and HeaderProbe.settledHeader in LeoSidePaneTitlebarStyleTests (B-153 review), still poll with Task.sleep; B-150 replaced the same poll in the scroll tests with run-loop turn counting (B-099 turn-counting decision).
 Source: autopilot polish (B-150)
