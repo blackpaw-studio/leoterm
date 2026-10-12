@@ -438,6 +438,11 @@ actor LeoSidebarFeed {
         }
     }
 
+    /// Returns once every snapshot emitted so far has been handed to the sink.
+    func drainEmissions() async {
+        await emissionTask?.value
+    }
+
     func process(_ outputs: [LeoPollScheduler.Output]) {
         for output in outputs {
             switch output {

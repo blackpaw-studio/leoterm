@@ -42,19 +42,20 @@ struct LeoSidebarFeedDispatchTests {
     @Test func anUnchangedRecordDoesNotEmit() async throws {
         let harness = DispatchHarness(dispatches: [LeoDispatch(id: "d1", status: "running", callerAgent: "alpha")])
         await harness.start()
+        try await harness.pump { $0.rows.first?.name == "alpha" }
         await harness.activity.send(Self.treeHello)
         try await harness.pump { Self.ids($0) == ["d1:0"] }
-        await harness.settle()
         // No clock advance from here: a poll tick would emit on its own.
-        try await Task.sleep(nanoseconds: 50_000_000)
+        await harness.quiesce()
         let emitted = await harness.recorder.values.count
-        await harness.activity.send(.dispatchChanged(seq: 2, dispatch: LeoDispatch(id: "d1", status: "running", callerAgent: "alpha")))
-        try await Task.sleep(nanoseconds: 150_000_000)
-        #expect(await harness.recorder.values.count == emitted)
 
+        // Events are handled in order, so the visible change doubles as the
+        // barrier proving the identical record before it was handled too.
+        await harness.activity.send(.dispatchChanged(seq: 2, dispatch: LeoDispatch(id: "d1", status: "running", callerAgent: "alpha")))
         await harness.activity.send(.dispatchChanged(seq: 3, dispatch: LeoDispatch(id: "d1", status: "idle", callerAgent: "alpha")))
         try await until { await harness.recorder.last?.dispatchChildren["alpha"]?.first?.dispatch.status == "idle" }
-        #expect(await harness.recorder.values.count == emitted + 1, "a visible change emits once")
+        await harness.quiesce()
+        #expect(await harness.recorder.values.count == emitted + 1, "the unchanged record emits nothing; the visible change emits once")
         await harness.stop()
     }
 
@@ -388,7 +389,7 @@ private struct DispatchHarness {
             activity: .init(events: { await activity.events() }, observedState: { await activity.fetchState() }),
             sleep: { try await clock.sleep($0) },
             now: { 0 },
-            sink: { snapshot in Task { await recorder.append(snapshot) } }
+            sink: { snapshot in recorder.append(snapshot) }
         )
     }
 
@@ -404,6 +405,16 @@ private struct DispatchHarness {
             if let last = await recorder.last, condition(last) { return true }
             await clock.advanceAll()
             return false
+        }
+    }
+
+    /// Waits, without advancing the clock, until the feed has no refresh,
+    /// state fetch or emission in flight and the recorder has every snapshot.
+    func quiesce() async {
+        for _ in 0..<3 {
+            await feed.refreshTask?.value
+            await feed.activityTask?.value
+            await feed.drainEmissions()
         }
     }
 
@@ -474,10 +485,14 @@ private actor DispatchDaemon: LeoDaemonClient {
     func logs(_ name: String, lines: Int?) async throws -> String { fatalError() }
 }
 
-private actor DispatchRecorder {
-    private(set) var values: [LeoSidebarSnapshot] = []
-    var last: LeoSidebarSnapshot? { values.last }
-    func append(_ value: LeoSidebarSnapshot) { values.append(value) }
+/// Appends synchronously (the sink runs on the main actor), so a drained
+/// emission is already recorded and no hop through another executor can lag.
+private final class DispatchRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [LeoSidebarSnapshot] = []
+    var values: [LeoSidebarSnapshot] { get async { lock.withLock { storage } } }
+    var last: LeoSidebarSnapshot? { get async { lock.withLock { storage.last } } }
+    func append(_ value: LeoSidebarSnapshot) { lock.withLock { storage.append(value) } }
 }
 
 private actor DispatchClock {
