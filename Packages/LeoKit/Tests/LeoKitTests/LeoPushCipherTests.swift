@@ -86,6 +86,49 @@ struct LeoPushNotificationTests {
         #expect(alert.userInfo == ["daemon_id": "d-olympus", "agent": "apollo"])
     }
 
+    private static func alert(plaintext: String) throws -> LeoPushAlert {
+        let key = LeoPushKey.generate()
+        let sealed = try LeoPushCipher.seal(plaintext: Data(plaintext.utf8), key: key)
+        return try #require(LeoPushNotification.alert(userInfo: ["c": sealed], key: key, pairedDaemonIDs: ["d"]))
+    }
+
+    private static func json(extra: String) -> String {
+        #"{"v":1,"daemon_id":"d","agent":"apollo","kind":"needs_input","title":"Has a question","ts":1"# + extra + "}"
+    }
+
+    @Test func aBodyBecomesTheBannerBodyUnderTheStateLine() throws {
+        let alert = try Self.alert(plaintext: Self.json(extra: #","body":"Approve the migration?""#))
+        #expect(alert.title == "apollo")
+        #expect(alert.subtitle == "Has a question")
+        #expect(alert.body == "Approve the migration?")
+    }
+
+    @Test(arguments: ["", #","body":"""#, #","body":null"#])
+    func withoutABodyTheStateLineIsTheBodyAndNothingRepeats(extra: String) throws {
+        let alert = try Self.alert(plaintext: Self.json(extra: extra))
+        #expect(alert.title == "apollo")
+        #expect(alert.subtitle == "")
+        #expect(alert.body == "Has a question")
+    }
+
+    @Test func unknownKeysAreIgnored() throws {
+        let alert = try Self.alert(plaintext: Self.json(extra: #","body":"detail","future":{"x":[1]}"#))
+        #expect(alert.subtitle == "Has a question")
+        #expect(alert.body == "detail")
+    }
+
+    @Test func theBodyKeyIsLeftOutWhenEmptyAndRoundTripsWhenPresent() throws {
+        let bare = LeoPushPayload(daemonID: "d", agent: "a", kind: "k", title: "t", ts: 1)
+        let bareJSON = try #require(String(data: JSONEncoder().encode(bare), encoding: .utf8))
+        #expect(!bareJSON.contains("body"))
+
+        let detailed = LeoPushPayload(daemonID: "d", agent: "a", kind: "k", title: "t", body: "detail", ts: 1)
+        let key = LeoPushKey.generate()
+        #expect(try LeoPushCipher.open(LeoPushCipher.seal(detailed, key: key), key: key) == detailed)
+        #expect(detailed.body == "detail")
+        #expect(bare.body == "")
+    }
+
     @Test func noAlertWithoutCiphertextOrWithTheWrongKey() throws {
         let key = try #require(LeoPushKey(base64: LeoPushCipherTests.vectorKey))
         #expect(LeoPushNotification.alert(userInfo: ["aps": [:]], key: key, pairedDaemonIDs: ["d-olympus"]) == nil)

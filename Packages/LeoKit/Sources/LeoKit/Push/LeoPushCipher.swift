@@ -1,7 +1,8 @@
 import CryptoKit
 import Foundation
 
-/// What a daemon encrypts into a push: `{"v":1,"daemon_id","agent","kind","title","ts"}`.
+/// What a daemon encrypts into a push:
+/// `{"v":1,"daemon_id","agent","kind","title","ts"}` plus an optional `body`.
 public struct LeoPushPayload: Codable, Equatable, Sendable {
     public static let version = 1
 
@@ -9,21 +10,25 @@ public struct LeoPushPayload: Codable, Equatable, Sendable {
     public let agent: String
     /// The daemon's attention state string.
     public let kind: String
-    /// The daemon's human summary of what the agent needs.
+    /// The short state line: "Has a question", "Finished".
     public let title: String
+    /// The detail (the question, the tool, a message preview), already
+    /// sanitized by the daemon; empty when the daemon sent none.
+    public let body: String
     /// Unix seconds.
     public let ts: Int
 
-    public init(daemonID: String, agent: String, kind: String, title: String, ts: Int) {
+    public init(daemonID: String, agent: String, kind: String, title: String, body: String = "", ts: Int) {
         self.daemonID = daemonID
         self.agent = agent
         self.kind = kind
         self.title = title
+        self.body = body
         self.ts = ts
     }
 
     enum CodingKeys: String, CodingKey {
-        case v, daemonID = "daemon_id", agent, kind, title, ts
+        case v, daemonID = "daemon_id", agent, kind, title, body, ts
     }
 
     public init(from decoder: any Decoder) throws {
@@ -34,6 +39,7 @@ public struct LeoPushPayload: Codable, Equatable, Sendable {
         agent = try container.decode(String.self, forKey: .agent)
         kind = try container.decode(String.self, forKey: .kind)
         title = try container.decode(String.self, forKey: .title)
+        body = try container.decodeIfPresent(String.self, forKey: .body) ?? ""
         ts = try container.decode(Int.self, forKey: .ts)
     }
 
@@ -44,6 +50,7 @@ public struct LeoPushPayload: Codable, Equatable, Sendable {
         try container.encode(agent, forKey: .agent)
         try container.encode(kind, forKey: .kind)
         try container.encode(title, forKey: .title)
+        if !body.isEmpty { try container.encode(body, forKey: .body) }
         try container.encode(ts, forKey: .ts)
     }
 }

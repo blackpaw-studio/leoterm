@@ -14,7 +14,11 @@ public struct LeoPushTarget: Equatable, Hashable, Sendable {
 /// What the Notification Service Extension shows in place of the relay's
 /// generic alert.
 public struct LeoPushAlert: Equatable, Sendable {
+    /// The agent's name.
     public let title: String
+    /// The state line; empty when it is the banner body instead, so one
+    /// line never shows twice.
+    public let subtitle: String
     public let body: String
     public let target: LeoPushTarget
 
@@ -39,8 +43,12 @@ public enum LeoPushNotification {
         guard let ciphertext = userInfo[ciphertextKey] as? String,
               let payload = try? LeoPushCipher.open(ciphertext, key: key),
               pairedDaemonIDs.contains(payload.daemonID), !payload.agent.isEmpty else { return nil }
+        let hasDetail = !payload.body.isEmpty
         return LeoPushAlert(
-            title: payload.agent, body: payload.title, target: LeoPushTarget(daemonID: payload.daemonID, agent: payload.agent)
+            title: payload.agent,
+            subtitle: hasDetail ? payload.title : "",
+            body: hasDetail ? payload.body : payload.title,
+            target: LeoPushTarget(daemonID: payload.daemonID, agent: payload.agent)
         )
     }
 
