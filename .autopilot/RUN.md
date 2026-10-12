@@ -170,6 +170,17 @@ Lane: B-153
   Dispatched: 2026-10-12T00:01:00Z
   Call: In hidden style only, the side-pane close button gets an explicit header-row height (browser header row 21→26 pt) so its glyph centres on the sidebar header's line; the 10 pt inset and headerRowHeight 16 are unchanged — D-258, P1.
 
+Lane: B-154
+  Branch: autopilot-lane/B-154
+  Base: fac2ff2193b7552f7d52b017cbf4f1786b23d7fc
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-12T01:06:00Z
+
 Finished 1: B-284 landed 1c1f5aa66 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-284-w515414.png
 Finished 2: B-285 landed d34e7d42f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-285-1.png
 Finished 3: B-288 landed 492d7d37f · not visually verified
@@ -221,3 +232,4 @@ Finished 11: B-153 landed 53bedb546 · shot /Users/evan/.leo/agents/leoterm/.git
 - B-152 landed db6b9a7a9 (fixes 0).
 - B-152 landed; interim digest 6–10 posted in session (notify off). B-153 picked (tier light; runner d-9a7a462de4ab).
 - B-153 landed 53bedb546 (fixes 0).
+- B-153 landed (verify re-run in-runner because round 1 never opened the browser pane; not a fix). B-154 picked (tier light; runner d-4ceff45580fb).
