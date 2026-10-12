@@ -186,7 +186,14 @@ public struct PushNotifications {
                 // earlier pending daemons still count.
                 state.$pendingUnregister.withLock { $0.formUnion(state.daemons.ids) }
                 state.daemonErrors = [:]
-                return .merge(.cancel(id: CancelID.relay), unregisterPending(only: nil, state: &state))
+                // The daemon's DELETE can't be relied on (off the VPN, the
+                // relay is still reachable), so stop APNs delivery here too.
+                let pushClient = pushClient
+                return .merge(
+                    .cancel(id: CancelID.relay),
+                    .run { _ in await pushClient.unregisterForRemoteNotifications() },
+                    unregisterPending(only: nil, state: &state)
+                )
 
             case .tokenReceived(let token):
                 state.apnsToken = token

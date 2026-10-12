@@ -8,7 +8,8 @@ import Testing
 extension PushClient {
     /// Permission already granted; a token request goes nowhere.
     static let granted = PushClient(
-        authorization: { .authorized }, requestAuthorization: { true }, registerForRemoteNotifications: {}, key: { .fixture },
+        authorization: { .authorized }, requestAuthorization: { true }, registerForRemoteNotifications: {},
+        unregisterForRemoteNotifications: {}, key: { .fixture },
         sharePairedDaemons: { _ in }
     )
 }

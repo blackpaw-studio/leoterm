@@ -21,6 +21,9 @@ public struct PushClient: Sendable {
     /// Asks APNs for a token; it arrives through the app delegate as
     /// `PushNotifications.Action.tokenReceived`.
     public var registerForRemoteNotifications: @Sendable () async -> Void
+    /// Drops the APNs registration, so no push reaches the phone until the
+    /// next `registerForRemoteNotifications`.
+    public var unregisterForRemoteNotifications: @Sendable () async -> Void
     /// The phone's push key, generated and stored on first use.
     public var key: @Sendable () throws -> LeoPushKey
     /// Tells the Notification Service Extension which daemons are paired;

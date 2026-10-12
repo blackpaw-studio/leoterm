@@ -22,6 +22,9 @@ extension PushClient: @retroactive DependencyKey {
             registerForRemoteNotifications: {
                 await MainActor.run { UIApplication.shared.registerForRemoteNotifications() }
             },
+            unregisterForRemoteNotifications: {
+                await MainActor.run { UIApplication.shared.unregisterForRemoteNotifications() }
+            },
             key: { try store.loadOrCreateKey() },
             sharePairedDaemons: { try store.savePairedDaemonIDs($0) }
         )

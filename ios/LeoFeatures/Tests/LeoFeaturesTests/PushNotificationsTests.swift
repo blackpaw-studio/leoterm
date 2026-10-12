@@ -13,6 +13,7 @@ final class PushRecorder: Sendable {
     let registrations = LockIsolated<[LeoPushRegistration]>([])
     let prompts = LockIsolated(0)
     let apnsRequests = LockIsolated(0)
+    let apnsUnregistrations = LockIsolated(0)
     let shared = LockIsolated<[Set<String>]>([])
     let cleanup = LockIsolated<[String: ForgottenDaemon]>([:])
 }
@@ -56,6 +57,7 @@ struct PushNotificationsTests {
                 return grant
             }
             $0.pushClient.registerForRemoteNotifications = { recorder.apnsRequests.withValue { $0 += 1 } }
+            $0.pushClient.unregisterForRemoteNotifications = { recorder.apnsUnregistrations.withValue { $0 += 1 } }
             $0.pushClient.key = { .fixture }
             $0.pushClient.sharePairedDaemons = { ids in recorder.shared.withValue { $0.append(ids) } }
             $0.pushCleanup = .inMemory(recorder.cleanup)
@@ -269,6 +271,21 @@ struct PushNotificationsTests {
         #expect(recorder.relay.value.isEmpty)
         #expect(recorder.puts.value.isEmpty)
         #expect(recorder.apnsRequests.value == 0)
+    }
+
+    @Test func turningNotificationsOffStopsAPNsDeliveryEvenWhenTheDaemonIsUnreachable() async {
+        let recorder = PushRecorder()
+        let store = Self.store(
+            PushNotifications.State(daemons: [.dionysus]), recorder: recorder,
+            daemon: { _ in throw LeoDaemonError.transport("offline") }
+        )
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        await store.send(.toggled(false))
+        await store.finish()
+
+        #expect(recorder.apnsUnregistrations.value == 1)
+        #expect(store.state.pendingUnregister == ["d-dionysus"])
     }
 
     @Test func aFailedTurnOffStaysPendingIsShownAndRetriesOnForeground() async {
