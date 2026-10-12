@@ -590,7 +590,7 @@
 				INFOPLIST_KEY_NSLocationTemporaryUsageDescriptionDictionary = "A program running within Ghostty would like to use your location temporarily.";
 				INFOPLIST_KEY_NSLocationUsageDescription = "A program running within Ghostty would like to access your location information.";
 				INFOPLIST_KEY_NSMainNibFile = MainMenu;
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "A program running within Ghostty would like to use your microphone.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Leo records voice notes for your agents, and programs running in the terminal may also ask to use your microphone.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "A program running within Ghostty would like to access motion data.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "A program running within Ghostty would like to access your Photo Library.";
 				INFOPLIST_KEY_NSRemindersUsageDescription = "A program running within Ghostty would like to access your reminders.";
@@ -994,7 +994,7 @@
 				INFOPLIST_KEY_NSLocationTemporaryUsageDescriptionDictionary = "A program running within Ghostty would like to use your location temporarily.";
 				INFOPLIST_KEY_NSLocationUsageDescription = "A program running within Ghostty would like to access your location information.";
 				INFOPLIST_KEY_NSMainNibFile = MainMenu;
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "A program running within Ghostty would like to use your microphone.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Leo records voice notes for your agents, and programs running in the terminal may also ask to use your microphone.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "A program running within Ghostty would like to access motion data.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "A program running within Ghostty would like to access your Photo Library.";
 				INFOPLIST_KEY_NSRemindersUsageDescription = "A program running within Ghostty would like to access your reminders.";
@@ -1051,7 +1051,7 @@
 				INFOPLIST_KEY_NSLocationTemporaryUsageDescriptionDictionary = "A program running within Ghostty would like to use your location temporarily.";
 				INFOPLIST_KEY_NSLocationUsageDescription = "A program running within Ghostty would like to access your location information.";
 				INFOPLIST_KEY_NSMainNibFile = MainMenu;
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "A program running within Ghostty would like to use your microphone.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Leo records voice notes for your agents, and programs running in the terminal may also ask to use your microphone.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "A program running within Ghostty would like to access motion data.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "A program running within Ghostty would like to access your Photo Library.";
 				INFOPLIST_KEY_NSRemindersUsageDescription = "A program running within Ghostty would like to access your reminders.";

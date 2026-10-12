@@ -102,6 +102,9 @@ actor LeoSidebarFeed {
     /// B-273: a live `file_surfaced` new to the feed, while connected,
     /// with its host -- never a `/state` recovery's files.
     let onFileSurfaced: @MainActor @Sendable (LeoHostID, LeoSurfacedFile) -> Void
+    /// Leo Chat: `chat.*` events and resyncs for the selected host, in
+    /// stream order (the receiver must keep that order, e.g. a relay).
+    let onChat: @Sendable (LeoHostID, LeoChatFeedSignal) -> Void
     /// The selected host's live dispatches (B-257) -- see `LeoSidebarFeed+Dispatches.swift`.
     var dispatchTree = LeoDispatchTree()
     /// What the selected host's daemon advertised on its latest hello, and
@@ -144,6 +147,7 @@ actor LeoSidebarFeed {
         onManualRefresh: @escaping @MainActor @Sendable () -> Void = {},
         onAttentionTransitions: @escaping @MainActor @Sendable ([LeoAttentionTransition]) -> Void = { _ in },
         onFileSurfaced: @escaping @MainActor @Sendable (LeoHostID, LeoSurfacedFile) -> Void = { _, _ in },
+        onChat: @escaping @Sendable (LeoHostID, LeoChatFeedSignal) -> Void = { _, _ in },
         sink: @escaping Sink
     ) {
         self.daemon = daemon
@@ -152,6 +156,7 @@ actor LeoSidebarFeed {
         self.now = now
         self.onAttentionTransitions = onAttentionTransitions
         self.onFileSurfaced = onFileSurfaced
+        self.onChat = onChat
         self.onManualRefresh = onManualRefresh
         self.sink = sink
     }
@@ -249,11 +254,12 @@ actor LeoSidebarFeed {
 
     func receive(_ event: LeoObserveEvent) {
         guard running else { return }
+        if let signal = LeoChatFeedSignal(event) { onChat(selectedHost, signal) }
         // Sequence-only and dispatch events never touch the activity
         // coalescer or the attention reducer: a turn event or a dispatch
         // tick must not flush the window early.
         switch event {
-        case .other: return
+        case .other, .chat: return
         case .dispatchChanged(let seq, let dispatch):
             receiveDispatch(dispatch, seq: seq)
             return

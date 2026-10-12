@@ -41,6 +41,8 @@ struct LeoWindowVisibilityState: Equatable {
     @Published private(set) var controlFocusRequest = 0
     /// The control bar's prompt field, for focus in and back out.
     let controlPrompt = LeoControlPromptFieldHandle()
+    /// Whether this window shows the Leo Chat pane beside the terminal.
+    @Published private(set) var isChatVisible = false
     @Published var windowIsOccluded = false { didSet { changed(); markShownIfVisible() } }
     @Published var windowIsMiniaturized = false { didSet { changed(); markShownIfVisible() } }
     var displayedWidth: CGFloat { min(max(preferredWidth, 200), 420) }
@@ -165,6 +167,8 @@ struct LeoWindowVisibilityState: Equatable {
 
     /// Agents ▸ Message Agent: focus the control bar's prompt field.
     func requestControlFocus() { controlFocusRequest += 1 }
+
+    func setChatVisible(_ visible: Bool) { isChatVisible = visible }
 
     /// Called by `LeoPickerPresentation` when its panel is shown/dismissed.
     /// Not persisted -- unlike sidebar visibility, this reflects transient

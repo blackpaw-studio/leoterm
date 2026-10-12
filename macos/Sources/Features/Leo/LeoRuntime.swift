@@ -13,6 +13,11 @@ import LeoKit
     /// The prompt box and Interrupt / Compact / Clear (B-262), bound to the
     /// selected host's daemon like `actions`.
     let control: LeoAgentControlModel
+    /// Leo Chat for the selected agent, bound to the selected host's daemon
+    /// like `control`; fed `chat.*` events in stream order by `chatRelay`.
+    let chat: LeoChatPaneModel
+    private let chatRelay: LeoOrderedRelay<LeoChatFeedDelivery>
+    private let localChatClient: any LeoChatClient
     let hostSelection: LeoHostSelection
     /// Agents ▸ Agent Notifications… policy for background transitions.
     let attentionNotifications: LeoAttentionController
@@ -114,7 +119,8 @@ import LeoKit
         notificationCenter: any LeoNotificationPosting = LeoUserNotificationCenter(),
         focusedAgentSink: (@Sendable (LeoAgentRow.ID?) async -> Void)? = nil,
         wakeNotifications: NotificationCenter = NSWorkspace.shared.notificationCenter,
-        terminalFileDropDependencies: LeoTerminalFileDropDependencies? = nil
+        terminalFileDropDependencies: LeoTerminalFileDropDependencies? = nil,
+        chatClient: (any LeoChatClient)? = nil
     ) {
         self.cli = cli
         self.defaults = defaults
@@ -269,11 +275,23 @@ import LeoKit
         // cycle even though `actions`' own `refresh` closure also captures
         // `feed` (weakly, see below).
         let actionsBox = LeoAgentActionsBox()
+        let localChatClient = chatClient ?? LeoChatPaneModel.makeClient(
+            socketPath: NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath, transport: LeoUnixSocketTransport()
+        )
+        self.localChatClient = localChatClient
+        let chat = LeoChatPaneModel(
+            client: localChatClient, host: .local, recorder: LeoChatVoiceRecorder(),
+            attachmentDirectory: LeoChatPaneModel.defaultAttachmentDirectory
+        )
+        self.chat = chat
+        let chatRelay = LeoOrderedRelay<LeoChatFeedDelivery> { [weak chat] delivery in await chat?.handle(delivery) }
+        self.chatRelay = chatRelay
         feed = LeoSidebarFeed(
             daemon: daemon, activity: activitySource,
             onManualRefresh: { [actionsBox] in actionsBox.actions?.invalidateTemplateCache() },
             onAttentionTransitions: { transitions in weakSelf?.attentionTransitionsCommitted(transitions) },
             onFileSurfaced: { [weak model] host, file in model?.fileSurfaced(file, host: host) },
+            onChat: { host, signal in chatRelay.send(LeoChatFeedDelivery(host: host, signal: signal)) },
             sink: { [weak model] snapshot in
                 model?.receive(snapshot)
                 // B-270: a hello advertising dispatch placement re-attaches
@@ -615,12 +633,15 @@ import LeoKit
     private func applyConnected(host: LeoHostID, generation: Int, socketPath: String, sequence: Int) async {
         let daemon: any LeoDaemonClient
         let activitySource: LeoSidebarActivitySource
+        let chatClient: any LeoChatClient
         if host == .local {
             daemon = localDaemon
             activitySource = localActivitySource
+            chatClient = localChatClient
         } else {
             let tunnelTransport = LeoTunnelSocketTransport(base: LeoUnixSocketTransport())
             daemon = LeoSocketDaemonClient(socketPath: socketPath, transport: tunnelTransport)
+            chatClient = LeoChatPaneModel.makeClient(socketPath: socketPath, transport: tunnelTransport)
             let remoteFlavor = await LeoSocketDaemonClient.detectFlavor(socketPath: socketPath, transport: hostConnectionTransport)
             activitySource = remoteFlavor == .socketEvents
                 ? LeoSidebarActivitySource(
@@ -632,6 +653,7 @@ import LeoKit
         guard sequence == connectionSequence else { return }
         actions.updateDaemon(daemon, host: host)
         control.updateDaemon(daemon, host: host)
+        chat.updateClient(chatClient, host: host)
         await feed.updateConnection(host: host, generation: generation, phase: .connected(daemon: daemon, activitySource: activitySource))
     }
 

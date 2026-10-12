@@ -12,6 +12,8 @@ struct LeoAgentControlBar: View {
     let focusRequest: Int
     let handle: LeoControlPromptFieldHandle
     let clear: () -> Void
+    let isChatVisible: Bool
+    let toggleChat: () -> Void
 
     static let height: CGFloat = 40
 
@@ -32,6 +34,13 @@ struct LeoAgentControlBar: View {
                 Task { await control.compact(row) }
             }
             symbolButton("eraser", "Clear", "Clear \(row.name)’s conversation… (⌃⇧⌘K)", availability.canClear, action: clear)
+            Divider().frame(height: 18)
+            Button(action: toggleChat) {
+                Image(systemName: isChatVisible ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right").imageScale(.large)
+            }
+            .buttonStyle(.borderless)
+            .help(isChatVisible ? "Hide Chat" : "Show Chat with \(row.name)")
+            .accessibilityLabel(isChatVisible ? "Hide Chat" : "Show Chat")
         }
         .padding(.horizontal, 10)
         .frame(height: Self.height)
@@ -125,7 +134,9 @@ struct LeoAgentControlBarHost: View {
         if let row, availability.isOffered {
             LeoAgentControlBar(
                 row: row, availability: availability, control: control, focusRequest: session.controlFocusRequest, handle: handle,
-                clear: { Task { await control.clear(row, in: handle.window) } }
+                clear: { Task { await control.clear(row, in: handle.window) } },
+                isChatVisible: session.isChatVisible,
+                toggleChat: { session.setChatVisible(!session.isChatVisible) }
             )
         }
     }

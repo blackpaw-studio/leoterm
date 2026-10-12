@@ -133,6 +133,8 @@ import LeoKit
 
     func dismissNotice() { notice = nil }
 
+    func showNotice(_ text: String) { notice = text }
+
     private func loadNewest() async {
         guard let agent else { return }
         guard agent.host == host else {
