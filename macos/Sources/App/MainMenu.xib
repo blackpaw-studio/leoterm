@@ -242,6 +242,12 @@
                                     <action selector="keepLeoEditorVersion:" target="-1" id="Leo-Editor-KeepMine-Action"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Show in Finder" keyEquivalent="R" id="Leo-Editor-Reveal">
+                                <modifierMask key="keyEquivalentModifierMask" shift="YES" option="YES" command="YES"/>
+                                <connections>
+                                    <action selector="revealLeoEditorFile:" target="-1" id="Leo-Editor-Reveal-Action"/>
+                                </connections>
+                            </menuItem>
                         </items>
                     </menu>
                 </menuItem>
@@ -356,6 +362,20 @@
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="decreaseFontSize:" target="-1" id="Zlz-QZ-t8K"/>
+                                </connections>
+                            </menuItem>
+                            <!-- MARK: Leo editor previews (B-278) -->
+                            <menuItem isSeparatorItem="YES" id="Leo-Editor-View-Separator"/>
+                            <menuItem title="Show Raw" keyEquivalent="u" id="Leo-Editor-ToggleRaw">
+                                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                <connections>
+                                    <action selector="toggleLeoEditorRawPresentation:" target="-1" id="Leo-Editor-ToggleRaw-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Actual Size" keyEquivalent="0" id="Leo-Editor-ImageZoom">
+                                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                <connections>
+                                    <action selector="toggleLeoEditorImageZoom:" target="-1" id="Leo-Editor-ImageZoom-Action"/>
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="L3L-I8-sqk"/>

@@ -120,8 +120,9 @@ struct LeoSSHCommand: Sendable {
     }
 
     /// `attachShellCommand` for a dispatch subagent (B-266). The remote leo
-    /// is local to that host, so no `--host`.
-    func attachShellCommand(dispatchID: String) throws -> String {
+    /// is local to that host, so no `--host`. `--rw` (B-288) only when the
+    /// remote leo has it.
+    func attachShellCommand(dispatchID: String, access: LeoDispatchAccess = .readOnly) throws -> String {
         try validateConfiguration()
         guard !dispatchID.isEmpty, !dispatchID.hasPrefix("-"),
               !dispatchID.contains(where: { $0 == "\0" || $0 == "\n" || $0 == "\r" }) else {
@@ -134,8 +135,13 @@ struct LeoSSHCommand: Sendable {
         if let port = configuration.port {
             parts += ["-p", try leoShellQuote(String(port))]
         }
-        parts += [try leoShellQuote(target), try leoShellQuote("\(try remoteLeoCommand()) dispatch attach \(try leoShellQuote(dispatchID))")]
+        parts += [try leoShellQuote(target), try leoShellQuote(remoteDispatchAttachCommand(dispatchID: dispatchID, access: access))]
         return parts.joined(separator: " ")
+    }
+
+    private func remoteDispatchAttachCommand(dispatchID: String, access: LeoDispatchAccess) throws -> String {
+        let arguments = ["dispatch", "attach"] + access.attachArguments + [try leoShellQuote(dispatchID)]
+        return "\(try remoteLeoCommand()) \(arguments.joined(separator: " "))"
     }
 
     func remoteAttachCommand(agent: String, features: LeoDaemonFeatures = .none) throws -> String {

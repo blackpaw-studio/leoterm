@@ -120,6 +120,25 @@ struct LeoMenuCommandsTests {
         #expect(LeoMenuCommands.canViewLogs(context) == testCase.logs)
     }
 
+    /// B-278: the preview commands each have one menu item on a shortcut
+    /// nothing else in the xib uses (Ghostty's runtime defaults bind ⌘0,
+    /// not ⌥⌘0).
+    @Test func previewShortcutsUnique() throws {
+        let xib = try LeoMenuXib.shortcuts()
+        let expected = [
+            ("toggleLeoEditorRawPresentation:", "⌥⌘u"), ("toggleLeoEditorImageZoom:", "⌥⌘0"), ("revealLeoEditorFile:", "⌥⇧⌘r"),
+        ]
+        for (action, shortcut) in expected {
+            #expect(xib.filter { $0.shortcut == shortcut }.map(\.action) == [action], "\(shortcut) belongs to \(action) alone")
+            #expect(xib.filter { $0.action == action }.count == 1)
+        }
+    }
+
+    @Test func revealReadsByHost() {
+        #expect(LeoEditorPresentation.revealTitle(for: .local) == "Show in Finder")
+        #expect(LeoEditorPresentation.revealTitle(for: .remote("work")) == "Download")
+    }
+
     /// B-262: the control verbs each have one Agents menu item on a ⌃⌘
     /// combination nothing else in the xib uses.
     @Test func controlShortcutsAreBoundOnceAndUnique() throws {

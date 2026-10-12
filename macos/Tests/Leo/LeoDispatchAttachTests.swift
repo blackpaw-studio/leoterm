@@ -69,6 +69,15 @@ struct LeoDispatchAttachCommandTests {
         #expect(command == "env -u TMUX -u TMUX_PANE '/leo' --host 'build host' dispatch attach 'd-1'")
     }
 
+    @Test func readWriteAddsTheFlagLocallyAndWithHost() throws {
+        let local = try LeoAttachCommand.build(
+            executable: "/leo", identity: .dispatch(host: .local, id: "d-1", title: nil), dispatchAccess: .readWrite)
+        #expect(local == "env -u TMUX -u TMUX_PANE '/leo' dispatch attach --rw 'd-1'")
+        let remote = try LeoAttachCommand.buildDispatch(
+            executable: "/leo", host: .remote("box"), dispatchID: "d-1", access: .readWrite)
+        #expect(remote == "env -u TMUX -u TMUX_PANE '/leo' --host 'box' dispatch attach --rw 'd-1'")
+    }
+
     @Test(arguments: ["", "-x", "--help", "bad\0id", "bad\nid", "bad\rid"])
     func refusesAnIDThatCouldBeAFlagOrBreakTheLine(_ id: String) {
         #expect(throws: LeoAttachCommandError.invalidDispatchID) {
@@ -112,10 +121,13 @@ struct AttachExitReportTests {
 
     private func makeCoordinator(
         host: FakeAttachContentHost,
-        remoteCommandBuilder: @escaping (LeoAgentIdentity) throws -> String = { _ in "remote" }
+        access: LeoDispatchAccess = .readOnly,
+        dispatchAccess: ((LeoHostID) async -> LeoDispatchAccess)? = nil,
+        remoteCommandBuilder: @escaping (LeoAgentIdentity, LeoDispatchAccess) throws -> String = { _, _ in "remote" }
     ) -> LeoAttachCoordinator {
         LeoAttachCoordinator(
-            host: host, executable: { "/leo" }, remoteCommandBuilder: remoteCommandBuilder, report: { _ in },
+            host: host, executable: { "/leo" }, remoteCommandBuilder: remoteCommandBuilder,
+            dispatchAccess: dispatchAccess ?? { _ in access }, report: { _ in },
             lifecycleEventHandled: { host.acknowledge($0) }
         )
     }
@@ -131,7 +143,7 @@ struct AttachExitReportTests {
     @Test func aRemoteDispatchGoesThroughTheRemoteBuilder() async {
         let host = FakeAttachContentHost()
         var built: [LeoAgentIdentity] = []
-        let coordinator = makeCoordinator(host: host) { built.append($0); return "ssh-attach" }
+        let coordinator = makeCoordinator(host: host) { identity, _ in built.append(identity); return "ssh-attach" }
         let remote = LeoAgentIdentity.dispatch(host: .remote("work"), id: "d-9", title: nil)
         await coordinator.attach(identity: remote, from: origin, disposition: .content)
         #expect(built.map(\.dispatchID) == ["d-9"])
@@ -198,13 +210,78 @@ struct AttachExitReportTests {
         #expect(host.isOpen(sibling), "the live surface beside it survives")
     }
 
-    @Test func aDispatchSurfaceIsMarkedAsWatchedButAnAgentsIsNot() async {
+    /// B-288: the reported bug -- a dispatch pane took no text or mouse
+    /// input -- fixed for a leo that has `dispatch attach --rw`.
+    @Test func aDispatchAttachesReadWriteWhenLeoSupportsIt() async {
         let host = FakeAttachContentHost()
-        let coordinator = makeCoordinator(host: host)
-        await coordinator.attach(identity: .init(host: .local, name: "worker"), from: origin, disposition: .content)
-        #expect(host.watching.isEmpty)
+        let coordinator = makeCoordinator(host: host, access: .readWrite)
         await coordinator.attach(identity: identity, from: origin, disposition: .content)
-        #expect(host.watching == [host.handles[1]])
+        #expect(host.contentCalls.map(\.command) == ["env -u TMUX -u TMUX_PANE '/leo' dispatch attach --rw 'd-1'"])
+        #expect(host.dispatchMarks.map(\.handle) == [host.handles[0]])
+        #expect(host.dispatchMarks.map(\.readOnly) == [false], "a writable pane carries no read-only badge")
+    }
+
+    @Test func anOlderLeoKeepsTodaysReadOnlyAttachAndBadge() async {
+        let host = FakeAttachContentHost()
+        let coordinator = makeCoordinator(host: host, access: .readOnly)
+        await coordinator.attach(identity: .init(host: .local, name: "worker"), from: origin, disposition: .content)
+        #expect(host.dispatchMarks.isEmpty, "an agent is never marked as a dispatch")
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        #expect(host.contentCalls.map(\.command).last == "env -u TMUX -u TMUX_PANE '/leo' dispatch attach 'd-1'")
+        #expect(host.dispatchMarks.map(\.handle) == [host.handles[1]])
+        #expect(host.dispatchMarks.map(\.readOnly) == [true])
+    }
+
+    @Test func aRemoteDispatchPassesTheAccessToTheRemoteBuilder() async {
+        let host = FakeAttachContentHost()
+        var built: [(LeoAgentIdentity, LeoDispatchAccess)] = []
+        let coordinator = makeCoordinator(host: host, access: .readWrite) { identity, access in
+            built.append((identity, access)); return "ssh-attach"
+        }
+        let remote = LeoAgentIdentity.dispatch(host: .remote("work"), id: "d-9", title: nil)
+        await coordinator.attach(identity: remote, from: origin, disposition: .content)
+        #expect(built.map(\.0) == [remote])
+        #expect(built.map(\.1) == [.readWrite])
+        #expect(host.dispatchMarks.map(\.readOnly) == [false])
+    }
+
+    /// B-288 review: the probe can take seconds over ssh. A newer request
+    /// that took the window meanwhile wins, exactly as it does over a
+    /// confirmation: the slow dispatch attach is dropped, not run over it.
+    @Test func aSlowProbeDoesNotReplaceANewerSelectionInTheSameWindow() async throws {
+        let host = FakeAttachContentHost()
+        var release: CheckedContinuation<LeoDispatchAccess, Never>?
+        var probing = false
+        let coordinator = makeCoordinator(host: host, dispatchAccess: { _ in
+            probing = true
+            return await withCheckedContinuation { release = $0 }
+        })
+        let request = LeoSurfaceRequest(origin: origin, disposition: .content)
+        let slow = Task { await coordinator.attach(identity: identity, request: request) }
+        for _ in 0..<1000 where !probing { await Task.yield() }
+        try #require(probing, "the dispatch attach is suspended in its probe")
+
+        let newer = LeoAgentIdentity(host: .local, name: "worker")
+        let newerHandle = try await coordinator.attach(identity: newer, request: request).get()
+        release?.resume(returning: .readWrite)
+        let result = await slow.value
+
+        #expect(result == .failure(.init(identity: identity, kind: .cancelled)), "superseded, quietly")
+        #expect(host.contentCalls.map(\.command) == ["env -u TMUX -u TMUX_PANE '/leo' agent attach -- 'worker'"])
+        #expect(host.isOpen(newerHandle), "the newer selection is kept")
+        #expect(host.dispatchMarks.isEmpty)
+    }
+
+    /// An agent attach never asks, so a slow probe delays nothing else.
+    @Test func anAgentAttachDoesNotProbeTheDispatchAccess() async {
+        let host = FakeAttachContentHost()
+        var asked = 0
+        let coordinator = LeoAttachCoordinator(
+            host: host, executable: { "/leo" }, dispatchAccess: { _ in asked += 1; return .readWrite }, report: { _ in },
+            lifecycleEventHandled: { host.acknowledge($0) }
+        )
+        await coordinator.attach(identity: .init(host: .local, name: "worker"), from: origin, disposition: .content)
+        #expect(asked == 0)
     }
 
     @Test func aFailedAttachShowsABriefErrorAndLeavesNoSurface() async {

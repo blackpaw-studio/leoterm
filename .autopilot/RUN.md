@@ -1,14 +1,13 @@
 Status: finished
-Started: 2026-10-10T16:31:47Z
-Budget: 20 items, until 2026-10-10T22:30:00Z
-Digested-through: 0
-Filed: 2/3 bugs, 4/5 ideas
-Self-filed: B-232 → B-280 idea — Dropped files keep their source file mode
-Self-filed: B-232 → B-281 idea — Name-clash toast covers terminal text until dismissed
-Self-filed: B-232 → B-282 idea — Workspace browser middle-truncates long file names
-Self-filed: B-283 → B-284 bug — Agents ▸ New Agent… menu item opens no sheet
-Self-filed: B-283 → B-285 bug — Rename, Delete and Manage Hosts menu items may no-op on terminal windows
-Self-filed: B-283 → B-286 idea — Row-level action error clears after ~2 s
+Started: 2026-10-11T15:41:34Z
+Budget: 20 items, until 2026-10-12T03:41:34Z
+Stop: requested 2026-10-12T01:17:04Z (in session)
+Digested-through: 10
+Filed: 0/3 bugs, 4/5 ideas
+Self-filed: B-148 → B-293 idea — Empty sidebar list under the state view may shift its layout
+Self-filed: B-149 → B-294 idea — Terminals-section exit may cut the selected row off the same way
+Self-filed: B-149 → B-295 idea — Disconnected banner and panel error can clip the selected bottom row
+Self-filed: B-150 → B-296 idea — Two sidebar test suites still poll first population with Task.sleep
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -32,78 +31,208 @@ Lane: B-143
   Reviewed-tip: none
   Dispatched: 2026-10-06T23:01:21Z
 
-Lane: B-232
-  Branch: autopilot-lane/B-232
-  Base: a45efac49a794674b45c44152143b245338df282
+Lane: B-284
+  Branch: autopilot-lane/B-284
+  Base: d4520371097a0592f7340c0599bfea8055219bbf
+  Tier: light
+  State: landed
+  Fixes: 0
+  Wip: none
+  Reverifies: 1
+  Reviewed-tip: 855c271bdfe6b7292bbab21cc2be1c08ab5f3716
+  Dispatched: 2026-10-11T17:02:00Z
+
+Lane: B-285
+  Branch: autopilot-lane/B-285
+  Base: d3382717920cfd6220dfbcf6b83413e5eacb92ce
+  Tier: light
+  State: landed
+  Fixes: 1
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: d373c51d2c3ff128a862681bab624d42e996b98e
+  Dispatched: 2026-10-11T17:11:00Z
+
+Lane: B-288
+  Branch: autopilot-lane/B-288
+  Base: b3546376b5636711819a43e7bf3b86098df0d965
   Tier: full
   State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: e1b8cf49f5799926a8129b420c2a3900dd0d2ae8
-  Dispatched: 2026-10-10T16:36:00Z
-  Call: Port the shelved work as one squash commit instead of cherry-picks, so drift is resolved once — reversible implementation choice
-  Call: Dispatch-watch panes keep Ghostty's default drop and get no upload — P2
-  Call: No upload size cap; streaming bounds memory instead — P3
-  Call: Shared beginGeneration(of:) bump for attachAnew and reattachInPlace — P2
-  Call: Open errors come from LeoFileDescriptorSource.OpenError with the same user-facing text — P2
-  Call: CancellationError passes through the staging write unchanged — P2
-  Call: Every terminal drop insertion ends with a trailing space, so a single drop now ends with one too (unlike Ghostty's plain-shell drop) — P2, reversible
-Lane: B-279
-  Branch: autopilot-lane/B-279
-  Base: 2cf579fa49d3ea30ffa24ae7d9c5d0bcce64a6f9
-  Tier: full
+  Reviewed-tip: a3124af94b23d43cee6da0c3365ac9aca7e2ccbb
+  Dispatched: 2026-10-11T17:55:00Z
+  Call: Detect `--rw` by probing `dispatch attach --help` for an indented flag line under "Flags:"; any doubt (no line, non-zero exit, throw, timeout) means read-only — P2/P3
+  Call: A read-write pane shows no badge; the fallback keeps today's read-only badge and copy — P1/P2
+  Call: Both definite probe answers are cached per host (local key = path + mtime, remote key = host config); failed probes are never cached — P2
+  Call: Workspace file-drop upload stays off for dispatches — P4
+  Call: A dispatch attach waiting on the probe is dropped as superseded if a newer request replaced the window's content — review fix
+  Call: `leoWatchingDispatch` is no longer `@Published` (nothing observed it); `leoDispatchReadOnly` is the badge flag — simplification
+
+Lane: B-268
+  Branch: autopilot-lane/B-268
+  Base: 58d0598f692feaa157d1986d9613ba379d89ea26
+  Tier: light
   State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: 1fc3eeac7eeb9f11b0757b83c244f39d9567edd8
-  Dispatched: 2026-10-10T17:52:15Z
-  Call: Name clash keeps both files, Finder-style "a 2.txt" (up to 100 tries), and never overwrites — P1, P2
-  Call: Local backend also uses file promises, same path as SFTP — P3
-  Call: Downloaded files get mode 0644 on both backends — P3
-  Call: In-flight indicator is the existing header spinner; errors go in the existing footer, cleared only by Dismiss; no auto-retry on a lost connection — P2, P5
-  Call: Outline view gains multiple selection (⇧/⌘-click, ⇧↑↓); Return opens only the focused row — P1
-  Call: Footer shows upload, download and open errors together, one per line; isRootUploadProgressVisible renamed isHeaderProgressVisible — implementation approach
-  Call: A promise that outlives a re-root is refused with .workspaceChanged and the footer says so — P2
-  Call: Accepted risks: no quarantine xattr on remote downloads; a file being written during the download can arrive torn; a numbered name over 255 bytes fails plainly; Finder may add its own alert — P2
+  Reviewed-tip: a65a3d650c40203d8220bdfdcb49ba4403928a51
+  Dispatched: 2026-10-11T18:53:00Z
+  Call: A same-state needs_input revision bump never re-notifies and keeps an existing acknowledgement, whatever the reason change — P2 calm
+  Call: finished→finished at a newer revision keeps its current "new event" behaviour (out of scope) — P2
 
-Lane: B-283
-  Branch: autopilot-lane/B-283
-  Base: 393610ff8ccbf90d8cf08dff9cf108bb09e7feef
-  Tier: full
+Lane: B-269
+  Branch: autopilot-lane/B-269
+  Base: a31f97f9569f7c7229c0e25ebf76b3681078b86e
+  Tier: light
   State: landed
-  Fixes: 2
+  Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: 4b00e6f6da8f4516409a7454a9db91d4ca08607b
-  Dispatched: 2026-10-10T19:52:34Z
-  Call: Spawn sends `environments` only when the user edited the list — P2
-  Call: Catalog (names plus template defaults) comes from the bound daemon's socket, not the CLI — P3/P4
-  Call: Toggle and Reset confirm with an NSAlert; Edit Order's own "Restart and Resume" button is the confirmation — P1, HIG
-  Call: An override's names show in the subtitle (`claude · env: prod, aws`) and the tooltip; `environment_error` is a plain orange line — P2
-  Call: Reset to Template Default is disabled unless the source is override — P1
-  Call: Editor keys: ⌫ removes, ⌥⌘↑/↓ moves, "+" menu adds — P1
-  Call: Socket routes drop `/api/v1`, like every existing route — P4
-  Call: The submenu also lists effective names no longer in config, checked, so they can be turned off — P2
-  Call: Changing the template in the spawn sheet resets the list to that template's defaults — P2
-  Call: DEBUG fixture key `environments` advertises `agent_environments` and answers its routes locally; spawn is refused locally — D-396/D-449/D-471
-  Call: Edit Order sheet is an NSWindow sheet owned by `LeoEnvironmentsSheetSession` — P1
+  Reviewed-tip: 83fc576c6ed9ee57d1e9b5d17850a337608fb2fa
+  Dispatched: 2026-10-11T19:42:00Z
+  Call: Missing-server marker is matched as an exact ASCII line on raw stderr bytes (optional single CR, truncated final segment never counts), where it was a substring match on the decoded text — D-422 / P5
 
-Finished 1: B-232 landed e2fd6c40a · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-232-1.png
-Finished 2: B-279 landed 15f779df4 · screen capture, not attached
-Finished 3: B-283 landed b82e17565 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-283-3-edit-order-sheet.png
+Lane: B-148
+  Branch: autopilot-lane/B-148
+  Base: 762dccd13aceb49e275f9b778584e1452c40c6df
+  Tier: light
+  State: landed
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: 1f91cc260248fe8b7b6639195e8ac7a4dc196da7
+  Dispatched: 2026-10-11T20:15:00Z
+
+Lane: B-149
+  Branch: autopilot-lane/B-149
+  Base: e376ef063618831dfb7b0f38b626598ecf1316af
+  Tier: light→full
+  State: landed
+  Fixes: 1
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: b45451b9e6c2ae85abee9a39ecb7303e3666146c
+  Dispatched: 2026-10-11T21:08:00Z
+  Escalated: implement/sonnet (light build, no repro; reported Promote) → implement.hard/opus (full plan; followed the re-plan after a first plan couldn't produce a failing test)
+  Call: The selected-terminal reveal now runs after AppKit layout (new LeoListLayoutAnchor), in both directions; still one-shot, so refreshes never scroll (D-130) — P6.
+  Call: LeoRevealScheduler (.nextTurn default, .immediate for tests) is kept as a test seam through LeoSidebarView's init; only .immediate gives a 30/30 red — AUTONOMY test infrastructure.
+  Call: The reproduced cut-off is the list shrinking when agents go (connected→Loading/Failed/No Agents); Loading→connected can't cut the row off in current code, so the criterion is met by the shrink direction instead — P6, AUTONOMY bug fixes.
+  Call: `request` also schedules window.layoutIfNeeded() for the next turn; needsLayout alone left the reveal waiting for a display pass that run-loop turns never reach — plan Risk 4.
+
+Lane: B-150
+  Branch: autopilot-lane/B-150
+  Base: 3a46e54f24e05f657ef9622fbb6517a54a829e8e
+  Tier: light
+  State: landed
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: b7a0a923d5ebc266b237846c7df017d46742708d
+  Dispatched: 2026-10-11T22:47:00Z
+  Call: The agents-going direction needs no new test: B-149's aRowRevealedAtTheBottomStaysWhollyOnScreenWhenTheAgentsGo already covers listsAgents true→false (loading, failed, no agents) — P6, test infra agent-decided.
+  Call: The first-population signal is run-loop turn counting with a layout pass per turn, not a product hook; no seam added — B-099 turn-counting decision.
+
+Lane: B-151
+  Branch: autopilot-lane/B-151
+  Base: 2ef7f863fc3ce2224eb05f8ad7bc0a22e6b8aaab
+  Tier: light
+  State: landed
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: 3f782fe923d3f4baccada8d84b3aa2ba06fd5c2a
+  Dispatched: 2026-10-11T23:14:00Z
+
+Lane: B-152
+  Branch: autopilot-lane/B-152
+  Base: f2747b820f741baa7f6ab48ece92405b9afa8b57
+  Tier: light
+  State: landed
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: d12ea1a5186a545fdd8c69425a81f831852703f0
+  Dispatched: 2026-10-11T23:33:00Z
+  Call: LeoSidebarHeader is pinned with .frame(height: headerRowHeight) rather than renaming it to a minimum, keeping the header and side panes on one centre line; the .headline title is fixed-size on macOS, so 16 pt can't clip it — P1.
+  Call: LeoSidebarHeaderPart gains a test-only `.row` probe case, in the style of the existing parts — P1 / suite discipline.
+
+Lane: B-153
+  Branch: autopilot-lane/B-153
+  Base: bd3024270f834b178ac09b76a42ba94be5a25c25
+  Tier: light
+  State: landed
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: a82008871d9a7808d133739197c2745ca7f9e198
+  Dispatched: 2026-10-12T00:01:00Z
+  Call: In hidden style only, the side-pane close button gets an explicit header-row height (browser header row 21→26 pt) so its glyph centres on the sidebar header's line; the 10 pt inset and headerRowHeight 16 are unchanged — D-258, P1.
+
+Lane: B-154
+  Branch: autopilot-shelved/B-154
+  Base: fac2ff2193b7552f7d52b017cbf4f1786b23d7fc
+  Tier: light
+  State: shelved
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-12T01:06:00Z
+
+Finished 1: B-284 landed 1c1f5aa66 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-284-w515414.png
+Finished 2: B-285 landed d34e7d42f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-285-1.png
+Finished 3: B-288 landed 492d7d37f · not visually verified
+Finished 4: B-268 landed faa9f0140 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-268-1.png
+Finished 5: B-269 landed c4be21582 · not visually verified
+Finished 6: B-148 landed aab4e56d0 · not visually verified
+Finished 7: B-149 landed 039ec8dad · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-149-2.png
+Finished 8: B-150 landed 7f9da972e · not visually verified
+Finished 9: B-151 landed 6bf3484f7 · not visually verified
+Finished 10: B-152 landed db6b9a7a9 · not visually verified
+Finished 11: B-153 landed 53bedb546 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-153-7.png
 
 ## Progress
-- Preflight: merged main into autopilot (fast-forward to 0b83ccd7c); applied 2 inbox entries (B-278, B-279 added; B-232 answered → ready, D-474).
-- Lane autopilot-lane/B-233 still unlanded with no block (item done); left in place.
-- B-232 runner dispatched: d-2d7711f49f9c.
-- B-232 landed e2fd6c40a (full, hard; 1 fix round: queued terminal drops lacked a separator; concurrency review clean on delta; suite 2500/2500; remote SFTP covered by tests, not visually). No focus/palette failures reproduced. Verify left scratch files in autopilot-scratch workspace (b232-vf-*, b232-v2-*) and /tmp/b232v2-src/.
-- B-279 runner dispatched: d-b3464360863a.
-- Evan (14:51 EDT): run must end by 18:30 EDT; then merge autopilot to main and cut a release (approved). Budget deadline moved to 22:30Z; no new lane after ~17:00 EDT unless it can finish by 18:30.
-- Evan (14:55 EDT): build named environments (B-283) this run, next after B-279. End of run: merge autopilot to main, NO release (Evan will update Leo manually first).
-- B-279 runner reported ready (1 fix round). Runner left a stray headless explore d-8a9c4160c622 (cancel timed out). Verifier left fixtures in autopilot-scratch b279v/ b279v2/.
-- B-279 landed 15f779df4 (full, hard; suite 2522; GUI screen captures only; SFTP + lost-connection covered by tests, not live).
-- B-283 runner dispatched: d-c022041f424d.
-- B-283 runner reported ready (2 fix rounds). Runner dismissed a round-3 blocking finding (LeoEnvironmentListEditor.swift:183 parent-loss cleanup leaves session live; only programmatic close/teardown reaches it) as accepted risk — flag in digest. Planner's plan ran over 80 lines; used as-is.
-- B-283 landed b82e17565 (full, hard; suite 2567; fixture-verified, leo PR #251 unmerged). No new lane: deadline 18:30 EDT too close.
+- Preflight: autopilot already at main (60e80df75); applied 1 inbox entry (B-288 answer → D-518; stays blocked until leo ships `--rw`; leo 0.45.0 has none).
+- Lane autopilot-lane/B-233 exists unlanded with no RUN.md block (left from an earlier run); left in place.
+- B-284 picked (tier light): the four ready bugs go before the B-148… test-polish items (bugs-first ordering; B-284 built before B-148).
+- B-284 runner dispatched: d-c2a6fef36c6a (implement → claude/sonnet, tier light). Brief passed as a file path (scratchpad brief-B-284.md) to keep the orchestrator prompt small.
+- 12:29 EDT: leo agent reports `--rw` in leo PR #264 (no feature-flag gate per Evan; no release yet). B-288's Question updated; it stays blocked until a leo release ships it.
+- 12:37 EDT: B-284 runner reported blocked: fix a4f586bde built, general review clean, GUI pass (shot B-284-w515414.png), but 8 focus/key-window tests fail (also on baseline 5f97da7) because an orphaned codesign keychain prompt (SecurityAgent pid 13373, no codesign alive) holds Secure Input. Lane-tip 1f4dfba54, Integrated-at 5f97da7f3. Killing the prompt and shelving were both denied by the permission classifier; waiting on Evan.
+- 13:00 EDT: Evan approved killing the stale keychain prompt; SIGKILLed SecurityAgent 13373 (SIGTERM ignored). Deviation: instead of shelving the blocked B-284 report, a re-verify round re-runs the suite on the unchanged, already-reviewed Lane-tip. My screen check triggered a 'leo would like to record screen' TCC prompt; Evan asked to Deny it.
+- B-284 landed 1c1f5aa66 (light; re-verify suite 2662/2662 green). Runner note: a second SecurityAgent (pid 69473, user heracles, non-console session, ~10 days) is harmless unless that user becomes console.
+- B-285 picked (tier light): same contentViewController pattern; reuse B-284's NSWindow.presentLeoSheet helper.
+- B-285 runner dispatched: d-9fd59b2bcca2 (implement → claude/sonnet, tier light).
+- 13:10 EDT: leo agent reports `--rw` shipped in leo v0.47.0. That meets D-518's condition, so B-288 is set to ready (Update line added). Local leo is still 0.45.0, so the item is built with a fallback and fake-CLI tests.
+- B-285 landed d34e7d42f (light, 1 fix round: test isolation; suite 2665 green; Rename/Delete by tests only).
+- B-288 picked (tier full: earlier attempt on autopilot-shelved/B-288; owner's report, unblocked by leo v0.47.0). B-288 built before B-268/B-269 (owner-sourced bug first).
+- B-288 runner dispatched: d-5bacc1a48ca0 (implement → claude/sonnet, tier full).
+- B-288 landed 492d7d37f (full, 1 fix round: probe race; suite 2683 green; not visually verified).
+- B-268 picked (tier light: one narrow attention/ack comparison).
+- B-268 runner dispatched: d-331c0899af6d (implement → claude/sonnet, tier light).
+- B-268 landed faa9f0140 (fixes 1).
+- B-269 picked (tier light: one stderr-decoding path).
+- B-269 runner dispatched: d-e2dee81f388d (implement → claude/sonnet, tier light).
+- B-269 landed c4be21582 (fixes 0).
+- B-148 picked (top ready; tier light: keep one sidebar list mounted + doc comments).
+- B-148 runner dispatched: d-a7489852d58a (implement → claude/sonnet, tier light).
+- 16:16 EDT: B-148 runner ended its turn early ("waiting on implementer"); sent follow-up #2 telling it to block on leo_wait for d-9665567f2291. Dispatched time unchanged.
+- B-148 landed aab4e56d0 (fixes 0).
+- B-149 picked (tier light: order one reveal after layout).
+- B-149 runner dispatched: d-28e147c6b7a4 (implement → claude/sonnet, tier light).
+- B-149 landed 039ec8dad (fixes 1).
+- B-149 landed (light→full: the light build and first plan couldn't go red; the re-plan reproduced the shrink direction). Filed B-294/B-295; the third polish line (pre-layout geometry in resize tests) goes to B-150 as a lane note.
+- B-150 picked (tier light: test hardening; runner d-00ab00580600).
+- B-150 landed 7f9da972e (fixes 0).
+- B-150 landed. Filed B-296 from the runner's Notes (leftover Task.sleep polls outside the scroll tests).
+- B-151 picked (tier light: test hardening; runner d-983382f93c62).
+- B-151 landed 6bf3484f7 (fixes 0).
+- B-151 landed (runner ended its turn early once; nudged with a follow-up). B-152 picked (tier light; runner d-d7ed24ea6734).
+- B-152 landed db6b9a7a9 (fixes 0).
+- B-152 landed; interim digest 6–10 posted in session (notify off). B-153 picked (tier light; runner d-9a7a462de4ab).
+- B-153 landed 53bedb546 (fixes 0).
+- B-153 landed (verify re-run in-runner because round 1 never opened the browser pane; not a fix). B-154 picked (tier light; runner d-4ceff45580fb).
+- Owner asked to pause (in session) at 21:17 EDT: no new lanes; B-154 finishes, then the final digest.
+- Owner said stop right now (21:18 EDT): B-154 runner cancelled mid-build, its implementer and test run killed, lane shelved on autopilot-shelved/B-154 with one unreviewed, unverified commit (719b7b14d). Run finished at 11 of 20 items.

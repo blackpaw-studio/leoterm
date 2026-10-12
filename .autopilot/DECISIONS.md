@@ -3587,3 +3587,255 @@ Chose: Edit Order sheet is an NSWindow sheet owned by `LeoEnvironmentsSheetSessi
 Why: P1
 Commit: 4b00e6f6d, dd546ac5d, bc5915c15, dcd9e72e3, 1f2d010f2, b21332672
 Veto: [ ]
+
+## D-501 · 2026-10-10 · Sidebar Return is matched by key code (36/76, no modifiers) in a new AppKit view, not in …
+Context: B-287 (runner call).
+Chose: Sidebar Return is matched by key code (36/76, no modifiers) in a new AppKit view, not in Ghostty's SurfaceView
+Why: P1
+Commit: a7af5783e, fcca77097, db524cb88
+Veto: [ ]
+
+## D-502 · 2026-10-10 · Test harness activates the app and waits up to 5 s for key status
+Context: B-287 (runner call).
+Chose: Test harness activates the app and waits up to 5 s for key status
+Why: P1
+Commit: a7af5783e, fcca77097, db524cb88
+Veto: [ ]
+
+## D-503 · 2026-10-10 · First-attach sizing tests set sidebarVisible explicitly instead of reading the real debug…
+Context: B-287 (runner call).
+Chose: First-attach sizing tests set sidebarVisible explicitly instead of reading the real debug-bundle defaults
+Why: hermetic tests, no user-visible change
+Commit: a7af5783e, fcca77097, db524cb88
+Veto: [ ]
+
+## D-504 · 2026-10-11 · One fetch path for local and SFTP into a private temp cache
+Context: B-278 (runner call).
+Chose: One fetch path for local and SFTP into a private temp cache
+Why: P3
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-505 · 2026-10-11 · Preview kind decided by an extension allowlist, not UTType
+Context: B-278 (runner call).
+Chose: Preview kind decided by an extension allowlist, not UTType
+Why: P1
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-506 · 2026-10-11 · Native Markdown rendering, no WKWebView; only http/https/mailto links open; images show a…
+Context: B-278 (runner call).
+Chose: Native Markdown rendering, no WKWebView; only http/https/mailto links open; images show alt text only
+Why: P1
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-507 · 2026-10-11 · SVG gets the Rendered/Raw toggle
+Context: B-278 (runner call).
+Chose: SVG gets the Rendered/Raw toggle
+Why: P1
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-508 · 2026-10-11 · Markdown opens Rendered, remembered per tab; a `:line` open goes Raw
+Context: B-278 (runner call).
+Chose: Markdown opens Rendered, remembered per tab; a `:line` open goes Raw
+Why: P1
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-509 · 2026-10-11 · No video autoplay; video pauses when hidden
+Context: B-278 (runner call).
+Chose: No video autoplay; video pauses when hidden
+Why: P2
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-510 · 2026-10-11 · Fit-to-pane only shrinks, never scales past 100%
+Context: B-278 (runner call).
+Chose: Fit-to-pane only shrinks, never scales past 100%
+Why: P1
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-511 · 2026-10-11 · Shortcuts ⌥⌘U (Show Raw), ⌥⌘0 (Actual Size), ⌥⇧⌘R
+Context: B-278 (runner call).
+Chose: Shortcuts ⌥⌘U (Show Raw), ⌥⌘0 (Actual Size), ⌥⇧⌘R
+Why: P1
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-512 · 2026-10-11 · 2 GB preview cap enforced on streamed bytes; 20 MB text cap unchanged
+Context: B-278 (runner call).
+Chose: 2 GB preview cap enforced on streamed bytes; 20 MB text cap unchanged
+Why: P3
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-513 · 2026-10-11 · Sniffed binaries show Can't Preview; Quick Look only for pdf/Office/iWork
+Context: B-278 (runner call).
+Chose: Sniffed binaries show Can't Preview; Quick Look only for pdf/Office/iWork
+Why: P1
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-514 · 2026-10-11 · Download goes to ~/Downloads (D-482/D-484)
+Context: B-278 (runner call).
+Chose: Download goes to ~/Downloads (D-482/D-484)
+Why: P4
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-515 · 2026-10-11 · 5 s first-chunk deadline on surfaced streaming opens; no Try Again after a timeout or clo…
+Context: B-278 (runner call).
+Chose: 5 s first-chunk deadline on surfaced streaming opens; no Try Again after a timeout or closed access
+Why: P5
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-516 · 2026-10-11 · Markdown over 5 MB opens Raw only
+Context: B-278 (runner call).
+Chose: Markdown over 5 MB opens Raw only
+Why: P1
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-517 · 2026-10-11 · Fixture script macos/scripts/leo-preview-fixtures.sh added for verification
+Context: B-278 (runner call).
+Chose: Fixture script macos/scripts/leo-preview-fixtures.sh added for verification
+Why: test infrastructure
+Commit: 2d3e3bd9a, 391fa318f, 6d8271036, 4f94b0f49, c37656a84, 809539964, 73742165a, 9c0b258b6, 4990c5ddb, 9db0be99d, 7d40b7cd1, 3a8b6eef3, a08d5579d
+Veto: [ ]
+
+## D-518 · 2026-10-11 · B-288: writable subagent panes via a leo `--rw` attach flag
+Context: B-288 (owner answer, inbox 20261011T153805078481Z-191630ab).
+Chose: yes — add a leo `--rw` attach flag (default stays read-only) behind a feature flag; accept that two clients can type into one subagent. Unblock once the leo daemon ships it.
+Why: owner's call
+Commit: a3124af94, f49851a6b, e761f7315, e6a268490
+Veto: n/a (owner)
+
+## D-519 · 2026-10-11 · Detect `--rw` by probing `dispatch attach --help` for an indented flag line under "Flags:…
+Context: B-288 (runner call).
+Chose: Detect `--rw` by probing `dispatch attach --help` for an indented flag line under "Flags:"; any doubt (no line, non-zero exit, throw, timeout) means read-only
+Why: P2/P3
+Commit: a3124af94, f49851a6b, e761f7315, e6a268490
+Veto: [ ]
+
+## D-520 · 2026-10-11 · A read-write pane shows no badge; the fallback keeps today's read-only badge and copy
+Context: B-288 (runner call).
+Chose: A read-write pane shows no badge; the fallback keeps today's read-only badge and copy
+Why: P1/P2
+Commit: a3124af94, f49851a6b, e761f7315, e6a268490
+Veto: [ ]
+
+## D-521 · 2026-10-11 · Both definite probe answers are cached per host (local key = path + mtime, remote key = h…
+Context: B-288 (runner call).
+Chose: Both definite probe answers are cached per host (local key = path + mtime, remote key = host config); failed probes are never cached
+Why: P2
+Commit: a3124af94, f49851a6b, e761f7315, e6a268490
+Veto: [ ]
+
+## D-522 · 2026-10-11 · Workspace file-drop upload stays off for dispatches
+Context: B-288 (runner call).
+Chose: Workspace file-drop upload stays off for dispatches
+Why: P4
+Commit: a3124af94, f49851a6b, e761f7315, e6a268490
+Veto: [ ]
+
+## D-523 · 2026-10-11 · A dispatch attach waiting on the probe is dropped as superseded if a newer request replac…
+Context: B-288 (runner call).
+Chose: A dispatch attach waiting on the probe is dropped as superseded if a newer request replaced the window's content
+Why: review fix
+Commit: a3124af94, f49851a6b, e761f7315, e6a268490
+Veto: [ ]
+
+## D-524 · 2026-10-11 · `leoWatchingDispatch` is no longer `@Published` (nothing observed it); `leoDispatchReadOn…
+Context: B-288 (runner call).
+Chose: `leoWatchingDispatch` is no longer `@Published` (nothing observed it); `leoDispatchReadOnly` is the badge flag
+Why: simplification
+Commit: a3124af94, f49851a6b, e761f7315, e6a268490
+Veto: [ ]
+
+## D-525 · 2026-10-11 · A same-state needs_input revision bump never re-notifies and keeps an existing acknowledg…
+Context: B-268 (runner call).
+Chose: A same-state needs_input revision bump never re-notifies and keeps an existing acknowledgement, whatever the reason change
+Why: P2 calm
+Commit: a65a3d650, 67741f432
+Veto: [ ]
+
+## D-526 · 2026-10-11 · finished→finished at a newer revision keeps its current "new event" behaviour (out of sco…
+Context: B-268 (runner call).
+Chose: finished→finished at a newer revision keeps its current "new event" behaviour (out of scope)
+Why: P2
+Commit: a65a3d650, 67741f432
+Veto: [ ]
+
+## D-527 · 2026-10-11 · Missing-server marker is matched as an exact ASCII line on raw stderr bytes (optional sin…
+Context: B-269 (runner call).
+Chose: Missing-server marker is matched as an exact ASCII line on raw stderr bytes (optional single CR, truncated final segment never counts), where it was a substring match on the decoded text
+Why: D-422 / P5
+Commit: 3c0134fac
+Veto: [ ]
+
+## D-528 · 2026-10-11 · The selected-terminal reveal now runs after AppKit layout (new LeoListLayoutAnchor), in b…
+Context: B-149 (runner call).
+Chose: The selected-terminal reveal now runs after AppKit layout (new LeoListLayoutAnchor), in both directions; still one-shot, so refreshes never scroll (D-130)
+Why: P6.
+Commit: 72b2ac2ec, f82fb40a3, 66c0bd071
+Veto: [ ]
+
+## D-529 · 2026-10-11 · LeoRevealScheduler (.nextTurn default, .immediate for tests) is kept as a test seam throu…
+Context: B-149 (runner call).
+Chose: LeoRevealScheduler (.nextTurn default, .immediate for tests) is kept as a test seam through LeoSidebarView's init; only .immediate gives a 30/30 red
+Why: AUTONOMY test infrastructure.
+Commit: 72b2ac2ec, f82fb40a3, 66c0bd071
+Veto: [ ]
+
+## D-530 · 2026-10-11 · The reproduced cut-off is the list shrinking when agents go (connected→Loading/Failed/No …
+Context: B-149 (runner call).
+Chose: The reproduced cut-off is the list shrinking when agents go (connected→Loading/Failed/No Agents); Loading→connected can't cut the row off in current code, so the criterion is met by the shrink direction instead
+Why: P6, AUTONOMY bug fixes.
+Commit: 72b2ac2ec, f82fb40a3, 66c0bd071
+Veto: [ ]
+
+## D-531 · 2026-10-11 · `request` also schedules window.layoutIfNeeded() for the next turn; needsLayout alone lef…
+Context: B-149 (runner call).
+Chose: `request` also schedules window.layoutIfNeeded() for the next turn; needsLayout alone left the reveal waiting for a display pass that run-loop turns never reach
+Why: plan Risk 4.
+Commit: 72b2ac2ec, f82fb40a3, 66c0bd071
+Veto: [ ]
+
+## D-532 · 2026-10-11 · The agents-going direction needs no new test: B-149's aRowRevealedAtTheBottomStaysWhollyO…
+Context: B-150 (runner call).
+Chose: The agents-going direction needs no new test: B-149's aRowRevealedAtTheBottomStaysWhollyOnScreenWhenTheAgentsGo already covers listsAgents true→false (loading, failed, no agents)
+Why: P6, test infra agent-decided.
+Commit: d9613e1e5
+Veto: [ ]
+
+## D-533 · 2026-10-11 · The first-population signal is run-loop turn counting with a layout pass per turn, not a …
+Context: B-150 (runner call).
+Chose: The first-population signal is run-loop turn counting with a layout pass per turn, not a product hook; no seam added
+Why: B-099 turn-counting decision.
+Commit: d9613e1e5
+Veto: [ ]
+
+## D-534 · 2026-10-11 · LeoSidebarHeader is pinned with .frame(height: headerRowHeight) rather than renaming it t…
+Context: B-152 (runner call).
+Chose: LeoSidebarHeader is pinned with .frame(height: headerRowHeight) rather than renaming it to a minimum, keeping the header and side panes on one centre line; the .headline title is fixed-size on macOS, so 16 pt can't clip it
+Why: P1.
+Commit: 90ce52cf3
+Veto: [ ]
+
+## D-535 · 2026-10-11 · LeoSidebarHeaderPart gains a test-only `.row` probe case, in the style of the existing pa…
+Context: B-152 (runner call).
+Chose: LeoSidebarHeaderPart gains a test-only `.row` probe case, in the style of the existing parts
+Why: P1 / suite discipline.
+Commit: 90ce52cf3
+Veto: [ ]
+
+## D-536 · 2026-10-11 · In hidden style only, the side-pane close button gets an explicit header-row height (brow…
+Context: B-153 (runner call).
+Chose: In hidden style only, the side-pane close button gets an explicit header-row height (browser header row 21→26 pt) so its glyph centres on the sidebar header's line; the 10 pt inset and headerRowHeight 16 are unchanged
+Why: D-258, P1.
+Commit: c670650c9
+Veto: [ ]

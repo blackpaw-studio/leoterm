@@ -308,6 +308,20 @@ struct LeoSFTPTransportTests {
         await access.close()
     }
 
+    @Test func aMissingServerMarkerIsStillRecognizedAmongInvalidUTF8Stderr() async throws {
+        let launcher = LeoCountingSFTPLauncher(
+            LeoSFTPTestServer.script("printf '\\377\\376 junk\\n' >&2; echo 'leo: no supported sftp-server found' >&2; exit 127")
+        )
+        let access = LeoFileAccessor.sftp(launcher: launcher)
+
+        let expected = LeoFileAccessError.unavailable(
+            reason: "no supported SFTP server was found on the host (status 127). Install the host’s OpenSSH server package, then try again"
+        )
+        await #expect(throws: expected) { try await access.list("/") }
+        #expect(launcher.launches == 1)
+        await access.close()
+    }
+
     @Test func anSSHSetupFailureIsStillDisconnected() async throws {
         let launcher = LeoCountingSFTPLauncher(LeoSFTPTestServer.script("echo 'control master is gone' >&2; exit 255"))
         let access = LeoFileAccessor.sftp(launcher: launcher)

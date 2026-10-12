@@ -181,7 +181,7 @@ import Testing
         let host = FakeAttachContentHost()
         let remoteIdentity = LeoAgentIdentity(host: .remote("work"), name: "worker")
         var builtFor: LeoAgentIdentity?
-        let coordinator = makeCoordinator(host: host, remoteCommandBuilder: { identity in
+        let coordinator = makeCoordinator(host: host, remoteCommandBuilder: { identity, _ in
             builtFor = identity
             return "env -u TMUX -u TMUX_PANE ssh -t 'work' 'leo agent attach -- worker'"
         })
@@ -199,7 +199,7 @@ import Testing
         let coordinator = makeCoordinator(
             host: host,
             report: { reported = $0 },
-            remoteCommandBuilder: { _ in throw LeoDaemonError.hostUnavailable("Remote host work is not configured") }
+            remoteCommandBuilder: { _, _ in throw LeoDaemonError.hostUnavailable("Remote host work is not configured") }
         )
 
         await coordinator.attach(identity: remoteIdentity, from: origin, disposition: .content)
@@ -545,7 +545,7 @@ import Testing
     private func makeCoordinator(
         host: FakeAttachContentHost,
         report: @escaping (LeoAttachError) -> Void = { _ in },
-        remoteCommandBuilder: @escaping (LeoAgentIdentity) throws -> String = { _ in
+        remoteCommandBuilder: @escaping (LeoAgentIdentity, LeoDispatchAccess) throws -> String = { _, _ in
             throw LeoDaemonError.hostUnavailable("Remote attach is not configured")
         },
         focusedIdentityChanged: @escaping (LeoAgentIdentity?) -> Void = { _ in },

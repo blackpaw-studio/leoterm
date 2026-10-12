@@ -1,3 +1,4 @@
+import AVKit
 import AppKit
 import SwiftUI
 import Testing
@@ -989,4 +990,104 @@ struct LeoSplitViewRepresentableTests {
         }
     }
 }
+}
+
+extension LeoAppEventQueueTests.LeoSplitViewRepresentableTests {
+    /// B-278: a movie in the editor pane never takes the terminal's width.
+    /// AVKit's inline controls (installed on hover) ask for 750 pt at
+    /// priority 499; they squeezed the terminal to ~40 pt in 800 pt.
+    @Test(.timeLimit(.minutes(1)))
+    func aMoviePreviewKeepsThePanesWidths() async throws {
+        try await expectPreviewKeepsThePanesWidths(named: "clip.mp4") { url in
+            try await LeoTestMovie.write(to: url)
+        } until: { view in
+            guard let movie = view as? LeoMoviePreviewView,
+                  movie.player?.currentItem?.status == .readyToPlay else { return false }
+            Self.hover(over: movie)
+            return Self.descendants(of: movie).contains { "\(type(of: $0))" == "AVMovableView" }
+        }
+    }
+
+    /// The other previews don't size the split either.
+    @Test(.timeLimit(.minutes(1)), arguments: ["shot.png", "doc.pdf", "archive.bin"])
+    func aPreviewKeepsThePanesWidths(name: String) async throws {
+        try await expectPreviewKeepsThePanesWidths(named: name) { url in
+            try Self.previewFixture(named: name).write(to: url)
+        } until: { view in
+            switch name {
+            case "shot.png": view is LeoImagePreviewView
+            case "doc.pdf": view is LeoQuickLookPreviewView
+            default: view is LeoUnavailablePreviewView
+            }
+        }
+    }
+
+    private func expectPreviewKeepsThePanesWidths(
+        named name: String,
+        write: (URL) async throws -> Void,
+        until isInstalled: (NSView) -> Bool
+    ) async throws {
+        let sandbox = try LeoFileSandbox()
+        defer { sandbox.cleanUp() }
+        let path = sandbox.path(name)
+        try await write(URL(fileURLWithPath: path))
+        let editor = Self.makeEditor()
+        let harness = Harness(windowWidth: 800, isSidebarVisible: false, editor: editor)
+        defer { harness.close() }
+        try await editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
+        for _ in 0..<3 { await harness.settle() }
+        let terminalWidth = harness.terminalWidth
+        #expect(terminalWidth > 300)
+
+        try await editor.open(LeoEditorFileID(host: .local, path: path))
+        await editor.document?.settlePreview()
+        let pane = try #require(harness.editorItem?.viewController as? LeoRowPaneContainerViewController)
+        let tabs = try #require(pane.activeChild as? LeoEditorTabsViewController)
+        var installed = false
+        for _ in 0..<300 where !installed {
+            await harness.settle()
+            installed = tabs.shown?.contentHost.subviews.first.map(isInstalled) ?? false
+            if !installed { try await Task.sleep(for: .milliseconds(10)) }
+        }
+        for _ in 0..<5 { await harness.settle() }
+
+        #expect(installed, "\(name)'s preview never appeared")
+        #expect(abs(harness.terminalWidth - terminalWidth) <= 1, "terminal \(terminalWidth) → \(harness.terminalWidth)")
+        await editor.closeAll()
+    }
+
+    /// Moves the mouse over `view`, which brings up AVKit's controls.
+    private static func hover(over view: NSView) {
+        guard let window = view.window else { return }
+        let point = view.convert(NSPoint(x: view.bounds.midX, y: view.bounds.midY), to: nil)
+        guard let enter = NSEvent.enterExitEvent(with: .mouseEntered, location: point, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 0, trackingNumber: 0, userData: nil),
+              let move = NSEvent.mouseEvent(with: .mouseMoved, location: point, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 0, pressure: 0) else { return }
+        for tracking in descendants(of: view) where !tracking.trackingAreas.isEmpty {
+            tracking.mouseEntered(with: enter)
+            tracking.mouseMoved(with: move)
+        }
+    }
+
+    private static func descendants(of view: NSView) -> [NSView] {
+        [view] + view.subviews.flatMap(descendants)
+    }
+
+    private static func previewFixture(named name: String) throws -> Data {
+        let image = NSImage(size: NSSize(width: 640, height: 360), flipped: false) { rect in
+            NSColor.systemBlue.setFill()
+            rect.fill()
+            return true
+        }
+        switch name {
+        case "shot.png":
+            let bitmap = try #require(image.cgImage(forProposedRect: nil, context: nil, hints: nil).map(NSBitmapImageRep.init(cgImage:)))
+            return try #require(bitmap.representation(using: .png, properties: [:]))
+        case "doc.pdf":
+            let page = NSImageView(frame: NSRect(x: 0, y: 0, width: 612, height: 792))
+            page.image = image
+            return page.dataWithPDF(inside: page.bounds)
+        default:
+            return Data([0, 1, 2, 0xFF, 0, 0xFE] + Array(repeating: 0, count: 64))
+        }
+    }
 }

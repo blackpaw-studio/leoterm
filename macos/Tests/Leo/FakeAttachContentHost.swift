@@ -267,8 +267,8 @@ struct FakeOpenCall {
     func focus(_ handle: AttachmentHandle) { focused.append(handle) }
     func isOpen(_ handle: AttachmentHandle) -> Bool { openHandles.contains(handle) }
     func setAgentName(_ handle: AttachmentHandle, name: String) { agentNames.append((handle, name)) }
-    var watching: [AttachmentHandle] = []
-    func markWatchingDispatch(_ handle: AttachmentHandle) { watching.append(handle) }
+    var dispatchMarks: [(handle: AttachmentHandle, readOnly: Bool)] = []
+    func markDispatch(_ handle: AttachmentHandle, readOnly: Bool) { dispatchMarks.append((handle, readOnly)) }
     var exitReports: [AttachmentHandle: AttachExitReport] = [:]
     func exitReport(for handle: AttachmentHandle) -> AttachExitReport? { exitReports[handle] }
     /// Yields `event` without waiting for the coordinator to receive it --

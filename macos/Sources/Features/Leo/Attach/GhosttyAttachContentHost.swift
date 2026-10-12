@@ -735,8 +735,10 @@ import OSLog
         attachments[handle]?.surface?.leoAgentName = name
     }
 
-    func markWatchingDispatch(_ handle: AttachmentHandle) {
-        attachments[handle]?.surface?.leoWatchingDispatch = true
+    func markDispatch(_ handle: AttachmentHandle, readOnly: Bool) {
+        guard let surface = attachments[handle]?.surface else { return }
+        surface.leoWatchingDispatch = true
+        surface.leoDispatchReadOnly = readOnly
     }
 
     /// The exit code Ghostty reported, with the last line the process left

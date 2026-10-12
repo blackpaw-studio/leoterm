@@ -1,7 +1,9 @@
 import SwiftUI
 
-/// B-266: the small indicator on a dispatch's surface. The daemon attaches
-/// read-only (`tmux attach -r`), so typing does nothing; this says why.
+/// B-266: the small indicator on a dispatch's surface. A leo older than
+/// 0.47 only attaches read-only (`tmux attach -r`), so typing does nothing;
+/// this says why. B-288: a leo with `dispatch attach --rw` gets a writable
+/// pane and no badge.
 /// Quiet on purpose: caption text on a material capsule in the corner, no
 /// motion, no color (principle 2: only "needs you" earns attention).
 struct LeoDispatchWatchBadge: View {

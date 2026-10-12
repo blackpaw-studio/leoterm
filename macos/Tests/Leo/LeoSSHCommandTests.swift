@@ -47,6 +47,17 @@ struct LeoSSHCommandTests {
             == "'/opt/leo' agent attach -- 'worker'")
     }
 
+    @Test func aReadWriteRemoteDispatchAttachPassesRw() throws {
+        let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "build", remoteLeoPath: "/opt/leo"))
+        let readOnly = try command.attachShellCommand(dispatchID: "d-1")
+        #expect(readOnly == "env -u TMUX -u TMUX_PANE ssh -t 'build' " + (try leoShellQuote("'/opt/leo' dispatch attach 'd-1'")))
+        let readWrite = try command.attachShellCommand(dispatchID: "d-1", access: .readWrite)
+        #expect(readWrite == "env -u TMUX -u TMUX_PANE ssh -t 'build' " + (try leoShellQuote("'/opt/leo' dispatch attach --rw 'd-1'")))
+        #expect(throws: LeoAttachCommandError.invalidDispatchID) {
+            try command.attachShellCommand(dispatchID: "-x", access: .readWrite)
+        }
+    }
+
     @Test func remoteAttachWithPlacementQuotesHostileAgentNamesAtBothShellLayers() throws {
         let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "build", remoteLeoPath: "/opt/leo"))
         let placement = LeoDaemonFeatures(["attach_dispatch_placement"])

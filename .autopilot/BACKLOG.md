@@ -811,54 +811,90 @@ Source: Evan (in-session, 2026-10-10)
 Note: FINAL contract (leo, PR #251, 2026-10-10; unmerged — fixture-first). All responses use the {ok, data} envelope; errors {"ok":false,"error":"...","code":"..."}. Capability `agent_environments`. GET /api/v1/environments → data: [{"name":...}] sorted alphabetically (names only). GET /api/v1/templates → data: [{name, harness, model, environments:[...]}]; `environments` is [] when the template sets none (defaults.environments then applies — the effective list for a spawned agent comes from the daemon). Agents in GET /api/v1/state and `agent_spawned` events carry `environments` (effective ordered names), `environments_source` ("override"|"default"), `environment_error` (string|null, also on live agents; only checks for names deleted from config). POST /api/v1/agents/spawn (plural `agents`) takes `environments: [...]`. POST /api/v1/agents/{name}/environments with {"environments":[...]}; empty clears the override; restarts + resumes. Both POSTs are operator-token only (agent token → 403; show plainly). Errors 400: unknown_environment, invalid_environments, unknown_template, invalid_name, config_unavailable; 409: persistent_task, harness_mismatch; known gap: worktree spawn with unknown template returns 500 — show the message for any code. Events: set-environment emits `agent_state_changed` with environments (always, [] when cleared), environments_source, environment_error (always, explicit null when resolved); ordinary lifecycle `agent_state_changed` during the restart omits them — absent means UNCHANGED, never cleared (tested).
 Done: 4b00e6f6d dd546ac5d bc5915c15 dcd9e72e3 1f2d010f2 b21332672
 
-## B-278 · File pane previews images, GIFs, video, Markdown and PDFs   [ready]
+## B-287 · Ctrl+C doesn't stop the running process in terminals   [done]
+Issue: #275
+Type: bug
+Report: ctrl+c to stop the process in terminals doesnt work
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-10-10)
+Inbox: 20261010T223045852685Z-29c67160#1
+Done: a7af5783e fcca77097 db524cb88
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-287-1.png
+
+## B-288 · Subagent panes disable text and mouse/touch input   [done]
+Issue: #276
+Type: bug
+Report: we shouldnt disable text and mouse/touch input in subagents
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-10-10)
+Inbox: 20261010T224938538316Z-fae1243d#1
+Update (2026-10-11): leo v0.47.0 ships `leo dispatch attach --rw` (PR #264), meeting the condition in the owner's D-518 answer. Evan dropped the feature-flag gate: the flag itself is the opt-in and the default stays read-only. Older leo builds, and `--host` remotes older than 0.47.0, reject `--rw`, so the app must fall back to read-only cleanly. Typed input marks the run `steered`. The local leo on Dionysus is still 0.45.0: never upgrade, restart or update it during verification; prove the behaviour with tests against a fake CLI, and say plainly if it isn't visually verified.
+Done: a3124af94 f49851a6b e761f7315 e6a268490
+Verified: not visually verified — no safe scratch dispatch target (the debug app uses the real daemon); read-write proven by fake-CLI tests; local leo 0.45.0 untouched
+
+## B-278 · File pane previews images, GIFs, video, Markdown and PDFs   [done]
 Issue: #271
 Why: Surfaced or browsed media and docs render properly in the pane instead of as text or an error — P4 Everything through Leo, P3 Local = remote. Markdown renders natively (AttributedString + custom block layout); a sandboxed, non-networked WKWebView is allowed only as a logged fallback if native can't do tables/code blocks (P1).
 Accept: PNG/JPEG/HEIC/WebP/SVG render fit-to-pane with zoom to actual size and animated GIFs animate, local and over SFTP (tested); MP4/MOV/M4V play with native AVKit controls local and over SFTP (remote fetched to a temp cache first); Markdown opens rendered with a Rendered/Raw toggle (shortcut + menu item), Raw is the existing editable text view and edits show when switching back; PDFs and unknown binaries get a Quick Look preview or a plain "Can't preview <type>" state with Reveal/Download, never garbled text — screenshot of each from the isolated debug build
 Out: Image/video editing; a Markdown editor beyond today's raw text editor (no WYSIWYG or live side-by-side preview); audio; Office docs beyond Quick Look; streaming video over SFTP without downloading it first; raising the 20 MB text cap
 Source: Evan (/feature, 2026-10-10)
 Inbox: 20261010T162821667038Z-51a07466#1
+Done: 2d3e3bd9a 391fa318f 6d8271036 4f94b0f49 c37656a84 809539964 73742165a 9c0b258b6 4990c5ddb 9db0be99d 7d40b7cd1 3a8b6eef3 a08d5579d
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-278-1.png
 
-## B-148 · Sidebar list stays mounted in No Agents/Loading/Failed with terminals   [ready]
+## B-148 · Sidebar list stays mounted in No Agents/Loading/Failed with terminals   [done]
 Issue: #152
 Why: the onAppear remount race is still reachable in those states with terminals and a filter (LeoSidebarView.swift:216); keep the list mounted when terminal rows exist; fix the doc comments that say only the first list uses onAppear (LeoSidebarView.swift:214, LeoTerminalRowReveal.swift:12)
 Accept: the onAppear remount race is still reachable in those states with terminals and a filter (LeoSidebarView.swift:216); keep the list mounted when terminal rows exist; fix the doc comments that say only the first list uses onAppear (LeoSidebarView.swift:214, LeoTerminalRowReveal.swift:12)
 Source: autopilot polish (B-099)
+Done: fe8fafa9e
+Verified: not visually verified — GUI skipped: state only reachable via the real daemon; suite 2693 green
 
-## B-149 · Reveal the selected row after AppKit layout   [ready]
+## B-149 · Reveal the selected row after AppKit layout   [done]
 Issue: #153
 Why: Loading→connected leaves the row partly cut off ~7/60 (pre-existing); order the reveal after layout
 Accept: Loading→connected leaves the row partly cut off ~7/60 (pre-existing); order the reveal after layout
 Source: autopilot polish (B-099)
+Done: 72b2ac2ec f82fb40a3 66c0bd071
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-149-2.png (test aRowRevealedAtTheBottomStaysWhollyOnScreenWhenTheAgentsGo + window shots (section collapse); suite 2694/0 on b45451b9e)
 
-## B-150 · B-099 scroll test hardening   [ready]
+## B-150 · B-099 scroll test hardening   [done]
 Issue: #154
 Why: loading test: assert rect(ofRow:).intersects(visibleRect) with a minY == 0 precondition; test the agents-going listsAgents direction; replace settledTable's 3 s first-population poll with a signal
 Accept: loading test: assert rect(ofRow:).intersects(visibleRect) with a minY == 0 precondition; test the agents-going listsAgents direction; replace settledTable's 3 s first-population poll with a signal
 Source: autopilot polish (B-099)
+Done: d9613e1e5
+Verified: not visually verified — test-only diff (LeoSidebarTerminalScrollTests); suite 2694/0 on b7a0a923d, swiftlint clean
 
-## B-151 · B-100 pane layout test measures from the window top   [ready]
+## B-151 · B-100 pane layout test measures from the window top   [done]
 Issue: #155
 Why: assert the side-pane close glyph's midY is within 1 pt of topInset + headerRowHeight/2 below the window top; the B-074 sidebar bound (gap 9–16 pt) ties the panes to the window edge only indirectly
 Accept: assert the side-pane close glyph's midY is within 1 pt of topInset + headerRowHeight/2 below the window top; the B-074 sidebar bound (gap 9–16 pt) ties the panes to the window edge only indirectly
 Source: autopilot polish (B-100)
+Done: 25683e703
+Verified: not visually verified — test-only (+9 lines LeoSidePaneTitlebarStyleTests); perturbing the expected centre by 3 pt made both panes fail; suite 2694/0, swiftlint clean
 
-## B-152 · headerRowHeight is a minimum, not a height   [ready]
+## B-152 · headerRowHeight is a minimum, not a height   [done]
 Issue: #156
 Why: LeoSidebarHeader uses .frame(minHeight: headerRowHeight), so the sidebar row can grow and move its centre while the side panes stay at 18 pt; use .frame(height:) or rename it headerRowMinHeight
 Accept: LeoSidebarHeader uses .frame(minHeight: headerRowHeight), so the sidebar row can grow and move its centre while the side panes stay at 18 pt; use .frame(height:) or rename it headerRowMinHeight
 Source: autopilot polish (B-100)
+Done: 90ce52cf3
+Verified: not visually verified — headerRowHoldsItsHeightAroundATallAccessory red before, green after; suite 2696/0, swiftlint clean; no visual change expected
 
-## B-153 · Header centres differ by 1–1.5 px in hidden style   [ready]
+## B-153 · Header centres differ by 1–1.5 px in hidden style   [done]
 Issue: #157
 Why: B-100 shot: browser close ≈17, editor ≈18, sidebar + ≈18.5 px; align them exactly
 Accept: B-100 shot: browser close ≈17, editor ≈18, sidebar + ≈18.5 px; align them exactly
 Source: autopilot polish (B-100)
+Done: c670650c9
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-153-7.png (test at 0.5 pt from the window top (red 1.0 pt spread → 0); GUI 1x: +, browser close and editor close within 0.32 pt; suite 2696/0)
 
 ## B-154 · Titled styles: browser header close glyph tight under the titlebar   [ready]
 Issue: #158
 Why: B-100 verify: in titled styles the workspace-browser header's close glyph sits about 3 pt under the titlebar
 Accept: B-100 verify: in titled styles the workspace-browser header's close glyph sits about 3 pt under the titlebar
+Update (2026-10-11): run stopped mid-build; one unreviewed, unverified commit 719b7b14d is on autopilot-shelved/B-154 for reference. Next run starts it fresh.
 Source: autopilot polish (B-100)
 
 ## B-155 · LeoLaunchFocusTests #require message wording   [ready]
@@ -1965,19 +2001,23 @@ Source: autopilot polish (B-257)
 Note: the depth indent and ↳ glyph are low-contrast and subtle; a larger step or guide line would read better
 Source: autopilot polish (B-257)
 
-## B-268 · Same-state needs_input with a newer revision re-notifies   [ready]
+## B-268 · Same-state needs_input with a newer revision re-notifies   [done]
 Issue: #262
 Type: bug
 Report: Same-state needs_input with a newer revision re-notifies — leo 01be9b40 bumps the attention revision when outstanding subagent/dispatch counts change, so one prompt can notify again and bring back an acknowledged Dock count (acknowledged[agent] keeps the old revision, so a hook→bridge reason refinement can also restore it); violates principle 2 (calm)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-258)
+Done: a65a3d650 67741f432
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-268-1.png (fixture shot; bump/Dock/re-notify by tests only)
 
-## B-269 · Invalid UTF-8 SFTP stderr hides the missing-server message   [ready]
+## B-269 · Invalid UTF-8 SFTP stderr hides the missing-server message   [done]
 Issue: #263
 Type: bug
 Report: Invalid UTF-8 SFTP stderr hides the missing-server message — when server stderr isn't valid UTF-8, the displayed detail reads "<N bytes>" and the status-127 missing-server marker match is hidden, so the "no supported SFTP server" message is missed (VISION 5: failures shown plainly).
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-235)
+Done: 3c0134fac
+Verified: not visually verified — no autopilot-owned remote host; real-subprocess transport test + unit tests
 
 ## B-276 · Terminals section needs a manual scroll on a long sidebar   [idea]
 Note: the Terminals section sits at the very bottom of a long sidebar and needs a manual scroll to reach — navigation friction for plain-shell rows (P6)
@@ -1999,20 +2039,56 @@ Source: autopilot polish (B-232)
 Note: Workspace browser truncates long names in the middle ("b232-v…ma.txt") — hard to tell similar dropped files apart
 Source: autopilot polish (B-232)
 
-## B-284 · Agents ▸ New Agent… menu item opens no sheet   [ready (next run)]
+## B-284 · Agents ▸ New Agent… menu item opens no sheet   [done]
 Issue: #273
 Type: bug
 Report: Agents ▸ New Agent… opens no sheet (same `contentViewController` pattern at `TerminalController+Leo.swift:134`) — the menu path to New Agent does nothing (sidebar "+" works); P1
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-283)
+Done: a4f586bde
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-284-w515414.png
 
-## B-285 · Rename, Delete and Manage Hosts menu items may no-op on terminal windows   [ready (next run)]
+## B-285 · Rename, Delete and Manage Hosts menu items may no-op on terminal windows   [done]
 Issue: #274
 Type: bug
 Report: Rename, Delete and Manage Hosts in `LeoAgentMenuActions.swift` lines 39, 68, 74 use the same `contentViewController` pattern — likely silent no-ops on terminal windows (not checked in the app); P1
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-283)
+Done: d373c51d2 2c78afaa4
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-285-1.png (Manage Hosts; Rename/Delete by tests only)
 
 ## B-286 · Row-level action error clears after ~2 s   [idea]
 Note: a row-level `set` error clears after about 2 s (seen on the fixture; pre-existing action-error lifetime or fixture refresh, unconfirmed) — the daemon's message can vanish before it's read; P2
 Source: autopilot polish (B-283)
+
+## B-289 · Rendered/Raw toggle crowds the file pane header at ~800 px   [idea]
+Note: the header path/name truncates to "…" at narrower widths
+Source: autopilot polish (B-278)
+
+## B-290 · Rendered Markdown spacing around tables and nested lists   [idea]
+Note: no visible gap between a table and a following code block, or before a nested list/table
+Source: autopilot polish (B-278)
+
+## B-291 · Can't Preview offers Download for remote files but it is untested live   [idea]
+Note: only Show in Finder was exercised in the GUI; remote Download path is test-only (P3)
+Source: autopilot polish (B-278)
+
+## B-292 · Rendered Markdown hard line breaks show as a space   [idea]
+Note: fidelity: two-space/backslash line breaks render as a space
+Source: autopilot polish (B-278)
+
+## B-293 · Check the state view's layout when an empty sidebar list sits under it   [idea]
+Note: In Loading/Failed/No Agents with a filter hiding terminals, B-148 keeps an empty list mounted under the state view; nobody checked whether it shifts the state view's layout (P6: sidebar renders predictably).
+Source: autopilot polish (B-148)
+
+## B-294 · Terminals-section exit may cut the selected row off the same way   [idea]
+Note: LeoTerminalsSectionExit.settle reveals on a next-turn hop rather than after AppKit layout, the pattern B-149 fixed; the B-081 landing could leave the selected row clipped (P6).
+Source: autopilot polish (B-149)
+
+## B-295 · Disconnected banner and panel error can clip the selected bottom row   [idea]
+Note: the disconnected banner and panelError shrink the sidebar list with no reveal trigger, so a selected bottom row can end up partly clipped (P6).
+Source: autopilot polish (B-149)
+
+## B-296 · Two sidebar test suites still poll first population with Task.sleep   [idea]
+Note: settledTable in LeoSidebarRowSpacingTests and LeoSidebarCommandClickTests, and HeaderProbe.settledHeader in LeoSidePaneTitlebarStyleTests (B-153 review), still poll with Task.sleep; B-150 replaced the same poll in the scroll tests with run-loop turn counting (B-099 turn-counting decision).
+Source: autopilot polish (B-150)

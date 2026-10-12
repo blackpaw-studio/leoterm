@@ -37,6 +37,20 @@ enum LeoFileExport {
         access: any LeoFileAccess,
         beforeWrite: @escaping @Sendable (UInt64) async throws -> Void = { _ in }
     ) async throws -> URL {
+        try await fetch(remotePath: remotePath, to: destination, access: access, beforeWrite: beforeWrite).url
+    }
+
+    /// `download`, also returning the `stat` taken before reading: the
+    /// version of the bytes written (B-278's preview conflict base). More
+    /// than `maxBytes` streamed -- the file grew after its stat -- fails
+    /// with `.tooLarge`, leaving nothing.
+    static func fetch(
+        remotePath: String,
+        to destination: URL,
+        access: any LeoFileAccess,
+        maxBytes: UInt64 = .max,
+        beforeWrite: @escaping @Sendable (UInt64) async throws -> Void = { _ in }
+    ) async throws -> (url: URL, stat: LeoFileStat) {
         let name = destination.lastPathComponent
         let folderURL = destination.deletingLastPathComponent()
         let folderPath = folderURL.path(percentEncoded: false)
@@ -49,11 +63,12 @@ enum LeoFileExport {
         let staging = try folder.createStaging(for: name)
         do {
             let sink = LeoFileDescriptorSink(descriptor: staging.descriptor, path: shownPath)
-            try await access.read(remotePath, into: HookedSink(base: sink, beforeWrite: beforeWrite))
+            let hooked = HookedSink(base: sink, path: remotePath, maxBytes: maxBytes, beforeWrite: beforeWrite)
+            let stat = try await access.read(remotePath, into: hooked)
             try sink.finish(permissions: permissions)
             try Task.checkCancellation()
             let published = try folder.publish(staging.name, as: name)
-            return folderURL.appendingPathComponent(published, isDirectory: false)
+            return (folderURL.appendingPathComponent(published, isDirectory: false), stat)
         } catch {
             folder.remove(staging.name)
             throw error
@@ -78,7 +93,7 @@ enum LeoFileExport {
         return "\((name as NSString).deletingPathExtension) \(number).\(pathExtension)"
     }
 
-    private static func requireRegularFile(_ stat: LeoFileStat, path: String) throws {
+    static func requireRegularFile(_ stat: LeoFileStat, path: String) throws {
         switch stat.kind {
         case .file: return
         case .directory: throw LeoFileAccessError.isADirectory(path: path)
@@ -88,9 +103,13 @@ enum LeoFileExport {
 
     private struct HookedSink: LeoFileByteSink {
         let base: any LeoFileByteSink
+        let path: String
+        let maxBytes: UInt64
         let beforeWrite: @Sendable (UInt64) async throws -> Void
 
         func write(_ data: Data, at offset: UInt64) async throws {
+            let (end, overflow) = offset.addingReportingOverflow(UInt64(data.count))
+            guard !overflow, end <= maxBytes else { throw LeoFileAccessError.tooLarge(path: path, size: end, limit: maxBytes) }
             try await beforeWrite(offset)
             try await base.write(data, at: offset)
         }

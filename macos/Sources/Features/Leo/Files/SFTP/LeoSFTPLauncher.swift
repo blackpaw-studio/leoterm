@@ -114,8 +114,7 @@ struct LeoSFTPProcessLauncher: LeoSFTPLaunching {
                 if !beforeHandshake, observation.status == 0, observation.detail.isEmpty {
                     return .disconnected
                 }
-                if beforeHandshake, observation.status == 127,
-                   observation.detail.contains(LeoSSHCommand.missingSFTPServerMarker) {
+                if beforeHandshake, observation.status == 127, observation.isMissingServer {
                     return .unavailable(
                         reason: "no supported SFTP server was found on the host (status 127). Install the host’s OpenSSH server package, then try again"
                     )
@@ -144,6 +143,7 @@ private final class LeoSFTPProcessMonitor: @unchecked Sendable {
         let reason: Process.TerminationReason
         let detail: String
         let isSubsystemRejection: Bool
+        let isMissingServer: Bool
     }
 
     private let handle: FileHandle
@@ -212,7 +212,8 @@ private final class LeoSFTPProcessMonitor: @unchecked Sendable {
             status: result.outcome.status,
             reason: result.outcome.reason,
             detail: detail,
-            isSubsystemRejection: isSubsystemRejection
+            isSubsystemRejection: isSubsystemRejection,
+            isMissingServer: LeoSFTPMissingServer.isMarked(in: result.data, isTruncated: result.isTruncated)
         )
     }
 }

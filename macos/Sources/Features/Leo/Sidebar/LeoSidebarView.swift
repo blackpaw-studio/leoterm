@@ -89,6 +89,8 @@ struct LeoSidebarView: View {
     /// What the footer's buttons do: this window's File ▸ New Terminal and
     /// View ▸ Quick Terminal.
     private let buttonActions: LeoSidebarButtonActions
+    /// When the selected terminal row's reveal is armed (B-149).
+    private let revealScheduler: LeoRevealScheduler
     @ObservedObject private var hostSelection: LeoHostSelection
     @State private var showingSpawn = false
     /// The row a "New Agent in Worktree…" sheet branches from (B-176).
@@ -104,7 +106,8 @@ struct LeoSidebarView: View {
         terminals: LeoWindowTerminals,
         searchFocusRequest: Int = 0,
         shortcutHints: LeoShortcutHints? = nil,
-        buttonActions: LeoSidebarButtonActions = .none
+        buttonActions: LeoSidebarButtonActions = .none,
+        revealScheduler: LeoRevealScheduler = .nextTurn
     ) {
         self.model = model
         self.windowID = windowID
@@ -113,6 +116,7 @@ struct LeoSidebarView: View {
         self.searchFocusRequest = searchFocusRequest
         _shortcutHints = ObservedObject(wrappedValue: shortcutHints ?? LeoShortcutHints())
         self.buttonActions = buttonActions
+        self.revealScheduler = revealScheduler
         _hostSelection = ObservedObject(wrappedValue: actions.hostSelection)
     }
 
@@ -214,15 +218,17 @@ struct LeoSidebarView: View {
     /// Terminals section: the shells don't need the daemon, so they show
     /// whatever state the agents are in.
     ///
-    /// One list, in one place, whatever it shows (B-099): a filter that
-    /// matches nothing empties it under "No matches" rather than replacing
-    /// it, and the agents arriving fill the list the Terminals were in. So
-    /// the list's reveal of the selected terminal row (B-067) follows the
-    /// list's own changes, never a new list's first appearance, which can
-    /// come before AppKit has built its table.
+    /// One list, in one place, whatever it shows (B-099, B-148): a filter
+    /// that matches nothing empties it under "No matches" rather than
+    /// replacing it, the filter hiding the Terminals section leaves it
+    /// mounted (empty, in Loading, Failed or No Agents) while the window
+    /// has terminals, and the agents arriving fill the list the Terminals
+    /// were in. So the list's reveal of the selected terminal row (B-067)
+    /// follows the list's own changes, never a new list's first
+    /// appearance, which can come before AppKit has built its table.
     @ViewBuilder private var content: some View {
         if !listsAgents { agentState }
-        if listsAgents || showsTerminals {
+        if listsAgents || hasTerminals {
             sidebarList(agentSections: listsAgents ? model.sections : [], agentsInert: listsAgents && model.isDisconnected)
                 .overlay {
                     if listsAgents && model.showsNoMatches {
@@ -241,10 +247,14 @@ struct LeoSidebarView: View {
         }
     }
 
+    /// Whether the window has shells: while it does, the list stays
+    /// mounted, whatever the filter or the agents are doing (B-148).
+    private var hasTerminals: Bool { !terminals.rows.isEmpty }
+
     /// The Terminals section hides when the window has no shells, and
     /// while the filter (which searches agents) has text.
     private var showsTerminals: Bool {
-        !terminals.rows.isEmpty && !LeoSidebarLayout.isFiltering(model.query)
+        hasTerminals && !LeoSidebarLayout.isFiltering(model.query)
     }
 
     @ViewBuilder private var agentState: some View {
@@ -309,7 +319,9 @@ struct LeoSidebarView: View {
             }
             .listStyle(.sidebar)
             .environment(\.sidebarRowSize, LeoDispatchRowMetrics.sidebarRowSize)
-            .leoRevealsTerminalRow(terminals.selection, isListed: showsTerminals, listsAgents: listsAgents, proxy: proxy)
+            .leoRevealsTerminalRow(
+                terminals.selection, isListed: showsTerminals, listsAgents: listsAgents, scheduler: revealScheduler, proxy: proxy
+            )
             .leoLandsWhenTerminalsClose(
                 // Its header's row and each terminal row `terminalSection` lists.
                 sectionRows: showsTerminals ? terminals.list.labels.count + 1 : 0,
@@ -323,17 +335,16 @@ struct LeoSidebarView: View {
             // A key equivalent, so it sees Return before the search
             // field does; there Return means the top match instead.
             // Both are a click on a row (B-049): the top match, or the
-            // selection. Arrow keys only move the selection.
-            Button("") {
+            // selection. Arrow keys only move the selection. Matched
+            // by key, so ⌃C stays the terminal's (B-287).
+            LeoSidebarReturnKey(isEnabled: LeoSidebarSelection.canActivate(model: model, terminals: terminals)) {
                 if searchField.hasFocus {
                     model.searchSubmit(from: windowID)
                 } else {
                     LeoSidebarSelection.activate(model: model, terminals: terminals, from: windowID)
                 }
             }
-            .keyboardShortcut(.return, modifiers: [])
-            .opacity(0)
-            .disabled(!LeoSidebarSelection.canActivate(model: model, terminals: terminals))
+            .frame(width: 0, height: 0)
             .accessibilityHidden(true)
         }
     }

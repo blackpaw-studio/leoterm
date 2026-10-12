@@ -44,10 +44,11 @@ enum LeoAttachCommandError: Error, Equatable, Sendable {
 
 enum LeoAttachCommand {
     static func build(
-        executable: String, identity: LeoAgentIdentity, features: LeoDaemonFeatures = .none
+        executable: String, identity: LeoAgentIdentity, features: LeoDaemonFeatures = .none,
+        dispatchAccess: LeoDispatchAccess = .readOnly
     ) throws -> String {
         if let dispatchID = identity.dispatchID {
-            return try buildDispatch(executable: executable, host: identity.host, dispatchID: dispatchID)
+            return try buildDispatch(executable: executable, host: identity.host, dispatchID: dispatchID, access: dispatchAccess)
         }
         guard !identity.name.contains(where: { $0 == "\0" || $0 == "\n" || $0 == "\r" }) else {
             throw LeoAttachCommandError.invalidAgentName
@@ -62,10 +63,13 @@ enum LeoAttachCommand {
         return parts.joined(separator: " ")
     }
 
-    /// `leo [--host H] dispatch attach <id>`: attaches the TTY to the
-    /// dispatch's pane and exits when the dispatch closes (B-266). An id
-    /// that could read as a flag, or break the line, is refused.
-    static func buildDispatch(executable: String, host: LeoHostID, dispatchID: String) throws -> String {
+    /// `leo [--host H] dispatch attach [--rw] <id>`: attaches the TTY to the
+    /// dispatch's pane and exits when the dispatch closes (B-266). `--rw`
+    /// (B-288) only for a leo that has it. An id that could read as a flag,
+    /// or break the line, is refused.
+    static func buildDispatch(
+        executable: String, host: LeoHostID, dispatchID: String, access: LeoDispatchAccess = .readOnly
+    ) throws -> String {
         guard !dispatchID.isEmpty, !dispatchID.hasPrefix("-"),
               !dispatchID.contains(where: { $0 == "\0" || $0 == "\n" || $0 == "\r" }) else {
             throw LeoAttachCommandError.invalidDispatchID
@@ -74,7 +78,7 @@ enum LeoAttachCommand {
         if case .remote(let name) = host {
             parts += ["--host", try leoShellQuote(name)]
         }
-        parts += ["dispatch", "attach", try leoShellQuote(dispatchID)]
+        parts += ["dispatch", "attach"] + access.attachArguments + [try leoShellQuote(dispatchID)]
         return parts.joined(separator: " ")
     }
 

@@ -121,12 +121,16 @@ struct LeoEditorDocumentTests {
     }
 
     @Test(arguments: LeoFileBackendKind.allCases)
-    func binaryFilesOpenReadOnly(_ kind: LeoFileBackendKind) async throws {
+    func binaryFilesOpenAsCantPreview(_ kind: LeoFileBackendKind) async throws {
         try await withLeoFileSandbox(kind) { sandbox, access in
             let path = sandbox.path("blob.bin")
             try Data([0x7F, 0x45, 0x00, 0x01]).write(to: URL(fileURLWithPath: path))
 
-            #expect(try await open(path, access).readOnlyReason == .binary)
+            // B-278: never shown as garbled text.
+            let document = try await open(path, access)
+            #expect(document.readOnlyReason == .binary)
+            #expect(document.text.isEmpty)
+            #expect(document.isPreview)
         }
     }
 

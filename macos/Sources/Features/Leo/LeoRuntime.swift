@@ -154,21 +154,29 @@ import LeoKit
             }
         )
         self.hostSelection = hostSelection
+        let resolveExecutable = {
+            let override = defaults.string(forKey: "leo.executablePath")
+            return try LeoCLI(executableOverride: override, runner: cli.runner).resolveExecutable()
+        }
+        let dispatchAccessProbe = LeoDispatchAccessProbe(
+            runner: hostSelectionRunner,
+            executable: resolveExecutable,
+            sshExecutable: hostSelectionSSHExecutable.path,
+            hosts: { [weak hostSelection] in hostSelection?.hosts ?? [] }
+        )
         attachCoordinator = LeoAttachCoordinator(
             host: host,
-            executable: {
-                let override = defaults.string(forKey: "leo.executablePath")
-                return try LeoCLI(executableOverride: override, runner: cli.runner).resolveExecutable()
-            },
-            remoteCommandBuilder: { [weak hostSelection, weak model] identity in
+            executable: resolveExecutable,
+            remoteCommandBuilder: { [weak hostSelection, weak model] identity, access in
                 guard case .remote(let name) = identity.host,
                       let configuration = hostSelection?.hosts.first(where: { $0.name == name }) else {
                     throw LeoDaemonError.hostUnavailable("Remote host \(identity.host.displayName) is not configured")
                 }
                 let command = LeoSSHCommand(configuration: configuration)
-                if let dispatchID = identity.dispatchID { return try command.attachShellCommand(dispatchID: dispatchID) }
+                if let dispatchID = identity.dispatchID { return try command.attachShellCommand(dispatchID: dispatchID, access: access) }
                 return try command.attachShellCommand(agent: identity.name, features: (model?.hostFeatures ?? .none).applying(to: identity.host))
             },
+            dispatchAccess: { host in await dispatchAccessProbe.access(for: host) },
             daemonFeatures: { [weak model] host in
                 (model?.hostFeatures ?? .none).applying(to: host)
             },
