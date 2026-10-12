@@ -8,11 +8,11 @@ import Testing
 extension LeoChatMessage {
     static func make(
         _ id: String, _ text: String = "", agent: String = "zeus", direction: Direction = .outbound, kind: Kind = .text, task: String? = nil,
-        second: Int = 0, state: String? = nil, answer: String? = nil, options: [LeoChatOption] = [], attachments: [LeoChatAttachment] = []
+        second: Int = 0, state: String? = nil, answer: LeoChatAnswer? = nil, input: LeoChatInput? = nil, attachments: [LeoChatAttachment] = []
     ) -> LeoChatMessage {
         LeoChatMessage(
             id: id, agent: agent, direction: direction, kind: kind, text: text, task: task, runID: task.map { _ in "r-1" },
-            state: state, answer: answer, ts: Date(timeIntervalSince1970: TimeInterval(1_000 + second)), attachments: attachments, options: options
+            state: state, answer: answer, ts: Date(timeIntervalSince1970: TimeInterval(1_000 + second)), attachments: attachments, input: input
         )
     }
 }
@@ -100,8 +100,8 @@ struct ChatThreadTests {
             }
         }
         await store.send(.resync) { $0.isLoading = true }
-        await store.send(.chatEvent(.updated(.make("01", kind: .ask, state: "answered", answer: "yes")))) {
-            $0.messages[id: "01"] = .make("01", kind: .ask, state: "answered", answer: "yes")
+        await store.send(.chatEvent(.updated(.make("01", kind: .ask, state: "answered", answer: .choice("yes"))))) {
+            $0.messages[id: "01"] = .make("01", kind: .ask, state: "answered", answer: .choice("yes"))
             $0.liveSinceFetch = ["01"]
         }
         gate.continuation.yield()
@@ -233,11 +233,11 @@ struct ChatThreadTests {
         }
     }
 
-    @Test func answeringAnAskRecordsTheDaemonsAnswer() async {
-        let ask = LeoChatMessage.make("01", "Deploy?", kind: .ask, state: "open", options: [LeoChatOption(value: "yes", label: "Yes")])
+    @Test func answeringAnAskRecordsTheDaemonsAnswer() async throws {
+        let ask = LeoChatMessage.make("01", "Deploy?", kind: .ask, state: "open", input: try LeoChatInput(kind: .buttons, options: [LeoChatOption(value: "yes", label: "Yes")]))
         var state = Self.state()
         state.messages = [ask]
-        let answered = LeoChatMessage.make("01", "Deploy?", kind: .ask, state: "answered", answer: "yes", options: ask.options)
+        let answered = LeoChatMessage.make("01", "Deploy?", kind: .ask, state: "answered", answer: .choice("yes"), input: ask.input)
         let store = TestStore(initialState: state) {
             ChatThread()
         } withDependencies: {
@@ -267,7 +267,7 @@ struct ChatThreadTests {
         await store.send(.answerTapped(messageID: "01", value: "deny")) { $0.answering = ["01"] }
         await store.receive(\.answerResponse) {
             $0.answering = []
-            $0.messages[id: "01"] = .make("01", kind: .permission, state: "answered", answer: "deny")
+            $0.messages[id: "01"] = .make("01", kind: .permission, state: "answered", answer: .choice("deny"))
         }
     }
 

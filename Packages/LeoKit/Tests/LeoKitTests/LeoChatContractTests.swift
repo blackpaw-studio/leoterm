@@ -11,18 +11,24 @@ struct LeoChatContractTests {
     /// A spec-shaped Message with every field set.
     static let messageJSON = #"""
     {"id":"01JB","agent":"zeus","direction":"out","kind":"ask","text":"Deploy now?","transcript":"deploy now",
-     "reply_to":"01JA","task":"wharf report","run_id":"run-7","state":"answered","answer":"yes",
+     "reply_to":"01JA","task":"wharf report","run_id":"run-7","state":"answered",
+     "answer":{"values":["yes","no"],"text":"both, carefully"},
+     "input":{"type":"checkboxes","options":[{"value":"yes","label":"Yes"},{"value":"no","label":"No"}],
+              "allow_text":true,"min":1,"max":2,"placeholder":"Anything else?"},
      "ts":"2026-10-12T18:00:00Z",
-     "attachments":[{"id":"att1","filename":"plan.pdf","mime":"application/pdf","bytes":2048}],
-     "options":[{"value":"yes","label":"Yes"},{"value":"no","label":"No"}]}
+     "attachments":[{"id":"att1","filename":"plan.pdf","mime":"application/pdf","bytes":2048}]}
     """#
 
     static let message = LeoChatMessage(
         id: "01JB", agent: "zeus", direction: .outbound, kind: .ask, text: "Deploy now?", transcript: "deploy now",
-        replyTo: "01JA", task: "wharf report", runID: "run-7", state: "answered", answer: "yes",
+        replyTo: "01JA", task: "wharf report", runID: "run-7", state: "answered",
+        answer: LeoChatAnswer(values: ["yes", "no"], text: "both, carefully"),
         ts: Date(timeIntervalSince1970: 1_791_828_000),
         attachments: [LeoChatAttachment(id: "att1", filename: "plan.pdf", mime: "application/pdf", bytes: 2048)],
-        options: [LeoChatOption(value: "yes", label: "Yes"), LeoChatOption(value: "no", label: "No")]
+        input: try? LeoChatInput(
+            kind: .checkboxes, options: [LeoChatOption(value: "yes", label: "Yes"), LeoChatOption(value: "no", label: "No")],
+            allowsText: true, min: 1, max: 2, placeholder: "Anything else?"
+        )
     )
 
     static func enveloped(_ data: String) -> [Int: String] {

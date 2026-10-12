@@ -78,7 +78,7 @@ public enum LeoChatNotificationActions {
     }
 
     private static var permissionButtons: [LeoChatNotificationCategory.Action] {
-        LeoChatOption.permissionChoices.map { .button(id: answerPrefix + $0.value, title: $0.label, isDestructive: $0.value == "deny") }
+        LeoChatInput.permission.options.map { .button(id: answerPrefix + $0.value, title: $0.label, isDestructive: $0.value == "deny") }
     }
 
     /// Categories are shared across agents, so the placeholder can't name one.

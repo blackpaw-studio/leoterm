@@ -148,8 +148,8 @@ struct LeoChatPaneModelTests {
 
     // MARK: Answers
 
-    @Test func answeringMergesTheDaemonsCopyOrMarksItLocally() async {
-        let ask = chatMessage("q", kind: .ask, state: "open", at: 1, options: [LeoChatOption(value: "y", label: "Yes")])
+    @Test func answeringMergesTheDaemonsCopyOrMarksItLocally() async throws {
+        let ask = chatMessage("q", kind: .ask, state: "open", at: 1, input: try LeoChatInput(kind: .buttons, options: [LeoChatOption(value: "y", label: "Yes")]))
         await client.enqueuePage([ask, chatMessage("p", kind: .permission, state: "open", at: 0)])
         await client.setAnswerResult(.success(chatMessage("q", kind: .ask, state: "answered", at: 1)))
         let model = make()
@@ -158,7 +158,7 @@ struct LeoChatPaneModelTests {
         await client.setAnswerResult(.success(nil))
         await model.answer(messageID: "p", value: "allow")
         #expect(model.timeline.messages.map(\.state) == ["answered", "answered"])
-        #expect(model.timeline.messages.first?.answer == "allow")
+        #expect(model.timeline.messages.first?.answer == .choice("allow"))
         #expect(model.answering.isEmpty)
         #expect(await client.answers.map(\.value) == ["y", "allow"])
     }

@@ -133,10 +133,10 @@ actor FakeChatClient: LeoChatClient {
 
 func chatMessage(
     _ id: String, agent: String = "alpha", direction: LeoChatMessage.Direction = .outbound, kind: LeoChatMessage.Kind = .text,
-    text: String = "hi", task: String? = nil, state: String? = nil, at seconds: Int, options: [LeoChatOption] = []
+    text: String = "hi", task: String? = nil, state: String? = nil, at seconds: Int, input: LeoChatInput? = nil
 ) -> LeoChatMessage {
     LeoChatMessage(
         id: id, agent: agent, direction: direction, kind: kind, text: text, task: task, state: state,
-        ts: Date(timeIntervalSince1970: TimeInterval(seconds)), options: options
+        ts: Date(timeIntervalSince1970: TimeInterval(seconds)), input: input
     )
 }

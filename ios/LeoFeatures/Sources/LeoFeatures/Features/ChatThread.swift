@@ -307,7 +307,7 @@ extension LeoChatMessage {
     func answered(_ value: String) -> LeoChatMessage {
         LeoChatMessage(
             id: id, agent: agent, direction: direction, kind: kind, text: text, transcript: transcript, replyTo: replyTo, task: task,
-            runID: runID, state: "answered", answer: value, ts: ts, attachments: attachments, options: options
+            runID: runID, state: "answered", answer: .choice(value), ts: ts, attachments: attachments, input: input
         )
     }
 }

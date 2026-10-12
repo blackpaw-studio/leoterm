@@ -1,13 +1,15 @@
 import Foundation
+import OSLog
 
 /// Leo Chat wire types (spec 2026-10-12-leo-chat). Field names are the
-/// daemon's snake_case; anything optional on the wire decodes leniently so
-/// one odd message never fails a whole page.
+/// daemon's snake_case; display fields decode leniently, but an `ask`
+/// without an `input`, or a malformed `input` or `answer`, fails the
+/// message: a question the app can't answer correctly must not show as
+/// one. Pages and thread lists drop (and log) messages that fail.
 ///
 /// A message: `{id, agent, direction: in|out, kind, text, transcript?,
-/// reply_to?, task?, run_id?, state?, answer?, ts, attachments?, options?}`.
-/// `ts` is RFC 3339 or Unix seconds/milliseconds; `options` are an `ask`'s
-/// choices (`[{value, label}]`).
+/// reply_to?, task?, run_id?, state?, answer?: {values, text}, input?,
+/// ts, attachments?}`. `ts` is RFC 3339 or Unix seconds/milliseconds.
 public struct LeoChatMessage: Codable, Equatable, Identifiable, Sendable {
     public enum Direction: String, Codable, Sendable {
         case inbound = "in"
@@ -36,15 +38,17 @@ public struct LeoChatMessage: Codable, Equatable, Identifiable, Sendable {
     /// Kind-specific: `pending|delivered|failed` for inbound messages,
     /// `open|answered|expired` for `ask` and `permission`.
     public let state: String?
-    public let answer: String?
+    public let answer: LeoChatAnswer?
     public let ts: Date
     public let attachments: [LeoChatAttachment]
-    public let options: [LeoChatOption]
+    /// How an `ask` is answered; a `permission` prompt's allow/deny buttons
+    /// (absent on rows from before leo #268: see `answerInput`).
+    public let input: LeoChatInput?
 
     public init(
         id: String, agent: String, direction: Direction, kind: Kind, text: String, transcript: String? = nil,
-        replyTo: String? = nil, task: String? = nil, runID: String? = nil, state: String? = nil, answer: String? = nil,
-        ts: Date, attachments: [LeoChatAttachment] = [], options: [LeoChatOption] = []
+        replyTo: String? = nil, task: String? = nil, runID: String? = nil, state: String? = nil, answer: LeoChatAnswer? = nil,
+        ts: Date, attachments: [LeoChatAttachment] = [], input: LeoChatInput? = nil
     ) {
         self.id = id
         self.agent = agent
@@ -59,11 +63,11 @@ public struct LeoChatMessage: Codable, Equatable, Identifiable, Sendable {
         self.answer = answer
         self.ts = ts
         self.attachments = attachments
-        self.options = options
+        self.input = input
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, agent, direction, kind, text, transcript, task, state, answer, ts, attachments, options
+        case id, agent, direction, kind, text, transcript, task, state, answer, ts, attachments, input
         case replyTo = "reply_to"
         case runID = "run_id"
     }
@@ -80,10 +84,13 @@ public struct LeoChatMessage: Codable, Equatable, Identifiable, Sendable {
         task = Self.nonEmpty(try? container.decodeIfPresent(String.self, forKey: .task))
         runID = Self.nonEmpty(try? container.decodeIfPresent(String.self, forKey: .runID))
         state = Self.nonEmpty(try? container.decodeIfPresent(String.self, forKey: .state))
-        answer = Self.nonEmpty(try? container.decodeIfPresent(String.self, forKey: .answer))
+        answer = try container.decodeIfPresent(LeoChatAnswer.self, forKey: .answer)
         ts = try container.decode(LeoChatTimestamp.self, forKey: .ts).date
         attachments = ((try? container.decodeIfPresent(LeoLenientArray<LeoChatAttachment>.self, forKey: .attachments)) ?? nil)?.elements ?? []
-        options = ((try? container.decodeIfPresent(LeoLenientArray<LeoChatOption>.self, forKey: .options)) ?? nil)?.elements ?? []
+        input = try container.decodeIfPresent(LeoChatInput.self, forKey: .input)
+        if kind == .ask, input == nil {
+            throw DecodingError.keyNotFound(CodingKeys.input, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "An ask needs an input"))
+        }
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -101,7 +108,7 @@ public struct LeoChatMessage: Codable, Equatable, Identifiable, Sendable {
         try container.encodeIfPresent(answer, forKey: .answer)
         try container.encode(ts.timeIntervalSince1970, forKey: .ts)
         try container.encode(attachments, forKey: .attachments)
-        try container.encode(options, forKey: .options)
+        try container.encodeIfPresent(input, forKey: .input)
     }
 
     private static func nonEmpty(_ value: String??) -> String? {
@@ -120,20 +127,17 @@ public struct LeoChatMessage: Codable, Equatable, Identifiable, Sendable {
         return text
     }
 
-    /// The choices to offer: an `ask`'s options; `permission` is always
-    /// allow or deny.
-    public var answerChoices: [LeoChatOption] {
-        switch kind {
-        case .ask: options
-        case .permission: LeoChatOption.permissionChoices
-        default: []
-        }
+    /// How this message is answered: its `input`, or allow/deny for a
+    /// `permission` row stored without one; nil for anything else.
+    public var answerInput: LeoChatInput? {
+        if let input { return input }
+        return kind == .permission ? .permission : nil
     }
 
-    /// The label of the recorded answer, when one of the choices has it.
+    /// The label of the recorded answer's first value.
     public var answerLabel: String? {
-        guard let answer else { return nil }
-        return answerChoices.first { $0.value == answer }?.label ?? answer
+        guard let value = answer?.values.first else { return answer?.text }
+        return answerInput?.label(of: value) ?? value
     }
 }
 
@@ -152,11 +156,6 @@ public struct LeoChatOption: Codable, Equatable, Hashable, Sendable {
         value = try container.decode(String.self, forKey: .value)
         label = (try? container.decodeIfPresent(String.self, forKey: .label)) ?? value
     }
-
-    public static let permissionChoices = [
-        LeoChatOption(value: "allow", label: String(localized: "Allow")),
-        LeoChatOption(value: "deny", label: String(localized: "Deny")),
-    ]
 }
 
 /// A stored attachment. `available` is false once the daemon pruned the
@@ -276,7 +275,8 @@ public enum LeoChatEvent: Equatable, Sendable {
     }
 }
 
-/// Decodes the elements it can and drops the rest.
+/// Decodes the elements it can and drops the rest, logging each drop: a
+/// dropped message is a contract mismatch worth finding.
 struct LeoLenientArray<Element: Decodable>: Decodable {
     let elements: [Element]
 
@@ -284,9 +284,12 @@ struct LeoLenientArray<Element: Decodable>: Decodable {
         var container = try decoder.unkeyedContainer()
         var elements: [Element] = []
         while !container.isAtEnd {
-            if let element = try? container.decode(Element.self) {
-                elements.append(element)
-            } else {
+            do {
+                elements.append(try container.decode(Element.self))
+            } catch {
+                LeoLog.logger(category: "chat").fault(
+                    "Dropped an undecodable \(String(describing: Element.self), privacy: .public): \(String(describing: error), privacy: .public)"
+                )
                 _ = try? container.decode(LeoSkipped.self)
             }
         }

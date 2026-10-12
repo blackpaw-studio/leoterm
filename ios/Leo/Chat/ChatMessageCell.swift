@@ -135,7 +135,7 @@ final class ChatMessageCell: UICollectionViewCell {
 
     private func addPromptControls(_ model: Model) {
         let message = model.message
-        let choices = message.answerChoices
+        let choices = message.answerInput?.options ?? []
         guard !choices.isEmpty else { return }
         if message.isOpen {
             let row = UIStackView()
