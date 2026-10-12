@@ -43,7 +43,9 @@ enum LeoTitlebarInsets {
     /// header row (`LeoSidebarChromeMetrics.headerRowHeight`) starting
     /// `inset` below the pane's top edge. The header's own controls are
     /// centred on one line, so the whole header follows; an empty first
-    /// row takes up the room above it.
+    /// row takes up the room above it. The control takes the row's (even)
+    /// height: an odd-height frame centred on a whole-point line snaps half
+    /// a point off where layout rounds to whole points (B-153).
     @MainActor
     static func insetHeader(of pane: NSStackView, at inset: CGFloat, centring control: NSView) {
         let spacer = NSView()
@@ -51,6 +53,7 @@ enum LeoTitlebarInsets {
         pane.insertArrangedSubview(spacer, at: 0)
         NSLayoutConstraint.activate([
             spacer.widthAnchor.constraint(equalTo: pane.widthAnchor),
+            control.heightAnchor.constraint(equalToConstant: LeoSidebarChromeMetrics.headerRowHeight),
             control.centerYAnchor.constraint(equalTo: pane.topAnchor, constant: inset + LeoSidebarChromeMetrics.headerRowHeight / 2),
         ])
     }
