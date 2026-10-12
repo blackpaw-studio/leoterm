@@ -12,12 +12,28 @@ enum LeoChatPresentation {
         text.count > collapsedCharacters || text.split(separator: "\n", omittingEmptySubsequences: false).count > collapsedLines
     }
 
+    /// The name used when neither a name nor its fallback leaves anything.
+    static let lastResortFilename = "file"
+
     /// A file name that stays inside the folder it is written to: the last
-    /// path component, without leading dots; `fallback` when nothing is left.
+    /// path component, trimmed, without leading dots. When nothing is left,
+    /// `fallback` sanitized the same way, then `lastResortFilename`.
     static func safeFilename(_ name: String, fallback: String) -> String {
+        sanitizedComponent(name) ?? sanitizedComponent(fallback) ?? lastResortFilename
+    }
+
+    private static func sanitizedComponent(_ name: String) -> String? {
         let last = name.split(whereSeparator: { $0 == "/" || $0 == "\\" || $0 == ":" }).last.map(String.init) ?? ""
-        let trimmed = String(last.drop { $0 == "." }).trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? fallback : trimmed
+        let undotted = String(last.trimmingCharacters(in: .whitespacesAndNewlines).drop { $0 == "." })
+        let trimmed = undotted.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    /// `url` when its standardized path lies strictly inside `folder`.
+    static func contained(_ url: URL, in folder: URL) -> URL? {
+        let root = folder.standardizedFileURL.path
+        let path = url.standardizedFileURL.path
+        return path.hasPrefix(root.hasSuffix("/") ? root : root + "/") ? url.standardizedFileURL : nil
     }
 
     static func mime(forFilename name: String) -> String {

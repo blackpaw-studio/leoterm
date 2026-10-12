@@ -180,11 +180,11 @@ struct LeoChatPaneModelTests {
         let model = make()
         await model.show(Self.alpha)
         model.setText("  hello  ")
-        try model.addFiles([try file("notes.txt")])
+        try model.addFiles([try file("notes.txt")], to: Self.alpha)
         let sending = Task { await model.send() }
         while await client.sent.isEmpty { await Task.yield() }
         model.setText("hello and more")
-        try model.addFiles([try file("later.txt")])
+        try model.addFiles([try file("later.txt")], to: Self.alpha)
         await client.releaseSend()
         await sending.value
         let sent = try #require(await client.sent.first)
@@ -201,7 +201,7 @@ struct LeoChatPaneModelTests {
         let model = make()
         await model.show(Self.alpha)
         model.setText("hello")
-        try model.addFiles([try file("a.txt")])
+        try model.addFiles([try file("a.txt")], to: Self.alpha)
         await model.send()
         #expect(model.draft(for: Self.alpha).text == "hello")
         #expect(model.draft(for: Self.alpha).files.count == 1)
@@ -257,9 +257,9 @@ struct LeoChatPaneModelTests {
         let model = make(maximumUploadBytes: 8)
         await model.show(Self.alpha)
         try FileManager.default.createDirectory(at: directory.appending(path: "folder"), withIntermediateDirectories: true)
-        #expect(throws: LeoChatFileError.self) { try model.addFiles([directory.appending(path: "folder")]) }
-        #expect(throws: LeoChatFileError.self) { try model.addFiles([try file("big.bin", bytes: 9)]) }
-        try model.addFiles([try file("small.bin", bytes: 8)])
+        #expect(throws: LeoChatFileError.self) { try model.addFiles([directory.appending(path: "folder")], to: Self.alpha) }
+        #expect(throws: LeoChatFileError.self) { try model.addFiles([try file("big.bin", bytes: 9)], to: Self.alpha) }
+        try model.addFiles([try file("small.bin", bytes: 8)], to: Self.alpha)
         #expect(model.draft(for: Self.alpha).files.map(\.filename) == ["small.bin"])
     }
 
@@ -336,6 +336,28 @@ struct LeoChatPaneModelTests {
         #expect(await client.downloadCount == 1)
     }
 
+    @Test func aHostileIdAndADotOnlyNameStillLandInsideTheFolder() async throws {
+        await client.setDownload("../../victim", .success(Data("x".utf8)))
+        let model = make()
+        await model.loadAttachment(LeoChatAttachment(id: "../../victim", filename: "..", mime: "text/plain", bytes: 1))
+        guard case .loaded(let url) = model.attachmentFiles["../../victim"] else {
+            Issue.record("expected a loaded file")
+            return
+        }
+        #expect(url.standardizedFileURL.path.hasPrefix(directory.standardizedFileURL.path + "/"))
+        #expect(url.lastPathComponent == "victim")
+    }
+
+    @Test func filesDroppedForOneAgentStayWithItAfterTheSelectionMoves() async throws {
+        let model = make()
+        await model.show(Self.alpha)
+        let dropped = try file("dropped.txt")
+        await model.show(Self.beta)
+        model.attach([dropped], to: Self.alpha)
+        #expect(model.draft(for: Self.alpha).files.map(\.filename) == ["dropped.txt"])
+        #expect(model.draft(for: Self.beta).files.isEmpty)
+    }
+
     @Test func aFailedDownloadCanBeRetried() async {
         await client.setDownload("f1", .failure(.init(message: "gone")))
         let model = make()
@@ -359,5 +381,17 @@ struct LeoChatPaneModelTests {
         #expect(LeoChatPresentation.safeFilename(".hidden", fallback: "f") == "hidden")
         #expect(LeoChatPresentation.safeFilename("", fallback: "f1") == "f1")
         #expect(LeoChatPresentation.safeFilename("..", fallback: "f1") == "f1")
+        #expect(LeoChatPresentation.safeFilename(" .. ", fallback: "f1") == "f1")
+        #expect(LeoChatPresentation.safeFilename(" . /. ", fallback: "f1") == "f1")
+        #expect(LeoChatPresentation.safeFilename("..", fallback: "../../victim") == "victim")
+        #expect(LeoChatPresentation.safeFilename("..", fallback: "..") == "file")
+    }
+
+    @Test func onlyPathsInsideTheFolderAreAccepted() {
+        let folder = URL(filePath: "/tmp/leo-chat")
+        #expect(LeoChatPresentation.contained(folder.appending(path: "a/b.txt"), in: folder) != nil)
+        #expect(LeoChatPresentation.contained(folder.appending(path: "../x"), in: folder) == nil)
+        #expect(LeoChatPresentation.contained(URL(filePath: "/tmp/leo-chat-other/x"), in: folder) == nil)
+        #expect(LeoChatPresentation.contained(folder, in: folder) == nil)
     }
 }

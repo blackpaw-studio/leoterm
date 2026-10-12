@@ -216,10 +216,16 @@ import LeoKit
         case .loading, .loaded: return
         case .failed, nil: break
         }
+        let folderName = LeoChatPresentation.safeFilename(attachment.id, fallback: "attachment")
+        let folder = attachmentDirectory.appending(path: folderName)
+        guard let url = LeoChatPresentation.contained(
+            folder.appending(path: LeoChatPresentation.safeFilename(attachment.filename, fallback: folderName)), in: attachmentDirectory
+        ) else {
+            attachmentFiles[attachment.id] = .failed("Refused an attachment name outside the download folder.")
+            return
+        }
         attachmentFiles[attachment.id] = .loading
         let client = client
-        let folder = attachmentDirectory.appending(path: LeoChatPresentation.safeFilename(attachment.id, fallback: "attachment"))
-        let url = folder.appending(path: LeoChatPresentation.safeFilename(attachment.filename, fallback: attachment.id))
         do {
             let data = try await client.download(attachmentID: attachment.id)
             try await Task.detached {
@@ -255,11 +261,11 @@ import LeoKit
         updateDraft(agent) { $0.replyTo = messageID }
     }
 
-    /// Attaches files to the shown agent's draft. Folders, unreadable files
-    /// and files over the upload cap are refused (the first refusal throws,
-    /// and nothing is attached).
-    func addFiles(_ urls: [URL]) throws {
-        guard let agent else { return }
+    /// Attaches files to `agent`'s draft: the agent the drop or picker
+    /// started for, even if the selection has moved since. Folders,
+    /// unreadable files and files over the upload cap are refused (the
+    /// first refusal throws, and nothing is attached).
+    func addFiles(_ urls: [URL], to agent: LeoAgentID) throws {
         let files = try urls.map(outgoingFile)
         guard !files.isEmpty else { return }
         notice = nil

@@ -60,3 +60,18 @@ struct LeoAgentControlAvailability: Equatable, Sendable {
         Self(isOffered: isOffered, canCompose: false, canSend: false, canInterrupt: false, canCompact: false, canClear: false, reason: reason)
     }
 }
+
+/// What the control bar's row holds for the selected row.
+enum LeoAgentControlBarContent: Equatable {
+    case none
+    case chatToggleOnly
+    case full
+
+    init(row: LeoAgentRow?, availability: LeoAgentControlAvailability) {
+        guard row != nil else {
+            self = .none
+            return
+        }
+        self = availability.isOffered ? .full : .chatToggleOnly
+    }
+}

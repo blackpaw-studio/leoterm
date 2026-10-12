@@ -123,9 +123,11 @@ struct LeoChatComposer: View {
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
         panel.prompt = "Attach"
+        // The picked files belong to the agent the panel opened for.
+        let target = agent
         let completion: (NSApplication.ModalResponse) -> Void = { response in
             guard response == .OK else { return }
-            chat.attach(panel.urls)
+            chat.attach(panel.urls, to: target)
         }
         if let window = NSApp.keyWindow {
             panel.beginSheetModal(for: window, completionHandler: completion)

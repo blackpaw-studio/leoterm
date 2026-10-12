@@ -108,10 +108,13 @@ struct LeoChatPane: View {
     private func drop(_ providers: [NSItemProvider]) -> Bool {
         let fileProviders = providers.filter { $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) }
         guard !fileProviders.isEmpty else { return false }
+        // The drop belongs to the agent shown now, even if the selection
+        // moves before the URLs arrive.
+        let agent = row.id
         for provider in fileProviders {
             _ = provider.loadObject(ofClass: URL.self) { url, _ in
                 guard let url else { return }
-                Task { @MainActor in chat.attach([url]) }
+                Task { @MainActor in chat.attach([url], to: agent) }
             }
         }
         return true
@@ -120,9 +123,9 @@ struct LeoChatPane: View {
 
 extension LeoChatPaneModel {
     /// Attaches from the UI: a refusal is shown as the pane's notice.
-    func attach(_ urls: [URL]) {
+    func attach(_ urls: [URL], to agent: LeoAgentID) {
         do {
-            try addFiles(urls)
+            try addFiles(urls, to: agent)
         } catch {
             showNotice(error.localizedDescription)
         }

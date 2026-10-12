@@ -25,3 +25,19 @@ import Testing
         #expect(LeoChatFeedSignal(.disconnected(reason: "gone")) == nil)
     }
 }
+
+/// The control bar's row: the full bar where the daemon offers control,
+/// just the chat toggle where it doesn't, nothing without an agent.
+@MainActor @Suite struct LeoAgentControlBarContentTests {
+    private static let row = LeoAgentRow(host: .local, name: "alpha", template: nil, status: .running, activity: .idle, actionDetail: nil)
+
+    private func availability(_ features: [String]) -> LeoAgentControlAvailability {
+        LeoAgentControlAvailability(row: Self.row, features: LeoDaemonFeatures(features), deniedHosts: [], inFlight: nil)
+    }
+
+    @Test func withoutControlOnlyTheChatToggleShows() {
+        #expect(LeoAgentControlBarContent(row: Self.row, availability: availability([])) == .chatToggleOnly)
+        #expect(LeoAgentControlBarContent(row: Self.row, availability: availability(["agent_control"])) == .full)
+        #expect(LeoAgentControlBarContent(row: nil, availability: availability(["agent_control"])) == .none)
+    }
+}

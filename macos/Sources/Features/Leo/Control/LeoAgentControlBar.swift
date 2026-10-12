@@ -35,12 +35,7 @@ struct LeoAgentControlBar: View {
             }
             symbolButton("eraser", "Clear", "Clear \(row.name)’s conversation… (⌃⇧⌘K)", availability.canClear, action: clear)
             Divider().frame(height: 18)
-            Button(action: toggleChat) {
-                Image(systemName: isChatVisible ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right").imageScale(.large)
-            }
-            .buttonStyle(.borderless)
-            .help(isChatVisible ? "Hide Chat" : "Show Chat with \(row.name)")
-            .accessibilityLabel(isChatVisible ? "Hide Chat" : "Show Chat")
+            LeoChatToggleButton(agentName: row.name, isChatVisible: isChatVisible, toggle: toggleChat)
         }
         .padding(.horizontal, 10)
         .frame(height: Self.height)
@@ -117,8 +112,8 @@ struct LeoAgentControlBar: View {
 }
 
 /// Observes what decides whether the bar shows and which row it targets,
-/// then hosts it. Nothing here when a shell row is selected, nothing is
-/// selected, or the daemon doesn't advertise control.
+/// then hosts it. Nothing here when a shell row is selected or nothing is
+/// selected; just the chat toggle when the daemon doesn't advertise control.
 struct LeoAgentControlBarHost: View {
     @ObservedObject var model: LeoSidebarModel
     @ObservedObject var control: LeoAgentControlModel
@@ -131,13 +126,51 @@ struct LeoAgentControlBarHost: View {
         let availability = LeoAgentControlAvailability(
             row: row, features: model.daemonFeatures, deniedHosts: control.deniedHosts, inFlight: row.flatMap { control.inFlight[$0.id] }
         )
-        if let row, availability.isOffered {
-            LeoAgentControlBar(
-                row: row, availability: availability, control: control, focusRequest: session.controlFocusRequest, handle: handle,
-                clear: { Task { await control.clear(row, in: handle.window) } },
-                isChatVisible: session.isChatVisible,
-                toggleChat: { session.setChatVisible(!session.isChatVisible) }
-            )
+        switch LeoAgentControlBarContent(row: row, availability: availability) {
+        case .none:
+            EmptyView()
+        case .chatToggleOnly:
+            // No agent control on this daemon: chat stays reachable.
+            if let row {
+                HStack {
+                    Spacer()
+                    LeoChatToggleButton(
+                        agentName: row.name, isChatVisible: session.isChatVisible,
+                        toggle: { session.setChatVisible(!session.isChatVisible) }
+                    )
+                }
+                .padding(.horizontal, 10)
+                .frame(height: LeoAgentControlBar.height)
+                .background(.bar)
+                .overlay(alignment: .top) { Divider() }
+            }
+        case .full:
+            if let row { fullBar(row, availability) }
         }
+    }
+
+    private func fullBar(_ row: LeoAgentRow, _ availability: LeoAgentControlAvailability) -> some View {
+        LeoAgentControlBar(
+            row: row, availability: availability, control: control, focusRequest: session.controlFocusRequest, handle: handle,
+            clear: { Task { await control.clear(row, in: handle.window) } },
+            isChatVisible: session.isChatVisible,
+            toggleChat: { session.setChatVisible(!session.isChatVisible) }
+        )
+    }
+}
+
+/// Shows or hides the chat pane for the selected agent.
+struct LeoChatToggleButton: View {
+    let agentName: String
+    let isChatVisible: Bool
+    let toggle: () -> Void
+
+    var body: some View {
+        Button(action: toggle) {
+            Image(systemName: isChatVisible ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right").imageScale(.large)
+        }
+        .buttonStyle(.borderless)
+        .help(isChatVisible ? "Hide Chat" : "Show Chat with \(agentName)")
+        .accessibilityLabel(isChatVisible ? "Hide Chat" : "Show Chat")
     }
 }
