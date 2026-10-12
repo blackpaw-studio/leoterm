@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-288: leo >= 0.47 attaches a dispatch writable with `--rw`. The app
 /// can't read a version off the CLI, so it looks for the flag in

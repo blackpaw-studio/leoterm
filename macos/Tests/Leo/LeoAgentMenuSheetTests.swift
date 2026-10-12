@@ -3,6 +3,7 @@ import GhosttyKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-285: Agents ▸ Rename…, Delete… and Manage Hosts… must open their sheets
 /// on a real terminal window. `TerminalController` sets `window.contentView`

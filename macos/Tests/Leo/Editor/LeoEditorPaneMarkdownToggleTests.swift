@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Rendered/Raw in a real pane (B-278): Markdown opens rendered; Raw is
 /// the editable text view, and what's typed there shows when switching

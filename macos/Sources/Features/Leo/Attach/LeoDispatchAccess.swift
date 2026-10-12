@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 import os
 
 /// B-288: whether the installed leo can attach to a dispatch subagent

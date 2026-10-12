@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import LeoKit
 
 /// One editor tab's view (B-273): header, inline banner, and content --
 /// the text view, or (B-278) rendered Markdown or a media/document preview

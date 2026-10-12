@@ -3,6 +3,7 @@ import SwiftUI
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-287: Return on the sidebar opens its selected row (B-049), and only
 /// Return does. ⌃C, ⌃M and ⌃J type the same characters as Enter, Return

@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// A preview's fetch generations (B-278): a fetch superseded by a newer
 /// one never lands, whatever order they finish in, and its folder goes.

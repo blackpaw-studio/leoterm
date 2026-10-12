@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The preview cache (B-278): media and documents stream through
 /// `LeoFileAccess` into a private folder of their own, which nothing but

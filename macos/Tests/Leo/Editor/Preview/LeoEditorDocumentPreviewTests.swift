@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Opening media, documents and binaries (B-278): fetched into the preview
 /// cache (never through the 20 MB text read), refetched when the disk

@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import LeoKit
 
 /// What the pane shows for a previewed file (B-278) while its bytes are
 /// fetched into `LeoFilePreviewCache`, and the fetch that gets them. Each

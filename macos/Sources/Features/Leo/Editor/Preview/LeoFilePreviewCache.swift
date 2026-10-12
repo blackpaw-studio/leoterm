@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import LeoKit
 
 /// One fetched preview: its private folder and the file in it, plus the
 /// `stat` taken before reading (the version the preview shows).

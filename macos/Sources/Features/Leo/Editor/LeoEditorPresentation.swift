@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// The view a tab's content row shows (B-278).
 enum LeoEditorPaneContent: Equatable {
