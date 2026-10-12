@@ -51,6 +51,7 @@ extension LeoSidebarFeed {
             connectionHost = host
             connectionGeneration = generation
             selectedHost = host
+            cancelBaselineRetry()
             eventTask?.cancel()
             refreshTask?.cancel()
             activityTask?.cancel()

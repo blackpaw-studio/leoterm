@@ -13,6 +13,7 @@ extension LeoSidebarFeed {
     func disconnect(reason: String) {
         guard running else { return }
         Self.logger.log("disconnect: reason=\(reason, privacy: .public)")
+        cancelBaselineRetry()
         eventTask?.cancel()
         eventTask = nil
         refreshTask?.cancel()

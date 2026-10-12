@@ -136,6 +136,9 @@ actor LeoSidebarFeed {
     /// connect failure. Survives a same-host Retry.
     var wasLive = false
     var pollingRequested = false
+    /// Quick retries while no list has ever landed -- see `LeoSidebarFeed+BaselineRetry.swift`.
+    var baselineRetryTask: Task<Void, Never>?
+    var baselineRetryAttempts = 0
     /// Bumped each time a refresh starts; lets a stale refresh whose
     /// cancellation lost a race recognize it no longer owns bookkeeping.
     private var currentRefreshToken = 0
@@ -169,6 +172,7 @@ actor LeoSidebarFeed {
 
     func stop() {
         running = false
+        cancelBaselineRetry()
         eventTask?.cancel()
         refreshTask?.cancel()
         activityTask?.cancel()
@@ -234,6 +238,7 @@ actor LeoSidebarFeed {
     func setPolling(_ pollable: Bool) {
         guard running else { return }
         pollingRequested = pollable
+        if !pollable { cancelBaselineRetry() }
         // Connecting, failed or disconnected: only recorded. `.connected`
         // (see `updateConnection`) starts polling from it; no timer may run
         // against an unavailable host.
@@ -381,6 +386,7 @@ actor LeoSidebarFeed {
             guard running, generation == snapshot.generation, token == currentRefreshToken else { return }
             snapshot = LeoSidebarReducers.applyListResult(snapshot, result: LeoSidebarReducers.mergeActivity(rows, activityByName: activityByName), generation: generation)
             wasLive = true
+            cancelBaselineRetry()
             retainAttention(for: rows, listedSince: membershipMark)
             recovering = false
             drainCoalescedActivity()
@@ -410,6 +416,7 @@ actor LeoSidebarFeed {
             }
             snapshot = LeoSidebarSnapshot(rows: snapshot.rows, connectivity: .failed(message: error.localizedDescription), generation: generation)
             emit()
+            scheduleBaselineRetry()
         }
     }
 
