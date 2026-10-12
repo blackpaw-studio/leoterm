@@ -271,7 +271,7 @@ extension LeoHTTPSTransport: LeoFileTransport {
 
     public func fetch(_ request: LeoFileRequest, timeout: TimeInterval) async throws -> LeoFileResponse {
         let urlRequest = try urlRequest(for: request, timeout: timeout)
-        let redirects = SameOriginRedirects(origin: endpoint.baseURL)
+        let redirects = SameOriginRedirects(origin: endpoint.baseURL, authorization: urlRequest.value(forHTTPHeaderField: "Authorization"))
         do {
             let (bytes, response) = try await session.bytes(for: urlRequest, delegate: redirects)
             try redirects.checkNoneRefused()

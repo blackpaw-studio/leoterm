@@ -16,7 +16,9 @@ public final class LeoURLSessionWebSocket: NSObject, LeoWebSocket, URLSessionWeb
 
     public init(request: URLRequest, session: URLSession = .shared) {
         task = session.webSocketTask(with: request)
-        redirects = SameOriginRedirects(origin: request.url ?? URL(fileURLWithPath: "/"))
+        redirects = SameOriginRedirects(
+            origin: request.url ?? URL(fileURLWithPath: "/"), authorization: request.value(forHTTPHeaderField: "Authorization")
+        )
         super.init()
         task.maximumMessageSize = Self.maximumMessageSize
         task.delegate = self

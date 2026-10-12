@@ -103,6 +103,46 @@ struct LeoHTTPSTransportTests {
         #expect(followed.value(forHTTPHeaderField: "CF-Access-Client-Secret") == "s3cret")
     }
 
+    @Test func aSameOriginRedirectKeepsTheBearerToken() async throws {
+        let recorder = StubURLProtocol.install { request in
+            request.url?.path == "/old" ? (302, Data(), ["Location": "/api/v1/state"]) : (200, Data(#"{"ok":true}"#.utf8), [:])
+        }
+        let response = try await Self.transport().send(LeoHTTPRequest(method: "GET", path: "/old"), timeout: 5)
+
+        #expect(response.status == 200)
+        let followed = try #require(recorder.requests.last)
+        #expect(followed.url?.path == "/api/v1/state")
+        #expect(followed.value(forHTTPHeaderField: "Authorization") == "Bearer tok")
+    }
+
+    @Test(arguments: [
+        ("https://leo.example.com/api/v1/state", true),
+        ("https://evil.example.net/steal", false),
+        ("http://leo.example.com/api/v1/state", false),
+        ("https://leo.example.com:8443/api/v1/state", false),
+    ])
+    func theBearerTokenOnlyFollowsARedirectWithinTheOrigin(target: String, isFollowed: Bool) async throws {
+        let origin = URL(string: "https://leo.example.com")!
+        let redirects = SameOriginRedirects(origin: origin, authorization: "Bearer tok")
+        let session = URLSession(configuration: .ephemeral)
+        let task = session.dataTask(with: origin)
+        defer { task.cancel() }
+        let response = HTTPURLResponse(url: origin, statusCode: 302, httpVersion: "HTTP/1.1", headerFields: ["Location": target])!
+
+        // What URLSession hands over: the redirect target without Authorization.
+        let followed = await withCheckedContinuation { continuation in
+            redirects.urlSession(session, task: task, willPerformHTTPRedirection: response, newRequest: URLRequest(url: URL(string: target)!)) {
+                continuation.resume(returning: $0)
+            }
+        }
+
+        if isFollowed {
+            #expect(followed?.value(forHTTPHeaderField: "Authorization") == "Bearer tok")
+        } else {
+            #expect(followed == nil)
+        }
+    }
+
     private static func transport(cfAccess: LeoCFAccessCredentials? = nil) -> LeoHTTPSTransport {
         LeoHTTPSTransport(
             endpoint: LeoRemoteEndpoint(baseURL: URL(string: "https://leo.example.com")!, token: "tok", cfAccess: cfAccess),

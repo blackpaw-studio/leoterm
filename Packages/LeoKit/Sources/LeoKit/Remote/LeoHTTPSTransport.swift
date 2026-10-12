@@ -73,7 +73,7 @@ public struct LeoHTTPSTransport: LeoWebTransport {
 
     public func send(_ request: LeoHTTPRequest, timeout: TimeInterval) async throws -> LeoHTTPResponse {
         let urlRequest = try urlRequest(for: request, timeout: timeout)
-        let redirects = SameOriginRedirects(origin: endpoint.baseURL)
+        let redirects = SameOriginRedirects(origin: endpoint.baseURL, authorization: urlRequest.value(forHTTPHeaderField: "Authorization"))
         do {
             let (data, response) = try await session.data(for: urlRequest, delegate: redirects)
             try redirects.checkNoneRefused()
@@ -96,7 +96,7 @@ public struct LeoHTTPSTransport: LeoWebTransport {
         return AsyncThrowingStream { continuation in
             let task = Task {
                 do {
-                    let redirects = SameOriginRedirects(origin: origin)
+                    let redirects = SameOriginRedirects(origin: origin, authorization: request.value(forHTTPHeaderField: "Authorization"))
                     let (bytes, response) = try await session.bytes(for: request, delegate: redirects)
                     try redirects.checkNoneRefused()
                     let status = (response as? HTTPURLResponse)?.statusCode ?? 0
@@ -133,15 +133,19 @@ public struct LeoHTTPSTransport: LeoWebTransport {
 }
 
 /// Per-task redirect policy: follows redirects within the daemon's origin
-/// (scheme, host and port) and refuses any other. URLSession strips only
-/// `Authorization` on a redirect; the CF Access headers would follow.
+/// (scheme, host and port) and refuses any other. URLSession strips
+/// `Authorization` on a redirect, so a followed one gets it back; the CF
+/// Access headers follow on their own.
 final class SameOriginRedirects: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
     private let origin: URL
+    /// The original request's `Authorization`, restored on a redirect.
+    private let authorization: String?
     private let lock = NSLock()
     private var refused: URL?
 
-    init(origin: URL) {
+    init(origin: URL, authorization: String? = nil) {
         self.origin = origin
+        self.authorization = authorization
     }
 
     // The completion-handler form: the async one crashes SILGen (Swift 6.2/6.3).
@@ -150,11 +154,20 @@ final class SameOriginRedirects: NSObject, URLSessionTaskDelegate, @unchecked Se
         newRequest request: URLRequest, completionHandler: @escaping @Sendable (URLRequest?) -> Void
     ) {
         guard let target = request.url, !Self.isSameOrigin(target, origin) else {
-            completionHandler(request.url == nil ? nil : request)
+            completionHandler(request.url == nil ? nil : restoringAuthorization(on: request))
             return
         }
         lock.withLock { refused = target }
         completionHandler(nil)
+    }
+
+    /// URLSession drops `Authorization` from a redirected request. Only a
+    /// same-origin one gets here, so the token never leaves the daemon.
+    private func restoringAuthorization(on request: URLRequest) -> URLRequest {
+        guard let authorization, request.value(forHTTPHeaderField: "Authorization") == nil else { return request }
+        var restored = request
+        restored.setValue(authorization, forHTTPHeaderField: "Authorization")
+        return restored
     }
 
     /// Throws when a redirect was refused (the response is then the 3xx).
