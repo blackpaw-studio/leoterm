@@ -3832,3 +3832,10 @@ Chose: LeoSidebarHeaderPart gains a test-only `.row` probe case, in the style of
 Why: P1 / suite discipline.
 Commit: 90ce52cf3
 Veto: [ ]
+
+## D-536 · 2026-10-11 · In hidden style only, the side-pane close button gets an explicit header-row height (brow…
+Context: B-153 (runner call).
+Chose: In hidden style only, the side-pane close button gets an explicit header-row height (browser header row 21→26 pt) so its glyph centres on the sidebar header's line; the 10 pt inset and headerRowHeight 16 are unchanged
+Why: D-258, P1.
+Commit: c670650c9
+Veto: [ ]

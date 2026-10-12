@@ -882,11 +882,13 @@ Source: autopilot polish (B-100)
 Done: 90ce52cf3
 Verified: not visually verified — headerRowHoldsItsHeightAroundATallAccessory red before, green after; suite 2696/0, swiftlint clean; no visual change expected
 
-## B-153 · Header centres differ by 1–1.5 px in hidden style   [ready]
+## B-153 · Header centres differ by 1–1.5 px in hidden style   [done]
 Issue: #157
 Why: B-100 shot: browser close ≈17, editor ≈18, sidebar + ≈18.5 px; align them exactly
 Accept: B-100 shot: browser close ≈17, editor ≈18, sidebar + ≈18.5 px; align them exactly
 Source: autopilot polish (B-100)
+Done: c670650c9
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-153-7.png (test at 0.5 pt from the window top (red 1.0 pt spread → 0); GUI 1x: +, browser close and editor close within 0.32 pt; suite 2696/0)
 
 ## B-154 · Titled styles: browser header close glyph tight under the titlebar   [ready]
 Issue: #158
