@@ -47,6 +47,9 @@ struct LeoWindowVisibilityState: Equatable {
     /// pending flag covers a composer that only appears with the request.
     @Published private(set) var chatFocusRequest = 0
     private var isChatFocusPending = false
+    /// The layout the window's content area last rendered; the chat layout
+    /// host keeps it current. Not published: it is read, never observed.
+    private(set) var observedChatLayout = LeoChatLayout.terminal
     @Published var windowIsOccluded = false { didSet { changed(); markShownIfVisible() } }
     @Published var windowIsMiniaturized = false { didSet { changed(); markShownIfVisible() } }
     var displayedWidth: CGFloat { min(max(preferredWidth, 200), 420) }
@@ -182,7 +185,23 @@ struct LeoWindowVisibilityState: Equatable {
         viewChoices = viewChoices.setting(choice, for: agent)
         switch choice {
         case .chat: requestChatFocus()
-        case .terminal: DispatchQueue.main.async { [weak self] in Self.focusTerminal(in: self?.window) }
+        case .terminal:
+            // Routed when it runs: the layout may change before the turn ends.
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                routeTerminalFocus { Self.focusTerminal(in: self.window) }
+            }
+        }
+    }
+
+    func setObservedChatLayout(_ layout: LeoChatLayout) { observedChatLayout = layout }
+
+    /// Runs `moveFocus` only while the terminal is on screen; hidden behind
+    /// chat, the request goes to the composer instead.
+    func routeTerminalFocus(_ moveFocus: () -> Void) {
+        switch LeoFocusTarget(for: observedChatLayout) {
+        case .terminal: moveFocus()
+        case .chatComposer: requestChatFocus()
         }
     }
 

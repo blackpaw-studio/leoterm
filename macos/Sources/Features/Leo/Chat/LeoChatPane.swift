@@ -34,7 +34,11 @@ struct LeoChatLayoutHost<Terminal: View>: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
             }
         }
-        .onChange(of: layout) { _ in handBackHiddenTerminalFocus(layout) }
+        .onAppear { session.setObservedChatLayout(layout) }
+        .onChange(of: layout) { _ in
+            session.setObservedChatLayout(layout)
+            handBackHiddenTerminalFocus(layout)
+        }
         .onChange(of: row?.id) { _ in handBackHiddenTerminalFocus(layout) }
     }
 

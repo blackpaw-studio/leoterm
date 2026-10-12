@@ -653,7 +653,9 @@ import OSLog
               controller.surfaceTree.contains(surface), let window = controller.window else { return }
         if window.isMiniaturized { window.deminiaturize(nil) }
         window.makeKeyAndOrderFront(nil)
-        Ghostty.moveFocus(to: surface)
+        guard let session = controller.leoSession else { return Ghostty.moveFocus(to: surface) }
+        // A terminal covered by chat must not take the keyboard.
+        session.routeTerminalFocus { Ghostty.moveFocus(to: surface) }
     }
 
     func rebirthPlaceholder(for handle: AttachmentHandle) {

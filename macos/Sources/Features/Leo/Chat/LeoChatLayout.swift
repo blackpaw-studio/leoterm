@@ -64,6 +64,18 @@ enum LeoChatLayout: Equatable {
     }
 }
 
+/// Where a request to focus an agent's terminal should actually land.
+enum LeoFocusTarget: Equatable {
+    case terminal
+    case chatComposer
+
+    /// A terminal covered by chat must not take the keyboard: keystrokes
+    /// would go to an agent nobody can see, so the composer takes it.
+    init(for layout: LeoChatLayout) {
+        self = layout.isTerminalVisible ? .terminal : .chatComposer
+    }
+}
+
 /// Each agent's switch position, remembered for the app session.
 struct LeoAgentViewChoices: Equatable {
     private var choices: [LeoAgentID: LeoAgentViewChoice] = [:]
