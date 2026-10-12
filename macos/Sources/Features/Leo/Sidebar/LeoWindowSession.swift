@@ -47,9 +47,12 @@ struct LeoWindowVisibilityState: Equatable {
     /// pending flag covers a composer that only appears with the request.
     @Published private(set) var chatFocusRequest = 0
     private var isChatFocusPending = false
-    /// The layout the window's content area last rendered; the chat layout
-    /// host keeps it current. Not published: it is read, never observed.
-    private(set) var observedChatLayout = LeoChatLayout.terminal
+    /// The content area's width as last rendered; the chat layout host
+    /// keeps it current. Not published: it is read, never observed.
+    private(set) var observedContentWidth: CGFloat = 0
+    /// The agent the sidebar has selected right now (nil for a terminal
+    /// row, or none). Wired by the runtime, which owns the selection.
+    var selectedAgent: () -> LeoAgentID? = { nil }
     @Published var windowIsOccluded = false { didSet { changed(); markShownIfVisible() } }
     @Published var windowIsMiniaturized = false { didSet { changed(); markShownIfVisible() } }
     var displayedWidth: CGFloat { min(max(preferredWidth, 200), 420) }
@@ -186,22 +189,36 @@ struct LeoWindowVisibilityState: Equatable {
         switch choice {
         case .chat: requestChatFocus()
         case .terminal:
-            // Routed when it runs: the layout may change before the turn ends.
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
-                routeTerminalFocus { Self.focusTerminal(in: self.window) }
+                routeTerminalFocus { Self.focusTerminal(in: self.window, isAllowed: $0) }
             }
         }
     }
 
-    func setObservedChatLayout(_ layout: LeoChatLayout) { observedChatLayout = layout }
+    func setObservedContentWidth(_ width: CGFloat) { observedContentWidth = width }
 
-    /// Runs `moveFocus` only while the terminal is on screen; hidden behind
-    /// chat, the request goes to the composer instead.
-    func routeTerminalFocus(_ moveFocus: () -> Void) {
-        switch LeoFocusTarget(for: observedChatLayout) {
-        case .terminal: moveFocus()
-        case .chatComposer: requestChatFocus()
+    /// The layout the selected agent's remembered mode gives right now. The
+    /// selection and the switch are read live, not from the last render, so
+    /// a request made while the selection is moving sees where it landed.
+    var currentChatLayout: LeoChatLayout {
+        guard terminals.selection == nil, let agent = selectedAgent() else { return .terminal }
+        return LeoChatLayout(contentWidth: observedContentWidth, choice: viewChoices[agent])
+    }
+
+    /// Hands `move` a gate to ask when the focus move actually runs, on
+    /// every retry. While chat covers the terminal the gate refuses, and
+    /// the composer takes the request instead.
+    func routeTerminalFocus(_ move: (_ isAllowed: @escaping () -> Bool) -> Void) {
+        move { [weak self] in self?.allowsTerminalFocus() ?? false }
+    }
+
+    private func allowsTerminalFocus() -> Bool {
+        switch LeoFocusTarget(for: currentChatLayout) {
+        case .terminal: return true
+        case .chatComposer:
+            requestChatFocus()
+            return false
         }
     }
 
@@ -217,10 +234,10 @@ struct LeoWindowVisibilityState: Equatable {
     }
 
     /// Hands focus back to the window's focused terminal surface.
-    static func focusTerminal(in window: NSWindow?) {
+    static func focusTerminal(in window: NSWindow?, isAllowed: (() -> Bool)? = nil) {
         guard let controller = window?.windowController as? BaseTerminalController,
               let surface = controller.focusedSurface else { return }
-        Ghostty.moveFocus(to: surface)
+        Ghostty.moveFocus(to: surface, isAllowed: isAllowed)
     }
 
     /// Called by `LeoPickerPresentation` when its panel is shown/dismissed.

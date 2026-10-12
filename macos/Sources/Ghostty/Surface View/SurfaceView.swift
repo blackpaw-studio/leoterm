@@ -1137,7 +1137,8 @@ extension Ghostty {
     static func moveFocus(
         to: SurfaceView,
         from: SurfaceView? = nil,
-        delay: TimeInterval? = nil
+        delay: TimeInterval? = nil,
+        isAllowed: (() -> Bool)? = nil
     ) {
         // The whole delay machinery is a bit of a hack to work around a
         // situation where the window is destroyed and the surface view
@@ -1158,10 +1159,14 @@ extension Ghostty {
         }
 
         let work: DispatchWorkItem = .init {
+            // Asked when the move runs, retries included, not when it was
+            // queued: what should hold focus can change in between.
+            if let isAllowed, !isAllowed() { return }
+
             // If the callback runs before the surface is attached to a view
             // then the window will be nil. We just reschedule in that case.
             guard let window = to.window else {
-                moveFocus(to: to, from: from, delay: nextDelay)
+                moveFocus(to: to, from: from, delay: nextDelay, isAllowed: isAllowed)
                 return
             }
 

@@ -51,7 +51,13 @@ extension TerminalController {
         surfaceTree = tree
         leoForgetContentUndo()
         focusedSurface = view
-        Ghostty.moveFocus(to: view)
+        // Whether the terminal may take focus is asked when the move runs:
+        // the row just selected may remember Chat, covering it.
+        if let leoSession {
+            leoSession.routeTerminalFocus { Ghostty.moveFocus(to: view, isAllowed: $0) }
+        } else {
+            Ghostty.moveFocus(to: view)
+        }
         return displaced
     }
 

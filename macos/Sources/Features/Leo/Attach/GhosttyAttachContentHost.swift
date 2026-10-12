@@ -655,7 +655,7 @@ import OSLog
         window.makeKeyAndOrderFront(nil)
         guard let session = controller.leoSession else { return Ghostty.moveFocus(to: surface) }
         // A terminal covered by chat must not take the keyboard.
-        session.routeTerminalFocus { Ghostty.moveFocus(to: surface) }
+        session.routeTerminalFocus { Ghostty.moveFocus(to: surface, isAllowed: $0) }
     }
 
     func rebirthPlaceholder(for handle: AttachmentHandle) {

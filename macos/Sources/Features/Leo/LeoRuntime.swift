@@ -463,6 +463,7 @@ import LeoKit
             self.openPicker(windowID: sessionID, surfaceID: surfaceID)
         }
         session.onWindowWillClose = { [weak self] in self?.teardownWindow(sessionID) }
+        session.selectedAgent = { [weak self] in self?.model.actionableSelection?.id }
         wireTerminals(session.terminals, window: sessionID)
         if let window = controller.window {
             let presentation = LeoPickerPresentation(
