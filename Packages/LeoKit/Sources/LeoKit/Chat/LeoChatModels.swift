@@ -133,12 +133,6 @@ public struct LeoChatMessage: Codable, Equatable, Identifiable, Sendable {
         if let input { return input }
         return kind == .permission ? .permission : nil
     }
-
-    /// The label of the recorded answer's first value.
-    public var answerLabel: String? {
-        guard let value = answer?.values.first else { return answer?.text }
-        return answerInput?.label(of: value) ?? value
-    }
 }
 
 public struct LeoChatOption: Codable, Equatable, Hashable, Sendable {

@@ -158,7 +158,7 @@ final class ChatMessageCell: UICollectionViewCell {
             status.font = .preferredFont(forTextStyle: .footnote).withWeight(.semibold)
             status.textColor = .secondaryLabel
             status.text = switch message.state {
-            case "answered": String(localized: "Answered: \(message.answerLabel ?? "")")
+            case "answered": String(localized: "Answered: \(message.answerSummary ?? "")")
             case "expired": String(localized: "Expired")
             default: nil
             }

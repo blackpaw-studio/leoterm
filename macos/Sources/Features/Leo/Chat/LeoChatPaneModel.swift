@@ -199,7 +199,7 @@ import LeoKit
             if let updated, timeline.admits(updated, agent: agent.name) {
                 timeline.merge([updated])
             } else if let message = timeline.message(id: messageID) {
-                timeline.merge([message.answered(value)])
+                timeline.merge([message.answered(.choice(value))])
             }
         } catch {
             notice = "Couldn't answer: \(error.localizedDescription)"
@@ -391,15 +391,5 @@ import LeoKit
             guard let data = try? Data(contentsOf: file.url) else { throw LeoChatFileError.unreadable(file.filename) }
             return LeoChatUpload(filename: file.filename, mime: file.mime, data: data)
         }.value
-    }
-}
-
-extension LeoChatMessage {
-    /// This prompt with `value` recorded as its answer.
-    func answered(_ value: String) -> LeoChatMessage {
-        LeoChatMessage(
-            id: id, agent: agent, direction: direction, kind: kind, text: text, transcript: transcript, replyTo: replyTo, task: task,
-            runID: runID, state: "answered", answer: .choice(value), ts: ts, attachments: attachments, input: input
-        )
     }
 }

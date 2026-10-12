@@ -188,3 +188,40 @@ public struct LeoChatAnswer: Codable, Equatable, Hashable, Sendable {
         try container.encodeIfPresent(text, forKey: .text)
     }
 }
+
+extension LeoChatMessage {
+    /// The value a permission answer records when the agent's own terminal
+    /// settled the prompt.
+    public static let terminalAnswerValue = "terminal"
+
+    /// This prompt with `answer` recorded, for when the daemon answered
+    /// without returning the message.
+    public func answered(_ answer: LeoChatAnswer) -> LeoChatMessage {
+        LeoChatMessage(
+            id: id, agent: agent, direction: direction, kind: kind, text: text, transcript: transcript, replyTo: replyTo, task: task,
+            runID: runID, state: "answered", answer: answer, ts: ts, attachments: attachments, input: input
+        )
+    }
+
+    /// A permission prompt answered in the agent's terminal, not in chat.
+    public var isAnsweredInTerminal: Bool {
+        kind == .permission && answer?.values == [Self.terminalAnswerValue]
+    }
+
+    /// The recorded answer as one line: the chosen labels in answer order
+    /// (a value with no option shows as itself), then any text.
+    public var answerSummary: String? {
+        guard let answer else { return nil }
+        let labels = answer.values.map { answerInput?.label(of: $0) ?? $0 }
+        let parts = [labels.isEmpty ? nil : labels.joined(separator: ", "), answer.text].compactMap { $0 }
+        return parts.isEmpty ? String(localized: "None") : parts.joined(separator: " — ")
+    }
+
+    /// Whether this `ask` follows up the agent's post just before it (the
+    /// file or text it asks about), so the two read as one.
+    public func continuesPost(after previous: LeoChatMessage?) -> Bool {
+        guard kind == .ask, let previous, previous.direction == .outbound,
+              [.text, .file, .task].contains(previous.kind) else { return false }
+        return previous.agent == agent && previous.task == task && previous.runID == runID
+    }
+}

@@ -125,7 +125,7 @@ public struct ChatThread {
 
             case .answerResponse(let id, let value, .success(nil)):
                 state.answering.remove(id)
-                if let message = state.messages[id: id] { state.messages[id: id] = message.answered(value) }
+                if let message = state.messages[id: id] { state.messages[id: id] = message.answered(.choice(value)) }
                 return .none
 
             case .answerResponse(let id, _, .failure(let error)):
@@ -299,15 +299,5 @@ public struct ChatThread {
         return .run { [chatClient, secrets] _ in
             try? await chatClient.markRead(try secrets.connection(for: daemon), agent, id)
         }
-    }
-}
-
-extension LeoChatMessage {
-    /// This prompt with `value` recorded as its answer.
-    func answered(_ value: String) -> LeoChatMessage {
-        LeoChatMessage(
-            id: id, agent: agent, direction: direction, kind: kind, text: text, transcript: transcript, replyTo: replyTo, task: task,
-            runID: runID, state: "answered", answer: .choice(value), ts: ts, attachments: attachments, input: input
-        )
     }
 }

@@ -165,8 +165,8 @@ struct LeoChatPromptButtons: View {
                 }
                 if isAnswering { ProgressView().controlSize(.small) }
             }
-        } else if let label = message.answerLabel {
-            Label("Answered: \(label)", systemImage: "checkmark.circle").font(.callout).foregroundStyle(.secondary)
+        } else if let summary = message.answerSummary {
+            Label("Answered: \(summary)", systemImage: "checkmark.circle").font(.callout).foregroundStyle(.secondary)
         } else if message.state == "expired" {
             Label("Expired", systemImage: "clock.badge.xmark").font(.callout).foregroundStyle(.secondary)
         }

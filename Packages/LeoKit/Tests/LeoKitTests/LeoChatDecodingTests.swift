@@ -238,4 +238,65 @@ struct LeoChatDecodingTests {
         let message = try Self.decode(json)
         #expect(try JSONDecoder().decode(LeoChatMessage.self, from: JSONEncoder().encode(message)) == message)
     }
+
+    // MARK: Helpers
+
+    static func message(
+        _ id: String, kind: LeoChatMessage.Kind, direction: LeoChatMessage.Direction = .outbound, agent: String = "zeus",
+        task: String? = nil, runID: String? = nil, answer: LeoChatAnswer? = nil, input: LeoChatInput? = nil
+    ) -> LeoChatMessage {
+        LeoChatMessage(
+            id: id, agent: agent, direction: direction, kind: kind, text: id, task: task, runID: runID, state: answer == nil ? "open" : "answered",
+            answer: answer, ts: Date(timeIntervalSince1970: 0), input: input
+        )
+    }
+
+    @Test func answeredRecordsTheAnswerAndKeepsTheRest() throws {
+        let input = try LeoChatInput(kind: .radio, options: [LeoChatOption(value: "y", label: "Yes")])
+        let open = Self.message("q", kind: .ask, task: "t", runID: "r", input: input)
+        let answered = open.answered(.choice("y"))
+
+        #expect(answered.state == "answered")
+        #expect(answered.answer == .choice("y"))
+        #expect(answered == Self.message("q", kind: .ask, task: "t", runID: "r", answer: .choice("y"), input: input))
+    }
+
+    @Test func aPermissionSettledInTheTerminalSaysSo() {
+        #expect(Self.message("p", kind: .permission, answer: .choice("terminal")).isAnsweredInTerminal)
+        #expect(!Self.message("p", kind: .permission, answer: .choice("allow")).isAnsweredInTerminal)
+        #expect(!Self.message("p", kind: .permission).isAnsweredInTerminal)
+        let terminalOption = try? LeoChatInput(kind: .buttons, options: [LeoChatOption(value: "terminal", label: "Terminal")])
+        #expect(!Self.message("q", kind: .ask, answer: .choice("terminal"), input: terminalOption).isAnsweredInTerminal)
+    }
+
+    @Test func theAnswerSummaryListsLabelsInAnswerOrderThenTheText() throws {
+        let input = try LeoChatInput(
+            kind: .checkboxes, options: [LeoChatOption(value: "a", label: "Alpha"), LeoChatOption(value: "b", label: "Beta")], allowsText: true
+        )
+        let summary = { (answer: LeoChatAnswer?) in Self.message("q", kind: .ask, answer: answer, input: input).answerSummary }
+
+        #expect(summary(LeoChatAnswer(values: ["b", "a"])) == "Beta, Alpha")
+        #expect(summary(LeoChatAnswer(values: ["b", "gone"], text: "and this")) == "Beta, gone — and this")
+        #expect(summary(LeoChatAnswer(values: [], text: "only text")) == "only text")
+        #expect(summary(LeoChatAnswer(values: [])) == "None")
+        #expect(summary(nil) == nil)
+        #expect(Self.message("p", kind: .permission, answer: .choice("deny")).answerSummary == "Deny")
+    }
+
+    @Test func anAskContinuesThePostJustBeforeIt() throws {
+        let input = try LeoChatInput(kind: .text)
+        let ask = Self.message("q", kind: .ask, task: "t", runID: "r", input: input)
+
+        for kind in [LeoChatMessage.Kind.text, .file, .task] {
+            #expect(ask.continuesPost(after: Self.message("p", kind: kind, task: "t", runID: "r")))
+        }
+        #expect(!ask.continuesPost(after: nil))
+        #expect(!ask.continuesPost(after: Self.message("p", kind: .file, direction: .inbound, task: "t", runID: "r")))
+        #expect(!ask.continuesPost(after: Self.message("p", kind: .file, agent: "hera", task: "t", runID: "r")))
+        #expect(!ask.continuesPost(after: Self.message("p", kind: .file, task: "other", runID: "r")))
+        #expect(!ask.continuesPost(after: Self.message("p", kind: .file, task: "t", runID: "r2")))
+        #expect(!ask.continuesPost(after: Self.message("p", kind: .system, task: "t", runID: "r")))
+        #expect(!ask.continuesPost(after: Self.message("p", kind: .ask, task: "t", runID: "r", input: input)))
+        #expect(!Self.message("x", kind: .text, task: "t", runID: "r").continuesPost(after: Self.message("p", kind: .file, task: "t", runID: "r")))
+    }
 }
