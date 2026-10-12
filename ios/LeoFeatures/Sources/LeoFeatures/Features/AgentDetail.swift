@@ -57,6 +57,8 @@ public struct AgentDetail {
 
     public enum Action {
         case alert(PresentationAction<Never>)
+        /// Opens the agent's chat thread (the parent swaps the selection).
+        case chatButtonTapped
         /// Responses carry the agent they were for: the parent swaps the
         /// selection in place, and a late reply must not land on the next.
         case commandFinished(AgentRef, AgentCommand, Result<Void, any Error>)
@@ -89,7 +91,7 @@ public struct AgentDetail {
     public var body: some ReducerOf<Self> {
         Reduce { state, action in
             switch action {
-            case .alert:
+            case .alert, .chatButtonTapped:
                 return .none
 
             case .commandFinished(let ref, _, _), .environmentsLoaded(let ref, _):
