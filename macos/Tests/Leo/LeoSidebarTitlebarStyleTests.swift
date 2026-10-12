@@ -120,6 +120,8 @@ struct StyledWindowFixture {
     let split: LeoSplitViewController
     /// The header row (title and accessory), in window coordinates.
     let header: CGRect
+    /// The header's accessory (the + button), in window coordinates (B-153).
+    let accessory: CGRect
     /// The split view's top edge (sidebar and terminal), in window
     /// coordinates.
     let splitTop: CGFloat
@@ -167,14 +169,19 @@ struct StyledWindowFixture {
         let (split, sidebar) = try #require(await sidebarHosting(in: window), "\(style): no sidebar in the split")
         let frames = HeaderProbe()
         let relative = try #require(await frames.settledHeader(probing: sidebar), "\(style): \(frames)")
+        let relativeAccessory = try #require(frames.relativeAccessory, "\(style): \(frames)")
         let host = sidebar.view.convert(sidebar.view.bounds, to: nil)
         // SwiftUI's y runs down from the host's top; the window's runs up.
         let header = CGRect(x: host.minX + relative.minX, y: host.maxY - relative.maxY, width: relative.width, height: relative.height)
+        let accessory = CGRect(
+            x: host.minX + relativeAccessory.minX, y: host.maxY - relativeAccessory.maxY,
+            width: relativeAccessory.width, height: relativeAccessory.height)
         let splitTop = split.splitView.convert(split.splitView.bounds, to: nil).maxY
         let diagnostics = "\(type(of: window)) \(window.frame.size) host \(host) safe area \(sidebar.view.safeAreaInsets) "
             + "split top \(splitTop) header \(header)"
         return StyledWindowFixture(
-            controller: controller, window: window, split: split, header: header, splitTop: splitTop, diagnostics: diagnostics)
+            controller: controller, window: window, split: split, header: header, accessory: accessory,
+            splitTop: splitTop, diagnostics: diagnostics)
     }
 
     /// The sidebar's hosting controller, once the split view is built.
@@ -264,6 +271,13 @@ private final class HeaderProbe: CustomStringConvertible {
             try? await Task.sleep(for: .milliseconds(20))
         }
         return nil
+    }
+
+    /// The accessory (the + button) relative to the hosting view's
+    /// top-left corner (B-153).
+    var relativeAccessory: CGRect? {
+        guard let host, !host.isEmpty, let accessory = parts[.accessory], !accessory.isEmpty else { return nil }
+        return accessory.offsetBy(dx: -host.minX, dy: -host.minY)
     }
 
     private var relativeHeader: CGRect? {

@@ -21,26 +21,45 @@ struct LeoSidePaneTitlebarStyleTests {
     /// no pane is squeezed or collapsed while it's measured.
     private static let windowSize = CGSize(width: 1600, height: 700)
 
+    /// B-153: how far the header controls' drawn glyphs may sit from the
+    /// shared line, and from each other: one backing pixel at 1x, which the
+    /// headless test host renders at (an odd-sized glyph lands half a point
+    /// off a whole-point line there).
+    private static let centreTolerance: CGFloat = 0.5
+
     @Test func theHiddenStyleInsetsTheSidePaneHeadersLikeTheSidebarHeader() async throws {
         let fixture = try await StyledWindowFixture.make(.hidden)
         defer { fixture.close() }
         // Measured before the panes open: that resizes the window.
         let sidebarTop = fixture.windowTop - fixture.header.maxY
-        let sidebarCentre = fixture.windowTop - fixture.header.midY
+        let sidebarView = try #require(fixture.split.sidebarItem?.viewController.view, "no sidebar view")
+        let plus = try #require(
+            InkBounds.measure(sidebarView, in: sidebarView.convert(fixture.accessory, from: nil).insetBy(dx: -3, dy: -3)),
+            "the sidebar + button draws nothing")
+        let sidebarButtonCentre = fixture.windowTop - plus.midY
         let panes = try await SidePaneHeaders.measure(in: fixture, size: Self.windowSize)
         // Absolute: the sidebar bound above ties the panes to the window's
         // top edge only through the sidebar header (B-151).
         let expectedCentre = LeoSidebarChromeMetrics.topInset + LeoSidebarChromeMetrics.headerRowHeight / 2
 
+        // B-153: the sidebar's + and both close glyphs, as drawn, share one
+        // centre line: the one the metrics put them on, and each other's.
+        // (The + was measured before the window resized above.)
+        #expect(
+            abs(sidebarButtonCentre - expectedCentre) <= Self.centreTolerance,
+            "the sidebar + button centres \(sidebarButtonCentre) pt under the window's top edge, not \(expectedCentre); \(panes)"
+        )
+        let centres = [sidebarButtonCentre] + panes.all.map { fixture.windowTop - $0.glyph.midY }
+        let spread = (centres.max() ?? 0) - (centres.min() ?? 0)
+        #expect(
+            spread <= Self.centreTolerance,
+            "the sidebar + (\(sidebarButtonCentre)), browser and editor close glyphs centre \(centres) pt under the window's top edge, \(spread) pt apart; \(panes)"
+        )
         for pane in panes.all {
             let top = fixture.windowTop - pane.glyph.maxY
             let centre = fixture.windowTop - pane.glyph.midY
             #expect(
-                abs(centre - sidebarCentre) <= 1,
-                "the \(pane.name) header centres \(centre) pt under the window's top edge, the sidebar's \(sidebarCentre); \(panes)"
-            )
-            #expect(
-                abs(centre - expectedCentre) <= 1,
+                abs(centre - expectedCentre) <= Self.centreTolerance,
                 "the \(pane.name) close glyph centres \(centre) pt under the window's top edge, not the inset + half a header row, \(expectedCentre); \(panes)"
             )
             #expect(
@@ -66,8 +85,8 @@ struct LeoSidePaneTitlebarStyleTests {
     }
 }
 
-/// One side pane's header: its row, and its close button's glyph, in window
-/// coordinates.
+/// One side pane's header: its row, and the ink its close button draws, in
+/// window coordinates.
 private struct SidePaneHeader: CustomStringConvertible {
     let name: String
     let row: CGRect
@@ -118,14 +137,48 @@ private struct SidePaneHeaders: CustomStringConvertible {
     }
 
     private static func header(_ name: String, row: NSView, close: NSButton) throws -> SidePaneHeader {
-        let cell = try #require(close.cell as? NSButtonCell, "\(name): the close button has no button cell")
-        let glyph = cell.imageRect(forBounds: close.bounds)
-        try #require(!glyph.isEmpty, "\(name): the close button draws no image")
-        return SidePaneHeader(name: name, row: row.convert(row.bounds, to: nil), glyph: close.convert(glyph, to: nil))
+        let glyph = try #require(InkBounds.measure(close, in: close.bounds), "\(name): the close button draws nothing")
+        return SidePaneHeader(name: name, row: row.convert(row.bounds, to: nil), glyph: glyph)
     }
 
     private static func firstButton(in view: NSView, toolTip: String) -> NSButton? {
         if let button = view as? NSButton, button.toolTip == toolTip { return button }
         return view.subviews.lazy.compactMap { firstButton(in: $0, toolTip: toolTip) }.first
+    }
+}
+
+/// Where a view actually draws, read from its rendered pixels: a control's
+/// frame or `imageRect` says where AppKit meant to put a glyph, not where
+/// its ink lands after pixel snapping (B-153).
+@MainActor
+private enum InkBounds {
+    /// How far a channel may differ from the background before it counts as ink.
+    private static let threshold: CGFloat = 0.1
+
+    /// The tight window-coordinate bounds of what `view` draws inside `rect`
+    /// (view coordinates) that differs from the pixel at the rect's top-left
+    /// corner. Nil when nothing does, or the view can't be rendered.
+    static func measure(_ view: NSView, in rect: CGRect) -> CGRect? {
+        let rect = rect.intersection(view.bounds)
+        guard !rect.isEmpty, let rep = view.bitmapImageRepForCachingDisplay(in: rect) else { return nil }
+        view.cacheDisplay(in: rect, to: rep)
+        guard let background = rep.colorAt(x: 0, y: 0)?.usingColorSpace(.sRGB) else { return nil }
+        let inked = (0 ..< rep.pixelsHigh).flatMap { y in
+            (0 ..< rep.pixelsWide).filter { x in
+                guard let pixel = rep.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { return false }
+                return [
+                    pixel.alphaComponent - background.alphaComponent, pixel.redComponent - background.redComponent,
+                    pixel.greenComponent - background.greenComponent, pixel.blueComponent - background.blueComponent,
+                ].contains { abs($0) > threshold }
+            }.map { (x: $0, y: y) }
+        }
+        guard let minX = inked.map(\.x).min(), let maxX = inked.map(\.x).max(),
+              let minY = inked.map(\.y).min(), let maxY = inked.map(\.y).max() else { return nil }
+        // Bitmap rows run top-down whatever the view's flippedness; window y runs up.
+        let scale = CGFloat(rep.pixelsWide) / rect.width
+        let window = view.convert(rect, to: nil)
+        return CGRect(
+            x: window.minX + CGFloat(minX) / scale, y: window.maxY - CGFloat(maxY + 1) / scale,
+            width: CGFloat(maxX - minX + 1) / scale, height: CGFloat(maxY - minY + 1) / scale)
     }
 }
