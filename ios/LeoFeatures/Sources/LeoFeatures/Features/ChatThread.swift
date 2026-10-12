@@ -39,6 +39,9 @@ public struct ChatThread {
         public var isOnScreen = false
         /// Every task name seen in this thread, for the filter menu.
         public var knownTasks: Set<String> = []
+        /// Messages a live event merged since the current page request
+        /// started; the page's copy of those is older, so it is skipped.
+        public var liveSinceFetch: Set<String> = []
         public var loadError: String?
         public var messages: IdentifiedArrayOf<LeoChatMessage> = []
         /// The message (usually a task card) the next send replies to.
@@ -52,6 +55,14 @@ public struct ChatThread {
             self.daemon = daemon
             agentName = name
             agent = live
+        }
+
+        /// Merges a fetched page, skipping messages a live event has
+        /// replaced since the request started.
+        mutating func mergePage(_ page: LeoChatPage) {
+            hasMore = page.hasMore
+            merge(page.messages.filter { !liveSinceFetch.contains($0.id) })
+            liveSinceFetch = []
         }
 
         /// Upserts, keeping time order (ties by id: ULIDs sort by time).
@@ -83,6 +94,9 @@ public struct ChatThread {
         case pageResponse(Result<LeoChatPage, any Error>)
         case replyCancelled
         case replyTapped(String)
+        /// Events may have been lost (reconnect or sequence gap): reload the
+        /// newest page and merge it by id.
+        case resync
         case retryButtonTapped
         case sendResponse(Result<LeoChatMessage, any Error>)
         case task
@@ -156,6 +170,7 @@ public struct ChatThread {
                 guard state.belongs(message) else { return .none }
                 if case .updated = event, state.messages[id: message.id] == nil { return .none }
                 state.merge([message])
+                if state.isLoading || state.isLoadingOlder { state.liveSinceFetch.insert(message.id) }
                 guard case .message = event, state.isOnScreen, state.taskFilter == nil else { return .none }
                 return markRead(message.id, state: state)
 
@@ -182,17 +197,18 @@ public struct ChatThread {
             case .loadOlderTriggered:
                 guard state.hasMore, !state.isLoading, !state.isLoadingOlder, let oldest = state.messages.first else { return .none }
                 state.isLoadingOlder = true
+                state.liveSinceFetch = []
                 let query = LeoChatPageQuery(before: oldest.id, limit: Self.pageSize, task: state.taskFilter)
                 return fetch(query, state: state) { .olderPageResponse($0) }
 
             case .olderPageResponse(.success(let page)):
                 state.isLoadingOlder = false
-                state.hasMore = page.hasMore
-                state.merge(page.messages)
+                state.mergePage(page)
                 return .none
 
             case .olderPageResponse(.failure(let error)):
                 state.isLoadingOlder = false
+                state.liveSinceFetch = []
                 state.loadError = error.localizedDescription
                 return .none
 
@@ -204,13 +220,15 @@ public struct ChatThread {
             case .pageResponse(.success(let page)):
                 state.isLoading = false
                 state.loadError = nil
-                state.hasMore = page.hasMore
-                state.merge(page.messages)
-                guard state.taskFilter == nil, let newest = state.messages.last else { return .none }
+                state.mergePage(page)
+                // Off screen (a resync in the background), reading waits
+                // for the thread to appear.
+                guard state.isOnScreen, state.taskFilter == nil, let newest = state.messages.last else { return .none }
                 return markRead(newest.id, state: state)
 
             case .pageResponse(.failure(let error)):
                 state.isLoading = false
+                state.liveSinceFetch = []
                 state.loadError = error.localizedDescription
                 return .none
 
@@ -223,7 +241,7 @@ public struct ChatThread {
                 state.replyTo = id
                 return .none
 
-            case .retryButtonTapped, .task:
+            case .retryButtonTapped, .resync, .task:
                 return loadNewest(state: &state)
 
             case .sendResponse(.success(let message)):
@@ -263,6 +281,7 @@ public struct ChatThread {
     private func loadNewest(state: inout State) -> Effect<Action> {
         state.isLoading = true
         state.isLoadingOlder = false
+        state.liveSinceFetch = []
         return fetch(LeoChatPageQuery(limit: Self.pageSize, task: state.taskFilter), state: state) { .pageResponse($0) }
     }
 

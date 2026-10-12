@@ -123,6 +123,27 @@ struct AppFeatureChatTests {
         await store.receive(\.chats.threadsResponse) { $0.chats.threads[Self.zeus.daemonID] = [] }
     }
 
+    @Test func aReconnectOrSequenceGapReloadsTheOpenThread() async {
+        var state = Self.connected()
+        state.chat = ChatThread.State(daemon: .dionysus, agent: "zeus")
+        let store = TestStore(initialState: state) {
+            AppFeature()
+        } withDependencies: {
+            $0.secrets.load = { _ in DaemonSecrets(token: "t") }
+            $0.chatClient.messages = { _, _, _ in LeoChatPage(messages: [], hasMore: false) }
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+        await store.send(\.fleet.connected, (Self.zeus.daemonID, nil, LeoObservedState(agents: [.make("zeus")])))
+        await store.receive(\.chat.resync)
+        await store.receive(\.chat.pageResponse.success)
+        await store.send(\.fleet.sequenceGap, Self.zeus.daemonID)
+        await store.receive(\.chat.resync)
+        await store.receive(\.chat.pageResponse.success)
+        // Another daemon's gap leaves this thread alone.
+        await store.send(\.fleet.sequenceGap, "other")
+        await store.finish()
+    }
+
     @Test func aTappedChatNotificationOpensTheThreadOnceTheDaemonIsKnown() async {
         let store = TestStore(initialState: AppFeature.State()) {
             AppFeature()

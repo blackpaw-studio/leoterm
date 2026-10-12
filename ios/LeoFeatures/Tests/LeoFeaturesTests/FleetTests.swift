@@ -140,6 +140,7 @@ struct FleetTests {
         streams[0].yield(.hello(seq: 10, at: nil, version: nil, serverTime: nil))
         await store.receive(\.connected) { $0.sessions[id: id]?.connection = .connected }
         streams[0].yield(.other(seq: 13, type: "task_run_started"))
+        await store.receive(\.sequenceGap, id)
         await store.receive(\.snapshotLoaded) {
             $0.sessions[id: id]?.agents = [Agent(.make("zeus"))]
         }

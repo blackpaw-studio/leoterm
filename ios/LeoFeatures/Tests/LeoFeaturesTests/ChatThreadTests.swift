@@ -42,7 +42,9 @@ struct ChatThreadTests {
         let queries = LockIsolated<[LeoChatPageQuery]>([])
         let reads = LockIsolated<[String]>([])
         let page = LeoChatPage(messages: [.make("03", second: 3), .make("02", second: 2)], hasMore: true)
-        let store = TestStore(initialState: Self.state()) {
+        var state = Self.state()
+        state.isOnScreen = true
+        let store = TestStore(initialState: state) {
             ChatThread()
         } withDependencies: {
             Self.withSecrets(&$0)
@@ -63,6 +65,50 @@ struct ChatThreadTests {
         await store.finish()
         #expect(queries.value == [LeoChatPageQuery(limit: ChatThread.pageSize)])
         #expect(reads.value == ["03"])
+    }
+
+    @Test func aResyncReloadsTheNewestPageAndMergesByID() async {
+        var state = Self.state()
+        state.messages = [.make("01", "draft", second: 1), .make("02", second: 2)]
+        let page = LeoChatPage(messages: [.make("03", second: 3), .make("01", "final", second: 1)], hasMore: true)
+        let store = TestStore(initialState: state) {
+            ChatThread()
+        } withDependencies: {
+            Self.withSecrets(&$0)
+            $0.chatClient.messages = { _, _, _ in page }
+        }
+        await store.send(.resync) { $0.isLoading = true }
+        // Off screen, so nothing is marked read.
+        await store.receive(\.pageResponse.success) {
+            $0.isLoading = false
+            $0.hasMore = true
+            $0.messages = [.make("01", "final", second: 1), .make("02", second: 2), .make("03", second: 3)]
+        }
+    }
+
+    @Test func aLiveUpdateDuringAReloadBeatsThePagesOlderCopy() async {
+        var state = Self.state()
+        state.messages = [.make("01", kind: .ask, state: "open")]
+        let gate = AsyncStream<Void>.makeStream()
+        let store = TestStore(initialState: state) {
+            ChatThread()
+        } withDependencies: {
+            Self.withSecrets(&$0)
+            $0.chatClient.messages = { _, _, _ in
+                for await _ in gate.stream { break }
+                return LeoChatPage(messages: [.make("01", kind: .ask, state: "open")], hasMore: false)
+            }
+        }
+        await store.send(.resync) { $0.isLoading = true }
+        await store.send(.chatEvent(.updated(.make("01", kind: .ask, state: "answered", answer: "yes")))) {
+            $0.messages[id: "01"] = .make("01", kind: .ask, state: "answered", answer: "yes")
+            $0.liveSinceFetch = ["01"]
+        }
+        gate.continuation.yield()
+        await store.receive(\.pageResponse.success) {
+            $0.isLoading = false
+            $0.liveSinceFetch = []
+        }
     }
 
     @Test func scrollingToTheTopLoadsTheOlderPage() async {

@@ -128,7 +128,10 @@ public struct AppFeature {
                     // Chats load only once the user has seen their entry.
                     let daemon = state.chats.isActive ? state.fleet.sessions[id: id]?.daemon : nil
                     let refresh: Effect<Action> = daemon.map { .send(.chats(.refresh([$0]))) } ?? .none
-                    return .merge(push(.daemonReconnected(id), state: &state), refresh)
+                    return .merge(push(.daemonReconnected(id), state: &state), refresh, resyncChat(on: id, state: state))
+
+                case .fleet(.sequenceGap(let id)):
+                    return resyncChat(on: id, state: state)
 
                 case .fleet(.eventReceived(let id, .chat(_, let event))):
                     let ref = AgentRef(daemonID: id, name: event.message.agent)
@@ -193,6 +196,12 @@ public struct AppFeature {
             }
         }
         .discardingPreviews(\.openPreviewFiles)
+    }
+
+    /// Events from `daemonID` may have been lost (a reconnect or a sequence
+    /// gap): the open thread on it reloads.
+    private func resyncChat(on daemonID: DaemonSession.ID, state: State) -> Effect<Action> {
+        state.chat?.daemon.id == daemonID ? .send(.chat(.resync)) : .none
     }
 
     private func fleet(_ action: Fleet.Action, state: inout State) -> Effect<Action> {

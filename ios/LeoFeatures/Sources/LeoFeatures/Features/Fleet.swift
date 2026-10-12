@@ -96,6 +96,9 @@ public struct Fleet {
         case eventReceived(DaemonSession.ID, LeoObserveEvent)
         case fileOpened(DaemonSession.ID, LeoSurfacedFile)
         case retryButtonTapped(DaemonSession.ID)
+        /// The event stream skipped a sequence number: events were lost, so
+        /// anything kept from events (chat threads) should reload.
+        case sequenceGap(DaemonSession.ID)
         case scenePhaseChanged(isActive: Bool)
         case snapshotLoaded(DaemonSession.ID, LeoObservedState)
         case streamEnded(DaemonSession.ID, StreamEnd)
@@ -117,6 +120,9 @@ public struct Fleet {
             switch action {
             case .connect(let id):
                 return connect(id, state: &state)
+
+            case .sequenceGap:
+                return .none
 
             case .connected(let id, let bootID, let snapshot):
                 state.sessions[id: id]?.failures = 0
@@ -245,6 +251,7 @@ public struct Fleet {
                     continue
                 }
                 if sequence >= 0, let lastSequence, sequence > lastSequence + 1 {
+                    await send(.sequenceGap(id))
                     await send(.snapshotLoaded(id, try await daemonClient.fetchState(connection)))
                 }
                 if sequence >= 0 { lastSequence = sequence }
