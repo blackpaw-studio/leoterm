@@ -32,7 +32,9 @@ public struct ChatClient: Sendable {
     public var upload: @Sendable (_ connection: DaemonConnection, _ file: ChatFile) async throws -> LeoChatAttachment
     /// The attachment as a local file (cached per attachment id).
     public var download: @Sendable (_ connection: DaemonConnection, _ attachment: LeoChatAttachment) async throws -> URL
-    public var answer: @Sendable (_ connection: DaemonConnection, _ agent: String, _ messageID: String, _ value: String) async throws -> LeoChatMessage?
+    /// Throws `LeoChatAnswerError` when the daemon refuses the answer or
+    /// the prompt is already settled.
+    public var answer: @Sendable (_ connection: DaemonConnection, _ agent: String, _ messageID: String, _ answer: LeoChatAnswer) async throws -> LeoChatMessage?
     public var markRead: @Sendable (_ connection: DaemonConnection, _ agent: String, _ messageID: String) async throws -> Void
 }
 
@@ -55,16 +57,16 @@ extension ChatClient: DependencyKey {
             },
             download: { connection, attachment in
                 let folder = cache
-                    .appending(path: SurfacedFileClient.safeComponent(connection.daemonID), directoryHint: .isDirectory)
-                    .appending(path: SurfacedFileClient.safeComponent(attachment.id), directoryHint: .isDirectory)
-                let url = folder.appending(path: SurfacedFileClient.safeComponent(attachment.filename))
+                    .appending(path: ChatClient.safeComponent(connection.daemonID), directoryHint: .isDirectory)
+                    .appending(path: ChatClient.safeComponent(attachment.id), directoryHint: .isDirectory)
+                let url = folder.appending(path: ChatClient.safeComponent(attachment.filename))
                 if FileManager.default.fileExists(atPath: url.path()) { return url }
                 let data = try await client(connection).download(attachmentID: attachment.id)
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
                 try data.write(to: url, options: .atomic)
                 return url
             },
-            answer: { connection, agent, messageID, value in try await client(connection).answer(agent: agent, messageID: messageID, value: value) },
+            answer: { connection, agent, messageID, answer in try await client(connection).answer(agent: agent, messageID: messageID, answer: answer) },
             markRead: { connection, agent, messageID in try await client(connection).markRead(agent: agent, upTo: messageID) }
         )
     }
@@ -147,7 +149,7 @@ extension DependencyValues {
     }
 }
 
-extension SurfacedFileClient {
+extension ChatClient {
     /// A name safe as one path component.
     static func safeComponent(_ name: String) -> String {
         let cleaned = name.replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: ":", with: "_").trimmingCharacters(in: .whitespaces)

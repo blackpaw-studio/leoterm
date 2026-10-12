@@ -77,9 +77,44 @@ struct LeoChatContractTests {
 
     @Test func answerDecodesTheMessage() async throws {
         let answered = try await LeoChatHTTPClient(transport: FakeWebTransport(responses: Self.enveloped(Self.messageJSON)))
-            .answer(agent: "zeus", messageID: "01JB", value: "yes")
+            .answer(agent: "zeus", messageID: "01JB", answer: LeoChatAnswer(values: ["yes", "no"], text: "both, carefully"))
 
         #expect(answered == Self.message)
+    }
+
+    @Test(arguments: [
+        (LeoChatAnswer(values: ["yes", "no"], text: "both"), #"{"text":"both","values":["yes","no"]}"#),
+        (LeoChatAnswer.choice("yes"), #"{"values":["yes"]}"#),
+        (LeoChatAnswer(values: [], text: "free"), #"{"text":"free","values":[]}"#),
+    ])
+    func answerSendsValuesAndTextOnlyWhenSet(answer: LeoChatAnswer, body: String) async throws {
+        let transport = FakeWebTransport(responses: Self.enveloped(Self.messageJSON))
+        _ = try await LeoChatHTTPClient(transport: transport).answer(agent: "zeus", messageID: "01JB", answer: answer)
+
+        let request = try #require(await transport.requests.first)
+        #expect(request.method == "POST")
+        #expect(request.path == "/api/v1/chat/zeus/messages/01JB/answer")
+        #expect(request.body.flatMap { String(bytes: $0, encoding: .utf8) } == body)
+    }
+
+    @Test(arguments: [#"{"error":"message already settled"}"#, #"{"ok":false,"error":"message already settled"}"#, ""])
+    func aSettledAnswerThrowsSettled(body: String) async {
+        await #expect(throws: LeoChatAnswerError.settled) {
+            _ = try await LeoChatHTTPClient(transport: FakeWebTransport(responses: [409: body]))
+                .answer(agent: "zeus", messageID: "01JB", answer: .choice("yes"))
+        }
+    }
+
+    @Test func aRefusedAnswerThrowsInvalidWithTheDaemonsReason() async {
+        let body = #"{"ok":false,"error":"invalid: this question does not take text"}"#
+        await #expect(throws: LeoChatAnswerError.invalid("invalid: this question does not take text")) {
+            _ = try await LeoChatHTTPClient(transport: FakeWebTransport(responses: [400: body]))
+                .answer(agent: "zeus", messageID: "01JB", answer: LeoChatAnswer(values: ["yes"], text: "why"))
+        }
+        await #expect(throws: LeoChatAnswerError.invalid("HTTP 400")) {
+            _ = try await LeoChatHTTPClient(transport: FakeWebTransport(responses: [400: ""]))
+                .answer(agent: "zeus", messageID: "01JB", answer: .choice("yes"))
+        }
     }
 
     @Test func readAcceptsTheEmptyEnvelope() async throws {

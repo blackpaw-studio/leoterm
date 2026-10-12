@@ -160,7 +160,7 @@ struct LeoChatPaneModelTests {
         #expect(model.timeline.messages.map(\.state) == ["answered", "answered"])
         #expect(model.timeline.messages.first?.answer == .choice("allow"))
         #expect(model.answering.isEmpty)
-        #expect(await client.answers.map(\.value) == ["y", "allow"])
+        #expect(await client.answers.map(\.answer) == [.choice("y"), .choice("allow")])
     }
 
     @Test func aFailedAnswerKeepsThePromptOpenAndSaysWhy() async {

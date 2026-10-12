@@ -224,7 +224,7 @@ public struct AppFeature {
                 case .reply(_, let text, let replyTo):
                     _ = try await chatClient.send(connection, target.agent, LeoChatDraft(text: text, replyTo: replyTo))
                 case .answer(_, let messageID, let value):
-                    _ = try await chatClient.answer(connection, target.agent, messageID, value)
+                    _ = try await chatClient.answer(connection, target.agent, messageID, .choice(value))
                 }
             } catch {
                 await chatNotifier.actionFailed(target.agent, error.localizedDescription)

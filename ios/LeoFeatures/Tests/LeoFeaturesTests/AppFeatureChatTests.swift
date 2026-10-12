@@ -195,8 +195,8 @@ struct AppFeatureChatTests {
         } withDependencies: {
             $0.pairedDaemons.load = { [.dionysus] }
             $0.secrets.load = { _ in DaemonSecrets(token: "t") }
-            $0.chatClient.answer = { _, agent, id, value in
-                answers.withValue { $0.append("\(agent) \(id) \(value)") }
+            $0.chatClient.answer = { _, agent, id, answer in
+                answers.withValue { $0.append("\(agent) \(id) \(answer.values.joined())") }
                 return nil
             }
         }

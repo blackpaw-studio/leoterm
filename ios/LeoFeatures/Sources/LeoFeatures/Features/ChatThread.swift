@@ -139,7 +139,7 @@ public struct ChatThread {
                 let (daemon, agent) = (state.daemon, state.agentName)
                 return .run { [chatClient, secrets] send in
                     await send(.answerResponse(messageID: id, value: value, Result {
-                        try await chatClient.answer(try secrets.connection(for: daemon), agent, id, value)
+                        try await chatClient.answer(try secrets.connection(for: daemon), agent, id, .choice(value))
                     }))
                 }
 

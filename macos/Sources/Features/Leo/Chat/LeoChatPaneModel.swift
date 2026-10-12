@@ -194,7 +194,7 @@ import LeoKit
         let client = client
         defer { answering.remove(messageID) }
         do {
-            let updated = try await client.answer(agent: agent.name, messageID: messageID, value: value)
+            let updated = try await client.answer(agent: agent.name, messageID: messageID, answer: .choice(value))
             guard agent == self.agent else { return }
             if let updated, timeline.admits(updated, agent: agent.name) {
                 timeline.merge([updated])

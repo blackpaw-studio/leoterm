@@ -242,8 +242,9 @@ struct ChatThreadTests {
             ChatThread()
         } withDependencies: {
             Self.withSecrets(&$0)
-            $0.chatClient.answer = { _, agent, id, value in
-                #expect([agent, id, value] == ["zeus", "01", "yes"])
+            $0.chatClient.answer = { _, agent, id, answer in
+                #expect([agent, id] == ["zeus", "01"])
+                #expect(answer == .choice("yes"))
                 return answered
             }
         }

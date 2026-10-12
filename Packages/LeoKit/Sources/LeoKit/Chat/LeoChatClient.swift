@@ -9,8 +9,9 @@ public protocol LeoChatClient: Sendable {
     func upload(_ upload: LeoChatUpload) async throws -> LeoChatAttachment
     func download(attachmentID: String) async throws -> Data
     /// Answers an `ask` or `permission`; the updated message when the
-    /// daemon returned it.
-    func answer(agent: String, messageID: String, value: String) async throws -> LeoChatMessage?
+    /// daemon returned it. Throws `LeoChatAnswerError` when the daemon
+    /// refuses the answer (400) or the prompt is already settled (409).
+    func answer(agent: String, messageID: String, answer: LeoChatAnswer) async throws -> LeoChatMessage?
     func markRead(agent: String, upTo messageID: String) async throws
 }
 
@@ -116,10 +117,19 @@ public struct LeoChatHTTPClient: LeoChatClient {
         return try Self.checked(try await transport.send(LeoHTTPRequest(method: "GET", path: path), timeout: transferTimeout)).body
     }
 
-    public func answer(agent: String, messageID: String, value answer: String) async throws -> LeoChatMessage? {
+    public func answer(agent: String, messageID: String, answer: LeoChatAnswer) async throws -> LeoChatMessage? {
         let path = try Self.agentPath(agent, "messages/\(try LeoSocketDaemonClient.pathSegment(messageID))/answer")
-        let response = try await request("POST", path, body: try JSONEncoder().encode(["value": answer]))
-        let envelope = try LeoDaemonEnvelope<LeoChatMessage>.decode(response.body)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        let request = LeoHTTPRequest(method: "POST", path: path, body: try encoder.encode(answer))
+        let raw = try await transport.send(request, timeout: mutationTimeout)
+        // Before `checked`: these bodies may lack the envelope's `ok`.
+        switch raw.status {
+        case 409: throw LeoChatAnswerError.settled
+        case 400: throw LeoChatAnswerError.invalid(LeoChatErrorBody.message(in: raw.body) ?? "HTTP 400")
+        default: break
+        }
+        let envelope = try LeoDaemonEnvelope<LeoChatMessage>.decode(try Self.checked(raw).body)
         try envelope.expectOK()
         return envelope.data
     }
@@ -185,4 +195,28 @@ public struct LeoChatHTTPClient: LeoChatClient {
 
 struct LeoChatIgnored: Decodable, Sendable {
     init(from decoder: any Decoder) throws {}
+}
+
+/// Why the daemon refused an answer.
+public enum LeoChatAnswerError: Error, Equatable, LocalizedError, Sendable {
+    /// Already answered or expired (409): refetch, there's nothing to say.
+    case settled
+    /// The answer doesn't fit the prompt's input (400), in the daemon's words.
+    case invalid(String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .settled: String(localized: "This question was already answered or has expired.")
+        case .invalid(let message): message
+        }
+    }
+}
+
+/// `{error}` from a body that may or may not be a full envelope.
+private struct LeoChatErrorBody: Decodable {
+    let error: String?
+
+    static func message(in body: Data) -> String? {
+        (try? JSONDecoder().decode(Self.self, from: body))?.error.flatMap { $0.isEmpty ? nil : $0 }
+    }
 }

@@ -53,26 +53,26 @@ struct LeoChatClientTests {
         #expect(Set(body.keys) == ["text"])
     }
 
-    @Test func answerPostsTheValueAndReadsTheUpdatedMessage() async throws {
+    @Test func answerPostsTheAnswerAndReadsTheUpdatedMessage() async throws {
         let transport = FakeWebTransport(responses: [200: #"{"ok":true,"data":\#(Self.message)}"#])
-        let updated = try await LeoChatHTTPClient(transport: transport).answer(agent: "zeus", messageID: "01JA", value: "allow")
+        let updated = try await LeoChatHTTPClient(transport: transport).answer(agent: "zeus", messageID: "01JA", answer: .choice("allow"))
 
         #expect(updated?.id == "01JA")
         let request = try #require(await transport.requests.first)
         #expect(request.path == "/api/v1/chat/zeus/messages/01JA/answer")
-        #expect(try Self.object(request) as? [String: String] == ["value": "allow"])
+        #expect(try Self.object(request) as? [String: [String]] == ["values": ["allow"]])
     }
 
     @Test func anAnswerWithoutABodyIsStillASuccess() async throws {
         let transport = FakeWebTransport(responses: [200: #"{"ok":true}"#])
-        let updated = try await LeoChatHTTPClient(transport: transport).answer(agent: "zeus", messageID: "01JA", value: "yes")
+        let updated = try await LeoChatHTTPClient(transport: transport).answer(agent: "zeus", messageID: "01JA", answer: .choice("yes"))
         #expect(updated == nil)
     }
 
-    @Test func failuresCarryTheDaemonsReason() async {
-        let transport = FakeWebTransport(responses: [409: #"{"ok":false,"error":"already answered"}"#])
-        await #expect(throws: LeoDaemonError.daemon(code: "http_409", message: "already answered", matches: [])) {
-            _ = try await LeoChatHTTPClient(transport: transport).answer(agent: "zeus", messageID: "01JA", value: "yes")
+    @Test func otherAnswerFailuresCarryTheDaemonsReason() async {
+        let transport = FakeWebTransport(responses: [404: #"{"ok":false,"error":"no such message"}"#])
+        await #expect(throws: LeoDaemonError.daemon(code: "not_found", message: "no such message", matches: [])) {
+            _ = try await LeoChatHTTPClient(transport: transport).answer(agent: "zeus", messageID: "01JA", answer: .choice("yes"))
         }
     }
 

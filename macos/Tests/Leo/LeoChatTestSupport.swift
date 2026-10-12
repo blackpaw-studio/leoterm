@@ -14,7 +14,7 @@ actor FakeChatClient: LeoChatClient {
     private(set) var sent: [(agent: String, draft: LeoChatDraft)] = []
     private(set) var uploads: [LeoChatUpload] = []
     private(set) var reads: [(agent: String, id: String)] = []
-    private(set) var answers: [(agent: String, id: String, value: String)] = []
+    private(set) var answers: [(agent: String, id: String, answer: LeoChatAnswer)] = []
     private(set) var downloadCount = 0
 
     private var pages: [Result<LeoChatPage, Failure>] = []
@@ -90,8 +90,8 @@ actor FakeChatClient: LeoChatClient {
         return try (downloads[attachmentID] ?? .failure(Failure(message: "missing"))).get()
     }
 
-    func answer(agent: String, messageID: String, value: String) async throws -> LeoChatMessage? {
-        answers.append((agent, messageID, value))
+    func answer(agent: String, messageID: String, answer: LeoChatAnswer) async throws -> LeoChatMessage? {
+        answers.append((agent, messageID, answer))
         return try answerResult.get()
     }
 
