@@ -480,6 +480,8 @@ struct PushNotificationsTests {
         let recorder = PushRecorder()
         var state = PushNotifications.State(daemons: [.dionysus])
         state.authorization = .denied
+        state.apnsToken = Self.tokenA
+        state.grant = "grant-aa01"
         let store = Self.store(state, recorder: recorder)
 
         await store.send(.becameActive)
@@ -492,6 +494,78 @@ struct PushNotificationsTests {
         await store.receive(\.authorizationRefreshed, .authorized)
         await store.finish()
         #expect(recorder.apnsRequests.value == 1)
+    }
+
+    @Test func aForegroundRetriesATokenRequestThatNeverReachedTheRelay() async {
+        let recorder = PushRecorder()
+        var state = PushNotifications.State(daemons: [.dionysus])
+        state.authorization = .authorized
+        state.relayError = "Couldn't register with the push relay (HTTP 503)."
+        let store = Self.store(state, recorder: recorder)
+
+        await store.send(.becameActive)
+        await store.receive(\.authorizationRefreshed, .authorized)
+        await store.finish()
+        #expect(recorder.apnsRequests.value == 1)
+    }
+
+    @Test func aForegroundRetriesATokenThatNeverArrived() async {
+        let recorder = PushRecorder()
+        var state = PushNotifications.State(daemons: [.dionysus])
+        state.authorization = .authorized
+        state.relayError = "This device couldn't get a push token (no network)."
+        let store = Self.store(state, recorder: recorder)
+
+        await store.send(.becameActive)
+        await store.receive(\.authorizationRefreshed, .authorized)
+        await store.finish()
+        #expect(recorder.apnsRequests.value == 1)
+    }
+
+    @Test func aForegroundRetriesADaemonThatFailedToRegister() async {
+        let recorder = PushRecorder()
+        var state = PushNotifications.State(daemons: [.dionysus, .hestia])
+        state.authorization = .authorized
+        state.apnsToken = Self.tokenA
+        state.grant = "grant-aa01"
+        state.daemonErrors = ["d-hestia": "offline"]
+        let store = Self.store(state, recorder: recorder)
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        await store.send(.becameActive)
+        await store.receive(\.daemonUpdated)
+        await store.finish()
+        #expect(recorder.puts.value == ["dev-2"])
+        #expect(store.state.daemonErrors.isEmpty)
+    }
+
+    @Test func aReconnectRetriesThatDaemonsFailedRegistration() async {
+        let recorder = PushRecorder()
+        var state = PushNotifications.State(daemons: [.dionysus, .hestia])
+        state.authorization = .authorized
+        state.apnsToken = Self.tokenA
+        state.grant = "grant-aa01"
+        state.daemonErrors = ["d-dionysus": "offline", "d-hestia": "offline"]
+        let store = Self.store(state, recorder: recorder)
+
+        await store.send(.daemonReconnected("d-hestia"))
+        await store.receive(\.daemonUpdated) { $0.daemonErrors = ["d-dionysus": "offline"] }
+        #expect(recorder.puts.value == ["dev-2"])
+    }
+
+    @Test func aHealthyForegroundRegistersNothingAgain() async {
+        let recorder = PushRecorder()
+        var state = PushNotifications.State(daemons: [.dionysus])
+        state.authorization = .authorized
+        state.apnsToken = Self.tokenA
+        state.grant = "grant-aa01"
+        let store = Self.store(state, recorder: recorder)
+
+        await store.send(.becameActive)
+        await store.receive(\.authorizationRefreshed, .authorized)
+        await store.finish()
+        #expect(recorder.apnsRequests.value == 0)
+        #expect(recorder.puts.value.isEmpty)
     }
 
     @Test func aForegroundBeforeTheFirstCheckLeavesRegistrationToLaunch() async {

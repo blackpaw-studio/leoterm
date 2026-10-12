@@ -12,7 +12,9 @@ public struct PushProblem: Hashable, Identifiable, Sendable {
 /// Push registration. The APNs token goes to the relay for a grant; the
 /// grant, the phone's push key and the relay URL go to every paired daemon.
 /// Runs on launch, on each token, on each new pairing and when the Settings
-/// switch turns on.
+/// switch turns on. A step that failed (no token, relay down, daemon
+/// unreachable) retries on foreground and when a daemon reconnects, while
+/// notifications are on.
 ///
 /// Unregistering must outlast an unreachable daemon: turning the switch off
 /// leaves each daemon pending until its DELETE succeeds, and forgetting a
@@ -97,19 +99,21 @@ public struct PushNotifications {
                 return .none
 
             case .authorizationRefreshed(let authorization):
+                let wasChecked = state.authorization != nil
                 let wasRefused = state.authorization == .denied || state.authorization == .notDetermined
                 state.authorization = authorization
                 // Allowed in iOS Settings since the last check. (Before the
                 // first check, the launch flow registers.)
-                guard state.isEnabled, wasRefused, authorization == .authorized else { return .none }
-                let pushClient = pushClient
-                return .run { _ in await pushClient.registerForRemoteNotifications() }
+                guard state.isEnabled, authorization == .authorized else { return .none }
+                if wasRefused { return requestToken() }
+                return wasChecked ? retryTokenRequest(state: state) : .none
 
             case .becameActive:
                 let pushClient = pushClient
                 return .concatenate(
                     .run { send in await send(.authorizationRefreshed(await pushClient.authorization())) },
-                    reconcile(state: &state)
+                    reconcile(state: &state),
+                    retryDaemons(state: state, only: nil)
                 )
 
             case .cleanupRecorded:
@@ -140,7 +144,11 @@ public struct PushNotifications {
                 return .merge(share(state), authorize(prompting: true), register(daemon, state: state))
 
             case .daemonReconnected(let id):
-                return unregisterPending(only: [id], state: &state)
+                return .merge(
+                    unregisterPending(only: [id], state: &state),
+                    retryTokenRequest(state: state),
+                    retryDaemons(state: state, only: [id])
+                )
 
             case .daemonsLoaded(let daemons):
                 state.daemons = IdentifiedArray(daemons, uniquingIDsWith: { $1 })
@@ -223,6 +231,28 @@ public struct PushNotifications {
                 return .none
             }
         }
+    }
+
+    /// Asks APNs for a token again when the last attempt got no token, or
+    /// got no grant from the relay. While notifications are on and allowed.
+    private func retryTokenRequest(state: State) -> Effect<Action> {
+        guard state.isEnabled, state.authorization == .authorized,
+              state.apnsToken == nil || state.relayError != nil
+        else { return .none }
+        return requestToken()
+    }
+
+    /// Registers again with the daemons whose last registration failed
+    /// (all, or just `only`). Needs the relay's grant.
+    private func retryDaemons(state: State, only ids: Set<PairedDaemon.ID>?) -> Effect<Action> {
+        guard state.isEnabled else { return .none }
+        let failed = state.daemons.filter { state.daemonErrors[$0.id] != nil && (ids?.contains($0.id) ?? true) }
+        return .merge(failed.map { register($0, state: state) })
+    }
+
+    private func requestToken() -> Effect<Action> {
+        let pushClient = pushClient
+        return .run { _ in await pushClient.registerForRemoteNotifications() }
     }
 
     /// Retries every unfinished unregistration: pending daemons while
