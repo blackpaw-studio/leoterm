@@ -1,6 +1,7 @@
 Status: running
 Started: 2026-10-11T15:41:34Z
 Budget: 20 items, until 2026-10-12T03:41:34Z
+Stop: requested 2026-10-12T01:17:04Z (in session)
 Digested-through: 10
 Filed: 0/3 bugs, 4/5 ideas
 Self-filed: B-148 → B-293 idea — Empty sidebar list under the state view may shift its layout
@@ -233,3 +234,4 @@ Finished 11: B-153 landed 53bedb546 · shot /Users/evan/.leo/agents/leoterm/.git
 - B-152 landed; interim digest 6–10 posted in session (notify off). B-153 picked (tier light; runner d-9a7a462de4ab).
 - B-153 landed 53bedb546 (fixes 0).
 - B-153 landed (verify re-run in-runner because round 1 never opened the browser pane; not a fix). B-154 picked (tier light; runner d-4ceff45580fb).
+- Owner asked to pause (in session) at 21:17 EDT: no new lanes; B-154 finishes, then the final digest.
