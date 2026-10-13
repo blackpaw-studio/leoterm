@@ -15,9 +15,12 @@ struct LeoChatPaneModelTests {
     private let recorder = FakeVoiceRecorder()
     private let directory = FileManager.default.temporaryDirectory.appending(path: "leo-chat-tests-\(UUID().uuidString)")
 
-    private func make(maximumUploadBytes: Int = LeoChatUpload.maximumBytes) -> LeoChatPaneModel {
+    private func make(
+        maximumUploadBytes: Int = LeoChatUpload.maximumBytes, onRead: @escaping @MainActor (LeoAgentID) -> Void = { _ in }
+    ) -> LeoChatPaneModel {
         LeoChatPaneModel(
-            client: client, host: .local, recorder: recorder, attachmentDirectory: directory, maximumUploadBytes: maximumUploadBytes
+            client: client, host: .local, recorder: recorder, attachmentDirectory: directory, maximumUploadBytes: maximumUploadBytes,
+            onRead: onRead
         )
     }
 
@@ -144,6 +147,52 @@ struct LeoChatPaneModelTests {
         await model.setOnScreen(false)
         await model.receive(.message(chatMessage("c", at: 3)), host: .local)
         #expect(await client.reads.count == 2)
+    }
+
+    @Test func aSuccessfulReadReportsTheAgent() async {
+        var read: [LeoAgentID] = []
+        await client.enqueuePage([chatMessage("a", at: 1)])
+        let model = make { read.append($0) }
+        await model.show(Self.alpha)
+        await model.setOnScreen(true)
+        #expect(read == [Self.alpha])
+    }
+
+    @Test func aFailedReadReportsNothing() async {
+        var read: [LeoAgentID] = []
+        await client.failReads("offline")
+        await client.enqueuePage([chatMessage("a", at: 1)])
+        let model = make { read.append($0) }
+        await model.show(Self.alpha)
+        await model.setOnScreen(true)
+        #expect(await client.reads.count == 1)
+        #expect(read.isEmpty)
+    }
+
+    @Test func aFilteredThreadNeitherReadsNorReports() async {
+        var read: [LeoAgentID] = []
+        await client.enqueuePage([chatMessage("a", task: "t", at: 1)])
+        let model = make { read.append($0) }
+        await model.show(Self.alpha)
+        await model.setTaskFilter("t")
+        await model.setOnScreen(true)
+        #expect(await client.reads.isEmpty)
+        #expect(read.isEmpty)
+    }
+
+    @Test func marksReadIsTrueOnlyOnScreenForTheShownAgentWithNoFilter() async {
+        await client.enqueuePage([chatMessage("a", at: 1)])
+        let model = make()
+        await model.show(Self.alpha)
+        #expect(!model.marksRead(Self.alpha))
+        await model.setOnScreen(true)
+        #expect(model.marksRead(Self.alpha))
+        #expect(!model.marksRead(Self.beta))
+        await model.setTaskFilter("t")
+        #expect(!model.marksRead(Self.alpha))
+        await model.setTaskFilter(nil)
+        await model.setOnScreen(false)
+        #expect(!model.marksRead(Self.alpha))
     }
 
     // MARK: Answers

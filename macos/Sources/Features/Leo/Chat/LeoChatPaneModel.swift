@@ -47,6 +47,7 @@ import LeoKit
     private let attachmentDirectory: URL
     private let maximumUploadBytes: Int
     private let readFile: FileReader
+    private let onRead: @MainActor (LeoAgentID) -> Void
     /// Identifies the page request whose answer still counts.
     private var loadToken = 0
     private var visibleCount = 0
@@ -54,7 +55,8 @@ import LeoKit
 
     init(
         client: any LeoChatClient, host: LeoHostID, recorder: any LeoChatVoiceRecording, attachmentDirectory: URL,
-        maximumUploadBytes: Int = LeoChatUpload.maximumBytes, readFile: @escaping FileReader = LeoChatPaneModel.readFromDisk
+        maximumUploadBytes: Int = LeoChatUpload.maximumBytes, readFile: @escaping FileReader = LeoChatPaneModel.readFromDisk,
+        onRead: @escaping @MainActor (LeoAgentID) -> Void = { _ in }
     ) {
         self.client = client
         self.host = host
@@ -62,6 +64,7 @@ import LeoKit
         self.attachmentDirectory = attachmentDirectory
         self.maximumUploadBytes = maximumUploadBytes
         self.readFile = readFile
+        self.onRead = onRead
     }
 
     /// The selected connection's daemon changed. Events and resyncs from
@@ -72,6 +75,12 @@ import LeoKit
     }
 
     var isOnScreen: Bool { visibleCount > 0 }
+
+    /// Whether `agent`'s unread messages are being marked read as they
+    /// arrive: its unfiltered thread is on screen.
+    func marksRead(_ agent: LeoAgentID) -> Bool {
+        isOnScreen && self.agent == agent && timeline.taskFilter == nil
+    }
 
     // MARK: Thread
 
@@ -186,11 +195,16 @@ import LeoKit
     }
 
     /// Best effort, and only for the unfiltered thread on screen: a failure
-    /// only leaves the unread count up.
+    /// only leaves the unread count up. `onRead` hears of successes only.
     private func markRead(_ id: String) async {
         guard isOnScreen, timeline.taskFilter == nil, let agent, agent.host == host, id != lastRead else { return }
         lastRead = id
-        try? await client.markRead(agent: agent.name, upTo: id)
+        do {
+            try await client.markRead(agent: agent.name, upTo: id)
+            onRead(agent)
+        } catch {
+            // Left unread; the next message or resync retries.
+        }
     }
 
     // MARK: Answers

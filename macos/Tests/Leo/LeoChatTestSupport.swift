@@ -16,6 +16,7 @@ actor FakeChatClient: LeoChatClient {
     private(set) var reads: [(agent: String, id: String)] = []
     private(set) var answers: [(agent: String, id: String, answer: LeoChatAnswer)] = []
     private(set) var downloadCount = 0
+    private(set) var threadRequestCount = 0
 
     private var pages: [Result<LeoChatPage, Failure>] = []
     private var isHoldingPages = false
@@ -27,6 +28,11 @@ actor FakeChatClient: LeoChatClient {
     private var uploadFailure: Failure?
     private var answerResult: Result<LeoChatMessage?, any Error> = .success(nil)
     private var downloads: [String: Result<Data, Failure>] = [:]
+    private var readFailure: Failure?
+    private var threadsResult: Result<[LeoChatThread], Failure> = .success([])
+    private var isHoldingThreads = false
+    private var heldThreads: [CheckedContinuation<Void, Never>] = []
+    private var threadWaiters: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
 
     func enqueuePage(_ messages: [LeoChatMessage], hasMore: Bool = false) {
         pages.append(.success(LeoChatPage(messages: messages, hasMore: hasMore)))
@@ -37,7 +43,24 @@ actor FakeChatClient: LeoChatClient {
     func failUploads(_ message: String) { uploadFailure = Failure(message: message) }
     func setAnswerResult(_ result: Result<LeoChatMessage?, any Error>) { answerResult = result }
     func setDownload(_ id: String, _ result: Result<Data, Failure>) { downloads[id] = result }
+    func failReads(_ message: String) { readFailure = Failure(message: message) }
+    func setThreads(_ threads: [LeoChatThread]) { threadsResult = .success(threads) }
+    func failThreads(_ message: String) { threadsResult = .failure(Failure(message: message)) }
+    func holdThreads() { isHoldingThreads = true }
     func holdPages() { isHoldingPages = true }
+
+    /// Lets every held `threads()` request answer.
+    func releaseThreads() {
+        isHoldingThreads = false
+        heldThreads.forEach { $0.resume() }
+        heldThreads = []
+    }
+
+    /// Returns once `count` `threads()` requests have arrived.
+    func waitForThreadRequests(_ count: Int) async {
+        guard threadRequestCount < count else { return }
+        await withCheckedContinuation { threadWaiters.append((count, $0)) }
+    }
     func holdSends() { isHoldingSends = true }
 
     /// Lets the oldest held page request answer.
@@ -58,7 +81,15 @@ actor FakeChatClient: LeoChatClient {
         await withCheckedContinuation { pageWaiters.append((count, $0)) }
     }
 
-    func threads() async throws -> [LeoChatThread] { [] }
+    func threads() async throws -> [LeoChatThread] {
+        threadRequestCount += 1
+        let ready = threadWaiters.filter { $0.count <= threadRequestCount }
+        threadWaiters.removeAll { $0.count <= threadRequestCount }
+        ready.forEach { $0.continuation.resume() }
+        let result = threadsResult
+        if isHoldingThreads { await withCheckedContinuation { heldThreads.append($0) } }
+        return try result.get()
+    }
 
     func messages(agent: String, query: LeoChatPageQuery) async throws -> LeoChatPage {
         pageRequests.append((agent, query))
@@ -97,6 +128,7 @@ actor FakeChatClient: LeoChatClient {
 
     func markRead(agent: String, upTo messageID: String) async throws {
         reads.append((agent, messageID))
+        if let readFailure { throw readFailure }
     }
 }
 
