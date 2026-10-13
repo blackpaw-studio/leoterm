@@ -48,9 +48,11 @@ struct LeoChatViewerModelTests {
         LeoChatAttachment(id: id, filename: filename, mime: "application/octet-stream", bytes: 1)
     }
 
-    private func openMarkdown(_ model: LeoChatViewerModel, for agent: LeoAgentID = a, id: String = "m1") async throws {
+    private func openMarkdown(
+        _ model: LeoChatViewerModel, for agent: LeoAgentID = a, id: String = "m1", fullWindow: Bool = false
+    ) async throws {
         let url = try file("\(id).md", Data("# \(id)".utf8))
-        await model.open(attachment(id, "\(id).md"), for: agent, download: { url })
+        await model.open(attachment(id, "\(id).md"), for: agent, fullWindow: fullWindow, download: { url })
     }
 
     @Test func aMarkdownAttachmentOpensTheViewer() async throws {
@@ -161,6 +163,90 @@ struct LeoChatViewerModelTests {
         #expect(model.shown?.document.attachmentID == "2")
     }
 
+    // MARK: Full window
+
+    @Test func expandingShowsTheSameDocumentFullWindowAndKeepsThePaneViewer() async throws {
+        let model = makeModel()
+        try await openMarkdown(model)
+        let document = model.document(for: Self.a)
+        model.enterFullWindow()
+        #expect(model.isFullWindow)
+        #expect(model.fullWindowDocument == document)
+        #expect(model.document(for: Self.a) == document)
+    }
+
+    @Test func exitingAnExpandedViewerReturnsToThePane() async throws {
+        let model = makeModel()
+        try await openMarkdown(model)
+        let document = model.document(for: Self.a)
+        model.enterFullWindow()
+        #expect(model.exitFullWindow())
+        #expect(!model.isFullWindow)
+        #expect(model.fullWindowDocument == nil)
+        #expect(model.document(for: Self.a) == document)
+    }
+
+    @Test func aContextMenuOpenGoesStraightToFullWindowWithoutThePaneViewer() async throws {
+        let model = makeModel()
+        try await openMarkdown(model, fullWindow: true)
+        #expect(model.isFullWindow)
+        #expect(model.fullWindowDocument?.filename == "m1.md")
+        #expect(model.document(for: Self.a) == nil)
+    }
+
+    @Test func exitingAContextMenuOpenReturnsToTheThread() async throws {
+        let model = makeModel()
+        try await openMarkdown(model, fullWindow: true)
+        #expect(!model.exitFullWindow())
+        #expect(model.shown == nil)
+    }
+
+    @Test(arguments: [false, true], [false, true])
+    func closingOrSwitchingWhileFullWindowClearsBoth(fromContextMenu: Bool, switchesAgent: Bool) async throws {
+        let model = makeModel()
+        try await openMarkdown(model, fullWindow: fromContextMenu)
+        if !fromContextMenu { model.enterFullWindow() }
+        if switchesAgent { model.agentChanged(to: Self.b) } else { model.close() }
+        #expect(model.shown == nil)
+        #expect(!model.isFullWindow)
+        #expect(model.fullWindowDocument == nil)
+    }
+
+    @Test(arguments: [false, true])
+    func aStaleContextMenuOpenIsDropped(switchesAgent: Bool) async throws {
+        let model = makeModel()
+        let downloads = Downloads()
+        let url = try file("m1.md", Data("# hi".utf8))
+        let open = Task {
+            await model.open(attachment("m1", "m1.md"), for: Self.a, fullWindow: true, download: { await downloads.wait() })
+        }
+        await downloads.waitUntilHeld(1)
+        if switchesAgent { model.agentChanged(to: Self.b) } else { model.close() }
+        downloads.finish(0, with: url)
+        await open.value
+        #expect(model.shown == nil)
+        #expect(opened.urls.isEmpty)
+    }
+
+    @Test func aBinaryFileFromTheContextMenuOpensInTheDefaultAppAndNotFullWindow() async throws {
+        let model = makeModel()
+        let url = try file("blob.bin", Data([0, 1, 2]))
+        await model.open(attachment("b1", "blob.bin"), for: Self.a, fullWindow: true, download: { url })
+        #expect(model.shown == nil)
+        #expect(opened.urls == [url])
+    }
+
+    @Test func enteringFullWindowWithNothingShownAndExitingInThePaneDoNothing() async throws {
+        let model = makeModel()
+        model.enterFullWindow()
+        #expect(model.shown == nil)
+        #expect(!model.exitFullWindow())
+        try await openMarkdown(model)
+        let before = model.shown
+        #expect(!model.exitFullWindow())
+        #expect(model.shown == before)
+    }
+
     // MARK: Through the window session
 
     private func makeSession(contentWidth: CGFloat = 800) -> LeoWindowSession {
@@ -192,5 +278,18 @@ struct LeoChatViewerModelTests {
         try await openMarkdown(session.chatViewer)
         session.choose(.chat, for: Self.a)
         #expect(session.chatViewer.document(for: Self.a) != nil)
+    }
+
+    @Test(arguments: [false, true])
+    func theSessionDropsAFullWindowFileOnLeavingChat(fromContextMenu: Bool) async throws {
+        let session = makeSession()
+        session.choose(.chat, for: Self.a)
+        try await openMarkdown(session.chatViewer, fullWindow: fromContextMenu)
+        session.choose(.terminal, for: Self.a)
+        #expect(session.chatViewer.shown == nil)
+        session.choose(.chat, for: Self.a)
+        try await openMarkdown(session.chatViewer, fullWindow: fromContextMenu)
+        session.select(.chat, for: Self.a)
+        #expect(session.chatViewer.shown == nil)
     }
 }
