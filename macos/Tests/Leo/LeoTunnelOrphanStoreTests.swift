@@ -136,6 +136,59 @@ struct LeoTunnelOrphanStoreTests {
         #expect(LeoControlSocket.inspect(path) == .live)
     }
 
+    /// Quit deadlocked: the exit-handler's `clear` held the store lock while
+    /// `UserDefaults` posted a notification whose main-queue observer waited on
+    /// the main thread, and `shutdown()` on main was waiting for that lock.
+    @Test func clearOnMainDoesNotWaitForABackgroundClearBlockedOnMain() {
+        let defaults = LeoInMemoryDefaults(postsChangeNotifications: true)
+        let store = LeoTunnelOrphanStore(defaults: defaults, key: "orphan")
+        let record = LeoTunnelOrphanRecord(pid: 42, startTime: 99, socketPath: "/tmp/x.sock")
+        store.record(record)
+        let backgroundInWrite = DispatchSemaphore(value: 0)
+        let mainReached = DispatchSemaphore(value: 0)
+        let finished = DispatchSemaphore(value: 0)
+        // Stands in for an observer that makes the poster wait on the main thread.
+        let observer = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification, object: defaults, queue: nil
+        ) { _ in
+            guard !Thread.isMainThread else { return }
+            backgroundInWrite.signal()
+            _ = mainReached.wait(timeout: .now() + 2)
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        DispatchQueue.global().async {
+            store.clear(matching: record)
+            finished.signal()
+        }
+        #expect(backgroundInWrite.wait(timeout: .now() + 2) == .success)
+        let start = Date()
+        store.clear(matching: record)
+        let mainWaited = Date().timeIntervalSince(start)
+        mainReached.signal()
+
+        #expect(mainWaited < 1)
+        #expect(finished.wait(timeout: .now() + 2) == .success)
+        #expect(store.current() == nil)
+        #expect(defaults.data(forKey: "orphan") == nil)
+    }
+
+    @Test func recordRacingAClearNeverLosesTheNewRecord() {
+        let defaults = LeoInMemoryDefaults()
+        let store = LeoTunnelOrphanStore(defaults: defaults, key: "orphan")
+        let old = LeoTunnelOrphanRecord(pid: 1, startTime: 1, socketPath: "/tmp/old.sock")
+        let new = LeoTunnelOrphanRecord(pid: 2, startTime: 2, socketPath: "/tmp/new.sock")
+
+        for _ in 0..<200 {
+            store.record(old)
+            DispatchQueue.concurrentPerform(iterations: 2) { index in
+                index == 0 ? store.clear(matching: old) : store.record(new)
+            }
+            #expect(store.current() == new)
+            #expect(defaults.data(forKey: "orphan").flatMap { try? JSONDecoder().decode(LeoTunnelOrphanRecord.self, from: $0) } == new)
+        }
+    }
+
     private func freshDefaults() -> UserDefaults {
         LeoInMemoryDefaults()
     }

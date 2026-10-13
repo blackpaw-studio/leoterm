@@ -158,10 +158,15 @@ struct LeoWindowVisibilityState: Equatable {
         isSidebarVisible = defaults.object(forKey: "leo.sidebarVisible") as? Bool ?? false
         preferredWidth = (defaults.object(forKey: Self.sidebarWidthKey) as? NSNumber).map { CGFloat($0.doubleValue) } ?? 260
         preferredChatWidth = Self.storedChatWidth(in: defaults)
+        // `queue: nil`: the notification is posted synchronously on whichever
+        // thread wrote the default, and a `queue: .main` observer makes that
+        // writer wait for the main thread -- a deadlock when main is itself
+        // waiting on the writer (quit did exactly that). Hop to main without
+        // waiting; the reload is a no-op unless the chat width actually moved.
         defaultsObserver = NotificationCenter.default.addObserver(
-            forName: UserDefaults.didChangeNotification, object: defaults, queue: .main
+            forName: UserDefaults.didChangeNotification, object: defaults, queue: nil
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.reloadPreferredChatWidth() }
+            Task { @MainActor [weak self] in self?.reloadPreferredChatWidth() }
         }
         terminals.rowRemoved = { [weak panes] id in panes?.rowRemoved(.terminal(id)) }
         terminals.rowReplaced = { [weak panes] old, new in panes?.rekey(.terminal(old), to: .terminal(new)) }

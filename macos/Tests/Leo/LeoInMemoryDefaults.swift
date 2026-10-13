@@ -13,8 +13,13 @@ final class LeoInMemoryDefaults: UserDefaults, @unchecked Sendable {
     private let lock = NSLock()
     private var values: [String: Any] = [:]
     private var registered: [String: Any] = [:]
+    /// Posts `UserDefaults.didChangeNotification` synchronously on the writing
+    /// thread after every write, as the real store does. Off by default so
+    /// tests that don't care stay quiet.
+    private let postsChangeNotifications: Bool
 
-    init() {
+    init(postsChangeNotifications: Bool = false) {
+        self.postsChangeNotifications = postsChangeNotifications
         // `nil` is the standard search list; the overrides below never consult it.
         super.init(suiteName: nil)!
     }
@@ -28,6 +33,9 @@ final class LeoInMemoryDefaults: UserDefaults, @unchecked Sendable {
     override func set(_ value: Any?, forKey defaultName: String) {
         // Bridge as the real store does, so `as? NSNumber` and `as? Bool` both work.
         lock.withLock { values[defaultName] = value.map { $0 as AnyObject } }
+        if postsChangeNotifications {
+            NotificationCenter.default.post(name: UserDefaults.didChangeNotification, object: self)
+        }
     }
 
     override func removeObject(forKey defaultName: String) {
