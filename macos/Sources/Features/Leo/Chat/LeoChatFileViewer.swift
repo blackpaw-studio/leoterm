@@ -10,15 +10,19 @@ final class LeoChatFileViewerView: NSView {
     let contentHost: LeoEditorContentHostView
     private let openExternally: (URL) -> Void
     private let onBack: () -> Void
+    /// Set when this view fills the window, so nothing else is left for Escape
+    /// to mean: it counts with focus anywhere (bar a field editor).
+    private let coversWindow: Bool
     private var shownDocument: LeoChatViewerDocument?
     private var keyMonitor: Any?
 
-    init(openExternally: @escaping (URL) -> Void, onBack: @escaping () -> Void) {
+    init(coversWindow: Bool = false, openExternally: @escaping (URL) -> Void, onBack: @escaping () -> Void) {
         let (scrollView, textView) = LeoEditorTextView.make()
         textView.isEditable = false
         contentHost = LeoEditorContentHostView(textScrollView: scrollView, textView: textView)
         self.openExternally = openExternally
         self.onBack = onBack
+        self.coversWindow = coversWindow
         super.init(frame: .zero)
         contentHost.translatesAutoresizingMaskIntoConstraints = false
         addSubview(contentHost)
@@ -59,9 +63,12 @@ final class LeoChatFileViewerView: NSView {
     }
 
     /// Escape is Back, unless the key belongs to something inside: the find
-    /// bar's field, or (side by side) a terminal that isn't this view.
-    static func closesOnEscape(keyCode: UInt16, modifiers: NSEvent.ModifierFlags, isInViewer: Bool, isFieldEditor: Bool) -> Bool {
-        keyCode == escapeKeyCode && modifiers.isDisjoint(with: .deviceIndependentFlagsMask) && isInViewer && !isFieldEditor
+    /// bar's field, or (side by side) a terminal that isn't this view. A view
+    /// that covers the window owns every key that isn't in a field.
+    static func closesOnEscape(
+        keyCode: UInt16, modifiers: NSEvent.ModifierFlags, isInViewer: Bool, isFieldEditor: Bool, coversWindow: Bool = false
+    ) -> Bool {
+        keyCode == escapeKeyCode && modifiers.isDisjoint(with: .deviceIndependentFlagsMask) && (isInViewer || coversWindow) && !isFieldEditor
     }
 
     // MARK: Window
@@ -97,7 +104,8 @@ final class LeoChatFileViewerView: NSView {
         return Self.closesOnEscape(
             keyCode: event.keyCode, modifiers: event.modifierFlags,
             isInViewer: (responder as? NSView)?.isDescendant(of: self) == true,
-            isFieldEditor: (responder as? NSText)?.isFieldEditor == true
+            isFieldEditor: (responder as? NSText)?.isFieldEditor == true,
+            coversWindow: coversWindow
         )
     }
 
@@ -112,11 +120,12 @@ final class LeoChatFileViewerView: NSView {
 /// opening another file makes a fresh view.
 struct LeoChatFileViewerRepresentable: NSViewRepresentable {
     let document: LeoChatViewerDocument
+    var coversWindow = false
     let onBack: () -> Void
     let openExternally: (URL) -> Void
 
     func makeNSView(context: Context) -> LeoChatFileViewerView {
-        let view = LeoChatFileViewerView(openExternally: openExternally, onBack: onBack)
+        let view = LeoChatFileViewerView(coversWindow: coversWindow, openExternally: openExternally, onBack: onBack)
         view.show(document)
         return view
     }

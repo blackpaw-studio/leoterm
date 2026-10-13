@@ -61,16 +61,23 @@ struct LeoChatFileViewerTests {
     }
 
     @Test(arguments: [
-        (UInt16(53), NSEvent.ModifierFlags(), true, false, true),
-        (UInt16(53), NSEvent.ModifierFlags.option, true, false, false),
-        (UInt16(53), NSEvent.ModifierFlags.command, true, false, false),
-        (UInt16(53), NSEvent.ModifierFlags(), true, true, false),
-        (UInt16(53), NSEvent.ModifierFlags(), false, false, false),
-        (UInt16(36), NSEvent.ModifierFlags(), true, false, false),
+        (UInt16(53), NSEvent.ModifierFlags(), true, false, false, true),
+        (UInt16(53), NSEvent.ModifierFlags.option, true, false, false, false),
+        (UInt16(53), NSEvent.ModifierFlags.command, true, false, false, false),
+        (UInt16(53), NSEvent.ModifierFlags(), true, true, false, false),
+        (UInt16(53), NSEvent.ModifierFlags(), false, false, false, false),
+        (UInt16(36), NSEvent.ModifierFlags(), true, false, false, false),
+        (UInt16(53), NSEvent.ModifierFlags(), false, false, true, true),
+        (UInt16(53), NSEvent.ModifierFlags(), false, true, true, false),
+        (UInt16(53), NSEvent.ModifierFlags.option, false, false, true, false),
     ])
-    func escapeClosesOnlyFromTheViewerItself(keyCode: UInt16, modifiers: NSEvent.ModifierFlags, isInViewer: Bool, isFieldEditor: Bool, closes: Bool) {
+    func escapeClosesOnlyFromTheViewerItself(
+        keyCode: UInt16, modifiers: NSEvent.ModifierFlags, isInViewer: Bool, isFieldEditor: Bool, coversWindow: Bool, closes: Bool
+    ) {
         #expect(
-            LeoChatFileViewerView.closesOnEscape(keyCode: keyCode, modifiers: modifiers, isInViewer: isInViewer, isFieldEditor: isFieldEditor) == closes
+            LeoChatFileViewerView.closesOnEscape(
+                keyCode: keyCode, modifiers: modifiers, isInViewer: isInViewer, isFieldEditor: isFieldEditor, coversWindow: coversWindow
+            ) == closes
         )
     }
 }
