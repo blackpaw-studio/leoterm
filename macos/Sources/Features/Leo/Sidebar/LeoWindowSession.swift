@@ -25,6 +25,9 @@ struct LeoWindowVisibilityState: Equatable {
 @MainActor final class LeoWindowSession: ObservableObject {
     /// The sidebar's width, one value shared by every window (D-144).
     static let sidebarWidthKey = "leo.sidebarWidth"
+    /// The side-by-side chat's dragged width, shared by every window the
+    /// same way; absent means the default formula.
+    static let chatWidthKey = "leo.chatWidth"
     let id: LeoWindowID
     @Published var isSidebarVisible: Bool { didSet { changed() } }
     /// True while this window's agent palette is on screen. The sidebar can
@@ -33,6 +36,9 @@ struct LeoWindowVisibilityState: Equatable {
     /// `LeoPickerPresentation` via `setPickerPresented(_:)`.
     @Published private(set) var isPickerPresented = false { didSet { changed() } }
     @Published private(set) var preferredWidth: CGFloat
+    /// The chat width the user dragged to, or nil for the default. Stored as
+    /// chosen; `chatWidth(for:contentWidth:)` re-clamps it for display.
+    @Published private(set) var preferredChatWidth: CGFloat?
     /// Bumped by Agents ▸ Find Agent… (B-009); the sidebar's search field
     /// takes focus whenever it changes.
     @Published private(set) var searchFocusRequest = 0
@@ -113,6 +119,8 @@ struct LeoWindowVisibilityState: Equatable {
     private let onPollabilityChanged: () -> Void
     private(set) weak var window: NSWindow?
     private var observers: [NSObjectProtocol] = []
+    /// Keeps `preferredChatWidth` in step with writes from other windows.
+    private var defaultsObserver: NSObjectProtocol?
     private var visibility = LeoWindowVisibilityState()
     private var activePaneSubscription: AnyCancellable?
 
@@ -136,6 +144,12 @@ struct LeoWindowVisibilityState: Equatable {
         // choice (the key is present, either true or false) always wins.
         isSidebarVisible = defaults.object(forKey: "leo.sidebarVisible") as? Bool ?? false
         preferredWidth = (defaults.object(forKey: Self.sidebarWidthKey) as? NSNumber).map { CGFloat($0.doubleValue) } ?? 260
+        preferredChatWidth = Self.storedChatWidth(in: defaults)
+        defaultsObserver = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification, object: defaults, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.reloadPreferredChatWidth() }
+        }
         terminals.rowRemoved = { [weak panes] id in panes?.rowRemoved(.terminal(id)) }
         terminals.rowReplaced = { [weak panes] old, new in panes?.rekey(.terminal(old), to: .terminal(new)) }
         panes.rowName = { [weak terminals] key in
@@ -155,7 +169,10 @@ struct LeoWindowVisibilityState: Equatable {
         }
     }
 
-    deinit { observers.forEach(NotificationCenter.default.removeObserver) }
+    deinit {
+        observers.forEach(NotificationCenter.default.removeObserver)
+        defaultsObserver.map(NotificationCenter.default.removeObserver)
+    }
 
     /// Until the runtime wires the selected host's file access in.
     static func noFileAccess(_ host: LeoHostID) throws -> any LeoFileAccess {
@@ -181,6 +198,32 @@ struct LeoWindowVisibilityState: Equatable {
     /// How the selected agent's terminal and chat share `contentWidth`.
     func chatLayout(for row: LeoAgentRow?, contentWidth: CGFloat) -> LeoChatLayout {
         LeoChatLayout(contentWidth: contentWidth, choice: row.map { viewChoices[$0.id] } ?? .terminal)
+    }
+
+    /// The chat's width for `layout` in `contentWidth`, honouring the dragged width.
+    func chatWidth(for layout: LeoChatLayout, contentWidth: CGFloat) -> CGFloat {
+        layout.chatWidth(in: contentWidth, preferred: preferredChatWidth)
+    }
+
+    /// The divider drag ended at `width`: remember it for every window.
+    func setPreferredChatWidth(_ width: CGFloat) {
+        preferredChatWidth = width
+        defaults.set(Double(width), forKey: Self.chatWidthKey)
+    }
+
+    /// Back to the default width.
+    func resetPreferredChatWidth() {
+        preferredChatWidth = nil
+        defaults.removeObject(forKey: Self.chatWidthKey)
+    }
+
+    private func reloadPreferredChatWidth() {
+        let stored = Self.storedChatWidth(in: defaults)
+        if stored != preferredChatWidth { preferredChatWidth = stored }
+    }
+
+    private static func storedChatWidth(in defaults: UserDefaults) -> CGFloat? {
+        (defaults.object(forKey: chatWidthKey) as? NSNumber).map { CGFloat($0.doubleValue) }.flatMap { $0.isFinite ? $0 : nil }
     }
 
     /// A switch segment was clicked: Chat toggles off while chat shows. Reads

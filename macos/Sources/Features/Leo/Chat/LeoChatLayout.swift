@@ -53,20 +53,25 @@ enum LeoChatLayout: Equatable {
         clicked == .chat && showsChat ? .terminal : clicked
     }
 
-    func chatWidth(in contentWidth: CGFloat) -> CGFloat {
+    /// The chat's width in `contentWidth`. Side by side, a `preferred` (dragged)
+    /// width replaces the default share; it is clamped here, for display only,
+    /// so the caller's stored value survives a narrow window.
+    func chatWidth(in contentWidth: CGFloat, preferred: CGFloat? = nil) -> CGFloat {
         switch self {
         case .terminal: return 0
         case .chatReplacingTerminal: return contentWidth
         case .sideBySide:
-            let ceiling = min(Self.chatMaximumWidth, contentWidth - Self.terminalMinimumWidth - Self.dividerWidth)
+            let terminalLimit = contentWidth - Self.terminalMinimumWidth - Self.dividerWidth
+            if let preferred { return max(Self.chatMinimumWidth, min(preferred, terminalLimit)) }
+            let ceiling = min(Self.chatMaximumWidth, terminalLimit)
             return max(Self.chatMinimumWidth, min(ceiling, (contentWidth * Self.chatWidthFraction).rounded()))
         }
     }
 
-    func terminalWidth(in contentWidth: CGFloat) -> CGFloat {
+    func terminalWidth(in contentWidth: CGFloat, preferred: CGFloat? = nil) -> CGFloat {
         switch self {
         case .terminal, .chatReplacingTerminal: contentWidth
-        case .sideBySide: contentWidth - Self.dividerWidth - chatWidth(in: contentWidth)
+        case .sideBySide: contentWidth - Self.dividerWidth - chatWidth(in: contentWidth, preferred: preferred)
         }
     }
 }

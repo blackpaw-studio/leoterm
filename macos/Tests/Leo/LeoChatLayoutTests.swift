@@ -61,6 +61,58 @@ struct LeoChatLayoutTests {
         #expect(width(5000) == LeoChatLayout.chatMaximumWidth)
     }
 
+    // MARK: Preferred (dragged) width
+
+    private static func sideBySide(_ width: CGFloat) -> LeoChatLayout {
+        LeoChatLayout(contentWidth: width, choice: .chat)
+    }
+
+    @Test(arguments: [threshold, 1300, 5000])
+    func noPreferredWidthKeepsTheDefaultFormula(width: CGFloat) {
+        let layout = Self.sideBySide(width)
+        #expect(layout.chatWidth(in: width, preferred: nil) == layout.chatWidth(in: width))
+        #expect(layout.chatWidth(in: 5000, preferred: nil) == LeoChatLayout.chatMaximumWidth)
+    }
+
+    @Test func preferredWidthWinsOverTheDefaultAndMayExceedItsMaximum() {
+        let layout = Self.sideBySide(1600)
+        #expect(layout.chatWidth(in: 1600, preferred: 700) == 700)
+        #expect(layout.chatWidth(in: 1600, preferred: 700) > LeoChatLayout.chatMaximumWidth)
+        #expect(layout.terminalWidth(in: 1600, preferred: 700) == 1600 - LeoChatLayout.dividerWidth - 700)
+    }
+
+    @Test func preferredWidthBelowTheMinimumClampsToIt() {
+        let layout = Self.sideBySide(1400)
+        #expect(layout.chatWidth(in: 1400, preferred: 100) == LeoChatLayout.chatMinimumWidth)
+    }
+
+    @Test func preferredWidthLeavesTheTerminalItsMinimum() {
+        let layout = Self.sideBySide(1400)
+        let chat = layout.chatWidth(in: 1400, preferred: 5000)
+        let limit: CGFloat = 1400 - 481
+        #expect(chat == limit)
+        #expect(layout.terminalWidth(in: 1400, preferred: 5000) == LeoChatLayout.terminalMinimumWidth)
+    }
+
+    @Test func narrowWindowReclampsForDisplayAndWideWindowRestoresThePreference() {
+        let preferred: CGFloat = 800
+        let narrow = Self.sideBySide(1100).chatWidth(in: 1100, preferred: preferred)
+        let limit: CGFloat = 1100 - 481
+        #expect(narrow == limit)
+        #expect(Self.sideBySide(1600).chatWidth(in: 1600, preferred: preferred) == preferred)
+    }
+
+    @Test(arguments: [LeoChatLayout.terminal, .chatReplacingTerminal])
+    func preferredWidthOnlyAffectsSideBySide(layout: LeoChatLayout) {
+        #expect(layout.chatWidth(in: 900, preferred: 400) == layout.chatWidth(in: 900))
+        #expect(layout.terminalWidth(in: 900, preferred: 400) == 900)
+    }
+
+    @Test func preferredWidthDoesNotMoveTheModeThreshold() {
+        #expect(LeoChatLayout(contentWidth: Self.threshold - 0.5, choice: .chat) == .chatReplacingTerminal)
+        #expect(LeoChatLayout(contentWidth: Self.threshold, choice: .chat) == .sideBySide)
+    }
+
     @Test func replacedTerminalKeepsTheFullWidthUnderTheChat() {
         // The terminal stays laid out at full size so tmux never reflows
         // while it's hidden behind the chat.

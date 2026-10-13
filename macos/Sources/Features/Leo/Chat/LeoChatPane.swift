@@ -16,21 +16,24 @@ struct LeoChatLayoutHost<Terminal: View>: View {
     @ObservedObject var session: LeoWindowSession
     let contentWidth: CGFloat
     @ViewBuilder let terminal: () -> Terminal
+    /// The width under the pointer mid-drag; the session stores it on release.
+    @State private var dragWidth: CGFloat?
 
     var body: some View {
         let row = terminals.selection == nil ? model.actionableSelection : nil
         let layout = session.chatLayout(for: row, contentWidth: contentWidth)
+        let preferred = dragWidth ?? session.preferredChatWidth
         ZStack(alignment: .topLeading) {
             terminal()
-                .frame(width: layout.terminalWidth(in: contentWidth))
+                .frame(width: layout.terminalWidth(in: contentWidth, preferred: preferred))
                 .frame(maxHeight: .infinity)
                 .accessibilityHidden(!layout.isTerminalVisible)
             if layout.showsChat, let row {
                 HStack(spacing: 0) {
-                    if layout == .sideBySide { Divider() }
+                    if layout == .sideBySide { divider(layout, preferred: preferred) }
                     LeoChatPane(row: row, chat: chat, session: session, close: { session.choose(.terminal, for: row.id) })
                 }
-                .frame(width: layout.chatWidth(in: contentWidth))
+                .frame(width: layout.chatWidth(in: contentWidth, preferred: preferred))
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
             }
         }
@@ -38,6 +41,27 @@ struct LeoChatLayoutHost<Terminal: View>: View {
         .onChange(of: contentWidth) { session.setObservedContentWidth($0) }
         .onChange(of: layout) { _ in handBackHiddenTerminalFocus(layout) }
         .onChange(of: row?.id) { _ in handBackHiddenTerminalFocus(layout) }
+    }
+
+    /// The thin line between terminal and chat, with a wider grab area over it.
+    private func divider(_ layout: LeoChatLayout, preferred: CGFloat?) -> some View {
+        let displayed = { layout.chatWidth(in: contentWidth, preferred: preferred) }
+        return Divider().overlay {
+            LeoChatResizeHandle(
+                currentWidth: displayed,
+                onDrag: { dragWidth = $0 },
+                onDragEnd: {
+                    // Store what the layout shows, so a drag past the limit keeps the limit.
+                    if let dragWidth { session.setPreferredChatWidth(layout.chatWidth(in: contentWidth, preferred: dragWidth)) }
+                    dragWidth = nil
+                },
+                onReset: {
+                    dragWidth = nil
+                    session.resetPreferredChatWidth()
+                }
+            )
+            .frame(width: LeoChatResizeHandle.hitWidth)
+        }
     }
 
     /// A terminal hidden behind the chat must not keep the keyboard: a
