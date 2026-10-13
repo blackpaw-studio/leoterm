@@ -113,4 +113,45 @@ struct LeoChatFileViewerTests {
         let target = try #require(viewer.contentHost.focusTarget as? NSTextView)
         #expect(target.responds(to: Selector((action))))
     }
+
+    @Test func hideFindBarClosesTheFindBarFromTheText() throws {
+        let (viewer, window) = viewerInWindow(try document("notes.txt", body: .text("hello", .text)))
+        let target = try #require(viewer.contentHost.focusTarget as? NSTextView)
+        window.makeFirstResponder(target)
+        _ = target.tryToPerform(Selector(("find:")), with: nil)
+        let scrollView = try #require(target.enclosingScrollView)
+        #expect(scrollView.isFindBarVisible)
+        #expect(target.tryToPerform(Selector(("findHide:")), with: nil))
+        #expect(!scrollView.isFindBarVisible)
+    }
+
+    /// With the search field focused, the responder chain no longer passes
+    /// through the text, so the Find menu must find the text from the field.
+    @Test(arguments: [("notes.txt", false), ("notes.md", true)])
+    func theFindFieldBelongsToTheTextItSearches(filename: String, rendered: Bool) throws {
+        let body = LeoChatViewerDocument.Body.text("hello world", rendered ? .rendered(.markdown) : .text)
+        let (viewer, window) = viewerInWindow(try document(filename, body: body))
+        let target = try #require(viewer.contentHost.focusTarget as? LeoFindableTextView)
+        window.makeFirstResponder(target)
+        #expect(LeoFindableTextView.owner(of: window.firstResponder) === target)
+        _ = target.tryToPerform(Selector(("find:")), with: nil)
+        let scrollView = try #require(target.enclosingScrollView)
+        let field = try #require(scrollView.findBarView?.firstDescendant(of: NSSearchField.self))
+        window.makeFirstResponder(field)
+        let editor = try #require(window.firstResponder as? NSText)
+        #expect(editor.isFieldEditor)
+        #expect(LeoFindableTextView.owner(of: editor) === target)
+    }
+
+    @Test func aResponderOutsideTheViewerHasNoFindOwner() {
+        let other = NSTextView()
+        #expect(LeoFindableTextView.owner(of: other) == nil)
+        #expect(LeoFindableTextView.owner(of: nil) == nil)
+    }
+}
+
+private extension NSView {
+    func firstDescendant<T: NSView>(of type: T.Type) -> T? {
+        subviews.lazy.compactMap { ($0 as? T) ?? $0.firstDescendant(of: type) }.first
+    }
 }

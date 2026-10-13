@@ -1461,11 +1461,21 @@ class BaseTerminalController: NSWindowController,
         }
     }
 
+    // Leo:
+    /// The chat file viewer's text (or its find bar's search field) when it
+    /// has the keyboard: the Find menu drives its find bar, not the terminal's
+    /// search. Nil with a terminal focused, so terminal find is unchanged.
+    private var leoFindOwner: LeoFindableTextView? {
+        LeoFindableTextView.owner(of: window?.firstResponder)
+    }
+
     @IBAction func find(_ sender: Any) {
+        if let owner = leoFindOwner { return owner.find(sender) }
         focusedSurface?.find(sender)
     }
 
     @IBAction func selectionForFind(_ sender: Any) {
+        if let owner = leoFindOwner { return owner.selectionForFind(sender) }
         focusedSurface?.selectionForFind(sender)
     }
 
@@ -1474,14 +1484,17 @@ class BaseTerminalController: NSWindowController,
     }
 
     @IBAction func findNext(_ sender: Any) {
+        if let owner = leoFindOwner { return owner.findNext(sender) }
         focusedSurface?.findNext(sender)
     }
 
     @IBAction func findPrevious(_ sender: Any) {
+        if let owner = leoFindOwner { return owner.findPrevious(sender) }
         focusedSurface?.findPrevious(sender)
     }
 
     @IBAction func findHide(_ sender: Any) {
+        if let owner = leoFindOwner { return owner.findHide(sender) }
         focusedSurface?.findHide(sender)
     }
 
@@ -1516,6 +1529,7 @@ extension BaseTerminalController: NSMenuItemValidation {
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         switch item.action {
         case #selector(findHide):
+            if let owner = leoFindOwner { return owner.isFindBarShown }
             return focusedSurface?.searchState != nil
 
         default:
