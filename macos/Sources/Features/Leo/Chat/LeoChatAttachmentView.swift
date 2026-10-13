@@ -3,11 +3,26 @@ import AVFoundation
 import LeoKit
 import SwiftUI
 
+private struct LeoChatAttachmentOpenerKey: EnvironmentKey {
+    static let defaultValue: ((LeoChatAttachment) -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    /// What clicking an attachment does. Unset, it downloads the file and
+    /// opens it in its default app; the chat pane sets it to show the
+    /// file in its viewer.
+    var openChatAttachment: ((LeoChatAttachment) -> Void)? {
+        get { self[LeoChatAttachmentOpenerKey.self] }
+        set { self[LeoChatAttachmentOpenerKey.self] = newValue }
+    }
+}
+
 /// An attachment: images inline, anything else a row that opens the file
 /// in its default app once downloaded.
 struct LeoChatAttachmentView: View {
     let attachment: LeoChatAttachment
     @ObservedObject var chat: LeoChatPaneModel
+    @Environment(\.openChatAttachment) private var openAttachment
 
     var body: some View {
         if !attachment.available {
@@ -25,7 +40,7 @@ struct LeoChatAttachmentView: View {
         switch state {
         case .loaded(let url):
             LeoChatImage(url: url)
-                .onTapGesture { NSWorkspace.shared.open(url) }
+                .onTapGesture(perform: open)
                 .help(attachment.filename)
         case .failed:
             fileRow(subtitle: subtitle, isEnabled: true)
@@ -62,9 +77,9 @@ struct LeoChatAttachmentView: View {
     }
 
     private func open() {
+        if let openAttachment { return openAttachment(attachment) }
         Task {
-            await chat.loadAttachment(attachment)
-            if case .loaded(let url) = chat.attachmentFiles[attachment.id] { NSWorkspace.shared.open(url) }
+            if let url = await chat.downloadedFile(attachment) { NSWorkspace.shared.open(url) }
         }
     }
 }

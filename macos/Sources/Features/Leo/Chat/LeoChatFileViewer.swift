@@ -61,7 +61,7 @@ final class LeoChatFileViewerView: NSView {
     /// Escape is Back, unless the key belongs to something inside: the find
     /// bar's field, or (side by side) a terminal that isn't this view.
     static func closesOnEscape(keyCode: UInt16, modifiers: NSEvent.ModifierFlags, isInViewer: Bool, isFieldEditor: Bool) -> Bool {
-        keyCode == escapeKeyCode && modifiers.intersection(.deviceIndependentFlagsMask).isEmpty && isInViewer && !isFieldEditor
+        keyCode == escapeKeyCode && modifiers.isDisjoint(with: .deviceIndependentFlagsMask) && isInViewer && !isFieldEditor
     }
 
     // MARK: Window

@@ -31,7 +31,10 @@ struct LeoChatLayoutHost<Terminal: View>: View {
             if layout.showsChat, let row {
                 HStack(spacing: 0) {
                     if layout == .sideBySide { divider(layout, preferred: preferred) }
-                    LeoChatPane(row: row, chat: chat, session: session, close: { session.choose(.terminal, for: row.id) })
+                    LeoChatPane(
+                        row: row, chat: chat, session: session, viewer: session.chatViewer,
+                        close: { session.choose(.terminal, for: row.id) }
+                    )
                 }
                 .frame(width: layout.chatWidth(in: contentWidth, preferred: preferred))
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
@@ -40,7 +43,10 @@ struct LeoChatLayoutHost<Terminal: View>: View {
         .onAppear { session.setObservedContentWidth(contentWidth) }
         .onChange(of: contentWidth) { session.setObservedContentWidth($0) }
         .onChange(of: layout) { _ in handBackHiddenTerminalFocus(layout) }
-        .onChange(of: row?.id) { _ in handBackHiddenTerminalFocus(layout) }
+        .onChange(of: row?.id) {
+            session.chatViewer.agentChanged(to: $0)
+            handBackHiddenTerminalFocus(layout)
+        }
     }
 
     /// The thin line between terminal and chat, with a wider grab area over it.
@@ -77,20 +83,36 @@ struct LeoChatPane: View {
     let row: LeoAgentRow
     @ObservedObject var chat: LeoChatPaneModel
     @ObservedObject var session: LeoWindowSession
+    @ObservedObject var viewer: LeoChatViewerModel
     let close: () -> Void
     @State private var isDropTargeted = false
 
     var body: some View {
+        let document = viewer.document(for: row.id)
         VStack(spacing: 0) {
-            header
+            if let document { viewerHeader(document) } else { header }
             Divider()
             if let notice = chat.notice { noticeBanner(notice) }
-            LeoChatThreadView(chat: chat)
-            Divider()
-            LeoChatComposer(
-                chat: chat, agent: row.id, agentName: row.name,
-                focusRequest: session.chatFocusRequest, takeFocusRequest: session.takeChatFocusRequest
-            )
+            // The thread stays mounted under the viewer, so Back finds it
+            // at the same scroll position.
+            ZStack {
+                LeoChatThreadView(chat: chat)
+                    .opacity(document == nil ? 1 : 0)
+                    .disabled(document != nil)
+                    .accessibilityHidden(document != nil)
+                if let document { fileViewer(document) }
+            }
+            if document == nil {
+                Divider()
+                LeoChatComposer(
+                    chat: chat, agent: row.id, agentName: row.name,
+                    focusRequest: session.chatFocusRequest, takeFocusRequest: session.takeChatFocusRequest
+                )
+            }
+        }
+        .environment(\.openChatAttachment) { attachment in
+            let agent = row.id
+            Task { await viewer.open(attachment, for: agent, download: { await chat.downloadedFile(attachment) }) }
         }
         .background(Color(nsColor: .textBackgroundColor))
         .overlay {
@@ -119,6 +141,40 @@ struct LeoChatPane: View {
         .padding(.horizontal, 12)
         .frame(height: 36)
         .background(.bar)
+    }
+
+    private func viewerHeader(_ document: LeoChatViewerDocument) -> some View {
+        HStack(spacing: 8) {
+            Button(action: closeViewer) { Image(systemName: "chevron.backward") }
+                .buttonStyle(.borderless)
+                .help("Back to Chat")
+                .accessibilityLabel("Back to Chat")
+            Text(document.filename).font(.headline).lineLimit(1).truncationMode(.middle)
+            Spacer(minLength: 8)
+            Button { NSWorkspace.shared.open(document.url) } label: { Image(systemName: "arrow.up.forward.app") }
+                .buttonStyle(.borderless)
+                .help("Open in Default App")
+                .accessibilityLabel("Open in Default App")
+            Button(action: close) { Image(systemName: "xmark") }
+                .buttonStyle(.borderless)
+                .help("Close Chat")
+                .accessibilityLabel("Close Chat")
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 36)
+        .background(.bar)
+    }
+
+    private func fileViewer(_ document: LeoChatViewerDocument) -> some View {
+        LeoChatFileViewerRepresentable(document: document, onBack: closeViewer, openExternally: { NSWorkspace.shared.open($0) })
+            .id(document.attachmentID)
+            .background(Color(nsColor: .textBackgroundColor))
+    }
+
+    /// Back to the thread, with the composer ready to type.
+    private func closeViewer() {
+        viewer.close()
+        session.requestChatFocus()
     }
 
     @ViewBuilder private var taskFilterMenu: some View {
@@ -156,6 +212,8 @@ struct LeoChatPane: View {
     }
 
     private func drop(_ providers: [NSItemProvider]) -> Bool {
+        // Files dropped under the viewer would join a draft nobody can see.
+        guard viewer.document(for: row.id) == nil else { return false }
         let fileProviders = providers.filter { $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) }
         guard !fileProviders.isEmpty else { return false }
         // The drop belongs to the agent shown now, even if the selection
