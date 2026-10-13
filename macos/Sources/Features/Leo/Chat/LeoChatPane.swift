@@ -100,7 +100,9 @@ struct LeoChatPane: View {
                     .opacity(document == nil ? 1 : 0)
                     .disabled(document != nil)
                     .accessibilityHidden(document != nil)
-                if let document { fileViewer(document) }
+                // One viewer view per window: while the file is full window the
+                // overlay holds it, so there is a single Escape monitor.
+                if let document, !viewer.isFullWindow { fileViewer(document) }
             }
             if document == nil {
                 Divider()
@@ -110,9 +112,11 @@ struct LeoChatPane: View {
                 )
             }
         }
-        .environment(\.openChatAttachment) { attachment in
+        .environment(\.openChatAttachment) { attachment, fullWindow in
             let agent = row.id
-            Task { await viewer.open(attachment, for: agent, download: { await chat.downloadedFile(attachment) }) }
+            Task {
+                await viewer.open(attachment, for: agent, fullWindow: fullWindow, download: { await chat.downloadedFile(attachment) })
+            }
         }
         .background(Color(nsColor: .textBackgroundColor))
         .overlay {
@@ -133,10 +137,7 @@ struct LeoChatPane: View {
             Text(row.name).font(.headline).lineLimit(1).truncationMode(.middle)
             Spacer(minLength: 8)
             taskFilterMenu
-            Button(action: close) { Image(systemName: "xmark") }
-                .buttonStyle(.borderless)
-                .help("Close Chat")
-                .accessibilityLabel("Close Chat")
+            LeoChatViewerIconButton(systemImage: "xmark", title: "Close Chat", action: close)
         }
         .padding(.horizontal, 12)
         .frame(height: 36)
@@ -145,20 +146,16 @@ struct LeoChatPane: View {
 
     private func viewerHeader(_ document: LeoChatViewerDocument) -> some View {
         HStack(spacing: 8) {
-            Button(action: closeViewer) { Image(systemName: "chevron.backward") }
-                .buttonStyle(.borderless)
-                .help("Back to Chat")
-                .accessibilityLabel("Back to Chat")
+            LeoChatViewerIconButton(systemImage: "chevron.backward", title: "Back to Chat", action: session.closeChatViewer)
             Text(document.displayName).font(.headline).lineLimit(1).truncationMode(.middle)
             Spacer(minLength: 8)
-            Button { NSWorkspace.shared.open(document.url) } label: { Image(systemName: "arrow.up.forward.app") }
-                .buttonStyle(.borderless)
-                .help("Open in Default App")
-                .accessibilityLabel("Open in Default App")
-            Button(action: close) { Image(systemName: "xmark") }
-                .buttonStyle(.borderless)
-                .help("Close Chat")
-                .accessibilityLabel("Close Chat")
+            LeoChatViewerIconButton(
+                systemImage: "arrow.up.left.and.arrow.down.right", title: "Open Full Window", action: viewer.enterFullWindow
+            )
+            LeoChatViewerIconButton(
+                systemImage: "arrow.up.forward.app", title: "Open in Default App", action: { NSWorkspace.shared.open(document.url) }
+            )
+            LeoChatViewerIconButton(systemImage: "xmark", title: "Close Chat", action: close)
         }
         .padding(.horizontal, 12)
         .frame(height: 36)
@@ -166,15 +163,9 @@ struct LeoChatPane: View {
     }
 
     private func fileViewer(_ document: LeoChatViewerDocument) -> some View {
-        LeoChatFileViewerRepresentable(document: document, onBack: closeViewer, openExternally: { NSWorkspace.shared.open($0) })
+        LeoChatFileViewerRepresentable(document: document, onBack: session.closeChatViewer, openExternally: { NSWorkspace.shared.open($0) })
             .id(document.attachmentID)
             .background(Color(nsColor: .textBackgroundColor))
-    }
-
-    /// Back to the thread, with the composer ready to type.
-    private func closeViewer() {
-        viewer.close()
-        session.requestChatFocus()
     }
 
     @ViewBuilder private var taskFilterMenu: some View {
@@ -201,10 +192,7 @@ struct LeoChatPane: View {
             Image(systemName: "exclamationmark.triangle").foregroundStyle(.orange)
             Text(text).font(.callout).fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 8)
-            Button { chat.dismissNotice() } label: { Image(systemName: "xmark") }
-                .buttonStyle(.borderless)
-                .help("Dismiss")
-                .accessibilityLabel("Dismiss")
+            LeoChatViewerIconButton(systemImage: "xmark", title: "Dismiss", action: chat.dismissNotice)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -213,7 +201,7 @@ struct LeoChatPane: View {
 
     private func drop(_ providers: [NSItemProvider]) -> Bool {
         // Files dropped under the viewer would join a draft nobody can see.
-        guard viewer.document(for: row.id) == nil else { return false }
+        guard viewer.document(for: row.id) == nil, !viewer.isFullWindow else { return false }
         let fileProviders = providers.filter { $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) }
         guard !fileProviders.isEmpty else { return false }
         // The drop belongs to the agent shown now, even if the selection

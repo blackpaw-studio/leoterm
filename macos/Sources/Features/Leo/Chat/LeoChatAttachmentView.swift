@@ -4,14 +4,14 @@ import LeoKit
 import SwiftUI
 
 private struct LeoChatAttachmentOpenerKey: EnvironmentKey {
-    static let defaultValue: ((LeoChatAttachment) -> Void)? = nil
+    static let defaultValue: ((LeoChatAttachment, _ fullWindow: Bool) -> Void)? = nil
 }
 
 extension EnvironmentValues {
     /// What clicking an attachment does. Unset, it downloads the file and
     /// opens it in its default app; the chat pane sets it to show the
-    /// file in its viewer.
-    var openChatAttachment: ((LeoChatAttachment) -> Void)? {
+    /// file in its viewer, or over the whole window when `fullWindow`.
+    var openChatAttachment: ((LeoChatAttachment, _ fullWindow: Bool) -> Void)? {
         get { self[LeoChatAttachmentOpenerKey.self] }
         set { self[LeoChatAttachmentOpenerKey.self] = newValue }
     }
@@ -40,8 +40,9 @@ struct LeoChatAttachmentView: View {
         switch state {
         case .loaded(let url):
             LeoChatImage(url: url)
-                .onTapGesture(perform: open)
+                .onTapGesture { open() }
                 .help(attachment.filename)
+                .contextMenu { openMenu }
         case .failed:
             fileRow(subtitle: subtitle, isEnabled: true)
         case .loading, nil:
@@ -60,7 +61,7 @@ struct LeoChatAttachmentView: View {
     }
 
     private func fileRow(subtitle: String, isEnabled: Bool) -> some View {
-        Button(action: open) {
+        Button { open() } label: {
             HStack(spacing: 8) {
                 Image(nsImage: NSWorkspace.shared.icon(for: .init(mimeType: attachment.mime) ?? .data))
                     .resizable().frame(width: 28, height: 28)
@@ -74,10 +75,20 @@ struct LeoChatAttachmentView: View {
         .buttonStyle(.plain)
         .disabled(!isEnabled)
         .help(isEnabled ? "Open \(attachment.filename)" : "")
+        .contextMenu { if isEnabled { openMenu } }
     }
 
-    private func open() {
-        if let openAttachment { return openAttachment(attachment) }
+    @ViewBuilder private var openMenu: some View {
+        Button("Open Full Window") { open(fullWindow: true) }
+        Button("Open in Default App", action: openInDefaultApp)
+    }
+
+    private func open(fullWindow: Bool = false) {
+        if let openAttachment { return openAttachment(attachment, fullWindow) }
+        openInDefaultApp()
+    }
+
+    private func openInDefaultApp() {
         Task {
             if let url = await chat.downloadedFile(attachment) { NSWorkspace.shared.open(url) }
         }
