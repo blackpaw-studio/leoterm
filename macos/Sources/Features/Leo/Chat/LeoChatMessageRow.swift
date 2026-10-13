@@ -3,8 +3,8 @@ import LeoKit
 import SwiftUI
 
 /// One message: a bubble (yours on the right, the agent's on the left), a
-/// task card, or a centred system note; with its attachments, prompt
-/// buttons and delivery state.
+/// task card, or a centred system note; with its attachments, ask
+/// controls and delivery state.
 struct LeoChatMessageRow: View {
     let message: LeoChatMessage
     @ObservedObject var chat: LeoChatPaneModel
@@ -46,7 +46,7 @@ struct LeoChatMessageRow: View {
             ForEach(message.attachments.filter { message.kind != .voice || !$0.isAudio }) { attachment in
                 LeoChatAttachmentView(attachment: attachment, chat: chat)
             }
-            if message.answerInput != nil { LeoChatPromptButtons(message: message, chat: chat) }
+            if message.answerInput != nil { LeoChatAskControls(message: message, chat: chat) }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
@@ -147,29 +147,138 @@ struct LeoChatTaskCard: View {
     }
 }
 
-/// An `ask`'s options or a permission's Allow/Deny while open; the
-/// recorded answer once closed.
-struct LeoChatPromptButtons: View {
+/// An open `ask` or permission prompt's input, by type: buttons that
+/// answer at once, a radio group or checkboxes then Submit, a text field
+/// (also under the choices with `allow_text`); the recorded answer once
+/// closed.
+struct LeoChatAskControls: View {
     let message: LeoChatMessage
     @ObservedObject var chat: LeoChatPaneModel
 
     var body: some View {
-        if message.isOpen {
-            let isAnswering = chat.answering.contains(message.id)
-            LeoChatFlowLayout(spacing: 6) {
-                ForEach(message.answerInput?.options ?? [], id: \.value) { choice in
-                    Button(choice.label) { Task { await chat.choose(messageID: message.id, value: choice.value) } }
-                        .buttonStyle(.bordered)
-                        .tint(choice.value == "deny" ? .red : nil)
-                        .disabled(isAnswering)
-                }
-                if isAnswering { ProgressView().controlSize(.small) }
-            }
+        if message.isOpen, let input = message.answerInput {
+            LeoChatOpenAsk(message: message, input: input, chat: chat)
+        } else if message.isAnsweredInTerminal {
+            Label("Answered in terminal", systemImage: "terminal").font(.callout).foregroundStyle(.secondary)
         } else if let summary = message.answerSummary {
             Label("Answered: \(summary)", systemImage: "checkmark.circle").font(.callout).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         } else if message.state == "expired" {
             Label("Expired", systemImage: "clock.badge.xmark").font(.callout).foregroundStyle(.secondary)
         }
+    }
+}
+
+private struct LeoChatOpenAsk: View {
+    let message: LeoChatMessage
+    let input: LeoChatInput
+    @ObservedObject var chat: LeoChatPaneModel
+    @FocusState private var isTextFocused: Bool
+
+    private var draft: LeoChatAskDraft { chat.askDraft(for: message.id) }
+    private var isAnswering: Bool { chat.answering.contains(message.id) }
+    private var takesText: Bool { input.kind == .text || input.allowsText }
+    /// Buttons answer on click; Submit is only for their free text.
+    private var needsSubmit: Bool { input.kind != .buttons || input.allowsText }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            choices
+            if let hint = Self.selectionHint(input) { Text(hint).font(.caption).foregroundStyle(.secondary) }
+            if takesText { textField }
+            if needsSubmit { submitRow }
+        }
+        .disabled(isAnswering)
+    }
+
+    @ViewBuilder private var choices: some View {
+        switch input.kind {
+        case .buttons:
+            LeoChatFlowLayout(spacing: 6) {
+                ForEach(input.options, id: \.value) { option in
+                    Button(option.label) { choose(option.value) }
+                        .buttonStyle(.bordered)
+                        .tint(message.kind == .permission && option.value == "deny" ? .red : nil)
+                        .accessibilityIdentifier("chat.ask.option.\(option.value)")
+                }
+                if isAnswering && !needsSubmit { ProgressView().controlSize(.small) }
+            }
+        case .radio:
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(input.options, id: \.value) { option in
+                    let isSelected = draft.selected.contains(option.value)
+                    Button { choose(option.value) } label: {
+                        Label {
+                            Text(option.label).fixedSize(horizontal: false, vertical: true)
+                        } icon: {
+                            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
+                    .accessibilityIdentifier("chat.ask.option.\(option.value)")
+                }
+            }
+        case .checkboxes:
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(input.options, id: \.value) { option in
+                    Toggle(isOn: Binding(get: { draft.selected.contains(option.value) }, set: { _ in choose(option.value) })) {
+                        Text(option.label).fixedSize(horizontal: false, vertical: true)
+                    }
+                    .toggleStyle(.checkbox)
+                    .accessibilityIdentifier("chat.ask.option.\(option.value)")
+                }
+            }
+        case .text:
+            EmptyView()
+        }
+    }
+
+    private var textField: some View {
+        let placeholder = input.placeholder ?? (input.kind == .text ? "Type an answer" : "Or type an answer")
+        return TextField(placeholder, text: Binding(get: { draft.text }, set: { chat.setAskText(messageID: message.id, $0) }), axis: .vertical)
+            .textFieldStyle(.roundedBorder)
+            .lineLimit(1...6)
+            .focused($isTextFocused)
+            .accessibilityIdentifier("chat.ask.text")
+    }
+
+    private var submitRow: some View {
+        HStack(spacing: 8) {
+            Button("Submit") { Task { await chat.submitAsk(messageID: message.id) } }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                // ⌘↩ submits from this ask's own field, never from the composer.
+                .keyboardShortcut(isTextFocused ? KeyboardShortcut(.return, modifiers: .command) : nil)
+                .disabled(chat.askAnswer(for: message.id) == nil)
+                .help("Submit (⌘↩)")
+                .accessibilityIdentifier("chat.ask.submit")
+            if isAnswering { ProgressView().controlSize(.small) }
+            Spacer(minLength: 8)
+            if takesText, !draft.text.isEmpty { counter }
+        }
+    }
+
+    private var counter: some View {
+        let remaining = draft.remainingTextScalars
+        return Text("\(LeoChatAnswer.maxTextScalars - remaining)/\(LeoChatAnswer.maxTextScalars)")
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(remaining < 0 ? Color.red : Color.secondary)
+    }
+
+    private func choose(_ value: String) {
+        Task { await chat.choose(messageID: message.id, value: value) }
+    }
+
+    /// "Choose 2", "Choose up to 3", "Choose 1–2": only when checkboxes
+    /// limit the count.
+    static func selectionHint(_ input: LeoChatInput) -> String? {
+        guard input.kind == .checkboxes, input.min > 0 || input.max < input.options.count else { return nil }
+        if input.min == input.max { return "Choose \(input.min)" }
+        if input.min == 0 { return "Choose up to \(input.max)" }
+        return "Choose \(input.min)–\(input.max)"
     }
 }
 

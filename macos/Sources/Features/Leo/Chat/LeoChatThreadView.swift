@@ -9,6 +9,8 @@ struct LeoChatThreadView: View {
     @State private var pin = LeoChatScrollPin()
 
     private static let bottomID = "leo-chat-bottom"
+    /// Pulls a continuation up to 4 pt under the post it continues.
+    private static let continuationOverlap: CGFloat = -6
     private static let scrollSpace = "leo-chat-scroll"
 
     var body: some View {
@@ -17,8 +19,11 @@ struct LeoChatThreadView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 10) {
                         olderMessages
-                        ForEach(chat.timeline.messages) { message in
+                        let messages = chat.timeline.messages
+                        ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
                             LeoChatMessageRow(message: message, chat: chat).id(message.id)
+                                // An ask about the post just before it reads as its continuation.
+                                .padding(.top, message.continuesPost(after: index > 0 ? messages[index - 1] : nil) ? Self.continuationOverlap : 0)
                         }
                         Color.clear.frame(height: 1).id(Self.bottomID)
                     }
