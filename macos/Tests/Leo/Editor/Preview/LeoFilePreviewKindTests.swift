@@ -17,6 +17,13 @@ struct LeoFilePreviewKindTests {
         #expect(LeoFilePreviewKind(path: "/w/" + name) == expected)
     }
 
+    @Test func knownIsNilWhereTheAllowlistHasNoEntry() {
+        #expect(LeoFilePreviewKind.known(path: "/w/a.txt") == nil)
+        #expect(LeoFilePreviewKind.known(path: "/w/Makefile") == nil)
+        #expect(LeoFilePreviewKind.known(path: "/w/.png") == nil)
+        #expect(LeoFilePreviewKind.known(path: "/w/a.PNG") == .image)
+    }
+
     @Test func onlyMediaAndDocumentsAreFetched() {
         #expect(LeoFilePreviewKind.image.isFetched)
         #expect(LeoFilePreviewKind.movie.isFetched)

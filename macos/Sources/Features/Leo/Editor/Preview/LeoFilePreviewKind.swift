@@ -27,7 +27,12 @@ enum LeoFilePreviewKind: Equatable, Sendable {
     }()
 
     init(path: String) {
-        self = Self.byExtension[Self.pathExtension(of: path)] ?? .text
+        self = Self.known(path: path) ?? .text
+    }
+
+    /// The allowlist's answer, or nil where `init(path:)` would fall back to text.
+    static func known(path: String) -> LeoFilePreviewKind? {
+        byExtension[pathExtension(of: path)]
     }
 
     /// Streamed into the preview cache instead of read as text.
