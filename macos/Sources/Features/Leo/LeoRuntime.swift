@@ -16,6 +16,10 @@ import LeoKit
     /// Leo Chat for the selected agent, bound to the selected host's daemon
     /// like `control`; fed `chat.*` events in stream order by `chatRelay`.
     let chat: LeoChatPaneModel
+    /// Unread agent messages per agent on the selected host, behind the
+    /// sidebar and Chat-switch badges; fed by `chatRelay` before `chat` sees
+    /// a delivery, so agents that aren't shown count too.
+    let unread: LeoChatUnreadStore
     private let chatRelay: LeoOrderedRelay<LeoChatFeedDelivery>
     private let localChatClient: any LeoChatClient
     let hostSelection: LeoHostSelection
@@ -275,12 +279,26 @@ import LeoKit
             socketPath: NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath, transport: LeoUnixSocketTransport()
         )
         self.localChatClient = localChatClient
+        let unread = LeoChatUnreadStore(client: localChatClient, host: .local)
+        self.unread = unread
         let chat = LeoChatPaneModel(
             client: localChatClient, host: .local, recorder: LeoChatVoiceRecorder(),
-            attachmentDirectory: LeoChatPaneModel.defaultAttachmentDirectory
+            attachmentDirectory: LeoChatPaneModel.defaultAttachmentDirectory,
+            onRead: { [weak unread] in unread?.clear($0) }
         )
         self.chat = chat
-        let chatRelay = LeoOrderedRelay<LeoChatFeedDelivery> { [weak chat] delivery in await chat?.handle(delivery) }
+        let chatRelay = LeoOrderedRelay<LeoChatFeedDelivery> { [weak chat, weak unread, weak registry] delivery in
+            // Count first (a shown, read agent doesn't count), then let a
+            // window showing the asking agent's terminal open Chat, then the
+            // pane merges the message and marks it read.
+            await MainActor.run {
+                unread?.receive(delivery, isOnScreen: { chat?.marksRead($0) ?? false })
+                if let agent = LeoChatAutoOpen.agent(asking: delivery) {
+                    registry?.sessions.forEach { $0.openChatIfAsked(by: agent) }
+                }
+            }
+            await chat?.handle(delivery)
+        }
         self.chatRelay = chatRelay
         feed = LeoSidebarFeed(
             daemon: daemon, activity: activitySource,
@@ -639,6 +657,7 @@ import LeoKit
         actions.updateDaemon(daemon, host: host)
         control.updateDaemon(daemon, host: host)
         chat.updateClient(chatClient, host: host)
+        unread.updateClient(chatClient, host: host)
         await feed.updateConnection(host: host, generation: generation, phase: .connected(daemon: daemon, activitySource: activitySource))
     }
 
