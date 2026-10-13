@@ -130,6 +130,23 @@ struct LeoPushNotificationTests {
         #expect(bare.body == "")
     }
 
+    @Test func theInputTypeRoundTripsAndMayBeMissing() throws {
+        let key = LeoPushKey.generate()
+        let ask = LeoPushPayload(
+            daemonID: "d", agent: "a", kind: "chat", title: "t", ts: 1, messageID: "01", messageKind: "ask", inputType: "radio"
+        )
+        #expect(try LeoPushCipher.open(LeoPushCipher.seal(ask, key: key), key: key) == ask)
+        #expect(ask.inputType == "radio")
+
+        let bare = LeoPushPayload(daemonID: "d", agent: "a", kind: "chat", title: "t", ts: 1)
+        let bareJSON = try #require(String(data: JSONEncoder().encode(bare), encoding: .utf8))
+        #expect(!bareJSON.contains("input_type"))
+        #expect(try LeoPushCipher.open(LeoPushCipher.seal(bare, key: key), key: key).inputType == nil)
+
+        let alert = try Self.alert(plaintext: Self.json(extra: #","message_id":"01","message_kind":"ask","input_type":"checkboxes""#))
+        #expect(alert.chat?.inputType == "checkboxes")
+    }
+
     @Test func noAlertWithoutCiphertextOrWithTheWrongKey() throws {
         let key = try #require(LeoPushKey(base64: LeoPushCipherTests.vectorKey))
         #expect(LeoPushNotification.alert(userInfo: ["aps": [:]], key: key, pairedDaemonIDs: ["d-olympus"]) == nil)

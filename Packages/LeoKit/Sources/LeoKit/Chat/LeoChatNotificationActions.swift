@@ -33,6 +33,10 @@ public enum LeoChatNotificationActions {
     public static let permissionCategoryID = "leo.chat.permission"
     /// An `ask` category is per choice set: `leo.chat.ask.<digest>`.
     public static let askCategoryPrefix = "leo.chat.ask."
+    /// An `ask` answered only in the app (radio, checkboxes, text, or no
+    /// options to offer): no actions, so tapping opens the thread. A reply
+    /// action would send a message that looks like an answer but isn't.
+    public static let askOpenCategoryID = "leo.chat.ask-open"
     public static let replyActionID = "leo.chat.reply"
     /// A choice button's id is this prefix plus the choice's value.
     public static let answerPrefix = "leo.chat.answer:"
@@ -43,6 +47,7 @@ public enum LeoChatNotificationActions {
         [
             LeoChatNotificationCategory(identifier: chatCategoryID, actions: [replyAction]),
             LeoChatNotificationCategory(identifier: permissionCategoryID, actions: permissionButtons),
+            LeoChatNotificationCategory(identifier: askOpenCategoryID, actions: []),
         ]
     }
 
@@ -54,7 +59,10 @@ public enum LeoChatNotificationActions {
         if chat.messageKind == "permission" || (!isChatPush && chat.messageID != nil) {
             return LeoChatNotificationCategory(identifier: permissionCategoryID, actions: permissionButtons)
         }
-        if chat.messageKind == "ask", chat.messageID != nil, !chat.options.isEmpty {
+        if chat.messageKind == "ask" {
+            guard chat.messageID != nil, !chat.options.isEmpty, chat.inputType == nil || chat.inputType == LeoChatInput.Kind.buttons.rawValue else {
+                return LeoChatNotificationCategory(identifier: askOpenCategoryID, actions: [])
+            }
             let choices = chat.options.prefix(maximumAskButtons)
             let buttons = choices.map { LeoChatNotificationCategory.Action.button(id: answerPrefix + $0.value, title: $0.label, isDestructive: false) }
             return LeoChatNotificationCategory(identifier: askCategoryPrefix + digest(choices), actions: buttons + [replyAction])

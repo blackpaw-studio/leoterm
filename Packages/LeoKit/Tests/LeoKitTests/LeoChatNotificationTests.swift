@@ -16,7 +16,7 @@ struct LeoChatNotificationTests {
     @Test func aChatPushKeepsItsMessageInTheUserInfo() throws {
         let alert = try Self.alert(kind: "chat", extra: #","message_id":"01JA""#)
 
-        #expect(alert.chat == LeoPushChat(messageID: "01JA", messageKind: nil, options: []))
+        #expect(alert.chat == LeoPushChat(messageID: "01JA", messageKind: nil, options: [], inputType: nil))
         #expect(alert.userInfo == ["daemon_id": "d", "agent": "zeus", "kind": "chat", "message_id": "01JA"])
         #expect(alert.threadIdentifier == "d/zeus")
     }
@@ -61,13 +61,51 @@ struct LeoChatNotificationTests {
         #expect(Actions.category(for: other)?.identifier != category.identifier)
     }
 
-    @Test func anAskWithoutOptionsFallsBackToAReply() throws {
-        let alert = try Self.alert(kind: "chat", extra: #","message_id":"01JQ","message_kind":"ask""#)
-        #expect(Actions.category(for: alert)?.identifier == Actions.chatCategoryID)
+    static let yesNo = #","options":[{"value":"y","label":"Yes"},{"value":"n","label":"No"}]"#
+
+    @Test func aButtonsAskOffersItsButtons() throws {
+        let alert = try Self.alert(kind: "chat", extra: #","message_id":"01JQ","message_kind":"ask","input_type":"buttons""# + Self.yesNo)
+        let category = try #require(Actions.category(for: alert))
+        #expect(category.identifier.hasPrefix(Actions.askCategoryPrefix))
+        #expect(category.actions.map(\.id) == [Actions.answerPrefix + "y", Actions.answerPrefix + "n", Actions.replyActionID])
     }
 
-    @Test func theStaticCategoriesAreChatAndPermission() {
-        #expect(Actions.staticCategories.map(\.identifier) == [Actions.chatCategoryID, Actions.permissionCategoryID])
+    /// An older daemon sends options without `input_type`: still buttons.
+    @Test func anAskWithOptionsButNoInputTypeOffersButtons() throws {
+        let alert = try Self.alert(kind: "chat", extra: #","message_id":"01JQ","message_kind":"ask""# + Self.yesNo)
+        let category = try #require(Actions.category(for: alert))
+        #expect(category.identifier.hasPrefix(Actions.askCategoryPrefix))
+        #expect(category.actions.map(\.id) == [Actions.answerPrefix + "y", Actions.answerPrefix + "n", Actions.replyActionID])
+    }
+
+    /// The extension registers categories by the per-choice prefix; the
+    /// static open-ask category must not match it.
+    @Test func theOpenAskCategoryIsNotAPerChoiceCategory() {
+        #expect(!Actions.askOpenCategoryID.hasPrefix(Actions.askCategoryPrefix))
+    }
+
+    /// No buttons and no reply: a reply would look like an answer.
+    @Test func anAskWithoutOptionsOpensTheApp() throws {
+        let alert = try Self.alert(kind: "chat", extra: #","message_id":"01JQ","message_kind":"ask""#)
+        let category = try #require(Actions.category(for: alert))
+        #expect(category.identifier == Actions.askOpenCategoryID)
+        #expect(category.actions.isEmpty)
+    }
+
+    @Test(arguments: ["radio", "checkboxes", "text", "slider"])
+    func anAskThatIsNotButtonsOpensTheApp(inputType: String) throws {
+        let extra = #","message_id":"01JQ","message_kind":"ask","input_type":"\#(inputType)""# + Self.yesNo
+        let category = try #require(Actions.category(for: try Self.alert(kind: "chat", extra: extra)))
+        #expect(category == LeoChatNotificationCategory(identifier: Actions.askOpenCategoryID, actions: []))
+    }
+
+    @Test func malformedOptionsMeanNoButtons() throws {
+        let alert = try Self.alert(kind: "chat", extra: #","message_id":"01JQ","message_kind":"ask","input_type":"buttons","options":"yes""#)
+        #expect(Actions.category(for: alert)?.identifier == Actions.askOpenCategoryID)
+    }
+
+    @Test func theStaticCategoriesAreChatPermissionAndOpenAsk() {
+        #expect(Actions.staticCategories.map(\.identifier) == [Actions.chatCategoryID, Actions.permissionCategoryID, Actions.askOpenCategoryID])
     }
 
     @Test func aReplyActionBecomesAReplyToTheMessage() throws {

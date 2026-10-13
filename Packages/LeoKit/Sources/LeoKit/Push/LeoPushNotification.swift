@@ -46,11 +46,14 @@ public struct LeoPushChat: Equatable, Sendable {
     public let messageID: String?
     public let messageKind: String?
     public let options: [LeoChatOption]
+    /// An `ask`'s input type; nil from daemons before leo #268.
+    public let inputType: String?
 
-    public init(messageID: String?, messageKind: String?, options: [LeoChatOption]) {
+    public init(messageID: String?, messageKind: String?, options: [LeoChatOption], inputType: String? = nil) {
         self.messageID = messageID
         self.messageKind = messageKind
         self.options = options
+        self.inputType = inputType
     }
 }
 
@@ -80,7 +83,9 @@ public enum LeoPushNotification {
             body: hasDetail ? payload.body : payload.title,
             target: LeoPushTarget(daemonID: payload.daemonID, agent: payload.agent),
             kind: payload.kind,
-            chat: isChat ? LeoPushChat(messageID: payload.messageID, messageKind: payload.messageKind, options: payload.options) : nil
+            chat: isChat ? LeoPushChat(
+                messageID: payload.messageID, messageKind: payload.messageKind, options: payload.options, inputType: payload.inputType
+            ) : nil
         )
     }
 
