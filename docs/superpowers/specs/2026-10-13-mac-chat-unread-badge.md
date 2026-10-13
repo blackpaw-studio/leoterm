@@ -25,10 +25,11 @@ On the Mac, show how many unread agent messages each agent has, and switch to Ch
 - It does **not** activate or raise the app, and it does not change the selected agent.
 - It never fires for messages loaded by seed, resync, or history paging, for updates to existing messages, or for user/system messages.
 - If chat is already visible (chat view or side-by-side layout), nothing changes.
+- **On selection (added 2026-10-13):** when a window selects an agent whose unread chat count is > 0 and that agent's choice in the window is Terminal, the window switches to Chat (`choose(.chat, for:)`). This covers messages that arrived while the agent wasn't selected, while the app was closed (seeded counts), and new windows. Once read (count 0), selection keeps the remembered choice as before. Selection itself is never changed.
 
 ## Out of scope
 - App-icon or Dock count for chat unread.
-- Auto-opening for agents that aren't selected, or changing the selection.
+- Changing the selection, or raising/activating the app.
 - Changes to iOS UI (backlog item above).
 - Daemon changes. The existing `threads()` and `markRead` contract is enough.
 
