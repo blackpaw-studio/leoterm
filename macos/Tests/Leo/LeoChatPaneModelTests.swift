@@ -203,6 +203,15 @@ struct LeoChatPaneModelTests {
         #expect(await client.answers.map(\.answer) == [LeoChatAnswer(values: ["b"])])
     }
 
+    @Test func aClearedRadioChoiceSubmitsTextOnly() async throws {
+        let model = await showAsk(try LeoChatInput(kind: .radio, options: Self.choices("a", "b"), allowsText: true))
+        await model.choose(messageID: "q", value: "a")
+        await model.choose(messageID: "q", value: "a")
+        model.setAskText(messageID: "q", "neither")
+        await model.submitAsk(messageID: "q")
+        #expect(await client.answers.map(\.answer) == [LeoChatAnswer(values: [], text: "neither")])
+    }
+
     @Test func submitDoesNothingWhileTheDraftIsInvalid() async throws {
         let model = await showAsk(try LeoChatInput(kind: .checkboxes, options: Self.choices("a", "b", "c"), min: 2))
         await model.choose(messageID: "q", value: "a")
@@ -231,6 +240,25 @@ struct LeoChatPaneModelTests {
         #expect(model.timeline.messages.map(\.state) == ["answered"])
         #expect(model.askDrafts.isEmpty)
         #expect(model.answering.isEmpty)
+    }
+
+    /// The newest page no longer reaches a settled ask loaded further back:
+    /// the page just above it brings its settled copy, so it can't 409 again.
+    @Test func aSettledAskOlderThanTheNewestPageIsRefreshedItself() async throws {
+        let input = try LeoChatInput(kind: .radio, options: Self.choices("a", "b"))
+        await client.enqueuePage([chatMessage("n", at: 2), chatMessage("q", kind: .ask, state: "open", at: 1, input: input)])
+        let model = make()
+        await model.show(Self.alpha)
+        await client.setAnswerResult(.failure(LeoChatAnswerError.settled))
+        await client.enqueuePage([chatMessage("n", at: 2)])
+        await client.enqueuePage([chatMessage("q", kind: .ask, state: "expired", at: 1, input: input)])
+        await model.choose(messageID: "q", value: "a")
+        await model.submitAsk(messageID: "q")
+        #expect(model.timeline.message(id: "q")?.state == "expired")
+        #expect(await client.pageRequests.last?.query == LeoChatPageQuery(before: "n", limit: 1))
+        await model.submitAsk(messageID: "q")
+        #expect(await client.answers.count == 1)
+        #expect(model.notice == nil)
     }
 
     @Test func anInvalidAnswerSaysWhyAndKeepsTheDraft() async throws {

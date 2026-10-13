@@ -244,10 +244,24 @@ import LeoKit
         } catch LeoChatAnswerError.settled {
             askDrafts[messageID] = nil
             guard agent == self.agent else { return }
-            await loadNewest()
+            await refreshSettled(messageID, agent: agent)
         } catch {
             notice = "Couldn't answer: \(error.localizedDescription)"
         }
+    }
+
+    /// Resyncs after a 409. The newest page may not reach back to the
+    /// prompt; if it still shows open, the page just above it carries its
+    /// settled copy.
+    private func refreshSettled(_ messageID: String, agent: LeoAgentID) async {
+        await loadNewest()
+        guard agent == self.agent, timeline.message(id: messageID)?.isOpen == true,
+              let index = timeline.messages.firstIndex(where: { $0.id == messageID }),
+              index + 1 < timeline.messages.count else { return }
+        let query = LeoChatPageQuery(before: timeline.messages[index + 1].id, limit: 1, task: timeline.taskFilter)
+        let client = client
+        guard let page = try? await client.messages(agent: agent.name, query: query), agent == self.agent else { return }
+        timeline.merge(page.messages.filter { $0.id == messageID && timeline.admits($0, agent: agent.name) })
     }
 
     /// The input of a shown prompt that is open and not being answered.

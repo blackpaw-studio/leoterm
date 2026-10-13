@@ -74,6 +74,15 @@ struct LeoChatAskDraftTests {
         #expect(draft.selected == ["a"])
     }
 
+    /// With allow_text, clearing the choice is how a radio ask switches to a
+    /// text-only answer.
+    @Test func choosingTheSelectedRadioOptionClearsIt() throws {
+        let radio = try Self.input(.radio, allowsText: true)
+        let draft = LeoChatAskDraft(text: "other").choosing("a", in: radio).choosing("a", in: radio)
+        #expect(draft == LeoChatAskDraft(text: "other"))
+        #expect(draft.answer(for: radio) == LeoChatAnswer(values: [], text: "other"))
+    }
+
     @Test func checkboxesToggleAndKeepOptionOrder() throws {
         let boxes = try Self.input(.checkboxes)
         let draft = LeoChatAskDraft().choosing("c", in: boxes).choosing("a", in: boxes).choosing("b", in: boxes).choosing("c", in: boxes)

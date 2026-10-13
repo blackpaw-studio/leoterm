@@ -113,6 +113,9 @@ public struct ChatThread {
         case resync
         case retryButtonTapped
         case sendResponse(Result<LeoChatMessage, any Error>)
+        /// The page just above a prompt that turned out settled (409),
+        /// which carries its settled copy.
+        case settledMessageResponse(messageID: String, Result<LeoChatPage, any Error>)
         case task
         case taskFilterChanged(String?)
     }
@@ -146,11 +149,18 @@ public struct ChatThread {
                 // Answered elsewhere or expired: the thread is stale, not wrong.
                 state.answering.remove(id)
                 state.askDrafts[id] = nil
-                return .send(.resync)
+                return refreshSettled(id, state: state)
 
             case .answerResponse(let id, _, .failure(let error)):
                 state.answering.remove(id)
                 state.alert = Self.failureAlert(title: String(localized: "Couldn't Answer"), message: error.localizedDescription)
+                return .none
+
+            case .settledMessageResponse(let id, .success(let page)):
+                state.merge(page.messages.filter { $0.id == id && state.belongs($0) })
+                return .none
+
+            case .settledMessageResponse(_, .failure):
                 return .none
 
             case .askChoiceTapped(let id, let value):
@@ -314,6 +324,21 @@ public struct ChatThread {
             await send(.answerResponse(messageID: id, answer, Result {
                 try await chatClient.answer(try secrets.connection(for: daemon), agent, id, answer)
             }))
+        }
+    }
+
+    /// Resyncs after a 409. The newest page may not reach back to the
+    /// prompt, so one older than the newest loaded message first fetches
+    /// the page just above it, which carries its settled copy.
+    private func refreshSettled(_ id: String, state: State) -> Effect<Action> {
+        guard let index = state.messages.index(id: id), index + 1 < state.messages.count else { return .send(.resync) }
+        let query = LeoChatPageQuery(before: state.messages[index + 1].id, limit: 1, task: state.taskFilter)
+        let (daemon, agent) = (state.daemon, state.agentName)
+        return .run { [chatClient, secrets] send in
+            await send(.settledMessageResponse(messageID: id, Result {
+                try await chatClient.messages(try secrets.connection(for: daemon), agent, query)
+            }))
+            await send(.resync)
         }
     }
 

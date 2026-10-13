@@ -14,10 +14,12 @@ public struct LeoChatAskDraft: Equatable, Hashable, Sendable {
     }
 
     /// The draft after tapping `value`: `radio` (and `buttons`) replace
-    /// the selection, `checkboxes` toggle it. Values not in `input` are
-    /// ignored.
+    /// the selection, and tapping the selected radio choice clears it (so
+    /// an `allow_text` ask can be answered with text alone); `checkboxes`
+    /// toggle it. Values not in `input` are ignored.
     public func choosing(_ value: String, in input: LeoChatInput) -> LeoChatAskDraft {
         guard input.options.contains(where: { $0.value == value }) else { return self }
+        if input.kind == .radio, selected == [value] { return LeoChatAskDraft(text: text) }
         guard input.kind == .checkboxes else { return LeoChatAskDraft(selected: [value], text: text) }
         let toggled = selected.contains(value) ? selected.filter { $0 != value } : selected + [value]
         let order = input.options.map(\.value)
