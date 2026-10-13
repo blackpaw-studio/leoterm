@@ -10,6 +10,9 @@ import LeoKit
 /// agents that aren't on screen count too.
 @MainActor final class LeoChatUnreadStore: ObservableObject {
     @Published private(set) var counts = LeoChatUnreadCounts()
+    /// The kind of each agent's latest agent-sent message: seeded from the
+    /// threads' `lastMessage`, then kept current by live messages.
+    private var latestKinds: [LeoAgentID: LeoChatMessage.Kind] = [:]
 
     private var client: any LeoChatClient
     private var host: LeoHostID
@@ -44,6 +47,8 @@ import LeoKit
 
     func count(for agent: LeoAgentID) -> Int { counts[agent] }
 
+    func latestAgentKind(for agent: LeoAgentID) -> LeoChatMessage.Kind? { latestKinds[agent] }
+
     func clear(_ agent: LeoAgentID) {
         readSinceSeedBegan.insert(agent)
         guard counts[agent] > 0 else { return }
@@ -56,6 +61,7 @@ import LeoKit
         switch delivery.signal {
         case .event(let event):
             let agent = LeoAgentID(host: host, name: event.message.agent)
+            if case .message(let message) = event, message.isFromAgent { latestKinds[agent] = message.kind }
             counts = counts.receiving(event, host: host, isOnScreen: isOnScreen(agent))
         case .resync:
             seed()
@@ -80,6 +86,11 @@ import LeoKit
                 if readSinceSeedBegan.contains(LeoAgentID(host: host, name: thread.agent)) { thread.unread = 0 }
                 return thread
             }
+            latestKinds = latestKinds.filter { $0.key.host != host }.merging(
+                threads.compactMap { thread in
+                    thread.lastMessage.flatMap { $0.isFromAgent ? (LeoAgentID(host: host, name: thread.agent), $0.kind) : nil }
+                }, uniquingKeysWith: { _, seeded in seeded }
+            )
             counts = counts.seeding(unreadAfterReads, host: host)
         }
     }

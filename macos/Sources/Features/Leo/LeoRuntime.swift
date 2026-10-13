@@ -489,6 +489,7 @@ import LeoKit
         session.onWindowWillClose = { [weak self] in self?.teardownWindow(sessionID) }
         session.selectedAgent = { [weak self] in self?.model.actionableSelection?.id }
         session.unreadCount = { [weak unread] in unread?.count(for: $0) ?? 0 }
+        session.latestAgentMessageKind = { [weak unread] in unread?.latestAgentKind(for: $0) }
         // A new window comes up on the shared selection without moving it.
         session.selectionChanged(unreadCount: session.unreadCount)
         wireTerminals(session.terminals, window: sessionID)

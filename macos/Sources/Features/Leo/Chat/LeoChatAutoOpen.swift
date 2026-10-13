@@ -5,10 +5,11 @@ import LeoKit
 /// that window shows its terminal.
 enum LeoChatAutoOpen {
     /// The agent that just sent a live message of any kind (system notices
-    /// excluded). Seeds, resyncs and updates to existing messages don't
+    /// and permission prompts excluded: a permission mirrors a dialog the
+    /// terminal can answer, unlike an ask). Seeds, resyncs and updates to existing messages don't
     /// qualify; history pages don't pass through the relay at all.
     static func agent(sending delivery: LeoChatFeedDelivery) -> LeoAgentID? {
-        guard case .event(.message(let message)) = delivery.signal, message.isFromAgent, message.kind != .system else { return nil }
+        guard case .event(.message(let message)) = delivery.signal, message.isFromAgent, message.kind != .system, message.kind != .permission else { return nil }
         return LeoAgentID(host: delivery.host, name: message.agent)
     }
 
@@ -19,9 +20,11 @@ enum LeoChatAutoOpen {
     }
 
     /// A window selecting `agent` with unread messages while it shows the
-    /// terminal. Once read (count 0) the remembered choice stands.
-    static func shouldOpenOnSelect(unread: Int, layout: LeoChatLayout) -> Bool {
-        unread > 0 && layout == .terminal
+    /// terminal. Once read (count 0) the remembered choice stands. Unread
+    /// counts carry no per-kind breakdown, so a latest agent message that is
+    /// a permission prompt (terminal-answerable) approximates "nothing for chat".
+    static func shouldOpenOnSelect(unread: Int, layout: LeoChatLayout, latestAgentKind: LeoChatMessage.Kind? = nil) -> Bool {
+        unread > 0 && layout == .terminal && latestAgentKind != .permission
     }
 
     /// Whether an auto-open moves the keyboard to the composer: only when

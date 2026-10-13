@@ -66,6 +66,8 @@ struct LeoWindowVisibilityState: Equatable {
     var selectedAgent: () -> LeoAgentID? = { nil }
     /// Unread chat messages per agent, wired by the runtime from its store.
     var unreadCount: (LeoAgentID) -> Int = { _ in 0 }
+    /// The kind of the agent's most recent agent-sent message, if known.
+    var latestAgentMessageKind: (LeoAgentID) -> LeoChatMessage.Kind? = { _ in nil }
     @Published var windowIsOccluded = false { didSet { changed(); markShownIfVisible() } }
     @Published var windowIsMiniaturized = false { didSet { changed(); markShownIfVisible() } }
     var displayedWidth: CGFloat { min(max(preferredWidth, 200), 420) }
@@ -315,7 +317,9 @@ struct LeoWindowVisibilityState: Equatable {
 
     private func openChatIfUnread(unreadCount: (LeoAgentID) -> Int) {
         guard let agent = shownAgent,
-              LeoChatAutoOpen.shouldOpenOnSelect(unread: unreadCount(agent), layout: currentChatLayout) else { return }
+              LeoChatAutoOpen.shouldOpenOnSelect(
+                  unread: unreadCount(agent), layout: currentChatLayout, latestAgentKind: latestAgentMessageKind(agent)
+              ) else { return }
         autoOpenChat(for: agent)
     }
 

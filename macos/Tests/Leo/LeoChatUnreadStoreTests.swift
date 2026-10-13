@@ -44,6 +44,40 @@ struct LeoChatUnreadStoreTests {
         #expect(store.count(for: Self.beta) == 1)
     }
 
+    @Test func aLiveAgentMessageRecordsItsKindAsTheLatest() {
+        let store = make()
+        event(store, chatMessage("a", kind: .permission, at: 1))
+        #expect(store.latestAgentKind(for: Self.alpha) == .permission)
+        event(store, chatMessage("b", kind: .ask, at: 2))
+        #expect(store.latestAgentKind(for: Self.alpha) == .ask)
+    }
+
+    @Test func yourOwnMessageDoesNotReplaceTheLatestAgentKind() {
+        let store = make()
+        event(store, chatMessage("a", kind: .permission, at: 1))
+        event(store, chatMessage("b", direction: .inbound, at: 2))
+        #expect(store.latestAgentKind(for: Self.alpha) == .permission)
+    }
+
+    @Test func aResyncSeedsTheLatestKindFromTheThreadsLastAgentMessage() async {
+        await client.setThreads([
+            LeoChatThread(agent: "alpha", lastMessage: chatMessage("a", kind: .permission, at: 1), unread: 1),
+            LeoChatThread(agent: "beta", lastMessage: chatMessage("b", agent: "beta", direction: .inbound, at: 2), unread: 1),
+        ])
+        let store = make()
+        await resync(store)
+        #expect(store.latestAgentKind(for: Self.alpha) == .permission)
+        #expect(store.latestAgentKind(for: Self.beta) == nil)
+    }
+
+    @Test func aResyncReplacesALiveKindWithTheDaemonsLatest() async {
+        await client.setThreads([LeoChatThread(agent: "alpha", lastMessage: chatMessage("a", kind: .ask, at: 5), unread: 1)])
+        let store = make()
+        event(store, chatMessage("old", kind: .permission, at: 1))
+        await resync(store)
+        #expect(store.latestAgentKind(for: Self.alpha) == .ask)
+    }
+
     @Test func anOnScreenAgentMessageDoesNotCount() {
         let store = make()
         store.receive(
