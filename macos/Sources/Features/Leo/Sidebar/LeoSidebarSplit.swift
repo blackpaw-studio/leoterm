@@ -176,6 +176,7 @@ struct LeoSidebarSplit<Terminal: View>: View {
     @ObservedObject var session: LeoWindowSession
     @ObservedObject var model: LeoSidebarModel
     @ObservedObject var actions: LeoAgentActions
+    @ObservedObject var unread: LeoChatUnreadStore
     private let terminal: Terminal
     /// The top safe-area edges the split and the sidebar extend into (the
     /// hidden titlebar style, B-074). See `LeoTitlebarInsets`.
@@ -186,7 +187,7 @@ struct LeoSidebarSplit<Terminal: View>: View {
     private let buttonActions: LeoSidebarButtonActions
 
     init(
-        session: LeoWindowSession, model: LeoSidebarModel, actions: LeoAgentActions,
+        session: LeoWindowSession, model: LeoSidebarModel, actions: LeoAgentActions, unread: LeoChatUnreadStore,
         titlebarIgnoredEdges: Edge.Set = [],
         shortcutHints: LeoShortcutHints,
         buttonActions: LeoSidebarButtonActions,
@@ -195,6 +196,7 @@ struct LeoSidebarSplit<Terminal: View>: View {
         self.session = session
         self.model = model
         self.actions = actions
+        self.unread = unread
         self.titlebarIgnoredEdges = titlebarIgnoredEdges
         self.shortcutHints = shortcutHints
         self.buttonActions = buttonActions
@@ -216,7 +218,7 @@ struct LeoSidebarSplit<Terminal: View>: View {
             // inset plus the system sidebar's, so ignoring it on the split
             // alone isn't enough.
             sidebar: LeoSidebarView(
-                model: model, windowID: session.id, actions: actions, terminals: session.terminals,
+                model: model, windowID: session.id, actions: actions, terminals: session.terminals, unread: unread,
                 searchFocusRequest: session.searchFocusRequest,
                 shortcutHints: shortcutHints, buttonActions: buttonActions
             ).ignoresSafeArea(.container, edges: titlebarIgnoredEdges),

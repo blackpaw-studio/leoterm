@@ -32,6 +32,13 @@ import LeoKit
         seedToken += 1
     }
 
+    /// A store no daemon feeds, for views built without a runtime (tests).
+    static func detached() -> LeoChatUnreadStore {
+        LeoChatUnreadStore(
+            client: LeoChatPaneModel.makeClient(socketPath: "/dev/null", transport: LeoUnixSocketTransport()), host: .local
+        )
+    }
+
     func count(for agent: LeoAgentID) -> Int { counts[agent] }
 
     func clear(_ agent: LeoAgentID) {

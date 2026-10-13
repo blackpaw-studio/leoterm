@@ -117,7 +117,7 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                 // screen slid it out behind the placeholder.
                 if let leoSession, let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime {
                     LeoSidebarSplit(
-                        session: leoSession, model: runtime.model, actions: runtime.actions,
+                        session: leoSession, model: runtime.model, actions: runtime.actions, unread: runtime.unread,
                         titlebarIgnoredEdges: leoSplitIgnoredEdges,
                         // B-065: the sidebar footer's buttons are the menu
                         // items' own actions, the same ones the start
@@ -147,7 +147,8 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                                     // the Terminal | Chat switch.
                                     LeoAgentControlBarHost(
                                         model: runtime.model, control: runtime.control, terminals: leoSession.terminals,
-                                        session: leoSession, handle: leoSession.controlPrompt, contentWidth: geometry.size.width
+                                        session: leoSession, unread: runtime.unread, handle: leoSession.controlPrompt,
+                                        contentWidth: geometry.size.width
                                     )
                                 }
                             }

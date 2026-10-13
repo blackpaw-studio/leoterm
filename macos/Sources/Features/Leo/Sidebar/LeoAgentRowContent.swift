@@ -17,6 +17,9 @@ struct LeoAgentRowContent: View {
     /// Whether the row sits in the Working section (grouped by attention):
     /// one line, with the word trailing.
     var inWorkingSection = false
+    /// Unread chat messages from the agent, as a capsule at the end of the
+    /// name line. Independent of the leading attention symbol.
+    var unreadCount = 0
 
     var body: some View {
         let presentation = LeoAgentRowPresentation(row: row, error: error, inWorkingSection: inWorkingSection)
@@ -40,6 +43,7 @@ struct LeoAgentRowContent: View {
                 .accessibilityLabel(presentation.accessibilityLabel(name: row.name))
             Spacer(minLength: 4)
             trailing(presentation.state)
+            LeoUnreadCountBadge(count: unreadCount, isOnSelection: isSelected)
         }
         .frame(height: LeoAgentRowMetrics.nameLineHeight)
     }

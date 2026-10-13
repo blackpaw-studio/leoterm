@@ -15,6 +15,8 @@ struct LeoAgentControlBar: View {
     let clear: () -> Void
     let layout: LeoChatLayout
     let choose: (LeoAgentViewChoice) -> Void
+    /// Unread chat messages for the Chat segment's badge.
+    let unreadCount: Int
     /// Agents ▸ Message Agent while the prompt field is hidden.
     let focusChat: () -> Void
 
@@ -44,6 +46,7 @@ struct LeoAgentControlBar: View {
             symbolButton("eraser", "Clear", "Clear \(row.name)’s conversation… (⌃⇧⌘K)", availability.canClear, action: clear)
             Divider().frame(height: 18)
             LeoAgentViewSwitch(agentName: row.name, active: layout.activeSegments, choose: choose)
+                .chatSegmentBadge(unreadCount: unreadCount)
         }
         .padding(.horizontal, 10)
         .frame(height: Self.height)
@@ -128,6 +131,7 @@ struct LeoAgentControlBarHost: View {
     @ObservedObject var control: LeoAgentControlModel
     @ObservedObject var terminals: LeoWindowTerminals
     @ObservedObject var session: LeoWindowSession
+    @ObservedObject var unread: LeoChatUnreadStore
     let handle: LeoControlPromptFieldHandle
     /// The content area's width, which decides how chat is laid out.
     let contentWidth: CGFloat
@@ -135,6 +139,8 @@ struct LeoAgentControlBarHost: View {
     var body: some View {
         let row = terminals.selection == nil ? model.actionableSelection : nil
         let layout = session.chatLayout(for: row, contentWidth: contentWidth)
+        // Chat on screen is being read: no badge while it shows.
+        let unreadCount = row.map { layout.showsChat ? 0 : unread.count(for: $0.id) } ?? 0
         let availability = LeoAgentControlAvailability(
             row: row, features: model.daemonFeatures, deniedHosts: control.deniedHosts, inFlight: row.flatMap { control.inFlight[$0.id] }
         )
@@ -149,6 +155,7 @@ struct LeoAgentControlBarHost: View {
                     LeoAgentViewSwitch(
                         agentName: row.name, active: layout.activeSegments, choose: { session.choose($0, for: row.id) }
                     )
+                    .chatSegmentBadge(unreadCount: unreadCount)
                 }
                 .padding(.horizontal, 10)
                 .frame(height: LeoAgentControlBar.height)
@@ -156,16 +163,19 @@ struct LeoAgentControlBarHost: View {
                 .overlay(alignment: .top) { Divider() }
             }
         case .full:
-            if let row { fullBar(row, availability, layout) }
+            if let row { fullBar(row, availability, layout, unreadCount: unreadCount) }
         }
     }
 
-    private func fullBar(_ row: LeoAgentRow, _ availability: LeoAgentControlAvailability, _ layout: LeoChatLayout) -> some View {
+    private func fullBar(
+        _ row: LeoAgentRow, _ availability: LeoAgentControlAvailability, _ layout: LeoChatLayout, unreadCount: Int
+    ) -> some View {
         LeoAgentControlBar(
             row: row, availability: availability, control: control, focusRequest: session.controlFocusRequest, handle: handle,
             clear: { Task { await control.clear(row, in: handle.window ?? session.window) } },
             layout: layout,
             choose: { session.choose($0, for: row.id) },
+            unreadCount: unreadCount,
             focusChat: session.requestChatFocus
         )
     }

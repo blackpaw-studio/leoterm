@@ -82,6 +82,8 @@ struct LeoSidebarView: View {
     /// This window's own plain shells (B-057): per window, while `model`'s
     /// agent list is app-wide.
     @ObservedObject var terminals: LeoWindowTerminals
+    /// Unread chat messages per agent, for the row badges.
+    @ObservedObject var unread: LeoChatUnreadStore
     /// Bumped by Agents ▸ Find Agent…; each change focuses the search field.
     let searchFocusRequest: Int
     /// The footer buttons' tooltips (B-065).
@@ -104,6 +106,7 @@ struct LeoSidebarView: View {
         windowID: LeoWindowID,
         actions: LeoAgentActions,
         terminals: LeoWindowTerminals,
+        unread: LeoChatUnreadStore? = nil,
         searchFocusRequest: Int = 0,
         shortcutHints: LeoShortcutHints? = nil,
         buttonActions: LeoSidebarButtonActions = .none,
@@ -113,6 +116,7 @@ struct LeoSidebarView: View {
         self.windowID = windowID
         self.actions = actions
         self.terminals = terminals
+        _unread = ObservedObject(wrappedValue: unread ?? .detached())
         self.searchFocusRequest = searchFocusRequest
         _shortcutHints = ObservedObject(wrappedValue: shortcutHints ?? LeoShortcutHints())
         self.buttonActions = buttonActions
@@ -384,7 +388,8 @@ struct LeoSidebarView: View {
                 togglePin: { model.togglePin(row.id) },
                 newWorktreeAgent: { worktreeSource = row },
                 environmentsSupported: model.hostFeatures.applying(to: row.host).contains(.agentEnvironments),
-                inWorkingSection: section.id == LeoSidebarLayout.workingSectionID
+                inWorkingSection: section.id == LeoSidebarLayout.workingSectionID,
+                unreadCount: unread.count(for: row.id)
             )
             .listRowInsets(LeoDispatchRowMetrics.agentRowInsets)
             .tag(Optional(LeoSidebarItemID.agent(row.id)))
