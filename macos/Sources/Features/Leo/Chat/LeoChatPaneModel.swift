@@ -19,12 +19,18 @@ import LeoKit
     typealias FileReader = @Sendable (LeoChatOutgoingFile) async throws -> LeoChatUpload
 
     @Published private(set) var agent: LeoAgentID?
-    @Published private(set) var timeline = LeoChatTimeline()
+    /// A prompt that is no longer open loses its ask draft.
+    @Published private(set) var timeline = LeoChatTimeline() {
+        didSet { dropSettledAskDrafts() }
+    }
     @Published private(set) var isLoading = false
     @Published private(set) var isLoadingOlder = false
     @Published private(set) var loadError: String?
     /// Message ids with an answer in flight.
     @Published private(set) var answering: Set<String> = []
+    /// The answer being put together per open `radio`, `checkboxes` or
+    /// `text` ask, kept across thread switches until the prompt settles.
+    @Published private(set) var askDrafts: [String: LeoChatAskDraft] = [:]
     /// Messages whose long text or task card is expanded.
     @Published private(set) var expanded: Set<String> = []
     @Published private(set) var drafts: [LeoAgentID: LeoChatComposerDraft] = [:]
@@ -189,21 +195,72 @@ import LeoKit
 
     // MARK: Answers
 
-    func answer(messageID: String, value: String) async {
+    func askDraft(for messageID: String) -> LeoChatAskDraft { askDrafts[messageID] ?? LeoChatAskDraft() }
+
+    /// The answer Submit would send, or nil while the daemon would refuse
+    /// it (or the prompt isn't taking input).
+    func askAnswer(for messageID: String) -> LeoChatAnswer? {
+        guard let input = openAskInput(messageID) else { return nil }
+        return askDraft(for: messageID).answer(for: input)
+    }
+
+    /// A choice clicked: `buttons` (and permission prompts) answer at once,
+    /// `radio` and `checkboxes` update the draft.
+    func choose(messageID: String, value: String) async {
+        guard let input = openAskInput(messageID) else { return }
+        let draft = askDraft(for: messageID).choosing(value, in: input)
+        guard input.kind == .buttons else {
+            askDrafts[messageID] = draft
+            return
+        }
+        guard let answer = draft.answer(for: input) else { return }
+        await self.answer(messageID: messageID, answer)
+    }
+
+    func setAskText(messageID: String, _ text: String) {
+        guard openAskInput(messageID) != nil, askDraft(for: messageID).text != text else { return }
+        askDrafts[messageID] = askDraft(for: messageID).withText(text)
+    }
+
+    func submitAsk(messageID: String) async {
+        guard let answer = askAnswer(for: messageID) else { return }
+        await self.answer(messageID: messageID, answer)
+    }
+
+    /// Sends `answer`. A prompt settled meanwhile (409) just refetches the
+    /// thread; any other refusal says why and keeps the draft.
+    func answer(messageID: String, _ answer: LeoChatAnswer) async {
         guard let agent, timeline.message(id: messageID) != nil, answering.insert(messageID).inserted else { return }
         let client = client
         defer { answering.remove(messageID) }
         do {
-            let updated = try await client.answer(agent: agent.name, messageID: messageID, answer: .choice(value))
+            let updated = try await client.answer(agent: agent.name, messageID: messageID, answer: answer)
             guard agent == self.agent else { return }
             if let updated, timeline.admits(updated, agent: agent.name) {
                 timeline.merge([updated])
             } else if let message = timeline.message(id: messageID) {
-                timeline.merge([message.answered(.choice(value))])
+                timeline.merge([message.answered(answer)])
             }
+        } catch LeoChatAnswerError.settled {
+            askDrafts[messageID] = nil
+            guard agent == self.agent else { return }
+            await loadNewest()
         } catch {
             notice = "Couldn't answer: \(error.localizedDescription)"
         }
+    }
+
+    /// The input of a shown prompt that is open and not being answered.
+    private func openAskInput(_ messageID: String) -> LeoChatInput? {
+        guard let message = timeline.message(id: messageID), message.isOpen, !answering.contains(messageID) else { return nil }
+        return message.answerInput
+    }
+
+    private func dropSettledAskDrafts() {
+        guard !askDrafts.isEmpty else { return }
+        let settled = askDrafts.keys.filter { timeline.message(id: $0).map { !$0.isOpen } ?? false }
+        guard !settled.isEmpty else { return }
+        settled.forEach { askDrafts[$0] = nil }
     }
 
     // MARK: Attachments

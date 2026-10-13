@@ -148,29 +148,117 @@ struct LeoChatPaneModelTests {
 
     // MARK: Answers
 
+    private static func choices(_ values: String...) -> [LeoChatOption] {
+        values.map { LeoChatOption(value: $0, label: $0.uppercased()) }
+    }
+
+    /// An open ask for `input`, shown in alpha's thread.
+    private func showAsk(_ input: LeoChatInput, id: String = "q") async -> LeoChatPaneModel {
+        await client.enqueuePage([chatMessage(id, kind: .ask, state: "open", at: 1, input: input)])
+        let model = make()
+        await model.show(Self.alpha)
+        return model
+    }
+
     @Test func answeringMergesTheDaemonsCopyOrMarksItLocally() async throws {
         let ask = chatMessage("q", kind: .ask, state: "open", at: 1, input: try LeoChatInput(kind: .buttons, options: [LeoChatOption(value: "y", label: "Yes")]))
         await client.enqueuePage([ask, chatMessage("p", kind: .permission, state: "open", at: 0)])
         await client.setAnswerResult(.success(chatMessage("q", kind: .ask, state: "answered", at: 1)))
         let model = make()
         await model.show(Self.alpha)
-        await model.answer(messageID: "q", value: "y")
+        await model.choose(messageID: "q", value: "y")
         await client.setAnswerResult(.success(nil))
-        await model.answer(messageID: "p", value: "allow")
+        await model.choose(messageID: "p", value: "allow")
         #expect(model.timeline.messages.map(\.state) == ["answered", "answered"])
         #expect(model.timeline.messages.first?.answer == .choice("allow"))
         #expect(model.answering.isEmpty)
         #expect(await client.answers.map(\.answer) == [.choice("y"), .choice("allow")])
     }
 
+    @Test func aButtonsTapSendsItsValueAtOnce() async throws {
+        let model = await showAsk(try LeoChatInput(kind: .buttons, options: Self.choices("a", "b")))
+        await model.choose(messageID: "q", value: "b")
+        #expect(await client.answers.map(\.answer) == [LeoChatAnswer(values: ["b"])])
+        #expect(model.askDrafts.isEmpty)
+    }
+
+    @Test func checkboxTogglesWaitForSubmitWhichSendsInOptionOrder() async throws {
+        let model = await showAsk(try LeoChatInput(kind: .checkboxes, options: Self.choices("a", "b", "c")))
+        await model.choose(messageID: "q", value: "c")
+        await model.choose(messageID: "q", value: "b")
+        await model.choose(messageID: "q", value: "a")
+        await model.choose(messageID: "q", value: "b")
+        #expect(await client.answers.isEmpty)
+        #expect(model.askDraft(for: "q").selected == ["a", "c"])
+        await model.submitAsk(messageID: "q")
+        #expect(await client.answers.map(\.answer) == [LeoChatAnswer(values: ["a", "c"])])
+    }
+
+    @Test func aRadioChoiceReplacesTheSelectionUntilSubmit() async throws {
+        let model = await showAsk(try LeoChatInput(kind: .radio, options: Self.choices("a", "b")))
+        await model.choose(messageID: "q", value: "a")
+        await model.choose(messageID: "q", value: "b")
+        #expect(await client.answers.isEmpty)
+        await model.submitAsk(messageID: "q")
+        #expect(await client.answers.map(\.answer) == [LeoChatAnswer(values: ["b"])])
+    }
+
+    @Test func submitDoesNothingWhileTheDraftIsInvalid() async throws {
+        let model = await showAsk(try LeoChatInput(kind: .checkboxes, options: Self.choices("a", "b", "c"), min: 2))
+        await model.choose(messageID: "q", value: "a")
+        #expect(model.askAnswer(for: "q") == nil)
+        await model.submitAsk(messageID: "q")
+        #expect(await client.answers.isEmpty)
+        #expect(model.askDraft(for: "q").selected == ["a"])
+    }
+
+    @Test func textIsTrimmedOnSubmit() async throws {
+        let model = await showAsk(try LeoChatInput(kind: .text))
+        model.setAskText(messageID: "q", "  ship it \n")
+        await model.submitAsk(messageID: "q")
+        #expect(await client.answers.map(\.answer) == [LeoChatAnswer(text: "ship it")])
+    }
+
+    @Test func aSettledAnswerResyncsWithoutANotice() async throws {
+        let input = try LeoChatInput(kind: .radio, options: Self.choices("a", "b"))
+        let model = await showAsk(input)
+        await client.setAnswerResult(.failure(LeoChatAnswerError.settled))
+        await client.enqueuePage([chatMessage("q", kind: .ask, state: "answered", at: 1, input: input)])
+        await model.choose(messageID: "q", value: "a")
+        await model.submitAsk(messageID: "q")
+        #expect(model.notice == nil)
+        #expect(await client.pageRequests.count == 2)
+        #expect(model.timeline.messages.map(\.state) == ["answered"])
+        #expect(model.askDrafts.isEmpty)
+        #expect(model.answering.isEmpty)
+    }
+
+    @Test func anInvalidAnswerSaysWhyAndKeepsTheDraft() async throws {
+        let model = await showAsk(try LeoChatInput(kind: .radio, options: Self.choices("a", "b")))
+        await client.setAnswerResult(.failure(LeoChatAnswerError.invalid("answer does not fit")))
+        await model.choose(messageID: "q", value: "a")
+        await model.submitAsk(messageID: "q")
+        #expect(model.notice == "Couldn't answer: answer does not fit")
+        #expect(model.askDraft(for: "q").selected == ["a"])
+        #expect(model.timeline.messages.first?.isOpen == true)
+    }
+
+    @Test func anAnsweredUpdateClearsTheDraft() async throws {
+        let input = try LeoChatInput(kind: .radio, options: Self.choices("a", "b"))
+        let model = await showAsk(input)
+        await model.choose(messageID: "q", value: "a")
+        await model.receive(.updated(chatMessage("q", kind: .ask, state: "answered", at: 1, input: input)), host: .local)
+        #expect(model.askDrafts.isEmpty)
+    }
+
     @Test func aFailedAnswerKeepsThePromptOpenAndSaysWhy() async {
-        await client.enqueuePage([chatMessage("q", kind: .ask, state: "open", at: 1)])
-        await client.setAnswerResult(.failure(.init(message: "expired")))
+        await client.enqueuePage([chatMessage("q", kind: .ask, state: "open", at: 1, input: .permission)])
+        await client.setAnswerResult(.failure(FakeChatClient.Failure(message: "offline")))
         let model = make()
         await model.show(Self.alpha)
-        await model.answer(messageID: "q", value: "y")
+        await model.choose(messageID: "q", value: "allow")
         #expect(model.timeline.messages.first?.isOpen == true)
-        #expect(model.notice == "Couldn't answer: expired")
+        #expect(model.notice == "Couldn't answer: offline")
     }
 
     // MARK: Composer

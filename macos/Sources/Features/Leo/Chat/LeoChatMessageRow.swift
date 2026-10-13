@@ -158,7 +158,7 @@ struct LeoChatPromptButtons: View {
             let isAnswering = chat.answering.contains(message.id)
             LeoChatFlowLayout(spacing: 6) {
                 ForEach(message.answerInput?.options ?? [], id: \.value) { choice in
-                    Button(choice.label) { Task { await chat.answer(messageID: message.id, value: choice.value) } }
+                    Button(choice.label) { Task { await chat.choose(messageID: message.id, value: choice.value) } }
                         .buttonStyle(.bordered)
                         .tint(choice.value == "deny" ? .red : nil)
                         .disabled(isAnswering)

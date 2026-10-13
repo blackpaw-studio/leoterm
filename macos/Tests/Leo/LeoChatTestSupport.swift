@@ -25,7 +25,7 @@ actor FakeChatClient: LeoChatClient {
     private var isHoldingSends = false
     private var heldSends: [CheckedContinuation<Void, Never>] = []
     private var uploadFailure: Failure?
-    private var answerResult: Result<LeoChatMessage?, Failure> = .success(nil)
+    private var answerResult: Result<LeoChatMessage?, any Error> = .success(nil)
     private var downloads: [String: Result<Data, Failure>] = [:]
 
     func enqueuePage(_ messages: [LeoChatMessage], hasMore: Bool = false) {
@@ -35,7 +35,7 @@ actor FakeChatClient: LeoChatClient {
     func enqueuePageFailure(_ message: String) { pages.append(.failure(Failure(message: message))) }
     func enqueueSend(_ result: Result<LeoChatMessage, Failure>) { sendResults.append(result) }
     func failUploads(_ message: String) { uploadFailure = Failure(message: message) }
-    func setAnswerResult(_ result: Result<LeoChatMessage?, Failure>) { answerResult = result }
+    func setAnswerResult(_ result: Result<LeoChatMessage?, any Error>) { answerResult = result }
     func setDownload(_ id: String, _ result: Result<Data, Failure>) { downloads[id] = result }
     func holdPages() { isHoldingPages = true }
     func holdSends() { isHoldingSends = true }
