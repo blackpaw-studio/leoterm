@@ -376,7 +376,6 @@ struct FleetTests {
             Fleet()
         } withDependencies: {
             $0.pairedDaemons.load = { [.hestia] }
-            $0.seenFiles.load = { LeoSurfacedFileLedger() }
         }
         await store.send(.task)
         await store.receive(\.daemonsLoaded) {

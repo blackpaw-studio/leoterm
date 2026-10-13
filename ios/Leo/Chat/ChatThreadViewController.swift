@@ -13,6 +13,8 @@ import UniformTypeIdentifiers
 final class ChatThreadViewController: UIViewController, UICollectionViewDelegate {
     /// How close to the top (in points) loads the older page.
     private static let olderPageThreshold: CGFloat = 300
+    /// Room kept around a focused ask field when it scrolls into view.
+    private static let focusedFieldMargin: CGFloat = 16
 
     @UIBindable private var store: StoreOf<ChatThread>
     private lazy var collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
@@ -71,6 +73,9 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
             bottom.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
         ])
         configureDataSource()
+        // An ask's text field sits in the thread, not the composer: once the
+        // keyboard is up, bring the field above it.
+        NotificationCenter.default.addObserver(self, selector: #selector(revealFocusedAskField), name: UIResponder.keyboardDidShowNotification, object: nil)
 
         present(item: $store.scope(state: \.alert, action: \.alert)) { store in
             UIAlertController(store: store)
@@ -100,8 +105,10 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
     private func configureDataSource() {
         let registration = UICollectionView.CellRegistration<ChatMessageCell, String> { [weak self] cell, _, id in
             guard let self, let message = shownMessages[id] else { return }
+            let previous = store.messages.index(id: id).flatMap { $0 > 0 ? store.messages[$0 - 1] : nil }
             let model = ChatMessageCell.Model(
                 message: message, isExpanded: store.expanded.contains(id), isAnswering: store.answering.contains(id),
+                draft: store.askDrafts[id] ?? LeoChatAskDraft(), continuesPost: message.continuesPost(after: previous),
                 files: store.attachmentFiles, playingAttachmentID: voice.playingID
             )
             cell.configure(model) { [weak self] event in self?.handle(event, message: message) }
@@ -206,6 +213,12 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         collectionView.scrollToItem(at: indexPath, at: .bottom, animated: false)
     }
 
+    @objc private func revealFocusedAskField() {
+        let cells = collectionView.visibleCells.compactMap { $0 as? ChatMessageCell }
+        guard let frame = cells.lazy.compactMap({ $0.focusedTextFrame(in: self.collectionView) }).first else { return }
+        collectionView.scrollRectToVisible(frame.insetBy(dx: 0, dy: -Self.focusedFieldMargin), animated: true)
+    }
+
     private func reconfigureAll() {
         var snapshot = dataSource.snapshot()
         snapshot.reconfigureItems(snapshot.itemIdentifiers)
@@ -214,8 +227,12 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
 
     private func handle(_ event: ChatMessageCell.Event, message: LeoChatMessage) {
         switch event {
-        case .answer(let value):
-            store.send(.answerTapped(messageID: message.id, value: value))
+        case .choice(let value):
+            store.send(.askChoiceTapped(messageID: message.id, value: value))
+        case .text(let text):
+            store.send(.askTextChanged(messageID: message.id, text))
+        case .submit:
+            store.send(.askSubmitTapped(messageID: message.id))
         case .expand:
             store.send(.expandToggled(message.id))
         case .openAttachment(let attachment):

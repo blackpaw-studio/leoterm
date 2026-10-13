@@ -8,11 +8,11 @@ import Testing
 extension LeoChatMessage {
     static func make(
         _ id: String, _ text: String = "", agent: String = "zeus", direction: Direction = .outbound, kind: Kind = .text, task: String? = nil,
-        second: Int = 0, state: String? = nil, answer: String? = nil, options: [LeoChatOption] = [], attachments: [LeoChatAttachment] = []
+        second: Int = 0, state: String? = nil, answer: LeoChatAnswer? = nil, input: LeoChatInput? = nil, attachments: [LeoChatAttachment] = []
     ) -> LeoChatMessage {
         LeoChatMessage(
             id: id, agent: agent, direction: direction, kind: kind, text: text, task: task, runID: task.map { _ in "r-1" },
-            state: state, answer: answer, ts: Date(timeIntervalSince1970: TimeInterval(1_000 + second)), attachments: attachments, options: options
+            state: state, answer: answer, ts: Date(timeIntervalSince1970: TimeInterval(1_000 + second)), attachments: attachments, input: input
         )
     }
 }
@@ -100,8 +100,8 @@ struct ChatThreadTests {
             }
         }
         await store.send(.resync) { $0.isLoading = true }
-        await store.send(.chatEvent(.updated(.make("01", kind: .ask, state: "answered", answer: "yes")))) {
-            $0.messages[id: "01"] = .make("01", kind: .ask, state: "answered", answer: "yes")
+        await store.send(.chatEvent(.updated(.make("01", kind: .ask, state: "answered", answer: .choice("yes"))))) {
+            $0.messages[id: "01"] = .make("01", kind: .ask, state: "answered", answer: .choice("yes"))
             $0.liveSinceFetch = ["01"]
         }
         gate.continuation.yield()
@@ -233,61 +233,173 @@ struct ChatThreadTests {
         }
     }
 
-    @Test func answeringAnAskRecordsTheDaemonsAnswer() async {
-        let ask = LeoChatMessage.make("01", "Deploy?", kind: .ask, state: "open", options: [LeoChatOption(value: "yes", label: "Yes")])
+    // MARK: Asks
+
+    static let abc = ["a", "b", "c"].map { LeoChatOption(value: $0, label: $0.uppercased()) }
+
+    static func ask(_ kind: LeoChatInput.Kind, allowsText: Bool = false, min: Int = 0, max: Int? = nil) throws -> LeoChatMessage {
+        let input = try LeoChatInput(kind: kind, options: kind == .text ? [] : abc, allowsText: allowsText, min: min, max: max)
+        return .make("01", "Which?", kind: .ask, state: "open", input: input)
+    }
+
+    static func store(
+        _ messages: [LeoChatMessage], answers: LockIsolated<[LeoChatAnswer]>,
+        result: @escaping @Sendable () throws -> LeoChatMessage? = { nil }
+    ) -> TestStoreOf<ChatThread> {
         var state = Self.state()
-        state.messages = [ask]
-        let answered = LeoChatMessage.make("01", "Deploy?", kind: .ask, state: "answered", answer: "yes", options: ask.options)
-        let store = TestStore(initialState: state) {
+        state.messages = IdentifiedArray(uniqueElements: messages)
+        return TestStore(initialState: state) {
             ChatThread()
         } withDependencies: {
             Self.withSecrets(&$0)
-            $0.chatClient.answer = { _, agent, id, value in
-                #expect([agent, id, value] == ["zeus", "01", "yes"])
-                return answered
+            $0.chatClient.answer = { _, agent, id, answer in
+                #expect([agent, id] == ["zeus", "01"])
+                answers.withValue { $0.append(answer) }
+                return try result()
             }
         }
+    }
 
-        await store.send(.answerTapped(messageID: "01", value: "yes")) { $0.answering = ["01"] }
+    @Test func tappingAButtonAnswersAtOnceWithTheDaemonsCopy() async throws {
+        let ask = try Self.ask(.buttons)
+        let answered = ask.answered(.choice("b"))
+        let answers = LockIsolated<[LeoChatAnswer]>([])
+        let store = Self.store([ask], answers: answers) { answered }
+
+        await store.send(.askChoiceTapped(messageID: "01", value: "b")) { $0.answering = ["01"] }
         await store.receive(\.answerResponse) {
             $0.answering = []
             $0.messages[id: "01"] = answered
         }
+        #expect(answers.value == [.choice("b")])
     }
 
-    @Test func anAnswerWithNoBodyMarksTheMessageAnsweredLocally() async {
+    @Test func aPermissionWithoutAnInputAnswersAllowOrDenyAndMarksItLocally() async {
+        let answers = LockIsolated<[LeoChatAnswer]>([])
+        let store = Self.store([.make("01", kind: .permission, state: "open")], answers: answers)
+
+        await store.send(.askChoiceTapped(messageID: "01", value: "deny")) { $0.answering = ["01"] }
+        await store.receive(\.answerResponse) {
+            $0.answering = []
+            $0.messages[id: "01"] = .make("01", kind: .permission, state: "answered", answer: .choice("deny"))
+        }
+        #expect(answers.value == [.choice("deny")])
+    }
+
+    @Test func checkboxTogglesWaitForSubmitWhichSendsOptionOrder() async throws {
+        let ask = try Self.ask(.checkboxes, min: 1, max: 2)
+        let answers = LockIsolated<[LeoChatAnswer]>([])
+        let store = Self.store([ask], answers: answers)
+
+        await store.send(.askChoiceTapped(messageID: "01", value: "c")) { $0.askDrafts["01"] = LeoChatAskDraft(selected: ["c"]) }
+        await store.send(.askChoiceTapped(messageID: "01", value: "a")) { $0.askDrafts["01"] = LeoChatAskDraft(selected: ["a", "c"]) }
+        await store.send(.askSubmitTapped(messageID: "01")) { $0.answering = ["01"] }
+        await store.receive(\.answerResponse) {
+            $0.answering = []
+            $0.askDrafts = [:]
+            $0.messages[id: "01"] = ask.answered(LeoChatAnswer(values: ["a", "c"]))
+        }
+        #expect(answers.value == [LeoChatAnswer(values: ["a", "c"])])
+    }
+
+    @Test func radioReplacesItsChoiceUntilSubmit() async throws {
+        let store = Self.store([try Self.ask(.radio)], answers: LockIsolated([]))
+        await store.send(.askChoiceTapped(messageID: "01", value: "a")) { $0.askDrafts["01"] = LeoChatAskDraft(selected: ["a"]) }
+        await store.send(.askChoiceTapped(messageID: "01", value: "b")) { $0.askDrafts["01"] = LeoChatAskDraft(selected: ["b"]) }
+    }
+
+    @Test func submitDoesNothingWhileTheDraftIsInvalid() async throws {
+        let answers = LockIsolated<[LeoChatAnswer]>([])
+        let store = Self.store([try Self.ask(.checkboxes, min: 2)], answers: answers)
+
+        await store.send(.askSubmitTapped(messageID: "01"))
+        await store.send(.askChoiceTapped(messageID: "01", value: "a")) { $0.askDrafts["01"] = LeoChatAskDraft(selected: ["a"]) }
+        await store.send(.askSubmitTapped(messageID: "01"))
+        #expect(answers.value.isEmpty)
+    }
+
+    @Test func textIsTrimmedOnSubmit() async throws {
+        let ask = try Self.ask(.text)
+        let answers = LockIsolated<[LeoChatAnswer]>([])
+        let store = Self.store([ask], answers: answers)
+
+        await store.send(.askTextChanged(messageID: "01", "  ship it\n")) { $0.askDrafts["01"] = LeoChatAskDraft(text: "  ship it\n") }
+        await store.send(.askSubmitTapped(messageID: "01")) { $0.answering = ["01"] }
+        await store.receive(\.answerResponse) {
+            $0.answering = []
+            $0.askDrafts = [:]
+            $0.messages[id: "01"] = ask.answered(LeoChatAnswer(values: [], text: "ship it"))
+        }
+        #expect(answers.value == [LeoChatAnswer(values: [], text: "ship it")])
+    }
+
+    @Test func anAlreadySettledAskResyncsWithoutAnAlert() async throws {
+        let ask = try Self.ask(.radio)
+        let answered = ask.answered(.choice("c"))
         var state = Self.state()
-        state.messages = [.make("01", kind: .permission, state: "open")]
+        state.messages = [ask]
+        state.askDrafts["01"] = LeoChatAskDraft(selected: ["a"])
         let store = TestStore(initialState: state) {
             ChatThread()
         } withDependencies: {
             Self.withSecrets(&$0)
-            $0.chatClient.answer = { _, _, _, _ in nil }
+            $0.chatClient.answer = { _, _, _, _ in throw LeoChatAnswerError.settled }
+            $0.chatClient.messages = { _, _, _ in LeoChatPage(messages: [answered], hasMore: false) }
         }
-        await store.send(.answerTapped(messageID: "01", value: "deny")) { $0.answering = ["01"] }
+
+        await store.send(.askSubmitTapped(messageID: "01")) { $0.answering = ["01"] }
         await store.receive(\.answerResponse) {
             $0.answering = []
-            $0.messages[id: "01"] = .make("01", kind: .permission, state: "answered", answer: "deny")
+            $0.askDrafts = [:]
+        }
+        await store.receive(\.resync) { $0.isLoading = true }
+        await store.receive(\.pageResponse.success) {
+            $0.isLoading = false
+            $0.messages[id: "01"] = answered
         }
     }
 
-    @Test func aFailedAnswerAlertsAndLeavesTheButtons() async {
-        struct Gone: Error, LocalizedError { var errorDescription: String? { "expired" } }
+    @Test func aRefusedAnswerAlertsWithTheDaemonsReasonAndKeepsTheDraft() async throws {
         var state = Self.state()
-        state.messages = [.make("01", kind: .permission, state: "open")]
+        state.messages = [try Self.ask(.radio, allowsText: true)]
         let store = TestStore(initialState: state) {
             ChatThread()
         } withDependencies: {
             Self.withSecrets(&$0)
-            $0.chatClient.answer = { _, _, _, _ in throw Gone() }
+            $0.chatClient.answer = { _, _, _, _ in throw LeoChatAnswerError.invalid("invalid: \"z\" is not one of the options") }
         }
-        await store.send(.answerTapped(messageID: "01", value: "allow")) { $0.answering = ["01"] }
+
+        await store.send(.askTextChanged(messageID: "01", "other")) { $0.askDrafts["01"] = LeoChatAskDraft(text: "other") }
+        await store.send(.askSubmitTapped(messageID: "01")) { $0.answering = ["01"] }
         await store.receive(\.answerResponse) {
             $0.answering = []
-            $0.alert = ChatThread.failureAlert(title: String(localized: "Couldn't Answer"), message: "expired")
+            $0.alert = ChatThread.failureAlert(title: String(localized: "Couldn't Answer"), message: "invalid: \"z\" is not one of the options")
         }
-        // A closed prompt can't be answered again.
-        await store.send(.answerTapped(messageID: "missing", value: "allow"))
+        #expect(store.state.askDrafts["01"] == LeoChatAskDraft(text: "other"))
+        // A prompt that isn't in the thread can't be answered.
+        await store.send(.askChoiceTapped(messageID: "missing", value: "a"))
+        await store.send(.askSubmitTapped(messageID: "missing"))
+    }
+
+    @Test func anAnsweredUpdateClearsTheDraft() async throws {
+        let ask = try Self.ask(.checkboxes)
+        var state = Self.state()
+        state.messages = [ask]
+        state.askDrafts["01"] = LeoChatAskDraft(selected: ["b"])
+        let store = TestStore(initialState: state) { ChatThread() }
+
+        await store.send(.chatEvent(.updated(ask.answered(.choice("a"))))) {
+            $0.askDrafts = [:]
+            $0.messages[id: "01"] = ask.answered(.choice("a"))
+        }
+    }
+
+    @Test func aClosedAskTakesNoInput() async throws {
+        let answered = try Self.ask(.radio).answered(.choice("a"))
+        let store = Self.store([answered], answers: LockIsolated([]))
+        await store.send(.askChoiceTapped(messageID: "01", value: "b"))
+        await store.send(.askTextChanged(messageID: "01", "x"))
+        await store.send(.askSubmitTapped(messageID: "01"))
     }
 
     @Test func sendingUploadsTheFilesThenPostsTheMessageAsAReply() async {

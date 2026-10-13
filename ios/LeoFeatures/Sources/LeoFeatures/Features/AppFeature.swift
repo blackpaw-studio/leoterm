@@ -138,7 +138,7 @@ public struct AppFeature {
                     let toThread: Effect<Action> = state.chat?.ref == ref ? .send(.chat(.chatEvent(event))) : .none
                     return .concatenate(.send(.chats(.chatEvent(id, event, isOpen: state.isChatOnScreen(ref)))), toThread)
 
-                case .fleet(.daemonsLoaded(let daemons, _)):
+                case .fleet(.daemonsLoaded(let daemons)):
                     state.hasLoadedDaemons = true
                     return push(.daemonsLoaded(daemons), state: &state)
 
@@ -157,10 +157,6 @@ public struct AppFeature {
                 case .detail(.chatButtonTapped):
                     if let ref = state.detail?.ref { state.openChat(ref) }
                     return .none
-
-                case .detail(.destination(.presented(.files(.delegate(.opened(let file)))))):
-                    guard let id = state.detail?.daemon.id else { return .none }
-                    return fleet(.fileOpened(id, file), state: &state)
 
                 case .scenePhaseChanged(let isActive):
                     let terminal: Effect<Action> = state.detail?.destination?.terminal == nil
@@ -195,7 +191,6 @@ public struct AppFeature {
                 return .send(.detail(.destination(.presented(.terminal(.agentRunningChanged(!agent.isStopped))))))
             }
         }
-        .discardingPreviews(\.openPreviewFiles)
     }
 
     /// Events from `daemonID` may have been lost (a reconnect or a sequence
@@ -224,8 +219,10 @@ public struct AppFeature {
                 case .reply(_, let text, let replyTo):
                     _ = try await chatClient.send(connection, target.agent, LeoChatDraft(text: text, replyTo: replyTo))
                 case .answer(_, let messageID, let value):
-                    _ = try await chatClient.answer(connection, target.agent, messageID, value)
+                    _ = try await chatClient.answer(connection, target.agent, messageID, .choice(value))
                 }
+            } catch LeoChatAnswerError.settled {
+                // Answered elsewhere or expired: the notification was stale.
             } catch {
                 await chatNotifier.actionFailed(target.agent, error.localizedDescription)
             }
@@ -239,9 +236,6 @@ public struct AppFeature {
 }
 
 extension AppFeature.State {
-    /// The temporary files behind the open file preview, if any.
-    var openPreviewFiles: [URL] { detail?.destination?.files?.preview?.temporaryFiles ?? [] }
-
     /// Opens a tapped notification's agent as soon as its daemon has
     /// reported it; gives up once the paired daemons are known and its
     /// daemon isn't one, or the daemon is connected and the agent is gone.
@@ -302,7 +296,5 @@ extension AppFeature.State {
         if detail?.agent != agent { detail?.agent = agent }
         if detail?.connection != session.connection { detail?.connection = session.connection }
         if detail?.daemon != session.daemon { detail?.daemon = session.daemon }
-        let (files, unseen) = (fleet.surfacedFiles(for: ref), fleet.unseenFileIDs(for: ref))
-        detail?.syncFiles(files, unseen: unseen)
     }
 }

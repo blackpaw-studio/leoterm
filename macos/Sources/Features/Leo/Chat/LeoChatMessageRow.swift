@@ -46,7 +46,7 @@ struct LeoChatMessageRow: View {
             ForEach(message.attachments.filter { message.kind != .voice || !$0.isAudio }) { attachment in
                 LeoChatAttachmentView(attachment: attachment, chat: chat)
             }
-            if !message.answerChoices.isEmpty { LeoChatPromptButtons(message: message, chat: chat) }
+            if message.answerInput != nil { LeoChatPromptButtons(message: message, chat: chat) }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
@@ -157,7 +157,7 @@ struct LeoChatPromptButtons: View {
         if message.isOpen {
             let isAnswering = chat.answering.contains(message.id)
             LeoChatFlowLayout(spacing: 6) {
-                ForEach(message.answerChoices, id: \.value) { choice in
+                ForEach(message.answerInput?.options ?? [], id: \.value) { choice in
                     Button(choice.label) { Task { await chat.answer(messageID: message.id, value: choice.value) } }
                         .buttonStyle(.bordered)
                         .tint(choice.value == "deny" ? .red : nil)
@@ -165,8 +165,8 @@ struct LeoChatPromptButtons: View {
                 }
                 if isAnswering { ProgressView().controlSize(.small) }
             }
-        } else if let label = message.answerLabel {
-            Label("Answered: \(label)", systemImage: "checkmark.circle").font(.callout).foregroundStyle(.secondary)
+        } else if let summary = message.answerSummary {
+            Label("Answered: \(summary)", systemImage: "checkmark.circle").font(.callout).foregroundStyle(.secondary)
         } else if message.state == "expired" {
             Label("Expired", systemImage: "clock.badge.xmark").font(.callout).foregroundStyle(.secondary)
         }

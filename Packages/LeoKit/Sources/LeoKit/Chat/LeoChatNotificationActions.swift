@@ -26,13 +26,19 @@ public enum LeoChatNotificationResponse: Equatable, Sendable {
     case answer(LeoPushTarget, messageID: String, value: String)
 }
 
-/// Notification categories and actions for Leo Chat: a text reply on every
-/// chat push, Allow/Deny on permission prompts, and an `ask`'s choices.
+/// Notification categories and actions for Leo Chat: a text reply on a
+/// chat post, Allow/Deny on permission prompts, and a buttons `ask`'s
+/// choices. Prompts never offer Reply: typed text would post a separate
+/// message and leave the prompt open.
 public enum LeoChatNotificationActions {
     public static let chatCategoryID = "leo.chat"
     public static let permissionCategoryID = "leo.chat.permission"
     /// An `ask` category is per choice set: `leo.chat.ask.<digest>`.
     public static let askCategoryPrefix = "leo.chat.ask."
+    /// An `ask` answered only in the app (radio, checkboxes, text, or no
+    /// options to offer): no actions, so tapping opens the thread. A reply
+    /// action would send a message that looks like an answer but isn't.
+    public static let askOpenCategoryID = "leo.chat.ask-open"
     public static let replyActionID = "leo.chat.reply"
     /// A choice button's id is this prefix plus the choice's value.
     public static let answerPrefix = "leo.chat.answer:"
@@ -43,6 +49,7 @@ public enum LeoChatNotificationActions {
         [
             LeoChatNotificationCategory(identifier: chatCategoryID, actions: [replyAction]),
             LeoChatNotificationCategory(identifier: permissionCategoryID, actions: permissionButtons),
+            LeoChatNotificationCategory(identifier: askOpenCategoryID, actions: []),
         ]
     }
 
@@ -54,10 +61,13 @@ public enum LeoChatNotificationActions {
         if chat.messageKind == "permission" || (!isChatPush && chat.messageID != nil) {
             return LeoChatNotificationCategory(identifier: permissionCategoryID, actions: permissionButtons)
         }
-        if chat.messageKind == "ask", chat.messageID != nil, !chat.options.isEmpty {
+        if chat.messageKind == "ask" {
+            guard chat.messageID != nil, !chat.options.isEmpty, chat.inputType == nil || chat.inputType == LeoChatInput.Kind.buttons.rawValue else {
+                return LeoChatNotificationCategory(identifier: askOpenCategoryID, actions: [])
+            }
             let choices = chat.options.prefix(maximumAskButtons)
             let buttons = choices.map { LeoChatNotificationCategory.Action.button(id: answerPrefix + $0.value, title: $0.label, isDestructive: false) }
-            return LeoChatNotificationCategory(identifier: askCategoryPrefix + digest(choices), actions: buttons + [replyAction])
+            return LeoChatNotificationCategory(identifier: askCategoryPrefix + digest(choices), actions: Array(buttons))
         }
         return LeoChatNotificationCategory(identifier: chatCategoryID, actions: [replyAction])
     }
@@ -68,6 +78,7 @@ public enum LeoChatNotificationActions {
         guard let target = LeoPushNotification.target(userInfo: userInfo) else { return nil }
         let messageID = (userInfo[LeoPushNotification.messageIDKey] as? String).flatMap { $0.isEmpty ? nil : $0 }
         if actionIdentifier == replyActionID {
+            guard !isPrompt(userInfo) else { return nil }
             let text = (userText ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             return text.isEmpty ? nil : .reply(target, text: text, replyTo: messageID)
         }
@@ -77,8 +88,26 @@ public enum LeoChatNotificationActions {
         return nil
     }
 
+    /// Whether an action opens the agent's thread: a tap, or a Reply on a
+    /// prompt's notification (a category an older build registered), which
+    /// `response` refuses to post.
+    public static func opensThread(actionIdentifier: String, userInfo: [AnyHashable: Any]) -> Bool {
+        actionIdentifier == defaultActionID || (actionIdentifier == replyActionID && isPrompt(userInfo))
+    }
+
+    private static let defaultActionID = "com.apple.UNNotificationDefaultActionIdentifier"
+
+    /// An `ask` or `permission` push: by its message kind, or an attention
+    /// push carrying a message (a permission prompt from an older daemon).
+    private static func isPrompt(_ userInfo: [AnyHashable: Any]) -> Bool {
+        let kind = userInfo[LeoPushNotification.messageKindKey] as? String
+        if kind == "ask" || kind == "permission" { return true }
+        let hasMessage = (userInfo[LeoPushNotification.messageIDKey] as? String).map { !$0.isEmpty } == true
+        return hasMessage && userInfo[LeoPushNotification.kindKey] as? String != LeoPushNotification.chatKind
+    }
+
     private static var permissionButtons: [LeoChatNotificationCategory.Action] {
-        LeoChatOption.permissionChoices.map { .button(id: answerPrefix + $0.value, title: $0.label, isDestructive: $0.value == "deny") }
+        LeoChatInput.permission.options.map { .button(id: answerPrefix + $0.value, title: $0.label, isDestructive: $0.value == "deny") }
     }
 
     /// Categories are shared across agents, so the placeholder can't name one.

@@ -16,8 +16,10 @@ struct LeoChatNotificationTests {
     @Test func aChatPushKeepsItsMessageInTheUserInfo() throws {
         let alert = try Self.alert(kind: "chat", extra: #","message_id":"01JA""#)
 
-        #expect(alert.chat == LeoPushChat(messageID: "01JA", messageKind: nil, options: []))
+        #expect(alert.chat == LeoPushChat(messageID: "01JA", messageKind: nil, options: [], inputType: nil))
         #expect(alert.userInfo == ["daemon_id": "d", "agent": "zeus", "kind": "chat", "message_id": "01JA"])
+        let ask = try Self.alert(kind: "chat", extra: #","message_id":"01JQ","message_kind":"ask""#)
+        #expect(ask.userInfo["message_kind"] == "ask")
         #expect(alert.threadIdentifier == "d/zeus")
     }
 
@@ -43,37 +45,95 @@ struct LeoChatNotificationTests {
         ])
     }
 
-    @Test func anAskOffersItsFirstFourOptionsAndAReply() throws {
+    @Test func anAskOffersItsFirstFourOptionsAndNoReply() throws {
         let options = (1...5).map { #"{"value":"v\#($0)","label":"Option \#($0)"}"# }.joined(separator: ",")
         let alert = try Self.alert(kind: "chat", extra: #","message_id":"01JQ","message_kind":"ask","options":[\#(options)]"#)
         let category = try #require(Actions.category(for: alert))
 
         #expect(category.identifier.hasPrefix(Actions.askCategoryPrefix))
-        #expect(category.actions.count == 5)
         let buttons: [LeoChatNotificationCategory.Action] = (1...4).map {
             .button(id: Actions.answerPrefix + "v\($0)", title: "Option \($0)", isDestructive: false)
         }
-        #expect(Array(category.actions.prefix(4)) == buttons)
-        #expect(category.actions.last?.id == Actions.replyActionID)
+        #expect(category.actions == buttons)
         // The same options give the same category; others give another.
         #expect(Actions.category(for: alert)?.identifier == category.identifier)
         let other = try Self.alert(kind: "chat", extra: #","message_id":"01JR","message_kind":"ask","options":[{"value":"x","label":"X"}]"#)
         #expect(Actions.category(for: other)?.identifier != category.identifier)
     }
 
-    @Test func anAskWithoutOptionsFallsBackToAReply() throws {
-        let alert = try Self.alert(kind: "chat", extra: #","message_id":"01JQ","message_kind":"ask""#)
-        #expect(Actions.category(for: alert)?.identifier == Actions.chatCategoryID)
+    static let yesNo = #","options":[{"value":"y","label":"Yes"},{"value":"n","label":"No"}]"#
+
+    @Test func aButtonsAskOffersItsButtons() throws {
+        let alert = try Self.alert(kind: "chat", extra: #","message_id":"01JQ","message_kind":"ask","input_type":"buttons""# + Self.yesNo)
+        let category = try #require(Actions.category(for: alert))
+        #expect(category.identifier.hasPrefix(Actions.askCategoryPrefix))
+        #expect(category.actions.map(\.id) == [Actions.answerPrefix + "y", Actions.answerPrefix + "n"])
     }
 
-    @Test func theStaticCategoriesAreChatAndPermission() {
-        #expect(Actions.staticCategories.map(\.identifier) == [Actions.chatCategoryID, Actions.permissionCategoryID])
+    /// An older daemon sends options without `input_type`: still buttons.
+    @Test func anAskWithOptionsButNoInputTypeOffersButtons() throws {
+        let alert = try Self.alert(kind: "chat", extra: #","message_id":"01JQ","message_kind":"ask""# + Self.yesNo)
+        let category = try #require(Actions.category(for: alert))
+        #expect(category.identifier.hasPrefix(Actions.askCategoryPrefix))
+        #expect(category.actions.map(\.id) == [Actions.answerPrefix + "y", Actions.answerPrefix + "n"])
+    }
+
+    /// The extension registers categories by the per-choice prefix; the
+    /// static open-ask category must not match it.
+    @Test func theOpenAskCategoryIsNotAPerChoiceCategory() {
+        #expect(!Actions.askOpenCategoryID.hasPrefix(Actions.askCategoryPrefix))
+    }
+
+    /// No buttons and no reply: a reply would look like an answer.
+    @Test func anAskWithoutOptionsOpensTheApp() throws {
+        let alert = try Self.alert(kind: "chat", extra: #","message_id":"01JQ","message_kind":"ask""#)
+        let category = try #require(Actions.category(for: alert))
+        #expect(category.identifier == Actions.askOpenCategoryID)
+        #expect(category.actions.isEmpty)
+    }
+
+    @Test(arguments: ["radio", "checkboxes", "text", "slider"])
+    func anAskThatIsNotButtonsOpensTheApp(inputType: String) throws {
+        let extra = #","message_id":"01JQ","message_kind":"ask","input_type":"\#(inputType)""# + Self.yesNo
+        let category = try #require(Actions.category(for: try Self.alert(kind: "chat", extra: extra)))
+        #expect(category == LeoChatNotificationCategory(identifier: Actions.askOpenCategoryID, actions: []))
+    }
+
+    @Test func malformedOptionsMeanNoButtons() throws {
+        let alert = try Self.alert(kind: "chat", extra: #","message_id":"01JQ","message_kind":"ask","input_type":"buttons","options":"yes""#)
+        #expect(Actions.category(for: alert)?.identifier == Actions.askOpenCategoryID)
+    }
+
+    @Test func theStaticCategoriesAreChatPermissionAndOpenAsk() {
+        #expect(Actions.staticCategories.map(\.identifier) == [Actions.chatCategoryID, Actions.permissionCategoryID, Actions.askOpenCategoryID])
     }
 
     @Test func aReplyActionBecomesAReplyToTheMessage() throws {
         let userInfo: [AnyHashable: Any] = ["daemon_id": "d", "agent": "zeus", "kind": "chat", "message_id": "01JA"]
         let response = Actions.response(actionIdentifier: Actions.replyActionID, userText: "  on it ", userInfo: userInfo)
         #expect(response == .reply(LeoPushTarget(daemonID: "d", agent: "zeus"), text: "on it", replyTo: "01JA"))
+    }
+
+    /// Text typed into a Reply on a prompt's notification (a category
+    /// registered by an older build) would post a message that never
+    /// answers it: open the thread instead.
+    @Test(arguments: [
+        ["kind": "chat", "message_kind": "ask"],
+        ["kind": "chat", "message_kind": "permission"],
+        ["kind": "needs_input", "message_kind": "permission"],
+        ["kind": "needs_input"],
+    ] as [[String: String]])
+    func aReplyToAPromptOpensTheThreadInstead(extra: [String: String]) {
+        let userInfo: [AnyHashable: Any] = extra.merging(["daemon_id": "d", "agent": "zeus", "message_id": "01JQ"]) { $1 }
+        #expect(Actions.response(actionIdentifier: Actions.replyActionID, userText: "yes please", userInfo: userInfo) == nil)
+        #expect(Actions.opensThread(actionIdentifier: Actions.replyActionID, userInfo: userInfo))
+    }
+
+    @Test func onlyTheDefaultActionOrAStalePromptReplyOpensTheThread() {
+        let chat: [AnyHashable: Any] = ["daemon_id": "d", "agent": "zeus", "kind": "chat", "message_id": "01JA"]
+        #expect(Actions.opensThread(actionIdentifier: "com.apple.UNNotificationDefaultActionIdentifier", userInfo: chat))
+        #expect(!Actions.opensThread(actionIdentifier: Actions.replyActionID, userInfo: chat))
+        #expect(!Actions.opensThread(actionIdentifier: "com.apple.UNNotificationDismissActionIdentifier", userInfo: chat))
     }
 
     @Test func anEmptyReplyIsIgnored() {

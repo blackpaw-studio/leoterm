@@ -27,13 +27,14 @@ public struct LeoPushAlert: Equatable, Sendable {
     public var chat: LeoPushChat?
 
     /// The notification's `userInfo` after decryption: the target, the
-    /// kind and any chat message id.
+    /// kind and any chat message id and kind.
     public var userInfo: [String: String] {
         var info = [
             LeoPushNotification.daemonIDKey: target.daemonID, LeoPushNotification.agentKey: target.agent,
             LeoPushNotification.kindKey: kind,
         ]
         if let messageID = chat?.messageID { info[LeoPushNotification.messageIDKey] = messageID }
+        if let messageKind = chat?.messageKind { info[LeoPushNotification.messageKindKey] = messageKind }
         return info
     }
 
@@ -46,11 +47,14 @@ public struct LeoPushChat: Equatable, Sendable {
     public let messageID: String?
     public let messageKind: String?
     public let options: [LeoChatOption]
+    /// An `ask`'s input type; nil from daemons before leo #268.
+    public let inputType: String?
 
-    public init(messageID: String?, messageKind: String?, options: [LeoChatOption]) {
+    public init(messageID: String?, messageKind: String?, options: [LeoChatOption], inputType: String? = nil) {
         self.messageID = messageID
         self.messageKind = messageKind
         self.options = options
+        self.inputType = inputType
     }
 }
 
@@ -62,6 +66,7 @@ public enum LeoPushNotification {
     public static let agentKey = "agent"
     public static let kindKey = "kind"
     public static let messageIDKey = "message_id"
+    public static let messageKindKey = "message_kind"
     public static let chatKind = "chat"
 
     /// The decrypted alert, or nil when anything is off (the caller then
@@ -80,7 +85,9 @@ public enum LeoPushNotification {
             body: hasDetail ? payload.body : payload.title,
             target: LeoPushTarget(daemonID: payload.daemonID, agent: payload.agent),
             kind: payload.kind,
-            chat: isChat ? LeoPushChat(messageID: payload.messageID, messageKind: payload.messageKind, options: payload.options) : nil
+            chat: isChat ? LeoPushChat(
+                messageID: payload.messageID, messageKind: payload.messageKind, options: payload.options, inputType: payload.inputType
+            ) : nil
         )
     }
 

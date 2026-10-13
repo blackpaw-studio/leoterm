@@ -18,15 +18,19 @@ public struct LeoPushPayload: Codable, Equatable, Sendable {
     /// Unix seconds.
     public let ts: Int
     /// Leo Chat: the message a `chat` push (or a permission attention
-    /// push) is about, its kind (`ask`, `permission`, ...) and an `ask`'s
-    /// choices. All optional; older daemons send none.
+    /// push) is about, its kind (`ask`, `permission`, ...), an `ask`'s
+    /// input type, and a `buttons` ask's choices when they fit. All
+    /// optional; older daemons send none, and a malformed one is dropped:
+    /// a push is a hint, not the record.
     public let messageID: String?
     public let messageKind: String?
     public let options: [LeoChatOption]
+    /// `buttons|radio|checkboxes|text` for an `ask`.
+    public let inputType: String?
 
     public init(
         daemonID: String, agent: String, kind: String, title: String, body: String = "", ts: Int,
-        messageID: String? = nil, messageKind: String? = nil, options: [LeoChatOption] = []
+        messageID: String? = nil, messageKind: String? = nil, options: [LeoChatOption] = [], inputType: String? = nil
     ) {
         self.daemonID = daemonID
         self.agent = agent
@@ -37,12 +41,14 @@ public struct LeoPushPayload: Codable, Equatable, Sendable {
         self.messageID = messageID
         self.messageKind = messageKind
         self.options = options
+        self.inputType = inputType
     }
 
     enum CodingKeys: String, CodingKey {
         case v, daemonID = "daemon_id", agent, kind, title, body, ts, options
         case messageID = "message_id"
         case messageKind = "message_kind"
+        case inputType = "input_type"
     }
 
     public init(from decoder: any Decoder) throws {
@@ -58,6 +64,7 @@ public struct LeoPushPayload: Codable, Equatable, Sendable {
         messageID = ((try? container.decodeIfPresent(String.self, forKey: .messageID)) ?? nil).flatMap { $0.isEmpty ? nil : $0 }
         messageKind = ((try? container.decodeIfPresent(String.self, forKey: .messageKind)) ?? nil).flatMap { $0.isEmpty ? nil : $0 }
         options = ((try? container.decodeIfPresent(LeoLenientArray<LeoChatOption>.self, forKey: .options)) ?? nil)?.elements ?? []
+        inputType = ((try? container.decodeIfPresent(String.self, forKey: .inputType)) ?? nil).flatMap { $0.isEmpty ? nil : $0 }
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -72,6 +79,7 @@ public struct LeoPushPayload: Codable, Equatable, Sendable {
         try container.encodeIfPresent(messageID, forKey: .messageID)
         try container.encodeIfPresent(messageKind, forKey: .messageKind)
         if !options.isEmpty { try container.encode(options, forKey: .options) }
+        try container.encodeIfPresent(inputType, forKey: .inputType)
     }
 }
 

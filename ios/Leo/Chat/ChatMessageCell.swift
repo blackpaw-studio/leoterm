@@ -4,11 +4,16 @@ import UIKit
 
 /// One chat message: a bubble (the agent's on the leading side, yours on
 /// the trailing side), a full-width card for task output, or a centered
-/// line for system notes. Carries attachments, prompt buttons, "Show more"
-/// and, on task cards, a reply button.
+/// line for system notes. Carries attachments, an open prompt's answer
+/// controls, "Show more" and, on task cards, a reply button. An `ask` that
+/// follows up the agent's post sits tight under it.
 final class ChatMessageCell: UICollectionViewCell {
     enum Event {
-        case answer(String)
+        /// An option tapped in an open prompt.
+        case choice(String)
+        /// The prompt's free text changed.
+        case text(String)
+        case submit
         case expand
         case openAttachment(LeoChatAttachment)
         case playVoice(LeoChatAttachment)
@@ -19,15 +24,22 @@ final class ChatMessageCell: UICollectionViewCell {
         let message: LeoChatMessage
         let isExpanded: Bool
         let isAnswering: Bool
+        let draft: LeoChatAskDraft
+        let continuesPost: Bool
         let files: [String: ChatThread.AttachmentFile]
         let playingAttachmentID: String?
     }
+
+    private static let bubbleSpacing: CGFloat = 3
 
     private let bubble = UIView()
     private let stack = UIStackView()
     private let header = UILabel()
     private let body = UILabel()
     private let footer = UILabel()
+    /// Kept across reconfigures (see `ChatAskControls`).
+    private let askControls = ChatAskControls()
+    private var top: NSLayoutConstraint!
     private var leading: NSLayoutConstraint!
     private var trailing: NSLayoutConstraint!
     private var centered: NSLayoutConstraint!
@@ -55,8 +67,9 @@ final class ChatMessageCell: UICollectionViewCell {
         leading = bubble.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12)
         trailing = bubble.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12)
         centered = bubble.centerXAnchor.constraint(equalTo: contentView.centerXAnchor)
+        top = bubble.topAnchor.constraint(equalTo: contentView.topAnchor, constant: Self.bubbleSpacing)
         NSLayoutConstraint.activate([
-            bubble.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 3),
+            top,
             bubble.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -3),
             bubble.widthAnchor.constraint(lessThanOrEqualTo: contentView.widthAnchor, multiplier: 0.82),
             bubble.leadingAnchor.constraint(greaterThanOrEqualTo: contentView.leadingAnchor, constant: 12),
@@ -73,17 +86,35 @@ final class ChatMessageCell: UICollectionViewCell {
 
     func configure(_ model: Model, onEvent: @escaping (Event) -> Void) {
         self.onEvent = onEvent
-        stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        askControls.onEvent = onEvent
         let message = model.message
         layout(for: message)
+        top.constant = model.continuesPost ? 0 : Self.bubbleSpacing
         accessibilityIdentifier = "chat.message.\(message.id)"
+        let views = contentViews(model)
+        // Everything is rebuilt but the ask controls, which stay in place
+        // so a focused text field keeps the keyboard.
+        stack.arrangedSubviews.filter { $0 !== askControls }.forEach { $0.removeFromSuperview() }
+        guard let split = views.firstIndex(where: { $0 === askControls }) else {
+            askControls.removeFromSuperview()
+            views.forEach(stack.addArrangedSubview)
+            return
+        }
+        if askControls.superview !== stack { stack.addArrangedSubview(askControls) }
+        for (index, view) in views[..<split].enumerated() { stack.insertArrangedSubview(view, at: index) }
+        views[(split + 1)...].forEach(stack.addArrangedSubview)
+    }
 
+    /// The bubble's contents, top to bottom.
+    private func contentViews(_ model: Model) -> [UIView] {
+        let message = model.message
+        var views: [UIView] = []
         if message.kind == .task {
             header.text = "\(message.task ?? String(localized: "Task")) · \(ChatPresentation.time(message.ts))"
-            stack.addArrangedSubview(header)
+            views.append(header)
         } else if message.kind == .permission {
             header.text = String(localized: "Permission request")
-            stack.addArrangedSubview(header)
+            views.append(header)
         }
 
         let text = message.displayText
@@ -95,24 +126,30 @@ final class ChatMessageCell: UICollectionViewCell {
             let collapsesToOneLine = message.kind == .task && !model.isExpanded
             let isLong = ChatPresentation.isLong(text)
             body.numberOfLines = collapsesToOneLine ? 1 : (isLong && !model.isExpanded ? ChatPresentation.collapsedLineLimit : 0)
-            stack.addArrangedSubview(body)
+            views.append(body)
             if message.kind == .task || isLong {
                 let title = model.isExpanded ? String(localized: "Show less") : (message.kind == .task ? String(localized: "Show") : String(localized: "Show more"))
-                stack.addArrangedSubview(linkButton(title) { $0(.expand) })
+                views.append(linkButton(title) { $0(.expand) })
             }
         }
 
-        for attachment in message.attachments { stack.addArrangedSubview(view(for: attachment, model: model)) }
-        addPromptControls(model)
-        if message.kind == .task { stack.addArrangedSubview(linkButton(String(localized: "Reply")) { $0(.reply) }) }
+        views += message.attachments.map { view(for: $0, model: model) }
+        views += promptViews(model)
+        if message.kind == .task { views.append(linkButton(String(localized: "Reply")) { $0(.reply) }) }
 
         let state = ChatPresentation.stateLine(message)
         if message.kind != .system, message.kind != .task {
             footer.text = [ChatPresentation.time(message.ts), state].compactMap { $0 }.joined(separator: " · ")
             footer.textColor = message.isFailed ? .systemRed : .secondaryLabel
             footer.textAlignment = message.direction == .inbound ? .right : .left
-            stack.addArrangedSubview(footer)
+            views.append(footer)
         }
+        return views
+    }
+
+    /// The ask's text field while it is being edited, in `view`'s coordinates.
+    func focusedTextFrame(in view: UIView) -> CGRect? {
+        askControls.superview == nil ? nil : askControls.focusedTextFrame(in: view)
     }
 
     private func layout(for message: LeoChatMessage) {
@@ -133,37 +170,25 @@ final class ChatMessageCell: UICollectionViewCell {
         }
     }
 
-    private func addPromptControls(_ model: Model) {
+    /// An open prompt's controls; a closed one's outcome.
+    private func promptViews(_ model: Model) -> [UIView] {
         let message = model.message
-        let choices = message.answerChoices
-        guard !choices.isEmpty else { return }
+        guard let input = message.answerInput else { return [] }
         if message.isOpen {
-            let row = UIStackView()
-            row.axis = choices.count > 2 ? .vertical : .horizontal
-            row.spacing = 8
-            row.distribution = .fillEqually
-            for choice in choices {
-                var configuration = choice.value == "deny" ? UIButton.Configuration.bordered() : UIButton.Configuration.borderedProminent()
-                configuration.title = choice.label
-                configuration.cornerStyle = .capsule
-                configuration.showsActivityIndicator = model.isAnswering
-                let button = UIButton(configuration: configuration, primaryAction: UIAction { [weak self] _ in self?.onEvent(.answer(choice.value)) })
-                button.isEnabled = !model.isAnswering
-                button.accessibilityIdentifier = "chat.answer.\(choice.value)"
-                row.addArrangedSubview(button)
-            }
-            stack.addArrangedSubview(row)
-        } else {
-            let status = UILabel()
-            status.font = .preferredFont(forTextStyle: .footnote).withWeight(.semibold)
-            status.textColor = .secondaryLabel
-            status.text = switch message.state {
-            case "answered": String(localized: "Answered: \(message.answerLabel ?? "")")
-            case "expired": String(localized: "Expired")
-            default: nil
-            }
-            if status.text != nil { stack.addArrangedSubview(status) }
+            askControls.configure(ChatAskControls.Model(message: message, input: input, draft: model.draft, isAnswering: model.isAnswering))
+            return [askControls]
         }
+        let status = UILabel()
+        status.font = .preferredFont(forTextStyle: .footnote).withWeight(.semibold)
+        status.textColor = .secondaryLabel
+        status.numberOfLines = 0
+        status.text = switch message.state {
+        case "answered" where message.isAnsweredInTerminal: String(localized: "Answered in terminal")
+        case "answered": String(localized: "Answered: \(message.answerSummary ?? "")")
+        case "expired": String(localized: "Expired")
+        default: nil
+        }
+        return status.text == nil ? [] : [status]
     }
 
     private func view(for attachment: LeoChatAttachment, model: Model) -> UIView {

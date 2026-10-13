@@ -22,9 +22,6 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         // Before returning, so a tap that launched the app is delivered.
         UNUserNotificationCenter.current().delegate = self
         Self.registerChatCategories()
-        // Previews are temporary; anything left from a previous run goes.
-        @Dependency(\.surfacedFiles) var surfacedFiles
-        surfacedFiles.discardAll()
         Self.store.send(.task)
         return true
     }
@@ -51,14 +48,12 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         Self.store.send(.push(.remoteNotificationsFailed(error.localizedDescription)))
     }
 
-    /// UI tests start from no paired daemons and no opened files.
+    /// UI tests start from no paired daemons.
     private static func resetForUITests() {
         @Dependency(\.pairedDaemons) var pairedDaemons
         @Dependency(\.secrets) var secrets
         for daemon in (try? pairedDaemons.load()) ?? [] { try? secrets.delete(daemon.id) }
         try? pairedDaemons.save([])
-        @Dependency(\.seenFiles) var seenFiles
-        seenFiles.save(LeoSurfacedFileLedger())
     }
 
     #if DEBUG
@@ -107,7 +102,8 @@ extension AppDelegate: @preconcurrency UNUserNotificationCenterDelegate {
             return
         }
         defer { completionHandler() }
-        guard response.actionIdentifier == UNNotificationDefaultActionIdentifier,
+        // A tap, or a Reply on a prompt (refused above): open the thread.
+        guard LeoChatNotificationActions.opensThread(actionIdentifier: response.actionIdentifier, userInfo: userInfo),
               let target = LeoPushNotification.target(userInfo: userInfo) else { return }
         let ref = AgentRef(daemonID: target.daemonID, name: target.agent)
         if LeoPushNotification.isChat(userInfo: userInfo) {

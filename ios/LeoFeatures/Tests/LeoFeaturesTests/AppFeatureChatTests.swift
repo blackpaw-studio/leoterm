@@ -152,7 +152,7 @@ struct AppFeatureChatTests {
             $0.pushCleanup = .inMemory(LockIsolated([:]))
         }
         await store.send(.chatNotificationOpened(Self.zeus)) { $0.pendingChat = Self.zeus }
-        await store.send(\.fleet.daemonsLoaded, ([.dionysus], LeoSurfacedFileLedger())) {
+        await store.send(\.fleet.daemonsLoaded, [.dionysus]) {
             $0.hasLoadedDaemons = true
             $0.fleet.sessions = [DaemonSession(daemon: .dionysus)]
             $0.push.daemons = [.dionysus]
@@ -195,8 +195,8 @@ struct AppFeatureChatTests {
         } withDependencies: {
             $0.pairedDaemons.load = { [.dionysus] }
             $0.secrets.load = { _ in DaemonSecrets(token: "t") }
-            $0.chatClient.answer = { _, agent, id, value in
-                answers.withValue { $0.append("\(agent) \(id) \(value)") }
+            $0.chatClient.answer = { _, agent, id, answer in
+                answers.withValue { $0.append("\(agent) \(id) \(answer.values.joined())") }
                 return nil
             }
         }
@@ -221,6 +221,23 @@ struct AppFeatureChatTests {
         await store.send(.chatNotificationAction(.answer(target, messageID: "01", value: "allow")))
         await store.receive(\.chatNotificationActionFinished)
         #expect(told.value == ["zeus: offline"])
+    }
+
+    /// Answered elsewhere or expired: the notification is stale, not a failure.
+    @Test func aNotificationAnswerToASettledPromptSaysNothing() async {
+        let told = LockIsolated<[String]>([])
+        let store = TestStore(initialState: AppFeature.State()) {
+            AppFeature()
+        } withDependencies: {
+            $0.pairedDaemons.load = { [.dionysus] }
+            $0.secrets.load = { _ in DaemonSecrets(token: "t") }
+            $0.chatClient.answer = { _, _, _, _ in throw LeoChatAnswerError.settled }
+            $0.chatNotifier.actionFailed = { agent, reason in told.withValue { $0.append("\(agent): \(reason)") } }
+        }
+        let target = LeoPushTarget(daemonID: PairedDaemon.dionysus.id, agent: "zeus")
+        await store.send(.chatNotificationAction(.answer(target, messageID: "01", value: "allow")))
+        await store.receive(\.chatNotificationActionFinished)
+        #expect(told.value.isEmpty)
     }
 
     @Test func aNotificationActionForAnUnpairedDaemonTellsTheUser() async {

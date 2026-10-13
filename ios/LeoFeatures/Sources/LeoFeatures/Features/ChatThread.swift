@@ -27,6 +27,8 @@ public struct ChatThread {
         @Presents public var alert: AlertState<Never>?
         /// Message ids with an answer in flight.
         public var answering: Set<String> = []
+        /// Unsent selections and text of open asks, by message id.
+        public var askDrafts: [String: LeoChatAskDraft] = [:]
         public var attachmentFiles: [String: AttachmentFile] = [:]
         public var composer = Composer.State()
         /// Messages whose long text or task card is expanded.
@@ -65,13 +67,21 @@ public struct ChatThread {
             liveSinceFetch = []
         }
 
-        /// Upserts, keeping time order (ties by id: ULIDs sort by time).
+        /// Upserts, keeping time order (ties by id: ULIDs sort by time). A
+        /// prompt that is no longer open loses its draft.
         mutating func merge(_ incoming: [LeoChatMessage]) {
             for message in incoming {
                 messages[id: message.id] = message
                 if let task = message.task { knownTasks.insert(task) }
+                if !message.isOpen { askDrafts[message.id] = nil }
             }
             messages.sort { ($0.ts, $0.id) < ($1.ts, $1.id) }
+        }
+
+        /// An open prompt's input and current draft, when it takes input now.
+        func openAsk(_ id: String) -> (input: LeoChatInput, draft: LeoChatAskDraft)? {
+            guard let message = messages[id: id], message.isOpen, !answering.contains(id), let input = message.answerInput else { return nil }
+            return (input, askDrafts[id] ?? LeoChatAskDraft())
         }
 
         func belongs(_ message: LeoChatMessage) -> Bool {
@@ -81,8 +91,12 @@ public struct ChatThread {
 
     public enum Action {
         case alert(PresentationAction<Never>)
-        case answerResponse(messageID: String, value: String, Result<LeoChatMessage?, any Error>)
-        case answerTapped(messageID: String, value: String)
+        case answerResponse(messageID: String, LeoChatAnswer, Result<LeoChatMessage?, any Error>)
+        /// A choice tapped: `buttons` answer at once, `radio` and
+        /// `checkboxes` update the draft.
+        case askChoiceTapped(messageID: String, value: String)
+        case askSubmitTapped(messageID: String)
+        case askTextChanged(messageID: String, String)
         case attachmentNeeded(LeoChatAttachment)
         case attachmentResponse(id: String, Result<URL, any Error>)
         case chatEvent(LeoChatEvent)
@@ -123,25 +137,40 @@ public struct ChatThread {
                 state.merge([updated])
                 return .none
 
-            case .answerResponse(let id, let value, .success(nil)):
+            case .answerResponse(let id, let answer, .success(nil)):
                 state.answering.remove(id)
-                if let message = state.messages[id: id] { state.messages[id: id] = message.answered(value) }
+                if let message = state.messages[id: id] { state.merge([message.answered(answer)]) }
                 return .none
+
+            case .answerResponse(let id, _, .failure(LeoChatAnswerError.settled)):
+                // Answered elsewhere or expired: the thread is stale, not wrong.
+                state.answering.remove(id)
+                state.askDrafts[id] = nil
+                return .send(.resync)
 
             case .answerResponse(let id, _, .failure(let error)):
                 state.answering.remove(id)
                 state.alert = Self.failureAlert(title: String(localized: "Couldn't Answer"), message: error.localizedDescription)
                 return .none
 
-            case .answerTapped(let id, let value):
-                guard state.messages[id: id] != nil, !state.answering.contains(id) else { return .none }
-                state.answering.insert(id)
-                let (daemon, agent) = (state.daemon, state.agentName)
-                return .run { [chatClient, secrets] send in
-                    await send(.answerResponse(messageID: id, value: value, Result {
-                        try await chatClient.answer(try secrets.connection(for: daemon), agent, id, value)
-                    }))
+            case .askChoiceTapped(let id, let value):
+                guard let (input, draft) = state.openAsk(id) else { return .none }
+                let chosen = draft.choosing(value, in: input)
+                guard input.kind == .buttons else {
+                    state.askDrafts[id] = chosen
+                    return .none
                 }
+                guard let answer = chosen.answer(for: input) else { return .none }
+                return submit(answer, to: id, state: &state)
+
+            case .askSubmitTapped(let id):
+                guard let (input, draft) = state.openAsk(id), let answer = draft.answer(for: input) else { return .none }
+                return submit(answer, to: id, state: &state)
+
+            case .askTextChanged(let id, let text):
+                guard let (_, draft) = state.openAsk(id) else { return .none }
+                state.askDrafts[id] = draft.withText(text)
+                return .none
 
             case .attachmentNeeded(let attachment):
                 guard attachment.available else { return .none }
@@ -278,6 +307,16 @@ public struct ChatThread {
         }
     }
 
+    private func submit(_ answer: LeoChatAnswer, to id: String, state: inout State) -> Effect<Action> {
+        state.answering.insert(id)
+        let (daemon, agent) = (state.daemon, state.agentName)
+        return .run { [chatClient, secrets] send in
+            await send(.answerResponse(messageID: id, answer, Result {
+                try await chatClient.answer(try secrets.connection(for: daemon), agent, id, answer)
+            }))
+        }
+    }
+
     private func loadNewest(state: inout State) -> Effect<Action> {
         state.isLoading = true
         state.isLoadingOlder = false
@@ -299,15 +338,5 @@ public struct ChatThread {
         return .run { [chatClient, secrets] _ in
             try? await chatClient.markRead(try secrets.connection(for: daemon), agent, id)
         }
-    }
-}
-
-extension LeoChatMessage {
-    /// This prompt with `value` recorded as its answer.
-    func answered(_ value: String) -> LeoChatMessage {
-        LeoChatMessage(
-            id: id, agent: agent, direction: direction, kind: kind, text: text, transcript: transcript, replyTo: replyTo, task: task,
-            runID: runID, state: "answered", answer: value, ts: ts, attachments: attachments, options: options
-        )
     }
 }

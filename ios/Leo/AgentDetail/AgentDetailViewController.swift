@@ -15,7 +15,7 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         case value(String)
         case switchEnvironment
         case command(Command)
-        case chat, terminal, files
+        case chat, terminal
     }
 
     private enum Command: Hashable {
@@ -75,9 +75,6 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
 
         navigationDestination(item: $store.scope(state: \.destination?.terminal, action: \.destination.terminal)) { store in
             TerminalViewController(store: store)
-        }
-        navigationDestination(item: $store.scope(state: \.destination?.files, action: \.destination.files)) { store in
-            FilesViewController(store: store)
         }
 
         observe { [weak self] in
@@ -200,26 +197,6 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
             cell.contentConfiguration = content
             cell.accessories = [.disclosureIndicator()]
             cell.accessibilityIdentifier = "agent.terminal"
-        case .files:
-            var content = UIListContentConfiguration.subtitleCell()
-            content.text = String(localized: "Files")
-            let count = store.files.count
-            let unseen = store.unseenFileIDs.count
-            content.secondaryText = switch (count, unseen) {
-            case (0, _): String(localized: "Nothing surfaced yet")
-            case (_, 0): String(localized: "\(count) surfaced")
-            default: String(localized: "\(count) surfaced · \(unseen) new")
-            }
-            content.image = UIImage(systemName: "doc.on.doc")
-            content.secondaryTextProperties.color = .secondaryLabel
-            cell.contentConfiguration = content
-            var accessories: [UICellAccessory] = [.disclosureIndicator()]
-            if unseen > 0 {
-                let badge = BadgeView(text: "\(unseen)", tint: .tintColor)
-                accessories.insert(.customView(configuration: .init(customView: badge, placement: .trailing())), at: 0)
-            }
-            cell.accessories = accessories
-            cell.accessibilityIdentifier = "agent.files"
         }
     }
 
@@ -256,7 +233,7 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         snapshot.appendSections(Section.allCases)
         snapshot.appendItems([.header], toSection: .header)
         if agent.opensInClaude { snapshot.appendItems([.openInClaude], toSection: .claude) }
-        snapshot.appendItems([.chat, .terminal, .files], toSection: .live)
+        snapshot.appendItems([.chat, .terminal], toSection: .live)
         snapshot.appendItems(rows.map { .value($0.key) }, toSection: .status)
         snapshot.appendItems(environmentRows.map { .value($0.key) } + [.switchEnvironment], toSection: .environment)
         let commands: [Command] = agent.isStopped ? [.start] : [.interrupt, .restart, .stop]
@@ -267,7 +244,7 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
 
     func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
         switch dataSource.itemIdentifier(for: indexPath) {
-        case .openInClaude, .chat, .terminal, .files: true
+        case .openInClaude, .chat, .terminal: true
         case .switchEnvironment, .command: !store.isBusy
         default: false
         }
@@ -285,7 +262,6 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         case .command(.stop): store.send(.stopButtonTapped)
         case .chat: store.send(.chatButtonTapped)
         case .terminal: store.send(.terminalButtonTapped)
-        case .files: store.send(.filesButtonTapped)
         default: break
         }
     }
