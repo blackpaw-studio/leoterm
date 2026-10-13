@@ -323,6 +323,14 @@ import LeoKit
         }
     }
 
+    /// The attachment's local file once downloaded, nil when the download
+    /// failed (`attachmentFiles` holds the reason) or is still in flight.
+    func downloadedFile(_ attachment: LeoChatAttachment) async -> URL? {
+        await loadAttachment(attachment)
+        guard case .loaded(let url) = attachmentFiles[attachment.id] else { return nil }
+        return url
+    }
+
     // MARK: Composer
 
     func draft(for agent: LeoAgentID) -> LeoChatComposerDraft { drafts[agent] ?? .empty }

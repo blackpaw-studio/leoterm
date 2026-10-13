@@ -133,8 +133,7 @@ struct LeoChatAudioPlayer: View {
 
     private func toggle() {
         Task {
-            await chat.loadAttachment(attachment)
-            guard case .loaded(let url) = chat.attachmentFiles[attachment.id] else { return }
+            guard let url = await chat.downloadedFile(attachment) else { return }
             player.toggle(url: url)
         }
     }

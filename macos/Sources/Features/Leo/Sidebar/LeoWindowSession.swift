@@ -47,6 +47,9 @@ struct LeoWindowVisibilityState: Equatable {
     @Published private(set) var controlFocusRequest = 0
     /// The control bar's prompt field, for focus in and back out.
     let controlPrompt = LeoControlPromptFieldHandle()
+    /// The attachment open in this window's chat pane. Closes whenever the
+    /// switch goes to Terminal: the chat's ✕, the toggle, or the segment.
+    let chatViewer = LeoChatViewerModel()
     /// Each agent's Terminal | Chat switch in this window.
     @Published private(set) var viewChoices = LeoAgentViewChoices()
     /// Bumped when the switch asks for the chat composer to take focus; the
@@ -241,6 +244,7 @@ struct LeoWindowVisibilityState: Equatable {
         switch choice {
         case .chat: requestChatFocus()
         case .terminal:
+            chatViewer.close()
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 routeTerminalFocus { Self.focusTerminal(in: self.window, isAllowed: $0) }
