@@ -202,8 +202,20 @@ struct LeoWindowVisibilityState: Equatable {
     /// selection and the switch are read live, not from the last render, so
     /// a request made while the selection is moving sees where it landed.
     var currentChatLayout: LeoChatLayout {
-        guard terminals.selection == nil, let agent = selectedAgent() else { return .terminal }
+        guard let agent = shownAgent else { return .terminal }
         return LeoChatLayout(contentWidth: observedContentWidth, choice: viewChoices[agent])
+    }
+
+    /// The agent this window's content area shows: the selected one, unless
+    /// a terminal row of this window is selected instead.
+    var shownAgent: LeoAgentID? { terminals.selection == nil ? selectedAgent() : nil }
+
+    /// `agent` asked for an answer: show its chat here if this window shows
+    /// its terminal. Never selects the agent or activates the app; keyboard
+    /// focus follows `choose`.
+    func openChatIfAsked(by agent: LeoAgentID) {
+        guard LeoChatAutoOpen.shouldOpen(agent, shown: shownAgent, layout: currentChatLayout) else { return }
+        choose(.chat, for: agent)
     }
 
     /// Hands `move` a gate to ask when the focus move actually runs, on
