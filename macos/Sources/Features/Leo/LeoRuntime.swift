@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Foundation
 import GhosttyKit
 import OSLog
@@ -21,6 +22,9 @@ import LeoKit
     /// a delivery, so agents that aren't shown count too.
     let unread: LeoChatUnreadStore
     private let chatRelay: LeoOrderedRelay<LeoChatFeedDelivery>
+    /// Windows open Chat for a selected agent with unread messages: on a
+    /// selection change, and when a seed lands after one.
+    private var unreadOpenSubscriptions: Set<AnyCancellable> = []
     private let localChatClient: any LeoChatClient
     let hostSelection: LeoHostSelection
     /// Agents ▸ Agent Notifications… policy for background transitions.
@@ -300,6 +304,24 @@ import LeoKit
             await chat?.handle(delivery)
         }
         self.chatRelay = chatRelay
+        // `@Published` sends before it stores; hop a turn so the session's
+        // selection and the store's counts read the new values.
+        model.$selection.removeDuplicates().receive(on: DispatchQueue.main)
+            .sink { [weak registry, weak unread] _ in
+                MainActor.assumeIsolated {
+                    guard let unread else { return }
+                    registry?.sessions.forEach { $0.selectionChanged(unreadCount: unread.count(for:)) }
+                }
+            }
+            .store(in: &unreadOpenSubscriptions)
+        unread.$counts.receive(on: DispatchQueue.main)
+            .sink { [weak registry, weak unread] _ in
+                MainActor.assumeIsolated {
+                    guard let unread else { return }
+                    registry?.sessions.forEach { $0.unreadChanged(unreadCount: unread.count(for:)) }
+                }
+            }
+            .store(in: &unreadOpenSubscriptions)
         feed = LeoSidebarFeed(
             daemon: daemon, activity: activitySource,
             onManualRefresh: { [actionsBox] in actionsBox.actions?.invalidateTemplateCache() },
@@ -466,6 +488,8 @@ import LeoKit
         }
         session.onWindowWillClose = { [weak self] in self?.teardownWindow(sessionID) }
         session.selectedAgent = { [weak self] in self?.model.actionableSelection?.id }
+        // A new window comes up on the shared selection without moving it.
+        session.selectionChanged(unreadCount: unread.count(for:))
         wireTerminals(session.terminals, window: sessionID)
         if let window = controller.window {
             let presentation = LeoPickerPresentation(

@@ -17,4 +17,10 @@ enum LeoChatAutoOpen {
     static func shouldOpen(_ agent: LeoAgentID, shown: LeoAgentID?, layout: LeoChatLayout) -> Bool {
         shown == agent && layout == .terminal
     }
+
+    /// A window selecting `agent` with unread messages while it shows the
+    /// terminal. Once read (count 0) the remembered choice stands.
+    static func shouldOpenOnSelect(unread: Int, layout: LeoChatLayout) -> Bool {
+        unread > 0 && layout == .terminal
+    }
 }

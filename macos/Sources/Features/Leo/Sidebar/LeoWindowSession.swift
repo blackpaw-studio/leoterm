@@ -53,6 +53,8 @@ struct LeoWindowVisibilityState: Equatable {
     /// pending flag covers a composer that only appears with the request.
     @Published private(set) var chatFocusRequest = 0
     private var isChatFocusPending = false
+    /// A selection's unread check hasn't been settled by a view choice yet.
+    private var isAwaitingUnreadCheck = false
     /// The content area's width as last rendered; the chat layout host
     /// keeps it current. Not published: it is read, never observed.
     private(set) var observedContentWidth: CGFloat = 0
@@ -234,6 +236,7 @@ struct LeoWindowVisibilityState: Equatable {
 
     /// The switch was clicked: show `choice` and move focus to it.
     func choose(_ choice: LeoAgentViewChoice, for agent: LeoAgentID) {
+        isAwaitingUnreadCheck = false
         viewChoices = viewChoices.setting(choice, for: agent)
         switch choice {
         case .chat: requestChatFocus()
@@ -264,6 +267,27 @@ struct LeoWindowVisibilityState: Equatable {
     /// focus follows `choose`.
     func openChatIfSent(by agent: LeoAgentID) {
         guard LeoChatAutoOpen.shouldOpen(agent, shown: shownAgent, layout: currentChatLayout) else { return }
+        choose(.chat, for: agent)
+    }
+
+    /// The selection moved (or this window just came up on it): if the
+    /// agent it shows has unread messages and its choice is Terminal, show
+    /// its chat. Stays armed until the user picks a view, so a seed that
+    /// lands after the selection (launch, new window) still counts.
+    func selectionChanged(unreadCount: (LeoAgentID) -> Int) {
+        isAwaitingUnreadCheck = true
+        openChatIfUnread(unreadCount: unreadCount)
+    }
+
+    /// Unread counts changed: finish a selection check still waiting on them.
+    func unreadChanged(unreadCount: (LeoAgentID) -> Int) {
+        guard isAwaitingUnreadCheck else { return }
+        openChatIfUnread(unreadCount: unreadCount)
+    }
+
+    private func openChatIfUnread(unreadCount: (LeoAgentID) -> Int) {
+        guard let agent = shownAgent,
+              LeoChatAutoOpen.shouldOpenOnSelect(unread: unreadCount(agent), layout: currentChatLayout) else { return }
         choose(.chat, for: agent)
     }
 
