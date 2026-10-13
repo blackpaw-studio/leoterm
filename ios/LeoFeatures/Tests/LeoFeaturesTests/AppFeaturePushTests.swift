@@ -126,7 +126,7 @@ struct AppFeaturePushTests {
         let id = PairedDaemon.dionysus.id
 
         await store.send(.notificationOpened(Self.zeus)) { $0.pendingAgent = Self.zeus }
-        await store.send(\.fleet.daemonsLoaded, ([.dionysus], seen: LeoSurfacedFileLedger())) {
+        await store.send(\.fleet.daemonsLoaded, [.dionysus]) {
             $0.fleet.sessions = [DaemonSession(daemon: .dionysus)]
             $0.hasLoadedDaemons = true
             $0.push.daemons = [.dionysus]

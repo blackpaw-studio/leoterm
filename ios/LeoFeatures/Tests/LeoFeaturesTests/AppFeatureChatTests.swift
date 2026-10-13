@@ -152,7 +152,7 @@ struct AppFeatureChatTests {
             $0.pushCleanup = .inMemory(LockIsolated([:]))
         }
         await store.send(.chatNotificationOpened(Self.zeus)) { $0.pendingChat = Self.zeus }
-        await store.send(\.fleet.daemonsLoaded, ([.dionysus], LeoSurfacedFileLedger())) {
+        await store.send(\.fleet.daemonsLoaded, [.dionysus]) {
             $0.hasLoadedDaemons = true
             $0.fleet.sessions = [DaemonSession(daemon: .dionysus)]
             $0.push.daemons = [.dionysus]

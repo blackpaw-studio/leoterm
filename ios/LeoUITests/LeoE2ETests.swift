@@ -6,9 +6,7 @@ import XCTest
 ///   TEST_RUNNER_LEO_PAIRING_PAYLOAD='{"daemon_id":…}'
 ///   TEST_RUNNER_LEO_AGENT=apollo            (spawned by the harness after pairing)
 ///   TEST_RUNNER_LEO_SCREENSHOTS=/path/dir   (optional: light + dark captures)
-/// `testTerminalAndSurfacedFiles` expects the agent already running with a
-/// PNG and a Markdown file (surfaced with a line) before the app pairs:
-///   TEST_RUNNER_LEO_MARKDOWN=notes.md TEST_RUNNER_LEO_PNG=shot.png
+/// `testTerminal` expects the agent already running before the app pairs.
 final class LeoE2ETests: XCTestCase {
     private var app: XCUIApplication!
     private var environment: [String: String] { ProcessInfo.processInfo.environment }
@@ -72,10 +70,8 @@ final class LeoE2ETests: XCTestCase {
         capture("agent-stopped")
     }
 
-    func testTerminalAndSurfacedFiles() throws {
+    func testTerminal() throws {
         let payload = try XCTUnwrap(environment["LEO_PAIRING_PAYLOAD"])
-        let markdown = try XCTUnwrap(environment["LEO_MARKDOWN"], "set TEST_RUNNER_LEO_MARKDOWN")
-        let png = try XCTUnwrap(environment["LEO_PNG"], "set TEST_RUNNER_LEO_PNG")
         let agentName = environment["LEO_AGENT"] ?? "apollo"
 
         app.buttons["Pair a Daemon"].tap()
@@ -89,7 +85,6 @@ final class LeoE2ETests: XCTestCase {
         row.tap()
         let detail = app.collectionViews["agent.detail"]
         XCTAssertTrue(detail.waitForExistence(timeout: 10))
-        XCTAssertTrue(detail.cells["agent.files"].staticTexts["2 surfaced · 2 new"].waitForExistence(timeout: 10), "files row never showed the two new files")
 
         // Terminal: live, and the screen keeps changing (the agent ticks).
         detail.cells["agent.terminal"].tap()
@@ -105,42 +100,6 @@ final class LeoE2ETests: XCTestCase {
         screen.tap()
         XCTAssertFalse(app.keyboards.firstMatch.waitForExistence(timeout: 1), "tapping the terminal raised the keyboard")
         captureBothAppearances("terminal")
-        goBack()
-
-        // Files: newest first, both unread.
-        detail.cells["agent.files"].tap()
-        let list = app.collectionViews["files.list"]
-        XCTAssertTrue(list.waitForExistence(timeout: 5))
-        let markdownRow = list.descendants(matching: .any)["file.\(markdown)"]
-        let pngRow = list.descendants(matching: .any)["file.\(png)"]
-        XCTAssertTrue(markdownRow.waitForExistence(timeout: 5))
-        XCTAssertTrue(pngRow.exists)
-        XCTAssertLessThan(markdownRow.frame.minY, pngRow.frame.minY, "newest file isn't first")
-        XCTAssertEqual(markdownRow.value as? String, "Unread")
-        captureBothAppearances("files")
-
-        // Markdown at its line.
-        markdownRow.tap()
-        let text = app.textViews["file.text"]
-        XCTAssertTrue(text.waitForExistence(timeout: 15), "markdown never opened")
-        settle()
-        captureBothAppearances("markdown-line")
-        goBack()
-        XCTAssertTrue(markdownRow.waitForExistence(timeout: 5))
-        XCTAssertNotEqual(markdownRow.value as? String, "Unread", "opening didn't mark it read")
-
-        // PNG in QuickLook.
-        pngRow.tap()
-        XCTAssertTrue(app.navigationBars[png].waitForExistence(timeout: 15) || app.staticTexts[png].waitForExistence(timeout: 1), "QuickLook never opened")
-        RunLoop.current.run(until: Date().addingTimeInterval(2))
-        captureBothAppearances("quicklook-png")
-        goBack()
-        XCTAssertTrue(list.waitForExistence(timeout: 5))
-    }
-
-    private func goBack() {
-        app.navigationBars.firstMatch.buttons.element(boundBy: 0).tap()
-        settle()
     }
 
     private func scroll(to element: XCUIElement, in container: XCUIElement) {
