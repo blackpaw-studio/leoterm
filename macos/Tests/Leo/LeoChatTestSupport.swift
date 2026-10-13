@@ -28,6 +28,8 @@ actor FakeChatClient: LeoChatClient {
     private var uploadFailure: Failure?
     private var answerResult: Result<LeoChatMessage?, any Error> = .success(nil)
     private var downloads: [String: Result<Data, Failure>] = [:]
+    private var isHoldingDownloads = false
+    private var heldDownloads: [CheckedContinuation<Void, Never>] = []
     private var readFailure: Failure?
     private var threadsResult: Result<[LeoChatThread], Failure> = .success([])
     private var isHoldingThreads = false
@@ -116,8 +118,22 @@ actor FakeChatClient: LeoChatClient {
         return LeoChatAttachment(id: "att-\(uploads.count)", filename: upload.filename, mime: upload.mime, bytes: upload.data.count)
     }
 
+    func holdDownloads() { isHoldingDownloads = true }
+
+    func releaseDownloads() {
+        isHoldingDownloads = false
+        heldDownloads.forEach { $0.resume() }
+        heldDownloads = []
+    }
+
+    /// Returns once `count` downloads have started.
+    func waitForDownloads(_ count: Int) async {
+        while downloadCount < count { await Task.yield() }
+    }
+
     func download(attachmentID: String) async throws -> Data {
         downloadCount += 1
+        if isHoldingDownloads { await withCheckedContinuation { heldDownloads.append($0) } }
         return try (downloads[attachmentID] ?? .failure(Failure(message: "missing"))).get()
     }
 

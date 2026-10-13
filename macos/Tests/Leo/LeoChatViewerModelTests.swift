@@ -120,6 +120,31 @@ struct LeoChatViewerModelTests {
         #expect(opened.urls.isEmpty)
     }
 
+    @Test func leavingForAStandaloneTerminalDuringADownloadOpensNothingOnReturn() async throws {
+        let model = makeModel()
+        let downloads = Downloads()
+        let url = try file("m1.md", Data("# hi".utf8))
+        let open = Task { await model.open(attachment("m1", "m1.md"), for: Self.a, download: { await downloads.wait() }) }
+        await downloads.waitUntilHeld(1)
+        model.agentChanged(to: nil)
+        downloads.finish(0, with: url)
+        await open.value
+        model.agentChanged(to: Self.a)
+        #expect(model.shown == nil)
+    }
+
+    @Test func reselectingTheAgentDuringADownloadStillOpens() async throws {
+        let model = makeModel()
+        let downloads = Downloads()
+        let url = try file("m1.md", Data("# hi".utf8))
+        let open = Task { await model.open(attachment("m1", "m1.md"), for: Self.a, download: { await downloads.wait() }) }
+        await downloads.waitUntilHeld(1)
+        model.agentChanged(to: Self.a)
+        downloads.finish(0, with: url)
+        await open.value
+        #expect(model.document(for: Self.a) != nil)
+    }
+
     @Test func theLaterClickWinsWhenDownloadsFinishOutOfOrder() async throws {
         let model = makeModel()
         let downloads = Downloads()

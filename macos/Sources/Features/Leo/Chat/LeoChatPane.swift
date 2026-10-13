@@ -149,7 +149,7 @@ struct LeoChatPane: View {
                 .buttonStyle(.borderless)
                 .help("Back to Chat")
                 .accessibilityLabel("Back to Chat")
-            Text(document.filename).font(.headline).lineLimit(1).truncationMode(.middle)
+            Text(document.displayName).font(.headline).lineLimit(1).truncationMode(.middle)
             Spacer(minLength: 8)
             Button { NSWorkspace.shared.open(document.url) } label: { Image(systemName: "arrow.up.forward.app") }
                 .buttonStyle(.borderless)

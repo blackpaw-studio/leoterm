@@ -17,6 +17,8 @@ import LeoKit
     private let openExternally: @MainActor (URL) -> Void
     /// Identifies the open whose answer still counts.
     private var token = 0
+    /// The agent whose open is waiting on its download, if one is.
+    private var pendingAgent: LeoAgentID?
 
     init(
         access: any LeoFileAccess = LeoFileAccessor.local(),
@@ -33,9 +35,11 @@ import LeoKit
     func open(_ attachment: LeoChatAttachment, for agent: LeoAgentID, download: @escaping () async -> URL?) async {
         token += 1
         let mine = token
-        guard let url = await download(), mine == token else { return }
+        pendingAgent = agent
+        guard let url = await download(), mine == token else { return settle(mine) }
         let document = await LeoChatViewerDocument.load(attachment: attachment, url: url, access: access)
-        guard mine == token else { return }
+        guard mine == token else { return settle(mine) }
+        settle(mine)
         guard let document else {
             openExternally(url)
             return
@@ -51,12 +55,20 @@ import LeoKit
 
     func close() {
         token += 1
+        pendingAgent = nil
         if shown != nil { shown = nil }
     }
 
-    /// The window now shows `agent`'s content (nil: none).
+    /// The window now shows `agent`'s content (nil: none). Anything open or
+    /// still opening for another agent is dropped, so it can't surface when
+    /// that agent comes back.
     func agentChanged(to agent: LeoAgentID?) {
-        guard shown?.agent != agent else { return }
+        guard let owner = pendingAgent ?? shown?.agent, owner != agent else { return }
         close()
+    }
+
+    /// Open `mine` has finished waiting; a newer open keeps its own claim.
+    private func settle(_ mine: Int) {
+        if mine == token { pendingAgent = nil }
     }
 }

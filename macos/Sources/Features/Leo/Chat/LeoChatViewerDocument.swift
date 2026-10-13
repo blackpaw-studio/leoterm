@@ -34,6 +34,11 @@ struct LeoChatViewerDocument: Equatable {
     let url: URL
     let body: Body
 
+    /// What the header and accessibility labels show: the remote name with
+    /// bidi overrides and control characters dropped, so it can't spoof an
+    /// extension. Kind resolution uses `filename` as sent.
+    var displayName: String { LeoSFTPServerText.sanitized(filename) }
+
     var content: LeoEditorPaneContent {
         switch body {
         case .file(let kind):

@@ -48,7 +48,7 @@ final class LeoChatFileViewerView: NSView {
             contentHost.textView.language = LeoEditorLanguage(path: document.filename)
             contentHost.textView.load(body, keepingSelection: false)
         }
-        contentHost.show(document.content, source: { text }, name: document.filename, revealTitle: "Open in Default App")
+        contentHost.show(document.content, source: { text }, name: document.displayName, revealTitle: "Open in Default App")
     }
 
     /// Lets go of a previewed movie or Quick Look file.

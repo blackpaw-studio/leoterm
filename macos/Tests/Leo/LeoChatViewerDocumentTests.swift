@@ -69,6 +69,14 @@ struct LeoChatViewerDocumentTests {
         #expect(try await load("bad.md", bytes: Data([0xFF, 0xFE, 0xFD])) == nil)
     }
 
+    @Test func theDisplayNameDropsBidiOverridesButKindStillUsesTheRealName() async throws {
+        let spoofed = "invoice\u{202E}fdp.png"
+        let doc = try #require(await load(spoofed, mime: "image/png", bytes: nil))
+        #expect(!doc.displayName.unicodeScalars.contains("\u{202E}"))
+        #expect(doc.filename == spoofed)
+        #expect(doc.body == .file(.image))
+    }
+
     @Test func imageIsShownWithoutReadingTheFile() async throws {
         let doc = try #require(await load("shot.png", mime: "image/png", bytes: nil))
         #expect(doc.content == .image(doc.url))

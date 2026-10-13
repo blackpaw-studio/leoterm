@@ -534,6 +534,54 @@ struct LeoChatPaneModelTests {
     }
 }
 
+@MainActor @Suite(.timeLimit(.minutes(1)))
+struct LeoChatAttachmentClickTests {
+    private let client = FakeChatClient()
+    private let directory = FileManager.default.temporaryDirectory.appending(path: "leo-chat-click-\(UUID().uuidString)")
+    private let attachment = LeoChatAttachment(id: "f1", filename: "notes.md", mime: "text/markdown", bytes: 3)
+    private static let alpha = LeoAgentID(host: .local, name: "alpha")
+
+    private func make() -> LeoChatPaneModel {
+        LeoChatPaneModel(
+            client: client, host: .local, recorder: FakeVoiceRecorder(), attachmentDirectory: directory,
+            maximumUploadBytes: LeoChatUpload.maximumBytes, onRead: { _ in }
+        )
+    }
+
+    @Test func aSecondRequestDuringADownloadWaitsForIt() async {
+        await client.setDownload("f1", .success(Data("# hi".utf8)))
+        await client.holdDownloads()
+        let model = make()
+        let first = Task { await model.downloadedFile(attachment) }
+        await client.waitForDownloads(1)
+        let second = Task { await model.downloadedFile(attachment) }
+        await Task.yield()
+        await client.releaseDownloads()
+        let urls = await [first.value, second.value]
+        #expect(urls[0] != nil)
+        #expect(urls[0] == urls[1])
+        #expect(await client.downloadCount == 1)
+    }
+
+    @Test func clickingTwiceWhileDownloadingOpensOnceWithTheSecondRequest() async {
+        await client.setDownload("f1", .success(Data("# hi".utf8)))
+        await client.holdDownloads()
+        let model = make()
+        var externalOpens = 0
+        let viewer = LeoChatViewerModel(openExternally: { _ in externalOpens += 1 })
+        let attachment = attachment
+        let first = Task { await viewer.open(attachment, for: Self.alpha, download: { await model.downloadedFile(attachment) }) }
+        await client.waitForDownloads(1)
+        let second = Task { await viewer.open(attachment, for: Self.alpha, download: { await model.downloadedFile(attachment) }) }
+        await Task.yield()
+        await client.releaseDownloads()
+        await first.value
+        await second.value
+        #expect(viewer.document(for: Self.alpha)?.attachmentID == "f1")
+        #expect(externalOpens == 0)
+    }
+}
+
 @Suite struct LeoChatPresentationTests {
     @Test func longRepliesCollapse() {
         #expect(!LeoChatPresentation.isLong("short"))

@@ -50,6 +50,8 @@ import LeoKit
     private let onRead: @MainActor (LeoAgentID) -> Void
     /// Identifies the page request whose answer still counts.
     private var loadToken = 0
+    /// Downloads in flight, so a second request waits for the first.
+    private var attachmentLoads: [String: Task<Void, Never>] = [:]
     private var visibleCount = 0
     private var lastRead: String?
 
@@ -294,13 +296,18 @@ import LeoKit
     // MARK: Attachments
 
     /// Downloads `attachment` once into the attachment folder; a failure
-    /// can be retried.
+    /// can be retried, and a call during a download waits for it.
     func loadAttachment(_ attachment: LeoChatAttachment) async {
         guard attachment.available else { return }
-        switch attachmentFiles[attachment.id] {
-        case .loading, .loaded: return
-        case .failed, nil: break
-        }
+        if let inFlight = attachmentLoads[attachment.id] { return await inFlight.value }
+        if case .loaded = attachmentFiles[attachment.id] { return }
+        let load = Task { await download(attachment) }
+        attachmentLoads[attachment.id] = load
+        await load.value
+        attachmentLoads[attachment.id] = nil
+    }
+
+    private func download(_ attachment: LeoChatAttachment) async {
         let folderName = LeoChatPresentation.safeFilename(attachment.id, fallback: "attachment")
         let folder = attachmentDirectory.appending(path: folderName)
         guard let url = LeoChatPresentation.contained(
