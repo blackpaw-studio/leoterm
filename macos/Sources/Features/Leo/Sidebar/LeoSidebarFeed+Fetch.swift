@@ -70,7 +70,6 @@ extension LeoSidebarFeed {
         if applyMetadata(state, request: metadataRequest, generation: generation) {
             applyDispatchBaseline(observed.dispatches, since: dispatchMark, atSeq: observed.seq)
         }
-        mergeSurfacedFiles(from: state)
         // `state` is the authoritative baseline as of when the fetch
         // started; anything coalesced since then is newer, so it's merged
         // in on top rather than lost.

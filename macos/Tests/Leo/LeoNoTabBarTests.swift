@@ -203,9 +203,9 @@ import Testing
                 <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
                 <connections><action selector="openFileInLeoEditor:" target="-1" id="a2"/></connections>
             </menuItem>
-            <menuItem title="Open Surfaced File" keyEquivalent="o" id="s2">
+            <menuItem title="Option O" keyEquivalent="o" id="s2">
                 <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
-                <connections><action selector="openLeoSurfacedFile:" target="-1" id="a3"/></connections>
+                <connections><action selector="openFileInLeoEditor:" target="-1" id="a3"/></connections>
             </menuItem>
             """)
 

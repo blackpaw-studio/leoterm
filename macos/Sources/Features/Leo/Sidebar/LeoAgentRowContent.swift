@@ -1,12 +1,12 @@
 import SwiftUI
 import LeoKit
 
-/// An agent row: a leading state symbol, then the name line (the name, the
-/// surfaced-files glyph, and the last-active time, a state word, or a
-/// spinner while an action is pending) and, for states that have one, a
-/// detail line aligned with the name. Each line is pinned to a fixed height
-/// and whether there is a second line is fixed per state, so the row never
-/// resizes as its content changes.
+/// An agent row: a leading state symbol, then the name line (the name and
+/// the last-active time, a state word, or a spinner while an action is
+/// pending) and, for states that have one, a detail line aligned with the
+/// name. Each line is pinned to a fixed height and whether there is a
+/// second line is fixed per state, so the row never resizes as its content
+/// changes.
 struct LeoAgentRowContent: View {
     let row: LeoAgentRow
     let error: String?
@@ -14,8 +14,6 @@ struct LeoAgentRowContent: View {
     let isPending: Bool
     /// Name characters the search query matched, drawn bold.
     let nameHighlights: [Int]
-    /// This row's unseen surfaced files, newest last.
-    let pendingSurfacedFiles: [LeoSurfacedFile]
     /// Whether the row sits in the Working section (grouped by attention):
     /// one line, with the word trailing.
     var inWorkingSection = false
@@ -41,7 +39,6 @@ struct LeoAgentRowContent: View {
                 .lineLimit(1)
                 .accessibilityLabel(presentation.accessibilityLabel(name: row.name))
             Spacer(minLength: 4)
-            surfacedFilesGlyph
             trailing(presentation.state)
         }
         .frame(height: LeoAgentRowMetrics.nameLineHeight)
@@ -92,23 +89,5 @@ struct LeoAgentRowContent: View {
             .truncationMode(.tail)
             .help(presentation.detail.text)
             .frame(height: LeoAgentRowMetrics.detailLineHeight, alignment: .leading)
-    }
-
-    /// Static, secondary-colored: files the agent surfaced that haven't
-    /// been opened. Calm on purpose -- no tint, no motion; it isn't "needs
-    /// input". The tooltip lists them.
-    @ViewBuilder private var surfacedFilesGlyph: some View {
-        if let indicator = LeoSurfacedFilesIndicator(pending: pendingSurfacedFiles) {
-            HStack(spacing: 2) {
-                Image(systemName: LeoSurfacedFilesIndicator.symbolName)
-                Text(indicator.countText).monospacedDigit()
-            }
-            .font(.caption2)
-            .foregroundStyle(.secondary)
-            .fixedSize()
-            .help(indicator.tooltip)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(indicator.accessibilityLabel)
-        }
     }
 }

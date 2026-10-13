@@ -97,11 +97,6 @@ actor LeoSidebarFeed {
     /// Monotonic seconds; only the attention reducer's stability window reads it.
     let now: @Sendable () -> TimeInterval
     let onAttentionTransitions: @MainActor @Sendable ([LeoAttentionTransition]) -> Void
-    /// Files surfaced on the selected host (B-013), by incarnation.
-    var surfacedFiles = LeoSurfacedFileIndex.empty
-    /// B-273: a live `file_surfaced` new to the feed, while connected,
-    /// with its host -- never a `/state` recovery's files.
-    let onFileSurfaced: @MainActor @Sendable (LeoHostID, LeoSurfacedFile) -> Void
     /// Leo Chat: `chat.*` events and resyncs for the selected host, in
     /// stream order (the receiver must keep that order, e.g. a relay).
     let onChat: @Sendable (LeoHostID, LeoChatFeedSignal) -> Void
@@ -149,7 +144,6 @@ actor LeoSidebarFeed {
         now: @escaping @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
         onManualRefresh: @escaping @MainActor @Sendable () -> Void = {},
         onAttentionTransitions: @escaping @MainActor @Sendable ([LeoAttentionTransition]) -> Void = { _ in },
-        onFileSurfaced: @escaping @MainActor @Sendable (LeoHostID, LeoSurfacedFile) -> Void = { _, _ in },
         onChat: @escaping @Sendable (LeoHostID, LeoChatFeedSignal) -> Void = { _, _ in },
         sink: @escaping Sink
     ) {
@@ -158,7 +152,6 @@ actor LeoSidebarFeed {
         sleeper = sleep
         self.now = now
         self.onAttentionTransitions = onAttentionTransitions
-        self.onFileSurfaced = onFileSurfaced
         self.onChat = onChat
         self.onManualRefresh = onManualRefresh
         self.sink = sink
@@ -332,8 +325,6 @@ actor LeoSidebarFeed {
             } else if activityCoalescer.add(event) {
                 scheduleActivityFlush()
             }
-        case .fileSurfaced(_, let file):
-            receiveSurfacedFile(file)
         case .other, .dispatchChanged, .dispatchRemoved, .agentTurnCompleted, .agentUsage, .agentCompaction, .chat:
             return
         case .disconnected(let reason):

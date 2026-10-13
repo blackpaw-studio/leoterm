@@ -326,7 +326,7 @@ extension DaemonSession {
             applySnapshot(LeoObservedState(agents: observed))
 
         case .connected, .disconnected, .hello, .gap, .dispatchChanged, .dispatchRemoved,
-             .agentTurnCompleted, .agentUsage, .agentCompaction, .chat, .fileSurfaced, .other:
+             .agentTurnCompleted, .agentUsage, .agentCompaction, .chat, .other:
             return
         }
     }

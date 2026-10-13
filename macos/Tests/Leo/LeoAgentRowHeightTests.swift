@@ -76,18 +76,16 @@ struct LeoAgentRowHeightTests {
         let baseline = height(row: row, error: nil)
         let selected = height(row: row, error: nil, isSelected: true)
         let pending = height(row: row, error: nil, isPending: true)
-        let files = height(row: row, error: nil, files: [LeoSurfacedFile(id: "f1", agent: "alpha", startedAt: "t1", path: "a.md", absPath: "/a.md")])
         #expect(abs(selected - baseline) <= Self.tolerance, "selected is \(selected)pt, baseline is \(baseline)pt")
         #expect(abs(pending - baseline) <= Self.tolerance, "pending is \(pending)pt, baseline is \(baseline)pt")
-        #expect(abs(files - baseline) <= Self.tolerance, "surfaced files is \(files)pt, baseline is \(baseline)pt")
     }
 
     private func height(
-        row: LeoAgentRow, error: String?, isSelected: Bool = false, isPending: Bool = false, files: [LeoSurfacedFile] = [],
+        row: LeoAgentRow, error: String?, isSelected: Bool = false, isPending: Bool = false,
         inWorkingSection: Bool = false
     ) -> CGFloat {
         let content = LeoAgentRowContent(
-            row: row, error: error, isSelected: isSelected, isPending: isPending, nameHighlights: [], pendingSurfacedFiles: files,
+            row: row, error: error, isSelected: isSelected, isPending: isPending, nameHighlights: [],
             inWorkingSection: inWorkingSection
         )
         return NSHostingView(rootView: content.frame(width: Self.width)).fittingSize.height

@@ -17,6 +17,13 @@ struct LeoObservedStateDecodingTests {
         #expect(malformed.seq == nil)
     }
 
+    /// A daemon from before leo #268 still sends its surfaced files; they are ignored.
+    @Test func aRetiredSnapshotFieldIsIgnored() throws {
+        let state = try decode(#"{"ok":true,"data":{"agents":[{"name":"alpha","surfaced_files":[{"path":"/tmp/a.png"}]}]}}"#)
+        #expect(state.agents.map(\.name) == ["alpha"])
+        #expect(Mirror(reflecting: state.agents[0]).children.allSatisfy { $0.label?.lowercased().contains("surfaced") != true })
+    }
+
     @Test func absentDispatchesReadAsNone() throws {
         let state = try decode(#"{"ok":true,"data":{"agents":[{"name":"alpha"}]}}"#)
         #expect(state.agents.map(\.name) == ["alpha"])

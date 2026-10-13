@@ -6,13 +6,13 @@ import Testing
 
 /// Security re-review #3: SFTP requests have no timeout of their own (the
 /// transport fails them only when it closes), so a remote file swapped to
-/// a FIFO after the stat would block OPEN/READ forever. A surfaced-file
+/// a FIFO after the stat would block OPEN/READ forever. An editor
 /// open's first read is bounded: past the deadline the access is closed --
 /// which fails the stuck request -- and the open fails, leaving the pane
 /// free for the next open.
 @MainActor
 @Suite(.timeLimit(.minutes(1)))
-struct LeoSurfacedReadDeadlineTests {
+struct LeoReadDeadlineTests {
     @Test func aReadThatNeverAnswersFailsAtTheDeadlineAndClosesTheAccess() async throws {
         let base = HangingAccess(hanging: ["/w/pipe"])
         let access = LeoReadDeadline(seconds: 5, sleep: { _ in }).wrap(base)
@@ -30,7 +30,7 @@ struct LeoSurfacedReadDeadlineTests {
         #expect(!(await base.isClosed))
     }
 
-    @Test func thePaneIsNotWedgedByAHungSurfacedOpen() async throws {
+    @Test func thePaneIsNotWedgedByAHungOpen() async throws {
         let pane = LeoEditorPaneModel(makeAccess: { _ in HangingAccess(hanging: ["/w/pipe"]) })
         let deadline = LeoReadDeadline(seconds: 5, sleep: { _ in })
         await #expect(throws: LeoFileAccessError.self) {
@@ -70,10 +70,6 @@ struct LeoSurfacedReadDeadlineTests {
         #expect(sink.data == Data("ab".utf8))
         for _ in 0..<10 { await Task.yield() }
         #expect(!(await base.isClosed))
-    }
-
-    @Test func surfacedOpensUseTheDeadline() {
-        #expect(LeoReadDeadline.surfacedOpen.seconds > 0)
     }
 }
 

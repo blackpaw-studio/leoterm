@@ -178,7 +178,7 @@ enum LeoAttentionFixture {
                 return LeoObservedAgent(
                     name: agent.name, host: agent.host, status: agent.status, activity: agent.activity,
                     currentAction: actions[agent.name] ?? agent.currentAction, lastActivityAt: agent.lastActivityAt, attention: overlay[agent.name] ?? agent.attention,
-                    startedAt: agent.startedAt, surfacedFiles: agent.surfacedFiles, surfacedFilesSent: agent.surfacedFilesSent,
+                    startedAt: agent.startedAt,
                     usage: usage[agent.name] ?? agent.usage, environments: environmentOverlay[agent.name] ?? agent.environments
                 )
             }

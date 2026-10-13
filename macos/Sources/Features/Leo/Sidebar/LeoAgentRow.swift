@@ -74,9 +74,6 @@ struct LeoAgentRowView: View {
     /// Whether the row is in the Pinned section, and the toggle (B-010).
     var isPinned = false
     var togglePin: () -> Void = {}
-    /// This row's unseen surfaced files, newest last, and the open (B-013).
-    var pendingSurfacedFiles: [LeoSurfacedFile] = []
-    var openSurfacedFile: (LeoSurfacedFile) -> Void = { _ in }
     /// Opens the New Agent sheet in worktree mode for this row (B-176). The
     /// sheet lives on the sidebar, so it outlives this row re-sorting or
     /// being filtered out.
@@ -95,7 +92,7 @@ struct LeoAgentRowView: View {
     var body: some View {
         LeoAgentRowContent(
             row: row, error: error, isSelected: isSelected, isPending: actions.pendingActions.contains(row.id),
-            nameHighlights: nameHighlights, pendingSurfacedFiles: pendingSurfacedFiles, inWorkingSection: inWorkingSection
+            nameHighlights: nameHighlights, inWorkingSection: inWorkingSection
         )
         .contentShape(Rectangle())
         // The whole row is the target, like Finder or Mail (B-049);
@@ -143,13 +140,6 @@ struct LeoAgentRowView: View {
         Button("Rename…") { showingRename = true }.disabled(!availability.rename)
         Button("View Logs") { viewLogs() }.disabled(!availability.logs)
         Button("Browse Files") { browseFiles() }
-        if !row.surfacedFiles.isEmpty {
-            Menu("Surfaced Files") {
-                ForEach(row.surfacedFiles.reversed()) { file in
-                    Button(file.menuTitle) { openSurfacedFile(file) }
-                }
-            }
-        }
         Button(LeoMenuCommands.pinToggleTitle(isPinned: isPinned), action: togglePin)
         Divider()
         Button("Delete…", role: .destructive) { showingDelete = true }.disabled(!availability.delete)

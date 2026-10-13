@@ -105,6 +105,13 @@ struct LeoObserveTests {
         #expect(malformed?.sequence == 8)
     }
 
+    /// leo #268 retired surfaced files: the event only advances the sequence.
+    @Test func aRetiredFileEventIsOther() {
+        let data = #"{"seq":14,"agent":"alpha","path":"/tmp/a.png","name":"a.png","surfaced_at":"2026-10-12T12:00:00Z"}"#
+        let event = LeoActivityClient.decode(LeoSSEEvent(name: "file_surfaced", data: data, id: nil))
+        #expect(event == .other(seq: 14, type: "file_surfaced"))
+    }
+
     @Test func decodesDispatchRemoved() {
         let event = LeoActivityClient.decode(LeoSSEEvent(name: "dispatch_removed", data: #"{"seq":11,"at":"2026-10-07T12:00:00Z","id":"d-3"}"#, id: nil))
         #expect(event == .dispatchRemoved(seq: 11, id: "d-3"))

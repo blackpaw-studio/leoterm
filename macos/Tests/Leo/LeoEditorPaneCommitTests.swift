@@ -4,12 +4,12 @@ import Testing
 @testable import Ghostty
 @testable import LeoKit
 
-/// B-013 review #1: a surfaced file's identity check happens where the
+/// B-013 review #1: an open's identity check happens where the
 /// pane commits the new document -- after the read and after the
 /// unsaved-changes prompt -- so an agent restart (or host switch) during
 /// either never lands the old incarnation's file in the pane.
 @MainActor
-struct LeoSurfacedPaneCommitTests {
+struct LeoEditorPaneCommitTests {
     nonisolated static let kinds: [LeoFileBackendKind] = [.local, .sftp]
 
     private func file(_ path: String) -> LeoEditorFileID { LeoEditorFileID(host: .local, path: path) }

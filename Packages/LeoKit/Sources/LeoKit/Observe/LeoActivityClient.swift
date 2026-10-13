@@ -21,12 +21,6 @@ public struct LeoObservedAgent: Codable, Equatable, Sendable {
     /// When this incarnation started; the same value the agent list
     /// reports, so it identifies which incarnation an entry describes.
     public let startedAt: String?
-    /// B-013: files this incarnation surfaced, newest last (at most 20);
-    /// empty for a daemon that doesn't report them.
-    public let surfacedFiles: [LeoSurfacedFile]
-    /// How many `surfaced_files` entries the daemon sent, counted before
-    /// malformed or excess ones were dropped (whether its list was full).
-    public let surfacedFilesSent: Int
     /// B-259: the agent's usage (leo >= 0.35, `agent_usage`); nil when the
     /// daemon sent none or a malformed one.
     public let usage: LeoAgentUsage?
@@ -40,7 +34,7 @@ public struct LeoObservedAgent: Codable, Equatable, Sendable {
 
     public init(name: String, host: String? = nil, status: LeoAgentStatus?, activity: LeoActivity?,
                 currentAction: LeoCurrentAction?, lastActivityAt: String?, attention: LeoAttentionSignal? = nil,
-                startedAt: String? = nil, surfacedFiles: [LeoSurfacedFile] = [], surfacedFilesSent: Int? = nil, usage: LeoAgentUsage? = nil,
+                startedAt: String? = nil, usage: LeoAgentUsage? = nil,
                 environments: LeoAgentEnvironments? = nil, template: String? = nil, harness: String? = nil) {
         self.template = template
         self.harness = harness
@@ -52,8 +46,6 @@ public struct LeoObservedAgent: Codable, Equatable, Sendable {
         self.lastActivityAt = lastActivityAt
         self.attention = attention
         self.startedAt = startedAt
-        self.surfacedFiles = surfacedFiles
-        self.surfacedFilesSent = surfacedFilesSent ?? surfacedFiles.count
         self.usage = usage
         self.environments = environments
     }
@@ -63,7 +55,6 @@ public struct LeoObservedAgent: Codable, Equatable, Sendable {
         case currentAction = "current_action"
         case lastActivityAt = "last_activity_at"
         case startedAt = "started_at"
-        case surfacedFiles = "surfaced_files"
         case usage, template, harness
     }
 
@@ -79,9 +70,6 @@ public struct LeoObservedAgent: Codable, Equatable, Sendable {
         lastActivityAt = try container.decodeIfPresent(String.self, forKey: .lastActivityAt)
         attention = try container.decodeIfPresent(LeoLenientAttention.self, forKey: .attention)?.value
         startedAt = try? container.decodeIfPresent(String.self, forKey: .startedAt)
-        let lenientFiles = (try? container.decodeIfPresent(LeoLenientSurfacedFiles.self, forKey: .surfacedFiles)) ?? nil
-        surfacedFiles = lenientFiles?.files ?? []
-        surfacedFilesSent = lenientFiles?.sentCount ?? 0
         usage = ((try? container.decodeIfPresent(LeoLenient<LeoAgentUsage>.self, forKey: .usage)) ?? nil)?.value
         environments = LeoEnvironmentsWire.agent(from: decoder)
         template = (try? container.decodeIfPresent(String.self, forKey: .template)) ?? nil
@@ -139,9 +127,6 @@ public enum LeoObserveEvent: Equatable, Sendable {
     case agentStopped(seq: Int, at: String?, agent: String, wakeOnMessage: Bool?)
     case gap(expected: Int, received: Int)
     case snapshot([LeoObservedAgent])
-    /// B-013: the agent asked the user to look at a file. `seq` is
-    /// optional: a seq-less event never takes part in gap detection.
-    case fileSurfaced(seq: Int?, file: LeoSurfacedFile)
     /// A dispatch's whole current record (leo >= 0.35, `dispatch_tree`).
     case dispatchChanged(seq: Int, dispatch: LeoDispatch)
     /// A terminal run's linger expired and the daemon dropped it
@@ -331,10 +316,6 @@ public actor LeoActivityClient {
             struct Payload: Decodable { let seq: Int; let at: String?; let agent: String; let wakeOnMessage: Bool?; enum CodingKeys: String, CodingKey { case seq, at, agent; case wakeOnMessage = "wake_on_message" } }
             guard let p = try? decoder.decode(Payload.self, from: data) else { return nil }
             return .agentStopped(seq: p.seq, at: p.at, agent: p.agent, wakeOnMessage: p.wakeOnMessage)
-        case "file_surfaced":
-            struct Payload: Decodable { let seq: Int? }
-            guard let file = try? decoder.decode(LeoSurfacedFile.self, from: data) else { return nil }
-            return .fileSurfaced(seq: (try? decoder.decode(Payload.self, from: data))?.seq, file: file)
         case "dispatch_changed":
             struct Payload: Decodable { let seq: Int; let dispatch: LeoDispatch }
             if let p = try? decoder.decode(Payload.self, from: data) { return .dispatchChanged(seq: p.seq, dispatch: p.dispatch) }
@@ -433,7 +414,6 @@ extension LeoObserveEvent {
              .agentStopped(let seq, _, _, _), .dispatchChanged(let seq, _), .dispatchRemoved(let seq, _), .other(let seq, _),
              .agentTurnCompleted(let seq, _), .agentUsage(let seq, _, _), .agentCompaction(let seq, _),
              .chat(let seq, _): return seq
-        case .fileSurfaced(let seq, _): return seq ?? -1
         case .connected, .disconnected, .gap, .snapshot: return -1
         }
     }

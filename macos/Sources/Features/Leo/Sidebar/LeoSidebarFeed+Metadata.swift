@@ -9,6 +9,12 @@ import LeoKit
 /// landing late is dropped), only within the generation that asked, and
 /// attach to rows by `started_at` (see `LeoAgentMetadataIndex`).
 extension LeoSidebarFeed {
+    /// What the rows show: metadata and environments overlaid (attention
+    /// goes on top in `emit`).
+    var displayedSnapshot: LeoSidebarSnapshot {
+        snapshot.overlayingMetadata(metadata).overlayingEnvironments(environments, features: daemonFeatures)
+    }
+
     /// Asks for a fresh snapshot. A no-op while recovering or while a
     /// `/state` baseline is pending: that fetch carries the metadata too.
     func requestMetadataRefresh() {
@@ -80,7 +86,6 @@ extension LeoSidebarFeed {
         metadataTask = nil
         let shown = displayedSnapshot
         if let observed, generation == snapshot.generation {
-            mergeSurfacedFiles(from: observed.agents)
             // An older snapshot is rejected whole, dispatches included.
             if applyMetadata(observed.agents, request: request, generation: generation) {
                 mergeDispatchSnapshot(observed.dispatches, since: dispatchMark, atSeq: observed.seq)

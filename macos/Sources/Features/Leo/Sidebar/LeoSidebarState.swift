@@ -24,9 +24,6 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
     /// Last-active time and task from a `/state` snapshot of this very
     /// incarnation, overlaid by `LeoSidebarFeed` at emission time.
     let metadata: LeoAgentMetadata?
-    /// Files this very incarnation surfaced (B-013), newest last, overlaid
-    /// by `LeoSidebarFeed` at emission time. Seen or not is the model's.
-    let surfacedFiles: [LeoSurfacedFile]
     /// The agent's last turn, overlaid by `LeoSidebarFeed` at emission time
     /// (B-259); nil unless the daemon advertised `bridge_turns`.
     let lastTurn: LeoTurnPreview?
@@ -43,7 +40,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
     init(
         host: LeoHostID, name: String, template: String?, status: LeoAgentStatus, activity: Activity, actionDetail: String?,
         workspace: String? = nil, repo: String? = nil, attention: LeoAttentionBadge? = nil, attentionReason: LeoAttentionReason? = nil,
-        startedAt: String? = nil, metadata: LeoAgentMetadata? = nil, surfacedFiles: [LeoSurfacedFile] = [],
+        startedAt: String? = nil, metadata: LeoAgentMetadata? = nil,
         lastTurn: LeoTurnPreview? = nil, compaction: LeoRowCompaction? = nil, wakeOnMessage: Bool? = nil,
         environments: LeoAgentEnvironments? = nil
     ) {
@@ -59,7 +56,6 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         self.attentionReason = attentionReason
         self.startedAt = startedAt
         self.metadata = metadata
-        self.surfacedFiles = surfacedFiles
         self.lastTurn = lastTurn
         self.compaction = compaction
         self.wakeOnMessage = wakeOnMessage
@@ -70,7 +66,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         LeoAgentRow(
             host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, attention: attention, attentionReason: reason, startedAt: startedAt,
-            metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage,
+            metadata: metadata, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage,
             environments: environments
         )
     }
@@ -79,16 +75,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         LeoAgentRow(
             host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
-            startedAt: startedAt, metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage,
-            environments: environments
-        )
-    }
-
-    func withSurfacedFiles(_ files: [LeoSurfacedFile]) -> LeoAgentRow {
-        LeoAgentRow(
-            host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
-            workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
-            startedAt: startedAt, metadata: metadata, surfacedFiles: files, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage,
+            startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage,
             environments: environments
         )
     }
@@ -97,7 +84,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         LeoAgentRow(
             host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
-            startedAt: startedAt, metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage,
+            startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage,
             environments: environments
         )
     }
@@ -106,7 +93,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         LeoAgentRow(
             host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
-            startedAt: startedAt, metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage,
+            startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage,
             environments: environments
         )
     }
@@ -115,7 +102,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         LeoAgentRow(
             host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
-            startedAt: startedAt, metadata: metadata, surfacedFiles: surfacedFiles, lastTurn: lastTurn, compaction: compaction,
+            startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction,
             wakeOnMessage: wakeOnMessage, environments: environments
         )
     }

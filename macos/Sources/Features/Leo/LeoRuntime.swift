@@ -28,8 +28,6 @@ import LeoKit
     /// The start screen's shortcut tooltips, read off the live menu each
     /// time AppDelegate syncs its shortcuts from the config (B-080).
     let shortcutHints = LeoShortcutHints()
-    /// Checks surfaced-file opens the user asks for (B-013).
-    private(set) var surfacedFileOpener: LeoSurfacedFileOpener!
     /// Focus identity into `feed`, delivered in order (see
     /// `focusedAgentChanged`).
     let focusedAgentRelay: LeoOrderedRelay<LeoAgentRow.ID?>
@@ -62,7 +60,6 @@ import LeoKit
     private var wakeObservation: LeoNotificationObservation?
     #if DEBUG
     private let openFileFixture = LeoOpenFileFixture()
-    private let surfaceFixture = LeoSurfaceFixtureInjector()
     private var forcedDisconnect: AnyObject?
     #endif
 
@@ -131,8 +128,7 @@ import LeoKit
         let orphanStore = LeoTunnelOrphanStore(defaults: defaults, legacySocketDirectory: hostSelectionLegacySocketDirectory)
         self.orphanStore = orphanStore
         let model = LeoSidebarModel(
-            preferencesStore: LeoUserDefaultsSidebarPreferencesStore(defaults: defaults),
-            surfacedSeenStore: LeoUserDefaultsSurfacedFileSeenStore(defaults: defaults)
+            preferencesStore: LeoUserDefaultsSidebarPreferencesStore(defaults: defaults)
         )
         let registry = LeoWindowSessionRegistry()
         self.model = model
@@ -290,7 +286,6 @@ import LeoKit
             daemon: daemon, activity: activitySource,
             onManualRefresh: { [actionsBox] in actionsBox.actions?.invalidateTemplateCache() },
             onAttentionTransitions: { transitions in weakSelf?.attentionTransitionsCommitted(transitions) },
-            onFileSurfaced: { [weak model] host, file in model?.fileSurfaced(file, host: host) },
             onChat: { host, signal in chatRelay.send(LeoChatFeedDelivery(host: host, signal: signal)) },
             sink: { [weak model] snapshot in
                 model?.receive(snapshot)
@@ -350,10 +345,6 @@ import LeoKit
                 }
             }
         }
-        model.surfacedFileOpenRequested = { file, row, stillWanted in weakSelf?.openSurfacedFile(file, for: row, stillWanted: stillWanted) }
-        model.surfacedFileAutoOpenRequested = { file, row, stillWanted in
-            weakSelf?.autoOpenSurfacedFile(file, for: row, stillWanted: stillWanted)
-        }
         model.latestFocusReport = { [weak attachCoordinator] in attachCoordinator?.latestFocusReport ?? 0 }
 
         // `hostSelection`'s `connectionTarget` (wired above) closes over
@@ -373,8 +364,6 @@ import LeoKit
             }
             return true
         }
-        surfacedFileOpener = LeoSurfacedFileOpener { [weak model] file, host in model?.markSurfacedFileSeen(file, host: host) }
-
         // One immediate liveness check per wake, never repeated: a tunnel
         // or socket that died in sleep shows as disconnected (D-061).
         wakeObservation = LeoNotificationObservation(center: wakeNotifications, name: NSWorkspace.didWakeNotification) { [weak feed] in
@@ -389,14 +378,9 @@ import LeoKit
         #endif
     }
 
-    /// Every snapshot the model receives; DEBUG fixtures hook in here.
+    /// Every snapshot the model receives.
     private func snapshotLanded(_ snapshot: LeoSidebarSnapshot) {
         prunePanes(for: snapshot)
-        #if DEBUG
-        surfaceFixture.snapshotLanded(snapshot) { [feed] files in
-            Task { for file in files { await feed.receive(.fileSurfaced(seq: nil, file: file)) } }
-        }
-        #endif
     }
 
     /// B-274: agents (and dispatches) a connected host no longer lists lose

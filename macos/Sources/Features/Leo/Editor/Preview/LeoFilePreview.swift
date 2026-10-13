@@ -18,7 +18,7 @@ import LeoKit
         /// Binary by sniff, or over the fetch limit.
         case unsupported(typeName: String)
         /// `canRetry`: false once the file access is closed for good (a
-        /// surfaced open's deadline passed), when Try Again can't work.
+        /// first read's deadline passed), when Try Again can't work.
         case failed(String, canRetry: Bool)
         /// The document closed: nothing is shown any more.
         case closed

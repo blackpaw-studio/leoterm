@@ -4,7 +4,7 @@ import Testing
 @testable import Ghostty
 @testable import LeoKit
 
-/// B-274: an action on agent row A (Browse Files, Open Surfaced File) fills
+/// B-274: an action on agent row A (Browse Files) fills
 /// A's own pane in the window that shows A, and never the pane of the row
 /// on screen.
 @MainActor

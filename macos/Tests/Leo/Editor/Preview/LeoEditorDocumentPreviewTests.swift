@@ -150,7 +150,7 @@ struct LeoEditorDocumentPreviewTests {
         }
     }
 
-    /// A first fetch cut off by the surfaced-open deadline closed the
+    /// A first fetch cut off by the read deadline closed the
     /// access for good: Try Again can't work, so it isn't offered.
     @Test func aTimedOutFetchOffersNoRetry() async throws {
         try await withPreviews(.local) { _, _, cache in

@@ -56,27 +56,13 @@ import LeoKit
     @Published private(set) var preferences: LeoSidebarPreferences
     private let preferencesStore: any LeoSidebarPreferencesStore
 
-    /// Surfaced-file ids already opened, per host (B-013); see
-    /// `LeoSidebarModel+SurfacedFiles.swift`.
-    @Published var surfacedSeen: LeoSurfacedFileLedger
-    let surfacedSeenStore: any LeoSurfacedFileSeenStore
-    /// Opens a surfaced file the user asked for in the editor; the
-    /// closure re-checks the file's incarnation (`surfacedOpenGuard`).
-    var surfacedFileOpenRequested: (LeoSurfacedFile, LeoAgentRow, @escaping @MainActor () -> Bool) -> Void = { _, _, _ in }
-    /// B-273: opens a newly surfaced file in its agent's pane in the
-    /// background; the closure re-checks the file's incarnation.
-    var surfacedFileAutoOpenRequested: (LeoSurfacedFile, LeoAgentRow, @escaping @MainActor () -> Bool) -> Void = { _, _, _ in }
-
     init(
         snapshot: LeoSidebarSnapshot = .init(rows: [], connectivity: .loading, generation: 0),
-        preferencesStore: any LeoSidebarPreferencesStore = LeoInMemorySidebarPreferencesStore(),
-        surfacedSeenStore: any LeoSurfacedFileSeenStore = LeoInMemorySurfacedFileSeenStore()
+        preferencesStore: any LeoSidebarPreferencesStore = LeoInMemorySidebarPreferencesStore()
     ) {
         self.snapshot = snapshot
         self.preferencesStore = preferencesStore
         preferences = preferencesStore.load()
-        self.surfacedSeenStore = surfacedSeenStore
-        surfacedSeen = surfacedSeenStore.load()
     }
 
     /// What the selected host's daemon advertised (B-262: `agent_control`).

@@ -138,10 +138,9 @@ struct LeoAttentionPresentationTests {
         #expect(presentation.accessibilityLabel(name: "alpha") == "alpha, Done")
     }
 
-    @Test func withMetadataAndSurfacedFilesKeepTheReason() {
+    @Test func withMetadataKeepsTheReason() {
         let reasoned = row("alpha", attention: .needsInput, reason: LeoAttentionReason(kind: .question))
         #expect(reasoned.withMetadata(nil).attentionReason?.kind == .question)
-        #expect(reasoned.withSurfacedFiles([]).attentionReason?.kind == .question)
         #expect(reasoned.withAttention(.needsInput).attentionReason == nil)
     }
 }

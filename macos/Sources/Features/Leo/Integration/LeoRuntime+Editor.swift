@@ -95,9 +95,9 @@ extension LeoRuntime {
         }
     }
 
-    /// B-274: where Browse Files and Open Surfaced File on an agent row
-    /// land (see `LeoRowPaneRouter`): shown as a click shows it, then in
-    /// the pane of the window showing it.
+    /// B-274: where Browse Files on an agent row lands (see
+    /// `LeoRowPaneRouter`): shown as a click shows it, then in the pane of
+    /// the window showing it.
     var rowPaneRouter: LeoRowPaneRouter {
         LeoRowPaneRouter(
             show: { [weak self] identity, origin in

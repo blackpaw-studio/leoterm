@@ -1,7 +1,7 @@
 import Foundation
 import LeoKit
 
-/// Bounds a surfaced-file open's first read (B-013). SFTP requests
+/// Bounds an editor open's first read (B-013). SFTP requests
 /// have no timeout of their own -- the transport fails them only when the
 /// session closes -- so OPEN/READ of a file swapped to a FIFO after its
 /// stat would never answer, wedging the editor pane's queue. Past the
@@ -11,9 +11,6 @@ import LeoKit
 /// preview's fetch, B-278) is bounded until its first chunk: a download
 /// under way is never cut off however long it takes.
 struct LeoReadDeadline: Sendable {
-    /// The daemon client's default request timeout.
-    static let surfacedOpen = LeoReadDeadline(seconds: 5)
-
     static let timeoutReason: LeoFileAccessReason = "it didn’t answer in time"
 
     let seconds: TimeInterval

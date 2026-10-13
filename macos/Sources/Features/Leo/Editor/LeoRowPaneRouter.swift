@@ -1,8 +1,8 @@
 import Foundation
 
-/// B-274: where an action on a sidebar agent row -- Browse Files, Open
-/// Surfaced File -- lands: that row's own pane, in the window that ends up
-/// showing it, never the pane of the row on screen.
+/// B-274: where an action on a sidebar agent row -- Browse Files -- lands:
+/// that row's own pane, in the window that ends up showing it, never the
+/// pane of the row on screen.
 @MainActor struct LeoRowPaneRouter {
     /// Shows `identity` from `origin` as a click on its row does; the
     /// window that shows it then, or nil when it isn't shown (the user
