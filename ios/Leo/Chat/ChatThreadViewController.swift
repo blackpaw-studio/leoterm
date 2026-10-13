@@ -100,8 +100,10 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
     private func configureDataSource() {
         let registration = UICollectionView.CellRegistration<ChatMessageCell, String> { [weak self] cell, _, id in
             guard let self, let message = shownMessages[id] else { return }
+            let previous = store.messages.index(id: id).flatMap { $0 > 0 ? store.messages[$0 - 1] : nil }
             let model = ChatMessageCell.Model(
                 message: message, isExpanded: store.expanded.contains(id), isAnswering: store.answering.contains(id),
+                draft: store.askDrafts[id] ?? LeoChatAskDraft(), continuesPost: message.continuesPost(after: previous),
                 files: store.attachmentFiles, playingAttachmentID: voice.playingID
             )
             cell.configure(model) { [weak self] event in self?.handle(event, message: message) }
@@ -214,8 +216,12 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
 
     private func handle(_ event: ChatMessageCell.Event, message: LeoChatMessage) {
         switch event {
-        case .answer(let value):
+        case .choice(let value):
             store.send(.askChoiceTapped(messageID: message.id, value: value))
+        case .text(let text):
+            store.send(.askTextChanged(messageID: message.id, text))
+        case .submit:
+            store.send(.askSubmitTapped(messageID: message.id))
         case .expand:
             store.send(.expandToggled(message.id))
         case .openAttachment(let attachment):

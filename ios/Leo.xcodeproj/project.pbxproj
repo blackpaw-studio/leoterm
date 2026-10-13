@@ -31,6 +31,7 @@
 		929ACF5783DFA6EEC13FB3CF /* LeoFeatures in Frameworks */ = {isa = PBXBuildFile; productRef = D76C56FEE239FEB25E23F15F /* LeoFeatures */; };
 		9D9F47A3C6410164E2BF82D4 /* AgentPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A3E500114C72A2CED014F5E /* AgentPresentation.swift */; };
 		B25470C3706218FBCA5C7DA1 /* LeoUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4259E396F6B6491459936938 /* LeoUITests.swift */; };
+		B5F6A59C7F45752F8442B7A4 /* ChatAskControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE83AB0F7C602D5245597AC2 /* ChatAskControls.swift */; };
 		B6440DBB047A78339AE73B85 /* ChatClientsLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = BACD0009A27F38FB8F821813 /* ChatClientsLive.swift */; };
 		B7BEBAF01DF97E7AAFE235DA /* ChatThreadViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F905B733C356A725C5FE60 /* ChatThreadViewController.swift */; };
 		C9D7F5EB7A3C2C3EE88255BE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A4590A54B9047670434E5737 /* Assets.xcassets */; };
@@ -105,6 +106,7 @@
 		BACD0009A27F38FB8F821813 /* ChatClientsLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatClientsLive.swift; sourceTree = "<group>"; };
 		C90AC43D9476285D3D1C5BF5 /* AgentDetailViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentDetailViewController.swift; sourceTree = "<group>"; };
 		CB1449AF007C779C9BAE7CC9 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		CE83AB0F7C602D5245597AC2 /* ChatAskControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatAskControls.swift; sourceTree = "<group>"; };
 		D1A1F7D0633E46F1B7A239E2 /* Leo.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Leo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DDDA7EFA213B93F69799839F /* AttachmentPickerDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentPickerDelegate.swift; sourceTree = "<group>"; };
 		E901E6A2806E9B56B41BE780 /* LeoKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = LeoKit; path = ../Packages/LeoKit; sourceTree = SOURCE_ROOT; };
@@ -234,6 +236,7 @@
 			isa = PBXGroup;
 			children = (
 				DDDA7EFA213B93F69799839F /* AttachmentPickerDelegate.swift */,
+				CE83AB0F7C602D5245597AC2 /* ChatAskControls.swift */,
 				BACD0009A27F38FB8F821813 /* ChatClientsLive.swift */,
 				5F23F292F5C3FAFF0DC837F8 /* ChatMessageCell.swift */,
 				ED896422B42A4AB6BD982529 /* ChatPresentation.swift */,
@@ -462,6 +465,7 @@
 				F0277EE768ABDF3A4910CCB3 /* AgentsViewController.swift in Sources */,
 				5E33999748F7BFB74748A8B0 /* AppDelegate.swift in Sources */,
 				6B3F6C3A8FDF1D872BB68026 /* AttachmentPickerDelegate.swift in Sources */,
+				B5F6A59C7F45752F8442B7A4 /* ChatAskControls.swift in Sources */,
 				B6440DBB047A78339AE73B85 /* ChatClientsLive.swift in Sources */,
 				0A738BC4B723F8A148040CE9 /* ChatMessageCell.swift in Sources */,
 				D53BEAE86E41AC0D887D17D4 /* ChatPresentation.swift in Sources */,
