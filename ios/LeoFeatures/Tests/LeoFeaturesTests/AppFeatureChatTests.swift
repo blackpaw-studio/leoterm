@@ -223,6 +223,23 @@ struct AppFeatureChatTests {
         #expect(told.value == ["zeus: offline"])
     }
 
+    /// Answered elsewhere or expired: the notification is stale, not a failure.
+    @Test func aNotificationAnswerToASettledPromptSaysNothing() async {
+        let told = LockIsolated<[String]>([])
+        let store = TestStore(initialState: AppFeature.State()) {
+            AppFeature()
+        } withDependencies: {
+            $0.pairedDaemons.load = { [.dionysus] }
+            $0.secrets.load = { _ in DaemonSecrets(token: "t") }
+            $0.chatClient.answer = { _, _, _, _ in throw LeoChatAnswerError.settled }
+            $0.chatNotifier.actionFailed = { agent, reason in told.withValue { $0.append("\(agent): \(reason)") } }
+        }
+        let target = LeoPushTarget(daemonID: PairedDaemon.dionysus.id, agent: "zeus")
+        await store.send(.chatNotificationAction(.answer(target, messageID: "01", value: "allow")))
+        await store.receive(\.chatNotificationActionFinished)
+        #expect(told.value.isEmpty)
+    }
+
     @Test func aNotificationActionForAnUnpairedDaemonTellsTheUser() async {
         let told = LockIsolated<[String]>([])
         let store = TestStore(initialState: AppFeature.State()) {

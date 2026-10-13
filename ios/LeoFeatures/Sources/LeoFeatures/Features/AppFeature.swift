@@ -226,6 +226,8 @@ public struct AppFeature {
                 case .answer(_, let messageID, let value):
                     _ = try await chatClient.answer(connection, target.agent, messageID, .choice(value))
                 }
+            } catch LeoChatAnswerError.settled {
+                // Answered elsewhere or expired: the notification was stale.
             } catch {
                 await chatNotifier.actionFailed(target.agent, error.localizedDescription)
             }
