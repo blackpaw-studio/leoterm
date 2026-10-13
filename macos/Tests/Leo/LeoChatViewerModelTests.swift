@@ -292,4 +292,57 @@ struct LeoChatViewerModelTests {
         session.select(.chat, for: Self.a)
         #expect(session.chatViewer.shown == nil)
     }
+
+    // MARK: Leaving full window
+
+    /// A session in chat with `a`'s markdown open full window, the chat focus
+    /// request from choosing chat already taken.
+    private func fullWindowSession(fromContextMenu: Bool) async throws -> LeoWindowSession {
+        let session = makeSession()
+        session.choose(.chat, for: Self.a)
+        _ = session.takeChatFocusRequest()
+        try await openMarkdown(session.chatViewer, fullWindow: fromContextMenu)
+        if !fromContextMenu { session.chatViewer.enterFullWindow() }
+        return session
+    }
+
+    @Test func exitingAContextMenuOpenFocusesTheComposer() async throws {
+        let session = try await fullWindowSession(fromContextMenu: true)
+        session.exitChatFullWindow()
+        #expect(session.chatViewer.shown == nil)
+        #expect(session.takeChatFocusRequest())
+    }
+
+    @Test func exitingAnExpandedViewerGoesBackToThePaneViewerWithoutFocusingTheComposer() async throws {
+        let session = try await fullWindowSession(fromContextMenu: false)
+        session.exitChatFullWindow()
+        #expect(session.chatViewer.document(for: Self.a) != nil)
+        #expect(!session.takeChatFocusRequest())
+    }
+
+    @Test func exitingWhenNotFullWindowDoesNothing() async throws {
+        let session = makeSession()
+        session.choose(.chat, for: Self.a)
+        _ = session.takeChatFocusRequest()
+        try await openMarkdown(session.chatViewer)
+        session.exitChatFullWindow()
+        #expect(session.chatViewer.document(for: Self.a) != nil)
+        #expect(!session.takeChatFocusRequest())
+    }
+
+    @Test(arguments: [false, true])
+    func closingTheViewerFromFullWindowReturnsToTheThreadWithTheComposerFocused(fromContextMenu: Bool) async throws {
+        let session = try await fullWindowSession(fromContextMenu: fromContextMenu)
+        session.closeChatViewer()
+        #expect(session.chatViewer.shown == nil)
+        #expect(session.takeChatFocusRequest())
+    }
+
+    @Test(arguments: [false, true], [false, true])
+    func findAndMessageAgentLeaveFullWindowInsteadOfFocusingCoveredChrome(fromContextMenu: Bool, isFind: Bool) async throws {
+        let session = try await fullWindowSession(fromContextMenu: fromContextMenu)
+        if isFind { session.requestSearchFocus() } else { session.requestControlFocus() }
+        #expect(!session.chatViewer.isFullWindow)
+        #expect(!session.takeChatFocusRequest())
+    }
 }

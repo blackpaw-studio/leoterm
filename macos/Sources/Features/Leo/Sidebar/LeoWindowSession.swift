@@ -209,12 +209,16 @@ struct LeoWindowVisibilityState: Equatable {
 
     /// Agents ▸ Find Agent…: show the sidebar if hidden and focus its filter.
     func requestSearchFocus() {
+        chatViewer.exitFullWindow()
         if !isSidebarVisible { setSidebarVisible(true) }
         searchFocusRequest += 1
     }
 
     /// Agents ▸ Message Agent: focus the control bar's prompt field.
-    func requestControlFocus() { controlFocusRequest += 1 }
+    func requestControlFocus() {
+        chatViewer.exitFullWindow()
+        controlFocusRequest += 1
+    }
 
     /// How the selected agent's terminal and chat share `contentWidth`.
     func chatLayout(for row: LeoAgentRow?, contentWidth: CGFloat) -> LeoChatLayout {
@@ -337,6 +341,20 @@ struct LeoWindowVisibilityState: Equatable {
             requestChatFocus()
             return false
         }
+    }
+
+    /// Leaves the full-window viewer for where it was opened from. Back at
+    /// the thread (opened from an attachment's menu), the composer gets the
+    /// keys; back at the pane viewer, its file view focuses itself.
+    func exitChatFullWindow() {
+        guard chatViewer.isFullWindow else { return }
+        if !chatViewer.exitFullWindow() { requestChatFocus() }
+    }
+
+    /// Closes the open file, in the pane or full window, back to the thread.
+    func closeChatViewer() {
+        chatViewer.close()
+        requestChatFocus()
     }
 
     func requestChatFocus() {
