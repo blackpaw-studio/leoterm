@@ -154,6 +154,12 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                             }
                         }
                     )
+
+                    // The open chat file over the whole split. A sibling
+                    // above it, not a split item, so the split is untouched.
+                    LeoChatFullWindowHost(
+                        viewer: leoSession.chatViewer, session: leoSession, ignoredEdges: leoSplitIgnoredEdges
+                    )
                 } else {
                     terminalContent
                 }
