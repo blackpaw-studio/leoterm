@@ -21,7 +21,7 @@ On the Mac, show how many unread agent messages each agent has, and switch to Ch
 
 ### Auto-open
 - Trigger: any **live** agent-sent message (any kind: text, file, voice, task, ask, permission), from the agent that is selected in a window. (Changed 2026-10-13: was open asks/permissions only.)
-- Effect: in every window where that agent is selected and Terminal is the current choice, call `LeoWindowSession.choose(.chat, for:)`. Keyboard focus follows the existing chat focus rules.
+- Effect: in every window where that agent is selected and Terminal is the current choice, call `LeoWindowSession.choose(.chat, for:)`. Keyboard focus (changed 2026-10-13): an auto-open (live message or on-selection) never moves focus to chat when the terminal stays visible — in `sideBySide` focus stays where it was. Only when chat covers the terminal (`chatReplacingTerminal`) and the terminal held focus does focus move to the chat composer. If focus was elsewhere (another pane, a field), it is left alone. User-initiated opens (clicking Chat, shortcuts) keep the existing focus rules.
 - It does **not** activate or raise the app, and it does not change the selected agent.
 - It never fires for messages loaded by seed, resync, or history paging, for updates to existing messages, or for user/system messages.
 - If chat is already visible (chat view or side-by-side layout), nothing changes.
