@@ -13,6 +13,8 @@ import UniformTypeIdentifiers
 final class ChatThreadViewController: UIViewController, UICollectionViewDelegate {
     /// How close to the top (in points) loads the older page.
     private static let olderPageThreshold: CGFloat = 300
+    /// Room kept around a focused ask field when it scrolls into view.
+    private static let focusedFieldMargin: CGFloat = 16
 
     @UIBindable private var store: StoreOf<ChatThread>
     private lazy var collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
@@ -71,6 +73,9 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
             bottom.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
         ])
         configureDataSource()
+        // An ask's text field sits in the thread, not the composer: once the
+        // keyboard is up, bring the field above it.
+        NotificationCenter.default.addObserver(self, selector: #selector(revealFocusedAskField), name: UIResponder.keyboardDidShowNotification, object: nil)
 
         present(item: $store.scope(state: \.alert, action: \.alert)) { store in
             UIAlertController(store: store)
@@ -206,6 +211,12 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
     private func scrollToBottom() {
         guard let last = shownIDs.last, let indexPath = dataSource.indexPath(for: last) else { return }
         collectionView.scrollToItem(at: indexPath, at: .bottom, animated: false)
+    }
+
+    @objc private func revealFocusedAskField() {
+        let cells = collectionView.visibleCells.compactMap { $0 as? ChatMessageCell }
+        guard let frame = cells.lazy.compactMap({ $0.focusedTextFrame(in: self.collectionView) }).first else { return }
+        collectionView.scrollRectToVisible(frame.insetBy(dx: 0, dy: -Self.focusedFieldMargin), animated: true)
     }
 
     private func reconfigureAll() {

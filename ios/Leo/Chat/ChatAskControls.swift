@@ -102,6 +102,12 @@ final class ChatAskControls: UIStackView, UITextViewDelegate {
         textView.isScrollEnabled = fitting > Self.maximumTextHeight
     }
 
+    /// The focused text field's frame in `view`'s coordinates; nil while
+    /// it isn't being edited.
+    func focusedTextFrame(in view: UIView) -> CGRect? {
+        textView.isFirstResponder ? textBox.convert(textBox.bounds, to: view) : nil
+    }
+
     func textViewDidChange(_ textView: UITextView) {
         updateTextLayout()
         onEvent(.text(textView.text))

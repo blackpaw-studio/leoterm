@@ -147,6 +147,11 @@ final class ChatMessageCell: UICollectionViewCell {
         return views
     }
 
+    /// The ask's text field while it is being edited, in `view`'s coordinates.
+    func focusedTextFrame(in view: UIView) -> CGRect? {
+        askControls.superview == nil ? nil : askControls.focusedTextFrame(in: view)
+    }
+
     private func layout(for message: LeoChatMessage) {
         NSLayoutConstraint.deactivate([leading, trailing, centered])
         switch (message.kind, message.direction) {
