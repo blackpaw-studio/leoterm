@@ -27,13 +27,14 @@ public struct LeoPushAlert: Equatable, Sendable {
     public var chat: LeoPushChat?
 
     /// The notification's `userInfo` after decryption: the target, the
-    /// kind and any chat message id.
+    /// kind and any chat message id and kind.
     public var userInfo: [String: String] {
         var info = [
             LeoPushNotification.daemonIDKey: target.daemonID, LeoPushNotification.agentKey: target.agent,
             LeoPushNotification.kindKey: kind,
         ]
         if let messageID = chat?.messageID { info[LeoPushNotification.messageIDKey] = messageID }
+        if let messageKind = chat?.messageKind { info[LeoPushNotification.messageKindKey] = messageKind }
         return info
     }
 
@@ -65,6 +66,7 @@ public enum LeoPushNotification {
     public static let agentKey = "agent"
     public static let kindKey = "kind"
     public static let messageIDKey = "message_id"
+    public static let messageKindKey = "message_kind"
     public static let chatKind = "chat"
 
     /// The decrypted alert, or nil when anything is off (the caller then

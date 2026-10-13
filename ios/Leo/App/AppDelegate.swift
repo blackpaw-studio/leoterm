@@ -102,7 +102,8 @@ extension AppDelegate: @preconcurrency UNUserNotificationCenterDelegate {
             return
         }
         defer { completionHandler() }
-        guard response.actionIdentifier == UNNotificationDefaultActionIdentifier,
+        // A tap, or a Reply on a prompt (refused above): open the thread.
+        guard LeoChatNotificationActions.opensThread(actionIdentifier: response.actionIdentifier, userInfo: userInfo),
               let target = LeoPushNotification.target(userInfo: userInfo) else { return }
         let ref = AgentRef(daemonID: target.daemonID, name: target.agent)
         if LeoPushNotification.isChat(userInfo: userInfo) {
