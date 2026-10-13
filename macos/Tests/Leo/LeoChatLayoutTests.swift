@@ -9,6 +9,20 @@ import Testing
 struct LeoChatLayoutTests {
     private static let threshold = LeoChatLayout.sideBySideMinimumWidth
 
+    @Test func clickingChatWhileTheTerminalShowsOpensChat() {
+        #expect(LeoChatLayout.terminal.choice(afterClicking: .chat) == .chat)
+    }
+
+    @Test(arguments: [LeoChatLayout.chatReplacingTerminal, .sideBySide])
+    func clickingChatWhileChatShowsClosesIt(layout: LeoChatLayout) {
+        #expect(layout.choice(afterClicking: .chat) == .terminal)
+    }
+
+    @Test(arguments: [LeoChatLayout.terminal, .chatReplacingTerminal, .sideBySide])
+    func clickingTerminalAlwaysShowsTheTerminalAlone(layout: LeoChatLayout) {
+        #expect(layout.choice(afterClicking: .terminal) == .terminal)
+    }
+
     @Test(arguments: [0, 800, threshold - 1, threshold, 1300, 2400])
     func terminalChoiceShowsOnlyTheTerminal(width: CGFloat) {
         #expect(LeoChatLayout(contentWidth: width, choice: .terminal) == .terminal)

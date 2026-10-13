@@ -153,7 +153,7 @@ struct LeoAgentControlBarHost: View {
                 HStack {
                     Spacer()
                     LeoAgentViewSwitch(
-                        agentName: row.name, active: layout.activeSegments, choose: { session.choose($0, for: row.id) }
+                        agentName: row.name, active: layout.activeSegments, choose: { session.select($0, for: row.id) }
                     )
                     .chatSegmentBadge(unreadCount: unreadCount)
                 }
@@ -174,7 +174,7 @@ struct LeoAgentControlBarHost: View {
             row: row, availability: availability, control: control, focusRequest: session.controlFocusRequest, handle: handle,
             clear: { Task { await control.clear(row, in: handle.window ?? session.window) } },
             layout: layout,
-            choose: { session.choose($0, for: row.id) },
+            choose: { session.select($0, for: row.id) },
             unreadCount: unreadCount,
             focusChat: session.requestChatFocus
         )

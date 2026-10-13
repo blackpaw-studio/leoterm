@@ -183,6 +183,12 @@ struct LeoWindowVisibilityState: Equatable {
         LeoChatLayout(contentWidth: contentWidth, choice: row.map { viewChoices[$0.id] } ?? .terminal)
     }
 
+    /// A switch segment was clicked: Chat toggles off while chat shows. Reads
+    /// the layout live, so the click sees what is on screen right now.
+    func select(_ clicked: LeoAgentViewChoice, for agent: LeoAgentID) {
+        choose(currentChatLayout.choice(afterClicking: clicked), for: agent)
+    }
+
     /// The switch was clicked: show `choice` and move focus to it.
     func choose(_ choice: LeoAgentViewChoice, for agent: LeoAgentID) {
         viewChoices = viewChoices.setting(choice, for: agent)

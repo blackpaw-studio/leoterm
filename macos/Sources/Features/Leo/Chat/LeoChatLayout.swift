@@ -46,6 +46,13 @@ enum LeoChatLayout: Equatable {
         }
     }
 
+    /// What the switch shows after `clicked` is clicked in this layout: Chat
+    /// is a toggle, so clicking it while chat is on screen closes it. The
+    /// Terminal segment always shows the terminal alone.
+    func choice(afterClicking clicked: LeoAgentViewChoice) -> LeoAgentViewChoice {
+        clicked == .chat && showsChat ? .terminal : clicked
+    }
+
     func chatWidth(in contentWidth: CGFloat) -> CGFloat {
         switch self {
         case .terminal: return 0
