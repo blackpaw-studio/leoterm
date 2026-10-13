@@ -1,4 +1,4 @@
-# Spec: Mac chat unread badges + auto-open on asks
+# Spec: Mac chat unread badges + auto-open on agent messages
 
 **Platform call:** Mac only. Unread counting goes in LeoKit as a plain value type so iOS can use it later. iOS already badges its chat list and tab from `ChatList.unreadTotal`. Moving iOS onto the shared type goes to the autopilot backlog.
 
@@ -20,10 +20,10 @@ On the Mac, show how many unread agent messages each agent has, and switch to Ch
 - Badge styling follows existing Mac conventions (system accent capsule, monospaced digits, light and dark modes).
 
 ### Auto-open
-- Trigger: a **live** agent-sent message with `kind` `ask` or `permission` and `state == "open"`, from the agent that is selected in a window.
+- Trigger: any **live** agent-sent message (any kind: text, file, voice, task, ask, permission), from the agent that is selected in a window. (Changed 2026-10-13: was open asks/permissions only.)
 - Effect: in every window where that agent is selected and Terminal is the current choice, call `LeoWindowSession.choose(.chat, for:)`. Keyboard focus follows the existing chat focus rules.
 - It does **not** activate or raise the app, and it does not change the selected agent.
-- It never fires for messages loaded by seed, resync, or history paging. It never fires for text, file, voice, task, or system messages; those only add to the badge.
+- It never fires for messages loaded by seed, resync, or history paging, for updates to existing messages, or for user/system messages.
 - If chat is already visible (chat view or side-by-side layout), nothing changes.
 
 ## Out of scope
@@ -34,5 +34,5 @@ On the Mac, show how many unread agent messages each agent has, and switch to Ch
 
 ## Testing
 - LeoKit unit tests for the unread store: seed, agent-message increment, user messages ignored, on-screen suppression, clear on read, resync re-seed overwrites live counts.
-- Mac tests for the auto-open decision: open ask or permission from the selected agent → chat; other kinds, other agents, resync or history, or chat already visible → no switch.
+- Mac tests for the auto-open decision: any live agent message from the selected agent → chat; user/system messages, updates, other agents, resync or history, or chat already visible → no switch.
 - Badge visuals are verified with a screenshot of the running debug app, not unit tests.
