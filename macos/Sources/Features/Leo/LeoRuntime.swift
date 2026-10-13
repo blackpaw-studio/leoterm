@@ -289,12 +289,12 @@ import LeoKit
         self.chat = chat
         let chatRelay = LeoOrderedRelay<LeoChatFeedDelivery> { [weak chat, weak unread, weak registry] delivery in
             // Count first (a shown, read agent doesn't count), then let a
-            // window showing the asking agent's terminal open Chat, then the
+            // window showing the sending agent's terminal open Chat, then the
             // pane merges the message and marks it read.
             await MainActor.run {
                 unread?.receive(delivery, isOnScreen: { chat?.marksRead($0) ?? false })
-                if let agent = LeoChatAutoOpen.agent(asking: delivery) {
-                    registry?.sessions.forEach { $0.openChatIfAsked(by: agent) }
+                if let agent = LeoChatAutoOpen.agent(sending: delivery) {
+                    registry?.sessions.forEach { $0.openChatIfSent(by: agent) }
                 }
             }
             await chat?.handle(delivery)

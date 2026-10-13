@@ -216,10 +216,10 @@ struct LeoWindowVisibilityState: Equatable {
     /// a terminal row of this window is selected instead.
     var shownAgent: LeoAgentID? { terminals.selection == nil ? selectedAgent() : nil }
 
-    /// `agent` asked for an answer: show its chat here if this window shows
+    /// `agent` sent a message: show its chat here if this window shows
     /// its terminal. Never selects the agent or activates the app; keyboard
     /// focus follows `choose`.
-    func openChatIfAsked(by agent: LeoAgentID) {
+    func openChatIfSent(by agent: LeoAgentID) {
         guard LeoChatAutoOpen.shouldOpen(agent, shown: shownAgent, layout: currentChatLayout) else { return }
         choose(.chat, for: agent)
     }
