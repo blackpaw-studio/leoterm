@@ -25,6 +25,7 @@ On the Mac, show how many unread agent messages each agent has, and switch to Ch
 - It does **not** activate or raise the app, and it does not change the selected agent.
 - It never fires for messages loaded by seed, resync, or history paging, for updates to existing messages, or for user/system messages.
 - If chat is already visible (chat view or side-by-side layout), nothing changes.
+- **Terminal-answerable prompts (added 2026-10-13):** `kind == permission` messages mirror a Claude TUI permission dialog that is also answerable in the terminal (daemon: `internal/chat/prompts.go` RequestPermission; terminal answers settle as `answered` with `answer.values == ["terminal"]`). `kind == ask` (leo_chat_ask) is chat-only. Therefore: a live `permission` message does **not** auto-open chat in a window showing that agent's terminal; `ask` and all other kinds still do. For on-selection opening, a window does not switch to Chat when the agent's most recent agent-sent message (thread `lastMessage`) is a `permission`; unread counts carry no per-kind breakdown, so this is the deliberate approximation.
 - **On selection (added 2026-10-13):** when a window selects an agent whose unread chat count is > 0 and that agent's choice in the window is Terminal, the window switches to Chat (`choose(.chat, for:)`). This covers messages that arrived while the agent wasn't selected, while the app was closed (seeded counts), and new windows. Once read (count 0), selection keeps the remembered choice as before. Selection itself is never changed.
 
 ## Out of scope
