@@ -13,6 +13,9 @@ import LeoKit
     /// The kind of each agent's latest agent-sent message: seeded from the
     /// threads' `lastMessage`, then kept current by live messages.
     private var latestKinds: [LeoAgentID: LeoChatMessage.Kind] = [:]
+    /// Kinds that arrived live since the latest seed began: the seed's
+    /// answer may predate them, so they win when it lands.
+    private var liveKindsSinceSeedBegan: [LeoAgentID: LeoChatMessage.Kind] = [:]
 
     private var client: any LeoChatClient
     private var host: LeoHostID
@@ -61,7 +64,10 @@ import LeoKit
         switch delivery.signal {
         case .event(let event):
             let agent = LeoAgentID(host: host, name: event.message.agent)
-            if case .message(let message) = event, message.isFromAgent { latestKinds[agent] = message.kind }
+            if case .message(let message) = event, message.isFromAgent {
+                latestKinds[agent] = message.kind
+                liveKindsSinceSeedBegan[agent] = message.kind
+            }
             counts = counts.receiving(event, host: host, isOnScreen: isOnScreen(agent))
         case .resync:
             seed()
@@ -77,6 +83,7 @@ import LeoKit
         seedTask?.cancel()
         seedToken += 1
         readSinceSeedBegan = []
+        liveKindsSinceSeedBegan = [:]
         let (token, client, host) = (seedToken, client, host)
         seedTask = Task { [weak self] in
             guard let threads = try? await client.threads() else { return }
@@ -86,12 +93,22 @@ import LeoKit
                 if readSinceSeedBegan.contains(LeoAgentID(host: host, name: thread.agent)) { thread.unread = 0 }
                 return thread
             }
-            latestKinds = latestKinds.filter { $0.key.host != host }.merging(
-                threads.compactMap { thread in
-                    thread.lastMessage.flatMap { $0.isFromAgent ? (LeoAgentID(host: host, name: thread.agent), $0.kind) : nil }
-                }, uniquingKeysWith: { _, seeded in seeded }
-            )
+            latestKinds = seededKinds(from: threads, host: host)
             counts = counts.seeding(unreadAfterReads, host: host)
         }
+    }
+
+    /// The latest agent kinds after a seed: a live kind since the seed began
+    /// wins; else the thread's last message if the agent sent it; else the
+    /// kind already known (the last message was yours, which says nothing
+    /// about the agent's latest).
+    private func seededKinds(from threads: [LeoChatThread], host: LeoHostID) -> [LeoAgentID: LeoChatMessage.Kind] {
+        let fromThreads = threads.compactMap { thread -> (LeoAgentID, LeoChatMessage.Kind)? in
+            guard let last = thread.lastMessage, last.isFromAgent else { return nil }
+            return (LeoAgentID(host: host, name: thread.agent), last.kind)
+        }
+        return latestKinds
+            .merging(fromThreads, uniquingKeysWith: { _, seeded in seeded })
+            .merging(liveKindsSinceSeedBegan, uniquingKeysWith: { _, live in live })
     }
 }

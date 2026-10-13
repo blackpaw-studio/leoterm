@@ -146,6 +146,36 @@ struct LeoChatUnreadStoreTests {
         #expect(store.count(for: Self.beta) == 2)
     }
 
+    @Test func aLiveKindDuringAnInFlightSeedSurvivesTheSeedLanding() async {
+        await client.setThreads([LeoChatThread(agent: "alpha", lastMessage: chatMessage("a", kind: .ask, at: 1), unread: 1)])
+        await client.holdThreads()
+        let store = make()
+        store.receive(LeoChatFeedDelivery(host: .local, signal: .resync), isOnScreen: { _ in false })
+        await client.waitForThreadRequests(1)
+        event(store, chatMessage("p", kind: .permission, at: 2))
+        await client.releaseThreads()
+        await store.settled()
+        #expect(store.latestAgentKind(for: Self.alpha) == .permission)
+    }
+
+    @Test func aSeedStillReplacesAKindThatArrivedBeforeItBegan() async {
+        await client.setThreads([LeoChatThread(agent: "alpha", lastMessage: chatMessage("a", kind: .ask, at: 5), unread: 1)])
+        let store = make()
+        event(store, chatMessage("p", kind: .permission, at: 1))
+        await resync(store)
+        #expect(store.latestAgentKind(for: Self.alpha) == .ask)
+    }
+
+    @Test func aResyncWhoseLastMessageIsYoursKeepsTheKnownAgentKind() async {
+        let store = make()
+        event(store, chatMessage("p", kind: .permission, at: 1))
+        await client.setThreads([
+            LeoChatThread(agent: "alpha", lastMessage: chatMessage("u", direction: .inbound, at: 2), unread: 1)
+        ])
+        await resync(store)
+        #expect(store.latestAgentKind(for: Self.alpha) == .permission)
+    }
+
     @Test func aReadBeforeTheNextSeedDoesNotSuppressIt() async {
         await client.setThreads([LeoChatThread(agent: "alpha", unread: 3)])
         let store = make()
