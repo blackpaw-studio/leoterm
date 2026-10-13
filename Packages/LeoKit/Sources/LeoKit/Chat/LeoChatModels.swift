@@ -118,6 +118,8 @@ public struct LeoChatMessage: Codable, Equatable, Identifiable, Sendable {
 
     /// An `ask` or `permission` still waiting for an answer.
     public var isOpen: Bool { (kind == .ask || kind == .permission) && state == "open" }
+    /// Sent by the agent to the user (wire `out`), as opposed to your own message.
+    public var isFromAgent: Bool { direction == .outbound }
     public var isFailed: Bool { state == "failed" }
     public var isPending: Bool { direction == .inbound && state == "pending" }
 
