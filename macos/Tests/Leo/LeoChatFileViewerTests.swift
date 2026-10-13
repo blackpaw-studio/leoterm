@@ -143,6 +143,68 @@ struct LeoChatFileViewerTests {
         #expect(LeoFindableTextView.owner(of: editor) === target)
     }
 
+    // MARK: Find keys
+
+    private func keyDown(_ key: String, _ modifiers: NSEvent.ModifierFlags, in window: NSWindow? = nil) -> NSEvent {
+        NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: ProcessInfo.processInfo.systemUptime,
+            windowNumber: window?.windowNumber ?? 0, context: nil, characters: key, charactersIgnoringModifiers: key,
+            isARepeat: false, keyCode: 0
+        )!
+    }
+
+    @Test(arguments: [
+        ("f", NSEvent.ModifierFlags.command, NSTextFinder.Action.showFindInterface),
+        ("g", NSEvent.ModifierFlags.command, NSTextFinder.Action.nextMatch),
+        ("g", NSEvent.ModifierFlags([.command, .shift]), NSTextFinder.Action.previousMatch),
+    ])
+    func findShortcutsMapToFinderActions(key: String, modifiers: NSEvent.ModifierFlags, action: NSTextFinder.Action) {
+        #expect(LeoFindableTextView.finderAction(for: keyDown(key, modifiers)) == action)
+    }
+
+    @Test(arguments: [
+        ("f", NSEvent.ModifierFlags()),
+        ("f", NSEvent.ModifierFlags([.command, .option])),
+        ("f", NSEvent.ModifierFlags([.command, .control])),
+        ("g", NSEvent.ModifierFlags([.command, .option])),
+        ("x", NSEvent.ModifierFlags.command),
+        ("e", NSEvent.ModifierFlags.command),
+    ])
+    func otherKeysAreNotFindShortcuts(key: String, modifiers: NSEvent.ModifierFlags) {
+        #expect(LeoFindableTextView.finderAction(for: keyDown(key, modifiers)) == nil)
+    }
+
+    /// ⌘F is a performable terminal binding, so Ghostty gives Edit ▸ Find no
+    /// key equivalent; nothing but the focused text can answer the keystroke.
+    @Test(arguments: [("notes.txt", false), ("notes.md", true)])
+    func commandFOpensTheFindBarWhileTheTextHasFocus(filename: String, rendered: Bool) throws {
+        let body = LeoChatViewerDocument.Body.text("hello world", rendered ? .rendered(.markdown) : .text)
+        let (viewer, window) = viewerInWindow(try document(filename, body: body))
+        let target = try #require(viewer.contentHost.focusTarget as? NSTextView)
+        window.makeFirstResponder(target)
+        let scrollView = try #require(target.enclosingScrollView)
+        #expect(window.performKeyEquivalent(with: keyDown("f", .command, in: window)))
+        #expect(scrollView.isFindBarVisible)
+    }
+
+    @Test func commandGFromTheSearchFieldStillDrivesTheFindBar() throws {
+        let (viewer, window) = viewerInWindow(try document("notes.txt", body: .text("hello", .text)))
+        let target = try #require(viewer.contentHost.focusTarget as? NSTextView)
+        window.makeFirstResponder(target)
+        _ = target.tryToPerform(Selector(("find:")), with: nil)
+        let field = try #require(target.enclosingScrollView?.findBarView?.firstDescendant(of: NSSearchField.self))
+        window.makeFirstResponder(field)
+        #expect(window.performKeyEquivalent(with: keyDown("g", .command, in: window)))
+    }
+
+    @Test func commandFIsLeftAloneWhenTheTextDoesNotHaveFocus() throws {
+        let (viewer, window) = viewerInWindow(try document("notes.txt", body: .text("hello", .text)))
+        let target = try #require(viewer.contentHost.focusTarget as? NSTextView)
+        window.makeFirstResponder(nil)
+        #expect(!window.performKeyEquivalent(with: keyDown("f", .command, in: window)))
+        #expect(target.enclosingScrollView?.isFindBarVisible == false)
+    }
+
     @Test func aResponderOutsideTheViewerHasNoFindOwner() {
         let other = NSTextView()
         #expect(LeoFindableTextView.owner(of: other) == nil)
