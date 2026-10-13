@@ -64,6 +64,8 @@ struct LeoWindowVisibilityState: Equatable {
     /// The agent the sidebar has selected right now (nil for a terminal
     /// row, or none). Wired by the runtime, which owns the selection.
     var selectedAgent: () -> LeoAgentID? = { nil }
+    /// Unread chat messages per agent, wired by the runtime from its store.
+    var unreadCount: (LeoAgentID) -> Int = { _ in 0 }
     @Published var windowIsOccluded = false { didSet { changed(); markShownIfVisible() } }
     @Published var windowIsMiniaturized = false { didSet { changed(); markShownIfVisible() } }
     var displayedWidth: CGFloat { min(max(preferredWidth, 200), 420) }
@@ -128,6 +130,7 @@ struct LeoWindowVisibilityState: Equatable {
     private var defaultsObserver: NSObjectProtocol?
     private var visibility = LeoWindowVisibilityState()
     private var activePaneSubscription: AnyCancellable?
+    private var terminalSelectionSubscription: AnyCancellable?
 
     init(
         id: LeoWindowID = LeoWindowID(),
@@ -165,6 +168,14 @@ struct LeoWindowVisibilityState: Equatable {
             }
         }
         observeWindow()
+        // Leaving a shell row for the agent row is a selection too. A turn
+        // later, so the row's selection reads the new value.
+        terminalSelectionSubscription = terminals.$selection.dropFirst().removeDuplicates().sink { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                selectionChanged(unreadCount: unreadCount)
+            }
+        }
         // `@Published` sends before it stores: the pane is the new value.
         activePaneSubscription = panes.$active.sink { [weak self] pane in
             MainActor.assumeIsolated {
