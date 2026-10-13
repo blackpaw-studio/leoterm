@@ -215,7 +215,7 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
     private func handle(_ event: ChatMessageCell.Event, message: LeoChatMessage) {
         switch event {
         case .answer(let value):
-            store.send(.answerTapped(messageID: message.id, value: value))
+            store.send(.askChoiceTapped(messageID: message.id, value: value))
         case .expand:
             store.send(.expandToggled(message.id))
         case .openAttachment(let attachment):
