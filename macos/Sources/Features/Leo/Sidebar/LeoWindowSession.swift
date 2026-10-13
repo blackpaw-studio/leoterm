@@ -125,6 +125,9 @@ struct LeoWindowVisibilityState: Equatable {
     private let defaults: UserDefaults
     private let onPollabilityChanged: () -> Void
     private(set) weak var window: NSWindow?
+
+    /// Whether a terminal surface holds the keyboard right now. Replaced in tests.
+    lazy var isTerminalFocused: () -> Bool = { [weak self] in self?.window?.firstResponder is Ghostty.SurfaceView }
     private var observers: [NSObjectProtocol] = []
     /// Keeps `preferredChatWidth` in step with writes from other windows.
     private var defaultsObserver: NSObjectProtocol?
@@ -279,10 +282,20 @@ struct LeoWindowVisibilityState: Equatable {
 
     /// `agent` sent a message: show its chat here if this window shows
     /// its terminal. Never selects the agent or activates the app; keyboard
-    /// focus follows `choose`.
+    /// focus follows `autoOpenChat`.
     func openChatIfSent(by agent: LeoAgentID) {
         guard LeoChatAutoOpen.shouldOpen(agent, shown: shownAgent, layout: currentChatLayout) else { return }
-        choose(.chat, for: agent)
+        autoOpenChat(for: agent)
+    }
+
+    /// Shows `agent`'s chat without the user asking: the keyboard moves only
+    /// when chat covers a terminal that held it (`LeoChatAutoOpen`).
+    private func autoOpenChat(for agent: LeoAgentID) {
+        let terminalHadFocus = isTerminalFocused()
+        isAwaitingUnreadCheck = false
+        viewChoices = viewChoices.setting(.chat, for: agent)
+        guard LeoChatAutoOpen.shouldFocusChat(layout: currentChatLayout, terminalHadFocus: terminalHadFocus) else { return }
+        requestChatFocus()
     }
 
     /// The selection moved (or this window just came up on it): if the
@@ -303,7 +316,7 @@ struct LeoWindowVisibilityState: Equatable {
     private func openChatIfUnread(unreadCount: (LeoAgentID) -> Int) {
         guard let agent = shownAgent,
               LeoChatAutoOpen.shouldOpenOnSelect(unread: unreadCount(agent), layout: currentChatLayout) else { return }
-        choose(.chat, for: agent)
+        autoOpenChat(for: agent)
     }
 
     /// Hands `move` a gate to ask when the focus move actually runs, on

@@ -23,4 +23,11 @@ enum LeoChatAutoOpen {
     static func shouldOpenOnSelect(unread: Int, layout: LeoChatLayout) -> Bool {
         unread > 0 && layout == .terminal
     }
+
+    /// Whether an auto-open moves the keyboard to the composer: only when
+    /// chat now covers a terminal that held it. A visible terminal keeps
+    /// focus, and focus elsewhere (another pane, a field) is left alone.
+    static func shouldFocusChat(layout: LeoChatLayout, terminalHadFocus: Bool) -> Bool {
+        terminalHadFocus && !layout.isTerminalVisible
+    }
 }
