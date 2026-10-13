@@ -80,4 +80,37 @@ struct LeoChatFileViewerTests {
             ) == closes
         )
     }
+
+    // MARK: Find
+
+    /// Find… is wired to `find:` (the terminal's search), which a text view
+    /// doesn't answer; the viewer's text views must, or ⌘F shows nothing.
+    private func viewerInWindow(_ document: LeoChatViewerDocument) -> (LeoChatFileViewerView, NSWindow) {
+        let viewer = makeViewer()
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
+        window.contentView = viewer
+        viewer.show(document)
+        viewer.layoutSubtreeIfNeeded()
+        return (viewer, window)
+    }
+
+    @Test(arguments: [("notes.txt", false), ("notes.md", true)])
+    func findShowsTheFindBarInTheShownText(filename: String, rendered: Bool) throws {
+        let body = LeoChatViewerDocument.Body.text("hello world", rendered ? .rendered(.markdown) : .text)
+        let (viewer, window) = viewerInWindow(try document(filename, body: body))
+        let target = try #require(viewer.contentHost.focusTarget as? NSTextView)
+        window.makeFirstResponder(target)
+        let scrollView = try #require(target.enclosingScrollView)
+        #expect(target.usesFindBar)
+        #expect(!scrollView.isFindBarVisible)
+        #expect(target.tryToPerform(Selector(("find:")), with: nil))
+        #expect(scrollView.isFindBarVisible)
+    }
+
+    @Test(arguments: ["findNext:", "findPrevious:"])
+    func findNextAndPreviousAreAnsweredByTheShownText(action: String) throws {
+        let (viewer, _) = viewerInWindow(try document("notes.md", body: .text("hello", .rendered(.markdown))))
+        let target = try #require(viewer.contentHost.focusTarget as? NSTextView)
+        #expect(target.responds(to: Selector((action))))
+    }
 }

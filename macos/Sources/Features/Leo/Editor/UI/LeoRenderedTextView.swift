@@ -3,7 +3,7 @@ import AppKit
 /// Rendered Markdown (B-278): a read-only, selectable TextKit 1 text view
 /// (`NSTextTable` needs TextKit 1). A link click opens only a web or mail
 /// link, in the default browser or mail app; nothing else is followed.
-final class LeoRenderedTextView: NSTextView, NSTextViewDelegate {
+final class LeoRenderedTextView: LeoFindableTextView, NSTextViewDelegate {
     static func make() -> (NSScrollView, LeoRenderedTextView) {
         let scrollView = NSScrollView()
         scrollView.hasVerticalScroller = true
@@ -33,6 +33,8 @@ final class LeoRenderedTextView: NSTextView, NSTextViewDelegate {
         textView.backgroundColor = .textBackgroundColor
         textView.textContainerInset = NSSize(width: 14, height: 12)
         textView.isAutomaticLinkDetectionEnabled = false
+        textView.usesFindBar = true
+        textView.isIncrementalSearchingEnabled = true
         textView.delegate = textView
         textView.setAccessibilityLabel("Rendered Markdown")
         scrollView.documentView = textView
