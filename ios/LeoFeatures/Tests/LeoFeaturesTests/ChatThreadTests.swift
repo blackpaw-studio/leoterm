@@ -359,6 +359,58 @@ struct ChatThreadTests {
         }
     }
 
+    /// The newest page no longer reaches a settled ask loaded further back:
+    /// the page just above it brings its settled copy, then the thread resyncs.
+    @Test func aSettledAskOlderThanTheNewestPageIsRefreshedItself() async throws {
+        let ask = try Self.ask(.radio)
+        let expired = LeoChatMessage.make("01", "Which?", kind: .ask, state: "expired", input: ask.input)
+        let newer = LeoChatMessage.make("02", "later", second: 1)
+        let queries = LockIsolated<[LeoChatPageQuery]>([])
+        var state = Self.state()
+        state.messages = [ask, newer]
+        state.askDrafts["01"] = LeoChatAskDraft(selected: ["a"])
+        let store = TestStore(initialState: state) {
+            ChatThread()
+        } withDependencies: {
+            Self.withSecrets(&$0)
+            $0.chatClient.answer = { _, _, _, _ in throw LeoChatAnswerError.settled }
+            $0.chatClient.messages = { _, _, query in
+                queries.withValue { $0.append(query) }
+                return LeoChatPage(messages: query.before == "02" ? [expired] : [newer], hasMore: true)
+            }
+        }
+
+        await store.send(.askSubmitTapped(messageID: "01")) { $0.answering = ["01"] }
+        await store.receive(\.answerResponse) {
+            $0.answering = []
+            $0.askDrafts = [:]
+        }
+        await store.receive(\.settledMessageResponse) { $0.messages[id: "01"] = expired }
+        await store.receive(\.resync) { $0.isLoading = true }
+        await store.receive(\.pageResponse.success) {
+            $0.isLoading = false
+            $0.hasMore = true
+        }
+        #expect(queries.value.first == LeoChatPageQuery(before: "02", limit: 1))
+    }
+
+    @Test func aClearedRadioChoiceSubmitsTextOnly() async throws {
+        let ask = try Self.ask(.radio, allowsText: true)
+        let answers = LockIsolated<[LeoChatAnswer]>([])
+        let store = Self.store([ask], answers: answers)
+
+        await store.send(.askChoiceTapped(messageID: "01", value: "a")) { $0.askDrafts["01"] = LeoChatAskDraft(selected: ["a"]) }
+        await store.send(.askChoiceTapped(messageID: "01", value: "a")) { $0.askDrafts["01"] = LeoChatAskDraft() }
+        await store.send(.askTextChanged(messageID: "01", "neither")) { $0.askDrafts["01"] = LeoChatAskDraft(text: "neither") }
+        await store.send(.askSubmitTapped(messageID: "01")) { $0.answering = ["01"] }
+        await store.receive(\.answerResponse) {
+            $0.answering = []
+            $0.askDrafts = [:]
+            $0.messages[id: "01"] = ask.answered(LeoChatAnswer(values: [], text: "neither"))
+        }
+        #expect(answers.value == [LeoChatAnswer(values: [], text: "neither")])
+    }
+
     @Test func aRefusedAnswerAlertsWithTheDaemonsReasonAndKeepsTheDraft() async throws {
         var state = Self.state()
         state.messages = [try Self.ask(.radio, allowsText: true)]
