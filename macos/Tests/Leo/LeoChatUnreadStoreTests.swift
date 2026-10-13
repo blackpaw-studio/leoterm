@@ -98,4 +98,27 @@ struct LeoChatUnreadStoreTests {
         await resync(store)
         #expect(store.count(for: Self.alpha) == 3)
     }
+
+    @Test func aReadWhileASeedIsInFlightStaysClearedWhenTheSeedLands() async {
+        await client.setThreads([LeoChatThread(agent: "alpha", unread: 3), LeoChatThread(agent: "beta", unread: 2)])
+        await client.holdThreads()
+        let store = make()
+        store.receive(LeoChatFeedDelivery(host: .local, signal: .resync), isOnScreen: { _ in false })
+        await client.waitForThreadRequests(1)
+        store.clear(Self.alpha)
+        await client.releaseThreads()
+        await store.settled()
+        #expect(store.count(for: Self.alpha) == 0)
+        #expect(store.count(for: Self.beta) == 2)
+    }
+
+    @Test func aReadBeforeTheNextSeedDoesNotSuppressIt() async {
+        await client.setThreads([LeoChatThread(agent: "alpha", unread: 3)])
+        let store = make()
+        await resync(store)
+        store.clear(Self.alpha)
+        await client.setThreads([LeoChatThread(agent: "alpha", unread: 1)])
+        await resync(store)
+        #expect(store.count(for: Self.alpha) == 1)
+    }
 }

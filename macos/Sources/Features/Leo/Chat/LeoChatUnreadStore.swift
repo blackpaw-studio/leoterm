@@ -16,6 +16,9 @@ import LeoKit
     private var seedTask: Task<Void, Never>?
     /// Identifies the seed whose answer still counts.
     private var seedToken = 0
+    /// Agents read since the latest seed began: its answer may predate the
+    /// read, so they stay at 0 when it lands.
+    private var readSinceSeedBegan: Set<LeoAgentID> = []
 
     init(client: any LeoChatClient, host: LeoHostID) {
         self.client = client
@@ -42,6 +45,7 @@ import LeoKit
     func count(for agent: LeoAgentID) -> Int { counts[agent] }
 
     func clear(_ agent: LeoAgentID) {
+        readSinceSeedBegan.insert(agent)
         guard counts[agent] > 0 else { return }
         counts = counts.clearing(agent)
     }
@@ -66,11 +70,17 @@ import LeoKit
     private func seed() {
         seedTask?.cancel()
         seedToken += 1
+        readSinceSeedBegan = []
         let (token, client, host) = (seedToken, client, host)
         seedTask = Task { [weak self] in
             guard let threads = try? await client.threads() else { return }
             guard let self, token == self.seedToken else { return }
-            counts = counts.seeding(threads, host: host)
+            let unreadAfterReads = threads.map { thread in
+                var thread = thread
+                if readSinceSeedBegan.contains(LeoAgentID(host: host, name: thread.agent)) { thread.unread = 0 }
+                return thread
+            }
+            counts = counts.seeding(unreadAfterReads, host: host)
         }
     }
 }
