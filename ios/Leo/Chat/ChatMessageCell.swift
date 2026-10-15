@@ -128,9 +128,10 @@ final class ChatMessageCell: UICollectionViewCell {
         if message.kind == .task { views.append(linkButton(String(localized: "Reply")) { $0(.reply) }) }
 
         // The time closes a group; a delivery problem shows wherever it happens.
-        let state = ChatPresentation.stateLine(message)
         let endsGroup = model.position == .single || model.position == .last
-        if message.kind != .system, message.kind != .task, endsGroup || state != nil {
+        let hasProblem = message.isFailed || message.isPending
+        let state = endsGroup || hasProblem ? ChatPresentation.stateLine(message) : nil
+        if message.kind != .system, message.kind != .task, endsGroup || hasProblem {
             footer.text = [endsGroup ? ChatPresentation.time(message.ts) : nil, state].compactMap { $0 }.joined(separator: " · ")
             footer.textColor = Self.isMine(message) ? Self.onTintSecondary : (message.isFailed ? .systemRed : .secondaryLabel)
             footer.textAlignment = message.direction == .inbound ? .right : .left
