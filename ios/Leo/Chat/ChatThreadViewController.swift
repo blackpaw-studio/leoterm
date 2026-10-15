@@ -24,7 +24,9 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
     private let filterButton = UIBarButtonItem(image: UIImage(systemName: "line.3.horizontal.decrease.circle"))
     private let voice = VoicePlayer()
     private var shownIDs: [String] = []
-    private var shownMessages: [String: LeoChatMessage] = [:]
+    private var shownItems: [String: LeoChatTranscript.Item] = [:]
+    /// The gap above each shown item (`LeoChatTranscript.spacing`).
+    private var shownSpacing: [String: CGFloat] = [:]
     private var pendingPlay: String?
 
     init(store: StoreOf<ChatThread>) {
@@ -76,6 +78,8 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         // An ask's text field sits in the thread, not the composer: once the
         // keyboard is up, bring the field above it.
         NotificationCenter.default.addObserver(self, selector: #selector(revealFocusedAskField), name: UIResponder.keyboardDidShowNotification, object: nil)
+        // "Today" in a time header goes stale at midnight or on a clock or zone change.
+        NotificationCenter.default.addObserver(self, selector: #selector(reconfigureTimeHeaders), name: UIApplication.significantTimeChangeNotification, object: nil)
 
         present(item: $store.scope(state: \.alert, action: \.alert)) { store in
             UIAlertController(store: store)
@@ -103,18 +107,24 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
     }
 
     private func configureDataSource() {
-        let registration = UICollectionView.CellRegistration<ChatMessageCell, String> { [weak self] cell, _, id in
-            guard let self, let message = shownMessages[id] else { return }
-            let previous = store.messages.index(id: id).flatMap { $0 > 0 ? store.messages[$0 - 1] : nil }
+        let messageCell = UICollectionView.CellRegistration<ChatMessageCell, String> { [weak self] cell, _, id in
+            guard let self, case .message(let message, let position)? = shownItems[id] else { return }
             let model = ChatMessageCell.Model(
                 message: message, isAnswering: store.answering.contains(id),
-                draft: store.askDrafts[id] ?? LeoChatAskDraft(), continuesPost: message.continuesPost(after: previous),
+                draft: store.askDrafts[id] ?? LeoChatAskDraft(), position: position, topSpacing: shownSpacing[id] ?? 0,
                 files: store.attachmentFiles, playingAttachmentID: voice.playingID
             )
             cell.configure(model) { [weak self] event in self?.handle(event, message: message) }
         }
-        dataSource = UICollectionViewDiffableDataSource(collectionView: collectionView) { collectionView, indexPath, id in
-            collectionView.dequeueConfiguredReusableCell(using: registration, for: indexPath, item: id)
+        let headerCell = UICollectionView.CellRegistration<ChatTimeHeaderCell, String> { [weak self] cell, _, id in
+            guard let self, case .timeHeader(let date, _)? = shownItems[id] else { return }
+            cell.configure(date: date, id: id, topSpacing: shownSpacing[id] ?? 0)
+        }
+        dataSource = UICollectionViewDiffableDataSource(collectionView: collectionView) { [weak self] collectionView, indexPath, id in
+            if case .timeHeader? = self?.shownItems[id] {
+                return collectionView.dequeueConfiguredReusableCell(using: headerCell, for: indexPath, item: id)
+            }
+            return collectionView.dequeueConfiguredReusableCell(using: messageCell, for: indexPath, item: id)
         }
     }
 
@@ -124,13 +134,17 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         renderFilterMenu()
         renderReplyBanner()
 
-        let messages = store.messages
-        let ids = messages.ids.elements
-        let changed = ids.filter { shownMessages[$0] != messages[id: $0] }
+        let items = LeoChatTranscript.items(for: Array(store.messages))
+        let ids = items.map(\.id)
+        let newItems = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
+        let changed = ids.filter { shownItems[$0] != newItems[$0] }
         let wasAtBottom = isNearBottom
         let prepended = !shownIDs.isEmpty && ids.count > shownIDs.count && ids.last == shownIDs.last
         let previousHeight = collectionView.contentSize.height
-        shownMessages = Dictionary(uniqueKeysWithValues: messages.map { ($0.id, $0) })
+        shownItems = newItems
+        shownSpacing = Dictionary(uniqueKeysWithValues: items.enumerated().map { index, item in
+            (item.id, LeoChatTranscript.spacing(above: item, after: index > 0 ? items[index - 1] : nil))
+        })
 
         var snapshot = NSDiffableDataSourceSnapshot<Int, String>()
         snapshot.appendSections([0])
@@ -219,6 +233,12 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         collectionView.scrollRectToVisible(frame.insetBy(dx: 0, dy: -Self.focusedFieldMargin), animated: true)
     }
 
+    @objc private func reconfigureTimeHeaders() {
+        var snapshot = dataSource.snapshot()
+        snapshot.reconfigureItems(snapshot.itemIdentifiers.filter { if case .timeHeader? = shownItems[$0] { true } else { false } })
+        dataSource.apply(snapshot, animatingDifferences: false)
+    }
+
     private func reconfigureAll() {
         var snapshot = dataSource.snapshot()
         snapshot.reconfigureItems(snapshot.itemIdentifiers)
@@ -265,7 +285,7 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
     // MARK: UICollectionViewDelegate
 
     func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
-        guard let id = dataSource.itemIdentifier(for: indexPath), let message = shownMessages[id] else { return }
+        guard let id = dataSource.itemIdentifier(for: indexPath), case .message(let message, _)? = shownItems[id] else { return }
         // Images show inline, so they load as they scroll into view.
         for attachment in message.attachments where attachment.isImage && attachment.available && store.attachmentFiles[attachment.id] == nil {
             store.send(.attachmentNeeded(attachment))

@@ -23,14 +23,14 @@ final class ChatMessageCell: UICollectionViewCell {
         let message: LeoChatMessage
         let isAnswering: Bool
         let draft: LeoChatAskDraft
-        let continuesPost: Bool
+        let position: LeoChatTranscript.GroupPosition
+        /// The gap above this cell, from `LeoChatTranscript.spacing`.
+        let topSpacing: CGFloat
         let files: [String: ChatThread.AttachmentFile]
         let playingAttachmentID: String?
     }
 
-    private static let bubbleSpacing: CGFloat = 3
-
-    private let bubble = UIView()
+    private let bubble = ChatBubbleView()
     private let stack = UIStackView()
     private let header = UILabel()
     private let body = UILabel()
@@ -45,8 +45,6 @@ final class ChatMessageCell: UICollectionViewCell {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        bubble.layer.cornerRadius = 18
-        bubble.layer.cornerCurve = .continuous
         bubble.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(bubble)
         stack.axis = .vertical
@@ -65,10 +63,10 @@ final class ChatMessageCell: UICollectionViewCell {
         leading = bubble.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12)
         trailing = bubble.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12)
         centered = bubble.centerXAnchor.constraint(equalTo: contentView.centerXAnchor)
-        top = bubble.topAnchor.constraint(equalTo: contentView.topAnchor, constant: Self.bubbleSpacing)
+        top = bubble.topAnchor.constraint(equalTo: contentView.topAnchor)
         NSLayoutConstraint.activate([
             top,
-            bubble.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -3),
+            bubble.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
             bubble.widthAnchor.constraint(lessThanOrEqualTo: contentView.widthAnchor, multiplier: 0.82),
             bubble.leadingAnchor.constraint(greaterThanOrEqualTo: contentView.leadingAnchor, constant: 12),
             bubble.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -12),
@@ -86,8 +84,8 @@ final class ChatMessageCell: UICollectionViewCell {
         self.onEvent = onEvent
         askControls.onEvent = onEvent
         let message = model.message
-        layout(for: message)
-        top.constant = model.continuesPost ? 0 : Self.bubbleSpacing
+        layout(for: message, position: model.position)
+        top.constant = model.topSpacing
         accessibilityIdentifier = "chat.message.\(message.id)"
         let views = contentViews(model)
         // Everything is rebuilt but the ask controls, which stay in place
@@ -118,7 +116,7 @@ final class ChatMessageCell: UICollectionViewCell {
         let text = message.displayText
         if !text.isEmpty {
             body.text = text
-            body.textColor = message.kind == .system ? .secondaryLabel : .label
+            body.textColor = message.kind == .system ? .secondaryLabel : (Self.isMine(message) ? Self.onTint : .label)
             body.font = .preferredFont(forTextStyle: message.kind == .system ? .footnote : .body)
             body.textAlignment = message.kind == .system ? .center : .natural
             body.numberOfLines = 0
@@ -129,10 +127,12 @@ final class ChatMessageCell: UICollectionViewCell {
         views += promptViews(model)
         if message.kind == .task { views.append(linkButton(String(localized: "Reply")) { $0(.reply) }) }
 
+        // The time closes a group; a delivery problem shows wherever it happens.
         let state = ChatPresentation.stateLine(message)
-        if message.kind != .system, message.kind != .task {
-            footer.text = [ChatPresentation.time(message.ts), state].compactMap { $0 }.joined(separator: " · ")
-            footer.textColor = message.isFailed ? .systemRed : .secondaryLabel
+        let endsGroup = model.position == .single || model.position == .last
+        if message.kind != .system, message.kind != .task, endsGroup || state != nil {
+            footer.text = [endsGroup ? ChatPresentation.time(message.ts) : nil, state].compactMap { $0 }.joined(separator: " · ")
+            footer.textColor = Self.isMine(message) ? Self.onTintSecondary : (message.isFailed ? .systemRed : .secondaryLabel)
             footer.textAlignment = message.direction == .inbound ? .right : .left
             views.append(footer)
         }
@@ -144,20 +144,34 @@ final class ChatMessageCell: UICollectionViewCell {
         askControls.superview == nil ? nil : askControls.focusedTextFrame(in: view)
     }
 
-    private func layout(for message: LeoChatMessage) {
+    /// Your own bubbles are filled with the accent, so their contents are white.
+    private static let onTint = UIColor.white
+    private static let onTintSecondary = UIColor.white.withAlphaComponent(0.8)
+    private static let chipBackground = UIColor.white.withAlphaComponent(0.2)
+    private static let taskCardRadius: CGFloat = 18
+
+    private static func isMine(_ message: LeoChatMessage) -> Bool {
+        message.direction == .inbound && message.kind != .system && message.kind != .task
+    }
+
+    private func layout(for message: LeoChatMessage, position: LeoChatTranscript.GroupPosition) {
         NSLayoutConstraint.deactivate([leading, trailing, centered])
+        bubble.fillsWithTint = false
         switch (message.kind, message.direction) {
         case (.system, _):
-            bubble.backgroundColor = .clear
+            bubble.style = .plain
             centered.isActive = true
         case (.task, _):
-            bubble.backgroundColor = .secondarySystemGroupedBackground
+            bubble.style = .card(radius: Self.taskCardRadius)
+            bubble.fillColor = .secondarySystemGroupedBackground
             NSLayoutConstraint.activate([leading, trailing])
         case (_, .inbound):
-            bubble.backgroundColor = .tintColor.withAlphaComponent(0.18)
+            bubble.style = .bubble(.trailing, position)
+            bubble.fillsWithTint = true
             trailing.isActive = true
         case (_, .outbound):
-            bubble.backgroundColor = .secondarySystemBackground
+            bubble.style = .bubble(.leading, position)
+            bubble.fillColor = .secondarySystemBackground
             leading.isActive = true
         }
     }
@@ -187,7 +201,7 @@ final class ChatMessageCell: UICollectionViewCell {
         guard attachment.available else {
             let label = UILabel()
             label.font = .preferredFont(forTextStyle: .footnote)
-            label.textColor = .secondaryLabel
+            label.textColor = Self.isMine(model.message) ? Self.onTintSecondary : .secondaryLabel
             label.text = String(localized: "\(attachment.filename) (no longer stored)")
             return label
         }
@@ -211,7 +225,7 @@ final class ChatMessageCell: UICollectionViewCell {
         }
         if attachment.isAudio {
             let isPlaying = model.playingAttachmentID == attachment.id
-            var configuration = UIButton.Configuration.tinted()
+            var configuration = chipConfiguration(model.message, base: .tinted())
             configuration.image = UIImage(systemName: isPlaying ? "pause.fill" : "play.fill")
             configuration.title = isPlaying ? String(localized: "Playing") : String(localized: "Voice note")
             configuration.imagePadding = 8
@@ -219,7 +233,7 @@ final class ChatMessageCell: UICollectionViewCell {
             configuration.showsActivityIndicator = file == .loading
             return UIButton(configuration: configuration, primaryAction: UIAction { [weak self] _ in self?.onEvent(.playVoice(attachment)) })
         }
-        var configuration = UIButton.Configuration.gray()
+        var configuration = chipConfiguration(model.message, base: .gray())
         configuration.image = UIImage(systemName: attachment.isImage ? "photo" : "doc")
         configuration.title = attachment.filename
         configuration.subtitle = ByteCountFormatter.string(fromByteCount: Int64(attachment.bytes), countStyle: .file)
@@ -229,6 +243,15 @@ final class ChatMessageCell: UICollectionViewCell {
         let button = UIButton(configuration: configuration, primaryAction: UIAction { [weak self] _ in self?.onEvent(.openAttachment(attachment)) })
         button.contentHorizontalAlignment = .leading
         return button
+    }
+
+    /// `base` in an agent's bubble; white on a translucent white in yours.
+    private func chipConfiguration(_ message: LeoChatMessage, base: UIButton.Configuration) -> UIButton.Configuration {
+        guard Self.isMine(message) else { return base }
+        var configuration = UIButton.Configuration.plain()
+        configuration.baseForegroundColor = Self.onTint
+        configuration.background.backgroundColor = Self.chipBackground
+        return configuration
     }
 
     private var tappedAttachments: [ObjectIdentifier: LeoChatAttachment] = [:]
