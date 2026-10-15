@@ -200,6 +200,7 @@ private struct FocusFixture {
     private func eventually(_ condition: () -> Bool) async -> Bool {
         let deadline = ContinuousClock.now + Self.timeout
         while !condition(), ContinuousClock.now < deadline {
+            LeoTestHostActivation.requestForeground()
             try? await Task.sleep(for: .milliseconds(20))
         }
         return condition()

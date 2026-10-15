@@ -17,11 +17,19 @@ enum LeoTestHostActivation {
     private static let timeout: Duration = .seconds(3)
     private static let retryInterval: Duration = .milliseconds(100)
 
+    /// Asks again for the foreground; for the waits of a test that needs key
+    /// status, where another app may take it back after the gate passed.
+    static func requestForeground() {
+        guard !NSApp.isActive else { return }
+        NSApp.activate()
+        NSRunningApplication.current.activate(options: [.activateAllWindows])
+    }
+
     static func isAvailable(environment: [String: String] = ProcessInfo.processInfo.environment) async -> Bool {
         guard environment["GITHUB_ACTIONS"] == nil else { return true }
         let deadline = ContinuousClock.now + timeout
         while !NSApp.isActive, ContinuousClock.now < deadline {
-            NSApp.activate()
+            requestForeground()
             try? await Task.sleep(for: retryInterval)
         }
         return NSApp.isActive
