@@ -57,4 +57,42 @@ public enum LeoChatTranscript {
             && message.direction == previous.direction
             && (message.ts.timeIntervalSince(previous.ts) < groupGap || message.continuesPost(after: previous))
     }
+
+    /// A time header's wording: `day` is the part iMessage sets in semibold.
+    public struct HeaderText: Equatable, Sendable {
+        public let day: String
+        public let time: String
+        /// `day` and `time` joined as the header reads.
+        public let text: String
+
+        init(day: String, time: String, isDated: Bool = false) {
+            self.day = day
+            self.time = time
+            text = isDated ? String(localized: "\(day) at \(time)") : "\(day) \(time)"
+        }
+    }
+
+    private static let recentDays = 2...6
+
+    /// "Today 1:06 PM", "Yesterday …", "Tuesday …" for the last week, then
+    /// "Thu, Oct 3 at …", and with the year once it is not this one.
+    /// The bucket is the calendar-day difference from `now`, not 24 h spans.
+    public static func headerText(_ date: Date, calendar: Calendar, now: Date) -> HeaderText {
+        let locale = calendar.locale ?? .autoupdatingCurrent
+        let style = Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone)
+        let time = date.formatted(
+            Date.FormatStyle(date: .omitted, time: .shortened, locale: locale, calendar: calendar, timeZone: calendar.timeZone)
+        )
+        let daysAgo = calendar.dateComponents([.day], from: calendar.startOfDay(for: date), to: calendar.startOfDay(for: now)).day ?? 0
+        switch daysAgo {
+        case 0: return HeaderText(day: String(localized: "Today"), time: time)
+        case 1: return HeaderText(day: String(localized: "Yesterday"), time: time)
+        case recentDays: return HeaderText(day: date.formatted(style.weekday(.wide)), time: time)
+        default:
+            let sameYear = calendar.isDate(date, equalTo: now, toGranularity: .year)
+            let day = sameYear ? date.formatted(style.weekday(.abbreviated).month(.abbreviated).day())
+                : date.formatted(style.month(.abbreviated).day().year())
+            return HeaderText(day: day, time: time, isDated: true)
+        }
+    }
 }

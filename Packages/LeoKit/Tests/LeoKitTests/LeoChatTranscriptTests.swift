@@ -89,3 +89,44 @@ struct LeoChatTranscriptTests {
         #expect(items.map(\.id) == ["time-a", "a", "time-b", "b"])
     }
 }
+
+struct LeoChatHeaderTextTests {
+    static let calendar: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/New_York")!
+        calendar.locale = Locale(identifier: "en_US")
+        return calendar
+    }()
+
+    static func date(_ year: Int, _ month: Int, _ day: Int, _ hour: Int, _ minute: Int) -> Date {
+        calendar.date(from: DateComponents(year: year, month: month, day: day, hour: hour, minute: minute))!
+    }
+
+    /// Thursday, 2026-10-15 1:30 PM.
+    static let now = date(2026, 10, 15, 13, 30)
+
+    static func header(_ date: Date, now: Date = now) -> LeoChatTranscript.HeaderText {
+        LeoChatTranscript.headerText(date, calendar: calendar, now: now)
+    }
+
+    @Test(arguments: [
+        (date(2026, 10, 15, 13, 6), "Today", "Today 1:06\u{202F}PM"),
+        (date(2026, 10, 14, 9, 12), "Yesterday", "Yesterday 9:12\u{202F}AM"),
+        (date(2026, 10, 13, 15, 0), "Tuesday", "Tuesday 3:00\u{202F}PM"),
+        (date(2026, 10, 9, 15, 0), "Friday", "Friday 3:00\u{202F}PM"),
+        (date(2026, 10, 8, 14, 0), "Thu, Oct 8", "Thu, Oct 8 at 2:00\u{202F}PM"),
+        (date(2026, 10, 1, 14, 0), "Thu, Oct 1", "Thu, Oct 1 at 2:00\u{202F}PM"),
+        (date(2025, 10, 3, 14, 0), "Oct 3, 2025", "Oct 3, 2025 at 2:00\u{202F}PM"),
+    ])
+    func eachDateBucketReadsLikeIMessage(date: Date, day: String, text: String) {
+        let header = Self.header(date)
+        #expect(header.day == day)
+        #expect(header.text == text)
+    }
+
+    @Test func theBucketFollowsTheCalendarDayNotTwentyFourHours() {
+        let header = Self.header(Self.date(2026, 10, 14, 23, 55), now: Self.date(2026, 10, 15, 0, 10))
+        #expect(header.day == "Yesterday")
+        #expect(header.time == "11:55\u{202F}PM")
+    }
+}
