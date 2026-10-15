@@ -1,3 +1,4 @@
+import Combine
 import LeoKit
 import SwiftUI
 
@@ -7,23 +8,22 @@ import SwiftUI
 struct LeoChatThreadView: View {
     @ObservedObject var chat: LeoChatPaneModel
     @State private var pin = LeoChatScrollPin()
+    /// What "Today" means in the time headers; refreshed at midnight and on a time-zone change.
+    @State private var now = Date()
 
     private static let bottomID = "leo-chat-bottom"
-    /// Pulls a continuation up to 4 pt under the post it continues.
-    private static let continuationOverlap: CGFloat = -6
     private static let scrollSpace = "leo-chat-scroll"
 
     var body: some View {
         GeometryReader { viewport in
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 10) {
+                    LazyVStack(alignment: .leading, spacing: 0) {
                         olderMessages
-                        let messages = chat.timeline.messages
-                        ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
-                            LeoChatMessageRow(message: message, chat: chat).id(message.id)
-                                // An ask about the post just before it reads as its continuation.
-                                .padding(.top, message.continuesPost(after: index > 0 ? messages[index - 1] : nil) ? Self.continuationOverlap : 0)
+                        let items = LeoChatTranscript.items(for: chat.timeline.messages)
+                        ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                            row(for: item)
+                                .padding(.top, LeoChatTranscript.spacing(above: item, after: index > 0 ? items[index - 1] : nil))
                         }
                         Color.clear.frame(height: 1).id(Self.bottomID)
                     }
@@ -38,9 +38,21 @@ struct LeoChatThreadView: View {
                     pin = step.pin
                     if step.scrollToBottom { proxy.scrollTo(Self.bottomID, anchor: .bottom) }
                 }
+                .onReceive(Self.dayChanges) { _ in now = Date() }
                 .onChange(of: chat.agent) { _ in pin = pin.reset() }
                 .onChange(of: chat.timeline.taskFilter) { _ in pin = pin.reset() }
             }
+        }
+    }
+
+    private static let dayChanges = NotificationCenter.default
+        .publisher(for: .NSCalendarDayChanged)
+        .merge(with: NotificationCenter.default.publisher(for: NSNotification.Name.NSSystemTimeZoneDidChange))
+
+    @ViewBuilder private func row(for item: LeoChatTranscript.Item) -> some View {
+        switch item {
+        case .timeHeader(let date, _): LeoChatTimeHeader(date: date, now: now)
+        case .message(let message, let position): LeoChatMessageRow(message: message, position: position, chat: chat)
         }
     }
 
@@ -58,11 +70,12 @@ struct LeoChatThreadView: View {
 
     @ViewBuilder private var olderMessages: some View {
         if chat.isLoadingOlder {
-            ProgressView().controlSize(.small).frame(maxWidth: .infinity)
+            ProgressView().controlSize(.small).frame(maxWidth: .infinity).padding(.bottom, LeoChatTranscript.groupSpacing)
         } else if chat.timeline.hasMore {
             Button("Load Earlier Messages") { Task { await chat.loadOlder() } }
                 .buttonStyle(.link)
                 .frame(maxWidth: .infinity)
+                .padding(.bottom, LeoChatTranscript.groupSpacing)
         }
     }
 

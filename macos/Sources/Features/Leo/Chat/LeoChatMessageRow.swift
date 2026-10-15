@@ -4,12 +4,18 @@ import SwiftUI
 
 /// One message: a bubble (yours on the right, the agent's on the left), a
 /// task card, or a centred system note; with its attachments, ask
-/// controls and delivery state.
+/// controls and delivery state. Only the last bubble of a group has a tail
+/// and a time.
 struct LeoChatMessageRow: View {
     let message: LeoChatMessage
+    let position: LeoChatTranscript.GroupPosition
     @ObservedObject var chat: LeoChatPaneModel
 
     private var isMine: Bool { message.direction == .inbound }
+    private var bubbleShape: LeoChatBubbleShape { LeoChatBubbleShape(side: isMine ? .trailing : .leading, position: position) }
+    private var endsGroup: Bool { position == .single || position == .last }
+    /// The time closes a group; a delivery problem shows wherever it happens.
+    private var showsFooter: Bool { endsGroup || message.isFailed || message.isPending }
 
     var body: some View {
         switch message.kind {
@@ -29,7 +35,7 @@ struct LeoChatMessageRow: View {
             if isMine { Spacer(minLength: 40) }
             VStack(alignment: isMine ? .trailing : .leading, spacing: 4) {
                 bubble
-                footer
+                if showsFooter { footer }
             }
             if !isMine { Spacer(minLength: 40) }
         }
@@ -40,7 +46,7 @@ struct LeoChatMessageRow: View {
             if message.kind == .voice {
                 LeoChatVoiceNote(message: message, chat: chat)
             } else if !message.displayText.isEmpty {
-                LeoChatMarkdownText(text: message.displayText)
+                LeoChatMarkdownText(text: message.displayText, isMine: isMine)
             }
             ForEach(message.attachments.filter { message.kind != .voice || !$0.isAudio }) { attachment in
                 LeoChatAttachmentView(attachment: attachment, chat: chat)
@@ -49,14 +55,10 @@ struct LeoChatMessageRow: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(isMine ? Color.accentColor.opacity(0.18) : Color(nsColor: .controlBackgroundColor))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(Color(nsColor: .separatorColor).opacity(isMine ? 0 : 0.6))
-        )
+        .foregroundStyle(isMine ? AnyShapeStyle(Color.white) : AnyShapeStyle(.primary))
+        .tint(isMine ? .white : nil)
+        .background(bubbleShape.fill(isMine ? Color.accentColor : Color(nsColor: .controlBackgroundColor)))
+        .overlay(bubbleShape.stroke(Color(nsColor: .separatorColor).opacity(isMine ? 0 : 0.6), lineWidth: 1))
     }
 
     private var footer: some View {
@@ -67,26 +69,42 @@ struct LeoChatMessageRow: View {
             } else if message.isPending {
                 Text("Sending…")
             }
-            Text(message.ts, format: .dateTime.hour().minute())
+            if endsGroup { Text(message.ts, format: .dateTime.hour().minute()) }
         }
         .font(.caption2)
         .foregroundStyle(.secondary)
     }
 }
 
-/// A message's text in full, Markdown inline styles kept.
+/// A message's text in full, Markdown inline styles kept. In your own
+/// (accent-filled) bubbles, links are underlined and code sits on a
+/// translucent white.
 struct LeoChatMarkdownText: View {
     let text: String
+    var isMine = false
 
     var body: some View {
-        Text(Self.attributed(text))
+        Text(Self.attributed(text, isMine: isMine))
             .textSelection(.enabled)
             .fixedSize(horizontal: false, vertical: true)
     }
 
-    static func attributed(_ text: String) -> AttributedString {
+    static let codeBackgroundOpacity = 0.22
+
+    static func attributed(_ text: String, isMine: Bool = false) -> AttributedString {
         let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-        return (try? AttributedString(markdown: text, options: options)) ?? AttributedString(text)
+        var attributed = (try? AttributedString(markdown: text, options: options)) ?? AttributedString(text)
+        guard isMine else { return attributed }
+        for run in attributed.runs {
+            if run.link != nil {
+                attributed[run.range].underlineStyle = .single
+                attributed[run.range].foregroundColor = .white
+            }
+            if run.inlinePresentationIntent?.contains(.code) == true {
+                attributed[run.range].backgroundColor = Color.white.opacity(codeBackgroundOpacity)
+            }
+        }
+        return attributed
     }
 }
 
