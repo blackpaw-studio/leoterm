@@ -35,12 +35,17 @@ final class ChatMessageCell: UICollectionViewCell {
     private let header = UILabel()
     private let body = UILabel()
     private let footer = UILabel()
+    /// A failed send's "Not delivered": under the bubble, not in it, so the
+    /// red reads against the page rather than the accent fill.
+    private let failureFooter = UILabel()
     /// Kept across reconfigures (see `ChatAskControls`).
     private let askControls = ChatAskControls()
     private var top: NSLayoutConstraint!
     private var leading: NSLayoutConstraint!
     private var trailing: NSLayoutConstraint!
     private var centered: NSLayoutConstraint!
+    private var bubbleBottom: NSLayoutConstraint!
+    private var failureConstraints: [NSLayoutConstraint] = []
     private var onEvent: (Event) -> Void = { _ in }
 
     override init(frame: CGRect) {
@@ -63,10 +68,23 @@ final class ChatMessageCell: UICollectionViewCell {
         leading = bubble.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12)
         trailing = bubble.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12)
         centered = bubble.centerXAnchor.constraint(equalTo: contentView.centerXAnchor)
+        failureFooter.translatesAutoresizingMaskIntoConstraints = false
+        failureFooter.numberOfLines = 0
+        failureFooter.textAlignment = .right
+        failureFooter.adjustsFontForContentSizeCategory = true
+        failureFooter.isHidden = true
+        contentView.addSubview(failureFooter)
         top = bubble.topAnchor.constraint(equalTo: contentView.topAnchor)
+        bubbleBottom = bubble.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
+        failureConstraints = [
+            failureFooter.topAnchor.constraint(equalTo: bubble.bottomAnchor, constant: Self.failureGap),
+            failureFooter.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            failureFooter.trailingAnchor.constraint(equalTo: bubble.trailingAnchor),
+            failureFooter.leadingAnchor.constraint(greaterThanOrEqualTo: contentView.leadingAnchor, constant: 12),
+        ]
         NSLayoutConstraint.activate([
             top,
-            bubble.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            bubbleBottom,
             bubble.widthAnchor.constraint(lessThanOrEqualTo: contentView.widthAnchor, multiplier: 0.82),
             bubble.leadingAnchor.constraint(greaterThanOrEqualTo: contentView.leadingAnchor, constant: 12),
             bubble.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -12),
@@ -88,6 +106,7 @@ final class ChatMessageCell: UICollectionViewCell {
         top.constant = model.topSpacing
         accessibilityIdentifier = "chat.message.\(message.id)"
         let views = contentViews(model)
+        showFailureFooter(Self.failureFooterText(for: model))
         // Everything is rebuilt but the ask controls, which stay in place
         // so a focused text field keeps the keyboard.
         stack.arrangedSubviews.filter { $0 !== askControls }.forEach { $0.removeFromSuperview() }
@@ -131,14 +150,46 @@ final class ChatMessageCell: UICollectionViewCell {
         let endsGroup = model.position == .single || model.position == .last
         let hasProblem = message.isFailed || message.isPending
         let state = endsGroup || hasProblem ? ChatPresentation.stateLine(message) : nil
-        if message.kind != .system, message.kind != .task, endsGroup || hasProblem {
+        if message.kind != .system, message.kind != .task, endsGroup || hasProblem, !Self.failsOutsideBubble(message) {
             footer.text = [endsGroup ? ChatPresentation.time(message.ts) : nil, state].compactMap { $0 }.joined(separator: " · ")
-            footer.textColor = Self.isMine(message) ? Self.onTintSecondary : (message.isFailed ? .systemRed : .secondaryLabel)
+            footer.textColor = Self.isMine(message) ? Self.onTintSecondary : .secondaryLabel
             footer.textAlignment = message.direction == .inbound ? .right : .left
             views.append(footer)
         }
         return views
     }
+
+    /// Your own failed send reports under the bubble, in red; white-on-accent
+    /// inside it would look just like "Delivered".
+    private static func failsOutsideBubble(_ message: LeoChatMessage) -> Bool {
+        message.isFailed && isMine(message)
+    }
+
+    private static func failureFooterText(for model: Model) -> NSAttributedString? {
+        guard failsOutsideBubble(model.message) else { return nil }
+        let font = UIFont.preferredFont(forTextStyle: .caption2)
+        let text = NSMutableAttributedString()
+        let icon = NSTextAttachment(image: UIImage(systemName: "exclamationmark.circle.fill", withConfiguration: UIImage.SymbolConfiguration(font: font))?.withTintColor(.systemRed, renderingMode: .alwaysOriginal) ?? UIImage())
+        text.append(NSAttributedString(attachment: icon))
+        let endsGroup = model.position == .single || model.position == .last
+        let line = [String(localized: "Not delivered"), endsGroup ? ChatPresentation.time(model.message.ts) : nil].compactMap { $0 }.joined(separator: " · ")
+        text.append(NSAttributedString(string: " \(line)"))
+        text.addAttributes([.font: font, .foregroundColor: UIColor.systemRed], range: NSRange(location: 1, length: text.length - 1))
+        return text
+    }
+
+    private func showFailureFooter(_ text: NSAttributedString?) {
+        failureFooter.attributedText = text
+        failureFooter.isHidden = text == nil
+        bubbleBottom.isActive = text == nil
+        if text == nil {
+            NSLayoutConstraint.deactivate(failureConstraints)
+        } else {
+            NSLayoutConstraint.activate(failureConstraints)
+        }
+    }
+
+    private static let failureGap: CGFloat = 3
 
     /// The ask's text field while it is being edited, in `view`'s coordinates.
     func focusedTextFrame(in view: UIView) -> CGRect? {
