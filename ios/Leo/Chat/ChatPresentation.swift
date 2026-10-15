@@ -5,10 +5,6 @@ import UIKit
 
 /// How chat messages read in lists and cells.
 enum ChatPresentation {
-    /// Text longer than this collapses behind "Show more".
-    static let collapsedCharacterLimit = 600
-    static let collapsedLineLimit = 12
-
     /// One line for the Chats list.
     static func preview(_ message: LeoChatMessage) -> String {
         let body = switch message.kind {
@@ -28,10 +24,6 @@ enum ChatPresentation {
         Calendar.current.isDate(date, inSameDayAs: now)
             ? date.formatted(date: .omitted, time: .shortened)
             : date.formatted(.dateTime.month(.abbreviated).day().hour().minute())
-    }
-
-    static func isLong(_ text: String) -> Bool {
-        text.count > collapsedCharacterLimit || text.reduce(0) { $0 + ($1 == "\n" ? 1 : 0) } >= collapsedLineLimit
     }
 
     static func stateLine(_ message: LeoChatMessage) -> String? {

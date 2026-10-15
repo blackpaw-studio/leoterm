@@ -31,8 +31,6 @@ public struct ChatThread {
         public var askDrafts: [String: LeoChatAskDraft] = [:]
         public var attachmentFiles: [String: AttachmentFile] = [:]
         public var composer = Composer.State()
-        /// Messages whose long text or task card is expanded.
-        public var expanded: Set<String> = []
         public var hasMore = false
         public var isLoading = false
         public var isLoadingOlder = false
@@ -101,7 +99,6 @@ public struct ChatThread {
         case attachmentResponse(id: String, Result<URL, any Error>)
         case chatEvent(LeoChatEvent)
         case composer(Composer.Action)
-        case expandToggled(String)
         case loadOlderTriggered
         case olderPageResponse(Result<LeoChatPage, any Error>)
         case onScreenChanged(Bool)
@@ -229,10 +226,6 @@ public struct ChatThread {
             case .composer:
                 return .none
 
-            case .expandToggled(let id):
-                if state.expanded.remove(id) == nil { state.expanded.insert(id) }
-                return .none
-
             case .loadOlderTriggered:
                 guard state.hasMore, !state.isLoading, !state.isLoadingOlder, let oldest = state.messages.first else { return .none }
                 state.isLoadingOlder = true
@@ -300,7 +293,6 @@ public struct ChatThread {
                 state.taskFilter = task
                 state.messages = []
                 state.hasMore = false
-                state.expanded = []
                 return loadNewest(state: &state)
             }
         }

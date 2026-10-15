@@ -107,7 +107,7 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
             guard let self, let message = shownMessages[id] else { return }
             let previous = store.messages.index(id: id).flatMap { $0 > 0 ? store.messages[$0 - 1] : nil }
             let model = ChatMessageCell.Model(
-                message: message, isExpanded: store.expanded.contains(id), isAnswering: store.answering.contains(id),
+                message: message, isAnswering: store.answering.contains(id),
                 draft: store.askDrafts[id] ?? LeoChatAskDraft(), continuesPost: message.continuesPost(after: previous),
                 files: store.attachmentFiles, playingAttachmentID: voice.playingID
             )
@@ -233,8 +233,6 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
             store.send(.askTextChanged(messageID: message.id, text))
         case .submit:
             store.send(.askSubmitTapped(messageID: message.id))
-        case .expand:
-            store.send(.expandToggled(message.id))
         case .openAttachment(let attachment):
             open(attachment)
         case .playVoice(let attachment):

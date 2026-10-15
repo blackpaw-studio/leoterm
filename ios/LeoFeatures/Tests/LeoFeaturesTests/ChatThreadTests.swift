@@ -569,12 +569,6 @@ struct ChatThreadTests {
         #expect(store.state.composer.canSend)
     }
 
-    @Test func showMoreAndTaskCardsToggleExpansion() async {
-        let store = TestStore(initialState: Self.state()) { ChatThread() }
-        await store.send(.expandToggled("01")) { $0.expanded = ["01"] }
-        await store.send(.expandToggled("01")) { $0.expanded = [] }
-    }
-
     @Test func replyingToACardAndCancelling() async {
         var state = Self.state()
         state.messages = [.make("01", task: "wharf")]

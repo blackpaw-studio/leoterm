@@ -5,7 +5,7 @@ import UIKit
 /// One chat message: a bubble (the agent's on the leading side, yours on
 /// the trailing side), a full-width card for task output, or a centered
 /// line for system notes. Carries attachments, an open prompt's answer
-/// controls, "Show more" and, on task cards, a reply button. An `ask` that
+/// controls and, on task cards, a reply button. An `ask` that
 /// follows up the agent's post sits tight under it.
 final class ChatMessageCell: UICollectionViewCell {
     enum Event {
@@ -14,7 +14,6 @@ final class ChatMessageCell: UICollectionViewCell {
         /// The prompt's free text changed.
         case text(String)
         case submit
-        case expand
         case openAttachment(LeoChatAttachment)
         case playVoice(LeoChatAttachment)
         case reply
@@ -22,7 +21,6 @@ final class ChatMessageCell: UICollectionViewCell {
 
     struct Model {
         let message: LeoChatMessage
-        let isExpanded: Bool
         let isAnswering: Bool
         let draft: LeoChatAskDraft
         let continuesPost: Bool
@@ -123,14 +121,8 @@ final class ChatMessageCell: UICollectionViewCell {
             body.textColor = message.kind == .system ? .secondaryLabel : .label
             body.font = .preferredFont(forTextStyle: message.kind == .system ? .footnote : .body)
             body.textAlignment = message.kind == .system ? .center : .natural
-            let collapsesToOneLine = message.kind == .task && !model.isExpanded
-            let isLong = ChatPresentation.isLong(text)
-            body.numberOfLines = collapsesToOneLine ? 1 : (isLong && !model.isExpanded ? ChatPresentation.collapsedLineLimit : 0)
+            body.numberOfLines = 0
             views.append(body)
-            if message.kind == .task || isLong {
-                let title = model.isExpanded ? String(localized: "Show less") : (message.kind == .task ? String(localized: "Show") : String(localized: "Show more"))
-                views.append(linkButton(title) { $0(.expand) })
-            }
         }
 
         views += message.attachments.map { view(for: $0, model: model) }
