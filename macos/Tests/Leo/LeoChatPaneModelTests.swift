@@ -583,12 +583,6 @@ struct LeoChatAttachmentClickTests {
 }
 
 @Suite struct LeoChatPresentationTests {
-    @Test func longRepliesCollapse() {
-        #expect(!LeoChatPresentation.isLong("short"))
-        #expect(LeoChatPresentation.isLong(String(repeating: "x", count: LeoChatPresentation.collapsedCharacters + 1)))
-        #expect(LeoChatPresentation.isLong(Array(repeating: "line", count: LeoChatPresentation.collapsedLines + 1).joined(separator: "\n")))
-    }
-
     @Test func attachmentNamesStayInsideTheirFolder() {
         #expect(LeoChatPresentation.safeFilename("../../etc/passwd", fallback: "f") == "passwd")
         #expect(LeoChatPresentation.safeFilename(".hidden", fallback: "f") == "hidden")

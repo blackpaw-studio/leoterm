@@ -31,8 +31,6 @@ import LeoKit
     /// The answer being put together per open `radio`, `checkboxes` or
     /// `text` ask, kept across thread switches until the prompt settles.
     @Published private(set) var askDrafts: [String: LeoChatAskDraft] = [:]
-    /// Messages whose long text or task card is expanded.
-    @Published private(set) var expanded: Set<String> = []
     @Published private(set) var drafts: [LeoAgentID: LeoChatComposerDraft] = [:]
     /// The send in flight per agent.
     @Published private(set) var sending: [LeoAgentID: LeoChatOutgoing] = [:]
@@ -91,7 +89,6 @@ import LeoKit
         guard agent != self.agent else { return }
         self.agent = agent
         timeline = LeoChatTimeline()
-        expanded = []
         answering = []
         loadError = nil
         lastRead = nil
@@ -140,12 +137,7 @@ import LeoKit
     func setTaskFilter(_ task: String?) async {
         guard agent != nil, task != timeline.taskFilter else { return }
         timeline = LeoChatTimeline(taskFilter: task, knownTasks: timeline.knownTasks)
-        expanded = []
         await loadNewest()
-    }
-
-    func toggleExpanded(_ id: String) {
-        if expanded.remove(id) == nil { expanded.insert(id) }
     }
 
     func dismissNotice() { notice = nil }

@@ -10,7 +10,6 @@ struct LeoChatMessageRow: View {
     @ObservedObject var chat: LeoChatPaneModel
 
     private var isMine: Bool { message.direction == .inbound }
-    private var isExpanded: Bool { chat.expanded.contains(message.id) }
 
     var body: some View {
         switch message.kind {
@@ -41,7 +40,7 @@ struct LeoChatMessageRow: View {
             if message.kind == .voice {
                 LeoChatVoiceNote(message: message, chat: chat)
             } else if !message.displayText.isEmpty {
-                LeoChatExpandableText(text: message.displayText, id: message.id, chat: chat)
+                LeoChatMarkdownText(text: message.displayText)
             }
             ForEach(message.attachments.filter { message.kind != .voice || !$0.isAudio }) { attachment in
                 LeoChatAttachmentView(attachment: attachment, chat: chat)
@@ -75,26 +74,14 @@ struct LeoChatMessageRow: View {
     }
 }
 
-/// Long text collapsed behind "Show more"; Markdown inline styles kept.
-struct LeoChatExpandableText: View {
+/// A message's text in full, Markdown inline styles kept.
+struct LeoChatMarkdownText: View {
     let text: String
-    let id: String
-    @ObservedObject var chat: LeoChatPaneModel
 
     var body: some View {
-        let isLong = LeoChatPresentation.isLong(text)
-        let isExpanded = chat.expanded.contains(id)
-        VStack(alignment: .leading, spacing: 4) {
-            Text(Self.attributed(text))
-                .lineLimit(isLong && !isExpanded ? LeoChatPresentation.collapsedLines : nil)
-                .textSelection(.enabled)
-                .fixedSize(horizontal: false, vertical: true)
-            if isLong {
-                Button(isExpanded ? "Show less" : "Show more") { chat.toggleExpanded(id) }
-                    .buttonStyle(.link)
-                    .font(.callout)
-            }
-        }
+        Text(Self.attributed(text))
+            .textSelection(.enabled)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     static func attributed(_ text: String) -> AttributedString {
@@ -103,40 +90,26 @@ struct LeoChatExpandableText: View {
     }
 }
 
-/// A scheduled task's output: labelled with the task and time, collapsed
-/// to one line until clicked; a reply carries the run's context.
+/// A scheduled task's output, labelled with the task and time, in full; a
+/// reply carries the run's context.
 struct LeoChatTaskCard: View {
     let message: LeoChatMessage
     @ObservedObject var chat: LeoChatPaneModel
 
     var body: some View {
-        let isExpanded = chat.expanded.contains(message.id)
         VStack(alignment: .leading, spacing: 6) {
-            Button { chat.toggleExpanded(message.id) } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right").font(.caption.weight(.semibold))
-                    Image(systemName: "clock.badge.checkmark").foregroundStyle(.secondary)
-                    Text(message.task ?? "Task").font(.callout.weight(.semibold)).lineLimit(1)
-                    Spacer(minLength: 4)
-                    Text(message.ts, format: .dateTime.month(.abbreviated).day().hour().minute())
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-                .contentShape(Rectangle())
+            HStack(spacing: 6) {
+                Image(systemName: "clock.badge.checkmark").foregroundStyle(.secondary)
+                Text(message.task ?? "Task").font(.callout.weight(.semibold)).lineLimit(1)
+                Spacer(minLength: 4)
+                Text(message.ts, format: .dateTime.month(.abbreviated).day().hour().minute())
+                    .font(.caption).foregroundStyle(.secondary)
             }
-            .buttonStyle(.plain)
-            if isExpanded {
-                if !message.displayText.isEmpty {
-                    Text(LeoChatExpandableText.attributed(message.displayText))
-                        .textSelection(.enabled)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                ForEach(message.attachments) { LeoChatAttachmentView(attachment: $0, chat: chat) }
-                Button { chat.setReply(to: message.id) } label: { Label("Reply", systemImage: "arrowshape.turn.up.left") }
-                    .buttonStyle(.link)
-                    .font(.callout)
-            } else {
-                Text(LeoChatPresentation.firstLine(message.displayText)).lineLimit(1).foregroundStyle(.secondary)
-            }
+            if !message.displayText.isEmpty { LeoChatMarkdownText(text: message.displayText) }
+            ForEach(message.attachments) { LeoChatAttachmentView(attachment: $0, chat: chat) }
+            Button { chat.setReply(to: message.id) } label: { Label("Reply", systemImage: "arrowshape.turn.up.left") }
+                .buttonStyle(.link)
+                .font(.callout)
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)

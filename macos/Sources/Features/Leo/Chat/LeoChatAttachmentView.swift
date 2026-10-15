@@ -128,7 +128,7 @@ struct LeoChatVoiceNote: View {
                 LeoChatAudioPlayer(attachment: audio, chat: chat)
             }
             if let transcript = message.transcript {
-                LeoChatExpandableText(text: transcript, id: message.id, chat: chat)
+                LeoChatMarkdownText(text: transcript)
             } else {
                 Text(message.isPending ? "Transcribing…" : "No transcript").font(.callout).foregroundStyle(.secondary)
             }
