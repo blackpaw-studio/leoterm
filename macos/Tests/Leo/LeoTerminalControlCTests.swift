@@ -46,13 +46,13 @@ struct LeoTerminalControlCTests {
 
     private static let timeout: Duration = .seconds(5)
 
-    @Test func controlCInterruptsAShownTerminalRowsProcess() async throws {
+    @Test(.requiresActiveHost) func controlCInterruptsAShownTerminalRowsProcess() async throws {
         let marked = try await Self.marks(running: Self.exitsOnInterrupt, afterPressing: .controlC)
         #expect(marked, "the shell exited by its SIGINT trap")
     }
 
     /// The sidebar's Return (B-049) must not take Return from the shell.
-    @Test func returnReachesAShownTerminalRowsProcess() async throws {
+    @Test(.requiresActiveHost) func returnReachesAShownTerminalRowsProcess() async throws {
         let marked = try await Self.marks(running: Self.exitsOnLine, afterPressing: .return)
         #expect(marked, "the shell read the line Return ended")
     }

@@ -50,6 +50,7 @@ import Testing
     /// clears focus -- the tab beside it is still viewed.
     @Test(
         .enabled("needs the test host app's Ghostty.App") { await MainActor.run { Self.ghostty != nil } },
+        .requiresActiveHost,
         .timeLimit(.minutes(1))
     )
     func focusReportsArriveViewingFirstAndTheSidebarOnlyClearsFocus() async throws {

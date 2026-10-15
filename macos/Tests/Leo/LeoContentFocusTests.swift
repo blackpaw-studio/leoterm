@@ -42,7 +42,7 @@ struct LeoContentFocusTests {
     /// Escape closes the palette: the panel's Escape key reaches
     /// `LeoPickerPresentation.commit(.cancel)`, which dismisses it; the
     /// window becomes key again.
-    @Test func dismissingThePaletteGivesFocusBackToTheTerminal() async throws {
+    @Test(.requiresActiveHost) func dismissingThePaletteGivesFocusBackToTheTerminal() async throws {
         let fixture = try await FocusFixture.make()
         defer { fixture.close() }
         let shown = try fixture.fill().surface
@@ -59,7 +59,7 @@ struct LeoContentFocusTests {
     /// the key window, and the palette closes a turn later (`requestEnded`).
     /// The new split keeps the focus it was given: the window becoming key
     /// again must not hand it back to the pane the split was made from.
-    @Test func aSplitChosenInThePaletteKeepsFocusOnceThePaletteCloses() async throws {
+    @Test(.requiresActiveHost) func aSplitChosenInThePaletteKeepsFocusOnceThePaletteCloses() async throws {
         let fixture = try await FocusFixture.make()
         defer { fixture.close() }
         let source = try fixture.fill().surface

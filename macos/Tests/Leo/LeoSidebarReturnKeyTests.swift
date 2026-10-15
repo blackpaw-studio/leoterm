@@ -108,13 +108,21 @@ struct LeoSidebarReturnKeyTests {
         model.attachRequested = { [weak self] row, _, _ in self?.activations.append("attach \(row.name)") }
         model.focusExistingRequested = { [weak self] row, _ in self?.activations.append("focus \(row.name)") }
 
-        // Another app (a second test host, say) may be active; key
-        // status needs this one active, as the app's own new windows do.
-        NSApp.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
+        // The window's key-equivalent pass doesn't need key status, and
+        // another app holding the foreground would keep this one from
+        // ever getting it; the window only has to be on screen and laid
+        // out for the sidebar's Return view to exist.
+        window.orderFront(nil)
         window.contentView?.layoutSubtreeIfNeeded()
-        let isKey = await Self.eventually { [window] in window.isKeyWindow }
-        try #require(isKey, "the sidebar's window never became key")
+        let hasReturnKeyView = await Self.eventually { [window] in
+            window.contentView?.layoutSubtreeIfNeeded()
+            return window.contentView.map(Self.containsReturnKeyView) ?? false
+        }
+        try #require(hasReturnKeyView, "the sidebar's Return key view never joined the window")
+    }
+
+    private static func containsReturnKeyView(_ view: NSView) -> Bool {
+        view is LeoSidebarReturnKeyView || view.subviews.contains(where: containsReturnKeyView)
     }
 
     /// Offers `key` to the window's key equivalents, as AppKit does before
