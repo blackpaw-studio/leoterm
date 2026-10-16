@@ -10,7 +10,7 @@ import Testing
 /// and newline, and they belong to the terminal (P1): the sidebar must not
 /// claim them in the window's key-equivalent pass.
 ///
-/// Drives a real `LeoSidebarView` in a key window through the window's own
+/// Drives a real `LeoSidebarView` in a window (key status not required) through its own
 /// `performKeyEquivalent(with:)`, where AppKit offers it a key before the
 /// first responder's `keyDown`.
 @MainActor @Suite(.serialized)
