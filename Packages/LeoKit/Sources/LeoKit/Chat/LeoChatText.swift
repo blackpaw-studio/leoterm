@@ -7,6 +7,10 @@ public enum LeoChatText {
     /// `javascript:`, …) renders as plain text.
     static let allowedSchemes: Set<String> = ["http", "https", "mailto"]
 
+    /// Built once: rows re-render on every pane-model change.
+    private static let linkDetector = try? NSDataDetector(
+        types: NSTextCheckingResult.CheckingType.link.rawValue)
+
     public static func attributed(_ text: String) -> AttributedString {
         let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
         let parsed = (try? AttributedString(markdown: text, options: options)) ?? AttributedString(text)
@@ -27,9 +31,7 @@ public enum LeoChatText {
 
     private static func autolinked(_ source: AttributedString) -> AttributedString {
         let plain = String(source.characters)
-        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else {
-            return source
-        }
+        guard let detector = linkDetector else { return source }
         var result = source
         let whole = NSRange(plain.startIndex..., in: plain)
         for match in detector.matches(in: plain, options: [], range: whole) {
