@@ -33,7 +33,7 @@ final class ChatMessageCell: UICollectionViewCell {
     private let bubble = ChatBubbleView()
     private let stack = UIStackView()
     private let header = UILabel()
-    private let body = UILabel()
+    private let body = ChatBodyTextView()
     private let footer = UILabel()
     /// A failed send's "Not delivered": under the bubble, not in it, so the
     /// red reads against the page rather than the accent fill.
@@ -56,13 +56,12 @@ final class ChatMessageCell: UICollectionViewCell {
         stack.spacing = 6
         stack.translatesAutoresizingMaskIntoConstraints = false
         bubble.addSubview(stack)
-        for label in [header, body, footer] {
+        for label in [header, footer] {
             label.numberOfLines = 0
             label.adjustsFontForContentSizeCategory = true
         }
         header.font = .preferredFont(forTextStyle: .caption1).withWeight(.semibold)
         header.textColor = .secondaryLabel
-        body.font = .preferredFont(forTextStyle: .body)
         footer.font = .preferredFont(forTextStyle: .caption2)
         footer.textColor = .secondaryLabel
         leading = bubble.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12)
@@ -134,11 +133,13 @@ final class ChatMessageCell: UICollectionViewCell {
 
         let text = message.displayText
         if !text.isEmpty {
-            body.text = text
-            body.textColor = message.kind == .system ? .secondaryLabel : (Self.isMine(message) ? Self.onTint : .label)
-            body.font = .preferredFont(forTextStyle: message.kind == .system ? .footnote : .body)
-            body.textAlignment = message.kind == .system ? .center : .natural
-            body.numberOfLines = 0
+            let isMine = Self.isMine(message)
+            body.show(
+                text,
+                font: .preferredFont(forTextStyle: message.kind == .system ? .footnote : .body),
+                color: message.kind == .system ? .secondaryLabel : (isMine ? Self.onTint : .label),
+                alignment: message.kind == .system ? .center : .natural,
+                isMine: isMine)
             views.append(body)
         }
 
