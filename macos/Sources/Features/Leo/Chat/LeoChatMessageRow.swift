@@ -76,9 +76,9 @@ struct LeoChatMessageRow: View {
     }
 }
 
-/// A message's text in full, Markdown inline styles kept. In your own
-/// (accent-filled) bubbles, links are underlined and code sits on a
-/// translucent white.
+/// A message's text in full, Markdown inline styles kept and bare URLs
+/// linked (`LeoChatText`). In your own (accent-filled) bubbles, links are
+/// underlined and code sits on a translucent white.
 struct LeoChatMarkdownText: View {
     let text: String
     var isMine = false
@@ -92,8 +92,7 @@ struct LeoChatMarkdownText: View {
     static let codeBackgroundOpacity = 0.22
 
     static func attributed(_ text: String, isMine: Bool = false) -> AttributedString {
-        let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-        var attributed = (try? AttributedString(markdown: text, options: options)) ?? AttributedString(text)
+        var attributed = LeoChatText.attributed(text)
         guard isMine else { return attributed }
         for run in attributed.runs {
             if run.link != nil {
