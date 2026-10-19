@@ -32,6 +32,8 @@ actor FakeChatClient: LeoChatClient {
     private var questionsResult: Result<LeoChatMessage?, any Error> = .success(nil)
     private var isHoldingQuestions = false
     private var heldQuestions: [CheckedContinuation<Void, Never>] = []
+    private var isHoldingDismissals = false
+    private var heldDismissals: [CheckedContinuation<Void, Never>] = []
     private var dismissResult: Result<LeoChatMessage?, any Error> = .success(nil)
     private var downloads: [String: Result<Data, Failure>] = [:]
     private var isHoldingDownloads = false
@@ -62,6 +64,19 @@ actor FakeChatClient: LeoChatClient {
     /// Returns once `count` questions answers have arrived.
     func waitForQuestionAnswers(_ count: Int) async {
         while questionAnswers.count < count { await Task.yield() }
+    }
+
+    func holdDismissals() { isHoldingDismissals = true }
+
+    func releaseDismissals() {
+        isHoldingDismissals = false
+        heldDismissals.forEach { $0.resume() }
+        heldDismissals = []
+    }
+
+    /// Returns once `count` dismissals have arrived.
+    func waitForDismissals(_ count: Int) async {
+        while dismissals.count < count { await Task.yield() }
     }
 
     func setDismissResult(_ result: Result<LeoChatMessage?, any Error>) { dismissResult = result }
@@ -171,6 +186,7 @@ actor FakeChatClient: LeoChatClient {
 
     func dismiss(agent: String, messageID: String) async throws -> LeoChatMessage? {
         dismissals.append((agent, messageID))
+        if isHoldingDismissals { await withCheckedContinuation { heldDismissals.append($0) } }
         return try dismissResult.get()
     }
 

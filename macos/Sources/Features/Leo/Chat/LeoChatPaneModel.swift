@@ -294,16 +294,17 @@ import LeoKit
         guard openQuestions(messageID) != nil else { return }
         await settleQuestions(messageID, failure: "Couldn't hand the question to the terminal") { client, agent in
             try await client.dismiss(agent: agent, messageID: messageID)
-        } localCopy: { $0.expired(reason: "dismissed") }
+        }
     }
 
-    /// One request against a questions card. The daemon's copy (or, without
-    /// one, `localCopy`) replaces the card; a card settled meanwhile (409)
-    /// just refetches; any other refusal shows inside the card and keeps
-    /// the draft.
+    /// One request against a questions card. The daemon's copy replaces the
+    /// card. Without one, a card still open takes `localCopy` (nil: it
+    /// refetches instead); a card that settled meanwhile (a push) is left
+    /// alone. A 409 refetches; any other refusal shows inside the card and
+    /// keeps the draft.
     private func settleQuestions(
         _ messageID: String, failure: String, request: (any LeoChatClient, String) async throws -> LeoChatMessage?,
-        localCopy: (LeoChatMessage) -> LeoChatMessage
+        localCopy: ((LeoChatMessage) -> LeoChatMessage)? = nil
     ) async {
         guard let agent, timeline.message(id: messageID) != nil, answering.insert(messageID).inserted else { return }
         questionsErrors[messageID] = nil
@@ -313,8 +314,12 @@ import LeoKit
             guard agent == self.agent else { return }
             if let updated, timeline.admits(updated, agent: agent.name) {
                 timeline.merge([updated])
-            } else if let message = timeline.message(id: messageID) {
-                timeline.merge([localCopy(message)])
+            } else if let message = timeline.message(id: messageID), message.isOpen {
+                if let localCopy {
+                    timeline.merge([localCopy(message)])
+                } else {
+                    await refreshSettled(messageID, agent: agent)
+                }
             }
         } catch LeoChatAnswerError.settled {
             questionsDrafts[messageID] = nil
@@ -566,16 +571,5 @@ import LeoKit
             guard let data = try? Data(contentsOf: file.url) else { throw LeoChatFileError.unreadable(file.filename) }
             return LeoChatUpload(filename: file.filename, mime: file.mime, data: data)
         }.value
-    }
-}
-
-private extension LeoChatMessage {
-    /// This card closed without an answer, for when the daemon expired it
-    /// without returning the message.
-    func expired(reason: String) -> LeoChatMessage {
-        LeoChatMessage(
-            id: id, agent: agent, direction: direction, kind: kind, text: text, transcript: transcript, replyTo: replyTo, task: task,
-            runID: runID, state: "expired", answer: answer, ts: ts, attachments: attachments, input: input, closedReason: reason
-        )
     }
 }

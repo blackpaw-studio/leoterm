@@ -427,11 +427,26 @@ struct LeoChatPaneModelTests {
         #expect(model.answering.isEmpty)
     }
 
-    @Test func aDismissWithoutAReturnedCardMarksItExpiredLocally() async throws {
+    @Test func aDismissWithoutAReturnedCardRefetchesTheSettledOne() async throws {
         let model = try await showQuestions()
+        await client.enqueuePage([try questionsCard(state: "expired", closedReason: "dismissed")])
         await model.dismissQuestions(messageID: "01")
-        #expect(model.timeline.message(id: "01")?.isOpen == false)
+        #expect(await client.pageRequests.count == 2)
         #expect(model.timeline.message(id: "01")?.questionsCard == .inTerminal)
+        #expect(model.notice == nil)
+        #expect(model.answering.isEmpty)
+    }
+
+    @Test func aSettledPushArrivingDuringADismissStays() async throws {
+        let model = try await showQuestions()
+        await client.holdDismissals()
+        let dismissal = Task { await model.dismissQuestions(messageID: "01") }
+        await client.waitForDismissals(1)
+        await model.receive(.updated(try questionsCard(state: "expired", closedReason: "timeout")), host: .local)
+        await client.releaseDismissals()
+        await dismissal.value
+        #expect(model.timeline.message(id: "01")?.questionsCard == .timedOut)
+        #expect(model.answering.isEmpty)
     }
 
     @Test func aFailedDismissShowsInlineAndKeepsTheCardOpen() async throws {
