@@ -30,6 +30,8 @@ actor FakeChatClient: LeoChatClient {
     private var uploadFailure: Failure?
     private var answerResult: Result<LeoChatMessage?, any Error> = .success(nil)
     private var questionsResult: Result<LeoChatMessage?, any Error> = .success(nil)
+    private var isHoldingQuestions = false
+    private var heldQuestions: [CheckedContinuation<Void, Never>] = []
     private var dismissResult: Result<LeoChatMessage?, any Error> = .success(nil)
     private var downloads: [String: Result<Data, Failure>] = [:]
     private var isHoldingDownloads = false
@@ -49,6 +51,19 @@ actor FakeChatClient: LeoChatClient {
     func failUploads(_ message: String) { uploadFailure = Failure(message: message) }
     func setAnswerResult(_ result: Result<LeoChatMessage?, any Error>) { answerResult = result }
     func setQuestionsResult(_ result: Result<LeoChatMessage?, any Error>) { questionsResult = result }
+    func holdQuestionAnswers() { isHoldingQuestions = true }
+
+    func releaseQuestionAnswers() {
+        isHoldingQuestions = false
+        heldQuestions.forEach { $0.resume() }
+        heldQuestions = []
+    }
+
+    /// Returns once `count` questions answers have arrived.
+    func waitForQuestionAnswers(_ count: Int) async {
+        while questionAnswers.count < count { await Task.yield() }
+    }
+
     func setDismissResult(_ result: Result<LeoChatMessage?, any Error>) { dismissResult = result }
     func setDownload(_ id: String, _ result: Result<Data, Failure>) { downloads[id] = result }
     func failReads(_ message: String) { readFailure = Failure(message: message) }
@@ -150,6 +165,7 @@ actor FakeChatClient: LeoChatClient {
 
     func answerQuestions(agent: String, messageID: String, answers: [String: LeoChatAnswer]) async throws -> LeoChatMessage? {
         questionAnswers.append((agent, messageID, answers))
+        if isHoldingQuestions { await withCheckedContinuation { heldQuestions.append($0) } }
         return try questionsResult.get()
     }
 
