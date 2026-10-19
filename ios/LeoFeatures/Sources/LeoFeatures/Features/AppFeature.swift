@@ -28,6 +28,11 @@ public struct AppFeature {
         public var pendingAgent: AgentRef?
         /// A tapped chat notification's thread, opened once its daemon is known.
         public var pendingChat: AgentRef?
+        /// Unsent answers of questions cards in threads that aren't open, by
+        /// agent then message id. A thread's state is replaced when another
+        /// opens, so its drafts wait here; they leave when their thread
+        /// reopens and the card turns out settled (`ChatThread.State.merge`).
+        public var parkedQuestionsDrafts: [AgentRef: [String: LeoChatQuestionsDraft]] = [:]
 
         public init() {}
     }
@@ -80,6 +85,7 @@ public struct AppFeature {
                     state.pendingAgent = nil
                     guard let session = state.fleet.sessions[id: ref.daemonID],
                           let agent = session.agents[id: ref.name] else { return .none }
+                    state.parkChatDrafts()
                     state.chat = nil
                     if state.detail?.ref != ref {
                         state.detail = AgentDetail.State(daemon: session.daemon, agent: agent, connection: session.connection)
@@ -267,7 +273,16 @@ extension AppFeature.State {
         detail = nil
         chats.threads[ref.daemonID]?[id: ref.name]?.unread = 0
         guard chat?.ref != ref else { return }
-        chat = ChatThread.State(daemon: session.daemon, agent: ref.name, live: session.agents[id: ref.name])
+        parkChatDrafts()
+        var thread = ChatThread.State(daemon: session.daemon, agent: ref.name, live: session.agents[id: ref.name])
+        thread.questionsDrafts = parkedQuestionsDrafts.removeValue(forKey: ref) ?? [:]
+        chat = thread
+    }
+
+    /// Sets the open thread's unsent questions answers aside before it is replaced.
+    mutating func parkChatDrafts() {
+        guard let thread = chat, !thread.questionsDrafts.isEmpty else { return }
+        parkedQuestionsDrafts[thread.ref] = thread.questionsDrafts
     }
 
     /// Opens a tapped chat notification's thread once its daemon is known;
