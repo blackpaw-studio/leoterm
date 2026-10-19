@@ -25,6 +25,7 @@
 		787BACE232F874CDD0EACDE4 /* RootSplitViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14E6AC1C3305D1FE41B9863F /* RootSplitViewController.swift */; };
 		7BB11F057E27FF2F99C7B4D0 /* LeoE2ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 249F5BD758358963B9AE6F8B /* LeoE2ETests.swift */; };
 		853C84CD4D7A533FCB9755A1 /* DaemonsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E30B7AA5EE2B1BCEA80F489 /* DaemonsViewController.swift */; };
+		85F958A7109376941A49B5C1 /* ChatQuestionsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5467E07FF8706EAA9E043C85 /* ChatQuestionsCard.swift */; };
 		8E6B64BFDF8CA023C70F3378 /* ChatBodyTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C02AB34B304D32494126D8 /* ChatBodyTextView.swift */; };
 		929ACF5783DFA6EEC13FB3CF /* LeoFeatures in Frameworks */ = {isa = PBXBuildFile; productRef = D76C56FEE239FEB25E23F15F /* LeoFeatures */; };
 		9D9F47A3C6410164E2BF82D4 /* AgentPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A3E500114C72A2CED014F5E /* AgentPresentation.swift */; };
@@ -40,6 +41,8 @@
 		DF6972AB8409A39BF38BF683 /* LeoNotificationService.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4C9E7687201F50B6862AC453 /* LeoNotificationService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E774071B30CF8DA71EB13833 /* QRScannerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38482350857C026362E8F7EE /* QRScannerViewController.swift */; };
 		F0277EE768ABDF3A4910CCB3 /* AgentsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FE39999ECDA1982AB15718A /* AgentsViewController.swift */; };
+		FA9115D68B9C37E11A38BE0D /* LeoQuestionsCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D677076F517FB0C40E4A5214 /* LeoQuestionsCardTests.swift */; };
+		FD5AFE72B0D498DB5026CC25 /* ChatQuestionsFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ED2AE8BC18ACE49BA9863AC /* ChatQuestionsFixture.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -78,6 +81,7 @@
 		0FE39999ECDA1982AB15718A /* AgentsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentsViewController.swift; sourceTree = "<group>"; };
 		14E6AC1C3305D1FE41B9863F /* RootSplitViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootSplitViewController.swift; sourceTree = "<group>"; };
 		1D628695BAD22845C3CE51C1 /* LeoFeatures */ = {isa = PBXFileReference; lastKnownFileType = folder; name = LeoFeatures; path = LeoFeatures; sourceTree = SOURCE_ROOT; };
+		1ED2AE8BC18ACE49BA9863AC /* ChatQuestionsFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatQuestionsFixture.swift; sourceTree = "<group>"; };
 		238A0EF95E58F7CF1A40AB89 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		249F5BD758358963B9AE6F8B /* LeoE2ETests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoE2ETests.swift; sourceTree = "<group>"; };
 		2A3E500114C72A2CED014F5E /* AgentPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentPresentation.swift; sourceTree = "<group>"; };
@@ -86,6 +90,7 @@
 		3E30B7AA5EE2B1BCEA80F489 /* DaemonsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonsViewController.swift; sourceTree = "<group>"; };
 		4259E396F6B6491459936938 /* LeoUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoUITests.swift; sourceTree = "<group>"; };
 		4C9E7687201F50B6862AC453 /* LeoNotificationService.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = LeoNotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		5467E07FF8706EAA9E043C85 /* ChatQuestionsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatQuestionsCard.swift; sourceTree = "<group>"; };
 		54D9136C96055AB2811BE750 /* LeoNotificationService.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LeoNotificationService.entitlements; sourceTree = "<group>"; };
 		57636A050F83D8C255CD37DB /* PushClientLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushClientLive.swift; sourceTree = "<group>"; };
 		5C66DE68F2108D6E2B1085BF /* ChatsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatsViewController.swift; sourceTree = "<group>"; };
@@ -103,6 +108,7 @@
 		CB1449AF007C779C9BAE7CC9 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		CE83AB0F7C602D5245597AC2 /* ChatAskControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatAskControls.swift; sourceTree = "<group>"; };
 		D1A1F7D0633E46F1B7A239E2 /* Leo.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Leo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D677076F517FB0C40E4A5214 /* LeoQuestionsCardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoQuestionsCardTests.swift; sourceTree = "<group>"; };
 		D7BDCBC134EA72C0D7D3E2A5 /* ChatTimeHeaderCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTimeHeaderCell.swift; sourceTree = "<group>"; };
 		DDDA7EFA213B93F69799839F /* AttachmentPickerDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentPickerDelegate.swift; sourceTree = "<group>"; };
 		E901E6A2806E9B56B41BE780 /* LeoKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = LeoKit; path = ../Packages/LeoKit; sourceTree = SOURCE_ROOT; };
@@ -225,6 +231,7 @@
 			children = (
 				249F5BD758358963B9AE6F8B /* LeoE2ETests.swift */,
 				0F8B9632E4FB5665D708DF0E /* LeoPushE2ETests.swift */,
+				D677076F517FB0C40E4A5214 /* LeoQuestionsCardTests.swift */,
 				4259E396F6B6491459936938 /* LeoUITests.swift */,
 			);
 			path = LeoUITests;
@@ -240,6 +247,8 @@
 				BACD0009A27F38FB8F821813 /* ChatClientsLive.swift */,
 				5F23F292F5C3FAFF0DC837F8 /* ChatMessageCell.swift */,
 				ED896422B42A4AB6BD982529 /* ChatPresentation.swift */,
+				5467E07FF8706EAA9E043C85 /* ChatQuestionsCard.swift */,
+				1ED2AE8BC18ACE49BA9863AC /* ChatQuestionsFixture.swift */,
 				5C66DE68F2108D6E2B1085BF /* ChatsViewController.swift */,
 				B4F905B733C356A725C5FE60 /* ChatThreadViewController.swift */,
 				D7BDCBC134EA72C0D7D3E2A5 /* ChatTimeHeaderCell.swift */,
@@ -441,6 +450,7 @@
 			files = (
 				7BB11F057E27FF2F99C7B4D0 /* LeoE2ETests.swift in Sources */,
 				35B2BA0207DD6269898734F2 /* LeoPushE2ETests.swift in Sources */,
+				FA9115D68B9C37E11A38BE0D /* LeoQuestionsCardTests.swift in Sources */,
 				B25470C3706218FBCA5C7DA1 /* LeoUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -460,6 +470,8 @@
 				B6440DBB047A78339AE73B85 /* ChatClientsLive.swift in Sources */,
 				0A738BC4B723F8A148040CE9 /* ChatMessageCell.swift in Sources */,
 				D53BEAE86E41AC0D887D17D4 /* ChatPresentation.swift in Sources */,
+				85F958A7109376941A49B5C1 /* ChatQuestionsCard.swift in Sources */,
+				FD5AFE72B0D498DB5026CC25 /* ChatQuestionsFixture.swift in Sources */,
 				B7BEBAF01DF97E7AAFE235DA /* ChatThreadViewController.swift in Sources */,
 				3E8CAAD59AE015ECC9520FDD /* ChatTimeHeaderCell.swift in Sources */,
 				D40FC2D15D3B36995C075597 /* ChatsViewController.swift in Sources */,

@@ -28,6 +28,7 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
     /// The gap above each shown item (`LeoChatTranscript.spacing`).
     private var shownSpacing: [String: CGFloat] = [:]
     private var pendingPlay: String?
+    private var settleReveal = SettleReveal()
 
     init(store: StoreOf<ChatThread>) {
         self.store = store
@@ -72,7 +73,7 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
             collectionView.bottomAnchor.constraint(equalTo: bottom.topAnchor),
             bottom.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             bottom.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            bottom.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
+            bottom.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor)
         ])
         configureDataSource()
         // An ask's text field sits in the thread, not the composer: once the
@@ -111,7 +112,8 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
             guard let self, case .message(let message, let position)? = shownItems[id] else { return }
             let model = ChatMessageCell.Model(
                 message: message, isAnswering: store.answering.contains(id),
-                draft: store.askDrafts[id] ?? LeoChatAskDraft(), position: position, topSpacing: shownSpacing[id] ?? 0,
+                draft: store.askDrafts[id] ?? LeoChatAskDraft(), questionsDraft: store.questionsDrafts[id],
+                questionsError: store.questionsErrors[id], position: position, topSpacing: shownSpacing[id] ?? 0,
                 files: store.attachmentFiles, playingAttachmentID: voice.playingID
             )
             cell.configure(model) { [weak self] event in self?.handle(event, message: message) }
@@ -161,6 +163,7 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         } else if isFirstFill || wasAtBottom {
             scrollToBottom()
         }
+        revealSettledQuestionCards()
         if let id = pendingPlay, case .loaded(let url) = store.attachmentFiles[id] {
             pendingPlay = nil
             voice.toggle(id: id, url: url)
@@ -217,6 +220,20 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         replyBanner.configuration?.titleLineBreakMode = .byTruncatingTail
     }
 
+    /// A questions card the user just submitted or dismissed is much shorter
+    /// once settled, which can leave it above the screen: bring its top back
+    /// into view. A card that settles on its own leaves the scroll alone.
+    private func revealSettledQuestionCards() {
+        guard let id = settleReveal.settled(in: store.messages, answering: store.answering),
+              let indexPath = dataSource.indexPath(for: id),
+              let frame = collectionView.layoutAttributesForItem(at: indexPath)?.frame else { return }
+        let inset = collectionView.adjustedContentInset
+        guard frame.minY < collectionView.contentOffset.y + inset.top else { return }
+        let lowest = collectionView.contentSize.height - collectionView.bounds.height + inset.bottom
+        let top = min(frame.minY - inset.top - Self.focusedFieldMargin, lowest)
+        collectionView.setContentOffset(CGPoint(x: 0, y: max(top, -inset.top)), animated: true)
+    }
+
     private var isNearBottom: Bool {
         let visibleBottom = collectionView.contentOffset.y + collectionView.bounds.height - collectionView.adjustedContentInset.bottom
         return collectionView.contentSize.height - visibleBottom < 80
@@ -253,6 +270,9 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
             store.send(.askTextChanged(messageID: message.id, text))
         case .submit:
             store.send(.askSubmitTapped(messageID: message.id))
+        case .questionChoice, .questionText, .questionsSubmit, .questionsDismiss:
+            if event.settlesCard { settleReveal.acted(on: message.id) }
+            event.questionsAction(messageID: message.id).map { store.send($0) }
         case .openAttachment(let attachment):
             open(attachment)
         case .playVoice(let attachment):

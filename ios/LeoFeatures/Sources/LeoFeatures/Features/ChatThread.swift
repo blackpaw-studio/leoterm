@@ -44,6 +44,11 @@ public struct ChatThread {
         public var liveSinceFetch: Set<String> = []
         public var loadError: String?
         public var messages: IdentifiedArrayOf<LeoChatMessage> = []
+        /// Unsent answers of open questions cards, by message id.
+        public var questionsDrafts: [String: LeoChatQuestionsDraft] = [:]
+        /// The daemon's reason a questions card's last answer was refused,
+        /// shown on the card itself, by message id.
+        public var questionsErrors: [String: String] = [:]
         /// The message (usually a task card) the next send replies to.
         public var replyTo: String?
         public var taskFilter: String?
@@ -71,7 +76,7 @@ public struct ChatThread {
             for message in incoming {
                 messages[id: message.id] = message
                 if let task = message.task { knownTasks.insert(task) }
-                if !message.isOpen { askDrafts[message.id] = nil }
+                if !message.isOpen { dropDrafts(of: message.id) }
             }
             messages.sort { ($0.ts, $0.id) < ($1.ts, $1.id) }
         }
@@ -80,6 +85,19 @@ public struct ChatThread {
         func openAsk(_ id: String) -> (input: LeoChatInput, draft: LeoChatAskDraft)? {
             guard let message = messages[id: id], message.isOpen, !answering.contains(id), let input = message.answerInput else { return nil }
             return (input, askDrafts[id] ?? LeoChatAskDraft())
+        }
+
+        /// An open questions card's questions and current draft, when it takes input now.
+        func openQuestions(_ id: String) -> (questions: [LeoChatQuestion], draft: LeoChatQuestionsDraft)? {
+            guard let message = messages[id: id], message.isOpen, !answering.contains(id),
+                  let input = message.input, input.kind == .questions else { return nil }
+            return (input.questions, questionsDrafts[id] ?? LeoChatQuestionsDraft(questions: input.questions))
+        }
+
+        mutating func dropDrafts(of id: String) {
+            askDrafts[id] = nil
+            questionsDrafts[id] = nil
+            questionsErrors[id] = nil
         }
 
         func belongs(_ message: LeoChatMessage) -> Bool {
@@ -103,6 +121,14 @@ public struct ChatThread {
         case olderPageResponse(Result<LeoChatPage, any Error>)
         case onScreenChanged(Bool)
         case pageResponse(Result<LeoChatPage, any Error>)
+        /// An option of a questions card tapped: updates its draft.
+        case questionChoiceTapped(messageID: String, questionID: String, value: String)
+        case questionTextChanged(messageID: String, questionID: String, String)
+        case questionsDismissTapped(messageID: String)
+        /// The answer or the dismissal came back; the message is nil when the
+        /// daemon settled the card without returning it.
+        case questionsResponse(messageID: String, Result<LeoChatMessage?, any Error>)
+        case questionsSubmitTapped(messageID: String)
         case replyCancelled
         case replyTapped(String)
         /// Events may have been lost (reconnect or sequence gap): reload the
@@ -264,6 +290,49 @@ public struct ChatThread {
                 state.loadError = error.localizedDescription
                 return .none
 
+            case .questionChoiceTapped(let id, let questionID, let value):
+                guard let (_, draft) = state.openQuestions(id) else { return .none }
+                state.questionsDrafts[id] = draft.choosing(value, question: questionID)
+                return .none
+
+            case .questionTextChanged(let id, let questionID, let text):
+                guard let (_, draft) = state.openQuestions(id) else { return .none }
+                state.questionsDrafts[id] = draft.withText(text, question: questionID)
+                return .none
+
+            case .questionsSubmitTapped(let id):
+                guard let (_, draft) = state.openQuestions(id), draft.isComplete else { return .none }
+                let answers = draft.answersPayload
+                return settleQuestions(id, state: &state) { chatClient, connection, agent in
+                    try await chatClient.answerQuestions(connection, agent, id, answers)
+                }
+
+            case .questionsDismissTapped(let id):
+                guard state.openQuestions(id) != nil else { return .none }
+                return settleQuestions(id, state: &state) { chatClient, connection, agent in
+                    try await chatClient.dismiss(connection, agent, id)
+                }
+
+            case .questionsResponse(let id, .success(let updated?)):
+                state.answering.remove(id)
+                state.merge([updated])
+                return .none
+
+            case .questionsResponse(let id, .success(nil)):
+                // Settled, but the daemon sent no copy: the live event or a reload brings it.
+                state.answering.remove(id)
+                return .send(.resync)
+
+            case .questionsResponse(let id, .failure(LeoChatAnswerError.settled)):
+                state.answering.remove(id)
+                state.dropDrafts(of: id)
+                return refreshSettled(id, state: state)
+
+            case .questionsResponse(let id, .failure(let error)):
+                state.answering.remove(id)
+                state.questionsErrors[id] = error.localizedDescription
+                return .none
+
             case .replyCancelled:
                 state.replyTo = nil
                 return .none
@@ -306,54 +375,6 @@ public struct ChatThread {
             ButtonState(role: .cancel) { TextState("OK") }
         } message: {
             TextState(message)
-        }
-    }
-
-    private func submit(_ answer: LeoChatAnswer, to id: String, state: inout State) -> Effect<Action> {
-        state.answering.insert(id)
-        let (daemon, agent) = (state.daemon, state.agentName)
-        return .run { [chatClient, secrets] send in
-            await send(.answerResponse(messageID: id, answer, Result {
-                try await chatClient.answer(try secrets.connection(for: daemon), agent, id, answer)
-            }))
-        }
-    }
-
-    /// Resyncs after a 409. The newest page may not reach back to the
-    /// prompt, so one older than the newest loaded message first fetches
-    /// the page just above it, which carries its settled copy.
-    private func refreshSettled(_ id: String, state: State) -> Effect<Action> {
-        guard let index = state.messages.index(id: id), index + 1 < state.messages.count else { return .send(.resync) }
-        let query = LeoChatPageQuery(before: state.messages[index + 1].id, limit: 1, task: state.taskFilter)
-        let (daemon, agent) = (state.daemon, state.agentName)
-        return .run { [chatClient, secrets] send in
-            await send(.settledMessageResponse(messageID: id, Result {
-                try await chatClient.messages(try secrets.connection(for: daemon), agent, query)
-            }))
-            await send(.resync)
-        }
-    }
-
-    private func loadNewest(state: inout State) -> Effect<Action> {
-        state.isLoading = true
-        state.isLoadingOlder = false
-        state.liveSinceFetch = []
-        return fetch(LeoChatPageQuery(limit: Self.pageSize, task: state.taskFilter), state: state) { .pageResponse($0) }
-    }
-
-    private func fetch(_ query: LeoChatPageQuery, state: State, _ action: @escaping @Sendable (Result<LeoChatPage, any Error>) -> Action) -> Effect<Action> {
-        let (daemon, agent) = (state.daemon, state.agentName)
-        return .run { [chatClient, secrets] send in
-            await send(action(Result { try await chatClient.messages(try secrets.connection(for: daemon), agent, query) }))
-        }
-        .cancellable(id: CancelID.page, cancelInFlight: true)
-    }
-
-    /// Read marks are best effort: a failure only leaves the unread count up.
-    private func markRead(_ id: String, state: State) -> Effect<Action> {
-        let (daemon, agent) = (state.daemon, state.agentName)
-        return .run { [chatClient, secrets] _ in
-            try? await chatClient.markRead(try secrets.connection(for: daemon), agent, id)
         }
     }
 }

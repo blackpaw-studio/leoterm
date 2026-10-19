@@ -8,11 +8,15 @@ import Testing
 extension LeoChatMessage {
     static func make(
         _ id: String, _ text: String = "", agent: String = "zeus", direction: Direction = .outbound, kind: Kind = .text, task: String? = nil,
-        second: Int = 0, state: String? = nil, answer: LeoChatAnswer? = nil, input: LeoChatInput? = nil, attachments: [LeoChatAttachment] = []
+        second: Int = 0, state: String? = nil, answer: LeoChatAnswer? = nil, input: LeoChatInput? = nil,
+        attachments: [LeoChatAttachment] = [],
+        closedReason: String? = nil
     ) -> LeoChatMessage {
         LeoChatMessage(
             id: id, agent: agent, direction: direction, kind: kind, text: text, task: task, runID: task.map { _ in "r-1" },
-            state: state, answer: answer, ts: Date(timeIntervalSince1970: TimeInterval(1_000 + second)), attachments: attachments, input: input
+            state: state, answer: answer, ts: Date(timeIntervalSince1970: TimeInterval(1_000 + second)),
+            attachments: attachments, input: input,
+            closedReason: closedReason
         )
     }
 }

@@ -1,0 +1,193 @@
+#if DEBUG
+import ComposableArchitecture
+import LeoFeatures
+import LeoKit
+import UIKit
+
+/// A chat thread of fixture questions cards for UI tests and screenshots
+/// (`-questionsCardFixture <state>`), run with a scripted chat client so no
+/// daemon is needed. `all` shows every state in one thread; `reuse` is three
+/// compact open cards, for checking drafts across cell reuse; `reveal` is two
+/// tall ones; `yank` adds a third below them and a button that times the
+/// first one out.
+enum ChatQuestionsFixture {
+    static let launchKey = "questionsCardFixture"
+
+    /// Which fixture a launch asked for, if any.
+    static var requested: String? {
+        guard ProcessInfo.processInfo.arguments.contains("-\(launchKey)") else { return nil }
+        return UserDefaults.standard.string(forKey: launchKey)
+    }
+
+    private static let longOption = "Both, with the public API unchanged and callers migrated later"
+    private static let terminalAnswer = LeoChatAnswer(values: [LeoChatMessage.terminalAnswerValue])
+
+    static let agent = "zeus"
+    static let daemon = PairedDaemon(
+        id: "fixture-daemon", name: "Fixture", baseURL: URL(string: "https://fixture.invalid")!, urls: [],
+        deviceID: "fixture-device", pairedAt: Date(timeIntervalSince1970: 0)
+    )
+
+    /// Long enough to need scrolling (the `all` and `long` fixtures).
+    static let longQuestions = [
+        LeoChatQuestion(id: "q1", header: "Library", question: "Which library should the parser use?", options: [
+            LeoChatOption(value: "Swift", label: "Swift", description: "Fast, and ships with the toolchain"),
+            LeoChatOption(value: "Zig", label: "Zig", description: "Small binaries, manual memory"),
+            LeoChatOption(value: Self.longOption, label: Self.longOption)
+        ]),
+        LeoChatQuestion(id: "q2", header: "Scope", question: "Which parts should it cover?", multi: true, options: [
+            LeoChatOption(value: "Lexer", label: "Lexer", description: "Splits input into tokens"),
+            LeoChatOption(value: "Parser", label: "Parser"),
+            LeoChatOption(value: "Formatter", label: "Formatter", description: "Prints the tree back out")
+        ])
+    ]
+
+    /// Two short questions: a whole card fits one screen, for the state captures.
+    static let questions = [
+        LeoChatQuestion(id: "q1", header: "Library", question: "Which library should the parser use?", options: [
+            LeoChatOption(value: "Swift", label: "Swift", description: "Fast, and ships with the toolchain"),
+            LeoChatOption(value: "Zig", label: "Zig", description: "Small binaries, manual memory")
+        ]),
+        LeoChatQuestion(id: "q2", header: "Scope", question: "Which parts should it cover?", multi: true, options: [
+            LeoChatOption(value: "Lexer", label: "Lexer", description: "Splits input into tokens"),
+            LeoChatOption(value: "Parser", label: "Parser")
+        ])
+    ]
+
+    /// Every state, in thread order.
+    static let stateNames = [
+        "open", "partial", "filled", "refused", "sending", "answered", "terminal", "dismissed", "timedout"
+    ]
+
+    private static let baseTime = Date().addingTimeInterval(-3_600)
+
+    private static let reuseOrder = ["filled", "partial", "open"]
+
+    private static func card(
+        _ name: String, long: Bool = false, state: String = "open", answer: LeoChatAnswer? = nil,
+        closedReason: String? = nil, order: [String] = stateNames
+    ) -> LeoChatMessage {
+        LeoChatMessage(
+            id: "card-\(name)", agent: agent, direction: .outbound, kind: .ask, text: "", state: state, answer: answer,
+            ts: baseTime.addingTimeInterval(Double(order.firstIndex(of: name) ?? 0) * 60),
+            input: try? LeoChatInput(questions: long ? longQuestions : questions), closedReason: closedReason
+        )
+    }
+
+    static let echo = LeoChatAnswer(answers: [
+        "q1": .choice("Swift"),
+        "q2": LeoChatAnswer(values: ["Lexer", "Parser"], text: "and the CLI")
+    ])
+
+    static func messages(for name: String) -> [LeoChatMessage] {
+        if name == "long" { return [card("long", long: true)] }
+        let isAll = ["all", "reveal", "yank"].contains(name)
+        let order = name == "reuse" ? reuseOrder : stateNames
+        let all: [String: LeoChatMessage] = [
+            "open": card("open", long: isAll, order: order),
+            "partial": card("partial", long: isAll, order: order),
+            "filled": card("filled", long: isAll, order: order),
+            "refused": card("refused", long: isAll),
+            "sending": card("sending", long: isAll),
+            "answered": card("answered", long: isAll, state: "answered", answer: echo),
+            "terminal": card("terminal", long: isAll, state: "answered", answer: terminalAnswer),
+            "dismissed": card("dismissed", long: isAll, state: "expired", closedReason: "dismissed"),
+            "timedout": card("timedout", long: isAll, state: "expired", closedReason: "timeout")
+        ]
+        // Three compact cards with the open one last (where a thread opens), so the
+        // first scrolls off and its cell is recycled for another card in few swipes.
+        // Two tall open cards: settling the first leaves the thread scrolled past it.
+        if name == "reveal" { return ["open", "partial"].compactMap { all[$0] } }
+        // Enough below the middle card that the offset never clamps to the end.
+        if name == "yank" { return ["open", "partial", "filled"].compactMap { all[$0] } }
+        if name == "reuse" { return reuseOrder.compactMap { all[$0] } }
+        guard isAll else { return all[name].map { [$0] } ?? [] }
+        return stateNames.compactMap { all[$0] }
+    }
+
+    private static func targets(for name: String) -> [String] {
+        switch name {
+        case "all": stateNames
+        case "reuse": ["partial", "filled"]
+        default: [name]
+        }
+    }
+
+    /// The drafts, in-flight set and refused-answer notes the states need.
+    private static func initialState(for name: String) -> ChatThread.State {
+        var state = ChatThread.State(daemon: daemon, agent: agent)
+        let set = ["all", "reveal", "yank"].contains(name) ? longQuestions : questions
+        let empty = LeoChatQuestionsDraft(questions: set)
+        let partial = empty.choosing("Swift", question: "q1")
+        let filled = partial
+            .choosing("Lexer", question: "q2").choosing("Parser", question: "q2")
+            .withText("and the CLI", question: "q2")
+        for target in targets(for: name) {
+            switch target {
+            case "partial": state.questionsDrafts["card-partial"] = partial
+            case "filled": state.questionsDrafts["card-filled"] = filled
+            case "refused":
+                state.questionsDrafts["card-refused"] = filled
+                state.questionsErrors["card-refused"] = "invalid: q2 text is over 4000 characters"
+            case "sending":
+                state.questionsDrafts["card-sending"] = filled
+                state.answering = ["card-sending"]
+            default: break
+            }
+        }
+        if name == "reveal" { state.questionsDrafts["card-open"] = filled }
+        return state
+    }
+
+    /// A thread store over a scripted client: it serves the fixture page,
+    /// settles a submit with the echoed answers and a dismiss as dismissed.
+    @MainActor
+    static func store(for name: String) -> StoreOf<ChatThread> {
+        let page = LeoChatPage(messages: messages(for: name), hasMore: false)
+        return Store(initialState: initialState(for: name)) {
+            ChatThread()
+        } withDependencies: {
+            $0.secrets.load = { _ in DaemonSecrets(token: "fixture") }
+            $0.chatClient.messages = { _, _, _ in page }
+            $0.chatClient.markRead = { _, _, _ in }
+            $0.chatClient.answerQuestions = { _, _, id, answers in
+                guard let sent = page.messages.first(where: { $0.id == id }) else { return nil }
+                return sent.answered(LeoChatAnswer(answers: answers))
+            }
+            $0.chatClient.dismiss = { _, _, id in
+                guard let sent = page.messages.first(where: { $0.id == id }) else { return nil }
+                return LeoChatMessage(
+                    id: sent.id, agent: sent.agent, direction: sent.direction, kind: sent.kind, text: sent.text,
+                    state: "expired",
+                    ts: sent.ts, input: sent.input, closedReason: "dismissed"
+                )
+            }
+        }
+    }
+
+    @MainActor
+    static func rootViewController(for name: String) -> UIViewController {
+        let store = store(for: name)
+        let thread = ChatThreadViewController(store: store)
+        if name == "yank", let first = messages(for: name).first {
+            thread.navigationItem.leftBarButtonItem = timeOutButton(for: first, in: store)
+        }
+        return UINavigationController(rootViewController: thread)
+    }
+
+    /// A nav bar button that delivers `card` as timed out, the way a live
+    /// `chat.updated` would, so a test can trigger it once it is in position.
+    @MainActor
+    private static func timeOutButton(for card: LeoChatMessage, in store: StoreOf<ChatThread>) -> UIBarButtonItem {
+        let timedOut = LeoChatMessage(
+            id: card.id, agent: card.agent, direction: card.direction, kind: card.kind, text: card.text,
+            state: "expired", ts: card.ts, input: card.input, closedReason: "timeout"
+        )
+        let button = UIBarButtonItem(title: "Time Out", primaryAction: UIAction { _ in
+            store.send(.chatEvent(.updated(timedOut)))
+        })
+        button.accessibilityIdentifier = "yank.timeout"
+        return button
+    }
+}
+#endif

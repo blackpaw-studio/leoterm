@@ -14,6 +14,13 @@ final class ChatMessageCell: UICollectionViewCell {
         /// The prompt's free text changed.
         case text(String)
         case submit
+        /// An option of a questions card tapped.
+        case questionChoice(questionID: String, value: String)
+        /// A questions card's "Other…" text changed.
+        case questionText(questionID: String, String)
+        case questionsSubmit
+        /// "Answer in terminal" on a questions card.
+        case questionsDismiss
         case openAttachment(LeoChatAttachment)
         case playVoice(LeoChatAttachment)
         case reply
@@ -23,6 +30,9 @@ final class ChatMessageCell: UICollectionViewCell {
         let message: LeoChatMessage
         let isAnswering: Bool
         let draft: LeoChatAskDraft
+        /// A questions card's draft and refused-answer reason; nil on other messages.
+        let questionsDraft: LeoChatQuestionsDraft?
+        let questionsError: String?
         let position: LeoChatTranscript.GroupPosition
         /// The gap above this cell, from `LeoChatTranscript.spacing`.
         let topSpacing: CGFloat
@@ -40,11 +50,15 @@ final class ChatMessageCell: UICollectionViewCell {
     private let failureFooter = UILabel()
     /// Kept across reconfigures (see `ChatAskControls`).
     private let askControls = ChatAskControls()
+    private let questionsCard = ChatQuestionsCard()
+    private var keptViews: [UIView] { [askControls, questionsCard] }
     private var top: NSLayoutConstraint!
     private var leading: NSLayoutConstraint!
     private var trailing: NSLayoutConstraint!
     private var centered: NSLayoutConstraint!
     private var bubbleBottom: NSLayoutConstraint!
+    /// Caps an agent's bubble at 82% of the row; a questions card takes the full width.
+    private var bubbleWidthCap: NSLayoutConstraint!
     private var failureConstraints: [NSLayoutConstraint] = []
     private var onEvent: (Event) -> Void = { _ in }
 
@@ -79,18 +93,19 @@ final class ChatMessageCell: UICollectionViewCell {
             failureFooter.topAnchor.constraint(equalTo: bubble.bottomAnchor, constant: Self.failureGap),
             failureFooter.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
             failureFooter.trailingAnchor.constraint(equalTo: bubble.trailingAnchor),
-            failureFooter.leadingAnchor.constraint(greaterThanOrEqualTo: contentView.leadingAnchor, constant: 12),
+            failureFooter.leadingAnchor.constraint(greaterThanOrEqualTo: contentView.leadingAnchor, constant: 12)
         ]
+        bubbleWidthCap = bubble.widthAnchor.constraint(lessThanOrEqualTo: contentView.widthAnchor, multiplier: 0.82)
         NSLayoutConstraint.activate([
             top,
             bubbleBottom,
-            bubble.widthAnchor.constraint(lessThanOrEqualTo: contentView.widthAnchor, multiplier: 0.82),
+            bubbleWidthCap,
             bubble.leadingAnchor.constraint(greaterThanOrEqualTo: contentView.leadingAnchor, constant: 12),
             bubble.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -12),
             stack.topAnchor.constraint(equalTo: bubble.topAnchor, constant: 9),
             stack.bottomAnchor.constraint(equalTo: bubble.bottomAnchor, constant: -9),
             stack.leadingAnchor.constraint(equalTo: bubble.leadingAnchor, constant: 13),
-            stack.trailingAnchor.constraint(equalTo: bubble.trailingAnchor, constant: -13),
+            stack.trailingAnchor.constraint(equalTo: bubble.trailingAnchor, constant: -13)
         ])
     }
 
@@ -100,21 +115,24 @@ final class ChatMessageCell: UICollectionViewCell {
     func configure(_ model: Model, onEvent: @escaping (Event) -> Void) {
         self.onEvent = onEvent
         askControls.onEvent = onEvent
+        questionsCard.onEvent = onEvent
         let message = model.message
         layout(for: message, position: model.position)
         top.constant = model.topSpacing
         accessibilityIdentifier = "chat.message.\(message.id)"
         let views = contentViews(model)
         showFailureFooter(Self.failureFooterText(for: model))
-        // Everything is rebuilt but the ask controls, which stay in place
-        // so a focused text field keeps the keyboard.
-        stack.arrangedSubviews.filter { $0 !== askControls }.forEach { $0.removeFromSuperview() }
-        guard let split = views.firstIndex(where: { $0 === askControls }) else {
-            askControls.removeFromSuperview()
+        // Everything is rebuilt but the ask controls and questions card,
+        // which stay in place so a focused text field keeps the keyboard.
+        let kept = keptViews
+        stack.arrangedSubviews.filter { view in !kept.contains { $0 === view } }.forEach { $0.removeFromSuperview() }
+        guard let split = views.firstIndex(where: { view in kept.contains { $0 === view } }) else {
+            kept.forEach { $0.removeFromSuperview() }
             views.forEach(stack.addArrangedSubview)
             return
         }
-        if askControls.superview !== stack { stack.addArrangedSubview(askControls) }
+        kept.filter { $0 !== views[split] }.forEach { $0.removeFromSuperview() }
+        if views[split].superview !== stack { stack.addArrangedSubview(views[split]) }
         for (index, view) in views[..<split].enumerated() { stack.insertArrangedSubview(view, at: index) }
         views[(split + 1)...].forEach(stack.addArrangedSubview)
     }
@@ -194,7 +212,8 @@ final class ChatMessageCell: UICollectionViewCell {
 
     /// The ask's text field while it is being edited, in `view`'s coordinates.
     func focusedTextFrame(in view: UIView) -> CGRect? {
-        askControls.superview == nil ? nil : askControls.focusedTextFrame(in: view)
+        if askControls.superview != nil, let frame = askControls.focusedTextFrame(in: view) { return frame }
+        return questionsCard.superview == nil ? nil : questionsCard.focusedTextFrame(in: view)
     }
 
     /// Your own bubbles are filled with the accent, so their contents are white.
@@ -210,6 +229,9 @@ final class ChatMessageCell: UICollectionViewCell {
     private func layout(for message: LeoChatMessage, position: LeoChatTranscript.GroupPosition) {
         NSLayoutConstraint.deactivate([leading, trailing, centered])
         bubble.fillsWithTint = false
+        // A questions card needs the room: the whole row, not 82% of it.
+        let isWide = message.input?.kind == .questions && message.direction == .outbound
+        bubbleWidthCap.isActive = !isWide
         switch (message.kind, message.direction) {
         case (.system, _):
             bubble.style = .plain
@@ -226,6 +248,7 @@ final class ChatMessageCell: UICollectionViewCell {
             bubble.style = .bubble(.leading, position)
             bubble.fillColor = .secondarySystemBackground
             leading.isActive = true
+            trailing.isActive = isWide
         }
     }
 
@@ -233,6 +256,14 @@ final class ChatMessageCell: UICollectionViewCell {
     private func promptViews(_ model: Model) -> [UIView] {
         let message = model.message
         guard let input = message.answerInput else { return [] }
+        if input.kind == .questions, let state = message.questionsCard {
+            questionsCard.configure(ChatQuestionsCard.Model(
+                message: message, questions: input.questions,
+                draft: model.questionsDraft ?? LeoChatQuestionsDraft(questions: input.questions),
+                state: state, error: model.questionsError, isAnswering: model.isAnswering
+            ))
+            return [questionsCard]
+        }
         if message.isOpen {
             askControls.configure(ChatAskControls.Model(message: message, input: input, draft: model.draft, isAnswering: model.isAnswering))
             return [askControls]
