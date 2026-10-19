@@ -125,6 +125,26 @@ final class LeoQuestionsCardTests: XCTestCase {
         capture("questions-settled-after-dismiss")
     }
 
+    /// A card timing out above the screen is not the user's doing: the thread stays where they are.
+    func testAnUnsolicitedSettleDoesNotScrollTheThread() {
+        let app = launch("yank")
+        let thread = app.collectionViews["chat.thread"]
+        let reading = app.cells["chat.message.card-partial"].buttons["chat.questions.dismiss"]
+        XCTAssertTrue(reading.waitForExistence(timeout: 10))
+        // Let the first layout pass finish before asking where things are.
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        scroll(to: reading, in: thread, toNewest: true)
+
+        // The first card, far above, times out on its own.
+        app.buttons["yank.timeout"].tap()
+        RunLoop.current.run(until: Date().addingTimeInterval(2))
+        XCTAssertTrue(reading.isHittable, "the thread scrolled away from what the user was reading")
+
+        let timedOut = app.cells["chat.message.card-open"].staticTexts["Timed out"]
+        scroll(to: timedOut, in: thread, toNewest: false)
+        XCTAssertTrue(timedOut.isHittable, "the first card never timed out")
+    }
+
     /// Scrolls the first of two tall cards to its footer and taps `button`; returns that card's cell.
     private func revealSettling(_ button: String) -> XCUIElement {
         let app = launch("reveal")

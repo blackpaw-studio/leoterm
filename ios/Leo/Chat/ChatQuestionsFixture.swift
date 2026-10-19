@@ -7,7 +7,9 @@ import UIKit
 /// A chat thread of fixture questions cards for UI tests and screenshots
 /// (`-questionsCardFixture <state>`), run with a scripted chat client so no
 /// daemon is needed. `all` shows every state in one thread; `reuse` is three
-/// compact open cards, for checking drafts across cell reuse; `reveal` is two tall ones.
+/// compact open cards, for checking drafts across cell reuse; `reveal` is two
+/// tall ones; `yank` adds a third below them and a button that times the
+/// first one out.
 enum ChatQuestionsFixture {
     static let launchKey = "questionsCardFixture"
 
@@ -79,7 +81,7 @@ enum ChatQuestionsFixture {
 
     static func messages(for name: String) -> [LeoChatMessage] {
         if name == "long" { return [card("long", long: true)] }
-        let isAll = name == "all" || name == "reveal"
+        let isAll = ["all", "reveal", "yank"].contains(name)
         let order = name == "reuse" ? reuseOrder : stateNames
         let all: [String: LeoChatMessage] = [
             "open": card("open", long: isAll, order: order),
@@ -96,6 +98,8 @@ enum ChatQuestionsFixture {
         // first scrolls off and its cell is recycled for another card in few swipes.
         // Two tall open cards: settling the first leaves the thread scrolled past it.
         if name == "reveal" { return ["open", "partial"].compactMap { all[$0] } }
+        // Enough below the middle card that the offset never clamps to the end.
+        if name == "yank" { return ["open", "partial", "filled"].compactMap { all[$0] } }
         if name == "reuse" { return reuseOrder.compactMap { all[$0] } }
         guard isAll else { return all[name].map { [$0] } ?? [] }
         return stateNames.compactMap { all[$0] }
@@ -112,7 +116,7 @@ enum ChatQuestionsFixture {
     /// The drafts, in-flight set and refused-answer notes the states need.
     private static func initialState(for name: String) -> ChatThread.State {
         var state = ChatThread.State(daemon: daemon, agent: agent)
-        let set = ["all", "reveal"].contains(name) ? longQuestions : questions
+        let set = ["all", "reveal", "yank"].contains(name) ? longQuestions : questions
         let empty = LeoChatQuestionsDraft(questions: set)
         let partial = empty.choosing("Swift", question: "q1")
         let filled = partial
@@ -163,7 +167,27 @@ enum ChatQuestionsFixture {
 
     @MainActor
     static func rootViewController(for name: String) -> UIViewController {
-        UINavigationController(rootViewController: ChatThreadViewController(store: store(for: name)))
+        let store = store(for: name)
+        let thread = ChatThreadViewController(store: store)
+        if name == "yank", let first = messages(for: name).first {
+            thread.navigationItem.leftBarButtonItem = timeOutButton(for: first, in: store)
+        }
+        return UINavigationController(rootViewController: thread)
+    }
+
+    /// A nav bar button that delivers `card` as timed out, the way a live
+    /// `chat.updated` would, so a test can trigger it once it is in position.
+    @MainActor
+    private static func timeOutButton(for card: LeoChatMessage, in store: StoreOf<ChatThread>) -> UIBarButtonItem {
+        let timedOut = LeoChatMessage(
+            id: card.id, agent: card.agent, direction: card.direction, kind: card.kind, text: card.text,
+            state: "expired", ts: card.ts, input: card.input, closedReason: "timeout"
+        )
+        let button = UIBarButtonItem(title: "Time Out", primaryAction: UIAction { _ in
+            store.send(.chatEvent(.updated(timedOut)))
+        })
+        button.accessibilityIdentifier = "yank.timeout"
+        return button
     }
 }
 #endif

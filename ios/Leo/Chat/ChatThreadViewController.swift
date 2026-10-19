@@ -28,8 +28,7 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
     /// The gap above each shown item (`LeoChatTranscript.spacing`).
     private var shownSpacing: [String: CGFloat] = [:]
     private var pendingPlay: String?
-    /// Questions cards that were open at the last render, to spot one settling.
-    private var openQuestionCards: Set<String> = []
+    private var settleReveal = SettleReveal()
 
     init(store: StoreOf<ChatThread>) {
         self.store = store
@@ -221,13 +220,12 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         replyBanner.configuration?.titleLineBreakMode = .byTruncatingTail
     }
 
-    /// A questions card that just settled is much shorter, which can leave
-    /// it above the screen: bring its top back into view.
+    /// A questions card the user just submitted or dismissed is much shorter
+    /// once settled, which can leave it above the screen: bring its top back
+    /// into view. A card that settles on its own leaves the scroll alone.
     private func revealSettledQuestionCards() {
-        let open = Set(store.messages.filter { $0.input?.kind == .questions && $0.isOpen }.map(\.id))
-        let settled = openQuestionCards.subtracting(open).filter { store.messages[id: $0] != nil }
-        openQuestionCards = open
-        guard let id = settled.first, let indexPath = dataSource.indexPath(for: id),
+        guard let id = settleReveal.settled(in: store.messages, answering: store.answering),
+              let indexPath = dataSource.indexPath(for: id),
               let frame = collectionView.layoutAttributesForItem(at: indexPath)?.frame else { return }
         let inset = collectionView.adjustedContentInset
         guard frame.minY < collectionView.contentOffset.y + inset.top else { return }
@@ -273,6 +271,7 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         case .submit:
             store.send(.askSubmitTapped(messageID: message.id))
         case .questionChoice, .questionText, .questionsSubmit, .questionsDismiss:
+            if event.settlesCard { settleReveal.acted(on: message.id) }
             event.questionsAction(messageID: message.id).map { store.send($0) }
         case .openAttachment(let attachment):
             open(attachment)

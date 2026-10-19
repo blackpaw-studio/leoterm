@@ -170,6 +170,14 @@ final class ChatQuestionsCard: UIStackView {
 }
 
 extension ChatMessageCell.Event {
+    /// Whether the event sends an answer or a dismissal, which settles the card.
+    var settlesCard: Bool {
+        switch self {
+        case .questionsSubmit, .questionsDismiss: true
+        default: false
+        }
+    }
+
     /// The thread action for an event from a questions card; nil for any other event.
     func questionsAction(messageID: String) -> ChatThread.Action? {
         switch self {
