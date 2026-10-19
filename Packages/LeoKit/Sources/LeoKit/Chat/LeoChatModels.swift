@@ -140,17 +140,24 @@ public struct LeoChatMessage: Codable, Equatable, Identifiable, Sendable {
 public struct LeoChatOption: Codable, Equatable, Hashable, Sendable {
     public let value: String
     public let label: String
+    /// Secondary text under the label (questions inputs); nil when none.
+    public let description: String?
 
-    public init(value: String, label: String) {
+    public init(value: String, label: String, description: String? = nil) {
         self.value = value
         self.label = label
+        self.description = description.flatMap { $0.isEmpty ? nil : $0 }
     }
 
     public init(from decoder: any Decoder) throws {
-        enum Keys: String, CodingKey { case value, label }
+        enum Keys: String, CodingKey { case value, label, description }
         let container = try decoder.container(keyedBy: Keys.self)
-        value = try container.decode(String.self, forKey: .value)
-        label = (try? container.decodeIfPresent(String.self, forKey: .label)) ?? value
+        let value = try container.decode(String.self, forKey: .value)
+        self.init(
+            value: value,
+            label: (try? container.decodeIfPresent(String.self, forKey: .label)) ?? value,
+            description: (try? container.decodeIfPresent(String.self, forKey: .description)) ?? nil
+        )
     }
 }
 

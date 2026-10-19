@@ -221,7 +221,7 @@ private struct LeoChatOpenAsk: View {
                     .accessibilityIdentifier("chat.ask.option.\(option.value)")
                 }
             }
-        case .text:
+        case .text, .questions:
             EmptyView()
         }
     }

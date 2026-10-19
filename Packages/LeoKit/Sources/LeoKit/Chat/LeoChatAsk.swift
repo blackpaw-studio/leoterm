@@ -15,10 +15,15 @@ public struct LeoChatInput: Codable, Equatable, Hashable, Sendable {
         case checkboxes
         /// One free-text field.
         case text
+        /// Several questions answered together (built by the daemon from
+        /// AskUserQuestion); see `questions`.
+        case questions
     }
 
     public static let maximumOptions = 12
     public static let maximumPlaceholderScalars = 200
+    /// Claude's AskUserQuestion limit.
+    public static let maximumQuestions = 4
 
     /// A permission prompt the daemon stored without an input (rows from
     /// before leo #268).
@@ -40,11 +45,15 @@ public struct LeoChatInput: Codable, Equatable, Hashable, Sendable {
     public let min: Int
     public let max: Int
     public let placeholder: String?
+    /// The questions of a `questions` input; empty for every other kind.
+    public let questions: [LeoChatQuestion]
 
-    /// A validated input; `max` nil means every option.
+    /// A validated input; `max` nil means every option. `questions` inputs
+    /// are built by `init(questions:)`.
     public init(
         kind: Kind, options: [LeoChatOption] = [], allowsText: Bool = false, min: Int = 0, max: Int? = nil, placeholder: String? = nil
     ) throws(LeoChatInputError) {
+        guard kind != .questions else { throw .invalid("build a questions input from its questions") }
         let placeholder = placeholder.flatMap { $0.isEmpty ? nil : $0 }
         if let placeholder, placeholder.unicodeScalars.count > Self.maximumPlaceholderScalars {
             throw .invalid("placeholder exceeds \(Self.maximumPlaceholderScalars) characters")
@@ -68,13 +77,28 @@ public struct LeoChatInput: Codable, Equatable, Hashable, Sendable {
         self.init(unchecked: kind, options: options, allowsText: allowsText, min: min, max: upper, placeholder: placeholder)
     }
 
-    private init(unchecked kind: Kind, options: [LeoChatOption], allowsText: Bool = false, min: Int = 0, max: Int? = nil, placeholder: String? = nil) {
+    /// A validated `questions` input: 1 to `maximumQuestions` questions with
+    /// distinct non-empty ids, each with valid options.
+    public init(questions: [LeoChatQuestion]) throws(LeoChatInputError) {
+        guard (1...Self.maximumQuestions).contains(questions.count) else { throw .invalid("give 1 to \(Self.maximumQuestions) questions") }
+        guard Set(questions.map(\.id)).count == questions.count, !questions.contains(where: { $0.id.isEmpty }) else {
+            throw .invalid("question ids must be non-empty and distinct")
+        }
+        for question in questions { try Self.validate(question.options) }
+        self.init(unchecked: .questions, options: [], questions: questions)
+    }
+
+    private init(
+        unchecked kind: Kind, options: [LeoChatOption], allowsText: Bool = false, min: Int = 0, max: Int? = nil, placeholder: String? = nil,
+        questions: [LeoChatQuestion] = []
+    ) {
         self.kind = kind
         self.options = options
         self.allowsText = allowsText
         self.min = min
         self.max = max ?? options.count
         self.placeholder = placeholder
+        self.questions = questions
     }
 
     private static func validate(_ options: [LeoChatOption]) throws(LeoChatInputError) {
@@ -98,7 +122,7 @@ public struct LeoChatInput: Codable, Equatable, Hashable, Sendable {
     // MARK: Codable
 
     enum CodingKeys: String, CodingKey {
-        case type, options, min, max, placeholder
+        case type, options, min, max, placeholder, questions
         case allowText = "allow_text"
     }
 
@@ -106,6 +130,7 @@ public struct LeoChatInput: Codable, Equatable, Hashable, Sendable {
     private struct WireOption: Decodable {
         let value: String
         let label: String
+        let description: String?
     }
 
     public init(from decoder: any Decoder) throws {
@@ -116,9 +141,13 @@ public struct LeoChatInput: Codable, Equatable, Hashable, Sendable {
         }
         let options = try container.decodeIfPresent([WireOption].self, forKey: .options) ?? []
         do {
+            if kind == .questions {
+                try self.init(questions: try container.decode([LeoChatQuestion].self, forKey: .questions))
+                return
+            }
             try self.init(
                 kind: kind,
-                options: options.map { LeoChatOption(value: $0.value, label: $0.label.isEmpty ? $0.value : $0.label) },
+                options: options.map { LeoChatOption(value: $0.value, label: $0.label.isEmpty ? $0.value : $0.label, description: $0.description) },
                 allowsText: try container.decodeIfPresent(Bool.self, forKey: .allowText) ?? false,
                 min: try container.decodeIfPresent(Int.self, forKey: .min) ?? 0,
                 max: try container.decodeIfPresent(Int.self, forKey: .max),
@@ -139,6 +168,7 @@ public struct LeoChatInput: Codable, Equatable, Hashable, Sendable {
             try container.encode(max, forKey: .max)
         }
         try container.encodeIfPresent(placeholder, forKey: .placeholder)
+        if kind == .questions { try container.encode(questions, forKey: .questions) }
     }
 }
 
