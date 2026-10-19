@@ -338,6 +338,117 @@ struct LeoChatPaneModelTests {
         #expect(model.notice == "Couldn't answer: offline")
     }
 
+    // MARK: Questions card
+
+    private static let questions = [
+        LeoChatQuestion(id: "q1", header: "Library", question: "Which library?", options: choices("swift", "go")),
+        LeoChatQuestion(id: "q2", header: "Scope", question: "What scope?", multi: true, options: choices("a", "b")),
+    ]
+
+    private func questionsCard(state: String, answer: LeoChatAnswer? = nil, closedReason: String? = nil) throws -> LeoChatMessage {
+        LeoChatMessage(
+            id: "01", agent: "alpha", direction: .outbound, kind: .ask, text: "Questions", state: state, answer: answer,
+            ts: Date(timeIntervalSince1970: 1), input: try LeoChatInput(questions: Self.questions), closedReason: closedReason
+        )
+    }
+
+    private func showQuestions() async throws -> LeoChatPaneModel {
+        await client.enqueuePage([try questionsCard(state: "open")])
+        let model = make()
+        await model.show(Self.alpha)
+        return model
+    }
+
+    private func fill(_ model: LeoChatPaneModel) {
+        model.chooseQuestion(messageID: "01", questionID: "q1", value: "swift")
+        model.chooseQuestion(messageID: "01", questionID: "q2", value: "b")
+        model.setQuestionText(messageID: "01", questionID: "q2", "docs too")
+    }
+
+    @Test func submittingQuestionsPostsTheDraftAndMergesTheAnsweredCard() async throws {
+        let model = try await showQuestions()
+        fill(model)
+        let echo = LeoChatAnswer(answers: model.questionsDraft(for: "01")?.answersPayload)
+        await client.setQuestionsResult(.success(try questionsCard(state: "answered", answer: echo)))
+        await model.submitQuestions(messageID: "01")
+        let posted = await client.questionAnswers
+        #expect(posted.map(\.id) == ["01"])
+        #expect(posted.first?.answers == ["q1": .choice("swift"), "q2": LeoChatAnswer(values: ["b"], text: "docs too")])
+        #expect(model.timeline.message(id: "01")?.questionsCard == .answered(["Library: SWIFT", "Scope: B, \"docs too\""]))
+        #expect(model.questionsDrafts.isEmpty)
+        #expect(model.questionsErrors.isEmpty)
+        #expect(model.answering.isEmpty)
+    }
+
+    @Test func submitDoesNothingWhileTheDraftIsIncomplete() async throws {
+        let model = try await showQuestions()
+        model.chooseQuestion(messageID: "01", questionID: "q1", value: "go")
+        await model.submitQuestions(messageID: "01")
+        #expect(await client.questionAnswers.isEmpty)
+        #expect(model.questionsDraft(for: "01")?.values(for: "q1") == ["go"])
+    }
+
+    @Test func aSettledQuestionsCardRefetchesWithoutANotice() async throws {
+        let model = try await showQuestions()
+        fill(model)
+        await client.setQuestionsResult(.failure(LeoChatAnswerError.settled))
+        await client.enqueuePage([try questionsCard(state: "expired", closedReason: "timeout")])
+        await model.submitQuestions(messageID: "01")
+        #expect(model.notice == nil)
+        #expect(model.questionsErrors.isEmpty)
+        #expect(model.questionsDrafts.isEmpty)
+        #expect(await client.pageRequests.count == 2)
+        #expect(model.timeline.message(id: "01")?.questionsCard == .timedOut)
+        #expect(model.answering.isEmpty)
+    }
+
+    @Test func aRefusedQuestionsAnswerShowsInlineAndKeepsTheDraft() async throws {
+        let model = try await showQuestions()
+        fill(model)
+        await client.setQuestionsResult(.failure(LeoChatAnswerError.invalid("answer does not fit")))
+        await model.submitQuestions(messageID: "01")
+        #expect(model.questionsErrors["01"] != nil)
+        #expect(model.notice == nil)
+        #expect(model.answering.isEmpty)
+        #expect(model.questionsDraft(for: "01")?.isComplete == true)
+        #expect(model.timeline.message(id: "01")?.isOpen == true)
+        model.chooseQuestion(messageID: "01", questionID: "q1", value: "go")
+        #expect(model.questionsErrors["01"] == nil)
+    }
+
+    @Test func dismissPostsDismissAndMergesTheExpiredCard() async throws {
+        let model = try await showQuestions()
+        fill(model)
+        await client.setDismissResult(.success(try questionsCard(state: "expired", closedReason: "dismissed")))
+        await model.dismissQuestions(messageID: "01")
+        #expect(await client.dismissals.map(\.id) == ["01"])
+        #expect(model.timeline.message(id: "01")?.questionsCard == .inTerminal)
+        #expect(model.questionsDrafts.isEmpty)
+        #expect(model.answering.isEmpty)
+    }
+
+    @Test func aDismissWithoutAReturnedCardMarksItExpiredLocally() async throws {
+        let model = try await showQuestions()
+        await model.dismissQuestions(messageID: "01")
+        #expect(model.timeline.message(id: "01")?.isOpen == false)
+        #expect(model.timeline.message(id: "01")?.questionsCard == .inTerminal)
+    }
+
+    @Test func aFailedDismissShowsInlineAndKeepsTheCardOpen() async throws {
+        let model = try await showQuestions()
+        await client.setDismissResult(.failure(FakeChatClient.Failure(message: "offline")))
+        await model.dismissQuestions(messageID: "01")
+        #expect(model.questionsErrors["01"]?.contains("offline") == true)
+        #expect(model.timeline.message(id: "01")?.isOpen == true)
+    }
+
+    @Test func aSettledUpdateDropsTheQuestionsDraft() async throws {
+        let model = try await showQuestions()
+        fill(model)
+        await model.receive(.updated(try questionsCard(state: "expired", closedReason: "timeout")), host: .local)
+        #expect(model.questionsDrafts.isEmpty)
+    }
+
     // MARK: Composer
 
     @Test func sendUploadsFilesThenSendsAndClearsOnlyWhatWasSent() async throws {

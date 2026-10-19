@@ -31,6 +31,11 @@ import LeoKit
     /// The answer being put together per open `radio`, `checkboxes` or
     /// `text` ask, kept across thread switches until the prompt settles.
     @Published private(set) var askDrafts: [String: LeoChatAskDraft] = [:]
+    /// The answers being put together per open questions card, kept until
+    /// the card settles.
+    @Published private(set) var questionsDrafts: [String: LeoChatQuestionsDraft] = [:]
+    /// A refused questions answer or dismissal, shown inside its own card.
+    @Published private(set) var questionsErrors: [String: String] = [:]
     @Published private(set) var drafts: [LeoAgentID: LeoChatComposerDraft] = [:]
     /// The send in flight per agent.
     @Published private(set) var sending: [LeoAgentID: LeoChatOutgoing] = [:]
@@ -90,6 +95,8 @@ import LeoKit
         self.agent = agent
         timeline = LeoChatTimeline()
         answering = []
+        questionsDrafts = [:]
+        questionsErrors = [:]
         loadError = nil
         lastRead = nil
         isLoading = false
@@ -258,6 +265,83 @@ import LeoKit
         }
     }
 
+    // MARK: Questions card
+
+    /// The draft of an open, shown questions card (kept while its answer is
+    /// in flight); nil for anything else.
+    func questionsDraft(for messageID: String) -> LeoChatQuestionsDraft? {
+        guard let questions = openQuestions(messageID) else { return nil }
+        return questionsDrafts[messageID] ?? LeoChatQuestionsDraft(questions: questions)
+    }
+
+    func chooseQuestion(messageID: String, questionID: String, value: String) {
+        updateQuestionsDraft(messageID) { $0.choosing(value, question: questionID) }
+    }
+
+    func setQuestionText(messageID: String, questionID: String, _ text: String) {
+        updateQuestionsDraft(messageID) { $0.withText(text, question: questionID) }
+    }
+
+    func submitQuestions(messageID: String) async {
+        guard let draft = questionsDraft(for: messageID), draft.isComplete else { return }
+        let payload = draft.answersPayload
+        await settleQuestions(messageID, failure: "Couldn't answer") { client, agent in
+            try await client.answerQuestions(agent: agent, messageID: messageID, answers: payload)
+        } localCopy: { $0.answered(LeoChatAnswer(answers: payload)) }
+    }
+
+    /// "Answer in terminal": the daemon hands the question to the agent's
+    /// own terminal dialog and expires the card.
+    func dismissQuestions(messageID: String) async {
+        guard openQuestions(messageID) != nil else { return }
+        await settleQuestions(messageID, failure: "Couldn't hand the question to the terminal") { client, agent in
+            try await client.dismiss(agent: agent, messageID: messageID)
+        } localCopy: { $0.expired(reason: "dismissed") }
+    }
+
+    /// One request against a questions card. The daemon's copy (or, without
+    /// one, `localCopy`) replaces the card; a card settled meanwhile (409)
+    /// just refetches; any other refusal shows inside the card and keeps
+    /// the draft.
+    private func settleQuestions(
+        _ messageID: String, failure: String, request: (any LeoChatClient, String) async throws -> LeoChatMessage?,
+        localCopy: (LeoChatMessage) -> LeoChatMessage
+    ) async {
+        guard let agent, timeline.message(id: messageID) != nil, answering.insert(messageID).inserted else { return }
+        questionsErrors[messageID] = nil
+        defer { answering.remove(messageID) }
+        do {
+            let updated = try await request(client, agent.name)
+            guard agent == self.agent else { return }
+            if let updated, timeline.admits(updated, agent: agent.name) {
+                timeline.merge([updated])
+            } else if let message = timeline.message(id: messageID) {
+                timeline.merge([localCopy(message)])
+            }
+        } catch LeoChatAnswerError.settled {
+            questionsDrafts[messageID] = nil
+            guard agent == self.agent else { return }
+            await refreshSettled(messageID, agent: agent)
+        } catch {
+            questionsErrors[messageID] = "\(failure): \(error.localizedDescription)"
+        }
+    }
+
+    private func updateQuestionsDraft(_ messageID: String, _ change: (LeoChatQuestionsDraft) -> LeoChatQuestionsDraft) {
+        guard !answering.contains(messageID), let draft = questionsDraft(for: messageID) else { return }
+        let updated = change(draft)
+        guard updated != draft else { return }
+        questionsDrafts[messageID] = updated
+        questionsErrors[messageID] = nil
+    }
+
+    /// The questions of a shown card that is still open.
+    private func openQuestions(_ messageID: String) -> [LeoChatQuestion]? {
+        guard let message = timeline.message(id: messageID), message.isOpen,
+              let input = message.input, input.kind == .questions else { return nil }
+        return input.questions
+    }
+
     /// Resyncs after a 409. The newest page may not reach back to the
     /// prompt; if it still shows open, the page just above it carries its
     /// settled copy.
@@ -279,10 +363,11 @@ import LeoKit
     }
 
     private func dropSettledAskDrafts() {
-        guard !askDrafts.isEmpty else { return }
-        let settled = askDrafts.keys.filter { timeline.message(id: $0).map { !$0.isOpen } ?? false }
-        guard !settled.isEmpty else { return }
-        settled.forEach { askDrafts[$0] = nil }
+        guard !askDrafts.isEmpty || !questionsDrafts.isEmpty || !questionsErrors.isEmpty else { return }
+        let isSettled = { (id: String) in self.timeline.message(id: id).map { !$0.isOpen } ?? false }
+        askDrafts.keys.filter(isSettled).forEach { askDrafts[$0] = nil }
+        questionsDrafts.keys.filter(isSettled).forEach { questionsDrafts[$0] = nil }
+        questionsErrors.keys.filter(isSettled).forEach { questionsErrors[$0] = nil }
     }
 
     // MARK: Attachments
@@ -483,5 +568,16 @@ import LeoKit
             guard let data = try? Data(contentsOf: file.url) else { throw LeoChatFileError.unreadable(file.filename) }
             return LeoChatUpload(filename: file.filename, mime: file.mime, data: data)
         }.value
+    }
+}
+
+private extension LeoChatMessage {
+    /// This card closed without an answer, for when the daemon expired it
+    /// without returning the message.
+    func expired(reason: String) -> LeoChatMessage {
+        LeoChatMessage(
+            id: id, agent: agent, direction: direction, kind: kind, text: text, transcript: transcript, replyTo: replyTo, task: task,
+            runID: runID, state: "expired", answer: answer, ts: ts, attachments: attachments, input: input, closedReason: reason
+        )
     }
 }
