@@ -10,6 +10,7 @@ final class LeoQuestionsCardTests: XCTestCase {
         "open", "partial", "filled", "refused", "sending", "answered", "terminal", "dismissed", "timedout"
     ]
 
+    private var app: XCUIApplication!
     private var environment: [String: String] { ProcessInfo.processInfo.environment }
 
     override func setUpWithError() throws {
@@ -23,10 +24,11 @@ final class LeoQuestionsCardTests: XCTestCase {
     }
 
     private func launch(_ fixture: String) -> XCUIApplication {
-        let app = XCUIApplication()
-        app.launchArguments = ["-resetForUITests", "-questionsCardFixture", fixture]
-        app.launch()
-        return app
+        let launched = XCUIApplication()
+        launched.launchArguments = ["-resetForUITests", "-questionsCardFixture", fixture]
+        launched.launch()
+        app = launched
+        return launched
     }
 
     func testEveryStateInLightAndDark() {
@@ -66,12 +68,15 @@ final class LeoQuestionsCardTests: XCTestCase {
         captureBothAppearances("questions-long-bottom")
     }
 
+    /// The open card sits last; its cell is recycled for the others while the
+    /// thread scrolls up, and nothing typed in it may leak into them.
     func testChoicesAndTypedTextSurviveCellReuseAndSubmit() {
-        let app = launch("all")
+        let app = launch("reuse")
         let thread = app.collectionViews["chat.thread"]
         XCTAssertTrue(thread.waitForExistence(timeout: 10))
         let card = app.cells["chat.message.card-open"]
-        scroll(to: card, in: thread, toNewest: false)
+        let first = app.cells["chat.message.card-filled"]
+        let middle = app.cells["chat.message.card-partial"]
 
         card.buttons["chat.questions.q1.option.Zig"].tap()
         XCTAssertTrue(card.buttons["chat.questions.q1.option.Zig"].isSelected)
@@ -81,22 +86,54 @@ final class LeoQuestionsCardTests: XCTestCase {
         other.tap()
         other.typeText("typed text")
         waitForValue("typed text", of: other)
+        // Choosing an option ends editing, which lowers the keyboard.
+        card.buttons["chat.questions.q2.option.Parser"].tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5), "the keyboard stayed up")
 
-        // Far enough away that the cell is recycled, then back.
-        scroll(to: app.cells["chat.message.filler-13"], in: thread, toNewest: true)
-        scroll(to: card, in: thread, toNewest: false)
+        scroll(to: first.textViews["chat.questions.q2.text"], in: thread, toNewest: false)
+        waitForValue("and the CLI", of: first.textViews["chat.questions.q2.text"], "the typed text leaked")
+        XCTAssertTrue(first.buttons["chat.questions.q1.option.Swift"].isSelected)
+        XCTAssertFalse(first.buttons["chat.questions.q1.option.Zig"].isSelected)
+
+        scroll(to: card.buttons["chat.questions.submit"], in: thread, toNewest: true)
         waitForValue("typed text", of: card.textViews["chat.questions.q2.text"], "the draft text was lost")
         XCTAssertTrue(card.buttons["chat.questions.q1.option.Zig"].isSelected, "the choice was lost with the cell")
         XCTAssertTrue(card.buttons["chat.questions.q2.option.Lexer"].isSelected)
+        XCTAssertTrue(card.buttons["chat.questions.q2.option.Parser"].isSelected)
 
-        let submit = card.buttons["chat.questions.submit"]
-        XCTAssertTrue(submit.isEnabled)
-        submit.tap()
-        // The settled card is much shorter, so the thread may leave it above the screen.
-        scroll(to: card, in: thread, toNewest: false)
+        XCTAssertTrue(card.buttons["chat.questions.submit"].isEnabled)
+        card.buttons["chat.questions.submit"].tap()
         XCTAssertTrue(card.staticTexts["Library: Zig"].waitForExistence(timeout: 10), "the card never settled")
-        XCTAssertTrue(card.staticTexts["Scope: Lexer, \"typed text\""].exists)
-        XCTAssertFalse(submit.exists)
+        XCTAssertTrue(card.staticTexts["Scope: Lexer, Parser, \"typed text\""].exists)
+        XCTAssertFalse(card.buttons["chat.questions.submit"].exists)
+    }
+
+    /// A tall card settling is far shorter; the thread must not be left past it.
+    func testASubmittedCardStaysOnScreen() {
+        let settled = revealSettling("chat.questions.submit")
+        let summary = settled.staticTexts["Library: Swift"]
+        XCTAssertTrue(summary.waitForExistence(timeout: 10), "the card never settled")
+        XCTAssertTrue(summary.isHittable, "the settled card is off screen")
+        capture("questions-settled-after-submit")
+    }
+
+    func testADismissedCardStaysOnScreen() {
+        let settled = revealSettling("chat.questions.dismiss")
+        let outcome = settled.staticTexts["Answered in terminal"]
+        XCTAssertTrue(outcome.waitForExistence(timeout: 10), "the card never settled")
+        XCTAssertTrue(outcome.isHittable, "the dismissed card is off screen")
+        capture("questions-settled-after-dismiss")
+    }
+
+    /// Scrolls the first of two tall cards to its footer and taps `button`; returns that card's cell.
+    private func revealSettling(_ button: String) -> XCUIElement {
+        let app = launch("reveal")
+        let thread = app.collectionViews["chat.thread"]
+        XCTAssertTrue(thread.waitForExistence(timeout: 10))
+        let card = app.cells["chat.message.card-open"]
+        scroll(to: card.buttons[button], in: thread, toNewest: false)
+        card.buttons[button].tap()
+        return card
     }
 
     func testAnswerInTerminalSettlesTheCard() {
@@ -114,11 +151,20 @@ final class LeoQuestionsCardTests: XCTestCase {
         XCTAssertEqual(result, .completed, "\(message) (value: \(element.value as? String ?? "nil"))")
     }
 
-    /// Swipes `thread` until `element` is on screen; `toNewest` scrolls toward the
-    /// newest messages.
+    /// Drags `thread` until `element` is on screen. Without the element in
+    /// the hierarchy yet, `toNewest` picks the direction; once it is, which
+    /// side of the thread it sits on does. The drag stays between the
+    /// navigation bar and a raised keyboard.
     private func scroll(to element: XCUIElement, in thread: XCUIElement, toNewest: Bool) {
-        for _ in 0..<30 where !(element.exists && element.isHittable) {
-            if toNewest { thread.swipeUp() } else { thread.swipeDown() }
+        var towardNewest = toNewest
+        for _ in 0..<12 where !(element.exists && element.isHittable) {
+            if element.exists { towardNewest = element.frame.minY > thread.frame.midY }
+            let high = thread.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))
+            let lowest = app.keyboards.count > 0 ? 0.5 : 0.8
+            let low = thread.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: lowest))
+            (towardNewest ? low : high).press(
+                forDuration: 0.05, thenDragTo: towardNewest ? high : low, withVelocity: .fast, thenHoldForDuration: 0
+            )
         }
         XCTAssertTrue(element.exists && element.isHittable, "\(element) never scrolled into view")
     }

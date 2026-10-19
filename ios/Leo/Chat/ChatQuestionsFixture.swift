@@ -6,8 +6,8 @@ import UIKit
 
 /// A chat thread of fixture questions cards for UI tests and screenshots
 /// (`-questionsCardFixture <state>`), run with a scripted chat client so no
-/// daemon is needed. `all` shows every state in one long thread, with filler
-/// messages so cards scroll off and their cells get reused.
+/// daemon is needed. `all` shows every state in one thread; `reuse` is three
+/// compact open cards, for checking drafts across cell reuse; `reveal` is two tall ones.
 enum ChatQuestionsFixture {
     static let launchKey = "questionsCardFixture"
 
@@ -59,13 +59,15 @@ enum ChatQuestionsFixture {
 
     private static let baseTime = Date().addingTimeInterval(-3_600)
 
+    private static let reuseOrder = ["filled", "partial", "open"]
+
     private static func card(
         _ name: String, long: Bool = false, state: String = "open", answer: LeoChatAnswer? = nil,
-        closedReason: String? = nil
+        closedReason: String? = nil, order: [String] = stateNames
     ) -> LeoChatMessage {
         LeoChatMessage(
             id: "card-\(name)", agent: agent, direction: .outbound, kind: .ask, text: "", state: state, answer: answer,
-            ts: baseTime.addingTimeInterval(Double(stateNames.firstIndex(of: name) ?? 0) * 60),
+            ts: baseTime.addingTimeInterval(Double(order.firstIndex(of: name) ?? 0) * 60),
             input: try? LeoChatInput(questions: long ? longQuestions : questions), closedReason: closedReason
         )
     }
@@ -77,11 +79,12 @@ enum ChatQuestionsFixture {
 
     static func messages(for name: String) -> [LeoChatMessage] {
         if name == "long" { return [card("long", long: true)] }
-        let isAll = name == "all"
+        let isAll = name == "all" || name == "reveal"
+        let order = name == "reuse" ? reuseOrder : stateNames
         let all: [String: LeoChatMessage] = [
-            "open": card("open", long: isAll),
-            "partial": card("partial", long: isAll),
-            "filled": card("filled", long: isAll),
+            "open": card("open", long: isAll, order: order),
+            "partial": card("partial", long: isAll, order: order),
+            "filled": card("filled", long: isAll, order: order),
             "refused": card("refused", long: isAll),
             "sending": card("sending", long: isAll),
             "answered": card("answered", long: isAll, state: "answered", answer: echo),
@@ -89,27 +92,33 @@ enum ChatQuestionsFixture {
             "dismissed": card("dismissed", long: isAll, state: "expired", closedReason: "dismissed"),
             "timedout": card("timedout", long: isAll, state: "expired", closedReason: "timeout")
         ]
+        // Three compact cards with the open one last (where a thread opens), so the
+        // first scrolls off and its cell is recycled for another card in few swipes.
+        // Two tall open cards: settling the first leaves the thread scrolled past it.
+        if name == "reveal" { return ["open", "partial"].compactMap { all[$0] } }
+        if name == "reuse" { return reuseOrder.compactMap { all[$0] } }
         guard isAll else { return all[name].map { [$0] } ?? [] }
-        let fillers = (0..<14).map { index in
-            LeoChatMessage(
-                id: "filler-\(index)", agent: agent, direction: .outbound, kind: .text,
-                text: "Working on step \(index + 1)…",
-                ts: baseTime.addingTimeInterval(Double(stateNames.count + index) * 60)
-            )
+        return stateNames.compactMap { all[$0] }
+    }
+
+    private static func targets(for name: String) -> [String] {
+        switch name {
+        case "all": stateNames
+        case "reuse": ["partial", "filled"]
+        default: [name]
         }
-        return stateNames.compactMap { all[$0] } + fillers
     }
 
     /// The drafts, in-flight set and refused-answer notes the states need.
     private static func initialState(for name: String) -> ChatThread.State {
         var state = ChatThread.State(daemon: daemon, agent: agent)
-        let set = name == "all" ? longQuestions : questions
+        let set = ["all", "reveal"].contains(name) ? longQuestions : questions
         let empty = LeoChatQuestionsDraft(questions: set)
         let partial = empty.choosing("Swift", question: "q1")
         let filled = partial
             .choosing("Lexer", question: "q2").choosing("Parser", question: "q2")
             .withText("and the CLI", question: "q2")
-        for target in [name == "all" ? stateNames : [name]].flatMap({ $0 }) {
+        for target in targets(for: name) {
             switch target {
             case "partial": state.questionsDrafts["card-partial"] = partial
             case "filled": state.questionsDrafts["card-filled"] = filled
@@ -122,6 +131,7 @@ enum ChatQuestionsFixture {
             default: break
             }
         }
+        if name == "reveal" { state.questionsDrafts["card-open"] = filled }
         return state
     }
 
