@@ -1,3 +1,4 @@
+import LeoFeatures
 import LeoKit
 import UIKit
 
@@ -165,6 +166,24 @@ final class ChatQuestionsCard: UIStackView {
         label.textColor = .secondaryLabel
         label.text = text.uppercased()
         return label
+    }
+}
+
+extension ChatMessageCell.Event {
+    /// The thread action for an event from a questions card; nil for any other event.
+    func questionsAction(messageID: String) -> ChatThread.Action? {
+        switch self {
+        case .questionChoice(let questionID, let value):
+            .questionChoiceTapped(messageID: messageID, questionID: questionID, value: value)
+        case .questionText(let questionID, let text):
+            .questionTextChanged(messageID: messageID, questionID: questionID, text)
+        case .questionsSubmit:
+            .questionsSubmitTapped(messageID: messageID)
+        case .questionsDismiss:
+            .questionsDismissTapped(messageID: messageID)
+        default:
+            nil
+        }
     }
 }
 

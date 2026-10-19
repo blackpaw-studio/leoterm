@@ -28,6 +28,8 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
     /// The gap above each shown item (`LeoChatTranscript.spacing`).
     private var shownSpacing: [String: CGFloat] = [:]
     private var pendingPlay: String?
+    /// Questions cards that were open at the last render, to spot one settling.
+    private var openQuestionCards: Set<String> = []
 
     init(store: StoreOf<ChatThread>) {
         self.store = store
@@ -162,6 +164,7 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         } else if isFirstFill || wasAtBottom {
             scrollToBottom()
         }
+        revealSettledQuestionCards()
         if let id = pendingPlay, case .loaded(let url) = store.attachmentFiles[id] {
             pendingPlay = nil
             voice.toggle(id: id, url: url)
@@ -218,6 +221,21 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         replyBanner.configuration?.titleLineBreakMode = .byTruncatingTail
     }
 
+    /// A questions card that just settled is much shorter, which can leave
+    /// it above the screen: bring its top back into view.
+    private func revealSettledQuestionCards() {
+        let open = Set(store.messages.filter { $0.input?.kind == .questions && $0.isOpen }.map(\.id))
+        let settled = openQuestionCards.subtracting(open).filter { store.messages[id: $0] != nil }
+        openQuestionCards = open
+        guard let id = settled.first, let indexPath = dataSource.indexPath(for: id),
+              let frame = collectionView.layoutAttributesForItem(at: indexPath)?.frame else { return }
+        let inset = collectionView.adjustedContentInset
+        guard frame.minY < collectionView.contentOffset.y + inset.top else { return }
+        let lowest = collectionView.contentSize.height - collectionView.bounds.height + inset.bottom
+        let top = min(frame.minY - inset.top - Self.focusedFieldMargin, lowest)
+        collectionView.setContentOffset(CGPoint(x: 0, y: max(top, -inset.top)), animated: true)
+    }
+
     private var isNearBottom: Bool {
         let visibleBottom = collectionView.contentOffset.y + collectionView.bounds.height - collectionView.adjustedContentInset.bottom
         return collectionView.contentSize.height - visibleBottom < 80
@@ -255,7 +273,7 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         case .submit:
             store.send(.askSubmitTapped(messageID: message.id))
         case .questionChoice, .questionText, .questionsSubmit, .questionsDismiss:
-            handleQuestions(event, messageID: message.id)
+            event.questionsAction(messageID: message.id).map { store.send($0) }
         case .openAttachment(let attachment):
             open(attachment)
         case .playVoice(let attachment):
@@ -268,21 +286,6 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         case .reply:
             store.send(.replyTapped(message.id))
             composer.focus()
-        }
-    }
-
-    private func handleQuestions(_ event: ChatMessageCell.Event, messageID: String) {
-        switch event {
-        case .questionChoice(let questionID, let value):
-            store.send(.questionChoiceTapped(messageID: messageID, questionID: questionID, value: value))
-        case .questionText(let questionID, let text):
-            store.send(.questionTextChanged(messageID: messageID, questionID: questionID, text))
-        case .questionsSubmit:
-            store.send(.questionsSubmitTapped(messageID: messageID))
-        case .questionsDismiss:
-            store.send(.questionsDismissTapped(messageID: messageID))
-        default:
-            break
         }
     }
 
