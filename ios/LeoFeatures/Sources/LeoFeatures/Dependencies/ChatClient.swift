@@ -35,6 +35,10 @@ public struct ChatClient: Sendable {
     /// Throws `LeoChatAnswerError` when the daemon refuses the answer or
     /// the prompt is already settled.
     public var answer: @Sendable (_ connection: DaemonConnection, _ agent: String, _ messageID: String, _ answer: LeoChatAnswer) async throws -> LeoChatMessage?
+    /// Answers every question of a questions card at once; throws like `answer`.
+    public var answerQuestions: @Sendable (_ connection: DaemonConnection, _ agent: String, _ messageID: String, _ answers: [String: LeoChatAnswer]) async throws -> LeoChatMessage?
+    /// Hands a questions card to the agent's terminal; throws like `answer`.
+    public var dismiss: @Sendable (_ connection: DaemonConnection, _ agent: String, _ messageID: String) async throws -> LeoChatMessage?
     public var markRead: @Sendable (_ connection: DaemonConnection, _ agent: String, _ messageID: String) async throws -> Void
 }
 
@@ -67,6 +71,10 @@ extension ChatClient: DependencyKey {
                 return url
             },
             answer: { connection, agent, messageID, answer in try await client(connection).answer(agent: agent, messageID: messageID, answer: answer) },
+            answerQuestions: { connection, agent, messageID, answers in
+                try await client(connection).answerQuestions(agent: agent, messageID: messageID, answers: answers)
+            },
+            dismiss: { connection, agent, messageID in try await client(connection).dismiss(agent: agent, messageID: messageID) },
             markRead: { connection, agent, messageID in try await client(connection).markRead(agent: agent, upTo: messageID) }
         )
     }
