@@ -41,17 +41,23 @@ struct LeoChatMessageRow: View {
         }
     }
 
+    private var isQuestionsCard: Bool { message.input?.kind == .questions }
+
     private var bubble: some View {
         VStack(alignment: .leading, spacing: 8) {
             if message.kind == .voice {
                 LeoChatVoiceNote(message: message, chat: chat)
-            } else if !message.displayText.isEmpty {
+            } else if !message.displayText.isEmpty, !isQuestionsCard {
                 LeoChatMarkdownText(text: message.displayText, isMine: isMine)
             }
             ForEach(message.attachments.filter { message.kind != .voice || !$0.isAudio }) { attachment in
                 LeoChatAttachmentView(attachment: attachment, chat: chat)
             }
-            if message.answerInput != nil { LeoChatAskControls(message: message, chat: chat) }
+            if isQuestionsCard {
+                LeoChatQuestionsCard(message: message, chat: chat)
+            } else if message.answerInput != nil {
+                LeoChatAskControls(message: message, chat: chat)
+            }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
