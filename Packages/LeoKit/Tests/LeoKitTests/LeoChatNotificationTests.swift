@@ -92,9 +92,15 @@ struct LeoChatNotificationTests {
         #expect(category.actions.isEmpty)
     }
 
-    @Test(arguments: ["radio", "checkboxes", "text", "slider"])
+    @Test(arguments: ["radio", "checkboxes", "text", "questions", "slider"])
     func anAskThatIsNotButtonsOpensTheApp(inputType: String) throws {
         let extra = #","message_id":"01JQ","message_kind":"ask","input_type":"\#(inputType)""# + Self.yesNo
+        let category = try #require(Actions.category(for: try Self.alert(kind: "chat", extra: extra)))
+        #expect(category == LeoChatNotificationCategory(identifier: Actions.askOpenCategoryID, actions: []))
+    }
+
+    @Test func aQuestionsPushWithoutOptionsOpensTheApp() throws {
+        let extra = #","message_id":"01JQ","message_kind":"ask","input_type":"questions""#
         let category = try #require(Actions.category(for: try Self.alert(kind: "chat", extra: extra)))
         #expect(category == LeoChatNotificationCategory(identifier: Actions.askOpenCategoryID, actions: []))
     }
