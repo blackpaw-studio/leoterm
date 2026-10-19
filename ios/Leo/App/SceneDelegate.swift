@@ -8,9 +8,16 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else { return }
         let window = UIWindow(windowScene: windowScene)
-        window.rootViewController = RootSplitViewController(store: AppDelegate.store)
+        window.rootViewController = Self.rootViewController()
         window.makeKeyAndVisible()
         self.window = window
+    }
+
+    private static func rootViewController() -> UIViewController {
+        #if DEBUG
+        if let fixture = ChatQuestionsFixture.requested { return ChatQuestionsFixture.rootViewController(for: fixture) }
+        #endif
+        return RootSplitViewController(store: AppDelegate.store)
     }
 
     // Event streams run only in the foreground; push covers the background.
