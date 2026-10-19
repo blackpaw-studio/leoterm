@@ -15,6 +15,8 @@ actor FakeChatClient: LeoChatClient {
     private(set) var uploads: [LeoChatUpload] = []
     private(set) var reads: [(agent: String, id: String)] = []
     private(set) var answers: [(agent: String, id: String, answer: LeoChatAnswer)] = []
+    private(set) var questionAnswers: [(agent: String, id: String, answers: [String: LeoChatAnswer])] = []
+    private(set) var dismissals: [(agent: String, id: String)] = []
     private(set) var downloadCount = 0
     private(set) var threadRequestCount = 0
 
@@ -27,6 +29,8 @@ actor FakeChatClient: LeoChatClient {
     private var heldSends: [CheckedContinuation<Void, Never>] = []
     private var uploadFailure: Failure?
     private var answerResult: Result<LeoChatMessage?, any Error> = .success(nil)
+    private var questionsResult: Result<LeoChatMessage?, any Error> = .success(nil)
+    private var dismissResult: Result<LeoChatMessage?, any Error> = .success(nil)
     private var downloads: [String: Result<Data, Failure>] = [:]
     private var isHoldingDownloads = false
     private var heldDownloads: [CheckedContinuation<Void, Never>] = []
@@ -44,6 +48,8 @@ actor FakeChatClient: LeoChatClient {
     func enqueueSend(_ result: Result<LeoChatMessage, Failure>) { sendResults.append(result) }
     func failUploads(_ message: String) { uploadFailure = Failure(message: message) }
     func setAnswerResult(_ result: Result<LeoChatMessage?, any Error>) { answerResult = result }
+    func setQuestionsResult(_ result: Result<LeoChatMessage?, any Error>) { questionsResult = result }
+    func setDismissResult(_ result: Result<LeoChatMessage?, any Error>) { dismissResult = result }
     func setDownload(_ id: String, _ result: Result<Data, Failure>) { downloads[id] = result }
     func failReads(_ message: String) { readFailure = Failure(message: message) }
     func setThreads(_ threads: [LeoChatThread]) { threadsResult = .success(threads) }
@@ -140,6 +146,16 @@ actor FakeChatClient: LeoChatClient {
     func answer(agent: String, messageID: String, answer: LeoChatAnswer) async throws -> LeoChatMessage? {
         answers.append((agent, messageID, answer))
         return try answerResult.get()
+    }
+
+    func answerQuestions(agent: String, messageID: String, answers: [String: LeoChatAnswer]) async throws -> LeoChatMessage? {
+        questionAnswers.append((agent, messageID, answers))
+        return try questionsResult.get()
+    }
+
+    func dismiss(agent: String, messageID: String) async throws -> LeoChatMessage? {
+        dismissals.append((agent, messageID))
+        return try dismissResult.get()
     }
 
     func markRead(agent: String, upTo messageID: String) async throws {

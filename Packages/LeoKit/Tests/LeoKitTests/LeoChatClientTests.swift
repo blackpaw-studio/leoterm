@@ -76,6 +76,50 @@ struct LeoChatClientTests {
         }
     }
 
+    @Test func answerQuestionsPostsTheAnswersMap() async throws {
+        let transport = FakeWebTransport(responses: [200: #"{"ok":true,"data":\#(Self.message)}"#])
+        let updated = try await LeoChatHTTPClient(transport: transport).answerQuestions(
+            agent: "zeus", messageID: "01JA", answers: ["q1": .choice("Swift")]
+        )
+
+        #expect(updated?.id == "01JA")
+        let request = try #require(await transport.requests.first)
+        #expect(request.method == "POST")
+        #expect(request.path == "/api/v1/chat/zeus/messages/01JA/answer")
+        #expect(try Self.object(request) as? [String: [String: [String: [String]]]] == ["answers": ["q1": ["values": ["Swift"]]]])
+    }
+
+    @Test func dismissPostsAnEmptyBody() async throws {
+        let transport = FakeWebTransport(responses: [200: #"{"ok":true,"data":\#(Self.message)}"#])
+        let updated = try await LeoChatHTTPClient(transport: transport).dismiss(agent: "zeus", messageID: "01JA")
+
+        #expect(updated?.id == "01JA")
+        let request = try #require(await transport.requests.first)
+        #expect(request.method == "POST")
+        #expect(request.path == "/api/v1/chat/zeus/messages/01JA/dismiss")
+        #expect(request.body == nil)
+    }
+
+    @Test func aDismissWithoutABodyIsStillASuccess() async throws {
+        let transport = FakeWebTransport(responses: [200: #"{"ok":true}"#])
+        #expect(try await LeoChatHTTPClient(transport: transport).dismiss(agent: "zeus", messageID: "01JA") == nil)
+    }
+
+    @Test(arguments: [(409, "answerQuestions"), (409, "dismiss"), (400, "answerQuestions"), (400, "dismiss")])
+    func aSettledCardIsItsOwnError(status: Int, route: String) async {
+        let transport = FakeWebTransport(responses: [status: #"{"ok":false,"error":"nope"}"#])
+        let client = LeoChatHTTPClient(transport: transport)
+        let expected: LeoChatAnswerError = status == 409 ? .settled : .invalid("nope")
+
+        await #expect(throws: expected) {
+            if route == "dismiss" {
+                _ = try await client.dismiss(agent: "zeus", messageID: "01JA")
+            } else {
+                _ = try await client.answerQuestions(agent: "zeus", messageID: "01JA", answers: ["q1": .choice("Swift")])
+            }
+        }
+    }
+
     @Test func uploadSendsOneMultipartFileAndReturnsTheAttachment() async throws {
         let transport = FakeWebTransport(responses: [200: #"{"ok":true,"data":{"id":"att1","filename":"a.png","mime":"image/png","bytes":3}}"#])
         let upload = LeoChatUpload(filename: "a.png", mime: "image/png", data: Data("PNG".utf8))

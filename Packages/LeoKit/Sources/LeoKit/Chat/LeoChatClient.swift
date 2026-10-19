@@ -12,6 +12,12 @@ public protocol LeoChatClient: Sendable {
     /// daemon returned it. Throws `LeoChatAnswerError` when the daemon
     /// refuses the answer (400) or the prompt is already settled (409).
     func answer(agent: String, messageID: String, answer: LeoChatAnswer) async throws -> LeoChatMessage?
+    /// Answers a questions card: one `{values, text}` per question id. The
+    /// same errors as `answer`.
+    func answerQuestions(agent: String, messageID: String, answers: [String: LeoChatAnswer]) async throws -> LeoChatMessage?
+    /// Hands a questions card back to the terminal's own dialog; the
+    /// message, now expired, when the daemon returned it. Same errors as `answer`.
+    func dismiss(agent: String, messageID: String) async throws -> LeoChatMessage?
     func markRead(agent: String, upTo messageID: String) async throws
 }
 
@@ -118,20 +124,15 @@ public struct LeoChatHTTPClient: LeoChatClient {
     }
 
     public func answer(agent: String, messageID: String, answer: LeoChatAnswer) async throws -> LeoChatMessage? {
-        let path = try Self.agentPath(agent, "messages/\(try LeoSocketDaemonClient.pathSegment(messageID))/answer")
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .sortedKeys
-        let request = LeoHTTPRequest(method: "POST", path: path, body: try encoder.encode(answer))
-        let raw = try await transport.send(request, timeout: mutationTimeout)
-        // Before `checked`: these bodies may lack the envelope's `ok`.
-        switch raw.status {
-        case 409: throw LeoChatAnswerError.settled
-        case 400: throw LeoChatAnswerError.invalid(LeoChatErrorBody.message(in: raw.body) ?? "HTTP 400")
-        default: break
-        }
-        let envelope = try LeoDaemonEnvelope<LeoChatMessage>.decode(try Self.checked(raw).body)
-        try envelope.expectOK()
-        return envelope.data
+        try await settle(agent: agent, messageID: messageID, route: "answer", body: try Self.sortedJSON(answer))
+    }
+
+    public func answerQuestions(agent: String, messageID: String, answers: [String: LeoChatAnswer]) async throws -> LeoChatMessage? {
+        try await settle(agent: agent, messageID: messageID, route: "answer", body: try Self.sortedJSON(["answers": answers]))
+    }
+
+    public func dismiss(agent: String, messageID: String) async throws -> LeoChatMessage? {
+        try await settle(agent: agent, messageID: messageID, route: "dismiss", body: nil)
     }
 
     public func markRead(agent: String, upTo messageID: String) async throws {
@@ -170,6 +171,28 @@ public struct LeoChatHTTPClient: LeoChatClient {
     }
 
     // MARK: Plumbing
+
+    /// A POST that settles an ask (answer or dismiss): 409 is `settled`, 400
+    /// `invalid`, and the updated message comes back when the daemon sent it.
+    private func settle(agent: String, messageID: String, route: String, body: Data?) async throws -> LeoChatMessage? {
+        let path = try Self.agentPath(agent, "messages/\(try LeoSocketDaemonClient.pathSegment(messageID))/\(route)")
+        let raw = try await transport.send(LeoHTTPRequest(method: "POST", path: path, body: body), timeout: mutationTimeout)
+        // Before `checked`: these bodies may lack the envelope's `ok`.
+        switch raw.status {
+        case 409: throw LeoChatAnswerError.settled
+        case 400: throw LeoChatAnswerError.invalid(LeoChatErrorBody.message(in: raw.body) ?? "HTTP 400")
+        default: break
+        }
+        let envelope = try LeoDaemonEnvelope<LeoChatMessage>.decode(try Self.checked(raw).body)
+        try envelope.expectOK()
+        return envelope.data
+    }
+
+    private static func sortedJSON(_ value: some Encodable) throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        return try encoder.encode(value)
+    }
 
     private func request(_ method: String, _ path: String, body: Data? = nil) async throws -> LeoHTTPResponse {
         let timeout = method == "GET" ? defaultTimeout : mutationTimeout
