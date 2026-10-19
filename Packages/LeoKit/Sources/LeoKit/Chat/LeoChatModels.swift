@@ -8,8 +8,8 @@ import OSLog
 /// one. Pages and thread lists drop (and log) messages that fail.
 ///
 /// A message: `{id, agent, direction: in|out, kind, text, transcript?,
-/// reply_to?, task?, run_id?, state?, answer?: {values, text}, input?,
-/// ts, attachments?}`. `ts` is RFC 3339 or Unix seconds/milliseconds.
+/// reply_to?, task?, run_id?, state?, answer?: {values, text, answers?}, input?,
+/// closed_reason?, ts, attachments?}`. `ts` is RFC 3339 or Unix seconds/milliseconds.
 public struct LeoChatMessage: Codable, Equatable, Identifiable, Sendable {
     public enum Direction: String, Codable, Sendable {
         case inbound = "in"
@@ -44,11 +44,13 @@ public struct LeoChatMessage: Codable, Equatable, Identifiable, Sendable {
     /// How an `ask` is answered; a `permission` prompt's allow/deny buttons
     /// (absent on rows from before leo #268: see `answerInput`).
     public let input: LeoChatInput?
+    /// Why an `ask` expired: `timeout`, `withdrawn`, `agent_gone` or `dismissed`.
+    public let closedReason: String?
 
     public init(
         id: String, agent: String, direction: Direction, kind: Kind, text: String, transcript: String? = nil,
         replyTo: String? = nil, task: String? = nil, runID: String? = nil, state: String? = nil, answer: LeoChatAnswer? = nil,
-        ts: Date, attachments: [LeoChatAttachment] = [], input: LeoChatInput? = nil
+        ts: Date, attachments: [LeoChatAttachment] = [], input: LeoChatInput? = nil, closedReason: String? = nil
     ) {
         self.id = id
         self.agent = agent
@@ -64,10 +66,12 @@ public struct LeoChatMessage: Codable, Equatable, Identifiable, Sendable {
         self.ts = ts
         self.attachments = attachments
         self.input = input
+        self.closedReason = closedReason
     }
 
     enum CodingKeys: String, CodingKey {
         case id, agent, direction, kind, text, transcript, task, state, answer, ts, attachments, input
+        case closedReason = "closed_reason"
         case replyTo = "reply_to"
         case runID = "run_id"
     }
@@ -88,6 +92,7 @@ public struct LeoChatMessage: Codable, Equatable, Identifiable, Sendable {
         ts = try container.decode(LeoChatTimestamp.self, forKey: .ts).date
         attachments = ((try? container.decodeIfPresent(LeoLenientArray<LeoChatAttachment>.self, forKey: .attachments)) ?? nil)?.elements ?? []
         input = try container.decodeIfPresent(LeoChatInput.self, forKey: .input)
+        closedReason = Self.nonEmpty(try? container.decodeIfPresent(String.self, forKey: .closedReason))
         if kind == .ask, input == nil {
             throw DecodingError.keyNotFound(CodingKeys.input, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "An ask needs an input"))
         }
@@ -109,6 +114,7 @@ public struct LeoChatMessage: Codable, Equatable, Identifiable, Sendable {
         try container.encode(ts.timeIntervalSince1970, forKey: .ts)
         try container.encode(attachments, forKey: .attachments)
         try container.encodeIfPresent(input, forKey: .input)
+        try container.encodeIfPresent(closedReason, forKey: .closedReason)
     }
 
     private static func nonEmpty(_ value: String??) -> String? {

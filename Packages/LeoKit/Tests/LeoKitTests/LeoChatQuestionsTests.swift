@@ -79,4 +79,97 @@ struct LeoChatQuestionsTests {
 
         #expect(page.messages.map(\.id) == ["01JT"])
     }
+
+    // MARK: Answers
+
+    static func message(state: String, closedReason: String? = nil, answer: String? = nil) throws -> LeoChatMessage {
+        let extras = [
+            closedReason.map { #""closed_reason":"\#($0)""# }, answer.map { #""answer":\#($0)"# },
+        ].compactMap { $0 }.map { "," + $0 }.joined()
+        let json = #"{"id":"01JQ","agent":"zeus","direction":"out","kind":"ask","text":"q","state":"\#(state)","ts":0,"input":\#(questionsInput)\#(extras)}"#
+        return try JSONDecoder().decode(LeoChatMessage.self, from: Data(json.utf8))
+    }
+
+    static let echo = #"{"values":[],"text":"","answers":{"q1":{"values":["Swift"],"text":""},"q2":{"values":[],"text":"because"}}}"#
+
+    @Test func decodesTheAnswersEchoOfAnAnsweredCard() throws {
+        let answer = try #require(try Self.message(state: "answered", answer: Self.echo).answer)
+
+        #expect(answer.answers?["q1"] == .choice("Swift"))
+        #expect(answer.answers?["q2"] == LeoChatAnswer(values: [], text: "because"))
+    }
+
+    @Test func anAnswerWithoutAnswersDecodesAsBefore() throws {
+        let answer = try JSONDecoder().decode(LeoChatAnswer.self, from: Data(#"{"values":["yes"],"text":""}"#.utf8))
+        #expect(answer.answers == nil)
+    }
+
+    @Test func anAnswersEchoRoundTripsThroughItsOwnEncoding() throws {
+        let answer = try #require(try Self.message(state: "answered", answer: Self.echo).answer)
+        #expect(try JSONDecoder().decode(LeoChatAnswer.self, from: JSONEncoder().encode(answer)) == answer)
+    }
+
+    @Test func aTextOnlyAnswerStillFailsToDecode() {
+        #expect(throws: (any Error).self) { try JSONDecoder().decode(LeoChatAnswer.self, from: Data(#"{"text":"x"}"#.utf8)) }
+    }
+
+    @Test func aTerminalAnswerHasNoAnswersAndSaysSo() throws {
+        let terminal = try Self.message(state: "answered", answer: #"{"values":["terminal"],"text":""}"#)
+        let echoed = try Self.message(state: "answered", answer: Self.echo)
+
+        #expect(terminal.answer?.isFromTerminal == true)
+        #expect(terminal.isAnsweredInTerminal)
+        #expect(terminal.questionsCard == .inTerminal)
+        #expect(echoed.answer?.isFromTerminal == false)
+        #expect(!echoed.isAnsweredInTerminal)
+        #expect(LeoChatAnswer(values: ["terminal"], answers: ["q1": .choice("Swift")]).isFromTerminal == false)
+    }
+
+    @Test func summaryLinesReadHeaderThenLabelsThenQuotedText() throws {
+        let message = try Self.message(state: "answered", answer: #"{"values":[],"text":"","answers":{"q1":{"values":["Swift"],"text":""},"q2":{"values":["A","B"],"text":"docs too"}}}"#)
+        let questions = try #require(message.input?.questions)
+
+        #expect(message.answer?.summaryLines(for: questions) == ["Library: Swift", #"Scope: A, B, "docs too""#])
+    }
+
+    @Test func aQuestionMissingFromTheEchoReadsNone() throws {
+        let message = try Self.message(state: "answered", answer: #"{"values":[],"text":"","answers":{"q1":{"values":["Swift"],"text":""}}}"#)
+        let questions = try #require(message.input?.questions)
+
+        #expect(message.answer?.summaryLines(for: questions) == ["Library: Swift", "Scope: None"])
+    }
+
+    @Test func aTextOnlyQuestionShowsItsQuotedText() throws {
+        let message = try Self.message(state: "answered", answer: #"{"values":[],"text":"","answers":{"q1":{"values":[],"text":"Go"},"q2":{"values":["A"],"text":""}}}"#)
+        let questions = try #require(message.input?.questions)
+
+        #expect(message.answer?.summaryLines(for: questions) == [#"Library: "Go""#, "Scope: A"])
+    }
+
+    @Test func aDismissedCardReadsAsInTerminalATimeoutAsTimedOut() throws {
+        #expect(try Self.message(state: "open").questionsCard == .open)
+        #expect(try Self.message(state: "expired", closedReason: "dismissed").questionsCard == .inTerminal)
+        #expect(try Self.message(state: "expired", closedReason: "timeout").questionsCard == .timedOut)
+        #expect(try Self.message(state: "expired", closedReason: "withdrawn").questionsCard == .expired)
+        #expect(try Self.message(state: "expired", closedReason: "agent_gone").questionsCard == .expired)
+        #expect(try Self.message(state: "expired").questionsCard == .expired)
+    }
+
+    @Test func anAnsweredCardCarriesItsSummaryLines() throws {
+        let message = try Self.message(state: "answered", answer: Self.echo)
+        #expect(message.questionsCard == .answered(["Library: Swift", #"Scope: "because""#]))
+    }
+
+    @Test func onlyAQuestionsAskHasACardState() throws {
+        let buttons = try LeoChatDecodingTests.decode(LeoChatDecodingTests.askJSON)
+        #expect(buttons.questionsCard == nil)
+    }
+
+    @Test func theClosedReasonSurvivesEncodingAndAnswering() throws {
+        let message = try Self.message(state: "expired", closedReason: "timeout")
+        let decoded = try JSONDecoder().decode(LeoChatMessage.self, from: JSONEncoder().encode(message))
+
+        #expect(decoded.closedReason == "timeout")
+        #expect(message.answered(.choice("x")).closedReason == "timeout")
+    }
 }

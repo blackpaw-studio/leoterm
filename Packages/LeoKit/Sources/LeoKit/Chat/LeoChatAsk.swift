@@ -184,17 +184,21 @@ public enum LeoChatInputError: Error, Equatable, Sendable {
 
 /// An answer: the chosen option values (in the order given) and any free
 /// text. On the wire `{values, text}`; the daemon always sends `text`, and
-/// `""` means none.
+/// `""` means none. A questions answer adds `answers`, one such answer per
+/// question id, with `values` and `text` then empty.
 public struct LeoChatAnswer: Codable, Equatable, Hashable, Sendable {
     /// The daemon's cap on answer text, in Unicode scalars (Go runes).
     public static let maxTextScalars = 4000
 
     public let values: [String]
     public let text: String?
+    /// Per-question answers of a questions card, keyed by question id.
+    public let answers: [String: LeoChatAnswer]?
 
-    public init(values: [String] = [], text: String? = nil) {
+    public init(values: [String] = [], text: String? = nil, answers: [String: LeoChatAnswer]? = nil) {
         self.values = values
         self.text = text.flatMap { $0.isEmpty ? nil : $0 }
+        self.answers = answers
     }
 
     /// One chosen value, no text: a button tap.
@@ -202,13 +206,31 @@ public struct LeoChatAnswer: Codable, Equatable, Hashable, Sendable {
         LeoChatAnswer(values: [value])
     }
 
-    enum CodingKeys: String, CodingKey { case values, text }
+    /// Settled in the agent's own terminal, not in chat.
+    public var isFromTerminal: Bool {
+        values == [LeoChatMessage.terminalAnswerValue] && answers == nil
+    }
+
+    /// One display line per question, `header: label, label, "text"`; a
+    /// question missing from the echo reads `header: None`.
+    public func summaryLines(for questions: [LeoChatQuestion]) -> [String] {
+        questions.map { question in
+            let title = question.header.isEmpty ? question.question : question.header
+            let answer = answers?[question.id]
+            let labels = (answer?.values ?? []).map { value in question.options.first { $0.value == value }?.label ?? value }
+            let parts = labels + [answer?.text.map { "\"\($0)\"" }].compactMap { $0 }
+            return "\(title): \(parts.isEmpty ? String(localized: "None") : parts.joined(separator: ", "))"
+        }
+    }
+
+    enum CodingKeys: String, CodingKey { case values, text, answers }
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.init(
             values: try container.decode([String].self, forKey: .values),
-            text: try container.decodeIfPresent(String.self, forKey: .text)
+            text: try container.decodeIfPresent(String.self, forKey: .text),
+            answers: try container.decodeIfPresent([String: LeoChatAnswer].self, forKey: .answers)
         )
     }
 
@@ -216,7 +238,21 @@ public struct LeoChatAnswer: Codable, Equatable, Hashable, Sendable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(values, forKey: .values)
         try container.encodeIfPresent(text, forKey: .text)
+        try container.encodeIfPresent(answers, forKey: .answers)
     }
+}
+
+/// What a questions card shows, from its message's state, answer and
+/// closed reason; one source for both apps.
+public enum LeoChatQuestionsCardState: Equatable, Sendable {
+    case open
+    /// Answered in chat: one summary line per question.
+    case answered([String])
+    /// Answered in the terminal, or dismissed to it.
+    case inTerminal
+    case timedOut
+    /// Withdrawn, agent gone, or closed for a reason this build doesn't know.
+    case expired
 }
 
 extension LeoChatMessage {
@@ -229,13 +265,32 @@ extension LeoChatMessage {
     public func answered(_ answer: LeoChatAnswer) -> LeoChatMessage {
         LeoChatMessage(
             id: id, agent: agent, direction: direction, kind: kind, text: text, transcript: transcript, replyTo: replyTo, task: task,
-            runID: runID, state: "answered", answer: answer, ts: ts, attachments: attachments, input: input
+            runID: runID, state: "answered", answer: answer, ts: ts, attachments: attachments, input: input,
+            closedReason: closedReason
         )
     }
 
-    /// A permission prompt answered in the agent's terminal, not in chat.
+    /// A permission prompt or questions card answered in the agent's
+    /// terminal, not in chat.
     public var isAnsweredInTerminal: Bool {
-        kind == .permission && answer?.values == [Self.terminalAnswerValue]
+        (kind == .permission || input?.kind == .questions) && answer?.isFromTerminal == true
+    }
+
+    /// The state a questions card shows; nil unless this is a questions ask.
+    public var questionsCard: LeoChatQuestionsCardState? {
+        guard kind == .ask, let input, input.kind == .questions else { return nil }
+        switch state {
+        case "open": return .open
+        case "answered":
+            guard let answer else { return .answered([]) }
+            return answer.isFromTerminal ? .inTerminal : .answered(answer.summaryLines(for: input.questions))
+        default:
+            switch closedReason {
+            case "dismissed": return .inTerminal
+            case "timeout": return .timedOut
+            default: return .expired
+            }
+        }
     }
 
     /// The recorded answer as one line: the chosen labels in answer order
