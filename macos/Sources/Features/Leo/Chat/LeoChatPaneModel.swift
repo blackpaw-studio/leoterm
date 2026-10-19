@@ -95,8 +95,6 @@ import LeoKit
         self.agent = agent
         timeline = LeoChatTimeline()
         answering = []
-        questionsDrafts = [:]
-        questionsErrors = [:]
         loadError = nil
         lastRead = nil
         isLoading = false

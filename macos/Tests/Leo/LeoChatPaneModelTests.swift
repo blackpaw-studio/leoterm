@@ -449,6 +449,18 @@ struct LeoChatPaneModelTests {
         #expect(model.questionsDrafts.isEmpty)
     }
 
+    @Test func aQuestionsDraftSurvivesSwitchingThreadsAndBack() async throws {
+        let model = try await showQuestions()
+        fill(model)
+        await model.show(Self.beta)
+        await client.enqueuePage([try questionsCard(state: "open")])
+        await model.show(Self.alpha)
+        let draft = try #require(model.questionsDraft(for: "01"))
+        #expect(draft.values(for: "q1") == ["swift"])
+        #expect(draft.text(for: "q2") == "docs too")
+        #expect(draft.isComplete)
+    }
+
     // MARK: Composer
 
     @Test func sendUploadsFilesThenSendsAndClearsOnlyWhatWasSent() async throws {
