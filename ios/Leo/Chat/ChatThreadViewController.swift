@@ -111,7 +111,8 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
             guard let self, case .message(let message, let position)? = shownItems[id] else { return }
             let model = ChatMessageCell.Model(
                 message: message, isAnswering: store.answering.contains(id),
-                draft: store.askDrafts[id] ?? LeoChatAskDraft(), position: position, topSpacing: shownSpacing[id] ?? 0,
+                draft: store.askDrafts[id] ?? LeoChatAskDraft(), questionsDraft: store.questionsDrafts[id],
+                questionsError: store.questionsErrors[id], position: position, topSpacing: shownSpacing[id] ?? 0,
                 files: store.attachmentFiles, playingAttachmentID: voice.playingID
             )
             cell.configure(model) { [weak self] event in self?.handle(event, message: message) }
@@ -253,6 +254,14 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
             store.send(.askTextChanged(messageID: message.id, text))
         case .submit:
             store.send(.askSubmitTapped(messageID: message.id))
+        case .questionChoice(let questionID, let value):
+            store.send(.questionChoiceTapped(messageID: message.id, questionID: questionID, value: value))
+        case .questionText(let questionID, let text):
+            store.send(.questionTextChanged(messageID: message.id, questionID: questionID, text))
+        case .questionsSubmit:
+            store.send(.questionsSubmitTapped(messageID: message.id))
+        case .questionsDismiss:
+            store.send(.questionsDismissTapped(messageID: message.id))
         case .openAttachment(let attachment):
             open(attachment)
         case .playVoice(let attachment):
