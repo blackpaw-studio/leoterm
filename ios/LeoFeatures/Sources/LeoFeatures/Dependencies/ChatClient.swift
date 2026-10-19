@@ -36,9 +36,13 @@ public struct ChatClient: Sendable {
     /// the prompt is already settled.
     public var answer: @Sendable (_ connection: DaemonConnection, _ agent: String, _ messageID: String, _ answer: LeoChatAnswer) async throws -> LeoChatMessage?
     /// Answers every question of a questions card at once; throws like `answer`.
-    public var answerQuestions: @Sendable (_ connection: DaemonConnection, _ agent: String, _ messageID: String, _ answers: [String: LeoChatAnswer]) async throws -> LeoChatMessage?
+    public var answerQuestions: @Sendable (
+        _ connection: DaemonConnection, _ agent: String, _ messageID: String, _ answers: [String: LeoChatAnswer]
+    ) async throws -> LeoChatMessage?
     /// Hands a questions card to the agent's terminal; throws like `answer`.
-    public var dismiss: @Sendable (_ connection: DaemonConnection, _ agent: String, _ messageID: String) async throws -> LeoChatMessage?
+    public var dismiss: @Sendable (
+        _ connection: DaemonConnection, _ agent: String, _ messageID: String
+    ) async throws -> LeoChatMessage?
     public var markRead: @Sendable (_ connection: DaemonConnection, _ agent: String, _ messageID: String) async throws -> Void
 }
 
@@ -74,7 +78,9 @@ extension ChatClient: DependencyKey {
             answerQuestions: { connection, agent, messageID, answers in
                 try await client(connection).answerQuestions(agent: agent, messageID: messageID, answers: answers)
             },
-            dismiss: { connection, agent, messageID in try await client(connection).dismiss(agent: agent, messageID: messageID) },
+            dismiss: { connection, agent, messageID in
+                try await client(connection).dismiss(agent: agent, messageID: messageID)
+            },
             markRead: { connection, agent, messageID in try await client(connection).markRead(agent: agent, upTo: messageID) }
         )
     }

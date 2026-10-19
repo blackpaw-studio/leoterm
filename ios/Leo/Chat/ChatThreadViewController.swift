@@ -72,7 +72,7 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
             collectionView.bottomAnchor.constraint(equalTo: bottom.topAnchor),
             bottom.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             bottom.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            bottom.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
+            bottom.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor)
         ])
         configureDataSource()
         // An ask's text field sits in the thread, not the composer: once the
@@ -254,14 +254,8 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
             store.send(.askTextChanged(messageID: message.id, text))
         case .submit:
             store.send(.askSubmitTapped(messageID: message.id))
-        case .questionChoice(let questionID, let value):
-            store.send(.questionChoiceTapped(messageID: message.id, questionID: questionID, value: value))
-        case .questionText(let questionID, let text):
-            store.send(.questionTextChanged(messageID: message.id, questionID: questionID, text))
-        case .questionsSubmit:
-            store.send(.questionsSubmitTapped(messageID: message.id))
-        case .questionsDismiss:
-            store.send(.questionsDismissTapped(messageID: message.id))
+        case .questionChoice, .questionText, .questionsSubmit, .questionsDismiss:
+            handleQuestions(event, messageID: message.id)
         case .openAttachment(let attachment):
             open(attachment)
         case .playVoice(let attachment):
@@ -274,6 +268,21 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         case .reply:
             store.send(.replyTapped(message.id))
             composer.focus()
+        }
+    }
+
+    private func handleQuestions(_ event: ChatMessageCell.Event, messageID: String) {
+        switch event {
+        case .questionChoice(let questionID, let value):
+            store.send(.questionChoiceTapped(messageID: messageID, questionID: questionID, value: value))
+        case .questionText(let questionID, let text):
+            store.send(.questionTextChanged(messageID: messageID, questionID: questionID, text))
+        case .questionsSubmit:
+            store.send(.questionsSubmitTapped(messageID: messageID))
+        case .questionsDismiss:
+            store.send(.questionsDismissTapped(messageID: messageID))
+        default:
+            break
         }
     }
 

@@ -6,7 +6,9 @@ import XCTest
 /// light and dark capture as `questions-<state>-<appearance>.png`.
 final class LeoQuestionsCardTests: XCTestCase {
     /// Mirrors `ChatQuestionsFixture.stateNames`.
-    private static let states = ["open", "partial", "filled", "refused", "sending", "answered", "terminal", "dismissed", "timedout"]
+    private static let states = [
+        "open", "partial", "filled", "refused", "sending", "answered", "terminal", "dismissed", "timedout"
+    ]
 
     private var environment: [String: String] { ProcessInfo.processInfo.environment }
 
@@ -30,8 +32,8 @@ final class LeoQuestionsCardTests: XCTestCase {
     func testEveryStateInLightAndDark() {
         for state in Self.states {
             let app = launch(state)
-            XCTAssertTrue(app.cells["chat.message.card-\(state)"].waitForExistence(timeout: 10), "\(state) card never appeared")
             let card = app.cells["chat.message.card-\(state)"]
+            XCTAssertTrue(card.waitForExistence(timeout: 10), "\(state) card never appeared")
             switch state {
             case "open", "partial", "filled", "refused", "sending":
                 XCTAssertTrue(card.buttons["chat.questions.dismiss"].exists, "\(state): no Answer in terminal")
@@ -69,7 +71,7 @@ final class LeoQuestionsCardTests: XCTestCase {
         let thread = app.collectionViews["chat.thread"]
         XCTAssertTrue(thread.waitForExistence(timeout: 10))
         let card = app.cells["chat.message.card-open"]
-        scroll(to: card, in: thread, up: false)
+        scroll(to: card, in: thread, toNewest: false)
 
         card.buttons["chat.questions.q1.option.Zig"].tap()
         XCTAssertTrue(card.buttons["chat.questions.q1.option.Zig"].isSelected)
@@ -81,9 +83,9 @@ final class LeoQuestionsCardTests: XCTestCase {
         waitForValue("typed text", of: other)
 
         // Far enough away that the cell is recycled, then back.
-        scroll(to: app.cells["chat.message.filler-13"], in: thread, up: true)
-        scroll(to: card, in: thread, up: false)
-        waitForValue("typed text", of: card.textViews["chat.questions.q2.text"], "the draft text was lost with the cell")
+        scroll(to: app.cells["chat.message.filler-13"], in: thread, toNewest: true)
+        scroll(to: card, in: thread, toNewest: false)
+        waitForValue("typed text", of: card.textViews["chat.questions.q2.text"], "the draft text was lost")
         XCTAssertTrue(card.buttons["chat.questions.q1.option.Zig"].isSelected, "the choice was lost with the cell")
         XCTAssertTrue(card.buttons["chat.questions.q2.option.Lexer"].isSelected)
 
@@ -91,7 +93,7 @@ final class LeoQuestionsCardTests: XCTestCase {
         XCTAssertTrue(submit.isEnabled)
         submit.tap()
         // The settled card is much shorter, so the thread may leave it above the screen.
-        scroll(to: card, in: thread, up: false)
+        scroll(to: card, in: thread, toNewest: false)
         XCTAssertTrue(card.staticTexts["Library: Zig"].waitForExistence(timeout: 10), "the card never settled")
         XCTAssertTrue(card.staticTexts["Scope: Lexer, \"typed text\""].exists)
         XCTAssertFalse(submit.exists)
@@ -112,11 +114,11 @@ final class LeoQuestionsCardTests: XCTestCase {
         XCTAssertEqual(result, .completed, "\(message) (value: \(element.value as? String ?? "nil"))")
     }
 
-    /// Swipes `thread` until `element` is on screen; `up` scrolls toward the
+    /// Swipes `thread` until `element` is on screen; `toNewest` scrolls toward the
     /// newest messages.
-    private func scroll(to element: XCUIElement, in thread: XCUIElement, up: Bool) {
+    private func scroll(to element: XCUIElement, in thread: XCUIElement, toNewest: Bool) {
         for _ in 0..<30 where !(element.exists && element.isHittable) {
-            if up { thread.swipeUp() } else { thread.swipeDown() }
+            if toNewest { thread.swipeUp() } else { thread.swipeDown() }
         }
         XCTAssertTrue(element.exists && element.isHittable, "\(element) never scrolled into view")
     }
@@ -143,6 +145,7 @@ final class LeoQuestionsCardTests: XCTestCase {
         add(attachment)
         guard let directory = environment["LEO_SCREENSHOTS"] else { return }
         try? FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
-        try? screenshot.pngRepresentation.write(to: URL(fileURLWithPath: directory).appendingPathComponent("\(name).png"))
+        let file = URL(fileURLWithPath: directory).appendingPathComponent("\(name).png")
+        try? screenshot.pngRepresentation.write(to: file)
     }
 }

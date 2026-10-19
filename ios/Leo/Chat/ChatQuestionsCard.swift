@@ -70,7 +70,9 @@ final class ChatQuestionsCard: UIStackView {
 
     private func makeSection(_ question: LeoChatQuestion) -> Section {
         let section = Section(questionID: question.id)
-        section.onChoice = { [weak self] value in self?.onEvent(.questionChoice(questionID: question.id, value: value)) }
+        section.onChoice = { [weak self] value in
+            self?.onEvent(.questionChoice(questionID: question.id, value: value))
+        }
         section.onText = { [weak self] text in self?.onEvent(.questionText(questionID: question.id, text)) }
         return section
     }
@@ -145,7 +147,9 @@ final class ChatQuestionsCard: UIStackView {
             let label = UILabel()
             label.numberOfLines = 0
             label.adjustsFontForContentSizeCategory = true
-            label.font = isOutcome ? .preferredFont(forTextStyle: .footnote).withWeight(.semibold) : .preferredFont(forTextStyle: .subheadline)
+            label.font = isOutcome
+                ? .preferredFont(forTextStyle: .footnote).withWeight(.semibold)
+                : .preferredFont(forTextStyle: .subheadline)
             label.textColor = isOutcome ? .secondaryLabel : .label
             label.text = line
             stack.addArrangedSubview(label)
@@ -171,6 +175,7 @@ extension ChatQuestionsCard {
     /// rebuilt on every configure (they hold no state of their own).
     final class Section: UIStackView, UITextViewDelegate {
         private static let maximumTextHeight: CGFloat = 140
+        private static let minimumHeight = ChatQuestionsCard.minimumRowHeight
 
         let textView = UITextView()
         var onChoice: (String) -> Void = { _ in }
@@ -241,7 +246,7 @@ extension ChatQuestionsCard {
                 textView.heightAnchor.constraint(lessThanOrEqualToConstant: Self.maximumTextHeight),
                 placeholder.topAnchor.constraint(equalTo: textView.topAnchor, constant: 12),
                 placeholder.leadingAnchor.constraint(equalTo: textView.leadingAnchor, constant: 11),
-                placeholder.trailingAnchor.constraint(lessThanOrEqualTo: textView.trailingAnchor, constant: -11),
+                placeholder.trailingAnchor.constraint(lessThanOrEqualTo: textView.trailingAnchor, constant: -11)
             ])
         }
 
@@ -253,7 +258,9 @@ extension ChatQuestionsCard {
             let selected = Set(draft.values(for: question.id))
             options.arrangedSubviews.forEach { $0.removeFromSuperview() }
             for option in question.options {
-                options.addArrangedSubview(row(option, in: question, isSelected: selected.contains(option.value), isAnswering: isAnswering))
+                options.addArrangedSubview(row(
+                    option, in: question, isSelected: selected.contains(option.value), isAnswering: isAnswering
+                ))
             }
             textBox.isHidden = !question.allowsText
             let text = draft.text(for: question.id)
@@ -265,7 +272,9 @@ extension ChatQuestionsCard {
 
         /// A full-width radio or checkbox row: the mark, the label and the
         /// description under it. At least 44pt tall.
-        private func row(_ option: LeoChatOption, in question: LeoChatQuestion, isSelected: Bool, isAnswering: Bool) -> UIButton {
+        private func row(
+            _ option: LeoChatOption, in question: LeoChatQuestion, isSelected: Bool, isAnswering: Bool
+        ) -> UIButton {
             let symbol = switch (question.multi, isSelected) {
             case (false, true): "largecircle.fill.circle"
             case (false, false): "circle"
@@ -280,7 +289,9 @@ extension ChatQuestionsCard {
             configuration.imagePadding = 12
             configuration.contentInsets = NSDirectionalEdgeInsets(top: 10, leading: 10, bottom: 10, trailing: 10)
             configuration.baseForegroundColor = .label
-            configuration.imageColorTransformer = UIConfigurationColorTransformer { _ in isSelected ? .tintColor : .tertiaryLabel }
+            configuration.imageColorTransformer = UIConfigurationColorTransformer { _ in
+                isSelected ? .tintColor : .tertiaryLabel
+            }
             configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
                 var attributes = attributes
                 attributes.font = .preferredFont(forTextStyle: .body)
@@ -301,7 +312,7 @@ extension ChatQuestionsCard {
             })
             button.contentHorizontalAlignment = .leading
             button.isEnabled = !isAnswering
-            button.heightAnchor.constraint(greaterThanOrEqualToConstant: ChatQuestionsCard.minimumRowHeight).isActive = true
+            button.heightAnchor.constraint(greaterThanOrEqualToConstant: Self.minimumHeight).isActive = true
             button.accessibilityIdentifier = "chat.questions.\(question.id).option.\(option.value)"
             button.accessibilityLabel = [option.label, option.description].compactMap { $0 }.joined(separator: ", ")
             button.accessibilityTraits = isSelected ? [.button, .selected] : .button

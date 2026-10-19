@@ -93,7 +93,7 @@ final class ChatMessageCell: UICollectionViewCell {
             failureFooter.topAnchor.constraint(equalTo: bubble.bottomAnchor, constant: Self.failureGap),
             failureFooter.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
             failureFooter.trailingAnchor.constraint(equalTo: bubble.trailingAnchor),
-            failureFooter.leadingAnchor.constraint(greaterThanOrEqualTo: contentView.leadingAnchor, constant: 12),
+            failureFooter.leadingAnchor.constraint(greaterThanOrEqualTo: contentView.leadingAnchor, constant: 12)
         ]
         bubbleWidthCap = bubble.widthAnchor.constraint(lessThanOrEqualTo: contentView.widthAnchor, multiplier: 0.82)
         NSLayoutConstraint.activate([
@@ -105,7 +105,7 @@ final class ChatMessageCell: UICollectionViewCell {
             stack.topAnchor.constraint(equalTo: bubble.topAnchor, constant: 9),
             stack.bottomAnchor.constraint(equalTo: bubble.bottomAnchor, constant: -9),
             stack.leadingAnchor.constraint(equalTo: bubble.leadingAnchor, constant: 13),
-            stack.trailingAnchor.constraint(equalTo: bubble.trailingAnchor, constant: -13),
+            stack.trailingAnchor.constraint(equalTo: bubble.trailingAnchor, constant: -13)
         ])
     }
 

@@ -13,8 +13,12 @@ enum ChatQuestionsFixture {
 
     /// Which fixture a launch asked for, if any.
     static var requested: String? {
-        ProcessInfo.processInfo.arguments.contains("-\(launchKey)") ? UserDefaults.standard.string(forKey: launchKey) : nil
+        guard ProcessInfo.processInfo.arguments.contains("-\(launchKey)") else { return nil }
+        return UserDefaults.standard.string(forKey: launchKey)
     }
+
+    private static let longOption = "Both, with the public API unchanged and callers migrated later"
+    private static let terminalAnswer = LeoChatAnswer(values: [LeoChatMessage.terminalAnswerValue])
 
     static let agent = "zeus"
     static let daemon = PairedDaemon(
@@ -27,33 +31,38 @@ enum ChatQuestionsFixture {
         LeoChatQuestion(id: "q1", header: "Library", question: "Which library should the parser use?", options: [
             LeoChatOption(value: "Swift", label: "Swift", description: "Fast, and ships with the toolchain"),
             LeoChatOption(value: "Zig", label: "Zig", description: "Small binaries, manual memory"),
-            LeoChatOption(value: "Both, with the public API unchanged and callers migrated later", label: "Both, with the public API unchanged and callers migrated later"),
+            LeoChatOption(value: Self.longOption, label: Self.longOption)
         ]),
         LeoChatQuestion(id: "q2", header: "Scope", question: "Which parts should it cover?", multi: true, options: [
             LeoChatOption(value: "Lexer", label: "Lexer", description: "Splits input into tokens"),
             LeoChatOption(value: "Parser", label: "Parser"),
-            LeoChatOption(value: "Formatter", label: "Formatter", description: "Prints the tree back out"),
-        ]),
+            LeoChatOption(value: "Formatter", label: "Formatter", description: "Prints the tree back out")
+        ])
     ]
 
     /// Two short questions: a whole card fits one screen, for the state captures.
     static let questions = [
         LeoChatQuestion(id: "q1", header: "Library", question: "Which library should the parser use?", options: [
             LeoChatOption(value: "Swift", label: "Swift", description: "Fast, and ships with the toolchain"),
-            LeoChatOption(value: "Zig", label: "Zig", description: "Small binaries, manual memory"),
+            LeoChatOption(value: "Zig", label: "Zig", description: "Small binaries, manual memory")
         ]),
         LeoChatQuestion(id: "q2", header: "Scope", question: "Which parts should it cover?", multi: true, options: [
             LeoChatOption(value: "Lexer", label: "Lexer", description: "Splits input into tokens"),
-            LeoChatOption(value: "Parser", label: "Parser"),
-        ]),
+            LeoChatOption(value: "Parser", label: "Parser")
+        ])
     ]
 
     /// Every state, in thread order.
-    static let stateNames = ["open", "partial", "filled", "refused", "sending", "answered", "terminal", "dismissed", "timedout"]
+    static let stateNames = [
+        "open", "partial", "filled", "refused", "sending", "answered", "terminal", "dismissed", "timedout"
+    ]
 
     private static let baseTime = Date().addingTimeInterval(-3_600)
 
-    private static func card(_ name: String, long: Bool = false, state: String = "open", answer: LeoChatAnswer? = nil, closedReason: String? = nil) -> LeoChatMessage {
+    private static func card(
+        _ name: String, long: Bool = false, state: String = "open", answer: LeoChatAnswer? = nil,
+        closedReason: String? = nil
+    ) -> LeoChatMessage {
         LeoChatMessage(
             id: "card-\(name)", agent: agent, direction: .outbound, kind: .ask, text: "", state: state, answer: answer,
             ts: baseTime.addingTimeInterval(Double(stateNames.firstIndex(of: name) ?? 0) * 60),
@@ -63,7 +72,7 @@ enum ChatQuestionsFixture {
 
     static let echo = LeoChatAnswer(answers: [
         "q1": .choice("Swift"),
-        "q2": LeoChatAnswer(values: ["Lexer", "Parser"], text: "and the CLI"),
+        "q2": LeoChatAnswer(values: ["Lexer", "Parser"], text: "and the CLI")
     ])
 
     static func messages(for name: String) -> [LeoChatMessage] {
@@ -76,14 +85,15 @@ enum ChatQuestionsFixture {
             "refused": card("refused", long: isAll),
             "sending": card("sending", long: isAll),
             "answered": card("answered", long: isAll, state: "answered", answer: echo),
-            "terminal": card("terminal", long: isAll, state: "answered", answer: LeoChatAnswer(values: [LeoChatMessage.terminalAnswerValue])),
+            "terminal": card("terminal", long: isAll, state: "answered", answer: terminalAnswer),
             "dismissed": card("dismissed", long: isAll, state: "expired", closedReason: "dismissed"),
-            "timedout": card("timedout", long: isAll, state: "expired", closedReason: "timeout"),
+            "timedout": card("timedout", long: isAll, state: "expired", closedReason: "timeout")
         ]
         guard isAll else { return all[name].map { [$0] } ?? [] }
         let fillers = (0..<14).map { index in
             LeoChatMessage(
-                id: "filler-\(index)", agent: agent, direction: .outbound, kind: .text, text: "Working on step \(index + 1)…",
+                id: "filler-\(index)", agent: agent, direction: .outbound, kind: .text,
+                text: "Working on step \(index + 1)…",
                 ts: baseTime.addingTimeInterval(Double(stateNames.count + index) * 60)
             )
         }
@@ -96,7 +106,9 @@ enum ChatQuestionsFixture {
         let set = name == "all" ? longQuestions : questions
         let empty = LeoChatQuestionsDraft(questions: set)
         let partial = empty.choosing("Swift", question: "q1")
-        let filled = partial.choosing("Lexer", question: "q2").choosing("Parser", question: "q2").withText("and the CLI", question: "q2")
+        let filled = partial
+            .choosing("Lexer", question: "q2").choosing("Parser", question: "q2")
+            .withText("and the CLI", question: "q2")
         for target in [name == "all" ? stateNames : [name]].flatMap({ $0 }) {
             switch target {
             case "partial": state.questionsDrafts["card-partial"] = partial
@@ -131,7 +143,8 @@ enum ChatQuestionsFixture {
             $0.chatClient.dismiss = { _, _, id in
                 guard let sent = page.messages.first(where: { $0.id == id }) else { return nil }
                 return LeoChatMessage(
-                    id: sent.id, agent: sent.agent, direction: sent.direction, kind: sent.kind, text: sent.text, state: "expired",
+                    id: sent.id, agent: sent.agent, direction: sent.direction, kind: sent.kind, text: sent.text,
+                    state: "expired",
                     ts: sent.ts, input: sent.input, closedReason: "dismissed"
                 )
             }
