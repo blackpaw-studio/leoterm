@@ -21,8 +21,39 @@
       },
       "layers": [
         {
-          "name": "cat",
-          "image-name": "layer-cat.png",
+          "name": "Cat",
+          "image-name": "cat.png",
+          "glass": false,
+          "hidden": false,
+          "blend-mode": "normal",
+          "fill": "automatic"
+        }
+      ]
+    },
+    {
+      "name": "Prompt",
+      "lighting": "individual",
+      "specular": false,
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      },
+      "translucency": {
+        "enabled": false,
+        "value": 0.5
+      },
+      "layers": [
+        {
+          "name": "Prompt",
+          "image-name": "prompt.svg",
+          "glass": true,
+          "hidden": false,
+          "blend-mode": "normal",
+          "fill": "automatic"
+        },
+        {
+          "name": "Prompt Glow",
+          "image-name": "prompt-glow.png",
           "glass": false,
           "hidden": false,
           "blend-mode": "normal",
@@ -44,9 +75,25 @@
       },
       "layers": [
         {
-          "name": "terminal",
-          "image-name": "layer-terminal.png",
+          "name": "Dots",
+          "image-name": "terminal-dots.svg",
           "glass": false,
+          "hidden": false,
+          "blend-mode": "normal",
+          "fill": "automatic"
+        },
+        {
+          "name": "Screen",
+          "image-name": "terminal-screen.svg",
+          "glass": false,
+          "hidden": false,
+          "blend-mode": "normal",
+          "fill": "automatic"
+        },
+        {
+          "name": "Body",
+          "image-name": "terminal-body.svg",
+          "glass": true,
           "hidden": false,
           "blend-mode": "normal",
           "fill": "automatic"
@@ -67,8 +114,8 @@
       },
       "layers": [
         {
-          "name": "background",
-          "image-name": "layer-background.png",
+          "name": "Background Glow",
+          "image-name": "bg-glow.svg",
           "glass": false,
           "hidden": false,
           "blend-mode": "normal",
