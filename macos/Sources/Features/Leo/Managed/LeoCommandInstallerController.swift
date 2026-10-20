@@ -8,12 +8,16 @@ import OSLog
     private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
 
     private let installer: LeoCommandInstaller
-    private let path: String?
+    /// The login shell's `PATH`; a GUI app's own never has `~/.local/bin`.
+    private let loginPath: @Sendable () async -> String?
     private var isRunning = false
 
-    init(installer: LeoCommandInstaller, path: String? = ProcessInfo.processInfo.environment["PATH"]) {
+    init(
+        installer: LeoCommandInstaller,
+        loginPath: @escaping @Sendable () async -> String? = { await LeoLoginPathProbe.live(runner: LeoProcessRunner()).loginPath() }
+    ) {
         self.installer = installer
-        self.path = path
+        self.loginPath = loginPath
     }
 
     func install() {
@@ -24,7 +28,7 @@ import OSLog
             do {
                 let outcome = try await installer.install(
                     confirmReplace: { @MainActor backup in Self.confirm(LeoCommandInstallerNotice.confirmReplace(backup: backup)) },
-                    path: path
+                    loginPath: loginPath
                 )
                 if let notice = LeoCommandInstallerNotice.notice(for: outcome) { Self.show(notice) }
             } catch {

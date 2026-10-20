@@ -29,6 +29,8 @@ struct LeoCommandInstaller: Sendable {
 
     static let directoryMode: mode_t = 0o755
     static let pathHint = "~/.local/bin is not on your PATH. Add it (for example, export PATH=\"$HOME/.local/bin:$PATH\" in ~/.zshrc) to run ‘leo’ in new shells."
+    /// The login shell's PATH couldn't be read, so whether `~/.local/bin` is on it is unknown.
+    static let unverifiedPathHint = "If ‘leo’ isn’t found in a new shell, add ~/.local/bin to your PATH (for example, export PATH=\"$HOME/.local/bin:$PATH\" in ~/.zshrc)."
 
     let paths: LeoInstallPaths
     let fileSystem: any LeoFileSystem
@@ -50,19 +52,22 @@ struct LeoCommandInstaller: Sendable {
     }
 
     /// `confirmReplace` is asked only when something already occupies the
-    /// command path. `path` is the process `PATH`, for the hint.
-    func install(confirmReplace: (_ backup: URL) async -> Bool, path: String?) async throws -> Outcome {
+    /// command path. `loginPath` is the login shell's `PATH` (a GUI app's own
+    /// is short), asked only after an install, for the hint; nil when unreadable.
+    func install(
+        confirmReplace: (_ backup: URL) async -> Bool, loginPath: () async -> String?
+    ) async throws -> Outcome {
         let initial = plan()
         guard case let .confirmReplace(backup) = initial else {
-            return try await apply(initial, path: path)
+            return try await apply(initial, loginPath: loginPath)
         }
         guard await confirmReplace(backup) else { return .declined }
         // The confirmation can stay open for a long time and overlap another
         // install; decide again on what is on disk now.
-        return try await apply(plan(), path: path)
+        return try await apply(plan(), loginPath: loginPath)
     }
 
-    private func apply(_ plan: Plan, path: String?) async throws -> Outcome {
+    private func apply(_ plan: Plan, loginPath: () async -> String?) async throws -> Outcome {
         switch plan {
         case .alreadyInstalled:
             return .alreadyInstalled
@@ -79,7 +84,7 @@ struct LeoCommandInstaller: Sendable {
                 throw error
             }
         }
-        return .installed(pathHint: isOnPath(path) ? nil : Self.pathHint)
+        return .installed(pathHint: pathHint(for: await loginPath()))
     }
 
     private func link() throws {
@@ -89,7 +94,8 @@ struct LeoCommandInstaller: Sendable {
         try fileSystem.symlink(at: paths.localBinLeo, to: paths.selfLinkURL.path)
     }
 
-    private func isOnPath(_ path: String?) -> Bool {
-        path?.split(separator: ":").contains { String($0) == paths.localBinDirectory.path } ?? false
+    private func pathHint(for loginPath: String?) -> String? {
+        guard let loginPath else { return Self.unverifiedPathHint }
+        return loginPath.split(separator: ":").contains { String($0) == paths.localBinDirectory.path } ? nil : Self.pathHint
     }
 }

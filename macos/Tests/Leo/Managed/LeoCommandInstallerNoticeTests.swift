@@ -26,6 +26,12 @@ struct LeoCommandInstallerNoticeTests {
         #expect(notice.message.contains(LeoCommandInstaller.pathHint))
     }
 
+    @Test func anUnverifiedPathIsWordedAsAConditionToCheck() throws {
+        let notice = try #require(LeoCommandInstallerNotice.notice(for: .installed(pathHint: LeoCommandInstaller.unverifiedPathHint)))
+
+        #expect(notice.message.contains("If ‘leo’ isn’t found"))
+    }
+
     @Test func anExistingInstallIsReportedNotRedone() throws {
         let notice = try #require(LeoCommandInstallerNotice.notice(for: .alreadyInstalled))
 
