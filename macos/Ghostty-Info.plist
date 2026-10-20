@@ -106,6 +106,8 @@
 	</array>
 	<key>SUAllowsAutomaticUpdates</key>
 	<string>$(LEO_ALLOWS_AUTOMATIC_UPDATES)</string>
+	<key>LeoDaemonLabel</key>
+	<string>$(LEO_DAEMON_LABEL)</string>
 	<key>SUPublicEDKey</key>
 	<string>yQcDYO8rnAKiOrSW0D5dJNNXk/SWj09TmVLjScZb/d4=</string>
 	<key>UTExportedTypeDeclarations</key>

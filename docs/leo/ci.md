@@ -9,7 +9,7 @@ workflows are **disabled**, not deleted, so upstream syncs stay clean.
 | File | Trigger | What it does |
 | --- | --- | --- |
 | `leo-ci.yml` | push to `main`, same-repo PRs | CI script tests (`.github/scripts/leo/run-tests.sh`: every `tests/test_*.sh`), SwiftLint `--strict`, Zig GhosttyKit, `GhosttyTests` unit bundle (no UI tests) |
-| `leo-build.yml` | `workflow_dispatch`, `workflow_call` | ReleaseFast GhosttyKit, Release `Leo.app`, Developer ID sign, DMG, notarize, staple; uploads `Leo.dmg` + zip (14 days) |
+| `leo-build.yml` | `workflow_dispatch`, `workflow_call` | ReleaseFast GhosttyKit, Release `Leo.app` with the bundled leo + tmux, Developer ID sign, DMG, notarize, staple; uploads `Leo.dmg` + zip (14 days) |
 | `leo-release.yml` | tag `leo-vX.Y.Z` | Calls `leo-build`, signs the DMG for Sparkle, appends `appcast.xml`, publishes a GitHub Release |
 
 The build logic lives in `.github/scripts/leo/`, so you can run it locally.
@@ -65,6 +65,39 @@ gh workflow run leo-build.yml -R blackpaw-studio/leoterm -f ref=<sha|branch|PR n
 
 The DMG and zip arrive as a run artifact. Always pass `-R blackpaw-studio/leoterm`,
 because `gh` otherwise resolves to upstream `ghostty-org/ghostty`.
+
+## Bundled daemon helpers
+
+Leo.app carries its own leo daemon and tmux in `Contents/Helpers/` (see
+`docs/plans/2026-10-20-app-bundled-daemon.md`).
+
+- `macos/Bundled/LEO_VERSION` pins the leo release. `fetch-leo.sh` downloads
+  its `darwin_universal` tarball and checks the sha256. `LEO_BINARY=<universal
+  leo>` overrides it for dev builds; a release (`RELEASE_TAG` set) refuses it.
+- `macos/Bundled/TMUX_VERSION` pins the tmux, libevent and utf8proc sources.
+  `build-tmux.sh` builds a static universal tmux; `leo-build` caches it
+  (keyed on the pin and the build/check scripts). `TMUX_BINARY=<built tmux>`
+  reuses a build.
+- `embed-helpers.sh` (run by `build-app.sh`) installs both and stamps
+  `LeoBundledLeoVersion` / `LeoBundledTmuxVersion`. `check-helper.sh` gates
+  each: universal, system dylibs only, macOS 13 floor, exact version line.
+- Xcode phases put `Resources/terminfo/74/tmux-256color` and
+  `Library/LaunchAgents/<LEO_DAEMON_LABEL>.plist` in every build. "Leo dev
+  helpers" copies `LEO_BINARY` / `TMUX_BINARY` build settings into a local
+  build and signs them.
+- `sign-package.sh` signs inside-out (`nested-code-paths.sh`), then gates on
+  `check-bundle.sh`.
+
+A local Release bundle with dev helpers. Sign it yourself afterwards: ad-hoc
+each `nested-code-paths.sh` entry with `--options runtime`, but the outer app
+without it, or library validation rejects the ad-hoc Sparkle at launch
+("different Team IDs"); then run `check-bundle.sh`.
+
+```sh
+VERSION=0.0.0-dev SHORT_VERSION=0.0.0 BUILD=1 COMMIT=local DERIVED_DATA=/tmp/leo-dd \
+  LEO_BINARY=<universal leo> TMUX_BINARY=<tmux from build-tmux.sh> \
+  .github/scripts/leo/build-app.sh
+```
 
 ## Where keys live
 

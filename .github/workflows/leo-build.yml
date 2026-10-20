@@ -111,6 +111,24 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: echo "artifact=leo-macos-${VERSION}" >> "$GITHUB_OUTPUT"
 
+      # The bundled tmux (Contents/Helpers/tmux) only changes with its pin or
+      # build script, so it's cached rather than rebuilt per run. Refs from
+      # before bundled helpers have no TMUX_VERSION and skip both steps.
+      - name: Restore bundled tmux
+        id: tmux-cache
+        if: hashFiles('src/macos/Bundled/TMUX_VERSION') != ''
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/leo-tmux
+          key: leo-tmux-${{ hashFiles('src/macos/Bundled/TMUX_VERSION', 'ci/.github/scripts/leo/build-tmux.sh', 'ci/.github/scripts/leo/check-helper.sh') }}
+
+      - name: Build bundled tmux
+        if: hashFiles('src/macos/Bundled/TMUX_VERSION') != '' && steps.tmux-cache.outputs.cache-hit != 'true'
+        working-directory: src
+        env:
+          TMUX_OUT: ${{ runner.temp }}/leo-tmux
+        run: ../ci/.github/scripts/leo/build-tmux.sh "$TMUX_OUT"
+
       - name: Build Leo.app
         id: app
         working-directory: src
@@ -120,9 +138,13 @@ jobs:
           BUILD: ${{ steps.version.outputs.build }}
           COMMIT: ${{ steps.version.outputs.commit }}
           DERIVED_DATA: ${{ runner.temp }}/DerivedData
+          RELEASE_TAG: ${{ inputs.release-tag }}
+          TMUX_DIR: ${{ runner.temp }}/leo-tmux
         run: |
           xcodebuild -version
           zig version
+          # embed-helpers.sh re-checks the cached tmux against the pin.
+          if [[ -x "$TMUX_DIR/tmux" ]]; then export TMUX_BINARY="$TMUX_DIR/tmux"; fi
           app="$(../ci/.github/scripts/leo/build-app.sh | tail -1)"
           echo "path=$app" >> "$GITHUB_OUTPUT"
 

@@ -1,0 +1,9 @@
+# The leo release Leo.app bundles as Contents/Helpers/leo, fetched by
+# .github/scripts/leo/fetch-leo.sh from
+#   https://github.com/blackpaw-studio/leo/releases/download/v<version>/leo_<version>_darwin_universal.tar.gz
+# version: bare X.Y.Z (the "v" belongs to the tag only).
+# sha256: the tarball's hash, as listed in that release's checksums.txt.
+# leo 0.56.0 is the first release with a darwin_universal asset; until it
+# ships, sha256 stays empty and builds need LEO_BINARY (dev only).
+version=0.56.0
+sha256=
