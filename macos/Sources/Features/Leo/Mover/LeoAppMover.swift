@@ -49,6 +49,7 @@ enum LeoMoveOutcome: Equatable, Sendable {
 
     private static let stagingPrefix = "."
     private static let stagingSuffix = ".moving"
+    private static let backupSuffix = ".replaced"
 
     func move(bundleURL: URL, reason: LeoMoveReason) async -> LeoMoveOutcome {
         let applications = URL(fileURLWithPath: LeoAppLocation.applicationsPath)
@@ -73,12 +74,16 @@ enum LeoMoveOutcome: Equatable, Sendable {
             replacesExisting = true
         }
 
+        let backup = applications.appendingPathComponent(
+            Self.stagingPrefix + bundleURL.lastPathComponent + Self.backupSuffix
+        )
         do {
             try environment.copyBundle(from: bundleURL, to: staging)
-            if replacesExisting { try environment.trash(destination) }
-            try environment.moveBundle(from: staging, to: destination)
         } catch {
             return fail(error)
+        }
+        if let failure = install(staging: staging, at: destination, keepingExistingAt: replacesExisting ? backup : nil) {
+            return failure
         }
 
         environment.markInstanceExiting()
@@ -94,6 +99,26 @@ enum LeoMoveOutcome: Equatable, Sendable {
         if reason == .elsewhere { try? environment.trash(bundleURL) }
         environment.terminate()
         return .relaunched
+    }
+
+    /// Puts `staging` at `destination`. An installed copy is moved aside to
+    /// `backup` first and only trashed once the new one is in place; if the
+    /// install fails it's moved back, so Applications never ends up without
+    /// a Leo.
+    private func install(staging: URL, at destination: URL, keepingExistingAt backup: URL?) -> LeoMoveOutcome? {
+        do {
+            if let backup { try environment.moveBundle(from: destination, to: backup) }
+        } catch {
+            return fail(error)
+        }
+        do {
+            try environment.moveBundle(from: staging, to: destination)
+        } catch {
+            if let backup { try? environment.moveBundle(from: backup, to: destination) }
+            return fail(error)
+        }
+        if let backup { try? environment.trash(backup) }
+        return nil
     }
 
     private func fail(_ error: Error) -> LeoMoveOutcome {

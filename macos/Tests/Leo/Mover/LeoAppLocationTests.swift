@@ -63,6 +63,7 @@ struct LeoAppLocationTests {
     private static let source = URL(fileURLWithPath: "/Volumes/Leo/Leo.app")
     private static let destination = URL(fileURLWithPath: "/Applications/Leo.app")
     private static let staging = URL(fileURLWithPath: "/Applications/.Leo.app.moving")
+    private static let backup = URL(fileURLWithPath: "/Applications/.Leo.app.replaced")
 
     @MainActor private static func move(
         _ environment: RecordingMoverEnvironment, reason: LeoMoveReason = .elsewhere
@@ -86,7 +87,7 @@ struct LeoAppLocationTests {
         ])
     }
 
-    @MainActor @Test func anExistingIdleCopyIsReplacedOnlyAfterAskingAndAfterTheNewCopyIsStaged() async {
+    @MainActor @Test func anExistingIdleCopyIsKeptAsABackupUntilTheNewOneIsInstalled() async {
         let environment = RecordingMoverEnvironment(destination: .present(isRunning: false), replaceAnswer: true)
 
         let outcome = await Self.move(environment)
@@ -95,12 +96,60 @@ struct LeoAppLocationTests {
         #expect(environment.ops == [
             .askReplace(Self.destination),
             .copy(Self.source, Self.staging),
-            .trash(Self.destination),
+            .move(Self.destination, Self.backup),
             .move(Self.staging, Self.destination),
+            .trash(Self.backup),
             .markExiting,
             .open(Self.destination),
             .trash(Self.source),
             .terminate,
+        ])
+    }
+
+    @MainActor @Test func aFailedInstallRestoresTheInstalledCopyFromItsBackup() async {
+        let environment = RecordingMoverEnvironment(
+            destination: .present(isRunning: false), replaceAnswer: true, failingMoveSources: [Self.staging]
+        )
+
+        let outcome = await Self.move(environment)
+
+        #expect(outcome == .failed("move failed"))
+        #expect(environment.ops == [
+            .askReplace(Self.destination),
+            .copy(Self.source, Self.staging),
+            .move(Self.destination, Self.backup),
+            .move(Self.staging, Self.destination),
+            .move(Self.backup, Self.destination),
+            .report("move failed"),
+        ])
+    }
+
+    @MainActor @Test func aFailedFirstInstallLeavesNothingToRestore() async {
+        let environment = RecordingMoverEnvironment(failingMoveSources: [Self.staging])
+
+        let outcome = await Self.move(environment)
+
+        #expect(outcome == .failed("move failed"))
+        #expect(environment.ops == [
+            .copy(Self.source, Self.staging),
+            .move(Self.staging, Self.destination),
+            .report("move failed"),
+        ])
+    }
+
+    @MainActor @Test func aFailedBackupMoveStopsBeforeTouchingTheInstalledCopy() async {
+        let environment = RecordingMoverEnvironment(
+            destination: .present(isRunning: false), replaceAnswer: true, failingMoveSources: [Self.destination]
+        )
+
+        let outcome = await Self.move(environment)
+
+        #expect(outcome == .failed("move failed"))
+        #expect(environment.ops == [
+            .askReplace(Self.destination),
+            .copy(Self.source, Self.staging),
+            .move(Self.destination, Self.backup),
+            .report("move failed"),
         ])
     }
 
@@ -251,15 +300,17 @@ enum RecordedMoverOp: Equatable {
     private let isWritable: Bool
     private let replaceAnswer: Bool
     private let failing: Set<Failure>
+    private let failingMoveSources: Set<URL>
 
     init(
         destination: LeoMoveDestinationState = .absent, isWritable: Bool = true, replaceAnswer: Bool = true,
-        failing: Set<Failure> = []
+        failing: Set<Failure> = [], failingMoveSources: Set<URL> = []
     ) {
         self.destination = destination
         self.isWritable = isWritable
         self.replaceAnswer = replaceAnswer
         self.failing = failing
+        self.failingMoveSources = failingMoveSources
     }
 
     func destinationState(at url: URL) -> LeoMoveDestinationState { destination }
@@ -270,7 +321,10 @@ enum RecordedMoverOp: Equatable {
         if failing.contains(.copy) { throw RecordedError(message: "copy failed") }
     }
 
-    func moveBundle(from source: URL, to target: URL) throws { ops.append(.move(source, target)) }
+    func moveBundle(from source: URL, to target: URL) throws {
+        ops.append(.move(source, target))
+        if failingMoveSources.contains(source) { throw RecordedError(message: "move failed") }
+    }
 
     func trash(_ url: URL) throws {
         ops.append(.trash(url))

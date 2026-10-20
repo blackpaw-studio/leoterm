@@ -38,7 +38,12 @@ import OSLog
         try fileManager.copyItem(at: source, to: target)
     }
 
-    func moveBundle(from source: URL, to target: URL) throws { try fileManager.moveItem(at: source, to: target) }
+    /// A leftover at `target` (a backup from an earlier crashed move) goes to
+    /// the Trash first, never over.
+    func moveBundle(from source: URL, to target: URL) throws {
+        if fileManager.fileExists(atPath: target.path) { try fileManager.trashItem(at: target, resultingItemURL: nil) }
+        try fileManager.moveItem(at: source, to: target)
+    }
     func trash(_ url: URL) throws { try fileManager.trashItem(at: url, resultingItemURL: nil) }
     func markInstanceExiting() { instanceClaim.markExiting() }
     func clearInstanceExiting() { instanceClaim.clearExiting() }
