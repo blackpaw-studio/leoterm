@@ -198,6 +198,10 @@ class AppDelegate: NSObject,
             return LeoCommandLauncher.openWindow(in: controller, command: command)
         }
     )
+    /// Agents ▸ Install ‘leo’ Command… (A14): links `~/.local/bin/leo` at the app's stable helper link.
+    @MainActor private lazy var leoCommandInstaller = LeoCommandInstallerController(
+        installer: LeoCommandInstaller(paths: .live(), fileSystem: LeoDiskFileSystem())
+    )
     /// The /Applications check (A9); a test host is a Debug build, so exempt.
     @MainActor private lazy var leoAppLocation = LeoAppLocationController(instanceClaim: leoInstanceClaim)
     /// Set once badge authorization has allowed the upstream bell badge.
@@ -528,6 +532,11 @@ class AppDelegate: NSObject,
     /// Agents ▸ Set Up Claude…: install Claude Code and sign in, in a new window.
     @IBAction func setUpClaude(_ sender: Any?) {
         leoClaudeOnboarding.setUp()
+    }
+
+    /// Agents ▸ Install ‘leo’ Command…
+    @IBAction func installLeoCommand(_ sender: Any?) {
+        leoCommandInstaller.install()
     }
 
     func applicationDidHide(_ notification: Notification) {

@@ -49,8 +49,6 @@ struct LeoCommandInstaller: Sendable {
         return .confirmReplace(backup: paths.localBinLeoBackup)
     }
 
-    // TODO(UI wiring): add the Leo menu item and an NSAlert-backed `confirmReplace`.
-
     /// `confirmReplace` is asked only when something already occupies the
     /// command path. `path` is the process `PATH`, for the hint.
     func install(confirmReplace: (_ backup: URL) async -> Bool, path: String?) async throws -> Outcome {

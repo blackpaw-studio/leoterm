@@ -604,6 +604,12 @@
                                     <action selector="setUpClaude:" target="-1" id="Leo-Agents-SetUpClaude-Action"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Install ‘leo’ Command…" id="Leo-Agents-InstallCommand">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="installLeoCommand:" target="-1" id="Leo-Agents-InstallCommand-Action"/>
+                                </connections>
+                            </menuItem>
                             <menuItem title="Show Agents Sidebar" keyEquivalent="L" id="Leo-Sidebar-Toggle">
                                 <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
                                 <connections>
