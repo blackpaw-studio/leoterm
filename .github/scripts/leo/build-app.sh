@@ -32,7 +32,10 @@ echo "::endgroup::" >&2
 echo "::group::xcodebuild Release" >&2
 (
   cd macos
-  xcodebuild build \
+  # The helper overrides are for embed-helpers.sh below; kept from xcodebuild,
+  # which would otherwise read them as build settings for the
+  # "Leo dev helpers" phase and embed them a second time.
+  env -u LEO_BINARY -u TMUX_BINARY xcodebuild build \
     -project Ghostty.xcodeproj \
     -scheme Ghostty \
     -configuration Release \

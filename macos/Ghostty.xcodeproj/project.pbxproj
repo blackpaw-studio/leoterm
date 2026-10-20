@@ -296,6 +296,7 @@
 				B2200001A1B2C3D4E5F60001 /* Link ghostty CLI Name */,
 				B2200002A1B2C3D4E5F60002 /* Leo tmux terminfo */,
 				B2200003A1B2C3D4E5F60003 /* Leo LaunchAgent plist */,
+				B2200004A1B2C3D4E5F60004 /* Leo dev helpers */,
 			);
 			buildRules = (
 			);
@@ -473,6 +474,26 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# The plist SMAppService.agent(plistName:) registers to run the bundled\n# daemon, named for this configuration's LEO_DAEMON_LABEL.\nexec \"$SRCROOT/scripts/leo-launch-agent-plist.sh\" \"$LEO_DAEMON_LABEL\" \"$PRODUCT_BUNDLE_IDENTIFIER\" \"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Library/LaunchAgents/$LEO_DAEMON_LABEL.plist\"\n";
+			showEnvVarsInLog = 0;
+		};
+		B2200004A1B2C3D4E5F60004 /* Leo dev helpers */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Leo dev helpers";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Only with LEO_BINARY / TMUX_BINARY set: copy and sign local helpers into\n# Contents/Helpers. Release bundles get theirs from embed-helpers.sh.\nexec \"$SRCROOT/scripts/leo-dev-helpers.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 		FC501E0B2F46B410007AE49D /* Run SwiftLint */ = {

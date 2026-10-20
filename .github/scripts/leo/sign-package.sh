@@ -18,17 +18,20 @@ zip="$OUT_DIR/Leo-macos-universal.zip"
 sign() { /usr/bin/codesign --force --timestamp --options runtime --keychain "$LEO_KEYCHAIN" --sign "$SIGN_IDENTITY" "$@"; }
 
 echo "::group::codesign"
-# Sparkle's helpers must be signed inside-out before the framework itself.
-# The XPC services are unused (Leo is not sandboxed) but still shipped.
-sparkle="$APP/Contents/Frameworks/Sparkle.framework"
-sign "$sparkle/Versions/B/XPCServices/Downloader.xpc"
-sign "$sparkle/Versions/B/XPCServices/Installer.xpc"
-sign "$sparkle/Versions/B/Autoupdate"
-sign "$sparkle/Versions/B/Updater.app"
-sign "$sparkle"
-sign "$APP/Contents/PlugIns/DockTilePlugin.plugin"
+# Inside-out: Sparkle's helpers before the framework, the bundled leo and
+# tmux (Contents/Helpers) before the app, and the app (the last path, with
+# its entitlements) after everything it contains.
+scripts="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+code_paths=()
+while IFS= read -r path; do
+  code_paths+=("$path")
+done < <("$scripts/nested-code-paths.sh" "$APP")
+[[ "${code_paths[${#code_paths[@]}-1]}" == "$APP" ]] || { echo "::error::nested-code-paths.sh must list the app last"; exit 1; }
+for path in "${code_paths[@]:0:${#code_paths[@]}-1}"; do
+  sign "$path"
+done
 sign --entitlements "$ENTITLEMENTS" "$APP"
-/usr/bin/codesign --verify --deep --strict --verbose=2 "$APP"
+"$scripts/check-bundle.sh" "$APP"
 echo "::endgroup::"
 
 # notarytool submit/staple share a key file and a status check; --keychain
