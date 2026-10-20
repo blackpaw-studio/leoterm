@@ -90,7 +90,9 @@ class AppDelegate: NSObject,
     /// holds reopen off until launch has been handled.
     @MainActor private lazy var initialWindowOpener = LeoInitialWindowOpener(
         windowCount: { TerminalController.all.count },
-        initialWindow: { [unowned self] in self.derivedConfig.initialWindow },
+        initialWindow: { [unowned self] in
+            LeoServerMode.opensInitialWindow(config: self.derivedConfig.initialWindow, serverOnly: self.leoServerMode.isServerOnly)
+        },
         openWindow: { [unowned self] in
             self.undoManager.disableUndoRegistration()
             self.leoOpenLaunchWindow()
@@ -148,6 +150,16 @@ class AppDelegate: NSObject,
 
     // MARK: Leo
     let leoRuntime: LeoRuntime
+    /// "Run as server only" (A10): Dock-less, windowless, set before the
+    /// config reload below can restore the Dock icon.
+    @MainActor private(set) lazy var leoServerMode = LeoServerMode(
+        defaults: .ghostty,
+        macosHidden: { [unowned self] in self.ghostty.config.macosHidden },
+        windowCount: { TerminalController.all.count },
+        applyPolicy: { NSApp.setActivationPolicy($0) },
+        openWindow: { [unowned self] in self.leoOpenStartScreenWindow() },
+        activate: { NSApp.activate(ignoringOtherApps: true) }
+    )
     /// The /Applications check (A9); a test host is a Debug build, so exempt.
     @MainActor private lazy var leoAppLocation = LeoAppLocationController(instanceClaim: leoInstanceClaim)
     /// Set once badge authorization has allowed the upstream bell badge.
@@ -485,7 +497,12 @@ class AppDelegate: NSObject,
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        return derivedConfig.shouldQuitAfterLastWindowClosed
+        // MARK: Leo -- server-only mode never quits when the windows go.
+        return MainActor.assumeIsolated {
+            LeoServerMode.quitsAfterLastWindowClosed(
+                config: derivedConfig.shouldQuitAfterLastWindowClosed, serverOnly: leoServerMode.isServerOnly
+            )
+        }
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -944,13 +961,10 @@ class AppDelegate: NSObject,
         DispatchQueue.main.async { self.syncAppearance(config: config) }
 
         // Decide whether to hide/unhide app from dock and app switcher
-        switch config.macosHidden {
-        case .never:
-            NSApp.setActivationPolicy(.regular)
-
-        case .always:
-            NSApp.setActivationPolicy(.accessory)
-        }
+        // MARK: Leo -- server-only mode keeps it hidden whatever the config says.
+        NSApp.setActivationPolicy(MainActor.assumeIsolated {
+            LeoServerMode.activationPolicy(macosHidden: config.macosHidden, serverOnly: leoServerMode.isServerOnly)
+        })
 
         // If we have configuration errors, we need to show them.
         let c = ConfigurationErrorsController.sharedInstance
