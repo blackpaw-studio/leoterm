@@ -46,6 +46,10 @@ import LeoKit
     /// `+StartPrompt`; only that extension changes them).
     @Published var startPrompts: [LeoWindowID: LeoStartPrompt] = [:]
     var startDaemonRequested: () -> Void = {}
+    /// Set while the app runs outside /Applications and the user declined
+    /// (or failed) the move; managed features stay off meanwhile (A9).
+    @Published var appLocationBanner: LeoAppLocationBanner?
+    var moveToApplicationsRequested: () -> Void = {}
     var retryRequested: () -> Void = {}
     var sshRequested: (String) -> Void = { _ in }
     /// Fired when the Dock attention count changes (AppDelegate's badge writer).

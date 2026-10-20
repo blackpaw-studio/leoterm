@@ -166,6 +166,10 @@ struct LeoSidebarView: View {
                 LeoDisconnectedBannerView(banner: banner) { model.retry() }
             }
 
+            if let banner = model.appLocationBanner {
+                LeoAppLocationBannerView(banner: banner) { model.moveToApplicationsRequested() }
+            }
+
             LeoSidebarSearchField(
                 text: $model.query,
                 handle: searchField,
@@ -484,6 +488,30 @@ struct LeoSidebarView: View {
             }
         }
         .accessibilityLabel("\(name), \(presentation.accessibilityLabel)")
+    }
+}
+
+/// Shown while Leo runs outside /Applications and managed features are off.
+struct LeoAppLocationBannerView: View {
+    let banner: LeoAppLocationBanner
+    let move: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "folder.badge.questionmark")
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(banner.title).font(.callout.weight(.semibold))
+                Text(banner.detail).font(.caption).foregroundStyle(.secondary)
+                Button(banner.actionTitle, action: move).controlSize(.small)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(8)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(banner.title)
     }
 }
 

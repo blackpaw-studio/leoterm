@@ -148,6 +148,8 @@ class AppDelegate: NSObject,
 
     // MARK: Leo
     let leoRuntime: LeoRuntime
+    /// The /Applications check (A9); a test host is a Debug build, so exempt.
+    @MainActor private lazy var leoAppLocation = LeoAppLocationController(instanceClaim: leoInstanceClaim)
     /// Set once badge authorization has allowed the upstream bell badge.
     private var bellDockBadgeAuthorized = false
 
@@ -465,6 +467,7 @@ class AppDelegate: NSObject,
         // so AppKit's launch open-file events have made their windows first;
         // a script, intent or Service window arriving later replaces it.
         initialWindowOpener.didFinishLaunching()
+        leoAppLocation.start(model: leoRuntime.model)
     }
 
     func applicationDidHide(_ notification: Notification) {

@@ -99,6 +99,14 @@ final class LeoInstanceLock {
         guard ftruncate(descriptor, off_t(mark.count)) == 0 else { throw LeoInstanceLockError.system(errno) }
     }
 
+    /// Takes the exiting mark back (a quit that didn't happen after all, e.g.
+    /// the mover's relaunch failed), so a copy launched later doesn't wait
+    /// on this still-running process.
+    func clearExitingMark() throws {
+        guard descriptor >= 0 else { throw LeoInstanceLockError.system(EBADF) }
+        guard ftruncate(descriptor, 0) == 0 else { throw LeoInstanceLockError.system(errno) }
+    }
+
     /// The pid in an exact `exiting <pid>\n` mark (1-10 digits, no leading
     /// zero, a positive `pid_t`); nil for anything else.
     static func markedPID(in bytes: [UInt8]) -> pid_t? {
@@ -337,6 +345,15 @@ struct LeoSingleInstance {
                 try lock.markExiting()
             } catch {
                 LeoSingleInstance.logger.error("couldn't mark the instance lock exiting: \(String(describing: error), privacy: .public)")
+            }
+        }
+
+        func clearExiting() {
+            guard case .primary(let lock) = self else { return }
+            do {
+                try lock.clearExitingMark()
+            } catch {
+                LeoSingleInstance.logger.error("couldn't clear the instance lock's exiting mark: \(String(describing: error), privacy: .public)")
             }
         }
 

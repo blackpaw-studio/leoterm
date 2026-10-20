@@ -1,0 +1,303 @@
+import Foundation
+import Testing
+
+@testable import Ghostty
+
+/// A9: where the app runs from decides whether managed features may start,
+/// and the mover's every step is checked against a recording environment.
+struct LeoAppLocationTests {
+    // MARK: - Decision table
+
+    private static func decide(
+        _ path: String, _ kind: LeoBuildKind = .release, readOnly: Bool = false
+    ) -> LeoAppLocation {
+        LeoAppLocation.decide(bundleURL: URL(fileURLWithPath: path), buildKind: kind, isOnReadOnlyVolume: readOnly)
+    }
+
+    @Test func aReleaseBuildDirectlyInApplicationsIsHome() {
+        #expect(Self.decide("/Applications/Leo.app") == .inApplications)
+    }
+
+    @Test(arguments: [
+        "/Applications/Utilities/Leo.app",
+        "/Applications/Sub/Leo.app",
+        "/Users/evan/Applications/Leo.app",
+        "/Users/evan/Downloads/Leo.app",
+        "/Volumes/Leo 1.2/Leo.app",
+        "/Applications.app/Leo.app",
+    ])
+    func anyOtherFolderNeedsAMove(path: String) {
+        #expect(Self.decide(path) == .needsMove(.elsewhere))
+    }
+
+    @Test func aTrailingSlashOrDotSegmentStillCountsAsApplications() {
+        #expect(Self.decide("/Applications/./Leo.app/") == .inApplications)
+        #expect(Self.decide("/Applications/Sub/../Leo.app") == .inApplications)
+    }
+
+    @Test func gatekeeperTranslocationIsItsOwnReason() {
+        let path = "/private/var/folders/ab/xyz/T/AppTranslocation/6B3C-1D2E/d/Leo.app"
+        #expect(Self.decide(path) == .needsMove(.translocated))
+        // Translocated copies are read-only too; the more specific reason wins.
+        #expect(Self.decide(path, readOnly: true) == .needsMove(.translocated))
+    }
+
+    @Test func aReadOnlyVolumeIsReportedWhenNotTranslocated() {
+        #expect(Self.decide("/Volumes/Leo/Leo.app", readOnly: true) == .needsMove(.readOnlyVolume))
+    }
+
+    @Test func aDebugBuildIsExemptEverywhere() {
+        #expect(Self.decide("/Users/evan/build/Debug/Leo.app", .debug) == .exempt)
+        #expect(Self.decide("/Applications/Leo.app", .debug) == .exempt)
+        #expect(Self.decide("/private/var/folders/T/AppTranslocation/x/d/Leo.app", .debug, readOnly: true) == .exempt)
+    }
+
+    @Test func managedFeaturesAreOnlyOffForAnUnmovedApp() {
+        #expect(LeoAppLocation.inApplications.allowsManagedFeatures)
+        #expect(LeoAppLocation.exempt.allowsManagedFeatures)
+        #expect(!LeoAppLocation.needsMove(.elsewhere).allowsManagedFeatures)
+    }
+
+    // MARK: - Mover
+
+    private static let source = URL(fileURLWithPath: "/Volumes/Leo/Leo.app")
+    private static let destination = URL(fileURLWithPath: "/Applications/Leo.app")
+    private static let staging = URL(fileURLWithPath: "/Applications/.Leo.app.moving")
+
+    @MainActor private static func move(
+        _ environment: RecordingMoverEnvironment, reason: LeoMoveReason = .elsewhere
+    ) async -> LeoMoveOutcome {
+        await LeoAppMover(environment: environment).move(bundleURL: source, reason: reason)
+    }
+
+    @MainActor @Test func aFreshMoveStagesCopiesMarksOpensTrashesThenQuits() async {
+        let environment = RecordingMoverEnvironment()
+
+        let outcome = await Self.move(environment)
+
+        #expect(outcome == .relaunched)
+        #expect(environment.ops == [
+            .copy(Self.source, Self.staging),
+            .move(Self.staging, Self.destination),
+            .markExiting,
+            .open(Self.destination),
+            .trash(Self.source),
+            .terminate,
+        ])
+    }
+
+    @MainActor @Test func anExistingIdleCopyIsReplacedOnlyAfterAskingAndAfterTheNewCopyIsStaged() async {
+        let environment = RecordingMoverEnvironment(destination: .present(isRunning: false), replaceAnswer: true)
+
+        let outcome = await Self.move(environment)
+
+        #expect(outcome == .relaunched)
+        #expect(environment.ops == [
+            .askReplace(Self.destination),
+            .copy(Self.source, Self.staging),
+            .trash(Self.destination),
+            .move(Self.staging, Self.destination),
+            .markExiting,
+            .open(Self.destination),
+            .trash(Self.source),
+            .terminate,
+        ])
+    }
+
+    @MainActor @Test func decliningTheReplaceChangesNothing() async {
+        let environment = RecordingMoverEnvironment(destination: .present(isRunning: false), replaceAnswer: false)
+
+        let outcome = await Self.move(environment)
+
+        #expect(outcome == .declinedReplace)
+        #expect(environment.ops == [.askReplace(Self.destination)])
+    }
+
+    @MainActor @Test func aRunningCopyInApplicationsIsRefusedWithoutAsking() async {
+        let environment = RecordingMoverEnvironment(destination: .present(isRunning: true))
+
+        let outcome = await Self.move(environment)
+
+        #expect(outcome == .refusedRunning)
+        #expect(environment.ops == [.explainRunning(Self.destination)])
+    }
+
+    @MainActor @Test func anUnwritableApplicationsFolderShowsInstructionsAndRevealsTheApp() async {
+        let environment = RecordingMoverEnvironment(isWritable: false)
+
+        let outcome = await Self.move(environment)
+
+        #expect(outcome == .manualInstructionsShown)
+        #expect(environment.ops == [.showInstructions(Self.source)])
+    }
+
+    @MainActor @Test(arguments: [LeoMoveReason.translocated, .readOnlyVolume])
+    func anOriginalThatCantBeTrashedIsLeftAlone(reason: LeoMoveReason) async {
+        let environment = RecordingMoverEnvironment()
+
+        let outcome = await Self.move(environment, reason: reason)
+
+        #expect(outcome == .relaunched)
+        #expect(!environment.ops.contains(.trash(Self.source)))
+        #expect(environment.ops.last == .terminate)
+    }
+
+    @MainActor @Test func aFailedCopyReportsAndLeavesEverythingElseUntouched() async {
+        let environment = RecordingMoverEnvironment(failing: [.copy])
+
+        let outcome = await Self.move(environment)
+
+        #expect(outcome == .failed("copy failed"))
+        #expect(environment.ops == [.copy(Self.source, Self.staging), .report("copy failed")])
+    }
+
+    @MainActor @Test func aFailedLaunchUnmarksTheInstanceAndKeepsRunning() async {
+        let environment = RecordingMoverEnvironment(failing: [.open])
+
+        let outcome = await Self.move(environment)
+
+        #expect(outcome == .failed("open failed"))
+        #expect(environment.ops == [
+            .copy(Self.source, Self.staging),
+            .move(Self.staging, Self.destination),
+            .markExiting,
+            .open(Self.destination),
+            .clearExiting,
+            .report("open failed"),
+        ])
+    }
+
+    @MainActor @Test func aTrashFailureOfTheOriginalNeverStopsTheRelaunch() async {
+        let environment = RecordingMoverEnvironment(failing: [.trash])
+
+        let outcome = await Self.move(environment)
+
+        #expect(outcome == .relaunched)
+        #expect(environment.ops.last == .terminate)
+    }
+
+    @Test func clearingTheExitingMarkLeavesAnEmptyLockFile() throws {
+        let directory = try LeoTestSocketDirectory()
+        defer { directory.remove() }
+        let lock = try LeoInstanceLockTestFile.held(in: directory)
+        try lock.markExiting(as: 4242)
+        #expect(LeoInstanceLockTestFile.contents(in: directory) == "exiting 4242\n")
+
+        try lock.clearExitingMark()
+
+        #expect(LeoInstanceLockTestFile.contents(in: directory) == "")
+    }
+
+    // MARK: - Prompt flow
+
+    @MainActor @Test func notNowKeepsManagedFeaturesOffAndOffersTheBanner() async {
+        let environment = RecordingMoverEnvironment()
+        let gate = LeoAppLocationGate(
+            location: .needsMove(.elsewhere), mover: LeoAppMover(environment: environment), bundleURL: Self.source,
+            confirmMove: { _ in false }
+        )
+
+        let state = await gate.run()
+
+        #expect(state == .declined(.elsewhere))
+        #expect(state.allowsManagedFeatures == false)
+        #expect(environment.ops.isEmpty)
+    }
+
+    @MainActor @Test func acceptingMovesAndAFailureKeepsTheBanner() async {
+        let environment = RecordingMoverEnvironment(failing: [.copy])
+        let gate = LeoAppLocationGate(
+            location: .needsMove(.translocated), mover: LeoAppMover(environment: environment), bundleURL: Self.source,
+            confirmMove: { _ in true }
+        )
+
+        let state = await gate.run()
+
+        #expect(state == .declined(.translocated))
+    }
+
+    @MainActor @Test func homeAndExemptLocationsNeverPrompt() async {
+        for location in [LeoAppLocation.inApplications, .exempt] {
+            let gate = LeoAppLocationGate(
+                location: location, mover: LeoAppMover(environment: RecordingMoverEnvironment()), bundleURL: Self.source,
+                confirmMove: { _ in Issue.record("prompted"); return false }
+            )
+            #expect(await gate.run() == .allowed)
+        }
+    }
+}
+
+// MARK: - Recording environment
+
+enum RecordedMoverOp: Equatable {
+    case copy(URL, URL)
+    case move(URL, URL)
+    case trash(URL)
+    case markExiting
+    case clearExiting
+    case open(URL)
+    case terminate
+    case askReplace(URL)
+    case explainRunning(URL)
+    case showInstructions(URL)
+    case report(String)
+}
+
+@MainActor final class RecordingMoverEnvironment: LeoAppMoverEnvironment {
+    enum Failure { case copy, open, trash }
+
+    private(set) var ops: [RecordedMoverOp] = []
+    private let destination: LeoMoveDestinationState
+    private let isWritable: Bool
+    private let replaceAnswer: Bool
+    private let failing: Set<Failure>
+
+    init(
+        destination: LeoMoveDestinationState = .absent, isWritable: Bool = true, replaceAnswer: Bool = true,
+        failing: Set<Failure> = []
+    ) {
+        self.destination = destination
+        self.isWritable = isWritable
+        self.replaceAnswer = replaceAnswer
+        self.failing = failing
+    }
+
+    func destinationState(at url: URL) -> LeoMoveDestinationState { destination }
+    func isApplicationsWritable() -> Bool { isWritable }
+
+    func copyBundle(from source: URL, to target: URL) throws {
+        ops.append(.copy(source, target))
+        if failing.contains(.copy) { throw RecordedError(message: "copy failed") }
+    }
+
+    func moveBundle(from source: URL, to target: URL) throws { ops.append(.move(source, target)) }
+
+    func trash(_ url: URL) throws {
+        ops.append(.trash(url))
+        if failing.contains(.trash) { throw RecordedError(message: "trash failed") }
+    }
+
+    func markInstanceExiting() { ops.append(.markExiting) }
+    func clearInstanceExiting() { ops.append(.clearExiting) }
+
+    func openNewInstance(at url: URL) async throws {
+        ops.append(.open(url))
+        if failing.contains(.open) { throw RecordedError(message: "open failed") }
+    }
+
+    func terminate() { ops.append(.terminate) }
+
+    func askReplace(existing: URL) -> Bool {
+        ops.append(.askReplace(existing))
+        return replaceAnswer
+    }
+
+    func explainRunningCopy(at url: URL) { ops.append(.explainRunning(url)) }
+    func showManualInstructions(for bundleURL: URL) { ops.append(.showInstructions(bundleURL)) }
+    func report(error message: String) { ops.append(.report(message)) }
+
+    struct RecordedError: Error, LocalizedError {
+        let message: String
+        var errorDescription: String? { message }
+    }
+}
