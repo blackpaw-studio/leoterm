@@ -77,7 +77,11 @@ struct AboutView: View {
 
     var body: some View {
         VStack(alignment: .center) {
-            CyclingIconView()
+            ghosttyIconImage()
+                .resizable()
+                .scaledToFit()
+                .frame(height: 128)
+                .accessibilityLabel("Leo Application Icon")
 
             VStack(alignment: .center, spacing: 32) {
                 VStack(alignment: .center, spacing: 8) {
