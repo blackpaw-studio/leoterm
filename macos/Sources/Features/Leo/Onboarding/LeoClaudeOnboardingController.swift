@@ -10,6 +10,8 @@ import LeoKit
     private let store: LeoClaudeOnboardingStore
     private let openWindow: (String) -> Bool
     private var subscription: AnyCancellable?
+    /// The locator may spawn the login shell; snapshots keep landing meanwhile.
+    private var isChecking = false
 
     init(locator: LeoClaudeLocator, store: LeoClaudeOnboardingStore, openWindow: @escaping (String) -> Bool) {
         self.locator = locator
@@ -31,14 +33,17 @@ import LeoKit
 
     private func snapshotLanded(_ snapshot: LeoSidebarSnapshot) {
         let live = snapshot.connectivity == .connected && snapshot.advertised.host == .local
-        guard live, !store.wasOffered else { return }
-        let shouldOffer = LeoClaudeOnboarding.shouldOffer(
-            claudePath: locator.locate(), alreadyShown: store.wasOffered, hasLiveLocalDaemon: live
-        )
-        // Remembered either way: a machine that already has claude never asks.
-        store.markOffered()
-        guard shouldOffer else { return }
-        Task { @MainActor in offer() }
+        guard live, !store.wasOffered, !isChecking else { return }
+        isChecking = true
+        Task { @MainActor in
+            defer { isChecking = false }
+            let shouldOffer = LeoClaudeOnboarding.shouldOffer(
+                claudePath: await locator.locate(), alreadyShown: store.wasOffered, hasLiveLocalDaemon: live
+            )
+            // Remembered either way: a machine that already has claude never asks.
+            store.markOffered()
+            if shouldOffer { offer() }
+        }
     }
 
     private func offer() {

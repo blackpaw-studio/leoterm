@@ -189,8 +189,8 @@ class AppDelegate: NSObject,
         locator: LeoClaudeLocator(
             home: NSHomeDirectory(),
             isExecutable: { FileManager.default.isExecutableFile(atPath: $0) },
-            // Stopgap until the login-shell PATH resolver (A12) lands: a GUI app's PATH is short.
-            loginPath: { ProcessInfo.processInfo.environment["PATH"] }
+            // A GUI app's own PATH is short; ask the login shell.
+            loginPath: { await LeoLoginPathProbe.live(runner: LeoProcessRunner()).loginPath() }
         ),
         store: LeoClaudeOnboardingStore(defaults: .ghostty),
         openWindow: { [unowned self] command in

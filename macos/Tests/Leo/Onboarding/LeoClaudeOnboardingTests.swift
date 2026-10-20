@@ -9,18 +9,19 @@ struct LeoClaudeOnboardingTests {
 
     private static func locate(
         executables: Set<String>, loginPath: String? = nil
-    ) -> (found: String?, probed: [String]) {
+    ) async -> (found: String?, probed: [String], loginPathQueries: Int) {
         var probed: [String] = []
+        var loginPathQueries = 0
         let locator = LeoClaudeLocator(
             home: home,
             isExecutable: { path in probed.append(path); return executables.contains(path) },
-            loginPath: { loginPath }
+            loginPath: { loginPathQueries += 1; return loginPath }
         )
-        return (locator.locate(), probed)
+        return (await locator.locate(), probed, loginPathQueries)
     }
 
-    @Test func candidatesAreCheckedInTheDocumentedOrderThenTheLoginPath() {
-        let result = Self.locate(executables: [], loginPath: "/a/bin:/b/bin")
+    @Test func candidatesAreCheckedInTheDocumentedOrderThenTheLoginPath() async {
+        let result = await Self.locate(executables: [], loginPath: "/a/bin:/b/bin")
 
         #expect(result.found == nil)
         #expect(result.probed == [
@@ -33,8 +34,8 @@ struct LeoClaudeOnboardingTests {
         ])
     }
 
-    @Test func theFirstExecutableWinsAndStopsTheSearch() {
-        let result = Self.locate(
+    @Test func theFirstExecutableWinsAndStopsTheSearch() async {
+        let result = await Self.locate(
             executables: ["/opt/homebrew/bin/claude", "/usr/local/bin/claude"], loginPath: "/a/bin"
         )
 
@@ -42,12 +43,19 @@ struct LeoClaudeOnboardingTests {
         #expect(result.probed.last == "/opt/homebrew/bin/claude")
     }
 
-    @Test func aLoginPathHitIsFoundWhenNothingFixedExists() {
-        #expect(Self.locate(executables: ["/a/bin/claude"], loginPath: "/a/bin").found == "/a/bin/claude")
+    @Test func theLoginShellIsNotSpawnedWhenAFixedLocationHasClaude() async {
+        let result = await Self.locate(executables: ["/Users/evan/.local/bin/claude"], loginPath: "/a/bin")
+
+        #expect(result.found == "/Users/evan/.local/bin/claude")
+        #expect(result.loginPathQueries == 0)
     }
 
-    @Test func relativeAndEmptyLoginPathEntriesAreNeverProbed() {
-        let result = Self.locate(executables: [], loginPath: "bin::./x:/ok")
+    @Test func aLoginPathHitIsFoundWhenNothingFixedExists() async {
+        #expect(await Self.locate(executables: ["/a/bin/claude"], loginPath: "/a/bin").found == "/a/bin/claude")
+    }
+
+    @Test func relativeAndEmptyLoginPathEntriesAreNeverProbed() async {
+        let result = await Self.locate(executables: [], loginPath: "bin::./x:/ok")
 
         #expect(result.probed.suffix(1) == ["/ok/claude"])
         #expect(result.probed.count == 5)
