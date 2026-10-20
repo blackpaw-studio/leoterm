@@ -388,3 +388,6 @@ Ship targets: marker, self_path, daemon lock, update refusal, tmux resolution, d
 - `LEO_VERSION` sha256 stays empty until leo v0.56.0 ships; `feat/bundled-daemon-pipeline` must not reach main before the pin is bumped (CI `fetch-leo.sh` fails otherwise).
 - Local ad-hoc builds with hardened runtime fail library validation against ad-hoc Sparkle; local checks sign the outer app without runtime (docs/leo/ci.md). CI Developer ID signing unaffected.
 - `$ALIVE` does not isolate cfprefsd (CFFIXED_USER_HOME doesn't redirect it): export/import the debug/release defaults domains around runs instead of deleting.
+
+## Security note from leo agent (2026-10-20)
+- `handover --to-app --json` `env` is the old CLI plist's full EnvironmentVariables and may contain secrets (API tokens). managed.json must be 0600 from creation (temp file created 0600, not chmod after rename). Never log handover stdout (incl. `--dry-run`) or the marker `env` to os_log, files, crash breadcrumbs, or error alerts. Review B2/B3 for this explicitly.
