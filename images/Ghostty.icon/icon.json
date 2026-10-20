@@ -1,11 +1,5 @@
 {
   "color-space-for-untagged-svg-colors": "display-p3",
-  "fill": {
-    "linear-gradient": [
-      "srgb:0.10588,0.16471,0.41961,1.00000",
-      "srgb:0.02745,0.04314,0.14118,1.00000"
-    ]
-  },
   "groups": [
     {
       "name": "Cat",
@@ -114,17 +108,44 @@
       },
       "layers": [
         {
-          "name": "Background Glow",
-          "image-name": "bg-glow.svg",
+          "name": "Background",
           "glass": false,
           "hidden": false,
           "blend-mode": "normal",
-          "fill": "automatic"
+          "fill": "automatic",
+          "image-name-specializations": [
+            {
+              "value": "bg-glow-light.svg"
+            },
+            {
+              "appearance": "dark",
+              "value": "bg-glow.svg"
+            }
+          ]
         }
       ]
     }
   ],
   "supported-platforms": {
     "squares": "shared"
-  }
+  },
+  "fill-specializations": [
+    {
+      "value": {
+        "linear-gradient": [
+          "srgb:0.09020,0.40392,0.92549,1.00000",
+          "srgb:0.01961,0.21961,0.65098,1.00000"
+        ]
+      }
+    },
+    {
+      "appearance": "dark",
+      "value": {
+        "linear-gradient": [
+          "srgb:0.10588,0.16471,0.41961,1.00000",
+          "srgb:0.02745,0.04314,0.14118,1.00000"
+        ]
+      }
+    }
+  ]
 }
