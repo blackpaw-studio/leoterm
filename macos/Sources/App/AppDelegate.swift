@@ -90,7 +90,9 @@ class AppDelegate: NSObject,
     /// holds reopen off until launch has been handled.
     @MainActor private lazy var initialWindowOpener = LeoInitialWindowOpener(
         windowCount: { TerminalController.all.count },
-        initialWindow: { [unowned self] in self.derivedConfig.initialWindow },
+        initialWindow: { [unowned self] in
+            LeoServerMode.opensInitialWindow(config: self.derivedConfig.initialWindow, serverOnly: self.leoServerMode.isServerOnly)
+        },
         openWindow: { [unowned self] in
             self.undoManager.disableUndoRegistration()
             self.leoOpenLaunchWindow()
@@ -148,6 +150,56 @@ class AppDelegate: NSObject,
 
     // MARK: Leo
     let leoRuntime: LeoRuntime
+    /// "Run as server only" (A10): Dock-less, windowless, set before the
+    /// config reload below can restore the Dock icon.
+    @MainActor private(set) lazy var leoServerMode = LeoServerMode(
+        defaults: .ghostty,
+        macosHidden: { [unowned self] in self.ghostty.config.macosHidden },
+        windowCount: { TerminalController.all.count },
+        applyPolicy: { NSApp.setActivationPolicy($0) },
+        openWindow: { [unowned self] in self.leoOpenStartScreenWindow() },
+        activate: { NSApp.activate(ignoringOtherApps: true) }
+    )
+    /// The menu bar extra (A11).
+    @MainActor private lazy var leoMenuBar = LeoMenuBarCoordinator(
+        model: leoRuntime.model,
+        serverMode: leoServerMode,
+        restarter: LeoDaemonRestarter(
+            cli: LeoCLI(executableOverride: UserDefaults.ghostty.string(forKey: "leo.executablePath"), runner: LeoProcessRunner()),
+            bundledExecutable: LeoMenuBarCoordinator.bundledExecutable()
+        ),
+        defaults: .ghostty,
+        windowID: { [unowned self] in
+            // An agent picked from the menu opens in a window, making one if none is open.
+            let controller = TerminalController.preferredParent ?? self.leoOpenStartScreenWindow()
+            NSApp.activate(ignoringOtherApps: true)
+            return controller.leoSession?.id
+        },
+        openLeo: { [unowned self] in
+            NSApp.activate(ignoringOtherApps: true)
+            if let controller = TerminalController.preferredParent {
+                controller.window?.makeKeyAndOrderFront(nil)
+            } else {
+                self.leoOpenStartScreenWindow()
+            }
+        }
+    )
+    /// First-run Claude setup (A13), and Agents ▸ Set Up Claude…
+    @MainActor private lazy var leoClaudeOnboarding = LeoClaudeOnboardingController(
+        locator: LeoClaudeLocator(
+            home: NSHomeDirectory(),
+            isExecutable: { FileManager.default.isExecutableFile(atPath: $0) },
+            // Stopgap until the login-shell PATH resolver (A12) lands: a GUI app's PATH is short.
+            loginPath: { ProcessInfo.processInfo.environment["PATH"] }
+        ),
+        store: LeoClaudeOnboardingStore(defaults: .ghostty),
+        openWindow: { [unowned self] command in
+            let controller = TerminalController.preferredParent ?? self.leoOpenStartScreenWindow()
+            return LeoCommandLauncher.openWindow(in: controller, command: command)
+        }
+    )
+    /// The /Applications check (A9); a test host is a Debug build, so exempt.
+    @MainActor private lazy var leoAppLocation = LeoAppLocationController(instanceClaim: leoInstanceClaim)
     /// Set once badge authorization has allowed the upstream bell badge.
     private var bellDockBadgeAuthorized = false
 
@@ -465,6 +517,17 @@ class AppDelegate: NSObject,
         // so AppKit's launch open-file events have made their windows first;
         // a script, intent or Service window arriving later replaces it.
         initialWindowOpener.didFinishLaunching()
+        leoAppLocation.start(model: leoRuntime.model)
+        // A test host must not leave a status item in the real menu bar.
+        if !LeoSingleInstance.isRunningAsTestHost() {
+            leoMenuBar.syncVisibility()
+            leoClaudeOnboarding.start(model: leoRuntime.model)
+        }
+    }
+
+    /// Agents ▸ Set Up Claude…: install Claude Code and sign in, in a new window.
+    @IBAction func setUpClaude(_ sender: Any?) {
+        leoClaudeOnboarding.setUp()
     }
 
     func applicationDidHide(_ notification: Notification) {
@@ -482,7 +545,12 @@ class AppDelegate: NSObject,
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        return derivedConfig.shouldQuitAfterLastWindowClosed
+        // MARK: Leo -- server-only mode never quits when the windows go.
+        return MainActor.assumeIsolated {
+            LeoServerMode.quitsAfterLastWindowClosed(
+                config: derivedConfig.shouldQuitAfterLastWindowClosed, serverOnly: leoServerMode.isServerOnly
+            )
+        }
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -490,7 +558,9 @@ class AppDelegate: NSObject,
         // An approved quit is final: mark the instance lock now, not ~50 ms
         // later in `applicationWillTerminate`, so a copy launched meanwhile
         // waits for this one instead of yielding to it (B-092).
-        leoInstanceClaim.markingExiting(ifApproved: ghosttyShouldTerminate(sender))
+        // A pending move-to-Applications handoff survives only the first attempt (A9).
+        leoAppLocation.handoff.terminationAttemptBegan()
+        return leoInstanceClaim.markingExiting(ifApproved: ghosttyShouldTerminate(sender))
     }
 
     @MainActor private func ghosttyShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -541,6 +611,8 @@ class AppDelegate: NSObject,
         // Already marked where the quit was approved; this covers any
         // approval that didn't pass through there (B-092).
         leoInstanceClaim.markExiting()
+        // The quit is certain: launch the copy moved into Applications, if any (A9).
+        leoAppLocation.handoff.willTerminate()
         leoRuntime.shutdown()
 
         // We have no notifications we want to persist after death,
@@ -941,13 +1013,10 @@ class AppDelegate: NSObject,
         DispatchQueue.main.async { self.syncAppearance(config: config) }
 
         // Decide whether to hide/unhide app from dock and app switcher
-        switch config.macosHidden {
-        case .never:
-            NSApp.setActivationPolicy(.regular)
-
-        case .always:
-            NSApp.setActivationPolicy(.accessory)
-        }
+        // MARK: Leo -- server-only mode keeps it hidden whatever the config says.
+        NSApp.setActivationPolicy(MainActor.assumeIsolated {
+            LeoServerMode.activationPolicy(macosHidden: config.macosHidden, serverOnly: leoServerMode.isServerOnly)
+        })
 
         // If we have configuration errors, we need to show them.
         let c = ConfigurationErrorsController.sharedInstance

@@ -1,0 +1,42 @@
+import Foundation
+
+/// Where `claude` lives (A13). Fixed locations first, in the order the
+/// installers use, then each directory of the login-shell PATH: a GUI app's
+/// own PATH is too short to find a Homebrew or npm install.
+struct LeoClaudeLocator {
+    let home: String
+    let isExecutable: (String) -> Bool
+    /// The login shell's PATH (`a:b:c`), nil when unavailable.
+    let loginPath: () -> String?
+
+    var fixedCandidates: [String] {
+        ["\(home)/.local/bin/claude", "\(home)/.claude/local/claude", "/opt/homebrew/bin/claude", "/usr/local/bin/claude"]
+    }
+
+    func locate() -> String? {
+        let pathDirectories = (loginPath() ?? "").split(separator: ":", omittingEmptySubsequences: true)
+            .map(String.init)
+            .filter { $0.hasPrefix("/") }
+        return (fixedCandidates + pathDirectories.map { "\($0)/claude" }).first(where: isExecutable)
+    }
+}
+
+enum LeoClaudeOnboarding {
+    /// Anthropic's native installer (code.claude.com/docs/en/setup), which
+    /// puts `claude` in `~/.local/bin`, then `claude` itself for login.
+    static let installCommand = #"curl -fsSL https://claude.ai/install.sh | bash && "$HOME/.local/bin/claude""#
+
+    static func shouldOffer(claudePath: String?, alreadyShown: Bool, hasLiveLocalDaemon: Bool) -> Bool {
+        claudePath == nil && !alreadyShown && hasLiveLocalDaemon
+    }
+}
+
+/// Remembers that the setup offer was shown, so it appears once.
+struct LeoClaudeOnboardingStore {
+    static let key = "leo.claudeOnboardingOffered"
+
+    let defaults: UserDefaults
+
+    var wasOffered: Bool { defaults.bool(forKey: Self.key) }
+    func markOffered() { defaults.set(true, forKey: Self.key) }
+}
