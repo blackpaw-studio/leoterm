@@ -27,26 +27,23 @@ enum LeoMoveOutcome: Equatable, Sendable {
     func copyBundle(from source: URL, to target: URL) async throws
     func moveBundle(from source: URL, to target: URL) async throws
     func trash(_ url: URL) async throws
-    /// The instance claim: a copy launched next waits for this process to
-    /// exit instead of yielding to it (B-092).
-    func markInstanceExiting()
-    func clearInstanceExiting()
-    func openNewInstance(at url: URL) async throws
     func terminate()
+    func scheduleHandoff(_ handoff: LeoMoveHandoff)
     func askReplace(existing: URL) -> Bool
     func explainRunningCopy(at url: URL)
     func showManualInstructions(for bundleURL: URL)
     func report(error message: String)
 }
 
-/// Copies Leo into /Applications and hands over to that copy (D7).
+/// Copies Leo into /Applications and asks the app to quit with a handoff to
+/// that copy pending (D7).
 ///
-/// The copy is staged beside its destination and renamed into place, so a
-/// failed copy never costs the user an installed Leo; the replaced copy goes
-/// to the Trash, not away. Both copies share one bundle ID, hence one
-/// instance lock: the claim is marked exiting before the launch so the new
-/// copy waits for this one rather than yielding to it, and unmarked if the
-/// launch fails so a later launch doesn't wait on a process that stays.
+/// The copy is staged beside its destination and renamed into place; an
+/// installed copy is kept as a backup until the new one is in (and restored
+/// if it isn't), then trashed. Both copies share one bundle ID, hence one
+/// instance lock, so launching the copy and trashing the original wait for
+/// the quit to be certain: `LeoMoveHandoffCoordinator` runs them from
+/// `applicationWillTerminate`, and a cancelled quit never triggers them.
 @MainActor struct LeoAppMover {
     let environment: any LeoAppMoverEnvironment
 
@@ -89,17 +86,12 @@ enum LeoMoveOutcome: Equatable, Sendable {
             return failure
         }
 
-        environment.markInstanceExiting()
-        do {
-            try await environment.openNewInstance(at: destination)
-        } catch {
-            environment.clearInstanceExiting()
-            return fail(error)
-        }
-
+        // Nothing is launched or trashed here: the quit can still be cancelled
+        // (a running-process or unsaved-changes prompt), and the handoff must
+        // only happen once it's certain. See `LeoMoveHandoffCoordinator`.
         // A translocated or read-only original can't be trashed, and we
         // don't know where a translocated one came from.
-        if reason == .elsewhere { try? await environment.trash(bundleURL) }
+        environment.scheduleHandoff(LeoMoveHandoff(destination: destination, original: reason == .elsewhere ? bundleURL : nil))
         environment.terminate()
         return .relaunched
     }

@@ -558,7 +558,9 @@ class AppDelegate: NSObject,
         // An approved quit is final: mark the instance lock now, not ~50 ms
         // later in `applicationWillTerminate`, so a copy launched meanwhile
         // waits for this one instead of yielding to it (B-092).
-        leoInstanceClaim.markingExiting(ifApproved: ghosttyShouldTerminate(sender))
+        // A pending move-to-Applications handoff survives only the first attempt (A9).
+        leoAppLocation.handoff.terminationAttemptBegan()
+        return leoInstanceClaim.markingExiting(ifApproved: ghosttyShouldTerminate(sender))
     }
 
     @MainActor private func ghosttyShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -609,6 +611,8 @@ class AppDelegate: NSObject,
         // Already marked where the quit was approved; this covers any
         // approval that didn't pass through there (B-092).
         leoInstanceClaim.markExiting()
+        // The quit is certain: launch the copy moved into Applications, if any (A9).
+        leoAppLocation.handoff.willTerminate()
         leoRuntime.shutdown()
 
         // We have no notifications we want to persist after death,

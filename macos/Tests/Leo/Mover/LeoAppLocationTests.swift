@@ -71,18 +71,17 @@ struct LeoAppLocationTests {
         await LeoAppMover(environment: environment).move(bundleURL: source, reason: reason)
     }
 
-    @MainActor @Test func aFreshMoveStagesCopiesMarksOpensTrashesThenQuits() async {
+    @MainActor @Test func aFreshMoveInstallsSchedulesTheHandoffThenAsksToQuit() async {
         let environment = RecordingMoverEnvironment()
 
         let outcome = await Self.move(environment)
 
         #expect(outcome == .relaunched)
+        // Nothing is launched or trashed yet: that waits for the quit to be certain.
         #expect(environment.ops == [
             .copy(Self.source, Self.staging),
             .move(Self.staging, Self.destination),
-            .markExiting,
-            .open(Self.destination),
-            .trash(Self.source),
+            .scheduleHandoff(LeoMoveHandoff(destination: Self.destination, original: Self.source)),
             .terminate,
         ])
     }
@@ -99,9 +98,7 @@ struct LeoAppLocationTests {
             .move(Self.destination, Self.backup),
             .move(Self.staging, Self.destination),
             .trash(Self.backup),
-            .markExiting,
-            .open(Self.destination),
-            .trash(Self.source),
+            .scheduleHandoff(LeoMoveHandoff(destination: Self.destination, original: Self.source)),
             .terminate,
         ])
     }
@@ -181,14 +178,18 @@ struct LeoAppLocationTests {
     }
 
     @MainActor @Test(arguments: [LeoMoveReason.translocated, .readOnlyVolume])
-    func anOriginalThatCantBeTrashedIsLeftAlone(reason: LeoMoveReason) async {
+    func anOriginalThatCantBeTrashedIsNotHandedOff(reason: LeoMoveReason) async {
         let environment = RecordingMoverEnvironment()
 
         let outcome = await Self.move(environment, reason: reason)
 
         #expect(outcome == .relaunched)
-        #expect(!environment.ops.contains(.trash(Self.source)))
-        #expect(environment.ops.last == .terminate)
+        #expect(environment.ops == [
+            .copy(Self.source, Self.staging),
+            .move(Self.staging, Self.destination),
+            .scheduleHandoff(LeoMoveHandoff(destination: Self.destination, original: nil)),
+            .terminate,
+        ])
     }
 
     @MainActor @Test func aFailedCopyReportsAndLeavesEverythingElseUntouched() async {
@@ -200,41 +201,60 @@ struct LeoAppLocationTests {
         #expect(environment.ops == [.copy(Self.source, Self.staging), .report("copy failed")])
     }
 
-    @MainActor @Test func aFailedLaunchUnmarksTheInstanceAndKeepsRunning() async {
+    // MARK: - Handoff after the quit is certain
+
+    private static let handoff = LeoMoveHandoff(destination: destination, original: source)
+
+    @MainActor @Test func theHandoffWaitsForTheQuitAndRunsOnce() {
+        let environment = RecordingMoverEnvironment()
+        let coordinator = LeoMoveHandoffCoordinator(environment: environment)
+        coordinator.arm(Self.handoff)
+
+        coordinator.terminationAttemptBegan()
+        #expect(environment.ops.isEmpty)
+
+        coordinator.willTerminate()
+        #expect(environment.ops == [.markExiting, .open(Self.destination), .trash(Self.source)])
+
+        coordinator.willTerminate()
+        #expect(environment.ops.count == 3)
+    }
+
+    @MainActor @Test func aCancelledQuitNeverHandsOffEvenWhenLeoQuitsLater() {
+        let environment = RecordingMoverEnvironment()
+        let coordinator = LeoMoveHandoffCoordinator(environment: environment)
+        coordinator.arm(Self.handoff)
+        coordinator.terminationAttemptBegan()
+        // The user cancelled the quit prompt: no callback says so. Their next quit is a new attempt.
+        coordinator.terminationAttemptBegan()
+
+        coordinator.willTerminate()
+
+        #expect(environment.ops.isEmpty)
+    }
+
+    @MainActor @Test func aFailedLaunchUnmarksTheInstanceAndTrashesNothing() {
         let environment = RecordingMoverEnvironment(failing: [.open])
+        let coordinator = LeoMoveHandoffCoordinator(environment: environment)
+        coordinator.arm(Self.handoff)
 
-        let outcome = await Self.move(environment)
+        coordinator.willTerminate()
 
-        #expect(outcome == .failed("open failed"))
-        #expect(environment.ops == [
-            .copy(Self.source, Self.staging),
-            .move(Self.staging, Self.destination),
-            .markExiting,
-            .open(Self.destination),
-            .clearExiting,
-            .report("open failed"),
-        ])
+        #expect(environment.ops == [.markExiting, .open(Self.destination), .clearExiting, .handoffFailed("open failed")])
     }
 
-    @MainActor @Test func aTrashFailureOfTheOriginalNeverStopsTheRelaunch() async {
-        let environment = RecordingMoverEnvironment(failing: [.trash])
+    @MainActor @Test func aTrashFailureOrNoOriginalNeverStopsTheLaunch() {
+        let trashFails = RecordingMoverEnvironment(failing: [.trash])
+        let first = LeoMoveHandoffCoordinator(environment: trashFails)
+        first.arm(Self.handoff)
+        first.willTerminate()
+        #expect(trashFails.ops == [.markExiting, .open(Self.destination), .trash(Self.source)])
 
-        let outcome = await Self.move(environment)
-
-        #expect(outcome == .relaunched)
-        #expect(environment.ops.last == .terminate)
-    }
-
-    @Test func clearingTheExitingMarkLeavesAnEmptyLockFile() throws {
-        let directory = try LeoTestSocketDirectory()
-        defer { directory.remove() }
-        let lock = try LeoInstanceLockTestFile.held(in: directory)
-        try lock.markExiting(as: 4242)
-        #expect(LeoInstanceLockTestFile.contents(in: directory) == "exiting 4242\n")
-
-        try lock.clearExitingMark()
-
-        #expect(LeoInstanceLockTestFile.contents(in: directory) == "")
+        let noOriginal = RecordingMoverEnvironment()
+        let second = LeoMoveHandoffCoordinator(environment: noOriginal)
+        second.arm(LeoMoveHandoff(destination: Self.destination, original: nil))
+        second.willTerminate()
+        #expect(noOriginal.ops == [.markExiting, .open(Self.destination)])
     }
 
     @MainActor @Test func theLiveEnvironmentDoesItsFileWorkOffTheMainThread() async throws {
@@ -303,9 +323,11 @@ enum RecordedMoverOp: Equatable {
     case explainRunning(URL)
     case showInstructions(URL)
     case report(String)
+    case scheduleHandoff(LeoMoveHandoff)
+    case handoffFailed(String)
 }
 
-@MainActor final class RecordingMoverEnvironment: LeoAppMoverEnvironment {
+@MainActor final class RecordingMoverEnvironment: LeoAppMoverEnvironment, LeoMoveHandoffEnvironment {
     enum Failure { case copy, open, trash }
 
     private(set) var ops: [RecordedMoverOp] = []
@@ -347,12 +369,20 @@ enum RecordedMoverOp: Equatable {
     func markInstanceExiting() { ops.append(.markExiting) }
     func clearInstanceExiting() { ops.append(.clearExiting) }
 
-    func openNewInstance(at url: URL) async throws {
+    func terminate() { ops.append(.terminate) }
+    func scheduleHandoff(_ handoff: LeoMoveHandoff) { ops.append(.scheduleHandoff(handoff)) }
+
+    func launchNewInstance(at url: URL) throws {
         ops.append(.open(url))
         if failing.contains(.open) { throw RecordedError(message: "open failed") }
     }
 
-    func terminate() { ops.append(.terminate) }
+    func trashOriginal(_ url: URL) throws {
+        ops.append(.trash(url))
+        if failing.contains(.trash) { throw RecordedError(message: "trash failed") }
+    }
+
+    func reportHandoffFailure(_ message: String) { ops.append(.handoffFailed(message)) }
 
     func askReplace(existing: URL) -> Bool {
         ops.append(.askReplace(existing))

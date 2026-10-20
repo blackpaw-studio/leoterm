@@ -4,13 +4,15 @@ import OSLog
 /// The real file system, Finder, workspace and alerts behind `LeoAppMover`.
 /// Styling-only AppKit; the decisions it serves are tested through
 /// `RecordingMoverEnvironment`.
-@MainActor final class LeoLiveMoverEnvironment: LeoAppMoverEnvironment {
+@MainActor final class LeoLiveMoverEnvironment: LeoAppMoverEnvironment, LeoMoveHandoffEnvironment {
     private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
 
     private let fileManager: FileManager
     private let workspace: NSWorkspace
     private let instanceClaim: LeoSingleInstance.Claim
     private let bundleIdentifier: String?
+    /// Runs the launch-and-trash once the quit is certain (AppDelegate calls it).
+    private(set) lazy var handoff = LeoMoveHandoffCoordinator(environment: self)
 
     init(
         instanceClaim: LeoSingleInstance.Claim, fileManager: FileManager = .default,
@@ -58,14 +60,27 @@ import OSLog
     func markInstanceExiting() { instanceClaim.markExiting() }
     func clearInstanceExiting() { instanceClaim.clearExiting() }
 
-    func openNewInstance(at url: URL) async throws {
-        let configuration = NSWorkspace.OpenConfiguration()
-        configuration.createsNewApplicationInstance = true
-        configuration.activates = true
-        _ = try await workspace.openApplication(at: url, configuration: configuration)
+    func terminate() { NSApp.terminate(nil) }
+    func scheduleHandoff(_ handoff: LeoMoveHandoff) { self.handoff.arm(handoff) }
+
+    /// `open -n` returns once LaunchServices has the request, so it can run
+    /// while the app terminates; the copy then waits on the instance lock.
+    func launchNewInstance(at url: URL) throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        process.arguments = ["-n", url.path]
+        try process.run()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else { throw LeoHandoffLaunchError(status: process.terminationStatus) }
     }
 
-    func terminate() { NSApp.terminate(nil) }
+    /// Synchronous on purpose: it runs while terminating, and trashing is a
+    /// rename within the volume's own Trash.
+    func trashOriginal(_ url: URL) throws { try fileManager.trashItem(at: url, resultingItemURL: nil) }
+
+    func reportHandoffFailure(_ message: String) {
+        Self.logger.error("handoff to the copy in Applications failed: \(message, privacy: .public)")
+    }
 
     func askReplace(existing: URL) -> Bool {
         let alert = NSAlert()
@@ -125,4 +140,9 @@ enum LeoMovePrompt {
         case .elsewhere: return why
         }
     }
+}
+
+struct LeoHandoffLaunchError: Error, LocalizedError {
+    let status: Int32
+    var errorDescription: String? { "open exited \(status)" }
 }

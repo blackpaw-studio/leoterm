@@ -6,11 +6,14 @@ import AppKit
 @MainActor final class LeoAppLocationController {
     private(set) var state: LeoAppLocationState = .allowed
     private weak var model: LeoSidebarModel?
-    private let instanceClaim: LeoSingleInstance.Claim
+    private let environment: LeoLiveMoverEnvironment
 
     init(instanceClaim: LeoSingleInstance.Claim) {
-        self.instanceClaim = instanceClaim
+        environment = LeoLiveMoverEnvironment(instanceClaim: instanceClaim)
     }
+
+    /// The pending launch-and-trash that `AppDelegate`'s quit hooks drive.
+    var handoff: LeoMoveHandoffCoordinator { environment.handoff }
 
     func start(model: LeoSidebarModel, bundleURL: URL = Bundle.main.bundleURL, buildKind: LeoBuildKind = .current) {
         self.model = model
@@ -24,7 +27,7 @@ import AppKit
         let isReadOnly = (try? bundleURL.resourceValues(forKeys: [.volumeIsReadOnlyKey]))?.volumeIsReadOnly ?? false
         let gate = LeoAppLocationGate(
             location: .decide(bundleURL: bundleURL, buildKind: buildKind, isOnReadOnlyVolume: isReadOnly),
-            mover: LeoAppMover(environment: LeoLiveMoverEnvironment(instanceClaim: instanceClaim)),
+            mover: LeoAppMover(environment: environment),
             bundleURL: bundleURL,
             confirmMove: LeoMovePrompt.confirm(reason:)
         )
