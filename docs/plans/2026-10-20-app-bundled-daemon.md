@@ -391,3 +391,10 @@ Ship targets: marker, self_path, daemon lock, update refusal, tmux resolution, d
 
 ## Security note from leo agent (2026-10-20)
 - `handover --to-app --json` `env` is the old CLI plist's full EnvironmentVariables and may contain secrets (API tokens). managed.json must be 0600 from creation (temp file created 0600, not chmod after rename). Never log handover stdout (incl. `--dry-run`) or the marker `env` to os_log, files, crash breadcrumbs, or error alerts. Review B2/B3 for this explicitly.
+
+## Contract answers from leo agent, round 4 (2026-10-20; leo PRs #282 A, #284 B, #283 release, #285 C — unmerged)
+- Successful `--to-cli` → `ok:true, managed_stopped:true` (app job booted out → app unregisters). `ok:false, managed_stopped:true` → re-register.
+- Every `--json` failure (incl. cobra arg/flag errors) prints `{"error": code, "message"?}`. Codes so far: `invalid_args`, `not_permitted`, `no_launchd_job`, `not_registered`, `drain_timeout`, `web_disabled` (bare, no message), plus handover step failures carrying `step`.
+- `pair --json` `warnings` is always an array, never null.
+- Daemon `/health` over the socket includes the bound web address; use it to show the current bind before/after `web enable` (B7 confirmation copy).
+- Full command table + JSON shapes: leo repo `docs/configuration/managed-install.md` (on the leo PR branch).
