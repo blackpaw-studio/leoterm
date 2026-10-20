@@ -294,6 +294,7 @@
 				A5B3052F299BEAAA0047F10C /* Resources */,
 				819324572F24E74E00A9ED8F /* Copy DockTilePlugin */,
 				B2200001A1B2C3D4E5F60001 /* Link ghostty CLI Name */,
+				B2200002A1B2C3D4E5F60002 /* Leo tmux terminfo */,
 			);
 			buildRules = (
 			);
@@ -428,6 +429,28 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# B-220: Ghostty's shell integration runs \"$GHOSTTY_BIN_DIR/ghostty\" (the ssh\n# wrapper, among others) and GHOSTTY_BIN_DIR is this executable's folder.\n# Answer to that name with a relative link so a moved bundle still works.\n[ \"$EXECUTABLE_NAME\" = ghostty ] && exit 0\nln -sfh \"$EXECUTABLE_NAME\" \"$TARGET_BUILD_DIR/$EXECUTABLE_FOLDER_PATH/ghostty\"\n";
+			showEnvVarsInLog = 0;
+		};
+		B2200002A1B2C3D4E5F60002 /* Leo tmux terminfo */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/Bundled/terminfo/tmux-256color.terminfo",
+				"$(SRCROOT)/scripts/leo-terminfo.sh",
+			);
+			name = "Leo tmux terminfo";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/terminfo/74/tmux-256color",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# The bundled tmux defaults to TERM=tmux-256color; ship that entry beside\n# Ghostty's own terminfo (copied by the Resources phase above).\nexec \"$SRCROOT/scripts/leo-terminfo.sh\" \"$SRCROOT/Bundled/terminfo/tmux-256color.terminfo\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/terminfo\"\n";
 			showEnvVarsInLog = 0;
 		};
 		FC501E0B2F46B410007AE49D /* Run SwiftLint */ = {
