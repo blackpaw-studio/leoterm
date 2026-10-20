@@ -598,6 +598,12 @@
                                     <action selector="showLeoAgentNotificationSettings:" target="-1" id="Leo-Agents-Notifications-Action"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Set Up Claude…" id="Leo-Agents-SetUpClaude">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="setUpClaude:" target="-1" id="Leo-Agents-SetUpClaude-Action"/>
+                                </connections>
+                            </menuItem>
                             <menuItem title="Show Agents Sidebar" keyEquivalent="L" id="Leo-Sidebar-Toggle">
                                 <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
                                 <connections>

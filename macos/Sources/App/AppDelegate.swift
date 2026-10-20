@@ -184,6 +184,20 @@ class AppDelegate: NSObject,
             }
         }
     )
+    /// First-run Claude setup (A13), and Agents ▸ Set Up Claude…
+    @MainActor private lazy var leoClaudeOnboarding = LeoClaudeOnboardingController(
+        locator: LeoClaudeLocator(
+            home: NSHomeDirectory(),
+            isExecutable: { FileManager.default.isExecutableFile(atPath: $0) },
+            // Stopgap until the login-shell PATH resolver (A12) lands: a GUI app's PATH is short.
+            loginPath: { ProcessInfo.processInfo.environment["PATH"] }
+        ),
+        store: LeoClaudeOnboardingStore(defaults: .ghostty),
+        openWindow: { [unowned self] command in
+            let controller = TerminalController.preferredParent ?? self.leoOpenStartScreenWindow()
+            return LeoCommandLauncher.openWindow(in: controller, command: command)
+        }
+    )
     /// The /Applications check (A9); a test host is a Debug build, so exempt.
     @MainActor private lazy var leoAppLocation = LeoAppLocationController(instanceClaim: leoInstanceClaim)
     /// Set once badge authorization has allowed the upstream bell badge.
@@ -505,7 +519,15 @@ class AppDelegate: NSObject,
         initialWindowOpener.didFinishLaunching()
         leoAppLocation.start(model: leoRuntime.model)
         // A test host must not leave a status item in the real menu bar.
-        if !LeoSingleInstance.isRunningAsTestHost() { leoMenuBar.syncVisibility() }
+        if !LeoSingleInstance.isRunningAsTestHost() {
+            leoMenuBar.syncVisibility()
+            leoClaudeOnboarding.start(model: leoRuntime.model)
+        }
+    }
+
+    /// Agents ▸ Set Up Claude…: install Claude Code and sign in, in a new window.
+    @IBAction func setUpClaude(_ sender: Any?) {
+        leoClaudeOnboarding.setUp()
     }
 
     func applicationDidHide(_ notification: Notification) {
