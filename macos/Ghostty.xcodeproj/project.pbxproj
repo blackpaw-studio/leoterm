@@ -295,6 +295,7 @@
 				819324572F24E74E00A9ED8F /* Copy DockTilePlugin */,
 				B2200001A1B2C3D4E5F60001 /* Link ghostty CLI Name */,
 				B2200002A1B2C3D4E5F60002 /* Leo tmux terminfo */,
+				B2200003A1B2C3D4E5F60003 /* Leo LaunchAgent plist */,
 			);
 			buildRules = (
 			);
@@ -451,6 +452,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# The bundled tmux defaults to TERM=tmux-256color; ship that entry beside\n# Ghostty's own terminfo (copied by the Resources phase above).\nexec \"$SRCROOT/scripts/leo-terminfo.sh\" \"$SRCROOT/Bundled/terminfo/tmux-256color.terminfo\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/terminfo\"\n";
+			showEnvVarsInLog = 0;
+		};
+		B2200003A1B2C3D4E5F60003 /* Leo LaunchAgent plist */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/scripts/leo-launch-agent-plist.sh",
+			);
+			name = "Leo LaunchAgent plist";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Library/LaunchAgents/$(LEO_DAEMON_LABEL).plist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# The plist SMAppService.agent(plistName:) registers to run the bundled\n# daemon, named for this configuration's LEO_DAEMON_LABEL.\nexec \"$SRCROOT/scripts/leo-launch-agent-plist.sh\" \"$LEO_DAEMON_LABEL\" \"$PRODUCT_BUNDLE_IDENTIFIER\" \"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Library/LaunchAgents/$LEO_DAEMON_LABEL.plist\"\n";
 			showEnvVarsInLog = 0;
 		};
 		FC501E0B2F46B410007AE49D /* Run SwiftLint */ = {
@@ -620,6 +642,7 @@
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "A program running within Ghostty would like to use speech recognition.";
 				INFOPLIST_KEY_NSSystemAdministrationUsageDescription = "A program running within Ghostty requires elevated privileges.";
 				INFOPLIST_PREPROCESS = YES;
+				LEO_DAEMON_LABEL = studio.blackpaw.leo.daemon;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -1024,6 +1047,7 @@
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "A program running within Ghostty would like to use speech recognition.";
 				INFOPLIST_KEY_NSSystemAdministrationUsageDescription = "A program running within Ghostty requires elevated privileges.";
 				INFOPLIST_PREPROCESS = YES;
+				LEO_DAEMON_LABEL = studio.blackpaw.leo.daemon.debug;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -1081,6 +1105,7 @@
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "A program running within Ghostty would like to use speech recognition.";
 				INFOPLIST_KEY_NSSystemAdministrationUsageDescription = "A program running within Ghostty requires elevated privileges.";
 				INFOPLIST_PREPROCESS = YES;
+				LEO_DAEMON_LABEL = studio.blackpaw.leo.daemon;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
