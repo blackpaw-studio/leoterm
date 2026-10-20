@@ -11,6 +11,7 @@ enum LeoFileOp: Equatable, Sendable {
     case symlink(String, target: String)
     case copy(String, String)
     case move(String, String)
+    case moveNoReplace(String, String)
     case trash(String)
 }
 
@@ -129,6 +130,7 @@ final class LeoInMemoryFileSystem: LeoFileSystem, @unchecked Sendable {
     func symlink(at url: URL, to target: String) throws {
         try locked {
             try fail("symlink", url.path)
+            guard nodes[url.path] == nil else { throw LeoFileSystemError(operation: "symlink", path: url.path, code: EEXIST) }
             log.append(.symlink(url.path, target: target))
             nodes[url.path] = .symlink(target)
         }
@@ -160,6 +162,20 @@ final class LeoInMemoryFileSystem: LeoFileSystem, @unchecked Sendable {
             log.append(.move(source.path, destination.path))
             guard let node = nodes.removeValue(forKey: source.path) else {
                 throw LeoFileSystemError(operation: "move", path: source.path, code: ENOENT)
+            }
+            nodes[destination.path] = node
+        }
+    }
+
+    func moveWithoutReplacing(from source: URL, to destination: URL) throws {
+        try locked {
+            try fail("moveNoReplace", destination.path)
+            guard nodes[destination.path] == nil else {
+                throw LeoFileSystemError(operation: "rename", path: destination.path, code: EEXIST)
+            }
+            log.append(.moveNoReplace(source.path, destination.path))
+            guard let node = nodes.removeValue(forKey: source.path) else {
+                throw LeoFileSystemError(operation: "rename", path: source.path, code: ENOENT)
             }
             nodes[destination.path] = node
         }

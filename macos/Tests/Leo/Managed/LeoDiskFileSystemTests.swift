@@ -103,6 +103,36 @@ struct LeoDiskFileSystemTests {
         #expect(fileSystem.kind(at: source) == .absent)
     }
 
+    @Test func moveWithoutReplacingRefusesAnOccupiedDestinationAndMovesIntoAFreeOne() throws {
+        defer { cleanUp() }
+        let source = root.appendingPathComponent("s")
+        let taken = root.appendingPathComponent("taken")
+        let free = root.appendingPathComponent("free")
+        try fileSystem.writeAtomically(Data("new".utf8), to: source, mode: 0o755)
+        try fileSystem.writeAtomically(Data("old".utf8), to: taken, mode: 0o755)
+
+        #expect(throws: LeoFileSystemError(operation: "rename", path: taken.path, code: EEXIST)) {
+            try fileSystem.moveWithoutReplacing(from: source, to: taken)
+        }
+        #expect(try fileSystem.read(taken) == Data("old".utf8))
+        #expect(try fileSystem.read(source) == Data("new".utf8))
+
+        try fileSystem.moveWithoutReplacing(from: source, to: free)
+        #expect(try fileSystem.read(free) == Data("new".utf8))
+        #expect(fileSystem.kind(at: source) == .absent)
+    }
+
+    @Test func symlinkRefusesAnOccupiedPath() throws {
+        defer { cleanUp() }
+        let link = root.appendingPathComponent("l")
+        try fileSystem.symlink(at: link, to: "/a")
+
+        #expect(throws: LeoFileSystemError(operation: "symlink", path: link.path, code: EEXIST)) {
+            try fileSystem.symlink(at: link, to: "/b")
+        }
+        #expect(fileSystem.kind(at: link) == .symlink(target: "/a"))
+    }
+
     @Test func failuresCarryOperationPathAndReason() {
         defer { cleanUp() }
         let missing = root.appendingPathComponent("nope/child")

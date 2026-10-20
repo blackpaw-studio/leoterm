@@ -29,6 +29,9 @@ protocol LeoFileSystem: Sendable {
     func copyFile(from source: URL, to destination: URL) throws
     /// `rename(2)`: replaces `destination` if present.
     func move(from source: URL, to destination: URL) throws
+    /// Like `move`, but fails with `EEXIST` instead of replacing `destination`
+    /// (`renamex_np` + `RENAME_EXCL`): the only safe way to back a file up.
+    func moveWithoutReplacing(from source: URL, to destination: URL) throws
     /// Unlinks a file or symlink; never recurses.
     func remove(_ url: URL) throws
     func trash(_ url: URL) throws
@@ -135,6 +138,10 @@ struct LeoDiskFileSystem: LeoFileSystem {
 
     func move(from source: URL, to destination: URL) throws {
         try rename(source, to: destination)
+    }
+
+    func moveWithoutReplacing(from source: URL, to destination: URL) throws {
+        try check(renamex_np(source.path, destination.path, UInt32(RENAME_EXCL)), "rename", destination)
     }
 
     func remove(_ url: URL) throws {

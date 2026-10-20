@@ -54,7 +54,18 @@ struct LeoCommandInstaller: Sendable {
     /// `confirmReplace` is asked only when something already occupies the
     /// command path. `path` is the process `PATH`, for the hint.
     func install(confirmReplace: (_ backup: URL) async -> Bool, path: String?) async throws -> Outcome {
-        switch plan() {
+        let initial = plan()
+        guard case let .confirmReplace(backup) = initial else {
+            return try await apply(initial, path: path)
+        }
+        guard await confirmReplace(backup) else { return .declined }
+        // The confirmation can stay open for a long time and overlap another
+        // install; decide again on what is on disk now.
+        return try await apply(plan(), path: path)
+    }
+
+    private func apply(_ plan: Plan, path: String?) async throws -> Outcome {
+        switch plan {
         case .alreadyInstalled:
             return .alreadyInstalled
         case let .refuse(reason):
@@ -62,12 +73,11 @@ struct LeoCommandInstaller: Sendable {
         case .create:
             try link()
         case let .confirmReplace(backup):
-            guard await confirmReplace(backup) else { return .declined }
-            try fileSystem.move(from: paths.localBinLeo, to: backup)
+            try fileSystem.moveWithoutReplacing(from: paths.localBinLeo, to: backup)
             do {
                 try link()
             } catch {
-                try? fileSystem.move(from: backup, to: paths.localBinLeo)
+                try? fileSystem.moveWithoutReplacing(from: backup, to: paths.localBinLeo)
                 throw error
             }
         }
