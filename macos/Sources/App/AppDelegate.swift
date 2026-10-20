@@ -987,7 +987,8 @@ class AppDelegate: NSObject,
 
     private func updateAppIcon(from config: Ghostty.Config) {
         Task.detached {
-            await self.appIconUpdater.update(icon: AppIcon(config: config))
+            // Leo: one icon; macos-icon* ignored
+            await self.appIconUpdater.update(icon: nil)
         }
     }
 
