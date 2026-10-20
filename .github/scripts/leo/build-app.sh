@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Build Leo.app (Release, unsigned) and stamp its Info.plist.
-# Env: VERSION, SHORT_VERSION, BUILD, COMMIT, DERIVED_DATA, DEVELOPER_DIR.
+# Build Leo.app (Release, unsigned), stamp its Info.plist and embed the
+# bundled helpers (embed-helpers.sh: Contents/Helpers/leo and tmux).
+# Env: VERSION, SHORT_VERSION, BUILD, COMMIT, DERIVED_DATA, DEVELOPER_DIR;
+#      optionally RELEASE_TAG, LEO_BINARY, TMUX_BINARY (see embed-helpers.sh).
 # VERSION feeds zig's -Dversion-string (may carry a "-dev.<sha>" suffix).
 # SHORT_VERSION is the strictly numeric X.Y.Z that Apple requires for
 # CFBundleShortVersionString; the dev/sha identity instead goes into the
@@ -64,5 +66,9 @@ allows="$(/usr/libexec/PlistBuddy -c 'Print :SUAllowsAutomaticUpdates' "$plist" 
 # stay as built). AppDelegate.ghosttyConfigDidChange applies the `auto-update`
 # config (off/check/download) through UpdatePolicy; unset lets Sparkle ask the
 # user once. See docs/leo/ci.md "Auto-update (on)".
+
+echo "::group::embed helpers" >&2
+"$(dirname "${BASH_SOURCE[0]}")/embed-helpers.sh" "$app" "$repo_root" >&2
+echo "::endgroup::" >&2
 
 echo "$app"
