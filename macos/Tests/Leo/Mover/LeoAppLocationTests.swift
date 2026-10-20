@@ -237,6 +237,19 @@ struct LeoAppLocationTests {
         #expect(LeoInstanceLockTestFile.contents(in: directory) == "")
     }
 
+    @MainActor @Test func theLiveEnvironmentDoesItsFileWorkOffTheMainThread() async throws {
+        let fileManager = ThreadRecordingFileManager()
+        let environment = LeoLiveMoverEnvironment(instanceClaim: .skipped("test"), fileManager: fileManager)
+        #expect(Thread.isMainThread)
+
+        try await environment.copyBundle(from: Self.source, to: Self.staging)
+        try await environment.moveBundle(from: Self.staging, to: Self.destination)
+        try await environment.trash(Self.backup)
+
+        #expect(fileManager.calls.map(\.name) == ["copy", "move", "trash"])
+        #expect(fileManager.calls.allSatisfy { !$0.onMainThread })
+    }
+
     // MARK: - Prompt flow
 
     @MainActor @Test func notNowKeepsManagedFeaturesOffAndOffersTheBanner() async {
@@ -353,5 +366,23 @@ enum RecordedMoverOp: Equatable {
     struct RecordedError: Error, LocalizedError {
         let message: String
         var errorDescription: String? { message }
+    }
+}
+
+/// Records which thread each heavy file operation ran on, and does none of them.
+final class ThreadRecordingFileManager: FileManager, @unchecked Sendable {
+    struct Call: Equatable { let name: String; let onMainThread: Bool }
+
+    private let lock = NSLock()
+    private var recorded: [Call] = []
+    var calls: [Call] { lock.withLock { recorded } }
+
+    private func record(_ name: String) { lock.withLock { recorded.append(Call(name: name, onMainThread: Thread.isMainThread)) } }
+
+    override func fileExists(atPath path: String) -> Bool { false }
+    override func copyItem(at srcURL: URL, to dstURL: URL) throws { record("copy") }
+    override func moveItem(at srcURL: URL, to dstURL: URL) throws { record("move") }
+    override func trashItem(at url: URL, resultingItemURL outResultingURL: AutoreleasingUnsafeMutablePointer<NSURL?>?) throws {
+        record("trash")
     }
 }

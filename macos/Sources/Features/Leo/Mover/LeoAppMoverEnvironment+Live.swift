@@ -33,18 +33,28 @@ import OSLog
 
     func isApplicationsWritable() -> Bool { fileManager.isWritableFile(atPath: LeoAppLocation.applicationsPath) }
 
-    func copyBundle(from source: URL, to target: URL) throws {
-        if fileManager.fileExists(atPath: target.path) { try fileManager.removeItem(at: target) }
-        try fileManager.copyItem(at: source, to: target)
+    func copyBundle(from source: URL, to target: URL) async throws {
+        let fileManager = fileManager
+        try await LeoOffMain.run {
+            if fileManager.fileExists(atPath: target.path) { try fileManager.removeItem(at: target) }
+            try fileManager.copyItem(at: source, to: target)
+        }
     }
 
     /// A leftover at `target` (a backup from an earlier crashed move) goes to
     /// the Trash first, never over.
-    func moveBundle(from source: URL, to target: URL) throws {
-        if fileManager.fileExists(atPath: target.path) { try fileManager.trashItem(at: target, resultingItemURL: nil) }
-        try fileManager.moveItem(at: source, to: target)
+    func moveBundle(from source: URL, to target: URL) async throws {
+        let fileManager = fileManager
+        try await LeoOffMain.run {
+            if fileManager.fileExists(atPath: target.path) { try fileManager.trashItem(at: target, resultingItemURL: nil) }
+            try fileManager.moveItem(at: source, to: target)
+        }
     }
-    func trash(_ url: URL) throws { try fileManager.trashItem(at: url, resultingItemURL: nil) }
+
+    func trash(_ url: URL) async throws {
+        let fileManager = fileManager
+        try await LeoOffMain.run { try fileManager.trashItem(at: url, resultingItemURL: nil) }
+    }
     func markInstanceExiting() { instanceClaim.markExiting() }
     func clearInstanceExiting() { instanceClaim.clearExiting() }
 

@@ -20,10 +20,13 @@ enum LeoMoveOutcome: Equatable, Sendable {
 @MainActor protocol LeoAppMoverEnvironment: AnyObject {
     func destinationState(at url: URL) -> LeoMoveDestinationState
     func isApplicationsWritable() -> Bool
+    /// The file work is `async` because it can take a long time (a DMG or a
+    /// network volume) and must not hold the main thread.
+    ///
     /// Replaces `target` when it exists (a stale staging copy).
-    func copyBundle(from source: URL, to target: URL) throws
-    func moveBundle(from source: URL, to target: URL) throws
-    func trash(_ url: URL) throws
+    func copyBundle(from source: URL, to target: URL) async throws
+    func moveBundle(from source: URL, to target: URL) async throws
+    func trash(_ url: URL) async throws
     /// The instance claim: a copy launched next waits for this process to
     /// exit instead of yielding to it (B-092).
     func markInstanceExiting()
@@ -78,11 +81,11 @@ enum LeoMoveOutcome: Equatable, Sendable {
             Self.stagingPrefix + bundleURL.lastPathComponent + Self.backupSuffix
         )
         do {
-            try environment.copyBundle(from: bundleURL, to: staging)
+            try await environment.copyBundle(from: bundleURL, to: staging)
         } catch {
             return fail(error)
         }
-        if let failure = install(staging: staging, at: destination, keepingExistingAt: replacesExisting ? backup : nil) {
+        if let failure = await install(staging: staging, at: destination, keepingExistingAt: replacesExisting ? backup : nil) {
             return failure
         }
 
@@ -96,7 +99,7 @@ enum LeoMoveOutcome: Equatable, Sendable {
 
         // A translocated or read-only original can't be trashed, and we
         // don't know where a translocated one came from.
-        if reason == .elsewhere { try? environment.trash(bundleURL) }
+        if reason == .elsewhere { try? await environment.trash(bundleURL) }
         environment.terminate()
         return .relaunched
     }
@@ -105,19 +108,19 @@ enum LeoMoveOutcome: Equatable, Sendable {
     /// `backup` first and only trashed once the new one is in place; if the
     /// install fails it's moved back, so Applications never ends up without
     /// a Leo.
-    private func install(staging: URL, at destination: URL, keepingExistingAt backup: URL?) -> LeoMoveOutcome? {
+    private func install(staging: URL, at destination: URL, keepingExistingAt backup: URL?) async -> LeoMoveOutcome? {
         do {
-            if let backup { try environment.moveBundle(from: destination, to: backup) }
+            if let backup { try await environment.moveBundle(from: destination, to: backup) }
         } catch {
             return fail(error)
         }
         do {
-            try environment.moveBundle(from: staging, to: destination)
+            try await environment.moveBundle(from: staging, to: destination)
         } catch {
-            if let backup { try? environment.moveBundle(from: backup, to: destination) }
+            if let backup { try? await environment.moveBundle(from: backup, to: destination) }
             return fail(error)
         }
-        if let backup { try? environment.trash(backup) }
+        if let backup { try? await environment.trash(backup) }
         return nil
     }
 
