@@ -44,7 +44,7 @@ Spec (source of truth): leo repo `docs/specs/2026-10-20-leo-app-bundled-daemon.m
 - `$LEOKIT`: `cd Packages/LeoKit && swiftlint lint --strict && swift test --filter <Suite>`
 - `$CISH`: `.github/scripts/leo/run-tests.sh`
 - `$MACTEST <Suite>`:
-  1. Check that `pgrep -fl "Leo -XCTest"` is empty.
+  1. Check that `pgrep -f "/Leo\.app/Contents/MacOS/Leo -XCTest"` prints nothing. The bare `"Leo -XCTest"` pattern also matches any unrelated process whose argv mentions it; this one needs the real `Leo.app/Contents/MacOS/Leo -XCTest` command line, and its `\.` keeps a wrapping shell's own command line from matching it.
   2. From `macos/`: `DEVELOPER_DIR=/Applications/Xcode-26.3.0.app/Contents/Developer xcodebuild build-for-testing -project Ghostty.xcodeproj -scheme Ghostty -destination 'platform=macOS,arch=arm64' -packageAuthorizationProvider netrc -skipMacroValidation -derivedDataPath build/DD CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO ENABLE_HARDENED_RUNTIME=NO`
   3. `timeout 600 xcodebuild test-without-building … -derivedDataPath build/DD -skipUnavailableActions -parallel-testing-enabled NO -only-testing:GhosttyTests/<Suite>`
 
