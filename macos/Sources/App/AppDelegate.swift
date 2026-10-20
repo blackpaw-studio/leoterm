@@ -160,6 +160,30 @@ class AppDelegate: NSObject,
         openWindow: { [unowned self] in self.leoOpenStartScreenWindow() },
         activate: { NSApp.activate(ignoringOtherApps: true) }
     )
+    /// The menu bar extra (A11).
+    @MainActor private lazy var leoMenuBar = LeoMenuBarCoordinator(
+        model: leoRuntime.model,
+        serverMode: leoServerMode,
+        restarter: LeoDaemonRestarter(
+            cli: LeoCLI(executableOverride: UserDefaults.ghostty.string(forKey: "leo.executablePath"), runner: LeoProcessRunner()),
+            bundledExecutable: LeoMenuBarCoordinator.bundledExecutable()
+        ),
+        defaults: .ghostty,
+        windowID: { [unowned self] in
+            // An agent picked from the menu opens in a window, making one if none is open.
+            let controller = TerminalController.preferredParent ?? self.leoOpenStartScreenWindow()
+            NSApp.activate(ignoringOtherApps: true)
+            return controller.leoSession?.id
+        },
+        openLeo: { [unowned self] in
+            NSApp.activate(ignoringOtherApps: true)
+            if let controller = TerminalController.preferredParent {
+                controller.window?.makeKeyAndOrderFront(nil)
+            } else {
+                self.leoOpenStartScreenWindow()
+            }
+        }
+    )
     /// The /Applications check (A9); a test host is a Debug build, so exempt.
     @MainActor private lazy var leoAppLocation = LeoAppLocationController(instanceClaim: leoInstanceClaim)
     /// Set once badge authorization has allowed the upstream bell badge.
@@ -480,6 +504,8 @@ class AppDelegate: NSObject,
         // a script, intent or Service window arriving later replaces it.
         initialWindowOpener.didFinishLaunching()
         leoAppLocation.start(model: leoRuntime.model)
+        // A test host must not leave a status item in the real menu bar.
+        if !LeoSingleInstance.isRunningAsTestHost() { leoMenuBar.syncVisibility() }
     }
 
     func applicationDidHide(_ notification: Notification) {
