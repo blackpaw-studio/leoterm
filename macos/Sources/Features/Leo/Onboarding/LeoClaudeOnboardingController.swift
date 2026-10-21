@@ -4,7 +4,8 @@ import LeoKit
 
 /// Offers Claude setup (see `LeoClaudeOnboardingModel`) and backs Agents ▸
 /// Set Up Claude… afterwards. Alert and window wiring only; the decisions
-/// are the model's.
+/// are the model's. The offer never blocks the main actor: a sheet on the
+/// front window, else a panel (see `LeoOfferAlertPresenter`).
 @MainActor final class LeoClaudeOnboardingController: LeoClaudeOfferPresenting {
     private let openWindow: (String) -> Bool
     private var subscription: AnyCancellable?
@@ -12,15 +13,25 @@ import LeoKit
     private let locator: LeoClaudeLocator
     private let health: () async -> LeoClaudeHealth
     private let store: LeoClaudeOnboardingStore
+    private let offerPresenter: LeoOfferAlertPresenter
 
     init(
         locator: LeoClaudeLocator, health: @escaping () async -> LeoClaudeHealth,
-        store: LeoClaudeOnboardingStore, openWindow: @escaping (String) -> Bool
+        store: LeoClaudeOnboardingStore, openWindow: @escaping (String) -> Bool,
+        hostWindow: @escaping () -> NSWindow? = LeoClaudeOnboardingController.frontWindow
     ) {
         self.locator = locator
         self.health = health
         self.store = store
         self.openWindow = openWindow
+        offerPresenter = LeoOfferAlertPresenter(hostWindow: hostWindow)
+    }
+
+    /// The window the offer sheets onto: a visible main or key window that
+    /// is not already showing a sheet.
+    static func frontWindow() -> NSWindow? {
+        [NSApp.mainWindow, NSApp.keyWindow].lazy.compactMap { $0 }
+            .first { $0.isVisible && $0.attachedSheet == nil && !$0.isSheet && !($0 is NSPanel) }
     }
 
     /// Watches the sidebar's snapshots for a live local daemon.
@@ -56,11 +67,11 @@ import LeoKit
             + "You can do this later from Agents ▸ Set Up Claude…"
         alert.addButton(withTitle: "Set Up…")
         alert.addButton(withTitle: "Not Now")
-        return alert.runModal() == .alertFirstButtonReturn
+        return await offerPresenter.present(alert)
     }
 
     func withdrawOffer() {
-        NSApp.abortModal()
+        offerPresenter.withdraw()
     }
 
     func runSetUp() { setUp() }
