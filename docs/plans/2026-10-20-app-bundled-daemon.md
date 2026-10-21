@@ -388,3 +388,28 @@ Ship targets: marker, self_path, daemon lock, update refusal, tmux resolution, d
 - `LEO_VERSION` sha256 stays empty until leo v0.56.0 ships; `feat/bundled-daemon-pipeline` must not reach main before the pin is bumped (CI `fetch-leo.sh` fails otherwise).
 - Local ad-hoc builds with hardened runtime fail library validation against ad-hoc Sparkle; local checks sign the outer app without runtime (docs/leo/ci.md). CI Developer ID signing unaffected.
 - `$ALIVE` does not isolate cfprefsd (CFFIXED_USER_HOME doesn't redirect it): export/import the debug/release defaults domains around runs instead of deleting.
+
+## Security note from leo agent (2026-10-20)
+- `handover --to-app --json` `env` is the old CLI plist's full EnvironmentVariables and may contain secrets (API tokens). managed.json must be 0600 from creation (temp file created 0600, not chmod after rename). Never log handover stdout (incl. `--dry-run`) or the marker `env` to os_log, files, crash breadcrumbs, or error alerts. Review B2/B3 for this explicitly.
+
+## Contract answers from leo agent, round 4 (2026-10-20; leo PRs #282 A, #284 B, #283 release, #285 C — unmerged)
+- Successful `--to-cli` → `ok:true, managed_stopped:true` (app job booted out → app unregisters). `ok:false, managed_stopped:true` → re-register.
+- Every `--json` failure (incl. cobra arg/flag errors) prints `{"error": code, "message"?}`. Codes so far: `invalid_args`, `not_permitted`, `no_launchd_job`, `not_registered`, `drain_timeout`, `web_disabled` (bare, no message), plus handover step failures carrying `step`.
+- `pair --json` `warnings` is always an array, never null.
+- Daemon `/health` over the socket includes the bound web address; use it to show the current bind before/after `web enable` (B7 confirmation copy).
+- Full command table + JSON shapes: leo repo `docs/configuration/managed-install.md` (on the leo PR branch).
+
+## leo status (2026-10-20 20:30 EDT)
+- All leo-side PRs merged to leo main (#282–#285). Everything (marker, lock, self_path, update refusal, tmux resolution, service routing, handover, pair/web/restart --json, universal asset + `leo-release` dispatch) ships together in **v0.56.0** — the earlier ≥0.57.0 annotations now mean ≥0.56.0. Not yet tagged (awaiting Evan).
+- Dev builds: `make build` in /Users/evan/.leo/agents/leo → `bin/leo` for `LEO_BINARY`.
+- leo's `LEOTERM_DISPATCH_TOKEN` is set; the first stable leo release fires `leo-release` at leoterm even before B8's receiving workflow exists (harmless no-op until then).
+
+## leo v0.56.0 tagged (2026-10-20 21:27 EDT) + round 5 answers
+- v0.56.0 contains every surface. Pin bump pending the release build's darwin_universal asset + checksums.txt.
+- `/health data.version` == hello.version == `leo version` minus "leo " — same build-time string; release builds bare semver (no v).
+- leo runs exactly `launchctl bootout gui/<uid>/<label>` and NEVER bootstraps/registers the app's job, even on rollback. `managed_stopped:true` → app must restore it: `unregister()` then `register()`, then verify hello.
+- `restart` → `not_registered` + live hello = daemon running outside the app's job. `/health` includes `pid`. Recovery (follow-up step B10): "A leo daemon (pid N) is running outside Leo.app" + [Stop it] → confirm → SIGTERM pid (clean shutdown; agent tmux sessions survive) → wait for lock/socket release (bounded) → register/kickstart app job. No `doctor --json` yet (leo will add on request).
+- **Markerless rollback (leo v0.56.1):** if `--to-app` succeeded but the marker write failed, the app calls plain `--to-cli --json`. With no marker and `<plist>.handed-over` present, leo restores and bootstraps the CLI job, skipping drain and managed bootout → `ok:true, managed_stopped:false, restored_without_marker:true`; a daemon still holding the lock → error `daemon_running`. Pin must be ≥0.56.1 before this path ships.
+- Confirmed: on successful `--to-cli` leo removes managed.json itself (renamed `.releasing`, deleted once the CLI daemon is up). The app never deletes it.
+- **v0.56.1 markerless `--to-cli` details:** REQUIRES `--label <app label>`; refuses with `managed_job_loaded` if the app's job is still loaded → app calls `unregister()` first, then `--to-cli --label <l> --json`.
+- **v0.56.0 released:** asset `leo_0.56.0_darwin_universal.tar.gz` contains leo, CHANGELOG.md, LICENSE, README.md at archive root; leo is arm64+x86_64, Developer ID signed (team 52M9C6892K), hardened runtime. `leo-release` {version:"0.56.0", sha256} was dispatched to leoterm (no listener yet; B8). Test B8 later with `gh api repos/blackpaw-studio/leoterm/dispatches -f event_type=leo-release …` or wait for v0.56.1.

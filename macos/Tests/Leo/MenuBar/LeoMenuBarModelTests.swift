@@ -80,14 +80,27 @@ struct LeoMenuBarModelTests {
         let order = LeoMenuBarModel.items(Self.inputs()).compactMap { item -> LeoMenuBarAction? in
             if case .action(let action, _, _, _) = item { action } else { nil }
         }
-        #expect(order == [.restartDaemon, .openLogs, .toggleServerOnly, .openLeo, .quit])
+        #expect(order == [.pairDevice, .restartDaemon, .openLogs, .toggleServerOnly, .openLeo, .quit])
+    }
+
+    @Test func pairingNeedsAConnectedLocalDaemon() {
+        let connected = Self.actions(LeoMenuBarModel.items(Self.inputs()))[.pairDevice]
+        #expect(connected?.title == "Pair a Device…")
+        #expect(connected?.enabled == true)
+        #expect(Self.actions(LeoMenuBarModel.items(Self.inputs(.failed(message: "x"))))[.pairDevice]?.enabled == false)
+        #expect(Self.actions(LeoMenuBarModel.items(Self.inputs(.loading)))[.pairDevice]?.enabled == false)
+        let remote = LeoMenuBarInputs(
+            snapshot: LeoSidebarSnapshot(rows: [], connectivity: .connected, generation: 1, features: .none, featuresHost: .remote("box")),
+            version: nil, isManaged: false, serverOnly: false, isRestarting: false, hasLogFile: true
+        )
+        #expect(Self.actions(LeoMenuBarModel.items(remote))[.pairDevice]?.enabled == false)
     }
 
     @Test func releaseToCLIIsOfferedOnlyWhileTheAppManagesTheDaemon() {
         let order = LeoMenuBarModel.items(Self.inputs(managed: true)).compactMap { item -> LeoMenuBarAction? in
             if case .action(let action, _, _, _) = item { action } else { nil }
         }
-        #expect(order == [.restartDaemon, .releaseToCLI, .openLogs, .toggleServerOnly, .openLeo, .quit])
+        #expect(order == [.pairDevice, .restartDaemon, .releaseToCLI, .openLogs, .toggleServerOnly, .openLeo, .quit])
         #expect(Self.actions(LeoMenuBarModel.items(Self.inputs(managed: true)))[.releaseToCLI]?.title == "Release to CLI…")
         #expect(Self.actions(LeoMenuBarModel.items(Self.inputs(managed: true, restarting: true)))[.releaseToCLI]?.enabled == false)
     }

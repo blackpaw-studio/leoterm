@@ -21,7 +21,7 @@ struct LeoMenuBarAgent: Equatable {
 }
 
 enum LeoMenuBarAction: Equatable, Hashable {
-    case restartDaemon, releaseToCLI, openLogs, toggleServerOnly, openLeo, quit
+    case pairDevice, restartDaemon, releaseToCLI, openLogs, toggleServerOnly, openLeo, quit
 }
 
 enum LeoMenuBarItem: Equatable {
@@ -52,6 +52,10 @@ enum LeoMenuBarModel {
                 agents: agents
             ),
             .separator,
+            .action(
+                .pairDevice, title: "Pair a Device…",
+                isEnabled: isLocal && snapshot.connectivity == .connected, isChecked: false
+            ),
             .action(
                 .restartDaemon, title: inputs.isRestarting ? "Restarting Daemon…" : "Restart Daemon",
                 isEnabled: isLocal && !inputs.isRestarting, isChecked: false
