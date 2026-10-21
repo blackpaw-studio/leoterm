@@ -6,8 +6,9 @@
 # The next tag is the highest existing strict leo-vX.Y.Z tag by semver, patch
 # + 1. Suffixed tags (leo-v1.0.0-rc1) and other prefixes are not release tags.
 # Exit 0 with a tag on stdout, or exit 0 with empty stdout when a release tag
-# already points at COMMIT. Exit 1 when there is no release tag to count from
-# or COMMIT is not a commit.
+# already points at COMMIT. Exit 1 when there is no release tag to count from,
+# COMMIT is not a commit, or COMMIT is not a descendant of the latest release
+# (tagging it would roll the version back).
 set -euo pipefail
 
 commit_arg="${1:-HEAD}"
@@ -32,6 +33,12 @@ for t in "${tags[@]}"; do
     exit 0
   fi
 done
+
+# Never tag behind the newest release: retrying an older failed run after a
+# newer release would hand an older commit a higher version.
+latest_commit="$(git rev-parse "${tags[0]}^{commit}")"
+git merge-base --is-ancestor "$latest_commit" "$commit" \
+  || { echo "next-leo-tag: $commit is not a descendant of ${tags[0]} ($latest_commit); refusing to tag behind the latest release" >&2; exit 1; }
 
 [[ "${tags[0]}" =~ $tag_re ]]
 echo "leo-v${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.$((10#${BASH_REMATCH[3]} + 1))"

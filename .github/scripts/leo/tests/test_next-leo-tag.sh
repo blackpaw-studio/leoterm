@@ -81,5 +81,36 @@ run "--exec=evil"
 [[ "$rc" -ne 0 && -z "$out" ]] && ok=yes || ok=no
 result "$ok" "an option-looking commit argument is refused" "rc=$rc out=$out"
 
+# A failed tagging run for an older merge, retried after a newer release.
+git -C "$repo" checkout -q --detach "$target"
+add_commit "c4 (older merge, never tagged)"
+older="$(head_sha)"
+git -C "$repo" checkout -q main
+git -C "$repo" merge -q --ff-only "$older"
+add_commit "c5"
+git -C "$repo" tag leo-v1.11.0
+newer="$(head_sha)"
+
+run "$older"
+[[ "$rc" -ne 0 && -z "$out" ]] && ok=yes || ok=no
+result "$ok" "refuses an older commit once a newer release exists (a retry must not roll back)" "rc=$rc out=$out"
+
+git -C "$repo" checkout -q --detach "$target"
+add_commit "side branch"
+side="$(head_sha)"
+git -C "$repo" checkout -q main
+run "$side"
+[[ "$rc" -ne 0 && -z "$out" ]] && ok=yes || ok=no
+result "$ok" "refuses a commit that is not a descendant of the latest release" "rc=$rc out=$out"
+
+add_commit "c6"
+run "$(head_sha)"
+[[ "$rc" -eq 0 && "$out" == leo-v1.11.1 ]] && ok=yes || ok=no
+result "$ok" "still tags a descendant of the latest release" "rc=$rc out=$out"
+
+run "$newer"
+[[ "$rc" -eq 0 && -z "$out" ]] && ok=yes || ok=no
+result "$ok" "the latest release's own commit stays a silent no-op" "rc=$rc out=$out"
+
 echo "-- $pass passed, $fail failed --"
 [[ "$fail" -eq 0 ]]
