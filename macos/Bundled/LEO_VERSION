@@ -3,7 +3,6 @@
 #   https://github.com/blackpaw-studio/leo/releases/download/v<version>/leo_<version>_darwin_universal.tar.gz
 # version: bare X.Y.Z (the "v" belongs to the tag only).
 # sha256: the tarball's hash, as listed in that release's checksums.txt.
-# leo 0.56.0 is the first release with a darwin_universal asset; until it
-# ships, sha256 stays empty and builds need LEO_BINARY (dev only).
+# leo 0.56.0 is the first release with a darwin_universal asset.
 version=0.56.0
-sha256=
+sha256=1174a25fcfc7412de5adcf66bd97ff0c3694bdcb14ad13994eb00e19218e8743
