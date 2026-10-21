@@ -39,6 +39,18 @@ private enum PairFixtures {
         LeoProcessResult(stdout: Data(json.utf8), stderr: Data(), status: status)
     }
 
+    static let bundledPath = "/Applications/Leo.app/Contents/Helpers/leo"
+
+    /// A `LeoCLI` with the bundled helper configured, where only `executable` paths exist.
+    static func service(
+        _ runner: ScriptedRunner, override: String? = nil, executable: Set<String>, marker: LeoMarkerState = .absent
+    ) -> LeoPairingService {
+        LeoPairingService(cli: LeoCLI(
+            executableOverride: override, runner: runner, candidatePaths: [leoPath], path: nil, bundledExecutable: bundledPath,
+            markerState: { marker }, expandTilde: { $0 }, isExecutable: { executable.contains($0) }
+        ))
+    }
+
     static func service(_ runner: ScriptedRunner) -> LeoPairingService {
         LeoPairingService(cli: LeoCLI(
             runner: runner, candidatePaths: [leoPath], path: nil, bundledExecutable: nil,
@@ -85,6 +97,47 @@ struct LeoPairingServiceTests {
         let calls = await runner.calls
         #expect(calls.map(\.executable) == [PairFixtures.leoPath])
         #expect(calls.map(\.arguments) == [["pair", "--json"]])
+    }
+
+    // MARK: Which leo runs (D6)
+
+    @Test func pairAndEnableRunTheBundledHelperEvenWhenAnOlderLeoIsInstalled() async throws {
+        let runner = ScriptedRunner([PairFixtures.payloadOutput(), PairFixtures.enabled])
+        let service = PairFixtures.service(runner, executable: [PairFixtures.leoPath, PairFixtures.bundledPath])
+
+        _ = try await service.pair()
+        _ = try await service.enableWeb()
+
+        #expect(await runner.calls.map(\.executable) == [PairFixtures.bundledPath, PairFixtures.bundledPath])
+    }
+
+    @Test func aManagedMarkersSelfPathDoesNotOverrideTheBundledHelper() async throws {
+        let runner = ScriptedRunner([PairFixtures.payloadOutput()])
+        let marker = LeoMarkerState.foreign(bundleID: "studio.blackpaw.leo.macos.debug", marker: LeoManagedMarker(
+            bundleID: "studio.blackpaw.leo.macos.debug", launchdLabel: "x", selfPath: "/Users/evan/.leo/app/bin/leo", tmuxPath: "/t", env: nil
+        ))
+        let service = PairFixtures.service(runner, executable: ["/Users/evan/.leo/app/bin/leo", PairFixtures.bundledPath], marker: marker)
+
+        _ = try await service.pair()
+
+        #expect(await runner.calls.map(\.executable) == [PairFixtures.bundledPath])
+    }
+
+    @Test func withoutABundledHelperTheResolvedLeoRuns() async throws {
+        let runner = ScriptedRunner([PairFixtures.payloadOutput()])
+
+        _ = try await PairFixtures.service(runner, executable: [PairFixtures.leoPath]).pair()
+
+        #expect(await runner.calls.map(\.executable) == [PairFixtures.leoPath])
+    }
+
+    @Test func anExplicitExecutablePathStillWins() async throws {
+        let runner = ScriptedRunner([PairFixtures.payloadOutput()])
+        let service = PairFixtures.service(runner, override: "/opt/dev/leo", executable: ["/opt/dev/leo", PairFixtures.bundledPath])
+
+        _ = try await service.pair()
+
+        #expect(await runner.calls.map(\.executable) == ["/opt/dev/leo"])
     }
 
     @Test func pairKeepsTheShortTimeout() async throws {

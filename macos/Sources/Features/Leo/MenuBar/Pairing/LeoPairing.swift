@@ -107,12 +107,21 @@ struct LeoPairingService: Sendable {
         let message: String?
     }
 
+    /// The bundled `Contents/Helpers/leo` by explicit path (D6): the version that ships with this
+    /// app speaks `pair --json`, which an older `leo` on `PATH` or in the marker may not. An
+    /// explicit executable setting still wins, and a build without the helper falls back to the
+    /// usual lookup.
+    private func resolveExecutable() throws -> String {
+        if cli.executableOverride == nil, let bundled = cli.bundledExecutable, cli.isExecutable(bundled) { return bundled }
+        return try cli.resolveExecutable()
+    }
+
     /// stdout on success; maps every failure shape to a `LeoPairingError`. `failure` leads the
     /// generic message for a failure without JSON: raw stderr goes to the log, never to the panel.
     private func run(_ arguments: [String], failure: String, timeout: TimeInterval) async throws -> Data {
         let result: LeoProcessResult
         do {
-            result = try await cli.runner.run(executable: try cli.resolveExecutable(), arguments: arguments, timeout: timeout)
+            result = try await cli.runner.run(executable: try resolveExecutable(), arguments: arguments, timeout: timeout)
         } catch is CancellationError {
             throw CancellationError()
         } catch let LeoDaemonError.transport(message) {
