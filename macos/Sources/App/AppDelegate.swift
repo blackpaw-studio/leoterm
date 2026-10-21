@@ -190,7 +190,10 @@ class AppDelegate: NSObject,
         releaseToCLI: { [unowned self] in
             Task { @MainActor in await self.leoManaged?.releaseToCLI() }
         },
-        daemonChanged: { [unowned self] in self.leoRuntime.model.retry() }
+        daemonChanged: { [unowned self] in self.leoRuntime.model.retry() },
+        restartFoundNoJob: { [unowned self] in
+            Task { @MainActor in await self.leoManaged?.restartFoundNoJob() }
+        }
     )
     /// The app-managed daemon (B5); nil when the bundle names no daemon label.
     @MainActor private lazy var leoManaged: LeoManagedStartup? = makeLeoManaged()

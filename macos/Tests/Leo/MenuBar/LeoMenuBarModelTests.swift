@@ -143,20 +143,30 @@ struct LeoMenuBarModelTests {
     }
 }
 
-/// Restart always drains gracefully and never prompts (`restart` alone may);
-/// in managed mode the bundled binary runs it by explicit path (D6).
+/// Restart always drains gracefully and never prompts (`restart` alone may).
+/// A managed daemon restarts through the bundled binary by explicit path
+/// (D6) with `--json`, and every answer maps to friendly text: leo's stderr
+/// (a raw `launchctl kickstart … exit status 113`) never reaches the user.
 struct LeoDaemonRestarterTests {
     private actor Recorder: LeoProcessRunning {
         private(set) var calls: [(executable: String, arguments: [String])] = []
         let result: LeoProcessResult
-        init(status: Int32 = 0, stderr: String = "") {
-            result = LeoProcessResult(stdout: Data(), stderr: Data(stderr.utf8), status: status)
+        let failure: (any Error & Sendable)?
+        init(status: Int32 = 0, stdout: String = "", stderr: String = "", failure: (any Error & Sendable)? = nil) {
+            result = LeoProcessResult(stdout: Data(stdout.utf8), stderr: Data(stderr.utf8), status: status)
+            self.failure = failure
         }
         func run(executable: String, arguments: [String], timeout: TimeInterval) async throws -> LeoProcessResult {
             calls.append((executable, arguments))
+            if let failure { throw failure }
             return result
         }
     }
+
+    private struct Boom: Error, Sendable {}
+
+    private static let restartedJSON = #"{"ok":true,"drained":true,"restarted":true}"#
+    private static let kickstartStderr = "launchctl kickstart gui/501/studio.blackpaw.leo.daemon: exit status 113"
 
     private static func restarter(_ recorder: Recorder) -> LeoDaemonRestarter {
         LeoDaemonRestarter(
@@ -170,28 +180,77 @@ struct LeoDaemonRestarterTests {
     @Test func aCLIDaemonRestartsGracefullyThroughTheResolvedLeo() async throws {
         let recorder = Recorder()
 
-        try await Self.restarter(recorder).restart(isManaged: false)
+        let outcome = try await Self.restarter(recorder).restart(isManaged: false)
 
         let calls = await recorder.calls
+        #expect(outcome == .restarted)
         #expect(calls.map(\.executable) == ["/usr/local/bin/leo"])
         #expect(calls.map(\.arguments) == [["service", "restart", "--graceful"]])
     }
 
-    @Test func aManagedDaemonRestartsThroughTheBundledLeoByPath() async throws {
-        let recorder = Recorder()
+    @Test func aManagedDaemonRestartsThroughTheBundledLeoByPathAsJSON() async throws {
+        let recorder = Recorder(stdout: Self.restartedJSON)
 
-        try await Self.restarter(recorder).restart(isManaged: true)
+        let outcome = try await Self.restarter(recorder).restart(isManaged: true)
 
         let calls = await recorder.calls
+        #expect(outcome == .restarted)
         #expect(calls.map(\.executable) == ["/Applications/Leo.app/Contents/Helpers/leo"])
-        #expect(calls.map(\.arguments) == [["service", "restart", "--graceful"]])
+        #expect(calls.map(\.arguments) == [["service", "restart", "--graceful", "--json"]])
     }
 
-    @Test func aFailureCarriesLeosStderr() async {
+    @Test func aCLIFailureCarriesLeosStderr() async {
         let recorder = Recorder(status: 1, stderr: "no launchd job")
 
         await #expect(throws: LeoDaemonError.transport("no launchd job")) {
-            try await Self.restarter(recorder).restart(isManaged: false)
+            _ = try await Self.restarter(recorder).restart(isManaged: false)
         }
+    }
+
+    @Test func notRegisteredIsTheOutsideDaemonCaseNotAnError() async throws {
+        let recorder = Recorder(
+            status: 1, stdout: #"{"ok":false,"error":"not_registered","message":"no job"}"#, stderr: Self.kickstartStderr
+        )
+
+        let outcome = try await Self.restarter(recorder).restart(isManaged: true)
+
+        #expect(outcome == .notRegistered)
+    }
+
+    @Test func busyAgentsExplainThemselves() async throws {
+        let recorder = Recorder(status: 1, stdout: #"{"ok":false,"error":"drain_timeout","message":"2 agents busy"}"#)
+
+        let outcome = try await Self.restarter(recorder).restart(isManaged: true)
+
+        guard case .failed(let message) = outcome else { Issue.record("expected failure, got \(outcome)"); return }
+        #expect(message.contains("busy"))
+    }
+
+    @Test(arguments: [
+        (1, #"{"ok":false,"error":"restart_failed","message":"kickstart failed"}"#),
+        (1, #"{"error":"not_permitted"}"#),
+        (1, "not json at all"),
+        (0, "not json at all"),
+        (113, ""),
+    ])
+    func everyOtherAnswerGetsFriendlyTextWithoutRawStderr(status: Int32, stdout: String) async throws {
+        let recorder = Recorder(status: Int32(status), stdout: stdout, stderr: Self.kickstartStderr)
+
+        let outcome = try await Self.restarter(recorder).restart(isManaged: true)
+
+        guard case .failed(let message) = outcome else { Issue.record("expected failure, got \(outcome)"); return }
+        #expect(message.contains("leo doctor"))
+        #expect(message.contains("~/.leo/state/service.log"))
+        #expect(!message.contains("kickstart"))
+        #expect(!message.contains("113"))
+    }
+
+    @Test func aLeoThatCannotRunGetsFriendlyTextToo() async throws {
+        let recorder = Recorder(failure: Boom())
+
+        let outcome = try await Self.restarter(recorder).restart(isManaged: true)
+
+        guard case .failed(let message) = outcome else { Issue.record("expected failure, got \(outcome)"); return }
+        #expect(message.contains("leo doctor"))
     }
 }

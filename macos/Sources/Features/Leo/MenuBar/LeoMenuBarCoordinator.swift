@@ -29,6 +29,8 @@ import OSLog
     private let releaseToCLI: () -> Void
     /// The app restarted the daemon and the new one answers: reconnect to it.
     private let daemonChanged: () -> Void
+    /// Restart Daemon found the app's job not loaded: B10's outside-daemon flow.
+    private let restartFoundNoJob: () -> Void
     private let fileManager: FileManager
     private let workspace: NSWorkspace
     private var isRestarting = false
@@ -50,6 +52,7 @@ import OSLog
         managed: @escaping () -> (isManaged: Bool, version: String?) = { (false, nil) },
         releaseToCLI: @escaping () -> Void = {},
         daemonChanged: @escaping () -> Void = {},
+        restartFoundNoJob: @escaping () -> Void = {},
         fileManager: FileManager = .default, workspace: NSWorkspace = .shared
     ) {
         self.model = model
@@ -61,6 +64,7 @@ import OSLog
         self.managed = managed
         self.releaseToCLI = releaseToCLI
         self.daemonChanged = daemonChanged
+        self.restartFoundNoJob = restartFoundNoJob
         self.fileManager = fileManager
         self.workspace = workspace
     }
@@ -107,18 +111,29 @@ import OSLog
         Task { @MainActor in
             defer { isRestarting = false }
             do {
-                try await restarter.restart(isManaged: managed().isManaged)
-                daemonChanged()
+                switch try await restarter.restart(isManaged: managed().isManaged) {
+                case .restarted:
+                    daemonChanged()
+                case .notRegistered:
+                    openLeo()
+                    restartFoundNoJob()
+                case .failed(let message):
+                    showRestartFailure(message)
+                }
             } catch {
                 Self.logger.error("daemon restart failed: \(String(describing: error), privacy: .public)")
-                let alert = NSAlert()
-                alert.alertStyle = .warning
-                alert.messageText = "Couldn’t restart the Leo daemon"
-                alert.informativeText = Self.message(for: error)
-                alert.addButton(withTitle: "OK")
-                alert.runModal()
+                showRestartFailure(Self.message(for: error))
             }
         }
+    }
+
+    private func showRestartFailure(_ message: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Couldn’t restart the Leo daemon"
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 
     private static func message(for error: Error) -> String {

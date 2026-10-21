@@ -265,6 +265,8 @@ struct LeoManagedDependencies: Sendable {
     private func awaitManagedHello(probe: LeoDaemonProbeResult) async {
         if let version = probe.version {
             status = .managed(version: version)
+            // Same version or not: a daemon answering while the app's job isn't loaded runs outside it.
+            if await appJob.isLoaded() == false { _ = await offerToStopOutsideDaemon() }
         } else if let version = await setup.waitForHello() {
             status = .managed(version: version)
         } else {
@@ -339,6 +341,19 @@ struct LeoManagedDependencies: Sendable {
         guard case .answered(_, let pid?) = await dependencies.probe.health() else { return false }
         status = .runningOutsideJob(pid: pid)
         return true
+    }
+
+    /// The menu's Restart Daemon got `not_registered`: the app's job isn't loaded.
+    func restartFoundNoJob() async {
+        await exclusively {
+            guard await self.offerToStopOutsideDaemon() else {
+                self.notice = LeoManagedNotice(
+                    title: "Leo couldn’t restart its daemon",
+                    message: "Leo’s daemon job isn’t loaded and no daemon answers. \(LeoDaemonRestarter.doctorAdvice)"
+                )
+                return
+            }
+        }
     }
 
     private func stopOutsideDaemon() async {
@@ -441,6 +456,8 @@ struct LeoManagedDependencies: Sendable {
             paths: dependencies.paths, fileSystem: dependencies.fileSystem
         )
     }
+
+    private var appJob: LeoAppJob { LeoAppJob(runner: dependencies.runner, label: dependencies.label) }
 
     private var postUpdateRestart: LeoPostUpdateRestart {
         let d = dependencies
