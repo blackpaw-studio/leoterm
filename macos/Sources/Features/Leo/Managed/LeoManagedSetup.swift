@@ -72,6 +72,16 @@ struct LeoManagedSetup: Sendable {
         return .success(Prepared(tmuxPath: tmuxPath))
     }
 
+    /// Takeover's check before the handover that step 3 can write the marker.
+    func checkMarkerWritable() -> Failure? {
+        do {
+            try markerStore.checkWritable()
+            return nil
+        } catch {
+            return Failure(step: .marker, message: "Leo can’t write \(paths.markerURL.path): \(error)")
+        }
+    }
+
     /// Steps 3–5. `captured` is the handover's env (B3); `handBack` is
     /// `handover --to-cli`, which a rollback after a takeover runs first.
     func activate(_ prepared: Prepared, captured: [String: String]?, handBack: (@Sendable () async -> LeoHandoverRun)? = nil) async -> Outcome {

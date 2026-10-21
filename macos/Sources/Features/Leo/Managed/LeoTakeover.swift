@@ -37,9 +37,9 @@ struct LeoTakeoverStore {
 }
 
 /// B3: moves a CLI-installed daemon under the app. The setup's preparation
-/// (tmux, link) runs first, then the running `-L leo` server's tmux version
-/// is preserved, then leo hands over; only after `ok` does the app write
-/// its marker and register.
+/// (tmux, link) and a marker write check run first, then the running
+/// `-L leo` server's tmux version is preserved, then leo hands over; only
+/// after `ok` does the app write its marker and register.
 struct LeoTakeover: Sendable {
     static let tmuxQueryTimeout: TimeInterval = 10
 
@@ -56,6 +56,7 @@ struct LeoTakeover: Sendable {
         case .failure(let failure): return .preparationFailed(failure)
         case .success(let value): prepared = value
         }
+        if let failure = setup.checkMarkerWritable() { return .preparationFailed(failure) }
         let tmuxWarnings = await preserveRunningTmux()
 
         let result: LeoHandoverResult

@@ -109,6 +109,14 @@ struct LeoTakeoverTests {
     static let brewTmux = "/opt/homebrew/bin/tmux"
     static let cellarTmux = "/opt/homebrew/Cellar/tmux/3.6a/bin/tmux"
     static let display = [brewTmux, "-L", "leo", "display", "-p", "#{version}"]
+    static let preflight = "/home/test/.leo/state/managed.json.preflight"
+    /// A 0600 file made and removed beside the marker, before the handover.
+    static let markerPreflight: [LeoManagedEvent] = [
+        .fs(.createDirectory("/home/test/.leo/state", mode: 0o700)),
+        .fs(.write("/home/test/.leo/state/.managed.json.preflight.t2.tmp", mode: 0o600)),
+        .fs(.rename("/home/test/.leo/state/.managed.json.preflight.t2.tmp", preflight)),
+        .fs(.remove(preflight)),
+    ]
 
     struct Rig {
         let base = LeoManagedSetupTests.Rig()
@@ -140,6 +148,11 @@ struct LeoTakeoverTests {
         func eventsAfterPrepare() -> [LeoManagedEvent] {
             Array(log.events.dropFirst(LeoManagedSetupTests.freshInstallOps.count - 3))
         }
+
+        /// Everything after the preparation and the marker write check.
+        func eventsAfterPreflight() -> [LeoManagedEvent] {
+            Array(eventsAfterPrepare().dropFirst(LeoTakeoverTests.markerPreflight.count))
+        }
     }
 
     // MARK: success
@@ -150,12 +163,11 @@ struct LeoTakeoverTests {
         let outcome = await rig.takeover().run()
 
         #expect(outcome == .managed(version: "0.57.0", warnings: ["drained 2 agents"]))
-        #expect(rig.eventsAfterPrepare() == [
+        #expect(rig.eventsAfterPrepare() == Self.markerPreflight + [
             .run(Self.display),
             .run(LeoHandoverTests.toApp),
-            .fs(.createDirectory("/home/test/.leo/state", mode: 0o700)),
-            .fs(.write("/home/test/.leo/state/.managed.json.t2.tmp", mode: 0o600)),
-            .fs(.rename("/home/test/.leo/state/.managed.json.t2.tmp", Self.marker)),
+            .fs(.write("/home/test/.leo/state/.managed.json.t3.tmp", mode: 0o600)),
+            .fs(.rename("/home/test/.leo/state/.managed.json.t3.tmp", Self.marker)),
             .agent("register"),
         ])
         guard case .ours(let marker) = rig.base.writtenMarker() else { Issue.record("no marker"); return }
@@ -228,6 +240,20 @@ struct LeoTakeoverTests {
         #expect(rig.base.writtenMarker() == .absent)
     }
 
+    // MARK: the marker must be writable before the handover
+
+    /// After `--to-app` the CLI daemon is down until the marker is written.
+    @Test func anUnwritableMarkerStopsTheTakeoverBeforeTheHandover() async {
+        let rig = Rig()
+        rig.fileSystem.failNext("write", at: Self.preflight, code: EACCES)
+
+        guard case .preparationFailed(let failure) = await rig.takeover().run() else { Issue.record("expected preparation failure"); return }
+
+        #expect(failure.step == .marker)
+        #expect(!rig.log.events.contains(.run(LeoHandoverTests.toApp)))
+        #expect(!rig.log.events.contains { if case .agent = $0 { true } else { false } })
+    }
+
     // MARK: setup failure after an OK handover
 
     @Test func aFailedRegisterAfterHandoverHandsBackToTheCLIThenUnregisters() async throws {
@@ -268,7 +294,7 @@ struct LeoTakeoverTests {
         _ = await rig.takeover().run()
 
         let temp = "/home/test/.leo/app/tmux/3.6a/.tmux.c2.tmp"
-        #expect(Array(rig.eventsAfterPrepare().prefix(7)) == [
+        #expect(Array(rig.eventsAfterPreflight().prefix(7)) == [
             .run(Self.display),
             .run([Self.brewTmux, "-V"]),
             .fs(.createDirectory("/home/test/.leo/app/tmux/3.6a", mode: 0o755)),
@@ -303,7 +329,7 @@ struct LeoTakeoverTests {
 
         _ = await rig.takeover().run()
 
-        #expect(Array(rig.eventsAfterPrepare().prefix(2)) == [.run(Self.display), .run(LeoHandoverTests.toApp)])
+        #expect(Array(rig.eventsAfterPreflight().prefix(2)) == [.run(Self.display), .run(LeoHandoverTests.toApp)])
     }
 
     @Test func noBinaryForTheServersVersionIsAWarningNotABlock() async throws {
