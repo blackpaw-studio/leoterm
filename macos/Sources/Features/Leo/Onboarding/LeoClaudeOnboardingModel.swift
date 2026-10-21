@@ -31,21 +31,26 @@ enum LeoClaudeHealth: Equatable, Sendable {
     private var isChecking = false
     private var isRechecking = false
     private let now: () -> TimeInterval
+    private let sleep: (TimeInterval) async throws -> Void
     private var lastRecheck: TimeInterval?
     /// Which offer is open, by token: a recheck that outlives its offer
     /// (Not Now clicked mid-await) must not touch a later one.
     private var openOffer: Int?
+    /// Rechecks while an offer is open, since an idle daemon sends no snapshots.
+    private var poll: Task<Void, Never>?
     private var offerCount = 0
 
-    /// Snapshots recheck an open offer at most this often.
+    /// Snapshots and the open offer's own poll recheck at most this often.
     static let recheckInterval: TimeInterval = 2
 
     init(
         health: @escaping () async -> LeoClaudeHealth, locate: @escaping () async -> String?,
         store: LeoClaudeOnboardingStore, presenter: any LeoClaudeOfferPresenting,
-        now: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
+        now: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+        sleep: @escaping (TimeInterval) async throws -> Void = { try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000)) }
     ) {
         self.now = now
+        self.sleep = sleep
         self.health = health
         self.locate = locate
         self.store = store
@@ -98,6 +103,17 @@ enum LeoClaudeHealth: Equatable, Sendable {
         await recheckOpenOffer()
     }
 
+    private func startPolling() {
+        poll?.cancel()
+        let sleep = sleep
+        poll = Task { [weak self] in
+            while !Task.isCancelled {
+                do { try await sleep(Self.recheckInterval) } catch { return }
+                await self?.recheckIfDue()
+            }
+        }
+    }
+
     private func isMissing() async -> Bool {
         switch await health() {
         case .missing: true
@@ -115,8 +131,11 @@ enum LeoClaudeHealth: Equatable, Sendable {
         guard openOffer == nil else { return }
         offerCount += 1
         openOffer = offerCount
+        startPolling()
         let accepted = await presenter.presentOffer()
         openOffer = nil
+        poll?.cancel()
+        poll = nil
         if accepted { presenter.runSetUp() }
     }
 }

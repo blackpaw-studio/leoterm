@@ -337,6 +337,75 @@ struct LeoClaudeHealthTests {
         #expect(sources.healthCalls == 0)
     }
 
+    // MARK: polling an idle daemon
+
+    private func pollingModel(
+        _ sources: Sources, _ presenter: Presenter, clock: Clock, ticks: LeoFiringClock
+    ) -> LeoClaudeOnboardingModel {
+        LeoClaudeOnboardingModel(
+            health: { sources.nextHealth() }, locate: { sources.locate() },
+            store: LeoClaudeOnboardingStore(defaults: LeoInMemoryDefaults()), presenter: presenter, now: { clock.now },
+            sleep: { try await ticks.sleep(UInt64($0 * 1_000_000_000)) }
+        )
+    }
+
+    private static let pollTick = UInt64(LeoClaudeOnboardingModel.recheckInterval * 1_000_000_000)
+
+    @Test func theOpenOfferIsWithdrawnByPollingWhenNoSnapshotEverArrives() async {
+        let sources = Sources(.missing, .missing, .found(path: "/x/claude")), presenter = Presenter()
+        let clock = Clock(), ticks = LeoFiringClock()
+        let model = pollingModel(sources, presenter, clock: clock, ticks: ticks)
+        let first = Task { await model.snapshotLanded(hasLiveLocalDaemon: true) }
+        await settle()
+        #expect(presenter.offers == 1)
+
+        clock.now += LeoClaudeOnboardingModel.recheckInterval
+        ticks.fire(Self.pollTick)
+        await settle()
+        #expect(presenter.withdrawals == 0)
+        clock.now += LeoClaudeOnboardingModel.recheckInterval
+        ticks.fire(Self.pollTick)
+        await settle()
+        let withdrawals = presenter.withdrawals
+        presenter.answerVisibleOffer(false)
+        await first.value
+
+        #expect(withdrawals == 1)
+        #expect(ticks.pending(Self.pollTick).isEmpty)
+    }
+
+    @Test func nothingPollsWhileNoOfferIsOpen() async {
+        let sources = Sources(.found(path: "/x/claude")), presenter = Presenter()
+        let ticks = LeoFiringClock()
+        let model = pollingModel(sources, presenter, clock: Clock(), ticks: ticks)
+
+        await model.snapshotLanded(hasLiveLocalDaemon: true)
+        await settle()
+
+        #expect(ticks.pending(Self.pollTick).isEmpty)
+        #expect(sources.healthCalls == 1)
+    }
+
+    @Test func pollingStopsOnceTheOfferIsAnswered() async {
+        let sources = Sources(.missing), presenter = Presenter()
+        let clock = Clock(), ticks = LeoFiringClock()
+        let model = pollingModel(sources, presenter, clock: clock, ticks: ticks)
+        let first = Task { await model.snapshotLanded(hasLiveLocalDaemon: true) }
+        await settle()
+        #expect(ticks.pending(Self.pollTick).count == 1)
+
+        presenter.answerVisibleOffer(false)
+        await first.value
+        await settle()
+
+        #expect(ticks.pending(Self.pollTick).isEmpty)
+        let calls = sources.healthCalls
+        clock.now += 10
+        ticks.fire(Self.pollTick)
+        await settle()
+        #expect(sources.healthCalls == calls)
+    }
+
     // MARK: a spawn that failed with claude_not_found
 
     @Test func aFailedSpawnOffersEvenAfterTheFirstRunOfferWasShown() async {
