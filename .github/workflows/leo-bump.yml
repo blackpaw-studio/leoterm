@@ -1,0 +1,104 @@
+name: Leo Bump
+
+# A stable leo release (leo repo, vX.Y.Z tag) dispatches `leo-release` here
+# with {version, sha256}. This verifies the release and opens a PR that moves
+# macos/Bundled/LEO_VERSION to it. Merging that PR tags a Leo release
+# (leo-bump-release.yml). workflow_dispatch takes the same inputs for manual
+# testing. repository_dispatch only runs the workflow on the default branch.
+#
+# The PR and its branch are created with LEO_BUMP_TOKEN, a fine-grained PAT:
+# anything created with GITHUB_TOKEN triggers no workflows, so leo-ci would
+# never run on the bump PR. The payload is untrusted: it only ever reaches
+# scripts through env, and bump-leo.sh validates it and re-verifies it against
+# that release's checksums.txt.
+
+on:
+  repository_dispatch:
+    types: [leo-release]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: leo version, bare X.Y.Z (no "v")
+        required: true
+        type: string
+      sha256:
+        description: sha256 of leo_<version>_darwin_universal.tar.gz (64 lowercase hex)
+        required: true
+        type: string
+
+concurrency:
+  group: leo-bump
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  bump:
+    runs-on: [self-hosted, macOS, leo]
+    timeout-minutes: 20
+    steps:
+      # Always main, even for a manual dispatch from another
+      # ref: the bump PR must be main plus the pin change and nothing else.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          token: ${{ secrets.LEO_BUMP_TOKEN }}
+          # The push below needs the token; checkout's post step removes it.
+          persist-credentials: true
+
+      - name: Verify the release and rewrite the pin
+        id: bump
+        env:
+          VERSION: ${{ github.event.client_payload.version || inputs.version }}
+          SHA256: ${{ github.event.client_payload.sha256 || inputs.sha256 }}
+        run: .github/scripts/leo/bump-leo.sh "$VERSION" "$SHA256"
+
+      # bump-leo.sh checked the checksum; this downloads the tarball and
+      # checks it is a universal leo reporting the pinned version.
+      - name: Confirm the pinned download
+        if: steps.bump.outputs.bump == 'true'
+        run: .github/scripts/leo/fetch-leo.sh "$RUNNER_TEMP/leo-bump"
+
+      - name: Open or update the bump PR
+        if: steps.bump.outputs.bump == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.LEO_BUMP_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          BUMP_VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          set -euo pipefail
+          branch="bump/leo-$BUMP_VERSION"
+          title="chore: bump bundled leo to $BUMP_VERSION"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "$branch"
+          git add macos/Bundled/LEO_VERSION
+          git commit -q -m "$title"
+          # The branch is owned by this workflow; a re-dispatch rebuilds it on main.
+          git push --force origin "refs/heads/$branch"
+
+          body="$RUNNER_TEMP/bump-pr-body.md"
+          cat > "$body" <<BODY
+          Bumps the leo binary bundled in Leo.app (\`Contents/Helpers/leo\`) to
+          **$BUMP_VERSION**, from the \`leo-release\` dispatch for leo v$BUMP_VERSION.
+
+          - \`macos/Bundled/LEO_VERSION\` now pins leo $BUMP_VERSION.
+          - The release's \`checksums.txt\` lists the pinned sha256 for
+            \`leo_${BUMP_VERSION}_darwin_universal.tar.gz\`, and \`fetch-leo.sh\`
+            downloaded and verified the tarball.
+          - CI runs on this PR.
+
+          Merging this PR tags the next patch Leo release (\`leo-bump-release.yml\`).
+          Close it to skip the bump.
+          BODY
+
+          existing="$(gh pr list --head "$branch" --base main --state open --json number --jq '.[0].number // empty')"
+          if [[ -n "$existing" ]]; then
+            gh pr edit "$existing" --title "$title" --body-file "$body"
+            echo "Updated PR #$existing"
+          else
+            gh pr create --base main --head "$branch" --title "$title" --body-file "$body"
+          fi

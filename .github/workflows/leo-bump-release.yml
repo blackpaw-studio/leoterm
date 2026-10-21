@@ -1,0 +1,75 @@
+name: Leo Bump Release
+
+# When a leo bump PR (head branch bump/leo-<version>, opened by leo-bump.yml)
+# merges into main, push the next patch leo-vX.Y.Z tag so leo-release.yml
+# builds and publishes it. The tag is pushed with LEO_BUMP_TOKEN, a
+# fine-grained PAT: a tag pushed with GITHUB_TOKEN triggers no workflows.
+#
+# One tag per merge: runs are serialised, the next tag is computed from the
+# tags that exist when the run starts, and next-leo-tag.sh prints nothing when
+# a release tag already points at the merge commit.
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+concurrency:
+  group: leo-bump-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  tag:
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'bump/leo-')
+    runs-on: [self-hosted, macOS, leo]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout the merge commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+          fetch-tags: true
+          token: ${{ secrets.LEO_BUMP_TOKEN }}
+          # The tag push below needs the token; checkout's post step removes it.
+          persist-credentials: true
+
+      - name: Tag the next release
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+          re='^bump/leo-[0-9]+\.[0-9]+\.[0-9]+$'
+          if [[ ! "$HEAD_REF" =~ $re ]]; then
+            echo "::notice::branch '$HEAD_REF' is not a leo bump branch; not tagging"
+            exit 0
+          fi
+
+          # A bump touches only the pin. Anything else rode along: leave the
+          # release to a human.
+          changed="$(git diff --name-only "$MERGE_SHA^1" "$MERGE_SHA")"
+          if [[ "$changed" != "macos/Bundled/LEO_VERSION" ]]; then
+            echo "::notice::merge changed more than macos/Bundled/LEO_VERSION; not tagging"
+            printf '%s\n' "$changed"
+            exit 0
+          fi
+
+          TAG="$(.github/scripts/leo/next-leo-tag.sh "$MERGE_SHA")"
+          if [[ -z "$TAG" ]]; then
+            echo "::notice::$MERGE_SHA is already released; not tagging"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG" "$MERGE_SHA"
+          # No --force: a tag created since the run began makes this fail.
+          git push origin "refs/tags/$TAG"
+          echo "Tagged $TAG at $MERGE_SHA"
