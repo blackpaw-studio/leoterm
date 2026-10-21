@@ -26,6 +26,10 @@ import OSLog
     private let fileManager: FileManager
     private let workspace: NSWorkspace
     private var isRestarting = false
+    /// Pairs through the same `leo` the restarter resolves.
+    private lazy var pairPanel = LeoPairDevicePanelController(
+        makeModel: { [restarter] in LeoPairingModel(service: LeoPairingService(cli: restarter.cli)) }
+    )
     private lazy var controller = LeoMenuBarController(
         inputs: { [unowned self] in menuInputs() },
         perform: { [unowned self] in perform($0) },
@@ -66,6 +70,7 @@ import OSLog
 
     private func perform(_ action: LeoMenuBarAction) {
         switch action {
+        case .pairDevice: pairPanel.show()
         case .restartDaemon: restart()
         case .openLogs: workspace.open(Self.logURL())
         case .toggleServerOnly:
