@@ -22,7 +22,7 @@ import LeoKit
     private let openLeo: () -> Void
     /// The managed daemon's state (B5): whether the app owns it, and the
     /// version its hello reported.
-    private let managed: () -> (isManaged: Bool, version: String?)
+    private let managed: () -> (isManaged: Bool, isOutsideDaemon: Bool, version: String?)
     private let releaseToCLI: () -> Void
     /// The app restarted the daemon and the new one answers: reconnect to it.
     private let daemonChanged: () -> Void
@@ -46,7 +46,7 @@ import LeoKit
     init(
         model: LeoSidebarModel, serverMode: LeoServerMode, restarter: LeoDaemonRestarter, defaults: UserDefaults,
         windowID: @escaping () -> LeoWindowID?, openLeo: @escaping () -> Void,
-        managed: @escaping () -> (isManaged: Bool, version: String?) = { (false, nil) },
+        managed: @escaping () -> (isManaged: Bool, isOutsideDaemon: Bool, version: String?) = { (false, false, nil) },
         releaseToCLI: @escaping () -> Void = {},
         daemonChanged: @escaping () -> Void = {},
         restartFoundNoJob: @escaping () -> Void = {},
@@ -77,7 +77,7 @@ import LeoKit
         let managed = managed()
         return LeoMenuBarInputs(
             snapshot: model.snapshot,
-            version: managed.version, isManaged: managed.isManaged,
+            version: managed.version, isManaged: managed.isManaged, isOutsideDaemon: managed.isOutsideDaemon,
             serverOnly: serverMode.isServerOnly, isRestarting: isRestarting,
             hasLogFile: fileManager.fileExists(atPath: Self.logURL().path)
         )

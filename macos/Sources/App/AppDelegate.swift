@@ -185,7 +185,7 @@ class AppDelegate: NSObject,
         },
         managed: { [unowned self] in
             let summary = self.leoManaged?.summary
-            return (summary?.isManaged ?? false, summary?.version)
+            return (summary?.isManaged ?? false, summary?.isOutsideDaemon ?? false, summary?.version)
         },
         releaseToCLI: { [unowned self] in
             Task { @MainActor in await self.leoManaged?.releaseToCLI() }

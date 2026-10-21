@@ -47,9 +47,10 @@ struct LeoManagedDependencies: Sendable {
     var presentation: LeoManagedPresentation { LeoManagedPresentation(status: status, notice: notice) }
     var summary: LeoManagedSummary {
         switch status {
-        case .managed(let version): LeoManagedSummary(isManaged: true, version: version)
-        case .updating, .runningOutsideJob: LeoManagedSummary(isManaged: true, version: nil)
-        default: LeoManagedSummary(isManaged: false, version: nil)
+        case .managed(let version): LeoManagedSummary(isManaged: true, isOutsideDaemon: false, version: version)
+        case .updating: LeoManagedSummary(isManaged: true, isOutsideDaemon: false, version: nil)
+        case .runningOutsideJob: LeoManagedSummary(isManaged: true, isOutsideDaemon: true, version: nil)
+        default: LeoManagedSummary(isManaged: false, isOutsideDaemon: false, version: nil)
         }
     }
 

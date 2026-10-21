@@ -122,5 +122,7 @@ struct LeoManagedPresentation: Equatable, Sendable {
 /// For the menu bar extra.
 struct LeoManagedSummary: Equatable, Sendable {
     let isManaged: Bool
+    /// A leo daemon answers, but not from the app's job (B10).
+    let isOutsideDaemon: Bool
     let version: String?
 }

@@ -81,7 +81,7 @@ import Testing
         #expect(startup.status == .managed(version: "0.57.0"))
         #expect(rig.count(.run([LeoManagedSetupTests.bundledTmux, "-V"])) == 1)
         #expect(rig.count(.agent("register")) == 1)
-        #expect(startup.summary == LeoManagedSummary(isManaged: true, version: "0.57.0"))
+        #expect(startup.summary == LeoManagedSummary(isManaged: true, isOutsideDaemon: false, version: "0.57.0"))
     }
 
     @Test func aFreshInstallWhereMacOSAnswersNotFoundForAnUnregisteredAgentStillInstalls() async {

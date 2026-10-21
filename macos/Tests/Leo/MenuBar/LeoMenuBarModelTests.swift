@@ -13,17 +13,24 @@ struct LeoMenuBarModelTests {
 
     private static func inputs(
         _ connectivity: LeoConnectivity = .connected, rows: [LeoAgentRow] = [], version: String? = nil,
-        managed: Bool = false, serverOnly: Bool = false, restarting: Bool = false, hasLog: Bool = true
+        managed: Bool = false, outside: Bool = false, serverOnly: Bool = false, restarting: Bool = false, hasLog: Bool = true
     ) -> LeoMenuBarInputs {
         LeoMenuBarInputs(
             snapshot: LeoSidebarSnapshot(rows: rows, connectivity: connectivity, generation: 1),
-            version: version, isManaged: managed, serverOnly: serverOnly, isRestarting: restarting, hasLogFile: hasLog
+            version: version, isManaged: managed, isOutsideDaemon: outside, serverOnly: serverOnly, isRestarting: restarting, hasLogFile: hasLog
         )
     }
 
     private static func status(_ items: [LeoMenuBarItem]) -> LeoMenuBarItem { items[0] }
 
     // MARK: Status line
+
+    @Test func aDaemonOutsideLeoAppIsNeverCalledManagedByLeo() {
+        #expect(Self.status(LeoMenuBarModel.items(Self.inputs(version: "0.57.0", managed: true, outside: true)))
+            == .status(title: "A leo daemon is running outside Leo.app", detail: "v0.57.0"))
+        #expect(Self.status(LeoMenuBarModel.items(Self.inputs(managed: true, outside: true)))
+            == .status(title: "A leo daemon is running outside Leo.app", detail: nil))
+    }
 
     @Test func connectedShowsTheRunningDaemonWithVersionAndManagement() {
         #expect(Self.status(LeoMenuBarModel.items(Self.inputs(version: "0.57.0", managed: true)))
@@ -91,7 +98,7 @@ struct LeoMenuBarModelTests {
         #expect(Self.actions(LeoMenuBarModel.items(Self.inputs(.loading)))[.pairDevice]?.enabled == false)
         let remote = LeoMenuBarInputs(
             snapshot: LeoSidebarSnapshot(rows: [], connectivity: .connected, generation: 1, features: .none, featuresHost: .remote("box")),
-            version: nil, isManaged: false, serverOnly: false, isRestarting: false, hasLogFile: true
+            version: nil, isManaged: false, isOutsideDaemon: false, serverOnly: false, isRestarting: false, hasLogFile: true
         )
         #expect(Self.actions(LeoMenuBarModel.items(remote))[.pairDevice]?.enabled == false)
     }
@@ -116,7 +123,7 @@ struct LeoMenuBarModelTests {
     @Test func restartIsUnavailableForARemoteHost() {
         let remote = LeoMenuBarInputs(
             snapshot: LeoSidebarSnapshot(rows: [], connectivity: .connected, generation: 1, features: .none, featuresHost: .remote("box")),
-            version: nil, isManaged: false, serverOnly: false, isRestarting: false, hasLogFile: true
+            version: nil, isManaged: false, isOutsideDaemon: false, serverOnly: false, isRestarting: false, hasLogFile: true
         )
         #expect(Self.actions(LeoMenuBarModel.items(remote))[.restartDaemon]?.enabled == false)
     }

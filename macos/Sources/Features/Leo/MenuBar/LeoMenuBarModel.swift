@@ -6,6 +6,8 @@ struct LeoMenuBarInputs: Equatable {
     /// The running daemon's version; nil until a hello reports it.
     let version: String?
     let isManaged: Bool
+    /// The daemon answering isn't the app's own (B10), so it isn't "managed by Leo".
+    let isOutsideDaemon: Bool
     let serverOnly: Bool
     let isRestarting: Bool
     let hasLogFile: Bool
@@ -85,6 +87,8 @@ enum LeoMenuBarModel {
             return .status(title: "Daemon not running", detail: nil)
         case .disconnected(_, let isRetrying):
             return .status(title: "Daemon disconnected", detail: isRetrying ? "Reconnecting…" : nil)
+        case .connected where inputs.isOutsideDaemon:
+            return .status(title: "A leo daemon is running outside Leo.app", detail: inputs.version.map { "v\($0)" })
         case .connected:
             let parts = [inputs.version.map { "v\($0)" }, inputs.isManaged ? "managed by Leo" : nil].compactMap { $0 }
             return .status(title: "Daemon running", detail: parts.isEmpty ? nil : parts.joined(separator: " · "))

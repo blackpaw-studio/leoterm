@@ -29,6 +29,7 @@ import Testing
         await startup.run()
 
         #expect(startup.status == .runningOutsideJob(pid: 4242))
+        #expect(startup.summary == LeoManagedSummary(isManaged: true, isOutsideDaemon: true, version: nil))
         #expect(startup.presentation.banner?.actions == [.stopOutsideDaemon])
         #expect(!rig.log.events.contains { if case .signal = $0 { true } else { false } })
     }
