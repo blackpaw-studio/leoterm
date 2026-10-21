@@ -54,8 +54,6 @@ struct LeoManagedDependencies: Sendable {
     private var resolvedLocation: LeoAppLocation?
     /// B6: each bundled → running pair is restarted at most once per launch.
     private var triedRestarts: Set<[String]> = []
-    /// Approval is pending after a takeover: a rollback must hand back to the CLI.
-    private var approvalFollowsTakeover = false
     /// One managed operation at a time; a second click while one runs is ignored.
     private var isBusy = false
 
@@ -87,8 +85,7 @@ struct LeoManagedDependencies: Sendable {
     func applicationDidBecomeActive() async {
         guard status == .awaitingApproval else { return }
         await exclusively {
-            let handBack = self.approvalFollowsTakeover ? self.handBackToCLI : nil
-            self.apply(await self.setup.resumeAfterApproval(handBack: handBack))
+            self.apply(await self.setup.resumeAfterApproval(handBack: self.handBackIfHandedOver))
         }
     }
 
@@ -190,7 +187,6 @@ struct LeoManagedDependencies: Sendable {
                 await awaitManagedHello(probe: inputs.probe)
             }
         case .awaitApproval:
-            approvalFollowsTakeover = false
             status = .awaitingApproval
         case .repair(.invalidMarker(let detail)):
             Self.logger.error("rewriting an invalid managed.json: \(detail, privacy: .public)")
@@ -221,7 +217,7 @@ struct LeoManagedDependencies: Sendable {
 
     private func runSetup(captured: [String: String]?) async {
         status = .settingUp
-        apply(await setup.run(captured: captured))
+        apply(await setup.run(captured: captured, handBack: handBackIfHandedOver))
     }
 
     private func awaitManagedHello(probe: LeoDaemonProbeResult) async {
@@ -298,7 +294,6 @@ struct LeoManagedDependencies: Sendable {
             warnings.forEach { Self.logger.log("takeover: \($0, privacy: .public)") }
             status = .managed(version: version)
         case .awaitingApproval:
-            approvalFollowsTakeover = true
             status = .awaitingApproval
         case .cannotTakeOver:
             status = .usingCLI(offerTakeover: false, isRunning: wasRunning)
@@ -333,6 +328,16 @@ struct LeoManagedDependencies: Sendable {
     }
 
     private var handover: LeoHandover { LeoHandover(runner: dependencies.runner, bundledLeo: dependencies.paths.bundledLeo.path) }
+
+    /// After a takeover leo's `.handed-over` backup of the CLI plist and the
+    /// app's marker are both on disk until a release: a rollback then hands
+    /// the daemon back. Read from disk, so it survives a relaunch while
+    /// Login Items approval is pending.
+    private var handBackIfHandedOver: (@Sendable () async -> LeoHandoverRun)? {
+        guard dependencies.fileSystem.kind(at: dependencies.paths.cliLaunchAgentPlistBackup) != .absent,
+              markerStore.read() != .absent else { return nil }
+        return handBackToCLI
+    }
 
     private var handBackToCLI: @Sendable () async -> LeoHandoverRun {
         let handover = handover

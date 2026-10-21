@@ -169,6 +169,57 @@ import Testing
         #expect(startup.status == .managed(version: "0.57.0"))
     }
 
+    // MARK: a takeover pending approval survives a relaunch
+
+    static let plistBackup = "/home/test/Library/LaunchAgents/com.blackpaw.leo.plist.handed-over"
+
+    /// Relaunched while Login Items approval is pending after a takeover: the
+    /// CLI plist is still leo's `.handed-over` backup, so a denial hands back.
+    @Test func aDeniedApprovalAfterARelaunchHandsTheDaemonBackToTheCLI() async throws {
+        let rig = Rig()
+        try rig.writeOurMarker()
+        rig.base.fileSystem.addFile(Self.plistBackup, "<plist/>")
+        rig.base.agent.script(status: .requiresApproval)
+        let startup = rig.startup()
+        await startup.run()
+        #expect(startup.status == .awaitingApproval)
+
+        rig.base.agent.script(status: .notRegistered)
+        await startup.applicationDidBecomeActive()
+
+        #expect(Array(rig.log.events.suffix(2)) == [.run(LeoHandoverTests.toCLI), .agent("unregister")])
+        #expect(!rig.log.events.contains(.fs(.remove(LeoManagedSetupTests.marker))))
+    }
+
+    @Test func aDeniedApprovalWithoutAHandoverRollsBackLocally() async throws {
+        let rig = Rig()
+        try rig.writeOurMarker()
+        rig.base.agent.script(status: .requiresApproval)
+        let startup = rig.startup()
+        await startup.run()
+
+        rig.base.agent.script(status: .notRegistered)
+        await startup.applicationDidBecomeActive()
+
+        #expect(!rig.log.events.contains(.run(LeoHandoverTests.toCLI)))
+        #expect(Array(rig.log.events.suffix(2)) == [.agent("unregister"), .fs(.remove(LeoManagedSetupTests.marker))])
+    }
+
+    /// Managed after a takeover but unregistered (say, removed in Login
+    /// Items): a failed re-register hands back too, never strands the CLI.
+    @Test func aFailedReRegisterAfterATakeoverHandsTheDaemonBackToTheCLI() async throws {
+        let rig = Rig()
+        try rig.writeOurMarker()
+        rig.base.fileSystem.addFile(Self.plistBackup, "<plist/>")
+        rig.base.agent.script(status: .notRegistered)
+        rig.base.agent.failNextRegister()
+
+        let startup = rig.startup()
+        await startup.run()
+
+        #expect(Array(rig.log.events.suffix(3)) == [.agent("register"), .run(LeoHandoverTests.toCLI), .agent("unregister")])
+    }
+
     @Test func becomingActiveOutsideApprovalDoesNothing() async {
         let rig = Rig()
         let startup = rig.startup(buildKind: .debug, location: .exempt)

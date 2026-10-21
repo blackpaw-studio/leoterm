@@ -45,10 +45,10 @@ struct LeoManagedSetup: Sendable {
     /// Only then is `~/.leo/app/bin/leo` repointed at this bundle (A14).
     let isInApplications: Bool
 
-    func run(captured: [String: String]? = nil) async -> Outcome {
+    func run(captured: [String: String]? = nil, handBack: (@Sendable () async -> LeoHandoverRun)? = nil) async -> Outcome {
         switch await prepare() {
         case .failure(let failure): return .failed(failure)
-        case .success(let prepared): return await activate(prepared, captured: captured)
+        case .success(let prepared): return await activate(prepared, captured: captured, handBack: handBack)
         }
     }
 

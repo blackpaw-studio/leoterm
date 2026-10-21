@@ -63,6 +63,8 @@ struct LeoInstallPaths: Equatable, Sendable {
 
     /// The CLI daemon's own LaunchAgent; present means installed, even if stopped.
     var cliLaunchAgentPlist: URL { home.appendingPathComponent("Library/LaunchAgents/com.blackpaw.leo.plist") }
+    /// Where `handover --to-app` moves the CLI plist; `--to-cli` moves it back.
+    var cliLaunchAgentPlistBackup: URL { home.appendingPathComponent("Library/LaunchAgents/com.blackpaw.leo.plist.handed-over") }
     var cliBinaryCandidates: [URL] { [localBinLeo] + Self.systemCLIBinaries.map { URL(fileURLWithPath: $0) } }
 
     private static func isSafeVersionComponent(_ version: String) -> Bool {
