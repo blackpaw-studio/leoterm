@@ -19,7 +19,7 @@ struct LeoReleaseToCLITests {
         let runner: LeoScriptedRunner
         let agent: LeoFakeLaunchAgent
 
-        init(reply: LeoScriptedRunner.Reply = .exit(0, stdout: #"{"ok":true,"warnings":["drained 1 agent"]}"#)) {
+        init(reply: LeoScriptedRunner.Reply = .exit(0, stdout: #"{"ok":true,"managed_stopped":true,"warnings":["drained 1 agent"]}"#)) {
             runner = LeoScriptedRunner(log: log)
             agent = LeoFakeLaunchAgent(log: log, status: .enabled)
             runner.on(LeoReleaseToCLITests.toCLI, reply)
@@ -108,7 +108,7 @@ struct LeoReleaseToCLITests {
     }
 
     @Test(arguments: [
-        LeoScriptedRunner.Reply.exit(1, stdout: #"{"ok":false,"error":"drain_timeout","managed_stopped":false}"#),
+        LeoScriptedRunner.Reply.exit(1, stdout: #"{"error":"drain_timeout","message":"1 agent still busy"}"#),
         .exit(0, stdout: "garbage"),
         .error(LeoDaemonError.timeout),
     ])

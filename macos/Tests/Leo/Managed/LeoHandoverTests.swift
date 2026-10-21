@@ -10,11 +10,17 @@ struct LeoHandoverTests {
     static let bundled = "/Applications/Leo.app/Contents/Helpers/leo"
     static let toApp = [bundled, "service", "handover", "--to-app", "--label", "studio.blackpaw.leo.daemon", "--json"]
     static let toCLI = [bundled, "service", "handover", "--to-cli", "--json"]
+    static let plistBackup = "/home/test/Library/LaunchAgents/com.blackpaw.leo.plist.handed-over"
 
+    /// leo main's `--to-app` success: no `step`, `rolled_back` or `managed_stopped`.
     static let okJSON = #"""
-    {"ok":true,"step":"done","previous_label":"com.blackpaw.leo","env":{"PATH":"/opt/homebrew/bin:/usr/bin","GITHUB_TOKEN":"t"},
-     "plist_backup":"/home/test/Library/LaunchAgents/com.blackpaw.leo.plist.pre-leoapp","rolled_back":false,"managed_stopped":false,
-     "warnings":["drained 2 agents"]}
+    {"ok":true,"previous_label":"com.blackpaw.leo","env":{"PATH":"/opt/homebrew/bin:/usr/bin","GITHUB_TOKEN":"t"},
+     "plist_backup":"/home/test/Library/LaunchAgents/com.blackpaw.leo.plist.handed-over","warnings":["drained 2 agents"]}
+    """#
+    /// A successful `--to-cli` booted the app's job out (round 4).
+    static let toCLIOKJSON = #"""
+    {"ok":true,"previous_label":"studio.blackpaw.leo.daemon","managed_stopped":true,
+     "plist_backup":"/home/test/Library/LaunchAgents/com.blackpaw.leo.plist.handed-over"}
     """#
 
     private func run(_ reply: LeoScriptedRunner.Reply, toCLI: Bool = false) async -> (LeoHandoverRun, LeoScriptedRunner) {
@@ -32,7 +38,7 @@ struct LeoHandoverTests {
     }
 
     @Test func toCLIRunsTheBundledLeoByPath() async {
-        let (_, runner) = await run(.exit(0, stdout: #"{"ok":true}"#), toCLI: true)
+        let (_, runner) = await run(.exit(0, stdout: Self.toCLIOKJSON), toCLI: true)
         #expect(runner.timeouts.keys.map { $0 } == [Self.toCLI])
         #expect((runner.timeouts[Self.toCLI] ?? 0) > 10 * 60)
     }
@@ -40,11 +46,16 @@ struct LeoHandoverTests {
     @Test func decodesEverySuccessField() async {
         let (result, _) = await run(.exit(0, stdout: Self.okJSON))
         #expect(result == .succeeded(LeoHandoverResult(
-            ok: true, step: "done", error: nil, message: nil, previousLabel: "com.blackpaw.leo",
+            previousLabel: "com.blackpaw.leo",
             env: ["PATH": "/opt/homebrew/bin:/usr/bin", "GITHUB_TOKEN": "t"],
-            plistBackup: "/home/test/Library/LaunchAgents/com.blackpaw.leo.plist.pre-leoapp",
-            rolledBack: false, managedStopped: false, warnings: ["drained 2 agents"]
+            plistBackup: Self.plistBackup, managedStopped: false, warnings: ["drained 2 agents"]
         )))
+    }
+
+    @Test func aSuccessfulReleaseSaysTheAppsJobStopped() async {
+        let (result, _) = await run(.exit(0, stdout: Self.toCLIOKJSON), toCLI: true)
+        guard case .succeeded(let decoded) = result else { Issue.record("expected success, got \(result)"); return }
+        #expect(decoded.managedStopped)
     }
 
     @Test func aMinimalSuccessHasNoWarnings() async {
@@ -52,23 +63,37 @@ struct LeoHandoverTests {
         guard case .succeeded(let decoded) = result else { Issue.record("expected success, got \(result)"); return }
         #expect(decoded.warnings.isEmpty)
         #expect(decoded.env == nil)
+        #expect(!decoded.managedStopped)
     }
 
-    @Test func aRolledBackFailureKeepsItsStepAndMessage() async {
+    @Test func aStepFailureKeepsItsStepMessageAndRollback() async {
         let json = #"{"ok":false,"step":"bootout","error":"bootout_failed","message":"launchctl said no","rolled_back":true}"#
         let (result, _) = await run(.exit(1, stdout: json, stderr: "log noise"))
+        #expect(result == .failed(LeoJSONFailure(
+            error: "bootout_failed", message: "launchctl said no", step: "bootout", rolledBack: true, managedStopped: nil, warnings: []
+        )))
+    }
+
+    /// The JSON rule's envelope: `{error, message?}` and nothing else.
+    @Test(arguments: [
+        (#"{"error":"invalid_args","message":"pass exactly one of --to-app (with --label) or --to-cli"}"#, "invalid_args"),
+        (#"{"error":"not_permitted","message":"agents may not hand over"}"#, "not_permitted"),
+        (#"{"step":"preflight","error":"no_launchd_job","message":"started by hand?"}"#, "no_launchd_job"),
+    ])
+    func anErrorOnlyFailureReachesItsCode(json: String, code: String) async {
+        let (result, _) = await run(.exit(1, stdout: json))
         guard case .failed(let decoded) = result else { Issue.record("expected failure, got \(result)"); return }
-        #expect(decoded.step == "bootout")
-        #expect(decoded.error == "bootout_failed")
-        #expect(decoded.message == "launchctl said no")
-        #expect(decoded.rolledBack == true)
+        #expect(decoded.error == code)
     }
 
     @Test(arguments: [
         LeoScriptedRunner.Reply.exit(0, stdout: "not json"),
         .exit(1, stdout: ""),
         .exit(0, stdout: #"{"ok":false,"error":"x"}"#),
+        .exit(0, stdout: #"{"error":"x"}"#),
         .exit(1, stdout: #"{"ok":true}"#),
+        .exit(1, stdout: #"{"message":"no code"}"#),
+        .exit(1, stdout: #"{"error":""}"#),
         .exit(0, stdout: #"{"step":"done"}"#),
         .error(LeoDaemonError.timeout),
     ])
@@ -93,7 +118,7 @@ struct LeoTakeoverTests {
 
         init() {
             base.runner.on(LeoHandoverTests.toApp, .exit(0, stdout: LeoHandoverTests.okJSON))
-            base.runner.on(LeoHandoverTests.toCLI, .exit(0, stdout: #"{"ok":true}"#))
+            base.runner.on(LeoHandoverTests.toCLI, .exit(0, stdout: LeoHandoverTests.toCLIOKJSON))
             // No `-L leo` server unless a test says so.
             base.runner.on(LeoTakeoverTests.display, .exit(1, stderr: "no server running on /tmp/tmux-501/leo"))
             base.fileSystem.addFile(LeoTakeoverTests.cellarTmux, "tmux-3.6a", mode: 0o555)

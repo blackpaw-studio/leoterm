@@ -26,7 +26,7 @@ struct LeoReleaseToCLI: Sendable {
         // The restored CLI plist runs `~/.local/bin/leo`: it must be the CLI's
         // own binary again before leo bootstraps it, not the app's helper.
         let restoredCommand = restoreCommandBackup()
-        let result: LeoHandoverResult?
+        let result: LeoJSONFailure?
         switch await handover.toCLI() {
         case .succeeded(let value):
             return await finishRelease(warnings: value.warnings)
@@ -37,7 +37,7 @@ struct LeoReleaseToCLI: Sendable {
             result = nil
         }
         if restoredCommand { undoCommandRestore() }
-        let message = result?.message ?? result?.error ?? "leo didn’t hand the daemon back to the CLI"
+        let message = result?.summary ?? "leo didn’t hand the daemon back to the CLI"
         guard result?.managedStopped == true else { return .failed(message: message, reRegistered: false) }
         do {
             try await agent.register()

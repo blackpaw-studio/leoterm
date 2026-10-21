@@ -15,11 +15,10 @@ struct LeoPostUpdateRestart: Sendable {
         case failed(message: String)
     }
 
-    /// `leo service restart --json` (contract, round 3).
-    struct Answer: Decodable, Equatable, Sendable {
-        let ok: Bool
-        let error: String?
-        let message: String?
+    /// `leo service restart --json`'s success.
+    struct Restarted: Decodable, Equatable, Sendable {
+        let drained: Bool?
+        let restarted: Bool?
     }
 
     static let codeNotRegistered = "not_registered"
@@ -63,15 +62,10 @@ struct LeoPostUpdateRestart: Sendable {
         } catch {
             return .failed(message: "leo service restart didn’t run: \(error)")
         }
-        let answer = try? JSONDecoder().decode(Answer.self, from: result.stdout)
-        switch (result.status, answer) {
-        case (0, let answer?) where answer.ok:
-            return await awaitVersion(bundled)
-        case (let status, let answer?) where status != 0 && !answer.ok:
-            return Self.failure(answer)
-        default:
-            let stderr = (String(bytes: result.stderr, encoding: .utf8) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-            return .failed(message: "leo service restart answered unexpectedly (exit \(result.status)) \(stderr)")
+        switch LeoJSONAnswer<Restarted>(result) {
+        case .succeeded: return await awaitVersion(bundled)
+        case .failed(let failure): return Self.outcome(for: failure)
+        case .malformed(let message): return .failed(message: message)
         }
     }
 
@@ -79,11 +73,11 @@ struct LeoPostUpdateRestart: Sendable {
 
     private static let arguments = ["service", "restart", "--graceful", "--json"]
 
-    private static func failure(_ answer: Answer) -> Outcome {
-        switch answer.error {
-        case codeNotRegistered: .notRegistered(message: answer.message ?? "Leo’s LaunchAgent isn’t loaded")
+    private static func outcome(for failure: LeoJSONFailure) -> Outcome {
+        switch failure.error {
+        case codeNotRegistered: .notRegistered(message: failure.message ?? "Leo’s LaunchAgent isn’t loaded")
         case codeDrainTimeout: .drainTimedOut
-        default: .failed(message: answer.message ?? answer.error ?? "leo service restart failed")
+        default: .failed(message: failure.summary)
         }
     }
 

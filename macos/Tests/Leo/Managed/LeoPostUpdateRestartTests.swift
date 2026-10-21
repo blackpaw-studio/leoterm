@@ -150,7 +150,7 @@ struct LeoPostUpdateRestartTests {
         let rig = Rig()
         try rig.writeMarker()
         rig.base.runner.on(
-            Self.restart, .exit(1, stdout: #"{"ok":false,"error":"not_registered","message":"no job studio.blackpaw.leo.daemon"}"#)
+            Self.restart, .exit(1, stdout: #"{"error":"not_registered","message":"no job studio.blackpaw.leo.daemon"}"#)
         )
 
         #expect(await rig.restarter.restart(bundled: "0.57.1") == .notRegistered(message: "no job studio.blackpaw.leo.daemon"))
@@ -160,7 +160,7 @@ struct LeoPostUpdateRestartTests {
     @Test func aDrainTimeoutLeavesTheOldDaemonRunning() async throws {
         let rig = Rig()
         try rig.writeMarker()
-        rig.base.runner.on(Self.restart, .exit(1, stdout: #"{"ok":false,"error":"drain_timeout"}"#))
+        rig.base.runner.on(Self.restart, .exit(1, stdout: #"{"error":"drain_timeout","message":"2 agents still busy after 10m0s"}"#))
 
         #expect(await rig.restarter.restart(bundled: "0.57.1") == .drainTimedOut)
         #expect(rig.base.probe.probes == 0)
@@ -170,7 +170,9 @@ struct LeoPostUpdateRestartTests {
         LeoScriptedRunner.Reply.exit(0, stdout: "not json"),
         .exit(1, stdout: #"{"ok":true}"#),
         .exit(0, stdout: #"{"ok":false,"error":"x"}"#),
-        .exit(2, stdout: #"{"ok":false,"error":"boom","message":"it broke"}"#),
+        .exit(0, stdout: #"{"error":"x"}"#),
+        .exit(1, stdout: #"{"message":"no code"}"#),
+        .exit(2, stdout: #"{"error":"restart_failed","message":"it broke"}"#),
         .error(LeoRestartTestError.boom),
     ])
     func anyOtherAnswerIsAFailure(reply: LeoScriptedRunner.Reply) async throws {

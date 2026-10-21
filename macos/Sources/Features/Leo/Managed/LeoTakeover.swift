@@ -65,7 +65,7 @@ struct LeoTakeover: Sendable {
         case .failed(let failed) where failed.error == LeoHandover.codeNoLaunchdJob:
             return .cannotTakeOver
         case .failed(let failed):
-            return .handoverFailed(step: failed.step, message: failed.message ?? failed.error ?? "Handover failed", rolledBack: failed.rolledBack)
+            return .handoverFailed(step: failed.step, message: failed.summary, rolledBack: failed.rolledBack)
         case .malformed(let message):
             return .handoverFailed(step: nil, message: message, rolledBack: nil)
         }

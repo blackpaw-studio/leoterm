@@ -27,7 +27,7 @@ import Testing
 
         init() {
             base.runner.on(LeoHandoverTests.toApp, .exit(0, stdout: LeoHandoverTests.okJSON))
-            base.runner.on(LeoHandoverTests.toCLI, .exit(0, stdout: #"{"ok":true}"#))
+            base.runner.on(LeoHandoverTests.toCLI, .exit(0, stdout: LeoHandoverTests.toCLIOKJSON))
             base.runner.on([LeoHandoverTests.bundled, "version"], .exit(0, stdout: "leo 0.57.0\n"))
         }
 
@@ -252,7 +252,7 @@ import Testing
         let rig = Rig()
         try rig.writeOurMarker()
         rig.base.probe.script(.live(version: "0.57.0"))
-        rig.base.runner.on(LeoHandoverTests.toCLI, .exit(1, stdout: #"{"ok":false,"error":"drain_timeout","managed_stopped":false}"#))
+        rig.base.runner.on(LeoHandoverTests.toCLI, .exit(1, stdout: #"{"error":"drain_timeout","message":"1 agent still busy"}"#))
         let startup = rig.startup()
         await startup.run()
 
@@ -386,9 +386,9 @@ import Testing
     }
 
     @Test(arguments: [
-        (#"{"ok":false,"error":"drain_timeout"}"#, "Restart Daemon"),
-        (#"{"ok":false,"error":"not_registered","message":"no job"}"#, "leo doctor"),
-        (#"{"ok":false,"error":"boom"}"#, "leo doctor"),
+        (#"{"error":"drain_timeout","message":"2 agents still busy"}"#, "Restart Daemon"),
+        (#"{"error":"not_registered","message":"no job"}"#, "leo doctor"),
+        (#"{"error":"restart_failed","message":"kickstart failed"}"#, "leo doctor"),
     ])
     func aRestartThatDidNotHappenKeepsTheOldDaemonAndSaysWhatToDo(json: String, advice: String) async throws {
         let rig = try updatedRig(restartReply: .exit(1, stdout: json))
