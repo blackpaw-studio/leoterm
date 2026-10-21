@@ -414,3 +414,7 @@ Ship targets: marker, self_path, daemon lock, update refusal, tmux resolution, d
 - Confirmed: on successful `--to-cli` leo removes managed.json itself (renamed `.releasing`, deleted once the CLI daemon is up). The app never deletes it.
 - **v0.56.1 markerless `--to-cli` details:** REQUIRES `--label <app label>`; refuses with `managed_job_loaded` if the app's job is still loaded → app calls `unregister()` first, then `--to-cli --label <l> --json`.
 - **v0.56.0 released:** asset `leo_0.56.0_darwin_universal.tar.gz` contains leo, CHANGELOG.md, LICENSE, README.md at archive root; leo is arm64+x86_64, Developer ID signed (team 52M9C6892K), hardened runtime. `leo-release` {version:"0.56.0", sha256} was dispatched to leoterm (no listener yet; B8). Test B8 later with `gh api repos/blackpaw-studio/leoterm/dispatches -f event_type=leo-release …` or wait for v0.56.1.
+
+## B8 accepted risks (security re-review round 2, 2026-10-21)
+- Persistent self-hosted `leo` runner: a compromised upstream leo release could plant global git hooks during `verify` that later capture the PAT in `write`. Accepted: leo is our own repo with Developer ID–signed releases, and `leo-build` already executes the same downloaded binary on the same runner; the trust boundary is the leo release itself.
+- `leo-bump-release.yml` runs the checked-out `check-bump-files.sh` from the merge commit, so a merged PR could replace its own gate. Accepted: requires a collaborator-authored same-repo `bump/leo-*` PR that Evan reviews and merges; a malicious merged PR already owns main.
