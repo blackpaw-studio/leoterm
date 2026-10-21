@@ -49,13 +49,13 @@ private enum PairFixtures {
 
 /// Plays back one canned result per run, recording each executable + argv.
 private actor ScriptedRunner: LeoProcessRunning {
-    private(set) var calls: [(executable: String, arguments: [String])] = []
+    private(set) var calls: [(executable: String, arguments: [String], timeout: TimeInterval)] = []
     private var script: [LeoProcessResult]
 
     init(_ script: [LeoProcessResult]) { self.script = script }
 
     func run(executable: String, arguments: [String], timeout: TimeInterval) async throws -> LeoProcessResult {
-        calls.append((executable, arguments))
+        calls.append((executable, arguments, timeout))
         return script.isEmpty ? LeoProcessResult(stdout: Data(), stderr: Data("script exhausted".utf8), status: 99) : script.removeFirst()
     }
 
@@ -85,6 +85,14 @@ struct LeoPairingServiceTests {
         let calls = await runner.calls
         #expect(calls.map(\.executable) == [PairFixtures.leoPath])
         #expect(calls.map(\.arguments) == [["pair", "--json"]])
+    }
+
+    @Test func pairKeepsTheShortTimeout() async throws {
+        let runner = ScriptedRunner([PairFixtures.payloadOutput()])
+
+        _ = try await PairFixtures.service(runner).pair()
+
+        #expect(await runner.calls.map(\.timeout) == [30])
     }
 
     @Test func expiryAcceptsFractionalSeconds() async throws {
@@ -182,6 +190,16 @@ struct LeoPairingServiceTests {
         ])
     }
 
+    @Test func enableWaitsOutALongDrainBeforeGivingUp() async throws {
+        let runner = ScriptedRunner([PairFixtures.enabled])
+
+        _ = try await PairFixtures.service(runner).enableWeb()
+
+        // The restart drains busy agents for up to 10 minutes.
+        let timeout = try #require(await runner.calls.first?.timeout)
+        #expect(timeout >= 11 * 60)
+    }
+
     @Test func enableWebFailureMapsLikePair() async {
         let runner = ScriptedRunner([PairFixtures.out(#"{"error":"bind_failed","message":"port in use"}"#, status: 1)])
 
@@ -199,6 +217,11 @@ struct LeoPairingServiceTests {
             if case LeoPairingError.unreadable = error { return true }
             return false
         }
+    }
+
+    @Test func theEnablingStateSaysItIsWaitingForBusyAgents() {
+        #expect(LeoPairingCopy.enablingTitle == "Turning on web access…")
+        #expect(LeoPairingCopy.enablingDetail == "Waiting for busy agents to finish…")
     }
 
     @Test func errorsReadAsSentences() {

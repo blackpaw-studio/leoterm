@@ -111,7 +111,7 @@ private final class LeoPairDeviceWindow: NSWindow {
         switch state {
         case .loading: showProgress("Getting a pairing code…")
         case .refreshing: showProgress("Refreshing…")
-        case .enablingWeb: showProgress("Turning on web access…")
+        case .enablingWeb: showProgress(LeoPairingCopy.enablingTitle, detail: LeoPairingCopy.enablingDetail)
         case .ready(let payload): showPairing(payload)
         case .webDisabled: showWebDisabled()
         case .failed(let message): showFailure(message)
@@ -122,7 +122,7 @@ private final class LeoPairDeviceWindow: NSWindow {
 
     // MARK: States
 
-    private func showProgress(_ text: String) {
+    private func showProgress(_ text: String, detail: String? = nil) {
         let spinner = NSProgressIndicator()
         spinner.style = .spinning
         spinner.controlSize = .regular
@@ -130,6 +130,9 @@ private final class LeoPairDeviceWindow: NSWindow {
         spinner.startAnimation(nil)
         add(spinner)
         add(Self.label(text, font: .preferredFont(forTextStyle: .body), color: .secondaryLabelColor))
+        if let detail {
+            add(Self.label(detail, font: .preferredFont(forTextStyle: .callout), color: .tertiaryLabelColor))
+        }
     }
 
     private func showPairing(_ payload: LeoPairingPayload) {
