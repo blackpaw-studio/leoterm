@@ -27,7 +27,7 @@ Spec (source of truth): leo repo `docs/specs/2026-10-20-leo-app-bundled-daemon.m
 - **D6 `LeoCLI` lookup order.** override → managed `self_path` → `~/.local/bin/leo` → `PATH` → bundled `Contents/Helpers/leo`. App-owned commands (handover, pair, web enable, managed restart) always run the bundled binary by explicit path.
 - **D7 Our own /Applications mover, not LetsMove.** LetsMove relies on the deprecated `AuthorizationExecuteWithPrivileges`, and the mover has to cooperate with `LeoSingleInstance` (B-092). It copies the app, relaunches it and trashes the original. If /Applications isn't writable, it shows instructions and reveals the app in Finder. Debug builds are exempt.
 - **D8 Where code lives.** Version compare goes in LeoKit. Everything else goes in the Mac target under `macos/Sources/Features/Leo/Managed/`, with tests in `macos/Tests/Leo/Managed/`. Both are synchronized groups, so pbxproj edits are needed only for build settings and phases.
-- **D9 Token for bump PRs and tags.** PRs and tags created with `GITHUB_TOKEN` trigger no workflows: `leo-ci` wouldn't run on the bump PR and `leo-release` wouldn't fire. Use a GitHub App token (`actions/create-github-app-token`) (Q1).
+- **D9 Token for bump PRs and tags.** PRs and tags created with `GITHUB_TOKEN` trigger no workflows: `leo-ci` wouldn't run on the bump PR and `leo-release` wouldn't fire. Use a fine-grained PAT, stored as the repo secret `LEO_BUMP_TOKEN` (Q1, decided: a PAT, not a GitHub App token).
 - **D10 Isolation.** Every live check uses scratch `HOME`, `CFFIXED_USER_HOME` and `TMUX_TMPDIR`. SMAppService and /Applications can't be isolated that way, and /Applications is shared by every user on the Mac. Live Phase B checks run in a macOS VM (Q3).
 
 ## Seams (built in A6, shared by all steps)
@@ -298,12 +298,13 @@ Every step uses Swift Testing, starts from a failing test you watch fail, and en
 - Test first, `LeoPairDeviceTests`: decode fixtures, the exact argv sequence on the `web_disabled` path, and a QR string that round-trips through `parse`. The sheet layout is a TDD exception.
 
 **B8 · Bump PR and release workflows · min leo: ≥0.56.0 (release asset and dispatch) · implement**
-- `leo-bump.yml` runs on `repository_dispatch` `[leo-release]`:
+- `leo-bump.yml` runs on `repository_dispatch` `[leo-release]` (and `workflow_dispatch` with the same inputs, for manual testing):
   - the payload is passed through `env:`, never `${{ }}` in `run:`;
   - the dispatch comes from stable `vX.Y.Z` tags only (prereleases contain `-` and send nothing); the payload `version` has no `v`;
   - `bump-leo.sh` validates the semver and the 64-hex sha256, downloads and verifies the asset, and rewrites the pin;
-  - it opens a PR from `leo-bump/<version>` with the App token, and does nothing if that PR already exists.
-- `leo-bump-release.yml` runs on a bump commit to main that touches `LEO_VERSION`. It computes the next patch `leo-v` tag and pushes it with the App token (Q2).
+  - it opens (or updates) a PR from `bump/leo-<version>` with `LEO_BUMP_TOKEN`; `leo-ci` runs on it.
+- `leo-bump-release.yml` runs when a PR from `bump/leo-*` merges into main and touched only `LEO_VERSION`. It computes the next patch `leo-v` tag (`next-leo-tag.sh`) and pushes it with `LEO_BUMP_TOKEN` (Q2, decided: a merged bump auto-tags a patch release).
+- Scripts: `semver-gt.sh`, `bump-leo.sh`, `next-leo-tag.sh`; tests `test_semver-gt.sh`, `test_bump-leo.sh`, `test_next-leo-tag.sh`, `test_bump-workflows.sh`.
 - Test first, `tests/test_bump-leo.sh`: rejects `1.0.0;rm -rf`, a short sha and a sha mismatch, and writes the exact pin. Run `actionlint` if it's available.
 
 **B9 · Repair and blocking states · min leo: ≥0.56.0 · implement**
@@ -345,8 +346,8 @@ Every step uses Swift Testing, starts from a failing test you watch fail, and en
 - **New leftover:** the handover `--label <LeoDaemonLabel>` flag in B3 is ours; the round 2 answers don't name it, so confirm the flag spelling with leo before B3 starts.
 
 ## Open questions (Evan / orchestrator)
-- **Q1** A GitHub App or PAT secret for bump PRs and tags.
-- **Q2** Should a merged bump auto-tag a release?
+- **Q1** A GitHub App or PAT secret for bump PRs and tags. **Decided: fine-grained PAT, `LEO_BUMP_TOKEN`.**
+- **Q2** Should a merged bump auto-tag a release? **Decided: yes, a patch release.**
 - **Q3** A macOS VM for the live Phase B checks.
 - **Q4** Sign-off on D1 (approved, see below), and on C1 if paths change.
 

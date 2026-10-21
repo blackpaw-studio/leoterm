@@ -11,6 +11,8 @@ workflows are **disabled**, not deleted, so upstream syncs stay clean.
 | `leo-ci.yml` | push to `main`, same-repo PRs | CI script tests (`.github/scripts/leo/run-tests.sh`: every `tests/test_*.sh`), SwiftLint `--strict`, Zig GhosttyKit, `GhosttyTests` unit bundle (no UI tests) |
 | `leo-build.yml` | `workflow_dispatch`, `workflow_call` | ReleaseFast GhosttyKit, Release `Leo.app` with the bundled leo + tmux, Developer ID sign, DMG, notarize, staple; uploads `Leo.dmg` + zip (14 days) |
 | `leo-release.yml` | tag `leo-vX.Y.Z` | Calls `leo-build`, signs the DMG for Sparkle, appends `appcast.xml`, publishes a GitHub Release |
+| `leo-bump.yml` | `repository_dispatch` `leo-release`, `workflow_dispatch` | Verifies a new leo release and opens a PR that bumps `macos/Bundled/LEO_VERSION` (see "Bumping the bundled leo") |
+| `leo-bump-release.yml` | merged PR from `bump/leo-*` into `main` | Tags the next patch `leo-vX.Y.Z`, which fires `leo-release` |
 
 The build logic lives in `.github/scripts/leo/`, so you can run it locally.
 Fork PRs never reach the runner: `leo-ci` skips PRs whose head repo differs.
@@ -99,6 +101,41 @@ VERSION=0.0.0-dev SHORT_VERSION=0.0.0 BUILD=1 COMMIT=local DERIVED_DATA=/tmp/leo
   .github/scripts/leo/build-app.sh
 ```
 
+## Bumping the bundled leo
+
+A stable leo release (`vX.Y.Z` tag in `blackpaw-studio/leo`; prereleases
+contain `-` and send nothing) dispatches `leo-release` to this repo with
+`{version, sha256}` (`version` bare, no `v`; `sha256` is the
+`leo_<version>_darwin_universal.tar.gz` hash). From there:
+
+1. `leo-bump.yml` runs `bump-leo.sh`, which rejects anything but strict
+   `X.Y.Z` and 64 lowercase hex, skips a version that isn't newer than the
+   pin (`semver-gt.sh`), and checks the sha against that release's own
+   `checksums.txt` before rewriting `LEO_VERSION`. `fetch-leo.sh` then
+   downloads the tarball to confirm it. The payload only ever reaches scripts
+   through `env:`, never `${{ }}` inside `run:`.
+2. It force-pushes `bump/leo-<version>` (rebuilt on `main` every time) and
+   opens the PR, or updates it if one is open. A newer dispatch opens a second
+   PR; close the superseded one by hand.
+3. CI runs on the PR. Merging it fires `leo-bump-release.yml`, which tags the
+   next patch release: the highest strict `leo-vX.Y.Z` tag plus one patch
+   (`next-leo-tag.sh`), at the merge commit. It tags only when the merge
+   changed nothing but `LEO_VERSION`, and never when a release tag already
+   points at that commit. Runs are serialised (`concurrency`), and the push
+   has no `--force`, so a lost race fails instead of moving a tag.
+4. The tag fires `leo-release`, as in "Cut a release". Close the bump PR to
+   skip a release; tag by hand to release some other change.
+
+Both run on Dionysus like the rest of CI. `repository_dispatch` only runs the
+workflow file on `main`. To test, dispatch by hand (needs a real release's
+sha256, e.g. from its `checksums.txt`):
+
+```sh
+gh workflow run leo-bump.yml -R blackpaw-studio/leoterm -f version=X.Y.Z -f sha256=<sha256>
+gh api repos/blackpaw-studio/leoterm/dispatches -f event_type=leo-release \
+  -f 'client_payload[version]=X.Y.Z' -f 'client_payload[sha256]=<sha256>'
+```
+
 ## Where keys live
 
 All signing material lives in GitHub Actions secrets on
@@ -121,6 +158,7 @@ Secrets:
 | `APPLE_NOTARIZATION_KEY_ID` | `7W2NBJ7PA7` | same item, field `key id` |
 | `APPLE_NOTARIZATION_ISSUER` | issuer UUID | same item, field `issuer id` |
 | `SPARKLE_PRIVATE_KEY` | base64 EdDSA private key (Sparkle `generate_keys`) | 1Password *Olympus* → `Leo Sparkle EdDSA key` |
+| `LEO_BUMP_TOKEN` | fine-grained PAT on `blackpaw-studio/leoterm`: Contents read/write, Pull requests read/write | used by `leo-bump.yml` and `leo-bump-release.yml` to push the bump branch, open the PR and push the release tag. A PAT, not `GITHUB_TOKEN`, because anything `GITHUB_TOKEN` creates triggers no workflows (no CI on the PR, no `leo-release` on the tag). Rotate before it expires or the bump flow stops silently. |
 
 The Developer ID's private key also stays in Dionysus's **login** keychain
 (unrelated to CI) because Evan signs local builds there.
