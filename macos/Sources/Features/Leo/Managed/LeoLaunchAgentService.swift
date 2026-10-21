@@ -39,7 +39,10 @@ extension LeoLaunchAgentService {
 }
 
 struct LeoDaemonSilent: Error, Equatable, CustomStringConvertible {
-    var description: String { "the daemon didn’t answer within \(Int(LeoManagedSetup.helloTimeout)) seconds" }
+    /// Points at the log instead of quoting it: the gist stays out of reach of anything private.
+    static let logAdvice = "Its log, ~/.leo/state/service.log, says why."
+
+    var description: String { "the daemon didn’t answer within \(Int(LeoManagedSetup.helloTimeout)) seconds. \(Self.logAdvice)" }
 }
 
 /// `SMAppService.agent(plistName:)`. Never call it from a test.

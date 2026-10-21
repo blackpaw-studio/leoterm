@@ -230,12 +230,19 @@ struct LeoManagedSetupTests {
 
         guard case .failed(let failure) = await rig.setup().run() else { Issue.record("expected failure"); return }
         #expect(failure.step == .hello)
+        #expect(failure.message.contains("20 seconds"))
+        #expect(failure.message.contains("~/.leo/state/service.log"))
         #expect(rig.clock.seconds == 20)
         #expect(rig.log.events == Self.freshInstallOps + [
             .agent("register"),
             .agent("unregister"),
             .fs(.remove(Self.marker)),
         ])
+    }
+
+    @Test func aSilentDaemonSaysWhereItsLogIs() {
+        #expect(LeoDaemonSilent().description.contains("20 seconds"))
+        #expect(LeoDaemonSilent().description.contains("~/.leo/state/service.log"))
     }
 
     @Test func aFailedUnregisterStillRemovesTheMarker() async throws {

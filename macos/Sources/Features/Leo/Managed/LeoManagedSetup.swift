@@ -143,7 +143,7 @@ struct LeoManagedSetup: Sendable {
 
     private func awaitHello(handBack: (@Sendable () async -> LeoHandoverRun)?) async -> Outcome {
         if let version = await waitForHello() { return .ready(version: version) }
-        let message = "The daemon didn’t answer within \(Int(Self.helloTimeout)) seconds"
+        let message = "The daemon didn’t answer within \(Int(Self.helloTimeout)) seconds. \(LeoDaemonSilent.logAdvice)"
         return await rollBack(Failure(step: .hello, message: message), handBack: handBack)
     }
 
