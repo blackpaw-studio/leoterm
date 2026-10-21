@@ -136,6 +136,8 @@ struct LeoManagedDependencies: Sendable {
                 warnings.forEach { Self.logger.log("release to CLI: \($0, privacy: .public)") }
                 self.takeoverStore.clear()
                 self.status = .usingCLI(offerTakeover: false, isRunning: true)
+                // The sidebar is still on the app's closed connection: reconnect once the CLI daemon answers.
+                if await self.helloWait.version() != nil { self.daemonChanged() }
             case .failed(let message, _):
                 presenter.showError(title: "Leo couldn’t hand the daemon back to the CLI", message: message)
             }
@@ -452,10 +454,12 @@ struct LeoManagedDependencies: Sendable {
 
     private var release: LeoReleaseToCLI {
         LeoReleaseToCLI(
-            handover: handover, agent: dependencies.agent, hello: LeoHelloWait(probe: dependencies.probe, clock: dependencies.clock),
+            handover: handover, agent: dependencies.agent, hello: helloWait,
             paths: dependencies.paths, fileSystem: dependencies.fileSystem
         )
     }
+
+    private var helloWait: LeoHelloWait { LeoHelloWait(probe: dependencies.probe, clock: dependencies.clock) }
 
     private var appJob: LeoAppJob { LeoAppJob(runner: dependencies.runner, label: dependencies.label) }
 

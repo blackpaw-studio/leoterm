@@ -127,6 +127,52 @@ import Testing
         #expect(reconnects.count == 1)
     }
 
+    @Test func releasingToTheCLIReconnectsOnceTheCLIDaemonAnswersHello() async throws {
+        let rig = Rig()
+        try rig.writeOurMarker()
+        rig.base.probe.script(.live(version: "0.57.0"))
+        let reconnects = Reconnects()
+        let startup = startup(rig, reconnects)
+        await startup.run()
+
+        rig.base.probe.script(.absent, .absent, .live(version: "0.57.0"))
+        await startup.releaseToCLI()
+
+        #expect(startup.status == .usingCLI(offerTakeover: false, isRunning: true))
+        #expect(reconnects.count == 1)
+    }
+
+    @Test func releasingToACLIDaemonThatNeverAnswersStopsWaitingAndDoesNotReconnect() async throws {
+        let rig = Rig()
+        try rig.writeOurMarker()
+        rig.base.probe.script(.live(version: "0.57.0"))
+        let reconnects = Reconnects()
+        let startup = startup(rig, reconnects)
+        await startup.run()
+
+        rig.base.probe.script(.absent)
+        await startup.releaseToCLI()
+
+        #expect(startup.status == .usingCLI(offerTakeover: false, isRunning: true))
+        #expect(reconnects.count == 0)
+    }
+
+    @Test func aFailedOrDeclinedReleaseDoesNotReconnect() async throws {
+        let rig = Rig()
+        try rig.writeOurMarker()
+        rig.base.probe.script(.live(version: "0.57.0"))
+        rig.base.runner.on(LeoHandoverTests.toCLI, .exit(1, stdout: #"{"error":"drain_timeout","message":"1 agent still busy"}"#))
+        let reconnects = Reconnects()
+        let startup = startup(rig, reconnects)
+        await startup.run()
+
+        await startup.releaseToCLI()
+        rig.presenter.confirmsRelease = false
+        await startup.releaseToCLI()
+
+        #expect(reconnects.count == 0)
+    }
+
     @Test func aPostUpdateRestartReconnects() async throws {
         let rig = try updatedRig()
         let reconnects = Reconnects()
