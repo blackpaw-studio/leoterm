@@ -418,3 +418,8 @@ Ship targets: marker, self_path, daemon lock, update refusal, tmux resolution, d
 ## B8 accepted risks (security re-review round 2, 2026-10-21)
 - Persistent self-hosted `leo` runner: a compromised upstream leo release could plant global git hooks during `verify` that later capture the PAT in `write`. Accepted: leo is our own repo with Developer ID–signed releases, and `leo-build` already executes the same downloaded binary on the same runner; the trust boundary is the leo release itself.
 - `leo-bump-release.yml` runs the checked-out `check-bump-files.sh` from the merge commit, so a merged PR could replace its own gate. Accepted: requires a collaborator-authored same-repo `bump/leo-*` PR that Evan reviews and merges; a malicious merged PR already owns main.
+## leo v0.56.2 (pending) — VM e2e fixes (2026-10-21)
+- Managed mode: missing ~/.leo/leo.yaml → daemon writes a minimal default (0600, atomic, never overwrites) on first start. App seeds nothing.
+- Missing claude is non-fatal in all modes: socket /health gains `claude: {found, path?}` (re-resolved, so a later install needs no restart); claude agent spawns fail with `claude_not_found`. App: gate Claude onboarding on `health.claude.found`; map `claude_not_found` to the onboarding offer.
+- Shutdown/restart never kills agent tmux sessions; open streams cancelled promptly on shutdown. Fixes takeover/post-update session loss.
+- Bump pin to 0.56.2 and re-run the VM e2e (S1 without W2 workaround, S2/S5 session survival) before merging to main. Interim stream-close mitigation skipped (pin bump covers it).
