@@ -98,6 +98,50 @@ import Testing
         #expect(attached?.name == "alpha")
     }
 
+    private static let claudeNotFound = LeoDaemonError.daemon(
+        code: "claude_not_found", message: "claude not found on PATH (/usr/bin:/bin)", matches: []
+    )
+
+    @Test func aSpawnThatFailsWithClaudeNotFoundLeadsToTheOnboardingOffer() async {
+        let actions = LeoAgentActions(daemon: ActionDaemon(error: Self.claudeNotFound), cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        var offers = 0
+        var failures: [String] = []
+        actions.claudeNotFound = { offers += 1 }
+
+        actions.spawn(.init(template: "default", repo: "", name: nil, branch: nil, prompt: nil), on: .local, attach: { _, _ in }, dismiss: {}, failure: { failures.append($0) })
+
+        await awaitCondition { await MainActor.run { failures.count == 1 } }
+        #expect(offers == 1)
+        #expect(failures == [LeoAgentActions.claudeMissingMessage])
+    }
+
+    @Test func aStartThatFailsWithClaudeNotFoundLeadsToTheOnboardingOffer() async {
+        let model = LeoSidebarModel()
+        let actions = LeoAgentActions(daemon: ActionDaemon(error: Self.claudeNotFound), cli: testCLI(), model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        var offers = 0
+        actions.claudeNotFound = { offers += 1 }
+        let row = testRow()
+
+        actions.start(row)
+
+        await awaitCondition { await MainActor.run { model.rowErrors[row.id] != nil } }
+        #expect(offers == 1)
+        #expect(model.rowErrors[row.id] == LeoAgentActions.claudeMissingMessage)
+    }
+
+    @Test func otherSpawnFailuresStayAsTheyWereAndOfferNothing() async {
+        let actions = LeoAgentActions(daemon: ActionDaemon(error: .daemon(code: "bad", message: "nope", matches: [])), cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        var offers = 0
+        var failures: [String] = []
+        actions.claudeNotFound = { offers += 1 }
+
+        actions.spawn(.init(template: "default", repo: "", name: nil, branch: nil, prompt: nil), on: .local, attach: { _, _ in }, dismiss: {}, failure: { failures.append($0) })
+
+        await awaitCondition { await MainActor.run { failures.count == 1 } }
+        #expect(offers == 0)
+        #expect(failures == ["nope"])
+    }
+
     @Test func spawnModelIgnoresReentrantSubmits() async {
         let daemon = ActionDaemon(suspendSpawn: true)
         let sidebar = LeoSidebarModel()

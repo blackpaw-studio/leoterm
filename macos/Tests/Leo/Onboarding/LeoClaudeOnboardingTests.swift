@@ -3,7 +3,7 @@ import Testing
 
 @testable import Ghostty
 
-/// A13: finding `claude`, the one install command, and offering setup once.
+/// A13: finding `claude`, the one install command, and remembering the offer.
 struct LeoClaudeOnboardingTests {
     private static let home = "/Users/evan"
 
@@ -63,18 +63,6 @@ struct LeoClaudeOnboardingTests {
 
     @Test func theInstallCommandIsTheOfficialOneThenLogin() {
         #expect(LeoClaudeOnboarding.installCommand == #"curl -fsSL https://claude.ai/install.sh | bash && "$HOME/.local/bin/claude""#)
-    }
-
-    @Test(arguments: [
-        (nil as String?, false, true, true),
-        ("/usr/local/bin/claude", false, true, false),
-        (nil, true, true, false),
-        (nil, false, false, false),
-    ])
-    func theOfferNeedsMissingClaudeFirstRunAndALiveLocalDaemon(
-        claude: String?, alreadyShown: Bool, live: Bool, expected: Bool
-    ) {
-        #expect(LeoClaudeOnboarding.shouldOffer(claudePath: claude, alreadyShown: alreadyShown, hasLiveLocalDaemon: live) == expected)
     }
 
     @Test func theOfferIsRememberedAcrossStores() {

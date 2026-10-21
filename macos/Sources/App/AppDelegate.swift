@@ -205,6 +205,11 @@ class AppDelegate: NSObject,
             // A GUI app's own PATH is short; ask the login shell.
             loginPath: { await LeoLoginPathProbe.live(runner: LeoProcessRunner()).loginPath() }
         ),
+        // leo ≥ 0.56.2 reports it on /health; an older daemon leaves it to the locator.
+        health: {
+            let socket = LeoInstallPaths.live().stateDirectory.appendingPathComponent("leo.sock").path
+            return await LeoDaemonProbe(socketPath: socket, transport: LeoUnixSocketTransport()).claudeHealth()
+        },
         store: LeoClaudeOnboardingStore(defaults: .ghostty),
         openWindow: { [unowned self] command in
             let controller = TerminalController.preferredParent ?? self.leoOpenStartScreenWindow()
@@ -546,6 +551,7 @@ class AppDelegate: NSObject,
         if !LeoSingleInstance.isRunningAsTestHost() {
             leoMenuBar.syncVisibility()
             leoClaudeOnboarding.start(model: leoRuntime.model)
+            leoRuntime.actions.claudeNotFound = { [unowned self] in self.leoClaudeOnboarding.claudeNotFound() }
         }
     }
 
@@ -590,6 +596,7 @@ class AppDelegate: NSObject,
         // First launch stuff
         // MARK: Leo -- activation may come before the launch hop (B-085).
         initialWindowOpener.didBecomeActive()
+        leoClaudeOnboarding.applicationDidBecomeActive()
         // Back from Login Items: pick up the user's approval (B5).
         if let leoManaged {
             Task { @MainActor in await leoManaged.applicationDidBecomeActive() }

@@ -27,10 +27,6 @@ enum LeoClaudeOnboarding {
     /// Anthropic's native installer (code.claude.com/docs/en/setup), which
     /// puts `claude` in `~/.local/bin`, then `claude` itself for login.
     static let installCommand = #"curl -fsSL https://claude.ai/install.sh | bash && "$HOME/.local/bin/claude""#
-
-    static func shouldOffer(claudePath: String?, alreadyShown: Bool, hasLiveLocalDaemon: Bool) -> Bool {
-        claudePath == nil && !alreadyShown && hasLiveLocalDaemon
-    }
 }
 
 /// Remembers that the setup offer was shown, so it appears once.

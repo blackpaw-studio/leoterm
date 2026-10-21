@@ -49,6 +49,34 @@ struct LeoDaemonProbe: LeoDaemonProbing {
         }
     }
 
+    /// `claude` from `/health` (leo ≥ 0.56.2), re-resolved by the daemon on
+    /// each call. Anything but a well-formed field is `.unreported`.
+    func claudeHealth() async -> LeoClaudeHealth {
+        guard let response = try? await transport.send(
+            LeoHTTPRequest(method: "GET", path: "/health"), socketPath: socketPath, timeout: Self.timeout
+        ), (200..<300).contains(response.status),
+        let claude = try? JSONDecoder().decode(ClaudeEnvelope.self, from: response.body).data?.claude else { return .unreported }
+        return claude.found ? .found(path: claude.path) : .missing
+    }
+
+    /// Lenient on its own: a malformed `claude` never turns a healthy answer into "unresponsive".
+    private struct ClaudeEnvelope: Decodable {
+        struct Claude: Decodable {
+            let found: Bool
+            let path: String?
+        }
+        struct Payload: Decodable {
+            let claude: Claude?
+
+            init(from decoder: any Decoder) throws {
+                claude = try? decoder.container(keyedBy: CodingKeys.self).decode(Claude.self, forKey: .claude)
+            }
+
+            private enum CodingKeys: String, CodingKey { case claude }
+        }
+        let data: Payload?
+    }
+
     /// `/health` carries the same bare-semver version as `hello`.
     private struct Health: Decodable {
         struct Payload: Decodable {

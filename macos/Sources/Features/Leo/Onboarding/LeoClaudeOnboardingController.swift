@@ -2,27 +2,32 @@ import AppKit
 import Combine
 import LeoKit
 
-/// Offers Claude setup once, after the first live local daemon, and backs
-/// Agents ▸ Set Up Claude… afterwards. Alert and window wiring only; the
-/// decisions are `LeoClaudeOnboarding`'s.
-@MainActor final class LeoClaudeOnboardingController {
-    private let locator: LeoClaudeLocator
-    private let store: LeoClaudeOnboardingStore
+/// Offers Claude setup (see `LeoClaudeOnboardingModel`) and backs Agents ▸
+/// Set Up Claude… afterwards. Alert and window wiring only; the decisions
+/// are the model's.
+@MainActor final class LeoClaudeOnboardingController: LeoClaudeOfferPresenting {
     private let openWindow: (String) -> Bool
     private var subscription: AnyCancellable?
-    /// The locator may spawn the login shell; snapshots keep landing meanwhile.
-    private var isChecking = false
+    private lazy var model = LeoClaudeOnboardingModel(health: health, locate: { await self.locator.locate() }, store: store, presenter: self)
+    private let locator: LeoClaudeLocator
+    private let health: () async -> LeoClaudeHealth
+    private let store: LeoClaudeOnboardingStore
 
-    init(locator: LeoClaudeLocator, store: LeoClaudeOnboardingStore, openWindow: @escaping (String) -> Bool) {
+    init(
+        locator: LeoClaudeLocator, health: @escaping () async -> LeoClaudeHealth,
+        store: LeoClaudeOnboardingStore, openWindow: @escaping (String) -> Bool
+    ) {
         self.locator = locator
+        self.health = health
         self.store = store
         self.openWindow = openWindow
     }
 
-    /// Watches the sidebar's snapshots for the first live local daemon.
-    func start(model: LeoSidebarModel) {
-        subscription = model.$snapshot.sink { [weak self] snapshot in
-            self?.snapshotLanded(snapshot)
+    /// Watches the sidebar's snapshots for a live local daemon.
+    func start(model sidebar: LeoSidebarModel) {
+        subscription = sidebar.$snapshot.sink { [weak self] snapshot in
+            let live = snapshot.connectivity == .connected && snapshot.advertised.host == .local
+            Task { @MainActor in await self?.model.snapshotLanded(hasLiveLocalDaemon: live) }
         }
     }
 
@@ -31,22 +36,19 @@ import LeoKit
         _ = openWindow(LeoClaudeOnboarding.installCommand)
     }
 
-    private func snapshotLanded(_ snapshot: LeoSidebarSnapshot) {
-        let live = snapshot.connectivity == .connected && snapshot.advertised.host == .local
-        guard live, !store.wasOffered, !isChecking else { return }
-        isChecking = true
-        Task { @MainActor in
-            defer { isChecking = false }
-            let shouldOffer = LeoClaudeOnboarding.shouldOffer(
-                claudePath: await locator.locate(), alreadyShown: store.wasOffered, hasLiveLocalDaemon: live
-            )
-            // Remembered either way: a machine that already has claude never asks.
-            store.markOffered()
-            if shouldOffer { offer() }
-        }
+    /// An agent spawn failed with `claude_not_found`.
+    func claudeNotFound() {
+        Task { @MainActor in await model.claudeNotFound() }
     }
 
-    private func offer() {
+    /// Back from installing in a terminal, say.
+    func applicationDidBecomeActive() {
+        Task { @MainActor in await model.recheckOpenOffer() }
+    }
+
+    // MARK: LeoClaudeOfferPresenting
+
+    func presentOffer() async -> Bool {
         let alert = NSAlert()
         alert.messageText = "Set up Claude for your agents?"
         alert.informativeText = "Leo’s agents run on Claude Code, which isn’t installed yet. "
@@ -54,7 +56,12 @@ import LeoKit
             + "You can do this later from Agents ▸ Set Up Claude…"
         alert.addButton(withTitle: "Set Up…")
         alert.addButton(withTitle: "Not Now")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        setUp()
+        return alert.runModal() == .alertFirstButtonReturn
     }
+
+    func withdrawOffer() {
+        NSApp.abortModal()
+    }
+
+    func runSetUp() { setUp() }
 }
