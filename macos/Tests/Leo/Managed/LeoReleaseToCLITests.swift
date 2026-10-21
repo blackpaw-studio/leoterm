@@ -76,6 +76,21 @@ struct LeoReleaseToCLITests {
         #expect(rig.fileSystem.contents(of: Self.localBin) == "curl-installed leo")
     }
 
+    /// The restored CLI plist would bootstrap the app's helper as the CLI daemon.
+    @Test func aCommandBackupThatCantBeRestoredStopsTheReleaseBeforeTheHandover() async {
+        let rig = Rig()
+        rig.fileSystem.addSymlink(Self.localBin, to: Self.selfLink)
+        rig.fileSystem.addFile(Self.backup, "curl-installed leo", mode: 0o755)
+        rig.fileSystem.failNext("move", at: Self.localBin, code: EACCES)
+
+        guard case .failed(let message, reRegistered: false) = await rig.run() else { Issue.record("expected failure"); return }
+
+        #expect(message.contains("~/.local/bin/leo"))
+        #expect(!rig.log.events.contains(.run(Self.toCLI)))
+        #expect(!rig.log.events.contains { if case .agent = $0 { true } else { false } })
+        #expect(rig.fileSystem.kind(at: URL(fileURLWithPath: Self.localBin)) == .symlink(target: Self.selfLink))
+    }
+
     @Test(arguments: [
         ("our link, no backup", true, false),
         ("someone else's file, with a backup", false, true),

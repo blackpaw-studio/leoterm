@@ -27,7 +27,14 @@ struct LeoReleaseToCLI: Sendable {
         guard await confirm() else { return .declined }
         // The restored CLI plist runs `~/.local/bin/leo`: it must be the CLI's
         // own binary again before leo bootstraps it, not the app's helper.
-        let restoredCommand = restoreCommandBackup()
+        let restoredCommand: Bool
+        do {
+            restoredCommand = try restoreCommandBackup()
+        } catch {
+            Self.logger.error("release to CLI: restoring the leo command failed: \(String(describing: error), privacy: .public)")
+            let message = "Leo couldn’t put your own leo back at ~/.local/bin/leo from leo.pre-leoapp, so nothing was handed back: \(error)"
+            return .failed(message: message, reRegistered: false)
+        }
         let result: LeoJSONFailure?
         switch await handover.toCLI() {
         case .succeeded(let value):
@@ -66,16 +73,12 @@ struct LeoReleaseToCLI: Sendable {
         fileSystem.kind(at: paths.localBinLeo) == .symlink(target: paths.selfLinkURL.path)
     }
 
-    /// Puts `leo.pre-leoapp` back over our `~/.local/bin/leo` link (A14).
-    private func restoreCommandBackup() -> Bool {
+    /// Puts `leo.pre-leoapp` back over our `~/.local/bin/leo` link (A14);
+    /// false when there was nothing to restore.
+    private func restoreCommandBackup() throws -> Bool {
         guard isOurCommandLink, fileSystem.kind(at: paths.localBinLeoBackup) != .absent else { return false }
-        do {
-            try fileSystem.move(from: paths.localBinLeoBackup, to: paths.localBinLeo)
-            return true
-        } catch {
-            Self.logger.error("release to CLI: restoring the leo command failed: \(String(describing: error), privacy: .public)")
-            return false
-        }
+        try fileSystem.move(from: paths.localBinLeoBackup, to: paths.localBinLeo)
+        return true
     }
 
     /// Nothing was released: the command goes back to being our link.
