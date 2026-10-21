@@ -96,9 +96,9 @@ final class LeoFakeProbe: LeoDaemonProbing, @unchecked Sendable {
 /// Answers each command line from a table keyed by its full argv
 /// (executable first); an unscripted command exits 127.
 final class LeoScriptedRunner: LeoProcessRunning, @unchecked Sendable {
-    enum Reply {
+    enum Reply: Sendable {
         case exit(Int32, stdout: String = "", stderr: String = "")
-        case error(any Error)
+        case error(any Error & Sendable)
     }
 
     private let lock = NSLock()
