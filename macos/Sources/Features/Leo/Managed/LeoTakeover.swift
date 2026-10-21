@@ -83,28 +83,16 @@ struct LeoTakeover: Sendable {
         }
     }
 
-    /// The marker never landed, so plain `--to-cli` can't find the app's job:
-    /// leo's markerless restore (v0.56.1), once. leo refuses it while the
-    /// app's job is loaded, so that goes first.
+    /// The marker never landed: leo's markerless restore, once. The app's
+    /// job isn't registered yet, but unregistering first is harmless.
     private func restoreWithoutMarker(after failure: LeoManagedSetup.Failure) async -> LeoTakeoverOutcome {
-        do {
-            try await setup.agent.unregister()
-        } catch {
-            // Never registered is the usual case here; leo checks for a loaded job itself.
-        }
-        let problem: String
-        switch await handover.toCLI(label: label) {
-        case .succeeded(let result) where result.restoredWithoutMarker:
+        switch await LeoMarkerlessRestore(handover: handover, agent: setup.agent, label: label).run(unregisterFirst: true) {
+        case .restored:
             return .setupFailed(failure, cliRestored: true)
-        case .succeeded:
-            problem = "leo didn’t say it restored the CLI daemon"
-        case .failed(let refused):
-            problem = refused.summary
-        case .malformed(let message):
-            problem = message
+        case .failed(let problem):
+            let message = "\(failure.message). leo couldn’t restore your CLI daemon: \(problem)."
+            return .setupFailed(LeoManagedSetup.Failure(step: failure.step, message: message), cliRestored: false)
         }
-        let message = "\(failure.message). leo couldn’t restore your CLI daemon: \(problem)."
-        return .setupFailed(LeoManagedSetup.Failure(step: failure.step, message: message), cliRestored: false)
     }
 
     // MARK: the running server's tmux

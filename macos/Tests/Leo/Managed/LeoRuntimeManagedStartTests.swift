@@ -248,6 +248,64 @@ import Testing
         #expect(Array(rig.log.events.suffix(3)) == [.agent("register"), .run(LeoHandoverTests.toCLI), .agent("unregister")])
     }
 
+    // MARK: a crash between --to-app and the marker write
+
+    func handedOverRig(agent: LeoLaunchAgentStatus = .notRegistered) -> Rig {
+        let rig = Rig()
+        rig.base.fileSystem.addFile(Self.plistBackup, "<plist/>")
+        rig.base.agent.script(status: agent)
+        rig.base.probe.script(.absent)
+        rig.base.runner.on(LeoHandoverTests.toCLIWithoutMarker, .exit(0, stdout: LeoHandoverTests.restoredWithoutMarkerJSON))
+        return rig
+    }
+
+    @Test func aCrashMidTakeoverIsRecoveredAtLaunchWithoutAMarker() async {
+        let rig = handedOverRig()
+        let startup = rig.startup()
+
+        await startup.run()
+
+        #expect(rig.log.events == [.run(LeoHandoverTests.toCLIWithoutMarker)])
+        #expect(startup.status == .usingCLI(offerTakeover: false, isRunning: true))
+        #expect(startup.presentation.banner?.title == "Your CLI daemon is running again")
+    }
+
+    @Test func aRegisteredAppJobIsUnregisteredBeforeTheRestore() async {
+        let rig = handedOverRig(agent: .enabled)
+        let startup = rig.startup()
+
+        await startup.run()
+
+        #expect(rig.log.events == [.agent("unregister"), .run(LeoHandoverTests.toCLIWithoutMarker)])
+    }
+
+    @Test func aDaemonAnsweringInThatStateIsLeftAlone() async {
+        let rig = handedOverRig()
+        rig.base.probe.script(.live(version: "0.56.1"))
+        let startup = rig.startup()
+
+        await startup.run()
+
+        #expect(rig.log.events.isEmpty)
+        #expect(startup.status == .usingCLI(offerTakeover: false, isRunning: true))
+        #expect(startup.presentation.banner == nil)
+    }
+
+    @Test func aFailedLaunchRestoreIsReportedOnceAndNotRetried() async {
+        let rig = handedOverRig()
+        let json = #"{"ok":false,"step":"preflight","error":"daemon_running","message":"a leo daemon holds daemon.lock"}"#
+        rig.base.runner.on(LeoHandoverTests.toCLIWithoutMarker, .exit(1, stdout: json))
+        let startup = rig.startup()
+
+        await startup.run()
+        await startup.perform(.retry)
+
+        #expect(rig.count(.run(LeoHandoverTests.toCLIWithoutMarker)) == 1)
+        guard case .failed(let message) = startup.status else { Issue.record("expected failure, got \(startup.status)"); return }
+        #expect(message.contains("holds daemon.lock"))
+        #expect(message.contains("leo service start --daemon"))
+    }
+
     @Test func becomingActiveOutsideApprovalDoesNothing() async {
         let rig = Rig()
         let startup = rig.startup(buildKind: .debug, location: .exempt)

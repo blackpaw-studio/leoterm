@@ -31,7 +31,8 @@ struct LeoFirstRunTests {
         takeover: .notAsked,
         buildKind: .release,
         managedDebug: false,
-        hasBundledHelpers: true
+        hasBundledHelpers: true,
+        hasHandedOverBackup: false
     )
 
     struct Row: Sendable, CustomTestStringConvertible {
@@ -73,6 +74,35 @@ struct LeoFirstRunTests {
         },
         Row("something holds the socket but doesn't answer: never install over it", .useLive(offerTakeover: false)) {
             $0.probe = .unresponsive
+        },
+
+        // Crash between `handover --to-app` and the marker write: no daemon.
+        Row("handed over, no marker, nothing answers: restore the CLI", .restoreHandedOverCLI(unregisterFirst: false)) {
+            $0.hasHandedOverBackup = true
+        },
+        Row("handed over, no marker, the app's job registered: unregister first", .restoreHandedOverCLI(unregisterFirst: true)) {
+            $0.hasHandedOverBackup = true; $0.agentStatus = .enabled
+        },
+        Row("handed over, no marker, job awaiting approval: unregister first", .restoreHandedOverCLI(unregisterFirst: true)) {
+            $0.hasHandedOverBackup = true; $0.agentStatus = .requiresApproval
+        },
+        Row("handed over, no marker, something holds the socket: leo checks the lock", .restoreHandedOverCLI(unregisterFirst: false)) {
+            $0.hasHandedOverBackup = true; $0.probe = .unresponsive
+        },
+        Row("handed over, no marker, app moved: restore anyway", .restoreHandedOverCLI(unregisterFirst: false)) {
+            $0.hasHandedOverBackup = true; $0.location = .needsMove(.elsewhere)
+        },
+        Row("handed over, no marker, but a daemon answers: touch nothing", .leaveHandedOverAlone) {
+            $0.hasHandedOverBackup = true; $0.probe = .live(version: "0.56.1"); $0.existing = .live
+        },
+        Row("handed over, no marker, no bundled leo to run", .observeOnly) {
+            $0.hasHandedOverBackup = true; $0.hasBundledHelpers = false
+        },
+        Row("handed over, no marker, debug build", .observeOnly) {
+            $0.hasHandedOverBackup = true; $0.location = .exempt; $0.buildKind = .debug
+        },
+        Row("handed over with a marker is a normal managed install", .ensureManaged(refreshLink: true, register: false)) {
+            $0.hasHandedOverBackup = true; $0.marker = .ours(Self.ours); $0.agentStatus = .enabled
         },
 
         // Crash-between-steps recovery after Release to CLI.

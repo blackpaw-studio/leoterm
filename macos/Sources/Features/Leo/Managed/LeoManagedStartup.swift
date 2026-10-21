@@ -54,6 +54,8 @@ struct LeoManagedDependencies: Sendable {
     private let location: () async -> LeoAppLocation?
     private let presenter: any LeoManagedPresenting
     private var resolvedLocation: LeoAppLocation?
+    /// The launch-time markerless restore runs at most once per launch.
+    private var triedMarkerlessRestore = false
     /// B6: each bundled → running pair is restarted at most once per launch.
     private var triedRestarts: Set<[String]> = []
     /// One managed operation at a time; a second click while one runs is ignored.
@@ -167,7 +169,8 @@ struct LeoManagedDependencies: Sendable {
             takeover: takeoverStore.answer,
             buildKind: dependencies.buildKind,
             managedDebug: dependencies.environment[LeoFirstRun.managedDebugKey] == "1",
-            hasBundledHelpers: fileSystem.kind(at: paths.bundledLeo) == .file && fileSystem.kind(at: paths.bundledTmux) == .file
+            hasBundledHelpers: fileSystem.kind(at: paths.bundledLeo) == .file && fileSystem.kind(at: paths.bundledTmux) == .file,
+            hasHandedOverBackup: fileSystem.kind(at: paths.cliLaunchAgentPlistBackup) != .absent
         )
     }
 
@@ -200,6 +203,32 @@ struct LeoManagedDependencies: Sendable {
             )
         case .recoverOrphanRegistration:
             await recoverOrphanRegistration()
+        case .restoreHandedOverCLI(let unregisterFirst):
+            await restoreHandedOverCLI(unregisterFirst: unregisterFirst)
+        case .leaveHandedOverAlone:
+            Self.logger.notice("the CLI plist is handed over and there's no marker, but a daemon answers: leaving it alone")
+            status = .usingCLI(offerTakeover: false, isRunning: true)
+        }
+    }
+
+    /// A crash between `--to-app` and the marker write left no daemon.
+    private func restoreHandedOverCLI(unregisterFirst: Bool) async {
+        guard !triedMarkerlessRestore else { return }
+        triedMarkerlessRestore = true
+        let reason = "Leo quit before it finished taking over your daemon"
+        let outcome = await LeoMarkerlessRestore(handover: handover, agent: dependencies.agent, label: dependencies.label)
+            .run(unregisterFirst: unregisterFirst)
+        switch outcome {
+        case .restored:
+            status = .usingCLI(offerTakeover: false, isRunning: true)
+            notice = LeoManagedNotice(
+                title: "Your CLI daemon is running again",
+                message: "\(reason), so it handed it back to your command-line install."
+            )
+        case .failed(let problem):
+            status = .failed(
+                message: "\(reason), and leo couldn’t restore your CLI daemon: \(problem). Start it with “leo service start --daemon”."
+            )
         }
     }
 

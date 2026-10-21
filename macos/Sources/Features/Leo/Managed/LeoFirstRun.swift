@@ -44,6 +44,8 @@ struct LeoFirstRunInputs: Equatable, Sendable {
     var buildKind: LeoBuildKind
     var managedDebug: Bool
     var hasBundledHelpers: Bool
+    /// leo's `<CLI plist>.handed-over` backup exists: `--to-app` ran.
+    var hasHandedOverBackup: Bool
 }
 
 enum LeoRepairReason: Equatable, Sendable {
@@ -60,6 +62,11 @@ enum LeoFirstRunAction: Equatable, Sendable {
     case awaitApproval
     case repair(LeoRepairReason)
     case recoverOrphanRegistration
+    /// Crashed between `handover --to-app` and the marker write: leo's
+    /// markerless `--to-cli`, after unregistering a registered app job.
+    case restoreHandedOverCLI(unregisterFirst: Bool)
+    /// The same state, but a daemon answers: touch nothing.
+    case leaveHandedOverAlone
     case observeOnly
 }
 
@@ -77,6 +84,14 @@ enum LeoFirstRun {
     static func decide(_ inputs: LeoFirstRunInputs) -> LeoFirstRunAction {
         guard inputs.buildKind == .release || inputs.managedDebug else { return .observeOnly }
         if case .foreign = inputs.marker { return .observeOnly }
+        // Crashed between `handover --to-app` and the marker write: the CLI
+        // plist is still leo's backup, so no daemon starts at login. Wherever
+        // the app is, the bundled leo can restore it.
+        if inputs.marker == .absent, inputs.hasHandedOverBackup, inputs.hasBundledHelpers {
+            if case .live = inputs.probe { return .leaveHandedOverAlone }
+            let isRegistered = inputs.agentStatus == .enabled || inputs.agentStatus == .requiresApproval
+            return .restoreHandedOverCLI(unregisterFirst: isRegistered)
+        }
         if case .needsMove = inputs.location { return .blockMove(isManaged: inputs.marker.isOurs) }
         // Release to CLI crashed between its handover and `unregister()`.
         if inputs.marker == .absent, inputs.agentStatus == .enabled || inputs.agentStatus == .requiresApproval {
