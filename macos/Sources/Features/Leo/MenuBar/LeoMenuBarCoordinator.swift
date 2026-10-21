@@ -23,6 +23,10 @@ import OSLog
     private let defaults: UserDefaults
     private let windowID: () -> LeoWindowID?
     private let openLeo: () -> Void
+    /// The managed daemon's state (B5): whether the app owns it, and the
+    /// version its hello reported.
+    private let managed: () -> (isManaged: Bool, version: String?)
+    private let releaseToCLI: () -> Void
     private let fileManager: FileManager
     private let workspace: NSWorkspace
     private var isRestarting = false
@@ -35,6 +39,8 @@ import OSLog
     init(
         model: LeoSidebarModel, serverMode: LeoServerMode, restarter: LeoDaemonRestarter, defaults: UserDefaults,
         windowID: @escaping () -> LeoWindowID?, openLeo: @escaping () -> Void,
+        managed: @escaping () -> (isManaged: Bool, version: String?) = { (false, nil) },
+        releaseToCLI: @escaping () -> Void = {},
         fileManager: FileManager = .default, workspace: NSWorkspace = .shared
     ) {
         self.model = model
@@ -43,6 +49,8 @@ import OSLog
         self.defaults = defaults
         self.windowID = windowID
         self.openLeo = openLeo
+        self.managed = managed
+        self.releaseToCLI = releaseToCLI
         self.fileManager = fileManager
         self.workspace = workspace
     }
@@ -55,10 +63,10 @@ import OSLog
     }
 
     private func menuInputs() -> LeoMenuBarInputs {
-        LeoMenuBarInputs(
+        let managed = managed()
+        return LeoMenuBarInputs(
             snapshot: model.snapshot,
-            // The hello version and the managed marker arrive with Phase B.
-            version: nil, isManaged: false,
+            version: managed.version, isManaged: managed.isManaged,
             serverOnly: serverMode.isServerOnly, isRestarting: isRestarting,
             hasLogFile: fileManager.fileExists(atPath: Self.logURL().path)
         )
@@ -67,6 +75,7 @@ import OSLog
     private func perform(_ action: LeoMenuBarAction) {
         switch action {
         case .restartDaemon: restart()
+        case .releaseToCLI: releaseToCLI()
         case .openLogs: workspace.open(Self.logURL())
         case .toggleServerOnly:
             serverMode.setServerOnly(!serverMode.isServerOnly)
@@ -87,7 +96,7 @@ import OSLog
         Task { @MainActor in
             defer { isRestarting = false }
             do {
-                try await restarter.restart(isManaged: false)
+                try await restarter.restart(isManaged: managed().isManaged)
             } catch {
                 Self.logger.error("daemon restart failed: \(String(describing: error), privacy: .public)")
                 let alert = NSAlert()
