@@ -132,4 +132,28 @@ import Testing
         first.buttons[0].performClick(nil)
         #expect(await offer.value)
     }
+
+    @Test func thePanelIsLaidOutBeforeItIsShown() async {
+        let presenter = LeoOfferAlertPresenter(hostWindow: { nil })
+        let alert = Self.alert()
+        let offer = await Self.open(presenter, alert)
+        let shown = alert.window.frame
+        let shownButtons = alert.buttons.map(\.frame)
+
+        // NSAlert only lays itself out when it runs: laying out again must move nothing.
+        alert.layout()
+
+        #expect(alert.window.frame == shown)
+        #expect(alert.buttons.map(\.frame) == shownButtons)
+        let bounds = alert.window.contentView?.bounds ?? .zero
+        #expect(shown.width > 200 && shown.height > 100)
+        for button in alert.buttons {
+            let frame = button.convert(button.bounds, to: alert.window.contentView)
+            #expect(frame.width > 20 && frame.height > 10)
+            #expect(bounds.contains(frame))
+        }
+
+        presenter.withdraw()
+        _ = await offer.value
+    }
 }

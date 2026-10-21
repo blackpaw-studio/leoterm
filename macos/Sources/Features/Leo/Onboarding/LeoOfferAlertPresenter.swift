@@ -65,6 +65,8 @@ import AppKit
             button.target = self
             button.action = #selector(panelButtonPressed(_:))
         }
+        // NSAlert only lays itself out when it runs; do it before the frame is used.
+        alert.layout()
         let window = alert.window
         window.level = .floating
         window.center()
