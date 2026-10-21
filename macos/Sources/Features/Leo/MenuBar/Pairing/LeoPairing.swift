@@ -55,6 +55,8 @@ enum LeoPairingError: Error, Equatable {
     case unreadable(String)
     /// leo could not be run at all.
     case unavailable(String)
+    /// leo handed back a code that had already expired.
+    case expired
 
     /// The sentence shown to the user.
     var message: String {
@@ -62,6 +64,7 @@ enum LeoPairingError: Error, Equatable {
         case .webDisabled: "Web access is turned off."
         case let .leo(code, message): message.flatMap { $0.isEmpty ? nil : $0 } ?? "leo reported \(code)."
         case let .unreadable(message), let .unavailable(message): message
+        case .expired: "leo returned a pairing code that has already expired. Check that this Mac’s date and time are correct."
         }
     }
 }

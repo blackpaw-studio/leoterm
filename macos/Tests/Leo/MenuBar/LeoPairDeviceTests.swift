@@ -205,6 +205,11 @@ struct LeoPairingServiceTests {
     }
 }
 
+/// The states a model published, in order.
+@MainActor private final class StateLog {
+    var states: [LeoPairingModel.State] = []
+}
+
 @MainActor
 struct LeoPairingModelTests {
     private static let start = Date(timeIntervalSince1970: 1_000_000)
@@ -251,15 +256,40 @@ struct LeoPairingModelTests {
         model.stop()
     }
 
-    @Test func aPayloadAlreadyExpiredRefreshesAfterTheMinimumDelayNotInAHotLoop() async throws {
-        let runner = ScriptedRunner([PairFixtures.payloadOutput(expiresAt: "1970-01-01T00:00:00Z")])
+    @Test func anAlreadyExpiredPayloadIsRejectedAndNeverShown() async throws {
+        let runner = ScriptedRunner([PairFixtures.payloadOutput(code: "OLD1", expiresAt: "1970-01-01T00:00:00Z")])
         let clock = LeoFiringClock()
         let model = Self.model(runner, clock: clock)
+        let log = StateLog()
+        model.onChange = { log.states.append($0) }
 
         model.start()
 
-        try await until { clock.pending(Self.seconds(LeoPairingModel.minimumRefreshSeconds)).count == 1 }
-        #expect(await runner.argv.count == 1)
+        try await until { await MainActor.run { model.state == .failed(LeoPairingError.expired.message) } }
+        #expect(!log.states.contains { if case .ready = $0 { true } else { false } })
+        model.stop()
+    }
+
+    @Test func theStaleCodeIsClearedAtExpiryAndReplacedByRefreshing() async throws {
+        let runner = ScriptedRunner([
+            PairFixtures.payloadOutput(code: "AAAA", expiresAt: "1970-01-12T13:48:00Z"),
+            PairFixtures.payloadOutput(code: "BBBB", expiresAt: "1970-01-12T13:49:00Z"),
+        ])
+        let clock = LeoFiringClock()
+        let model = Self.model(runner, clock: clock)
+        let log = StateLog()
+        model.onChange = { log.states.append($0) }
+        model.start()
+        try await until { clock.pending(Self.seconds(80)).count == 1 }
+
+        clock.fire(Self.seconds(80))
+
+        try await until { await MainActor.run { log.states.count == 3 } }
+        #expect(log.states == [
+            .ready(PairFixtures.payload(code: "AAAA", expiresAt: Date(timeIntervalSince1970: 1_000_080))),
+            .refreshing,
+            .ready(PairFixtures.payload(code: "BBBB", expiresAt: Date(timeIntervalSince1970: 1_000_140))),
+        ])
         model.stop()
     }
 

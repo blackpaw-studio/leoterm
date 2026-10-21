@@ -7,14 +7,14 @@ import Foundation
 @MainActor final class LeoPairingModel {
     enum State: Equatable {
         case loading
+        /// The shown code expired; a replacement is being fetched.
+        case refreshing
         case ready(LeoPairingPayload)
         case webDisabled(message: String?)
         case enablingWeb
         case failed(String)
     }
 
-    /// A payload already past its expiry is refetched after this long, not in a hot loop.
-    nonisolated static let minimumRefreshSeconds: UInt64 = 5
     /// After `web enable` restarts the daemon, pairing is retried this often...
     nonisolated static let restartRetrySeconds: UInt64 = 1
     /// ...for up to this many retries before the failure is shown.
@@ -83,6 +83,8 @@ import Foundation
                 state = .ready(payload)
                 retries = 0
                 try await sleep(refreshNanoseconds(for: payload))
+                // The shown code no longer works: take it off screen while the next one is fetched.
+                state = .refreshing
             }
         } catch is CancellationError {
         } catch {
@@ -95,7 +97,9 @@ import Foundation
         var failures = 0
         while true {
             do {
-                return try await service.pair()
+                let payload = try await service.pair()
+                guard payload.expiresAt > now() else { throw LeoPairingError.expired }
+                return payload
             } catch {
                 if case LeoPairingError.webDisabled = error { throw error }
                 if error is CancellationError || failures >= attempts { throw error }
@@ -105,10 +109,10 @@ import Foundation
         }
     }
 
+    /// Until `expires_at`. Payloads are rejected if already expired, so this is positive.
     private func refreshNanoseconds(for payload: LeoPairingPayload) -> UInt64 {
         let remaining = payload.expiresAt.timeIntervalSince(now()).rounded(.up)
-        let seconds = remaining.isFinite && remaining > 0 ? UInt64(remaining) : 0
-        return max(seconds, Self.minimumRefreshSeconds) * Self.nanosecondsPerSecond
+        return UInt64(max(remaining, 1)) * Self.nanosecondsPerSecond
     }
 
     private static func state(for error: Error) -> State {

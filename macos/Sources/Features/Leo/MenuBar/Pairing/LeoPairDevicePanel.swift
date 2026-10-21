@@ -110,6 +110,7 @@ private final class LeoPairDeviceWindow: NSWindow {
         copyButton = nil
         switch state {
         case .loading: showProgress("Getting a pairing code…")
+        case .refreshing: showProgress("Refreshing…")
         case .enablingWeb: showProgress("Turning on web access…")
         case .ready(let payload): showPairing(payload)
         case .webDisabled: showWebDisabled()
