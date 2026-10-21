@@ -14,7 +14,9 @@ enum LeoLaunchAgentStatus: Equatable, Sendable {
     case notRegistered
     case enabled
     case requiresApproval
-    /// The bundle has no plist for the label.
+    /// SMAppService has no record of the label. macOS 26.6 says this for a
+    /// bundled agent that was never registered, so only the plist file
+    /// (`LeoFirstRunInputs.hasBundledAgentPlist`) says the bundle is incomplete.
     case notFound
 }
 
@@ -44,6 +46,10 @@ struct LeoFirstRunInputs: Equatable, Sendable {
     var buildKind: LeoBuildKind
     var managedDebug: Bool
     var hasBundledHelpers: Bool
+    /// `Contents/Library/LaunchAgents/<label>.plist` is on disk. macOS 26.6
+    /// answers `.notFound` for a bundled agent that was never registered, so
+    /// the file, not the status, says whether the bundle is complete.
+    var hasBundledAgentPlist: Bool
     /// leo's `<CLI plist>.handed-over` backup exists: `--to-app` ran.
     var hasHandedOverBackup: Bool
 }
@@ -97,7 +103,7 @@ enum LeoFirstRun {
         if inputs.marker == .absent, inputs.agentStatus == .enabled || inputs.agentStatus == .requiresApproval {
             return .recoverOrphanRegistration
         }
-        let isBundleComplete = inputs.hasBundledHelpers && inputs.agentStatus != .notFound
+        let isBundleComplete = inputs.hasBundledHelpers && inputs.hasBundledAgentPlist
         switch inputs.marker {
         case .absent:
             return isBundleComplete ? decideUnmanaged(inputs) : .observeOnly
@@ -110,6 +116,7 @@ enum LeoFirstRun {
             switch inputs.agentStatus {
             case .requiresApproval: return .awaitApproval
             case .enabled: return .ensureManaged(refreshLink: refreshLink, register: false)
+            // `.notFound` with the plist present is just "never registered".
             case .notRegistered, .notFound: return .ensureManaged(refreshLink: refreshLink, register: true)
             }
         case .foreign:

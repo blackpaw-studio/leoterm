@@ -51,6 +51,9 @@ struct LeoInstallPaths: Equatable, Sendable {
     var helpersDirectory: URL { bundleURL.appendingPathComponent("Contents/Helpers", isDirectory: true) }
     var bundledLeo: URL { helpersDirectory.appendingPathComponent("leo") }
     var bundledTmux: URL { helpersDirectory.appendingPathComponent("tmux") }
+    func bundledLaunchAgentPlist(label: String) -> URL {
+        bundleURL.appendingPathComponent("Contents/Library/LaunchAgents/\(label).plist")
+    }
     var bundledTerminfo: URL { bundleURL.appendingPathComponent("Contents/Resources/terminfo", isDirectory: true) }
 
     // MARK: the user's own PATH

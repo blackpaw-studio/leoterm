@@ -32,6 +32,7 @@ struct LeoFirstRunTests {
         buildKind: .release,
         managedDebug: false,
         hasBundledHelpers: true,
+        hasBundledAgentPlist: true,
         hasHandedOverBackup: false
     )
 
@@ -140,10 +141,19 @@ struct LeoFirstRunTests {
             $0.marker = .ours(Self.ours); $0.agentStatus = .enabled; $0.hasBundledHelpers = false
         },
         Row("managed, bundle has no LaunchAgent plist", .repair(.bundleIncomplete)) {
+            $0.marker = .ours(Self.ours); $0.agentStatus = .notFound; $0.hasBundledAgentPlist = false
+        },
+        Row("managed, never registered: macOS 26.6 says notFound but the plist is there", .ensureManaged(refreshLink: true, register: true)) {
             $0.marker = .ours(Self.ours); $0.agentStatus = .notFound
         },
         Row("unmanaged, bundle has no helpers: behave as before", .observeOnly) { $0.hasBundledHelpers = false },
-        Row("unmanaged, bundle has no LaunchAgent plist", .observeOnly) { $0.agentStatus = .notFound },
+        Row("unmanaged, bundle has no LaunchAgent plist", .observeOnly) {
+            $0.agentStatus = .notFound; $0.hasBundledAgentPlist = false
+        },
+        Row("fresh install: macOS 26.6 says notFound but the plist is there", .install) { $0.agentStatus = .notFound },
+        Row("live CLI daemon, notFound with the plist there: still offers takeover", .useLive(offerTakeover: true)) {
+            $0.agentStatus = .notFound; $0.probe = .live(version: "0.55.0"); $0.existing = .live
+        },
 
         // Observe only.
         Row("foreign marker", .observeOnly) { $0.marker = .foreign(bundleID: Self.foreign.bundleID, marker: Self.foreign) },

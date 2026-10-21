@@ -170,6 +170,7 @@ struct LeoManagedDependencies: Sendable {
             buildKind: dependencies.buildKind,
             managedDebug: dependencies.environment[LeoFirstRun.managedDebugKey] == "1",
             hasBundledHelpers: fileSystem.kind(at: paths.bundledLeo) == .file && fileSystem.kind(at: paths.bundledTmux) == .file,
+            hasBundledAgentPlist: fileSystem.kind(at: paths.bundledLaunchAgentPlist(label: dependencies.label)) == .file,
             hasHandedOverBackup: fileSystem.kind(at: paths.cliLaunchAgentPlistBackup) != .absent
         )
     }

@@ -10,6 +10,7 @@ struct LeoManagedSetupTests {
     static let home = "/home/test"
     static let bundledTmux = "/Applications/Leo.app/Contents/Helpers/tmux"
     static let helper = "/Applications/Leo.app/Contents/Helpers/leo"
+    static let agentPlist = "/Applications/Leo.app/Contents/Library/LaunchAgents/studio.blackpaw.leo.daemon.plist"
     static let versionDir = "/home/test/.leo/app/tmux/3.6b"
     static let tmuxCopy = "/home/test/.leo/app/tmux/3.6b/tmux"
     static let tmuxTemp = "/home/test/.leo/app/tmux/3.6b/.tmux.c1.tmp"
@@ -53,6 +54,7 @@ struct LeoManagedSetupTests {
             agent = LeoFakeLaunchAgent(log: log, status: .enabled)
             fileSystem.addFile(LeoManagedSetupTests.bundledTmux, "tmux-3.6b", mode: 0o755)
             fileSystem.addFile(LeoManagedSetupTests.helper, "leo", mode: 0o755)
+            fileSystem.addFile(LeoManagedSetupTests.agentPlist, "plist", mode: 0o644)
             runner.on([LeoManagedSetupTests.bundledTmux, "-V"], .exit(0, stdout: "tmux 3.6b\n"))
             let log = log
             fileSystem.observe { log.append(.fs($0)) }

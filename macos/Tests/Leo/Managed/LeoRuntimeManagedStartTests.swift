@@ -84,6 +84,17 @@ import Testing
         #expect(startup.summary == LeoManagedSummary(isManaged: true, version: "0.57.0"))
     }
 
+    @Test func aFreshInstallWhereMacOSAnswersNotFoundForAnUnregisteredAgentStillInstalls() async {
+        let rig = Rig()
+        rig.base.agent.script(status: .notFound, .enabled)
+
+        let startup = rig.startup()
+        await startup.run()
+
+        #expect(startup.status == .managed(version: "0.57.0"))
+        #expect(rig.count(.agent("register")) == 1)
+    }
+
     @Test func aLiveCLIDaemonShowsTheOfferAndWritesNothing() async {
         let rig = Rig()
         rig.base.agent.script(status: .notRegistered)
@@ -460,6 +471,8 @@ import Testing
         let rig = Rig()
         try rig.writeOurMarker()
         rig.base.agent.script(status: .notFound)
+        try rig.base.fileSystem.remove(URL(fileURLWithPath: LeoManagedSetupTests.agentPlist))
+        rig.log.clear()
 
         let startup = rig.startup()
         await startup.run()
