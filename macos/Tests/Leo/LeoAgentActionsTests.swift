@@ -112,7 +112,7 @@ import Testing
 
         await awaitCondition { await MainActor.run { failures.count == 1 } }
         #expect(offers == 1)
-        #expect(failures == [LeoAgentActions.claudeMissingMessage])
+        #expect(failures == [LeoAgentActions.claudeMissingMessage(on: .local)])
     }
 
     @Test func aStartThatFailsWithClaudeNotFoundLeadsToTheOnboardingOffer() async {
@@ -126,7 +126,37 @@ import Testing
 
         await awaitCondition { await MainActor.run { model.rowErrors[row.id] != nil } }
         #expect(offers == 1)
-        #expect(model.rowErrors[row.id] == LeoAgentActions.claudeMissingMessage)
+        #expect(model.rowErrors[row.id] == LeoAgentActions.claudeMissingMessage(on: .local))
+    }
+
+    @Test func aRemoteSpawnThatFailsWithClaudeNotFoundNamesTheHostAndOffersNoLocalInstall() async {
+        let remote = LeoHostID.remote("work")
+        let actions = LeoAgentActions(daemon: ActionDaemon(), cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        actions.updateDaemon(ActionDaemon(error: Self.claudeNotFound), host: remote)
+        var offers = 0
+        var failures: [String] = []
+        actions.claudeNotFound = { offers += 1 }
+
+        actions.spawn(.init(template: "default", repo: "", name: nil, branch: nil, prompt: nil), on: remote, attach: { _, _ in }, dismiss: {}, failure: { failures.append($0) })
+
+        await awaitCondition { await MainActor.run { failures.count == 1 } }
+        #expect(offers == 0)
+        #expect(failures == ["Claude Code isn’t installed on work. Install it there, then try again."])
+        #expect(!failures[0].contains("Set Up Claude"))
+    }
+
+    @Test func aRemoteStartThatFailsWithClaudeNotFoundNamesTheHostAndOffersNoLocalInstall() async {
+        let model = LeoSidebarModel()
+        let actions = LeoAgentActions(daemon: ActionDaemon(error: Self.claudeNotFound), cli: testCLI(), model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        var offers = 0
+        actions.claudeNotFound = { offers += 1 }
+        let row = LeoAgentRow(host: .remote("work"), name: "alpha", template: "default", status: .running, activity: .unknown, actionDetail: nil)
+
+        actions.start(row)
+
+        await awaitCondition { await MainActor.run { model.rowErrors[row.id] != nil } }
+        #expect(offers == 0)
+        #expect(model.rowErrors[row.id] == "Claude Code isn’t installed on work. Install it there, then try again.")
     }
 
     @Test func otherSpawnFailuresStayAsTheyWereAndOfferNothing() async {

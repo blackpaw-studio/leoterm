@@ -5,10 +5,14 @@ import LeoKit
 @MainActor final class LeoAgentActions: ObservableObject {
     @Published private(set) var pendingActions: Set<LeoAgentRow.ID> = []
     /// What a failed spawn or start says in place of the daemon's raw
-    /// `claude_not_found` text, which names its PATH.
-    static let claudeMissingMessage = "Claude Code isn’t installed. Set it up from Agents ▸ Set Up Claude…"
+    /// `claude_not_found` text, which names its PATH. The local install flow
+    /// is only for the local host: a remote one needs claude installed there.
+    static func claudeMissingMessage(on host: LeoHostID) -> String {
+        guard host != .local else { return "Claude Code isn’t installed. Set it up from Agents ▸ Set Up Claude…" }
+        return "Claude Code isn’t installed on \(host.displayName). Install it there, then try again."
+    }
     private static let claudeNotFoundCode = "claude_not_found"
-    /// A spawn or start failed with `claude_not_found`: the onboarding offer.
+    /// A spawn or start on the local host failed with `claude_not_found`: the onboarding offer.
     var claudeNotFound: () -> Void = {}
     /// The selected host's templates, for every UI reader (New Agent sheet,
     /// a row's Set Template submenu): prefetched on each host selection so
@@ -257,8 +261,8 @@ import LeoKit
                 dismiss(); refresh()
                 attach(LeoAgentRow(host: host, name: agent.name, template: agent.template, status: agent.status ?? .unknown("unknown"), activity: .unknown, actionDetail: nil, wakeOnMessage: agent.wakeOnMessage), .content)
             } catch {
-                failure(Self.message(error))
-                self.offerOnboardingIfClaudeMissing(error)
+                failure(Self.message(error, host: host))
+                self.offerOnboardingIfClaudeMissing(error, host: host)
             }
         }
     }
@@ -293,19 +297,22 @@ import LeoKit
                 onSuccess(value)
             } catch {
                 guard self.hostSelection.generationToken == capturedGeneration else { return }
-                self.model.setRowError(Self.message(error), code: Self.code(error), for: row.id)
-                self.offerOnboardingIfClaudeMissing(error)
+                self.model.setRowError(Self.message(error, host: row.host), code: Self.code(error), for: row.id)
+                self.offerOnboardingIfClaudeMissing(error, host: row.host)
                 onFailure()
             }
         }
     }
 
-    private func offerOnboardingIfClaudeMissing(_ error: Error) {
-        if Self.code(error) == Self.claudeNotFoundCode { claudeNotFound() }
+    private func offerOnboardingIfClaudeMissing(_ error: Error, host: LeoHostID) {
+        if host == .local, Self.code(error) == Self.claudeNotFoundCode { claudeNotFound() }
+    }
+
+    private static func message(_ error: Error, host: LeoHostID) -> String {
+        code(error) == claudeNotFoundCode ? claudeMissingMessage(on: host) : message(error)
     }
 
     private static func message(_ error: Error) -> String {
-        if code(error) == claudeNotFoundCode { return claudeMissingMessage }
         if case let LeoDaemonError.daemon(_, message, _) = error { return message }
         return error.localizedDescription
     }
