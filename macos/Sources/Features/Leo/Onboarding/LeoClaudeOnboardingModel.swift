@@ -29,12 +29,23 @@ enum LeoClaudeHealth: Equatable, Sendable {
     private let presenter: any LeoClaudeOfferPresenting
     private var wasLive = false
     private var isChecking = false
-    private var isOfferVisible = false
+    private var isRechecking = false
+    private let now: () -> TimeInterval
+    private var lastRecheck: TimeInterval?
+    /// Which offer is open, by token: a recheck that outlives its offer
+    /// (Not Now clicked mid-await) must not touch a later one.
+    private var openOffer: Int?
+    private var offerCount = 0
+
+    /// Snapshots recheck an open offer at most this often.
+    static let recheckInterval: TimeInterval = 2
 
     init(
         health: @escaping () async -> LeoClaudeHealth, locate: @escaping () async -> String?,
-        store: LeoClaudeOnboardingStore, presenter: any LeoClaudeOfferPresenting
+        store: LeoClaudeOnboardingStore, presenter: any LeoClaudeOfferPresenting,
+        now: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
     ) {
+        self.now = now
         self.health = health
         self.locate = locate
         self.store = store
@@ -47,7 +58,7 @@ enum LeoClaudeHealth: Equatable, Sendable {
         let becameLive = live && !wasLive
         wasLive = live
         guard live else { return }
-        if isOfferVisible { return await recheckOpenOffer() }
+        if openOffer != nil { return await recheckIfDue() }
         guard becameLive, !store.wasOffered, !isChecking else { return }
         isChecking = true
         defer { isChecking = false }
@@ -68,13 +79,24 @@ enum LeoClaudeHealth: Equatable, Sendable {
         await offer()
     }
 
-    /// Withdraws the open offer once claude is there.
+    /// App activation: withdraws the open offer once claude is there.
     func recheckOpenOffer() async {
-        guard isOfferVisible else { return }
-        if await isMissing() == false { presenter.withdrawOffer() }
+        guard let offer = openOffer, !isRechecking else { return }
+        isRechecking = true
+        defer { isRechecking = false }
+        lastRecheck = now()
+        let isMissing = await isMissing()
+        // The user may have answered, or another offer opened, during the await.
+        guard openOffer == offer, !isMissing else { return }
+        presenter.withdrawOffer()
     }
 
     // MARK: private
+
+    private func recheckIfDue() async {
+        if let lastRecheck, now() - lastRecheck < Self.recheckInterval { return }
+        await recheckOpenOffer()
+    }
 
     private func isMissing() async -> Bool {
         switch await health() {
@@ -90,10 +112,11 @@ enum LeoClaudeHealth: Equatable, Sendable {
     }
 
     private func offer() async {
-        guard !isOfferVisible else { return }
-        isOfferVisible = true
+        guard openOffer == nil else { return }
+        offerCount += 1
+        openOffer = offerCount
         let accepted = await presenter.presentOffer()
-        isOfferVisible = false
+        openOffer = nil
         if accepted { presenter.runSetUp() }
     }
 }

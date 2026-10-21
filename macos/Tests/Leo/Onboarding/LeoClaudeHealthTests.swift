@@ -99,12 +99,39 @@ struct LeoClaudeHealthTests {
         }
     }
 
+    final class Clock {
+        var now: TimeInterval = 1_000
+    }
+
     private func model(
-        _ sources: Sources, _ presenter: Presenter, defaults: LeoInMemoryDefaults = LeoInMemoryDefaults()
+        _ sources: Sources, _ presenter: Presenter, defaults: LeoInMemoryDefaults = LeoInMemoryDefaults(), clock: Clock = Clock()
     ) -> LeoClaudeOnboardingModel {
         LeoClaudeOnboardingModel(
             health: { sources.nextHealth() }, locate: { sources.locate() },
-            store: LeoClaudeOnboardingStore(defaults: defaults), presenter: presenter
+            store: LeoClaudeOnboardingStore(defaults: defaults), presenter: presenter, now: { clock.now }
+        )
+    }
+
+    /// `/health` that suspends each call until the test answers it.
+    final class GatedHealth {
+        private var waiters: [CheckedContinuation<LeoClaudeHealth, Never>] = []
+        private(set) var calls = 0
+
+        func next() async -> LeoClaudeHealth {
+            calls += 1
+            return await withCheckedContinuation { waiters.append($0) }
+        }
+
+        func answer(_ health: LeoClaudeHealth) {
+            guard !waiters.isEmpty else { return }
+            waiters.removeFirst().resume(returning: health)
+        }
+    }
+
+    private func gatedModel(_ gate: GatedHealth, _ presenter: Presenter, clock: Clock = Clock()) -> LeoClaudeOnboardingModel {
+        LeoClaudeOnboardingModel(
+            health: { await gate.next() }, locate: { nil },
+            store: LeoClaudeOnboardingStore(defaults: LeoInMemoryDefaults()), presenter: presenter, now: { clock.now }
         )
     }
 
@@ -211,6 +238,95 @@ struct LeoClaudeHealthTests {
 
         #expect(presenter.withdrawals == 1)
         #expect(presenter.setUps == 0)
+    }
+
+    @Test func claudeAppearingWhileTheUserClicksNotNowDoesNotTouchTheClosedOffer() async {
+        let gate = GatedHealth(), presenter = Presenter()
+        let model = gatedModel(gate, presenter)
+        let first = Task { await model.snapshotLanded(hasLiveLocalDaemon: true) }
+        await settle()
+        gate.answer(.missing)
+        await settle()
+        #expect(presenter.offers == 1)
+
+        let recheck = Task { await model.recheckOpenOffer() }
+        await settle()
+        #expect(gate.calls == 2)
+        presenter.answerVisibleOffer(false)
+        await first.value
+        gate.answer(.found(path: "/x/claude"))
+        await recheck.value
+
+        #expect(presenter.withdrawals == 0)
+    }
+
+    @Test func aStaleRecheckNeverWithdrawsALaterOffer() async {
+        let gate = GatedHealth(), presenter = Presenter()
+        let model = gatedModel(gate, presenter)
+        let first = Task { await model.snapshotLanded(hasLiveLocalDaemon: true) }
+        await settle()
+        gate.answer(.missing)
+        await settle()
+        let recheck = Task { await model.recheckOpenOffer() }
+        await settle()
+        presenter.answerVisibleOffer(false)
+        await first.value
+
+        let second = Task { await model.claudeNotFound() }
+        await settle()
+        #expect(presenter.offers == 2)
+        gate.answer(.found(path: "/x/claude"))
+        await recheck.value
+
+        #expect(presenter.withdrawals == 0)
+        presenter.answerVisibleOffer(false)
+        await second.value
+    }
+
+    @Test func overlappingRechecksShareOneHealthCall() async {
+        let gate = GatedHealth(), presenter = Presenter()
+        let model = gatedModel(gate, presenter)
+        let first = Task { await model.snapshotLanded(hasLiveLocalDaemon: true) }
+        await settle()
+        gate.answer(.missing)
+        await settle()
+
+        let a = Task { await model.recheckOpenOffer() }
+        await settle()
+        let b = Task { await model.recheckOpenOffer() }
+        await settle()
+
+        #expect(gate.calls == 2)
+        gate.answer(.missing)
+        await a.value
+        await b.value
+        presenter.answerVisibleOffer(false)
+        await first.value
+    }
+
+    @Test func snapshotsRecheckTheOpenOfferAtMostOnceEveryTwoSeconds() async {
+        let sources = Sources(.missing, .missing, .missing, .missing), presenter = Presenter()
+        let clock = Clock()
+        let model = model(sources, presenter, clock: clock)
+        let first = Task { await model.snapshotLanded(hasLiveLocalDaemon: true) }
+        await settle()
+        #expect(sources.healthCalls == 1)
+
+        await model.snapshotLanded(hasLiveLocalDaemon: true)
+        #expect(sources.healthCalls == 2)
+        clock.now += 1.9
+        await model.snapshotLanded(hasLiveLocalDaemon: true)
+        await model.snapshotLanded(hasLiveLocalDaemon: true)
+        #expect(sources.healthCalls == 2)
+        clock.now += 0.2
+        await model.snapshotLanded(hasLiveLocalDaemon: true)
+        #expect(sources.healthCalls == 3)
+
+        // App activation always rechecks.
+        await model.recheckOpenOffer()
+        #expect(sources.healthCalls == 4)
+        presenter.answerVisibleOffer(false)
+        await first.value
     }
 
     @Test func aRecheckWithNoOpenOfferAsksNothing() async {
