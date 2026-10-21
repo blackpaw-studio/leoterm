@@ -403,3 +403,9 @@ Ship targets: marker, self_path, daemon lock, update refusal, tmux resolution, d
 - All leo-side PRs merged to leo main (#282–#285). Everything (marker, lock, self_path, update refusal, tmux resolution, service routing, handover, pair/web/restart --json, universal asset + `leo-release` dispatch) ships together in **v0.56.0** — the earlier ≥0.57.0 annotations now mean ≥0.56.0. Not yet tagged (awaiting Evan).
 - Dev builds: `make build` in /Users/evan/.leo/agents/leo → `bin/leo` for `LEO_BINARY`.
 - leo's `LEOTERM_DISPATCH_TOKEN` is set; the first stable leo release fires `leo-release` at leoterm even before B8's receiving workflow exists (harmless no-op until then).
+
+## leo v0.56.0 tagged (2026-10-20 21:27 EDT) + round 5 answers
+- v0.56.0 contains every surface. Pin bump pending the release build's darwin_universal asset + checksums.txt.
+- `/health data.version` == hello.version == `leo version` minus "leo " — same build-time string; release builds bare semver (no v).
+- leo runs exactly `launchctl bootout gui/<uid>/<label>` and NEVER bootstraps/registers the app's job, even on rollback. `managed_stopped:true` → app must restore it: `unregister()` then `register()`, then verify hello.
+- `restart` → `not_registered` + live hello = daemon running outside the app's job. `/health` includes `pid`. Recovery (follow-up step B10): "A leo daemon (pid N) is running outside Leo.app" + [Stop it] → confirm → SIGTERM pid (clean shutdown; agent tmux sessions survive) → wait for lock/socket release (bounded) → register/kickstart app job. No `doctor --json` yet (leo will add on request).
