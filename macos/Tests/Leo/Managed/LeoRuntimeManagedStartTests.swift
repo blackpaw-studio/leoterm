@@ -262,6 +262,92 @@ import Testing
         #expect(rig.presenter.errors.count == 1)
     }
 
+    // MARK: after a Sparkle update (B6)
+
+    /// A managed 0.57.0 daemon found by an app that now bundles 0.57.1.
+    func updatedRig(restartReply: LeoScriptedRunner.Reply = .exit(0, stdout: LeoPostUpdateRestartTests.restartedJSON)) throws -> Rig {
+        let rig = Rig()
+        try rig.writeOurMarker()
+        rig.base.runner.on([LeoHandoverTests.bundled, "version"], .exit(0, stdout: "leo 0.57.1\n"))
+        rig.base.runner.on(LeoPostUpdateRestartTests.restart, restartReply)
+        rig.base.probe.script(.live(version: "0.57.0"), .live(version: "0.57.1"))
+        return rig
+    }
+
+    @Test func anUpdatedAppRestartsItsDaemonOnce() async throws {
+        let rig = try updatedRig()
+        var banners: [String] = []
+        let startup = rig.startup()
+        startup.onChange = { banners.append($0.banner?.title ?? "") }
+
+        await startup.run()
+        await startup.restartIfUpdated()
+        await startup.restartIfUpdated()
+
+        #expect(startup.status == .managed(version: "0.57.1"))
+        #expect(rig.count(.run(LeoPostUpdateRestartTests.restart)) == 1)
+        #expect(banners.contains("Updating Leo’s daemon to 0.57.1…"))
+        #expect(startup.presentation.banner == nil)
+    }
+
+    @Test func aDaemonThatStaysOldPointsAtLeoDoctorAndIsNotRestartedAgain() async throws {
+        let rig = try updatedRig()
+        rig.base.probe.script(.live(version: "0.57.0"))
+        let startup = rig.startup()
+
+        await startup.run()
+        await startup.restartIfUpdated()
+        await startup.restartIfUpdated()
+
+        #expect(startup.status == .managed(version: "0.57.0"))
+        #expect(rig.count(.run(LeoPostUpdateRestartTests.restart)) == 1)
+        #expect(startup.presentation.banner?.detail.contains("leo doctor") == true)
+    }
+
+    @Test(arguments: [
+        (#"{"ok":false,"error":"drain_timeout"}"#, "Restart Daemon"),
+        (#"{"ok":false,"error":"not_registered","message":"no job"}"#, "leo doctor"),
+        (#"{"ok":false,"error":"boom"}"#, "leo doctor"),
+    ])
+    func aRestartThatDidNotHappenKeepsTheOldDaemonAndSaysWhatToDo(json: String, advice: String) async throws {
+        let rig = try updatedRig(restartReply: .exit(1, stdout: json))
+        let startup = rig.startup()
+
+        await startup.run()
+        await startup.restartIfUpdated()
+
+        #expect(startup.status == .managed(version: "0.57.0"))
+        #expect(startup.presentation.banner?.detail.contains(advice) == true)
+        #expect(startup.presentation.banner?.actions == [.dismiss])
+    }
+
+    @Test func aDaemonRunningTheBundledVersionIsLeftAlone() async throws {
+        let rig = Rig()
+        try rig.writeOurMarker()
+        rig.base.probe.script(.live(version: "0.57.0"))
+        let startup = rig.startup()
+
+        await startup.run()
+        await startup.restartIfUpdated()
+
+        #expect(rig.count(.run(LeoPostUpdateRestartTests.restart)) == 0)
+        #expect(startup.status == .managed(version: "0.57.0"))
+    }
+
+    @Test func aCLIDaemonIsNeverRestarted() async throws {
+        let rig = Rig()
+        rig.base.runner.on([LeoHandoverTests.bundled, "version"], .exit(0, stdout: "leo 0.57.1\n"))
+        rig.base.probe.script(.live(version: "0.57.0"))
+        rig.base.agent.script(status: .notRegistered)
+        let startup = rig.startup()
+
+        await startup.run()
+        await startup.restartIfUpdated()
+
+        #expect(rig.count(.run([LeoHandoverTests.bundled, "version"])) == 0)
+        #expect(rig.count(.run(LeoPostUpdateRestartTests.restart)) == 0)
+    }
+
     // MARK: presentation
 
     @Test(arguments: [
@@ -275,6 +361,7 @@ import Testing
         // The A9 banner already says it.
         (.moveRequired(isManaged: false), .moveToApplications, nil),
         (.failed(message: "boom"), .setUp, [.retry]),
+        (.updating(to: "0.57.1"), .setUp, []),
     ])
     func eachStatusHasItsStartButtonAndBanner(
         status: LeoManagedStatus, startAction: LeoDaemonStartAction, actions: [LeoManagedBannerAction]?

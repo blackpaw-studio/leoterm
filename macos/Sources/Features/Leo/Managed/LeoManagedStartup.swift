@@ -40,8 +40,11 @@ struct LeoManagedDependencies: Sendable {
 
     var presentation: LeoManagedPresentation { LeoManagedPresentation(status: status, notice: notice) }
     var summary: LeoManagedSummary {
-        guard case .managed(let version) = status else { return LeoManagedSummary(isManaged: false, version: nil) }
-        return LeoManagedSummary(isManaged: true, version: version)
+        switch status {
+        case .managed(let version): LeoManagedSummary(isManaged: true, version: version)
+        case .updating: LeoManagedSummary(isManaged: true, version: nil)
+        default: LeoManagedSummary(isManaged: false, version: nil)
+        }
     }
 
     private let dependencies: LeoManagedDependencies
@@ -49,6 +52,8 @@ struct LeoManagedDependencies: Sendable {
     private let location: () async -> LeoAppLocation?
     private let presenter: any LeoManagedPresenting
     private var resolvedLocation: LeoAppLocation?
+    /// B6: each bundled → running pair is restarted at most once per launch.
+    private var triedRestarts: Set<[String]> = []
     /// Approval is pending after a takeover: a rollback must hand back to the CLI.
     private var approvalFollowsTakeover = false
     /// One managed operation at a time; a second click while one runs is ignored.
@@ -70,6 +75,13 @@ struct LeoManagedDependencies: Sendable {
         guard isManagementEnabled, let location = await location() else { return }
         resolvedLocation = location
         await exclusively { await self.decideAndExecute() }
+    }
+
+    /// B6, off the launch path (a graceful drain can take minutes): restart
+    /// a managed daemon whose version isn't the bundled one.
+    func restartIfUpdated() async {
+        guard case .managed(let running?) = status, markerStore.read().ours != nil else { return }
+        await exclusively { await self.restartAfterUpdate(running: running) }
     }
 
     func applicationDidBecomeActive() async {
@@ -212,6 +224,40 @@ struct LeoManagedDependencies: Sendable {
         }
     }
 
+    // MARK: after a Sparkle update
+
+    private func restartAfterUpdate(running: String) async {
+        let restarter = postUpdateRestart
+        guard let bundled = await restarter.bundledVersion(),
+              LeoPostUpdateRestart.shouldRestart(
+                  managedByUs: true, bundled: bundled, running: running, alreadyTriedPair: triedRestarts.contains([bundled, running])
+              ) else { return }
+        triedRestarts.insert([bundled, running])
+        status = .updating(to: bundled)
+        let outcome = await restarter.restart(bundled: bundled)
+        let doctor = "Run “leo doctor” in Terminal to see why."
+        switch outcome {
+        case .restarted(let version):
+            status = .managed(version: version)
+        case .stillDifferent(_, let now):
+            status = .managed(version: now ?? running)
+            let answer = now.map { "still reports \($0)" } ?? "didn’t answer"
+            notice = LeoManagedNotice(
+                title: "Leo’s daemon didn’t update", message: "It \(answer) after restarting; Leo includes \(bundled). \(doctor)"
+            )
+        case .drainTimedOut:
+            status = .managed(version: running)
+            notice = LeoManagedNotice(
+                title: "Leo’s daemon is still on \(running)",
+                message: "Agents were busy, so it wasn’t restarted. Choose Restart Daemon in the menu bar when they’re done."
+            )
+        case .notRegistered(let message), .failed(let message):
+            status = .managed(version: running)
+            let sentence = message.hasSuffix(".") ? message : message + "."
+            notice = LeoManagedNotice(title: "Leo couldn’t update its daemon", message: "\(sentence) \(doctor)")
+        }
+    }
+
     // MARK: takeover
 
     private func takeOver() async {
@@ -269,6 +315,15 @@ struct LeoManagedDependencies: Sendable {
 
     private var release: LeoReleaseToCLI {
         LeoReleaseToCLI(handover: handover, agent: dependencies.agent, paths: dependencies.paths, fileSystem: dependencies.fileSystem)
+    }
+
+    private var postUpdateRestart: LeoPostUpdateRestart {
+        let d = dependencies
+        return LeoPostUpdateRestart(
+            runner: d.runner, bundledLeo: d.paths.bundledLeo.path,
+            tmux: LeoTmuxInstaller(paths: d.paths, fileSystem: d.fileSystem, runner: d.runner, makeToken: d.makeToken),
+            markerStore: markerStore, probe: d.probe, clock: d.clock
+        )
     }
 
     private var setup: LeoManagedSetup {

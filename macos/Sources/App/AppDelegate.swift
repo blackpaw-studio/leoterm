@@ -372,7 +372,11 @@ class AppDelegate: NSObject,
         // MARK: Leo
         leoRuntime.model.attentionCountChanged = { [weak self] _ in self?.writeDockBadge() }
         if let leoManaged {
-            leoRuntime.managedStartup = { await leoManaged.run() }
+            leoRuntime.managedStartup = {
+                await leoManaged.run()
+                // B6 drains agents first, so it must not hold up the sidebar.
+                Task { @MainActor in await leoManaged.restartIfUpdated() }
+            }
         }
         leoRuntime.start()
 

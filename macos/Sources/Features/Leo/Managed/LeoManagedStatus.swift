@@ -9,6 +9,8 @@ enum LeoManagedStatus: Equatable, Sendable {
     case settingUp
     case awaitingApproval
     case managed(version: String?)
+    /// B6: restarting onto the bundled version after a Sparkle update.
+    case updating(to: String)
     case moveRequired(isManaged: Bool)
     case failed(message: String)
 }
@@ -66,7 +68,7 @@ struct LeoManagedPresentation: Equatable, Sendable {
     private static func startAction(for status: LeoManagedStatus) -> LeoDaemonStartAction {
         switch status {
         case .inactive, .usingCLI: .startCLIDaemon
-        case .settingUp, .managed, .failed: .setUp
+        case .settingUp, .managed, .updating, .failed: .setUp
         case .awaitingApproval: .allowInLoginItems
         case .moveRequired: .moveToApplications
         }
@@ -76,6 +78,12 @@ struct LeoManagedPresentation: Equatable, Sendable {
         switch status {
         case .inactive, .managed, .usingCLI(offerTakeover: false, _), .moveRequired(isManaged: false):
             nil
+        case .updating(let version):
+            LeoManagedBanner(
+                title: "Updating Leo’s daemon to \(version)…",
+                detail: "Agents finish what they’re doing first, so this can take a few minutes.",
+                actions: []
+            )
         case .usingCLI(offerTakeover: true, _):
             LeoManagedBanner(
                 title: "Let Leo run your daemon?",
