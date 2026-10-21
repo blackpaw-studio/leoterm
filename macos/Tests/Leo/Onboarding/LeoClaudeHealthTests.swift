@@ -80,8 +80,11 @@ struct LeoClaudeHealthTests {
     final class Sources {
         var health: [LeoClaudeHealth]
         var located: String?
+        /// What the fixed locations alone find: no login shell.
+        var locatedFixed: String?
         private(set) var healthCalls = 0
         private(set) var locateCalls = 0
+        private(set) var locateFixedCalls = 0
 
         init(_ health: LeoClaudeHealth..., located: String? = nil) {
             self.health = health
@@ -97,18 +100,29 @@ struct LeoClaudeHealthTests {
             locateCalls += 1
             return located
         }
+
+        func locateFixed() -> String? {
+            locateFixedCalls += 1
+            return locatedFixed
+        }
     }
 
     final class Clock {
         var now: TimeInterval = 1_000
     }
 
+    /// A poll sleep that never fires, for tests that drive rechecks by hand.
+    private static let neverSleep: @Sendable (TimeInterval) async throws -> Void = { _ in
+        try await Task.sleep(nanoseconds: .max)
+    }
+
     private func model(
         _ sources: Sources, _ presenter: Presenter, defaults: LeoInMemoryDefaults = LeoInMemoryDefaults(), clock: Clock = Clock()
     ) -> LeoClaudeOnboardingModel {
         LeoClaudeOnboardingModel(
-            health: { sources.nextHealth() }, locate: { sources.locate() },
-            store: LeoClaudeOnboardingStore(defaults: defaults), presenter: presenter, now: { clock.now }
+            health: { sources.nextHealth() }, locate: { sources.locate() }, locateFixed: { sources.locateFixed() },
+            store: LeoClaudeOnboardingStore(defaults: defaults), presenter: presenter, now: { clock.now },
+            sleep: Self.neverSleep
         )
     }
 
@@ -130,8 +144,9 @@ struct LeoClaudeHealthTests {
 
     private func gatedModel(_ gate: GatedHealth, _ presenter: Presenter, clock: Clock = Clock()) -> LeoClaudeOnboardingModel {
         LeoClaudeOnboardingModel(
-            health: { await gate.next() }, locate: { nil },
-            store: LeoClaudeOnboardingStore(defaults: LeoInMemoryDefaults()), presenter: presenter, now: { clock.now }
+            health: { await gate.next() }, locate: { nil }, locateFixed: { nil },
+            store: LeoClaudeOnboardingStore(defaults: LeoInMemoryDefaults()), presenter: presenter, now: { clock.now },
+            sleep: Self.neverSleep
         )
     }
 
@@ -343,7 +358,7 @@ struct LeoClaudeHealthTests {
         _ sources: Sources, _ presenter: Presenter, clock: Clock, ticks: LeoFiringClock
     ) -> LeoClaudeOnboardingModel {
         LeoClaudeOnboardingModel(
-            health: { sources.nextHealth() }, locate: { sources.locate() },
+            health: { sources.nextHealth() }, locate: { sources.locate() }, locateFixed: { sources.locateFixed() },
             store: LeoClaudeOnboardingStore(defaults: LeoInMemoryDefaults()), presenter: presenter, now: { clock.now },
             sleep: { try await ticks.sleep(UInt64($0 * 1_000_000_000)) }
         )
@@ -404,6 +419,36 @@ struct LeoClaudeHealthTests {
         ticks.fire(Self.pollTick)
         await settle()
         #expect(sources.healthCalls == calls)
+    }
+
+    @Test func pollingAnOlderDaemonsOfferNeverSpawnsTheLoginShellAgain() async {
+        let sources = Sources(.unreported), presenter = Presenter()
+        let clock = Clock(), ticks = LeoFiringClock()
+        let model = pollingModel(sources, presenter, clock: clock, ticks: ticks)
+        let first = Task { await model.snapshotLanded(hasLiveLocalDaemon: true) }
+        await settle()
+        #expect(presenter.offers == 1)
+        #expect(sources.locateCalls == 1)
+
+        for _ in 0..<3 {
+            clock.now += LeoClaudeOnboardingModel.recheckInterval
+            ticks.fire(Self.pollTick)
+            await settle()
+        }
+        #expect(sources.locateCalls == 1)
+        #expect(sources.locateFixedCalls == 3)
+        #expect(presenter.withdrawals == 0)
+
+        sources.locatedFixed = "/Users/evan/.local/bin/claude"
+        clock.now += LeoClaudeOnboardingModel.recheckInterval
+        ticks.fire(Self.pollTick)
+        await settle()
+        let withdrawals = presenter.withdrawals
+        presenter.answerVisibleOffer(false)
+        await first.value
+
+        #expect(withdrawals == 1)
+        #expect(sources.locateCalls == 1)
     }
 
     // MARK: a spawn that failed with claude_not_found

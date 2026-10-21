@@ -14,8 +14,13 @@ struct LeoClaudeLocator {
         ["\(home)/.local/bin/claude", "\(home)/.claude/local/claude", "/opt/homebrew/bin/claude", "/usr/local/bin/claude"]
     }
 
+    /// The fixed locations only: no login shell, so it is cheap to repeat.
+    func locateFixed() -> String? {
+        fixedCandidates.first(where: isExecutable)
+    }
+
     func locate() async -> String? {
-        if let fixed = fixedCandidates.first(where: isExecutable) { return fixed }
+        if let fixed = locateFixed() { return fixed }
         let pathDirectories = (await loginPath() ?? "").split(separator: ":", omittingEmptySubsequences: true)
             .map(String.init)
             .filter { $0.hasPrefix("/") }

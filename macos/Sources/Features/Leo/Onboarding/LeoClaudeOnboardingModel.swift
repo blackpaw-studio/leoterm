@@ -25,6 +25,7 @@ enum LeoClaudeHealth: Equatable, Sendable {
 @MainActor final class LeoClaudeOnboardingModel {
     private let health: () async -> LeoClaudeHealth
     private let locate: () async -> String?
+    private let locateFixed: () async -> String?
     private let store: LeoClaudeOnboardingStore
     private let presenter: any LeoClaudeOfferPresenting
     private var wasLive = false
@@ -45,6 +46,7 @@ enum LeoClaudeHealth: Equatable, Sendable {
 
     init(
         health: @escaping () async -> LeoClaudeHealth, locate: @escaping () async -> String?,
+        locateFixed: @escaping () async -> String?,
         store: LeoClaudeOnboardingStore, presenter: any LeoClaudeOfferPresenting,
         now: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
         sleep: @escaping (TimeInterval) async throws -> Void = { try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000)) }
@@ -53,6 +55,7 @@ enum LeoClaudeHealth: Equatable, Sendable {
         self.sleep = sleep
         self.health = health
         self.locate = locate
+        self.locateFixed = locateFixed
         self.store = store
         self.presenter = presenter
     }
@@ -84,13 +87,15 @@ enum LeoClaudeHealth: Equatable, Sendable {
         await offer()
     }
 
-    /// App activation: withdraws the open offer once claude is there.
-    func recheckOpenOffer() async {
+    /// App activation: withdraws the open offer once claude is there. The
+    /// poll and snapshots pass `fixedLocationsOnly`, so a daemon that doesn't
+    /// report claude doesn't cost a login shell every few seconds.
+    func recheckOpenOffer(fixedLocationsOnly: Bool = false) async {
         guard let offer = openOffer, !isRechecking else { return }
         isRechecking = true
         defer { isRechecking = false }
         lastRecheck = now()
-        let isMissing = await isMissing()
+        let isMissing = await isMissing(fixedLocationsOnly: fixedLocationsOnly)
         // The user may have answered, or another offer opened, during the await.
         guard openOffer == offer, !isMissing else { return }
         presenter.withdrawOffer()
@@ -100,7 +105,7 @@ enum LeoClaudeHealth: Equatable, Sendable {
 
     private func recheckIfDue() async {
         if let lastRecheck, now() - lastRecheck < Self.recheckInterval { return }
-        await recheckOpenOffer()
+        await recheckOpenOffer(fixedLocationsOnly: true)
     }
 
     private func startPolling() {
@@ -114,11 +119,11 @@ enum LeoClaudeHealth: Equatable, Sendable {
         }
     }
 
-    private func isMissing() async -> Bool {
+    private func isMissing(fixedLocationsOnly: Bool) async -> Bool {
         switch await health() {
         case .missing: true
         case .found: false
-        case .unreported: await locate() == nil
+        case .unreported: await (fixedLocationsOnly ? locateFixed() : locate()) == nil
         }
     }
 

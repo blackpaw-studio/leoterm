@@ -9,7 +9,7 @@ import LeoKit
 @MainActor final class LeoClaudeOnboardingController: LeoClaudeOfferPresenting {
     private let openWindow: (String) -> Bool
     private var subscription: AnyCancellable?
-    private lazy var model = LeoClaudeOnboardingModel(health: health, locate: { await self.locator.locate() }, store: store, presenter: self)
+    private lazy var model = LeoClaudeOnboardingModel(health: health, locate: { await self.locator.locate() }, locateFixed: { self.locator.locateFixed() }, store: store, presenter: self)
     private let locator: LeoClaudeLocator
     private let health: () async -> LeoClaudeHealth
     private let store: LeoClaudeOnboardingStore
