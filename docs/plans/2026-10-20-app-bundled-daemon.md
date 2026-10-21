@@ -398,3 +398,8 @@ Ship targets: marker, self_path, daemon lock, update refusal, tmux resolution, d
 - `pair --json` `warnings` is always an array, never null.
 - Daemon `/health` over the socket includes the bound web address; use it to show the current bind before/after `web enable` (B7 confirmation copy).
 - Full command table + JSON shapes: leo repo `docs/configuration/managed-install.md` (on the leo PR branch).
+
+## leo status (2026-10-20 20:30 EDT)
+- All leo-side PRs merged to leo main (#282–#285). Everything (marker, lock, self_path, update refusal, tmux resolution, service routing, handover, pair/web/restart --json, universal asset + `leo-release` dispatch) ships together in **v0.56.0** — the earlier ≥0.57.0 annotations now mean ≥0.56.0. Not yet tagged (awaiting Evan).
+- Dev builds: `make build` in /Users/evan/.leo/agents/leo → `bin/leo` for `LEO_BINARY`.
+- leo's `LEOTERM_DISPATCH_TOKEN` is set; the first stable leo release fires `leo-release` at leoterm even before B8's receiving workflow exists (harmless no-op until then).
