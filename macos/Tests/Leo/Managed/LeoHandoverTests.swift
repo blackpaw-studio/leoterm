@@ -230,28 +230,32 @@ struct LeoTakeoverTests {
 
     // MARK: setup failure after an OK handover
 
-    @Test func aFailedRegisterAfterHandoverHandsBackToTheCLIBeforeTheMarkerGoes() async throws {
+    @Test func aFailedRegisterAfterHandoverHandsBackToTheCLIThenUnregisters() async throws {
         let rig = Rig()
         rig.base.agent.failNextRegister()
         rig.base.agent.script(status: .notRegistered)
 
         guard case .setupFailed(let failure, cliRestored: true) = await rig.takeover().run() else { Issue.record("expected setup failure"); return }
         #expect(failure.step == .register)
-        #expect(Array(rig.log.events.suffix(4)) == [
+        #expect(Array(rig.log.events.suffix(3)) == [
             .agent("register"),
-            .agent("unregister"),
             .run(LeoHandoverTests.toCLI),
-            .fs(.remove(Self.marker)),
+            .agent("unregister"),
         ])
+        // leo moves managed.json aside and deletes it once the CLI daemon is up.
+        #expect(!rig.log.events.contains(.fs(.remove(Self.marker))))
     }
 
-    @Test func aFailedHandBackIsReported() async throws {
+    @Test func aFailedHandBackIsReportedAndKeepsRecoveryState() async throws {
         let rig = Rig()
         rig.base.probe.script(.absent)
-        rig.runner.on(LeoHandoverTests.toCLI, .exit(1, stdout: #"{"ok":false,"error":"bootstrap_failed"}"#))
+        let json = #"{"ok":false,"step":"ready","error":"not_ready","message":"CLI daemon didn't answer","rolled_back":true}"#
+        rig.runner.on(LeoHandoverTests.toCLI, .exit(1, stdout: json))
 
         guard case .setupFailed(let failure, cliRestored: false) = await rig.takeover().run() else { Issue.record("expected setup failure"); return }
         #expect(failure.step == .hello)
+        #expect(!rig.log.events.contains(.agent("unregister")))
+        guard case .ours = rig.base.writtenMarker() else { Issue.record("the marker went"); return }
     }
 
     // MARK: the running tmux server's version

@@ -87,8 +87,8 @@ struct LeoManagedDependencies: Sendable {
     func applicationDidBecomeActive() async {
         guard status == .awaitingApproval else { return }
         await exclusively {
-            let restoreCLI = self.approvalFollowsTakeover ? self.handBackToCLI : nil
-            self.apply(await self.setup.resumeAfterApproval(restoreCLI: restoreCLI))
+            let handBack = self.approvalFollowsTakeover ? self.handBackToCLI : nil
+            self.apply(await self.setup.resumeAfterApproval(handBack: handBack))
         }
     }
 
@@ -334,9 +334,9 @@ struct LeoManagedDependencies: Sendable {
 
     private var handover: LeoHandover { LeoHandover(runner: dependencies.runner, bundledLeo: dependencies.paths.bundledLeo.path) }
 
-    private var handBackToCLI: @Sendable () async -> Void {
+    private var handBackToCLI: @Sendable () async -> LeoHandoverRun {
         let handover = handover
-        return { _ = await handover.toCLI() }
+        return { await handover.toCLI() }
     }
 
     private var release: LeoReleaseToCLI {

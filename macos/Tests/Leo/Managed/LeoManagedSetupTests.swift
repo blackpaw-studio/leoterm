@@ -247,21 +247,45 @@ struct LeoManagedSetupTests {
         #expect(rig.writtenMarker() == .absent)
     }
 
-    @Test func restoreCLIRunsBetweenUnregisterAndMarkerRemoval() async throws {
+    static func released(managedStopped: Bool) -> LeoHandoverRun {
+        .succeeded(LeoHandoverResult(previousLabel: label, env: nil, plistBackup: nil, managedStopped: managedStopped, warnings: []))
+    }
+
+    /// Activates with a hand-back that answers `answer`, after a hello timeout.
+    private func rollBackAfterTakeover(answering answer: LeoHandoverRun) async -> Rig {
         let rig = Rig()
         rig.probe.script(.absent)
         let setup = rig.setup()
         let log = rig.log
+        guard case .success(let prepared) = await setup.prepare() else { Issue.record("prepare failed"); return rig }
+        _ = await setup.activate(prepared, captured: nil, handBack: {
+            log.append(.run(["hand-back"]))
+            return answer
+        })
+        return rig
+    }
 
-        guard case .success(let prepared) = await setup.prepare() else { Issue.record("prepare failed"); return }
-        _ = await setup.activate(prepared, captured: nil, restoreCLI: { log.append(.run(["restore-cli"])) })
+    /// `--to-cli` needs the marker, boots out the app's job and removes the
+    /// marker itself once the CLI daemon is up: the app only unregisters.
+    @Test func aTakeoverRollbackHandsBackFirstThenUnregistersAndLeavesTheMarkerToLeo() async {
+        let rig = await rollBackAfterTakeover(answering: Self.released(managedStopped: true))
 
-        #expect(Array(rig.log.events.suffix(4)) == [
-            .agent("register"),
-            .agent("unregister"),
-            .run(["restore-cli"]),
-            .fs(.remove(Self.marker)),
-        ])
+        #expect(Array(rig.log.events.suffix(3)) == [.agent("register"), .run(["hand-back"]), .agent("unregister")])
+        #expect(!rig.log.events.contains(.fs(.remove(Self.marker))))
+    }
+
+    @Test(arguments: [
+        ("leo refused", LeoHandoverRun.failed(LeoJSONFailure(
+            error: "bootstrap_failed", message: "not ready", step: "bootstrap", rolledBack: true, managedStopped: nil, warnings: []
+        ))),
+        ("no JSON", .malformed("exit 2")),
+        ("ok, but the app's job wasn't stopped", released(managedStopped: false)),
+    ])
+    func aHandBackThatDidNotStopTheAppsJobKeepsTheMarkerAndRegistration(_: String, answer: LeoHandoverRun) async {
+        let rig = await rollBackAfterTakeover(answering: answer)
+
+        #expect(Array(rig.log.events.suffix(2)) == [.agent("register"), .run(["hand-back"])])
+        guard case .ours = rig.writtenMarker() else { Issue.record("the marker went"); return }
     }
 
     // MARK: approval

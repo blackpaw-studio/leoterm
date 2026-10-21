@@ -74,7 +74,9 @@ struct LeoTakeover: Sendable {
         let restored = LeoFlag()
         let handover = handover
         let outcome = await setup.activate(prepared, captured: result.env) {
-            if case .succeeded = await handover.toCLI() { restored.set() }
+            let run = await handover.toCLI()
+            if case .succeeded = run { restored.set() }
+            return run
         }
         switch outcome {
         case .ready(let version): return .managed(version: version, warnings: warnings)

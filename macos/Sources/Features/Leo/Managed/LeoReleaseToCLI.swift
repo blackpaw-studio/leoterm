@@ -2,9 +2,10 @@ import Foundation
 import OSLog
 
 /// B4: hands the daemon back to the CLI install. leo goes first (drain,
-/// bootout of the app's label, CLI daemon restored); only on `ok:true` does
-/// the app drop its marker and unregister. A crash between the two is
-/// recovered at the next launch (B1's orphan registration row).
+/// bootout of the app's label, marker moved aside, CLI daemon restored,
+/// marker deleted); only on `ok` with the app's job stopped does the app
+/// unregister. A crash between the two is recovered at the next launch
+/// (B1's orphan registration row).
 struct LeoReleaseToCLI: Sendable {
     enum Outcome: Equatable, Sendable {
         case declined
@@ -29,7 +30,7 @@ struct LeoReleaseToCLI: Sendable {
         let result: LeoJSONFailure?
         switch await handover.toCLI() {
         case .succeeded(let value):
-            return await finishRelease(warnings: value.warnings)
+            return await finishRelease(value)
         case .failed(let value):
             result = value
         case .malformed(let message):
@@ -47,20 +48,17 @@ struct LeoReleaseToCLI: Sendable {
         return .failed(message: message, reRegistered: true)
     }
 
-    private func finishRelease(warnings: [String]) async -> Outcome {
-        var warnings = warnings
-        do {
-            // leo normally removes it; `remove()` never reads the bundle id.
-            try LeoMarkerStore(paths: paths, fileSystem: fileSystem, bundleID: "").remove()
-        } catch {
-            warnings.append("Couldn’t remove \(paths.markerURL.path): \(error)")
+    /// leo has already deleted the marker; it must not be touched here.
+    private func finishRelease(_ result: LeoHandoverResult) async -> Outcome {
+        guard result.managedStopped else {
+            return .released(warnings: result.warnings + ["leo didn’t report stopping Leo’s daemon, so its login item stays registered"])
         }
         do {
             try await agent.unregister()
         } catch {
-            warnings.append("Leo’s agent is still registered; it is removed at the next launch (\(error))")
+            return .released(warnings: result.warnings + ["Leo’s agent is still registered; it is removed at the next launch (\(error))"])
         }
-        return .released(warnings: warnings)
+        return .released(warnings: result.warnings)
     }
 
     private var isOurCommandLink: Bool {

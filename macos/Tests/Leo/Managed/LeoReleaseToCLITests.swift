@@ -5,7 +5,8 @@ import Testing
 @testable import LeoKit
 
 /// B4: Release to CLI runs `handover --to-cli` first and unregisters only
-/// after leo says ok; a failure leaves the user's `leo` command as it was.
+/// once leo says ok with the app's job stopped; leo removes the marker. A
+/// failure leaves the user's `leo` command as it was.
 struct LeoReleaseToCLITests {
     static let localBin = "/home/test/.local/bin/leo"
     static let backup = "/home/test/.local/bin/leo.pre-leoapp"
@@ -44,16 +45,21 @@ struct LeoReleaseToCLITests {
         #expect(rig.log.events.isEmpty)
     }
 
-    @Test func handsOverFirstThenDropsTheMarkerThenUnregisters() async {
+    @Test func handsOverFirstThenUnregistersAndLeavesTheMarkerToLeo() async {
         let rig = Rig()
 
         #expect(await rig.run() == .released(warnings: ["drained 1 agent"]))
 
-        #expect(rig.log.events == [
-            .run(Self.toCLI),
-            .fs(.remove(Self.marker)),
-            .agent("unregister"),
-        ])
+        #expect(rig.log.events == [.run(Self.toCLI), .agent("unregister")])
+    }
+
+    @Test func anOKThatDidNotStopTheAppsJobKeepsTheRegistration() async {
+        let rig = Rig(reply: .exit(0, stdout: #"{"ok":true}"#))
+
+        guard case .released(let warnings) = await rig.run() else { Issue.record("expected released"); return }
+
+        #expect(rig.log.events == [.run(Self.toCLI)])
+        #expect(warnings.count == 1)
     }
 
     @Test func ourCommandLinkGivesWayToTheBackupBeforeTheHandover() async {
