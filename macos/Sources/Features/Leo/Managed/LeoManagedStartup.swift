@@ -340,7 +340,10 @@ struct LeoManagedDependencies: Sendable {
     }
 
     private var release: LeoReleaseToCLI {
-        LeoReleaseToCLI(handover: handover, agent: dependencies.agent, paths: dependencies.paths, fileSystem: dependencies.fileSystem)
+        LeoReleaseToCLI(
+            handover: handover, agent: dependencies.agent, hello: LeoHelloWait(probe: dependencies.probe, clock: dependencies.clock),
+            paths: dependencies.paths, fileSystem: dependencies.fileSystem
+        )
     }
 
     private var postUpdateRestart: LeoPostUpdateRestart {

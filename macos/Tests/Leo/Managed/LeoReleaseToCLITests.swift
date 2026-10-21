@@ -19,6 +19,8 @@ struct LeoReleaseToCLITests {
         let fileSystem = LeoInMemoryFileSystem()
         let runner: LeoScriptedRunner
         let agent: LeoFakeLaunchAgent
+        let probe = LeoFakeProbe(.absent, .live(version: "0.57.0"))
+        let clock = LeoJumpingClock()
 
         init(reply: LeoScriptedRunner.Reply = .exit(0, stdout: #"{"ok":true,"managed_stopped":true,"warnings":["drained 1 agent"]}"#)) {
             runner = LeoScriptedRunner(log: log)
@@ -33,6 +35,7 @@ struct LeoReleaseToCLITests {
             await LeoReleaseToCLI(
                 handover: LeoHandover(runner: runner, bundledLeo: LeoHandoverTests.bundled),
                 agent: agent,
+                hello: LeoHelloWait(probe: probe, clock: clock),
                 paths: LeoManagedSetupTests.paths,
                 fileSystem: fileSystem
             ).run(confirm: { confirmed })
@@ -95,9 +98,14 @@ struct LeoReleaseToCLITests {
         #expect(warnings.count == 2)
     }
 
-    @Test func leoRolledBackSoTheAgentIsRegisteredAgainAndTheCommandRestored() async {
-        let json = #"{"ok":false,"step":"bootstrap","error":"bootstrap_failed","message":"CLI daemon didn't start","managed_stopped":true}"#
-        let rig = Rig(reply: .exit(1, stdout: json))
+    static let stoppedJSON = #"""
+    {"ok":false,"step":"bootstrap","error":"bootstrap_failed","message":"CLI daemon didn't start","managed_stopped":true}
+    """#
+
+    /// A registered job leo booted out stays down until it is unregistered
+    /// and registered again; hello confirms it is back.
+    @Test func leoStoppedTheAppsJobSoItIsRestartedCheckedAndTheCommandRelinked() async {
+        let rig = Rig(reply: .exit(1, stdout: Self.stoppedJSON))
         rig.fileSystem.addSymlink(Self.localBin, to: Self.selfLink)
         rig.fileSystem.addFile(Self.backup, "curl-installed leo", mode: 0o755)
 
@@ -108,9 +116,27 @@ struct LeoReleaseToCLITests {
             .run(Self.toCLI),
             .fs(.moveNoReplace(Self.localBin, Self.backup)),
             .fs(.symlink(Self.localBin, target: Self.selfLink)),
+            .agent("unregister"),
             .agent("register"),
         ])
+        #expect(rig.probe.probes == 2)
         #expect(rig.fileSystem.kind(at: URL(fileURLWithPath: Self.marker)) == .file)
+    }
+
+    @Test func aRestartedJobThatNeverAnswersIsNotRecovered() async {
+        let rig = Rig(reply: .exit(1, stdout: Self.stoppedJSON))
+        rig.probe.script(.absent)
+
+        guard case .failed(_, reRegistered: false) = await rig.run() else { Issue.record("expected failure"); return }
+        #expect(rig.clock.seconds == LeoManagedSetup.helloTimeout)
+    }
+
+    @Test func alreadyRegisteredIsNeverTakenAsRecovered() async {
+        let rig = Rig(reply: .exit(1, stdout: Self.stoppedJSON))
+        rig.agent.answerAlreadyRegisteredOnNextRegister()
+
+        guard case .failed(_, reRegistered: false) = await rig.run() else { Issue.record("expected failure"); return }
+        #expect(rig.probe.probes == 0)
     }
 
     @Test(arguments: [

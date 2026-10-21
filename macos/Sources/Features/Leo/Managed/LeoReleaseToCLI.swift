@@ -10,8 +10,8 @@ struct LeoReleaseToCLI: Sendable {
     enum Outcome: Equatable, Sendable {
         case declined
         case released(warnings: [String])
-        /// `reRegistered`: leo had stopped the app's daemon and rolled back,
-        /// so the app registered its agent again.
+        /// `reRegistered`: leo had stopped the app's daemon, so the app
+        /// restarted its job and hello answered.
         case failed(message: String, reRegistered: Bool)
     }
 
@@ -19,6 +19,7 @@ struct LeoReleaseToCLI: Sendable {
 
     let handover: LeoHandover
     let agent: any LeoLaunchAgentService
+    let hello: LeoHelloWait
     let paths: LeoInstallPaths
     let fileSystem: any LeoFileSystem
 
@@ -41,7 +42,7 @@ struct LeoReleaseToCLI: Sendable {
         let message = result?.summary ?? "leo didn’t hand the daemon back to the CLI"
         guard result?.managedStopped == true else { return .failed(message: message, reRegistered: false) }
         do {
-            try await agent.register()
+            _ = try await agent.restartStoppedJob(hello: hello)
         } catch {
             return .failed(message: "\(message). Leo couldn’t restart its own daemon: \(error)", reRegistered: false)
         }

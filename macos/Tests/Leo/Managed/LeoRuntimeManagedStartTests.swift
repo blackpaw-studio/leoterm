@@ -268,12 +268,15 @@ import Testing
         let rig = Rig()
         rig.base.fileSystem.addFile(LeoManagedSetupTests.marker, "{", mode: 0o600)
         rig.base.probe.script(.live(version: "0.57.0"))
+        // The agent is enabled, so SMAppService says it already is.
+        rig.base.agent.answerAlreadyRegisteredOnNextRegister()
 
         let startup = rig.startup()
         await startup.run()
 
         let stateDirectory = LeoManagedEvent.fs(.createDirectory("/home/test/.leo/state", mode: 0o700))
-        #expect(rig.log.events == LeoManagedSetupTests.freshInstallOps.filter { $0 != stateDirectory } + [.agent("register")])
+        let restart: [LeoManagedEvent] = [.agent("register"), .agent("unregister"), .agent("register")]
+        #expect(rig.log.events == LeoManagedSetupTests.freshInstallOps.filter { $0 != stateDirectory } + restart)
         #expect(startup.status == .managed(version: "0.57.0"))
         guard case .ours(let marker) = rig.base.writtenMarker() else { Issue.record("marker not rewritten"); return }
         #expect(marker.tmuxPath == LeoManagedSetupTests.tmuxCopy)

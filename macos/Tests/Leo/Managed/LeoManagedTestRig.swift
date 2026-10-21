@@ -22,14 +22,15 @@ final class LeoManagedEventLog: @unchecked Sendable {
 }
 
 /// Scripted `SMAppService` stand-in. `status` answers from a queue (the last
-/// value repeats); register/unregister may be made to throw once.
+/// value repeats); register/unregister may be made to throw, register also
+/// with `kSMErrorAlreadyRegistered`'s stand-in.
 final class LeoFakeLaunchAgent: LeoLaunchAgentService, @unchecked Sendable {
     struct Failure: Error, Equatable {}
 
     private let lock = NSLock()
     private let log: LeoManagedEventLog
     private var statuses: [LeoLaunchAgentStatus]
-    private var registerFailures = 0
+    private var registerErrors: [any Error] = []
     private var unregisterFailures = 0
     private(set) var statusReads = 0
 
@@ -39,7 +40,9 @@ final class LeoFakeLaunchAgent: LeoLaunchAgentService, @unchecked Sendable {
     }
 
     func script(status: LeoLaunchAgentStatus...) { lock.withLock { statuses = status } }
-    func failNextRegister() { lock.withLock { registerFailures += 1 } }
+    func failNextRegister() { lock.withLock { registerErrors.append(Failure()) } }
+    /// What `SMAppService` says for a job registered but booted out, too.
+    func answerAlreadyRegisteredOnNextRegister() { lock.withLock { registerErrors.append(LeoLaunchAgentAlreadyRegistered()) } }
     func failNextUnregister() { lock.withLock { unregisterFailures += 1 } }
 
     var calls: Int { log.events.filter { if case .agent = $0 { true } else { false } }.count + lock.withLock { statusReads } }
@@ -53,12 +56,8 @@ final class LeoFakeLaunchAgent: LeoLaunchAgentService, @unchecked Sendable {
 
     func register() async throws {
         log.append(.agent("register"))
-        let fails = lock.withLock { () -> Bool in
-            guard registerFailures > 0 else { return false }
-            registerFailures -= 1
-            return true
-        }
-        if fails { throw Failure() }
+        let error = lock.withLock { registerErrors.isEmpty ? nil : registerErrors.removeFirst() }
+        if let error { throw error }
     }
 
     func unregister() async throws {

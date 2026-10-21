@@ -87,7 +87,7 @@ struct LeoManagedSetup: Sendable {
             return .failed(Failure(step: .marker, message: "\(error)"))
         }
         do {
-            try await agent.register()
+            try await registerAgent()
         } catch {
             // macOS refuses the register while Login Items approval is pending.
             if agent.status() == .requiresApproval { return .awaitingApproval }
@@ -110,23 +110,22 @@ struct LeoManagedSetup: Sendable {
     }
 
     /// Polls hello until it answers or `helloTimeout` passes on `clock`.
-    func waitForHello() async -> String? {
-        let deadline = clock.now() + Self.nanoseconds(Self.helloTimeout)
-        while true {
-            if case .live(let version) = await probe.probe() { return version }
-            let now = clock.now()
-            guard now < deadline else { return nil }
-            do {
-                try await clock.sleep(until: min(now + Self.nanoseconds(Self.helloPollInterval), deadline))
-            } catch {
-                return nil
-            }
-        }
-    }
+    func waitForHello() async -> String? { await LeoHelloWait(probe: probe, clock: clock).version() }
 
     // MARK: private
 
     private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
+
+    /// "Already registered" says nothing about whether launchd runs the
+    /// job, or with which marker: restart it unless approval is pending.
+    private func registerAgent() async throws {
+        do {
+            try await agent.register()
+        } catch let error as LeoLaunchAgentAlreadyRegistered {
+            guard agent.status() != .requiresApproval else { throw error }
+            try await agent.reRegister()
+        }
+    }
 
     private var markerStore: LeoMarkerStore { LeoMarkerStore(paths: paths, fileSystem: fileSystem, bundleID: bundleID) }
 
@@ -162,6 +161,13 @@ struct LeoManagedSetup: Sendable {
             Self.logger.error("handover --to-cli succeeded without stopping the app's job; keeping its registration")
         case .failed(let failure):
             Self.logger.error("handover --to-cli failed: \(failure.error, privacy: .public) \(failure.summary, privacy: .public)")
+            // leo booted the app's job out and can't restore the CLI: keep the app's daemon running.
+            guard failure.managedStopped == true else { return }
+            do {
+                _ = try await agent.restartStoppedJob(hello: LeoHelloWait(probe: probe, clock: clock))
+            } catch {
+                Self.logger.error("restarting Leo's daemon failed: \(String(describing: error), privacy: .public)")
+            }
         case .malformed(let message):
             Self.logger.error("handover --to-cli: \(message, privacy: .public)")
         }

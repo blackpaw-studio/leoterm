@@ -251,10 +251,16 @@ struct LeoManagedSetupTests {
         .succeeded(LeoHandoverResult(previousLabel: label, env: nil, plistBackup: nil, managedStopped: managedStopped, warnings: []))
     }
 
-    /// Activates with a hand-back that answers `answer`, after a hello timeout.
-    private func rollBackAfterTakeover(answering answer: LeoHandoverRun) async -> Rig {
+    /// Activates with a hand-back that answers `answer`, after a hello
+    /// timeout or, with `failRegister`, a refused register.
+    private func rollBackAfterTakeover(answering answer: LeoHandoverRun, failRegister: Bool = false) async -> Rig {
         let rig = Rig()
-        rig.probe.script(.absent)
+        if failRegister {
+            rig.agent.failNextRegister()
+            rig.agent.script(status: .notRegistered)
+        } else {
+            rig.probe.script(.absent)
+        }
         let setup = rig.setup()
         let log = rig.log
         guard case .success(let prepared) = await setup.prepare() else { Issue.record("prepare failed"); return rig }
@@ -286,6 +292,44 @@ struct LeoManagedSetupTests {
 
         #expect(Array(rig.log.events.suffix(2)) == [.agent("register"), .run(["hand-back"])])
         guard case .ours = rig.writtenMarker() else { Issue.record("the marker went"); return }
+    }
+
+    /// leo booted the app's job out and couldn't restore the CLI: launchd
+    /// starts the job again only after an unregister and a register.
+    @Test func aFailedHandBackThatStoppedTheAppsJobRestartsItAndWaitsForHello() async {
+        let answer = LeoHandoverRun.failed(LeoJSONFailure(
+            error: "bootstrap_failed", message: "CLI job didn't load", step: "bootstrap", rolledBack: false, managedStopped: true, warnings: []
+        ))
+        let rig = await rollBackAfterTakeover(answering: answer, failRegister: true)
+
+        #expect(Array(rig.log.events.suffix(4)) == [
+            .agent("register"), .run(["hand-back"]), .agent("unregister"), .agent("register"),
+        ])
+        #expect(rig.probe.probes == 3)
+        guard case .ours = rig.writtenMarker() else { Issue.record("the marker went"); return }
+    }
+
+    // MARK: already registered
+
+    /// `SMAppService` answers this for a job it knows, even one launchd isn't
+    /// running: never proof the daemon runs with the marker just written.
+    @Test func anAlreadyRegisteredAgentIsRestartedNotTrusted() async {
+        let rig = Rig()
+        rig.agent.answerAlreadyRegisteredOnNextRegister()
+
+        #expect(await rig.setup().run() == .ready(version: "0.57.0"))
+        #expect(rig.log.events == Self.freshInstallOps + [.agent("register"), .agent("unregister"), .agent("register")])
+    }
+
+    @Test func anAlreadyRegisteredAgentThatWontRestartRollsBack() async {
+        let rig = Rig()
+        rig.agent.answerAlreadyRegisteredOnNextRegister()
+        rig.agent.answerAlreadyRegisteredOnNextRegister()
+        rig.agent.script(status: .enabled)
+
+        guard case .failed(let failure) = await rig.setup().run() else { Issue.record("expected failure"); return }
+        #expect(failure.step == .register)
+        #expect(rig.probe.probes == 0)
     }
 
     // MARK: approval
