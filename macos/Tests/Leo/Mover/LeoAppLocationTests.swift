@@ -6,6 +6,20 @@ import Testing
 /// A9: where the app runs from decides whether managed features may start,
 /// and the mover's every step is checked against a recording environment.
 struct LeoAppLocationTests {
+    // MARK: what B5's managed startup sees
+
+    @Test(arguments: [
+        (LeoAppLocationState.allowed, LeoAppLocation.inApplications, LeoAppLocation?.some(.inApplications)),
+        (.allowed, .exempt, .exempt),
+        (.declined(.translocated), .needsMove(.translocated), .needsMove(.translocated)),
+        (.moved, .needsMove(.elsewhere), nil),
+    ])
+    func theManagedStartupSeesTheLocationAfterTheCheck(
+        state: LeoAppLocationState, checked: LeoAppLocation, expected: LeoAppLocation?
+    ) {
+        #expect(state.resolvedLocation(checked) == expected)
+    }
+
     // MARK: - Decision table
 
     private static func decide(

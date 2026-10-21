@@ -66,6 +66,8 @@ import LeoKit
     private var connectionSequence = 0
     /// Runs the one liveness check per wake (D-061); removed with `self`.
     private var wakeObservation: LeoNotificationObservation?
+    /// B5: the managed daemon's launch step, set by the app before `start()`.
+    var managedStartup: (@MainActor () async -> Void)?
     #if DEBUG
     private let openFileFixture = LeoOpenFileFixture()
     private var forcedDisconnect: AnyObject?
@@ -450,6 +452,9 @@ import LeoKit
             await Task.detached {
                 orphanStore.reapAtLaunch(inspector: leoTunnelRealInspector, signaller: leoTunnelRealSignaller)
             }.value
+            // B5: set up or adopt the local daemon before anything asks it
+            // for its flavor or connects to it.
+            await managedStartup?()
             let flavor = await LeoSocketDaemonClient.detectFlavor()
             Self.logger.log("detected flavor=\(String(describing: flavor), privacy: .public) connectionSequence=\(self.connectionSequence)")
             await feed.start()

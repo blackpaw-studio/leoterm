@@ -170,6 +170,10 @@ struct LeoSidebarView: View {
                 LeoAppLocationBannerView(banner: banner) { model.moveToApplicationsRequested() }
             }
 
+            if hostSelection.selected == .local, let banner = model.managedBanner {
+                LeoManagedBannerView(banner: banner) { model.managedBannerActionRequested($0) }
+            }
+
             LeoSidebarSearchField(
                 text: $model.query,
                 handle: searchField,
@@ -278,7 +282,11 @@ struct LeoSidebarView: View {
                     Button("Open SSH") { model.sshRequested(ssh) }
                 }
                 Button("Retry") { model.retry() }
-                Button("Start daemon") { model.startDaemonRequested() }
+                if hostSelection.selected == .local {
+                    Button(model.daemonStartAction.title) { model.startDaemonTapped() }
+                } else {
+                    Button("Start daemon") { model.startDaemonRequested() }
+                }
             }
         case .connected where model.snapshot.rows.isEmpty:
             stateView {
@@ -293,7 +301,7 @@ struct LeoSidebarView: View {
             // The banner above says what happened and offers Retry.
             stateView {
                 if hostSelection.selected == .local {
-                    Button("Start daemon") { model.startDaemonRequested() }
+                    Button(model.daemonStartAction.title) { model.startDaemonTapped() }
                 }
             }
         case .connected, .disconnected:
@@ -505,6 +513,39 @@ struct LeoAppLocationBannerView: View {
                 Text(banner.title).font(.callout.weight(.semibold))
                 Text(banner.detail).font(.caption).foregroundStyle(.secondary)
                 Button(banner.actionTitle, action: move).controlSize(.small)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(8)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(banner.title)
+    }
+}
+
+/// B5: the local managed daemon's state, with its actions (takeover offer,
+/// Login Items approval, move back, retry).
+struct LeoManagedBannerView: View {
+    let banner: LeoManagedBanner
+    let perform: (LeoManagedBannerAction) -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "gearshape.2")
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(banner.title).font(.callout.weight(.semibold))
+                Text(banner.detail).font(.caption).foregroundStyle(.secondary)
+                if banner.actions.isEmpty {
+                    ProgressView().controlSize(.small)
+                } else {
+                    HStack(spacing: 6) {
+                        ForEach(banner.actions, id: \.title) { action in
+                            Button(action.title) { perform(action) }.controlSize(.small)
+                        }
+                    }
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }

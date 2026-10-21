@@ -21,7 +21,7 @@ struct LeoReleaseToCLI: Sendable {
     let paths: LeoInstallPaths
     let fileSystem: any LeoFileSystem
 
-    func run(confirm: () async -> Bool) async -> Outcome {
+    func run(confirm: @Sendable () async -> Bool) async -> Outcome {
         guard await confirm() else { return .declined }
         // The restored CLI plist runs `~/.local/bin/leo`: it must be the CLI's
         // own binary again before leo bootstraps it, not the app's helper.
