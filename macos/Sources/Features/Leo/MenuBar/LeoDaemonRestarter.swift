@@ -16,31 +16,39 @@ enum LeoDaemonRestartOutcome: Equatable, Sendable {
 /// drains without prompting, which bare `restart` may do. A managed daemon
 /// is restarted by the bundled binary by explicit path (D6) so the restart
 /// targets the app's label; leo routes it from the marker, and its `--json`
-/// answer maps to an outcome (a raw launchd error is never shown).
+/// answer maps to an outcome. A CLI daemon's restart runs the resolved leo as
+/// before. Neither ever shows a raw launchd or stderr message.
 struct LeoDaemonRestarter: Sendable {
     static let arguments = ["service", "restart", "--graceful"]
     /// The graceful drain waits up to 10 minutes before leo forces it.
     static let timeout: TimeInterval = 11 * 60
     static let doctorAdvice = "Run “leo doctor” in Terminal, or see ~/.leo/state/service.log."
+    private static let didNotRestart = "Leo’s daemon didn’t restart. \(doctorAdvice)"
 
     private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
 
     let cli: LeoCLI
     let bundledExecutable: String
 
-    /// A CLI daemon's failure throws leo's stderr; a managed daemon's never does.
-    func restart(isManaged: Bool) async throws -> LeoDaemonRestartOutcome {
-        isManaged ? await restartManaged() : try await restartCLI()
+    /// Never throws and never carries leo's stderr or launchd's error text.
+    func restart(isManaged: Bool) async -> LeoDaemonRestartOutcome {
+        isManaged ? await restartManaged() : await restartCLI()
     }
 
-    private func restartCLI() async throws -> LeoDaemonRestartOutcome {
-        let executable = try cli.resolveExecutable()
-        let result = try await cli.runner.run(executable: executable, arguments: Self.arguments, timeout: Self.timeout)
-        guard result.status == 0 else {
-            let message = String(data: result.stderr, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
-            throw LeoDaemonError.transport(message.flatMap { $0.isEmpty ? nil : $0 } ?? "leo exited \(result.status)")
+    private func restartCLI() async -> LeoDaemonRestartOutcome {
+        do {
+            let executable = try cli.resolveExecutable()
+            let result = try await cli.runner.run(executable: executable, arguments: Self.arguments, timeout: Self.timeout)
+            guard result.status == 0 else {
+                let stderr = String(data: result.stderr, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                Self.logger.error("leo service restart exited \(result.status): \(stderr, privacy: .public)")
+                return .failed(Self.didNotRestart)
+            }
+            return .restarted
+        } catch {
+            Self.logger.error("leo service restart didn’t run: \(String(describing: error), privacy: .public)")
+            return .failed(Self.didNotRestart)
         }
-        return .restarted
     }
 
     private func restartManaged() async -> LeoDaemonRestartOutcome {
@@ -62,10 +70,10 @@ struct LeoDaemonRestarter: Sendable {
             return .failed("Some agents were still busy, so Leo didn’t restart its daemon. Try again when they’re done.")
         case .failed(let failure):
             Self.logger.error("leo service restart: \(failure.error, privacy: .public) \(failure.summary, privacy: .public)")
-            return .failed("Leo’s daemon didn’t restart. \(Self.doctorAdvice)")
+            return .failed(Self.didNotRestart)
         case .malformed(let detail):
             Self.logger.error("leo service restart: \(detail, privacy: .public)")
-            return .failed("Leo’s daemon didn’t restart. \(Self.doctorAdvice)")
+            return .failed(Self.didNotRestart)
         }
     }
 }

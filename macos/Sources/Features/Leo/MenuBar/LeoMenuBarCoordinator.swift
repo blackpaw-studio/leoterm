@@ -1,12 +1,9 @@
 import AppKit
 import LeoKit
-import OSLog
 
 /// Wires the menu bar extra to the app: the sidebar model's snapshot, server
 /// mode, the daemon restarter and the window opener.
 @MainActor final class LeoMenuBarCoordinator {
-    private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
-
     /// The daemon's own log, rotated in-process (contract C4).
     static func logURL(home: URL = FileManager.default.homeDirectoryForCurrentUser) -> URL {
         home.appendingPathComponent(".leo/state/service.log")
@@ -110,19 +107,14 @@ import OSLog
         isRestarting = true
         Task { @MainActor in
             defer { isRestarting = false }
-            do {
-                switch try await restarter.restart(isManaged: managed().isManaged) {
-                case .restarted:
-                    daemonChanged()
-                case .notRegistered:
-                    openLeo()
-                    restartFoundNoJob()
-                case .failed(let message):
-                    showRestartFailure(message)
-                }
-            } catch {
-                Self.logger.error("daemon restart failed: \(String(describing: error), privacy: .public)")
-                showRestartFailure(Self.message(for: error))
+            switch await restarter.restart(isManaged: managed().isManaged) {
+            case .restarted:
+                daemonChanged()
+            case .notRegistered:
+                openLeo()
+                restartFoundNoJob()
+            case .failed(let message):
+                showRestartFailure(message)
             }
         }
     }
@@ -134,10 +126,5 @@ import OSLog
         alert.informativeText = message
         alert.addButton(withTitle: "OK")
         alert.runModal()
-    }
-
-    private static func message(for error: Error) -> String {
-        if case LeoDaemonError.transport(let message) = error { return message }
-        return error.localizedDescription
     }
 }
