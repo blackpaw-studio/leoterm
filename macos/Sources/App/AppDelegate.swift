@@ -190,7 +190,7 @@ class AppDelegate: NSObject,
         releaseToCLI: { [unowned self] in
             Task { @MainActor in await self.leoManaged?.releaseToCLI() }
         },
-        daemonChanged: { [unowned self] in self.leoRuntime.model.retry() },
+        daemonChanged: { [unowned self] in self.leoRuntime.localDaemonChanged() },
         restartFoundNoJob: { [unowned self] in
             Task { @MainActor in await self.leoManaged?.restartFoundNoJob() }
         }
@@ -568,7 +568,7 @@ class AppDelegate: NSObject,
         startup.onChange = { model.managedPresentationChanged($0) }
         startup.moveToApplicationsRequested = { model.moveToApplicationsRequested() }
         startup.startCLIDaemonRequested = { model.startDaemonRequested() }
-        startup.daemonChanged = { model.retry() }
+        startup.daemonChanged = { [unowned self] in self.leoRuntime.localDaemonChanged() }
         model.managedBannerActionRequested = { action in Task { @MainActor in await startup.perform(action) } }
         model.daemonStartActionRequested = { action in Task { @MainActor in await startup.perform(action) } }
         return startup

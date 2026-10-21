@@ -463,6 +463,14 @@ import LeoKit
             Self.logger.log("hostSelection.start(flavor:) returned")
         }
     }
+    /// The app restarted or switched its own daemon: reconnect to it. A
+    /// selected remote host keeps its tunnel and feed, since Retry would
+    /// tear both down for a daemon it doesn't talk to.
+    func localDaemonChanged() {
+        guard hostSelection.selected == .local else { return }
+        model.retry()
+    }
+
     func shutdown() {
         connectionSequence += 1
         cancelTerminalFileDrops()
