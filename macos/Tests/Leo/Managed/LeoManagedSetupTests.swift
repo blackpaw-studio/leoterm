@@ -413,4 +413,28 @@ struct LeoDaemonProbeTests {
     func anAnswerThatIsNotAHealthyHelloIsUnresponsive(status: Int, body: String) async {
         #expect(await probe { _, _ in LeoHTTPResponse(status: status, body: Data(body.utf8)) } == .unresponsive)
     }
+
+    // MARK: /health with the pid (B10)
+
+    private func health(_ reply: @escaping @Sendable (LeoHTTPRequest, String) throws -> LeoHTTPResponse) async -> LeoDaemonHealthCheck {
+        await LeoDaemonProbe(socketPath: "/home/test/.leo/state/leo.sock", transport: Transport(reply: reply)).health()
+    }
+
+    @Test(arguments: [
+        (#"{"ok":true,"data":{"version":"0.56.1","ready":true,"pid":4242}}"#, Int32?.some(4242)),
+        (#"{"ok":true,"data":{"version":"0.55.0"}}"#, nil),
+    ])
+    func healthReportsTheVersionAndPid(body: String, pid: Int32?) async {
+        let result = await health { request, _ in
+            #expect(request == LeoHTTPRequest(method: "GET", path: "/health"))
+            return LeoHTTPResponse(status: 200, body: Data(body.utf8))
+        }
+        #expect(result == .answered(version: body.contains("0.56.1") ? "0.56.1" : "0.55.0", pid: pid))
+    }
+
+    @Test func healthWithNothingListeningIsAbsentAndATimeoutUnresponsive() async {
+        #expect(await health { _, _ in throw LeoDaemonError.transport("Connection refused") } == .absent)
+        #expect(await health { _, _ in throw LeoDaemonError.timeout } == .unresponsive)
+        #expect(await health { _, _ in LeoHTTPResponse(status: 200, body: Data("garbage".utf8)) } == .unresponsive)
+    }
 }

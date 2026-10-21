@@ -9,6 +9,7 @@ enum LeoManagedEvent: Equatable, Sendable {
     case fs(LeoFileOp)
     case run([String])
     case agent(String)
+    case signal(Int32)
 }
 
 final class LeoManagedEventLog: @unchecked Sendable {
@@ -73,6 +74,28 @@ final class LeoFakeLaunchAgent: LeoLaunchAgentService, @unchecked Sendable {
     func openLoginItemsSettings() { log.append(.agent("openLoginItemsSettings")) }
 }
 
+/// Records `SIGTERM`s instead of sending them; may refuse once.
+final class LeoFakeSignaller: LeoProcessSignalling, @unchecked Sendable {
+    struct Refused: Error, Equatable {}
+
+    private let lock = NSLock()
+    private let log: LeoManagedEventLog
+    private var refusesNext = false
+
+    init(log: LeoManagedEventLog) { self.log = log }
+
+    func refuseNext() { lock.withLock { refusesNext = true } }
+
+    func terminate(pid: Int32) throws {
+        log.append(.signal(pid))
+        let refuses = lock.withLock { () -> Bool in
+            defer { refusesNext = false }
+            return refusesNext
+        }
+        if refuses { throw Refused() }
+    }
+}
+
 /// Answers `hello` from a queue (the last value repeats) and counts probes.
 final class LeoFakeProbe: LeoDaemonProbing, @unchecked Sendable {
     private let lock = NSLock()
@@ -88,6 +111,20 @@ final class LeoFakeProbe: LeoDaemonProbing, @unchecked Sendable {
         lock.withLock {
             count += 1
             return results.count > 1 ? results.removeFirst() : results[0]
+        }
+    }
+
+    private var healthResults: [LeoDaemonHealthCheck] = [.absent]
+    private(set) var healthCount = 0
+
+    /// `/health`'s answers, from their own queue (the last value repeats).
+    func scriptHealth(_ results: LeoDaemonHealthCheck...) { lock.withLock { healthResults = results } }
+    var healthChecks: Int { lock.withLock { healthCount } }
+
+    func health() async -> LeoDaemonHealthCheck {
+        lock.withLock {
+            healthCount += 1
+            return healthResults.count > 1 ? healthResults.removeFirst() : healthResults[0]
         }
     }
 }

@@ -11,6 +11,8 @@ enum LeoManagedStatus: Equatable, Sendable {
     case managed(version: String?)
     /// B6: restarting onto the bundled version after a Sparkle update.
     case updating(to: String)
+    /// B10: a daemon answers but the app's job isn't loaded.
+    case runningOutsideJob(pid: Int32)
     case moveRequired(isManaged: Bool)
     case failed(message: String)
 }
@@ -22,7 +24,7 @@ struct LeoManagedNotice: Equatable, Sendable {
 }
 
 enum LeoManagedBannerAction: Equatable, Sendable {
-    case takeOver, notNow, openLoginItems, moveToApplications, retry, dismiss
+    case takeOver, notNow, openLoginItems, moveToApplications, retry, dismiss, stopOutsideDaemon
 
     var title: String {
         switch self {
@@ -32,6 +34,7 @@ enum LeoManagedBannerAction: Equatable, Sendable {
         case .moveToApplications: "Move to Applications…"
         case .retry: "Try Again"
         case .dismiss: "OK"
+        case .stopOutsideDaemon: "Stop It…"
         }
     }
 }
@@ -68,7 +71,7 @@ struct LeoManagedPresentation: Equatable, Sendable {
     private static func startAction(for status: LeoManagedStatus) -> LeoDaemonStartAction {
         switch status {
         case .inactive, .usingCLI: .startCLIDaemon
-        case .settingUp, .managed, .updating, .failed: .setUp
+        case .settingUp, .managed, .updating, .runningOutsideJob, .failed: .setUp
         case .awaitingApproval: .allowInLoginItems
         case .moveRequired: .moveToApplications
         }
@@ -78,6 +81,12 @@ struct LeoManagedPresentation: Equatable, Sendable {
         switch status {
         case .inactive, .managed, .usingCLI(offerTakeover: false, _), .moveRequired(isManaged: false):
             nil
+        case .runningOutsideJob(let pid):
+            LeoManagedBanner(
+                title: "A leo daemon (pid \(pid)) is running outside Leo.app",
+                detail: "Leo can’t restart or update it. Stopping it shuts it down cleanly and your agents’ tmux sessions keep running; Leo then starts its own daemon.",
+                actions: [.stopOutsideDaemon]
+            )
         case .updating(let version):
             LeoManagedBanner(
                 title: "Updating Leo’s daemon to \(version)…",

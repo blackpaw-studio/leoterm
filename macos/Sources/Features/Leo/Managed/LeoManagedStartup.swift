@@ -4,6 +4,7 @@ import OSLog
 /// The alerts the managed flow shows; the app's are `NSAlert`s.
 @MainActor protocol LeoManagedPresenting: AnyObject {
     func confirmReleaseToCLI() async -> Bool
+    func confirmStopDaemon(pid: Int32) async -> Bool
     func showMoveBackAlert()
     func showError(title: String, message: String)
 }
@@ -15,6 +16,7 @@ struct LeoManagedDependencies: Sendable {
     let runner: any LeoProcessRunning
     let agent: any LeoLaunchAgentService
     let probe: any LeoDaemonProbing
+    let signaller: any LeoProcessSignalling
     let clock: any LeoDaemonClock
     let loginPath: @Sendable () async -> String?
     let makeToken: @Sendable () -> String
@@ -42,7 +44,7 @@ struct LeoManagedDependencies: Sendable {
     var summary: LeoManagedSummary {
         switch status {
         case .managed(let version): LeoManagedSummary(isManaged: true, version: version)
-        case .updating: LeoManagedSummary(isManaged: true, version: nil)
+        case .updating, .runningOutsideJob: LeoManagedSummary(isManaged: true, version: nil)
         default: LeoManagedSummary(isManaged: false, version: nil)
         }
     }
@@ -97,6 +99,7 @@ struct LeoManagedDependencies: Sendable {
         case .moveToApplications: moveToApplicationsRequested()
         case .retry: await exclusively { await self.decideAndExecute() }
         case .dismiss: notice = nil
+        case .stopOutsideDaemon: await exclusively { await self.stopOutsideDaemon() }
         }
     }
 
@@ -273,10 +276,47 @@ struct LeoManagedDependencies: Sendable {
                 title: "Leo’s daemon is still on \(running)",
                 message: "Agents were busy, so it wasn’t restarted. Choose Restart Daemon in the menu bar when they’re done."
             )
+        case .notRegistered where await offerToStopOutsideDaemon():
+            break
         case .notRegistered(let message), .failed(let message):
             status = .managed(version: running)
             let sentence = message.hasSuffix(".") ? message : message + "."
             notice = LeoManagedNotice(title: "Leo couldn’t update its daemon", message: "\(sentence) \(doctor)")
+        }
+    }
+
+    // MARK: a daemon outside the app's job (B10)
+
+    /// `not_registered` while `/health` still answers with a pid: offer to stop it.
+    private func offerToStopOutsideDaemon() async -> Bool {
+        guard case .answered(_, let pid?) = await dependencies.probe.health() else { return false }
+        status = .runningOutsideJob(pid: pid)
+        return true
+    }
+
+    private func stopOutsideDaemon() async {
+        guard case .runningOutsideJob(let pid) = status, await presenter.confirmStopDaemon(pid: pid) else { return }
+        let d = dependencies
+        let outcome = await LeoOutsideDaemonStop(agent: d.agent, probe: d.probe, signaller: d.signaller, clock: d.clock).run(pid: pid)
+        let doctor = "Run “leo doctor” in Terminal to see why."
+        switch outcome {
+        case .managed(let version):
+            status = .managed(version: version)
+        case .awaitingApproval:
+            status = .awaitingApproval
+        case .changed(let current):
+            status = .managed(version: nil)
+            let now = current.map { "pid \($0) answers now" } ?? "it didn’t answer"
+            notice = LeoManagedNotice(title: "Nothing was stopped", message: "The daemon changed before Leo could stop it (\(now)). \(doctor)")
+        case .didNotStop:
+            notice = LeoManagedNotice(
+                title: "Leo couldn’t stop the leo daemon (pid \(pid))",
+                message: "It didn’t stop within \(Int(LeoOutsideDaemonStop.stopTimeout)) seconds. \(doctor)"
+            )
+        case .signalFailed(let message):
+            notice = LeoManagedNotice(title: "Leo couldn’t stop the leo daemon (pid \(pid))", message: "\(message). \(doctor)")
+        case .failed(let message):
+            status = .failed(message: message)
         }
     }
 

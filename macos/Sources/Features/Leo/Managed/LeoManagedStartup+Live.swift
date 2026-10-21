@@ -24,6 +24,7 @@ extension LeoManagedDependencies {
             probe: LeoDaemonProbe(
                 socketPath: paths.stateDirectory.appendingPathComponent("leo.sock").path, transport: LeoUnixSocketTransport()
             ),
+            signaller: LeoPOSIXSignaller(),
             clock: LeoRealClock(),
             loginPath: { await LeoLoginPathProbe.live(runner: runner).loginPath() },
             makeToken: { UUID().uuidString },
@@ -42,6 +43,15 @@ extension LeoManagedDependencies {
         alert.messageText = "Hand the daemon back to the CLI?"
         alert.informativeText = "Leo stops running the leo daemon and your command-line install takes over again. Your agents keep running."
         alert.addButton(withTitle: "Release to CLI")
+        alert.addButton(withTitle: "Cancel")
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    func confirmStopDaemon(pid: Int32) async -> Bool {
+        let alert = NSAlert()
+        alert.messageText = "Stop the leo daemon (pid \(pid))?"
+        alert.informativeText = "It isn’t running under Leo, so Leo can’t restart or update it. It shuts down cleanly and your agents’ tmux sessions keep running; Leo then starts its own daemon."
+        alert.addButton(withTitle: "Stop Daemon")
         alert.addButton(withTitle: "Cancel")
         return alert.runModal() == .alertFirstButtonReturn
     }

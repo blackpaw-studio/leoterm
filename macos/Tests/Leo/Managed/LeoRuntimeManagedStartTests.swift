@@ -9,10 +9,16 @@ import Testing
 @MainActor struct LeoRuntimeManagedStartTests {
     final class Presenter: LeoManagedPresenting {
         var confirmsRelease = true
+        var confirmsStop = true
+        private(set) var stopConfirmations: [Int32] = []
         private(set) var moveBackAlerts = 0
         private(set) var errors: [String] = []
 
         func confirmReleaseToCLI() async -> Bool { confirmsRelease }
+        func confirmStopDaemon(pid: Int32) async -> Bool {
+            stopConfirmations.append(pid)
+            return confirmsStop
+        }
         func showMoveBackAlert() { moveBackAlerts += 1 }
         func showError(title: String, message _: String) { errors.append(title) }
     }
@@ -22,10 +28,12 @@ import Testing
         let defaults = LeoInMemoryDefaults()
         let presenter = Presenter()
         let locationQueries = Recorded()
+        let signaller: LeoFakeSignaller
         var log: LeoManagedEventLog { base.log }
         var store: LeoTakeoverStore { LeoTakeoverStore(defaults: defaults) }
 
         init() {
+            signaller = LeoFakeSignaller(log: base.log)
             base.runner.on(LeoHandoverTests.toApp, .exit(0, stdout: LeoHandoverTests.okJSON))
             base.runner.on(LeoHandoverTests.toCLI, .exit(0, stdout: LeoHandoverTests.toCLIOKJSON))
             base.runner.on([LeoHandoverTests.bundled, "version"], .exit(0, stdout: "leo 0.57.0\n"))
@@ -36,7 +44,7 @@ import Testing
         ) -> LeoManagedStartup {
             let dependencies = LeoManagedDependencies(
                 paths: LeoManagedSetupTests.paths, fileSystem: base.fileSystem, runner: base.runner, agent: base.agent,
-                probe: base.probe, clock: base.clock, loginPath: { "/usr/bin:/bin" }, makeToken: base.tokens.next,
+                probe: base.probe, signaller: signaller, clock: base.clock, loginPath: { "/usr/bin:/bin" }, makeToken: base.tokens.next,
                 bundleID: LeoManagedSetupTests.bundleID, label: LeoManagedSetupTests.label,
                 buildKind: buildKind, environment: environment
             )
@@ -456,6 +464,81 @@ import Testing
         #expect(startup.presentation.banner?.actions == [.dismiss])
     }
 
+    // MARK: a daemon running outside the app's job (B10)
+
+    func outsideRig() throws -> Rig {
+        let rig = try updatedRig(restartReply: .exit(1, stdout: #"{"error":"not_registered","message":"no launchd job"}"#))
+        rig.base.probe.scriptHealth(
+            .answered(version: "0.57.0", pid: 4242), .answered(version: "0.57.0", pid: 4242),
+            .answered(version: "0.57.0", pid: 4242), .absent
+        )
+        return rig
+    }
+
+    @Test func notRegisteredWhileADaemonAnswersOffersToStopIt() async throws {
+        let rig = try outsideRig()
+        let startup = rig.startup()
+
+        await startup.run()
+        await startup.restartIfUpdated()
+
+        #expect(startup.status == .runningOutsideJob(pid: 4242))
+        #expect(startup.presentation.banner?.title == "A leo daemon (pid 4242) is running outside Leo.app")
+        #expect(startup.presentation.banner?.actions == [.stopOutsideDaemon])
+        #expect(startup.presentation.banner?.detail.contains("tmux sessions keep running") == true)
+        #expect(!rig.log.events.contains(.signal(4242)))
+    }
+
+    @Test func stoppingItNeedsAnExplicitConfirmation() async throws {
+        let rig = try outsideRig()
+        rig.presenter.confirmsStop = false
+        let startup = rig.startup()
+        await startup.run()
+        await startup.restartIfUpdated()
+
+        await startup.perform(.stopOutsideDaemon)
+
+        #expect(rig.presenter.stopConfirmations == [4242])
+        #expect(!rig.log.events.contains(.signal(4242)))
+        #expect(startup.status == .runningOutsideJob(pid: 4242))
+    }
+
+    @Test func aConfirmedStopHandsTheDaemonToTheAppsJob() async throws {
+        let rig = try outsideRig()
+        let startup = rig.startup()
+        await startup.run()
+        await startup.restartIfUpdated()
+
+        await startup.perform(.stopOutsideDaemon)
+
+        #expect(Array(rig.log.events.suffix(3)) == [.signal(4242), .agent("unregister"), .agent("register")])
+        #expect(startup.status == .managed(version: "0.57.1"))
+    }
+
+    @Test func aDaemonThatWontStopIsReportedAndCanBeStoppedAgain() async throws {
+        let rig = try outsideRig()
+        let startup = rig.startup()
+        await startup.run()
+        await startup.restartIfUpdated()
+        rig.base.probe.scriptHealth(.answered(version: "0.57.0", pid: 4242))
+
+        await startup.perform(.stopOutsideDaemon)
+
+        #expect(startup.status == .runningOutsideJob(pid: 4242))
+        #expect(startup.presentation.banner?.detail.contains("didn’t stop") == true)
+    }
+
+    @Test func notRegisteredWithNothingAnsweringStillPointsAtLeoDoctor() async throws {
+        let rig = try updatedRig(restartReply: .exit(1, stdout: #"{"error":"not_registered","message":"no launchd job"}"#))
+        let startup = rig.startup()
+
+        await startup.run()
+        await startup.restartIfUpdated()
+
+        #expect(startup.status == .managed(version: "0.57.0"))
+        #expect(startup.presentation.banner?.detail.contains("leo doctor") == true)
+    }
+
     @Test func aDaemonRunningTheBundledVersionIsLeftAlone() async throws {
         let rig = Rig()
         try rig.writeOurMarker()
@@ -497,6 +580,7 @@ import Testing
         (.moveRequired(isManaged: false), .moveToApplications, nil),
         (.failed(message: "boom"), .setUp, [.retry]),
         (.updating(to: "0.57.1"), .setUp, []),
+        (.runningOutsideJob(pid: 4242), .setUp, [.stopOutsideDaemon]),
     ])
     func eachStatusHasItsStartButtonAndBanner(
         status: LeoManagedStatus, startAction: LeoDaemonStartAction, actions: [LeoManagedBannerAction]?
