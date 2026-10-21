@@ -311,15 +311,22 @@ struct LeoPairingServiceTests {
     var states: [LeoPairingModel.State] = []
 }
 
+@MainActor private final class Counter {
+    var count = 0
+}
+
 @MainActor
 struct LeoPairingModelTests {
     private static let start = Date(timeIntervalSince1970: 1_000_000)
 
-    private static func model(_ runner: ScriptedRunner, clock: LeoFiringClock) -> LeoPairingModel {
+    private static func model(
+        _ runner: ScriptedRunner, clock: LeoFiringClock, onDaemonRestarted: @escaping () -> Void = {}
+    ) -> LeoPairingModel {
         LeoPairingModel(
             service: PairFixtures.service(runner),
             sleep: { try await clock.sleep($0) },
-            now: { start }
+            now: { start },
+            onDaemonRestarted: onDaemonRestarted
         )
     }
 
@@ -497,6 +504,46 @@ struct LeoPairingModelTests {
         #expect(await runner.argv == [
             ["pair", "--json"], ["web", "enable", "--json"], ["pair", "--json"], ["pair", "--json"], ["pair", "--json"],
         ])
+        model.stop()
+    }
+
+    @Test func theRestartedDaemonIsReconnectedOnceItAnswersPair() async throws {
+        let unreachable = PairFixtures.out(#"{"error":"daemon_unreachable"}"#, status: 1)
+        let runner = ScriptedRunner([
+            PairFixtures.webDisabled, PairFixtures.enabled, unreachable,
+            PairFixtures.payloadOutput(code: "GGGG", expiresAt: "1970-01-12T13:48:00Z"),
+        ])
+        let clock = LeoFiringClock()
+        let reconnects = Counter()
+        let model = Self.model(runner, clock: clock, onDaemonRestarted: { reconnects.count += 1 })
+        model.start()
+        try await until { await MainActor.run { model.state == .webDisabled(message: "web listener is off") } }
+
+        model.enableWebAccess()
+        try await until { clock.pending(Self.seconds(LeoPairingModel.restartRetrySeconds)).count == 1 }
+        #expect(reconnects.count == 0)
+        clock.fire(Self.seconds(LeoPairingModel.restartRetrySeconds))
+
+        try await until { await MainActor.run { model.state == .ready(PairFixtures.payload(code: "GGGG", expiresAt: Date(timeIntervalSince1970: 1_000_080))) } }
+        #expect(reconnects.count == 1)
+        model.stop()
+    }
+
+    @Test func enablingWebWithoutADaemonRestartDoesNotReconnect() async throws {
+        let runner = ScriptedRunner([
+            PairFixtures.webDisabled, PairFixtures.enabledNoRestart,
+            PairFixtures.payloadOutput(code: "HHHH", expiresAt: "1970-01-12T13:48:00Z"),
+        ])
+        let clock = LeoFiringClock()
+        let reconnects = Counter()
+        let model = Self.model(runner, clock: clock, onDaemonRestarted: { reconnects.count += 1 })
+        model.start()
+        try await until { await MainActor.run { model.state == .webDisabled(message: "web listener is off") } }
+
+        model.enableWebAccess()
+
+        try await until { await MainActor.run { model.state == .ready(PairFixtures.payload(code: "HHHH", expiresAt: Date(timeIntervalSince1970: 1_000_080))) } }
+        #expect(reconnects.count == 0)
         model.stop()
     }
 

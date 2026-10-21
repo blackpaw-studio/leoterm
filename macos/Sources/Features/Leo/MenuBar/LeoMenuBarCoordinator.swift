@@ -27,12 +27,16 @@ import OSLog
     /// version its hello reported.
     private let managed: () -> (isManaged: Bool, version: String?)
     private let releaseToCLI: () -> Void
+    /// The app restarted the daemon and the new one answers: reconnect to it.
+    private let daemonChanged: () -> Void
     private let fileManager: FileManager
     private let workspace: NSWorkspace
     private var isRestarting = false
     /// Pairs through the same `leo` the restarter resolves.
     private lazy var pairPanel = LeoPairDevicePanelController(
-        makeModel: { [restarter] in LeoPairingModel(service: LeoPairingService(cli: restarter.cli)) }
+        makeModel: { [restarter, daemonChanged] in
+            LeoPairingModel(service: LeoPairingService(cli: restarter.cli), onDaemonRestarted: daemonChanged)
+        }
     )
     private lazy var controller = LeoMenuBarController(
         inputs: { [unowned self] in menuInputs() },
@@ -45,6 +49,7 @@ import OSLog
         windowID: @escaping () -> LeoWindowID?, openLeo: @escaping () -> Void,
         managed: @escaping () -> (isManaged: Bool, version: String?) = { (false, nil) },
         releaseToCLI: @escaping () -> Void = {},
+        daemonChanged: @escaping () -> Void = {},
         fileManager: FileManager = .default, workspace: NSWorkspace = .shared
     ) {
         self.model = model
@@ -55,6 +60,7 @@ import OSLog
         self.openLeo = openLeo
         self.managed = managed
         self.releaseToCLI = releaseToCLI
+        self.daemonChanged = daemonChanged
         self.fileManager = fileManager
         self.workspace = workspace
     }
@@ -102,6 +108,7 @@ import OSLog
             defer { isRestarting = false }
             do {
                 try await restarter.restart(isManaged: managed().isManaged)
+                daemonChanged()
             } catch {
                 Self.logger.error("daemon restart failed: \(String(describing: error), privacy: .public)")
                 let alert = NSAlert()

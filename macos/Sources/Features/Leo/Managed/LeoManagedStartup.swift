@@ -39,6 +39,10 @@ struct LeoManagedDependencies: Sendable {
     /// The A9 mover and the CLI "Start daemon" command, owned by the app.
     var moveToApplicationsRequested: () -> Void = {}
     var startCLIDaemonRequested: () -> Void = {}
+    /// The app restarted or switched the daemon and the new one answers hello:
+    /// the app's existing Reconnect. Never fired at launch, where host
+    /// selection starts after the managed step.
+    var daemonChanged: () -> Void = {}
 
     var presentation: LeoManagedPresentation { LeoManagedPresentation(status: status, notice: notice) }
     var summary: LeoManagedSummary {
@@ -90,6 +94,7 @@ struct LeoManagedDependencies: Sendable {
         guard status == .awaitingApproval else { return }
         await exclusively {
             self.apply(await self.setup.resumeAfterApproval(handBack: self.handBackIfHandedOver))
+            self.reconnectIfAnswering()
         }
     }
 
@@ -99,7 +104,11 @@ struct LeoManagedDependencies: Sendable {
         case .notNow: declineTakeover()
         case .openLoginItems: dependencies.agent.openLoginItemsSettings()
         case .moveToApplications: moveToApplicationsRequested()
-        case .retry: await exclusively { await self.decideAndExecute() }
+        case .retry:
+            await exclusively {
+                await self.decideAndExecute()
+                self.reconnectIfAnswering()
+            }
         case .dismiss: notice = nil
         case .stopOutsideDaemon: await exclusively { await self.stopOutsideDaemon() }
         }
@@ -300,8 +309,10 @@ struct LeoManagedDependencies: Sendable {
         switch outcome {
         case .restarted(let version):
             status = .managed(version: version)
+            daemonChanged()
         case .stillDifferent(_, let now):
             status = .managed(version: now ?? running)
+            daemonChanged()
             let answer = now.map { "still reports \($0)" } ?? "didn’t answer"
             notice = LeoManagedNotice(
                 title: "Leo’s daemon didn’t update", message: "It \(answer) after restarting; Leo includes \(bundled). \(doctor)"
@@ -338,6 +349,7 @@ struct LeoManagedDependencies: Sendable {
         switch outcome {
         case .managed(let version):
             status = .managed(version: version)
+            daemonChanged()
         case .awaitingApproval:
             status = .awaitingApproval
         case .changed(let current):
@@ -369,6 +381,7 @@ struct LeoManagedDependencies: Sendable {
         case .managed(let version, let warnings):
             warnings.forEach { Self.logger.log("takeover: \($0, privacy: .public)") }
             status = .managed(version: version)
+            daemonChanged()
         case .awaitingApproval:
             status = .awaitingApproval
         case .cannotTakeOver:
@@ -386,6 +399,8 @@ struct LeoManagedDependencies: Sendable {
             presenter.showError(title: "Leo couldn’t take over the daemon", message: message + restart)
         case .setupFailed(let failure, let cliRestored):
             status = .usingCLI(offerTakeover: false, isRunning: cliRestored)
+            // leo restored the CLI daemon: a different one than the app was connected to.
+            if cliRestored { daemonChanged() }
             let next = cliRestored ? " Your CLI daemon is running again." : " Start your daemon with “leo service start --daemon”."
             presenter.showError(title: "Leo couldn’t start its daemon", message: failure.message + next)
         }
@@ -454,6 +469,14 @@ struct LeoManagedDependencies: Sendable {
     }
 
     private func publish() { onChange(presentation) }
+
+    /// After a user-driven flow: reconnect if it left a daemon answering.
+    private func reconnectIfAnswering() {
+        switch status {
+        case .managed, .usingCLI(_, isRunning: true): daemonChanged()
+        default: break
+        }
+    }
 }
 
 extension LeoDaemonProbeResult {

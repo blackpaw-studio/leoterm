@@ -34,16 +34,21 @@ import Foundation
     private let service: LeoPairingService
     private let sleep: @Sendable (UInt64) async throws -> Void
     private let now: @Sendable () -> Date
+    /// `web enable` restarted the daemon and the new one answered `pair`:
+    /// the app's connection to the old one is closed.
+    private let onDaemonRestarted: () -> Void
     private var task: Task<Void, Never>?
 
     init(
         service: LeoPairingService,
         sleep: @escaping @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) },
-        now: @escaping @Sendable () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = Date.init,
+        onDaemonRestarted: @escaping () -> Void = {}
     ) {
         self.service = service
         self.sleep = sleep
         self.now = now
+        self.onDaemonRestarted = onDaemonRestarted
     }
 
     /// Fetches a code and keeps it fresh. Also the "Try Again" action.
@@ -60,7 +65,7 @@ import Foundation
             do {
                 let result = try await model.service.enableWeb()
                 model.enabledWeb = result.binding
-                await model.pairAndRefresh(retries: result.restarted ? Self.restartRetryAttempts : 0)
+                await model.pairAndRefresh(retries: result.restarted ? Self.restartRetryAttempts : 0, announceRestart: result.restarted)
             } catch is CancellationError {
             } catch {
                 model.state = Self.state(for: error)
@@ -79,13 +84,16 @@ import Foundation
         task = Task { await body(self) }
     }
 
-    private func pairAndRefresh(retries: Int) async {
+    private func pairAndRefresh(retries: Int, announceRestart: Bool = false) async {
         var retries = retries
+        var announceRestart = announceRestart
         do {
             while true {
                 let payload = try await pairRetrying(attempts: retries)
                 try Task.checkCancellation()
                 state = .ready(payload)
+                if announceRestart { onDaemonRestarted() }
+                announceRestart = false
                 retries = 0
                 try await sleep(refreshNanoseconds(for: payload))
                 // The shown code no longer works: take it off screen while the next one is fetched.
