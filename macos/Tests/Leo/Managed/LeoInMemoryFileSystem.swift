@@ -10,6 +10,7 @@ enum LeoFileOp: Equatable, Sendable {
     case remove(String)
     case symlink(String, target: String)
     case copy(String, String)
+    case chmod(String, mode: mode_t)
     case move(String, String)
     case moveNoReplace(String, String)
     case trash(String)
@@ -27,12 +28,23 @@ final class LeoInMemoryFileSystem: LeoFileSystem, @unchecked Sendable {
 
     private let lock = NSLock()
     private var nodes: [String: Node] = [:]
-    private var log: [LeoFileOp] = []
     private var tokenCounter = 0
     private var readOnlyPrefixes: [String] = []
     private var failures: [String: LeoFileSystemError] = [:]
+    private var observer: (@Sendable (LeoFileOp) -> Void)?
+    private var corruptsNextCopy = false
+    private var log: [LeoFileOp] = [] {
+        didSet { if let op = log.last, log.count > oldValue.count { observer?(op) } }
+    }
 
     var ops: [LeoFileOp] { locked { log } }
+
+    /// Also reports each op to `observer`, so a test can interleave file ops
+    /// with other seams' calls in one timeline.
+    func observe(_ observer: @escaping @Sendable (LeoFileOp) -> Void) { locked { self.observer = observer } }
+
+    /// The next `copyFile` writes different bytes than it read.
+    func corruptNextCopy() { locked { corruptsNextCopy = true } }
 
     // MARK: arranging
 
@@ -153,6 +165,19 @@ final class LeoInMemoryFileSystem: LeoFileSystem, @unchecked Sendable {
             guard nodes[destination.path] == nil else { throw LeoFileSystemError(operation: "copy", path: destination.path, code: EEXIST) }
             log.append(.copy(source.path, destination.path))
             nodes[destination.path] = nodes[source.path]
+            if corruptsNextCopy, case let .file(data, mode) = nodes[source.path] {
+                corruptsNextCopy = false
+                nodes[destination.path] = .file(data + Data("!".utf8), mode: mode)
+            }
+        }
+    }
+
+    func setMode(_ mode: mode_t, at url: URL) throws {
+        try locked {
+            try fail("chmod", url.path)
+            guard case let .file(data, _) = nodes[url.path] else { throw LeoFileSystemError(operation: "chmod", path: url.path, code: ENOENT) }
+            log.append(.chmod(url.path, mode: mode))
+            nodes[url.path] = .file(data, mode: mode)
         }
     }
 

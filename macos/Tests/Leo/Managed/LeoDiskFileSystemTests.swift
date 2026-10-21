@@ -103,6 +103,17 @@ struct LeoDiskFileSystemTests {
         #expect(fileSystem.kind(at: source) == .absent)
     }
 
+    @Test func setModeAppliesExactBitsAndFailsOnAMissingFile() throws {
+        defer { cleanUp() }
+        let file = root.appendingPathComponent("tmux")
+        try fileSystem.writeAtomically(Data("bin".utf8), to: file, mode: 0o600)
+
+        try fileSystem.setMode(0o755, at: file)
+
+        #expect(fileSystem.mode(at: file) == 0o755)
+        #expect(throws: LeoFileSystemError.self) { try fileSystem.setMode(0o755, at: root.appendingPathComponent("missing")) }
+    }
+
     @Test func moveWithoutReplacingRefusesAnOccupiedDestinationAndMovesIntoAFreeOne() throws {
         defer { cleanUp() }
         let source = root.appendingPathComponent("s")
