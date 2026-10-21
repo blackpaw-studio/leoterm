@@ -21,7 +21,7 @@ struct LeoMenuBarAgent: Equatable {
 }
 
 enum LeoMenuBarAction: Equatable, Hashable {
-    case pairDevice, restartDaemon, openLogs, toggleServerOnly, openLeo, quit
+    case pairDevice, restartDaemon, releaseToCLI, openLogs, toggleServerOnly, openLeo, quit
 }
 
 enum LeoMenuBarItem: Equatable {
@@ -40,6 +40,10 @@ enum LeoMenuBarModel {
         let snapshot = inputs.snapshot
         let isLocal = (snapshot.advertised.host ?? .local) == .local
         let agents = agents(in: snapshot)
+        // B4: only the app's own daemon can be handed back.
+        let release: [LeoMenuBarItem] = inputs.isManaged
+            ? [.action(.releaseToCLI, title: "Release to CLI…", isEnabled: !inputs.isRestarting, isChecked: false)]
+            : []
         return [
             status(inputs),
             .agents(
@@ -56,6 +60,7 @@ enum LeoMenuBarModel {
                 .restartDaemon, title: inputs.isRestarting ? "Restarting Daemon…" : "Restart Daemon",
                 isEnabled: isLocal && !inputs.isRestarting, isChecked: false
             ),
+        ] + release + [
             .action(.openLogs, title: "Open Logs", isEnabled: inputs.hasLogFile, isChecked: false),
             .separator,
             .action(.toggleServerOnly, title: "Run as Server Only", isEnabled: true, isChecked: inputs.serverOnly),

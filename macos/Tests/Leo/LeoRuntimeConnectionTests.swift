@@ -184,7 +184,7 @@ private actor SequenceGatedHealthTransport: LeoDaemonTransport {
     }
 }
 
-private actor RuntimeTestDaemon: LeoDaemonClient {
+actor RuntimeTestDaemon: LeoDaemonClient {
     private(set) var listCallCount = 0
     private(set) var startCalls: [String] = []
 

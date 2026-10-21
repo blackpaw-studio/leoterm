@@ -8,6 +8,8 @@ import Foundation
 struct LeoInstallPaths: Equatable, Sendable {
     static let markerFileName = "managed.json"
     static let backupFileName = "leo.pre-leoapp"
+    /// Where a curl or Homebrew install puts `leo`, besides `~/.local/bin`.
+    static let systemCLIBinaries = ["/opt/homebrew/bin/leo", "/usr/local/bin/leo"]
 
     let home: URL
     let bundleURL: URL
@@ -56,6 +58,14 @@ struct LeoInstallPaths: Equatable, Sendable {
     var localBinDirectory: URL { home.appendingPathComponent(".local/bin", isDirectory: true) }
     var localBinLeo: URL { localBinDirectory.appendingPathComponent("leo") }
     var localBinLeoBackup: URL { localBinDirectory.appendingPathComponent(Self.backupFileName) }
+
+    // MARK: a CLI install
+
+    /// The CLI daemon's own LaunchAgent; present means installed, even if stopped.
+    var cliLaunchAgentPlist: URL { home.appendingPathComponent("Library/LaunchAgents/com.blackpaw.leo.plist") }
+    /// Where `handover --to-app` moves the CLI plist; `--to-cli` moves it back.
+    var cliLaunchAgentPlistBackup: URL { home.appendingPathComponent("Library/LaunchAgents/com.blackpaw.leo.plist.handed-over") }
+    var cliBinaryCandidates: [URL] { [localBinLeo] + Self.systemCLIBinaries.map { URL(fileURLWithPath: $0) } }
 
     private static func isSafeVersionComponent(_ version: String) -> Bool {
         guard let first = version.first, first != "." else { return false }

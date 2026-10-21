@@ -39,6 +39,20 @@ struct LeoMarkerStore: Sendable {
         try fileSystem.writeAtomically(data, to: paths.markerURL, mode: Self.markerMode)
     }
 
+    static let preflightFileName = "managed.json.preflight"
+
+    /// Proves `write` would work: makes and removes a 0600 file beside the
+    /// marker the same way. Takeover runs it before the handover stops the
+    /// CLI daemon.
+    func checkWritable() throws {
+        if fileSystem.kind(at: paths.stateDirectory) == .absent {
+            try fileSystem.createDirectory(at: paths.stateDirectory, mode: Self.stateDirectoryMode)
+        }
+        let probe = paths.stateDirectory.appendingPathComponent(Self.preflightFileName)
+        try fileSystem.writeAtomically(Data(), to: probe, mode: Self.markerMode)
+        try fileSystem.remove(probe)
+    }
+
     /// Unlinks only `managed.json`; a missing marker is not an error.
     func remove() throws {
         guard fileSystem.kind(at: paths.markerURL) != .absent else { return }

@@ -96,6 +96,15 @@ struct LeoMenuBarModelTests {
         #expect(Self.actions(LeoMenuBarModel.items(remote))[.pairDevice]?.enabled == false)
     }
 
+    @Test func releaseToCLIIsOfferedOnlyWhileTheAppManagesTheDaemon() {
+        let order = LeoMenuBarModel.items(Self.inputs(managed: true)).compactMap { item -> LeoMenuBarAction? in
+            if case .action(let action, _, _, _) = item { action } else { nil }
+        }
+        #expect(order == [.pairDevice, .restartDaemon, .releaseToCLI, .openLogs, .toggleServerOnly, .openLeo, .quit])
+        #expect(Self.actions(LeoMenuBarModel.items(Self.inputs(managed: true)))[.releaseToCLI]?.title == "Release to CLI…")
+        #expect(Self.actions(LeoMenuBarModel.items(Self.inputs(managed: true, restarting: true)))[.releaseToCLI]?.enabled == false)
+    }
+
     @Test func restartIsOfferedWhileTheDaemonIsDownAndDisabledOnlyWhileRunning() {
         #expect(Self.actions(LeoMenuBarModel.items(Self.inputs(.failed(message: "x"))))[.restartDaemon]?.enabled == true)
         let busy = Self.actions(LeoMenuBarModel.items(Self.inputs(restarting: true)))[.restartDaemon]

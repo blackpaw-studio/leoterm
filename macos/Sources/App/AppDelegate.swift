@@ -182,8 +182,17 @@ class AppDelegate: NSObject,
             } else {
                 self.leoOpenStartScreenWindow()
             }
+        },
+        managed: { [unowned self] in
+            let summary = self.leoManaged?.summary
+            return (summary?.isManaged ?? false, summary?.version)
+        },
+        releaseToCLI: { [unowned self] in
+            Task { @MainActor in await self.leoManaged?.releaseToCLI() }
         }
     )
+    /// The app-managed daemon (B5); nil when the bundle names no daemon label.
+    @MainActor private lazy var leoManaged: LeoManagedStartup? = makeLeoManaged()
     /// First-run Claude setup (A13), and Agents ▸ Set Up Claude…
     @MainActor private lazy var leoClaudeOnboarding = LeoClaudeOnboardingController(
         locator: LeoClaudeLocator(
@@ -362,6 +371,13 @@ class AppDelegate: NSObject,
         #endif
         // MARK: Leo
         leoRuntime.model.attentionCountChanged = { [weak self] _ in self?.writeDockBadge() }
+        if let leoManaged {
+            leoRuntime.managedStartup = {
+                await leoManaged.run()
+                // B6 drains agents first, so it must not hold up the sidebar.
+                Task { @MainActor in await leoManaged.restartIfUpdated() }
+            }
+        }
         leoRuntime.start()
 
         // System settings overrides
@@ -529,6 +545,24 @@ class AppDelegate: NSObject,
         }
     }
 
+    @MainActor private func makeLeoManaged() -> LeoManagedStartup? {
+        // A test host must never touch the real LaunchAgent or ~/.leo.
+        guard !LeoSingleInstance.isRunningAsTestHost(), let dependencies = LeoManagedDependencies.live() else { return nil }
+        let model = leoRuntime.model
+        let startup = LeoManagedStartup(
+            dependencies: dependencies,
+            takeoverStore: LeoTakeoverStore(defaults: .ghostty),
+            location: { [unowned self] in await self.leoAppLocation.resolvedLocation() },
+            presenter: LeoManagedAlerts()
+        )
+        startup.onChange = { model.managedPresentationChanged($0) }
+        startup.moveToApplicationsRequested = { model.moveToApplicationsRequested() }
+        startup.startCLIDaemonRequested = { model.startDaemonRequested() }
+        model.managedBannerActionRequested = { action in Task { @MainActor in await startup.perform(action) } }
+        model.daemonStartActionRequested = { action in Task { @MainActor in await startup.perform(action) } }
+        return startup
+    }
+
     /// Agents ▸ Set Up Claude…: install Claude Code and sign in, in a new window.
     @IBAction func setUpClaude(_ sender: Any?) {
         leoClaudeOnboarding.setUp()
@@ -551,6 +585,10 @@ class AppDelegate: NSObject,
         // First launch stuff
         // MARK: Leo -- activation may come before the launch hop (B-085).
         initialWindowOpener.didBecomeActive()
+        // Back from Login Items: pick up the user's approval (B5).
+        if let leoManaged {
+            Task { @MainActor in await leoManaged.applicationDidBecomeActive() }
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

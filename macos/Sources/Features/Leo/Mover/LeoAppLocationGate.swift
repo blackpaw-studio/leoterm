@@ -11,6 +11,16 @@ enum LeoAppLocationState: Equatable, Sendable {
 
     var allowsManagedFeatures: Bool { self == .allowed }
 
+    /// Where B5's managed startup runs after the check of `checked`; nil while
+    /// the app is moving itself and quitting.
+    func resolvedLocation(_ checked: LeoAppLocation) -> LeoAppLocation? {
+        switch self {
+        case .allowed: checked
+        case .declined(let reason): .needsMove(reason)
+        case .moved: nil
+        }
+    }
+
     var banner: LeoAppLocationBanner? {
         guard case .declined(let reason) = self else { return nil }
         return LeoAppLocationBanner(reason: reason)

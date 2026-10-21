@@ -27,6 +27,8 @@ protocol LeoFileSystem: Sendable {
     func replaceSymlinkAtomically(at url: URL, to target: String) throws
     /// `destination` must not exist.
     func copyFile(from source: URL, to destination: URL) throws
+    /// `chmod(2)` on a regular file.
+    func setMode(_ mode: mode_t, at url: URL) throws
     /// `rename(2)`: replaces `destination` if present.
     func move(from source: URL, to destination: URL) throws
     /// Like `move`, but fails with `EEXIST` instead of replacing `destination`
@@ -134,6 +136,10 @@ struct LeoDiskFileSystem: LeoFileSystem {
 
     func copyFile(from source: URL, to destination: URL) throws {
         try FileManager.default.copyItem(at: source, to: destination)
+    }
+
+    func setMode(_ mode: mode_t, at url: URL) throws {
+        try check(chmod(url.path, mode), "chmod", url)
     }
 
     func move(from source: URL, to destination: URL) throws {

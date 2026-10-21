@@ -50,6 +50,12 @@ import LeoKit
     /// (or failed) the move; managed features stay off meanwhile (A9).
     @Published var appLocationBanner: LeoAppLocationBanner?
     var moveToApplicationsRequested: () -> Void = {}
+    /// B5: the local managed daemon's banner, and what "Start daemon" does.
+    @Published private(set) var managedBanner: LeoManagedBanner?
+    @Published private(set) var daemonStartAction: LeoDaemonStartAction = .startCLIDaemon
+    var managedBannerActionRequested: (LeoManagedBannerAction) -> Void = { _ in }
+    /// Unset when the app manages nothing: the button runs the CLI command.
+    var daemonStartActionRequested: ((LeoDaemonStartAction) -> Void)?
     var retryRequested: () -> Void = {}
     var sshRequested: (String) -> Void = { _ in }
     /// Fired when the Dock attention count changes (AppDelegate's badge writer).
@@ -59,6 +65,20 @@ import LeoKit
     /// `preferencesStore` on every change.
     @Published private(set) var preferences: LeoSidebarPreferences
     private let preferencesStore: any LeoSidebarPreferencesStore
+
+    func managedPresentationChanged(_ presentation: LeoManagedPresentation) {
+        managedBanner = presentation.banner
+        daemonStartAction = presentation.startAction
+    }
+
+    /// The local "Start daemon" button.
+    func startDaemonTapped() {
+        guard let daemonStartActionRequested else {
+            startDaemonRequested()
+            return
+        }
+        daemonStartActionRequested(daemonStartAction)
+    }
 
     init(
         snapshot: LeoSidebarSnapshot = .init(rows: [], connectivity: .loading, generation: 0),

@@ -196,6 +196,7 @@ private extension LeoFileOp {
         case .remove: "remove"
         case .symlink: "symlink"
         case .copy: "copy"
+        case .chmod: "chmod"
         case .move: "move"
         case .moveNoReplace: "moveNoReplace"
         case .trash: "trash"
