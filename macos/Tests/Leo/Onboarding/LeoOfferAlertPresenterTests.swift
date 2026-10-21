@@ -133,6 +133,26 @@ import Testing
         #expect(await offer.value)
     }
 
+    @Test func closingTheHostWhileTheSheetIsUpResolvesTheOfferAndFreesThePresenter() async {
+        let host = Self.window()
+        let presenter = LeoOfferAlertPresenter(hostWindow: { host })
+        let offer = await Self.open(presenter, Self.alert())
+
+        host.close()
+        for _ in 0..<1000 where presenter.isOpen { await Task.yield() }
+        let stuck = presenter.isOpen
+        presenter.withdraw()
+
+        #expect(!stuck)
+        #expect(await offer.value == false)
+
+        let second = Self.alert(), other = Self.window()
+        let again = LeoOfferAlertPresenter(hostWindow: { other })
+        let next = await Self.open(again, second)
+        second.buttons[0].performClick(nil)
+        #expect(await next.value)
+    }
+
     @Test func thePanelIsLaidOutBeforeItIsShown() async {
         let presenter = LeoOfferAlertPresenter(hostWindow: { nil })
         let alert = Self.alert()

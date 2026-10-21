@@ -32,7 +32,7 @@ import AppKit
             let host = hostWindow()
             current = Offer(
                 token: token, alert: alert, host: host, continuation: continuation,
-                closeObserver: host == nil ? observeClose(of: alert, token: token) : nil)
+                closeObserver: observeClose(of: host ?? alert.window, token: token))
             if let host {
                 alert.beginSheetModal(for: host) { [weak self] response in
                     self?.finish(token, accepted: response == .alertFirstButtonReturn)
@@ -74,10 +74,11 @@ import AppKit
         window.makeKeyAndOrderFront(nil)
     }
 
-    /// Closing the panel any other way (⌘W, say) declines.
-    private func observeClose(of alert: NSAlert, token: Int) -> any NSObjectProtocol {
+    /// The panel closing any other way (⌘W, say), or the sheet's host going away
+    /// (its completion may never fire), declines.
+    private func observeClose(of window: NSWindow, token: Int) -> any NSObjectProtocol {
         NotificationCenter.default.addObserver(
-            forName: NSWindow.willCloseNotification, object: alert.window, queue: .main
+            forName: NSWindow.willCloseNotification, object: window, queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.finish(token, accepted: false) }
         }
