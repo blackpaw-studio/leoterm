@@ -43,6 +43,20 @@ extension LeoPairingPayload: Decodable {
 struct LeoWebEnableResult: Equatable, Sendable {
     let changed: Bool
     let restarted: Bool
+    /// Where the web listener is, as reported once it is on.
+    let binding: LeoWebBinding?
+
+    init(changed: Bool, restarted: Bool, binding: LeoWebBinding? = nil) {
+        self.changed = changed
+        self.restarted = restarted
+        self.binding = binding
+    }
+}
+
+/// The `web.bind` and `web.port` that `leo web enable --json` reports.
+struct LeoWebBinding: Equatable, Sendable {
+    let bind: String
+    let port: Int
 }
 
 /// A failed `leo pair` / `leo web enable`. Every `--json` failure is
@@ -93,13 +107,22 @@ struct LeoPairingService: Sendable {
             + ["--json"]
         let reply = try decode(WebEnableReply.self, from: try await run(arguments, failure: "Enabling web access failed", timeout: Self.enableTimeout))
         guard reply.ok else { throw LeoPairingError.unreadable("leo could not enable web access.") }
-        return LeoWebEnableResult(changed: reply.changed, restarted: reply.restarted)
+        let binding = reply.web.flatMap { web in
+            web.bind.flatMap { bind in web.port.map { LeoWebBinding(bind: bind, port: $0) } }
+        }
+        return LeoWebEnableResult(changed: reply.changed, restarted: reply.restarted, binding: binding)
     }
 
     private struct WebEnableReply: Decodable {
         let ok: Bool
         let changed: Bool
         let restarted: Bool
+        let web: Web?
+
+        struct Web: Decodable {
+            let bind: String?
+            let port: Int?
+        }
     }
 
     private struct ErrorReply: Decodable {

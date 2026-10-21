@@ -29,11 +29,11 @@ import AppKit
         let window = self.window ?? Self.makeWindow()
         window.delegate = self
         window.contentView = content
-        model.onChange = { [weak content] in content?.render($0) }
+        model.onChange = { [weak content, weak model] in content?.render($0, webNotice: model?.webNotice) }
         self.model = model
         self.content = content
         self.window = window
-        content.render(model.state)
+        content.render(model.state, webNotice: model.webNotice)
         fitWindow()
         model.start()
         window.center()
@@ -105,14 +105,14 @@ private final class LeoPairDeviceWindow: NSWindow {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
-    func render(_ state: LeoPairingModel.State) {
+    func render(_ state: LeoPairingModel.State, webNotice: String? = nil) {
         stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         copyButton = nil
         switch state {
         case .loading: showProgress("Getting a pairing code…")
         case .refreshing: showProgress("Refreshing…")
         case .enablingWeb: showProgress(LeoPairingCopy.enablingTitle, detail: LeoPairingCopy.enablingDetail)
-        case .ready(let payload): showPairing(payload)
+        case .ready(let payload): showPairing(payload, webNotice: webNotice)
         case .webDisabled: showWebDisabled()
         case .failed(let message): showFailure(message)
         }
@@ -135,7 +135,7 @@ private final class LeoPairDeviceWindow: NSWindow {
         }
     }
 
-    private func showPairing(_ payload: LeoPairingPayload) {
+    private func showPairing(_ payload: LeoPairingPayload, webNotice: String?) {
         currentCode = payload.pairingCode
         add(Self.label(
             "Scan this code with Leo on your phone, or enter the code and an address by hand.",
@@ -163,6 +163,9 @@ private final class LeoPairDeviceWindow: NSWindow {
             }
         }
         payload.warnings.forEach { add(warningRow($0)) }
+        if let webNotice {
+            add(Self.label(webNotice, font: .preferredFont(forTextStyle: .callout), color: .labelColor))
+        }
 
         let time = payload.expiresAt.formatted(date: .omitted, time: .shortened)
         add(Self.label(
@@ -174,7 +177,7 @@ private final class LeoPairDeviceWindow: NSWindow {
         add(Self.symbol("network.slash", color: .secondaryLabelColor))
         add(Self.label("Web access is off", font: .preferredFont(forTextStyle: .headline), color: .labelColor))
         add(Self.label(
-            "Pairing a device needs the daemon’s web listener. Turning it on restarts the daemon, then Leo fetches your pairing code.",
+            "Pairing a device needs the daemon’s web listener.\n\n\(LeoPairingCopy.enableExplanation)",
             font: .preferredFont(forTextStyle: .callout), color: .secondaryLabelColor
         ))
         let button = NSButton(title: "Enable Web Access", target: self, action: #selector(enableWebTapped))

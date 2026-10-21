@@ -235,12 +235,20 @@ struct LeoPairingServiceTests {
         _ = try await service.enableWeb(bind: "0.0.0.0")
         _ = try await service.enableWeb(bind: "100.64.0.1", allowHosts: ["a.ts.net", "b.ts.net"])
 
-        #expect(result == LeoWebEnableResult(changed: true, restarted: true))
+        #expect(result == LeoWebEnableResult(changed: true, restarted: true, binding: LeoWebBinding(bind: "127.0.0.1", port: 8123)))
         #expect(await runner.argv == [
             ["web", "enable", "--json"],
             ["web", "enable", "--bind", "0.0.0.0", "--json"],
             ["web", "enable", "--bind", "100.64.0.1", "--allow-host", "a.ts.net", "--allow-host", "b.ts.net", "--json"],
         ])
+    }
+
+    @Test func enableWithoutAWebObjectHasNoBinding() async throws {
+        let runner = ScriptedRunner([PairFixtures.out(#"{"ok":true,"changed":false,"restarted":false}"#)])
+
+        let result = try await PairFixtures.service(runner).enableWeb()
+
+        #expect(result == LeoWebEnableResult(changed: false, restarted: false, binding: nil))
     }
 
     @Test func enableWaitsOutALongDrainBeforeGivingUp() async throws {
@@ -275,6 +283,19 @@ struct LeoPairingServiceTests {
     @Test func theEnablingStateSaysItIsWaitingForBusyAgents() {
         #expect(LeoPairingCopy.enablingTitle == "Turning on web access…")
         #expect(LeoPairingCopy.enablingDetail == "Waiting for busy agents to finish…")
+    }
+
+    @Test func theEnableExplanationSpellsOutTheNetworkExposureAndTheDrain() {
+        let text = LeoPairingCopy.enableExplanation
+        #expect(text.contains("devices on your network"))
+        #expect(text.contains("bind address in its configuration"))
+        #expect(text.contains("Busy agents finish their work first"))
+        #expect(text.contains("restarts"))
+    }
+
+    @Test func theEnabledNoticeShowsTheActualBindAndPort() {
+        #expect(LeoPairingCopy.webEnabledNotice(bind: "0.0.0.0", port: 8123) == "Web access is on at 0.0.0.0:8123.")
+        #expect(LeoPairingCopy.webEnabledNotice(bind: "::1", port: 8123) == "Web access is on at [::1]:8123.")
     }
 
     @Test func errorsReadAsSentences() {
@@ -432,6 +453,25 @@ struct LeoPairingModelTests {
 
         try await until { await MainActor.run { model.state == .ready(PairFixtures.payload(code: "DDDD", expiresAt: Date(timeIntervalSince1970: 1_000_080))) } }
         #expect(await runner.argv == [["pair", "--json"], ["web", "enable", "--json"], ["pair", "--json"]])
+        model.stop()
+    }
+
+    @Test func theActualBindIsKeptAndSurfacedAfterEnabling() async throws {
+        let runner = ScriptedRunner([
+            PairFixtures.webDisabled, PairFixtures.enabledNoRestart,
+            PairFixtures.payloadOutput(code: "FFFF", expiresAt: "1970-01-12T13:48:00Z"),
+        ])
+        let clock = LeoFiringClock()
+        let model = Self.model(runner, clock: clock)
+        model.start()
+        try await until { await MainActor.run { model.state == .webDisabled(message: "web listener is off") } }
+        #expect(model.webNotice == nil)
+
+        model.enableWebAccess()
+
+        try await until { await MainActor.run { model.state != .webDisabled(message: "web listener is off") && model.state != .enablingWeb } }
+        #expect(model.enabledWeb == LeoWebBinding(bind: "127.0.0.1", port: 8123))
+        #expect(model.webNotice == "Web access is on at 127.0.0.1:8123.")
         model.stop()
     }
 

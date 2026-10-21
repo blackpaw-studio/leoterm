@@ -26,6 +26,10 @@ import Foundation
         didSet { if state != oldValue { onChange?(state) } }
     }
     var onChange: ((State) -> Void)?
+    /// Where the web listener ended up, once this panel has turned it on.
+    private(set) var enabledWeb: LeoWebBinding?
+    /// The sentence telling the user where the daemon is now reachable, if this panel enabled it.
+    var webNotice: String? { enabledWeb.map { LeoPairingCopy.webEnabledNotice(bind: $0.bind, port: $0.port) } }
 
     private let service: LeoPairingService
     private let sleep: @Sendable (UInt64) async throws -> Void
@@ -55,6 +59,7 @@ import Foundation
         launch { model in
             do {
                 let result = try await model.service.enableWeb()
+                model.enabledWeb = result.binding
                 await model.pairAndRefresh(retries: result.restarted ? Self.restartRetryAttempts : 0)
             } catch is CancellationError {
             } catch {
