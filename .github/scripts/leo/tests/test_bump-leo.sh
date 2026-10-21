@@ -119,6 +119,8 @@ want="$(pin_text 0.56.2 "$sha_new")"
 result "$ok" "a verified newer release rewrites exactly version= and sha256=" "rc=$rc: $(cat "$root/macos/Bundled/LEO_VERSION")"
 grep -qx 'bump=true' "$work/gh.out" && grep -qx 'version=0.56.2' "$work/gh.out" && ok=yes || ok=no
 result "$ok" "...and reports bump=true and the version via GITHUB_OUTPUT" "$(cat "$work/gh.out")"
+grep -qx "sha256=$sha_new" "$work/gh.out" && ok=yes || ok=no
+result "$ok" "...and the validated sha256, for a later job to re-verify" "$(cat "$work/gh.out")"
 
 checksums 0.57.0 "$sha_new"
 run 0.57.0 "$sha_new" "$work/checksums.txt"

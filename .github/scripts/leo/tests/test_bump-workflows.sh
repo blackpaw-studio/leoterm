@@ -105,6 +105,39 @@ check "leo-bump.yml: bump branch is bump/leo-<version> and the PR targets main" 
   puts "no bump/leo- branch" unless runs.include?("bump/leo-")
   puts "no --base main" unless runs =~ /--base\s+main/'
 
+check "leo-bump.yml: the job that runs the downloaded leo never sees the PAT or a persisted credential" "$bump" '
+  text = File.read(ARGV[0])
+  puts "persist-credentials: true somewhere" if text =~ /persist-credentials:\s*true/
+  verify = jobs.select { |_, j| (j["steps"] || []).any? { |s| s["run"].to_s.include?("fetch-leo.sh") } }
+  puts "no job runs fetch-leo.sh" if verify.empty?
+  verify.each do |id, j|
+    puts "#{id}: references LEO_BUMP_TOKEN" if j.to_s.include?("LEO_BUMP_TOKEN")
+    puts "#{id}: sets GH_TOKEN" if j.to_s.include?("GH_TOKEN")
+    puts "#{id}: pushes or opens a PR" if (j["steps"] || []).any? { |s| s["run"].to_s =~ /git push|gh pr/ }
+  end'
+
+check "leo-bump.yml: only a separate writer job holds the PAT, and it never runs the downloaded binary" "$bump" '
+  holders = jobs.select { |_, j| j.to_s.include?("LEO_BUMP_TOKEN") }
+  puts "PAT holders: #{holders.keys.inspect}" unless holders.size == 1
+  holders.each do |id, j|
+    runs = (j["steps"] || []).map { |s| s["run"].to_s }.join("\n")
+    puts "#{id}: runs fetch-leo.sh" if runs.include?("fetch-leo.sh")
+    puts "#{id}: runs check-helper.sh" if runs.include?("check-helper.sh")
+    puts "#{id}: does not need the verify job" unless Array(j["needs"]).any?
+    puts "#{id}: PAT in job-level env" if (j["env"] || {}).to_s.include?("LEO_BUMP_TOKEN")
+    puts "#{id}: no persist-credentials: false" unless (j["steps"] || []).any? { |s| s.dig("with", "persist-credentials") == false }
+  end'
+
+check "leo-bump.yml: the writer takes only the verified version and sha from the verify job" "$bump" '
+  w = jobs.select { |_, j| j.to_s.include?("LEO_BUMP_TOKEN") }.values.first || {}
+  v = (w["needs"] ? Array(w["needs"]) : []).first
+  puts "writer does not need the verify job" unless v && jobs[v]
+  outs = ((jobs[v] || {})["outputs"] || {}).keys.sort
+  puts "verify outputs: #{outs.inspect}" unless (%w[bump sha256 version] - outs).empty?
+  text = w.to_s
+  puts "writer ignores needs.<verify>.outputs.version" unless text.include?("needs.#{v}.outputs.version")
+  puts "writer ignores needs.<verify>.outputs.sha256" unless text.include?("needs.#{v}.outputs.sha256")'
+
 # -- leo-bump-release.yml -----------------------------------------------------
 
 check "leo-bump-release.yml: runs only for a merged same-repo bump/leo-* PR into main" "$tagger" '

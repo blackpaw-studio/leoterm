@@ -11,6 +11,12 @@ name: Leo Bump
 # never run on the bump PR. The payload is untrusted: it only ever reaches
 # scripts through env, and bump-leo.sh validates it and re-verifies it against
 # that release's checksums.txt.
+#
+# Two jobs, so the PAT is never near code from a download. `verify` downloads
+# the tarball and runs the leo binary in it (fetch-leo.sh / check-helper.sh)
+# with no PAT and no persisted credential, and outputs the validated version
+# and sha256. `write` holds the PAT, never runs the downloaded binary, and
+# authenticates its push explicitly instead of persisting a credential.
 
 on:
   repository_dispatch:
@@ -34,39 +40,62 @@ permissions:
   contents: read
 
 jobs:
-  bump:
+  verify:
     runs-on: [self-hosted, macOS, leo]
     timeout-minutes: 20
+    outputs:
+      bump: ${{ steps.bump.outputs.bump }}
+      version: ${{ steps.bump.outputs.version }}
+      sha256: ${{ steps.bump.outputs.sha256 }}
     steps:
-      # Always main, even for a manual dispatch from another
-      # ref: the bump PR must be main plus the pin change and nothing else.
+      # Always main, even for a manual dispatch from another ref: the bump PR
+      # must be main plus the pin change and nothing else.
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
-          token: ${{ secrets.LEO_BUMP_TOKEN }}
-          # The push below needs the token; checkout's post step removes it.
-          persist-credentials: true
+          persist-credentials: false
 
-      - name: Verify the release and rewrite the pin
+      - name: Verify the release
         id: bump
         env:
           VERSION: ${{ github.event.client_payload.version || inputs.version }}
           SHA256: ${{ github.event.client_payload.sha256 || inputs.sha256 }}
         run: .github/scripts/leo/bump-leo.sh "$VERSION" "$SHA256"
 
-      # bump-leo.sh checked the checksum; this downloads the tarball and
-      # checks it is a universal leo reporting the pinned version.
+      # bump-leo.sh checked the checksum; this downloads the tarball, runs the
+      # leo in it and checks it is universal and reports the pinned version.
       - name: Confirm the pinned download
         if: steps.bump.outputs.bump == 'true'
         run: .github/scripts/leo/fetch-leo.sh "$RUNNER_TEMP/leo-bump"
 
+  write:
+    needs: verify
+    if: needs.verify.outputs.bump == 'true'
+    runs-on: [self-hosted, macOS, leo]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      # Re-validates what verify passed on and rewrites the pin; it fetches
+      # only checksums.txt and never runs the downloaded binary.
+      - name: Rewrite the pin
+        id: pin
+        env:
+          VERSION: ${{ needs.verify.outputs.version }}
+          SHA256: ${{ needs.verify.outputs.sha256 }}
+        run: .github/scripts/leo/bump-leo.sh "$VERSION" "$SHA256"
+
       - name: Open or update the bump PR
-        if: steps.bump.outputs.bump == 'true'
+        if: steps.pin.outputs.bump == 'true'
         env:
           GH_TOKEN: ${{ secrets.LEO_BUMP_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          BUMP_VERSION: ${{ steps.bump.outputs.version }}
+          BUMP_VERSION: ${{ steps.pin.outputs.version }}
         run: |
           set -euo pipefail
           branch="bump/leo-$BUMP_VERSION"
@@ -77,8 +106,16 @@ jobs:
           git switch -C "$branch"
           git add macos/Bundled/LEO_VERSION
           git commit -q -m "$title"
+
+          # Authenticate the push for this one command, through git's env
+          # config: nothing is written to .git/config or the command line.
+          auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')"
+          echo "::add-mask::$auth"
           # The branch is owned by this workflow; a re-dispatch rebuilds it on main.
-          git push --force origin "refs/heads/$branch"
+          GIT_CONFIG_COUNT=1 \
+            GIT_CONFIG_KEY_0=http.https://github.com/.extraheader \
+            GIT_CONFIG_VALUE_0="Authorization: basic $auth" \
+            git push --force origin "refs/heads/$branch"
 
           body="$RUNNER_TEMP/bump-pr-body.md"
           cat > "$body" <<BODY
@@ -87,8 +124,8 @@ jobs:
 
           - \`macos/Bundled/LEO_VERSION\` now pins leo $BUMP_VERSION.
           - The release's \`checksums.txt\` lists the pinned sha256 for
-            \`leo_${BUMP_VERSION}_darwin_universal.tar.gz\`, and \`fetch-leo.sh\`
-            downloaded and verified the tarball.
+            \`leo_${BUMP_VERSION}_darwin_universal.tar.gz\`, and the tarball was
+            downloaded and verified (universal, reports leo $BUMP_VERSION).
           - CI runs on this PR.
 
           Merging this PR tags the next patch Leo release (\`leo-bump-release.yml\`).

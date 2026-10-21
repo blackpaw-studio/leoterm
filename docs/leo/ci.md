@@ -113,15 +113,21 @@ contain `-` and send nothing) dispatches `leo-release` to this repo with
    pin (`semver-gt.sh`), and checks the sha against that release's own
    `checksums.txt` before rewriting `LEO_VERSION`. `fetch-leo.sh` then
    downloads the tarball to confirm it. The payload only ever reaches scripts
-   through `env:`, never `${{ }}` inside `run:`.
+   through `env:`, never `${{ }}` inside `run:`. That `verify` job runs the
+   downloaded leo, so it has no PAT and no persisted credential; a separate
+   `write` job holds `LEO_BUMP_TOKEN`, never runs the download, re-validates
+   the version and sha `verify` outputs, and authenticates its push explicitly.
 2. It force-pushes `bump/leo-<version>` (rebuilt on `main` every time) and
    opens the PR, or updates it if one is open. A newer dispatch opens a second
    PR; close the superseded one by hand.
 3. CI runs on the PR. Merging it fires `leo-bump-release.yml`, which tags the
    next patch release: the highest strict `leo-vX.Y.Z` tag plus one patch
-   (`next-leo-tag.sh`), at the merge commit. It tags only when the merge
-   changed nothing but `LEO_VERSION`, and never when a release tag already
-   points at that commit. Runs are serialised (`concurrency`), and the push
+   (`next-leo-tag.sh`), at the merge commit. It tags only when the PR's full
+   file list (from the API, so rebase merges count) is exactly
+   `LEO_VERSION` (`check-bump-files.sh`). It never tags when a release tag
+   already points at that commit, and refuses a commit that isn't a
+   descendant of the latest release, so retrying an old run can't roll the
+   version back. Runs are serialised (`concurrency`), and the push
    has no `--force`, so a lost race fails instead of moving a tag.
 4. The tag fires `leo-release`, as in "Cut a release". Close the bump PR to
    skip a release; tag by hand to release some other change.

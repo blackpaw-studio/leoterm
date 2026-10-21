@@ -7,7 +7,8 @@
 #   SRC_ROOT       source tree holding macos/Bundled/LEO_VERSION
 #                  (default: the git toplevel of the current directory)
 #   CURL           download command (default: curl); a test seam
-#   GITHUB_OUTPUT  when set, receives bump=true|false and version=X.Y.Z
+#   GITHUB_OUTPUT  when set, receives bump=true|false, version=X.Y.Z and (when
+#                  bumping) the validated sha256=
 #
 # Both arguments are untrusted (a repository_dispatch payload) and validated
 # before anything else happens. The sha is then checked against that
@@ -73,3 +74,4 @@ mv -f "$work/pin" "$pin_file"
 echo "bump-leo: pinned leo $version ($sha256)"
 output "bump=true"
 output "version=$version"
+output "sha256=$sha256"
