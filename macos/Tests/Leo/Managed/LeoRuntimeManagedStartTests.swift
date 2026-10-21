@@ -197,6 +197,26 @@ import Testing
 
         #expect(Array(rig.log.events.suffix(2)) == [.run(LeoHandoverTests.toCLI), .agent("unregister")])
         #expect(!rig.log.events.contains(.fs(.remove(LeoManagedSetupTests.marker))))
+        // The real state: the CLI daemon runs again, said once.
+        #expect(startup.status == .usingCLI(offerTakeover: false, isRunning: true))
+        #expect(startup.presentation.banner?.title == "Your CLI daemon is running again")
+        #expect(startup.presentation.banner?.actions == [.dismiss])
+        #expect(startup.presentation.startAction == .startCLIDaemon)
+    }
+
+    @Test func aDeniedApprovalWhoseHandBackFailsStaysAFailure() async throws {
+        let rig = Rig()
+        try rig.writeOurMarker()
+        rig.base.fileSystem.addFile(Self.plistBackup, "<plist/>")
+        rig.base.runner.on(LeoHandoverTests.toCLI, .exit(1, stdout: #"{"ok":false,"step":"ready","error":"not_ready","message":"no"}"#))
+        rig.base.agent.script(status: .requiresApproval)
+        let startup = rig.startup()
+        await startup.run()
+
+        rig.base.agent.script(status: .notRegistered)
+        await startup.applicationDidBecomeActive()
+
+        guard case .failed = startup.status else { Issue.record("expected failure, got \(startup.status)"); return }
     }
 
     @Test func aDeniedApprovalWithoutAHandoverRollsBackLocally() async throws {

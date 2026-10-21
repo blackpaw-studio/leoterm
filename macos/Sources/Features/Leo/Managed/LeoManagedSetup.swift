@@ -22,6 +22,8 @@ struct LeoManagedSetup: Sendable {
         /// Registered, but the user must allow Leo in Login Items first.
         case awaitingApproval
         case failed(Failure)
+        /// Failed after a takeover, and `--to-cli` put the CLI daemon back.
+        case handedBack(Failure)
     }
 
     /// What `prepare` left in place for `activate`.
@@ -148,18 +150,18 @@ struct LeoManagedSetup: Sendable {
     /// Back to "not managed", keeping whatever recovery needs if that fails.
     private func rollBack(_ failure: Failure, handBack: (@Sendable () async -> LeoHandoverRun)?) async -> Outcome {
         Self.logger.error("managed setup failed at \(failure.step.rawValue, privacy: .public): \(failure.message, privacy: .public)")
-        if let handBack {
-            await handBackToCLI(handBack)
-        } else {
+        guard let handBack else {
             await unregisterAndRemoveMarker()
+            return .failed(failure)
         }
-        return .failed(failure)
+        return await handBackToCLI(handBack) ? .handedBack(failure) : .failed(failure)
     }
 
     /// `--to-cli` needs the marker and moves it aside itself; it boots the
     /// app's job out, so the app unregisters only once leo says it did. On
     /// anything else the marker and registration stay for the next launch.
-    private func handBackToCLI(_ handBack: @Sendable () async -> LeoHandoverRun) async {
+    /// True once leo says the CLI daemon is back.
+    private func handBackToCLI(_ handBack: @Sendable () async -> LeoHandoverRun) async -> Bool {
         switch await handBack() {
         case .succeeded(let result) where result.managedStopped:
             do {
@@ -167,19 +169,23 @@ struct LeoManagedSetup: Sendable {
             } catch {
                 Self.logger.error("rollback unregister failed: \(String(describing: error), privacy: .public)")
             }
+            return true
         case .succeeded:
             Self.logger.error("handover --to-cli succeeded without stopping the app's job; keeping its registration")
+            return true
         case .failed(let failure):
             Self.logger.error("handover --to-cli failed: \(failure.error, privacy: .public) \(failure.summary, privacy: .public)")
             // leo booted the app's job out and can't restore the CLI: keep the app's daemon running.
-            guard failure.managedStopped == true else { return }
+            guard failure.managedStopped == true else { return false }
             do {
                 _ = try await agent.restartStoppedJob(hello: LeoHelloWait(probe: probe, clock: clock))
             } catch {
                 Self.logger.error("restarting Leo's daemon failed: \(String(describing: error), privacy: .public)")
             }
+            return false
         case .malformed(let message):
             Self.logger.error("handover --to-cli: \(message, privacy: .public)")
+            return false
         }
     }
 

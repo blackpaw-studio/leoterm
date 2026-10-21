@@ -238,6 +238,12 @@ struct LeoManagedDependencies: Sendable {
         case .ready(let version): status = .managed(version: version)
         case .awaitingApproval: status = .awaitingApproval
         case .failed(let failure): status = .failed(message: failure.message)
+        case .handedBack(let failure):
+            status = .usingCLI(offerTakeover: false, isRunning: true)
+            notice = LeoManagedNotice(
+                title: "Your CLI daemon is running again",
+                message: "Leo couldn’t run the daemon itself (\(failure.message)), so it handed it back to your command-line install."
+            )
         }
     }
 

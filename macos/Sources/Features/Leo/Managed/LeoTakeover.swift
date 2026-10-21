@@ -72,18 +72,14 @@ struct LeoTakeover: Sendable {
         }
 
         let warnings = tmuxWarnings + result.warnings
-        let restored = LeoFlag()
         let handover = handover
-        let outcome = await setup.activate(prepared, captured: result.env) {
-            let run = await handover.toCLI()
-            if case .succeeded = run { restored.set() }
-            return run
-        }
+        let outcome = await setup.activate(prepared, captured: result.env) { await handover.toCLI() }
         switch outcome {
         case .ready(let version): return .managed(version: version, warnings: warnings)
         case .awaitingApproval: return .awaitingApproval(warnings: warnings)
         case .failed(let failure) where failure.step == .marker: return await restoreWithoutMarker(after: failure)
-        case .failed(let failure): return .setupFailed(failure, cliRestored: restored.isSet)
+        case .failed(let failure): return .setupFailed(failure, cliRestored: false)
+        case .handedBack(let failure): return .setupFailed(failure, cliRestored: true)
         }
     }
 
@@ -175,13 +171,4 @@ struct LeoTakeover: Sendable {
     }
 
     private static let maxSymlinkHops = 8
-}
-
-/// A set-once flag a `@Sendable` rollback closure can raise.
-private final class LeoFlag: @unchecked Sendable {
-    private let lock = NSLock()
-    private var value = false
-
-    var isSet: Bool { lock.withLock { value } }
-    func set() { lock.withLock { value = true } }
 }

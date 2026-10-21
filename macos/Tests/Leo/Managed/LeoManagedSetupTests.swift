@@ -273,6 +273,18 @@ struct LeoManagedSetupTests {
 
     /// `--to-cli` needs the marker, boots out the app's job and removes the
     /// marker itself once the CLI daemon is up: the app only unregisters.
+    @Test func aSuccessfulHandBackSaysTheCLIRunsAgain() async throws {
+        let rig = Rig()
+        rig.probe.script(.absent)
+        let setup = rig.setup()
+        guard case .success(let prepared) = await setup.prepare() else { Issue.record("prepare failed"); return }
+
+        let outcome = await setup.activate(prepared, captured: nil, handBack: { Self.released(managedStopped: true) })
+
+        guard case .handedBack(let failure) = outcome else { Issue.record("expected .handedBack, got \(outcome)"); return }
+        #expect(failure.step == .hello)
+    }
+
     @Test func aTakeoverRollbackHandsBackFirstThenUnregistersAndLeavesTheMarkerToLeo() async {
         let rig = await rollBackAfterTakeover(answering: Self.released(managedStopped: true))
 
