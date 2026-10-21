@@ -6,8 +6,9 @@ name: Leo Bump Release
 # fine-grained PAT: a tag pushed with GITHUB_TOKEN triggers no workflows.
 #
 # One tag per merge: runs are serialised, the next tag is computed from the
-# tags that exist when the run starts, and next-leo-tag.sh prints nothing when
-# a release tag already points at the merge commit.
+# tags that exist when the run starts, next-leo-tag.sh prints nothing when a
+# release tag already points at the merge commit and refuses a commit behind
+# the latest release, and only a PR that changed nothing but the pin is tagged.
 
 on:
   pull_request:
@@ -29,6 +30,9 @@ jobs:
       startsWith(github.event.pull_request.head.ref, 'bump/leo-')
     runs-on: [self-hosted, macOS, leo]
     timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - name: Checkout the merge commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -44,6 +48,9 @@ jobs:
         env:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           re='^bump/leo-[0-9]+\.[0-9]+\.[0-9]+$'
@@ -52,12 +59,15 @@ jobs:
             exit 0
           fi
 
-          # A bump touches only the pin. Anything else rode along: leave the
-          # release to a human.
-          changed="$(git diff --name-only "$MERGE_SHA^1" "$MERGE_SHA")"
-          if [[ "$changed" != "macos/Bundled/LEO_VERSION" ]]; then
-            echo "::notice::merge changed more than macos/Bundled/LEO_VERSION; not tagging"
-            printf '%s\n' "$changed"
+          # A bump touches only the pin. Ask the API for the PR's whole file
+          # list (diffing the merge commit misses all but the last
+          # commit of a rebase merge); anything else rode along, so leave the
+          # release to a human. A failed API call fails the job.
+          [[ "$PR_NUMBER" =~ ^[0-9]+$ ]] || { echo "::error::bad PR number '$PR_NUMBER'"; exit 1; }
+          files="$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER/files" --paginate \
+            --jq '.[] | [.status, .filename] | @tsv')"
+          if ! printf '%s\n' "$files" | .github/scripts/leo/check-bump-files.sh; then
+            echo "::notice::PR #$PR_NUMBER changed more than macos/Bundled/LEO_VERSION; not tagging"
             exit 0
           fi
 

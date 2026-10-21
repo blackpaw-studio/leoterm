@@ -118,6 +118,11 @@ check "leo-bump-release.yml: runs only for a merged same-repo bump/leo-* PR into
 check "leo-bump-release.yml: tags the merge commit via next-leo-tag.sh" "$tagger" '
   runs = steps.map { |s| s["run"].to_s }.join("\n")
   puts "next-leo-tag.sh not run" unless runs.include?("next-leo-tag.sh")
+  puts "check-bump-files.sh not run" unless runs.include?("check-bump-files.sh")
+  puts "does not read the PR file list from the API" unless runs =~ /gh api\b.*pulls\/.*\/files.*--paginate/m
+  puts "still trusts a git diff of the merge commit" if runs.include?("git diff")
+  perm = jobs.values.map { |j| j["permissions"] || {} }
+  puts "job lacks pull-requests: read" unless perm.all? { |p| p["pull-requests"] == "read" }
   puts "no git push of the tag" unless runs =~ /git push\b.*\bTAG\b|git push\b.*refs\/tags/'
 
 echo "-- $pass passed, $fail failed --"
