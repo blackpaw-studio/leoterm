@@ -262,6 +262,87 @@ import Testing
         #expect(rig.presenter.errors.count == 1)
     }
 
+    // MARK: repair and blocking states (B9)
+
+    @Test func anInvalidMarkerIsRewrittenFromThisBundleAndRegisteredAgain() async {
+        let rig = Rig()
+        rig.base.fileSystem.addFile(LeoManagedSetupTests.marker, "{", mode: 0o600)
+        rig.base.probe.script(.live(version: "0.57.0"))
+
+        let startup = rig.startup()
+        await startup.run()
+
+        let stateDirectory = LeoManagedEvent.fs(.createDirectory("/home/test/.leo/state", mode: 0o700))
+        #expect(rig.log.events == LeoManagedSetupTests.freshInstallOps.filter { $0 != stateDirectory } + [.agent("register")])
+        #expect(startup.status == .managed(version: "0.57.0"))
+        guard case .ours(let marker) = rig.base.writtenMarker() else { Issue.record("marker not rewritten"); return }
+        #expect(marker.tmuxPath == LeoManagedSetupTests.tmuxCopy)
+    }
+
+    @Test func anOrphanRegistrationIsRemovedThenTheLaunchIsDecidedAgain() async {
+        let rig = Rig()
+        rig.base.agent.script(status: .enabled, .notRegistered)
+        rig.base.fileSystem.addFile("/home/test/Library/LaunchAgents/com.blackpaw.leo.plist", "<plist/>")
+        rig.base.probe.script(.live(version: "0.56.0"))
+
+        let startup = rig.startup()
+        await startup.run()
+
+        #expect(rig.log.events == [.agent("unregister")])
+        #expect(startup.status == .usingCLI(offerTakeover: true, isRunning: true))
+    }
+
+    @Test func anOrphanThatWontGoAwayIsReportedNotRetriedInALoop() async {
+        let rig = Rig()
+        rig.base.agent.script(status: .enabled)
+
+        let startup = rig.startup()
+        await startup.run()
+
+        #expect(rig.count(.agent("unregister")) == 1)
+        guard case .failed(let message) = startup.status else { Issue.record("expected failure, got \(startup.status)"); return }
+        #expect(message.contains("Login Items"))
+    }
+
+    @Test func aFailedOrphanUnregisterIsReported() async {
+        let rig = Rig()
+        rig.base.agent.script(status: .enabled)
+        rig.base.agent.failNextUnregister()
+
+        let startup = rig.startup()
+        await startup.run()
+
+        #expect(rig.count(.agent("unregister")) == 1)
+        guard case .failed = startup.status else { Issue.record("expected failure, got \(startup.status)"); return }
+    }
+
+    @Test func anIncompleteBundleSaysToReinstallAndTouchesNothing() async throws {
+        let rig = Rig()
+        try rig.writeOurMarker()
+        rig.base.agent.script(status: .notFound)
+
+        let startup = rig.startup()
+        await startup.run()
+
+        #expect(rig.log.events.isEmpty)
+        guard case .failed(let message) = startup.status else { Issue.record("expected failure, got \(startup.status)"); return }
+        #expect(message.contains("Download Leo again"))
+    }
+
+    @Test func aManagedAppMovedOutOfApplicationsBlocksAndLeavesTheDaemonAlone() async throws {
+        let rig = Rig()
+        try rig.writeOurMarker()
+        rig.base.probe.script(.live(version: "0.57.0"))
+
+        let startup = rig.startup(location: .needsMove(.elsewhere))
+        await startup.run()
+
+        #expect(startup.status == .moveRequired(isManaged: true))
+        #expect(rig.presenter.moveBackAlerts == 1)
+        #expect(rig.log.events.isEmpty)
+        #expect(startup.presentation.banner?.title == "Move Leo back to Applications")
+    }
+
     // MARK: after a Sparkle update (B6)
 
     /// A managed 0.57.0 daemon found by an app that now bundles 0.57.1.

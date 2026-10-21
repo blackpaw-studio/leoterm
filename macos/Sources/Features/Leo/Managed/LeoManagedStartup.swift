@@ -137,7 +137,7 @@ struct LeoManagedDependencies: Sendable {
         LeoFirstRun.isManagementEnabled(buildKind: dependencies.buildKind, environment: dependencies.environment)
     }
 
-    private func decideAndExecute() async {
+    private func decideAndExecute(afterOrphanRecovery: Bool = false) async {
         guard let location = resolvedLocation else { return }
         // A Debug build never even asks SMAppService (D4).
         guard isManagementEnabled else {
@@ -145,7 +145,13 @@ struct LeoManagedDependencies: Sendable {
             return
         }
         let inputs = await gatherInputs(location: location)
-        await execute(LeoFirstRun.decide(inputs), inputs: inputs)
+        let action = LeoFirstRun.decide(inputs)
+        // Unregistered once already: don't loop on a registration that stays.
+        if afterOrphanRecovery, action == .recoverOrphanRegistration {
+            status = .failed(message: "Leo’s login item is still registered. \(Self.loginItemsAdvice)")
+            return
+        }
+        await execute(action, inputs: inputs)
     }
 
     private func gatherInputs(location: LeoAppLocation) async -> LeoFirstRunInputs {
@@ -186,11 +192,31 @@ struct LeoManagedDependencies: Sendable {
         case .awaitApproval:
             approvalFollowsTakeover = false
             status = .awaitingApproval
-        case .repair(let reason):
-            status = .failed(message: "\(reason)")
+        case .repair(.invalidMarker(let detail)):
+            Self.logger.error("rewriting an invalid managed.json: \(detail, privacy: .public)")
+            await runSetup(captured: nil)
+        case .repair(.bundleIncomplete):
+            status = .failed(
+                message: "This copy of Leo is missing the daemon it bundles. Download Leo again and replace the copy in Applications."
+            )
         case .recoverOrphanRegistration:
-            status = .inactive
+            await recoverOrphanRegistration()
         }
+    }
+
+    private static let loginItemsAdvice = "Turn Leo off in System Settings ▸ General ▸ Login Items, then Try Again."
+
+    /// Registered with no marker: a crash between Release to CLI's handover
+    /// and its `unregister()`. Finish it, then decide afresh.
+    private func recoverOrphanRegistration() async {
+        do {
+            try await dependencies.agent.unregister()
+        } catch {
+            Self.logger.error("unregistering a leftover LaunchAgent failed: \(String(describing: error), privacy: .public)")
+            status = .failed(message: "Leo couldn’t remove a leftover login item. \(Self.loginItemsAdvice)")
+            return
+        }
+        await decideAndExecute(afterOrphanRecovery: true)
     }
 
     private func runSetup(captured: [String: String]?) async {
