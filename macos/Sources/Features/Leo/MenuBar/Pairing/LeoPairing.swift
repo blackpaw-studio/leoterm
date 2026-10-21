@@ -1,5 +1,6 @@
 import Foundation
 import LeoKit
+import OSLog
 
 /// What `leo pair --json` prints (leo ≥ 0.57.0): the flat pairing fields.
 /// `qrPayload` is encoded into the QR verbatim; `expiresAt` is when the code stops working.
@@ -71,13 +72,16 @@ enum LeoPairingError: Error, Equatable {
 
 /// Runs `leo pair` and `leo web enable` through the shared `LeoCLI` seam.
 struct LeoPairingService: Sendable {
+    private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
     static let timeout: TimeInterval = 30
     static let webDisabledCode = "web_disabled"
+    /// Where the daemon's own log lives; the generic failure message points users there.
+    static let logHint = "See ~/.leo/state/service.log."
 
     let cli: LeoCLI
 
     func pair() async throws -> LeoPairingPayload {
-        try decode(LeoPairingPayload.self, from: try await run(["pair", "--json"]))
+        try decode(LeoPairingPayload.self, from: try await run(["pair", "--json"], failure: "Pairing failed"))
     }
 
     func enableWeb(bind: String? = nil, allowHosts: [String] = []) async throws -> LeoWebEnableResult {
@@ -85,7 +89,7 @@ struct LeoPairingService: Sendable {
             + (bind.map { ["--bind", $0] } ?? [])
             + allowHosts.flatMap { ["--allow-host", $0] }
             + ["--json"]
-        let reply = try decode(WebEnableReply.self, from: try await run(arguments))
+        let reply = try decode(WebEnableReply.self, from: try await run(arguments, failure: "Enabling web access failed"))
         guard reply.ok else { throw LeoPairingError.unreadable("leo could not enable web access.") }
         return LeoWebEnableResult(changed: reply.changed, restarted: reply.restarted)
     }
@@ -101,8 +105,9 @@ struct LeoPairingService: Sendable {
         let message: String?
     }
 
-    /// stdout on success; maps every failure shape to a `LeoPairingError`.
-    private func run(_ arguments: [String]) async throws -> Data {
+    /// stdout on success; maps every failure shape to a `LeoPairingError`. `failure` leads the
+    /// generic message for a failure without JSON: raw stderr goes to the log, never to the panel.
+    private func run(_ arguments: [String], failure: String) async throws -> Data {
         let result: LeoProcessResult
         do {
             result = try await cli.runner.run(executable: try cli.resolveExecutable(), arguments: arguments, timeout: Self.timeout)
@@ -113,14 +118,15 @@ struct LeoPairingService: Sendable {
         } catch {
             throw LeoPairingError.unavailable(error.localizedDescription)
         }
-        if let failure = try? JSONDecoder().decode(ErrorReply.self, from: result.stdout) {
-            throw failure.error == Self.webDisabledCode
-                ? LeoPairingError.webDisabled(message: failure.message)
-                : LeoPairingError.leo(code: failure.error, message: failure.message)
+        if let reply = try? JSONDecoder().decode(ErrorReply.self, from: result.stdout) {
+            throw reply.error == Self.webDisabledCode
+                ? LeoPairingError.webDisabled(message: reply.message)
+                : LeoPairingError.leo(code: reply.error, message: reply.message)
         }
         guard result.status == 0 else {
-            let stderr = String(data: result.stderr, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            throw LeoPairingError.unreadable(stderr.isEmpty ? "leo exited \(result.status)" : stderr)
+            let stderr = String(data: result.stderr, encoding: .utf8) ?? ""
+            Self.logger.error("leo \(arguments.first ?? "", privacy: .public) exited \(result.status): \(stderr, privacy: .private)")
+            throw LeoPairingError.unreadable("\(failure) (leo exited \(result.status)). \(Self.logHint)")
         }
         return result.stdout
     }

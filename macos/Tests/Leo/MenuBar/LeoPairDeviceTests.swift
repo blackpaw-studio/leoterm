@@ -119,19 +119,23 @@ struct LeoPairingServiceTests {
         }
     }
 
-    @Test func aNonZeroExitWithoutJSONFallsBackToStderr() async {
-        let runner = ScriptedRunner([LeoProcessResult(stdout: Data(), stderr: Data("unknown flag: --json\n".utf8), status: 2)])
+    @Test func aNonZeroExitWithoutJSONShowsAGenericMessageNotStderr() async {
+        let runner = ScriptedRunner([LeoProcessResult(stdout: Data(), stderr: Data("panic: /Users/evan/secret/path\n".utf8), status: 2)])
 
-        await #expect(throws: LeoPairingError.unreadable("unknown flag: --json")) {
+        await #expect {
             try await PairFixtures.service(runner).pair()
+        } throws: { error in
+            guard case let LeoPairingError.unreadable(message) = error else { return false }
+            return message == "Pairing failed (leo exited 2). See ~/.leo/state/service.log."
+                && !message.contains("secret")
         }
     }
 
-    @Test func aNonZeroExitWithNothingToSayReportsTheStatus() async {
-        let runner = ScriptedRunner([LeoProcessResult(stdout: Data(), stderr: Data(), status: 3)])
+    @Test func aFailedEnableWithoutJSONNamesTheEnableStep() async {
+        let runner = ScriptedRunner([LeoProcessResult(stdout: Data(), stderr: Data("boom".utf8), status: 4)])
 
-        await #expect(throws: LeoPairingError.unreadable("leo exited 3")) {
-            try await PairFixtures.service(runner).pair()
+        await #expect(throws: LeoPairingError.unreadable("Enabling web access failed (leo exited 4). See ~/.leo/state/service.log.")) {
+            try await PairFixtures.service(runner).enableWeb()
         }
     }
 
