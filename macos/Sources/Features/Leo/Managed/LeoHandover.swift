@@ -10,7 +10,21 @@ struct LeoHandoverResult: Equatable, Sendable {
     let plistBackup: String?
     /// `--to-cli`: leo booted the app's job out, so the app unregisters it.
     let managedStopped: Bool
+    /// `--to-cli --label` with no marker (v0.56.1): the CLI job is back.
+    let restoredWithoutMarker: Bool
     let warnings: [String]
+
+    init(
+        previousLabel: String?, env: [String: String]?, plistBackup: String?,
+        managedStopped: Bool, restoredWithoutMarker: Bool = false, warnings: [String]
+    ) {
+        self.previousLabel = previousLabel
+        self.env = env
+        self.plistBackup = plistBackup
+        self.managedStopped = managedStopped
+        self.restoredWithoutMarker = restoredWithoutMarker
+        self.warnings = warnings
+    }
 }
 
 extension LeoHandoverResult: Decodable {
@@ -19,6 +33,7 @@ extension LeoHandoverResult: Decodable {
         case previousLabel = "previous_label"
         case plistBackup = "plist_backup"
         case managedStopped = "managed_stopped"
+        case restoredWithoutMarker = "restored_without_marker"
     }
 
     init(from decoder: any Decoder) throws {
@@ -28,6 +43,7 @@ extension LeoHandoverResult: Decodable {
             env: try container.decodeIfPresent([String: String].self, forKey: .env),
             plistBackup: try container.decodeIfPresent(String.self, forKey: .plistBackup),
             managedStopped: try container.decodeIfPresent(Bool.self, forKey: .managedStopped) ?? false,
+            restoredWithoutMarker: try container.decodeIfPresent(Bool.self, forKey: .restoredWithoutMarker) ?? false,
             warnings: try container.decodeIfPresent([String].self, forKey: .warnings) ?? []
         )
     }
@@ -51,6 +67,11 @@ struct LeoHandover: Sendable {
 
     func toCLI() async -> LeoHandoverRun {
         await run(["service", "handover", "--to-cli", "--json"])
+    }
+
+    /// Recovery after `--to-app` when the app never wrote its marker (v0.56.1).
+    func toCLI(label: String) async -> LeoHandoverRun {
+        await run(["service", "handover", "--to-cli", "--label", label, "--json"])
     }
 
     private func run(_ arguments: [String]) async -> LeoHandoverRun {

@@ -10,6 +10,12 @@ struct LeoHandoverTests {
     static let bundled = "/Applications/Leo.app/Contents/Helpers/leo"
     static let toApp = [bundled, "service", "handover", "--to-app", "--label", "studio.blackpaw.leo.daemon", "--json"]
     static let toCLI = [bundled, "service", "handover", "--to-cli", "--json"]
+    /// leo v0.56.1's markerless recovery names the app's label.
+    static let toCLIWithoutMarker = [bundled, "service", "handover", "--to-cli", "--label", "studio.blackpaw.leo.daemon", "--json"]
+    static let restoredWithoutMarkerJSON = #"""
+    {"ok":true,"previous_label":"studio.blackpaw.leo.daemon","restored_without_marker":true,
+     "plist_backup":"/home/test/Library/LaunchAgents/com.blackpaw.leo.plist.handed-over"}
+    """#
     static let plistBackup = "/home/test/Library/LaunchAgents/com.blackpaw.leo.plist.handed-over"
 
     /// leo main's `--to-app` success: no `step`, `rolled_back` or `managed_stopped`.
@@ -56,6 +62,17 @@ struct LeoHandoverTests {
         let (result, _) = await run(.exit(0, stdout: Self.toCLIOKJSON), toCLI: true)
         guard case .succeeded(let decoded) = result else { Issue.record("expected success, got \(result)"); return }
         #expect(decoded.managedStopped)
+    }
+
+    @Test func aMarkerlessRestoreNamesTheLabelAndSaysSo() async {
+        let runner = LeoScriptedRunner(log: LeoManagedEventLog())
+        runner.on(Self.toCLIWithoutMarker, .exit(0, stdout: Self.restoredWithoutMarkerJSON))
+
+        let result = await LeoHandover(runner: runner, bundledLeo: Self.bundled).toCLI(label: "studio.blackpaw.leo.daemon")
+
+        guard case .succeeded(let decoded) = result else { Issue.record("expected success, got \(result)"); return }
+        #expect(decoded.restoredWithoutMarker)
+        #expect(!decoded.managedStopped)
     }
 
     @Test func aMinimalSuccessHasNoWarnings() async {
@@ -143,6 +160,8 @@ struct LeoTakeoverTests {
                 label: LeoTakeoverTests.label
             )
         }
+
+        func count(_ event: LeoManagedEvent) -> Int { log.events.filter { $0 == event }.count }
 
         /// Everything after the setup's own preparation.
         func eventsAfterPrepare() -> [LeoManagedEvent] {
@@ -252,6 +271,39 @@ struct LeoTakeoverTests {
         #expect(failure.step == .marker)
         #expect(!rig.log.events.contains(.run(LeoHandoverTests.toApp)))
         #expect(!rig.log.events.contains { if case .agent = $0 { true } else { false } })
+    }
+
+    // MARK: the marker write fails after an OK handover (leo v0.56.1)
+
+    /// No marker, so plain `--to-cli` can't find the app's job; leo refuses
+    /// the markerless restore while the app's job is loaded.
+    @Test func aFailedMarkerWriteUnregistersThenRestoresTheCLIWithoutAMarker() async {
+        let rig = Rig()
+        rig.fileSystem.failNext("write", at: Self.marker, code: ENOSPC)
+        rig.runner.on(LeoHandoverTests.toCLIWithoutMarker, .exit(0, stdout: LeoHandoverTests.restoredWithoutMarkerJSON))
+
+        guard case .setupFailed(let failure, cliRestored: true) = await rig.takeover().run() else { Issue.record("expected a restored CLI"); return }
+
+        #expect(failure.step == .marker)
+        #expect(Array(rig.log.events.suffix(3)) == [
+            .run(LeoHandoverTests.toApp), .agent("unregister"), .run(LeoHandoverTests.toCLIWithoutMarker),
+        ])
+        #expect(!rig.log.events.contains(.run(LeoHandoverTests.toCLI)))
+        #expect(!rig.log.events.contains(.agent("register")))
+    }
+
+    @Test func aDaemonStillHoldingTheLockIsReportedOnceAndNotRetried() async {
+        let rig = Rig()
+        rig.fileSystem.failNext("write", at: Self.marker, code: ENOSPC)
+        let json = #"""
+        {"ok":false,"step":"preflight","error":"daemon_running","message":"no managed.json, but a leo daemon holds daemon.lock"}
+        """#
+        rig.runner.on(LeoHandoverTests.toCLIWithoutMarker, .exit(1, stdout: json))
+
+        guard case .setupFailed(let failure, cliRestored: false) = await rig.takeover().run() else { Issue.record("expected failure"); return }
+
+        #expect(failure.message.contains("holds daemon.lock"))
+        #expect(rig.count(.run(LeoHandoverTests.toCLIWithoutMarker)) == 1)
     }
 
     // MARK: setup failure after an OK handover
