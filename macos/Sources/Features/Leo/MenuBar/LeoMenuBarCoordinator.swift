@@ -28,6 +28,8 @@ import LeoKit
     private let daemonChanged: () -> Void
     /// Restart Daemon found the app's job not loaded: B10's outside-daemon flow.
     private let restartFoundNoJob: () -> Void
+    /// The menu's "Stop It…" for a daemon outside the app's job (B10).
+    private let stopOutsideDaemon: () -> Void
     private let fileManager: FileManager
     private let workspace: NSWorkspace
     private var isRestarting = false
@@ -50,6 +52,7 @@ import LeoKit
         releaseToCLI: @escaping () -> Void = {},
         daemonChanged: @escaping () -> Void = {},
         restartFoundNoJob: @escaping () -> Void = {},
+        stopOutsideDaemon: @escaping () -> Void = {},
         fileManager: FileManager = .default, workspace: NSWorkspace = .shared
     ) {
         self.model = model
@@ -62,6 +65,7 @@ import LeoKit
         self.releaseToCLI = releaseToCLI
         self.daemonChanged = daemonChanged
         self.restartFoundNoJob = restartFoundNoJob
+        self.stopOutsideDaemon = stopOutsideDaemon
         self.fileManager = fileManager
         self.workspace = workspace
     }
@@ -88,6 +92,7 @@ import LeoKit
         case .pairDevice: pairPanel.show()
         case .restartDaemon: restart()
         case .releaseToCLI: releaseToCLI()
+        case .stopOutsideDaemon: stopOutsideDaemon()
         case .openLogs: workspace.open(Self.logURL())
         case .toggleServerOnly:
             serverMode.setServerOnly(!serverMode.isServerOnly)

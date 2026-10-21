@@ -23,7 +23,7 @@ struct LeoMenuBarAgent: Equatable {
 }
 
 enum LeoMenuBarAction: Equatable, Hashable {
-    case pairDevice, restartDaemon, releaseToCLI, openLogs, toggleServerOnly, openLeo, quit
+    case pairDevice, restartDaemon, releaseToCLI, stopOutsideDaemon, openLogs, toggleServerOnly, openLeo, quit
 }
 
 enum LeoMenuBarItem: Equatable {
@@ -43,9 +43,16 @@ enum LeoMenuBarModel {
         let isLocal = (snapshot.advertised.host ?? .local) == .local
         let agents = agents(in: snapshot)
         // B4: only the app's own daemon can be handed back.
-        let release: [LeoMenuBarItem] = inputs.isManaged
+        let release: [LeoMenuBarItem] = inputs.isManaged && !inputs.isOutsideDaemon
             ? [.action(.releaseToCLI, title: "Release to CLI…", isEnabled: !inputs.isRestarting, isChecked: false)]
             : []
+        // B10: a daemon outside the app's job can't be restarted or released; it can be stopped.
+        let daemon: LeoMenuBarItem = inputs.isOutsideDaemon
+            ? .action(.stopOutsideDaemon, title: "Stop It…", isEnabled: true, isChecked: false)
+            : .action(
+                .restartDaemon, title: inputs.isRestarting ? "Restarting Daemon…" : "Restart Daemon",
+                isEnabled: isLocal && !inputs.isRestarting, isChecked: false
+            )
         return [
             status(inputs),
             .agents(
@@ -58,10 +65,7 @@ enum LeoMenuBarModel {
                 .pairDevice, title: "Pair a Device…",
                 isEnabled: isLocal && snapshot.connectivity == .connected, isChecked: false
             ),
-            .action(
-                .restartDaemon, title: inputs.isRestarting ? "Restarting Daemon…" : "Restart Daemon",
-                isEnabled: isLocal && !inputs.isRestarting, isChecked: false
-            ),
+            daemon,
         ] + release + [
             .action(.openLogs, title: "Open Logs", isEnabled: inputs.hasLogFile, isChecked: false),
             .separator,

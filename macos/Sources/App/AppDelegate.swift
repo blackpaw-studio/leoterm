@@ -193,6 +193,9 @@ class AppDelegate: NSObject,
         daemonChanged: { [unowned self] in self.leoRuntime.localDaemonChanged() },
         restartFoundNoJob: { [unowned self] in
             Task { @MainActor in await self.leoManaged?.restartFoundNoJob() }
+        },
+        stopOutsideDaemon: { [unowned self] in
+            Task { @MainActor in await self.leoManaged?.perform(.stopOutsideDaemon) }
         }
     )
     /// The app-managed daemon (B5); nil when the bundle names no daemon label.
