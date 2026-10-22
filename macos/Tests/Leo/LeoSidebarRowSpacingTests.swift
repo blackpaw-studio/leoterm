@@ -124,7 +124,7 @@ struct LeoSidebarRowSpacingTests {
             features: Self.attachableFeatures, featuresHost: .local)
         let model = LeoSidebarModel(snapshot: snapshot)
         let actions = LeoAgentActions(
-            daemon: SpacingDaemon(), cli: .recordingForTests(), model: model,
+            clients: FakeMachineClients(daemon: SpacingDaemon()), cli: .recordingForTests(), model: model,
             hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
         window = NSWindow(
             contentRect: NSRect(x: 120, y: 120, width: 320, height: 480), styleMask: [.titled], backing: .buffered, defer: false)

@@ -70,12 +70,11 @@ import Testing
         let selection = LeoHostSelection.isolatedForTesting()
         await selection.start(flavor: .socketEvents)
         let sidebar = LeoSidebarModel()
-        let actions = LeoAgentActions(daemon: localDaemon, cli: worktreeCLI(), model: sidebar, hostSelection: selection, processRunner: LeoRecordingTemplateRunner(templates: ["claude"]), refresh: {})
+        let clients = FakeMachineClients(daemons: [.local: localDaemon, .remote("work"): remoteDaemon])
+        let actions = LeoAgentActions(clients: clients, cli: worktreeCLI(), model: sidebar, hostSelection: selection, processRunner: LeoRecordingTemplateRunner(templates: ["claude"]), refresh: {})
         // No configuration for "work": the selection fails fast instead of
-        // exec'ing a real ssh; LeoRuntime would hand actions the tunnel's
-        // daemon, which the fake stands in for.
+        // exec'ing a real ssh; the fake resolver stands in for its tunnel.
         selection.select(.remote("work"))
-        actions.updateDaemon(remoteDaemon, host: .remote("work"))
         try await spawnAndSelect(daemon: remoteDaemon, sidebar: sidebar, actions: actions, host: .remote("work"))
         #expect(await localDaemon.requests.isEmpty)
     }
@@ -83,7 +82,7 @@ import Testing
     @Test func worktreeSpawnFailureKeepsSheetAndShowsError() async {
         let daemon = WorktreeDaemon(error: .daemon(code: "x", message: "branch exists", matches: []))
         let actions = LeoAgentActions(
-            daemon: daemon, cli: worktreeCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(templates: ["claude"]), refresh: {})
+            clients: FakeMachineClients(daemon: daemon), cli: worktreeCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(templates: ["claude"]), refresh: {})
         let model = worktreeModel(source: sourceRow(host: .local))
         model.branch = "feat/x"
         var dismissed = false
@@ -109,15 +108,15 @@ import Testing
         #expect(model.validationError != nil)
     }
 
-    /// Review fix: `select()` moves `selected` at once, but the actions'
-    /// daemon only moves once the tunnel is up. A spawn in that window must
-    /// never reach the previous host's daemon.
-    @Test func worktreeSpawnRefusesWhileTheDaemonIsStillAnotherHosts() async {
+    /// Review fix: `select()` moves `selected` at once, but a host's client
+    /// exists only once its tunnel is up. A spawn in that window must never
+    /// reach another host's daemon.
+    @Test func worktreeSpawnRefusesWhileTheMachineHasNoConnection() async {
         let localDaemon = WorktreeDaemon()
         let selection = LeoHostSelection.isolatedForTesting()
         await selection.start(flavor: .socketEvents)
         let actions = LeoAgentActions(
-            daemon: localDaemon, cli: worktreeCLI(), model: LeoSidebarModel(), hostSelection: selection, processRunner: LeoRecordingTemplateRunner(templates: ["claude"]), refresh: {})
+            clients: FakeMachineClients(daemon: localDaemon), cli: worktreeCLI(), model: LeoSidebarModel(), hostSelection: selection, processRunner: LeoRecordingTemplateRunner(templates: ["claude"]), refresh: {})
         selection.select(.remote("work"))
         let model = worktreeModel(source: sourceRow(host: .remote("work")))
         model.branch = "feat/x"
@@ -138,12 +137,12 @@ import Testing
 
     /// The plain New Agent sheet spawns on the selected host, so the same
     /// window refuses it too.
-    @Test func plainSpawnRefusesWhileTheDaemonIsStillAnotherHosts() async {
+    @Test func plainSpawnRefusesWhileTheMachineHasNoConnection() async {
         let localDaemon = WorktreeDaemon()
         let selection = LeoHostSelection.isolatedForTesting()
         await selection.start(flavor: .socketEvents)
         let actions = LeoAgentActions(
-            daemon: localDaemon, cli: worktreeCLI(), model: LeoSidebarModel(), hostSelection: selection, processRunner: LeoRecordingTemplateRunner(templates: ["claude"]), refresh: {})
+            clients: FakeMachineClients(daemon: localDaemon), cli: worktreeCLI(), model: LeoSidebarModel(), hostSelection: selection, processRunner: LeoRecordingTemplateRunner(templates: ["claude"]), refresh: {})
         selection.select(.remote("work"))
         let model = worktreeModel(source: nil)
         model.template = "claude"
@@ -156,14 +155,15 @@ import Testing
         #expect(await localDaemon.requests.isEmpty)
     }
 
-    /// A spawn whose answer lands after the host changed is dropped, but the
-    /// sheet must not stay stuck spawning, and says where it went.
-    @Test func spawnResultDroppedByHostChangeResetsTheSheet() async {
+    /// A spawn whose answer lands after its machine reconnected is dropped,
+    /// but the sheet must not stay stuck spawning, and says where it went.
+    @Test func spawnResultDroppedByReconnectResetsTheSheet() async {
         let daemon = WorktreeDaemon(suspendSpawn: true)
         let selection = LeoHostSelection.isolatedForTesting()
         await selection.start(flavor: .socketEvents)
+        let clients = FakeMachineClients(daemon: daemon)
         let actions = LeoAgentActions(
-            daemon: daemon, cli: worktreeCLI(), model: LeoSidebarModel(), hostSelection: selection, processRunner: LeoRecordingTemplateRunner(templates: ["claude"]), refresh: {})
+            clients: clients, cli: worktreeCLI(), model: LeoSidebarModel(), hostSelection: selection, processRunner: LeoRecordingTemplateRunner(templates: ["claude"]), refresh: {})
         let model = worktreeModel(source: sourceRow(host: .local))
         model.branch = "feat/x"
         var dismissed = false
@@ -171,7 +171,7 @@ import Testing
 
         model.spawn(model.request(), actions: actions, attach: { _, _ in attached = true }, dismiss: { dismissed = true })
         await awaitCondition { await daemon.requests.count == 1 }
-        selection.select(.remote("work"))
+        clients.connect(.local, WorktreeDaemon())
         await daemon.resumeSpawn()
 
         await awaitCondition { await MainActor.run { !model.isSpawning } }
@@ -197,7 +197,7 @@ import Testing
 
     private func spawnAndSelect(daemon: WorktreeDaemon, selection: LeoHostSelection, host: LeoHostID) async throws {
         let sidebar = LeoSidebarModel()
-        let actions = LeoAgentActions(daemon: daemon, cli: worktreeCLI(), model: sidebar, hostSelection: selection, processRunner: LeoRecordingTemplateRunner(templates: ["claude"]), refresh: {})
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: daemon), cli: worktreeCLI(), model: sidebar, hostSelection: selection, processRunner: LeoRecordingTemplateRunner(templates: ["claude"]), refresh: {})
         try await spawnAndSelect(daemon: daemon, sidebar: sidebar, actions: actions, host: host)
     }
 

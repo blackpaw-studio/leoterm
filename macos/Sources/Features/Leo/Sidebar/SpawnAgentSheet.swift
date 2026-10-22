@@ -17,10 +17,15 @@ struct SpawnAgentSheet: View {
          attach: @escaping (LeoAgentRow, AttachDisposition) -> Void,
          chooseDirectory: @escaping () -> String? = SpawnAgentSheet.openPanel) {
         sidebar = model; self.actions = actions; self.attach = attach
+        // Until the Machine field (S7) the sheet still follows the one selected host.
+        let selected = actions.hostSelection.$selected
         _model = StateObject(wrappedValue: SpawnAgentModel(
-            templateList: actions.$templateList.eraseToAnyPublisher(), source: source,
-            selectedHost: actions.hostSelection.$selected.eraseToAnyPublisher(),
-            environmentCatalog: actions.$environmentCatalog.eraseToAnyPublisher(),
+            templateList: actions.$templateLists.combineLatest(selected)
+                .map { lists, host in lists[host] ?? .loading }.removeDuplicates().eraseToAnyPublisher(),
+            source: source,
+            selectedHost: selected.eraseToAnyPublisher(),
+            environmentCatalog: actions.$environmentCatalogs.combineLatest(selected)
+                .map { catalogs, host in catalogs[host] ?? .loading }.removeDuplicates().eraseToAnyPublisher(),
             environmentsSupported: model.$snapshot.combineLatest(actions.hostSelection.$selected)
                 .map { snapshot, selected in
                     snapshot.advertised.applying(to: source?.host ?? selected).contains(.agentEnvironments)

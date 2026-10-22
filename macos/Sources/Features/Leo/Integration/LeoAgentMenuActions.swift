@@ -123,7 +123,7 @@ extension TerminalController {
 // MARK: Set Template submenu
 
 /// Lazily populates the "Set Template" submenu from `LeoAgentActions
-/// .templates()` each time the Agents menu is about to display, since the
+/// .templates(for:)` each time the Agents menu is about to display, since the
 /// list of templates isn't known statically. Reads the *current key
 /// window's* selection fresh on every open rather than caching state, so
 /// one shared instance can serve every window.
@@ -184,7 +184,7 @@ extension TerminalController {
         Task { @MainActor [weak self] in
             guard let self else { return }
             do {
-                let templates = try await runtime.actions.templates()
+                let templates = try await runtime.actions.templates(for: row.host)
                 // Bail if a newer selection has since started its own fetch.
                 guard self.updateGeneration == generation else { return }
                 submenu.items = templates.isEmpty
@@ -232,10 +232,13 @@ extension TerminalController {
                 }
             }
         }
-        fill(actions.environmentCatalog)
-        guard actions.environmentCatalog == .loading else { return }
+        let host = row.host
+        fill(actions.environmentCatalog(for: host))
+        guard actions.environmentCatalog(for: host) == .loading else { return }
         Task { @MainActor [weak self] in
-            for await state in actions.$environmentCatalog.values where state != .loading {
+            for await catalogs in actions.$environmentCatalogs.values {
+                let state = catalogs[host] ?? .loading
+                guard state != .loading else { continue }
                 guard let self, self.updateGeneration == generation else { return }
                 fill(state)
                 return

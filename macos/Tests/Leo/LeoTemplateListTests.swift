@@ -4,25 +4,27 @@ import Testing
 @testable import Ghostty
 @testable import LeoKit
 
-/// B-054: one published, host-aware template list on `LeoAgentActions`,
-/// prefetched on every host selection and read by both the New Agent sheet
-/// and a row's Set Template submenu.
+/// B-054: one published template list per machine on `LeoAgentActions`,
+/// prefetched when the machine connects and read by both the New Agent sheet
+/// and a row's Set Template submenu. Machines connect at once, so one
+/// machine's list is never shown for, or blanked by, another.
 @MainActor struct LeoTemplateListTests {
     private static let work = LeoHostConfiguration(name: "work", sshTarget: "evan@work")
+    private static let workHost = LeoHostID.remote("work")
 
-    @Test func hostSelectionPrefetchesThePublishedListWithoutAnyReader() async throws {
-        let fixture = try await Fixture()
+    @Test func connectingAMachinePrefetchesItsPublishedListWithoutAnyReader() async {
+        let fixture = Fixture()
 
-        fixture.selection.select(.local)
+        fixture.actions.hostConnected(.local)
 
-        await awaitCondition(message: "the local list never landed") { await fixture.names() == ["local-template"] }
+        await awaitCondition(message: "the local list never landed") { await fixture.names(.local) == ["local-template"] }
     }
 
-    @Test func spawnModelListsTheRemoteHostsTemplatesNotTheLocalCLIs() async throws {
-        let fixture = try await Fixture()
-        let spawn = SpawnAgentModel(templateList: fixture.actions.$templateList.eraseToAnyPublisher())
+    @Test func spawnModelListsTheRemoteMachinesTemplatesNotTheLocalCLIs() async {
+        let fixture = Fixture()
+        let spawn = SpawnAgentModel(templateList: fixture.list(Self.workHost))
 
-        fixture.selection.select(.remote("work"))
+        fixture.actions.loadTemplates(for: Self.workHost)
 
         await awaitCondition(message: "the sheet never listed the remote templates") {
             await MainActor.run { spawn.templates.map(\.name) == ["work-template"] }
@@ -30,95 +32,94 @@ import Testing
         #expect(await fixture.remote.callCount == 1)
     }
 
-    @Test func afterAHostSwitchBothListsShowOnlyTheNewHostsTemplates() async throws {
-        let fixture = try await Fixture()
-        let spawn = SpawnAgentModel(templateList: fixture.actions.$templateList.eraseToAnyPublisher())
-        fixture.selection.select(.local)
-        await awaitCondition { await fixture.names() == ["local-template"] }
-        let history = Recorder(fixture.actions.$templateList.eraseToAnyPublisher())
+    @Test func loadingOneMachineNeverBlanksOrChangesAnothersList() async {
+        let fixture = Fixture()
+        fixture.actions.loadTemplates(for: .local)
+        await awaitCondition { await fixture.names(.local) == ["local-template"] }
+        let localHistory = Recorder(fixture.list(.local))
 
-        fixture.selection.select(.remote("work"))
+        fixture.actions.loadTemplates(for: Self.workHost)
 
-        #expect(fixture.actions.templateList == .loading, "the old host's list must be gone the moment the host switches")
-        await awaitCondition { await fixture.names() == ["work-template"] }
-        #expect(spawn.templates.map(\.name) == ["work-template"])
-        let afterSwitch = history.values.dropFirst()
-        #expect(!afterSwitch.contains { $0.templates.map(\.name).contains("local-template") })
-
-        fixture.selection.select(.local)
-
-        await awaitCondition { await fixture.names() == ["local-template"] }
-        #expect(spawn.templates.map(\.name) == ["local-template"])
+        #expect(fixture.actions.templateList(for: Self.workHost) == .loading)
+        #expect(fixture.actions.templateList(for: .local) == .loaded([LeoTemplate(name: "local-template")]), "A's list stays while B loads")
+        await awaitCondition { await fixture.names(Self.workHost) == ["work-template"] }
+        #expect(localHistory.values == [.loaded([LeoTemplate(name: "local-template")])])
+        #expect(await fixture.names(.local) == ["local-template"])
     }
 
-    /// A fetch for the old host that completes after the switch must never
-    /// land in the published list.
-    @Test func aStaleFetchForTheOldHostNeverLandsAfterASwitch() async throws {
-        let fixture = try await Fixture(gateLocal: true)
-        fixture.selection.select(.local)
+    /// A fetch for A still in flight when B's list lands must neither delay
+    /// nor overwrite it.
+    @Test func aSlowFetchForOneMachineNeverLandsInAnotherMachinesList() async {
+        let fixture = Fixture(gateLocal: true)
+        fixture.actions.loadTemplates(for: .local)
         await fixture.local.waitForCalls(1)
 
-        fixture.selection.select(.remote("work"))
-        await awaitCondition { await fixture.names() == ["work-template"] }
-        let history = Recorder(fixture.actions.$templateList.eraseToAnyPublisher())
+        fixture.actions.loadTemplates(for: Self.workHost)
+        await awaitCondition { await fixture.names(Self.workHost) == ["work-template"] }
+        let workHistory = Recorder(fixture.list(Self.workHost))
         await fixture.local.resume()
-        for _ in 0..<50 { await Task.yield() }
+        await awaitCondition { await fixture.names(.local) == ["local-template"] }
 
-        #expect(fixture.actions.templateList == .loaded([LeoTemplate(name: "work-template")]))
-        #expect(history.values == [.loaded([LeoTemplate(name: "work-template")])])
+        #expect(fixture.actions.templateList(for: Self.workHost) == .loaded([LeoTemplate(name: "work-template")]))
+        #expect(workHistory.values == [.loaded([LeoTemplate(name: "work-template")])])
     }
 
-    @Test func aFailedFetchPublishesTheErrorAndTheSpawnModelSurfacesIt() async throws {
-        let fixture = try await Fixture(remoteStatus: 255)
-        let spawn = SpawnAgentModel(templateList: fixture.actions.$templateList.eraseToAnyPublisher())
+    @Test func aFailedFetchPublishesTheErrorAndTheSpawnModelSurfacesIt() async {
+        let fixture = Fixture(remoteStatus: 255)
+        let spawn = SpawnAgentModel(templateList: fixture.list(Self.workHost))
 
-        fixture.selection.select(.remote("work"))
+        fixture.actions.loadTemplates(for: Self.workHost)
 
         await awaitCondition {
-            await MainActor.run { if case .failed = fixture.actions.templateList { true } else { false } }
+            await MainActor.run { if case .failed = fixture.actions.templateList(for: Self.workHost) { true } else { false } }
         }
         #expect(spawn.templates.isEmpty)
         #expect(spawn.templateError?.contains("Permission denied") == true)
     }
 
-    /// A user-initiated sidebar refresh re-reads the same host's templates
-    /// into the published list, without blanking it meanwhile.
-    @Test func manualRefreshRefetchesThePublishedList() async throws {
-        let fixture = try await Fixture()
-        fixture.selection.select(.remote("work"))
-        await awaitCondition { await fixture.names() == ["work-template"] }
-        let history = Recorder(fixture.actions.$templateList.eraseToAnyPublisher())
+    /// A user-initiated sidebar refresh re-reads every loaded machine's
+    /// templates into its published list, without blanking it meanwhile.
+    @Test func manualRefreshRefetchesEveryLoadedMachinesList() async {
+        let fixture = Fixture()
+        fixture.actions.loadTemplates(for: Self.workHost)
+        fixture.actions.loadTemplates(for: .local)
+        await awaitCondition { await fixture.names(Self.workHost) == ["work-template"] }
+        await awaitCondition { await fixture.names(.local) == ["local-template"] }
+        let history = Recorder(fixture.list(Self.workHost))
 
         fixture.actions.invalidateTemplateCache()
 
         await awaitCondition { await fixture.remote.callCount == 2 }
+        await awaitCondition { await fixture.local.callCount == 2 }
         #expect(!history.values.contains(.loading))
     }
 
     // MARK: Fixture
 
     @MainActor private final class Fixture {
-        let selection: LeoHostSelection
         let actions: LeoAgentActions
         let local: GatedTemplateProcess
         let remote: GatedTemplateProcess
 
-        init(gateLocal: Bool = false, remoteStatus: Int32 = 0) async throws {
-            let defaults = LeoInMemoryDefaults()
-            defaults.set(try JSONEncoder().encode([LeoTemplateListTests.work]), forKey: LeoHostStore.key)
-            selection = LeoHostSelection.isolatedForTesting(defaults: defaults)
-            await selection.start(flavor: .socketEvents)
+        init(gateLocal: Bool = false, remoteStatus: Int32 = 0) {
             local = GatedTemplateProcess(name: "local-template", gated: gateLocal)
             remote = GatedTemplateProcess(name: "work-template", gated: false, status: remoteStatus)
             actions = LeoAgentActions(
-                daemon: NoTemplateDaemon(),
+                clients: FakeMachineClients(
+                    daemons: [.local: NoTemplateDaemon(), LeoTemplateListTests.workHost: NoTemplateDaemon()],
+                    configurations: [LeoTemplateListTests.work]
+                ),
                 cli: LeoCLI(executableOverride: "/leo", runner: local, isExecutable: { _ in true }),
-                model: LeoSidebarModel(), hostSelection: selection, processRunner: remote, refresh: {}
+                model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: remote, refresh: {}
             )
         }
 
-        func names() -> [String]? {
-            if case .loaded(let templates) = actions.templateList { return templates.map(\.name) }
+        func list(_ host: LeoHostID) -> AnyPublisher<LeoTemplateListState, Never> {
+            actions.$templateLists.map { $0[host] ?? .loading }.removeDuplicates().eraseToAnyPublisher()
+        }
+
+        func names(_ host: LeoHostID) -> [String]? {
+            if case .loaded(let templates) = actions.templateList(for: host) { return templates.map(\.name) }
             return nil
         }
     }

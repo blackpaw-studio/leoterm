@@ -108,7 +108,7 @@ struct LeoEnvironmentsSheet: View {
                 Text("Applied in this order. Changing them restarts \(row.name) and resumes its session.")
                     .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
-            LeoEnvironmentListEditor(list: $list, available: actions.environmentCatalog.catalog?.names ?? [])
+            LeoEnvironmentListEditor(list: $list, available: actions.environmentCatalog(for: row.host).catalog?.names ?? [])
             HStack {
                 Spacer()
                 Button("Cancel", action: onCancel).keyboardShortcut(.cancelAction)

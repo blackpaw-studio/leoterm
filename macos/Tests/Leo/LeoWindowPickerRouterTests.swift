@@ -40,7 +40,7 @@ import Testing
         let sidebar = LeoSidebarModel()
         let hostDefaults = LeoInMemoryDefaults()
         let hostSelection = LeoHostSelection.isolatedForTesting(defaults: hostDefaults)
-        let actions = LeoAgentActions(daemon: StubDaemonClient(), cli: .recordingForTests(), model: sidebar, hostSelection: hostSelection, processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: StubDaemonClient()), cli: .recordingForTests(), model: sidebar, hostSelection: hostSelection, processRunner: LeoRecordingTemplateRunner(), refresh: {})
         let router = LeoNewSurfaceRouter(
             attach: { _, _, _ in .success(()) },
             openPlainShell: { _ in .success(()) },
@@ -78,7 +78,7 @@ import Testing
         let sidebar = LeoSidebarModel()
         let hostDefaults = LeoInMemoryDefaults()
         let hostSelection = LeoHostSelection.isolatedForTesting(defaults: hostDefaults)
-        let actions = LeoAgentActions(daemon: StubDaemonClient(), cli: .recordingForTests(), model: sidebar, hostSelection: hostSelection, processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: StubDaemonClient()), cli: .recordingForTests(), model: sidebar, hostSelection: hostSelection, processRunner: LeoRecordingTemplateRunner(), refresh: {})
         let router = LeoNewSurfaceRouter(
             attach: { _, _, _ in .success(()) },
             openPlainShell: { _ in .success(()) },

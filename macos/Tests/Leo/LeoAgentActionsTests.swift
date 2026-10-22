@@ -9,7 +9,7 @@ import Testing
         let daemon = ActionDaemon()
         let model = LeoSidebarModel()
         var refreshes = 0
-        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: { refreshes += 1 })
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: daemon), cli: testCLI(), model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: { refreshes += 1 })
         let row = testRow()
         actions.start(row)
         await awaitCondition { await daemon.calls == ["start:alpha"] }
@@ -32,7 +32,7 @@ import Testing
     @Test func deleteAsksAboutTheAgentsPanesFirst() async {
         let daemon = ActionDaemon()
         let actions = LeoAgentActions(
-            daemon: daemon, cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(),
+            clients: FakeMachineClients(daemon: daemon), cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(),
             processRunner: LeoRecordingTemplateRunner(), refresh: {})
         let row = testRow()
         var asked: [String] = []
@@ -58,12 +58,12 @@ import Testing
         let model = LeoSidebarModel()
         let row = testRow()
         var results: [Bool] = []
-        let accepting = LeoAgentActions(daemon: ActionDaemon(), cli: testCLI(), model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let accepting = LeoAgentActions(clients: FakeMachineClients(daemon: ActionDaemon()), cli: testCLI(), model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
         accepting.start(row) { results.append($0) }
         await awaitCondition { await MainActor.run { results == [true] } }
 
         let refusing = LeoAgentActions(
-            daemon: ActionDaemon(error: .daemon(code: "bad", message: "nope", matches: [])), cli: testCLI(), model: model,
+            clients: FakeMachineClients(daemon: ActionDaemon(error: .daemon(code: "bad", message: "nope", matches: []))), cli: testCLI(), model: model,
             hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
         refusing.start(row) { results.append($0) }
         await awaitCondition { await MainActor.run { results == [true, false] } }
@@ -76,7 +76,7 @@ import Testing
         let daemon = ActionDaemon(error: .daemon(code: "bad", message: "nope", matches: []))
         let model = LeoSidebarModel()
         var refreshes = 0
-        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: { refreshes += 1 })
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: daemon), cli: testCLI(), model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: { refreshes += 1 })
         let row = testRow()
         actions.restart(row)
         await awaitCondition { await MainActor.run { model.rowErrors[row.id] == "nope" } }
@@ -91,7 +91,7 @@ import Testing
 
     @Test func spawnAttachesNewRow() async {
         let daemon = ActionDaemon()
-        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: daemon), cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
         var attached: LeoAgentRow?
         actions.spawn(.init(template: "default", repo: "", name: nil, branch: nil, prompt: nil), on: .local, attach: { row, _ in attached = row }, dismiss: {}, failure: { _ in })
         await awaitCondition { await MainActor.run { attached != nil } }
@@ -103,7 +103,7 @@ import Testing
     )
 
     @Test func aSpawnThatFailsWithClaudeNotFoundLeadsToTheOnboardingOffer() async {
-        let actions = LeoAgentActions(daemon: ActionDaemon(error: Self.claudeNotFound), cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: ActionDaemon(error: Self.claudeNotFound)), cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
         var offers = 0
         var failures: [String] = []
         actions.claudeNotFound = { offers += 1 }
@@ -117,7 +117,7 @@ import Testing
 
     @Test func aStartThatFailsWithClaudeNotFoundLeadsToTheOnboardingOffer() async {
         let model = LeoSidebarModel()
-        let actions = LeoAgentActions(daemon: ActionDaemon(error: Self.claudeNotFound), cli: testCLI(), model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: ActionDaemon(error: Self.claudeNotFound)), cli: testCLI(), model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
         var offers = 0
         actions.claudeNotFound = { offers += 1 }
         let row = testRow()
@@ -131,8 +131,7 @@ import Testing
 
     @Test func aRemoteSpawnThatFailsWithClaudeNotFoundNamesTheHostAndOffersNoLocalInstall() async {
         let remote = LeoHostID.remote("work")
-        let actions = LeoAgentActions(daemon: ActionDaemon(), cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
-        actions.updateDaemon(ActionDaemon(error: Self.claudeNotFound), host: remote)
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: ActionDaemon(error: Self.claudeNotFound), host: remote), cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
         var offers = 0
         var failures: [String] = []
         actions.claudeNotFound = { offers += 1 }
@@ -147,7 +146,7 @@ import Testing
 
     @Test func aRemoteStartThatFailsWithClaudeNotFoundNamesTheHostAndOffersNoLocalInstall() async {
         let model = LeoSidebarModel()
-        let actions = LeoAgentActions(daemon: ActionDaemon(error: Self.claudeNotFound), cli: testCLI(), model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: ActionDaemon(error: Self.claudeNotFound), host: .remote("work")), cli: testCLI(), model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
         var offers = 0
         actions.claudeNotFound = { offers += 1 }
         let row = LeoAgentRow(host: .remote("work"), name: "alpha", template: "default", status: .running, activity: .unknown, actionDetail: nil)
@@ -160,7 +159,7 @@ import Testing
     }
 
     @Test func otherSpawnFailuresStayAsTheyWereAndOfferNothing() async {
-        let actions = LeoAgentActions(daemon: ActionDaemon(error: .daemon(code: "bad", message: "nope", matches: [])), cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: ActionDaemon(error: .daemon(code: "bad", message: "nope", matches: []))), cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
         var offers = 0
         var failures: [String] = []
         actions.claudeNotFound = { offers += 1 }
@@ -175,8 +174,8 @@ import Testing
     @Test func spawnModelIgnoresReentrantSubmits() async {
         let daemon = ActionDaemon(suspendSpawn: true)
         let sidebar = LeoSidebarModel()
-        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: sidebar, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
-        let model = SpawnAgentModel(templateList: actions.$templateList.eraseToAnyPublisher())
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: daemon), cli: testCLI(), model: sidebar, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let model = SpawnAgentModel(templateList: Just(.loading).eraseToAnyPublisher())
         let request = LeoSpawnRequest(template: "default", repo: "", name: nil, branch: nil, prompt: nil)
 
         model.spawn(request, actions: actions, attach: { _, _ in }, dismiss: {})
@@ -191,8 +190,8 @@ import Testing
     @Test func successfulSpawnInvokesSidebarAttachRequest() async {
         let daemon = ActionDaemon()
         let sidebar = LeoSidebarModel()
-        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: sidebar, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
-        let model = SpawnAgentModel(templateList: actions.$templateList.eraseToAnyPublisher())
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: daemon), cli: testCLI(), model: sidebar, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let model = SpawnAgentModel(templateList: Just(.loading).eraseToAnyPublisher())
         var attached: LeoAgentRow?
         sidebar.attachRequested = { row, _, _ in attached = row }
 
@@ -206,7 +205,7 @@ import Testing
 
     @Test func duplicatePendingActionIsIgnored() async {
         let daemon = ActionDaemon(suspendStart: true)
-        let actions = LeoAgentActions(daemon: daemon, cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: daemon), cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
         let row = testRow()
         actions.start(row); actions.start(row)
         await awaitCondition { await daemon.calls == ["start:alpha"] }
@@ -217,9 +216,9 @@ import Testing
         let daemon = ActionDaemon()
         let cli = testCLI(templates: ["one"])
         let model = LeoSidebarModel()
-        let actions = LeoAgentActions(daemon: daemon, cli: cli, model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
-        #expect(try await actions.templates().map(\.name) == ["one"])
-        #expect(try await actions.templates().map(\.name) == ["one"])
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: daemon), cli: cli, model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        #expect(try await actions.templates(for: .local).map(\.name) == ["one"])
+        #expect(try await actions.templates(for: .local).map(\.name) == ["one"])
         let row = testRow()
         let box = PlanBox()
         actions.deletePlan(row) { box.value = $0 }
@@ -228,27 +227,25 @@ import Testing
     }
 
     /// Local templates come from the CLI; a remote host's templates come
-    /// from a one-off `ssh ... leo template list --json` exec, scoped to
-    /// its own cache entry.
-    @Test func templateCacheIsScopedToSelectedHost() async throws {
+    /// from a one-off `ssh ... leo template list --json` exec, each cached
+    /// in its own slot so reading one never evicts the other.
+    @Test func templateCacheIsScopedToTheHostItIsReadFor() async throws {
         let daemon = ActionDaemon()
-        let suiteDefaults = LeoInMemoryDefaults()
         let workConfiguration = LeoHostConfiguration(name: "work", sshTarget: "evan@work")
-        if let data = try? JSONEncoder().encode([workConfiguration]) { suiteDefaults.set(data, forKey: LeoHostStore.key) }
-        let selection = LeoHostSelection.isolatedForTesting(defaults: suiteDefaults)
-        await selection.start(flavor: .socketEvents)
         let runner = LeoRecordingTemplateRunner(templates: ["work-template"])
         let actions = LeoAgentActions(
-            daemon: daemon, cli: testCLI(templates: ["local-template"]), model: LeoSidebarModel(),
-            hostSelection: selection, processRunner: runner, refresh: {}
+            clients: FakeMachineClients(daemons: [.local: daemon], configurations: [workConfiguration]),
+            cli: testCLI(templates: ["local-template"]), model: LeoSidebarModel(),
+            hostSelection: .isolatedForTesting(), processRunner: runner, refresh: {}
         )
 
-        #expect(try await actions.templates().map(\.name) == ["local-template"])
-        selection.select(.remote("work"))
-        #expect(try await actions.templates().map(\.name) == ["work-template"])
+        #expect(try await actions.templates(for: .local).map(\.name) == ["local-template"])
+        #expect(try await actions.templates(for: .remote("work")).map(\.name) == ["work-template"])
+        #expect(try await actions.templates(for: .local).map(\.name) == ["local-template"])
+        #expect(try await actions.templates(for: .remote("work")).map(\.name) == ["work-template"])
 
         let calls = await runner.calls
-        #expect(calls.count == 1)
+        #expect(calls.count == 1, "each host is read once; the second reads are served from cache")
         let expectedArguments = try LeoSSHCommand(configuration: workConfiguration).execArguments(
             remoteCommand: [workConfiguration.remoteLeoPath, "template", "list", "--json"]
         )
@@ -258,19 +255,14 @@ import Testing
     /// B-112: the shared fake answers exactly the templates it was built
     /// with (none by default) and records each exec it was handed.
     @Test func recordingTemplateRunnerAnswersItsConfiguredTemplates() async throws {
-        let suiteDefaults = LeoInMemoryDefaults()
         let configuration = LeoHostConfiguration(name: "work", sshTarget: "evan@work")
-        suiteDefaults.set(try JSONEncoder().encode([configuration]), forKey: LeoHostStore.key)
-        let selection = LeoHostSelection.isolatedForTesting(defaults: suiteDefaults)
-        await selection.start(flavor: .socketEvents)
-        selection.select(.remote("work"))
         let runner = LeoRecordingTemplateRunner(templates: ["a", "b"])
         let actions = LeoAgentActions(
-            daemon: ActionDaemon(), cli: .recordingForTests(), model: LeoSidebarModel(),
-            hostSelection: selection, processRunner: runner, refresh: {}
+            clients: FakeMachineClients(configurations: [configuration]), cli: .recordingForTests(), model: LeoSidebarModel(),
+            hostSelection: .isolatedForTesting(), processRunner: runner, refresh: {}
         )
 
-        #expect(try await actions.templates().map(\.name) == ["a", "b"])
+        #expect(try await actions.templates(for: .remote("work")).map(\.name) == ["a", "b"])
         let calls = await runner.calls
         #expect(calls.count == 1)
         #expect(calls.first?.executable == "/usr/bin/ssh")
@@ -279,70 +271,60 @@ import Testing
         #expect(try JSONDecoder().decode([LeoTemplate].self, from: empty.stdout).isEmpty)
     }
 
-    /// A `templates()` call for host A that's still mid-fetch when the
-    /// selection moves to host B must never leave B's cache entry
-    /// contaminated with A's (now-stale) result once A's fetch finally
-    /// completes.
-    @Test func hostSwitchDuringInFlightTemplatesFetchNeverLeaksTheOldHostsTemplates() async throws {
-        let daemon = ActionDaemon()
-        let suiteDefaults = LeoInMemoryDefaults()
+    /// A `templates(for:)` call for host A that's still mid-fetch while host
+    /// B is read must never leave B's cache entry contaminated with A's
+    /// (slow, now-stale) result once A's fetch finally completes.
+    @Test func anInFlightTemplatesFetchNeverLeaksIntoAnotherHostsTemplates() async throws {
         let workConfiguration = LeoHostConfiguration(name: "work", sshTarget: "evan@work")
-        if let data = try? JSONEncoder().encode([workConfiguration]) { suiteDefaults.set(data, forKey: LeoHostStore.key) }
-        let selection = LeoHostSelection.isolatedForTesting(defaults: suiteDefaults)
-        await selection.start(flavor: .socketEvents)
         let gatedRunner = GatedTemplateRunner()
-        let cli = LeoCLI.recordingForTests(runner: gatedRunner)
         let remoteRunner = LeoRecordingTemplateRunner(templates: ["work-template"])
         let actions = LeoAgentActions(
-            daemon: daemon, cli: cli, model: LeoSidebarModel(),
-            hostSelection: selection, processRunner: remoteRunner, refresh: {}
+            clients: FakeMachineClients(daemons: [.local: ActionDaemon()], configurations: [workConfiguration]),
+            cli: LeoCLI.recordingForTests(runner: gatedRunner), model: LeoSidebarModel(),
+            hostSelection: .isolatedForTesting(), processRunner: remoteRunner, refresh: {}
         )
 
-        async let localTemplates = actions.templates()
+        async let localTemplates = actions.templates(for: .local)
         await gatedRunner.waitForCalls(1)
 
-        selection.select(.remote("work"))
-        #expect(try await actions.templates().map(\.name) == ["work-template"])
+        #expect(try await actions.templates(for: .remote("work")).map(\.name) == ["work-template"])
 
         await gatedRunner.resume()
         #expect(try await localTemplates.map(\.name) == ["local-template"])
 
         // A's delayed completion must not have overwritten B's cache entry.
-        #expect(try await actions.templates().map(\.name) == ["work-template"])
+        #expect(try await actions.templates(for: .remote("work")).map(\.name) == ["work-template"])
         let remoteCalls = await remoteRunner.calls
-        #expect(remoteCalls.count == 1, "the second read of the still-selected remote host must be served from cache")
+        #expect(remoteCalls.count == 1, "the second read of the remote host must be served from cache")
     }
 
-    /// Actions capture `daemon` and the selection's `generationToken`
+    /// Actions capture the row's daemon and its host's generation
     /// synchronously at invocation, not at execution: a request already in
-    /// flight against host A's socket must never be silently redirected to
-    /// B's, and its completion (refresh) must be dropped once the selection
-    /// has moved on.
-    @Test func actionCapturesDaemonAtInvocationAndDropsStaleCompletionAfterASelectionChange() async throws {
+    /// flight against A's socket must never be silently redirected to a
+    /// replacement connection, and its completion (refresh) must be dropped
+    /// once A reconnected.
+    @Test func actionCapturesDaemonAtInvocationAndDropsStaleCompletionAfterAReconnect() async throws {
         let daemonA = GatedActionDaemon()
-        let suiteDefaults = LeoInMemoryDefaults()
-        let selection = LeoHostSelection.isolatedForTesting(defaults: suiteDefaults)
-        await selection.start(flavor: .socketEvents)
+        let replacement = GatedActionDaemon()
+        let clients = FakeMachineClients(daemon: daemonA)
         var refreshes = 0
-        let actions = LeoAgentActions(daemon: daemonA, cli: testCLI(), model: LeoSidebarModel(), hostSelection: selection, processRunner: LeoRecordingTemplateRunner(), refresh: { refreshes += 1 })
+        let actions = LeoAgentActions(clients: clients, cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: { refreshes += 1 })
         let row = testRow()
 
         actions.stop(row)
         await awaitCondition { await daemonA.stopCallCount == 1 }
 
-        // The selection moves on (to an unconfigured remote host, which
-        // fails synchronously but still bumps the generation) WHILE the
-        // stop request against A is still in flight. `updateDaemon` is not
-        // called here on purpose: the point is that `run()` already
-        // captured `daemonA` before this happened, so the in-flight request
-        // stays bound to it regardless.
-        selection.select(.remote("unconfigured"))
+        // A reconnects WHILE the stop request against its old connection is
+        // still in flight: `run()` already captured `daemonA`, so the
+        // in-flight request stays bound to it regardless.
+        clients.connect(.local, replacement)
 
         await daemonA.release()
         for _ in 0..<50 { await Task.yield() }
 
         #expect(await daemonA.stopCallCount == 1, "the captured daemon must be the one that actually received the request")
-        #expect(refreshes == 0, "a stale completion after the selection moved on must not trigger a refresh")
+        #expect(await replacement.stopCallCount == 0)
+        #expect(refreshes == 0, "a stale completion after the machine reconnected must not trigger a refresh")
     }
 
     private func testRow() -> LeoAgentRow {
@@ -351,6 +333,154 @@ import Testing
 
     private func testCLI(templates: [String] = []) -> LeoCLI {
         .recordingForTests(templates: templates)
+    }
+}
+
+/// Machines connect at once: every action resolves its own row's host, so
+/// one machine reconnecting, failing or bumping its generation never touches
+/// another's requests.
+@MainActor struct LeoMachineActionsTests {
+    private let work = LeoHostID.remote("work")
+
+    private func actions(_ clients: FakeMachineClients, refresh: @escaping () -> Void = {}) -> LeoAgentActions {
+        LeoAgentActions(
+            clients: clients, cli: .recordingForTests(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(),
+            processRunner: LeoRecordingTemplateRunner(templates: ["claude"]), refresh: refresh)
+    }
+
+    private func row(on host: LeoHostID) -> LeoAgentRow {
+        LeoAgentRow(host: host, name: "alpha", template: "default", status: .running, activity: .unknown, actionDetail: nil)
+    }
+
+    @Test func anActionOnBsRowReachesBsClientWhileAIsReconnecting() async {
+        let local = ActionDaemon()
+        let remote = ActionDaemon()
+        let clients = FakeMachineClients(daemons: [.local: local, work: remote])
+        let model = LeoSidebarModel()
+        let actions = LeoAgentActions(
+            clients: clients, cli: .recordingForTests(), model: model, hostSelection: .isolatedForTesting(),
+            processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        clients.disconnect(.local)
+
+        actions.stop(row(on: work))
+
+        await awaitCondition { await remote.calls == ["stop:alpha"] }
+        #expect(await local.calls.isEmpty)
+        actions.stop(row(on: .local))
+        await awaitCondition { await MainActor.run { model.rowErrors[row(on: .local).id] != nil } }
+        #expect(model.rowErrors[row(on: .local).id] == "localhost isn't connected.")
+        #expect(await local.calls.isEmpty)
+    }
+
+    @Test func anActionNeverReachesAnotherMachinesClient() async {
+        let local = ActionDaemon()
+        let remote = ActionDaemon()
+        let actions = actions(FakeMachineClients(daemons: [.local: local, work: remote]))
+
+        actions.restart(row(on: .local))
+        await awaitCondition { await local.calls == ["restart:alpha"] }
+
+        #expect(await remote.calls.isEmpty)
+    }
+
+    @Test func aGenerationBumpOnADoesNotDropBsCompletion() async {
+        let remote = GatedActionDaemon()
+        let clients = FakeMachineClients(daemons: [.local: ActionDaemon(), work: remote])
+        var refreshes = 0
+        let actions = actions(clients) { refreshes += 1 }
+
+        actions.stop(row(on: work))
+        await awaitCondition { await remote.stopCallCount == 1 }
+        clients.connect(.local, ActionDaemon())
+        await remote.release()
+
+        await awaitCondition { await MainActor.run { refreshes == 1 } }
+    }
+
+    @Test func aGenerationBumpOnBStillDropsBsOwnStaleCompletion() async {
+        let remote = GatedActionDaemon()
+        let clients = FakeMachineClients(daemons: [work: remote])
+        var refreshes = 0
+        let actions = actions(clients) { refreshes += 1 }
+
+        actions.stop(row(on: work))
+        await awaitCondition { await remote.stopCallCount == 1 }
+        clients.connect(work, ActionDaemon())
+        await remote.release()
+        for _ in 0..<50 { await Task.yield() }
+
+        #expect(refreshes == 0)
+    }
+
+    @Test func spawnOnBSucceedsWhileAIsFailed() async {
+        let remote = ActionDaemon()
+        let clients = FakeMachineClients(daemons: [.local: ActionDaemon(), work: remote])
+        clients.disconnect(.local)
+        let actions = actions(clients)
+        var attached: LeoAgentRow?
+        var failures: [String] = []
+
+        actions.spawn(
+            .init(template: "default", repo: "", name: nil, branch: nil, prompt: nil), on: work,
+            attach: { row, _ in attached = row }, dismiss: {}, failure: { failures.append($0) })
+
+        await awaitCondition { await MainActor.run { attached != nil } }
+        #expect(attached?.host == work)
+        #expect(failures.isEmpty)
+        #expect(await remote.calls == ["spawn"])
+    }
+
+    @Test func spawnOnADisconnectedMachineIsRefusedWithoutARequest() async {
+        let local = ActionDaemon()
+        let clients = FakeMachineClients(daemons: [.local: local])
+        let actions = actions(clients)
+        var failures: [String] = []
+
+        actions.spawn(
+            .init(template: "default", repo: "", name: nil, branch: nil, prompt: nil), on: work,
+            attach: { _, _ in }, dismiss: {}, failure: { failures.append($0) })
+
+        #expect(failures == ["Not connected to work yet"])
+        #expect(await local.calls.isEmpty)
+    }
+
+    @Test func aSpawnWhoseMachineReconnectedMidFlightReportsItInsteadOfAttaching() async {
+        let remote = ActionDaemon(suspendSpawn: true)
+        let clients = FakeMachineClients(daemons: [work: remote])
+        let actions = actions(clients)
+        var attached = false
+        var failures: [String] = []
+
+        actions.spawn(
+            .init(template: "default", repo: "", name: nil, branch: nil, prompt: nil), on: work,
+            attach: { _, _ in attached = true }, dismiss: {}, failure: { failures.append($0) })
+        await awaitCondition { await remote.calls == ["spawn"] }
+        clients.connect(work, ActionDaemon())
+        await remote.resumeSpawn()
+
+        await awaitCondition { await MainActor.run { failures.count == 1 } }
+        #expect(!attached)
+    }
+
+    @Test func theClaudeOnboardingOfferStaysLocalOnly() async {
+        let missing = LeoDaemonError.daemon(code: "claude_not_found", message: "claude not found on PATH", matches: [])
+        let clients = FakeMachineClients(daemons: [.local: ActionDaemon(), work: ActionDaemon(error: missing)])
+        let actions = actions(clients)
+        var offers = 0
+        var failures: [String] = []
+        actions.claudeNotFound = { offers += 1 }
+
+        actions.spawn(
+            .init(template: "default", repo: "", name: nil, branch: nil, prompt: nil), on: work,
+            attach: { _, _ in }, dismiss: {}, failure: { failures.append($0) })
+        await awaitCondition { await MainActor.run { failures.count == 1 } }
+        #expect(offers == 0, "a failure on a remote machine never opens the local install flow")
+
+        clients.connect(.local, ActionDaemon(error: missing))
+        actions.spawn(
+            .init(template: "default", repo: "", name: nil, branch: nil, prompt: nil), on: .local,
+            attach: { _, _ in }, dismiss: {}, failure: { failures.append($0) })
+        await awaitCondition { await MainActor.run { offers == 1 } }
     }
 }
 

@@ -149,7 +149,7 @@ private struct FocusFixture {
         let sidebar = LeoSidebarModel()
         let hostSelection = LeoHostSelection.isolatedForTesting()
         let actions = LeoAgentActions(
-            daemon: UnusedDaemon(), cli: .recordingForTests(), model: sidebar, hostSelection: hostSelection,
+            clients: FakeMachineClients(daemon: UnusedDaemon()), cli: .recordingForTests(), model: sidebar, hostSelection: hostSelection,
             processRunner: LeoRecordingTemplateRunner(), refresh: {}
         )
         let router = LeoNewSurfaceRouter(

@@ -148,7 +148,7 @@ struct LeoAgentRowView: View {
     }
 
     @ViewBuilder private var templateItems: some View {
-        switch actions.templateList {
+        switch actions.templateList(for: row.host) {
         case .loading:
             Text("Loading Templates…")
         case .failed(let message):
@@ -169,7 +169,7 @@ struct LeoAgentRowView: View {
 
     /// B-283: built from the same entries as the Agent menu's submenu.
     @ViewBuilder private var environmentItems: some View {
-        let entries = LeoEnvironmentMenu.entries(catalog: actions.environmentCatalog, current: row.environments)
+        let entries = LeoEnvironmentMenu.entries(catalog: actions.environmentCatalog(for: row.host), current: row.environments)
         ForEach(Array(entries.enumerated()), id: \.offset) { _, entry in
             switch entry {
             case .placeholder(let title):
@@ -194,7 +194,7 @@ struct LeoAgentRowView: View {
     /// the same confirm as the toggles. The agent's sole environment is
     /// checked and can't be picked again.
     @ViewBuilder private var switchItems: some View {
-        let entries = LeoEnvironmentSwitchMenu.entries(catalog: actions.environmentCatalog, current: row.environments)
+        let entries = LeoEnvironmentSwitchMenu.entries(catalog: actions.environmentCatalog(for: row.host), current: row.environments)
         ForEach(Array(entries.enumerated()), id: \.offset) { _, entry in
             switch entry {
             case .placeholder(let title):

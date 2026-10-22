@@ -13,7 +13,7 @@ import Testing
 
     private func actions(_ daemon: EnvironmentDaemon, model: LeoSidebarModel? = nil) -> LeoAgentActions {
         LeoAgentActions(
-            daemon: daemon, cli: .recordingForTests(templates: []), model: model ?? LeoSidebarModel(), hostSelection: .isolatedForTesting(),
+            clients: FakeMachineClients(daemon: daemon), cli: .recordingForTests(templates: []), model: model ?? LeoSidebarModel(), hostSelection: .isolatedForTesting(),
             processRunner: LeoRecordingTemplateRunner(), refresh: {}
         )
     }
@@ -35,15 +35,41 @@ import Testing
         await awaitCondition { await MainActor.run { model.rowErrors[row.id] == "alpha runs a persistent task" } }
     }
 
-    @Test func catalogLoadsFromBoundDaemonAndFailsQuietly() async {
+    @Test func eachMachinesCatalogLoadsFromItsOwnDaemonAndFailsQuietly() async {
+        let work = LeoHostID.remote("work")
+        let clients = FakeMachineClients(daemons: [
+            .local: EnvironmentDaemon(catalog: Self.catalog),
+            work: EnvironmentDaemon(error: .daemon(code: "http_404", message: "HTTP 404", matches: [])),
+        ])
         let model = LeoSidebarModel()
-        let actions = actions(EnvironmentDaemon(), model: model)
-        actions.updateDaemon(EnvironmentDaemon(catalog: Self.catalog), host: .local)
-        await awaitCondition { await MainActor.run { actions.environmentCatalog == .loaded(Self.catalog) } }
+        let actions = LeoAgentActions(
+            clients: clients, cli: .recordingForTests(templates: []), model: model, hostSelection: .isolatedForTesting(),
+            processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        #expect(actions.environmentCatalog(for: .local) == .loading)
 
-        actions.updateDaemon(EnvironmentDaemon(error: .daemon(code: "http_404", message: "HTTP 404", matches: [])), host: .local)
-        await awaitCondition { await MainActor.run { actions.environmentCatalog == .failed("HTTP 404") } }
+        actions.reloadEnvironmentCatalog(for: .local)
+        actions.reloadEnvironmentCatalog(for: work)
+
+        await awaitCondition { await MainActor.run { actions.environmentCatalog(for: .local) == .loaded(Self.catalog) } }
+        await awaitCondition { await MainActor.run { actions.environmentCatalog(for: work) == .failed("HTTP 404") } }
+        #expect(actions.environmentCatalog(for: .local) == .loaded(Self.catalog), "B's failure leaves A's catalog alone")
         #expect(model.rowErrors.isEmpty)
+    }
+
+    @Test func aReconnectedMachineReloadsOnlyItsOwnCatalog() async {
+        let work = LeoHostID.remote("work")
+        let clients = FakeMachineClients(daemons: [.local: EnvironmentDaemon(catalog: Self.catalog), work: EnvironmentDaemon()])
+        let actions = LeoAgentActions(
+            clients: clients, cli: .recordingForTests(templates: []), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(),
+            processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        actions.reloadEnvironmentCatalog(for: .local)
+        await awaitCondition { await MainActor.run { actions.environmentCatalog(for: .local) == .loaded(Self.catalog) } }
+
+        clients.connect(work, EnvironmentDaemon(catalog: LeoEnvironmentCatalog(names: ["w"], templateDefaults: [:])))
+        actions.reloadEnvironmentCatalog(for: work)
+
+        await awaitCondition { await MainActor.run { actions.environmentCatalog(for: work).catalog?.names == ["w"] } }
+        #expect(actions.environmentCatalog(for: .local) == .loaded(Self.catalog))
     }
 
     // MARK: Edit Order sheet (fix round 2): the presenter owns the sheet

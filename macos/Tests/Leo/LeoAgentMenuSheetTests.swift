@@ -34,7 +34,7 @@ import Testing
         let model = LeoSidebarModel(snapshot: LeoSidebarSnapshot(rows: [scratch], connectivity: .connected, generation: 1))
         let hostSelection = LeoHostSelection.isolatedForTesting()
         let actions = LeoAgentActions(
-            daemon: daemon, cli: .recordingForTests(), model: model, hostSelection: hostSelection,
+            clients: FakeMachineClients(daemon: daemon), cli: .recordingForTests(), model: model, hostSelection: hostSelection,
             processRunner: LeoRecordingTemplateRunner(), refresh: {}
         )
         return LeoAgentMenuSheets(model: model, actions: actions, hostSelection: hostSelection)
