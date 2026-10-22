@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import Testing
 
@@ -59,6 +60,39 @@ import Testing
         try await until { @MainActor in
             runtime.model.machineStatuses[.remote("a")] == .connected && runtime.model.machineStatuses[.local] == .connected
         }
+    }
+
+    /// The poller is wired to the live model: a machine advertising
+    /// `machine_stats` gets its sample into the sidebar header's section and
+    /// the spawn picker's option, and one that doesn't gets none.
+    @Test func theStatsPollerFeedsTheHeadersAndThePicker() async throws {
+        let runtime = try makeRuntime(machines: ["a", "old"]) { host, _ in
+            let advertises = host == .remote("a")
+            return LeoMachineDaemon(
+                daemon: LeoStatsListingDaemon(cpu: 33),
+                activitySource: LeoSidebarActivitySource(
+                    events: {
+                        AsyncStream { $0.yield(.hello(
+                            seq: 1, at: nil, version: "1", serverTime: nil, bootID: "boot",
+                            features: advertises ? ["machine_stats"] : []
+                        )) }
+                    },
+                    fetchState: { [] }
+                )
+            )
+        }
+        defer { runtime.shutdown() }
+        runtime.statsPoller.setSidebarPollable(true)
+        runtime.statsPoller.setAppActive(true)
+        start(runtime)
+
+        try await until { @MainActor in runtime.model.machineStats[.remote("a")]?.cpu?.percent == 33 }
+        #expect(runtime.model.machineSections.first { $0.host == .remote("a") }?.stats?.cpu?.percent == 33)
+        var options: [SpawnMachineOption] = []
+        let subscription = SpawnMachineFeeds.live(sidebar: runtime.model, actions: runtime.actions).machines.sink { options = $0 }
+        defer { subscription.cancel() }
+        #expect(options.first { $0.host == .remote("a") }?.stats?.cpu?.percent == 33)
+        #expect(runtime.model.machineStats[.remote("old")] == nil)
     }
 
     @Test func aMachineWhoseTunnelDiesLeavesEveryOtherMachinesRowsConnected() async throws {
@@ -269,4 +303,31 @@ private actor LeoClientBuildGate {
         parked.forEach { $0.resume() }
         parked = []
     }
+}
+
+/// A machine whose daemon lists one agent and answers `machineStats`.
+private struct LeoStatsListingDaemon: LeoDaemonClient {
+    let cpu: Double
+    private let listing = LeoListingDaemon(names: ["agent"])
+
+    init(cpu: Double) { self.cpu = cpu }
+
+    func machineStats() async throws -> LeoMachineStats {
+        LeoMachineStats(
+            sampledAt: Date(timeIntervalSince1970: 0), cpu: .init(percent: cpu, cores: 8),
+            memory: .init(usedBytes: 1, totalBytes: 2), disk: .init(path: "/", usedBytes: 1, totalBytes: 2)
+        )
+    }
+
+    func listAgents() async throws -> [LeoAgent] { try await listing.listAgents() }
+    func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent { fatalError() }
+    func start(_ name: String) async throws { fatalError() }
+    func stop(_ name: String, wakeOnMessage: Bool?) async throws { fatalError() }
+    func restart(_ name: String) async throws -> LeoAgent { fatalError() }
+    func reset(_ name: String) async throws { fatalError() }
+    func setTemplate(_ name: String, template: String) async throws { fatalError() }
+    func rename(_ name: String, newName: String) async throws -> LeoAgent { fatalError() }
+    func delete(_ name: String, force: Bool?, deleteBranch: Bool?) async throws { fatalError() }
+    func deletePlan(_ name: String) async throws -> LeoDeletePlan { fatalError() }
+    func logs(_ name: String, lines: Int?) async throws -> String { fatalError() }
 }

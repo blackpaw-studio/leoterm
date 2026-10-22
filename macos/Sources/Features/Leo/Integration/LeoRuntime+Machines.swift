@@ -28,6 +28,7 @@ extension LeoRuntime {
         let gone = feeds.hosts.filter { !shown.contains($0) }
         model.setMachines(shown)
         feeds.setMachines(shown)
+        statsPoller.setMachines(shown)
         gone.forEach { clients.unbind($0) }
     }
 
@@ -50,8 +51,10 @@ extension LeoRuntime {
         switch state {
         case .connecting:
             feeds.updateConnection(host: host, generation: generation, phase: .connecting)
+            statsPoller.reconcile()
         case .failed(let message, _):
             feeds.updateConnection(host: host, generation: generation, phase: .failed(message: message))
+            statsPoller.reconcile()
         case .connected(let socketPath):
             Task { [weak self] in
                 await self?.applyConnected(host: host, generation: generation, socketPath: socketPath, sequence: sequence)
@@ -77,6 +80,7 @@ extension LeoRuntime {
         feeds.updateConnection(
             host: host, generation: generation, phase: .connected(daemon: connected.daemon, activitySource: connected.activitySource)
         )
+        statsPoller.reconcile()
     }
 
     /// The production `LeoRemoteDaemonFactory`: a socket client over the
