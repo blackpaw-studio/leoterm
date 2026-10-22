@@ -125,11 +125,11 @@ import LeoKit
                 polls[host] = nil
                 clear(host)
                 return
-            case .miss:
+            case .miss, .cancelled:
+                // `.cancelled` past the guard above is a request that threw
+                // `CancellationError` on its own: a failed poll, not a stop.
                 misses += 1
                 if misses >= Self.staleAfterMisses { clear(host) }
-            case .cancelled:
-                return
             }
             do { try await dependencies.sleep(Self.intervalNanoseconds) } catch { return }
         }

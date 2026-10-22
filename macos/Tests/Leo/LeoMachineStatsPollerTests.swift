@@ -7,6 +7,7 @@ import Testing
 /// The stats poller on an injected sleep (`LeoFiringClock`) and fake daemons:
 /// nothing waits on the wall clock. Interval and request-timeout sleeps have
 /// different lengths, so a test fires one without the other.
+@Suite(.timeLimit(.minutes(1)))
 @MainActor
 struct LeoMachineStatsPollerTests {
     private static let interval = UInt64(5) * 1_000_000_000
@@ -57,10 +58,10 @@ struct LeoMachineStatsPollerTests {
         let rig = Rig()
         let daemon = rig.connect(.local)
         rig.goLive()
-        try await eventually { await daemon.calls == 1 }
-        try await eventually { rig.clock.pending(Self.interval).count == 1 }
+        try await eventually(sourceLocation: #_sourceLocation) { await daemon.calls == 1 }
+        try await eventually(sourceLocation: #_sourceLocation) { rig.clock.pending(Self.interval).count == 1 }
         rig.clock.fire(Self.interval)
-        try await eventually { await daemon.calls == 2 }
+        try await eventually(sourceLocation: #_sourceLocation) { await daemon.calls == 2 }
         #expect(rig.delivered.count == 2)
     }
 
@@ -88,21 +89,21 @@ struct LeoMachineStatsPollerTests {
         let rig = Rig()
         let daemon = rig.connect(.local)
         rig.goLive()
-        try await eventually { rig.clock.pending(Self.interval).count == 1 }
+        try await eventually(sourceLocation: #_sourceLocation) { rig.clock.pending(Self.interval).count == 1 }
         rig.poller.setSidebarPollable(false)
-        try await eventually { rig.clock.pending(Self.interval).isEmpty }
+        try await eventually(sourceLocation: #_sourceLocation) { rig.clock.pending(Self.interval).isEmpty }
         #expect(await daemon.calls == 1)
         rig.poller.setSidebarPollable(true)
-        try await eventually { await daemon.calls == 2 }
+        try await eventually(sourceLocation: #_sourceLocation) { await daemon.calls == 2 }
     }
 
     @Test func stopsWhenTheAppResignsActive() async throws {
         let rig = Rig()
         rig.connect(.local)
         rig.goLive()
-        try await eventually { rig.clock.pending(Self.interval).count == 1 }
+        try await eventually(sourceLocation: #_sourceLocation) { rig.clock.pending(Self.interval).count == 1 }
         rig.poller.setAppActive(false)
-        try await eventually { rig.clock.pending(Self.interval).isEmpty }
+        try await eventually(sourceLocation: #_sourceLocation) { rig.clock.pending(Self.interval).isEmpty }
     }
 
     @Test func neverPollsAMachineWithoutTheStatsFlag() async throws {
@@ -111,7 +112,7 @@ struct LeoMachineStatsPollerTests {
         let current = rig.connect(Self.remote)
         rig.goLive([.local, Self.remote])
         #expect(rig.poller.pollingHosts == [Self.remote])
-        try await eventually { await current.calls == 1 }
+        try await eventually(sourceLocation: #_sourceLocation) { await current.calls == 1 }
         #expect(await old.calls == 0)
     }
 
@@ -138,10 +139,10 @@ struct LeoMachineStatsPollerTests {
         let rig = Rig()
         rig.connect(.local)
         rig.goLive()
-        try await eventually { rig.lastStats(for: .local) != nil }
+        try await eventually(sourceLocation: #_sourceLocation) { rig.lastStats(for: .local) != nil }
         rig.style = .off
         rig.poller.reconcile()
-        try await eventually { rig.clock.pending(Self.interval).isEmpty }
+        try await eventually(sourceLocation: #_sourceLocation) { rig.clock.pending(Self.interval).isEmpty }
         #expect(rig.lastStats(for: .local) == .some(nil))
     }
 
@@ -153,7 +154,7 @@ struct LeoMachineStatsPollerTests {
         #expect(rig.poller.pollingHosts.isEmpty)
         rig.style = .bars
         rig.poller.reconcile()
-        try await eventually { await daemon.calls == 1 }
+        try await eventually(sourceLocation: #_sourceLocation) { await daemon.calls == 1 }
     }
 
     @Test func aHungMachineDoesNotDelayAnother() async throws {
@@ -161,21 +162,21 @@ struct LeoMachineStatsPollerTests {
         let hung = rig.connect(.local, replies: [.hang])
         let healthy = rig.connect(Self.remote)
         rig.goLive([.local, Self.remote])
-        try await eventually { await healthy.calls == 1 && rig.lastStats(for: Self.remote) != nil }
+        try await eventually(sourceLocation: #_sourceLocation) { await healthy.calls == 1 && rig.lastStats(for: Self.remote) != nil }
         #expect(await hung.calls == 1)
         rig.clock.fire(Self.interval)
-        try await eventually { await healthy.calls == 2 }
+        try await eventually(sourceLocation: #_sourceLocation) { await healthy.calls == 2 }
     }
 
     @Test func aRequestThatNeverAnswersTimesOutAfterThreeSeconds() async throws {
         let rig = Rig()
         let daemon = rig.connect(.local, replies: [.hang, .stats(cpu: 20)])
         rig.goLive()
-        try await eventually { rig.clock.pending(Self.timeout).count == 1 }
+        try await eventually(sourceLocation: #_sourceLocation) { rig.clock.pending(Self.timeout).count == 1 }
         rig.clock.fire(Self.timeout)
-        try await eventually { rig.clock.pending(Self.interval).count == 1 }
+        try await eventually(sourceLocation: #_sourceLocation) { rig.clock.pending(Self.interval).count == 1 }
         rig.clock.fire(Self.interval)
-        try await eventually { rig.lastStats(for: .local) != nil }
+        try await eventually(sourceLocation: #_sourceLocation) { rig.lastStats(for: .local) != nil }
         #expect(await daemon.calls == 2)
     }
 
@@ -183,16 +184,29 @@ struct LeoMachineStatsPollerTests {
         let rig = Rig()
         rig.connect(.local, replies: [.stats(cpu: 10), .fail, .fail, .fail])
         rig.goLive()
-        try await eventually { rig.lastStats(for: .local) != nil }
+        try await eventually(sourceLocation: #_sourceLocation) { rig.lastStats(for: .local) != nil }
         for _ in 0..<2 {
-            try await eventually { rig.clock.pending(Self.interval).count == 1 }
+            try await eventually(sourceLocation: #_sourceLocation) { rig.clock.pending(Self.interval).count == 1 }
             rig.clock.fire(Self.interval)
         }
-        try await eventually { rig.clock.pending(Self.interval).count == 1 }
+        try await eventually(sourceLocation: #_sourceLocation) { rig.clock.pending(Self.interval).count == 1 }
         // Two misses so far: the last sample is still on screen.
         #expect(rig.lastStats(for: .local)??.cpu?.percent == 10)
         rig.clock.fire(Self.interval)
-        try await eventually { rig.lastStats(for: .local) == .some(nil) }
+        try await eventually(sourceLocation: #_sourceLocation) { rig.lastStats(for: .local) == .some(nil) }
+    }
+
+    @Test func aCancellationWhileNotCancelledCountsAsAMissAndKeepsPolling() async throws {
+        let rig = Rig()
+        let daemon = rig.connect(.local, replies: [.stats(cpu: 10), .cancelled, .stats(cpu: 40)])
+        rig.goLive()
+        try await eventually(sourceLocation: #_sourceLocation) { rig.clock.pending(Self.interval).count == 1 }
+        rig.clock.fire(Self.interval)
+        try await eventually(sourceLocation: #_sourceLocation) { await daemon.calls == 2 }
+        try await eventually(sourceLocation: #_sourceLocation) { rig.clock.pending(Self.interval).count == 1 }
+        #expect(rig.poller.pollingHosts == [.local])
+        rig.clock.fire(Self.interval)
+        try await eventually(sourceLocation: #_sourceLocation) { rig.lastStats(for: .local)??.cpu?.percent == 40 }
     }
 
     @Test func aSuccessResetsTheMissCount() async throws {
@@ -200,10 +214,10 @@ struct LeoMachineStatsPollerTests {
         rig.connect(.local, replies: [.fail, .fail, .stats(cpu: 5), .fail, .fail, .stats(cpu: 6)])
         rig.goLive()
         for _ in 0..<5 {
-            try await eventually { rig.clock.pending(Self.interval).count == 1 }
+            try await eventually(sourceLocation: #_sourceLocation) { rig.clock.pending(Self.interval).count == 1 }
             rig.clock.fire(Self.interval)
         }
-        try await eventually { rig.delivered.count == 2 }
+        try await eventually(sourceLocation: #_sourceLocation) { rig.delivered.count == 2 }
         #expect(rig.delivered.allSatisfy { $0.stats != nil })
     }
 
@@ -216,10 +230,10 @@ struct LeoMachineStatsPollerTests {
         let rig = Rig()
         let daemon = rig.connect(.local, replies: [.stats(cpu: 10), .error(error), .stats(cpu: 30)])
         rig.goLive()
-        try await eventually { rig.clock.pending(Self.interval).count == 1 }
+        try await eventually(sourceLocation: #_sourceLocation) { rig.clock.pending(Self.interval).count == 1 }
         rig.clock.fire(Self.interval)
-        try await eventually { rig.lastStats(for: .local) == .some(nil) }
-        try await eventually { rig.clock.pending(Self.interval).isEmpty }
+        try await eventually(sourceLocation: #_sourceLocation) { rig.lastStats(for: .local) == .some(nil) }
+        try await eventually(sourceLocation: #_sourceLocation) { rig.clock.pending(Self.interval).isEmpty }
         // Visibility flips do not revive it; only a reconnect does.
         rig.poller.setSidebarPollable(false)
         rig.poller.setSidebarPollable(true)
@@ -227,19 +241,19 @@ struct LeoMachineStatsPollerTests {
         #expect(await daemon.calls == 2)
         rig.generations[.local] = 2
         rig.poller.reconcile()
-        try await eventually { await daemon.calls == 3 }
+        try await eventually(sourceLocation: #_sourceLocation) { await daemon.calls == 3 }
     }
 
     @Test func aReconnectDropsTheOldConnectionAndPollsTheNewOne() async throws {
         let rig = Rig()
         let old = rig.connect(.local)
         rig.goLive()
-        try await eventually { await old.calls == 1 }
+        try await eventually(sourceLocation: #_sourceLocation) { await old.calls == 1 }
         let replacement = StatsDaemon(replies: [.stats(cpu: 50)])
         rig.daemons[.local] = replacement
         rig.generations[.local] = 2
         rig.poller.reconcile()
-        try await eventually { await replacement.calls == 1 }
+        try await eventually(sourceLocation: #_sourceLocation) { await replacement.calls == 1 }
         #expect(rig.clock.pending(Self.interval).count == 1)
         #expect(await old.calls == 1)
     }
@@ -248,10 +262,10 @@ struct LeoMachineStatsPollerTests {
         let rig = Rig()
         rig.connect(.local)
         rig.goLive()
-        try await eventually { rig.lastStats(for: .local) != nil }
+        try await eventually(sourceLocation: #_sourceLocation) { rig.lastStats(for: .local) != nil }
         rig.daemons[.local] = nil
         rig.poller.reconcile()
-        try await eventually { rig.clock.pending(Self.interval).isEmpty }
+        try await eventually(sourceLocation: #_sourceLocation) { rig.clock.pending(Self.interval).isEmpty }
         #expect(rig.lastStats(for: .local) == .some(nil))
     }
 
@@ -260,12 +274,12 @@ struct LeoMachineStatsPollerTests {
         rig.connect(.local)
         let remote = rig.connect(Self.remote)
         rig.goLive([.local, Self.remote])
-        try await eventually { rig.clock.pending(Self.interval).count == 2 }
+        try await eventually(sourceLocation: #_sourceLocation) { rig.clock.pending(Self.interval).count == 2 }
         rig.poller.setMachines([.local])
-        try await eventually { rig.clock.pending(Self.interval).count == 1 }
+        try await eventually(sourceLocation: #_sourceLocation) { rig.clock.pending(Self.interval).count == 1 }
         #expect(rig.lastStats(for: Self.remote) == .some(nil))
         rig.clock.fire(Self.interval)
-        try await eventually { rig.clock.pending(Self.interval).count == 1 }
+        try await eventually(sourceLocation: #_sourceLocation) { rig.clock.pending(Self.interval).count == 1 }
         #expect(await remote.calls == 1)
     }
 
@@ -273,9 +287,9 @@ struct LeoMachineStatsPollerTests {
         let rig = Rig()
         let daemon = rig.connect(.local)
         rig.goLive()
-        try await eventually { rig.clock.pending(Self.interval).count == 1 }
+        try await eventually(sourceLocation: #_sourceLocation) { rig.clock.pending(Self.interval).count == 1 }
         rig.poller.stop()
-        try await eventually { rig.clock.pending(Self.interval).isEmpty }
+        try await eventually(sourceLocation: #_sourceLocation) { rig.clock.pending(Self.interval).isEmpty }
         rig.poller.setSidebarPollable(false)
         rig.poller.setSidebarPollable(true)
         #expect(rig.poller.pollingHosts.isEmpty)
@@ -286,17 +300,30 @@ struct LeoMachineStatsPollerTests {
         let rig = Rig()
         rig.connect(.local, replies: [.stats(cpu: nil)])
         rig.goLive()
-        try await eventually { rig.lastStats(for: .local) != nil }
+        try await eventually(sourceLocation: #_sourceLocation) { rig.lastStats(for: .local) != nil }
         let cpu = rig.lastStats(for: .local)??.cpu
         #expect(cpu != nil)
         #expect(cpu?.percent == nil)
     }
 }
 
-/// Re-checks `condition` on the main actor until it holds; the suite's time
-/// limit is the hang guard, as for `until`.
-@MainActor private func eventually(_ condition: @MainActor () async -> Bool) async throws {
-    while !(await condition()) { try await Task.sleep(nanoseconds: 1_000_000) }
+/// Re-checks `condition` on the main actor every millisecond until it holds.
+/// A condition still false at the deadline fails the test at the caller, so a
+/// regression fails fast instead of hanging.
+@MainActor private func eventually(
+    deadline: Duration = .seconds(2),
+    sourceLocation: SourceLocation,
+    _ condition: @MainActor () async -> Bool
+) async throws {
+    let clock = ContinuousClock()
+    let limit = clock.now + deadline
+    while !(await condition()) {
+        guard clock.now < limit else {
+            Issue.record("Condition was not satisfied within \(deadline)", sourceLocation: sourceLocation)
+            throw CancellationError()
+        }
+        try await Task.sleep(nanoseconds: 1_000_000)
+    }
 }
 
 /// A daemon that answers `machineStats` from a script: the last reply repeats.
@@ -305,6 +332,8 @@ actor StatsDaemon: LeoDaemonClient {
         case stats(cpu: Double?)
         case error(LeoDaemonError)
         case fail
+        /// Throws `CancellationError` although nothing cancelled the request.
+        case cancelled
         /// Never answers.
         case hang
     }
@@ -325,6 +354,7 @@ actor StatsDaemon: LeoDaemonClient {
             )
         case .error(let error): throw error
         case .fail: throw LeoDaemonError.transport("boom")
+        case .cancelled: throw CancellationError()
         case .hang:
             try await Task.sleep(nanoseconds: .max)
             throw CancellationError()
