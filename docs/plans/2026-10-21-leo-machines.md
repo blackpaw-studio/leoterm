@@ -314,3 +314,8 @@ Fills are flat, never gradients. The new spec section "Stats style" adds the fol
 - S8: the Stats style control.
 - S9: polling is skipped when the style is off.
 - S10: the iOS meter styles and the Settings row.
+
+## Hand-offs to S3 (from the S2 review)
+- S3 removes the `leo.selectedHost` read/write in `LeoHostSelection`, and calls `LeoMachineDefaultsMigration(defaults:).run()` at launch, before the registry initialises.
+- Every connection shares the single `LeoTunnelOrphanStore` that `LeoRuntime` owns. Separate instances overwrite each other's persisted records.
+- `lastSpawnMachine` stores This Mac as `"localhost"`, matching `LeoHostID.displayName`.
