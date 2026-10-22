@@ -77,11 +77,23 @@ The Leo app treats every configured leo host as a first-class **machine**. All m
 - The spawn sheet gets the machine picker. If iOS has no spawn flow, the plan says so and this item drops.
 - Fleet groups agents by machine when more than one machine is paired.
 
+### Stats style (Mac and iOS)
+- A per-device setting, "Stats style", offers five choices: **Capsules** (the default), **Bars**, **Rings**, **Numbers** and **Off**.
+  - On the Mac it is a segmented control with a live preview, in Settings ▸ Machines.
+  - On iOS it is a Settings row that opens a checkmark list.
+- Off hides every meter and stops stats polling.
+- All meter fills are flat solid colours, never gradients.
+- The approved visuals are in `docs/mockups/2026-10-21-leo-machines/`, approved 2026-10-21:
+  - `istat.html` sets the Mac Capsules look;
+  - `styles.html` covers all five styles, the iOS list layout and the setting control.
+  - Where they differ from `index.html`, they win.
+
 ## Shared code (LeoKit)
 - Stats model plus decoding.
 - Meter threshold mapping.
 - Spawn default-machine resolution.
 - Machine status model.
+- `LeoStatsStyle` enum.
 
 UI and transports stay per platform. The Mac uses an SSH socket; iOS uses HTTPS with bearer and CF Access.
 

@@ -302,3 +302,15 @@ The orchestrator accepted the recommended answer for every one of Q1–Q8:
 - Q8: add `isEnabled`, defaulting to true.
 
 The stats contract amendments are in the spec. They ship in leo v0.57.0.
+
+## Mockup approval (S0 done, 2026-10-21)
+Evan approved:
+- `istat.html` as the Mac Capsules look: 10×20pt capsules, a 20pt header row, and the This Mac hostname moved from the subtitle to the tooltip.
+- `styles.html` for all five meter styles, the iOS list layout and the Stats style setting.
+
+Fills are flat, never gradients. The new spec section "Stats style" adds the following to the existing steps:
+- S1: a `LeoStatsStyle` enum (capsules|bars|rings|numbers|off) with a stored default.
+- S6: one meter view that renders each style.
+- S8: the Stats style control.
+- S9: polling is skipped when the style is off.
+- S10: the iOS meter styles and the Settings row.
