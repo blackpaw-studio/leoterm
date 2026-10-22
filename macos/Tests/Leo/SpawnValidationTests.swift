@@ -20,6 +20,27 @@ struct SpawnValidationTests {
         #expect(SpawnValidation.spawn(template: "swift", repo: "/repo", name: "ok", pathExists: { _ in true }) == nil)
     }
 
+    /// This Mac's paths are checked on disk; another machine's can't be, so only
+    /// their shape is, and the remote daemon reports a missing one on spawn.
+    @Test func thisMacChecksThePathOnDisk() {
+        #expect(SpawnValidation.spawn(template: "swift", repo: "/only/remote", name: nil, on: .local, pathExists: { _ in false }) == "Choose an existing repository")
+        #expect(SpawnValidation.spawn(template: "swift", repo: "/here", name: nil, on: .local, pathExists: { _ in true }) == nil)
+    }
+
+    @Test(arguments: ["/srv/repos/app", "~/code/app", "/"]) func aRemoteMachineAcceptsAPathThatDoesNotExistHere(path: String) {
+        #expect(SpawnValidation.spawn(template: "swift", repo: path, name: nil, on: .remote("work"), pathExists: { _ in false }) == nil)
+    }
+
+    @Test(arguments: ["app", "./app", "../app", "~", "~evan/app", " /srv/app", "/srv/a\u{0}pp", "/srv/a\npp", "/srv/a\rpp"])
+    func aRemoteMachineRejectsAPathOfTheWrongShape(path: String) {
+        #expect(SpawnValidation.spawn(template: "swift", repo: path, name: nil, on: .remote("work"), pathExists: { _ in true }) == "Enter an absolute path or ~/…")
+    }
+
+    @Test func aRemoteMachineStillTakesNoRepository() {
+        #expect(SpawnValidation.spawn(template: "swift", repo: "", name: nil, on: .remote("work"), pathExists: { _ in false }) == nil)
+        #expect(SpawnValidation.spawn(template: "", repo: "/srv/app", name: nil, on: .remote("work"), pathExists: { _ in false }) == "Template is required")
+    }
+
     @Test @MainActor func selectedTemplateMustBeFetched() {
         let list = Just(LeoTemplateListState.loaded([LeoTemplate(name: "swift")])).eraseToAnyPublisher()
         let model = SpawnAgentModel(templateList: list)

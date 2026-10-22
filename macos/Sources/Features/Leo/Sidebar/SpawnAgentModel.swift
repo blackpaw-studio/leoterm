@@ -138,7 +138,7 @@ import LeoKit
         if isWorktree {
             return SpawnValidation.worktree(template: template, repo: repo, branch: branch, name: name.nilIfEmpty)
         }
-        return SpawnValidation.spawn(template: template, repo: repo, name: name.nilIfEmpty)
+        return SpawnValidation.spawn(template: template, repo: repo, name: name.nilIfEmpty, on: machine)
     }
 
     /// No `base`: a worktree branch starts from origin's default branch.

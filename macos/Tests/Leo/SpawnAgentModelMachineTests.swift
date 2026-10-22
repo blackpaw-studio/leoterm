@@ -208,6 +208,49 @@ import Testing
         #expect(harness.remembered == [Self.work])
     }
 
+    @Test func aRemoteRepositoryPathNeedNotExistOnThisMac() {
+        let harness = Harness()
+        harness.setTemplates(["claude"], for: Self.work)
+        let model = harness.model(context: Self.work)
+        model.template = "claude"
+        model.repo = "/srv/only/on/work"
+        #expect(model.validationError == nil)
+
+        model.repo = "relative/path"
+        #expect(model.validationError == "Enter an absolute path or ~/…")
+    }
+
+    @Test func thisMacStillChecksTheRepositoryOnDisk() {
+        let harness = Harness()
+        harness.setTemplates(["claude"], for: .local)
+        let model = harness.model()
+        model.template = "claude"
+        model.repo = "/definitely/not/on/this/mac"
+        #expect(model.validationError == "Choose an existing repository")
+    }
+
+    /// The remote daemon is the one that knows the path is missing; its
+    /// error stays in the sheet, and nothing is remembered.
+    @Test func theRemoteDaemonsMissingPathErrorReachesTheSheet() async {
+        let harness = Harness()
+        harness.setTemplates(["claude"], for: Self.work)
+        let daemon = WorktreeDaemon(error: .daemon(code: "not_found", message: "repo path not found: /srv/gone", matches: []))
+        let actions = LeoAgentActions(
+            clients: FakeMachineClients(daemons: [Self.work: daemon]), cli: .recordingForTests(templates: ["claude"]), model: LeoSidebarModel(),
+            processRunner: LeoRecordingTemplateRunner(templates: ["claude"]), refresh: {})
+        let model = harness.model(context: Self.work)
+        model.template = "claude"
+        model.repo = "/srv/gone"
+        #expect(model.validationError == nil)
+
+        model.spawn(model.request(), actions: actions, attach: { _, _ in }, dismiss: {})
+
+        await awaitCondition { await MainActor.run { model.error != nil } }
+        #expect(model.error == "repo path not found: /srv/gone")
+        #expect(!model.isSpawning)
+        #expect(harness.remembered.isEmpty)
+    }
+
     @Test func aFailedSpawnRemembersNothing() async {
         let harness = Harness()
         let actions = LeoAgentActions(
