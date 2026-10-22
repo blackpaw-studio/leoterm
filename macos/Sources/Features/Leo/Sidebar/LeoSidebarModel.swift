@@ -14,7 +14,7 @@ import LeoKit
     /// Machine field (the sidebar itself reads snapshots).
     @Published private(set) var machineStatuses: [LeoHostID: LeoMachineStatus] = [:]
     /// The latest CPU/memory/disk sample per connected machine.
-    @Published private(set) var machineStats: [LeoHostID: LeoSidebarMachineStats] = [:]
+    @Published private(set) var machineStats: [LeoHostID: LeoMachineStats] = [:]
     @Published var query = ""
     @Published var selection: LeoAgentRow.ID? {
         // A dispatch selection rides on its parent agent: any other
@@ -72,6 +72,8 @@ import LeoKit
     var reconnectRequested: (LeoHostID) -> Void = { _ in }
     var editMachineRequested: (LeoHostID) -> Void = { _ in }
     var newAgentHereRequested: (LeoHostID) -> Void = { _ in }
+    /// Disable in a machine header's menu: saved, and the machine torn down.
+    var disableMachineRequested: (LeoHostID) -> Void = { _ in }
     /// The hint and ssh target behind a machine's failed connection, for
     /// its Open SSH; nil without one.
     var connectionFailureHint: (LeoHostID) -> LeoConnectionFailureHint? = { _ in nil }
@@ -116,10 +118,12 @@ import LeoKit
     var sections: [LeoSidebarSection] { machineSections.flatMap(\.sections) }
 
     /// Rows a person can see, top to bottom: each open machine's visible
-    /// rows in machine order. A filter shows matches in every machine.
+    /// rows in machine order. A filter shows matches in every machine,
+    /// but never in one that is offline: its section stays folded.
     var visibleRows: [LeoAgentRow] {
         let isFiltering = LeoSidebarLayout.isFiltering(query)
         return machineHosts
+            .filter { snapshots[$0]?.connectivity.isOffline != true }
             .filter { isFiltering || !isMachineCollapsed($0) }
             .flatMap { host in
                 LeoSidebarLayout.visibleRows(
@@ -223,7 +227,7 @@ import LeoKit
     }
 
     /// A machine's latest stats sample; nil clears it (no stats to show).
-    func receiveStats(_ stats: LeoSidebarMachineStats?, for host: LeoHostID) {
+    func receiveStats(_ stats: LeoMachineStats?, for host: LeoHostID) {
         guard isShown(host) else { return }
         machineStats[host] = stats
     }

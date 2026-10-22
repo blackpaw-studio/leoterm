@@ -12,7 +12,7 @@ public enum LeoStatsStyle: String, CaseIterable, Sendable {
     public static let `default` = LeoStatsStyle.capsules
 
     /// The per-device `UserDefaults` key holding the chosen style's raw value.
-    public static let defaultsKey = "LeoStatsStyle"
+    public static let defaultsKey = "leo.statsStyle"
 
     /// Reads the persisted raw value; absent or unknown gives the default.
     public init(storedValue: String?) {

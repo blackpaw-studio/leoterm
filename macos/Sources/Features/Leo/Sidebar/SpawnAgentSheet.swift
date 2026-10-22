@@ -11,6 +11,9 @@ struct SpawnAgentSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     private let chooseDirectory: () -> String?
+    @Environment(\.colorScheme) private var colorScheme
+    @AppStorage(LeoStatsStyle.defaultsKey) private var statsStyleRaw = LeoStatsStyle.default.rawValue
+    private var statsStyle: LeoStatsStyle { LeoStatsStyle(storedValue: statsStyleRaw) }
 
     /// `context`: the machine "New Agent Here" was opened from, which the
     /// Machine field starts on when it's reachable. `source`: B-176's "New
@@ -67,9 +70,14 @@ struct SpawnAgentSheet: View {
             model.objectWillChange.send()
         })) {
             ForEach(model.machineOptions) { option in
-                Text(option.detail.map { "\(option.title)  —  \($0)" } ?? option.title)
-                    .tag(option.host)
-                    .disabled(!option.isSelectable)
+                Label {
+                    Text(option.detail.map { "\(option.title)  —  \($0)" } ?? option.title)
+                } icon: {
+                    LeoMachinePickerBadge.image(for: option, style: statsStyle, colorScheme: colorScheme).map { Image(nsImage: $0) }
+                }
+                .labelStyle(.titleAndIcon)
+                .tag(option.host)
+                .disabled(!option.isSelectable)
             }
         }
         .disabled(model.isMachineLocked)

@@ -6,6 +6,8 @@ import LeoKit
 struct SpawnMachineOption: Equatable, Identifiable {
     let host: LeoHostID
     let status: LeoMachineStatus
+    /// The machine's latest stats sample, for the picker row's mini meters.
+    var stats: LeoMachineStats?
 
     var id: LeoHostID { host }
     var isSelectable: Bool { status.isSelectable }
@@ -55,10 +57,12 @@ struct SpawnMachineFeeds {
     /// The sidebar's machines in order. This Mac is always there; a remote
     /// the registry hasn't reported yet is still connecting.
     @MainActor private static func machines(of sidebar: LeoSidebarModel) -> AnyPublisher<[SpawnMachineOption], Never> {
-        Publishers.CombineLatest(sidebar.$machineOrder, sidebar.$machineStatuses)
-            .map { order, statuses in
+        Publishers.CombineLatest3(sidebar.$machineOrder, sidebar.$machineStatuses, sidebar.$machineStats)
+            .map { order, statuses, stats in
                 (order.isEmpty ? [.local] : order).map { host in
-                    SpawnMachineOption(host: host, status: statuses[host] ?? (host == .local ? .connected : .connecting))
+                    SpawnMachineOption(
+                        host: host, status: statuses[host] ?? (host == .local ? .connected : .connecting), stats: stats[host]
+                    )
                 }
             }
             .eraseToAnyPublisher()

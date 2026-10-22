@@ -20,16 +20,15 @@ extension LeoRuntime {
 
     /// The registry's machines changed (launch, or Settings saved). The
     /// model learns them before their feeds can deliver; a machine that
-    /// left loses its feed and client.
+    /// left, or was disabled, loses its feed and client.
     func machinesChanged(_ all: [LeoHostID]) {
-        let shown = feedsRemoteMachines ? all : all.filter { $0 == .local }
+        let shown = all.filter { host in
+            host == .local || (feedsRemoteMachines && machines.configuration(for: host)?.isEnabled != false)
+        }
         let gone = feeds.hosts.filter { !shown.contains($0) }
         model.setMachines(shown)
         feeds.setMachines(shown)
-        for host in gone {
-            clients.unbind(host)
-            connectionSequences[host] = nil
-        }
+        gone.forEach { clients.unbind($0) }
     }
 
     /// A machine connected, failed, was disabled or came back: the spawn
@@ -71,7 +70,8 @@ extension LeoRuntime {
         let connected = host == .local
             ? LeoMachineDaemon(daemon: localDaemon, activitySource: localActivitySource)
             : await remoteDaemon(host, socketPath)
-        guard !isShutDown, connectionSequences[host] == sequence else { return }
+        guard !isShutDown, connectionSequences[host] == sequence,
+              generation == machines.generation(for: host) else { return }
         clients.bind(connected.daemon, host: host, generation: generation)
         actions.hostConnected(host)
         feeds.updateConnection(

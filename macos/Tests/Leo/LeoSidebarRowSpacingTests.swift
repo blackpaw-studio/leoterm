@@ -8,10 +8,11 @@ import Testing
 /// B-275: the sidebar's row rhythm, measured on the real list in a window.
 @MainActor @Suite(.serialized)
 struct LeoSidebarRowSpacingTests {
-    /// Header, alpha, its three dispatches, then (once there is one) the gap
-    /// row, then beta.
-    private static let firstDispatchRow = 2
-    private static let lastDispatchRow = 4
+    /// The machine's header, its Running title, alpha, its three
+    /// dispatches, then beta.
+    private static let alphaRow = 2
+    private static let firstDispatchRow = 3
+    private static let lastDispatchRow = 5
 
     @Test func dispatchRowsSitAtMost24ptApart() async throws {
         let harness = try await SpacingHarness()
@@ -33,7 +34,7 @@ struct LeoSidebarRowSpacingTests {
         let expected = content + 2 * LeoDispatchRowMetrics.listVerticalInset
 
         #expect(abs(expected - 24) < 0.5, "the spec's 24pt one-line row, got \(expected)")
-        #expect(abs(harness.table.rect(ofRow: 1).height - expected) < 0.5)
+        #expect(abs(harness.table.rect(ofRow: Self.alphaRow).height - expected) < 0.5)
         #expect(abs(harness.table.rect(ofRow: harness.table.numberOfRows - 1).height - expected) < 0.5)
     }
 
@@ -44,7 +45,7 @@ struct LeoSidebarRowSpacingTests {
     @Test func theTablesEstimatedRowHeightIsTheOneLineAgentRowHeight() async throws {
         let harness = try await SpacingHarness()
         defer { harness.close() }
-        let rendered = harness.table.rect(ofRow: 1).height
+        let rendered = harness.table.rect(ofRow: Self.alphaRow).height
 
         #expect(abs(harness.table.rowHeight - rendered) < 0.5, "estimated \(harness.table.rowHeight), rendered \(rendered)")
     }
@@ -54,10 +55,10 @@ struct LeoSidebarRowSpacingTests {
         defer { harness.close() }
         let table = harness.table
 
-        try #require(table.numberOfRows == 6, "header, alpha, three dispatches, beta")
+        try #require(table.numberOfRows == 7, "machine header, Running title, alpha, three dispatches, beta")
         let last = table.rect(ofRow: Self.lastDispatchRow)
         #expect(abs(last.height - (LeoDispatchRowMetrics.pitch + LeoDispatchRowMetrics.groupGap)) < 0.5, "rows: \((0..<table.numberOfRows).map { table.rect(ofRow: $0) })")
-        #expect(abs(table.rect(ofRow: 5).minY - last.maxY) < 0.5, "beta follows directly")
+        #expect(abs(table.rect(ofRow: 6).minY - last.maxY) < 0.5, "beta follows directly")
     }
 
     /// Where the content sits, not where the row's bounds are: an enlarged last
@@ -144,7 +145,7 @@ struct LeoSidebarRowSpacingTests {
     func contentFrames() -> (agents: [NSRect], dispatches: [NSRect]) {
         let frames = catcherFrames().sorted { $0.minY < $1.minY }
         let padding = LeoAgentRowMetrics.verticalPadding
-        let agentRows = [1, table.numberOfRows - 1]
+        let agentRows = [2, table.numberOfRows - 1]
         let isAgent = { (frame: NSRect) in agentRows.contains(self.table.row(at: NSPoint(x: frame.midX, y: frame.midY))) }
         let agents = frames.filter(isAgent).map { $0.insetBy(dx: 0, dy: padding) }
         let dispatches = frames.filter { !isAgent($0) && $0.width > 100 }
@@ -180,7 +181,7 @@ struct LeoSidebarRowSpacingTests {
     /// Every row's frame followed by every click catcher's, or nil until the
     /// table has its rows and their content has been laid out.
     private static func layout(of window: NSWindow) -> [NSRect]? {
-        guard let table = views(NSTableView.self, in: window.contentView).first, table.numberOfRows >= 6 else { return nil }
+        guard let table = views(NSTableView.self, in: window.contentView).first, table.numberOfRows >= 7 else { return nil }
         let catchers = views(LeoRowClickCatcherView.self, in: window.contentView).map { $0.convert($0.bounds, to: table) }
         return catchers.count >= 5 ? (0..<table.numberOfRows).map { table.rect(ofRow: $0) } + catchers : nil
     }

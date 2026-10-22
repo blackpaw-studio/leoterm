@@ -27,7 +27,7 @@ import Testing
     }
 
     @Test func theStoredNameIsTheStyleRawValue() {
-        #expect(LeoStatsStyle.defaultsKey == "LeoStatsStyle")
+        #expect(LeoStatsStyle.defaultsKey == "leo.statsStyle")
         #expect(LeoStatsStyle.allCases.map(\.rawValue) == ["capsules", "bars", "rings", "numbers", "off"])
     }
 }

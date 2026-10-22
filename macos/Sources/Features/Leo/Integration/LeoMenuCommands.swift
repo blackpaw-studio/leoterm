@@ -70,10 +70,13 @@ enum LeoMenuCommands {
         hasLeoSession && !machinesToReconnect(machines).isEmpty
     }
 
-    /// The machines ⇧⌘R reconnects: every one whose sidebar would offer
-    /// Retry, in order.
+    /// The machines ⇧⌘R reconnects: every one that isn't connected, in
+    /// order, including one still connecting -- but not one whose Retry is
+    /// already in flight.
     static func machinesToReconnect(_ machines: [(host: LeoHostID, connectivity: LeoConnectivity)]) -> [LeoHostID] {
-        machines.filter { canReconnect(hasLeoSession: true, connectivity: $0.connectivity) }.map(\.host)
+        machines.filter { machine in
+            machine.connectivity == .loading || canReconnect(hasLeoSession: true, connectivity: machine.connectivity)
+        }.map(\.host)
     }
 
     private static func enabled(_ context: AgentContext, _ pick: (LeoRowActionAvailability) -> Bool) -> Bool {

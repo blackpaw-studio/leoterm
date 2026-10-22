@@ -35,10 +35,9 @@ import LeoKit
     let attentionNotifications: LeoAttentionController
     /// One sidebar feed per shown machine.
     let feeds: LeoMachineFeeds
-    /// TODO(S6): whether remote machines are fed (and so shown). Off until
-    /// the sidebar draws a section per machine: its single-machine list
-    /// can't show two machines' sections.
-    nonisolated static let feedsRemoteMachinesByDefault = false
+    /// Whether remote machines are fed (and so shown): every one, unless a
+    /// caller keeps them off.
+    nonisolated static let feedsRemoteMachinesByDefault = true
     let feedsRemoteMachines: Bool
     private var machinesSubscription: AnyCancellable?
     private var machineStatusesSubscription: AnyCancellable?
@@ -75,7 +74,9 @@ import LeoKit
     /// `applyConnected`'s async resource build: a `.failed` published for
     /// the SAME generation as a `.connecting` that's still mid-flavor-
     /// detection would otherwise leave the stale `.connected` build free to
-    /// install over it once its `await` finally resolves.
+    /// install over it once its `await` finally resolves. Never reset, not
+    /// even when the machine leaves: a machine added back must not restart
+    /// the count and let an older build of the same name through.
     var connectionSequences: [LeoHostID: Int] = [:]
     private(set) var isShutDown = false
     /// Runs the one liveness check per wake (D-061); removed with `self`.
@@ -85,6 +86,7 @@ import LeoKit
     #if DEBUG
     private let openFileFixture = LeoOpenFileFixture()
     private var forcedDisconnect: AnyObject?
+    private var machinesFixture: AnyObject?
     #endif
 
     /// Pure composition helper: builds a socket daemon client bound to one
@@ -369,12 +371,16 @@ import LeoKit
             await LeoClearConfirmation.confirm(agent: row.name, in: window)
         })
         model.startRequested = { [weak actions] row, completion in actions?.start(row, completion: completion) }
-        // Agents ▸ Reconnect (Q7): every machine whose sidebar offers Retry.
-        model.retryRequested = { [weak machines, weak model] in
-            LeoMenuCommands.machinesToReconnect(model?.machineConnectivity ?? []).forEach { machines?.reconnect($0) }
-        }
+        // Agents ▸ Reconnect (Q7): every machine that isn't connected,
+        // including one still connecting.
+        model.retryRequested = { [weak machines] in machines?.reconnectUnavailable() }
         model.reconnectRequested = { [weak machines] host in machines?.reconnect(host) }
         model.editMachineRequested = { [weak self] host in self?.presentMachinesSettings(selecting: host) }
+        model.disableMachineRequested = { [weak machines, weak model] host in
+            do { try machines?.setEnabled(host, false) } catch {
+                model?.setPanelError("Couldn't disable \(host.displayName): \(error.localizedDescription)")
+            }
+        }
         model.connectionFailureHint = { [weak machines] host in
             guard let hint = machines?.connectionState(for: host)?.failureHint,
                   let target = machines?.configuration(for: host)?.sshTarget else { return nil }
@@ -446,6 +452,7 @@ import LeoKit
             Task { @MainActor in feeds?.checkLiveness() }
         }
         #if DEBUG
+        if LeoMachinesFixture.isEnabled() { machinesFixture = LeoMachinesFixture.arm(model: model) }
         if let reason = LeoForcedDisconnectFixture.reason() {
             forcedDisconnect = LeoForcedDisconnectFixture.arm(model: model, reason: reason) { [weak feeds] reason in
                 feeds?.disconnect(.local, reason: reason)
