@@ -65,11 +65,6 @@ extension TerminalController {
         LeoAgentMenuSheets(runtime: runtime).presentDelete(row, in: window)
     }
 
-    @IBAction func manageLeoHosts(_ sender: Any?) {
-        guard let runtime = leoRuntime else { return }
-        LeoAgentMenuSheets(runtime: runtime).presentManageHosts(in: window)
-    }
-
     @IBAction func jumpToNextLeoAgentNeedingAttention(_ sender: Any?) {
         guard let leoSession, let runtime = leoRuntime else { return }
         runtime.jumpToNextNeedingAttention(from: leoSession)
@@ -326,16 +321,14 @@ private struct LeoTemplateSelection {
 @MainActor struct LeoAgentMenuSheets {
     let model: LeoSidebarModel
     let actions: LeoAgentActions
-    let machines: LeoMachineRegistry
 
-    init(model: LeoSidebarModel, actions: LeoAgentActions, machines: LeoMachineRegistry) {
+    init(model: LeoSidebarModel, actions: LeoAgentActions) {
         self.model = model
         self.actions = actions
-        self.machines = machines
     }
 
     init(runtime: LeoRuntime) {
-        self.init(model: runtime.model, actions: runtime.actions, machines: runtime.machines)
+        self.init(model: runtime.model, actions: runtime.actions)
     }
 
     func presentRename(_ row: LeoAgentRow, in window: NSWindow?) {
@@ -347,10 +340,6 @@ private struct LeoTemplateSelection {
             rootView: LeoDeleteAgentSheetContainer(row: row, model: model, actions: actions)
         ))
     }
-
-    func presentManageHosts(in window: NSWindow?) {
-        window?.presentLeoSheet(NSHostingController(rootView: LeoHostsSheetContainer(model: machines.makeHostsSheetModel())))
-    }
 }
 
 private struct LeoDeleteAgentSheetContainer: View {
@@ -360,14 +349,5 @@ private struct LeoDeleteAgentSheetContainer: View {
 
     var body: some View {
         LeoDeleteAgentSheet(row: row, actions: actions, error: model.rowErrors[row.id], errorCode: model.rowErrorCodes[row.id])
-    }
-}
-
-private struct LeoHostsSheetContainer: View {
-    @ObservedObject var model: LeoHostsSheetModel
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        LeoHostsSheet(model: model) { dismiss() }
     }
 }

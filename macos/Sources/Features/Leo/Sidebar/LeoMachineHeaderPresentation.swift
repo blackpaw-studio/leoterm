@@ -88,6 +88,7 @@ struct LeoMachineHeaderPresentation: Equatable {
         agentCount = section.sections.reduce(0) { $0 + $1.rows.count }
         attentionCount = section.attentionCount
         let offlineReason: String?
+        isOffline = section.connectivity.isOffline
         switch section.connectivity {
         case .loading:
             dot = .connecting
@@ -106,16 +107,15 @@ struct LeoMachineHeaderPresentation: Equatable {
             offlineReason = reason
             isRetrying = retrying
         }
-        isOffline = offlineReason != nil
         reason = offlineReason.map { LeoConnectionFailurePanel(message: $0, hint: nil).message }
-        isCollapsed = section.isCollapsed || offlineReason != nil
+        isCollapsed = section.isCollapsed || section.connectivity.isOffline
         meters = Self.meters(
             connected: section.connectivity == .connected, style: style, features: section.features,
             stats: section.stats, now: now
         )
     }
 
-    private static func meters(
+    static func meters(
         connected: Bool, style: LeoStatsStyle, features: LeoDaemonFeatures, stats: LeoMachineStats?, now: Date
     ) -> Meters {
         guard style.showsMeters, connected else { return .hidden }

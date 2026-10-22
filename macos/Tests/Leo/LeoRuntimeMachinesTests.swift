@@ -32,10 +32,10 @@ import Testing
         #expect(runtime.model.machineOrder == [.local, .remote("a")])
         #expect(runtime.feeds.hosts == [.local, .remote("a")])
 
-        #expect(runtime.machines.setEnabled(.remote("off"), true))
+        #expect(try runtime.machines.setEnabled(.remote("off"), true))
         #expect(runtime.model.machineOrder == [.local, .remote("a"), .remote("off")])
 
-        #expect(runtime.machines.setEnabled(.remote("a"), false))
+        #expect(try runtime.machines.setEnabled(.remote("a"), false))
         #expect(runtime.model.machineOrder == [.local, .remote("off")])
     }
 
@@ -45,6 +45,20 @@ import Testing
 
         #expect(runtime.model.machineOrder == [.local, .remote("a"), .remote("b")])
         #expect(runtime.feeds.hosts == runtime.model.machineOrder)
+    }
+
+    /// The spawn sheet lists machines from the model, so the runtime mirrors
+    /// the registry's statuses onto it as they change.
+    @Test func theModelMirrorsEveryMachinesStatusForTheSpawnPicker() async throws {
+        let runtime = try makeRuntime(machines: ["a", "b"])
+        defer { runtime.shutdown() }
+        #expect(runtime.model.machineStatuses[.remote("a")] == .connecting)
+
+        start(runtime)
+
+        try await until { @MainActor in
+            runtime.model.machineStatuses[.remote("a")] == .connected && runtime.model.machineStatuses[.local] == .connected
+        }
     }
 
     @Test func aMachineWhoseTunnelDiesLeavesEveryOtherMachinesRowsConnected() async throws {

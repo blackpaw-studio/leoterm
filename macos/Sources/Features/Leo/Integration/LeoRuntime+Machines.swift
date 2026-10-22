@@ -13,6 +13,11 @@ typealias LeoRemoteDaemonFactory = @Sendable (_ host: LeoHostID, _ socketPath: S
 /// Every machine connects on its own: its state transitions reach only its
 /// own feed and client, and This Mac's never moves Chat anywhere.
 extension LeoRuntime {
+    /// Opens Leo Settings on its Machines tab, selecting `host` when given.
+    func presentMachinesSettings(selecting host: LeoHostID? = nil) {
+        settingsWindow.show(selecting: host)
+    }
+
     /// The registry's machines changed (launch, or Settings saved). The
     /// model learns them before their feeds can deliver; a machine that
     /// left, or was disabled, loses its feed and client.
@@ -24,6 +29,13 @@ extension LeoRuntime {
         model.setMachines(shown)
         feeds.setMachines(shown)
         gone.forEach { clients.unbind($0) }
+    }
+
+    /// A machine connected, failed, was disabled or came back: the spawn
+    /// sheet's Machine field reads these off the model, for the machines it
+    /// shows.
+    func machineStatusesChanged(_ statuses: [LeoHostID: LeoMachineStatus]) {
+        model.setMachineStatuses(feedsRemoteMachines ? statuses : statuses.filter { $0.key == .local })
     }
 
     /// Applies one machine's connection-state transition to its feed (and,

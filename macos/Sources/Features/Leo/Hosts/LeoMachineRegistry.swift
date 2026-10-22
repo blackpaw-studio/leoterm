@@ -81,8 +81,28 @@ import LeoKit
 
     /// Nil for a machine that isn't configured.
     func status(for host: LeoHostID) -> LeoMachineStatus? {
+        Self.status(for: host, machines: machines, states: states, configurations: configurations)
+    }
+
+    /// Every machine's status, emitted whenever a machine is added or
+    /// removed, enabled or disabled, or its connection changes.
+    var machineStatuses: AnyPublisher<[LeoHostID: LeoMachineStatus], Never> {
+        Publishers.CombineLatest($machines, $states)
+            .map { [weak self] machines, states in
+                guard let self else { return [:] }
+                return Dictionary(machines.compactMap { host in
+                    Self.status(for: host, machines: machines, states: states, configurations: self.configurations).map { (host, $0) }
+                }, uniquingKeysWith: { first, _ in first })
+            }
+            .eraseToAnyPublisher()
+    }
+
+    private static func status(
+        for host: LeoHostID, machines: [LeoHostID], states: [LeoHostID: LeoHostConnectionState],
+        configurations: [LeoHostConfiguration]
+    ) -> LeoMachineStatus? {
         guard machines.contains(host) else { return nil }
-        if case .remote = host, configuration(for: host)?.isEnabled == false { return .disabled }
+        if case .remote(let name) = host, configurations.first(where: { $0.name == name })?.isEnabled == false { return .disabled }
         switch states[host] ?? .connecting {
         case .connecting: return .connecting
         case .connected: return .connected
@@ -115,20 +135,23 @@ import LeoKit
         generations[host] ?? 0
     }
 
-    /// The Manage Hosts… editor's draft; saving it reloads the machines.
-    /// TODO(S8): replaced by the Machines settings pane.
-    func makeHostsSheetModel() -> LeoHostsSheetModel {
-        LeoHostsSheetModel(store: store) { [weak self] in self?.reload() }
+    /// The Machines settings pane's draft. Saving it reloads only the
+    /// machines whose settings changed; Test Connection never touches a
+    /// live connection.
+    func makeSettingsModel() -> LeoMachinesSettingsModel {
+        LeoMachinesSettingsModel(store: store, tester: LeoMachineConnectionTester(environment: environment)) { [weak self] in
+            self?.reload()
+        }
     }
 
     /// Saves `host` as enabled or disabled and reloads (a header's Disable).
-    /// This Mac, an unknown machine, or a failed save changes nothing and
-    /// returns false.
+    /// This Mac, an unknown machine, or one already in that state changes
+    /// nothing and returns false; a save the store refuses throws.
     @discardableResult
-    func setEnabled(_ host: LeoHostID, _ isEnabled: Bool) -> Bool {
+    func setEnabled(_ host: LeoHostID, _ isEnabled: Bool) throws -> Bool {
         guard let configuration = configuration(for: host), configuration.isEnabled != isEnabled else { return false }
         let updated = configurations.map { $0.id == configuration.id ? $0.settingEnabled(isEnabled) : $0 }
-        do { try store.save(updated) } catch { return false }
+        try store.save(updated)
         reload()
         return true
     }

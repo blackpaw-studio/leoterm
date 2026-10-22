@@ -580,10 +580,10 @@
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="Leo-Agents-Separator-4"/>
-                            <menuItem title="Manage Hosts…" id="Leo-Agents-ManageHosts">
+                            <menuItem title="Machines…" id="Leo-Agents-ManageHosts">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
-                                    <action selector="manageLeoHosts:" target="-1" id="Leo-Agents-ManageHosts-Action"/>
+                                    <action selector="showLeoMachinesSettings:" target="-1" id="Leo-Agents-ManageHosts-Action"/>
                                 </connections>
                             </menuItem>
                             <menuItem title="Reconnect" keyEquivalent="R" id="Leo-Agents-Reconnect">

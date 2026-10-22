@@ -6,10 +6,6 @@ extension LeoStatsStyle {
     /// Bars and Numbers need a second row under the machine's name;
     /// Capsules and Rings fit in the header row.
     var usesSecondRow: Bool { self == .bars || self == .numbers }
-
-    /// The Mac keeps the style in `UserDefaults` under this key; the
-    /// Machines pane writes it.
-    static let defaultsKey = "leo.statsStyle"
 }
 
 private enum LeoMeterMetrics {

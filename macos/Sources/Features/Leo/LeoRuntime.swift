@@ -27,6 +27,8 @@ import LeoKit
     private var unreadOpenSubscriptions: Set<AnyCancellable> = []
     /// Every configured machine, connected at once (This Mac first).
     let machines: LeoMachineRegistry
+    /// Agents ▸ Machines…: the Leo Settings window. ⌘, stays the Ghostty config.
+    private(set) lazy var settingsWindow = LeoSettingsWindowController(registry: machines, defaults: defaults)
     /// Each machine's daemon client, handed to actions and control per row.
     let clients: LeoRegistryMachineClients
     /// Agents ▸ Agent Notifications… policy for background transitions.
@@ -38,6 +40,7 @@ import LeoKit
     nonisolated static let feedsRemoteMachinesByDefault = true
     let feedsRemoteMachines: Bool
     private var machinesSubscription: AnyCancellable?
+    private var machineStatusesSubscription: AnyCancellable?
     /// Every close of a tab, window or the app with unsaved editor edits
     /// asks through this first (B-004).
     let unsavedEditors = LeoUnsavedEditorsGate()
@@ -372,12 +375,12 @@ import LeoKit
         // including one still connecting.
         model.retryRequested = { [weak machines] in machines?.reconnectUnavailable() }
         model.reconnectRequested = { [weak machines] host in machines?.reconnect(host) }
-        // TODO(S8): Edit Machine… opens the Machines settings pane instead.
-        model.editMachineRequested = { [weak self] _ in
-            guard let self else { return }
-            LeoAgentMenuSheets(runtime: self).presentManageHosts(in: NSApp.keyWindow)
+        model.editMachineRequested = { [weak self] host in self?.presentMachinesSettings(selecting: host) }
+        model.disableMachineRequested = { [weak machines, weak model] host in
+            do { try machines?.setEnabled(host, false) } catch {
+                model?.setPanelError("Couldn't disable \(host.displayName): \(error.localizedDescription)")
+            }
         }
-        model.disableMachineRequested = { [weak machines] host in machines?.setEnabled(host, false) }
         model.connectionFailureHint = { [weak machines] host in
             guard let hint = machines?.connectionState(for: host)?.failureHint,
                   let target = machines?.configuration(for: host)?.sshTarget else { return nil }
@@ -432,6 +435,7 @@ import LeoKit
         // Fires at once with today's machines, so the model and feeds know
         // them before any feed delivers (no phantom This Mac section).
         machinesSubscription = machines.$machines.sink { [weak self] in self?.machinesChanged($0) }
+        machineStatusesSubscription = machines.machineStatuses.sink { [weak self] in self?.machineStatusesChanged($0) }
         // B-274: a window's editor and browser follow the row it shows.
         attachCoordinator.onRowShown = { [weak registry] windowID, key in
             registry?.session(for: windowID)?.panes.activate(key)

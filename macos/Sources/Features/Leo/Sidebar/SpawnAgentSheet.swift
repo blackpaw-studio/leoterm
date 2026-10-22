@@ -11,31 +11,28 @@ struct SpawnAgentSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     private let chooseDirectory: () -> String?
+    @AppStorage(LeoStatsStyle.defaultsKey) private var statsStyleRaw = LeoStatsStyle.default.rawValue
+    private var statsStyle: LeoStatsStyle { LeoStatsStyle(storedValue: statsStyleRaw) }
 
-    /// `source`: B-176's "New Agent in Worktree…" -- the row's template,
-    /// host and owner/repo prefilled, and a required new branch.
-    /// `machine`: where a plain spawn runs ("New Agent Here…"), until the
-    /// Machine field (S7) replaces it.
-    init(model: LeoSidebarModel, actions: LeoAgentActions, source: LeoAgentRow? = nil, machine: LeoHostID? = nil,
+    /// `context`: the machine "New Agent Here" was opened from, which the
+    /// Machine field starts on when it's reachable. `source`: B-176's "New
+    /// Agent in Worktree…" -- the row's template, machine and owner/repo
+    /// prefilled, the machine locked, and a required new branch.
+    init(model: LeoSidebarModel, actions: LeoAgentActions, context: LeoHostID? = nil, source: LeoAgentRow? = nil,
          attach: @escaping (LeoAgentRow, AttachDisposition) -> Void,
+         memory: SpawnMachineMemory = SpawnMachineMemory(defaults: .standard),
          chooseDirectory: @escaping () -> String? = SpawnAgentSheet.openPanel) {
         sidebar = model; self.actions = actions; self.attach = attach
-        // Until the Machine field (S7): the source agent's machine, else This Mac.
-        let host = source?.host ?? machine ?? .local
         _model = StateObject(wrappedValue: SpawnAgentModel(
-            templateList: actions.$templateLists.map { $0[host] ?? .loading }.removeDuplicates().eraseToAnyPublisher(),
-            source: source,
-            selectedHost: Just(host).eraseToAnyPublisher(),
-            environmentCatalog: actions.$environmentCatalogs.map { $0[host] ?? .loading }.removeDuplicates().eraseToAnyPublisher(),
-            environmentsSupported: model.$snapshots
-                .map { $0[host]?.features.contains(.agentEnvironments) ?? false }
-                .eraseToAnyPublisher()
+            source: source, context: context, lastUsed: memory.lastUsed,
+            feeds: .live(sidebar: model, actions: actions), remember: memory.remember
         ))
         self.chooseDirectory = chooseDirectory
     }
     var body: some View {
         Form {
             if let source = model.source { worktreeHeader(source) }
+            machineField
             Picker("Template", selection: $model.template) {
                 Text("Choose a template").tag("")
                 ForEach(model.templates) { Text($0.name).tag($0.name) }
@@ -44,7 +41,10 @@ struct SpawnAgentSheet: View {
                 worktreeFields(source)
             } else {
                 LabeledContent("Repository") {
-                    HStack { TextField("", text: $model.repo); Button("Choose…") { choose() } }
+                    HStack {
+                        TextField("", text: $model.repo)
+                        Button("Choose…") { choose() }.disabled(!model.canBrowseRepository)
+                    }
                 }
             }
             TextField("Name", text: $model.name)
@@ -58,6 +58,28 @@ struct SpawnAgentSheet: View {
             ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
             ToolbarItem(placement: .confirmationAction) { Button("Create") { spawn() }.disabled(model.validationError != nil || model.isSpawning) }
         }
+    }
+    /// Unreachable machines are listed, dimmed, with why; a worktree spawn
+    /// shows its source's machine and can't change it.
+    private var machineField: some View {
+        Picker("Machine", selection: Binding(get: { model.machine }, set: { host in
+            model.choose(host)
+            // A pick the model rejected leaves `machine` unchanged and so
+            // publishes nothing: re-read it so the popup snaps back.
+            model.objectWillChange.send()
+        })) {
+            ForEach(model.machineOptions) { option in
+                Label {
+                    Text(option.detail.map { "\(option.title)  —  \($0)" } ?? option.title)
+                } icon: {
+                    LeoMachinePickerBadge.image(for: option, style: statsStyle).map { Image(nsImage: $0) }
+                }
+                .labelStyle(.titleAndIcon)
+                .tag(option.host)
+                .disabled(!option.isSelectable)
+            }
+        }
+        .disabled(model.isMachineLocked)
     }
     /// B-283: prefilled from the template's default; sent only when edited.
     private var environmentsField: some View {
@@ -79,10 +101,9 @@ struct SpawnAgentSheet: View {
         .padding(.bottom, 4)
     }
 
-    /// Host and repository are the source agent's, read-only: the spawn
-    /// runs on that host's daemon against that owner/repo.
+    /// Repository is the source agent's, read-only: the spawn runs on its
+    /// machine's daemon against that owner/repo.
     @ViewBuilder private func worktreeFields(_ source: LeoAgentRow) -> some View {
-        LabeledContent("Host") { Text(source.host.displayName) }
         LabeledContent("Repository") { Text(model.repo).textSelection(.enabled) }
         VStack(alignment: .leading, spacing: 2) {
             TextField("Branch", text: $model.branch, prompt: Text("feature/my-change"))

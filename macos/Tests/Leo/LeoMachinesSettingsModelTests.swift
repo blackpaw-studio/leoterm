@@ -4,21 +4,21 @@ import Testing
 @testable import Ghostty
 @testable import LeoKit
 
-@MainActor struct LeoHostsSheetModelTests {
+@MainActor struct LeoMachinesSettingsModelTests {
     /// Another error's text is untrusted: one line, isolated so implicit
     /// right-to-left text can't reorder the sheet's words.
     @Test func aForeignSaveErrorIsCleanedAndIsolated() {
         struct Foreign: LocalizedError {
             var errorDescription: String? { "\u{05D0}\u{05D1} \n\u{202E}disk” full" }
         }
-        #expect(LeoHostsSheetModel.message(for: Foreign()) == "\u{2068}\u{05D0}\u{05D1} disk\" full\u{2069}")
+        #expect(LeoMachinesSettingsModel.message(for: Foreign()) == "\u{2068}\u{05D0}\u{05D1} disk\" full\u{2069}")
     }
 
     @Test func draftIsIsolatedFromTheStoreUntilSave() {
         let defaults = defaults()
         let store = LeoHostStore(defaults: defaults)
         try? store.save([.init(name: "work", sshTarget: "evan@work")])
-        let model = LeoHostsSheetModel(store: store)
+        let model = LeoMachinesSettingsModel(store: store, tester: IdleTester())
 
         model.updateSelected { .init(id: $0.id, name: "renamed", sshTarget: $0.sshTarget) }
         model.addHost()
@@ -36,8 +36,8 @@ import Testing
         let store = LeoHostStore(defaults: defaults)
         try? store.save([.init(name: "work", sshTarget: "evan@work"), .init(name: "zeta", sshTarget: "evan@zeta")])
 
-        let windowA = LeoHostsSheetModel(store: store)
-        let windowB = LeoHostsSheetModel(store: store)
+        let windowA = LeoMachinesSettingsModel(store: store, tester: IdleTester())
+        let windowB = LeoMachinesSettingsModel(store: store, tester: IdleTester())
 
         // Window A removes "zeta" and saves first.
         windowA.selectedID = windowA.hosts.first { $0.name == "zeta" }?.id
@@ -61,7 +61,7 @@ import Testing
         let defaults = defaults()
         let store = LeoHostStore(defaults: defaults)
         try? store.save([.init(name: "work", sshTarget: "evan@work")])
-        let model = LeoHostsSheetModel(store: store)
+        let model = LeoMachinesSettingsModel(store: store, tester: IdleTester())
 
         model.updateSelected { .init(id: $0.id, name: "renamed", sshTarget: $0.sshTarget) }
         // Cancel = just stop using the model without calling save().
@@ -79,7 +79,7 @@ import Testing
         let defaults = defaults()
         let store = LeoHostStore(defaults: defaults)
         try? store.save([.init(name: "work", sshTarget: "evan@work"), .init(name: "zeta", sshTarget: "evan@zeta")])
-        let model = LeoHostsSheetModel(store: store)
+        let model = LeoMachinesSettingsModel(store: store, tester: IdleTester())
 
         model.selectedID = model.hosts.first { $0.name == "zeta" }?.id
         model.removeSelected()
@@ -93,7 +93,7 @@ import Testing
     @Test func saveWritesThroughTheStoreAndReloadsSorted() {
         let defaults = defaults()
         let store = LeoHostStore(defaults: defaults)
-        let model = LeoHostsSheetModel(store: store)
+        let model = LeoMachinesSettingsModel(store: store, tester: IdleTester())
 
         model.addHost()
         model.updateSelected { .init(id: $0.id, name: "zeta", sshTarget: "evan@zeta") }
@@ -108,7 +108,7 @@ import Testing
     }
 
     @Test func invalidTargetBlocksSaveWithTheRightMessage() {
-        let model = LeoHostsSheetModel(store: LeoHostStore(defaults: defaults()))
+        let model = LeoMachinesSettingsModel(store: LeoHostStore(defaults: defaults()), tester: IdleTester())
         model.addHost()
         model.updateSelected { .init(id: $0.id, name: "work", sshTarget: "") }
 
@@ -118,7 +118,7 @@ import Testing
     }
 
     @Test func duplicateNameBlocksSaveWithTheRightMessage() {
-        let model = LeoHostsSheetModel(store: LeoHostStore(defaults: defaults()))
+        let model = LeoMachinesSettingsModel(store: LeoHostStore(defaults: defaults()), tester: IdleTester())
         model.addHost()
         model.updateSelected { .init(id: $0.id, name: "work", sshTarget: "evan@work-a") }
         model.addHost()
@@ -133,7 +133,7 @@ import Testing
     /// state is a separate, UI-level gate via `isValid`) and surfaces
     /// whatever the store's own validation rejects.
     @Test func storeSaveErrorIsSurfacedInline() {
-        let model = LeoHostsSheetModel(store: LeoHostStore(defaults: defaults()))
+        let model = LeoMachinesSettingsModel(store: LeoHostStore(defaults: defaults()), tester: IdleTester())
         model.hosts = [LeoHostConfiguration(name: "work", sshTarget: "@-bad")]
         model.selectedID = model.hosts.first?.id
 
@@ -146,4 +146,9 @@ import Testing
     private func defaults() -> UserDefaults {
         LeoInMemoryDefaults()
     }
+}
+
+/// For tests that never press Test Connection.
+struct IdleTester: LeoMachineConnectionTesting {
+    func test(_ configuration: LeoHostConfiguration) async -> LeoConnectionTestReport { .sshFailed("not used") }
 }

@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import SystemConfiguration
 import LeoKit
 
 /// A named group of rows for the sidebar's `List`, keyed by status. Rows
@@ -181,7 +182,7 @@ struct LeoSidebarView: View {
             }
         }
         .sheet(item: $spawnMachine) { item in
-            SpawnAgentSheet(model: model, actions: actions, machine: item.host) { row, disposition in
+            SpawnAgentSheet(model: model, actions: actions, context: item.host) { row, disposition in
                 model.requestAttach(row, from: windowID, disposition: disposition)
             }
         }
@@ -234,8 +235,10 @@ struct LeoSidebarView: View {
 
     private var statsStyle: LeoStatsStyle { LeoStatsStyle(storedValue: statsStyleRaw) }
 
-    /// The Mac's name for the hover on This Mac's header.
-    private static let hostName = Host.current().localizedName ?? "This Mac"
+    /// The Mac's name for the hover on This Mac's header. Read once from
+    /// the system configuration store, which never waits on a name lookup
+    /// the way `Host` can.
+    private static let hostName = SCDynamicStoreCopyComputerName(nil, nil) as String? ?? "This Mac"
 
     /// Whether the window has shells: while it does, the list stays
     /// mounted, whatever the filter or the agents are doing (B-148).
