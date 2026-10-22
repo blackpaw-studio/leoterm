@@ -18,36 +18,43 @@ extension LeoSidebarModel {
     /// Whether `dispatch` may be selected and opened: connected, the
     /// daemon advertised `dispatch_attach`, and it says this one is
     /// attachable.
-    func isDispatchSelectable(_ dispatch: LeoDispatch) -> Bool {
-        !isDisconnected && daemonFeatures.contains(.dispatchAttach) && dispatch.attachable
+    func isDispatchSelectable(_ dispatch: LeoDispatch, host: LeoHostID) -> Bool {
+        !isDisconnected(host) && features(for: host).contains(.dispatchAttach) && dispatch.attachable
     }
+
+    /// TODO(S5): single-feed; pass the dispatch's machine.
+    func isDispatchSelectable(_ dispatch: LeoDispatch) -> Bool { isDispatchSelectable(dispatch, host: primaryHost) }
 
     /// Whether a click on `dispatch`'s row does anything: it is
     /// selectable, or (B-271) the daemon can't attach to it but reported
     /// the pane its viewer sits in, in its caller's own tmux session.
     /// Such a row is clicked, never selected.
-    func isDispatchClickable(_ dispatch: LeoDispatch) -> Bool {
-        isDispatchSelectable(dispatch) || viewerPane(dispatch) != nil
+    func isDispatchClickable(_ dispatch: LeoDispatch, host: LeoHostID) -> Bool {
+        isDispatchSelectable(dispatch, host: host) || viewerPane(dispatch, host: host) != nil
     }
+
+    /// TODO(S5): single-feed; pass the dispatch's machine.
+    func isDispatchClickable(_ dispatch: LeoDispatch) -> Bool { isDispatchClickable(dispatch, host: primaryHost) }
 
     /// The reported viewer pane of a live dispatch the daemon can't attach
     /// to, under the same gate as attaching (connected, `dispatch_attach`).
     /// B-272: a daemon with live placement that says the viewer sits in the
     /// background reports a pane in `leo-dispatch`, not the caller's
     /// session, so there is nothing here to bring forward.
-    private func viewerPane(_ dispatch: LeoDispatch) -> String? {
-        guard !isDisconnected, daemonFeatures.contains(.dispatchAttach), !dispatch.attachable, dispatch.isLive else {
+    private func viewerPane(_ dispatch: LeoDispatch, host: LeoHostID) -> String? {
+        let features = features(for: host)
+        guard !isDisconnected(host), features.contains(.dispatchAttach), !dispatch.attachable, dispatch.isLive else {
             return nil
         }
-        if daemonFeatures.contains(.dispatchPlacementLive), dispatch.viewerKind == .background { return nil }
+        if features.contains(.dispatchPlacementLive), dispatch.viewerKind == .background { return nil }
         return dispatch.tmuxTarget
     }
 
     /// The agent row a non-attachable dispatch sits under, with the pane
     /// its viewer was reported in.
     func callerPaneTarget(_ ref: LeoDispatchRef) -> (row: LeoAgentRow, pane: String)? {
-        for row in snapshot.rows where row.host == ref.host {
-            if let node = dispatchChildren(for: row).first(where: { $0.id == ref.id }), let pane = viewerPane(node.dispatch) {
+        for row in rows where row.host == ref.host {
+            if let node = dispatchChildren(for: row).first(where: { $0.id == ref.id }), let pane = viewerPane(node.dispatch, host: ref.host) {
                 return (row, pane)
             }
         }
@@ -178,8 +185,8 @@ extension LeoSidebarModel {
     }
 
     func dispatchTarget(_ ref: LeoDispatchRef) -> (row: LeoAgentRow, node: LeoDispatchNode)? {
-        for row in snapshot.rows where row.host == ref.host {
-            if let node = dispatchChildren(for: row).first(where: { $0.id == ref.id }), isDispatchSelectable(node.dispatch) {
+        for row in rows where row.host == ref.host {
+            if let node = dispatchChildren(for: row).first(where: { $0.id == ref.id }), isDispatchSelectable(node.dispatch, host: ref.host) {
                 return (row, node)
             }
         }

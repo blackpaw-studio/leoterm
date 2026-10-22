@@ -422,7 +422,7 @@ struct LeoSidebarView: View {
         let disclosure = item.hasChildren
             ? LeoDispatchRowView.Disclosure(isCollapsed: item.isCollapsed) { model.toggleDispatchCollapsed(ref) }
             : nil
-        if model.isDispatchSelectable(item.node.dispatch) {
+        if model.isDispatchSelectable(item.node.dispatch, host: row.host) {
             LeoDispatchRowView(
                 node: item.node,
                 click: { model.dispatchClicked(ref, modifierFlags: $0, clickCount: $1, from: windowID) },
@@ -432,7 +432,7 @@ struct LeoSidebarView: View {
             )
             .tag(Optional(LeoSidebarItemID.dispatch(ref)))
             .id(LeoSidebarItemID.dispatch(ref))
-        } else if model.isDispatchClickable(item.node.dispatch) {
+        } else if model.isDispatchClickable(item.node.dispatch, host: row.host) {
             // Viewed in its caller's own tmux session (B-271): a click
             // brings that window forward and goes to the caller; untagged,
             // so never selected.
