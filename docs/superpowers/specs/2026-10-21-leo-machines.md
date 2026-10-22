@@ -65,6 +65,10 @@ The Leo app treats every configured leo host as a first-class **machine**. All m
   - `cpu.percent` is `null` and the baseline resets when the previous sample is more than 60s old.
   - Disk is measured with statfs on the state directory: `used = total − f_bavail·bsize`, and `path` is the state directory itself.
   - On Linux, if MemAvailable is missing, memory falls back to MemFree + Buffers + Cached.
+  - The response is wrapped in the standard envelope `{"ok":true,"data":{…}}`.
+  - The `machine_stats` flag is listed in the `/events` hello features, not in `/health`.
+  - A 503 `machine_stats_unavailable` response renders as "no stats".
+  - Web errors: 401 means no token; 403 means an API-client token.
 - The app polls each connected machine every 5s while the sidebar is visible and the app is active, and stops polling otherwise. iOS polls only while its machine list is on screen.
 - The leo agent owns the daemon half. The contract above goes to it as the spec section to implement.
 
