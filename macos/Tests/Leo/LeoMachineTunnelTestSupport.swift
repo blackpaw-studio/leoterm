@@ -4,14 +4,15 @@ import Testing
 @testable import Ghostty
 @testable import LeoKit
 
-/// Shared helpers for `LeoHostSelectionTests`/`LeoHostSelectionRaceTests`.
-enum LeoHostSelectionTestSupport {
+/// Shared helpers for the suites that run real tunnels against
+/// `fake_ssh.py`, and the sockets every Leo test shares.
+enum LeoMachineTunnelTestSupport {
     static let localSocketPath = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath
 
     /// Tests never touch the real `~/.leo/state/leoterm` or per-user cache
     /// directory -- that's production data. They share this directory
-    /// instead, injected through `LeoHostSelection`'s socket-directory
-    /// parameters; sharing it across one process's tests is safe because
+    /// instead, injected through `LeoMachineConnectionEnvironment`'s
+    /// socket-directory parameters; sharing it across one process's tests is safe because
     /// `LeoControlSocketDirectory.prepare` is idempotent and every host
     /// configuration has its own id. It is unique to this test process
     /// (B-032): a fixed path is shared by every run and parallel worker, so
@@ -37,42 +38,48 @@ enum LeoHostSelectionTestSupport {
     /// 27 bytes, like `makeIsolatedSocketDirectory`'s paths.
     static let socketDirectoryReservation = LeoReservedTestDirectory(template: "/tmp/leoterm-tests-XXXXXXXX")
 
-    @MainActor static func makeSelection(
+    /// A registry over real `LeoTunnel`s running `fake_ssh.py` (invoked
+    /// directly via its shebang, so the exact argv `LeoSSHCommand` builds is
+    /// what runs). Failed machines never retry: the retry sleep never fires.
+    @MainActor static func makeRegistry(
         hosts: [LeoHostConfiguration] = [],
         transport: any LeoDaemonTransport = LeoAlwaysHealthyTransport(),
         runner: any LeoProcessRunning = LeoProcessRunner(),
         defaults: UserDefaults? = nil,
-        orphanStore: LeoTunnelOrphanStore? = nil,
         localSocketDirectory: URL = localSocketDirectory,
         sshExecutable: URL = LeoTunnelTestSupport.fixtureURL(),
-        controlSocketInstance: String = LeoHostSelection.defaultControlSocketInstance,
+        controlSocketInstance: String = LeoMachineConnectionEnvironment.defaultControlSocketInstance,
         controlSocketDirectory: URL? = nil,
         controlSocketOwner: uid_t = geteuid()
-    ) -> LeoHostSelection {
+    ) -> LeoMachineRegistry {
         let defaults = defaults ?? LeoInMemoryDefaults()
         if let data = try? JSONEncoder().encode(hosts) { defaults.set(data, forKey: LeoHostStore.key) }
-        return LeoHostSelection(
+        let sleeper = LeoManualSleeper()
+        return LeoMachineRegistry(
             store: LeoHostStore(defaults: defaults),
-            defaults: defaults,
-            runner: runner,
-            sshExecutable: sshExecutable,
-            transport: transport,
-            orphanStore: orphanStore,
-            localSocketPath: localSocketPath,
-            legacySocketDirectory: localSocketDirectory,
-            // Holds the forwarded and control sockets; the legacy directory
-            // unless a test says otherwise: never the real per-user cache
-            // directory.
-            controlSocketDirectory: controlSocketDirectory ?? localSocketDirectory,
-            controlSocketInstance: controlSocketInstance,
-            controlSocketOwner: controlSocketOwner
+            environment: LeoMachineConnectionEnvironment(
+                orphanStore: LeoTunnelOrphanStore(defaults: defaults, legacySocketDirectory: localSocketDirectory),
+                runner: runner,
+                sshExecutable: sshExecutable,
+                transport: transport,
+                localSocketPath: localSocketPath,
+                legacySocketDirectory: localSocketDirectory,
+                // Holds the forwarded and control sockets; the legacy
+                // directory unless a test says otherwise: never the real
+                // per-user cache directory.
+                controlSocketDirectory: controlSocketDirectory ?? localSocketDirectory,
+                controlSocketInstance: controlSocketInstance,
+                controlSocketOwner: controlSocketOwner
+            ),
+            sleep: { try await sleeper.sleep($0) },
+            activationCenter: NotificationCenter()
         )
     }
 
     static func expectedLocalSocketPath(
         _ configuration: LeoHostConfiguration,
         in directory: URL = localSocketDirectory,
-        instance: String = LeoHostSelection.defaultControlSocketInstance
+        instance: String = LeoMachineConnectionEnvironment.defaultControlSocketInstance
     ) -> String {
         directory.appendingPathComponent(configuration.tunnelSocketFileName(instance: instance)).path
     }
@@ -82,7 +89,7 @@ enum LeoHostSelectionTestSupport {
     static func expectedControlPath(
         _ configuration: LeoHostConfiguration,
         in directory: URL = localSocketDirectory,
-        instance: String = LeoHostSelection.defaultControlSocketInstance
+        instance: String = LeoMachineConnectionEnvironment.defaultControlSocketInstance
     ) -> String {
         directory.appendingPathComponent(configuration.controlSocketFileName(instance: instance)).path
     }
@@ -133,20 +140,25 @@ enum LeoHostSelectionTestSupport {
         return try readPID(path)
     }
 
-    @MainActor static func awaitConnected(_ selection: LeoHostSelection, _ path: String) async {
-        await awaitCondition(message: "never reached .connected(\(path))") {
-            await selection.state == .connected(socketPath: path)
+    @MainActor static func awaitConnected(_ registry: LeoMachineRegistry, _ host: LeoHostID, _ path: String) async {
+        await awaitCondition(message: "\(host) never reached .connected(\(path))") {
+            await registry.connectionState(for: host) == .connected(socketPath: path)
         }
     }
 
-    @MainActor static func awaitFailed(_ selection: LeoHostSelection) async {
-        await awaitCondition(message: "never reached .failed") {
-            let state = await selection.state
-            return isFailed(state)
+    @MainActor static func awaitFailed(_ registry: LeoMachineRegistry, _ host: LeoHostID) async {
+        await awaitCondition(message: "\(host) never reached .failed") {
+            await isFailed(registry.connectionState(for: host))
         }
     }
 
-    static func isFailed(_ state: LeoHostConnectionState) -> Bool {
+    /// `host`'s failure message and hint, if it failed.
+    @MainActor static func failure(_ registry: LeoMachineRegistry, _ host: LeoHostID) -> (message: String, hint: String?)? {
+        guard case .failed(let message, let hint) = registry.connectionState(for: host) else { return nil }
+        return (message, hint)
+    }
+
+    static func isFailed(_ state: LeoHostConnectionState?) -> Bool {
         if case .failed = state { return true }
         return false
     }
@@ -202,22 +214,5 @@ actor LeoFakeHomeRunner: LeoProcessRunning {
     func run(executable: String, arguments: [String], timeout _: TimeInterval) async throws -> LeoProcessResult {
         calls.append((executable, arguments))
         return LeoProcessResult(stdout: Data(stdout.utf8), stderr: Data(), status: 0)
-    }
-}
-
-extension LeoHostSelection {
-    /// A selection on its own in-memory defaults (or `defaults`), for
-    /// tests that need one to inject: its sockets live in the shared test
-    /// directory, never the real per-user cache directory (B-032).
-    @MainActor static func isolatedForTesting(defaults: UserDefaults? = nil) -> LeoHostSelection {
-        let defaults = defaults ?? LeoInMemoryDefaults()
-        let directory = LeoHostSelectionTestSupport.localSocketDirectory
-        return LeoHostSelection(
-            store: LeoHostStore(defaults: defaults),
-            defaults: defaults,
-            orphanStore: LeoTunnelOrphanStore(defaults: defaults, legacySocketDirectory: directory),
-            legacySocketDirectory: directory,
-            controlSocketDirectory: directory
-        )
     }
 }

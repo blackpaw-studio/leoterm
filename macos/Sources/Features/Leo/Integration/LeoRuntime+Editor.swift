@@ -29,7 +29,8 @@ extension LeoRuntime {
         if let row = model.selectedRow {
             return LeoEditorAgentContext(host: row.host, name: row.name, workspace: row.workspace)
         }
-        return LeoEditorAgentContext(host: hostSelection.selected, name: nil, workspace: nil)
+        // No agent: This Mac's files.
+        return LeoEditorAgentContext(host: .local, name: nil, workspace: nil)
     }
 
     /// Opens `text` for `agent` in `session`'s pane; failures get a sheet.
@@ -113,7 +114,7 @@ extension LeoRuntime {
     /// The daemon's current row for the agent (its workspace may have been
     /// reported after the attach), falling back to what the attach knew.
     func editorContext(for identity: LeoAgentIdentity) -> LeoEditorAgentContext {
-        let row = model.snapshot.rows.first { $0.host == identity.host && $0.name == identity.name }
+        let row = model.snapshot(for: identity.host)?.rows.first { $0.name == identity.name }
         return LeoEditorAgentContext(host: identity.host, name: identity.name, workspace: row?.workspace ?? identity.workspace)
     }
 }

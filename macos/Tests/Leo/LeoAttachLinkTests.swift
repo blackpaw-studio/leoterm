@@ -178,13 +178,15 @@ import Testing
         #expect(focusRequests.isEmpty)
     }
 
-    @Test func switchingHostsBackReselectsTheFocusedRow() {
+    /// The focused row leaves its machine's list (a reconnect's empty
+    /// list) and comes back: it is selected again.
+    @Test func aFocusedRowThatComesBackIsReselected() {
         let model = makeModel()
         model.receiveAttachLinks(LeoAttachLinkState(focused: id(local), attachCounts: [id(local): 1]))
-        model.receive(LeoSidebarSnapshot(rows: [row(remote)], connectivity: .connected, generation: 2))
+        model.receive(LeoSidebarSnapshot(rows: [], connectivity: .connected, generation: 2), for: .local)
         #expect(model.selection == nil)
 
-        model.receive(LeoSidebarSnapshot(rows: [row(local), row(other)], connectivity: .connected, generation: 3))
+        model.receive(LeoSidebarSnapshot(rows: [row(local), row(other)], connectivity: .connected, generation: 3), for: .local)
 
         #expect(model.selection == id(local))
     }
@@ -194,7 +196,7 @@ import Testing
         model.receiveAttachLinks(LeoAttachLinkState(focused: id(local), attachCounts: [id(local): 1]))
         model.selection = id(other)
 
-        model.receive(LeoSidebarSnapshot(rows: [row(local), row(other)], connectivity: .connected, generation: 2))
+        model.receive(LeoSidebarSnapshot(rows: [row(local), row(other)], connectivity: .connected, generation: 2), for: .local)
 
         #expect(model.selection == id(other))
     }

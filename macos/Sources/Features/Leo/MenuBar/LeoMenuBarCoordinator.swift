@@ -80,7 +80,8 @@ import LeoKit
     private func menuInputs() -> LeoMenuBarInputs {
         let managed = managed()
         return LeoMenuBarInputs(
-            snapshot: model.snapshot,
+            // Q5: the status item reports on This Mac's daemon only.
+            snapshot: model.snapshot(for: .local) ?? LeoSidebarSnapshot(rows: [], connectivity: .loading, generation: 0),
             version: managed.version, isManaged: managed.isManaged, isOutsideDaemon: managed.isOutsideDaemon,
             serverOnly: serverMode.isServerOnly, isRestarting: isRestarting,
             hasLogFile: fileManager.fileExists(atPath: Self.logURL().path)
@@ -103,7 +104,7 @@ import LeoKit
     }
 
     private func attach(_ id: LeoAgentRow.ID) {
-        guard let row = model.snapshot.rows.first(where: { $0.id == id }), let origin = windowID() else { return }
+        guard let row = model.snapshot(for: .local)?.rows.first(where: { $0.id == id }), let origin = windowID() else { return }
         model.attachRequested(row, origin, .content)
     }
 

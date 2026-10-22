@@ -14,7 +14,14 @@ struct LeoPlaceholderChooseAgent: Equatable {
     var isProminent: Bool { isEnabled }
 
     init(host: LeoHostID, connectivity: LeoConnectivity, shortcut: String?, reconnectShortcut: String?) {
-        if let banner = LeoDisconnectedBanner(host: host, connectivity: connectivity) {
+        self.init(machines: [(host, connectivity)], shortcut: shortcut, reconnectShortcut: reconnectShortcut)
+    }
+
+    /// Every shown machine, This Mac first (Q3): enabled while any machine
+    /// is connected; otherwise This Mac's state decides.
+    init(machines: [(host: LeoHostID, connectivity: LeoConnectivity)], shortcut: String?, reconnectShortcut: String?) {
+        let anyConnected = machines.contains { $0.connectivity == .connected }
+        if !anyConnected, let deciding = machines.first, let banner = LeoDisconnectedBanner(host: deciding.host, connectivity: deciding.connectivity) {
             isEnabled = false
             help = "\(banner.title). Reconnect first\(reconnectShortcut.map { " (\($0))" } ?? "")."
         } else {

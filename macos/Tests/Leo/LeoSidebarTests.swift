@@ -104,7 +104,7 @@ struct LeoSidebarTests {
         let model = LeoSidebarModel(snapshot: .init(rows: [first], connectivity: .connected, generation: 0))
         model.selection = first.id
         model.query = "swift"
-        model.receive(.init(rows: [first], connectivity: .connected, generation: 1))
+        model.receive(.init(rows: [first], connectivity: .connected, generation: 1), for: .local)
         #expect(model.selection == first.id)
         #expect(model.visibleRows == [first])
     }
@@ -114,11 +114,11 @@ struct LeoSidebarTests {
         let newer = row("newer")
         let older = row("older")
 
-        model.receive(.init(rows: [newer], connectivity: .connected, generation: 2))
-        model.receive(.init(rows: [older], connectivity: .connected, generation: 1))
+        model.receive(.init(rows: [newer], connectivity: .connected, generation: 2), for: .local)
+        model.receive(.init(rows: [older], connectivity: .connected, generation: 1), for: .local)
 
-        #expect(model.snapshot.generation == 2)
-        #expect(model.snapshot.rows == [newer])
+        #expect(model.snapshot(for: .local)?.generation == 2)
+        #expect(model.snapshot(for: .local)?.rows == [newer])
     }
 
     @Test @MainActor func windowSessionDefaultsToHiddenSidebarOnFreshInstall() {

@@ -15,14 +15,13 @@ struct LeoTunnelSocketPathTests {
 
     @MainActor @Test func aLongHomeDirectoryStillYieldsAUsableTunnelSocketPath() throws {
         let home = "/Users/" + String(repeating: "h", count: 80)
-        let defaults = LeoInMemoryDefaults()
-        let selection = LeoHostSelection(
-            store: LeoHostStore(defaults: defaults),
-            defaults: defaults,
-            legacySocketDirectory: URL(fileURLWithPath: home + "/.leo/state/leoterm", isDirectory: true)
+        let legacy = URL(fileURLWithPath: home + "/.leo/state/leoterm", isDirectory: true)
+        let environment = LeoMachineConnectionEnvironment(
+            orphanStore: LeoTunnelOrphanStore(defaults: LeoInMemoryDefaults(), legacySocketDirectory: legacy),
+            legacySocketDirectory: legacy
         )
 
-        let path = selection.tunnelSocketPath(for: configuration)
+        let path = environment.tunnelSocketPath(for: configuration)
 
         #expect(!path.hasPrefix(home))
         #expect(throws: Never.self) {
@@ -49,19 +48,17 @@ struct LeoTunnelSocketPathTests {
     @MainActor @Test func theTunnelListensInTheControlSocketDirectory() async throws {
         let (legacy, control) = Self.makeDirectories()
         defer { Self.remove(legacy, control) }
-        let selection = LeoHostSelectionTestSupport.makeSelection(
+        let registry = LeoMachineTunnelTestSupport.makeRegistry(
             hosts: [configuration], localSocketDirectory: legacy, controlSocketDirectory: control
         )
-        await selection.start(flavor: .socketEvents)
-
-        selection.select(.remote("work"))
+        registry.start(flavor: .socketEvents)
 
         let expected = control.appendingPathComponent(
-            configuration.tunnelSocketFileName(instance: LeoHostSelection.defaultControlSocketInstance)
+            configuration.tunnelSocketFileName(instance: LeoMachineConnectionEnvironment.defaultControlSocketInstance)
         ).path
-        await LeoHostSelectionTestSupport.awaitConnected(selection, expected)
+        await LeoMachineTunnelTestSupport.awaitConnected(registry, .remote("work"), expected)
         #expect(Self.mode(control) == 0o700)
-        selection.shutdown()
+        registry.shutdown()
     }
 
     /// Another user's socket at the path could be a fake daemon: never
@@ -70,38 +67,34 @@ struct LeoTunnelSocketPathTests {
         let (legacy, control) = Self.makeDirectories()
         defer { Self.remove(legacy, control) }
         try FileManager.default.createDirectory(at: control, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
-        let selection = LeoHostSelectionTestSupport.makeSelection(
+        let registry = LeoMachineTunnelTestSupport.makeRegistry(
             hosts: [configuration], localSocketDirectory: legacy, controlSocketDirectory: control, controlSocketOwner: geteuid() + 1
         )
-        let path = selection.tunnelSocketPath(for: configuration)
+        let path = registry.environment.tunnelSocketPath(for: configuration)
         let listener = try LeoTestUnixSocket.bind(path, listening: true)
         defer { close(listener) }
-        await selection.start(flavor: .socketEvents)
+        registry.start(flavor: .socketEvents)
 
-        selection.select(.remote("work"))
-
-        await LeoHostSelectionTestSupport.awaitFailed(selection)
-        #expect(Self.failureMessage(selection).contains("another user"))
+        await LeoMachineTunnelTestSupport.awaitFailed(registry, .remote("work"))
+        #expect(Self.failureMessage(registry).contains("another user"))
         #expect(LeoControlSocket.inspect(path) == .live)
-        selection.shutdown()
+        registry.shutdown()
     }
 
     @MainActor @Test func aFileAtTheTunnelPathIsLeftAlone() async throws {
         let (legacy, control) = Self.makeDirectories()
         defer { Self.remove(legacy, control) }
         try FileManager.default.createDirectory(at: control, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
-        let selection = LeoHostSelectionTestSupport.makeSelection(
+        let registry = LeoMachineTunnelTestSupport.makeRegistry(
             hosts: [configuration], localSocketDirectory: legacy, controlSocketDirectory: control
         )
-        let path = selection.tunnelSocketPath(for: configuration)
+        let path = registry.environment.tunnelSocketPath(for: configuration)
         try Data("keep".utf8).write(to: URL(fileURLWithPath: path))
-        await selection.start(flavor: .socketEvents)
+        registry.start(flavor: .socketEvents)
 
-        selection.select(.remote("work"))
-
-        await LeoHostSelectionTestSupport.awaitFailed(selection)
+        await LeoMachineTunnelTestSupport.awaitFailed(registry, .remote("work"))
         #expect(try String(contentsOfFile: path, encoding: .utf8) == "keep")
-        selection.shutdown()
+        registry.shutdown()
     }
 
     /// A parent others can rewrite could have the checked directory swapped.
@@ -110,17 +103,15 @@ struct LeoTunnelSocketPathTests {
         defer { Self.remove(legacy, parent) }
         try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: false)
         #expect(chmod(parent.path, 0o777) == 0)
-        let selection = LeoHostSelectionTestSupport.makeSelection(
+        let registry = LeoMachineTunnelTestSupport.makeRegistry(
             hosts: [configuration], localSocketDirectory: legacy,
             controlSocketDirectory: parent.appendingPathComponent("leo", isDirectory: true)
         )
-        await selection.start(flavor: .socketEvents)
+        registry.start(flavor: .socketEvents)
 
-        selection.select(.remote("work"))
-
-        await LeoHostSelectionTestSupport.awaitFailed(selection)
-        #expect(Self.failureMessage(selection).contains("not private"))
-        selection.shutdown()
+        await LeoMachineTunnelTestSupport.awaitFailed(registry, .remote("work"))
+        #expect(Self.failureMessage(registry).contains("not private"))
+        registry.shutdown()
     }
 
     /// Upgrading leaves the old location's socket behind; a dead one is
@@ -138,20 +129,19 @@ struct LeoTunnelSocketPathTests {
         let listener = try LeoTestUnixSocket.bind(live, listening: true)
         defer { close(listener) }
         try Data("keep".utf8).write(to: URL(fileURLWithPath: file))
-        let selection = LeoHostSelectionTestSupport.makeSelection(
+        let registry = LeoMachineTunnelTestSupport.makeRegistry(
             hosts: [configuration, other, third], localSocketDirectory: legacy, controlSocketDirectory: control
         )
-        await selection.start(flavor: .socketEvents)
+        registry.start(flavor: .socketEvents)
 
         for host in [other, third, configuration] {
-            selection.select(.remote(host.name))
-            await LeoHostSelectionTestSupport.awaitConnected(selection, selection.tunnelSocketPath(for: host))
+            await LeoMachineTunnelTestSupport.awaitConnected(registry, .remote(host.name), registry.environment.tunnelSocketPath(for: host))
         }
 
         #expect(LeoControlSocket.inspect(stale) == .absent)
         #expect(LeoControlSocket.inspect(live) == .live)
         #expect(try String(contentsOfFile: file, encoding: .utf8) == "keep")
-        selection.shutdown()
+        registry.shutdown()
     }
 
     /// The OS can purge the directory under a running tunnel: the error
@@ -169,16 +159,15 @@ struct LeoTunnelSocketPathTests {
     }
 
     private static func makeDirectories() -> (legacy: URL, control: URL) {
-        (LeoHostSelectionTestSupport.makeIsolatedSocketDirectory(), LeoHostSelectionTestSupport.makeIsolatedSocketDirectory())
+        (LeoMachineTunnelTestSupport.makeIsolatedSocketDirectory(), LeoMachineTunnelTestSupport.makeIsolatedSocketDirectory())
     }
 
     private static func remove(_ urls: URL...) {
         urls.forEach { try? FileManager.default.removeItem(at: $0) }
     }
 
-    @MainActor private static func failureMessage(_ selection: LeoHostSelection) -> String {
-        guard case .failed(let message, _) = selection.state else { return "" }
-        return message
+    @MainActor private static func failureMessage(_ registry: LeoMachineRegistry) -> String {
+        LeoMachineTunnelTestSupport.failure(registry, .remote("work"))?.message ?? ""
     }
 
     private static func mode(_ url: URL) -> mode_t {

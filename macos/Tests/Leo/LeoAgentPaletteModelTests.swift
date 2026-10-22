@@ -138,7 +138,7 @@ import Testing
         let model = LeoAgentPaletteModel()
         model.update(snapshot: snapshot([row("alpha")]), selectedHost: .remote("work"), hostState: .connecting)
 
-        #expect(model.rows == [.status(text: "Connecting to work…", hint: nil, canRetry: false), .newAgent, .plainShell])
+        #expect(model.rows == [.status(host: .remote("work"), text: "Connecting to work…", hint: nil, canRetry: false), .newAgent, .plainShell])
         model.moveSelection(by: 1)
         #expect(model.confirm() == nil)
         model.moveSelection(by: 1)
@@ -146,21 +146,23 @@ import Testing
     }
 
     @Test func failedShowsMessageHintAndAllowsRetryButNotNewAgent() {
-        var retried = false
-        let model = LeoAgentPaletteModel(retry: { retried = true })
+        var retried: [LeoHostID] = []
+        let model = LeoAgentPaletteModel(retry: { retried.append($0) })
         model.update(
             snapshot: snapshot([row("alpha")]),
             selectedHost: .remote("work"),
             hostState: .failed(message: "Connection refused", hint: "Check the host is reachable")
         )
 
-        #expect(model.rows == [.status(text: "Connection refused", hint: "Check the host is reachable", canRetry: true), .newAgent, .plainShell])
+        #expect(model.rows == [
+            .status(host: .remote("work"), text: "Connection refused", hint: "Check the host is reachable", canRetry: true), .newAgent, .plainShell,
+        ])
         #expect(model.confirm() == nil)
         model.moveSelection(by: 1)
         #expect(model.confirm() == nil)
 
-        model.retryConnection()
-        #expect(retried)
+        model.retryConnection(.remote("work"))
+        #expect(retried == [.remote("work")])
     }
 
     @Test func cancelAlwaysReturnsCancelChoiceRegardlessOfSelection() {
@@ -204,5 +206,71 @@ import Testing
         #expect(model.confirm() == .plainShell)
         model.moveSelection(by: 5)
         #expect(model.confirm() == .plainShell)
+    }
+
+    // MARK: Machines (Q2): every machine's agents, a status row per unreachable machine
+
+    private func machine(_ host: LeoHostID, _ state: LeoHostConnectionState, rows: [LeoAgentRow] = []) -> LeoPaletteMachine {
+        LeoPaletteMachine(host: host, state: state, snapshot: snapshot(rows))
+    }
+
+    @Test func listsEveryConnectedMachinesAgentsThenAStatusRowPerUnreachableMachine() {
+        let model = LeoAgentPaletteModel()
+        let work = LeoHostID.remote("work")
+        model.update(machines: [
+            machine(.local, .connected(socketPath: "/tmp/leo.sock"), rows: [row("zed")]),
+            machine(.remote("lab"), .failed(message: "Connection refused", hint: nil)),
+            machine(work, .connected(socketPath: "/tmp/work.sock"), rows: [row("alpha", host: work)]),
+            machine(.remote("mars"), .connecting),
+        ])
+
+        #expect(model.rows == [
+            .agent(row("alpha", host: work)), .agent(row("zed")),
+            .status(host: .remote("lab"), text: "Connection refused", hint: nil, canRetry: true),
+            .status(host: .remote("mars"), text: "Connecting to mars…", hint: nil, canRetry: false),
+            .newAgent, .plainShell,
+        ])
+        #expect(model.confirm() == .agent(row("alpha", host: work).identity), "a machine that is down never takes Return from the top agent")
+    }
+
+    @Test func aDisconnectedMachineShowsItsBannerWhileTheOthersListTheirAgents() throws {
+        let model = LeoAgentPaletteModel()
+        let lost = LeoSidebarSnapshot(rows: [row("ghost", host: .remote("work"))], connectivity: .disconnected(reason: "gone", isRetrying: false), generation: 1)
+        let banner = try #require(LeoDisconnectedBanner(host: .remote("work"), connectivity: lost.connectivity))
+        model.update(machines: [
+            machine(.local, .connected(socketPath: "/tmp/leo.sock"), rows: [row("alpha")]),
+            LeoPaletteMachine(host: .remote("work"), state: .connected(socketPath: "/tmp/work.sock"), snapshot: lost),
+        ])
+
+        #expect(model.rows == [.agent(row("alpha")), .disconnected(host: .remote("work"), banner: banner), .newAgent, .plainShell])
+    }
+
+    @Test func newAgentIsConfirmableWhileAnyMachineIsConnected() {
+        let model = LeoAgentPaletteModel()
+        model.update(machines: [
+            machine(.local, .failed(message: "no daemon", hint: nil)),
+            machine(.remote("work"), .connected(socketPath: "/tmp/work.sock")),
+        ])
+
+        model.moveSelection(by: 1)
+        #expect(model.confirm() == .newAgent)
+    }
+
+    @Test func eachStatusRowKeepsItsSelectionAcrossRefreshes() {
+        let model = LeoAgentPaletteModel()
+        let machines = [machine(.remote("lab"), .connecting), machine(.remote("mars"), .connecting)]
+        model.update(machines: machines)
+        model.moveSelection(by: 1)
+
+        model.update(machines: [machine(.local, .connected(socketPath: "/tmp/leo.sock"), rows: [row("alpha")])] + machines)
+
+        #expect(model.selectedIndex == 2, "still on mars' row, below the new agent")
+    }
+}
+
+/// The single-machine shape most tests here use.
+extension LeoAgentPaletteModel {
+    func update(snapshot: LeoSidebarSnapshot, selectedHost: LeoHostID, hostState: LeoHostConnectionState) {
+        update(machines: [LeoPaletteMachine(host: selectedHost, state: hostState, snapshot: snapshot)])
     }
 }

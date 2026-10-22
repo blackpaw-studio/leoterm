@@ -5,8 +5,8 @@ import Testing
 @testable import Ghostty
 @testable import LeoKit
 
-/// `LeoMachineConnection` is one machine's connection. These are
-/// `LeoHostSelectionRaceTests`' teardown races replayed as reconnects of the
+/// `LeoMachineConnection` is one machine's connection. These are the old
+/// single host selection's teardown races replayed as reconnects of the
 /// same machine, on scripted `LeoFakeTunnel`s, so each boundary ("the old
 /// tunnel is gone before the new one launches") is checked exactly.
 @Suite(.serialized, .timeLimit(.minutes(1)))
@@ -164,7 +164,7 @@ import Testing
 
         harness.connection.connect()
 
-        #expect(harness.connection.state == .connected(socketPath: LeoHostSelectionTestSupport.localSocketPath))
+        #expect(harness.connection.state == .connected(socketPath: LeoMachineTunnelTestSupport.localSocketPath))
         #expect(harness.published.map(\.0) == [1])
         #expect(tunnels.all.isEmpty)
     }
@@ -178,13 +178,13 @@ import Testing
         let pidFile = directory.appendingPathComponent("pid").path
         let ssh = try Self.pidRecordingSSH(in: directory, pidFile: pidFile)
         let defaults = LeoInMemoryDefaults()
-        let socketDirectory = LeoHostSelectionTestSupport.localSocketDirectory
+        let socketDirectory = LeoMachineTunnelTestSupport.localSocketDirectory
         let environment = LeoMachineConnectionEnvironment(
             orphanStore: LeoTunnelOrphanStore(defaults: defaults, legacySocketDirectory: socketDirectory),
             runner: LeoFakeHomeRunner(stdout: "/home/evan"),
             sshExecutable: ssh,
             transport: LeoAlwaysHealthyTransport(),
-            localSocketPath: LeoHostSelectionTestSupport.localSocketPath,
+            localSocketPath: LeoMachineTunnelTestSupport.localSocketPath,
             legacySocketDirectory: socketDirectory,
             controlSocketDirectory: socketDirectory
         )
@@ -196,7 +196,7 @@ import Testing
 
         connection.connect()
         try await until { @MainActor in LeoMachineRegistryTestSupport.isConnected(connection.state) }
-        let pid = try await LeoHostSelectionTestSupport.awaitPID(pidFile)
+        let pid = try await LeoMachineTunnelTestSupport.awaitPID(pidFile)
 
         await connection.shutdown().value
 

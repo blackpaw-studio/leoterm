@@ -25,8 +25,8 @@ enum LeoForcedDisconnectFixture {
         private var subscription: AnyCancellable?
 
         init(model: LeoSidebarModel, reason: String, disconnect: @escaping (String) -> Void) {
-            subscription = model.$snapshot
-                .first { $0.connectivity == .connected }
+            subscription = model.$snapshots
+                .first { $0[.local]?.connectivity == .connected }
                 .sink { _ in disconnect(reason) }
         }
     }

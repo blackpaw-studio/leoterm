@@ -18,8 +18,8 @@ enum LeoSidebarConnectionPhase: Sendable {
 }
 
 extension LeoSidebarFeed {
-    /// Applies a connection-state update for `(host, generation)` from
-    /// `LeoHostSelection`. A `(host, generation)` different from the one
+    /// Applies a connection-state update for `(host, generation)` from the
+    /// machine's connection in `LeoMachineRegistry`. A `(host, generation)` different from the one
     /// currently tracked is a *switch*: every in-flight SSE/list/state task
     /// for the old connection is cancelled and the snapshot resets before
     /// the new phase is applied, so a stale emission from the old connection

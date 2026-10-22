@@ -246,13 +246,13 @@ enum LeoMachineRegistryTestSupport {
         runner: any LeoProcessRunning = LeoFakeHomeRunner(stdout: "/home/evan"),
         orphanStore: LeoTunnelOrphanStore? = nil
     ) -> LeoMachineConnectionEnvironment {
-        let directory = LeoHostSelectionTestSupport.localSocketDirectory
+        let directory = LeoMachineTunnelTestSupport.localSocketDirectory
         return LeoMachineConnectionEnvironment(
             orphanStore: orphanStore ?? LeoTunnelOrphanStore(defaults: defaults, legacySocketDirectory: directory),
             runner: runner,
             sshExecutable: LeoTunnelTestSupport.fixtureURL(),
             transport: LeoAlwaysHealthyTransport(),
-            localSocketPath: LeoHostSelectionTestSupport.localSocketPath,
+            localSocketPath: LeoMachineTunnelTestSupport.localSocketPath,
             legacySocketDirectory: directory,
             controlSocketDirectory: directory,
             makeTunnel: tunnels.factory

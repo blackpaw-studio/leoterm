@@ -67,20 +67,21 @@ struct LeoAttentionNotification: Equatable, Sendable {
     private let center: any LeoNotificationPosting
     private let defaults: UserDefaults
     private let showDeniedInstructions: () -> Void
-    /// The host whose feed is live now; a batch from any other host is late.
-    private let currentHost: () -> LeoHostID?
+    /// Whether `host` still has a live feed; a batch from any other
+    /// machine is late (it was removed or disabled meanwhile).
+    private let isLive: (LeoHostID) -> Bool
     /// The latest post per agent. Revisions only grow per name within one
     /// boot, so that is enough to drop repeats; a new boot replaces it. Only
-    /// the current host's agents are kept.
+    /// live machines' agents are kept.
     private var lastPosted: [LeoAgentRow.ID: LeoAttentionTransition] = [:]
 
     init(
-        center: any LeoNotificationPosting, defaults: UserDefaults, currentHost: @escaping () -> LeoHostID?,
+        center: any LeoNotificationPosting, defaults: UserDefaults, isLive: @escaping (LeoHostID) -> Bool,
         showDeniedInstructions: @escaping () -> Void
     ) {
         self.center = center
         self.defaults = defaults
-        self.currentHost = currentHost
+        self.isLive = isLive
         self.showDeniedInstructions = showDeniedInstructions
     }
 
@@ -101,10 +102,10 @@ struct LeoAttentionNotification: Equatable, Sendable {
     func handle(_ transitions: [LeoAttentionTransition]) async {
         guard isEnabled else { return }
         for transition in transitions {
-            // Batches arrive via unordered tasks, so one can land after a host switch.
-            guard transition.id.host == currentHost() else { continue }
+            // Batches arrive via unordered tasks, so one can land after its machine left.
+            guard isLive(transition.id.host) else { continue }
             guard let notification = LeoAttentionNotification(transition), !alreadyPosted(transition) else { continue }
-            lastPosted = lastPosted.filter { $0.key.host == transition.id.host }
+            lastPosted = lastPosted.filter { isLive($0.key.host) }
             lastPosted[transition.id] = transition
             await center.post(notification)
         }

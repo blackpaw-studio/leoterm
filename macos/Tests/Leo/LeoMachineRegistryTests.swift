@@ -39,7 +39,7 @@ import Testing
             registry.status(for: .remote("a")) == .connected && registry.status(for: .remote("b")) == .connected
         }
         #expect(registry.status(for: .local) == .connected)
-        #expect(registry.connectionState(for: .local) == .connected(socketPath: LeoHostSelectionTestSupport.localSocketPath))
+        #expect(registry.connectionState(for: .local) == .connected(socketPath: LeoMachineTunnelTestSupport.localSocketPath))
         #expect(registry.flavor == .socketEvents)
         registry.shutdown()
     }
@@ -337,7 +337,7 @@ import Testing
         let last = try #require(published.values.last)
         #expect(last.0 == .local)
         #expect(last.1 == registry.generation(for: .local))
-        #expect(last.2 == .connected(socketPath: LeoHostSelectionTestSupport.localSocketPath))
+        #expect(last.2 == .connected(socketPath: LeoMachineTunnelTestSupport.localSocketPath))
         registry.shutdown()
     }
 
@@ -426,7 +426,7 @@ import Testing
 
         // A store opened fresh on the same defaults sees what was persisted:
         // stores of their own would each have overwritten the other's record.
-        let persisted = LeoTunnelOrphanStore(defaults: defaults, legacySocketDirectory: LeoHostSelectionTestSupport.localSocketDirectory)
+        let persisted = LeoTunnelOrphanStore(defaults: defaults, legacySocketDirectory: LeoMachineTunnelTestSupport.localSocketDirectory)
         #expect(Set(persisted.records().map(\.pid)) == Set(tunnels.all.map(\.fakePID)))
         #expect(registry.environment.orphanStore.records().count == 2)
         registry.shutdown()

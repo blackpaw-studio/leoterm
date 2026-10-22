@@ -6,7 +6,7 @@ extension LeoRuntime {
     /// both read.
     func controlAvailability(for row: LeoAgentRow?) -> LeoAgentControlAvailability {
         LeoAgentControlAvailability(
-            row: row, features: model.daemonFeatures, deniedHosts: control.deniedHosts, inFlight: row.flatMap { control.inFlight[$0.id] }
+            row: row, features: row.map { model.features(for: $0.host) } ?? .none, deniedHosts: control.deniedHosts, inFlight: row.flatMap { control.inFlight[$0.id] }
         )
     }
 }

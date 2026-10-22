@@ -97,7 +97,7 @@ struct LeoSidebarReturnKeyTests {
         }
         let actions = LeoAgentActions(
             clients: FakeMachineClients(daemon: ReturnKeyDaemon()), cli: .recordingForTests(), model: model,
-            hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+            processRunner: LeoRecordingTemplateRunner(), refresh: {})
         window = NSWindow(
             contentRect: NSRect(x: 120, y: 120, width: 320, height: 480),
             styleMask: [.titled], backing: .buffered, defer: false)

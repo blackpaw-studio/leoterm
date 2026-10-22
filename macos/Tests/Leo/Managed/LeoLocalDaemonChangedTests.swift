@@ -4,48 +4,36 @@ import Testing
 @testable import Ghostty
 @testable import LeoKit
 
-/// The app restarting its own daemon reconnects the sidebar only when the
-/// selected host IS the local daemon: Retry on a remote host would tear
-/// down its SSH tunnel and clear its feed.
+/// The app restarting its own daemon reconnects This Mac only: a remote
+/// machine's SSH tunnel and feed are left alone.
+@Suite(.timeLimit(.minutes(1)))
 @MainActor struct LeoLocalDaemonChangedTests {
-    private func runtime(hosts: [LeoHostConfiguration] = []) throws -> LeoRuntime {
+    @Test func itReconnectsThisMacAndLeavesEveryRemoteMachineConnected() async throws {
         let defaults = LeoInMemoryDefaults()
-        defaults.set(try JSONEncoder().encode(hosts), forKey: LeoHostStore.key)
-        let directory = LeoHostSelectionTestSupport.localSocketDirectory
-        return LeoRuntime(
+        try LeoMachineRegistryTestSupport.save([LeoMachineRegistryTestSupport.host("work")], to: defaults)
+        let tunnels = LeoFakeTunnels()
+        tunnels.script("evan@work", .hangs)
+        let directory = LeoMachineTunnelTestSupport.localSocketDirectory
+        let runtime = LeoRuntime(
             daemon: RuntimeTestDaemon(), cli: .recordingForTests(),
             activitySource: LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] }),
             defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner(),
-            hostConnectionTransport: LeoAlwaysHealthyTransport(),
-            hostSelectionRunner: LeoFakeHomeRunner(stdout: "/home/evan"),
-            hostSelectionSSHExecutable: LeoTunnelTestSupport.fixtureURL(),
-            hostSelectionLegacySocketDirectory: directory,
-            hostSelectionControlSocketDirectory: directory
+            machineRunner: LeoFakeHomeRunner(stdout: "/home/evan"),
+            machineLegacySocketDirectory: directory,
+            machineControlSocketDirectory: directory,
+            makeTunnel: tunnels.factory
         )
-    }
-
-    @Test func aLocalSelectionReconnects() throws {
-        let runtime = try runtime()
-        var retries = 0
-        runtime.model.retryRequested = { retries += 1 }
-
-        runtime.localDaemonChanged()
-
-        #expect(retries == 1)
-    }
-
-    @Test func aRemoteSelectionIsLeftConnected() throws {
-        let runtime = try runtime(hosts: [
-            LeoHostConfiguration(name: "work", sshTarget: "evan@work", remoteSocketPath: "/remote/leo.sock")
-        ])
-        runtime.hostSelection.select(.remote("work"))
-        var retries = 0
-        runtime.model.retryRequested = { retries += 1 }
+        defer { runtime.shutdown() }
+        runtime.machines.start(flavor: .socketEvents)
+        try await until { tunnels.all.count == 1 }
+        let local = runtime.machines.generation(for: .local)
+        let work = runtime.machines.generation(for: .remote("work"))
 
         runtime.localDaemonChanged()
 
-        #expect(runtime.hostSelection.selected == .remote("work"))
-        #expect(retries == 0)
-        runtime.shutdown()
+        #expect(runtime.machines.generation(for: .local) > local)
+        #expect(runtime.machines.generation(for: .remote("work")) == work)
+        #expect(tunnels.all.count == 1, "work's tunnel was replaced")
+        #expect(tunnels.all.first?.terminationCount == 0, "work's tunnel was torn down")
     }
 }

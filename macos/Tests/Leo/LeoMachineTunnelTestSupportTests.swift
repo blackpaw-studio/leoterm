@@ -4,13 +4,13 @@ import Testing
 @testable import Ghostty
 @testable import LeoKit
 
-/// The directory `LeoHostSelectionTestSupport` shares between tests must
+/// The directory `LeoMachineTunnelTestSupport` shares between tests must
 /// belong to one test process: a fixed path is shared by every run and
 /// every parallel worker, so a later run meets a stale socket and one
 /// worker's `LeoTunnel.removeStaleSocket()` can unlink another's live one.
-struct LeoHostSelectionTestSupportTests {
+struct LeoMachineTunnelTestSupportTests {
     @Test func theSharedSocketDirectoryBelongsToThisProcessOnly() {
-        let name = LeoHostSelectionTestSupport.localSocketDirectory.lastPathComponent
+        let name = LeoMachineTunnelTestSupport.localSocketDirectory.lastPathComponent
 
         #expect(name != "leoterm-tests-hosts", "a fixed name is shared by every run and worker")
         #expect(name.hasPrefix("leoterm-tests-") && name.count == "leoterm-tests-".count + 8)
@@ -21,6 +21,6 @@ struct LeoHostSelectionTestSupportTests {
     @Test func theSharedSocketDirectoryLeavesRoomForTheControlSocket() {
         let configuration = LeoHostConfiguration(name: "work", sshTarget: "evan@work")
 
-        #expect(LeoSSHCommand.isValidControlPath(LeoHostSelectionTestSupport.expectedControlPath(configuration)))
+        #expect(LeoSSHCommand.isValidControlPath(LeoMachineTunnelTestSupport.expectedControlPath(configuration)))
     }
 }

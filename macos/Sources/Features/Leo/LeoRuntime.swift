@@ -11,33 +11,41 @@ import LeoKit
     let model: LeoSidebarModel
     let registry: LeoWindowSessionRegistry
     let actions: LeoAgentActions
-    /// The prompt box and Interrupt / Compact / Clear (B-262), bound to the
-    /// selected host's daemon like `actions`.
+    /// The prompt box and Interrupt / Compact / Clear (B-262), each call
+    /// on the row's own machine's daemon, like `actions`.
     let control: LeoAgentControlModel
-    /// Leo Chat for the selected agent, bound to the selected host's daemon
-    /// like `control`; fed `chat.*` events in stream order by `chatRelay`.
+    /// Leo Chat for the selected agent: This Mac's daemon only, never
+    /// rebound; fed This Mac's `chat.*` events in stream order by `chatRelay`.
     let chat: LeoChatPaneModel
-    /// Unread agent messages per agent on the selected host, behind the
-    /// sidebar and Chat-switch badges; fed by `chatRelay` before `chat` sees
-    /// a delivery, so agents that aren't shown count too.
+    /// Unread agent messages per This Mac agent, behind the sidebar and
+    /// Chat-switch badges; fed by `chatRelay` before `chat` sees a delivery,
+    /// so agents that aren't shown count too.
     let unread: LeoChatUnreadStore
     private let chatRelay: LeoOrderedRelay<LeoChatFeedDelivery>
     /// Windows open Chat for a selected agent with unread messages: on a
     /// selection change, and when a seed lands after one.
     private var unreadOpenSubscriptions: Set<AnyCancellable> = []
-    private let localChatClient: any LeoChatClient
-    let hostSelection: LeoHostSelection
-    private let machineClients: LeoSelectionMachineClients
+    /// Every configured machine, connected at once (This Mac first).
+    let machines: LeoMachineRegistry
+    /// Each machine's daemon client, handed to actions and control per row.
+    let clients: LeoRegistryMachineClients
     /// Agents ▸ Agent Notifications… policy for background transitions.
     let attentionNotifications: LeoAttentionController
-    let feed: LeoSidebarFeed
+    /// One sidebar feed per shown machine.
+    let feeds: LeoMachineFeeds
+    /// TODO(S6): whether remote machines are fed (and so shown). Off until
+    /// the sidebar draws a section per machine: its single-machine list
+    /// can't show two machines' sections.
+    nonisolated static let feedsRemoteMachinesByDefault = false
+    let feedsRemoteMachines: Bool
+    private var machinesSubscription: AnyCancellable?
     /// Every close of a tab, window or the app with unsaved editor edits
     /// asks through this first (B-004).
     let unsavedEditors = LeoUnsavedEditorsGate()
     /// The start screen's shortcut tooltips, read off the live menu each
     /// time AppDelegate syncs its shortcuts from the config (B-080).
     let shortcutHints = LeoShortcutHints()
-    /// Focus identity into `feed`, delivered in order (see
+    /// Focus identity into `feeds`, delivered in order (see
     /// `focusedAgentChanged`).
     let focusedAgentRelay: LeoOrderedRelay<LeoAgentRow.ID?>
     private let cli: LeoCLI
@@ -50,21 +58,23 @@ import LeoKit
     private let picker: LeoWindowPickerRouter
     private let requestConfigStore: LeoRequestConfigStore
     private let orphanStore: LeoTunnelOrphanStore
-    private let localDaemon: any LeoDaemonClient
-    private let localActivitySource: LeoSidebarActivitySource
-    private let hostConnectionTransport: any LeoDaemonTransport
+    let localDaemon: any LeoDaemonClient
+    let localActivitySource: LeoSidebarActivitySource
+    /// Builds a remote machine's client once its tunnel is up.
+    let remoteDaemon: LeoRemoteDaemonFactory
     /// Test boundary for direct file-drop routing tests. Production resolves
     /// attachment context and host access from the runtime itself.
     let terminalFileDropDependencies: LeoTerminalFileDropDependencies?
     var terminalFileDropQueues: [UUID: LeoTerminalFileDropQueue] = [:]
-    /// Bumped on EVERY `connectionTarget` transition (connecting/connected/
-    /// failed) AND on `shutdown()` -- never just when `generation` changes.
-    /// `LeoHostSelection.generation` alone is not enough to guard
+    /// Per machine, bumped on EVERY `connectionTarget` transition
+    /// (connecting/connected/failed) -- never just when its generation
+    /// changes. A machine's generation alone is not enough to guard
     /// `applyConnected`'s async resource build: a `.failed` published for
     /// the SAME generation as a `.connecting` that's still mid-flavor-
     /// detection would otherwise leave the stale `.connected` build free to
     /// install over it once its `await` finally resolves.
-    private var connectionSequence = 0
+    var connectionSequences: [LeoHostID: Int] = [:]
+    private(set) var isShutDown = false
     /// Runs the one liveness check per wake (D-061); removed with `self`.
     private var wakeObservation: LeoNotificationObservation?
     /// B5: the managed daemon's launch step, set by the app before `start()`.
@@ -120,10 +130,14 @@ import LeoKit
         daemon: any LeoDaemonClient, cli: LeoCLI, activitySource: LeoSidebarActivitySource, defaults: UserDefaults = .standard,
         templateFetchRunner: any LeoProcessRunning,
         hostConnectionTransport: any LeoDaemonTransport = LeoUnixSocketTransport(),
-        hostSelectionRunner: any LeoProcessRunning = LeoProcessRunner(),
-        hostSelectionSSHExecutable: URL = URL(fileURLWithPath: "/usr/bin/ssh"),
-        hostSelectionLegacySocketDirectory: URL = LeoTunnelOrphanStore.defaultLegacySocketDirectory,
-        hostSelectionControlSocketDirectory: URL? = LeoControlSocketDirectory.default,
+        machineRunner: any LeoProcessRunning = LeoProcessRunner(),
+        machineSSHExecutable: URL = URL(fileURLWithPath: "/usr/bin/ssh"),
+        machineLegacySocketDirectory: URL = LeoTunnelOrphanStore.defaultLegacySocketDirectory,
+        machineControlSocketDirectory: URL? = LeoControlSocketDirectory.default,
+        makeTunnel: @escaping LeoTunnelFactory = LeoMachineConnectionEnvironment.realTunnel,
+        remoteDaemon: LeoRemoteDaemonFactory? = nil,
+        machineRetrySleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
+        feedsRemoteMachines: Bool = LeoRuntime.feedsRemoteMachinesByDefault,
         notificationCenter: any LeoNotificationPosting = LeoUserNotificationCenter(),
         focusedAgentSink: (@Sendable (LeoAgentRow.ID?) async -> Void)? = nil,
         wakeNotifications: NotificationCenter = NSWorkspace.shared.notificationCenter,
@@ -136,9 +150,10 @@ import LeoKit
         self.defaults = defaults
         localDaemon = daemon
         localActivitySource = activitySource
-        self.hostConnectionTransport = hostConnectionTransport
+        self.remoteDaemon = remoteDaemon ?? LeoRuntime.tunnelledDaemon(probe: hostConnectionTransport)
+        self.feedsRemoteMachines = feedsRemoteMachines
         self.terminalFileDropDependencies = terminalFileDropDependencies
-        let orphanStore = LeoTunnelOrphanStore(defaults: defaults, legacySocketDirectory: hostSelectionLegacySocketDirectory)
+        let orphanStore = LeoTunnelOrphanStore(defaults: defaults, legacySocketDirectory: machineLegacySocketDirectory)
         self.orphanStore = orphanStore
         let model = LeoSidebarModel(
             preferencesStore: LeoUserDefaultsSidebarPreferencesStore(defaults: defaults)
@@ -148,53 +163,53 @@ import LeoKit
         self.registry = registry
         weak var weakSelf: LeoRuntime?
         attentionNotifications = LeoAttentionController(
-            center: notificationCenter, defaults: defaults, currentHost: { weakSelf?.hostSelection.selected },
+            center: notificationCenter, defaults: defaults, isLive: { weakSelf?.feeds.contains($0) ?? false },
             showDeniedInstructions: LeoRuntime.presentNotificationsDeniedInstructions
         )
         let requestConfigStore = LeoRequestConfigStore()
         self.requestConfigStore = requestConfigStore
         let host = GhosttyAttachContentHost(registry: registry, requestConfigStore: requestConfigStore)
         attachHost = host
-        let hostSelection = LeoHostSelection(
+        let machines = LeoMachineRegistry(
             store: LeoHostStore(defaults: defaults),
-            defaults: defaults,
-            runner: hostSelectionRunner,
-            sshExecutable: hostSelectionSSHExecutable,
-            transport: hostConnectionTransport,
-            orphanStore: orphanStore,
-            legacySocketDirectory: hostSelectionLegacySocketDirectory,
-            controlSocketDirectory: hostSelectionControlSocketDirectory,
+            environment: LeoMachineConnectionEnvironment(
+                orphanStore: orphanStore,
+                runner: machineRunner,
+                sshExecutable: machineSSHExecutable,
+                transport: hostConnectionTransport,
+                legacySocketDirectory: machineLegacySocketDirectory,
+                controlSocketDirectory: machineControlSocketDirectory,
+                makeTunnel: makeTunnel
+            ),
+            sleep: machineRetrySleep,
             connectionTarget: { host, generation, state in
                 weakSelf?.applyConnection(host: host, generation: generation, state: state)
             }
         )
-        self.hostSelection = hostSelection
+        self.machines = machines
         let resolveExecutable = {
             let override = defaults.string(forKey: "leo.executablePath")
             return try LeoCLI(executableOverride: override, runner: cli.runner).resolveExecutable()
         }
         let dispatchAccessProbe = LeoDispatchAccessProbe(
-            runner: hostSelectionRunner,
+            runner: machineRunner,
             executable: resolveExecutable,
-            sshExecutable: hostSelectionSSHExecutable.path,
-            hosts: { [weak hostSelection] in hostSelection?.hosts ?? [] }
+            sshExecutable: machineSSHExecutable.path,
+            hosts: { [weak machines] in machines?.configurations ?? [] }
         )
         attachCoordinator = LeoAttachCoordinator(
             host: host,
             executable: resolveExecutable,
-            remoteCommandBuilder: { [weak hostSelection, weak model] identity, access in
-                guard case .remote(let name) = identity.host,
-                      let configuration = hostSelection?.hosts.first(where: { $0.name == name }) else {
+            remoteCommandBuilder: { [weak machines, weak model] identity, access in
+                guard let configuration = machines?.configuration(for: identity.host) else {
                     throw LeoDaemonError.hostUnavailable("Remote host \(identity.host.displayName) is not configured")
                 }
                 let command = LeoSSHCommand(configuration: configuration)
                 if let dispatchID = identity.dispatchID { return try command.attachShellCommand(dispatchID: dispatchID, access: access) }
-                return try command.attachShellCommand(agent: identity.name, features: (model?.hostFeatures ?? .none).applying(to: identity.host))
+                return try command.attachShellCommand(agent: identity.name, features: model?.features(for: identity.host) ?? .none)
             },
             dispatchAccess: { host in await dispatchAccessProbe.access(for: host) },
-            daemonFeatures: { [weak model] host in
-                (model?.hostFeatures ?? .none).applying(to: host)
-            },
+            daemonFeatures: { [weak model] host in model?.features(for: host) ?? .none },
             report: { [weak model] error in
                 // A dispatch has no row of its own to carry the error.
                 if error.identity.dispatchID != nil {
@@ -273,21 +288,20 @@ import LeoKit
             attachCoordinator?.windowClosed(windowID)
         }
 
-        // `actions` doesn't exist yet at the point `feed` is constructed
-        // (its `refresh` closure below needs `feed`), so `feed`'s
+        // `actions` doesn't exist yet at the point `feeds` is constructed
+        // (its `refresh` closure below needs `feeds`), so the feeds'
         // manual-refresh callback is wired through this box instead of
         // capturing `actions` directly -- filled in immediately after
         // `actions` is created.
-        // Captured strongly by `feed`'s closure below (kept alive exactly as
-        // long as `feed` is), while the box itself only holds `actions`
-        // weakly -- so this cannot create a `feed` <-> `actions` retain
+        // Captured strongly by the feeds' closure below (kept alive exactly
+        // as long as `feeds` is), while the box itself only holds `actions`
+        // weakly -- so this cannot create a `feeds` <-> `actions` retain
         // cycle even though `actions`' own `refresh` closure also captures
-        // `feed` (weakly, see below).
+        // `feeds` (weakly, see below).
         let actionsBox = LeoAgentActionsBox()
         let localChatClient = chatClient ?? LeoChatPaneModel.makeClient(
             socketPath: NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath, transport: LeoUnixSocketTransport()
         )
-        self.localChatClient = localChatClient
         let unread = LeoChatUnreadStore(client: localChatClient, host: .local)
         self.unread = unread
         let chat = LeoChatPaneModel(
@@ -327,34 +341,42 @@ import LeoKit
                 }
             }
             .store(in: &unreadOpenSubscriptions)
-        feed = LeoSidebarFeed(
-            daemon: daemon, activity: activitySource,
+        let feeds = LeoMachineFeeds(dependencies: .init(
+            localDaemon: daemon, localActivity: activitySource,
             onManualRefresh: { [actionsBox] in actionsBox.actions?.invalidateTemplateCache() },
             onAttentionTransitions: { transitions in weakSelf?.attentionTransitionsCommitted(transitions) },
-            onChat: { host, signal in chatRelay.send(LeoChatFeedDelivery(host: host, signal: signal)) },
-            sink: { [weak model] snapshot in
-                model?.receive(snapshot)
+            onChat: { signal in chatRelay.send(LeoChatFeedDelivery(host: .local, signal: signal)) },
+            onSnapshot: { [weak model] host, snapshot in
+                model?.receive(snapshot, for: host)
                 // B-270: a hello advertising dispatch placement re-attaches
                 // what attached before it.
                 weakSelf?.attachCoordinator.daemonFeaturesChanged()
                 weakSelf?.snapshotLanded(snapshot)
             }
-        )
-        focusedAgentRelay = LeoOrderedRelay(sink: focusedAgentSink ?? { [weak feed] id in await feed?.setFocusedAgent(id) })
-        let machineClients = LeoSelectionMachineClients(hostSelection: hostSelection, daemon: daemon)
-        self.machineClients = machineClients
-        actions = LeoAgentActions(
-            clients: machineClients, cli: cli, model: model, hostSelection: hostSelection, processRunner: templateFetchRunner
-        ) { [weak feed] in
-            Task { await feed?.refresh() }
+        ))
+        self.feeds = feeds
+        focusedAgentRelay = LeoOrderedRelay(sink: focusedAgentSink ?? { [weak feeds] id in await feeds?.setFocusedAgent(id) })
+        let clients = LeoRegistryMachineClients(registry: machines)
+        self.clients = clients
+        actions = LeoAgentActions(clients: clients, cli: cli, model: model, processRunner: templateFetchRunner) {
+            Task { @MainActor [weak feeds] in feeds?.refresh() }
         }
         actionsBox.actions = actions
-        control = LeoAgentControlModel(clients: machineClients, confirmClear: { row, window in
+        control = LeoAgentControlModel(clients: clients, confirmClear: { row, window in
             await LeoClearConfirmation.confirm(agent: row.name, in: window)
         })
         model.startRequested = { [weak actions] row, completion in actions?.start(row, completion: completion) }
-        model.retryRequested = { [hostSelection] in hostSelection.retry() }
-        registry.pollabilityChanged = { [feed] pollable in Task { await feed.setPolling(pollable) } }
+        // Agents ▸ Reconnect (Q7): every machine whose sidebar offers Retry.
+        model.retryRequested = { [weak machines, weak model] in
+            LeoMenuCommands.machinesToReconnect(model?.machineConnectivity ?? []).forEach { machines?.reconnect($0) }
+        }
+        model.reconnectRequested = { [weak machines] host in machines?.reconnect(host) }
+        model.connectionFailureHint = { [weak machines] host in
+            guard let hint = machines?.connectionState(for: host)?.failureHint,
+                  let target = machines?.configuration(for: host)?.sshTarget else { return nil }
+            return LeoConnectionFailureHint(hint: hint, sshTarget: target)
+        }
+        registry.pollabilityChanged = { [weak feeds] pollable in feeds?.setPolling(pollable) }
         model.startDaemonRequested = { [weak self] in
             guard let controller = NSApp.keyWindow?.windowController as? TerminalController else { return }
             self?.startDaemon(in: controller)
@@ -378,13 +400,13 @@ import LeoKit
         model.focusExistingRequested = { [weak attachCoordinator] row, origin in
             attachCoordinator?.focusExisting(row.identity, from: origin)
         }
-        let paneFocuser = LeoDispatchPaneFocuser(runner: hostSelectionRunner)
-        model.dispatchPaneFocusRequested = { [weak hostSelection, weak model] host, pane, rowID in
-            let hosts = hostSelection?.hosts ?? []
+        let paneFocuser = LeoDispatchPaneFocuser(runner: machineRunner)
+        model.dispatchPaneFocusRequested = { [weak machines, weak model] host, pane, rowID in
+            let hosts = machines?.configurations ?? []
             Task { @MainActor in
                 do {
                     let command = try LeoDispatchPaneFocus.command(
-                        host: host, pane: pane, hosts: hosts, sshExecutable: hostSelectionSSHExecutable.path
+                        host: host, pane: pane, hosts: hosts, sshExecutable: machineSSHExecutable.path
                     )
                     try await paneFocuser.focus(command)
                 } catch {
@@ -394,13 +416,15 @@ import LeoKit
         }
         model.latestFocusReport = { [weak attachCoordinator] in attachCoordinator?.latestFocusReport ?? 0 }
 
-        // `hostSelection`'s `connectionTarget` (wired above) closes over
+        // `machines`' `connectionTarget` (wired above) closes over
         // `weakSelf`, which can only be set once `self` is fully
-        // initialized -- every LeoHostSelection state transition
+        // initialized -- every machine's state transition
         // (connecting/connected/failed), tagged with the generation it
-        // belongs to, drives which connection the feed and agent actions
-        // are bound to.
+        // belongs to, drives that machine's feed and client.
         weakSelf = self
+        // Fires at once with today's machines, so the model and feeds know
+        // them before any feed delivers (no phantom This Mac section).
+        machinesSubscription = machines.$machines.sink { [weak self] in self?.machinesChanged($0) }
         // B-274: a window's editor and browser follow the row it shows.
         attachCoordinator.onRowShown = { [weak registry] windowID, key in
             registry?.session(for: windowID)?.panes.activate(key)
@@ -413,13 +437,13 @@ import LeoKit
         }
         // One immediate liveness check per wake, never repeated: a tunnel
         // or socket that died in sleep shows as disconnected (D-061).
-        wakeObservation = LeoNotificationObservation(center: wakeNotifications, name: NSWorkspace.didWakeNotification) { [weak feed] in
-            Task { await feed?.checkLiveness() }
+        wakeObservation = LeoNotificationObservation(center: wakeNotifications, name: NSWorkspace.didWakeNotification) { [weak feeds] in
+            Task { @MainActor in feeds?.checkLiveness() }
         }
         #if DEBUG
         if let reason = LeoForcedDisconnectFixture.reason() {
-            forcedDisconnect = LeoForcedDisconnectFixture.arm(model: model, reason: reason) { [weak feed] reason in
-                Task { await feed?.disconnect(reason: reason) }
+            forcedDisconnect = LeoForcedDisconnectFixture.arm(model: model, reason: reason) { [weak feeds] reason in
+                feeds?.disconnect(.local, reason: reason)
             }
         }
         #endif
@@ -449,7 +473,6 @@ import LeoKit
 
     func start() {
         Self.logger.log("start() called")
-        let pollable = registry.hasPollableSidebar
         let orphanStore = orphanStore
         Task {
             // Must run before any tunnel this launch might start, so a
@@ -461,33 +484,31 @@ import LeoKit
             // for its flavor or connects to it.
             await managedStartup?()
             let flavor = await LeoSocketDaemonClient.detectFlavor()
-            Self.logger.log("detected flavor=\(String(describing: flavor), privacy: .public) connectionSequence=\(self.connectionSequence)")
-            await feed.start()
-            await feed.setInitialPolling(pollable)
-            await hostSelection.start(flavor: flavor)
-            Self.logger.log("hostSelection.start(flavor:) returned")
+            Self.logger.log("detected flavor=\(String(describing: flavor), privacy: .public)")
+            feeds.start(pollable: registry.hasPollableSidebar)
+            machines.start(flavor: flavor)
         }
     }
-    /// The app restarted or switched its own daemon: reconnect to it. A
-    /// selected remote host keeps its tunnel and feed, since Retry would
-    /// tear both down for a daemon it doesn't talk to.
+
+    /// The app restarted or switched its own daemon: reconnect This Mac.
+    /// Every remote machine keeps its tunnel and feed.
     func localDaemonChanged() {
-        guard hostSelection.selected == .local else { return }
-        model.retry()
+        machines.reconnect(.local)
     }
 
+    /// The quit hook: tears every tunnel down at once under one bound.
     func shutdown() {
-        connectionSequence += 1
+        isShutDown = true
         cancelTerminalFileDrops()
-        hostSelection.shutdown()
-        Task { await feed.stop() }
+        machines.shutdown()
+        feeds.stop()
     }
     func makeWindowSession(for controller: TerminalController) -> LeoWindowSession {
         let session = registry.makeSession(
             window: controller.window, controller: controller, defaults: defaults,
-            makeFileAccess: { [weak hostSelection] host in
-                guard let hostSelection else { throw LeoFileAccessError.unavailable(reason: "Leo is shutting down") }
-                let access = try hostSelection.makeFileAccess(for: host)
+            makeFileAccess: { [weak machines] host in
+                guard let machines else { throw LeoFileAccessError.unavailable(reason: "Leo is shutting down") }
+                let access = try machines.makeFileAccess(for: host)
                 #if DEBUG
                 return LeoSlowSaveFixture.wrapIfSet(access)
                 #else
@@ -516,7 +537,7 @@ import LeoKit
                 window: window,
                 router: newSurfaceRouter,
                 sidebar: model,
-                hostSelection: hostSelection,
+                machines: machines,
                 actions: actions,
                 setPickerPresented: { [weak session] presented in session?.setPickerPresented(presented) }
             )
@@ -650,61 +671,6 @@ import LeoKit
         return try LeoCLI(executableOverride: override, runner: cli.runner).resolveExecutable()
     }
 
-    /// Applies a `LeoHostSelection` connection-state transition to the feed
-    /// (and, once connected, to agent actions). `.connecting`/`.failed`
-    /// carry no async work of their own and are forwarded immediately;
-    /// `.connected` needs to build the per-connection daemon/activity
-    /// resources first (see `applyConnected`).
-    private func applyConnection(host: LeoHostID, generation: Int, state: LeoHostConnectionState) {
-        connectionSequence += 1
-        let mySequence = connectionSequence
-        switch state {
-        case .connecting:
-            Task { [weak feed] in await feed?.updateConnection(host: host, generation: generation, phase: .connecting) }
-        case .failed(let message, _):
-            Task { [weak feed] in await feed?.updateConnection(host: host, generation: generation, phase: .failed(message: message)) }
-        case .connected(let socketPath):
-            Task { [weak self] in await self?.applyConnected(host: host, generation: generation, socketPath: socketPath, sequence: mySequence) }
-        }
-    }
-
-    /// Builds the daemon client + activity source for `(host, socketPath)`
-    /// -- reusing the precomputed local ones for `.local`, or a fresh
-    /// per-socket client (with its own flavor detection) for a remote host
-    /// -- and only then wires them into the feed and agent actions. Guarded
-    /// against `connectionSequence`, captured as `sequence` BEFORE the only
-    /// `await` in this path (flavor detection): if ANY newer transition
-    /// (connecting, connected, or failed -- not just a generation change)
-    /// has since been observed, this stale result is discarded rather than
-    /// installed over whatever's current now.
-    private func applyConnected(host: LeoHostID, generation: Int, socketPath: String, sequence: Int) async {
-        let daemon: any LeoDaemonClient
-        let activitySource: LeoSidebarActivitySource
-        let chatClient: any LeoChatClient
-        if host == .local {
-            daemon = localDaemon
-            activitySource = localActivitySource
-            chatClient = localChatClient
-        } else {
-            let tunnelTransport = LeoTunnelSocketTransport(base: LeoUnixSocketTransport())
-            daemon = LeoSocketDaemonClient(socketPath: socketPath, transport: tunnelTransport)
-            chatClient = LeoChatPaneModel.makeClient(socketPath: socketPath, transport: tunnelTransport)
-            let remoteFlavor = await LeoSocketDaemonClient.detectFlavor(socketPath: socketPath, transport: hostConnectionTransport)
-            activitySource = remoteFlavor == .socketEvents
-                ? LeoSidebarActivitySource(
-                    events: { await LeoSocketActivityClient(socketPath: socketPath, transport: tunnelTransport).events() },
-                    observedState: { try await LeoSocketActivityClient(socketPath: socketPath, transport: tunnelTransport).fetchState() }
-                  )
-                : LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
-        }
-        guard sequence == connectionSequence else { return }
-        machineClients.bind(daemon, host: host)
-        actions.hostConnected(host)
-        chat.updateClient(chatClient, host: host)
-        unread.updateClient(chatClient, host: host)
-        await feed.updateConnection(host: host, generation: generation, phase: .connected(daemon: daemon, activitySource: activitySource))
-    }
-
     private func startDaemon(in controller: TerminalController) {
         do {
             let command = try LeoCommandLauncher.startDaemonCommand(executablePath: resolveExecutablePath())
@@ -752,10 +718,10 @@ import LeoKit
     }
 }
 
-/// Breaks the `feed` <-> `actions` construction cycle in `LeoRuntime.init`:
-/// `feed`'s list-refresh callback needs to reach `actions`, but `actions`
-/// isn't constructed until after `feed` (its own `refresh` closure needs
-/// `feed`). Held weakly by the callback and filled in once, immediately
+/// Breaks the `feeds` <-> `actions` construction cycle in `LeoRuntime.init`:
+/// the feeds' list-refresh callback needs to reach `actions`, but `actions`
+/// isn't constructed until after `feeds` (its own `refresh` closure needs
+/// `feeds`). Held weakly by the callback and filled in once, immediately
 /// after `actions` exists.
 @MainActor private final class LeoAgentActionsBox: @unchecked Sendable {
     weak var actions: LeoAgentActions?

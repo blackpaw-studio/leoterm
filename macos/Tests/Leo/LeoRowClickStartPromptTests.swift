@@ -42,7 +42,7 @@ import Testing
     }
 
     private func report(_ model: LeoSidebarModel, _ rows: [LeoAgentRow]) {
-        model.receive(LeoSidebarSnapshot(rows: rows, connectivity: .connected, generation: model.snapshot.generation + 1))
+        model.receive(LeoSidebarSnapshot(rows: rows, connectivity: .connected, generation: (model.snapshot(for: .local)?.generation ?? 0) + 1), for: .local)
     }
 
     // MARK: Running agents

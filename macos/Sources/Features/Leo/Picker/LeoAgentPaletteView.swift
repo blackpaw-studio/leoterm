@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import LeoKit
 
 /// Spotlight-style body for `LeoAgentPalettePanel`: a search field over a
 /// keyboard/mouse-navigable row list built from `LeoAgentPaletteModel.rows`.
@@ -9,7 +10,7 @@ import SwiftUI
 struct LeoAgentPaletteView: View {
     @ObservedObject var model: LeoAgentPaletteModel
     let onCommit: (LeoPickerChoice) -> Void
-    let onRetry: () -> Void
+    let onRetry: (LeoHostID) -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -99,7 +100,7 @@ private struct LeoAgentPaletteRowView: View {
     let isSelected: Bool
     /// Name characters the filter matched, drawn bold (B-042).
     let nameHighlights: (LeoAgentRow) -> [Int]
-    let onRetry: () -> Void
+    let onRetry: (LeoHostID) -> Void
 
     var body: some View {
         HStack(spacing: 10) {
@@ -124,10 +125,10 @@ private struct LeoAgentPaletteRowView: View {
         case .plainShell:
             Image(systemName: "terminal").foregroundStyle(.secondary)
             Text("Plain Shell")
-        case .status(let text, let hint, let canRetry):
-            statusContent(text: text, hint: hint, canRetry: canRetry)
-        case .disconnected(let banner):
-            disconnectedContent(banner)
+        case .status(let host, let text, let hint, let canRetry):
+            statusContent(text: text, hint: hint, canRetry: canRetry) { onRetry(host) }
+        case .disconnected(let host, let banner):
+            disconnectedContent(banner) { onRetry(host) }
         }
     }
 
@@ -174,7 +175,7 @@ private struct LeoAgentPaletteRowView: View {
 
     /// Same treatment as the sidebar banner (B-038): the reason is one
     /// tail-truncated line with the full text as tooltip and AX label.
-    @ViewBuilder private func disconnectedContent(_ banner: LeoDisconnectedBanner) -> some View {
+    @ViewBuilder private func disconnectedContent(_ banner: LeoDisconnectedBanner, retry: @escaping () -> Void) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(banner.title).font(.body).foregroundStyle(.secondary)
             Text(banner.reason)
@@ -187,12 +188,12 @@ private struct LeoAgentPaletteRowView: View {
         }
         Spacer(minLength: 8)
         if !banner.isRetrying {
-            Button("Retry", action: onRetry)
+            Button("Retry", action: retry)
                 .buttonStyle(.borderless)
         }
     }
 
-    @ViewBuilder private func statusContent(text: String, hint: String?, canRetry: Bool) -> some View {
+    @ViewBuilder private func statusContent(text: String, hint: String?, canRetry: Bool, retry: @escaping () -> Void) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(text).font(.body).foregroundStyle(.secondary)
             if let hint, !hint.isEmpty {
@@ -201,7 +202,7 @@ private struct LeoAgentPaletteRowView: View {
         }
         Spacer(minLength: 8)
         if canRetry {
-            Button("Retry", action: onRetry)
+            Button("Retry", action: retry)
                 .buttonStyle(.borderless)
         }
     }

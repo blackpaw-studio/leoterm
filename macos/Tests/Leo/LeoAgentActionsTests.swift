@@ -9,7 +9,7 @@ import Testing
         let daemon = ActionDaemon()
         let model = LeoSidebarModel()
         var refreshes = 0
-        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: daemon), cli: testCLI(), model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: { refreshes += 1 })
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: daemon), cli: testCLI(), model: model, processRunner: LeoRecordingTemplateRunner(), refresh: { refreshes += 1 })
         let row = testRow()
         actions.start(row)
         await awaitCondition { await daemon.calls == ["start:alpha"] }
@@ -32,8 +32,7 @@ import Testing
     @Test func deleteAsksAboutTheAgentsPanesFirst() async {
         let daemon = ActionDaemon()
         let actions = LeoAgentActions(
-            clients: FakeMachineClients(daemon: daemon), cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(),
-            processRunner: LeoRecordingTemplateRunner(), refresh: {})
+            clients: FakeMachineClients(daemon: daemon), cli: testCLI(), model: LeoSidebarModel(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
         let row = testRow()
         var asked: [String] = []
         actions.closePanes = { row in
@@ -58,13 +57,13 @@ import Testing
         let model = LeoSidebarModel()
         let row = testRow()
         var results: [Bool] = []
-        let accepting = LeoAgentActions(clients: FakeMachineClients(daemon: ActionDaemon()), cli: testCLI(), model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let accepting = LeoAgentActions(clients: FakeMachineClients(daemon: ActionDaemon()), cli: testCLI(), model: model, processRunner: LeoRecordingTemplateRunner(), refresh: {})
         accepting.start(row) { results.append($0) }
         await awaitCondition { await MainActor.run { results == [true] } }
 
         let refusing = LeoAgentActions(
             clients: FakeMachineClients(daemon: ActionDaemon(error: .daemon(code: "bad", message: "nope", matches: []))), cli: testCLI(), model: model,
-            hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+            processRunner: LeoRecordingTemplateRunner(), refresh: {})
         refusing.start(row) { results.append($0) }
         await awaitCondition { await MainActor.run { results == [true, false] } }
 
@@ -76,22 +75,22 @@ import Testing
         let daemon = ActionDaemon(error: .daemon(code: "bad", message: "nope", matches: []))
         let model = LeoSidebarModel()
         var refreshes = 0
-        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: daemon), cli: testCLI(), model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: { refreshes += 1 })
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: daemon), cli: testCLI(), model: model, processRunner: LeoRecordingTemplateRunner(), refresh: { refreshes += 1 })
         let row = testRow()
         actions.restart(row)
         await awaitCondition { await MainActor.run { model.rowErrors[row.id] == "nope" } }
         #expect(refreshes == 0)
-        model.receive(LeoSidebarSnapshot(rows: [row], connectivity: .connected, generation: 1, listRefreshSucceeded: false))
+        model.receive(LeoSidebarSnapshot(rows: [row], connectivity: .connected, generation: 1, listRefreshSucceeded: false), for: .local)
         #expect(model.rowErrors[row.id] == "nope")
-        model.receive(LeoSidebarSnapshot(rows: [row], connectivity: .failed(message: "offline"), generation: 2))
+        model.receive(LeoSidebarSnapshot(rows: [row], connectivity: .failed(message: "offline"), generation: 2), for: .local)
         #expect(model.rowErrors[row.id] == "nope")
-        model.receive(LeoSidebarSnapshot(rows: [row], connectivity: .connected, generation: 3, listRefreshSucceeded: true))
+        model.receive(LeoSidebarSnapshot(rows: [row], connectivity: .connected, generation: 3, listRefreshSucceeded: true), for: .local)
         #expect(model.rowErrors.isEmpty)
     }
 
     @Test func spawnAttachesNewRow() async {
         let daemon = ActionDaemon()
-        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: daemon), cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: daemon), cli: testCLI(), model: LeoSidebarModel(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
         var attached: LeoAgentRow?
         actions.spawn(.init(template: "default", repo: "", name: nil, branch: nil, prompt: nil), on: .local, attach: { row, _ in attached = row }, dismiss: {}, failure: { _ in })
         await awaitCondition { await MainActor.run { attached != nil } }
@@ -103,7 +102,7 @@ import Testing
     )
 
     @Test func aSpawnThatFailsWithClaudeNotFoundLeadsToTheOnboardingOffer() async {
-        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: ActionDaemon(error: Self.claudeNotFound)), cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: ActionDaemon(error: Self.claudeNotFound)), cli: testCLI(), model: LeoSidebarModel(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
         var offers = 0
         var failures: [String] = []
         actions.claudeNotFound = { offers += 1 }
@@ -117,7 +116,7 @@ import Testing
 
     @Test func aStartThatFailsWithClaudeNotFoundLeadsToTheOnboardingOffer() async {
         let model = LeoSidebarModel()
-        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: ActionDaemon(error: Self.claudeNotFound)), cli: testCLI(), model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: ActionDaemon(error: Self.claudeNotFound)), cli: testCLI(), model: model, processRunner: LeoRecordingTemplateRunner(), refresh: {})
         var offers = 0
         actions.claudeNotFound = { offers += 1 }
         let row = testRow()
@@ -131,7 +130,7 @@ import Testing
 
     @Test func aRemoteSpawnThatFailsWithClaudeNotFoundNamesTheHostAndOffersNoLocalInstall() async {
         let remote = LeoHostID.remote("work")
-        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: ActionDaemon(error: Self.claudeNotFound), host: remote), cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: ActionDaemon(error: Self.claudeNotFound), host: remote), cli: testCLI(), model: LeoSidebarModel(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
         var offers = 0
         var failures: [String] = []
         actions.claudeNotFound = { offers += 1 }
@@ -146,7 +145,7 @@ import Testing
 
     @Test func aRemoteStartThatFailsWithClaudeNotFoundNamesTheHostAndOffersNoLocalInstall() async {
         let model = LeoSidebarModel()
-        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: ActionDaemon(error: Self.claudeNotFound), host: .remote("work")), cli: testCLI(), model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: ActionDaemon(error: Self.claudeNotFound), host: .remote("work")), cli: testCLI(), model: model, processRunner: LeoRecordingTemplateRunner(), refresh: {})
         var offers = 0
         actions.claudeNotFound = { offers += 1 }
         let row = LeoAgentRow(host: .remote("work"), name: "alpha", template: "default", status: .running, activity: .unknown, actionDetail: nil)
@@ -159,7 +158,7 @@ import Testing
     }
 
     @Test func otherSpawnFailuresStayAsTheyWereAndOfferNothing() async {
-        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: ActionDaemon(error: .daemon(code: "bad", message: "nope", matches: []))), cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: ActionDaemon(error: .daemon(code: "bad", message: "nope", matches: []))), cli: testCLI(), model: LeoSidebarModel(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
         var offers = 0
         var failures: [String] = []
         actions.claudeNotFound = { offers += 1 }
@@ -174,7 +173,7 @@ import Testing
     @Test func spawnModelIgnoresReentrantSubmits() async {
         let daemon = ActionDaemon(suspendSpawn: true)
         let sidebar = LeoSidebarModel()
-        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: daemon), cli: testCLI(), model: sidebar, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: daemon), cli: testCLI(), model: sidebar, processRunner: LeoRecordingTemplateRunner(), refresh: {})
         let model = SpawnAgentModel(templateList: Just(.loading).eraseToAnyPublisher())
         let request = LeoSpawnRequest(template: "default", repo: "", name: nil, branch: nil, prompt: nil)
 
@@ -190,7 +189,7 @@ import Testing
     @Test func successfulSpawnInvokesSidebarAttachRequest() async {
         let daemon = ActionDaemon()
         let sidebar = LeoSidebarModel()
-        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: daemon), cli: testCLI(), model: sidebar, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: daemon), cli: testCLI(), model: sidebar, processRunner: LeoRecordingTemplateRunner(), refresh: {})
         let model = SpawnAgentModel(templateList: Just(.loading).eraseToAnyPublisher())
         var attached: LeoAgentRow?
         sidebar.attachRequested = { row, _, _ in attached = row }
@@ -205,7 +204,7 @@ import Testing
 
     @Test func duplicatePendingActionIsIgnored() async {
         let daemon = ActionDaemon(suspendStart: true)
-        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: daemon), cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: daemon), cli: testCLI(), model: LeoSidebarModel(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
         let row = testRow()
         actions.start(row); actions.start(row)
         await awaitCondition { await daemon.calls == ["start:alpha"] }
@@ -216,7 +215,7 @@ import Testing
         let daemon = ActionDaemon()
         let cli = testCLI(templates: ["one"])
         let model = LeoSidebarModel()
-        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: daemon), cli: cli, model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: daemon), cli: cli, model: model, processRunner: LeoRecordingTemplateRunner(), refresh: {})
         #expect(try await actions.templates(for: .local).map(\.name) == ["one"])
         #expect(try await actions.templates(for: .local).map(\.name) == ["one"])
         let row = testRow()
@@ -236,7 +235,7 @@ import Testing
         let actions = LeoAgentActions(
             clients: FakeMachineClients(daemons: [.local: daemon], configurations: [workConfiguration]),
             cli: testCLI(templates: ["local-template"]), model: LeoSidebarModel(),
-            hostSelection: .isolatedForTesting(), processRunner: runner, refresh: {}
+            processRunner: runner, refresh: {}
         )
 
         #expect(try await actions.templates(for: .local).map(\.name) == ["local-template"])
@@ -259,7 +258,7 @@ import Testing
         let runner = LeoRecordingTemplateRunner(templates: ["a", "b"])
         let actions = LeoAgentActions(
             clients: FakeMachineClients(configurations: [configuration]), cli: .recordingForTests(), model: LeoSidebarModel(),
-            hostSelection: .isolatedForTesting(), processRunner: runner, refresh: {}
+            processRunner: runner, refresh: {}
         )
 
         #expect(try await actions.templates(for: .remote("work")).map(\.name) == ["a", "b"])
@@ -281,7 +280,7 @@ import Testing
         let actions = LeoAgentActions(
             clients: FakeMachineClients(daemons: [.local: ActionDaemon()], configurations: [workConfiguration]),
             cli: LeoCLI.recordingForTests(runner: gatedRunner), model: LeoSidebarModel(),
-            hostSelection: .isolatedForTesting(), processRunner: remoteRunner, refresh: {}
+            processRunner: remoteRunner, refresh: {}
         )
 
         async let localTemplates = actions.templates(for: .local)
@@ -308,7 +307,7 @@ import Testing
         let replacement = GatedActionDaemon()
         let clients = FakeMachineClients(daemon: daemonA)
         var refreshes = 0
-        let actions = LeoAgentActions(clients: clients, cli: testCLI(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: { refreshes += 1 })
+        let actions = LeoAgentActions(clients: clients, cli: testCLI(), model: LeoSidebarModel(), processRunner: LeoRecordingTemplateRunner(), refresh: { refreshes += 1 })
         let row = testRow()
 
         actions.stop(row)
@@ -344,8 +343,7 @@ import Testing
 
     private func actions(_ clients: FakeMachineClients, refresh: @escaping () -> Void = {}) -> LeoAgentActions {
         LeoAgentActions(
-            clients: clients, cli: .recordingForTests(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(),
-            processRunner: LeoRecordingTemplateRunner(templates: ["claude"]), refresh: refresh)
+            clients: clients, cli: .recordingForTests(), model: LeoSidebarModel(), processRunner: LeoRecordingTemplateRunner(templates: ["claude"]), refresh: refresh)
     }
 
     private func row(on host: LeoHostID) -> LeoAgentRow {
@@ -358,8 +356,7 @@ import Testing
         let clients = FakeMachineClients(daemons: [.local: local, work: remote])
         let model = LeoSidebarModel()
         let actions = LeoAgentActions(
-            clients: clients, cli: .recordingForTests(), model: model, hostSelection: .isolatedForTesting(),
-            processRunner: LeoRecordingTemplateRunner(), refresh: {})
+            clients: clients, cli: .recordingForTests(), model: model, processRunner: LeoRecordingTemplateRunner(), refresh: {})
         clients.disconnect(.local)
 
         actions.stop(row(on: work))
@@ -473,8 +470,7 @@ import Testing
         let clients = FakeMachineClients(
             daemons: [.remote("one"): ActionDaemon(), .remote("two"): ActionDaemon()], configurations: [first, second])
         let actions = LeoAgentActions(
-            clients: clients, cli: .recordingForTests(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(),
-            processRunner: runner, refresh: {})
+            clients: clients, cli: .recordingForTests(), model: LeoSidebarModel(), processRunner: runner, refresh: {})
         actions.loadTemplates(for: .remote("one"))
         actions.loadTemplates(for: .remote("two"))
         await awaitCondition { await runner.calls.count == 2 }
@@ -495,8 +491,7 @@ import Testing
         for configuration in configurations { daemons[.remote(configuration.name)] = ActionDaemon() }
         let actions = LeoAgentActions(
             clients: FakeMachineClients(daemons: daemons, configurations: configurations),
-            cli: .recordingForTests(runner: gated), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(),
-            processRunner: runner, refresh: {})
+            cli: .recordingForTests(runner: gated), model: LeoSidebarModel(), processRunner: runner, refresh: {})
         actions.loadTemplates(for: .local)
         await gated.waitForCalls(1)
         for configuration in configurations { actions.loadTemplates(for: .remote(configuration.name)) }

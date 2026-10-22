@@ -14,10 +14,10 @@ extension LeoRuntime {
 
     /// The row Jump would attach to: unfiltered sidebar order (pinned
     /// first, collapsed sections included), after the focused agent (else
-    /// the selection), skipping the focused agent.
+    /// the selection), skipping the focused agent and any agent whose
+    /// machine is disconnected.
     var nextAttentionTarget: LeoAgentRow? {
-        guard !model.isDisconnected else { return nil }
-        let rows = model.orderedRows
+        let rows = model.orderedRows.filter { !model.isDisconnected($0.host) }
         let focused = attachCoordinator.focusedIdentity.map { LeoAgentRow.ID(host: $0.host, name: $0.name) }
         let target = LeoAttentionNavigation.next(
             in: rows.map(\.id),
@@ -58,7 +58,7 @@ extension LeoRuntime {
     /// agent). Returns `false` for notifications that aren't Leo's.
     func openAttentionNotification(userInfo: [AnyHashable: Any]) -> Bool {
         guard let id = LeoAttentionNotification.agent(fromUserInfo: userInfo) else { return false }
-        let identity = model.snapshot.rows.first { $0.id == id }?.identity ?? LeoAgentIdentity(host: id.host, name: id.name)
+        let identity = model.rows.first { $0.id == id }?.identity ?? LeoAgentIdentity(host: id.host, name: id.name)
         let origin = (NSApp.keyWindow?.windowController as? TerminalController)?.leoSession?.id
             ?? TerminalController.preferredParent?.leoSession?.id
         let request = LeoSurfaceRequest(origin: origin ?? LeoWindowID(), disposition: origin == nil ? .window : .content)

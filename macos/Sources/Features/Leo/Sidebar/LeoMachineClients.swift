@@ -6,8 +6,7 @@ import LeoKit
 /// host's configuration. Machines connect at once, so every call is keyed by
 /// the row's host; there is no "selected" connection.
 ///
-/// `LeoMachineRegistry` satisfies this once it exists; until then
-/// `LeoSelectionMachineClients` adapts the single `LeoHostSelection`.
+/// `LeoRegistryMachineClients` adapts `LeoMachineRegistry` to it.
 @MainActor protocol LeoMachineClientResolving: AnyObject {
     /// The client for `host`'s live connection, or nil while that host has
     /// none (connecting, failed, disabled or unknown).

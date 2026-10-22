@@ -5,19 +5,13 @@ import LeoKit
 @MainActor final class LeoSidebarModel: ObservableObject {
     /// One snapshot per machine, fed by that machine's own feed. A machine
     /// that has delivered nothing yet has no entry.
-    @Published private(set) var snapshots: [LeoHostID: LeoSidebarSnapshot] {
-        didSet { syncLegacySnapshot() }
-    }
+    @Published private(set) var snapshots: [LeoHostID: LeoSidebarSnapshot]
     /// The machines to show, in display order (This Mac first, then
     /// Settings order). Empty until `setMachines`: the model then shows
     /// whichever machines have delivered a snapshot.
     @Published private(set) var machineOrder: [LeoHostID] = []
     /// The latest CPU/memory/disk sample per connected machine.
     @Published private(set) var machineStats: [LeoHostID: LeoSidebarMachineStats] = [:]
-    /// TODO(S5): the single-feed view of `snapshots` (the primary machine's),
-    /// kept so today's one-feed consumers and `$snapshot` subscribers still
-    /// compile. S5 moves them to `snapshot(for:)` and deletes this.
-    @Published private(set) var snapshot: LeoSidebarSnapshot
     @Published var query = ""
     @Published var selection: LeoAgentRow.ID? {
         // A dispatch selection rides on its parent agent: any other
@@ -75,6 +69,9 @@ import LeoKit
     var reconnectRequested: (LeoHostID) -> Void = { _ in }
     var editMachineRequested: (LeoHostID) -> Void = { _ in }
     var newAgentHereRequested: (LeoHostID) -> Void = { _ in }
+    /// The hint and ssh target behind a machine's failed connection, for
+    /// its Open SSH; nil without one.
+    var connectionFailureHint: (LeoHostID) -> LeoConnectionFailureHint? = { _ in nil }
     var sshRequested: (String) -> Void = { _ in }
     /// Fired when the Dock attention count changes (AppDelegate's badge writer).
     var attentionCountChanged: (Int) -> Void = { _ in }
@@ -102,19 +99,10 @@ import LeoKit
         snapshot: LeoSidebarSnapshot = .init(rows: [], connectivity: .loading, generation: 0),
         preferencesStore: any LeoSidebarPreferencesStore = LeoInMemorySidebarPreferencesStore()
     ) {
-        self.snapshot = snapshot
         snapshots = [snapshot.rows.first?.host ?? .local: snapshot]
         self.preferencesStore = preferencesStore
         preferences = preferencesStore.load()
     }
-
-    /// What the primary machine's daemon advertised (B-262: `agent_control`).
-    /// TODO(S5): single-feed; use `features(for:)`.
-    var daemonFeatures: LeoDaemonFeatures { snapshot.features }
-
-    /// The same features, stamped with the host that advertised them.
-    /// TODO(S5): single-feed; use `features(for:)`.
-    var hostFeatures: LeoHostFeatures { snapshot.advertised }
 
     /// Every row of every machine, machines in display order.
     var rows: [LeoAgentRow] { machineHosts.flatMap { snapshots[$0]?.rows ?? [] } }
@@ -166,11 +154,6 @@ import LeoKit
         update(preferences.setting(machine: host, collapsed: !isMachineCollapsed(host)))
     }
 
-    /// TODO(S5): single-feed; the section lists carry their machine.
-    func isCollapsed(_ sectionID: String) -> Bool { isCollapsed(sectionID, host: primaryHost) }
-
-    func toggleCollapsed(_ sectionID: String) { toggleCollapsed(sectionID, host: primaryHost) }
-
     /// Expands the machine and section holding `id`, so a row something
     /// jumps to is on screen.
     func reveal(_ id: LeoAgentRow.ID) {
@@ -189,35 +172,25 @@ import LeoKit
         preferencesStore.save(updated)
     }
 
-    /// The single feed's entry point: it replaces whatever was shown, as
-    /// the one host selection did. TODO(S5): feeds call `receive(_:for:)`.
-    func receive(_ value: LeoSidebarSnapshot) {
-        guard value.generation >= snapshot.generation else { return }
-        accept(value, for: value.rows.first?.host ?? primaryHost, replacingOthers: true)
-    }
-
-    /// A machine's snapshot. The generation guard is per machine: another
-    /// machine's higher generation never drops it.
+    /// A machine's snapshot, from that machine's own feed. The generation
+    /// guard is per machine: another machine's higher generation never
+    /// drops it.
     func receive(_ value: LeoSidebarSnapshot, for host: LeoHostID) {
-        accept(value, for: host, replacingOthers: false)
-    }
-
-    private func accept(_ value: LeoSidebarSnapshot, for host: LeoHostID, replacingOthers: Bool) {
-        guard isShown(host), replacingOthers || value.generation >= snapshots[host]?.generation ?? value.generation else { return }
+        guard isShown(host), value.generation >= snapshots[host]?.generation ?? value.generation else { return }
         let previousAttentionCount = attentionCount
         let previousRows = rows
-        snapshots = replacingOthers ? [host: value] : snapshots.merging([host: value]) { _, new in new }
+        snapshots = snapshots.merging([host: value]) { _, new in new }
         #if DEBUG
         LeoLaunchTiming.mark("firstSnapshot", "connectivity=\(value.connectivity) rows=\(value.rows.count)")
         if !value.rows.isEmpty { LeoLaunchTiming.mark("firstRows", "rows=\(value.rows.count)") }
         #endif
         defer { reapplyFocusedRow(previousRows: previousRows) }
         if attentionCount != previousAttentionCount { attentionCountChanged(attentionCount) }
-        if value.listRefreshSucceeded { clearRowErrors(where: { replacingOthers || $0.host == host }) }
+        if value.listRefreshSucceeded { clearRowErrors(where: { $0.host == host }) }
         resolveStartPrompts()
         reconcileDispatchSelection()
         pruneCollapsedDispatches()
-        guard let selection, replacingOthers || selection.host == host,
+        guard let selection, selection.host == host,
               !value.rows.contains(where: { $0.id == selection }) else { return }
         self.selection = nil
     }
@@ -252,20 +225,10 @@ import LeoKit
         rowErrorCodes = rowErrorCodes.filter { !matches($0.key) }
     }
 
-    private func syncLegacySnapshot() {
-        let primary = snapshots[primaryHost] ?? Self.loadingSnapshot
-        if primary != snapshot { snapshot = primary }
-    }
-
-    private static let loadingSnapshot = LeoSidebarSnapshot(rows: [], connectivity: .loading, generation: 0)
-
     func retry() { retryRequested() }
 
     /// Rows are shown but inert while their machine is disconnected (D-061).
     func isDisconnected(_ host: LeoHostID) -> Bool { snapshots[host]?.connectivity.isDisconnected ?? false }
-
-    /// TODO(S5): single-feed; use `isDisconnected(_:)`.
-    var isDisconnected: Bool { snapshot.connectivity.isDisconnected }
 
     /// What `host`'s daemon advertised; none until it connects.
     func features(for host: LeoHostID) -> LeoDaemonFeatures { snapshots[host]?.features ?? .none }

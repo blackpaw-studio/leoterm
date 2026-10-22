@@ -68,7 +68,7 @@ import SwiftUI
 }
 
 /// Owns one window's agent palette: builds/updates the floating panel from
-/// the sidebar snapshot + selected host + `LeoHostSelection.state`, maps
+/// every machine's sidebar snapshot and connection state, maps
 /// confirmed choices onto `LeoNewSurfaceRouter.chooseDetached(_:for:)`, and
 /// handles the `.newAgent` spawn handoff. One instance per window, created
 /// by `LeoRuntime.makeWindowSession(for:)` and torn down when the window
@@ -79,7 +79,7 @@ import SwiftUI
     private weak var window: NSWindow?
     private let router: LeoNewSurfaceRouter
     private let sidebar: LeoSidebarModel
-    private let hostSelection: LeoHostSelection
+    private let machines: LeoMachineRegistry
     private let actions: LeoAgentActions
     private let panel: LeoAgentPalettePanelControlling
     private let spawnSheet: LeoSpawnSheetPresenting
@@ -105,7 +105,7 @@ import SwiftUI
         window: NSWindow,
         router: LeoNewSurfaceRouter,
         sidebar: LeoSidebarModel,
-        hostSelection: LeoHostSelection,
+        machines: LeoMachineRegistry,
         actions: LeoAgentActions,
         panel: LeoAgentPalettePanelControlling? = nil,
         spawnSheet: LeoSpawnSheetPresenting? = nil,
@@ -114,12 +114,12 @@ import SwiftUI
         self.window = window
         self.router = router
         self.sidebar = sidebar
-        self.hostSelection = hostSelection
+        self.machines = machines
         self.actions = actions
         self.panel = panel ?? LeoAgentPalettePanel()
         self.spawnSheet = spawnSheet ?? LeoSpawnAgentSheetPresenter()
         self.setPickerPresented = setPickerPresented
-        paletteModel = LeoAgentPaletteModel(retry: { [weak hostSelection] in hostSelection?.retry() })
+        paletteModel = LeoAgentPaletteModel(retry: { [weak machines] in machines?.reconnect($0) })
         observeLiveState()
     }
 
@@ -145,7 +145,7 @@ import SwiftUI
         paletteModel.clearFailure()
         paletteModel.offersNewWindow = request.disposition.offersNewWindow
         refreshModel()
-        Self.logger.log("present requestID=\(request.id.uuidString, privacy: .public) rows=\(self.paletteModel.rows.count) hostState=\(String(describing: self.hostSelection.state), privacy: .public)")
+        Self.logger.log("present requestID=\(request.id.uuidString, privacy: .public) rows=\(self.paletteModel.rows.count)")
         guard window != nil else {
             router.chooseDetached(.cancel, for: request)
             return
@@ -167,7 +167,7 @@ import SwiftUI
             parent: window,
             model: paletteModel,
             onCommit: { [weak self] choice in self?.commit(choice) },
-            onRetry: { [weak self] in self?.hostSelection.retry() },
+            onRetry: { [weak self] host in self?.paletteModel.retryConnection(host) },
             onResignKey: { [weak self] in self?.handleResignKey() }
         )
     }
@@ -296,20 +296,22 @@ import SwiftUI
     }
 
     private func refreshModel() {
-        paletteModel.update(snapshot: sidebar.snapshot, selectedHost: hostSelection.selected, hostState: hostSelection.state)
+        paletteModel.update(machines: LeoPaletteMachine.list(
+            order: sidebar.machineOrder, snapshots: sidebar.snapshots, state: machines.connectionState(for:)
+        ))
     }
 
     /// Feeds `paletteModel` from the *emitted* values of each publisher,
     /// never by re-reading the source properties afterward: `@Published`
-    /// emits from `willSet`, so a subscriber that reads `sidebar.snapshot`/
-    /// `hostSelection.state` etc. back out of its own sink closure sees the
+    /// emits from `willSet`, so a subscriber that reads `sidebar.snapshots`/
+    /// a machine's state etc. back out of its own sink closure sees the
     /// value from BEFORE this emission -- one update behind (e.g. a
     /// `.failed` transition could still read back as `.connecting`, hiding
     /// the Retry affordance).
     private func observeLiveState() {
-        Publishers.CombineLatest3(sidebar.$snapshot, hostSelection.$selected, hostSelection.$state)
-            .sink { [weak self] snapshot, selectedHost, hostState in
-                self?.paletteModel.update(snapshot: snapshot, selectedHost: selectedHost, hostState: hostState)
+        Publishers.CombineLatest3(sidebar.$snapshots, sidebar.$machineOrder, machines.connectionStates)
+            .sink { [weak self] snapshots, order, states in
+                self?.paletteModel.update(machines: LeoPaletteMachine.list(order: order, snapshots: snapshots, state: { states[$0] }))
             }
             .store(in: &cancellables)
     }

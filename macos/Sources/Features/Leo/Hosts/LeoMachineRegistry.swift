@@ -30,7 +30,8 @@ import LeoKit
     private let waitForTeardown: TeardownWait
     private let connectionTarget: (LeoHostID, Int, LeoHostConnectionState) -> Void
 
-    private var configurations: [LeoHostConfiguration] = []
+    /// Every remote machine's saved configuration, in Settings order.
+    private(set) var configurations: [LeoHostConfiguration] = []
     private var connections: [LeoHostID: LeoMachineConnection] = [:]
     private var generations: [LeoHostID: Int] = [:]
     private var latestGeneration = 0
@@ -96,6 +97,11 @@ import LeoKit
         states[host]
     }
 
+    /// Every machine's connection state as it changes, emitted before it is
+    /// stored (like any `@Published`): read the emitted value, not the
+    /// registry.
+    var connectionStates: AnyPublisher<[LeoHostID: LeoHostConnectionState], Never> { $states.eraseToAnyPublisher() }
+
     /// The saved configuration of a remote machine; nil for This Mac.
     func configuration(for host: LeoHostID) -> LeoHostConfiguration? {
         guard case .remote(let name) = host else { return nil }
@@ -107,6 +113,12 @@ import LeoKit
     /// so a machine removed and added again never reuses one.
     func generation(for host: LeoHostID) -> Int {
         generations[host] ?? 0
+    }
+
+    /// The Manage Hosts… editor's draft; saving it reloads the machines.
+    /// TODO(S8): replaced by the Machines settings pane.
+    func makeHostsSheetModel() -> LeoHostsSheetModel {
+        LeoHostsSheetModel(store: store) { [weak self] in self?.reload() }
     }
 
     // MARK: - Lifecycle

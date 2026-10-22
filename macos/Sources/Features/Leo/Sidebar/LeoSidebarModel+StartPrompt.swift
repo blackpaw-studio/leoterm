@@ -35,7 +35,7 @@ extension LeoSidebarModel {
     /// have picked a disposition. Needs the window it came from: that's
     /// where the attach lands and the prompt shows.
     func go(to row: LeoAgentRow, from origin: LeoWindowID?, disposition: AttachDisposition) {
-        guard let origin, !isDisconnected else { return }
+        guard let origin, !isDisconnected(row.host) else { return }
         guard row.status == .running else {
             askToStart(row, from: origin, disposition: disposition)
             return

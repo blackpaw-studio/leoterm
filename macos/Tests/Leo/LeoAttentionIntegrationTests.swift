@@ -22,7 +22,7 @@ import Testing
         let client = LeoSocketActivityClient(socketPath: server.path)
         let center = RecordingNotificationCenter()
         let defaults = LeoInMemoryDefaults()
-        let controller = LeoAttentionController(center: center, defaults: defaults, currentHost: { .local }, showDeniedInstructions: {})
+        let controller = LeoAttentionController(center: center, defaults: defaults, isLive: { $0 == .local }, showDeniedInstructions: {})
         await controller.enable()
         let snapshots = SnapshotBox()
         let daemon = ListOnlyDaemon(names: ["alpha", "beta"])

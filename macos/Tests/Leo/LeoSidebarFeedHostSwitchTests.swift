@@ -178,7 +178,7 @@ struct LeoSidebarFeedHostSwitchTests {
         try await until("the established tick never refreshed") { await daemon.callCount >= 2 }
         try await until("poll tick was never rescheduled") { await clock.waiterCount >= 1 }
 
-        // The tunnel drops and LeoHostSelection retries: a NEW generation
+        // The tunnel drops and the registry retries: a NEW generation
         // goes through `.connecting` (pausing the scheduler) before
         // `.connected` again -- exactly the transition that used to leave
         // polling permanently dead.

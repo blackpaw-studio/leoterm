@@ -121,7 +121,7 @@ struct LeoSidebarFeedDisconnectTests {
         await harness.stop()
     }
 
-    /// Tunnel drop: `LeoHostSelection` publishes `.failed` for the live
+    /// Tunnel drop: the machine's connection publishes `.failed` for the live
     /// connection's own generation.
     @Test func aTunnelDropOnALiveConnectionIsDisconnectedNotFailed() async throws {
         let harness = DisconnectHarness(results: [.success(["alpha"])], host: .remote("mars"))

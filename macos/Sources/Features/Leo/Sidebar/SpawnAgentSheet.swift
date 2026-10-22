@@ -1,6 +1,7 @@
 import Combine
 import AppKit
 import SwiftUI
+import LeoKit
 
 struct SpawnAgentSheet: View {
     @ObservedObject var sidebar: LeoSidebarModel
@@ -17,19 +18,15 @@ struct SpawnAgentSheet: View {
          attach: @escaping (LeoAgentRow, AttachDisposition) -> Void,
          chooseDirectory: @escaping () -> String? = SpawnAgentSheet.openPanel) {
         sidebar = model; self.actions = actions; self.attach = attach
-        // Until the Machine field (S7) the sheet still follows the one selected host.
-        let selected = actions.hostSelection.$selected
+        // Until the Machine field (S7): the source agent's machine, else This Mac.
+        let host = source?.host ?? .local
         _model = StateObject(wrappedValue: SpawnAgentModel(
-            templateList: actions.$templateLists.combineLatest(selected)
-                .map { lists, host in lists[host] ?? .loading }.removeDuplicates().eraseToAnyPublisher(),
+            templateList: actions.$templateLists.map { $0[host] ?? .loading }.removeDuplicates().eraseToAnyPublisher(),
             source: source,
-            selectedHost: selected.eraseToAnyPublisher(),
-            environmentCatalog: actions.$environmentCatalogs.combineLatest(selected)
-                .map { catalogs, host in catalogs[host] ?? .loading }.removeDuplicates().eraseToAnyPublisher(),
-            environmentsSupported: model.$snapshot.combineLatest(actions.hostSelection.$selected)
-                .map { snapshot, selected in
-                    snapshot.advertised.applying(to: source?.host ?? selected).contains(.agentEnvironments)
-                }
+            selectedHost: Just(host).eraseToAnyPublisher(),
+            environmentCatalog: actions.$environmentCatalogs.map { $0[host] ?? .loading }.removeDuplicates().eraseToAnyPublisher(),
+            environmentsSupported: model.$snapshots
+                .map { $0[host]?.features.contains(.agentEnvironments) ?? false }
                 .eraseToAnyPublisher()
         ))
         self.chooseDirectory = chooseDirectory

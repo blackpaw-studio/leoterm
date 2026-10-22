@@ -177,7 +177,7 @@ struct LeoSidebarTerminalScrollTests {
         try #require(clipOffset(of: table) == 0, "the list starts at its top")
 
         await afterDisplayLayout(of: window) {
-            model.receive(LeoSidebarSnapshot(rows: Self.agents(count: Self.agentCount), connectivity: .connected, generation: 2))
+            model.receive(LeoSidebarSnapshot(rows: Self.agents(count: Self.agentCount), connectivity: .connected, generation: 2), for: .local)
         }
 
         try #require(tables(in: window.contentView).first === table, "the same list takes the agents")
@@ -209,7 +209,7 @@ struct LeoSidebarTerminalScrollTests {
 
         // `.connected` with no rows: No Agents.
         await afterDisplayLayout(of: window) {
-            model.receive(LeoSidebarSnapshot(rows: [], connectivity: connectivity, generation: 2))
+            model.receive(LeoSidebarSnapshot(rows: [], connectivity: connectivity, generation: 2), for: .local)
         }
 
         try #require(tables(in: window.contentView).first === table, "the same list stays (B-148)")
@@ -255,7 +255,7 @@ struct LeoSidebarTerminalScrollTests {
             try #require(await turns { drawnEnd() > titleEnd }, "the row draws its new title: it ended at \(titleEnd), now \(drawnEnd())")
         } else {
             // One more agent, so the refresh shows in the list.
-            model.receive(LeoSidebarSnapshot(rows: Self.agents(count: Self.agentCount + 1), connectivity: .connected, generation: 2))
+            model.receive(LeoSidebarSnapshot(rows: Self.agents(count: Self.agentCount + 1), connectivity: .connected, generation: 2), for: .local)
             try #require(await turns { (list()?.numberOfRows ?? 0) > rowsBefore }, "the refresh lists")
         }
         await afterPendingUpdates()
@@ -513,7 +513,7 @@ struct LeoSidebarTerminalScrollTests {
             snapshot: snapshot ?? LeoSidebarSnapshot(rows: Self.agents(count: Self.agentCount), connectivity: .connected, generation: 1)
         )
         let actions = LeoAgentActions(
-            clients: FakeMachineClients(daemon: ScrollTestDaemon()), cli: .recordingForTests(), model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {}
+            clients: FakeMachineClients(daemon: ScrollTestDaemon()), cli: .recordingForTests(), model: model, processRunner: LeoRecordingTemplateRunner(), refresh: {}
         )
         let window = NSWindow(
             contentRect: NSRect(x: 120, y: 120, width: 320, height: 480),
