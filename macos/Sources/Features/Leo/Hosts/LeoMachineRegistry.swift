@@ -81,8 +81,28 @@ import LeoKit
 
     /// Nil for a machine that isn't configured.
     func status(for host: LeoHostID) -> LeoMachineStatus? {
+        Self.status(for: host, machines: machines, states: states, configurations: configurations)
+    }
+
+    /// Every machine's status, emitted whenever a machine is added or
+    /// removed, enabled or disabled, or its connection changes.
+    var machineStatuses: AnyPublisher<[LeoHostID: LeoMachineStatus], Never> {
+        Publishers.CombineLatest($machines, $states)
+            .map { [weak self] machines, states in
+                guard let self else { return [:] }
+                return Dictionary(uniqueKeysWithValues: machines.compactMap { host in
+                    Self.status(for: host, machines: machines, states: states, configurations: self.configurations).map { (host, $0) }
+                })
+            }
+            .eraseToAnyPublisher()
+    }
+
+    private static func status(
+        for host: LeoHostID, machines: [LeoHostID], states: [LeoHostID: LeoHostConnectionState],
+        configurations: [LeoHostConfiguration]
+    ) -> LeoMachineStatus? {
         guard machines.contains(host) else { return nil }
-        if case .remote = host, configuration(for: host)?.isEnabled == false { return .disabled }
+        if case .remote(let name) = host, configurations.first(where: { $0.name == name })?.isEnabled == false { return .disabled }
         switch states[host] ?? .connecting {
         case .connecting: return .connecting
         case .connected: return .connected

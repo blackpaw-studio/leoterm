@@ -39,6 +39,7 @@ import LeoKit
     nonisolated static let feedsRemoteMachinesByDefault = false
     let feedsRemoteMachines: Bool
     private var machinesSubscription: AnyCancellable?
+    private var machineStatusesSubscription: AnyCancellable?
     /// Every close of a tab, window or the app with unsaved editor edits
     /// asks through this first (B-004).
     let unsavedEditors = LeoUnsavedEditorsGate()
@@ -425,6 +426,7 @@ import LeoKit
         // Fires at once with today's machines, so the model and feeds know
         // them before any feed delivers (no phantom This Mac section).
         machinesSubscription = machines.$machines.sink { [weak self] in self?.machinesChanged($0) }
+        machineStatusesSubscription = machines.machineStatuses.sink { [weak self] in self?.machineStatusesChanged($0) }
         // B-274: a window's editor and browser follow the row it shows.
         attachCoordinator.onRowShown = { [weak registry] windowID, key in
             registry?.session(for: windowID)?.panes.activate(key)

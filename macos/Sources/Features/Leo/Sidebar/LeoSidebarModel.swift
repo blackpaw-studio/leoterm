@@ -10,6 +10,9 @@ import LeoKit
     /// Settings order). Empty until `setMachines`: the model then shows
     /// whichever machines have delivered a snapshot.
     @Published private(set) var machineOrder: [LeoHostID] = []
+    /// Where each shown machine's connection stands, for the spawn sheet's
+    /// Machine field (the sidebar itself reads snapshots).
+    @Published private(set) var machineStatuses: [LeoHostID: LeoMachineStatus] = [:]
     /// The latest CPU/memory/disk sample per connected machine.
     @Published private(set) var machineStats: [LeoHostID: LeoSidebarMachineStats] = [:]
     @Published var query = ""
@@ -193,6 +196,11 @@ import LeoKit
         guard let selection, selection.host == host,
               !value.rows.contains(where: { $0.id == selection }) else { return }
         self.selection = nil
+    }
+
+    /// The spawn picker's machine statuses, as the registry reports them.
+    func setMachineStatuses(_ statuses: [LeoHostID: LeoMachineStatus]) {
+        machineStatuses = statuses
     }
 
     /// The machines to show, in order. A machine that left the list loses
