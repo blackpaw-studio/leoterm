@@ -107,7 +107,7 @@ extension LeoSidebarModel {
 
     private func selectFocusedRow() {
         guard let focused = attachLinks.focused, focused != selection,
-              snapshot.rows.contains(where: { $0.id == focused }) else { return }
+              rows.contains(where: { $0.id == focused }) else { return }
         selection = focused
     }
 }

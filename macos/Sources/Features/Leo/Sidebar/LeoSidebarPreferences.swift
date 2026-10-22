@@ -16,8 +16,8 @@ enum LeoSidebarGroupBy: String, Codable, CaseIterable, Sendable {
 }
 
 /// The sidebar's remembered arrangement: sort order, grouping, pinned
-/// agents (keyed by host + name, kept even while the agent is absent) and
-/// each host's collapsed sections. A section that starts collapsed
+/// agents (keyed by host + name, kept even while the agent is absent),
+/// each host's collapsed sections and the machines folded to their header. A section that starts collapsed
 /// (`LeoSidebarLayout.defaultCollapsedSectionIDs`) is remembered open in
 /// `expanded` instead.
 struct LeoSidebarPreferences: Codable, Equatable, Sendable {
@@ -26,17 +26,19 @@ struct LeoSidebarPreferences: Codable, Equatable, Sendable {
     var pinned: Set<LeoAgentRow.ID>
     var collapsed: [LeoHostID: Set<String>]
     var expanded: [LeoHostID: Set<String>]
+    var collapsedMachines: Set<LeoHostID>
 
     init(
         sortOrder: LeoSidebarSortOrder = .lastActivity, groupBy: LeoSidebarGroupBy = .status,
         pinned: Set<LeoAgentRow.ID> = [], collapsed: [LeoHostID: Set<String>] = [:],
-        expanded: [LeoHostID: Set<String>] = [:]
+        expanded: [LeoHostID: Set<String>] = [:], collapsedMachines: Set<LeoHostID> = []
     ) {
         self.sortOrder = sortOrder
         self.groupBy = groupBy
         self.pinned = pinned
         self.collapsed = collapsed
         self.expanded = expanded
+        self.collapsedMachines = collapsedMachines
     }
 
     /// Lenient: a field that's missing or unreadable falls back to its
@@ -49,6 +51,7 @@ struct LeoSidebarPreferences: Codable, Equatable, Sendable {
         pinned = (try? container.decodeIfPresent(Set<LeoAgentRow.ID>.self, forKey: .pinned)) ?? defaults.pinned
         collapsed = (try? container.decodeIfPresent([LeoHostID: Set<String>].self, forKey: .collapsed)) ?? defaults.collapsed
         expanded = (try? container.decodeIfPresent([LeoHostID: Set<String>].self, forKey: .expanded)) ?? defaults.expanded
+        collapsedMachines = (try? container.decodeIfPresent(Set<LeoHostID>.self, forKey: .collapsedMachines)) ?? defaults.collapsedMachines
     }
 
     static func decode(_ data: Data?) -> LeoSidebarPreferences {
@@ -89,6 +92,12 @@ struct LeoSidebarPreferences: Codable, Equatable, Sendable {
         } else {
             updated.collapsed = Self.updating(collapsed, host: host, sectionID, contains: isCollapsed)
         }
+        return updated
+    }
+
+    func setting(machine host: LeoHostID, collapsed isCollapsed: Bool) -> LeoSidebarPreferences {
+        var updated = self
+        if isCollapsed { updated.collapsedMachines.insert(host) } else { updated.collapsedMachines.remove(host) }
         return updated
     }
 

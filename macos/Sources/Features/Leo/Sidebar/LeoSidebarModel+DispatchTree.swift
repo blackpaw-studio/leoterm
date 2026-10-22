@@ -44,7 +44,7 @@ extension LeoSidebarModel {
     /// Forgets collapse state for dispatches that are gone.
     func pruneCollapsedDispatches() {
         guard !collapsedDispatches.isEmpty else { return }
-        let present = Set(snapshot.rows.flatMap { row in
+        let present = Set(rows.flatMap { row in
             dispatchChildren(for: row).map { LeoDispatchRef(host: row.host, id: $0.id) }
         })
         let kept = collapsedDispatches.intersection(present)

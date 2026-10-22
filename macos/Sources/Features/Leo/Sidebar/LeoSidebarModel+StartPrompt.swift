@@ -48,7 +48,7 @@ extension LeoSidebarModel {
     /// for the running report.
     func confirmStart(_ id: LeoStartPrompt.ID) {
         guard let prompt = prompt(id), prompt.phase == .confirm else { return }
-        guard let row = snapshot.rows.first(where: { $0.id == prompt.agent }) else {
+        guard let row = rows.first(where: { $0.id == prompt.agent }) else {
             endStartPrompt(id)
             return
         }
@@ -75,11 +75,11 @@ extension LeoSidebarModel {
 
     /// After each snapshot: a waiting prompt whose agent the daemon now
     /// reports running attaches; one whose agent left the list ends. A
-    /// disconnected list is stale, so it decides nothing.
+    /// disconnected machine's list is stale, so it decides nothing.
     func resolveStartPrompts() {
-        guard !isDisconnected else { return }
         for prompt in startPrompts.values {
-            guard let row = snapshot.rows.first(where: { $0.id == prompt.agent }) else {
+            guard !isDisconnected(prompt.agent.host) else { continue }
+            guard let row = rows.first(where: { $0.id == prompt.agent }) else {
                 endStartPrompt(prompt.id)
                 continue
             }
