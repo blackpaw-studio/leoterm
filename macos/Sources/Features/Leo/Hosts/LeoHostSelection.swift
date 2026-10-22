@@ -3,40 +3,6 @@ import Foundation
 import OSLog
 import LeoKit
 
-/// The connection state of the currently *selected* host. Localhost is
-/// always `.connected` to the local daemon socket; a remote host's state
-/// reflects the app-owned SSH tunnel `LeoHostSelection` is managing for it.
-enum LeoHostConnectionState: Equatable, Sendable {
-    case connecting
-    case connected(socketPath: String)
-    case failed(message: String, hint: String?)
-
-    var failureHint: String? {
-        if case .failed(_, let hint) = self { hint } else { nil }
-    }
-}
-
-enum LeoHostSelectionError: Error, Equatable, Sendable {
-    case homeResolutionFailed(String)
-    /// The socket directory failed `LeoControlSocketDirectory.prepare`.
-    case unsafeSocketDirectory
-    /// Another user's socket sits at the forwarded socket's path.
-    case foreignTunnelSocket
-    /// A file, directory or symlink sits at the forwarded socket's path.
-    case occupiedTunnelSocketPath
-}
-
-extension LeoHostSelectionError: LocalizedError {
-    var errorDescription: String? {
-        switch self {
-        case .homeResolutionFailed(let stderr): return stderr
-        case .unsafeSocketDirectory: return "The tunnel socket directory is not private"
-        case .foreignTunnelSocket: return "The tunnel socket belongs to another user"
-        case .occupiedTunnelSocketPath: return "Something other than a socket is at the tunnel socket path"
-        }
-    }
-}
-
 /// Owns exactly one SSH tunnel (`LeoTunnel`) for the selected remote host, if
 /// any. Every `select(_:)` bumps a `generation` counter; every async step
 /// re-checks it before publishing, so a stale connect attempt superseded by a
@@ -442,16 +408,5 @@ extension LeoHostSelectionError: LocalizedError {
             return "ssh needs a key or agent in BatchMode; try `ssh \(target)` in a terminal"
         }
         return nil
-    }
-}
-
-/// Thread-safe box for the orphan record a tunnel's `onExit` (fired off the
-/// main actor) needs to clear once the process it describes has exited.
-private final class LeoTunnelOrphanBox: @unchecked Sendable {
-    private let lock = NSLock()
-    private var storedValue: LeoTunnelOrphanRecord?
-    var value: LeoTunnelOrphanRecord? {
-        get { lock.withLock { storedValue } }
-        set { lock.withLock { storedValue = newValue } }
     }
 }
