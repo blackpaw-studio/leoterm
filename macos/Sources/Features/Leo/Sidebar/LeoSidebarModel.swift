@@ -11,7 +11,7 @@ import LeoKit
     /// whichever machines have delivered a snapshot.
     @Published private(set) var machineOrder: [LeoHostID] = []
     /// The latest CPU/memory/disk sample per connected machine.
-    @Published private(set) var machineStats: [LeoHostID: LeoSidebarMachineStats] = [:]
+    @Published private(set) var machineStats: [LeoHostID: LeoMachineStats] = [:]
     @Published var query = ""
     @Published var selection: LeoAgentRow.ID? {
         // A dispatch selection rides on its parent agent: any other
@@ -215,7 +215,7 @@ import LeoKit
     }
 
     /// A machine's latest stats sample; nil clears it (no stats to show).
-    func receiveStats(_ stats: LeoSidebarMachineStats?, for host: LeoHostID) {
+    func receiveStats(_ stats: LeoMachineStats?, for host: LeoHostID) {
         guard isShown(host) else { return }
         machineStats[host] = stats
     }

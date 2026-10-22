@@ -183,9 +183,9 @@ import Testing
     @Test func statsAreStoredPerMachine() {
         let model = makeModel()
         model.receiveStats(stats(cpu: 12), for: remote)
-        #expect(model.machineStats[remote]?.cpuPercent == 12)
+        #expect(model.machineStats[remote]?.cpu?.percent == 12)
         #expect(model.machineStats[.local] == nil)
-        #expect(model.machineSections.last?.stats?.cpuPercent == 12)
+        #expect(model.machineSections.last?.stats?.cpu?.percent == 12)
 
         model.receiveStats(nil, for: remote)
         #expect(model.machineStats[remote] == nil)
@@ -219,10 +219,10 @@ import Testing
 
     private func id(_ name: String, _ host: LeoHostID) -> LeoAgentRow.ID { LeoAgentRow.ID(host: host, name: name) }
 
-    private func stats(cpu: Double) -> LeoSidebarMachineStats {
-        LeoSidebarMachineStats(
-            sampledAt: Date(timeIntervalSince1970: 0), cpuPercent: cpu, memoryUsedBytes: 1, memoryTotalBytes: 2,
-            diskUsedBytes: 1, diskTotalBytes: 2
+    private func stats(cpu: Double) -> LeoMachineStats {
+        LeoMachineStats(
+            sampledAt: Date(timeIntervalSince1970: 0), cpu: .init(percent: cpu, cores: 8),
+            memory: .init(usedBytes: 1, totalBytes: 2), disk: .init(path: "/", usedBytes: 1, totalBytes: 2)
         )
     }
 }

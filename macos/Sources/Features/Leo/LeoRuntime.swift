@@ -77,6 +77,10 @@ import LeoKit
     private(set) var isShutDown = false
     /// Runs the one liveness check per wake (D-061); removed with `self`.
     private var wakeObservation: LeoNotificationObservation?
+    /// Polls every connected machine's load for the sidebar headers (S9).
+    let statsPoller: LeoMachineStatsPoller
+    /// App activation and defaults changes, each re-evaluating `statsPoller`.
+    private var statsObservations: [LeoNotificationObservation] = []
     /// B5: the managed daemon's launch step, set by the app before `start()`.
     var managedStartup: (@MainActor () async -> Void)?
     #if DEBUG
@@ -141,6 +145,7 @@ import LeoKit
         notificationCenter: any LeoNotificationPosting = LeoUserNotificationCenter(),
         focusedAgentSink: (@Sendable (LeoAgentRow.ID?) async -> Void)? = nil,
         wakeNotifications: NotificationCenter = NSWorkspace.shared.notificationCenter,
+        appActivationNotifications: NotificationCenter = .default,
         terminalFileDropDependencies: LeoTerminalFileDropDependencies? = nil,
         chatClient: (any LeoChatClient)? = nil
     ) {
@@ -352,12 +357,16 @@ import LeoKit
                 // what attached before it.
                 weakSelf?.attachCoordinator.daemonFeaturesChanged()
                 weakSelf?.snapshotLanded(snapshot)
+                // A hello may have added or dropped `machine_stats`.
+                weakSelf?.statsPoller.reconcile()
             }
         ))
         self.feeds = feeds
         focusedAgentRelay = LeoOrderedRelay(sink: focusedAgentSink ?? { [weak feeds] id in await feeds?.setFocusedAgent(id) })
         let clients = LeoRegistryMachineClients(registry: machines)
         self.clients = clients
+        let statsPoller = Self.makeStatsPoller(clients: clients, model: model, defaults: defaults)
+        self.statsPoller = statsPoller
         actions = LeoAgentActions(clients: clients, cli: cli, model: model, processRunner: templateFetchRunner) {
             Task { @MainActor [weak feeds] in feeds?.refresh() }
         }
@@ -376,7 +385,10 @@ import LeoKit
                   let target = machines?.configuration(for: host)?.sshTarget else { return nil }
             return LeoConnectionFailureHint(hint: hint, sshTarget: target)
         }
-        registry.pollabilityChanged = { [weak feeds] pollable in feeds?.setPolling(pollable) }
+        registry.pollabilityChanged = { [weak feeds, weak statsPoller] pollable in
+            feeds?.setPolling(pollable)
+            statsPoller?.setSidebarPollable(pollable)
+        }
         model.startDaemonRequested = { [weak self] in
             guard let controller = NSApp.keyWindow?.windowController as? TerminalController else { return }
             self?.startDaemon(in: controller)
@@ -440,6 +452,7 @@ import LeoKit
         wakeObservation = LeoNotificationObservation(center: wakeNotifications, name: NSWorkspace.didWakeNotification) { [weak feeds] in
             Task { @MainActor in feeds?.checkLiveness() }
         }
+        statsObservations = Self.observeStatsInputs(poller: statsPoller, defaults: defaults, activation: appActivationNotifications)
         #if DEBUG
         if let reason = LeoForcedDisconnectFixture.reason() {
             forcedDisconnect = LeoForcedDisconnectFixture.arm(model: model, reason: reason) { [weak feeds] reason in
@@ -486,6 +499,8 @@ import LeoKit
             let flavor = await LeoSocketDaemonClient.detectFlavor()
             Self.logger.log("detected flavor=\(String(describing: flavor), privacy: .public)")
             feeds.start(pollable: registry.hasPollableSidebar)
+            statsPoller.setSidebarPollable(registry.hasPollableSidebar)
+            statsPoller.setAppActive(NSApp?.isActive ?? false)
             machines.start(flavor: flavor)
         }
     }
@@ -502,6 +517,7 @@ import LeoKit
         cancelTerminalFileDrops()
         machines.shutdown()
         feeds.stop()
+        statsPoller.stop()
     }
     func makeWindowSession(for controller: TerminalController) -> LeoWindowSession {
         let session = registry.makeSession(
