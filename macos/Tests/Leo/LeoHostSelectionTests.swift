@@ -11,6 +11,24 @@ import Testing
 /// live in `LeoHostSelectionRaceTests`.
 @Suite(.serialized)
 @MainActor struct LeoHostSelectionTests {
+    /// `leo.selectedHost` is gone: the launch migration folds it into the
+    /// last spawn machine, and the selection neither reads nor writes it.
+    @Test func theOldSelectedHostKeyIsNeitherReadNorWritten() async {
+        let defaults = LeoInMemoryDefaults()
+        defaults.set("work", forKey: "leo.selectedHost")
+        let configuration = LeoHostConfiguration(name: "other", sshTarget: "evan@other", remoteSocketPath: "/remote/leo.sock")
+        let selection = LeoHostSelectionTestSupport.makeSelection(hosts: [configuration], defaults: defaults)
+        #expect(selection.selected == .local)
+
+        defaults.removeObject(forKey: "leo.selectedHost")
+        await selection.start(flavor: .socketEvents)
+        selection.select(.remote("other"))
+        selection.select(.local)
+
+        #expect(defaults.object(forKey: "leo.selectedHost") == nil)
+        selection.shutdown()
+    }
+
     @Test func selectingLocalhostIsImmediatelyConnected() async {
         let selection = LeoHostSelectionTestSupport.makeSelection()
         await selection.start(flavor: .legacy)

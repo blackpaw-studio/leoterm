@@ -15,11 +15,10 @@ import Testing
         return model
     }
 
-    /// Both `store:` and `defaults:` must be isolated: `defaults:` is where
-    /// `LeoHostSelection.select(_:)` persists `"leo.selectedHost"` (and
-    /// reads it back at init) -- using the real `.standard` domain here
-    /// would leak this suite's `select(.remote(...))` calls into every other
-    /// test that default-constructs a `LeoHostSelection` against `.standard`.
+    /// Both `store:` and `defaults:` must be isolated: `defaults:` holds the
+    /// saved hosts and the tunnel orphan record -- using the real
+    /// `.standard` domain here would leak this suite's state into every
+    /// other test that default-constructs a `LeoHostSelection` against it.
     private func makeHostSelection() -> LeoHostSelection {
         let defaults = LeoInMemoryDefaults()
         return LeoHostSelection.isolatedForTesting(defaults: defaults)
