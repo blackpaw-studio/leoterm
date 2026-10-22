@@ -51,6 +51,32 @@ struct LeoHostStoreTests {
         }
     }
 
+    /// Entries saved before `isEnabled` existed carry no such key; they must
+    /// keep loading, and keep connecting.
+    @Test func storedConfigurationWithoutIsEnabledLoadsEnabled() throws {
+        let defaults = testDefaults()
+        let id = UUID()
+        let json = """
+        [{"id":"\(id.uuidString)","name":"Build","sshTarget":"evan@build","identityFile":null,\
+        "remoteLeoPath":"~/.local/bin/leo","remoteSocketPath":"~/.leo/state/leo.sock"}]
+        """
+        defaults.set(Data(json.utf8), forKey: LeoHostStore.key)
+
+        let hosts = LeoHostStore(defaults: defaults).load()
+
+        #expect(hosts == [LeoHostConfiguration(id: id, name: "Build", sshTarget: "evan@build")])
+        #expect(hosts.first?.isEnabled == true)
+    }
+
+    @Test func disabledFlagSurvivesASaveAndLoad() throws {
+        let store = LeoHostStore(defaults: testDefaults())
+        let host = LeoHostConfiguration(name: "Build", sshTarget: "build", isEnabled: false)
+
+        try store.save([host])
+
+        #expect(store.load().first?.isEnabled == false)
+    }
+
     private func testDefaults() -> UserDefaults {
         LeoInMemoryDefaults()
     }

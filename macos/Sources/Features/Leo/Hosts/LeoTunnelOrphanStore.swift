@@ -9,7 +9,8 @@ struct LeoTunnelOrphanRecord: Codable, Equatable, Sendable {
     let socketPath: String
 }
 
-/// Persists at most one `LeoTunnelOrphanRecord` in `UserDefaults`. `reapAtLaunch`
+/// Persists one `LeoTunnelOrphanRecord` per forwarded socket in `UserDefaults`,
+/// so every machine's tunnel is reapable after a crash. `reapAtLaunch`
 /// must run before any tunnel is started this launch, so a leftover record always
 /// describes a process this run has not touched yet -- otherwise a freshly
 /// launched tunnel could be mistaken for (and killed as) its own orphan.
@@ -20,9 +21,9 @@ struct LeoTunnelOrphanStore {
     /// Records pointing in here were written by a pre-B-021 build; see
     /// `reapAtLaunch`.
     private let legacySocketDirectory: URL
-    /// The authoritative record, shared by every copy of this struct. `lock`
-    /// guards only this in-memory value and the decisions made on it
-    /// (`record`, `clear(matching:)`, the unlink+clear at the end of
+    /// The authoritative records by socket path, shared by every copy of this
+    /// struct. `lock` guards only this in-memory value and the decisions made
+    /// on it (`record`, `clear(matching:)`, the unlink+clear at the end of
     /// `reapAtLaunch`), so a `record(_:)` landing between a "does the stored
     /// value still match" check and the removal that follows can never drop
     /// (or unlink the socket of) a tunnel that just replaced the one being
@@ -33,7 +34,7 @@ struct LeoTunnelOrphanStore {
     /// `sleep`, which are caller-supplied and may call back into this store.
     private final class Mirror: @unchecked Sendable {
         let lock = NSLock()
-        var record: LeoTunnelOrphanRecord?
+        var records: [String: LeoTunnelOrphanRecord] = [:]
     }
 
     private let mirror = Mirror()
@@ -48,27 +49,43 @@ struct LeoTunnelOrphanStore {
         self.key = key
         self.fileManager = fileManager
         self.legacySocketDirectory = legacySocketDirectory
-        mirror.record = defaults.data(forKey: key).flatMap { try? JSONDecoder().decode(LeoTunnelOrphanRecord.self, from: $0) }
+        let stored = defaults.data(forKey: key).map(Self.decode) ?? []
+        mirror.records = Dictionary(stored.map { ($0.socketPath, $0) }, uniquingKeysWith: { _, last in last })
+    }
+
+    /// An array, or the lone bare record that builds from before the set
+    /// stored under the same key.
+    private static func decode(_ data: Data) -> [LeoTunnelOrphanRecord] {
+        let decoder = JSONDecoder()
+        if let records = try? decoder.decode([LeoTunnelOrphanRecord].self, from: data) { return records }
+        return (try? decoder.decode(LeoTunnelOrphanRecord.self, from: data)).map { [$0] } ?? []
     }
 
     /// `~/.leo/state/leoterm/`, where the forwarded socket lived before B-021.
     static let defaultLegacySocketDirectory = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent(".leo/state/leoterm", isDirectory: true)
 
+    /// Stores `record`, replacing any earlier record for the same socket path.
     func record(_ record: LeoTunnelOrphanRecord) {
-        mutate { $0 = record; return true }
+        mutate { $0[record.socketPath] = record; return true }
     }
 
-    func current() -> LeoTunnelOrphanRecord? {
-        mirror.lock.withLock { mirror.record }
+    /// Every stored record, ordered by socket path.
+    func records() -> [LeoTunnelOrphanRecord] {
+        mirror.lock.withLock { Self.ordered(mirror.records) }
+    }
+
+    private static func ordered(_ records: [String: LeoTunnelOrphanRecord]) -> [LeoTunnelOrphanRecord] {
+        records.values.sorted { $0.socketPath < $1.socketPath }
     }
 
     /// Removes the stored record only if it still equals `record` -- a concurrent
-    /// `record(_:)` call (a newer tunnel starting) may already have replaced it.
+    /// `record(_:)` call (a newer tunnel on the same socket) may already have
+    /// replaced it. Records for other sockets are never touched.
     func clear(matching record: LeoTunnelOrphanRecord) {
         mutate {
-            guard $0 == record else { return false }
-            $0 = nil
+            guard $0[record.socketPath] == record else { return false }
+            $0[record.socketPath] = nil
             return true
         }
     }
@@ -80,29 +97,30 @@ struct LeoTunnelOrphanStore {
     /// rewrites if a later change moved it on: whichever write runs last has
     /// by construction seen the final mirror value, so the persisted record
     /// converges on it and a stale write can never clobber a newer record.
-    private func mutate(_ change: (inout LeoTunnelOrphanRecord?) -> Bool) {
-        let didChange = mirror.lock.withLock { change(&mirror.record) }
+    private func mutate(_ change: (inout [String: LeoTunnelOrphanRecord]) -> Bool) {
+        let didChange = mirror.lock.withLock { change(&mirror.records) }
         if didChange { persist() }
     }
 
     private func persist() {
-        var written: LeoTunnelOrphanRecord?
+        var written: [String: LeoTunnelOrphanRecord]
         repeat {
-            written = mirror.lock.withLock { mirror.record }
+            written = mirror.lock.withLock { mirror.records }
             write(written)
-        } while mirror.lock.withLock({ mirror.record }) != written
+        } while mirror.lock.withLock({ mirror.records }) != written
     }
 
-    private func write(_ record: LeoTunnelOrphanRecord?) {
-        guard let record, let data = try? JSONEncoder().encode(record) else {
+    private func write(_ records: [String: LeoTunnelOrphanRecord]) {
+        guard !records.isEmpty, let data = try? JSONEncoder().encode(Self.ordered(records)) else {
             defaults.removeObject(forKey: key)
             return
         }
         defaults.set(data, forKey: key)
     }
 
-    /// If the stored record's pid is still running with the same start time,
-    /// SIGTERM it, give it up to 1s to exit, then SIGKILL if it's still around.
+    /// For each stored record whose pid is still running with the same start
+    /// time, SIGTERM it, give them all up to 1s (once, not per record) to exit,
+    /// then SIGKILL whatever is still around.
     /// A mismatched start time means the pid was recycled by an unrelated
     /// process: it is never signalled and the record is left untouched (there is
     /// nothing safe to reap). A live matching pid is provably a dead run's
@@ -116,21 +134,21 @@ struct LeoTunnelOrphanStore {
         signaller: (Int32, Int32) -> Void,
         sleep: (Duration) -> Void = leoTunnelRealSleep
     ) {
-        guard let record = current() else { return }
-        guard !isLegacy(record) else {
-            dropLegacy(record)
-            return
+        let (legacy, candidates) = records().reduce(into: ([LeoTunnelOrphanRecord](), [LeoTunnelOrphanRecord]())) { result, record in
+            if isLegacy(record) { result.0.append(record) } else { result.1.append(record) }
         }
-        guard inspector(record.pid) == record.startTime else { return }
-        signaller(record.pid, SIGTERM)
+        legacy.forEach(dropLegacy)
+        let orphans = candidates.filter { inspector($0.pid) == $0.startTime }
+        guard !orphans.isEmpty else { return }
+        orphans.forEach { signaller($0.pid, SIGTERM) }
         sleep(.seconds(1))
-        if inspector(record.pid) == record.startTime {
-            signaller(record.pid, SIGKILL)
-        }
+        orphans.filter { inspector($0.pid) == $0.startTime }.forEach { signaller($0.pid, SIGKILL) }
         // A replacement tunnel may have been recorded while we were signalling;
         // atomically re-check-and-unlink so that race can only ever preserve
         // the replacement, never drop it.
-        removeIfStillCurrent(record) { try? fileManager.removeItem(atPath: record.socketPath) }
+        for record in orphans {
+            removeIfStillCurrent(record) { try? fileManager.removeItem(atPath: record.socketPath) }
+        }
     }
 
     private func isLegacy(_ record: LeoTunnelOrphanRecord) -> Bool {
@@ -153,9 +171,9 @@ struct LeoTunnelOrphanStore {
     /// and its socket untouched.
     private func removeIfStillCurrent(_ record: LeoTunnelOrphanRecord, cleanup: () -> Void) {
         let didClear = mirror.lock.withLock {
-            guard mirror.record == record else { return false }
+            guard mirror.records[record.socketPath] == record else { return false }
             cleanup()
-            mirror.record = nil
+            mirror.records[record.socketPath] = nil
             return true
         }
         if didClear { persist() }
