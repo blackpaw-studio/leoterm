@@ -58,23 +58,29 @@ temporary, uncommitted UI test. The app has to be signed (ad hoc is enough)
 for the Keychain to work: the gate's `CODE_SIGNING_ALLOWED=NO` build fails
 pairing with "A required entitlement is not present".
 
-## Findings (not fixed in S11)
+## Findings
 
-1. **Daemon-only failure never auto-retries.** When the remote daemon dies but
-   the tunnel stays up, the machine shows "Connection failed" until Reconnect;
-   registry backoff covers only tunnel failures. The spec says failed machines
-   retry with backoff. The Settings list also keeps a green dot. Needs a call.
-2. **Agents ▸ New Agent… sheet can't be cancelled** (Cancel/Escape no-op) and
-   blocks Quit. Pre-existing on main (B-284, `NSWindow+LeoSheet.presentLeoSheet`
-   uses an unretained anchor view controller). The sidebar "+" sheet works.
-3. **iOS real-daemon E2E tests are stale.** S10 hides the Agents section
-   header when only one machine is paired (`AgentsViewController.makeLayout`),
-   so the "Connected" text that `LeoE2ETests.testPairWatchAndStopAnAgent`
-   waits for after pairing (`LeoE2ETests.swift:40`) never appears. CI
-   misses this because the test is skipped without a payload.
-4. Minor: iOS Machines rows read "1 agents"; offline header keeps the stale agent count; sheet/header icon
-   buttons have empty AX titles; stats request timeout is 3 s (plan said 2 s);
-   remote attach needs `xterm-ghostty` terminfo on the remote (environmental).
+Fixed on `machines/S11`:
+
+1. **Daemon-only failure never auto-retried** (e412c6ca8, 68621a44c). A daemon
+   that died behind a live tunnel, or This Mac's, left the machine failed until
+   Reconnect, with a green Settings dot. The feed's drop now fails the
+   connection into the registry's backoff. Seen live in a fresh VM clone:
+   Linux A and This Mac each retried at 1/2/4/8…s and came back on their own
+   once their daemon did, and the Settings dot followed (`E/fix/`).
+2. **Stale iOS E2E test** (c11698e9a). `LeoE2ETests.swift:40` waited for an
+   Agents-header "Connected" that S10 hides with one machine paired; it now
+   reads the status off Machines. Passed against a real daemon (`E/ios-e2e/`).
+3. **"1 agents"** on iOS and in the Mac header's VoiceOver label, and **the
+   offline header's stale agent count** (0a6add0ac).
+
+Not fixed:
+
+4. **Agents ▸ New Agent… sheet can't be cancelled** and blocks Quit.
+   Pre-existing on main (B-284); filed separately.
+5. Minor: sheet/header icon buttons have empty AX titles; stats request
+   timeout is 3 s (plan said 2 s); remote attach needs `xterm-ghostty`
+   terminfo on the remote (environmental).
 
 ## Unverified
 
