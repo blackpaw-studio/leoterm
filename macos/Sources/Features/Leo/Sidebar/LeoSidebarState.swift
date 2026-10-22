@@ -124,6 +124,16 @@ enum LeoConnectivity: Equatable, Sendable {
     var isDisconnected: Bool {
         if case .disconnected = self { true } else { false }
     }
+
+    /// The machine can't be reached (failed, or a live connection
+    /// dropped): its section folds to a card, so its rows aren't there
+    /// to see or act on.
+    var isOffline: Bool {
+        switch self {
+        case .failed, .disconnected: true
+        case .loading, .connected: false
+        }
+    }
 }
 
 struct LeoSidebarSnapshot: Equatable, Sendable {

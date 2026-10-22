@@ -137,6 +137,23 @@ import Testing
         #expect(model.orderedRows.map(\.host) == [.local, remote])
     }
 
+    /// An offline machine is folded to its card, so search and Return can't
+    /// land on a row nobody can see.
+    @Test(arguments: [
+        LeoConnectivity.failed(message: "refused"), .disconnected(reason: "tunnel exited", isRetrying: false),
+    ])
+    func anOfflineMachinesRowsLeaveTheVisibleListEvenWhenFiltering(_ connectivity: LeoConnectivity) {
+        let model = makeModel()
+        model.receive(
+            LeoSidebarSnapshot(rows: [agent("alfred", remote)], connectivity: connectivity, generation: 2), for: remote
+        )
+
+        #expect(model.visibleRows.map(\.host) == [.local])
+        model.query = "alfred"
+        #expect(model.visibleRows.map(\.host) == [.local])
+        #expect(model.rows.map(\.host) == [.local, remote])
+    }
+
     @Test func machineOrderFollowsSetMachinesNotArrivalOrder() {
         let model = LeoSidebarModel()
         model.setMachines([.local, remote])

@@ -38,23 +38,28 @@ import Testing
         #expect(model.request() == LeoSpawnRequest(template: "claude", repo: "o/r", name: "custom", branch: "feat/x", base: nil, prompt: "go"))
     }
 
-    @Test func worktreeModelFailsWhenHostChanges() {
-        let host = CurrentValueSubject<LeoHostID, Never>(.local)
-        let model = worktreeModel(source: sourceRow(host: .local), selectedHost: host.eraseToAnyPublisher())
+    /// A worktree runs where its source agent is: the Machine field shows
+    /// that machine and a pick elsewhere is ignored.
+    @Test func worktreeModelIsLockedToTheSourcesMachine() {
+        let model = worktreeModel(source: sourceRow(host: .local), reachable: [.remote("work")])
         model.branch = "feat/x"
-        #expect(model.validationError == nil)
-        host.send(.remote("work"))
-        #expect(model.hostMismatch(selected: .remote("work")) != nil)
-        #expect(model.validationError == model.hostMismatch(selected: .remote("work")))
-        host.send(.local)
+        #expect(model.isMachineLocked)
+        model.choose(.remote("work"))
+        #expect(model.machine == .local)
         #expect(model.validationError == nil)
     }
 
-    /// A plain New Agent sheet has no source, so a host switch never blocks it.
-    @Test func plainModelIgnoresHostChanges() {
-        let model = worktreeModel(source: nil)
+    @Test func worktreeModelOnARemoteSourceStartsOnThatMachine() {
+        #expect(worktreeModel(source: sourceRow(host: .remote("work"))).machine == .remote("work"))
+    }
+
+    /// A plain New Agent sheet has no source, so its machine is free.
+    @Test func plainModelIsNotLocked() {
+        let model = worktreeModel(source: nil, reachable: [.remote("work")])
         #expect(!model.isWorktree)
-        #expect(model.hostMismatch(selected: .remote("work")) == nil)
+        #expect(!model.isMachineLocked)
+        model.choose(.remote("work"))
+        #expect(model.machine == .remote("work"))
     }
 
     @Test func worktreeSpawnLocalSendsBranchAndSelectsRow() async throws {
@@ -91,16 +96,6 @@ import Testing
         #expect(await daemon.requests.count == 1)
     }
 
-    /// Review fix: a worktree model that was never told the selected host
-    /// must not skip the host guard.
-    @Test func worktreeModelWithoutSelectedHostFailsClosed() {
-        let list = Just(LeoTemplateListState.loaded([LeoTemplate(name: "claude")])).eraseToAnyPublisher()
-        let model = SpawnAgentModel(templateList: list, source: sourceRow(host: .local))
-        model.branch = "feat/x"
-        #expect(model.hostMismatch(selected: nil) != nil)
-        #expect(model.validationError != nil)
-    }
-
     /// Review fix: a machine's client exists only once its tunnel is up. A
     /// spawn before then must never reach another machine's daemon.
     @Test func worktreeSpawnRefusesWhileTheMachineHasNoConnection() async {
@@ -130,7 +125,7 @@ import Testing
         let localDaemon = WorktreeDaemon()
         let actions = LeoAgentActions(
             clients: FakeMachineClients(daemon: localDaemon), cli: worktreeCLI(), model: LeoSidebarModel(), processRunner: LeoRecordingTemplateRunner(templates: ["claude"]), refresh: {})
-        let model = worktreeModel(source: nil, selectedHost: Just(LeoHostID.remote("work")).eraseToAnyPublisher())
+        let model = worktreeModel(source: nil, context: .remote("work"))
         model.template = "claude"
 
         model.spawn(model.request(), actions: actions, attach: { _, _ in }, dismiss: {})
@@ -165,10 +160,9 @@ import Testing
     }
 
     @Test func editingClearsAStaleSpawnError() {
-        let host = CurrentValueSubject<LeoHostID, Never>(.local)
-        let model = worktreeModel(source: sourceRow(host: .local), selectedHost: host.eraseToAnyPublisher())
+        let model = worktreeModel(source: nil, reachable: [.remote("work")])
         let edits: [(SpawnAgentModel) -> Void] = [
-            { $0.branch = "feat/y" }, { $0.name = "other" }, { $0.template = "" }, { _ in host.send(.remote("work")) }
+            { $0.branch = "feat/y" }, { $0.name = "other" }, { $0.template = "claude" }, { $0.choose(.remote("work")) }
         ]
         for edit in edits {
             model.setError("branch exists")
@@ -218,12 +212,11 @@ import Testing
         LeoAgentRow(host: host, name: "source", template: "claude", status: .running, activity: .idle, actionDetail: nil, repo: "o/r")
     }
 
-    /// The selected host defaults to the source's own, as when the sheet
-    /// opens from a row of the selected host.
-    private func worktreeModel(source: LeoAgentRow?, selectedHost: AnyPublisher<LeoHostID, Never>? = nil) -> SpawnAgentModel {
+    /// The machine defaults to the source's own, as when the sheet opens
+    /// from a row.
+    private func worktreeModel(source: LeoAgentRow?, context: LeoHostID? = nil, reachable: [LeoHostID] = []) -> SpawnAgentModel {
         let list = Just(LeoTemplateListState.loaded([LeoTemplate(name: "claude")])).eraseToAnyPublisher()
-        let host = selectedHost ?? Just(source?.host ?? .local).eraseToAnyPublisher()
-        return SpawnAgentModel(templateList: list, source: source, selectedHost: host)
+        return SpawnAgentModel(templateList: list, source: source, context: context, reachable: reachable)
     }
 
     private func worktreeCLI() -> LeoCLI {
@@ -233,7 +226,7 @@ import Testing
 
 /// Records every spawn request and answers with the agent the daemon would
 /// create for a worktree spawn.
-private actor WorktreeDaemon: LeoDaemonClient {
+actor WorktreeDaemon: LeoDaemonClient {
     static let spawnedName = "r-feat-x"
     private(set) var requests: [LeoSpawnRequest] = []
     private let error: LeoDaemonError?

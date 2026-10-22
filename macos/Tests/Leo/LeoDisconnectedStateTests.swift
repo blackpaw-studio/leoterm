@@ -51,8 +51,9 @@ import Testing
         #expect(!LeoMenuCommands.canReconnect(hasLeoSession: false, connectivity: .disconnected(reason: "x", isRetrying: false)))
     }
 
-    /// Q7: ⇧⌘R reconnects every machine a banner would offer Retry for.
-    @Test func reconnectTargetsEveryMachineThatWouldOfferRetry() {
+    /// Q7: ⇧⌘R reconnects every machine that isn't connected, including one
+    /// still connecting, but not one already retrying.
+    @Test func reconnectTargetsEveryMachineThatIsNotConnected() {
         let machines: [(host: LeoHostID, connectivity: LeoConnectivity)] = [
             (.local, .connected),
             (.remote("a"), .failed(message: "refused")),
@@ -61,9 +62,10 @@ import Testing
             (.remote("d"), .loading),
         ]
 
-        #expect(LeoMenuCommands.machinesToReconnect(machines) == [.remote("a"), .remote("b")])
+        #expect(LeoMenuCommands.machinesToReconnect(machines) == [.remote("a"), .remote("b"), .remote("d")])
         #expect(LeoMenuCommands.canReconnect(hasLeoSession: true, machines: machines))
-        #expect(!LeoMenuCommands.canReconnect(hasLeoSession: true, machines: [(.local, .connected), (.remote("c"), .loading)]))
+        #expect(LeoMenuCommands.canReconnect(hasLeoSession: true, machines: [(.local, .connected), (.remote("d"), .loading)]))
+        #expect(!LeoMenuCommands.canReconnect(hasLeoSession: true, machines: [(.local, .connected), (.remote("c"), .disconnected(reason: "x", isRetrying: true))]))
         #expect(!LeoMenuCommands.canReconnect(hasLeoSession: false, machines: machines))
     }
 

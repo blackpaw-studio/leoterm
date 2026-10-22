@@ -8,7 +8,7 @@ import LeoKit
     @Published var name = ""
     @Published var branch = ""
     @Published var prompt = ""
-    /// The selected host's list, mirrored from `LeoAgentActions
+    /// The chosen machine's list, mirrored from `LeoAgentActions
     /// .templateList` (B-054): never fetched here, so the sheet offers
     /// exactly what a row's Set Template submenu does, for the same host.
     @Published private(set) var templateList: LeoTemplateListState = .loading
@@ -33,34 +33,69 @@ import LeoKit
     @Published private(set) var error: String?
     @Published private(set) var isSpawning = false
 
-    /// The selected host, mirrored so a worktree spawn can tell when the
-    /// user switched away from the source agent's host (D-103).
-    @Published private(set) var selectedHost: LeoHostID?
+    /// The machine the agent will run on. Changed only by `choose`, and
+    /// never for a worktree spawn, which runs where its source agent is.
+    @Published private(set) var machine: LeoHostID = .local
+    /// Every machine, with where it stands; unreachable ones are listed but
+    /// can't be chosen.
+    @Published private(set) var machineOptions: [SpawnMachineOption] = []
     /// B-176: the agent row a "New Agent in Worktree…" spawn branches from.
     /// Nil for a plain New Agent sheet.
     let source: LeoAgentRow?
+    private let feeds: SpawnMachineFeeds
+    private let remember: (LeoHostID) -> Void
     private var editObservation: AnyCancellable?
 
-    init(templateList: AnyPublisher<LeoTemplateListState, Never>, source: LeoAgentRow? = nil,
-         selectedHost: AnyPublisher<LeoHostID, Never> = Empty().eraseToAnyPublisher(),
-         environmentCatalog: AnyPublisher<LeoEnvironmentCatalogState, Never> = Empty().eraseToAnyPublisher(),
-         environmentsSupported: AnyPublisher<Bool, Never> = Just(false).eraseToAnyPublisher()) {
+    /// `context`: the machine "New Agent Here" (or a board, or a row) was
+    /// opened from. `lastUsed`: the machine of the last successful spawn.
+    /// `remember` is told the machine after every successful spawn.
+    init(source: LeoAgentRow? = nil, context: LeoHostID? = nil, lastUsed: LeoHostID? = nil,
+         feeds: SpawnMachineFeeds, remember: @escaping (LeoHostID) -> Void = { _ in }) {
         self.source = source
-        environmentsSupported.removeDuplicates().assign(to: &$showsEnvironments)
+        self.feeds = feeds
+        self.remember = remember
+        feeds.machines.removeDuplicates().assign(to: &$machineOptions)
+        machine = source?.host ?? LeoSpawnMachineDefault.resolve(
+            context: context, lastUsed: lastUsed,
+            statuses: Dictionary(machineOptions.map { ($0.host, $0.status) }, uniquingKeysWith: { first, _ in first })
+        )
         if let source {
             template = source.template ?? ""
             repo = source.repo ?? ""
         }
-        templateList.assign(to: &$templateList)
-        selectedHost.map(Optional.some).assign(to: &$selectedHost)
+        $machine.map(feeds.templateList).switchToLatest().assign(to: &$templateList)
+        $machine.map(feeds.environmentCatalog).switchToLatest().assign(to: &$environmentCatalog)
+        $machine.map(feeds.environmentsSupported).switchToLatest().removeDuplicates().assign(to: &$showsEnvironments)
         editObservation = Publishers.Merge4(
             $template.dropFirst().map { _ in () }, $name.dropFirst().map { _ in () },
-            $branch.dropFirst().map { _ in () }, $selectedHost.dropFirst().map { _ in () }
+            $branch.dropFirst().map { _ in () }, $machine.dropFirst().map { _ in () }
         ).sink { [weak self] in self?.error = nil }
-        environmentCatalog.assign(to: &$environmentCatalog)
-        prefillObservation = Publishers.CombineLatest3($template, $environmentCatalog, $selectedHost).sink { [weak self] template, catalog, host in
+        prefillObservation = Publishers.CombineLatest3($template, $environmentCatalog, $machine).sink { [weak self] template, catalog, host in
             self?.prefillEnvironments(template: template, catalog: catalog, host: host)
         }
+    }
+
+    /// Picks the machine to spawn on and re-reads its templates, environment
+    /// options and feature gates. A template the new machine lacks stays
+    /// chosen, and `validationError` says so. Ignored for a worktree spawn, and for a
+    /// machine that is unreachable or not listed.
+    func choose(_ host: LeoHostID) {
+        guard !isMachineLocked, host != machine, isSelectable(host) else { return }
+        machine = host
+        feeds.reload(host)
+    }
+
+    /// A worktree spawn branches from its source agent's repository, which
+    /// only exists on that agent's machine.
+    var isMachineLocked: Bool { source != nil }
+
+    /// "Choose…" opens a folder on this Mac, which means nothing on another
+    /// machine, where the path has to be typed.
+    var canBrowseRepository: Bool { machine == .local }
+
+    /// A machine missing from the list is not selectable, except This Mac.
+    private func isSelectable(_ host: LeoHostID) -> Bool {
+        machineOptions.first { $0.host == host }?.isSelectable ?? (host == .local)
     }
 
     /// A template or host change resets the list to the template's
@@ -96,24 +131,14 @@ import LeoKit
         return nil
     }
     var validationError: String? {
+        if !isSelectable(machine) { return "\(SpawnMachineOption.title(for: machine)) is unavailable" }
         if !template.isEmpty, !templates.contains(where: { $0.name == template }) {
             return "Choose an available template"
         }
         if isWorktree {
-            return hostMismatch(selected: selectedHost)
-                ?? SpawnValidation.worktree(template: template, repo: repo, branch: branch, name: name.nilIfEmpty)
+            return SpawnValidation.worktree(template: template, repo: repo, branch: branch, name: name.nilIfEmpty)
         }
-        return SpawnValidation.spawn(template: template, repo: repo, name: name.nilIfEmpty)
-    }
-
-    /// A worktree spawn runs on whichever host is selected, so it is only
-    /// valid while that is still the source agent's host. Fails closed: a
-    /// worktree model that was never told the selected host can't create.
-    func hostMismatch(selected: LeoHostID?) -> String? {
-        guard let source else { return nil }
-        guard let selected else { return "Not connected to \(source.host.displayName)" }
-        guard selected != source.host else { return nil }
-        return "Host changed: switch back to \(source.host.displayName) to create this agent"
+        return SpawnValidation.spawn(template: template, repo: repo, name: name.nilIfEmpty, on: machine)
     }
 
     /// No `base`: a worktree branch starts from origin's default branch.
@@ -131,8 +156,10 @@ import LeoKit
                dismiss: @escaping () -> Void) {
         guard !isSpawning else { return }
         isSpawning = true
-        actions.spawn(request, on: source?.host ?? selectedHost ?? .local, attach: attach, dismiss: {
+        let host = machine
+        actions.spawn(request, on: host, attach: attach, dismiss: {
             self.isSpawning = false
+            self.remember(host)
             dismiss()
         }, failure: { error in
             self.isSpawning = false

@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import SystemConfiguration
 import LeoKit
 
 /// A named group of rows for the sidebar's `List`, keyed by status. Rows
@@ -75,6 +76,12 @@ enum LeoSidebarSectioning {
     }
 }
 
+/// The machine a header's "New Agent Here…" sheet is for.
+private struct LeoMachineSpawnItem: Identifiable {
+    let host: LeoHostID
+    var id: LeoHostID { host }
+}
+
 struct LeoSidebarView: View {
     @ObservedObject var model: LeoSidebarModel
     let windowID: LeoWindowID
@@ -94,6 +101,10 @@ struct LeoSidebarView: View {
     /// When the selected terminal row's reveal is armed (B-149).
     private let revealScheduler: LeoRevealScheduler
     @State private var showingSpawn = false
+    /// The machine a header's "New Agent Here…" spawns on.
+    @State private var spawnMachine: LeoMachineSpawnItem?
+    /// How each machine's stats are drawn (Settings ▸ Machines ▸ Stats style).
+    @AppStorage(LeoStatsStyle.defaultsKey) private var statsStyleRaw = LeoStatsStyle.default.rawValue
     /// The row a "New Agent in Worktree…" sheet branches from (B-176).
     @State private var worktreeSource: LeoAgentRow?
     @State private var searchField = LeoSidebarSearchFieldHandle()
@@ -135,10 +146,6 @@ struct LeoSidebarView: View {
                 .disabled(!model.hasConnectedMachine)
             }
 
-            if let banner = LeoDisconnectedBanner(host: shownHost, connectivity: connectivity) {
-                LeoDisconnectedBannerView(banner: banner) { model.reconnectRequested(shownHost) }
-            }
-
             if let banner = model.appLocationBanner {
                 LeoAppLocationBannerView(banner: banner) { model.moveToApplicationsRequested() }
             }
@@ -167,10 +174,15 @@ struct LeoSidebarView: View {
         .padding(.bottom, LeoSidebarChromeMetrics.itemSpacing)
         .onChange(of: searchFocusRequest) { _ in searchField.focus() }
         #if DEBUG
-        .onAppear { LeoLaunchTiming.mark("sidebarAppeared", "connectivity=\(connectivity) rows=\(shownRows.count)") }
+        .onAppear { LeoLaunchTiming.mark("sidebarAppeared", "machines=\(model.machineHosts.count) rows=\(model.rows.count)") }
         #endif
         .sheet(isPresented: $showingSpawn) {
             SpawnAgentSheet(model: model, actions: actions) { row, disposition in
+                model.requestAttach(row, from: windowID, disposition: disposition)
+            }
+        }
+        .sheet(item: $spawnMachine) { item in
+            SpawnAgentSheet(model: model, actions: actions, context: item.host) { row, disposition in
                 model.requestAttach(row, from: windowID, disposition: disposition)
             }
         }
@@ -184,13 +196,6 @@ struct LeoSidebarView: View {
 
     private var panelError: String? { model.panelError }
 
-    /// TODO(S6): the one machine this view draws until it draws a section
-    /// per machine (`model.machineSections`); until then the runtime feeds
-    /// This Mac only.
-    private var shownHost: LeoHostID { model.machineHosts.first ?? .local }
-    private var connectivity: LeoConnectivity { model.snapshot(for: shownHost)?.connectivity ?? .loading }
-    private var shownRows: [LeoAgentRow] { model.snapshot(for: shownHost)?.rows ?? [] }
-
     /// This window's "Start <name>?" prompt (B-049); the model holds one
     /// per window, so the sheet shows only where the click was.
     private var startPromptBinding: Binding<LeoStartPromptSheetItem?> {
@@ -203,38 +208,37 @@ struct LeoSidebarView: View {
         )
     }
 
-    /// The agent list (or what stands in for it), with this window's
-    /// Terminals section: the shells don't need the daemon, so they show
-    /// whatever state the agents are in.
+    /// One section per machine, with this window's Terminals section: the
+    /// shells don't need a daemon, so they show whatever state the machines
+    /// are in.
     ///
     /// One list, in one place, whatever it shows (B-099, B-148): a filter
     /// that matches nothing empties it under "No matches" rather than
-    /// replacing it, the filter hiding the Terminals section leaves it
-    /// mounted (empty, in Loading, Failed or No Agents) while the window
-    /// has terminals, and the agents arriving fill the list the Terminals
-    /// were in. So the list's reveal of the selected terminal row (B-067)
-    /// follows the list's own changes, never a new list's first
-    /// appearance, which can come before AppKit has built its table.
+    /// replacing it, and the machines connecting, failing or arriving fill
+    /// the list the Terminals were in. So the list's reveal of the selected
+    /// terminal row (B-067) follows the list's own changes, never a new
+    /// list's first appearance, which can come before AppKit has built its
+    /// table.
     @ViewBuilder private var content: some View {
-        if !listsAgents { agentState }
-        if listsAgents || hasTerminals {
-            sidebarList(agentSections: listsAgents ? model.sections : [], agentsInert: listsAgents && model.isDisconnected(shownHost))
-                .overlay {
-                    if listsAgents && model.showsNoMatches {
-                        Text("No matches").allowsHitTesting(false)
-                    }
+        sidebarList(machines: shownMachines)
+            .overlay {
+                if model.showsNoMatches {
+                    Text("No matches").allowsHitTesting(false)
                 }
-        }
+            }
     }
 
-    /// Rows to list: connected (or disconnected, dimmed) with agents, even
-    /// when the filter matches none of them.
-    private var listsAgents: Bool {
-        switch connectivity {
-        case .connected, .disconnected: !shownRows.isEmpty
-        case .loading, .failed: false
-        }
+    /// While the filter has text only machines with matches are listed.
+    private var shownMachines: [LeoMachineSection] {
+        LeoSidebarLayout.isFiltering(model.query) ? model.machineSections.filter { !$0.sections.isEmpty } : model.machineSections
     }
+
+    private var statsStyle: LeoStatsStyle { LeoStatsStyle(storedValue: statsStyleRaw) }
+
+    /// The Mac's name for the hover on This Mac's header. Read once from
+    /// the system configuration store, which never waits on a name lookup
+    /// the way `Host` can.
+    private static let hostName = SCDynamicStoreCopyComputerName(nil, nil) as String? ?? "This Mac"
 
     /// Whether the window has shells: while it does, the list stays
     /// mounted, whatever the filter or the agents are doing (B-148).
@@ -246,81 +250,29 @@ struct LeoSidebarView: View {
         hasTerminals && !LeoSidebarLayout.isFiltering(model.query)
     }
 
-    @ViewBuilder private var agentState: some View {
-        switch connectivity {
-        case .loading:
-            stateView { ProgressView(); Text("Loading agents…") }
-        case .failed(let message):
-            let failure = model.connectionFailureHint(shownHost)
-            let panel = LeoConnectionFailurePanel(message: message, hint: failure?.hint)
-            stateView {
-                Text(panel.message).multilineTextAlignment(.center).textSelection(.enabled)
-                if let hint = panel.hint, let ssh = failure?.sshTarget {
-                    Text(hint).font(.caption).multilineTextAlignment(.center)
-                    Button("Open SSH") { model.sshRequested(ssh) }
-                }
-                Button("Retry") { model.reconnectRequested(shownHost) }
-                if shownHost == .local {
-                    Button(model.daemonStartAction.title) { model.startDaemonTapped() }
-                } else {
-                    Button("Start daemon") { model.startDaemonRequested() }
-                }
-            }
-        case .connected where shownRows.isEmpty:
-            stateView {
-                Text("No Agents").font(.headline)
-                Text("Spawn an agent to start working with it from this window.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                Button("New Agent…") { showingSpawn = true }
-            }
-        case .disconnected where shownRows.isEmpty:
-            // The banner above says what happened and offers Retry.
-            stateView {
-                if shownHost == .local {
-                    Button(model.daemonStartAction.title) { model.startDaemonTapped() }
-                }
-            }
-        case .connected, .disconnected:
-            // Agents to list: the list shows them, or "No matches" over it.
-            EmptyView()
-        }
-    }
-
-    /// How far a disconnected sidebar's stale rows are dimmed.
-    private static let inertOpacity = 0.45
-
-    /// Agent sections, then this window's Terminals. Disconnected, the
-    /// agent rows stay listed but dimmed and inert until a Retry lands a
-    /// fresh list (D-061); the terminals don't depend on the daemon.
-    private func sidebarList(agentSections: [LeoSidebarSection], agentsInert: Bool) -> some View {
+    /// Each machine's section, then this window's Terminals. An offline
+    /// machine folds to its header and a card saying why; the terminals
+    /// don't depend on any daemon.
+    private func sidebarList(machines: [LeoMachineSection]) -> some View {
         // Selection is required (`SelectionValue` is the optional ID
         // itself, so each row's tag is `Optional(id)`): the table then
         // never toggles the selected row off on ⌘-click, which here opens
         // a new window (B-048, D-104). `nil` still shows no selection.
         ScrollViewReader { proxy in
             List<LeoSidebarItemID?, _>(selection: selectionBinding) {
-                ForEach(agentSections) { section in
-                    Section(header: sectionHeader(section)) {
-                        agentRows(section)
-                            .disabled(agentsInert)
-                            .opacity(agentsInert ? Self.inertOpacity : 1)
-                            .accessibilityHint(agentsInert ? "Disconnected" : "")
-                    }
-                }
+                ForEach(machines) { machine in machineSection(machine) }
                 if showsTerminals { terminalSection }
             }
             .listStyle(.sidebar)
             .environment(\.sidebarRowSize, LeoDispatchRowMetrics.sidebarRowSize)
             .leoRevealsTerminalRow(
-                terminals.selection, isListed: showsTerminals, listsAgents: listsAgents, scheduler: revealScheduler, proxy: proxy
+                terminals.selection, isListed: showsTerminals, listsAgents: !model.rows.isEmpty, scheduler: revealScheduler, proxy: proxy
             )
             .leoLandsWhenTerminalsClose(
                 // Its header's row and each terminal row `terminalSection` lists.
                 sectionRows: showsTerminals ? terminals.list.labels.count + 1 : 0,
                 isFiltering: LeoSidebarLayout.isFiltering(model.query),
-                landing: LeoTerminalsSectionExit.landing(selectedAgent: model.selection, in: agentSections),
+                landing: LeoTerminalsSectionExit.landing(selectedAgent: model.selection, in: machines.flatMap(\.sections)),
                 terminalsWillChange: terminals.objectWillChange,
                 proxy: proxy
             )
@@ -341,6 +293,86 @@ struct LeoSidebarView: View {
             .frame(width: 0, height: 0)
             .accessibilityHidden(true)
         }
+    }
+
+    @ViewBuilder private func machineSection(_ machine: LeoMachineSection) -> some View {
+        let presentation = LeoMachineHeaderPresentation(
+            section: machine, style: statsStyle, hostName: Self.hostName, now: Date()
+        )
+        Section(header: machineHeader(machine.host, presentation)) {
+            if presentation.isOffline {
+                offlineCard(machine.host, presentation)
+            } else if machine.connectivity == .loading {
+                machineNote("Loading agents…", showsProgress: true)
+            } else if !isMachineFolded(presentation) {
+                machineRows(machine)
+            }
+        }
+    }
+
+    /// The filter shows every match, so it opens a folded machine.
+    private func isMachineFolded(_ presentation: LeoMachineHeaderPresentation) -> Bool {
+        presentation.isCollapsed && !LeoSidebarLayout.isFiltering(model.query)
+    }
+
+    private func machineHeader(_ host: LeoHostID, _ presentation: LeoMachineHeaderPresentation) -> some View {
+        LeoMachineSectionHeader(
+            host: host, presentation: presentation, style: statsStyle,
+            actions: LeoMachineHeaderActions(
+                toggle: { model.toggleMachineCollapsed(host) },
+                newAgentHere: { spawnMachine = LeoMachineSpawnItem(host: host) },
+                reconnect: { model.reconnectRequested(host) },
+                editMachine: { model.editMachineRequested(host) },
+                disable: { model.disableMachineRequested(host) }
+            )
+        )
+    }
+
+    private func offlineCard(_ host: LeoHostID, _ presentation: LeoMachineHeaderPresentation) -> some View {
+        LeoMachineOfflineCard(
+            presentation: presentation,
+            failureHint: model.connectionFailureHint(host),
+            reconnect: { model.reconnectRequested(host) },
+            openSSH: { model.sshRequested($0) },
+            startDaemon: host == .local ? (model.daemonStartAction.title, { model.startDaemonTapped() }) : nil
+        )
+        .listRowInsets(LeoDispatchRowMetrics.agentRowInsets)
+    }
+
+    /// A machine's own sections (Needs You, Pinned, then the groups), each
+    /// under a small title row, or a note when it has no agents.
+    @ViewBuilder private func machineRows(_ machine: LeoMachineSection) -> some View {
+        if machine.sections.isEmpty {
+            if !LeoSidebarLayout.isFiltering(model.query) { machineNote("No agents", showsProgress: false) }
+        } else {
+            ForEach(machine.sections) { section in
+                subsectionHeader(section, host: machine.host)
+                agentRows(section)
+            }
+        }
+    }
+
+    private func machineNote(_ text: String, showsProgress: Bool) -> some View {
+        HStack(spacing: 6) {
+            if showsProgress { ProgressView().controlSize(.small) }
+            Text(text).font(.caption).foregroundStyle(.secondary)
+        }
+        .listRowInsets(LeoDispatchRowMetrics.agentRowInsets)
+    }
+
+    /// A machine's status group (Needs You, Running…) as a title row: a
+    /// `List` section can't nest, so the machine owns the real `Section`.
+    @ViewBuilder private func subsectionHeader(_ section: LeoSidebarSection, host: LeoHostID) -> some View {
+        Group {
+            if LeoSidebarLayout.isFiltering(model.query) {
+                Text(section.title)
+            } else {
+                LeoSidebarSectionHeader(section: section) { model.toggleCollapsed(section.id, host: host) }
+            }
+        }
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(.secondary)
+        .listRowInsets(LeoDispatchRowMetrics.agentRowInsets)
     }
 
     private var terminalSection: some View {
@@ -424,25 +456,6 @@ struct LeoSidebarView: View {
         } else {
             LeoDispatchRowView(node: item.node, disclosure: disclosure, endsGroup: endsGroup)
         }
-    }
-
-    /// A section title with a disclosure chevron (B-010). While the filter
-    /// is non-empty every match shows, so there's nothing to collapse.
-    @ViewBuilder private func sectionHeader(_ section: LeoSidebarSection) -> some View {
-        if LeoSidebarLayout.isFiltering(model.query) {
-            Text(section.title)
-        } else {
-            LeoSidebarSectionHeader(section: section) { model.toggleCollapsed(section.id, host: shownHost) }
-        }
-    }
-
-    private func stateView<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        VStack(spacing: 10) {
-            Spacer()
-            content()
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func searchEscape() {

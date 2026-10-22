@@ -198,7 +198,10 @@ struct LeoSidebarTerminalScrollTests {
     @Test(arguments: [LeoConnectivity.loading, .failed(message: "no daemon"), .connected])
     func aRowRevealedAtTheBottomStaysWhollyOnScreenWhenTheAgentsGo(_ connectivity: LeoConnectivity) async throws {
         let terminals = LeoWindowTerminals()
-        let ids = (0 ..< Self.terminalCount).map { _ in UUID() }
+        // Enough shells that the list still overflows under the machine's
+        // header and note, which the agents leaving don't take away.
+        let terminalCount = Self.terminalCount + 6
+        let ids = (0 ..< terminalCount).map { _ in UUID() }
         for id in ids { terminals.add(id, title: "Terminal") }
         let (window, model) = try makeWindowAndModel(terminals: terminals, revealScheduler: .immediate)
         defer { window.close() }
@@ -213,7 +216,9 @@ struct LeoSidebarTerminalScrollTests {
         }
 
         try #require(tables(in: window.contentView).first === table, "the same list stays (B-148)")
-        try #require(table.numberOfRows == Self.terminalCount + 1, "only the Terminals section lists")
+        // The machine's header and its one note (Loading, the failure card
+        // or No Agents) stay above the Terminals section and its header.
+        try #require(table.numberOfRows == terminalCount + 1 + 2, "only the Terminals section lists below the machine")
         let last = table.numberOfRows - 1
         let clipHeight = try #require(table.enclosingScrollView?.contentView.bounds.height)
         try #require(clipHeight < table.rect(ofRow: last).maxY, "the row is below the edge unless the list scrolls")
@@ -372,8 +377,9 @@ struct LeoSidebarTerminalScrollTests {
             try #require(!isVisible(row: 0, in: table) && !isVisible(row: table.numberOfRows - 1, in: table),
                          "the list is parked between the agent and the Terminals section")
         }
-        // The list's order: the Running header (row 0), then agent-0 onward.
-        let agentRow = 1
+        // The list's order: the machine's header (row 0), its Running title,
+        // then agent-0 onward.
+        let agentRow = 2
         try #require(isOffScreen(row: agentRow, in: table), "the selected agent row is off screen")
         let rowsBefore = table.numberOfRows
 

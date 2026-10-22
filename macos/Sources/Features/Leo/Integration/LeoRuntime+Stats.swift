@@ -4,12 +4,6 @@ import LeoKit
 
 /// Feeds `LeoMachineStatsPoller` its inputs.
 extension LeoRuntime {
-    // Literal of S8's `LeoStatsStyle.defaultsKey` (LeoKit, not on this
-    // branch); point this at the constant once S8 merges.
-    /// The per-device Stats style (Settings ▸ Machines), stored as a
-    /// `LeoStatsStyle` raw value.
-    static let statsStyleKey = "LeoStatsStyle"
-
     static func makeStatsPoller(
         clients: any LeoMachineClientResolving, model: LeoSidebarModel, defaults: UserDefaults
     ) -> LeoMachineStatsPoller {
@@ -17,7 +11,7 @@ extension LeoRuntime {
             daemon: { clients.daemon(for: $0) },
             generation: { clients.generation(for: $0) },
             features: { model.features(for: $0) },
-            style: { LeoStatsStyle(storedValue: defaults.string(forKey: statsStyleKey)) },
+            style: { LeoStatsStyle(storedValue: defaults.string(forKey: LeoStatsStyle.defaultsKey)) },
             deliver: { stats, host in model.receiveStats(stats, for: host) }
         ))
     }

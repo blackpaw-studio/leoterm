@@ -13,19 +13,30 @@ typealias LeoRemoteDaemonFactory = @Sendable (_ host: LeoHostID, _ socketPath: S
 /// Every machine connects on its own: its state transitions reach only its
 /// own feed and client, and This Mac's never moves Chat anywhere.
 extension LeoRuntime {
+    /// Opens Leo Settings on its Machines tab, selecting `host` when given.
+    func presentMachinesSettings(selecting host: LeoHostID? = nil) {
+        settingsWindow.show(selecting: host)
+    }
+
     /// The registry's machines changed (launch, or Settings saved). The
     /// model learns them before their feeds can deliver; a machine that
-    /// left loses its feed and client.
+    /// left, or was disabled, loses its feed and client.
     func machinesChanged(_ all: [LeoHostID]) {
-        let shown = feedsRemoteMachines ? all : all.filter { $0 == .local }
+        let shown = all.filter { host in
+            host == .local || (feedsRemoteMachines && machines.configuration(for: host)?.isEnabled != false)
+        }
         let gone = feeds.hosts.filter { !shown.contains($0) }
         model.setMachines(shown)
         feeds.setMachines(shown)
         statsPoller.setMachines(shown)
-        for host in gone {
-            clients.unbind(host)
-            connectionSequences[host] = nil
-        }
+        gone.forEach { clients.unbind($0) }
+    }
+
+    /// A machine connected, failed, was disabled or came back: the spawn
+    /// sheet's Machine field reads these off the model, for the machines it
+    /// shows.
+    func machineStatusesChanged(_ statuses: [LeoHostID: LeoMachineStatus]) {
+        model.setMachineStatuses(feedsRemoteMachines ? statuses : statuses.filter { $0.key == .local })
     }
 
     /// Applies one machine's connection-state transition to its feed (and,
@@ -62,7 +73,8 @@ extension LeoRuntime {
         let connected = host == .local
             ? LeoMachineDaemon(daemon: localDaemon, activitySource: localActivitySource)
             : await remoteDaemon(host, socketPath)
-        guard !isShutDown, connectionSequences[host] == sequence else { return }
+        guard !isShutDown, connectionSequences[host] == sequence,
+              generation == machines.generation(for: host) else { return }
         clients.bind(connected.daemon, host: host, generation: generation)
         actions.hostConnected(host)
         feeds.updateConnection(
