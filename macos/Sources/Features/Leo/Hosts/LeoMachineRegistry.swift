@@ -36,10 +36,10 @@ import LeoKit
     private var latestGeneration = 0
     private var failedAttempts: [LeoHostID: Int] = [:]
     private var pendingRetries: [LeoHostID: Task<Void, Never>] = [:]
-    /// Teardowns of retired connections, so a machine's next connection
-    /// (after an edit, or a remove and re-add) launches only once the old
-    /// tunnel is gone.
-    private var retiredTeardowns: [LeoHostID: Task<Void, Never>] = [:]
+    /// Teardowns of retired connections by configuration id, which names
+    /// the machine's sockets: its next connection (after an edit, a rename,
+    /// or a remove and re-add) launches only once the old tunnel is gone.
+    private var retiredTeardowns: [UUID: Task<Void, Never>] = [:]
     private var activationObserver: NSObjectProtocol?
     private var isStarted = false
     private var isShutDown = false
@@ -169,7 +169,7 @@ import LeoKit
         let retiring = Array(connections.values)
         let barriers = retiring.map { $0.shutdown() } + retiredTeardowns.values
         retiring.forEach { generations[$0.host] = nextGeneration() }
-        let teardown = Task.detached {
+        let teardown = Task.detached(priority: .userInitiated) {
             for barrier in barriers { await barrier.value }
         }
         let finished = waitForTeardown(teardown, teardownBound)
@@ -180,7 +180,7 @@ import LeoKit
     /// The production `TeardownWait`: a semaphore with a timeout.
     nonisolated static func blockingWait(for teardown: Task<Void, Never>, upTo bound: Duration) -> Bool {
         let semaphore = DispatchSemaphore(value: 0)
-        Task.detached {
+        Task.detached(priority: .userInitiated) {
             await teardown.value
             semaphore.signal()
         }
@@ -206,7 +206,7 @@ import LeoKit
         let connection = LeoMachineConnection(
             target: target,
             environment: environment,
-            previousTeardown: retiredTeardowns.removeValue(forKey: host),
+            previousTeardown: target.configurationID.flatMap { retiredTeardowns.removeValue(forKey: $0) },
             nextGeneration: { [weak self] in self?.nextGeneration() ?? 0 },
             onState: { [weak self] generation, state in self?.receive(state, generation: generation, for: host) }
         )
@@ -220,7 +220,8 @@ import LeoKit
         failedAttempts[host] = nil
         states[host] = nil
         guard let connection = connections.removeValue(forKey: host) else { return }
-        retiredTeardowns[host] = connection.shutdown()
+        let teardown = connection.shutdown()
+        if let id = connection.target.configurationID { retiredTeardowns[id] = teardown }
         generations[host] = nextGeneration()
     }
 

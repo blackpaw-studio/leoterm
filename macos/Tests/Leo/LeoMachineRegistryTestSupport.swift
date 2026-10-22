@@ -270,6 +270,13 @@ enum LeoMachineRegistryTestSupport {
         LeoHostConfiguration(id: stableID(name), name: name, sshTarget: "evan@\(name)", remoteSocketPath: remoteSocketPath, isEnabled: enabled)
     }
 
+    /// "b" edited in Settings (new target) and renamed (new name too):
+    /// both keep b's id, as the Settings pane does.
+    static let replacementsOfB = [
+        LeoHostConfiguration(id: host("b").id, name: "b", sshTarget: "evan@b-new", remoteSocketPath: "/remote/leo.sock"),
+        LeoHostConfiguration(id: host("b").id, name: "b-renamed", sshTarget: "evan@b-renamed", remoteSocketPath: "/remote/leo.sock"),
+    ]
+
     private static func stableID(_ name: String) -> UUID {
         let hash = name.utf8.reduce(UInt64(0xcbf2_9ce4_8422_2325)) { ($0 ^ UInt64($1)) &* 0x100_0000_01b3 }
         let hex = String(format: "%012llx", hash & 0xFFFF_FFFF_FFFF)

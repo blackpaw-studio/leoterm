@@ -25,6 +25,10 @@ import LeoKit
             case .remote(let configuration): .remote(configuration.name)
             }
         }
+
+        var configurationID: UUID? {
+            if case .remote(let configuration) = self { configuration.id } else { nil }
+        }
     }
 
     private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
@@ -107,7 +111,7 @@ import LeoKit
         let previousTunnel = currentTunnel
         currentTunnel = nil
         let awaited = retiring
-        let barrier = Task.detached {
+        let barrier = Task.detached(priority: .userInitiated) {
             await awaited?.value
             if let previousTunnel { await LeoMachineConnection.terminate(previousTunnel) }
         }
