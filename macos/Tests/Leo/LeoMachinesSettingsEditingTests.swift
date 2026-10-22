@@ -100,6 +100,18 @@ import Testing
         #expect(saves.count == 0, "and never asks the registry to reload")
     }
 
+    @Test func clearedPathFieldsAreTestedAsTheDefaultsSaveWouldWrite() async throws {
+        let tester = ScriptedTester(report: .success(version: "0.57.0", statsAdvertised: true))
+        let (model, _, _) = makeModel(hosts: [.init(name: "work", sshTarget: "evan@work")], tester: tester)
+        model.updateSelected { $0.replacing(remoteLeoPath: "", remoteSocketPath: "") }
+
+        await model.testSelected()
+
+        #expect(tester.tested.first?.remoteLeoPath == "~/.local/bin/leo")
+        #expect(tester.tested.first?.remoteSocketPath == "~/.leo/state/leo.sock")
+        #expect(model.hosts.first?.remoteSocketPath == "", "the draft keeps what the user is typing")
+    }
+
     @Test func aFailedSshStepFailsTheReportAndLeavesLaterStepsUntested() {
         let report = LeoConnectionTestReport.sshFailed("ssh: connect to host hestia.lan port 2222: Operation timed out")
 

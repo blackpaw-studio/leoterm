@@ -65,11 +65,6 @@ extension TerminalController {
         LeoAgentMenuSheets(runtime: runtime).presentDelete(row, in: window)
     }
 
-    /// Agents ▸ Machines…: the Leo Settings window, on its Machines tab.
-    @IBAction func showLeoMachinesSettings(_ sender: Any?) {
-        leoRuntime?.presentMachinesSettings()
-    }
-
     @IBAction func jumpToNextLeoAgentNeedingAttention(_ sender: Any?) {
         guard let leoSession, let runtime = leoRuntime else { return }
         runtime.jumpToNextNeedingAttention(from: leoSession)

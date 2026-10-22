@@ -91,6 +91,8 @@ import LeoKit
         let barrier = connection.shutdown()
         await barrier.value
         connection.clearOrphanRecord()
+        // A killed ssh leaves its forwarded socket behind; nothing else uses this one.
+        LeoControlSocket.removeIfStale(environment.tunnelSocketPath(for: probe), owner: environment.controlSocketOwner)
         return report
     }
 

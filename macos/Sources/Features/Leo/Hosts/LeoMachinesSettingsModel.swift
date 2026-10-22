@@ -90,7 +90,7 @@ import LeoKit
         invalidateTest()
         let generation = testGeneration
         isTesting = true
-        let report = await tester.test(host)
+        let report = await tester.test(Self.normalizingEmptyPathsToDefaults(host))
         guard generation == testGeneration else { return }
         isTesting = false
         testReport = report
@@ -157,7 +157,7 @@ import LeoKit
     /// back to the placeholder default while the user is still typing --
     /// the draft keeps whatever (possibly empty) text they typed, and only
     /// `save()` normalizes an empty value to the default.
-    private static func normalizingEmptyPathsToDefaults(_ host: LeoHostConfiguration) -> LeoHostConfiguration {
+    static func normalizingEmptyPathsToDefaults(_ host: LeoHostConfiguration) -> LeoHostConfiguration {
         LeoHostConfiguration(
             id: host.id,
             name: host.name,

@@ -35,6 +35,21 @@ import Testing
         #expect(!launch.arguments.contains(rig.environment.controlPath(for: work)))
     }
 
+    @Test func theThrowawayForwardedSocketIsRemovedWhenTheTestEnds() async throws {
+        let rig = Rig(transport: ScriptedDaemonTransport(version: "0.57.0", helloFeatures: []))
+        let left = LeoLockedLog<String>()
+        rig.tunnels.onMake { tunnel, _ in
+            // A real tunnel's ssh leaves its forwarded socket behind when it is killed.
+            try? LeoTestUnixSocket.leaveStale(tunnel.launch.localSocketPath)
+            left.append(tunnel.launch.localSocketPath)
+        }
+
+        _ = await rig.tester.test(work)
+
+        let path = try #require(left.values.first)
+        #expect(LeoControlSocket.inspect(path) == .absent)
+    }
+
     @Test func aDaemonWithoutMachineStatsStillConnects() async {
         let rig = Rig(transport: ScriptedDaemonTransport(version: "0.50.0", helloFeatures: ["agent_environments"]))
 

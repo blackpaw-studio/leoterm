@@ -2119,9 +2119,6 @@ extension TerminalController {
         case #selector(clearSelectedLeoAgent(_:)):
             return validateLeoControlMenuItem(\.canClear)
 
-        case #selector(showLeoMachinesSettings(_:)):
-            return validateLeoManageHostsMenuItem(item)
-
         case #selector(jumpToNextLeoAgentNeedingAttention(_:)):
             return validateLeoJumpToAttentionMenuItem(item)
 

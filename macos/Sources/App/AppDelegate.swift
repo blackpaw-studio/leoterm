@@ -582,6 +582,12 @@ class AppDelegate: NSObject,
         leoClaudeOnboarding.setUp()
     }
 
+    /// Agents ▸ Machines…: the Leo Settings window. Handled here, not by a
+    /// terminal window, so it works with none open.
+    @IBAction func showLeoMachinesSettings(_ sender: Any?) {
+        leoRuntime.presentMachinesSettings()
+    }
+
     /// Agents ▸ Install ‘leo’ Command…
     @IBAction func installLeoCommand(_ sender: Any?) {
         leoCommandInstaller.install()
