@@ -11,21 +11,12 @@ import Testing
 
     private func makeSidebar(rows: [LeoAgentRow] = []) -> LeoSidebarModel {
         let model = LeoSidebarModel()
-        model.receive(LeoSidebarSnapshot(rows: rows, connectivity: .connected, generation: 1))
+        model.receive(LeoSidebarSnapshot(rows: rows, connectivity: .connected, generation: 1), for: .local)
         return model
     }
 
-    /// Both `store:` and `defaults:` must be isolated: `defaults:` holds the
-    /// saved hosts and the tunnel orphan record -- using the real
-    /// `.standard` domain here would leak this suite's state into every
-    /// other test that default-constructs a `LeoHostSelection` against it.
-    private func makeHostSelection() -> LeoHostSelection {
-        let defaults = LeoInMemoryDefaults()
-        return LeoHostSelection.isolatedForTesting(defaults: defaults)
-    }
-
-    private func makeActions(sidebar: LeoSidebarModel, hostSelection: LeoHostSelection) -> LeoAgentActions {
-        LeoAgentActions(clients: FakeMachineClients(daemon: StubDaemonClient()), cli: .recordingForTests(), model: sidebar, hostSelection: hostSelection, processRunner: LeoRecordingTemplateRunner(), refresh: {})
+    private func makeActions(sidebar: LeoSidebarModel) -> LeoAgentActions {
+        LeoAgentActions(clients: FakeMachineClients(daemon: StubDaemonClient()), cli: .recordingForTests(), model: sidebar, processRunner: LeoRecordingTemplateRunner(), refresh: {})
     }
 
     private struct Environment {
@@ -34,7 +25,7 @@ import Testing
         let routerSpy: RouterSpy
         let pickerRouter: LeoWindowPickerRouter
         let sidebar: LeoSidebarModel
-        let hostSelection: LeoHostSelection
+        let machines: LeoMachineRegistry
         let panel: FakePalettePanel
         let sheet: FakeSpawnSheet
         let presentation: LeoPickerPresentation
@@ -53,11 +44,13 @@ import Testing
     /// does), not straight into the spy -- so supersede, spawn-handoff, and
     /// failure-recovery all exercise the actual dispatch-by-origin path,
     /// not just `LeoPickerPresentation`'s methods called directly.
-    private func makeEnvironment(rows: [LeoAgentRow] = []) -> Environment {
+    /// The registry runs on its own in-memory defaults with fake tunnels,
+    /// so this suite never touches saved machines or launches ssh.
+    private func makeEnvironment(rows: [LeoAgentRow] = [], machines: LeoMachineRegistry? = nil) -> Environment {
+        let machines = machines ?? .isolatedForTesting()
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: false)
         let sidebar = makeSidebar(rows: rows)
-        let hostSelection = makeHostSelection()
-        let actions = makeActions(sidebar: sidebar, hostSelection: hostSelection)
+        let actions = makeActions(sidebar: sidebar)
         let pickerRouter = LeoWindowPickerRouter()
         let spy = RouterSpy()
         let router = spy.makeRouter(pickerRouter: pickerRouter)
@@ -65,14 +58,13 @@ import Testing
         let sheet = FakeSpawnSheet()
         let pickerPresentedEvents = PickerPresentedRecorder()
         let presentation = LeoPickerPresentation(
-            window: window, router: router, sidebar: sidebar, hostSelection: hostSelection,
-            actions: actions, panel: panel, spawnSheet: sheet,
+            window: window, router: router, sidebar: sidebar, machines: machines, actions: actions, panel: panel, spawnSheet: sheet,
             setPickerPresented: { [pickerPresentedEvents] presented in pickerPresentedEvents.record(presented) }
         )
         pickerRouter.register(presentation, for: origin)
         return Environment(
             window: window, router: router, routerSpy: spy, pickerRouter: pickerRouter, sidebar: sidebar,
-            hostSelection: hostSelection, panel: panel, sheet: sheet, presentation: presentation,
+            machines: machines, panel: panel, sheet: sheet, presentation: presentation,
             pickerPresentedEvents: pickerPresentedEvents
         )
     }
@@ -390,28 +382,33 @@ import Testing
         #expect(env.routerSpy.openPlainShellCalls == [second], "the reused panel must resolve the updated (second) request")
     }
 
-    /// Review finding: the live Combine sinks used to re-read
-    /// `hostSelection.state`/`selected` from inside their own `.sink`
-    /// closures instead of using the emitted values -- since `@Published`
-    /// emits from `willSet`, that re-read one update behind (a `.failed`
-    /// transition could still read back as `.connecting`, hiding Retry).
-    /// `select(_:)` on an unconfigured remote host publishes `.connecting`
-    /// then `.failed` synchronously (no ssh spawn needed), so this needs no
-    /// async wait to prove the update lands immediately.
-    @Test func liveHostStateUpdateUsesTheEmittedValueNotAStaleRead() {
-        let env = makeEnvironment()
+    /// Review finding: the live Combine sinks used to re-read the
+    /// connection state from inside their own `.sink` closures instead of
+    /// using the emitted values -- since `@Published` emits from `willSet`,
+    /// that re-read one update behind (a `.failed` transition could still
+    /// read back as `.connecting`, hiding Retry). No later update follows
+    /// the failure here, so a stale read would never be corrected.
+    @Test func liveMachineStateUpdateUsesTheEmittedValueNotAStaleRead() async throws {
+        let defaults = LeoInMemoryDefaults()
+        try LeoMachineRegistryTestSupport.save([LeoMachineRegistryTestSupport.host("b")], to: defaults)
+        let tunnels = LeoFakeTunnels()
+        tunnels.script("evan@b", .fails("Permission denied (publickey)."))
+        let env = makeEnvironment(machines: .isolatedForTesting(defaults: defaults, tunnels: tunnels))
+        env.sidebar.setMachines([.local, .remote("b")])
         let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         env.router.begin(request)
         env.presentation.present(request: request)
 
-        env.hostSelection.select(.remote("nonexistent-host"))
+        env.machines.start(flavor: .socketEvents)
 
-        guard case .status(let text, _, let canRetry) = env.panel.lastModel?.rows.first else {
-            Issue.record("expected a status row reflecting the failed connection")
+        await waitFor { LeoMachineRegistryTestSupport.isFailed(env.machines.connectionState(for: .remote("b"))) }
+        guard case .status(.remote("b"), let text, _, let canRetry)? = env.panel.lastModel?.rows.first else {
+            Issue.record("expected a status row reflecting b's failed connection")
             return
         }
-        #expect(text.contains("Unknown host"))
+        #expect(text.contains("Permission denied"))
         #expect(canRetry)
+        env.machines.shutdown()
     }
 }
 
@@ -437,7 +434,7 @@ private func waitFor(timeout: TimeInterval = 2, _ condition: @escaping () -> Boo
         parent: NSWindow,
         model: LeoAgentPaletteModel,
         onCommit: @escaping (LeoPickerChoice) -> Void,
-        onRetry: @escaping () -> Void,
+        onRetry: @escaping (LeoHostID) -> Void,
         onResignKey: @escaping () -> Void
     ) {
         presentCallCount += 1

@@ -93,12 +93,10 @@ struct LeoSidebarView: View {
     private let buttonActions: LeoSidebarButtonActions
     /// When the selected terminal row's reveal is armed (B-149).
     private let revealScheduler: LeoRevealScheduler
-    @ObservedObject private var hostSelection: LeoHostSelection
     @State private var showingSpawn = false
     /// The row a "New Agent in Worktree…" sheet branches from (B-176).
     @State private var worktreeSource: LeoAgentRow?
     @State private var searchField = LeoSidebarSearchFieldHandle()
-    @State private var hostsSheetModel: LeoHostsSheetModel?
 
     /// Main-actor so a missing `shortcutHints` (tests) can be made here.
     @MainActor init(
@@ -121,7 +119,6 @@ struct LeoSidebarView: View {
         _shortcutHints = ObservedObject(wrappedValue: shortcutHints ?? LeoShortcutHints())
         self.buttonActions = buttonActions
         self.revealScheduler = revealScheduler
-        _hostSelection = ObservedObject(wrappedValue: actions.hostSelection)
     }
 
     var body: some View {
@@ -135,42 +132,18 @@ struct LeoSidebarView: View {
                 .buttonStyle(.borderless)
                 .help("New Agent…")
                 .accessibilityLabel("New Agent…")
-                .disabled(model.isDisconnected)
+                .disabled(!model.hasConnectedMachine)
             }
-            Menu {
-                hostMenuItem(name: "localhost", isSelected: hostSelection.selected == .local) {
-                    hostSelection.select(.local)
-                }
-                ForEach(hostSelection.hosts) { host in
-                    hostMenuItem(name: host.name, isSelected: hostSelection.selected == .remote(host.name)) {
-                        hostSelection.select(.remote(host.name))
-                    }
-                }
-                if case .failed = hostSelection.state {
-                    Divider()
-                    Button("Retry") { hostSelection.retry() }
-                }
-                Divider()
-                Button("Manage Hosts…") { hostsSheetModel = hostSelection.makeHostsSheetModel() }
-            } label: {
-                HStack {
-                    Text(hostSelection.selected.displayName)
-                    Spacer(minLength: 0)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .help(hostSelection.legacyTooltip ?? "Select host")
-            .accessibilityLabel("Host")
 
-            if let banner = LeoDisconnectedBanner(host: hostSelection.selected, connectivity: model.snapshot.connectivity) {
-                LeoDisconnectedBannerView(banner: banner) { model.retry() }
+            if let banner = LeoDisconnectedBanner(host: shownHost, connectivity: connectivity) {
+                LeoDisconnectedBannerView(banner: banner) { model.reconnectRequested(shownHost) }
             }
 
             if let banner = model.appLocationBanner {
                 LeoAppLocationBannerView(banner: banner) { model.moveToApplicationsRequested() }
             }
 
-            if hostSelection.selected == .local, let banner = model.managedBanner {
+            if let banner = model.managedBanner {
                 LeoManagedBannerView(banner: banner) { model.managedBannerActionRequested($0) }
             }
 
@@ -194,7 +167,7 @@ struct LeoSidebarView: View {
         .padding(.bottom, LeoSidebarChromeMetrics.itemSpacing)
         .onChange(of: searchFocusRequest) { _ in searchField.focus() }
         #if DEBUG
-        .onAppear { LeoLaunchTiming.mark("sidebarAppeared", "connectivity=\(model.snapshot.connectivity) rows=\(model.snapshot.rows.count)") }
+        .onAppear { LeoLaunchTiming.mark("sidebarAppeared", "connectivity=\(connectivity) rows=\(shownRows.count)") }
         #endif
         .sheet(isPresented: $showingSpawn) {
             SpawnAgentSheet(model: model, actions: actions) { row, disposition in
@@ -206,13 +179,17 @@ struct LeoSidebarView: View {
                 model.requestAttach(row, from: windowID, disposition: disposition)
             }
         }
-        .sheet(item: $hostsSheetModel) { sheetModel in
-            LeoHostsSheet(model: sheetModel) { hostsSheetModel = nil }
-        }
         .sheet(item: startPromptBinding) { item in LeoStartAgentSheet(model: model, prompt: item.prompt) }
     }
 
     private var panelError: String? { model.panelError }
+
+    /// TODO(S6): the one machine this view draws until it draws a section
+    /// per machine (`model.machineSections`); until then the runtime feeds
+    /// This Mac only.
+    private var shownHost: LeoHostID { model.machineHosts.first ?? .local }
+    private var connectivity: LeoConnectivity { model.snapshot(for: shownHost)?.connectivity ?? .loading }
+    private var shownRows: [LeoAgentRow] { model.snapshot(for: shownHost)?.rows ?? [] }
 
     /// This window's "Start <name>?" prompt (B-049); the model holds one
     /// per window, so the sheet shows only where the click was.
@@ -241,7 +218,7 @@ struct LeoSidebarView: View {
     @ViewBuilder private var content: some View {
         if !listsAgents { agentState }
         if listsAgents || hasTerminals {
-            sidebarList(agentSections: listsAgents ? model.sections : [], agentsInert: listsAgents && model.isDisconnected)
+            sidebarList(agentSections: listsAgents ? model.sections : [], agentsInert: listsAgents && model.isDisconnected(shownHost))
                 .overlay {
                     if listsAgents && model.showsNoMatches {
                         Text("No matches").allowsHitTesting(false)
@@ -253,8 +230,8 @@ struct LeoSidebarView: View {
     /// Rows to list: connected (or disconnected, dimmed) with agents, even
     /// when the filter matches none of them.
     private var listsAgents: Bool {
-        switch model.snapshot.connectivity {
-        case .connected, .disconnected: !model.snapshot.rows.isEmpty
+        switch connectivity {
+        case .connected, .disconnected: !shownRows.isEmpty
         case .loading, .failed: false
         }
     }
@@ -270,25 +247,26 @@ struct LeoSidebarView: View {
     }
 
     @ViewBuilder private var agentState: some View {
-        switch model.snapshot.connectivity {
+        switch connectivity {
         case .loading:
             stateView { ProgressView(); Text("Loading agents…") }
         case .failed(let message):
-            let panel = LeoConnectionFailurePanel(message: message, hint: hostSelection.state.failureHint)
+            let failure = model.connectionFailureHint(shownHost)
+            let panel = LeoConnectionFailurePanel(message: message, hint: failure?.hint)
             stateView {
                 Text(panel.message).multilineTextAlignment(.center).textSelection(.enabled)
-                if let hint = panel.hint, let ssh = hostSelection.selectedConfiguration?.sshTarget {
+                if let hint = panel.hint, let ssh = failure?.sshTarget {
                     Text(hint).font(.caption).multilineTextAlignment(.center)
                     Button("Open SSH") { model.sshRequested(ssh) }
                 }
-                Button("Retry") { model.retry() }
-                if hostSelection.selected == .local {
+                Button("Retry") { model.reconnectRequested(shownHost) }
+                if shownHost == .local {
                     Button(model.daemonStartAction.title) { model.startDaemonTapped() }
                 } else {
                     Button("Start daemon") { model.startDaemonRequested() }
                 }
             }
-        case .connected where model.snapshot.rows.isEmpty:
+        case .connected where shownRows.isEmpty:
             stateView {
                 Text("No Agents").font(.headline)
                 Text("Spawn an agent to start working with it from this window.")
@@ -297,10 +275,10 @@ struct LeoSidebarView: View {
                     .multilineTextAlignment(.center)
                 Button("New Agent…") { showingSpawn = true }
             }
-        case .disconnected where model.snapshot.rows.isEmpty:
+        case .disconnected where shownRows.isEmpty:
             // The banner above says what happened and offers Retry.
             stateView {
-                if hostSelection.selected == .local {
+                if shownHost == .local {
                     Button(model.daemonStartAction.title) { model.startDaemonTapped() }
                 }
             }
@@ -399,7 +377,7 @@ struct LeoSidebarView: View {
                 isPinned: model.isPinned(row.id),
                 togglePin: { model.togglePin(row.id) },
                 newWorktreeAgent: { worktreeSource = row },
-                environmentsSupported: model.hostFeatures.applying(to: row.host).contains(.agentEnvironments),
+                environmentsSupported: model.features(for: row.host).contains(.agentEnvironments),
                 inWorkingSection: section.id == LeoSidebarLayout.workingSectionID,
                 unreadCount: unread.count(for: row.id)
             )
@@ -454,7 +432,7 @@ struct LeoSidebarView: View {
         if LeoSidebarLayout.isFiltering(model.query) {
             Text(section.title)
         } else {
-            LeoSidebarSectionHeader(section: section) { model.toggleCollapsed(section.id) }
+            LeoSidebarSectionHeader(section: section) { model.toggleCollapsed(section.id, host: shownHost) }
         }
     }
 
@@ -472,30 +450,6 @@ struct LeoSidebarView: View {
         case .cleared: break
         case .leaveField: searchField.focusTerminal()
         }
-    }
-
-    /// A single host entry in the host picker menu. Selection is conveyed by
-    /// the menu's own checkmark (via `Toggle`, which macOS renders as a
-    /// checked menu item), and connection state by an SF Symbol + semantic
-    /// color from `LeoStatusPresentation` -- never by a typed character.
-    ///
-    /// Only the currently *selected* remote host has a live connection state
-    /// to show (see `LeoHostSelection`); other configured hosts show a
-    /// neutral glyph until they're selected.
-    private func hostMenuItem(name: String, isSelected: Bool, select: @escaping () -> Void) -> some View {
-        let presentation = LeoStatusPresentation.hostConnection(
-            isSelected: isSelected,
-            state: isSelected ? hostSelection.state : nil
-        )
-        return Toggle(isOn: Binding(get: { isSelected }, set: { _ in select() })) {
-            Label {
-                Text(name)
-            } icon: {
-                Image(systemName: presentation.symbolName)
-                    .foregroundStyle(presentation.color)
-            }
-        }
-        .accessibilityLabel("\(name), \(presentation.accessibilityLabel)")
     }
 }
 

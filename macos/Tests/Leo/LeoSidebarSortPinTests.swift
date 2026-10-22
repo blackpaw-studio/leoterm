@@ -61,10 +61,10 @@ import Testing
             host: .local, name: "b", template: nil, status: .running, activity: .working, actionDetail: "busy",
             startedAt: "s", metadata: metadata(at: 5)
         )
-        model.receive(LeoSidebarSnapshot(rows: [row("a", at: 10), working], connectivity: .connected, generation: 2))
+        model.receive(LeoSidebarSnapshot(rows: [row("a", at: 10), working], connectivity: .connected, generation: 2), for: .local)
         #expect(model.visibleRows.map(\.name) == ["a", "b"])
 
-        model.receive(LeoSidebarSnapshot(rows: [row("a", at: 10), row("b", at: 20)], connectivity: .connected, generation: 3))
+        model.receive(LeoSidebarSnapshot(rows: [row("a", at: 10), row("b", at: 20)], connectivity: .connected, generation: 3), for: .local)
         #expect(model.visibleRows.map(\.name) == ["b", "a"])
     }
 
@@ -141,12 +141,12 @@ import Testing
         let model = makeModel([row("a"), row("gone")], store: store)
         model.togglePin(id("gone"))
 
-        model.receive(LeoSidebarSnapshot(rows: [row("a")], connectivity: .connected, generation: 2))
+        model.receive(LeoSidebarSnapshot(rows: [row("a")], connectivity: .connected, generation: 2), for: .local)
         #expect(model.sections.map(\.title) == ["Running"])
         #expect(model.isPinned(id("gone")))
         #expect(store.load().pinned.contains(id("gone")))
 
-        model.receive(LeoSidebarSnapshot(rows: [row("a"), row("gone")], connectivity: .connected, generation: 3))
+        model.receive(LeoSidebarSnapshot(rows: [row("a"), row("gone")], connectivity: .connected, generation: 3), for: .local)
         #expect(model.sections.map { $0.rows.map(\.name) } == [["gone"], ["a"]])
     }
 
@@ -161,29 +161,29 @@ import Testing
         let first = makeModel([row("a"), row("b")], store: LeoUserDefaultsSidebarPreferencesStore(defaults: defaults))
         first.setSortOrder(.name)
         first.togglePin(id("b"))
-        first.toggleCollapsed("running")
+        first.toggleCollapsed("running", host: .local)
 
         let relaunched = makeModel([row("a"), row("b")], store: LeoUserDefaultsSidebarPreferencesStore(defaults: defaults))
         #expect(relaunched.preferences.sortOrder == .name)
         #expect(relaunched.isPinned(id("b")))
-        #expect(relaunched.isCollapsed("running"))
+        #expect(relaunched.isCollapsed("running", host: .local))
     }
 
     // MARK: Collapse
 
     @Test func collapsedSectionKeepsItsHeaderButHidesRows() {
         let model = makeModel([row("r"), row("s", status: .stopped)])
-        model.toggleCollapsed("running")
+        model.toggleCollapsed("running", host: .local)
         #expect(model.sections.map(\.title) == ["Running", "Stopped"])
         #expect(model.sections.map(\.isCollapsed) == [true, false])
         #expect(model.visibleRows.map(\.name) == ["s"])
-        model.toggleCollapsed("running")
+        model.toggleCollapsed("running", host: .local)
         #expect(model.visibleRows.map(\.name) == ["r", "s"])
     }
 
     @Test func collapseIsPersistedPerHost() {
         let store = LeoInMemorySidebarPreferencesStore()
-        makeModel([row("r")], store: store).toggleCollapsed("running")
+        makeModel([row("r")], store: store).toggleCollapsed("running", host: .local)
 
         #expect(makeModel([row("r")], store: store).sections.first?.isCollapsed == true)
         let remote = LeoAgentRow(host: .remote("box"), name: "r", template: nil, status: .running, activity: .idle, actionDetail: nil)
@@ -192,8 +192,8 @@ import Testing
 
     @Test func collapsingEverySectionStillShowsTheHeadersNotNoMatches() {
         let model = makeModel([row("r"), row("s", status: .stopped)])
-        model.toggleCollapsed("running")
-        model.toggleCollapsed("stopped")
+        model.toggleCollapsed("running", host: .local)
+        model.toggleCollapsed("stopped", host: .local)
         #expect(model.visibleRows.isEmpty)
         #expect(!model.showsNoMatches)
         #expect(model.sections.map(\.title) == ["Running", "Stopped"])
@@ -210,14 +210,14 @@ import Testing
     @Test func pinnedSectionCanCollapse() {
         let model = makeModel([row("a"), row("b")])
         model.togglePin(id("a"))
-        model.toggleCollapsed(LeoSidebarLayout.pinnedSectionID)
+        model.toggleCollapsed(LeoSidebarLayout.pinnedSectionID, host: .local)
         #expect(model.visibleRows.map(\.name) == ["b"])
     }
 
     @Test func aNonEmptyFilterShowsMatchesRegardlessOfCollapse() {
         let model = makeModel([row("web-app", status: .stopped), row("apple"), row("zzz")])
-        model.toggleCollapsed("running")
-        model.toggleCollapsed("stopped")
+        model.toggleCollapsed("running", host: .local)
+        model.toggleCollapsed("stopped", host: .local)
         model.query = "app"
         #expect(model.sections.allSatisfy { !$0.isCollapsed })
         #expect(model.visibleRows.map(\.name) == ["apple", "web-app"])
@@ -226,7 +226,7 @@ import Testing
     @Test func whileFilteringTheFirstDisplayedRowIsTheReturnTarget() {
         let model = makeModel([row("web-app", at: 9), row("apple", status: .stopped, at: 1)])
         model.togglePin(id("web-app"))
-        model.toggleCollapsed("stopped")
+        model.toggleCollapsed("stopped", host: .local)
         model.query = "app"
         #expect(model.sections.first?.rows.first?.name == "apple")
         model.searchSubmit(from: LeoWindowID())
@@ -235,7 +235,7 @@ import Testing
 
     @Test func returnWithoutAFilterSkipsCollapsedSections() {
         let model = makeModel([row("r"), row("s", status: .stopped)])
-        model.toggleCollapsed("running")
+        model.toggleCollapsed("running", host: .local)
         model.searchSubmit(from: LeoWindowID())
         #expect(model.selection == id("s"))
     }
@@ -243,8 +243,8 @@ import Testing
     @Test func revealExpandsTheSectionHoldingARow() {
         let model = makeModel([row("a"), row("b")])
         model.togglePin(id("a"))
-        model.toggleCollapsed(LeoSidebarLayout.pinnedSectionID)
-        model.toggleCollapsed("running")
+        model.toggleCollapsed(LeoSidebarLayout.pinnedSectionID, host: .local)
+        model.toggleCollapsed("running", host: .local)
         model.reveal(id("b"))
         #expect(model.sections.map(\.isCollapsed) == [true, false])
     }
@@ -252,7 +252,7 @@ import Testing
     @Test func orderedRowsFollowTheDisplayIgnoringCollapseAndFilter() {
         let model = makeModel([row("r", at: 1), row("s", status: .stopped), row("p", status: .stopped)])
         model.togglePin(id("p"))
-        model.toggleCollapsed("running")
+        model.toggleCollapsed("running", host: .local)
         model.query = "s"
         #expect(model.orderedRows.map(\.name) == ["p", "r", "s"])
     }

@@ -9,7 +9,7 @@ import Testing
 /// (host, agent, revision), and only for transitions the reducer marked.
 @MainActor struct LeoAttentionControllerTests {
     private static let alpha = LeoAgentRow.ID(host: .remote("mars"), name: "alpha")
-    private let host = CurrentHost()
+    private let machines = LiveMachines()
 
     @Test func notificationContentNamesAgentAndHostWithoutTerminalText() throws {
         let finished = try #require(LeoAttentionNotification(transition(.finished, revision: 3)))
@@ -71,22 +71,42 @@ import Testing
         #expect(center.posted.count == 2)
     }
 
-    @Test func remembersOnlyTheLatestPostPerAgentOnTheCurrentHost() async {
+    @Test func remembersTheLatestPostPerAgentOnEveryLiveMachine() async {
         let (controller, _, _) = makeController()
         await controller.enable()
 
         for revision in 1...50 { await controller.handle([transition(.finished, revision: revision)]) }
         #expect(controller.rememberedPostCount == 1)
 
-        host.current = .local
+        machines.live.insert(.local)
         await controller.handle([transition(.finished, revision: 1, id: .init(host: .local, name: "beta"))])
-        #expect(controller.rememberedPostCount == 1, "a host switch prunes the old host's entries")
+        #expect(controller.rememberedPostCount == 2, "each live machine keeps its own entries")
+
+        machines.live.remove(.remote("mars"))
+        await controller.handle([transition(.finished, revision: 2, id: .init(host: .local, name: "beta"))])
+        #expect(controller.rememberedPostCount == 1, "a machine that left prunes its entries")
     }
 
-    @Test func aLateBatchFromThePreviousHostIsDropped() async {
+    /// Inventory row 3: two machines posting in turn must not make either
+    /// forget what it already posted.
+    @Test func eachMachinePostsATransitionOnceWhenTheirBatchesInterleave() async {
         let (controller, center, _) = makeController()
         await controller.enable()
-        host.current = .local
+        machines.live.insert(.local)
+        let beta = LeoAgentRow.ID(host: .local, name: "beta")
+
+        await controller.handle([transition(.finished, revision: 1)])
+        await controller.handle([transition(.finished, revision: 1, id: beta)])
+        await controller.handle([transition(.finished, revision: 1)])
+        await controller.handle([transition(.finished, revision: 1, id: beta)])
+
+        #expect(center.posted.map(\.title) == ["alpha · mars", "beta · localhost"])
+    }
+
+    @Test func aLateBatchFromAMachineThatIsNoLongerLiveIsDropped() async {
+        let (controller, center, _) = makeController()
+        await controller.enable()
+        machines.live = [.local]
         let beta = LeoAgentRow.ID(host: .local, name: "beta")
         await controller.handle([transition(.finished, revision: 3, id: beta)])
 
@@ -154,7 +174,7 @@ import Testing
         let center = FakeNotificationCenter(granted: granted)
         let instructions = InstructionsRecorder()
         let controller = LeoAttentionController(
-            center: center, defaults: defaults ?? freshDefaults(), currentHost: { [host] in host.current },
+            center: center, defaults: defaults ?? freshDefaults(), isLive: { [machines] in machines.live.contains($0) },
             showDeniedInstructions: { instructions.count += 1 }
         )
         return (controller, center, instructions)
@@ -173,8 +193,8 @@ import Testing
     func post(_ notification: LeoAttentionNotification) async { posted.append(notification) }
 }
 
-@MainActor private final class CurrentHost {
-    var current: LeoHostID? = .remote("mars")
+@MainActor private final class LiveMachines {
+    var live: Set<LeoHostID> = [.remote("mars")]
 }
 
 @MainActor private final class InstructionsRecorder {

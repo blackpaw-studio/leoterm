@@ -142,7 +142,7 @@ struct LeoAgentControlBarHost: View {
         // Chat on screen is being read: no badge while it shows.
         let unreadCount = row.map { layout.showsChat ? 0 : unread.count(for: $0.id) } ?? 0
         let availability = LeoAgentControlAvailability(
-            row: row, features: model.daemonFeatures, deniedHosts: control.deniedHosts, inFlight: row.flatMap { control.inFlight[$0.id] }
+            row: row, features: row.map { model.features(for: $0.host) } ?? .none, deniedHosts: control.deniedHosts, inFlight: row.flatMap { control.inFlight[$0.id] }
         )
         switch LeoAgentControlBarContent(row: row, availability: availability) {
         case .none:

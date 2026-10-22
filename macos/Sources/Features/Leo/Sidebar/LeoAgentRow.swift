@@ -229,7 +229,7 @@ struct LeoAgentRowView: View {
             }
             let command: String
             if case .remote(let name) = row.host {
-                guard let configuration = runtime.hostSelection.hosts.first(where: { $0.name == name }) else {
+                guard let configuration = runtime.machines.configuration(for: row.host) else {
                     throw LeoDaemonError.hostUnavailable("Remote host \(name) is not configured")
                 }
                 command = try LeoSSHCommand(configuration: configuration).logsShellCommand(agent: row.name)

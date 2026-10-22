@@ -394,12 +394,12 @@ struct AttachExitReportTests {
 
     @Test func onlyAnAttachableDispatchOfAnAdvertisingDaemonIsSelectable() {
         let both = model(snapshot([]))
-        #expect(both.isDispatchSelectable(dispatch("d1", attachable: true)))
-        #expect(!both.isDispatchSelectable(dispatch("d1", attachable: false)))
+        #expect(both.isDispatchSelectable(dispatch("d1", attachable: true), host: .local))
+        #expect(!both.isDispatchSelectable(dispatch("d1", attachable: false), host: .local))
         let noFeature = model(snapshot([], features: ["dispatch_tree"]))
-        #expect(!noFeature.isDispatchSelectable(dispatch("d1", attachable: true)))
+        #expect(!noFeature.isDispatchSelectable(dispatch("d1", attachable: true), host: .local))
         let disconnected = model(snapshot([], connectivity: .disconnected(reason: "gone", isRetrying: false)))
-        #expect(!disconnected.isDispatchSelectable(dispatch("d1", attachable: true)))
+        #expect(!disconnected.isDispatchSelectable(dispatch("d1", attachable: true), host: .local))
     }
 
     @Test func selectingADispatchRoutesThroughTheSidebarSelection() {
@@ -456,7 +456,7 @@ struct AttachExitReportTests {
         model.attachRequested = { _, _, _ in opens += 1 }
         model.dispatchClicked(ref("d1"), from: LeoWindowID())
         #expect(opens == 0)
-        #expect(!model.isDispatchClickable(dispatch("d1", attachable: false)))
+        #expect(!model.isDispatchClickable(dispatch("d1", attachable: false), host: .local))
     }
 
     /// B-270's background placement: an attachable dispatch attaches as
@@ -489,7 +489,7 @@ struct AttachExitReportTests {
             model.dispatchClicked(ref("d1"), from: LeoWindowID())
             #expect(requests == 0, "\(label)")
             let node = snapshot.dispatchChildren["alpha"]?.first?.dispatch
-            #expect(node.map(model.isDispatchClickable) == false, "\(label)")
+            #expect(node.map { model.isDispatchClickable($0, host: .local) } == false, "\(label)")
         }
     }
 
@@ -530,8 +530,8 @@ struct AttachExitReportTests {
     @Test func aDispatchViewedInItsCallersSessionIsClickableButNotSelectable() {
         let viewed = dispatch("d1", attachable: false, tmuxTarget: "%7")
         let model = model(snapshot([viewed]))
-        #expect(model.isDispatchClickable(viewed))
-        #expect(!model.isDispatchSelectable(viewed))
+        #expect(model.isDispatchClickable(viewed, host: .local))
+        #expect(!model.isDispatchSelectable(viewed, host: .local))
         let terminals = LeoWindowTerminals()
         LeoSidebarSelection.select(.dispatch(ref("d1")), model: model, terminals: terminals)
         #expect(model.selectedDispatch == nil)
@@ -541,7 +541,7 @@ struct AttachExitReportTests {
         let model = model(snapshot([dispatch("d1", attachable: true)]))
         let terminals = LeoWindowTerminals()
         model.userSelectedDispatch(ref("d1"))
-        model.receive(snapshot([], generation: 2))
+        model.receive(snapshot([], generation: 2), for: .local)
         #expect(model.selectedDispatch == nil)
         #expect(LeoSidebarSelection.current(model: model, terminals: terminals) == .agent(alpha.id))
     }
@@ -561,8 +561,8 @@ struct AttachExitReportTests {
         let live = dispatch("d1", attachable: true)
         let model = model(snapshot([live]))
         model.userSelectedDispatch(ref("d1"))
-        model.receive(snapshot([live], features: [], connectivity: .disconnected(reason: "gone", isRetrying: false), generation: 2))
-        model.receive(snapshot([live], generation: 3))
+        model.receive(snapshot([live], features: [], connectivity: .disconnected(reason: "gone", isRetrying: false), generation: 2), for: .local)
+        model.receive(snapshot([live], generation: 3), for: .local)
         #expect(model.selectedDispatch == nil)
         #expect(LeoSidebarSelection.current(model: model, terminals: LeoWindowTerminals()) == .agent(alpha.id))
     }
@@ -628,13 +628,13 @@ struct AttachExitReportTests {
     @Test func whenASelectedNestedDispatchEndsSelectionFallsBackToTheNearestSurvivingAncestor() {
         let model = model(nested(chain))
         model.userSelectedDispatch(ref("d3"))
-        model.receive(nested([("d1", 0, true), ("d2", 1, true)], generation: 2))
+        model.receive(nested([("d1", 0, true), ("d2", 1, true)], generation: 2), for: .local)
         #expect(model.selectedDispatch == ref("d2"))
 
-        model.receive(nested([("d1", 0, true)], generation: 3))
+        model.receive(nested([("d1", 0, true)], generation: 3), for: .local)
         #expect(model.selectedDispatch == ref("d1"))
 
-        model.receive(nested([], generation: 4))
+        model.receive(nested([], generation: 4), for: .local)
         #expect(model.selectedDispatch == nil)
         #expect(LeoSidebarSelection.current(model: model, terminals: LeoWindowTerminals()) == .agent(alpha.id))
     }
@@ -642,7 +642,7 @@ struct AttachExitReportTests {
     @Test func theFallbackSkipsAnAncestorThatIsNoLongerOrNotAttachable() {
         let model = model(nested(chain))
         model.userSelectedDispatch(ref("d3"))
-        model.receive(nested([("d1", 0, true), ("d2", 1, false)], generation: 2))
+        model.receive(nested([("d1", 0, true), ("d2", 1, false)], generation: 2), for: .local)
         #expect(model.selectedDispatch == ref("d1"))
     }
 
@@ -650,10 +650,10 @@ struct AttachExitReportTests {
         let model = model(nested(chain))
         model.userSelectedDispatch(ref("d3"))
         // d2 ends first: d3 re-parents under d1 and stays selected ...
-        model.receive(nested([("d1", 0, true), ("d3", 1, true)], generation: 2))
+        model.receive(nested([("d1", 0, true), ("d3", 1, true)], generation: 2), for: .local)
         #expect(model.selectedDispatch == ref("d3"))
         // ... then d3 ends: the nearest surviving ancestor is d1.
-        model.receive(nested([("d1", 0, true)], generation: 3))
+        model.receive(nested([("d1", 0, true)], generation: 3), for: .local)
         #expect(model.selectedDispatch == ref("d1"))
     }
 
@@ -707,7 +707,7 @@ struct AttachExitReportTests {
     @Test func aDisconnectMakesTheSelectedDispatchInertAgain() {
         let model = model(snapshot([dispatch("d1", attachable: true)]))
         model.userSelectedDispatch(ref("d1"))
-        model.receive(snapshot([dispatch("d1", attachable: true)], features: [], connectivity: .disconnected(reason: "gone", isRetrying: false), generation: 2))
+        model.receive(snapshot([dispatch("d1", attachable: true)], features: [], connectivity: .disconnected(reason: "gone", isRetrying: false), generation: 2), for: .local)
         #expect(model.selectedDispatch == nil)
     }
 }

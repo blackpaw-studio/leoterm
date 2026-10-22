@@ -73,9 +73,9 @@ struct LeoAttentionPresentationTests {
         var counts: [Int] = []
         model.attentionCountChanged = { counts.append($0) }
 
-        model.receive(.init(rows: [], connectivity: .connected, generation: 1, attentionCount: 2))
-        model.receive(.init(rows: [], connectivity: .connected, generation: 2, attentionCount: 2))
-        model.receive(.init(rows: [], connectivity: .connected, generation: 3, attentionCount: 0))
+        model.receive(.init(rows: [], connectivity: .connected, generation: 1, attentionCount: 2), for: .local)
+        model.receive(.init(rows: [], connectivity: .connected, generation: 2, attentionCount: 2), for: .local)
+        model.receive(.init(rows: [], connectivity: .connected, generation: 3, attentionCount: 0), for: .local)
 
         #expect(counts == [2, 0])
     }

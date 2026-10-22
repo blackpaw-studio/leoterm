@@ -1,12 +1,11 @@
-import Darwin
 import Foundation
 import Testing
 
 @testable import Ghostty
 @testable import LeoKit
 
-/// Per-connection wiring: `LeoRuntime` binds the feed and agent actions to
-/// whichever daemon `LeoHostSelection`'s current connection resolves to.
+/// Per-connection wiring: `LeoRuntime` binds each machine's feed and agent
+/// actions to the daemon that machine's connection resolves to.
 @MainActor struct LeoRuntimeConnectionTests {
     @Test func startupRoutesListAndActionRequestsToTheSelectedConnectionsDaemon() async throws {
         let daemon = RuntimeTestDaemon()
@@ -17,12 +16,12 @@ import Testing
 
         runtime.start()
 
-        await awaitCondition(message: "the feed never listed against the selected connection's daemon") {
+        await awaitCondition(message: "This Mac's feed never listed against its daemon") {
             await daemon.listCallCount >= 1
         }
 
         runtime.actions.start(.init(host: .local, name: "alpha", template: nil, status: .running, activity: .unknown, actionDetail: nil))
-        await awaitCondition(message: "the action never reached the selected connection's daemon") {
+        await awaitCondition(message: "the action never reached This Mac's daemon") {
             await daemon.startCalls == ["alpha"]
         }
 
@@ -30,29 +29,28 @@ import Testing
     }
 
     /// `LeoRuntime.shutdown()` is the AppDelegate quit hook's entry point --
-    /// it must synchronously engage `LeoHostSelection.shutdown()` (which
-    /// itself synchronously terminates the current tunnel, see
-    /// `LeoHostSelectionRaceTests`). Verified here via the `isShutDown`
-    /// gate's observable effect: a `select()` after `shutdown()` must be a
-    /// no-op.
-    @Test func shutdownSynchronouslyEngagesHostSelectionShutdown() throws {
+    /// it must synchronously engage `LeoMachineRegistry.shutdown()` (which
+    /// tears every tunnel down under one bound, see
+    /// `LeoMachineRegistryTests`). Verified here via its observable effect:
+    /// nothing connects after `shutdown()`.
+    @Test func shutdownSynchronouslyEngagesTheRegistrysShutdown() throws {
         let daemon = RuntimeTestDaemon()
         let defaults = LeoInMemoryDefaults()
         let activitySource = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
         let runtime = LeoRuntime(daemon: daemon, cli: .recordingForTests(), activitySource: activitySource, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner())
 
         runtime.shutdown()
-        let stateAfterShutdown = runtime.hostSelection.state
 
-        runtime.hostSelection.select(.remote("anything"))
+        runtime.machines.start(flavor: .socketEvents)
+        runtime.machines.reconnect(.local)
 
-        #expect(runtime.hostSelection.state == stateAfterShutdown, "select() after shutdown() must be a no-op")
+        #expect(runtime.machines.connectionState(for: .local) == nil, "nothing may connect after shutdown()")
     }
 
-    /// B-061: selecting a remote host loads its templates through the
+    /// B-061: a remote machine connecting loads its templates through the
     /// runner `LeoRuntime` was given -- the same ssh exec production runs,
-    /// but no real `ssh` process is launched against the host.
-    @Test func selectingARemoteHostFetchesItsTemplatesThroughTheInjectedRunner() async throws {
+    /// but no real `ssh` process is launched against the machine.
+    @Test func aRemoteMachineConnectingFetchesItsTemplatesThroughTheInjectedRunner() async throws {
         let configuration = LeoHostConfiguration(name: "work", sshTarget: "evan@work", remoteSocketPath: "/remote/leo.sock")
         let defaults = LeoInMemoryDefaults()
         defaults.set(try JSONEncoder().encode([configuration]), forKey: LeoHostStore.key)
@@ -61,15 +59,15 @@ import Testing
         let runtime = LeoRuntime(
             daemon: RuntimeTestDaemon(), cli: .recordingForTests(), activitySource: activitySource, defaults: defaults,
             templateFetchRunner: templateRunner,
-            hostConnectionTransport: LeoAlwaysHealthyTransport(),
-            hostSelectionSSHExecutable: LeoTunnelTestSupport.fixtureURL(),
-            hostSelectionLegacySocketDirectory: LeoHostSelectionTestSupport.localSocketDirectory,
-            hostSelectionControlSocketDirectory: LeoHostSelectionTestSupport.localSocketDirectory
+            machineLegacySocketDirectory: LeoMachineTunnelTestSupport.localSocketDirectory,
+            machineControlSocketDirectory: LeoMachineTunnelTestSupport.localSocketDirectory,
+            makeTunnel: LeoFakeTunnels().factory,
+            remoteDaemon: { _, _ in LeoMachineDaemon(daemon: RuntimeTestDaemon(), activitySource: activitySource) },
+            feedsRemoteMachines: true
         )
         defer { runtime.shutdown() }
 
-        await runtime.hostSelection.start(flavor: .socketEvents)
-        runtime.hostSelection.select(.remote("work"))
+        runtime.machines.start(flavor: .socketEvents)
 
         await awaitCondition(timeout: 5, message: "the remote host's templates never loaded") {
             await runtime.actions.templateList(for: .remote("work")) == .loaded([])
@@ -81,10 +79,10 @@ import Testing
         #expect(call.arguments == ["-o", "BatchMode=yes", "evan@work", "~/'.local/bin/leo' 'template' 'list' '--json'"])
     }
 
-    /// B-112: connecting localhost loads its templates through the `LeoCLI`
+    /// B-112: connecting This Mac loads its templates through the `LeoCLI`
     /// `LeoRuntime` was given -- the same `leo template list --json`
     /// production runs, but no real local `leo` process is launched.
-    @Test func selectingTheLocalHostFetchesTemplatesThroughTheInjectedCLIRunner() async throws {
+    @Test func thisMacConnectingFetchesTemplatesThroughTheInjectedCLIRunner() async throws {
         let recorder = LeoRecordingTemplateRunner(templates: ["local-template"])
         let activitySource = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
         let runtime = LeoRuntime(
@@ -93,94 +91,13 @@ import Testing
         )
         defer { runtime.shutdown() }
 
-        await runtime.hostSelection.start(flavor: .socketEvents)
+        runtime.machines.start(flavor: .socketEvents)
 
-        #expect(runtime.hostSelection.selected == .local)
         await awaitCondition(timeout: 5, message: "localhost's templates never loaded") {
             await runtime.actions.templateList(for: .local) == .loaded([LeoTemplate(name: "local-template")])
         }
         let calls = await recorder.calls
         #expect(calls == [.init(executable: "/leo", arguments: ["template", "list", "--json"])], "one CLI template fetch, got \(calls)")
-    }
-
-    /// `applyConnected`'s flavor-detection `await` is the one place a stale
-    /// async build could install over a newer state. Gates that SECOND
-    /// `/health` call (the tunnel's own readiness probe is call #1, which
-    /// always succeeds immediately) so the test can force the exact
-    /// interleaving: the tunnel connects, THEN dies (publishing `.failed`
-    /// for the SAME generation) WHILE flavor detection is still parked, and
-    /// only then is the gate released.
-    @Test func failureDuringGatedFlavorDetectionStaysFailedAndIsNeverOverwritten() async throws {
-        let pidFile = LeoHostSelectionTestSupport.tempFile()
-        LeoTunnelTestSupport.setEnvironment("FAKE_SSH_PID_FILE", pidFile)
-        defer { LeoTunnelTestSupport.setEnvironment("FAKE_SSH_PID_FILE", nil) }
-
-        let configuration = LeoHostConfiguration(name: "work", sshTarget: "evan@work", remoteSocketPath: "/remote/leo.sock")
-        let defaults = LeoInMemoryDefaults()
-        if let data = try? JSONEncoder().encode([configuration]) { defaults.set(data, forKey: LeoHostStore.key) }
-        let transport = SequenceGatedHealthTransport()
-        let daemon = RuntimeTestDaemon()
-        let activitySource = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
-        let runtime = LeoRuntime(
-            daemon: daemon, cli: .recordingForTests(), activitySource: activitySource, defaults: defaults,
-            templateFetchRunner: LeoRecordingTemplateRunner(),
-            hostConnectionTransport: transport,
-            hostSelectionSSHExecutable: LeoTunnelTestSupport.fixtureURL(),
-            hostSelectionLegacySocketDirectory: LeoHostSelectionTestSupport.localSocketDirectory,
-            hostSelectionControlSocketDirectory: LeoHostSelectionTestSupport.localSocketDirectory
-        )
-
-        await runtime.hostSelection.start(flavor: .socketEvents)
-        runtime.hostSelection.select(.remote("work"))
-        let pid = try await LeoHostSelectionTestSupport.awaitPID(pidFile)
-        await awaitCondition(message: "flavor detection never reached the gate") { await transport.callCount >= 2 }
-
-        _ = Darwin.kill(pid, SIGKILL)
-        await awaitCondition(message: "never reached .failed after the tunnel died") {
-            let state = await runtime.hostSelection.state
-            if case .failed = state { return true }
-            return false
-        }
-
-        await transport.open()
-        for _ in 0..<50 { await Task.yield() }
-
-        guard case .failed = runtime.hostSelection.state else {
-            Issue.record("expected .failed to persist, got \(runtime.hostSelection.state)")
-            return
-        }
-        if case .failed = runtime.model.snapshot.connectivity {
-        } else {
-            Issue.record("stale flavor-detection result overwrote the feed's failed connectivity: \(runtime.model.snapshot.connectivity)")
-        }
-
-        runtime.shutdown()
-    }
-}
-
-/// Answers the FIRST `/health` call (the tunnel's own readiness probe)
-/// immediately; every call after that (flavor detection) parks until
-/// `open()` is called.
-private actor SequenceGatedHealthTransport: LeoDaemonTransport {
-    private(set) var callCount = 0
-    private var isOpen = false
-    private var waiters: [CheckedContinuation<Void, Never>] = []
-
-    func send(_: LeoHTTPRequest, socketPath _: String, timeout _: TimeInterval) async throws -> LeoHTTPResponse {
-        callCount += 1
-        if callCount == 1 {
-            return LeoHTTPResponse(status: 200, body: Data(#"{"ok":true}"#.utf8))
-        }
-        if !isOpen {
-            await withCheckedContinuation { waiters.append($0) }
-        }
-        return LeoHTTPResponse(status: 200, body: Data(#"{"ok":true,"data":{"version":"0.29.0"}}"#.utf8))
-    }
-
-    func open() {
-        isOpen = true
-        waiters.forEach { $0.resume() }
-        waiters = []
     }
 }
 

@@ -51,6 +51,22 @@ import Testing
         #expect(!LeoMenuCommands.canReconnect(hasLeoSession: false, connectivity: .disconnected(reason: "x", isRetrying: false)))
     }
 
+    /// Q7: ⇧⌘R reconnects every machine a banner would offer Retry for.
+    @Test func reconnectTargetsEveryMachineThatWouldOfferRetry() {
+        let machines: [(host: LeoHostID, connectivity: LeoConnectivity)] = [
+            (.local, .connected),
+            (.remote("a"), .failed(message: "refused")),
+            (.remote("b"), .disconnected(reason: "x", isRetrying: false)),
+            (.remote("c"), .disconnected(reason: "x", isRetrying: true)),
+            (.remote("d"), .loading),
+        ]
+
+        #expect(LeoMenuCommands.machinesToReconnect(machines) == [.remote("a"), .remote("b")])
+        #expect(LeoMenuCommands.canReconnect(hasLeoSession: true, machines: machines))
+        #expect(!LeoMenuCommands.canReconnect(hasLeoSession: true, machines: [(.local, .connected), (.remote("c"), .loading)]))
+        #expect(!LeoMenuCommands.canReconnect(hasLeoSession: false, machines: machines))
+    }
+
     /// Read from the xib source (instantiating MainMenu would also build
     /// its AppDelegate): Reconnect is ⇧⌘R and nothing else in the menu bar
     /// uses it. Ghostty's config keybinds don't bind ⇧⌘R on macOS either.
@@ -66,8 +82,8 @@ import Testing
     // MARK: Palette
 
     @Test func thePaletteShowsTheDisconnectedStateInsteadOfAttachableRows() throws {
-        var retried = false
-        let model = LeoAgentPaletteModel(retry: { retried = true })
+        var retried: [LeoHostID] = []
+        let model = LeoAgentPaletteModel(retry: { retried.append($0) })
         model.update(
             snapshot: LeoSidebarSnapshot(rows: [Self.alpha], connectivity: .disconnected(reason: "Connection closed", isRetrying: false), generation: 3),
             selectedHost: .local,
@@ -75,10 +91,10 @@ import Testing
         )
 
         let banner = LeoDisconnectedBanner(host: .local, connectivity: .disconnected(reason: "Connection closed", isRetrying: false))
-        #expect(model.rows == [.disconnected(try #require(banner)), .newAgent, .plainShell])
+        #expect(model.rows == [.disconnected(host: .local, banner: try #require(banner)), .newAgent, .plainShell])
         #expect(model.confirm() == nil)
-        model.retryConnection()
-        #expect(retried)
+        model.retryConnection(.local)
+        #expect(retried == [.local])
     }
 
     /// A remote tunnel's failure text is ssh's stderr: sanitized (B-020).
@@ -92,7 +108,9 @@ import Testing
             hostState: .failed(message: message, hint: hint)
         )
 
-        #expect(model.rows.first == .status(text: LeoSFTPServerText.sanitized(message), hint: LeoSFTPServerText.sanitized(hint), canRetry: true))
+        #expect(model.rows.first == .status(
+            host: .remote("mars"), text: LeoSFTPServerText.sanitized(message), hint: LeoSFTPServerText.sanitized(hint), canRetry: true
+        ))
     }
 
     /// The sidebar's full-panel failure (an initial remote connect that
@@ -113,16 +131,16 @@ import Testing
         let model = LeoSidebarModel()
         var attached: [String] = []
         model.attachRequested = { row, _, _ in attached.append(row.name) }
-        model.receive(LeoSidebarSnapshot(rows: [Self.alpha], connectivity: .disconnected(reason: "x", isRetrying: false), generation: 1))
+        model.receive(LeoSidebarSnapshot(rows: [Self.alpha], connectivity: .disconnected(reason: "x", isRetrying: false), generation: 1), for: .local)
         model.selection = Self.alpha.id
 
-        #expect(model.isDisconnected)
+        #expect(model.isDisconnected(.local))
         #expect(model.actionableSelection == nil)
         model.requestAttach(Self.alpha, from: LeoWindowID(), disposition: .content)
         #expect(attached.isEmpty)
 
-        model.receive(LeoSidebarSnapshot(rows: [Self.alpha], connectivity: .connected, generation: 2))
-        #expect(!model.isDisconnected)
+        model.receive(LeoSidebarSnapshot(rows: [Self.alpha], connectivity: .connected, generation: 2), for: .local)
+        #expect(!model.isDisconnected(.local))
         #expect(model.actionableSelection == Self.alpha)
         model.requestAttach(Self.alpha, from: LeoWindowID(), disposition: .content)
         #expect(attached == ["alpha"])
@@ -142,17 +160,17 @@ import Testing
         let session = runtime.makeWindowSession()
         session.setSidebarVisible(true)
         runtime.start()
-        await awaitCondition(timeout: 5) { await runtime.model.snapshot.connectivity == .connected }
+        await awaitCondition(timeout: 5) { await runtime.model.snapshot(for: .local)?.connectivity == .connected }
         let calls = await daemon.listCallCount
 
         center.post(name: NSWorkspace.didWakeNotification, object: nil)
 
         await awaitCondition(timeout: 5) {
-            if case .disconnected = await runtime.model.snapshot.connectivity { return true }
+            if case .disconnected? = await runtime.model.snapshot(for: .local)?.connectivity { return true }
             return false
         }
         #expect(await daemon.listCallCount == calls + 1)
-        #expect(runtime.model.snapshot.rows.map(\.name) == ["alpha"])
+        #expect(runtime.model.snapshot(for: .local)?.rows.map(\.name) == ["alpha"])
         runtime.shutdown()
     }
 
@@ -172,9 +190,9 @@ import Testing
             Task { await requests.append(reason) }
         }
 
-        model.receive(LeoSidebarSnapshot(rows: [], connectivity: .loading, generation: 1))
-        model.receive(LeoSidebarSnapshot(rows: [Self.alpha], connectivity: .connected, generation: 2))
-        model.receive(LeoSidebarSnapshot(rows: [Self.alpha], connectivity: .connected, generation: 3))
+        model.receive(LeoSidebarSnapshot(rows: [], connectivity: .loading, generation: 1), for: .local)
+        model.receive(LeoSidebarSnapshot(rows: [Self.alpha], connectivity: .connected, generation: 2), for: .local)
+        model.receive(LeoSidebarSnapshot(rows: [Self.alpha], connectivity: .connected, generation: 3), for: .local)
 
         await awaitCondition { await requests.values == ["Forced"] }
         for _ in 0..<20 { await Task.yield() }

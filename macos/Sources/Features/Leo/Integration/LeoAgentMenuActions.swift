@@ -44,7 +44,7 @@ extension TerminalController {
         do {
             let command: String
             if case .remote(let name) = row.host {
-                guard let configuration = runtime.hostSelection.hosts.first(where: { $0.name == name }) else {
+                guard let configuration = runtime.machines.configuration(for: row.host) else {
                     throw LeoDaemonError.hostUnavailable("Remote host \(name) is not configured")
                 }
                 command = try LeoSSHCommand(configuration: configuration).logsShellCommand(agent: row.name)
@@ -75,13 +75,14 @@ extension TerminalController {
         runtime.jumpToNextNeedingAttention(from: leoSession)
     }
 
-    /// Agents ▸ Reconnect (⇧⌘R): the same Retry as the sidebar's banner.
+    /// Agents ▸ Reconnect (⇧⌘R): every machine a banner would offer
+    /// Retry for (Q7).
     @IBAction func reconnectLeo(_ sender: Any?) {
         leoRuntime?.model.retry()
     }
 
     func validateLeoReconnectMenuItem(_ item: NSMenuItem) -> Bool {
-        LeoMenuCommands.canReconnect(hasLeoSession: leoSession != nil, connectivity: leoRuntime?.model.snapshot.connectivity ?? .loading)
+        LeoMenuCommands.canReconnect(hasLeoSession: leoSession != nil, machines: leoRuntime?.model.machineConnectivity ?? [])
     }
 
     @IBAction func showLeoAgentNotificationSettings(_ sender: Any?) {
@@ -212,7 +213,7 @@ extension TerminalController {
         let generation = updateGeneration
         guard let controller = NSApp.keyWindow?.windowController as? TerminalController,
               let row = controller.selectedLeoRow, let runtime = controller.leoRuntime,
-              runtime.model.hostFeatures.applying(to: row.host).contains(.agentEnvironments) else {
+              runtime.model.features(for: row.host).contains(.agentEnvironments) else {
             for (item, submenu, _) in targets {
                 item.isHidden = true
                 submenu.items = [Self.placeholderItem(title: "No Agent Selected")]
@@ -325,16 +326,16 @@ private struct LeoTemplateSelection {
 @MainActor struct LeoAgentMenuSheets {
     let model: LeoSidebarModel
     let actions: LeoAgentActions
-    let hostSelection: LeoHostSelection
+    let machines: LeoMachineRegistry
 
-    init(model: LeoSidebarModel, actions: LeoAgentActions, hostSelection: LeoHostSelection) {
+    init(model: LeoSidebarModel, actions: LeoAgentActions, machines: LeoMachineRegistry) {
         self.model = model
         self.actions = actions
-        self.hostSelection = hostSelection
+        self.machines = machines
     }
 
     init(runtime: LeoRuntime) {
-        self.init(model: runtime.model, actions: runtime.actions, hostSelection: runtime.hostSelection)
+        self.init(model: runtime.model, actions: runtime.actions, machines: runtime.machines)
     }
 
     func presentRename(_ row: LeoAgentRow, in window: NSWindow?) {
@@ -348,7 +349,7 @@ private struct LeoTemplateSelection {
     }
 
     func presentManageHosts(in window: NSWindow?) {
-        window?.presentLeoSheet(NSHostingController(rootView: LeoHostsSheetContainer(model: hostSelection.makeHostsSheetModel())))
+        window?.presentLeoSheet(NSHostingController(rootView: LeoHostsSheetContainer(model: machines.makeHostsSheetModel())))
     }
 }
 

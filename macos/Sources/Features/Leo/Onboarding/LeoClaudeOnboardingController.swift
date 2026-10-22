@@ -34,10 +34,10 @@ import LeoKit
             .first { $0.isVisible && $0.attachedSheet == nil && !$0.isSheet && !($0 is NSPanel) }
     }
 
-    /// Watches the sidebar's snapshots for a live local daemon.
+    /// Watches This Mac's sidebar snapshots for a live local daemon.
     func start(model sidebar: LeoSidebarModel) {
-        subscription = sidebar.$snapshot.sink { [weak self] snapshot in
-            let live = snapshot.connectivity == .connected && snapshot.advertised.host == .local
+        subscription = sidebar.$snapshots.map { $0[.local] }.sink { [weak self] snapshot in
+            let live = snapshot?.connectivity == .connected && snapshot?.advertised.host == .local
             Task { @MainActor in await self?.model.snapshotLanded(hasLiveLocalDaemon: live) }
         }
     }

@@ -43,12 +43,12 @@ import Testing
         #expect(attaches == ["d1"], "in the background it attaches")
         #expect(focuses.isEmpty)
 
-        model.receive(snapshot(visible, features: live, generation: 2))
+        model.receive(snapshot(visible, features: live, generation: 2), for: .local)
         model.dispatchClicked(ref, from: LeoWindowID())
         #expect(focuses == ["%41"], "moved into the caller's session it focuses that pane")
         #expect(attaches == ["d1"], "and does not attach")
 
-        model.receive(snapshot(background, features: live, generation: 3))
+        model.receive(snapshot(background, features: live, generation: 3), for: .local)
         model.dispatchClicked(ref, from: LeoWindowID())
         #expect(attaches == ["d1", "d1"], "back in the background it attaches again")
         #expect(focuses == ["%41"])
@@ -59,12 +59,12 @@ import Testing
         model.userSelectedDispatch(ref)
         #expect(model.selectedDispatch == ref)
 
-        model.receive(snapshot(visible, features: live, generation: 2))
+        model.receive(snapshot(visible, features: live, generation: 2), for: .local)
         #expect(model.selectedDispatch == nil)
         #expect(model.selection == alpha.id)
 
-        model.receive(snapshot(background, features: live, generation: 3))
-        #expect(model.isDispatchSelectable(background), "selectable again")
+        model.receive(snapshot(background, features: live, generation: 3), for: .local)
+        #expect(model.isDispatchSelectable(background, host: .local), "selectable again")
         #expect(model.selectedDispatch == nil, "but a fallen-back selection is not revived")
     }
 
@@ -76,7 +76,7 @@ import Testing
         model.dispatchAttachRequested = { _, _, _ in requests += 1 }
         model.attachRequested = { _, _, _ in requests += 1 }
 
-        #expect(!model.isDispatchClickable(stuck), "its pane is in leo-dispatch, not the caller's session")
+        #expect(!model.isDispatchClickable(stuck, host: .local), "its pane is in leo-dispatch, not the caller's session")
         model.dispatchClicked(ref, from: LeoWindowID())
         #expect(requests == 0)
     }
@@ -88,7 +88,7 @@ import Testing
         model.dispatchPaneFocusRequested = { _, pane, _ in focuses.append(pane) }
         model.attachRequested = { _, _, _ in }
 
-        #expect(model.isDispatchClickable(reported))
+        #expect(model.isDispatchClickable(reported, host: .local))
         model.dispatchClicked(ref, from: LeoWindowID())
         #expect(focuses == ["%41"], "as B-271 has it")
     }
@@ -97,7 +97,7 @@ import Testing
         for kind: LeoDispatchViewerKind? in [.split, .hidden, .window, nil] {
             let reported = dispatch(attachable: false, kind: kind)
             let model = LeoSidebarModel(snapshot: snapshot(reported, features: live, generation: 1))
-            #expect(model.isDispatchClickable(reported), "\(String(describing: kind))")
+            #expect(model.isDispatchClickable(reported, host: .local), "\(String(describing: kind))")
         }
     }
 }

@@ -711,10 +711,8 @@ import Testing
         var count = 0
     }
 
-    @Test func theRuntimeRunsManagedStartupBeforeHostSelectionStarts() async throws {
+    @Test func theRuntimeRunsManagedStartupBeforeAnyMachineConnects() async throws {
         let defaults = LeoInMemoryDefaults()
-        let configuration = LeoHostConfiguration(name: "work", sshTarget: "evan@work", remoteSocketPath: "/remote/leo.sock")
-        defaults.set(try JSONEncoder().encode([configuration]), forKey: LeoHostStore.key)
         let daemon = RuntimeTestDaemon()
         let activitySource = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
         let runtime = LeoRuntime(
@@ -722,12 +720,12 @@ import Testing
             templateFetchRunner: LeoRecordingTemplateRunner()
         )
         defer { runtime.shutdown() }
-        let hostsLoadedDuringStartup = Recorded()
-        runtime.managedStartup = { hostsLoadedDuringStartup.value = !runtime.hostSelection.hosts.isEmpty }
+        let connectedDuringStartup = Recorded()
+        runtime.managedStartup = { connectedDuringStartup.value = runtime.machines.connectionState(for: .local) != nil }
 
         runtime.start()
 
-        await awaitCondition(message: "host selection never started") { await MainActor.run { !runtime.hostSelection.hosts.isEmpty } }
-        #expect(hostsLoadedDuringStartup.value == false)
+        await awaitCondition(message: "the machines never connected") { await MainActor.run { runtime.machines.connectionState(for: .local) != nil } }
+        #expect(connectedDuringStartup.value == false)
     }
 }

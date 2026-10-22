@@ -313,7 +313,7 @@ private func observed(_ name: String, _ startedAt: String, task: String?, at las
 private func order(_ harness: MetadataHarness, _ model: LeoSidebarModel) async -> [String] {
     guard let snapshot = await harness.recorder.last else { return [] }
     return await MainActor.run {
-        model.receive(snapshot)
+        model.receive(snapshot, for: .local)
         return model.visibleRows.map(\.name)
     }
 }

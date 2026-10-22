@@ -24,8 +24,8 @@ struct LeoSidebarActivitySource: Sendable {
 
 /// Reads agent activity/list data for exactly one connection at a time --
 /// `daemon`/`activitySource` are swapped via `updateConnection(host:generation:phase:)`
-/// (see `LeoSidebarFeedTarget.swift`) whenever `LeoHostSelection` reports a
-/// new `(host, generation)`. Every async chokepoint (refresh, activity-state
+/// (see `LeoSidebarFeedTarget.swift`) whenever `LeoMachineRegistry` reports a
+/// new `(host, generation)` for its machine. Every async chokepoint (refresh, activity-state
 /// fetch, SSE consumption) is guarded by `snapshot.generation` and/or
 /// `connectionGeneration` so a stale emission from a superseded connection
 /// can never reach a newer one.

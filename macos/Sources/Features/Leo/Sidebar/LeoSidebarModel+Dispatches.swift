@@ -22,9 +22,6 @@ extension LeoSidebarModel {
         !isDisconnected(host) && features(for: host).contains(.dispatchAttach) && dispatch.attachable
     }
 
-    /// TODO(S5): single-feed; pass the dispatch's machine.
-    func isDispatchSelectable(_ dispatch: LeoDispatch) -> Bool { isDispatchSelectable(dispatch, host: primaryHost) }
-
     /// Whether a click on `dispatch`'s row does anything: it is
     /// selectable, or (B-271) the daemon can't attach to it but reported
     /// the pane its viewer sits in, in its caller's own tmux session.
@@ -32,9 +29,6 @@ extension LeoSidebarModel {
     func isDispatchClickable(_ dispatch: LeoDispatch, host: LeoHostID) -> Bool {
         isDispatchSelectable(dispatch, host: host) || viewerPane(dispatch, host: host) != nil
     }
-
-    /// TODO(S5): single-feed; pass the dispatch's machine.
-    func isDispatchClickable(_ dispatch: LeoDispatch) -> Bool { isDispatchClickable(dispatch, host: primaryHost) }
 
     /// The reported viewer pane of a live dispatch the daemon can't attach
     /// to, under the same gate as attaching (connected, `dispatch_attach`).

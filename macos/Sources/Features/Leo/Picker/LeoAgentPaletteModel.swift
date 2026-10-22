@@ -1,25 +1,45 @@
 import Foundation
 import LeoKit
 
-/// Pure view-model for the agent picker palette. Consumes the sidebar's
-/// snapshot + host connection state and exposes a flat, keyboard-navigable
+/// One machine as the palette sees it: its connection and its sidebar
+/// snapshot, if one has landed.
+struct LeoPaletteMachine: Equatable {
+    let host: LeoHostID
+    let state: LeoHostConnectionState
+    let snapshot: LeoSidebarSnapshot?
+
+    /// The sidebar's machines, in its order. This Mac's socket needs no
+    /// tunnel, so it counts as connected before its connection first reports.
+    static func list(
+        order: [LeoHostID], snapshots: [LeoHostID: LeoSidebarSnapshot], state: (LeoHostID) -> LeoHostConnectionState?
+    ) -> [LeoPaletteMachine] {
+        LeoSidebarModel.machineHosts(order: order, snapshots: snapshots).map { host in
+            let fallback: LeoHostConnectionState = host == .local ? .connected(socketPath: "") : .connecting
+            return LeoPaletteMachine(host: host, state: state(host) ?? fallback, snapshot: snapshots[host])
+        }
+    }
+}
+
+/// Pure view-model for the agent picker palette. Consumes every machine's
+/// sidebar snapshot + connection state and exposes a flat, keyboard-navigable
 /// row list plus a `confirm()`/`cancel()` contract. No AppKit.
 @MainActor final class LeoAgentPaletteModel: ObservableObject {
     enum Row: Equatable {
         case agent(LeoAgentRow)
         case newAgent
         case plainShell
-        case status(text: String, hint: String?, canRetry: Bool)
+        /// A machine that is connecting or failed (Q2).
+        case status(host: LeoHostID, text: String, hint: String?, canRetry: Bool)
         /// The sidebar's disconnected banner itself (D-061), so the palette
         /// shows the same words with the same one-line reason (B-041).
-        case disconnected(LeoDisconnectedBanner)
+        case disconnected(host: LeoHostID, banner: LeoDisconnectedBanner)
     }
 
     private enum RowIdentity: Equatable {
         case agent(LeoAgentRow.ID)
         case newAgent
         case plainShell
-        case status
+        case status(LeoHostID)
     }
 
     @Published private(set) var rows: [Row] = []
@@ -38,20 +58,17 @@ import LeoKit
     /// Agent… (⌘O) or start-screen request, not a split. Set by the presenter per request.
     @Published var offersNewWindow = false
 
-    private let retry: () -> Void
-    private var snapshot: LeoSidebarSnapshot?
-    private var selectedHost: LeoHostID = .local
-    private var hostState: LeoHostConnectionState = .connecting
+    private let retry: (LeoHostID) -> Void
+    private var machines: [LeoPaletteMachine] = []
     private var selectedRowIdentity: RowIdentity?
 
-    init(retry: @escaping () -> Void = {}) {
+    init(retry: @escaping (LeoHostID) -> Void = { _ in }) {
         self.retry = retry
     }
 
-    func update(snapshot: LeoSidebarSnapshot, selectedHost: LeoHostID, hostState: LeoHostConnectionState) {
-        self.snapshot = snapshot
-        self.selectedHost = selectedHost
-        self.hostState = hostState
+    /// Every shown machine, in sidebar order.
+    func update(machines: [LeoPaletteMachine]) {
+        self.machines = machines
         recompute()
     }
 
@@ -105,14 +122,11 @@ import LeoKit
 
     func cancel() -> LeoPickerChoice { .cancel }
 
-    /// Invokes the injected retry closure. Callers (the palette view) are
-    /// expected to only surface the retry affordance when the current
-    /// selection is a `.status(canRetry: true)` row (or a `.disconnected`
-    /// one that isn't already retrying), but this is safe to
-    /// call unconditionally -- retrying a connected/connecting host is a
-    /// harmless no-op at the `LeoHostSelection` layer.
-    func retryConnection() {
-        retry()
+    /// Reconnects `host`: the Retry on its `.status(canRetry: true)` or
+    /// `.disconnected` row. Safe for any machine; reconnecting one that is
+    /// connecting just starts its attempt over.
+    func retryConnection(_ host: LeoHostID) {
+        retry(host)
     }
 
     private func recompute(preserveSelection: Bool = true) {
@@ -126,44 +140,53 @@ import LeoKit
         restoreSelection(previous)
     }
 
+    /// Every connected machine's agents ranked together, then a row per
+    /// machine that is connecting, failed or disconnected, so a machine
+    /// that is down never takes Return from the top agent.
     private func buildRows() -> [Row] {
-        switch hostState {
+        let agents = machines.flatMap(agentRows(of:))
+        let ranked = LeoFuzzyMatcher.rank(LeoSidebarReducers.rank(agents), query: filterText, secondary: \.repo)
+        return ranked.map(Row.agent) + machines.compactMap(statusRow(of:)) + trailingRows()
+    }
+
+    private func statusRow(of machine: LeoPaletteMachine) -> Row? {
+        let host = machine.host
+        switch machine.state {
         case .connecting:
-            return [.status(text: "Connecting to \(LeoSFTPServerText.sanitized(selectedHost.displayName))…", hint: nil, canRetry: false)] + trailingRows()
+            return .status(host: host, text: "Connecting to \(LeoSFTPServerText.sanitized(host.displayName))…", hint: nil, canRetry: false)
         case .failed(let message, let hint):
             // Remote ssh stderr: through the one sanitizer (B-020).
-            return [.status(text: LeoSFTPServerText.sanitized(message), hint: hint.map(LeoSFTPServerText.sanitized), canRetry: true)] + trailingRows()
+            return .status(host: host, text: LeoSFTPServerText.sanitized(message), hint: hint.map(LeoSFTPServerText.sanitized), canRetry: true)
         case .connected:
-            if let banner = snapshot.flatMap({ LeoDisconnectedBanner(host: selectedHost, connectivity: $0.connectivity) }) {
-                return [.disconnected(banner)] + trailingRows()
-            }
-            return filteredAgentRows().map(Row.agent) + trailingRows()
+            return disconnectedBanner(of: machine).map { .disconnected(host: host, banner: $0) }
         }
+    }
+
+    /// A connected machine's own agents; none while it's disconnected.
+    private func agentRows(of machine: LeoPaletteMachine) -> [LeoAgentRow] {
+        guard case .connected = machine.state, disconnectedBanner(of: machine) == nil, let snapshot = machine.snapshot else { return [] }
+        return snapshot.rows.filter { $0.host == machine.host }
+    }
+
+    private func disconnectedBanner(of machine: LeoPaletteMachine) -> LeoDisconnectedBanner? {
+        machine.snapshot.flatMap { LeoDisconnectedBanner(host: machine.host, connectivity: $0.connectivity) }
     }
 
     private func trailingRows() -> [Row] {
         [.newAgent, .plainShell]
     }
 
-    private func filteredAgentRows() -> [LeoAgentRow] {
-        guard let snapshot else { return [] }
-        let scoped = snapshot.rows.filter { $0.host == selectedHost }
-        // The sidebar's fuzzy matcher (B-042), over name then repo -- the
-        // two fields a palette row shows. Ties keep the sidebar order.
-        return LeoFuzzyMatcher.rank(LeoSidebarReducers.rank(scoped), query: filterText, secondary: \.repo)
-    }
-
     private func isConfirmable(_ row: Row) -> Bool {
         switch row {
         case .agent: true
-        case .newAgent: isConnected
+        case .newAgent: isAnyMachineConnected
         case .plainShell: true
         case .status, .disconnected: false
         }
     }
 
-    private var isConnected: Bool {
-        if case .connected = hostState { true } else { false }
+    private var isAnyMachineConnected: Bool {
+        machines.contains { if case .connected = $0.state { true } else { false } }
     }
 
     private func identity(for row: Row) -> RowIdentity {
@@ -171,7 +194,7 @@ import LeoKit
         case .agent(let agentRow): .agent(agentRow.id)
         case .newAgent: .newAgent
         case .plainShell: .plainShell
-        case .status, .disconnected: .status
+        case .status(let host, _, _, _), .disconnected(let host, _): .status(host)
         }
     }
 

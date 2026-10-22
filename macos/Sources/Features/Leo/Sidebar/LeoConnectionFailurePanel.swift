@@ -13,3 +13,10 @@ struct LeoConnectionFailurePanel: Equatable {
         self.hint = hint.map(LeoSFTPServerText.sanitized)
     }
 }
+
+/// What a remote machine's failed connection suggests: the hint, and the
+/// ssh target Open SSH runs it against.
+struct LeoConnectionFailureHint: Equatable {
+    let hint: String
+    let sshTarget: String
+}

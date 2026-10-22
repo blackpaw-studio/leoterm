@@ -29,10 +29,6 @@ import LeoKit
     /// host for every call below, so actions on one machine never wait on,
     /// or get redirected by, another's connection.
     private let clients: any LeoMachineClientResolving
-    /// Only for views still following the one selection (the sidebar, the
-    /// spawn sheet) until the runtime moves to the machine registry; no
-    /// action reads it.
-    let hostSelection: LeoHostSelection
     private let cli: LeoCLI
     private let model: LeoSidebarModel
     private let refresh: () -> Void
@@ -56,14 +52,12 @@ import LeoKit
     private var templateListTokens: [LeoHostID: Int] = [:]
 
     init(clients: any LeoMachineClientResolving, cli: LeoCLI, model: LeoSidebarModel,
-         hostSelection: LeoHostSelection,
          processRunner: any LeoProcessRunning,
          sshExecutable: String = "/usr/bin/ssh",
          refresh: @escaping () -> Void) {
         self.clients = clients
         self.cli = cli
         self.model = model
-        self.hostSelection = hostSelection
         self.processRunner = processRunner
         self.sshExecutable = sshExecutable
         self.refresh = refresh

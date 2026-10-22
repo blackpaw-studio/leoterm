@@ -138,7 +138,7 @@ private struct FocusFixture {
     /// The real palette over this window, once it has taken key status.
     func presentPalette() async throws -> LeoAgentPalettePanel {
         let panel = LeoAgentPalettePanel()
-        panel.present(parent: window, model: LeoAgentPaletteModel(), onCommit: { _ in }, onRetry: {}, onResignKey: {})
+        panel.present(parent: window, model: LeoAgentPaletteModel(), onCommit: { _ in }, onRetry: { _ in }, onResignKey: {})
         try #require(await eventually { panel.isKeyWindow }, "the palette never became key")
         return panel
     }
@@ -147,10 +147,8 @@ private struct FocusFixture {
     /// this window driving the real panel, for a request it has begun.
     func presentPaletteForRequest() async throws -> PresentedPalette {
         let sidebar = LeoSidebarModel()
-        let hostSelection = LeoHostSelection.isolatedForTesting()
         let actions = LeoAgentActions(
-            clients: FakeMachineClients(daemon: UnusedDaemon()), cli: .recordingForTests(), model: sidebar, hostSelection: hostSelection,
-            processRunner: LeoRecordingTemplateRunner(), refresh: {}
+            clients: FakeMachineClients(daemon: UnusedDaemon()), cli: .recordingForTests(), model: sidebar, processRunner: LeoRecordingTemplateRunner(), refresh: {}
         )
         let router = LeoNewSurfaceRouter(
             attach: { _, _, _ in .success(()) },
@@ -159,7 +157,7 @@ private struct FocusFixture {
         )
         let panel = LeoAgentPalettePanel()
         let presentation = LeoPickerPresentation(
-            window: window, router: router, sidebar: sidebar, hostSelection: hostSelection, actions: actions, panel: panel
+            window: window, router: router, sidebar: sidebar, machines: .isolatedForTesting(), actions: actions, panel: panel
         )
         let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         router.begin(request)

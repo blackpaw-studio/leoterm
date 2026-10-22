@@ -32,12 +32,10 @@ import Testing
 
     private func makeSheets(daemon: RecordingDaemon) -> LeoAgentMenuSheets {
         let model = LeoSidebarModel(snapshot: LeoSidebarSnapshot(rows: [scratch], connectivity: .connected, generation: 1))
-        let hostSelection = LeoHostSelection.isolatedForTesting()
         let actions = LeoAgentActions(
-            clients: FakeMachineClients(daemon: daemon), cli: .recordingForTests(), model: model, hostSelection: hostSelection,
-            processRunner: LeoRecordingTemplateRunner(), refresh: {}
+            clients: FakeMachineClients(daemon: daemon), cli: .recordingForTests(), model: model, processRunner: LeoRecordingTemplateRunner(), refresh: {}
         )
-        return LeoAgentMenuSheets(model: model, actions: actions, hostSelection: hostSelection)
+        return LeoAgentMenuSheets(model: model, actions: actions, machines: .isolatedForTesting())
     }
 
     private func expectSheet(on controller: TerminalController, after present: (NSWindow) -> Void) throws {

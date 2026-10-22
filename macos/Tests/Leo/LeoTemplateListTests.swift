@@ -110,7 +110,7 @@ import Testing
                     configurations: [LeoTemplateListTests.work]
                 ),
                 cli: LeoCLI(executableOverride: "/leo", runner: local, isExecutable: { _ in true }),
-                model: LeoSidebarModel(), hostSelection: .isolatedForTesting(), processRunner: remote, refresh: {}
+                model: LeoSidebarModel(), processRunner: remote, refresh: {}
             )
         }
 

@@ -135,7 +135,7 @@ struct LeoSidebarHeaderLayoutTests {
         } : []
         let model = LeoSidebarModel(snapshot: LeoSidebarSnapshot(rows: agents, connectivity: connectivity, generation: 1))
         let actions = LeoAgentActions(
-            clients: FakeMachineClients(daemon: HeaderLayoutTestDaemon()), cli: .recordingForTests(), model: model, hostSelection: .isolatedForTesting(), processRunner: LeoRecordingTemplateRunner(), refresh: {}
+            clients: FakeMachineClients(daemon: HeaderLayoutTestDaemon()), cli: .recordingForTests(), model: model, processRunner: LeoRecordingTemplateRunner(), refresh: {}
         )
         let frames = HeaderFrames(contentSize: CGSize(width: width, height: Self.height))
         let window = NSWindow(

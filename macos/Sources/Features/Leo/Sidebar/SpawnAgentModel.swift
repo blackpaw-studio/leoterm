@@ -131,7 +131,7 @@ import LeoKit
                dismiss: @escaping () -> Void) {
         guard !isSpawning else { return }
         isSpawning = true
-        actions.spawn(request, on: source?.host ?? actions.hostSelection.selected, attach: attach, dismiss: {
+        actions.spawn(request, on: source?.host ?? selectedHost ?? .local, attach: attach, dismiss: {
             self.isSpawning = false
             dismiss()
         }, failure: { error in

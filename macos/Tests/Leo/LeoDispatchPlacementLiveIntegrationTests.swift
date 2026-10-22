@@ -40,14 +40,14 @@ import Testing
         model.dispatchPaneFocusRequested = { _, pane, _ in focuses.append(pane) }
         model.dispatchAttachRequested = { identity, _, _ in attaches.append(identity.dispatchID) }
         model.attachRequested = { _, _, _ in }
-        func follow() throws { model.receive(try #require(recorder.latest)) }
+        func follow() throws { model.receive(try #require(recorder.latest), for: .local) }
 
         // 2: d1 starts in the background: attachable, so selectable.
         await script.open(step: 2)
         await awaitCondition(timeout: 5, message: "d1 never showed up") { recorder.d1?.attachable == true }
         try follow()
         #expect(recorder.d1Rows == 1)
-        #expect(model.isDispatchSelectable(try #require(recorder.d1)))
+        #expect(model.isDispatchSelectable(try #require(recorder.d1), host: .local))
         #expect(model.callerPaneTarget(d1) == nil)
         model.dispatchClicked(d1, from: LeoWindowID())
         #expect(attaches == ["d1"])
@@ -59,8 +59,8 @@ import Testing
         try follow()
         #expect(recorder.d1Rows == 1, "no duplicate row")
         let visible = try #require(recorder.d1)
-        #expect(!model.isDispatchSelectable(visible))
-        #expect(model.isDispatchClickable(visible))
+        #expect(!model.isDispatchSelectable(visible, host: .local))
+        #expect(model.isDispatchClickable(visible, host: .local))
         #expect(model.callerPaneTarget(d1)?.pane == "%41")
         model.dispatchClicked(d1, from: LeoWindowID())
         #expect(focuses == ["%41"])
@@ -81,7 +81,7 @@ import Testing
         await awaitCondition(timeout: 5, message: "d1 never moved back") { recorder.d1?.attachable == true }
         try follow()
         #expect(recorder.d1Rows == 1)
-        #expect(model.isDispatchSelectable(try #require(recorder.d1)))
+        #expect(model.isDispatchSelectable(try #require(recorder.d1), host: .local))
         #expect(model.callerPaneTarget(d1) == nil)
         model.dispatchClicked(d1, from: LeoWindowID())
         #expect(attaches == ["d1", "d1"])

@@ -1013,8 +1013,8 @@ class AppDelegate: NSObject,
     }
 
     // MARK: Leo
-    /// The one Dock badge writer: the selected Leo host's attention count
-    /// takes precedence over the bell count (see `LeoDockBadge`). The
+    /// The one Dock badge writer: Leo's attention count, summed across
+    /// every machine (inventory row 6), takes precedence over the bell count (see `LeoDockBadge`). The
     /// attention path writes directly -- `NSDockTile` needs no notification
     /// authorization, so an agent needing input never triggers a prompt.
     private func writeDockBadge() {
@@ -1022,7 +1022,7 @@ class AppDelegate: NSObject,
             .compactMap { $0.windowController as? BaseTerminalController }
             .reduce(0) { $0 + ($1.bell ? 1 : 0) }
         let label = LeoDockBadge.label(
-            attentionCount: MainActor.assumeIsolated { leoRuntime.model.snapshot.attentionCount },
+            attentionCount: MainActor.assumeIsolated { leoRuntime.model.attentionCount },
             bellCount: bellCount,
             bellBadgeEnabled: bellDockBadgeAuthorized && ghostty.config.bellFeatures.contains(.attention)
         )

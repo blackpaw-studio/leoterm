@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// Pure decision logic backing the top-level "Agents" menu (and the two
 /// Leo entries that remain in "View"): whether each command should be
@@ -61,6 +62,18 @@ enum LeoMenuCommands {
         case .failed: return true
         case .loading, .connected: return false
         }
+    }
+
+    /// Q7: ⇧⌘R with several machines, offered while any of them would be
+    /// reconnected.
+    static func canReconnect(hasLeoSession: Bool, machines: [(host: LeoHostID, connectivity: LeoConnectivity)]) -> Bool {
+        hasLeoSession && !machinesToReconnect(machines).isEmpty
+    }
+
+    /// The machines ⇧⌘R reconnects: every one whose sidebar would offer
+    /// Retry, in order.
+    static func machinesToReconnect(_ machines: [(host: LeoHostID, connectivity: LeoConnectivity)]) -> [LeoHostID] {
+        machines.filter { canReconnect(hasLeoSession: true, connectivity: $0.connectivity) }.map(\.host)
     }
 
     private static func enabled(_ context: AgentContext, _ pick: (LeoRowActionAvailability) -> Bool) -> Bool {

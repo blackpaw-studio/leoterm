@@ -30,7 +30,7 @@ import Testing
             selectedHost: .remote("mars"),
             hostState: .connected(socketPath: "/tmp/leo.sock")
         )
-        guard case .disconnected(let banner) = model.rows.first else {
+        guard case .disconnected(_, let banner) = model.rows.first else {
             Issue.record("expected the disconnected row first, got \(model.rows)")
             return
         }
@@ -85,25 +85,45 @@ import Testing
         #expect(!LeoPlaceholderChooseAgent(host: .local, connectivity: .disconnected(reason: "x", isRetrying: true), shortcut: "⌘O", reconnectShortcut: "⇧⌘R").isEnabled)
     }
 
+    /// Q3: any connected machine is enough to choose an agent.
+    @Test func chooseAgentIsEnabledWhileAnyMachineIsConnected() {
+        let state = LeoPlaceholderChooseAgent(
+            machines: [(.local, .disconnected(reason: "x", isRetrying: false)), (.remote("work"), .connected)],
+            shortcut: "⌘O", reconnectShortcut: "⇧⌘R"
+        )
+        #expect(state.isEnabled)
+        #expect(state.help == "⌘O")
+    }
+
+    /// Q3: with nothing connected, This Mac's state decides.
+    @Test func withNoMachineConnectedChooseAgentFollowsThisMac() {
+        let state = LeoPlaceholderChooseAgent(
+            machines: [(.local, .disconnected(reason: "x", isRetrying: false)), (.remote("work"), .failed(message: "refused"))],
+            shortcut: "⌘O", reconnectShortcut: "⇧⌘R"
+        )
+        #expect(!state.isEnabled)
+        #expect(state.help == "Disconnected from localhost. Reconnect first (⇧⌘R).")
+    }
+
     /// Follows the sidebar model's snapshots: connect → disconnect → reconnect.
     @Test func chooseAgentFollowsTheFeedAcrossConnectDisconnectReconnect() {
         let model = LeoSidebarModel()
         func state() -> LeoPlaceholderChooseAgent {
-            LeoPlaceholderChooseAgent(host: .local, connectivity: model.snapshot.connectivity, shortcut: "⌘O", reconnectShortcut: "⇧⌘R")
+            LeoPlaceholderChooseAgent(machines: model.machineConnectivity, shortcut: "⌘O", reconnectShortcut: "⇧⌘R")
         }
 
-        model.receive(.init(rows: [], connectivity: .connected, generation: 1))
+        model.receive(.init(rows: [], connectivity: .connected, generation: 1), for: .local)
         #expect(state().isEnabled)
 
-        model.receive(.init(rows: [], connectivity: .disconnected(reason: "Connection closed", isRetrying: false), generation: 2))
+        model.receive(.init(rows: [], connectivity: .disconnected(reason: "Connection closed", isRetrying: false), generation: 2), for: .local)
         #expect(!state().isEnabled)
         #expect(!state().isProminent)
         #expect(state().help == "Disconnected from localhost. Reconnect first (⇧⌘R).")
 
-        model.receive(.init(rows: [], connectivity: .disconnected(reason: "Connection closed", isRetrying: true), generation: 3))
+        model.receive(.init(rows: [], connectivity: .disconnected(reason: "Connection closed", isRetrying: true), generation: 3), for: .local)
         #expect(!state().isEnabled)
 
-        model.receive(.init(rows: [], connectivity: .connected, generation: 4))
+        model.receive(.init(rows: [], connectivity: .connected, generation: 4), for: .local)
         #expect(state().isEnabled)
         #expect(state().isProminent)
         #expect(state().help == "⌘O")

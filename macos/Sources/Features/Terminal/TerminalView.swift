@@ -198,7 +198,6 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
     private func leoPlaceholder(session: LeoWindowSession, runtime: LeoRuntime) -> some View {
         LeoPlaceholderView(
             model: runtime.model,
-            hostSelection: runtime.hostSelection,
             shortcutHints: runtime.shortcutHints,
             openPicker: { session.openPicker(surfaceID: nil) },
             buttonActions: leoButtonActions
@@ -221,7 +220,6 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                                   let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime else { return nil }
                             return AnyView(LeoPlaceholderView(
                                 model: runtime.model,
-                                hostSelection: runtime.hostSelection,
                                 shortcutHints: runtime.shortcutHints,
                                 openPicker: { leoSession.openPicker(surfaceID: surface.id) },
                                 buttonActions: leoButtonActions))

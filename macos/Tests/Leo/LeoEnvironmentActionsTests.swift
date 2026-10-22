@@ -13,8 +13,7 @@ import Testing
 
     private func actions(_ daemon: EnvironmentDaemon, model: LeoSidebarModel? = nil) -> LeoAgentActions {
         LeoAgentActions(
-            clients: FakeMachineClients(daemon: daemon), cli: .recordingForTests(templates: []), model: model ?? LeoSidebarModel(), hostSelection: .isolatedForTesting(),
-            processRunner: LeoRecordingTemplateRunner(), refresh: {}
+            clients: FakeMachineClients(daemon: daemon), cli: .recordingForTests(templates: []), model: model ?? LeoSidebarModel(), processRunner: LeoRecordingTemplateRunner(), refresh: {}
         )
     }
 
@@ -43,8 +42,7 @@ import Testing
         ])
         let model = LeoSidebarModel()
         let actions = LeoAgentActions(
-            clients: clients, cli: .recordingForTests(templates: []), model: model, hostSelection: .isolatedForTesting(),
-            processRunner: LeoRecordingTemplateRunner(), refresh: {})
+            clients: clients, cli: .recordingForTests(templates: []), model: model, processRunner: LeoRecordingTemplateRunner(), refresh: {})
         #expect(actions.environmentCatalog(for: .local) == .loading)
 
         actions.reloadEnvironmentCatalog(for: .local)
@@ -60,8 +58,7 @@ import Testing
         let work = LeoHostID.remote("work")
         let clients = FakeMachineClients(daemons: [.local: EnvironmentDaemon(catalog: Self.catalog), work: EnvironmentDaemon()])
         let actions = LeoAgentActions(
-            clients: clients, cli: .recordingForTests(templates: []), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(),
-            processRunner: LeoRecordingTemplateRunner(), refresh: {})
+            clients: clients, cli: .recordingForTests(templates: []), model: LeoSidebarModel(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
         actions.reloadEnvironmentCatalog(for: .local)
         await awaitCondition { await MainActor.run { actions.environmentCatalog(for: .local) == .loaded(Self.catalog) } }
 

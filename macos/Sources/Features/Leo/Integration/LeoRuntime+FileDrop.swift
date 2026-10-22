@@ -218,7 +218,7 @@ extension LeoRuntime {
 
     func makeFileDropAccess(for host: LeoHostID) throws -> any LeoFileAccess {
         if let make = terminalFileDropDependencies?.makeAccess { return try make(host) }
-        return try hostSelection.makeFileAccess(for: host)
+        return try machines.makeFileAccess(for: host)
     }
 
     func insertFileDropText(_ text: String, into surface: Ghostty.SurfaceView) {
