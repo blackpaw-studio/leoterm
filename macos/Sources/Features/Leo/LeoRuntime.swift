@@ -365,7 +365,7 @@ import LeoKit
                 // what attached before it.
                 weakSelf?.attachCoordinator.daemonFeaturesChanged()
                 weakSelf?.snapshotLanded(snapshot)
-                weakSelf?.feedConnectivityLanded(snapshot.connectivity, for: host)
+                weakSelf?.feedSnapshotLanded(snapshot, for: host)
                 // A hello may have added or dropped `machine_stats`.
                 weakSelf?.statsPoller.reconcile()
             }

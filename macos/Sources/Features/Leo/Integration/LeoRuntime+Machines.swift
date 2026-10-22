@@ -43,9 +43,9 @@ extension LeoRuntime {
     /// connection up (the daemon died behind a live tunnel), or its list
     /// landed again: the registry fails it into its retry backoff, or lets
     /// that backoff start over.
-    func feedConnectivityLanded(_ connectivity: LeoConnectivity, for host: LeoHostID) {
+    func feedSnapshotLanded(_ snapshot: LeoSidebarSnapshot, for host: LeoHostID) {
         guard !isShutDown else { return }
-        switch daemonLoss.observe(connectivity, for: host) {
+        switch daemonLoss.observe(snapshot, for: host) {
         case .stoppedAnswering(let reason)?: machines.daemonStoppedAnswering(host, reason: reason)
         case .answered?: machines.daemonAnswered(host)
         case nil: break
