@@ -11,8 +11,28 @@ public struct DaemonSession: Equatable, Identifiable, Sendable {
     public var bootID: String?
     /// Consecutive failed connection attempts; drives the backoff.
     public var failures = 0
+    /// What the daemon advertised in its last `hello`.
+    public var features = LeoDaemonFeatures.none
+    /// The latest machine load sample; `nil` before the first, after a
+    /// disconnect, and on a daemon that has none to give.
+    public var stats: LeoMachineStats?
+    /// The daemon answered `machine_stats_unavailable`: no meters, no polling
+    /// until it reconnects.
+    public var isStatsUnavailable = false
 
     public var id: String { daemon.id }
+
+    /// Whether this daemon can be asked for stats right now.
+    var canPollStats: Bool {
+        connection.isConnected && features.contains(.machineStats) && !isStatsUnavailable
+    }
+
+    /// The meters to draw, or `nil` when there are none (old daemon, 503,
+    /// no sample yet, disconnected).
+    public var meters: [MachineMeter]? {
+        guard canPollStats else { return nil }
+        return stats?.meters
+    }
 
     public init(daemon: PairedDaemon) {
         self.daemon = daemon
@@ -43,6 +63,9 @@ public struct Fleet {
     @ObservableState
     public struct State: Equatable {
         public var isActive = false
+        /// The Machines list is on screen.
+        public var isShowingStats = false
+        @Shared(.appStorage("statsStyle")) public var statsStyle = LeoStatsStyle.default
         public var sessions: IdentifiedArrayOf<DaemonSession> = []
 
         public init(daemons: [PairedDaemon] = []) {
@@ -66,6 +89,10 @@ public struct Fleet {
                 }
         }
 
+        /// Stats are fetched only while the Machines list is on screen, the
+        /// app is active and the style draws meters.
+        var pollsStats: Bool { isActive && isShowingStats && statsStyle.showsMeters }
+
         public var attentionCount: Int {
             sessions.reduce(0) { $0 + $1.agents.filter(\.priority.needsAttention).count }
         }
@@ -75,7 +102,7 @@ public struct Fleet {
 
     public enum Action {
         case connect(DaemonSession.ID)
-        case connected(DaemonSession.ID, bootID: String?, LeoObservedState)
+        case connected(DaemonSession.ID, bootID: String?, features: LeoDaemonFeatures, LeoObservedState)
         case daemonAdded(PairedDaemon)
         case daemonRemoved(DaemonSession.ID)
         case daemonsLoaded([PairedDaemon])
@@ -86,11 +113,21 @@ public struct Fleet {
         case sequenceGap(DaemonSession.ID)
         case scenePhaseChanged(isActive: Bool)
         case snapshotLoaded(DaemonSession.ID, LeoObservedState)
+        case statsLoaded(DaemonSession.ID, LeoMachineStats)
+        case statsStyleChanged(LeoStatsStyle)
+        case statsUnavailable(DaemonSession.ID)
+        case statsVisibilityChanged(Bool)
         case streamEnded(DaemonSession.ID, StreamEnd)
         case task
     }
 
-    enum CancelID: Hashable { case connection(DaemonSession.ID) }
+    enum CancelID: Hashable {
+        case connection(DaemonSession.ID)
+        case stats(DaemonSession.ID)
+    }
+
+    /// Seconds between stats samples while the Machines list is open.
+    static let statsInterval = Duration.seconds(5)
 
     @Dependency(\.continuousClock) var clock
     @Dependency(\.daemonClient) var daemonClient
@@ -108,11 +145,13 @@ public struct Fleet {
             case .sequenceGap:
                 return .none
 
-            case .connected(let id, let bootID, let snapshot):
+            case .connected(let id, let bootID, let features, let snapshot):
                 state.sessions[id: id]?.failures = 0
                 state.sessions[id: id]?.connection = .connected
+                state.sessions[id: id]?.features = features
+                state.sessions[id: id]?.isStatsUnavailable = false
                 state.sessions[id: id]?.applySnapshot(snapshot, bootID: bootID)
-                return .none
+                return pollStats(id, state: state)
 
             case .daemonAdded(let daemon):
                 if state.sessions[id: daemon.id] != nil {
@@ -127,6 +166,7 @@ public struct Fleet {
                 let secrets = secrets
                 return .merge(
                     .cancel(id: CancelID.connection(id)),
+                    .cancel(id: CancelID.stats(id)),
                     save(state),
                     .run { _ in try secrets.delete(id) }
                 )
@@ -152,31 +192,54 @@ public struct Fleet {
                 for id in state.sessions.ids {
                     state.sessions[id: id]?.failures = 0
                     state.sessions[id: id]?.connection = .offline
+                    state.sessions[id: id]?.stats = nil
                 }
-                return .merge(state.sessions.ids.map { .cancel(id: CancelID.connection($0)) })
+                return .merge(state.sessions.ids.flatMap { [.cancel(id: CancelID.connection($0)), .cancel(id: CancelID.stats($0))] })
 
             case .snapshotLoaded(let id, let snapshot):
                 state.sessions[id: id]?.applySnapshot(snapshot)
                 return .none
 
+            case .statsLoaded(let id, let stats):
+                state.sessions[id: id]?.stats = stats
+                return .none
+
+            case .statsStyleChanged(let style):
+                state.$statsStyle.withLock { $0 = style }
+                return pollAllStats(state: state)
+
+            case .statsUnavailable(let id):
+                state.sessions[id: id]?.isStatsUnavailable = true
+                state.sessions[id: id]?.stats = nil
+                return .cancel(id: CancelID.stats(id))
+
+            case .statsVisibilityChanged(let isVisible):
+                state.isShowingStats = isVisible
+                return pollAllStats(state: state)
+
             case .streamEnded(let id, let end):
                 guard state.isActive, state.sessions[id: id] != nil else { return .none }
+                state.sessions[id: id]?.stats = nil
+                let stopStats: Effect<Action> = .cancel(id: CancelID.stats(id))
                 switch end {
                 case .unauthorized:
                     state.sessions[id: id]?.connection = .unauthorized("This device's token was rejected. Pair it again.")
-                    return .none
+                    return stopStats
                 case .missingCredentials:
                     state.sessions[id: id]?.connection = .unauthorized("No saved token for this daemon. Pair it again.")
-                    return .none
+                    return stopStats
                 case .closed, .failed:
                     let failures = (state.sessions[id: id]?.failures ?? 0) + 1
                     state.sessions[id: id]?.failures = failures
                     state.sessions[id: id]?.connection = .reconnecting(attempt: failures, reason: end.reason)
-                    return .run { [clock] send in
-                        try await clock.sleep(for: Self.backoff(failures))
-                        await send(.connect(id))
-                    }
-                    .cancellable(id: CancelID.connection(id), cancelInFlight: true)
+                    return .merge(
+                        stopStats,
+                        .run { [clock] send in
+                            try await clock.sleep(for: Self.backoff(failures))
+                            await send(.connect(id))
+                        }
+                        .cancellable(id: CancelID.connection(id), cancelInFlight: true)
+                    )
                 }
 
             case .task:
@@ -195,6 +258,37 @@ public struct Fleet {
 
     private func connectAll(state: inout State) -> Effect<Action> {
         .merge(state.sessions.ids.map { connect($0, state: &state) })
+    }
+
+    private func pollAllStats(state: State) -> Effect<Action> {
+        .merge(state.sessions.ids.map { pollStats($0, state: state) })
+    }
+
+    /// Samples the daemon's load now and every `statsInterval` after, until
+    /// cancelled (list hidden, app inactive, disconnect). A failed sample
+    /// keeps the last one and retries on the next tick; a daemon that says it
+    /// has no stats ends its own loop. Each daemon polls on its own effect,
+    /// so one slow or failing machine never holds up another.
+    private func pollStats(_ id: DaemonSession.ID, state: State) -> Effect<Action> {
+        guard let session = state.sessions[id: id] else { return .none }
+        guard state.pollsStats, session.canPollStats else { return .cancel(id: CancelID.stats(id)) }
+        let (clock, daemonClient, secrets, daemon) = (clock, daemonClient, secrets, session.daemon)
+        return .run { send in
+            guard let saved = try secrets.load(daemon.id) else { return }
+            let connection = DaemonConnection(daemon: daemon, secrets: saved)
+            while !Task.isCancelled {
+                do {
+                    await send(.statsLoaded(id, try await daemonClient.machineStats(connection)))
+                } catch LeoDaemonError.daemon(let code, _, _) where code == LeoMachineStats.unavailableCode {
+                    await send(.statsUnavailable(id))
+                    return
+                } catch is CancellationError {
+                    return
+                } catch {}
+                try await clock.sleep(for: Self.statsInterval)
+            }
+        } catch: { _, _ in }
+        .cancellable(id: CancelID.stats(id), cancelInFlight: true)
     }
 
     private func save(_ state: State) -> Effect<Action> {
@@ -221,8 +315,8 @@ public struct Fleet {
             var lastSequence: Int?
             for try await event in daemonClient.events(connection) {
                 let sequence = event.sequence
-                if case .hello(_, _, _, _, let bootID, _) = event {
-                    await send(.connected(id, bootID: bootID, try await daemonClient.fetchState(connection)))
+                if case .hello(_, _, _, _, let bootID, let features) = event {
+                    await send(.connected(id, bootID: bootID, features: LeoDaemonFeatures(features), try await daemonClient.fetchState(connection)))
                     lastSequence = sequence
                     continue
                 }

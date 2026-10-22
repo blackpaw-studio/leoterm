@@ -15,7 +15,10 @@ public struct Daemons {
     public enum Action {
         case addButtonTapped
         case alert(PresentationAction<Alert>)
+        /// The screen came on screen: stats polling may run.
+        case appeared
         case delegate(Delegate)
+        case disappeared
         case forgetButtonTapped(PairedDaemon)
         case retryButtonTapped(PairedDaemon.ID)
 
@@ -29,6 +32,7 @@ public struct Daemons {
             case add
             case forget(PairedDaemon.ID)
             case retry(PairedDaemon.ID)
+            case visibilityChanged(Bool)
         }
     }
 
@@ -43,6 +47,10 @@ public struct Daemons {
                 return .send(.delegate(.forget(id)))
             case .alert, .delegate:
                 return .none
+            case .appeared:
+                return .send(.delegate(.visibilityChanged(true)))
+            case .disappeared:
+                return .send(.delegate(.visibilityChanged(false)))
             case .forgetButtonTapped(let daemon):
                 state.alert = Self.forgetAlert(daemon)
                 return .none

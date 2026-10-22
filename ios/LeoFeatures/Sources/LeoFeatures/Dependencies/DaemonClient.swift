@@ -21,6 +21,8 @@ public struct DaemonClient: Sendable {
     public var events: @Sendable (_ connection: DaemonConnection) -> AsyncThrowingStream<LeoObserveEvent, any Error> = { _ in .finished() }
     public var perform: @Sendable (_ connection: DaemonConnection, _ agent: String, _ command: AgentCommand) async throws -> Void
     public var environmentNames: @Sendable (_ connection: DaemonConnection) async throws -> [String]
+    /// `GET /api/v1/machine`: one load sample (leo >= 0.57, `machine_stats`).
+    public var machineStats: @Sendable (_ connection: DaemonConnection) async throws -> LeoMachineStats
     /// `PUT /api/v1/devices/{id}/push`: how the daemon pushes to this device.
     public var setPush: @Sendable (_ connection: DaemonConnection, _ deviceID: String, _ registration: LeoPushRegistration) async throws -> Void
     /// `DELETE /api/v1/devices/{id}/push`.
@@ -53,6 +55,7 @@ extension DaemonClient: DependencyKey {
                 }
             },
             environmentNames: { try await client($0).environmentNames() },
+            machineStats: { try await client($0).machineStats() },
             setPush: { connection, deviceID, registration in try await client(connection).registerPush(deviceID: deviceID, registration) },
             deletePush: { connection, deviceID in try await client(connection).unregisterPush(deviceID: deviceID) }
         )

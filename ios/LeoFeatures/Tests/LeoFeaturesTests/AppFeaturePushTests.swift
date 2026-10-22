@@ -93,7 +93,7 @@ struct AppFeaturePushTests {
             $0.secrets.load = { _ in DaemonSecrets(token: "t") }
             $0.daemonClient.deletePush = { _, deviceID in deletes.withValue { $0.append(deviceID) } }
         }
-        await store.send(\.fleet.connected, (PairedDaemon.dionysus.id, bootID: "b1", LeoObservedState(agents: []))) {
+        await store.send(\.fleet.connected, (PairedDaemon.dionysus.id, bootID: "b1", features: .none, LeoObservedState(agents: []))) {
             $0.fleet.sessions[0].connection = .connected
             $0.fleet.sessions[0].bootID = "b1"
         }
@@ -133,7 +133,7 @@ struct AppFeaturePushTests {
             $0.push.hasLoadedDaemons = true
         }
         await store.receive(\.push.authorizationChanged, .authorized) { $0.push.authorization = .authorized }
-        await store.send(\.fleet.connected, (id, bootID: "b1", LeoObservedState(agents: [.make("zeus")]))) {
+        await store.send(\.fleet.connected, (id, bootID: "b1", features: .none, LeoObservedState(agents: [.make("zeus")]))) {
             $0.fleet.sessions[0].connection = .connected
             $0.fleet.sessions[0].bootID = "b1"
             $0.fleet.sessions[0].agents = [Agent(.make("zeus"))]
@@ -158,7 +158,7 @@ struct AppFeaturePushTests {
         let id = PairedDaemon.dionysus.id
 
         await store.send(.notificationOpened(Self.zeus)) { $0.pendingAgent = Self.zeus }
-        await store.send(\.fleet.connected, (id, bootID: "b1", LeoObservedState(agents: [.make("hera")]))) {
+        await store.send(\.fleet.connected, (id, bootID: "b1", features: .none, LeoObservedState(agents: [.make("hera")]))) {
             $0.fleet.sessions[0].connection = .connected
             $0.fleet.sessions[0].bootID = "b1"
             $0.fleet.sessions[0].agents = [Agent(.make("hera"))]
