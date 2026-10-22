@@ -176,6 +176,44 @@ import Testing
         registry.shutdown()
     }
 
+    /// An edit replaces the machine's connection, but like any reconnect
+    /// its new tunnel waits until the old one is gone: never two ssh
+    /// children for one machine.
+    @Test func anEditedMachineLaunchesOnlyAfterItsOldTunnelIsGone() async throws {
+        let defaults = LeoInMemoryDefaults()
+        try Support.save([Support.host("b")], to: defaults)
+        let tunnels = LeoFakeTunnels()
+        let release = DispatchSemaphore(value: 0)
+        tunnels.onTeardown("evan@b") { release.wait() }
+        let aliveAtLaunch = LeoLockedLog<Int>()
+        tunnels.onMake { made, earlier in
+            guard made.launch.host == .remote("b") else { return }
+            aliveAtLaunch.append(earlier.filter { $0.launch.host == .remote("b") && !$0.hasExited }.count)
+        }
+        let registry = LeoMachineRegistry.isolatedForTesting(defaults: defaults, tunnels: tunnels)
+        registry.start(flavor: .socketEvents)
+        try await until { @MainActor in registry.status(for: .remote("b")) == .connected }
+        let old = try #require(tunnels.tunnels("evan@b").first)
+
+        // "c" is new in the same reload: it takes the path b's replacement
+        // would without waiting, so once c's tunnel exists an unordered b
+        // would have launched too.
+        let edited = LeoHostConfiguration(name: "b", sshTarget: "evan@b-new", remoteSocketPath: "/remote/leo.sock")
+        try Support.save([edited, Support.host("c")], to: defaults)
+        registry.reload()
+        try await until("the old tunnel's teardown never started") { old.terminationCount == 1 }
+        try await until("the control machine never launched") { tunnels.tunnels("evan@c").count == 1 }
+        for _ in 0..<20 { await Task.yield() }
+        #expect(tunnels.tunnels("evan@b-new").isEmpty, "b's new tunnel launched while its old one was still alive")
+        release.signal()
+
+        try await until("b never reconnected") { @MainActor in
+            registry.status(for: .remote("b")) == .connected && tunnels.tunnels("evan@b-new").count == 1
+        }
+        #expect(aliveAtLaunch.values == [0, 0])
+        registry.shutdown()
+    }
+
     @Test func aMachineAddedInSettingsConnects() async throws {
         let defaults = LeoInMemoryDefaults()
         try Support.save([Support.host("a")], to: defaults)

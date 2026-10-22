@@ -36,6 +36,10 @@ import LeoKit
     private var latestGeneration = 0
     private var failedAttempts: [LeoHostID: Int] = [:]
     private var pendingRetries: [LeoHostID: Task<Void, Never>] = [:]
+    /// Teardowns of retired connections, so a machine's next connection
+    /// (after an edit, or a remove and re-add) launches only once the old
+    /// tunnel is gone.
+    private var retiredTeardowns: [LeoHostID: Task<Void, Never>] = [:]
     private var activationObserver: NSObjectProtocol?
     private var isStarted = false
     private var isShutDown = false
@@ -130,7 +134,9 @@ import LeoKit
             return wanted[configuration.name] == configuration ? nil : host
         }
         stale.forEach(retire)
-        configurations.filter { $0.isEnabled && connections[.remote($0.name)] == nil }.forEach { open(.remote($0)) }
+        for configuration in configurations where configuration.isEnabled && connections[.remote(configuration.name)] == nil {
+            open(.remote(configuration))
+        }
     }
 
     /// Connects `host` again now, replacing any attempt in flight, and starts
@@ -149,8 +155,9 @@ import LeoKit
         connections.filter { !Self.isConnected($0.value.state) }.keys.forEach(reconnect)
     }
 
-    /// The quit hook: tears every tunnel down at once and blocks until they
-    /// are all confirmed gone, bounded by `teardownBound` in total (never per
+    /// The quit hook: tears every tunnel down at once (and waits on any
+    /// still retiring from a Settings edit), blocking until they are all
+    /// confirmed gone, bounded by `teardownBound` in total (never per
     /// machine). Returns false when the bound ran out first; a child still
     /// exiting then clears its own reap record when it does exit.
     @discardableResult
@@ -160,7 +167,7 @@ import LeoKit
         pendingRetries.values.forEach { $0.cancel() }
         pendingRetries = [:]
         let retiring = Array(connections.values)
-        let barriers = retiring.map { $0.shutdown() }
+        let barriers = retiring.map { $0.shutdown() } + retiredTeardowns.values
         retiring.forEach { generations[$0.host] = nextGeneration() }
         let teardown = Task.detached {
             for barrier in barriers { await barrier.value }
@@ -199,6 +206,7 @@ import LeoKit
         let connection = LeoMachineConnection(
             target: target,
             environment: environment,
+            previousTeardown: retiredTeardowns.removeValue(forKey: host),
             nextGeneration: { [weak self] in self?.nextGeneration() ?? 0 },
             onState: { [weak self] generation, state in self?.receive(state, generation: generation, for: host) }
         )
@@ -212,7 +220,7 @@ import LeoKit
         failedAttempts[host] = nil
         states[host] = nil
         guard let connection = connections.removeValue(forKey: host) else { return }
-        _ = connection.shutdown()
+        retiredTeardowns[host] = connection.shutdown()
         generations[host] = nextGeneration()
     }
 

@@ -47,14 +47,19 @@ import LeoKit
     /// registry shares one counter across machines, so a machine removed and
     /// added again never reuses a generation. `onState` fires synchronously
     /// for every state change, tagged with the attempt's generation.
+    /// `previousTeardown` is the teardown of the connection this one
+    /// replaces (an edit, or a remove and re-add): the first attempt waits
+    /// for it like any reconnect waits for its own.
     init(
         target: Target,
         environment: LeoMachineConnectionEnvironment,
+        previousTeardown: Task<Void, Never>? = nil,
         nextGeneration: @escaping () -> Int,
         onState: @escaping (_ generation: Int, _ state: LeoHostConnectionState) -> Void
     ) {
         self.target = target
         self.environment = environment
+        retiring = previousTeardown
         self.nextGeneration = nextGeneration
         publishState = onState
         state = .connecting
