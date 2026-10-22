@@ -11,6 +11,9 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         LeoLog.subsystem = "studio.blackpaw.leo.ios"
         let deviceName = UIDevice.current.name
         prepareDependencies { $0.deviceName = deviceName }
+        #if DEBUG
+        if MachinesFixture.isRequested { prepareDependencies { MachinesFixture.prepare(&$0) } }
+        #endif
         return Store(initialState: AppFeature.State()) { AppFeature() }
     }()
 
@@ -23,6 +26,9 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         UNUserNotificationCenter.current().delegate = self
         Self.registerChatCategories()
         Self.store.send(.task)
+        #if DEBUG
+        if MachinesFixture.isRequested { MachinesFixture.openMachines(Self.store) }
+        #endif
         return true
     }
 

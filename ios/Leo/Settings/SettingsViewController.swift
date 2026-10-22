@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import LeoFeatures
+import LeoKit
 import UIKit
 import UIKitNavigation
 
@@ -9,17 +10,21 @@ final class SettingsViewController: UIViewController {
     private enum Item: Hashable {
         case notifications
         case openSystemSettings
+        case statsStyle
         /// Identified by `PushProblem.id` (a daemon ID), never its text.
         case problem(PushProblem)
     }
 
     private let store: StoreOf<PushNotifications>
+    private let app: StoreOf<AppFeature>
+    private var statsStyle = LeoStatsStyle.default
     private lazy var collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
     private var dataSource: UICollectionViewDiffableDataSource<Int, Item>!
     private var footer = ""
 
-    init(store: StoreOf<PushNotifications>) {
-        self.store = store
+    init(app: StoreOf<AppFeature>) {
+        self.app = app
+        store = app.scope(state: \.push, action: \.push)
         super.init(nibName: nil, bundle: nil)
         title = String(localized: "Settings")
     }
@@ -43,7 +48,7 @@ final class SettingsViewController: UIViewController {
 
         observe { [weak self] in
             guard let self else { return }
-            render(isEnabled: store.isEnabled, authorization: store.authorization, problems: store.problems)
+            render(isEnabled: store.isEnabled, authorization: store.authorization, problems: store.problems, statsStyle: app.fleet.statsStyle)
         }
     }
 
@@ -75,6 +80,13 @@ final class SettingsViewController: UIViewController {
                 content.text = String(localized: "Open iOS Settings")
                 content.textProperties.color = .tintColor
                 cell.accessories = []
+            case .statsStyle:
+                content.text = String(localized: "Stats style")
+                content.secondaryText = statsStyle.title
+                content.prefersSideBySideTextAndSecondaryText = true
+                content.image = UIImage(systemName: "chart.bar.fill")
+                cell.accessories = [.disclosureIndicator()]
+                cell.accessibilityIdentifier = "settings.statsStyleRow"
             case .problem(let problem):
                 content.text = problem.message
                 content.textProperties.color = .secondaryLabel
@@ -101,18 +113,21 @@ final class SettingsViewController: UIViewController {
         collectionView.delegate = self
     }
 
-    private func render(isEnabled: Bool, authorization: PushAuthorization?, problems: [PushProblem]) {
+    private func render(isEnabled: Bool, authorization: PushAuthorization?, problems: [PushProblem], statsStyle: LeoStatsStyle) {
+        self.statsStyle = statsStyle
         footer = Self.footer(isEnabled: isEnabled, authorization: authorization)
         var snapshot = NSDiffableDataSourceSnapshot<Int, Item>()
         snapshot.appendSections([0])
         snapshot.appendItems([.notifications])
         if isEnabled, authorization == .denied { snapshot.appendItems([.openSystemSettings]) }
+        snapshot.appendSections([1])
+        snapshot.appendItems([.statsStyle])
         // Off, these are daemons that haven't confirmed they stopped pushing.
         if !problems.isEmpty {
-            snapshot.appendSections([1])
+            snapshot.appendSections([2])
             snapshot.appendItems(problems.map(Item.problem))
         }
-        snapshot.reconfigureItems([.notifications])
+        snapshot.reconfigureItems([.notifications, .statsStyle])
         snapshot.reloadSections([0])
         dataSource.apply(snapshot, animatingDifferences: false)
     }
@@ -129,11 +144,15 @@ final class SettingsViewController: UIViewController {
 
 extension SettingsViewController: UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
-        dataSource.itemIdentifier(for: indexPath) == .openSystemSettings
+        [.openSystemSettings, .statsStyle].contains(dataSource.itemIdentifier(for: indexPath))
     }
 
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         collectionView.deselectItem(at: indexPath, animated: true)
+        if dataSource.itemIdentifier(for: indexPath) == .statsStyle {
+            navigationController?.pushViewController(StatsStyleViewController(store: app), animated: true)
+            return
+        }
         guard dataSource.itemIdentifier(for: indexPath) == .openSystemSettings,
               let url = URL(string: UIApplication.openNotificationSettingsURLString) else { return }
         UIApplication.shared.open(url)
