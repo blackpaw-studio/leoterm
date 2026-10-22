@@ -9,7 +9,8 @@ import LeoKit
 /// hangs, or is removed or disabled never blocks or tears down another.
 ///
 /// A failed machine retries on its own with backoff (1s, 2s, 4s … at most
-/// 60s apart), at once when the app becomes active, and on demand.
+/// 60s apart), at once when the app becomes active, and on demand. So does
+/// one whose daemon stopped answering while its tunnel stayed up.
 @MainActor final class LeoMachineRegistry: ObservableObject {
     /// Blocks until `teardown` finishes or `bound` elapses; true if it finished.
     typealias TeardownWait = @Sendable (_ teardown: Task<Void, Never>, _ bound: Duration) -> Bool
@@ -36,6 +37,8 @@ import LeoKit
     private var generations: [LeoHostID: Int] = [:]
     private var latestGeneration = 0
     private var failedAttempts: [LeoHostID: Int] = [:]
+    /// Machines whose daemon stopped answering and hasn't answered since.
+    private var awaitingDaemon: Set<LeoHostID> = []
     private var pendingRetries: [LeoHostID: Task<Void, Never>] = [:]
     /// Teardowns of retired connections by configuration id, which names
     /// the machine's sockets: its next connection (after an edit, a rename,
@@ -196,6 +199,25 @@ import LeoKit
         connection.connect()
     }
 
+    /// `host`'s daemon stopped answering while its connection stayed up
+    /// (its event stream ended, or a wake check failed): the machine fails
+    /// like a dead tunnel and retries on the same backoff. Until the daemon
+    /// answers again, reconnecting doesn't start that backoff over, since
+    /// This Mac reconnects at once whether or not its daemon is there.
+    /// Ignored unless the machine is connected.
+    func daemonStoppedAnswering(_ host: LeoHostID, reason: String) {
+        guard !isShutDown, let connection = connections[host], Self.isConnected(connection.state) else { return }
+        awaitingDaemon.insert(host)
+        connection.daemonStoppedAnswering(reason: reason)
+    }
+
+    /// `host`'s daemon answered (its agent list landed): its next failure
+    /// starts the backoff over.
+    func daemonAnswered(_ host: LeoHostID) {
+        guard awaitingDaemon.remove(host) != nil else { return }
+        failedAttempts[host] = nil
+    }
+
     /// Reconnects every enabled machine that isn't connected, including one
     /// still trying (Agents ▸ Reconnect).
     func reconnectUnavailable() {
@@ -265,6 +287,7 @@ import LeoKit
     private func retire(_ host: LeoHostID) {
         cancelRetry(for: host)
         failedAttempts[host] = nil
+        awaitingDaemon.remove(host)
         states[host] = nil
         guard let connection = connections.removeValue(forKey: host) else { return }
         let teardown = connection.shutdown()
@@ -283,7 +306,7 @@ import LeoKit
         generations[host] = generation
         switch state {
         case .connected:
-            failedAttempts[host] = nil
+            if !awaitingDaemon.contains(host) { failedAttempts[host] = nil }
             cancelRetry(for: host)
         case .failed:
             scheduleRetry(for: host)

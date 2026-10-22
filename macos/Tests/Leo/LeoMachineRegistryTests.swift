@@ -403,6 +403,98 @@ import Testing
         registry.shutdown()
     }
 
+    // MARK: - Daemon loss
+
+    /// The tunnel is still up but the daemon behind it is gone: the machine
+    /// fails like a dead tunnel and comes back on the same backoff.
+    @Test func aDaemonThatStopsAnsweringBehindALiveTunnelFailsAndRetriesWithBackoff() async throws {
+        let defaults = LeoInMemoryDefaults()
+        try Support.save([Support.host("a"), Support.host("b")], to: defaults)
+        let tunnels = LeoFakeTunnels()
+        tunnels.script("evan@b", .ready, .fails("daemon not answering"), .ready)
+        let sleeper = LeoManualSleeper()
+        let registry = LeoMachineRegistry.isolatedForTesting(defaults: defaults, tunnels: tunnels, sleeper: sleeper)
+        registry.start(flavor: .socketEvents)
+        try await until { @MainActor in
+            registry.status(for: .remote("a")) == .connected && registry.status(for: .remote("b")) == .connected
+        }
+
+        registry.daemonStoppedAnswering(.remote("b"), reason: "event stream ended")
+
+        #expect(registry.status(for: .remote("b")) == .failed("event stream ended"))
+        try await until("b's tunnel to the dead daemon was never torn down") { tunnels.tunnels("evan@b").first?.terminationCount == 1 }
+        for _ in 1...2 {
+            try await until { sleeper.pendingCount == 1 }
+            sleeper.fireAll()
+        }
+        try await until("b never came back") { @MainActor in registry.status(for: .remote("b")) == .connected }
+        #expect(sleeper.requested == [.seconds(1), .seconds(2)])
+        #expect(tunnels.tunnels("evan@a").map(\.terminationCount) == [0])
+        registry.shutdown()
+    }
+
+    /// This Mac reconnects at once on every retry, so only a daemon that
+    /// answers again starts its backoff over.
+    @Test func thisMacsLostDaemonBacksOffUntilItAnswersAgain() async throws {
+        let sleeper = LeoManualSleeper()
+        let registry = LeoMachineRegistry.isolatedForTesting(sleeper: sleeper)
+        registry.start(flavor: .socketEvents)
+
+        for attempt in 1...3 {
+            registry.daemonStoppedAnswering(.local, reason: "connection refused")
+            try await until("retry \(attempt) was never scheduled") { sleeper.pendingCount == 1 }
+            sleeper.fireAll()
+            try await until { @MainActor in registry.status(for: .local) == .connected }
+        }
+        registry.daemonAnswered(.local)
+        registry.daemonStoppedAnswering(.local, reason: "connection refused")
+        try await until { sleeper.pendingCount == 1 }
+
+        #expect(sleeper.requested == [.seconds(1), .seconds(2), .seconds(4), .seconds(1)])
+        registry.shutdown()
+    }
+
+    @Test func aMachineWhoseDaemonStoppedAnsweringRetriesWhenTheAppBecomesActive() async throws {
+        let defaults = LeoInMemoryDefaults()
+        try Support.save([Support.host("b")], to: defaults)
+        let tunnels = LeoFakeTunnels()
+        let sleeper = LeoManualSleeper()
+        let center = NotificationCenter()
+        let registry = LeoMachineRegistry.isolatedForTesting(defaults: defaults, tunnels: tunnels, sleeper: sleeper, activationCenter: center)
+        registry.start(flavor: .socketEvents)
+        try await until { @MainActor in registry.status(for: .remote("b")) == .connected }
+        registry.daemonStoppedAnswering(.remote("b"), reason: "event stream ended")
+        try await until { sleeper.pendingCount == 1 }
+
+        center.post(name: NSApplication.didBecomeActiveNotification, object: nil)
+
+        try await until("b was never retried on activation") { @MainActor in
+            tunnels.tunnels("evan@b").count == 2 && registry.status(for: .remote("b")) == .connected
+        }
+        #expect(sleeper.pendingCount == 0, "the retry activation replaced must be cancelled")
+        registry.shutdown()
+    }
+
+    /// A late report about a machine that isn't connected (still connecting,
+    /// or already failed) changes nothing.
+    @Test func aDaemonLossReportedForAMachineThatIsNotConnectedIsIgnored() async throws {
+        let defaults = LeoInMemoryDefaults()
+        try Support.save([Support.host("b")], to: defaults)
+        let tunnels = LeoFakeTunnels()
+        tunnels.script("evan@b", .hangs)
+        let sleeper = LeoManualSleeper()
+        let registry = LeoMachineRegistry.isolatedForTesting(defaults: defaults, tunnels: tunnels, sleeper: sleeper)
+        registry.start(flavor: .socketEvents)
+        try await until { tunnels.tunnels("evan@b").count == 1 }
+
+        registry.daemonStoppedAnswering(.remote("b"), reason: "event stream ended")
+
+        #expect(registry.status(for: .remote("b")) == .connecting)
+        #expect(tunnels.tunnels("evan@b").map(\.terminationCount) == [0])
+        #expect(sleeper.requested.isEmpty)
+        registry.shutdown()
+    }
+
     // MARK: - Shutdown
 
     @Test func shutdownWithAHungMachineReturnsAtTheBoundAndStillTearsTheOthersDown() async throws {
