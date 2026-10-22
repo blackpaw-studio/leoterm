@@ -158,6 +158,21 @@ import Testing
         #expect(folded.count == 2 && folded.isAlertCount)
     }
 
+    @Test func theAccessibilityLabelCountsAgentsInWords() {
+        #expect(presentation(agents: 1).accessibilityLabel == "This Mac, 1 agent")
+        #expect(presentation(host: .remote("dionysus"), agents: 3).accessibilityLabel == "dionysus, 3 agents")
+    }
+
+    /// Its rows are stale while it's offline, so their count is too.
+    @Test func anOfflineMachineShowsNoAgentCount() {
+        let failed = presentation(host: .remote("dionysus"), connectivity: .failed(message: "refused"), attention: 1, agents: 2)
+        let dropped = presentation(host: .remote("dionysus"), connectivity: .disconnected(reason: "tunnel exited", isRetrying: false), agents: 2)
+
+        #expect(failed.count == nil && !failed.isAlertCount)
+        #expect(dropped.count == nil)
+        #expect(dropped.accessibilityLabel == "dionysus")
+    }
+
     // MARK: Helpers
 
     static let statsFeatures = LeoDaemonFeatures(["machine_stats"])

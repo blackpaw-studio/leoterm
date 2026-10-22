@@ -27,11 +27,13 @@ struct LeoMachineSectionHeader: View {
                 titleButton
                 Spacer(minLength: 4)
                 LeoMachineMeterCluster(meters: presentation.meters, style: style)
-                Text("\(presentation.count)")
-                    .font(.caption2)
-                    .monospacedDigit()
-                    .foregroundStyle(presentation.isAlertCount ? AnyShapeStyle(LeoTint.orange.color) : AnyShapeStyle(.tertiary))
-                    .accessibilityHidden(true)
+                if let count = presentation.count {
+                    Text("\(count)")
+                        .font(.caption2)
+                        .monospacedDigit()
+                        .foregroundStyle(presentation.isAlertCount ? AnyShapeStyle(LeoTint.orange.color) : AnyShapeStyle(.tertiary))
+                        .accessibilityHidden(true)
+                }
             }
             .frame(minHeight: Self.rowHeight)
             LeoMachineMeterRow(meters: presentation.meters, style: style)
@@ -63,7 +65,7 @@ struct LeoMachineSectionHeader: View {
         .buttonStyle(.plain)
         .disabled(!presentation.canToggleCollapse)
         .help(presentation.nameTooltip ?? "")
-        .accessibilityLabel("\(presentation.name), \(presentation.count) agents")
+        .accessibilityLabel(presentation.accessibilityLabel)
         .accessibilityValue(presentation.isCollapsed ? "Collapsed" : "Expanded")
     }
 

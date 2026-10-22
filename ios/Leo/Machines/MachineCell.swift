@@ -23,10 +23,9 @@ extension MachineCellConfiguration {
         let connection = session.connection
         let isUnreachable: Bool
         if case .reconnecting = connection { isUnreachable = true } else { isUnreachable = false }
-        let agents = session.agents.count
         name = session.daemon.name
         address = connection.isConnected
-            ? String(localized: "\(session.daemon.displayHost) · \(agents) agents")
+            ? String(localized: "\(session.daemon.displayHost) · \(LeoAgentCountText.describing(session.agents.count))")
             : session.daemon.displayHost
         status = isUnreachable ? String(localized: "Unreachable") : connection.label
         tint = isUnreachable ? .systemRed : connection.tint
