@@ -21,10 +21,7 @@ extension LeoRuntime {
         let gone = feeds.hosts.filter { !shown.contains($0) }
         model.setMachines(shown)
         feeds.setMachines(shown)
-        for host in gone {
-            clients.unbind(host)
-            connectionSequences[host] = nil
-        }
+        gone.forEach { clients.unbind($0) }
     }
 
     /// Applies one machine's connection-state transition to its feed (and,
@@ -59,7 +56,8 @@ extension LeoRuntime {
         let connected = host == .local
             ? LeoMachineDaemon(daemon: localDaemon, activitySource: localActivitySource)
             : await remoteDaemon(host, socketPath)
-        guard !isShutDown, connectionSequences[host] == sequence else { return }
+        guard !isShutDown, connectionSequences[host] == sequence,
+              generation == machines.generation(for: host) else { return }
         clients.bind(connected.daemon, host: host, generation: generation)
         actions.hostConnected(host)
         feeds.updateConnection(

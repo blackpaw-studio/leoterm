@@ -72,7 +72,9 @@ import LeoKit
     /// `applyConnected`'s async resource build: a `.failed` published for
     /// the SAME generation as a `.connecting` that's still mid-flavor-
     /// detection would otherwise leave the stale `.connected` build free to
-    /// install over it once its `await` finally resolves.
+    /// install over it once its `await` finally resolves. Never reset, not
+    /// even when the machine leaves: a machine added back must not restart
+    /// the count and let an older build of the same name through.
     var connectionSequences: [LeoHostID: Int] = [:]
     private(set) var isShutDown = false
     /// Runs the one liveness check per wake (D-061); removed with `self`.
@@ -366,10 +368,9 @@ import LeoKit
             await LeoClearConfirmation.confirm(agent: row.name, in: window)
         })
         model.startRequested = { [weak actions] row, completion in actions?.start(row, completion: completion) }
-        // Agents ▸ Reconnect (Q7): every machine whose sidebar offers Retry.
-        model.retryRequested = { [weak machines, weak model] in
-            LeoMenuCommands.machinesToReconnect(model?.machineConnectivity ?? []).forEach { machines?.reconnect($0) }
-        }
+        // Agents ▸ Reconnect (Q7): every machine that isn't connected,
+        // including one still connecting.
+        model.retryRequested = { [weak machines] in machines?.reconnectUnavailable() }
         model.reconnectRequested = { [weak machines] host in machines?.reconnect(host) }
         model.connectionFailureHint = { [weak machines] host in
             guard let hint = machines?.connectionState(for: host)?.failureHint,

@@ -12,11 +12,31 @@ import Testing
     private typealias Support = LeoMachineRegistryTestSupport
     nonisolated private static let quiet = LeoSidebarActivitySource(events: { AsyncStream { _ in } }, fetchState: { [] })
 
-    @Test func remoteMachinesStayOffTheSidebarUntilItDrawsThem() throws {
+    @Test func everyMachineIsFedByDefault() {
+        #expect(LeoRuntime.feedsRemoteMachinesByDefault)
+    }
+
+    @Test func remoteMachinesCanBeKeptOffTheSidebar() throws {
         let runtime = try makeRuntime(machines: ["a"], feedsRemoteMachines: false)
 
         #expect(runtime.model.machineOrder == [.local])
         #expect(runtime.feeds.hosts == [.local])
+    }
+
+    /// A disabled machine is never connected, so it has no section to sit
+    /// in "Loading" forever; enabling it brings the section back.
+    @Test func aDisabledMachineHasNoSectionUntilItIsEnabled() throws {
+        let runtime = try makeRuntime(machines: ["a", "off"], disabled: ["off"])
+        defer { runtime.shutdown() }
+
+        #expect(runtime.model.machineOrder == [.local, .remote("a")])
+        #expect(runtime.feeds.hosts == [.local, .remote("a")])
+
+        #expect(runtime.machines.setEnabled(.remote("off"), true))
+        #expect(runtime.model.machineOrder == [.local, .remote("a"), .remote("off")])
+
+        #expect(runtime.machines.setEnabled(.remote("a"), false))
+        #expect(runtime.model.machineOrder == [.local, .remote("off")])
     }
 
     /// The model learns every machine before any of their feeds can deliver.
@@ -108,17 +128,61 @@ import Testing
         try await until { @MainActor in rows(runtime, "a") == ["a-2"] }
     }
 
+    /// A client build that was still running when its machine was removed
+    /// finishes after the machine is added back and connected again: the
+    /// stale build must not replace the new connection's client.
+    @Test func aClientBuiltForARemovedMachineNeverReplacesTheNewConnectionsClient() async throws {
+        let defaults = LeoInMemoryDefaults()
+        let gate = LeoClientBuildGate()
+        let builds = LeoLockedLog<LeoHostID>()
+        let runtime = try makeRuntime(machines: ["a"], defaults: defaults) { host, _ in
+            builds.append(host)
+            if builds.values.count == 1 { await gate.pass() }
+            return LeoMachineDaemon(daemon: LeoListingDaemon(names: ["build-\(builds.values.count)"]), activitySource: Self.quiet)
+        }
+        defer { runtime.shutdown() }
+        start(runtime)
+        try await until { await gate.waiting == 1 }
+
+        try Support.save([], to: defaults)
+        runtime.machines.reload()
+        try Support.save([Support.host("a")], to: defaults)
+        runtime.machines.reload()
+        try await until { @MainActor in runtime.clients.daemon(for: .remote("a")) != nil }
+        await gate.open()
+        for _ in 0..<100 { await Task.yield() }
+
+        #expect(runtime.clients.daemon(for: .remote("a")) != nil, "the stale build's client replaced the live one")
+    }
+
+    /// ⇧⌘R and Retry also restart a machine whose connection is still being
+    /// made (its sidebar shows Loading, which offers no Retry of its own).
+    @Test func reconnectingAllAlsoRestartsAMachineThatIsStillConnecting() async throws {
+        let tunnels = LeoFakeTunnels()
+        tunnels.script("evan@b", .hangs)
+        let runtime = try makeRuntime(machines: ["a", "b"], tunnels: tunnels)
+        defer { runtime.shutdown() }
+        start(runtime)
+        try await until { @MainActor in rows(runtime, "a") == ["a-agent"] && tunnels.tunnels("evan@b").count == 1 }
+
+        runtime.model.retryRequested()
+
+        try await until { tunnels.tunnels("evan@b").count == 2 }
+        #expect(tunnels.tunnels("evan@a").count == 1)
+    }
+
     // MARK: - Helpers
 
     private func makeRuntime(
         machines names: [String],
+        disabled: Set<String> = [],
         defaults: UserDefaults = LeoInMemoryDefaults(),
         tunnels: LeoFakeTunnels = LeoFakeTunnels(),
         feedsRemoteMachines: Bool = true,
         templates: LeoRecordingTemplateRunner = LeoRecordingTemplateRunner(),
         remoteDaemon: LeoRemoteDaemonFactory? = nil
     ) throws -> LeoRuntime {
-        try Support.save(names.map { Support.host($0) }, to: defaults)
+        try Support.save(names.map { Support.host($0, enabled: !disabled.contains($0)) }, to: defaults)
         let directory = LeoMachineTunnelTestSupport.localSocketDirectory
         let sleeper = LeoManualSleeper()
         return LeoRuntime(
