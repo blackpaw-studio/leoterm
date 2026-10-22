@@ -78,6 +78,9 @@ import LeoKit
     /// even when the machine leaves: a machine added back must not restart
     /// the count and let an older build of the same name through.
     var connectionSequences: [LeoHostID: Int] = [:]
+    /// Each machine's feed, read for a daemon that dropped behind a
+    /// connection the registry still holds up.
+    var daemonLoss = LeoDaemonLossDetector()
     private(set) var isShutDown = false
     /// Runs the one liveness check per wake (D-061); removed with `self`.
     private var wakeObservation: LeoNotificationObservation?
@@ -362,6 +365,7 @@ import LeoKit
                 // what attached before it.
                 weakSelf?.attachCoordinator.daemonFeaturesChanged()
                 weakSelf?.snapshotLanded(snapshot)
+                weakSelf?.feedSnapshotLanded(snapshot, for: host)
                 // A hello may have added or dropped `machine_stats`.
                 weakSelf?.statsPoller.reconcile()
             }

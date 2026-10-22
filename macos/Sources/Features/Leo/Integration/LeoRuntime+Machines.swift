@@ -39,6 +39,22 @@ extension LeoRuntime {
         model.setMachineStatuses(feedsRemoteMachines ? statuses : statuses.filter { $0.key == .local })
     }
 
+    /// A machine's feed dropped while the registry still held its
+    /// connection up (the daemon died behind a live tunnel), or its list
+    /// landed again: the registry fails it into its retry backoff, or lets
+    /// that backoff start over.
+    func feedSnapshotLanded(_ snapshot: LeoSidebarSnapshot, for host: LeoHostID) {
+        guard !isShutDown else { return }
+        #if DEBUG
+        if LeoForcedDisconnectFixture.isForced(snapshot.connectivity) { return }
+        #endif
+        switch daemonLoss.observe(snapshot, for: host) {
+        case .stoppedAnswering(let reason)?: machines.daemonStoppedAnswering(host, reason: reason)
+        case .answered?: machines.daemonAnswered(host)
+        case nil: break
+        }
+    }
+
     /// Applies one machine's connection-state transition to its feed (and,
     /// once connected, to its client). `.connecting`/`.failed` carry no
     /// async work of their own and are forwarded at once; `.connected`

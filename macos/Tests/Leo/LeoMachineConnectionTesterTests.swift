@@ -110,7 +110,11 @@ import Testing
         rig.tunnels.script("evan@work.lan", .hangs)
 
         let running = Task { await rig.tester.test(work) }
-        await awaitCondition { rig.sleeper.requested.contains(.seconds(20)) && rig.sleeper.pendingCount == 1 }
+        // The timeout is armed before the tunnel launches; fire it only once
+        // the tunnel exists, or shutdown rightly skips launching it at all.
+        await awaitCondition {
+            rig.sleeper.requested.contains(.seconds(20)) && rig.sleeper.pendingCount == 1 && rig.tunnels.all.count == 1
+        }
         rig.sleeper.fireAll()
         let report = await running.value
 

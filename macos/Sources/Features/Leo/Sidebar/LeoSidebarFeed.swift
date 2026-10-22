@@ -329,7 +329,8 @@ actor LeoSidebarFeed {
             return
         case .disconnected(let reason):
             Self.logger.log("receive: .disconnected reason=\(reason, privacy: .public)")
-            // The stream is gone and nothing reconnects it but Retry (D-061).
+            // The stream is gone; only a Retry reconnects it (D-061): the
+            // user's, or the registry's backoff once the runtime sees this drop.
             disconnect(reason: reason)
         }
     }

@@ -14,6 +14,13 @@ enum LeoForcedDisconnectFixture {
         environment[environmentKey] == "1" ? forcedReason : nil
     }
 
+    /// The fixture's own drop, which is never retried automatically so its
+    /// banner stays up; the header's Reconnect still works.
+    static func isForced(_ connectivity: LeoConnectivity) -> Bool {
+        if case .disconnected(forcedReason, _) = connectivity { return true }
+        return false
+    }
+
     /// Calls `disconnect` once, the first time `model` shows a connected
     /// list. The returned object holds the subscription; release it to
     /// disarm.

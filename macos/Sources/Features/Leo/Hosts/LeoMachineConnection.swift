@@ -97,6 +97,16 @@ import LeoKit
         return beginTeardown()
     }
 
+    /// The daemon behind this connected attempt stopped answering though
+    /// the connection itself is still up: tears the tunnel down (it reaches
+    /// nothing) and fails the attempt, so the registry retries it. Ignored
+    /// unless connected.
+    func daemonStoppedAnswering(reason: String) {
+        guard !isShutDown, case .connected = state else { return }
+        _ = beginTeardown()
+        publish(.failed(message: reason, hint: nil), generation: generation)
+    }
+
     /// Once `shutdown()`'s barrier has resolved the child is confirmed gone,
     /// so its reap record can go too. On a timeout the record stays for the
     /// next launch's reaper; `onExit` clears it whenever the child does exit.

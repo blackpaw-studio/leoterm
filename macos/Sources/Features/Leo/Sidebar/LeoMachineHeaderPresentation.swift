@@ -72,9 +72,16 @@ struct LeoMachineHeaderPresentation: Equatable {
     var canReconnect: Bool { !isRetrying }
     var showsReconnectButton: Bool { isOffline && canReconnect }
     /// A folded machine with agents needing you reads their count in orange
-    /// instead of the plain agent count.
-    var count: Int { isCollapsed && attentionCount > 0 ? attentionCount : agentCount }
-    var isAlertCount: Bool { isCollapsed && attentionCount > 0 }
+    /// instead of the plain agent count. An offline machine's rows are
+    /// stale, so it shows no count.
+    var count: Int? {
+        guard !isOffline else { return nil }
+        return isAlertCount ? attentionCount : agentCount
+    }
+    var isAlertCount: Bool { !isOffline && isCollapsed && attentionCount > 0 }
+    var accessibilityLabel: String {
+        isOffline ? name : "\(name), \(LeoAgentCountText.describing(agentCount))"
+    }
 
     static let thisMacName = "This Mac"
     static let noValue = "—"
