@@ -121,6 +121,18 @@ import LeoKit
         LeoHostsSheetModel(store: store) { [weak self] in self?.reload() }
     }
 
+    /// Saves `host` as enabled or disabled and reloads (a header's Disable).
+    /// This Mac, an unknown machine, or a failed save changes nothing and
+    /// returns false.
+    @discardableResult
+    func setEnabled(_ host: LeoHostID, _ isEnabled: Bool) -> Bool {
+        guard let configuration = configuration(for: host), configuration.isEnabled != isEnabled else { return false }
+        let updated = configurations.map { $0.id == configuration.id ? $0.settingEnabled(isEnabled) : $0 }
+        do { try store.save(updated) } catch { return false }
+        reload()
+        return true
+    }
+
     // MARK: - Lifecycle
 
     /// Connects This Mac and every enabled remote. Runs once.
@@ -301,5 +313,14 @@ import LeoKit
     private static func isFailed(_ state: LeoHostConnectionState) -> Bool {
         if case .failed = state { return true }
         return false
+    }
+}
+
+private extension LeoHostConfiguration {
+    func settingEnabled(_ isEnabled: Bool) -> LeoHostConfiguration {
+        LeoHostConfiguration(
+            id: id, name: name, sshTarget: sshTarget, identityFile: identityFile,
+            remoteLeoPath: remoteLeoPath, remoteSocketPath: remoteSocketPath, isEnabled: isEnabled
+        )
     }
 }

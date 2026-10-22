@@ -13,7 +13,7 @@ struct LeoMachineSection: Identifiable, Equatable {
     let attentionCount: Int
     let features: LeoDaemonFeatures
     /// Nil while there is no sample (disconnected, or a daemon without stats).
-    let stats: LeoSidebarMachineStats?
+    let stats: LeoMachineStats?
 
     var id: LeoHostID { host }
 }

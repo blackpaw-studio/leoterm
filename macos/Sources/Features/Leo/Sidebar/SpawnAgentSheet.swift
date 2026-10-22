@@ -14,12 +14,14 @@ struct SpawnAgentSheet: View {
 
     /// `source`: B-176's "New Agent in Worktree…" -- the row's template,
     /// host and owner/repo prefilled, and a required new branch.
-    init(model: LeoSidebarModel, actions: LeoAgentActions, source: LeoAgentRow? = nil,
+    /// `machine`: where a plain spawn runs ("New Agent Here…"), until the
+    /// Machine field (S7) replaces it.
+    init(model: LeoSidebarModel, actions: LeoAgentActions, source: LeoAgentRow? = nil, machine: LeoHostID? = nil,
          attach: @escaping (LeoAgentRow, AttachDisposition) -> Void,
          chooseDirectory: @escaping () -> String? = SpawnAgentSheet.openPanel) {
         sidebar = model; self.actions = actions; self.attach = attach
         // Until the Machine field (S7): the source agent's machine, else This Mac.
-        let host = source?.host ?? .local
+        let host = source?.host ?? machine ?? .local
         _model = StateObject(wrappedValue: SpawnAgentModel(
             templateList: actions.$templateLists.map { $0[host] ?? .loading }.removeDuplicates().eraseToAnyPublisher(),
             source: source,

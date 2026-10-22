@@ -128,6 +128,35 @@ import Testing
         registry.shutdown()
     }
 
+    /// A header's Disable: the saved flag flips and only that machine goes.
+    @Test func disablingThroughTheRegistrySavesTheFlagAndTearsDownOnlyThatMachine() async throws {
+        let defaults = LeoInMemoryDefaults()
+        try Support.save([Support.host("a"), Support.host("b")], to: defaults)
+        let tunnels = LeoFakeTunnels()
+        let registry = LeoMachineRegistry.isolatedForTesting(defaults: defaults, tunnels: tunnels)
+        registry.start(flavor: .socketEvents)
+        try await until { @MainActor in registry.status(for: .remote("a")) == .connected && registry.status(for: .remote("b")) == .connected }
+
+        let changed = registry.setEnabled(.remote("b"), false)
+
+        #expect(changed)
+        #expect(registry.status(for: .remote("b")) == .disabled)
+        try await until("b was never torn down") { tunnels.tunnels("evan@b").first?.hasExited == true }
+        #expect(tunnels.tunnels("evan@a").map(\.terminationCount) == [0])
+        #expect(LeoHostStore(defaults: defaults).load().map(\.isEnabled) == [true, false])
+        registry.shutdown()
+    }
+
+    @Test func thisMacAndUnknownMachinesCannotBeDisabled() {
+        let defaults = LeoInMemoryDefaults()
+        try? Support.save([Support.host("a")], to: defaults)
+        let registry = LeoMachineRegistry.isolatedForTesting(defaults: defaults, tunnels: LeoFakeTunnels())
+
+        #expect(!registry.setEnabled(.local, false))
+        #expect(!registry.setEnabled(.remote("nope"), false))
+        #expect(LeoHostStore(defaults: defaults).load().map(\.isEnabled) == [true])
+    }
+
     @Test func aDisabledMachineIsNeverConnected() async throws {
         let defaults = LeoInMemoryDefaults()
         try Support.save([Support.host("a"), Support.host("off", enabled: false, remoteSocketPath: "~/.leo/state/leo.sock")], to: defaults)

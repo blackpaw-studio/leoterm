@@ -33,10 +33,9 @@ import LeoKit
     let attentionNotifications: LeoAttentionController
     /// One sidebar feed per shown machine.
     let feeds: LeoMachineFeeds
-    /// TODO(S6): whether remote machines are fed (and so shown). Off until
-    /// the sidebar draws a section per machine: its single-machine list
-    /// can't show two machines' sections.
-    nonisolated static let feedsRemoteMachinesByDefault = false
+    /// Whether remote machines are fed (and so shown): every one, unless a
+    /// caller keeps them off.
+    nonisolated static let feedsRemoteMachinesByDefault = true
     let feedsRemoteMachines: Bool
     private var machinesSubscription: AnyCancellable?
     /// Every close of a tab, window or the app with unsaved editor edits
@@ -84,6 +83,7 @@ import LeoKit
     #if DEBUG
     private let openFileFixture = LeoOpenFileFixture()
     private var forcedDisconnect: AnyObject?
+    private var machinesFixture: AnyObject?
     #endif
 
     /// Pure composition helper: builds a socket daemon client bound to one
@@ -372,6 +372,12 @@ import LeoKit
         // including one still connecting.
         model.retryRequested = { [weak machines] in machines?.reconnectUnavailable() }
         model.reconnectRequested = { [weak machines] host in machines?.reconnect(host) }
+        // TODO(S8): Edit Machine… opens the Machines settings pane instead.
+        model.editMachineRequested = { [weak self] _ in
+            guard let self else { return }
+            LeoAgentMenuSheets(runtime: self).presentManageHosts(in: NSApp.keyWindow)
+        }
+        model.disableMachineRequested = { [weak machines] host in machines?.setEnabled(host, false) }
         model.connectionFailureHint = { [weak machines] host in
             guard let hint = machines?.connectionState(for: host)?.failureHint,
                   let target = machines?.configuration(for: host)?.sshTarget else { return nil }
@@ -442,6 +448,7 @@ import LeoKit
             Task { @MainActor in feeds?.checkLiveness() }
         }
         #if DEBUG
+        if LeoMachinesFixture.isEnabled() { machinesFixture = LeoMachinesFixture.arm(model: model) }
         if let reason = LeoForcedDisconnectFixture.reason() {
             forcedDisconnect = LeoForcedDisconnectFixture.arm(model: model, reason: reason) { [weak feeds] reason in
                 feeds?.disconnect(.local, reason: reason)

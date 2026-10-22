@@ -15,9 +15,11 @@ typealias LeoRemoteDaemonFactory = @Sendable (_ host: LeoHostID, _ socketPath: S
 extension LeoRuntime {
     /// The registry's machines changed (launch, or Settings saved). The
     /// model learns them before their feeds can deliver; a machine that
-    /// left loses its feed and client.
+    /// left, or was disabled, loses its feed and client.
     func machinesChanged(_ all: [LeoHostID]) {
-        let shown = feedsRemoteMachines ? all : all.filter { $0 == .local }
+        let shown = all.filter { host in
+            host == .local || (feedsRemoteMachines && machines.configuration(for: host)?.isEnabled != false)
+        }
         let gone = feeds.hosts.filter { !shown.contains($0) }
         model.setMachines(shown)
         feeds.setMachines(shown)

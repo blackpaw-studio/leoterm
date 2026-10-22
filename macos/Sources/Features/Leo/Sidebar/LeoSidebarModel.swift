@@ -11,7 +11,7 @@ import LeoKit
     /// whichever machines have delivered a snapshot.
     @Published private(set) var machineOrder: [LeoHostID] = []
     /// The latest CPU/memory/disk sample per connected machine.
-    @Published private(set) var machineStats: [LeoHostID: LeoSidebarMachineStats] = [:]
+    @Published private(set) var machineStats: [LeoHostID: LeoMachineStats] = [:]
     @Published var query = ""
     @Published var selection: LeoAgentRow.ID? {
         // A dispatch selection rides on its parent agent: any other
@@ -69,6 +69,8 @@ import LeoKit
     var reconnectRequested: (LeoHostID) -> Void = { _ in }
     var editMachineRequested: (LeoHostID) -> Void = { _ in }
     var newAgentHereRequested: (LeoHostID) -> Void = { _ in }
+    /// Disable in a machine header's menu: saved, and the machine torn down.
+    var disableMachineRequested: (LeoHostID) -> Void = { _ in }
     /// The hint and ssh target behind a machine's failed connection, for
     /// its Open SSH; nil without one.
     var connectionFailureHint: (LeoHostID) -> LeoConnectionFailureHint? = { _ in nil }
@@ -215,7 +217,7 @@ import LeoKit
     }
 
     /// A machine's latest stats sample; nil clears it (no stats to show).
-    func receiveStats(_ stats: LeoSidebarMachineStats?, for host: LeoHostID) {
+    func receiveStats(_ stats: LeoMachineStats?, for host: LeoHostID) {
         guard isShown(host) else { return }
         machineStats[host] = stats
     }
