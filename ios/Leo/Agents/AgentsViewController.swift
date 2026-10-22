@@ -27,7 +27,7 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
             image: UIImage(systemName: "server.rack"),
             primaryAction: UIAction { [weak self] _ in self?.store.send(.daemonsButtonTapped) }
         )
-        daemonsButton.accessibilityLabel = String(localized: "Daemons")
+        daemonsButton.accessibilityLabel = String(localized: "Machines")
         let chatsButton = UIBarButtonItem(
             image: UIImage(systemName: "bubble.left.and.bubble.right"),
             primaryAction: UIAction { [weak self] _ in self?.store.send(.chatsButtonTapped) }
@@ -61,7 +61,7 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
             ChatsViewController(store: store)
         }
         navigationDestination(isPresented: $store.isShowingSettings) { [store] in
-            SettingsViewController(store: store.scope(state: \.push, action: \.push))
+            SettingsViewController(app: store)
         }
 
         observe { [weak self] in
@@ -86,9 +86,10 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
     }
 
     private func makeLayout() -> UICollectionViewLayout {
-        UICollectionViewCompositionalLayout { _, environment in
+        UICollectionViewCompositionalLayout { [weak self] _, environment in
             var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
-            configuration.headerMode = .supplementary
+            // A single machine's name and status are on the Machines screen.
+            configuration.headerMode = (self?.sections.count ?? 0) > 1 ? .supplementary : .none
             return NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: environment)
         }
     }
@@ -160,6 +161,7 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
         let headersChanged = previous.map(\.connection) != newSections.map(\.connection) || previous.map(\.id) != newSections.map(\.id)
         if headersChanged { snapshot.reloadSections(newSections.map(\.id).filter { previous.map(\.id).contains($0) }) }
         dataSource.apply(snapshot, animatingDifferences: !previous.isEmpty)
+        if (previous.count > 1) != (newSections.count > 1) { collectionView.collectionViewLayout.invalidateLayout() }
 
         if let selection, splitViewController?.isCollapsed == false, let indexPath = dataSource.indexPath(for: selection) {
             collectionView.selectItem(at: indexPath, animated: false, scrollPosition: [])

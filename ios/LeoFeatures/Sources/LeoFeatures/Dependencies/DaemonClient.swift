@@ -21,19 +21,26 @@ public struct DaemonClient: Sendable {
     public var events: @Sendable (_ connection: DaemonConnection) -> AsyncThrowingStream<LeoObserveEvent, any Error> = { _ in .finished() }
     public var perform: @Sendable (_ connection: DaemonConnection, _ agent: String, _ command: AgentCommand) async throws -> Void
     public var environmentNames: @Sendable (_ connection: DaemonConnection) async throws -> [String]
+    /// `GET /api/v1/machine`: one load sample (leo >= 0.57, `machine_stats`).
+    public var machineStats: @Sendable (_ connection: DaemonConnection) async throws -> LeoMachineStats
     /// `PUT /api/v1/devices/{id}/push`: how the daemon pushes to this device.
     public var setPush: @Sendable (_ connection: DaemonConnection, _ deviceID: String, _ registration: LeoPushRegistration) async throws -> Void
     /// `DELETE /api/v1/devices/{id}/push`.
     public var deletePush: @Sendable (_ connection: DaemonConnection, _ deviceID: String) async throws -> Void
 }
 
+/// A stats sample is polled every few seconds, so a slow daemon is skipped
+/// quickly rather than held for the default request timeout.
+private let machineStatsTimeout: TimeInterval = 3
+
 extension DaemonClient: DependencyKey {
     public static let testValue = DaemonClient()
 
     public static var liveValue: DaemonClient {
         let session = URLSession(configuration: .default)
-        @Sendable func client(_ connection: DaemonConnection) -> LeoWebDaemonClient {
-            LeoWebDaemonClient(transport: LeoHTTPSTransport(endpoint: connection.endpoint, session: session))
+        @Sendable func client(_ connection: DaemonConnection, timeout: TimeInterval? = nil) -> LeoWebDaemonClient {
+            let transport = LeoHTTPSTransport(endpoint: connection.endpoint, session: session)
+            return timeout.map { LeoWebDaemonClient(transport: transport, defaultTimeout: $0) } ?? LeoWebDaemonClient(transport: transport)
         }
         return DaemonClient(
             pair: { baseURL, code, deviceName, cfAccess in
@@ -53,6 +60,7 @@ extension DaemonClient: DependencyKey {
                 }
             },
             environmentNames: { try await client($0).environmentNames() },
+            machineStats: { try await client($0, timeout: machineStatsTimeout).machineStats() },
             setPush: { connection, deviceID, registration in try await client(connection).registerPush(deviceID: deviceID, registration) },
             deletePush: { connection, deviceID in try await client(connection).unregisterPush(deviceID: deviceID) }
         )

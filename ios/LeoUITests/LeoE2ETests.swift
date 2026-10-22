@@ -46,10 +46,10 @@ final class LeoE2ETests: XCTestCase {
         captureBothAppearances("agents")
 
         // Daemons screen.
-        app.navigationBars["Agents"].buttons["Daemons"].tap()
-        XCTAssertTrue(app.navigationBars["Daemons"].waitForExistence(timeout: 5))
+        app.navigationBars["Agents"].buttons["Machines"].tap()
+        XCTAssertTrue(app.navigationBars["Machines"].waitForExistence(timeout: 5))
         captureBothAppearances("daemons")
-        app.navigationBars["Daemons"].buttons.element(boundBy: 0).tap()
+        app.navigationBars["Machines"].buttons.element(boundBy: 0).tap()
 
         // Agent screen, then stop it with confirmation.
         XCTAssertTrue(row.waitForExistence(timeout: 5))

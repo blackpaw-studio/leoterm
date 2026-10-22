@@ -62,6 +62,8 @@ public struct AppFeature {
         case push(PushNotifications.Action)
         case scenePhaseChanged(isActive: Bool)
         case settingsButtonTapped
+        /// Settings > Stats style.
+        case statsStyleSelected(LeoStatsStyle)
         case task
     }
 
@@ -126,11 +128,17 @@ public struct AppFeature {
                 case .daemons(.delegate(.retry(let id))):
                     return fleet(.retryButtonTapped(id), state: &state)
 
+                case .daemons(.delegate(.visibilityChanged(let isVisible))):
+                    return fleet(.statsVisibilityChanged(isVisible), state: &state)
+
+                case .statsStyleSelected(let style):
+                    return fleet(.statsStyleChanged(style), state: &state)
+
                 case .daemonsButtonTapped:
                     state.isShowingDaemons = true
                     return .none
 
-                case .fleet(.connected(let id, _, _)):
+                case .fleet(.connected(let id, _, _, _)):
                     // Chats load only once the user has seen their entry.
                     let daemon = state.chats.isActive ? state.fleet.sessions[id: id]?.daemon : nil
                     let refresh: Effect<Action> = daemon.map { .send(.chats(.refresh([$0]))) } ?? .none

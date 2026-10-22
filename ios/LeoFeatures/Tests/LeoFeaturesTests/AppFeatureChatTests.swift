@@ -116,10 +116,10 @@ struct AppFeatureChatTests {
         }
         store.exhaustivity = .off(showSkippedAssertions: false)
         // Before the Chats entry shows, a reconnect loads nothing.
-        await store.send(\.fleet.connected, (Self.zeus.daemonID, nil, LeoObservedState(agents: [.make("zeus")])))
+        await store.send(\.fleet.connected, (Self.zeus.daemonID, nil, .none, LeoObservedState(agents: [.make("zeus")])))
         await store.send(.chatsEntryAppeared) { $0.chats.isActive = true }
         await store.receive(\.chats.threadsResponse) { $0.chats.threads[Self.zeus.daemonID] = [] }
-        await store.send(\.fleet.connected, (Self.zeus.daemonID, nil, LeoObservedState(agents: [.make("zeus")])))
+        await store.send(\.fleet.connected, (Self.zeus.daemonID, nil, .none, LeoObservedState(agents: [.make("zeus")])))
         await store.receive(\.chats.threadsResponse) { $0.chats.threads[Self.zeus.daemonID] = [] }
     }
 
@@ -133,7 +133,7 @@ struct AppFeatureChatTests {
             $0.chatClient.messages = { _, _, _ in LeoChatPage(messages: [], hasMore: false) }
         }
         store.exhaustivity = .off(showSkippedAssertions: false)
-        await store.send(\.fleet.connected, (Self.zeus.daemonID, nil, LeoObservedState(agents: [.make("zeus")])))
+        await store.send(\.fleet.connected, (Self.zeus.daemonID, nil, .none, LeoObservedState(agents: [.make("zeus")])))
         await store.receive(\.chat.resync)
         await store.receive(\.chat.pageResponse.success)
         await store.send(\.fleet.sequenceGap, Self.zeus.daemonID)

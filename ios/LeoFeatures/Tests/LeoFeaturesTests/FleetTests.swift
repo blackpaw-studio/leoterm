@@ -51,6 +51,34 @@ struct FleetTests {
         }
     }
 
+    @Test func storesTheFeaturesTheHelloAdvertised() async {
+        let streams = StreamQueue(count: 1)
+        let store = TestStore(initialState: Fleet.State(daemons: [.dionysus])) {
+            Fleet()
+        } withDependencies: {
+            $0.secrets.load = { _ in DaemonSecrets(token: "t") }
+            $0.daemonClient.events = { streams.next($0) }
+            $0.daemonClient.fetchState = { _ in LeoObservedState(agents: []) }
+        }
+        let id = PairedDaemon.dionysus.id
+        await store.send(.scenePhaseChanged(isActive: true)) {
+            $0.isActive = true
+            $0.sessions[id: id]?.connection = .connecting
+        }
+
+        streams[0].yield(.hello(seq: 1, at: nil, version: "0.57.0", serverTime: nil, features: ["machine_stats", "agent_usage", "from_the_future"]))
+        await store.receive(\.connected) {
+            $0.sessions[id: id]?.connection = .connected
+            $0.sessions[id: id]?.features = LeoDaemonFeatures(["machine_stats", "agent_usage"])
+        }
+        #expect(store.state.sessions[id: id]?.features.contains(.machineStats) == true)
+
+        await store.send(.scenePhaseChanged(isActive: false)) {
+            $0.isActive = false
+            $0.sessions[id: id]?.connection = .offline
+        }
+    }
+
     @Test func appliesLiveEventsAndIgnoresStaleAttention() async {
         let streams = StreamQueue(count: 1)
         let fetches = LockIsolated(0)
