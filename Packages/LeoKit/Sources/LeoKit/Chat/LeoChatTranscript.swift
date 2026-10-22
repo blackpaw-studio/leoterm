@@ -55,6 +55,7 @@ public enum LeoChatTranscript {
     private static func joins(_ message: LeoChatMessage, after previous: LeoChatMessage) -> Bool {
         bubbleKinds.contains(message.kind) && bubbleKinds.contains(previous.kind)
             && message.direction == previous.direction
+            && message.senderLabel == previous.senderLabel
             && (message.ts.timeIntervalSince(previous.ts) < groupGap || message.continuesPost(after: previous))
     }
 
