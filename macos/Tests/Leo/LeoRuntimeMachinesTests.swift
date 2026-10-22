@@ -185,18 +185,36 @@ import Testing
         #expect(tunnels.tunnels("evan@a").count == 1)
     }
 
+    /// Disable saves the whole machine list, and the store refuses names
+    /// that differ only in case: the failure reaches the sidebar's panel
+    /// error and the machine stays enabled.
+    @Test func aDisableThatCannotBeSavedShowsAnError() throws {
+        let defaults = LeoInMemoryDefaults()
+        let clashing = [Support.host("a"), Support.host("A")]
+        defaults.set(try JSONEncoder().encode(clashing), forKey: LeoHostStore.key)
+        let runtime = try makeRuntime(machines: [], seedsHosts: false, defaults: defaults)
+        defer { runtime.shutdown() }
+        try #require(runtime.machines.configuration(for: .remote("a")) != nil)
+
+        runtime.model.disableMachineRequested(.remote("a"))
+
+        #expect(runtime.model.panelError?.hasPrefix("Couldn't disable a: ") == true)
+        #expect(runtime.machines.configuration(for: .remote("a"))?.isEnabled == true)
+    }
+
     // MARK: - Helpers
 
     private func makeRuntime(
         machines names: [String],
         disabled: Set<String> = [],
+        seedsHosts: Bool = true,
         defaults: UserDefaults = LeoInMemoryDefaults(),
         tunnels: LeoFakeTunnels = LeoFakeTunnels(),
         feedsRemoteMachines: Bool = true,
         templates: LeoRecordingTemplateRunner = LeoRecordingTemplateRunner(),
         remoteDaemon: LeoRemoteDaemonFactory? = nil
     ) throws -> LeoRuntime {
-        try Support.save(names.map { Support.host($0, enabled: !disabled.contains($0)) }, to: defaults)
+        if seedsHosts { try Support.save(names.map { Support.host($0, enabled: !disabled.contains($0)) }, to: defaults) }
         let directory = LeoMachineTunnelTestSupport.localSocketDirectory
         let sleeper = LeoManualSleeper()
         return LeoRuntime(

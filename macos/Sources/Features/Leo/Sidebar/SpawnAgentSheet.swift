@@ -11,6 +11,7 @@ struct SpawnAgentSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     private let chooseDirectory: () -> String?
+    @Environment(\.colorScheme) private var colorScheme
     @AppStorage(LeoStatsStyle.defaultsKey) private var statsStyleRaw = LeoStatsStyle.default.rawValue
     private var statsStyle: LeoStatsStyle { LeoStatsStyle(storedValue: statsStyleRaw) }
 
@@ -72,7 +73,7 @@ struct SpawnAgentSheet: View {
                 Label {
                     Text(option.detail.map { "\(option.title)  —  \($0)" } ?? option.title)
                 } icon: {
-                    LeoMachinePickerBadge.image(for: option, style: statsStyle).map { Image(nsImage: $0) }
+                    LeoMachinePickerBadge.image(for: option, style: statsStyle, colorScheme: colorScheme).map { Image(nsImage: $0) }
                 }
                 .labelStyle(.titleAndIcon)
                 .tag(option.host)

@@ -7,8 +7,12 @@ import LeoKit
 /// Capsules, Bars and Numbers read as mini capsules). A menu row takes an
 /// image, so the badge is rendered to one.
 @MainActor enum LeoMachinePickerBadge {
-    static func image(for option: SpawnMachineOption, style: LeoStatsStyle, scale: CGFloat = 2) -> NSImage? {
-        let renderer = ImageRenderer(content: LeoMachinePickerBadgeView(option: option, style: style))
+    /// `ImageRenderer` draws in the light appearance unless told otherwise,
+    /// so the sheet's own `colorScheme` is passed in: outlines and ring
+    /// tracks stay visible on a dark menu.
+    static func image(for option: SpawnMachineOption, style: LeoStatsStyle, colorScheme: ColorScheme, scale: CGFloat = 2) -> NSImage? {
+        let badge = LeoMachinePickerBadgeView(option: option, style: style).environment(\.colorScheme, colorScheme)
+        let renderer = ImageRenderer(content: badge)
         renderer.scale = scale
         return renderer.nsImage
     }

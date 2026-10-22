@@ -54,7 +54,7 @@ import LeoKit
         self.source = source
         self.feeds = feeds
         self.remember = remember
-        feeds.machines.assign(to: &$machineOptions)
+        feeds.machines.removeDuplicates().assign(to: &$machineOptions)
         machine = source?.host ?? LeoSpawnMachineDefault.resolve(
             context: context, lastUsed: lastUsed,
             statuses: Dictionary(machineOptions.map { ($0.host, $0.status) }, uniquingKeysWith: { first, _ in first })
