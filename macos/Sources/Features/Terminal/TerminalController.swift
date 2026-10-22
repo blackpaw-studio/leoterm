@@ -2119,7 +2119,7 @@ extension TerminalController {
         case #selector(clearSelectedLeoAgent(_:)):
             return validateLeoControlMenuItem(\.canClear)
 
-        case #selector(manageLeoHosts(_:)):
+        case #selector(showLeoMachinesSettings(_:)):
             return validateLeoManageHostsMenuItem(item)
 
         case #selector(jumpToNextLeoAgentNeedingAttention(_:)):

@@ -5,7 +5,7 @@ import Testing
 @testable import Ghostty
 @testable import LeoKit
 
-/// B-285: Agents ▸ Rename…, Delete… and Manage Hosts… must open their sheets
+/// B-285: Agents ▸ Rename…, and Delete… must open their sheets
 /// on a real terminal window. `TerminalController` sets `window.contentView`
 /// directly and never a `contentViewController`, so presenting through that
 /// property was a silent no-op (the same root cause as B-284). Needs the
@@ -35,7 +35,7 @@ import Testing
         let actions = LeoAgentActions(
             clients: FakeMachineClients(daemon: daemon), cli: .recordingForTests(), model: model, processRunner: LeoRecordingTemplateRunner(), refresh: {}
         )
-        return LeoAgentMenuSheets(model: model, actions: actions, machines: .isolatedForTesting())
+        return LeoAgentMenuSheets(model: model, actions: actions)
     }
 
     private func expectSheet(on controller: TerminalController, after present: (NSWindow) -> Void) throws {
@@ -67,14 +67,6 @@ import Testing
         await awaitCondition { await daemon.calls == ["plan:autopilot-scratch"] }
         if let sheet = window.attachedSheet { window.endSheet(sheet) }
         #expect(await daemon.calls == ["plan:autopilot-scratch"], "presenting asks for the plan and does nothing else")
-    }
-
-    @Test func manageHostsPresentsItsSheetOnATerminalWindow() throws {
-        let controller = try makeController()
-        defer { controller.closeTabImmediately(registerRedo: false) }
-        let sheets = makeSheets(daemon: RecordingDaemon())
-
-        try expectSheet(on: controller) { sheets.presentManageHosts(in: $0) }
     }
 }
 
