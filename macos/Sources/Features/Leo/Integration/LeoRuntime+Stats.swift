@@ -4,10 +4,10 @@ import LeoKit
 
 /// Feeds `LeoMachineStatsPoller` its inputs.
 extension LeoRuntime {
-    /// The per-device Stats style (Settings ▸ Machines), stored as a
-    /// `LeoStatsStyle` raw value.
     // Literal of S8's `LeoStatsStyle.defaultsKey` (LeoKit, not on this
     // branch); point this at the constant once S8 merges.
+    /// The per-device Stats style (Settings ▸ Machines), stored as a
+    /// `LeoStatsStyle` raw value.
     static let statsStyleKey = "LeoStatsStyle"
 
     static func makeStatsPoller(
