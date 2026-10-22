@@ -289,3 +289,16 @@ Every Mac step must go to a Claude `implement` role. Codex cannot run xcodebuild
 - **"Hello" in the spec.** The spec's daemon `hello` is an event-stream frame. Test Connection uses `/health` + `/version` instead. If the pane must show whether `machine_stats` is advertised, that needs one short event-stream read.
 - **Shared test defaults.** Concurrent MT runs share debug defaults (see the LeoKit memory). Run MT serially across W1 and W4, or give each dispatch its own `-derivedDataPath`.
 - **Live checks.** A blind Return in a fresh Debug build once started a real agent. Filter to autopilot-scratch and screenshot the focus before sending any key.
+
+## Decisions (orchestrator, 2026-10-21)
+The orchestrator accepted the recommended answer for every one of Q1–Q8:
+- Q1: a new Leo Settings window with a Machines tab; ⌘, is unchanged.
+- Q2: the ⌘T palette shows every machine, with a status row per unreachable machine.
+- Q3: the placeholder aggregates across machines.
+- Q4: every connected machine notifies, with the machine name included.
+- Q5: the menu-bar agent list shows This Mac only.
+- Q6: "Needs You" appears inside each machine's section.
+- Q7: ⇧⌘R reconnects every machine that isn't connected.
+- Q8: add `isEnabled`, defaulting to true.
+
+The stats contract amendments are in the spec. They ship in leo v0.57.0.
