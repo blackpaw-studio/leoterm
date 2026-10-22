@@ -56,4 +56,21 @@ struct LeoMachineMigrationTests {
         #expect(defaults.string(forKey: LeoMachineDefaultsMigration.lastSpawnMachineKey) == "venus")
         #expect(defaults.object(forKey: "leo.selectedHost") == nil)
     }
+
+    /// The runtime migrates at launch, before it builds any machine
+    /// connection, and the host selection no longer reads the old key.
+    @MainActor @Test func theRuntimeMigratesTheOldSelectionWhenItInitialises() {
+        let defaults = LeoInMemoryDefaults()
+        defaults.set("mars", forKey: "leo.selectedHost")
+        let activitySource = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
+
+        let runtime = LeoRuntime(
+            daemon: RuntimeTestDaemon(), cli: .recordingForTests(), activitySource: activitySource, defaults: defaults,
+            templateFetchRunner: LeoRecordingTemplateRunner()
+        )
+
+        #expect(defaults.string(forKey: LeoMachineDefaultsMigration.lastSpawnMachineKey) == "mars")
+        #expect(defaults.object(forKey: "leo.selectedHost") == nil)
+        #expect(runtime.hostSelection.selected == .local)
+    }
 }

@@ -129,6 +129,8 @@ import LeoKit
         terminalFileDropDependencies: LeoTerminalFileDropDependencies? = nil,
         chatClient: (any LeoChatClient)? = nil
     ) {
+        // First, before anything that connects a machine reads its defaults.
+        LeoMachineDefaultsMigration(defaults: defaults).run()
         self.cli = cli
         self.defaults = defaults
         localDaemon = daemon

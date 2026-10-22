@@ -27,7 +27,6 @@ import LeoKit
     @Published private(set) var flavor: LeoAPIFlavor = .legacy
 
     private let store: LeoHostStore
-    private let defaults: UserDefaults
     private let runner: any LeoProcessRunning
     let sshExecutable: URL
     private let transport: any LeoDaemonTransport
@@ -76,7 +75,6 @@ import LeoKit
         connectionTarget: @escaping (LeoHostID, Int, LeoHostConnectionState) -> Void = { _, _, _ in }
     ) {
         self.store = store
-        self.defaults = defaults
         self.runner = runner
         self.sshExecutable = sshExecutable
         self.transport = transport
@@ -87,11 +85,9 @@ import LeoKit
         self.controlSocketInstance = controlSocketInstance
         self.controlSocketOwner = controlSocketOwner
         self.connectionTarget = connectionTarget
-        if let value = defaults.string(forKey: "leo.selectedHost"), value != "localhost" {
-            selected = .remote(value)
-        } else {
-            selected = .local
-        }
+        // Starts on This Mac: `leo.selectedHost` is folded into the last
+        // spawn machine at launch (`LeoMachineDefaultsMigration`).
+        selected = .local
         state = .connected(socketPath: localSocketPath)
     }
 
@@ -153,7 +149,6 @@ import LeoKit
         Self.logger.log("select host=\(host.displayName, privacy: .public) isShutDown=\(self.isShutDown) knownHosts=\(self.hosts.map(\.name), privacy: .public)")
         guard !isShutDown else { return }
         selected = host
-        defaults.set(host.displayName, forKey: "leo.selectedHost")
 
         generation += 1
         let myGeneration = generation
