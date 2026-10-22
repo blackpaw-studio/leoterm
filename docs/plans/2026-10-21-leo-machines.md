@@ -319,3 +319,11 @@ Fills are flat, never gradients. The new spec section "Stats style" adds the fol
 - S3 removes the `leo.selectedHost` read/write in `LeoHostSelection`, and calls `LeoMachineDefaultsMigration(defaults:).run()` at launch, before the registry initialises.
 - Every connection shares the single `LeoTunnelOrphanStore` that `LeoRuntime` owns. Separate instances overwrite each other's persisted records.
 - `lastSpawnMachine` stores This Mac as `"localhost"`, matching `LeoHostID.displayName`.
+
+## Hand-offs to S5/S6 (from the S4 and S5a reviews)
+- A machine's generation guard can't be reset. S5 either keeps one feed per host for that host's lifetime, or adds `resetMachine(_:)` and calls it when a feed is recreated (Reconnect or Edit Machine).
+- Only feed a second machine once S6 has switched the view to `machineSections`. The flattened `sections` repeats section ids. Land S5 and S6 together before any live multi-machine run.
+- S5 calls `setMachines` before the first `receive(_:for:)`, so no phantom This Mac section appears.
+- Swap S4's `LeoSidebarMachineStats` for the LeoKit `LeoMachineStats` from S1 (its sections are nullable, and a null CPU percent shows as "—").
+- `LeoSelectionMachineClients.generation(for:)` ignores the host. The S3 registry's implementation of `LeoMachineClientResolving` has to be per host.
+- MT gates must include `LeoMachineActionsTests` and the existing `LeoSidebarModel*` and Layout suites. These were skipped under load.
