@@ -16,6 +16,7 @@ public struct LeoDaemonFeatures: Equatable, Sendable {
         case attachDispatchPlacement = "attach_dispatch_placement"
         case dispatchPlacementLive = "dispatch_placement_live"
         case agentEnvironments = "agent_environments"
+        case machineStats = "machine_stats"
     }
 
     public static let none = LeoDaemonFeatures([])

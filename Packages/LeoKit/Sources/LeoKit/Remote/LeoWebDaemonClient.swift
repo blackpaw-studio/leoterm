@@ -25,6 +25,12 @@ public struct LeoWebDaemonClient: Sendable {
         try LeoDaemonEnvelope<LeoObservedState>.decode(try await request("GET", "/api/v1/state").body).value()
     }
 
+    /// One CPU, memory and disk sample of the daemon's machine. A 503
+    /// `machine_stats_unavailable` means it has none to give.
+    public func machineStats() async throws -> LeoMachineStats {
+        try LeoDaemonEnvelope<LeoMachineStats>.decode(try await request("GET", "/api/v1/machine").body).value()
+    }
+
     /// One `/api/v1/events` connection, decoded. Undecodable events are
     /// dropped; gap handling and reconnecting are the caller's.
     public func events() -> AsyncThrowingStream<LeoObserveEvent, any Error> {

@@ -35,6 +35,8 @@ public protocol LeoDaemonClient: Sendable {
     /// defaults, and an agent's override (empty clears it; the agent restarts).
     func environmentCatalog() async throws -> LeoEnvironmentCatalog
     func setEnvironments(_ name: String, names: [String]) async throws
+    /// One CPU, memory and disk sample of the daemon's machine (`machine_stats`).
+    func machineStats() async throws -> LeoMachineStats
 }
 
 /// Default host-scoped implementations: every daemon socket now represents
@@ -55,6 +57,7 @@ extension LeoDaemonClient {
     public func clear(_ name: String) async throws { throw LeoDaemonError.transport("Agent control is unavailable") }
     public func environmentCatalog() async throws -> LeoEnvironmentCatalog { throw LeoDaemonError.transport("Environments are unavailable") }
     public func setEnvironments(_ name: String, names: [String]) async throws { throw LeoDaemonError.transport("Environments are unavailable") }
+    public func machineStats() async throws -> LeoMachineStats { throw LeoDaemonError.transport("Machine stats are unavailable") }
 
     private func requireLocal(_ host: LeoHostID) throws {
         guard host == .local else { throw LeoDaemonError.hostUnavailable("Remote hosts are unavailable") }
@@ -140,6 +143,7 @@ public struct LeoSocketDaemonClient: LeoDaemonClient {
     public func clear(_ name: String) async throws { _ = try await control(name, .clear) }
 
     public func templates() async throws -> [LeoTemplate] { try await value("GET", "/templates") }
+    public func machineStats() async throws -> LeoMachineStats { try await value("GET", "/machine") }
 
     public func environmentCatalog() async throws -> LeoEnvironmentCatalog {
         let names = try await checked("GET", LeoEnvironmentsWire.catalogRoute)

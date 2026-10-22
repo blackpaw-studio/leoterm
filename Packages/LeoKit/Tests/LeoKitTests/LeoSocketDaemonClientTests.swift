@@ -96,6 +96,31 @@ struct LeoSocketDaemonClientTests {
         #expect(await transport.requests.map(\.path) == ["/environments", "/templates"])
     }
 
+    @Test func machineStatsReadsTheMachineRoute() async throws {
+        let transport = RecordingTransport()
+        let client = LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport)
+        let stats = try await client.machineStats()
+        #expect(stats.cpu?.cores == 8)
+        #expect(stats.disk == nil)
+        #expect(await transport.requests.map(\.method) == ["GET"])
+        #expect(await transport.requests.map(\.path) == ["/machine"])
+    }
+
+    @Test func machineStatsUnavailableKeepsTheDaemonCode() async {
+        let body = #"{"ok":false,"error":"stats unavailable","code":"machine_stats_unavailable"}"#
+        let transport = RecordingTransport(reply: LeoHTTPResponse(status: 503, body: Data(body.utf8)))
+        let client = LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport)
+        await #expect(throws: LeoDaemonError.daemon(code: LeoMachineStats.unavailableCode, message: "stats unavailable", matches: [])) {
+            _ = try await client.machineStats()
+        }
+    }
+
+    @Test func machineStatsDefaultsToUnavailableOnAClientWithoutIt() async {
+        await #expect(throws: LeoDaemonError.transport("Machine stats are unavailable")) {
+            _ = try await StatslessClient().machineStats()
+        }
+    }
+
     @Test func responseParserHandlesHTTPFraming() throws {
         let contentLength = try LeoHTTPResponse.parse(Data("HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\ntest".utf8))
         #expect(contentLength.body == Data("test".utf8))
@@ -128,6 +153,8 @@ private actor RecordingTransport: LeoDaemonTransport {
             body = #"{"ok":true,"data":[{"name":"prod"},{"name":"aws"}]}"#
         } else if request.path == "/templates" {
             body = #"{"ok":true,"data":[{"name":"claude","environments":["prod"]}]}"#
+        } else if request.path == "/machine" {
+            body = #"{"ok":true,"data":{"sampled_at":"2026-10-21T12:00:00Z","cpu":{"percent":null,"cores":8},"memory":{"used_bytes":1,"total_bytes":2},"disk":null}}"#
         } else if request.path == "/agents/list" {
             body = #"{"ok":true,"data":[]}"#
         } else if request.path == "/agents/spawn" || request.path.hasSuffix("/restart") || request.path.hasSuffix("/rename") {
@@ -141,4 +168,19 @@ private actor RecordingTransport: LeoDaemonTransport {
         }
         return LeoHTTPResponse(status: 200, body: Data(body.utf8))
     }
+}
+
+/// A client that implements nothing, so every route falls to its protocol default.
+private struct StatslessClient: LeoDaemonClient {
+    func listAgents() async throws -> [LeoAgent] { [] }
+    func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent { throw LeoDaemonError.timeout }
+    func start(_ name: String) async throws {}
+    func stop(_ name: String, wakeOnMessage: Bool?) async throws {}
+    func restart(_ name: String) async throws -> LeoAgent { throw LeoDaemonError.timeout }
+    func reset(_ name: String) async throws {}
+    func setTemplate(_ name: String, template: String) async throws {}
+    func rename(_ name: String, newName: String) async throws -> LeoAgent { throw LeoDaemonError.timeout }
+    func delete(_ name: String, force: Bool?, deleteBranch: Bool?) async throws {}
+    func deletePlan(_ name: String) async throws -> LeoDeletePlan { throw LeoDaemonError.timeout }
+    func logs(_ name: String, lines: Int?) async throws -> String { "" }
 }

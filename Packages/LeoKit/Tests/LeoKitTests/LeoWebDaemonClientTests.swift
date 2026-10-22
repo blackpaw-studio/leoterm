@@ -42,6 +42,32 @@ struct LeoWebDaemonClientTests {
         #expect(await transport.requests.map(\.path) == ["/api/v1/state"])
     }
 
+    @Test func fetchesMachineStats() async throws {
+        let transport = FakeWebTransport(responses: [
+            200: #"{"ok":true,"data":{"sampled_at":"2026-10-21T12:00:00.5Z","cpu":{"percent":12.5,"cores":4},"memory":null,"disk":{"path":"/s","used_bytes":1,"total_bytes":4}}}"#,
+        ])
+        let stats = try await LeoWebDaemonClient(transport: transport).machineStats()
+
+        #expect(stats.cpu == .init(percent: 12.5, cores: 4))
+        #expect(stats.memory == nil)
+        #expect(stats.disk?.fraction == 0.25)
+        let request = try #require(await transport.requests.first)
+        #expect(request.method == "GET")
+        #expect(request.path == "/api/v1/machine")
+    }
+
+    @Test(arguments: [
+        (503, #"{"ok":false,"error":"no stats","code":"machine_stats_unavailable"}"#, "machine_stats_unavailable", "no stats"),
+        (401, "", "unauthorized", "HTTP 401"),
+        (403, "", "forbidden", "HTTP 403"),
+    ])
+    func machineStatsErrorsCarryTheirCode(status: Int, body: String, code: String, message: String) async {
+        let transport = FakeWebTransport(responses: [status: body])
+        await #expect(throws: LeoDaemonError.daemon(code: code, message: message, matches: [])) {
+            _ = try await LeoWebDaemonClient(transport: transport).machineStats()
+        }
+    }
+
     @Test func constructsEveryControlRoute() async throws {
         let transport = FakeWebTransport(responses: [200: #"{"ok":true,"data":[{"name":"work"},{"name":"aws"}]}"#])
         let client = LeoWebDaemonClient(transport: transport)
