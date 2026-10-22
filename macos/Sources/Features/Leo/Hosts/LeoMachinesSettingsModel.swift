@@ -2,27 +2,38 @@ import Foundation
 import LeoKit
 
 /// Owns a DRAFT `[LeoHostConfiguration]` copied from `LeoHostStore.load()`
-/// on creation. Every edit (add/remove/field change) mutates only the
-/// draft; nothing touches the store until `save()`. Cancel = just discard
-/// this model without calling `save()`.
-@MainActor final class LeoHostsSheetModel: ObservableObject, Identifiable {
+/// on creation. Every edit (add/remove/enable/field change) mutates only the
+/// draft; nothing touches the store until `save()`, and `revert()` takes the
+/// draft back to the store. `onSaved` (the registry's `reload()`) is the
+/// model's only way to reach live connections, and it fires on a successful
+/// Save alone: Test Connection runs on its own throwaway connection.
+@MainActor final class LeoMachinesSettingsModel: ObservableObject, Identifiable {
     let id = UUID()
     @Published var hosts: [LeoHostConfiguration]
-    @Published var selectedID: LeoHostConfiguration.ID?
+    @Published var selectedID: LeoHostConfiguration.ID? {
+        didSet { if selectedID != oldValue { invalidateTest() } }
+    }
     @Published private(set) var saveError: String?
+    /// The latest Test Connection result for the selected draft; nil while
+    /// untested, while a test runs, and after any edit that could change it.
+    @Published private(set) var testReport: LeoConnectionTestReport?
+    @Published private(set) var isTesting = false
 
     private let store: LeoHostStore
+    private let tester: any LeoMachineConnectionTesting
     private let onSaved: () -> Void
+    private var testGeneration = 0
     /// The store's contents at the moment this model opened. Two Hosts
     /// editor windows can independently open drafts from the same store;
     /// without this, the later `save()` would blindly overwrite whatever
     /// the earlier window already saved (silently resurrecting a host the
     /// earlier window removed, or discarding its edits). `save()` refuses
     /// instead of writing if the store no longer matches this snapshot.
-    private let openedSnapshot: [LeoHostConfiguration]
+    private var openedSnapshot: [LeoHostConfiguration]
 
-    init(store: LeoHostStore, onSaved: @escaping () -> Void = {}) {
+    init(store: LeoHostStore, tester: any LeoMachineConnectionTesting, onSaved: @escaping () -> Void = {}) {
         self.store = store
+        self.tester = tester
         self.onSaved = onSaved
         let loaded = store.load()
         hosts = loaded
@@ -51,12 +62,55 @@ import LeoKit
         selectedID = hosts.first?.id
     }
 
+    /// Whether the draft differs from what is saved.
+    var isDirty: Bool { hosts != openedSnapshot }
+
+    /// The list's toggle: a disabled machine stays configured but is never
+    /// connected once saved.
+    func setEnabled(_ isEnabled: Bool, for id: LeoHostConfiguration.ID) {
+        guard let index = hosts.firstIndex(where: { $0.id == id }) else { return }
+        hosts[index] = hosts[index].replacing(isEnabled: isEnabled)
+    }
+
+    /// Drops every unsaved change and re-reads the store, adopting anything
+    /// another window saved since this one opened.
+    func revert() {
+        let loaded = store.load()
+        hosts = loaded
+        openedSnapshot = loaded
+        selectedID = selectedID.flatMap { id in loaded.first { $0.id == id }?.id } ?? loaded.first?.id
+        saveError = nil
+        invalidateTest()
+    }
+
+    /// Runs Test Connection on the selected draft, saved or not. A result
+    /// that arrives after the selection or the draft changed is dropped.
+    func testSelected() async {
+        guard let host = selectedHost, host.validate().isEmpty else { return }
+        invalidateTest()
+        let generation = testGeneration
+        isTesting = true
+        let report = await tester.test(host)
+        guard generation == testGeneration else { return }
+        isTesting = false
+        testReport = report
+    }
+
+    private func invalidateTest() {
+        testGeneration += 1
+        testReport = nil
+        isTesting = false
+    }
+
     /// `LeoHostConfiguration`'s fields are all `let` (immutable, per project
     /// style) -- editing means replacing the selected element with a new
     /// value built from it, never mutating in place.
     func updateSelected(_ transform: (LeoHostConfiguration) -> LeoHostConfiguration) {
         guard let index = selectedIndex else { return }
-        hosts[index] = transform(hosts[index])
+        let updated = transform(hosts[index])
+        guard updated != hosts[index] else { return }
+        hosts[index] = updated
+        invalidateTest()
     }
 
     /// Live validation messages for `host`: `LeoHostConfiguration.validate()`
@@ -64,7 +118,7 @@ import LeoKit
     /// own duplicate check only fires at `save()` time; this drives the
     /// Save button's disabled state and inline messages before that).
     func errors(for host: LeoHostConfiguration) -> [String] {
-        var messages = host.validate().map(\.leoHostsSheetMessage)
+        var messages = host.validate().map(\.leoMachinesSettingsMessage)
         if isDuplicateName(host.name) {
             messages.append("A host named \"\(host.name)\" already exists")
         }
@@ -88,6 +142,7 @@ import LeoKit
         do {
             try store.save(hosts.map(Self.normalizingEmptyPathsToDefaults))
             hosts = store.load()
+            openedSnapshot = hosts
             selectedID = selectedID.flatMap { id in hosts.first { $0.id == id }?.id } ?? hosts.first?.id
             saveError = nil
             onSaved()
@@ -109,7 +164,8 @@ import LeoKit
             sshTarget: host.sshTarget,
             identityFile: host.identityFile,
             remoteLeoPath: host.remoteLeoPath.isEmpty ? "~/.local/bin/leo" : host.remoteLeoPath,
-            remoteSocketPath: host.remoteSocketPath.isEmpty ? "~/.leo/state/leo.sock" : host.remoteSocketPath
+            remoteSocketPath: host.remoteSocketPath.isEmpty ? "~/.leo/state/leo.sock" : host.remoteSocketPath,
+            isEnabled: host.isEnabled
         )
     }
 
@@ -119,10 +175,10 @@ import LeoKit
     }
 
     private func uniqueName() -> String {
-        var candidate = "New Host"
+        var candidate = "New Machine"
         var suffix = 2
         while hosts.contains(where: { $0.name.caseInsensitiveCompare(candidate) == .orderedSame }) {
-            candidate = "New Host \(suffix)"
+            candidate = "New Machine \(suffix)"
             suffix += 1
         }
         return candidate
@@ -132,7 +188,7 @@ import LeoKit
         // Host names are left as is: the user typed them in this sheet.
         switch error {
         case LeoHostStoreError.invalidConfiguration(let name, let errors):
-            return "\(name): " + errors.map(\.leoHostsSheetMessage).joined(separator: ", ")
+            return "\(name): " + errors.map(\.leoMachinesSettingsMessage).joined(separator: ", ")
         case LeoHostStoreError.duplicateName(let name):
             return "A host named \"\(name)\" already exists"
         default:
@@ -143,7 +199,7 @@ import LeoKit
 }
 
 extension LeoHostValidationError {
-    var leoHostsSheetMessage: String {
+    var leoMachinesSettingsMessage: String {
         switch self {
         case .emptyName: "Name is required"
         case .reservedName: "\"localhost\" is reserved"
@@ -154,5 +210,24 @@ extension LeoHostValidationError {
         case .unsafeIdentityFile: "Identity file path cannot start with \"-\""
         case .ipv6NotSupported: "IPv6 addresses are not supported; use a hostname"
         }
+    }
+}
+
+extension LeoHostConfiguration {
+    /// A copy with the given fields replaced. `identityFile` is doubly
+    /// optional: nil keeps it, `.some(nil)` clears it.
+    func replacing(
+        name: String? = nil, sshTarget: String? = nil, identityFile: String?? = nil,
+        remoteLeoPath: String? = nil, remoteSocketPath: String? = nil, isEnabled: Bool? = nil
+    ) -> LeoHostConfiguration {
+        LeoHostConfiguration(
+            id: id,
+            name: name ?? self.name,
+            sshTarget: sshTarget ?? self.sshTarget,
+            identityFile: identityFile ?? self.identityFile,
+            remoteLeoPath: remoteLeoPath ?? self.remoteLeoPath,
+            remoteSocketPath: remoteSocketPath ?? self.remoteSocketPath,
+            isEnabled: isEnabled ?? self.isEnabled
+        )
     }
 }
