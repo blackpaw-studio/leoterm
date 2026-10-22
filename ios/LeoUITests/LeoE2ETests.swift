@@ -37,7 +37,13 @@ final class LeoE2ETests: XCTestCase {
         field.typeText(payload)
         capture("pairing")
         app.buttons["pairing.pair"].tap()
+        XCTAssertTrue(field.waitForNonExistence(timeout: 20), "pairing never finished")
+
+        // With one machine paired the Agents list has no machine header, so
+        // its status is read off the Machines screen.
+        app.navigationBars["Agents"].buttons["Machines"].tap()
         XCTAssertTrue(app.staticTexts["Connected"].waitForExistence(timeout: 20), "daemon never connected")
+        app.navigationBars["Machines"].buttons.element(boundBy: 0).tap()
 
         // The harness spawns the agent once the device is paired; it must
         // appear without any refresh.
