@@ -90,9 +90,9 @@ import LeoKit
         Publishers.CombineLatest($machines, $states)
             .map { [weak self] machines, states in
                 guard let self else { return [:] }
-                return Dictionary(uniqueKeysWithValues: machines.compactMap { host in
+                return Dictionary(machines.compactMap { host in
                     Self.status(for: host, machines: machines, states: states, configurations: self.configurations).map { (host, $0) }
-                })
+                }, uniquingKeysWith: { first, _ in first })
             }
             .eraseToAnyPublisher()
     }

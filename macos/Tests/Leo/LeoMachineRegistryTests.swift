@@ -49,6 +49,18 @@ import Testing
         registry.shutdown()
     }
 
+    /// A hand-edited store can name a machine twice; that must not trap.
+    @Test func machineStatusesSurviveDuplicateMachineNames() throws {
+        let defaults = LeoInMemoryDefaults()
+        try Support.save([Support.host("a"), Support.host("a")], to: defaults)
+        let registry = LeoMachineRegistry.isolatedForTesting(defaults: defaults)
+        var latest: [LeoHostID: LeoMachineStatus] = [:]
+        let subscription = registry.machineStatuses.sink { latest = $0 }
+        defer { subscription.cancel() }
+
+        #expect(latest[.remote("a")] == .connecting)
+    }
+
     @Test func startConnectsThisMacAndEveryEnabledRemote() async throws {
         let defaults = LeoInMemoryDefaults()
         try Support.save([Support.host("a"), Support.host("b")], to: defaults)

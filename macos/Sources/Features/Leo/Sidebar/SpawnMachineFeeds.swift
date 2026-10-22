@@ -9,7 +9,9 @@ struct SpawnMachineOption: Equatable, Identifiable {
 
     var id: LeoHostID { host }
     var isSelectable: Bool { status.isSelectable }
-    var title: String { host == .local ? "This Mac" : host.displayName }
+    var title: String { Self.title(for: host) }
+
+    static func title(for host: LeoHostID) -> String { host == .local ? "This Mac" : host.displayName }
 
     /// Why the machine can't take a spawn right now; nil when it can.
     var detail: String? {

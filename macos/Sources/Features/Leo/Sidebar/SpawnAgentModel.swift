@@ -76,11 +76,11 @@ import LeoKit
     }
 
     /// Picks the machine to spawn on and re-reads its templates, environment
-    /// options and feature gates. Ignored for a worktree spawn, and for a
+    /// options and feature gates. A template the new machine lacks stays
+    /// chosen, and `validationError` says so. Ignored for a worktree spawn, and for a
     /// machine that is unreachable or not listed.
     func choose(_ host: LeoHostID) {
         guard !isMachineLocked, host != machine, isSelectable(host) else { return }
-        template = ""
         machine = host
         feeds.reload(host)
     }
@@ -88,6 +88,10 @@ import LeoKit
     /// A worktree spawn branches from its source agent's repository, which
     /// only exists on that agent's machine.
     var isMachineLocked: Bool { source != nil }
+
+    /// "Choose…" opens a folder on this Mac, which means nothing on another
+    /// machine, where the path has to be typed.
+    var canBrowseRepository: Bool { machine == .local }
 
     /// A machine missing from the list is not selectable, except This Mac.
     private func isSelectable(_ host: LeoHostID) -> Bool {
@@ -127,7 +131,7 @@ import LeoKit
         return nil
     }
     var validationError: String? {
-        if !isSelectable(machine) { return "\(machine.displayName) is unavailable" }
+        if !isSelectable(machine) { return "\(SpawnMachineOption.title(for: machine)) is unavailable" }
         if !template.isEmpty, !templates.contains(where: { $0.name == template }) {
             return "Choose an available template"
         }

@@ -102,15 +102,18 @@ import Testing
         #expect(model.templates.isEmpty)
     }
 
-    @Test func switchingClearsATemplateTheNewMachineMightNotHave() {
+    /// The new machine may not have it, but that is what validation says.
+    @Test func switchingKeepsTheTemplateAndValidationFlagsOneTheNewMachineLacks() {
         let harness = Harness()
         harness.setTemplates(["claude"], for: .local)
+        harness.setTemplates(["other"], for: Self.work)
         let model = harness.model()
         model.template = "claude"
 
         model.choose(Self.work)
 
-        #expect(model.template.isEmpty)
+        #expect(model.template == "claude")
+        #expect(model.validationError == "Choose an available template")
     }
 
     @Test func switchingResetsEditedEnvironmentsToTheNewMachinesDefault() {
@@ -155,6 +158,21 @@ import Testing
         model.choose(.local)
         #expect(model.machine == Self.work)
         #expect(harness.reloaded.isEmpty)
+    }
+
+    @Test func theUnavailableMessageNamesThisMacNotLocalhost() {
+        let harness = Harness(statuses: [.local: .failed("daemon stopped")])
+        #expect(harness.model().validationError == "This Mac is unavailable")
+    }
+
+    @Test func onlyThisMacCanBrowseForARepositoryFolder() {
+        let harness = Harness()
+        let model = harness.model()
+        #expect(model.canBrowseRepository)
+
+        model.choose(Self.work)
+
+        #expect(!model.canBrowseRepository)
     }
 
     @Test func aWorktreeOnAnUnreachableMachineIsBlocked() {

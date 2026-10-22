@@ -39,7 +39,10 @@ struct SpawnAgentSheet: View {
                 worktreeFields(source)
             } else {
                 LabeledContent("Repository") {
-                    HStack { TextField("", text: $model.repo); Button("Choose…") { choose() } }
+                    HStack {
+                        TextField("", text: $model.repo)
+                        Button("Choose…") { choose() }.disabled(!model.canBrowseRepository)
+                    }
                 }
             }
             TextField("Name", text: $model.name)
@@ -57,7 +60,12 @@ struct SpawnAgentSheet: View {
     /// Unreachable machines are listed, dimmed, with why; a worktree spawn
     /// shows its source's machine and can't change it.
     private var machineField: some View {
-        Picker("Machine", selection: Binding(get: { model.machine }, set: { model.choose($0) })) {
+        Picker("Machine", selection: Binding(get: { model.machine }, set: { host in
+            model.choose(host)
+            // A pick the model rejected leaves `machine` unchanged and so
+            // publishes nothing: re-read it so the popup snaps back.
+            model.objectWillChange.send()
+        })) {
             ForEach(model.machineOptions) { option in
                 Text(option.detail.map { "\(option.title)  —  \($0)" } ?? option.title)
                     .tag(option.host)
