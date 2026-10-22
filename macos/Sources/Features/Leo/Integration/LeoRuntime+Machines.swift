@@ -27,6 +27,13 @@ extension LeoRuntime {
         }
     }
 
+    /// A machine connected, failed, was disabled or came back: the spawn
+    /// sheet's Machine field reads these off the model, for the machines it
+    /// shows.
+    func machineStatusesChanged(_ statuses: [LeoHostID: LeoMachineStatus]) {
+        model.setMachineStatuses(feedsRemoteMachines ? statuses : statuses.filter { $0.key == .local })
+    }
+
     /// Applies one machine's connection-state transition to its feed (and,
     /// once connected, to its client). `.connecting`/`.failed` carry no
     /// async work of their own and are forwarded at once; `.connected`

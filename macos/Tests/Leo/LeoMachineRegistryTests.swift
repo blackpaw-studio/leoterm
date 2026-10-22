@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Foundation
 import Testing
 
@@ -26,6 +27,38 @@ import Testing
         #expect(registry.configuration(for: .local) == nil)
         #expect(registry.status(for: .remote("alpha")) == .disabled)
         #expect(registry.status(for: .remote("gone")) == nil)
+    }
+
+    /// The spawn sheet's picker reads this, so a machine that connects, fails
+    /// or is disabled changes its row without anyone asking the registry.
+    @Test func machineStatusesPublishEveryMachineAsItsStatusChanges() async throws {
+        let defaults = LeoInMemoryDefaults()
+        try Support.save([Support.host("a"), Support.host("off", enabled: false)], to: defaults)
+        let registry = LeoMachineRegistry.isolatedForTesting(defaults: defaults)
+        var latest: [LeoHostID: LeoMachineStatus] = [:]
+        let subscription = registry.machineStatuses.sink { latest = $0 }
+        defer { subscription.cancel() }
+
+        #expect(latest == [.local: .connecting, .remote("a"): .connecting, .remote("off"): .disabled])
+
+        registry.start(flavor: .socketEvents)
+
+        try await until("a never reported connected") { @MainActor in latest[.remote("a")] == .connected }
+        #expect(latest[.local] == .connected)
+        #expect(latest[.remote("off")] == .disabled)
+        registry.shutdown()
+    }
+
+    /// A hand-edited store can name a machine twice; that must not trap.
+    @Test func machineStatusesSurviveDuplicateMachineNames() throws {
+        let defaults = LeoInMemoryDefaults()
+        try Support.save([Support.host("a"), Support.host("a")], to: defaults)
+        let registry = LeoMachineRegistry.isolatedForTesting(defaults: defaults)
+        var latest: [LeoHostID: LeoMachineStatus] = [:]
+        let subscription = registry.machineStatuses.sink { latest = $0 }
+        defer { subscription.cancel() }
+
+        #expect(latest[.remote("a")] == .connecting)
     }
 
     @Test func startConnectsThisMacAndEveryEnabledRemote() async throws {

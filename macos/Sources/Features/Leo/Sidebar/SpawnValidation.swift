@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 enum SpawnValidation {
     static func name(_ value: String, current: String? = nil) -> String? {
@@ -13,10 +14,28 @@ enum SpawnValidation {
         guard !value.contains(where: { $0.isWhitespace || $0 == "/" }) else { return "Name cannot contain whitespace or /" }
         return name(value, current: current)
     }
-    static func spawn(template: String?, repo: String, name: String?, pathExists: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }) -> String? {
+    /// `repo` is optional. On This Mac a path must exist on disk; another
+    /// machine's can't be checked from here, so only its shape is, and that
+    /// machine's daemon reports a missing path when the spawn runs.
+    static func spawn(
+        template: String?, repo: String, name: String?, on host: LeoHostID = .local,
+        pathExists: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }
+    ) -> String? {
         guard let template, !template.isEmpty else { return "Template is required" }
-        guard repo.isEmpty || pathExists(repo) else { return "Choose an existing repository" }
+        if !repo.isEmpty {
+            if host == .local {
+                guard pathExists(repo) else { return "Choose an existing repository" }
+            } else if !isRemotePath(repo) {
+                return "Enter an absolute path or ~/…"
+            }
+        }
         return name.flatMap { Self.name($0) }
+    }
+
+    /// An absolute path or `~/…`, with no NUL or line break. Scalars, not
+    /// Characters: "\r\n" is one Character that equals neither "\r" nor "\n".
+    static func isRemotePath(_ path: String) -> Bool {
+        (path.hasPrefix("/") || path.hasPrefix("~/")) && !path.unicodeScalars.contains(where: { "\0\n\r".unicodeScalars.contains($0) })
     }
 
     /// `repo` when it is the daemon's GitHub `owner/repo` form (exactly one
