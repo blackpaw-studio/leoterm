@@ -113,14 +113,18 @@ import LeoKit
     /// refresh (never for SSE-triggered or periodic-poll refreshes), so a
     /// template renamed/added/removed on a daemon is reflected on demand
     /// without every row or the Agents menu fetching for themselves. Reloads
-    /// every machine already loaded.
+    /// every loaded machine that has a connection, each in its own task so a
+    /// slow machine never holds up the others; one with no client keeps its
+    /// list until it connects again.
     func invalidateTemplateCache() {
         let templateCache = templateCache
-        let hosts = Set(templateLists.keys)
-        let tokens = hosts.map { ($0, nextTemplateListToken(for: $0)) }
+        let reloads = templateLists.keys.filter { clients.daemon(for: $0) != nil }
+            .map { ($0, nextTemplateListToken(for: $0)) }
         Task { [weak self] in
             await templateCache.invalidate()
-            for (host, token) in tokens { await self?.reloadTemplateList(for: host, token: token) }
+            for (host, token) in reloads {
+                Task { [weak self] in await self?.reloadTemplateList(for: host, token: token) }
+            }
         }
         environmentCatalogs.keys.forEach { reloadEnvironmentCatalog(for: $0) }
     }

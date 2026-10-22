@@ -462,6 +462,52 @@ import Testing
         #expect(!attached)
     }
 
+    private func sshCalls(_ runner: LeoRecordingTemplateRunner, to target: String) async -> Int {
+        await runner.calls.filter { $0.arguments.contains(target) }.count
+    }
+
+    @Test func aManualRefreshSkipsMachinesWithoutAConnection() async {
+        let first = LeoHostConfiguration(name: "one", sshTarget: "evan@one")
+        let second = LeoHostConfiguration(name: "two", sshTarget: "evan@two")
+        let runner = LeoRecordingTemplateRunner(templates: ["t"])
+        let clients = FakeMachineClients(
+            daemons: [.remote("one"): ActionDaemon(), .remote("two"): ActionDaemon()], configurations: [first, second])
+        let actions = LeoAgentActions(
+            clients: clients, cli: .recordingForTests(), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(),
+            processRunner: runner, refresh: {})
+        actions.loadTemplates(for: .remote("one"))
+        actions.loadTemplates(for: .remote("two"))
+        await awaitCondition { await runner.calls.count == 2 }
+        clients.disconnect(.remote("two"))
+
+        actions.invalidateTemplateCache()
+
+        await awaitCondition { await sshCalls(runner, to: "evan@one") == 2 }
+        for _ in 0..<50 { await Task.yield() }
+        #expect(await sshCalls(runner, to: "evan@two") == 1, "a machine with no client is not refetched")
+    }
+
+    @Test func aSlowMachineNeverHoldsUpAManualRefreshOfTheOthers() async {
+        let configurations = ["one", "two", "three"].map { LeoHostConfiguration(name: $0, sshTarget: "evan@\($0)") }
+        let gated = GatedTemplateRunner()
+        let runner = LeoRecordingTemplateRunner(templates: ["t"])
+        var daemons: [LeoHostID: any LeoDaemonClient] = [.local: ActionDaemon()]
+        for configuration in configurations { daemons[.remote(configuration.name)] = ActionDaemon() }
+        let actions = LeoAgentActions(
+            clients: FakeMachineClients(daemons: daemons, configurations: configurations),
+            cli: .recordingForTests(runner: gated), model: LeoSidebarModel(), hostSelection: .isolatedForTesting(),
+            processRunner: runner, refresh: {})
+        actions.loadTemplates(for: .local)
+        await gated.waitForCalls(1)
+        for configuration in configurations { actions.loadTemplates(for: .remote(configuration.name)) }
+        await awaitCondition { await runner.calls.count == 3 }
+
+        actions.invalidateTemplateCache()
+
+        await awaitCondition(message: "the remotes never reloaded while the local fetch hung") { await runner.calls.count == 6 }
+        await gated.resume()
+    }
+
     @Test func theClaudeOnboardingOfferStaysLocalOnly() async {
         let missing = LeoDaemonError.daemon(code: "claude_not_found", message: "claude not found on PATH", matches: [])
         let clients = FakeMachineClients(daemons: [.local: ActionDaemon(), work: ActionDaemon(error: missing)])
