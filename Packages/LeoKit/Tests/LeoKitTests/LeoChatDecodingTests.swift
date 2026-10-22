@@ -299,4 +299,41 @@ struct LeoChatDecodingTests {
         #expect(!ask.continuesPost(after: Self.message("p", kind: .ask, task: "t", runID: "r", input: input)))
         #expect(!Self.message("x", kind: .text, task: "t", runID: "r").continuesPost(after: Self.message("p", kind: .file, task: "t", runID: "r")))
     }
+
+    // MARK: sender (leo #292)
+
+    static func message(sender: String) -> String {
+        #"{"id":"s1","agent":"zeus","direction":"out","kind":"text","text":"hi","ts":0,"sender":\#(sender)}"#
+    }
+
+    @Test func aClientTokenSenderYieldsItsName() throws {
+        let message = try Self.decode(Self.message(sender: #""client:laptop""#))
+
+        #expect(message.sender == "client:laptop")
+        #expect(message.senderLabel == "laptop")
+    }
+
+    @Test func senderNamesAreTrimmed() throws {
+        #expect(try Self.decode(Self.message(sender: #""client:  Evan's iPad \t""#)).senderLabel == "Evan's iPad")
+    }
+
+    @Test func emptyOrUnknownSendersHaveNoLabel() throws {
+        for sender in [#""""#, #""client:""#, #""client:   ""#, #""bot:ci""#, #""laptop""#, #""CLIENT:laptop""#, "null", "7"] {
+            #expect(try Self.decode(Self.message(sender: sender)).senderLabel == nil, "sender \(sender)")
+        }
+    }
+
+    @Test func olderDaemonsWithoutASenderDecodeAsAgentMessages() throws {
+        let message = try Self.decode(#"{"id":"s2","agent":"zeus","direction":"out","kind":"text","text":"hi","ts":0}"#)
+
+        #expect(message.sender == nil)
+        #expect(message.senderLabel == nil)
+    }
+
+    @Test func senderSurvivesARoundTrip() throws {
+        let message = try Self.decode(Self.message(sender: #""client:laptop""#))
+        let again = try JSONDecoder().decode(LeoChatMessage.self, from: JSONEncoder().encode(message))
+
+        #expect(again.senderLabel == "laptop")
+    }
 }

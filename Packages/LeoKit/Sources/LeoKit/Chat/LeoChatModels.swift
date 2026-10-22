@@ -46,11 +46,16 @@ public struct LeoChatMessage: Codable, Equatable, Identifiable, Sendable {
     public let input: LeoChatInput?
     /// Why an `ask` expired: `timeout`, `withdrawn`, `agent_gone` or `dismissed`.
     public let closedReason: String?
+    /// Who posted an outbound message when it wasn't the agent: the daemon's
+    /// `client:<name>` for a `leo client` token (leo #292). Absent for agent
+    /// messages and on older daemons; read it through `senderLabel`.
+    public let sender: String?
 
     public init(
         id: String, agent: String, direction: Direction, kind: Kind, text: String, transcript: String? = nil,
         replyTo: String? = nil, task: String? = nil, runID: String? = nil, state: String? = nil, answer: LeoChatAnswer? = nil,
-        ts: Date, attachments: [LeoChatAttachment] = [], input: LeoChatInput? = nil, closedReason: String? = nil
+        ts: Date, attachments: [LeoChatAttachment] = [], input: LeoChatInput? = nil, closedReason: String? = nil,
+        sender: String? = nil
     ) {
         self.id = id
         self.agent = agent
@@ -67,10 +72,11 @@ public struct LeoChatMessage: Codable, Equatable, Identifiable, Sendable {
         self.attachments = attachments
         self.input = input
         self.closedReason = closedReason
+        self.sender = Self.nonEmpty(sender)
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, agent, direction, kind, text, transcript, task, state, answer, ts, attachments, input
+        case id, agent, direction, kind, text, transcript, task, state, answer, ts, attachments, input, sender
         case closedReason = "closed_reason"
         case replyTo = "reply_to"
         case runID = "run_id"
@@ -93,6 +99,7 @@ public struct LeoChatMessage: Codable, Equatable, Identifiable, Sendable {
         attachments = ((try? container.decodeIfPresent(LeoLenientArray<LeoChatAttachment>.self, forKey: .attachments)) ?? nil)?.elements ?? []
         input = try container.decodeIfPresent(LeoChatInput.self, forKey: .input)
         closedReason = Self.nonEmpty(try? container.decodeIfPresent(String.self, forKey: .closedReason))
+        sender = Self.nonEmpty(try? container.decodeIfPresent(String.self, forKey: .sender))
         if kind == .ask, input == nil {
             throw DecodingError.keyNotFound(CodingKeys.input, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "An ask needs an input"))
         }
@@ -115,12 +122,24 @@ public struct LeoChatMessage: Codable, Equatable, Identifiable, Sendable {
         try container.encode(attachments, forKey: .attachments)
         try container.encodeIfPresent(input, forKey: .input)
         try container.encodeIfPresent(closedReason, forKey: .closedReason)
+        try container.encodeIfPresent(sender, forKey: .sender)
     }
 
     private static func nonEmpty(_ value: String??) -> String? {
         guard let value = value ?? nil, !value.isEmpty else { return nil }
         return value
     }
+
+    /// The client's name for a message posted through a `leo client` token
+    /// (`client:<name>`), trimmed; nil for agent messages, an empty name, or a
+    /// sender prefix this build doesn't know.
+    public var senderLabel: String? {
+        guard let sender, sender.hasPrefix(Self.clientSenderPrefix) else { return nil }
+        let name = sender.dropFirst(Self.clientSenderPrefix.count).trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? nil : name
+    }
+
+    private static let clientSenderPrefix = "client:"
 
     /// An `ask` or `permission` still waiting for an answer.
     public var isOpen: Bool { (kind == .ask || kind == .permission) && state == "open" }
