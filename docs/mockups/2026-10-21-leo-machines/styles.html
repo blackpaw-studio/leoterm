@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leo Machines Stats Styles</title>
+<style>
+:root{
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro",system-ui,"Helvetica Neue",sans-serif;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,monospace;
+  --page:#121214; --page-fg:#f2f2f4; --page-fg2:#9a9aa3; --card:#1b1b1f; --page-sep:rgba(255,255,255,.09);
+  --stage:#20202c;
+  /* macOS */
+  --win:#1e1e20; --sidebar:#2a2a2d; --toolbar:#2c2c2f;
+  --label:rgba(255,255,255,.92); --l2:rgba(235,235,245,.6); --l3:rgba(235,235,245,.34);
+  --sep:rgba(255,255,255,.1); --win-border:rgba(255,255,255,.14); --field:rgba(255,255,255,.07); --field-bd:rgba(255,255,255,.12);
+  --btn:rgba(255,255,255,.12); --btn-bd:rgba(255,255,255,.14); --track:rgba(255,255,255,.14);
+  --accent:#0a84ff; --green:#30d158; --orange:#ff9f0a; --red:#ff453a; --indigo:#5e5ce6; --gray:#8e8e93;
+  --seg:rgba(255,255,255,.08); --box:rgba(255,255,255,.05);
+  --shadow:0 0 0 .5px var(--win-border),0 24px 64px rgba(0,0,0,.5),0 2px 10px rgba(0,0,0,.3);
+  /* meters: flat solid colours only */
+  --m-ok:#2f86ff; --m-warn:#ff9f0a; --m-crit:#ff453a;
+  --cap-bd:rgba(235,235,245,.52); --cap-bg:rgba(0,0,0,.4); --cap-lbl:rgba(235,235,245,.66);
+  /* iOS */
+  --ibg:#000; --icell:#1c1c1e; --isep:rgba(84,84,88,.65); --ilabel:#fff; --ilabel2:rgba(235,235,245,.6); --ilabel3:rgba(235,235,245,.3);
+  --itint:#0a84ff; --ibar:rgba(22,22,24,.9); --ibezel:#2c2c2f; --ibezel-in:#0b0b0c; --igray:#8e8e93;
+}
+:root[data-theme="light"]{
+  --page:#f4f4f6; --page-fg:#1c1c1e; --page-fg2:#6c6c72; --card:#fff; --page-sep:rgba(0,0,0,.09);
+  --stage:#e3e6f2;
+  --win:#fff; --sidebar:#e8e8ea; --toolbar:#ececee;
+  --label:rgba(0,0,0,.85); --l2:rgba(60,60,67,.62); --l3:rgba(60,60,67,.4);
+  --sep:rgba(0,0,0,.1); --win-border:rgba(0,0,0,.16); --field:#fff; --field-bd:rgba(0,0,0,.14);
+  --btn:#fff; --btn-bd:rgba(0,0,0,.16); --track:rgba(0,0,0,.1);
+  --accent:#007aff; --green:#28cd41; --orange:#ff9500; --red:#ff3b30; --indigo:#5856d6;
+  --seg:rgba(0,0,0,.07); --box:rgba(0,0,0,.04);
+  --shadow:0 0 0 .5px var(--win-border),0 22px 54px rgba(30,30,60,.25),0 2px 8px rgba(0,0,0,.12);
+  --m-ok:#1a73f0; --m-warn:#ff9500; --m-crit:#ff3b30;
+  --cap-bd:rgba(60,60,67,.5); --cap-bg:rgba(60,60,67,.08); --cap-lbl:rgba(60,60,67,.72);
+  --ibg:#f2f2f7; --icell:#fff; --isep:rgba(60,60,67,.29); --ilabel:#000; --ilabel2:rgba(60,60,67,.6); --ilabel3:rgba(60,60,67,.3);
+  --itint:#007aff; --ibar:rgba(249,249,249,.92); --ibezel:#d4d4d9; --ibezel-in:#f5f5f7;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--page);color:var(--page-fg);font:14px/1.45 var(--font);-webkit-font-smoothing:antialiased}
+.ic{display:block;flex:none}
+
+/* ───── page chrome ───── */
+.top{max-width:1480px;margin:0 auto;padding:36px 28px 8px;display:flex;justify-content:space-between;align-items:flex-end;gap:24px}
+.top h1{font-size:28px;font-weight:700;letter-spacing:-.02em}
+.top p{color:var(--page-fg2);margin-top:4px;max-width:760px}
+#theme{font:500 13px var(--font);color:var(--page-fg);background:var(--card);border:1px solid var(--page-sep);border-radius:8px;padding:7px 14px;cursor:pointer}
+#theme:hover{border-color:var(--accent)}
+main{max-width:1480px;margin:0 auto;padding:12px 28px 80px;display:flex;flex-direction:column;gap:44px}
+.panel{background:var(--card);border:1px solid var(--page-sep);border-radius:18px;overflow:hidden}
+.plabel{display:flex;gap:14px;align-items:center;padding:18px 22px}
+.pnum{width:30px;height:30px;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;display:grid;place-items:center;flex:none}
+.plabel h2{font-size:17px;font-weight:650;letter-spacing:-.01em}
+.plabel p{color:var(--page-fg2);font-size:13px}
+.stage{background:var(--stage);padding:40px 36px 44px}
+.cap-t{font-size:12px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.8)}
+:root[data-theme="light"] .cap-t{color:rgba(0,0,0,.6)}
+
+/* ───── shared meter components ───── */
+.lv-ok{--c:var(--m-ok)}.lv-warn{--c:var(--m-warn)}.lv-crit{--c:var(--m-crit)}
+.cl{display:flex;align-items:center;flex:none}
+/* capsules */
+.cl-cap{--u:1;gap:calc(var(--u)*7px)}
+.cpm{display:flex;align-items:center;gap:calc(var(--u)*2.5px)}
+.cpl{display:flex;flex-direction:column;align-items:center;width:calc(var(--u)*6.5px);
+  font:800 calc(var(--u)*6px)/calc(var(--u)*6.2px) var(--font);color:var(--cap-lbl)}
+.cpl b{font-weight:inherit}
+.cp{position:relative;flex:none;width:calc(var(--u)*10px);height:calc(var(--u)*20px);
+  border:calc(var(--u)*1px) solid var(--cap-bd);border-radius:calc(var(--u)*5px);background:var(--cap-bg)}
+.cp i{position:absolute;left:calc(var(--u)*1px);right:calc(var(--u)*1px);bottom:calc(var(--u)*1px);
+  height:max(calc(var(--u)*3px),calc((100% - var(--u)*2px)*var(--p)));
+  border-radius:calc(var(--u)*3px);background:var(--c)}
+/* bars */
+.cl-bar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:var(--gap,10px)}
+.bm{min-width:0}
+.bt{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:var(--bgap,3px)}
+.bk{font-weight:650;letter-spacing:.05em;color:var(--l3);font-size:var(--bfs,9px)}
+.bv{font-variant-numeric:tabular-nums;color:var(--l2);font-size:var(--bvs,10.5px)}
+.bb{height:var(--bh,3px);border-radius:3px;background:var(--track);overflow:hidden}
+.bb i{display:block;height:100%;border-radius:3px;background:var(--c)}
+.bm.lv-warn .bv,.bm.lv-crit .bv{color:var(--c);font-weight:600}
+/* rings */
+.cl-ring{gap:var(--gap,8px)}
+.rm{display:flex;align-items:center;gap:6px}
+.rr{position:relative;width:var(--s);height:var(--s);flex:none;display:block}
+.rr svg{width:100%;height:100%;transform:rotate(-90deg);display:block}
+.rr .rt{fill:none;stroke:var(--track);stroke-width:4.2}
+.rr .rf{fill:none;stroke:var(--c);stroke-width:4.2;stroke-linecap:round}
+.rv{position:absolute;inset:0;display:grid;place-items:center;font-weight:650;font-variant-numeric:tabular-nums;color:var(--label);letter-spacing:-.02em}
+.rk{font-weight:650;letter-spacing:.05em;color:var(--l3)}
+/* numbers */
+.nl{display:flex;align-items:baseline;white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--l2)}
+.nl .n{display:inline-flex;gap:.28em}
+.nl .nk{color:var(--l3);font-weight:600}
+.nl .nv.lv-warn,.nl .nv.lv-crit{color:var(--c);font-weight:600}
+.nl .nd{color:var(--l3);margin:0 .5em}
+
+/* ───── macOS sidebar slice ───── */
+.sbs{width:290px;background:var(--sidebar);border-radius:12px;box-shadow:var(--shadow);color:var(--label);font-size:13px;line-height:1.25;padding:8px 0}
+.mh{padding:5px 12px 5px 10px}
+.mh .l1{display:flex;align-items:center;gap:6px;height:22px}
+.chev{color:var(--l2);width:10px;height:10px;transform:rotate(90deg)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex:none;display:inline-block;box-shadow:0 0 0 2px color-mix(in srgb,var(--green) 22%,transparent)}
+.dot.failed{background:var(--red);box-shadow:0 0 0 2px color-mix(in srgb,var(--red) 22%,transparent)}
+.mn{font-weight:650;font-size:13px;letter-spacing:-.005em;flex:none}
+.ms{font-size:11px;color:var(--l3);white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.sp{flex:1;min-width:6px}
+.cnt{font-size:11px;color:var(--l3);font-variant-numeric:tabular-nums;min-width:8px;text-align:right}
+.mh.dim .mn,.mh.dim .chev{opacity:.5}
+.mh .cl-ring{--s:22px;--gap:5px}.mh .rv{font-size:7.5px}
+.mh .cl-ring .rr{--s:22px}
+.mh .l2 .nl{font-size:11px;line-height:15px;margin-top:1px}
+.mh .l2{margin:3px 22px 2px 29px}
+.mh .l2 .cl-bar{--gap:10px;--bfs:9px;--bvs:10.5px;--bh:3px}
+.mh .cl-cap{margin-right:4px}
+
+/* ───── iOS device ───── */
+.phone{position:relative;width:426px;height:898px;flex:none;border-radius:68px;background:var(--ibezel);padding:12px;
+  box-shadow:0 0 0 1px rgba(0,0,0,.45),0 30px 70px rgba(0,0,0,.45),inset 0 0 0 2px rgba(255,255,255,.07)}
+.phone::before,.phone::after{content:"";position:absolute;width:3px;background:var(--ibezel);border-radius:2px}
+.phone::before{left:-3px;top:150px;height:64px;box-shadow:0 84px 0 var(--ibezel)}
+.phone::after{right:-3px;top:210px;height:100px}
+.screen{position:relative;width:402px;height:874px;border-radius:56px;overflow:hidden;background:var(--ibg);color:var(--ilabel);
+  font:17px/22px var(--font);display:flex;flex-direction:column;letter-spacing:-.01em}
+.screen *{letter-spacing:inherit}
+.island{position:absolute;top:11px;left:50%;margin-left:-63px;width:126px;height:37px;border-radius:19px;background:#000;z-index:5}
+.sbar{height:54px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:6px 38px 0 52px;font-weight:600;font-size:17px}
+.sbar .r{display:flex;align-items:center;gap:6px}
+.nav{height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 16px;color:var(--itint)}
+.nav.inline{position:relative;justify-content:flex-start}
+.nav .back{display:flex;align-items:center;gap:4px;font-size:17px}
+.nav .ttl{position:absolute;left:0;right:0;text-align:center;color:var(--ilabel);font-weight:600;pointer-events:none}
+.ltitle{flex:none;padding:2px 16px 10px;font-size:34px;line-height:41px;font-weight:700;letter-spacing:.2px;color:var(--ilabel)}
+.body{flex:1;min-height:0;overflow:hidden;padding-top:0}
+.tabbar{flex:none;height:83px;background:var(--ibar);border-top:.5px solid var(--isep);display:flex;padding:7px 4px 0;position:relative;
+  -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--igray);font-size:10px;line-height:12px;font-weight:500;letter-spacing:.1px}
+.tab.on{color:var(--itint)}
+.home{position:absolute;bottom:8px;left:50%;margin-left:-69px;width:139px;height:5px;border-radius:3px;background:var(--ilabel)}
+
+/* inset-grouped list */
+.ilist{margin:0 16px;background:var(--icell);border-radius:26px;overflow:hidden}
+.ihead{margin:0 32px 6px;padding-top:0;font-size:13px;line-height:18px;text-transform:uppercase;color:var(--ilabel2);letter-spacing:-.08px}
+.ifoot{margin:8px 32px 0;font-size:13px;line-height:18px;color:var(--ilabel2);letter-spacing:-.08px}
+.isec+.isec,.isec+.ihead,.ifoot+.isec{margin-top:28px}
+.irow{position:relative;display:grid;grid-template-columns:28px minmax(0,1fr);column-gap:12px;padding:12px 16px 12px 16px;align-items:start}
+.irow+.irow::before{content:"";position:absolute;left:56px;right:0;top:0;height:.5px;background:var(--isep)}
+.ico{height:22px;display:grid;place-items:center;color:var(--green)}
+.irow.bad .ico{color:var(--red)}
+.itx{min-width:0}
+.il1{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st{font-size:15px;line-height:22px;color:var(--ilabel2);white-space:nowrap;flex:none}
+.st::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:6px;vertical-align:1px}
+.st.bad::before{background:var(--red)}
+.il2{font-size:15px;line-height:20px;color:var(--ilabel2);white-space:nowrap}
+.il2 .sepd{margin:0 .35em;color:var(--ilabel3)}
+.why{font-size:13px;line-height:18px;color:var(--red);margin-top:2px}
+.im{margin-top:9px}
+.im .cl-cap{--u:1.5;gap:24px}
+.im .cl-bar{--gap:16px;--bfs:11px;--bvs:12px;--bh:4px;--bgap:4px}
+.im .bt{line-height:15px}
+.im .cl-ring{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:16px}
+.im .cl-ring .rr{--s:36px}.im .rv{font-size:9.5px}.im .rk{font-size:11px}
+.im .nl{font-size:13px;line-height:18px}
+/* settings-style rows */
+.srow{position:relative;display:flex;align-items:center;min-height:44px;padding:0 16px;gap:12px}
+.srow+.srow::before{content:"";position:absolute;left:57px;right:0;top:0;height:.5px;background:var(--isep)}
+.sico{width:29px;height:29px;border-radius:7px;display:grid;place-items:center;color:#fff;flex:none}
+.srow .lbl{flex:1}
+.srow .val{color:var(--ilabel2);margin-right:2px}
+.srow .disc{color:var(--ilabel3);flex:none}
+.crow{display:flex;align-items:center;min-height:44px;padding:0 16px;position:relative;cursor:pointer}
+.crow+.crow::before{content:"";position:absolute;left:16px;right:0;top:0;height:.5px;background:var(--isep)}
+.crow .lbl{flex:1}
+.crow .tick{color:var(--itint);width:22px;display:grid;place-items:center}
+
+/* ───── A: phones grid ───── */
+.pgrid{display:grid;grid-template-columns:repeat(3,426px);gap:56px 44px;justify-content:center}
+.pcol{display:flex;flex-direction:column;gap:16px}
+.phd{display:flex;align-items:baseline;gap:10px;padding:0 10px}
+.phd h3{font-size:18px;font-weight:700;letter-spacing:-.01em;color:#fff}
+:root[data-theme="light"] .phd h3{color:#111}
+.phd span{font-size:13px;color:rgba(255,255,255,.7)}
+:root[data-theme="light"] .phd span{color:rgba(0,0,0,.6)}
+.notes{background:rgba(18,18,22,.5);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:24px 26px;color:#eee;font-size:13px;line-height:1.5;align-self:start}
+:root[data-theme="light"] .notes{background:rgba(255,255,255,.7);color:#222;border-color:rgba(0,0,0,.08)}
+.notes h4{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;opacity:.6;margin:20px 0 10px}
+.notes h4:first-child{margin-top:0}
+.notes table{border-collapse:collapse;width:100%}
+.notes td{padding:4px 0;vertical-align:baseline}
+.notes td:last-child{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:12px}
+.notes td:first-child{opacity:.85}
+.mdesc .sw{color:rgba(255,255,255,.85);font-size:13px}
+:root[data-theme="light"] .mdesc .sw{color:rgba(0,0,0,.75)}
+.sw{display:flex;align-items:center;gap:10px;margin:7px 0}
+.sw i{width:34px;height:10px;border-radius:5px;display:block}
+
+/* ───── B: mac stack ───── */
+.mgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 32px;max-width:1260px;margin:0 auto}
+.mrow{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:24px;align-items:start;background:rgba(18,18,22,.28);border-radius:20px;padding:24px 28px}
+:root[data-theme="light"] .mrow{background:rgba(255,255,255,.4)}
+.mdesc h3{font-size:18px;font-weight:700;color:#fff;letter-spacing:-.01em}
+:root[data-theme="light"] .mdesc h3{color:#111}
+.mdesc p{font-size:13px;line-height:1.5;color:rgba(255,255,255,.75);margin-top:6px}
+:root[data-theme="light"] .mdesc p{color:rgba(0,0,0,.65)}
+.mdesc .meta{margin-top:14px;font:12px/1.5 var(--mono);color:rgba(255,255,255,.55)}
+:root[data-theme="light"] .mdesc .meta{color:rgba(0,0,0,.5)}
+
+/* ───── C: settings ───── */
+.cwrap{display:flex;flex-direction:column;align-items:center;gap:56px}
+.csub{display:flex;gap:44px;justify-content:center;align-items:flex-start}
+.winx{width:720px;background:var(--win);border-radius:12px;box-shadow:var(--shadow);color:var(--label);font-size:13px;line-height:1.3;position:relative}
+.lights{position:absolute;left:14px;top:14px;display:flex;gap:8px}
+.lights i{width:12px;height:12px;border-radius:50%;display:block;border:.5px solid rgba(0,0,0,.18)}
+.lights .r{background:#ff5f57}.lights .y{background:#febc2e}.lights .g{background:#28c840}
+.wtool{height:90px;background:var(--toolbar);border-radius:12px 12px 0 0;border-bottom:.5px solid var(--sep);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:6px}
+.wtool .tt{position:absolute;top:13px;left:0;right:0;text-align:center;font-weight:650;font-size:13px}
+.tabs{display:flex;gap:2px}
+.tbi{width:74px;height:46px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--l2);font-size:11px}
+.tbi.on{background:var(--seg);color:var(--accent)}
+.wbody{padding:26px 36px 30px;display:flex;flex-direction:column;gap:24px}
+.fr{display:grid;grid-template-columns:104px 1fr;gap:16px;align-items:start}
+.fr>.k{text-align:right;color:var(--label);padding-top:3px}
+.mtab{border:.5px solid var(--sep);border-radius:8px;background:var(--box);overflow:hidden}
+.mtr{display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;font-size:13px}
+.mtr+.mtr{border-top:.5px solid var(--sep)}
+.mtr .h{color:var(--l3);flex:1}
+.mtr .s{color:var(--l2);font-size:12px}
+.seg{display:inline-flex;background:var(--seg);border-radius:8px;padding:2px;gap:2px}
+.seg button{font:13px var(--font);color:var(--label);background:none;border:0;border-radius:6px;height:22px;padding:0 16px;min-width:72px;cursor:pointer}
+.seg button.on{background:var(--accent);color:#fff;font-weight:500}
+.cap2{font-size:11px;color:var(--l2);margin-top:8px;max-width:420px;line-height:1.4}
+.pv{background:var(--sidebar);border-radius:10px;width:290px;padding:6px 0;border:.5px solid var(--sep)}
+hr{border:0;border-top:.5px solid var(--sep)}
+.btn{font:13px var(--font);color:var(--label);background:var(--btn);border:.5px solid var(--btn-bd);border-radius:6px;height:22px;padding:0 12px;box-shadow:0 .5px 1px rgba(0,0,0,.2)}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-chevron" viewBox="0 0 16 16"><path d="M5.5 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 2.5v11M2.5 8h11" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+<symbol id="i-check" viewBox="0 0 16 16"><path d="M2.8 8.6l3.6 3.6 6.8-8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3.3"/><circle cx="12" cy="12" r="7.6" stroke-width="3.4" stroke-dasharray="3.6 2.8"/><circle cx="12" cy="12" r="6.2"/></g></symbol>
+<symbol id="i-server" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="6.5" rx="2"/><rect x="3" y="13.5" width="18" height="6.5" rx="2"/></g><circle cx="7" cy="7.25" r="1" fill="currentColor"/><circle cx="7" cy="16.75" r="1" fill="currentColor"/><path d="M11 7.25h6M11 16.75h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><circle cx="4.6" cy="6.5" r=".6"/><circle cx="4.6" cy="12" r=".6"/><circle cx="4.6" cy="17.5" r=".6"/></g></symbol>
+<symbol id="i-bubble" viewBox="0 0 24 24"><path d="M12 4.2c-4.7 0-8.3 3-8.3 6.9 0 2.1 1.1 4 2.8 5.2-.1 1.2-.6 2.2-1.4 3 1.8-.1 3.2-.8 4.2-1.7.8.2 1.7.3 2.7.3 4.7 0 8.3-3 8.3-6.8S16.700 4.200 12 4.200z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+<symbol id="i-signal" viewBox="0 0 16 16"><g fill="currentColor"><rect x="1.5" y="10" width="2.2" height="3.5" rx=".6"/><rect x="5" y="7.5" width="2.2" height="6" rx=".6"/><rect x="8.5" y="5" width="2.2" height="8.5" rx=".6"/><rect x="12" y="2.5" width="2.2" height="11" rx=".6"/></g></symbol>
+<symbol id="i-wifi" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1.6 6a9.5 9.5 0 0 1 12.800 0"/><path d="M3.800 8.500a6.300 6.300 0 0 1 8.400 0"/></g><circle cx="8" cy="11.800" r="1.400" fill="currentColor"/></symbol>
+<symbol id="i-battery" viewBox="0 0 24 16"><rect x="1" y="3" width="19" height="10" rx="3" fill="none" stroke="currentColor" stroke-opacity=".45"/><rect x="2.600" y="4.600" width="15.800" height="6.800" rx="1.800" fill="currentColor"/><path d="M21.500 6v4" stroke="currentColor" stroke-opacity=".45" stroke-width="1.500" stroke-linecap="round"/></symbol>
+
+<symbol id="i-bars" viewBox="0 0 24 24"><g fill="currentColor"><rect x="4" y="12" width="4.2" height="8" rx="1.4"/><rect x="9.9" y="6" width="4.2" height="14" rx="1.4"/><rect x="15.8" y="9" width="4.2" height="11" rx="1.4"/></g></symbol>
+</defs></svg>
+
+<header class="top">
+  <div><h1>Leo Machines: stats styles</h1><p>One setting, five ways to show CPU, memory and disk. Flat solid fills only: blue below 80%, amber at 80% or more, red at 90% or more. Static mockup, no app code changed.</p></div>
+  <button id="theme" type="button" aria-label="Toggle light and dark mode">Light mode</button>
+</header>
+<main>
+  <section class="panel" id="secA">
+    <div class="plabel"><span class="pnum">A</span><div><h2>iOS Machines list</h2><p>iPhone 17 Pro, 402 × 874 pt. Inset-grouped list, 16 pt margins, one cell layout for every style; only the meter line changes.</p></div></div>
+    <div class="stage"><div class="pgrid" id="phones"></div></div>
+  </section>
+  <section class="panel" id="secB">
+    <div class="plabel"><span class="pnum">B</span><div><h2>Mac sidebar machine header</h2><p>The same four machines in each style. Bars and Numbers need a second row; Capsules and Rings stay on the single header row.</p></div></div>
+    <div class="stage"><div class="mgrid" id="macs"></div></div>
+  </section>
+  <section class="panel" id="secC">
+    <div class="plabel"><span class="pnum">C</span><div><h2>Stats style setting</h2><p>Mac: segmented control in the Machines tab with a live preview. iOS: a row in Settings that pushes to a checkmark list. Click to try it.</p></div></div>
+    <div class="stage"><div class="cwrap"><div id="macset"></div><div class="csub" id="iosset"></div></div></div>
+  </section>
+</main>
+
+<script>
+const LEVEL = p => p >= 90 ? "crit" : p >= 80 ? "warn" : "ok";
+const KEYS = [["cpu", "CPU"], ["mem", "MEM"], ["dsk", "DSK"]];
+const STYLES = [
+  { id: "capsules", name: "Capsules", short: "Outlined, bottom-rising fill", note: "Stacked label beside an outlined capsule whose fill rises from the bottom." },
+  { id: "bars", name: "Bars", short: "Horizontal, value above", note: "Horizontal bars with the value above each." },
+  { id: "rings", name: "Rings", short: "Circular gauge, value inside", note: "Small circular gauges, the value inside." },
+  { id: "numbers", name: "Numbers", short: "Text only", note: "Text only, the smallest footprint." },
+  { id: "off", name: "Off", short: "No stats shown", note: "No stats shown anywhere." },
+];
+const MACHINES = [
+  { name: "MacBook Pro", host: "evans-mbp.local", agents: 3, stats: { cpu: 41, mem: 58, dsk: 64 } },
+  { name: "Dionysus", host: "dionysus.lan", agents: 3, stats: { cpu: 23, mem: 85, dsk: 47 } },
+  { name: "Hestia", host: "hestia.lan", failed: true, reason: "Operation timed out" },
+  { name: "leo-vm", host: "192.168.64.7", agents: 2, stats: null },
+];
+const ic = (id, s, vb = 16, cls = "ic") => `<svg class="${cls}" width="${s}" height="${s}" viewBox="0 0 ${vb} ${vb}" aria-hidden="true"><use href="#${id}"/></svg>`;
+const val = (m, k) => m.stats[k];
+
+/* ── meter renderers: (stats, platform) → html ── */
+const meters = {
+  capsules: (s, pf) => `<div class="cl cl-cap">${KEYS.map(([k, L]) => `<div class="cpm lv-${LEVEL(s[k])}"><span class="cpl">${[...L].map(c => `<b>${c}</b>`).join("")}</span><span class="cp"><i style="--p:${s[k] / 100}"></i></span></div>`).join("")}</div>`,
+  bars: (s, pf) => `<div class="cl cl-bar">${KEYS.map(([k, L]) => `<div class="bm lv-${LEVEL(s[k])}"><div class="bt"><span class="bk">${L}</span><span class="bv">${s[k]}%</span></div><div class="bb"><i style="width:${s[k]}%"></i></div></div>`).join("")}</div>`,
+  rings: (s, pf) => `<div class="cl cl-ring">${KEYS.map(([k, L]) => `<div class="rm lv-${LEVEL(s[k])}"><span class="rr"><svg viewBox="0 0 36 36"><circle class="rt" cx="18" cy="18" r="15"/><circle class="rf" cx="18" cy="18" r="15" stroke-dasharray="${(s[k] / 100 * 94.25).toFixed(2)} 94.25"/></svg><span class="rv">${s[k]}${pf === "ios" ? "%" : ""}</span></span>${pf === "ios" ? `<span class="rk">${L}</span>` : ""}</div>`).join("")}</div>`,
+  numbers: (s, pf) => `<div class="nl">${KEYS.map(([k, L]) => `<span class="n"><span class="nk">${L}</span><span class="nv lv-${LEVEL(s[k])}">${s[k]}%</span></span>`).join('<span class="nd">·</span>')}</div>`,
+};
+const hasMeters = (m, style) => !!m.stats && !m.failed && style !== "off";
+
+/* ── iOS cell ── */
+const iosCell = (m, style) => {
+  const status = m.failed ? "Unreachable" : "Connected";
+  const sub = m.failed ? m.host : `${m.host}<span class="sepd">·</span>${m.agents} agents`;
+  return `<div class="irow ${m.failed ? "bad" : ""}"><span class="ico">${ic("i-server", 22, 24)}</span><div class="itx">
+    <div class="il1"><span class="nm">${m.name}</span><span class="st ${m.failed ? "bad" : ""}">${status}</span></div>
+    <div class="il2">${sub}</div>
+    ${m.failed ? `<div class="why">${m.reason}</div>` : ""}
+    ${hasMeters(m, style) ? `<div class="im">${meters[style](m.stats, "ios")}</div>` : ""}
+  </div></div>`;
+};
+const TABS = [["i-list", "Agents"], ["i-bubble", "Chat"], ["i-server", "Machines"], ["i-gear", "Settings"]];
+const phoneChrome = (nav, body, activeTab) => `<div class="phone"><div class="screen"><div class="island"></div>
+  <div class="sbar"><span>9:41</span><span class="r">${ic("i-signal", 17)}${ic("i-wifi", 17)}<svg class="ic" width="27" height="17" viewBox="0 0 24 16" aria-hidden="true"><use href="#i-battery"/></svg></span></div>
+  ${nav}<div class="body">${body}</div>
+  <div class="tabbar">${TABS.map(([i, t]) => `<div class="tab ${t === activeTab ? "on" : ""}">${ic(i, 26, 24)}<span>${t}</span></div>`).join("")}<div class="home"></div></div></div></div>`;
+const bigNav = (title, trailing = "") => `<div class="nav"><span></span><span>${trailing}</span></div><div class="ltitle">${title}</div>`;
+const machinesPhone = style => phoneChrome(
+  bigNav("Machines", ic("i-plus", 22)),
+  `<div class="ilist">${MACHINES.map(m => iosCell(m, style)).join("")}</div>
+   <p class="ifoot">${style === "off" ? "Machines you have paired. Swipe left to forget one." : "Machines you have paired. Stats refresh every few seconds while this list is open. Swipe left to forget one."}</p>`,
+  "Machines");
+
+/* ── A ── */
+const notesCard = `<div class="notes">
+  <h4>Thresholds, all styles</h4>
+  <div class="sw"><i style="background:var(--m-ok)"></i>Below 80%</div>
+  <div class="sw"><i style="background:var(--m-warn)"></i>80% or more</div>
+  <div class="sw"><i style="background:var(--m-crit)"></i>90% or more</div>
+  <h4>iOS cell metrics (pt)</h4>
+  <table>
+    <tr><td>List margin, leading and trailing</td><td>16</td></tr>
+    <tr><td>Cell padding, vertical</td><td>12</td></tr>
+    <tr><td>Cell padding, horizontal</td><td>16</td></tr>
+    <tr><td>Symbol column, then gap</td><td>28 + 12</td></tr>
+    <tr><td>Separator inset</td><td>56</td></tr>
+    <tr><td>Name line / address line</td><td>22 / 20</td></tr>
+    <tr><td>Name to meters</td><td>9</td></tr>
+    <tr><td>Section corner radius</td><td>26</td></tr>
+  </table>
+  <h4>Alignment</h4>
+  <p>The symbol is centred on the name line. The status dot and its word sit on the name's baseline, trailing. The meter line always starts under the text, never beside it, so names never truncate.</p>
+  <h4>Offline and no stats</h4>
+  <p>Hestia shows no meters in any style: a red symbol, red dot, and the reason in red. leo-vm has no meter line because its daemon predates stats.</p></div>`;
+document.getElementById("phones").innerHTML = STYLES.map(s =>
+  `<div class="pcol"><div class="phd"><h3>${s.name}${s.id === "capsules" ? " · default" : ""}</h3><span>${s.short}</span></div>${machinesPhone(s.id)}</div>`).join("") + notesCard;
+
+/* ── B ── */
+const macHead = (m, style) => {
+  const showM = hasMeters(m, style);
+  const second = showM && (style === "bars" || style === "numbers");
+  const inline = showM && !second;
+  const cluster = inline ? meters[style](m.stats, "mac") : "";
+  const sub = m.failed ? `<span class="ms">Unreachable</span>` : "";
+  return `<div class="mh ${m.failed ? "dim" : ""}"><div class="l1">${ic("i-chevron", 10, 16, "ic chev")}<span class="dot ${m.failed ? "failed" : ""}"></span><span class="mn">${m.name}</span>${sub}<span class="sp"></span>${cluster}<span class="cnt">${m.agents ?? ""}</span></div>${second ? `<div class="l2">${meters[style](m.stats, "mac")}</div>` : ""}</div>`;
+};
+const macSlice = style => `<div class="sbs">${MACHINES.map(m => macHead(m, style)).join("")}</div>`;
+document.getElementById("macs").innerHTML = STYLES.map(s =>
+  `<div class="mrow"><div class="mdesc"><h3>${s.name}${s.id === "capsules" ? " · default" : ""}</h3><p>${s.note}</p><div class="meta">${({ capsules: "1 row · 22 pt", bars: "2 rows · 22 + 17 pt", rings: "1 row · 22 pt", numbers: "2 rows · 22 + 16 pt", off: "1 row · 22 pt" })[s.id]}</div></div>${macSlice(s.id)}</div>`).join("") + `<div class="mrow"><div class="mdesc"><h3>Thresholds</h3><p>Flat solid fills in every style. One colour per metric, never a gradient.</p></div><div class="mdesc" style="padding-top:2px"><div class="sw"><i style="background:var(--m-ok)"></i>Below 80%</div><div class="sw"><i style="background:var(--m-warn)"></i>80% or more</div><div class="sw"><i style="background:var(--m-crit)"></i>90% or more</div></div></div>`;
+
+/* ── C ── */
+let chosen = "capsules";
+const styleName = id => STYLES.find(s => s.id === id).name;
+const macSetting = () => `<div class="winx"><div class="lights"><i class="r"></i><i class="y"></i><i class="g"></i></div>
+  <div class="wtool"><div class="tt">Machines</div><div class="tabs">
+    <div class="tbi">${ic("i-gear", 20, 24)}<span>General</span></div>
+    <div class="tbi on">${ic("i-server", 20, 24)}<span>Machines</span></div>
+    <div class="tbi">${ic("i-bubble", 20, 24)}<span>Chat</span></div></div></div>
+  <div class="wbody">
+    <div class="fr"><div class="k">Machines:</div><div><div class="mtab">${MACHINES.map(m => `<div class="mtr"><span class="dot ${m.failed ? "failed" : ""}"></span><b style="font-weight:600">${m.name}</b><span class="h">${m.host}</span><span class="s">${m.failed ? "Unreachable" : "Connected"}</span></div>`).join("")}</div>
+      <div style="display:flex;gap:8px;margin-top:10px"><button class="btn">Add Machine…</button><button class="btn">Test Connection</button></div></div></div>
+    <hr>
+    <div class="fr"><div class="k">Stats style:</div><div><div class="seg" role="radiogroup" aria-label="Stats style">${STYLES.map(s => `<button type="button" role="radio" aria-checked="${s.id === chosen}" data-style="${s.id}" class="${s.id === chosen ? "on" : ""}">${s.name}</button>`).join("")}</div>
+      <div class="cap2">Shown beside each machine in the sidebar and the machine picker. Stored on this Mac only.</div></div></div>
+    <div class="fr"><div class="k">Preview:</div><div><div class="pv">${macHead(MACHINES[0], chosen)}${macHead(MACHINES[1], chosen)}</div></div></div>
+  </div></div>`;
+const iosSettings = () => phoneChrome(bigNav("Settings"),
+  `<div class="isec"><div class="ilist">
+     <div class="srow"><span class="sico" style="background:var(--indigo)">${ic("i-server", 18, 24)}</span><span class="lbl">Machines</span><span class="val">4</span>${ic("i-chevron", 14, 16, "ic disc")}</div>
+     <div class="srow" id="open-style" style="cursor:pointer"><span class="sico" style="background:var(--itint)">${ic("i-bars", 18, 24)}</span><span class="lbl">Stats style</span><span class="val">${styleName(chosen)}</span>${ic("i-chevron", 14, 16, "ic disc")}</div></div></div>
+   <div class="isec"><div class="ilist">
+     <div class="srow"><span class="sico" style="background:var(--green)">${ic("i-bubble", 18, 24)}</span><span class="lbl">Chat</span>${ic("i-chevron", 14, 16, "ic disc")}</div>
+     <div class="srow"><span class="sico" style="background:var(--gray)">${ic("i-gear", 18, 24)}</span><span class="lbl">General</span>${ic("i-chevron", 14, 16, "ic disc")}</div></div></div>`,
+  "Settings");
+const iosPicker = () => phoneChrome(
+  `<div class="nav inline"><span class="back">${ic("i-chevron", 17, 16, "ic").replace('class="ic"', 'class="ic" style="transform:scaleX(-1)"')}Settings</span><span class="ttl">Stats style</span></div>`,
+  `<div class="isec" style="margin-top:14px"><div class="ihead">Preview</div><div class="ilist">${iosCell(MACHINES[1], chosen)}</div></div>
+   <div class="isec"><div class="ilist">${STYLES.map(s => `<div class="crow" data-style="${s.id}"><span class="lbl">${s.name}</span><span class="tick">${s.id === chosen ? ic("i-check", 18) : ""}</span></div>`).join("")}</div>
+   <p class="ifoot">Applies to the Machines list and the machine picker. Stored on this iPhone only.</p></div>`,
+  "Settings");
+function renderC() {
+  document.getElementById("macset").innerHTML = macSetting();
+  document.getElementById("iosset").innerHTML =
+    `<div class="pcol"><div class="phd"><h3>Settings</h3><span>Row shows the current choice</span></div>${iosSettings()}</div>
+     <div class="pcol"><div class="phd"><h3>Stats style</h3><span>Pushed list, checkmark on the choice</span></div>${iosPicker()}</div>`;
+}
+renderC();
+document.getElementById("secC").addEventListener("click", e => {
+  const t = e.target.closest("[data-style]");
+  if (t) { chosen = t.dataset.style; renderC(); }
+});
+
+/* theme */
+const btn = document.getElementById("theme");
+const setTheme = t => { document.documentElement.dataset.theme = t; btn.textContent = t === "dark" ? "Light mode" : "Dark mode"; };
+btn.addEventListener("click", () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
+</script>
+</body>
+</html>

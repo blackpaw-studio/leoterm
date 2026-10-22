@@ -8,7 +8,7 @@
   --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro",system-ui,"Helvetica Neue",sans-serif;
   --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,monospace;
   --page:#121214; --page-fg:#f2f2f4; --page-fg2:#9a9aa3; --card:#1b1b1f; --page-sep:rgba(255,255,255,.09);
-  --stage:linear-gradient(135deg,#1b2745 0%,#33264f 55%,#1d3a40 100%);
+  --stage:#232338;
   --win:#1e1e20; --sidebar:#2a2a2d; --content:#1e1e20; --toolbar:#2c2c2f;
   --label:rgba(255,255,255,.92); --l2:rgba(235,235,245,.6); --l3:rgba(235,235,245,.3); --l4:rgba(235,235,245,.16);
   --sep:rgba(255,255,255,.1); --win-border:rgba(255,255,255,.14); --field:rgba(255,255,255,.07); --field-bd:rgba(255,255,255,.12);
@@ -23,7 +23,7 @@
 }
 :root[data-theme="light"]{
   --page:#f4f4f6; --page-fg:#1c1c1e; --page-fg2:#6c6c72; --card:#fff; --page-sep:rgba(0,0,0,.09);
-  --stage:linear-gradient(135deg,#cfd9f2 0%,#e2d5f0 55%,#cfe8e6 100%);
+  --stage:#dfe3f1;
   --win:#fff; --sidebar:#e8e8ea; --content:#fff; --toolbar:#ececee;
   --label:rgba(0,0,0,.85); --l2:rgba(60,60,67,.62); --l3:rgba(60,60,67,.36); --l4:rgba(60,60,67,.18);
   --sep:rgba(0,0,0,.1); --win-border:rgba(0,0,0,.16); --field:#fff; --field-bd:rgba(0,0,0,.14);
@@ -316,8 +316,7 @@ main{max-width:1180px;margin:0 auto;padding:12px 28px 80px;display:flex;flex-dir
 .cap i{position:absolute;left:calc(var(--u)*1px);right:calc(var(--u)*1px);bottom:calc(var(--u)*1px);
   height:max(calc(var(--u)*3px),calc((100% - var(--u)*2px)*var(--p)));
   border-radius:calc(var(--u)*3px);
-  background:linear-gradient(180deg,color-mix(in srgb,var(--c) 72%,#fff) 0%,var(--c) 70%);
-  box-shadow:0 0 calc(var(--u)*3px) color-mix(in srgb,var(--c) 38%,transparent)}
+  background:var(--c)}
 .im.hot .cap{border-color:var(--cap-bd-hot)}
 .im.nodata{opacity:.5}
 .im.nodata .cap{box-shadow:none;background:transparent}
@@ -355,7 +354,6 @@ main{max-width:1180px;margin:0 auto;padding:12px 28px 80px;display:flex;flex-dir
 .pmi .imc{margin-left:auto;gap:7px}
 .pmi.hi .im{--cap-bd:rgba(255,255,255,.7);--cap-bg:rgba(0,0,0,.22);--cap-lbl:rgba(255,255,255,.85)}
 .pmi.hi .im:not(.warn):not(.crit){--c:#fff}
-.pmi.hi .im:not(.warn):not(.crit) .cap i{box-shadow:none}
 .pmi .pr.dimr{margin-left:auto}
 
 /* iOS cell */
