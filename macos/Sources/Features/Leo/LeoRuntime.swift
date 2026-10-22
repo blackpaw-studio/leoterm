@@ -27,6 +27,8 @@ import LeoKit
     private var unreadOpenSubscriptions: Set<AnyCancellable> = []
     /// Every configured machine, connected at once (This Mac first).
     let machines: LeoMachineRegistry
+    /// Agents ▸ Machines…: the Leo Settings window. ⌘, stays the Ghostty config.
+    private(set) lazy var settingsWindow = LeoSettingsWindowController(registry: machines, defaults: defaults)
     /// Each machine's daemon client, handed to actions and control per row.
     let clients: LeoRegistryMachineClients
     /// Agents ▸ Agent Notifications… policy for background transitions.
@@ -372,6 +374,7 @@ import LeoKit
             LeoMenuCommands.machinesToReconnect(model?.machineConnectivity ?? []).forEach { machines?.reconnect($0) }
         }
         model.reconnectRequested = { [weak machines] host in machines?.reconnect(host) }
+        model.editMachineRequested = { [weak self] host in self?.presentMachinesSettings(selecting: host) }
         model.connectionFailureHint = { [weak machines] host in
             guard let hint = machines?.connectionState(for: host)?.failureHint,
                   let target = machines?.configuration(for: host)?.sshTarget else { return nil }

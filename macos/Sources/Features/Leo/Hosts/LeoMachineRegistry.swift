@@ -135,10 +135,13 @@ import LeoKit
         generations[host] ?? 0
     }
 
-    /// The Manage Hosts… editor's draft; saving it reloads the machines.
-    /// TODO(S8): replaced by the Machines settings pane.
-    func makeHostsSheetModel() -> LeoHostsSheetModel {
-        LeoHostsSheetModel(store: store) { [weak self] in self?.reload() }
+    /// The Machines settings pane's draft. Saving it reloads only the
+    /// machines whose settings changed; Test Connection never touches a
+    /// live connection.
+    func makeSettingsModel() -> LeoMachinesSettingsModel {
+        LeoMachinesSettingsModel(store: store, tester: LeoMachineConnectionTester(environment: environment)) { [weak self] in
+            self?.reload()
+        }
     }
 
     // MARK: - Lifecycle

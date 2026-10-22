@@ -244,14 +244,15 @@ enum LeoMachineRegistryTestSupport {
         defaults: UserDefaults,
         tunnels: LeoFakeTunnels,
         runner: any LeoProcessRunning = LeoFakeHomeRunner(stdout: "/home/evan"),
-        orphanStore: LeoTunnelOrphanStore? = nil
+        orphanStore: LeoTunnelOrphanStore? = nil,
+        transport: any LeoDaemonTransport = LeoAlwaysHealthyTransport()
     ) -> LeoMachineConnectionEnvironment {
         let directory = LeoMachineTunnelTestSupport.localSocketDirectory
         return LeoMachineConnectionEnvironment(
             orphanStore: orphanStore ?? LeoTunnelOrphanStore(defaults: defaults, legacySocketDirectory: directory),
             runner: runner,
             sshExecutable: LeoTunnelTestSupport.fixtureURL(),
-            transport: LeoAlwaysHealthyTransport(),
+            transport: transport,
             localSocketPath: LeoMachineTunnelTestSupport.localSocketPath,
             legacySocketDirectory: directory,
             controlSocketDirectory: directory,
