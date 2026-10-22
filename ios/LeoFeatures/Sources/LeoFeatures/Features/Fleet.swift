@@ -19,6 +19,9 @@ public struct DaemonSession: Equatable, Identifiable, Sendable {
     /// The daemon answered `machine_stats_unavailable`: no meters, no polling
     /// until it reconnects.
     public var isStatsUnavailable = false
+    /// Consecutive polls that got no sample; the sample is dropped once it
+    /// is `Fleet.staleAfterMissedPolls` old.
+    var missedStatsPolls = 0
 
     public var id: String { daemon.id }
 
@@ -93,6 +96,17 @@ public struct Fleet {
         /// app is active and the style draws meters.
         var pollsStats: Bool { isActive && isShowingStats && statsStyle.showsMeters }
 
+        /// Samples are only as fresh as the polling that feeds them, so a
+        /// list that isn't polling holds none: reopening it never shows an
+        /// old one.
+        mutating func dropStatsUnlessPolling() {
+            guard !pollsStats else { return }
+            for id in sessions.ids {
+                sessions[id: id]?.stats = nil
+                sessions[id: id]?.missedStatsPolls = 0
+            }
+        }
+
         public var attentionCount: Int {
             sessions.reduce(0) { $0 + $1.agents.filter(\.priority.needsAttention).count }
         }
@@ -113,6 +127,9 @@ public struct Fleet {
         case sequenceGap(DaemonSession.ID)
         case scenePhaseChanged(isActive: Bool)
         case snapshotLoaded(DaemonSession.ID, LeoObservedState)
+        /// A poll got no sample (timeout, network); the last one stands until
+        /// `staleAfterMissedPolls` in a row.
+        case statsFailed(DaemonSession.ID)
         case statsLoaded(DaemonSession.ID, LeoMachineStats)
         case statsStyleChanged(LeoStatsStyle)
         case statsUnavailable(DaemonSession.ID)
@@ -128,6 +145,9 @@ public struct Fleet {
 
     /// Seconds between stats samples while the Machines list is open.
     static let statsInterval = Duration.seconds(5)
+    /// Missed polls (15s at the poll interval) after which the last sample is
+    /// too old to show.
+    static let staleAfterMissedPolls = 3
 
     @Dependency(\.continuousClock) var clock
     @Dependency(\.daemonClient) var daemonClient
@@ -159,7 +179,9 @@ public struct Fleet {
                 } else {
                     state.sessions.append(DaemonSession(daemon: daemon))
                 }
-                return .merge(save(state), connect(daemon.id, state: &state))
+                // A re-paired daemon starts over: its old poll must not feed
+                // the new session.
+                return .merge(.cancel(id: CancelID.stats(daemon.id)), save(state), connect(daemon.id, state: &state))
 
             case .daemonRemoved(let id):
                 state.sessions.remove(id: id)
@@ -200,21 +222,31 @@ public struct Fleet {
                 state.sessions[id: id]?.applySnapshot(snapshot)
                 return .none
 
+            case .statsFailed(let id):
+                let missed = (state.sessions[id: id]?.missedStatsPolls ?? 0) + 1
+                state.sessions[id: id]?.missedStatsPolls = missed
+                if missed >= Self.staleAfterMissedPolls { state.sessions[id: id]?.stats = nil }
+                return .none
+
             case .statsLoaded(let id, let stats):
                 state.sessions[id: id]?.stats = stats
+                state.sessions[id: id]?.missedStatsPolls = 0
                 return .none
 
             case .statsStyleChanged(let style):
                 state.$statsStyle.withLock { $0 = style }
+                state.dropStatsUnlessPolling()
                 return pollAllStats(state: state)
 
             case .statsUnavailable(let id):
                 state.sessions[id: id]?.isStatsUnavailable = true
                 state.sessions[id: id]?.stats = nil
+                state.sessions[id: id]?.missedStatsPolls = 0
                 return .cancel(id: CancelID.stats(id))
 
             case .statsVisibilityChanged(let isVisible):
                 state.isShowingStats = isVisible
+                state.dropStatsUnlessPolling()
                 return pollAllStats(state: state)
 
             case .streamEnded(let id, let end):
@@ -279,16 +311,25 @@ public struct Fleet {
             while !Task.isCancelled {
                 do {
                     await send(.statsLoaded(id, try await daemonClient.machineStats(connection)))
-                } catch LeoDaemonError.daemon(let code, _, _) where code == LeoMachineStats.unavailableCode {
+                } catch LeoDaemonError.daemon(let code, _, _) where Self.endsStatsPolling(code) {
                     await send(.statsUnavailable(id))
                     return
                 } catch is CancellationError {
                     return
-                } catch {}
+                } catch {
+                    await send(.statsFailed(id))
+                }
                 try await clock.sleep(for: Self.statsInterval)
             }
         } catch: { _, _ in }
         .cancellable(id: CancelID.stats(id), cancelInFlight: true)
+    }
+
+    /// The daemon says stats won't come: it has none (503), or it refuses this
+    /// device's token (401/403), which polling again can't fix.
+    private static func endsStatsPolling(_ code: String?) -> Bool {
+        guard let code else { return false }
+        return [LeoMachineStats.unavailableCode, "unauthorized", "forbidden"].contains(code)
     }
 
     private func save(_ state: State) -> Effect<Action> {

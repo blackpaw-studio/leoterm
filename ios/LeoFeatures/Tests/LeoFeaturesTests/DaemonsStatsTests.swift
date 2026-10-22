@@ -153,6 +153,82 @@ struct DaemonsStatsTests {
         #expect(store.state.sessions[id: PairedDaemon.dionysus.id]?.meters == nil)
     }
 
+    @Test(arguments: ["unauthorized", "forbidden"])
+    func aRejectedTokenClearsTheMetersAndStopsPollingUntilReconnect(code: String) async {
+        let clock = TestClock()
+        let calls = LockIsolated(0)
+        let store = store(sessions: [.connected(.dionysus)], clock: clock) { _ in
+            calls.withValue { $0 += 1 }
+            if calls.value == 1 { return .make() }
+            throw LeoDaemonError.daemon(code: code, message: "no", matches: [])
+        }
+        await store.send(.statsVisibilityChanged(true))
+        await store.receive(\.statsLoaded)
+        await clock.advance(by: .seconds(5))
+        await store.receive(\.statsUnavailable)
+        await clock.advance(by: .seconds(30))
+
+        #expect(calls.value == 2)
+        #expect(store.state.sessions[id: PairedDaemon.dionysus.id]?.stats == nil)
+        #expect(store.state.sessions[id: PairedDaemon.dionysus.id]?.meters == nil)
+    }
+
+    @Test func hidingTheListClearsTheSamplesSoReopeningNeverShowsAnOldOne() async {
+        let clock = TestClock()
+        let store = store(sessions: [.connected(.dionysus)], clock: clock) { _ in .make() }
+        await store.send(.statsVisibilityChanged(true))
+        await store.receive(\.statsLoaded)
+        #expect(store.state.sessions[id: PairedDaemon.dionysus.id]?.meters != nil)
+
+        await store.send(.statsVisibilityChanged(false))
+
+        #expect(store.state.sessions[id: PairedDaemon.dionysus.id]?.stats == nil)
+    }
+
+    @Test func aSampleThatCouldNotBeRefreshedForFifteenSecondsIsDropped() async {
+        let clock = TestClock()
+        let calls = LockIsolated(0)
+        let store = store(sessions: [.connected(.dionysus)], clock: clock) { _ in
+            calls.withValue { $0 += 1 }
+            if calls.value == 1 { return .make() }
+            throw LeoDaemonError.timeout
+        }
+        let id = PairedDaemon.dionysus.id
+        await store.send(.statsVisibilityChanged(true))
+        await store.receive(\.statsLoaded)
+
+        // Two missed polls (10s): the sample is still the latest there is.
+        await clock.advance(by: .seconds(5))
+        await store.receive(\.statsFailed)
+        await clock.advance(by: .seconds(5))
+        await store.receive(\.statsFailed)
+        #expect(store.state.sessions[id: id]?.stats != nil)
+
+        // The third (15s) drops it.
+        await clock.advance(by: .seconds(5))
+        await store.receive(\.statsFailed)
+        #expect(store.state.sessions[id: id]?.stats == nil)
+    }
+
+    @Test func rePairingADaemonStopsItsStatsPolling() async {
+        let clock = TestClock()
+        let fetches = LockIsolated(0)
+        let store = store(sessions: [.connected(.dionysus)], clock: clock) { _ in
+            fetches.withValue { $0 += 1 }
+            return .make()
+        }
+        store.dependencies.pairedDaemons.save = { _ in }
+        store.dependencies.daemonClient.events = { _ in AsyncThrowingStream { _ in } }
+        await store.send(.statsVisibilityChanged(true))
+        await store.receive(\.statsLoaded)
+
+        await store.send(.daemonAdded(.dionysus))
+        await clock.advance(by: .seconds(30))
+
+        #expect(fetches.value == 1)
+        #expect(store.state.sessions[id: PairedDaemon.dionysus.id]?.stats == nil)
+    }
+
     @Test func styleOffNeverPollsAndTurningItOffStopsPolling() async {
         let clock = TestClock()
         let fetches = LockIsolated(0)
