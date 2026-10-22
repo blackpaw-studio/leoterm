@@ -60,6 +60,11 @@ The Leo app treats every configured leo host as a first-class **machine**. All m
   - `memory.used_bytes` uses the platform's "used" figure: on macOS that is app, wired and compressed memory; on Linux it is total minus available.
   - `disk` is the volume holding the daemon's state directory.
 - The daemon samples on request and caches the result for 1s. It runs no background sampler.
+- Amendments agreed with the leo agent on 2026-10-21; the route ships in leo v0.57.0:
+  - Each section is independently nullable: `cpu`, `memory` and `disk` can each be `null` when its probe fails. The route still returns 200, and the app shows that one meter as "—".
+  - `cpu.percent` is `null` and the baseline resets when the previous sample is more than 60s old.
+  - Disk is measured with statfs on the state directory: `used = total − f_bavail·bsize`, and `path` is the state directory itself.
+  - On Linux, if MemAvailable is missing, memory falls back to MemFree + Buffers + Cached.
 - The app polls each connected machine every 5s while the sidebar is visible and the app is active, and stops polling otherwise. iOS polls only while its machine list is on screen.
 - The leo agent owns the daemon half. The contract above goes to it as the spec section to implement.
 
