@@ -12,8 +12,8 @@ enum LeoControlFeedback: Equatable, Sendable {
 
 /// The state behind the prompt box and its verbs (B-262): a draft per agent
 /// row (memory only, not a queue), the one verb in flight per row, inline
-/// feedback, and the hosts whose token the daemon refused. Bound to the
-/// selected host's daemon by `LeoRuntime`, like `LeoAgentActions`.
+/// feedback, and the hosts whose token the daemon refused. Each verb goes
+/// to its row's own host's daemon, resolved like `LeoAgentActions`.
 @MainActor final class LeoAgentControlModel: ObservableObject {
     /// The daemon's limit on `text` (256 KiB).
     static let maxMessageBytes = 256 * 1024
@@ -25,26 +25,13 @@ enum LeoControlFeedback: Equatable, Sendable {
     /// Retry (principle 5: no auto re-probe).
     @Published private(set) var deniedHosts: Set<LeoHostID> = []
 
-    private var daemon: any LeoDaemonClient
-    private var daemonHost: LeoHostID
+    private let clients: any LeoMachineClientResolving
     private var confirmingClear: Set<LeoAgentRow.ID> = []
     private let confirmClear: @MainActor (LeoAgentRow, NSWindow?) async -> Bool
 
-    init(daemon: any LeoDaemonClient, daemonHost: LeoHostID = .local, confirmClear: @escaping @MainActor (LeoAgentRow, NSWindow?) async -> Bool) {
-        self.daemon = daemon
-        self.daemonHost = daemonHost
+    init(clients: any LeoMachineClientResolving, confirmClear: @escaping @MainActor (LeoAgentRow, NSWindow?) async -> Bool) {
+        self.clients = clients
         self.confirmClear = confirmClear
-    }
-
-    /// Called whenever the selected connection's daemon changes. A different
-    /// host drops inline feedback; drafts stay, and so does in-flight state
-    /// (row ids include the host, and the request clears its own entry), so
-    /// switching A to B and back can't double-post to A.
-    func updateDaemon(_ daemon: any LeoDaemonClient, host: LeoHostID) {
-        self.daemon = daemon
-        guard host != daemonHost else { return }
-        daemonHost = host
-        feedback = [:]
     }
 
     func draft(for id: LeoAgentRow.ID) -> String { drafts[id] ?? "" }
@@ -106,7 +93,7 @@ enum LeoControlFeedback: Equatable, Sendable {
         _ verb: LeoControlVerb, _ row: LeoAgentRow, _ operation: @Sendable (any LeoDaemonClient) async throws -> T
     ) async -> T? {
         guard inFlight[row.id] == nil, !deniedHosts.contains(row.host) else { return nil }
-        guard row.host == daemonHost else {
+        guard let daemon = clients.daemon(for: row.host) else {
             feedback[row.id] = .error("\(row.host.displayName) isn't connected.")
             return nil
         }
@@ -114,10 +101,10 @@ enum LeoControlFeedback: Equatable, Sendable {
         feedback[row.id] = nil
         defer { inFlight[row.id] = nil }
         do {
-            // A success belongs to its own row (ids include the host), so it counts after a switch.
+            // A success belongs to its own row (ids include the host), so it counts after a reconnect.
             return try await operation(daemon)
         } catch {
-            // Keyed by row and host, so a late failure lands on its own row even after a switch.
+            // Keyed by row and host, so a late failure lands on its own row even after a reconnect.
             fail(error, row)
             return nil
         }

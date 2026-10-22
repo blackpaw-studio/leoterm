@@ -15,7 +15,7 @@ struct LeoAgentControlModelTests {
         _ transport: ControlModelTransport, confirm: @escaping (LeoAgentRow) async -> Bool = { _ in true }
     ) -> LeoAgentControlModel {
         LeoAgentControlModel(
-            daemon: LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport), daemonHost: .local,
+            clients: FakeMachineClients(daemon: LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport)),
             confirmClear: { row, _ in await confirm(row) }
         )
     }
@@ -101,15 +101,42 @@ struct LeoAgentControlModelTests {
         #expect(await transport.paths.count == 2)
     }
 
-    @Test func hostSwitchClearsErrorsNotDrafts() async {
-        let model = make(ControlModelTransport(status: 503, body: #"{"ok":false,"error":"down"}"#))
+    @Test func aVerbOnBsRowReachesBsDaemonWhileAIsDisconnected() async {
+        let work = LeoHostID.remote("work")
+        let transportA = ControlModelTransport(status: 200, body: Self.ok)
+        let transportB = ControlModelTransport(status: 200, body: Self.ok)
+        let clients = FakeMachineClients(daemons: [
+            .local: LeoSocketDaemonClient(socketPath: "/tmp/a.sock", transport: transportA),
+            work: LeoSocketDaemonClient(socketPath: "/tmp/b.sock", transport: transportB),
+        ])
+        clients.disconnect(.local)
+        let model = LeoAgentControlModel(clients: clients, confirmClear: { _, _ in true })
+        let rowB = LeoAgentRow(host: work, name: "alpha", template: nil, status: .running, activity: .idle, actionDetail: nil)
+
+        await model.interrupt(rowB)
+        await model.interrupt(Self.row)
+
+        #expect(await transportB.paths == ["/agents/alpha/interrupt"])
+        #expect(await transportA.paths.isEmpty)
+        #expect(model.feedback[rowB.id] == nil)
+        #expect(model.feedback[Self.row.id] == .error("localhost isn't connected."))
+    }
+
+    @Test func aMachineComingBackKeepsDraftsAndLetsItsRowsSend() async {
+        let transport = ControlModelTransport(status: 200, body: Self.ok)
+        let clients = FakeMachineClients()
+        let model = LeoAgentControlModel(clients: clients, confirmClear: { _, _ in true })
         model.setDraft("keep me", for: Self.row.id)
         await model.send(Self.row)
-        #expect(model.feedback[Self.row.id] != nil)
-        let other = LeoSocketDaemonClient(socketPath: "/tmp/other.sock", transport: ControlModelTransport(status: 200, body: Self.ok))
-        model.updateDaemon(other, host: .remote("work"))
-        #expect(model.feedback.isEmpty)
+        #expect(model.feedback[Self.row.id] == .error("localhost isn't connected."))
         #expect(model.draft(for: Self.row.id) == "keep me")
+
+        clients.connect(.local, LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport))
+        await model.send(Self.row)
+
+        #expect(await transport.paths == ["/agents/alpha/message"])
+        #expect(model.draft(for: Self.row.id) == "")
+        #expect(model.feedback[Self.row.id] == nil)
     }
 
     @Test func secondActionWhileInFlightIsIgnored() async throws {
@@ -211,17 +238,14 @@ struct LeoAgentControlModelTests {
         #expect(await transport.paths == ["/agents/alpha/interrupt"])
     }
 
-    @Test func hostSwitchRoundTripDoesNotAllowADuplicatePost() async throws {
+    @Test func aReconnectDoesNotAllowADuplicatePost() async throws {
         let transport = ControlModelTransport(status: 200, body: Self.ok, isGated: true)
         let local = LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport)
-        let model = LeoAgentControlModel(daemon: local, daemonHost: .local, confirmClear: { _, _ in true })
+        let clients = FakeMachineClients(daemon: local)
+        let model = LeoAgentControlModel(clients: clients, confirmClear: { _, _ in true })
         let first = Task { await model.interrupt(Self.row) }
         try await until { await transport.paths.count == 1 }
-        model.updateDaemon(
-            LeoSocketDaemonClient(socketPath: "/tmp/other.sock", transport: ControlModelTransport(status: 200, body: Self.ok)),
-            host: .remote("work")
-        )
-        model.updateDaemon(local, host: .local)
+        clients.connect(.local, local)
         await model.interrupt(Self.row)
         #expect(await transport.paths.count == 1)
         await transport.release()
@@ -229,18 +253,15 @@ struct LeoAgentControlModelTests {
         #expect(model.inFlight[Self.row.id] == nil)
     }
 
-    @Test func lateFailureAfterAHostRoundTripStillDeniesAndShowsTheError() async throws {
+    @Test func lateFailureAfterAReconnectStillDeniesAndShowsTheError() async throws {
         let transport = ControlModelTransport(status: 403, body: #"{"ok":false,"error":"operator token required"}"#, isGated: true)
         let local = LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport)
-        let model = LeoAgentControlModel(daemon: local, daemonHost: .local, confirmClear: { _, _ in true })
+        let clients = FakeMachineClients(daemon: local)
+        let model = LeoAgentControlModel(clients: clients, confirmClear: { _, _ in true })
         model.setDraft("hi", for: Self.row.id)
         let first = Task { await model.send(Self.row) }
         try await until { await transport.paths.count == 1 }
-        model.updateDaemon(
-            LeoSocketDaemonClient(socketPath: "/tmp/other.sock", transport: ControlModelTransport(status: 200, body: Self.ok)),
-            host: .remote("work")
-        )
-        model.updateDaemon(local, host: .local)
+        clients.connect(.local, local)
         await transport.release()
         await first.value
         #expect(model.deniedHosts == [.local])

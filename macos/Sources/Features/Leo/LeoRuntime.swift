@@ -27,6 +27,7 @@ import LeoKit
     private var unreadOpenSubscriptions: Set<AnyCancellable> = []
     private let localChatClient: any LeoChatClient
     let hostSelection: LeoHostSelection
+    private let machineClients: LeoSelectionMachineClients
     /// Agents ▸ Agent Notifications… policy for background transitions.
     let attentionNotifications: LeoAttentionController
     let feed: LeoSidebarFeed
@@ -338,13 +339,15 @@ import LeoKit
             }
         )
         focusedAgentRelay = LeoOrderedRelay(sink: focusedAgentSink ?? { [weak feed] id in await feed?.setFocusedAgent(id) })
+        let machineClients = LeoSelectionMachineClients(hostSelection: hostSelection, daemon: daemon)
+        self.machineClients = machineClients
         actions = LeoAgentActions(
-            daemon: daemon, cli: cli, model: model, hostSelection: hostSelection, processRunner: templateFetchRunner
+            clients: machineClients, cli: cli, model: model, hostSelection: hostSelection, processRunner: templateFetchRunner
         ) { [weak feed] in
             Task { await feed?.refresh() }
         }
         actionsBox.actions = actions
-        control = LeoAgentControlModel(daemon: daemon, confirmClear: { row, window in
+        control = LeoAgentControlModel(clients: machineClients, confirmClear: { row, window in
             await LeoClearConfirmation.confirm(agent: row.name, in: window)
         })
         model.startRequested = { [weak actions] row, completion in actions?.start(row, completion: completion) }
@@ -693,8 +696,8 @@ import LeoKit
                 : LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
         }
         guard sequence == connectionSequence else { return }
-        actions.updateDaemon(daemon, host: host)
-        control.updateDaemon(daemon, host: host)
+        machineClients.bind(daemon, host: host)
+        actions.hostConnected(host)
         chat.updateClient(chatClient, host: host)
         unread.updateClient(chatClient, host: host)
         await feed.updateConnection(host: host, generation: generation, phase: .connected(daemon: daemon, activitySource: activitySource))

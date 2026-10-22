@@ -72,16 +72,16 @@ import Testing
         runtime.hostSelection.select(.remote("work"))
 
         await awaitCondition(timeout: 5, message: "the remote host's templates never loaded") {
-            await runtime.actions.templateList == .loaded([])
+            await runtime.actions.templateList(for: .remote("work")) == .loaded([])
         }
         let calls = await templateRunner.calls
-        #expect(calls.count == 1, "one template fetch per host selection, got \(calls)")
+        #expect(calls.count == 1, "one template fetch per host connection, got \(calls)")
         let call = try #require(calls.first)
         #expect(call.executable == "/usr/bin/ssh", "production's ssh exec, handed to the injected runner")
         #expect(call.arguments == ["-o", "BatchMode=yes", "evan@work", "~/'.local/bin/leo' 'template' 'list' '--json'"])
     }
 
-    /// B-112: selecting localhost loads its templates through the `LeoCLI`
+    /// B-112: connecting localhost loads its templates through the `LeoCLI`
     /// `LeoRuntime` was given -- the same `leo template list --json`
     /// production runs, but no real local `leo` process is launched.
     @Test func selectingTheLocalHostFetchesTemplatesThroughTheInjectedCLIRunner() async throws {
@@ -97,7 +97,7 @@ import Testing
 
         #expect(runtime.hostSelection.selected == .local)
         await awaitCondition(timeout: 5, message: "localhost's templates never loaded") {
-            await runtime.actions.templateList == .loaded([LeoTemplate(name: "local-template")])
+            await runtime.actions.templateList(for: .local) == .loaded([LeoTemplate(name: "local-template")])
         }
         let calls = await recorder.calls
         #expect(calls == [.init(executable: "/leo", arguments: ["template", "list", "--json"])], "one CLI template fetch, got \(calls)")
