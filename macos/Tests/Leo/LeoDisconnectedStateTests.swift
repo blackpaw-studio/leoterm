@@ -185,6 +185,15 @@ import Testing
         #expect(LeoForcedDisconnectFixture.reason(environment: [LeoForcedDisconnectFixture.environmentKey: "0"]) == nil)
     }
 
+    /// Only the fixture's own drop is exempt from the automatic retry, so
+    /// its banner stays up for screenshots.
+    @Test func onlyTheFixturesOwnDropIsForced() {
+        let forced = LeoForcedDisconnectFixture.forcedReason
+        #expect(LeoForcedDisconnectFixture.isForced(.disconnected(reason: forced, isRetrying: false)))
+        #expect(!LeoForcedDisconnectFixture.isForced(.disconnected(reason: "Connection closed", isRetrying: false)))
+        #expect(!LeoForcedDisconnectFixture.isForced(.connected))
+    }
+
     @Test func theForcedDisconnectFixtureDisconnectsOnceAfterTheFirstList() async throws {
         let model = LeoSidebarModel()
         let requests = ForcedRequests()

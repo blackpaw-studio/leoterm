@@ -3,8 +3,10 @@ import Foundation
 /// The disconnected state (B-007, D-061): entered when the activity stream
 /// drops, a live tunnel dies or the one wake check fails. Rows stay with
 /// their activity cleared; every stream, refresh, poll and attention timer
-/// stops, and nothing restarts until the user's Retry reconnects (see
-/// `updateConnection`'s same-host retry path). No timers, ever.
+/// stops, and nothing restarts until a Retry reconnects (see
+/// `updateConnection`'s same-host retry path): the user's Reconnect, or
+/// `LeoMachineRegistry`'s backoff, which `LeoRuntime` starts when it sees
+/// this drop. The feed itself keeps no timers, ever.
 extension LeoSidebarFeed {
     var isDisconnected: Bool { snapshot.connectivity.isDisconnected }
 

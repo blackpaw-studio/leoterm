@@ -45,6 +45,9 @@ extension LeoRuntime {
     /// that backoff start over.
     func feedSnapshotLanded(_ snapshot: LeoSidebarSnapshot, for host: LeoHostID) {
         guard !isShutDown else { return }
+        #if DEBUG
+        if LeoForcedDisconnectFixture.isForced(snapshot.connectivity) { return }
+        #endif
         switch daemonLoss.observe(snapshot, for: host) {
         case .stoppedAnswering(let reason)?: machines.daemonStoppedAnswering(host, reason: reason)
         case .answered?: machines.daemonAnswered(host)
