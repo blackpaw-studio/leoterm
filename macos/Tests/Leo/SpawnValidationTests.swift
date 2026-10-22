@@ -31,7 +31,7 @@ struct SpawnValidationTests {
         #expect(SpawnValidation.spawn(template: "swift", repo: path, name: nil, on: .remote("work"), pathExists: { _ in false }) == nil)
     }
 
-    @Test(arguments: ["app", "./app", "../app", "~", "~evan/app", " /srv/app", "/srv/a\u{0}pp", "/srv/a\npp", "/srv/a\rpp"])
+    @Test(arguments: ["app", "./app", "../app", "~", "~evan/app", " /srv/app", "/srv/a\u{0}pp", "/srv/a\npp", "/srv/a\rpp", "/srv/a\r\npp", "/srv/app\r\n"])
     func aRemoteMachineRejectsAPathOfTheWrongShape(path: String) {
         #expect(SpawnValidation.spawn(template: "swift", repo: path, name: nil, on: .remote("work"), pathExists: { _ in true }) == "Enter an absolute path or ~/…")
     }

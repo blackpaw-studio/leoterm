@@ -32,9 +32,10 @@ enum SpawnValidation {
         return name.flatMap { Self.name($0) }
     }
 
-    /// An absolute path or `~/…`, with no NUL or line break.
+    /// An absolute path or `~/…`, with no NUL or line break. Scalars, not
+    /// Characters: "\r\n" is one Character that equals neither "\r" nor "\n".
     static func isRemotePath(_ path: String) -> Bool {
-        (path.hasPrefix("/") || path.hasPrefix("~/")) && !path.contains(where: { "\0\n\r".contains($0) })
+        (path.hasPrefix("/") || path.hasPrefix("~/")) && !path.unicodeScalars.contains(where: { "\0\n\r".unicodeScalars.contains($0) })
     }
 
     /// `repo` when it is the daemon's GitHub `owner/repo` form (exactly one
