@@ -7,6 +7,8 @@ import SwiftUI
 struct LeoConfigRestartActions {
     var restartService: (() async -> String?)?
     var restartAgents: (() async -> String?)?
+    /// How many agents are running now, read when Restart All Agents is chosen.
+    var runningAgents: (() async -> Int?)?
 
     static let none = LeoConfigRestartActions()
 }
@@ -22,6 +24,8 @@ struct LeoRestartPrompt: View {
     @State private var confirming: Kind?
     @State private var isWorking = false
     @State private var failure: String?
+    /// The running-agent count the Restart All Agents question names.
+    @State private var runningAgents: Int?
 
     private enum Kind: Identifiable {
         case service, agents
@@ -44,7 +48,7 @@ struct LeoRestartPrompt: View {
                 Button("Restart Daemon") { confirming = .service }.disabled(isWorking)
             }
             if required.agents, actions.restartAgents != nil {
-                Button("Restart All Agents") { confirming = .agents }.disabled(isWorking)
+                Button("Restart All Agents") { Task { await askAboutAgents() } }.disabled(isWorking)
             }
             Button("Later", action: dismiss)
         }
@@ -62,8 +66,14 @@ struct LeoRestartPrompt: View {
         } message: { kind in
             Text(kind == .service
                 ? "Running agents keep their tmux sessions."
-                : "Each agent is restarted and loses its current turn.")
+                : LeoServiceSettingsModel.agentsRestartMessage(running: runningAgents))
         }
+    }
+
+    /// Reads how many agents are running, then asks: the answer names the count.
+    private func askAboutAgents() async {
+        runningAgents = await actions.runningAgents?()
+        confirming = .agents
     }
 
     /// Runs the confirmed restart. The prompt goes away when it went through

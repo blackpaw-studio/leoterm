@@ -310,6 +310,25 @@ struct LeoSettingsTargetModelTests {
         #expect(await fake.calls.contains(.restartAgents))
     }
 
+    @Test func theAgentsRestartPromptLearnsHowManyAgentsAreRunning() async {
+        let fake = Self.config()
+        await fake.setService(LeoFakeServiceState(processes: [
+            LeoServiceProcess(name: "coder", status: "running"), LeoServiceProcess(name: "reviewer", status: "running"),
+            LeoServiceProcess(name: "old", status: "stopped"),
+        ]))
+        let harness = Self.harness(daemons: [.local: fake], statuses: [.local: .connected])
+        await harness.model.settled()
+
+        #expect(await harness.model.restartActions.runningAgents?() == 2)
+    }
+
+    @Test func withNoConnectionTheAgentCountIsUnknown() async {
+        let harness = Self.harness(statuses: [.local: .failed("down")])
+        await harness.model.settled()
+
+        #expect(await harness.model.restartActions.runningAgents?() == nil)
+    }
+
     @Test func aRestartThatFailsComesBackAsTextForThePromptToShow() async {
         let fake = Self.config()
         let harness = Self.harness(daemons: [.local: fake], statuses: [.local: .connected])

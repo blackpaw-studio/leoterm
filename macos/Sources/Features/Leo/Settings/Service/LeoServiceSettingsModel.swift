@@ -32,13 +32,20 @@ import LeoKit
     static let logLines = 200
     static let logInterval = Duration.seconds(2)
     static let restartPollInterval = Duration.seconds(1)
+    /// Polls that find the daemon unreachable before giving up on it.
     static let defaultMaxRestartPolls = 60
+    /// The whole restart wait. A graceful restart lets busy agents drain for
+    /// up to ten minutes before the daemon exits; this adds margin.
+    static let defaultRestartDeadline: TimeInterval = 12 * 60
 
     @Published private(set) var phase = Phase.loading
     @Published private(set) var status: LeoServiceStatus?
     @Published private(set) var confirmation: Confirmation?
     @Published private(set) var isRestarting = false
     @Published private(set) var isWorking = false
+    /// The daemon is still answering as the old process: a graceful restart
+    /// waits for busy agents to pause before it exits.
+    @Published private(set) var isWaitingOnAgents = false
     @Published private(set) var notice: String?
     @Published private(set) var errorMessage: String?
     @Published private(set) var agentsSummary: String?
@@ -52,6 +59,8 @@ import LeoKit
     private let sleep: @Sendable (Duration) async throws -> Void
     private let copyToPasteboard: (String) -> Void
     private let maxRestartPolls: Int
+    private let restartDeadline: TimeInterval
+    private let now: () -> Date
     private var restartTask: Task<Void, Never>?
     private var logTask: Task<Void, Never>?
 
@@ -59,13 +68,16 @@ import LeoKit
         client: any LeoConfigClient, machine: String,
         sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
         copyToPasteboard: @escaping (String) -> Void = LeoServiceSettingsModel.writeToGeneralPasteboard,
-        maxRestartPolls: Int = LeoServiceSettingsModel.defaultMaxRestartPolls
+        maxRestartPolls: Int = LeoServiceSettingsModel.defaultMaxRestartPolls,
+        restartDeadline: TimeInterval = LeoServiceSettingsModel.defaultRestartDeadline, now: @escaping () -> Date = Date.init
     ) {
         self.client = client
         self.machine = machine
         self.sleep = sleep
         self.copyToPasteboard = copyToPasteboard
         self.maxRestartPolls = maxRestartPolls
+        self.restartDeadline = restartDeadline
+        self.now = now
     }
 
     deinit {
@@ -184,26 +196,45 @@ import LeoKit
         restartTask = Task { [weak self] in await self?.waitForRestart(previous: previous) }
     }
 
-    /// Polls until the daemon is a new process. Errors are expected while it
-    /// is down. Without a status from before the restart, "new" means it was
-    /// seen down and then up.
+    /// Polls until the daemon is a new process. The restart is graceful: the
+    /// old daemon keeps answering, as the same process, while busy agents
+    /// drain, so those polls cost nothing but the wall-clock deadline. Only
+    /// polls that find the daemon unreachable count toward `maxRestartPolls`.
+    /// Without a status from before the restart, "new" means it was seen down
+    /// and then up.
     private func waitForRestart(previous: LeoServiceStatus?) async {
+        let deadline = now().addingTimeInterval(restartDeadline)
         var sawDown = false
-        for _ in 0..<maxRestartPolls {
+        var unreachablePolls = 0
+        defer { isWaitingOnAgents = false }
+        while true {
             do { try await sleep(Self.restartPollInterval) } catch { return }
+            guard now() < deadline else { return giveUp(afterDown: sawDown) }
             do {
                 let current = try await client.serviceStatus()
                 status = current
-                guard previous.map(current.isRestarted(since:)) ?? sawDown else { continue }
+                guard previous.map(current.isRestarted(since:)) ?? sawDown else {
+                    isWaitingOnAgents = true
+                    continue
+                }
                 isRestarting = false
                 notice = "leo restarted on \(machine)."
                 return
             } catch {
+                guard !Task.isCancelled else { return }
                 sawDown = true
+                isWaitingOnAgents = false
+                unreachablePolls += 1
+                if unreachablePolls >= maxRestartPolls { return giveUp(afterDown: true) }
             }
         }
+    }
+
+    private func giveUp(afterDown: Bool) {
         isRestarting = false
-        errorMessage = "leo on \(machine) hasn’t come back yet. Check its connection under Machines."
+        errorMessage = afterDown
+            ? "leo on \(machine) hasn’t come back yet. Check its connection under Machines."
+            : "leo on \(machine) is still waiting for busy agents to pause. The restart may still go through."
     }
 
     /// Waits for the restart wait to end.
@@ -246,6 +277,12 @@ import LeoKit
         }
     }
 
+    /// What the Restart All Agents confirmation says, from either place it is asked.
+    static func agentsRestartMessage(running: Int?) -> String {
+        guard let running else { return "Every running agent will restart and lose the current turn." }
+        return "\(running) running agent\(running == 1 ? "" : "s") will restart and lose the current turn."
+    }
+
     static func summary(of result: LeoAgentsRestartResult) -> String {
         let count = result.restarted.count
         var parts = ["Restarted \(count) agent\(count == 1 ? "" : "s")."]
@@ -282,6 +319,7 @@ import LeoKit
         restartTask?.cancel()
         restartTask = nil
         isRestarting = false
+        isWaitingOnAgents = false
     }
 
     private func updateLogPolling() {

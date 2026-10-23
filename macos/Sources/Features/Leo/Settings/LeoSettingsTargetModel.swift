@@ -182,8 +182,18 @@ extension LeoSettingsPane {
     var restartActions: LeoConfigRestartActions {
         LeoConfigRestartActions(
             restartService: { [weak self] in await self?.runRestart { await $0.restartDaemon() } },
-            restartAgents: { [weak self] in await self?.runRestart { await $0.restartAllAgents() } }
+            restartAgents: { [weak self] in await self?.runRestart { await $0.restartAllAgents() } },
+            runningAgents: { [weak self] in await self?.runningAgentCount() }
         )
+    }
+
+    /// The running-agent count, read fresh from the connected machine; nil
+    /// when there is none or it can't be read.
+    private func runningAgentCount() async -> Int? {
+        guard case .ready(let client) = availability else { return nil }
+        let model = service(using: client)
+        await model.refreshStatus()
+        return model.status?.runningAgentCount
     }
 
     private func runRestart(_ action: (LeoServiceSettingsModel) async -> String?) async -> String? {

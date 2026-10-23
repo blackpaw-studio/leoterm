@@ -87,13 +87,9 @@ struct LeoServiceView: View {
     private func message(for confirmation: LeoServiceSettingsModel.Confirmation) -> String {
         switch confirmation {
         case .restartDaemon:
-            "leo is unreachable for a few seconds. Running agents keep their tmux sessions."
+            "leo waits for busy agents to pause, then restarts and is unreachable for a few seconds. Agents keep their tmux sessions."
         case .restartAgents(let running):
-            if let running {
-                "\(running) running agent\(running == 1 ? "" : "s") will restart and lose the current turn."
-            } else {
-                "Every running agent will restart and lose the current turn."
-            }
+            LeoServiceSettingsModel.agentsRestartMessage(running: running)
         }
     }
 }
@@ -156,7 +152,7 @@ private struct LeoServiceActions: View {
                 .disabled(model.isRestarting || model.isWorking)
             if model.isRestarting {
                 ProgressView().controlSize(.small)
-                Text("Waiting for leo to come back…").font(.callout).foregroundStyle(.secondary)
+                Text(model.isWaitingOnAgents ? "Waiting for busy agents to pause…" : "Waiting for leo to come back…").font(.callout).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
         }

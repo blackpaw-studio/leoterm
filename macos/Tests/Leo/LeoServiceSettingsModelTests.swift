@@ -59,6 +59,16 @@ actor ServiceTicker {
     }
 }
 
+/// A clock the test moves: the restart wait's deadline reads it, and each
+/// sleep that wakes moves it by the time slept.
+final class ServiceClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var current = Date(timeIntervalSince1970: 1_792_738_800)
+
+    var now: Date { lock.withLock { current } }
+    func advance(_ seconds: TimeInterval) { lock.withLock { current = current.addingTimeInterval(seconds) } }
+}
+
 @MainActor final class PasteboardSpy {
     private(set) var copied: [String] = []
     func write(_ text: String) { copied.append(text) }
@@ -79,6 +89,7 @@ actor ServiceTicker {
         let fake: LeoFakeConfigClient
         let ticker: ServiceTicker
         let pasteboard: PasteboardSpy
+        let clock: ServiceClock
     }
 
     private static func state(pid: Int = 100, log: String = "", agents: LeoAgentsRestartResult = LeoAgentsRestartResult()) -> LeoFakeServiceState {
@@ -94,12 +105,17 @@ actor ServiceTicker {
         await fake.setService(state(log: log, agents: agents))
         let ticker = ServiceTicker()
         let pasteboard = PasteboardSpy()
+        let clock = ServiceClock()
         let model = LeoServiceSettingsModel(
-            client: fake, machine: "dionysus", sleep: { try await ticker.sleep($0) }, copyToPasteboard: { pasteboard.write($0) },
-            maxRestartPolls: maxRestartPolls
+            client: fake, machine: "dionysus",
+            sleep: { duration in
+                try await ticker.sleep(duration)
+                clock.advance(Double(duration.components.seconds))
+            },
+            copyToPasteboard: { pasteboard.write($0) }, maxRestartPolls: maxRestartPolls, now: { clock.now }
         )
         if load { await model.load() }
-        return Harness(model: model, fake: fake, ticker: ticker, pasteboard: pasteboard)
+        return Harness(model: model, fake: fake, ticker: ticker, pasteboard: pasteboard, clock: clock)
     }
 
     private static func count(_ fake: LeoFakeConfigClient, _ call: LeoFakeConfigCall) async -> Int {
@@ -228,13 +244,78 @@ actor ServiceTicker {
         #expect(!harness.model.isRestarting)
     }
 
-    @Test func aDaemonThatNeverComesBackIsGivenUpOnWithAHint() async throws {
+    /// The daemon restarts gracefully: it waits, answering as the same process,
+    /// for busy agents to pause, for up to ten minutes.
+    @Test func aDaemonDrainingBusyAgentsOutlastsTheDownBudgetWithoutFailing() async throws {
+        let harness = try await Self.harness(maxRestartPolls: 3)
+        await harness.model.restartDaemon()
+        for _ in 0..<10 {
+            await harness.ticker.tick()
+            await harness.ticker.untilParked()
+        }
+
+        #expect(harness.model.isRestarting)
+        #expect(harness.model.isWaitingOnAgents)
+        #expect(harness.model.errorMessage == nil)
+
+        await harness.fake.finishServiceRestart()
+        await harness.ticker.tick()
+        await harness.model.settledRestart()
+        #expect(!harness.model.isRestarting)
+        #expect(!harness.model.isWaitingOnAgents)
+        #expect(harness.model.notice == "leo restarted on dionysus.")
+    }
+
+    @Test func theDrainNoteGivesWayWhenTheDaemonGoesDown() async throws {
+        let harness = try await Self.harness()
+        await harness.model.restartDaemon()
+        await harness.ticker.tick()
+        await harness.ticker.untilParked()
+        #expect(harness.model.isWaitingOnAgents)
+
+        await harness.fake.failNextRead(with: LeoDaemonError.transport("socket closed"))
+        await harness.ticker.tick()
+        await harness.ticker.untilParked()
+        #expect(harness.model.isRestarting)
+        #expect(!harness.model.isWaitingOnAgents)
+    }
+
+    @Test func aDaemonThatWentDownAndNeverComesBackIsGivenUpOnWithAHint() async throws {
         let harness = try await Self.harness(maxRestartPolls: 3)
         await harness.model.restartDaemon()
         for _ in 0..<3 {
+            await harness.fake.failNextRead(with: LeoDaemonError.transport("socket closed"))
             await harness.ticker.tick()
             await harness.ticker.untilParkedOrDone(harness.model)
         }
+        await harness.model.settledRestart()
+
+        #expect(!harness.model.isRestarting)
+        #expect(harness.model.errorMessage?.contains("hasn’t come back") == true)
+    }
+
+    @Test func aRestartThatOutlastsTheWallClockDeadlineIsGivenUpOn() async throws {
+        let harness = try await Self.harness()
+        await harness.model.restartDaemon()
+        await harness.ticker.untilParked()
+        harness.clock.advance(13 * 60)
+        await harness.ticker.tick()
+        await harness.model.settledRestart()
+
+        #expect(!harness.model.isRestarting)
+        #expect(harness.model.errorMessage?.contains("still waiting for busy agents") == true)
+        #expect(harness.model.errorMessage?.contains("hasn’t come back") == false)
+    }
+
+    @Test func theWallClockDeadlineAlsoEndsAWaitThatKeepsFindingTheDaemonDown() async throws {
+        let harness = try await Self.harness(maxRestartPolls: 1000)
+        await harness.model.restartDaemon()
+        await harness.ticker.untilParked()
+        await harness.fake.failNextRead(with: LeoDaemonError.transport("socket closed"))
+        await harness.ticker.tick()
+        await harness.ticker.untilParked()
+        harness.clock.advance(13 * 60)
+        await harness.ticker.tick()
         await harness.model.settledRestart()
 
         #expect(!harness.model.isRestarting)
