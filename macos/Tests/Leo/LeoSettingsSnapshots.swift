@@ -352,6 +352,49 @@ struct LeoSettingsSnapshots {
         )
     }
 
+    // MARK: Daemon pane
+
+    private static let daemonSize = NSSize(width: 820, height: 640)
+
+    private static func daemonModel(_ section: LeoDaemonSettingsModel.Section) async throws -> LeoDaemonSettingsModel {
+        let model = LeoDaemonSettingsModel(client: try LeoConfigGolden.client(), revisions: LeoConfigRevisionTracker(), machineHost: "dionysus")
+        await model.load()
+        model.section = section
+        return model
+    }
+
+    @Test func daemonWebWithItsLockoutWarnings() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let model = try await Self.daemonModel(.web)
+        try Self.write(LeoDaemonView(model: model, machine: "dionysus"), named: "daemonWeb", size: Self.daemonSize, to: directory)
+    }
+
+    @Test func daemonWebEditedWithARestartPrompt() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let model = try await Self.daemonModel(.web)
+        model.web.set("port", .int(9000))
+        await model.web.save()
+        model.web.set("allowed_hosts", .list([.string("leo.example.com")]))
+        model.client.set("default_host", .string(""))
+        try Self.write(LeoDaemonView(model: model, machine: "dionysus"), named: "daemonWebEdited", size: Self.daemonSize, to: directory)
+    }
+
+    @Test func daemonClient() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let model = try await Self.daemonModel(.client)
+        await model.hosts.add(name: "staging")
+        try Self.write(LeoDaemonView(model: model, machine: "dionysus"), named: "daemonClient", size: NSSize(width: 820, height: 320), to: directory)
+    }
+
+    @Test func daemonHosts() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let model = try await Self.daemonModel(.hosts)
+        await model.hosts.add(name: "staging")
+        model.hosts.select("remote")
+        model.hosts.set("ssh_args", .list([.string("-p"), .string("2222")]))
+        try Self.write(LeoDaemonView(model: model, machine: "dionysus"), named: "daemonHosts", size: Self.daemonSize, to: directory)
+    }
+
     // MARK: Rendering
 
     private static func write(_ view: some View, named name: String, size: NSSize, to directory: URL) throws {

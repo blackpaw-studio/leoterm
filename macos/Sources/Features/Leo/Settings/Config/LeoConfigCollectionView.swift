@@ -14,6 +14,8 @@ struct LeoConfigCollectionExtras {
     var addSheet: ((_ submit: @escaping (String, [String: LeoConfigValue]) -> Void, _ cancel: @escaping () -> Void) -> AnyView)?
     /// A live description under a cron field, by its path.
     var cronPreviews: [String: LeoCronPreviewResult] = [:]
+    /// What deleting an item also means, when more than removing it, added to the confirmation.
+    var deleteNote: ((String) -> String?)?
 }
 
 /// A collection resource's pane: the item list with add / remove / more, and
@@ -189,7 +191,9 @@ struct LeoConfigCollectionView: View {
 
     private var confirmationMessage: String {
         switch model.confirmation {
-        case .delete?: "It is removed from leo.yaml on \(machine). Anything that still refers to it will need another \(singular)."
+        case .delete(let name)?:
+            (["It is removed from leo.yaml on \(machine). Anything that still refers to it will need another \(singular)."]
+                + [extras.deleteNote?(name)].compactMap { $0 }).joined(separator: " ")
         case .discardChanges?, nil: "Your edits haven't been saved to \(machine)."
         }
     }
