@@ -62,7 +62,7 @@ import Testing
             machineLegacySocketDirectory: LeoMachineTunnelTestSupport.localSocketDirectory,
             machineControlSocketDirectory: LeoMachineTunnelTestSupport.localSocketDirectory,
             makeTunnel: LeoFakeTunnels().factory,
-            remoteDaemon: { _, _ in LeoMachineDaemon(daemon: RuntimeTestDaemon(), activitySource: activitySource) },
+            remoteDaemon: { _, _ in LeoMachineDaemon(daemon: RuntimeTestDaemon(), activitySource: activitySource, chat: FakeChatClient()) },
             feedsRemoteMachines: true
         )
         defer { runtime.shutdown() }
