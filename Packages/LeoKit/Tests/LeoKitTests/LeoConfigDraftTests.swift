@@ -298,4 +298,40 @@ struct LeoConfigDraftTests {
         #expect(draft.patch == ["port": .int(9000)])
         #expect(draft.document.name == nil)
     }
+
+    // MARK: map fields
+
+    private static func envDraft(_ env: LeoConfigValue) -> LeoConfigDraft {
+        LeoConfigDraft(document: LeoConfigDocument(revision: "r", name: "t", values: ["env": env], effectiveHarness: "claude"))
+    }
+
+    @Test func aRemovedMapEntryIsSentAsNullBecauseAnOmittedKeyIsKept() {
+        var draft = Self.envDraft(.map(["A": "1", "B": "2"]))
+        draft.set("env", .map(["A": "1"]))
+
+        #expect(draft.patch == ["env": .object(["A": .string("1"), "B": .null])])
+    }
+
+    @Test func aRemovedSecretEntryIsSentAsNullToo() {
+        var draft = Self.envDraft(.object(["A": .string("1"), "T": .secret(isSet: true)]))
+        draft.set("env", .map(["A": "1"]))
+
+        #expect(draft.patch == ["env": .object(["A": .string("1"), "T": .null])])
+    }
+
+    @Test func addedOrChangedMapEntriesNeedNoNulls() {
+        var draft = Self.envDraft(.map(["A": "1"]))
+        draft.set("env", .map(["A": "2", "B": "3"]))
+
+        #expect(draft.patch == ["env": .map(["A": "2", "B": "3"])])
+    }
+
+    @Test func addingThenRemovingAnEntryLeavesTheDraftClean() {
+        var draft = Self.envDraft(.map([:]))
+        draft.set("env", .map(["X": "1"]))
+        draft.set("env", .map([:]))
+
+        #expect(!draft.isDirty)
+        #expect(draft.patch.isEmpty)
+    }
 }

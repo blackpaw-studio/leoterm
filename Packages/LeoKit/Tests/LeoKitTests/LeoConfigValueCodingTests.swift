@@ -104,4 +104,34 @@ struct LeoConfigValueCodingTests {
         #expect(edited.envSecretNames.isEmpty)
         #expect(edited == .map(["ANTHROPIC_AUTH_TOKEN": "typed"]))
     }
+
+    @Test func aSecretVariableReadsAsSetAndShowsItsPendingChange() throws {
+        let env = try decode(Self.secretEnv)
+        let token = "ANTHROPIC_AUTH_TOKEN"
+
+        #expect(env.envSecrets == [token: .set])
+        #expect(env.settingEnvSecret(token, to: .secretReplace("new")).envSecrets == [token: .replacing])
+        #expect(env.settingEnvSecret(token, to: .secretClear).envSecrets == [token: .clearing])
+        #expect(env.settingEnvSecret(token, to: .secretClear).settingEnvSecret(token, to: .secret(isSet: true)) == env)
+    }
+
+    @Test func replacingASecretVariableSendsTheStringAndClearingSendsNull() throws {
+        let env = try decode(Self.secretEnv)
+        let token = "ANTHROPIC_AUTH_TOKEN"
+
+        let replaced = try encode(env.settingEnvSecret(token, to: .secretReplace("s3cret")).writeForm)
+        #expect(replaced.contains(#""ANTHROPIC_AUTH_TOKEN":"s3cret""#))
+        #expect(!replaced.contains("replace"))
+        #expect(try encode(env.settingEnvSecret(token, to: .secretClear).writeForm).contains(#""ANTHROPIC_AUTH_TOKEN":null"#))
+        #expect(try encode(env.writeForm).contains(#""ANTHROPIC_AUTH_TOKEN":{"set":true}"#))
+        #expect(try encode(LeoConfigValue.secretReplace("x").writeForm) == #"{"replace":"x"}"#)
+    }
+
+    @Test func aPendingSecretSurvivesEditingThePlainEntries() throws {
+        let pending = try decode(Self.secretEnv).settingEnvSecret("ANTHROPIC_AUTH_TOKEN", to: .secretReplace("new"))
+        let edited = pending.replacingEnvEntries(["X": "1"])
+
+        #expect(edited.envSecrets == ["ANTHROPIC_AUTH_TOKEN": .replacing])
+        #expect(edited.envEntries == ["X": "1"])
+    }
 }

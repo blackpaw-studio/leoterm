@@ -62,9 +62,10 @@ struct LeoSchemaFieldRow: View {
         case .list:
             LeoListEditor(items: row.value.stringList ?? []) { set(.list($0.map(LeoConfigValue.string))) }
         case .keyValue:
-            LeoKeyValueEditor(entries: row.value.envEntries, lockedNames: row.value.envSecretNames) {
-                set(row.value.replacingEnvEntries($0))
-            }
+            LeoKeyValueEditor(
+                entries: row.value.envEntries, secrets: row.value.envSecrets,
+                setSecret: { set(row.value.settingEnvSecret($0, to: $1)) }, onChange: { set(row.value.replacingEnvEntries($0)) }
+            )
         case .cron:
             LeoCronField(text: text, preview: cronPreview, prompt: prompt(nil))
         case .secret(let state):

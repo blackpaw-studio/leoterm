@@ -87,13 +87,23 @@ public struct LeoConfigDraft: Equatable, Sendable {
         var groups: [String: [String: LeoConfigValue]] = [:]
         for (path, value) in edits {
             guard let (group, key) = Self.split(path) else {
-                result[path] = value
+                result[path] = withDeletions(value, at: path)
                 continue
             }
             groups[group, default: baseGroup(group)][key] = value
         }
         for (group, object) in groups { result[group] = .object(object) }
         return result
+    }
+
+    /// A map field is merged by the daemon (an omitted key is kept), so an
+    /// entry the edit removed is sent as `null`.
+    private func withDeletions(_ value: LeoConfigValue, at path: String) -> LeoConfigValue {
+        guard case .map = value, let base = document.values[path]?.objectValue else { return value }
+        let kept = value.objectValue ?? [:]
+        let removed = base.keys.filter { kept[$0] == nil }
+        guard !removed.isEmpty else { return value }
+        return .object(kept.merging(removed.map { ($0, LeoConfigValue.null) }) { $1 })
     }
 
     private func baseGroup(_ group: String) -> [String: LeoConfigValue] {

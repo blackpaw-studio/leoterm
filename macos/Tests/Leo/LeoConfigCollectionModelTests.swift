@@ -162,6 +162,39 @@ import Testing
         #expect(model.errorMessage == nil)
     }
 
+    private static func secretEnvModel() async throws -> (LeoConfigCollectionModel, LeoFakeConfigClient) {
+        let fake = try LeoConfigGolden.client(secretEnv: true)
+        let model = LeoConfigCollectionModel(resource: "templates", client: fake, revisions: LeoConfigRevisionTracker())
+        await model.load()
+        return (model, fake)
+    }
+
+    @Test func replacingASecretEnvVariableSendsItsStringAndKeepsTheOthers() async throws {
+        let (model, fake) = try await Self.secretEnvModel()
+        let env = try #require(model.draft?.value(at: "env"))
+        model.set("env", env.settingEnvSecret("ANTHROPIC_AUTH_TOKEN", to: .secretReplace("new-token")))
+        #expect(model.draft?.value(at: "env").envSecrets == ["ANTHROPIC_AUTH_TOKEN": .replacing])
+        await model.save()
+
+        let stored = try await fake.item("templates", name: "coder").values["env"]
+        #expect(stored == .object(["ANTHROPIC_AUTH_TOKEN": .secret(isSet: true), "ANTHROPIC_BASE_URL": .string("http://localhost:3325")]))
+        #expect(model.draft?.value(at: "env").envSecrets == ["ANTHROPIC_AUTH_TOKEN": .set])
+    }
+
+    @Test func clearingASecretEnvVariableDeletesItAndUndoRestoresIt() async throws {
+        let (model, fake) = try await Self.secretEnvModel()
+        let env = try #require(model.draft?.value(at: "env"))
+        model.set("env", env.settingEnvSecret("ANTHROPIC_AUTH_TOKEN", to: .secretClear))
+        model.set("env", model.draft?.value(at: "env").settingEnvSecret("ANTHROPIC_AUTH_TOKEN", to: .secret(isSet: true)) ?? .null)
+        #expect(!model.isDirty)
+
+        model.set("env", env.settingEnvSecret("ANTHROPIC_AUTH_TOKEN", to: .secretClear))
+        await model.save()
+
+        let stored = try await fake.item("templates", name: "coder").values["env"]
+        #expect(stored == .object(["ANTHROPIC_BASE_URL": .string("http://localhost:3325")]))
+    }
+
     // MARK: field errors
 
     @Test func aRejectedValueLandsOnItsFieldAndKeepsTheEdit() async throws {

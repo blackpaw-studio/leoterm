@@ -197,14 +197,21 @@ public actor LeoFakeConfigClient: LeoConfigClient {
     /// becomes set / not set (the value is never kept or returned), and a key
     /// sent as null is dropped rather than stored.
     private static func merged(_ stored: [String: LeoConfigValue], _ patch: [String: LeoConfigValue]) -> [String: LeoConfigValue] {
-        let normalised = patch.mapValues { value -> LeoConfigValue in
-            switch value {
-            case .secretReplace: .secret(isSet: true)
-            case .secretClear: .secret(isSet: false)
-            default: value
-            }
+        stored.merging(patch.mapValues(normalised)) { _, new in new }.filter { !$0.value.isNull }
+    }
+
+    /// What the daemon stores for a written value: a secret as set / not set,
+    /// and inside an object (an env map) a `null` or cleared entry is gone.
+    private static func normalised(_ value: LeoConfigValue) -> LeoConfigValue {
+        switch value {
+        case .secretReplace: .secret(isSet: true)
+        case .secretClear: .secret(isSet: false)
+        case .object(let entries):
+            .object(entries.filter { entry in
+                if case .secretClear = entry.value { false } else { !entry.value.isNull }
+            }.mapValues(normalised))
+        default: value
         }
-        return stored.merging(normalised) { _, new in new }.filter { !$0.value.isNull }
     }
 
     private var revision: String { "sha256:fake-\(revisionNumber)" }

@@ -6,10 +6,13 @@ import SwiftUI
 /// until Save and can be undone.
 struct LeoSecretField: View {
     let state: LeoConfigSecretState
+    /// When set, Clear asks first and names this.
+    var confirmClearOf: String?
     let set: (LeoConfigValue) -> Void
     let revert: () -> Void
 
     @State private var isReplacing = false
+    @State private var isConfirmingClear = false
     @State private var replacement = ""
 
     var body: some View {
@@ -23,7 +26,7 @@ struct LeoSecretField: View {
                 switch state {
                 case .set:
                     Button("Replace…") { isReplacing = true }
-                    Button("Clear") { set(.secretClear) }
+                    Button("Clear") { confirmClearOf == nil ? set(.secretClear) : (isConfirmingClear = true) }
                 case .notSet:
                     Button("Set…") { isReplacing = true }
                 case .replacing, .clearing:
@@ -31,7 +34,15 @@ struct LeoSecretField: View {
                 }
             }
         }
+        .confirmationDialog(clearTitle, isPresented: $isConfirmingClear) {
+            Button("Clear", role: .destructive) { set(.secretClear) }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("It is removed when you save. You can undo it until then.")
+        }
     }
+
+    private var clearTitle: String { "Clear \(confirmClearOf ?? "this value")?" }
 
     private var summary: String {
         switch state {

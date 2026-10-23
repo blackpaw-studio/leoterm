@@ -70,27 +70,64 @@ public enum LeoConfigValue: Equatable, Sendable {
 
 extension LeoConfigValue {
     /// An env map's plain variables. The daemon reports a secret-valued
-    /// variable as `{"set": true}`, never its value (`envSecretNames`).
+    /// variable as `{"set": true}`, never its value (`envSecrets`).
     public var envEntries: [String: String] {
         objectValue?.compactMapValues(\.stringValue) ?? [:]
     }
 
-    /// The env variables whose value the daemon holds back.
-    public var envSecretNames: [String] {
-        (objectValue ?? [:]).compactMap { entry in
-            if case .secret = entry.value { entry.key } else { nil }
-        }.sorted()
+    /// The env variables whose value the daemon holds back, with any change
+    /// waiting for Save.
+    public var envSecrets: [String: LeoConfigSecretState] {
+        (objectValue ?? [:]).compactMapValues { value in
+            switch value {
+            case .secret(let isSet): isSet ? .set : .notSet
+            case .secretReplace: .replacing
+            case .secretClear: .clearing
+            default: nil
+            }
+        }
     }
 
+    public var envSecretNames: [String] { envSecrets.keys.sorted() }
+
     /// This map with its plain variables replaced by `entries`; its secret
-    /// variables are carried along as they were (`{"set": true}` keeps one),
-    /// unless `entries` names the same variable, which then wins.
+    /// variables, pending changes included, are carried along as they were
+    /// (`{"set": true}` keeps one), unless `entries` names the same variable,
+    /// which then wins.
     public func replacingEnvEntries(_ entries: [String: String]) -> LeoConfigValue {
         let secrets = (objectValue ?? [:]).filter { entry in
-            if case .secret = entry.value { entries[entry.key] == nil } else { false }
+            entries[entry.key] == nil && Self.isSecretValue(entry.value)
         }
         guard !secrets.isEmpty else { return .map(entries) }
         return .object(entries.mapValues(LeoConfigValue.string).merging(secrets) { $1 })
+    }
+
+    /// This map with one secret variable set to `value`: `.secretReplace` or
+    /// `.secretClear` for a change, `.secret(isSet: true)` to undo one.
+    public func settingEnvSecret(_ name: String, to value: LeoConfigValue) -> LeoConfigValue {
+        .object((objectValue ?? [:]).merging([name: value]) { $1 })
+    }
+
+    private static func isSecretValue(_ value: LeoConfigValue) -> Bool {
+        switch value {
+        case .secret, .secretReplace, .secretClear: true
+        default: false
+        }
+    }
+
+    /// The value as a write sends it. A secret field of the resource itself
+    /// goes as `{"replace": …}` or `{"clear": true}`; a secret entry inside an
+    /// object (an env map) goes as its string (a replacement) or `null` (a
+    /// clear), and `{"set": true}` keeps it.
+    public var writeForm: LeoConfigValue {
+        guard case .object(let entries) = self else { return self }
+        return .object(entries.mapValues { entry in
+            switch entry {
+            case .secretReplace(let text): .string(text)
+            case .secretClear: .null
+            default: entry
+            }
+        })
     }
 }
 

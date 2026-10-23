@@ -44,11 +44,11 @@ public struct LeoConfigHTTPClient: LeoConfigClient {
     }
 
     public func update(_ resource: String, name: String?, patch: [String: LeoConfigValue], ifMatch: String) async throws -> LeoConfigWriteResult {
-        try await write("PUT", try route(resource, name), body: ["values": .object(patch)], ifMatch: ifMatch)
+        try await write("PUT", try route(resource, name), body: ["values": .object(patch.mapValues(\.writeForm))], ifMatch: ifMatch)
     }
 
     public func add(_ resource: String, name: String, values: [String: LeoConfigValue], ifMatch: String) async throws -> LeoConfigWriteResult {
-        try await write("POST", try route(resource), body: values.merging(["name": .string(name)]) { _, name in name }, ifMatch: ifMatch)
+        try await write("POST", try route(resource), body: values.mapValues(\.writeForm).merging(["name": .string(name)]) { _, name in name }, ifMatch: ifMatch)
     }
 
     public func rename(_ resource: String, name: String, to newName: String, ifMatch: String) async throws -> LeoConfigWriteResult {

@@ -87,6 +87,21 @@ struct LeoConfigClientTests {
         #expect(values["idle_suspend"] as? Bool == false)
     }
 
+    @Test func aSecretEnvVariableIsWrittenAsItsStringOrNull() async throws {
+        let transport = ConfigRecordingTransport(fixtures: ["write_result"])
+        let env: LeoConfigValue = .object([
+            "TOKEN": .secretReplace("s3cret"), "OLD": .secretClear, "KEEP": .secret(isSet: true), "BASE": .string("x"),
+        ])
+        _ = try await Self.client(prefix: "", transport).update("templates", name: "coder", patch: ["env": env], ifMatch: "r")
+
+        let body = try Self.json(try #require(await transport.requests.last))
+        let sent = try #require((body["values"] as? [String: Any])?["env"] as? [String: Any])
+        #expect(sent["TOKEN"] as? String == "s3cret")
+        #expect(sent["OLD"] is NSNull)
+        #expect((sent["KEEP"] as? [String: Bool]) == ["set": true])
+        #expect(sent["BASE"] as? String == "x")
+    }
+
     @Test func secretsAreReplacedOrClearedNeverEchoed() async throws {
         let transport = ConfigRecordingTransport(fixtures: ["write_result"])
         let client = Self.client(prefix: "", transport)

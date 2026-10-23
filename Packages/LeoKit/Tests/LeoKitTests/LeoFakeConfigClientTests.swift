@@ -135,6 +135,18 @@ struct LeoFakeConfigClientTests {
         #expect(try await fake.item("hosts", name: "new-host").values["token"] == .secret(isSet: true))
     }
 
+    @Test func aSecretEnvVariableIsStoredAsSetAndANullEntryIsDeleted() async throws {
+        let fake = try Self.fake()
+        let revision = try await fake.collection("templates").revision
+        let env: LeoConfigValue = .object([
+            "TOKEN": .secretReplace("s3cret"), "OLD": .secretClear, "GONE": .null, "BASE": .string("http://x"),
+        ])
+        _ = try await fake.update("templates", name: "coder", patch: ["env": env], ifMatch: revision)
+
+        let stored = try await fake.item("templates", name: "coder").values["env"]
+        #expect(stored == .object(["TOKEN": .secret(isSet: true), "BASE": .string("http://x")]))
+    }
+
     @Test func aKeySentAsNullIsDroppedNotStored() async throws {
         let fake = try Self.fake()
         let revision = try await fake.document("web").revision
