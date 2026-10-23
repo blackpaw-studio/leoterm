@@ -19,12 +19,19 @@ struct LeoTaskHistoryView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                VSplitView {
-                    runList(runs).frame(minHeight: 110, idealHeight: 150, maxHeight: 240)
+                VStack(spacing: 0) {
+                    runList(runs).frame(height: Self.runListHeight(rows: runs.count))
+                    Divider()
                     logPane.frame(minHeight: 160)
                 }
             }
         }
+    }
+
+    /// The run list fits its rows (and the footer), up to a few more than the
+    /// default 20-run history shows at once, so no empty area opens above the footer.
+    private static func runListHeight(rows: Int) -> CGFloat {
+        min(max(CGFloat(rows) * 26 + 44, 96), 260)
     }
 
     private func runList(_ runs: [LeoTaskRun]) -> some View {
@@ -65,12 +72,7 @@ struct LeoTaskHistoryView: View {
                 }
                 .padding(.horizontal, 12).padding(.vertical, 6)
                 Divider()
-                ScrollView {
-                    Text(log.text.isEmpty ? "The log is empty." : log.text)
-                        .font(.callout.monospaced()).textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading).padding(12)
-                }
-                .accessibilityLabel("Run log")
+                LeoLogTextView(text: log.text.isEmpty ? "The log is empty." : log.text)
             }
         }
     }

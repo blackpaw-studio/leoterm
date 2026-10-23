@@ -109,6 +109,20 @@ import Testing
         #expect(harness.model.collection.items.first { $0.name == "nightly" }.map(harness.model.isEnabled) == true)
     }
 
+    @Test func aRetriedToggleDoesNotHideAnotherWritersChangeFromTheOpenForm() async throws {
+        let harness = try await Self.harness()
+        harness.model.collection.set("schedule", .string("0 5 * * *"))
+        await harness.fake.externalChange("tasks", name: "heartbeat", values: ["schedule": .string("0 9 * * *")])
+
+        await harness.model.setEnabled(true, for: "nightly")
+        await harness.model.collection.save()
+
+        #expect(harness.model.collection.conflict != nil)
+        #expect(harness.model.collection.draft?.value(at: "schedule") == .string("0 5 * * *"))
+        let stored = try await harness.fake.collection("tasks").items.first { $0.name == "heartbeat" }
+        #expect(stored?.values["schedule"] == .string("0 9 * * *"))
+    }
+
     @Test func aToggleWhileASaveIsRunningSaysSoAndRollsBack() async throws {
         let harness = try await Self.harness()
         harness.model.collection.set("model", .string("opus"))
@@ -134,6 +148,22 @@ import Testing
         await harness.model.runNow("heartbeat")
 
         #expect(await harness.fake.calls.contains(.runTask("heartbeat")))
+        #expect(harness.model.runNotice == .started("heartbeat"))
+    }
+
+    @Test func aSecondRunNowWhileStartingSendsNothing() async throws {
+        let harness = try await Self.harness()
+        await harness.fake.holdWrites()
+        let first = Task { await harness.model.runNow("heartbeat") }
+        while await harness.fake.heldWriteCount == 0 { await Task.yield() }
+
+        let second = Task { await harness.model.runNow("heartbeat") }
+        for _ in 0..<20 { await Task.yield() }
+        await harness.fake.releaseWrites()
+        await first.value
+        await second.value
+
+        #expect(await Self.count(harness.fake) { if case .runTask = $0 { true } else { false } } == 1)
         #expect(harness.model.runNotice == .started("heartbeat"))
     }
 
@@ -452,6 +482,109 @@ import Testing
 
         #expect(harness.model.prompt.document?.file == "notes.md")
         #expect(harness.model.prompt.text == "Notes\n")
+    }
+
+    // MARK: a prompt whose file the task left
+
+    private static func isPromptSave(_ call: LeoFakeConfigCall) -> Bool {
+        if case .saveTaskPrompt = call { true } else { false }
+    }
+
+    /// Unsaved text on heartbeat.md, then the task is pointed at notes.md and the pane reads the list again.
+    private static func repointedUnderUnsavedText() async throws -> Harness {
+        let harness = try await Self.harness(page: .prompt)
+        harness.model.setPromptText("Mine.\n")
+        await harness.fake.externalChange("tasks", name: "heartbeat", values: ["prompt_file": .string("notes.md")])
+        await harness.model.reload(using: harness.fake)
+        return harness
+    }
+
+    @Test func unsavedTextIsNotSavedIntoAFileTheTaskMovedTo() async throws {
+        let harness = try await Self.repointedUnderUnsavedText()
+
+        #expect(harness.model.prompt.confirmation == .fileChanged("notes.md"))
+        await harness.model.savePrompt()
+        await harness.model.overwritePrompt()
+
+        #expect(await Self.count(harness.fake, Self.isPromptSave) == 0)
+        #expect(harness.model.prompt.text == "Mine.\n")
+    }
+
+    @Test func aDaemonConflictOnAMovedFileIsReportedAsTheMoveNotAsAnOverwrite() async throws {
+        let harness = try await Self.harness(page: .prompt)
+        harness.model.setPromptText("Mine.\n")
+        await harness.fake.externalChange("tasks", name: "heartbeat", values: ["prompt_file": .string("notes.md")])
+
+        await harness.model.savePrompt()
+        await harness.model.overwritePrompt()
+
+        #expect(harness.model.prompt.confirmation == .fileChanged("notes.md"))
+        #expect(harness.model.prompt.conflict == nil)
+        #expect(await Self.count(harness.fake, Self.isPromptSave) == 1)
+    }
+
+    @Test func keepingMyTextForTheNewFileWritesItAgainstThatFilesRevision() async throws {
+        let harness = try await Self.repointedUnderUnsavedText()
+
+        await harness.model.keepPromptTextForNewFile()
+
+        let revision = LeoTaskPrompt.revision(of: "Notes\n")
+        #expect(await harness.fake.calls.contains(.saveTaskPrompt(name: "heartbeat", content: "Mine.\n", ifMatch: revision)))
+        #expect(harness.model.prompt.document?.file == "notes.md")
+        #expect(harness.model.prompt.confirmation == nil)
+        #expect(!harness.model.prompt.isDirty)
+    }
+
+    @Test func discardingMyTextForTheNewFileReadsThatFile() async throws {
+        let harness = try await Self.repointedUnderUnsavedText()
+
+        await harness.model.discardPromptTextForNewFile()
+
+        #expect(harness.model.prompt.document?.file == "notes.md")
+        #expect(harness.model.prompt.text == "Notes\n")
+        #expect(harness.model.prompt.confirmation == nil)
+        #expect(await Self.count(harness.fake, Self.isPromptSave) == 0)
+    }
+
+    @Test func theFormsSaveOfANewPromptFileAsksBeforeDroppingPromptText() async throws {
+        let harness = try await Self.harness(page: .prompt)
+        harness.model.setPromptText("Mine.\n")
+        harness.model.collection.set("prompt_file", .string("notes.md"))
+
+        await harness.model.collection.save()
+        #expect(harness.model.prompt.confirmation == .saveWithFile("notes.md"))
+        #expect(await Self.updates(harness.fake).isEmpty)
+
+        await harness.model.confirmFormSave()
+        #expect(await Self.updates(harness.fake).count == 1)
+        #expect(harness.model.prompt.document?.file == "notes.md")
+        #expect(harness.model.prompt.text == "Notes\n")
+    }
+
+    @Test func cancellingTheHeldFormSaveSendsNothingAndKeepsBothEdits() async throws {
+        let harness = try await Self.harness(page: .prompt)
+        harness.model.setPromptText("Mine.\n")
+        harness.model.collection.set("prompt_file", .string("notes.md"))
+        await harness.model.collection.save()
+
+        harness.model.cancelPromptFileSwitch()
+
+        #expect(harness.model.prompt.confirmation == nil)
+        #expect(await Self.updates(harness.fake).isEmpty)
+        #expect(harness.model.prompt.text == "Mine.\n")
+        #expect(harness.model.collection.isDirty)
+    }
+
+    @Test func theFormsSaveWithoutAPromptFileChangeIsNotHeld() async throws {
+        let harness = try await Self.harness(page: .prompt)
+        harness.model.setPromptText("Mine.\n")
+        harness.model.collection.set("model", .string("opus"))
+
+        await harness.model.collection.save()
+
+        #expect(harness.model.prompt.confirmation == nil)
+        #expect(await Self.updates(harness.fake).count == 1)
+        #expect(harness.model.prompt.text == "Mine.\n")
     }
 
     // MARK: schedule preview

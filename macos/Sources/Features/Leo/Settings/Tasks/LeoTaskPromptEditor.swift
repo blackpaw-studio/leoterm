@@ -23,15 +23,6 @@ struct LeoTaskPromptEditor: View {
             }
         }
         .sheet(isPresented: $isNamingFile) { fileSheet }
-        .alert(
-            "Discard unsaved prompt text?", isPresented: Binding(get: { prompt.confirmation != nil }, set: { if !$0 { model.cancelPromptFileSwitch() } }),
-            presenting: prompt.confirmation
-        ) { _ in
-            Button("Discard", role: .destructive) { Task { await model.confirmPromptFileSwitch() } }
-            Button("Cancel", role: .cancel) {}
-        } message: { confirmation in
-            if case .switchFile(let file) = confirmation { Text("Switching to “\(file)” drops what you typed in this prompt.") }
-        }
     }
 
     // MARK: States
@@ -51,6 +42,7 @@ struct LeoTaskPromptEditor: View {
     private func editor(_ prompt: LeoTaskPromptState) -> some View {
         VStack(spacing: 0) {
             header(prompt)
+            if case .fileChanged(let file)? = prompt.confirmation { fileChangedBanner(file).padding(.horizontal, 12).padding(.bottom, 8) }
             if prompt.conflict != nil { conflictBanner.padding(.horizontal, 12).padding(.bottom, 8) }
             if let error = prompt.error {
                 LeoTaskMessageBanner(message: error, dismiss: model.dismissPromptError).padding(.horizontal, 12).padding(.bottom, 8)
@@ -107,13 +99,31 @@ struct LeoTaskPromptEditor: View {
         .accessibilityElement(children: .contain)
     }
 
+    /// The task was pointed at another file while text typed for this one was unsaved.
+    private func fileChangedBanner(_ file: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange).accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("This task now uses “\(file)”").font(.headline)
+                Text("Your text was typed for “\(model.prompt.document?.file ?? "")”. Keep it writes it to the new file, replacing what is there.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 12)
+            Button("Discard", role: .destructive) { Task { await model.discardPromptTextForNewFile() } }
+            Button("Keep My Text for \(file)") { Task { await model.keepPromptTextForNewFile() } }
+        }
+        .padding(12)
+        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .contain)
+    }
+
     private func saveBar(_ prompt: LeoTaskPromptState) -> some View {
         HStack {
             if prompt.isSaving { ProgressView().controlSize(.small) }
             Spacer()
             Button("Revert") { model.revertPrompt() }.disabled(!prompt.isDirty || prompt.isSaving)
             Button("Save") { Task { await model.savePrompt() } }
-                .keyboardShortcut(.defaultAction).disabled(!prompt.isDirty || prompt.isSaving || prompt.conflict != nil)
+                .keyboardShortcut(.defaultAction).disabled(!prompt.isDirty || prompt.isSaving || prompt.conflict != nil || prompt.confirmation != nil)
         }
         .padding(12)
     }

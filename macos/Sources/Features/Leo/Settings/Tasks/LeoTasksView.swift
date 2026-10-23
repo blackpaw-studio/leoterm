@@ -39,6 +39,7 @@ private struct LeoTaskRow: View {
             Spacer(minLength: 4)
             Button { Task { await model.runNow(item.name) } } label: { Image(systemName: "play.fill") }
                 .buttonStyle(.borderless)
+                .disabled(model.runNotice == .starting(item.name))
                 .help("Run Now: starts \(item.name) with its saved settings")
                 .accessibilityLabel("Run \(item.name) now")
             Toggle("Enabled", isOn: Binding(
@@ -91,6 +92,31 @@ private struct LeoTaskDetail: View {
             case .prompt: LeoTaskPromptEditor(model: model)
             case .history: LeoTaskHistoryView(model: model)
             }
+        }
+        .alert(
+            "Discard unsaved prompt text?", isPresented: Binding(get: { dropsPromptText }, set: { if !$0 { model.cancelPromptFileSwitch() } }),
+            presenting: model.prompt.confirmation
+        ) { confirmation in
+            if case .saveWithFile = confirmation {
+                Button("Discard and Save", role: .destructive) { Task { await model.confirmFormSave() } }
+            } else {
+                Button("Discard", role: .destructive) { Task { await model.confirmPromptFileSwitch() } }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { confirmation in
+            switch confirmation {
+            case .switchFile(let file): Text("Switching to “\(file)” drops what you typed in this prompt.")
+            case .saveWithFile(let file): Text("Saving points this task at “\(file)” and drops what you typed in this prompt.")
+            case .fileChanged: EmptyView()
+            }
+        }
+    }
+
+    /// The two questions that end in discarding the prompt text; "file changed" is answered in the editor.
+    private var dropsPromptText: Bool {
+        switch model.prompt.confirmation {
+        case .switchFile?, .saveWithFile?: true
+        case .fileChanged?, nil: false
         }
     }
 }

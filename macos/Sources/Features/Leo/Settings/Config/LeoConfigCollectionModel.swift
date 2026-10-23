@@ -79,6 +79,9 @@ import LeoKit
 
     var title: String { resource?.label ?? resourceKey.capitalized }
     var actions: Set<LeoConfigAction> { Set(resource?.actions ?? []) }
+    /// A pane's veto over the form's Save (it asks the user first); false stops the write.
+    var beforeSave: (LeoConfigDraft) -> Bool = { _ in true }
+
     var isDirty: Bool { draft?.isDirty ?? false }
     var canSave: Bool { draft?.canSave == true && conflict == nil && !isBusy }
     /// Structural changes wait for a clean draft, so no edit is lost to a rename.
@@ -148,15 +151,16 @@ import LeoKit
         }
     }
 
-    private func refresh(preferring name: String?, carrying carried: LeoConfigDraft?) async {
+    private func refresh(preferring name: String?, carrying carried: LeoConfigDraft?, rebasing: Bool = true) async {
         do {
-            apply(try await client.collection(resourceKey), preferring: name, carrying: carried)
+            apply(try await client.collection(resourceKey), preferring: name, carrying: carried, rebasing: rebasing)
         } catch {
             errorMessage = Self.message(for: error)
         }
     }
 
-    private func apply(_ collection: LeoConfigCollection, preferring name: String?, carrying carried: LeoConfigDraft?) {
+    /// `rebasing: false` leaves a carried draft with edits on the document it was opened on, so its next Save is judged against that revision.
+    private func apply(_ collection: LeoConfigCollection, preferring name: String?, carrying carried: LeoConfigDraft?, rebasing: Bool = true) {
         items = collection.items
         revision = collection.revision
         let chosen = [name, selection].lazy.compactMap { $0 }.first { wanted in items.contains { $0.name == wanted } } ?? items.first?.name
@@ -166,7 +170,10 @@ import LeoKit
             return
         }
         let fresh = LeoConfigDraft(document: document(of: item), validator: validator)
-        draft = carried.flatMap { $0.document.name == chosen ? $0.rebased(onto: fresh.document) : nil } ?? fresh
+        draft = carried.flatMap { kept in
+            guard kept.document.name == chosen else { return nil }
+            return rebasing || !kept.isDirty ? kept.rebased(onto: fresh.document) : kept
+        } ?? fresh
     }
 
     private func document(of item: LeoConfigItem) -> LeoConfigDocument {
@@ -214,7 +221,7 @@ import LeoKit
     // MARK: Saving
 
     func save() async {
-        guard canSave, let draft, let name = selection else { return }
+        guard canSave, let draft, let name = selection, beforeSave(draft) else { return }
         let sent = draft
         await write(
             ifMatch: revisions.resolve(draft.revision), preferring: name, onFailure: { model, error in model.handleSaveFailure(error, draft: sent) },
@@ -268,20 +275,18 @@ import LeoKit
     /// A write of `patch` to one item that isn't the open form's Save (a list
     /// toggle, a prompt file choice): only these keys are sent, the open
     /// draft and its edits stay, and a stale revision is retried once against
-    /// the current one, because the patch is the user's whole intent. Returns
-    /// why it failed, or nil.
+    /// the current one, because the patch is the user's whole intent. That
+    /// retry doesn't vouch for the open form: its edits stay on the revision
+    /// they were made against, so its Save still meets the other writer's
+    /// change as a conflict. Returns why it failed, or nil.
     func applyPatch(_ patch: [String: LeoConfigValue], to name: String) async -> String? {
         guard phase == .loaded, !isBusy else { return "Another change is still being saved. Try again in a moment." }
         var failure: String?
         await write(
-            ifMatch: revisions.resolve(revision), preferring: selection, keepingDraft: true,
+            ifMatch: revisions.resolve(revision), preferring: selection, keepingDraft: true, retryingConflict: true,
             onFailure: { _, error in failure = Self.message(for: error) },
             operation: { [resourceKey, client] ifMatch in
-                do {
-                    return try await client.update(resourceKey, name: name, patch: patch, ifMatch: ifMatch)
-                } catch LeoConfigError.conflict(let current) {
-                    return try await client.update(resourceKey, name: name, patch: patch, ifMatch: current)
-                }
+                try await client.update(resourceKey, name: name, patch: patch, ifMatch: ifMatch)
             }
         )
         return failure
@@ -343,9 +348,11 @@ import LeoKit
 
     /// Runs one write, then reads the list again. `preferring` is the item to
     /// select afterwards; `selectingResult` follows the item the daemon
-    /// returned; `keepingDraft` rebases the open draft onto what was read. The write's failure goes to `onFailure`, else to the banner.
+    /// returned; `keepingDraft` rebases the open draft onto what was read, unless
+    /// `retryingConflict` had to resend against a newer revision (then the
+    /// draft keeps its own). The write's failure goes to `onFailure`, else to the banner.
     private func write(
-        ifMatch: String, preferring name: String?, selectingResult: Bool = false, keepingDraft: Bool = false,
+        ifMatch: String, preferring name: String?, selectingResult: Bool = false, keepingDraft: Bool = false, retryingConflict: Bool = false,
         onFailure: ((LeoConfigCollectionModel, Error) -> Void)? = nil,
         operation: @Sendable (String) async throws -> LeoConfigWriteResult
     ) async {
@@ -355,13 +362,20 @@ import LeoKit
         errorMessage = nil
         warning = nil
         do {
-            let result = try await operation(ifMatch)
-            revisions.recordWrite(from: ifMatch, to: result.revision)
+            var sentWith = ifMatch
+            let result: LeoConfigWriteResult
+            do {
+                result = try await operation(ifMatch)
+            } catch LeoConfigError.conflict(let current) where retryingConflict {
+                sentWith = current
+                result = try await operation(current)
+            }
+            revisions.recordWrite(from: sentWith, to: result.revision)
             conflict = nil
             warning = result.warning
             if result.restartRequired.isNeeded { restartPrompt = result.restartRequired }
             let followed = selectingResult ? (result.item?.name ?? name) : name
-            await refresh(preferring: followed, carrying: keepingDraft ? draft : nil)
+            await refresh(preferring: followed, carrying: keepingDraft ? draft : nil, rebasing: sentWith == ifMatch)
         } catch {
             if let onFailure { onFailure(self, error) } else { errorMessage = Self.message(for: error) }
         }

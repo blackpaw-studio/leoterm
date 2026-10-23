@@ -58,6 +58,7 @@ import LeoKit
         self.previewer = previewer ?? LeoCronPreviewer(fetch: makeFetch())
         collection.extraUnsavedChanges = { [weak self] in self?.prompt.isDirty ?? false }
         collection.onDiscard = { [weak self] in self?.discardPromptEdits() }
+        collection.beforeSave = { [weak self] in self?.allowFormSave($0) ?? true }
         collection.$selection.removeDuplicates().sink { [weak self] in self?.selectionChanged(to: $0) }.store(in: &subscriptions)
         collection.$items.sink { [weak self] in self?.itemsChanged($0) }.store(in: &subscriptions)
         collection.$draft.sink { [weak self] in self?.draftChanged($0) }.store(in: &subscriptions)
@@ -135,12 +136,28 @@ import LeoKit
     }
 
     /// The form saved a new `prompt_file` (or another writer changed it): a
-    /// prompt with no edits follows it. One with edits stays; saving it over
-    /// the other file is then a conflict.
+    /// prompt with no edits follows it. One with edits stays, with the choice
+    /// of the new file put to the user: that text was typed for the old one.
     private func itemsChanged(_ items: [LeoConfigItem]) {
-        guard prompt.phase != .idle, !prompt.isDirty, let name = selectedTask else { return }
-        guard Self.promptFile(of: name, in: items) != prompt.file else { return }
+        guard prompt.phase != .idle, let name = selectedTask else { return }
+        let configured = Self.promptFile(of: name, in: items)
+        guard !prompt.isDirty else {
+            if configured != prompt.document?.file { prompt.confirmation = .fileChanged(configured) } else if case .fileChanged? = prompt.confirmation {
+                prompt.confirmation = nil
+            }
+            return
+        }
+        guard configured != prompt.file else { return }
         pageLoad = Task { await loadPrompt(for: name) }
+    }
+
+    /// The form's Save that would repoint the task drops the prompt text, so it asks first.
+    private func allowFormSave(_ draft: LeoConfigDraft) -> Bool {
+        guard prompt.isDirty, let change = draft.patch["prompt_file"] else { return true }
+        let file = change.stringValue ?? ""
+        guard file != prompt.document?.file else { return true }
+        prompt.confirmation = .saveWithFile(file)
+        return false
     }
 
     private func configuredPromptFile(of name: String) -> String {
@@ -185,6 +202,7 @@ import LeoKit
     // MARK: Run now
 
     func runNow(_ name: String) async {
+        guard runNotice != .starting(name) else { return }
         runNotice = .starting(name)
         do {
             _ = try await client.runTask(name)
@@ -313,8 +331,14 @@ import LeoKit
         await loadPrompt(for: name)
     }
 
-    private func writePrompt(ifMatch: String) async {
+    /// `checkingFile` is false only for text just placed on a file read from the daemon.
+    private func writePrompt(ifMatch: String, checkingFile: Bool = true) async {
         guard prompt.phase == .loaded, prompt.isDirty, !prompt.isSaving, let name = selectedTask, let document = prompt.document else { return }
+        let configured = configuredPromptFile(of: name)
+        if checkingFile, configured != document.file {
+            prompt.confirmation = .fileChanged(configured)
+            return
+        }
         let token = promptToken
         let sent = prompt.text
         prompt.isSaving = true
@@ -327,12 +351,50 @@ import LeoKit
             prompt.document = LeoTaskPrompt(revision: saved.revision, file: saved.file, files: files, content: sent)
             prompt.conflict = nil
         } catch LeoConfigError.conflict(let current) {
+            let served = try? await client.taskPrompt(name)
             guard token == promptToken else { return }
-            prompt.conflict = current
+            if let served, served.file != document.file {
+                prompt.confirmation = .fileChanged(served.file)
+            } else {
+                prompt.conflict = current
+            }
         } catch {
             guard token == promptToken else { return }
             prompt.error = Self.message(for: error)
         }
+    }
+
+    /// The task moved to another file under unsaved text. "Keep": that text is
+    /// written to the new file over what it holds, the user having chosen it.
+    func keepPromptTextForNewFile() async {
+        guard case .fileChanged? = prompt.confirmation, let name = selectedTask else { return }
+        let text = prompt.text
+        promptToken += 1
+        let token = promptToken
+        do {
+            let served = try await client.taskPrompt(name)
+            guard token == promptToken else { return }
+            prompt = LeoTaskPromptState(phase: .loaded, file: served.file, document: served, text: text)
+            await writePrompt(ifMatch: served.revision, checkingFile: false)
+        } catch {
+            guard token == promptToken else { return }
+            prompt.error = Self.message(for: error)
+        }
+    }
+
+    /// The task moved to another file under unsaved text. "Discard": read the new file.
+    func discardPromptTextForNewFile() async {
+        guard case .fileChanged? = prompt.confirmation, let name = selectedTask else { return }
+        discardPromptEdits()
+        await loadPrompt(for: name)
+    }
+
+    /// The form's Save was held for the prompt text: drop the text, then save.
+    func confirmFormSave() async {
+        guard case .saveWithFile? = prompt.confirmation else { return }
+        discardPromptEdits()
+        await collection.save()
+        await settled()
     }
 
     /// Drops the unsaved prompt text (the editor's Revert).

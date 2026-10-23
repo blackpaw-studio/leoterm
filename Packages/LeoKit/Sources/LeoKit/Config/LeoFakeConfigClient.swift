@@ -401,6 +401,7 @@ public actor LeoFakeConfigClient: LeoConfigClient {
 extension LeoFakeConfigClient {
     public func runTask(_ name: String) async throws -> LeoTaskRunStart {
         calls.append(.runTask(name))
+        if isHoldingWrites { await withCheckedContinuation { heldWrites.append($0) } }
         if let failure = takeWriteFailure() { throw failure }
         _ = try existing("tasks", name)
         return LeoTaskRunStart(name: name, status: "started")

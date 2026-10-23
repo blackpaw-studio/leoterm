@@ -36,6 +36,10 @@ struct LeoTaskPromptState: Equatable {
     enum Confirmation: Equatable {
         /// Switch files, dropping the unsaved text.
         case switchFile(String)
+        /// The task now uses this file; the text was typed for the one it left.
+        case fileChanged(String)
+        /// The form's Save would point the task at this file.
+        case saveWithFile(String)
     }
 
     var phase = Phase.idle
