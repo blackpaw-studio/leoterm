@@ -315,7 +315,9 @@ import LeoKit
         let localChatClient = chatClient ?? LeoChatPaneModel.makeClient(
             socketPath: NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath, transport: LeoUnixSocketTransport()
         )
-        let unread = LeoChatUnreadStore(client: localChatClient, host: .local)
+        let unread = LeoChatUnreadStore()
+        // Temporary until the runtime binds every machine's chat as it connects.
+        unread.bind(localChatClient, host: .local)
         self.unread = unread
         let chat = LeoChatPaneModel(
             client: localChatClient, host: .local, recorder: LeoChatVoiceRecorder(),

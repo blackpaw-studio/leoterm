@@ -5,16 +5,22 @@ import Testing
 @testable import LeoKit
 
 /// Unread counts on the Mac: seeded from the daemon on every resync, bumped
-/// by live agent messages, cleared by a read, and bound to one host.
+/// by live agent messages, cleared by a read, and kept per machine: each
+/// bound machine seeds from its own daemon and unbinding drops its counts.
 @MainActor @Suite(.timeLimit(.minutes(1)))
 struct LeoChatUnreadStoreTests {
     private static let alpha = LeoAgentID(host: .local, name: "alpha")
     private static let beta = LeoAgentID(host: .local, name: "beta")
     private static let remote = LeoHostID.remote("box")
+    private static let remoteAlpha = LeoAgentID(host: remote, name: "alpha")
 
     private let client = FakeChatClient()
 
-    private func make() -> LeoChatUnreadStore { LeoChatUnreadStore(client: client, host: .local) }
+    private func make() -> LeoChatUnreadStore {
+        let store = LeoChatUnreadStore()
+        store.bind(client, host: .local)
+        return store
+    }
 
     private func resync(_ store: LeoChatUnreadStore, host: LeoHostID = .local) async {
         store.receive(LeoChatFeedDelivery(host: host, signal: .resync), isOnScreen: { _ in false })
@@ -104,7 +110,7 @@ struct LeoChatUnreadStoreTests {
         #expect(store.count(for: Self.alpha) == 1)
     }
 
-    @Test func anotherHostsSignalsAreIgnored() async {
+    @Test func anUnboundMachinesSignalsAreIgnored() async {
         let store = make()
         event(store, chatMessage("a", agent: "alpha", at: 1), host: Self.remote)
         await resync(store, host: Self.remote)
@@ -112,16 +118,95 @@ struct LeoChatUnreadStoreTests {
         #expect(await client.threadRequestCount == 0)
     }
 
-    @Test func aSeedThatLandsAfterTheClientChangedIsDropped() async {
+    @Test func aSeedThatLandsAfterItsMachineUnboundIsDropped() async {
         await client.setThreads([LeoChatThread(agent: "alpha", unread: 3)])
         await client.holdThreads()
         let store = make()
         store.receive(LeoChatFeedDelivery(host: .local, signal: .resync), isOnScreen: { _ in false })
         await client.waitForThreadRequests(1)
-        store.updateClient(FakeChatClient(), host: Self.remote)
+        store.unbind(.local)
         await client.releaseThreads()
         await store.settled()
         #expect(store.count(for: Self.alpha) == 0)
+    }
+
+    @Test func eachMachineSeedsFromItsOwnDaemonAndKeepsTheOthersCounts() async {
+        let remoteClient = FakeChatClient()
+        await client.setThreads([LeoChatThread(agent: "alpha", unread: 3)])
+        await remoteClient.setThreads([LeoChatThread(agent: "alpha", unread: 5)])
+        let store = make()
+        store.bind(remoteClient, host: Self.remote)
+        await resync(store)
+        await resync(store, host: Self.remote)
+        #expect(store.count(for: Self.alpha) == 3)
+        #expect(store.count(for: Self.remoteAlpha) == 5)
+        #expect(await client.threadRequestCount == 1, "the remote resync asked This Mac's daemon")
+        #expect(await remoteClient.threadRequestCount == 1)
+
+        await remoteClient.setThreads([LeoChatThread(agent: "alpha", unread: 1)])
+        await resync(store, host: Self.remote)
+        #expect(store.count(for: Self.alpha) == 3, "a remote seed replaced This Mac's counts")
+        #expect(store.count(for: Self.remoteAlpha) == 1)
+    }
+
+    @Test func unbindingAMachineDropsItsCountsAndLatestKinds() async {
+        let remoteClient = FakeChatClient()
+        await client.setThreads([LeoChatThread(agent: "alpha", lastMessage: chatMessage("a", kind: .ask, at: 1), unread: 3)])
+        await remoteClient.setThreads([
+            LeoChatThread(agent: "alpha", lastMessage: chatMessage("b", kind: .permission, at: 1), unread: 5)
+        ])
+        let store = make()
+        store.bind(remoteClient, host: Self.remote)
+        await resync(store)
+        await resync(store, host: Self.remote)
+
+        store.unbind(Self.remote)
+
+        #expect(!store.isBound(Self.remote))
+        #expect(store.isBound(.local))
+        #expect(store.count(for: Self.remoteAlpha) == 0)
+        #expect(store.latestAgentKind(for: Self.remoteAlpha) == nil)
+        #expect(store.count(for: Self.alpha) == 3)
+        #expect(store.latestAgentKind(for: Self.alpha) == .ask)
+    }
+
+    @Test func aSeedOnOneMachineDoesNotDropAnotherMachinesSeedInFlight() async {
+        let remoteClient = FakeChatClient()
+        await client.setThreads([LeoChatThread(agent: "alpha", unread: 3)])
+        await client.holdThreads()
+        await remoteClient.setThreads([LeoChatThread(agent: "alpha", unread: 5)])
+        let store = make()
+        store.bind(remoteClient, host: Self.remote)
+        store.receive(LeoChatFeedDelivery(host: .local, signal: .resync), isOnScreen: { _ in false })
+        await client.waitForThreadRequests(1)
+
+        store.receive(LeoChatFeedDelivery(host: Self.remote, signal: .resync), isOnScreen: { _ in false })
+        await remoteClient.waitForThreadRequests(1)
+        await client.releaseThreads()
+        await store.settled()
+
+        #expect(store.count(for: Self.alpha) == 3)
+        #expect(store.count(for: Self.remoteAlpha) == 5)
+    }
+
+    @Test func aReadDuringOneMachinesSeedDoesNotSuppressAnotherMachinesSeed() async {
+        let remoteClient = FakeChatClient()
+        await client.setThreads([LeoChatThread(agent: "alpha", unread: 3)])
+        await client.holdThreads()
+        await remoteClient.setThreads([LeoChatThread(agent: "alpha", unread: 5)])
+        let store = make()
+        store.bind(remoteClient, host: Self.remote)
+        store.receive(LeoChatFeedDelivery(host: .local, signal: .resync), isOnScreen: { _ in false })
+        await client.waitForThreadRequests(1)
+        store.clear(Self.alpha)
+
+        store.receive(LeoChatFeedDelivery(host: Self.remote, signal: .resync), isOnScreen: { _ in false })
+        await remoteClient.waitForThreadRequests(1)
+        await client.releaseThreads()
+        await store.settled()
+
+        #expect(store.count(for: Self.alpha) == 0, "the remote seed forgot This Mac's read")
+        #expect(store.count(for: Self.remoteAlpha) == 5, "This Mac's read suppressed the remote seed")
     }
 
     @Test func aFailedSeedKeepsTheCurrentCounts() async {
