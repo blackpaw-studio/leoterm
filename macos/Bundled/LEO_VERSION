@@ -4,5 +4,5 @@
 # version: bare X.Y.Z (the "v" belongs to the tag only).
 # sha256: the tarball's hash, as listed in that release's checksums.txt.
 # leo 0.56.0 is the first release with a darwin_universal asset; 0.56.1 adds markerless --to-cli recovery (required).
-version=0.57.0
-sha256=13b6f5b7fb061ee5499e3eab16cbcbb4217287a714f3366a06d5b142c6ed1e09
+version=0.58.0
+sha256=ec9c924a542cec7d65c81bcaf8ed0cd0d1e765c4c8a6ea8dc53ea04fa5e85cd7
