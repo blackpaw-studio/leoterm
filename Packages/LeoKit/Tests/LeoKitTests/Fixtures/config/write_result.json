@@ -1,0 +1,5 @@
+{"ok": true, "data": {
+  "revision": "sha256:bb22",
+  "restart_required": {"service": false, "agents": true},
+  "warning": "saved, but reload failed: boom",
+  "item": {"revision": "sha256:bb22", "name": "coder", "values": {"workspace": "~/code"}, "inherited": {}, "effective_harness": "claude"}}}

@@ -1,0 +1,3 @@
+{"ok": true, "data": {"revision": "sha256:dd44", "file": "prompts/nightly-review.md",
+                       "files": ["prompts/nightly-review.md", "prompts/shared.md"],
+                       "content": "Review yesterday's merges.\n"}}

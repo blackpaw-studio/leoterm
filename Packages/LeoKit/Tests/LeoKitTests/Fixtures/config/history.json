@@ -1,0 +1,4 @@
+{"ok": true, "data": [
+  {"id": "r2", "started_at": "2026-10-23T03:00:00Z", "finished_at": "2026-10-23T03:04:10Z", "status": "ok", "log_file": "nightly-review-2.log"},
+  {"id": "r1", "started_at": "2026-10-22T03:00:00Z", "finished_at": "2026-10-22T03:00:09Z", "status": "failed", "log_file": "nightly-review-1.log"}
+]}

@@ -1,0 +1,10 @@
+{"ok": true, "data": {
+  "revision": "sha256:aa11",
+  "items": [
+    {"name": "nightly-review", "values": {"schedule": "0 3 * * *", "template": "reviewer", "enabled": true, "queue_max": null,
+                                          "harness_options": {}},
+     "inherited": {}, "effective_harness": "codex"},
+    {"name": "weekly-report", "values": {"schedule": "0 9 * * 1", "template": null, "enabled": false, "queue_max": 2,
+                                         "harness_options": {}},
+     "inherited": {}, "effective_harness": "claude"}
+  ]}}
