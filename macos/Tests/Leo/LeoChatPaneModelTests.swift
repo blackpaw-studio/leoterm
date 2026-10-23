@@ -10,8 +10,11 @@ import Testing
 struct LeoChatPaneModelTests {
     private static let alpha = LeoAgentID(host: .local, name: "alpha")
     private static let beta = LeoAgentID(host: .local, name: "beta")
+    private static let box = LeoHostID.remote("box")
+    private static let boxAlpha = LeoAgentID(host: box, name: "alpha")
 
     private let client = FakeChatClient()
+    private let boxClient = FakeChatClient()
     private let recorder = FakeVoiceRecorder()
     private let directory = FileManager.default.temporaryDirectory.appending(path: "leo-chat-tests-\(UUID().uuidString)")
 
@@ -19,9 +22,16 @@ struct LeoChatPaneModelTests {
         maximumUploadBytes: Int = LeoChatUpload.maximumBytes, onRead: @escaping @MainActor (LeoAgentID) -> Void = { _ in }
     ) -> LeoChatPaneModel {
         LeoChatPaneModel(
-            client: client, host: .local, recorder: recorder, attachmentDirectory: directory, maximumUploadBytes: maximumUploadBytes,
+            clients: [.local: client], recorder: recorder, attachmentDirectory: directory, maximumUploadBytes: maximumUploadBytes,
             onRead: onRead
         )
+    }
+
+    /// A pane with This Mac and the machine `box` both connected.
+    private func makeWithBox(onRead: @escaping @MainActor (LeoAgentID) -> Void = { _ in }) -> LeoChatPaneModel {
+        let model = make(onRead: onRead)
+        model.bind(boxClient, host: Self.box)
+        return model
     }
 
     private func file(_ name: String, bytes: Int = 4) throws -> URL {
@@ -129,6 +139,116 @@ struct LeoChatPaneModelTests {
         await model.show(Self.alpha)
         #expect(model.loadError == "daemon is down")
         #expect(!model.isLoading)
+    }
+
+    // MARK: Machines
+
+    @Test func anAgentOnABoundRemoteMachineLoadsFromThatMachinesClient() async {
+        await boxClient.enqueuePage([chatMessage("r1", at: 1)])
+        let model = makeWithBox()
+        await model.show(Self.boxAlpha)
+        #expect(model.timeline.messages.map(\.id) == ["r1"])
+        #expect(model.loadError == nil)
+        #expect(await boxClient.pageRequests.count == 1)
+        #expect(await client.pageRequests.isEmpty)
+    }
+
+    @Test func switchingAgentsAcrossMachinesUsesEachMachinesClient() async {
+        await client.enqueuePage([chatMessage("l1", at: 1)])
+        await boxClient.enqueuePage([chatMessage("r1", at: 1)])
+        let model = makeWithBox()
+        await model.setOnScreen(true)
+        await model.show(Self.alpha)
+        await model.show(Self.boxAlpha)
+        model.setText("hi")
+        await model.send()
+        #expect(await client.reads.map(\.id) == ["l1"])
+        #expect(await boxClient.reads.map(\.id) == ["r1"])
+        #expect(await client.sent.isEmpty)
+        #expect(await boxClient.sent.map(\.draft.text) == ["hi"])
+        #expect(await client.pageRequests.count == 1)
+        #expect(await boxClient.pageRequests.count == 1)
+    }
+
+    @Test func anAgentOnAnUnboundMachineShowsNotConnected() async {
+        let model = make()
+        await model.show(Self.boxAlpha)
+        #expect(model.loadError == "box isn't connected.")
+        #expect(await boxClient.pageRequests.isEmpty)
+        #expect(await client.pageRequests.isEmpty)
+    }
+
+    @Test func unbindingTheShownAgentsMachineShowsNotConnectedAndDropsItsInFlightPage() async {
+        await boxClient.enqueuePage([chatMessage("r1", at: 1)])
+        await boxClient.enqueuePage([chatMessage("r2", at: 2)])
+        let model = makeWithBox()
+        await model.show(Self.boxAlpha)
+        await boxClient.holdPages()
+        let reload = Task { await model.resync(host: Self.box) }
+        await boxClient.waitForPageRequests(2)
+
+        model.unbind(Self.box)
+        #expect(model.timeline.messages.isEmpty)
+        #expect(!model.isLoading)
+        #expect(model.loadError == "box isn't connected.")
+
+        await boxClient.releasePage()
+        await reload.value
+        #expect(model.timeline.messages.isEmpty, "the page from the gone connection landed")
+        #expect(model.loadError == "box isn't connected.")
+        #expect(!model.isLoading)
+    }
+
+    @Test func unbindingAnotherMachineLeavesTheShownThreadAlone() async {
+        await client.enqueuePage([chatMessage("l1", at: 1)])
+        let model = makeWithBox()
+        await model.show(Self.alpha)
+        model.unbind(Self.box)
+        #expect(model.timeline.messages.map(\.id) == ["l1"])
+        #expect(model.loadError == nil)
+    }
+
+    @Test func aResyncAfterBindingReloadsTheShownThread() async {
+        await boxClient.enqueuePage([chatMessage("r1", at: 1)])
+        let model = makeWithBox()
+        await model.show(Self.boxAlpha)
+        model.unbind(Self.box)
+        model.bind(boxClient, host: Self.box)
+        await boxClient.enqueuePage([chatMessage("r2", at: 2), chatMessage("r1", at: 1)])
+        await model.resync(host: Self.box)
+        #expect(model.timeline.messages.map(\.id) == ["r1", "r2"])
+        #expect(model.loadError == nil)
+    }
+
+    @Test func aLiveEventFromTheShownAgentsRemoteMachineMerges() async {
+        let model = makeWithBox()
+        await model.show(Self.boxAlpha)
+        await model.receive(.message(chatMessage("x", at: 5)), host: Self.box)
+        await model.receive(.message(chatMessage("y", at: 6)), host: .local)
+        #expect(model.timeline.messages.map(\.id) == ["x"])
+    }
+
+    @Test func anEventFromAnUnboundMachineIsIgnored() async {
+        let model = makeWithBox()
+        await model.show(Self.boxAlpha)
+        model.unbind(Self.box)
+        await model.receive(.message(chatMessage("x", at: 5)), host: Self.box)
+        await model.resync(host: Self.box)
+        #expect(model.timeline.messages.isEmpty)
+        #expect(await boxClient.pageRequests.count == 1)
+    }
+
+    @Test func anAttachmentDownloadsFromTheShownAgentsMachine() async {
+        await boxClient.setDownload("f1", .success(Data("r".utf8)))
+        let model = makeWithBox()
+        await model.show(Self.boxAlpha)
+        await model.loadAttachment(LeoChatAttachment(id: "f1", filename: "a.txt", mime: "text/plain", bytes: 1))
+        #expect(await boxClient.downloadCount == 1)
+        #expect(await client.downloadCount == 0)
+        guard case .loaded = model.attachmentFiles["f1"] else {
+            Issue.record("expected a loaded file")
+            return
+        }
     }
 
     // MARK: Read marks
@@ -626,6 +746,7 @@ struct LeoChatPaneModelTests {
     @Test func attachmentsDownloadOnceToASanitizedFile() async throws {
         await client.setDownload("f1", .success(Data("pdf".utf8)))
         let model = make()
+        await model.show(Self.alpha)
         let attachment = LeoChatAttachment(id: "f1", filename: "../../etc/passwd", mime: "application/pdf", bytes: 3)
         await model.loadAttachment(attachment)
         await model.loadAttachment(attachment)
@@ -642,6 +763,7 @@ struct LeoChatPaneModelTests {
     @Test func aHostileIdAndADotOnlyNameStillLandInsideTheFolder() async throws {
         await client.setDownload("../../victim", .success(Data("x".utf8)))
         let model = make()
+        await model.show(Self.alpha)
         await model.loadAttachment(LeoChatAttachment(id: "../../victim", filename: "..", mime: "text/plain", bytes: 1))
         guard case .loaded(let url) = model.attachmentFiles["../../victim"] else {
             Issue.record("expected a loaded file")
@@ -664,6 +786,7 @@ struct LeoChatPaneModelTests {
     @Test func aFailedDownloadCanBeRetried() async {
         await client.setDownload("f1", .failure(.init(message: "gone")))
         let model = make()
+        await model.show(Self.alpha)
         let attachment = LeoChatAttachment(id: "f1", filename: "a.png", mime: "image/png", bytes: 3)
         await model.loadAttachment(attachment)
         #expect(model.attachmentFiles["f1"] == .failed("gone"))
@@ -681,7 +804,7 @@ struct LeoChatAttachmentClickTests {
 
     private func make() -> LeoChatPaneModel {
         LeoChatPaneModel(
-            client: client, host: .local, recorder: FakeVoiceRecorder(), attachmentDirectory: directory,
+            clients: [.local: client], recorder: FakeVoiceRecorder(), attachmentDirectory: directory,
             maximumUploadBytes: LeoChatUpload.maximumBytes, onRead: { _ in }
         )
     }
@@ -690,6 +813,7 @@ struct LeoChatAttachmentClickTests {
         await client.setDownload("f1", .success(Data("# hi".utf8)))
         await client.holdDownloads()
         let model = make()
+        await model.show(Self.alpha)
         let first = Task { await model.downloadedFile(attachment) }
         await client.waitForDownloads(1)
         let second = Task { await model.downloadedFile(attachment) }
@@ -705,6 +829,7 @@ struct LeoChatAttachmentClickTests {
         await client.setDownload("f1", .success(Data("# hi".utf8)))
         await client.holdDownloads()
         let model = make()
+        await model.show(Self.alpha)
         var externalOpens = 0
         let viewer = LeoChatViewerModel(openExternally: { _ in externalOpens += 1 })
         let attachment = attachment

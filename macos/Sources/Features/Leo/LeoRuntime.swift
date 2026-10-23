@@ -320,7 +320,7 @@ import LeoKit
         unread.bind(localChatClient, host: .local)
         self.unread = unread
         let chat = LeoChatPaneModel(
-            client: localChatClient, host: .local, recorder: LeoChatVoiceRecorder(),
+            clients: [.local: localChatClient], recorder: LeoChatVoiceRecorder(),
             attachmentDirectory: LeoChatPaneModel.defaultAttachmentDirectory,
             onRead: { [weak unread] in unread?.clear($0) }
         )
