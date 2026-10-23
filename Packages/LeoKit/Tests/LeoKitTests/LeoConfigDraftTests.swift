@@ -13,6 +13,19 @@ struct LeoConfigDraftTests {
         return LeoConfigDraft(document: try LeoConfigFixtures.decode(LeoConfigDocument.self, name), validator: validator)
     }
 
+    /// The daemon's `heartbeat` task, whose `schedule` and `prompt_file` are required.
+    private static func taskDraft() throws -> LeoConfigDraft {
+        let tasks = try LeoConfigFixtures.decode(LeoConfigCollection.self, "tasks")
+        let item = try #require(tasks.items.first { $0.name == "heartbeat" })
+        let validator = LeoConfigValidator(
+            resource: try #require(schema.resource("tasks")), harnesses: schema.harnesses, namePattern: schema.namePattern
+        )
+        let document = LeoConfigDocument(
+            revision: tasks.revision, name: item.name, values: item.values, inherited: item.inherited, effectiveHarness: item.effectiveHarness
+        )
+        return LeoConfigDraft(document: document, validator: validator)
+    }
+
     // MARK: dirty state
 
     @Test func aFreshDraftIsCleanAndCannotBeSaved() throws {
@@ -21,7 +34,8 @@ struct LeoConfigDraftTests {
         #expect(!draft.isDirty)
         #expect(!draft.canSave)
         #expect(draft.patch.isEmpty)
-        #expect(draft.revision == "sha256:aa11")
+        #expect(draft.revision == draft.document.revision)
+        #expect(draft.revision.hasPrefix("sha256:"))
     }
 
     @Test func anEditMakesTheDraftAndItsFieldDirty() throws {
@@ -81,7 +95,7 @@ struct LeoConfigDraftTests {
 
         #expect(!draft.isDirty("model"))
         #expect(draft.isDirty("workspace"))
-        #expect(draft.value(at: "model") == .string(""))
+        #expect(draft.value(at: "model") == .string("opus"))
     }
 
     @Test func revertingAllDropsEveryEditAndError() throws {
@@ -107,48 +121,60 @@ struct LeoConfigDraftTests {
 
     @Test func clearingAValueSendsNull() throws {
         var draft = try Self.draft()
-        draft.set("system_prompt", .null)
+        draft.set("model", .null)
 
-        #expect(draft.patch == ["system_prompt": .null])
+        #expect(draft.patch == ["model": .null])
     }
 
     @Test func aSubsectionEditSendsTheWholeSubsectionObject() throws {
         var draft = try Self.draft()
-        draft.set("push.enabled", .null)
-        draft.set("permissions.allow", .list([.string("Bash(ls)")]))
+        draft.set("push.chat", .bool(true))
+        draft.set("permissions.can_spawn", .list([.string("reviewer"), .string("tester")]))
 
         #expect(Set(draft.patch.keys) == ["push", "permissions"])
-        #expect(draft.patch["push"]?.objectValue == ["enabled": .null])
-        #expect(draft.patch["permissions"]?.objectValue == ["allow": .list([.string("Bash(ls)")])])
-        #expect(draft.isDirty("push.enabled"))
+        #expect(draft.patch["push"]?.objectValue == ["chat": .bool(true), "errored": .null, "finished": .null, "needs_input": .null])
+        let permissions = try #require(draft.patch["permissions"]?.objectValue)
+        #expect(permissions["can_spawn"] == .list([.string("reviewer"), .string("tester")]))
+        #expect(permissions["deny_tools"] == .list([]))
+        #expect(draft.isDirty("push.chat"))
     }
 
     @Test func aHarnessOptionEditKeepsTheScopesOtherOptions() throws {
         var draft = try Self.draft()
-        draft.set("harness_options.permission_mode", .string("acceptEdits"))
+        draft.set("harness_options.allowed_tools", .list([.string("Read"), .string("Edit")]))
 
         let options = try #require(draft.patch["harness_options"]?.objectValue)
-        #expect(options["permission_mode"] == .string("acceptEdits"))
         #expect(options["allowed_tools"] == .list([.string("Read"), .string("Edit")]))
-        #expect(options["settings"] == .string("theme: dark\n"))
+        #expect(options["permission_mode"] == .string("plan"))
     }
 
     @Test func changingTheHarnessDropsTheOldHarnessOptions() throws {
         var draft = try Self.draft()
         draft.set("harness", .string("codex"))
-        draft.set("harness_options.sandbox", .string("workspace-write"))
+        draft.set("harness_options.permission_mode", .string("workspace-write"))
 
         let options = try #require(draft.patch["harness_options"]?.objectValue)
-        #expect(options == ["sandbox": .string("workspace-write")])
+        #expect(options == ["permission_mode": .string("workspace-write")])
         #expect(draft.patch["harness"] == .string("codex"))
         #expect(draft.currentHarness == "codex")
     }
 
-    @Test func changingTheHarnessAloneStillSendsTheOptionsSoStaleOnesAreCleared() throws {
+    @Test func changingTheHarnessAloneSendsOnlyTheHarnessAndShowsNoStaleOptions() throws {
         var draft = try Self.draft()
         draft.set("harness", .string("codex"))
 
-        #expect(draft.patch["harness_options"]?.objectValue == [:])
+        #expect(draft.patch == ["harness": .string("codex")])
+        // The old `plan` is a claude value that happens to share a key with codex's own.
+        #expect(draft.value(at: "harness_options.permission_mode") == .null)
+        #expect(draft.errors(for: "harness_options.permission_mode").isEmpty)
+    }
+
+    @Test func settingTheSameEffectiveHarnessKeepsItsOptions() throws {
+        var draft = try Self.draft()
+        draft.set("harness", .string("claude"))
+
+        #expect(draft.value(at: "harness_options.permission_mode") == .string("plan"))
+        #expect(draft.patch == ["harness": .string("claude")])
     }
 
     @Test func theHarnessFallsBackToTheInheritedOne() throws {
@@ -164,11 +190,11 @@ struct LeoConfigDraftTests {
 
     @Test func anInvalidValueBlocksSaveUntilFixed() throws {
         var draft = try Self.draft()
-        draft.set("max_turns", .int(0))
+        draft.set("max_turns", .int(-1))
 
         #expect(draft.isDirty)
         #expect(!draft.canSave)
-        #expect(draft.errors(for: "max_turns") == ["Must be at least 1"])
+        #expect(draft.errors(for: "max_turns") == ["Must be at least 0"])
 
         draft.set("max_turns", .int(3))
         #expect(draft.canSave)
@@ -176,11 +202,11 @@ struct LeoConfigDraftTests {
     }
 
     @Test func aRequiredFieldClearedBlocksSave() throws {
-        var draft = try Self.draft()
-        draft.set("workspace", .string(""))
+        var draft = try Self.taskDraft()
+        draft.set("schedule", .string(""))
 
         #expect(!draft.canSave)
-        #expect(draft.errors(for: "workspace") == ["Required"])
+        #expect(draft.errors(for: "schedule") == ["Required"])
     }
 
     @Test func serverErrorsShowOnTheirFieldAndBlockSave() throws {
@@ -241,12 +267,12 @@ struct LeoConfigDraftTests {
 
     @Test func rebasingDropsServerErrorsAndRevalidates() throws {
         var draft = try Self.draft()
-        draft.set("max_turns", .int(0))
+        draft.set("max_turns", .int(-1))
         draft = draft.applying(serverErrors: [LeoConfigFieldError(field: "model", message: "no")])
         let rebased = draft.rebased(onto: try LeoConfigFixtures.decode(LeoConfigDocument.self, "template_coder"))
 
         #expect(rebased.errors(for: "model").isEmpty)
-        #expect(rebased.errors(for: "max_turns") == ["Must be at least 1"])
+        #expect(rebased.errors(for: "max_turns") == ["Must be at least 0"])
     }
 
     @Test func aRebasedNestedEditSendsTheFreshSiblings() throws {

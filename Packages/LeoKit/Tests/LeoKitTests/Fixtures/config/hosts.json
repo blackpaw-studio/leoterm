@@ -1,6 +1,0 @@
-{"ok": true, "data": {
-  "revision": "sha256:aa11",
-  "items": [
-    {"name": "dionysus", "values": {"address": "10.0.2.10:8370", "token": {"set": true}}, "inherited": {}},
-    {"name": "hestia", "values": {"address": "10.0.2.5:8370", "token": {"set": false}}, "inherited": {}}
-  ]}}

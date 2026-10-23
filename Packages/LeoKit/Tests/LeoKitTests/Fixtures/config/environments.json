@@ -1,6 +1,0 @@
-{"ok": true, "data": {
-  "revision": "sha256:aa11",
-  "items": [
-    {"name": "secrets", "values": {"env": {"API_BASE": "https://example.test"}}, "inherited": {}},
-    {"name": "work", "values": {"env": {}}, "inherited": {}}
-  ]}}

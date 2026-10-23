@@ -1,9 +1,0 @@
-{"ok": true, "data": {
-  "revision": "sha256:aa11", "configured": true, "enabled": true, "active_profile": "default",
-  "hide_native_agents": ["Explore"], "hide_native_agents_is_default": false,
-  "templates": [{"name": "coder", "model": "claude-opus-5-5"}, {"name": "reviewer", "model": "gpt-5.3-codex"}],
-  "roles": [{"name": "implement", "use_for": "Write code.", "declared": true}, {"name": "review", "use_for": "", "declared": false}],
-  "profiles": [{"name": "default", "description": "", "active": true,
-                "roles": {"implement": {"template": "coder", "model": "", "effort": "high", "inherited_model": "claude-opus-5-5"}}}],
-  "warnings": ["role review is used but not declared"],
-  "recent_consults": []}}

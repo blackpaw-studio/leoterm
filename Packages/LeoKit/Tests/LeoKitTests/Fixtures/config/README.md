@@ -1,17 +1,19 @@
 # Config API fixtures
 
-Hand-written from Part A of `docs/plans/2026-10-23-in-app-settings.md` (A4–A8).
-The daemon side is not merged yet, so none of these were captured from a real
-daemon. Field keys and values are illustrative; the **shapes** follow the plan.
+`golden/` holds the bodies the daemon's `TestConfigAPIGolden` wrote (leo#295,
+head 3b1c26cd), one file per route, with the HTTP status of each in
+`golden/STATUS.json`. `LeoConfigGoldenTests` decodes every one through the
+app's models. Refresh the directory by copying the daemon's
+`internal/web/testdata/configapi/*.json` over it; a file that stops decoding
+is a contract bug to report, not to patch around.
 
-When the leo PR's `TestConfigAPIGolden` files exist
-(`internal/web/testdata/configapi/*.json`), copy them over these, keeping the
-file names, and fix any decoding test that disagrees. Do that at the
-integration gate.
+`LeoConfigFixtures.data(_:)` serves the golden body when there is one and
+falls back to the hand-written file in this directory, which exists only
+where the daemon has no body of that name yet:
 
-Every success body is the daemon envelope `{ok, data}`; error bodies are
-`{ok:false, error, code, ...}`.
+- `history.json` (the daemon's is `task_history`), `version.json`,
+  `write_result.json` (carries a `warning`, which no golden body does).
 
-`schema.json` deliberately carries one field of every type, including a
-`secret` (no registered daemon field is a secret today) and a `yaml` harness
-option, so the form-layout tests cover every control.
+The registered daemon schema has no `secret` field, no `multiline` or
+`nullable` non-harness field, and no `pattern` constraint, so tests of those
+controls build a small synthetic schema inline.

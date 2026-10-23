@@ -1,4 +1,0 @@
-{"ok": false, "error": "invalid config", "code": "invalid",
- "errors": [{"field": "max_turns", "message": "must be at least 1"},
-            {"field": "harness_options.sandbox", "message": "unknown value \"x\""},
-            {"field": "", "message": "templates.old: workspace is required"}]}

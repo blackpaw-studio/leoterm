@@ -23,12 +23,19 @@ public struct LeoConfigDraft: Equatable, Sendable {
     }
 
     /// The value shown for `path`: the edit, else the document's, else null.
+    /// After a harness change the document's `harness_options` belong to the
+    /// old harness, so none of them show.
     public func value(at path: String) -> LeoConfigValue {
-        edits[path] ?? Self.value(at: path, in: document.values)
+        edits[path] ?? baseValue(at: path)
+    }
+
+    private func baseValue(at path: String) -> LeoConfigValue {
+        if isHarnessChanged, Self.split(path)?.group == LeoConfigValidator.harnessOptionsKey { return .null }
+        return Self.value(at: path, in: document.values)
     }
 
     public mutating func set(_ path: String, _ value: LeoConfigValue) {
-        if value.isEquivalent(to: Self.value(at: path, in: document.values)) {
+        if value.isEquivalent(to: baseValue(at: path)) {
             edits[path] = nil
         } else {
             edits[path] = value
@@ -50,21 +57,31 @@ public struct LeoConfigDraft: Equatable, Sendable {
     /// The harness the form is editing options for: the draft's `harness`,
     /// else the one it inherits.
     public var currentHarness: String? {
-        if let own = value(at: "harness").stringValue, !own.isEmpty { return own }
+        harness(own: value(at: "harness"))
+    }
+
+    /// The harness the document itself resolves to.
+    private var originalHarness: String? {
+        harness(own: Self.value(at: "harness", in: document.values))
+    }
+
+    private func harness(own: LeoConfigValue) -> String? {
+        if let own = own.stringValue, !own.isEmpty { return own }
         if let inherited = document.inherited["harness"]?.stringValue, !inherited.isEmpty { return inherited }
         return document.effectiveHarness
     }
 
-    private var isHarnessChanged: Bool { isDirty("harness") }
+    /// The effective harness differs from the saved one.
+    private var isHarnessChanged: Bool { isDirty("harness") && currentHarness != originalHarness }
 
     // MARK: patch
 
     /// The changed keys only. A nested edit sends its whole subsection or
     /// `harness_options` object (the document's values with the edits laid
     /// over), so a daemon that replaces a nested object and one that merges it
-    /// end up in the same place. Changing the harness always sends
-    /// `harness_options`, cut to the new harness's keys, so the old harness's
-    /// options don't ride along.
+    /// end up in the same place. Changing the harness sends only `harness`:
+    /// the daemon drops the old harness's options itself, and an option edited
+    /// afterwards is sent alone.
     public var patch: [String: LeoConfigValue] {
         var result: [String: LeoConfigValue] = [:]
         var groups: [String: [String: LeoConfigValue]] = [:]
@@ -75,18 +92,13 @@ public struct LeoConfigDraft: Equatable, Sendable {
             }
             groups[group, default: baseGroup(group)][key] = value
         }
-        if isHarnessChanged, groups[LeoConfigValidator.harnessOptionsKey] == nil {
-            groups[LeoConfigValidator.harnessOptionsKey] = baseGroup(LeoConfigValidator.harnessOptionsKey)
-        }
         for (group, object) in groups { result[group] = .object(object) }
         return result
     }
 
     private func baseGroup(_ group: String) -> [String: LeoConfigValue] {
-        let current = document.values[group]?.objectValue ?? [:]
-        guard group == LeoConfigValidator.harnessOptionsKey, isHarnessChanged, let validator else { return current }
-        let keys = validator.harnessOptionKeys(currentHarness)
-        return current.filter { keys.contains($0.key) }
+        if group == LeoConfigValidator.harnessOptionsKey, isHarnessChanged { return [:] }
+        return document.values[group]?.objectValue ?? [:]
     }
 
     // MARK: errors
@@ -134,7 +146,10 @@ public struct LeoConfigDraft: Equatable, Sendable {
     /// replies don't apply, and `patch` is then computed against fresh values.
     public func rebased(onto newDocument: LeoConfigDocument) -> Self {
         var copy = Self(document: newDocument, validator: validator)
-        for (path, value) in edits { copy.set(path, value) }
+        // The harness first: it decides what the option edits are measured against.
+        for (path, value) in edits.sorted(by: { $0.key == "harness" || ($1.key != "harness" && $0.key < $1.key) }) {
+            copy.set(path, value)
+        }
         return copy
     }
 

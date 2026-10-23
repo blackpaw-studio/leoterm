@@ -19,8 +19,9 @@ struct LeoConfigSchemaDecodingTests {
 
         #expect(schema.schemaVersion == 1)
         #expect(schema.namePattern == "^[A-Za-z0-9._-]+$")
-        #expect(schema.resources.map(\.key) == ["defaults", "templates", "tasks", "environments", "web", "client", "hosts"])
-        #expect(Set(schema.harnesses.keys) == ["claude", "codex"])
+        #expect(schema.resources.map(\.key) == ["defaults", "templates", "tasks", "environments", "web", "client", "hosts", "delegation"])
+        #expect(Set(schema.harnesses.keys) == ["claude", "codex", "opencode"])
+        #expect(schema.resource("delegation")?.kind == .other("bespoke"))
     }
 
     @Test func aResourceCarriesItsKindActionsAndRestartScope() throws {
@@ -45,39 +46,48 @@ struct LeoConfigSchemaDecodingTests {
 
         let maxTurns = try #require(templates.field("max_turns"))
         #expect(maxTurns.type == .int)
-        #expect(maxTurns.constraints.min == 1)
-        #expect(maxTurns.constraints.max == 1000)
+        #expect(maxTurns.constraints.min == 0)
+        #expect(maxTurns.constraints.max == nil)
         #expect(maxTurns.defaultValue == .null)
 
         let workspace = try #require(templates.field("workspace"))
-        #expect(workspace.constraints.required)
-        #expect(workspace.help == "Directory agents start in.")
+        #expect(!workspace.constraints.required)
         #expect(workspace.group == "General")
         #expect(!workspace.advanced)
 
-        #expect(templates.field("system_prompt")?.multiline == true)
-        #expect(templates.field("idle_suspend")?.nullable == true)
-        #expect(templates.field("idle_timeout")?.type == .duration)
-        #expect(templates.field("idle_timeout")?.defaultValue == .string("30m"))
+        #expect(templates.field("idle_suspend_after")?.type == .duration)
+        #expect(templates.field("idle_suspend_after")?.advanced == true)
         #expect(templates.field("env")?.type == .map)
         #expect(templates.field("env")?.advanced == true)
-        #expect(templates.field("env")?.warning == "Values are stored in leo.yaml in plain text.")
+        #expect(schema.resource("web")?.field("port")?.defaultValue == .int(8370))
+        #expect(schema.resource("web")?.field("port")?.warning.contains("lock you out") == true)
 
         let harness = try #require(templates.field("harness"))
         #expect(harness.type == .enum)
-        #expect(harness.options.map(\.value) == ["", "claude", "codex"])
-        #expect(harness.options.last?.label == "Codex")
+        #expect(harness.options.map(\.value) == ["", "claude", "codex", "opencode"])
+        #expect(harness.options.first?.label == "inherit")
+    }
+
+    @Test func aMultilineOrNullableFieldDecodes() throws {
+        // The registered fields have neither flag yet, so the field is synthetic.
+        let schema = try decodeSchema("""
+        {"resources": [{"key": "r", "label": "R", "fields": [
+          {"key": "prompt", "label": "Prompt", "type": "string", "multiline": true},
+          {"key": "limit", "label": "Limit", "type": "int", "nullable": true}]}]}
+        """)
+        #expect(schema.resource("r")?.field("prompt")?.multiline == true)
+        #expect(schema.resource("r")?.field("limit")?.nullable == true)
     }
 
     @Test func modelHintsAreKeyedByHarness() throws {
         let schema = try LeoConfigFixtures.decode(LeoConfigSchema.self, "schema")
         let model = try #require(schema.resource("templates")?.field("model"))
 
-        #expect(model.hintsByHarness["claude"]?.suggestions == ["claude-opus-5-5"])
+        #expect(model.hintsByHarness["claude"]?.suggestions.contains("opus") == true)
         #expect(model.hintsByHarness["codex"]?.placeholder == "e.g. gpt-5.3-codex")
     }
 
-    @Test func cronReferenceAndSecretFieldsDecode() throws {
+    @Test func cronAndReferenceFieldsDecode() throws {
         let schema = try LeoConfigFixtures.decode(LeoConfigSchema.self, "schema")
         let tasks = try #require(schema.resource("tasks"))
 
@@ -86,6 +96,15 @@ struct LeoConfigSchemaDecodingTests {
         #expect(tasks.field("template")?.type == .reference)
         #expect(tasks.field("template")?.references == "templates")
         #expect(tasks.field("template")?.emptyLabel == "none")
+    }
+
+    @Test func secretAndPatternFieldsDecode() throws {
+        // No registered field is a secret or has a pattern yet.
+        let schema = try decodeSchema("""
+        {"resources": [{"key": "hosts", "label": "H", "fields": [
+          {"key": "token", "label": "Token", "type": "secret"},
+          {"key": "address", "label": "Address", "type": "string", "constraints": {"pattern": "^[^\\\\s]+$"}}]}]}
+        """)
         #expect(schema.resource("hosts")?.field("token")?.type == .secret)
         #expect(schema.resource("hosts")?.field("address")?.constraints.pattern == "^[^\\s]+$")
     }
@@ -93,9 +112,11 @@ struct LeoConfigSchemaDecodingTests {
     @Test func harnessSchemasDecodeIncludingYAMLOptions() throws {
         let schema = try LeoConfigFixtures.decode(LeoConfigSchema.self, "schema")
 
-        #expect(schema.harnesses["claude"]?.fields.map(\.key) == ["permission_mode", "allowed_tools", "settings"])
-        #expect(schema.harnesses["claude"]?.fields.last?.type == .yaml)
-        #expect(schema.harnesses["codex"]?.fields.first?.options.map(\.value) == ["", "workspace-write"])
+        #expect(schema.harnesses["claude"]?.fields.first?.key == "permission_mode")
+        #expect(schema.harnesses["claude"]?.fields.contains { $0.key == "allowed_tools" && $0.type == .list } == true)
+        #expect(schema.harnesses["opencode"]?.fields.first?.type == .yaml)
+        #expect(schema.harnesses["codex"]?.fields.first?.options.map(\.value) == ["read-only", "workspace-write", "danger-full-access", "approve-for-me"])
+        #expect(schema.harnesses["claude"]?.fields.allSatisfy(\.nullable) == true)
     }
 
     @Test func anUnknownTypeDecodesAsUnknownAndDoesNotFail() throws {
@@ -140,16 +161,22 @@ struct LeoConfigSchemaDecodingTests {
     @Test func documentsDecodeValuesInheritedAndHarness() throws {
         let document = try LeoConfigFixtures.decode(LeoConfigDocument.self, "template_coder")
 
-        #expect(document.revision == "sha256:aa11")
+        #expect(document.revision.hasPrefix("sha256:"))
         #expect(document.name == "coder")
         #expect(document.effectiveHarness == "claude")
         #expect(document.values["max_turns"] == .null)
-        #expect(document.values["idle_timeout"] == .string("45m"))
-        #expect(document.values["environments"] == .list([.string("work"), .string("secrets")]))
-        #expect(document.values["env"] == .map(["FOO": "bar"]))
-        #expect(document.values["harness_options"]?.objectValue?["allowed_tools"] == .list([.string("Read"), .string("Edit")]))
-        #expect(document.values["push"]?.objectValue?["enabled"] == .bool(false))
-        #expect(document.inherited["model"] == .string("claude-opus-5-5"))
+        #expect(document.values["model"] == .string("opus"))
+        #expect(document.values["environments"] == .list([]))
+        #expect(document.values["env"] == .map([:]))
+        #expect(document.values["harness_options"]?.objectValue?["permission_mode"] == .string("plan"))
+        #expect(document.values["push"]?.objectValue?["chat"] == .null)
+        #expect(document.values["permissions"]?.objectValue?["can_spawn"] == .list([.string("reviewer")]))
+    }
+
+    @Test func aTaskCarriesTheDefaultsItInherits() throws {
+        let heartbeat = try #require(try LeoConfigFixtures.decode(LeoConfigCollection.self, "tasks").items.first { $0.name == "heartbeat" })
+        #expect(heartbeat.inherited["model"] == .string("sonnet"))
+        #expect(heartbeat.effectiveHarness == "claude")
     }
 
     @Test func singletonDocumentsHaveNoName() throws {
@@ -165,16 +192,20 @@ struct LeoConfigSchemaDecodingTests {
     func collectionsDecodeItemsInOrder(name: String) throws {
         let collection = try LeoConfigFixtures.decode(LeoConfigCollection.self, name)
 
-        #expect(collection.revision == "sha256:aa11")
+        #expect(collection.revision.hasPrefix("sha256:"))
         #expect(!collection.items.isEmpty)
         #expect(collection.items.map(\.name) == collection.items.map(\.name).sorted())
     }
 
-    @Test func aHostSecretReadsAsSetOrNotSet() throws {
-        let hosts = try LeoConfigFixtures.decode(LeoConfigCollection.self, "hosts")
+    @Test func aSecretReadsAsSetOrNotSet() throws {
+        // No registered collection has a secret yet; the wire form is `{"set": bool}`.
+        let items = try JSONDecoder().decode(LeoConfigCollection.self, from: Data("""
+        {"revision": "sha256:1", "items": [
+          {"name": "a", "values": {"token": {"set": true}}}, {"name": "b", "values": {"token": {"set": false}}}]}
+        """.utf8)).items
 
-        #expect(hosts.items.first?.values["token"] == .secret(isSet: true))
-        #expect(hosts.items.last?.values["token"] == .secret(isSet: false))
+        #expect(items.first?.values["token"] == .secret(isSet: true))
+        #expect(items.last?.values["token"] == .secret(isSet: false))
     }
 
     @Test func aWriteResultCarriesTheRevisionRestartFlagsAndWarning() throws {

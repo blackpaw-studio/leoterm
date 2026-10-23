@@ -1,4 +1,0 @@
-{"ok": true, "data": {"version": "0.52.0", "pid": 4242, "started_at": "2026-10-23T11:00:00Z",
-  "config_path": "/Users/evan/.leo/leo.yaml", "log_path": "/Users/evan/.leo/leo.log",
-  "restart_required": {"service": false, "agents": false},
-  "processes": [{"name": "assistant", "status": "running", "started_at": "2026-10-23T11:00:02Z", "restarts": 0, "ephemeral": false}]}}

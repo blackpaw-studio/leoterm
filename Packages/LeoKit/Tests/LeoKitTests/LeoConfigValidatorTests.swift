@@ -23,31 +23,32 @@ struct LeoConfigValidatorTests {
     }
 
     @Test func aCleanTemplatePasses() throws {
-        let errors = messages(try Self.validator("templates"), ["workspace": .string("~/code"), "max_turns": .int(5), "idle_timeout": .string("1h30m")])
+        let errors = messages(try Self.validator("templates"), ["workspace": .string("~/code"), "max_turns": .int(5), "idle_suspend_after": .string("1h30m")])
         #expect(errors.isEmpty)
     }
 
     @Test(arguments: [LeoConfigValue.null, .string("")])
     func aRequiredFieldMustBeFilled(value: LeoConfigValue) throws {
-        let errors = messages(try Self.validator("templates"), ["workspace": value])
-        #expect(errors["workspace"] == "Required")
+        let errors = messages(try Self.validator("tasks"), ["schedule": value, "prompt_file": .string("p.md")])
+        #expect(errors["schedule"] == "Required")
     }
 
     @Test func anOptionalFieldMayBeEmpty() throws {
         #expect(messages(try Self.validator("templates"), ["workspace": .string("w"), "model": .string("")]).isEmpty)
     }
 
-    @Test(arguments: [(0, "Must be at least 1"), (1001, "Must be at most 1000"), (-3, "Must be at least 1")])
+    @Test(arguments: [(-1, "Must be at least 0"), (-3, "Must be at least 0")])
     func numbersStayInRange(value: Int, message: String) throws {
         let errors = messages(try Self.validator("templates"), ["workspace": .string("w"), "max_turns": .int(value)])
         #expect(errors["max_turns"] == message)
     }
 
-    @Test func theRangeBoundsAreInclusive() throws {
-        let validator = try Self.validator("templates")
-        for value in [1, 1000] {
-            #expect(messages(validator, ["workspace": .string("w"), "max_turns": .int(value)]).isEmpty)
-        }
+    @Test func theUpperBoundIsEnforcedAndBoundsAreInclusive() throws {
+        let validator = try Self.validator("web")
+        #expect(messages(validator, ["port": .int(65536)])["port"] == "Must be at most 65535")
+        #expect(messages(validator, ["port": .int(0)])["port"] == "Must be at least 1")
+        for value in [1, 65535] { #expect(messages(validator, ["port": .int(value)]).isEmpty) }
+        #expect(messages(try Self.validator("templates"), ["workspace": .string("w"), "max_turns": .int(0)]).isEmpty)
     }
 
     @Test func textInANumberFieldIsNotANumber() throws {
@@ -64,7 +65,7 @@ struct LeoConfigValidatorTests {
 
     @Test func aReferenceMustNameAnExistingItem() throws {
         let validator = try Self.validator("tasks", references: ["templates": ["coder", "reviewer"]])
-        let base: [String: LeoConfigValue] = ["schedule": .string("0 3 * * *")]
+        let base: [String: LeoConfigValue] = ["schedule": .string("0 3 * * *"), "prompt_file": .string("p.md")]
 
         #expect(messages(validator, base.merging(["template": .string("ghost")]) { $1 })["template"] == "No templates named “ghost”")
         #expect(messages(validator, base.merging(["template": .string("coder")]) { $1 }).isEmpty)
@@ -72,20 +73,20 @@ struct LeoConfigValidatorTests {
     }
 
     @Test func aReferenceToAnUnloadedCollectionIsNotChecked() throws {
-        let errors = messages(try Self.validator("tasks"), ["schedule": .string("* * * * *"), "template": .string("ghost")])
+        let errors = messages(try Self.validator("tasks"), ["schedule": .string("* * * * *"), "prompt_file": .string("p.md"), "template": .string("ghost")])
         #expect(errors.isEmpty)
     }
 
     @Test(arguments: ["30m", "1h30m", "1.5h", "250ms", "2h45m30s", "0", "-5s", "1µs"])
     func goDurationsPass(text: String) throws {
-        let errors = messages(try Self.validator("templates"), ["workspace": .string("w"), "idle_timeout": .string(text)])
+        let errors = messages(try Self.validator("templates"), ["workspace": .string("w"), "idle_suspend_after": .string(text)])
         #expect(errors.isEmpty)
     }
 
     @Test(arguments: ["30", "m", "1d", "1 h", "h1", "1h-5m", "1.h2"])
     func nonDurationsFail(text: String) throws {
-        let errors = messages(try Self.validator("templates"), ["workspace": .string("w"), "idle_timeout": .string(text)])
-        #expect(errors["idle_timeout"] == "Not a valid duration (try 30m or 1h30m)")
+        let errors = messages(try Self.validator("templates"), ["workspace": .string("w"), "idle_suspend_after": .string(text)])
+        #expect(errors["idle_suspend_after"] == "Not a valid duration (try 30m or 1h30m)")
     }
 
     @Test func aMapNeedsNonEmptyKeysWithoutEquals() throws {
@@ -96,7 +97,11 @@ struct LeoConfigValidatorTests {
     }
 
     @Test func aPatternConstrainsNonEmptyText() throws {
-        let validator = try Self.validator("hosts")
+        // No registered daemon field has a pattern yet, so the field is synthetic.
+        let resource = LeoConfigResource(key: "r", fields: [
+            LeoConfigField(key: "address", type: .string, constraints: LeoConfigConstraints(required: true, pattern: "^[^\\s]+$")),
+        ])
+        let validator = LeoConfigValidator(resource: resource)
         #expect(messages(validator, ["address": .string("10.0.0.1:8370")]).isEmpty)
         #expect(messages(validator, ["address": .string("has space")])["address"] == "Doesn’t match the expected format")
         #expect(messages(validator, ["address": .string("")])["address"] == "Required")
@@ -104,8 +109,8 @@ struct LeoConfigValidatorTests {
 
     @Test func subsectionFieldsAreCheckedUnderTheirPath() throws {
         let fields = try Self.validator("templates").fields(harness: "claude").map(\.path)
-        #expect(fields.contains("permissions.allow"))
-        #expect(fields.contains("push.enabled"))
+        #expect(fields.contains("permissions.can_spawn"))
+        #expect(fields.contains("push.needs_input"))
     }
 
     @Test func harnessOptionsAreCheckedAgainstTheCurrentHarnessOnly() throws {
@@ -114,13 +119,17 @@ struct LeoConfigValidatorTests {
         let codex = validator.fields(harness: "codex").map(\.path)
 
         #expect(claude.contains("harness_options.permission_mode"))
-        #expect(!claude.contains("harness_options.sandbox"))
-        #expect(codex.contains("harness_options.sandbox"))
+        #expect(claude.contains("harness_options.bypass_permissions"))
+        #expect(!codex.contains("harness_options.bypass_permissions"))
+        #expect(codex.filter { $0.hasPrefix("harness_options.") } == ["harness_options.permission_mode"])
         #expect(validator.fields(harness: nil).allSatisfy { !$0.path.hasPrefix("harness_options.") })
 
         let errors = messages(validator, ["workspace": .string("w"), "harness_options.permission_mode": .string("bogus")], harness: "claude")
         #expect(errors["harness_options.permission_mode"] == "Choose one of the listed values")
-        #expect(messages(validator, ["workspace": .string("w"), "harness_options.permission_mode": .string("bogus")], harness: "codex").isEmpty)
+        // `plan` is a claude mode; codex has its own list under the same key.
+        let plan: [String: LeoConfigValue] = ["workspace": .string("w"), "harness_options.permission_mode": .string("plan")]
+        #expect(messages(validator, plan, harness: "claude").isEmpty)
+        #expect(messages(validator, plan, harness: "codex")["harness_options.permission_mode"] == "Choose one of the listed values")
     }
 
     @Test func aResourceWithoutHarnessOptionsHasNone() throws {

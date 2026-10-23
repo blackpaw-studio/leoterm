@@ -10,7 +10,13 @@ struct LeoConfigFormLayoutTests {
     private static func layout(
         _ resource: String, _ document: String, references: [String: [String]] = [:], link: URL? = link, edit: (inout LeoConfigDraft) -> Void = { _ in }
     ) throws -> [LeoConfigFormSection] {
-        var draft = LeoConfigDraft(document: try LeoConfigFixtures.decode(LeoConfigDocument.self, document))
+        try layout(resource, document: try LeoConfigFixtures.decode(LeoConfigDocument.self, document), references: references, link: link, edit: edit)
+    }
+
+    private static func layout(
+        _ resource: String, document: LeoConfigDocument, references: [String: [String]] = [:], link: URL? = link, edit: (inout LeoConfigDraft) -> Void = { _ in }
+    ) throws -> [LeoConfigFormSection] {
+        var draft = LeoConfigDraft(document: document)
         edit(&draft)
         return LeoConfigFormLayout.sections(
             resource: try #require(schema.resource(resource)), harnesses: schema.harnesses,
@@ -28,6 +34,14 @@ struct LeoConfigFormLayoutTests {
             resource: LeoConfigResource(key: "r", fields: [field]), harnesses: [:], draft: draft, references: references, webLink: link
         )
         return sections.first?.rows.first?.control
+    }
+
+    /// The daemon's `coder` template with the placeholders it would inherit from defaults.
+    private static func coder(inherited: [String: LeoConfigValue]) throws -> LeoConfigDocument {
+        let golden = try LeoConfigFixtures.decode(LeoConfigDocument.self, "template_coder")
+        return LeoConfigDocument(
+            revision: golden.revision, name: golden.name, values: golden.values, inherited: inherited, effectiveHarness: golden.effectiveHarness
+        )
     }
 
     // MARK: one control per field type
@@ -132,43 +146,70 @@ struct LeoConfigFormLayoutTests {
     @Test func groupsComeFirstInRegistryOrderThenOptionsSubsectionsAndAdvanced() throws {
         let sections = try Self.layout("templates", "template_coder")
 
-        #expect(sections.map(\.title) == ["General", "Limits", "Harness options", "Permissions", "Push", "Advanced"])
-        #expect(sections.map(\.kind) == [.group, .group, .harnessOptions, .subsection, .subsection, .advanced])
+        #expect(sections.map(\.title) == ["General", "Harness", "Model", "Channels", "Harness options", "Push notifications", "Advanced"])
+        #expect(sections.map(\.kind) == [.group, .group, .group, .group, .harnessOptions, .subsection, .advanced])
     }
 
     @Test func rowsKeepTheRegistryOrderWithinAGroup() throws {
         let sections = try Self.layout("templates", "template_coder")
 
-        #expect(sections[0].rows.map(\.path) == ["workspace", "model", "harness", "system_prompt", "environments"])
-        #expect(sections[1].rows.map(\.path) == ["max_turns", "idle_timeout", "idle_suspend"])
+        #expect(sections[0].rows.map(\.path) == ["workspace"])
+        #expect(sections[2].rows.map(\.path) == ["model", "max_turns"])
+        #expect(sections[3].rows.map(\.path) == ["channels", "dev_channels"])
     }
 
-    @Test func advancedFieldsGatherLastIncludingHarnessAndSubsectionOnes() throws {
+    @Test func advancedFieldsGatherLastIncludingSubsectionOnes() throws {
         let sections = try Self.layout("templates", "template_coder")
         let advanced = try #require(sections.last)
 
         #expect(advanced.kind == .advanced)
-        #expect(advanced.rows.map(\.path) == ["env", "isolation", "harness_options.settings"])
+        #expect(advanced.rows.map(\.path) == [
+            "mcp_config", "add_dirs", "environments", "env", "idle_suspend_after", "isolation",
+            "permissions.deny_tools", "permissions.can_message", "permissions.can_spawn", "permissions.can_consult",
+        ])
+    }
+
+    @Test func aHarnessOptionMarkedAdvancedGathersWithTheAdvancedFieldsAndFollowsTheHarness() throws {
+        // No registered harness option is advanced yet, so the schema is synthetic.
+        let field = { (key: String, advanced: Bool) in LeoConfigField(key: key, advanced: advanced, type: .string) }
+        let schema = LeoConfigSchema(
+            resources: [LeoConfigResource(key: "t", kind: .collection, harnessOptions: true, fields: [LeoConfigField(key: "harness", type: .string)])],
+            harnesses: ["claude": LeoConfigHarnessSchema(fields: [field("mode", false), field("settings", true)]),
+                        "codex": LeoConfigHarnessSchema(fields: [field("mode", false)])]
+        )
+        func sections(_ harness: String) -> [LeoConfigFormSection] {
+            let document = LeoConfigDocument(revision: "r", name: "x", values: ["harness": .string(harness)], effectiveHarness: harness)
+            return LeoConfigFormLayout.sections(
+                resource: schema.resources[0], harnesses: schema.harnesses, draft: LeoConfigDraft(document: document), references: [:], webLink: nil
+            )
+        }
+
+        #expect(sections("claude").last?.rows.map(\.path) == ["harness_options.settings"])
+        #expect(sections("codex").contains { $0.kind == .advanced } == false)
     }
 
     @Test func subsectionRowsAreAddressedByTheirNestedPath() throws {
         let sections = try Self.layout("templates", "template_coder")
 
-        #expect(sections.first { $0.title == "Permissions" }?.rows.map(\.path) == ["permissions.allow"])
-        #expect(sections.first { $0.title == "Push" }?.rows.map(\.path) == ["push.enabled"])
+        #expect(sections.first { $0.title == "Push notifications" }?.rows.map(\.path) == ["push.needs_input", "push.finished", "push.errored", "push.chat"])
     }
 
     @Test func theHarnessSectionFollowsTheDraftsCurrentHarness() throws {
         let claude = try Self.layout("templates", "template_coder")
         let codex = try Self.layout("templates", "template_coder") { $0.set("harness", .string("codex")) }
 
-        #expect(claude.first { $0.kind == .harnessOptions }?.rows.map(\.path) == ["harness_options.permission_mode", "harness_options.allowed_tools"])
-        #expect(codex.first { $0.kind == .harnessOptions }?.rows.map(\.path) == ["harness_options.sandbox", "harness_options.profile"])
+        #expect(claude.first { $0.kind == .harnessOptions }?.rows.map(\.path).first == "harness_options.permission_mode")
+        #expect(claude.first { $0.kind == .harnessOptions }?.rows.map(\.path).contains("harness_options.allowed_tools") == true)
+        #expect(codex.first { $0.kind == .harnessOptions }?.rows.map(\.path) == ["harness_options.permission_mode"])
     }
 
-    @Test func switchingTheHarnessMovesItsAdvancedOptionsToo() throws {
+    @Test func aHarnessChangeShowsTheNewHarnessOptionsUnset() throws {
         let codex = try Self.layout("templates", "template_coder") { $0.set("harness", .string("codex")) }
-        #expect(codex.last?.rows.map(\.path) == ["env", "isolation"])
+        let mode = try #require(codex.flatMap(\.rows).first { $0.path == "harness_options.permission_mode" })
+
+        // claude's `plan` is not a codex value, so it must not show.
+        #expect(mode.value == .null)
+        #expect(mode.errors.isEmpty)
     }
 
     @Test func anInheritedHarnessIsUsedWhenTheDraftHasNone() throws {
@@ -183,7 +224,7 @@ struct LeoConfigFormLayoutTests {
 
     @Test func aResourceWithoutHarnessOptionsHasNoOptionsSection() throws {
         let sections = try Self.layout("web", "web")
-        #expect(sections.map(\.kind) == [.group, .advanced])
+        #expect(sections.map(\.kind) == [.group])
         #expect(!sections.flatMap(\.rows).contains { $0.path.hasPrefix("harness_options.") })
     }
 
@@ -198,26 +239,28 @@ struct LeoConfigFormLayoutTests {
         let resource = try #require(Self.schema.resource("templates"))
         let validator = LeoConfigValidator(resource: resource, harnesses: Self.schema.harnesses)
         var draft = LeoConfigDraft(document: try LeoConfigFixtures.decode(LeoConfigDocument.self, "template_coder"), validator: validator)
-        draft.set("max_turns", .int(0))
+        draft.set("max_turns", .int(-1))
         let validated = LeoConfigFormLayout.sections(resource: resource, harnesses: Self.schema.harnesses, draft: draft, references: [:], webLink: nil)
         let row = try #require(validated.flatMap(\.rows).first { $0.path == "max_turns" })
 
-        #expect(row.value == .int(0))
+        #expect(row.value == .int(-1))
         #expect(row.isDirty)
-        #expect(row.errors == ["Must be at least 1"])
+        #expect(row.errors == ["Must be at least 0"])
         #expect(try #require(validated.flatMap(\.rows).first { $0.path == "workspace" }).isDirty == false)
     }
 
     @Test func aRowReadsNestedValuesFromTheDocument() throws {
         let rows = try Self.layout("templates", "template_coder").flatMap(\.rows)
 
-        #expect(rows.first { $0.path == "permissions.allow" }?.value == .list([.string("Bash(git status)")]))
-        #expect(rows.first { $0.path == "harness_options.allowed_tools" }?.value == .list([.string("Read"), .string("Edit")]))
-        #expect(rows.first { $0.path == "harness_options.permission_mode" }?.value == .null)
+        #expect(rows.first { $0.path == "permissions.can_spawn" }?.value == .list([.string("reviewer")]))
+        #expect(rows.first { $0.path == "push.chat" }?.value == .null)
+        #expect(rows.first { $0.path == "harness_options.permission_mode" }?.value == .string("plan"))
+        #expect(rows.first { $0.path == "harness_options.allowed_tools" }?.value == .null)
     }
 
     @Test func aHarnessOptionsInheritedValueIsItsPlaceholder() throws {
-        let rows = try Self.layout("templates", "template_coder").flatMap(\.rows)
+        let document = try Self.coder(inherited: ["harness_options": .object(["permission_mode": .string("acceptEdits")])])
+        let rows = try Self.layout("templates", document: document).flatMap(\.rows)
         let mode = try #require(rows.first { $0.path == "harness_options.permission_mode" })
 
         // An enum has no placeholder; the inherited value shows beside it.
@@ -225,13 +268,15 @@ struct LeoConfigFormLayoutTests {
     }
 
     @Test func theModelFieldSuggestsForClaudeAndHintsForCodex() throws {
+        let document = try Self.coder(inherited: ["model": .string("sonnet")])
         func modelControl(_ harness: String) throws -> LeoConfigControl? {
-            try Self.layout("templates", "template_coder") { $0.set("harness", .string(harness)) }
+            try Self.layout("templates", document: document) { $0.set("harness", .string(harness)) }
                 .flatMap(\.rows).first { $0.path == "model" }?.control
         }
 
-        #expect(try modelControl("claude") == .suggestions(["claude-opus-5-5"], placeholder: "inherit: claude-opus-5-5"))
-        #expect(try modelControl("codex") == .text(placeholder: "inherit: claude-opus-5-5"))
+        let suggestions = ["fable", "haiku", "opus", "opus[1m]", "sonnet", "sonnet[1m]"]
+        #expect(try modelControl("claude") == .suggestions(suggestions, placeholder: "inherit: sonnet"))
+        #expect(try modelControl("codex") == .text(placeholder: "inherit: sonnet"))
     }
 
     @Test func aCodexModelFallsBackToTheHarnessPlaceholderWhenNothingIsInherited() throws {

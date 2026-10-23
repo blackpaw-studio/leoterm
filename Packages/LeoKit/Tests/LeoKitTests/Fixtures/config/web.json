@@ -1,4 +1,0 @@
-{"ok": true, "data": {
-  "revision": "sha256:aa11",
-  "values": {"enabled": true, "port": 8370, "bind": "127.0.0.1", "allowed_hosts": []},
-  "inherited": {}}}

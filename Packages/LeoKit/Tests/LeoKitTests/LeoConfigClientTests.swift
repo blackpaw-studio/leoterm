@@ -119,7 +119,8 @@ struct LeoConfigClientTests {
 
     @Test func aStaleRevisionIsAConflictCarryingTheCurrentOne() async throws {
         let transport = ConfigRecordingTransport(fixtures: ["error_409"], status: 409)
-        await #expect(throws: LeoConfigError.conflict(currentRevision: "sha256:cc33")) {
+        let current = "sha256:d1e5ba28f778048557b354bff517f7ba525088d0ef619dbdaa4f1b36f87f9f08"
+        await #expect(throws: LeoConfigError.conflict(currentRevision: current)) {
             _ = try await Self.client(prefix: "", transport).update("web", name: nil, patch: [:], ifMatch: "old")
         }
     }
@@ -127,9 +128,8 @@ struct LeoConfigClientTests {
     @Test func invalidValuesAreFieldErrors() async throws {
         let transport = ConfigRecordingTransport(fixtures: ["error_422"], status: 422)
         await #expect(throws: LeoConfigError.invalid([
-            LeoConfigFieldError(field: "max_turns", message: "must be at least 1"),
-            LeoConfigFieldError(field: "harness_options.sandbox", message: "unknown value \"x\""),
-            LeoConfigFieldError(field: "", message: "templates.old: workspace is required"),
+            LeoConfigFieldError(field: "schedule", message: "tasks.heartbeat.schedule: expected 5 fields, got 3"),
+            LeoConfigFieldError(field: "retries", message: "tasks.heartbeat.retries must not be negative"),
         ])) {
             _ = try await Self.client(prefix: "", transport).update("templates", name: "a", patch: [:], ifMatch: "r")
         }

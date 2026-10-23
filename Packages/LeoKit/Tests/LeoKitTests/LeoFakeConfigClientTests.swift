@@ -23,6 +23,24 @@ struct LeoFakeConfigClientTests {
         )
     }
 
+    /// No registered daemon field is a secret yet, so the secret tests run on
+    /// a synthetic `hosts` resource that has a write-only `token`.
+    private static func secretFake() throws -> LeoFakeConfigClient {
+        let schema = try JSONDecoder().decode(LeoConfigSchema.self, from: Data("""
+        {"resources": [{"key": "hosts", "label": "Hosts", "kind": "collection", "section": "client_host", "actions": ["add", "delete"],
+          "fields": [{"key": "token", "label": "Token", "type": "secret"}, {"key": "address", "label": "Address", "type": "string"}]}]}
+        """.utf8))
+        return LeoFakeConfigClient(
+            schema: schema, collections: [
+                "hosts": [
+                    LeoConfigItem(name: "dionysus", values: ["token": .secret(isSet: true)]),
+                    LeoConfigItem(name: "hestia", values: ["token": .secret(isSet: false)]),
+                ],
+            ],
+            version: LeoDaemonVersionInfo(version: "0.52.0", capabilities: [LeoConfigAPI.capability])
+        )
+    }
+
     // MARK: revisions
 
     @Test func aStaleWriteIsAConflictAndWritesNothing() async throws {
@@ -92,11 +110,11 @@ struct LeoFakeConfigClientTests {
         let reviewer = try await fake.item("templates", name: "reviewer")
         #expect(reviewer.values["model"] == .string("gpt-6"))
         #expect(reviewer.values["max_turns"] == nil)
-        #expect(reviewer.values["harness"] == .string("codex"))
+        #expect(reviewer.values["harness"] == .string(""))
     }
 
     @Test func aSecretIsStoredAsSetOrNotSetNeverAsItsValue() async throws {
-        let fake = try Self.fake()
+        let fake = try Self.secretFake()
         var revision = try await fake.collection("hosts").revision
         revision = try await fake.update("hosts", name: "hestia", patch: ["token": .secretReplace("s3cret")], ifMatch: revision).revision
         #expect(try await fake.item("hosts", name: "hestia").values["token"] == .secret(isSet: true))
@@ -110,7 +128,7 @@ struct LeoFakeConfigClientTests {
     }
 
     @Test func aSecretAddedWithAnItemIsNormalisedToo() async throws {
-        let fake = try Self.fake()
+        let fake = try Self.secretFake()
         let revision = try await fake.collection("hosts").revision
         _ = try await fake.add("hosts", name: "new-host", values: ["token": .secretReplace("x"), "address": .string("h:1")], ifMatch: revision)
 
@@ -174,11 +192,12 @@ struct LeoFakeConfigClientTests {
 
     @Test func aRenameMovesTheItemAndRewritesReferencesToIt() async throws {
         let fake = try Self.fake()
-        let revision = try await fake.collection("templates").revision
+        var revision = try await fake.collection("templates").revision
+        revision = try await fake.update("tasks", name: "nightly", patch: ["template": .string("reviewer")], ifMatch: revision).revision
         _ = try await fake.rename("templates", name: "reviewer", to: "auditor", ifMatch: revision)
 
         #expect(try await fake.collection("templates").items.map(\.name) == ["auditor", "coder"])
-        #expect(try await fake.item("tasks", name: "nightly-review").values["template"] == .string("auditor"))
+        #expect(try await fake.item("tasks", name: "nightly").values["template"] == .string("auditor"))
         await #expect(throws: LeoDaemonError.self) { _ = try await fake.item("templates", name: "reviewer") }
     }
 
@@ -197,26 +216,27 @@ struct LeoFakeConfigClientTests {
         let fake = try Self.fake()
         let revision = try await fake.collection("tasks").revision
         await #expect(throws: LeoDaemonError.self) {
-            _ = try await fake.duplicate("tasks", name: "nightly-review", as: "x", ifMatch: revision)
+            _ = try await fake.duplicate("tasks", name: "nightly", as: "x", ifMatch: revision)
         }
         await #expect(throws: LeoDaemonError.self) {
-            _ = try await fake.rename("tasks", name: "nightly-review", to: "x", ifMatch: revision)
+            _ = try await fake.rename("tasks", name: "nightly", to: "x", ifMatch: revision)
         }
     }
 
     @Test func aDeleteRemovesTheItem() async throws {
         let fake = try Self.fake()
         let revision = try await fake.collection("hosts").revision
-        _ = try await fake.delete("hosts", name: "hestia", ifMatch: revision)
+        _ = try await fake.delete("hosts", name: "remote", ifMatch: revision)
 
-        #expect(try await fake.collection("hosts").items.map(\.name) == ["dionysus"])
+        #expect(try await fake.collection("hosts").items.isEmpty)
     }
 
     @Test func aTemplateInUseCannotBeDeleted() async throws {
         let fake = try Self.fake()
-        let revision = try await fake.collection("templates").revision
+        var revision = try await fake.collection("templates").revision
+        revision = try await fake.update("tasks", name: "nightly", patch: ["template": .string("reviewer")], ifMatch: revision).revision
 
-        await #expect(throws: LeoConfigError.invalid([LeoConfigFieldError(field: "", message: "reviewer is still used by tasks/nightly-review")])) {
+        await #expect(throws: LeoConfigError.invalid([LeoConfigFieldError(field: "", message: "reviewer is still used by tasks/nightly")])) {
             _ = try await fake.delete("templates", name: "reviewer", ifMatch: revision)
         }
         #expect(try await fake.collection("templates").items.count == 2)
@@ -271,7 +291,7 @@ struct LeoFakeConfigClientTests {
         let fake = try Self.fake()
         var revision = try await fake.document("web").revision
 
-        let task = try await fake.update("tasks", name: "weekly-report", patch: ["enabled": .bool(true)], ifMatch: revision)
+        let task = try await fake.update("tasks", name: "heartbeat", patch: ["enabled": .bool(true)], ifMatch: revision)
         #expect(task.restartRequired == LeoConfigRestartRequired(service: false, agents: false))
         revision = task.revision
 
@@ -283,7 +303,7 @@ struct LeoFakeConfigClientTests {
         #expect(web.restartRequired == LeoConfigRestartRequired(service: true, agents: true))
 
         await fake.clearRestartRequired()
-        let again = try await fake.update("tasks", name: "weekly-report", patch: ["enabled": .bool(false)], ifMatch: web.revision)
+        let again = try await fake.update("tasks", name: "heartbeat", patch: ["enabled": .bool(false)], ifMatch: web.revision)
         #expect(!again.restartRequired.isNeeded)
     }
 
@@ -298,7 +318,7 @@ struct LeoFakeConfigClientTests {
         let fake = try Self.fake()
 
         #expect(try await fake.versionInfo().version == "0.52.0")
-        #expect(try await fake.schema().resources.count == 7)
+        #expect(try await fake.schema().resources.count == 8)
     }
 
     @Test func everyCallIsRecordedInOrder() async throws {
